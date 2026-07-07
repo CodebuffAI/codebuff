@@ -36,3 +36,7 @@
 {"ts":"2026-07-06T18:51:45.626Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
 {"ts":"2026-07-06T18:56:46.942Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker resolved — configuration docs package hook inference\" to STATUS.md","payload":{"heading":"Reviewer blocker resolved — configuration docs package hook inference","artifact":"STATUS.md"}}
 {"ts":"2026-07-06T18:56:46.942Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-06T23:35:32.344Z","kind":"append_lesson","summary":"Appended entry \"R2 non-blocking fix + R6 seam confirmation\" to STATUS.md","payload":{"heading":"R2 non-blocking fix + R6 seam confirmation","artifact":"STATUS.md"}}
+{"ts":"2026-07-06T23:35:32.344Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-06T23:35:45.652Z","kind":"append_lesson","summary":"Appended entry \"R2 + R4/R6 lessons\" to LESSONS.md","payload":{"heading":"R2 + R4/R6 lessons","artifact":"LESSONS.md"}}
+{"ts":"2026-07-06T23:35:45.652Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}

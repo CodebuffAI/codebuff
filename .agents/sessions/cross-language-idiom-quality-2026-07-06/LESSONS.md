@@ -115,3 +115,14 @@ Reusable takeaway:
 - PHP/Swift/Kotlin are config/query-registered but may lack available WASM grammars in `@vscode/tree-sitter-wasm`; current tests intentionally accept graceful no-op for those languages.
 - Structural extraction is AST-walk based (`structure.ts`), not tags-query based, so improving tags queries alone will not improve `read_outline`, symbol slices, or `rewrite_symbol` unless `DEFINITION_NODE_KINDS` / name extraction / grammar availability also support the language.
 
+
+<!-- update_plan_status:appended -->
+## R2 + R4/R6 lessons — 2026-07-06T23:35:45.652Z
+
+R4/R6 LESSONS:
+- The R2 auto-wired linters and R6 `classifyCommand` must stay alphabetically co-maintained: every manifest-inferred hook command in `sdk/src/tools/file-change-hooks.ts:inferFileChangeHooks` should appear in `evals/buffbench/deterministic-signals.ts:classifyCommand` so its exit code lands in the lint cap (cap 7), not the generic cap (6) or no cap. Today's set: `cargo clippy`, `cargo fmt --check`, `ruff check --fix`, `go vet`, `gofmt`, `rubocop`, `swift-format lint`, `dotnet format --verify-no-changes`.
+- Prefer plain tool invocations (`rubocop`, not `bundle exec rubocop`) for inferred defaults so the hook does not assume a Bundler-managed Ruby project.
+- `autoFileChangeHooks` needs tri-state merge semantics (undefined inherits / false opts out / true re-enables) in both provider-config merge paths (`mergeProviderConfig` and the setup merge near `writeProviderConfigFile`). Dropping the field in either path silently loses user intent.
+- Focused hook-registry tests can avoid real toolchains by creating temporary manifest files and asserting inferred hook objects directly; only `runFileChangeHooks` tests need the fake runner.
+- R4 tree-sitter query inventory is NOT blocked by missing `.scm` files: 13 language-tag queries already live at `packages/code-map/src/tree-sitter-queries/*-tags.scm`. R4 sizing should focus on per-query richness parity, not file presence.
+

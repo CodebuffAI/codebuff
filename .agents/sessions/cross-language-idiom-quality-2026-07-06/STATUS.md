@@ -230,3 +230,20 @@ Resolved the blocking reviewer feedback in `docs/configuration.md` by updating t
 
 Validation: ran configured file-change hooks for `docs/configuration.md`; hooks skipped because no configured hook matched docs-only changes. This is expected for the documentation-only fix.
 
+
+<!-- update_plan_status:appended -->
+## R2 non-blocking fix + R6 seam confirmation — 2026-07-06T23:35:32.342Z
+
+R2 reviewer NON_BLOCKING fix + R4/R6 awareness slice completed.
+
+Non-blocking fix (reviewer note): the inferred Ruby hook now uses the plain `rubocop` command instead of `bundle exec rubocop`, so projects without a checked-in `Gemfile.lock` or that run RuboCop outside Bundler still benefit from the auto-wired lint hook. Updated the focused inference test expectation to match.
+
+R4/R6 scoping confirms the cross-language seam is already wired:
+- `evals/buffbench/deterministic-signals.ts:77-84` extends `classifyCommand` to classify `cargo clippy`/`cargo fmt`/`ruff`/`go vet`/`gofmt`/`rubocop`/`swift-format`/`dotnet format` as `'lint'`, so R2's auto-wired linter exit codes feed the lint cap (not the generic cap of 6).
+- Focused coverage at `evals/buffbench/__tests__/deterministic-signals.test.ts:64-79` already asserts each auto-wired linter classification.
+- Tree-sitter query inventory (O1) for R4 lives at `packages/code-map/src/tree-sitter-queries/*-tags.scm` (13 languages already present), so R4 sizing is not blocked by missing `.scm` files.
+
+Validation:
+- Targeted SDK validation passed: `cd sdk && bun run typecheck && bun test src/__tests__/file-change-hooks.test.ts` (15 pass, 0 fail).
+- Configured `typecheck-sdk` hook passed for the changed SDK files.
+
