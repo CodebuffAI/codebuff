@@ -1008,7 +1008,11 @@ export async function loopAgentSteps(
       ) {
         currentAgentState.contextTokenCount = estimateContextTokensLocally()
       } else {
-        // Check context token count via the web API.
+        // Check context token count via the web API. Pass the run's apiKey
+        // explicitly: interactive CLI users don't have CODEBUFF_API_KEY set in
+        // their environment, so relying on the ciEnv fallback made this call
+        // fail every step ('Missing Codebuff base URL or API key') and forced
+        // the less accurate local estimate.
         const tokenCountResult = await callTokenCountAPI({
           messages: messagesWithStepPrompt,
           system,
@@ -1017,6 +1021,7 @@ export async function loopAgentSteps(
           fetch,
           logger,
           env: { clientEnv, ciEnv },
+          apiKey: params.apiKey,
         })
         if (tokenCountResult.inputTokens !== undefined) {
           currentAgentState.contextTokenCount = tokenCountResult.inputTokens
