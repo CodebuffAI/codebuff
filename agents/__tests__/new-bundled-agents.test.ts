@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
+import { shouldRunBrowserUseAgentTest } from '../browser-use/browser-use.test'
 import debuggerAgent from '../debugger/debugger'
 import docWriter from '../doc-writer/doc-writer'
+import { shouldRunLibrarianAgentTest } from '../librarian/librarian.test'
 import securityReviewer from '../security-reviewer/security-reviewer'
 import testWriter from '../test-writer/test-writer'
 
@@ -74,15 +76,20 @@ describe('new bundled agents (M2.6)', () => {
       expect(testWriter.model).toBeUndefined()
     })
 
-    test('exposes read + write + terminal tools', () => {
+    test('exposes read + write tools but not terminal', () => {
       const tools = testWriter.toolNames ?? []
       expect(tools).toContain('read_files')
       expect(tools).toContain('write_file')
-      expect(tools).toContain('run_terminal_command')
+      expect(tools).not.toContain('run_terminal_command')
     })
 
     test('instructions prompt mentions not modifying source under test', () => {
       expect(testWriter.instructionsPrompt).toContain('Do not modify source')
+    })
+
+    test('instructions prompt says validation is parent-owned', () => {
+      expect(testWriter.instructionsPrompt).toContain('parent/basher')
+      expect(testWriter.instructionsPrompt).toContain('Do not run terminal commands directly')
     })
   })
 
@@ -138,6 +145,40 @@ describe('new bundled agents (M2.6)', () => {
 
     test('instructions prompt says do not invent', () => {
       expect(docWriter.instructionsPrompt).toContain('Do not invent')
+    })
+  })
+
+  describe('opt-in E2E test scripts', () => {
+    test('browser-use script is skipped unless explicitly enabled', () => {
+      expect(shouldRunBrowserUseAgentTest({}, true)).toBe(false)
+      expect(
+        shouldRunBrowserUseAgentTest(
+          { OPENBUFF_RUN_BROWSER_USE_AGENT_TEST: '1' },
+          false,
+        ),
+      ).toBe(false)
+      expect(
+        shouldRunBrowserUseAgentTest(
+          { OPENBUFF_RUN_BROWSER_USE_AGENT_TEST: '1' },
+          true,
+        ),
+      ).toBe(true)
+    })
+
+    test('librarian script is skipped unless explicitly enabled', () => {
+      expect(shouldRunLibrarianAgentTest({}, true)).toBe(false)
+      expect(
+        shouldRunLibrarianAgentTest(
+          { OPENBUFF_RUN_LIBRARIAN_AGENT_TEST: '1' },
+          false,
+        ),
+      ).toBe(false)
+      expect(
+        shouldRunLibrarianAgentTest(
+          { OPENBUFF_RUN_LIBRARIAN_AGENT_TEST: '1' },
+          true,
+        ),
+      ).toBe(true)
     })
   })
 })

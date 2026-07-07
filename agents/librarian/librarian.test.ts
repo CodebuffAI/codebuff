@@ -5,9 +5,10 @@
  * to files for analysis. Each task produces a trace file in debug/librarian-traces/.
  *
  * Usage:
- *   bun agents/librarian/librarian.test.ts [taskIndex]
+ *   OPENBUFF_RUN_LIBRARIAN_AGENT_TEST=1 bun agents/librarian/librarian.test.ts [taskIndex]
  *
  * If taskIndex is provided, runs only that task (0-based). Otherwise runs all tasks.
+ * The env guard prevents `bun test` from running this expensive E2E script.
  */
 
 import * as fs from 'fs'
@@ -298,7 +299,14 @@ async function main() {
   }
 }
 
-if (import.meta.main) {
+export function shouldRunLibrarianAgentTest(
+  env: NodeJS.ProcessEnv = process.env,
+  isMain = import.meta.main,
+): boolean {
+  return isMain && env.OPENBUFF_RUN_LIBRARIAN_AGENT_TEST === '1'
+}
+
+if (shouldRunLibrarianAgentTest()) {
   main().catch((err) => {
     console.error('Fatal error:', err)
     process.exit(1)
