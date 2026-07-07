@@ -4,7 +4,7 @@ This package contains code shared across the Openbuff monorepo, especially the l
 
 ## Key Areas
 
-- **Utilities (`src/util`)**: Shared helper functions, cache-debug redaction, serialization, diagnostics helpers, and small process/env utilities
+- **Utilities (`src/util`)**: Shared helper functions, cache-debug redaction, serialization, diagnostics helpers, small process/env utilities, and message-conversion boundary helpers (`convertCbToModelMessages`, `jsonToolResult`, `mediaToolResult`, `getCacheAnchorSummary`) that shape the internal `Message[]` history into the AI SDK's `ModelMessage[]` for provider requests
 - **Types (`src/types`)**: Shared TypeScript types and interfaces used by CLI, SDK, agents, and worker-facing runtime code
 - **Constants (`src/constants`)**: Shared constant values for provider names, model metadata, and cross-package feature flags
 - **API Keys (`src/api-keys`)**: Local provider credential helpers and sensitive-value utilities that keep secrets out of logs and cache keys
