@@ -56,10 +56,12 @@ const definition: AgentDefinition = {
       'researcher-docs',
       'basher',
       'code-reviewer',
+      'security-reviewer',
       'librarian',
       'tmux-cli',
       'browser-use',
     ]
+    const REVIEWER_AGENT_TYPES = ['code-reviewer', 'security-reviewer']
 
     /** Limits for truncating long messages in the summary (estimated tokens) */
     const USER_MESSAGE_LIMIT = 13_000
@@ -68,6 +70,7 @@ const definition: AgentDefinition = {
     const SPAWN_PROMPT_LIMIT = 240
     const SPAWN_PARAMS_LIMIT = 240
     const AGENT_RESULT_LIMIT = 900
+    const REVIEWER_RESULT_LIMIT = 1_200
     const MAX_TODO_TASKS_IN_SUMMARY = 8
 
     /** Approximate characters per token (matches estimateTokens heuristic) */
@@ -167,7 +170,6 @@ const definition: AgentDefinition = {
       'replace_range',
     ]
     const VALIDATION_TOOLS = ['run_terminal_command', 'basher']
-
     // =============================================================================
     // Helper Functions (must be inside handleSteps since it's serialized to a string)
     // =============================================================================
@@ -704,7 +706,7 @@ const definition: AgentDefinition = {
       // literal, `\s` becomes a literal `s`, which silently breaks parsing
       // and causes structured fields to be lost on re-compaction.
       const SECTION_RE =
-        /^(Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):\s*([\s\S]*?)(?=\n(?:Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):|$)/gm
+        /^(Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):\s*([\s\S]*?)(?=\n(?:Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):|(?![\s\S]))/gm
       let sectionMatch: RegExpExecArray | null
       while ((sectionMatch = SECTION_RE.exec(block)) !== null) {
         const header = sectionMatch[1]
@@ -866,27 +868,67 @@ const definition: AgentDefinition = {
       return decisions
     }
 
+    function isActionableReviewerLine(line: string): boolean {
+      return /^(?:[-*]\s*)?(?:BLOCKING|SECURITY|CRITICAL|HIGH|MEDIUM|LOW|FINDING|VULNERABILITY|ACTION_REQUIRED|REQUIRED_ACTION|REQUIRED FOLLOW-UP|FOLLOW-UP REQUIRED|NEXT REQUIRED ACTION|NEXT ACTION|Blocker|Finding|Security finding|Required follow-up|Required action)\b[:)]?\s/i.test(
+        line,
+      )
+    }
+
+    function extractActionableReviewerLines(text: string): string[] {
+      const lines: string[] = []
+      const withoutThink = text.replace(/<think>[\s\S]*?<\/think>/g, '')
+      for (const line of withoutThink.split('\n')) {
+        const trimmed = line.trim().replace(/^[-*]\s*/, '').trim()
+        if (!trimmed || trimmed.startsWith('```')) continue
+        if (isActionableReviewerLine(trimmed)) {
+          addUniqueEntry(lines, trimmed)
+        }
+      }
+      return lines
+    }
+
+    function collectReviewerOutputText(value: unknown, lines: string[]): void {
+      if (typeof value === 'string') {
+        lines.push(value)
+        return
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          collectReviewerOutputText(item, lines)
+        }
+        return
+      }
+      if (value && typeof value === 'object') {
+        for (const nestedValue of Object.values(value)) {
+          collectReviewerOutputText(nestedValue, lines)
+        }
+      }
+    }
+
+    function reviewerOutputToText(value: unknown): string {
+      if (value === undefined || value === null) return ''
+      if (typeof value === 'string') return value
+      const lines: string[] = []
+      collectReviewerOutputText(value, lines)
+      return lines.length > 0 ? lines.join('\n') : JSON.stringify(value)
+    }
+
+    function extractReviewerFindingSummary(value: unknown): string {
+      const reviewerOutput = reviewerOutputToText(value)
+      const actionableLines = extractActionableReviewerLines(reviewerOutput)
+      if (actionableLines.length > 0) {
+        return actionableLines.join('\n')
+      }
+      return extractFindingsSummary(reviewerOutput)
+    }
+
     function extractBlockersFromText(text: string): string[] {
       const blockers: string[] = []
-      const withoutThink = text.replace(/<think>[\s\S]*?<\/think>/g, '')
-      const lines = withoutThink.split('\n')
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (
-          /^(?:Blocker|BLOCKING|Stuck|Cannot|Failed to)[:)]?\s/i.test(trimmed) ||
-          /^[-*]\s*(?:Blocker|BLOCKING|Stuck|Cannot|Failed to)[:)]?\s/i.test(
-            trimmed,
-          )
-        ) {
-          const cleaned = trimmed.replace(/^[-*]\s*/, '').trim()
-          if (cleaned.length > 0) {
-            addUniqueEntry(blockers, cleaned)
-          }
-        }
+      for (const line of extractActionableReviewerLines(text)) {
+        addUniqueEntry(blockers, line)
       }
       return blockers
     }
-
     /** Build the final <knowledge_memory> block string. */
     function buildKnowledgeMemoryBlock(km: KnowledgeMemory): string {
       const sections: string[] = []
@@ -998,11 +1040,21 @@ const definition: AgentDefinition = {
           flushWorkflowTodoLines()
         }
 
+        if (/^Harness pinned active-work state/i.test(trimmed)) {
+          flushWorkflowTodoLines()
+          pinned.length = 0
+          isInFinalResponseAllowedState = false
+          finalResponseAllowedPhaseLine = ''
+          addUniqueLine(pinned, trimmed)
+          continue
+        }
+
         const phaseMatch = trimmed.match(/^Current phase:\s*(\S+)/i)
         if (phaseMatch) {
           isInFinalResponseAllowedState =
             phaseMatch[1].toLowerCase() === 'final_response_allowed'
           if (isInFinalResponseAllowedState) {
+            pinned.length = 0
             finalResponseAllowedPhaseLine = trimmed
           } else {
             finalResponseAllowedPhaseLine = ''
@@ -1011,7 +1063,14 @@ const definition: AgentDefinition = {
           continue
         }
 
-        if (/^BLOCKING:/i.test(trimmed)) {
+        if (isInFinalResponseAllowedState) continue
+
+        if (/^Reviewer findings from (?:code-reviewer|security-reviewer):/i.test(trimmed)) {
+          addUniqueLine(pinned, trimmed)
+          continue
+        }
+
+        if (isActionableReviewerLine(trimmed)) {
           addUniqueLine(pinned, trimmed)
           continue
         }
@@ -1032,7 +1091,7 @@ const definition: AgentDefinition = {
         if (isInFinalResponseAllowedState) continue
 
         if (
-          /^(Harness pinned active-work state|Open reviewer blockers\/feedback|Pending validation\/reviewer gate files:|Last validation summary:|Next required action:)/i.test(
+          /^(Open reviewer blockers\/feedback|Pending validation\/reviewer gate files:|Last validation summary:|Next required action:)/i.test(
             trimmed,
           )
         ) {
@@ -1077,7 +1136,9 @@ const definition: AgentDefinition = {
           /^(Harness pinned active-work state|Open reviewer blockers\/feedback|Current phase:|Pending validation\/reviewer gate files:|Historical changed files:|Historical touched files:|Latest work summary:|Last validation summary:|Next required action:|Todos:|Remaining:)/i.test(
             trimmed,
           ) ||
-          /^(BLOCKING|NON_BLOCKING):/i.test(trimmed) ||
+          isActionableReviewerLine(trimmed) ||
+          /^(?:[-*]\s*)?NON_BLOCKING\b/i.test(trimmed) ||
+          /^Reviewer findings from (?:code-reviewer|security-reviewer):/i.test(trimmed) ||
           /^Open questions?\s*\(block/i.test(trimmed) ||
           /^[-*]\s*Q\d+\b\s*[:\u2014-]/i.test(trimmed)
 
@@ -1403,6 +1464,26 @@ const definition: AgentDefinition = {
                   r.agentType &&
                   !SPAWN_AGENTS_OUTPUT_BLACKLIST.includes(r.agentType),
               )
+              const reviewerResults = agentResults.filter(
+                (r) => r.agentType && REVIEWER_AGENT_TYPES.includes(r.agentType),
+              )
+              for (const reviewerResult of reviewerResults) {
+                const findingSummary = extractReviewerFindingSummary(
+                  reviewerResult.value?.value,
+                )
+                if (findingSummary) {
+                  addUniqueEntry(
+                    knowledgeMemory.blockers,
+                    `${reviewerResult.agentType}: ${findingSummary}`,
+                  )
+                  entryParts.push(
+                    `Reviewer findings from ${reviewerResult.agentType}:\n${truncateLongText(
+                      findingSummary,
+                      REVIEWER_RESULT_LIMIT,
+                    )}`,
+                  )
+                }
+              }
               if (includedResults.length > 0) {
                 const resultSummaries = includedResults.map((r) => {
                   let outputStr = ''

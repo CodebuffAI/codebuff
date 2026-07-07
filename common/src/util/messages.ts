@@ -150,7 +150,16 @@ function convertToolResultMessage(
       return structuredClone<ToolModelMessage>({
         ...message,
         role: 'tool',
-        content: [{ ...message, output: c, type: 'tool-result' }],
+        content: [
+          {
+            ...message,
+            output: {
+              ...c,
+              value: sanitizeJsonToolResultValue(c.value),
+            },
+            type: 'tool-result',
+          },
+        ],
       })
     }
     if (c.type === 'media') {

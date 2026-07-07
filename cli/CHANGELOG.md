@@ -4,6 +4,20 @@ All notable changes to the `@openbuff/cli` package will be documented in this fi
 
 ## [Unreleased] - 2026-07-06
 
+## [1.1.11] - 2026-07-07
+
+Patch release covering context-pruner reviewer-memory hardening, auxiliary gate-state reset fixes, and updated default agent model routing.
+
+### Changed
+
+- Switched default Openbuff agent routes from `iamhc/glm-5.2` to `agentrouter/gpt-5.5`.
+
+### Fixed
+
+- Context pruning now preserves actionable `code-reviewer` and `security-reviewer` findings across tight repeated compaction without also retaining generic agent-result summaries.
+- Stale `final_response_allowed` active-work state and `NON_BLOCKING` reviewer notes no longer survive compaction as pinned or regular summary text.
+- Reset auxiliary gate tracking when the validation/reviewer gate completes so future gate runs do not inherit stale pre-edit security, test-writer, doc-writer, or pending-file state.
+
 ### Added
 
 - Added cross-language idiom guidance and language-profile prompt plumbing so orchestrator/editor prompts can conditionally include compact idiom contracts for non-TypeScript work.

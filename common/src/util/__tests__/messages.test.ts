@@ -326,7 +326,7 @@ describe('convertCbToModelMessages', () => {
         },
         list: [1, undefined, { value: 'kept', dropped: undefined }],
         nonFinite: Number.NaN,
-      } as any)
+      } as unknown as Parameters<typeof jsonToolResult>[0])
 
       expect(content).toEqual([
         {
@@ -361,6 +361,63 @@ describe('convertCbToModelMessages', () => {
           includeCacheControl: false,
         }),
       ).not.toThrow()
+    })
+
+    it('should sanitize raw persisted JSON tool-result values during model conversion', () => {
+      const messages = [
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'call_raw',
+          toolName: 'test_tool',
+          input: {},
+        }),
+        {
+          role: 'tool',
+          toolName: 'test_tool',
+          toolCallId: 'call_raw',
+          content: [
+            {
+              type: 'json',
+              value: {
+                stdout: 'ok',
+                stderr: undefined,
+                nested: { kept: true, dropped: undefined },
+                list: [1, undefined, { value: 'kept', dropped: undefined }],
+              },
+            },
+          ],
+        },
+      ] as unknown as Message[]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: [expect.objectContaining({ toolCallId: 'call_raw' })],
+        }),
+        expect.objectContaining({
+          role: 'tool',
+          content: [
+            expect.objectContaining({
+              type: 'tool-result',
+              toolCallId: 'call_raw',
+              toolName: 'test_tool',
+              output: {
+                type: 'json',
+                value: {
+                  stdout: 'ok',
+                  nested: { kept: true },
+                  list: [1, null, { value: 'kept' }],
+                },
+              },
+            } satisfies ToolResultPart),
+          ],
+        }),
+      ])
     })
 
     it('should preserve tool media output as user file input', () => {
@@ -1335,6 +1392,14 @@ describe('jsonToolResult', () => {
     const result = jsonToolResult('terminal output')
 
     expect(result).toEqual([{ type: 'json', value: 'terminal output' }])
+  })
+
+  it('should convert a top-level undefined value to null', () => {
+    const result = jsonToolResult(
+      undefined as unknown as Parameters<typeof jsonToolResult>[0],
+    )
+
+    expect(result).toEqual([{ type: 'json', value: null }])
   })
 
   it('should pass a bare top-level array through unchanged', () => {

@@ -1409,6 +1409,10 @@ ${securityReviewSection}
             activeWorkState.repairSessionId = undefined
             activeWorkState.repairEscalationDone = undefined
             activeWorkState.staticReviewerJobId = undefined
+            activeWorkState.preEditSecurityReviewDone = false
+            activeWorkState.testWriterGateDone = false
+            activeWorkState.docWriterGateDone = false
+            activeWorkState.auxGatesLastPendingFiles = []
             activeWorkStateChanged = true
           }
           if (activeWorkState.nextRequiredAction) {

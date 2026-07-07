@@ -834,3 +834,4 @@ Streaming markdown renders as plain text until the message or agent finishes. Th
 - Status indicators in `cli/src/utils/status-indicator-state.ts` distinguish retrying, reconnecting, paused ask_user prompts, and phase-aware waiting/streaming labels.
 - Re-render performance tests rely on debug rerender logs from `CODEBUFF_PERF_TEST=true`; tmux global env propagation is best-effort because `new-session` can start the server and inherit the current process environment.
 - Slash-command and agent-mention menu behavior is covered by focused CLI tests; keep the knowledge notes in sync when changing menu navigation, visible-item caps, or insertion semantics.
+- Release validation runs `bun --cwd=scripts run guard:memory-drift`; if CLI `src/` or tmux interaction behavior changes, refresh `cli/knowledge.md` and/or `cli/tmux.knowledge.md` in the same commit so the staleness guard stays green.

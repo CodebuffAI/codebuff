@@ -251,8 +251,8 @@ export async function runFileChangeHooks(params: {
             const value = first.value as Record<string, unknown>
             return {
               ...value,
-              stdout: truncate(value.stdout),
-              stderr: truncate(value.stderr),
+              stdout: truncateOutput(value.stdout),
+              stderr: truncateOutput(value.stderr),
               hookName,
             }
           }
@@ -279,8 +279,8 @@ export async function runFileChangeHooks(params: {
   return [{ type: 'json', value: results }] as CodebuffToolOutput<'run_file_change_hooks'>
 }
 
-function truncate(value: unknown): unknown {
-  if (typeof value !== 'string') return value
+function truncateOutput(value: unknown): string {
+  if (typeof value !== 'string') return ''
   return value.length > MAX_HOOK_OUTPUT_CHARS
     ? value.slice(0, MAX_HOOK_OUTPUT_CHARS) + '\n…[truncated]'
     : value

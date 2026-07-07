@@ -1435,6 +1435,75 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     expect(content).not.toContain(longPrompt) // Full prompt should not be there
   })
 
+  test('preserves actionable reviewer findings without generic agent results', () => {
+    const messages: Message[] = [
+      createMessage('user', 'Review the edits'),
+      createToolCallMessage('call-1', 'spawn_agents', {
+        agents: [
+          { agent_type: 'code-reviewer' },
+          { agent_type: 'security-reviewer' },
+        ],
+      }),
+      createToolResultMessage('call-1', 'spawn_agents', [
+        {
+          agentType: 'code-reviewer',
+          value: {
+            type: 'object',
+            value: {
+              findings: [
+                {
+                  severity: 'BLOCKING',
+                  summary:
+                    'BLOCKING: Fix src/review.ts null guard before finalizing.',
+                },
+              ],
+            },
+          },
+        },
+        {
+          agentType: 'security-reviewer',
+          value: {
+            type: 'object',
+            value: {
+              findings: [
+                {
+                  severity: 'SECURITY',
+                  summary:
+                    'SECURITY: Escape redirect target in src/auth.ts.',
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    ]
+
+    const results = runHandleSteps(messages, 250000, 200000, {
+      assistantToolBudget: 1,
+      userBudget: 1,
+      toolFactsBudget: 1,
+    })
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('Reviewer findings from code-reviewer:')
+    expect(content).toContain(
+      'BLOCKING: Fix src/review.ts null guard before finalizing.',
+    )
+    expect(content).toContain('Reviewer findings from security-reviewer:')
+    expect(content).toContain(
+      'SECURITY: Escape redirect target in src/auth.ts.',
+    )
+    expect(content).toContain('<knowledge_memory>')
+    expect(content).toContain('Blockers:')
+    expect(content).toContain(
+      'code-reviewer: BLOCKING: Fix src/review.ts null guard before finalizing.',
+    )
+    expect(content).toContain(
+      'security-reviewer: SECURITY: Escape redirect target in src/auth.ts.',
+    )
+    expect(content).not.toContain('Agent results:')
+  })
+
   test('limits long todo summaries to active tasks', () => {
     const todos = Array.from({ length: 12 }, (_, i) => ({
       task: `Todo ${i + 1}`,
@@ -1736,6 +1805,107 @@ First assistant response
     const summaryTagCount = (content.match(/<conversation_summary>/g) || [])
       .length
     expect(summaryTagCount).toBe(1)
+  })
+
+  test('preserves reviewer blockers across repeated tight compaction', () => {
+    const simulateCompaction = (
+      inputMessages: Message[],
+      budgets: {
+        assistantToolBudget: number
+        userBudget: number
+        toolFactsBudget: number
+      },
+    ): Message => {
+      const result = runHandleSteps(inputMessages, 250000, 200000, budgets)
+      return result[0].input.messages[0]
+    }
+
+    const tightBudgets = {
+      assistantToolBudget: 1,
+      userBudget: 1,
+      toolFactsBudget: 1,
+    }
+    const reviewerMessages: Message[] = [
+      createMessage('user', 'Review the current implementation'),
+      createToolCallMessage('call-1', 'spawn_agents', {
+        agents: [
+          { agent_type: 'code-reviewer' },
+          { agent_type: 'security-reviewer' },
+        ],
+      }),
+      createToolResultMessage('call-1', 'spawn_agents', [
+        {
+          agentType: 'code-reviewer',
+          value: {
+            type: 'object',
+            value: {
+              findings: [
+                {
+                  severity: 'BLOCKING',
+                  summary:
+                    'BLOCKING: Fix src/rerun.ts aux flag reset before finalizing.',
+                },
+              ],
+            },
+          },
+        },
+        {
+          agentType: 'security-reviewer',
+          value: {
+            type: 'object',
+            value: {
+              findings: [
+                {
+                  severity: 'SECURITY',
+                  summary:
+                    'SECURITY: Validate src/auth.ts token audience before merge.',
+                },
+              ],
+            },
+          },
+        },
+      ]),
+      createMessage('user', 'Large follow-up ' + 'x'.repeat(2000)),
+      createMessage('assistant', 'Large response ' + 'y'.repeat(2000)),
+    ]
+
+    const summary1 = simulateCompaction(reviewerMessages, tightBudgets)
+    const summary2 = simulateCompaction(
+      [
+        summary1,
+        createMessage('user', 'Another large follow-up ' + 'z'.repeat(2000)),
+        createMessage('assistant', 'Another large response ' + 'q'.repeat(2000)),
+      ],
+      tightBudgets,
+    )
+    const summary3 = simulateCompaction(
+      [
+        summary2,
+        createMessage('user', 'Final large follow-up ' + 'r'.repeat(2000)),
+        createMessage('assistant', 'Final large response ' + 's'.repeat(2000)),
+      ],
+      tightBudgets,
+    )
+    const summary3Text = (summary3.content[0] as { type: 'text'; text: string })
+      .text
+
+    expect(summary3Text).toContain('<knowledge_memory>')
+    expect(summary3Text).toContain('Blockers:')
+    expect(summary3Text).toContain(
+      'code-reviewer: BLOCKING: Fix src/rerun.ts aux flag reset before finalizing.',
+    )
+    expect(summary3Text).toContain(
+      'security-reviewer: SECURITY: Validate src/auth.ts token audience before merge.',
+    )
+    expect(summary3Text).toContain('Reviewer findings from code-reviewer:')
+    expect(summary3Text).toContain(
+      'BLOCKING: Fix src/rerun.ts aux flag reset before finalizing.',
+    )
+    expect(summary3Text).toContain('Reviewer findings from security-reviewer:')
+    expect(summary3Text).toContain(
+      'SECURITY: Validate src/auth.ts token audience before merge.',
+    )
+    expect(summary3Text).not.toContain('Agent results:')
   })
 
   test('drops old entries each cycle when budgets are tight', () => {

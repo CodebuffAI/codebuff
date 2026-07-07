@@ -544,8 +544,10 @@ wrapped in the `{ type: 'json', value }` tuple. Sanitization rules
 applied to every value (top-level and nested):
 
 - `null`, `string`, `boolean`, finite `number` pass through.
-- `bigint` is stringified; `function`, `symbol`, and `undefined` are
-  dropped (and `undefined` object keys are omitted).
+- `bigint` is stringified; `function` and `symbol` are dropped from
+  object properties.
+- `undefined` object keys are omitted; `undefined` values in arrays or
+  at the top level become `null`, matching JSON array semantics.
 - Circular references become the string `"[Circular]"`.
 - Values with a custom `toJSON()` are invoked and the result is
   sanitized recursively.
@@ -592,7 +594,10 @@ Behavior:
 - Converts each role: `system` flattens its text parts, `user` and
   `assistant` pass through (string assistant content is wrapped in a
   text part), and `tool` is split into `tool-result` parts (or `file`
-  parts for media results).
+  parts for media results). JSON `tool-result` values are sanitized at
+  this conversion boundary too, so raw or persisted tool outputs that
+  bypassed `jsonToolResult` cannot send `undefined`, functions, symbols,
+  non-finite numbers, or circular objects into `modelMessageSchema`.
 - Filters **orphan tool results** — `tool`-role messages whose
   `toolCallId` has no preceding `assistant` tool-call with the same id
   are dropped before validation, with a debug log when a `logger` is

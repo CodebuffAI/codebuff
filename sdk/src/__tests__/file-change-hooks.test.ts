@@ -130,6 +130,26 @@ describe('runFileChangeHooks', () => {
     ])
   })
 
+  test('normalizes missing hook stdout and stderr to JSON-safe strings', async () => {
+    const run = (async () => [
+      {
+        type: 'json' as const,
+        value: { exitCode: 0, stdout: undefined, stderr: undefined },
+      },
+    ]) as any
+
+    const out = await runFileChangeHooks({
+      files: ['README.md'],
+      cwd: '/repo',
+      hooks: [{ name: 'typecheck', command: 'tsc --noEmit' }],
+      runCommand: run,
+    })
+
+    expect(jsonValue(out)).toEqual([
+      { hookName: 'typecheck', exitCode: 0, stdout: '', stderr: '' },
+    ])
+  })
+
   test('reports when configured hooks are skipped because none match', async () => {
     const { run, calls } = fakeRunner({})
     const out = await runFileChangeHooks({
