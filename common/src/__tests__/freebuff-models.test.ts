@@ -8,14 +8,20 @@ import {
   FREEBUFF_DATA_COLLECTION_WARNING,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
+  FREEBUFF_HY3_ATLAS_MODEL_ID,
+  FREEBUFF_HY3_MODEL_ID,
+  FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MODELS,
+  FREEBUFF_WEB_GOD_ONLY_MODELS,
+  FREEBUFF_WEB_MODELS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffWebModel,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
   isFreebuffDeploymentHours,
@@ -23,7 +29,11 @@ import {
   isFreebuffModelId,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
+  isFreebuffWebGodOnlyModelId,
+  isFreebuffWebModelId,
+  isFreebuffWebPremiumModelId,
   isSupportedFreebuffModelId,
+  resolveFreebuffWebModel,
   resolveFreebuffModelForAccessTier,
 } from '../constants/freebuff-models'
 import type { FreebuffModelOption } from '../constants/freebuff-models'
@@ -59,7 +69,9 @@ describe('freebuff model availability', () => {
     const m3 = FREEBUFF_MODELS.find((m) => m.id === MINIMAX_M3_MODEL_ID)
     expect((m3 as { warning?: string } | undefined)?.warning).toBeUndefined()
     // The DeepSeek family discloses data collection and IS stored.
-    expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(true)
+    expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
+      true,
+    )
     expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(
       true,
     )
@@ -139,6 +151,57 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_KIMI_MODEL_ID)
   })
 
+  test('HY3 OpenRouter free is available only in the Freebuff Web model set for now', () => {
+    expect(FREEBUFF_HY3_MODEL_ID).toBe(FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID)
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_HY3_MODEL_ID,
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_HY3_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_HY3_MODEL_ID,
+    )
+
+    expect(isFreebuffWebModelId(FREEBUFF_HY3_MODEL_ID)).toBe(true)
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
+    expect(isFreebuffPremiumModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
+    expect(isFreebuffModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
+    expect(isSupportedFreebuffModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
+    expect(resolveFreebuffWebModel(FREEBUFF_HY3_MODEL_ID)).toBe(
+      FREEBUFF_HY3_MODEL_ID,
+    )
+    expect(getFreebuffWebModel(FREEBUFF_HY3_MODEL_ID).displayName).toBe('HY3')
+  })
+
+  test('HY3 Atlas is a god-only Freebuff Web premium model', () => {
+    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_HY3_ATLAS_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_HY3_ATLAS_MODEL_ID,
+    )
+    expect(isFreebuffWebModelId(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelId(FREEBUFF_HY3_ATLAS_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(true)
+    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(true)
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(true)
+    expect(resolveFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
+    expect(
+      resolveFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(FREEBUFF_HY3_ATLAS_MODEL_ID)
+    expect(getFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID).displayName).toBe(
+      'HY3 Atlas',
+    )
+  })
+
   test('MiniMax M2.7 support is fully removed', () => {
     const legacyMinimaxM27 = 'minimax/minimax-m2.7'
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
@@ -146,9 +209,9 @@ describe('freebuff model availability', () => {
     )
     expect(isFreebuffModelId(legacyMinimaxM27)).toBe(false)
     expect(isSupportedFreebuffModelId(legacyMinimaxM27)).toBe(false)
-    expect(
-      isFreebuffModelAllowedForAccessTier(legacyMinimaxM27, 'full'),
-    ).toBe(false)
+    expect(isFreebuffModelAllowedForAccessTier(legacyMinimaxM27, 'full')).toBe(
+      false,
+    )
     // Old clients with a saved M2.7 selection resolve to the fallback model.
     expect(resolveFreebuffModelForAccessTier(legacyMinimaxM27, 'full')).toBe(
       FALLBACK_FREEBUFF_MODEL_ID,
@@ -162,9 +225,9 @@ describe('freebuff model availability', () => {
     expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
       MINIMAX_M3_MODEL_ID,
     )
-    expect(
-      getFreebuffModelsForAccessTier('full').map((m) => m.id),
-    ).toContain(MINIMAX_M3_MODEL_ID)
+    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
+      MINIMAX_M3_MODEL_ID,
+    )
     expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
@@ -219,9 +282,9 @@ describe('freebuff model availability', () => {
     // start never burns a premium session.
     expect(getRecommendedFreebuffModelId('full')).toBe(MINIMAX_M3_MODEL_ID)
     expect(getRecommendedFreebuffModelId(undefined)).toBe(MINIMAX_M3_MODEL_ID)
-    expect(isFreebuffPremiumModelId(getRecommendedFreebuffModelId('full'))).toBe(
-      false,
-    )
+    expect(
+      isFreebuffPremiumModelId(getRecommendedFreebuffModelId('full')),
+    ).toBe(false)
     // Limited access → DeepSeek V4 Flash, which is in the limited model set.
     expect(getRecommendedFreebuffModelId('limited')).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,

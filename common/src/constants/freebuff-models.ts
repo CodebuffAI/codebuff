@@ -4,7 +4,13 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
-import { mimoModels, minimaxModels, moonshotModels } from './model-config'
+import {
+  atlasCloudModels,
+  mimoModels,
+  minimaxModels,
+  moonshotModels,
+  openrouterModels,
+} from './model-config'
 
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
@@ -51,6 +57,10 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK26
+export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
+  openrouterModels.openrouter_tencent_hy3_free
+export const FREEBUFF_HY3_ATLAS_MODEL_ID = atlasCloudModels.tencentHy3
+export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
 export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
@@ -191,6 +201,24 @@ const KIMI_MODEL = {
   multimodal: true,
 } as const satisfies FreebuffModelOption
 
+const HY3_MODEL = {
+  id: FREEBUFF_HY3_MODEL_ID,
+  displayName: 'HY3',
+  tagline: 'Free via OpenRouter',
+  availability: 'always',
+  premium: false,
+  multimodal: false,
+} as const satisfies FreebuffModelOption
+
+const HY3_ATLAS_MODEL = {
+  id: FREEBUFF_HY3_ATLAS_MODEL_ID,
+  displayName: 'HY3 Atlas',
+  tagline: 'Direct via Atlas Cloud',
+  availability: 'always',
+  premium: true,
+  multimodal: false,
+} as const satisfies FreebuffModelOption
+
 const MIMO_V25_MODEL = {
   id: FREEBUFF_MIMO_V25_MODEL_ID,
   displayName: 'MiMo 2.5',
@@ -263,6 +291,32 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_KIMI_MODEL_ID,
 ] as const
 
+/** Freebuff Web-only picker/support set. HY3 is intentionally excluded from
+ *  FREEBUFF_MODELS and SUPPORTED_FREEBUFF_MODELS so CLI/Desktop freebuff
+ *  surfaces do not pick it up during the initial web rollout. */
+export const FREEBUFF_WEB_MODELS = [
+  HY3_MODEL,
+  ...FREEBUFF_MODELS,
+] as const satisfies readonly FreebuffModelOption[]
+
+export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
+  HY3_ATLAS_MODEL,
+] as const satisfies readonly FreebuffModelOption[]
+
+export const FREEBUFF_WEB_ALL_MODELS = [
+  ...FREEBUFF_WEB_GOD_ONLY_MODELS,
+  ...FREEBUFF_WEB_MODELS,
+] as const satisfies readonly FreebuffModelOption[]
+
+export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
+  FREEBUFF_HY3_ATLAS_MODEL_ID,
+] as const
+
+export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
+  ...FREEBUFF_PREMIUM_MODEL_IDS,
+  FREEBUFF_HY3_ATLAS_MODEL_ID,
+] as const
+
 /** Models unlocked by referrals, metered by the weekly GLM session pool rather
  *  than the daily premium pool. Kept separate from FREEBUFF_PREMIUM_MODEL_IDS
  *  so GLM never falls into the shared 5/day premium quota. */
@@ -321,6 +375,10 @@ export const FREEBUFF_MULTIMODAL_MODEL_IDS = [
   FREEBUFF_KIMI_MODEL_ID,
 ] as const
 
+export const FREEBUFF_WEB_MULTIMODAL_MODEL_IDS = [
+  ...FREEBUFF_MULTIMODAL_MODEL_IDS,
+] as const
+
 /** Free-mode models whose chat-completion traces we store in our own dataset
  *  (chat_completion_traces). Derived from the picker's data-collection warning
  *  so the disclosure and the storage are one fact: a model is traced in free
@@ -336,6 +394,9 @@ export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
 export type SupportedFreebuffModelId =
   (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
+export type FreebuffWebModelId = (typeof FREEBUFF_WEB_ALL_MODELS)[number]['id']
+export type FreebuffWebPremiumModelId =
+  (typeof FREEBUFF_WEB_PREMIUM_MODEL_IDS)[number]
 
 /** What new freebuff users see selected in the picker. MiniMax M3 is the
  *  strongest unlimited model (smartest & multimodal), so new users get good
@@ -459,10 +520,37 @@ export function isFreebuffModelId(
   return FREEBUFF_MODELS.some((m) => m.id === id)
 }
 
+export function isFreebuffWebModelId(
+  id: string | null | undefined,
+  options: { includeGodOnly?: boolean } = {},
+): id is FreebuffWebModelId {
+  if (!id) return false
+  const models = options.includeGodOnly
+    ? FREEBUFF_WEB_ALL_MODELS
+    : FREEBUFF_WEB_MODELS
+  return models.some((m) => m.id === id)
+}
+
+export function isFreebuffWebGodOnlyModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_WEB_GOD_ONLY_MODEL_IDS.some((modelId) => modelId === id)
+}
+
 export function resolveFreebuffModel(
   id: string | null | undefined,
 ): FreebuffModelId {
   return isFreebuffModelId(id) ? id : FALLBACK_FREEBUFF_MODEL_ID
+}
+
+export function resolveFreebuffWebModel(
+  id: string | null | undefined,
+  options: { includeGodOnly?: boolean } = {},
+): FreebuffWebModelId {
+  return isFreebuffWebModelId(id, options)
+    ? id
+    : (FALLBACK_FREEBUFF_MODEL_ID as FreebuffWebModelId)
 }
 
 export function resolveFreebuffModelForAccessTier(
@@ -526,6 +614,15 @@ export function isFreebuffPremiumModelId(
   )
 }
 
+export function isFreebuffWebPremiumModelId(
+  id: string | null | undefined,
+): id is FreebuffWebPremiumModelId {
+  if (!id) return false
+  return FREEBUFF_WEB_PREMIUM_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
+}
+
 /** Whether `model` occupies the one-per-user Freebuff Desktop premium
  *  CONCURRENCY slot (premium models + MiniMax M3 + GLM 5.2). Suffix-tolerant
  *  (dated snapshots) like the other model predicates so a dated variant can't
@@ -559,6 +656,13 @@ export function isFreebuffMultimodalModelId(
   return FREEBUFF_MULTIMODAL_MODEL_IDS.some((modelId) => modelId === id)
 }
 
+export function isFreebuffWebMultimodalModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_WEB_MULTIMODAL_MODEL_IDS.some((modelId) => modelId === id)
+}
+
 /** Whether we store our own chat-completion traces for this free-mode model.
  *  See FREEBUFF_TRACED_MODEL_IDS. */
 export function isFreebuffTracedModelId(
@@ -578,6 +682,13 @@ export function getFreebuffModel(id: string): FreebuffModelOption {
   return (
     SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id) ??
     FREEBUFF_MODELS.find((m) => m.id === FALLBACK_FREEBUFF_MODEL_ID)!
+  )
+}
+
+export function getFreebuffWebModel(id: string): FreebuffModelOption {
+  return (
+    FREEBUFF_WEB_ALL_MODELS.find((m) => m.id === id) ??
+    FREEBUFF_WEB_ALL_MODELS.find((m) => m.id === FALLBACK_FREEBUFF_MODEL_ID)!
   )
 }
 

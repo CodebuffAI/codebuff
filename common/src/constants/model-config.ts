@@ -9,6 +9,7 @@ export const ALLOWED_MODEL_PREFIXES = [
   'deepseek',
   'minimax',
   'mimo',
+  'tencent',
 ] as const
 
 export const costModes = [
@@ -51,6 +52,7 @@ export const openrouterModels = {
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
   openrouter_grok_4: 'x-ai/grok-4-07-09',
+  openrouter_tencent_hy3_free: 'tencent/hy3:free',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
@@ -88,8 +90,13 @@ export const moonshotModels = {
   kimiK26: 'moonshotai/kimi-k2.6',
   kimiK27Code: 'moonshotai/kimi-k2.7-code',
 } as const
-export type MoonshotModel =
-  (typeof moonshotModels)[keyof typeof moonshotModels]
+export type MoonshotModel = (typeof moonshotModels)[keyof typeof moonshotModels]
+
+export const atlasCloudModels = {
+  tencentHy3: 'tencent/hy3',
+} as const
+export type AtlasCloudModel =
+  (typeof atlasCloudModels)[keyof typeof atlasCloudModels]
 
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
@@ -123,6 +130,7 @@ export const models = {
   ...deepseekModels,
   ...mimoModels,
   ...minimaxModels,
+  ...atlasCloudModels,
   ...openrouterModels,
   ...finetunedVertexModels,
 } as const
@@ -156,12 +164,20 @@ export const providerModelNames = {
       'openrouter' as const,
     ]),
   ),
+  ...Object.fromEntries(
+    Object.entries(atlasCloudModels).map(([name, model]) => [
+      model,
+      'atlascloud' as const,
+    ]),
+  ),
 }
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
 
 const nonCacheableModels = [
   models.openrouter_grok_4,
+  models.openrouter_tencent_hy3_free,
+  models.tencentHy3,
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {
   if (model.startsWith('openai/')) {
@@ -214,6 +230,8 @@ export const providerDomains = {
   deepseek: 'deepseek.com',
   minimax: 'minimax.io',
   mimo: 'xiaomi.com',
+  atlascloud: 'atlascloud.ai',
+  tencent: 'tencent.com',
   xai: 'x.ai',
 } as const
 
@@ -228,6 +246,11 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.minimax
   else if (Object.values(mimoModels).includes(modelName as MimoModel))
     domain = providerDomains.mimo
+  else if (
+    Object.values(atlasCloudModels).includes(modelName as AtlasCloudModel)
+  )
+    domain = providerDomains.atlascloud
+  else if (modelName.startsWith('tencent/')) domain = providerDomains.tencent
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai
 
