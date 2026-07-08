@@ -1,10 +1,11 @@
 # Common Package Knowledge
 
-## Recent Validation Notes
-
-- Keep this knowledge file current with `common/src/` behavior so `bun --cwd=scripts run guard:memory-drift` passes before releases.
-
 This package contains code shared across the Openbuff monorepo, especially the local/BYOK `cli`, `sdk`, agents, and runtime packages.
+
+## Shared Provider and Message Boundaries
+
+- Message-conversion helpers in `src/util` are the boundary between Openbuff `Message[]` history and provider-facing AI SDK `ModelMessage[]` requests; keep cache-anchor summaries, JSON/media tool results, and diagnostics redaction centralized there.
+- Provider credential helpers in `src/api-keys` and MCP cache-key helpers must keep raw secrets out of logs, cache keys, and serialized diagnostics while still producing stable non-secret endpoint identities.
 
 ## Key Areas
 

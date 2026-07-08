@@ -1,8 +1,9 @@
 # tmux Knowledge for CLI Testing
 
-## Recent Validation Notes
+## tmux Harness Behavior
 
-- Keep this tmux knowledge file current with `cli/src/` behavior so `bun --cwd=scripts run guard:memory-drift` passes before releases.
+- Prefer `scripts/tmux/` helpers for CLI smoke tests because they wrap tmux session lifecycle, bracketed paste input, terminal capture, and `debug/tmux-sessions/` logging consistently.
+- Captures should include enough wait time after sending input for streaming UI updates; use labeled captures so regressions can be compared across reruns.
 
 ## Recommended: Use the Helper Scripts
 

@@ -1,8 +1,10 @@
 # CLI Package Knowledge
 
-## Recent Validation Notes
+## Slash Commands and Plan Mode
 
-- Keep this knowledge file current with `cli/src/` behavior so `bun --cwd=scripts run guard:memory-drift` passes before releases.
+- Durable planning is entered through `mode:plan`; the standalone `/plan` command is intentionally absent from `COMMAND_REGISTRY` and `SLASH_COMMANDS` so there is one plan-entry path.
+- Keep the durable-plan quartet registered: `/resume-plan` (`rp`), `/update-plan` (`up`), `/plan-status` (`ps`), and `/lessons` (`lesson`). These commands operate on `.agents/sessions/<slug>/` artifacts and fall back to the plan-session picker when no target is provided.
+- Slash-command descriptions should stay model-agnostic under BYOK/local mode. Use wording such as "configured reviewer" rather than naming hosted models.
 
 ## Import Guidelines
 
