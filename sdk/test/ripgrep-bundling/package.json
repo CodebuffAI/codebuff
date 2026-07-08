@@ -5,14 +5,14 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "setup": "mkdir -p node_modules/@openbuff && cp -r ../../dist node_modules/@openbuff/sdk && cp ../../package.json node_modules/@openbuff/sdk/",
+    "setup": "rm -rf node_modules/@openbuff/sdk && mkdir -p node_modules/@openbuff/sdk && cp -r ../../dist node_modules/@openbuff/sdk/dist && cp ../../package.json node_modules/@openbuff/sdk/",
     "test": "node test-ripgrep.js",
     "test:types": "npx tsc --noEmit --skipLibCheck --module ESNext --moduleResolution bundler --target ES2022 test-ripgrep-types.ts",
     "test:compile": "tsc test-ripgrep-types.ts --outDir ./dist --skipLibCheck --module ESNext --target ES2022 --moduleResolution bundler && node ./dist/test-ripgrep-types.js",
     "test:all": "npm run setup && npm run test && npm run test:types"
   },
   "dependencies": {
-    "@openbuff/sdk": "*"
+    "@openbuff/sdk": "file:../.."
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

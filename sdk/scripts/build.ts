@@ -60,6 +60,7 @@ async function build() {
     target: 'node',
     format: 'esm',
     minify: false,
+    treeShaking: false,
     sourcemap: 'linked',
     external,
     naming: '[dir]/index.mjs',
@@ -80,6 +81,7 @@ async function build() {
     target: 'node',
     format: 'cjs',
     minify: false,
+    treeShaking: false,
     sourcemap: 'linked',
     external,
     naming: '[dir]/index.cjs',
@@ -132,6 +134,20 @@ async function build() {
   // `var import_X = ...` declaration, causing "import_X is not defined" at
   // runtime. This patches the CJS bundle to replace those broken references.
   await fixCjsImportVars()
+
+  // Work around Bun ESM bundler bug: some re-exports produce dedup renames
+  // like `X2 as X` where `X2` is not defined as a variable in the bundle,
+  // causing "Export 'X2' is not defined in module" at runtime. This patches
+  // the ESM bundle to replace broken `X2 as X` with just `X`.
+  await fixEsmExportRenames()
+
+  // Work around Bun bundler tree-shaking: the `ToolHelpers` aggregation object
+  // (from `sdk/src/tools/index.ts`) is only re-exported, never used internally,
+  // so even with `treeShaking: false` the bundler strips its definition. The
+  // individual tool functions ARE bundled (they're used by `sdk/src/run.ts`).
+  // This step reconstructs `ToolHelpers` from those already-bundled functions
+  // and adds it to the export block.
+  await fixToolHelpers()
 
   console.log('✅ Build complete!')
   console.log('  📄 dist/index.mjs (ESM)')
@@ -312,6 +328,242 @@ async function fixCjsImportVars() {
   console.log(
     `  ✓ CJS import vars fixup: replaced ${fixCount} broken export getters (for ${brokenVars.size} undeclared import_* vars)`,
   )
+}
+
+/**
+ * Work around Bun ESM bundler bugs:
+ *
+ * 1. Dedup renames: `X2 as X` where `X2` is never defined in the bundle
+ *    but the original `X` IS defined. Fix: replace `X2 as X` with just `X`.
+ *
+ * 2. Tree-shaken exports: symbols that appear in the export block but were
+ *    stripped from the bundle body entirely (neither the symbol nor any
+ *    suffixed variant is defined). Fix: remove the export entry from the
+ *    export block to prevent `Export is not defined` errors.
+ */
+async function fixEsmExportRenames() {
+  const esmPath = 'dist/index.mjs'
+  let content = await readFile(esmPath, 'utf-8')
+
+  // Step 1: Find all declared variables/functions/classes in the bundle.
+  const declared = new Set<string>()
+  const declRegex =
+    /^(?:var|let|const)\s+(\w+)|^(?:async\s+)?function\*?\s+(\w+)|^class\s+(\w+)/gm
+  let match: RegExpExecArray | null
+  while ((match = declRegex.exec(content)) !== null) {
+    const name = match[1] || match[2] || match[3]
+    if (name) declared.add(name)
+  }
+
+  // Step 2: Find the final `export { ... }` block at the end of the file.
+  const exportBlockRegex = /export\s*\{([\s\S]*?)\}/g
+  let lastExportBlock = ''
+  while ((match = exportBlockRegex.exec(content)) !== null) {
+    lastExportBlock = match[1]
+  }
+
+  if (!lastExportBlock) {
+    console.log('  ✓ ESM export renames fixup: no export block found')
+    return
+  }
+
+  // Step 3: Parse each export entry and classify.
+  // Entries can be:
+  //   - `symbolName` (bare)
+  //   - `X2 as symbolName` (dedup rename)
+  //   - `X as Y` (legitimate rename, e.g. OpenbuffClient as CodebuffClient)
+  const entryRegex = /(\w+)(\d+)?\s+as\s+(\w+)|(\w+)(?=\s*[,\n}])/g
+  const renames: { from: string; to: string }[] = []
+  const removals: string[] = []
+
+  while ((match = entryRegex.exec(lastExportBlock)) !== null) {
+    let localName: string
+    let exportedName: string
+    let hasRename = false
+
+    if (match[3]) {
+      // Pattern: `X2 as Y` or `X as Y`
+      localName = match[1] + (match[2] || '') // e.g. MAX_RETRIES_PER_MESSAGE2
+      exportedName = match[3] // e.g. MAX_RETRIES_PER_MESSAGE
+      hasRename = true
+    } else {
+      // Pattern: `symbolName` (bare)
+      localName = match[4]
+      exportedName = localName
+    }
+
+    // If the local variable exists, this export is fine.
+    if (declared.has(localName)) continue
+
+    if (hasRename) {
+      // `X2 as X` where X2 is not declared
+      if (declared.has(exportedName)) {
+        // Dedup rename: X is defined, X2 is not. Fix: replace with X.
+        renames.push({
+          from: `${localName} as ${exportedName}`,
+          to: exportedName,
+        })
+      } else {
+        // Neither X2 nor X is defined — tree-shaken. Remove the entry.
+        removals.push(`${localName} as ${exportedName}`)
+      }
+    } else {
+      // Bare export `X` where X is not declared — tree-shaken. Remove it.
+      removals.push(localName)
+    }
+  }
+
+  if (renames.length === 0 && removals.length === 0) {
+    console.log('  ✓ ESM export renames fixup: no broken exports found')
+    return
+  }
+
+  // Step 4: Apply dedup rename fixes.
+  let fixCount = 0
+  for (const { from, to } of renames) {
+    if (content.includes(from)) {
+      content = content.replace(from, to)
+      fixCount++
+    }
+  }
+
+  // Step 5: Rebuild the export block to remove tree-shaken entries.
+  // Parse the export block into lines, filter out removed entries, and
+  // reconstruct a clean export statement.
+  const exportLines = lastExportBlock
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && l !== ',' && l !== '}')
+
+  const removalSet = new Set(removals)
+  const renameMap = new Map(renames.map((r) => [r.from, r.to]))
+  const keptEntries: string[] = []
+  let removalCount = 0
+
+  for (const line of exportLines) {
+    const clean = line.replace(/,$/, '').trim()
+    if (!clean) continue
+    if (removalSet.has(clean)) {
+      removalCount++
+      continue
+    }
+    const renamed = renameMap.get(clean)
+    if (renamed !== undefined) {
+      keptEntries.push(renamed)
+      continue // already counted as fixCount above
+    }
+    keptEntries.push(clean)
+  }
+
+  // Rebuild the export block and replace the last `export { ... }`.
+  const newExportBlock = keptEntries.map((e) => `  ${e},`).join('\n')
+  const newExportStatement = `export {\n${newExportBlock}\n}`
+  const lastExportRegex = /export\s*\{[\s\S]*?\}([\s\S]*)$/
+  content = content.replace(lastExportRegex, `${newExportStatement}$1`)
+
+  await writeFile(esmPath, content)
+  const rMsg = fixCount > 0 ? `replaced ${fixCount} dedup renames` : ''
+  const dMsg = removalCount > 0 ? `removed ${removalCount} tree-shaken exports` : ''
+  const summary = [rMsg, dMsg].filter(Boolean).join(', ')
+  console.log(`  ✓ ESM export renames fixup: ${summary}`)
+}
+
+/**
+ * Work around Bun bundler tree-shaking of the `ToolHelpers` aggregation object.
+ *
+ * `ToolHelpers` is defined in `sdk/src/tools/index.ts` as an object literal
+ * aggregating individual tool functions. It is only re-exported from the SDK
+ * entry point, never used internally, so even with `treeShaking: false` the
+ * bundler strips its definition entirely. The individual tool functions ARE
+ * bundled (they're used by `sdk/src/run.ts`), so we reconstruct `ToolHelpers`
+ * from those already-bundled functions and add it to the export block.
+ */
+async function fixToolHelpers() {
+  const toolHelpersDef =
+    'var ToolHelpers = { runTerminalCommand, codeSearch, findFilesMatchingContent, glob, listDirectory, getFiles, replaceRange, runFileChangeHooks, changeFile };'
+
+  // --- ESM bundle ---
+  const esmPath = 'dist/index.mjs'
+  let esmContent = await readFile(esmPath, 'utf-8')
+
+  // Only inject if ToolHelpers is not already defined as a variable.
+  if (!/^var\s+ToolHelpers\b/m.test(esmContent)) {
+    // Insert the ToolHelpers definition right before the final export block.
+    const lastExportIdx = esmContent.lastIndexOf('\nexport {')
+    if (lastExportIdx !== -1) {
+      const insertPos = lastExportIdx + 1 // start after the newline
+      esmContent =
+        esmContent.slice(0, insertPos) +
+        toolHelpersDef +
+        '\n' +
+        esmContent.slice(insertPos)
+
+      // Add `ToolHelpers` to the export block if it's not already there.
+      // Find the closing `}` of the export block by counting braces.
+      const exportStart = esmContent.indexOf('{', insertPos + toolHelpersDef.length)
+      if (exportStart !== -1) {
+        let depth = 0
+        let exportEnd = -1
+        for (let i = exportStart; i < esmContent.length; i++) {
+          if (esmContent[i] === '{') depth++
+          else if (esmContent[i] === '}') {
+            depth--
+            if (depth === 0) {
+              exportEnd = i
+              break
+            }
+          }
+        }
+        if (exportEnd !== -1) {
+          const exportBlockContent = esmContent.slice(exportStart, exportEnd)
+          if (!/\bToolHelpers\b/.test(exportBlockContent)) {
+            esmContent =
+              esmContent.slice(0, exportEnd) +
+              '  ToolHelpers,\n' +
+              esmContent.slice(exportEnd)
+          }
+        }
+      }
+    }
+    await writeFile(esmPath, esmContent)
+  }
+
+  // --- CJS bundle ---
+  const cjsPath = 'dist/index.cjs'
+  let cjsContent = await readFile(cjsPath, 'utf-8')
+
+  // Only inject if ToolHelpers is not already defined as a variable.
+  if (!/^var\s+ToolHelpers\b/m.test(cjsContent)) {
+    // Insert the ToolHelpers definition on its own line before the first
+    // `__esm` wrapper. Ensure we start at a line boundary to avoid
+    // concatenating with partial tokens on the previous line.
+    let insertIdx = cjsContent.indexOf('__esm')
+    if (insertIdx === -1) {
+      // Fallback: insert before the broken getter reference.
+      insertIdx = cjsContent.indexOf('ToolHelpers: () => import_tools.')
+    }
+    if (insertIdx !== -1) {
+      // Walk back to the start of the line to avoid mid-line insertion.
+      while (insertIdx > 0 && cjsContent[insertIdx - 1] !== '\n') {
+        insertIdx--
+      }
+      cjsContent =
+        cjsContent.slice(0, insertIdx) +
+        toolHelpersDef +
+        '\n' +
+        cjsContent.slice(insertIdx)
+
+      // Fix the broken getter: replace `import_tools.ToolHelpers` (or any
+      // `import_X.ToolHelpers` reference) with just `ToolHelpers`.
+      cjsContent = cjsContent.replace(
+        /ToolHelpers:\s*\(\)\s*=>\s*import_\w+\.ToolHelpers/g,
+        'ToolHelpers: () => ToolHelpers',
+      )
+    }
+    await writeFile(cjsPath, cjsContent)
+  }
+
+  console.log('  ✓ ToolHelpers reconstruction: injected aggregation object')
 }
 
 /**
