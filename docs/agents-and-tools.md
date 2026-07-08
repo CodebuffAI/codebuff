@@ -53,7 +53,8 @@ Several shipped agents share prompt text through centralized sections rather tha
 - The same file also exports `buildBroadAuditSection(finalizeClause)`, which injects the orchestrator's scope-then-shard contract for broad, open-ended, and audit-style requests. The generated section tells `base2` / `base-deep` to measure repository breadth before synthesis, cover frontend/page/route/UI wiring when a frontend exists, spawn file-picker and code-searcher shards by subsystem, add general-agent audit shards for whole-codebase or production-readiness audits, and interpolate `finalizeClause` for the current prompt path.
 - The same file also exports orchestrator-only guidance for gate awareness, security-sensitive file review, and git discipline. `base2` and `base-deep` interpolate those sections; the `editor` intentionally does not, because validation/review, security triage, and git workflow orchestration remain parent-agent responsibilities.
 - `common/src/constants/prompt-sections.ts` owns the shared Frontend Development section. `packages/agent-runtime/src/templates/types.ts` exposes it as the `{CODEBUFF_FRONTEND_SECTION}` placeholder, and `packages/agent-runtime/src/templates/strings.ts` replaces that placeholder only when `fileTreeHasFrontendFiles` detects `.tsx` or `.jsx` files in the project tree.
-- `common/src/util/language-profiles.ts` owns the `{CODEBUFF_LANGUAGE_PROFILE}` placeholder behavior. It detects TypeScript/JavaScript, Python, Rust, Go, Java, C#/.NET, C/C++, Ruby, PHP, Swift, and Kotlin from `ProjectFileContext.fileTree`, renders only a compact language profile, and tells agents to `read_files` the matching `agents/idioms/<lang>.md` file before non-trivial edits instead of injecting full idiom bodies. To add another first-class language, add a compact `agents/idioms/<lang>.md` contract, extend the language profile mappings, and cover both extension and manifest detection where applicable.
+- `common/src/util/language-profiles.ts` owns the `{CODEBUFF_LANGUAGE_PROFILE}` placeholder behavior. It detects TypeScript/JavaScript, Python, Rust, Go, Java, C#/.NET, C/C++, Ruby, PHP, Swift, Kotlin, and GDScript from `ProjectFileContext.fileTree`, renders only a compact language profile, and tells agents to `read_files` the matching `agents/idioms/<lang>.md` file before non-trivial edits instead of injecting full idiom bodies. To add another first-class language, add a compact `agents/idioms/<lang>.md` contract, extend the language profile mappings, and cover both extension and manifest detection where applicable.
+  - GDScript is detected via `.gd` source files (extension is case-normalized, so `.GD` also matches) and the `project.godot` manifest (exact filename match, case-sensitive). The idiom file is `agents/idioms/gdscript.md`.
   - Public inputs are file-tree nodes (`FileTreeNode[]`) or an explicit `LanguageProfile[]`; public outputs are stable-order `LanguageProfile` objects or a Markdown prompt string. No supported languages detected returns an empty string.
   - Detection uses source extensions plus common manifests. Source extensions are case-normalized; manifest names are matched exactly (for example, `Package.swift` is Swift, while differently-cased manifest names are not treated as manifests).
   - The rendered prompt lists detected display names, compact per-language guidance, and the matching idiom file path. It intentionally says not to load every idiom file up front.
@@ -66,7 +67,69 @@ Several shipped agents share prompt text through centralized sections rather tha
 
     - Rust: Respect ownership and borrowing, return Result/Option idiomatically, and keep error handling explicit and precise. Before non-trivial Rust edits, `read_files` `agents/idioms/rust.md`.
     ```
+- `common/src/util/engine-profiles.ts` owns the engine profile detection layer. It is wired into the same `{CODEBUFF_LANGUAGE_PROFILE}` placeholder alongside the language profile: `strings.ts` concatenates `formatLanguageProfilePromptForFileTree(fileTree)` and `formatEngineProfilePromptForFileTree(fileTree)`, so agents receive both language and engine guidance in a single section. No game engine detected returns an empty string (no engine section is rendered).
+  - Public inputs are file-tree nodes (`FileTreeNode[]`); public outputs are stable-order `EngineProfile` objects or a Markdown prompt string. The exported API mirrors `language-profiles.ts`: `detectEngineProfiles(fileTree)`, `formatEngineProfilePrompt({ profiles })`, and `formatEngineProfilePromptForFileTree(fileTree)`.
+  - Detection signals per engine:
+    - **Unity**: `ProjectSettings/ProjectVersion.txt` manifest, `.unity`/`.prefab`/`.asmdef` file extensions, `Assets/` or `ProjectSettings/` directory patterns.
+    - **Godot**: `project.godot` manifest, `.tscn`/`.tres`/`.gd` file extensions, `addons/` directory pattern.
+    - **Unreal Engine**: `.uproject`/`.uasset`/`.umap` file extensions, `Content/` or `Config/` directory patterns.
+    - **Bevy**: `Cargo.toml` + `assets/` directory heuristic (conservative — any Rust project with an `assets/` directory will match; a true `bevy` dependency check requires file content not available from the file tree alone).
+  - Detection priority: manifest files (exact path match) → file extensions (suffix match) → directory patterns (path prefix match). `.csproj` and `.rs` are intentionally excluded from standalone engine signals to avoid false positives on non-game C#/Rust projects.
+  - Stable engine order: `unity`, `godot`, `unreal`, `bevy`.
+  - Example output shape:
+
+    ```md
+    ## Engine profile
+
+    Detected: Unity. This appears to be a game-engine project. Follow engine-specific conventions for assets, scenes, and build workflows.
+
+    - Unity: Treat Unity assets (scenes, prefabs, ScriptableObjects) as first-class project files. GUID references in .meta files link assets; preserve them when moving or renaming. Avoid reading large binary assets (.png, .fbx, .prefab binary sections) as text — use path/metadata instead.
+    ```
+  - Gotcha: directory patterns are stored with trailing slashes (e.g. `Assets/`) but the matcher strips the trailing slash internally, so `Assets/` matches `Assets/Scripts/Player.cs` without doubling the separator.
 - The `editor` prompt includes Code Craftsmanship plus the conditional language and frontend placeholders, so implementation agents get the same style guidance as the orchestrator without inheriting the parent system prompt.
+
+### Researcher-web agent contract
+
+The shipped `researcher-web` agent is the web-search specialist spawned
+during the discovery phase. Its input schema accepts a single `prompt`
+string. The agent runs a programmatic `handleSteps` generator that
+automatically routes between two modes depending on the prompt:
+
+- **Simple (single-query) path** — for short, focused prompts (< 60
+  chars, one question, no list structure). Makes one `web_search` call
+  with the prompt as the query and returns the result directly. Matches
+  the original fast-path behavior.
+- **Broad decomposition path** — for broad, multi-part prompts.
+  The prompt is first stripped of meta-instructions ("search the web
+  for", "find information about", etc.), then decomposed into focused
+  subquestions. If decomposition yields 2 or more subquestions, each is
+  searched iteratively (max 3 total `web_search` calls). Each
+  subquestion is trimmed to a concise search query by stripping
+  question-words ("what is", "how does", etc.) and trailing
+  punctuation, capped at 120 characters.
+  If decomposition yields fewer than 2 subquestions, the prompt falls
+  through to the simple single-query path.
+
+The decomposition uses four strategies in priority order:
+numbered items → question-mark sentences → bullet markers →
+comparison topic extraction. The first strategy that yields 2+
+subquestions wins.
+
+**Retry on empty results:** when a subquestion search returns no
+results, the query is retried with a shorter keyword-based version.
+Failed subquestions are included in the final report with their error
+message.
+
+**Output format:** broad prompts produce a synthesized report with
+`## <question>` sections per subquestion and a combined `### Sources /
+Links` list with deduplicated citations. Simple prompts return the
+raw search result text.
+
+Gotchas: the decomposer uses heuristic regex, not an LLM, so unusual
+prompt structures may stay on the simple path. The max-call bounds (5
+subquestions, 3 total calls) prevent unbounded search loops. URL
+prompts ("fetch this page") use the unchanged URL-fetch path regardless
+of prompt breadth.
 
 ### Test-writer agent contract
 
@@ -212,6 +275,112 @@ console.log(formatRetrievalComparisonReport(report))
 ```
 
 Gotchas: repo-map helpers operate on an already-built `MetadataIndex`; they do not read files or rebuild the index. `queryRepoMap` tokenizes the query and returns only positive-score matches, so blank or stop-word-only queries return no results. `buildRepoMap` sorts files by path before applying `maxFiles`, while `queryRepoMap` scores the full candidate set before applying its result limit.
+
+#### Binary file skipping and file-tree truncation
+
+Three independent stages keep binary and oversized files out of the index AND out of the project file tree shown to agents at runtime. Each stage owns its own extension list (no shared import) so there is no cross-package dependency between `common/` and `packages/indexer/`; the lists intentionally overlap but are kept in sync by convention, not by a single source of truth.
+
+**Stage 1 — file-walker (`packages/indexer/src/file-walker.ts`).** `walkProject(projectRoot, extraExclude)` is the filesystem walker that feeds `buildMetadataIndex` / `updateMetadataIndex`. It applies, in order:
+
+- `DEFAULT_EXCLUDE_DIRS` — `node_modules`, `.git`, `dist`, `build`, `.next`, `.nuxt`, `.output`, `.turbo`, `coverage`, `.cache`, `.codebuff-index`, `tmp`, `.tmp`, `out`, and others.
+- `.gitignore` + `.codebuffignore` patterns (loaded and applied via the `ignore` library).
+- `extraExclude` directory names passed by the caller (the indexer uses this for the cache directory).
+- `MAX_FILE_SIZE` — files larger than 500 KB are skipped (never `stat`-hashed).
+- `BINARY_EXTENSIONS` — after stat, files whose lowercase extension is in this set are skipped before they are ever hashed or read. The set covers game-engine binary assets (`.uasset`, `.umap`, `.unity`, `.prefab`, `.fbx`, `.obj`, `.blend`, `.meta`, ...), images/textures, audio, video, 3D/animation, compiled/packaged, compressed archives, and binary containers (`.pdf`, `.sqlite`, `.bin`, ...). See the `BINARY_EXTENSIONS` export in `file-walker.ts` for the full list.
+- `MAX_FILES` — the walk stops collecting after 20,000 files.
+
+`walkProject` returns `WalkedFile[]` (`absolutePath`, `relativePath`, `ext`, `mtime`, `size`). `metadata-indexer.ts` imports the same `BINARY_EXTENSIONS` from `./file-walker` and repeats the check inside `indexWalkedFile` as a second line of defense, so files added through a path other than the walker are still dropped before being read as UTF-8.
+
+**Stage 2 — project file tree (`common/src/project-file-tree.ts`).** `getProjectFileTree` builds the tree shown in agent system prompts. It applies `DEFAULT_IGNORED_PATHS` and nested `.gitignore` / `.openbuffignore` rules. It also defines its **own** local `BINARY_EXTENSIONS` Set (not imported from `file-walker.ts`) — this is deliberate, to avoid a cross-package dependency from `common/` → `packages/indexer/`. The two lists overlap intentionally and are kept in sync by convention. Binary files never appear as tree nodes.
+
+**Stage 3 — file-tree truncation (`packages/agent-runtime/src/system-prompt/truncate-file-tree.ts`).** `truncateFileTreeBasedOnTokenBudget` shrinks the already-built tree to a token budget with a 4-level cascade, stopping at the first level that fits:
+
+1. `removeUnimportantFiles` — always applied first. Drops files matching a separate `unimportantExtensions` list (generated/minified JS, `.map`, `.d.ts`, `.pyc`, build output dirs like `/dist/` `/build/` `/node_modules/`, logs, media, game-engine binary assets, binary containers). This is a **third** independent extension list — again deliberately local to avoid a cross-package import. Empty directories after filtering are pruned. The tree is rebuilt immutably so the caller's tree stays pristine for other consumers.
+2. `none` — if the token-annotated filtered tree fits the budget, render it as-is.
+3. `unimportant-files` — if the no-token filtered tree fits, render it without per-file token scores.
+4. `tokens` (`pruneFileTokenScores`) — iteratively strip the lowest-scoring per-file token annotations (batched, with a 5-tokens-per-name estimate) until the annotated tree fits.
+5. `depth-based` — if tokens pruning alone is not enough, remove the deepest files first (sorted by depth, sampled to estimate avg tokens per filename, removed in batches of `0.5 × tokensToRemove / avgTokensPerFileName + 100`, capped at 10 iterations). A no-progress safety break stops the loop if token count stops decreasing.
+
+Gotchas:
+
+- There are **three** independent binary/unimportant extension lists: `BINARY_EXTENSIONS` in `file-walker.ts` (used by the walker + `metadata-indexer.ts`), the local `BINARY_EXTENSIONS` in `project-file-tree.ts` (used by the tree builder), and `unimportantExtensions` in `truncate-file-tree.ts` (used by the truncator). They overlap heavily but are not unified; adding a new binary extension means updating all three. The separation is intentional to avoid `common/` → `packages/indexer/` and `packages/agent-runtime/` → `common/` import cycles.
+- `.meta`, `.prefab`, and `.unity` (Unity text serialization formats) are intentionally **excluded** from the `BINARY_EXTENSIONS` sets in both `file-walker.ts` and `project-file-tree.ts` so the indexer and file tree include them as text — they are YAML in Unity's text serialization mode and are parsed for asset references (see "Asset reference extraction" below). They **are** included in `truncate-file-tree.ts`'s `unimportantExtensions` list, so they are dropped from the agent-facing system-prompt file tree even though they remain in the indexer's graph. This split is deliberate: the indexer needs them for the asset reference graph; the system prompt does not need them because they are not source files an agent would edit.
+- The 500 KB `MAX_FILE_SIZE` and `MAX_FILES` 20,000 caps are walk-time limits for the indexer only; `truncate-file-tree.ts` has its own token-budget limits that are independent of file count.
+- All extension matching is case-normalized (lowercased before lookup) and is a coarse extension allowlist, not a content sniff. A text file renamed `.bin` is skipped; a binary file with a non-binary extension is caught by the size limit (or by UTF-8 read failure inside `indexWalkedFile`).
+- `truncate-file-tree.ts` rebuilds the tree immutably in `removeUnimportantFiles`; it does not mutate the input `fileTree` so other consumers of `ProjectFileContext.fileTree` are unaffected.
+
+#### Asset reference extraction
+
+`packages/indexer/src/asset-refs.ts` extracts lightweight text references from
+game engine asset files so the indexer can create `references` edges in the
+codebase graph. The extractor is purely text-based — it never reads binary
+payloads. Binary formats (`.uasset`, `.umap`, `.fbx`, etc.) are skipped by
+`BINARY_EXTENSIONS` before they reach this module.
+
+The public API (exported from `@codebuff/indexer`) includes:
+
+- `extractAssetRefs(content, ext, filePath): AssetRef[]` — dispatch by
+  extension to the engine-specific extractor. Returns `[]` for non-asset
+  files or unsupported formats.
+- `extractGodotScriptRefs(content): AssetRef[]` — extract `preload("res://…")`
+  / `load("res://…")` references from `.gd` GDScript files.
+- `AssetRef` (type) — `{ rawRef, refType, resolvedPath }`.
+
+Two internal helpers are used by `metadata-indexer.ts` to build the graph
+edges and are NOT exported from the package entrypoint:
+
+- `buildGuidToPathMap(files): Map<string, string>` — build a Unity GUID →
+  project-relative path map from all indexed `.meta` files. Called inside
+  `buildGraph` to resolve GUID refs in `.prefab`/`.unity` files.
+- `resolveGuidRef(guid, guidMap): string | null` — resolve a Unity GUID to a
+  file path via the map.
+
+`AssetRef.refType` is one of:
+
+| `refType` | Source format | Example raw ref |
+|---|---|---|
+| `guid` | Unity `.meta`/`.prefab`/`.unity` | 32-char hex GUID |
+| `res_path` | Godot `.tscn`/`.tres`/`.gd` | `res://textures/player.png` |
+| `asset_path` | Unreal `.uproject`, Bevy configs | `Source/MyModule`, `assets/sprite.png` |
+| `file_id` | Unity `.prefab`/`.unity` (local) | integer `{fileID: 12345}` |
+
+Per-engine extraction strategy:
+
+- **Unity `.meta`**: extracts the `guid:` field as a self-identifying `guid`
+  ref with `resolvedPath` set to the `.meta` file's path with the `.meta`
+  suffix stripped (the GUID belongs to this asset). Other files referencing
+  this GUID resolve via the GUID → path map in `buildGraph`.
+- **Unity `.prefab`/`.unity`** (text serialization): extracts external `guid:`
+  references as `guid` refs (resolved later via the GUID → path map) and
+  `fileID:` local references as `file_id` refs (always unresolved — they are
+  intra-file references, not cross-file).
+- **Godot `.tscn`/`.tres`**: extracts `[ext_resource path="res://…"]`
+  declarations. `resolvedPath` is the `res://` path with the protocol
+  stripped (project-relative).
+- **Godot `.gd`** (GDScript): extracts `preload("res://…")` / `load("res://…")`
+  calls, creating script→asset edges.
+- **Unreal `.uproject`** (JSON): parses `Modules` and `Plugins` arrays, each
+  name mapped to `Source/<Name>` or `Plugins/<Name>`.
+- **Bevy**: extracts quoted asset paths from `.ron`/`.toml` config files that
+  live under an `assets/` directory, resolving to `assets/<path>`.
+
+Graph integration: `metadata-indexer.ts` stores `AssetRef[]` on
+`IndexedFile.assetRefs` (only present when non-empty). `buildGraph` uses the
+GUID → path map to resolve Unity `guid` refs, then creates `references` edges
+from the referencing file to the target asset. If the target asset itself is a
+binary file (e.g. `.png`) not in the index, the edge falls back to the
+`.meta` sidecar file (which IS indexed as text YAML), so the reference still
+connects to a real graph node.
+
+Gotchas:
+
+- Only `.meta`, `.prefab`, `.unity`, `.tscn`, `.tres`, `.gd`, `.uproject`, and
+  Bevy `.ron`/`.toml` (under `assets/`) produce asset refs; all other
+  extensions return `[]`.
+- Up to 80 asset refs per file (`MAX_ASSET_REFS_PER_FILE`), deduplicated by
+  `rawRef`, to bound index growth.
+- `fileID` refs are always `resolvedPath: null` — they are local references
+  within a single serialized file and do not create cross-file edges.
 
 ### `read_outline`
 
@@ -642,10 +811,12 @@ derived helpers:
   command flagged `implicitCommand: true`. These are the commands that
   can be invoked without a leading `/` when the input matches the id
   exactly with no arguments (e.g. `init` or `new`).
-- `getSlashCommandsWithSkills(skills): SlashCommand[]` — returns the
-  base `SLASH_COMMANDS` with one `skill:<name>` entry appended per
-  discovered skill, so user-installed skills show up in the palette as
-  slash commands.
+- `getSlashCommandsWithSkills(skills, fileTree?): SlashCommand[]` —
+  returns the base `SLASH_COMMANDS` with one `skill:<name>` entry appended
+  per discovered skill, plus (when `fileTree` is provided) game-dev task
+  preset commands for each detected game engine. The CLI's `Chat`
+  component calls this with the project file tree so engine-detected
+  commands appear in the palette.
 
 ### `SlashCommand` shape
 
@@ -700,6 +871,49 @@ Gotcha: skill descriptions are truncated for the palette. Descriptions
 longer than 50 characters are shortened to 49 characters plus a trailing
 `…`. Descriptions of exactly 50 characters are left unchanged; this is a
 strict greater-than comparison, not a `>=` boundary.
+
+### Game-dev preset commands
+
+When `getSlashCommandsWithSkills` is called with a `fileTree` argument, it
+runs `detectEngineProfiles(fileTree)` (from
+`common/src/util/engine-profiles.ts`, documented in the Shared Prompt
+Sections above) and appends 4 task-preset slash commands per detected
+engine: `<engine>:build`, `<engine>:run`, `<engine>:test`,
+`<engine>:watch`. No game engine detected → no game-dev commands.
+
+The presets live in `common/src/util/game-dev-presets.ts`. Public API:
+
+- `getGameDevPresets(engineIds): GameDevPreset[]` — 4 presets per engine,
+  ordered `build`, `run`, `test`, `watch`, in stable engine order
+  (`unity`, `godot`, `unreal`, `bevy`).
+- `getGameDevSlashCommands(engineIds)` — convenience wrapper returning the
+  same presets in slash-command shape (`id`, `label`, `description`,
+  `insertText`).
+- `GameDevPreset` (type) — `{ id, label, description, insertText }`.
+
+Each preset carries an `insertText` — a natural-language prompt (NOT a raw
+shell command) that the agent receives and acts on by inspecting the
+project to find the correct build system and commands. Selecting the
+command inserts the prompt into the input field for review before sending.
+This avoids hardcoding commands that may not match the project's actual
+setup.
+
+| Engine | Commands |
+|---|---|
+| Unity | `unity:build`, `unity:run`, `unity:test`, `unity:watch` |
+| Godot | `godot:build`, `godot:run`, `godot:test`, `godot:watch` |
+| Unreal | `unreal:build`, `unreal:run`, `unreal:test`, `unreal:watch` |
+| Bevy | `bevy:build`, `bevy:run`, `bevy:test`, `bevy:watch` |
+
+The same module exports `getGameDevJobGuidance(engineIds)`, which returns
+`GameDevJobGuidance[]` — engine-specific readiness patterns, error
+patterns, log file paths, and stop instructions for managing long-running
+editor/build/watch/export processes with `check_job` / `kill_job` /
+`read_logs`. This is consumed by the agent at runtime when a game-dev
+preset command spawns a background build or editor process.
+
+Gotcha: game-dev command descriptions undergo the same ≤50-char
+`truncateDescription` as skill commands.
 
 ### Aliases vs. implicit commands
 

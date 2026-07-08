@@ -208,4 +208,48 @@ describe('language profile prompts', () => {
     expect(prompt).not.toContain('agents/idioms/rust.md')
     expect(prompt).not.toContain('agents/idioms/kotlin.md')
   })
+
+  test('deduplicates multiple .gd files into a single GDScript profile', () => {
+    const tree: FileTreeNode[] = [
+      directory('scripts', [
+        file('Player.gd', 'scripts/Player.gd'),
+        file('Enemy.gd', 'scripts/Enemy.gd'),
+        file('Globals.gd', 'scripts/Globals.gd'),
+      ]),
+    ]
+
+    const profiles = detectLanguageProfiles(tree)
+    expect(profiles).toHaveLength(1)
+    expect(profiles[0].id).toBe('gdscript')
+  })
+
+  test('detects GDScript alongside other languages in mixed project trees', () => {
+    const tree: FileTreeNode[] = [
+      file('package.json'),
+      file('project.godot'),
+      directory('src', [file('App.tsx', 'src/App.tsx')]),
+      directory('addons', [file('plugin.cfg', 'addons/plugin.cfg')]),
+      directory('scripts', [file('Player.gd', 'scripts/Player.gd')]),
+    ]
+
+    expect(detectLanguageProfiles(tree).map((p) => p.id)).toEqual([
+      'typescript',
+      'gdscript',
+    ])
+  })
+
+  test('does not detect GDScript from case-variant manifest names', () => {
+    // Manifest matching is case-sensitive: Project.Godot is NOT project.godot
+    expect(detectLanguageProfiles([file('Project.Godot')])).toEqual([])
+    expect(detectLanguageProfiles([file('PROJECT.GODOT')])).toEqual([])
+  })
+
+  test('ignores files with .gd-like suffixes that are not .gd', () => {
+    expect(detectLanguageProfiles([file('archive.gd.ts')])).not.toContainEqual(
+      expect.objectContaining({ id: 'gdscript' }),
+    )
+    expect(detectLanguageProfiles([file('data.gdjson')])).not.toContainEqual(
+      expect.objectContaining({ id: 'gdscript' }),
+    )
+  })
 })

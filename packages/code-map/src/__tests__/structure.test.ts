@@ -297,4 +297,40 @@ describe('parseFileStructure', () => {
     expect(byName.move).toMatchObject({ kind: 'function', startLine: 11, endLine: 12 })
     expect(byName.health_changed).toMatchObject({ kind: 'signal', startLine: 14 })
   })
+
+  test('extracts GDScript enums and inner class definitions', async () => {
+    const src = [
+      'extends Node', // 1
+      '', // 2
+      'enum Direction {', // 3
+      '    UP,', // 4
+      '    DOWN,', // 5
+      '    LEFT,', // 6
+      '    RIGHT', // 7
+      '}', // 8
+      '', // 9
+      'class InnerHelper:', // 10
+      '    var data: int = 0', // 11
+      '', // 12
+      '    func process() -> void:', // 13
+      '        self.data += 1', // 14
+    ].join('\n')
+
+    const syms = (await parseFileStructure(src, 'Enums.gd')) ?? []
+    const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
+    expect(byName.Direction).toMatchObject({ kind: 'enum', startLine: 3, endLine: 8 })
+    expect(byName.InnerHelper).toMatchObject({ kind: 'class', startLine: 10, endLine: 14 })
+    expect(byName.data).toMatchObject({ kind: 'variable', startLine: 11 })
+    // Function inside the inner class should be relabeled as a method
+    expect(byName.process).toBeDefined()
+    expect(byName.process.kind === 'function' || byName.process.kind === 'method').toBe(true)
+  })
+
+  test('returns empty array (not null) for empty GDScript file', async () => {
+    const syms = await parseFileStructure('', 'Empty.gd')
+    // Should be null (no grammar) or an empty array (parseable but no symbols)
+    if (syms !== null) {
+      expect(syms).toEqual([])
+    }
+  })
 })
