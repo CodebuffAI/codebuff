@@ -1,5 +1,9 @@
 import React from 'react'
 
+import { detectEngineProfiles } from '@codebuff/common/util/engine-profiles'
+import { getGameDevSlashCommands } from '@codebuff/common/util/game-dev-presets'
+import type { FileTreeNode } from '@codebuff/common/util/file'
+
 import { BottomBanner } from './bottom-banner'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
@@ -30,7 +34,7 @@ const Shortcut = ({
 }
 
 /** Help banner showing keyboard shortcuts and tips in an organized layout. */
-export const HelpBanner = () => {
+export const HelpBanner = ({ fileTree }: { fileTree?: FileTreeNode[] }) => {
   const setInputMode = useChatStore((state) => state.setInputMode)
   const theme = useTheme()
 
@@ -41,6 +45,19 @@ export const HelpBanner = () => {
     }, HELP_TIMEOUT)
     return () => clearTimeout(timer)
   }, [setInputMode])
+
+  // Detect game engines from the project file tree (optional).
+  const engineProfiles = React.useMemo(
+    () => (fileTree ? detectEngineProfiles(fileTree) : []),
+    [fileTree],
+  )
+  const gameDevCommands = React.useMemo(
+    () =>
+      engineProfiles.length > 0
+        ? getGameDevSlashCommands(engineProfiles.map((p) => p.id))
+        : [],
+    [engineProfiles],
+  )
 
   return (
     <BottomBanner
@@ -82,6 +99,39 @@ export const HelpBanner = () => {
             </text>
           </box>
         </box>
+
+        {/* Game Dev Section (only when a game engine is detected) */}
+        {engineProfiles.length > 0 && (
+          <box style={{ flexDirection: 'column', gap: 0 }}>
+            <SectionHeader>Game Dev</SectionHeader>
+            <box style={{ flexDirection: 'column', paddingLeft: 2, gap: 0 }}>
+              <text style={{ fg: theme.muted }}>
+                {engineProfiles.map((p) => p.displayName).join(', ')} detected
+              </text>
+              <box
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  columnGap: 2,
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                }}
+              >
+                {gameDevCommands.map((cmd) => (
+                  <box
+                    key={cmd.id}
+                    style={{ flexDirection: 'row', gap: 1 }}
+                  >
+                    <text style={{ fg: theme.foreground }}>
+                      {`/${cmd.id}`}
+                    </text>
+                    <text style={{ fg: theme.muted }}>{cmd.description}</text>
+                  </box>
+                ))}
+              </box>
+            </box>
+          </box>
+        )}
       </box>
     </BottomBanner>
   )

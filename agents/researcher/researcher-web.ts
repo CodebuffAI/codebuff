@@ -96,16 +96,250 @@ Then, write up a concise report that includes key findings for the user's prompt
       return false
     }
 
+    // --- Research planning helpers (M1.1-M1.2-M1.3) ---
+
+    // Strip meta-instructions from text: "search for", "research", "find info
+    // about", "look up", "can you find", etc. These are instructions to the
+    // agent, not search query terms.
+    function stripMetaInstructions(text: string): string {
+      return text
+        .replace(
+          /\b(search the web for|find information about|research|look up|can you find|I need you to search|please search|help me find|do a web search for|use web search to find|find out about|gather information on|tell me about|provide information on)\s+/gi,
+          '',
+        )
+        .replace(/^[,;:\s]+/, '')
+        .trim()
+    }
+
+    // Decompose a broad prompt into focused subquestions. Each subquestion has
+    // a human-readable `question` and a shorter search-engine `query`.
+    // Returns at most MAX_SUBQUERIES entries.
+    const MAX_SUBQUERIES = 5
+    function decomposePrompt(p: string): Array<{ question: string; query: string }> {
+      const subquestions: Array<{ question: string; query: string }> = []
+
+      // Strategy 1: Split on numbered items (1. 2. 3. or 1) 2) etc)
+      const numberedSplit = p.split(/(?:^|\n)\s*\d+[.)]\s+/m).filter(Boolean)
+      if (numberedSplit.length >= 2) {
+        for (let i = 0; i < numberedSplit.length && subquestions.length < MAX_SUBQUERIES; i++) {
+          const item = stripMetaInstructions(numberedSplit[i].trim())
+          if (item.length > 5) {
+            subquestions.push({ question: item, query: trimQuery(item) })
+          }
+        }
+        if (subquestions.length >= 2) return subquestions
+      }
+
+      // Strategy 2: Extract sentences ending with ? as individual questions
+      const questionSentences = p.match(/[^.!?]+\?/g)
+      if (questionSentences && questionSentences.length >= 2) {
+        for (
+          let i = 0;
+          i < questionSentences.length && subquestions.length < MAX_SUBQUERIES;
+          i++
+        ) {
+          const q = stripMetaInstructions(questionSentences[i].trim())
+          if (q.length > 5) {
+            subquestions.push({ question: q, query: trimQuery(q) })
+          }
+        }
+        if (subquestions.length >= 2) return subquestions
+      }
+
+      // Strategy 3: Split on bullet markers (- * •)
+      const bulletSplit = p.split(/(?:^|\n)\s*[\-*•]\s+/m).filter(Boolean)
+      if (bulletSplit.length >= 2) {
+        for (let i = 0; i < bulletSplit.length && subquestions.length < MAX_SUBQUERIES; i++) {
+          const item = stripMetaInstructions(bulletSplit[i].trim())
+          if (item.length > 5) {
+            subquestions.push({ question: item, query: trimQuery(item) })
+          }
+        }
+        if (subquestions.length >= 2) return subquestions
+      }
+
+      // Strategy 4: Split on common comparison connectors ("vs", "compared to",
+      // "and", "or" between topic phrases) to extract topic pairs.
+      const topics = extractTopics(p)
+      if (topics.length >= 2 && subquestions.length === 0) {
+        for (let i = 0; i < topics.length && subquestions.length < MAX_SUBQUERIES; i++) {
+          subquestions.push({
+            question: topics[i],
+            query: trimQuery(topics[i]),
+          })
+        }
+      }
+
+      return subquestions
+    }
+
+    // Trim a question down to a concise search-engine query: strip leading
+    // question words, trailing punctuation, and keep under ~100 chars.
+    function trimQuery(q: string): string {
+      return q
+        .replace(/^(what is|what are|how does|how do|how can|how should|why is|why does|why are|when is|when does|where is|where are|which is|which are|who is|who are|can you|please|could you|tell me|explain|describe|elaborate on|i want to know|i need to|i would like to)\s+/i, '')
+        .replace(/[?.,;:!]+$/, '')
+        .trim()
+        .slice(0, 120)
+    }
+
+    // Extract topic phrases from a comparison-style prompt by splitting on
+    // delimiters like "vs", "compared to", "versus", "and", "or".
+    function extractTopics(p: string): string[] {
+      const cleaned = stripMetaInstructions(p)
+      const parts = cleaned.split(
+        /\s+(?:vs\.?|versus|compared to|compared with|rather than|instead of|or)\s+/i,
+      )
+      if (parts.length >= 2) {
+        return parts
+          .map((part) => part.replace(/^and\s+/i, '').replace(/[?.,;:!]+$/, '').trim())
+          .filter((t) => t.length > 3)
+      }
+      return []
+    }
+
+    // --- Helper: format a single search result into text + links ---
+    function formatSingleResult(resultObj: {
+      result?: string
+      errorMessage?: string
+      links?: Array<{ href: string; text: string }>
+    }): string {
+      const linkText =
+        resultObj.links && resultObj.links.length > 0
+          ? `\n\nLinks:\n${resultObj.links
+              .map((l) => `- ${l.text ? `${l.text}: ` : ''}${l.href}`)
+              .join('\n')}`
+          : ''
+      return (resultObj.result ?? resultObj.errorMessage ?? '') + linkText
+    }
+
+    // Extract URL from prompt (unchanged from original)
     const match = prompt?.match(/https?:\/\/[^\s)\]>"']+/)
     const rawUrl = match?.[0].replace(/[.,;:!?]+$/, '')
     // Only use url mode when the URL is safe; otherwise fall back to query mode
     // so an internal-IP URL can't drive a web_search fetch.
     const url = rawUrl && !isSsrfUrl(rawUrl) ? rawUrl : undefined
+
+    // --- URL mode: fetch directly, exactly as before ---
+    if (url) {
+      const { toolResult: urlResult } = yield {
+        toolName: 'web_search' as const,
+        input: { url, include_links: true, max_links: 40 },
+        includeToolCall: false,
+      } satisfies ToolCall<'web_search'>
+
+      const results = (urlResult
+        ?.filter((r) => r.type === 'json')
+        ?.map((r) => r.value)?.[0] ?? {}) as {
+          result: string | undefined
+          errorMessage: string | undefined
+          links?: Array<{ href: string; text: string }>
+        }
+
+      yield {
+        type: 'STEP_TEXT',
+        text: formatSingleResult(results),
+      }
+      return
+    }
+
+    // --- Broad-prompt decomposition path (M1.2-M1.3-M1.4) ---
+    const cleanedPrompt = prompt ? stripMetaInstructions(prompt) : ''
+    const subquestions = cleanedPrompt ? decomposePrompt(cleanedPrompt) : []
+
+    if (subquestions.length >= 2) {
+      const MAX_TOTAL_CALLS = 3
+      const MAX_QUERY_CALLS = Math.min(subquestions.length, MAX_SUBQUERIES)
+      const allLinks: Array<{ href: string; text: string }> = []
+      const seenLinks = new Set<string>()
+      const sections: Array<{ question: string; result: string }> = []
+      let totalCalls = 0
+
+      for (let i = 0; i < MAX_QUERY_CALLS && totalCalls < MAX_TOTAL_CALLS; i++) {
+        const sq = subquestions[i]
+        let queryText = sq.query
+        let attempt = 0
+        const MAX_ATTEMPTS = 2
+        let gotResult = false
+        let lastError: string | undefined
+
+        while (attempt < MAX_ATTEMPTS && !gotResult && totalCalls < MAX_TOTAL_CALLS) {
+          const { toolResult: sqResult } = yield {
+            toolName: 'web_search' as const,
+            input: { query: queryText, depth: 'standard' as const },
+            includeToolCall: false,
+          } satisfies ToolCall<'web_search'>
+          totalCalls++
+          attempt++
+
+          const parsed = (sqResult
+            ?.filter((r) => r.type === 'json')
+            ?.map((r) => r.value)?.[0] ?? {}) as {
+              result: string | undefined
+              errorMessage: string | undefined
+              links?: Array<{ href: string; text: string }>
+            }
+          lastError = parsed?.errorMessage
+
+          if (parsed.result) {
+            sections.push({ question: sq.question, result: parsed.result })
+            gotResult = true
+            // Collect links, deduplicating by href
+            if (parsed.links) {
+              for (const link of parsed.links) {
+                if (!seenLinks.has(link.href)) {
+                  seenLinks.add(link.href)
+                  allLinks.push(link)
+                }
+              }
+            }
+          } else if (attempt < MAX_ATTEMPTS && totalCalls < MAX_TOTAL_CALLS) {
+            // M1.5: Retry/fallback query generation when search returns no results.
+            // First retry: shorten the query to core keywords.
+            // Second retry: use just the question text without trimming.
+            if (attempt === 1) {
+              queryText = sq.query
+                .split(' ')
+                .filter((w) => w.length > 3)
+                .slice(0, 5)
+                .join(' ')
+            }
+          }
+        }
+
+        // If all attempts failed, record the error
+        if (!gotResult) {
+          sections.push({
+            question: sq.question,
+            result:
+              lastError ??
+              `No search results found for "${sq.query}"`,
+          })
+        }
+      }
+
+      // --- M1.6: Synthesize report preserving evidence and citations ---
+      let report = ''
+      for (const section of sections) {
+        report += `## ${section.question}\n\n${section.result}\n\n`
+      }
+      if (allLinks.length > 0) {
+        report += `### Sources / Links\n\n${allLinks
+          .map((l) => `- ${l.text ? `${l.text}: ` : ''}${l.href}`)
+          .join('\n')}`
+      }
+
+      yield {
+        type: 'STEP_TEXT',
+        text: report,
+      }
+      return
+    }
+
+    // --- Simple single-query path (unchanged behavior for narrow prompts) ---
     const { toolResult } = yield {
       toolName: 'web_search' as const,
-      input: url
-        ? { url, include_links: true, max_links: 40 }
-        : { query: prompt || undefined, depth: 'standard' as const },
+      input: { query: cleanedPrompt || undefined, depth: 'standard' as const },
       includeToolCall: false,
     } satisfies ToolCall<'web_search'>
 
@@ -116,16 +350,10 @@ Then, write up a concise report that includes key findings for the user's prompt
         errorMessage: string | undefined
         links?: Array<{ href: string; text: string }>
       }
-    const linkText =
-      results.links && results.links.length > 0
-        ? `\n\nLinks:\n${results.links
-            .map((link) => `- ${link.text ? `${link.text}: ` : ''}${link.href}`)
-            .join('\n')}`
-        : ''
 
     yield {
       type: 'STEP_TEXT',
-      text: (results.result ?? results.errorMessage ?? '') + linkText,
+      text: formatSingleResult(results),
     }
   },
 }

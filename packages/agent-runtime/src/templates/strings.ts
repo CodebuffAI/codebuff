@@ -4,6 +4,9 @@ import {
   formatLanguageProfilePromptForFileTree,
 } from '@codebuff/common/util/language-profiles'
 import {
+  formatEngineProfilePromptForFileTree,
+} from '@codebuff/common/util/engine-profiles'
+import {
   formatPatternsIndexPrompt,
   loadPatternsIndex,
 } from '@codebuff/common/util/patterns'
@@ -118,7 +121,8 @@ export async function formatPrompt(
     [PLACEHOLDER.FRONTEND_SECTION]: () =>
       fileTreeHasFrontendFiles(fileContext.fileTree) ? frontendSection : '',
     [PLACEHOLDER.LANGUAGE_PROFILE]: () =>
-      formatLanguageProfilePromptForFileTree(fileContext.fileTree),
+      formatLanguageProfilePromptForFileTree(fileContext.fileTree) +
+      formatEngineProfilePromptForFileTree(fileContext.fileTree),
     [PLACEHOLDER.FILE_TREE_PROMPT]: () =>
       getProjectFileTreePrompt({
         fileContext,

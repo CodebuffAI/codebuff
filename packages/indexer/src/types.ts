@@ -8,6 +8,8 @@ export interface IndexedFile {
   imports: string[]  // import paths (regex extracted)
   headings: string[] // for .md/.mdx only
   concepts: string[] // normalized doc concepts/headings for graph search
+  /** Asset references extracted from game-engine text files (Unity .meta/.prefab/.unity, Godot .tscn/.tres, Unreal .uproject, Bevy). Undefined for files with no asset refs. */
+  assetRefs?: import('./asset-refs').AssetRef[]
 }
 
 export type IndexNodeType = 'file' | 'symbol' | 'import' | 'heading' | 'concept'

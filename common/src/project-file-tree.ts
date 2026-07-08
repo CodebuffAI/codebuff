@@ -38,6 +38,44 @@ function logFileTreeError(
   )
 }
 
+/**
+ * Binary file extensions that are excluded from the file tree. These are
+ * binary assets (images, 3D models, audio, video, game engine assets) that
+ * cannot be read as text and would crowd the file tree with non-source files.
+ * Keeping this list here (separate from the indexer's BINARY_EXTENSIONS) avoids
+ * a cross-package dependency from common/ -> packages/indexer/.
+ */
+const BINARY_EXTENSIONS = new Set([
+  // Game engine binary asset formats. Unity .meta/.prefab/.unity are
+  // intentionally NOT here — they are text (YAML) in Unity's text
+  // serialization mode and are parsed for asset references by the indexer.
+  '.uasset', '.umap', '.assets',
+  '.fbx', '.obj', '.dae', '.3ds', '.blend',
+  '.anim', '.controller', '.mat', '.cub', '.physicmaterial',
+
+  // Image / texture formats
+  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif',
+  '.webp', '.ico', '.svg', '.dds', '.tga', '.psd', '.exr', '.hdr',
+
+  // Audio formats
+  '.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.wma', '.opus',
+
+  // Video formats
+  '.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv', '.flv',
+
+  // Compiled / packaged formats
+  '.class', '.jar', '.war', '.dll', '.lib', '.exe', '.so', '.dylib',
+  '.o', '.a',
+
+  // Compressed archives
+  '.zip', '.tar', '.gz', '.rar', '.7z', '.bz2', '.xz',
+  '.dmg', '.iso', '.pkg', '.deb', '.rpm',
+
+  // Binary containers
+  '.pdf', '.docx', '.xlsx', '.pptx', '.epub', '.sqlite', '.db',
+  '.bin', '.dat',
+])
+
 export const DEFAULT_MAX_FILES = 10_000
 
 export async function getProjectFileTree(params: {
@@ -117,6 +155,12 @@ export async function getProjectFileTree(params: {
               ignore: mergedIgnore,
             })
           } else {
+            // Skip binary files — they cannot be read as text and would
+            // crowd the file tree with non-source files, especially in
+            // game engine repos with thousands of binary assets.
+            const ext = path.extname(file).toLowerCase()
+            if (BINARY_EXTENSIONS.has(ext)) continue
+
             const lastReadTime = stats.atimeMs
             node.children.push({
               name: file,

@@ -265,4 +265,184 @@ describe('slash-commands module', () => {
       }
     })
   })
+
+  // -------------------------------------------------------------------------
+  // getSlashCommandsWithSkills — game-dev preset integration via fileTree
+  // -------------------------------------------------------------------------
+
+  describe('getSlashCommandsWithSkills — game-dev presets via fileTree', () => {
+    /** Helper: build a minimal Unity file tree. */
+    function unityFileTree() {
+      return [
+        {
+          name: 'ProjectVersion.txt',
+          type: 'file' as const,
+          filePath: 'ProjectSettings/ProjectVersion.txt',
+          children: undefined,
+        },
+        {
+          name: 'Assets',
+          type: 'directory' as const,
+          filePath: 'Assets',
+          children: [
+            {
+              name: 'Main.unity',
+              type: 'file' as const,
+              filePath: 'Assets/Main.unity',
+              children: undefined,
+            },
+          ],
+        },
+      ]
+    }
+
+    /** Helper: build a minimal Godot file tree. */
+    function godotFileTree() {
+      return [
+        {
+          name: 'project.godot',
+          type: 'file' as const,
+          filePath: 'project.godot',
+          children: undefined,
+        },
+        {
+          name: 'Main.tscn',
+          type: 'file' as const,
+          filePath: 'Main.tscn',
+          children: undefined,
+        },
+      ]
+    }
+
+    /** Helper: build a non-game file tree (TypeScript project). */
+    function tsFileTree() {
+      return [
+        {
+          name: 'index.ts',
+          type: 'file' as const,
+          filePath: 'src/index.ts',
+          children: undefined,
+        },
+        {
+          name: 'package.json',
+          type: 'file' as const,
+          filePath: 'package.json',
+          children: undefined,
+        },
+      ]
+    }
+
+    test('returns no game-dev commands when fileTree is undefined', () => {
+      const result = getSlashCommandsWithSkills({})
+      const gameDevIds = result
+        .filter((cmd) =>
+          cmd.id.match(/^(unity|godot|unreal|bevy):(build|run|test|watch)$/),
+        )
+        .map((cmd) => cmd.id)
+      expect(gameDevIds).toEqual([])
+    })
+
+    test('returns no game-dev commands for a non-game project', () => {
+      const result = getSlashCommandsWithSkills({}, tsFileTree())
+      const gameDevIds = result
+        .filter((cmd) =>
+          cmd.id.match(/^(unity|godot|unreal|bevy):(build|run|test|watch)$/),
+        )
+        .map((cmd) => cmd.id)
+      expect(gameDevIds).toEqual([])
+    })
+
+    test('appends 4 Unity game-dev commands for a Unity project', () => {
+      const result = getSlashCommandsWithSkills({}, unityFileTree())
+      const unityIds = result
+        .filter((cmd) => cmd.id.startsWith('unity:'))
+        .map((cmd) => cmd.id)
+      expect(unityIds).toEqual([
+        'unity:build',
+        'unity:run',
+        'unity:test',
+        'unity:watch',
+      ])
+    })
+
+    test('appends 4 Godot game-dev commands for a Godot project', () => {
+      const result = getSlashCommandsWithSkills({}, godotFileTree())
+      const godotIds = result
+        .filter((cmd) => cmd.id.startsWith('godot:'))
+        .map((cmd) => cmd.id)
+      expect(godotIds).toEqual([
+        'godot:build',
+        'godot:run',
+        'godot:test',
+        'godot:watch',
+      ])
+    })
+
+    test('game-dev commands carry insertText for prompt insertion', () => {
+      const result = getSlashCommandsWithSkills({}, unityFileTree())
+      const buildCmd = result.find((cmd) => cmd.id === 'unity:build')
+      expect(buildCmd).toBeDefined()
+      expect(typeof buildCmd!.insertText).toBe('string')
+      expect(buildCmd!.insertText!.length).toBeGreaterThan(0)
+      // insertText should be a natural-language prompt, not a raw shell command
+      expect(buildCmd!.insertText!).not.toMatch(/^\s*(cargo|godot|unity|npm|yarn)/i)
+    })
+
+    test('game-dev command descriptions are present and ≤50 chars', () => {
+      // truncateDescription caps at 50 chars: ≤50 → unchanged; >50 → slice(0, 49) + '…'
+      const result = getSlashCommandsWithSkills({}, unityFileTree())
+      const gameDevCmds = result.filter((c) =>
+        c.id.match(/^(unity|godot|unreal|bevy):/),
+      )
+      expect(gameDevCmds.length).toBe(4)
+      for (const cmd of gameDevCmds) {
+        expect(typeof cmd.description).toBe('string')
+        expect(cmd.description.length).toBeGreaterThan(0)
+        expect(cmd.description.length).toBeLessThanOrEqual(50)
+      }
+    })
+
+    test('known Unity descriptions match the preset text exactly', () => {
+      const result = getSlashCommandsWithSkills({}, unityFileTree())
+      const descById = new Map(result.map((c) => [c.id, c.description]))
+      expect(descById.get('unity:build')).toBe(
+        'Build the Unity project for the default platform',
+      )
+      expect(descById.get('unity:run')).toBe(
+        'Open or run the Unity project in the editor',
+      )
+      expect(descById.get('unity:test')).toBe(
+        'Run Unity Test Runner (EditMode/PlayMode tests)',
+      )
+      expect(descById.get('unity:watch')).toBe(
+        'Watch Unity console logs or build output',
+      )
+    })
+
+    test('base slash commands remain unmodified at the start when fileTree is provided', () => {
+      const result = getSlashCommandsWithSkills({}, unityFileTree())
+      for (let i = 0; i < SLASH_COMMANDS.length; i++) {
+        expect(result[i].id).toBe(SLASH_COMMANDS[i].id)
+      }
+    })
+
+    test('combines skill commands and game-dev commands', () => {
+      const skills = makeSkillsMap([makeSkill({ name: 'alpha' })])
+      const result = getSlashCommandsWithSkills(skills, unityFileTree())
+      // Base + skill + 4 game-dev
+      expect(result.length).toBe(SLASH_COMMANDS.length + 1 + 4)
+      expect(result.find((c) => c.id === 'skill:alpha')).toBeDefined()
+      expect(result.find((c) => c.id === 'unity:build')).toBeDefined()
+    })
+
+    test('produces no game-dev commands for an empty file tree', () => {
+      const result = getSlashCommandsWithSkills({}, [])
+      const gameDevIds = result
+        .filter((cmd) =>
+          cmd.id.match(/^(unity|godot|unreal|bevy):(build|run|test|watch)$/),
+        )
+        .map((cmd) => cmd.id)
+      expect(gameDevIds).toEqual([])
+    })
+  })
 })

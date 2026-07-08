@@ -17,6 +17,7 @@ import { BORDER_CHARS } from '../utils/ui-constants'
 import type { useTheme } from '../hooks/use-theme'
 import type { InputValue } from '../types/store'
 import type { AgentMode } from '../utils/constants'
+import type { FileTreeNode } from '@codebuff/common/util/file'
 
 type Theme = ReturnType<typeof useTheme>
 
@@ -67,6 +68,9 @@ interface ChatInputBarProps {
   handleExitPublish: () => void
   handlePublish: (agentIds: string[]) => Promise<void>
 
+  // File tree (for game-dev engine detection in the help banner)
+  fileTree?: FileTreeNode[]
+
   // Handlers
   handleSubmit: () => Promise<void>
   onPaste: (fallbackText?: string) => void
@@ -109,6 +113,7 @@ export const ChatInputBar = ({
   handleSubmit,
   onPaste,
   onInterruptStream,
+  fileTree,
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
@@ -165,7 +170,7 @@ export const ChatInputBar = ({
 
   // ChatGPT connect mode: show only the connect panel (no input box)
   if (inputMode === 'connect:chatgpt') {
-    return <InputModeBanner />
+    return <InputModeBanner fileTree={fileTree} />
   }
 
   // Handle input changes with special mode entry detection
@@ -344,7 +349,7 @@ export const ChatInputBar = ({
             cursorPosition={cursorPosition}
           />
         </box>
-        <InputModeBanner />
+        <InputModeBanner fileTree={fileTree} />
       </>
     )
   }
@@ -452,7 +457,7 @@ export const ChatInputBar = ({
           </box>
         </box>
       </box>
-      <InputModeBanner />
+      <InputModeBanner fileTree={fileTree} />
     </>
   )
 }

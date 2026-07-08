@@ -1,6 +1,9 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
+import { detectEngineProfiles } from '@codebuff/common/util/engine-profiles'
+import { getGameDevSlashCommands } from '@codebuff/common/util/game-dev-presets'
 import { AGENT_MODES } from '../utils/constants'
 
+import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { SkillsMap } from '@codebuff/common/types/skill'
 
 
@@ -215,15 +218,34 @@ function truncateDescription(description: string): string {
 }
 
 /**
- * Returns SLASH_COMMANDS merged with skill commands.
+ * Returns SLASH_COMMANDS merged with skill commands and (optionally)
+ * game-dev task preset commands detected from the project file tree.
  * Skills become slash commands that users can invoke directly.
+ * Game-dev presets appear when the file tree matches a supported engine
+ * (Unity, Godot, Unreal, Bevy).
  */
-export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
+export function getSlashCommandsWithSkills(
+  skills: SkillsMap,
+  fileTree?: FileTreeNode[],
+): SlashCommand[] {
   const skillCommands: SlashCommand[] = Object.values(skills).map((skill) => ({
     id: `skill:${skill.name}`,
     label: `skill:${skill.name}`,
     description: truncateDescription(skill.description),
   }))
 
-  return [...SLASH_COMMANDS, ...skillCommands]
+  // Detect game engine profiles and merge game-dev preset commands.
+  // Only add commands for engines detected in the file tree.
+  const gameDevCommands: SlashCommand[] = fileTree
+    ? getGameDevSlashCommands(
+        detectEngineProfiles(fileTree).map((p) => p.id),
+      ).map((preset) => ({
+        id: preset.id,
+        label: preset.label,
+        description: truncateDescription(preset.description),
+        insertText: preset.insertText,
+      }))
+    : []
+
+  return [...SLASH_COMMANDS, ...skillCommands, ...gameDevCommands]
 }

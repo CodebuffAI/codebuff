@@ -286,6 +286,116 @@ describe('getAgentPrompt', () => {
     expect(result).not.toContain(PLACEHOLDER.LANGUAGE_PROFILE)
   })
 
+  test('includes engine profile section for a Unity game-dev project', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'game-engine-agent',
+      systemPrompt: `Before\n${PLACEHOLDER.LANGUAGE_PROFILE}\nAfter`,
+    })
+    const agentTemplates: Record<string, AgentTemplate> = {
+      'game-engine-agent': agentTemplate,
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext: createMockFileContext({
+        fileTree: [
+          {
+            name: 'ProjectSettings',
+            type: 'directory',
+            filePath: 'ProjectSettings',
+            children: [
+              {
+                name: 'ProjectVersion.txt',
+                type: 'file',
+                filePath: 'ProjectSettings/ProjectVersion.txt',
+                lastReadTime: 0,
+              },
+            ],
+          },
+          {
+            name: 'Assets',
+            type: 'directory',
+            filePath: 'Assets',
+            children: [
+              {
+                name: 'Main.unity',
+                type: 'file',
+                filePath: 'Assets/Scenes/Main.unity',
+                lastReadTime: 0,
+              },
+            ],
+          },
+        ],
+      }),
+      agentState: createMockAgentState('game-engine-agent'),
+      agentTemplates,
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    // Should contain the engine profile section
+    expect(result).toContain('## Engine profile')
+    expect(result).toContain('Detected: Unity')
+    expect(result).toContain('game-engine project')
+    // The placeholder should be fully replaced
+    expect(result).not.toContain(PLACEHOLDER.LANGUAGE_PROFILE)
+  })
+
+  test('omits engine profile section for non-game projects', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'non-game-agent',
+      systemPrompt: `Before\n${PLACEHOLDER.LANGUAGE_PROFILE}\nAfter`,
+    })
+    const agentTemplates: Record<string, AgentTemplate> = {
+      'non-game-agent': agentTemplate,
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext: createMockFileContext({
+        fileTree: [
+          {
+            name: 'package.json',
+            type: 'file',
+            filePath: 'package.json',
+            lastReadTime: 0,
+          },
+          {
+            name: 'src',
+            type: 'directory',
+            filePath: 'src',
+            children: [
+              {
+                name: 'index.ts',
+                type: 'file',
+                filePath: 'src/index.ts',
+                lastReadTime: 0,
+              },
+            ],
+          },
+        ],
+      }),
+      agentState: createMockAgentState('non-game-agent'),
+      agentTemplates,
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    // Should contain language profile but NOT engine profile
+    expect(result).toContain('## Language profile')
+    expect(result).not.toContain('## Engine profile')
+    expect(result).not.toContain('game-engine project')
+    expect(result).not.toContain(PLACEHOLDER.LANGUAGE_PROFILE)
+  })
+
   describe('spawnerPrompt inclusion in instructionsPrompt', () => {
     test('includes spawnerPrompt for each spawnable agent with spawnerPrompt defined', async () => {
       const filePickerTemplate = createMockAgentTemplate({

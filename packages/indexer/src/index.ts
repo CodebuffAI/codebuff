@@ -31,6 +31,8 @@ export type {
 } from './repo-map'
 export { walkProject } from './file-walker'
 export type { WalkedFile } from './file-walker'
+export { extractAssetRefs, extractGodotScriptRefs } from './asset-refs'
+export type { AssetRef } from './asset-refs'
 export type { QueryOptions, QueryQualityCase, QueryQualityReport } from './query'
 export {
   isSemanticIndexingAvailable,

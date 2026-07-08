@@ -1,6 +1,8 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import React from 'react'
 
+import type { FileTreeNode } from '@codebuff/common/util/file'
+
 import { ChatGptConnectBanner } from './chatgpt-connect-banner'
 import { HelpBanner } from './help-banner'
 import { PendingAttachmentsBanner } from './pending-attachments-banner'
@@ -17,11 +19,11 @@ import { useChatStore } from '../state/chat-store'
  */
 const BANNER_REGISTRY: Record<
   string,
-  (ctx: { showTime: number }) => React.ReactNode
+  (ctx: { showTime: number; fileTree?: FileTreeNode[] }) => React.ReactNode
 > = {
   default: () => <PendingAttachmentsBanner />,
   image: () => <PendingAttachmentsBanner />,
-  help: () => <HelpBanner />,
+  help: (ctx) => <HelpBanner fileTree={ctx.fileTree} />,
   ...(CHATGPT_OAUTH_ENABLED
     ? { 'connect:chatgpt': () => <ChatGptConnectBanner /> }
     : {}),
@@ -34,7 +36,11 @@ const BANNER_REGISTRY: Record<
  * Uses a registry pattern for easy extensibility - add new banners by
  * updating BANNER_REGISTRY above.
  */
-export const InputModeBanner = () => {
+export const InputModeBanner = ({
+  fileTree,
+}: {
+  fileTree?: FileTreeNode[]
+} = {}) => {
   const inputMode = useChatStore((state) => state.inputMode)
 
   const renderBanner = BANNER_REGISTRY[inputMode]
@@ -43,5 +49,5 @@ export const InputModeBanner = () => {
     return null
   }
 
-  return <>{renderBanner({ showTime: Date.now() })}</>
+  return <>{renderBanner({ showTime: Date.now(), fileTree })}</>
 }

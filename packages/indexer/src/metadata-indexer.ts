@@ -4,7 +4,12 @@ import * as path from 'node:path'
 
 import { getFileTokenScores, SUPPORTED_CODE_EXTENSIONS } from '@codebuff/code-map'
 
-import { walkProject } from './file-walker'
+import { BINARY_EXTENSIONS, walkProject } from './file-walker'
+import {
+  buildGuidToPathMap,
+  extractAssetRefs,
+  resolveGuidRef,
+} from './asset-refs'
 import { sanitizeIndexCacheDir } from './index-store'
 import type {
   GraphWeights,
@@ -287,6 +292,13 @@ async function indexWalkedFile(params: {
   hash?: string
   tokenScores: Record<string, number>
 }): Promise<IndexedFile | null> {
+  // Skip binary files entirely — they cannot be parsed as UTF-8 text and
+  // reading them would corrupt the index with garbage imports/symbols.
+  // The file-walker already skips these, but this is a defense-in-depth
+  // guard in case files are added through a different path.
+  if (BINARY_EXTENSIONS.has(params.ext)) {
+    return null
+  }
   let content = ''
   try {
     content = await fs.promises.readFile(params.absolutePath, 'utf8')
@@ -307,6 +319,10 @@ async function indexWalkedFile(params: {
         : []
   const concepts = mergeConcepts(baseConcepts, configConcepts)
 
+  // Extract asset references from game engine text files (Unity .meta/.prefab/.unity,
+  // Godot .tscn/.tres, Unreal .uproject, Bevy configs). Returns [] for non-asset files.
+  const assetRefs = extractAssetRefs(content, params.ext, params.relativePath)
+
   return {
     path: params.relativePath,
     mtime: params.mtime,
@@ -317,6 +333,7 @@ async function indexWalkedFile(params: {
     imports,
     headings,
     concepts,
+    ...(assetRefs.length > 0 ? { assetRefs } : {}),
   }
 }
 
@@ -356,6 +373,10 @@ function buildGraph(
   const nodes: Record<string, IndexNode> = {}
   const edges: IndexEdge[] = []
 
+  // Build a GUID → asset-path map from all indexed .meta files so Unity guid
+  // references in .prefab/.unity files can be resolved to actual file paths.
+  const guidToPathMap = buildGuidToPathMap(files)
+
   for (const file of Object.values(files)) {
     const fileId = fileNodeId(file.path)
     nodes[fileId] = { id: fileId, type: 'file', label: file.path, path: file.path }
@@ -392,6 +413,44 @@ function buildGraph(
       const conceptId = conceptNodeId(concept)
       nodes[conceptId] ??= { id: conceptId, type: 'concept', label: concept }
       edges.push({ from: fileId, to: conceptId, type: 'mentions', weight: weights.mentions, label: concept })
+    }
+
+    // Create graph edges from asset references (game-engine file → referenced asset).
+    // Only resolved refs (GUID → path via guidToPathMap, or res:// → project path)
+    // create file→file edges. Unresolved refs are informational only.
+    if (file.assetRefs) {
+      for (const ref of file.assetRefs.slice(0, 80)) {
+        let resolvedPath: string | null = ref.resolvedPath
+
+        // For Unity guid refs, resolve via the GUID → path map.
+        // .meta files already have resolvedPath set (self-identifying); only
+        // .prefab/.unity refs need lookup.
+        if (ref.refType === 'guid' && !resolvedPath) {
+          resolvedPath = resolveGuidRef(ref.rawRef, guidToPathMap)
+        }
+
+        // Try the resolved path directly. If the asset itself is a binary
+        // file (e.g. .png) it won't be in the index — fall back to the .meta
+        // file (which IS indexed as text YAML) so the reference edge still
+        // connects to a real graph node.
+        if (resolvedPath) {
+          let edgeTarget: string | null = null
+          if (files[resolvedPath]) {
+            edgeTarget = resolvedPath
+          } else if (files[`${resolvedPath}.meta`]) {
+            edgeTarget = `${resolvedPath}.meta`
+          }
+          if (edgeTarget) {
+            edges.push({
+              from: fileId,
+              to: fileNodeId(edgeTarget),
+              type: 'references',
+              weight: weights.references,
+              label: ref.rawRef,
+            })
+          }
+        }
+      }
     }
   }
 

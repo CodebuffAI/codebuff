@@ -217,11 +217,11 @@ export const Chat = ({
   // Get loaded skills for slash commands
   const loadedSkills = useMemo(() => getLoadedSkills(), [])
 
-  // Merge skill commands into the slash command list
+  // Merge skill commands and game-dev preset commands into the slash command list
   const filteredSlashCommands = useMemo(() => {
-    const allCommands = getSlashCommandsWithSkills(loadedSkills)
+    const allCommands = getSlashCommandsWithSkills(loadedSkills, fileTree)
     return allCommands
-  }, [loadedSkills])
+  }, [loadedSkills, fileTree])
 
   const {
     slashContext,
@@ -1696,6 +1696,7 @@ export const Chat = ({
               cwd: getProjectRoot() ?? process.cwd(),
             })}
             onInterruptStream={chatKeyboardHandlers.onInterruptStream}
+            fileTree={fileTree}
           />
         )}
       </box>
