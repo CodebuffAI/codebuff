@@ -461,7 +461,7 @@ export const FREEBUFF_WEB_LIMITED_SESSION_LENGTH_MS = 60 * 60 * 1000
 /** Temporary project-creation cap for outer-region (limited-tier) Freebuff Web
  *  users. A new project consumes one slot; the quota resets at midnight
  *  Pacific time. */
-export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 1
+export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 3
 
 /** Models exempt from Freebuff Web geo limits: geo-limited users can run
  *  these without consuming limited sessions. Matches the shared limited
