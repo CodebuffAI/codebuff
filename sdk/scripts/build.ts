@@ -127,6 +127,12 @@ async function build() {
   console.log('📂 Copying vendored ripgrep binaries...')
   await copyRipgrepVendor()
 
+  // Work around Bun CJS bundler bug: some `export { X } from './module'`
+  // statements produce export getters referencing `import_X.Y` but drop the
+  // `var import_X = ...` declaration, causing "import_X is not defined" at
+  // runtime. This patches the CJS bundle to replace those broken references.
+  await fixCjsImportVars()
+
   console.log('✅ Build complete!')
   console.log('  📄 dist/index.mjs (ESM)')
   console.log('  📄 dist/index.cjs (CJS)')
@@ -161,6 +167,151 @@ async function fixDuplicateImports() {
       error.message,
     )
   }
+}
+
+/**
+ * Work around Bun CJS bundler bug: `export { X } from './module'` can produce
+ * export getters referencing `import_module.X` but drop the `var import_module
+ * = ...` declaration, causing "import_module is not defined" at runtime.
+ *
+ * This post-build fixup scans the CJS bundle for export getters that reference
+ * undeclared `import_*` variables and replaces them with direct symbol
+ * references (function names, constants, or the module's internal `exports_*`
+ * object).
+ */
+async function fixCjsImportVars() {
+  const cjsPath = 'dist/index.cjs'
+  let content = await readFile(cjsPath, 'utf-8')
+
+  // Step 1: Find all declared `var import_*` variables.
+  const declaredImports = new Set<string>()
+  const varDeclRegex = /var\s+(import_\w+)/g
+  let match: RegExpExecArray | null
+  while ((match = varDeclRegex.exec(content)) !== null) {
+    declaredImports.add(match[1])
+  }
+
+  // Step 2: Find all `import_*.Y` patterns in export getters.
+  // Match: `exportName: () => import_module.symbolName,`
+  const getterRegex =
+    /(\w+):\s*\(\)\s*=>\s*(import_\w+)\.(\w+)/g
+  const replacements: { from: string; to: string }[] = []
+  const brokenVars = new Set<string>()
+
+  while ((match = getterRegex.exec(content)) !== null) {
+    const importVar = match[2]
+    if (!declaredImports.has(importVar)) {
+      brokenVars.add(importVar)
+    }
+  }
+
+  if (brokenVars.size === 0) {
+    console.log('  ✓ CJS import vars fixup: no broken references found')
+    return
+  }
+
+  // Step 3: For each broken import_* variable, find the corresponding
+  // internal `exports_*` object and build a replacement map.
+  // The pattern in the CJS bundle is:
+  //   var exports_<name> = {};
+  //   __export(exports_<name>, { ... symbolName: () => symbolName, ... });
+  // And the broken getter is:
+  //   exportName: () => import_<name>.symbolName,
+  //
+  // We need to map `import_<name>.symbolName` -> `exports_<name>.symbolName`
+  // where `<name>` is derived from the import variable name.
+  // `import_code_map` -> `exports_src` (code-map's index.ts)
+  // `import_code_map_exports` -> `exports_src` (our wrapper)
+  // `import_validate_agents2` -> `exports_validate_agents`
+  // etc.
+  //
+  // Rather than guessing the mapping, we look for `exports_*` objects that
+  // contain the same symbol names.
+
+  // Build a map: symbolName -> exports_varName for all __export calls.
+  // Skip the main SDK export object (the one that has `module.exports =
+  // __toCommonJS(exports_*)`) — that's the object we're fixing, not a source.
+  // Identify it by finding the `module.exports = __toCommonJS(exports_X)` line.
+  const moduleExportsRegex = /module\.exports\s*=\s*__toCommonJS\((exports_\w+)\)/
+  const moduleExportsMatch = content.match(moduleExportsRegex)
+  const mainExportVar = moduleExportsMatch ? moduleExportsMatch[1] : 'exports_src2'
+
+  const exportObjRegex =
+    /var\s+(exports_\w+)\s*=\s*\{\s*\}[;]?\s*\n__export\(\s*\1\s*,\s*\{([\s\S]*?)\}\)/g
+  const symbolToExports = new Map<string, string>()
+
+  while ((match = exportObjRegex.exec(content)) !== null) {
+    const exportsVar = match[1]
+    // Skip the main SDK export object — it's the one we're fixing
+    if (exportsVar === mainExportVar) continue
+    const body = match[2]
+    const symRegex = /(\w+):\s*\(\)\s*=>\s*/g
+    let symMatch: RegExpExecArray | null
+    while ((symMatch = symRegex.exec(body)) !== null) {
+      // Only set if not already mapped (prefer first/internal module definitions)
+      if (!symbolToExports.has(symMatch[1])) {
+        symbolToExports.set(symMatch[1], exportsVar)
+      }
+    }
+  }
+
+  // Step 4: Replace broken `import_*.symbolName` with `exports_*.symbolName`
+  for (const brokenVar of brokenVars) {
+    // Find all getters referencing this broken var
+    const brokenGetterRegex = new RegExp(
+      `(\\w+):\\s*\\(\\)\\s*=>\\s*${brokenVar}\.(\\w+)`,
+      'g',
+    )
+    let bgMatch: RegExpExecArray | null
+    while ((bgMatch = brokenGetterRegex.exec(content)) !== null) {
+      const exportName = bgMatch[1]
+      const symbolName = bgMatch[2]
+      const exportsVar = symbolToExports.get(symbolName)
+      if (exportsVar) {
+        const from = `${bgMatch[0]}`
+        const to = `${exportName}: () => ${exportsVar}.${symbolName}`
+        replacements.push({ from, to })
+      } else {
+        // Try direct function/variable reference
+        // Check if `function symbolName` or `var symbolName` exists in the bundle
+        const fnRegex = new RegExp(
+          `^(?:async\\s+)?function\\s+${symbolName}\\b`,
+          'm',
+        )
+        const varRegex = new RegExp(`var\\s+${symbolName}\\b`)
+        let directRef: string | null = null
+        if (fnRegex.test(content)) {
+          directRef = symbolName
+        } else if (varRegex.test(content)) {
+          directRef = symbolName
+        }
+        if (directRef) {
+          replacements.push({
+            from: bgMatch[0],
+            to: `${exportName}: () => ${directRef}`,
+          })
+        } else {
+          console.warn(
+            `    ⚠ Could not find replacement for ${brokenVar}.${symbolName}`,
+          )
+        }
+      }
+    }
+  }
+
+  // Step 5: Apply replacements
+  let fixCount = 0
+  for (const { from, to } of replacements) {
+    if (content.includes(from)) {
+      content = content.replace(from, to)
+      fixCount++
+    }
+  }
+
+  await writeFile(cjsPath, content)
+  console.log(
+    `  ✓ CJS import vars fixup: replaced ${fixCount} broken export getters (for ${brokenVars.size} undeclared import_* vars)`,
+  )
 }
 
 /**
