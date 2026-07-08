@@ -238,6 +238,13 @@ export enum AnalyticsEvent {
   // fallback rate and added latency are queryable.
   FREEBUFF_CHAT_TITLE_GENERATED = 'freebuff.chat_title_generated',
 
+  // Freebuff - CLI landing page (/cli). Fired when the install command is
+  // copied; `location` distinguishes hero vs install section. Lets us measure
+  // install intent per campaign (utm_* ride along as super-properties) — the
+  // best proxy conversion for CLI traffic, since CLI activation happens in a
+  // separate identity space with no key back to the web landing.
+  FREEBUFF_CLI_INSTALL_COMMAND_COPIED = 'freebuff.cli_install_command_copied',
+
   // Freebuff - Home Page
   FREEBUFF_HOME_INSTALL_COMMAND_COPIED = 'freebuff.home_install_command_copied',
   FREEBUFF_HOME_GITHUB_CLICKED = 'freebuff.home_github_clicked',
