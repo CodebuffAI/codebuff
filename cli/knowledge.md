@@ -1,5 +1,9 @@
 # CLI Package Knowledge
 
+## Recent Validation Notes
+
+- Keep this knowledge file current with `cli/src/` behavior so `bun --cwd=scripts run guard:memory-drift` passes before releases.
+
 ## Import Guidelines
 
 **Never use dynamic `await import()` calls.** Always use static imports at the top of the file.

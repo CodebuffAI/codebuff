@@ -336,4 +336,142 @@ describe('gate-reviewer helpers', () => {
       )
     }
   })
+
+  // Regression: prose preamble before an embedded JSON verdict object.
+  // The reviewer gate previously failed to recognize a verdict that was
+  // preceded by prose (e.g. "I now have full context. ..."), returned '',
+  // marked the turn blocked, and re-prompted the reviewer forever.
+  test('getReviewerFinalizationVerdict recognizes prose preamble followed by JSON LOOKS_GOOD', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'I now have full context. Having reviewed all edits I see no blockers.\n{"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}',
+      ),
+    ).toBe('LOOKS_GOOD')
+  })
+
+  test('getReviewerFinalizationVerdict recognizes prose preamble followed by JSON NON_BLOCKING', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Preamble prose explaining minor suggestions follow.\n{"verdict":"NON_BLOCKING","findings":["nit"],"coverage":"covered"}',
+      ),
+    ).toBe('NON_BLOCKING')
+  })
+
+  test('getReviewerFinalizationVerdict still blocks when embedded JSON verdict has coverage missing', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Preamble prose before a verdict with missing coverage.\n{"verdict":"LOOKS_GOOD","findings":[],"coverage":"missing"}',
+      ),
+    ).toBe('')
+  })
+
+  test('getReviewerFinalizationVerdict still blocks when embedded JSON verdict is BLOCKING', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Preamble prose before a BLOCKING verdict.\n{"verdict":"BLOCKING","findings":["Fix A"],"coverage":"covered"}',
+      ),
+    ).toBe('')
+  })
+
+  test('getReviewerFinalizationVerdict uses the LAST embedded verdict when a prior BLOCKING is echoed', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Earlier I thought this was off: {"verdict":"BLOCKING","findings":["x"],"coverage":"covered"}. After re-checking it passes. {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}',
+      ),
+    ).toBe('LOOKS_GOOD')
+  })
+
+  test('getReviewerFinalizationVerdict does not false-positive on prose mentioning LOOKS_GOOD with no JSON object', () => {
+    // No embedded JSON object: the new text-JSON path must not fire. The
+    // existing line-verdict logic still recognizes a leading "LOOKS_GOOD".
+    expect(
+      getReviewerFinalizationVerdict(
+        'I think this LOOKS_GOOD in spirit but I have not emitted a verdict line.',
+      ),
+    ).toBe('')
+    expect(
+      getReviewerFinalizationVerdict('LOOKS_GOOD: handled by existing line-verdict path'),
+    ).toBe('LOOKS_GOOD')
+  })
+
+  test('inline base2 mirror recognizes prose preamble followed by JSON verdict (parity)', () => {
+    const inlineHelpers = loadInlineGateReviewerHelpers()
+    const proseJsonInputs: unknown[] = [
+      'I now have full context. Having reviewed all edits I see no blockers.\n{"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}',
+      'Preamble prose explaining minor suggestions follow.\n{"verdict":"NON_BLOCKING","findings":["nit"],"coverage":"covered"}',
+      'Preamble prose before a verdict with missing coverage.\n{"verdict":"LOOKS_GOOD","findings":[],"coverage":"missing"}',
+      'Preamble prose before a BLOCKING verdict.\n{"verdict":"BLOCKING","findings":["Fix A"],"coverage":"covered"}',
+      'Earlier I thought this was off: {"verdict":"BLOCKING","findings":["x"],"coverage":"covered"}. After re-checking it passes. {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}',
+      'I think this LOOKS_GOOD in spirit but I have not emitted a verdict line.',
+      // Brace/escape edge cases for the indexOf + brace-depth scanner:
+      // a `}` inside a JSON string value must not prematurely close the object.
+      'Preamble. {"verdict":"LOOKS_GOOD","note":"see {foo} for context","coverage":"covered"}',
+      // An escaped `\"` inside a JSON string value must not flip inString.
+      'Preamble. {"verdict":"LOOKS_GOOD","findings":["has \\"q\\" inside"],"coverage":"covered"}',
+      // A truncated embedded JSON object (no matching closing brace) must yield ''.
+      'Preamble. {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"',
+      // Three embedded objects in sequence: the last verdict wins.
+      'First pass: {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}. Second: {"verdict":"NON_BLOCKING","findings":["x"],"coverage":"covered"}. Final: {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}',
+      // An unknown verdict value must be rejected as a finalization verdict.
+      'Preamble. {"verdict":"MAYBE","findings":[],"coverage":"covered"}',
+    ]
+    for (const toolResult of proseJsonInputs) {
+      expect(inlineHelpers.getReviewerFinalizationVerdict(toolResult)).toBe(
+        getReviewerFinalizationVerdict(toolResult),
+      )
+    }
+  })
+
+  // The brace-depth scanner inside extractEmbeddedJsonVerdict must respect
+  // JSON string boundaries so a `}` appearing inside a string value does not
+  // prematurely close the object. This guards the reviewer-emit format where
+  // findings text may contain brace-like characters.
+  test('getReviewerFinalizationVerdict ignores a `}` inside a JSON string value', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Preamble. {"verdict":"LOOKS_GOOD","note":"see {foo} for context","coverage":"covered"}',
+      ),
+    ).toBe('LOOKS_GOOD')
+  })
+
+  // An escaped `\"` inside a JSON string value must not flip the inString
+  // flag, otherwise the scanner could lose track of string boundaries and
+  // either truncate early or span too far.
+  test('getReviewerFinalizationVerdict handles escaped quotes inside JSON string values', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Preamble. {"verdict":"LOOKS_GOOD","findings":["has \\"q\\" inside"],"coverage":"covered"}',
+      ),
+    ).toBe('LOOKS_GOOD')
+  })
+
+  // A truncated JSON object (opener with no matching close) must not produce
+  // a verdict; the scanner breaks and returns ''. The reviewer is treated as
+  // no-verdict (re-prompt for format) rather than silently finalizing.
+  test('getReviewerFinalizationVerdict returns empty when embedded JSON is truncated (no closing brace)', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Preamble. {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"',
+      ),
+    ).toBe('')
+  })
+
+  test('getReviewerFinalizationVerdict returns the last verdict when three embedded objects appear in sequence', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'First pass: {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}. Second: {"verdict":"NON_BLOCKING","findings":["x"],"coverage":"covered"}. Final: {"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}',
+      ),
+    ).toBe('LOOKS_GOOD')
+  })
+
+  // Embedded JSON with an unrecognized verdict value (not one of the three
+  // known labels) must be rejected as a finalization verdict — same contract
+  // as the structured and line-verdict paths.
+  test('getReviewerFinalizationVerdict rejects embedded JSON with an unknown verdict value', () => {
+    expect(
+      getReviewerFinalizationVerdict(
+        'Preamble. {"verdict":"MAYBE","findings":[],"coverage":"covered"}',
+      ),
+    ).toBe('')
+  })
 })

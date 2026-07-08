@@ -4,6 +4,10 @@ All notable changes to the `@openbuff/cli` package will be documented in this fi
 
 ## [Unreleased] - 2026-07-06
 
+### Added
+
+- The `code-reviewer` gate now recognizes an embedded JSON verdict object emitted after a prose preamble (e.g. `"I now have full context. … {\"verdict\":\"LOOKS_GOOD\",…}"`). The new `extractEmbeddedJsonVerdict` helper in `agents/base2/gate-reviewer.ts` tracks brace depth with `\"`-escape and JSON-string-boundary awareness so a `}` inside a string value does not prematurely close the object, uses the last embedded verdict when a reviewer echoes a prior `BLOCKING` before a final `LOOKS_GOOD`, and rejects truncated/unknown/`coverage:"missing"` verdicts. The inline `base2.handleSteps` mirror is kept in sync and parity-tested in `agents/__tests__/gate-reviewer.test.ts`. Documented in `docs/agents-and-tools.md` under a new "## Reviewer verdict contract" section.
+
 ## [1.1.11] - 2026-07-07
 
 Patch release covering context-pruner reviewer-memory hardening, auxiliary gate-state reset fixes, and updated default agent model routing.

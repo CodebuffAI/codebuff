@@ -1,6 +1,8 @@
 # tmux Knowledge for CLI Testing
 
-This document covers essential knowledge for using tmux to test and automate the Openbuff CLI.
+## Recent Validation Notes
+
+- Keep this tmux knowledge file current with `cli/src/` behavior so `bun --cwd=scripts run guard:memory-drift` passes before releases.
 
 ## Recommended: Use the Helper Scripts
 

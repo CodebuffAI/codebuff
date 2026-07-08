@@ -207,6 +207,47 @@ Each aux gate is predicate-gated: if no pending file matches its relevance predi
 
 The three done-flags (`testWriterGateDone`, `docWriterGateDone`, `preEditSecurityReviewDone`) and the `auxGatesLastPendingFiles` snapshot live on `Base2ActiveWorkState` (`agents/base2/gate-state.ts`). `detectPendingGateFileSetChange` + `resetAuxGateFlags` reset the flags when the pending file set changes (compared via `gateFileSetsEqual`, order-insensitive). The reset predicate compares the AUX-RELEVANT subset of pending files — files that at least one aux predicate would act on — so newly-written aux outputs (test files created by `test-writer`, doc files updated by `doc-writer`) do not perturb the snapshot and do not re-trigger the aux gates for the same pending file set.
 
+## Reviewer verdict contract
+
+The `code-reviewer` gate decides whether a turn may finish green. The orchestrator parses the reviewer's tool result to extract a finalization verdict (`LOOKS_GOOD`, `NON_BLOCKING`, or empty string `''`) and to surface any blocking findings. The parser prefers structured (parsed-object) verdicts over text-mode fallbacks, in this order: structured JSON verdict → line-verdict text → embedded JSON verdict in prose. The parsing helpers live in `agents/base2/gate-reviewer.ts` and are mirrored inline inside `createBase2.handleSteps` (the mirror is parity-tested by `agents/__tests__/gate-reviewer.test.ts`).
+
+A reviewer may emit its verdict in either text mode or structured (JSON) mode:
+
+- **Text mode** — the first visible token of the reply is a verdict label followed by `:` (the orchestrator strips any leading `` block first):
+  - `LOOKS_GOOD:` or `NON_BLOCKING:` → permits finalization.
+  - `BLOCKING:` → reopens the turn; the labels are surfaced to the orchestrator as `BLOCKING: <finding>` entries.
+- **Structured (JSON) mode** — a single JSON object with a `verdict` field (`"LOOKS_GOOD"`, `"NON_BLOCKING"`, or `"BLOCKING"`, case-insensitive, trimmed), an optional `findings` array (or string) of human-readable findings, and an optional `coverage` field (`"covered"`, `"missing"`, or `"n/a"`, case-insensitive).
+
+```json
+{"verdict":"LOOKS_GOOD","findings":[],"coverage":"covered"}
+{"verdict":"NON_BLOCKING","findings":["minor naming nit"],"coverage":"covered"}
+{"verdict":"BLOCKING","findings":["unhandled null case in parseFoo"],"coverage":"covered"}
+```
+
+### Embedded JSON verdict fallback
+
+When a reviewer emits a short prose preamble before its JSON verdict object (e.g. "I now have full context. … {"verdict":"LOOKS_GOOD",…}"), the structured (parsed-object) path only sees parsed JSON nodes, so a verdict embedded in a plain string is invisible to it. The text-mode fallback scans the raw reply text for an embedded `{"verdict"…}` object and honors it as a finalization verdict.
+
+Behavior of the embedded-verdict scanner:
+
+- Finds every `{"verdict"` opener and spans to its matching closing `}`, tracking brace depth with respect for `\"` escapes and JSON string boundaries (a `}` inside a JSON string value does not prematurely close the object).
+- Uses the **last** embedded verdict if multiple appear, so a reviewer that echoes a prior `BLOCKING` before a final `LOOKS_GOOD` yields the final `LOOKS_GOOD`.
+- A truncated object (opener with no matching `}`) yields no verdict (`''`), so a malformed reviewer reply is treated as no-verdict (re-prompt for format) rather than silently finalized.
+- Parses the captured object with `JSON.parse`; an unknown `verdict` value (not one of the three known labels) is rejected as a finalization verdict, matching the structured and line-verdict paths.
+
+### Coverage-adequacy contract
+
+`coverage: "missing"` is **BLOCKING regardless of the text verdict**: a reviewer that emits `{"verdict":"LOOKS_GOOD","coverage":"missing"}` does NOT permit finalization. The orchestrator surfaces this as `BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)`. This enforces the shared expectation that behavior-changing edits add a corresponding test case.
+
+### Crash vs. no-verdict
+
+`detectReviewerCrash` distinguishes a reviewer-agent crash from a reviewer that ran but emitted no recognizable verdict:
+
+- **Crash** — any object in the tool-result tree carrying an `errorMessage` string or `type === 'error'`. The message is surfaced verbatim; the orchestrator reports the reviewer crashed and the verdict cannot be trusted.
+- **No-verdict** — the reviewer replied without a recognizable verdict label or JSON object. The orchestrator re-prompts for format rather than treating the reply as a crash.
+
+The crash heuristic is depth-capped at 8 levels and will also classify an unrelated nested `errorMessage` (e.g. a failed inner tool call the reviewer made) as a reviewer-agent crash when the reviewer also produced no recognizable verdict; a reviewer whose inner tool call errored AND who produced no verdict is effectively crashed from the operator's perspective.
+
 ## Tools
 
 Tools represent the capabilities given to agents to interact with your system.
@@ -844,7 +885,7 @@ purpose:
 | Project scaffold | `init` (implicit) |
 | Provider account | `connect` (`chatgpt`, `connect:chatgpt`) — only present when `CHATGPT_OAUTH_ENABLED` is `true` |
 | Edit history | `undo`, `redo` |
-| Durable plans | `interview`, `plan`, `resume-plan` (`rp`), `update-plan` (`up`), `plan-status` (`ps`), `lessons` (`lesson`) |
+| Durable plans | `interview`, `resume-plan` (`rp`), `update-plan` (`up`), `plan-status` (`ps`), `lessons` (`lesson`) |
 | Code review | `review` |
 | Conversation | `new` (`n`, `clear`, `c`, `reset`, implicit), `history` (`chats`), `prompts` (`prompt-search`) |
 | Agent shortcuts | `agent:general` (inserts `@general-agent `) |
@@ -852,12 +893,20 @@ purpose:
 | Mode switching | `mode:<mode>` for every mode in `AGENT_MODES`, each with a `model:<mode>` alias |
 | Theme / session | `theme:toggle`, `exit` (`quit`, `q`, implicit) |
 
-`review` and `plan` use model-agnostic descriptions ("with the configured
-reviewer" / "with the configured planner"); they never claim a specific
-hosted model. The durable-plan quartet (`/resume-plan`, `/update-plan`,
-`/plan-status`, `/lessons`) is backed by the `update_plan_status` and
-`create_plan` tools documented above and is the user-facing surface to
-the PlanLink artifact flow.
+Starting a new durable plan is done by switching to plan MODE via
+`mode:plan` (documented in the Mode switching row below); the standalone
+`/plan` slash command has been removed because plan MODE already covers
+that entry path and produces structured plan artifacts. The durable-plan
+quartet (`/resume-plan`, `/update-plan`, `/plan-status`, `/lessons`) is
+backed by the `update_plan_status` and `create_plan` tools documented
+above and is the user-facing surface to the PlanLink artifact flow.
+`/resume-plan`, `/update-plan`, `/plan-status`, and `/lessons` accept a
+session target (slug or `.agents/sessions/<slug>` path) plus an optional
+trailing note via `splitPlanCommandArgs`. With no target, they open the
+plan-session picker instead of sending a prompt.
+
+`review` uses a model-agnostic description ("with the configured
+reviewer"); it never claims a specific hosted model.
 
 ### Skill commands
 

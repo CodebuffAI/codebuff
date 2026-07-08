@@ -2695,6 +2695,94 @@ ${securityReviewSection}
       function getReviewerFinalizationVerdict(
         toolResult: unknown,
       ): 'LOOKS_GOOD' | 'NON_BLOCKING' | '' {
+        function extractEmbeddedJsonVerdict(
+          text: string,
+        ): 'LOOKS_GOOD' | 'NON_BLOCKING' | '' {
+          // Reviewers sometimes emit a short prose preamble before their JSON
+          // verdict object (e.g. "I now have full context. ... {\"verdict\":...}").
+          // The structured (parsed-object) path only sees parsed JSON nodes, so a
+          // verdict embedded in a plain string is invisible to it. Scan the raw
+          // text for an embedded verdict object and honor it as a text-mode
+          // fallback. Use the LAST match: a reviewer may echo a prior BLOCKING
+          // before the final LOOKS_GOOD, and we want the final verdict.
+          //
+          // NOTE: this intentionally avoids a regex literal. The inline-base2
+          // parity test (gate-reviewer.test.ts) extracts function source via a
+          // naive brace-counting scanner that does not understand regex literals
+          // or character classes, so a `}` inside a regex pattern (e.g. `[^}]`
+          // or `\}`) would prematurely close the extracted function body and
+          // break `new Function(...)`. The indexOf + brace-depth scan below
+          // contains no regex literal, so it is safe for that extractor. The
+          // same scanner also does not understand string literals, so a bare
+          // `{` or `}` inside a quoted string (e.g. the opener needle or the
+          // character comparisons below) would permanently skew its depth; we
+          // therefore build the needle from char codes and compare via
+          // charCodeAt(0) so no brace character ever appears inside a string
+          // literal in this body.
+          const VERDICT_OBJECT_OPEN = String.fromCharCode(123) + '"verdict"'
+          const candidates = []
+          let searchFrom = 0
+          while (true) {
+            const opener = text.indexOf(VERDICT_OBJECT_OPEN, searchFrom)
+            if (opener < 0) break
+            let depth = 0
+            let inString = false
+            let escape = false
+            let end = -1
+            for (let i = opener; i < text.length; i += 1) {
+              const ch = text[i]
+              if (escape) {
+                escape = false
+                continue
+              }
+              if (ch === '\\') {
+                escape = true
+                continue
+              }
+              if (ch === '"') {
+                inString = !inString
+                continue
+              }
+              if (inString) continue
+              // charCodeAt(0) comparisons avoid bare `{`/`}` inside string
+              // literals, which the naive brace-counting extractor would also
+              // miscount.
+              if (ch.charCodeAt(0) === 123) depth += 1
+              else if (ch.charCodeAt(0) === 125) {
+                depth -= 1
+                if (depth === 0) {
+                  end = i
+                  break
+                }
+              }
+            }
+            if (end < 0) break
+            candidates.push(text.slice(opener, end + 1))
+            searchFrom = end + 1
+          }
+          if (candidates.length === 0) return ''
+          const last = candidates[candidates.length - 1]
+          try {
+            const parsed = JSON.parse(last)
+            const verdict =
+              typeof parsed.verdict === 'string'
+                ? parsed.verdict.trim().toUpperCase()
+                : ''
+            const coverage =
+              typeof parsed.coverage === 'string'
+                ? parsed.coverage.trim().toLowerCase()
+                : ''
+            // BLOCKING is never a finalization verdict, and missing coverage
+            // still blocks regardless of the text verdict (coverage-adequacy
+            // contract).
+            if (verdict !== 'LOOKS_GOOD' && verdict !== 'NON_BLOCKING') return ''
+            if (coverage === 'missing') return ''
+            return verdict === 'LOOKS_GOOD' ? 'LOOKS_GOOD' : 'NON_BLOCKING'
+          } catch {
+            return ''
+          }
+        }
+
         // Structured reviewer outputs take precedence so text-mode fallbacks
         // do not accidentally override an explicit JSON verdict.
         const structured = collectStructuredReviewerOutputs(toolResult)
@@ -2718,6 +2806,8 @@ ${securityReviewSection}
           if (/\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(normalized)) {
             return 'NON_BLOCKING'
           }
+          const embedded = extractEmbeddedJsonVerdict(normalized)
+          if (embedded) return embedded
         }
         return ''
       }

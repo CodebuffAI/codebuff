@@ -1,5 +1,9 @@
 # Common Package Knowledge
 
+## Recent Validation Notes
+
+- Keep this knowledge file current with `common/src/` behavior so `bun --cwd=scripts run guard:memory-drift` passes before releases.
+
 This package contains code shared across the Openbuff monorepo, especially the local/BYOK `cli`, `sdk`, agents, and runtime packages.
 
 ## Key Areas
