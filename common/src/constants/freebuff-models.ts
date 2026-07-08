@@ -41,6 +41,10 @@ export interface FreebuffModelOption {
   /** Whether the model accepts image input. Drives whether uploaded images
    *  are forwarded as real multimodal content vs. dropped/inlined as text. */
   multimodal: boolean
+  /** Whether the model is still being trialed and may be unreliable. Surfaced
+   *  in the picker as a "TEST" badge with a tooltip so users know it is not
+   *  yet production-grade. */
+  experimental?: boolean
 }
 
 /** Server-facing fallback copy for APIs and provider errors that can't know
@@ -212,6 +216,7 @@ const HY3_MODEL = {
   availability: 'always',
   premium: true,
   multimodal: false,
+  experimental: true,
 } as const satisfies FreebuffModelOption
 
 const HY3_ATLAS_MODEL = {
@@ -221,6 +226,7 @@ const HY3_ATLAS_MODEL = {
   availability: 'always',
   premium: true,
   multimodal: false,
+  experimental: true,
 } as const satisfies FreebuffModelOption
 
 const KAT_CODER_PRO_V2_MODEL = {
@@ -230,6 +236,7 @@ const KAT_CODER_PRO_V2_MODEL = {
   availability: 'always',
   premium: true,
   multimodal: false,
+  experimental: true,
 } as const satisfies FreebuffModelOption
 
 const MIMO_V25_MODEL = {
