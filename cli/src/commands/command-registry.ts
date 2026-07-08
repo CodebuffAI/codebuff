@@ -23,7 +23,6 @@ import {
 import {
   buildInterviewPrompt,
   buildLessonsPrompt,
-  buildPlanPrompt,
   buildResumePlanPrompt,
   buildReviewPromptFromArgs,
   buildUpdatePlanPrompt,
@@ -717,24 +716,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise enter interview mode
       useChatStore.getState().setInputMode('interview')
-    },
-  }),
-  defineCommandWithArgs({
-    name: 'plan',
-    handler: (params, args) => {
-      const trimmedArgs = args.trim()
-
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-
-      // If user provided plan text directly, send it immediately in plan mode
-      if (trimmedArgs) {
-        sendPromptCommand(params, buildPlanPrompt(trimmedArgs), 'PLAN')
-        return
-      }
-
-      // Otherwise enter plan mode
-      useChatStore.getState().setInputMode('plan')
     },
   }),
   defineCommandWithArgs({

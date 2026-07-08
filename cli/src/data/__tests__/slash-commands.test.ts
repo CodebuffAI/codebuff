@@ -57,9 +57,8 @@ describe('slash-commands module', () => {
       }
     })
 
-    test('contains the durable-plan command quartet plus /plan', () => {
+    test('contains the durable-plan command quartet', () => {
       for (const id of [
-        'plan',
         'resume-plan',
         'update-plan',
         'plan-status',
@@ -69,11 +68,14 @@ describe('slash-commands module', () => {
       }
     })
 
-    test('/plan description does not claim a hosted model (model-agnostic under BYOK)', () => {
-      const plan = SLASH_COMMANDS.find((cmd) => cmd.id === 'plan')
-      expect(plan).toBeDefined()
-      expect(plan!.description).not.toMatch(/GPT[-\s]?5\.4/i)
-      expect(plan!.description).not.toMatch(/GPT[-\s]?5/i)
+    test('does not register /plan (plan MODE supersedes the command)', () => {
+      expect(SLASH_COMMANDS.find((cmd) => cmd.id === 'plan')).toBeUndefined()
+    })
+
+    test('still exposes mode:plan so plan MODE remains invokable', () => {
+      const modePlan = SLASH_COMMANDS.find((cmd) => cmd.id === 'mode:plan')
+      expect(modePlan).toBeDefined()
+      expect(modePlan!.description).toMatch(/plan/i)
     })
 
     test('/review description does not claim a hosted model (model-agnostic under BYOK)', () => {

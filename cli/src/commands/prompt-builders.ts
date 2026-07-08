@@ -1,26 +1,10 @@
 /**
- * Centralized prompt builders for /plan and /review commands.
+ * Centralized prompt builders for /review commands.
  * This ensures consistent behavior regardless of entry path.
  */
 
-// Base prompt for plan command - always gathers context first
-export const PLAN_BASE_PROMPT = 'Gather all the relevant context and then spawn @thinker Think about how to implement the following:'
-
 // Base prompt for review command - always gathers context first
 export const REVIEW_BASE_PROMPT = 'Please gather all relevant context and then spawn @thinker to review:'
-
-/**
- * Build a plan prompt from user input.
- * @param input - The user's plan request (e.g., "add OAuth login")
- * @returns The full prompt to send to the agent
- */
-export function buildPlanPrompt(input: string): string {
-  const trimmedInput = input.trim()
-  if (!trimmedInput) {
-    return PLAN_BASE_PROMPT
-  }
-  return `${PLAN_BASE_PROMPT}\n\n${trimmedInput}`
-}
 
 const normalizePlanSessionTarget = (target: string): string => {
   const trimmed = target.trim()

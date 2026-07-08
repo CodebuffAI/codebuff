@@ -94,11 +94,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description: 'AI asks a series of questions to flesh out request into a spec',
   },
   {
-    id: 'plan',
-    label: 'plan',
-    description: 'Create a durable plan with the configured planner',
-  },
-  {
     id: 'resume-plan',
     label: 'resume-plan',
     description: 'Resume a durable plan session from STATUS.md / PLAN.md',

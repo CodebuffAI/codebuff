@@ -210,6 +210,25 @@ describe('command factory pattern', () => {
         ).toBe(true)
       }
     })
+
+    test('does not register /plan (plan MODE supersedes the command)', () => {
+      expect(COMMAND_REGISTRY.find((c) => c.name === 'plan')).toBeUndefined()
+    })
+
+    test('retains the durable-plan quartet plus mode:plan after /plan removal', () => {
+      for (const name of [
+        'resume-plan',
+        'update-plan',
+        'plan-status',
+        'lessons',
+        'mode:plan',
+      ]) {
+        expect(
+          COMMAND_REGISTRY.find((c) => c.name === name),
+          `Command ${name} should remain registered`,
+        ).toBeDefined()
+      }
+    })
   })
 
   describe('new command arg handling', () => {
@@ -289,24 +308,6 @@ describe('command factory pattern', () => {
 
     afterEach(() => {
       fs.rmSync(tmpRoot, { recursive: true, force: true })
-    })
-
-    test('plan sends a plan-mode create prompt when args are provided', () => {
-      const planCmd = COMMAND_REGISTRY.find((c) => c.name === 'plan')
-      expect(planCmd).toBeDefined()
-
-      const sendMessage = mock(async () => {})
-      const params = createMockParams({
-        inputValue: '/plan build auth',
-        sendMessage,
-      })
-
-      planCmd!.handler(params, 'build auth')
-
-      expect(sendMessage).toHaveBeenCalledWith({
-        content: expect.stringContaining('build auth'),
-        agentMode: 'PLAN',
-      })
     })
 
     test('resume-plan reads artifacts into the prompt', () => {

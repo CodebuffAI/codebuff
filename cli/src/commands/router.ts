@@ -14,7 +14,7 @@ import {
   parseCommandInput,
 } from './router-utils'
 import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
+import { buildInterviewPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { trackEvent } from '../utils/analytics'
@@ -309,22 +309,6 @@ export async function routeUserPrompt(
     inputRef.current?.focus()
 
     runBashCommand(trimmed)
-    return
-  }
-
-  // Handle plan mode input
-  if (inputMode === 'plan') {
-    if (!trimmed) return
-    saveToHistory(trimmed)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    setInputMode('default')
-    setInputFocused(true)
-    inputRef.current?.focus()
-
-    sendMessage({ content: buildPlanPrompt(trimmed), agentMode: 'PLAN' })
-    setTimeout(() => {
-      scrollToLatest()
-    }, 0)
     return
   }
 
