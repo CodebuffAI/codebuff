@@ -295,7 +295,7 @@ export const FreebuffReferralBanner: React.FC = () => {
         paddingLeft: 1,
         paddingRight: 1,
         borderStyle: 'rounded',
-        borderColor: theme.primary,
+        borderColor: theme.muted,
         marginTop: 1,
         // Never let a height-starved landing column squash the card — that
         // would draw the bordered action buttons on top of the status line.
