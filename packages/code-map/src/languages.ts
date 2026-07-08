@@ -24,6 +24,7 @@ import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.s
 import kotlinQuery from './tree-sitter-queries/tree-sitter-kotlin-tags.scm'
 import phpQuery from './tree-sitter-queries/tree-sitter-php-tags.scm'
 import swiftQuery from './tree-sitter-queries/tree-sitter-swift-tags.scm'
+import gdscriptQuery from './tree-sitter-queries/tree-sitter-gdscript-tags.scm'
 import { getDirnameDynamically } from './utils'
 
 /* ------------------------------------------------------------------ */
@@ -62,6 +63,7 @@ export const WASM_FILES = {
   'tree-sitter-kotlin.wasm': 'tree-sitter-kotlin.wasm',
   'tree-sitter-php.wasm': 'tree-sitter-php.wasm',
   'tree-sitter-swift.wasm': 'tree-sitter-swift.wasm',
+  'tree-sitter-gdscript.wasm': 'tree-sitter-gdscript.wasm',
 } as const
 
 /* ------------------------------------------------------------------ */
@@ -132,6 +134,11 @@ export const languageTable: LanguageConfig[] = [
     extensions: ['.kt', '.kts'],
     wasmFile: WASM_FILES['tree-sitter-kotlin.wasm'],
     queryPathOrContent: kotlinQuery,
+  },
+  {
+    extensions: ['.gd'],
+    wasmFile: WASM_FILES['tree-sitter-gdscript.wasm'],
+    queryPathOrContent: gdscriptQuery,
   },
 ]
 

@@ -180,6 +180,10 @@ async function copyWasmFiles() {
     'tree-sitter-rust.wasm',
     'tree-sitter-tsx.wasm',
     'tree-sitter-typescript.wasm',
+    'tree-sitter-kotlin.wasm',
+    'tree-sitter-php.wasm',
+    'tree-sitter-swift.wasm',
+    'tree-sitter-gdscript.wasm',
   ]
 
   // Create shared wasm directory

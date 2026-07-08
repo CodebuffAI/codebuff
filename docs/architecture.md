@@ -101,7 +101,9 @@ Provider wrappers and support utilities used by the SDK to contact user-configur
 
 Tree-sitter based source code parser that extracts function/variable names for file tree display. Used locally by the `read_subtree` tool.
 
-- **Supports:** TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, C#, Ruby, PHP
+- **Supports:** TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, C#, Ruby, PHP, Swift, Kotlin, GDScript
+
+The tree-sitter WASM grammars ship from `@vscode/tree-sitter-wasm`. GDScript is compiled from the `PrestonKnopp/tree-sitter-gdscript` grammar and manually placed in the same `wasm/` directory. If a grammar's `.wasm` file is absent at runtime, `getLanguageConfig` catches the load failure and returns `undefined` (graceful no-op) — files of that extension are skipped for symbol extraction but still indexed by path and extension.
 - **Depends on:** nothing (leaf package)
 
 ### `packages/indexer/` — Codebase Graph Indexer

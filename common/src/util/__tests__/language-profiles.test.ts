@@ -37,6 +37,7 @@ describe('language profile prompts', () => {
       file('composer.json'),
       file('Package.swift'),
       file('build.gradle.kts'),
+      file('project.godot'),
       directory('src', [
         file('main.py', 'src/main.py'),
         file('lib.rs', 'src/lib.rs'),
@@ -57,6 +58,7 @@ describe('language profile prompts', () => {
       'php',
       'swift',
       'kotlin',
+      'gdscript',
     ])
   })
 
@@ -88,6 +90,7 @@ describe('language profile prompts', () => {
       ['Package.swift', 'swift'],
       ['Main.kt', 'kotlin'],
       ['build.gradle.kts', 'kotlin'],
+      ['Player.gd', 'gdscript'],
     ]
 
     for (const [name, id] of cases) {
@@ -108,6 +111,7 @@ describe('language profile prompts', () => {
       ['composer.json', 'php'],
       ['Package.swift', 'swift'],
       ['settings.gradle.kts', 'kotlin'],
+      ['project.godot', 'gdscript'],
     ]
 
     for (const [name, id] of cases) {
@@ -161,6 +165,35 @@ describe('language profile prompts', () => {
     expect(prompt).toContain('Use language-native idioms')
     expect(prompt).toContain('`read_files` `agents/idioms/rust.md`')
     expect(prompt).not.toContain('Let ownership and borrowing drive the design')
+  })
+
+  test('detects GDScript from .gd extension and project.godot manifest', () => {
+    // Extension-based detection
+    expect(
+      detectLanguageProfiles([file('PlayerController.gd')]).map((p) => p.id),
+    ).toEqual(['gdscript'])
+
+    // Manifest-based detection
+    expect(
+      detectLanguageProfiles([file('project.godot')]).map((p) => p.id),
+    ).toEqual(['gdscript'])
+
+    // Case-insensitive extension
+    expect(
+      detectLanguageProfiles([file('PlayerController.GD')]).map((p) => p.id),
+    ).toEqual(['gdscript'])
+  })
+
+  test('renders GDScript profile guidance with idiom file pointer', () => {
+    const prompt = formatLanguageProfilePromptForFileTree([
+      file('project.godot'),
+      directory('scripts', [file('Player.gd', 'scripts/Player.gd')]),
+    ])
+
+    expect(prompt).toContain('## Language profile')
+    expect(prompt).toContain('Detected: GDScript')
+    expect(prompt).toContain('Godot node conventions')
+    expect(prompt).toContain('`read_files` `agents/idioms/gdscript.md`')
   })
 
   test('renders only relevant idiom file pointers for detected languages', () => {

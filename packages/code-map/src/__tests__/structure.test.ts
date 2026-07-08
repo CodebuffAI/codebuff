@@ -269,4 +269,32 @@ describe('parseFileStructure', () => {
     expect(await parseFileStructure('func demo() {}', 'App.swift')).toBeNull()
     expect(await parseFileStructure('fun demo() {}', 'Main.kt')).toBeNull()
   })
+
+  test('extracts GDScript functions, classes, and variables (Godot 4.x)', async () => {
+    const src = [
+      'extends Node2D', // 1
+      '', // 2
+      'class_name PlayerController', // 3
+      '', // 4
+      'var speed: float = 300.0', // 5
+      'const MAX_HP: int = 100', // 6
+      '', // 7
+      'func _ready():', // 8
+      '    pass', // 9
+      '', // 10
+      'func move(direction: Vector2) -> void:', // 11
+      '    position += direction * speed', // 12
+      '', // 13
+      'signal health_changed(amount: int)', // 14
+    ].join('\n')
+
+    const syms = (await parseFileStructure(src, 'Player.gd')) ?? []
+    const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
+    expect(byName.PlayerController).toMatchObject({ kind: 'class', startLine: 3 })
+    expect(byName.speed).toMatchObject({ kind: 'variable', startLine: 5 })
+    expect(byName.MAX_HP).toMatchObject({ kind: 'constant', startLine: 6 })
+    expect(byName._ready).toMatchObject({ kind: 'function', startLine: 8, endLine: 9 })
+    expect(byName.move).toMatchObject({ kind: 'function', startLine: 11, endLine: 12 })
+    expect(byName.health_changed).toMatchObject({ kind: 'signal', startLine: 14 })
+  })
 })

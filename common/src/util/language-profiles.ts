@@ -12,6 +12,7 @@ export type SupportedLanguageId =
   | 'php'
   | 'swift'
   | 'kotlin'
+  | 'gdscript'
 
 export type LanguageProfile = {
   id: SupportedLanguageId
@@ -98,6 +99,13 @@ const LANGUAGE_PROFILES: Record<SupportedLanguageId, LanguageProfile> = {
     guidance:
       'Prefer null-safety, data classes, sealed types, coroutines, and Gradle conventions that match the surrounding code.',
   },
+  gdscript: {
+    id: 'gdscript',
+    displayName: 'GDScript',
+    idiomFile: 'agents/idioms/gdscript.md',
+    guidance:
+      'Follow Godot node conventions, use signals and typed variables where the project does, and preserve scene/resource references and @export patterns.',
+  },
 }
 
 const LANGUAGE_ORDER: SupportedLanguageId[] = [
@@ -112,6 +120,7 @@ const LANGUAGE_ORDER: SupportedLanguageId[] = [
   'php',
   'swift',
   'kotlin',
+  'gdscript',
 ]
 
 const EXTENSION_LANGUAGE_MAP: Record<string, SupportedLanguageId> = {
@@ -142,6 +151,7 @@ const EXTENSION_LANGUAGE_MAP: Record<string, SupportedLanguageId> = {
   '.swift': 'swift',
   '.kt': 'kotlin',
   '.kts': 'kotlin',
+  '.gd': 'gdscript',
 }
 
 const MANIFEST_EXTENSION_LANGUAGE_MAP: Record<string, SupportedLanguageId> = {
@@ -176,6 +186,7 @@ const MANIFEST_LANGUAGE_MAP: Record<string, SupportedLanguageId> = {
   'Package.swift': 'swift',
   'build.gradle.kts': 'kotlin',
   'settings.gradle.kts': 'kotlin',
+  'project.godot': 'gdscript',
 }
 
 function getFileExtension(name: string): string {

@@ -69,6 +69,12 @@ const DEFINITION_NODE_KINDS: Record<string, string> = {
   singleton_method: 'method',
   class: 'class',
   module: 'module',
+  // GDScript (Godot)
+  class_name_statement: 'class',
+  variable_statement: 'variable',
+  const_statement: 'constant',
+  signal_statement: 'signal',
+  enum_definition: 'enum',
   // Go
   type_spec: 'type',
 }
