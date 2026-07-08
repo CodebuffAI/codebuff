@@ -228,12 +228,15 @@ try {
   console.log('\n10. Testing environment variable override...')
   const originalPath = process.env.CODEBUFF_RG_PATH
 
-  // Set environment variable to override
-  process.env.CODEBUFF_RG_PATH = '/usr/bin/rg'
+  // Set environment variable to override — use a path that is guaranteed
+  // to exist (the test file itself) so getBundledRgPath's existsSync check
+  // passes and the override is respected.
+  const overrideTarget = __filename
+  process.env.CODEBUFF_RG_PATH = overrideTarget
 
   try {
     const overridePath = getBundledRgPath(import.meta.url)
-    if (overridePath !== '/usr/bin/rg') {
+    if (overridePath !== overrideTarget) {
       throw new Error('Environment variable override not working')
     }
     console.log('✅ Environment variable override works')
