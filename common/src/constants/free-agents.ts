@@ -9,6 +9,9 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_HY3_ATLAS_MODEL_ID,
+  FREEBUFF_HY3_MODEL_ID,
+  FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -105,6 +108,11 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
+  'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
+  'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_ATLAS_MODEL_ID]),
+  'base2-free-kat-coder-pro-v2': new Set([
+    FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+  ]),
 
   // Freebuff Desktop's single hosted root agent — one root id across all its
   // models (the user picks the model per tab), so it allows the full desktop

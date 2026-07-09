@@ -385,6 +385,10 @@ export function occupiesFreebuffDesktopSlot(
  *  (CLI, desktop) agree on the exact strings instead of redefining literals. */
 export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
 export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
+/** Trusted server-to-server header. Only the Codebuff API may honor this when
+ *  the request authenticates as the Freebuff Web service account; browser and
+ *  normal API callers must not be able to select another user's session row. */
+export const FREEBUFF_ACTING_USER_HEADER = 'x-freebuff-acting-user-id'
 /** Set to '1' by Freebuff Desktop to opt into multi-session mode (concurrent
  *  per-tab sessions); absent for CLI/web, which keep one session per user. */
 export const FREEBUFF_MULTI_SESSION_HEADER = 'x-freebuff-multi-session'
@@ -536,6 +540,28 @@ export function isFreebuffModelAllowedForAccessTier(
   return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
 }
 
+/** Session admission is shared by CLI/Desktop/Web/Cloud. The CLI picker only
+ *  uses SUPPORTED_FREEBUFF_MODELS, while Web/Cloud have a small set of
+ *  trial/god-only model ids. Those Web-only ids still draw from the same
+ *  session pools, so the admission layer accepts the union here without
+ *  changing the CLI picker. */
+export function isFreebuffSessionModelId(
+  id: string | null | undefined,
+): id is SupportedFreebuffModelId | FreebuffWebModelId {
+  return isSupportedFreebuffModelId(id) || isFreebuffWebModelId(id, {
+    includeGodOnly: true,
+  })
+}
+
+export function isFreebuffSessionModelAllowedForAccessTier(
+  model: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): boolean {
+  if (!model) return false
+  if (accessTier !== 'limited') return isFreebuffSessionModelId(model)
+  return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+}
+
 export function isFreebuffModelId(
   id: string | null | undefined,
 ): id is FreebuffModelId {
@@ -591,6 +617,20 @@ export function resolveFreebuffModelForAccessTier(
     : FALLBACK_FREEBUFF_MODEL_ID
 }
 
+export function resolveFreebuffSessionModelForAccessTier(
+  id: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): SupportedFreebuffModelId | FreebuffWebModelId {
+  if (accessTier === 'limited') {
+    return isFreebuffSessionModelAllowedForAccessTier(id, accessTier)
+      ? (id as SupportedFreebuffModelId)
+      : LIMITED_FREEBUFF_MODEL_ID
+  }
+  return isFreebuffSessionModelId(id)
+    ? id
+    : (FALLBACK_FREEBUFF_MODEL_ID as SupportedFreebuffModelId)
+}
+
 export function isSupportedFreebuffModelId(
   id: string | null | undefined,
 ): id is SupportedFreebuffModelId {
@@ -644,6 +684,12 @@ export function isFreebuffWebPremiumModelId(
   return FREEBUFF_WEB_PREMIUM_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
+}
+
+export function isFreebuffSessionPremiumModelId(
+  id: string | null | undefined,
+): boolean {
+  return isFreebuffWebPremiumModelId(id)
 }
 
 /** Whether `model` occupies the one-per-user Freebuff Desktop premium
@@ -790,6 +836,14 @@ export function isFreebuffModelAvailable(
 ): boolean {
   const model = SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id)
   if (!model) return false
+  return model.availability === 'always' || isFreebuffDeploymentHours(now)
+}
+
+export function isFreebuffSessionModelAvailable(
+  id: string,
+  now: Date = new Date(),
+): boolean {
+  const model = getFreebuffWebModel(id)
   return model.availability === 'always' || isFreebuffDeploymentHours(now)
 }
 
