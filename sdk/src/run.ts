@@ -192,6 +192,50 @@ const STATE_SNAPSHOT_INTERVAL_MS = 5_000
 export const STATE_SNAPSHOT_INTERRUPTION_MESSAGE =
   'The session ended before this response completed. Partial progress has been preserved.'
 
+/**
+ * Copy a SessionState for a checkpoint / cancellation snapshot: the caller
+ * appends an interruption message and must not disturb the live session.
+ *
+ * lodash cloneDeep of the whole session is expensive — ~230ms on an ~8 MB
+ * session — and this runs on the CLI's render/input thread every ~5s at each
+ * in-flight snapshot, a major source of long-session freezes.
+ *
+ * Only mainAgentState needs an independent copy: the mutations that would
+ * otherwise bleed into an already-captured snapshot all live there —
+ * messageHistory (.push), agentContext subgoals (update_subgoal). We copy it
+ * with a JSON round-trip, which is ~50x faster than cloneDeep (~4ms). The
+ * snapshot is only ever consumed as JSON — persisted to disk, and re-serialized
+ * when fed back as previousRunState — so a JSON round-trip is byte-for-byte
+ * parity with the prior cloneDeep→JSON.stringify path. It also can't choke on
+ * the URL / Buffer / Uint8Array instances the message schema permits in
+ * image/file content (structuredClone throws on URL and rewrites
+ * Buffer→Uint8Array; both change the persisted bytes or fall back).
+ *
+ * fileContext is large, effectively read-only during a run, and already
+ * persisted as-is, so we share it by reference rather than copy it.
+ *
+ * Falls back to cloneDeep only if JSON.stringify throws (circular refs /
+ * BigInt — which AgentState isn't expected to contain, as it uses IDs rather
+ * than object back-refs) so a snapshot — or the final error state, which shares
+ * this path — can never fail to build.
+ */
+export function cloneSessionState(
+  state: SessionState,
+  logger?: Logger,
+): SessionState {
+  let mainAgentState: SessionState['mainAgentState']
+  try {
+    mainAgentState = JSON.parse(JSON.stringify(state.mainAgentState))
+  } catch (error) {
+    logger?.debug?.(
+      { error: error instanceof Error ? error.message : String(error) },
+      'JSON clone of mainAgentState failed; falling back to cloneDeep',
+    )
+    mainAgentState = cloneDeep(state.mainAgentState)
+  }
+  return { fileContext: state.fileContext, mainAgentState }
+}
+
 const createAbortError = (signal?: AbortSignal) => {
   if (signal?.reason instanceof Error) {
     return signal.reason
@@ -362,7 +406,7 @@ async function runOnce({
     const runtimeMadeProgress =
       sessionState.mainAgentState.messageHistory !== initialMessageHistory
 
-    const state = cloneDeep(sessionState)
+    const state = cloneSessionState(sessionState, logger)
 
     // Only add the user's message if the runtime didn't get a chance to add it.
     if (!runtimeMadeProgress && (prompt || preparedContent)) {
