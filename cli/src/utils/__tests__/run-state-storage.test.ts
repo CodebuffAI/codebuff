@@ -21,6 +21,8 @@ import {
   setLiveChatStateProvider,
   clearLiveChatStateProvider,
   flushLiveChatState,
+  scheduleCheckpointSave,
+  settleCheckpointSave,
 } from '../run-state-storage'
 import type { ChatMessage, ContentBlock } from '../../types/chat'
 import type { RunState } from '@codebuff/sdk'
@@ -536,5 +538,81 @@ describe('atomic save and resilient load', () => {
     fs.writeFileSync(path.join(chatDir, 'chat-messages.json'), '[')
 
     expect(loadMostRecentChatState()).toBeNull()
+  })
+})
+
+describe('scheduleCheckpointSave (async, coalescing)', () => {
+  const chatDir = path.join(os.tmpdir(), 'codebuff-test-checkpoint-chatdir')
+
+  const runState = (marker: string) =>
+    ({ output: { type: 'error', message: marker } }) as unknown as RunState
+
+  const messages = (marker: string): ChatMessage[] => [
+    {
+      id: 'msg-1',
+      variant: 'user',
+      content: marker,
+      timestamp: new Date().toISOString(),
+    },
+  ]
+
+  const readSavedMessages = () =>
+    JSON.parse(
+      fs.readFileSync(path.join(chatDir, 'chat-messages.json'), 'utf8'),
+    ) as ChatMessage[]
+
+  beforeEach(() => {
+    fs.rmSync(chatDir, { recursive: true, force: true })
+    setChatDirOverrideForTesting(chatDir)
+  })
+
+  afterEach(async () => {
+    await settleCheckpointSave()
+    setChatDirOverrideForTesting(undefined)
+    fs.rmSync(chatDir, { recursive: true, force: true })
+  })
+
+  test('persists the scheduled state after settling', async () => {
+    scheduleCheckpointSave(runState('a'), messages('first'))
+
+    await settleCheckpointSave()
+
+    expect(readSavedMessages()[0].content).toBe('first')
+  })
+
+  test('does not write synchronously (deferred off the calling tick)', () => {
+    scheduleCheckpointSave(runState('a'), messages('deferred'))
+
+    // Nothing on disk yet: the write is scheduled for a later tick.
+    expect(fs.existsSync(path.join(chatDir, 'chat-messages.json'))).toBe(false)
+  })
+
+  test('coalesces a burst to the latest state', async () => {
+    scheduleCheckpointSave(runState('a'), messages('one'))
+    scheduleCheckpointSave(runState('b'), messages('two'))
+    scheduleCheckpointSave(runState('c'), messages('three'))
+
+    await settleCheckpointSave()
+
+    // Whatever intermediate states were dropped, the newest wins.
+    expect(readSavedMessages()[0].content).toBe('three')
+  })
+
+  test('an authoritative save after settling is the last write (no clobber)', async () => {
+    scheduleCheckpointSave(runState('a'), messages('checkpoint'))
+    // settle waits for the queued async write to flush, so the synchronous
+    // final save below is guaranteed to land last.
+    await settleCheckpointSave()
+
+    saveChatState(runState('final'), messages('authoritative'))
+    // Give any lingering async write a chance to (incorrectly) land on top.
+    await new Promise((r) => setImmediate(r))
+    await settleCheckpointSave()
+
+    expect(readSavedMessages()[0].content).toBe('authoritative')
+  })
+
+  test('settleCheckpointSave is safe with nothing scheduled', async () => {
+    await expect(settleCheckpointSave()).resolves.toBeUndefined()
   })
 })
