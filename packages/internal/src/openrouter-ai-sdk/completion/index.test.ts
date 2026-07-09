@@ -455,6 +455,13 @@ describe('doStream', () => {
         `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
           usage,
         )},"choices":[]}\n\n`,
+        `data: ${JSON.stringify({
+          object: 'billing.summary',
+          billing: {
+            source: 'request',
+            request: { success: true, stream: true },
+          },
+        })}\n\n`,
         'data: [DONE]\n\n',
       ],
     }
@@ -504,6 +511,43 @@ describe('doStream', () => {
         },
       },
     ])
+  })
+
+  it('should ignore billing.summary telemetry before text starts', async () => {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: ${JSON.stringify({
+          object: 'billing.summary',
+          billing: {
+            source: 'request',
+            request: { success: true, stream: true },
+          },
+        })}\n\n`,
+        `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"Hello","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+        `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"choices":[{"text":"","index":0,"logprobs":null,"finish_reason":"stop"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    }
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    })
+
+    const elements = await convertReadableStreamToArray(stream)
+
+    expect(elements.some((element) => element.type === 'error')).toBe(false)
+    expect(elements).toContainEqual({
+      type: 'text-delta',
+      delta: 'Hello',
+      id: expect.any(String),
+    })
+    expect(elements).toContainEqual(
+      expect.objectContaining({
+        type: 'finish',
+        finishReason: 'stop',
+      }),
+    )
   })
 
   it('should handle error stream parts', async () => {

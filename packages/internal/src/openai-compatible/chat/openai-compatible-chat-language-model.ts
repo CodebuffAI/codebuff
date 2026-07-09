@@ -573,13 +573,15 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
+              if (isOpenAICompatibleBillingSummaryChunk(chunk.rawValue)) {
+                return;
+              }
+
               finishReason = 'error';
               controller.enqueue({ type: 'error', error: chunk.error });
               return;
             }
             const value = chunk.value;
-
-            metadataExtractor?.processChunk(chunk.rawValue);
 
             // handle error chunks:
             if ('error' in value) {
@@ -590,6 +592,15 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
               });
               return;
             }
+
+            // Some OpenAI-compatible providers send successful billing telemetry
+            // chunks outside the normal chat choices stream. Ignore them without
+            // emitting response metadata or changing finish state.
+            if (isOpenAICompatibleBillingSummaryChunk(value)) {
+              return;
+            }
+
+            metadataExtractor?.processChunk(chunk.rawValue);
 
             if (isFirstChunk) {
               isFirstChunk = false;
@@ -938,6 +949,11 @@ const createOpenAICompatibleChatChunkSchema = <
   errorSchema: ERROR_SCHEMA,
 ) =>
   z.union([
+    z
+      .object({
+        object: z.literal('billing.summary'),
+      })
+      .passthrough(),
     z.object({
       id: z.string().nullish(),
       created: z.number().nullish(),
@@ -973,3 +989,23 @@ const createOpenAICompatibleChatChunkSchema = <
     }),
     errorSchema,
   ]);
+
+type OpenAICompatibleChatChunk = z.infer<
+  ReturnType<typeof createOpenAICompatibleChatChunkSchema>
+>;
+
+type OpenAICompatibleBillingSummaryChunk = Extract<
+  OpenAICompatibleChatChunk,
+  { object: 'billing.summary' }
+>;
+
+function isOpenAICompatibleBillingSummaryChunk(
+  value: unknown,
+): value is OpenAICompatibleBillingSummaryChunk {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    'object' in value &&
+    value.object === 'billing.summary'
+  );
+}

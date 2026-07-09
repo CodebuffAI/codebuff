@@ -85,7 +85,16 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       )
     }
 
-    nextResponseChunks.push('data: [DONE]\n\n')
+    nextResponseChunks.push(
+      `data: ${JSON.stringify({
+        object: 'billing.summary',
+        billing: {
+          source: 'request',
+          request: { success: true, stream: true },
+        },
+      })}\n\n`,
+      'data: [DONE]\n\n',
+    )
   }
 
   it('should include stream_options.include_usage in request when enabled', async () => {
@@ -153,6 +162,8 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     // Read all chunks from the stream
     const chunks = await convertReadableStreamToArray(result.stream)
+
+    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false)
 
     // Find the finish chunk
     const finishChunk = chunks.find((chunk) => chunk.type === 'finish')

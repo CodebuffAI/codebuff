@@ -11,6 +11,7 @@ import {
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages'
 import { getChatCompletionToolChoice } from './get-tool-choice'
 import {
+  isOpenRouterBillingSummaryChunk,
   OpenRouterNonStreamChatCompletionResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
 } from './schemas'
@@ -479,6 +480,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             const value = chunk.value
+
+            // Some OpenAI-compatible providers/proxies send successful billing
+            // telemetry chunks outside the normal choices stream. Ignore them
+            // without changing finish state or emitting errors.
+            if (isOpenRouterBillingSummaryChunk(value)) {
+              return
+            }
 
             // handle error chunks:
             if ('error' in value) {

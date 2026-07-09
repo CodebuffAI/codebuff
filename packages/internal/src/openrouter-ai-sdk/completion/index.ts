@@ -8,7 +8,11 @@ import {
 } from '@ai-sdk/provider-utils'
 
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt'
-import { OpenRouterCompletionChunkSchema } from './schemas'
+import {
+  isOpenRouterBillingSummaryChunk,
+  OpenRouterNonStreamCompletionResponseSchema,
+  OpenRouterStreamCompletionChunkSchema,
+} from './schemas'
 import { openrouterFailedResponseHandler } from '../schemas/error-response'
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason'
 
@@ -161,7 +165,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        OpenRouterCompletionChunkSchema,
+        OpenRouterNonStreamCompletionResponseSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -232,7 +236,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        OpenRouterCompletionChunkSchema,
+        OpenRouterStreamCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -251,7 +255,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     return {
       stream: response.pipeThrough(
         new TransformStream<
-          ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
+          ParseResult<z.infer<typeof OpenRouterStreamCompletionChunkSchema>>,
           LanguageModelV2StreamPart
         >({
           transform(chunk, controller) {
@@ -263,6 +267,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
             }
 
             const value = chunk.value
+
+            // Some OpenAI-compatible providers/proxies send successful billing
+            // telemetry chunks outside the normal choices stream. Ignore them
+            // without changing finish state or emitting errors.
+            if (isOpenRouterBillingSummaryChunk(value)) {
+              return
+            }
 
             // handle error chunks:
             if ('error' in value) {

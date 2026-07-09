@@ -221,6 +221,48 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
     );
   });
 
+  it('ignores billing.summary telemetry chunks in streaming responses', async () => {
+    const chunks = await collectStreamChunks([
+      {
+        id: 'chatcmpl-test',
+        model: 'test-model',
+        choices: [
+          {
+            delta: { role: 'assistant', content: 'Hello' },
+            finish_reason: null,
+          },
+        ],
+      },
+      {
+        object: 'billing.summary',
+        billing: { total_cost: 0.001 },
+      },
+      {
+        id: 'chatcmpl-test',
+        model: 'test-model',
+        choices: [
+          {
+            delta: {},
+            finish_reason: 'stop',
+          },
+        ],
+      },
+    ]);
+
+    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false);
+    expect(chunks).toContainEqual({
+      type: 'text-delta',
+      id: 'txt-0',
+      delta: 'Hello',
+    });
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'finish',
+        finishReason: 'stop',
+      }),
+    );
+  });
+
   // Reproduces the Bedrock-proxy bug: a single logical tool call whose JSON
   // arguments are streamed truncated (missing the closing brace) in the first
   // delta, with the orphaned suffix re-emitted as a SECOND tool_calls entry

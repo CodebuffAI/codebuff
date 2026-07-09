@@ -63,8 +63,12 @@ describe('shared craftsmanship prompt sections', () => {
     expect(broadAuditSection).toContain('accessibility')
     expect(broadAuditSection).toContain('responsiveness')
     expect(broadAuditSection).toContain('explicitly mark frontend/UI coverage out-of-scope')
-    expect(broadAuditSection).toContain('general-agent audit shards')
+    expect(broadAuditSection).toContain('file-picker is discovery-focused')
+    expect(broadAuditSection).toContain('write their findings to durable files')
+    expect(broadAuditSection).toContain('general-agent shards')
     expect(broadAuditSection).toContain('file-picker + code-searcher coverage')
+    expect(broadAuditSection).toContain('spawn thinker')
+    expect(broadAuditSection).toContain('has no tools')
   })
 
   test('gitDisciplineSection contains the required git-discipline topics (not byte-frozen)', () => {

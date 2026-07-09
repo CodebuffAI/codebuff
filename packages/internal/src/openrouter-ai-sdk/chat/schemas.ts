@@ -95,9 +95,16 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
       }),
     ),
   })
+const OpenRouterBillingSummaryChunkSchema = z
+  .object({
+    object: z.literal('billing.summary'),
+  })
+  .passthrough()
+
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
 export const OpenRouterStreamChatCompletionChunkSchema = z.union([
+  OpenRouterBillingSummaryChunkSchema,
   OpenRouterChatCompletionBaseResponseSchema.extend({
     choices: z.array(
       z.object({
@@ -162,3 +169,18 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
   }),
   OpenRouterErrorResponseSchema,
 ])
+
+export type OpenRouterBillingSummaryChunk = z.infer<
+  typeof OpenRouterBillingSummaryChunkSchema
+>
+
+export function isOpenRouterBillingSummaryChunk(
+  value: unknown,
+): value is OpenRouterBillingSummaryChunk {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    'object' in value &&
+    value.object === 'billing.summary'
+  )
+}

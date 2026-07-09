@@ -273,12 +273,23 @@ export class OpenAICompatibleCompletionLanguageModel
 
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
+              if (isOpenAICompatibleBillingSummaryChunk(chunk.rawValue)) {
+                return;
+              }
+
               finishReason = 'error';
               controller.enqueue({ type: 'error', error: chunk.error });
               return;
             }
 
             const value = chunk.value;
+
+            // Some OpenAI-compatible providers send successful billing telemetry
+            // chunks outside the normal completion choices stream. Ignore them
+            // without emitting response metadata or changing finish state.
+            if (isOpenAICompatibleBillingSummaryChunk(value)) {
+              return;
+            }
 
             // handle error chunks:
             if ('error' in value) {
@@ -372,6 +383,11 @@ const createOpenAICompatibleCompletionChunkSchema = <
   errorSchema: ERROR_SCHEMA,
 ) =>
   z.union([
+    z
+      .object({
+        object: z.literal('billing.summary'),
+      })
+      .passthrough(),
     z.object({
       id: z.string().nullish(),
       created: z.number().nullish(),
@@ -387,3 +403,23 @@ const createOpenAICompatibleCompletionChunkSchema = <
     }),
     errorSchema,
   ]);
+
+type OpenAICompatibleCompletionChunk = z.infer<
+  ReturnType<typeof createOpenAICompatibleCompletionChunkSchema>
+>;
+
+type OpenAICompatibleBillingSummaryChunk = Extract<
+  OpenAICompatibleCompletionChunk,
+  { object: 'billing.summary' }
+>;
+
+function isOpenAICompatibleBillingSummaryChunk(
+  value: unknown,
+): value is OpenAICompatibleBillingSummaryChunk {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    'object' in value &&
+    value.object === 'billing.summary'
+  );
+}
