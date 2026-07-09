@@ -272,10 +272,16 @@ export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
   // )
   .refine(
     (data) => {
-      // If spawnableAgents array is non-empty, 'spawn_agents' tool must be included
+      // A non-empty spawnableAgents array requires some way to spawn them:
+      // the 'spawn_agents' or 'spawn_agent_inline' tool, or a programmatic
+      // handleSteps generator (which can yield spawn tool calls without the
+      // LLM having access to the tools).
       if (
         data.spawnableAgents.length > 0 &&
-        !data.toolNames.includes('spawn_agents')
+        !data.toolNames.includes('spawn_agents') &&
+        !data.toolNames.includes('spawn_agent_inline') &&
+        !data.handleSteps &&
+        !data.handleStepsFn
       ) {
         return false
       }
@@ -283,7 +289,7 @@ export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
     },
     {
       message:
-        "Non-empty spawnableAgents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames or remove spawnableAgents.",
+        "Non-empty spawnableAgents array requires the 'spawn_agents' tool. Add 'spawn_agents' to toolNames (or spawn programmatically via handleSteps) or remove spawnableAgents.",
       path: ['toolNames'],
     },
   )
