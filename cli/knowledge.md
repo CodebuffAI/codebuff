@@ -837,6 +837,7 @@ Streaming markdown renders as plain text until the message or agent finishes. Th
 ## Recent Runtime State Notes
 
 - Queue processing uses a single-owner lock plus a watchdog in `cli/src/hooks/use-message-queue.ts` so stale async cleanup cannot release a newer queue-processing run.
+- Plan blocks render known and custom artifact paths as static text, while plan command strings render as `Button` controls that call `onInsertCommand` to prefill the chat input without submitting. Keep this callback threaded through `MessageWithAgents`, `MessageBlock`, `BlocksRenderer`, `SingleBlock`, and nested `AgentBranchWrapper` when changing plan or agent rendering.
 - Status indicators in `cli/src/utils/status-indicator-state.ts` distinguish retrying, reconnecting, paused ask_user prompts, and phase-aware waiting/streaming labels.
 - Re-render performance tests rely on debug rerender logs from `CODEBUFF_PERF_TEST=true`; tmux global env propagation is best-effort because `new-session` can start the server and inherit the current process environment.
 - Slash-command and agent-mention menu behavior is covered by focused CLI tests; keep the knowledge notes in sync when changing menu navigation, visible-item caps, or insertion semantics.

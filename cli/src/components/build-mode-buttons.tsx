@@ -53,7 +53,7 @@ export const BuildModeButtons = ({
           onMouseOut={() => setIsHovered(false)}
         >
           <text wrapMode="none">
-            <span fg={theme.foreground}>Build DEFAULT</span>
+            <span fg={theme.foreground}>Execute Plan</span>
           </text>
         </Button>
       </box>

@@ -49,6 +49,13 @@ export interface MessageBlockCallbacks {
    * as a fresh user message.
    */
   onEditMessage: (messageId: string, content: string) => void
+  /**
+   * Insert a command string into the chat input (e.g. a plan block command)
+   * without submitting. Sets the input value, positions the cursor at the
+   * end, and focuses the input so the user can hit Enter to submit or edit
+   * the text first.
+   */
+  onInsertCommand: (command: string) => void
 }
 
 interface MessageBlockStoreState {
@@ -80,6 +87,7 @@ type MessageBlockStore = MessageBlockStoreState & MessageBlockStoreActions
 const noop = () => {}
 const noopFeedback: MessageBlockCallbacks['onFeedback'] = () => {}
 const noopEdit: MessageBlockCallbacks['onEditMessage'] = () => {}
+const noopInsertCommand: MessageBlockCallbacks['onInsertCommand'] = () => {}
 
 const initialContext: MessageBlockContext = {
   theme: null,
@@ -96,6 +104,7 @@ const initialCallbacks: MessageBlockCallbacks = {
   onFeedback: noopFeedback,
   onCloseFeedback: noop,
   onEditMessage: noopEdit,
+  onInsertCommand: noopInsertCommand,
 }
 
 const initialState: MessageBlockStoreState = {

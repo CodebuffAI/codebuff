@@ -87,6 +87,9 @@ export type PlanArtifactMetadata = {
   planPath?: string
   statusPath?: string
   lessonsPath?: string
+  customArtifacts?: Array<{ label: string; path: string }>
+  customArtifactCommands?: string[]
+  executeCommand?: string
   resumeCommand?: string
   updateCommand?: string
   statusCommand?: string

@@ -52,6 +52,8 @@ interface MessageBlockProps {
   onCloseFeedback?: () => void
   /** Pre-populate the input bar with this message's text for edit & resend. */
   onEditMessage?: (messageId: string, content: string) => void
+  /** Insert a command into the input bar (without submitting) for one-click reuse. */
+  onInsertCommand: (command: string) => void
   validationErrors?: Array<{ id: string; message: string }>
   /** Runtime error to display in UI but NOT send to LLM */
   userError?: string
@@ -136,6 +138,7 @@ export const MessageBlock = memo(({
   onFeedback,
   onCloseFeedback,
   onEditMessage,
+  onInsertCommand,
   validationErrors,
   userError,
   onOpenFeedback,
@@ -174,6 +177,7 @@ export const MessageBlock = memo(({
       onFeedback,
       onCloseFeedback,
       onEditMessage,
+      onInsertCommand,
       validationErrors,
       onOpenFeedback,
       metadata,
@@ -299,6 +303,7 @@ export const MessageBlock = memo(({
               markdownPalette={markdownPalette}
               onToggleCollapsed={onToggleCollapsed}
               onBuildFast={onBuildFast}
+              onInsertCommand={onInsertCommand}
               isLastMessage={isLastMessage}
               contentToCopy={isUser ? content : undefined}
             />

@@ -32,6 +32,7 @@ interface SingleBlockProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
+  onInsertCommand: (command: string) => void
   isLastMessage?: boolean
   contentToCopy?: string
 }
@@ -50,6 +51,7 @@ export const SingleBlock = memo(
     markdownPalette,
     onToggleCollapsed,
     onBuildFast,
+    onInsertCommand,
     isLastMessage,
     contentToCopy,
   }: SingleBlockProps): ReactNode => {
@@ -117,6 +119,7 @@ export const SingleBlock = memo(
               availableWidth={availableWidth}
               markdownPalette={markdownPalette}
               onBuildFast={onBuildFast}
+              onInsertCommand={onInsertCommand}
             />
           </box>
         )
@@ -182,6 +185,7 @@ export const SingleBlock = memo(
             markdownPalette={markdownPalette}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
+            onInsertCommand={onInsertCommand}
             siblingBlocks={blocks}
             isLastMessage={isLastMessage}
           />

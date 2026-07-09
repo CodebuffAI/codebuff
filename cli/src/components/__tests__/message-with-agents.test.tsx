@@ -1,16 +1,62 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { enableMapSet } from 'immer'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
+import { computeTerminalLayout } from '../../hooks/use-terminal-layout'
 import { useChatStore } from '../../state/chat-store'
 import { useMessageBlockStore } from '../../state/message-block-store'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
-import { MessageWithAgents } from '../message-with-agents'
 
 import type { ChatMessage } from '../../types/chat'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
+
+type CapturedButton = {
+  text: string
+  onClick?: (event?: unknown) => void | Promise<unknown>
+}
+
+const capturedButtons: CapturedButton[] = []
+
+const textFromReactNode = (node: React.ReactNode): string => {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node)
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(textFromReactNode).join('')
+  }
+
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+    return textFromReactNode(node.props.children)
+  }
+
+  return ''
+}
+
+mock.module('../button', () => ({
+  Button: ({
+    children,
+    onClick,
+    ...rest
+  }: {
+    children?: React.ReactNode
+    onClick?: (event?: unknown) => void | Promise<unknown>
+    [key: string]: unknown
+  }) => {
+    capturedButtons.push({ text: textFromReactNode(children), onClick })
+
+    return React.createElement('box', rest, children)
+  },
+}))
+
+mock.module('../../hooks/use-terminal-layout', () => ({
+  computeTerminalLayout,
+  useTerminalLayout: () => computeTerminalLayout(80, 24),
+}))
+
+const { MessageWithAgents } = await import('../message-with-agents')
 
 enableMapSet()
 initializeThemeStore()
@@ -89,7 +135,10 @@ const defaultCallbacks = {
   onFeedback: () => {},
   onCloseFeedback: () => {},
   onEditMessage: () => {},
+  onInsertCommand: () => {},
 }
+
+const planCommand = '/mode:execute_plan Build it!'
 
 const initializeStore = (overrides: {
   messageTree?: Map<string, ChatMessage[]>
@@ -111,11 +160,13 @@ const initializeStore = (overrides: {
 }
 
 beforeEach(() => {
+  capturedButtons.length = 0
   initializeStore()
   useChatStore.setState({ streamingAgents: new Set<string>() })
 })
 
 afterEach(() => {
+  capturedButtons.length = 0
   useMessageBlockStore.getState().reset()
   useChatStore.setState({ streamingAgents: new Set<string>() })
 })
@@ -192,6 +243,7 @@ describe('MessageBlockStore', () => {
       const mockBuildFast = () => {}
       const mockFeedback = () => {}
       const mockCloseFeedback = () => {}
+      const mockInsertCommand = () => {}
 
       useMessageBlockStore.getState().setCallbacks({
         onToggleCollapsed: mockToggle,
@@ -199,6 +251,7 @@ describe('MessageBlockStore', () => {
         onFeedback: mockFeedback,
         onCloseFeedback: mockCloseFeedback,
         onEditMessage: () => {},
+        onInsertCommand: mockInsertCommand,
       })
 
       const state = useMessageBlockStore.getState()
@@ -206,6 +259,25 @@ describe('MessageBlockStore', () => {
       expect(state.callbacks.onBuildFast).toBe(mockBuildFast)
       expect(state.callbacks.onFeedback).toBe(mockFeedback)
       expect(state.callbacks.onCloseFeedback).toBe(mockCloseFeedback)
+      expect(state.callbacks.onInsertCommand).toBe(mockInsertCommand)
+    })
+
+    test('onInsertCommand callback receives the command string', () => {
+      let insertedCommand: string | undefined
+      const mockInsertCommand = (command: string) => {
+        insertedCommand = command
+      }
+
+      useMessageBlockStore.getState().setCallbacks({
+        ...defaultCallbacks,
+        onInsertCommand: mockInsertCommand,
+      })
+
+      const storedCallback = useMessageBlockStore.getState().callbacks
+        .onInsertCommand
+      storedCallback('/mode:execute_plan Build it!')
+
+      expect(insertedCommand).toBe('/mode:execute_plan Build it!')
     })
 
     test('callbacks are independent from context', () => {
@@ -248,6 +320,7 @@ describe('MessageBlockStore', () => {
         onFeedback: mockFn,
         onCloseFeedback: mockFn,
         onEditMessage: () => {},
+        onInsertCommand: () => {},
       })
 
       useMessageBlockStore.getState().reset()
@@ -256,8 +329,10 @@ describe('MessageBlockStore', () => {
       // Callbacks should be noop functions (not undefined)
       expect(typeof state.callbacks.onToggleCollapsed).toBe('function')
       expect(typeof state.callbacks.onBuildFast).toBe('function')
+      expect(typeof state.callbacks.onInsertCommand).toBe('function')
       // They should not throw when called
       expect(() => state.callbacks.onToggleCollapsed('test-id')).not.toThrow()
+      expect(() => state.callbacks.onInsertCommand('test-command')).not.toThrow()
     })
   })
 })
@@ -565,6 +640,64 @@ describe('callback invocation', () => {
 
     expect(feedbackMessageId).toBe('msg-123')
     expect(feedbackOptions).toEqual({ category: 'app_bug' })
+  })
+
+  test('plan command button invokes onInsertCommand through MessageWithAgents', () => {
+    let insertedCommand: string | undefined
+    const onInsertCommand = (command: string) => {
+      insertedCommand = command
+    }
+    const message: ChatMessage = {
+      ...createAiMessage('ai-plan', ''),
+      blocks: [
+        {
+          type: 'plan',
+          content: 'Plan body',
+          metadata: {
+            executeCommand: planCommand,
+          },
+        },
+      ],
+    }
+
+    initializeStore()
+    useMessageBlockStore.getState().setCallbacks({
+      ...defaultCallbacks,
+      onInsertCommand,
+    })
+
+    // renderToStaticMarkup reads Zustand's server snapshot, so mirror the test
+    // callback there before rendering and restore both snapshots before asserting.
+    const initialCallbacks = useMessageBlockStore.getInitialState().callbacks
+    const previousInitialInsertCommand = initialCallbacks.onInsertCommand
+    const previousLiveInsertCommand = useMessageBlockStore.getState().callbacks
+      .onInsertCommand
+    initialCallbacks.onInsertCommand = onInsertCommand
+
+    try {
+      renderToStaticMarkup(
+        <MessageWithAgents
+          {...baseMessageWithAgentsProps}
+          message={message}
+        />,
+      )
+
+      const commandButton = capturedButtons.find(
+        (button) =>
+          button.text === planCommand && typeof button.onClick === 'function',
+      )
+      expect(commandButton).toBeDefined()
+
+      commandButton?.onClick?.()
+    } finally {
+      initialCallbacks.onInsertCommand = previousInitialInsertCommand
+      useMessageBlockStore.getState().setCallbacks({
+        ...useMessageBlockStore.getState().callbacks,
+        onInsertCommand: previousLiveInsertCommand,
+      })
+    }
+
+    expect(insertedCommand).toBe(planCommand)
   })
 })
 

@@ -179,6 +179,153 @@ uses display-cell widths for toggle indentation and wraps collapsed and
 expanded content separately, so bullets, disclosure arrows, dense mode,
 and nested code blocks align predictably in narrow terminal layouts.
 
+#### Plan blocks and execution affordance
+
+The CLI treats a complete `<PLAN>...</PLAN>` response as a structured plan
+block instead of ordinary prose. `extractPlanFromBuffer(buffer)` returns
+the trimmed text between the exact uppercase tags, and `insertPlanBlock`
+appends that text as a `PlanContentBlock` after scrubbing the raw plan tags
+from neighboring text blocks.
+
+Public block shape:
+
+```ts
+type PlanContentBlock = {
+  type: 'plan'
+  content: string
+  metadata?: PlanArtifactMetadata
+}
+
+type PlanArtifactMetadata = {
+  sessionPath?: string
+  specPath?: string
+  planPath?: string
+  statusPath?: string
+  lessonsPath?: string
+  customArtifacts?: Array<{ label: string; path: string }>
+  customArtifactCommands?: string[]
+  executeCommand?: string
+  resumeCommand?: string
+  updateCommand?: string
+  statusCommand?: string
+  lessonsCommand?: string
+}
+```
+
+`PlanBox` renders `content` as Markdown, renders an `Artifacts` section
+when metadata is present, and shows an `Execute Plan` button. The button
+uses the chat input build-fast handler: it switches the current mode to
+`EXECUTE_PLAN`, submits the prompt `Build it!`, then clears the input. On
+extra-narrow terminal widths the helper text above the button is hidden;
+the button remains visible.
+
+In addition to the `Execute Plan` button, all plan commands (execute,
+resume, update, status, lessons, and custom artifact commands) render as
+**clickable buttons** with per-command hover highlighting. Clicking a
+command button calls the `onInsertCommand` callback, which inserts the
+command string into the chat input bar with the cursor at the end and
+focuses the input — it does **not** auto-submit. The user can then hit
+Enter to submit the command or edit the text first. This is distinct from
+the `Execute Plan` button's `onBuildFast` handler, which auto-submits in
+`EXECUTE_PLAN` mode.
+
+Known artifact paths (Session, SPEC/PLAN/STATUS/LESSONS.md) and custom
+artifact entries render as static `label: path` text rows (not clickable),
+so users can read which files the plan created without accidentally
+inserting their paths into the input.
+
+The `onInsertCommand` callback is threaded through the component chain
+via the `MessageBlockStore` Zustand store:
+
+1. `Chat` (`cli/src/chat.tsx`) defines `handleInsertCommand(command)` and
+   registers it on the store via `setMessageBlockCallbacks`.
+2. `useMessageBlockStore` (`cli/src/state/message-block-store.ts`) holds
+   it in `MessageBlockCallbacks.onInsertCommand` alongside the other
+   stable callbacks (`onToggleCollapsed`, `onBuildFast`, `onFeedback`,
+   `onEditMessage`). The default is a noop.
+3. `MessageWithAgents` reads it from the store and passes it to
+   `MessageBlock`.
+4. `MessageBlock` → `BlocksRenderer` → `SingleBlock` (for `plan` block
+   type) → `PlanBox`.
+5. For nested agent blocks, `BlocksRenderer` → `AgentBranchWrapper` →
+   `AgentBody` → recursive `AgentBranchWrapper` threads it through the
+   agent tree.
+
+`extractPlanMetadata(planContent)` returns `undefined` when no recognized
+metadata is present. Otherwise it returns a `PlanArtifactMetadata` object.
+Recognized labels are `Session`, `Session Path`, `Session Directory`,
+`Session Dir`, `SPEC.md` / `Spec`, `PLAN.md` / `Plan`, `STATUS.md` /
+`Status`, and `LESSONS.md` / `Lessons`. Bare `.agents/sessions/...` paths
+also infer the session path, and paths ending in `/SPEC.md`, `/PLAN.md`,
+`/STATUS.md`, or `/LESSONS.md` fill the matching artifact field.
+
+Unrecognized `Label: value` bullet lines are captured as **custom artifacts**
+(`metadata.customArtifacts`, an array of `{ label, path }`) when the value
+looks path-like — it contains at least one `/` or ends with `.md`. This lets
+plans declare extra artifacts beyond the fixed SPEC/PLAN/STATUS/LESSONS set
+(e.g. `- Architecture: .agents/sessions/auth-refresh/architecture.md` or
+`- Wireframe: .agents/sessions/auth-refresh/wireframe.png`) and have them
+rendered in the `PlanBox` Artifacts section alongside the known artifacts.
+The known-label check always takes precedence, so custom artifacts never
+override or collide with the fixed fields. Custom artifact capture works
+with both bullet (`-`/`*`/`+`) and numbered-list (`1.`/`2.`) prefixes, as
+well as bare `Label: value` lines with no prefix. Prose lines whose value
+has spaces but no path separators (e.g. `Note: this is important prose`)
+are NOT captured. The label keeps its original casing; only markdown
+formatting marks (`*_` and leading `#`) are stripped from the label, and
+markdown link wrappers (label plus parenthesized path) and trailing
+`.`/`,`/`;` are stripped from the path value. An empty `customArtifacts`
+array is treated
+as empty by `isNonEmptyPlanMetadata`.
+
+When custom artifacts are present, `withPlanCommands` also generates a
+`customArtifactCommands` array — one natural-language prompt per custom
+artifact. For paths ending in `.md`, the command is `Read <path>`; for all
+other file types (`.png`, `.yaml`, etc.), it is `Open <path>`. These are
+display-only informational strings rendered in the PlanBox Artifacts section
+alongside the known plan commands. Like the known commands, custom artifact
+commands render as clickable buttons — clicking inserts the command string
+into the chat input without submitting. They are not registered slash
+commands. Custom artifact commands are generated even when no session path
+is found — the only prerequisite is that `customArtifacts` is non-empty.
+
+When a session or artifact path is found, command fields are generated
+with the session target:
+
+```text
+/mode:execute_plan Build it!
+/resume-plan <session>
+/update-plan <session>
+/plan-status <session>
+/lessons <session>
+```
+
+Minimal plan response with artifact metadata:
+
+```md
+<PLAN>
+# Plan
+
+## Artifacts
+- Session: .agents/sessions/auth-refresh
+- SPEC.md: .agents/sessions/auth-refresh/SPEC.md
+- PLAN.md: .agents/sessions/auth-refresh/PLAN.md
+- STATUS.md: .agents/sessions/auth-refresh/STATUS.md
+- LESSONS.md: .agents/sessions/auth-refresh/LESSONS.md
+</PLAN>
+```
+
+Gotchas:
+
+- `<PLAN>` and `</PLAN>` extraction is case-sensitive.
+- `</cb_plan>` is scrubbed from rendered prose for legacy compatibility,
+  but it does not make `extractPlanFromBuffer` return plan content.
+- Markdown link targets and simple formatting marks are normalized away
+  during metadata parsing; trailing `.`, `,`, and `;` are dropped from
+  metadata values.
+- `isPlanBlock(block)` narrows a content block to `PlanContentBlock` by
+  checking `block.type === 'plan'`.
+
 ### Shell Shims
 
 You can run individual specialized agents as direct terminal commands without the `openbuff` prefix. This is handled by shell shims:

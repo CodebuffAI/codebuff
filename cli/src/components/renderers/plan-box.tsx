@@ -1,8 +1,9 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 
 import { useTheme } from '../../hooks/use-theme'
 import { renderMarkdown, type MarkdownPalette } from '../../utils/markdown-renderer'
 import { BORDER_CHARS } from '../../utils/ui-constants'
+import { Button } from '../button'
 import { BuildModeButtons } from '../build-mode-buttons'
 
 import type { PlanArtifactMetadata } from '../../types/chat'
@@ -13,9 +14,12 @@ interface PlanBoxProps {
   availableWidth: number
   markdownPalette: MarkdownPalette
   onBuildFast: () => void
+  /** Insert a command into the chat input (no submit). Defaults to noop so existing tests can omit it. */
+  onInsertCommand?: (command: string) => void
 }
 
-const formatMetadataRows = (metadata: PlanArtifactMetadata): string[] => {
+/** Known artifact paths (Session, SPEC/PLAN/STATUS/LESSONS) + custom artifacts. Rendered as static text. */
+const formatArtifactRows = (metadata: PlanArtifactMetadata): string[] => {
   const artifactRows = [
     ['Session', metadata.sessionPath],
     ['SPEC.md', metadata.specPath],
@@ -26,15 +30,23 @@ const formatMetadataRows = (metadata: PlanArtifactMetadata): string[] => {
     .filter((row): row is [string, string] => Boolean(row[1]))
     .map(([label, value]) => `${label}: ${value}`)
 
-  const commandRows = [
+  const customArtifactRows = (metadata.customArtifacts ?? []).map(
+    ({ label, path }) => `${label}: ${path}`,
+  )
+
+  return [...artifactRows, ...customArtifactRows]
+}
+
+/** Command strings (build/maintain this plan) rendered as clickable buttons. */
+const formatCommandRows = (metadata: PlanArtifactMetadata): string[] =>
+  [
+    metadata.executeCommand,
     metadata.resumeCommand,
     metadata.updateCommand,
     metadata.statusCommand,
     metadata.lessonsCommand,
+    ...(metadata.customArtifactCommands ?? []),
   ].filter((command): command is string => Boolean(command))
-
-  return [...artifactRows, ...commandRows]
-}
 
 export const PlanBox = memo(
   ({
@@ -43,9 +55,14 @@ export const PlanBox = memo(
     availableWidth,
     markdownPalette,
     onBuildFast,
+    onInsertCommand = () => {},
   }: PlanBoxProps) => {
     const theme = useTheme()
-    const metadataRows = metadata ? formatMetadataRows(metadata) : []
+    const artifactRows = metadata ? formatArtifactRows(metadata) : []
+    const commandRows = metadata ? formatCommandRows(metadata) : []
+    const hasMetadata = artifactRows.length > 0 || commandRows.length > 0
+    // Track which command is hovered so each button highlights independently.
+    const [hoveredCommand, setHoveredCommand] = useState<string | null>(null)
 
     return (
       <box
@@ -68,13 +85,36 @@ export const PlanBox = memo(
             palette: markdownPalette,
           })}
         </text>
-        {metadataRows.length > 0 && (
+        {hasMetadata && (
           <box style={{ flexDirection: 'column', gap: 0 }}>
             <text style={{ fg: theme.secondary }}>Artifacts</text>
-            {metadataRows.map((row) => (
+            {artifactRows.map((row) => (
               <text key={row} style={{ wrapMode: 'word', fg: theme.secondary }}>
                 {row}
               </text>
+            ))}
+            {commandRows.map((command) => (
+              <Button
+                key={command}
+                style={{
+                  flexDirection: 'row',
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  borderStyle: 'single',
+                  borderColor:
+                    hoveredCommand === command ? theme.foreground : theme.secondary,
+                  customBorderChars: BORDER_CHARS,
+                }}
+                onClick={() => onInsertCommand(command)}
+                onMouseOver={() => setHoveredCommand(command)}
+                onMouseOut={() => setHoveredCommand((current) =>
+                  current === command ? null : current,
+                )}
+              >
+                <text wrapMode="none" style={{ fg: theme.secondary }}>
+                  {command}
+                </text>
+              </Button>
             ))}
           </box>
         )}

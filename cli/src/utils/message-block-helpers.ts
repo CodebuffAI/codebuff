@@ -130,7 +130,14 @@ export const scrubPlanTagsInBlocks = (
     .filter((block) => block.type !== 'text' || block.content.trim() !== '')
 }
 
-const PLAN_METADATA_LABELS: Record<string, keyof PlanArtifactMetadata> = {
+type StringArtifactKey =
+  | 'sessionPath'
+  | 'specPath'
+  | 'planPath'
+  | 'statusPath'
+  | 'lessonsPath'
+
+const PLAN_METADATA_LABELS: Record<string, StringArtifactKey> = {
   session: 'sessionPath',
   'session path': 'sessionPath',
   'session directory': 'sessionPath',
@@ -147,7 +154,7 @@ const PLAN_METADATA_LABELS: Record<string, keyof PlanArtifactMetadata> = {
 
 const PLAN_ARTIFACT_FILENAMES: Array<{
   suffix: string
-  key: keyof PlanArtifactMetadata
+  key: StringArtifactKey
 }> = [
   { suffix: '/SPEC.md', key: 'specPath' },
   { suffix: '/PLAN.md', key: 'planPath' },
@@ -162,6 +169,25 @@ const normalizePlanMetadataLabel = (label: string): string =>
     .trim()
     .toLowerCase()
 
+/**
+ * Strip markdown formatting marks (`*_`) and leading `#`/whitespace from a
+ * label while preserving its original casing. Used for custom artifact
+ * display labels, which may be arbitrary user-authored strings.
+ */
+const stripPlanMetadataLabelFormatting = (label: string): string =>
+  label
+    .replace(/[*_`]/g, '')
+    .replace(/^#+\s*/, '')
+    .trim()
+
+/**
+ * Returns true when a metadata value looks like a path worth capturing as a
+ * custom artifact — it contains at least one path separator or ends with
+ * `.md`. Values that read as prose (spaces but no separators) are rejected.
+ */
+const isCustomArtifactPathValue = (value: string): boolean =>
+  value.includes('/') || value.endsWith('.md')
+
 const normalizePlanMetadataPath = (value: string): string => {
   const withoutMarkdownLink = value.match(/\(([^)]+)\)/)?.[1] ?? value
   return withoutMarkdownLink
@@ -172,7 +198,10 @@ const normalizePlanMetadataPath = (value: string): string => {
 
 const isNonEmptyPlanMetadata = (
   metadata: PlanArtifactMetadata,
-): metadata is PlanArtifactMetadata => Object.values(metadata).some(Boolean)
+): metadata is PlanArtifactMetadata =>
+  Object.values(metadata).some((value) =>
+    Array.isArray(value) ? value.length > 0 : Boolean(value),
+  )
 
 const getPlanSessionCommandTarget = (
   metadata: PlanArtifactMetadata,
@@ -185,20 +214,35 @@ const getPlanSessionCommandTarget = (
   return artifactPath?.match(/^(\.agents\/sessions\/[^/]+)/)?.[1] ?? artifactPath
 }
 
+const getCustomArtifactCommand = (path: string): string =>
+  path.endsWith('.md') ? `Read ${path}` : `Open ${path}`
+
 const withPlanCommands = (
   metadata: PlanArtifactMetadata,
 ): PlanArtifactMetadata => {
   const commandTarget = getPlanSessionCommandTarget(metadata)
+  const customArtifactCommands =
+    metadata.customArtifacts?.length
+      ? metadata.customArtifacts.map(({ path }) =>
+          getCustomArtifactCommand(path),
+        )
+      : undefined
+
   if (!commandTarget) {
-    return metadata
+    if (!customArtifactCommands) {
+      return metadata
+    }
+    return { ...metadata, customArtifactCommands }
   }
 
   return {
     ...metadata,
+    executeCommand: '/mode:execute_plan Build it!',
     resumeCommand: `/resume-plan ${commandTarget}`,
     updateCommand: `/update-plan ${commandTarget}`,
     statusCommand: `/plan-status ${commandTarget}`,
     lessonsCommand: `/lessons ${commandTarget}`,
+    ...(customArtifactCommands ? { customArtifactCommands } : {}),
   }
 }
 
@@ -219,6 +263,23 @@ export const extractPlanMetadata = (
         metadata[key] = normalizePlanMetadataPath(bulletMatch[2])
         continue
       }
+
+      // Unrecognized `Label: value` bullet. Capture it as a custom artifact
+      // only when the value looks path-like (contains `/` or ends with
+      // `.md`). Prose like `Note: this is important` is skipped because it
+      // has spaces but no path separators.
+      const rawValue = bulletMatch[2]
+      const normalizedValue = normalizePlanMetadataPath(rawValue)
+      if (isCustomArtifactPathValue(normalizedValue)) {
+        const customLabel = stripPlanMetadataLabelFormatting(bulletMatch[1])
+        if (customLabel) {
+          metadata.customArtifacts = [
+            ...(metadata.customArtifacts ?? []),
+            { label: customLabel, path: normalizedValue },
+          ]
+        }
+      }
+      continue
     }
 
     const pathMatch = line.match(/(`?\.agents\/sessions\/[^`\s)]+`?)/)

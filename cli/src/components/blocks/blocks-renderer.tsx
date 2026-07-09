@@ -23,6 +23,7 @@ interface BlocksRendererProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
+  onInsertCommand: (command: string) => void
   isLastMessage?: boolean
   contentToCopy?: string
 }
@@ -39,6 +40,7 @@ interface BlocksRendererPropsRef {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
+  onInsertCommand: (command: string) => void
   isLastMessage?: boolean
   contentToCopy?: string
   lastTextBlockIndex: number
@@ -56,6 +58,7 @@ export const BlocksRenderer = memo(
     markdownPalette,
     onToggleCollapsed,
     onBuildFast,
+    onInsertCommand,
     isLastMessage,
     contentToCopy,
   }: BlocksRendererProps) => {
@@ -80,6 +83,7 @@ export const BlocksRenderer = memo(
       markdownPalette,
       onToggleCollapsed,
       onBuildFast,
+      onInsertCommand,
       isLastMessage,
       contentToCopy,
       lastTextBlockIndex,
@@ -158,6 +162,7 @@ export const BlocksRenderer = memo(
                   markdownPalette={p.markdownPalette}
                   onToggleCollapsed={p.onToggleCollapsed}
                   onBuildFast={p.onBuildFast}
+                  onInsertCommand={p.onInsertCommand}
                   siblingBlocks={p.sourceBlocks}
                   isLastMessage={p.isLastMessage}
                 />
@@ -183,6 +188,7 @@ export const BlocksRenderer = memo(
               markdownPalette={p.markdownPalette}
               onToggleCollapsed={p.onToggleCollapsed}
               onBuildFast={p.onBuildFast}
+              onInsertCommand={p.onInsertCommand}
               isLastMessage={p.isLastMessage}
               contentToCopy={index === p.lastTextBlockIndex ? p.contentToCopy : undefined}
             />

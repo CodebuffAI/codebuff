@@ -3345,7 +3345,7 @@ Once the artifacts exist, prefer update_plan_status for incremental STATUS.md / 
 
 Do not wait for the user to ask separately for STATUS.md or LESSONS.md on non-trivial plans; include them as part of the standard durable packet.
 
-Also include the artifact metadata inside the <PLAN> response so the CLI can render resume commands. Use simple markdown lines like:
+Also include the artifact metadata inside the <PLAN> response so the CLI can render the execution and resume affordances. Use simple markdown lines like:
 
 ## Artifacts
 - Session: .agents/sessions/<slug>

@@ -46,14 +46,14 @@ export const useChatInput = ({
   const inputWidth = Math.max(1, availableContentWidth - estimatedToggleWidth)
 
   const handleBuildFast = useCallback(() => {
-    setAgentMode('DEFAULT')
+    setAgentMode('EXECUTE_PLAN')
     setInputValue({
       text: BUILD_IT_TEXT,
       cursorPosition: BUILD_IT_TEXT.length,
       lastEditDueToNav: true,
     })
     setTimeout(() => {
-      onSubmitPrompt(BUILD_IT_TEXT, 'DEFAULT')
+      onSubmitPrompt(BUILD_IT_TEXT, 'EXECUTE_PLAN')
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
   }, [setAgentMode, setInputValue, onSubmitPrompt])

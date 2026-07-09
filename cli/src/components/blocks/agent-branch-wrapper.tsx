@@ -99,6 +99,7 @@ interface AgentBodyProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
+  onInsertCommand: (command: string) => void
   isLastMessage?: boolean
 }
 
@@ -112,6 +113,7 @@ interface AgentBodyPropsRef {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
+  onInsertCommand: (command: string) => void
   isLastMessage?: boolean
   theme: ReturnType<typeof useTheme>
   getAgentMarkdownOptions: (indent: number) => {
@@ -129,6 +131,7 @@ const AgentBody = memo(
     markdownPalette,
     onToggleCollapsed,
     onBuildFast,
+    onInsertCommand,
     isLastMessage,
   }: AgentBodyProps): ReactNode[] => {
     const theme = useTheme()
@@ -164,6 +167,7 @@ const AgentBody = memo(
       markdownPalette,
       onToggleCollapsed,
       onBuildFast,
+      onInsertCommand,
       isLastMessage,
       theme,
       getAgentMarkdownOptions,
@@ -234,6 +238,7 @@ const AgentBody = memo(
                   markdownPalette={p.markdownPalette}
                   onToggleCollapsed={p.onToggleCollapsed}
                   onBuildFast={p.onBuildFast}
+                  onInsertCommand={p.onInsertCommand}
                   siblingBlocks={p.nestedBlocks}
                   isLastMessage={p.isLastMessage}
                 />
@@ -314,6 +319,7 @@ export interface AgentBranchWrapperProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
+  onInsertCommand: (command: string) => void
   siblingBlocks?: ContentBlock[]
   isLastMessage?: boolean
 }
@@ -326,6 +332,7 @@ export const AgentBranchWrapper = memo(
     markdownPalette,
     onToggleCollapsed,
     onBuildFast,
+    onInsertCommand,
     siblingBlocks,
     isLastMessage,
   }: AgentBranchWrapperProps) => {
@@ -506,6 +513,7 @@ export const AgentBranchWrapper = memo(
             markdownPalette={markdownPalette}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
+            onInsertCommand={onInsertCommand}
             isLastMessage={isLastMessage}
           />
         </AgentBranchItem>

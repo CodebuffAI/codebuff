@@ -118,16 +118,23 @@ export const MessageWithAgents = memo(
         })),
       )
 
-    const { onToggleCollapsed, onBuildFast, onFeedback, onCloseFeedback, onEditMessage } =
-      useMessageBlockStore(
-        useShallow((state) => ({
-          onToggleCollapsed: state.callbacks.onToggleCollapsed,
-          onBuildFast: state.callbacks.onBuildFast,
-          onFeedback: state.callbacks.onFeedback,
-          onCloseFeedback: state.callbacks.onCloseFeedback,
-          onEditMessage: state.callbacks.onEditMessage,
-        })),
-      )
+    const {
+      onToggleCollapsed,
+      onBuildFast,
+      onFeedback,
+      onCloseFeedback,
+      onEditMessage,
+      onInsertCommand,
+    } = useMessageBlockStore(
+      useShallow((state) => ({
+        onToggleCollapsed: state.callbacks.onToggleCollapsed,
+        onBuildFast: state.callbacks.onBuildFast,
+        onFeedback: state.callbacks.onFeedback,
+        onCloseFeedback: state.callbacks.onCloseFeedback,
+        onEditMessage: state.callbacks.onEditMessage,
+        onInsertCommand: state.callbacks.onInsertCommand,
+      })),
+    )
 
     // Memoize onOpenFeedback to prevent unnecessary re-renders
     const onOpenFeedback = useCallback(
@@ -277,6 +284,7 @@ export const MessageWithAgents = memo(
                   onFeedback={onFeedback}
                   onCloseFeedback={onCloseFeedback}
                   onEditMessage={onEditMessage}
+                  onInsertCommand={onInsertCommand}
                   validationErrors={message.validationErrors}
                   userError={message.userError}
                   onOpenFeedback={onOpenFeedback}
@@ -313,6 +321,7 @@ export const MessageWithAgents = memo(
                 onFeedback={onFeedback}
                 onCloseFeedback={onCloseFeedback}
                 onEditMessage={onEditMessage}
+                onInsertCommand={onInsertCommand}
                 validationErrors={message.validationErrors}
                 userError={message.userError}
                 onOpenFeedback={onOpenFeedback}

@@ -21,6 +21,11 @@ import {
   scrubGateStateTags,
 } from '../message-block-helpers'
 
+import {
+  isPlanBlock,
+  isGateStateBlock,
+} from '../../types/chat'
+
 import type {
   ContentBlock,
   AgentContentBlock,
@@ -134,6 +139,7 @@ describe('scrubPlanTags helpers', () => {
       planPath: '.agents/sessions/auth-refresh/PLAN.md',
       statusPath: '.agents/sessions/auth-refresh/STATUS.md',
       lessonsPath: '.agents/sessions/auth-refresh/LESSONS.md',
+      executeCommand: '/mode:execute_plan Build it!',
       resumeCommand: '/resume-plan .agents/sessions/auth-refresh',
       updateCommand: '/update-plan .agents/sessions/auth-refresh',
       statusCommand: '/plan-status .agents/sessions/auth-refresh',
@@ -150,12 +156,241 @@ describe('scrubPlanTags helpers', () => {
       content: '- STATUS.md: `.agents/sessions/foo/STATUS.md`',
       metadata: {
         statusPath: '.agents/sessions/foo/STATUS.md',
+        executeCommand: '/mode:execute_plan Build it!',
         resumeCommand: '/resume-plan .agents/sessions/foo',
         updateCommand: '/update-plan .agents/sessions/foo',
         statusCommand: '/plan-status .agents/sessions/foo',
         lessonsCommand: '/lessons .agents/sessions/foo',
       },
     })
+  })
+  test('extracts metadata from markdown links and decorated labels', () => {
+    const metadata = extractPlanMetadata([
+      '1. **Session Path**: [session](.agents/sessions/payments-rollout).',
+      '2. `PLAN.md`: `.agents/sessions/payments-rollout/PLAN.md`,',
+      '3. _STATUS.md_: [.agents/sessions/payments-rollout/STATUS.md](.agents/sessions/payments-rollout/STATUS.md);',
+    ].join('\n'))
+
+    expect(metadata).toEqual({
+      sessionPath: '.agents/sessions/payments-rollout',
+      planPath: '.agents/sessions/payments-rollout/PLAN.md',
+      statusPath: '.agents/sessions/payments-rollout/STATUS.md',
+      executeCommand: '/mode:execute_plan Build it!',
+      resumeCommand: '/resume-plan .agents/sessions/payments-rollout',
+      updateCommand: '/update-plan .agents/sessions/payments-rollout',
+      statusCommand: '/plan-status .agents/sessions/payments-rollout',
+      lessonsCommand: '/lessons .agents/sessions/payments-rollout',
+    })
+  })
+
+  test('infers session and artifacts from bare session paths', () => {
+    const metadata = extractPlanMetadata([
+      'Artifacts live at `.agents/sessions/retry-flow/SPEC.md`.',
+      'The plan file is `.agents/sessions/retry-flow/PLAN.md`.',
+    ].join('\n'))
+
+    expect(metadata).toEqual({
+      sessionPath: '.agents/sessions/retry-flow',
+      specPath: '.agents/sessions/retry-flow/SPEC.md',
+      planPath: '.agents/sessions/retry-flow/PLAN.md',
+      executeCommand: '/mode:execute_plan Build it!',
+      resumeCommand: '/resume-plan .agents/sessions/retry-flow',
+      updateCommand: '/update-plan .agents/sessions/retry-flow',
+      statusCommand: '/plan-status .agents/sessions/retry-flow',
+      lessonsCommand: '/lessons .agents/sessions/retry-flow',
+    })
+  })
+
+  test('captures unrecognized path-like Label: value lines as custom artifacts', () => {
+    const metadata = extractPlanMetadata([
+      '## Artifacts',
+      '- Session: .agents/sessions/auth-refresh',
+      '- SPEC.md: .agents/sessions/auth-refresh/SPEC.md',
+      '- PLAN.md: .agents/sessions/auth-refresh/PLAN.md',
+      '- STATUS.md: .agents/sessions/auth-refresh/STATUS.md',
+      '- LESSONS.md: .agents/sessions/auth-refresh/LESSONS.md',
+      '- Architecture: .agents/sessions/auth-refresh/architecture.md',
+      '- Wireframe: .agents/sessions/auth-refresh/wireframe.png',
+      '- Architecture Doc: .agents/sessions/auth-refresh/architecture.md',
+    ].join('\n'))
+
+    expect(metadata?.customArtifacts).toEqual([
+      { label: 'Architecture', path: '.agents/sessions/auth-refresh/architecture.md' },
+      { label: 'Wireframe', path: '.agents/sessions/auth-refresh/wireframe.png' },
+      { label: 'Architecture Doc', path: '.agents/sessions/auth-refresh/architecture.md' },
+    ])
+    // Known labels must NOT collide with custom artifacts.
+    expect(metadata?.specPath).toBe('.agents/sessions/auth-refresh/SPEC.md')
+    expect(metadata?.planPath).toBe('.agents/sessions/auth-refresh/PLAN.md')
+    expect(metadata?.statusPath).toBe('.agents/sessions/auth-refresh/STATUS.md')
+    expect(metadata?.lessonsPath).toBe('.agents/sessions/auth-refresh/LESSONS.md')
+    expect(metadata?.sessionPath).toBe('.agents/sessions/auth-refresh')
+  })
+
+  test('does not capture prose Label: value lines without path separators', () => {
+    const metadata = extractPlanMetadata([
+      '- Session: .agents/sessions/auth-refresh',
+      '- Note: this is important prose',
+      '- Reminder: see the architecture doc for details',
+      '- Architecture: .agents/sessions/auth-refresh/architecture.md',
+    ].join('\n'))
+
+    expect(metadata?.customArtifacts).toEqual([
+      { label: 'Architecture', path: '.agents/sessions/auth-refresh/architecture.md' },
+    ])
+  })
+
+  test('preserves original casing when stripping markdown from custom labels', () => {
+    const metadata = extractPlanMetadata([
+      '- **Architecture**: .agents/sessions/auth-refresh/architecture.md',
+      '- _Wireframe_: .agents/sessions/auth-refresh/wireframe.png',
+      '- `Schema`: .agents/sessions/auth-refresh/schema.md',
+    ].join('\n'))
+
+    expect(metadata?.customArtifacts).toEqual([
+      { label: 'Architecture', path: '.agents/sessions/auth-refresh/architecture.md' },
+      { label: 'Wireframe', path: '.agents/sessions/auth-refresh/wireframe.png' },
+      { label: 'Schema', path: '.agents/sessions/auth-refresh/schema.md' },
+    ])
+  })
+
+  test('custom artifacts alone make metadata non-empty', () => {
+    const metadata = extractPlanMetadata([
+      '- Architecture: .agents/sessions/auth-refresh/architecture.md',
+    ].join('\n'))
+
+    expect(metadata).toBeDefined()
+    expect(metadata?.customArtifacts).toEqual([
+      { label: 'Architecture', path: '.agents/sessions/auth-refresh/architecture.md' },
+    ])
+    // No known artifact paths or commands were inferred.
+    expect(metadata?.sessionPath).toBeUndefined()
+    expect(metadata?.executeCommand).toBeUndefined()
+  })
+
+  test('captures custom artifacts from numbered list lines without bullet prefix', () => {
+    const metadata = extractPlanMetadata([
+      '1. Session: .agents/sessions/auth-refresh',
+      '2. Architecture: .agents/sessions/auth-refresh/architecture.md',
+    ].join('\n'))
+
+    expect(metadata?.customArtifacts).toEqual([
+      { label: 'Architecture', path: '.agents/sessions/auth-refresh/architecture.md' },
+    ])
+  })
+
+  test('strips markdown link wrapper and trailing punctuation from custom artifact paths', () => {
+    const metadata = extractPlanMetadata([
+      '- Architecture: [design doc](.agents/sessions/foo/architecture.md);',
+      '- Wireframe: `.agents/sessions/foo/wireframe.png`.',
+    ].join('\n'))
+
+    expect(metadata?.customArtifacts).toEqual([
+      { label: 'Architecture', path: '.agents/sessions/foo/architecture.md' },
+      { label: 'Wireframe', path: '.agents/sessions/foo/wireframe.png' },
+    ])
+  })
+
+  test('captures custom artifact values that end with .md but have no path separator', () => {
+    const metadata = extractPlanMetadata([
+      '- README: local-readme.md',
+    ].join('\n'))
+
+    expect(metadata?.customArtifacts).toEqual([
+      { label: 'README', path: 'local-readme.md' },
+    ])
+    // No session path was inferred, so no commands are generated.
+    expect(metadata?.sessionPath).toBeUndefined()
+    expect(metadata?.executeCommand).toBeUndefined()
+  })
+
+  test('does not capture values without path separator or .md suffix', () => {
+    const metadata = extractPlanMetadata([
+      '- Architecture: just a plain description',
+      '- Notes: some words here',
+    ].join('\n'))
+
+    expect(metadata).toBeUndefined()
+  })
+
+  test('does not capture label with empty value after normalization', () => {
+    const metadata = extractPlanMetadata([
+      '- Architecture: ```',
+    ].join('\n'))
+
+    expect(metadata).toBeUndefined()
+  })
+
+  test('generates custom artifact commands for .md and non-.md paths', () => {
+    const metadata = extractPlanMetadata([
+      '## Artifacts',
+      '- Session: .agents/sessions/auth-refresh',
+      '- SPEC.md: .agents/sessions/auth-refresh/SPEC.md',
+      '- PLAN.md: .agents/sessions/auth-refresh/PLAN.md',
+      '- STATUS.md: .agents/sessions/auth-refresh/STATUS.md',
+      '- LESSONS.md: .agents/sessions/auth-refresh/LESSONS.md',
+      '- Architecture: .agents/sessions/auth-refresh/architecture.md',
+      '- Wireframe: .agents/sessions/auth-refresh/wireframe.png',
+    ].join('\n'))
+
+    expect(metadata?.customArtifactCommands).toEqual([
+      'Read .agents/sessions/auth-refresh/architecture.md',
+      'Open .agents/sessions/auth-refresh/wireframe.png',
+    ])
+  })
+
+  test('generates custom artifact commands even without session path', () => {
+    const metadata = extractPlanMetadata([
+      '- Architecture: docs/architecture.md',
+      '- Wireframe: assets/wireframe.png',
+    ].join('\n'))
+
+    // No session path was inferred, so plan commands are not generated.
+    expect(metadata?.executeCommand).toBeUndefined()
+    expect(metadata?.resumeCommand).toBeUndefined()
+    expect(metadata?.customArtifactCommands).toEqual([
+      'Read docs/architecture.md',
+      'Open assets/wireframe.png',
+    ])
+  })
+
+  test('does not generate custom artifact commands when no custom artifacts exist', () => {
+    const metadata = extractPlanMetadata([
+      '## Artifacts',
+      '- Session: .agents/sessions/auth-refresh',
+      '- SPEC.md: .agents/sessions/auth-refresh/SPEC.md',
+      '- PLAN.md: .agents/sessions/auth-refresh/PLAN.md',
+      '- STATUS.md: .agents/sessions/auth-refresh/STATUS.md',
+      '- LESSONS.md: .agents/sessions/auth-refresh/LESSONS.md',
+    ].join('\n'))
+
+    expect(metadata?.customArtifactCommands).toBeUndefined()
+  })
+
+  test('includes custom artifact commands alongside known plan commands', () => {
+    const metadata = extractPlanMetadata([
+      '## Artifacts',
+      '- Session: .agents/sessions/foo',
+      '- Architecture: .agents/sessions/foo/architecture.md',
+      '- Wireframe: .agents/sessions/foo/wireframe.png',
+    ].join('\n'))
+
+    expect(metadata?.resumeCommand).toBe('/resume-plan .agents/sessions/foo')
+    expect(metadata?.customArtifactCommands).toEqual([
+      'Read .agents/sessions/foo/architecture.md',
+      'Open .agents/sessions/foo/wireframe.png',
+    ])
+  })
+
+  test('removes legacy and unterminated plan tags from text', () => {
+    expect(scrubPlanTags('before <PLAN>old</cb_plan> after')).toBe('before  after')
+    expect(scrubPlanTags('before <PLAN>streaming plan')).toBe('before ')
+  })
+
+  test('identifies inserted plan blocks with the plan type guard', () => {
+    const result = insertPlanBlock([], 'Plan body')
+
+    expect(isPlanBlock(result[0])).toBe(true)
   })
 })
 
@@ -1502,4 +1737,82 @@ describe('parseGateStateBlock', () => {
     expect(scrubbed).toContain('World.')
     expect(scrubbed).not.toMatch(/\n{3,}/)
   })
+
+  test('parses only the first of multiple gate-state blocks', () => {
+    const buffer = [
+      '<gate-state>',
+      'gate: first',
+      'status: passed',
+      '</gate-state>',
+      '<gate-state>',
+      'gate: second',
+      'status: failed',
+      '</gate-state>',
+    ].join('\n')
+    expect(parseGateStateBlock(buffer)).toEqual({
+      type: 'gate-state',
+      gate: 'first',
+      gateStatus: 'passed',
+      origin: 'Base2',
+    })
+  })
+
+  test('parses a skipped gate with details and default origin', () => {
+    const buffer = [
+      '<gate-state>',
+      'gate: security',
+      'status: skipped',
+      'details: No security-sensitive files matched',
+      '</gate-state>',
+    ].join('\n')
+    expect(parseGateStateBlock(buffer)).toEqual({
+      type: 'gate-state',
+      gate: 'security',
+      gateStatus: 'skipped',
+      details: 'No security-sensitive files matched',
+      origin: 'Base2',
+    })
+  })
+
+  test('ignores lines that do not match the key:value shape', () => {
+    const buffer = [
+      '<gate-state>',
+      'arbitrary prose without a separator',
+      'gate: ci',
+      'status: pending',
+      ':extraneous',
+      '</gate-state>',
+    ].join('\n')
+    expect(parseGateStateBlock(buffer)).toEqual({
+      type: 'gate-state',
+      gate: 'ci',
+      gateStatus: 'pending',
+      origin: 'Base2',
+    })
+  })
+
+  test('scrubGateStateTags handles buffers with no gate-state blocks', () => {
+    expect(scrubGateStateTags('Nothing to scrub')).toBe('Nothing to scrub')
+  })
 })
+
+describe('isGateStateBlock', () => {
+  test('identifies a gate-state content block', () => {
+    const block: ContentBlock = {
+      type: 'gate-state',
+      gate: 'ci',
+      gateStatus: 'passed',
+    }
+    expect(isGateStateBlock(block)).toBe(true)
+  })
+
+  test('rejects non-gate-state blocks', () => {
+    const blocks: ContentBlock[] = [
+      { type: 'text', content: 'hello' },
+      { type: 'plan', content: 'Plan' },
+    ]
+    expect(isGateStateBlock(blocks[0])).toBe(false)
+    expect(isGateStateBlock(blocks[1])).toBe(false)
+  })
+})
+

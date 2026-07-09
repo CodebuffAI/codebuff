@@ -45,6 +45,7 @@ const baseProps = {
   streamingAgents: new Set<string>(),
   onToggleCollapsed: () => {},
   onBuildFast: () => {},
+  onInsertCommand: () => {},
   setCollapsedAgents: () => {},
   addAutoCollapsedAgent: () => {},
 }

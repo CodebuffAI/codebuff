@@ -1,0 +1,6 @@
+{"ts":"2026-07-09T10:52:29.644Z","kind":"append_lesson","summary":"Appended entry \"Reviewer gate crash after blocker fix\" to STATUS.md","payload":{"heading":"Reviewer gate crash after blocker fix","artifact":"STATUS.md"}}
+{"ts":"2026-07-09T10:52:29.644Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
+{"ts":"2026-07-09T11:12:27.429Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker resolved + subsequent reviewer crashes\" to STATUS.md","payload":{"heading":"Reviewer blocker resolved + subsequent reviewer crashes","artifact":"STATUS.md"}}
+{"ts":"2026-07-09T11:43:21.831Z","kind":"append_lesson","summary":"Appended entry \"Reviewer gate timeout — blocker already fixed\" to STATUS.md","payload":{"heading":"Reviewer gate timeout — blocker already fixed","artifact":"STATUS.md"}}
+{"ts":"2026-07-09T12:35:54.646Z","kind":"append_lesson","summary":"Appended entry \"Final reviewer gate status\" to STATUS.md","payload":{"heading":"Final reviewer gate status","artifact":"STATUS.md"}}
+{"ts":"2026-07-09T12:35:54.646Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}

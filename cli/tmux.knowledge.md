@@ -310,3 +310,5 @@ Name your test files accordingly to get automatic tmux availability checking.
 Tests that need CLI environment variables call `tmux set-environment -g` before creating sessions so an already-running server passes those values to new panes. That command fails when no tmux server exists yet (`no server running ...`). Treat this propagation as best-effort only; `tmux new-session` starts a server on demand and inherits the current process environment, and actual session creation/capture commands should still fail normally.
 
 When updating CLI interaction tests, keep tmux knowledge current with any changed readiness waits, input encoding, or capture behavior so the memory-drift guard can distinguish intentionally refreshed notes from stale runtime documentation.
+
+Recent CLI component/test updates did not change tmux harness behavior; the existing best-effort environment propagation and integration/e2e filename conventions remain current.

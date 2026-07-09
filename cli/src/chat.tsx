@@ -866,6 +866,22 @@ export const Chat = ({
     [setInputValue, setInputFocused, inputRef],
   )
 
+  // Insert a command (e.g. a plan block command) into the input without
+  // submitting. Sets the text, positions the cursor at the end, and focuses
+  // the input so the user can hit Enter to submit or edit the text first.
+  const handleInsertCommand = useCallback(
+    (command: string) => {
+      setInputValue({
+        text: command,
+        cursorPosition: command.length,
+        lastEditDueToNav: false,
+      })
+      setInputFocused(true)
+      inputRef.current?.focus()
+    },
+    [setInputValue, setInputFocused, inputRef],
+  )
+
   const handleExitFeedback = useCallback(() => {
     const { value, cursor } = restoreSavedInput()
     setInputValue({
@@ -1325,6 +1341,7 @@ export const Chat = ({
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
       onEditMessage: handleEditMessage,
+      onInsertCommand: handleInsertCommand,
     })
   }, [
     handleCollapseToggle,
@@ -1332,6 +1349,7 @@ export const Chat = ({
     handleMessageFeedback,
     handleCloseFeedback,
     handleEditMessage,
+    handleInsertCommand,
     setMessageBlockCallbacks,
   ])
 
