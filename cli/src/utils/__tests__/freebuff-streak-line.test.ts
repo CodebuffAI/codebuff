@@ -51,17 +51,19 @@ describe('getFreebuffStreakBonusNote', () => {
     ).toBeNull()
   })
 
-  test('full access advertises the session + GLM perk at 7+', () => {
+  test('full access advertises the daily session + weekly GLM perk at 7+', () => {
     const note = getFreebuffStreakBonusNote({ streak: 7, accessTier: 'full' })
     expect(note).toContain('GLM 5.2')
     expect(note).toContain('bonus session')
-    // Recurring framing, not a one-off "today" claim.
+    // Daily framing for the session bonus, weekly for GLM.
+    expect(note).toContain('every day')
     expect(note).toContain('each week')
   })
 
-  test('limited access advertises only the session perk', () => {
+  test('limited access advertises only the daily session perk', () => {
     const note = getFreebuffStreakBonusNote({ streak: 14, accessTier: 'limited' })
     expect(note).toContain('bonus session')
+    expect(note).toContain('every day')
     expect(note).not.toContain('GLM')
   })
 })

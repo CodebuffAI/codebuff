@@ -5,7 +5,7 @@ import {
   calculateFreebuffStreak,
   getFreebuffUsageDateKey,
   isFreebuffStreakMilestone,
-  streakRewardPoolsForMilestone,
+  streakRewardPools,
 } from '../freebuff-streak'
 
 describe('freebuff streak helpers', () => {
@@ -74,9 +74,9 @@ describe('freebuff streak rewards', () => {
     expect(isFreebuffStreakMilestone(8)).toBe(false)
   })
 
-  test('full access milestone grants a premium bonus plus a weekly GLM bonus', () => {
+  test('full access milestone day grants a premium bonus plus a weekly GLM bonus', () => {
     expect(
-      streakRewardPoolsForMilestone({
+      streakRewardPools({
         streak: 7,
         todayUsed: true,
         accessTier: 'full',
@@ -84,28 +84,55 @@ describe('freebuff streak rewards', () => {
     ).toEqual(['premium', 'glm'])
   })
 
-  test('limited access milestone grants only a limited bonus', () => {
+  test('full access grants the daily premium bonus on non-milestone days too (no GLM)', () => {
+    // Streak >= 7 but not a 7-day multiple: the daily premium bonus still lands
+    // every day, but GLM is weekly so it only lands on the milestone days.
     expect(
-      streakRewardPoolsForMilestone({
+      streakRewardPools({
+        streak: 8,
+        todayUsed: true,
+        accessTier: 'full',
+      }),
+    ).toEqual(['premium'])
+    expect(
+      streakRewardPools({
+        streak: 13,
+        todayUsed: true,
+        accessTier: 'full',
+      }),
+    ).toEqual(['premium'])
+  })
+
+  test('limited access grants the limited bonus every day at streak >= 7', () => {
+    // Milestone day and a plain day between milestones both grant the bonus.
+    expect(
+      streakRewardPools({
         streak: 14,
+        todayUsed: true,
+        accessTier: 'limited',
+      }),
+    ).toEqual(['limited'])
+    expect(
+      streakRewardPools({
+        streak: 9,
         todayUsed: true,
         accessTier: 'limited',
       }),
     ).toEqual(['limited'])
   })
 
-  test('no reward off a milestone or before today is used', () => {
+  test('no reward below the milestone or before today is used', () => {
     expect(
-      streakRewardPoolsForMilestone({
+      streakRewardPools({
         streak: 6,
         todayUsed: true,
         accessTier: 'full',
       }),
     ).toEqual([])
-    // Streak is a multiple of 7 only because yesterday anchored it; the user
-    // hasn't used Freebuff today, so the milestone isn't earned yet.
+    // Streak is at 7 only because yesterday anchored it; the user hasn't used
+    // Freebuff today, so no bonus is earned yet.
     expect(
-      streakRewardPoolsForMilestone({
+      streakRewardPools({
         streak: 7,
         todayUsed: false,
         accessTier: 'full',
