@@ -73,6 +73,18 @@ describe('analytics sampling', () => {
     expect(typeof otherEvent).toBe('boolean')
   })
 
+  it('samples inline ad slot demand instead of ingesting every slot', () => {
+    const decisions = Array.from({ length: 1_000 }, (_, i) =>
+      shouldTrackAnalyticsEvent({
+        event: AnalyticsEvent.CLI_INLINE_AD_SLOT_ELIGIBLE,
+        distinctId: `inline-ad-user-${i}`,
+      }),
+    )
+
+    expect(decisions).toContain(true)
+    expect(decisions).toContain(false)
+  })
+
   it('honors full telemetry env flags and allowlists', () => {
     process.env.CODEBUFF_FULL_TELEMETRY = 'true'
     expect(

@@ -48,6 +48,12 @@ export enum AnalyticsEvent {
   FOLLOWUP_CLICKED = 'cli.followup_clicked',
   SUGGESTED_PROMPT_SHOWN = 'cli.suggested_prompt_shown',
   SUGGESTED_PROMPT_CLICKED = 'cli.suggested_prompt_clicked',
+  // Sampled per eligible transcript slot; use response_id to recover the
+  // response-length distribution without ingesting every user's full stream.
+  CLI_INLINE_AD_SLOT_ELIGIBLE = 'cli.inline_ad_slot_eligible',
+  // Emitted once when a response needs a fifth slot and starts reusing its
+  // four-ad pool.
+  CLI_INLINE_AD_POOL_REUSED = 'cli.inline_ad_pool_reused',
 
   // Backend
   AGENT_STEP = 'backend.agent_step',
@@ -172,6 +178,8 @@ export enum AnalyticsEvent {
 
   // Web - Ads API
   ADS_API_AUTH_ERROR = 'api.ads_auth_error',
+  ADS_FETCH_COMPLETED = 'ads.fetch_completed',
+  ADS_IMPRESSION_RECORDED = 'ads.impression_recorded',
   ADS_CLICKED = 'ads.clicked',
 
   // Web - Token Count API

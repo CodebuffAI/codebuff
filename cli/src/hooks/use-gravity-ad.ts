@@ -1,4 +1,5 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useEffect, useRef, useState } from 'react'
 
 import { useTerminalLayout } from './use-terminal-layout'
@@ -10,8 +11,10 @@ import { IS_FREEBUFF } from '../utils/constants'
 import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 import { AI_MESSAGE_ID_PREFIX } from '../utils/ai-message-id'
+import { trackEvent } from '../utils/analytics'
 import {
   createLazyResponseAdQueue,
+  MAX_RESPONSE_AD_POOL_SIZE,
   requestLazyResponseAds,
 } from '../utils/lazy-response-ads'
 
@@ -71,6 +74,7 @@ type GravityController = {
   adsShownSinceActivity: number
   tickInFlight: boolean
   inlineQueue: ReturnType<typeof createLazyResponseAdQueue<AdResponse>>
+  eligibleSlotCounts: Map<string, number>
 }
 
 // Pure helper: add an ad set to the cache
@@ -116,6 +120,18 @@ export function claimAdImpression(
   if (impressionsFired.has(impUrl)) return false
   impressionsFired.add(impUrl)
   return true
+}
+
+function trackInlineAdEvent(
+  event: AnalyticsEvent,
+  properties: Record<string, unknown>,
+): void {
+  try {
+    trackEvent(event, properties)
+  } catch (error) {
+    // Telemetry must never interfere with fetching or rendering an ad.
+    logger.debug({ error, event }, '[ads] Failed to track inline ad event')
+  }
 }
 
 type GravityAdOptionsBase = {
@@ -191,6 +207,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
     adsShownSinceActivity: 0,
     tickInFlight: false,
     inlineQueue: createLazyResponseAdQueue<AdResponse>(),
+    eligibleSlotCounts: new Map(),
   })
 
   // Ref for the tick function (avoids useCallback dependency issues)
@@ -519,6 +536,34 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
     }
 
     const ctrl = ctrlRef.current
+    const previousEligibleCount = ctrl.eligibleSlotCounts.get(messageId) ?? 0
+    if (count > previousEligibleCount) {
+      ctrl.eligibleSlotCounts.set(messageId, count)
+      const telemetryProperties = {
+        response_id: messageId,
+        chat_session_id: useChatStore.getState().chatSessionId,
+        eligible_slot_count: count,
+        pool_size: MAX_RESPONSE_AD_POOL_SIZE,
+        provider,
+        surface,
+        placement_id: inlinePlacementId,
+        is_freebuff: IS_FREEBUFF,
+      }
+      trackInlineAdEvent(
+        AnalyticsEvent.CLI_INLINE_AD_SLOT_ELIGIBLE,
+        telemetryProperties,
+      )
+
+      if (
+        count > MAX_RESPONSE_AD_POOL_SIZE &&
+        previousEligibleCount <= MAX_RESPONSE_AD_POOL_SIZE
+      ) {
+        trackInlineAdEvent(
+          AnalyticsEvent.CLI_INLINE_AD_POOL_REUSED,
+          telemetryProperties,
+        )
+      }
+    }
 
     void requestLazyResponseAds({
       queue: ctrl.inlineQueue,
