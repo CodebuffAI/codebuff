@@ -7,6 +7,9 @@ export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30 days
 export const SESSION_TIME_WINDOW_MS = 30 * 60 * 1000 // 30 minutes - used for matching sessions created around fingerprint creation
 // New Codebuff accounts receive a one-time free credit grant on signup.
 export const SIGNUP_FREE_CREDITS_GRANT = 500
+// Signup credits are limited to GitHub-first users whose account is older than
+// this many calendar months. Google-first signups receive no signup credits.
+export const SIGNUP_CREDIT_MIN_GITHUB_ACCOUNT_AGE_MONTHS = 4
 
 // New accounts do not receive monthly free credits; grandfathered monthly grants
 // are based on previous expiring free grants instead of this default.
