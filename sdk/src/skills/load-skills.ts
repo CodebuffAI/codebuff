@@ -43,29 +43,17 @@ function parseFrontmatter(content: string): {
  * Loads a single skill from a SKILL.md file.
  * Returns null if the skill is invalid.
  */
-function loadSkillFromFile(
-  skillDir: string,
-  skillFilePath: string,
-  verbose: boolean,
+/** Parse and validate one SKILL.md document without touching disk. */
+export function parseSkillFileContent(
+  content: string,
+  options: { directoryName: string; filePath: string; verbose?: boolean },
 ): SkillDefinition | null {
-  const dirName = path.basename(skillDir)
-
-  // Read the file
-  let content: string
-  try {
-    content = fs.readFileSync(skillFilePath, 'utf8')
-  } catch {
-    if (verbose) {
-      console.error(`Failed to read skill file: ${skillFilePath}`)
-    }
-    return null
-  }
-
+  const { directoryName, filePath, verbose = false } = options
   // Parse frontmatter
   const parsed = parseFrontmatter(content)
   if (!parsed) {
     if (verbose) {
-      console.error(`Invalid frontmatter in skill file: ${skillFilePath}`)
+      console.error(`Invalid frontmatter in skill file: ${filePath}`)
     }
     return null
   }
@@ -75,7 +63,7 @@ function loadSkillFromFile(
   if (!result.success) {
     if (verbose) {
       console.error(
-        `Invalid skill frontmatter in ${skillFilePath}: ${result.error.message}`,
+        `Invalid skill frontmatter in ${filePath}: ${result.error.message}`,
       )
     }
     return null
@@ -84,10 +72,10 @@ function loadSkillFromFile(
   const frontmatter = result.data
 
   // Verify name matches directory name
-  if (frontmatter.name !== dirName) {
+  if (frontmatter.name !== directoryName) {
     if (verbose) {
       console.error(
-        `Skill name '${frontmatter.name}' does not match directory name '${dirName}' in ${skillFilePath}`,
+        `Skill name '${frontmatter.name}' does not match directory name '${directoryName}' in ${filePath}`,
       )
     }
     return null
@@ -99,8 +87,27 @@ function loadSkillFromFile(
     license: frontmatter.license,
     metadata: frontmatter.metadata,
     content,
-    filePath: skillFilePath,
+    filePath,
   }
+}
+
+function loadSkillFromFile(
+  skillDir: string,
+  skillFilePath: string,
+  verbose: boolean,
+): SkillDefinition | null {
+  let content: string
+  try {
+    content = fs.readFileSync(skillFilePath, 'utf8')
+  } catch {
+    if (verbose) console.error(`Failed to read skill file: ${skillFilePath}`)
+    return null
+  }
+  return parseSkillFileContent(content, {
+    directoryName: path.basename(skillDir),
+    filePath: skillFilePath,
+    verbose,
+  })
 }
 
 /**
@@ -218,7 +225,7 @@ export type LoadSkillsOptions = {
  * console.log(gitReleaseSkill.description)
  * ```
  */
-export async function loadSkills(options: LoadSkillsOptions = {}): Promise<SkillsMap> {
+export function loadSkillsSync(options: LoadSkillsOptions = {}): SkillsMap {
   const { cwd = process.cwd(), skillsPath, verbose = false } = options
 
   const skills: SkillsMap = {}
@@ -234,4 +241,9 @@ export async function loadSkills(options: LoadSkillsOptions = {}): Promise<Skill
   return skills
 }
 
-
+/** Async-compatible public loader retained for existing callers. */
+export async function loadSkills(
+  options: LoadSkillsOptions = {},
+): Promise<SkillsMap> {
+  return loadSkillsSync(options)
+}
