@@ -4,6 +4,7 @@ import * as os from 'os'
 import * as path from 'path'
 
 import type { ChildProcess } from 'child_process'
+import { protectChildWithJob } from './isolated-command'
 
 import {
   stripColors,
@@ -232,6 +233,12 @@ export function runTerminalCommand({
       windowsHide: true,
     })
 
+    // On Windows, add Job Object protection so the child is terminated
+    // automatically if this process crashes or is killed (taskkill /F).
+    const jobCleanup = isWindows && childProcess.pid != null
+      ? protectChildWithJob(childProcess.pid)
+      : null
+
     liveChildren.add(childProcess)
     installExitSweep()
 
@@ -316,6 +323,7 @@ export function runTerminalCommand({
     // Handle process completion
     childProcess.on('close', (exitCode) => {
       liveChildren.delete(childProcess)
+      if (jobCleanup) jobCleanup()
       if (sigkillTimer) {
         clearTimeout(sigkillTimer)
         sigkillTimer = null
