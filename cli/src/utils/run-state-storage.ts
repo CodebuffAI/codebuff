@@ -13,7 +13,7 @@ import {
   writeChatMeta,
 } from './chat-meta'
 import { logger } from './logger'
-import { writeFileAtomic } from './write-file-atomic'
+import { writeFileAtomic, writeFileAtomicAsync } from './write-file-atomic'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { RunState } from '@codebuff/sdk'
@@ -166,6 +166,87 @@ export function saveChatState(
       'Failed to save chat state',
     )
   }
+}
+
+/**
+ * Async counterpart to saveChatState. Serializes and writes off the caller's
+ * tick so a multi-MB transcript doesn't block the CLI's render/input thread.
+ */
+async function saveChatStateAsync(
+  runState: RunState,
+  messages: ChatMessage[],
+): Promise<void> {
+  try {
+    const runStatePath = getRunStatePath()
+    const messagesPath = getChatMessagesPath()
+    const chatDir = resolveCurrentChatDir()
+
+    await writeFileAtomicAsync(runStatePath, JSON.stringify(runState))
+    await writeFileAtomicAsync(messagesPath, JSON.stringify(messages))
+    // Sidecar summary so /history can list this chat without parsing the
+    // (unbounded) chat-messages.json. Written after the messages file: it
+    // records that file's size/mtime to detect staleness. The meta write is
+    // tiny, so keeping it synchronous here is fine.
+    writeChatMeta(chatDir, messages)
+  } catch (error) {
+    logger.error(
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to save chat state (async)',
+    )
+  }
+}
+
+// In-flight checkpoint writer. The SDK emits an onStateSnapshot roughly every
+// 5s at step boundaries while a run streams; the CLI used to persist each one
+// synchronously (cloneDeep in the SDK + two multi-MB JSON.stringify + two
+// blocking disk writes on the CLI), all on the render/input thread. In long
+// sessions that periodic stall is what users experience as "freezes". Instead,
+// schedule the write asynchronously and collapse bursts to a single in-flight
+// write, always persisting the latest state.
+let pendingCheckpoint: LiveChatState | null = null
+let checkpointDrain: Promise<void> | null = null
+
+async function drainCheckpoints(): Promise<void> {
+  while (pendingCheckpoint) {
+    const next = pendingCheckpoint
+    pendingCheckpoint = null
+    // Yield first so serialization never runs on the same tick that scheduled
+    // us (that tick is often mid-render or handling a keystroke).
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    await saveChatStateAsync(next.runState, next.messages)
+  }
+}
+
+/**
+ * Schedule an asynchronous, coalescing checkpoint save. Safe to call at a high
+ * rate: only one write runs at a time and intermediate states are dropped in
+ * favor of the latest. Use this for periodic in-flight checkpoints; use the
+ * synchronous saveChatState for one-shot authoritative saves (turn completion,
+ * exit flush).
+ */
+export function scheduleCheckpointSave(
+  runState: RunState,
+  messages: ChatMessage[],
+): void {
+  pendingCheckpoint = { runState, messages }
+  if (!checkpointDrain) {
+    checkpointDrain = drainCheckpoints().finally(() => {
+      checkpointDrain = null
+    })
+  }
+}
+
+/**
+ * Wait until all queued/in-flight checkpoint writes have flushed. Call this
+ * before an authoritative synchronous save (turn completion / error) so that a
+ * still-running async write can't land after — and clobber — the final state.
+ * Relies on the run having stopped scheduling checkpoints (the SDK's snapshot
+ * timer stops once the run settles), so the queue reaches idle.
+ */
+export async function settleCheckpointSave(): Promise<void> {
+  await checkpointDrain
 }
 
 /**

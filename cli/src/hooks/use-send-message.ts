@@ -20,7 +20,9 @@ import {
   clearLiveChatStateProvider,
   loadMostRecentChatState,
   saveChatState,
+  scheduleCheckpointSave,
   setLiveChatStateProvider,
+  settleCheckpointSave,
 } from '../utils/run-state-storage'
 import {
   autoCollapsePreviousMessages,
@@ -520,7 +522,12 @@ export const useSendMessage = ({
               : undefined,
           onStateSnapshot: (snapshot) => {
             latestRunStateSnapshot = snapshot
-            saveChatState(snapshot, useChatStore.getState().messages)
+            // Persist asynchronously and coalescing: the periodic snapshot
+            // fires ~every 5s at step boundaries, and a synchronous save of the
+            // (growing) transcript on the render/input thread is what stalls
+            // long sessions. The authoritative synchronous saves below still
+            // capture the final state.
+            scheduleCheckpointSave(snapshot, useChatStore.getState().messages)
           },
         })
 
@@ -552,6 +559,9 @@ export const useSendMessage = ({
         setRunState(runState)
         setIsRetrying(false)
 
+        // Drop any queued/in-flight async checkpoint first so a stale write
+        // can't land after this authoritative final save.
+        await settleCheckpointSave()
         // Read committed state rather than saving inside a setMessages
         // updater: the store uses immer, so the updater sees a draft proxy
         // and JSON.stringify of the (unbounded) transcript through proxy
@@ -593,7 +603,9 @@ export const useSendMessage = ({
             hasReceivedContent: hasReceivedContentRef.current,
           })
           // Persist the last checkpoint plus the error banner so a restart
-          // after a failed run still shows this turn.
+          // after a failed run still shows this turn. Settle async checkpoints
+          // first so a stale write can't clobber this one.
+          await settleCheckpointSave()
           saveChatState(
             latestRunStateSnapshot,
             useChatStore.getState().messages,

@@ -39,15 +39,14 @@ export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null
 
 /**
  * A short perk note shown while the user is on a 7+ day streak, explaining the
- * recurring reward they're earning by keeping it up. Returns null below the
- * milestone so it only appears once a full week has been earned.
+ * reward they're earning by keeping it up. Returns null below the milestone so it
+ * only appears once a full week has been earned.
  *
- * Framed as a per-week perk ("each week you keep it up") rather than "right now"
- * because the bonus recurs on every 7-day milestone — a sustained streak yields
- * one bonus session and (for full access) one GLM 5.2 session per week. The
- * exact remaining GLM count lives in the referral banner; this line is the
- * motivational why. GLM is full-access only, so limited users get the session
- * bonus alone.
+ * The daily-pool bonus (+1 session) recurs **every day** the streak stays at 7+,
+ * so it's framed as "every day". The GLM 5.2 bonus is a **weekly** perk, granted
+ * once per 7-day milestone. The exact remaining GLM count lives in the referral
+ * banner; this line is the motivational why. GLM is full-access only, so limited
+ * users get the daily session bonus alone.
  */
 export function getFreebuffStreakBonusNote(params: {
   streak: number
@@ -56,11 +55,11 @@ export function getFreebuffStreakBonusNote(params: {
   if (!FREEBUFF_STREAK_REWARDS_ENABLED) return null
   if (params.streak < FREEBUFF_STREAK_WEEK) return null
   // Only advertise GLM when the full-access GLM bonus is actually active —
-  // mirrors what streakRewardPoolsForMilestone grants, so the copy never
-  // promises a perk the gate won't honor.
+  // mirrors what streakRewardPools grants, so the copy never promises a perk the
+  // gate won't honor.
   const includesGlm =
     params.accessTier === 'full' && isFreebuffStreakGlmBonusActive()
   return includesGlm
-    ? '🎁 Streak perk: +1 bonus session + 1 GLM 5.2 session each week you keep it up'
-    : '🎁 Streak perk: +1 bonus session each week you keep it up'
+    ? '🎁 Streak perk: +1 bonus session every day + 1 GLM 5.2 session each week you keep it up'
+    : '🎁 Streak perk: +1 bonus session every day you keep it up'
 }

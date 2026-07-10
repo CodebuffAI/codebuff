@@ -223,7 +223,7 @@ export function runTerminalCommand({
       // user abort) also kills any grandchild processes. On POSIX this uses a
       // negative pid kill against the process group. On Windows `detached: true`
       // maps to DETACHED_PROCESS, which combined with CREATE_NO_WINDOW (from
-      // windowsHide) completely detaches the child from the parent's console.
+      // windowsHide) fully detaches the child from the parent's console.
       // Without DETACHED_PROCESS, console-attached descendants can open
       // CONIN$/CONOUT$ directly even when stdio is piped, stealing the VT input
       // that ConPTY generates for the TUI's mouse/focus tracking and echoing it

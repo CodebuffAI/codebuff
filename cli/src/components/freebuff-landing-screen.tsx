@@ -406,7 +406,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     FREEBUFF_ENABLE_STREAK_IN_UI && isLanding && !compact
   // Once a full week is earned, explain the recurring perk under the picker so
   // the streak reads as worth keeping. Accuracy lives in getFreebuffStreakBonusNote
-  // (recurring "each week" framing, GLM only for full access).
+  // (daily session bonus, weekly GLM, GLM only for full access).
   const streakBonusNote = reserveStreakSlot
     ? getFreebuffStreakBonusNote({
         streak,

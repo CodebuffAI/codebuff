@@ -115,21 +115,35 @@ export function isFreebuffStreakGlmBonusActive(): boolean {
 }
 
 /**
- * The streak-reward pools to grant a bonus session in when today's usage just
- * completed a milestone, or `[]` when nothing should be awarded. Full-access
- * users get a premium-pool bonus plus a weekly GLM bonus (when the GLM
- * sub-switch is on); limited-access users get a limited-pool bonus. Returns `[]`
- * unless the streak is a milestone reached today and rewards are enabled.
+ * The streak-reward pools to grant a bonus session in for today's usage, or `[]`
+ * when nothing should be awarded. Two cadences:
+ *
+ *   - Daily pool (`premium` for full access, `limited` for limited access):
+ *     granted **every day** the streak is at/above the 7-day milestone, so a
+ *     sustained streak is worth +1 session on the primary daily pool every day
+ *     it's kept up — not just on the exact 7/14/21 milestone days.
+ *   - GLM (`glm`, full access only): a **weekly** perk, so it's granted only on
+ *     the days the streak lands exactly on a 7-day multiple. Milestones are 7
+ *     days apart and the GLM pool is a Pacific week, so this yields exactly one
+ *     GLM session per week.
+ *
+ * Returns `[]` when rewards are disabled, today isn't used yet, or the streak is
+ * below the milestone.
  */
-export function streakRewardPoolsForMilestone(params: {
+export function streakRewardPools(params: {
   streak: number
   todayUsed: boolean
   accessTier: FreebuffAccessTier
 }): FreebuffStreakRewardPool[] {
   if (!FREEBUFF_STREAK_REWARDS_ENABLED) return []
-  if (!params.todayUsed || !isFreebuffStreakMilestone(params.streak)) return []
+  if (!params.todayUsed) return []
+  if (params.streak < FREEBUFF_STREAK_REWARD_INTERVAL_DAYS) return []
+  // Daily pool bonus: every day at streak >= 7.
   if (params.accessTier === 'limited') return ['limited']
   const pools: FreebuffStreakRewardPool[] = ['premium']
-  if (isFreebuffStreakGlmBonusActive()) pools.push('glm')
+  // GLM stays weekly: only on the exact milestone day (once per Pacific week).
+  if (isFreebuffStreakMilestone(params.streak) && isFreebuffStreakGlmBonusActive()) {
+    pools.push('glm')
+  }
   return pools
 }

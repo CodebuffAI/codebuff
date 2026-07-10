@@ -60,7 +60,7 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
  *  the free-mode allowlists — the CLI and web builder keep DeepSeek direct. */
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
-export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK26
+export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK27Code
 export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3_free
 export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
@@ -116,29 +116,29 @@ export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
 
 /**
- * Streak rewards. Maintaining a daily Freebuff streak across a full week earns a
- * bonus session: when the user's streak crosses a multiple of
- * `FREEBUFF_STREAK_REWARD_INTERVAL_DAYS` (7, 14, 21, …) they are granted one
- * extra session in their primary pool (premium for full-access users, limited
- * for limited-access users), and — for full-access users — one extra GLM 5.2
- * weekly session on top of any referral entitlement.
+ * Streak rewards. Once a user reaches a `FREEBUFF_STREAK_REWARD_INTERVAL_DAYS`
+ * (7)-day daily streak, they earn:
+ *   - +1 session in their primary daily pool (premium for full-access users,
+ *     limited for limited-access) **every day** the streak stays at 7+; and
+ *   - for full-access users, +1 GLM 5.2 session **each week**, granted on the
+ *     exact 7/14/21… milestone days, on top of any referral entitlement.
  *
  * The bonus is implemented by raising the relevant pool's effective session
- * limit for the period the milestone was reached in (so the daily premium /
- * limited bonus is usable the day it's earned, and the weekly GLM bonus for the
- * rest of that Pacific week). Because milestones recur every 7 days, a sustained
- * streak yields roughly one bonus per week — matching the "+1 GLM session per
- * week" promise.
+ * limit for the period the reward lands in: the daily premium/limited bonus
+ * raises today's cap (re-granted each day the streak holds), and the weekly GLM
+ * bonus raises that Pacific week's cap. Milestones are 7 days apart and the GLM
+ * pool is a Pacific week, so GLM stays exactly one bonus per week — matching the
+ * "+1 GLM session per week" promise.
  */
 export const FREEBUFF_STREAK_REWARD_INTERVAL_DAYS = 7
-/** Master kill-switch for streak rewards. When false, milestones grant nothing
+/** Master kill-switch for streak rewards. When false, streaks grant nothing
  *  and effective limits fall back to the base pool limits. */
 export const FREEBUFF_STREAK_REWARDS_ENABLED = true
 /** Sub-switch for the full-access GLM 5.2 portion of the streak reward. Lets the
  *  GLM perk be wound down independently of the premium/limited bonus (and of the
  *  separate referral-driven GLM program). */
 export const FREEBUFF_STREAK_GLM_BONUS_ENABLED = true
-/** Session-units granted per milestone, per pool. One whole session. */
+/** Session-units granted per streak-reward grant, per pool. One whole session. */
 export const FREEBUFF_STREAK_BONUS_SESSION_UNITS = 1
 
 /** Which session pool a streak bonus credit applies to. `premium` and `limited`
@@ -202,8 +202,8 @@ const MIMO_V25_PRO_MODEL = {
 
 const KIMI_MODEL = {
   id: FREEBUFF_KIMI_MODEL_ID,
-  displayName: 'Kimi K2.6',
-  tagline: 'Balanced',
+  displayName: 'Kimi K2.7 Code',
+  tagline: 'Best for coding',
   availability: 'always',
   premium: true,
   multimodal: true,
@@ -297,9 +297,13 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // grid model, it's a referral reward surfaced by the separate referral banner.
 // It stays in SUPPORTED_FREEBUFF_MODELS so the session/chat layers accept it as
 // a valid model id once the user's weekly entitlement admits them.
+// Kimi returned to the picker as K2.7 Code: the K2.6 first-token stalls that
+// got Kimi hidden were provider-side; K2.7 Code is served via Infron pinned to
+// Alibaba us/eu (~3s warm-cache TTFT benchmarked).
 export const FREEBUFF_MODELS = [
   MINIMAX_M3_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
+  KIMI_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
@@ -317,6 +321,7 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
 export const FREEBUFF_WEB_MODELS = [
   HY3_MODEL,
   KAT_CODER_PRO_V2_MODEL,
+  GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -385,6 +390,15 @@ export function occupiesFreebuffDesktopSlot(
  *  (CLI, desktop) agree on the exact strings instead of redefining literals. */
 export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
 export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
+/** Trusted server-to-server header. Only the Codebuff API may honor this when
+ *  the request authenticates as the Freebuff Web service account; browser and
+ *  normal API callers must not be able to select another user's session row. */
+export const FREEBUFF_ACTING_USER_HEADER = 'x-freebuff-acting-user-id'
+/** Trusted Freebuff Web/Cloud session-proxy hint. Keeps the normal CLI GET
+ * response compact while letting the browser model picker request zero-usage
+ * quota snapshots so it can render accurate "N of M sessions" labels. */
+export const FREEBUFF_INCLUDE_UNUSED_RATE_LIMITS_HEADER =
+  'x-freebuff-include-unused-rate-limits'
 /** Set to '1' by Freebuff Desktop to opt into multi-session mode (concurrent
  *  per-tab sessions); absent for CLI/web, which keep one session per user. */
 export const FREEBUFF_MULTI_SESSION_HEADER = 'x-freebuff-multi-session'
@@ -536,6 +550,28 @@ export function isFreebuffModelAllowedForAccessTier(
   return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
 }
 
+/** Session admission is shared by CLI/Desktop/Web/Cloud. The CLI picker only
+ *  uses SUPPORTED_FREEBUFF_MODELS, while Web/Cloud have a small set of
+ *  trial/god-only model ids. Those Web-only ids still draw from the same
+ *  session pools, so the admission layer accepts the union here without
+ *  changing the CLI picker. */
+export function isFreebuffSessionModelId(
+  id: string | null | undefined,
+): id is SupportedFreebuffModelId | FreebuffWebModelId {
+  return isSupportedFreebuffModelId(id) || isFreebuffWebModelId(id, {
+    includeGodOnly: true,
+  })
+}
+
+export function isFreebuffSessionModelAllowedForAccessTier(
+  model: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): boolean {
+  if (!model) return false
+  if (accessTier !== 'limited') return isFreebuffSessionModelId(model)
+  return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+}
+
 export function isFreebuffModelId(
   id: string | null | undefined,
 ): id is FreebuffModelId {
@@ -591,6 +627,20 @@ export function resolveFreebuffModelForAccessTier(
     : FALLBACK_FREEBUFF_MODEL_ID
 }
 
+export function resolveFreebuffSessionModelForAccessTier(
+  id: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): SupportedFreebuffModelId | FreebuffWebModelId {
+  if (accessTier === 'limited') {
+    return isFreebuffSessionModelAllowedForAccessTier(id, accessTier)
+      ? (id as SupportedFreebuffModelId)
+      : LIMITED_FREEBUFF_MODEL_ID
+  }
+  return isFreebuffSessionModelId(id)
+    ? id
+    : (FALLBACK_FREEBUFF_MODEL_ID as SupportedFreebuffModelId)
+}
+
 export function isSupportedFreebuffModelId(
   id: string | null | undefined,
 ): id is SupportedFreebuffModelId {
@@ -644,6 +694,12 @@ export function isFreebuffWebPremiumModelId(
   return FREEBUFF_WEB_PREMIUM_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
+}
+
+export function isFreebuffSessionPremiumModelId(
+  id: string | null | undefined,
+): boolean {
+  return isFreebuffWebPremiumModelId(id)
 }
 
 /** Whether `model` occupies the one-per-user Freebuff Desktop premium
@@ -790,6 +846,14 @@ export function isFreebuffModelAvailable(
 ): boolean {
   const model = SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id)
   if (!model) return false
+  return model.availability === 'always' || isFreebuffDeploymentHours(now)
+}
+
+export function isFreebuffSessionModelAvailable(
+  id: string,
+  now: Date = new Date(),
+): boolean {
+  const model = getFreebuffWebModel(id)
   return model.availability === 'always' || isFreebuffDeploymentHours(now)
 }
 

@@ -37,3 +37,7 @@ docs/bot-detection.md
 
 # Buffbench DEBUG_ERROR dumps
 evals/buffbench/*-error-*.json
+
+# Freebuff Desktop local runtime state in an opened project (SQLite DB, git
+# worktrees, materialized built-in skills) — never source, always regenerated.
+.freebuff/

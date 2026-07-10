@@ -10,8 +10,36 @@ import type { ReadStream } from 'tty'
  */
 const ENABLE_FOCUS_REPORTING = '\x1b[?1004h'
 const DISABLE_FOCUS_REPORTING = '\x1b[?1004l'
-const FOCUS_IN_EVENT = '\x1b[I'
-const FOCUS_OUT_EVENT = '\x1b[O'
+
+// Focus in/out are complete CSI sequences: CSI I (ESC [ I) = focus gained,
+// CSI O (ESC [ O) = focus lost. Match the full sequence rather than doing a
+// naive substring test so unrelated bytes in the same chunk can't be mistaken
+// for a focus event. The global flag lets us scan every occurrence in a chunk.
+const FOCUS_EVENT_RE = /\x1b\[(I|O)/g
+
+/**
+ * Return the net focus state implied by a stdin chunk, or null if the chunk
+ * contains no focus events. When a terminal batches several sequences into one
+ * chunk (e.g. an alt-tab round trip, or focus events interleaved with a paste),
+ * the LAST focus event is the current truth — so a focus-out followed by a
+ * focus-in nets to "focused" and can't leave the UI wrongly dimmed.
+ *
+ * Exported for testing.
+ */
+export function parseFocusState(data: string): boolean | null {
+  // Fast path: a chunk with no CSI introducer can't hold a focus event. This
+  // runs on every keystroke, so keep it cheap.
+  if (!data.includes('\x1b[')) {
+    return null
+  }
+  let focused: boolean | null = null
+  FOCUS_EVENT_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = FOCUS_EVENT_RE.exec(data)) !== null) {
+    focused = match[1] === 'I'
+  }
+  return focused
+}
 
 function getStdin(): ReadStream | null {
   const stdin = process.stdin as ReadStream | undefined
@@ -77,31 +105,34 @@ export function useTerminalFocus({
     }
 
     let supportDetected = false
+    // Track the last state we reported so a stream of identical events (some
+    // terminals repeat focus reports) doesn't churn store state / re-renders.
+    let lastReported: boolean | null = null
 
     // Enable focus reporting
     enableFocusReporting()
 
-    // Listen for data events on stdin to catch focus in/out sequences
+    // Listen for data events on stdin to catch focus in/out sequences. This
+    // runs alongside OpenTUI's own stdin parser, so it must be conservative:
+    // only act on genuine focus sequences and never on ordinary keystrokes.
     const handleData = (chunk: Buffer | string) => {
-      const data = chunk.toString()
-
-      // Use includes() instead of strict equality to handle cases where
-      // terminal batches multiple sequences or keystrokes together
-      if (data.includes(FOCUS_IN_EVENT)) {
-        // First focus event confirms terminal support
-        if (!supportDetected) {
-          supportDetected = true
-          onSupportDetected?.()
-        }
-        onFocusChange(true)
-      } else if (data.includes(FOCUS_OUT_EVENT)) {
-        // First focus event confirms terminal support
-        if (!supportDetected) {
-          supportDetected = true
-          onSupportDetected?.()
-        }
-        onFocusChange(false)
+      const focused = parseFocusState(chunk.toString())
+      if (focused === null) {
+        return
       }
+
+      // The first focus event of any kind confirms the terminal supports
+      // focus reporting (enables cursor blink, etc.).
+      if (!supportDetected) {
+        supportDetected = true
+        onSupportDetected?.()
+      }
+
+      if (focused === lastReported) {
+        return
+      }
+      lastReported = focused
+      onFocusChange(focused)
     }
 
     stdin.on('data', handleData)

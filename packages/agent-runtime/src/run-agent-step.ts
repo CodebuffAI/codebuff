@@ -29,6 +29,7 @@ import { CACHE_DEBUG_FULL_LOGGING } from './constants'
 import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
+import { isThinkOnlyResponse } from './util/think-tags'
 import {
   clearProgrammaticRunState,
   runProgrammaticStep,
@@ -575,16 +576,10 @@ export const runAgentStep = async (
       call.toolName === 'task_completed' || call.toolName === 'end_turn',
   )
 
-  // If the response is only <think>...</think> tags with no other non-whitespace content,
-  // the model was just thinking and should continue rather than end its turn.
-  const responseWithoutThinkTags = fullResponse
-    .replace(/<think>[\s\S]*?<\/think>/g, '')
-    .replace(/<think>[\s\S]*$/, '')
-    .trim()
-  const isThinkOnly =
-    hasNoToolResults &&
-    responseWithoutThinkTags.length === 0 &&
-    fullResponse.trim().length > 0
+  // If the response is only <think>...</think> scaffolding (including orphan
+  // </think> closes that native-reasoning providers sometimes leak into
+  // content), the model was just thinking and should continue rather than end.
+  const isThinkOnly = hasNoToolResults && isThinkOnlyResponse(fullResponse)
 
   // If the agent has the task_completed tool, it must be called to end its turn.
   const requiresExplicitCompletion =

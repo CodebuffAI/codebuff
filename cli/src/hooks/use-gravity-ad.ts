@@ -367,7 +367,10 @@ export const useGravityAd = (options?: {
         Authorization: `Bearer ${authToken}`,
         'User-Agent': getCliAdRequestUserAgent(),
       },
-      body: JSON.stringify({ impUrl: ad.impUrl, surface: surface ?? 'chat' }),
+      body: JSON.stringify({
+        impUrl: ad.impUrl,
+        ...(surface ? { surface } : {}),
+      }),
     })
       .then((res) => {
         if (!res.ok) {

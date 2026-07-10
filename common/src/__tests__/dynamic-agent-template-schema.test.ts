@@ -320,6 +320,29 @@ describe('DynamicAgentDefinitionSchema', () => {
       }
     })
 
+    it('should accept template with non-empty spawnableAgents and spawn_agent_inline tool', () => {
+      const template = {
+        ...validBaseTemplate,
+        spawnableAgents: ['context-pruner'],
+        toolNames: ['end_turn', 'spawn_agent_inline'],
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
+    })
+
+    it('should accept template with non-empty spawnableAgents and a handleSteps generator', () => {
+      const template = {
+        ...validBaseTemplate,
+        spawnableAgents: ['context-pruner'],
+        toolNames: ['end_turn', 'read_files'],
+        handleSteps: `function* () { yield { toolName: 'spawn_agent_inline', input: { agent_type: 'context-pruner' } } }`,
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
+    })
+
     it('should accept template with non-empty spawnableAgents and spawn_agents tool', () => {
       const template = {
         ...validBaseTemplate,
