@@ -396,6 +396,45 @@ describe('runAgentStep - set_output tool', () => {
     ).toBe(true)
   })
 
+  it('continues the turn when the LLM response is only think-tag scaffolding', async () => {
+    const thinkOnlyAgent: AgentTemplate = {
+      id: 'test-think-only-agent',
+      displayName: 'Test Think Only Agent',
+      spawnerPrompt: 'Testing think-only turn continuation',
+      model: 'claude-3-5-sonnet-20241022',
+      inputSchema: {},
+      outputMode: 'last_message' as const,
+      includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
+      mcpServers: {},
+      toolNames: ['read_files', 'end_turn'],
+      spawnableAgents: [],
+      systemPrompt: 'Test system prompt',
+      instructionsPrompt: 'Test instructions prompt',
+      stepPrompt: 'Test agent step prompt',
+    }
+
+    // Orphan </think> is what Kimi via Alibaba/Infron sometimes leaks into
+    // content after native reasoning — previously this ended the turn.
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield { type: 'text' as const, text: '</think> ' }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const result = await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-think-only-agent',
+      localAgentTemplates: { 'test-think-only-agent': thinkOnlyAgent },
+      agentTemplate: thinkOnlyAgent,
+      agentState: sessionState.mainAgentState,
+      prompt: 'Continue the task',
+    })
+
+    expect(result.shouldEndTurn).toBe(false)
+    expect(result.fullResponse).toBe('</think> ')
+  })
+
   it('should spawn agent inline that deletes last two assistant messages', async () => {
     // Create a mock inline agent template that deletes messages
     const mockInlineAgentTemplate: AgentTemplate = {
