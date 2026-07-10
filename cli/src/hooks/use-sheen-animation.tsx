@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react'
 
-import {
-  SHADOW_CHARS,
-  SHEEN_STEP,
-  SHEEN_INTERVAL_MS,
-} from '../login/constants'
+import { SHADOW_CHARS, SHEEN_STEP, SHEEN_INTERVAL_MS } from '../login/constants'
 import { getSheenColor } from '../login/utils'
 
 interface UseSheenAnimationParams {
+  enabled?: boolean
   logoColor: string
   accentColor: string
   blockColor: string
@@ -21,6 +18,7 @@ interface UseSheenAnimationParams {
  * Animates a fill effect that loops: fill with accent color, then unfill back to original
  */
 export function useSheenAnimation({
+  enabled = true,
   logoColor,
   accentColor,
   blockColor,
@@ -33,19 +31,21 @@ export function useSheenAnimation({
 
   // Run looping sheen animation
   useEffect(() => {
+    if (!enabled) return
+
     const maxPosition = Math.max(10, Math.min((terminalWidth || 80) - 4, 100))
     const step = SHEEN_STEP
 
     const interval = setInterval(() => {
       setSheenPosition((prev) => {
         const next = prev + step
-        
+
         if (next >= maxPosition) {
           // Reached the end, switch direction
           setIsReversing((wasReversing) => !wasReversing)
           return 0 // Reset position for next phase
         }
-        
+
         return next
       })
     }, SHEEN_INTERVAL_MS)
@@ -53,7 +53,7 @@ export function useSheenAnimation({
     return () => {
       clearInterval(interval)
     }
-  }, [terminalWidth, setSheenPosition])
+  }, [enabled, terminalWidth, setSheenPosition])
 
   // Apply sheen effect to a character based on its position
   const applySheenToChar = useCallback(

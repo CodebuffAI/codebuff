@@ -15,6 +15,7 @@ import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { SingleAdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
+import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
@@ -99,12 +100,11 @@ import type { FreebuffSessionResponse } from './types/freebuff-session'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
-import type { ScrollBoxRenderable } from '@opentui/core'
+import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
 
 export const Chat = ({
-  headerContent,
   initialPrompt,
   agentId,
   fileTree,
@@ -120,7 +120,6 @@ export const Chat = ({
   onSwitchToGitRoot,
   freebuffSession,
 }: {
-  headerContent: React.ReactNode
   initialPrompt: string | null
   agentId?: string
   fileTree: FileTreeNode[]
@@ -137,6 +136,8 @@ export const Chat = ({
   freebuffSession: FreebuffSessionResponse | null
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
+  const headerRef = useRef<BoxRenderable | null>(null)
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true)
 
   // First-time onboarding: show clickable starter prompts until the user
   // submits their first prompt ever (persisted in settings). Freebuff only.
@@ -250,6 +251,36 @@ export const Chat = ({
     theme,
     markdownPalette,
   } = useChatUI({ messages, isUserCollapsing })
+
+  const updateHeaderVisibility = useCallback(() => {
+    const header = headerRef.current
+    const viewport = scrollRef.current?.viewport
+    if (!header || !viewport) return
+
+    const headerTop = header.screenY
+    const headerBottom = headerTop + header.height
+    const viewportTop = viewport.screenY
+    const viewportBottom = viewportTop + viewport.height
+    const visible = headerTop < viewportBottom && headerBottom > viewportTop
+    setIsHeaderVisible((current) => (current === visible ? current : visible))
+  }, [scrollRef])
+
+  useEffect(() => {
+    const scrollbox = scrollRef.current
+    if (!scrollbox) return
+
+    const timeoutId = setTimeout(updateHeaderVisibility, 0)
+    scrollbox.verticalScrollBar.on('change', updateHeaderVisibility)
+    return () => {
+      clearTimeout(timeoutId)
+      scrollbox.verticalScrollBar.off('change', updateHeaderVisibility)
+    }
+  }, [scrollRef, updateHeaderVisibility])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(updateHeaderVisibility, 0)
+    return () => clearTimeout(timeoutId)
+  }, [messages.length, terminalHeight, terminalWidth, updateHeaderVisibility])
 
   const localAgents = useMemo(() => loadLocalAgents(agentMode), [agentMode])
   const inputMode = useChatStore((state) => state.inputMode)
@@ -1530,7 +1561,15 @@ export const Chat = ({
       >
         <TopBanner gitRoot={gitRoot} onSwitchToGitRoot={onSwitchToGitRoot} />
 
-        {headerContent}
+        <box
+          ref={headerRef as React.Ref<BoxRenderable>}
+          style={{ flexDirection: 'column' }}
+        >
+          <ChatHeader
+            projectRoot={getProjectRoot()}
+            animationEnabled={isHeaderVisible}
+          />
+        </box>
         {IS_FREEBUFF && (
           <FreebuffActiveSessionSummary session={freebuffSession} />
         )}

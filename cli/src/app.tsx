@@ -7,25 +7,17 @@ import { ChatHistoryScreen } from './components/chat-history-screen'
 import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
-import { TerminalLink } from './components/terminal-link'
 import { FreebuffLandingScreen } from './components/freebuff-landing-screen'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useFreebuffSession } from './hooks/use-freebuff-session'
-import { useLogo } from './hooks/use-logo'
-import { useSheenAnimation } from './hooks/use-sheen-animation'
-import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
-import { useTheme } from './hooks/use-theme'
 import { getProjectRoot, startNewChat } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
 import { IS_FREEBUFF } from './utils/constants'
 import { findGitRoot } from './utils/git'
-import { openFileAtPath } from './utils/open-file'
-import { formatCwd } from './utils/path-helpers'
-import { getLogoBlockColor, getLogoAccentColor } from './utils/theme-system'
 
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { AgentMode } from './utils/constants'
@@ -57,29 +49,6 @@ export const App = ({
   showProjectPicker,
   onProjectChange,
 }: AppProps) => {
-  const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
-  const theme = useTheme()
-
-  // Sheen animation state for the logo
-  const [sheenPosition, setSheenPosition] = useState(0)
-  const blockColor = getLogoBlockColor(theme.name)
-  const accentColor = getLogoAccentColor(theme.name)
-  const { applySheenToChar } = useSheenAnimation({
-    logoColor: theme.foreground,
-    accentColor,
-    blockColor,
-    terminalWidth,
-    sheenPosition,
-    setSheenPosition,
-  })
-
-  const { component: logoComponent } = useLogo({
-    availableWidth: contentMaxWidth,
-    accentColor,
-    blockColor,
-    applySheenToChar,
-  })
-
   const inputRef = useRef<MultilineInputHandle | null>(null)
   const {
     setInputFocused,
@@ -205,48 +174,6 @@ export const App = ({
   const effectiveContinueChat = continueChat || resumeChatId !== null
   const effectiveContinueChatId = resumeChatId ?? continueChatId
 
-  const headerContent = useMemo(() => {
-    const displayPath = formatCwd(projectRoot)
-
-    return (
-      <box
-        style={{
-          flexDirection: 'column',
-          gap: 0,
-          paddingLeft: 1,
-          paddingRight: 1,
-        }}
-      >
-        <box
-          style={{
-            flexDirection: 'column',
-            marginBottom: 1,
-            marginTop: 2,
-          }}
-        >
-          {logoComponent}
-        </box>
-        <text
-          style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
-        >
-          {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} will run commands on your behalf to help you build.
-        </text>
-        <text
-          style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
-        >
-          Directory{' '}
-          <TerminalLink
-            text={displayPath}
-            color={theme.muted}
-            inline={true}
-            underlineOnHover={true}
-            onActivate={() => openFileAtPath(projectRoot)}
-          />
-        </text>
-      </box>
-    )
-  }, [logoComponent, projectRoot, theme])
-
   // Derive auth reachability + retrying state from authQuery error
   const authError = authQuery.error
   const authErrorStatusCode = authError ? getErrorStatusCode(authError) : undefined
@@ -298,7 +225,6 @@ export const App = ({
   return (
     <AuthedSurface
       chatKey={chatKey}
-      headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
       fileTree={fileTree}
@@ -322,7 +248,6 @@ export const App = ({
 
 interface AuthedSurfaceProps {
   chatKey: string
-  headerContent: React.ReactNode
   initialPrompt: string | null
   agentId?: string
   fileTree: FileTreeNode[]
@@ -349,7 +274,6 @@ interface AuthedSurfaceProps {
  */
 const AuthedSurface = ({
   chatKey,
-  headerContent,
   initialPrompt,
   agentId,
   fileTree,
@@ -417,7 +341,6 @@ const AuthedSurface = ({
   return (
     <Chat
       key={chatKey}
-      headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
       fileTree={fileTree}

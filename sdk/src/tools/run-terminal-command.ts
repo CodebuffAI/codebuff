@@ -5,18 +5,89 @@ import * as path from 'path'
 
 import type { ChildProcess } from 'child_process'
 
-import {
-  stripColors,
-  truncateStringWithMessage,
-} from '../../../common/src/util/string'
+import { stripColors } from '../../../common/src/util/string'
 import { getSystemProcessEnv } from '../env'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const COMMAND_OUTPUT_LIMIT = 50_000
+const TRUNCATION_MARKER = '\n[...TRUNCATED DUE TO LENGTH...]\n'
+const MAX_PENDING_COLOR_SEQUENCE_LENGTH = 32
+const INCOMPLETE_COLOR_SEQUENCE_REGEX = /\x1B\[[0-9;]*$/
 // Grace period between SIGTERM and SIGKILL for commands that trap or ignore
 // SIGTERM.
 const KILL_ESCALATION_MS = 1500
+
+/**
+ * Retains a bounded prefix and suffix while continuing to drain a child
+ * process's output. This keeps noisy commands from growing the CLI process to
+ * multiple gigabytes before the result is truncated.
+ */
+export class BoundedOutputBuffer {
+  private head = ''
+  private tail = ''
+  private truncated = false
+  private pendingColorSequence = ''
+  private readonly headLimit: number
+  private readonly tailLimit: number
+
+  constructor(private readonly maxLength: number) {
+    if (maxLength < TRUNCATION_MARKER.length) {
+      throw new Error('Output limit must fit the truncation marker')
+    }
+    const retainedLength = Math.max(0, maxLength - TRUNCATION_MARKER.length)
+    this.headLimit = Math.ceil(retainedLength / 2)
+    this.tailLimit = Math.floor(retainedLength / 2)
+  }
+
+  append(value: string): void {
+    if (!value) return
+
+    let normalized = this.pendingColorSequence + value
+    this.pendingColorSequence = ''
+    const incompleteColorSequence = normalized.match(
+      INCOMPLETE_COLOR_SEQUENCE_REGEX,
+    )?.[0]
+    if (
+      incompleteColorSequence &&
+      incompleteColorSequence.length <= MAX_PENDING_COLOR_SEQUENCE_LENGTH
+    ) {
+      this.pendingColorSequence = incompleteColorSequence
+      normalized = normalized.slice(0, -incompleteColorSequence.length)
+    }
+    normalized = stripColors(normalized)
+    if (!normalized) return
+
+    if (!this.truncated) {
+      const combined = this.head + normalized
+      if (combined.length <= this.maxLength) {
+        this.head = combined
+        return
+      }
+
+      this.truncated = true
+      this.head = combined.slice(0, this.headLimit)
+      this.tail = this.tailLimit === 0 ? '' : combined.slice(-this.tailLimit)
+      return
+    }
+
+    this.tail =
+      this.tailLimit === 0
+        ? ''
+        : (this.tail + normalized).slice(-this.tailLimit)
+  }
+
+  get retainedLength(): number {
+    return this.head.length + this.tail.length
+  }
+
+  format(): string {
+    if (!this.truncated) {
+      return this.head
+    }
+    return this.head + TRUNCATION_MARKER + this.tail
+  }
+}
 
 function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals) {
   if (os.platform() !== 'win32' && child.pid) {
@@ -57,10 +128,7 @@ const GIT_BASH_COMMON_PATHS = [
 
 // WSL bash paths that are often unreliable (VM may not be running, quote escaping issues)
 // These are checked last as a fallback only
-const WSL_BASH_PATH_PATTERNS = [
-  'system32',
-  'windowsapps',
-]
+const WSL_BASH_PATH_PATTERNS = ['system32', 'windowsapps']
 
 /**
  * Find bash executable on Windows.
@@ -69,7 +137,7 @@ const WSL_BASH_PATH_PATTERNS = [
  * 2. Common Git Bash installation locations (most reliable)
  * 3. Non-WSL bash in PATH (e.g., Git Bash added to PATH)
  * 4. WSL bash in PATH (last resort - System32, WindowsApps)
- * 
+ *
  * WSL bash is deprioritized because it can fail with cryptic errors when:
  * - The WSL VM is not running
  * - Quote/argument escaping issues between Windows and Linux
@@ -93,11 +161,13 @@ function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
   const pathEnv = env.PATH || env.Path || ''
   const pathDirs = pathEnv.split(path.delimiter)
   const wslFallbackPaths: string[] = []
-  
+
   for (const dir of pathDirs) {
     const dirLower = dir.toLowerCase()
-    const isWslPath = WSL_BASH_PATH_PATTERNS.some(pattern => dirLower.includes(pattern))
-    
+    const isWslPath = WSL_BASH_PATH_PATTERNS.some((pattern) =>
+      dirLower.includes(pattern),
+    )
+
     const bashPath = path.join(dir, 'bash.exe')
     if (fs.existsSync(bashPath)) {
       if (isWslPath) {
@@ -108,7 +178,7 @@ function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
         return bashPath
       }
     }
-    
+
     // Also check for just 'bash' (without .exe)
     const bashPathNoExt = path.join(dir, 'bash')
     if (fs.existsSync(bashPathNoExt)) {
@@ -236,8 +306,8 @@ export function runTerminalCommand({
     liveChildren.add(childProcess)
     installExitSweep()
 
-    let stdout = ''
-    let stderr = ''
+    const stdout = new BoundedOutputBuffer(COMMAND_OUTPUT_LIMIT)
+    const stderr = new BoundedOutputBuffer(COMMAND_OUTPUT_LIMIT)
     let timer: NodeJS.Timeout | null = null
     let sigkillTimer: NodeJS.Timeout | null = null
     let processFinished = false
@@ -247,19 +317,15 @@ export function runTerminalCommand({
       // Escalate in case the command traps or ignores SIGTERM.
       sigkillTimer = setTimeout(() => {
         sigkillTimer = null
-        if (childProcess.exitCode === null && childProcess.signalCode === null) {
+        if (
+          childProcess.exitCode === null &&
+          childProcess.signalCode === null
+        ) {
           killProcessGroup(childProcess, 'SIGKILL')
         }
       }, KILL_ESCALATION_MS)
       sigkillTimer.unref?.()
     }
-
-    const truncateOutput = (str: string) =>
-      truncateStringWithMessage({
-        str: stripColors(str),
-        maxLength: COMMAND_OUTPUT_LIMIT,
-        remove: 'MIDDLE',
-      })
 
     const onAbort = () => {
       if (processFinished) return
@@ -275,8 +341,8 @@ export function runTerminalCommand({
           type: 'json',
           value: {
             command,
-            stdout: truncateOutput(stdout),
-            ...(stderr ? { stderr: truncateOutput(stderr) } : {}),
+            stdout: stdout.format(),
+            ...(stderr.retainedLength > 0 ? { stderr: stderr.format() } : {}),
             message:
               'Command interrupted: the run was aborted by the user and the process was killed before it completed.',
           },
@@ -306,12 +372,12 @@ export function runTerminalCommand({
 
     // Collect stdout
     childProcess.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString()
+      stdout.append(data.toString())
     })
 
     // Collect stderr
     childProcess.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString()
+      stderr.append(data.toString())
     })
 
     // Handle process completion
@@ -331,8 +397,8 @@ export function runTerminalCommand({
       signal?.removeEventListener('abort', onAbort)
 
       // Truncate stdout to prevent excessive output
-      const truncatedStdout = truncateOutput(stdout)
-      const truncatedStderr = truncateOutput(stderr)
+      const truncatedStdout = stdout.format()
+      const truncatedStderr = stderr.format()
 
       // Include stderr in stdout for compatibility with existing behavior
       const combinedOutput = {
