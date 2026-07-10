@@ -176,6 +176,13 @@ export function runTerminalCommand({
       ...getSystemProcessEnv(),
       ...(env ?? {}),
     } as NodeJS.ProcessEnv
+    if (isWindows) {
+      // Preserve other MSYS options while preventing Git Bash descendants from
+      // allocating a ConPTY despite the detached/hidden process flags.
+      processEnv.MSYS = [processEnv.MSYS, 'disable_pcon']
+        .filter(Boolean)
+        .join(' ')
+    }
 
     if (signal?.aborted) {
       resolve([
