@@ -132,25 +132,35 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('Kimi is hidden from pickers but still server-supported for full mode', () => {
+  test('Kimi K2.7 Code is offered in pickers and server-supported for full mode', () => {
+    expect(FREEBUFF_KIMI_MODEL_ID).toBe('moonshotai/kimi-k2.7-code')
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )
-    expect(
-      getFreebuffModelsForAccessTier('full').map((m) => m.id),
-    ).not.toContain(FREEBUFF_KIMI_MODEL_ID)
-    expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(false)
+    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
+      FREEBUFF_KIMI_MODEL_ID,
+    )
+    expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
     expect(isSupportedFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
-    // Existing sessions with a saved Kimi selection must still be admitted.
+    expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
     expect(
       isFreebuffModelAllowedForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
     ).toBe(true)
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
     ).toBe(FREEBUFF_KIMI_MODEL_ID)
+    // Retired K2.6 is no longer a freebuff model; stale saved selections must
+    // fall back rather than be admitted.
+    expect(isSupportedFreebuffModelId('moonshotai/kimi-k2.6')).toBe(false)
+    expect(
+      isFreebuffModelAllowedForAccessTier('moonshotai/kimi-k2.6', 'full'),
+    ).toBe(false)
+    expect(
+      resolveFreebuffModelForAccessTier('moonshotai/kimi-k2.6', 'full'),
+    ).not.toBe('moonshotai/kimi-k2.6')
   })
 
   test('HY3 OpenRouter trial is available only as a Freebuff Web premium model for now', () => {

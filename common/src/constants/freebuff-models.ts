@@ -60,7 +60,7 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
  *  the free-mode allowlists — the CLI and web builder keep DeepSeek direct. */
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
-export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK26
+export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK27Code
 export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3_free
 export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
@@ -202,8 +202,8 @@ const MIMO_V25_PRO_MODEL = {
 
 const KIMI_MODEL = {
   id: FREEBUFF_KIMI_MODEL_ID,
-  displayName: 'Kimi K2.6',
-  tagline: 'Balanced',
+  displayName: 'Kimi K2.7 Code',
+  tagline: 'Best for coding',
   availability: 'always',
   premium: true,
   multimodal: true,
@@ -297,9 +297,13 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // grid model, it's a referral reward surfaced by the separate referral banner.
 // It stays in SUPPORTED_FREEBUFF_MODELS so the session/chat layers accept it as
 // a valid model id once the user's weekly entitlement admits them.
+// Kimi returned to the picker as K2.7 Code: the K2.6 first-token stalls that
+// got Kimi hidden were provider-side; K2.7 Code is served via Infron pinned to
+// Alibaba us/eu (~3s warm-cache TTFT benchmarked).
 export const FREEBUFF_MODELS = [
   MINIMAX_M3_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
+  KIMI_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
