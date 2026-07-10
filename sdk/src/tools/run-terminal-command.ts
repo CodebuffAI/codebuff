@@ -175,6 +175,12 @@ export function runTerminalCommand({
     const processEnv = {
       ...getSystemProcessEnv(),
       ...(env ?? {}),
+      // On Windows, prevent MSYS2 (Git Bash) from allocating its own PTY
+      // via ConPTY, which can reattach to the parent console even when
+      // DETACHED_PROCESS is set. MSYS=disable_pcon tells the MSYS2 runtime
+      // to skip pseudo console allocation, keeping console interaction
+      // minimal and preventing ConPTY mouse/focus VT events from leaking.
+      ...(isWindows ? { MSYS: 'disable_pcon' } : {}),
     } as NodeJS.ProcessEnv
 
     if (signal?.aborted) {
