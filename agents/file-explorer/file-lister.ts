@@ -1,10 +1,12 @@
+import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+
 import { publisher } from '../constants'
 import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 
 export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   displayName: 'Liszt the File Lister',
   publisher,
-  model: 'google/gemini-3.1-flash-lite-preview',
+  model: GEMINI_3_1_FLASH_LITE_MODEL_ID,
   spawnerPrompt:
     'Lists up to 12 files that are relevant to the prompt within the given directories. Unless you know which directories are relevant, omit the directories parameter. This agent is great for finding files that could be relevant to the prompt.',
   inputSchema: {

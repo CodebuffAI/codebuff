@@ -1,6 +1,9 @@
 
 import { describe, test, expect } from 'bun:test'
 
+import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+
+import fileLister from '../file-explorer/file-lister'
 import filePicker, { createFilePicker } from '../file-explorer/file-picker'
 
 import type { AgentState, ToolCall, StepText } from '../types/agent-definition'
@@ -80,6 +83,11 @@ describe('file-picker agent', () => {
   })
 
   describe('createFilePicker - max mode', () => {
+    test('uses the stable Gemini Flash-Lite model', () => {
+      expect(createFilePicker('max').model).toBe(GEMINI_3_1_FLASH_LITE_MODEL_ID)
+      expect(fileLister.model).toBe(GEMINI_3_1_FLASH_LITE_MODEL_ID)
+    })
+
     test('spawns single file-lister-max', () => {
       const maxPicker = createFilePicker('max')
       const mockAgentState = createMockAgentState()

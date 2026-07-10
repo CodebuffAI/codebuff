@@ -173,7 +173,7 @@ Choose models based on your agent's needs:
 
 - **`anthropic/claude-opus-4.7`**: Best general-purpose capabilities and code generation
 - **`openai/gpt-5.2`**: Best at complex reasoning and planning
-- **`google/gemini-3.1-flash-lite-preview`**: Fast and cost-effective for simple or medium-complexity tasks
+- **`google/gemini-3.1-flash-lite`**: Fast and cost-effective for simple or medium-complexity tasks
 
 **Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
 

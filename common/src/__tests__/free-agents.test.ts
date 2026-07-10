@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '../constants/gemini'
+
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -221,13 +223,25 @@ describe('free mode agent model allowlist', () => {
     ).toBe(false)
   })
 
-  test('allows the browser-use subagent with its bundled model', () => {
-    expect(
-      isFreeModeAllowedAgentModel(
-        'browser-use',
-        'google/gemini-3.1-flash-lite-preview',
-      ),
-    ).toBe(true)
+  test('allows Gemini helper agents only with the stable bundled model', () => {
+    for (const agentId of [
+      'file-picker-max',
+      'file-lister',
+      'researcher-web',
+      'researcher-docs',
+      'browser-use',
+      'basher',
+    ]) {
+      expect(
+        isFreeModeAllowedAgentModel(agentId, GEMINI_3_1_FLASH_LITE_MODEL_ID),
+      ).toBe(true)
+      expect(
+        isFreeModeAllowedAgentModel(
+          agentId,
+          'google/gemini-3.1-flash-lite-preview',
+        ),
+      ).toBe(false)
+    }
   })
 
   test('allows the tmux-cli subagent with its bundled model', () => {

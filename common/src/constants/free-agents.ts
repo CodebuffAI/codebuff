@@ -17,6 +17,7 @@ import {
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from './freebuff-models'
+import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from './gemini'
 
 import type { CostMode } from './model-config'
 
@@ -139,18 +140,18 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
-  'file-picker-max': new Set(['google/gemini-3.1-flash-lite-preview']),
-  'file-lister': new Set(['google/gemini-3.1-flash-lite-preview']),
+  'file-picker-max': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
+  'file-lister': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
 
   // Research agents
-  'researcher-web': new Set(['google/gemini-3.1-flash-lite-preview']),
-  'researcher-docs': new Set(['google/gemini-3.1-flash-lite-preview']),
+  'researcher-web': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
+  'researcher-docs': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
 
   // Browser automation
-  'browser-use': new Set(['google/gemini-3.1-flash-lite-preview']),
+  'browser-use': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
 
   // Command execution
-  basher: new Set(['google/gemini-3.1-flash-lite-preview']),
+  basher: new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
   'tmux-cli': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
 
   // Code reviewer for free mode
