@@ -53,6 +53,14 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-mimo',
   'base2-free-minimax-m3',
   'base2-free-glm',
+  // Freebuff Web trial orchestrators (freebuff_bundled_agents.ts). Every root
+  // id in FREE_MODE_AGENT_MODELS that can spawn subagents MUST also be listed
+  // here, or the chat-completions hierarchy gate 403s the subagents with
+  // "Free mode subagents must run under an active freebuff session root"
+  // (2026-07-09 incident: hy3/kat trial runs failed at spawn_agent_inline).
+  'base2-free-hy3',
+  'base2-free-hy3-atlas',
+  'base2-free-kat-coder-pro-v2',
   FREEBUFF_DESKTOP_THREAD_AGENT_ID,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(

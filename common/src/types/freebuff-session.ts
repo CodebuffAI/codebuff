@@ -185,6 +185,8 @@ export type FreebuffSessionServerResponse =
       /** Shared free-session quota for this model. */
       rateLimit?: FreebuffSessionRateLimit
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
+      /** Included for Web/Cloud picker reads that request full quota details. */
+      referral?: FreebuffReferralInfo
     } & FreebuffLimitedModeReason)
   | ({
       /** Session is over. While `instanceId` is present we're inside the
@@ -207,6 +209,8 @@ export type FreebuffSessionServerResponse =
        *  session ended. Lets the post-session banner show "N of M sessions
        *  used today" without an extra round-trip. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
+      /** Included for Web/Cloud picker reads that request full quota details. */
+      referral?: FreebuffReferralInfo
     } & FreebuffLimitedModeReason)
   | {
       /** Another CLI on the same account rotated our instance id. Polling

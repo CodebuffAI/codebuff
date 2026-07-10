@@ -8,6 +8,7 @@ import {
   FREEBUFF_DATA_COLLECTION_WARNING,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
+  FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
@@ -373,6 +374,19 @@ describe('freebuff model availability', () => {
     )
     expect(isFreebuffModelId(glm)).toBe(false)
     expect(isSupportedFreebuffModelId(glm)).toBe(false)
+  })
+
+  test('surfaces referral-gated GLM 5.2 only in the Web and Cloud picker', () => {
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GLM_V52_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GLM_V52_MODEL_ID,
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_GLM_V52_MODEL_ID,
+    )
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(false)
   })
 
   test('formats the close time in the user local timezone while deployment is open', () => {

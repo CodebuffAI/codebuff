@@ -321,6 +321,7 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
 export const FREEBUFF_WEB_MODELS = [
   HY3_MODEL,
   KAT_CODER_PRO_V2_MODEL,
+  GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -393,6 +394,11 @@ export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
  *  the request authenticates as the Freebuff Web service account; browser and
  *  normal API callers must not be able to select another user's session row. */
 export const FREEBUFF_ACTING_USER_HEADER = 'x-freebuff-acting-user-id'
+/** Trusted Freebuff Web/Cloud session-proxy hint. Keeps the normal CLI GET
+ * response compact while letting the browser model picker request zero-usage
+ * quota snapshots so it can render accurate "N of M sessions" labels. */
+export const FREEBUFF_INCLUDE_UNUSED_RATE_LIMITS_HEADER =
+  'x-freebuff-include-unused-rate-limits'
 /** Set to '1' by Freebuff Desktop to opt into multi-session mode (concurrent
  *  per-tab sessions); absent for CLI/web, which keep one session per user. */
 export const FREEBUFF_MULTI_SESSION_HEADER = 'x-freebuff-multi-session'
