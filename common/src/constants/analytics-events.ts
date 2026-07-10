@@ -307,6 +307,8 @@ export enum AnalyticsEvent {
   // desktop-surface funnels).
   DESKTOP_AD_SHOWN = 'desktop.ad_shown',
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
+  DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
+  DESKTOP_INLINE_AD_POOL_REUSED = 'desktop.inline_ad_pool_reused',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
