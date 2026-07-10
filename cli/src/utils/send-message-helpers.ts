@@ -45,6 +45,7 @@ export const createAiMessageShell = (messageId: string): ChatMessage => ({
   content: '',
   blocks: [],
   timestamp: formatTimestamp(),
+  metadata: { allowInlineAds: true },
 })
 
 export const createErrorMessage = (content: string): ChatMessage => ({
@@ -71,25 +72,31 @@ export const sanitizeRestoredMessages = (
   messages: ChatMessage[],
 ): ChatMessage[] =>
   messages.map((message) => {
+    let restoredMessage = message
+    if (message.metadata?.allowInlineAds) {
+      const { allowInlineAds: _, ...metadata } = message.metadata
+      restoredMessage = { ...message, metadata }
+    }
+
     if (
-      message.variant !== 'ai' ||
-      !message.id.startsWith(AI_MESSAGE_ID_PREFIX) ||
-      message.isComplete
+      restoredMessage.variant !== 'ai' ||
+      !restoredMessage.id.startsWith(AI_MESSAGE_ID_PREFIX) ||
+      restoredMessage.isComplete
     ) {
-      return message
+      return restoredMessage
     }
     try {
       return {
-        ...message,
+        ...restoredMessage,
         isComplete: true,
         blocks: appendInterruptionNotice(
-          markRunningAgentsAsCancelled(message.blocks ?? []),
+          markRunningAgentsAsCancelled(restoredMessage.blocks ?? []),
         ),
       }
     } catch {
       // Corrupted persisted blocks (e.g. null entries) must not prevent the
       // chat from restoring; keep the message as-is.
-      return { ...message, isComplete: true }
+      return { ...restoredMessage, isComplete: true }
     }
   })
 

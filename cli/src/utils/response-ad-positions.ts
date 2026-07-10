@@ -10,7 +10,16 @@
  */
 
 /** Rendered nodes between interspersed ads (ad after every STEP-th node). */
-export const RESPONSE_AD_NODE_STEP = 4
+export const RESPONSE_AD_NODE_STEP = 2
+
+/** Number of non-trailing ad slots currently eligible in a response. */
+export function responseAdSlotCount(params: {
+  nodeCount: number
+  step?: number
+}): number {
+  const step = Math.max(1, params.step ?? RESPONSE_AD_NODE_STEP)
+  return Math.max(0, Math.floor((params.nodeCount - 1) / step))
+}
 
 /**
  * Pure helper: after-node indices for up to `adCount` ads given `nodeCount`
@@ -25,9 +34,12 @@ export function responseAdNodePositions(params: {
   const { nodeCount, adCount } = params
   const step = Math.max(1, params.step ?? RESPONSE_AD_NODE_STEP)
   const positions: number[] = []
-  for (let k = 0; k < adCount; k++) {
+  const eligibleCount = Math.min(
+    Math.max(0, adCount),
+    responseAdSlotCount({ nodeCount, step }),
+  )
+  for (let k = 0; k < eligibleCount; k++) {
     const pos = (k + 1) * step - 1
-    if (pos >= nodeCount - 1) break
     positions.push(pos)
   }
   return positions

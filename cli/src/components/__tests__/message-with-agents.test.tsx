@@ -90,6 +90,7 @@ const defaultCallbacks = {
   onCloseFeedback: () => {},
   onAdClick: () => {},
   onAdImpression: () => {},
+  onResponseAdsNeeded: () => {},
 }
 
 const initializeStore = (overrides: {
@@ -206,6 +207,7 @@ describe('MessageBlockStore', () => {
         onCloseFeedback: mockCloseFeedback,
         onAdClick: () => {},
         onAdImpression: () => {},
+        onResponseAdsNeeded: () => {},
       })
 
       const state = useMessageBlockStore.getState()
@@ -260,6 +262,7 @@ describe('MessageBlockStore', () => {
         onCloseFeedback: mockFn,
         onAdClick: mockFn,
         onAdImpression: mockFn,
+        onResponseAdsNeeded: mockFn,
       })
 
       useMessageBlockStore.getState().reset()

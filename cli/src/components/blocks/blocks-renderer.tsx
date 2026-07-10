@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useRef } from 'react'
+import React, { memo, useEffect, useMemo, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { AgentBlockGrid } from './agent-block-grid'
@@ -11,7 +11,14 @@ import { ToolBlockGroup } from './tool-block-group'
 import { AdCard } from '../ad-banner'
 import { useMessageBlockStore } from '../../state/message-block-store'
 import { processBlocks, type BlockProcessorHandlers } from '../../utils/block-processor'
-import { responseAdNodePositions } from '../../utils/response-ad-positions'
+import {
+  getResponseAdForSlot,
+  responseAdDisplayCount,
+} from '../../utils/lazy-response-ads'
+import {
+  responseAdNodePositions,
+  responseAdSlotCount,
+} from '../../utils/response-ad-positions'
 
 import type { ReactNode } from 'react'
 import type { ContentBlock } from '../../types/chat'
@@ -222,14 +229,23 @@ export const BlocksRenderer = memo(
     const responseAds = useMessageBlockStore(
       (state) => state.context.responseAds[messageId],
     )
-    const { onAdClick, onAdImpression } = useMessageBlockStore(
-      useShallow((state) => ({
-        onAdClick: state.callbacks.onAdClick,
-        onAdImpression: state.callbacks.onAdImpression,
-      })),
-    )
+    const { onAdClick, onAdImpression, onResponseAdsNeeded } =
+      useMessageBlockStore(
+        useShallow((state) => ({
+          onAdClick: state.callbacks.onAdClick,
+          onAdImpression: state.callbacks.onAdImpression,
+          onResponseAdsNeeded: state.callbacks.onResponseAdsNeeded,
+        })),
+      )
 
     const nodes = processBlocks(sourceBlocks, handlers)
+    const eligibleAdCount = responseAdSlotCount({ nodeCount: nodes.length })
+
+    useEffect(() => {
+      if (eligibleAdCount > 0) {
+        onResponseAdsNeeded(messageId, eligibleAdCount)
+      }
+    }, [eligibleAdCount, messageId, onResponseAdsNeeded])
 
     if (!responseAds || responseAds.length === 0) {
       return <>{nodes}</>
@@ -238,25 +254,32 @@ export const BlocksRenderer = memo(
     // Intersperse ads between rendered nodes. Positions depend only on the
     // node count (nodes are append-only while streaming), so each ad stays put
     // once its slot has a following node.
+    const displayAdCount = responseAdDisplayCount({
+      eligibleCount: eligibleAdCount,
+      poolSize: responseAds.length,
+    })
     const positions = responseAdNodePositions({
       nodeCount: nodes.length,
-      adCount: responseAds.length,
+      adCount: displayAdCount,
     })
     const children: ReactNode[] = []
     let nextAd = 0
     nodes.forEach((node, i) => {
       children.push(node)
       if (nextAd < positions.length && positions[nextAd] === i) {
-        const ad = responseAds[nextAd]!
-        children.push(
-          <AdCard
-            key={`response-ad-${ad.impUrl}`}
-            ad={ad}
-            width={Math.max(20, availableWidth - RESPONSE_AD_WIDTH_INSET)}
-            onClick={onAdClick}
-            onImpression={onAdImpression}
-          />,
-        )
+        const ad = getResponseAdForSlot(responseAds, nextAd)
+        if (ad) {
+          children.push(
+            <AdCard
+              key={`response-ad-${messageId}-${nextAd}`}
+              ad={ad}
+              width={Math.max(20, availableWidth - RESPONSE_AD_WIDTH_INSET)}
+              variant="inline"
+              onClick={onAdClick}
+              onImpression={onAdImpression}
+            />,
+          )
+        }
         nextAd++
       }
     })

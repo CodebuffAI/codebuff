@@ -190,14 +190,20 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { ads, responseAds, recordClick, recordImpression } = useGravityAd({
+  const {
+    ads,
+    responseAds,
+    requestResponseAds,
+    recordClick,
+    recordImpression,
+  } = useGravityAd({
     enabled: IS_FREEBUFF || !hasSubscription,
     provider: 'gravity',
     inline: true,
     surface: 'cli_chat',
-    // The rotating above-input slot auctions separately from the
-    // per-prompt inline batch. Keeps the legacy placement id from when the
-    // chat surface was a single rotating ad, for reporting continuity.
+    // Lazily fill a four-ad pool, then repeat it for later transcript slots.
+    inlinePlacementId: 'CLI-Chat-Inline',
+    // Keep the rotating above-input slot separate for reporting continuity.
     slotPlacementId: 'Single-Ad-Unit-1',
   })
   const showInlineAds = IS_FREEBUFF || getAdsEnabled()
@@ -206,6 +212,7 @@ export const Chat = ({
   // the latest recorder from the hook.
   const handleAdClick = useEvent(recordClick)
   const handleAdImpression = useEvent(recordImpression)
+  const handleResponseAdsNeeded = useEvent(requestResponseAds)
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -1323,6 +1330,7 @@ export const Chat = ({
       onCloseFeedback: handleCloseFeedback,
       onAdClick: handleAdClick,
       onAdImpression: handleAdImpression,
+      onResponseAdsNeeded: handleResponseAdsNeeded,
     })
   }, [
     handleCollapseToggle,
@@ -1333,6 +1341,7 @@ export const Chat = ({
     handleCloseFeedback,
     handleAdClick,
     handleAdImpression,
+    handleResponseAdsNeeded,
     setMessageBlockCallbacks,
   ])
 

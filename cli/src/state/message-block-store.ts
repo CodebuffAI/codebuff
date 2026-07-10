@@ -55,6 +55,8 @@ export interface MessageBlockCallbacks {
   onAdClick: (ad: AdResponse) => void
   /** Record an impression for an interspersed response ad. */
   onAdImpression: (ad: AdResponse) => void
+  /** Ensure the response has fetched ads for every currently eligible slot. */
+  onResponseAdsNeeded: (messageId: string, count: number) => void
 }
 
 interface MessageBlockStoreState {
@@ -105,6 +107,7 @@ const initialCallbacks: MessageBlockCallbacks = {
   onCloseFeedback: noop,
   onAdClick: noop,
   onAdImpression: noop,
+  onResponseAdsNeeded: noop,
 }
 
 const initialState: MessageBlockStoreState = {

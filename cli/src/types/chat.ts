@@ -161,6 +161,9 @@ export type AgentMessage = {
 export type ChatMessageMetadata = {
   /** Working directory where a bash command was executed */
   bashCwd?: string
+  /** UI-only marker for a response created in this process. Restored messages
+   * strip it so ads are never fetched retroactively into settled history. */
+  allowInlineAds?: boolean
   /** Whether this message/agent is collapsed in the UI */
   isCollapsed?: boolean
   /** Whether the user manually opened this collapsed item */

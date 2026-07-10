@@ -219,6 +219,7 @@ describe('createAiMessageShell', () => {
     expect(message.variant).toBe('ai')
     expect(message.content).toBe('')
     expect(message.blocks).toEqual([])
+    expect(message.metadata?.allowInlineAds).toBe(true)
   })
 })
 
@@ -1762,6 +1763,17 @@ describe('sanitizeRestoredMessages', () => {
     const [result] = sanitizeRestoredMessages([message])
 
     expect(result).toBe(message)
+  })
+
+  test('strips the live inline-ad marker from restored responses', () => {
+    const [result] = sanitizeRestoredMessages([
+      streamedShell({
+        isComplete: true,
+        metadata: { allowInlineAds: true, userOpened: true },
+      }),
+    ])
+
+    expect(result.metadata).toEqual({ userOpened: true })
   })
 
   test('leaves mode dividers, system messages, and user messages untouched', () => {

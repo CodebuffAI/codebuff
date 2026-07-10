@@ -16,8 +16,12 @@ interface ChoiceAdBannerProps {
 }
 
 export const AD_CARD_HEIGHT = 5 // border-top + 2 lines description + spacer + cta row + border-bottom
+export const INLINE_AD_CARD_HEIGHT = 3 // border-top + one compact content row + border-bottom
 const MAX_DESC_LINES = 2
 const MIN_CARD_WIDTH = 60 // Minimum width per ad card to remain readable
+const INLINE_AD_PREFIX = 'Ad · '
+const INLINE_AD_LABEL_GAP = '  '
+const INLINE_AD_LINK_SUFFIX = ' ↗'
 
 function truncateToLines(text: string, lineWidth: number, maxLines: number): string {
   if (lineWidth <= 0) return text
@@ -52,6 +56,28 @@ export function getAdDisplayLabel(
   return { text: ad.title.trim() || 'Sponsored', variant: 'title' }
 }
 
+export function getInlineAdLayout(
+  ad: Pick<AdResponse, 'adText' | 'title' | 'url'>,
+  width: number,
+): { description: string; label: string } {
+  const contentWidth = Math.max(0, width - 4) // border + horizontal padding
+  const displayLabel = getAdDisplayLabel(ad).text
+  const maxLabelWidth = Math.max(0, Math.min(24, Math.floor(contentWidth / 3)))
+  const label = truncateToWidth(displayLabel, maxLabelWidth)
+  const trailingWidth = label
+    ? INLINE_AD_LABEL_GAP.length + label.length + INLINE_AD_LINK_SUFFIX.length
+    : 0
+  const descriptionWidth = Math.max(
+    0,
+    contentWidth - INLINE_AD_PREFIX.length - trailingWidth,
+  )
+
+  return {
+    description: truncateToWidth(ad.adText.trim(), descriptionWidth),
+    label,
+  }
+}
+
 /**
  * Calculate evenly distributed column widths that sum exactly to availableWidth.
  * Distributes remainder pixels across the first N columns so there's no gap.
@@ -73,9 +99,10 @@ function columnWidths(count: number, availableWidth: number): number[] {
 export const AdCard: React.FC<{
   ad: AdResponse
   width: number
+  variant?: 'card' | 'inline'
   onClick?: (ad: AdResponse) => void
   onImpression?: (ad: AdResponse) => void
-}> = ({ ad, width, onClick, onImpression }) => {
+}> = ({ ad, width, variant = 'card', onClick, onImpression }) => {
   const theme = useTheme()
   const [isHovered, setIsHovered] = useState(false)
 
@@ -83,20 +110,68 @@ export const AdCard: React.FC<{
     onImpression?.(ad)
   }, [ad, onImpression])
 
-  const ctaText = ad.cta || ad.title || 'Learn more'
   const label = getAdDisplayLabel(ad)
+
+  const buttonProps = {
+    onClick: () => {
+      if (!ad.clickUrl) return
+      onClick?.(ad)
+      safeOpen(ad.clickUrl)
+    },
+    onMouseOver: () => setIsHovered(true),
+    onMouseOut: () => setIsHovered(false),
+  }
+
+  if (variant === 'inline') {
+    const inlineLayout = getInlineAdLayout(ad, width)
+    return (
+      <Button
+        {...buttonProps}
+        style={{
+          width,
+          height: INLINE_AD_CARD_HEIGHT,
+          borderStyle: 'single',
+          borderColor: isHovered ? theme.primary : theme.muted,
+          customBorderChars: BORDER_CHARS,
+          paddingLeft: 1,
+          paddingRight: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        <text style={{ flexShrink: 0, wrapMode: 'none' }}>
+          <span fg={theme.muted} attributes={TextAttributes.BOLD}>
+            {INLINE_AD_PREFIX}
+          </span>
+          <span fg={theme.muted}>{inlineLayout.description}</span>
+          {inlineLayout.label && (
+            <>
+              <span fg={theme.muted}>{INLINE_AD_LABEL_GAP}</span>
+              <span
+                fg={theme.muted}
+                attributes={
+                  label.variant === 'domain'
+                    ? TextAttributes.UNDERLINE
+                    : TextAttributes.BOLD
+                }
+              >
+                {inlineLayout.label + INLINE_AD_LINK_SUFFIX}
+              </span>
+            </>
+          )}
+        </text>
+      </Button>
+    )
+  }
+
+  const ctaText = ad.cta || ad.title || 'Learn more'
   const labelMaxWidth = Math.max(0, width - ctaText.length - 5)
   const labelText = truncateToWidth(label.text, labelMaxWidth)
 
   return (
     <Button
-      onClick={() => {
-        if (!ad.clickUrl) return
-        onClick?.(ad)
-        safeOpen(ad.clickUrl)
-      }}
-      onMouseOver={() => setIsHovered(true)}
-      onMouseOut={() => setIsHovered(false)}
+      {...buttonProps}
       style={{
         width,
         height: AD_CARD_HEIGHT,
