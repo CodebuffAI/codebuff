@@ -16,11 +16,12 @@ interface ChoiceAdBannerProps {
 }
 
 export const AD_CARD_HEIGHT = 5 // border-top + 2 lines description + spacer + cta row + border-bottom
-export const INLINE_AD_CARD_HEIGHT = 3 // border-top + one compact content row + border-bottom
+export const INLINE_AD_CARD_HEIGHT = 4 // border-top + header row + detail row + border-bottom
 const MAX_DESC_LINES = 2
 const MIN_CARD_WIDTH = 60 // Minimum width per ad card to remain readable
-const INLINE_AD_PREFIX = 'Ad · '
-const INLINE_AD_LABEL_GAP = '  '
+const MIN_INLINE_WIDTH_WITH_DESTINATION = 48
+const INLINE_AD_DISCLOSURE = 'Ad'
+const INLINE_AD_GAP = 2
 const INLINE_AD_LINK_SUFFIX = ' ↗'
 
 function truncateToLines(text: string, lineWidth: number, maxLines: number): string {
@@ -59,20 +60,26 @@ export function getAdDisplayLabel(
 export function getInlineAdLayout(
   ad: Pick<AdResponse, 'adText' | 'title' | 'url'>,
   width: number,
-): { description: string; label: string } {
+): { title: string; description: string; label: string } {
   const contentWidth = Math.max(0, width - 4) // border + horizontal padding
-  const displayLabel = getAdDisplayLabel(ad).text
+  const displayLabel = getAdDisplayLabel(ad)
+  const headerTrailingWidth =
+    INLINE_AD_GAP + INLINE_AD_DISCLOSURE.length
+  const titleWidth = Math.max(0, contentWidth - headerTrailingWidth)
+  const destinationLabel =
+    width >= MIN_INLINE_WIDTH_WITH_DESTINATION &&
+    displayLabel.variant === 'domain'
+      ? displayLabel.text
+      : ''
   const maxLabelWidth = Math.max(0, Math.min(24, Math.floor(contentWidth / 3)))
-  const label = truncateToWidth(displayLabel, maxLabelWidth)
+  const label = truncateToWidth(destinationLabel, maxLabelWidth)
   const trailingWidth = label
-    ? INLINE_AD_LABEL_GAP.length + label.length + INLINE_AD_LINK_SUFFIX.length
+    ? INLINE_AD_GAP + label.length + INLINE_AD_LINK_SUFFIX.length
     : 0
-  const descriptionWidth = Math.max(
-    0,
-    contentWidth - INLINE_AD_PREFIX.length - trailingWidth,
-  )
+  const descriptionWidth = Math.max(0, contentWidth - trailingWidth)
 
   return {
+    title: truncateToWidth(ad.title.trim() || displayLabel.text, titleWidth),
     description: truncateToWidth(ad.adText.trim(), descriptionWidth),
     label,
   }
@@ -110,8 +117,6 @@ export const AdCard: React.FC<{
     onImpression?.(ad)
   }, [ad, onImpression])
 
-  const label = getAdDisplayLabel(ad)
-
   const buttonProps = {
     onClick: () => {
       if (!ad.clickUrl) return
@@ -124,6 +129,7 @@ export const AdCard: React.FC<{
 
   if (variant === 'inline') {
     const inlineLayout = getInlineAdLayout(ad, width)
+    const accentColor = isHovered ? theme.primary : theme.muted
     return (
       <Button
         {...buttonProps}
@@ -131,40 +137,68 @@ export const AdCard: React.FC<{
           width,
           height: INLINE_AD_CARD_HEIGHT,
           borderStyle: 'single',
-          borderColor: isHovered ? theme.primary : theme.muted,
+          borderColor: accentColor,
           customBorderChars: BORDER_CHARS,
           paddingLeft: 1,
           paddingRight: 1,
-          flexDirection: 'row',
-          alignItems: 'center',
+          flexDirection: 'column',
           overflow: 'hidden',
         }}
       >
-        <text style={{ flexShrink: 0, wrapMode: 'none' }}>
-          <span fg={theme.muted} attributes={TextAttributes.BOLD}>
-            {INLINE_AD_PREFIX}
-          </span>
-          <span fg={theme.muted}>{inlineLayout.description}</span>
+        <box
+          style={{
+            width: '100%',
+            height: 1,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            overflow: 'hidden',
+          }}
+        >
+          <text
+            style={{
+              fg: isHovered ? theme.primary : theme.foreground,
+              flexShrink: 1,
+              wrapMode: 'none',
+            }}
+            attributes={TextAttributes.BOLD}
+          >
+            {inlineLayout.title}
+          </text>
+          <text style={{ fg: theme.muted, flexShrink: 0, wrapMode: 'none' }}>
+            {INLINE_AD_DISCLOSURE}
+          </text>
+        </box>
+        <box
+          style={{
+            width: '100%',
+            height: 1,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            columnGap: INLINE_AD_GAP,
+            overflow: 'hidden',
+          }}
+        >
+          <text style={{ fg: theme.muted, flexShrink: 1, wrapMode: 'none' }}>
+            {inlineLayout.description}
+          </text>
           {inlineLayout.label && (
-            <>
-              <span fg={theme.muted}>{INLINE_AD_LABEL_GAP}</span>
-              <span
-                fg={theme.muted}
-                attributes={
-                  label.variant === 'domain'
-                    ? TextAttributes.UNDERLINE
-                    : TextAttributes.BOLD
-                }
-              >
-                {inlineLayout.label + INLINE_AD_LINK_SUFFIX}
-              </span>
-            </>
+            <text
+              style={{
+                fg: accentColor,
+                flexShrink: 0,
+                wrapMode: 'none',
+              }}
+              attributes={TextAttributes.UNDERLINE}
+            >
+              {inlineLayout.label + INLINE_AD_LINK_SUFFIX}
+            </text>
           )}
-        </text>
+        </box>
       </Button>
     )
   }
 
+  const label = getAdDisplayLabel(ad)
   const ctaText = ad.cta || ad.title || 'Learn more'
   const labelMaxWidth = Math.max(0, width - ctaText.length - 5)
   const labelText = truncateToWidth(label.text, labelMaxWidth)

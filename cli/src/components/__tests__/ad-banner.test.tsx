@@ -33,9 +33,12 @@ describe('inline ad layout', () => {
   test('fits the compact copy and sponsor within the card interior', () => {
     const width = 60
     const layout = getInlineAdLayout(ad, width)
-    const rendered = `Ad · ${layout.description}  ${layout.label} ↗`
+    const header = `${layout.title}  Ad`
+    const detail = `${layout.description}  ${layout.label} ↗`
 
-    expect(rendered.length).toBeLessThanOrEqual(width - 4)
+    expect(header.length).toBeLessThanOrEqual(width - 4)
+    expect(detail.length).toBeLessThanOrEqual(width - 4)
+    expect(layout.title).toBe('Vercel')
     expect(layout.label).toBe('vercel.com')
     expect(layout.description.endsWith('…')).toBe(true)
   })
@@ -46,10 +49,35 @@ describe('inline ad layout', () => {
         ...ad,
         url: 'https://www.extraordinarily-long-sponsor-domain.example',
       },
-      20,
+      48,
     )
 
-    expect(layout.label).toBe('extr…')
+    expect(layout.label).toBe('extraordinari…')
     expect(layout.description.length).toBeGreaterThan(0)
+    expect(`${layout.title}  Ad`.length).toBeLessThanOrEqual(44)
+  })
+
+  test('prioritizes copy over the destination on very narrow cards', () => {
+    const width = 47
+    const layout = getInlineAdLayout(ad, width)
+
+    expect(layout.label).toBe('')
+    expect(layout.description.length).toBe(width - 4)
+    expect(layout.description.endsWith('…')).toBe(true)
+  })
+
+  test('uses the full detail row when no destination domain is available', () => {
+    const layout = getInlineAdLayout(
+      {
+        adText: 'A Carbon ad whose tracked destination is intentionally hidden.',
+        title: 'Example Sponsor',
+        url: '',
+      },
+      40,
+    )
+
+    expect(layout.title).toBe('Example Sponsor')
+    expect(layout.label).toBe('')
+    expect(layout.description.length).toBe(36)
   })
 })
