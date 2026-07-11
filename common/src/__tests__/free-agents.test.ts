@@ -235,6 +235,9 @@ describe('free mode agent model allowlist', () => {
       expect(
         isFreeModeAllowedAgentModel(agentId, GEMINI_3_1_FLASH_LITE_MODEL_ID),
       ).toBe(true)
+      // The chat-completions endpoint canonicalizes this retired client ID to
+      // the stable model before calling the allowlist. Keep the provider model
+      // itself disallowed so no internal path can route to the retired endpoint.
       expect(
         isFreeModeAllowedAgentModel(
           agentId,
