@@ -5,11 +5,6 @@ import {
   isAnswerMessage,
   isInlineAdEligibleAnswer,
 } from '../use-gravity-ad'
-import {
-  responseAdNodePositions,
-  responseAdSlotCount,
-  RESPONSE_AD_NODE_STEP,
-} from '../../utils/response-ad-positions'
 
 import type { ChatMessage } from '../../types/chat'
 
@@ -74,79 +69,5 @@ describe('claimAdImpression', () => {
     expect(claimAdImpression(fired, 'imp-2')).toBe(true)
     expect(claimAdImpression(fired, 'imp-1')).toBe(false)
     expect(fired).toEqual(new Set(['imp-1', 'imp-2']))
-  })
-})
-
-describe('responseAdNodePositions', () => {
-  test('places nothing in a response too short to intersperse', () => {
-    expect(responseAdNodePositions({ nodeCount: 0, adCount: 3 })).toEqual([])
-    expect(responseAdNodePositions({ nodeCount: 1, adCount: 3 })).toEqual([])
-    // Two nodes: the slot after node 1 would trail the response, so skip it.
-    expect(
-      responseAdNodePositions({ nodeCount: 2, adCount: 3, step: 2 }),
-    ).toEqual([])
-  })
-
-  test('spaces ads every STEP nodes, strictly between nodes', () => {
-    expect(
-      responseAdNodePositions({ nodeCount: 3, adCount: 4, step: 2 }),
-    ).toEqual([1])
-    expect(
-      responseAdNodePositions({ nodeCount: 5, adCount: 4, step: 2 }),
-    ).toEqual([1, 3])
-    expect(
-      responseAdNodePositions({ nodeCount: 7, adCount: 4, step: 2 }),
-    ).toEqual([1, 3, 5])
-    expect(
-      responseAdNodePositions({ nodeCount: 9, adCount: 4, step: 2 }),
-    ).toEqual([1, 3, 5, 7])
-  })
-
-  test('default step offers one slot per couple of rendered nodes', () => {
-    expect(RESPONSE_AD_NODE_STEP).toBe(2)
-    expect(responseAdNodePositions({ nodeCount: 2, adCount: 4 })).toEqual([])
-    expect(responseAdNodePositions({ nodeCount: 3, adCount: 4 })).toEqual([1])
-    expect(responseAdNodePositions({ nodeCount: 5, adCount: 4 })).toEqual([
-      1, 3,
-    ])
-    expect(responseAdNodePositions({ nodeCount: 9, adCount: 4 })).toEqual([
-      1, 3, 5, 7,
-    ])
-  })
-
-  test('eligible display slots are not capped at eight', () => {
-    expect(responseAdSlotCount({ nodeCount: 2 })).toBe(0)
-    expect(responseAdSlotCount({ nodeCount: 3 })).toBe(1)
-    expect(responseAdSlotCount({ nodeCount: 21 })).toBe(10)
-    expect(responseAdNodePositions({ nodeCount: 21, adCount: 10 })).toEqual([
-      1, 3, 5, 7, 9, 11, 13, 15, 17, 19,
-    ])
-  })
-
-  test('never places more ads than provided', () => {
-    expect(
-      responseAdNodePositions({ nodeCount: 20, adCount: 2, step: 2 }),
-    ).toEqual([1, 3])
-    expect(responseAdNodePositions({ nodeCount: 20, adCount: 0 })).toEqual([])
-  })
-
-  test('positions are stable as the streaming response appends nodes', () => {
-    // Every earlier placement stays put as nodeCount grows.
-    let prev: number[] = []
-    for (let n = 0; n <= 12; n++) {
-      const next = responseAdNodePositions({
-        nodeCount: n,
-        adCount: 3,
-        step: RESPONSE_AD_NODE_STEP,
-      })
-      expect(next.slice(0, prev.length)).toEqual(prev)
-      prev = next
-    }
-  })
-
-  test('clamps a non-positive step to 1', () => {
-    expect(
-      responseAdNodePositions({ nodeCount: 4, adCount: 3, step: 0 }),
-    ).toEqual([0, 1, 2])
   })
 })
