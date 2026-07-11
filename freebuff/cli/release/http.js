@@ -142,13 +142,29 @@ function createReleaseHttpClient({
   }
 
   async function httpGet(url, options = {}) {
+    const redirectCount = options.redirectCount || 0
     const reqOptions = await buildRequestOptions(url, options)
 
     return new Promise((resolve, reject) => {
       const req = httpsModule.get(reqOptions, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
+        if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
           res.resume()
-          httpGet(new URL(res.headers.location, url).href, options)
+
+          if (!res.headers.location) {
+            reject(
+              new Error(`Redirect ${res.statusCode} missing Location header.`),
+            )
+            return
+          }
+          if (redirectCount >= (options.maxRedirects ?? 10)) {
+            reject(new Error('Too many redirects.'))
+            return
+          }
+
+          httpGet(new URL(res.headers.location, url).href, {
+            ...options,
+            redirectCount: redirectCount + 1,
+          })
             .then(resolve)
             .catch(reject)
           return
@@ -165,9 +181,35 @@ function createReleaseHttpClient({
     })
   }
 
+  async function withRetries(
+    operation,
+    {
+      maxAttempts = 1,
+      baseDelayMs = 1000,
+      shouldRetry = () => true,
+      onRetry = () => {},
+      sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    },
+  ) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await operation(attempt)
+      } catch (error) {
+        if (attempt >= maxAttempts || !shouldRetry(error)) {
+          throw error
+        }
+
+        const delayMs = baseDelayMs * 2 ** (attempt - 1)
+        await onRetry({ error, attempt, nextAttempt: attempt + 1, delayMs })
+        await sleep(delayMs)
+      }
+    }
+  }
+
   return {
     getProxyUrl,
     httpGet,
+    withRetries,
   }
 }
 

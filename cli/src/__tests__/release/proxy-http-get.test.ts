@@ -25,7 +25,11 @@ const helperModules = [
   },
 ]
 
-function createResponse(statusCode: number, headers: Record<string, string>, body = '') {
+function createResponse(
+  statusCode: number,
+  headers: Record<string, string>,
+  body = '',
+) {
   const response = Readable.from(body.length > 0 ? [body] : [])
   return Object.assign(response, {
     statusCode,
@@ -97,7 +101,10 @@ for (const helperModule of helperModules) {
               this.options = options
             }
           },
-          get(options: Record<string, any>, callback: (response: Readable) => void) {
+          get(
+            options: Record<string, any>,
+            callback: (response: Readable) => void,
+          ) {
             httpsGetCalls.push(options)
             options.agent.createConnection(options)
             queueMicrotask(() => {
@@ -179,14 +186,17 @@ for (const helperModule of helperModules) {
         },
         httpsModule: {
           Agent: class FakeAgent {},
-          get(options: Record<string, any>, callback: (response: Readable) => void) {
+          get(
+            options: Record<string, any>,
+            callback: (response: Readable) => void,
+          ) {
             httpsGetCalls.push(options)
             callCount += 1
 
             queueMicrotask(() => {
               if (callCount === 1) {
                 callback(
-                  createResponse(302, {
+                  createResponse(307, {
                     location: '/redirected',
                   }),
                 )
@@ -228,10 +238,105 @@ for (const helperModule of helperModules) {
         hostname: 'registry.npmjs.org',
         path: '/redirected',
       })
-      expect(httpsGetCalls.every((call) => call.createConnection === undefined)).toBe(
-        true,
-      )
+      expect(
+        httpsGetCalls.every((call) => call.createConnection === undefined),
+      ).toBe(true)
       expect(httpsGetCalls.every((call) => call.agent != null)).toBe(true)
+    })
+
+    test('limits redirect chains', async () => {
+      const { createReleaseHttpClient } = require(helperModule.path)
+      let callCount = 0
+
+      const client = createReleaseHttpClient({
+        env: {},
+        userAgent: 'release-test-agent',
+        requestTimeout: 2500,
+        httpsModule: {
+          get(_options: unknown, callback: (response: Readable) => void) {
+            callCount += 1
+            queueMicrotask(() => {
+              callback(createResponse(302, { location: '/again' }))
+            })
+            return {
+              on() {
+                return this
+              },
+              setTimeout() {
+                return this
+              },
+              destroy() {},
+            }
+          },
+        },
+      })
+
+      await expect(
+        client.httpGet('https://example.com/start', { maxRedirects: 2 }),
+      ).rejects.toThrow('Too many redirects')
+      expect(callCount).toBe(3)
+    })
+
+    test('retries transient operations with exponential backoff', async () => {
+      const { createReleaseHttpClient } = require(helperModule.path)
+      const client = createReleaseHttpClient({
+        env: {},
+        userAgent: 'release-test-agent',
+        requestTimeout: 2500,
+      })
+      const delays: number[] = []
+      const retryAttempts: number[] = []
+      let attempts = 0
+
+      const result = await client.withRetries(
+        async () => {
+          attempts += 1
+          if (attempts < 3) throw new Error('temporary failure')
+          return 'ok'
+        },
+        {
+          maxAttempts: 3,
+          baseDelayMs: 10,
+          onRetry: ({ attempt }: { attempt: number }) => {
+            retryAttempts.push(attempt)
+          },
+          sleep: async (delayMs: number) => {
+            delays.push(delayMs)
+          },
+        },
+      )
+
+      expect(result).toBe('ok')
+      expect(attempts).toBe(3)
+      expect(retryAttempts).toEqual([1, 2])
+      expect(delays).toEqual([10, 20])
+    })
+
+    test('does not retry permanent failures', async () => {
+      const { createReleaseHttpClient } = require(helperModule.path)
+      const client = createReleaseHttpClient({
+        env: {},
+        userAgent: 'release-test-agent',
+        requestTimeout: 2500,
+      })
+      const error = Object.assign(new Error('not found'), { retryable: false })
+      let attempts = 0
+
+      await expect(
+        client.withRetries(
+          async () => {
+            attempts += 1
+            throw error
+          },
+          {
+            maxAttempts: 3,
+            shouldRetry: (caught: Error & { retryable?: boolean }) =>
+              caught.retryable !== false,
+            sleep: async () => {},
+          },
+        ),
+      ).rejects.toBe(error)
+      expect(attempts).toBe(1)
     })
   })
 }

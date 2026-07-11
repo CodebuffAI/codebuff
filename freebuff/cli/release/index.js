@@ -6,6 +6,7 @@ const http = require('http')
 const https = require('https')
 const os = require('os')
 const path = require('path')
+const { pipeline } = require('stream/promises')
 const zlib = require('zlib')
 
 const tar = require('tar')
@@ -99,11 +100,13 @@ function createConfig(packageName) {
     tempDownloadDir: path.join(configDir, '.freebuff-download-temp'),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
+    downloadRequestTimeout: 120000,
+    downloadMaxAttempts: 3,
   }
 }
 
 const CONFIG = createConfig(packageName)
-const { getProxyUrl, httpGet } = createReleaseHttpClient({
+const { httpGet, withRetries } = createReleaseHttpClient({
   env: process.env,
   userAgent: CONFIG.userAgent,
   requestTimeout: CONFIG.requestTimeout,
@@ -509,12 +512,128 @@ function createProgressBar(percentage, width = 30) {
   return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
 }
 
+function isRetryableDownloadStatus(statusCode) {
+  return (
+    statusCode === 408 ||
+    statusCode === 425 ||
+    statusCode === 429 ||
+    statusCode >= 500
+  )
+}
+
+function isRetryableDownloadError(error) {
+  if (error && typeof error.retryable === 'boolean') return error.retryable
+  return !['EACCES', 'ENOSPC', 'EPERM', 'EROFS'].includes(error?.code)
+}
+
+function prepareTempDownloadDir() {
+  if (fs.existsSync(CONFIG.tempDownloadDir)) {
+    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+  }
+  fs.mkdirSync(CONFIG.tempDownloadDir, { recursive: true })
+}
+
+async function downloadAndExtract(downloadUrl, version, targetKey) {
+  let attempts = 0
+
+  try {
+    return await withRetries(
+      async (attempt) => {
+        attempts = attempt
+        prepareTempDownloadDir()
+        term.write('Downloading...')
+
+        const res = await httpGet(downloadUrl, {
+          timeout: CONFIG.downloadRequestTimeout,
+        })
+
+        if (res.statusCode !== 200) {
+          res.resume()
+          const error = new Error(`Download failed: HTTP ${res.statusCode}`)
+          error.statusCode = res.statusCode
+          error.retryable = isRetryableDownloadStatus(res.statusCode)
+          throw error
+        }
+
+        const totalSize = parseInt(res.headers['content-length'] || '0', 10)
+        let downloadedSize = 0
+        let lastProgressTime = Date.now()
+
+        res.on('data', (chunk) => {
+          downloadedSize += chunk.length
+          const now = Date.now()
+          if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
+            lastProgressTime = now
+            if (totalSize > 0) {
+              const pct = Math.round((downloadedSize / totalSize) * 100)
+              term.write(
+                `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(
+                  totalSize,
+                )}`,
+              )
+            } else {
+              term.write(`Downloading... ${formatBytes(downloadedSize)}`)
+            }
+          }
+        })
+
+        await pipeline(
+          res,
+          zlib.createGunzip(),
+          tar.x({ cwd: CONFIG.tempDownloadDir }),
+        )
+
+        const tempBinaryPath = path.join(
+          CONFIG.tempDownloadDir,
+          CONFIG.binaryName,
+        )
+        if (!fs.existsSync(tempBinaryPath)) {
+          const files = fs.readdirSync(CONFIG.tempDownloadDir)
+          const error = new Error(
+            `Binary not found after extraction. Expected: ${CONFIG.binaryName}, Available files: ${files.join(', ')}`,
+          )
+          error.retryable = false
+          throw error
+        }
+
+        return tempBinaryPath
+      },
+      {
+        maxAttempts: CONFIG.downloadMaxAttempts,
+        shouldRetry: isRetryableDownloadError,
+        onRetry: ({ nextAttempt, delayMs }) => {
+          term.writeLine(
+            `Download interrupted. Retrying in ${delayMs / 1000}s (${nextAttempt}/${CONFIG.downloadMaxAttempts})...`,
+          )
+        },
+      },
+    )
+  } catch (error) {
+    if (fs.existsSync(CONFIG.tempDownloadDir)) {
+      fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+    }
+
+    trackUpdateFailed(error.message, version, {
+      stage: 'download',
+      statusCode: error.statusCode,
+      target: targetKey,
+      attempts,
+    })
+    throw error
+  }
+}
+
 async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
   const fileName = PLATFORM_TARGETS[targetKey]
 
   if (!fileName) {
-    const error = new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
-    trackUpdateFailed(error.message, version, { stage: 'platform_check', target: targetKey })
+    const error = new Error(
+      `Unsupported platform: ${process.platform} ${process.arch}`,
+    )
+    trackUpdateFailed(error.message, version, {
+      stage: 'platform_check',
+      target: targetKey,
+    })
     throw error
   }
 
@@ -523,64 +642,11 @@ async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
   }/api/releases/download/${version}/${fileName}`
 
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
-
-  if (fs.existsSync(CONFIG.tempDownloadDir)) {
-    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
-  }
-  fs.mkdirSync(CONFIG.tempDownloadDir, { recursive: true })
-
-  term.write('Downloading...')
-
-  const res = await httpGet(downloadUrl)
-
-  if (res.statusCode !== 200) {
-    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
-    const error = new Error(`Download failed: HTTP ${res.statusCode}`)
-    trackUpdateFailed(error.message, version, { stage: 'http_download', statusCode: res.statusCode, target: targetKey })
-    throw error
-  }
-
-  const totalSize = parseInt(res.headers['content-length'] || '0', 10)
-  let downloadedSize = 0
-  let lastProgressTime = Date.now()
-
-  res.on('data', (chunk) => {
-    downloadedSize += chunk.length
-    const now = Date.now()
-    if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
-      lastProgressTime = now
-      if (totalSize > 0) {
-        const pct = Math.round((downloadedSize / totalSize) * 100)
-        term.write(
-          `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(
-            totalSize,
-          )}`,
-        )
-      } else {
-        term.write(`Downloading... ${formatBytes(downloadedSize)}`)
-      }
-    }
-  })
-
-  await new Promise((resolve, reject) => {
-    res
-      .pipe(zlib.createGunzip())
-      .pipe(tar.x({ cwd: CONFIG.tempDownloadDir }))
-      .on('finish', resolve)
-      .on('error', reject)
-  })
-
-  const tempBinaryPath = path.join(CONFIG.tempDownloadDir, CONFIG.binaryName)
-
-  if (!fs.existsSync(tempBinaryPath)) {
-    const files = fs.readdirSync(CONFIG.tempDownloadDir)
-    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
-    const error = new Error(
-      `Binary not found after extraction. Expected: ${CONFIG.binaryName}, Available files: ${files.join(', ')}`,
-    )
-    trackUpdateFailed(error.message, version, { stage: 'extraction', target: targetKey })
-    throw error
-  }
+  const tempBinaryPath = await downloadAndExtract(
+    downloadUrl,
+    version,
+    targetKey,
+  )
 
   if (process.platform !== 'win32') {
     fs.chmodSync(tempBinaryPath, 0o755)
@@ -650,11 +716,6 @@ async function ensureBinaryExists() {
   if (!version) {
     console.error('❌ Failed to determine latest version')
     console.error('Please check your internet connection and try again')
-    if (!getProxyUrl()) {
-      console.error(
-        'If you are behind a proxy, set the HTTPS_PROXY environment variable',
-      )
-    }
     process.exit(1)
   }
 
@@ -664,11 +725,6 @@ async function ensureBinaryExists() {
     term.clearLine()
     console.error('❌ Failed to download freebuff:', error.message)
     console.error('Please check your internet connection and try again')
-    if (!getProxyUrl()) {
-      console.error(
-        'If you are behind a proxy, set the HTTPS_PROXY environment variable',
-      )
-    }
     process.exit(1)
   }
 }
