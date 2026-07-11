@@ -14,6 +14,7 @@ import { useThemeStore } from '../hooks/use-theme'
 import { WEBSITE_URL } from '../login/constants'
 import { startNewChat } from '../project-files'
 import { useChatStore } from '../state/chat-store'
+import { abortActiveRun } from '../utils/active-run'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
@@ -305,6 +306,12 @@ const ALL_COMMANDS: CommandDefinition[] = [
     aliases: ['n', 'clear', 'c', 'reset'],
     handler: (params, args) => {
       const trimmedArgs = args.trim()
+
+      // Abort any in-flight run BEFORE clearing state and rotating the chat
+      // id: an orphaned run would keep streaming after the switch and its
+      // late checkpoints/final save would persist the old conversation's
+      // state under the new chat (or vice versa).
+      abortActiveRun()
 
       // Clear the conversation and rotate to a fresh chat directory, so the
       // next message doesn't overwrite the previous conversation's history

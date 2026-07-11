@@ -17,8 +17,13 @@ import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import {
+  clearActiveRunAborter,
+  setActiveRunAborter,
+} from '../utils/active-run'
+import {
   clearLiveChatStateProvider,
   loadMostRecentChatState,
+  resolveCurrentChatDir,
   saveChatState,
   scheduleCheckpointSave,
   setLiveChatStateProvider,
@@ -452,6 +457,15 @@ export const useSendMessage = ({
       // before any async work, so the router can correctly detect busy state.
       let actualCredits: number | undefined
 
+      // Capture this run's chat directory once, up front. Every save for this
+      // run targets this directory: the current chat id can rotate mid-run
+      // (/new, resuming from /history), and resolving the dir at write time
+      // would persist this run's state over a different chat's transcript.
+      // After a switch the store's messages belong to the new conversation,
+      // so persistence and state adoption below are gated on runChatIsCurrent.
+      const runChatDir = resolveCurrentChatDir()
+      const runChatIsCurrent = () => resolveCurrentChatDir() === runChatDir
+
       // Checkpoint the turn to disk immediately so that killing the process
       // (closed terminal, crash) can't lose the user's prompt, then keep the
       // checkpoint fresh from SDK run-state snapshots while the run streams.
@@ -467,7 +481,34 @@ export const useSendMessage = ({
         runState: latestRunStateSnapshot,
         messages: useChatStore.getState().messages,
       }))
-      saveChatState(latestRunStateSnapshot, useChatStore.getState().messages)
+
+      // Let chat switches abort this run so it can't keep streaming (and
+      // persisting) for a conversation the user has left.
+      setActiveRunAborter(aiMessageId, () => {
+        // Already aborted (e.g. Esc, or a second chat switch): don't schedule
+        // again — the store may hold the next conversation's messages by now.
+        if (abortController.signal.aborted) {
+          return
+        }
+        abortController.abort()
+        // The abort listener has synchronously finalized the streaming
+        // message (interruption notice + markComplete), and the caller is
+        // about to switch away from this chat. Queue one final checkpoint of
+        // that exact state: periodic checkpoints only cover up to ~5s ago,
+        // and the post-run save below won't fire once the chat has switched.
+        // scheduleCheckpointSave captures the messages array by reference, so
+        // the store reset that follows the switch can't affect the write.
+        scheduleCheckpointSave(
+          latestRunStateSnapshot,
+          useChatStore.getState().messages,
+          runChatDir,
+        )
+      })
+      saveChatState(
+        latestRunStateSnapshot,
+        useChatStore.getState().messages,
+        runChatDir,
+      )
 
       // Execute SDK run with streaming handlers
       try {
@@ -522,12 +563,24 @@ export const useSendMessage = ({
               : undefined,
           onStateSnapshot: (snapshot) => {
             latestRunStateSnapshot = snapshot
+            // Don't persist once the run is aborted or the user has switched
+            // chats: the store's messages then belong to a different
+            // conversation, and checkpointing them into this run's directory
+            // would overwrite that chat's transcript with foreign (possibly
+            // empty) state — the chat would then be hidden from /history.
+            if (abortController.signal.aborted || !runChatIsCurrent()) {
+              return
+            }
             // Persist asynchronously and coalescing: the periodic snapshot
             // fires ~every 5s at step boundaries, and a synchronous save of the
             // (growing) transcript on the render/input thread is what stalls
             // long sessions. The authoritative synchronous saves below still
             // capture the final state.
-            scheduleCheckpointSave(snapshot, useChatStore.getState().messages)
+            scheduleCheckpointSave(
+              snapshot,
+              useChatStore.getState().messages,
+              runChatDir,
+            )
           },
         })
 
@@ -554,19 +607,28 @@ export const useSendMessage = ({
         )
         const runState = await client.run(runConfig)
 
-        // Finalize: persist state and mark complete
-        previousRunStateRef.current = runState
-        setRunState(runState)
-        setIsRetrying(false)
+        // Only adopt and persist the result while this run's chat is still
+        // the active one. After a mid-run chat switch (/new, resuming from
+        // /history) the store's messages and run state belong to the new
+        // conversation: saving here would overwrite it with this run's
+        // context, and previousRunStateRef/setRunState would leak this run's
+        // agent state into the other chat. (A plain Esc interrupt keeps the
+        // same chat, so the interrupted turn is still saved as before.)
+        if (runChatIsCurrent()) {
+          // Finalize: persist state and mark complete
+          previousRunStateRef.current = runState
+          setRunState(runState)
+          setIsRetrying(false)
 
-        // Drop any queued/in-flight async checkpoint first so a stale write
-        // can't land after this authoritative final save.
-        await settleCheckpointSave()
-        // Read committed state rather than saving inside a setMessages
-        // updater: the store uses immer, so the updater sees a draft proxy
-        // and JSON.stringify of the (unbounded) transcript through proxy
-        // traps is several times slower.
-        saveChatState(runState, useChatStore.getState().messages)
+          // Drop any queued/in-flight async checkpoint first so a stale write
+          // can't land after this authoritative final save.
+          await settleCheckpointSave()
+          // Read committed state rather than saving inside a setMessages
+          // updater: the store uses immer, so the updater sees a draft proxy
+          // and JSON.stringify of the (unbounded) transcript through proxy
+          // traps is several times slower.
+          saveChatState(runState, useChatStore.getState().messages, runChatDir)
+        }
         handleRunCompletion({
           runState,
           actualCredits,
@@ -604,12 +666,16 @@ export const useSendMessage = ({
           })
           // Persist the last checkpoint plus the error banner so a restart
           // after a failed run still shows this turn. Settle async checkpoints
-          // first so a stale write can't clobber this one.
-          await settleCheckpointSave()
-          saveChatState(
-            latestRunStateSnapshot,
-            useChatStore.getState().messages,
-          )
+          // first so a stale write can't clobber this one. Skipped after a
+          // mid-run chat switch — the store's messages belong to the new chat.
+          if (runChatIsCurrent()) {
+            await settleCheckpointSave()
+            saveChatState(
+              latestRunStateSnapshot,
+              useChatStore.getState().messages,
+              runChatDir,
+            )
+          }
         } else {
           logger.debug({ error }, '[send-message] Ignoring error after abort')
         }
@@ -618,6 +684,7 @@ export const useSendMessage = ({
         // checkpoint, on error) has been saved above. Owner-guarded so an
         // aborted run resolving late can't clear a newer run's provider.
         clearLiveChatStateProvider(aiMessageId)
+        clearActiveRunAborter(aiMessageId)
         // If this run was aborted, the abort handler already released the chain lock
         // and queue processing state. Don't touch shared state here to avoid
         // interfering with any new run that may have started after the abort.

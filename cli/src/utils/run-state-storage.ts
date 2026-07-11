@@ -33,6 +33,7 @@ type LiveChatState = {
 
 let liveChatStateProvider: {
   ownerId: string
+  chatDir: string
   provide: () => LiveChatState | null
 } | null = null
 
@@ -40,13 +41,15 @@ let liveChatStateProvider: {
  * Register a provider for the in-flight chat state. While a run is active,
  * exit paths call flushLiveChatState() to persist the latest checkpoint so a
  * quit/crash doesn't lose the turn. ownerId ties the provider to a specific
- * run so a stale run can't clear a newer run's provider.
+ * run so a stale run can't clear a newer run's provider. The chat directory
+ * is captured at registration time so a later chat switch can't redirect the
+ * flush into a different chat's directory.
  */
 export function setLiveChatStateProvider(
   ownerId: string,
   provide: () => LiveChatState | null,
 ): void {
-  liveChatStateProvider = { ownerId, provide }
+  liveChatStateProvider = { ownerId, chatDir: resolveCurrentChatDir(), provide }
 }
 
 export function clearLiveChatStateProvider(ownerId: string): void {
@@ -61,9 +64,31 @@ export function clearLiveChatStateProvider(ownerId: string): void {
  */
 export function flushLiveChatState(): void {
   try {
-    const state = liveChatStateProvider?.provide()
+    // The process is exiting, so the async drain will never get to run:
+    // write any queued checkpoints synchronously first. Each is bound to the
+    // chat dir captured when it was scheduled. The live provider below may
+    // overwrite one of these with strictly newer state — that order is
+    // intentional.
+    for (const [chatDir, state] of pendingCheckpoints) {
+      saveChatState(state.runState, state.messages, chatDir)
+    }
+    pendingCheckpoints.clear()
+
+    const provider = liveChatStateProvider
+    if (!provider) {
+      return
+    }
+    // The provider reads live store state. Once the user has switched to a
+    // different chat (/new, resuming from /history), that state no longer
+    // matches the provider's chat directory — flushing would overwrite the
+    // run's chat with another conversation's messages. Skip instead; the
+    // run's last checkpoint was flushed from the queue above.
+    if (provider.chatDir !== resolveCurrentChatDir()) {
+      return
+    }
+    const state = provider.provide()
     if (state) {
-      saveChatState(state.runState, state.messages)
+      saveChatState(state.runState, state.messages, provider.chatDir)
     }
   } catch {
     // Best-effort - never block process exit.
@@ -115,7 +140,14 @@ export function setChatDirOverrideForTesting(dir: string | undefined): void {
   chatDirOverride = dir
 }
 
-function resolveCurrentChatDir(): string {
+/**
+ * Resolve the directory of the currently active chat. Persistence callers
+ * must capture this at the moment the state is captured (run start, snapshot
+ * time) and pass it through to the save — resolving it again at write time
+ * races with chat switches (/new, resuming from /history) and would write one
+ * chat's transcript into another chat's directory.
+ */
+export function resolveCurrentChatDir(): string {
   if (chatDirOverride) {
     fs.mkdirSync(chatDirOverride, { recursive: true })
     return chatDirOverride
@@ -140,16 +172,24 @@ export function getChatMessagesPath(): string {
 }
 
 /**
- * Save both the RunState and ChatMessage[] to disk
+ * Save both the RunState and ChatMessage[] to disk.
+ *
+ * `chatDir` should be captured when the state itself is captured (e.g. at run
+ * start) and passed through. Defaulting to the current chat dir is only safe
+ * when the caller knows no chat switch can have happened in between.
  */
 export function saveChatState(
   runState: RunState,
   messages: ChatMessage[],
+  chatDir: string = resolveCurrentChatDir(),
 ): void {
   try {
-    const runStatePath = getRunStatePath()
-    const messagesPath = getChatMessagesPath()
+    const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
+    const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
 
+    // The dir existed when the save was captured, but may have been removed
+    // since (e.g. the chat deleted from /history mid-run).
+    fs.mkdirSync(chatDir, { recursive: true })
     // Compact JSON: these files are rewritten on every checkpoint and grow to
     // multiple MB; pretty-printing roughly doubles the write.
     writeFileAtomic(runStatePath, JSON.stringify(runState))
@@ -157,7 +197,7 @@ export function saveChatState(
     // Sidecar summary so /history can list this chat without parsing the
     // (unbounded) chat-messages.json. Must be written after the messages
     // file: it records the file's size/mtime to detect staleness.
-    writeChatMeta(resolveCurrentChatDir(), messages)
+    writeChatMeta(chatDir, messages)
   } catch (error) {
     logger.error(
       {
@@ -175,12 +215,13 @@ export function saveChatState(
 async function saveChatStateAsync(
   runState: RunState,
   messages: ChatMessage[],
+  chatDir: string,
 ): Promise<void> {
   try {
-    const runStatePath = getRunStatePath()
-    const messagesPath = getChatMessagesPath()
-    const chatDir = resolveCurrentChatDir()
+    const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
+    const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
 
+    await fs.promises.mkdir(chatDir, { recursive: true })
     await writeFileAtomicAsync(runStatePath, JSON.stringify(runState))
     await writeFileAtomicAsync(messagesPath, JSON.stringify(messages))
     // Sidecar summary so /history can list this chat without parsing the
@@ -205,32 +246,46 @@ async function saveChatStateAsync(
 // sessions that periodic stall is what users experience as "freezes". Instead,
 // schedule the write asynchronously and collapse bursts to a single in-flight
 // write, always persisting the latest state.
-let pendingCheckpoint: LiveChatState | null = null
+// Coalesced per chat directory: a burst of checkpoints for the same chat
+// collapses to the latest, but a checkpoint for one chat can never displace a
+// still-queued checkpoint for another (e.g. the final flush of a chat the
+// user just switched away from).
+const pendingCheckpoints = new Map<string, LiveChatState>()
 let checkpointDrain: Promise<void> | null = null
 
 async function drainCheckpoints(): Promise<void> {
-  while (pendingCheckpoint) {
-    const next = pendingCheckpoint
-    pendingCheckpoint = null
+  while (pendingCheckpoints.size > 0) {
     // Yield first so serialization never runs on the same tick that scheduled
-    // us (that tick is often mid-render or handling a keystroke).
+    // us (that tick is often mid-render or handling a keystroke). Entries stay
+    // in the map while we yield, so the synchronous exit flush can still write
+    // them if the process quits before we resume.
     await new Promise<void>((resolve) => setImmediate(resolve))
-    await saveChatStateAsync(next.runState, next.messages)
+    const entry = pendingCheckpoints.entries().next()
+    if (entry.done) {
+      break
+    }
+    const [chatDir, state] = entry.value
+    pendingCheckpoints.delete(chatDir)
+    // Write to the chat dir captured at schedule time: the current chat may
+    // have rotated (/new, /history resume) while this write sat in the queue,
+    // and resolving the dir here would dump this state into the wrong chat.
+    await saveChatStateAsync(state.runState, state.messages, chatDir)
   }
 }
 
 /**
  * Schedule an asynchronous, coalescing checkpoint save. Safe to call at a high
  * rate: only one write runs at a time and intermediate states are dropped in
- * favor of the latest. Use this for periodic in-flight checkpoints; use the
- * synchronous saveChatState for one-shot authoritative saves (turn completion,
- * exit flush).
+ * favor of the latest (per chat). Use this for periodic in-flight checkpoints;
+ * use the synchronous saveChatState for one-shot authoritative saves (turn
+ * completion, exit flush).
  */
 export function scheduleCheckpointSave(
   runState: RunState,
   messages: ChatMessage[],
+  chatDir: string = resolveCurrentChatDir(),
 ): void {
-  pendingCheckpoint = { runState, messages }
+  pendingCheckpoints.set(chatDir, { runState, messages })
   if (!checkpointDrain) {
     checkpointDrain = drainCheckpoints().finally(() => {
       checkpointDrain = null

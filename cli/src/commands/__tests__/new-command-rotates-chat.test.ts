@@ -10,6 +10,10 @@ describe('/new command', () => {
       '../../project-files.ts',
       import.meta.url,
     ).href
+    const activeRunUrl = new URL(
+      '../../utils/active-run.ts',
+      import.meta.url,
+    ).href
 
     const result = Bun.spawnSync({
       cmd: [
@@ -18,8 +22,16 @@ describe('/new command', () => {
         `
           import { findCommand } from ${JSON.stringify(commandRegistryUrl)}
           import { getCurrentChatId, setCurrentChatId } from ${JSON.stringify(projectFilesUrl)}
+          import { setActiveRunAborter } from ${JSON.stringify(activeRunUrl)}
 
           setCurrentChatId('previous-chat-id')
+
+          // Simulate an in-flight run: record which chat was current when the
+          // abort fired.
+          let abortedAtChatId = null
+          setActiveRunAborter('run-1', () => {
+            abortedAtChatId = getCurrentChatId()
+          })
 
           const newCommand = findCommand('new')
           if (!newCommand) throw new Error('new command missing')
@@ -41,6 +53,17 @@ describe('/new command', () => {
           if (getCurrentChatId() === 'previous-chat-id') {
             throw new Error(
               '/new did not rotate the chat id — the next save would overwrite the previous chat',
+            )
+          }
+
+          if (abortedAtChatId === null) {
+            throw new Error(
+              '/new did not abort the in-flight run — an orphaned run would keep checkpointing across the chat switch',
+            )
+          }
+          if (abortedAtChatId !== 'previous-chat-id') {
+            throw new Error(
+              '/new aborted the run only after rotating the chat id — late writes could land in the new chat',
             )
           }
         `,

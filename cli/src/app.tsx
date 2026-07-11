@@ -14,6 +14,7 @@ import { useFreebuffSession } from './hooks/use-freebuff-session'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { getProjectRoot, startNewChat } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
+import { abortActiveRun } from './utils/active-run'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
 import { IS_FREEBUFF } from './utils/constants'
@@ -153,6 +154,10 @@ export const App = ({
 
   const handleResumeChat = useCallback(
     (chatId: string) => {
+      // Abort any in-flight run BEFORE resetting the store and switching
+      // chats: an orphaned run would keep checkpointing, and its writes could
+      // land in the resumed chat's directory, overwriting that transcript.
+      abortActiveRun()
       closeChatHistory()
       // Reset chat store to clear previous messages before loading the selected chat
       resetChatStore()
@@ -162,6 +167,7 @@ export const App = ({
   )
 
   const handleNewChat = useCallback(() => {
+    abortActiveRun()
     closeChatHistory()
     resetChatStore()
     // Rotate the chat id so the new conversation saves to its own directory
