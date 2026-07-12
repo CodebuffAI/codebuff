@@ -6,6 +6,18 @@ import type { $ToolParams } from '../../constants'
 
 const toolName = 'set_output'
 const endsAgentStep = false
+const decodeJsonObjectString = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value
+  try {
+    const decoded = JSON.parse(value) as unknown
+    if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) {
+      return value
+    }
+    return decoded
+  } catch {
+    return value
+  }
+}
 
 // WHY `data` EXISTS IN THE INPUT SCHEMA:
 // Subagents inherit their parent's tool definitions, and because of prompt caching
@@ -23,7 +35,9 @@ const endsAgentStep = false
 // This means both `{ results: [...] }` and `{ data: { results: [...] } }` are accepted.
 const inputSchema = z
   .looseObject({
-    data: z.record(z.string(), z.any()).optional(),
+    data: z
+      .preprocess(decodeJsonObjectString, z.record(z.string(), z.any()))
+      .optional(),
   })
   .describe(
     'JSON object to set as the agent output. The shape of the parameters are specified dynamically further down in the conversation. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.',
