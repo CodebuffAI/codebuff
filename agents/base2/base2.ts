@@ -104,6 +104,11 @@ export function createBase2(
     programmaticToolNames: ['spawn_agent_inline'],
     programmaticConfig: { hasNoValidation },
     spawnableAgents: buildArray(
+      // handleSteps invokes this automatically through spawn_agent_inline on
+      // every loop. It must still be declared for derived IDs such as
+      // base2-execute-plan, which do not receive the runtime's base-agent
+      // permission exemption.
+      'context-pruner',
       'file-picker',
       'code-searcher',
       'researcher-web',

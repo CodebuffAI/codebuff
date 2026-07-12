@@ -97,6 +97,12 @@ function buildDurablePassAgentState(tmpFile: string, fingerprint: string) {
 }
 
 describe('base2 validation/reviewer coordination prompts', () => {
+  test('declares the automatically spawned context pruner for derived agents', () => {
+    const executePlan = createBase2('default', { executePlan: true })
+
+    expect(executePlan.spawnableAgents).toContain('context-pruner')
+  })
+
   test('requires joining parallel validation and review before finalizing', () => {
     const base2 = createBase2('default')
 
