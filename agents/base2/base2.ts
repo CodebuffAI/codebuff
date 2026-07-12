@@ -1692,7 +1692,7 @@ ${securityReviewSection}
           if (!reviewerFinalizationVerdict) {
             // Distinguish a reviewer CRASH (agent itself errored / produced no
             // output) from a reviewer that ran successfully but failed to
-            // begin its reply with LOOKS_GOOD/NON_BLOCKING/BLOCKING. The
+            // populate its required structured output. The
             // operator-facing message differs because the recovery action
             // differs: a crash means "retry or escalate; the verdict is
             // unknown" whereas a no-verdict means "re-prompt for the
@@ -1754,16 +1754,16 @@ ${securityReviewSection}
               }
             } else {
               activeWorkState.nextRequiredAction =
-                'Clarify or resolve the reviewer gate result; reviewer did not return LOOKS_GOOD or NON_BLOCKING.'
+                'Retry the automated reviewer gate; reviewer did not populate its required structured output.'
               markActiveWorkStateChanged()
               yield {
                 toolName: 'add_message',
                 input: {
                   role: 'user',
                   content: [
-                    `Reviewer gate: ${reviewerAgentType} ran but did not start with LOOKS_GOOD, NON_BLOCKING, or BLOCKING. Resolve or clarify before ending your turn:`,
+                    `Reviewer gate: ${reviewerAgentType} ran but returned no structured output. The verdict is unavailable.`,
                     '',
-                    'The reviewer must begin its reply with one of those labels (text mode) or emit a {"verdict": ...} JSON object. Re-spawn the reviewer with that contract reminder.',
+                    'Do not manually re-spawn the reviewer or ask it for a textual label. Continue the gate loop so the automated reviewer retries with its declared output schema; it must call set_output and populate verdict, findings, coverage, dimensions, requirementCoverage, snapshotFingerprint, and reviewedFiles.',
                   ].join('\n'),
                 },
                 includeToolCall: false,
