@@ -45,6 +45,7 @@ describe('specialist agents', () => {
       expect(agent.toolNames).toContain('get_change_review_bundle')
       expect(agent.instructionsPrompt).toContain('snapshot_id')
       expect(agent.outputSchema).toBeDefined()
+      expect(agent.outputMode).toBe('structured_output')
     }
   })
 

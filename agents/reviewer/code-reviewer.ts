@@ -18,7 +18,7 @@ export const createReviewer = (
       description: 'What should be reviewed. Be brief.',
     },
   },
-  outputMode: 'last_message',
+  outputMode: 'structured_output',
   // Reviewers get read_files (and only read_files) so they can always read the
   // exact, current final file contents they are reviewing. Reviews must never
   // depend on the parent happening to paste full files into the prompt: when

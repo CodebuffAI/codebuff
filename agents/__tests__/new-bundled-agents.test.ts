@@ -35,8 +35,10 @@ describe('new bundled agents (M2.6)', () => {
         expect(def.includeMessageHistory).toBe(false)
       })
 
-      test('has last_message output mode', () => {
-        expect(def.outputMode).toBe('last_message')
+      test('uses the output mode required by its schema', () => {
+        const expectedMode =
+          def.outputSchema === undefined ? 'last_message' : 'structured_output'
+        expect(def.outputMode).toBe(expectedMode)
       })
 
       test('has a string prompt input schema', () => {
