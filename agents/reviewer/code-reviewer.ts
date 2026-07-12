@@ -119,16 +119,7 @@ Be brief: If you don't have much critical feedback, simply say it looks good in 
 
 Return the structured output required by your output schema with schemaVersion 1. The parent prompt supplies a snapshot fingerprint and pending file list; echo the fingerprint exactly and list every file you actually read. Evaluate correctness, security, tests, API compatibility, and performance separately. Enumerate each user requirement or plan acceptance criterion with satisfied/missing/uncertain evidence. Any missing or uncertain required behavior is BLOCKING.
 
-For compatibility when rendered as text, start your final answer with exactly one of these labels:
-- \`BLOCKING:\` when the assistant must fix something or run a required validation before finishing. Missing test coverage for a behavior-changing edit is BLOCKING.
-- \`NON_BLOCKING:\` when you only have optional suggestions.
-- \`LOOKS_GOOD:\` when no meaningful issues remain.
-
-The first visible token of your final answer must be exactly \`BLOCKING:\`, \`NON_BLOCKING:\`, or \`LOOKS_GOOD:\`. Do not emit any visible preamble, reasoning, or \`<think>\`/\`</think>\` tags before that label; the orchestrator gates on the very first characters of your reply.
-
-For \`BLOCKING:\` feedback, include a short checklist of the exact next actions required (for example: \`- Rerun bun test ...\`, \`- Fix ... in file.ts\`). Prefer one comprehensive blocker list over drip-feeding issues across multiple review cycles.
-
-Optional structured form: instead of (or in addition to) the text label, you may emit a single compact JSON object summarizing the verdict, e.g. \`{"verdict":"BLOCKING","findings":["..."],"coverage":"missing"}\` where verdict is one of LOOKS_GOOD, NON_BLOCKING, BLOCKING; findings is a short list of strings; and coverage is one of \`"covered"\` (tests exist for the changed behavior), \`"missing"\` (the change adds/alters behavior but no test covers it — BLOCKING), or \`"n/a"\` (the change is non-behavioral: comments, formatting, refactors with identical semantics). The orchestrator treats \`coverage: "missing"\` as BLOCKING even when verdict is LOOKS_GOOD or NON_BLOCKING. The orchestrator accepts either the text label form or the JSON form. Do not invent additional required fields — keep the schema minimal.
+You must call \`set_output\` with one object that satisfies the declared output schema. Do not finish with prose, a Markdown JSON block, or a textual verdict label: those do not populate structured agent output and the parent will receive \`null\`. Put the verdict in the schema's \`verdict\` field. Missing test coverage for a behavior-changing edit requires \`verdict: "BLOCKING"\` and \`coverage: "missing"\`. For blocking feedback, put the exact next actions in \`findings\`; prefer one comprehensive list over drip-feeding issues across review cycles.
 
 NOTE: You cannot make any changes directly! The only tool you may call is read_files (to gather review context). You can only suggest changes; you cannot apply them, run validation, or spawn agents.
 

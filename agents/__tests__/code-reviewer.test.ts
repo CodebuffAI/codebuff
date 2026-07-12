@@ -30,17 +30,17 @@ describe('code-reviewer prompt isolation', () => {
     expect(reviewer.instructionsPrompt).toContain('read_files with ranges')
   })
 
-  test('requires verdict label as first visible final-answer token', () => {
+  test('requires set_output instead of an ambiguous textual verdict', () => {
     const reviewer = createReviewer('anthropic/claude-opus-4.7')
 
+    expect(reviewer.instructionsPrompt).toContain(
+      'You must call `set_output` with one object that satisfies the declared output schema',
+    )
+    expect(reviewer.instructionsPrompt).toContain(
+      'the parent will receive `null`',
+    )
     expect(reviewer.instructionsPrompt).not.toContain(
-      'Before providing your review, use <think></think> tags',
-    )
-    expect(reviewer.instructionsPrompt).toContain(
-      'The first visible token of your final answer must be exactly `BLOCKING:`, `NON_BLOCKING:`, or `LOOKS_GOOD:`',
-    )
-    expect(reviewer.instructionsPrompt).toContain(
-      'Do not emit any visible preamble, reasoning, or `<think>`/`</think>` tags before that label',
+      'The first visible token of your final answer',
     )
   })
 
@@ -94,17 +94,11 @@ describe('code-reviewer prompt isolation', () => {
   test('promotes coverage-adequacy into the verdict contract', () => {
     const reviewer = createReviewer('anthropic/claude-opus-4.7')
 
-    // BLOCKING label now mentions missing coverage as a blocking condition.
     expect(reviewer.instructionsPrompt).toContain(
-      'Missing test coverage for a behavior-changing edit is BLOCKING',
+      'Missing test coverage for a behavior-changing edit requires',
     )
-    // Structured JSON schema documents the optional coverage field + semantics.
-    expect(reviewer.instructionsPrompt).toContain('"coverage":"missing"')
-    expect(reviewer.instructionsPrompt).toContain('"covered"')
-    expect(reviewer.instructionsPrompt).toContain('"n/a"')
-    // The orchestrator treats coverage:missing as BLOCKING even on LOOKS_GOOD.
     expect(reviewer.instructionsPrompt).toContain(
-      'treats `coverage: "missing"` as BLOCKING even when verdict is LOOKS_GOOD',
+      '`verdict: "BLOCKING"` and `coverage: "missing"`',
     )
     // Coverage adequacy guideline is explicitly marked as verdict-contract.
     expect(reviewer.instructionsPrompt).toContain('verdict-contract, M6.3')
