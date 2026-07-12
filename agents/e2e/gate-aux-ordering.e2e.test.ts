@@ -67,11 +67,21 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       toolName: 'query_index',
       input: {
         query: prompt,
-        limit: 20,
+        limit: 14,
+        mode: 'search',
       },
     })
 
-    // 2) Working-tree snapshot.
+    // 2) Retrieval routing annotation, then working-tree snapshot.
+    const retrievalRoute = gen.next(feedJson([])).value
+    expect(retrievalRoute).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+      includeToolCall: false,
+    })
+    expect((retrievalRoute as any).input.content).toContain(
+      'Proactive retrieval route',
+    )
     expect(gen.next(feedJson([])).value).toMatchObject({
       toolName: 'git_status',
       input: {},
@@ -254,6 +264,10 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
 
     // Drive to the point where all three aux gates have fired once.
     expect(gen.next().value).toMatchObject({ toolName: 'query_index' })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'add_message',
+      includeToolCall: false,
+    })
     expect(gen.next(feedJson([])).value).toMatchObject({
       toolName: 'git_status',
     })

@@ -298,6 +298,27 @@ export function buildSpawnParamsWithHandoff(params: {
   }
 }
 
+export function validateVersionedAgentHandoff(params: {
+  agentType: string
+  handoff: unknown
+}): void {
+  if (params.agentType !== 'repair-editor') return
+  const record = params.handoff as Record<string, unknown> | undefined
+  const findings = record?.findings
+  if (
+    record?.schemaVersion !== 1 ||
+    typeof record.taskId !== 'string' ||
+    typeof record.objective !== 'string' ||
+    !Array.isArray(findings) ||
+    findings.length === 0 ||
+    !record.permissions
+  ) {
+    throw new Error(
+      'repair-editor requires a versioned handoff with schemaVersion: 1, taskId, objective, at least one finding, and explicit permissions.',
+    )
+  }
+}
+
 export function normalizeSpawnedAgentOutput(output: any): any {
   if (
     output &&

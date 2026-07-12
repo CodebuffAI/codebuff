@@ -94,6 +94,8 @@ There is **no hardcoded per-agent fallback**. The `model:` field on agent
 templates is documentation of intent only — it is never read at runtime. This
 keeps `openbuff.json` / `routes.json` authoritative for BYOK routing.
 
+Fresh presets seed routes for shipped implementation, repair, review, and specialist agents. These route entries reuse the selected preset model; they do not add provider definitions or credentials. Existing installations preserve their provider settings, and a user with one configured model can route every agent to that same model. `providers.json` changes only when a provider itself is added, removed, or edited.
+
 ### Model discovery auth
 
 OpenAI-compatible providers can discover available models from a provider
@@ -319,6 +321,17 @@ keeps usable last-known-good metadata where possible; returned paths are still
 discovery hints and should be verified with `read_files` or `read_subtree`.
 
 The example at `openbuff.d.example/indexing.json` mirrors these defaults.
+
+## Adaptive reasoning
+
+`adaptiveReasoning` defaults to enabled and never changes the resolved model
+or provider. Explicit mode, agent, or default reasoning efforts remain
+authoritative. Otherwise, the selected model's declared capabilities choose
+high effort for planning/debugging/review, medium for implementation and root
+orchestration, and low for retrieval or context compression. Models declaring
+reasoning unsupported receive no reasoning parameter. A one-model setup simply
+reuses that model for every phase. Set `"adaptiveReasoning": false` to disable
+this fallback.
 
 ## Merge semantics
 

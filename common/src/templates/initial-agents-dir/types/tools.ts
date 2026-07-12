@@ -17,6 +17,15 @@ export type ToolName =
   | 'find_files_matching_content'
   | 'git_status'
   | 'git_branch'
+  | 'get_task'
+  | 'get_change_review_bundle'
+  | 'inspect_workspace'
+  | 'inspect_environment'
+  | 'get_affected_tests'
+  | 'get_build_targets'
+  | 'inspect_codebase_structure'
+  | 'inspect_feature_completeness'
+  | 'evaluate_audit_coverage'
   | 'glob'
   | 'kill_job'
   | 'list_directory'
@@ -39,6 +48,7 @@ export type ToolName =
   | 'render_ui'
   | 'reject_proposal'
   | 'run_file_change_hooks'
+  | 'run_targeted_validation'
   | 'run_terminal_command'
   | 'set_messages'
   | 'set_output'
@@ -72,6 +82,15 @@ export interface ToolParamsMap {
   find_files_matching_content: FindFilesMatchingContentParams
   git_status: GitStatusParams
   git_branch: GitBranchParams
+  get_task: GetTaskParams
+  get_change_review_bundle: GetChangeReviewBundleParams
+  inspect_workspace: InspectWorkspaceParams
+  inspect_environment: InspectEnvironmentParams
+  get_affected_tests: GetAffectedTestsParams
+  get_build_targets: GetBuildTargetsParams
+  inspect_codebase_structure: InspectCodebaseStructureParams
+  inspect_feature_completeness: InspectFeatureCompletenessParams
+  evaluate_audit_coverage: EvaluateAuditCoverageParams
   glob: GlobParams
   kill_job: KillJobParams
   list_directory: ListDirectoryParams
@@ -94,6 +113,7 @@ export interface ToolParamsMap {
   render_ui: RenderUiParams
   reject_proposal: RejectProposalParams
   run_file_change_hooks: RunFileChangeHooksParams
+  run_targeted_validation: RunTargetedValidationParams
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
   set_output: SetOutputParams
@@ -452,6 +472,75 @@ export interface GitBranchParams {
   switch?: boolean
   /** When true, skip the dirty-tree refusal check. Defaults to false — the tool refuses to branch when the working tree has uncommitted changes. */
   allow_dirty?: boolean
+}
+
+/**
+ * Parameters for get_task tool
+ */
+export interface GetTaskParams {
+  /** Optional plan session slug. Defaults to .agents/ACTIVE_SESSION. */
+  session?: string
+}
+
+/**
+ * Parameters for get_change_review_bundle tool
+ */
+export interface GetChangeReviewBundleParams {
+  max_chars?: number
+}
+
+/**
+ * Inspect the current repository/worktree identity and Git state without modifying it.
+ */
+export interface InspectWorkspaceParams {}
+
+/**
+ * Parameters for inspect_environment tool
+ */
+export interface InspectEnvironmentParams {}
+
+/**
+ * Parameters for get_affected_tests tool
+ */
+export interface GetAffectedTestsParams {
+  files: string[]
+}
+
+/**
+ * Parameters for get_build_targets tool
+ */
+export interface GetBuildTargetsParams {
+  files: string[]
+}
+
+/**
+ * Parameters for inspect_codebase_structure tool
+ */
+export interface InspectCodebaseStructureParams {
+  scope?: string[]
+}
+
+/**
+ * Parameters for inspect_feature_completeness tool
+ */
+export interface InspectFeatureCompletenessParams {
+  feature: string
+  snapshot_id: string
+  scope?: string[]
+}
+
+/**
+ * Parameters for evaluate_audit_coverage tool
+ */
+export interface EvaluateAuditCoverageParams {
+  snapshot_id: string
+  structural_receipts: string[]
+  features: string[]
+  out_of_scope?: {
+    id: string
+    reason: string
+  }[]
+  scope?: string[]
 }
 
 /**
@@ -858,6 +947,15 @@ export interface RunFileChangeHooksParams {
 }
 
 /**
+ * Parameters for run_targeted_validation tool
+ */
+export interface RunTargetedValidationParams {
+  snapshot_id: string
+  files: string[]
+  artifact_kinds?: string[]
+}
+
+/**
  * Execute a CLI command from the **project root** (different from the user's cwd).
  */
 export interface RunTerminalCommandParams {
@@ -909,6 +1007,31 @@ export interface SpawnAgentsParams {
     background?: boolean
     /** Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before. */
     handoff?: {
+      schemaVersion?: 1
+      taskId?: string
+      role?: string
+      objective?: string
+      requirements?: {
+        id: string
+        text: string
+        required: boolean
+      }[]
+      acceptanceCriteria?: {
+        id: string
+        behavior: string
+        verification: string
+      }[]
+      findings?: {
+        id: string
+        text: string
+        files: string[]
+        snapshotFingerprint: string
+      }[]
+      permissions?: {
+        readablePaths: string[]
+        writablePaths: string[]
+        allowedTools: string[]
+      }
       /** Short, plain-language summary of what the parent has already done and what it expects the child to do next. */
       summary?: string
       /** Paths to durable artifacts the child should treat as authoritative (e.g. .agents/sessions/<slug>/PLAN.md). */
@@ -1035,8 +1158,10 @@ export interface UpdatePlanStatusParams {
   path: string
   /** Targeted updates applied in order. Each entry rewrites at most one matching checklist line; unmatched updates fall through to `append`. */
   updates?: {
+    /** Stable task ID at the start of a checklist line (for example `P2-T3`). Preferred over substring matching. */
+    taskId?: string
     /** Substring of the existing task/checklist line to match (case-insensitive). The first matching `- [ ]`/`-[x]`/`-[~]`/`-[/]`/`-[!]` line in the artifact will be updated in place. */
-    task: string
+    task?: string
     /** When provided, sets the checkbox state of the matched line (true -> `[x]`, false -> `[ ]`). Ignored when `status` is also provided. */
     completed?: boolean
     /** Explicit tri-state task status. When provided, overrides `completed`. Transitions a task to `in_progress` (`[~]`), `done` (`[x]`), `cancelled` (`[/]`), `blocked` (`[!]`), or back to `pending` (`[ ]`). */
@@ -1052,9 +1177,28 @@ export interface UpdatePlanStatusParams {
     body: string
   }
   /** Optional session-level status transition. When provided, `.agents/sessions/<slug>/STATE.json` is created or updated to reflect the new lifecycle status. */
-  sessionStatus?: 'active' | 'paused' | 'completed' | 'archived'
+  sessionStatus?:
+    | 'draft'
+    | 'ready'
+    | 'active'
+    | 'executing'
+    | 'validating'
+    | 'reviewing'
+    | 'blocked'
+    | 'paused'
+    | 'completed'
+    | 'archived'
   /** Optional current-task pointer written as a `<!-- current-task: <task> -->` annotation in PLAN.md. Pass an empty string or omit to clear the pointer. Only takes effect when path targets PLAN.md. */
   currentTask?: string
+  /** Optional STATE.json compare-and-swap revision. The update fails without writing when the current revision differs. */
+  expectedRevision?: number
+  /** Validation or review evidence associated with a stable task ID. */
+  checkpoint?: {
+    taskId: string
+    phase: 'validation' | 'review'
+    passed: boolean
+    summary?: string
+  }
 }
 
 /**

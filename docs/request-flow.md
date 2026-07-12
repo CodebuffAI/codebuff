@@ -64,6 +64,10 @@ through a hosted Openbuff/Codebuff service in this primary flow.
      (`read_slices` remains registered only as a quarantined compatibility
      alias for persisted/external calls; new prompts use `read_files.symbols`)
    - `create_plan`, `update_plan_status` → plan artifact authoring
+   - `inspect_workspace`, `get_task`, `get_change_review_bundle` → snapshot-bound workspace/task/review evidence
+   - `inspect_environment`, `get_affected_tests`, `get_build_targets` → read-only toolchain and validation-target intelligence
+   - `inspect_codebase_structure`, `inspect_feature_completeness`, `evaluate_audit_coverage` → snapshot-bound broad-audit inventory and completeness gating
+   - `run_targeted_validation` → snapshot-checked scoped validation
    - Custom tool definitions and MCP tools
 5. **Action handlers** stream provider output back to the CLI:
    - `response-chunk` → streams text to the CLI
@@ -156,6 +160,8 @@ deduction.
 Tool calls always execute on the user's machine:
 
 ```
+
+Control-plane reads and validation use the same local dispatch path. A targeted validation call must include the snapshot ID observed before execution; the SDK rejects the call if the workspace is already stale and rejects its result if files mutate while the command is running. This prevents an old compiler/test result or reviewer verdict from clearing a newer change.
 LLM Response (tool_call)          Agent Runtime processes stream
         │                                    │
         ▼                                    ▼
@@ -217,6 +223,12 @@ exposes a stable structured contract to the user:
   surrounding prose.
 - File contents themselves are not logged into gate state or transcripts;
   only the hash/byte-length marker and pass/fail status are recorded.
+- Versioned reviewer results must echo the exact snapshot fingerprint and
+  attest to every pending file. A mismatch or omitted file is blocking.
+- Missing hooks or hooks that match no changed files are surfaced as
+  `REDUCED_ASSURANCE`, not ordinary validation success.
+- Explicit reviewer bypasses retain the reason, authorization timestamp,
+  pending files, fingerprint, and completed validation summary.
 
 ## Session State
 

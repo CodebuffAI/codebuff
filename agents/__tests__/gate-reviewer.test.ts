@@ -4,6 +4,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   collectReviewerBlockers,
+  collectReviewerAttestationIssues,
   detectReviewerCrash,
   getReviewerFinalizationVerdict,
   stripReviewerPreamble,
@@ -188,6 +189,57 @@ describe('gate-reviewer helpers', () => {
       'BLOCKING: Fix A',
       'BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)',
     ])
+  })
+
+  test('collectReviewerBlockers blocks failed dimensions and incomplete requirements', () => {
+    expect(
+      collectReviewerBlockers({
+        verdict: 'LOOKS_GOOD',
+        findings: [],
+        coverage: 'covered',
+        dimensions: {
+          correctness: 'pass',
+          security: 'block',
+        },
+        requirementCoverage: [
+          { requirement: 'preserve CLI compatibility', status: 'uncertain' },
+          { requirement: 'add tests', status: 'satisfied' },
+        ],
+      }),
+    ).toEqual([
+      'BLOCKING: security review dimension failed',
+      'BLOCKING: requirement uncertain: preserve CLI compatibility',
+    ])
+  })
+
+  test('structured v1 reviews must attest to the exact snapshot and every pending file', () => {
+    expect(
+      collectReviewerAttestationIssues(
+        {
+          schemaVersion: 1,
+          verdict: 'LOOKS_GOOD',
+          snapshotFingerprint: 'stale',
+          reviewedFiles: ['src/a.ts'],
+        },
+        'current',
+        ['src/a.ts', 'src/b.ts'],
+      ),
+    ).toEqual([
+      'BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree',
+      'BLOCKING: reviewer did not attest to every pending file: src/b.ts',
+    ])
+    expect(
+      collectReviewerAttestationIssues(
+        {
+          schemaVersion: 1,
+          verdict: 'LOOKS_GOOD',
+          snapshotFingerprint: 'current',
+          reviewedFiles: ['src/a.ts', 'src/b.ts'],
+        },
+        'current',
+        ['src/a.ts', 'src/b.ts'],
+      ),
+    ).toEqual([])
   })
 
   test('getReviewerFinalizationVerdict blocks finalization when coverage is missing', () => {

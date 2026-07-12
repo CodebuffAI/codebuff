@@ -31,6 +31,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import { IndexManager, loadIndex } from '@codebuff/indexer'
+import { inspectCodebaseStructure } from '../sdk/src/services/audit-intelligence'
 import type { IndexedFile, MetadataIndex } from '@codebuff/indexer'
 
 interface CliArgs {
@@ -404,7 +405,8 @@ async function main(): Promise<void> {
   }
 
   process.stderr.write(`Rendering map from ${index.fileCount} files...\n`)
-  const map = renderMap(index, root)
+  const inventory = inspectCodebaseStructure(root)
+  const map = `${renderMap(index, root)}\n## Native audit inventory\n\n- **Snapshot ID:** \`${inventory.snapshotId}\`\n- **Subsystems:** ${inventory.subsystems.map((item) => `\`${item.id}\``).join(', ')}\n- **Languages:** ${inventory.capabilityPacket.languages.join(', ') || '(none detected)'}\n- **Frameworks:** ${inventory.capabilityPacket.frameworks.join(', ') || '(none detected)'}\n\nThis file is a human-readable rendering. The CLI uses \`inspect_codebase_structure\` and \`evaluate_audit_coverage\` as the authoritative audit control plane.\n`
 
   fs.mkdirSync(path.dirname(out), { recursive: true })
   fs.writeFileSync(out, map, 'utf8')

@@ -12,12 +12,12 @@ const definition: SecretAgentDefinition = {
   defaultTimeoutMs: 30 * 60 * 1000,
   displayName: 'Theo the Theorizer',
   spawnerPrompt:
-    'Does deep thinking given the current conversation history and a specific prompt to focus on. Use this to help you solve a specific problem. You must gather any relevant context before spawning this agent because the thinker agent has no access to tools. You can keep the prompt very short, because the thinker agent can see the entire conversation history for context.',
+    'Makes a focused architecture, design, or root-cause decision from a self-contained evidence packet. It has no repository tools and does not inherit conversation history, so include evidence, constraints, options, and unknowns.',
   inputSchema: {
     prompt: {
       type: 'string',
       description:
-        'The problem you are trying to solve, very briefly. No need to provide context, as the thinker agent can see the entire conversation history.',
+        'A self-contained decision packet: decision to make, confirmed evidence, constraints, competing options, risks, and unknowns.',
     },
     params: {
       type: 'object' as const,
@@ -52,13 +52,13 @@ const definition: SecretAgentDefinition = {
     },
   },
   outputMode: 'structured_output',
-  inheritParentSystemPrompt: true,
-  includeMessageHistory: true,
+  inheritParentSystemPrompt: false,
+  includeMessageHistory: false,
   spawnableAgents: [],
   toolNames: ['set_output'],
 
   instructionsPrompt: `
-You are a thinker agent. Use the <think> tag to think deeply about the user request.
+You are a thinker agent. Reason only from the self-contained decision packet in the current prompt. Do not assume access to parent conversation history or operational state. Use the <think> tag to think deeply about the request.
 
 When satisfied, write out a brief response to the user's request. The parent agent will see your response -- DO NOT call any tools, including set_output. Structured output is captured automatically for you.
 

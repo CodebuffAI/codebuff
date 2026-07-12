@@ -11,6 +11,7 @@ import {
   getModelForRequest,
   applyConfiguredProviderRequestCompatibility,
   normalizeAnthropicBaseURL,
+  selectAdaptiveReasoningEffort,
 } from '../impl/model-provider'
 import {
   PROVIDER_CONFIG_ENV_VAR,
@@ -52,6 +53,22 @@ function resetEnv() {
 }
 
 describe('model-provider', () => {
+  test('adaptive reasoning varies effort by agent role without selecting a model', () => {
+    expect(selectAdaptiveReasoningEffort({ agentId: 'thinker', supported: true })).toBe('high')
+    expect(selectAdaptiveReasoningEffort({ agentId: 'editor', supported: true })).toBe('medium')
+    expect(selectAdaptiveReasoningEffort({ agentId: 'context-pruner', supported: true })).toBe('low')
+    expect(selectAdaptiveReasoningEffort({ agentId: 'thinker', supported: false })).toBeUndefined()
+  })
+
+  test('adaptive reasoning stays within provider-declared efforts', () => {
+    expect(
+      selectAdaptiveReasoningEffort({
+        agentId: 'thinker',
+        supported: true,
+        efforts: ['medium', 'low'],
+      }),
+    ).toBe('medium')
+  })
   beforeEach(() => {
     resetEnv()
     delete process.env[PROVIDER_CONFIG_ENV_VAR]
@@ -1527,6 +1544,16 @@ describe('model-provider', () => {
       expect(anthropicConfig.providers.anthropic?.type).toBe(
         'anthropic-compatible',
       )
+      expect(opencodeConfig.agents?.['repair-editor']).toBe(
+        opencodeConfig.defaultModel!,
+      )
+      expect(opencodeConfig.agentReasoningEfforts?.['repair-editor']).toBe(
+        'high',
+      )
+      expect(opencodeConfig.agents?.architect).toBe(
+        opencodeConfig.defaultModel!,
+      )
+      expect(opencodeConfig.agentReasoningEfforts?.evaluator).toBe('high')
       expect(
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',
@@ -1664,6 +1691,24 @@ describe('model-provider', () => {
       expect(mergedConfig.providers['openai'].baseURL).toBe(
         'https://api.openai.com/v1',
       )
+    })
+
+    test('fresh preset setup persists the repair editor route', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-fresh-'),
+      )
+
+      const configPath = writeProviderConfigFile({
+        cwd: tempDir,
+        config: createProviderPresetConfig('openai'),
+      })
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+
+      expect(config.agents['repair-editor']).toBe('openai/gpt-5.5')
+      expect(config.agentReasoningEfforts['repair-editor']).toBe('high')
+      expect(config.agents.architect).toBe('openai/gpt-5.5')
+      expect(config.agents['release-manager']).toBe('openai/gpt-5.5')
+      expect(config.agentReasoningEfforts.evaluator).toBe('high')
     })
 
     test('writeProviderConfigFile force=true overwrites existing config', () => {

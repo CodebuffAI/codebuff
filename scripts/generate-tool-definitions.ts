@@ -27,22 +27,36 @@ function main() {
       join(process.cwd(), '.agents/types/tools.ts'),
     ]
 
+    const writtenPaths: string[] = []
     for (const outputPath of outputPaths) {
       // Create the directory if it does not exist
-      mkdirSync(dirname(outputPath), { recursive: true })
+      try {
+        mkdirSync(dirname(outputPath), { recursive: true })
+        writeFileSync(outputPath, content, 'utf8')
+        writtenPaths.push(outputPath)
+      } catch (error) {
+        const code =
+          typeof error === 'object' && error !== null && 'code' in error
+            ? error.code
+            : undefined
+        if (code !== 'EROFS' && code !== 'EACCES') throw error
+        console.warn(`⚠️ Skipping read-only generated mirror: ${outputPath}`)
+      }
+    }
 
-      writeFileSync(outputPath, content, 'utf8')
+    if (writtenPaths.length === 0) {
+      throw new Error('No writable tool-definition output paths were available')
     }
 
     // Format the generated files with prettier
     console.log('🎨 Formatting generated files...')
     execSync(
-      `npx prettier --write ${outputPaths.map((path) => `"${path}"`).join(' ')}`,
+      `npx prettier --write ${writtenPaths.map((path) => `"${path}"`).join(' ')}`,
       { stdio: 'inherit' },
     )
 
     console.log('✅ Successfully generated tools.ts')
-    for (const outputPath of outputPaths) {
+    for (const outputPath of writtenPaths) {
       console.log(`📁 Output: ${outputPath}`)
     }
   } catch (error) {

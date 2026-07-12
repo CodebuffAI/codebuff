@@ -37,6 +37,7 @@ const definition: SecretAgentDefinition = {
   includeMessageHistory: false,
   filesystemScope: {
     read: [
+      '**/*',
       '**/*.test.*',
       '**/*.spec.*',
       '**/__tests__/**',
@@ -64,9 +65,10 @@ const definition: SecretAgentDefinition = {
   instructionsPrompt: `${PLACEHOLDER.LANGUAGE_PROFILE}
 
 Instructions:
-1. Work only in existing test locations (*.test.*, *.spec.*, __tests__/, test/, or tests/). The runtime enforces this filesystem scope. The parent must include the relevant source contract in the prompt; direct source reads are intentionally unavailable.
+1. Write only in existing test locations (*.test.*, *.spec.*, __tests__/, test/, or tests/). You may read only the explicitly supplied target_files plus in-scope tests; do not browse unrelated source. The parent must include the relevant source contract and freshness evidence in the handoff.
 2. Read an existing in-scope test file in the same package to mimic its imports, harness, and assertion style. Do not invent a new test framework.
 3. Write focused tests covering: the happy path, key edge cases (empty/null/zero/boundary), and the specific behavior the prompt asked for. Prefer one assertion concept per test.
+3a. For bug fixes, prefer writing the reproducing failing test before implementation when the orchestrator invokes you in pre-implementation mode.
 4. Do not run terminal commands directly. If a test_command param is provided, include it as the validation command for the parent/basher to run after your changes.
 5. Return a concise summary: which tests were added/modified, the file path, and validation status (parent/basher-owned, not run by test-writer, or skipped if no command was provided).
 Do not refactor unrelated tests. Do not modify source code under test — if the source has a bug, report it and stop.`.trim(),

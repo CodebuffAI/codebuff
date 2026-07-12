@@ -26,7 +26,9 @@
     "main-openbuff": "bun run buffbench/main-openbuff.ts",
     "run-buffbench-nightly": "bun run buffbench/main-nightly.ts",
     "trigger-buffbench": "bun run scripts/trigger-buffbench.ts",
-    "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
+    "setup-codebuff-repo": "bun run setup-codebuff-repo.ts",
+    "harness:ablation": "bun run buffbench/run-coding-harness-ablation.ts",
+    "harness:cross-model": "bun run buffbench/run-cross-model-experiment.ts"
   },
   "sideEffects": false,
   "engines": {

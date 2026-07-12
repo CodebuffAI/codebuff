@@ -1462,7 +1462,7 @@ const definition: AgentDefinition = {
         if (isInFinalResponseAllowedState) continue
 
         if (
-          /^(Open reviewer blockers\/feedback|Pending validation\/reviewer gate files:|Last validation summary:|Next required action:)/i.test(
+          /^(Open reviewer blockers\/feedback|Open reviewer finding records|RF-\d+-[a-f0-9]+\s+\[|Every repair edit must explicitly address|Role: root orchestrator|Pending validation\/reviewer gate files:|Last validation summary:|Next required action:)/i.test(
             trimmed,
           )
         ) {
@@ -1501,7 +1501,7 @@ const definition: AgentDefinition = {
           /^Next workflow action:/i.test(trimmed) ||
           /^Continue from this item;/i.test(trimmed)
         const isOperationalLine =
-          /^(Harness pinned active-work state|Open reviewer blockers\/feedback|Current phase:|Pending validation\/reviewer gate files:|Historical changed files:|Historical touched files:|Latest work summary:|Last validation summary:|Next required action:|Todos:|Remaining:)/i.test(
+          /^(Harness pinned active-work state|Open reviewer blockers\/feedback|Open reviewer finding records|RF-\d+-[a-f0-9]+\s+\[|Every repair edit must explicitly address|Role: root orchestrator|Current phase:|Pending validation\/reviewer gate files:|Historical changed files:|Historical touched files:|Latest work summary:|Last validation summary:|Next required action:|Todos:|Remaining:)/i.test(
             trimmed,
           ) ||
           isActionableReviewerLine(trimmed) ||

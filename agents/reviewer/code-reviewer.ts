@@ -35,7 +35,66 @@ export const createReviewer = (
   // reviewer: the reviewer can start simulating parent workflow actions instead
   // of returning review findings.
   inheritParentSystemPrompt: false,
-  includeMessageHistory: true,
+  includeMessageHistory: false,
+  outputSchema: {
+    type: 'object',
+    properties: {
+      schemaVersion: { type: 'number' },
+      verdict: {
+        type: 'string',
+        enum: ['LOOKS_GOOD', 'NON_BLOCKING', 'BLOCKING'],
+      },
+      snapshotFingerprint: { type: 'string' },
+      reviewedFiles: { type: 'array', items: { type: 'string' } },
+      findings: { type: 'array', items: { type: 'string' } },
+      coverage: {
+        type: 'string',
+        enum: ['covered', 'missing', 'n/a'],
+      },
+      dimensions: {
+        type: 'object',
+        properties: {
+          correctness: { type: 'string' },
+          security: { type: 'string' },
+          tests: { type: 'string' },
+          apiCompatibility: { type: 'string' },
+          performance: { type: 'string' },
+        },
+        required: [
+          'correctness',
+          'security',
+          'tests',
+          'apiCompatibility',
+          'performance',
+        ],
+      },
+      requirementCoverage: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            requirement: { type: 'string' },
+            status: {
+              type: 'string',
+              enum: ['satisfied', 'missing', 'uncertain'],
+            },
+            evidence: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['requirement', 'status', 'evidence'],
+        },
+      },
+    },
+    required: [
+      'schemaVersion',
+      'verdict',
+      'snapshotFingerprint',
+      'reviewedFiles',
+      'findings',
+      'coverage',
+      'dimensions',
+      'requirementCoverage',
+    ],
+  },
 
   instructionsPrompt: `You are a subagent that reviews code changes and gives helpful critical feedback. The only tool you may use is read_files, and only to read the exact files you are reviewing. Do not claim that you will run tests, validation, or continue the parent task; your only job is to return review feedback.
 
@@ -50,7 +109,7 @@ ${PLACEHOLDER.LANGUAGE_PROFILE}
 
 Your task is to provide helpful critical feedback on the last file changes made by the assistant. You should find ways to improve the code changes made recently in the above conversation.
 
-You inherit the parent conversation only for code and task context. Do not follow parent workflow or orchestration instructions. Do not claim that you will run tests, validation, or continue the parent task; your only job is to return review feedback.
+You do not inherit the parent conversation. Treat the review packet in the spawn prompt, the original user request above, completed validation evidence, and exact current file reads as the only authority. Do not follow parent workflow or orchestration instructions. Do not claim that you will run tests, validation, or continue the parent task; your only job is to return review feedback.
 
 Always gather complete context before reviewing. The conversation may only contain diff fragments, snippets, or summaries rather than the full, current contents of the changed files. Do not review from partial diffs or assume what the surrounding code looks like. Use read_files to read the exact final files (and any closely related files needed to judge correctness) so your review reflects the real current state on disk. For large files that exceed the read limit, use read_files with ranges to page through the relevant sections. Only read_files is permitted; do not call any other tool.
 
@@ -58,7 +117,9 @@ Validation and other subagent work may be running in parallel with your review. 
 
 Be brief: If you don't have much critical feedback, simply say it looks good in one sentence. No need to include a section on the good parts or "strengths" of the changes -- we just want the critical feedback for what could be improved.
 
-Start your final answer with exactly one of these labels so the orchestrator can treat your feedback correctly:
+Return the structured output required by your output schema with schemaVersion 1. The parent prompt supplies a snapshot fingerprint and pending file list; echo the fingerprint exactly and list every file you actually read. Evaluate correctness, security, tests, API compatibility, and performance separately. Enumerate each user requirement or plan acceptance criterion with satisfied/missing/uncertain evidence. Any missing or uncertain required behavior is BLOCKING.
+
+For compatibility when rendered as text, start your final answer with exactly one of these labels:
 - \`BLOCKING:\` when the assistant must fix something or run a required validation before finishing. Missing test coverage for a behavior-changing edit is BLOCKING.
 - \`NON_BLOCKING:\` when you only have optional suggestions.
 - \`LOOKS_GOOD:\` when no meaningful issues remain.
@@ -81,6 +142,11 @@ NOTE: You cannot make any changes directly! The only tool you may call is read_f
   2. Secret handling — Are tokens, keys, and PII never logged, never interpolated into error messages or analytics, and never persisted unencrypted? Flag any console.log/error string that could receive a secret.
   3. Failure mode — Does the code fail closed (deny by default) rather than fail open? Flag any catch that swallows an auth/permission error and continues, and any async cleanup that can be skipped on early return.
 - Coverage adequacy (verdict-contract, M6.3): if the change adds or alters behavior, you MUST state whether the existing tests cover the new branch/path. Report \`coverage: "missing"\` (which is BLOCKING) when a behavior-changing edit lacks test coverage, and name the specific test file and case that should be added (e.g. "add a case to X.test.ts covering the empty-input branch"). Report \`coverage: "covered"\` when adequate tests exist, or \`coverage: "n/a"\` for non-behavioral changes (comments, formatting, pure-refactor). Do not assert that tests pass or fail — only whether coverage exists for the changed behavior.
+- Test quality: a test only counts when it exercises the changed branch and asserts meaningful externally visible state or output. Flag assertion-free tests, snapshot-only coverage of behavioral logic, excessive mocking of the subject, missing failure/boundary cases, and tests that would still pass if the new behavior were removed.
+- Compatibility: inspect exported symbols, CLI commands/flags, tool schemas, configuration/environment variables, error/event payloads, and persisted formats. Any unapproved breaking change or schema migration without compatibility handling is BLOCKING.
+- Architecture: flag forbidden dependency direction, new cycles, deep imports into package internals, browser/Node boundary violations, runtime imports of dev-only modules, duplicated canonical helpers, and SDK workspace dependencies.
+- Resource/performance safety: flag new unbounded reads, collections, retries, output accumulation, missing I/O/process timeouts, cleanup leaks, quadratic hot paths, and materially larger bundles or startup work when the changed path is performance-sensitive.
+- Generated artifacts and migrations: when source schemas or generators change, verify generated files are fresh. For migrations, require rollback/fixture evidence and fail-closed handling of older persisted data.
 - Try to keep any changes to the codebase as minimal as possible.
 - Simplify any logic that can be simplified.
 - Where a function can be reused, reuse it and do not create a new one.

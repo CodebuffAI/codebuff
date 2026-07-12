@@ -126,16 +126,20 @@ export function evaluateTerminalCommandPolicy(params: {
       }
     }
     const isAllowedGitCommand =
-      /^git\s+(?:status|diff|log|show|rev-parse|ls-files)\b/i.test(command) ||
+      /^git\s+(?:status|diff|log|show|rev-parse|rev-list|ls-files)\b/i.test(command) ||
+      /^git\s+fetch(?:\s+--prune)?(?:\s+[A-Za-z0-9._/-]+)?$/i.test(command) ||
       /^git\s+branch\s+--show-current\b/i.test(command) ||
       /^git\s+add\s+(?!.*(?:^|\s)--(?:intent-to-add|chmod)\b).+/i.test(command) ||
       (!/(?:^|\s)--amend\b/i.test(command) &&
-        /^git\s+commit\s+(?=.*-m(?:\s|$)).+/i.test(command))
+        /^git\s+commit\s+(?=.*-m(?:\s|$)).+/i.test(command)) ||
+      /^git\s+push\s+(?!.*(?:--force|-f\b|--delete\b|:))(?:-u\s+|--set-upstream\s+)?[A-Za-z0-9._/-]+\s+(?!main$|master$)[A-Za-z0-9._/-]+$/i.test(
+        command,
+      )
     if (!isAllowedGitCommand) {
       return {
         allowed: false,
         reason:
-          'git-commit agents may only inspect git state, stage paths, and create a non-amend commit',
+          'git-commit agents may only inspect/fetch git state, stage paths, create a non-amend commit, and perform an explicit non-force branch push',
       }
     }
     const outsidePath = findOutsideAbsolutePath(command, params.projectRoot)

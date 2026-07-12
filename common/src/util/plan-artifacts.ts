@@ -41,7 +41,13 @@ export type UpdatablePlanArtifactName =
 
 /** Session status values persisted in `.agents/sessions/<slug>/STATE.json`. */
 export const PLAN_SESSION_STATUSES = [
+  'draft',
+  'ready',
   'active',
+  'executing',
+  'validating',
+  'reviewing',
+  'blocked',
   'paused',
   'completed',
   'archived',
@@ -80,13 +86,23 @@ export const TASK_MARK_STATUS: Record<string, PlanTaskStatus> = {
 /** Shape of `.agents/sessions/<slug>/STATE.json` (P0.20). */
 export type PlanSessionState = {
   /** Schema version for forward-compatible migrations. */
-  schemaVersion: 1
+  schemaVersion: 2
   /** Session slug, mirrors the directory name. */
   slug: string
   /** Lifecycle status. */
   status: PlanSessionStatus
   /** Slug/id of the currently active task, or null if no task is in progress. */
   currentTask: string | null
+  /** Monotonic compare-and-swap revision for deterministic state updates. */
+  revision: number
+  /** Last successfully completed validation/review checkpoint. */
+  checkpoint: {
+    taskId: string
+    phase: 'validation' | 'review'
+    passed: boolean
+    summary?: string
+    recordedAt: string
+  } | null
   /** ISO-8601 timestamp when the state file was first created. */
   createdAt: string
   /** ISO-8601 timestamp of the most recent state mutation. */
@@ -243,7 +259,7 @@ export function readPlanState(
 export function writePlanState(
   slug: string,
   patch: Partial<
-    Omit<PlanSessionState, 'schemaVersion' | 'slug' | 'createdAt'>
+    Omit<PlanSessionState, 'schemaVersion' | 'slug' | 'createdAt' | 'revision'>
   >,
   projectRoot?: string,
 ): PlanSessionState | null {
@@ -254,13 +270,18 @@ export function writePlanState(
   const now = new Date().toISOString()
   const existing = readPlanState(slug, projectRoot)
   const next: PlanSessionState = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     slug,
     status: patch.status ?? existing?.status ?? 'active',
     currentTask:
       patch.currentTask !== undefined
         ? patch.currentTask
         : (existing?.currentTask ?? null),
+    revision: (existing?.revision ?? 0) + 1,
+    checkpoint:
+      patch.checkpoint !== undefined
+        ? patch.checkpoint
+        : (existing?.checkpoint ?? null),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
@@ -293,12 +314,20 @@ function normalizePlanState(
     ? (parsed.status as PlanSessionStatus)
     : 'active'
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     slug,
     status,
     currentTask:
       typeof parsed.currentTask === 'string' || parsed.currentTask === null
         ? parsed.currentTask
+        : null,
+    revision:
+      typeof parsed.revision === 'number' && parsed.revision >= 0
+        ? parsed.revision
+        : 0,
+    checkpoint:
+      parsed.checkpoint && typeof parsed.checkpoint === 'object'
+        ? parsed.checkpoint
         : null,
     createdAt:
       typeof parsed.createdAt === 'string'
@@ -597,6 +626,109 @@ function normalizePlanEvent(parsed: unknown): PlanEvent | null {
  */
 export const TRI_STATE_CHECKBOX_LINE_RE =
   /^(\s*[-*]\s*\[)([ xX~/!])(\]\s*)(.*)$/
+
+export type PlanTaskRecord = {
+  id: string
+  title: string
+  status: PlanTaskStatus
+  dependencies: string[]
+  hasAcceptanceCriteria: boolean
+  hasValidationGate: boolean
+}
+
+export type PlanPreflightResult = {
+  ok: boolean
+  tasks: PlanTaskRecord[]
+  nextTaskId: string | null
+  errors: string[]
+  warnings: string[]
+}
+
+const TASK_ID_RE = /^([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+)\b[\s:—-]*(.*)$/
+
+/** Parse stable-ID checklist tasks and their indented execution contract. */
+export function parsePlanTasks(content: string): PlanTaskRecord[] {
+  const tasks: PlanTaskRecord[] = []
+  let current: PlanTaskRecord | null = null
+  for (const line of content.split('\n')) {
+    const checkbox = line.match(TRI_STATE_CHECKBOX_LINE_RE)
+    if (checkbox) {
+      const task = checkbox[4].trim().match(TASK_ID_RE)
+      current = task
+        ? {
+            id: task[1],
+            title: task[2].trim(),
+            status: TASK_MARK_STATUS[checkbox[2]] ?? 'pending',
+            dependencies: [],
+            hasAcceptanceCriteria: false,
+            hasValidationGate: false,
+          }
+        : null
+      if (current) tasks.push(current)
+      continue
+    }
+    if (!current) continue
+    const field = line.trim().match(/^[-*]\s*(Depends on|Acceptance|Validate):\s*(.+)$/i)
+    if (!field) continue
+    const key = field[1].toLowerCase()
+    if (key === 'depends on') {
+      current.dependencies = field[2]
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    } else if (key === 'acceptance') {
+      current.hasAcceptanceCriteria = true
+    } else if (key === 'validate') {
+      current.hasValidationGate = true
+    }
+  }
+  return tasks
+}
+
+/** Validate that a PLAN.md is deterministic enough for execute-plan mode. */
+export function preflightPlan(content: string): PlanPreflightResult {
+  const tasks = parsePlanTasks(content)
+  const errors: string[] = []
+  const warnings: string[] = []
+  const ids = new Set<string>()
+  for (const task of tasks) {
+    if (ids.has(task.id)) errors.push(`Duplicate task ID: ${task.id}`)
+    ids.add(task.id)
+  }
+  for (const task of tasks) {
+    for (const dependency of task.dependencies) {
+      if (!ids.has(dependency)) {
+        errors.push(`${task.id} depends on missing task ${dependency}`)
+      }
+    }
+    if (!task.hasAcceptanceCriteria) {
+      warnings.push(`${task.id} has no Acceptance field`)
+    }
+    if (!task.hasValidationGate) {
+      warnings.push(`${task.id} has no Validate field`)
+    }
+  }
+  if (tasks.length === 0) {
+    errors.push('PLAN.md has no checklist tasks with stable IDs')
+  }
+  const done = new Set(
+    tasks
+      .filter((task) => task.status === 'done' || task.status === 'cancelled')
+      .map((task) => task.id),
+  )
+  const actionable = tasks.find(
+    (task) =>
+      (task.status === 'pending' || task.status === 'in_progress') &&
+      task.dependencies.every((dependency) => done.has(dependency)),
+  )
+  return {
+    ok: errors.length === 0,
+    tasks,
+    nextTaskId: actionable?.id ?? null,
+    errors,
+    warnings,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Slug validation

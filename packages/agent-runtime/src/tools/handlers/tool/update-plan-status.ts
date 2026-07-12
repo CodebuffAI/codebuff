@@ -5,9 +5,11 @@ import {
   appendPlanEvent,
   normalizePlanPath,
   PLAN_TASK_STATUSES,
+  PLAN_SESSION_STATUSES,
   TASK_STATUS_MARK,
   TRI_STATE_CHECKBOX_LINE_RE,
   readCurrentTaskAnnotation,
+  readPlanState,
   setCurrentTaskAnnotationLines,
   validatePlanStatusPath as sharedValidatePlanStatusPath,
   writePlanState,
@@ -30,10 +32,7 @@ type ToolName = 'update_plan_status'
 const CHECKBOX_LINE_RE = TRI_STATE_CHECKBOX_LINE_RE
 
 const PLAN_SESSION_STATUS_SET: ReadonlySet<PlanSessionStatus> = new Set([
-  'active',
-  'paused',
-  'completed',
-  'archived',
+  ...PLAN_SESSION_STATUSES,
 ])
 
 /**
@@ -45,7 +44,8 @@ export function validatePlanStatusPath(input: string): string | null {
 }
 
 type TaskUpdate = {
-  task: string
+  taskId?: string
+  task?: string
   completed?: boolean
   status?: PlanTaskStatus
   note?: string
@@ -74,13 +74,22 @@ export function applyTaskUpdate(
   lines: string[],
   update: TaskUpdate,
 ): { lines: string[]; matched: boolean } {
-  const needle = update.task.toLowerCase()
+  const needle = update.task?.toLowerCase()
+  const taskId = update.taskId?.trim().toLowerCase()
   const newMark = resolveTaskMark(update)
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(CHECKBOX_LINE_RE)
     if (!m) continue
     const [, prefix, mark, gap, rest] = m
-    if (!rest.toLowerCase().includes(needle)) continue
+    const normalizedRest = rest.trimStart().toLowerCase()
+    const matchesId = taskId
+      ? normalizedRest === taskId ||
+        normalizedRest.startsWith(`${taskId} `) ||
+        normalizedRest.startsWith(`${taskId}:`) ||
+        normalizedRest.startsWith(`${taskId} —`)
+      : false
+    const matchesText = needle ? normalizedRest.includes(needle) : false
+    if (!matchesId && !matchesText) continue
 
     const resolvedMark = newMark ?? mark
     let newRest = rest
@@ -126,6 +135,8 @@ export const handleUpdatePlanStatus = (async (params: {
     append,
     sessionStatus,
     currentTask,
+    expectedRevision,
+    checkpoint,
   } = toolCall.input
 
   await previousToolCallFinished
@@ -170,6 +181,20 @@ export const handleUpdatePlanStatus = (async (params: {
   }
 
   const writePath = targetRealPath
+  const sessionDir = path.dirname(writePath)
+  const slug = path.basename(sessionDir)
+  const existingState = readPlanState(slug, projectRoot)
+  if (
+    expectedRevision !== undefined &&
+    (existingState?.revision ?? 0) !== expectedRevision
+  ) {
+    return {
+      output: jsonToolResult({
+        file: artifactPath,
+        errorMessage: `update_plan_status: stale STATE.json revision (expected ${expectedRevision}, current ${existingState?.revision ?? 0}). Re-read the session before retrying.`,
+      }),
+    }
+  }
   const original = fs.readFileSync(writePath, 'utf8')
   const trailingNewline = original.endsWith('\n')
   let lines = original.split('\n')
@@ -187,12 +212,14 @@ export const handleUpdatePlanStatus = (async (params: {
     const result = applyTaskUpdate(lines, update)
     lines = result.lines
     if (result.matched) {
-      matchedTasks.push(update.task)
+      matchedTasks.push(update.taskId ?? update.task ?? 'unknown task')
       if (update.status === 'in_progress') {
-        transitionedToInProgress.push(update.task)
+        transitionedToInProgress.push(
+          update.taskId ?? update.task ?? 'unknown task',
+        )
       }
     } else {
-      unmatchedTasks.push(update.task)
+      unmatchedTasks.push(update.taskId ?? update.task ?? 'unknown task')
     }
   }
 
@@ -234,7 +261,11 @@ export const handleUpdatePlanStatus = (async (params: {
     status?: PlanSessionStatus
     currentTask?: string | null
   } | null = null
-  if (sessionStatus !== undefined || currentTaskApplied !== undefined) {
+  if (
+    sessionStatus !== undefined ||
+    currentTaskApplied !== undefined ||
+    checkpoint !== undefined
+  ) {
     if (
       sessionStatus !== undefined &&
       !PLAN_SESSION_STATUS_SET.has(sessionStatus)
@@ -246,12 +277,15 @@ export const handleUpdatePlanStatus = (async (params: {
         }),
       }
     }
-    const sessionDir = path.dirname(writePath)
-    const slug = path.basename(sessionDir)
-    const patch: { status?: PlanSessionStatus; currentTask?: string | null } =
-      {}
+    const patch: Parameters<typeof writePlanState>[1] = {}
     if (sessionStatus !== undefined) patch.status = sessionStatus
     if (currentTaskApplied !== undefined) patch.currentTask = currentTaskApplied
+    if (checkpoint !== undefined) {
+      patch.checkpoint = {
+        ...checkpoint,
+        recordedAt: new Date().toISOString(),
+      }
+    }
     // Pass the project root explicitly to avoid mutating the module-level
     // resolver (concurrent-run race). The handler already holds `projectRoot`.
     const written = writePlanState(slug, patch, projectRoot)

@@ -18,9 +18,13 @@ Four bottlenecks make naive audits fail on large codebases:
 3. Discovery is fuzzy and sequential (round-trips cost latency + context).
 4. "Fully audit" is unstructured (the agent wanders and burns context).
 
-This pattern collapses #1+#2 into **one durable shared scratchpad**, fixes #3
-with a **pre-built structural map**, and fixes #4 with an **8-domain
-checklist**. Findings live on disk, not in parent context.
+This pattern uses runtime-native, snapshot-bound structural and feature
+inventories. Markdown reports are optional renderings; they are not the
+control plane, so the audit remains usable when `.agents/` is read-only.
+
+Every broad audit also evaluates **feature completeness**: entrypoint,
+implementation, consumer wiring, tests, documentation, and observable failure,
+loading, empty, cancellation, retry, and permission states.
 
 ## The 8 audit domains (the checklist)
 
@@ -70,17 +74,22 @@ single-file target) confirms the full map-reduce flow. A `single-target`
 verdict means skip this pattern and use `code-reviewer` directly on that
 file. `unclear` prompts default to the <30-files / <3k-LOC heuristic above.
 
-### Step 1 — Build the structural map (P2)
+### Step 1 — Build the native structural inventory
 
-Run the structural-map builder ONCE for the session:
+Call `inspect_codebase_structure` once for the audit scope and retain its
+`snapshotId`. Its subsystems, entrypoints, routes, commands, public APIs,
+tests, manifests, generated sources, and language/framework capability packet
+are authoritative for shard allocation.
+
+The legacy Markdown renderer remains available for humans:
 
 ```bash
 bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md
 ```
 
-Then `read_files` the resulting `MAP.md` and **pin it in your context** — every
-shard navigates from it. Do NOT re-discover structure per shard; that's the
-bottleneck this kills.
+Do not require this script for CLI correctness. It renders the native
+inventory plus index detail and may be skipped when the output directory is
+unwritable.
 
 **Don't blindly rebuild if the map already exists.** The script has a
 non-destructive pre-flight that parses the existing map's `Built at:` timestamp
@@ -94,11 +103,15 @@ Use this before pinning. Exit 0 → reuse as-is. Exit 1 → rebuild (re-run
 without `--check-stale`). See the **Structural map lifecycle** section below
 for the full decision tree.
 
-### Step 2 — Shard by top-level directory
+### Step 2 — Inventory features and shard vertically
 
-From `MAP.md`, partition the codebase into N shards (one per top-level dir, or
-finer for huge dirs). Target ~5–15 files per shard so each shard fits in one
-subagent context with room to analyze. Group tiny dirs together.
+Derive feature candidates from the request, docs, command/route/public-API
+entries, configuration examples, and tests. Call
+`inspect_feature_completeness` for each candidate. Primary shards follow a
+feature vertically from its entrypoint through implementation and consumers to
+tests, docs, and failure states. Secondary shards cover packages and
+cross-cutting domains. Pass the detected capability packet to the default
+editor/reviewer rather than creating a language-specific agent.
 
 **Minimum-shard rule (M10.2, SPEC R10.2):** For a `broad-audit` request
 (detected by `classifyBreadth` in `evals/buffbench/plan-sharding-signals.ts`),
@@ -146,11 +159,12 @@ minimum is measured in complete pairs (`min(file-picker, code-searcher)`), not
 raw subagent count. So a trace with 10 `file-picker`s and 0 `code-searcher`s
 has 0 pairs and fails the rule.
 
-### Step 3.5 — Emit the coverage matrix (M10.3, SPEC R10.3)
+### Step 3.5 — Machine-check the coverage matrix
 
-Before synthesizing, emit a domain -> shard mapping so unsharded subsystems
-are visible (prevents silent under-coverage). Write
-`.agents/sessions/<slug>/COVERAGE-MATRIX.md` with `write_file`. Format:
+Before synthesizing, call `evaluate_audit_coverage` with the exact inventory
+snapshot, structural receipts, feature list, and explicit out-of-scope reasons.
+An incomplete result blocks synthesis. A Markdown matrix may still be written
+for the user, but it is only a rendering of the runtime result. Format:
 
 ```
 # Coverage matrix

@@ -33,6 +33,15 @@ const READ_TOOLS = new Set<ToolName>([
   'find_files',
   'find_files_matching_content',
   'git_status',
+  'get_task',
+  'get_change_review_bundle',
+  'inspect_workspace',
+  'inspect_environment',
+  'get_affected_tests',
+  'get_build_targets',
+  'inspect_codebase_structure',
+  'inspect_feature_completeness',
+  'evaluate_audit_coverage',
   'glob',
   'list_directory',
   'query_index',
@@ -54,6 +63,10 @@ const MUTATION_TOOLS = new Set<ToolName>([
   'str_replace',
   'update_plan_status',
   'write_file',
+])
+const EFFECTFUL_VALIDATION_TOOLS = new Set<ToolName>([
+  'run_file_change_hooks',
+  'run_targeted_validation',
 ])
 const PROPOSAL_TOOLS = new Set<ToolName>([
   'accept_proposal',
@@ -133,6 +146,8 @@ const legacyMutationTools = new Set<ToolName>(['update_plan_status'])
 function metadataFor(toolName: ToolName): ToolMetadata {
   const kind: ToolBehaviorKind = READ_TOOLS.has(toolName)
     ? 'read'
+    : EFFECTFUL_VALIDATION_TOOLS.has(toolName)
+      ? 'other'
     : MUTATION_TOOLS.has(toolName)
       ? 'mutation'
       : PROPOSAL_TOOLS.has(toolName)

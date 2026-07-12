@@ -38,6 +38,7 @@ const definition: SecretAgentDefinition = {
   includeMessageHistory: false,
   filesystemScope: {
     read: [
+      '**/*',
       'docs/**',
       '**/docs/**',
       'README*',
@@ -66,7 +67,7 @@ const definition: SecretAgentDefinition = {
   systemPrompt: `You are an expert technical writer. You write clear, accurate, discoverable documentation that matches the project's existing doc style and tone. You document the public contract, not the implementation trivia. You never invent APIs or behavior — you verify against source.`,
 
   instructionsPrompt: `Instructions:
-1. Work only in documentation paths (docs directories, README files, Markdown/MDX). The runtime enforces this filesystem scope. The parent must include the verified source contract in the prompt. Do not invent options, flags, or behaviors.
+1. Write only in documentation paths. You may read only explicitly supplied source_files plus documentation paths; do not browse unrelated source. The parent must include the verified source contract and freshness evidence. Do not invent options, flags, or behaviors.
 2. If target_doc_files are given, read them first and update in place (prefer str_replace for targeted edits; write_file only for new docs). If not given, infer the doc location from neighboring docs (check docs/, README.md, package READMEs).
 3. Match the existing doc style: heading depth, code-fence language tags, tone, and section ordering. Look at an adjacent doc file as a style reference.
 4. Document the public contract: what it does, the inputs/outputs, usage examples, and gotchas. Skip internal implementation details unless the prompt asks for them.

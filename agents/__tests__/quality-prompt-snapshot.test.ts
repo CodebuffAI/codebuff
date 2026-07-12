@@ -57,7 +57,7 @@ describe('shared craftsmanship prompt sections', () => {
     expect(broadAuditSection).toContain(
       'assess this codebase for how production ready it is on a feature, security and code level',
     )
-    expect(broadAuditSection).toContain('frontend/page/route/UI surface')
+    expect(broadAuditSection).toContain('inspect_codebase_structure')
     expect(broadAuditSection).toContain('UI page wiring')
     expect(broadAuditSection).toContain('auth/error/loading states')
     expect(broadAuditSection).toContain('accessibility')
@@ -65,12 +65,11 @@ describe('shared craftsmanship prompt sections', () => {
     expect(broadAuditSection).toContain(
       'explicitly mark frontend/UI coverage out-of-scope',
     )
-    expect(broadAuditSection).toContain('file-picker is discovery-focused')
-    expect(broadAuditSection).toContain('write their findings to durable files')
-    expect(broadAuditSection).toContain('general-agent shards')
-    expect(broadAuditSection).toContain('file-picker + code-searcher coverage')
-    expect(broadAuditSection).toContain('spawn thinker')
-    expect(broadAuditSection).toContain('has no tools')
+    expect(broadAuditSection).toContain('vertical feature slices')
+    expect(broadAuditSection).toContain('language/framework capability packet')
+    expect(broadAuditSection).toContain('inspect_feature_completeness')
+    expect(broadAuditSection).toContain('evaluate_audit_coverage')
+    expect(broadAuditSection).toContain('block a complete audit')
   })
 
   test('gitDisciplineSection contains the required git-discipline topics (not byte-frozen)', () => {

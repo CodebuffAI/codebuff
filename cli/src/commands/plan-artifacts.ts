@@ -13,6 +13,8 @@ import {
   readActiveSessionPointer,
   readCurrentTaskAnnotation,
   readPlanState,
+  preflightPlan,
+  type PlanPreflightResult,
   type PlanArtifactName,
   type PlanSessionStatus,
   type PlanSessionState,
@@ -41,6 +43,8 @@ export type PlanArtifacts = {
   missing: PlanArtifactName[]
   /** Artifact names that were truncated because the file exceeded MAX_ARTIFACT_BYTES. */
   truncated: PlanArtifactName[]
+  /** Deterministic execution readiness derived from PLAN.md. */
+  preflight: PlanPreflightResult | null
 }
 
 // TRI_STATE_CHECKBOX_LINE_RE is imported from @codebuff/common/util/plan-artifacts
@@ -90,10 +94,12 @@ function readStateForSession(
   if (state) return state
   const now = new Date().toISOString()
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     slug,
     status: 'active',
     currentTask: null,
+    revision: 0,
+    checkpoint: null,
     createdAt: now,
     updatedAt: now,
   }
@@ -211,6 +217,7 @@ export function readPlanArtifacts(input: string): PlanArtifacts | null {
     presentPaths,
     missing,
     truncated,
+    preflight: files['PLAN.md'] ? preflightPlan(files['PLAN.md']) : null,
   }
 }
 
@@ -224,6 +231,18 @@ export function formatArtifactsForPrompt(artifacts: PlanArtifacts): string {
     if (content === undefined) continue
     sections.push(
       `--- BEGIN ${artifacts.sessionDir}/${name} ---\n${content.trimEnd()}\n--- END ${artifacts.sessionDir}/${name} ---`,
+    )
+  }
+  if (artifacts.preflight) {
+    sections.unshift(
+      [
+        '--- PLAN PREFLIGHT ---',
+        `Ready: ${artifacts.preflight.ok ? 'yes' : 'no'}`,
+        `Next task: ${artifacts.preflight.nextTaskId ?? 'none'}`,
+        `Errors: ${artifacts.preflight.errors.join('; ') || 'none'}`,
+        `Warnings: ${artifacts.preflight.warnings.join('; ') || 'none'}`,
+        '--- END PLAN PREFLIGHT ---',
+      ].join('\n'),
     )
   }
   return sections.join('\n\n')

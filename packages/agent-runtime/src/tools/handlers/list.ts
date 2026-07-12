@@ -20,6 +20,9 @@ import { handleFindFiles } from './tool/find-files'
 import { handleFindFilesMatchingContent } from './tool/find-files-matching-content'
 import { handleGitBranch } from './tool/git-branch'
 import { handleGitStatus } from './tool/git-status'
+import { handleInspectWorkspace } from './tool/inspect-workspace'
+import { handleGetTask } from './tool/get-task'
+import { handleGetChangeReviewBundle } from './tool/get-change-review-bundle'
 import { handleGlob } from './tool/glob'
 import { handleKillJob } from './tool/kill-job'
 import { handleReadLogs } from './tool/read-logs'
@@ -40,6 +43,11 @@ import { handleReplaceRange } from './tool/replace-range'
 import { handleRewriteSymbol } from './tool/rewrite-symbol'
 import { handleRenderUI } from './tool/render-ui'
 import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
+import { handleRunTargetedValidation } from './tool/run-targeted-validation'
+import { handleInspectEnvironment } from './tool/inspect-environment'
+import { handleGetAffectedTests } from './tool/get-affected-tests'
+import { handleGetBuildTargets } from './tool/get-build-targets'
+import { handleEvaluateAuditCoverage, handleInspectCodebaseStructure, handleInspectFeatureCompleteness } from './tool/audit-intelligence'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'
@@ -87,6 +95,9 @@ export const codebuffToolHandlers = {
   find_files_matching_content: handleFindFilesMatchingContent,
   git_status: handleGitStatus,
   git_branch: handleGitBranch,
+  get_task: handleGetTask,
+  get_change_review_bundle: handleGetChangeReviewBundle,
+  inspect_workspace: handleInspectWorkspace,
   glob: handleGlob,
   kill_job: handleKillJob,
   read_logs: handleReadLogs,
@@ -109,6 +120,13 @@ export const codebuffToolHandlers = {
   render_ui: handleRenderUI,
   reject_proposal: handleRejectProposal,
   run_file_change_hooks: handleRunFileChangeHooks,
+  run_targeted_validation: handleRunTargetedValidation,
+  inspect_environment: handleInspectEnvironment,
+  get_affected_tests: handleGetAffectedTests,
+  get_build_targets: handleGetBuildTargets,
+  inspect_codebase_structure: handleInspectCodebaseStructure,
+  inspect_feature_completeness: handleInspectFeatureCompleteness,
+  evaluate_audit_coverage: handleEvaluateAuditCoverage,
   run_terminal_command: handleRunTerminalCommand,
   set_messages: handleSetMessages,
   set_output: handleSetOutput,

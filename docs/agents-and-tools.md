@@ -39,6 +39,26 @@ Cross-cutting orchestration policy:
 - Parallelism is allowed for independent discovery shards, independent validation commands, and static review that does not depend on validation output. Dependent edits, fragile debug loops, and validation-repair cycles stay sequential.
 - The orchestrator must join all required results before completion. Reviewers running alongside validation provide static review only; failed or timed-out validation still blocks a green finish.
 
+### Harness control plane and specialist intelligence
+
+The root orchestrator has a versioned, local control-plane surface for work that must survive compaction or concurrent worktree activity:
+
+- `inspect_workspace` records repository/worktree identity, branch state, and a content snapshot.
+- `get_task` reads the current durable task and lifecycle revision.
+- `get_change_review_bundle` produces snapshot-bound changed-file and diff evidence for reviewers.
+- `inspect_environment` reports manifests, lockfiles, package managers, and locally available toolchains without executing project code.
+- `get_affected_tests` and `get_build_targets` map changed files to existing test candidates and package scripts.
+- `run_targeted_validation` executes only an explicitly selected target against an expected snapshot and rejects stale or mid-run-mutated snapshots.
+- `inspect_codebase_structure` creates the authoritative snapshot-bound audit inventory, including subsystems, entrypoints, routes, commands, public APIs, tests, generated sources, and a detected language/framework capability packet.
+- `inspect_feature_completeness` follows a claimed feature vertically across runtime wiring, consumers, tests, docs, and failure-state evidence.
+- `evaluate_audit_coverage` blocks a complete audit while structural receipts, feature evidence, or explicit out-of-scope decisions are missing.
+
+Cross-subsystem requests automatically invoke the structural inventory before the first model step. The legacy structural-map script is only a human-readable renderer over this inventory; normal CLI correctness does not depend on running it or writing into `.agents/`.
+
+Specialists receive only the read intelligence their role requires. For example, dependency and performance review can inspect environment/build targets, while integration and release review can also inspect affected tests. Specialists cannot edit files, approve their own work, or run the validation gate. The orchestrator owns task state, mutation delegation, validation, review reconciliation, approvals, and final user-visible evidence.
+
+Control-plane records use compare-and-swap revisions, atomic local persistence, content hashes, expiring verified knowledge, single-use approvals, ownership receipts, and exclusive workspace leases. High-impact operations and external connector mutations are classified centrally rather than authorized by prompt wording alone.
+
 `run_file_change_hooks` runs user-configured hooks and, only when a trusted
 project explicitly sets `autoFileChangeHooks: true`, combines them with bounded
 manifest inference. The opt-in is required because compilers, plugins, build
@@ -202,6 +222,21 @@ expanded content separately, so bullets, disclosure arrows, dense mode,
 and nested code blocks align predictably in narrow terminal layouts.
 
 #### Plan blocks and execution affordance
+
+Durable plan execution uses versioned `STATE.json` state. Schema version 2
+adds execution phases (`draft`, `ready`, `executing`, `validating`,
+`reviewing`, `blocked`, `paused`, and terminal states), a monotonic revision
+for compare-and-swap updates, and validation/review checkpoint evidence.
+Executable PLAN.md checklist items should begin with a stable task ID and
+include indented `Depends on`, `Acceptance`, and `Validate` fields. Resume
+prompts include a deterministic preflight summary that rejects duplicate IDs
+or missing dependencies and identifies the next dependency-ready task.
+
+`update_plan_status` accepts `taskId` for exact task targeting (legacy
+substring `task` matching remains compatible), `expectedRevision` to reject
+stale writers, and `checkpoint` to persist validation/review evidence. Execute
+Plan should keep at most one task in progress and only mark it done after its
+validation gate passes.
 
 The CLI treats a complete `<PLAN>...</PLAN>` response as a structured plan
 block instead of ordinary prose. `extractPlanFromBuffer(buffer)` returns
@@ -378,6 +413,22 @@ Each aux gate is predicate-gated: if no pending file matches its relevance predi
 The three done-flags (`testWriterGateDone`, `docWriterGateDone`, `preEditSecurityReviewDone`) and the `auxGatesLastPendingFiles` snapshot live on `Base2ActiveWorkState` (`agents/base2/gate-state.ts`). `detectPendingGateFileSetChange` + `resetAuxGateFlags` reset the flags when the pending file set changes (compared via `gateFileSetsEqual`, order-insensitive). The reset predicate compares the AUX-RELEVANT subset of pending files — files that at least one aux predicate would act on — so newly-written aux outputs (test files created by `test-writer`, doc files updated by `doc-writer`) do not perturb the snapshot and do not re-trigger the aux gates for the same pending file set.
 
 ## Reviewer verdict contract
+
+Shipped reviewers use a structured, versioned verdict. Code-reviewer reports
+the reviewed snapshot fingerprint and files, separate correctness/security/
+tests/API-compatibility/performance dimensions, requirement coverage with
+evidence, findings, and test-coverage classification. Missing or uncertain
+requirements, a blocked dimension, or missing behavior coverage block
+finalization regardless of the overall verdict. Security-reviewer similarly
+reports input-boundary, authorization, secret-handling, resource-safety, and
+fail-closed dimensions. Legacy label and compact-JSON parsing remains as a
+compatibility fallback for custom reviewers.
+
+For schema-version 1 results, the runtime verifies `snapshotFingerprint`
+against the pending working-tree snapshot and requires `reviewedFiles` to
+include every pending file. Review guidance also covers meaningful test
+assertions, public and persisted compatibility, package boundaries,
+generated-artifact freshness, migration safety, and bounded resource use.
 
 The `code-reviewer` gate decides whether a turn may finish green. The orchestrator parses the reviewer's tool result to extract a finalization verdict (`LOOKS_GOOD`, `NON_BLOCKING`, or empty string `''`) and to surface any blocking findings. The parser prefers structured (parsed-object) verdicts over text-mode fallbacks, in this order: structured JSON verdict → line-verdict text → embedded JSON verdict in prose. The parsing helpers live in `agents/base2/gate-reviewer.ts` and are mirrored inline inside `createBase2.handleSteps` (the mirror is parity-tested by `agents/__tests__/gate-reviewer.test.ts`).
 

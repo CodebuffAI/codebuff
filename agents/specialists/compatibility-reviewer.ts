@@ -1,0 +1,2 @@
+import { createSpecialist } from './create-specialist'
+export default createSpecialist({ id: 'compatibility-reviewer', displayName: 'API Compatibility Reviewer', purpose: 'Reviews public APIs, schemas, serialization, CLI/config contracts, deprecations, and consumer impact.', focus: ['Exported API and type compatibility', 'Serialization and persisted formats', 'CLI, config, and environment contracts', 'Deprecation and consumer migration'] })
