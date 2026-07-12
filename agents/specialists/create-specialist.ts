@@ -40,7 +40,7 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
         required: [],
       },
     },
-    outputMode: 'last_message',
+    outputMode: 'structured_output',
     outputSchema: {
       type: 'object',
       properties: {

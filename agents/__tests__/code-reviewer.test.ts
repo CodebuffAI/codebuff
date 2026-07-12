@@ -3,6 +3,12 @@ import { describe, expect, test } from 'bun:test'
 import { createReviewer } from '../reviewer/code-reviewer'
 
 describe('code-reviewer prompt isolation', () => {
+  test('uses structured output when an output schema is declared', () => {
+    const reviewer = createReviewer('anthropic/claude-opus-4.7')
+    expect(reviewer.outputMode).toBe('structured_output')
+    expect(reviewer.outputSchema).toBeDefined()
+  })
+
   test('does not inherit parent orchestration instructions', () => {
     const reviewer = createReviewer('anthropic/claude-opus-4.7')
 
