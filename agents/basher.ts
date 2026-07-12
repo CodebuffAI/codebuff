@@ -72,6 +72,7 @@ const basher: AgentDefinition = {
   outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['run_terminal_command'],
+  programmaticToolNames: ['set_output'],
   systemPrompt: `You are an expert at reading the output of a terminal command.
 
 Your job is to:
@@ -87,7 +88,7 @@ When describing command output:
 - Don't include any follow up recommendations, suggestions, or offers to help`,
   instructionsPrompt: `The user has provided a command to run and specified what information they want from the output.
 
-Run the command and then return the relevant command result information, following the user's instructions about what to focus on.
+Run the command and then return the relevant command result information, following the user's instructions about what to focus on. If terminal policy denies the command, report that denial exactly and stop. Do not claim the user can approve and retry this basher invocation; use only the command surface allowed by the assigned terminal permission profile.
 
 Do not use any tools! Only report the output of the command.`,
   handleSteps: function* ({ params }: AgentStepContext) {

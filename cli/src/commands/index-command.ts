@@ -160,7 +160,7 @@ function formatIndexStatus(
     status.message,
     `Corpus: ${status.totalIndexed} indexed file${status.totalIndexed === 1 ? '' : 's'}.`,
     `Age: ${status.indexAge > 0 ? formatAge(status.indexAge) : 'not available'}.`,
-    `Semantic: ${semantic}.`,
+    `Vector embeddings: ${semantic}.`,
     status.ready
       ? 'Use /index explain <query> to inspect ranking provenance.'
       : 'Retry shortly, run /index rebuild, or use read_subtree/glob/code_search.',

@@ -41,6 +41,13 @@ describe('commander agent', () => {
     test('has run_terminal_command tool', () => {
       expect(commander.toolNames).toContain('run_terminal_command')
       expect(commander.toolNames).toHaveLength(1)
+      expect(commander.programmaticToolNames).toEqual(['set_output'])
+    })
+
+    test('does not promise an unavailable interactive approval path', () => {
+      expect(commander.instructionsPrompt).toContain(
+        'Do not claim the user can approve and retry this basher invocation',
+      )
     })
   })
 

@@ -304,7 +304,10 @@ jobs:
           # Bundle the binary alongside tree-sitter.wasm — the CLI loads
           # the wasm as a sibling file at runtime since bun --compile
           # asset embedding wasn't reliable on Windows.
-          FILES=("$BINARY_FILE" tree-sitter.wasm)
+          FILES=("$BINARY_FILE")
+          for wasm in cli/bin/tree-sitter*.wasm; do
+            FILES+=("$(basename "$wasm")")
+          done
           if [[ "${{ matrix.legacy_macos == true }}" == "true" ]]; then
             FILES+=(libopentui.dylib rg)
           fi
@@ -454,7 +457,11 @@ jobs:
           BINARY_FILE="${{ inputs.binary-name }}.exe"
           # Bundle tree-sitter.wasm next to the binary; see the
           # equivalent matrix-job tar step for context.
-          tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "$BINARY_FILE" tree-sitter.wasm
+          FILES=("$BINARY_FILE")
+          for wasm in cli/bin/tree-sitter*.wasm; do
+            FILES+=("$(basename "$wasm")")
+          done
+          tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "${FILES[@]}"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v7

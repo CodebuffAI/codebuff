@@ -18,6 +18,8 @@ import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
+import { LANGUAGE_WASM_FILES } from '../../packages/code-map/src/wasm-files'
+
 type TargetInfo = {
   bunTarget: string
   platform: NodeJS.Platform
@@ -244,6 +246,18 @@ async function main() {
   const siblingWasm = join(binDir, 'tree-sitter.wasm')
   writeFileSync(siblingWasm, readFileSync(sourceWasm))
   logAlways(`Copied tree-sitter.wasm sibling: ${sourceWasm} → ${siblingWasm}`)
+  const grammarWasmDir = findGrammarWasmDir()
+  let copiedGrammarCount = 0
+  for (const wasmFile of LANGUAGE_WASM_FILES) {
+    const source = join(grammarWasmDir, wasmFile)
+    if (!existsSync(source)) {
+      logAlways(`Skipping unavailable optional tree-sitter grammar: ${wasmFile}`)
+      continue
+    }
+    copyFileSync(source, join(binDir, wasmFile))
+    copiedGrammarCount++
+  }
+  logAlways(`Copied ${copiedGrammarCount} tree-sitter language grammars`)
 
   if (targetInfo.platform !== 'win32') {
     chmodSync(outputFile, 0o755)
@@ -330,6 +344,27 @@ function findWebTreeSitterWasm(): string {
         `\nAnd createRequire failed: ${err instanceof Error ? err.message : String(err)}`,
     )
   }
+}
+
+function findGrammarWasmDir(): string {
+  const candidates = [
+    join(repoRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'),
+    join(cliRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'),
+  ]
+  const requiredCoreGrammars = [
+    'tree-sitter-javascript.wasm',
+    'tree-sitter-typescript.wasm',
+    'tree-sitter-tsx.wasm',
+  ]
+  const found = candidates.find((candidate) =>
+    requiredCoreGrammars.every((file) => existsSync(join(candidate, file))),
+  )
+  if (!found) {
+    throw new Error(
+      `Could not locate packaged tree-sitter language grammars. Searched:\n  - ${candidates.join('\n  - ')}`,
+    )
+  }
+  return found
 }
 
 function patchOpenTuiAssetPaths() {
