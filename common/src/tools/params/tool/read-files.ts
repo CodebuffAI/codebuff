@@ -38,6 +38,22 @@ export const fileContentsSchema = z.union([
 
 const toolName = 'read_files'
 const endsAgentStep = true
+const decodeFragmentedSymbolSelectors = (input: unknown): unknown => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input
+  const record = input as Record<string, unknown>
+  if (!Array.isArray(record.symbols) || record.symbols.length === 0) return input
+  if (!record.symbols.every((value) => typeof value === 'string')) return input
+
+  const encoded = (record.symbols as string[]).join(',')
+  try {
+    const decoded = JSON.parse(encoded) as unknown
+    if (!Array.isArray(decoded)) return input
+    return { ...record, symbols: decoded }
+  } catch {
+    return input
+  }
+}
+
 const inferSingleSelectorPath = (input: unknown): unknown => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input
   const record = input as Record<string, unknown>
@@ -73,7 +89,7 @@ const inferSingleSelectorPath = (input: unknown): unknown => {
 
 const inputSchema = z
   .preprocess(
-    inferSingleSelectorPath,
+    (input) => inferSingleSelectorPath(decodeFragmentedSymbolSelectors(input)),
     z.object({
       paths: z
         .preprocess(
