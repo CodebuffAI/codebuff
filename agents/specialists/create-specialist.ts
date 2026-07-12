@@ -83,6 +83,7 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
         ? (['inspect_codebase_structure', 'inspect_feature_completeness'] as const)
         : []),
       ...(config.terminal ? (['run_terminal_command'] as const) : []),
+      'set_output',
     ],
     terminalPermissionProfile: config.terminal ? 'read-only' : undefined,
     spawnableAgents: [],

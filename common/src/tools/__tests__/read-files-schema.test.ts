@@ -80,4 +80,32 @@ describe('read_files input schema', () => {
       })
     }
   })
+
+  test('decodes provider-fragmented symbol selectors before inferring the path', () => {
+    const parsed = readFilesParams.inputSchema.safeParse({
+      paths: ['server/src/services/account.ts'],
+      symbols: [
+        '[{"names": ["setUserRole"',
+        '"changePlanForUser"',
+        '"listFeatureFlags"]}]',
+      ],
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data).toEqual({
+        paths: [],
+        symbols: [
+          {
+            path: 'server/src/services/account.ts',
+            names: [
+              'setUserRole',
+              'changePlanForUser',
+              'listFeatureFlags',
+            ],
+          },
+        ],
+      })
+    }
+  })
 })

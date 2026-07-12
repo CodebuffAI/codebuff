@@ -26,7 +26,7 @@ export const createReviewer = (
   // deterministically reads the real files instead of guessing from partial
   // context. No mutating/control tools are granted, preserving the no-side-
   // effects review contract.
-  toolNames: ['read_files'],
+  toolNames: ['read_files', 'set_output'],
   spawnableAgents: [],
 
   // Reviewer agents intentionally do not inherit the parent system prompt. The

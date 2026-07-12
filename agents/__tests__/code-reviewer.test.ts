@@ -16,7 +16,7 @@ describe('code-reviewer prompt isolation', () => {
     // Reviewers may read files (only) so they can always gather full final-file
     // context instead of reviewing from partial diff fragments. No mutating or
     // control tools are granted.
-    expect(reviewer.toolNames).toEqual(['read_files'])
+    expect(reviewer.toolNames).toEqual(['read_files', 'set_output'])
     expect(reviewer.spawnableAgents).toEqual([])
   })
 

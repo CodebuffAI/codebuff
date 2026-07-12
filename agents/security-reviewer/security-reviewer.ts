@@ -50,7 +50,13 @@ const definition: SecretAgentDefinition = {
     required: ['schemaVersion', 'verdict', 'findings', 'coverage', 'dimensions'],
   },
   includeMessageHistory: false,
-  toolNames: ['read_files', 'read_outline', 'code_search', 'git_status'],
+  toolNames: [
+    'read_files',
+    'read_outline',
+    'code_search',
+    'git_status',
+    'set_output',
+  ],
   spawnableAgents: [],
 
   systemPrompt: `You are an adversarial security reviewer. You assume hostile inputs and look for exploitable weaknesses. You review against OWASP-style categories and the project's own threat surface. You report concrete, reproducible findings with severity, not generic hardening advice.`,
