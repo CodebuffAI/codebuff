@@ -104,10 +104,10 @@ export function collectReviewerBlockers(toolResult: unknown): string[] {
 /**
  * Detects whether the reviewer agent itself crashed (returned an `errorMessage`
  * field, threw, or otherwise produced no usable output) as opposed to running
- * successfully but failing to emit a recognizable LOOKS_GOOD/NON_BLOCKING/
- * BLOCKING verdict. The two cases warrant very different operator messages:
+ * successfully but failing to populate its required structured verdict. The
+ * two cases warrant very different operator messages:
  *   - crash    → "reviewer agent crashed; verdict cannot be trusted" (retry or escalate)
- *   - no-verdict → "reviewer ran but didn't start with a verdict label" (re-prompt for format)
+ *   - no-verdict → "reviewer returned no structured output" (automated retry)
  *
  * Heuristic: walks the tool-result tree looking for any object that carries an
  * `errorMessage` string or whose `type === 'error'`. Returns the first such
