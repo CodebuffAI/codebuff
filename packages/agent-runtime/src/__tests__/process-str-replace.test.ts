@@ -983,6 +983,51 @@ function test3() {
     }
   })
 
+  it('corrects a single stray character before a uniquely matched JSDoc line', async () => {
+    const initialContent = [
+      '/**',
+      ' * non-trademark types after submission. Reusing it for downloads avoids',
+      ' * duplicating the package formatting logic.',
+      ' */',
+      '',
+      'export function buildApplicationPackage(',
+      '  value: string,',
+      ') {',
+      '  return value',
+      '}',
+    ].join('\n')
+    const oldString = [
+      ' * non-trademark types after submission. Reusing it for downloads avoids',
+      'n * duplicating the package formatting logic.',
+      ' */',
+      '',
+      'export function buildApplicationPackage(',
+    ].join('\n')
+    const newString = [
+      ' * non-trademark types after submission. Reusing it for downloads avoids',
+      ' * duplicating the package formatting logic.',
+      ' */',
+      '',
+      'export function buildDownloadPackage(',
+    ].join('\n')
+
+    const result = await processStrReplace({
+      path: 'server/src/services/ip.ts',
+      replacements: [{ oldString, newString, allowMultiple: false }],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('export function buildDownloadPackage(')
+      expect(result.content).not.toContain('\nn * duplicating')
+      expect(result.messages).toContain(
+        'Matched after removing one stray character before a uniquely identifiable block-comment line.',
+      )
+    }
+  })
+
   it('should refuse to auto-correct a stale oldString at sub-0.92 similarity even with a single candidate and no runner-up (Fix A)', async () => {
     // Regression test for Fix A: the adaptive 0.80 near-match branch was
     // removed. A stale oldString that is ~0.84 similar to a single candidate

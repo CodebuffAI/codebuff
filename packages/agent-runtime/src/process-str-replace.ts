@@ -1582,6 +1582,39 @@ function tryNearMatchAutoCorrect(params: {
   }
 }
 
+function tryCorrectStrayCommentLinePrefix(params: {
+  initialContent: string
+  oldStr: string
+}): string | null {
+  const { initialContent, oldStr } = params
+  const lines = oldStr.split('\n')
+  const exactCandidates = new Set<string>()
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!
+    if (!/^[A-Za-z]\s+\*/.test(line)) continue
+    const previous = lines[index - 1]?.trim() ?? ''
+    const next = lines[index + 1]?.trim() ?? ''
+    if (
+      !previous.startsWith('*') &&
+      previous !== '/**' &&
+      !next.startsWith('*') &&
+      next !== '*/'
+    ) {
+      continue
+    }
+
+    const correctedLines = [...lines]
+    correctedLines[index] = line.slice(1)
+    const corrected = correctedLines.join('\n')
+    if (initialContent.split(corrected).length - 1 === 1) {
+      exactCandidates.add(corrected)
+    }
+  }
+
+  return exactCandidates.size === 1 ? [...exactCandidates][0]! : null
+}
+
 const TINY_ANCHOR_MULTI_MATCH_MIN_LENGTH = 10
 const ELISION_MARKER_LINE = '...'
 const ELISION_MIN_LITERAL_CHARS = 10
@@ -1800,6 +1833,20 @@ const tryMatchOldStr = (params: {
   if (newChange) {
     logger.debug('Matched with indentation modification')
     return { success: true, oldStr: newChange.searchContent }
+  }
+
+  const correctedCommentPrefix = tryCorrectStrayCommentLinePrefix({
+    initialContent,
+    oldStr,
+  })
+  if (correctedCommentPrefix) {
+    logger.debug('Matched after removing a stray block-comment line prefix')
+    return {
+      success: true,
+      oldStr: correctedCommentPrefix,
+      message:
+        'Matched after removing one stray character before a uniquely identifiable block-comment line.',
+    }
   }
 
   // Safe deterministic near-match: when exact and indentation matching both

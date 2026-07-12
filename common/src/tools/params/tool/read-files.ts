@@ -38,75 +38,107 @@ export const fileContentsSchema = z.union([
 
 const toolName = 'read_files'
 const endsAgentStep = true
-const inputSchema = z
-  .object({
-    paths: z
-      .preprocess(
-        coerceToArray,
-        z.array(
-          z
-            .string()
-            .min(1, 'Paths cannot be empty')
-            .describe(
-              `File path to read relative to the **project root**. Absolute file paths will not work.`,
-            ),
-        ),
-      )
-      .optional()
-      .default([])
-      .describe(
-        'List of file paths to read. Each complete result includes a readCapability that can be copied directly to basedOnRead for a follow-up edit. Batch results include a separate summary entry with ok/failed/requested counts when available.',
-      ),
-    ranges: z
-      .array(
-        z.object({
-          path: z
-            .string()
-            .min(1)
-            .describe(
-              'File path to read a line range from, relative to the project root.',
-            ),
-          startLine: z
-            .number()
-            .int()
-            .min(1)
-            .optional()
-            .describe('1-indexed inclusive start line. Defaults to 1.'),
-          endLine: z
-            .number()
-            .int()
-            .min(1)
-            .optional()
-            .describe(
-              '1-indexed inclusive end line. Defaults to the last line.',
-            ),
-        }),
-      )
-      .optional()
-      .describe(
-        'Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine.',
-      ),
-    symbols: z
-      .array(
-        z.object({
-          path: z
-            .string()
-            .min(1)
-            .describe(
-              'File path to extract symbol slices from, relative to the project root.',
-            ),
-          names: z
-            .preprocess(coerceToArray, z.array(z.string().min(1)))
-            .describe(
-              'Symbol names (functions, classes, interfaces, methods) to slice.',
-            ),
-        }),
-      )
-      .optional()
-      .describe(
-        'Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes its line range and a readCapability you can reuse as basedOnRead on a later edit.',
-      ),
+const inferSingleRecoveryRangePath = (input: unknown): unknown => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input
+  const record = input as Record<string, unknown>
+  const paths = Array.isArray(record.paths)
+    ? record.paths
+    : typeof record.paths === 'string'
+      ? [record.paths]
+      : []
+  if (paths.length !== 1 || typeof paths[0] !== 'string') return input
+  if (!Array.isArray(record.ranges)) return input
+
+  let inferredPath = false
+  const ranges = record.ranges.map((range) => {
+    if (!range || typeof range !== 'object' || Array.isArray(range)) {
+      return range
+    }
+    const rangeRecord = range as Record<string, unknown>
+    if (rangeRecord.path !== undefined) return range
+    inferredPath = true
+    return { ...rangeRecord, path: paths[0] }
   })
+  if (!inferredPath) return input
+
+  // The sole path is acting as shorthand for the recovery range, not as a
+  // second whole-file selector. Keeping both would let the legacy SDK range
+  // payload replace the whole-file payload and make the read look malformed.
+  return { ...record, paths: [], ranges }
+}
+
+const inputSchema = z
+  .preprocess(
+    inferSingleRecoveryRangePath,
+    z.object({
+      paths: z
+        .preprocess(
+          coerceToArray,
+          z.array(
+            z
+              .string()
+              .min(1, 'Paths cannot be empty')
+              .describe(
+                `File path to read relative to the **project root**. Absolute file paths will not work.`,
+              ),
+          ),
+        )
+        .optional()
+        .default([])
+        .describe(
+          'List of file paths to read. Each complete result includes a readCapability that can be copied directly to basedOnRead for a follow-up edit. Batch results include a separate summary entry with ok/failed/requested counts when available.',
+        ),
+      ranges: z
+        .array(
+          z.object({
+            path: z
+              .string()
+              .min(1)
+              .describe(
+                'File path to read a line range from, relative to the project root.',
+              ),
+            startLine: z
+              .number()
+              .int()
+              .min(1)
+              .optional()
+              .describe('1-indexed inclusive start line. Defaults to 1.'),
+            endLine: z
+              .number()
+              .int()
+              .min(1)
+              .optional()
+              .describe(
+                '1-indexed inclusive end line. Defaults to the last line.',
+              ),
+          }),
+        )
+        .optional()
+        .describe(
+          'Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine. When exactly one paths entry is supplied, a missing range path is inferred from it.',
+        ),
+      symbols: z
+        .array(
+          z.object({
+            path: z
+              .string()
+              .min(1)
+              .describe(
+                'File path to extract symbol slices from, relative to the project root.',
+              ),
+            names: z
+              .preprocess(coerceToArray, z.array(z.string().min(1)))
+              .describe(
+                'Symbol names (functions, classes, interfaces, methods) to slice.',
+              ),
+          }),
+        )
+        .optional()
+        .describe(
+          'Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes its line range and a readCapability you can reuse as basedOnRead on a later edit.',
+        ),
+    }),
+  )
   .superRefine((value, ctx) => {
     if (
       value.paths.length === 0 &&

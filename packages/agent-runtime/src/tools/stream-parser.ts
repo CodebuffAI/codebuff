@@ -569,19 +569,6 @@ export async function processStream(
     }
   } finally {
     // === FINALIZATION ===
-    // Write back cross-turn read authorization. Any path that read_files or
-    // write_file granted auth on during this turn must be persisted on
-    // agentState so the next processStream invocation (next LLM turn) can
-    // hydrate it. This is the write-back half of the cross-turn state
-    // isolation fix; the read-back half is the hydration in the
-    // fileProcessingState initializer above.
-    agentState.readAuthorizationsByPath = {
-      ...(fileProcessingState.readAuthorizationsByPath ?? {}),
-    }
-    agentState.readAuthorizationHashesByPath = {
-      ...(fileProcessingState.readAuthorizationHashesByPath ?? {}),
-    }
-
     // Trigger cleanup of the processStreamWithTools generator so it flushes any
     // remaining buffered text to assistantMessages before we build the history.
     // On path B (AbortError thrown mid-stream) the generator is already completed
@@ -599,6 +586,18 @@ export async function processStream(
     // raced against the shared signal, so a non-cooperative external promise
     // cannot hold this cleanup barrier open or publish a late result.
     await waitForOutstandingTools()
+
+    // Persist authorization only AFTER every in-flight read/edit has settled.
+    // Writing this state before the barrier captured the pre-tool hash (or no
+    // authorization at all) even though the UI later showed the tool as
+    // complete, causing the next model step to reject a freshly read/edited
+    // file as stale.
+    agentState.readAuthorizationsByPath = {
+      ...(fileProcessingState.readAuthorizationsByPath ?? {}),
+    }
+    agentState.readAuthorizationHashesByPath = {
+      ...(fileProcessingState.readAuthorizationHashesByPath ?? {}),
+    }
 
     // This runs even when the stream throws (e.g., AbortError mid-iteration).
     // Build message history from the current agentState.messageHistory so that

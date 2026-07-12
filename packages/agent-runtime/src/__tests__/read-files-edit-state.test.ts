@@ -1986,7 +1986,7 @@ describe('read_files edit-state recovery', () => {
       ).toBeUndefined()
     })
 
-    it('allows a fresh scoped capability to recover after stale whole-file authorization without granting whole-file auth', async () => {
+    it('allows a fresh scoped capability to recover and refreshes whole-file auth after the confirmed edit', async () => {
       const path = 'src/scoped-recovery.ts'
       const readContent = 'export const value = 1\n'
       const diskContent = 'export const value = 2\n'
@@ -2023,14 +2023,9 @@ describe('read_files edit-state recovery', () => {
         fileProcessingState,
         logger,
         requestOptionalFile: async () => diskContent,
-        requestClientToolCall: async () => {
+        requestClientToolCall: async (toolCall: any) => {
           applied = true
-          return [
-            {
-              type: 'json' as const,
-              value: { file: path, message: 'applied' },
-            },
-          ]
+          return confirmedMutationOutput(toolCall)
         },
         writeToClient: () => {},
       } as any)
@@ -2040,12 +2035,10 @@ describe('read_files edit-state recovery', () => {
       if (result.output[0]?.type === 'json') {
         expect(result.output[0].value).not.toHaveProperty('errorMessage')
       }
-      expect(
-        fileProcessingState.readAuthorizationsByPath?.[path],
-      ).toBeUndefined()
-      expect(
-        fileProcessingState.readAuthorizationHashesByPath?.[path],
-      ).toBeUndefined()
+      expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
+      expect(fileProcessingState.readAuthorizationHashesByPath?.[path]).toBe(
+        getContentHash('export const value = 3\n'),
+      )
     })
 
     it('fails closed for legacy Boolean-only whole-file authorization', async () => {
@@ -3624,7 +3617,10 @@ describe('processStream cross-turn read-before-edit', () => {
     const agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
       sendAction: () => {},
-      requestFiles: async () => ({ [targetPath]: diskContent }),
+      requestFiles: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        return { [targetPath]: diskContent }
+      },
       requestOptionalFile: async ({ filePath }: { filePath: string }) =>
         filePath === targetPath ? diskContent : null,
       // requestClientToolCall is intentionally not mocked: the
@@ -3637,6 +3633,7 @@ describe('processStream cross-turn read-before-edit', () => {
           params.toolName === 'str_replace' ||
           params.toolName === 'write_file'
         ) {
+          await new Promise((resolve) => setTimeout(resolve, 10))
           appliedPatches.push(params.input?.content ?? '')
         }
         return {

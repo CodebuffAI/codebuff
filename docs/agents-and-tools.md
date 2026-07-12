@@ -650,6 +650,13 @@ hash }` object. The runtime verifies the embedded hash for large-file
 - Stale or failed edits should be recovered by re-reading the exact
   target range named in the diagnostic and retrying with the new
   `basedOnRead`, not by guessing from memory.
+- Recovery reads tolerate the common one-file shorthand
+  `{ paths: ["file"], ranges: [{ startLine, endLine }] }`: when there is
+  exactly one unambiguous path, the harness assigns it to the range and treats
+  the request as range-only. Missing paths remain invalid for multi-file
+  requests.
+- Cross-turn authorization is persisted only after all in-flight read/edit
+  tools settle, so the next model step receives the post-tool content hash.
 
 `str_replace` inputs:
 

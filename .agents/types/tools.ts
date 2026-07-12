@@ -710,7 +710,7 @@ export interface ReadDocsParams {
 export interface ReadFilesParams {
   /** List of file paths to read. Each complete result includes a readCapability that can be copied directly to basedOnRead for a follow-up edit. Batch results include a separate summary entry with ok/failed/requested counts when available. */
   paths?: string[]
-  /** Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine. */
+  /** Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine. When exactly one paths entry is supplied, a missing range path is inferred from it. */
   ranges?: {
     /** File path to read a line range from, relative to the project root. */
     path: string

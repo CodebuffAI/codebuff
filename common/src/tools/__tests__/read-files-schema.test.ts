@@ -25,4 +25,39 @@ describe('read_files input schema', () => {
   ])('accepts a non-empty selector shape', (input) => {
     expect(readFilesParams.inputSchema.safeParse(input).success).toBe(true)
   })
+
+  test('infers a missing recovery range path from one paths entry', () => {
+    const parsed = readFilesParams.inputSchema.safeParse({
+      paths: ['server/src/services/ip.ts'],
+      ranges: [{ startLine: 338, endLine: 345 }],
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data).toEqual({
+        paths: [],
+        ranges: [
+          {
+            path: 'server/src/services/ip.ts',
+            startLine: 338,
+            endLine: 345,
+          },
+        ],
+      })
+    }
+  })
+
+  test('keeps a missing range path invalid when multiple paths are ambiguous', () => {
+    const parsed = readFilesParams.inputSchema.safeParse({
+      paths: ['src/a.ts', 'src/b.ts'],
+      ranges: [{ startLine: 1, endLine: 2 }],
+    })
+
+    expect(parsed.success).toBe(false)
+    if (!parsed.success) {
+      expect(parsed.error.issues).toContainEqual(
+        expect.objectContaining({ path: ['ranges', 0, 'path'] }),
+      )
+    }
+  })
 })

@@ -327,7 +327,7 @@ export const handleStrReplace = (async (
     paths: [path],
     rejectionRequiresRead: !strReplaceResult.preflightSyntaxError,
     wholeFileContentByPath:
-      hadFreshWholeFileAuthorization && 'content' in strReplaceResult
+      'content' in strReplaceResult
         ? new Map([[path, strReplaceResult.content]])
         : undefined,
     onApplied: () => {

@@ -50,6 +50,13 @@ authorization for each touched path before accepting an edit:
   range and retry with the new `basedOnRead` rather than guessing from
   memory. The diagnostic always lists the closest candidate range to
   re-read.
+- For a one-file recovery request, the harness accepts
+  `{ paths: ["file"], ranges: [{ startLine, endLine }] }` and safely infers the
+  omitted range path. It still rejects missing range paths when multiple files
+  make the target ambiguous.
+- Authorization write-back happens after all in-flight tools settle. A
+  confirmed edit also refreshes whole-file authorization from its known
+  post-edit content, including edits originally authorized by a scoped range.
 
 This policy is staged/strict-mode only; tools still apply unique-anchor
 `str_replace` edits without `basedOnRead` when ambiguity is not a risk.
