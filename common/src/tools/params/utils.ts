@@ -82,6 +82,53 @@ export function normalizeReplacementAliases(val: unknown): unknown {
   return replacement
 }
 
+const REPLACEMENT_PLACEHOLDER_KEYS = new Set([
+  'oldString',
+  'newString',
+  'old',
+  'new',
+  'old_str',
+  'new_str',
+  'old_string',
+  'new_string',
+  'allowMultiple',
+  'occurrenceIndex',
+  'basedOnRead',
+  'skipIfMissing',
+])
+
+/**
+ * Drops only operation-less replacement placeholders such as `{}` or
+ * `{ allowMultiple: false }`. Some providers append one of these after an
+ * otherwise complete replacement array. Entries containing either payload
+ * field, an alias, or any unknown key remain untouched so normal validation
+ * still rejects one-sided/truncated or misspelled real edits.
+ */
+export function normalizeReplacementList(val: unknown): unknown {
+  const replacements = coerceToArray(val)
+  if (!Array.isArray(replacements)) return replacements
+
+  return replacements.filter((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return true
+    const record = entry as Record<string, unknown>
+    if (
+      Object.keys(record).some((key) => !REPLACEMENT_PLACEHOLDER_KEYS.has(key))
+    ) {
+      return true
+    }
+    return [
+      'oldString',
+      'newString',
+      'old',
+      'new',
+      'old_str',
+      'new_str',
+      'old_string',
+      'new_string',
+    ].some((key) => record[key] !== undefined)
+  })
+}
+
 /** Only used for generating tool call strings before all tools are defined.
  *
  * @param toolName - The name of the tool to call

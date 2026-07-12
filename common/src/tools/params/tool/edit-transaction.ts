@@ -5,6 +5,7 @@ import {
   coerceToArray,
   jsonToolResultSchema,
   normalizeReplacementAliases,
+  normalizeReplacementList,
 } from '../utils'
 import { basedOnReadSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
@@ -73,7 +74,7 @@ const strReplaceEditSchema = editBaseSchema.extend({
   type: z.literal('str_replace').describe('The edit operation type.'),
   replacements: z
     .preprocess(
-      coerceToArray,
+      normalizeReplacementList,
       z.array(replacementSchema).min(1, 'Replacements cannot be empty'),
     )
     .describe('String replacements to apply to this file.'),
@@ -227,10 +228,14 @@ const endsAgentStep = false
 const inputSchema = z
   .object({
     edits: z
-      .array(transactionEditSchema)
-      .min(1, 'Transaction edits cannot be empty')
+      .preprocess(
+        coerceToArray,
+        z
+          .array(transactionEditSchema)
+          .min(1, 'Transaction edits cannot be empty'),
+      )
       .describe(
-        'All edits that must preflight together. If any edit fails during preflight, no files are changed.',
+        'All edits that must preflight together. A JSON-stringified edit array is accepted and decoded before validation. If any edit fails during preflight, no files are changed.',
       ),
   })
   .describe(

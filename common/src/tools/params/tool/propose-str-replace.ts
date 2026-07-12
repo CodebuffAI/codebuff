@@ -2,9 +2,9 @@ import z from 'zod/v4'
 
 import {
   $getNativeToolCallExampleString,
-  coerceToArray,
   jsonToolResultSchema,
   normalizeReplacementAliases,
+  normalizeReplacementList,
 } from '../utils'
 import { basedOnReadSchema } from '../based-on-read'
 import { proposalResultV1Schema } from '../../results/filesystem'
@@ -41,7 +41,7 @@ const inputSchema = z
       ),
     replacements: z
       .preprocess(
-        coerceToArray,
+        normalizeReplacementList,
         z
           .array(
             z

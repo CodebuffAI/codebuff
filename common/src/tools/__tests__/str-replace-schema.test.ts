@@ -53,3 +53,107 @@ describe('skipIfMissing schema parity', () => {
     }
   })
 })
+
+describe('replacement placeholder recovery', () => {
+  test('drops a trailing operation-less replacement in direct and transaction edits', () => {
+    const validReplacement = {
+      oldString: 'const value = 1',
+      newString: 'const value = 2',
+    }
+    const direct = strReplaceParams.inputSchema.safeParse({
+      path: 'server/src/services/ip.ts',
+      replacements: [validReplacement, {}, { allowMultiple: false }],
+    })
+    const transaction = editTransactionParams.inputSchema.safeParse({
+      edits: [
+        {
+          type: 'str_replace',
+          path: 'server/src/services/ip.ts',
+          replacements: [validReplacement, {}],
+        },
+      ],
+    })
+
+    expect(direct.success).toBe(true)
+    if (direct.success) {
+      expect(direct.data.replacements).toEqual([
+        { ...validReplacement, allowMultiple: false },
+      ])
+    }
+    expect(transaction.success).toBe(true)
+    if (transaction.success) {
+      expect(transaction.data.edits[0]).toMatchObject({
+        type: 'str_replace',
+        replacements: [{ ...validReplacement, allowMultiple: false }],
+      })
+    }
+  })
+
+  test('still rejects one-sided or unknown replacement objects', () => {
+    for (const replacement of [
+      { oldString: 'const value = 1' },
+      { newString: 'const value = 2' },
+      { oldStrng: 'misspelled', newStrng: 'misspelled' },
+    ]) {
+      expect(
+        strReplaceParams.inputSchema.safeParse({
+          path: 'src/a.ts',
+          replacements: [replacement],
+        }).success,
+      ).toBe(false)
+    }
+  })
+
+  test('rejects a batch that contains only empty placeholders', () => {
+    expect(
+      strReplaceParams.inputSchema.safeParse({
+        path: 'src/a.ts',
+        replacements: [{}, { allowMultiple: false }],
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('transaction edit-array coercion', () => {
+  test('accepts a JSON-stringified edits array', () => {
+    const edits = [
+      {
+        id: 'sanitize-ip-package-filename',
+        path: 'server/src/http/fileRoutes.ts',
+        type: 'str_replace',
+        replacements: [
+          {
+            oldString: 'const downloadName = title',
+            newString: 'const downloadName = sanitize(title)',
+          },
+        ],
+      },
+    ]
+    const parsed = editTransactionParams.inputSchema.safeParse({
+      edits: JSON.stringify(edits),
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.edits).toEqual([
+        {
+          ...edits[0],
+          replacements: [
+            {
+              ...edits[0]!.replacements[0],
+              allowMultiple: false,
+            },
+          ],
+        },
+      ])
+    }
+  })
+
+  test('still rejects a non-JSON edits string', () => {
+    expect(
+      editTransactionParams.inputSchema.safeParse({
+        edits: 'not a JSON edit array',
+      }).success,
+    ).toBe(false)
+  })
+})

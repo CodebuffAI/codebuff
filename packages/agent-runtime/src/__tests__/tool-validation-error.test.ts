@@ -546,6 +546,68 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('should discard a trailing operation-less str_replace placeholder', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'str_replace',
+        toolCallId: 'trailing-placeholder-tool-call-id',
+        input: {
+          path: 'server/src/services/ip.ts',
+          atomic: false,
+          replacements: [
+            { oldString: 'before one', newString: 'after one' },
+            { oldString: 'before two', newString: 'after two' },
+            {},
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.replacements).toEqual([
+        {
+          oldString: 'before one',
+          newString: 'after one',
+          allowMultiple: false,
+        },
+        {
+          oldString: 'before two',
+          newString: 'after two',
+          allowMultiple: false,
+        },
+      ])
+    }
+  })
+
+  it('should parse a JSON-stringified edit_transaction edits array', () => {
+    const edits = [
+      {
+        id: 'sanitize-ip-package-filename',
+        path: 'server/src/http/fileRoutes.ts',
+        type: 'str_replace',
+        replacements: [
+          {
+            oldString: 'const downloadName = title',
+            newString: 'const downloadName = sanitize(title)',
+          },
+        ],
+      },
+    ]
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'edit_transaction',
+        toolCallId: 'stringified-transaction-edits-tool-call-id',
+        input: { edits: JSON.stringify(edits) },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.edits).toMatchObject(edits)
+    }
+  })
+
   it('should summarize missing replacement fields without implying deletion', () => {
     const result = parseRawToolCall({
       rawToolCall: {

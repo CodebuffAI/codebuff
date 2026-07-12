@@ -61,6 +61,15 @@ authorization for each touched path before accepting an edit:
 This policy is staged/strict-mode only; tools still apply unique-anchor
 `str_replace` edits without `basedOnRead` when ambiguity is not a risk.
 
+Replacement batches discard only operation-less placeholder entries such as
+`{}` or `{ allowMultiple: false }`, which some providers append after valid
+replacements. One-sided entries, misspelled payload keys, and batches containing
+only placeholders still fail schema validation.
+
+`edit_transaction.edits` also accepts a JSON-stringified array and decodes it
+before validating each edit. Non-JSON strings and invalid decoded edit objects
+remain rejected.
+
 ## Explicit elision markers
 
 `str_replace.oldString` supports a narrow `...` elision marker after exact
