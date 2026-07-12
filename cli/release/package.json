@@ -1,6 +1,6 @@
 {
   "name": "@openbuff/cli",
-  "version": "1.4.5",
+  "version": "1.5.0",
   "description": "An AI coding agent that writes code for you. Run it from your project directory, tell it what to do, and it reads and writes files, runs commands, and iterates until the task is done. Supports sub-agents, custom tools, and Bring-Your-Own-Key providers.",
   "license": "MIT",
   "keywords": [
