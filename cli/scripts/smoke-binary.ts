@@ -39,11 +39,15 @@ import { existsSync } from 'fs'
 //   - "Press ENTER to login" / "Open this URL" — login modal (no cached
 //     creds — typical CI smoke)
 //   - "Enter a coding task" — chat input prompt
+//   - DEC alternate-screen activation — OpenTUI renderer initialized and
+//     began painting. This is needed for legacy Intel macOS, where terminal
+//     capability negotiation can fragment or suppress the later text labels.
 const BOOT_SIGNAL_PATTERNS = [
   /will run commands on your behalf/,
   /Press ENTER to login/,
   /Open this URL/,
   /Enter a coding task/,
+  /\x1b\[\?1049h/,
 ] as const
 
 // Fatal markers we already know about — kept for nicer error messages on
