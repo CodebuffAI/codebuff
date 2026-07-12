@@ -1,0 +1,2 @@
+import { createSpecialist } from './create-specialist'
+export default createSpecialist({ id: 'docs-architect', displayName: 'Documentation Architect', purpose: 'Designs documentation information architecture, versioning, cross-links, tutorials, references, and coverage.', advisory: true, focus: ['Information architecture and audience paths', 'Tutorial versus reference separation', 'Versioning, cross-links, and discoverability', 'Documentation coverage and maintenance ownership'] })

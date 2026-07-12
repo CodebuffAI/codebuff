@@ -18,6 +18,22 @@ This applies to `typecheck`, `test`, `build`, etc.
 
 CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer integration tests via components for hook behavior.
 
+## Coding harness experiments
+
+- `bun run --cwd scripts harness:lsp -- <diagnostic-command> <file...>` runs an
+  explicitly selected repository-local language-server/diagnostic adapter.
+- `bun run --cwd scripts harness:repro -- <name> <command> [file...]` creates a
+  reproduction manifest under `.agents/repros/<name>/`.
+- `bun run --cwd scripts harness:mutation -- <mutation-command> [arg...]` runs
+  an opt-in mutation framework with `OPENBUFF_MUTATION_GATE=1`.
+- `bun run --cwd evals harness:ablation -- <runs.json>` aggregates controlled
+  harness variants.
+- `bun run --cwd evals harness:cross-model -- <experiment.json>` expands a
+  configured model/phase matrix without inventing providers.
+
+Retrieval runs can append local-only JSONL metrics under
+`.agents/analytics/retrieval.jsonl`.
+
 ## CLI tmux Testing
 
 For testing CLI behavior via tmux, use the helper scripts in `scripts/tmux/`. These handle bracketed paste mode and session logging automatically. Session data is saved to `debug/tmux-sessions/` in YAML format and can be viewed with `bun scripts/tmux/tmux-viewer/index.tsx`. See `scripts/tmux/README.md` for details.

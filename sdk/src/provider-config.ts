@@ -447,6 +447,8 @@ export const providerConfigFileSchema = z
     agentReasoningEfforts: z
       .record(z.string().min(1), reasoningEffortSchema)
       .optional(),
+    /** When enabled, choose a phase-appropriate reasoning effort only when no explicit mode/agent/default effort is configured. Model routing is never changed. */
+    adaptiveReasoning: z.boolean().optional(),
     /** Local codebase indexing configuration. Enabled by default for metadata-only indexing. */
     indexing: indexingConfigSchema,
     /**
@@ -540,6 +542,9 @@ export const providerConfigFileSchema = z
       modeReasoningEfforts,
       agents,
       agentReasoningEfforts,
+      ...(config.adaptiveReasoning !== undefined && {
+        adaptiveReasoning: config.adaptiveReasoning,
+      }),
       indexing: config.indexing,
       fileChangeHooks: config.fileChangeHooks,
       ...(config.autoFileChangeHooks !== undefined && {
@@ -2046,7 +2051,53 @@ export function createProviderPresetConfig(
   if (!preset) {
     throw new Error(`Unknown Openbuff provider preset '${presetId}'.`)
   }
-  const parseResult = providerConfigFileSchema.safeParse(preset.config)
+  const presetConfig: ProviderConfigFileInput = preset.config
+  const defaultModel = presetConfig.defaultModel
+  const highReasoningAgents = [
+    'repair-editor',
+    'architect',
+    'product-reviewer',
+    'integration-agent',
+    'performance-specialist',
+    'reliability-reviewer',
+    'migration-reviewer',
+    'accessibility-reviewer',
+    'ux-visual-reviewer',
+    'compatibility-reviewer',
+    'dependency-reviewer',
+    'incident-coordinator',
+    'release-manager',
+    'docs-architect',
+    'evaluator',
+  ] as const
+  const seededAgents = Object.fromEntries(
+    highReasoningAgents.map((agentId) => [
+      agentId,
+      presetConfig.agents?.[agentId] ?? defaultModel!,
+    ]),
+  )
+  const seededReasoning = Object.fromEntries(
+    highReasoningAgents.map((agentId) => [
+      agentId,
+      presetConfig.agentReasoningEfforts?.[agentId] ?? 'high',
+    ]),
+  )
+  const config: ProviderConfigFileInput = {
+    ...presetConfig,
+    ...(defaultModel
+      ? {
+          agents: {
+            ...(presetConfig.agents ?? {}),
+            ...seededAgents,
+          },
+          agentReasoningEfforts: {
+            ...(presetConfig.agentReasoningEfforts ?? {}),
+            ...seededReasoning,
+          },
+        }
+      : {}),
+  }
+  const parseResult = providerConfigFileSchema.safeParse(config)
   if (!parseResult.success) {
     throw new Error(
       `Invalid built-in Openbuff provider preset '${presetId}': ${parseResult.error.message}`,

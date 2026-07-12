@@ -157,6 +157,36 @@ export interface ModelResult {
   pricing?: ModelPricing
 }
 
+export function selectAdaptiveReasoningEffort(params: {
+  agentId?: string
+  supported?: boolean
+  efforts?: OpenbuffReasoningEffort[]
+}): OpenbuffReasoningEffort | undefined {
+  if (params.supported === false) return undefined
+  const id = (params.agentId ?? '').toLowerCase()
+  const preferred: OpenbuffReasoningEffort =
+    /thinker|debugger|reviewer|plan|base-deep|architect|integration-agent|performance-specialist|incident-coordinator|release-manager|docs-architect|evaluator/.test(id)
+      ? 'high'
+      : /editor|test-writer|general-agent|base2|base$/.test(id)
+        ? 'medium'
+        : /file-picker|code-searcher|context-pruner|researcher|synthesizer/.test(
+              id,
+            )
+          ? 'low'
+          : 'medium'
+  const efforts = params.efforts
+  if (!efforts?.length) return params.supported ? preferred : undefined
+  if (efforts.includes(preferred)) return preferred
+  const order: OpenbuffReasoningEffort[] = [
+    'high',
+    'medium',
+    'low',
+    'minimal',
+    'none',
+  ]
+  return order.find((effort) => efforts.includes(effort))
+}
+
 /**
  * Get the appropriate model for a request.
  *
@@ -203,6 +233,16 @@ export async function getModelForRequest(
         loadedConfig: loadedProviderConfig,
       })
     : undefined
+  if (
+    reasoningEffort === undefined &&
+    loadedProviderConfig.config.adaptiveReasoning !== false
+  ) {
+    reasoningEffort = selectAdaptiveReasoningEffort({
+      agentId,
+      supported: resolvedCapabilities?.reasoning?.supported,
+      efforts: resolvedCapabilities?.reasoning?.efforts,
+    })
+  }
   const contextWindowTokens = resolvedCapabilities?.context?.windowTokens
   const pricing = resolvedCapabilities?.pricing
 

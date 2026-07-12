@@ -65,6 +65,17 @@ describe('validatePlanStatusPath', () => {
 })
 
 describe('applyTaskUpdate', () => {
+  test('prefers an exact stable task ID over ambiguous title text', () => {
+    const result = applyTaskUpdate(
+      ['- [ ] P1-T1 Add executor', '- [ ] P1-T10 Add executor recovery'],
+      { taskId: 'P1-T10', status: 'in_progress' },
+    )
+    expect(result.lines).toEqual([
+      '- [ ] P1-T1 Add executor',
+      '- [~] P1-T10 Add executor recovery',
+    ])
+  })
+
   test('toggles checkbox and preserves indentation/prose', () => {
     const lines = [
       'Intro paragraph the user wrote.',
@@ -358,7 +369,8 @@ describe('handleUpdatePlanStatus', () => {
     const state = JSON.parse(fs.readFileSync(statePath, 'utf8'))
     expect(state.slug).toBe('demo')
     expect(state.status).toBe('paused')
-    expect(state.schemaVersion).toBe(1)
+    expect(state.schemaVersion).toBe(2)
+    expect(state.revision).toBe(1)
   })
 
   test('currentTask updates the PLAN.md annotation', async () => {

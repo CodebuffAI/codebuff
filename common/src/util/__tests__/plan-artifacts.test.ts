@@ -35,9 +35,42 @@ import {
   validatePlanStatusPath,
   writeActiveSessionPointer,
   writePlanState,
+  parsePlanTasks,
+  preflightPlan,
 } from '../plan-artifacts'
 
 describe('durable plan artifact policy', () => {
+  test('preflights stable task IDs, dependencies, and execution contracts', () => {
+    const plan = [
+      '- [x] P1-T1 Establish schema',
+      '  - Acceptance: schema is versioned',
+      '  - Validate: bun test schema',
+      '- [ ] P1-T2 Add executor',
+      '  - Depends on: P1-T1',
+      '  - Acceptance: resumes the next task',
+      '  - Validate: bun test executor',
+    ].join('\n')
+
+    expect(parsePlanTasks(plan)).toHaveLength(2)
+    expect(preflightPlan(plan)).toMatchObject({
+      ok: true,
+      nextTaskId: 'P1-T2',
+      errors: [],
+      warnings: [],
+    })
+  })
+
+  test('preflight rejects duplicate and missing dependency IDs', () => {
+    const result = preflightPlan(
+      ['- [ ] P1-T1 First', '- [ ] P1-T1 Duplicate', '  - Depends on: P0-T9'].join(
+        '\n',
+      ),
+    )
+    expect(result.ok).toBe(false)
+    expect(result.errors).toContain('Duplicate task ID: P1-T1')
+    expect(result.errors).toContain('P1-T1 depends on missing task P0-T9')
+  })
+
   test('defines the required durable plan artifact names in canonical order', () => {
     expect(PLAN_ARTIFACT_NAMES).toEqual([
       'SPEC.md',
@@ -80,7 +113,13 @@ describe('durable plan artifact policy', () => {
 
   test('exposes session status vocabulary in canonical order', () => {
     expect(PLAN_SESSION_STATUSES).toEqual([
+      'draft',
+      'ready',
       'active',
+      'executing',
+      'validating',
+      'reviewing',
+      'blocked',
       'paused',
       'completed',
       'archived',
@@ -296,7 +335,8 @@ describe('STATE.json session state', () => {
   test('writePlanState creates STATE.json with sensible defaults', () => {
     const state = writePlanState('demo', { currentTask: 'P0-7' })
     expect(state).not.toBeNull()
-    expect(state!.schemaVersion).toBe(1)
+    expect(state!.schemaVersion).toBe(2)
+    expect(state!.revision).toBe(1)
     expect(state!.slug).toBe('demo')
     expect(state!.status).toBe('active')
     expect(state!.currentTask).toBe('P0-7')

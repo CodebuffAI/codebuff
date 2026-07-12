@@ -51,6 +51,14 @@ import { checkJob } from './tools/check-job'
 import { killJob } from './tools/kill-job'
 import { readLogs } from './tools/read-logs'
 import { gitStatus } from './tools/git-status'
+import { inspectWorkspace } from './tools/inspect-workspace'
+import { getTask } from './tools/get-task'
+import { getChangeReviewBundle } from './tools/get-change-review-bundle'
+import { runTargetedValidation } from './tools/run-targeted-validation'
+import { inspectEnvironment } from './tools/inspect-environment'
+import { getAffectedTests } from './tools/get-affected-tests'
+import { getBuildTargets } from './tools/get-build-targets'
+import { evaluateAuditCoverageTool, inspectCodebaseStructureTool, inspectFeatureCompletenessTool } from './tools/audit-intelligence'
 import { gitBranch } from './tools/git-branch'
 import { runFileChangeHooks } from './tools/file-change-hooks'
 import { createNodeFileSystem } from './tools/node-filesystem'
@@ -1291,6 +1299,55 @@ async function handleToolCall({
         cwd: requireCwd(cwd, 'git_status'),
         signal,
       })
+    } else if (toolName === 'inspect_workspace') {
+      result = await inspectWorkspace({
+        cwd: requireCwd(cwd, 'inspect_workspace'),
+        signal,
+      })
+    } else if (toolName === 'get_task') {
+      result = getTask({
+        cwd: requireCwd(cwd, 'get_task'),
+        session: (input as { session?: string }).session,
+      })
+    } else if (toolName === 'get_change_review_bundle') {
+      result = await getChangeReviewBundle({
+        cwd: requireCwd(cwd, 'get_change_review_bundle'),
+        max_chars: (input as { max_chars?: number }).max_chars,
+        signal,
+      })
+    } else if (toolName === 'run_targeted_validation') {
+      const validationInput = input as {
+        snapshot_id: string
+        files: string[]
+        artifact_kinds?: string[]
+      }
+      result = await runTargetedValidation({
+        cwd: requireCwd(cwd, 'run_targeted_validation'),
+        snapshotId: validationInput.snapshot_id,
+        files: validationInput.files,
+        artifactKinds: validationInput.artifact_kinds,
+        env,
+        signal,
+        fileSystem: fs,
+      })
+    } else if (toolName === 'inspect_environment') {
+      result = inspectEnvironment(requireCwd(cwd, 'inspect_environment'))
+    } else if (toolName === 'get_affected_tests') {
+      result = getAffectedTests(
+        requireCwd(cwd, 'get_affected_tests'),
+        (input as { files: string[] }).files,
+      )
+    } else if (toolName === 'get_build_targets') {
+      result = getBuildTargets(
+        requireCwd(cwd, 'get_build_targets'),
+        (input as { files: string[] }).files,
+      )
+    } else if (toolName === 'inspect_codebase_structure') {
+      result = inspectCodebaseStructureTool(requireCwd(cwd, toolName), (input as { scope?: string[] }).scope)
+    } else if (toolName === 'inspect_feature_completeness') {
+      result = inspectFeatureCompletenessTool(requireCwd(cwd, toolName), input as { feature: string; snapshot_id: string; scope?: string[] })
+    } else if (toolName === 'evaluate_audit_coverage') {
+      result = evaluateAuditCoverageTool(requireCwd(cwd, toolName), input as { snapshot_id: string; structural_receipts: string[]; features: string[]; out_of_scope?: Array<{ id: string; reason: string }>; scope?: string[] })
     } else if (toolName === 'git_branch') {
       // The Zod schema (`common/src/tools/params/tool/git-branch.ts`) exposes
       // snake_case input: `{ branch_name, switch, allow_dirty }`. The SDK

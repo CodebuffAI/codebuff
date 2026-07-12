@@ -81,8 +81,9 @@ describe('git-committer (M5.2 resurrected)', () => {
     )
   })
 
-  test('instructions prompt says do not push', () => {
-    expect(gitCommitter.instructionsPrompt).toMatch(/do not push/i)
+  test('instructions prompt restricts pushing to explicit authorization', () => {
+    expect(gitCommitter.instructionsPrompt).toMatch(/push only when params\.push is true/i)
+    expect(gitCommitter.instructionsPrompt).toMatch(/never force-push/i)
   })
 
   test('instructions prompt does not include an AI-attribution footer', () => {
@@ -141,7 +142,7 @@ describe('git-committer (M5.2 resurrected)', () => {
     } as unknown as Parameters<NonNullable<typeof gitCommitter.handleSteps>>[0])
     expect(gen.next().value).toMatchObject({
       toolName: 'run_terminal_command',
-      input: { command: 'git status --short' },
+      input: { command: 'git status --short --branch' },
     })
     const branchStep = gen.next({
       toolResult: [{ type: 'json', value: { stdout: '' } }],

@@ -93,13 +93,22 @@ export function createBase2(
       'suggest_followups',
       !noAskUser && 'ask_user',
       'skill',
-      'set_output',
       'list_directory',
       'glob',
       'check_job',
       'kill_job',
       'read_logs',
       'git_status',
+      'inspect_workspace',
+      'get_task',
+      'get_change_review_bundle',
+      'inspect_environment',
+      'get_affected_tests',
+      'get_build_targets',
+      'run_targeted_validation',
+      'inspect_codebase_structure',
+      'inspect_feature_completeness',
+      'evaluate_audit_coverage',
     ),
     programmaticToolNames: ['spawn_agent_inline'],
     programmaticConfig: { hasNoValidation },
@@ -117,6 +126,7 @@ export function createBase2(
       isDefault && 'thinker',
       isDefault && 'general-agent',
       isDefault && 'editor',
+      isDefault && 'repair-editor',
       'tmux-cli',
       'browser-use',
       'code-reviewer',
@@ -127,6 +137,20 @@ export function createBase2(
       'test-writer',
       'librarian',
       'synthesizer',
+      isDefault && 'architect',
+      isDefault && 'product-reviewer',
+      isDefault && 'integration-agent',
+      isDefault && 'performance-specialist',
+      isDefault && 'reliability-reviewer',
+      isDefault && 'migration-reviewer',
+      isDefault && 'accessibility-reviewer',
+      isDefault && 'ux-visual-reviewer',
+      isDefault && 'compatibility-reviewer',
+      isDefault && 'dependency-reviewer',
+      isDefault && 'incident-coordinator',
+      isDefault && 'release-manager',
+      isDefault && 'docs-architect',
+      isDefault && 'evaluator',
     ),
 
     systemPrompt: `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Openbuff, a CLI tool where users can chat with you to code with AI.
@@ -197,10 +221,15 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response. Keep simple tasks simple; do not spawn agents when a direct answer or tiny edit is enough.
 - **Task-scope classification:** Before editing, classify the task as tiny, focused, multi-file, cross-subsystem, or unknown surface. Tiny tasks require only the directly relevant read; focused tasks require reading the target file plus nearby tests/callers; multi-file tasks require search plus representative reads; cross-subsystem or unknown-surface tasks require query_index/list_directory/glob plus parallel file-picker/code-searcher shards before editing.
+- **Evidence context packet:** For non-trivial edits, organize discovery into a compact task packet: request and acceptance criteria; relevant symbols with a reason, confidence, and freshness proof; callers/callees; nearby tests and public contracts; current diagnostics; prior failed hypotheses; and explicitly excluded irrelevant context. Label inference and unknowns explicitly.
+- **Hypothesis checkpoint:** Before editing, state current behavior, desired behavior, source-backed hypothesis, intended observable change, and the falsifying signal. If the same hypothesis fails twice or the same diagnostic survives two targeted edits, switch to root-cause analysis.
+- **Vertical slices and diff budget:** Prefer the smallest coherent type/schema -> implementation -> direct test -> caller slice. Avoid speculative file breadth; expand only when evidence requires it. Detect generated files and edit their source-of-truth instead.
 - **Phase-triggered delegation:** Spawn agents deterministically at phase boundaries, not randomly: context agents during discovery, thinker after context for complex design choices, editor for non-trivial implementation, bashers for validation, debugger after repeated validation/runtime failures, reviewers after edits, and doc/test writers when docs or tests are part of the acceptance criteria.
 - **Context breadth:** For unclear or cross-cutting tasks, gather broad context first: query_index early, spawn multiple file-picker/code-searcher agents from different angles, add web/docs researchers for external APIs, then verify candidates with read_files/read_outline/read_subtree before editing. For tiny obvious edits, read only the directly relevant files.
 - **Ask-user decisions:** Ask only after context gathering, and only when the answer materially changes scope, UX, risk, data loss, migration, deployment, or API/contract behavior. Require confirmation before destructive commands, public API/contract changes, dependency additions, schema/data migrations, release/publish/deploy actions, production-affecting scripts, and ambiguous product behavior. Do not ask obvious questions; if you are >80% confident or the decision is easily reversible, choose the most conservative implementation and proceed.
 - **Editor delegation:** In default mode, use the editor for non-trivial source edits after discovery. Do not delegate tiny one-file edits or direct answers. The editor prompt must be implementation-only and self-contained; parent-only validation, review, git, terminal cleanup, and plan/todo work stays with you.
+- **Direct-edit exception:** Treat orchestrator source editing as a narrow exception. It is eligible only for one file, at most roughly 12 changed lines, no behavior/public-contract change, no required tests, no security/concurrency risk, and no open reviewer findings. Otherwise delegate implementation to editor. Validation/reviewer repairs must use repair-editor with exact diagnostics or finding IDs.
+- **Typed handoffs and receipts:** Specialist prompts must carry a self-contained role packet: task ID, objective, requirements, acceptance criteria, evidence with freshness/confidence, current/desired behavior, invariants, non-goals, risks, unknowns, findings, and allowed paths/tools. Reconcile the specialist's changed-file/requirements/findings receipt against actual mutation results; do not trust completion prose alone.
 - **Thinker delegation:** Spawn thinker only after enough context exists for complex architecture, design tradeoff, risk, debugging strategy, spec/plan critique, or repeated-failure reasoning. Do not use thinker as a substitute for reading files or for straightforward edits.
 - **Release/deployment flow:** Treat releases, deployments, publishing, migrations against shared environments, production-affecting scripts, git commits, and git pushes as high-impact actions. Do not run or ask subagents to run them unless the user explicitly requested that action in this task or confirms after you explain the exact command, target environment, and rollback/verification plan. When requested, follow the deterministic sequence: inspect worktree, fetch remote state/tags, decide rebase/merge with the user when non-fast-forward or conflicts appear, push, wait for CI/CD, trigger the release, verify artifact/tag/package publication, then sync and report local branch state.
 - **Plan artifact maintenance:** In PLAN mode create and maintain durable artifacts; in EXECUTE_PLAN keep STATUS.md and LESSONS.md current at phase boundaries, blocker discovery/resolution, validation/review results, and finalization. Use update_plan_status for incremental STATUS/LESSONS updates and create_plan for SPEC/PLAN rewrites or missing artifacts. Do not update plan artifacts for ordinary implementation mode unless the user requested plan/session work.
@@ -422,6 +451,7 @@ ${securityReviewSection}
         currentPhase: 'idle',
         latestWorkSummary: '',
         openReviewerBlockers: [],
+        openReviewerFindings: [],
         lastValidationSummary: '',
         nextRequiredAction: '',
         lastPinnedStateMessage: '',
@@ -435,6 +465,8 @@ ${securityReviewSection}
         securityReviewGateDone: false,
         reviewerCrashCount: 0,
         reviewerGateBypassReason: '',
+        reviewerGateBypassRecord: undefined,
+        validationAssurance: 'none',
         testWriterGateDone: false,
         docWriterGateDone: false,
         auxGatesLastPendingFiles: [],
@@ -449,6 +481,8 @@ ${securityReviewSection}
       activeWorkState.gatePassedFingerprint ??= ''
       activeWorkState.lastReviewerGateSkipReason ??= ''
       activeWorkState.openReviewerBlockers ??= []
+      activeWorkState.openReviewerFindings ??= []
+      activeWorkState.validationEvidence ??= []
       activeWorkState.latestWorkSummary ??= ''
       activeWorkState.lastValidationSummary ??= ''
       activeWorkState.nextRequiredAction ??= ''
@@ -458,6 +492,7 @@ ${securityReviewSection}
         activeWorkState.preEditSecurityReviewDone
       activeWorkState.reviewerCrashCount ??= 0
       activeWorkState.reviewerGateBypassReason ??= ''
+      activeWorkState.validationAssurance ??= 'none'
       activeWorkState.testWriterGateDone ??= false
       activeWorkState.docWriterGateDone ??= false
       activeWorkState.auxGatesLastPendingFiles ??= []
@@ -507,6 +542,10 @@ ${securityReviewSection}
       if (retrievalDecision) {
         if (retrievalDecision.scope === 'cross-subsystem') {
           yield {
+            toolName: 'inspect_codebase_structure',
+            input: {},
+          } as any
+          yield {
             toolName: 'list_directory',
             input: { path: '.' },
           } as any
@@ -515,7 +554,7 @@ ${securityReviewSection}
             input: {
               role: 'user',
               content:
-                '<system>Production breadth guard: this request was deterministically classified as cross-subsystem. Before claiming completeness, enumerate the top-level subsystems in scope, assign distinct discovery/reasoning shards in bounded waves, and explicitly mark every top-level subsystem covered or out-of-scope. A single search/read path is insufficient.</system>',
+                '<system>Production breadth guard: this request was deterministically classified as cross-subsystem. The preceding native structural inventory and its snapshot ID control this audit. Use vertical feature slices plus structural/domain shards, call inspect_feature_completeness for every claimed feature, and call evaluate_audit_coverage before claiming completeness. Explicitly cover or exclude every subsystem. A single search/read path or Markdown structural map is insufficient.</system>',
             },
             includeToolCall: false,
           } as any
@@ -1117,6 +1156,11 @@ ${securityReviewSection}
         // only `check_background_agent` for its result if validation passes.
         const staticReviewConcurrency =
           runReviewerGate && editsHappened && staticReviewOnlyEnabled
+        const reviewSnapshotFingerprint = buildGateFingerprint(
+          Array.from(pendingGateFiles),
+          currentGitStatusLineMap,
+          '',
+        )
         if (staticReviewConcurrency && !activeWorkState.staticReviewerJobId) {
           const bgReview = yield {
             toolName: 'spawn_agents',
@@ -1129,9 +1173,10 @@ ${securityReviewSection}
                     'Review the completed default-flow code changes before finalization.',
                     '',
                     `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                    `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                     'Validation gate summary: Reviewer running concurrently with validation (static-review-only mode).',
                     '',
-                    'Review after the validation gate above. The first visible token of your reply must be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD: (text mode). If you prefer, you may also emit a single JSON object such as {"verdict":"BLOCKING"|"NON_BLOCKING"|"LOOKS_GOOD", "findings": ["..."]} — the orchestrator accepts either form.',
+                    'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, map every user requirement to evidence, and use coverage: missing when changed behavior lacks a mapped test.',
                   ].join('\n'),
                 },
               ],
@@ -1159,6 +1204,25 @@ ${securityReviewSection}
               (verify as any) && (verify as any).toolResult,
             )
             activeWorkState.lastValidationSummary = validationSummary
+            activeWorkState.validationAssurance = validationSummary.startsWith(
+              'REDUCED_ASSURANCE:',
+            )
+              ? 'reduced'
+              : 'full'
+            activeWorkState.validationEvidence = [
+              {
+                gateId: reviewSnapshotFingerprint,
+                files: Array.from(pendingGateFiles),
+                snapshotFingerprint: buildGateFingerprint(
+                  Array.from(pendingGateFiles),
+                  currentGitStatusLineMap,
+                  validationSummary,
+                ),
+                summary: validationSummary,
+                assurance: activeWorkState.validationAssurance,
+                recordedAt: new Date().toISOString(),
+              },
+            ]
             activeWorkState.currentPhase = 'awaiting_review'
             markActiveWorkStateChanged()
           } else {
@@ -1217,7 +1281,24 @@ ${securityReviewSection}
                 input: {
                   agents: [
                     {
-                      agent_type: 'editor',
+                      agent_type: 'repair-editor',
+                      handoff: {
+                        schemaVersion: 1,
+                        taskId: activeWorkState.repairSessionId ?? 'validation-repair',
+                        role: 'repair-editor',
+                        objective: 'Resolve the current validation failures without unrelated changes.',
+                        findings: failures.map((text: string, index: number) => ({
+                          id: `VF-${index + 1}`,
+                          text,
+                          files: Array.from(pendingGateFiles),
+                          snapshotFingerprint: buildGateFingerprint(Array.from(pendingGateFiles), currentGitStatusLineMap, validationSummary),
+                        })),
+                        permissions: {
+                          readablePaths: Array.from(pendingGateFiles),
+                          writablePaths: Array.from(pendingGateFiles),
+                          allowedTools: ['read_files', 'read_outline', 'apply_patch', 'write_file', 'str_replace', 'replace_range', 'rewrite_symbol', 'edit_transaction'],
+                        },
+                      },
                       prompt:
                         buildRepairEditorPrompt(
                           parsed,
@@ -1331,7 +1412,24 @@ ${securityReviewSection}
                   input: {
                     agents: [
                       {
-                        agent_type: 'editor',
+                        agent_type: 'repair-editor',
+                        handoff: {
+                          schemaVersion: 1,
+                          taskId: activeWorkState.repairSessionId ?? 'validation-escalation',
+                          role: 'repair-editor',
+                          objective: 'Resolve the exhausted validation failures through root-cause repair.',
+                          findings: failures.map((text: string, index: number) => ({
+                            id: `VF-${index + 1}`,
+                            text,
+                            files: Array.from(pendingGateFiles),
+                            snapshotFingerprint: buildGateFingerprint(Array.from(pendingGateFiles), currentGitStatusLineMap, validationSummary),
+                          })),
+                          permissions: {
+                            readablePaths: Array.from(pendingGateFiles),
+                            writablePaths: Array.from(pendingGateFiles),
+                            allowedTools: ['read_files', 'read_outline', 'apply_patch', 'write_file', 'str_replace', 'replace_range', 'rewrite_symbol', 'edit_transaction'],
+                          },
+                        },
                         prompt: buildEscalationEditorPrompt(
                           parsed,
                           Array.from(pendingGateFiles),
@@ -1465,9 +1563,10 @@ ${securityReviewSection}
                       'Review the completed default-flow code changes before finalization.',
                       '',
                       `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                      `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                       `Validation gate summary: ${validationSummary}`,
                       '',
-                      'Review after the validation gate above. The first visible token of your reply must be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD: (text mode). If you prefer, you may also emit a single JSON object such as {"verdict":"BLOCKING"|"NON_BLOCKING"|"LOOKS_GOOD", "findings": ["..."]} — the orchestrator accepts either form.',
+                      'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, map every user requirement to evidence, and use coverage: missing when changed behavior lacks a mapped test.',
                     ].join('\n'),
                   },
                 ],
@@ -1476,8 +1575,26 @@ ${securityReviewSection}
             reviewerToolResult = (review as any) && (review as any).toolResult
           }
           const blockers = collectReviewerBlockers(reviewerToolResult)
+          blockers.push(
+            ...collectReviewerAttestationIssues(
+              reviewerToolResult,
+              reviewSnapshotFingerprint,
+              Array.from(pendingGateFiles),
+            ),
+          )
           if (blockers.length > 0) {
             activeWorkState.openReviewerBlockers = blockers
+            activeWorkState.openReviewerFindings = blockers.map(
+              (text: string, index: number) => ({
+                id: buildReviewerFindingId(text, index),
+                gateId: reviewSnapshotFingerprint,
+                text,
+                status: 'open' as const,
+                files: Array.from(pendingGateFiles),
+                snapshotFingerprint: reviewSnapshotFingerprint,
+                createdAt: new Date().toISOString(),
+              }),
+            )
             activeWorkState.nextRequiredAction =
               'Resolve the reviewer feedback below before any unrelated work, final response, or another review.'
             activeWorkState.currentPhase = 'blocked'
@@ -1488,15 +1605,86 @@ ${securityReviewSection}
               input: {
                 role: 'user',
                 content: [
-                  `Reviewer gate: ${reviewerAgentType} returned blocking feedback. Resolve it before ending your turn:`,
+                  `Reviewer gate: ${reviewerAgentType} returned blocking feedback. The harness will send these exact findings to repair-editor:`,
                   '',
                   ...blockers,
                   '',
-                  'Make the minimal required improvements, rerun validation as needed, then finish (review will run again).',
+                  'These findings remain open until targeted validation and a fresh matching reviewer pass clear them.',
                 ].join('\n'),
               },
               includeToolCall: false,
             } as any
+            const reviewerRepairSessionId =
+              activeWorkState.repairSessionId ??
+              `review-repair-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+            activeWorkState.repairSessionId = reviewerRepairSessionId
+            activeWorkState.currentPhase = 'repair_loop'
+            activeWorkState.nextRequiredAction =
+              'Repair-editor must address every open reviewer finding, then targeted validation and a fresh reviewer pass must run.'
+            yield {
+              toolName: 'spawn_agents',
+              input: {
+                agents: [
+                  {
+                    agent_type: 'repair-editor',
+                    handoff: {
+                      schemaVersion: 1,
+                      taskId: reviewerRepairSessionId,
+                      role: 'repair-editor',
+                      objective:
+                        'Resolve every open reviewer finding without unrelated changes. Read the current file contents before editing; conversational summaries are not source evidence.',
+                      findings: activeWorkState.openReviewerFindings.map(
+                        ({ id, text, files, snapshotFingerprint }) => ({
+                          id,
+                          text,
+                          files,
+                          snapshotFingerprint,
+                        }),
+                      ),
+                      permissions: {
+                        readablePaths: Array.from(pendingGateFiles),
+                        writablePaths: Array.from(pendingGateFiles),
+                        allowedTools: [
+                          'read_files',
+                          'read_outline',
+                          'apply_patch',
+                          'write_file',
+                          'str_replace',
+                          'replace_range',
+                          'rewrite_symbol',
+                          'edit_transaction',
+                        ],
+                      },
+                    },
+                    prompt: [
+                      'Repair the blocking reviewer findings below.',
+                      'Treat every finding ID as open until a fresh reviewer clears it.',
+                      'Do not claim a finding is stale because unrelated tests or another task passed.',
+                      'Read every target from the live filesystem before editing.',
+                      'Keep unrelated diagnostics secondary to this finding set.',
+                      '',
+                      ...activeWorkState.openReviewerFindings.map(
+                        (finding) => `${finding.id}: ${finding.text}`,
+                      ),
+                    ].join('\n'),
+                  },
+                ],
+              },
+            } as any
+            const reviewerRepairStatus = yield {
+              toolName: 'git_status',
+              input: {},
+            } as any
+            const reviewerRepairFiles = extractGitStatusFiles(
+              (reviewerRepairStatus as any)?.toolResult,
+            ).filter((file: string) => pendingGateFiles.has(file))
+            if (reviewerRepairFiles.length > 0) {
+              recordChangedFiles(reviewerRepairFiles, { fromRepair: true })
+            }
+            activeWorkState.currentPhase = 'awaiting_validation'
+            activeWorkState.latestWorkSummary =
+              'Repair-editor addressed reviewer findings; targeted validation and a fresh reviewer pass are required.'
+            markActiveWorkStateChanged()
             continue
           }
           reviewerFinalizationVerdict =
@@ -1521,6 +1709,13 @@ ${securityReviewSection}
                 hasReviewerBypassAuthorization(currentConversationMessages)
               if (bypassAuthorized) {
                 activeWorkState.reviewerGateBypassReason = `User authorized bypass after ${activeWorkState.reviewerCrashCount} reviewer crashes: ${reviewerCrash}`
+                activeWorkState.reviewerGateBypassRecord = {
+                  reason: activeWorkState.reviewerGateBypassReason,
+                  authorizedAt: new Date().toISOString(),
+                  pendingFiles: Array.from(pendingGateFiles),
+                  fingerprint: reviewSnapshotFingerprint,
+                  validationSummary,
+                }
                 activeWorkState.nextRequiredAction = ''
                 activeWorkState.currentPhase = 'awaiting_review'
                 reviewerFinalizationVerdict = 'NON_BLOCKING'
@@ -1583,6 +1778,7 @@ ${securityReviewSection}
           let activeWorkStateChanged = false
           if (passedPendingFiles.length > 0 && reviewerFinalizationVerdict) {
             activeWorkState.openReviewerBlockers = []
+            activeWorkState.openReviewerFindings = []
             pendingGateFiles.clear()
             activeWorkState.pendingGateFiles = []
             activeWorkState.latestWorkSummary = ''
@@ -1657,6 +1853,9 @@ ${securityReviewSection}
                     ? `Reviewer gate passed with ${passVerdict} for pending files: ${passedPendingFiles.join(', ')}. ${validationSummary}`
                     : `Automated validation and reviewer gate passed with ${passVerdict} for pending files: ${passedPendingFiles.join(', ')}.`
                   : 'No edited files were detected.',
+                passedPendingFiles.length > 0
+                  ? 'The preceding Change review diff is the user-visible filesystem evidence for this gate. Use /diff for the full current working-tree diff, /changes for the file list, or /diff -- <path> to inspect one file.'
+                  : '',
                 'You may now provide the final user-visible summary and optional follow-up suggestions. Do not make more edits unless absolutely necessary; any new edits will rerun the gate.',
                 formatGateStateBlock(
                   'validation/reviewer',
@@ -1667,6 +1866,15 @@ ${securityReviewSection}
             },
             includeToolCall: false,
           } as any
+          if (passedPendingFiles.length > 0) {
+            yield {
+              toolName: 'git_status',
+              input: {
+                include_diff: true,
+                max_chars: 80_000,
+              },
+            } as any
+          }
           // NOTE: the three aux gates (test-writer / doc-writer /
           // security-reviewer) now run pre-reviewer above, before this final
           // validation+code-reviewer gate. Code-reviewer is the final gate.
@@ -2286,6 +2494,29 @@ ${securityReviewSection}
             ].join('\n'),
           )
         }
+        if ((state.openReviewerFindings?.length ?? 0) > 0) {
+          sections.push(
+            [
+              'Open reviewer finding records (runtime-owned; only a fresh matching review may clear them):',
+              ...(state.openReviewerFindings ?? []).map(
+                (finding) =>
+                  `${finding.id} [${finding.status}] snapshot=${finding.snapshotFingerprint.slice(0, 16)} files=${finding.files.join(', ')} :: ${finding.text}`,
+              ),
+              'Every repair edit must explicitly address one or more open finding IDs. Do not declare these records stale from conversational memory.',
+            ].join('\n'),
+          )
+        }
+        if ((state.validationEvidence?.length ?? 0) > 0) {
+          sections.push(
+            [
+              'Scoped validation evidence (does not clear reviewer findings by itself):',
+              ...(state.validationEvidence ?? []).map(
+                (evidence) =>
+                  `${evidence.gateId.slice(0, 16)} assurance=${evidence.assurance} files=${evidence.files.join(', ')} :: ${evidence.summary}`,
+              ),
+            ].join('\n'),
+          )
+        }
         if (state.pendingGateFiles.length > 0) {
           sections.push(
             `Pending validation/reviewer gate files: ${state.pendingGateFiles.join(', ')}`,
@@ -2317,8 +2548,18 @@ ${securityReviewSection}
         return [
           'Harness pinned active-work state (controlling state; do not ignore):',
           'This generated state survives context compaction and overrides stale summarized dialogue.',
+          'Role: root orchestrator. Do not call set_output. Use only tools currently exposed by the runtime.',
           ...sections,
         ].join('\n\n')
+      }
+
+      function buildReviewerFindingId(text: string, index: number): string {
+        let hash = 2166136261
+        for (let i = 0; i < text.length; i += 1) {
+          hash ^= text.charCodeAt(i)
+          hash = Math.imul(hash, 16777619)
+        }
+        return `RF-${index + 1}-${(hash >>> 0).toString(16).padStart(8, '0')}`
       }
 
       function extractChangedFiles(toolResult: unknown): string[] {
@@ -2936,6 +3177,25 @@ ${securityReviewSection}
               'BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)',
             )
           }
+          for (const [dimension, status] of Object.entries(
+            entry.dimensions ?? {},
+          )) {
+            if (String(status).toLowerCase() === 'block') {
+              structuredBlockers.push(
+                `BLOCKING: ${dimension} review dimension failed`,
+              )
+            }
+          }
+          for (const requirement of entry.requirementCoverage ?? []) {
+            if (
+              requirement.status === 'missing' ||
+              requirement.status === 'uncertain'
+            ) {
+              structuredBlockers.push(
+                `BLOCKING: requirement ${requirement.status}: ${requirement.requirement}`,
+              )
+            }
+          }
         }
         if (structuredBlockers.length > 0) return structuredBlockers
 
@@ -2944,6 +3204,31 @@ ${securityReviewSection}
         return texts
           .map((text) => stripReviewerPreamble(text))
           .filter((text) => hasReviewerLineVerdict(text, 'BLOCKING'))
+      }
+
+      function collectReviewerAttestationIssues(
+        toolResult: unknown,
+        expectedFingerprint: string,
+        pendingFiles: string[],
+      ): string[] {
+        const structured = collectStructuredReviewerOutputs(toolResult)
+        if (structured.length === 0) return []
+        const result = structured[structured.length - 1]
+        if (result.schemaVersion !== 1) return []
+        const issues: string[] = []
+        if (result.snapshotFingerprint !== expectedFingerprint) {
+          issues.push(
+            'BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree',
+          )
+        }
+        const reviewed = new Set(result.reviewedFiles ?? [])
+        const missing = pendingFiles.filter((file) => !reviewed.has(file))
+        if (missing.length > 0) {
+          issues.push(
+            `BLOCKING: reviewer did not attest to every pending file: ${missing.join(', ')}`,
+          )
+        }
+        return issues
       }
 
       // Distinguishes reviewer-agent crashes (errorMessage / type === 'error')
@@ -3140,11 +3425,21 @@ ${securityReviewSection}
         verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
         findings: string[]
         coverage?: 'covered' | 'missing' | 'n/a'
+        dimensions?: Record<string, string>
+        requirementCoverage?: Array<{ requirement: string; status: string }>
+        snapshotFingerprint?: string
+        reviewedFiles?: string[]
+        schemaVersion?: number
       }> {
         const out: Array<{
           verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
           findings: string[]
           coverage?: 'covered' | 'missing' | 'n/a'
+          dimensions?: Record<string, string>
+          requirementCoverage?: Array<{ requirement: string; status: string }>
+          snapshotFingerprint?: string
+          reviewedFiles?: string[]
+          schemaVersion?: number
         }> = []
         visitForStructuredVerdict(value, out)
         return out
@@ -3156,6 +3451,11 @@ ${securityReviewSection}
           verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
           findings: string[]
           coverage?: 'covered' | 'missing' | 'n/a'
+          dimensions?: Record<string, string>
+          requirementCoverage?: Array<{ requirement: string; status: string }>
+          snapshotFingerprint?: string
+          reviewedFiles?: string[]
+          schemaVersion?: number
         }>,
       ): void {
         if (!value) return
@@ -3205,6 +3505,38 @@ ${securityReviewSection}
               verdict: upper as 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING',
               findings,
               coverage,
+              dimensions:
+                record.dimensions && typeof record.dimensions === 'object'
+                  ? (Object.fromEntries(
+                      Object.entries(record.dimensions as Record<string, unknown>).filter(
+                        (entry) => typeof entry[1] === 'string',
+                      ),
+                    ) as Record<string, string>)
+                  : undefined,
+              requirementCoverage: Array.isArray(record.requirementCoverage)
+                ? record.requirementCoverage.flatMap((item) => {
+                    if (!item || typeof item !== 'object') return []
+                    const requirement = (item as any).requirement
+                    const status = (item as any).status
+                    return typeof requirement === 'string' &&
+                      typeof status === 'string'
+                      ? [{ requirement, status: status.toLowerCase() }]
+                      : []
+                  })
+                : undefined,
+              snapshotFingerprint:
+                typeof record.snapshotFingerprint === 'string'
+                  ? record.snapshotFingerprint
+                  : undefined,
+              reviewedFiles: Array.isArray(record.reviewedFiles)
+                ? record.reviewedFiles.filter(
+                    (file): file is string => typeof file === 'string',
+                  )
+                : undefined,
+              schemaVersion:
+                typeof record.schemaVersion === 'number'
+                  ? record.schemaVersion
+                  : undefined,
             })
             return
           }
@@ -3267,7 +3599,7 @@ ${securityReviewSection}
         )
         if (statusHook) {
           if (typeof (statusHook as any).message === 'string') {
-            return (statusHook as any).message
+            return `REDUCED_ASSURANCE: ${(statusHook as any).message}`
           }
           return (statusHook as any).validationStatus === 'hooks_skipped'
             ? 'Configured file-change hooks were skipped because none matched the changed files.'
@@ -3668,6 +4000,7 @@ function buildExecutePlanInstructionsPrompt(params: {
     '## Durable plan execution mode',
     '',
     'You are in EXECUTE_PLAN mode. Your job is to execute or resume durable plan artifacts, not merely revise them. Treat durable artifact contents already provided in the conversation as the initial authoritative context; read artifacts directly only when their contents are missing, truncated, stale, or have changed. Continue from the next actionable milestone, and use normal project source editing tools when implementation work is required.',
+    'Run the plan preflight before editing. Tasks should have stable IDs, dependencies, Acceptance criteria, and Validate gates. Claim exactly one actionable task by moving it to in_progress and recording its stable ID as currentTask. A task may move to done only after its validation gate passes; record validation/review evidence as a checkpoint. If preflight fails, repair the durable plan before implementation. Use STATE.json revisions to avoid overwriting newer execution state.',
     '',
     'Keep STATUS.md and LESSONS.md current throughout execution. Prefer update_plan_status for incremental STATUS.md / LESSONS.md updates; use create_plan for SPEC.md / PLAN.md revisions, substantial rewrites, or creating missing artifacts. PLAN mode remains plan-only, but EXECUTE_PLAN is allowed to edit project source to complete the plan. Do not let plan artifacts drift behind actual implementation state.',
   ].join('\n')
@@ -3699,6 +4032,7 @@ function buildExecutePlanStepPrompt({}: {}) {
   return buildArray(
     'You are in EXECUTE_PLAN mode. Execute or resume durable plan artifacts, using the project source editing tools when implementation work is required. Unlike PLAN mode, you may edit project source files to complete planned tasks.',
     'Treat SPEC.md, PLAN.md, STATUS.md, and LESSONS.md under the durable plan session as authoritative. Use any artifact contents already present in the conversation as the initial source of truth, confirm the next incomplete or blocked item from that context, and read artifacts directly only when contents are missing, truncated, stale, or have changed. Do not repeatedly re-read unchanged artifacts or source files after confirming the next item; continue from it unless the artifacts say completed work must be revisited.',
+    'Honor the deterministic preflight included with resumed artifacts. Do not edit source when preflight reports errors. Use stable task IDs for updates, keep at most one task in_progress, respect dependencies, and do not mark a task done until its Validate gate passes and the checkpoint is recorded.',
     'Keep STATUS.md current as you progress: update completed/pending/blocked items, current state, validation results, and the next checkpoint. Keep LESSONS.md current with gotchas, decisions, reusable findings, and follow-up notes discovered during execution. Prefer update_plan_status for incremental STATUS.md / LESSONS.md updates; use create_plan for SPEC.md / PLAN.md revisions, substantial rewrites, or creating missing artifacts.',
     'Use normal implementation behavior for source changes: gather context before editing, follow project conventions, validate meaningful changes when appropriate, and summarize the completed work concisely. Do not let plan artifacts drift behind actual implementation state.',
   ).join('\n')
@@ -3753,6 +4087,7 @@ Also include the artifact metadata inside the <PLAN> response so the CLI can ren
 The plan packet should be resumable across days. Include:
 - Overview and requirements.
 - Milestones/tasks with explicit statuses (todo/in progress/done/blocked).
+- Give every executable checklist task a unique stable ID and indented \`Depends on\`, \`Acceptance\`, and \`Validate\` fields. Stable IDs must not change when task wording changes.
 - Dependencies and ordering constraints.
 - Risks, blockers, open questions, and assumptions.
 - Validation gates and how to verify each milestone.

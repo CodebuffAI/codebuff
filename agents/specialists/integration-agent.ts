@@ -1,0 +1,2 @@
+import { createSpecialist } from './create-specialist'
+export default createSpecialist({ id: 'integration-agent', displayName: 'Integration Specialist', purpose: 'Plans safe combination of independent changes, conflict ordering, integration validation, and snapshot invalidation.', advisory: true, terminal: true, intelligence: ['environment', 'tests', 'builds'], focus: ['Commit and patch dependency ordering', 'Conflict prediction and semantic overlap', 'Integration validation scope', 'Required re-review after combination'] })

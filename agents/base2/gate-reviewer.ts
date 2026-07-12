@@ -18,6 +18,32 @@ type StructuredReviewerOutput = {
   verdict: ReviewerStructuredVerdict
   findings: string[]
   coverage?: ReviewerCoverage
+  dimensions?: Record<string, string>
+  requirementCoverage?: Array<{ requirement: string; status: string }>
+  snapshotFingerprint?: string
+  reviewedFiles?: string[]
+  schemaVersion?: number
+}
+
+export function collectReviewerAttestationIssues(
+  toolResult: unknown,
+  expectedFingerprint: string,
+  pendingFiles: string[],
+): string[] {
+  const structured = collectStructuredReviewerOutputs(toolResult)
+  if (structured.length === 0) return []
+  const result = structured[structured.length - 1]
+  if (result.schemaVersion !== 1) return []
+  const issues: string[] = []
+  if (result.snapshotFingerprint !== expectedFingerprint) {
+    issues.push('BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree')
+  }
+  const reviewed = new Set(result.reviewedFiles ?? [])
+  const missing = pendingFiles.filter((file) => !reviewed.has(file))
+  if (missing.length > 0) {
+    issues.push(`BLOCKING: reviewer did not attest to every pending file: ${missing.join(', ')}`)
+  }
+  return issues
 }
 
 export function stripReviewerPreamble(text: string): string {
@@ -52,6 +78,18 @@ export function collectReviewerBlockers(toolResult: unknown): string[] {
       structuredBlockers.push(
         'BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)',
       )
+    }
+    for (const [dimension, status] of Object.entries(entry.dimensions ?? {})) {
+      if (status.toLowerCase() === 'block') {
+        structuredBlockers.push(`BLOCKING: ${dimension} review dimension failed`)
+      }
+    }
+    for (const requirement of entry.requirementCoverage ?? []) {
+      if (requirement.status === 'missing' || requirement.status === 'uncertain') {
+        structuredBlockers.push(
+          `BLOCKING: requirement ${requirement.status}: ${requirement.requirement}`,
+        )
+      }
     }
   }
   if (structuredBlockers.length > 0) return structuredBlockers
@@ -314,6 +352,38 @@ function visitForStructuredVerdict(
         verdict: upper as ReviewerStructuredVerdict,
         findings,
         coverage,
+        dimensions:
+          record.dimensions && typeof record.dimensions === 'object'
+            ? Object.fromEntries(
+                Object.entries(record.dimensions as Record<string, unknown>)
+                  .filter((entry): entry is [string, string] =>
+                    typeof entry[1] === 'string',
+                  ),
+              )
+            : undefined,
+        requirementCoverage: Array.isArray(record.requirementCoverage)
+          ? record.requirementCoverage.flatMap((item) => {
+              if (!item || typeof item !== 'object') return []
+              const requirement = (item as Record<string, unknown>).requirement
+              const status = (item as Record<string, unknown>).status
+              return typeof requirement === 'string' && typeof status === 'string'
+                ? [{ requirement, status: status.toLowerCase() }]
+                : []
+            })
+          : undefined,
+        snapshotFingerprint:
+          typeof record.snapshotFingerprint === 'string'
+            ? record.snapshotFingerprint
+            : undefined,
+        reviewedFiles: Array.isArray(record.reviewedFiles)
+          ? record.reviewedFiles.filter(
+              (file): file is string => typeof file === 'string',
+            )
+          : undefined,
+        schemaVersion:
+          typeof record.schemaVersion === 'number'
+            ? record.schemaVersion
+            : undefined,
       })
       return
     }

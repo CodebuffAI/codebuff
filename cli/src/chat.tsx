@@ -1521,7 +1521,16 @@ export const Chat = ({
       setPlanSessionPickerCommand(null)
       setInputFocused(true)
 
-      onSubmitPrompt(`/${command} ${sessionDir}`, agentMode)
+      // Picker-driven resume previously submitted with the mode captured when
+      // the picker opened. Switch first so both the visible persistent toggle
+      // and command routing enter EXECUTE_PLAN immediately.
+      const submitMode =
+        command === 'resume-plan' ? 'EXECUTE_PLAN' : agentMode
+      if (command === 'resume-plan') {
+        setAgentMode('EXECUTE_PLAN')
+      }
+
+      onSubmitPrompt(`/${command} ${sessionDir}`, submitMode)
         .then((result) => handleCommandResult(result))
         .catch((error) => {
           logger.error(
@@ -1538,6 +1547,7 @@ export const Chat = ({
       setInputFocused,
       onSubmitPrompt,
       agentMode,
+      setAgentMode,
       handleCommandResult,
     ],
   )

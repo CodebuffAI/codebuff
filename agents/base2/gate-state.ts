@@ -42,6 +42,24 @@ export type Base2ActiveWorkState = Base2GateState & {
   currentPhase: Base2ActiveWorkPhase
   latestWorkSummary: string
   openReviewerBlockers: string[]
+  openReviewerFindings?: Array<{
+    id: string
+    gateId: string
+    text: string
+    status: 'open' | 'resolved'
+    taskId?: string
+    files: string[]
+    snapshotFingerprint: string
+    createdAt: string
+  }>
+  validationEvidence?: Array<{
+    gateId: string
+    files: string[]
+    snapshotFingerprint: string
+    summary: string
+    assurance: 'full' | 'reduced' | 'none'
+    recordedAt: string
+  }>
   lastValidationSummary: string
   nextRequiredAction: string
   lastPinnedStateMessage: string
@@ -105,6 +123,16 @@ export type Base2ActiveWorkState = Base2GateState & {
   reviewerCrashCount?: number
   /** Durable reason when the user explicitly authorizes a reviewer bypass. */
   reviewerGateBypassReason?: string
+  /** Durable audit record for an explicitly authorized gate bypass. */
+  reviewerGateBypassRecord?: {
+    reason: string
+    authorizedAt: string
+    pendingFiles: string[]
+    fingerprint: string
+    validationSummary: string
+  }
+  /** Assurance level from configured validation evidence. */
+  validationAssurance?: 'full' | 'reduced' | 'none'
   /**
    * M3 (R1b) — true after the automated post-edit test-writer gate has fired
    * for the current pending gate file set. Reset on pending-file-set change.

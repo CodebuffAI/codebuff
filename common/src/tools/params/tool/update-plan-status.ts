@@ -24,9 +24,17 @@ const taskStatusSchema = z
 
 const taskUpdateSchema = z
   .object({
+    taskId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Stable task ID at the start of a checklist line (for example `P2-T3`). Preferred over substring matching.',
+      ),
     task: z
       .string()
       .min(1, 'task cannot be empty')
+      .optional()
       .describe(
         'Substring of the existing task/checklist line to match (case-insensitive). The first matching `- [ ]`/`-[x]`/`-[~]`/`-[/]`/`-[!]` line in the artifact will be updated in place.',
       ),
@@ -47,6 +55,9 @@ const taskUpdateSchema = z
       .describe(
         'Optional short note to append to the matched line in parentheses. Preserves any existing trailing text on the line.',
       ),
+  })
+  .refine((update) => update.taskId !== undefined || update.task !== undefined, {
+    message: 'Provide taskId or task.',
   })
   .describe('Targeted update to a single existing checklist line.')
 
@@ -89,7 +100,18 @@ const inputSchema = z
         'Optional delimited entry appended at the end of the artifact (used when there is no matching task line for the change being recorded).',
       ),
     sessionStatus: z
-      .enum(['active', 'paused', 'completed', 'archived'])
+      .enum([
+        'draft',
+        'ready',
+        'active',
+        'executing',
+        'validating',
+        'reviewing',
+        'blocked',
+        'paused',
+        'completed',
+        'archived',
+      ])
       .optional()
       .describe(
         'Optional session-level status transition. When provided, `.agents/sessions/<slug>/STATE.json` is created or updated to reflect the new lifecycle status.',
@@ -100,13 +122,31 @@ const inputSchema = z
       .describe(
         'Optional current-task pointer written as a `<!-- current-task: <task> -->` annotation in PLAN.md. Pass an empty string or omit to clear the pointer. Only takes effect when path targets PLAN.md.',
       ),
+    expectedRevision: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        'Optional STATE.json compare-and-swap revision. The update fails without writing when the current revision differs.',
+      ),
+    checkpoint: z
+      .object({
+        taskId: z.string().min(1),
+        phase: z.enum(['validation', 'review']),
+        passed: z.boolean(),
+        summary: z.string().optional(),
+      })
+      .optional()
+      .describe('Validation or review evidence associated with a stable task ID.'),
   })
   .refine(
     (input) =>
       (input.updates && input.updates.length > 0) ||
       input.append !== undefined ||
       input.sessionStatus !== undefined ||
-      input.currentTask !== undefined,
+      input.currentTask !== undefined ||
+      input.checkpoint !== undefined,
     {
       message:
         'Provide at least one `updates` entry, an `append` entry, a `sessionStatus`, or a `currentTask`.',

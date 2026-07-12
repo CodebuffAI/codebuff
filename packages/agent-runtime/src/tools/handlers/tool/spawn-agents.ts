@@ -14,6 +14,7 @@ import {
   executeSubagent,
   extractSubagentContextParams,
   buildSpawnParamsWithHandoff,
+  validateVersionedAgentHandoff,
   normalizeSpawnedAgentOutput,
   createCombinedAbortSignal,
 } from './spawn-agent-utils'
@@ -128,6 +129,7 @@ export const handleSpawnAgents = (async (
         parentAgentTemplate,
       })
       validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+      validateVersionedAgentHandoff({ agentType, handoff })
       const runtimeSpawnParams = buildSpawnParamsWithHandoff({
         agentType,
         handoff,

@@ -28,6 +28,14 @@ export const spawnAgentsOutputSchema = z
  */
 export const agentHandoffSchema = z
   .object({
+    schemaVersion: z.literal(1).optional(),
+    taskId: z.string().min(1).optional(),
+    role: z.string().min(1).optional(),
+    objective: z.string().min(1).optional(),
+    requirements: z.array(z.object({ id: z.string(), text: z.string(), required: z.boolean() })).optional(),
+    acceptanceCriteria: z.array(z.object({ id: z.string(), behavior: z.string(), verification: z.string() })).optional(),
+    findings: z.array(z.object({ id: z.string(), text: z.string(), files: z.array(z.string()), snapshotFingerprint: z.string() })).optional(),
+    permissions: z.object({ readablePaths: z.array(z.string()), writablePaths: z.array(z.string()), allowedTools: z.array(z.string()) }).optional(),
     summary: z
       .string()
       .optional()

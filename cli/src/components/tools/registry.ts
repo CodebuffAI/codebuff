@@ -2,6 +2,7 @@ import { ApplyPatchComponent } from './apply-patch'
 import { CodeSearchComponent } from './code-search'
 import { EditTransactionComponent } from './edit-transaction'
 import { GlobComponent } from './glob'
+import { GitStatusComponent } from './git-status'
 import { ListDirectoryComponent } from './list-directory'
 import { QueryIndexComponent } from './query-index'
 import { ReadDocsComponent } from './read-docs'
@@ -43,6 +44,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ApplyPatchComponent.toolName, ApplyPatchComponent],
   [CodeSearchComponent.toolName, CodeSearchComponent],
   [GlobComponent.toolName, GlobComponent],
+  [GitStatusComponent.toolName, GitStatusComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
   [QueryIndexComponent.toolName, QueryIndexComponent],
   [RunFileChangeHooksComponent.toolName, RunFileChangeHooksComponent],

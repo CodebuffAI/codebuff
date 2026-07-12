@@ -17,7 +17,10 @@
     "guard:memory-drift": "bun run memory-drift-guard.ts",
     "guard:sync-agent-config": "bun run sync-agent-config.ts",
     "debug-log-subset": "bun run debug-log-subset.ts",
-    "typecheck-all": "bun run typecheck-all.ts"
+    "typecheck-all": "bun run typecheck-all.ts",
+    "harness:lsp": "bun run harness-language-server.ts",
+    "harness:repro": "bun run generate-minimal-repro.ts",
+    "harness:mutation": "bun run run-mutation-gate.ts"
   },
   "sideEffects": false,
   "engines": {

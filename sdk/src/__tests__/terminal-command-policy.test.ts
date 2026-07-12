@@ -66,8 +66,10 @@ describe('terminal command permission policy', () => {
     for (const command of [
       'git status --short',
       'git diff --cached',
+      'git fetch --prune origin',
       'git add src/a.ts',
       'git commit -m "Fix issue"',
+      'git push -u origin feature/safe-change',
     ]) {
       expect(
         evaluateTerminalCommandPolicy({
@@ -81,6 +83,8 @@ describe('terminal command permission policy', () => {
     for (const command of [
       'git commit --amend -m x',
       'git push origin main',
+      'git push --force origin feature/safe-change',
+      'git push origin feature/safe-change:main',
       'git add . && git commit -m x',
     ]) {
       expect(

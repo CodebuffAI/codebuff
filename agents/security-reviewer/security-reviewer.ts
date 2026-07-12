@@ -28,6 +28,27 @@ const definition: SecretAgentDefinition = {
     },
   },
   outputMode: 'last_message',
+  outputSchema: {
+    type: 'object',
+    properties: {
+      schemaVersion: { type: 'number' },
+      verdict: { type: 'string', enum: ['LOOKS_GOOD', 'NON_BLOCKING', 'BLOCKING'] },
+      findings: { type: 'array', items: { type: 'string' } },
+      coverage: { type: 'string', enum: ['covered', 'missing', 'n/a'] },
+      dimensions: {
+        type: 'object',
+        properties: {
+          inputBoundaries: { type: 'string' },
+          authorization: { type: 'string' },
+          secretHandling: { type: 'string' },
+          resourceSafety: { type: 'string' },
+          failureMode: { type: 'string' },
+        },
+        required: ['inputBoundaries', 'authorization', 'secretHandling', 'resourceSafety', 'failureMode'],
+      },
+    },
+    required: ['schemaVersion', 'verdict', 'findings', 'coverage', 'dimensions'],
+  },
   includeMessageHistory: false,
   toolNames: ['read_files', 'read_outline', 'code_search', 'git_status'],
   spawnableAgents: [],
@@ -35,6 +56,7 @@ const definition: SecretAgentDefinition = {
   systemPrompt: `You are an adversarial security reviewer. You assume hostile inputs and look for exploitable weaknesses. You review against OWASP-style categories and the project's own threat surface. You report concrete, reproducible findings with severity, not generic hardening advice.`,
 
   instructionsPrompt: `Instructions:
+Return the required structured output with schemaVersion 1 and give each security dimension a pass, warning, block, or not_applicable status. Any Critical/High/Medium exploitable finding must block the relevant dimension and the overall verdict.
 Your first visible token MUST be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD:.
 - Use BLOCKING: when any Critical/High/Medium exploitable finding requires a code change before finalization.
 - Use NON_BLOCKING: only for low-risk observations that do not require a change.

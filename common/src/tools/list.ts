@@ -58,6 +58,14 @@ import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 import { writeTodosParams } from './params/tool/write-todos'
+import { inspectWorkspaceParams } from './params/tool/inspect-workspace'
+import { runTargetedValidationParams } from './params/tool/run-targeted-validation'
+import { inspectEnvironmentParams } from './params/tool/inspect-environment'
+import { getAffectedTestsParams } from './params/tool/get-affected-tests'
+import { getBuildTargetsParams } from './params/tool/get-build-targets'
+import { evaluateAuditCoverageParams, inspectCodebaseStructureParams, inspectFeatureCompletenessParams } from './params/tool/audit-intelligence'
+import { getTaskParams } from './params/tool/get-task'
+import { getChangeReviewBundleParams } from './params/tool/get-change-review-bundle'
 
 import type { $ToolParams, PublishedToolName, ToolName } from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
@@ -77,6 +85,15 @@ export const toolParams = {
   code_search: codeSearchParams,
   git_status: gitStatusParams,
   git_branch: gitBranchParams,
+  get_task: getTaskParams,
+  get_change_review_bundle: getChangeReviewBundleParams,
+  inspect_workspace: inspectWorkspaceParams,
+  inspect_environment: inspectEnvironmentParams,
+  get_affected_tests: getAffectedTestsParams,
+  get_build_targets: getBuildTargetsParams,
+  inspect_codebase_structure: inspectCodebaseStructureParams,
+  inspect_feature_completeness: inspectFeatureCompletenessParams,
+  evaluate_audit_coverage: evaluateAuditCoverageParams,
   kill_job: killJobParams,
   read_logs: readLogsParams,
   create_plan: createPlanParams,
@@ -104,6 +121,7 @@ export const toolParams = {
   render_ui: renderUIParams,
   reject_proposal: rejectProposalParams,
   run_file_change_hooks: runFileChangeHooksParams,
+  run_targeted_validation: runTargetedValidationParams,
   run_terminal_command: runTerminalCommandParams,
   set_messages: setMessagesParams,
   set_output: setOutputParams,
@@ -184,9 +202,40 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     input: toolParams.git_status.inputSchema,
   }),
   z.object({
+    toolName: z.literal('run_targeted_validation'),
+    input: toolParams.run_targeted_validation.inputSchema,
+  }),
+  z.object({
     toolName: z.literal('git_branch'),
     input: toolParams.git_branch.inputSchema,
   }),
+  z.object({
+    toolName: z.literal('get_task'),
+    input: toolParams.get_task.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('get_change_review_bundle'),
+    input: toolParams.get_change_review_bundle.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('inspect_workspace'),
+    input: toolParams.inspect_workspace.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('inspect_environment'),
+    input: toolParams.inspect_environment.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('get_affected_tests'),
+    input: toolParams.get_affected_tests.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('get_build_targets'),
+    input: toolParams.get_build_targets.inputSchema,
+  }),
+  z.object({ toolName: z.literal('inspect_codebase_structure'), input: toolParams.inspect_codebase_structure.inputSchema }),
+  z.object({ toolName: z.literal('inspect_feature_completeness'), input: toolParams.inspect_feature_completeness.inputSchema }),
+  z.object({ toolName: z.literal('evaluate_audit_coverage'), input: toolParams.evaluate_audit_coverage.inputSchema }),
   z.object({
     toolName: z.literal('create_plan'),
     input: FileChangeSchema,

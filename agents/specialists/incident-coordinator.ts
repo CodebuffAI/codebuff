@@ -1,0 +1,2 @@
+import { createSpecialist } from './create-specialist'
+export default createSpecialist({ id: 'incident-coordinator', displayName: 'Incident and Debug Coordinator', purpose: 'Coordinates multi-component incident timelines, competing hypotheses, diagnostic probes, and root-cause evidence.', advisory: true, terminal: true, focus: ['Event timeline and correlated evidence', 'Competing hypotheses and discriminating probes', 'Blast radius and containment', 'Root cause, contributing factors, and follow-ups'] })

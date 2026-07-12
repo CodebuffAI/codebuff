@@ -36,12 +36,12 @@ describe('thinker agent', () => {
       expect(thinker.outputMode).toBe('structured_output')
     })
 
-    test('includes message history', () => {
-      expect(thinker.includeMessageHistory).toBe(true)
+    test('uses an isolated decision packet', () => {
+      expect(thinker.includeMessageHistory).toBe(false)
     })
 
-    test('inherits parent system prompt', () => {
-      expect(thinker.inheritParentSystemPrompt).toBe(true)
+    test('does not inherit parent orchestration prompt', () => {
+      expect(thinker.inheritParentSystemPrompt).toBe(false)
     })
 
     test('exposes set_output for structured output', () => {
@@ -59,7 +59,7 @@ describe('thinker agent', () => {
     })
 
     test('prompt has description', () => {
-      expect(thinker.inputSchema?.prompt?.description).toContain('problem')
+      expect(thinker.inputSchema?.prompt?.description).toContain('decision')
     })
 
     // M2.3: optional depth + outputSchemaHint hints.
