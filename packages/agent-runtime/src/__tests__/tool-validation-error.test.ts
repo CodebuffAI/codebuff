@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { mockFileContext } from './test-utils'
 import { processStream } from '../tools/stream-parser'
 import {
+  buildSpawnAgentsHandlerFailureOutput,
   normalizeNativeToolOutput,
   parseRawToolCall,
 } from '../tools/tool-executor'
@@ -31,6 +32,27 @@ describe('tool validation error handling', () => {
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
+  })
+
+  it('builds terminal spawn reports when validation fails after publication', () => {
+    const output = buildSpawnAgentsHandlerFailureOutput(
+      { agents: [{ agent_type: 'editor' }] },
+      new Error('Editor brief is incomplete'),
+    )
+
+    expect(output[0]).toMatchObject({
+      type: 'json',
+      value: [
+        {
+          agentType: 'editor',
+          agentName: 'editor',
+          value: {
+            errorMessage:
+              'Agent could not be started: Editor brief is incomplete',
+          },
+        },
+      ],
+    })
   })
 
   const testAgentTemplate: AgentTemplate = {

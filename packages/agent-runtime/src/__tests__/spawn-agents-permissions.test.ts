@@ -17,8 +17,10 @@ import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
 import {
   BASE_AGENT_IDS,
+  buildSpawnParamsWithHandoff,
   getMatchingSpawn,
   isBaseAgent,
+  normalizeSpawnAgentType,
   toolNotAgentError,
   validateAgentInput,
 } from '../tools/handlers/tool/spawn-agent-utils'
@@ -106,6 +108,26 @@ describe('Spawn Agents Permissions', () => {
     expect(
       getMatchingSpawn(['openbuff/file-picker@1.0.0'], 'file_picker'),
     ).toBe('openbuff/file-picker@1.0.0')
+  })
+
+  it('corrects the common code-searcher spawn typo', () => {
+    expect(normalizeSpawnAgentType('code-searccher')).toBe('code-searcher')
+    expect(getMatchingSpawn(['code-searcher'], 'code-searccher')).toBe(
+      'code-searcher',
+    )
+  })
+
+  it('normalizes string handoff context to a structured object', () => {
+    expect(
+      buildSpawnParamsWithHandoff({
+        agentType: 'editor',
+        handoff: { context: 'Follow the existing dashboard pattern.' },
+      }),
+    ).toEqual({
+      handoff: {
+        context: { text: 'Follow the existing dashboard pattern.' },
+      },
+    })
   })
 
   it('allows spawning when the child agent is spawnable', async () => {
@@ -310,6 +332,16 @@ describe('editor implementation brief validation', () => {
           'Risks:',
           '- Preserve compatibility.',
         ].join('\n'),
+      ),
+    ).not.toThrow()
+  })
+
+  it('accepts a concrete prose brief with actionable target files', () => {
+    expect(() =>
+      validateAgentInput(
+        editorTemplate,
+        'editor',
+        'Implement the IP dashboard in client/src/routes/dashboard.ip.tsx and update client/src/components/dashboard/Sidebar.tsx to add navigation. Follow the existing dashboard component patterns and preserve unrelated routes.',
       ),
     ).not.toThrow()
   })

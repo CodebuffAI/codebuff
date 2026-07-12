@@ -214,11 +214,24 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         initialAgentState.messageHistory,
       )
 
+      let agentState = initialAgentState
+
+      // Prime the editor with the exact declared targets before its first model
+      // step. This both gives the model current source context and lets the
+      // strict read-before-edit harness mint whole-file authorization for files
+      // that exist. Missing targets remain eligible for write_file creation.
+      if (targetFiles.length > 0) {
+        const preRead = yield {
+          toolName: 'read_files',
+          input: { paths: targetFiles },
+        }
+        agentState = preRead.agentState
+      }
+
       // Keep stepping while the model is still emitting edit tool calls so it
       // can implement multi-file changes and recover from failed str_replaces.
       // Unbounded: stepsRemaining (default 200, configurable via maxAgentSteps
       // in openbuff.json) already prevents runaway loops.
-      let agentState = initialAgentState
       while (true) {
         const result = yield 'STEP'
         agentState = result.agentState

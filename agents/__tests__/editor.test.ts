@@ -595,7 +595,20 @@ describe('editor agent', () => {
         ].join('\n'),
       } as any)
 
-      generator.next()
+      expect(generator.next().value).toEqual({
+        toolName: 'read_files',
+        input: {
+          paths: ['agents/base2/base2.ts', 'agents/__tests__/base2.test.ts'],
+        },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: undefined,
+          stepsComplete: false,
+        }).value,
+      ).toBe('STEP')
 
       const result = generator.next({
         agentState: createMockAgentState([

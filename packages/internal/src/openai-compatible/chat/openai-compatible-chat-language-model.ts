@@ -566,6 +566,13 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
+              // A few OpenAI-compatible proxies emit `data: null` as a
+              // heartbeat or non-standard end marker. It carries no model
+              // content, so ignore it just like [DONE] instead of surfacing a
+              // TypeValidationError for the root null value.
+              if (chunk.rawValue === null) {
+                return
+              }
               if (isOpenAICompatibleBillingSummaryChunk(chunk.rawValue)) {
                 return
               }

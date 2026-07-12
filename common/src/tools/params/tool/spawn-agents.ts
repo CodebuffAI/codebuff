@@ -55,10 +55,10 @@ export const agentHandoffSchema = z
         'Hard constraints (e.g. allowed paths, safety/scope rails). Children should reject work that violates these.',
       ),
     context: z
-      .record(z.string(), z.unknown())
+      .union([z.record(z.string(), z.unknown()), z.string()])
       .optional()
       .describe(
-        'Free-form structured context. Opaque to spawn_agents; the child agent may interpret as needed.',
+        'Optional handoff context. Prefer a JSON object for structured fields; a plain string is also accepted and normalized internally to { text: string }.',
       ),
   })
   .describe(

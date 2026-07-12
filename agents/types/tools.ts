@@ -919,8 +919,8 @@ export interface SpawnAgentsParams {
       nonGoals?: string[]
       /** Hard constraints (e.g. allowed paths, safety/scope rails). Children should reject work that violates these. */
       constraints?: string[]
-      /** Free-form structured context. Opaque to spawn_agents; the child agent may interpret as needed. */
-      context?: Record<string, any>
+      /** Optional handoff context. Prefer a JSON object for structured fields; a plain string is also accepted and normalized internally to { text: string }. */
+      context?: Record<string, any> | string
     }
     /** Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template's defaultTimeoutMs, or 20 minutes if unset. */
     timeout_seconds?: number

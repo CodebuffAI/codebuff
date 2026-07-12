@@ -8,6 +8,7 @@ import {
   type ReadFilesItemV1,
 } from '@codebuff/common/tools/results/filesystem'
 import { getToolMetadata } from '@codebuff/common/tools/metadata'
+import { isAbortError } from '@codebuff/common/util/error'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
@@ -25,6 +26,7 @@ import { codebuffToolHandlers } from './handlers/list'
 import {
   getMatchingSpawn,
   isBaseAgent,
+  normalizeSpawnAgentType,
   toolNotAgentError,
 } from './handlers/tool/spawn-agent-utils'
 import { getAgentTemplate } from '../templates/agent-registry'
@@ -70,6 +72,36 @@ export type ToolCallError = {
   input: unknown
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
+
+export function buildSpawnAgentsHandlerFailureOutput(
+  input: unknown,
+  error: unknown,
+): CodebuffToolOutput<'spawn_agents'> {
+  const inputRecord =
+    input && typeof input === 'object'
+      ? (input as Record<string, unknown>)
+      : undefined
+  const agents =
+    inputRecord && Array.isArray(inputRecord.agents) ? inputRecord.agents : []
+  const errorMessage =
+    error instanceof Error ? error.message : String(error || 'Unknown error')
+
+  return jsonToolResult(
+    (agents.length > 0 ? agents : [{}]).map((agent) => {
+      const agentType =
+        agent &&
+        typeof agent === 'object' &&
+        typeof (agent as Record<string, unknown>).agent_type === 'string'
+          ? String((agent as Record<string, unknown>).agent_type)
+          : 'unknown'
+      return {
+        agentType,
+        agentName: agentType,
+        value: { errorMessage: `Agent could not be started: ${errorMessage}` },
+      }
+    }),
+  )
+}
 
 export function normalizeNativeToolOutput<T extends ToolName>(params: {
   toolName: T
@@ -775,7 +807,7 @@ export async function executeToolCall<T extends ToolName>(
             }
           }
 
-          let agentIdToLoad = agentTypeStr
+          let agentIdToLoad = normalizeSpawnAgentType(agentTypeStr)
           if (!isParentBaseAgent) {
             const matchingSpawn = getMatchingSpawn(
               agentTemplate.spawnableAgents,
@@ -921,7 +953,20 @@ export async function executeToolCall<T extends ToolName>(
     }) as any,
   })
 
-  return toolResultPromise.then(async ({ output, creditsUsed }) => {
+  const recoverableToolResultPromise = toolResultPromise.catch((error) => {
+    if (toolName !== 'spawn_agents' || isAbortError(error)) {
+      throw error
+    }
+    logger.warn(
+      { error, toolCallId: toolCall.toolCallId },
+      'spawn_agents handler failed after tool-call publication; returning a terminal failure report',
+    )
+    return {
+      output: buildSpawnAgentsHandlerFailureOutput(finalToolCall.input, error),
+    } as Awaited<ReturnType<typeof handler>>
+  })
+
+  return recoverableToolResultPromise.then(async ({ output, creditsUsed }) => {
     let validatedOutput = output
     if (toolName === 'read_files') {
       const parsed = toolParams.read_files.outputSchema.safeParse(output)

@@ -474,6 +474,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
+              if (chunk.rawValue === null) {
+                return
+              }
               finishReason = 'error'
               controller.enqueue({ type: 'error', error: chunk.error })
               return

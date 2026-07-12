@@ -256,6 +256,29 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
     )
   })
 
+  it('ignores non-standard null SSE heartbeat chunks', async () => {
+    const chunks = await collectStreamChunks([
+      null,
+      {
+        id: 'chatcmpl-test',
+        model: 'test-model',
+        choices: [
+          {
+            delta: { role: 'assistant', content: 'Hello' },
+            finish_reason: 'stop',
+          },
+        ],
+      },
+    ])
+
+    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false)
+    expect(chunks).toContainEqual({
+      type: 'text-delta',
+      id: 'txt-0',
+      delta: 'Hello',
+    })
+  })
+
   // Reproduces the Bedrock-proxy bug: a single logical tool call whose JSON
   // arguments are streamed truncated (missing the closing brace) in the first
   // delta, with the orphaned suffix re-emitted as a SECOND tool_calls entry

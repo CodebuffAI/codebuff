@@ -17,6 +17,23 @@ type HookResult = {
   changedFiles?: string[]
 }
 
+export function formatHookRunHeader(results: HookResult[]): string {
+  if (results.length === 0) return 'Validation hooks'
+  const failed = results.filter(
+    (result) =>
+      Boolean(result.errorMessage) ||
+      (typeof result.exitCode === 'number' && result.exitCode !== 0),
+  ).length
+  const skipped = results.filter((result) =>
+    ['no_hooks_configured', 'hooks_skipped'].includes(
+      result.validationStatus ?? '',
+    ),
+  ).length
+  const passed = Math.max(0, results.length - failed - skipped)
+  if (skipped === results.length) return 'Validation skipped'
+  return `Hooks (${passed} passed${failed ? `, ${failed} failed` : ''}${skipped ? `, ${skipped} skipped` : ''})`
+}
+
 /**
  * UI component for the run_file_change_hooks tool — the verification gate.
  * Labels the stage "Hooks" so it is visually distinct from generic terminal
@@ -33,21 +50,7 @@ export const RunFileChangeHooksComponent = defineToolComponent({
     const results = getToolOutputValues(toolBlock.outputRaw).flatMap((value) =>
       Array.isArray(value) ? (value as HookResult[]) : [],
     )
-    const failed = results.filter(
-      (result) =>
-        Boolean(result.errorMessage) ||
-        (typeof result.exitCode === 'number' && result.exitCode !== 0),
-    ).length
-    const skipped = results.filter((result) =>
-      ['no_hooks_configured', 'hooks_skipped'].includes(
-        result.validationStatus ?? '',
-      ),
-    ).length
-    const passed = Math.max(0, results.length - failed - skipped)
-    const header =
-      results.length === 0
-        ? 'Hooks'
-        : `Hooks (${passed} passed${failed ? `, ${failed} failed` : ''}${skipped ? `, ${skipped} skipped` : ''})`
+    const header = formatHookRunHeader(results)
     const body = files.length > 0 ? files.join(', ') : 'no files'
 
     const content = (

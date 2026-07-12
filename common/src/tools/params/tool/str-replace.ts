@@ -21,6 +21,13 @@ export const updateFileResultSchema = z.union([
     file: z.string(),
     errorMessage: z.string(),
     patch: z.string().optional(),
+    errorCode: z.string().optional(),
+    recovery: z
+      .object({
+        tool: z.literal('read_files'),
+        input: z.object({ paths: z.array(z.string().min(1)).min(1) }),
+      })
+      .optional(),
   }),
 ])
 
@@ -84,7 +91,10 @@ const inputSchema = z
                       ),
                   })
                   .superRefine((replacement, ctx) => {
-                    if (replacement.skipIfMissing && replacement.newString !== '') {
+                    if (
+                      replacement.skipIfMissing &&
+                      replacement.newString !== ''
+                    ) {
                       ctx.addIssue({
                         code: 'custom',
                         path: ['skipIfMissing'],

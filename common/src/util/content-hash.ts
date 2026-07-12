@@ -67,6 +67,9 @@ export function encodeReadCapabilityToken(params: {
 export function decodeReadCapabilityToken(
   token: string,
 ): ReplacementReadCapability | string {
+  if (token.startsWith('whole.')) {
+    return `Invalid basedOnRead: ${JSON.stringify(token)} is a legacy mutation capability, not read authorization. New mutation results expose reusable cap.* tokens; for this legacy result, re-read the target with read_files and copy its readCapability.`
+  }
   if (!token.startsWith(READ_CAPABILITY_TOKEN_PREFIX)) {
     return `Invalid basedOnRead: expected a read capability token ("${READ_CAPABILITY_TOKEN_PREFIX}...") or a { startLine, endLine, hash } object, but received ${JSON.stringify(token)}.`
   }

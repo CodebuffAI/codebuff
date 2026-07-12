@@ -92,7 +92,12 @@ export const fileSnapshotV1Schema = z.object({
 
 const fileCapabilityBaseV1Schema = z.object({
   version: z.literal(1),
-  token: z.string().min(1),
+  token: z
+    .string()
+    .min(1)
+    .describe(
+      'Fresh stateless read capability for the snapshot. cap.* tokens may be copied verbatim into basedOnRead while the corresponding file content remains unchanged.',
+    ),
   snapshot: fileSnapshotV1Schema,
 })
 

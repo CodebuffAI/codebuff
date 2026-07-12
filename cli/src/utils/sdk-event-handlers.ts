@@ -770,15 +770,16 @@ const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
 
   // Compute and append a completion summary as a text block.
   state.message.updater.updateAiMessageBlocks((blocks) => {
+    const settledBlocks = settleOrphanedForegroundAgents(blocks)
     // Walk the accumulated blocks to tally what happened
-    const summary = computeCompletionSummary(blocks)
-    if (!summary) return blocks
+    const summary = computeCompletionSummary(settledBlocks)
+    if (!summary) return settledBlocks
 
     const formatted = formatCompletionSummary(summary)
-    if (!formatted) return blocks
+    if (!formatted) return settledBlocks
 
     return [
-      ...blocks,
+      ...settledBlocks,
       {
         type: 'text' as const,
         textType: 'text' as const,
@@ -787,6 +788,22 @@ const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
     ]
   })
 }
+
+const settleOrphanedForegroundAgents = (
+  blocks: ContentBlock[],
+): ContentBlock[] =>
+  blocks.map((block) => {
+    if (block.type !== 'agent') return block
+    const nestedBlocks = block.blocks
+      ? settleOrphanedForegroundAgents(block.blocks)
+      : block.blocks
+    if (block.status === 'running' && !block.backgroundJobId) {
+      return { ...block, blocks: nestedBlocks, status: 'failed' as const }
+    }
+    return nestedBlocks === block.blocks
+      ? block
+      : { ...block, blocks: nestedBlocks }
+  })
 
 const handleRuntimeError = (
   state: EventHandlerState,

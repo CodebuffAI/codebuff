@@ -325,6 +325,24 @@ describe('sdk-event-handlers', () => {
     expect(getMessages()[0].blocks?.[0]).toMatchObject({ status: 'failed' })
   })
 
+  test('root finish settles orphaned foreground agent cards', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'orphan-editor',
+      agentType: 'editor',
+      displayName: 'Editor',
+      onlyChild: true,
+    } as any)
+
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({ status: 'running' })
+
+    handleEvent({ type: 'finish', totalCost: 0 } as any)
+
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({ status: 'failed' })
+  })
+
   test('extracts plan content from root stream', () => {
     const { ctx, getMessages } = createTestContext()
     const handleChunk = createStreamChunkHandler(ctx)

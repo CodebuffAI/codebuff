@@ -266,6 +266,9 @@ export class OpenAICompatibleCompletionLanguageModel implements LanguageModelV2 
 
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
+              if (chunk.rawValue === null) {
+                return
+              }
               if (isOpenAICompatibleBillingSummaryChunk(chunk.rawValue)) {
                 return
               }

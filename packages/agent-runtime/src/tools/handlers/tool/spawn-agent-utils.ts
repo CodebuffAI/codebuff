@@ -112,6 +112,18 @@ export function extractSubagentContextParams(
   }
 }
 
+const SPAWN_AGENT_TYPE_ALIASES: Readonly<Record<string, string>> = {
+  'code-searccher': 'code-searcher',
+}
+
+/**
+ * Canonicalizes known agent-name typos before permission checks and template
+ * lookup. Keep this list narrow so legitimate custom agent IDs are unaffected.
+ */
+export function normalizeSpawnAgentType(agentTypeStr: string): string {
+  return SPAWN_AGENT_TYPE_ALIASES[agentTypeStr] ?? agentTypeStr
+}
+
 /**
  * Checks if a parent agent is allowed to spawn a child agent
  */
@@ -119,11 +131,12 @@ export function getMatchingSpawn(
   spawnableAgents: AgentTemplateType[],
   childFullAgentId: string,
 ) {
+  const normalizedChildAgentId = normalizeSpawnAgentType(childFullAgentId)
   const {
     publisherId: childPublisherId,
     agentId: childAgentId,
     version: childVersion,
-  } = parseAgentId(normalizeAgentIdForLookup(childFullAgentId))
+  } = parseAgentId(normalizeAgentIdForLookup(normalizedChildAgentId))
 
   if (!childAgentId) {
     return null
@@ -219,10 +232,11 @@ export async function validateAndGetAgentTemplate(
   } & ParamsExcluding<typeof getAgentTemplate, 'agentId'>,
 ): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
   const { agentTypeStr, parentAgentTemplate } = params
+  const normalizedAgentType = normalizeSpawnAgentType(agentTypeStr)
   const isParentBaseAgent = isBaseAgent(parentAgentTemplate.id)
   const agentType = isParentBaseAgent
-    ? normalizeAgentIdForLookup(agentTypeStr)
-    : getMatchingSpawn(parentAgentTemplate.spawnableAgents, agentTypeStr)
+    ? normalizeAgentIdForLookup(normalizedAgentType)
+    : getMatchingSpawn(parentAgentTemplate.spawnableAgents, normalizedAgentType)
 
   if (!agentType) {
     if (toolNames.includes(agentTypeStr as any)) {
@@ -268,9 +282,19 @@ export function buildSpawnParamsWithHandoff(params: {
     )
   }
 
+  const normalizedHandoff =
+    handoff && typeof handoff === 'object' && !Array.isArray(handoff)
+      ? (() => {
+          const record = handoff as Record<string, unknown>
+          return typeof record.context === 'string'
+            ? { ...record, context: { text: record.context } }
+            : record
+        })()
+      : handoff
+
   return {
     ...(spawnParams ?? {}),
-    handoff,
+    handoff: normalizedHandoff,
   }
 }
 
@@ -385,16 +409,32 @@ export function validateAgentInput(
       )
     }
     if (missingFields.length > 0) {
-      // Non-empty but incomplete: list ONLY the actually-missing fields so
-      // the error is actionable rather than a generic “include everything”.
-      throw new Error(
-        [
-          header,
-          'Missing brief fields/sections:',
-          ...missingFields.map((label) => `- ${label}`),
-          'Re-spawn the editor with a prompt that includes all of the above as labeled sections. Do not rely on parent conversation history.',
-        ].join('\n'),
-      )
+      const hasConcreteTargetPath =
+        /(?:^|[\s`'"(])(?:\.\.?\/)?[\w@.-]+(?:\/[\w@.-]+)+\.[A-Za-z][\w.-]*/m.test(
+          trimmedPrompt,
+        )
+      const hasActionableImplementationRequest =
+        trimmedPrompt.length >= 80 &&
+        /\b(?:add|build|change|create|edit|fix|implement|update|wire)\b/i.test(
+          trimmedPrompt,
+        )
+
+      // Models frequently produce a concrete prose implementation brief rather
+      // than the preferred five labeled sections. Accept that equivalent shape
+      // when it names at least one real target file and contains a substantive
+      // implementation action; keep rejecting vague/incidental prompts.
+      if (!hasConcreteTargetPath || !hasActionableImplementationRequest) {
+        // Non-empty but incomplete: list ONLY the actually-missing fields so
+        // the error is actionable rather than a generic “include everything”.
+        throw new Error(
+          [
+            header,
+            'Missing brief fields/sections:',
+            ...missingFields.map((label) => `- ${label}`),
+            'Re-spawn the editor with a prompt that includes all of the above as labeled sections, or provide a concrete prose implementation brief naming the exact target files. Do not rely on parent conversation history.',
+          ].join('\n'),
+        )
+      }
     }
   }
 
