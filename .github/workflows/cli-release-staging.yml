@@ -25,6 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           bun scripts/check-env-architecture.ts
+          bun run --cwd sdk build
+          bun run --cwd cli prebuild:agents
           bun run --cwd cli typecheck
           HOME="$RUNNER_TEMP/openbuff-test-home" bun run --cwd cli test
 
