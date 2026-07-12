@@ -60,6 +60,7 @@ if (siblingPath) {
   // is. The locateFile callback there will hand this path to
   // emscripten, which fs.readFile's it.
   process.env.CODEBUFF_TREE_SITTER_WASM_PATH = siblingPath
+  process.env.CODEBUFF_WASM_DIR = dirname(siblingPath)
 
   // Also publish on globalThis so the smoke handler in index.tsx can
   // read it without touching process.env (which is gated by the env

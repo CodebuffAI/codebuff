@@ -133,7 +133,7 @@ export const QueryIndexComponent = defineToolComponent({
             ) : null}
             {structuredStatus?.semantic ? (
               <text style={{ wrapMode: 'word' }}>
-                <span fg={theme.muted}>{`Semantic: ${structuredStatus.semantic}`}</span>
+                <span fg={theme.muted}>{`Vector embeddings: ${structuredStatus.semantic}`}</span>
               </text>
             ) : null}
             {coverage?.truncated ? (

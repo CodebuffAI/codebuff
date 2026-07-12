@@ -121,7 +121,7 @@ describe('QueryIndexComponent', () => {
     const markup = renderToStaticMarkup(<>{rendered.content}</>)
 
     expect(markup).toContain('degraded · refreshing')
-    expect(markup).toContain('Semantic: failed')
+    expect(markup).toContain('Vector embeddings: failed')
     expect(markup).toContain('Partial coverage')
     expect(markup).toContain('src/bad.ts')
     expect(markup).toContain('syntax error')

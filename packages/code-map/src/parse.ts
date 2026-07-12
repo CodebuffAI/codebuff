@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { getLanguageConfig } from './languages'
+import { getLanguageConfig, hasLanguageConfiguration } from './languages'
 
 import type { LanguageConfig } from './languages'
 import type { Parser, Query } from 'web-tree-sitter'
@@ -116,9 +116,9 @@ export async function getFileTokenScores(
         diagnostics.push({
           filePath,
           stage: 'language',
-          message: `No tree-sitter language configuration available for ${
-            path.extname(filePath) || 'file'
-          }`,
+          message: hasLanguageConfiguration(fullPath)
+            ? `Tree-sitter grammar failed to load for ${path.extname(filePath) || 'file'}. Verify the packaged language WASM files and CODEBUFF_WASM_DIR.`
+            : `No tree-sitter language configuration available for ${path.extname(filePath) || 'file'}`,
         })
         continue
       }

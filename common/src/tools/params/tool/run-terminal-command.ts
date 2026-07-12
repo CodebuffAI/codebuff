@@ -103,10 +103,7 @@ Stick to these use cases:
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
 
-Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags and *do not* use the tool call format, e.g.:
-\`\`\`bash
-git branch -D foo
-\`\`\`
+This tool has no interactive privilege-escalation path. Do not ask the user to approve a denied basher command and then retry it: approval text cannot change the runtime permission profile. Keep validation and inspection commands within the read-only allowlist. Use dedicated, explicitly authorized agents/workflows for git mutation, dependency installation, releases, deployment, or other high-impact operations; otherwise ask the user to run the command themselves outside the agent.
 
 DO NOT do any of the following:
 1. Run commands that can modify files outside of the project directory, install packages globally, install virtual environments, or have significant side effects outside of the project directory, unless you have explicit permission from the user. Treat anything outside of the project directory as read-only.

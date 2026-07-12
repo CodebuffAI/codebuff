@@ -26,6 +26,9 @@ import phpQuery from './tree-sitter-queries/tree-sitter-php-tags.scm'
 import swiftQuery from './tree-sitter-queries/tree-sitter-swift-tags.scm'
 import gdscriptQuery from './tree-sitter-queries/tree-sitter-gdscript-tags.scm'
 import { getDirnameDynamically } from './utils'
+import { WASM_FILES } from './wasm-files'
+
+export { WASM_FILES } from './wasm-files'
 
 /* ------------------------------------------------------------------ */
 /* 2. Types and interfaces                                           */
@@ -49,23 +52,6 @@ export interface RuntimeLanguageLoader {
 /* ------------------------------------------------------------------ */
 /* 3. WASM file manifest                                             */
 /* ------------------------------------------------------------------ */
-export const WASM_FILES = {
-  'tree-sitter-c-sharp.wasm': 'tree-sitter-c-sharp.wasm',
-  'tree-sitter-cpp.wasm': 'tree-sitter-cpp.wasm',
-  'tree-sitter-go.wasm': 'tree-sitter-go.wasm',
-  'tree-sitter-java.wasm': 'tree-sitter-java.wasm',
-  'tree-sitter-javascript.wasm': 'tree-sitter-javascript.wasm',
-  'tree-sitter-python.wasm': 'tree-sitter-python.wasm',
-  'tree-sitter-ruby.wasm': 'tree-sitter-ruby.wasm',
-  'tree-sitter-rust.wasm': 'tree-sitter-rust.wasm',
-  'tree-sitter-tsx.wasm': 'tree-sitter-tsx.wasm',
-  'tree-sitter-typescript.wasm': 'tree-sitter-typescript.wasm',
-  'tree-sitter-kotlin.wasm': 'tree-sitter-kotlin.wasm',
-  'tree-sitter-php.wasm': 'tree-sitter-php.wasm',
-  'tree-sitter-swift.wasm': 'tree-sitter-swift.wasm',
-  'tree-sitter-gdscript.wasm': 'tree-sitter-gdscript.wasm',
-} as const
-
 /* ------------------------------------------------------------------ */
 /* 4. Language table                                                 */
 /* ------------------------------------------------------------------ */
@@ -350,4 +336,8 @@ export async function getLanguageConfig(
     }
     return undefined
   }
+}
+
+export function hasLanguageConfiguration(filePath: string): boolean {
+  return findLanguageConfigByExtension(filePath) !== undefined
 }
