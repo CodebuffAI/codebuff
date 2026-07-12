@@ -120,8 +120,13 @@ export const handleUpdatePlanStatus = (async (params: {
   logger: Logger
 }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const { previousToolCallFinished, toolCall, logger } = params
-  const { path: artifactPath, updates, append, sessionStatus, currentTask } =
-    toolCall.input
+  const {
+    path: artifactPath,
+    updates,
+    append,
+    sessionStatus,
+    currentTask,
+  } = toolCall.input
 
   await previousToolCallFinished
 
@@ -194,8 +199,9 @@ export const handleUpdatePlanStatus = (async (params: {
   // P0.19 — current-task annotation only takes effect when the artifact is
   // PLAN.md. We surface explicit `currentTask` first, then fall back to the
   // first task that transitioned to in_progress during this call.
-  const isPlanArtifact =
-    normalizePlanPath(artifactPath.trim()).endsWith('/PLAN.md')
+  const isPlanArtifact = normalizePlanPath(artifactPath.trim()).endsWith(
+    '/PLAN.md',
+  )
   let currentTaskApplied: string | null | undefined = undefined
   if (isPlanArtifact) {
     if (currentTask !== undefined) {
@@ -224,9 +230,15 @@ export const handleUpdatePlanStatus = (async (params: {
   // P0.20 — persist session state (status / currentTask) whenever any
   // session-level control was supplied or we discovered an in-progress
   // transition that should be reflected in STATE.json.
-  let sessionStateApplied: { status?: PlanSessionStatus; currentTask?: string | null } | null = null
+  let sessionStateApplied: {
+    status?: PlanSessionStatus
+    currentTask?: string | null
+  } | null = null
   if (sessionStatus !== undefined || currentTaskApplied !== undefined) {
-    if (sessionStatus !== undefined && !PLAN_SESSION_STATUS_SET.has(sessionStatus)) {
+    if (
+      sessionStatus !== undefined &&
+      !PLAN_SESSION_STATUS_SET.has(sessionStatus)
+    ) {
       return {
         output: jsonToolResult({
           file: artifactPath,
@@ -236,7 +248,8 @@ export const handleUpdatePlanStatus = (async (params: {
     }
     const sessionDir = path.dirname(writePath)
     const slug = path.basename(sessionDir)
-    const patch: { status?: PlanSessionStatus; currentTask?: string | null } = {}
+    const patch: { status?: PlanSessionStatus; currentTask?: string | null } =
+      {}
     if (sessionStatus !== undefined) patch.status = sessionStatus
     if (currentTaskApplied !== undefined) patch.currentTask = currentTaskApplied
     // Pass the project root explicitly to avoid mutating the module-level
@@ -298,7 +311,10 @@ export const handleUpdatePlanStatus = (async (params: {
       {
         kind: 'append_lesson',
         summary: `Appended entry "${appendedHeading}" to ${path.basename(writePath)}`,
-        payload: { heading: appendedHeading, artifact: path.basename(writePath) },
+        payload: {
+          heading: appendedHeading,
+          artifact: path.basename(writePath),
+        },
       },
       projectRoot,
     )

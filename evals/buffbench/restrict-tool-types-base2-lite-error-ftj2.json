@@ -391,10 +391,7 @@
               "count-edit-file.ts",
               "update-stripe-subscriptions.ts"
             ],
-            "directories": [
-              "ft-file-selection",
-              "changelog"
-            ],
+            "directories": ["ft-file-selection", "changelog"],
             "path": "scripts"
           }
         }
@@ -442,10 +439,7 @@
               "process-stream.ts",
               "websocket-client.ts"
             ],
-            "directories": [
-              "tools",
-              "types"
-            ],
+            "directories": ["tools", "types"],
             "path": "sdk/src"
           }
         }
@@ -646,10 +640,7 @@
               "count-edit-file.ts",
               "update-stripe-subscriptions.ts"
             ],
-            "directories": [
-              "ft-file-selection",
-              "changelog"
-            ]
+            "directories": ["ft-file-selection", "changelog"]
           },
           {
             "path": "sdk/src",
@@ -660,10 +651,7 @@
               "process-stream.ts",
               "websocket-client.ts"
             ],
-            "directories": [
-              "tools",
-              "types"
-            ]
+            "directories": ["tools", "types"]
           },
           {
             "path": "common/src",
@@ -1373,10 +1361,7 @@
                         "count-edit-file.ts",
                         "update-stripe-subscriptions.ts"
                       ],
-                      "directories": [
-                        "ft-file-selection",
-                        "changelog"
-                      ]
+                      "directories": ["ft-file-selection", "changelog"]
                     },
                     {
                       "path": "sdk/src",
@@ -1387,10 +1372,7 @@
                         "process-stream.ts",
                         "websocket-client.ts"
                       ],
-                      "directories": [
-                        "tools",
-                        "types"
-                      ]
+                      "directories": ["tools", "types"]
                     },
                     {
                       "path": "common/src",
@@ -1504,10 +1486,7 @@
       "toolCallId": "D-WDhRCoKc0",
       "toolName": "read_files",
       "input": {
-        "paths": [
-          "common/src/tools/utils.ts",
-          "sdk/scripts/publish.js"
-        ]
+        "paths": ["common/src/tools/utils.ts", "sdk/scripts/publish.js"]
       },
       "agentId": "main-agent",
       "includeToolCall": true
@@ -1797,9 +1776,7 @@
       "toolCallId": "D-X9KE0M3ng",
       "toolName": "read_files",
       "input": {
-        "paths": [
-          "common/src/util/types/tools.d.ts"
-        ]
+        "paths": ["common/src/util/types/tools.d.ts"]
       },
       "agentId": "main-agent",
       "includeToolCall": true
@@ -1809,9 +1786,7 @@
       "toolCallId": "D-X9ly-k7n0",
       "toolName": "read_files",
       "input": {
-        "paths": [
-          "package.json"
-        ]
+        "paths": ["package.json"]
       },
       "agentId": "main-agent",
       "includeToolCall": true

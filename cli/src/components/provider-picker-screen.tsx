@@ -50,7 +50,8 @@ const DEFAULT_PRESETS: ProviderPickerPreset[] = [
   {
     id: 'opencode-go',
     label: 'OpenCode Go',
-    description: 'OpenCode Go subscription endpoint with coding-focused models.',
+    description:
+      'OpenCode Go subscription endpoint with coding-focused models.',
     env: 'OPENCODE_GO_API_KEY',
     category: 'Subscriptions',
     aliases: ['opencode', 'go', 'zai', 'glm', 'kimi', 'qwen'],
@@ -123,7 +124,12 @@ const DEFAULT_PRESETS: ProviderPickerPreset[] = [
 ]
 
 type CustomProviderType = 'openai-compatible' | 'anthropic-compatible'
-type EditableCustomField = 'id' | 'providerType' | 'baseURL' | 'apiKeyEnv' | 'models'
+type EditableCustomField =
+  | 'id'
+  | 'providerType'
+  | 'baseURL'
+  | 'apiKeyEnv'
+  | 'models'
 type CustomField = EditableCustomField | 'review'
 
 type CustomProviderDraft = {
@@ -217,7 +223,9 @@ function envStatus(env: string | undefined): string | null {
   return getSystemProcessEnv()[env] ? '✓' : '!'
 }
 
-function isEditableCustomField(field: CustomField): field is EditableCustomField {
+function isEditableCustomField(
+  field: CustomField,
+): field is EditableCustomField {
   return field !== 'review'
 }
 
@@ -235,9 +243,9 @@ function getNextCustomField(field: EditableCustomField): CustomField {
 function canSubmitCustomProvider(provider: CustomProviderDraft): boolean {
   return Boolean(
     provider.id.trim() &&
-      normalizeCustomProviderType(provider.providerType) !== null &&
-      provider.baseURL.trim() &&
-      normalizeModels(provider.models).length > 0,
+    normalizeCustomProviderType(provider.providerType) !== null &&
+    provider.baseURL.trim() &&
+    normalizeModels(provider.models).length > 0,
   )
 }
 
@@ -268,7 +276,10 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
 
   const filteredItems = useMemo(() => {
     const pickerItems: PickerItem[] = [
-      ...visiblePresets.map((preset) => ({ ...preset, kind: 'preset' as const })),
+      ...visiblePresets.map((preset) => ({
+        ...preset,
+        kind: 'preset' as const,
+      })),
       {
         kind: 'custom' as const,
         id: 'custom',
@@ -276,7 +287,12 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
         description:
           'Enter an id, provider type, base URL, API key environment variable, and model ids.',
         category: 'Custom' as const,
-        aliases: ['custom', 'openai compatible', 'anthropic compatible', 'claude'],
+        aliases: [
+          'custom',
+          'openai compatible',
+          'anthropic compatible',
+          'claude',
+        ],
       },
     ]
 
@@ -370,7 +386,9 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
     if (!isEditableCustomField(customField)) return
     const nextField = getNextCustomField(customField)
     setCustomField(nextField)
-    setCustomCursor(nextField === 'review' ? 0 : customProvider[nextField].length)
+    setCustomCursor(
+      nextField === 'review' ? 0 : customProvider[nextField].length,
+    )
   }, [customField, customProvider])
 
   const handleCustomKey = useCallback(
@@ -404,8 +422,11 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
       if (key.name === 'return' || key.name === 'enter' || key.name === 'y') {
         key.preventDefault()
         const models = normalizeModels(customProvider.models)
-        const providerType = normalizeCustomProviderType(customProvider.providerType)
-        if (!providerType || !canSubmitCustomProvider(customProvider)) return true
+        const providerType = normalizeCustomProviderType(
+          customProvider.providerType,
+        )
+        if (!providerType || !canSubmitCustomProvider(customProvider))
+          return true
         onSelect({
           type: 'custom',
           provider: {
@@ -462,7 +483,9 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
         </text>
         <text style={{ fg: theme.muted }}>Esc goes back one step.</text>
         <box style={{ height: 1 }} />
-        <text style={{ fg: theme.foreground }}>ID: {customProvider.id || '—'}</text>
+        <text style={{ fg: theme.foreground }}>
+          ID: {customProvider.id || '—'}
+        </text>
         <text style={{ fg: theme.foreground }}>
           Type: {customProvider.providerType}
         </text>
@@ -478,7 +501,9 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
         <box style={{ height: 1 }} />
         {currentField ? (
           <box style={{ width: contentWidth, flexDirection: 'column' }}>
-            <text style={{ fg: theme.success }}>{FIELD_LABELS[currentField]}:</text>
+            <text style={{ fg: theme.success }}>
+              {FIELD_LABELS[currentField]}:
+            </text>
             <MultilineInput
               value={currentValue}
               onChange={({ text, cursorPosition }) => {
@@ -515,7 +540,9 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
                 ? 'Press Enter or y to save this provider.'
                 : 'Provider id, provider type, base URL, and at least one model are required.'}
             </text>
-            <text style={{ fg: theme.muted }}>Press n to edit, Esc to go back.</text>
+            <text style={{ fg: theme.muted }}>
+              Press n to edit, Esc to go back.
+            </text>
           </box>
         )}
         <box style={{ marginTop: 1 }}>
@@ -592,7 +619,10 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
               return (
                 <text
                   key={`header-${row.label}-${index}`}
-                  style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}
+                  style={{
+                    fg: theme.foreground,
+                    attributes: TextAttributes.BOLD,
+                  }}
                 >
                   {row.label}
                 </text>
@@ -615,14 +645,16 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
                   {item.label}
                   <span style={{ fg: theme.muted }}>{envSuffix}</span>
                 </text>
-                <text style={{ fg: theme.muted }}>    {item.description}</text>
+                <text style={{ fg: theme.muted }}> {item.description}</text>
               </box>
             )
           })
         )}
       </box>
       <box style={{ marginTop: 1 }}>
-        <text style={{ fg: theme.muted }}>↑↓ navigate · Enter select · Esc cancel</text>
+        <text style={{ fg: theme.muted }}>
+          ↑↓ navigate · Enter select · Esc cancel
+        </text>
       </box>
     </box>
   )

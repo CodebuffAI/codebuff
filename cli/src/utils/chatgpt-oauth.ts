@@ -80,7 +80,10 @@ function generateCodeChallenge(verifier: string): string {
 let pendingCodeVerifier: string | null = null
 let pendingState: string | null = null
 
-export function startChatGptOAuthFlow(): { codeVerifier: string; authUrl: string } {
+export function startChatGptOAuthFlow(): {
+  codeVerifier: string
+  authUrl: string
+} {
   const codeVerifier = generateCodeVerifier()
   const codeChallenge = generateCodeChallenge(codeVerifier)
   const state = codeVerifier
@@ -104,12 +107,17 @@ export function startChatGptOAuthFlow(): { codeVerifier: string; authUrl: string
 }
 
 const CALLBACK_SERVER_TIMEOUT_MS = 5 * 60 * 1000
+const TOKEN_REQUEST_TIMEOUT_MS = 30 * 1000
 
 let callbackServer: http.Server | null = null
 
 export function stopChatGptOAuthServer(): void {
   if (callbackServer) {
-    try { callbackServer.close() } catch { /* ignore */ }
+    try {
+      callbackServer.close()
+    } catch {
+      /* ignore */
+    }
     callbackServer = null
   }
   pendingCodeVerifier = null
@@ -117,14 +125,21 @@ export function stopChatGptOAuthServer(): void {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function callbackPageHtml(success: boolean, errorMessage?: string): string {
   const brandLabel = 'CLI'
   const returnTarget = 'the CLI'
   const retryCommand = '/provider connect codex'
-  const title = success ? `Connected — ${brandLabel}` : `Connection Failed — ${brandLabel}`
+  const title = success
+    ? `Connected — ${brandLabel}`
+    : `Connection Failed — ${brandLabel}`
   const heading = success ? '✓ Connected to ChatGPT' : 'Connection Failed'
   const headingColor = success ? '#4ade80' : '#f87171'
   const body = success
@@ -178,7 +193,9 @@ function startCallbackServer(
       const state = reqUrl.searchParams.get('state')
       if (!state || state !== expectedState) {
         res.writeHead(400, { 'Content-Type': 'text/html' })
-        res.end(callbackPageHtml(false, 'OAuth state mismatch. Please try again.'))
+        res.end(
+          callbackPageHtml(false, 'OAuth state mismatch. Please try again.'),
+        )
         clearTimeout(timeout)
         stopChatGptOAuthServer()
         reject(new Error('OAuth state mismatch in callback'))
@@ -187,7 +204,10 @@ function startCallbackServer(
 
       try {
         const fullCallbackUrl = `${CHATGPT_OAUTH_REDIRECT_URI}${reqUrl.search}`
-        const credentials = await exchangeChatGptCodeForTokens(fullCallbackUrl, codeVerifier)
+        const credentials = await exchangeChatGptCodeForTokens(
+          fullCallbackUrl,
+          codeVerifier,
+        )
 
         res.writeHead(200, { 'Content-Type': 'text/html' })
         res.end(callbackPageHtml(true))
@@ -196,7 +216,8 @@ function startCallbackServer(
         stopChatGptOAuthServer()
         resolve(credentials)
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Token exchange failed'
+        const message =
+          err instanceof Error ? err.message : 'Token exchange failed'
         res.writeHead(500, { 'Content-Type': 'text/html' })
         res.end(callbackPageHtml(false, message))
 
@@ -259,7 +280,9 @@ export async function exchangeChatGptCodeForTokens(
 ): Promise<ChatGptOAuthCredentials> {
   const verifier = codeVerifier ?? pendingCodeVerifier
   if (!verifier) {
-    throw new Error('No PKCE verifier found. Please run /connect:chatgpt again.')
+    throw new Error(
+      'No PKCE verifier found. Please run /connect:chatgpt again.',
+    )
   }
 
   const { code, state } = parseAuthCodeInput(authCodeInput)
@@ -280,6 +303,7 @@ export async function exchangeChatGptCodeForTokens(
       code,
       code_verifier: verifier,
     }),
+    signal: AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS),
   })
 
   if (!response.ok) {

@@ -111,7 +111,11 @@ export function wrapTextPreservingNewlines(text: string, cols: number): string {
   return wrapTextToVisualLines(text, cols).join('\n')
 }
 
-export function getLastNVisualLines(text: string, cols: number, n: number): { lines: string[]; hasMore: boolean } {
+export function getLastNVisualLines(
+  text: string,
+  cols: number,
+  n: number,
+): { lines: string[]; hasMore: boolean } {
   if (n <= 0 || cols <= 0) return { lines: [], hasMore: false }
   if (!text) return { lines: [], hasMore: false }
 

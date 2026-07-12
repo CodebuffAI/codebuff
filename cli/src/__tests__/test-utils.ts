@@ -21,10 +21,13 @@ export function isTmuxAvailable(): boolean {
     execSync('which tmux', { stdio: 'pipe' })
     // Then verify tmux can actually run by creating and killing a test session
     // This will fail if tmux server can't start (e.g., no socket directory on CI)
-    execSync('tmux new-session -d -s __codebuff_tmux_check__ && tmux kill-session -t __codebuff_tmux_check__', {
-      stdio: 'pipe',
-      timeout: 5000,
-    })
+    execSync(
+      'tmux new-session -d -s __codebuff_tmux_check__ && tmux kill-session -t __codebuff_tmux_check__',
+      {
+        stdio: 'pipe',
+        timeout: 5000,
+      },
+    )
     return true
   } catch {
     return false
@@ -189,9 +192,7 @@ export function parseRerenderLogs(logPath: string): RerenderLogEntry[] {
           parsed.msg.includes('render #')
         ) {
           // Extract component name from msg like "MessageBlock render #2 [user-123]: 2 props changed"
-          const msgMatch = parsed.msg.match(
-            /^(\w+) render #(\d+) \[([^\]]+)\]/,
-          )
+          const msgMatch = parsed.msg.match(/^(\w+) render #(\d+) \[([^\]]+)\]/)
           if (msgMatch && parsed.data) {
             entries.push({
               timestamp: parsed.timestamp,
@@ -216,7 +217,9 @@ export function parseRerenderLogs(logPath: string): RerenderLogEntry[] {
 /**
  * Analyze re-render logs and return aggregated statistics
  */
-export function analyzeRerenders(entries: RerenderLogEntry[]): RerenderAnalysis {
+export function analyzeRerenders(
+  entries: RerenderLogEntry[],
+): RerenderAnalysis {
   const rerendersByMessage = new Map<string, number>()
   const propChangeFrequency = new Map<string, number>()
 

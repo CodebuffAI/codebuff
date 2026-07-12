@@ -35,6 +35,7 @@ export const useChatScrollbox = (
 ) => {
   const autoScrollEnabledRef = useRef<boolean>(true)
   const programmaticScrollRef = useRef<boolean>(false)
+  const programmaticFollowRef = useRef<boolean>(false)
   const animationFrameRef = useRef<number | null>(null)
   const [isAtBottom, setIsAtBottom] = useState<boolean>(true)
 
@@ -46,7 +47,11 @@ export const useChatScrollbox = (
   }, [])
 
   const animateScrollTo = useCallback(
-    (targetScroll: number, duration = DEFAULT_SCROLL_ANIMATION_DURATION_MS) => {
+    (
+      targetScroll: number,
+      duration = DEFAULT_SCROLL_ANIMATION_DURATION_MS,
+      enableFollowOnComplete = false,
+    ) => {
       const scrollbox = scrollRef.current
       if (!scrollbox) return
 
@@ -64,6 +69,7 @@ export const useChatScrollbox = (
         const newScroll = startScroll + distance * easedProgress
 
         programmaticScrollRef.current = true
+        programmaticFollowRef.current = enableFollowOnComplete
         scrollbox.scrollTop = newScroll
 
         if (progress < 1) {
@@ -86,7 +92,7 @@ export const useChatScrollbox = (
       0,
       scrollbox.scrollHeight - scrollbox.viewport.height,
     )
-    animateScrollTo(maxScroll)
+    animateScrollTo(maxScroll, DEFAULT_SCROLL_ANIMATION_DURATION_MS, true)
   }, [scrollRef, animateScrollTo])
 
   const scrollUp = useCallback((): void => {
@@ -96,6 +102,7 @@ export const useChatScrollbox = (
     const viewportHeight = scrollbox.viewport.height
     const scrollAmount = Math.floor(viewportHeight * PAGE_SCROLL_FRACTION)
     const targetScroll = Math.max(0, scrollbox.scrollTop - scrollAmount)
+    autoScrollEnabledRef.current = false
     animateScrollTo(targetScroll)
   }, [scrollRef, animateScrollTo])
 
@@ -104,13 +111,14 @@ export const useChatScrollbox = (
     if (!scrollbox) return
 
     const viewportHeight = scrollbox.viewport.height
-    const maxScroll = Math.max(
-      0,
-      scrollbox.scrollHeight - viewportHeight,
-    )
+    const maxScroll = Math.max(0, scrollbox.scrollHeight - viewportHeight)
     const scrollAmount = Math.floor(viewportHeight * PAGE_SCROLL_FRACTION)
     const targetScroll = Math.min(maxScroll, scrollbox.scrollTop + scrollAmount)
-    animateScrollTo(targetScroll)
+    animateScrollTo(
+      targetScroll,
+      DEFAULT_SCROLL_ANIMATION_DURATION_MS,
+      targetScroll >= maxScroll,
+    )
   }, [scrollRef, animateScrollTo])
 
   useEffect(() => {
@@ -128,8 +136,9 @@ export const useChatScrollbox = (
 
       if (programmaticScrollRef.current) {
         programmaticScrollRef.current = false
-        autoScrollEnabledRef.current = true
-        setIsAtBottom(true)
+        autoScrollEnabledRef.current =
+          programmaticFollowRef.current && isNearBottom
+        setIsAtBottom(isNearBottom)
         return
       }
 
@@ -143,7 +152,7 @@ export const useChatScrollbox = (
     return () => {
       scrollbox.verticalScrollBar.off('change', handleScrollChange)
     }
-  }, [scrollRef, cancelAnimation])
+  })
 
   useEffect(() => {
     const scrollbox = scrollRef.current

@@ -52,7 +52,9 @@ describe('languages module', () => {
       const jsConfig = languageTable.find((c) => c.extensions.includes('.js'))
       expect(jsConfig).toBeDefined()
       expect(jsConfig?.wasmFile).toBe('tree-sitter-javascript.wasm')
-      expect(jsConfig?.extensions).toEqual(expect.arrayContaining(['.jsx', '.mjs', '.cjs']))
+      expect(jsConfig?.extensions).toEqual(
+        expect.arrayContaining(['.jsx', '.mjs', '.cjs']),
+      )
     })
 
     it('should support Python files', () => {
@@ -210,7 +212,22 @@ describe('languages module', () => {
         languageTable.flatMap((config) => config.extensions),
       )
       expect(SUPPORTED_CODE_EXTENSIONS).toEqual(
-        expect.arrayContaining(['.ts', '.tsx', '.js', '.mjs', '.php', '.swift', '.kt', '.kts', '.gd']),
+        expect.arrayContaining([
+          '.ts',
+          '.mts',
+          '.cts',
+          '.tsx',
+          '.js',
+          '.mjs',
+          '.php',
+          '.swift',
+          '.pyi',
+          '.c',
+          '.h',
+          '.kt',
+          '.kts',
+          '.gd',
+        ]),
       )
       expect(Object.isFrozen(SUPPORTED_CODE_EXTENSIONS)).toBe(true)
     })
@@ -276,22 +293,24 @@ describe('languages module', () => {
     })
 
     it('should register the GDScript wasm in the manifest', () => {
-      expect(WASM_FILES['tree-sitter-gdscript.wasm']).toBe('tree-sitter-gdscript.wasm')
-      expect(languageTable.some((c) => c.wasmFile === 'tree-sitter-gdscript.wasm')).toBe(true)
+      expect(WASM_FILES['tree-sitter-gdscript.wasm']).toBe(
+        'tree-sitter-gdscript.wasm',
+      )
+      expect(
+        languageTable.some((c) => c.wasmFile === 'tree-sitter-gdscript.wasm'),
+      ).toBe(true)
     })
 
     it('should include .gd in SUPPORTED_CODE_EXTENSIONS', () => {
       expect(SUPPORTED_CODE_EXTENSIONS).toContain('.gd')
     })
 
-    it(
-      'getLanguageConfig(.gd) does not throw when the wasm is absent',
-      async () => {
-        const cfg = await getLanguageConfig('player.gd')
-        expect(cfg === undefined || cfg?.wasmFile === 'tree-sitter-gdscript.wasm').toBe(true)
-      },
-      15_000,
-    )
+    it('getLanguageConfig(.gd) does not throw when the wasm is absent', async () => {
+      const cfg = await getLanguageConfig('player.gd')
+      expect(
+        cfg === undefined || cfg?.wasmFile === 'tree-sitter-gdscript.wasm',
+      ).toBe(true)
+    }, 15_000)
 
     it('should find config via case-insensitive .GD extension', () => {
       const cfg = findLanguageConfigByExtension('PlayerController.GD')
@@ -323,9 +342,18 @@ describe('languages module', () => {
       // In Bun, .scm imports may resolve to a file path rather than content.
       // Read the actual .scm file to verify the query patterns.
       let query = cfg?.queryPathOrContent ?? ''
-      if (query.includes('tree-sitter-gdscript-tags.scm') && !query.includes('function_definition')) {
+      if (
+        query.includes('tree-sitter-gdscript-tags.scm') &&
+        !query.includes('function_definition')
+      ) {
         query = fs.readFileSync(
-          path.join(__dirname, '..', 'src', 'tree-sitter-queries', 'tree-sitter-gdscript-tags.scm'),
+          path.join(
+            __dirname,
+            '..',
+            'src',
+            'tree-sitter-queries',
+            'tree-sitter-gdscript-tags.scm',
+          ),
           'utf8',
         )
       }
@@ -349,36 +377,32 @@ describe('languages module', () => {
       expect(WASM_FILES[gdEntry!.wasmFile]).toBe(gdEntry!.wasmFile)
     })
 
-    it(
-      'createLanguageConfig delegates the runtime loader for .gd files',
-      async () => {
-        // Reset the cached parser on the GDScript entry so the mock loader
-        // is actually exercised (languageTable entries are shared singletons).
-        const gdEntry = languageTable.find((c) => c.extensions.includes('.gd'))!
-        gdEntry.parser = undefined
-        gdEntry.language = undefined
-        gdEntry.query = undefined
+    it('createLanguageConfig delegates the runtime loader for .gd files', async () => {
+      // Reset the cached parser on the GDScript entry so the mock loader
+      // is actually exercised (languageTable entries are shared singletons).
+      const gdEntry = languageTable.find((c) => c.extensions.includes('.gd'))!
+      gdEntry.parser = undefined
+      gdEntry.language = undefined
+      gdEntry.query = undefined
 
-        const initParser = mock(async () => {})
-        const loadLanguage = mock(async (_wasmFile: string) => {
-          throw new Error('WASM not available in test')
-        })
-        const mockLoader: RuntimeLanguageLoader = {
-          initParser,
-          loadLanguage,
-        }
+      const initParser = mock(async () => {})
+      const loadLanguage = mock(async (_wasmFile: string) => {
+        throw new Error('WASM not available in test')
+      })
+      const mockLoader: RuntimeLanguageLoader = {
+        initParser,
+        loadLanguage,
+      }
 
-        // The mock loader throws, so createLanguageConfig should propagate.
-        await expect(
-          createLanguageConfig('player.gd', mockLoader),
-        ).rejects.toThrow('WASM not available in test')
+      // The mock loader throws, so createLanguageConfig should propagate.
+      await expect(
+        createLanguageConfig('player.gd', mockLoader),
+      ).rejects.toThrow('WASM not available in test')
 
-        // The loader's methods were called with GDScript-specific args
-        expect(initParser).toHaveBeenCalledTimes(1)
-        // loadLanguage receives the wasm filename
-        expect(loadLanguage).toHaveBeenCalledWith('tree-sitter-gdscript.wasm')
-      },
-      15_000,
-    )
+      // The loader's methods were called with GDScript-specific args
+      expect(initParser).toHaveBeenCalledTimes(1)
+      // loadLanguage receives the wasm filename
+      expect(loadLanguage).toHaveBeenCalledWith('tree-sitter-gdscript.wasm')
+    }, 15_000)
   })
 })

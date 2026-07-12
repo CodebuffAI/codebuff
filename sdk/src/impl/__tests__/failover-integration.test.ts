@@ -216,11 +216,7 @@ describe('failover loop contract (composed)', () => {
     const config = providerConfigFileSchema.parse({
       defaultModel: 'local/primary',
       defaultReasoningEffort: 'low',
-      failoverModels: [
-        'local/backup-a',
-        'local/backup-a',
-        'local/backup-b',
-      ],
+      failoverModels: ['local/backup-a', 'local/backup-a', 'local/backup-b'],
       providers: {
         local: {
           type: 'openai-compatible',
@@ -294,59 +290,54 @@ describe('promptAiSdkStream failover loop (integration)', () => {
     resetEnv()
   })
 
-  test.skip(
-    'TODO: loop-level test — advances to backup on primary 401, records preferModelParam [false, true], yields backup content',
-    async () => {
-      // Intended setup (kept for the follow-up):
-      // 1. Write a temp openbuff.json with defaultModel 'local/primary' and
-      //    failoverModels: ['local/backup-a'], point
-      //    process.env[PROVIDER_CONFIG_ENV_VAR] at it.
-      // 2. import * as modelProvider from '../model-provider'; spyOn the
-      //    `getModelForRequest` export, recording preferModelParam per call.
-      //    - call 1 (primary, preferModelParam=false): return a fake
-      //      LanguageModel whose doStream rejects with a 401 (createAuthError
-      //      produces an Error with statusCode 401, which isFailoverEligible
-      //      and NOT isRetryable, so the inner retry loop bubbles it to the
-      //      outer failover catch).
-      //    - call 2 (backup, preferModelParam=true): return a fake
-      //      LanguageModel whose doStream yields { type: 'text-delta',
-      //      text: 'backup-content' } then a { type: 'finish' } part, plus
-      //      compatibility / reasoningEffort / effectiveModel /
-      //      contextWindowTokens / pricing / isChatGptOAuth fields.
-      // 3. Build a minimal promptAiSdkStream params object (apiKey, runId,
-      //    messages: [], clientSessionId, fingerprintId, userId: undefined,
-      //    userInputId, model: 'local/primary', agentId: undefined,
-      //    sendAction: async no-op, logger stub with info/warn/error no-ops,
-      //    trackEvent: async no-op, signal: new AbortController().signal).
-      // 4. Iterate the async generator, collect text chunks + the return value.
-      //
-      // Expected assertions:
-      //   - recorded preferModelParam calls === [false, true]
-      //   - collected text chunks include 'backup-content'
-      //   - generator return value is a success: { aborted: false, value: ... }
-      //     (promptSuccess shape from @codebuff/common/util/error).
-      const tempDir = fs.mkdtempSync(
-        path.join(os.tmpdir(), 'openbuff-failover-'),
-      )
-      const configPath = path.join(tempDir, 'openbuff.json')
-      fs.writeFileSync(
-        configPath,
-        JSON.stringify({
-          defaultModel: 'local/primary',
-          defaultReasoningEffort: 'low',
-          failoverModels: ['local/backup-a'],
-          providers: {
-            local: {
-              type: 'openai-compatible',
-              baseURL: 'http://127.0.0.1:11434/v1',
-              models: ['primary', 'backup-a'],
-            },
+  test.skip('TODO: loop-level test — advances to backup on primary 401, records preferModelParam [false, true], yields backup content', async () => {
+    // Intended setup (kept for the follow-up):
+    // 1. Write a temp openbuff.json with defaultModel 'local/primary' and
+    //    failoverModels: ['local/backup-a'], point
+    //    process.env[PROVIDER_CONFIG_ENV_VAR] at it.
+    // 2. import * as modelProvider from '../model-provider'; spyOn the
+    //    `getModelForRequest` export, recording preferModelParam per call.
+    //    - call 1 (primary, preferModelParam=false): return a fake
+    //      LanguageModel whose doStream rejects with a 401 (createAuthError
+    //      produces an Error with statusCode 401, which isFailoverEligible
+    //      and NOT isRetryable, so the inner retry loop bubbles it to the
+    //      outer failover catch).
+    //    - call 2 (backup, preferModelParam=true): return a fake
+    //      LanguageModel whose doStream yields { type: 'text-delta',
+    //      text: 'backup-content' } then a { type: 'finish' } part, plus
+    //      compatibility / reasoningEffort / effectiveModel /
+    //      contextWindowTokens / pricing / isChatGptOAuth fields.
+    // 3. Build a minimal promptAiSdkStream params object (apiKey, runId,
+    //    messages: [], clientSessionId, fingerprintId, userId: undefined,
+    //    userInputId, model: 'local/primary', agentId: undefined,
+    //    sendAction: async no-op, logger stub with info/warn/error no-ops,
+    //    trackEvent: async no-op, signal: new AbortController().signal).
+    // 4. Iterate the async generator, collect text chunks + the return value.
+    //
+    // Expected assertions:
+    //   - recorded preferModelParam calls === [false, true]
+    //   - collected text chunks include 'backup-content'
+    //   - generator return value is a success: { aborted: false, value: ... }
+    //     (promptSuccess shape from @codebuff/common/util/error).
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-failover-'))
+    const configPath = path.join(tempDir, 'openbuff.json')
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        defaultModel: 'local/primary',
+        defaultReasoningEffort: 'low',
+        failoverModels: ['local/backup-a'],
+        providers: {
+          local: {
+            type: 'openai-compatible',
+            baseURL: 'http://127.0.0.1:11434/v1',
+            models: ['primary', 'backup-a'],
           },
-        }),
-      )
-      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+        },
+      }),
+    )
+    process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
 
-      expect(true).toBe(true)
-    },
-  )
+    expect(true).toBe(true)
+  })
 })

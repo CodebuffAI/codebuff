@@ -2,7 +2,15 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { describe, expect, test, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import { loadLocalAgents } from '../agents/load-agents'
 
@@ -44,8 +52,29 @@ describe('loadLocalAgents', () => {
   })
 
   describe('without validation (backward compatible)', () => {
+    test('preserves project-agent discovery by default and supports an explicit safe mode', async () => {
+      mkdirSync(agentsDir, { recursive: true })
+      writeAgentFile(
+        agentsDir,
+        'project-agent.ts',
+        `export default { id: 'project-agent', displayName: 'Project Agent' }`,
+      )
+      const originalCwd = process.cwd()
+      process.chdir(tempDir)
+      try {
+        const backwardCompatibleDefault = await loadLocalAgents({})
+        expect(backwardCompatibleDefault['project-agent']).toBeDefined()
+
+        const safeMode = await loadLocalAgents({ includeProjectAgents: false })
+        expect(safeMode['project-agent']).toBeUndefined()
+      } finally {
+        process.chdir(originalCwd)
+      }
+    })
     test('returns empty object when agents directory does not exist', async () => {
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result).toEqual({})
     })
@@ -53,7 +82,9 @@ describe('loadLocalAgents', () => {
     test('returns empty object when agents directory is empty', async () => {
       mkdirSync(agentsDir, { recursive: true })
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result).toEqual({})
     })
@@ -73,16 +104,16 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       const agent: LoadedAgentDefinition | undefined = result['my-agent']
       expect(agent).toBeDefined()
       expect(agent!.id).toBe('my-agent')
       expect(agent!.displayName).toBe('My Agent')
       expect(agent!.model).toBe(MODEL_NAME)
-      expect(agent!._sourceFilePath).toBe(
-        path.join(agentsDir, 'my-agent.ts'),
-      )
+      expect(agent!._sourceFilePath).toBe(path.join(agentsDir, 'my-agent.ts'))
     })
 
     test('loads multiple agents from directory', async () => {
@@ -110,7 +141,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
       const agentIds: string[] = Object.keys(result)
 
       expect(agentIds).toHaveLength(2)
@@ -131,7 +164,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(Object.keys(result)).toHaveLength(0)
     })
@@ -149,7 +184,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(Object.keys(result)).toHaveLength(1)
       expect(result['no-model-agent']).toBeDefined()
@@ -170,7 +207,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['dts-agent']).toBeUndefined()
     })
@@ -189,7 +228,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['test-file-agent']).toBeUndefined()
     })
@@ -209,7 +250,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['nested-agent']).toBeDefined()
     })
@@ -241,7 +284,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['skill-agent']).toBeUndefined()
       expect(result['real-agent']).toBeDefined()
@@ -265,7 +310,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
       const agent: LoadedAgentDefinition | undefined = result['generator-agent']
 
       expect(agent).toBeDefined()
@@ -301,7 +348,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       // Should still load the valid agent
       expect(result['valid-agent']).toBeDefined()
@@ -327,9 +376,7 @@ describe('loadLocalAgents', () => {
       await loadLocalAgents({ agentsPath: agentsDir, verbose: true })
 
       expect(consoleErrorSpy).toHaveBeenCalled()
-      const errorMessage: string = consoleErrorSpy.mock.calls
-        .flat()
-        .join(' ')
+      const errorMessage: string = consoleErrorSpy.mock.calls.flat().join(' ')
       expect(errorMessage).toContain('missing required attribute')
     })
   })

@@ -17,11 +17,12 @@ const definition: AgentDefinition = {
 
   outputMode: 'last_message',
   includeMessageHistory: false,
+  toolNames: ['notionApi/notion-search', 'notionApi/notion-fetch'],
 
   mcpServers: {
     notionApi: {
       command: 'npx',
-      args: ['-y', '@notionhq/notion-mcp-server'],
+      args: ['-y', '@notionhq/notion-mcp-server@2.4.1'],
       env: {
         NOTION_TOKEN: '$NOTION_TOKEN',
       },

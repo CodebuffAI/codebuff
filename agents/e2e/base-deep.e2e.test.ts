@@ -211,24 +211,23 @@ describe('Base Deep Agent Integration', () => {
         ],
       })
 
-      const run = await runOrSkipOnAuthFailure(
-        'thinker spawn scenario',
-        () =>
-          client.run({
-            agent: baseDeep.id,
-            prompt:
-              'Use @thinker to think briefly about adding validation to a sum function, then answer in one sentence.',
-            handleEvent: (event) => {
-              events.push(event)
-            },
-          }),
+      const run = await runOrSkipOnAuthFailure('thinker spawn scenario', () =>
+        client.run({
+          agent: baseDeep.id,
+          prompt:
+            'Use @thinker to think briefly about adding validation to a sum function, then answer in one sentence.',
+          handleEvent: (event) => {
+            events.push(event)
+          },
+        }),
       )
       if (!run) return
 
       expect(run.output.type).not.toEqual('error')
 
       const thinkerSpawned = events.some(
-        (event) => event.type === 'subagent_start' && event.agentType === 'thinker',
+        (event) =>
+          event.type === 'subagent_start' && event.agentType === 'thinker',
       )
       expect(thinkerSpawned).toBe(true)
 
@@ -263,15 +262,17 @@ describe('Base Deep Agent Integration', () => {
       })
       const events: PrintModeEvent[] = []
 
-      const run = await runOrSkipOnAuthFailure('simple file edit scenario', () =>
-        client.run({
-          agent: baseDeep.id,
-          prompt:
-            'Use write_file or apply_patch right now to change note.txt from "status: draft" to "status: done" and add a new line "owner: qa".',
-          handleEvent: (event) => {
-            events.push(event)
-          },
-        }),
+      const run = await runOrSkipOnAuthFailure(
+        'simple file edit scenario',
+        () =>
+          client.run({
+            agent: baseDeep.id,
+            prompt:
+              'Use write_file or apply_patch right now to change note.txt from "status: draft" to "status: done" and add a new line "owner: qa".',
+            handleEvent: (event) => {
+              events.push(event)
+            },
+          }),
       )
       if (!run) return
 
@@ -449,9 +450,9 @@ describe('Base Deep Agent Integration', () => {
       const validatorFileName = validatorEntry?.name ?? ''
       const validatorContent = validatorFileName
         ? await fs.promises.readFile(
-          path.join(serviceDir, validatorFileName),
-          'utf-8',
-        )
+            path.join(serviceDir, validatorFileName),
+            'utf-8',
+          )
         : ''
 
       expect(registerContent.toLowerCase()).toContain('valid')

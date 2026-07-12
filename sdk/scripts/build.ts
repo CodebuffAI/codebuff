@@ -178,10 +178,7 @@ async function fixDuplicateImports() {
     await writeFile('dist/index.d.ts', content)
     console.log('  ✓ Fixed duplicate imports in bundled types')
   } catch (error) {
-    console.warn(
-      '  ⚠ Warning: Could not fix duplicate imports:',
-      error.message,
-    )
+    console.warn('  ⚠ Warning: Could not fix duplicate imports:', error.message)
   }
 }
 
@@ -209,8 +206,7 @@ async function fixCjsImportVars() {
 
   // Step 2: Find all `import_*.Y` patterns in export getters.
   // Match: `exportName: () => import_module.symbolName,`
-  const getterRegex =
-    /(\w+):\s*\(\)\s*=>\s*(import_\w+)\.(\w+)/g
+  const getterRegex = /(\w+):\s*\(\)\s*=>\s*(import_\w+)\.(\w+)/g
   const replacements: { from: string; to: string }[] = []
   const brokenVars = new Set<string>()
 
@@ -248,9 +244,12 @@ async function fixCjsImportVars() {
   // Skip the main SDK export object (the one that has `module.exports =
   // __toCommonJS(exports_*)`) — that's the object we're fixing, not a source.
   // Identify it by finding the `module.exports = __toCommonJS(exports_X)` line.
-  const moduleExportsRegex = /module\.exports\s*=\s*__toCommonJS\((exports_\w+)\)/
+  const moduleExportsRegex =
+    /module\.exports\s*=\s*__toCommonJS\((exports_\w+)\)/
   const moduleExportsMatch = content.match(moduleExportsRegex)
-  const mainExportVar = moduleExportsMatch ? moduleExportsMatch[1] : 'exports_src2'
+  const mainExportVar = moduleExportsMatch
+    ? moduleExportsMatch[1]
+    : 'exports_src2'
 
   const exportObjRegex =
     /var\s+(exports_\w+)\s*=\s*\{\s*\}[;]?\s*\n__export\(\s*\1\s*,\s*\{([\s\S]*?)\}\)/g
@@ -463,7 +462,8 @@ async function fixEsmExportRenames() {
 
   await writeFile(esmPath, content)
   const rMsg = fixCount > 0 ? `replaced ${fixCount} dedup renames` : ''
-  const dMsg = removalCount > 0 ? `removed ${removalCount} tree-shaken exports` : ''
+  const dMsg =
+    removalCount > 0 ? `removed ${removalCount} tree-shaken exports` : ''
   const summary = [rMsg, dMsg].filter(Boolean).join(', ')
   console.log(`  ✓ ESM export renames fixup: ${summary}`)
 }
@@ -480,7 +480,7 @@ async function fixEsmExportRenames() {
  */
 async function fixToolHelpers() {
   const toolHelpersDef =
-    'var ToolHelpers = { runTerminalCommand, codeSearch, findFilesMatchingContent, glob, listDirectory, getFiles, replaceRange, runFileChangeHooks, changeFile };'
+    'var ToolHelpers = { runTerminalCommand, codeSearch, findFilesMatchingContent, glob, listDirectory, getFiles, getFilesStructured, replaceRange, runFileChangeHooks, changeFile };'
 
   // --- ESM bundle ---
   const esmPath = 'dist/index.mjs'
@@ -500,7 +500,10 @@ async function fixToolHelpers() {
 
       // Add `ToolHelpers` to the export block if it's not already there.
       // Find the closing `}` of the export block by counting braces.
-      const exportStart = esmContent.indexOf('{', insertPos + toolHelpersDef.length)
+      const exportStart = esmContent.indexOf(
+        '{',
+        insertPos + toolHelpersDef.length,
+      )
       if (exportStart !== -1) {
         let depth = 0
         let exportEnd = -1

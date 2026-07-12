@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test'
 
-import { OpenAICompatibleChatLanguageModel } from './openai-compatible-chat-language-model';
+import { OpenAICompatibleChatLanguageModel } from './openai-compatible-chat-language-model'
 
-import type { LanguageModelV2StreamPart } from '@ai-sdk/provider';
-import type { FetchFunction } from '@ai-sdk/provider-utils';
+import type { LanguageModelV2StreamPart } from '@ai-sdk/provider'
+import type { FetchFunction } from '@ai-sdk/provider-utils'
 
 function createModel(fetch: FetchFunction) {
   return new OpenAICompatibleChatLanguageModel('test-model', {
@@ -11,7 +11,7 @@ function createModel(fetch: FetchFunction) {
     headers: () => ({}),
     url: () => 'https://example.test/chat/completions',
     fetch,
-  });
+  })
 }
 
 const toolCallMetadata = {
@@ -22,7 +22,7 @@ const toolCallMetadata = {
       },
     },
   },
-};
+}
 
 describe('OpenAICompatibleChatLanguageModel tool-call metadata', () => {
   it('preserves extra tool-call fields in non-streaming responses', async () => {
@@ -60,13 +60,12 @@ describe('OpenAICompatibleChatLanguageModel tool-call metadata', () => {
           status: 200,
           headers: { 'content-type': 'application/json' },
         },
-      )
-    ) as unknown as FetchFunction;
-    const model = createModel(fetch);
+      )) as unknown as FetchFunction
+    const model = createModel(fetch)
 
     const result = await model.doGenerate({
       prompt: [{ role: 'user', content: [{ type: 'text', text: 'Use docs' }] }],
-    } as any);
+    } as any)
 
     expect(result.content).toContainEqual({
       type: 'tool-call',
@@ -74,11 +73,11 @@ describe('OpenAICompatibleChatLanguageModel tool-call metadata', () => {
       toolName: 'read_docs',
       input: '{"topic":"auth"}',
       providerMetadata: toolCallMetadata,
-    });
-  });
+    })
+  })
 
   it('preserves extra tool-call fields in streaming responses', async () => {
-    const encoder = new TextEncoder();
+    const encoder = new TextEncoder()
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(
@@ -117,29 +116,28 @@ describe('OpenAICompatibleChatLanguageModel tool-call metadata', () => {
               'data: [DONE]\n\n',
             ].join(''),
           ),
-        );
-        controller.close();
+        )
+        controller.close()
       },
-    });
+    })
     const fetch = (async () =>
       new Response(stream, {
         status: 200,
         headers: { 'content-type': 'text/event-stream' },
-      })
-    ) as unknown as FetchFunction;
-    const model = createModel(fetch);
+      })) as unknown as FetchFunction
+    const model = createModel(fetch)
 
     const result = await model.doStream({
       prompt: [{ role: 'user', content: [{ type: 'text', text: 'Use docs' }] }],
-    } as any);
-    const chunks: LanguageModelV2StreamPart[] = [];
-    const reader = result.stream.getReader();
+    } as any)
+    const chunks: LanguageModelV2StreamPart[] = []
+    const reader = result.stream.getReader()
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await reader.read()
       if (done) {
-        break;
+        break
       }
-      chunks.push(value);
+      chunks.push(value)
     }
 
     expect(chunks).toContainEqual({
@@ -148,47 +146,46 @@ describe('OpenAICompatibleChatLanguageModel tool-call metadata', () => {
       toolName: 'read_docs',
       input: '{"topic":"auth"}',
       providerMetadata: toolCallMetadata,
-    });
-  });
-});
+    })
+  })
+})
 
 describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () => {
   async function collectStreamChunks(
     chunksToSend: unknown[],
   ): Promise<LanguageModelV2StreamPart[]> {
-    const encoder = new TextEncoder();
+    const encoder = new TextEncoder()
     const stream = new ReadableStream({
       start(controller) {
         for (const chunk of chunksToSend) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`),
-          );
+          )
         }
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.close()
       },
-    });
+    })
     const fetch = (async () =>
       new Response(stream, {
         status: 200,
         headers: { 'content-type': 'text/event-stream' },
-      })
-    ) as unknown as FetchFunction;
-    const model = createModel(fetch);
+      })) as unknown as FetchFunction
+    const model = createModel(fetch)
 
     const result = await model.doStream({
       prompt: [{ role: 'user', content: [{ type: 'text', text: 'Edit' }] }],
-    } as any);
-    const chunks: LanguageModelV2StreamPart[] = [];
-    const reader = result.stream.getReader();
+    } as any)
+    const chunks: LanguageModelV2StreamPart[] = []
+    const reader = result.stream.getReader()
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await reader.read()
       if (done) {
-        break;
+        break
       }
-      chunks.push(value);
+      chunks.push(value)
     }
-    return chunks;
+    return chunks
   }
 
   it('preserves structured provider metadata on streaming error chunks', async () => {
@@ -201,25 +198,21 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
           details: [{ reason: 'NO_VISION_PROVIDER' }],
         },
       },
-    ]);
+    ])
 
-    const errorChunk = chunks.find((chunk) => chunk.type === 'error');
-    expect(errorChunk).toBeDefined();
-    expect(errorChunk?.type).toBe('error');
+    const errorChunk = chunks.find((chunk) => chunk.type === 'error')
+    expect(errorChunk).toBeDefined()
+    expect(errorChunk?.type).toBe('error')
     if (errorChunk?.type !== 'error') {
-      throw new Error('Expected error chunk');
+      throw new Error('Expected error chunk')
     }
-    expect(errorChunk.error).toBeInstanceOf(Error);
+    expect(errorChunk.error).toBeInstanceOf(Error)
     expect((errorChunk.error as Error).message).toContain(
       'Upstream provider error',
-    );
-    expect((errorChunk.error as Error).message).toContain(
-      'unsupported_model',
-    );
-    expect((errorChunk.error as Error).message).toContain(
-      'NO_VISION_PROVIDER',
-    );
-  });
+    )
+    expect((errorChunk.error as Error).message).toContain('unsupported_model')
+    expect((errorChunk.error as Error).message).toContain('NO_VISION_PROVIDER')
+  })
 
   it('ignores billing.summary telemetry chunks in streaming responses', async () => {
     const chunks = await collectStreamChunks([
@@ -247,21 +240,21 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
           },
         ],
       },
-    ]);
+    ])
 
-    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false);
+    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false)
     expect(chunks).toContainEqual({
       type: 'text-delta',
       id: 'txt-0',
       delta: 'Hello',
-    });
+    })
     expect(chunks).toContainEqual(
       expect.objectContaining({
         type: 'finish',
         finishReason: 'stop',
       }),
-    );
-  });
+    )
+  })
 
   // Reproduces the Bedrock-proxy bug: a single logical tool call whose JSON
   // arguments are streamed truncated (missing the closing brace) in the first
@@ -271,10 +264,11 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
   // call -> "Tool '' not found"). The fix merges the empty-named continuation
   // back into the real call.
   it('merges an empty-name continuation delta into the open tool call', async () => {
-    const args = '{"path":"notes.ts","replacements":[{"oldString":"a","newString":"b"}]}';
-    const splitAt = args.length - 1; // everything except the final '}'
-    const head = args.slice(0, splitAt);
-    const tail = args.slice(splitAt); // '}'
+    const args =
+      '{"path":"notes.ts","replacements":[{"oldString":"a","newString":"b"}]}'
+    const splitAt = args.length - 1 // everything except the final '}'
+    const head = args.slice(0, splitAt)
+    const tail = args.slice(splitAt) // '}'
 
     const chunks = await collectStreamChunks([
       {
@@ -317,23 +311,21 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
           },
         ],
       },
-    ]);
+    ])
 
-    const toolCalls = chunks.filter((c) => c.type === 'tool-call');
+    const toolCalls = chunks.filter((c) => c.type === 'tool-call')
     // Exactly one well-formed tool call, no phantom empty-named call.
-    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls).toHaveLength(1)
     expect(toolCalls[0]).toMatchObject({
       type: 'tool-call',
       toolName: 'propose_str_replace',
       toolCallId: 'chatcmpl-tool-1',
       input: args,
-    });
+    })
     expect(
-      chunks.some(
-        (c) => c.type === 'tool-call' && (c as any).toolName === '',
-      ),
-    ).toBe(false);
-  });
+      chunks.some((c) => c.type === 'tool-call' && (c as any).toolName === ''),
+    ).toBe(false)
+  })
 
   // A stray empty-name fragment with no open tool call to attach to should be
   // dropped rather than throwing or creating a phantom call.
@@ -359,9 +351,9 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
           },
         ],
       },
-    ]);
+    ])
 
-    const toolCalls = chunks.filter((c) => c.type === 'tool-call');
-    expect(toolCalls).toHaveLength(0);
-  });
-});
+    const toolCalls = chunks.filter((c) => c.type === 'tool-call')
+    expect(toolCalls).toHaveLength(0)
+  })
+})

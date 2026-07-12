@@ -1,6 +1,10 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  coerceToArray,
+  jsonToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -11,12 +15,18 @@ const inputSchema = z
     path: z
       .string()
       .min(1, 'Path cannot be empty')
-      .describe('File path to extract slices from, relative to the project root.'),
+      .describe(
+        'File path to extract slices from, relative to the project root.',
+      ),
     symbols: z
       .preprocess(coerceToArray, z.array(z.string().min(1)))
-      .describe('Symbol names (functions, classes, interfaces, methods) to extract code slices for.'),
+      .describe(
+        'Symbol names (functions, classes, interfaces, methods) to extract code slices for.',
+      ),
   })
-  .describe('Read only the specific implementation/code slices for specified symbol names in a file rather than the whole file.')
+  .describe(
+    'Read only the specific implementation/code slices for specified symbol names in a file rather than the whole file.',
+  )
 
 const description = `
 Example:
@@ -41,6 +51,7 @@ export const readSlicesParams = {
   outputSchema: jsonToolResultSchema(
     z.object({
       path: z.string(),
+      errorMessage: z.string().optional(),
       slices: z.array(
         z.object({
           symbol: z.string(),

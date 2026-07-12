@@ -9,6 +9,11 @@ import {
   isCreateFile,
   shouldShowEditDiff,
 } from '../../utils/implementor-helpers'
+import {
+  getCanonicalMutationResult,
+  getCanonicalProposalResult,
+  getStructuredErrorMessages,
+} from '../../utils/tool-result-normalizer'
 
 import type { ToolRenderConfig } from './types'
 
@@ -19,7 +24,14 @@ interface EditHeaderProps {
   stats: DiffStats
 }
 
-type EditStatus = 'queued' | 'pending' | 'applied' | 'failed'
+type EditStatus =
+  | 'queued'
+  | 'pending'
+  | 'applied'
+  | 'failed'
+  | 'cancelled'
+  | 'proposed'
+  | 'unconfirmed'
 
 type DiffStats = {
   added: number
@@ -31,6 +43,9 @@ const statusLabel: Record<EditStatus, string> = {
   pending: 'pending',
   applied: 'applied',
   failed: 'failed',
+  cancelled: 'cancelled',
+  proposed: 'proposed (not applied)',
+  unconfirmed: 'unconfirmed',
 }
 
 const EditHeader = ({ name, filePath, status, stats }: EditHeaderProps) => {
@@ -104,7 +119,10 @@ const EditBody = ({
       ) : null}
       {diffText.length > 0 && (
         <box style={{ paddingLeft: 2, width: '100%' }}>
-          <DiffViewer diffText={diffText} availableWidth={Math.max(10, availableWidth - 4)} />
+          <DiffViewer
+            diffText={diffText}
+            availableWidth={Math.max(10, availableWidth - 4)}
+          />
         </box>
       )}
     </box>
@@ -143,12 +161,79 @@ function firstLine(text: string | null): string | null {
   return trimmed.split('\n')[0] ?? null
 }
 
+function failurePreview(text: string | null): string | null {
+  if (!text) return null
+  const lines = text
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0)
+  if (lines.length === 0) return null
+
+  const maxHeadLines = 4
+  const maxChars = 800
+  const selectedLines = lines.slice(0, maxHeadLines)
+  if (lines.length > maxHeadLines) {
+    selectedLines.push('…', lines.at(-1)!)
+  }
+  let preview = selectedLines.join('\n')
+  if (preview.length > maxChars) {
+    preview = `${preview.slice(0, maxChars - 3)}...`
+  }
+  return preview
+}
+
 function getEditStatus(toolBlock: Parameters<typeof extractDiff>[0]): {
   status: EditStatus
   message: string | null
 } {
+  const proposal = getCanonicalProposalResult(toolBlock.outputRaw)
+  if (proposal || String(toolBlock.toolName).startsWith('propose_')) {
+    return {
+      status: 'proposed',
+      message: proposal
+        ? `Proposal ${String(proposal.state)}; no disk change.`
+        : 'Proposal preview; no disk change.',
+    }
+  }
+  const mutation = getCanonicalMutationResult(toolBlock.outputRaw)
+  if (mutation) {
+    if (mutation.outcome === 'applied') {
+      return {
+        status: 'applied',
+        message: toolBlock.interrupted
+          ? 'Applied after the run was interrupted.'
+          : null,
+      }
+    }
+    if (mutation.outcome === 'unconfirmed') {
+      return {
+        status: 'unconfirmed',
+        message: 'Disk mutation could not be confirmed.',
+      }
+    }
+    return {
+      status: 'failed',
+      message: `Mutation ${String(mutation.outcome)}.`,
+    }
+  }
+  const structuredErrors = getStructuredErrorMessages(toolBlock.outputRaw)
+  if (structuredErrors.length > 0) {
+    return {
+      status: 'failed',
+      message: failurePreview(structuredErrors.join('\n')),
+    }
+  }
+  if (toolBlock.lifecycle === 'cancelled') {
+    return {
+      status: 'cancelled',
+      message:
+        'Run interrupted; no authoritative disk result was received. Re-read the file before retrying.',
+    }
+  }
   const outputValue = unwrapOutputValue(toolBlock.outputRaw)
-  const errorMessage = firstLine(getStringField(outputValue, 'errorMessage'))
+  const errorMessage = failurePreview(
+    getStringField(outputValue, 'errorMessage'),
+  )
   if (errorMessage) return { status: 'failed', message: errorMessage }
 
   const output = typeof toolBlock.output === 'string' ? toolBlock.output : ''
@@ -156,7 +241,7 @@ function getEditStatus(toolBlock: Parameters<typeof extractDiff>[0]): {
     output.trim().startsWith('Error:') ||
     output.trim().startsWith('Failed ')
   ) {
-    return { status: 'failed', message: firstLine(output) }
+    return { status: 'failed', message: failurePreview(output) }
   }
 
   const message = firstLine(getStringField(outputValue, 'message'))
@@ -196,12 +281,21 @@ export const StrReplaceComponent = defineToolComponent({
     const isCreate = isCreateFile(toolBlock)
     const showDiff = shouldShowEditDiff(toolBlock)
     const { status, message } = getEditStatus(toolBlock)
+    const isProposal = status === 'proposed'
     const stats = countDiffStats(diff)
 
     return {
       content: (
         <EditBody
-          name={isCreate ? 'Create' : 'Edit'}
+          name={
+            isProposal
+              ? isCreate
+                ? 'Propose create'
+                : 'Propose edit'
+              : isCreate
+                ? 'Create'
+                : 'Edit'
+          }
           filePath={filePath}
           diffText={showDiff ? (diff ?? '') : ''}
           isCreate={isCreate}

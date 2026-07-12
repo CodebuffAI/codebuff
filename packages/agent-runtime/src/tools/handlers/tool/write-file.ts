@@ -1,6 +1,7 @@
 import { AbortError } from '@codebuff/common/util/error'
-import { partition } from 'lodash'
+import { getContentHash } from '@codebuff/common/util/content-hash'
 
+import { coordinateEditApplication } from './edit-application-coordinator'
 import { processFileBlock } from '../../../process-file-block'
 import {
   preflightValidateSyntax,
@@ -42,6 +43,8 @@ export type FileProcessing<
       content: string
       patch?: string
       messages: string[]
+      failedReplacementCount?: number
+      expectedHash?: string | null
     }
   | {
       error: string
@@ -55,13 +58,11 @@ export type FileProcessingState = {
   fileChanges: Exclude<FileProcessing, { error: string }>[]
   firstFileProcessed: boolean
   failedEditRequiresReadByPath: Record<string, boolean>
-  // Fix C: per-path consecutive-failure circuit breaker. Counts consecutive
-  // str_replace attempts on a path that returned an error or an auto-corrected
-  // near-match. After STR_REPLACE_MAX_CONSECUTIVE_FAILURES such attempts on the
-  // same path, further str_replace calls on that path are hard-blocked with a
-  // directive to switch to rewrite_symbol (whole-symbol) or write_file
-  // (whole-file) instead. A successful, non-auto-corrected str_replace clears
-  // the counter. A fresh basedOnRead anchor (read_files) also clears it.
+  // Fix C: per-path failure-budget circuit breaker. Counts str_replace errors,
+  // auto-corrected near matches, and partial successes during the turn. Clean
+  // raw successes do not erase the budget; confirmed structural recovery does.
+  // After the limit, raw str_replace calls are blocked and the agent must use
+  // rewrite_symbol, replace_range, or write_file.
   consecutiveStrReplaceFailuresByPath: Record<string, number>
   // Milestone 1: per-turn read-before-edit enforcement.
   // Existing-file edits require either a per-path read authorization
@@ -80,20 +81,99 @@ export type FileProcessingState = {
   // growth characteristics; this in-memory map shares the same shape and
   // similar per-turn bounds.
   readAuthorizationsByPath?: Record<string, true>
+  readAuthorizationHashesByPath?: Record<string, string>
+}
+
+export function hasWholeFileReadAuthorization(
+  state: Pick<
+    FileProcessingState,
+    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+  >,
+  path: string,
+): boolean {
+  return (
+    state.readAuthorizationsByPath?.[path] === true &&
+    typeof state.readAuthorizationHashesByPath?.[path] === 'string'
+  )
+}
+
+export function isWholeFileReadAuthorizationFresh(
+  state: Pick<
+    FileProcessingState,
+    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+  >,
+  path: string,
+  content: string,
+): boolean {
+  return (
+    hasWholeFileReadAuthorization(state, path) &&
+    state.readAuthorizationHashesByPath?.[path] === getContentHash(content)
+  )
+}
+
+export function grantWholeFileReadAuthorization(
+  state: Pick<
+    FileProcessingState,
+    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+  >,
+  path: string,
+  content: string,
+): void {
+  state.readAuthorizationsByPath ??= {}
+  state.readAuthorizationHashesByPath ??= {}
+  state.readAuthorizationsByPath[path] = true
+  state.readAuthorizationHashesByPath[path] = getContentHash(content)
+}
+
+export function revokeWholeFileReadAuthorization(
+  state: Pick<
+    FileProcessingState,
+    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+  >,
+  path: string,
+): void {
+  delete state.readAuthorizationsByPath?.[path]
+  delete state.readAuthorizationHashesByPath?.[path]
 }
 
 export function normalizeToolPath(filePath: string): string {
-  let normalized = filePath.replace(/^(?:\.\/)+/, '')
-  // Reject path traversal: an edit target must stay inside the project. Any
-  // `..` segment (posix or windows, since backslashes are normalized to forward
-  // slashes here) is rejected before normalization so it cannot be used to
-  // point write_file/str_replace/edit_transaction at files outside the project.
-  // Mirrors the `normalizeGateFilePath` defense in agents/base2/gate-paths.ts.
-  normalized = normalized.replace(/\\/g, '/')
-  if (normalized.split('/').includes('..')) {
+  if (
+    typeof filePath !== 'string' ||
+    filePath.trim().length === 0 ||
+    filePath.includes('\0')
+  ) {
     return ''
   }
-  return normalized
+
+  const withForwardSlashes = filePath.replace(/\\/g, '/')
+
+  // Runtime tool paths must be project-relative. Reject POSIX absolute paths,
+  // UNC/device paths (which begin with `//` after slash normalization), and
+  // both absolute and drive-relative Windows paths such as C:/repo or C:repo.
+  if (
+    withForwardSlashes.startsWith('/') ||
+    /^[A-Za-z]:/.test(withForwardSlashes)
+  ) {
+    return ''
+  }
+
+  const normalizedSegments: string[] = []
+  for (const segment of withForwardSlashes.split('/')) {
+    if (segment === '' || segment === '.') continue
+    if (segment === '..') return ''
+    normalizedSegments.push(segment)
+  }
+
+  // This is intentionally lexical containment only. Realpath/symlink
+  // containment requires a project-root-aware SDK/client contract.
+  return normalizedSegments.join('/')
+}
+
+export function formatUnsafeToolPathError(
+  toolName: string,
+  filePath: string,
+): string {
+  return `${toolName} path traversal blocked: unsafe path ${JSON.stringify(filePath)} must be a non-empty project-relative path without traversal, absolute/drive/UNC syntax, or NUL bytes.`
 }
 
 export function getFileProcessingValues(
@@ -109,6 +189,7 @@ export function getFileProcessingValues(
     consecutiveStrReplaceFailuresByPath: {},
     strictReadBeforeEdit: true,
     readAuthorizationsByPath: {},
+    readAuthorizationHashesByPath: {},
   }
   for (const [key, value] of Object.entries(state)) {
     const typedKey = key as keyof typeof fileProcessingValues
@@ -153,8 +234,6 @@ export const handleWriteFile = (async (
   } = params
   const path = normalizeToolPath(toolCall.input.path)
   const { content } = toolCall.input
-  const { basedOnRead } = toolCall.input
-  const hasBasedOnRead = Boolean(basedOnRead)
 
   if (!path) {
     return {
@@ -163,7 +242,10 @@ export const handleWriteFile = (async (
           type: 'json',
           value: {
             file: toolCall.input.path,
-            errorMessage: `write_file path traversal blocked: "${toolCall.input.path}" resolves outside the project root.`,
+            errorMessage: formatUnsafeToolPathError(
+              'write_file',
+              toolCall.input.path,
+            ),
           },
         },
       ],
@@ -193,10 +275,6 @@ export const handleWriteFile = (async (
     return existingDiskContentPromise
   }
 
-  const fileContentWithoutStartNewline = content.startsWith('\n')
-    ? content.slice(1)
-    : content
-
   logger.debug({ path, content }, `write_file ${path}`)
 
   // Finding #3: annotate the promise type explicitly so future drift in the
@@ -204,10 +282,12 @@ export const handleWriteFile = (async (
   // `Promise<FileProcessing<'str_replace'>>` annotation for consistency).
   const newPromise: Promise<FileProcessing<'write_file'>> = (async () => {
     let initialContent: string | null
+    let previousEditWasWholeFileWrite = false
     if (previousEdit) {
       const previousResult = await previousEdit
       if ('content' in previousResult) {
         initialContent = previousResult.content
+        previousEditWasWholeFileWrite = previousResult.tool === 'write_file'
       } else {
         return {
           tool: 'write_file' as const,
@@ -219,37 +299,65 @@ export const handleWriteFile = (async (
         }
       }
     } else {
-      const existingDiskContent = await getExistingDiskContent()
-      if (
-        fileProcessingState.strictReadBeforeEdit &&
-        existingDiskContent !== null &&
-        !hasBasedOnRead &&
-        !fileProcessingState.readAuthorizationsByPath?.[path]
-      ) {
-        return {
-          tool: 'write_file' as const,
-          path,
-          error: [
-            `write_file blocked: strict read-before-edit is enabled and ${path} already exists, but no read authorization exists for this path.`,
-            `Next: call read_files for ${path} before retrying write_file, or supply a basedOnRead capability for the existing content you intend to overwrite.`,
-            'New-file creation is still allowed without a prior read when the target path does not exist.',
-          ].join('\n'),
-        }
+      initialContent = await getExistingDiskContent()
+    }
+
+    if (
+      initialContent !== null &&
+      fileProcessingState.failedEditRequiresReadByPath[path]
+    ) {
+      return {
+        tool: 'write_file' as const,
+        path,
+        error: [
+          `write_file blocked for ${path}: a previous edit failed and the current whole-file content must be read again before overwriting it.`,
+          `Next: call read_files with paths: ["${path}"] before retrying write_file.`,
+        ].join('\n'),
       }
-      initialContent = existingDiskContent
+    }
+    if (
+      fileProcessingState.strictReadBeforeEdit &&
+      initialContent !== null &&
+      !previousEditWasWholeFileWrite &&
+      !isWholeFileReadAuthorizationFresh(
+        fileProcessingState,
+        path,
+        initialContent,
+      )
+    ) {
+      const authorizationWasStale = hasWholeFileReadAuthorization(
+        fileProcessingState,
+        path,
+      )
+      revokeWholeFileReadAuthorization(fileProcessingState, path)
+      return {
+        tool: 'write_file' as const,
+        path,
+        error: [
+          authorizationWasStale
+            ? `write_file blocked: ${path} changed after its last whole-file read, so the stored authorization is stale.`
+            : `write_file blocked: strict read-before-edit is enabled and ${path} already exists, but no fresh whole-file read authorization exists for this path.`,
+          `Next: call read_files with paths: ["${path}"] before retrying write_file. A range capability cannot authorize a whole-file overwrite; neither can a prior range-anchored edit. A prior write_file is allowed because it supplied the complete current content.`,
+          'New-file creation is still allowed without a prior read when the target path does not exist.',
+        ].join('\n'),
+      }
     }
 
     const result = await processFileBlock({
       path,
       initialContentPromise: Promise.resolve(initialContent),
-      newContent: fileContentWithoutStartNewline,
+      newContent: content,
       logger,
     })
     // Check for abort and throw at the boundary
     if (result.aborted) {
       throw new AbortError(result.reason)
     }
-    return result.value
+    return {
+      ...result.value,
+      expectedHash:
+        initialContent === null ? null : getContentHash(initialContent),
+    }
   })()
     .catch((error) => {
       // AbortError propagates up - don't convert to tool error
@@ -294,63 +402,45 @@ export const handleWriteFile = (async (
   fileProcessingPromises.push(newPromise)
 
   const writeFileResult: FileProcessing<'write_file'> = await newPromise
-  if ('error' in writeFileResult) {
-    // A preflight syntax failure is NOT a stale-anchor failure: the agent's
-    // read was valid and the file content on disk is unchanged. Don't force a
-    // re-read — the agent only needs to fix the syntax, not re-read the file.
-    if (!writeFileResult.preflightSyntaxError) {
-      fileProcessingState.failedEditRequiresReadByPath[path] = true
-    }
-  } else {
-    delete fileProcessingState.failedEditRequiresReadByPath[path]
-    // Strict read-before-edit: a successful write_file (whether creating a new
-    // file or overwriting an existing one) grants a sticky read authorization
-    // for the written path. This eliminates redundant read round-trips for the
-    // very common write-then-edit flow without weakening the strict gate: any
-    // edit on the path only requires a fresh read or basedOnRead anchor when
-    // either the prior edit failed or the file content has changed externally.
-    if (fileProcessingState.strictReadBeforeEdit) {
-      // Lazy-init to mirror the read_files handler, which is the canonical
-      // initializer for readAuthorizationsByPath. This keeps the write_file
-      // handler usable in isolation (e.g. unit tests) without requiring a
-      // prior read_files call.
-      fileProcessingState.readAuthorizationsByPath ??= {}
-      fileProcessingState.readAuthorizationsByPath[path] = true
-    }
-  }
-
-  const output = await postStreamProcessing<'write_file'>(
-    writeFileResult,
+  const application = await coordinateEditApplication<'write_file'>({
+    toolName: 'write_file',
     fileProcessingState,
-    writeToClient,
-    requestClientToolCall,
-  )
+    paths: [path],
+    rejectionRequiresRead: !writeFileResult.preflightSyntaxError,
+    wholeFileContentByPath:
+      'content' in writeFileResult
+        ? new Map([[path, writeFileResult.content]])
+        : undefined,
+    apply: () =>
+      postStreamProcessing<'write_file'>(
+        writeFileResult,
+        fileProcessingState,
+        writeToClient,
+        requestClientToolCall,
+      ),
+  })
 
-  const firstOutput = output[0]
-  if (
-    firstOutput?.type === 'json' &&
-    firstOutput.value &&
-    typeof firstOutput.value === 'object' &&
-    'errorMessage' in firstOutput.value &&
-    // Finding #1: a preflight syntax error is reported through
-    // postStreamProcessing as `{ file, errorMessage }`, but it is NOT a
-    // stale-anchor failure — the in-memory guard above already skipped
-    // setting failedEditRequiresReadByPath. Mirror that guard here so the
-    // downstream error check does not undo the isolation and force a
-    // redundant re-read the agent does not need.
-    !writeFileResult.preflightSyntaxError
-  ) {
-    fileProcessingState.failedEditRequiresReadByPath[path] = true
+  if (application.status === 'threw') {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: path,
+            errorMessage: `write_file failed while applying the prepared content: ${application.error instanceof Error ? application.error.message : String(application.error)}. Re-read the file before retrying.`,
+          },
+        },
+      ],
+    }
   }
-  // The agent fully supplied the new content, so a follow-up edit can still
-  // anchor to the prior read (or to the just-granted write authorization)
-  // without re-reading the file. This eliminates redundant re-reads for
-  // multi-write and write-then-edit flows in the same session.
 
-  return { output }
+  return { output: application.output }
 }) satisfies CodebuffToolHandlerFunction<'write_file'>
 
-type PostStreamProcessingTools = Exclude<FileProcessingTools, 'edit_transaction'>
+type PostStreamProcessingTools = Exclude<
+  FileProcessingTools,
+  'edit_transaction'
+>
 
 export async function postStreamProcessing<T extends PostStreamProcessingTools>(
   toolCall: FileProcessing<T>,
@@ -364,103 +454,59 @@ export async function postStreamProcessing<T extends PostStreamProcessingTools>(
     fileProcessingState.allPromises,
   )
   if (!fileProcessingState.firstFileProcessed) {
-    ;[fileProcessingState.fileChangeErrors, fileProcessingState.fileChanges] =
-      partition(allFileProcessingResults, (result) => 'error' in result)
-
-    if (
-      fileProcessingState.fileChanges.length === 0 &&
-      allFileProcessingResults.length > 0
-    ) {
+    const hasPreparedChange = allFileProcessingResults.some(
+      (result) => !('error' in result),
+    )
+    if (!hasPreparedChange && allFileProcessingResults.length > 0) {
       writeToClient('No changes to existing files.\n')
     }
-    if (fileProcessingState.fileChanges.length > 0) {
+    if (hasPreparedChange) {
       writeToClient(`\n`)
     }
     fileProcessingState.firstFileProcessed = true
-  } else {
-    // Update the arrays with only the NEW results since the last partition,
-    // then merge with the existing arrays. Re-partitioning the entire
-    // allFileProcessingResults on every subsequent tool call is O(n²) in the
-    // number of tool calls.
-    const processedCount =
-      fileProcessingState.fileChangeErrors.length +
-      fileProcessingState.fileChanges.length
-    const newResults = allFileProcessingResults.slice(processedCount)
-    const [newErrors, newChanges] = partition(
-      newResults,
-      (result) => 'error' in result,
-    )
-    fileProcessingState.fileChangeErrors = [
-      ...fileProcessingState.fileChangeErrors,
-      ...(newErrors as Extract<FileProcessing, { error: string }>[]),
-    ]
-    fileProcessingState.fileChanges = [
-      ...fileProcessingState.fileChanges,
-      ...(newChanges as Exclude<FileProcessing, { error: string }>[]),
-    ]
   }
 
-  // Note: toolCallResults was previously assigned but unused - errors are returned directly now
-
-  const errors = fileProcessingState.fileChangeErrors.filter(
-    (result) => result.toolCallId === toolCall.toolCallId,
-  )
-  if (errors.length > 0) {
-    if (errors.length > 1) {
-      throw new Error(
-        `Internal error: Unexpected number of matching errors for ${JSON.stringify(toolCall)}, found ${errors.length}, expected 1`,
-      )
-    }
-
-    const { path, error } = errors[0]
+  if ('error' in toolCall) {
     return [
       {
         type: 'json',
         value: {
-          file: path,
-          errorMessage: error,
+          file: toolCall.path,
+          errorMessage: toolCall.error,
         },
       },
     ]
   }
 
-  const changes = fileProcessingState.fileChanges.filter(
-    (result) => result.toolCallId === toolCall.toolCallId,
-  )
-  if (changes.length !== 1) {
-    throw new Error(
-      `Internal error: Unexpected number of matching changes for ${JSON.stringify(toolCall)}, found ${changes.length}, expected 1`,
-    )
-  }
-
-  const { patch, content, path, messages } = changes[0]
+  const { patch, content, path } = toolCall
   const clientToolCall: ClientToolCall<T> = {
     toolCallId: toolCall.toolCallId,
     toolName: toolCall.tool,
     input: patch
-      ? { type: 'patch' as const, path, content: patch }
-      : { type: 'file' as const, path, content },
+      ? {
+          type: 'patch' as const,
+          path,
+          content: patch,
+          expectedHash: toolCall.expectedHash,
+        }
+      : {
+          type: 'file' as const,
+          path,
+          content,
+          expectedHash: toolCall.expectedHash,
+        },
   } as ClientToolCall<T>
   const clientToolResult = await requestClientToolCall(clientToolCall)
   if (clientToolResult.length > 0) {
     return clientToolResult
   }
 
-  const synthesizedMessage =
-    toolCall.tool === 'str_replace'
-      ? 'Applied str_replace patch; synthesized result because the client returned an empty response.'
-      : `Applied ${toolCall.tool} edit; synthesized result because the client returned an empty response.`
-
   return [
     {
       type: 'json',
       value: {
         file: path,
-        ...(patch ? { unifiedDiff: patch, patch } : {}),
-        message: [
-          ...messages,
-          synthesizedMessage,
-        ].join('\n\n'),
+        errorMessage: `The client returned no ${toolCall.tool} application result, so the harness could not confirm that the prepared edit was written. Re-read ${path} before retrying.`,
       },
     },
   ] as CodebuffToolOutput<T>

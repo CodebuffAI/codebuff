@@ -9,7 +9,6 @@ import {
 } from '@openbuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-
 import type { ToolCallPart } from '@codebuff/common/types/messages/content-part'
 
 /**

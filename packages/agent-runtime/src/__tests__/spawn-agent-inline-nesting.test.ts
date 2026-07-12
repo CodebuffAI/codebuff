@@ -165,10 +165,7 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
     // The fix: tool_call events must carry parentAgentId = child's agentId so
     // the CLI's handleRegularToolCall nests them INSIDE the child agent block,
     // not the orchestrator's block.
-    const tc = toolCalls[0] as Extract<
-      PrintModeEvent,
-      { type: 'tool_call' }
-    >
+    const tc = toolCalls[0] as Extract<PrintModeEvent, { type: 'tool_call' }>
     expect(tc.parentAgentId).toBe(capturedChildAgentId)
     expect(tc.parentAgentId).not.toBe(capturedParentAgentId)
   })
@@ -197,10 +194,7 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
     const toolCalls = events.filter((e) => e.type === 'tool_call')
     expect(toolCalls).toHaveLength(1)
 
-    const tc = toolCalls[0] as Extract<
-      PrintModeEvent,
-      { type: 'tool_call' }
-    >
+    const tc = toolCalls[0] as Extract<PrintModeEvent, { type: 'tool_call' }>
     // The pre-existing parentAgentId must be preserved, NOT overwritten with
     // capturedChildAgentId (the behavior the reviewer flagged).
     expect(tc.parentAgentId).toBe(grandchildParentId)
@@ -428,7 +422,10 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
       },
     ]
 
-    const events = await runInlineSpawnWithChildEvents('test-writer', childChunks)
+    const events = await runInlineSpawnWithChildEvents(
+      'test-writer',
+      childChunks,
+    )
 
     const nested = events.filter(
       (e) => e.type === 'tool_call' || e.type === 'tool_result',

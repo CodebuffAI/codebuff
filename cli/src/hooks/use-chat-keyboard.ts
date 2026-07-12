@@ -5,7 +5,12 @@ import { useCallback, useRef } from 'react'
 
 import { getProjectRoot } from '../project-files'
 import { reportActivity } from '../utils/activity-tracker'
-import { hasClipboardImage, readClipboardText, readClipboardFilePath, getImageFilePathFromText } from '../utils/clipboard-image'
+import {
+  hasClipboardImage,
+  readClipboardText,
+  readClipboardFilePath,
+  getImageFilePathFromText,
+} from '../utils/clipboard-image'
 import { isImageFile } from '../utils/image-handler'
 import {
   resolveChatKeyboardAction,
@@ -208,7 +213,7 @@ function dispatchAction(
       return true
     case 'paste': {
       const cwd = getProjectRoot() ?? process.cwd()
-      
+
       // First, check if clipboard contains a copied file (e.g., from Finder)
       // This is different from text - it's when you Cmd+C a file in Finder
       const copiedFilePath = readClipboardFilePath()
@@ -226,7 +231,7 @@ function dispatchAction(
           // Fall through to other paste handlers
         }
       }
-      
+
       // Next, read clipboard text to check if it's a file path
       // This handles the case where a file is dragged/dropped - we want to use
       // the file path, not any stale image data that might be in the clipboard
@@ -240,14 +245,14 @@ function dispatchAction(
           return true
         }
       }
-      
+
       // Check for actual image data in clipboard (screenshots, copied images)
       // This comes AFTER the file path check so dragged files take priority
       if (hasClipboardImage()) {
         handlers.onPasteImage()
         return true
       }
-      
+
       // Regular text paste
       if (text) {
         handlers.onPasteText(text)
@@ -306,7 +311,10 @@ export function useChatKeyboard({
 
         // Report keyboard activity for activity-aware features (throttled)
         const now = Date.now()
-        if (now - lastKeyboardActivityRef.current > KEYBOARD_ACTIVITY_THROTTLE_MS) {
+        if (
+          now - lastKeyboardActivityRef.current >
+          KEYBOARD_ACTIVITY_THROTTLE_MS
+        ) {
           lastKeyboardActivityRef.current = now
           reportActivity()
         }

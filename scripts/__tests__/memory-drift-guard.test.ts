@@ -48,14 +48,26 @@ function initGitRepo(root: string): void {
 }
 
 /** Stage and commit `paths` with a backdated committer date (ISO 8601). */
-function gitCommit(root: string, paths: string[], message: string, dateIso: string): void {
+function gitCommit(
+  root: string,
+  paths: string[],
+  message: string,
+  dateIso: string,
+): void {
   for (const p of paths) {
     execSync(`git add -- ${JSON.stringify(p)}`, { cwd: root })
   }
-  execSync(`git commit -q -m ${JSON.stringify(message)} --date ${JSON.stringify(dateIso)}`, {
-    cwd: root,
-    env: { ...process.env, GIT_AUTHOR_DATE: dateIso, GIT_COMMITTER_DATE: dateIso },
-  })
+  execSync(
+    `git commit -q -m ${JSON.stringify(message)} --date ${JSON.stringify(dateIso)}`,
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_DATE: dateIso,
+        GIT_COMMITTER_DATE: dateIso,
+      },
+    },
+  )
 }
 
 test('path checker flags missing backtick-quoted repo-relative path', () => {
@@ -96,10 +108,23 @@ test('staleness checker flags knowledge.md with older last commit than sibling s
   const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
   writeFileSync(knowledgePath, '# demo\n')
   // Commit knowledge.md with an old timestamp.
-  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2023-01-01T00:00:00')
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/knowledge.md'],
+    'add knowledge',
+    '2023-01-01T00:00:00',
+  )
   // Add a source file under src/ and commit it with a newer timestamp.
-  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
-  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
+  writeFileSync(
+    join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'),
+    'export const x = 1\n',
+  )
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/src/index.ts'],
+    'add src',
+    '2024-06-01T00:00:00',
+  )
   const findings = checkStaleness(tmpRoot)
   expect(findings.length).toBeGreaterThanOrEqual(1)
   expect(findings.some((f) => f.message.includes('stale'))).toBe(true)
@@ -110,9 +135,22 @@ test('staleness checker skips dirty knowledge.md before freshness commit lands',
   mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
   const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
   writeFileSync(knowledgePath, '# demo\n')
-  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2023-01-01T00:00:00')
-  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
-  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/knowledge.md'],
+    'add knowledge',
+    '2023-01-01T00:00:00',
+  )
+  writeFileSync(
+    join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'),
+    'export const x = 1\n',
+  )
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/src/index.ts'],
+    'add src',
+    '2024-06-01T00:00:00',
+  )
 
   writeFileSync(knowledgePath, '# demo\n\nUpdated local notes.\n')
 
@@ -125,10 +163,23 @@ test('staleness checker does NOT flag knowledge.md when its last commit is newer
   mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
   const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
   writeFileSync(knowledgePath, '# demo\n')
-  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
+  writeFileSync(
+    join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'),
+    'export const x = 1\n',
+  )
   // Commit src first (older), then knowledge.md (newer) — not stale.
-  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2023-01-01T00:00:00')
-  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2024-06-01T00:00:00')
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/src/index.ts'],
+    'add src',
+    '2023-01-01T00:00:00',
+  )
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/knowledge.md'],
+    'add knowledge',
+    '2024-06-01T00:00:00',
+  )
   const findings = checkStaleness(tmpRoot)
   expect(findings.some((f) => f.path.includes('knowledge.md'))).toBe(false)
 })
@@ -144,8 +195,16 @@ test('staleness checker skips untracked knowledge.md (no false positive without 
 test('staleness checker skips untracked knowledge.md in a git repo', () => {
   initGitRepo(tmpRoot)
   mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
-  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
-  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
+  writeFileSync(
+    join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'),
+    'export const x = 1\n',
+  )
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/src/index.ts'],
+    'add src',
+    '2024-06-01T00:00:00',
+  )
 
   writeFileSync(join(tmpRoot, 'packages', 'demo', 'knowledge.md'), '# demo\n')
 
@@ -197,9 +256,7 @@ test('command checker skips out-of-repo absolute --cwd paths', () => {
   )
   const findings = checkCommand(tmpRoot)
   // Should not report a finding against the out-of-repo package.json path
-  expect(
-    findings.some((f) => f.message.includes('/other-repo')),
-  ).toBe(false)
+  expect(findings.some((f) => f.message.includes('/other-repo'))).toBe(false)
 })
 
 test('command checker infers cwd from `cd <dir> &&` prefix on same line', () => {
@@ -224,9 +281,7 @@ test('command checker skips out-of-repo `cd <dir> &&` prefix', () => {
     'Run `cd /home/user/Code/other-repo && bun run typecheck`.\n',
   )
   const findings = checkCommand(tmpRoot)
-  expect(
-    findings.some((f) => f.message.includes('/other-repo')),
-  ).toBe(false)
+  expect(findings.some((f) => f.message.includes('/other-repo'))).toBe(false)
 })
 
 test('dependency checker flags missing @codebuff package', () => {
@@ -235,10 +290,7 @@ test('dependency checker flags missing @codebuff package', () => {
     join(tmpRoot, 'packages', 'fake', 'package.json'),
     JSON.stringify({ name: '@codebuff/fake' }),
   )
-  writeFileSync(
-    join(tmpRoot, 'package.json'),
-    JSON.stringify({ name: 'root' }),
-  )
+  writeFileSync(join(tmpRoot, 'package.json'), JSON.stringify({ name: 'root' }))
   mkdirSync(join(tmpRoot, 'docs'), { recursive: true })
   writeFileSync(
     join(tmpRoot, 'docs', 'dep.md'),
@@ -278,7 +330,8 @@ test('script-coverage checker flags unmentioned script', () => {
 test('script-coverage checker respects .coverage-allow allowlist', () => {
   mkdirSync(join(tmpRoot, 'scripts'), { recursive: true })
   writeFileSync(join(tmpRoot, 'scripts', 'ad-hoc-tool.ts'), '// no docs\n')
-  writeFileSync(join(tmpRoot, 'scripts', 'package.json'),
+  writeFileSync(
+    join(tmpRoot, 'scripts', 'package.json'),
     JSON.stringify({ scripts: {} }),
   )
   writeFileSync(join(tmpRoot, 'scripts', '.coverage-allow'), 'ad-hoc-tool.ts\n')
@@ -308,9 +361,7 @@ test('index-sync checker covers agents/patterns/INDEX.md and flags missing refer
   )
   const findings = checkIndexSync(tmpRoot)
   expect(findings.length).toBeGreaterThanOrEqual(1)
-  expect(
-    findings.some((f) => f.path === 'agents/patterns/INDEX.md'),
-  ).toBe(true)
+  expect(findings.some((f) => f.path === 'agents/patterns/INDEX.md')).toBe(true)
 })
 
 test('index-sync returns no findings for patterns INDEX when all referenced files exist', () => {
@@ -324,9 +375,9 @@ test('index-sync returns no findings for patterns INDEX when all referenced file
     '| pattern | file | description |\n| --- | --- | --- |\n| present | `agents/patterns/present.md` | Present |\n',
   )
   const findings = checkIndexSync(tmpRoot)
-  expect(
-    findings.filter((f) => f.path === 'agents/patterns/INDEX.md'),
-  ).toEqual([])
+  expect(findings.filter((f) => f.path === 'agents/patterns/INDEX.md')).toEqual(
+    [],
+  )
 })
 
 test('memory-drift guard skips .bun-install cache directories', () => {
@@ -342,8 +393,7 @@ test('memory-drift guard skips .bun-install cache directories', () => {
   )
   const pathFindings = checkPath(tmpRoot)
   const brokenFindings = checkBrokenLink(tmpRoot)
-  const touched = (f: { path: string }) =>
-    f.path.includes('.bun-install')
+  const touched = (f: { path: string }) => f.path.includes('.bun-install')
   expect(pathFindings.some(touched)).toBe(false)
   expect(brokenFindings.some(touched)).toBe(false)
 })
@@ -408,13 +458,18 @@ test('broken-link checker skips anchor fragments on existing file', () => {
   // resolve to the file `request-flow.md` (ignoring the `#anchor` fragment).
   // The M5 fix strips the fragment before existsSync, so this must not flag.
   mkdirSync(join(tmpRoot, 'docs'), { recursive: true })
-  writeFileSync(join(tmpRoot, 'docs', 'request-flow.md'), '# Request Flow\n\n## Reviewer / validation gate semantics\n')
+  writeFileSync(
+    join(tmpRoot, 'docs', 'request-flow.md'),
+    '# Request Flow\n\n## Reviewer / validation gate semantics\n',
+  )
   writeFileSync(
     join(tmpRoot, 'docs', 'page.md'),
     'See [flow](./request-flow.md#reviewer--validation-gate-semantics).\n',
   )
   const findings = checkBrokenLink(tmpRoot)
-  expect(findings.some((f) => f.message.includes('request-flow.md'))).toBe(false)
+  expect(findings.some((f) => f.message.includes('request-flow.md'))).toBe(
+    false,
+  )
 })
 
 test('integration: runMemoryDriftGuard returns sum score and 11 checkers in order', () => {
@@ -437,18 +492,25 @@ test('integration: runMemoryDriftGuard returns sum score and 11 checkers in orde
   const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
   writeFileSync(
     knowledgePath,
-    [
-      '# demo',
-      '',
-      '## Architecture',
-      '',
-      '- `nope-dir`',
-    ].join('\n'),
+    ['# demo', '', '## Architecture', '', '- `nope-dir`'].join('\n'),
   )
   // Commit knowledge.md (old) then a src file (newer) so staleness fires.
-  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2023-01-01T00:00:00')
-  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
-  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/knowledge.md'],
+    'add knowledge',
+    '2023-01-01T00:00:00',
+  )
+  writeFileSync(
+    join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'),
+    'export const x = 1\n',
+  )
+  gitCommit(
+    tmpRoot,
+    ['packages/demo/src/index.ts'],
+    'add src',
+    '2024-06-01T00:00:00',
+  )
 
   writeFileSync(
     join(tmpRoot, 'AGENTS.md'),

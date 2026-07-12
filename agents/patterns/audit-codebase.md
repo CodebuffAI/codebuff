@@ -1,6 +1,7 @@
 # Pattern: Audit a codebase (comprehensive, map-reduce)
 
 ## When to use
+
 The user asks to "audit", "review", or "find issues across" an entire codebase
 (or a large subtree too big to hold in one context). This pattern uses sharding +
 a durable scratchpad so findings survive context pruning and shards stay
@@ -8,7 +9,9 @@ independent. Do NOT use this for a single-file review or a narrow bug hunt —
 use `code-reviewer` directly for those.
 
 ## Why this pattern exists
+
 Four bottlenecks make naive audits fail on large codebases:
+
 1. Parent-context synthesis is a single point of failure (pruner eats early
    findings before later files are read).
 2. Subagents can't talk sideways (every report relays through the parent).
@@ -20,6 +23,7 @@ with a **pre-built structural map**, and fixes #4 with an **8-domain
 checklist**. Findings live on disk, not in parent context.
 
 ## The 8 audit domains (the checklist)
+
 Every shard must evaluate its assigned files against ALL eight domains. A
 finding is only valid if it names the domain, the file:line, the concrete
 risk, and a suggested fix.
@@ -52,6 +56,7 @@ risk, and a suggested fix.
 ## The flow (map-reduce with a scratchpad)
 
 ### Step 0 — Decide if a full audit is warranted
+
 - If the target is < ~30 files OR < ~3k LOC, skip this pattern. Just read the
   files and use `code-reviewer` directly. This pattern's overhead isn't worth
   it for small scopes.
@@ -66,10 +71,13 @@ verdict means skip this pattern and use `code-reviewer` directly on that
 file. `unclear` prompts default to the <30-files / <3k-LOC heuristic above.
 
 ### Step 1 — Build the structural map (P2)
+
 Run the structural-map builder ONCE for the session:
+
 ```bash
 bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md
 ```
+
 Then `read_files` the resulting `MAP.md` and **pin it in your context** — every
 shard navigates from it. Do NOT re-discover structure per shard; that's the
 bottleneck this kills.
@@ -77,14 +85,17 @@ bottleneck this kills.
 **Don't blindly rebuild if the map already exists.** The script has a
 non-destructive pre-flight that parses the existing map's `Built at:` timestamp
 and exits 0 (fresh) or 1 (stale/missing) without touching it:
+
 ```bash
 bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md --check-stale
 ```
+
 Use this before pinning. Exit 0 → reuse as-is. Exit 1 → rebuild (re-run
 without `--check-stale`). See the **Structural map lifecycle** section below
 for the full decision tree.
 
 ### Step 2 — Shard by top-level directory
+
 From `MAP.md`, partition the codebase into N shards (one per top-level dir, or
 finer for huge dirs). Target ~5–15 files per shard so each shard fits in one
 subagent context with room to analyze. Group tiny dirs together.
@@ -102,8 +113,10 @@ For non-`broad-audit` breadth (`single-target` / `unclear`) the rule is
 skipped — only apply it when the breadth check returns `broad-audit`.
 
 ### Step 3 — Spawn shard auditors in parallel
+
 For each shard, spawn a `general-agent` (or `code-reviewer` if the shard is
 small) with a prompt containing ONLY:
+
 - The shard's file list (paths).
 - The 8 domains above (copy them verbatim).
 - The output contract: "Write your findings to
@@ -134,6 +147,7 @@ raw subagent count. So a trace with 10 `file-picker`s and 0 `code-searcher`s
 has 0 pairs and fails the rule.
 
 ### Step 3.5 — Emit the coverage matrix (M10.3, SPEC R10.3)
+
 Before synthesizing, emit a domain -> shard mapping so unsharded subsystems
 are visible (prevents silent under-coverage). Write
 `.agents/sessions/<slug>/COVERAGE-MATRIX.md` with `write_file`. Format:
@@ -155,8 +169,10 @@ prevents the "you didn't look at X" complaint by making gaps visible before
 synthesis.
 
 ### Step 3.6 — Subsystem-enumeration guard (M10.4, SPEC R10.4)
+
 Enumerate the repo's top-level directories (from `MAP.md` or `list_directory`
 of the project root). For EACH top-level dir, confirm one of:
+
 - **audited** — it was sharded (appears in the coverage matrix with >=1 shard).
 - **out-of-scope** — explicitly marked with a one-line reason (e.g. "docs:
   out-of-scope (not code)", ".agents: out-of-scope (session artifacts)").
@@ -168,8 +184,10 @@ shard it or mark it out-of-scope before synthesizing. This is the direct fix
 for the user's "you didn't look at X" complaint.
 
 ### Step 4 — Synthesize (P1)
+
 After all shards complete, spawn the `synthesizer` agent with a prompt
 pointing at the findings directory:
+
 - "Read every file in `.agents/sessions/<slug>/findings/` using `read_files`.
   Also `read_files` `.agents/sessions/<slug>/COVERAGE-MATRIX.md` so you know
   the full set of audited subsystems and any out-of-scope marks.
@@ -190,6 +208,7 @@ The synthesizer reads ONLY the small, focused finding files — never the raw
 source. This is what keeps the parent context from being the bottleneck.
 
 ### Step 5 — Report to the user
+
 `read_files` the final `AUDIT-REPORT.md` and present the Top 10 + a pointer to
 the full report. Offer to fix specific findings as a follow-up.
 
@@ -201,10 +220,13 @@ The map is a timestamped snapshot, not a live view. The script embeds a
 
 **Before pinning the map, run this exact sequence once at session start and
 again at the top of any later work block:**
+
 ```bash
 bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md --check-stale
 ```
+
 Then:
+
 - **Exit 0 (fresh)** → `read_files` the map and pin it. Skip the rebuild.
 - **Exit 1 (stale/missing)** → rebuild, then `read_files`:
   ```bash
@@ -213,6 +235,7 @@ Then:
 - **Exit 2 (unparseable)** → the map is corrupted/edited by hand. Rebuild.
 
 **Default staleness threshold is 30 minutes.** Tune it per session:
+
 - Read-only audit of a static tree → `--max-age-minutes 120` (a stale map is
   fine; avoid blocking the indexer).
 - Active-editing session where you're fixing findings as you find them →
@@ -222,9 +245,10 @@ Then:
   block, not just once at start. A 2h-old map can mislead.
 
 **Do not** rebuild on every shard — that defeats the point (one render, many
-  reads). Only the parent orchestrator rebuilds; shards read the pinned map.
+reads). Only the parent orchestrator rebuilds; shards read the pinned map.
 
 ## Conventions
+
 - The session slug goes under `.agents/sessions/<slug>/`. Use a date-stamped
   slug like `audit-<repo>-YYYY-MM`.
 - Finding files are named `<shard-name>.md` (kebab-case) under `findings/`.
@@ -234,6 +258,7 @@ Then:
   "No issues found across all 8 domains." so the synthesizer knows it ran.
 
 ## Risks
+
 - **Shards too large** — if a shard's file list exceeds ~3k LOC, the auditor
   will prune and miss things. Split it. The map's per-file LOC counts help
   you size shards.

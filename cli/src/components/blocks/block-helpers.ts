@@ -1,4 +1,3 @@
-
 export function trimNewlines(str: string): string {
   return str.replace(/^\n+|\n+$/g, '')
 }

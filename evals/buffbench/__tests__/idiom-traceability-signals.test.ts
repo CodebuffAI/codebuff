@@ -38,7 +38,10 @@ function edit(
   return toolCall(toolName, { path }, toolCallId)
 }
 
-function editTransaction(paths: string[], toolCallId = 'edit-tx-1'): PrintModeEvent {
+function editTransaction(
+  paths: string[],
+  toolCallId = 'edit-tx-1',
+): PrintModeEvent {
   return toolCall(
     'edit_transaction',
     { edits: paths.map((path) => ({ type: 'str_replace', path })) },
@@ -64,6 +67,7 @@ describe('path helpers', () => {
     expect(languageForEditedPath('src/index.php')).toBe('php')
     expect(languageForEditedPath('Sources/App.swift')).toBe('swift')
     expect(languageForEditedPath('src/Main.kt')).toBe('kotlin')
+    expect(languageForEditedPath('scripts/player.gd')).toBe('gdscript')
   })
 
   test('treats TypeScript and JavaScript as exempt', () => {
@@ -75,7 +79,7 @@ describe('path helpers', () => {
 })
 
 describe('computeIdiomTraceabilitySignals', () => {
-  test('passes when matching idiom file is read before first non-TS edit', () => {
+  test('marks non-TS edits covered by bundled capability guidance', () => {
     const events: PrintModeEvent[] = [
       readFiles({ paths: [idiomPathForLanguage('python')] }),
       edit('str_replace', 'src/app.py'),
@@ -88,38 +92,35 @@ describe('computeIdiomTraceabilitySignals', () => {
     expect(signals.languageSignals).toEqual([
       {
         languageId: 'python',
-        idiomPath: 'agents/idioms/python.md',
+        idiomPath: 'bundled:language-capabilities/python',
         editedPaths: ['src/app.py'],
         firstEditIndex: 1,
-        priorReadIndex: 0,
         satisfied: true,
       },
     ])
 
     const evaluation = evaluateIdiomTraceability(signals)
-    expect(evaluation.verdict).toBe('pass')
-    expect(evaluation.reasons[0]).toContain('All 1 non-TypeScript language')
+    expect(evaluation.verdict).toBe('skip')
+    expect(evaluation.reasons[0]).toContain('prompt-construction tests')
   })
 
-  test('fails when first non-TS edit happens before matching idiom read', () => {
+  test('does not depend on project-relative idiom reads', () => {
     const events: PrintModeEvent[] = [
       edit('write_file', 'src/lib.rs'),
       readFiles({ paths: [idiomPathForLanguage('rust')] }),
     ]
 
     const signals = computeIdiomTraceabilitySignals(events)
-    expect(signals.hasRequiredReads).toBe(false)
+    expect(signals.hasRequiredReads).toBe(true)
     expect(signals.languageSignals[0]).toMatchObject({
       languageId: 'rust',
       firstEditIndex: 0,
-      priorReadIndex: undefined,
-      satisfied: false,
+      idiomPath: 'bundled:language-capabilities/rust',
+      satisfied: true,
     })
 
     const evaluation = evaluateIdiomTraceability(signals)
-    expect(evaluation.verdict).toBe('fail')
-    expect(evaluation.reasons[0]).toContain('rust edit(s)')
-    expect(evaluation.reasons[0]).toContain('agents/idioms/rust.md')
+    expect(evaluation.verdict).toBe('skip')
   })
 
   test('skips when only TypeScript or unknown-extension edits are detected', () => {
@@ -138,7 +139,7 @@ describe('computeIdiomTraceabilitySignals', () => {
     expect(evaluation.reasons[0]).toContain('No non-TypeScript')
   })
 
-  test('requires every edited non-TS language to read its own idiom file', () => {
+  test('covers every edited non-TS language from the canonical registry', () => {
     const events: PrintModeEvent[] = [
       readFiles({ paths: [idiomPathForLanguage('python')] }, 'read-python'),
       edit('str_replace', 'src/app.py', 'edit-python'),
@@ -151,12 +152,11 @@ describe('computeIdiomTraceabilitySignals', () => {
       'go',
     ])
     expect(signals.languageSignals[0].satisfied).toBe(true)
-    expect(signals.languageSignals[1].satisfied).toBe(false)
+    expect(signals.languageSignals[1].satisfied).toBe(true)
 
     const evaluation = evaluateIdiomTraceability(signals)
-    expect(evaluation.verdict).toBe('fail')
+    expect(evaluation.verdict).toBe('skip')
     expect(evaluation.reasons).toHaveLength(1)
-    expect(evaluation.reasons[0]).toContain('go edit(s)')
   })
 
   test('uses the first edit for a language and aggregates repeated edit paths', () => {
@@ -174,8 +174,7 @@ describe('computeIdiomTraceabilitySignals', () => {
       languageId: 'python',
       editedPaths: ['src/a.py', 'src/b.py'],
       firstEditIndex: 0,
-      priorReadIndex: undefined,
-      satisfied: false,
+      satisfied: true,
     })
   })
 
@@ -183,7 +182,9 @@ describe('computeIdiomTraceabilitySignals', () => {
     const events: PrintModeEvent[] = [
       readFiles(
         {
-          ranges: [{ path: './agents/idioms/ruby.md', startLine: 1, endLine: 10 }],
+          ranges: [
+            { path: './agents/idioms/ruby.md', startLine: 1, endLine: 10 },
+          ],
           symbols: [{ path: 'agents/idioms/go.md', names: ['anything'] }],
         },
         'read-ranges-symbols',
@@ -228,10 +229,33 @@ describe('computeIdiomTraceabilitySignals', () => {
     expect(signals.languageSignals).toEqual([
       {
         languageId: 'python',
-        idiomPath: 'agents/idioms/python.md',
+        idiomPath: 'bundled:language-capabilities/python',
         editedPaths: ['src/app.py'],
         firstEditIndex: 2,
-        priorReadIndex: 1,
+        satisfied: true,
+      },
+    ])
+  })
+
+  test('tracks apply_patch and GDScript edits', () => {
+    const events = [
+      toolCall(
+        'apply_patch',
+        {
+          patch:
+            '*** Begin Patch\n*** Update File: scripts/player.gd\n@@\n-pass\n+print("ready")\n*** End Patch',
+        },
+        'patch-gdscript',
+      ),
+    ]
+
+    const signals = computeIdiomTraceabilitySignals(events)
+    expect(signals.languageSignals).toEqual([
+      {
+        languageId: 'gdscript',
+        idiomPath: 'bundled:language-capabilities/gdscript',
+        editedPaths: ['scripts/player.gd'],
+        firstEditIndex: 0,
         satisfied: true,
       },
     ])

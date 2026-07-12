@@ -7,15 +7,16 @@ import {
   normalizeReplacementAliases,
 } from '../utils'
 import { basedOnReadSchema } from '../based-on-read'
+import { fileMutationResultV1Schema } from '../../results/filesystem'
 
 import { updateFileResultSchema } from './str-replace'
 
 import type { $ToolParams } from '../../constants'
 
-const replacementSchema = z
-  .preprocess(
-    normalizeReplacementAliases,
-    z.object({
+const replacementSchema = z.preprocess(
+  normalizeReplacementAliases,
+  z
+    .object({
       oldString: z
         .string()
         .min(1, 'oldString cannot be empty')
@@ -24,7 +25,9 @@ const replacementSchema = z
         ),
       newString: z
         .string()
-        .describe('The string to replace the corresponding oldString with. Can be empty to delete.'),
+        .describe(
+          'The string to replace the corresponding oldString with. Can be empty to delete.',
+        ),
       allowMultiple: z
         .boolean()
         .optional()
@@ -42,12 +45,21 @@ const replacementSchema = z
       skipIfMissing: z
         .boolean()
         .optional()
-        .default(false)
         .describe(
           'For deletion replacements only (newString is empty): treat a missing oldString as an already-applied no-op. Use only for explicit idempotent cleanup retries, never for ordinary edits.',
         ),
+    })
+    .superRefine((replacement, ctx) => {
+      if (replacement.skipIfMissing && replacement.newString !== '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['skipIfMissing'],
+          message:
+            'skipIfMissing is only valid for deletion replacements with an empty newString.',
+        })
+      }
     }),
-  )
+)
 const editBaseSchema = z.object({
   id: z
     .string()
@@ -79,26 +91,32 @@ const insertTextOperationSchema = z.object({
 })
 
 const insertImportOperationSchema = z.object({
-  kind: z.literal('insert_import').describe('TypeScript-aware import insertion.'),
+  kind: z.literal('insert_import').describe('Language-aware import insertion.'),
   importStatement: z
     .string()
     .min(1, 'importStatement cannot be empty')
-    .describe('Complete TypeScript import statement to add, e.g. "import { foo } from \'bar\'".'),
+    .describe(
+      'Complete language-native import statement to add, e.g. "import { foo } from \'bar\'", "from app import value", or "use crate::value".',
+    ),
 })
 
 const removeImportOperationSchema = z
   .object({
-    kind: z.literal('remove_import').describe('TypeScript-aware import removal.'),
+    kind: z.literal('remove_import').describe('Language-aware import removal.'),
     importStatement: z
       .string()
       .min(1, 'importStatement cannot be empty')
       .optional()
-      .describe('Complete TypeScript import statement to remove. Required unless moduleSpecifier is provided.'),
+      .describe(
+        'Complete language-native import statement to remove. Required unless moduleSpecifier is provided.',
+      ),
     moduleSpecifier: z
       .string()
       .min(1, 'moduleSpecifier cannot be empty')
       .optional()
-      .describe('Module specifier to remove imports from, e.g. "react" or "./helper".'),
+      .describe(
+        'Module specifier to remove imports from, e.g. "react" or "./helper".',
+      ),
   })
   .refine(
     (operation) => operation.importStatement || operation.moduleSpecifier,
@@ -108,7 +126,9 @@ const removeImportOperationSchema = z
   )
 
 const structuredEditSchema = editBaseSchema.extend({
-  type: z.literal('structured').describe('A structured edit dispatched by operation kind.'),
+  type: z
+    .literal('structured')
+    .describe('A structured edit dispatched by operation kind.'),
   operation: z
     .discriminatedUnion('kind', [
       insertTextOperationSchema,
@@ -118,12 +138,66 @@ const structuredEditSchema = editBaseSchema.extend({
     .describe('Structured edit operation to apply to this file.'),
 })
 
+const createFileEditSchema = editBaseSchema.extend({
+  type: z.literal('create'),
+  content: z.string().describe('Exact bytes to write to the new file.'),
+})
+
+const deleteFileEditSchema = editBaseSchema.extend({
+  type: z.literal('delete'),
+})
+
+const moveFileEditSchema = editBaseSchema.extend({
+  type: z.literal('move'),
+  destinationPath: z
+    .string()
+    .min(1, 'destinationPath cannot be empty')
+    .describe('New project-relative path. The destination must be absent.'),
+})
+
+const replaceRangeEditSchema = editBaseSchema
+  .extend({
+    type: z.literal('replace_range'),
+    startLine: z.number().int().min(1),
+    endLine: z.number().int().min(1),
+    expectedHash: z.string().min(1),
+    newContent: z.string(),
+  })
+  .refine((edit) => edit.startLine <= edit.endLine, {
+    message: 'startLine must be <= endLine',
+  })
+
+const rewriteSymbolEditSchema = editBaseSchema.extend({
+  type: z.literal('rewrite_symbol'),
+  symbol: z.string().min(1),
+  content: z.string(),
+  occurrence: z.number().int().positive().optional(),
+})
+
+const patchEditSchema = editBaseSchema.extend({
+  type: z.literal('patch'),
+  diff: z.string().min(1),
+})
+
+const writeFileEditSchema = editBaseSchema.extend({
+  type: z.literal('write_file'),
+  content: z.string(),
+})
+
 export const transactionEditSchema = z.discriminatedUnion('type', [
   strReplaceEditSchema,
   structuredEditSchema,
+  createFileEditSchema,
+  deleteFileEditSchema,
+  moveFileEditSchema,
+  replaceRangeEditSchema,
+  rewriteSymbolEditSchema,
+  patchEditSchema,
+  writeFileEditSchema,
 ])
 
 export const editTransactionResultSchema = z.union([
+  fileMutationResultV1Schema,
   updateFileResultSchema,
   z.object({
     message: z.string(),
@@ -155,9 +229,13 @@ const inputSchema = z
     edits: z
       .array(transactionEditSchema)
       .min(1, 'Transaction edits cannot be empty')
-      .describe('All edits that must preflight together. If any edit fails during preflight, no files are changed.'),
+      .describe(
+        'All edits that must preflight together. If any edit fails during preflight, no files are changed.',
+      ),
   })
-  .describe('Preflight related edits across one or more files as an atomic transaction, then apply the prepared file patches as one client-side batch.')
+  .describe(
+    'Preflight related edits together, then apply them in one coordinated client-side transaction with deterministic order and explicit rollback outcomes.',
+  )
 
 const description = `
 Use this tool when related edits across one or more files should be preflighted together before applying, such as updating a utility and its tests together.
@@ -167,9 +245,10 @@ Important:
 - If ANY edit fails during preflight, NO files are changed.
 - Every per-file edit is atomic during preflight, including small files.
 - Structured edits are dispatched deterministically by operation kind; supported operations include insert_text, insert_import, and remove_import.
+- Transactions can also compose replace_range, rewrite_symbol, unified patch, and whole-file write_file operations with create/delete/move lifecycle actions.
 - Use insert_import/remove_import for TypeScript import-only changes; use str_replace for larger semantic changes.
 - Large-file str_replace edits use the same deterministic semantics as str_replace: unique oldString edits can apply without basedOnRead; ambiguous targets should use basedOnRead from fresh read_files.ranges output.
-- Patches are applied as one client-side atomic batch after the whole transaction preflights; if the client rejects the batch, stop and re-read all affected files before retrying.
+- Patches are applied as one coordinated client-side transaction after preflight. Commit failures trigger best-effort rollback and report rolled-back or rollback-incomplete outcomes; do not assume external filesystem atomicity.
 - Use str_replace directly for simple one-file edits; use edit_transaction when cross-file consistency matters.
 
 Example:

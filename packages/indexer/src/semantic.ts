@@ -9,19 +9,50 @@
 // Lexical search (query.ts) stays the always-available default; semantic search
 // augments it when an embedder is configured.
 
-import type { IndexedFile } from './types'
+import { createHash } from 'node:crypto'
+
+import type { IndexedFile, IndexingConfig } from './types'
 
 /** Batch embedder: maps input texts to equal-length vectors, order-preserving. */
-export type EmbedFn = (texts: string[]) => Promise<number[][]>
+export type EmbedFn = ((texts: string[]) => Promise<number[][]>) & {
+  /**
+   * Stable, non-secret identity for the resolved embedding provider/model.
+   * Hosts should include details that can change vector compatibility (for
+   * example provider id, endpoint, and provider model), but never API keys.
+   */
+  cacheKey?: string
+}
 
 export interface FileVector {
   path: string
+  hash?: string
   vector: number[]
 }
 
 export interface SemanticHit {
   path: string
   score: number
+}
+
+/** Bump when {@link fileEmbeddingText} changes in a vector-incompatible way. */
+export const FILE_EMBEDDING_TEXT_VERSION = '1'
+
+/**
+ * Stable cache identity for vectors produced by one embedding configuration.
+ * The configured model covers direct indexer consumers; `embed.cacheKey`
+ * lets the SDK add the fully resolved provider/model endpoint without exposing
+ * credentials to the cache.
+ */
+export function getSemanticConfigFingerprint(
+  config: IndexingConfig['semantic'],
+  embed?: EmbedFn,
+): string {
+  const identity = JSON.stringify({
+    fileEmbeddingTextVersion: FILE_EMBEDDING_TEXT_VERSION,
+    model: config?.model ?? null,
+    embedder: embed?.cacheKey ?? null,
+  })
+  return createHash('sha256').update(identity).digest('hex')
 }
 
 export function isSemanticIndexingAvailable(embed?: EmbedFn | null): boolean {
@@ -53,6 +84,7 @@ export function fileEmbeddingText(file: IndexedFile): string {
     file.symbols.slice(0, 40).join(' '),
     file.headings.slice(0, 20).join(' '),
     file.concepts.slice(0, 30).join(' '),
+    file.contentSample?.slice(0, 4_000),
   ]
   return parts.filter((p) => p && p.trim().length > 0).join('\n')
 }
@@ -62,15 +94,32 @@ export async function buildFileVectors(
   files: IndexedFile[],
   embed: EmbedFn,
   batchSize = 64,
+  previous: ReadonlyArray<{
+    path?: string
+    hash?: string
+    vector: number[]
+  }> = [],
 ): Promise<FileVector[]> {
+  // Content hashes, rather than paths, are the durable identity. This reuses a
+  // vector after a rename and avoids embedding duplicate files twice.
+  const previousByHash = new Map(
+    previous.filter((entry) => entry.hash).map((entry) => [entry.hash!, entry]),
+  )
   const vectors: FileVector[] = []
-  for (let i = 0; i < files.length; i += batchSize) {
-    const batch = files.slice(i, i + batchSize)
+  const changed: IndexedFile[] = []
+  for (const file of files) {
+    const cached = previousByHash.get(file.hash)
+    if (cached) {
+      vectors.push({ path: file.path, hash: file.hash, vector: cached.vector })
+    } else changed.push(file)
+  }
+  for (let i = 0; i < changed.length; i += batchSize) {
+    const batch = changed.slice(i, i + batchSize)
     const embeddings = await embed(batch.map(fileEmbeddingText))
     for (let j = 0; j < batch.length; j++) {
       const vector = embeddings[j]
       if (vector && vector.length > 0) {
-        vectors.push({ path: batch[j].path, vector })
+        vectors.push({ path: batch[j].path, hash: batch[j].hash, vector })
       }
     }
   }
@@ -109,6 +158,7 @@ export function blendSemanticScores(
   semantic: SemanticHit[],
   weight = 1,
 ): { path: string; score: number }[] {
+  if (weight <= 0) return lexical.filter((result) => result.score > 0)
   const maxLexical = Math.max(1e-9, ...lexical.map((r) => r.score))
   const merged = new Map<string, number>()
   for (const r of lexical) merged.set(r.path, r.score)
@@ -119,5 +169,6 @@ export function blendSemanticScores(
   }
   return Array.from(merged.entries())
     .map(([path, score]) => ({ path, score }))
+    .filter((result) => result.score > 0)
     .sort((a, b) => b.score - a.score)
 }

@@ -241,8 +241,8 @@ const logger = {
 
 describe('getContextCategoryTelemetry', () => {
   it('reports context usage by major source category', () => {
-    spyOn(tokenCounter, 'countTokensJson').mockImplementation((value) =>
-      JSON.stringify(value).length,
+    spyOn(tokenCounter, 'countTokensJson').mockImplementation(
+      (value) => JSON.stringify(value).length,
     )
 
     const messages: Message[] = [
@@ -670,9 +670,10 @@ describe('trimMessagesToFitTokenLimit', () => {
         toolName: 'web_search',
         toolCallId: 'web-search-large',
         content: jsonToolResult({
-          result: 'Next.js 15 introduces React Server Components improvements. '.repeat(
-            200,
-          ),
+          result:
+            'Next.js 15 introduces React Server Components improvements. '.repeat(
+              200,
+            ),
           links: Array.from({ length: 6 }, (_, i) => ({
             href: `https://example.com/${i + 1}`,
             text: `Link ${i + 1}`,
@@ -704,9 +705,7 @@ describe('trimMessagesToFitTokenLimit', () => {
       resultOmittedForLength: true,
     })
     expect(webValue).not.toHaveProperty('result')
-    expect(
-      (webValue as { links?: Array<unknown> }).links,
-    ).toHaveLength(5)
+    expect((webValue as { links?: Array<unknown> }).links).toHaveLength(5)
     expect(tokenCounter.countTokensJson(result)).toBeLessThanOrEqual(3000)
   })
 

@@ -50,6 +50,8 @@ jobs:
         run: cd sdk && bun run build
 
       - name: Run agents e2e tests
+        env:
+          RUN_CONTEXT_PRUNING_E2E: 'true'
         run: cd agents && bun run test:e2e --timeout=120000
 
       # Hosted web docs and Playwright checks were removed with the web package.

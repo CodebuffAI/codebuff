@@ -1,6 +1,7 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import { getProposedContent } from './proposed-content-store'
+import { normalizeToolPath } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -51,7 +52,14 @@ export const handleReadProposalWorkspace = (async (
   const uniquePaths = Array.from(new Set(paths))
 
   const results = await Promise.all(
-    uniquePaths.map(async (path): Promise<ReadProposalWorkspaceResult> => {
+    uniquePaths.map(async (inputPath): Promise<ReadProposalWorkspaceResult> => {
+      const path = normalizeToolPath(inputPath)
+      if (!path) {
+        return {
+          path: inputPath,
+          errorMessage: `read_proposal_workspace path traversal blocked: "${inputPath}" resolves outside the project root.`,
+        }
+      }
       // Overlay first: if this proposal has already proposed content for the
       // file, that is the authoritative "read your own writes" view.
       const proposed = getProposedContent(runId, path)
@@ -60,10 +68,14 @@ export const handleReadProposalWorkspace = (async (
         if (content !== null) {
           return { path, source: 'proposal' as const, content }
         }
+        return { path, source: 'proposal' as const, deleted: true as const }
       }
 
       // Untouched file: fall back to the real workspace exactly once.
-      const diskContent = await requestOptionalFile({ ...params, filePath: path })
+      const diskContent = await requestOptionalFile({
+        ...params,
+        filePath: path,
+      })
       if (diskContent !== null && diskContent !== undefined) {
         return { path, source: 'disk' as const, content: diskContent }
       }

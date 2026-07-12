@@ -1,6 +1,7 @@
 import z from 'zod/v4'
 
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { fileMutationResultV1Schema } from '@codebuff/common/tools/results/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
 import { jsonToolResult } from '@codebuff/common/util/messages'
@@ -8,7 +9,10 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { mockFileContext } from './test-utils'
 import { processStream } from '../tools/stream-parser'
-import { parseRawToolCall } from '../tools/tool-executor'
+import {
+  normalizeNativeToolOutput,
+  parseRawToolCall,
+} from '../tools/tool-executor'
 
 import type { AgentTemplate } from '../templates/types'
 import type {
@@ -45,6 +49,175 @@ describe('tool validation error handling', () => {
     instructionsPrompt: 'Test instructions',
     stepPrompt: 'Test step prompt',
   }
+
+  it('preserves canonical output, translates legacy mutations, and rejects malformed output', () => {
+    const validOutput = jsonToolResult(
+      fileMutationResultV1Schema.parse({
+        kind: 'file_mutation_result',
+        version: 1,
+        operationId: 'valid-operation',
+        outcome: 'unconfirmed',
+        actions: [],
+        authorityTier: null,
+        errors: [],
+        freshCapabilities: [],
+      }),
+    )
+    const valid = normalizeNativeToolOutput({
+      toolName: 'write_file',
+      toolCallId: 'call-valid',
+      output: validOutput,
+    })
+    expect(valid).toEqual({ valid: true, output: validOutput, issues: [] })
+
+    const legacy = normalizeNativeToolOutput({
+      toolName: 'write_file',
+      toolCallId: 'call-legacy',
+      output: jsonToolResult({
+        file: 'src/a.ts',
+        message: 'Updated src/a.ts',
+      }),
+    })
+    expect(legacy.valid).toBe(true)
+    expect(legacy.output[0]).toEqual(
+      expect.objectContaining({
+        type: 'json',
+        value: expect.objectContaining({
+          kind: 'file_mutation_result',
+          outcome: 'unconfirmed',
+          actions: [expect.objectContaining({ path: 'src/a.ts' })],
+        }),
+      }),
+    )
+
+    const malformed = normalizeNativeToolOutput({
+      toolName: 'write_file',
+      toolCallId: 'call-malformed',
+      output: jsonToolResult({
+        file: 'secret/path.ts',
+        message: 42,
+        content: 'must not leak',
+      }) as never,
+    })
+    expect(malformed.valid).toBe(false)
+    expect(malformed.output[0]).toEqual(
+      expect.objectContaining({
+        type: 'json',
+        value: expect.objectContaining({
+          kind: 'native_tool_result_error',
+          toolName: 'write_file',
+          lifecycle: expect.objectContaining({ state: 'failed' }),
+        }),
+      }),
+    )
+    expect(JSON.stringify(malformed.output)).not.toContain('secret/path.ts')
+    expect(JSON.stringify(malformed.output)).not.toContain('must not leak')
+
+    const recovered = normalizeNativeToolOutput({
+      toolName: 'write_file',
+      toolCallId: 'call-receipt',
+      output: jsonToolResult({
+        kind: 'file_mutation_result',
+        version: 2,
+        operationId: 'receipt-operation',
+        outcome: 'applied',
+        actions: 'malformed',
+        authorityTier: 'portable_path',
+        receiptId: 'receipt-id',
+        errors: [],
+        freshCapabilities: [],
+        authorityReceipt: {
+          kind: 'commit_receipt',
+          version: 1,
+          receiptId: 'receipt-id',
+          operationId: 'receipt-operation',
+          callId: 'call-receipt',
+          authorityTier: 'portable_path',
+          status: 'committed',
+          actions: [
+            {
+              actionId: 'receipt-operation:0',
+              index: 0,
+              action: 'update',
+              path: 'src/recovered.ts',
+              status: 'committed',
+              beforeHash: 'before',
+              afterHash: 'after',
+            },
+          ],
+          finalHashes: { 'src/recovered.ts': 'after' },
+        },
+      }) as never,
+    })
+    expect(recovered.valid).toBe(false)
+    expect(recovered.output[0]).toMatchObject({
+      type: 'json',
+      value: {
+        kind: 'file_mutation_result',
+        outcome: 'applied',
+        actions: [
+          expect.objectContaining({
+            path: 'src/recovered.ts',
+            outcome: 'applied',
+          }),
+        ],
+      },
+    })
+
+    const mismatchedCall = normalizeNativeToolOutput({
+      toolName: 'write_file',
+      toolCallId: 'active-call',
+      output: jsonToolResult(
+        fileMutationResultV1Schema.parse({
+          kind: 'file_mutation_result',
+          version: 1,
+          operationId: 'other-operation',
+          outcome: 'applied',
+          actions: [
+            {
+              actionId: 'other-operation:0',
+              index: 0,
+              action: 'update',
+              path: 'src/other.ts',
+              outcome: 'applied',
+              beforeHash: 'before',
+              afterHash: 'after',
+            },
+          ],
+          authorityTier: 'portable_path',
+          receiptId: 'other-receipt',
+          authorityReceipt: {
+            kind: 'commit_receipt',
+            version: 1,
+            receiptId: 'other-receipt',
+            operationId: 'other-operation',
+            callId: 'different-call',
+            authorityTier: 'portable_path',
+            status: 'committed',
+            actions: [
+              {
+                actionId: 'other-operation:0',
+                index: 0,
+                action: 'update',
+                path: 'src/other.ts',
+                status: 'committed',
+                beforeHash: 'before',
+                afterHash: 'after',
+              },
+            ],
+            finalHashes: { 'src/other.ts': 'after' },
+          },
+          errors: [],
+          freshCapabilities: [],
+        }),
+      ),
+    })
+    expect(mismatchedCall.valid).toBe(false)
+    expect(mismatchedCall.output[0]).toMatchObject({
+      type: 'json',
+      value: { kind: 'file_mutation_result', outcome: 'unconfirmed' },
+    })
+  })
 
   it('should parse repeatedly stringified native tool input before validation', () => {
     const input = {
@@ -573,9 +746,8 @@ describe('tool validation error handling', () => {
   })
 
   it('should summarize missing spawned agent params clearly', async () => {
-    const { validateAgentInput } = await import(
-      '../tools/handlers/tool/spawn-agent-utils'
-    )
+    const { validateAgentInput } =
+      await import('../tools/handlers/tool/spawn-agent-utils')
     const agentTemplate = {
       ...testAgentTemplate,
       inputSchema: {
@@ -583,9 +755,9 @@ describe('tool validation error handling', () => {
       },
     }
 
-    expect(() => validateAgentInput(agentTemplate, 'basher', undefined, {})).toThrow(
-      'Missing required: command',
-    )
+    expect(() =>
+      validateAgentInput(agentTemplate, 'basher', undefined, {}),
+    ).toThrow('Missing required: command')
   })
 
   it('should still emit tool_call and tool_result for valid tool calls', async () => {

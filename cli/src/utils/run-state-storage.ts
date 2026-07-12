@@ -1,7 +1,11 @@
 import * as fs from 'fs'
 import path from 'path'
 
-import { getCurrentChatDir, getMostRecentChatDir, getProjectDataDir } from '../project-files'
+import {
+  getCurrentChatDir,
+  getMostRecentChatDir,
+  getProjectDataDir,
+} from '../project-files'
 import { logger } from './logger'
 import { sanitizeForChatPersistence } from './payload-sanitizer'
 
@@ -14,6 +18,7 @@ import type {
 
 const RUN_STATE_FILENAME = 'run-state.json'
 const CHAT_MESSAGES_FILENAME = 'chat-messages.json'
+const CHAT_STATE_FILENAME = 'chat-state.json'
 const CHECKPOINT_FILENAME = 'turn-checkpoint.json'
 
 type SavedChatState = {
@@ -22,14 +27,47 @@ type SavedChatState = {
   chatId?: string
 }
 
+type PersistedChatState = {
+  version: 1
+  runState: RunState
+  messages: ChatMessage[]
+}
+
+function writeJsonAtomic(filePath: string, value: unknown): void {
+  const tempPath = `${filePath}.tmp.${process.pid}.${Date.now()}`
+  fs.writeFileSync(tempPath, JSON.stringify(value, null, 2), { mode: 0o600 })
+  try {
+    fs.renameSync(tempPath, filePath)
+  } catch (error) {
+    if (
+      !['EEXIST', 'EPERM'].includes((error as NodeJS.ErrnoException).code ?? '')
+    ) {
+      throw error
+    }
+    fs.unlinkSync(filePath)
+    fs.renameSync(tempPath, filePath)
+  }
+}
+
+export function isValidChatId(chatId: string): boolean {
+  const trimmed = chatId.trim()
+  return (
+    trimmed.length > 0 &&
+    trimmed !== '.' &&
+    trimmed !== '..' &&
+    path.basename(trimmed) === trimmed &&
+    !path.isAbsolute(trimmed)
+  )
+}
+
 /**
  * Recursively extract all agent IDs and tool call IDs from content blocks
  */
 function extractToggleIds(blocks: ContentBlock[] | undefined): string[] {
   if (!blocks) return []
-  
+
   const ids: string[] = []
-  
+
   for (const block of blocks) {
     if (block.type === 'agent') {
       ids.push(block.agentId)
@@ -39,7 +77,7 @@ function extractToggleIds(blocks: ContentBlock[] | undefined): string[] {
       ids.push(block.toolCallId)
     }
   }
-  
+
   return ids
 }
 
@@ -48,11 +86,11 @@ function extractToggleIds(blocks: ContentBlock[] | undefined): string[] {
  */
 export function getAllToggleIdsFromMessages(messages: ChatMessage[]): string[] {
   const ids: string[] = []
-  
+
   for (const message of messages) {
     ids.push(...extractToggleIds(message.blocks))
   }
-  
+
   return ids
 }
 
@@ -72,6 +110,10 @@ export function getChatMessagesPath(): string {
   return path.join(chatDir, CHAT_MESSAGES_FILENAME)
 }
 
+export function getChatStatePath(): string {
+  return path.join(getCurrentChatDir(), CHAT_STATE_FILENAME)
+}
+
 /**
  * P2-3: Get the path to the mid-turn checkpoint file for the current chat.
  * The checkpoint stores a serialized mainAgentState snapshot taken every
@@ -83,19 +125,28 @@ export function getCheckpointPath(): string {
   return path.join(chatDir, CHECKPOINT_FILENAME)
 }
 
-
 /**
  * Save both the RunState and ChatMessage[] to disk
  */
-export function saveChatState(runState: RunState, messages: ChatMessage[]): void {
+export function saveChatState(
+  runState: RunState,
+  messages: ChatMessage[],
+): void {
   try {
-    const runStatePath = getRunStatePath()
-    const messagesPath = getChatMessagesPath()
     const persistedRunState = sanitizeForChatPersistence(runState)
     const persistedMessages = sanitizeForChatPersistence(messages)
-    
-    fs.writeFileSync(runStatePath, JSON.stringify(persistedRunState, null, 2))
-    fs.writeFileSync(messagesPath, JSON.stringify(persistedMessages, null, 2))
+    const envelope: PersistedChatState = {
+      version: 1,
+      runState: persistedRunState,
+      messages: persistedMessages,
+    }
+
+    // The envelope is the authoritative resume state, so a crash cannot pair
+    // one turn's run state with another turn's messages. Legacy files remain
+    // as atomic compatibility/read-model outputs for history views.
+    writeJsonAtomic(getChatStatePath(), envelope)
+    writeJsonAtomic(getRunStatePath(), persistedRunState)
+    writeJsonAtomic(getChatMessagesPath(), persistedMessages)
   } catch (error) {
     logger.error(
       {
@@ -112,20 +163,30 @@ export function saveChatState(runState: RunState, messages: ChatMessage[]): void
  * recently modified chat directory is used.
  * Returns null if no previous chat exists or files can't be parsed.
  */
-export function loadMostRecentChatState(chatId?: string): SavedChatState | null {
+export function loadMostRecentChatState(
+  chatId?: string,
+): SavedChatState | null {
   try {
     let chatDir: string | null = null
 
     if (chatId && chatId.trim().length > 0) {
+      if (!isValidChatId(chatId)) {
+        logger.warn({ chatId }, 'Rejected invalid chat id')
+        return null
+      }
       const baseDir = path.join(getProjectDataDir(), 'chats')
       const candidateDir = path.join(baseDir, chatId.trim())
-      if (fs.existsSync(candidateDir) && fs.statSync(candidateDir).isDirectory()) {
+      if (
+        fs.existsSync(candidateDir) &&
+        fs.statSync(candidateDir).isDirectory()
+      ) {
         chatDir = candidateDir
       } else {
         logger.debug(
           { candidateDir, chatId },
-          'Requested chatId directory not found, falling back to most recent chat directory',
+          'Requested chatId directory not found',
         )
+        return null
       }
     }
 
@@ -138,8 +199,30 @@ export function loadMostRecentChatState(chatId?: string): SavedChatState | null 
       return null
     }
 
+    const chatStatePath = path.join(chatDir, CHAT_STATE_FILENAME)
     const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
     const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
+
+    if (fs.existsSync(chatStatePath)) {
+      const persisted = sanitizeForChatPersistence(
+        JSON.parse(
+          fs.readFileSync(chatStatePath, 'utf8'),
+        ) as PersistedChatState,
+      )
+      if (
+        persisted.version !== 1 ||
+        !persisted.runState ||
+        !Array.isArray(persisted.messages)
+      ) {
+        logger.warn({ chatStatePath }, 'Chat state envelope is malformed')
+        return null
+      }
+      return {
+        runState: persisted.runState,
+        messages: persisted.messages,
+        chatId: path.basename(chatDir),
+      }
+    }
 
     if (!fs.existsSync(runStatePath) || !fs.existsSync(messagesPath)) {
       logger.debug(
@@ -162,7 +245,12 @@ export function loadMostRecentChatState(chatId?: string): SavedChatState | null 
     const resolvedChatId = path.basename(chatDir)
 
     logger.info(
-      { runStatePath, messagesPath, messageCount: messages.length, chatId: resolvedChatId },
+      {
+        runStatePath,
+        messagesPath,
+        messageCount: messages.length,
+        chatId: resolvedChatId,
+      },
       'Loaded chat state from chat directory',
     )
 
@@ -312,17 +400,21 @@ export function clearChatState(): void {
   try {
     const runStatePath = getRunStatePath()
     const messagesPath = getChatMessagesPath()
-    
+    const chatStatePath = getChatStatePath()
+
     if (fs.existsSync(runStatePath)) {
       fs.unlinkSync(runStatePath)
     }
     if (fs.existsSync(messagesPath)) {
       fs.unlinkSync(messagesPath)
     }
-    
+    if (fs.existsSync(chatStatePath)) {
+      fs.unlinkSync(chatStatePath)
+    }
+
     logger.debug(
-      { runStatePath, messagesPath },
-      'Cleared chat state files'
+      { runStatePath, messagesPath, chatStatePath },
+      'Cleared chat state files',
     )
   } catch (error) {
     logger.error(

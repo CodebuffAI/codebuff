@@ -1,6 +1,7 @@
 # Pattern: Add an agent template
 
 ## When to use
+
 You need to add a new agent (e.g. a specialized reviewer, a plan executor,
 or a custom domain agent) that can be spawned by the root agent or invoked
 as a top-level agent.
@@ -36,6 +37,7 @@ as a top-level agent.
    user-facing.
 
 ## Validation
+
 ```bash
 bun --cwd=common run typecheck
 bun --cwd=packages/agent-runtime run typecheck
@@ -44,6 +46,7 @@ bun run --cwd=scripts guard:memory-drift
 ```
 
 ## Conventions
+
 - Agent IDs are `kebab-case` and match the directory name
   (`agents/editor/editor.ts` → `editor`).
 - System prompts use `{CODEBUFF_*}` placeholders, not hardcoded values.
@@ -51,6 +54,7 @@ bun run --cwd=scripts guard:memory-drift
 - Subagents are `AgentTemplateType` enum values, not raw strings.
 
 ## Risks
+
 - Forgetting the `ROUTER.md` row — the agent will fall back to all root
   knowledge files (higher token cost) but won't error. The drift guard
   `index-sync` checker won't catch a missing row, only a stale file path.

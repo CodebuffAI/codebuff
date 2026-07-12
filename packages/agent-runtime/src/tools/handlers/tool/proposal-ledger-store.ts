@@ -1,63 +1,51 @@
-/**
- * Deterministic per-run proposal artifact ledger.
- *
- * Proposal tools (`propose_str_replace`, `propose_write_file`,
- * `propose_edit_transaction`) record one
- * complete, verbatim artifact here the moment they execute. This is the single
- * source of truth for what a proposal bundle contains — it does NOT depend on
- * the model's message history surviving truncation, retries, XML-vs-native tool
- * formatting, or abort timing. Mirrors the per-runId ownership and teardown of
- * proposed-content-store.ts.
- *
- * Determinism guarantees:
- * - Append-only and ordered by `seq` within a run.
- * - Scoped to the current attempt: `startNewProposalAttempt` makes prior
- *   (failed) attempts invisible to `getProposalLedger`, so stale failed edits
- *   can never leak into a corrected retry.
- * - Cleared on every run-teardown path (see clearAgentGeneratorForRun).
- */
+import {
+  proposalResultV1Schema,
+  transitionProposalResultV1,
+  type CommitReceiptV1,
+  type FilesystemError,
+  type ProposalActionErrorV1,
+  type ProposalResultV1,
+  type ProposalStateV1,
+} from '@codebuff/common/tools/results/filesystem'
+import { getContentHash } from '@codebuff/common/util/content-hash'
 
-/** A single recorded proposal tool call and its computed result. */
+/** Compatibility artifact retained for programmatic-agent bundle consumers. */
 export type ProposalLedgerArtifact = {
-  /** Monotonic order within the run (across all attempts). */
   seq: number
-  /** 0-based attempt index; bumped on each PROPOSAL_RETRY boundary. */
   attempt: number
   toolName:
     | 'propose_str_replace'
     | 'propose_write_file'
     | 'propose_edit_transaction'
-  /** The exact tool input, so the parent can always convert it to a real edit. */
-  input: Record<string, any>
+  input: Record<string, unknown>
   result: {
     file: string
-    /** true when the proposal produced an applyable diff with no failure. */
     ok: boolean
     unifiedDiff?: string
     message?: string
     errorMessage?: string
-    /**
-     * The full resolved file content AFTER this proposal edit, taken from the
-     * per-run proposed-content overlay. This is the "isolated workspace" result
-     * the parent can apply deterministically via write_file, eliminating
-     * str_replace anchor staleness at final-apply time. Absent on failures.
-     */
     finalContent?: string
-    /**
-     * Hash (getContentHash) of the original real workspace/disk content before
-     * this proposal attempt first touched the file. The parent uses this as a
-     * conflict guard: it only writes finalContent when the real file still
-     * matches this original base. null when the base file did not exist (new
-     * file).
-     */
     baseContentHash?: string | null
-    /** Original real workspace/disk content for final-apply conflict detection. */
     baseContent?: string | null
   }
+  proposalId: string
+}
+
+type StoredProposal = {
+  attempt: number
+  proposal: ProposalResultV1
+}
+
+type ApplicationLease = {
+  token: string
+  attempt: number
+  revision: number
 }
 
 type RunLedger = {
   artifacts: ProposalLedgerArtifact[]
+  proposals: Map<string, StoredProposal>
+  applications: Map<string, ApplicationLease>
   currentAttempt: number
   nextSeq: number
   originalBaseContentByAttemptAndPath: Map<string, Promise<string | null>>
@@ -70,6 +58,8 @@ function getOrCreateRunLedger(runId: string): RunLedger {
   if (!ledger) {
     ledger = {
       artifacts: [],
+      proposals: new Map(),
+      applications: new Map(),
       currentAttempt: 0,
       nextSeq: 0,
       originalBaseContentByAttemptAndPath: new Map(),
@@ -77,6 +67,30 @@ function getOrCreateRunLedger(runId: string): RunLedger {
     ledgerByRunId.set(runId, ledger)
   }
   return ledger
+}
+
+function proposalError(
+  code: FilesystemError['code'],
+  message: string,
+  proposalId?: string,
+  options: Partial<
+    Pick<FilesystemError, 'retryable' | 'requiresFreshRead' | 'recovery'>
+  > = {},
+): ProposalActionErrorV1 {
+  return {
+    kind: 'proposal_action_error',
+    version: 1,
+    ...(proposalId ? { proposalId } : {}),
+    error: {
+      code,
+      message,
+      retryable: options.retryable ?? false,
+      ...(options.requiresFreshRead !== undefined
+        ? { requiresFreshRead: options.requiresFreshRead }
+        : {}),
+      ...(options.recovery ? { recovery: options.recovery } : {}),
+    },
+  }
 }
 
 export async function getOrCaptureOriginalBaseContent(
@@ -93,23 +107,92 @@ export async function getOrCaptureOriginalBaseContent(
   return contentPromise
 }
 
-/** Record one proposal artifact for a run, tagged with the current attempt. */
+/** Successful creation commits the typed proposal and compatibility artifact. */
 export function appendProposalArtifact(
   runId: string,
-  artifact: Omit<ProposalLedgerArtifact, 'seq' | 'attempt'>,
-): void {
+  artifact: Omit<ProposalLedgerArtifact, 'seq' | 'attempt' | 'proposalId'> & {
+    proposal?: ProposalResultV1
+    proposalId?: string
+  },
+): ProposalResultV1 | undefined {
   const ledger = getOrCreateRunLedger(runId)
+  const seq = ledger.nextSeq++
+  if (!artifact.result.ok) {
+    ledger.artifacts.push({
+      input: artifact.input,
+      result: artifact.result,
+      toolName: artifact.toolName,
+      proposalId: `failed:${runId}:${ledger.currentAttempt}:${seq}`,
+      seq,
+      attempt: ledger.currentAttempt,
+    })
+    return undefined
+  }
+  if (artifact.proposalId) {
+    const existing = getProposalRecord(runId, artifact.proposalId)
+    if (!existing) {
+      throw new Error(`Unknown proposal ID: ${artifact.proposalId}`)
+    }
+    ledger.artifacts.push({
+      input: artifact.input,
+      result: artifact.result,
+      toolName: artifact.toolName,
+      proposalId: artifact.proposalId,
+      seq,
+      attempt: ledger.currentAttempt,
+    })
+    return existing
+  }
+  const now = new Date().toISOString()
+  const proposal = proposalResultV1Schema.parse(
+    artifact.proposal ?? {
+      kind: 'proposal_result',
+      version: 1,
+      proposalId: crypto.randomUUID(),
+      revision: 1,
+      baseHash: getContentHash(
+        `${artifact.result.file}\0${artifact.result.baseContentHash ?? 'absent'}`,
+      ),
+      state: 'proposed',
+      operations: [
+        {
+          actionId: `${runId}:${seq}:0`,
+          index: 0,
+          action:
+            artifact.result.baseContent === null ? 'create' : 'update',
+          path: artifact.result.file,
+          baseHash: artifact.result.baseContentHash ?? null,
+          ...(artifact.result.finalContent !== undefined
+            ? { finalContent: artifact.result.finalContent }
+            : {}),
+          ...(artifact.result.unifiedDiff
+            ? { patch: artifact.result.unifiedDiff }
+            : {}),
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+      errors: [],
+    },
+  )
+  if (ledger.proposals.has(proposal.proposalId)) {
+    throw new Error(`Duplicate proposal ID: ${proposal.proposalId}`)
+  }
+  ledger.proposals.set(proposal.proposalId, {
+    attempt: ledger.currentAttempt,
+    proposal,
+  })
   ledger.artifacts.push({
-    ...artifact,
-    seq: ledger.nextSeq++,
+    input: artifact.input,
+    result: artifact.result,
+    toolName: artifact.toolName,
+    proposalId: proposal.proposalId,
+    seq,
     attempt: ledger.currentAttempt,
   })
+  return proposal
 }
 
-/**
- * Current-attempt artifacts in deterministic order. This is what the implementor
- * finalizes its output from. Earlier-attempt artifacts are intentionally hidden.
- */
 export function getProposalLedger(runId: string): ProposalLedgerArtifact[] {
   const ledger = ledgerByRunId.get(runId)
   if (!ledger) return []
@@ -118,22 +201,239 @@ export function getProposalLedger(runId: string): ProposalLedgerArtifact[] {
   )
 }
 
-/**
- * Begin a new proposal attempt. Subsequent appends and `getProposalLedger`
- * reads belong to this attempt; prior-attempt artifacts remain stored only for
- * diagnostics and are never returned by `getProposalLedger`.
- */
+export function getProposalRecord(
+  runId: string,
+  proposalId: string,
+): ProposalResultV1 | undefined {
+  const ledger = ledgerByRunId.get(runId)
+  const stored = ledger?.proposals.get(proposalId)
+  return stored && stored.attempt === ledger?.currentAttempt
+    ? stored.proposal
+    : undefined
+}
+
+export function getProposalRecords(
+  runId: string,
+  proposalIds?: readonly string[],
+): Array<ProposalResultV1 | ProposalActionErrorV1> {
+  const ledger = ledgerByRunId.get(runId)
+  if (!ledger) {
+    return (proposalIds ?? []).map((proposalId) =>
+      proposalError('not_found', 'proposal was not found', proposalId, {
+        retryable: true,
+        recovery: 'read_again',
+      }),
+    )
+  }
+  if (!proposalIds) {
+    return [...ledger.proposals.values()]
+      .filter((stored) => stored.attempt === ledger.currentAttempt)
+      .map((stored) => stored.proposal)
+  }
+  return proposalIds.map(
+    (proposalId) =>
+      getProposalRecord(runId, proposalId) ??
+      proposalError('not_found', 'proposal was not found', proposalId, {
+        retryable: true,
+        recovery: 'read_again',
+      }),
+  )
+}
+
+export function transitionStoredProposal(params: {
+  runId: string
+  proposalId: string
+  expectedRevision: number
+  expectedBaseHash: string
+  state: 'accepted' | 'rejected'
+  updatedAt: string
+}): ProposalResultV1 | ProposalActionErrorV1 {
+  const ledger = getOrCreateRunLedger(params.runId)
+  const proposal = getProposalRecord(params.runId, params.proposalId)
+  if (!proposal) {
+    return proposalError(
+      'not_found',
+      'proposal was not found',
+      params.proposalId,
+      { retryable: true, recovery: 'read_again' },
+    )
+  }
+  const applying = ledger.applications.has(params.proposalId)
+  if (applying && proposal.state !== params.state) {
+    return proposalError(
+      'illegal_transition',
+      'proposal application is already in progress',
+      params.proposalId,
+    )
+  }
+  const transition = transitionProposalResultV1(proposal, params)
+  if (!transition.ok) {
+    return proposalError(
+      transition.error.code,
+      transition.error.message,
+      params.proposalId,
+      transition.error,
+    )
+  }
+  ledger.proposals.set(params.proposalId, {
+    attempt: ledger.currentAttempt,
+    proposal: transition.proposal,
+  })
+  return transition.proposal
+}
+
+export type BeginProposalApplicationResult =
+  | { ok: true; proposal: ProposalResultV1; token?: string; idempotent: boolean }
+  | { ok: false; error: ProposalActionErrorV1 }
+
+export function beginProposalApplication(params: {
+  runId: string
+  proposalId: string
+  expectedRevision: number
+  expectedBaseHash: string
+}): BeginProposalApplicationResult {
+  const ledger = getOrCreateRunLedger(params.runId)
+  const proposal = getProposalRecord(params.runId, params.proposalId)
+  if (!proposal) {
+    return {
+      ok: false,
+      error: proposalError(
+        'not_found',
+        'proposal was not found',
+        params.proposalId,
+        { retryable: true, recovery: 'read_again' },
+      ),
+    }
+  }
+  if (proposal.state === 'applied') {
+    return { ok: true, proposal, idempotent: true }
+  }
+  if (proposal.state !== 'accepted') {
+    return {
+      ok: false,
+      error: proposalError(
+        'illegal_transition',
+        `proposal cannot be applied from ${proposal.state}`,
+        params.proposalId,
+      ),
+    }
+  }
+  if (
+    proposal.revision !== params.expectedRevision ||
+    proposal.baseHash !== params.expectedBaseHash
+  ) {
+    return {
+      ok: false,
+      error: proposalError(
+        'stale_state',
+        'proposal revision or base hash is stale',
+        params.proposalId,
+        { retryable: true, requiresFreshRead: true, recovery: 'read_again' },
+      ),
+    }
+  }
+  if (ledger.applications.has(params.proposalId)) {
+    return {
+      ok: false,
+      error: proposalError(
+        'illegal_transition',
+        'proposal application is already in progress',
+        params.proposalId,
+      ),
+    }
+  }
+  const token = crypto.randomUUID()
+  ledger.applications.set(params.proposalId, {
+    token,
+    attempt: ledger.currentAttempt,
+    revision: proposal.revision,
+  })
+  return { ok: true, proposal, token, idempotent: false }
+}
+
+function finishProposalTransition(params: {
+  runId: string
+  proposalId: string
+  token: string
+  state: Extract<ProposalStateV1, 'stale' | 'applied'>
+  updatedAt: string
+  commitReceipt?: CommitReceiptV1
+}): ProposalResultV1 | ProposalActionErrorV1 {
+  const ledger = getOrCreateRunLedger(params.runId)
+  const lease = ledger.applications.get(params.proposalId)
+  const proposal = getProposalRecord(params.runId, params.proposalId)
+  if (!lease || lease.token !== params.token || !proposal) {
+    return proposalError(
+      'stale_state',
+      'proposal application lease is stale',
+      params.proposalId,
+      { retryable: true, recovery: 'read_again' },
+    )
+  }
+  const transition = transitionProposalResultV1(proposal, {
+    proposalId: params.proposalId,
+    expectedRevision: lease.revision,
+    expectedBaseHash: proposal.baseHash,
+    state: params.state,
+    updatedAt: params.updatedAt,
+    ...(params.commitReceipt ? { commitReceipt: params.commitReceipt } : {}),
+  })
+  ledger.applications.delete(params.proposalId)
+  if (!transition.ok) {
+    return proposalError(
+      transition.error.code,
+      transition.error.message,
+      params.proposalId,
+      transition.error,
+    )
+  }
+  ledger.proposals.set(params.proposalId, {
+    attempt: ledger.currentAttempt,
+    proposal: transition.proposal,
+  })
+  return transition.proposal
+}
+
+export function markProposalApplicationStale(params: {
+  runId: string
+  proposalId: string
+  token: string
+  updatedAt: string
+}): ProposalResultV1 | ProposalActionErrorV1 {
+  return finishProposalTransition({ ...params, state: 'stale' })
+}
+
+export function completeProposalApplication(params: {
+  runId: string
+  proposalId: string
+  token: string
+  updatedAt: string
+  commitReceipt: CommitReceiptV1
+}): ProposalResultV1 | ProposalActionErrorV1 {
+  return finishProposalTransition({ ...params, state: 'applied' })
+}
+
+export function abortProposalApplication(
+  runId: string,
+  proposalId: string,
+  token: string,
+): void {
+  const lease = ledgerByRunId.get(runId)?.applications.get(proposalId)
+  if (lease?.token === token) {
+    ledgerByRunId.get(runId)?.applications.delete(proposalId)
+  }
+}
+
 export function startNewProposalAttempt(runId: string): void {
   const ledger = getOrCreateRunLedger(runId)
   ledger.currentAttempt++
+  ledger.applications.clear()
 }
 
-/** Remove all ledger state for a run. Idempotent; safe on every exit path. */
 export function clearProposalLedgerForRun(runId: string): void {
   ledgerByRunId.delete(runId)
 }
 
-/** Clear all ledgers (testing only). */
 export function clearAllProposalLedgers(): void {
   ledgerByRunId.clear()
 }

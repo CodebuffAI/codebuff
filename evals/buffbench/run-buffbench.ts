@@ -3,10 +3,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import {
-  OpenbuffClient,
-  loadLocalAgents,
-} from '@openbuff/sdk'
+import { OpenbuffClient, loadLocalAgents } from '@openbuff/sdk'
 import pLimit from 'p-limit'
 
 import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
@@ -25,7 +22,10 @@ import type {
   EvalRun,
   ProposalDryRunReport,
 } from './types'
-import { computeIdiomTraceabilitySignals, evaluateIdiomTraceability } from './idiom-traceability-signals'
+import {
+  computeIdiomTraceabilitySignals,
+  evaluateIdiomTraceability,
+} from './idiom-traceability-signals'
 import type { IdiomTraceabilityEvaluation } from './idiom-traceability-signals'
 import {
   detectIdiomPatternSignals,
@@ -53,7 +53,9 @@ function parseAgentId(agent: string): {
 }
 
 function formatUnknownError(error: unknown): string {
-  return error instanceof Error ? `${error.message}\n${error.stack}` : String(error)
+  return error instanceof Error
+    ? `${error.message}\n${error.stack}`
+    : String(error)
 }
 
 function failedJudgingResult(error: string): JudgingResult {
@@ -259,6 +261,7 @@ export async function runTask(options: {
         error: agentResult.error,
         finalCheckOutputs: agentResult.finalCheckOutputs,
         cacheRecallEval: agentResult.cacheRecallEval,
+        retrievalFlow: agentResult.retrievalFlow,
         idiomTraceability,
         proposalDryRun,
       }
@@ -284,6 +287,7 @@ export async function runTask(options: {
         timestamp: new Date().toISOString(),
         finalCheckOutputs: agentResult.finalCheckOutputs,
         cacheRecallEval: agentResult.cacheRecallEval,
+        retrievalFlow: agentResult.retrievalFlow,
         idiomTraceability,
         proposalDryRun,
       })
@@ -661,15 +665,15 @@ export async function runBuffBench(options: {
         : 0
 
     const idiomScoredRuns = validRuns.filter(
-      (run): run is EvalRun & { judging: JudgingResult & { idiomScore: number } } =>
+      (
+        run,
+      ): run is EvalRun & { judging: JudgingResult & { idiomScore: number } } =>
         typeof run.judging.idiomScore === 'number',
     )
     agentData.averageIdiomScore =
       idiomScoredRuns.length > 0
-        ? idiomScoredRuns.reduce(
-            (sum, r) => sum + r.judging.idiomScore,
-            0,
-          ) / idiomScoredRuns.length
+        ? idiomScoredRuns.reduce((sum, r) => sum + r.judging.idiomScore, 0) /
+          idiomScoredRuns.length
         : undefined
 
     agentData.averageCost =
@@ -765,7 +769,9 @@ export async function runBuffBench(options: {
       `  Average Score (excluding failures ≤1.0): ${data.averageScoreExcludingFailures.toFixed(2)}/10 (${runsExcludingFailures.length}/${validRuns.length} runs)`,
     )
     if (typeof data.averageIdiomScore === 'number') {
-      console.log(`  Average Idiom Score: ${data.averageIdiomScore.toFixed(2)}/10`)
+      console.log(
+        `  Average Idiom Score: ${data.averageIdiomScore.toFixed(2)}/10`,
+      )
     }
     console.log(`  Average Cost: ${data.averageCost.toFixed(4)}`)
     console.log(

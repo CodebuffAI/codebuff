@@ -11,7 +11,9 @@ const inputSchema = z
     query: z
       .string()
       .optional()
-      .describe(`The search query to find relevant web content. Required unless url is provided.`),
+      .describe(
+        `The search query to find relevant web content. Required unless url is provided.`,
+      ),
     url: z
       .string()
       .url()
@@ -40,9 +42,13 @@ const inputSchema = z
       .max(100)
       .optional()
       .default(40)
-      .describe(`Maximum number of links to extract when include_links is true. Default: 40.`),
+      .describe(
+        `Maximum number of links to extract when include_links is true. Default: 40.`,
+      ),
   })
-  .describe(`Search the web for current information, or fetch the content of a specific URL.`)
+  .describe(
+    `Search the web for current information, or fetch the content of a specific URL.`,
+  )
 const description = `
 Purpose: Search the web for current, up-to-date information, or read the full content of a specific web page by URL. Supports multi-step navigation: fetch a page, inspect the extracted links, then fetch the next relevant URL.
 
@@ -103,7 +109,9 @@ export const webSearchParams = {
         links: z
           .array(z.object({ href: z.string(), text: z.string() }))
           .optional()
-          .describe('Links extracted from the fetched page (only present in fetch mode).'),
+          .describe(
+            'Source links for search results, or the fetched page plus links extracted from it.',
+          ),
       }),
       z.object({
         resultOmittedForLength: z.literal(true),

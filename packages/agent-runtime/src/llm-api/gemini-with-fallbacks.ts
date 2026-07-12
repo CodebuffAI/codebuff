@@ -1,9 +1,7 @@
 import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
 import { isAbortError, unwrapPromptResult } from '@codebuff/common/util/error'
 
-import type {
-  FinetunedVertexModel,
-} from '@codebuff/common/old-constants'
+import type { FinetunedVertexModel } from '@codebuff/common/old-constants'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'

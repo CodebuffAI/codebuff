@@ -119,6 +119,36 @@ describe('runQueuedMessage', () => {
     })
   })
 
+  test('rejected queued sends are returned to the caller for restoration', async () => {
+    const activeQueueProcessingOwnerRef = { current: null as symbol | null }
+    const isProcessingQueueRef = { current: false }
+    const isQueuePausedRef = { current: false }
+    const watchdogTimeoutRef = {
+      current: null as ReturnType<typeof setTimeout> | null,
+    }
+    const timerHarness = createTimerHarness()
+    const message = { content: 'do not lose me', attachments: [] }
+    const restored: QueuedMessage[] = []
+
+    runQueuedMessage({
+      messageToProcess: message,
+      sendMessage: () => Promise.reject(new Error('not ready')),
+      onRejected: (rejectedMessage) => restored.push(rejectedMessage),
+      isProcessingQueueRef,
+      isQueuePausedRef,
+      watchdogTimeoutRef,
+      queueProcessingOwnerRef: activeQueueProcessingOwnerRef,
+      setCanProcessQueue: () => {},
+      setTimeoutFn: timerHarness.setTimeoutFn,
+      clearTimeoutFn: timerHarness.clearTimeoutFn,
+    })
+
+    await flushPromises()
+
+    expect(restored).toEqual([message])
+    expect(isProcessingQueueRef.current).toBe(false)
+  })
+
   test('stale completion cannot clear newer queued-send processing lock or watchdog', async () => {
     const activeQueueProcessingOwnerRef = { current: null as symbol | null }
     const isProcessingQueueRef = { current: false }

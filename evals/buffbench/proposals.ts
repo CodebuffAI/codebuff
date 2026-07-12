@@ -33,7 +33,9 @@ const agentTargetSchema = z.object({
   agentId: z
     .string()
     .min(1)
-    .describe('The id of the agent definition to modify (e.g. "buffbench-lessons-extractor").'),
+    .describe(
+      'The id of the agent definition to modify (e.g. "buffbench-lessons-extractor").',
+    ),
 })
 
 export const AppendSystemPromptGuidanceSchema = z.object({
@@ -50,7 +52,9 @@ export const AppendSystemPromptGuidanceSchema = z.object({
     .string()
     .min(1)
     .max(500)
-    .describe('Why this guidance is being proposed (references the lesson it addresses).'),
+    .describe(
+      'Why this guidance is being proposed (references the lesson it addresses).',
+    ),
 })
 
 export const AddToolSchema = z.object({
@@ -114,7 +118,9 @@ export const ProposalSchema = z.discriminatedUnion('kind', [
 ])
 
 export type Proposal = z.infer<typeof ProposalSchema>
-export type AppendSystemPromptGuidance = z.infer<typeof AppendSystemPromptGuidanceSchema>
+export type AppendSystemPromptGuidance = z.infer<
+  typeof AppendSystemPromptGuidanceSchema
+>
 export type AddTool = z.infer<typeof AddToolSchema>
 export type RemoveTool = z.infer<typeof RemoveToolSchema>
 export type SetModel = z.infer<typeof SetModelSchema>
@@ -206,9 +212,7 @@ export function applyProposals(params: {
     perProposal.push(result)
     if (result.applied) {
       appliedCount++
-      summary.push(
-        formatProposalSummary(proposal, result) + ' — APPLIED',
-      )
+      summary.push(formatProposalSummary(proposal, result) + ' — APPLIED')
     } else {
       skippedCount++
       summary.push(
@@ -345,8 +349,10 @@ function formatProposalSummary(
       return `${mode} ${target}: set model "${proposal.model}"`
     case 'set_budget': {
       const parts: string[] = []
-      if (proposal.maxCostCents !== null) parts.push(`cost=${proposal.maxCostCents}c`)
-      if (proposal.maxTokensPerTurn !== null) parts.push(`tokens=${proposal.maxTokensPerTurn}`)
+      if (proposal.maxCostCents !== null)
+        parts.push(`cost=${proposal.maxCostCents}c`)
+      if (proposal.maxTokensPerTurn !== null)
+        parts.push(`tokens=${proposal.maxTokensPerTurn}`)
       return `${mode} ${target}: set budget (${parts.join(', ') || 'no-op'})`
     }
   }
@@ -369,9 +375,7 @@ export function decideProposalPromotion(params: {
   if (policy.requireAppliedProposals && params.dryRun.appliedCount === 0) {
     reasons.push('no proposals applied in dry run')
   }
-  if (
-    params.comparison.overall.totalScoreDelta < policy.minTotalScoreDelta
-  ) {
+  if (params.comparison.overall.totalScoreDelta < policy.minTotalScoreDelta) {
     reasons.push(
       `score delta ${params.comparison.overall.totalScoreDelta.toFixed(2)} is below required ${policy.minTotalScoreDelta.toFixed(2)}`,
     )
@@ -414,9 +418,11 @@ export function formatProposalPromotionReport(
  * Parse and validate a list of proposal objects (e.g. from an LLM structured
  * output or a JSON file). Returns `{valid, proposals, errors}`.
  */
-export function parseProposals(
-  raw: unknown,
-): { valid: boolean; proposals: Proposal[]; errors: string[] } {
+export function parseProposals(raw: unknown): {
+  valid: boolean
+  proposals: Proposal[]
+  errors: string[]
+} {
   const result = z.array(ProposalSchema).safeParse(raw)
   if (result.success) {
     return { valid: true, proposals: result.data, errors: [] }

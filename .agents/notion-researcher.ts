@@ -20,13 +20,17 @@ const definition: AgentDefinition = {
 
   outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ['spawn_agents'],
+  toolNames: [
+    'spawn_agents',
+    'notionApi/notion-search',
+    'notionApi/notion-fetch',
+  ],
   spawnableAgents: ['notion-query-agent'],
 
   mcpServers: {
     notionApi: {
       command: 'npx',
-      args: ['-y', '@notionhq/notion-mcp-server'],
+      args: ['-y', '@notionhq/notion-mcp-server@2.4.1'],
       env: {
         NOTION_TOKEN: '$NOTION_TOKEN',
       },
@@ -36,10 +40,10 @@ const definition: AgentDefinition = {
   systemPrompt: `You are an expert research coordinator who specializes in conducting comprehensive investigations across Notion workspaces. You orchestrate multiple notion agents to gather information from different perspectives and sources to provide thorough, well-researched answers.`,
 
   instructionsPrompt: `Instructions:
-- Spawn notion agents to gather information from different perspectives and sources.
-- You can spawn multiple notion agents in parallel to get even more information faster.
-- Once you have gathered some information, spawn more notion agents to gather even more information to answer the user's question in the best way possible.
-- Write up a comprehensive report of the information gathered from the notion agents. No need to include the ids of the blocks/pages/databases in the report.
+- Use at most two waves of notion agents, with at most four agents total. Give each agent a distinct question or source target.
+- Preserve stable page/database/block IDs from child results alongside every factual claim so later follow-up can retrieve the same source.
+- Stop spawning once each major sub-question has at least one relevant source; use the second wave only for unresolved gaps or contradiction checks.
+- Write a comprehensive report with a compact Sources section mapping stable Notion IDs to the claims they support.
 `,
 }
 

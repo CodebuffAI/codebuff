@@ -64,4 +64,6 @@ export interface ActiveSubscriptionResponse {
  * Discriminated union for subscription API response.
  * Use `hasSubscription` to narrow the type.
  */
-export type SubscriptionResponse = NoSubscriptionResponse | ActiveSubscriptionResponse
+export type SubscriptionResponse =
+  | NoSubscriptionResponse
+  | ActiveSubscriptionResponse

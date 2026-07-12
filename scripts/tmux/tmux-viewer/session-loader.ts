@@ -24,7 +24,7 @@ const DEFAULT_SESSION_DIR = 'debug/tmux-sessions'
  */
 export async function listSessions(projectRoot: string): Promise<string[]> {
   const sessionsDir = path.join(projectRoot, DEFAULT_SESSION_DIR)
-  
+
   try {
     const entries = await fs.readdir(sessionsDir, { withFileTypes: true })
     return entries
@@ -51,7 +51,7 @@ async function loadSessionInfo(sessionDir: string): Promise<SessionInfo> {
  */
 async function loadCommands(sessionDir: string): Promise<Command[]> {
   const commandsPath = path.join(sessionDir, 'commands.yaml')
-  
+
   try {
     const content = await fs.readFile(commandsPath, 'utf-8')
     const commands = yaml.load(content) as Command[]
@@ -64,10 +64,13 @@ async function loadCommands(sessionDir: string): Promise<Command[]> {
 /**
  * Parse YAML front-matter from a capture file
  */
-function parseFrontMatter(content: string): { frontMatter: CaptureFrontMatter; body: string } {
+function parseFrontMatter(content: string): {
+  frontMatter: CaptureFrontMatter
+  body: string
+} {
   const frontMatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/
   const match = content.match(frontMatterRegex)
-  
+
   if (!match) {
     // No front-matter, return defaults
     return {
@@ -81,7 +84,7 @@ function parseFrontMatter(content: string): { frontMatter: CaptureFrontMatter; b
       body: content,
     }
   }
-  
+
   const frontMatter = yaml.load(match[1]) as CaptureFrontMatter
   return { frontMatter, body: match[2] }
 }
@@ -96,7 +99,7 @@ function isCaptureFile(filename: string): boolean {
   const newPattern = /^\d{3}-.*\.txt$/
   // Old format: capture- prefix (e.g., capture-20260108-160030-initial-state.txt)
   const oldPattern = /^capture-.*\.txt$/
-  
+
   return newPattern.test(filename) || oldPattern.test(filename)
 }
 
@@ -108,7 +111,7 @@ async function loadCaptures(sessionDir: string): Promise<Capture[]> {
   // Try captures/ subdirectory first, then fall back to session directory
   const capturesSubdir = path.join(sessionDir, 'captures')
   let capturesDir = sessionDir
-  
+
   try {
     const stats = await fs.stat(capturesSubdir)
     if (stats.isDirectory()) {
@@ -117,19 +120,17 @@ async function loadCaptures(sessionDir: string): Promise<Capture[]> {
   } catch {
     // captures/ subdirectory doesn't exist, use session directory
   }
-  
+
   const files = await fs.readdir(capturesDir)
-  const captureFiles = files
-    .filter(isCaptureFile)
-    .sort()
-  
+  const captureFiles = files.filter(isCaptureFile).sort()
+
   const captures: Capture[] = []
-  
+
   for (const filename of captureFiles) {
     const filePath = path.join(capturesDir, filename)
     const content = await fs.readFile(filePath, 'utf-8')
     const { frontMatter, body } = parseFrontMatter(content)
-    
+
     captures.push({
       path: filePath,
       filename,
@@ -137,7 +138,7 @@ async function loadCaptures(sessionDir: string): Promise<Capture[]> {
       content: body,
     })
   }
-  
+
   return captures
 }
 
@@ -146,10 +147,10 @@ async function loadCaptures(sessionDir: string): Promise<Capture[]> {
  */
 export function buildTimeline(
   commands: Command[],
-  captures: Capture[]
+  captures: Capture[],
 ): TimelineEntry[] {
   const entries: TimelineEntry[] = []
-  
+
   // Add commands to timeline
   commands.forEach((cmd, idx) => {
     entries.push({
@@ -159,7 +160,7 @@ export function buildTimeline(
       index: idx,
     })
   })
-  
+
   // Add captures to timeline
   captures.forEach((cap, idx) => {
     entries.push({
@@ -169,10 +170,10 @@ export function buildTimeline(
       index: idx,
     })
   })
-  
+
   // Sort by timestamp
   entries.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
-  
+
   return entries
 }
 
@@ -181,23 +182,23 @@ export function buildTimeline(
  */
 export async function loadSession(
   sessionName: string,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<SessionData> {
   const sessionDir = path.join(projectRoot, DEFAULT_SESSION_DIR, sessionName)
-  
+
   // Check if session exists
   try {
     await fs.access(sessionDir)
   } catch {
     throw new Error(`Session not found: ${sessionName}`)
   }
-  
+
   const [sessionInfo, commands, captures] = await Promise.all([
     loadSessionInfo(sessionDir),
     loadCommands(sessionDir),
     loadCaptures(sessionDir),
   ])
-  
+
   return {
     sessionInfo,
     commands,
@@ -211,7 +212,7 @@ export async function loadSession(
  */
 export function sessionToJSON(data: SessionData): SessionJSON {
   const timeline = buildTimeline(data.commands, data.captures)
-  
+
   return {
     session: data.sessionInfo,
     commands: data.commands,

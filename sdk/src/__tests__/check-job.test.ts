@@ -77,9 +77,28 @@ describe('readNewJobOutput', () => {
     expect(readNewJobOutput(job)).toBe('world\n')
   })
 
+  test('preserves UTF-8 characters split across incremental reads', () => {
+    const job = makeJob()
+    const emoji = Buffer.from('🙂')
+    fs.appendFileSync(job.logFile, emoji.subarray(0, 2))
+    expect(readNewJobOutput(job)).toBe('')
+    fs.appendFileSync(job.logFile, emoji.subarray(2))
+    expect(readNewJobOutput(job)).toBe('🙂')
+  })
+
+  test('bounds each incremental file read', () => {
+    const job = makeJob()
+    fs.appendFileSync(job.logFile, 'x'.repeat(100_001))
+    expect(readNewJobOutput(job)).toHaveLength(100_000)
+    expect(readNewJobOutput(job)).toBe('x')
+  })
+
   test('does not follow a job log symlink swapped in before reading', () => {
     const job = makeJob()
-    const secretLog = path.join(os.tmpdir(), `openbuff-test-secret-${counter}.log`)
+    const secretLog = path.join(
+      os.tmpdir(),
+      `openbuff-test-secret-${counter}.log`,
+    )
     fs.writeFileSync(secretLog, 'secret\n')
     tempFiles.push(secretLog)
     fs.unlinkSync(job.logFile)
@@ -122,7 +141,7 @@ describe('checkJob', () => {
     expect(result.newOutput).toContain('Listening on :3000')
   })
 
-  test('follow timeout kills a still-running job by default', async () => {
+  test('follow timeout keeps a still-running job alive by default', async () => {
     let killedSignal: NodeJS.Signals | undefined
     const job = makeJob({
       child: {
@@ -144,17 +163,17 @@ describe('checkJob', () => {
       ),
     )
 
-    expect(killedSignal).toBe('SIGTERM')
+    expect(killedSignal).toBeUndefined()
     expect(result).toMatchObject({
       jobId: job.jobId,
-      status: 'error',
+      status: 'running',
       matched: false,
-      killed: true,
     })
-    expect(job.status).toBe('error')
+    expect(result.killed).toBeUndefined()
+    expect(job.status).toBe('running')
   })
 
-  test('follow timeout keeps a running job alive when kill_on_timeout is false', async () => {
+  test('follow timeout kills a running job when kill_on_timeout is true', async () => {
     let killCalled = false
     const job = makeJob({
       child: {
@@ -172,19 +191,19 @@ describe('checkJob', () => {
           jobId: job.jobId,
           wait_for: 'never appears',
           timeout_seconds: 1,
-          kill_on_timeout: false,
+          kill_on_timeout: true,
         }),
       ),
     )
 
-    expect(killCalled).toBe(false)
+    expect(killCalled).toBe(true)
     expect(result).toMatchObject({
       jobId: job.jobId,
-      status: 'running',
+      status: 'error',
       matched: false,
+      killed: true,
     })
-    expect(result.killed).toBeUndefined()
-    expect(job.status).toBe('running')
+    expect(job.status).toBe('error')
   })
 
   test('reports completed status and exit code', async () => {
@@ -202,12 +221,18 @@ describe('checkJob', () => {
   test('sweeps stale completed job files but preserves running recoverable jobs', () => {
     const oldCompletedJobId = `job-stale-completed-${++counter}`
     const oldRunningJobId = `job-stale-running-${++counter}`
-    const oldCompletedLog = path.join(os.tmpdir(), `openbuff-${oldCompletedJobId}.log`)
+    const oldCompletedLog = path.join(
+      os.tmpdir(),
+      `openbuff-${oldCompletedJobId}.log`,
+    )
     const oldCompletedMetadata = path.join(
       os.tmpdir(),
       `openbuff-${oldCompletedJobId}.json`,
     )
-    const oldRunningLog = path.join(os.tmpdir(), `openbuff-${oldRunningJobId}.log`)
+    const oldRunningLog = path.join(
+      os.tmpdir(),
+      `openbuff-${oldRunningJobId}.log`,
+    )
     const oldRunningMetadata = path.join(
       os.tmpdir(),
       `openbuff-${oldRunningJobId}.json`,
@@ -284,7 +309,7 @@ describe('checkJob', () => {
     const result = value(await checkJob({ jobId }))
     expect(result).toMatchObject({
       jobId,
-      status: 'running',
+      status: 'lost',
       newOutput: 'ready\n',
     })
   })
@@ -316,7 +341,7 @@ describe('checkJob', () => {
     const second = value(await checkJob({ jobId }))
     expect(second).toMatchObject({
       jobId,
-      status: 'running',
+      status: 'lost',
       newOutput: 'second\n',
     })
   })
@@ -383,7 +408,7 @@ describe('checkJob', () => {
       const result = value(await checkJob({ jobId }))
       expect(result).toMatchObject({
         jobId,
-        status: 'running',
+        status: 'lost',
         newOutput: `${testCase.suffix}\n`,
       })
       __clearJobsForTest()

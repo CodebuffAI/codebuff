@@ -15,7 +15,7 @@ const inputSchema = z.object({
     ),
 })
 const description = `
-Purpose: Trigger client-configured file change hooks for the specified files. This tool allows the backend to request the client to run its configured file change hooks (like tests, linting, type checking) after file changes have been applied.
+Purpose: Trigger client-configured and manifest-inferred native validation for the specified files. Results include normalized compiler/linter diagnostics with exact file/range/code fields when the underlying tool reports them.
 
 Use cases:
 - After making code changes, trigger the relevant tests and checks
@@ -35,6 +35,27 @@ ${$getNativeToolCallExampleString({
 })}
 `.trim()
 
+const diagnosticSchema = z.object({
+  file: z.string().nullable(),
+  range: z
+    .object({
+      start: z.object({
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+      }),
+      end: z.object({
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+      }),
+    })
+    .nullable(),
+  severity: z.enum(['error', 'warning', 'info', 'hint']),
+  code: z.string().nullable(),
+  message: z.string(),
+  command: z.string(),
+  source: z.string(),
+})
+
 export const runFileChangeHooksParams = {
   toolName,
   endsAgentStep,
@@ -46,10 +67,12 @@ export const runFileChangeHooksParams = {
         terminalCommandOutputSchema.and(
           z.object({
             hookName: z.string(),
+            diagnostics: z.array(diagnosticSchema).optional(),
           }),
         ),
         z.object({
           errorMessage: z.string(),
+          hookName: z.string().optional(),
         }),
         z.object({
           validationStatus: z.enum(['no_hooks_configured', 'hooks_skipped']),

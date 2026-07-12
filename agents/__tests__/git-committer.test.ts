@@ -86,13 +86,17 @@ describe('git-committer (M5.2 resurrected)', () => {
   })
 
   test('instructions prompt does not include an AI-attribution footer', () => {
-    expect(gitCommitter.instructionsPrompt).not.toMatch(/Generated with Openbuff/i)
+    expect(gitCommitter.instructionsPrompt).not.toMatch(
+      /Generated with Openbuff/i,
+    )
     expect(gitCommitter.instructionsPrompt).not.toMatch(/Co-Authored-By/i)
     expect(gitCommitter.instructionsPrompt).not.toMatch(/🤖/u)
   })
 
   test('instructions prompt warns about secrets', () => {
-    expect(gitCommitter.instructionsPrompt).toMatch(/secrets|\.env|credentials/i)
+    expect(gitCommitter.instructionsPrompt).toMatch(
+      /secrets|\.env|credentials/i,
+    )
   })
 
   // M2 (R3) — git-committer branch capability. `inputSchema.params` is a JSON Schema whose
@@ -100,8 +104,14 @@ describe('git-committer (M5.2 resurrected)', () => {
   // narrow with a type guard before indexing field metadata.
   const branchParams = gitCommitter.inputSchema?.params
   const branchProps =
-    branchParams && typeof branchParams === 'object' && 'properties' in branchParams
-      ? (branchParams as { properties?: Record<string, { type?: string; default?: unknown }> }).properties
+    branchParams &&
+    typeof branchParams === 'object' &&
+    'properties' in branchParams
+      ? (
+          branchParams as {
+            properties?: Record<string, { type?: string; default?: unknown }>
+          }
+        ).properties
       : undefined
 
   test('accepts branch_name in inputSchema.params', () => {
@@ -124,13 +134,19 @@ describe('git-committer (M5.2 resurrected)', () => {
     expect(gitCommitter.spawnerPrompt).toMatch(/branch/i)
   })
 
-  test('handleSteps yields git_branch step first when branch_name is provided', () => {
+  test('handleSteps checks status before git_branch when branch_name is provided', () => {
     if (!gitCommitter.handleSteps) return
     const gen = gitCommitter.handleSteps({
       params: { branch_name: 'feat/test-branch' },
     } as unknown as Parameters<NonNullable<typeof gitCommitter.handleSteps>>[0])
-    const firstStep = gen.next().value
-    expect(firstStep).toMatchObject({
+    expect(gen.next().value).toMatchObject({
+      toolName: 'run_terminal_command',
+      input: { command: 'git status --short' },
+    })
+    const branchStep = gen.next({
+      toolResult: [{ type: 'json', value: { stdout: '' } }],
+    } as any).value
+    expect(branchStep).toMatchObject({
       toolName: 'git_branch',
       input: { branch_name: 'feat/test-branch', switch: true },
     })

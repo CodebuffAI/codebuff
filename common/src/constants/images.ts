@@ -19,7 +19,9 @@ export const IMAGE_EXTENSION_TO_MIME: Record<string, string> = {
 /**
  * Supported image extensions (derived from IMAGE_EXTENSION_TO_MIME)
  */
-export const SUPPORTED_IMAGE_EXTENSIONS = new Set(Object.keys(IMAGE_EXTENSION_TO_MIME))
+export const SUPPORTED_IMAGE_EXTENSIONS = new Set(
+  Object.keys(IMAGE_EXTENSION_TO_MIME),
+)
 
 /**
  * Check if a file extension is a supported image format

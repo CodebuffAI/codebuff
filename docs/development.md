@@ -7,12 +7,14 @@ As a Bring Your Own Key (BYOK), local-first fork, developing Openbuff is highly 
 To develop the CLI locally, you do not need to run a web server or database. Simply configure your local providers and run the CLI developer task directly:
 
 1. **Install Dependencies:**
+
    ```bash
    bun install
    ```
 
 2. **Configure Your API Keys:**
    Set up your preferred OpenAI-compatible or Anthropic-compatible provider keys in your shell:
+
    ```bash
    export OPENAI_API_KEY="your-api-key"
    # Or for Anthropic/Claude and other providers:
@@ -31,11 +33,13 @@ To develop the CLI locally, you do not need to run a web server or database. Sim
 Openbuff no longer requires a hosted web app, billing system, or BigQuery pipeline for CLI/SDK development. The remaining service helpers are only for local integration dependencies that retained packages may need during development.
 
 1. **Start Services:**
+
    ```bash
    bun up
    ```
 
 2. **Check Status / Stop Services:**
+
    ```bash
    bun ps    # Check running services
    bun down  # Stop local services
@@ -58,7 +62,8 @@ bun test
 ```
 
 For comprehensive E2E terminal testing (which requires `tmux`):
-- See [cli/src/__tests__/README.md](../cli/src/__tests__/README.md) for detailed instructions on E2E test runs.
+
+- See [cli/src/**tests**/README.md](../cli/src/__tests__/README.md) for detailed instructions on E2E test runs.
 
 ## CLI Command References
 

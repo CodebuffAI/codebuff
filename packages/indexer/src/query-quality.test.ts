@@ -80,7 +80,12 @@ const benchmarkIndex: MetadataIndex = {
       symbols: [],
       imports: [],
       headings: [],
-      concepts: ['package scripts', 'command configuration', 'script:typecheck=bun run typecheck', 'script:test=bun test'],
+      concepts: [
+        'package scripts',
+        'command configuration',
+        'script:typecheck=bun run typecheck',
+        'script:test=bun test',
+      ],
     },
     'src/validation-error.ts': {
       path: 'src/validation-error.ts',
@@ -135,7 +140,13 @@ const benchmarkIndex: MetadataIndex = {
       symbols: [],
       imports: [],
       headings: ['Python idioms'],
-      concepts: ['python', 'idiom', 'pathlib', 'context managers', 'comprehensions'],
+      concepts: [
+        'python',
+        'idiom',
+        'pathlib',
+        'context managers',
+        'comprehensions',
+      ],
     },
     'agents/idioms/rust.md': {
       path: 'agents/idioms/rust.md',
@@ -162,20 +173,79 @@ const benchmarkIndex: MetadataIndex = {
   },
   graph: {
     nodes: {
-      'file:packages/indexer/src/query.ts': { id: 'file:packages/indexer/src/query.ts', type: 'file', label: 'packages/indexer/src/query.ts', path: 'packages/indexer/src/query.ts' },
-      'file:packages/indexer/src/metadata-indexer.ts': { id: 'file:packages/indexer/src/metadata-indexer.ts', type: 'file', label: 'packages/indexer/src/metadata-indexer.ts', path: 'packages/indexer/src/metadata-indexer.ts' },
-      'file:common/src/tools/params/tool/query-index.ts': { id: 'file:common/src/tools/params/tool/query-index.ts', type: 'file', label: 'common/src/tools/params/tool/query-index.ts', path: 'common/src/tools/params/tool/query-index.ts' },
-      'file:docs/agents-and-tools.md': { id: 'file:docs/agents-and-tools.md', type: 'file', label: 'docs/agents-and-tools.md', path: 'docs/agents-and-tools.md' },
-      'file:.bun-install/install/cache/query-index.ts': { id: 'file:.bun-install/install/cache/query-index.ts', type: 'file', label: '.bun-install/install/cache/query-index.ts', path: '.bun-install/install/cache/query-index.ts' },
-      'symbol:queryIndex': { id: 'symbol:queryIndex', type: 'symbol', label: 'queryIndex' },
+      'file:packages/indexer/src/query.ts': {
+        id: 'file:packages/indexer/src/query.ts',
+        type: 'file',
+        label: 'packages/indexer/src/query.ts',
+        path: 'packages/indexer/src/query.ts',
+      },
+      'file:packages/indexer/src/metadata-indexer.ts': {
+        id: 'file:packages/indexer/src/metadata-indexer.ts',
+        type: 'file',
+        label: 'packages/indexer/src/metadata-indexer.ts',
+        path: 'packages/indexer/src/metadata-indexer.ts',
+      },
+      'file:common/src/tools/params/tool/query-index.ts': {
+        id: 'file:common/src/tools/params/tool/query-index.ts',
+        type: 'file',
+        label: 'common/src/tools/params/tool/query-index.ts',
+        path: 'common/src/tools/params/tool/query-index.ts',
+      },
+      'file:docs/agents-and-tools.md': {
+        id: 'file:docs/agents-and-tools.md',
+        type: 'file',
+        label: 'docs/agents-and-tools.md',
+        path: 'docs/agents-and-tools.md',
+      },
+      'file:.bun-install/install/cache/query-index.ts': {
+        id: 'file:.bun-install/install/cache/query-index.ts',
+        type: 'file',
+        label: '.bun-install/install/cache/query-index.ts',
+        path: '.bun-install/install/cache/query-index.ts',
+      },
+      'symbol:queryIndex': {
+        id: 'symbol:queryIndex',
+        type: 'symbol',
+        label: 'queryIndex',
+      },
       'concept:graph': { id: 'concept:graph', type: 'concept', label: 'graph' },
     },
     edges: [
-      { from: 'file:packages/indexer/src/query.ts', to: 'symbol:queryIndex', type: 'defines', weight: 1, label: 'queryIndex' },
-      { from: 'file:.bun-install/install/cache/query-index.ts', to: 'symbol:queryIndex', type: 'defines', weight: 1, label: 'queryIndex' },
-      { from: 'file:docs/agents-and-tools.md', to: 'concept:graph', type: 'mentions', weight: 0.6, label: 'graph' },
-      { from: 'file:packages/indexer/src/query.ts', to: 'concept:graph', type: 'mentions', weight: 0.6, label: 'graph' },
-      { from: 'file:common/src/tools/params/tool/query-index.ts', to: 'file:packages/indexer/src/query.ts', type: 'references', weight: 0.9, label: 'query_index' },
+      {
+        from: 'file:packages/indexer/src/query.ts',
+        to: 'symbol:queryIndex',
+        type: 'defines',
+        weight: 1,
+        label: 'queryIndex',
+      },
+      {
+        from: 'file:.bun-install/install/cache/query-index.ts',
+        to: 'symbol:queryIndex',
+        type: 'defines',
+        weight: 1,
+        label: 'queryIndex',
+      },
+      {
+        from: 'file:docs/agents-and-tools.md',
+        to: 'concept:graph',
+        type: 'mentions',
+        weight: 0.6,
+        label: 'graph',
+      },
+      {
+        from: 'file:packages/indexer/src/query.ts',
+        to: 'concept:graph',
+        type: 'mentions',
+        weight: 0.6,
+        label: 'graph',
+      },
+      {
+        from: 'file:common/src/tools/params/tool/query-index.ts',
+        to: 'file:packages/indexer/src/query.ts',
+        type: 'references',
+        weight: 0.9,
+        label: 'query_index',
+      },
     ],
   },
 }
@@ -183,9 +253,18 @@ const benchmarkIndex: MetadataIndex = {
 describe('query index quality benchmark', () => {
   test('keeps representative query_index targets discoverable', () => {
     const report = evaluateQueryIndexQuality(benchmarkIndex, [
-      { query: 'queryIndex ranking implementation', expectedPaths: ['packages/indexer/src/query.ts'] },
-      { query: 'graph modes documentation', expectedPaths: ['docs/agents-and-tools.md'] },
-      { query: 'query_index schema params', expectedPaths: ['common/src/tools/params/tool/query-index.ts'] },
+      {
+        query: 'queryIndex ranking implementation',
+        expectedPaths: ['packages/indexer/src/query.ts'],
+      },
+      {
+        query: 'graph modes documentation',
+        expectedPaths: ['docs/agents-and-tools.md'],
+      },
+      {
+        query: 'query_index schema params',
+        expectedPaths: ['common/src/tools/params/tool/query-index.ts'],
+      },
       {
         query: 'metadata graph builder',
         expectedPaths: ['packages/indexer/src/metadata-indexer.ts'],
@@ -203,15 +282,18 @@ describe('query index quality benchmark', () => {
   test('prefers same-language idiom guidance before non-TS edits', () => {
     const cases = [
       {
-        query: 'python pathlib context managers idiom guidance before editing ledger.py',
+        query:
+          'python pathlib context managers idiom guidance before editing ledger.py',
         expectedPath: 'agents/idioms/python.md',
       },
       {
-        query: 'rust Result ownership borrowing idiom guidance before editing session.rs',
+        query:
+          'rust Result ownership borrowing idiom guidance before editing session.rs',
         expectedPath: 'agents/idioms/rust.md',
       },
       {
-        query: 'go error wrapping gofmt idiom guidance before editing routes.go',
+        query:
+          'go error wrapping gofmt idiom guidance before editing routes.go',
         expectedPath: 'agents/idioms/go.md',
       },
     ]

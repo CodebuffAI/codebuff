@@ -28,7 +28,7 @@ const definition: SecretAgentDefinition = {
           type: 'array',
           items: { type: 'string' },
           description:
-            'Optional list of source files the documentation should describe. The agent will read these before writing docs.',
+            'Optional list of source files the documentation should describe. The parent must summarize their verified public contract in the prompt because the doc-writer is runtime-scoped to documentation files.',
         },
       },
       required: [],
@@ -36,10 +36,27 @@ const definition: SecretAgentDefinition = {
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
+  filesystemScope: {
+    read: [
+      'docs/**',
+      '**/docs/**',
+      'README*',
+      '**/README*',
+      '**/*.md',
+      '**/*.mdx',
+    ],
+    write: [
+      'docs/**',
+      '**/docs/**',
+      'README*',
+      '**/README*',
+      '**/*.md',
+      '**/*.mdx',
+    ],
+  },
   toolNames: [
     'read_files',
     'read_outline',
-    'code_search',
     'read_subtree',
     'str_replace',
     'write_file',
@@ -49,7 +66,7 @@ const definition: SecretAgentDefinition = {
   systemPrompt: `You are an expert technical writer. You write clear, accurate, discoverable documentation that matches the project's existing doc style and tone. You document the public contract, not the implementation trivia. You never invent APIs or behavior — you verify against source.`,
 
   instructionsPrompt: `Instructions:
-1. Read the source_files (or code_search for the public surface) to document the real contract. Do not invent options, flags, or behaviors that are not in the source.
+1. Work only in documentation paths (docs directories, README files, Markdown/MDX). The runtime enforces this filesystem scope. The parent must include the verified source contract in the prompt. Do not invent options, flags, or behaviors.
 2. If target_doc_files are given, read them first and update in place (prefer str_replace for targeted edits; write_file only for new docs). If not given, infer the doc location from neighboring docs (check docs/, README.md, package READMEs).
 3. Match the existing doc style: heading depth, code-fence language tags, tone, and section ordering. Look at an adjacent doc file as a style reference.
 4. Document the public contract: what it does, the inputs/outputs, usage examples, and gotchas. Skip internal implementation details unless the prompt asks for them.
@@ -58,13 +75,6 @@ const definition: SecretAgentDefinition = {
 Do not modify source code. Do not add marketing language. Keep examples minimal and runnable.`.trim(),
 
   handleSteps: function* ({ params }) {
-    const sourceFiles = (params?.source_files as string[] | undefined) ?? []
-    if (sourceFiles.length > 0) {
-      yield {
-        toolName: 'read_files',
-        input: { paths: sourceFiles },
-      } as ToolCall<'read_files'>
-    }
     const targetDocs = (params?.target_doc_files as string[] | undefined) ?? []
     if (targetDocs.length > 0) {
       yield {

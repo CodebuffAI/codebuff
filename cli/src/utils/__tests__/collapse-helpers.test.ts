@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'bun:test'
 
-import { setAllBlocksCollapsedState, hasAnyExpandedBlocks } from '../collapse-helpers'
+import {
+  setAllBlocksCollapsedState,
+  hasAnyExpandedBlocks,
+} from '../collapse-helpers'
 
 import type {
   ChatMessage,
@@ -13,7 +16,11 @@ import type {
 } from '../../types/chat'
 
 // Type helper for accessing isCollapsed/userOpened on any block type
-type CollapsibleBlock = ToolContentBlock | AgentContentBlock | TextContentBlock | AgentListContentBlock
+type CollapsibleBlock =
+  | ToolContentBlock
+  | AgentContentBlock
+  | TextContentBlock
+  | AgentListContentBlock
 
 // Helper to create minimal test messages
 const createMessage = (
@@ -117,12 +124,16 @@ describe('hasAnyExpandedBlocks', () => {
 
   describe('agent variant messages', () => {
     test('returns true for expanded agent variant message', () => {
-      const messages = [createMessage('1', 'agent', undefined, { isCollapsed: false })]
+      const messages = [
+        createMessage('1', 'agent', undefined, { isCollapsed: false }),
+      ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
 
     test('returns false for collapsed agent variant message', () => {
-      const messages = [createMessage('1', 'agent', undefined, { isCollapsed: true })]
+      const messages = [
+        createMessage('1', 'agent', undefined, { isCollapsed: true }),
+      ]
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
 
@@ -154,9 +165,7 @@ describe('hasAnyExpandedBlocks', () => {
     })
 
     test('returns false when tool block has undefined isCollapsed (treated as collapsed)', () => {
-      const messages = [
-        createMessage('1', 'ai', [createToolBlock('tool-1')]),
-      ]
+      const messages = [createMessage('1', 'ai', [createToolBlock('tool-1')])]
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
   })
@@ -179,7 +188,9 @@ describe('hasAnyExpandedBlocks', () => {
     test('returns true when nested block within collapsed agent is expanded', () => {
       const nestedBlocks = [createToolBlock('nested-tool', false)] // expanded
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]), // collapsed parent
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]), // collapsed parent
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
@@ -187,7 +198,9 @@ describe('hasAnyExpandedBlocks', () => {
     test('returns false when agent and all nested blocks are collapsed', () => {
       const nestedBlocks = [createToolBlock('nested-tool', true)] // collapsed
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]), // collapsed parent
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]), // collapsed parent
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
@@ -246,18 +259,26 @@ describe('hasAnyExpandedBlocks', () => {
   describe('deeply nested blocks', () => {
     test('returns true when deeply nested block is expanded', () => {
       const deepNestedBlocks = [createToolBlock('deep-tool', false)] // expanded
-      const nestedAgentBlocks = [createAgentBlock('nested-agent', true, false, deepNestedBlocks)] // collapsed
+      const nestedAgentBlocks = [
+        createAgentBlock('nested-agent', true, false, deepNestedBlocks),
+      ] // collapsed
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedAgentBlocks)]), // collapsed
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedAgentBlocks),
+        ]), // collapsed
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
 
     test('returns false when all deeply nested blocks are collapsed', () => {
       const deepNestedBlocks = [createToolBlock('deep-tool', true)] // collapsed
-      const nestedAgentBlocks = [createAgentBlock('nested-agent', true, false, deepNestedBlocks)] // collapsed
+      const nestedAgentBlocks = [
+        createAgentBlock('nested-agent', true, false, deepNestedBlocks),
+      ] // collapsed
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedAgentBlocks)]), // collapsed
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedAgentBlocks),
+        ]), // collapsed
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
@@ -289,39 +310,47 @@ describe('setAllBlocksCollapsedState', () => {
 
   describe('agent variant messages', () => {
     test('collapses agent variant message', () => {
-      const messages = [createMessage('1', 'agent', undefined, { isCollapsed: false })]
+      const messages = [
+        createMessage('1', 'agent', undefined, { isCollapsed: false }),
+      ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       expect(result[0]?.metadata?.isCollapsed).toBe(true)
     })
 
     test('expands agent variant message', () => {
-      const messages = [createMessage('1', 'agent', undefined, { isCollapsed: true })]
+      const messages = [
+        createMessage('1', 'agent', undefined, { isCollapsed: true }),
+      ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       expect(result[0]?.metadata?.isCollapsed).toBe(false)
       expect(result[0]?.metadata?.userOpened).toBe(true)
     })
 
     test('does not modify already collapsed agent variant message', () => {
-      const messages = [createMessage('1', 'agent', undefined, { isCollapsed: true })]
+      const messages = [
+        createMessage('1', 'agent', undefined, { isCollapsed: true }),
+      ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       // Should return same reference when no change needed
       expect(result[0]).toBe(messages[0])
     })
 
     test('does not modify already expanded agent variant message', () => {
-      const messages = [createMessage('1', 'agent', undefined, { isCollapsed: false })]
+      const messages = [
+        createMessage('1', 'agent', undefined, { isCollapsed: false }),
+      ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       expect(result[0]).toBe(messages[0])
     })
 
     test('handles agent variant message with undefined isCollapsed when collapsing', () => {
       const messages = [createMessage('1', 'agent')]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       // undefined is treated as collapsed, so no change should be made
       expect(result[0]).toBe(messages[0])
     })
@@ -329,7 +358,7 @@ describe('setAllBlocksCollapsedState', () => {
     test('expands agent variant message with undefined isCollapsed', () => {
       const messages = [createMessage('1', 'agent')]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       // undefined is treated as collapsed, so expand should work
       expect(result[0]?.metadata?.isCollapsed).toBe(false)
       expect(result[0]?.metadata?.userOpened).toBe(true)
@@ -345,7 +374,7 @@ describe('setAllBlocksCollapsedState', () => {
         ]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const blocks = result[0]?.blocks as CollapsibleBlock[]
       expect(blocks[0]?.isCollapsed).toBe(true)
       expect(blocks[1]?.isCollapsed).toBe(true)
@@ -359,7 +388,7 @@ describe('setAllBlocksCollapsedState', () => {
         ]),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const blocks = result[0]?.blocks as CollapsibleBlock[]
       expect(blocks[0]?.isCollapsed).toBe(false)
       expect(blocks[0]?.userOpened).toBe(true)
@@ -375,18 +404,16 @@ describe('setAllBlocksCollapsedState', () => {
         ]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const blocks = result[0]?.blocks as CollapsibleBlock[]
       expect(blocks[0]?.isCollapsed).toBe(true)
       expect(blocks[1]?.isCollapsed).toBe(true)
     })
 
     test('expands tool blocks with undefined isCollapsed', () => {
-      const messages = [
-        createMessage('1', 'ai', [createToolBlock('tool-1')]),
-      ]
+      const messages = [createMessage('1', 'ai', [createToolBlock('tool-1')])]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       // undefined is treated as collapsed, so expand should work
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.isCollapsed).toBe(false)
@@ -394,11 +421,9 @@ describe('setAllBlocksCollapsedState', () => {
     })
 
     test('does not modify tool block with undefined isCollapsed when collapsing', () => {
-      const messages = [
-        createMessage('1', 'ai', [createToolBlock('tool-1')]),
-      ]
+      const messages = [createMessage('1', 'ai', [createToolBlock('tool-1')])]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       // undefined is treated as collapsed, so no change should be made
       expect(result[0]).toBe(messages[0])
     })
@@ -410,7 +435,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createAgentBlock('agent-1', false)]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.isCollapsed).toBe(true)
     })
@@ -420,7 +445,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createAgentBlock('agent-1', true)]),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.isCollapsed).toBe(false)
       expect(block?.userOpened).toBe(true)
@@ -432,10 +457,12 @@ describe('setAllBlocksCollapsedState', () => {
         createToolBlock('nested-tool-2', false),
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', false, false, nestedBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', false, false, nestedBlocks),
+        ]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const agentBlock = result[0]?.blocks?.[0] as AgentContentBlock
       const nestedBlocksResult = agentBlock?.blocks as CollapsibleBlock[]
       expect(nestedBlocksResult?.[0]?.isCollapsed).toBe(true)
@@ -444,18 +471,22 @@ describe('setAllBlocksCollapsedState', () => {
 
     test('handles deeply nested agent blocks', () => {
       const deepNestedBlocks = [createToolBlock('deep-tool', false)]
-      const nestedAgentBlocks = [createAgentBlock('nested-agent', false, false, deepNestedBlocks)]
+      const nestedAgentBlocks = [
+        createAgentBlock('nested-agent', false, false, deepNestedBlocks),
+      ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', false, false, nestedAgentBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', false, false, nestedAgentBlocks),
+        ]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const outerAgent = result[0]?.blocks?.[0] as AgentContentBlock
       expect(outerAgent?.isCollapsed).toBe(true)
-      
+
       const innerAgent = outerAgent?.blocks?.[0] as AgentContentBlock
       expect(innerAgent?.isCollapsed).toBe(true)
-      
+
       const deepBlock = innerAgent?.blocks?.[0] as CollapsibleBlock
       expect(deepBlock?.isCollapsed).toBe(true)
     })
@@ -467,7 +498,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createThinkingBlock('think-1', 'expanded')]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const block = result[0]?.blocks?.[0] as TextContentBlock
       expect(block?.thinkingCollapseState).toBe('hidden')
     })
@@ -477,7 +508,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createThinkingBlock('think-1', 'hidden')]),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const block = result[0]?.blocks?.[0] as TextContentBlock
       expect(block?.thinkingCollapseState).toBe('expanded')
       expect(block?.userOpened).toBe(true)
@@ -488,7 +519,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createTextBlock('regular text')]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       // Should return same reference since no change
       expect(result[0]).toBe(messages[0])
     })
@@ -500,7 +531,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createAgentListBlock('list-1', false)]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.isCollapsed).toBe(true)
     })
@@ -510,7 +541,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createAgentListBlock('list-1', true)]),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.isCollapsed).toBe(false)
       expect(block?.userOpened).toBe(true)
@@ -529,11 +560,13 @@ describe('setAllBlocksCollapsedState', () => {
         ]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const blocks = result[0]?.blocks as CollapsibleBlock[]
       expect(blocks[0]?.isCollapsed).toBe(true) // tool
       expect(blocks[1]?.isCollapsed).toBe(true) // agent
-      expect((blocks[2] as TextContentBlock)?.thinkingCollapseState).toBe('hidden') // thinking
+      expect((blocks[2] as TextContentBlock)?.thinkingCollapseState).toBe(
+        'hidden',
+      ) // thinking
       expect(blocks[3]?.isCollapsed).toBe(true) // agent-list
       expect((blocks[4] as TextContentBlock)?.isCollapsed).toBeUndefined() // text (not collapsible)
     })
@@ -548,13 +581,15 @@ describe('setAllBlocksCollapsedState', () => {
         ]),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const blocks = result[0]?.blocks as CollapsibleBlock[]
       expect(blocks[0]?.isCollapsed).toBe(false)
       expect(blocks[0]?.userOpened).toBe(true)
       expect(blocks[1]?.isCollapsed).toBe(false)
       expect(blocks[1]?.userOpened).toBe(true)
-      expect((blocks[2] as TextContentBlock)?.thinkingCollapseState).toBe('expanded')
+      expect((blocks[2] as TextContentBlock)?.thinkingCollapseState).toBe(
+        'expanded',
+      )
       expect((blocks[2] as TextContentBlock)?.userOpened).toBe(true)
       expect(blocks[3]?.isCollapsed).toBe(false)
       expect(blocks[3]?.userOpened).toBe(true)
@@ -569,9 +604,13 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('3', 'agent', undefined, { isCollapsed: false }),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      expect((result[1]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
+
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+      expect((result[1]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
       expect(result[2]?.metadata?.isCollapsed).toBe(true)
     })
 
@@ -582,9 +621,13 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('3', 'agent', undefined, { isCollapsed: true }),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(false)
-      expect((result[1]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(false)
+
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        false,
+      )
+      expect((result[1]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        false,
+      )
       expect(result[2]?.metadata?.isCollapsed).toBe(false)
     })
 
@@ -595,12 +638,14 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('3', 'ai', [createTextBlock('regular text')]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       // User message unchanged
       expect(result[0]).toBe(messages[0])
       // Tool block message changed
       expect(result[1]).not.toBe(messages[1])
-      expect((result[1]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
+      expect((result[1]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
       // Text-only message unchanged
       expect(result[2]).toBe(messages[2])
     })
@@ -612,7 +657,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createToolBlock('tool-1', true, false)]),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.userOpened).toBe(true)
     })
@@ -622,7 +667,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createToolBlock('tool-1', false, true)]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.userOpened).toBe(true)
     })
@@ -632,7 +677,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createToolBlock('tool-1', false)]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const block = result[0]?.blocks?.[0] as CollapsibleBlock
       expect(block?.userOpened).toBeUndefined()
     })
@@ -644,7 +689,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createToolBlock('tool-1', true)]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       expect(result[0]).toBe(messages[0])
     })
 
@@ -653,7 +698,7 @@ describe('setAllBlocksCollapsedState', () => {
         createMessage('1', 'ai', [createTextBlock('no change needed')]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       expect(result[0]?.blocks).toBe(messages[0]?.blocks)
     })
   })
@@ -662,26 +707,28 @@ describe('setAllBlocksCollapsedState', () => {
     test('handles undefined blocks in agent block', () => {
       const agentBlock = createAgentBlock('agent-1', false)
       delete (agentBlock as { blocks?: ContentBlock[] }).blocks
-      
+
       const messages = [createMessage('1', 'ai', [agentBlock])]
       const result = setAllBlocksCollapsedState(messages, true)
-      
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
+
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
     })
 
     test('handles empty blocks array', () => {
       const messages = [createMessage('1', 'ai', [])]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       expect(result[0]).toBe(messages[0])
     })
 
     test('handles message with undefined metadata for agent variant when collapsing', () => {
       const message = createMessage('1', 'agent')
       delete message.metadata
-      
+
       const result = setAllBlocksCollapsedState([message], true)
-      
+
       // undefined metadata is treated as collapsed, so no change should be made
       expect(result[0]).toBe(message)
     })
@@ -689,9 +736,9 @@ describe('setAllBlocksCollapsedState', () => {
     test('handles message with undefined metadata for agent variant when expanding', () => {
       const message = createMessage('1', 'agent')
       delete message.metadata
-      
+
       const result = setAllBlocksCollapsedState([message], false)
-      
+
       // undefined metadata is treated as collapsed, so expand should work
       expect(result[0]?.metadata?.isCollapsed).toBe(false)
       expect(result[0]?.metadata?.userOpened).toBe(true)
@@ -704,7 +751,9 @@ describe('toggle-all edge cases', () => {
     test('hasAnyExpandedBlocks: collapsed parent with expanded child returns true', () => {
       const nestedBlocks = [createToolBlock('tool-1', false)] // expanded
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]), // collapsed parent
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]), // collapsed parent
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
@@ -712,7 +761,9 @@ describe('toggle-all edge cases', () => {
     test('hasAnyExpandedBlocks: expanded parent with collapsed child returns true', () => {
       const nestedBlocks = [createToolBlock('tool-1', true)] // collapsed
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', false, false, nestedBlocks)]), // expanded parent
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', false, false, nestedBlocks),
+        ]), // expanded parent
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
@@ -720,7 +771,9 @@ describe('toggle-all edge cases', () => {
     test('hasAnyExpandedBlocks: expanded parent with expanded child returns true', () => {
       const nestedBlocks = [createToolBlock('tool-1', false)] // expanded
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', false, false, nestedBlocks)]), // expanded parent
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', false, false, nestedBlocks),
+        ]), // expanded parent
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
@@ -728,7 +781,9 @@ describe('toggle-all edge cases', () => {
     test('hasAnyExpandedBlocks: collapsed parent with collapsed child returns false', () => {
       const nestedBlocks = [createToolBlock('tool-1', true)] // collapsed
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]), // collapsed parent
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]), // collapsed parent
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
@@ -740,7 +795,9 @@ describe('toggle-all edge cases', () => {
         createToolBlock('tool-3', true), // collapsed
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]),
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
@@ -751,14 +808,20 @@ describe('toggle-all edge cases', () => {
         createThinkingBlock('think-1', 'expanded'),
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', false, false, nestedBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', false, false, nestedBlocks),
+        ]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const agentBlock = result[0]?.blocks?.[0] as AgentContentBlock
       expect(agentBlock?.isCollapsed).toBe(true)
-      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      expect((agentBlock?.blocks?.[1] as TextContentBlock)?.thinkingCollapseState).toBe('hidden')
+      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+      expect(
+        (agentBlock?.blocks?.[1] as TextContentBlock)?.thinkingCollapseState,
+      ).toBe('hidden')
     })
 
     test('setAllBlocksCollapsedState: expands both parent and nested blocks', () => {
@@ -767,53 +830,75 @@ describe('toggle-all edge cases', () => {
         createThinkingBlock('think-1', 'hidden'),
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const agentBlock = result[0]?.blocks?.[0] as AgentContentBlock
       expect(agentBlock?.isCollapsed).toBe(false)
       expect(agentBlock?.userOpened).toBe(true)
-      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(false)
-      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.userOpened).toBe(true)
-      expect((agentBlock?.blocks?.[1] as TextContentBlock)?.thinkingCollapseState).toBe('expanded')
-      expect((agentBlock?.blocks?.[1] as TextContentBlock)?.userOpened).toBe(true)
+      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        false,
+      )
+      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.userOpened).toBe(
+        true,
+      )
+      expect(
+        (agentBlock?.blocks?.[1] as TextContentBlock)?.thinkingCollapseState,
+      ).toBe('expanded')
+      expect((agentBlock?.blocks?.[1] as TextContentBlock)?.userOpened).toBe(
+        true,
+      )
     })
   })
 
   describe('deeply nested structures (3+ levels)', () => {
     test('hasAnyExpandedBlocks: finds expanded block at level 3', () => {
       const level3Blocks = [createToolBlock('deep-tool', false)] // expanded at level 3
-      const level2Blocks = [createAgentBlock('level2-agent', true, false, level3Blocks)] // collapsed at level 2
-      const level1Blocks = [createAgentBlock('level1-agent', true, false, level2Blocks)] // collapsed at level 1
+      const level2Blocks = [
+        createAgentBlock('level2-agent', true, false, level3Blocks),
+      ] // collapsed at level 2
+      const level1Blocks = [
+        createAgentBlock('level1-agent', true, false, level2Blocks),
+      ] // collapsed at level 1
       const messages = [createMessage('1', 'ai', level1Blocks)]
-      
+
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
 
     test('hasAnyExpandedBlocks: all collapsed at 3 levels returns false', () => {
       const level3Blocks = [createToolBlock('deep-tool', true)] // collapsed at level 3
-      const level2Blocks = [createAgentBlock('level2-agent', true, false, level3Blocks)] // collapsed at level 2
-      const level1Blocks = [createAgentBlock('level1-agent', true, false, level2Blocks)] // collapsed at level 1
+      const level2Blocks = [
+        createAgentBlock('level2-agent', true, false, level3Blocks),
+      ] // collapsed at level 2
+      const level1Blocks = [
+        createAgentBlock('level1-agent', true, false, level2Blocks),
+      ] // collapsed at level 1
       const messages = [createMessage('1', 'ai', level1Blocks)]
-      
+
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
 
     test('setAllBlocksCollapsedState: collapses all 3 levels', () => {
       const level3Blocks = [createToolBlock('deep-tool', false)] // expanded
-      const level2Blocks = [createAgentBlock('level2-agent', false, false, level3Blocks)] // expanded
-      const level1Blocks = [createAgentBlock('level1-agent', false, false, level2Blocks)] // expanded
+      const level2Blocks = [
+        createAgentBlock('level2-agent', false, false, level3Blocks),
+      ] // expanded
+      const level1Blocks = [
+        createAgentBlock('level1-agent', false, false, level2Blocks),
+      ] // expanded
       const messages = [createMessage('1', 'ai', level1Blocks)]
-      
+
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const level1 = result[0]?.blocks?.[0] as AgentContentBlock
       expect(level1?.isCollapsed).toBe(true)
-      
+
       const level2 = level1?.blocks?.[0] as AgentContentBlock
       expect(level2?.isCollapsed).toBe(true)
-      
+
       const level3 = level2?.blocks?.[0] as CollapsibleBlock
       expect(level3?.isCollapsed).toBe(true)
     })
@@ -821,20 +906,24 @@ describe('toggle-all edge cases', () => {
     test('setAllBlocksCollapsedState: expands all 3 levels with undefined states', () => {
       // All undefined (treated as collapsed)
       const level3Blocks = [createToolBlock('deep-tool')]
-      const level2Blocks = [createAgentBlock('level2-agent', undefined, undefined, level3Blocks)]
-      const level1Blocks = [createAgentBlock('level1-agent', undefined, undefined, level2Blocks)]
+      const level2Blocks = [
+        createAgentBlock('level2-agent', undefined, undefined, level3Blocks),
+      ]
+      const level1Blocks = [
+        createAgentBlock('level1-agent', undefined, undefined, level2Blocks),
+      ]
       const messages = [createMessage('1', 'ai', level1Blocks)]
-      
+
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       const level1 = result[0]?.blocks?.[0] as AgentContentBlock
       expect(level1?.isCollapsed).toBe(false)
       expect(level1?.userOpened).toBe(true)
-      
+
       const level2 = level1?.blocks?.[0] as AgentContentBlock
       expect(level2?.isCollapsed).toBe(false)
       expect(level2?.userOpened).toBe(true)
-      
+
       const level3 = level2?.blocks?.[0] as CollapsibleBlock
       expect(level3?.isCollapsed).toBe(false)
       expect(level3?.userOpened).toBe(true)
@@ -848,7 +937,9 @@ describe('toggle-all edge cases', () => {
         createToolBlock('tool-1', true), // collapsed
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]),
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
@@ -860,7 +951,9 @@ describe('toggle-all edge cases', () => {
         createTextBlock('regular text 2'), // not collapsible
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', true, false, nestedBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', true, false, nestedBlocks),
+        ]),
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
     })
@@ -871,22 +964,32 @@ describe('toggle-all edge cases', () => {
         createToolBlock('tool-1', false),
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', false, false, nestedBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', false, false, nestedBlocks),
+        ]),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const agentBlock = result[0]?.blocks?.[0] as AgentContentBlock
       expect(agentBlock?.blocks?.[0]?.type).toBe('text')
-      expect((agentBlock?.blocks?.[0] as TextContentBlock)?.content).toBe('regular text')
-      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBeUndefined()
-      expect((agentBlock?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(true)
+      expect((agentBlock?.blocks?.[0] as TextContentBlock)?.content).toBe(
+        'regular text',
+      )
+      expect(
+        (agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed,
+      ).toBeUndefined()
+      expect((agentBlock?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
     })
   })
 
   describe('agent variant messages with blocks', () => {
     test('hasAnyExpandedBlocks: checks both message-level and block-level collapsed state', () => {
       const messages = [
-        createMessage('1', 'agent', [createToolBlock('tool-1', false)], { isCollapsed: true }),
+        createMessage('1', 'agent', [createToolBlock('tool-1', false)], {
+          isCollapsed: true,
+        }),
       ]
       // Even though message-level is collapsed, block-level is expanded
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
@@ -894,7 +997,9 @@ describe('toggle-all edge cases', () => {
 
     test('hasAnyExpandedBlocks: message-level expanded is detected', () => {
       const messages = [
-        createMessage('1', 'agent', [createToolBlock('tool-1', true)], { isCollapsed: false }),
+        createMessage('1', 'agent', [createToolBlock('tool-1', true)], {
+          isCollapsed: false,
+        }),
       ]
       // Message-level is expanded even though block-level is collapsed
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
@@ -902,31 +1007,43 @@ describe('toggle-all edge cases', () => {
 
     test('hasAnyExpandedBlocks: both collapsed returns false', () => {
       const messages = [
-        createMessage('1', 'agent', [createToolBlock('tool-1', true)], { isCollapsed: true }),
+        createMessage('1', 'agent', [createToolBlock('tool-1', true)], {
+          isCollapsed: true,
+        }),
       ]
       expect(hasAnyExpandedBlocks(messages)).toBe(false)
     })
 
     test('setAllBlocksCollapsedState: collapses both message-level and block-level', () => {
       const messages = [
-        createMessage('1', 'agent', [createToolBlock('tool-1', false)], { isCollapsed: false }),
+        createMessage('1', 'agent', [createToolBlock('tool-1', false)], {
+          isCollapsed: false,
+        }),
       ]
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       expect(result[0]?.metadata?.isCollapsed).toBe(true)
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
     })
 
     test('setAllBlocksCollapsedState: expands both message-level and block-level', () => {
       const messages = [
-        createMessage('1', 'agent', [createToolBlock('tool-1', true)], { isCollapsed: true }),
+        createMessage('1', 'agent', [createToolBlock('tool-1', true)], {
+          isCollapsed: true,
+        }),
       ]
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       expect(result[0]?.metadata?.isCollapsed).toBe(false)
       expect(result[0]?.metadata?.userOpened).toBe(true)
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(false)
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.userOpened).toBe(true)
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        false,
+      )
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.userOpened).toBe(
+        true,
+      )
     })
   })
 
@@ -938,18 +1055,22 @@ describe('toggle-all edge cases', () => {
           createToolBlock('tool-2', false), // expanded
         ]),
       ]
-      
+
       // First: check if any are expanded
       const hasExpanded = hasAnyExpandedBlocks(messages)
       expect(hasExpanded).toBe(true)
-      
+
       // Then: collapse all (since some are expanded)
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       // Verify all are now collapsed
       expect(hasAnyExpandedBlocks(result)).toBe(false)
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      expect((result[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(true)
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+      expect((result[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
     })
 
     test('toggle: when all collapsed, expand all', () => {
@@ -959,18 +1080,22 @@ describe('toggle-all edge cases', () => {
           createToolBlock('tool-2', true), // collapsed
         ]),
       ]
-      
+
       // First: check if any are expanded
       const hasExpanded = hasAnyExpandedBlocks(messages)
       expect(hasExpanded).toBe(false)
-      
+
       // Then: expand all (since none are expanded)
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       // Verify all are now expanded
       expect(hasAnyExpandedBlocks(result)).toBe(true)
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(false)
-      expect((result[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(false)
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        false,
+      )
+      expect((result[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(
+        false,
+      )
     })
 
     test('toggle: fresh session with undefined states expands all', () => {
@@ -981,14 +1106,14 @@ describe('toggle-all edge cases', () => {
           createAgentBlock('agent-1'), // undefined = collapsed
         ]),
       ]
-      
+
       // Check if any expanded (should be false since undefined = collapsed)
       const hasExpanded = hasAnyExpandedBlocks(messages)
       expect(hasExpanded).toBe(false)
-      
+
       // Expand all since none are expanded
       const result = setAllBlocksCollapsedState(messages, false)
-      
+
       // Verify all are now expanded
       expect(hasAnyExpandedBlocks(result)).toBe(true)
     })
@@ -997,13 +1122,16 @@ describe('toggle-all edge cases', () => {
       const messages = [
         createMessage('1', 'ai', [createToolBlock('tool-1', false)]), // expanded
       ]
-      
+
       // First toggle: collapse (since one is expanded)
       const afterFirstToggle = setAllBlocksCollapsedState(messages, true)
       expect(hasAnyExpandedBlocks(afterFirstToggle)).toBe(false)
-      
+
       // Second toggle: expand (since all are collapsed)
-      const afterSecondToggle = setAllBlocksCollapsedState(afterFirstToggle, false)
+      const afterSecondToggle = setAllBlocksCollapsedState(
+        afterFirstToggle,
+        false,
+      )
       expect(hasAnyExpandedBlocks(afterSecondToggle)).toBe(true)
     })
 
@@ -1019,29 +1147,40 @@ describe('toggle-all edge cases', () => {
         ]),
         createMessage('2', 'agent', undefined, { isCollapsed: true }), // collapsed agent variant
       ]
-      
+
       // Any expanded? Yes (nested-tool-1 is expanded)
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
-      
+
       // First toggle: collapse all
       const afterCollapse = setAllBlocksCollapsedState(messages, true)
       expect(hasAnyExpandedBlocks(afterCollapse)).toBe(false)
-      
+
       // Verify all are collapsed including nested
       const agentBlock = afterCollapse[0]?.blocks?.[0] as AgentContentBlock
-      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      expect((agentBlock?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      
+      expect((agentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+      expect((agentBlock?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+
       // Second toggle: expand all
       const afterExpand = setAllBlocksCollapsedState(afterCollapse, false)
       expect(hasAnyExpandedBlocks(afterExpand)).toBe(true)
-      
+
       // Verify all are expanded including nested
-      const expandedAgentBlock = afterExpand[0]?.blocks?.[0] as AgentContentBlock
+      const expandedAgentBlock = afterExpand[0]
+        ?.blocks?.[0] as AgentContentBlock
       expect(expandedAgentBlock?.isCollapsed).toBe(false)
-      expect((expandedAgentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(false)
-      expect((expandedAgentBlock?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(false)
-      expect((afterExpand[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(false)
+      expect(
+        (expandedAgentBlock?.blocks?.[0] as CollapsibleBlock)?.isCollapsed,
+      ).toBe(false)
+      expect(
+        (expandedAgentBlock?.blocks?.[1] as CollapsibleBlock)?.isCollapsed,
+      ).toBe(false)
+      expect(
+        (afterExpand[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed,
+      ).toBe(false)
       expect(afterExpand[1]?.metadata?.isCollapsed).toBe(false)
     })
   })
@@ -1049,34 +1188,50 @@ describe('toggle-all edge cases', () => {
   describe('empty and edge case nested structures', () => {
     test('agent block with empty nested blocks array', () => {
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('agent-1', false, false, [])]),
+        createMessage('1', 'ai', [
+          createAgentBlock('agent-1', false, false, []),
+        ]),
       ]
-      
+
       expect(hasAnyExpandedBlocks(messages)).toBe(true) // parent is expanded
-      
+
       const result = setAllBlocksCollapsedState(messages, true)
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
     })
 
     test('multiple agent blocks at same level with mixed states', () => {
       const messages = [
         createMessage('1', 'ai', [
-          createAgentBlock('agent-1', true, false, [createToolBlock('tool-1', true)]),
-          createAgentBlock('agent-2', false, false, [createToolBlock('tool-2', true)]),
-          createAgentBlock('agent-3', true, false, [createToolBlock('tool-3', false)]),
+          createAgentBlock('agent-1', true, false, [
+            createToolBlock('tool-1', true),
+          ]),
+          createAgentBlock('agent-2', false, false, [
+            createToolBlock('tool-2', true),
+          ]),
+          createAgentBlock('agent-3', true, false, [
+            createToolBlock('tool-3', false),
+          ]),
         ]),
       ]
-      
+
       // agent-2 is expanded, tool-3 is expanded
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
-      
+
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       // All should be collapsed now
-      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      expect((result[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      expect((result[0]?.blocks?.[2] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      
+      expect((result[0]?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+      expect((result[0]?.blocks?.[1] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+      expect((result[0]?.blocks?.[2] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+
       const agent1 = result[0]?.blocks?.[0] as AgentContentBlock
       const agent2 = result[0]?.blocks?.[1] as AgentContentBlock
       const agent3 = result[0]?.blocks?.[2] as AgentContentBlock
@@ -1092,18 +1247,26 @@ describe('toggle-all edge cases', () => {
         createAgentListBlock('deep-list', false),
       ]
       const messages = [
-        createMessage('1', 'ai', [createAgentBlock('outer-agent', false, false, deepBlocks)]),
+        createMessage('1', 'ai', [
+          createAgentBlock('outer-agent', false, false, deepBlocks),
+        ]),
       ]
-      
+
       expect(hasAnyExpandedBlocks(messages)).toBe(true)
-      
+
       const result = setAllBlocksCollapsedState(messages, true)
-      
+
       const outerAgent = result[0]?.blocks?.[0] as AgentContentBlock
       expect(outerAgent?.isCollapsed).toBe(true)
-      expect((outerAgent?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(true)
-      expect((outerAgent?.blocks?.[1] as TextContentBlock)?.thinkingCollapseState).toBe('hidden')
-      expect((outerAgent?.blocks?.[2] as CollapsibleBlock)?.isCollapsed).toBe(true)
+      expect((outerAgent?.blocks?.[0] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
+      expect(
+        (outerAgent?.blocks?.[1] as TextContentBlock)?.thinkingCollapseState,
+      ).toBe('hidden')
+      expect((outerAgent?.blocks?.[2] as CollapsibleBlock)?.isCollapsed).toBe(
+        true,
+      )
     })
   })
 })

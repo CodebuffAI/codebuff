@@ -48,6 +48,9 @@ export interface AgentDefinition {
    */
   defaultTimeoutMs?: number
 
+  /** Maximum subagent nesting depth. Defaults to the runtime limit. */
+  maxSpawnDepth?: number
+
   /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
@@ -156,6 +159,24 @@ export interface AgentDefinition {
    * etc.
    */
   toolNames?: (ToolName | (string & {}))[]
+
+  /** Tools callable only from `handleSteps`; these are hidden from the model. */
+  programmaticToolNames?: (ToolName | (string & {}))[]
+
+  /** Enforced shell capability for this agent. Defaults to workspace-write. */
+  terminalPermissionProfile?:
+    | 'read-only'
+    | 'librarian-read-only'
+    | 'git-commit'
+    | 'tmux-test'
+    | 'workspace-write'
+    | 'full-access'
+  /** Runtime-enforced project-relative glob allowlists for filesystem tools. */
+  filesystemScope?: {
+    read?: string[]
+    write?: string[]
+  }
+  programmaticConfig?: Record<string, unknown>
 
   /** Other agents this agent can spawn, like 'openbuff/file-picker@0.0.1'.
    *
@@ -357,13 +378,18 @@ export type ProposalLedgerArtifact = {
     | 'propose_write_file'
     | 'propose_edit_transaction'
   /** The exact tool input, so it can always be converted to a real edit. */
-  input: Record<string, any>
+  input: Record<string, unknown>
+  /** Stable typed proposal id shared by every artifact in one transaction. */
+  proposalId: string
   result: {
     file: string
     ok: boolean
     unifiedDiff?: string
     message?: string
     errorMessage?: string
+    finalContent?: string
+    baseContentHash?: string | null
+    baseContent?: string | null
   }
 }
 
@@ -375,6 +401,7 @@ export interface AgentStepContext {
   prompt?: string
   params?: Record<string, any>
   logger: Logger
+  config?: Record<string, unknown>
 }
 
 export type StepText = { type: 'STEP_TEXT'; text: string }

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process')
+const { execFileSync, spawn } = require('child_process')
+const crypto = require('crypto')
 const fs = require('fs')
 const http = require('http')
 const https = require('https')
 const os = require('os')
 const path = require('path')
-const zlib = require('zlib')
 
 const { createReleaseHttpClient } = require('./http')
 
@@ -15,6 +15,8 @@ const { createReleaseHttpClient } = require('./http')
 // but the compiled binary and command users type is still `openbuff`.
 const npmPackageName = '@openbuff/cli'
 const binaryName = 'openbuff'
+const MIN_LEGACY_MACOS_MAJOR = 11
+const MIN_SUPPORTED_MACOS_MAJOR = 13
 
 /**
  * Terminal escape sequences to reset terminal state after the child process exits.
@@ -144,8 +146,96 @@ const PLATFORM_TARGETS = {
   'linux-x64': `${binaryName}-linux-x64.tar.gz`,
   'linux-arm64': `${binaryName}-linux-arm64.tar.gz`,
   'darwin-x64': `${binaryName}-darwin-x64.tar.gz`,
+  'darwin-x64-legacy': `${binaryName}-darwin-x64-legacy.tar.gz`,
   'darwin-arm64': `${binaryName}-darwin-arm64.tar.gz`,
   'win32-x64': `${binaryName}-win32-x64.tar.gz`,
+}
+
+function getHardwareArch() {
+  if (process.env.OPENBUFF_TEST_HARDWARE_ARCH) {
+    return process.env.OPENBUFF_TEST_HARDWARE_ARCH
+  }
+
+  if (process.platform !== 'darwin') {
+    return process.arch
+  }
+
+  try {
+    return (
+      execFileSync('uname', ['-m'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim() || process.arch
+    )
+  } catch (error) {
+    return process.arch
+  }
+}
+
+function getMacOSVersion() {
+  if (process.env.OPENBUFF_TEST_MACOS_VERSION) {
+    return process.env.OPENBUFF_TEST_MACOS_VERSION
+  }
+  if (process.platform !== 'darwin') return null
+  try {
+    return execFileSync('sw_vers', ['-productVersion'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return null
+  }
+}
+
+function assertSupportedPlatform() {
+  if (process.platform !== 'darwin') return
+  const version = getMacOSVersion()
+  const major = Number.parseInt(version?.split('.')[0] ?? '', 10)
+  if (!Number.isFinite(major) || major >= MIN_SUPPORTED_MACOS_MAJOR) return
+  if (major < MIN_LEGACY_MACOS_MAJOR) {
+    console.error(
+      `❌ Openbuff requires macOS ${MIN_LEGACY_MACOS_MAJOR} or newer; this Mac is running macOS ${version}.`,
+    )
+    console.error('Upgrade macOS, then reinstall or run openbuff again.')
+    console.error('')
+    process.exit(1)
+  }
+  if (getHardwareArch() === 'x64' && process.arch === 'x64') return
+
+  console.error(
+    `❌ Openbuff on Apple Silicon requires macOS ${MIN_SUPPORTED_MACOS_MAJOR} or newer; this Mac is running macOS ${version}.`,
+  )
+  console.error(
+    'The macOS 11/12 compatibility build is currently available only for Intel Macs.',
+  )
+  console.error('Upgrade macOS, then reinstall or run openbuff again.')
+  console.error('')
+  process.exit(1)
+}
+
+function getPlatformKey() {
+  if (process.platform === 'darwin') {
+    const major = Number.parseInt(getMacOSVersion()?.split('.')[0] ?? '', 10)
+    if (
+      Number.isFinite(major) &&
+      major >= MIN_LEGACY_MACOS_MAJOR &&
+      major < MIN_SUPPORTED_MACOS_MAJOR &&
+      process.arch === 'x64' &&
+      getHardwareArch() === 'x64'
+    ) {
+      return 'darwin-x64-legacy'
+    }
+  }
+
+  if (
+    process.platform === 'darwin' &&
+    process.arch === 'x64' &&
+    getHardwareArch() === 'arm64'
+  ) {
+    return 'darwin-arm64'
+  }
+
+  return `${process.platform}-${process.arch}`
 }
 
 const term = {
@@ -183,8 +273,8 @@ async function getLatestVersion() {
 
 function getLocalPackageVersion() {
   const packageJsonPaths = [
-    path.join(__dirname, '..', 'package.json'),
     path.join(__dirname, 'package.json'),
+    path.join(__dirname, '..', 'package.json'),
   ]
 
   for (const packageJsonPath of packageJsonPaths) {
@@ -212,8 +302,47 @@ function getMetadataVersion() {
   }
 }
 
+function getPendingUpdateVersion() {
+  try {
+    if (!fs.existsSync(CONFIG.metadataPath)) return null
+    const metadata = JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
+    return metadata.pendingVersion || null
+  } catch {
+    return null
+  }
+}
+
+function writePendingUpdateVersion(version) {
+  fs.mkdirSync(CONFIG.configDir, { recursive: true })
+  let metadata = {}
+  try {
+    if (fs.existsSync(CONFIG.metadataPath)) {
+      metadata = JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
+    }
+  } catch {
+    metadata = {}
+  }
+  const tempPath = `${CONFIG.metadataPath}.tmp-${process.pid}`
+  fs.writeFileSync(
+    tempPath,
+    JSON.stringify({ ...metadata, pendingVersion: version }, null, 2),
+  )
+  try {
+    fs.renameSync(tempPath, CONFIG.metadataPath)
+  } catch (error) {
+    if (!['EEXIST', 'EPERM'].includes(error.code)) throw error
+    fs.unlinkSync(CONFIG.metadataPath)
+    fs.renameSync(tempPath, CONFIG.metadataPath)
+  }
+}
+
 function getWrapperVersion() {
-  return getLocalPackageVersion() || getMetadataVersion() || getCurrentVersion() || 'dev'
+  return (
+    getLocalPackageVersion() ||
+    getMetadataVersion() ||
+    getCurrentVersion() ||
+    'dev'
+  )
 }
 
 function isVersionFlag(args) {
@@ -235,6 +364,14 @@ function getCurrentVersion() {
       return null
     }
     const metadata = JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
+    const platformKey = getPlatformKey()
+    const nodePlatformKey = `${process.platform}-${process.arch}`
+    if (metadata.platformKey && metadata.platformKey !== platformKey) {
+      return null
+    }
+    if (!metadata.platformKey && platformKey !== nodePlatformKey) {
+      return null
+    }
     // Also verify the binary still exists
     if (!fs.existsSync(CONFIG.binaryPath)) {
       return null
@@ -249,8 +386,8 @@ function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
 
   // Always update if the current version is not a valid semver
-  // e.g. 1.0.420-beta.1
-  if (!v1.match(/^\d+(\.\d+)*$/)) {
+  // e.g. a local development label such as "dev"
+  if (!v1.match(/^\d+(\.\d+)*(?:-[0-9A-Za-z.-]+)?$/)) {
     return -1
   }
 
@@ -323,13 +460,87 @@ function createProgressBar(percentage, width = 30) {
   return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
 }
 
+function getReleaseAssetBase(version) {
+  const downloadBase =
+    process.env.OPENBUFF_DOWNLOAD_BASE ||
+    'https://github.com/AnzoBenjamin/openbuff/releases/download'
+  return `${downloadBase}/v${version}`
+}
+
+async function getExpectedChecksum(version, fileName) {
+  const checksumResponse = await httpGet(
+    `${getReleaseAssetBase(version)}/SHA256SUMS`,
+  )
+  if (checksumResponse.statusCode !== 200) {
+    checksumResponse.resume()
+    throw new Error(
+      `Checksum manifest download failed: HTTP ${checksumResponse.statusCode}`,
+    )
+  }
+
+  return parseExpectedChecksum(await streamToString(checksumResponse), fileName)
+}
+
+function parseExpectedChecksum(checksumText, fileName) {
+  for (const line of checksumText.split(/\r?\n/)) {
+    const match = line.trim().match(/^([a-fA-F0-9]{64})\s+\*?(.+)$/)
+    if (match && path.basename(match[2]) === fileName) {
+      return match[1].toLowerCase()
+    }
+  }
+
+  throw new Error(`Checksum missing for release asset ${fileName}`)
+}
+
+function hashFile(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256')
+    const stream = fs.createReadStream(filePath)
+    stream.on('data', (chunk) => hash.update(chunk))
+    stream.on('end', () => resolve(hash.digest('hex')))
+    stream.on('error', reject)
+  })
+}
+
+function downloadResponseToFile(response, destination, totalSize) {
+  return new Promise((resolve, reject) => {
+    let downloadedSize = 0
+    let lastProgressTime = Date.now()
+    const output = fs.createWriteStream(destination, { mode: 0o600 })
+
+    response.on('data', (chunk) => {
+      downloadedSize += chunk.length
+      const now = Date.now()
+      if (now - lastProgressTime < 100 && downloadedSize !== totalSize) return
+      lastProgressTime = now
+      if (totalSize > 0) {
+        const pct = Math.round((downloadedSize / totalSize) * 100)
+        term.write(
+          `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(totalSize)}`,
+        )
+      } else {
+        term.write(`Downloading... ${formatBytes(downloadedSize)}`)
+      }
+    })
+    response.on('error', reject)
+    output.on('error', reject)
+    output.on('finish', resolve)
+    response.pipe(output)
+  })
+}
+
 async function downloadBinary(version) {
-  const platformKey = `${process.platform}-${process.arch}`
+  const platformKey = getPlatformKey()
   const fileName = PLATFORM_TARGETS[platformKey]
 
   if (!fileName) {
-    const error = new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
-    trackUpdateFailed(error.message, version, { stage: 'platform_check' })
+    const error = new Error(
+      `Unsupported platform: ${process.platform} ${process.arch}`,
+    )
+    trackUpdateFailed(error.message, version, {
+      stage: 'platform_check',
+      platformKey,
+    })
     throw error
   }
 
@@ -337,10 +548,7 @@ async function downloadBinary(version) {
   // Public repo → unauthenticated downloads; GitHub 302-redirects to a CDN,
   // and the http.js client follows redirects. OPENBUFF_DOWNLOAD_BASE may
   // override the base (e.g. for staging mirrors).
-  const downloadUrl = `${
-    process.env.OPENBUFF_DOWNLOAD_BASE ||
-    'https://github.com/AnzoBenjamin/openbuff/releases/download'
-  }/v${version}/${fileName}`
+  const downloadUrl = `${getReleaseAssetBase(version)}/${fileName}`
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
@@ -353,46 +561,48 @@ async function downloadBinary(version) {
 
   term.write('Downloading...')
 
+  let expectedChecksum
+  try {
+    expectedChecksum = await getExpectedChecksum(version, fileName)
+  } catch (error) {
+    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+    trackUpdateFailed(error.message, version, { stage: 'checksum_manifest' })
+    throw error
+  }
+
   const res = await httpGet(downloadUrl)
 
   if (res.statusCode !== 200) {
     fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
     const error = new Error(`Download failed: HTTP ${res.statusCode}`)
-    trackUpdateFailed(error.message, version, { stage: 'http_download', statusCode: res.statusCode })
+    trackUpdateFailed(error.message, version, {
+      stage: 'http_download',
+      statusCode: res.statusCode,
+    })
     throw error
   }
 
   const totalSize = parseInt(res.headers['content-length'] || '0', 10)
-  let downloadedSize = 0
-  let lastProgressTime = Date.now()
+  const archivePath = path.join(CONFIG.tempDownloadDir, fileName)
+  await downloadResponseToFile(res, archivePath, totalSize)
 
-  res.on('data', (chunk) => {
-    downloadedSize += chunk.length
-    const now = Date.now()
-    if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
-      lastProgressTime = now
-      if (totalSize > 0) {
-        const pct = Math.round((downloadedSize / totalSize) * 100)
-        term.write(
-          `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(
-            totalSize,
-          )}`,
-        )
-      } else {
-        term.write(`Downloading... ${formatBytes(downloadedSize)}`)
-      }
-    }
-  })
+  const actualChecksum = await hashFile(archivePath)
+  if (actualChecksum !== expectedChecksum) {
+    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+    const error = new Error(
+      `Checksum verification failed for ${fileName}: expected ${expectedChecksum}, received ${actualChecksum}`,
+    )
+    trackUpdateFailed(error.message, version, { stage: 'checksum_verify' })
+    throw error
+  }
 
-  // Extract to temp directory
+  // Extract only after the archive has passed integrity verification.
   const tar = require('tar')
-
-  await new Promise((resolve, reject) => {
-    res
-      .pipe(zlib.createGunzip())
-      .pipe(tar.x({ cwd: CONFIG.tempDownloadDir }))
-      .on('finish', resolve)
-      .on('error', reject)
+  await tar.x({
+    cwd: CONFIG.tempDownloadDir,
+    file: archivePath,
+    preservePaths: false,
+    strict: true,
   })
 
   const tempBinaryPath = path.join(CONFIG.tempDownloadDir, CONFIG.binaryName)
@@ -455,10 +665,31 @@ async function downloadBinary(version) {
       fs.renameSync(tempWasmPath, targetWasmPath)
     }
 
+    // Legacy macOS archives also contain native OpenTUI and ripgrep siblings.
+    // Move them only when present so current platform archives remain
+    // unchanged.
+    for (const siblingName of ['libopentui.dylib', 'rg']) {
+      const tempSiblingPath = path.join(CONFIG.tempDownloadDir, siblingName)
+      if (!fs.existsSync(tempSiblingPath)) continue
+      const targetSiblingPath = path.join(
+        path.dirname(CONFIG.binaryPath),
+        siblingName,
+      )
+      try {
+        if (fs.existsSync(targetSiblingPath)) fs.unlinkSync(targetSiblingPath)
+      } catch {
+        // best effort; rename below will surface the real error if it matters
+      }
+      fs.renameSync(tempSiblingPath, targetSiblingPath)
+      if (process.platform !== 'win32' && siblingName === 'rg') {
+        fs.chmodSync(targetSiblingPath, 0o755)
+      }
+    }
+
     // Save version metadata for fast version checking
     fs.writeFileSync(
       CONFIG.metadataPath,
-      JSON.stringify({ version }, null, 2),
+      JSON.stringify({ version, platformKey }, null, 2),
     )
   } finally {
     // Clean up temp directory even if rename fails
@@ -473,11 +704,21 @@ async function downloadBinary(version) {
 
 async function ensureBinaryExists() {
   const currentVersion = getCurrentVersion()
-  if (currentVersion !== null) {
+  const pendingVersion = getPendingUpdateVersion()
+  const packagedVersion = getLocalPackageVersion()
+  const packagedUpdate =
+    packagedVersion &&
+    (currentVersion === null ||
+      compareVersions(currentVersion, packagedVersion) < 0)
+      ? packagedVersion
+      : null
+  const requestedVersion = pendingVersion || packagedUpdate
+
+  if (currentVersion !== null && !requestedVersion) {
     return
   }
 
-  const version = await getLatestVersion()
+  const version = requestedVersion || (await getLatestVersion())
   if (!version) {
     console.error('❌ Failed to determine latest version')
     console.error('Please check your internet connection and try again')
@@ -504,7 +745,7 @@ async function ensureBinaryExists() {
   }
 }
 
-async function checkForUpdates(runningProcess, exitListener) {
+async function checkForUpdates() {
   try {
     const currentVersion = getCurrentVersion()
 
@@ -517,68 +758,32 @@ async function checkForUpdates(runningProcess, exitListener) {
       compareVersions(currentVersion, latestVersion) < 0
     ) {
       term.clearLine()
-
-      runningProcess.removeListener('exit', exitListener)
-
-      await new Promise((resolve) => {
-        let exited = false
-        runningProcess.once('exit', () => {
-          exited = true
-          resolve()
-        })
-        runningProcess.kill('SIGTERM')
-        setTimeout(() => {
-          if (!exited) {
-            runningProcess.kill('SIGKILL')
-            // Safety: resolve after giving SIGKILL time to take effect
-            setTimeout(() => resolve(), 1000)
-          }
-        }, 5000)
-      })
-
-      resetTerminal()
-      console.log(`Update available: ${currentVersion} → ${latestVersion}`)
-
-      await downloadBinary(latestVersion)
-
-      const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-        stdio: 'inherit',
-        detached: false,
-      })
-
-      newChild.on('exit', (code, signal) => {
-        resetTerminal()
-        printCrashDiagnostics(code, signal)
-        process.exit(signal ? 1 : (code || 0))
-      })
-
-      newChild.on('error', (err) => {
-        console.error('Failed to start openbuff:', err.message)
-        process.exit(1)
-      })
-
-      return new Promise(() => {})
+      console.error(
+        `Openbuff update available: ${currentVersion ?? 'unknown'} → ${latestVersion}. It will be installed on the next launch.`,
+      )
+      writePendingUpdateVersion(latestVersion)
     }
   } catch (error) {
-    // Ignore update failures
+    trackUpdateFailed(error.message, null, { stage: 'background_check' })
   }
 }
 
 function printCrashDiagnostics(code, signal) {
   // Windows NTSTATUS codes (unsigned DWORD)
-  const unsignedCode = code != null && code < 0 ? (code >>> 0) : code
+  const unsignedCode = code != null && code < 0 ? code >>> 0 : code
   const isIllegalInstruction =
     signal === 'SIGILL' ||
-    (process.platform === 'win32' && unsignedCode === 0xC000001D)
+    (process.platform === 'win32' && unsignedCode === 0xc000001d)
   const isAccessViolation =
     signal === 'SIGSEGV' ||
-    (process.platform === 'win32' && unsignedCode === 0xC0000005)
+    (process.platform === 'win32' && unsignedCode === 0xc0000005)
   const isBusError = signal === 'SIGBUS'
   const isAbort =
     signal === 'SIGABRT' ||
-    (process.platform === 'win32' && unsignedCode === 0xC0000409)
+    (process.platform === 'win32' && unsignedCode === 0xc0000409)
 
-  if (!isIllegalInstruction && !isAccessViolation && !isBusError && !isAbort) return
+  if (!isIllegalInstruction && !isAccessViolation && !isBusError && !isAbort)
+    return
 
   const exitInfo = signal ? `signal ${signal}` : `code ${code}`
   console.error('')
@@ -586,9 +791,13 @@ function printCrashDiagnostics(code, signal) {
   console.error('')
 
   if (isIllegalInstruction) {
-    console.error('Your CPU may not support the required instruction set (AVX2).')
+    console.error(
+      'Your CPU may not support the required instruction set (AVX2).',
+    )
     console.error('This typically affects CPUs from before 2013.')
-    console.error('Unfortunately, this binary is not compatible with your system.')
+    console.error(
+      'Unfortunately, this binary is not compatible with your system.',
+    )
     console.error('')
   } else if (isAccessViolation) {
     console.error('The binary crashed with an access violation.')
@@ -602,8 +811,16 @@ function printCrashDiagnostics(code, signal) {
     console.error('')
   }
 
+  const platformKey = getPlatformKey()
+  const target = PLATFORM_TARGETS[platformKey] || 'unsupported'
+
   console.error('System info:')
   console.error(`  Platform: ${process.platform} ${process.arch}`)
+  console.error(`  Hardware: ${getHardwareArch()}`)
+  if (process.platform === 'darwin') {
+    console.error(`  macOS:    ${getMacOSVersion() ?? 'unknown'}`)
+  }
+  console.error(`  Target:   ${platformKey} (${target})`)
   console.error(`  Node:     ${process.version}`)
   console.error(`  Binary:   ${CONFIG.binaryPath}`)
   console.error('')
@@ -620,6 +837,8 @@ async function main() {
     return
   }
 
+  assertSupportedPlatform()
+
   await ensureBinaryExists()
 
   const child = spawn(CONFIG.binaryPath, args, {
@@ -629,7 +848,7 @@ async function main() {
   const exitListener = (code, signal) => {
     resetTerminal()
     printCrashDiagnostics(code, signal)
-    process.exit(signal ? 1 : (code || 0))
+    process.exit(signal ? 1 : code || 0)
   }
 
   child.on('exit', exitListener)
@@ -640,11 +859,18 @@ async function main() {
   })
 
   setTimeout(() => {
-    checkForUpdates(child, exitListener)
+    checkForUpdates()
   }, 100)
 }
 
-main().catch((error) => {
-  console.error('❌ Unexpected error:', error.message)
-  process.exit(1)
-})
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('❌ Unexpected error:', error.message)
+    process.exit(1)
+  })
+}
+
+module.exports = {
+  compareVersions,
+  parseExpectedChecksum,
+}

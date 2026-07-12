@@ -30,7 +30,10 @@ function isInScreen(env: ReturnType<typeof getCliEnv>): boolean {
 /**
  * Build the OSC title sequence with tmux/screen passthrough if needed
  */
-function buildTitleSequence(title: string, env: ReturnType<typeof getCliEnv>): string {
+function buildTitleSequence(
+  title: string,
+  env: ReturnType<typeof getCliEnv>,
+): string {
   const osc = `\x1b]0;${title}${OSC_TERMINATOR}`
 
   // tmux passthrough: wrap in DCS and double ESC characters

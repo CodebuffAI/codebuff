@@ -4,13 +4,7 @@ import { getCliEnv } from './env'
 
 import type { CliEnv } from '../types/env'
 
-type KnownShell =
-  | 'bash'
-  | 'zsh'
-  | 'fish'
-  | 'cmd.exe'
-  | 'powershell'
-  | 'unknown'
+type KnownShell = 'bash' | 'zsh' | 'fish' | 'cmd.exe' | 'powershell' | 'unknown'
 
 type ShellName = KnownShell | string
 
@@ -33,7 +27,9 @@ export function detectShell(env: CliEnv = getCliEnv()): ShellName {
   }
 
   const detected =
-    detectFromEnvironment(env) ?? detectViaParentProcessInspection() ?? 'unknown'
+    detectFromEnvironment(env) ??
+    detectViaParentProcessInspection() ??
+    'unknown'
   cachedShell = detected
   return detected
 }

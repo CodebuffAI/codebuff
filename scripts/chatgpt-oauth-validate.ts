@@ -97,7 +97,9 @@ async function main() {
     const tokenResponse = await response.json()
     console.log('\n✅ Token exchange succeeded.')
     console.log(`access_token present: ${Boolean(tokenResponse?.access_token)}`)
-    console.log(`refresh_token present: ${Boolean(tokenResponse?.refresh_token)}`)
+    console.log(
+      `refresh_token present: ${Boolean(tokenResponse?.refresh_token)}`,
+    )
     console.log(`expires_in: ${tokenResponse?.expires_in ?? 'unknown'}`)
     console.log('\n(Access/refresh token values intentionally not printed.)')
   } finally {

@@ -7,6 +7,7 @@ import { getCiEnv } from '@codebuff/common/env-ci'
 import { success } from '@codebuff/common/util/error'
 
 import { promptAiSdk, promptAiSdkStream, promptAiSdkStructured } from './llm'
+import { resolveModelContextWindow } from './model-provider'
 
 import type {
   AgentRuntimeDeps,
@@ -40,6 +41,8 @@ export function getAgentRuntimeImpl(
     | 'requestMcpToolData'
     | 'requestFiles'
     | 'requestOptionalFile'
+    | 'fileSystem'
+    | 'fileFilter'
     | 'sendAction'
     | 'sendSubagentChunk'
   >,
@@ -53,6 +56,8 @@ export function getAgentRuntimeImpl(
     requestMcpToolData,
     requestFiles,
     requestOptionalFile,
+    fileSystem,
+    fileFilter,
     sendAction,
     sendSubagentChunk,
   } = params
@@ -83,6 +88,7 @@ export function getAgentRuntimeImpl(
     promptAiSdkStream,
     promptAiSdk,
     promptAiSdkStructured,
+    resolveModelContextWindow,
 
     // Mutable State
     databaseAgentCache,
@@ -100,6 +106,8 @@ export function getAgentRuntimeImpl(
     requestMcpToolData,
     requestFiles,
     requestOptionalFile,
+    fileSystem,
+    fileFilter,
     sendAction,
     sendSubagentChunk,
 

@@ -12,9 +12,9 @@
 export {}
 
 // ── Pricing (same model across all providers) ──
-const INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
+const INPUT_COST_PER_TOKEN = 0.3 / 1_000_000
 const CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+const OUTPUT_COST_PER_TOKEN = 1.2 / 1_000_000
 
 const MAX_TOKENS = 100
 const NUM_TURNS = 10
@@ -180,22 +180,42 @@ interface ProviderResult {
 // ── Helpers ──
 
 function computeCost(usage: Record<string, unknown>): number {
-  const inputTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
-  const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
-  const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined
-  const cachedTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
+  const inputTokens =
+    typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
+  const outputTokens =
+    typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
+  const promptDetails = usage.prompt_tokens_details as
+    | Record<string, unknown>
+    | undefined
+  const cachedTokens =
+    typeof promptDetails?.cached_tokens === 'number'
+      ? promptDetails.cached_tokens
+      : 0
   const nonCachedInput = Math.max(0, inputTokens - cachedTokens)
 
-  return nonCachedInput * INPUT_COST_PER_TOKEN +
+  return (
+    nonCachedInput * INPUT_COST_PER_TOKEN +
     cachedTokens * CACHED_INPUT_COST_PER_TOKEN +
     outputTokens * OUTPUT_COST_PER_TOKEN
+  )
 }
 
-function extractUsageFields(usage: Record<string, unknown>): { inputTokens: number; cachedTokens: number; outputTokens: number } {
-  const inputTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
-  const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
-  const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined
-  const cachedTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
+function extractUsageFields(usage: Record<string, unknown>): {
+  inputTokens: number
+  cachedTokens: number
+  outputTokens: number
+} {
+  const inputTokens =
+    typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
+  const outputTokens =
+    typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
+  const promptDetails = usage.prompt_tokens_details as
+    | Record<string, unknown>
+    | undefined
+  const cachedTokens =
+    typeof promptDetails?.cached_tokens === 'number'
+      ? promptDetails.cached_tokens
+      : 0
   return { inputTokens, cachedTokens, outputTokens }
 }
 
@@ -293,12 +313,12 @@ async function runTurn(
     ? extractUsageFields(streamUsage)
     : { inputTokens: 0, cachedTokens: 0, outputTokens: 0 }
 
-  const generationTimeMs = firstContentChunkTime !== undefined
-    ? Date.now() - firstContentChunkTime
-    : elapsedMs
-  const outputTokensPerSec = generationTimeMs > 0
-    ? (outputTokens / (generationTimeMs / 1000))
-    : 0
+  const generationTimeMs =
+    firstContentChunkTime !== undefined
+      ? Date.now() - firstContentChunkTime
+      : elapsedMs
+  const outputTokensPerSec =
+    generationTimeMs > 0 ? outputTokens / (generationTimeMs / 1000) : 0
 
   const cost = streamUsage ? computeCost(streamUsage) : 0
 
@@ -315,7 +335,10 @@ async function runTurn(
   }
 }
 
-async function runProviderBenchmark(config: ProviderConfig, apiKey: string): Promise<ProviderResult> {
+async function runProviderBenchmark(
+  config: ProviderConfig,
+  apiKey: string,
+): Promise<ProviderResult> {
   const conversationHistory: ConversationMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
   ]
@@ -331,7 +354,10 @@ async function runProviderBenchmark(config: ProviderConfig, apiKey: string): Pro
     totalElapsedMs += result.elapsedMs
 
     if (result.responseContent) {
-      conversationHistory.push({ role: 'assistant', content: result.responseContent })
+      conversationHistory.push({
+        role: 'assistant',
+        content: result.responseContent,
+      })
     }
   }
 
@@ -345,8 +371,12 @@ async function runProviderBenchmark(config: ProviderConfig, apiKey: string): Pro
 
 // ── Formatting helpers ──
 
-function pad(s: string, n: number): string { return s.padStart(n) }
-function pct(n: number, d: number): string { return d > 0 ? `${((n / d) * 100).toFixed(1)}%` : '0.0%' }
+function pad(s: string, n: number): string {
+  return s.padStart(n)
+}
+function pct(n: number, d: number): string {
+  return d > 0 ? `${((n / d) * 100).toFixed(1)}%` : '0.0%'
+}
 
 function printProviderSummary(r: ProviderResult) {
   const p = r.provider
@@ -355,7 +385,9 @@ function printProviderSummary(r: ProviderResult) {
   console.log(`  ${p.name}  |  Model: ${p.model}  |  Base URL: ${p.baseUrl}`)
   console.log(`${'═'.repeat(100)}`)
   console.log()
-  console.log(`   ${'Turn'.padEnd(25)} | ${pad('Time', 8)} | ${pad('TTFT', 7)} | ${pad('Input', 6)} | ${pad('Cached', 6)} | ${pad('Cache%', 7)} | ${pad('Output', 6)} | ${pad('tok/s', 6)} | ${pad('e2e t/s', 7)} | Cost`)
+  console.log(
+    `   ${'Turn'.padEnd(25)} | ${pad('Time', 8)} | ${pad('TTFT', 7)} | ${pad('Input', 6)} | ${pad('Cached', 6)} | ${pad('Cache%', 7)} | ${pad('Output', 6)} | ${pad('tok/s', 6)} | ${pad('e2e t/s', 7)} | Cost`,
+  )
   console.log('   ' + '─'.repeat(105))
 
   let totalCost = 0
@@ -366,10 +398,14 @@ function printProviderSummary(r: ProviderResult) {
   for (const t of r.turns) {
     const label = `Turn ${t.turn}/${NUM_TURNS}${t.turn === 1 ? ' (cold)' : ''}`
     const time = `${(t.elapsedMs / 1000).toFixed(2)}s`
-    const ttft = t.ttftMs !== undefined ? `${(t.ttftMs / 1000).toFixed(2)}s` : 'n/a'
+    const ttft =
+      t.ttftMs !== undefined ? `${(t.ttftMs / 1000).toFixed(2)}s` : 'n/a'
     const cacheRate = pct(t.cachedTokens, t.inputTokens)
     const tokSec = t.outputTokensPerSec.toFixed(1)
-    const e2eTokSec = t.elapsedMs > 0 ? (t.outputTokens / (t.elapsedMs / 1000)).toFixed(1) : 'n/a'
+    const e2eTokSec =
+      t.elapsedMs > 0
+        ? (t.outputTokens / (t.elapsedMs / 1000)).toFixed(1)
+        : 'n/a'
     const costStr = t.error ? 'err' : `$${t.cost.toFixed(6)}`
 
     totalCost += t.cost
@@ -378,28 +414,47 @@ function printProviderSummary(r: ProviderResult) {
     totalOutput += t.outputTokens
 
     if (t.error) {
-      console.log(`   ${label.padEnd(25)} | ${pad(time, 8)} | ${pad(ttft, 7)} | ❌ ${t.error.slice(0, 60)}`)
+      console.log(
+        `   ${label.padEnd(25)} | ${pad(time, 8)} | ${pad(ttft, 7)} | ❌ ${t.error.slice(0, 60)}`,
+      )
     } else {
-      console.log(`   ${label.padEnd(25)} | ${pad(time, 8)} | ${pad(ttft, 7)} | ${pad(String(t.inputTokens), 6)} | ${pad(String(t.cachedTokens), 6)} | ${pad(cacheRate, 7)} | ${pad(String(t.outputTokens), 6)} | ${pad(tokSec, 6)} | ${pad(e2eTokSec, 7)} | ${costStr}`)
+      console.log(
+        `   ${label.padEnd(25)} | ${pad(time, 8)} | ${pad(ttft, 7)} | ${pad(String(t.inputTokens), 6)} | ${pad(String(t.cachedTokens), 6)} | ${pad(cacheRate, 7)} | ${pad(String(t.outputTokens), 6)} | ${pad(tokSec, 6)} | ${pad(e2eTokSec, 7)} | ${costStr}`,
+      )
     }
   }
 
   console.log('   ' + '─'.repeat(105))
   const totalTimeStr = `${(r.totalElapsedMs / 1000).toFixed(2)}s`
   const overallCacheRate = pct(totalCached, totalInput)
-  const overallTokSec = r.totalElapsedMs > 0 ? (totalOutput / (r.totalElapsedMs / 1000)).toFixed(1) : 'n/a'
-  console.log(`   ${'TOTAL'.padEnd(25)} | ${pad(totalTimeStr, 8)} |         | ${pad(String(totalInput), 6)} | ${pad(String(totalCached), 6)} | ${pad(overallCacheRate, 7)} | ${pad(String(totalOutput), 6)} |        | ${pad(overallTokSec, 7)} | $${totalCost.toFixed(6)}`)
+  const overallTokSec =
+    r.totalElapsedMs > 0
+      ? (totalOutput / (r.totalElapsedMs / 1000)).toFixed(1)
+      : 'n/a'
+  console.log(
+    `   ${'TOTAL'.padEnd(25)} | ${pad(totalTimeStr, 8)} |         | ${pad(String(totalInput), 6)} | ${pad(String(totalCached), 6)} | ${pad(overallCacheRate, 7)} | ${pad(String(totalOutput), 6)} |        | ${pad(overallTokSec, 7)} | $${totalCost.toFixed(6)}`,
+  )
   console.log()
 
-  const costWithoutCaching = totalInput * INPUT_COST_PER_TOKEN + totalOutput * OUTPUT_COST_PER_TOKEN
+  const costWithoutCaching =
+    totalInput * INPUT_COST_PER_TOKEN + totalOutput * OUTPUT_COST_PER_TOKEN
   const savings = costWithoutCaching - totalCost
-  const savingsPct = costWithoutCaching > 0 ? ((savings / costWithoutCaching) * 100).toFixed(1) : '0.0'
-  console.log(`   Cost savings from caching: $${savings.toFixed(6)} (${savingsPct}%)`)
+  const savingsPct =
+    costWithoutCaching > 0
+      ? ((savings / costWithoutCaching) * 100).toFixed(1)
+      : '0.0'
+  console.log(
+    `   Cost savings from caching: $${savings.toFixed(6)} (${savingsPct}%)`,
+  )
 
-  const ttfts = r.turns.filter((t) => t.ttftMs !== undefined).map((t) => t.ttftMs!)
+  const ttfts = r.turns
+    .filter((t) => t.ttftMs !== undefined)
+    .map((t) => t.ttftMs!)
   if (ttfts.length > 0) {
     const avgTtft = ttfts.reduce((a, b) => a + b, 0) / ttfts.length
-    console.log(`   TTFT — avg: ${(avgTtft / 1000).toFixed(2)}s, min: ${(Math.min(...ttfts) / 1000).toFixed(2)}s, max: ${(Math.max(...ttfts) / 1000).toFixed(2)}s`)
+    console.log(
+      `   TTFT — avg: ${(avgTtft / 1000).toFixed(2)}s, min: ${(Math.min(...ttfts) / 1000).toFixed(2)}s, max: ${(Math.max(...ttfts) / 1000).toFixed(2)}s`,
+    )
   }
 }
 
@@ -439,15 +494,29 @@ function summarize(r: ProviderResult): ProviderSummary {
   }
 
   const cacheHitRate = totalInput > 0 ? (totalCached / totalInput) * 100 : 0
-  const costWithoutCaching = totalInput * INPUT_COST_PER_TOKEN + totalOutput * OUTPUT_COST_PER_TOKEN
-  const savings = costWithoutCaching > 0 ? ((costWithoutCaching - totalCost) / costWithoutCaching) * 100 : 0
-  const e2eTokSec = r.totalElapsedMs > 0 ? totalOutput / (r.totalElapsedMs / 1000) : 0
+  const costWithoutCaching =
+    totalInput * INPUT_COST_PER_TOKEN + totalOutput * OUTPUT_COST_PER_TOKEN
+  const savings =
+    costWithoutCaching > 0
+      ? ((costWithoutCaching - totalCost) / costWithoutCaching) * 100
+      : 0
+  const e2eTokSec =
+    r.totalElapsedMs > 0 ? totalOutput / (r.totalElapsedMs / 1000) : 0
 
-  const ttfts = r.turns.filter((t) => t.ttftMs !== undefined).map((t) => t.ttftMs!)
-  const avgTtft = ttfts.length > 0 ? ttfts.reduce((a, b) => a + b, 0) / ttfts.length : null
+  const ttfts = r.turns
+    .filter((t) => t.ttftMs !== undefined)
+    .map((t) => t.ttftMs!)
+  const avgTtft =
+    ttfts.length > 0 ? ttfts.reduce((a, b) => a + b, 0) / ttfts.length : null
 
-  const warmTtfts = r.turns.slice(1).filter((t) => t.ttftMs !== undefined).map((t) => t.ttftMs!)
-  const avgWarmTtft = warmTtfts.length > 0 ? warmTtfts.reduce((a, b) => a + b, 0) / warmTtfts.length : null
+  const warmTtfts = r.turns
+    .slice(1)
+    .filter((t) => t.ttftMs !== undefined)
+    .map((t) => t.ttftMs!)
+  const avgWarmTtft =
+    warmTtfts.length > 0
+      ? warmTtfts.reduce((a, b) => a + b, 0) / warmTtfts.length
+      : null
 
   return {
     name: r.provider.name,
@@ -468,14 +537,22 @@ function summarize(r: ProviderResult): ProviderSummary {
   }
 }
 
-function pickWinner(summaries: ProviderSummary[], key: keyof ProviderSummary, higherIsBetter: boolean): string {
+function pickWinner(
+  summaries: ProviderSummary[],
+  key: keyof ProviderSummary,
+  higherIsBetter: boolean,
+): string {
   let best: ProviderSummary | null = null
   for (const s of summaries) {
     const val = s[key]
     if (val === null || val === undefined) continue
-    if (!best) { best = s; continue }
+    if (!best) {
+      best = s
+      continue
+    }
     const bestVal = best[key] as number
-    if (higherIsBetter ? (val as number) > bestVal : (val as number) < bestVal) best = s
+    if (higherIsBetter ? (val as number) > bestVal : (val as number) < bestVal)
+      best = s
   }
   return best ? `🏆 ${best.name}` : 'n/a'
 }
@@ -522,20 +599,26 @@ function printComparisonTable(summaries: ProviderSummary[]) {
     },
     {
       label: 'Avg TTFT',
-      values: summaries.map((s) => s.avgTtft !== null ? `${(s.avgTtft / 1000).toFixed(2)}s` : 'n/a'),
+      values: summaries.map((s) =>
+        s.avgTtft !== null ? `${(s.avgTtft / 1000).toFixed(2)}s` : 'n/a',
+      ),
       winner: (() => {
         const withTtft = summaries.filter((s) => s.avgTtft !== null)
         if (withTtft.length === 0) return 'n/a'
-        return `🏆 ${withTtft.reduce((a, b) => a.avgTtft! < b.avgTtft! ? a : b).name}`
+        return `🏆 ${withTtft.reduce((a, b) => (a.avgTtft! < b.avgTtft! ? a : b)).name}`
       })(),
     },
     {
       label: 'Avg warm TTFT',
-      values: summaries.map((s) => s.avgWarmTtft !== null ? `${(s.avgWarmTtft / 1000).toFixed(2)}s` : 'n/a'),
+      values: summaries.map((s) =>
+        s.avgWarmTtft !== null
+          ? `${(s.avgWarmTtft / 1000).toFixed(2)}s`
+          : 'n/a',
+      ),
       winner: (() => {
         const withTtft = summaries.filter((s) => s.avgWarmTtft !== null)
         if (withTtft.length === 0) return 'n/a'
-        return `🏆 ${withTtft.reduce((a, b) => a.avgWarmTtft! < b.avgWarmTtft! ? a : b).name}`
+        return `🏆 ${withTtft.reduce((a, b) => (a.avgWarmTtft! < b.avgWarmTtft! ? a : b)).name}`
       })(),
     },
     {
@@ -576,7 +659,9 @@ function printComparisonTable(summaries: ProviderSummary[]) {
 // ── Main ──
 
 async function main() {
-  console.log('🏁 Combined Provider Benchmark — 10-Turn Conversation Caching Test')
+  console.log(
+    '🏁 Combined Provider Benchmark — 10-Turn Conversation Caching Test',
+  )
   console.log('='.repeat(100))
   console.log(`Turns:       ${NUM_TURNS}`)
   console.log(`Max tokens:  ${MAX_TOKENS} per turn`)
@@ -602,7 +687,9 @@ async function main() {
   }
 
   if (validProviders.length === 0) {
-    console.error('\n❌ No API keys found. Set at least one of: FIREWORKS_API_KEY, SILICON_FLOW_API_KEY, CANOPYWAVE_API_KEY')
+    console.error(
+      '\n❌ No API keys found. Set at least one of: FIREWORKS_API_KEY, SILICON_FLOW_API_KEY, CANOPYWAVE_API_KEY',
+    )
     process.exit(1)
   }
 
@@ -614,7 +701,9 @@ async function main() {
 
   // Run all providers in parallel
   const results = await Promise.all(
-    validProviders.map(({ config, apiKey }) => runProviderBenchmark(config, apiKey)),
+    validProviders.map(({ config, apiKey }) =>
+      runProviderBenchmark(config, apiKey),
+    ),
   )
 
   const benchmarkElapsed = Date.now() - benchmarkStart
@@ -632,7 +721,9 @@ async function main() {
 
   // Final summary
   console.log('━'.repeat(100))
-  console.log(`  Benchmark complete in ${(benchmarkElapsed / 1000).toFixed(1)}s wall clock (all providers ran in parallel)`)
+  console.log(
+    `  Benchmark complete in ${(benchmarkElapsed / 1000).toFixed(1)}s wall clock (all providers ran in parallel)`,
+  )
   if (skippedProviders.length > 0) {
     console.log(`  Skipped: ${skippedProviders.join(', ')}`)
   }

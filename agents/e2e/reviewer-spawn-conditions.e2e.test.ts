@@ -2,12 +2,18 @@ import { describe, expect, test } from 'bun:test'
 
 import { createBase2 } from '../base2/base2'
 
-function parseGateStateBlock(
-  text: string,
-): { gate: string; status: string; details: string } {
+function parseGateStateBlock(text: string): {
+  gate: string
+  status: string
+  details: string
+} {
   const match = text.match(/<gate-state>([\s\S]*?)<\/gate-state>/)
   expect(match).not.toBeNull()
-  return JSON.parse(match![1]) as { gate: string; status: string; details: string }
+  return JSON.parse(match![1]) as {
+    gate: string
+    status: string
+    details: string
+  }
 }
 
 function feedJson(value: unknown) {
@@ -34,16 +40,22 @@ describe('base2 reviewer spawn conditions e2e', () => {
       toolName: 'query_index',
       input: { query: 'Edit the lifecycle file.', limit: 20 },
     })
-    expect(gen.next(feedJson([])).value).toMatchObject({ toolName: 'git_status' })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'git_status',
+    })
     expect(gen.next(feedJson({ status: '' })).value).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
     })
     expect(gen.next().value).toBe('STEP')
-    expect(gen.next(finishStep({ file: 'src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      gen.next(finishStep({ file: 'src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'git_status',
     })
-    expect(gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'run_file_change_hooks',
       input: { files: ['src/lifecycle.ts'] },
     })
@@ -70,13 +82,17 @@ describe('base2 reviewer spawn conditions e2e', () => {
       toolName: 'query_index',
       input: { query: 'Edit the lifecycle file quickly.', limit: 20 },
     })
-    expect(gen.next(feedJson([])).value).toMatchObject({ toolName: 'git_status' })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'git_status',
+    })
     expect(gen.next(feedJson({ status: '' })).value).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
     })
     expect(gen.next().value).toBe('STEP')
-    expect(gen.next(finishStep({ file: 'src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      gen.next(finishStep({ file: 'src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'git_status',
     })
 
@@ -118,7 +134,9 @@ describe('base2 reviewer spawn conditions e2e', () => {
       input: { agent_type: 'context-pruner' },
     })
     expect(gen.next().value).toBe('STEP')
-    expect(gen.next({ stepsComplete: true, toolResult: [] } as any).value).toMatchObject({
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
+    ).toMatchObject({
       toolName: 'git_status',
     })
 
@@ -145,7 +163,9 @@ describe('base2 reviewer spawn conditions e2e', () => {
       input: { agent_type: 'context-pruner' },
     })
     expect(gen.next().value).toBe('STEP')
-    expect(gen.next({ stepsComplete: true, toolResult: [] } as any).value).toMatchObject({
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
+    ).toMatchObject({
       toolName: 'git_status',
     })
     expect(gen.next(feedJson({ status: '' })).done).toBe(true)
@@ -174,7 +194,9 @@ describe('base2 reviewer spawn conditions e2e', () => {
     } as any)
 
     expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
-    expect(gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
     })
@@ -184,7 +206,9 @@ describe('base2 reviewer spawn conditions e2e', () => {
       'Current phase: awaiting_validation',
     )
     expect(gen.next().value).toBe('STEP')
-    expect(gen.next({ stepsComplete: true, toolResult: [] } as any).value).toMatchObject({
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
+    ).toMatchObject({
       toolName: 'git_status',
     })
 

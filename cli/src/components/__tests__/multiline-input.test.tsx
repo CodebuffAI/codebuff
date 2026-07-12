@@ -749,9 +749,9 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     const ESC = '\x1b'
     return Boolean(
       key.option ||
-        (key.sequence?.length === 2 &&
-          key.sequence[0] === ESC &&
-          key.sequence[1] !== '['),
+      (key.sequence?.length === 2 &&
+        key.sequence[0] === ESC &&
+        key.sequence[1] !== '['),
     )
   }
 
@@ -781,10 +781,7 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     // So we detect it by checking for name === 'linefeed' rather than ctrl + j
     const isCtrlJ =
       lowerKeyName === 'linefeed' ||
-      (key.ctrl &&
-        !key.meta &&
-        !key.option &&
-        lowerKeyName === 'j')
+      (key.ctrl && !key.meta && !key.option && lowerKeyName === 'j')
 
     // Only handle Enter and Ctrl+J here
     if (!isEnterKey && !isCtrlJ) return 'ignore'

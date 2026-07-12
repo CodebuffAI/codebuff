@@ -2,9 +2,12 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-import { getFileTokenScores, SUPPORTED_CODE_EXTENSIONS } from '@codebuff/code-map'
+import {
+  getFileTokenScores,
+  SUPPORTED_CODE_EXTENSIONS,
+} from '@codebuff/code-map'
 
-import { BINARY_EXTENSIONS, walkProject } from './file-walker'
+import { BINARY_EXTENSIONS, walkProjectDetailed } from './file-walker'
 import {
   buildGuidToPathMap,
   extractAssetRefs,
@@ -44,7 +47,9 @@ export function resolveGraphWeights(
 ): Required<GraphWeights> {
   const resolved: Required<GraphWeights> = { ...DEFAULT_GRAPH_WEIGHTS }
   if (weights) {
-    for (const key of Object.keys(DEFAULT_GRAPH_WEIGHTS) as (keyof GraphWeights)[]) {
+    for (const key of Object.keys(
+      DEFAULT_GRAPH_WEIGHTS,
+    ) as (keyof GraphWeights)[]) {
       const value = weights[key]
       if (typeof value === 'number' && Number.isFinite(value)) {
         resolved[key] = value
@@ -105,7 +110,13 @@ export async function buildMetadataIndex(
   projectRoot: string,
   config: IndexingConfig = {},
 ): Promise<MetadataIndex> {
-  const files = await walkProject(projectRoot, getIndexExcludes(config))
+  tsAliasCacheByRoot.delete(projectRoot)
+  const walked = await walkProjectDetailed(
+    projectRoot,
+    getIndexExcludes(config),
+    config.maxFiles,
+  )
+  const files = walked.files
 
   const codeFilePaths = files
     .filter((f) => CODE_EXTENSIONS.has(f.ext))
@@ -140,13 +151,20 @@ export async function buildMetadataIndex(
     if (indexed) indexedFiles[file.relativePath] = indexed
   }
 
-  return createMetadataIndex(
+  const index = createMetadataIndex(
     projectRoot,
     indexedFiles,
     tokenCallers,
     config.weights?.graph,
     parseDiagnostics,
   )
+  index.coverage = {
+    truncated: walked.truncated,
+    maxFiles: walked.maxFiles,
+    skippedFiles: walked.skippedFiles,
+    skippedPrefixes: walked.skippedPrefixes,
+  }
+  return index
 }
 
 export async function updateMetadataIndex(
@@ -154,7 +172,13 @@ export async function updateMetadataIndex(
   projectRoot: string,
   config: IndexingConfig = {},
 ): Promise<MetadataIndex> {
-  const files = await walkProject(projectRoot, getIndexExcludes(config))
+  tsAliasCacheByRoot.delete(projectRoot)
+  const walked = await walkProjectDetailed(
+    projectRoot,
+    getIndexExcludes(config),
+    config.maxFiles,
+  )
+  const files = walked.files
   const currentByPath = new Map(files.map((f) => [f.relativePath, f]))
   const deletedPaths = new Set(Object.keys(existing.files))
 
@@ -203,11 +227,20 @@ export async function updateMetadataIndex(
         loadTsAliases(projectRoot),
         resolveGraphWeights(config.weights?.graph),
       ),
+      coverage: {
+        truncated: walked.truncated,
+        maxFiles: walked.maxFiles,
+        skippedFiles: walked.skippedFiles,
+        skippedPrefixes: walked.skippedPrefixes,
+      },
     }
   }
 
   const allCodeFilePaths = files
-    .filter((f) => CODE_EXTENSIONS.has(f.ext) && !hashReadFailedPaths.has(f.relativePath))
+    .filter(
+      (f) =>
+        CODE_EXTENSIONS.has(f.ext) && !hashReadFailedPaths.has(f.relativePath),
+    )
     .map((f) => f.relativePath)
 
   // Only changed code files need re-parsing; reuse cached parse output for the
@@ -226,6 +259,7 @@ export async function updateMetadataIndex(
   let tokenScores: Record<string, Record<string, number>> = {}
   let tokenCallers: Record<string, Record<string, string[]>> = {}
   let parseDiagnostics: ParseDiagnostic[] = []
+  let parserDegraded = false
   if (allCodeFilePaths.length > 0) {
     try {
       const data = await getFileTokenScores(
@@ -240,6 +274,21 @@ export async function updateMetadataIndex(
       parsedCacheByRoot.set(projectRoot, data.parsed)
     } catch (error) {
       parseDiagnostics = [createParseDiagnostic(projectRoot, error)]
+      parserDegraded = true
+    }
+  }
+
+  if (parserDegraded) {
+    return {
+      ...existing,
+      builtAt: Date.now(),
+      parseDiagnostics,
+      coverage: {
+        truncated: walked.truncated,
+        maxFiles: walked.maxFiles,
+        skippedFiles: walked.skippedFiles,
+        skippedPrefixes: walked.skippedPrefixes,
+      },
     }
   }
 
@@ -274,13 +323,20 @@ export async function updateMetadataIndex(
     }
   }
 
-  return createMetadataIndex(
+  const index = createMetadataIndex(
     projectRoot,
     updatedFiles,
     tokenCallers,
     config.weights?.graph,
     parseDiagnostics,
   )
+  index.coverage = {
+    truncated: walked.truncated,
+    maxFiles: walked.maxFiles,
+    skippedFiles: walked.skippedFiles,
+    skippedPrefixes: walked.skippedPrefixes,
+  }
+  return index
 }
 
 async function indexWalkedFile(params: {
@@ -307,8 +363,10 @@ async function indexWalkedFile(params: {
   }
 
   const symbols = getTopSymbols(params.tokenScores, 30)
-  const imports = extractImports(content)
-  const headings = DOC_EXTENSIONS.has(params.ext) ? extractHeadings(content) : []
+  const imports = extractImports(content, params.ext)
+  const headings = DOC_EXTENSIONS.has(params.ext)
+    ? extractHeadings(content)
+    : []
   const configConcepts = extractConfigConcepts(params.relativePath, content)
   const baseConcepts = DOC_EXTENSIONS.has(params.ext)
     ? extractConcepts(content, headings)
@@ -318,6 +376,12 @@ async function indexWalkedFile(params: {
         ? configConcepts
         : []
   const concepts = mergeConcepts(baseConcepts, configConcepts)
+  const contentSample = content
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .slice(0, 120)
+    .join('\n')
+    .slice(0, 4_000)
 
   // Extract asset references from game engine text files (Unity .meta/.prefab/.unity,
   // Godot .tscn/.tres, Unreal .uproject, Bevy configs). Returns [] for non-asset files.
@@ -333,6 +397,7 @@ async function indexWalkedFile(params: {
     imports,
     headings,
     concepts,
+    contentSample,
     ...(assetRefs.length > 0 ? { assetRefs } : {}),
   }
 }
@@ -351,12 +416,20 @@ function createMetadataIndex(
     builtAt: Date.now(),
     fileCount: Object.keys(files).length,
     files,
-    graph: buildGraph(files, tokenCallers, aliases, resolveGraphWeights(graphWeights)),
+    graph: buildGraph(
+      files,
+      tokenCallers,
+      aliases,
+      resolveGraphWeights(graphWeights),
+    ),
     parseDiagnostics,
   }
 }
 
-function createParseDiagnostic(projectRoot: string, error: unknown): ParseDiagnostic {
+function createParseDiagnostic(
+  projectRoot: string,
+  error: unknown,
+): ParseDiagnostic {
   return {
     filePath: projectRoot,
     stage: 'parse',
@@ -379,19 +452,42 @@ function buildGraph(
 
   for (const file of Object.values(files)) {
     const fileId = fileNodeId(file.path)
-    nodes[fileId] = { id: fileId, type: 'file', label: file.path, path: file.path }
+    nodes[fileId] = {
+      id: fileId,
+      type: 'file',
+      label: file.path,
+      path: file.path,
+    }
 
     for (const symbol of file.symbols.slice(0, 30)) {
       const symbolId = symbolNodeId(symbol)
       nodes[symbolId] ??= { id: symbolId, type: 'symbol', label: symbol }
-      edges.push({ from: fileId, to: symbolId, type: 'defines', weight: weights.defines, label: symbol })
+      edges.push({
+        from: fileId,
+        to: symbolId,
+        type: 'defines',
+        weight: weights.defines,
+        label: symbol,
+      })
     }
 
     for (const importPath of file.imports.slice(0, 50)) {
       const importId = importNodeId(importPath)
       nodes[importId] ??= { id: importId, type: 'import', label: importPath }
-      edges.push({ from: fileId, to: importId, type: 'imports', weight: weights.imports, label: importPath })
-      const resolved = resolveImportToFile(file.path, importPath, files, aliases)
+      edges.push({
+        from: fileId,
+        to: importId,
+        type: 'imports',
+        weight: weights.imports,
+        label: importPath,
+      })
+      const resolved = resolveImportToFile(
+        file.path,
+        file.ext,
+        importPath,
+        files,
+        aliases,
+      )
       if (resolved) {
         edges.push({
           from: fileId,
@@ -405,14 +501,31 @@ function buildGraph(
 
     for (const heading of file.headings.slice(0, 40)) {
       const headingId = headingNodeId(file.path, heading)
-      nodes[headingId] = { id: headingId, type: 'heading', label: heading, path: file.path }
-      edges.push({ from: fileId, to: headingId, type: 'contains_heading', weight: weights.containsHeading, label: heading })
+      nodes[headingId] = {
+        id: headingId,
+        type: 'heading',
+        label: heading,
+        path: file.path,
+      }
+      edges.push({
+        from: fileId,
+        to: headingId,
+        type: 'contains_heading',
+        weight: weights.containsHeading,
+        label: heading,
+      })
     }
 
     for (const concept of file.concepts.slice(0, 80)) {
       const conceptId = conceptNodeId(concept)
       nodes[conceptId] ??= { id: conceptId, type: 'concept', label: concept }
-      edges.push({ from: fileId, to: conceptId, type: 'mentions', weight: weights.mentions, label: concept })
+      edges.push({
+        from: fileId,
+        to: conceptId,
+        type: 'mentions',
+        weight: weights.mentions,
+        label: concept,
+      })
     }
 
     // Create graph edges from asset references (game-engine file → referenced asset).
@@ -473,7 +586,9 @@ function buildGraph(
   return { nodes, edges: dedupeEdges(edges) }
 }
 
-function extractTokenCallers(graph: IndexGraph): Record<string, Record<string, string[]>> {
+function extractTokenCallers(
+  graph: IndexGraph,
+): Record<string, Record<string, string[]>> {
   const tokenCallers: Record<string, Record<string, string[]>> = {}
   for (const edge of graph.edges) {
     if (edge.type !== 'calls') continue
@@ -497,24 +612,96 @@ function getIndexExcludes(config: IndexingConfig): string[] {
   ]
 }
 
-function getTopSymbols(scores: Record<string, number>, limit: number): string[] {
+function getTopSymbols(
+  scores: Record<string, number>,
+  limit: number,
+): string[] {
   return Object.entries(scores)
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([sym]) => sym)
 }
 
-function extractImports(content: string): string[] {
-  const imports: string[] = []
-  const regex = new RegExp(IMPORT_REGEX.source, 'g')
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(content)) !== null) {
-    const importPath = match[1] ?? match[2] ?? match[3]
-    if (importPath && !imports.includes(importPath)) {
-      imports.push(importPath)
+function extractImports(content: string, extension: string): string[] {
+  const imports = new Set<string>()
+  const addMatches = (
+    regex: RegExp,
+    select: (match: RegExpExecArray) => string | undefined,
+  ) => {
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(content)) !== null && imports.size < 50) {
+      const importPath = select(match)?.trim()
+      if (importPath) imports.add(importPath)
     }
   }
-  return imports.slice(0, 50)
+
+  if (
+    ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs'].includes(
+      extension,
+    )
+  ) {
+    addMatches(
+      new RegExp(IMPORT_REGEX.source, 'g'),
+      (match) => match[1] ?? match[2] ?? match[3],
+    )
+  } else if (['.py', '.pyi'].includes(extension)) {
+    addMatches(/^\s*from\s+([.\w]+)\s+import\b/gm, (match) => match[1])
+    addMatches(/^\s*import\s+([\w.]+)/gm, (match) => match[1])
+  } else if (extension === '.rs') {
+    addMatches(/^\s*(?:pub\s+)?(?:use|mod)\s+([\w:]+)/gm, (match) => match[1])
+  } else if (extension === '.go') {
+    addMatches(
+      /^\s*import\s+(?:[\w.]+\s+)?["`]([^"`]+)["`]/gm,
+      (match) => match[1],
+    )
+    addMatches(/\bimport\s*\(([\s\S]*?)\)/gm, (blockMatch) => {
+      for (const line of (blockMatch[1] ?? '').split(/\r?\n/)) {
+        const item = line.match(
+          /^\s*(?:[\w.]+\s+)?["`]([^"`]+)["`]\s*(?:\/\/.*)?$/,
+        )
+        if (item?.[1]) imports.add(item[1])
+      }
+      return undefined
+    })
+  } else if (['.java', '.kt', '.kts'].includes(extension)) {
+    addMatches(
+      /^\s*import\s+(?:static\s+)?([\w.]+)(?:\.\*)?\s*;?\s*$/gm,
+      (match) => match[1],
+    )
+  } else if (
+    ['.c', '.cc', '.cpp', '.cxx', '.h', '.hh', '.hpp', '.hxx'].includes(
+      extension,
+    )
+  ) {
+    addMatches(/^\s*#\s*include\s*[<"]([^>"]+)[>"]/gm, (match) => match[1])
+  } else if (extension === '.cs') {
+    addMatches(
+      /^\s*(?:global\s+)?using\s+(?:[\w]+\s*=\s*)?([\w.]+)\s*;/gm,
+      (match) => match[1],
+    )
+  } else if (extension === '.rb') {
+    addMatches(
+      /^\s*require(?:_relative)?\s*[('" ]+([^'"\s)]+)/gm,
+      (match) => match[1],
+    )
+  } else if (extension === '.php') {
+    addMatches(/^\s*use\s+([\w\\]+)/gm, (match) =>
+      match[1]?.replace(/\\/g, '/'),
+    )
+    addMatches(
+      /\b(?:require|require_once|include|include_once)\s*\(?\s*['"]([^'"]+)/g,
+      (match) => match[1],
+    )
+  } else if (extension === '.swift') {
+    addMatches(/^\s*import\s+(?:\w+\s+)?([\w.]+)/gm, (match) => match[1])
+  } else if (extension === '.gd') {
+    addMatches(
+      /\b(?:preload|load)\s*\(\s*["'](?:res:\/\/)?([^"']+)/g,
+      (match) => match[1],
+    )
+  }
+
+  return Array.from(imports)
 }
 
 function extractHeadings(content: string): string[] {
@@ -557,11 +744,65 @@ function extractConfigConcepts(filePath: string, content: string): string[] {
   if (filePath.endsWith('package.json')) {
     return extractPackageJsonConcepts(content)
   }
+  const languageManifestConcepts = extractLanguageManifestConcepts(filePath)
+  if (languageManifestConcepts.length > 0) {
+    return mergeConcepts(languageManifestConcepts, conceptTokens(content))
+  }
   if (isCiWorkflowPath(filePath)) {
     return extractCiWorkflowConcepts(content)
   }
   if (isTaskRunnerPath(filePath)) {
-    return ['command configuration', 'task runner', ...conceptTokens(content).slice(0, 80)]
+    return [
+      'command configuration',
+      'task runner',
+      ...conceptTokens(content).slice(0, 80),
+    ]
+  }
+  return []
+}
+
+function extractLanguageManifestConcepts(filePath: string): string[] {
+  const normalized = filePath.toLowerCase().replace(/\\/g, '/')
+  const baseName = path.posix.basename(normalized)
+  const conceptsByManifest: Record<string, string[]> = {
+    'cargo.toml': [
+      'rust manifest',
+      'cargo check',
+      'cargo test',
+      'cargo clippy',
+      'cargo fmt',
+    ],
+    'go.mod': ['go module', 'go test ./...', 'go vet ./...', 'gofmt'],
+    'pyproject.toml': [
+      'python manifest',
+      'pytest',
+      'ruff check',
+      'mypy',
+      'pyright',
+    ],
+    'requirements.txt': ['python dependencies', 'pytest', 'ruff check'],
+    'pom.xml': ['java manifest', 'maven', 'mvn test', 'mvn verify'],
+    'build.gradle': ['gradle build', 'gradle test', 'java manifest'],
+    'build.gradle.kts': ['gradle build', 'gradle test', 'kotlin manifest'],
+    'composer.json': [
+      'php manifest',
+      'composer test',
+      'phpunit',
+      'phpstan',
+      'psalm',
+    ],
+    'package.swift': ['swift package', 'swift build', 'swift test'],
+    gemfile: ['ruby dependencies', 'bundle exec rspec', 'bundle exec rubocop'],
+    'project.godot': [
+      'godot project',
+      'godot headless validation',
+      'godot test',
+    ],
+    'cmakelists.txt': ['cmake project', 'cmake build', 'ctest', 'clang tidy'],
+  }
+  if (conceptsByManifest[baseName]) return conceptsByManifest[baseName]
+  if (baseName.endsWith('.csproj') || baseName.endsWith('.sln')) {
+    return ['dotnet project', 'dotnet build', 'dotnet test', 'dotnet format']
   }
   return []
 }
@@ -572,7 +813,11 @@ function mergeConcepts(primary: string[], secondary: string[]): string[] {
 }
 
 function extractPackageJsonConcepts(content: string): string[] {
-  const concepts = new Set<string>(['package manifest', 'package scripts', 'command configuration'])
+  const concepts = new Set<string>([
+    'package manifest',
+    'package scripts',
+    'command configuration',
+  ])
   let parsed: unknown
   try {
     parsed = JSON.parse(content)
@@ -609,7 +854,9 @@ function extractCiWorkflowConcepts(content: string): string[] {
       const isRunCommand = /^(?:-\s*)?run:/i.test(trimmed)
       concepts.add(
         isRunCommand
-          ? (trimmed.startsWith('run:') ? trimmed : `run:${trimmed}`)
+          ? trimmed.startsWith('run:')
+            ? trimmed
+            : `run:${trimmed}`
           : trimmed,
       )
       for (const token of conceptTokens(trimmed)) concepts.add(token)
@@ -619,17 +866,22 @@ function extractCiWorkflowConcepts(content: string): string[] {
 }
 
 function isCiWorkflowPath(filePath: string): boolean {
-  return filePath.startsWith('.github/workflows/') || filePath.includes('/.github/workflows/')
+  return (
+    filePath.startsWith('.github/workflows/') ||
+    filePath.includes('/.github/workflows/')
+  )
 }
 
 function isTaskRunnerPath(filePath: string): boolean {
   const normalized = filePath.toLowerCase().replace(/\\/g, '/')
-  return normalized.endsWith('makefile') ||
+  return (
+    normalized.endsWith('makefile') ||
     normalized.endsWith('justfile') ||
     normalized.endsWith('turbo.json') ||
     normalized.endsWith('nx.json') ||
     normalized.endsWith('gulpfile.js') ||
     normalized.endsWith('gruntfile.js')
+  )
 }
 
 /**
@@ -723,7 +975,11 @@ function loadTsAliases(projectRoot: string): TsAliasMap {
   try {
     let configPath: string = path.join(projectRoot, 'tsconfig.json')
     const visited = new Set<string>()
-    while (configPath && !visited.has(configPath) && fs.existsSync(configPath)) {
+    while (
+      configPath &&
+      !visited.has(configPath) &&
+      fs.existsSync(configPath)
+    ) {
       visited.add(configPath)
       const raw = JSON.parse(
         stripJsonComments(fs.readFileSync(configPath, 'utf8')),
@@ -761,18 +1017,42 @@ function resolveModuleCandidates(
   files: Record<string, IndexedFile>,
 ): string | null {
   const normalized = base.replace(/^\.\//, '')
+  const sourceExtensions = [
+    '.ts',
+    '.tsx',
+    '.js',
+    '.jsx',
+    '.mts',
+    '.cts',
+    '.mjs',
+    '.cjs',
+    '.py',
+    '.pyi',
+    '.rs',
+    '.go',
+    '.java',
+    '.kt',
+    '.kts',
+    '.cs',
+    '.c',
+    '.cc',
+    '.cpp',
+    '.cxx',
+    '.h',
+    '.hh',
+    '.hpp',
+    '.hxx',
+    '.rb',
+    '.php',
+    '.swift',
+    '.gd',
+  ]
   const candidates = [
     normalized,
-    `${normalized}.ts`,
-    `${normalized}.tsx`,
-    `${normalized}.js`,
-    `${normalized}.jsx`,
-    `${normalized}.mjs`,
-    `${normalized}.cjs`,
-    `${normalized}/index.ts`,
-    `${normalized}/index.tsx`,
-    `${normalized}/index.js`,
-    `${normalized}/index.jsx`,
+    ...sourceExtensions.map((extension) => `${normalized}${extension}`),
+    ...sourceExtensions.map((extension) => `${normalized}/index${extension}`),
+    `${normalized}/__init__.py`,
+    `${normalized}/mod.rs`,
   ]
   return candidates.find((candidate) => files[candidate]) ?? null
 }
@@ -820,22 +1100,149 @@ function resolveAliasImport(
 
 function resolveImportToFile(
   fromFilePath: string,
+  fromExtension: string,
   importPath: string,
   files: Record<string, IndexedFile>,
   aliases?: TsAliasMap,
 ): string | null {
-  if (importPath.startsWith('.')) {
+  const normalizedImport = importPath.replace(/\\/g, '/')
+  let suffixSpecifier = normalizedImport
+  if (fromExtension === '.gd') {
+    return resolveModuleCandidates(
+      normalizedImport.replace(/^res:\/\//, ''),
+      files,
+    )
+  }
+  if (
+    ['.c', '.cc', '.cpp', '.cxx', '.h', '.hh', '.hpp', '.hxx', '.rb'].includes(
+      fromExtension,
+    )
+  ) {
+    const fromDir = path.posix.dirname(fromFilePath.replace(/\\/g, '/'))
+    const local = resolveModuleCandidates(
+      path.posix.normalize(path.posix.join(fromDir, normalizedImport)),
+      files,
+    )
+    if (local) return local
+  }
+  if (['.java', '.kt', '.kts', '.cs', '.php'].includes(fromExtension)) {
+    const dottedPath = normalizedImport.replace(/\./g, '/')
+    suffixSpecifier = dottedPath
+    if (['.java', '.kt', '.kts', '.php'].includes(fromExtension)) {
+      const declared = resolveDeclaredPackageImport(
+        dottedPath,
+        fromExtension,
+        files,
+      )
+      if (declared) return declared
+    } else {
+      const exact = resolveModuleCandidates(dottedPath, files)
+      if (exact) return exact
+    }
+  }
+  if (fromExtension === '.rs') {
+    const fromDir = path.posix.dirname(fromFilePath.replace(/\\/g, '/'))
+    const rustPath = normalizedImport
+      .replace(/^crate::/, '')
+      .replace(/^self::/, '')
+      .replace(/^super::/, '../')
+      .replace(/::/g, '/')
+    const local = resolveModuleCandidates(
+      path.posix.normalize(path.posix.join(fromDir, rustPath)),
+      files,
+    )
+    if (local) return local
+    const crateRelative = resolveModuleCandidates(`src/${rustPath}`, files)
+    if (crateRelative) return crateRelative
+  }
+  if (['.py', '.pyi'].includes(fromExtension)) {
+    const leadingDots = normalizedImport.match(/^\.+/)?.[0].length ?? 0
+    const modulePath = normalizedImport.slice(leadingDots).replace(/\./g, '/')
+    if (leadingDots > 0) {
+      let baseDir = path.posix.dirname(fromFilePath.replace(/\\/g, '/'))
+      for (let index = 1; index < leadingDots; index++)
+        baseDir = path.posix.dirname(baseDir)
+      const relative = resolveModuleCandidates(
+        path.posix.join(baseDir, modulePath),
+        files,
+      )
+      if (relative) return relative
+    }
+    const absolute = resolveModuleCandidates(modulePath, files)
+    if (absolute) return absolute
+  }
+  if (normalizedImport.startsWith('.')) {
     const fromDir = path.posix.dirname(fromFilePath.replace(/\\/g, '/'))
     const normalizedBase = path.posix.normalize(
-      path.posix.join(fromDir, importPath),
+      path.posix.join(fromDir, normalizedImport),
     )
     return resolveModuleCandidates(normalizedBase, files)
   }
   // Non-relative: try tsconfig path aliases (workspace-internal imports).
   if (aliases) {
-    return resolveAliasImport(importPath, aliases, files)
+    const aliasResolved = resolveAliasImport(normalizedImport, aliases, files)
+    if (aliasResolved) return aliasResolved
   }
+  // Go module imports and Ruby load paths often include a repository/module
+  // prefix. Resolve only an unambiguous suffix to avoid inventing graph edges.
+  if (fromExtension !== '.go') {
+    return null
+  }
+  const goModule = files['go.mod']?.contentSample?.match(
+    /^\s*module\s+([^\s]+)\s*$/m,
+  )?.[1]
+  if (!goModule || !normalizedImport.startsWith(`${goModule}/`)) return null
+  suffixSpecifier = normalizedImport.slice(goModule.length + 1)
+  const suffixMatches = Object.keys(files).filter((candidate) => {
+    const withoutExtension = candidate.replace(/\.[^.\/]+$/, '')
+    const packageDirectory = path.posix.dirname(withoutExtension)
+    return (
+      suffixSpecifier.endsWith(withoutExtension) ||
+      withoutExtension.endsWith(suffixSpecifier) ||
+      (fromExtension === '.go' &&
+        packageDirectory !== '.' &&
+        suffixSpecifier.endsWith(packageDirectory))
+    )
+  })
+  if (suffixMatches.length === 1) return suffixMatches[0]
   return null
+}
+
+function resolveDeclaredPackageImport(
+  importPath: string,
+  fromExtension: string,
+  files: Record<string, IndexedFile>,
+): string | null {
+  const segments = importPath.split('/').filter(Boolean)
+  if (segments.length < 2) return null
+  const symbolName = segments.at(-1)!
+  const packageName = segments
+    .slice(0, -1)
+    .join(fromExtension === '.php' ? '\\' : '.')
+  const allowedExtensions =
+    fromExtension === '.php' ? new Set(['.php']) : new Set(['.java', '.kt'])
+  const matches = Object.values(files).filter((candidate) => {
+    if (!allowedExtensions.has(candidate.ext)) return false
+    if (path.posix.basename(candidate.path, candidate.ext) !== symbolName) {
+      return false
+    }
+    const sample = candidate.contentSample ?? ''
+    if (fromExtension === '.php') {
+      return new RegExp(
+        `^\\s*namespace\\s+${escapeRegex(packageName)}\\s*;`,
+        'm',
+      ).test(sample)
+    }
+    return new RegExp(
+      `^\\s*package\\s+${escapeRegex(packageName)}\\s*;?`,
+      'm',
+    ).test(sample)
+  })
+  return matches.length === 1 ? matches[0].path : null
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function dedupeEdges(edges: IndexEdge[]): IndexEdge[] {

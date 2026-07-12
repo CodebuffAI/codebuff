@@ -16,8 +16,8 @@ import { getCliEnv } from './env'
 import type { CliEnv } from '../types/env'
 
 // Timeout constants
-const OSC_QUERY_TIMEOUT_MS = 500 // Timeout for individual OSC query
-const GLOBAL_OSC_TIMEOUT_MS = 2000 // Global timeout for entire detection process
+const OSC_QUERY_TIMEOUT_MS = 250 // Keep startup probes below perceptible half-second stalls
+const GLOBAL_OSC_TIMEOUT_MS = 600 // Bounds both sequential fallback probes
 
 /**
  * Wrap a promise with a timeout
@@ -48,9 +48,7 @@ export function withTimeout<T>(
 /**
  * Check if the current terminal supports OSC color queries
  */
-export function terminalSupportsOSC(
-  env: CliEnv = getCliEnv(),
-): boolean {
+export function terminalSupportsOSC(env: CliEnv = getCliEnv()): boolean {
   const term = env.TERM || ''
   const termProgram = env.TERM_PROGRAM || ''
 
@@ -95,12 +93,12 @@ function buildOscQuery(oscCode: number): string {
 
 /**
  * Query the terminal for OSC color information.
- * 
+ *
  * IMPORTANT: This function reads from stdin because OSC responses come through
  * the PTY which appears on stdin. This means it MUST be run BEFORE any other
  * stdin listeners (like OpenTUI) are attached. OSC detection runs at the very
  * start of main() in index.tsx, before OpenTUI is initialized.
- * 
+ *
  * @param ttyPath - Path to TTY for writing the query
  * @param query - The OSC query string to send
  * @returns The raw response string or null if query failed
@@ -424,6 +422,12 @@ async function detectTerminalThemeCore(
     }
   }
 
+  // Prefer the zero-latency environment hint before issuing a second probe.
+  const envBgRgb = detectBgColorFromEnv(env)
+  if (envBgRgb) {
+    return themeFromBgColor(envBgRgb)
+  }
+
   // Fallback to foreground color (OSC 10)
   const fgResponse = await queryTerminalOSC(10)
   if (fgResponse) {
@@ -431,12 +435,6 @@ async function detectTerminalThemeCore(
     if (fgRgb) {
       return themeFromFgColor(fgRgb)
     }
-  }
-
-  // Fallback to COLORFGBG environment variable if available
-  const envBgRgb = detectBgColorFromEnv(env)
-  if (envBgRgb) {
-    return themeFromBgColor(envBgRgb)
   }
 
   return null

@@ -57,10 +57,7 @@ export function fuzzyMatch(
   ).length
 
   const score =
-    gaps * 10 -
-    maxConsecutive * 5 -
-    boundaryBonus * 15 +
-    (indices[0] ?? 0) // Prefer matches that start earlier
+    gaps * 10 - maxConsecutive * 5 - boundaryBonus * 15 + (indices[0] ?? 0) // Prefer matches that start earlier
 
   return { indices, score }
 }

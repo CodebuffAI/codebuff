@@ -129,6 +129,8 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     flexGrow: 1,
     flexShrink: 1,
     minWidth: 0,
+    width: '100%' as const,
+    overflow: 'hidden' as const,
   }
 
   const renderExpandedContent = (value: ReactNode): ReactNode => {
@@ -159,14 +161,14 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     }
 
     if (React.isValidElement(value)) {
-      if (value.key === null || value.key === undefined) {
-        return (
-          <box key="expanded-node" style={{ ...boundedColumnStyle, gap: 1 }}>
-            {value}
-          </box>
-        )
-      }
-      return value
+      return (
+        <box
+          key={value.key ?? 'expanded-node'}
+          style={{ ...boundedColumnStyle, gap: 1 }}
+        >
+          {value}
+        </box>
+      )
     }
 
     if (Array.isArray(value)) {
@@ -196,12 +198,14 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
       style={{
         flexDirection: 'column',
         gap: 0,
-        flexShrink: 1,
         marginTop: 0,
         marginBottom: 0,
         paddingBottom: 0,
-        flexGrow: 1,
+        flexGrow: 0,
         minWidth: 0,
+        width: availableWidth ?? '100%',
+        overflow: 'hidden',
+        flexShrink: 1,
       }}
     >
       <box
@@ -219,6 +223,8 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
           flexGrow: 1,
           minWidth: 0,
           flexShrink: 1,
+          width: '100%',
+          overflow: 'hidden',
         }}
       >
         <Button
@@ -232,10 +238,11 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             flexGrow: 1,
             flexShrink: 1,
             minWidth: 0,
+            overflow: 'hidden',
           }}
           onClick={onToggle}
         >
-          <text style={{ wrapMode: 'none' }}>
+          <text style={{ wrapMode: 'word' }}>
             <span fg={toggleIconColor}>{toggleLabel}</span>
             <span
               fg={theme.foreground}
@@ -290,6 +297,8 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
               paddingRight: 1,
               paddingTop: 0,
               paddingBottom: 0,
+              width: '100%',
+              overflow: 'hidden',
             }}
           >
             {prompt && (
@@ -302,6 +311,8 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                   minWidth: 0,
                   alignItems: 'stretch',
                   marginBottom: children ? 1 : 0,
+                  width: '100%',
+                  overflow: 'hidden',
                 }}
               >
                 <box
@@ -318,6 +329,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                     flexGrow: 1,
                     flexShrink: 1,
                     minWidth: 0,
+                    overflow: 'hidden',
                   }}
                 >
                   <text

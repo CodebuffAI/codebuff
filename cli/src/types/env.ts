@@ -7,15 +7,13 @@
  * - Binary build configuration
  */
 
-import type {
-  BaseEnv,
-  ClientEnv,
-} from '@codebuff/common/types/contracts/env'
+import type { BaseEnv, ClientEnv } from '@codebuff/common/types/contracts/env'
 
 /**
  * CLI-specific env vars for terminal/IDE detection and editor preferences.
  */
 export type CliEnv = BaseEnv & {
+  OPENBUFF_CONFIG_DIR?: string
   // Terminal detection (for tmux/screen passthrough)
   TERM?: string
   TMUX?: string
@@ -70,6 +68,7 @@ export type CliEnv = BaseEnv & {
   CODEBUFF_IS_BINARY?: string
   CODEBUFF_CLI_VERSION?: string
   CODEBUFF_CLI_TARGET?: string
+  CODEBUFF_CLI_LEGACY_MACOS?: string
   CODEBUFF_RG_PATH?: string
   CODEBUFF_SCROLL_MULTIPLIER?: string
   CODEBUFF_PERF_TEST?: string

@@ -11,7 +11,7 @@ declare module 'gif-encoder-2' {
       width: number,
       height: number,
       algorithm?: 'neuquant' | 'octree',
-      useOptimizer?: boolean
+      useOptimizer?: boolean,
     )
     start(): void
     setDelay(delay: number): void

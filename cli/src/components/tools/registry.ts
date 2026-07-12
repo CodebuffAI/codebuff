@@ -17,6 +17,12 @@ import { SuggestFollowupsComponent } from './suggest-followups'
 import { TaskCompleteComponent } from './task-completed'
 import { WriteFileComponent } from './write-file'
 import { WriteTodosComponent } from './write-todos'
+import { ProposalActionComponents } from './proposal-actions'
+import {
+  CheckJobComponent,
+  KillJobComponent,
+  ReadLogsComponent,
+} from './background-job-tools'
 
 import type {
   ToolComponent,
@@ -26,6 +32,8 @@ import type {
 } from './types'
 import type { ChatTheme } from '../../types/theme-system'
 import type { ToolName } from '@openbuff/sdk'
+import { toolMetadata } from '@codebuff/common/tools/metadata'
+import { toolNames } from '@codebuff/common/tools/constants'
 
 /**
  * Registry of all tool-specific UI components.
@@ -39,6 +47,9 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [QueryIndexComponent.toolName, QueryIndexComponent],
   [RunFileChangeHooksComponent.toolName, RunFileChangeHooksComponent],
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
+  [CheckJobComponent.toolName, CheckJobComponent],
+  [ReadLogsComponent.toolName, ReadLogsComponent],
+  [KillJobComponent.toolName, KillJobComponent],
   [ReadDocsComponent.toolName, ReadDocsComponent],
   [ReadFilesComponent.toolName, ReadFilesComponent],
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
@@ -56,6 +67,9 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   ['propose_edit_transaction', EditTransactionComponent],
   [SkillComponent.toolName, SkillComponent],
   [SpawnAgentsComponent.toolName, SpawnAgentsComponent],
+  ...ProposalActionComponents.map(
+    (component) => [component.toolName, component] as [ToolName, ToolComponent],
+  ),
 ])
 
 /**
@@ -117,4 +131,28 @@ export function renderToolComponent(
  */
 export function getRegisteredToolNames(): ToolName[] {
   return Array.from(toolComponentRegistry.keys())
+}
+
+export type ToolRendererDisposition = 'custom' | 'fallback' | 'hidden'
+
+/** Metadata is the exhaustive source of truth; registration may only enhance fallback. */
+export function getToolRendererDisposition(
+  toolName: ToolName,
+): ToolRendererDisposition {
+  const intent = toolMetadata[toolName].renderer
+  if (intent === 'hidden') return 'hidden'
+  return toolComponentRegistry.has(toolName) ? 'custom' : 'fallback'
+}
+
+export const toolRendererDispositions = Object.fromEntries(
+  toolNames.map((toolName) => [toolName, getToolRendererDisposition(toolName)]),
+) as Record<ToolName, ToolRendererDisposition>
+
+for (const toolName of toolNames) {
+  if (
+    toolMetadata[toolName].renderer === 'custom' &&
+    !toolComponentRegistry.has(toolName)
+  ) {
+    throw new Error(`Missing metadata-declared custom renderer: ${toolName}`)
+  }
 }

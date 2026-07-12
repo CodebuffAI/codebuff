@@ -8,8 +8,15 @@
       "prompt": "Fix a localized bug without changing public behavior outside the affected function.",
       "repository": { "name": "codebuff" },
       "bucket": "one-file-bugfix",
-      "validationCommands": ["bun test <focused-test-file>", "bun x tsc --noEmit -p <package>/tsconfig.json"],
-      "scoringNotes": ["Applies cleanly", "Minimal diff", "No hallucinated imports"]
+      "validationCommands": [
+        "bun test <focused-test-file>",
+        "bun x tsc --noEmit -p <package>/tsconfig.json"
+      ],
+      "scoringNotes": [
+        "Applies cleanly",
+        "Minimal diff",
+        "No hallucinated imports"
+      ]
     },
     {
       "id": "helper-reuse",
@@ -18,7 +25,11 @@
       "repository": { "name": "codebuff" },
       "bucket": "existing-helper-reuse",
       "validationCommands": ["bun test <focused-test-file>"],
-      "scoringNotes": ["Reuses verified helper", "No duplicated logic", "Preserves existing API"]
+      "scoringNotes": [
+        "Reuses verified helper",
+        "No duplicated logic",
+        "Preserves existing API"
+      ]
     },
     {
       "id": "tests-required",
@@ -27,7 +38,11 @@
       "repository": { "name": "codebuff" },
       "bucket": "tests-required",
       "validationCommands": ["bun test <focused-test-file>"],
-      "scoringNotes": ["Includes relevant test", "Test fails without implementation", "No broad fixture churn"]
+      "scoringNotes": [
+        "Includes relevant test",
+        "Test fails without implementation",
+        "No broad fixture churn"
+      ]
     }
   ]
 }

@@ -14,9 +14,11 @@ import {
 describe('metadata indexer', () => {
   test('builds graph nodes and content hashes', async () => {
     const root = await makeTempProject({
-      'src/a.ts': 'import { b } from "./b"\nexport function a() { return b() }\n',
+      'src/a.ts':
+        'import { b } from "./b"\nexport function a() { return b() }\n',
       'src/b.ts': 'export function b() { return 1 }\n',
-      'docs/auth.md': '# Authentication Flow\n\nSee [request flow](./request-flow.md).\n',
+      'docs/auth.md':
+        '# Authentication Flow\n\nSee [request flow](./request-flow.md).\n',
     })
 
     const index = await buildMetadataIndex(root)
@@ -27,8 +29,12 @@ describe('metadata indexer', () => {
       expect.arrayContaining(['authentication', 'flow']),
     )
     expect(index.graph.nodes['file:src/a.ts']).toBeDefined()
-    expect(index.graph.edges.some((edge) => edge.type === 'references')).toBe(true)
-    expect(index.graph.edges.some((edge) => edge.type === 'mentions')).toBe(true)
+    expect(index.graph.edges.some((edge) => edge.type === 'references')).toBe(
+      true,
+    )
+    expect(index.graph.edges.some((edge) => edge.type === 'mentions')).toBe(
+      true,
+    )
   })
 
   test('uses code-map language extensions for code concepts', async () => {
@@ -63,7 +69,9 @@ describe('metadata indexer', () => {
     const second = await updateMetadataIndex(first, root)
 
     expect(second.files['src/a.ts']?.hash).toBe(originalHash)
-    expect(second.files['src/a.ts']?.symbols).toEqual(first.files['src/a.ts']?.symbols)
+    expect(second.files['src/a.ts']?.symbols).toEqual(
+      first.files['src/a.ts']?.symbols,
+    )
     expect(second.files['src/a.ts']?.mtime).not.toBe(originalMtime)
     expect(second.files['src/a.ts']?.size).toBe(originalSize)
   })
@@ -78,7 +86,11 @@ describe('metadata indexer', () => {
     expect(original?.headings).toContain('Alpha')
     expect(original?.concepts).toContain('alpha')
 
-    await fs.promises.writeFile(path.join(root, 'docs/a.md'), '# Bravo\n\nbravo topic\n', 'utf8')
+    await fs.promises.writeFile(
+      path.join(root, 'docs/a.md'),
+      '# Bravo\n\nbravo topic\n',
+      'utf8',
+    )
     await fs.promises.utimes(
       path.join(root, 'docs/a.md'),
       new Date(original!.mtime),
@@ -88,7 +100,9 @@ describe('metadata indexer', () => {
     const updated = second.files['docs/a.md']
 
     expect(updated?.size).toBe(original?.size)
-    expect(Math.trunc(updated?.mtime ?? 0)).toBe(Math.trunc(original?.mtime ?? 0))
+    expect(Math.trunc(updated?.mtime ?? 0)).toBe(
+      Math.trunc(original?.mtime ?? 0),
+    )
     expect(updated?.hash).not.toBe(original?.hash)
     expect(updated?.headings).toContain('Bravo')
     expect(updated?.headings).not.toContain('Alpha')
@@ -105,7 +119,9 @@ describe('metadata indexer', () => {
 
     expect(first.files['docs/a.md']?.headings).toContain('Alpha')
 
-    const originalReadFile = fs.promises.readFile.bind(fs.promises) as typeof fs.promises.readFile
+    const originalReadFile = fs.promises.readFile.bind(
+      fs.promises,
+    ) as typeof fs.promises.readFile
     const readFileSpy = spyOn(fs.promises, 'readFile').mockImplementation(
       (async (filePath, options) => {
         if (filePath === targetPath) {
@@ -137,9 +153,15 @@ describe('metadata indexer', () => {
     expect(first.files['src/unreadable.ts']?.symbols).toContain('staleSymbol')
     expect(first.files['src/live.ts']?.symbols).toContain('oldLiveSymbol')
 
-    await fs.promises.writeFile(livePath, 'export function freshLiveSymbol() { return 2 }\n', 'utf8')
+    await fs.promises.writeFile(
+      livePath,
+      'export function freshLiveSymbol() { return 2 }\n',
+      'utf8',
+    )
 
-    const originalReadFile = fs.promises.readFile.bind(fs.promises) as typeof fs.promises.readFile
+    const originalReadFile = fs.promises.readFile.bind(
+      fs.promises,
+    ) as typeof fs.promises.readFile
     const readFileSpy = spyOn(fs.promises, 'readFile').mockImplementation(
       (async (filePath, options) => {
         if (filePath === unreadablePath) {
@@ -155,7 +177,9 @@ describe('metadata indexer', () => {
       expect(second.files['src/unreadable.ts']).toBeUndefined()
       expect(second.graph.nodes['file:src/unreadable.ts']).toBeUndefined()
       expect(second.files['src/live.ts']?.symbols).toContain('freshLiveSymbol')
-      expect(second.files['src/live.ts']?.symbols).not.toContain('oldLiveSymbol')
+      expect(second.files['src/live.ts']?.symbols).not.toContain(
+        'oldLiveSymbol',
+      )
     } finally {
       readFileSpy.mockRestore()
     }
@@ -168,14 +192,15 @@ describe('metadata indexer', () => {
     })
     const unreadablePath = path.join(root, 'src/unreadable.ts')
     const originalReadFile = fs.readFileSync.bind(fs) as typeof fs.readFileSync
-    const readFileSyncSpy = spyOn(fs, 'readFileSync').mockImplementation(
-      ((filePath, options) => {
-        if (filePath === unreadablePath) {
-          throw new Error('simulated sync read failure')
-        }
-        return originalReadFile(filePath, options)
-      }) as typeof fs.readFileSync,
-    )
+    const readFileSyncSpy = spyOn(fs, 'readFileSync').mockImplementation(((
+      filePath,
+      options,
+    ) => {
+      if (filePath === unreadablePath) {
+        throw new Error('simulated sync read failure')
+      }
+      return originalReadFile(filePath, options)
+    }) as typeof fs.readFileSync)
 
     try {
       const index = await buildMetadataIndex(root)
@@ -205,7 +230,8 @@ describe('metadata indexer', () => {
           test: 'bun test',
         },
       }),
-      '.github/workflows/ci.yml': 'name: CI\nsteps:\n  - run: bun run typecheck\n  - run: bun test\n',
+      '.github/workflows/ci.yml':
+        'name: CI\nsteps:\n  - run: bun run typecheck\n  - run: bun test\n',
       Makefile: 'validate:\n\tbun run typecheck\n',
       'gulpfile.js': 'exports.build = () => run("bun run build")\n',
     })
@@ -220,10 +246,18 @@ describe('metadata indexer', () => {
       ]),
     )
     expect(index.files['.github/workflows/ci.yml']?.concepts).toEqual(
-      expect.arrayContaining(['ci workflow', 'validation suite', 'run:- run: bun run typecheck']),
+      expect.arrayContaining([
+        'ci workflow',
+        'validation suite',
+        'run:- run: bun run typecheck',
+      ]),
     )
     expect(index.files.Makefile?.concepts).toEqual(
-      expect.arrayContaining(['command configuration', 'task runner', 'typecheck']),
+      expect.arrayContaining([
+        'command configuration',
+        'task runner',
+        'typecheck',
+      ]),
     )
     expect(index.files['gulpfile.js']?.concepts).toEqual(
       expect.arrayContaining(['command configuration', 'task runner', 'build']),
@@ -254,7 +288,8 @@ describe('metadata indexer', () => {
 
   test('buildMetadataIndex bakes custom graph edge weights into the graph', async () => {
     const root = await makeTempProject({
-      'src/a.ts': 'import { b } from "./b"\nexport function a() { return b() }\n',
+      'src/a.ts':
+        'import { b } from "./b"\nexport function a() { return b() }\n',
       'src/b.ts': 'export function b() { return 1 }\n',
     })
 
@@ -263,20 +298,26 @@ describe('metadata indexer', () => {
     })
 
     // Overridden edge type picks up the custom weight.
-    const definesEdges = index.graph.edges.filter((edge) => edge.type === 'defines')
+    const definesEdges = index.graph.edges.filter(
+      (edge) => edge.type === 'defines',
+    )
     expect(definesEdges.length).toBeGreaterThan(0)
     for (const edge of definesEdges) {
       expect(edge.weight).toBe(5)
     }
 
     // Non-overridden edge types keep their historical defaults.
-    const importsEdges = index.graph.edges.filter((edge) => edge.type === 'imports')
+    const importsEdges = index.graph.edges.filter(
+      (edge) => edge.type === 'imports',
+    )
     expect(importsEdges.length).toBeGreaterThan(0)
     for (const edge of importsEdges) {
       expect(edge.weight).toBe(DEFAULT_GRAPH_WEIGHTS.imports)
     }
 
-    const referencesEdges = index.graph.edges.filter((edge) => edge.type === 'references')
+    const referencesEdges = index.graph.edges.filter(
+      (edge) => edge.type === 'references',
+    )
     expect(referencesEdges.length).toBeGreaterThan(0)
     for (const edge of referencesEdges) {
       expect(edge.weight).toBe(DEFAULT_GRAPH_WEIGHTS.references)
@@ -285,7 +326,9 @@ describe('metadata indexer', () => {
 })
 
 async function makeTempProject(files: Record<string, string>): Promise<string> {
-  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'codebuff-indexer-'))
+  const root = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), 'codebuff-indexer-'),
+  )
   for (const [relativePath, content] of Object.entries(files)) {
     const absolutePath = path.join(root, relativePath)
     await fs.promises.mkdir(path.dirname(absolutePath), { recursive: true })

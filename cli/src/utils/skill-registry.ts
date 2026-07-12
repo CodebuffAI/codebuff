@@ -10,23 +10,28 @@ import type { SkillDefinition, SkillsMap } from '@codebuff/common/types/skill'
 // ============================================================================
 
 let skillsCache: SkillsMap = {}
+let projectSkillsTrusted = true
 
 /**
  * Initialize the skill registry by loading skills via the SDK.
  * This must be called at CLI startup.
- * 
+ *
  * Skills are loaded from:
  * - ~/.agents/skills/ (global)
  * - {projectRoot}/.agents/skills/ (project, overrides global)
  */
-export async function initializeSkillRegistry(): Promise<void> {
+export async function initializeSkillRegistry(options?: {
+  trustProjectSkills?: boolean
+}): Promise<void> {
   const cwd = getProjectRoot() || process.cwd()
 
   try {
+    projectSkillsTrusted = options?.trustProjectSkills ?? true
     // Load skills from both global (~/.agents/skills) and project directories
     // The SDK handles merging, with project skills overriding global ones
     skillsCache = await sdkLoadSkills({
       cwd,
+      includeProjectSkills: projectSkillsTrusted,
       verbose: false,
     })
   } catch (error) {
@@ -60,6 +65,8 @@ export function getSkillCount(): number {
   return Object.keys(skillsCache).length
 }
 
+export const getProjectSkillTrustStatus = (): boolean => projectSkillsTrusted
+
 // ============================================================================
 // UI/Display utilities
 // ============================================================================
@@ -76,7 +83,10 @@ export function getLoadedSkillsMessage(): string | null {
 
   const header = `Loaded ${skills.length} skill${skills.length === 1 ? '' : 's'}`
   const skillList = skills
-    .map((skill) => `  - ${skill.name}: ${skill.description.slice(0, 60)}${skill.description.length > 60 ? '...' : ''}`)
+    .map(
+      (skill) =>
+        `  - ${skill.name}: ${skill.description.slice(0, 60)}${skill.description.length > 60 ? '...' : ''}`,
+    )
     .join('\n')
 
   return `${header}\n${skillList}`
@@ -91,4 +101,5 @@ export function getLoadedSkillsMessage(): string | null {
  */
 export function __resetSkillRegistryForTests(): void {
   skillsCache = {}
+  projectSkillsTrusted = true
 }

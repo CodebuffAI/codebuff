@@ -1,6 +1,8 @@
 import { TextAttributes } from '@opentui/core'
 
 import { TerminalCommandDisplay } from './terminal-command-display'
+import { Button } from './button'
+import { cancelBashCommand } from '../utils/bash-command-controller'
 import { useTheme } from '../hooks/use-theme'
 import { DASHED_BORDER_CHARS } from '../utils/ui-constants'
 
@@ -10,9 +12,7 @@ interface PendingBashMessageProps {
   message: PendingBashMessageType
 }
 
-export const PendingBashMessage = ({
-  message,
-}: PendingBashMessageProps) => {
+export const PendingBashMessage = ({ message }: PendingBashMessageProps) => {
   const theme = useTheme()
 
   return (
@@ -50,9 +50,20 @@ export const PendingBashMessage = ({
         />
 
         {/* Note about pending status */}
-        <text fg={theme.muted} attributes={TextAttributes.ITALIC}>
-          Will be added to chat history when it completes
-        </text>
+        <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <text fg={theme.muted} attributes={TextAttributes.ITALIC}>
+            Will be added to chat history when it completes
+          </text>
+          {message.isRunning && (
+            <Button
+              onClick={() => {
+                cancelBashCommand(message.id)
+              }}
+            >
+              <text fg={theme.error}>Cancel</text>
+            </Button>
+          )}
+        </box>
       </box>
     </box>
   )

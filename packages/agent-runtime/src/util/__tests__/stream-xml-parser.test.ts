@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import {
-  createStreamParserState,
-  parseStreamChunk,
-} from '../stream-xml-parser'
+import { createStreamParserState, parseStreamChunk } from '../stream-xml-parser'
 
 describe('stream-xml-parser', () => {
   describe('parseStreamChunk', () => {
@@ -53,7 +50,10 @@ After text`
       expect(result1.toolCalls).toEqual([])
 
       // Second chunk: rest of content and end tag
-      const result2 = parseStreamChunk('_name": "test_tool"}\n</codebuff_tool_call>', state)
+      const result2 = parseStreamChunk(
+        '_name": "test_tool"}\n</codebuff_tool_call>',
+        state,
+      )
       expect(result2.filteredText).toBe('')
       expect(result2.toolCalls).toHaveLength(1)
       expect(result2.toolCalls[0].toolName).toBe('test_tool')
@@ -68,7 +68,10 @@ After text`
       expect(result1.toolCalls).toEqual([])
 
       // Second chunk completes the start tag
-      const result2 = parseStreamChunk('_tool_call>\n{"cb_tool_name": "test"}\n</codebuff_tool_call>', state)
+      const result2 = parseStreamChunk(
+        '_tool_call>\n{"cb_tool_name": "test"}\n</codebuff_tool_call>',
+        state,
+      )
       expect(result2.filteredText).toBe('')
       expect(result2.toolCalls).toHaveLength(1)
     })
@@ -226,7 +229,9 @@ Thinking about the task...
       }
 
       const combinedText = allChunks.join('')
-      expect(combinedText).toBe('<think>\nThinking about the task...\n</think>\n\n')
+      expect(combinedText).toBe(
+        '<think>\nThinking about the task...\n</think>\n\n',
+      )
       expect(allToolCalls).toHaveLength(1)
       expect(allToolCalls[0].toolName).toBe('propose_str_replace')
       expect(allToolCalls[0].input.path).toBe('test.ts')
@@ -238,7 +243,10 @@ Thinking about the task...
       const allToolCalls: any[] = []
 
       // Send start tag and content
-      let result = parseStreamChunk('<codebuff_tool_call>\n{"cb_tool_name": "test"}\n</', state)
+      let result = parseStreamChunk(
+        '<codebuff_tool_call>\n{"cb_tool_name": "test"}\n</',
+        state,
+      )
       allChunks.push(result.filteredText)
       allToolCalls.push(...result.toolCalls)
 

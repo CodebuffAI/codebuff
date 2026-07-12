@@ -22,7 +22,7 @@ const inputSchema = z
       ),
   })
   .describe(
-    `Search for files matching a glob pattern. Returns matching file paths sorted by modification time.`,
+    `Search for files matching a glob pattern. Returns matching file paths sorted by modification time (newest first, then path for deterministic ties).`,
   )
 const description = `
 Example:

@@ -102,10 +102,8 @@ export function compareRuns(
 
     const beforeScore = beforeResult?.averageScore ?? 0
     const afterScore = afterResult?.averageScore ?? 0
-    const beforeScoreExcl =
-      beforeResult?.averageScoreExcludingFailures ?? 0
-    const afterScoreExcl =
-      afterResult?.averageScoreExcludingFailures ?? 0
+    const beforeScoreExcl = beforeResult?.averageScoreExcludingFailures ?? 0
+    const afterScoreExcl = afterResult?.averageScoreExcludingFailures ?? 0
     const beforeCost = beforeResult?.averageCost ?? 0
     const afterCost = afterResult?.averageCost ?? 0
     const beforeDuration = beforeResult?.averageDuration ?? 0
@@ -120,12 +118,11 @@ export function compareRuns(
     // Regression: score dropped, OR errors increased, OR (cost increased
     // significantly without a score gain). "Significantly" = >20% of before
     // cost, to avoid flagging tiny noise.
-    const costIncreasePct =
-      beforeCost > 0 ? (costDelta / beforeCost) * 100 : 0
+    const costIncreasePct = beforeCost > 0 ? (costDelta / beforeCost) * 100 : 0
     const regression =
-      (!beforeResult && !!afterResult) // agent only in after = not a regression
+      !beforeResult && !!afterResult // agent only in after = not a regression
         ? false
-        : (!afterResult && !!beforeResult) // agent disappeared = regression
+        : !afterResult && !!beforeResult // agent disappeared = regression
           ? true
           : scoreDelta < -0.01 ||
             errorCountDelta > 0 ||
@@ -192,8 +189,13 @@ function formatAgentSummary(params: {
   beforeRunCount: number
   afterRunCount: number
 }): string {
-  const { scoreDelta, costDelta, durationDelta, beforeRunCount, afterRunCount } =
-    params
+  const {
+    scoreDelta,
+    costDelta,
+    durationDelta,
+    beforeRunCount,
+    afterRunCount,
+  } = params
   const scoreStr = formatDelta(scoreDelta, 2)
   const costStr = formatDelta(costDelta, 0)
   const durationStr = formatDurationDelta(durationDelta)
@@ -244,9 +246,7 @@ export function formatComparisonReport(result: ComparisonResult): string {
     `**Overall:** score ${o.totalScoreDelta >= 0 ? '+' : ''}${o.totalScoreDelta.toFixed(2)}, cost ${o.totalCostDelta >= 0 ? '+' : ''}${o.totalCostDelta.toFixed(0)}c, runs ${o.totalBeforeRuns}→${o.totalAfterRuns}`,
   )
   if (o.regressedAgentIds.length > 0) {
-    lines.push(
-      `**Regressions:** ${o.regressedAgentIds.join(', ')}`,
-    )
+    lines.push(`**Regressions:** ${o.regressedAgentIds.join(', ')}`)
   }
   if (o.improvedAgentIds.length > 0) {
     lines.push(`**Improvements:** ${o.improvedAgentIds.join(', ')}`)

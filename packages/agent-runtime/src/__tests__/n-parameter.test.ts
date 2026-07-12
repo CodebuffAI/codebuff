@@ -113,7 +113,7 @@ describe('n parameter and GENERATE_N functionality', () => {
       spawnParams: undefined,
       system: 'Test system',
       signal: new AbortController().signal,
-      tools: {}
+      tools: {},
     }
   })
 
@@ -126,7 +126,9 @@ describe('n parameter and GENERATE_N functionality', () => {
     it('should call promptAiSdk with n parameter when n is provided', async () => {
       runAgentStepBaseParams.promptAiSdk = mock(() =>
         Promise.resolve(
-          promptSuccess(JSON.stringify(['Response 1', 'Response 2', 'Response 3'])),
+          promptSuccess(
+            JSON.stringify(['Response 1', 'Response 2', 'Response 3']),
+          ),
         ),
       )
 
@@ -194,8 +196,8 @@ describe('n parameter and GENERATE_N functionality', () => {
     })
 
     it('should use normal flow when n is undefined', async () => {
-      runAgentStepBaseParams.promptAiSdk = mock(
-        async () => promptSuccess('Should not be called'),
+      runAgentStepBaseParams.promptAiSdk = mock(async () =>
+        promptSuccess('Should not be called'),
       )
 
       runAgentStepBaseParams.promptAiSdkStream = mock(async function* () {

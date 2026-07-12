@@ -1,9 +1,9 @@
 /**
  * Integration tests for GridLayout React reconciliation during resize.
- * 
+ *
  * These tests verify that the unified DOM structure fix properly handles
  * column transitions (2→1) without losing content during React reconciliation.
- * 
+ *
  * Unlike the static rendering tests in grid-layout.test.tsx, these tests
  * simulate actual re-renders with changing props to catch reconciliation bugs.
  */
@@ -25,8 +25,8 @@ const createTestItem = (id: string, name: string): TestItem => ({ id, name })
  * and tracking which items were rendered at each width.
  */
 interface RenderTracker {
-  renderedItems: Map<number, string[]>  // width -> item names rendered
-  renderCounts: Map<string, number>     // item id -> render count
+  renderedItems: Map<number, string[]> // width -> item names rendered
+  renderCounts: Map<string, number> // item id -> render count
 }
 
 function createRenderTracker(): RenderTracker {
@@ -54,14 +54,14 @@ function TrackedGridLayout({
       // Track this item was rendered
       const currentCount = tracker.renderCounts.get(item.id) || 0
       tracker.renderCounts.set(item.id, currentCount + 1)
-      
+
       // Track items rendered at this width
       const widthItems = tracker.renderedItems.get(availableWidth) || []
       if (!widthItems.includes(item.name)) {
         widthItems.push(item.name)
         tracker.renderedItems.set(availableWidth, widthItems)
       }
-      
+
       return <text key={item.id}>{item.name}</text>
     },
     [availableWidth, tracker],
@@ -91,22 +91,38 @@ describe('GridLayout React Reconciliation', () => {
 
       // First render at 2-column width (120)
       const markup1 = renderToString(
-        <TrackedGridLayout items={items} availableWidth={120} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={120}
+          tracker={tracker}
+        />,
       )
 
       // Verify all items rendered at width 120 (order may vary due to round-robin distribution)
-      expect(tracker.renderedItems.get(120)?.sort()).toEqual(['Alpha', 'Beta', 'Gamma'])
+      expect(tracker.renderedItems.get(120)?.sort()).toEqual([
+        'Alpha',
+        'Beta',
+        'Gamma',
+      ])
       expect(markup1).toContain('Alpha')
       expect(markup1).toContain('Beta')
       expect(markup1).toContain('Gamma')
 
       // Second render at 1-column width (80) - simulates resize
       const markup2 = renderToString(
-        <TrackedGridLayout items={items} availableWidth={80} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={80}
+          tracker={tracker}
+        />,
       )
 
       // Verify all items rendered at width 80
-      expect(tracker.renderedItems.get(80)?.sort()).toEqual(['Alpha', 'Beta', 'Gamma'])
+      expect(tracker.renderedItems.get(80)?.sort()).toEqual([
+        'Alpha',
+        'Beta',
+        'Gamma',
+      ])
       expect(markup2).toContain('Alpha')
       expect(markup2).toContain('Beta')
       expect(markup2).toContain('Gamma')
@@ -128,12 +144,20 @@ describe('GridLayout React Reconciliation', () => {
 
       // Render at 2-column width first
       renderToString(
-        <TrackedGridLayout items={items} availableWidth={120} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={120}
+          tracker={tracker}
+        />,
       )
 
       // Then render at 1-column width
       const markup = renderToString(
-        <TrackedGridLayout items={items} availableWidth={80} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={80}
+          tracker={tracker}
+        />,
       )
 
       // Check order in final markup
@@ -160,7 +184,11 @@ describe('GridLayout React Reconciliation', () => {
 
       for (const width of widthSequence) {
         const markup = renderToString(
-          <TrackedGridLayout items={items} availableWidth={width} tracker={tracker} />,
+          <TrackedGridLayout
+            items={items}
+            availableWidth={width}
+            tracker={tracker}
+          />,
         )
 
         // Every render should contain all items
@@ -189,19 +217,31 @@ describe('GridLayout React Reconciliation', () => {
 
       // Start at 3-column width (150+)
       renderToString(
-        <TrackedGridLayout items={items} availableWidth={180} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={180}
+          tracker={tracker}
+        />,
       )
       expect(tracker.renderedItems.get(180)?.length).toBe(6)
 
       // Transition to 2-column width (100-149)
       renderToString(
-        <TrackedGridLayout items={items} availableWidth={120} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={120}
+          tracker={tracker}
+        />,
       )
       expect(tracker.renderedItems.get(120)?.length).toBe(6)
 
       // Transition to 1-column width (<100)
       const finalMarkup = renderToString(
-        <TrackedGridLayout items={items} availableWidth={80} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={80}
+          tracker={tracker}
+        />,
       )
       expect(tracker.renderedItems.get(80)?.length).toBe(6)
 
@@ -224,15 +264,31 @@ describe('GridLayout React Reconciliation', () => {
 
       // Start at 1-column width
       renderToString(
-        <TrackedGridLayout items={items} availableWidth={80} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={80}
+          tracker={tracker}
+        />,
       )
-      expect(tracker.renderedItems.get(80)?.sort()).toEqual(['Xray', 'Yankee', 'Zulu'])
+      expect(tracker.renderedItems.get(80)?.sort()).toEqual([
+        'Xray',
+        'Yankee',
+        'Zulu',
+      ])
 
       // Expand to 2-column width
       const expandedMarkup = renderToString(
-        <TrackedGridLayout items={items} availableWidth={120} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={120}
+          tracker={tracker}
+        />,
       )
-      expect(tracker.renderedItems.get(120)?.sort()).toEqual(['Xray', 'Yankee', 'Zulu'])
+      expect(tracker.renderedItems.get(120)?.sort()).toEqual([
+        'Xray',
+        'Yankee',
+        'Zulu',
+      ])
 
       // All items present
       expect(expandedMarkup).toContain('Xray')
@@ -243,10 +299,7 @@ describe('GridLayout React Reconciliation', () => {
 
   describe('unified DOM structure verification', () => {
     test('both column layouts produce valid markup', () => {
-      const items = [
-        createTestItem('a', 'Item1'),
-        createTestItem('b', 'Item2'),
-      ]
+      const items = [createTestItem('a', 'Item1'), createTestItem('b', 'Item2')]
 
       // 2-column layout
       const twoColMarkup = renderToString(
@@ -258,7 +311,7 @@ describe('GridLayout React Reconciliation', () => {
         />,
       )
 
-      // 1-column layout  
+      // 1-column layout
       const oneColMarkup = renderToString(
         <GridLayout
           items={items}
@@ -287,12 +340,20 @@ describe('GridLayout React Reconciliation', () => {
 
       // Start at 4-column width (200+)
       renderToString(
-        <TrackedGridLayout items={items} availableWidth={250} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={250}
+          tracker={tracker}
+        />,
       )
 
       // Dramatically reduce to 1-column
       const finalMarkup = renderToString(
-        <TrackedGridLayout items={items} availableWidth={50} tracker={tracker} />,
+        <TrackedGridLayout
+          items={items}
+          availableWidth={50}
+          tracker={tracker}
+        />,
       )
 
       // All 10 items should be present

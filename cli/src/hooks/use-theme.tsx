@@ -109,7 +109,7 @@ export function initializeThemeStore() {
 
     setThemeName: (name: ThemeName) => {
       const currentTheme = get().theme
-      
+
       // Skip if theme name hasn't changed
       if (currentTheme.name === name) {
         return

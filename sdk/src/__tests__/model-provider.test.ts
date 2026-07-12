@@ -24,6 +24,7 @@ import {
   resolveConfiguredAgentModelConfig,
   resolveConfiguredProviderModel,
   resolveModelCapabilities,
+  recommendConfiguredModel,
   writeProviderConfigFile,
 } from '../provider-config'
 import {
@@ -62,6 +63,38 @@ describe('model-provider', () => {
   })
 
   describe('custom provider config', () => {
+    test('recommends only empirically measured models for the requested coding context', () => {
+      const parsed = providerConfigFileSchema.parse({
+        providers: {
+          local: {
+            type: 'openai-compatible',
+            baseURL: 'http://localhost:11434/v1',
+            models: ['rust-model', 'unmeasured-model'],
+            modelCapabilities: {
+              'rust-model': {
+                quality: {
+                  coding: [
+                    { language: 'rust', taskType: 'bug-fix', agentRole: 'editor', score: 91, sampleSize: 20 },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      })
+      expect(
+        recommendConfiguredModel({
+          context: { language: 'rust', taskType: 'bug-fix', agentRole: 'editor' },
+          loadedConfig: { config: parsed, sourceFilePaths: [] },
+        }),
+      ).toMatchObject({ model: 'local/rust-model', score: 91, sampleSize: 20 })
+      expect(
+        recommendConfiguredModel({
+          context: { language: 'python', taskType: 'bug-fix', agentRole: 'editor' },
+          loadedConfig: { config: parsed, sourceFilePaths: [] },
+        }),
+      ).toBeUndefined()
+    })
     test('accepts providers and OpenCode-style provider aliases', () => {
       const result = providerConfigFileSchema.safeParse({
         provider: {
@@ -876,6 +909,23 @@ describe('model-provider', () => {
       expect(loadedConfig.config.providers.local).toBeDefined()
     })
 
+    test('reports malformed implicit configs instead of silently hiding them', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      fs.writeFileSync(path.join(tempDir, 'openbuff.json'), '{ invalid json')
+      process.chdir(tempDir)
+
+      const loadedConfig = loadProviderConfigSync()
+
+      expect(loadedConfig.diagnostics).toEqual([
+        expect.objectContaining({
+          filePath: path.join(tempDir, 'openbuff.json'),
+        }),
+      ])
+      expect(loadedConfig.diagnostics?.[0]?.message).toMatch(/parse|json/i)
+    })
+
     test('invalidates cached provider config when implicit openbuff.d fragments change', () => {
       const tempDir = fs.mkdtempSync(
         path.join(os.tmpdir(), 'openbuff-provider-'),
@@ -885,15 +935,29 @@ describe('model-provider', () => {
       const routesPath = path.join(fragmentDir, 'routes.json')
       fs.mkdirSync(fragmentDir, { recursive: true })
       fs.writeFileSync(configPath, JSON.stringify({}))
-      fs.writeFileSync(routesPath, JSON.stringify({ defaultModel: 'local/old' }))
-      fs.utimesSync(routesPath, new Date(1_700_000_000_000), new Date(1_700_000_000_000))
+      fs.writeFileSync(
+        routesPath,
+        JSON.stringify({ defaultModel: 'local/old' }),
+      )
+      fs.utimesSync(
+        routesPath,
+        new Date(1_700_000_000_000),
+        new Date(1_700_000_000_000),
+      )
       process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
 
       const first = loadProviderConfigSync()
       expect(first.config.defaultModel).toBe('local/old')
 
-      fs.writeFileSync(routesPath, JSON.stringify({ defaultModel: 'local/new' }))
-      fs.utimesSync(routesPath, new Date(1_700_000_100_000), new Date(1_700_000_100_000))
+      fs.writeFileSync(
+        routesPath,
+        JSON.stringify({ defaultModel: 'local/new' }),
+      )
+      fs.utimesSync(
+        routesPath,
+        new Date(1_700_000_100_000),
+        new Date(1_700_000_100_000),
+      )
 
       const second = loadProviderConfigSync()
       expect(second.config.defaultModel).toBe('local/new')
@@ -907,15 +971,25 @@ describe('model-provider', () => {
       const fragmentDir = path.join(tempDir, 'openbuff.d')
       const routesPath = path.join(fragmentDir, 'routes.json')
       fs.mkdirSync(fragmentDir, { recursive: true })
-      fs.writeFileSync(configPath, JSON.stringify({ defaultModel: 'local/base' }))
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({ defaultModel: 'local/base' }),
+      )
       process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
 
       const first = loadProviderConfigSync()
       expect(first.config.defaultModel).toBe('local/base')
       expect(first.config.agents.editor).toBeUndefined()
 
-      fs.writeFileSync(routesPath, JSON.stringify({ agents: { editor: 'local/fragment' } }))
-      fs.utimesSync(fragmentDir, new Date(1_700_000_100_000), new Date(1_700_000_100_000))
+      fs.writeFileSync(
+        routesPath,
+        JSON.stringify({ agents: { editor: 'local/fragment' } }),
+      )
+      fs.utimesSync(
+        fragmentDir,
+        new Date(1_700_000_100_000),
+        new Date(1_700_000_100_000),
+      )
 
       const second = loadProviderConfigSync()
       expect(second.config.defaultModel).toBe('local/base')
@@ -939,7 +1013,10 @@ describe('model-provider', () => {
         wrapperPath,
         JSON.stringify({ include: ['bad.json', 'valid.json'] }),
       )
-      fs.writeFileSync(validPath, JSON.stringify({ agents: { editor: 'local/old' } }))
+      fs.writeFileSync(
+        validPath,
+        JSON.stringify({ agents: { editor: 'local/old' } }),
+      )
       process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
 
       let thrown: unknown
@@ -951,8 +1028,15 @@ describe('model-provider', () => {
       expect(thrown).toBeDefined()
       expect(String(thrown)).not.toContain('cycle')
 
-      fs.writeFileSync(validPath, JSON.stringify({ agents: { editor: 'local/new' } }))
-      fs.utimesSync(validPath, new Date(1_700_000_100_000), new Date(1_700_000_100_000))
+      fs.writeFileSync(
+        validPath,
+        JSON.stringify({ agents: { editor: 'local/new' } }),
+      )
+      fs.utimesSync(
+        validPath,
+        new Date(1_700_000_100_000),
+        new Date(1_700_000_100_000),
+      )
       fs.writeFileSync(badPath, JSON.stringify({}))
 
       const loadedConfig = loadProviderConfigSync()
@@ -1049,6 +1133,10 @@ describe('model-provider', () => {
             model: 'local/planner',
             reasoningEffort: 'high',
           },
+          executePlan: {
+            model: 'local/executor',
+            reasoningEffort: 'medium',
+          },
         },
         agents: {
           thinker: {
@@ -1060,7 +1148,7 @@ describe('model-provider', () => {
           local: {
             type: 'openai-compatible',
             baseURL: 'http://127.0.0.1:11434/v1',
-            models: ['default-reasoner', 'planner', 'thinker'],
+            models: ['default-reasoner', 'planner', 'executor', 'thinker'],
           },
         },
       })
@@ -1085,6 +1173,16 @@ describe('model-provider', () => {
       ).toEqual({
         model: 'local/planner',
         reasoningEffort: 'high',
+      })
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'base2-execute-plan',
+          loadedConfig,
+        }),
+      ).toEqual({
+        model: 'local/executor',
+        reasoningEffort: 'medium',
       })
       expect(
         resolveConfiguredAgentModelConfig({
@@ -1426,7 +1524,9 @@ describe('model-provider', () => {
 
       expect(OPENBUFF_PROVIDER_PRESETS['opencode-go'].label).toBe('OpenCode Go')
       expect(OPENBUFF_PROVIDER_PRESETS.anthropic.label).toBe('Anthropic API')
-      expect(anthropicConfig.providers.anthropic?.type).toBe('anthropic-compatible')
+      expect(anthropicConfig.providers.anthropic?.type).toBe(
+        'anthropic-compatible',
+      )
       expect(
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',
@@ -1491,7 +1591,6 @@ describe('model-provider', () => {
         }),
       ).toBe('local/agent-thinker')
     })
-
 
     test('supports Codex subscription as a configurable provider', () => {
       const codexConfig = createProviderPresetConfig('codex')
@@ -1703,10 +1802,7 @@ describe('model-provider', () => {
       resetEnv()
       delete process.env[PROVIDER_CONFIG_ENV_VAR]
       tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-discovery-'))
-      process.env[PROVIDER_CONFIG_ENV_VAR] = path.join(
-        tempDir,
-        'openbuff.json',
-      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = path.join(tempDir, 'openbuff.json')
     })
 
     afterEach(() => {
@@ -1813,9 +1909,7 @@ describe('model-provider', () => {
         config.providers.custom,
       )
       expect(result?.strategy).toBe('custom')
-      expect(result?.endpoint).toBe(
-        'https://api.example.com/v1/custom-models',
-      )
+      expect(result?.endpoint).toBe('https://api.example.com/v1/custom-models')
       expect(result?.auth).toBe('none')
       expect(result?.arrayPath).toBe('results.models')
       expect(result?.idPath).toBe('slug')
@@ -2241,7 +2335,9 @@ describe('model-provider', () => {
     })
 
     test('cache round-trip persists discovered models', async () => {
-      setModelDiscoveryCachePathForTest(path.join(tempDir, 'discovery-cache.json'))
+      setModelDiscoveryCachePathForTest(
+        path.join(tempDir, 'discovery-cache.json'),
+      )
 
       writeTestProviderConfig({
         local: {
@@ -2256,19 +2352,13 @@ describe('model-provider', () => {
         providerId: 'local',
         loadedConfig,
         fetch: makeFetchMock({
-          data: [
-            { id: 'llama3.1' },
-            { id: 'qwen2.5-coder:32b' },
-          ],
+          data: [{ id: 'llama3.1' }, { id: 'qwen2.5-coder:32b' }],
         }),
       })
 
       const cached = getCachedProviderModels('local')
       expect(cached).toHaveLength(2)
-      expect(cached.map((m) => m.id)).toEqual([
-        'llama3.1',
-        'qwen2.5-coder:32b',
-      ])
+      expect(cached.map((m) => m.id)).toEqual(['llama3.1', 'qwen2.5-coder:32b'])
     })
 
     test('getAvailableProviderModels merges configured and cached models', async () => {
@@ -2287,24 +2377,17 @@ describe('model-provider', () => {
         providerId: 'local',
         loadedConfig,
         fetch: makeFetchMock({
-          data: [
-            { id: 'configured-model' },
-            { id: 'discovered-model' },
-          ],
+          data: [{ id: 'configured-model' }, { id: 'discovered-model' }],
         }),
       })
 
       const available = getAvailableProviderModels(loadedConfig)
 
-      const configuredModel = available.find(
-        (m) => m.id === 'configured-model',
-      )
+      const configuredModel = available.find((m) => m.id === 'configured-model')
       expect(configuredModel).toBeDefined()
       expect(configuredModel?.configured).toBe(true)
 
-      const discoveredModel = available.find(
-        (m) => m.id === 'discovered-model',
-      )
+      const discoveredModel = available.find((m) => m.id === 'discovered-model')
       expect(discoveredModel).toBeDefined()
       expect(discoveredModel?.configured).toBe(false)
     })
@@ -2325,12 +2408,8 @@ describe('model-provider', () => {
         loadedConfig,
       })
 
-      const writtenConfig = JSON.parse(
-        fs.readFileSync(configPath, 'utf8'),
-      )
-      expect(writtenConfig.providers.local.models).toContain(
-        'existing-model',
-      )
+      const writtenConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      expect(writtenConfig.providers.local.models).toContain('existing-model')
       expect(writtenConfig.providers.local.models).toContain('new-model')
     })
 
@@ -2350,12 +2429,10 @@ describe('model-provider', () => {
         loadedConfig,
       })
 
-      const writtenConfig = JSON.parse(
-        fs.readFileSync(configPath, 'utf8'),
+      const writtenConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      expect(writtenConfig.providers.local.models['existing-model']).toBe(
+        'existing-remote',
       )
-      expect(
-        writtenConfig.providers.local.models['existing-model'],
-      ).toBe('existing-remote')
       expect(writtenConfig.providers.local.models['new-model']).toBe(
         'new-model',
       )
@@ -2378,8 +2455,7 @@ describe('model-provider', () => {
       })
 
       const freshConfig = loadProviderConfigSync()
-      const localModels = freshConfig.config.providers.local
-        .models as string[]
+      const localModels = freshConfig.config.providers.local.models as string[]
       expect(localModels).toHaveLength(2)
       expect(localModels).toContain('model-a')
       expect(localModels).toContain('model-b')
@@ -2401,11 +2477,11 @@ describe('model-provider', () => {
         loadedConfig,
       })
 
-      const writtenConfig = JSON.parse(
-        fs.readFileSync(configPath, 'utf8'),
-      )
+      const writtenConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'))
       expect(writtenConfig.providers.local.models).toContain('new-model')
-      expect(writtenConfig.providers.local.models).not.toContain('local/new-model')
+      expect(writtenConfig.providers.local.models).not.toContain(
+        'local/new-model',
+      )
     })
 
     test('readModelDiscoveryCache returns empty cache for invalid JSON', () => {
@@ -2475,7 +2551,18 @@ describe('getAncestorProviderConfigPaths — bounded ancestor walk (C1.3)', () =
     process.env.HOME = path.join(os.tmpdir(), 'far-away-home-that-wont-be-hit')
     const deep = path.join(
       os.tmpdir(),
-      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'f',
+      'g',
+      'h',
+      'i',
+      'j',
+      'k',
+      'l',
     )
     const paths = getAncestorProviderConfigPaths(deep)
     // 10 dirs * 2 files = 20. The walk must stop at the ceiling, not reach /.

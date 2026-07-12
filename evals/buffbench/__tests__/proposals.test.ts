@@ -116,12 +116,12 @@ describe('proposal promotion policy', () => {
     const decision = decideProposalPromotion({ dryRun, comparison })
     expect(decision.accepted).toBe(false)
     expect(decision.reasons).toContain('no proposals applied in dry run')
-    expect(decision.reasons.some((reason) => reason.includes('score delta'))).toBe(
-      true,
-    )
-    expect(decision.reasons.some((reason) => reason.includes('regressions'))).toBe(
-      true,
-    )
+    expect(
+      decision.reasons.some((reason) => reason.includes('score delta')),
+    ).toBe(true)
+    expect(
+      decision.reasons.some((reason) => reason.includes('regressions')),
+    ).toBe(true)
 
     const report = formatProposalPromotionReport(decision)
     expect(report).toContain('Decision: REJECT')
@@ -282,7 +282,9 @@ describe('applyProposals: append_system_prompt_guidance', () => {
     expect(result.appliedCount).toBe(1)
     // When existing is undefined/empty, the separator logic adds '\n\n' prefix.
     // This is acceptable — the guidance is still there.
-    expect(result.modifiedDefinitions[0].systemPrompt).toContain('New guidance.')
+    expect(result.modifiedDefinitions[0].systemPrompt).toContain(
+      'New guidance.',
+    )
   })
 })
 
@@ -571,7 +573,9 @@ describe('applyProposals: cross-cutting behavior', () => {
     expect(agent.systemPrompt).toBe(originalPrompt)
     expect(agent.toolNames).toEqual(originalTools)
     // Output modified
-    expect(result.modifiedDefinitions[0].systemPrompt).toContain('appended text')
+    expect(result.modifiedDefinitions[0].systemPrompt).toContain(
+      'appended text',
+    )
     expect(result.modifiedDefinitions[0].toolNames).toContain('query_index')
   })
 

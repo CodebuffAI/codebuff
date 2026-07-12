@@ -33,7 +33,10 @@ export function validatePlanArtifactPath(path: string): string | null {
  *
  * Heuristic: multiple task/status checkbox markers OR long enough content.
  */
-export function isNonTrivialSessionPlan(path: string, content: string): boolean {
+export function isNonTrivialSessionPlan(
+  path: string,
+  content: string,
+): boolean {
   if (!isSessionPlanPath(path)) return false
   const matches = content.match(TASK_MARKER_RE)
   if (matches && matches.length >= 2) return true
@@ -62,7 +65,9 @@ export function buildMissingCompanionWarning(params: {
 
   return `Warning: wrote a non-trivial ${sessionDir}/PLAN.md but did not also create/update ${missing
     .map((m) => `${sessionDir}/${m}`)
-    .join(' and ')}. Durable plan sessions are most useful when STATUS.md and LESSONS.md are kept in sync. Update them with create_plan so STATUS.md/LESSONS.md stay in lockstep with PLAN.md.`
+    .join(
+      ' and ',
+    )}. Durable plan sessions are most useful when STATUS.md and LESSONS.md are kept in sync. Update them with create_plan so STATUS.md/LESSONS.md stay in lockstep with PLAN.md.`
 }
 
 export const handleCreatePlan = (async (params: {

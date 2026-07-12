@@ -63,10 +63,11 @@ export function useSearchableList<T extends SearchableItem>({
     const trimmedQuery = searchQuery.trim()
     if (!trimmedQuery) return items
     // Path-like queries should not filter the directory list
-    if (trimmedQuery.startsWith('/') || trimmedQuery.startsWith('~')) return items
+    if (trimmedQuery.startsWith('/') || trimmedQuery.startsWith('~'))
+      return items
     // Always keep parent directory entry (..) visible, filter others
-    return items.filter((item) => 
-      item.label === '..' || filterFunction(item, trimmedQuery)
+    return items.filter(
+      (item) => item.label === '..' || filterFunction(item, trimmedQuery),
     )
   }, [items, searchQuery, filterFunction])
 

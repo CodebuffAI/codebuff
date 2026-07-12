@@ -172,7 +172,6 @@ bun run evals/git-evals/run-eval-set.ts \
   --agents base,base2,base-lite
 ```
 
-
 ### Creating New Evaluations
 
 #### 1. Pick Commits from Repository

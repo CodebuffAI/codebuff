@@ -49,15 +49,11 @@ describe('buildEntries', () => {
     const fileTree: FileTreeNode[] = [
       makeFileNode('src', true, [
         makeFileNode('index.ts'),
-        makeFileNode('utils', true, [
-          makeFileNode('helper.ts'),
-        ]),
+        makeFileNode('utils', true, [makeFileNode('helper.ts')]),
       ]),
     ]
     const entries = buildEntries([], fileTree, 50)
-    const paths = entries.map((e) =>
-      e.kind === 'file' ? e.filePath : null,
-    )
+    const paths = entries.map((e) => (e.kind === 'file' ? e.filePath : null))
     expect(paths).toContain('src')
     expect(paths).toContain('src/index.ts')
     expect(paths).toContain('src/utils')
@@ -213,7 +209,9 @@ describe('scoreEntry', () => {
     // 'ndex' is a substring (not prefix) of filename 'index.ts' at index 1
     // -> filename substring branch: -800 + 1 = -799
     expect(scoreEntry(entry, 'ndex')).toBe(-799)
-    expect(scoreEntry(entry, 'index.ts')).toBeLessThan(scoreEntry(entry, 'ndex')!)
+    expect(scoreEntry(entry, 'index.ts')).toBeLessThan(
+      scoreEntry(entry, 'ndex')!,
+    )
   })
 
   test('file: filename prefix beats path prefix', () => {

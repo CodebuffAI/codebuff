@@ -55,7 +55,7 @@ interface CommandPaletteScreenProps {
   /** Called when the user selects a slash command; receives `/<id>`. */
   onExecuteCommand: (commandString: string) => void
   /** Called when the user selects a file path. */
-  onSelectFile: (filePath: string) => void
+  onSelectFile: (filePath: string, isDirectory: boolean) => void
 }
 
 /**
@@ -104,8 +104,10 @@ export function scoreEntry(entry: PaletteEntry, query: string): number | null {
 
     // Substring in id/label
     if (idLower.includes(normalized)) return -800 + idLower.indexOf(normalized)
-    if (labelLower.includes(normalized)) return -790 + labelLower.indexOf(normalized)
-    if (descLower.includes(normalized)) return -700 + descLower.indexOf(normalized)
+    if (labelLower.includes(normalized))
+      return -790 + labelLower.indexOf(normalized)
+    if (descLower.includes(normalized))
+      return -700 + descLower.indexOf(normalized)
 
     // Fuzzy fallback on the label
     const fuzzy = fuzzyMatch(entry.command.label, normalized)
@@ -121,8 +123,10 @@ export function scoreEntry(entry: PaletteEntry, query: string): number | null {
   if (fileNameLower === normalized) return -990
   if (fileNameLower.startsWith(normalized)) return -950
   if (pathLower.startsWith(normalized)) return -900
-  if (fileNameLower.includes(normalized)) return -800 + fileNameLower.indexOf(normalized)
-  if (pathLower.includes(normalized)) return -700 + pathLower.indexOf(normalized)
+  if (fileNameLower.includes(normalized))
+    return -800 + fileNameLower.indexOf(normalized)
+  if (pathLower.includes(normalized))
+    return -700 + pathLower.indexOf(normalized)
 
   const fuzzy = fuzzyMatch(entry.filePath, normalized)
   return fuzzy ? fuzzy.score - 500 : null
@@ -163,17 +167,25 @@ export const CommandPaletteScreen: React.FC<CommandPaletteScreenProps> = ({
   const [searchCursor, setSearchCursor] = useState(0)
   const [focusedIndex, setFocusedIndex] = useState(0)
 
-  // Build all entries (commands first, then files). When the query is empty we
-  // cap files to keep the palette snappy on large repos.
+  // Keep the complete searchable corpus. Only the empty-query presentation is
+  // capped; otherwise files after the first 50 could never be discovered.
   const allEntries = useMemo(
-    () => buildEntries(slashCommands, fileTree, LAYOUT.MAX_EMPTY_FILE_ITEMS),
+    () => buildEntries(slashCommands, fileTree, Number.MAX_SAFE_INTEGER),
     [slashCommands, fileTree],
   )
 
   // Filter + sort entries by fuzzy score
   const filteredEntries = useMemo(() => {
     const trimmed = searchQuery.trim()
-    if (!trimmed) return allEntries
+    if (!trimmed) {
+      const commandEntries = allEntries.filter(
+        (entry) => entry.kind === 'command',
+      )
+      const fileEntries = allEntries
+        .filter((entry) => entry.kind === 'file')
+        .slice(0, LAYOUT.MAX_EMPTY_FILE_ITEMS)
+      return [...commandEntries, ...fileEntries]
+    }
 
     const scored: { entry: PaletteEntry; score: number }[] = []
     for (const entry of allEntries) {
@@ -206,7 +218,7 @@ export const CommandPaletteScreen: React.FC<CommandPaletteScreenProps> = ({
       if (entry.kind === 'command') {
         onExecuteCommand(`/${entry.command.id}`)
       } else {
-        onSelectFile(entry.filePath)
+        onSelectFile(entry.filePath, entry.isDirectory)
       }
     },
     [items, filteredEntries, onExecuteCommand, onSelectFile],
@@ -254,10 +266,7 @@ export const CommandPaletteScreen: React.FC<CommandPaletteScreenProps> = ({
     terminalWidth - LAYOUT.CONTENT_PADDING,
     LAYOUT.MAX_CONTENT_WIDTH,
   )
-  const contentWidth = Math.min(
-    LAYOUT.PREFERRED_CONTENT_WIDTH,
-    contentMaxWidth,
-  )
+  const contentWidth = Math.min(LAYOUT.PREFERRED_CONTENT_WIDTH, contentMaxWidth)
   const availableListHeight = Math.max(
     3,
     terminalHeight - LAYOUT.HEADER_HEIGHT - LAYOUT.INPUT_HEIGHT - 2,
@@ -301,7 +310,8 @@ export const CommandPaletteScreen: React.FC<CommandPaletteScreenProps> = ({
             Command Palette
           </text>
           <text style={{ fg: theme.muted }}>
-            {'  '}Type to search commands and files · Enter to run · Esc to close
+            {'  '}Type to search commands and files · Enter to run · Esc to
+            close
           </text>
         </box>
 

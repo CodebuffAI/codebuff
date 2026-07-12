@@ -22,7 +22,10 @@ export const publishQueryKeys = {
 }
 
 async function handlePublish(_agentIds: string[]): Promise<PublishResult> {
-  return { success: false, error: 'Agent publishing is disabled in Openbuff local mode.' }
+  return {
+    success: false,
+    error: 'Agent publishing is disabled in Openbuff local mode.',
+  }
 }
 
 export interface UsePublishMutationDeps {

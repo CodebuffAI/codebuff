@@ -305,6 +305,34 @@ export async function getModelForRequest(
   )
 }
 
+/**
+ * Resolve model capacity without constructing a provider client or touching
+ * credentials. The runtime uses this before the first LLM request so pruning
+ * and context-window telemetry share the same BYOK capability source as the
+ * request path.
+ */
+export function resolveModelContextWindow(params: {
+  agentId?: string
+  model?: string
+}): number | undefined {
+  const loadedConfig = loadProviderConfigSync()
+  const effectiveModel = resolveConfiguredAgentModelConfig({
+    agentId: params.agentId,
+    model: params.model,
+    loadedConfig,
+  }).model
+  const configured = resolveConfiguredProviderModel({
+    model: effectiveModel,
+    loadedConfig,
+  })
+  if (!configured) return undefined
+  return resolveModelCapabilities({
+    providerId: configured.providerId,
+    model: effectiveModel,
+    loadedConfig,
+  })?.context?.windowTokens
+}
+
 type VisionSupport = 'yes' | 'no' | 'unknown'
 
 function isLikelyVisionModelName(modelNames: string): boolean {
@@ -503,10 +531,14 @@ function createConfiguredOpenAICompatibleModel(
           linux: 'Linux',
           win32: 'Windows',
         }
-        const rawPlatform = typeof process !== 'undefined' ? process.platform : 'linux'
-        const os = osMap[rawPlatform] || (rawPlatform.charAt(0).toUpperCase() + rawPlatform.slice(1))
+        const rawPlatform =
+          typeof process !== 'undefined' ? process.platform : 'linux'
+        const os =
+          osMap[rawPlatform] ||
+          rawPlatform.charAt(0).toUpperCase() + rawPlatform.slice(1)
         const arch = typeof process !== 'undefined' ? process.arch : 'x64'
-        const runtimeVersion = typeof process !== 'undefined' ? process.version : 'v24.3.0'
+        const runtimeVersion =
+          typeof process !== 'undefined' ? process.version : 'v24.3.0'
 
         return {
           ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
@@ -597,9 +629,7 @@ function shouldDowngradeRequiredToolChoiceForProviderModel(
   // reject when tool_choice is forced to "required". The proposal prompt still
   // strongly asks for propose_* tool calls; omitting the forced choice lets
   // these models complete normally.
-  return /(^|[-_/])(deepseek|glm)([-_/]|$)/i.test(
-    resolvedModel.providerModel,
-  )
+  return /(^|[-_/])(deepseek|glm)([-_/]|$)/i.test(resolvedModel.providerModel)
 }
 
 function shouldStripStopSequencesForProviderModel(

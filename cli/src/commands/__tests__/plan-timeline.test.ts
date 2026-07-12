@@ -67,7 +67,13 @@ describe('plan-timeline command', () => {
       const resolved = resolvePlanTimelinePath('demo-session')
       expect(resolved).not.toBeNull()
       expect(resolved).toBe(
-        path.join(tempDir, '.agents', 'sessions', 'demo-session', 'EVENTS.jsonl'),
+        path.join(
+          tempDir,
+          '.agents',
+          'sessions',
+          'demo-session',
+          'EVENTS.jsonl',
+        ),
       )
 
       const events = readPlanTimeline('demo-session')
@@ -92,8 +98,13 @@ describe('plan-timeline command', () => {
         summary: 'Completed P0.13b',
       })
 
-      const parsed = parsePlanTimelineArgs('kind-filter-session --kind task_update')
-      expect(parsed).toEqual({ slug: 'kind-filter-session', kind: 'task_update' })
+      const parsed = parsePlanTimelineArgs(
+        'kind-filter-session --kind task_update',
+      )
+      expect(parsed).toEqual({
+        slug: 'kind-filter-session',
+        kind: 'task_update',
+      })
 
       const all = readPlanTimeline('kind-filter-session')
       expect(all).toHaveLength(3)
@@ -118,7 +129,13 @@ describe('plan-timeline command', () => {
 
       const resolved = resolvePlanTimelinePath('prefix-session')
       expect(resolved).toBe(
-        path.join(tempDir, '.agents', 'sessions', 'prefix-session', 'EVENTS.jsonl'),
+        path.join(
+          tempDir,
+          '.agents',
+          'sessions',
+          'prefix-session',
+          'EVENTS.jsonl',
+        ),
       )
 
       const events = readPlanTimeline('prefix-session')

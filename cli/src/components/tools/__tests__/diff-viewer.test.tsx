@@ -3,7 +3,14 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { initializeThemeStore } from '../../../hooks/use-theme'
-import { DiffViewer, formatLineNumber, parseDiffIntoHunks } from '../diff-viewer'
+import {
+  DiffViewer,
+  DIFF_INITIAL_MAX_HUNKS,
+  DIFF_INITIAL_MAX_LINES,
+  formatLineNumber,
+  getInitiallyCollapsedDiffHunks,
+  parseDiffIntoHunks,
+} from '../diff-viewer'
 
 initializeThemeStore()
 
@@ -11,6 +18,22 @@ const render = (props: React.ComponentProps<typeof DiffViewer>): string =>
   renderToStaticMarkup(<DiffViewer {...props} />)
 
 describe('DiffViewer', () => {
+  test('[PERF-M02] initial render plan caps hunks and lines', () => {
+    const diff = Array.from({ length: DIFF_INITIAL_MAX_HUNKS + 2 }, (_, index) =>
+      `@@ -${index + 1},10 +${index + 1},10 @@\n${Array.from({ length: 10 }, () => ' context').join('\n')}`,
+    ).join('\n')
+    const parsed = parseDiffIntoHunks(diff)
+    const collapsed = getInitiallyCollapsedDiffHunks(parsed)
+    const visible = parsed.hunks.filter((hunk) => !collapsed.includes(hunk.index))
+    expect(visible.length).toBeLessThanOrEqual(DIFF_INITIAL_MAX_HUNKS)
+    expect(visible.reduce((sum, hunk) => sum + hunk.bodyLines.length, 0)).toBeLessThanOrEqual(DIFF_INITIAL_MAX_LINES)
+  })
+
+  test('[PERF-M02] hides line-number gutters at narrow widths', () => {
+    const markup = render({ diffText: '@@ -1 +1 @@\n-old\n+new', availableWidth: 20 })
+    expect(markup).not.toContain('│')
+  })
+
   describe('parseDiffIntoHunks', () => {
     test('parses a standard hunk header and tracks old/new line numbers', () => {
       const { fileHeaders, hunks } = parseDiffIntoHunks(
@@ -62,7 +85,9 @@ describe('DiffViewer', () => {
     })
 
     test('skips no-newline markers as body rows', () => {
-      const { hunks } = parseDiffIntoHunks('@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n')
+      const { hunks } = parseDiffIntoHunks(
+        '@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n',
+      )
       expect(hunks[0].bodyLines).toHaveLength(2)
       expect(hunks[0].bodyLines[0].type).toBe('del')
       expect(hunks[0].bodyLines[1].type).toBe('add')

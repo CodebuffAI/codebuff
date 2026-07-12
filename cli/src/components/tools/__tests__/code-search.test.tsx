@@ -41,5 +41,31 @@ Line 196: getAgentBaseName(options.agentType ?? '') === 'code-searcher'`),
     const markup = renderToStaticMarkup(<>{result.content}</>)
 
     expect(markup).toContain('getAgentBaseName in cli/src/utils (2 results)')
+    expect(markup).toContain('Status:')
+    expect(markup).toContain('Line 13')
+  })
+
+  test('renders the actionable structured error text', () => {
+    const block = createToolBlock()
+    block.lifecycle = 'failed'
+    block.outputRaw = [
+      {
+        type: 'json',
+        value: {
+          errorMessage:
+            "Invalid cwd: Path '../outside' is outside the project directory.",
+        },
+      },
+    ]
+
+    const result = CodeSearchComponent.render(block, {} as ChatTheme, {
+      availableWidth: 80,
+      indentationOffset: 0,
+      labelWidth: 10,
+    })
+    const markup = renderToStaticMarkup(<>{result.content}</>)
+
+    expect(markup).toContain('failed')
+    expect(markup).toContain('outside the project directory')
   })
 })

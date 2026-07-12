@@ -174,12 +174,15 @@ function makeLargeContent(prefix: string, size: number): string {
 
 function buildMessageHistory(targetApproxTokens: number): Message[] {
   const messages: Message[] = []
-  const roundsNeeded = Math.max(1, Math.ceil(targetApproxTokens / TOKENS_PER_ROUND))
+  const roundsNeeded = Math.max(
+    1,
+    Math.ceil(targetApproxTokens / TOKENS_PER_ROUND),
+  )
   const now = Date.now()
 
   console.log(
     `  Building ${roundsNeeded} rounds for ~${targetApproxTokens} tokens ` +
-    `(est ${TOKENS_PER_ROUND} tokens/round)`,
+      `(est ${TOKENS_PER_ROUND} tokens/round)`,
   )
 
   for (let i = 0; i < roundsNeeded; i++) {
@@ -207,7 +210,9 @@ function buildMessageHistory(targetApproxTokens: number): Message[] {
     if (i % 2 === 0) {
       const callId = `call-${i}`
       messages.push(
-        createToolCallMessage(callId, 'read_files', { paths: [`file-${i}.ts`] }),
+        createToolCallMessage(callId, 'read_files', {
+          paths: [`file-${i}.ts`],
+        }),
       )
       messages.push(
         createToolResultMessage(callId, 'read_files', {
@@ -265,8 +270,7 @@ function detectPruning(
       ? 1 - finalMessages.length / originalMessageCount
       : 0
 
-  const wasPruned =
-    hasSummary || hasTrimFallback || messageReduction > 0.5
+  const wasPruned = hasSummary || hasTrimFallback || messageReduction > 0.5
 
   return { wasPruned, hasSummary, hasTrimFallback, messageReduction }
 }
@@ -300,6 +304,21 @@ function verifyToolCallPairIntegrity(messages: Message[]) {
   for (const callId of toolCallIds) {
     expect(toolResultIds.has(callId)).toBe(true)
   }
+}
+
+function collectText(messages: Message[]): string {
+  return messages
+    .flatMap((message) =>
+      Array.isArray(message.content)
+        ? message.content
+            .filter(
+              (part): part is { type: 'text'; text: string } =>
+                part.type === 'text' && typeof part.text === 'string',
+            )
+            .map((part) => part.text)
+        : [],
+    )
+    .join('\n')
 }
 
 const runContextPruning = process.env.RUN_CONTEXT_PRUNING_E2E === 'true'
@@ -341,7 +360,10 @@ describe('Context Pruning Threshold E2E', () => {
 
       // Should complete without error
       if (run.output.type === 'error') {
-        console.error('Below-limit test error:', JSON.stringify(run.output, null, 2))
+        console.error(
+          'Below-limit test error:',
+          JSON.stringify(run.output, null, 2),
+        )
       }
       expect(run.output.type).not.toEqual('error')
 
@@ -382,6 +404,40 @@ describe('Context Pruning Threshold E2E', () => {
       // Build message history targeting ~80k tokens of message content
       // With maxContextLength=50k, this should exceed the pruning threshold
       const messages = buildMessageHistory(80_000)
+      const requiredPath = 'packages/agent-runtime/src/run-agent-step.ts'
+      const requiredConstraint =
+        'CONSTRAINT_CONTEXT_RECALL: preserve semantic compaction before mechanical trimming.'
+      messages.unshift(
+        createMessage(
+          'user',
+          `Implement the context lifecycle fix. ${requiredConstraint}`,
+        ),
+        createToolCallMessage('discovery-file-picker', 'spawn_agents', {
+          agents: [
+            {
+              agent_type: 'file-picker',
+              prompt: 'Find the runtime context lifecycle entry point.',
+            },
+          ],
+        }),
+        createToolResultMessage('discovery-file-picker', 'spawn_agents', [
+          {
+            agentType: 'file-picker',
+            value: {
+              type: 'structuredOutput',
+              value: {
+                files: [
+                  {
+                    path: requiredPath,
+                    summary:
+                      'Owns step ordering and context compaction event emission.',
+                  },
+                ],
+              },
+            },
+          },
+        ]),
+      )
 
       const client = new OpenbuffClient({
         agentDefinitions: [
@@ -411,7 +467,10 @@ describe('Context Pruning Threshold E2E', () => {
 
       // Should complete without error
       if (run.output.type === 'error') {
-        console.error('Above-limit test error:', JSON.stringify(run.output, null, 2))
+        console.error(
+          'Above-limit test error:',
+          JSON.stringify(run.output, null, 2),
+        )
       }
       expect(run.output.type).not.toEqual('error')
 
@@ -440,6 +499,14 @@ describe('Context Pruning Threshold E2E', () => {
 
       // Verify tool-call/tool-result pair integrity after pruning
       verifyToolCallPairIntegrity(finalMessages)
+
+      // Factual recall is the invariant, not merely observing that pruning ran.
+      // Exact discovery output, the controlling user constraint, and discovery
+      // provenance must all survive in the compacted/resumed conversation.
+      const retainedText = collectText(finalMessages)
+      expect(retainedText).toContain(requiredPath)
+      expect(retainedText).toContain(requiredConstraint)
+      expect(retainedText).toContain('(discovered by file-picker)')
 
       // After pruning, the token count should be below the limit
       expect(tokenCount).toBeLessThan(50_000)
@@ -498,7 +565,10 @@ describe('Context Pruning Threshold E2E', () => {
         params: { maxContextLength: 200_000 },
         handleEvent: (event) => {
           if (event.type === 'text') {
-            console.log('  [accuracy-cal] Agent text:', event.text.slice(0, 100))
+            console.log(
+              '  [accuracy-cal] Agent text:',
+              event.text.slice(0, 100),
+            )
           }
         },
       })
@@ -548,13 +618,19 @@ describe('Context Pruning Threshold E2E', () => {
         params: { maxContextLength: MAX_CONTEXT_LENGTH },
         handleEvent: (event) => {
           if (event.type === 'text') {
-            console.log('  [accuracy-100k] Agent text:', event.text.slice(0, 100))
+            console.log(
+              '  [accuracy-100k] Agent text:',
+              event.text.slice(0, 100),
+            )
           }
         },
       })
 
       if (run.output.type === 'error') {
-        console.error('Accuracy test error:', JSON.stringify(run.output, null, 2))
+        console.error(
+          'Accuracy test error:',
+          JSON.stringify(run.output, null, 2),
+        )
       }
       expect(run.output.type).not.toEqual('error')
 
@@ -583,7 +659,9 @@ describe('Context Pruning Threshold E2E', () => {
         MAX_CONTEXT_LENGTH,
         ')',
       )
-      console.log('  [accuracy] ================================================')
+      console.log(
+        '  [accuracy] ================================================',
+      )
 
       // =========================================================================
       // DIAGNOSIS: Compare true tokens vs limit

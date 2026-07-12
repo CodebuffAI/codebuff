@@ -17,7 +17,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 const AGENTS_DIR = path.join(import.meta.dir, '../../agents')
-const OUTPUT_FILE = path.join(import.meta.dir, '../src/agents/bundled-agents.generated.ts')
+const OUTPUT_FILE = path.join(
+  import.meta.dir,
+  '../src/agents/bundled-agents.generated.ts',
+)
 
 interface AgentDefinition {
   id: string
@@ -66,7 +69,9 @@ function getAllTsFiles(dir: string): string[] {
 /**
  * Load and process an agent definition from a TypeScript file
  */
-async function loadAgentDefinition(filePath: string): Promise<AgentDefinition | null> {
+async function loadAgentDefinition(
+  filePath: string,
+): Promise<AgentDefinition | null> {
   try {
     // Use dynamic import to load the module
     const module = await import(filePath)
@@ -78,7 +83,7 @@ async function loadAgentDefinition(filePath: string): Promise<AgentDefinition | 
 
     // Process the definition - convert handleSteps function to string
     const processed: AgentDefinition = { ...definition }
-    
+
     if (typeof processed.handleSteps === 'function') {
       processed.handleSteps = processed.handleSteps.toString()
     }
@@ -93,9 +98,11 @@ async function loadAgentDefinition(filePath: string): Promise<AgentDefinition | 
 /**
  * Generate the bundled agents TypeScript file
  */
-function generateBundledAgentsFile(agents: Record<string, AgentDefinition>): string {
+function generateBundledAgentsFile(
+  agents: Record<string, AgentDefinition>,
+): string {
   const agentCount = Object.keys(agents).length
-  
+
   return `/**
  * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
  * 
@@ -147,7 +154,7 @@ async function main() {
   if (DEBUG) {
     console.log('🔍 DEBUG: Scanning agents/ directory...')
   }
-  
+
   if (!fs.existsSync(AGENTS_DIR)) {
     console.error(`Error: agents/ directory not found at ${AGENTS_DIR}`)
     // process.exit(1)
@@ -166,7 +173,7 @@ async function main() {
   for (const filePath of tsFiles) {
     const relativePath = path.relative(AGENTS_DIR, filePath)
     const definition = await loadAgentDefinition(filePath)
-    
+
     if (definition) {
       agents[definition.id] = definition
       loadedCount++
@@ -176,18 +183,22 @@ async function main() {
     } else {
       skippedCount++
       if (DEBUG) {
-        console.log(`  ⏭️ DEBUG: Skipped: ${relativePath} (no valid default export)`)
+        console.log(
+          `  ⏭️ DEBUG: Skipped: ${relativePath} (no valid default export)`,
+        )
       }
     }
   }
 
   if (DEBUG) {
-    console.log(`\n📦 DEBUG: Loaded ${loadedCount} agents, skipped ${skippedCount} files`)
+    console.log(
+      `\n📦 DEBUG: Loaded ${loadedCount} agents, skipped ${skippedCount} files`,
+    )
   }
 
   // Generate the output file
   const output = generateBundledAgentsFile(agents)
-  
+
   // Ensure output directory exists
   const outputDir = path.dirname(OUTPUT_FILE)
   if (!fs.existsSync(outputDir)) {

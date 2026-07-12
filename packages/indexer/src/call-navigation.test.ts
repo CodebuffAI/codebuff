@@ -20,7 +20,10 @@ function callGraphProject(): string {
   const root = mkdtempSync(join(tmpdir(), 'openbuff-callers-'))
   roots.push(root)
   mkdirSync(join(root, 'src'), { recursive: true })
-  writeFileSync(join(root, 'src', 'util.ts'), 'export function computeTax(p: number) { return p * 0.1 }\n')
+  writeFileSync(
+    join(root, 'src', 'util.ts'),
+    'export function computeTax(p: number) { return p * 0.1 }\n',
+  )
   writeFileSync(
     join(root, 'src', 'checkout.ts'),
     "import { computeTax } from './util'\nexport function checkout() { return computeTax(5) }\n",

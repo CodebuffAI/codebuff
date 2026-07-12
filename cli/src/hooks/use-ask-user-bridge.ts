@@ -22,14 +22,18 @@ const REDUNDANT_OPTION_PATTERNS = [
 /**
  * Gets the label from an option, handling both string and object formats.
  */
-function getOptionLabel(option: string | { label: string; description?: string }): string {
+function getOptionLabel(
+  option: string | { label: string; description?: string },
+): string {
   return typeof option === 'string' ? option : option.label
 }
 
 /**
  * Checks if an option label matches any of the redundant "custom/other" patterns.
  */
-function isRedundantOption(option: string | { label: string; description?: string }): boolean {
+function isRedundantOption(
+  option: string | { label: string; description?: string },
+): boolean {
   const label = getOptionLabel(option).trim()
   return REDUNDANT_OPTION_PATTERNS.some((pattern) => pattern.test(label))
 }
@@ -38,9 +42,13 @@ function isRedundantOption(option: string | { label: string; description?: strin
  * Filters out redundant "Custom"/"Other" options from questions.
  * The UI already provides a Custom text input, so these are unnecessary and confusing.
  */
-function filterRedundantOptions(questions: AskUserQuestion[]): AskUserQuestion[] {
+function filterRedundantOptions(
+  questions: AskUserQuestion[],
+): AskUserQuestion[] {
   return questions.map((question) => {
-    const filteredOptions = question.options.filter((option) => !isRedundantOption(option))
+    const filteredOptions = question.options.filter(
+      (option) => !isRedundantOption(option),
+    )
     return {
       ...question,
       // Preserve the original array type (string[] or object[])
@@ -61,7 +69,9 @@ export function useAskUserBridge() {
           toolCallId: request.toolCallId,
           questions: filteredQuestions,
           // Initialize based on question type: multi-select → [], single-select → -1
-          selectedAnswers: filteredQuestions.map((q) => (q.multiSelect ? [] : -1)),
+          selectedAnswers: filteredQuestions.map((q) =>
+            q.multiSelect ? [] : -1,
+          ),
           otherTexts: new Array(filteredQuestions.length).fill(''),
         })
       } else {
@@ -77,7 +87,7 @@ export function useAskUserBridge() {
       selectedOption?: string
       selectedOptions?: string[]
       otherText?: string
-    }>
+    }>,
   ) => {
     // Don't clear input value - preserve user's input from before the questionnaire
     AskUserBridge.submit({ answers })

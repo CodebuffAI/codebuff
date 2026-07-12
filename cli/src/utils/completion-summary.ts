@@ -6,18 +6,29 @@
 import {
   extractDiff,
   extractFilePath,
-  getFileStatsFromBlocks,
   isEditToolBlock,
 } from './implementor-helpers'
+import {
+  getCanonicalMutationResult,
+  getConfirmedMutationActions,
+} from './tool-result-normalizer'
 
 import type { ContentBlock } from '../types/chat'
 
 export type CompletionSummary = {
   filesEdited: number
   filesFailed: number
+  filesUnconfirmed: number
+  filesRolledBack: number
+  rollbackIncomplete: number
   reviewVerdict: string | null
   testPassed: number
   testFailed: number
+  hooksPassed: number
+  hooksFailed: number
+  hooksSkipped: number
+  auxiliaryCompleted: number
+  auxiliaryFailed: number
   errors: number
 }
 
@@ -40,29 +51,58 @@ export function computeCompletionSummary(
   const summary: CompletionSummary = {
     filesEdited: 0,
     filesFailed: 0,
+    filesUnconfirmed: 0,
+    filesRolledBack: 0,
+    rollbackIncomplete: 0,
     reviewVerdict: null,
     testPassed: 0,
     testFailed: 0,
+    hooksPassed: 0,
+    hooksFailed: 0,
+    hooksSkipped: 0,
+    auxiliaryCompleted: 0,
+    auxiliaryFailed: 0,
     errors: 0,
   }
 
-  const editedFiles = new Set<string>()
+  const fileOutcomes = new Map<
+    string,
+    'edited' | 'failed' | 'unconfirmed' | 'rolled_back' | 'rollback_incomplete'
+  >()
 
   function walk(children: ContentBlock[]) {
     for (const block of children) {
       if (block.type === 'tool') {
         if (isEditToolBlock(block)) {
-          const file = extractFilePath(block)
-          const diff = extractDiff(block)
-          const isFailed = !diff || diff.trim() === ''
-
-          if (file && !editedFiles.has(file)) {
-            editedFiles.add(file)
-            if (isFailed) {
-              summary.filesFailed++
-            } else {
-              summary.filesEdited++
+          const canonical = getCanonicalMutationResult(block.outputRaw)
+          if (canonical) {
+            const confirmed = new Set(
+              getConfirmedMutationActions(block).map((action) =>
+                String(action.destinationPath ?? action.path),
+              ),
+            )
+            for (const raw of canonical.actions as Array<
+              Record<string, unknown>
+            >) {
+              const path = String(raw.destinationPath ?? raw.path)
+              const outcome = String(raw.outcome)
+              fileOutcomes.set(
+                path,
+                confirmed.has(path)
+                  ? 'edited'
+                  : outcome === 'unconfirmed'
+                    ? 'unconfirmed'
+                    : outcome === 'rolled_back'
+                      ? 'rolled_back'
+                      : outcome === 'rollback_incomplete'
+                        ? 'rollback_incomplete'
+                        : 'failed',
+              )
             }
+          } else if (block.lifecycle !== 'cancelled') {
+            const file = extractFilePath(block)
+            const diff = extractDiff(block)
+            if (file) fileOutcomes.set(file, diff?.trim() ? 'edited' : 'failed')
           }
         }
 
@@ -94,6 +134,22 @@ export function computeCompletionSummary(
           }
         }
 
+        if (block.toolName === 'run_file_change_hooks') {
+          for (const result of getHookResults(block.outputRaw)) {
+            const status = String(result.validationStatus ?? '')
+            const failed =
+              typeof result.errorMessage === 'string' ||
+              (typeof result.exitCode === 'number' && result.exitCode !== 0)
+            if (failed) summary.hooksFailed++
+            else if (
+              status === 'hooks_skipped' ||
+              status === 'no_hooks_configured'
+            ) {
+              summary.hooksSkipped++
+            } else summary.hooksPassed++
+          }
+        }
+
         // Detect errors from tool output
         if (block.outputRaw && isErrorOutput(block)) {
           summary.errors++
@@ -101,6 +157,21 @@ export function computeCompletionSummary(
       }
 
       if (block.type === 'agent') {
+        const isAuxiliary = [
+          'security-reviewer',
+          'test-writer',
+          'doc-writer',
+          'git-committer',
+          'librarian',
+          'synthesizer',
+          'browser-use',
+          'tmux-cli',
+          'debugger',
+        ].some((type) => block.agentType?.includes(type))
+        if (isAuxiliary) {
+          if (block.status === 'failed') summary.auxiliaryFailed++
+          else if (block.status === 'complete') summary.auxiliaryCompleted++
+        }
         if (block.status === 'failed') {
           summary.errors++
         }
@@ -111,10 +182,7 @@ export function computeCompletionSummary(
         ) {
           const content = block.content || ''
           for (const pattern of REVIEW_VERDICT_PATTERNS) {
-            if (
-              content.includes(pattern) &&
-              summary.reviewVerdict === null
-            ) {
+            if (content.includes(pattern) && summary.reviewVerdict === null) {
               summary.reviewVerdict = pattern
               break
             }
@@ -129,20 +197,28 @@ export function computeCompletionSummary(
 
   walk(blocks)
 
-  // Also incorporate pre-computed file stats
-  const stats = getFileStatsFromBlocks(blocks)
-  if (stats.length > 0 && summary.filesEdited === 0 && summary.filesFailed === 0) {
-    for (const s of stats) {
-      summary.filesEdited++
-    }
+  for (const outcome of fileOutcomes.values()) {
+    if (outcome === 'edited') summary.filesEdited++
+    else if (outcome === 'unconfirmed') summary.filesUnconfirmed++
+    else if (outcome === 'rolled_back') summary.filesRolledBack++
+    else if (outcome === 'rollback_incomplete') summary.rollbackIncomplete++
+    else summary.filesFailed++
   }
 
   if (
     summary.filesEdited === 0 &&
     summary.filesFailed === 0 &&
+    summary.filesUnconfirmed === 0 &&
+    summary.filesRolledBack === 0 &&
+    summary.rollbackIncomplete === 0 &&
     summary.reviewVerdict === null &&
     summary.testPassed === 0 &&
     summary.testFailed === 0 &&
+    summary.hooksPassed === 0 &&
+    summary.hooksFailed === 0 &&
+    summary.hooksSkipped === 0 &&
+    summary.auxiliaryCompleted === 0 &&
+    summary.auxiliaryFailed === 0 &&
     summary.errors === 0
   ) {
     return null
@@ -151,7 +227,24 @@ export function computeCompletionSummary(
   return summary
 }
 
-function getToolOutputString(block: { output?: string; outputRaw?: unknown }): string {
+function getHookResults(outputRaw: unknown): Array<Record<string, unknown>> {
+  const first = Array.isArray(outputRaw) ? outputRaw[0] : outputRaw
+  const value =
+    first && typeof first === 'object' && 'value' in first
+      ? (first as { value: unknown }).value
+      : first
+  return Array.isArray(value)
+    ? value.filter(
+        (entry): entry is Record<string, unknown> =>
+          entry !== null && typeof entry === 'object' && !Array.isArray(entry),
+      )
+    : []
+}
+
+function getToolOutputString(block: {
+  output?: string
+  outputRaw?: unknown
+}): string {
   if (typeof block.output === 'string' && block.output.trim()) {
     return block.output
   }
@@ -174,7 +267,11 @@ function isErrorOutput(block: { outputRaw?: unknown }): boolean {
     const first = block.outputRaw[0]
     if (first && typeof first === 'object' && 'value' in first) {
       const v = first.value as Record<string, unknown>
-      return Boolean(v.error || v.errorMessage)
+      return Boolean(
+        v.error ||
+        v.errorMessage ||
+        (Array.isArray(v.errors) && v.errors.length > 0),
+      )
     }
   }
   return false
@@ -186,7 +283,19 @@ function isErrorOutput(block: { outputRaw?: unknown }): boolean {
 export function formatCompletionSummary(summary: CompletionSummary): string {
   const parts: string[] = []
 
-  if (summary.filesEdited > 0 || summary.filesFailed > 0) {
+  if (summary.auxiliaryCompleted > 0 || summary.auxiliaryFailed > 0) {
+    parts.push(
+      `${summary.auxiliaryFailed > 0 ? '⚠️' : '✅'} ${summary.auxiliaryCompleted} auxiliary agent${summary.auxiliaryCompleted === 1 ? '' : 's'} completed${summary.auxiliaryFailed > 0 ? `, ${summary.auxiliaryFailed} failed` : ''}`,
+    )
+  }
+
+  if (
+    summary.filesEdited > 0 ||
+    summary.filesFailed > 0 ||
+    summary.filesUnconfirmed > 0 ||
+    summary.filesRolledBack > 0 ||
+    summary.rollbackIncomplete > 0
+  ) {
     let editPart = ''
     if (summary.filesEdited > 0) {
       editPart += `${summary.filesEdited} file${summary.filesEdited !== 1 ? 's' : ''} edited`
@@ -195,11 +304,38 @@ export function formatCompletionSummary(summary: CompletionSummary): string {
       if (editPart) editPart += ', '
       editPart += `${summary.filesFailed} failed`
     }
-    if (summary.filesFailed > 0) {
+    if (summary.filesUnconfirmed > 0) {
+      if (editPart) editPart += ', '
+      editPart += `${summary.filesUnconfirmed} unconfirmed`
+    }
+    if (summary.filesRolledBack > 0) {
+      if (editPart) editPart += ', '
+      editPart += `${summary.filesRolledBack} rolled back`
+    }
+    if (summary.rollbackIncomplete > 0) {
+      if (editPart) editPart += ', '
+      editPart += `${summary.rollbackIncomplete} rollback incomplete`
+    }
+    if (
+      summary.filesFailed > 0 ||
+      summary.filesUnconfirmed > 0 ||
+      summary.rollbackIncomplete > 0
+    ) {
       parts.push(`⚠️ ${editPart}`)
     } else {
       parts.push(`✅ ${editPart}`)
     }
+  }
+
+  if (summary.hooksPassed || summary.hooksFailed || summary.hooksSkipped) {
+    const hookParts = [
+      summary.hooksPassed ? `${summary.hooksPassed} passed` : '',
+      summary.hooksFailed ? `${summary.hooksFailed} failed` : '',
+      summary.hooksSkipped ? `${summary.hooksSkipped} skipped` : '',
+    ].filter(Boolean)
+    parts.push(
+      `${summary.hooksFailed ? '❌' : '✅'} Hooks: ${hookParts.join(', ')}`,
+    )
   }
 
   if (summary.reviewVerdict) {

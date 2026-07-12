@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
 import { withTimeout } from '../utils/terminal-color-detection'
+import { cancelAllBashCommands } from '../utils/bash-command-controller'
 
 import type { InputValue } from '../types/store'
 
@@ -69,6 +70,9 @@ export const useExitHandler = ({
   }, [])
 
   const handleCtrlC = useCallback(() => {
+    if (!inputValue && cancelAllBashCommands() > 0) {
+      return true
+    }
     if (inputValue) {
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
       return true

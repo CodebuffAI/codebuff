@@ -23,14 +23,58 @@ function makeEditBlock(
 }
 
 describe('computeCompletionSummary', () => {
+  test('[MUT-H04] proposal previews are never counted as edited files', () => {
+    const summary = computeCompletionSummary([
+      makeEditBlock({
+        toolName: 'propose_str_replace',
+        input: { path: '/a.ts' },
+        outputRaw: [{ type: 'json', value: { unifiedDiff: '@@\n-old\n+new' } }],
+      }),
+    ])
+    expect(summary?.filesEdited ?? 0).toBe(0)
+  })
+
+  test('[MUT-M05] unconfirmed canonical mutations are called out in summaries', () => {
+    const summary = computeCompletionSummary([
+      makeEditBlock({
+        outputRaw: [
+          {
+            type: 'json',
+            value: {
+              kind: 'file_mutation_result',
+              version: 1,
+              operationId: 'op-1',
+              outcome: 'unconfirmed',
+              authorityTier: null,
+              actions: [
+                {
+                  actionId: 'a',
+                  index: 0,
+                  action: 'update',
+                  path: '/a.ts',
+                  outcome: 'unconfirmed',
+                  beforeHash: null,
+                  afterHash: null,
+                },
+              ],
+              errors: [],
+              freshCapabilities: [],
+            },
+          },
+        ],
+      }),
+    ])
+    expect(summary?.filesEdited ?? 0).toBe(0)
+    expect(summary?.filesFailed ?? 0).toBe(0)
+    expect(summary?.filesUnconfirmed ?? 0).toBe(1)
+  })
+
   test('returns null for empty blocks', () => {
     expect(computeCompletionSummary([])).toBeNull()
   })
 
   test('returns null when no recognizable activity is present', () => {
-    const blocks: ContentBlock[] = [
-      { type: 'text', content: 'just a message' },
-    ]
+    const blocks: ContentBlock[] = [{ type: 'text', content: 'just a message' }]
     expect(computeCompletionSummary(blocks)).toBeNull()
   })
 
@@ -61,7 +105,9 @@ describe('computeCompletionSummary', () => {
         toolName: 'str_replace',
         input: { path: '/a.ts' },
         output: 'Error: oldString not found',
-        outputRaw: [{ type: 'json', value: { errorMessage: 'oldString not found' } }],
+        outputRaw: [
+          { type: 'json', value: { errorMessage: 'oldString not found' } },
+        ],
       }),
     ]
     const summary = computeCompletionSummary(blocks)
@@ -76,9 +122,15 @@ describe('computeCompletionSummary', () => {
     }
     const blocks: ContentBlock[] = [
       makeEditBlock({
-        toolCallId: 'c1', input: { path: '/a.ts' }, outputRaw: [{ type: 'json', value: successValue }] }),
+        toolCallId: 'c1',
+        input: { path: '/a.ts' },
+        outputRaw: [{ type: 'json', value: successValue }],
+      }),
       makeEditBlock({
-        toolCallId: 'c2', input: { path: '/a.ts' }, outputRaw: [{ type: 'json', value: successValue }] }),
+        toolCallId: 'c2',
+        input: { path: '/a.ts' },
+        outputRaw: [{ type: 'json', value: successValue }],
+      }),
     ]
     const summary = computeCompletionSummary(blocks)
     expect(summary?.filesEdited).toBe(1)
@@ -89,7 +141,9 @@ describe('computeCompletionSummary', () => {
       makeEditBlock({
         toolName: 'set_output',
         input: {},
-        outputRaw: [{ type: 'json', value: { value: 'LOOKS_GOOD: nice work' } }],
+        outputRaw: [
+          { type: 'json', value: { value: 'LOOKS_GOOD: nice work' } },
+        ],
       }),
     ]
     const summary = computeCompletionSummary(blocks)
@@ -122,6 +176,27 @@ describe('computeCompletionSummary', () => {
     const summary = computeCompletionSummary(blocks)
     expect(summary?.testPassed).toBe(12)
     expect(summary?.testFailed).toBe(3)
+  })
+
+  test('counts file-change hook outcomes', () => {
+    const summary = computeCompletionSummary([
+      {
+        type: 'tool',
+        toolName: 'run_file_change_hooks',
+        toolCallId: 'hooks',
+        input: { files: ['a.ts'] },
+        outputRaw: [
+          {
+            type: 'json',
+            value: [
+              { hookName: 'typecheck', exitCode: 0 },
+              { hookName: 'lint', exitCode: 1, stderr: 'failed' },
+            ],
+          },
+        ],
+      },
+    ])
+    expect(summary).toMatchObject({ hooksPassed: 1, hooksFailed: 1 })
   })
 
   test('counts errors from tool blocks with error outputRaw', () => {
@@ -159,9 +234,17 @@ describe('formatCompletionSummary', () => {
     return {
       filesEdited: 0,
       filesFailed: 0,
+      filesUnconfirmed: 0,
+      filesRolledBack: 0,
+      rollbackIncomplete: 0,
       reviewVerdict: null,
       testPassed: 0,
       testFailed: 0,
+      hooksPassed: 0,
+      hooksFailed: 0,
+      hooksSkipped: 0,
+      auxiliaryCompleted: 0,
+      auxiliaryFailed: 0,
       errors: 0,
       ...overrides,
     }
@@ -204,9 +287,9 @@ describe('formatCompletionSummary', () => {
   })
 
   test('renders passing tests with green check', () => {
-    expect(
-      formatCompletionSummary(makeSummary({ testPassed: 5 })),
-    ).toBe('✅ Tests: 5 passed')
+    expect(formatCompletionSummary(makeSummary({ testPassed: 5 }))).toBe(
+      '✅ Tests: 5 passed',
+    )
   })
 
   test('renders failing tests with red cross', () => {

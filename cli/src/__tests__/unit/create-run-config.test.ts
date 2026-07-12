@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'bun:test'
 
-import { isSensitiveFile, isEnvTemplateFile } from '../../utils/create-run-config'
+import {
+  isSensitiveFile,
+  isEnvTemplateFile,
+} from '../../utils/create-run-config'
 
 describe('isSensitiveFile', () => {
   test.each([

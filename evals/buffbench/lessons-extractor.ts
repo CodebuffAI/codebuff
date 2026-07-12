@@ -79,11 +79,13 @@ const lessonsExtractorAgent: AgentDefinition = {
                 agentId: { type: 'string' },
               },
               required: ['agentId'],
-              description: 'The agent id to modify (must match an id in the provided agent definitions).',
+              description:
+                'The agent id to modify (must match an id in the provided agent definitions).',
             },
             guidance: {
               type: 'string',
-              description: 'For append_system_prompt_guidance: the guidance text to append.',
+              description:
+                'For append_system_prompt_guidance: the guidance text to append.',
             },
             toolName: {
               type: 'string',
@@ -95,15 +97,18 @@ const lessonsExtractorAgent: AgentDefinition = {
             },
             maxCostCents: {
               type: ['integer', 'null'],
-              description: 'For set_budget: per-run cost cap in US cents, or null to leave unchanged.',
+              description:
+                'For set_budget: per-run cost cap in US cents, or null to leave unchanged.',
             },
             maxTokensPerTurn: {
               type: ['integer', 'null'],
-              description: 'For set_budget: per-turn token cap, or null to leave unchanged.',
+              description:
+                'For set_budget: per-turn token cap, or null to leave unchanged.',
             },
             rationale: {
               type: 'string',
-              description: 'Why this proposal is being made (references the lesson it addresses).',
+              description:
+                'Why this proposal is being made (references the lesson it addresses).',
             },
           },
           required: ['kind', 'target', 'rationale'],

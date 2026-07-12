@@ -1,7 +1,14 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
 import { describe, test, expect, mock } from 'bun:test'
 
 import {
   formatRoutedKnowledgeSection,
+  getKnowledgeBudgetChars,
+  inferKnowledgeTaskType,
+  loadRoutedKnowledgeContents,
   loadRouterTable,
   parseRouterTable,
   resolveRoutedKnowledgeFiles,
@@ -104,6 +111,19 @@ describe('resolveRoutedKnowledgeFiles', () => {
     expect(result).toEqual(['AGENTS.md', 'docs/architecture.md'])
   })
 
+  test('prefers a task-specific route over the agent fallback', () => {
+    const result = resolveRoutedKnowledgeFiles({
+      routerTable: {
+        base2: ['AGENTS.md'],
+        'base2:audit': ['docs/architecture.md'],
+      },
+      agentId: 'base2',
+      taskType: 'audit',
+      knowledgeFiles,
+    })
+    expect(result).toEqual(['docs/architecture.md'])
+  })
+
   test('drops routed files that are not in knowledgeFiles', () => {
     const result = resolveRoutedKnowledgeFiles({
       routerTable: { base2: ['AGENTS.md', 'docs/not-here.md'] },
@@ -170,6 +190,53 @@ describe('formatRoutedKnowledgeSection', () => {
       knowledgeFiles: { 'AGENTS.md': '# A' },
     })
     expect(out).toBe('```AGENTS.md\n# A\n```')
+  })
+
+  test('enforces a bounded rendered knowledge budget', () => {
+    const out = formatRoutedKnowledgeSection({
+      files: ['AGENTS.md'],
+      knowledgeFiles: { 'AGENTS.md': 'x'.repeat(2_000) },
+      maxChars: 300,
+    })
+    expect(out.length).toBeLessThanOrEqual(300)
+    expect(out).toContain('Knowledge file truncated to routing budget')
+  })
+})
+
+describe('task-aware knowledge routing', () => {
+  test('classifies audit, debugging, and implementation prompts', () => {
+    expect(inferKnowledgeTaskType('Audit feature gaps across the repo')).toBe(
+      'audit',
+    )
+    expect(inferKnowledgeTaskType('Investigate the root cause')).toBe(
+      'debugging',
+    )
+    expect(inferKnowledgeTaskType('Implement the requested change')).toBe(
+      'implementation',
+    )
+  })
+
+  test('gives broad audits more knowledge budget than generic chat', () => {
+    expect(getKnowledgeBudgetChars('audit')).toBeGreaterThan(
+      getKnowledgeBudgetChars('general'),
+    )
+  })
+
+  test('never loads mandatory sensitive paths from ROUTER.md routes', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'router-policy-'))
+    try {
+      fs.writeFileSync(path.join(projectRoot, '.env'), 'SECRET=value')
+      expect(
+        loadRoutedKnowledgeContents({
+          projectRoot,
+          files: ['.env'],
+          knowledgeFiles: { '.env': 'SECRET=already-loaded' },
+          logger: createMockLogger(),
+        }),
+      ).toEqual({})
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true })
+    }
   })
 })
 

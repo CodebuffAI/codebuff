@@ -4,11 +4,13 @@ import { spawnSync, type SpawnSyncOptions } from 'child_process'
 import { createRequire } from 'module'
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'fs'
@@ -28,6 +30,10 @@ const OVERRIDE_PLATFORM = process.env.OVERRIDE_PLATFORM as
   | NodeJS.Platform
   | undefined
 const OVERRIDE_ARCH = process.env.OVERRIDE_ARCH ?? undefined
+const COMPILER_BIN = process.env.OPENBUFF_COMPILER_BIN ?? 'bun'
+const IS_LEGACY_MACOS_BUILD = process.env.OPENBUFF_LEGACY_MACOS_BUILD === 'true'
+const LEGACY_OPENTUI_LIB = process.env.OPENBUFF_LEGACY_OPENTUI_LIB
+const LEGACY_RIPGREP_BIN = process.env.OPENBUFF_LEGACY_RIPGREP_BIN
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -134,6 +140,10 @@ async function main() {
     cwd: cliRoot,
     env: process.env,
   })
+  runCommand('bun', ['run', 'scripts/generate-init-type-sources.ts'], {
+    cwd: cliRoot,
+    env: process.env,
+  })
 
   // Ensure SDK assets exist before compiling the CLI
   log('Building SDK dependencies...')
@@ -143,7 +153,12 @@ async function main() {
   })
 
   patchOpenTuiAssetPaths()
-  await ensureOpenTuiNativeBundle(targetInfo)
+  if (IS_LEGACY_MACOS_BUILD) {
+    assertLegacyMacOSBuildConfig(targetInfo)
+    patchOpenTuiNativeEntryForLegacy(targetInfo)
+  } else {
+    await ensureOpenTuiNativeBundle(targetInfo)
+  }
 
   const outputFilename =
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
@@ -158,9 +173,16 @@ async function main() {
     ['process.env.NODE_ENV', '"production"'],
     ['process.env.CODEBUFF_IS_BINARY', '"true"'],
     ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
+    ['process.env.DEV', '"false"'],
+    [
+      'process.env.CODEBUFF_CLI_LEGACY_MACOS',
+      IS_LEGACY_MACOS_BUILD ? '"true"' : '"false"',
+    ],
     [
       'process.env.CODEBUFF_CLI_TARGET',
-      `"${targetInfo.platform}-${targetInfo.arch}"`,
+      IS_LEGACY_MACOS_BUILD
+        ? '"darwin-x64-legacy"'
+        : `"${targetInfo.platform}-${targetInfo.arch}"`,
     ],
     ...nextPublicEnvVars,
   ]
@@ -169,21 +191,46 @@ async function main() {
     'build',
     'src/index.tsx',
     '--compile',
-    '--production', // Required so compiled binaries use the production JSX runtime (avoids jsxDEV crashes).
-    `--target=${targetInfo.bunTarget}`,
     `--outfile=${outputFile}`,
     '--sourcemap=none',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
-    '--env "NEXT_PUBLIC_*"', // Copies all current env vars in process.env to the compiled binary that match the pattern.
   ]
 
+  if (!IS_LEGACY_MACOS_BUILD) {
+    // Required so compiled binaries use the production JSX runtime (avoids
+    // jsxDEV crashes). Bun 1.0's compiler predates these flags, so the legacy
+    // lane uses explicit defines above instead.
+    buildArgs.splice(3, 0, '--production', `--target=${targetInfo.bunTarget}`)
+    buildArgs.push('--env "NEXT_PUBLIC_*"')
+  } else {
+    buildArgs.push('--conditions=production')
+  }
+
   log(
-    `bun ${buildArgs
+    `${COMPILER_BIN} ${buildArgs
       .map((arg) => (arg.includes(' ') ? `"${arg}"` : arg))
       .join(' ')}`,
   )
 
-  runCommand('bun', buildArgs, { cwd: cliRoot })
+  runCommand(COMPILER_BIN, buildArgs, { cwd: cliRoot })
+
+  // Bun 1.0 writes a compiled executable next to the entrypoint even when an
+  // absolute --outfile is provided. Normalize it into cli/bin for packaging.
+  if (IS_LEGACY_MACOS_BUILD && !existsSync(outputFile)) {
+    const legacyOutput = join(cliRoot, 'src', outputFilename)
+    if (!existsSync(legacyOutput)) {
+      throw new Error(
+        `Legacy compiler did not produce ${outputFile} or ${legacyOutput}`,
+      )
+    }
+    renameSync(legacyOutput, outputFile)
+  }
+
+  if (IS_LEGACY_MACOS_BUILD) {
+    copyFileSync(LEGACY_OPENTUI_LIB!, join(binDir, 'libopentui.dylib'))
+    copyFileSync(LEGACY_RIPGREP_BIN!, join(binDir, 'rg'))
+    chmodSync(join(binDir, 'rg'), 0o755)
+  }
 
   // Ship tree-sitter.wasm as a sibling file next to the binary. Bun
   // --compile asset embedding is unreliable on Windows (every JS-level
@@ -207,6 +254,42 @@ async function main() {
   )
 }
 
+function assertLegacyMacOSBuildConfig(targetInfo: TargetInfo) {
+  if (targetInfo.platform !== 'darwin' || targetInfo.arch !== 'x64') {
+    throw new Error('The legacy macOS build is supported only for darwin-x64')
+  }
+  if (!LEGACY_OPENTUI_LIB || !existsSync(LEGACY_OPENTUI_LIB)) {
+    throw new Error(
+      'OPENBUFF_LEGACY_OPENTUI_LIB must point to a macOS 11-compatible libopentui.dylib',
+    )
+  }
+  if (!LEGACY_RIPGREP_BIN || !existsSync(LEGACY_RIPGREP_BIN)) {
+    throw new Error(
+      'OPENBUFF_LEGACY_RIPGREP_BIN must point to a macOS 11-compatible rg binary',
+    )
+  }
+}
+
+function patchOpenTuiNativeEntryForLegacy(targetInfo: TargetInfo) {
+  const packageFolder = `core-${targetInfo.platform}-${targetInfo.arch}`
+  const entryPaths = [
+    join(repoRoot, 'node_modules', '@opentui', packageFolder, 'index.ts'),
+    join(cliRoot, 'node_modules', '@opentui', packageFolder, 'index.ts'),
+  ]
+  const entrySource = `import { dirname, join } from 'path'\n\nexport default join(dirname(process.execPath), 'libopentui.dylib')\n`
+
+  let patched = 0
+  for (const entryPath of entryPaths) {
+    if (!existsSync(entryPath)) continue
+    writeFileSync(entryPath, entrySource)
+    patched++
+  }
+  if (patched === 0) {
+    throw new Error(`Could not find @opentui/${packageFolder}/index.ts`)
+  }
+  logAlways(`Patched ${patched} OpenTUI native entries for legacy macOS`)
+}
+
 main().catch((error: unknown) => {
   if (error instanceof Error) {
     console.error(error.message)
@@ -226,7 +309,14 @@ function findWebTreeSitterWasm(): string {
   const candidates = [
     join(cliRoot, 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
     join(cliRoot, '..', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
-    join(cliRoot, '..', 'sdk', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
+    join(
+      cliRoot,
+      '..',
+      'sdk',
+      'node_modules',
+      'web-tree-sitter',
+      'tree-sitter.wasm',
+    ),
   ]
   const found = candidates.find((p) => existsSync(p))
   if (found) return found

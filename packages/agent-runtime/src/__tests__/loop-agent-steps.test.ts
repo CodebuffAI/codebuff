@@ -130,4 +130,100 @@ describe('loopAgentSteps', () => {
 
     expect(llmCallCount).toBe(1)
   })
+
+  it('reports the resolved BYOK model context window before the LLM request', async () => {
+    setup()
+    const events: unknown[] = []
+    const resolveModelContextWindow = mock(() => 32_000)
+
+    await loopAgentSteps({
+      ...baseParams,
+      resolveModelContextWindow,
+      onResponseChunk: (event) => events.push(event),
+    })
+
+    expect(resolveModelContextWindow).toHaveBeenCalledWith({
+      agentId: 'test-agent',
+      model: 'claude-3-5-sonnet-20241022',
+    })
+    expect(events).toContainEqual({
+      type: 'context_window',
+      used: expect.any(Number),
+      max: 32_000,
+    })
+  })
+
+  it('runs semantic programmatic compaction before the mechanical brake', async () => {
+    setup()
+    const events: any[] = []
+    agentState.messageHistory = [userMessage('old evidence '.repeat(4_000))]
+    agentTemplate.handleSteps = function* () {
+      yield {
+        toolName: 'set_messages',
+        input: {
+          messages: [
+            userMessage(
+              '<knowledge_memory>\nPinned structured knowledge memory.\nGoal: preserve discovery and resume\n</knowledge_memory>',
+            ),
+          ],
+        },
+        includeToolCall: false,
+      }
+      yield 'STEP'
+    } as () => StepGenerator
+
+    const result = await loopAgentSteps({
+      ...baseParams,
+      agentState,
+      maxContextLength: 2_000,
+      localAgentTemplates: { 'test-agent': agentTemplate },
+      onResponseChunk: (event) => events.push(event),
+    })
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'context_compaction',
+        action: 'semantic_compaction',
+        retainedKnowledgeMemory: true,
+      }),
+    )
+    expect(events).not.toContainEqual(
+      expect.objectContaining({
+        type: 'context_compaction',
+        action: 'mechanical_trim',
+      }),
+    )
+    expect(JSON.stringify(result.agentState.messageHistory)).toContain(
+      '<knowledge_memory>',
+    )
+  })
+
+  it('emits a recovery-rich event when emergency mechanical trim is required', async () => {
+    setup()
+    const events: any[] = []
+    agentState.messageHistory = [
+      userMessage('old constraints '.repeat(4_000)),
+      assistantMessage('old implementation evidence '.repeat(4_000)),
+      userMessage('latest request'),
+    ]
+
+    const result = await loopAgentSteps({
+      ...baseParams,
+      agentState,
+      maxContextLength: 2_000,
+      onResponseChunk: (event) => events.push(event),
+    })
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'context_compaction',
+        action: 'mechanical_trim',
+        retainedKnowledgeMemory: false,
+        recovery: expect.stringContaining('Re-gather exact constraints'),
+      }),
+    )
+    expect(JSON.stringify(result.agentState.messageHistory)).toContain(
+      '<mechanical_context_recovery>',
+    )
+  })
 })

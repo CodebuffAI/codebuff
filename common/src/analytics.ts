@@ -1,4 +1,5 @@
 import { env, DEBUG_ANALYTICS } from '@codebuff/common/env'
+import { processEnv } from '@codebuff/common/env-process'
 
 import { createPostHogClient, type AnalyticsClient } from './analytics-core'
 import { AnalyticsEvent } from './constants/analytics-events'
@@ -8,7 +9,20 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 let client: AnalyticsClient | undefined
 
+export const isTelemetryDisabled = (): boolean => {
+  const explicit = processEnv.OPENBUFF_TELEMETRY?.trim().toLowerCase()
+  const doNotTrack = processEnv.DO_NOT_TRACK?.trim().toLowerCase()
+  return (
+    explicit === '0' ||
+    explicit === 'false' ||
+    explicit === 'off' ||
+    doNotTrack === '1' ||
+    doNotTrack === 'true'
+  )
+}
+
 export async function flushAnalytics(logger?: Logger) {
+  if (isTelemetryDisabled()) return
   if (!client) {
     return
   }
@@ -56,6 +70,7 @@ export function trackEvent({
   properties?: Record<string, any>
   logger: Logger
 }) {
+  if (isTelemetryDisabled()) return
   // Don't track events in non-production environments
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     if (DEBUG_ANALYTICS) {

@@ -40,12 +40,16 @@ export interface AgentDefinition {
   model?: ModelName
 
   /**
-   * Per-agent wall-clock timeout for subagent runs, in milliseconds. When set on an agent
-   * template, this overrides the shared 20-minute default for spawns of this agent. Set to -1
-   * to disable the wall-clock timeout entirely (for genuinely long-running agents). Callers can
-   * still override per-spawn via the spawn_agents `timeout_seconds` input field.
+   * Optional wall-clock timeout in milliseconds for a single execution of this
+   * agent as a subagent. When set, executeSubagent uses this as the deadline
+   * (overridable per-spawn via spawn_agents' timeout_seconds). Undefined falls
+   * back to the shared DEFAULT_SUBAGENT_TIMEOUT_MS (20 minutes). Set to -1 to
+   * disable the timeout for genuinely long-running agents.
    */
   defaultTimeoutMs?: number
+
+  /** Maximum subagent nesting depth. Defaults to the runtime limit. */
+  maxSpawnDepth?: number
 
   /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
@@ -124,6 +128,21 @@ export interface AgentDefinition {
     }
   }
 
+  /**
+   * Optional per-run cost cap in US cents. When set, the agent runtime
+   * enforces this as a hard spend ceiling — the turn ends if cumulative
+   * creditsUsed exceeds it. Useful for BYOK configurations to guard
+   * against runaway spend. Undefined = no cap.
+   */
+  maxCostCents?: number
+
+  /**
+   * Optional per-step input token cap. When set, the agent runtime ends
+   * the turn if a single step's total input tokens exceed this threshold.
+   * Undefined = no cap.
+   */
+  maxTokensPerTurn?: number
+
   // ============================================================================
   // Tools and Subagents
   // ============================================================================
@@ -141,9 +160,27 @@ export interface AgentDefinition {
    */
   toolNames?: (ToolName | (string & {}))[]
 
-  /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
+  /** Tools callable only from `handleSteps`; these are hidden from the model. */
+  programmaticToolNames?: (ToolName | (string & {}))[]
+
+  /** Enforced shell capability for this agent. Defaults to workspace-write. */
+  terminalPermissionProfile?:
+    | 'read-only'
+    | 'librarian-read-only'
+    | 'git-commit'
+    | 'tmux-test'
+    | 'workspace-write'
+    | 'full-access'
+  /** Runtime-enforced project-relative glob allowlists for filesystem tools. */
+  filesystemScope?: {
+    read?: string[]
+    write?: string[]
+  }
+  programmaticConfig?: Record<string, unknown>
+
+  /** Other agents this agent can spawn, like 'openbuff/file-picker@0.0.1'.
    *
-   * Use the fully qualified agent id from the agent store, including publisher and version. The built-in Openbuff agents currently use the legacy 'codebuff' publisher namespace, for example: 'codebuff/file-picker@0.0.1'
+   * Use the fully qualified agent id from the agent store, including publisher and version, for example: 'openbuff/file-picker@0.0.1'
    * (publisher and version are required!)
    *
    * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.
@@ -193,6 +230,13 @@ export interface AgentDefinition {
    * Use this when the agent needs to know all the previous messages in the conversation.
    */
   includeMessageHistory?: boolean
+
+  /** Whether to append model reasoning chunks to this agent's message history.
+   *
+   * Defaults to false for better prompt-cache stability. Enable only when an
+   * agent explicitly needs its hidden reasoning replayed on later turns.
+   */
+  includeReasoningInMessageHistory?: boolean
 
   /** Whether to inherit the parent agent's system prompt instead of using this agent's own systemPrompt.
    *
@@ -310,6 +354,43 @@ export interface AgentState {
    * This is updated on every agent step via the /api/v1/token-count endpoint.
    */
   contextTokenCount: number
+
+  /**
+   * Deterministic record of every proposal tool call made during the CURRENT
+   * proposal attempt of this run, in execution order.
+   *
+   * This is the single source of truth for proposal bundles: it is recorded by
+   * the proposal tool handlers as they run, so it never depends on the model's
+   * message history surviving truncation, retries, or provider tool-call format.
+   * Empty unless this agent has made proposal tool calls.
+   */
+  proposalLedger?: ProposalLedgerArtifact[]
+}
+
+/** A single recorded proposal tool call and its computed result. */
+export type ProposalLedgerArtifact = {
+  /** Monotonic order within the run (across all attempts). */
+  seq: number
+  /** 0-based attempt index; bumped on each proposal retry boundary. */
+  attempt: number
+  toolName:
+    | 'propose_str_replace'
+    | 'propose_write_file'
+    | 'propose_edit_transaction'
+  /** The exact tool input, so it can always be converted to a real edit. */
+  input: Record<string, unknown>
+  /** Stable typed proposal id shared by every artifact in one transaction. */
+  proposalId: string
+  result: {
+    file: string
+    ok: boolean
+    unifiedDiff?: string
+    message?: string
+    errorMessage?: string
+    finalContent?: string
+    baseContentHash?: string | null
+    baseContent?: string | null
+  }
 }
 
 /**
@@ -320,6 +401,7 @@ export interface AgentStepContext {
   prompt?: string
   params?: Record<string, any>
   logger: Logger
+  config?: Record<string, unknown>
 }
 
 export type StepText = { type: 'STEP_TEXT'; text: string }
@@ -383,13 +465,16 @@ export type ModelName =
   // Recommended Models
 
   // OpenAI
+  | 'openai/gpt-5.5'
+  | 'openai/gpt-5.4'
+  | 'openai/gpt-5.4-mini'
+  | 'openai/gpt-5.4-nano'
   | 'openai/gpt-5.3'
   | 'openai/gpt-5.3-codex'
   | 'openai/gpt-5.2'
+  | 'openai/gpt-5.2-chat-latest'
   | 'openai/gpt-5.1'
   | 'openai/gpt-5.1-chat'
-  | 'openai/gpt-5-mini'
-  | 'openai/gpt-5-nano'
 
   // Anthropic
   | 'anthropic/claude-sonnet-4.6'
@@ -428,6 +513,10 @@ export type ModelName =
   | 'qwen/qwen3-30b-a3b:nitro'
 
   // DeepSeek
+  | 'deepseek/deepseek-v4-pro'
+  | 'deepseek-v4-pro'
+  | 'deepseek/deepseek-v4-flash'
+  | 'deepseek-v4-flash'
   | 'deepseek/deepseek-chat-v3-0324'
   | 'deepseek/deepseek-chat-v3-0324:nitro'
   | 'deepseek/deepseek-r1-0528'
@@ -438,6 +527,7 @@ export type ModelName =
   | 'moonshotai/kimi-k2:nitro'
   | 'moonshotai/kimi-k2.6'
   | 'z-ai/glm-5'
+  | 'z-ai/glm-5.1'
   | 'z-ai/glm-4.6'
   | 'z-ai/glm-4.6:nitro'
   | 'z-ai/glm-4.7'

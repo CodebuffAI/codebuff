@@ -1,9 +1,13 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, promises as fs, statSync } from 'node:fs'
 import path from 'node:path'
+
+import { resolveProjectPath } from '@codebuff/common/util/project-path-containment'
+import { isMandatorySensitiveReadPath } from '@codebuff/common/util/sensitive-paths'
 
 import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
 import { useChatStore } from '../state/chat-store'
-import type { PendingAttachment } from '../types/store'
+import type { FileAttachment } from '../types/chat'
+import type { PendingAttachment, PendingFileAttachment } from '../types/store'
 
 /**
  * Exit image input mode if currently active.
@@ -19,7 +23,7 @@ function exitImageModeIfActive(): void {
  * Process an image file and add it to the pending images state.
  * This handles compression/resizing and caches the result so we don't
  * need to reprocess at send time.
- * 
+ *
  * @param replacePlaceholder - If provided, replaces an existing placeholder entry instead of adding new
  */
 export async function addPendingImageFromFile(
@@ -28,14 +32,14 @@ export async function addPendingImageFromFile(
   replacePlaceholder?: string,
 ): Promise<void> {
   const filename = path.basename(imagePath)
-  
+
   if (replacePlaceholder) {
     // Replace existing placeholder with actual image info (still processing)
     useChatStore.setState((state) => ({
       pendingAttachments: state.pendingAttachments.map((att) =>
         att.kind === 'image' && att.path === replacePlaceholder
           ? { ...att, path: imagePath, filename }
-          : att
+          : att,
       ),
     }))
   } else {
@@ -96,7 +100,7 @@ export async function addPendingImageFromBase64(
   // For base64 images (like clipboard), we already have the data
   // Check size and add directly
   const size = Math.round((base64Data.length * 3) / 4) // Approximate decoded size
-  
+
   useChatStore.getState().addPendingImage({
     path: tempPath || `clipboard:${filename}`,
     filename,
@@ -136,7 +140,7 @@ export function addClipboardPlaceholder(): string {
  * Add a pending image with an error note (e.g., unsupported format, not found).
  * Used when we want to show the image in the banner with an error state.
  * Error images are automatically removed after a short delay.
- * 
+ *
  * Error images are automatically removed after AUTO_REMOVE_ERROR_DELAY_MS.
  */
 export function addPendingImageWithError(
@@ -150,19 +154,19 @@ export function addPendingImageWithError(
     status: 'error',
     note,
   })
-  
+
   // Clear any existing timer for this path (shouldn't happen, but be safe)
   const existingTimer = errorImageTimers.get(imagePath)
   if (existingTimer) {
     clearTimeout(existingTimer)
   }
-  
+
   // Auto-remove error images after a delay
   const timer = setTimeout(() => {
     errorImageTimers.delete(imagePath)
     useChatStore.getState().removePendingImage(imagePath)
   }, AUTO_REMOVE_ERROR_DELAY_MS)
-  
+
   errorImageTimers.set(imagePath, timer)
 }
 
@@ -188,14 +192,14 @@ export async function validateAndAddImage(
   cwd: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const resolvedPath = resolveFilePath(imagePath, cwd)
-  
+
   // Check if file exists
   if (!existsSync(resolvedPath)) {
     const error = 'file not found'
     addPendingImageWithError(resolvedPath, `❌ ${error}`)
     return { success: false, error }
   }
-  
+
   // Check if it's a supported format
   if (!isImageFile(resolvedPath)) {
     const ext = path.extname(imagePath).toLowerCase()
@@ -203,7 +207,7 @@ export async function validateAndAddImage(
     addPendingImageWithError(resolvedPath, `❌ ${error}`)
     return { success: false, error }
   }
-  
+
   // Process and add the image (addPendingImageFromFile handles exiting image mode on success)
   await addPendingImageFromFile(resolvedPath, cwd)
   return { success: true }
@@ -214,8 +218,57 @@ export async function validateAndAddImage(
 // ---------------------------------------------------------------------------
 
 const MAX_FILE_READ_SIZE = 1024 * 1024 // 1 MB – don't read files larger than this
-const MAX_CONTENT_CHARS = 100 * 1024   // 100 KB of text content
+const MAX_CONTENT_CHARS = 100 * 1024 // 100 KB of text content
 const MAX_DIR_ENTRIES = 100
+
+export type FileAttachmentCompleteness =
+  | 'full'
+  | 'truncated'
+  | 'metadata-only'
+  | 'shallow-directory'
+
+export type FileAttachmentProvenance = 'attachment' | '@file selection'
+
+type FileAttachmentContextMetadata = {
+  completeness?: FileAttachmentCompleteness
+  provenance?: FileAttachmentProvenance
+  bytesRead?: number
+  totalBytes?: number
+  entriesIncluded?: number
+  totalEntries?: number
+}
+
+export function getFileAttachmentContextMetadata(
+  attachment: PendingFileAttachment | FileAttachment,
+): Required<
+  Pick<FileAttachmentContextMetadata, 'completeness' | 'provenance'>
+> &
+  Omit<FileAttachmentContextMetadata, 'completeness' | 'provenance'> {
+  const metadata = attachment as typeof attachment &
+    FileAttachmentContextMetadata
+  const note = attachment.note?.toLowerCase() ?? ''
+  const inferredCompleteness: FileAttachmentCompleteness = note.includes(
+    'metadata only',
+  )
+    ? 'metadata-only'
+    : note.includes('truncated')
+      ? 'truncated'
+      : note.includes('shallow')
+        ? 'shallow-directory'
+        : attachment.isDirectory
+          ? 'shallow-directory'
+          : 'full'
+  return {
+    completeness: metadata.completeness ?? inferredCompleteness,
+    provenance:
+      metadata.provenance ??
+      (note.startsWith('@file') ? '@file selection' : 'attachment'),
+    bytesRead: metadata.bytesRead,
+    totalBytes: metadata.totalBytes,
+    entriesIncluded: metadata.entriesIncluded,
+    totalEntries: metadata.totalEntries,
+  }
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -240,29 +293,76 @@ function isBinaryBuffer(buffer: Buffer): boolean {
 export function addPendingFileFromPath(
   filePath: string,
   isDirectory: boolean,
+  options: {
+    displayPath?: string
+    provenance?: FileAttachmentProvenance
+  } = {},
 ): void {
-  const id = crypto.randomUUID()
-  const filename = path.basename(filePath) || filePath
+  const displayPath = options.displayPath ?? filePath
+  const provenance = options.provenance ?? 'attachment'
+  const alreadyPending = useChatStore
+    .getState()
+    .pendingAttachments.some(
+      (attachment) =>
+        attachment.kind === 'file' && attachment.path === displayPath,
+    )
+  if (alreadyPending) return
 
-  useChatStore.getState().addPendingFileAttachment({
+  if (
+    isMandatorySensitiveReadPath(displayPath) ||
+    isMandatorySensitiveReadPath(filePath)
+  ) {
+    const blockedAttachment: Omit<PendingFileAttachment, 'kind'> &
+      FileAttachmentContextMetadata = {
+      id: crypto.randomUUID(),
+      path: displayPath,
+      filename: path.basename(displayPath) || displayPath,
+      isDirectory,
+      content: '',
+      status: 'error',
+      note: 'Blocked by mandatory sensitive-file policy',
+      completeness: isDirectory ? 'shallow-directory' : 'metadata-only',
+      provenance,
+    }
+    useChatStore.getState().addPendingFileAttachment(blockedAttachment)
+    return
+  }
+
+  const id = crypto.randomUUID()
+  const filename = path.basename(displayPath) || displayPath
+  const initialAttachment: Omit<PendingFileAttachment, 'kind'> &
+    FileAttachmentContextMetadata = {
     id,
-    path: filePath,
+    path: displayPath,
     filename,
     isDirectory,
     content: '',
     status: 'processing',
-  })
+    completeness: isDirectory ? 'shallow-directory' : 'full',
+    provenance,
+  }
 
-  // Read content asynchronously (via setTimeout) so the UI shows immediately
-  setTimeout(() => {
+  useChatStore.getState().addPendingFileAttachment(initialAttachment)
+
+  // Use promise-based filesystem APIs so large directories and files do not
+  // block the OpenTUI renderer thread.
+  setTimeout(async () => {
     try {
       let content: string
       let note: string
+      let contextMetadata: FileAttachmentContextMetadata
 
       if (isDirectory) {
-        const entries = readdirSync(filePath, { withFileTypes: true })
+        const entries = await fs.readdir(filePath, { withFileTypes: true })
         const count = entries.length
-        note = `${count} item${count !== 1 ? 's' : ''}`
+        const included = Math.min(count, MAX_DIR_ENTRIES)
+        note = `shallow · ${included}/${count} item${count !== 1 ? 's' : ''}`
+        contextMetadata = {
+          completeness: 'shallow-directory',
+          provenance,
+          entriesIncluded: included,
+          totalEntries: count,
+        }
 
         if (count === 0) {
           content = '(empty directory)'
@@ -284,27 +384,57 @@ export function addPendingFileFromPath(
           }
         }
       } else {
-        const stats = statSync(filePath)
+        const stats = await fs.stat(filePath)
 
         if (stats.size === 0) {
           content = '(empty file)'
-          note = '0 B'
+          note = 'full · 0 B'
+          contextMetadata = {
+            completeness: 'full',
+            provenance,
+            bytesRead: 0,
+            totalBytes: 0,
+          }
         } else if (stats.size > MAX_FILE_READ_SIZE) {
           content = `(file too large to preview: ${formatFileSize(stats.size)})`
-          note = formatFileSize(stats.size)
+          note = `metadata only · ${formatFileSize(stats.size)}`
+          contextMetadata = {
+            completeness: 'metadata-only',
+            provenance,
+            bytesRead: 0,
+            totalBytes: stats.size,
+          }
         } else {
-          const buffer = readFileSync(filePath)
+          const buffer = await fs.readFile(filePath)
           if (isBinaryBuffer(buffer)) {
             content = '(binary file)'
-            note = `${formatFileSize(stats.size)} (binary)`
+            note = `metadata only · ${formatFileSize(stats.size)} · binary`
+            contextMetadata = {
+              completeness: 'metadata-only',
+              provenance,
+              bytesRead: 0,
+              totalBytes: stats.size,
+            }
           } else {
             const text = buffer.toString('utf-8')
             if (text.length > MAX_CONTENT_CHARS) {
               content = text.slice(0, MAX_CONTENT_CHARS) + '\n… (truncated)'
-              note = formatFileSize(stats.size)
+              note = `truncated · first ${formatFileSize(MAX_CONTENT_CHARS)} of ${formatFileSize(stats.size)}`
+              contextMetadata = {
+                completeness: 'truncated',
+                provenance,
+                bytesRead: Buffer.byteLength(text.slice(0, MAX_CONTENT_CHARS)),
+                totalBytes: stats.size,
+              }
             } else {
               content = text
-              note = formatFileSize(stats.size)
+              note = `full · ${formatFileSize(stats.size)}`
+              contextMetadata = {
+                completeness: 'full',
+                provenance,
+                bytesRead: stats.size,
+                totalBytes: stats.size,
+              }
             }
           }
         }
@@ -313,7 +443,15 @@ export function addPendingFileFromPath(
       useChatStore.setState((state) => ({
         pendingAttachments: state.pendingAttachments.map((att) => {
           if (att.kind !== 'file' || att.id !== id) return att
-          return { ...att, content, status: 'ready' as const, note }
+          const displayNote =
+            provenance === '@file selection' ? `@file · ${note}` : note
+          return {
+            ...att,
+            ...contextMetadata,
+            content,
+            status: 'ready' as const,
+            note: displayNote,
+          }
         }),
       }))
     } catch {
@@ -327,22 +465,59 @@ export function addPendingFileFromPath(
   }, 0)
 }
 
+/** Resolve a file-menu selection inside the project and attach its current
+ * contents with explicit provenance. This turns `@file` selection into a
+ * guaranteed context operation instead of relying on the model to notice text. */
+export function addPendingFileMention(
+  projectRelativePath: string,
+  isDirectory: boolean,
+  projectRoot: string,
+): void {
+  const resolved = resolveProjectPath(projectRoot, projectRelativePath)
+  if (!resolved) {
+    const id = crypto.randomUUID()
+    const failedAttachment: Omit<PendingFileAttachment, 'kind'> &
+      FileAttachmentContextMetadata = {
+      id,
+      path: projectRelativePath,
+      filename: path.basename(projectRelativePath) || projectRelativePath,
+      isDirectory,
+      content: '',
+      status: 'error',
+      note: 'Failed to resolve inside project',
+      completeness: isDirectory ? 'shallow-directory' : 'metadata-only',
+      provenance: '@file selection',
+    }
+    useChatStore.getState().addPendingFileAttachment(failedAttachment)
+    return
+  }
+
+  addPendingFileFromPath(resolved.realFullPath, isDirectory, {
+    displayPath: resolved.relativePath,
+    provenance: '@file selection',
+  })
+}
+
 /**
  * Check if any pending images are still processing.
  */
 export function hasProcessingImages(): boolean {
-  return useChatStore.getState().pendingAttachments.some(
-    (att) => att.kind === 'image' && att.status === 'processing',
-  )
+  return useChatStore
+    .getState()
+    .pendingAttachments.some(
+      (att) => att.kind === 'image' && att.status === 'processing',
+    )
 }
 
 /**
  * Check if any pending file attachments are still processing.
  */
 export function hasProcessingFiles(): boolean {
-  return useChatStore.getState().pendingAttachments.some(
-    (att) => att.kind === 'file' && att.status === 'processing',
-  )
+  return useChatStore
+    .getState()
+    .pendingAttachments.some(
+      (att) => att.kind === 'file' && att.status === 'processing',
+    )
 }
 
 /**
@@ -356,5 +531,3 @@ export function capturePendingAttachments(): PendingAttachment[] {
   }
   return pendingAttachments
 }
-
-

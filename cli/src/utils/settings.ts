@@ -92,7 +92,9 @@ const validateSettings = (parsed: unknown): Settings => {
 
   // Validate mode; migrate removed FREE/LITE/MAX values to DEFAULT.
   if (typeof obj.mode === 'string') {
-    const normalized = ['FREE', 'LITE', 'MAX'].includes(obj.mode) ? 'DEFAULT' : obj.mode
+    const normalized = ['FREE', 'LITE', 'MAX'].includes(obj.mode)
+      ? 'DEFAULT'
+      : obj.mode
     if (AGENT_MODES.includes(normalized as AgentMode)) {
       settings.mode = normalized as AgentMode
     }
@@ -160,5 +162,3 @@ export const loadModePreference = (): AgentMode => {
 export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
 }
-
-

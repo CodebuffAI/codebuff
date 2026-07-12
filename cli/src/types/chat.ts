@@ -50,6 +50,10 @@ export type ToolContentBlock = {
   // false by a `tool_start` event once the barrier resolves. Omitted/undefined
   // for read-only tools and older persisted blocks (treated as not-queued).
   queued?: boolean
+  /** Authoritative call lifecycle. */
+  lifecycle?: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+  /** The run was interrupted before this authoritative result arrived. */
+  interrupted?: boolean
 }
 export type AgentContentBlock = {
   type: 'agent'
@@ -67,6 +71,8 @@ export type AgentContentBlock = {
   spawnToolCallId?: string
   /** The index within the spawn_agents call, used to match the correct result */
   spawnIndex?: number
+  /** Detached background-agent job associated with this card. */
+  backgroundJobId?: string
 }
 export type AgentListContentBlock = {
   type: 'agent-list'

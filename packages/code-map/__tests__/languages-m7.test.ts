@@ -51,15 +51,25 @@ describe('M7.3 — PHP/Swift/Kotlin language config', () => {
     })
 
     test('the three new languages are present in the manifest', () => {
-      expect(languageTable.some((c) => c.wasmFile === 'tree-sitter-php.wasm')).toBe(true)
-      expect(languageTable.some((c) => c.wasmFile === 'tree-sitter-swift.wasm')).toBe(true)
-      expect(languageTable.some((c) => c.wasmFile === 'tree-sitter-kotlin.wasm')).toBe(true)
+      expect(
+        languageTable.some((c) => c.wasmFile === 'tree-sitter-php.wasm'),
+      ).toBe(true)
+      expect(
+        languageTable.some((c) => c.wasmFile === 'tree-sitter-swift.wasm'),
+      ).toBe(true)
+      expect(
+        languageTable.some((c) => c.wasmFile === 'tree-sitter-kotlin.wasm'),
+      ).toBe(true)
     })
 
     test('WASM_FILES manifest declares the new grammars (key === value)', () => {
       expect(WASM_FILES['tree-sitter-php.wasm']).toBe('tree-sitter-php.wasm')
-      expect(WASM_FILES['tree-sitter-swift.wasm']).toBe('tree-sitter-swift.wasm')
-      expect(WASM_FILES['tree-sitter-kotlin.wasm']).toBe('tree-sitter-kotlin.wasm')
+      expect(WASM_FILES['tree-sitter-swift.wasm']).toBe(
+        'tree-sitter-swift.wasm',
+      )
+      expect(WASM_FILES['tree-sitter-kotlin.wasm']).toBe(
+        'tree-sitter-kotlin.wasm',
+      )
     })
   })
 
@@ -74,7 +84,9 @@ describe('M7.3 — PHP/Swift/Kotlin language config', () => {
       'getLanguageConfig(.php) does not throw when the wasm is absent',
       async () => {
         const cfg = await getLanguageConfig('foo.php')
-        expect(cfg === undefined || cfg?.wasmFile === 'tree-sitter-php.wasm').toBe(true)
+        expect(
+          cfg === undefined || cfg?.wasmFile === 'tree-sitter-php.wasm',
+        ).toBe(true)
       },
       TEST_TIMEOUT,
     )
@@ -83,7 +95,9 @@ describe('M7.3 — PHP/Swift/Kotlin language config', () => {
       'getLanguageConfig(.swift) does not throw when the wasm is absent',
       async () => {
         const cfg = await getLanguageConfig('App.swift')
-        expect(cfg === undefined || cfg?.wasmFile === 'tree-sitter-swift.wasm').toBe(true)
+        expect(
+          cfg === undefined || cfg?.wasmFile === 'tree-sitter-swift.wasm',
+        ).toBe(true)
       },
       TEST_TIMEOUT,
     )
@@ -92,7 +106,9 @@ describe('M7.3 — PHP/Swift/Kotlin language config', () => {
       'getLanguageConfig(.kt) does not throw when the wasm is absent',
       async () => {
         const cfg = await getLanguageConfig('Main.kt')
-        expect(cfg === undefined || cfg?.wasmFile === 'tree-sitter-kotlin.wasm').toBe(true)
+        expect(
+          cfg === undefined || cfg?.wasmFile === 'tree-sitter-kotlin.wasm',
+        ).toBe(true)
       },
       TEST_TIMEOUT,
     )

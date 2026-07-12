@@ -387,9 +387,7 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
         idiomScoredResults.length
       : undefined
   const nonIdiomaticPatternsDetected = Array.from(
-    new Set(
-      validResults.flatMap((r) => r.nonIdiomaticPatternsDetected ?? []),
-    ),
+    new Set(validResults.flatMap((r) => r.nonIdiomaticPatternsDetected ?? [])),
   )
 
   console.log(

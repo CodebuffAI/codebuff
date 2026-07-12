@@ -3,10 +3,14 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
 import { processBashContext } from '../../utils/bash-context-processor'
-import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
+import {
+  markRunningAgentsAsCancelled,
+  markRunningToolsAsCancelled,
+} from '../../utils/block-operations'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
 import { logger } from '../../utils/logger'
+import { getFileAttachmentContextMetadata } from '../../utils/pending-attachments'
 import { appendInterruptionNotice } from '../../utils/message-block-helpers'
 import { getUserMessage } from '../../utils/message-history'
 import {
@@ -154,6 +158,25 @@ export type PrepareUserMessageDeps = {
   setHasReceivedPlanResponse: (value: boolean) => void
 }
 
+export const formatFileAttachmentForPrompt = (
+  att: PendingFileAttachment,
+): string => {
+  const context = getFileAttachmentContextMetadata(att)
+  const bounds = att.isDirectory
+    ? context.totalEntries === undefined
+      ? ''
+      : `; entries=${context.entriesIncluded}/${context.totalEntries}`
+    : context.totalBytes === undefined
+      ? ''
+      : `; bytes=${context.bytesRead}/${context.totalBytes}`
+  const warning =
+    context.completeness === 'full'
+      ? ''
+      : '\n[Warning: This attachment is incomplete. Use read_files/read_subtree to verify the live source before relying on omitted content.]'
+  const kind = att.isDirectory ? 'Directory' : 'File'
+  return `[${kind}: ${att.path}; source=${context.provenance}; completeness=${context.completeness}${bounds}]\n${att.content}${warning}`
+}
+
 export const prepareUserMessage = async (params: {
   content: string
   agentMode: AgentMode
@@ -213,11 +236,7 @@ export const prepareUserMessage = async (params: {
   if (pendingFileAttachments.length > 0) {
     const fileAttachmentContent = pendingFileAttachments
       .filter((att) => att.status === 'ready')
-      .map((att) =>
-        att.isDirectory
-          ? `[Directory: ${att.path}]\n${att.content}`
-          : `[File: ${att.path}]\n${att.content}`,
-      )
+      .map(formatFileAttachmentForPrompt)
       .join('\n\n')
     if (fileAttachmentContent) {
       finalContent = finalContent
@@ -332,32 +351,26 @@ export const setupStreamingContext = (params: {
   abortControllerRef.current = abortController
 
   abortController.signal.addEventListener('abort', () => {
-    // Abort means the user stopped streaming; update UI with an interruption notice.
-    // Release the chain lock immediately so new messages can be sent directly instead
-    // of being queued. The minor trade-off is that if the user sends a new message
-    // before client.run() resolves, it may use stale previousRunStateRef. This is
-    // acceptable because the user explicitly cancelled; the superseded run's late
-    // persistence is guarded by per-run ownership checks so it cannot clobber the
-    // newer run's state.
+    // Cancellation is a state, not completion. Keep the chain/queue lock until
+    // client.run() settles so its authoritative preserved RunState becomes the
+    // continuation base before another prompt is admitted.
     streamRefs.setters.setWasAbortedByUser(true)
     setIsRetrying(false)
     timerController.stop('aborted')
 
     // Update stream status so the UI reflects cancellation visually
-    setStreamStatus('idle')
+    setStreamStatus('cancelling')
 
     // Clear streaming agents so cancelled status displays correctly in UI
     setStreamingAgents(() => new Set())
 
-    // Release chain lock and queue state so new messages are sent directly
-    updateChainInProgress(false)
-    setCanProcessQueue(!isQueuePausedRef?.current)
-    if (isProcessingQueueRef) {
-      isProcessingQueueRef.current = false
-    }
+    updateChainInProgress(true)
+    setCanProcessQueue(false)
 
     updater.updateAiMessageBlocks((blocks) => {
-      const cancelledBlocks = markRunningAgentsAsCancelled(blocks)
+      const cancelledBlocks = markRunningToolsAsCancelled(
+        markRunningAgentsAsCancelled(blocks),
+      )
       return appendInterruptionNotice(cancelledBlocks)
     })
     updater.markComplete()
@@ -398,11 +411,15 @@ export const handleRunCompletion = (params: {
     isQueuePausedRef,
   } = params
 
-  // If user aborted, the abort handler already handled UI updates and released the
-  // chain lock. Don't finalize queue state again to avoid interfering with any new
-  // run that may have started after the abort. Uses per-run abort signal (not shared
-  // streamRefs) so a newer run's reset() can't clear this flag.
   if (wasAbortedByUser) {
+    finalizeQueueState({
+      setStreamStatus,
+      setCanProcessQueue,
+      updateChainInProgress,
+      isProcessingQueueRef,
+      isQueuePausedRef,
+      resumeQueue,
+    })
     return
   }
 
@@ -511,4 +528,3 @@ export const handleRunError = (params: {
   const errorMessage = errorInfo.message || 'An unexpected error occurred'
   updater.setError(errorMessage)
 }
-

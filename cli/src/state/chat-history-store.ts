@@ -19,12 +19,9 @@ const initialState: ChatHistoryStoreState = {
 export const useChatHistoryStore = create<ChatHistoryStore>()((set) => ({
   ...initialState,
 
-  openChatHistory: () =>
-    set({ showChatHistory: true }),
+  openChatHistory: () => set({ showChatHistory: true }),
 
-  closeChatHistory: () =>
-    set({ showChatHistory: false }),
+  closeChatHistory: () => set({ showChatHistory: false }),
 
-  reset: () =>
-    set(initialState),
+  reset: () => set(initialState),
 }))

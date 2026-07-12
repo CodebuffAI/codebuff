@@ -31,7 +31,7 @@ const reviewerExampleContent = readFileSync(
   'utf8',
 )
 const reviewerMultiPromptExampleContent = readFileSync(
-  join(__dirname, 'reviewer', 'multi-prompt','code-reviewer-multi-prompt.ts'),
+  join(__dirname, 'reviewer', 'multi-prompt', 'code-reviewer-multi-prompt.ts'),
   'utf8',
 )
 const examplesAgentsContent = [

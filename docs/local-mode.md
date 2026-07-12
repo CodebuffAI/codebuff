@@ -146,8 +146,8 @@ hardcoded per-agent model fallback. For each agent step:
 4. An explicit `model` passed by the caller is a last-resort fallback.
 5. The resulting requested model is matched against provider `models`.
 6. If nothing is configured, Openbuff fails with a hard error: `No model
-   configured for agent '<id>'. Run /setup or set defaultModel (or
-   agents['<id>']) in your openbuff.json.`
+configured for agent '<id>'. Run /setup or set defaultModel (or
+agents['<id>']) in your openbuff.json.`
 
 Failover to backup providers on auth/server errors is a separate layer on top
 of routing — see the [Failover routing](./configuration.md#failover-routing)
@@ -156,6 +156,12 @@ subsection for the `failoverModels` field, eligible HTTP status codes
 
 Agent keys may use the exact ID (`thinker`), a published ID
 (`publisher/agent@1.2.3`), or the unversioned/unpublished short ID.
+
+Model capability metadata may also contain empirical `quality.coding`
+measurements keyed by language, task type, and agent role. These measurements
+never silently override explicit routing. Use
+`/models recommend <language> [task-type] [agent-role]` for an opt-in,
+transparent recommendation; unmeasured models are excluded.
 
 Provider `models` can be either a list:
 

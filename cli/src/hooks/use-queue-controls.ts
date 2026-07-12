@@ -13,21 +13,23 @@ interface UseQueueControlsParams {
 
 type QueueCtrlCHandlerOptions = UseQueueControlsParams
 
-export const createQueueCtrlCHandler = ({
-  queuePaused,
-  queuedCount,
-  clearQueue,
-  resumeQueue,
-  inputHasText,
-  baseHandleCtrlC,
-}: QueueCtrlCHandlerOptions) => () => {
-  if (queuePaused && queuedCount > 0 && !inputHasText) {
-    clearQueue()
-    resumeQueue()
-    return true
+export const createQueueCtrlCHandler =
+  ({
+    queuePaused,
+    queuedCount,
+    clearQueue,
+    resumeQueue,
+    inputHasText,
+    baseHandleCtrlC,
+  }: QueueCtrlCHandlerOptions) =>
+  () => {
+    if (queuePaused && queuedCount > 0 && !inputHasText) {
+      clearQueue()
+      resumeQueue()
+      return true
+    }
+    return baseHandleCtrlC()
   }
-  return baseHandleCtrlC()
-}
 
 export const useQueueControls = ({
   queuePaused,

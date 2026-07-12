@@ -1,4 +1,5 @@
 import { handleStrReplace } from './str-replace'
+import { formatUnsafeToolPathError, normalizeToolPath } from './write-file'
 import {
   extractSlices,
   extendRangeToPrecedingComment,
@@ -30,7 +31,7 @@ export const handleRewriteSymbol = (async (params: {
 }): Promise<{ output: any }> => {
   const { previousToolCallFinished, toolCall, requestOptionalFile } = params
   const {
-    path,
+    path: inputPath,
     symbol,
     content: newContent,
     occurrence,
@@ -39,6 +40,14 @@ export const handleRewriteSymbol = (async (params: {
     symbol: string
     content: string
     occurrence?: number
+  }
+  const path = normalizeToolPath(inputPath)
+
+  if (!path) {
+    return errorResult(
+      inputPath,
+      formatUnsafeToolPathError('rewrite_symbol', inputPath),
+    )
   }
 
   await previousToolCallFinished
@@ -141,6 +150,7 @@ export const handleRewriteSymbol = (async (params: {
   return handleStrReplace({
     ...(params as any),
     previousToolCallFinished: Promise.resolve(),
+    structuralRecovery: true,
     toolCall: {
       ...toolCall,
       toolName: 'str_replace',

@@ -21,7 +21,7 @@ import {
   clearAgentGeneratorForRun,
   runProgrammaticStep,
 } from './run-programmatic-step'
-import { getProposalLedger } from './tools/handlers/tool/proposal-ledger-store'
+import { getProposalRecords } from './tools/handlers/tool/proposal-ledger-store'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { buildAgentToolSet } from './templates/prompts'
@@ -43,10 +43,12 @@ import {
   withSystemTags as withSystemTags,
   buildUserMessageContent,
   expireMessages,
+  getContextCategoryTelemetry,
 } from './util/messages'
 import { countTokensJson } from './util/token-counter'
 import {
   DEFAULT_MAX_CONTEXT_TOKENS,
+  getModelContextMessageLimit,
   maybePruneContext,
 } from './util/context-pruning'
 
@@ -278,8 +280,7 @@ export const runAgentStep = async (
   // consistent stopping point (resumable next turn via persisted run state)
   // instead of being cut off mid-edit when stepsRemaining hits 0.
   if (agentState.stepsRemaining === NEAR_STEP_CAP_WARNING_THRESHOLD) {
-    const hasWriteTodos =
-      agentTemplate.toolNames.includes('write_todos')
+    const hasWriteTodos = agentTemplate.toolNames.includes('write_todos')
     const warningMessage = hasWriteTodos
       ? NEAR_STEP_CAP_WARNING_MESSAGE
       : NEAR_STEP_CAP_WARNING_MESSAGE_NO_WRITE_TODOS
@@ -312,7 +313,11 @@ export const runAgentStep = async (
   const preStepBudgetCheck = checkBudgetExceeded(agentState, 0)
   if (preStepBudgetCheck.exceeded) {
     logger.warn(
-      { agentId: agentState.agentId, reason: preStepBudgetCheck.reason, creditsUsed: agentState.creditsUsed },
+      {
+        agentId: agentState.agentId,
+        reason: preStepBudgetCheck.reason,
+        creditsUsed: agentState.creditsUsed,
+      },
       'Agent step skipped LLM call due to budget cap already exceeded',
     )
     agentState = {
@@ -466,7 +471,15 @@ export const runAgentStep = async (
       params: spawnParams,
       agentContext,
       systemTokens,
-      agentTemplate,
+      agentTemplate: {
+        id: agentTemplate.id,
+        displayName: agentTemplate.displayName,
+        model: agentTemplate.model,
+        toolNames: agentTemplate.toolNames,
+        programmaticToolNames: agentTemplate.programmaticToolNames,
+        spawnableAgents: agentTemplate.spawnableAgents,
+        mcpServerNames: Object.keys(agentTemplate.mcpServers ?? {}),
+      },
       tools: params.tools,
     },
     `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
@@ -633,9 +646,7 @@ export const runAgentStep = async (
     const summaryText = preservedKnowledgeMemory
       ? `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}\n\n${preservedKnowledgeMemory}`
       : `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`
-    agentState.messageHistory = [
-      userMessage(withSystemTags(summaryText)),
-    ]
+    agentState.messageHistory = [userMessage(withSystemTags(summaryText))]
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
 
@@ -729,7 +740,12 @@ export const runAgentStep = async (
   const budgetCheck = checkBudgetExceeded(agentState, stepCacheTotalInputTokens)
   if (budgetCheck.exceeded) {
     logger.warn(
-      { agentId: agentState.agentId, reason: budgetCheck.reason, creditsUsed: agentState.creditsUsed, stepCacheTotalInputTokens },
+      {
+        agentId: agentState.agentId,
+        reason: budgetCheck.reason,
+        creditsUsed: agentState.creditsUsed,
+        stepCacheTotalInputTokens,
+      },
       'Agent step ended due to budget cap',
     )
     agentState = {
@@ -830,6 +846,10 @@ export async function loopAgentSteps(
     // contextTokenCount exceeds this threshold, the loop proactively trims
     // message history via trimMessagesToFitTokenLimit. Defaults to 190k.
     maxContextLength?: number
+    resolveModelContextWindow?: (params: {
+      agentId?: string
+      model?: string
+    }) => number | undefined
   } & ParamsExcluding<typeof additionalToolDefinitions, 'agentTemplate'> &
     ParamsExcluding<
       typeof runProgrammaticStep,
@@ -911,6 +931,7 @@ export async function loopAgentSteps(
     onResponseChunk,
     resumeInterruptedTurn,
     maxContextLength,
+    resolveModelContextWindow,
   } = params
 
   let agentTemplate = params.agentTemplate
@@ -921,9 +942,21 @@ export async function loopAgentSteps(
         agentId: agentType,
       })) ?? undefined
   }
+
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
+  const resolvedModelContextWindow = resolveModelContextWindow?.({
+    agentId: agentTemplate.id,
+    model: agentTemplate.model,
+  })
+  const effectiveMaxContextLength =
+    maxContextLength ??
+    (resolvedModelContextWindow === undefined
+      ? undefined
+      : getModelContextMessageLimit(resolvedModelContextWindow))
+  const contextWindowForStatus =
+    maxContextLength ?? resolvedModelContextWindow ?? DEFAULT_MAX_CONTEXT_TOKENS
 
   if (signal.aborted) {
     return {
@@ -951,54 +984,19 @@ export async function loopAgentSteps(
   // reached. The inner try/catch (further down) keeps owning error handling and
   // the abort/failure return values; this wrapper only adds the cleanup.
   try {
-  let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
-  // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
-  const useParentTools =
-    agentTemplate.inheritParentSystemPrompt &&
-    canReuseParentTools({ agentTemplate, parentTools })
+    let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
+    // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
+    const useParentTools =
+      agentTemplate.inheritParentSystemPrompt &&
+      canReuseParentTools({ agentTemplate, parentTools })
 
-  // Initialize message history with user prompt and instructions on first iteration
-  const instructionsPrompt = await getAgentPrompt({
-    ...params,
-    agentTemplate,
-    promptType: { type: 'instructionsPrompt' },
-    agentTemplates: localAgentTemplates,
-    useParentTools,
-    additionalToolDefinitions: async () => {
-      if (!cachedAdditionalToolDefinitions) {
-        cachedAdditionalToolDefinitions = await additionalToolDefinitions({
-          ...params,
-          agentTemplate,
-        })
-      }
-      return cachedAdditionalToolDefinitions
-    },
-  })
-
-  // Build the initial message history with user prompt and instructions
-  // Generate system prompt once, using parent's if inheritParentSystemPrompt is true
-  let system: string
-  if (agentTemplate.inheritParentSystemPrompt && parentSystemPrompt) {
-    system = parentSystemPrompt
-  } else if (
-    // Reuse the session-cached system prompt to keep the system prefix
-    // byte-stable across turns (enables provider prompt-cache hits). All
-    // placeholders (CURRENT_DATE, FILE_TREE_PROMPT, SYSTEM_INFO_PROMPT,
-    // GIT_CHANGES_PROMPT, KNOWLEDGE_FILES_CONTENTS, ROUTED_KNOWLEDGE_FILES,
-    // PATTERNS_INDEX) are session-stable or day-granularity, so rebuilding
-    // every turn only risks byte drift from disk re-reads / object key
-    // ordering without picking up meaningful changes. The cache is
-    // invalidated by mainPrompt clearing systemPrompt on agent-type change.
-    initialAgentState.systemPrompt &&
-    initialAgentState.agentType === agentType
-  ) {
-    system = initialAgentState.systemPrompt
-  } else {
-    const systemPrompt = await getAgentPrompt({
+    // Initialize message history with user prompt and instructions on first iteration
+    const instructionsPrompt = await getAgentPrompt({
       ...params,
       agentTemplate,
-      promptType: { type: 'systemPrompt' },
+      promptType: { type: 'instructionsPrompt' },
       agentTemplates: localAgentTemplates,
+      useParentTools,
       additionalToolDefinitions: async () => {
         if (!cachedAdditionalToolDefinitions) {
           cachedAdditionalToolDefinitions = await additionalToolDefinitions({
@@ -1009,22 +1007,31 @@ export async function loopAgentSteps(
         return cachedAdditionalToolDefinitions
       },
     })
-    system = systemPrompt ?? ''
-  }
 
-  // Build agent tools (agents as direct tool calls) for non-inherited tools
-  const agentTools = useParentTools
-    ? {}
-    : await buildAgentToolSet({
+    // Build the initial message history with user prompt and instructions
+    // Generate system prompt once, using parent's if inheritParentSystemPrompt is true
+    let system: string
+    if (agentTemplate.inheritParentSystemPrompt && parentSystemPrompt) {
+      system = parentSystemPrompt
+    } else if (
+      // Reuse the session-cached system prompt to keep the system prefix
+      // byte-stable across turns (enables provider prompt-cache hits). All
+      // placeholders (CURRENT_DATE, FILE_TREE_PROMPT, SYSTEM_INFO_PROMPT,
+      // GIT_CHANGES_PROMPT, KNOWLEDGE_FILES_CONTENTS, ROUTED_KNOWLEDGE_FILES,
+      // PATTERNS_INDEX) are session-stable or day-granularity, so rebuilding
+      // every turn only risks byte drift from disk re-reads / object key
+      // ordering without picking up meaningful changes. The cache is
+      // invalidated by mainPrompt clearing systemPrompt on agent-type change.
+      initialAgentState.systemPrompt &&
+      initialAgentState.agentType === agentType
+    ) {
+      system = initialAgentState.systemPrompt
+    } else {
+      const systemPrompt = await getAgentPrompt({
         ...params,
-        spawnableAgents: agentTemplate.spawnableAgents,
+        agentTemplate,
+        promptType: { type: 'systemPrompt' },
         agentTemplates: localAgentTemplates,
-      })
-
-  const tools: ToolSet = useParentTools
-    ? parentTools!
-    : await getToolSet({
-        toolNames: agentTemplate.toolNames,
         additionalToolDefinitions: async () => {
           if (!cachedAdditionalToolDefinitions) {
             cachedAdditionalToolDefinitions = await additionalToolDefinitions({
@@ -1034,359 +1041,453 @@ export async function loopAgentSteps(
           }
           return cachedAdditionalToolDefinitions
         },
-        agentTools,
-        skills: fileContext.skills ?? {},
       })
-
-  // P2-3: On resume from a checkpoint, the user prompt is already in
-  // messageHistory — do not re-add it. Duplicating it would double the prompt
-  // and break the resumed context.
-  const hasUserMessage = !resumeInterruptedTurn && Boolean(
-    prompt ||
-    (spawnParams && Object.keys(spawnParams).length > 0) ||
-    (content && content.length > 0),
-  )
-
-  const initialMessages = buildArray<Message>(
-    ...initialAgentState.messageHistory,
-
-    hasUserMessage && [
-      {
-        // Actual user message!
-        role: 'user' as const,
-        content: buildUserMessageContent(prompt, spawnParams, content),
-        tags: ['USER_PROMPT'],
-        sentAt: Date.now(),
-
-        // James: Deprecate the below, only use tags, which are not prescriptive.
-        keepDuringTruncation: true,
-      },
-      prompt &&
-        prompt in additionalSystemPrompts &&
-        userMessage(
-          withSystemInstructionTags(
-            additionalSystemPrompts[
-              prompt as keyof typeof additionalSystemPrompts
-            ],
-          ),
-        ),
-      ,
-    ],
-
-    instructionsPrompt &&
-      userMessage({
-        content: instructionsPrompt,
-        tags: ['INSTRUCTIONS_PROMPT'],
-
-        // James: Deprecate the below, only use tags, which are not prescriptive.
-        keepLastTags: ['INSTRUCTIONS_PROMPT'],
-      }),
-  )
-
-  // Convert tools to a serializable format for context-pruner token counting
-  const toolDefinitions = mapValues(tools, (tool) => ({
-    description: tool.description,
-    inputSchema: tool.inputSchema as {},
-  }))
-
-  const additionalToolDefinitionsWithCache = async () => {
-    if (!cachedAdditionalToolDefinitions) {
-      cachedAdditionalToolDefinitions = await additionalToolDefinitions({
-        ...params,
-        agentTemplate,
-      })
+      system = systemPrompt ?? ''
     }
-    return cachedAdditionalToolDefinitions
-  }
 
-  // Mutate initialAgentState so that in-progress work propagates back to the
-  // caller's shared reference (e.g. SDK's sessionState.mainAgentState) even if
-  // an error is thrown before we return.
-  initialAgentState.messageHistory = initialMessages
-  initialAgentState.systemPrompt = system
-  initialAgentState.toolDefinitions = toolDefinitions
-  let currentAgentState: AgentState = initialAgentState
+    // Build agent tools (agents as direct tool calls) for non-inherited tools
+    const agentTools = useParentTools
+      ? {}
+      : await buildAgentToolSet({
+          ...params,
+          spawnableAgents: agentTemplate.spawnableAgents,
+          agentTemplates: localAgentTemplates,
+        })
 
-  // Convert tool definitions to Anthropic format for accurate token counting
-  // Tool definitions are stored as { [name]: { description, inputSchema } }
-  // Anthropic count_tokens API expects [{ name, description, input_schema }]
-  const toolsForTokenCount = Object.entries(toolDefinitions).map(
-    ([name, def]) => ({
-      name,
-      ...(def.description && { description: def.description }),
-      ...(def.inputSchema && { input_schema: def.inputSchema }),
-    }),
-  )
+    const tools: ToolSet = useParentTools
+      ? parentTools!
+      : await getToolSet({
+          toolNames: agentTemplate.toolNames,
+          additionalToolDefinitions: async () => {
+            if (!cachedAdditionalToolDefinitions) {
+              cachedAdditionalToolDefinitions = await additionalToolDefinitions(
+                {
+                  ...params,
+                  agentTemplate,
+                },
+              )
+            }
+            return cachedAdditionalToolDefinitions
+          },
+          agentTools,
+          skills: fileContext.skills ?? {},
+        })
 
-  let shouldEndTurn = false
-  let hasRetriedOutputSchema = false
-  let currentPrompt = prompt
-  let currentParams = spawnParams
-  let totalSteps = 0
-  let nResponses: string[] | undefined = undefined
-  // True when the most recent LLM step ended due to the step-cap guard. Threading
-  // this into the next programmatic-step invocation lets orchestrators (base2)
-  // break out instead of falling through to the validation/reviewer gate, which
-  // would re-yield STEP and re-trigger the step-cap, causing an infinite loop.
-  let hitStepCap = false
-
-  // P2-3: Mid-turn checkpoint throttle. Fire at most every 30s so lost work on
-  // crash is bounded to ~30s regardless of step duration. The first step always
-  // checkpoints (lastCheckpointTime starts at 0) so an early crash still has a
-  // resume point. Only active when onCheckpoint is provided (main agent only).
-  let lastCheckpointTime = 0
-  const CHECKPOINT_INTERVAL_MS = 30_000
-  const maybeCheckpoint = (state: AgentState) => {
-    if (!onCheckpoint) {
-      return
-    }
-    const now = Date.now()
-    if (now - lastCheckpointTime >= CHECKPOINT_INTERVAL_MS) {
-      lastCheckpointTime = now
-      try {
-        onCheckpoint(state)
-      } catch (err) {
-        // Checkpoint failures must never kill the run — log and continue.
-        logger.warn(
-          { error: err, runId },
-          'Mid-turn checkpoint write failed (non-fatal)',
-        )
-      }
-    }
-  }
-
-  try {
-    while (true) {
-      totalSteps++
-      if (signal.aborted) {
-        throw new AbortError()
-      }
-
-      const startTime = new Date()
-
-      const stepPrompt = await getAgentPrompt({
-        ...params,
-        agentTemplate,
-        promptType: { type: 'stepPrompt' },
-        fileContext,
-        agentState: currentAgentState,
-        agentTemplates: localAgentTemplates,
-        logger,
-        additionalToolDefinitions: additionalToolDefinitionsWithCache,
-      })
-      let messagesWithStepPrompt = buildArray(
-        ...currentAgentState.messageHistory,
-        stepPrompt &&
-          userMessage({
-            content: stepPrompt,
-          }),
+    // P2-3: On resume from a checkpoint, the user prompt is already in
+    // messageHistory — do not re-add it. Duplicating it would double the prompt
+    // and break the resumed context.
+    const hasUserMessage =
+      !resumeInterruptedTurn &&
+      Boolean(
+        prompt ||
+        (spawnParams && Object.keys(spawnParams).length > 0) ||
+        (content && content.length > 0),
       )
 
-      // Cache system + tools token count once — these don't change between
-      // the initial compute and the post-prune recompute (only messages do).
-      const systemAndToolsTokens =
-        countTokensJson(system) + countTokensJson(toolsForTokenCount)
+    const initialMessages = buildArray<Message>(
+      ...initialAgentState.messageHistory,
 
-      const estimateContextTokensLocally = () =>
-        countTokensJson(messagesWithStepPrompt) + systemAndToolsTokens
+      hasUserMessage && [
+        {
+          // Actual user message!
+          role: 'user' as const,
+          content: buildUserMessageContent(prompt, spawnParams, content),
+          tags: ['USER_PROMPT'],
+          sentAt: Date.now(),
 
-      currentAgentState.contextTokenCount = estimateContextTokensLocally()
+          // James: Deprecate the below, only use tags, which are not prescriptive.
+          keepDuringTruncation: true,
+        },
+        prompt &&
+          prompt in additionalSystemPrompts &&
+          userMessage(
+            withSystemInstructionTags(
+              additionalSystemPrompts[
+                prompt as keyof typeof additionalSystemPrompts
+              ],
+            ),
+          ),
+        ,
+      ],
 
-      // M4.1: Auto-prune context when token count exceeds the model threshold.
-      // This is a proactive safety net — orchestrators' handleSteps may still
-      // spawn the LLM-based context-pruner agent for smarter summarization.
-      const pruningResult = maybePruneContext({
-        messages: currentAgentState.messageHistory,
-        systemTokens: systemAndToolsTokens,
-        contextTokenCount: currentAgentState.contextTokenCount,
-        maxTotalTokens: maxContextLength,
-        logger,
-      })
-      if (pruningResult.pruned) {
-        currentAgentState.messageHistory = pruningResult.messages
-        // Rebuild messagesWithStepPrompt from pruned history so the token
-        // recompute reflects the trimmed context.
+      instructionsPrompt &&
+        userMessage({
+          content: instructionsPrompt,
+          tags: ['INSTRUCTIONS_PROMPT'],
+
+          // James: Deprecate the below, only use tags, which are not prescriptive.
+          keepLastTags: ['INSTRUCTIONS_PROMPT'],
+        }),
+    )
+
+    // Convert tools to a serializable format for context-pruner token counting
+    const toolDefinitions = mapValues(tools, (tool) => ({
+      description: tool.description,
+      inputSchema: tool.inputSchema as {},
+    }))
+
+    const additionalToolDefinitionsWithCache = async () => {
+      if (!cachedAdditionalToolDefinitions) {
+        cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+          ...params,
+          agentTemplate,
+        })
+      }
+      return cachedAdditionalToolDefinitions
+    }
+
+    // Mutate initialAgentState so that in-progress work propagates back to the
+    // caller's shared reference (e.g. SDK's sessionState.mainAgentState) even if
+    // an error is thrown before we return.
+    initialAgentState.messageHistory = initialMessages
+    initialAgentState.systemPrompt = system
+    initialAgentState.toolDefinitions = toolDefinitions
+    let currentAgentState: AgentState = initialAgentState
+
+    // Convert tool definitions to Anthropic format for accurate token counting
+    // Tool definitions are stored as { [name]: { description, inputSchema } }
+    // Anthropic count_tokens API expects [{ name, description, input_schema }]
+    const toolsForTokenCount = Object.entries(toolDefinitions).map(
+      ([name, def]) => ({
+        name,
+        ...(def.description && { description: def.description }),
+        ...(def.inputSchema && { input_schema: def.inputSchema }),
+      }),
+    )
+
+    let shouldEndTurn = false
+    let hasRetriedOutputSchema = false
+    let currentPrompt = prompt
+    let currentParams = spawnParams
+    let totalSteps = 0
+    let nResponses: string[] | undefined = undefined
+    // True when the most recent LLM step ended due to the step-cap guard. Threading
+    // this into the next programmatic-step invocation lets orchestrators (base2)
+    // break out instead of falling through to the validation/reviewer gate, which
+    // would re-yield STEP and re-trigger the step-cap, causing an infinite loop.
+    let hitStepCap = false
+
+    // P2-3: Mid-turn checkpoint throttle. Fire at most every 30s so lost work on
+    // crash is bounded to ~30s regardless of step duration. The first step always
+    // checkpoints (lastCheckpointTime starts at 0) so an early crash still has a
+    // resume point. Only active when onCheckpoint is provided (main agent only).
+    let lastCheckpointTime = 0
+    const CHECKPOINT_INTERVAL_MS = 30_000
+    const maybeCheckpoint = (state: AgentState) => {
+      if (!onCheckpoint) {
+        return
+      }
+      const now = Date.now()
+      if (now - lastCheckpointTime >= CHECKPOINT_INTERVAL_MS) {
+        lastCheckpointTime = now
+        try {
+          onCheckpoint(state)
+        } catch (err) {
+          // Checkpoint failures must never kill the run — log and continue.
+          logger.warn(
+            { error: err, runId },
+            'Mid-turn checkpoint write failed (non-fatal)',
+          )
+        }
+      }
+    }
+
+    try {
+      while (true) {
+        totalSteps++
+        if (signal.aborted) {
+          throw new AbortError()
+        }
+
+        const startTime = new Date()
+
+        const stepPrompt = await getAgentPrompt({
+          ...params,
+          agentTemplate,
+          promptType: { type: 'stepPrompt' },
+          fileContext,
+          agentState: currentAgentState,
+          agentTemplates: localAgentTemplates,
+          logger,
+          additionalToolDefinitions: additionalToolDefinitionsWithCache,
+        })
+        let messagesWithStepPrompt = buildArray(
+          ...currentAgentState.messageHistory,
+          stepPrompt &&
+            userMessage({
+              content: stepPrompt,
+            }),
+        )
+
+        // Cache system + tools token count once — these don't change between
+        // the initial compute and the post-prune recompute (only messages do).
+        const systemAndToolsTokens =
+          countTokensJson(system) + countTokensJson(toolsForTokenCount)
+
+        const estimateContextTokensLocally = () =>
+          countTokensJson(messagesWithStepPrompt) + systemAndToolsTokens
+
+        currentAgentState.contextTokenCount = estimateContextTokensLocally()
+
+        // 1. Run programmatic step first if it exists
+        let n: number | undefined = undefined
+        const historyBeforeProgrammatic = currentAgentState.messageHistory
+        const historyTokensBeforeProgrammatic = countTokensJson(
+          historyBeforeProgrammatic,
+        )
+        const categoriesBeforeProgrammatic = getContextCategoryTelemetry(
+          historyBeforeProgrammatic,
+        )
+
+        if (agentTemplate.handleSteps) {
+          const programmaticResult = await runProgrammaticStep({
+            ...params,
+
+            agentState: currentAgentState,
+            localAgentTemplates,
+            nResponses,
+            hitStepCap,
+            onCostCalculated: async (providerCostCents: number) => {
+              currentAgentState.creditsUsed += providerCostCents
+              currentAgentState.directCreditsUsed += providerCostCents
+            },
+            prompt: currentPrompt,
+            runId,
+            stepNumber: totalSteps,
+            stepsComplete: shouldEndTurn,
+            system,
+            tools,
+            template: agentTemplate,
+            toolCallParams: currentParams,
+          })
+          const {
+            agentState: programmaticAgentState,
+            endTurn,
+            stepNumber,
+            generateN,
+          } = programmaticResult
+          n = generateN
+
+          Object.assign(initialAgentState, programmaticAgentState)
+          currentAgentState = initialAgentState
+          totalSteps = stepNumber
+
+          shouldEndTurn = endTurn
+
+          // nResponses (from a prior GENERATE_N) is consumed by the generator on
+          // this step. Clear it so a later programmatic step can't read the same
+          // stale responses again.
+          nResponses = undefined
+        }
+
+        // Programmatic orchestrators (notably Base2) get the first opportunity
+        // to run semantic compaction. Rebuild the request from the resulting
+        // history before applying the deterministic emergency brake.
         messagesWithStepPrompt = buildArray(
-          ...pruningResult.messages,
+          ...currentAgentState.messageHistory,
           stepPrompt &&
             userMessage({
               content: stepPrompt,
             }),
         )
         currentAgentState.contextTokenCount = estimateContextTokensLocally()
-      }
 
-      // M4.3: Emit context-window usage so the CLI status bar can display
-      // how full the context is. Emitted after pruning (if any) so the
-      // post-prune value is reflected.
-      onResponseChunk({
-        type: 'context_window',
-        used: currentAgentState.contextTokenCount,
-        max: maxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
-      })
+        const historyTokensAfterProgrammatic = countTokensJson(
+          currentAgentState.messageHistory,
+        )
+        const retainedSemanticMemory = currentAgentState.messageHistory.some(
+          (message) =>
+            Array.isArray(message.content) &&
+            message.content.some(
+              (part) =>
+                part.type === 'text' &&
+                part.text.includes(
+                  '<knowledge_memory>\nPinned structured knowledge memory.',
+                ),
+            ),
+        )
+        if (
+          retainedSemanticMemory &&
+          historyTokensAfterProgrammatic < historyTokensBeforeProgrammatic
+        ) {
+          const categoriesAfterProgrammatic = getContextCategoryTelemetry(
+            currentAgentState.messageHistory,
+          )
+          const removedCategories = (
+            Object.keys(categoriesBeforeProgrammatic) as Array<
+              keyof typeof categoriesBeforeProgrammatic
+            >
+          ).filter(
+            (category) =>
+              categoriesAfterProgrammatic[category].messages <
+                categoriesBeforeProgrammatic[category].messages ||
+              categoriesAfterProgrammatic[category].tokens <
+                categoriesBeforeProgrammatic[category].tokens,
+          )
+          onResponseChunk({
+            type: 'context_compaction',
+            action: 'semantic_compaction',
+            before: {
+              tokens: historyTokensBeforeProgrammatic,
+              messages: historyBeforeProgrammatic.length,
+              categories: categoriesBeforeProgrammatic,
+            },
+            after: {
+              tokens: historyTokensAfterProgrammatic,
+              messages: currentAgentState.messageHistory.length,
+              categories: categoriesAfterProgrammatic,
+            },
+            removedCategories,
+            retainedKnowledgeMemory: true,
+            recovery:
+              'Resume from the retained <knowledge_memory> and verify exact live files before editing.',
+          })
+        }
 
-      // 1. Run programmatic step first if it exists
-      let n: number | undefined = undefined
+        // Deterministic trimming is now an emergency brake after semantic
+        // compaction, never the first response to context pressure.
+        const pruningResult = maybePruneContext({
+          messages: currentAgentState.messageHistory,
+          systemTokens: systemAndToolsTokens,
+          contextTokenCount: currentAgentState.contextTokenCount,
+          maxTotalTokens: effectiveMaxContextLength,
+          logger,
+        })
+        if (pruningResult.pruned) {
+          currentAgentState.messageHistory = pruningResult.messages
+          messagesWithStepPrompt = buildArray(
+            ...pruningResult.messages,
+            stepPrompt &&
+              userMessage({
+                content: stepPrompt,
+              }),
+          )
+          currentAgentState.contextTokenCount = estimateContextTokensLocally()
+          const report = pruningResult.report!
+          onResponseChunk({
+            type: 'context_compaction',
+            action: 'mechanical_trim',
+            before: {
+              tokens: report.beforeTokens,
+              messages: report.beforeMessageCount,
+              categories: report.beforeCategories,
+            },
+            after: {
+              tokens: report.afterTokens,
+              messages: report.afterMessageCount,
+              categories: report.afterCategories,
+            },
+            removedCategories: report.removedCategories,
+            retainedKnowledgeMemory: report.retainedKnowledgeMemory,
+            recovery: report.retainedKnowledgeMemory
+              ? 'Resume from <knowledge_memory>; re-read exact live files before editing.'
+              : 'Re-gather exact constraints, files, and validation evidence before continuing.',
+          })
+        }
 
-      if (agentTemplate.handleSteps) {
-        const programmaticResult = await runProgrammaticStep({
+        onResponseChunk({
+          type: 'context_window',
+          used: currentAgentState.contextTokenCount,
+          max: contextWindowForStatus,
+        })
+
+        // Check if output is required but missing
+        if (
+          agentTemplate.outputSchema &&
+          // Skip for programmatic agents: the generator (not the model) drives
+          // behavior, and restarting the loop here would re-run handleSteps from
+          // the top (its generator is torn down once it returns). A userMessage
+          // reminder also has no effect on a generator-driven agent.
+          !agentTemplate.handleSteps &&
+          currentAgentState.output === undefined &&
+          shouldEndTurn &&
+          !hasRetriedOutputSchema
+        ) {
+          hasRetriedOutputSchema = true
+          logger.warn(
+            {
+              agentType,
+              agentId: currentAgentState.agentId,
+              runId,
+            },
+            'Agent finished without setting required output, restarting loop',
+          )
+
+          // Add system message instructing to use set_output
+          const outputSchemaMessage = withSystemTags(
+            `You must use the "set_output" tool to provide a result that matches the output schema before ending your turn. The output schema is required for this agent.`,
+          )
+
+          currentAgentState.messageHistory = [
+            ...currentAgentState.messageHistory,
+            userMessage({
+              content: outputSchemaMessage,
+              keepDuringTruncation: true,
+            }),
+          ]
+
+          // Reset shouldEndTurn to continue the loop
+          shouldEndTurn = false
+        }
+
+        // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
+        if (shouldEndTurn) {
+          break
+        }
+
+        const creditsBefore = currentAgentState.directCreditsUsed
+        const childrenBefore = currentAgentState.childRunIds.length
+        const {
+          agentState: newAgentState,
+          shouldEndTurn: llmShouldEndTurn,
+          hitStepCap: llmHitStepCap,
+          messageId,
+          nResponses: generatedResponses,
+        } = await runAgentStep({
           ...params,
 
           agentState: currentAgentState,
-          localAgentTemplates,
-          nResponses,
-          hitStepCap,
-          onCostCalculated: async (providerCostCents: number) => {
-            currentAgentState.creditsUsed += providerCostCents
-            currentAgentState.directCreditsUsed += providerCostCents
-          },
+          agentTemplate,
+          n,
           prompt: currentPrompt,
           runId,
-          stepNumber: totalSteps,
-          stepsComplete: shouldEndTurn,
+          spawnParams: currentParams,
           system,
           tools,
-          template: agentTemplate,
-          toolCallParams: currentParams,
+          additionalToolDefinitions: additionalToolDefinitionsWithCache,
         })
-        const {
-          agentState: programmaticAgentState,
-          endTurn,
-          stepNumber,
-          generateN,
-        } = programmaticResult
-        n = generateN
 
-        Object.assign(initialAgentState, programmaticAgentState)
+        if (newAgentState.runId) {
+          await addAgentStep({
+            ...params,
+            agentRunId: newAgentState.runId,
+            stepNumber: totalSteps,
+            credits: newAgentState.directCreditsUsed - creditsBefore,
+            childRunIds: newAgentState.childRunIds.slice(childrenBefore),
+            messageId,
+            status: 'completed',
+            startTime,
+          })
+        } else {
+          logger.error(
+            'No runId found for agent state after finishing agent run',
+          )
+        }
+
+        Object.assign(initialAgentState, newAgentState)
         currentAgentState = initialAgentState
-        totalSteps = stepNumber
+        shouldEndTurn = llmShouldEndTurn
+        // Preserve the step-cap flag so the next programmatic-step invocation
+        // can forward it to the generator (orchestrators like base2 use it to
+        // break out instead of falling through to the gate, which would loop).
+        hitStepCap = llmHitStepCap ?? false
+        maybeCheckpoint(currentAgentState)
+        nResponses = generatedResponses
 
-        shouldEndTurn = endTurn
-
-        // nResponses (from a prior GENERATE_N) is consumed by the generator on
-        // this step. Clear it so a later programmatic step can't read the same
-        // stale responses again.
-        nResponses = undefined
+        currentPrompt = undefined
+        currentParams = undefined
       }
 
-      // Check if output is required but missing
-      if (
-        agentTemplate.outputSchema &&
-        // Skip for programmatic agents: the generator (not the model) drives
-        // behavior, and restarting the loop here would re-run handleSteps from
-        // the top (its generator is torn down once it returns). A userMessage
-        // reminder also has no effect on a generator-driven agent.
-        !agentTemplate.handleSteps &&
-        currentAgentState.output === undefined &&
-        shouldEndTurn &&
-        !hasRetriedOutputSchema
-      ) {
-        hasRetriedOutputSchema = true
-        logger.warn(
-          {
-            agentType,
-            agentId: currentAgentState.agentId,
-            runId,
-          },
-          'Agent finished without setting required output, restarting loop',
-        )
-
-        // Add system message instructing to use set_output
-        const outputSchemaMessage = withSystemTags(
-          `You must use the "set_output" tool to provide a result that matches the output schema before ending your turn. The output schema is required for this agent.`,
-        )
-
-        currentAgentState.messageHistory = [
-          ...currentAgentState.messageHistory,
-          userMessage({
-            content: outputSchemaMessage,
-            keepDuringTruncation: true,
-          }),
-        ]
-
-        // Reset shouldEndTurn to continue the loop
-        shouldEndTurn = false
-      }
-
-      // End turn if programmatic step ended turn, or if the previous runAgentStep ended turn
-      if (shouldEndTurn) {
-        break
-      }
-
-      const creditsBefore = currentAgentState.directCreditsUsed
-      const childrenBefore = currentAgentState.childRunIds.length
-      const {
-        agentState: newAgentState,
-        shouldEndTurn: llmShouldEndTurn,
-        hitStepCap: llmHitStepCap,
-        messageId,
-        nResponses: generatedResponses,
-      } = await runAgentStep({
-        ...params,
-
-        agentState: currentAgentState,
-        agentTemplate,
-        n,
-        prompt: currentPrompt,
-        runId,
-        spawnParams: currentParams,
-        system,
-        tools,
-        additionalToolDefinitions: additionalToolDefinitionsWithCache,
-      })
-
-      if (newAgentState.runId) {
-        await addAgentStep({
-          ...params,
-          agentRunId: newAgentState.runId,
-          stepNumber: totalSteps,
-          credits: newAgentState.directCreditsUsed - creditsBefore,
-          childRunIds: newAgentState.childRunIds.slice(childrenBefore),
-          messageId,
-          status: 'completed',
-          startTime,
-        })
-      } else {
-        logger.error('No runId found for agent state after finishing agent run')
-      }
-
-      Object.assign(initialAgentState, newAgentState)
-      currentAgentState = initialAgentState
-      shouldEndTurn = llmShouldEndTurn
-      // Preserve the step-cap flag so the next programmatic-step invocation
-      // can forward it to the generator (orchestrators like base2 use it to
-      // break out instead of falling through to the gate, which would loop).
-      hitStepCap = llmHitStepCap ?? false
-      maybeCheckpoint(currentAgentState)
-      nResponses = generatedResponses
-
-      currentPrompt = undefined
-      currentParams = undefined
-    }
-
-    if (clearUserPromptMessagesAfterResponse) {
-      currentAgentState.messageHistory = expireMessages(
-        currentAgentState.messageHistory,
-        'userPrompt',
-      )
-    }
-
-    await finishAgentRun({
-      ...params,
-      runId,
-      status: 'completed',
-      totalSteps,
-      directCredits: currentAgentState.directCreditsUsed,
-      totalCredits: currentAgentState.creditsUsed,
-    })
-
-    return {
-      agentState: currentAgentState,
-      output: getAgentOutput(currentAgentState, agentTemplate),
-    }
-    } catch (error) {
-    // Handle user-initiated aborts separately - don't log as errors
-    if (isAbortError(error)) {
       if (clearUserPromptMessagesAfterResponse) {
         currentAgentState.messageHistory = expireMessages(
           currentAgentState.messageHistory,
@@ -1394,30 +1495,10 @@ export async function loopAgentSteps(
         )
       }
 
-      currentAgentState.messageHistory = [
-        ...currentAgentState.messageHistory,
-        userMessage(
-          withSystemTags(
-            "User interrupted the response. The assistant's previous work has been preserved.",
-          ),
-        ),
-      ]
-
-      logger.info(
-        {
-          agentType,
-          agentId: currentAgentState.agentId,
-          runId,
-          totalSteps,
-          messageHistory: currentAgentState.messageHistory,
-        },
-        'Agent run cancelled by user (abort error)',
-      )
-
       await finishAgentRun({
         ...params,
         runId,
-        status: 'cancelled',
+        status: 'completed',
         totalSteps,
         directCredits: currentAgentState.directCreditsUsed,
         totalCredits: currentAgentState.creditsUsed,
@@ -1425,78 +1506,116 @@ export async function loopAgentSteps(
 
       return {
         agentState: currentAgentState,
+        output: getAgentOutput(currentAgentState, agentTemplate),
+      }
+    } catch (error) {
+      // Handle user-initiated aborts separately - don't log as errors
+      if (isAbortError(error)) {
+        if (clearUserPromptMessagesAfterResponse) {
+          currentAgentState.messageHistory = expireMessages(
+            currentAgentState.messageHistory,
+            'userPrompt',
+          )
+        }
+
+        currentAgentState.messageHistory = [
+          ...currentAgentState.messageHistory,
+          userMessage(
+            withSystemTags(
+              "User interrupted the response. The assistant's previous work has been preserved.",
+            ),
+          ),
+        ]
+
+        logger.info(
+          {
+            agentType,
+            agentId: currentAgentState.agentId,
+            runId,
+            totalSteps,
+            messageHistory: currentAgentState.messageHistory,
+          },
+          'Agent run cancelled by user (abort error)',
+        )
+
+        await finishAgentRun({
+          ...params,
+          runId,
+          status: 'cancelled',
+          totalSteps,
+          directCredits: currentAgentState.directCreditsUsed,
+          totalCredits: currentAgentState.creditsUsed,
+        })
+
+        return {
+          agentState: currentAgentState,
+          output: {
+            type: 'error',
+            message: 'Run cancelled by user',
+          },
+        }
+      }
+
+      logger.error(
+        {
+          error: getErrorObject(error),
+          agentType,
+          agentId: currentAgentState.agentId,
+          runId,
+          totalSteps,
+          directCreditsUsed: currentAgentState.directCreditsUsed,
+          creditsUsed: currentAgentState.creditsUsed,
+          messageHistory: currentAgentState.messageHistory,
+          systemPrompt: system,
+        },
+        'Agent execution failed',
+      )
+
+      const apiErrorDetails = extractApiErrorDetails(error)
+      const hasServerMessage = apiErrorDetails.message !== undefined
+      const fallbackMessage =
+        error instanceof Error ? error.message : String(error)
+      const errorMessage = apiErrorDetails.message ?? fallbackMessage
+      const statusCode = apiErrorDetails.statusCode
+
+      const status = signal.aborted ? 'cancelled' : 'failed'
+      await finishAgentRun({
+        ...params,
+        runId,
+        status,
+        totalSteps,
+        directCredits: currentAgentState.directCreditsUsed,
+        totalCredits: currentAgentState.creditsUsed,
+        errorMessage,
+      })
+
+      // Payment required errors (402) should propagate
+      if (statusCode === 402) {
+        throw error
+      }
+
+      return {
+        agentState: currentAgentState,
         output: {
           type: 'error',
-          message: 'Run cancelled by user',
+          message: hasServerMessage
+            ? errorMessage
+            : 'Agent run error: ' + errorMessage,
+          ...(statusCode !== undefined && { statusCode }),
+          ...(apiErrorDetails.errorCode !== undefined && {
+            error: apiErrorDetails.errorCode,
+          }),
+          ...(apiErrorDetails.countryCode !== undefined && {
+            countryCode: apiErrorDetails.countryCode,
+          }),
+          ...(apiErrorDetails.countryBlockReason !== undefined && {
+            countryBlockReason: apiErrorDetails.countryBlockReason,
+          }),
+          ...(apiErrorDetails.ipPrivacySignals !== undefined && {
+            ipPrivacySignals: apiErrorDetails.ipPrivacySignals,
+          }),
         },
       }
-    }
-
-    logger.error(
-      {
-        error: getErrorObject(error),
-        agentType,
-        agentId: currentAgentState.agentId,
-        runId,
-        totalSteps,
-        directCreditsUsed: currentAgentState.directCreditsUsed,
-        creditsUsed: currentAgentState.creditsUsed,
-        messageHistory: currentAgentState.messageHistory,
-        systemPrompt: system,
-      },
-      'Agent execution failed',
-    )
-
-    const apiErrorDetails = extractApiErrorDetails(error)
-    const hasServerMessage = apiErrorDetails.message !== undefined
-    const fallbackMessage =
-      error instanceof Error
-        ? error.message +
-          (apiErrorDetails.statusCode === undefined && error.stack
-            ? `\n\n${error.stack}`
-            : '')
-        : String(error)
-    const errorMessage = apiErrorDetails.message ?? fallbackMessage
-    const statusCode = apiErrorDetails.statusCode
-
-    const status = signal.aborted ? 'cancelled' : 'failed'
-    await finishAgentRun({
-      ...params,
-      runId,
-      status,
-      totalSteps,
-      directCredits: currentAgentState.directCreditsUsed,
-      totalCredits: currentAgentState.creditsUsed,
-      errorMessage,
-    })
-
-    // Payment required errors (402) should propagate
-    if (statusCode === 402) {
-      throw error
-    }
-
-    return {
-      agentState: currentAgentState,
-      output: {
-        type: 'error',
-        message: hasServerMessage
-          ? errorMessage
-          : 'Agent run error: ' + errorMessage,
-        ...(statusCode !== undefined && { statusCode }),
-        ...(apiErrorDetails.errorCode !== undefined && {
-          error: apiErrorDetails.errorCode,
-        }),
-        ...(apiErrorDetails.countryCode !== undefined && {
-          countryCode: apiErrorDetails.countryCode,
-        }),
-        ...(apiErrorDetails.countryBlockReason !== undefined && {
-          countryBlockReason: apiErrorDetails.countryBlockReason,
-        }),
-        ...(apiErrorDetails.ipPrivacySignals !== undefined && {
-          ipPrivacySignals: apiErrorDetails.ipPrivacySignals,
-        }),
-      },
-    }
     }
   } finally {
     // Snapshot the current proposal ledger before teardown. Subagent timeout /
@@ -1508,7 +1627,9 @@ export async function loopAgentSteps(
     // which is the same reference currentAgentState tracks; this also keeps the
     // snapshot in scope on every exit path, including a throw during setup
     // before currentAgentState would be reassigned.
-    ;(initialAgentState as any).proposalLedger = getProposalLedger(runId)
+    initialAgentState.proposalLedger = getProposalRecords(runId).filter(
+      (record) => record.kind === 'proposal_result',
+    )
 
     // Always tear down this run's in-memory programmatic-step state. When a
     // generator yields STEP/STEP_ALL it is intentionally retained across loop

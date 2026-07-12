@@ -60,9 +60,7 @@
     "local": {
       "type": "openai-compatible",
       "baseURL": "http://localhost:11434/v1",
-      "models": [
-        "new-model"
-      ],
+      "models": ["new-model"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -108,10 +106,7 @@
       "type": "openai-compatible",
       "baseURL": "https://opencode.ai/zen/v1",
       "apiKeyEnv": "OPENCODE_API_KEY",
-      "models": [
-        "mimo-v2.5-free",
-        "deepseek-v4-flash-free"
-      ],
+      "models": ["mimo-v2.5-free", "deepseek-v4-flash-free"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -158,11 +153,7 @@
       "type": "openai-compatible",
       "baseURL": "https://agentrouter.org/v1",
       "apiKeyEnv": "AGENT_ROUTER_TOKEN",
-      "models": [
-        "glm-5.1",
-        "deepseek-v4-pro",
-        "deepseek-v4-flash"
-      ],
+      "models": ["glm-5.1", "deepseek-v4-pro", "deepseek-v4-flash"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -365,12 +356,7 @@
       "type": "openai-compatible",
       "baseURL": "https://vip-sg.freemodel.dev/v1",
       "apiKeyEnv": "FREEMODEL_API_KEY",
-      "models": [
-        "gpt-5.5",
-        "gpt-5.4",
-        "gpt-5.4-mini",
-        "gpt-5.3-codex"
-      ],
+      "models": ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -390,9 +376,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.tokenrouter.com/v1",
       "apiKeyEnv": "TOKEN_FACTORY_API_KEY",
-      "models": [
-        "MiniMax-M3"
-      ],
+      "models": ["MiniMax-M3"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -412,9 +396,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.bluesminds.com/v1",
       "apiKeyEnv": "BLUESMINDS_API_KEY",
-      "models": [
-        "gpt-5.5"
-      ],
+      "models": ["gpt-5.5"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -434,9 +416,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.evomap.ai/v1",
       "apiKeyEnv": "EVOMAP_API_KEY",
-      "models": [
-        "evomap-gpt-5.5"
-      ],
+      "models": ["evomap-gpt-5.5"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -456,9 +436,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.b.ai/v1",
       "apiKeyEnv": "BAI_API_KEY",
-      "models": [
-        "minimax-m3"
-      ],
+      "models": ["minimax-m3"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -478,10 +456,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.zyloo.io/v1",
       "apiKeyEnv": "ZYLOO_API_KEY",
-      "models": [
-        "zyloo/gpt-5.4",
-        "zyloo/claude-sonnet-4-6"
-      ],
+      "models": ["zyloo/gpt-5.4", "zyloo/claude-sonnet-4-6"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -511,9 +486,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.openmodel.app/v1",
       "apiKeyEnv": "OM_API_KEY",
-      "models": [
-        "deepseek-v4-flash"
-      ],
+      "models": ["deepseek-v4-flash"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -543,9 +516,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.gmi-serving.com/v1",
       "apiKeyEnv": "GMI_API_KEY",
-      "models": [
-        "zai-org/GLM-5.2-FP8"
-      ],
+      "models": ["zai-org/GLM-5.2-FP8"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -565,9 +536,7 @@
       "type": "openai-compatible",
       "baseURL": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
       "apiKeyEnv": "QWENCLOUD_API_KEY",
-      "models": [
-        "glm-5.2"
-      ],
+      "models": ["glm-5.2"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -587,9 +556,7 @@
       "type": "openai-compatible",
       "baseURL": "https://cavoti.com/v1",
       "apiKeyEnv": "CAVOTI_API_KEY",
-      "models": [
-        "gpt-5.5"
-      ],
+      "models": ["gpt-5.5"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -604,9 +571,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.navy/v1",
       "apiKeyEnv": "NAVYAI_API_KEY",
-      "models": [
-        "glm-5.2"
-      ],
+      "models": ["glm-5.2"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -621,9 +586,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.babel.town/v1",
       "apiKeyEnv": "BABEL_API_KEY",
-      "models": [
-        "glm-5.2"
-      ],
+      "models": ["glm-5.2"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -638,10 +601,7 @@
       "type": "openai-compatible",
       "baseURL": "https://anyrouter.top/v1",
       "apiKeyEnv": "ANYROUTER_API_KEY",
-      "models": [
-        "gpt-5.5",
-        "claude-opus-4-8"
-      ],
+      "models": ["gpt-5.5", "claude-opus-4-8"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -656,9 +616,7 @@
       "type": "openai-compatible",
       "baseURL": "https://hyper.charm.land/v1",
       "apiKeyEnv": "HYPER_API_KEY",
-      "models": [
-        "glm-5.2"
-      ],
+      "models": ["glm-5.2"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -678,9 +636,7 @@
       "type": "openai-compatible",
       "baseURL": "https://beta.hapuppy.com/v1",
       "apiKeyEnv": "HAPUPPY_API_KEY",
-      "models": [
-        "glm-5.2"
-      ],
+      "models": ["glm-5.2"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -695,9 +651,7 @@
       "type": "openai-compatible",
       "baseURL": "https://api.futureppo.top/v1",
       "apiKeyEnv": "FUTUREPPO_API_KEY",
-      "models": [
-        "gpt-5.4"
-      ],
+      "models": ["gpt-5.4"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,

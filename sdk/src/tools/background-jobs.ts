@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import { StringDecoder } from 'string_decoder'
 
 import {
   __clearPendingBackgroundJobsForTest,
@@ -20,7 +21,38 @@ import {
  * bytes since the last check (tracked by readOffset) so output is never
  * duplicated or lost between polls.
  */
-export type BackgroundJobStatus = 'running' | 'completed' | 'error'
+export type BackgroundJobStatus = 'running' | 'completed' | 'error' | 'lost'
+
+export function isProcessTreeAlive(child: Pick<ChildProcess, 'pid'>): boolean {
+  if (!child.pid) return false
+  try {
+    process.kill(os.platform() === 'win32' ? child.pid : -child.pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function terminateProcessTree(
+  child: Pick<ChildProcess, 'pid' | 'kill'>,
+  signal: 'SIGTERM' | 'SIGKILL',
+): boolean {
+  if (!child.pid) return false
+  if (os.platform() !== 'win32') {
+    try {
+      process.kill(-child.pid, signal)
+      return true
+    } catch {
+      // Fall back to the direct child when process-group signaling is not
+      // available (for example, recovered legacy jobs).
+    }
+  }
+  try {
+    return child.kill(signal)
+  } catch {
+    return false
+  }
+}
 
 export interface BackgroundJob {
   jobId: string
@@ -33,6 +65,8 @@ export interface BackgroundJob {
   startedAt: number
   /** Bytes of the log file already returned by check_job. */
   readOffset: number
+  /** Preserves incomplete UTF-8 sequences across bounded incremental reads. */
+  decoder?: StringDecoder
 }
 
 const jobs = new Map<string, BackgroundJob>()
@@ -46,6 +80,9 @@ let jobCounter = 0
  * unbounded accumulation across CLI sessions.
  */
 const ORPHANED_JOB_FILE_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const MAX_BACKGROUND_LOG_BYTES = 10 * 1024 * 1024
+const MAX_BACKGROUND_READ_BYTES = 100_000
+const BACKGROUND_LOG_MONITOR_INTERVAL_MS = 250
 const JOB_ID_PATTERN = /^job-[A-Za-z0-9_-]+$/
 /**
  * Permissions for newly-created background job temp files. 0o600 keeps the
@@ -228,7 +265,10 @@ function sweepOrphanedJobFilesForTest(): void {
         const metadataFile = entry.endsWith('.json')
           ? fullPath
           : fullPath.replace(/\.log$/, '.json')
-        if (fs.existsSync(metadataFile) && shouldPreserveJobMetadata(metadataFile)) {
+        if (
+          fs.existsSync(metadataFile) &&
+          shouldPreserveJobMetadata(metadataFile)
+        ) {
           continue
         }
 
@@ -325,6 +365,7 @@ export function startBackgroundJob(params: {
     cwd,
     env,
     stdio: ['ignore', outFd, outFd],
+    detached: os.platform() !== 'win32',
   })
 
   const job: BackgroundJob = {
@@ -337,6 +378,7 @@ export function startBackgroundJob(params: {
     exitCode: null,
     startedAt: Date.now(),
     readOffset: 0,
+    decoder: new StringDecoder('utf8'),
   }
 
   upsertPendingBackgroundJob({
@@ -346,7 +388,28 @@ export function startBackgroundJob(params: {
     startedAt: job.startedAt,
   })
 
+  let quotaExceeded = false
+  const logQuotaTimer = setInterval(() => {
+    try {
+      const size = fs.statSync(logFile).size
+      if (size <= MAX_BACKGROUND_LOG_BYTES) return
+      if (!quotaExceeded) {
+        quotaExceeded = true
+        job.status = 'error'
+        terminateProcessTree(child, 'SIGTERM')
+        writeBackgroundJobMetadata(job)
+      }
+      // Keep trimming while the process is unwinding so a chatty child cannot
+      // regrow a sparse/oversized log between SIGTERM and exit.
+      fs.truncateSync(logFile, MAX_BACKGROUND_LOG_BYTES)
+    } catch {
+      // The process exit/error handlers own final cleanup.
+    }
+  }, BACKGROUND_LOG_MONITOR_INTERVAL_MS)
+  logQuotaTimer.unref?.()
+
   const closeLog = () => {
+    clearInterval(logQuotaTimer)
     try {
       fs.closeSync(outFd)
     } catch {
@@ -356,8 +419,13 @@ export function startBackgroundJob(params: {
   const writeMetadata = () => writeBackgroundJobMetadata(job)
   writeMetadata()
   child.on('exit', (code) => {
-    job.status = code === 0 ? 'completed' : 'error'
+    job.status = quotaExceeded ? 'error' : code === 0 ? 'completed' : 'error'
     job.exitCode = code
+    if (quotaExceeded) {
+      try {
+        fs.truncateSync(logFile, MAX_BACKGROUND_LOG_BYTES)
+      } catch {}
+    }
     writeMetadata()
     closeLog()
     removePendingBackgroundJob(jobId)
@@ -413,9 +481,8 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
 
     const status =
       metadata.status === 'running' &&
-      metadata.processId !== null &&
-      !isProcessAlive(metadata.processId)
-        ? 'completed'
+      (metadata.processId === null || !isProcessAlive(metadata.processId))
+        ? 'lost'
         : metadata.status
     const logSize = fs.statSync(fallbackLogFile).size
     const readOffset =
@@ -436,6 +503,7 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
       exitCode: metadata.exitCode,
       startedAt: metadata.startedAt,
       readOffset,
+      decoder: new StringDecoder('utf8'),
     }
   } catch {
     return undefined
@@ -509,8 +577,8 @@ export function killBackgroundJob(
 
   const killed =
     typeof job.child.kill === 'function'
-      ? job.child.kill(signal)
-      : killProcess(pid, signal)
+      ? terminateProcessTree(job.child, signal)
+      : killProcess(os.platform() === 'win32' ? pid : -pid, signal)
   if (killed) {
     job.status = 'error'
     removePendingBackgroundJob(jobId)
@@ -535,15 +603,23 @@ export function readNewJobOutput(job: BackgroundJob): string {
   if ('errorMessage' in opened) return ''
   const { fd, size } = opened
   try {
-    if (size <= job.readOffset) return ''
-    const length = size - job.readOffset
+    if (size <= job.readOffset) {
+      if (job.status !== 'running' && job.decoder) {
+        const final = job.decoder.end()
+        job.decoder = new StringDecoder('utf8')
+        return final
+      }
+      return ''
+    }
+    const length = Math.min(size - job.readOffset, MAX_BACKGROUND_READ_BYTES)
     const buf = Buffer.alloc(length)
     const bytesRead = fs.readSync(fd, buf, 0, length, job.readOffset)
     job.readOffset += bytesRead
     if (bytesRead > 0) {
       writeBackgroundJobMetadata(job)
     }
-    return buf.toString('utf8', 0, bytesRead)
+    job.decoder ??= new StringDecoder('utf8')
+    return job.decoder.write(buf.subarray(0, bytesRead))
   } catch {
     return ''
   } finally {

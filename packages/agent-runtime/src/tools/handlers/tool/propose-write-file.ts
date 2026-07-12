@@ -9,6 +9,7 @@ import {
   setProposedContent,
 } from './proposed-content-store'
 import { getContentHash } from '../../../process-str-replace'
+import { normalizeToolPath } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -42,7 +43,21 @@ export const handleProposeWriteFile = (async (
     runId,
     requestOptionalFile,
   } = params
-  const { path, content } = toolCall.input
+  const path = normalizeToolPath(toolCall.input.path)
+  const { content } = toolCall.input
+  if (!path) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: toolCall.input.path,
+            errorMessage: `propose_write_file path traversal blocked: "${toolCall.input.path}" resolves outside the project root.`,
+          },
+        },
+      ],
+    }
+  }
 
   const diskContent = await getOrCaptureOriginalBaseContent(runId, path, () =>
     requestOptionalFile({ ...params, filePath: path }),
@@ -62,8 +77,7 @@ export const handleProposeWriteFile = (async (
 
   const initialContent = await getProposedOrDiskContent()
 
-  // Normalize content (remove leading newline if present)
-  const newContent = content.startsWith('\n') ? content.slice(1) : content
+  const newContent = content
 
   // Store the proposed content for future propose calls on the same file (by runId)
   setProposedContent(runId, path, Promise.resolve(newContent))
@@ -73,7 +87,7 @@ export const handleProposeWriteFile = (async (
   // Generate unified diff
   const oldContent = initialContent ?? ''
   let patch = createPatch(path, oldContent, newContent)
-  
+
   // Strip the header lines, keep only from @@ onwards
   const lines = patch.split('\n')
   const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
@@ -82,11 +96,13 @@ export const handleProposeWriteFile = (async (
   }
 
   const isNewFile = initialContent === null
-  const message = isNewFile ? `Proposed new file ${path}` : `Proposed changes to ${path}`
+  const message = isNewFile
+    ? `Proposed new file ${path}`
+    : `Proposed changes to ${path}`
 
   // Record the successful proposal artifact at the source of truth. finalContent
   // is the exact bytes the parent can write deterministically at apply time.
-  appendProposalArtifact(runId, {
+  const proposal = appendProposalArtifact(runId, {
     toolName: 'propose_write_file',
     input: toolCall.input,
     result: {
@@ -95,7 +111,8 @@ export const handleProposeWriteFile = (async (
       unifiedDiff: patch,
       message,
       finalContent: newContent,
-      baseContentHash: diskContent === null ? null : getContentHash(diskContent),
+      baseContentHash:
+        diskContent === null ? null : getContentHash(diskContent),
       baseContent: diskContent,
     },
   })
@@ -104,11 +121,7 @@ export const handleProposeWriteFile = (async (
     output: [
       {
         type: 'json',
-        value: {
-          file: path,
-          message,
-          unifiedDiff: patch,
-        },
+        value: proposal!,
       },
     ],
   }

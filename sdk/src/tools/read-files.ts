@@ -1,12 +1,28 @@
+import path from 'node:path'
+
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
-
 import {
+  buildReadFilesResultV1,
+  isReadFilesResultV1,
+  type FilesystemError,
+  type ReadFilesItemV1,
+  type ReadFilesResultV1,
+} from '@codebuff/common/tools/results/filesystem'
+import {
+  encodeReadCapabilityToken,
   getContentHash,
   normalizeLineEndings,
-  encodeReadCapabilityToken,
 } from '@codebuff/common/util/content-hash'
-import { resolveFilePathWithinProject } from './path-utils'
+import {
+  isEnvTemplatePath,
+  isMandatorySensitiveReadPath,
+} from '@codebuff/common/util/sensitive-paths'
+
+import {
+  isSafeProjectRelativePath,
+  resolveFilePathForFileSystemOperation,
+} from './path-utils'
 
 import type { FileLineRange } from '@codebuff/common/types/contracts/client'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
@@ -19,160 +35,529 @@ export type FileFilter = (filePath: string) => FileFilterResult
 
 export type { FileLineRange }
 
-// 10MB - skip reading entirely to avoid OOM.
-const MAX_FILE_BYTES = 10 * 1024 * 1024
+export const READ_SNAPSHOT_CONCURRENCY = 8
+export const MAX_RANGE_READ_BYTES = 1_048_576
 
-/**
- * Stable structured marker prefixed onto every rendered range-read result.
- * Consumers detect rendered ranges by checking this prefix rather than the
- * human-readable header text (which is allowed to change). Designed to never
- * collide with normal source content.
- */
+const MAX_FILE_BYTES = 10 * 1024 * 1024
+const MAX_RENDER_CHARS = 100_000
+const numFmt = new Intl.NumberFormat('en-US')
+
+/** Stable marker for rendered range reads. */
 export const RANGE_BLOCK_MARKER = '[RANGE_BLOCK '
 
-type ReadOneFileResult = {
-  relativePath: string
-  content?: string
-  status?: string
+const BINARY_MARKER = '[FILE_BINARY]'
+const UNSUPPORTED_ENCODING_MARKER = '[FILE_UNSUPPORTED_ENCODING]'
+
+type AuthorizedReadTarget = {
+  displayPath: string
+  operationPath: string
   isExampleFile: boolean
 }
 
-/**
- * Reads a single file, applying the resolve -> filter -> gitignore -> stat ->
- * read pipeline. Returns either the full file content or a FILE_READ_STATUS
- * marker keyed by `relativePath`. The 100k truncation is NOT applied here so
- * callers can slice/truncate as appropriate (or read full content for editing).
- */
-async function readOneFile(params: {
-  filePath: string
+type ResolvedReadTarget =
+  | { ok: true; target: AuthorizedReadTarget }
+  | { ok: false; displayPath: string; error: FilesystemError }
+
+type PlannedSelector =
+  | {
+      selector: 'file'
+      requestIndex: number
+      requestedPath: string
+      resolved: ResolvedReadTarget
+    }
+  | {
+      selector: 'range'
+      requestIndex: number
+      requestedPath: string
+      range: FileLineRange
+      resolved: ResolvedReadTarget
+    }
+
+type FullSnapshot = {
+  state: 'full'
+  content: string
+  sizeBytes: number
+}
+
+type LargeSnapshot = {
+  state: 'large'
+  sizeBytes: number
+  window?: {
+    content: string
+    startLine: number
+    endLine: number
+    totalLines: number
+    complete: boolean
+  }
+  rangeError?: FilesystemError
+}
+
+type FailedSnapshot = {
+  state: 'error'
+  error: FilesystemError
+}
+
+type ReadSnapshot = FullSnapshot | LargeSnapshot | FailedSnapshot
+
+export type OptionalFileReadResult =
+  | {
+      status: 'found'
+      path: string
+      content: string
+      template: boolean
+    }
+  | {
+      status:
+        | 'not_found'
+        | 'blocked'
+        | 'outside_project'
+        | 'too_large'
+        | 'io_error'
+        | 'binary'
+        | 'unsupported_encoding'
+      path: string
+      error: FilesystemError
+    }
+
+function filesystemError(
+  code: FilesystemError['code'],
+  message: string,
+  options: Pick<FilesystemError, 'retryable' | 'recovery'>,
+): FilesystemError {
+  return { code, message, ...options }
+}
+
+function toPortablePath(value: string): string {
+  return value.split(path.sep).join('/').replace(/^\.\//, '')
+}
+
+export { isMandatorySensitiveReadPath }
+
+function uniquePolicyAliases(...values: string[]): string[] {
+  const aliases = new Set<string>()
+  for (const value of values) {
+    const portable = toPortablePath(value)
+    aliases.add(portable)
+    aliases.add(portable.toLowerCase())
+  }
+  return [...aliases]
+}
+
+async function authorizeReadTarget(params: {
+  requestedPath: string
   cwd: string
+  canonicalRoot: string
   fs: CodebuffFileSystem
   fileFilter?: FileFilter
-}): Promise<ReadOneFileResult | null> {
-  const { filePath, cwd, fs, fileFilter } = params
-  const hasCustomFilter = fileFilter !== undefined
-
-  if (!filePath) {
-    return null
-  }
-
-  const resolvedPath = resolveFilePathWithinProject(cwd, filePath)
-  if (!resolvedPath) {
+}): Promise<ResolvedReadTarget> {
+  const { requestedPath, cwd, canonicalRoot, fs, fileFilter } = params
+  if (!isSafeProjectRelativePath(requestedPath)) {
     return {
-      relativePath: filePath,
-      status: FILE_READ_STATUS.OUTSIDE_PROJECT,
-      isExampleFile: false,
+      ok: false,
+      displayPath: requestedPath,
+      error: filesystemError(
+        'outside_project',
+        FILE_READ_STATUS.OUTSIDE_PROJECT,
+        { retryable: false },
+      ),
     }
   }
-  const { relativePath, fullPath } = resolvedPath
 
-  // Apply file filter if provided
-  const filterResult = fileFilter?.(relativePath)
-  if (filterResult?.status === 'blocked') {
+  const resolved = await resolveFilePathForFileSystemOperation(
+    cwd,
+    requestedPath,
+    fs,
+  )
+  if (!resolved) {
     return {
-      relativePath,
-      status: FILE_READ_STATUS.IGNORED,
-      isExampleFile: false,
+      ok: false,
+      displayPath: requestedPath,
+      error: filesystemError(
+        'outside_project',
+        FILE_READ_STATUS.OUTSIDE_PROJECT,
+        { retryable: false },
+      ),
     }
   }
-  const isExampleFile = filterResult?.status === 'allow-example'
 
-  // If no custom filter provided, apply default gitignore checking
-  // (allow-example files skip gitignore since they need to bypass .env.* patterns)
-  if (!hasCustomFilter && !isExampleFile) {
-    const ignored = await isFileIgnored({
-      filePath: relativePath,
-      projectRoot: cwd,
-      fs,
-    })
-    if (ignored) {
-      return { relativePath, status: FILE_READ_STATUS.IGNORED, isExampleFile }
+  const canonicalRelative = path.relative(canonicalRoot, resolved.operationPath)
+  const aliases = uniquePolicyAliases(
+    resolved.relativePath,
+    canonicalRelative || resolved.relativePath,
+  )
+  if (aliases.some(isMandatorySensitiveReadPath)) {
+    return {
+      ok: false,
+      displayPath: resolved.relativePath,
+      error: filesystemError('blocked', FILE_READ_STATUS.IGNORED, {
+        retryable: false,
+      }),
+    }
+  }
+
+  const filterResults = fileFilter
+    ? aliases.map((alias) => fileFilter(alias))
+    : []
+  if (filterResults.some((result) => result.status === 'blocked')) {
+    return {
+      ok: false,
+      displayPath: resolved.relativePath,
+      error: filesystemError('blocked', FILE_READ_STATUS.IGNORED, {
+        retryable: false,
+      }),
+    }
+  }
+
+  // allow-example is a narrow exception for recognized environment templates;
+  // it cannot make arbitrary ignored or sensitive files readable.
+  const isExampleFile =
+    aliases.every(isEnvTemplatePath) &&
+    filterResults.some((result) => result.status === 'allow-example')
+  if (!isExampleFile) {
+    for (const alias of aliases) {
+      if (
+        await isFileIgnored({
+          filePath: alias,
+          projectRoot: cwd,
+          fs,
+        })
+      ) {
+        return {
+          ok: false,
+          displayPath: resolved.relativePath,
+          error: filesystemError('blocked', FILE_READ_STATUS.IGNORED, {
+            retryable: false,
+          }),
+        }
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    target: {
+      displayPath: resolved.relativePath,
+      operationPath: resolved.operationPath,
+      isExampleFile,
+    },
+  }
+}
+
+function errorCode(error: unknown): string | undefined {
+  return error && typeof error === 'object' && 'code' in error
+    ? String(error.code)
+    : undefined
+}
+
+function toBytes(value: string | NodeJS.ArrayBufferView): Uint8Array {
+  if (typeof value === 'string') return Buffer.from(value)
+  return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+}
+
+function decodeText(
+  bytes: Uint8Array,
+): { ok: true; content: string } | { ok: false; error: FilesystemError } {
+  if (bytes.includes(0)) {
+    return {
+      ok: false,
+      error: filesystemError(
+        'binary',
+        `${BINARY_MARKER} Binary content cannot be read with read_files.`,
+        { retryable: false },
+      ),
+    }
+  }
+  if (
+    (bytes[0] === 0xff && bytes[1] === 0xfe) ||
+    (bytes[0] === 0xfe && bytes[1] === 0xff)
+  ) {
+    return {
+      ok: false,
+      error: filesystemError(
+        'unsupported_encoding',
+        `${UNSUPPORTED_ENCODING_MARKER} UTF-16 text is not supported by read_files.`,
+        { retryable: false, recovery: 'use_supported_encoding' },
+      ),
+    }
+  }
+  try {
+    return {
+      ok: true,
+      content: new TextDecoder('utf-8', { fatal: true }).decode(bytes),
+    }
+  } catch {
+    return {
+      ok: false,
+      error: filesystemError(
+        'unsupported_encoding',
+        `${UNSUPPORTED_ENCODING_MARKER} The file is not valid UTF-8 text.`,
+        { retryable: false, recovery: 'use_supported_encoding' },
+      ),
+    }
+  }
+}
+
+async function readCanonicalSnapshot(params: {
+  operationPath: string
+  selectors: PlannedSelector[]
+  fs: CodebuffFileSystem
+  signal?: AbortSignal
+}): Promise<ReadSnapshot> {
+  const { operationPath, selectors, fs, signal } = params
+  throwIfAborted(signal)
+  let sizeBytes: number
+  try {
+    sizeBytes = (await fs.stat(operationPath)).size
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') {
+      return {
+        state: 'error',
+        error: filesystemError('not_found', FILE_READ_STATUS.DOES_NOT_EXIST, {
+          retryable: true,
+          recovery: 'discover_path',
+        }),
+      }
+    }
+    return {
+      state: 'error',
+      error: filesystemError('io_error', FILE_READ_STATUS.ERROR, {
+        retryable: true,
+        recovery: 'read_again',
+      }),
+    }
+  }
+
+  if (sizeBytes > MAX_FILE_BYTES) {
+    const ranges = selectors.filter(
+      (selector): selector is Extract<PlannedSelector, { selector: 'range' }> =>
+        selector.selector === 'range',
+    )
+    if (ranges.length === 0) return { state: 'large', sizeBytes }
+    const readTextRange = fs.readTextRange
+    if (!readTextRange) {
+      return {
+        state: 'large',
+        sizeBytes,
+        rangeError: filesystemError(
+          'unsupported',
+          'This filesystem does not advertise bounded text range reads for oversized files.',
+          { retryable: false },
+        ),
+      }
+    }
+    const startLine = Math.min(
+      ...ranges.map((selector) => Math.max(1, selector.range.startLine ?? 1)),
+    )
+    const endLine = Math.max(
+      ...ranges.map(
+        (selector) => selector.range.endLine ?? Number.MAX_SAFE_INTEGER,
+      ),
+    )
+    try {
+      throwIfAborted(signal)
+      const range = await readTextRange.call(
+        fs,
+        operationPath,
+        startLine,
+        endLine,
+        MAX_RANGE_READ_BYTES,
+      )
+      if (
+        range.data.byteLength > MAX_RANGE_READ_BYTES ||
+        range.startLine < 1 ||
+        range.endLine < 0 ||
+        range.endLine < range.startLine - 1 ||
+        range.totalLines < range.endLine
+      ) {
+        return {
+          state: 'large',
+          sizeBytes,
+          rangeError: filesystemError(
+            'io_error',
+            'The filesystem returned an invalid bounded text range result.',
+            { retryable: true, recovery: 'read_again' },
+          ),
+        }
+      }
+      const decoded = decodeText(range.data)
+      if (!decoded.ok) {
+        return { state: 'large', sizeBytes, rangeError: decoded.error }
+      }
+      return {
+        state: 'large',
+        sizeBytes,
+        window: { ...range, content: decoded.content },
+      }
+    } catch (error) {
+      return {
+        state: 'large',
+        sizeBytes,
+        rangeError:
+          errorCode(error) === 'ENOENT'
+            ? filesystemError('not_found', FILE_READ_STATUS.DOES_NOT_EXIST, {
+                retryable: true,
+                recovery: 'discover_path',
+              })
+            : filesystemError('io_error', FILE_READ_STATUS.ERROR, {
+                retryable: true,
+                recovery: 'read_again',
+              }),
+      }
     }
   }
 
   try {
-    // Safety check: skip reading files over 10MB to avoid OOM
-    const stats = await fs.stat(fullPath)
-    if (stats.size > MAX_FILE_BYTES) {
-      return {
-        relativePath,
-        status:
-          FILE_READ_STATUS.TOO_LARGE +
-          ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content, then read exact sections with read_files.ranges.]`,
-        isExampleFile,
-      }
+    throwIfAborted(signal)
+    const bytes = toBytes(await fs.readFile(operationPath))
+    if (bytes.byteLength > MAX_FILE_BYTES) {
+      return { state: 'large', sizeBytes: bytes.byteLength }
     }
-
-    const content = await fs.readFile(fullPath, 'utf8')
-    return { relativePath, content, isExampleFile }
+    const decoded = decodeText(bytes)
+    return decoded.ok
+      ? { state: 'full', content: decoded.content, sizeBytes: bytes.byteLength }
+      : { state: 'error', error: decoded.error }
   } catch (error) {
-    if (
-      error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      error.code === 'ENOENT'
-    ) {
-      return {
-        relativePath,
-        status: FILE_READ_STATUS.DOES_NOT_EXIST,
-        isExampleFile,
-      }
+    return {
+      state: 'error',
+      error:
+        errorCode(error) === 'ENOENT'
+          ? filesystemError('not_found', FILE_READ_STATUS.DOES_NOT_EXIST, {
+              retryable: true,
+              recovery: 'discover_path',
+            })
+          : filesystemError('io_error', FILE_READ_STATUS.ERROR, {
+              retryable: true,
+              recovery: 'read_again',
+            }),
     }
-    return { relativePath, status: FILE_READ_STATUS.ERROR, isExampleFile }
   }
 }
 
-/**
- * Returns the FULL, untruncated content of a single file (or null when it does
- * not exist / is blocked / errored). This is the correct source of truth for
- * file-editing tools (str_replace / write_file / apply_patch): the regular
- * `getFiles` rendering truncates large files at 100k chars for the model, which
- * would corrupt edit validation (e.g. reporting far fewer lines than the file
- * actually has and rejecting valid basedOnRead anchors).
- */
-export async function getFileForEdit(params: {
-  filePath: string
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  map: (value: T, index: number) => Promise<R>,
+  signal?: AbortSignal,
+): Promise<R[]> {
+  const results = new Array<R>(values.length)
+  let nextIndex = 0
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+      while (nextIndex < values.length) {
+        throwIfAborted(signal)
+        const index = nextIndex++
+        results[index] = await map(values[index]!, index)
+      }
+    }),
+  )
+  return results
+}
+
+async function planNativeReads(params: {
+  filePaths: string[]
+  ranges: FileLineRange[]
   cwd: string
   fs: CodebuffFileSystem
   fileFilter?: FileFilter
-}): Promise<string | null> {
-  const read = await readOneFile(params)
-  if (!read) {
-    return null
+  signal?: AbortSignal
+}): Promise<{
+  selectors: PlannedSelector[]
+  snapshots: Map<string, ReadSnapshot>
+}> {
+  const { filePaths, ranges, cwd, fs, fileFilter, signal } = params
+  throwIfAborted(signal)
+  const requestedPaths = [
+    ...new Set([...filePaths, ...ranges.map((range) => range.path)]),
+  ]
+  const root = await resolveFilePathForFileSystemOperation(cwd, '.', fs)
+  const canonicalRoot = root?.operationPath ?? path.resolve(cwd)
+  const resolvedValues = await mapWithConcurrency(
+    requestedPaths,
+    READ_SNAPSHOT_CONCURRENCY,
+    (requestedPath) =>
+      authorizeReadTarget({
+        requestedPath,
+        cwd,
+        canonicalRoot,
+        fs,
+        fileFilter,
+      }),
+    signal,
+  )
+  const resolvedByPath = new Map(
+    requestedPaths.map((requestedPath, index) => [
+      requestedPath,
+      resolvedValues[index]!,
+    ]),
+  )
+  const selectors: PlannedSelector[] = [
+    ...filePaths.map((requestedPath, requestIndex) => ({
+      selector: 'file' as const,
+      requestIndex,
+      requestedPath,
+      resolved: resolvedByPath.get(requestedPath)!,
+    })),
+    ...ranges.map((range, index) => ({
+      selector: 'range' as const,
+      requestIndex: filePaths.length + index,
+      requestedPath: range.path,
+      range,
+      resolved: resolvedByPath.get(range.path)!,
+    })),
+  ]
+
+  const groups = new Map<
+    string,
+    { operationPath: string; selectors: PlannedSelector[] }
+  >()
+  for (const selector of selectors) {
+    if (!selector.resolved.ok) continue
+    const { operationPath } = selector.resolved.target
+    const group = groups.get(operationPath) ?? { operationPath, selectors: [] }
+    group.selectors.push(selector)
+    groups.set(operationPath, group)
   }
-  if (read.content === undefined) {
-    return read.status ?? FILE_READ_STATUS.ERROR
+  const groupValues = [...groups.values()]
+  const snapshots = await mapWithConcurrency(
+    groupValues,
+    READ_SNAPSHOT_CONCURRENCY,
+    (group) => readCanonicalSnapshot({ ...group, fs, signal }),
+    signal,
+  )
+  return {
+    selectors,
+    snapshots: new Map(
+      groupValues.map((group, index) => [
+        group.operationPath,
+        snapshots[index]!,
+      ]),
+    ),
   }
-  return read.content
 }
 
-/**
- * Render `lines[startIdx..endIdx]` (0-indexed inclusive) with right-aligned
- * 1-indexed line-number prefixes (`cat -n` style), where the column width is
- * derived from `maxLineForWidth` so prefixes line up across the rendered slice.
- */
 function renderWithLinePrefixes(
   lines: string[],
   startIdx: number,
   endIdx: number,
   maxLineForWidth: number,
+  lineOffset = 0,
 ): string {
   const width = String(maxLineForWidth).length
-  const out: string[] = []
-  for (let i = startIdx; i <= endIdx; i++) {
-    const lineNum = String(i + 1).padStart(width, ' ')
-    out.push(`${lineNum}\t${lines[i] ?? ''}`)
+  const output: string[] = []
+  for (let index = startIdx; index <= endIdx; index++) {
+    const lineNumber = String(index + 1 + lineOffset).padStart(width, ' ')
+    output.push(`${lineNumber}\t${lines[index] ?? ''}`)
   }
-  return out.join('\n')
+  return output.join('\n')
 }
 
-/**
- * Pick how many head/tail lines to keep for a too-large whole-file read so
- * that the total rendered budget stays under `maxChars`. Walks line-by-line
- * from each end and stops once adding the next line would blow the budget.
- * Reserves ~60% of the budget for the head and ~40% for the tail so model
- * context is biased toward the top of the file (imports/types/exports).
- */
+function splitVisibleLines(content: string): string[] {
+  if (content.length === 0) return []
+  const lines = normalizeLineEndings(content).split('\n')
+  if (lines.at(-1) === '') lines.pop()
+  return lines
+}
+
 function pickHeadTailLines(
   lines: string[],
   maxChars: number,
@@ -181,217 +566,628 @@ function pickHeadTailLines(
   const tailBudget = maxChars - headBudget
   let headChars = 0
   let headEnd = -1
-  for (let i = 0; i < lines.length; i++) {
-    const add = (lines[i]?.length ?? 0) + 1
-    if (headChars + add > headBudget) break
-    headChars += add
-    headEnd = i
+  for (let index = 0; index < lines.length; index++) {
+    const added = (lines[index]?.length ?? 0) + 1
+    if (headChars + added > headBudget) break
+    headChars += added
+    headEnd = index
   }
   let tailChars = 0
   let tailStart = lines.length
-  for (let i = lines.length - 1; i > headEnd; i--) {
-    const add = (lines[i]?.length ?? 0) + 1
-    if (tailChars + add > tailBudget) break
-    tailChars += add
-    tailStart = i
+  for (let index = lines.length - 1; index > headEnd; index--) {
+    const added = (lines[index]?.length ?? 0) + 1
+    if (tailChars + added > tailBudget) break
+    tailChars += added
+    tailStart = index
   }
   return { headEnd, tailStart }
 }
 
-export async function getFiles(params: {
+function errorItem(
+  selector: PlannedSelector,
+  pathValue: string,
+  error: FilesystemError,
+): ReadFilesItemV1 {
+  return {
+    selector: selector.selector,
+    requestIndex: selector.requestIndex,
+    path: pathValue,
+    status: 'error',
+    error,
+  }
+}
+
+function renderWholeFileItem(
+  selector: Extract<PlannedSelector, { selector: 'file' }>,
+  snapshot: ReadSnapshot,
+): ReadFilesItemV1 {
+  if (!selector.resolved.ok) {
+    return errorItem(
+      selector,
+      selector.resolved.displayPath,
+      selector.resolved.error,
+    )
+  }
+  const { target } = selector.resolved
+  if (snapshot.state === 'error') {
+    return errorItem(selector, target.displayPath, snapshot.error)
+  }
+  if (snapshot.state === 'large') {
+    return errorItem(
+      selector,
+      target.displayPath,
+      filesystemError(
+        'too_large',
+        `${FILE_READ_STATUS.TOO_LARGE} [${(
+          snapshot.sizeBytes /
+          (1024 * 1024)
+        ).toFixed(
+          1,
+        )}MB exceeds 10MB limit. Read an exact bounded range instead.]`,
+        { retryable: true, recovery: 'read_smaller_range' },
+      ),
+    )
+  }
+
+  const { content } = snapshot
+  const partial = content.length > MAX_RENDER_CHARS
+  let renderedContent = content
+  let truncation:
+    | {
+        reason: 'character_limit'
+        omittedStartLine?: number
+        omittedEndLine?: number
+      }
+    | undefined
+  if (partial) {
+    const lines = splitVisibleLines(content)
+    const totalLines = lines.length
+    const { headEnd, tailStart } = pickHeadTailLines(lines, MAX_RENDER_CHARS)
+    if (headEnd < 0 || tailStart > totalLines - 1 || tailStart <= headEnd + 1) {
+      renderedContent = `${content.slice(0, MAX_RENDER_CHARS)}\n\n[FILE_TOO_LARGE: This file is ${numFmt.format(content.length)} chars (${numFmt.format(totalLines)} lines), exceeding the ${numFmt.format(MAX_RENDER_CHARS)} char limit. The content above has been truncated. Re-read specific sections with read_files using ranges: [{ path: "${target.displayPath}", startLine, endLine }]. Do not edit from this truncated content. Large-file edits require basedOnRead from fresh range reads.]`
+      truncation = { reason: 'character_limit' }
+    } else {
+      const omittedStartLine = headEnd + 2
+      const omittedEndLine = tailStart
+      renderedContent = `${renderWithLinePrefixes(lines, 0, headEnd, totalLines)}\n\n[FILE_TOO_LARGE: This file is ${numFmt.format(content.length)} chars (${numFmt.format(totalLines)} lines), exceeding the ${numFmt.format(MAX_RENDER_CHARS)} char limit. Omitted lines ${numFmt.format(omittedStartLine)}-${numFmt.format(omittedEndLine)}. Re-read specific sections with read_files using ranges: [{ path: "${target.displayPath}", startLine, endLine }]. Do not edit from this truncated content. Large-file edits require basedOnRead from fresh range reads.]\n\n${renderWithLinePrefixes(lines, tailStart, totalLines - 1, totalLines)}`
+      truncation = {
+        reason: 'character_limit',
+        omittedStartLine,
+        omittedEndLine,
+      }
+    }
+  }
+  return {
+    selector: 'file',
+    requestIndex: selector.requestIndex,
+    path: target.displayPath,
+    status: partial ? 'partial' : 'ok',
+    content: renderedContent,
+    complete: !partial,
+    template: target.isExampleFile,
+    ...(truncation ? { truncation } : {}),
+  }
+}
+
+function renderRangeItem(
+  selector: Extract<PlannedSelector, { selector: 'range' }>,
+  snapshot: ReadSnapshot,
+): ReadFilesItemV1 {
+  if (!selector.resolved.ok) {
+    return errorItem(
+      selector,
+      selector.resolved.displayPath,
+      selector.resolved.error,
+    )
+  }
+  const { target } = selector.resolved
+  if (snapshot.state === 'error') {
+    return errorItem(selector, target.displayPath, snapshot.error)
+  }
+  if (snapshot.state === 'large' && !snapshot.window) {
+    return errorItem(
+      selector,
+      target.displayPath,
+      snapshot.rangeError ??
+        filesystemError(
+          'unsupported',
+          'Bounded range reading is unavailable for this oversized file.',
+          { retryable: false },
+        ),
+    )
+  }
+
+  const fullContent = snapshot.state === 'full' ? snapshot.content : undefined
+  const window = snapshot.state === 'large' ? snapshot.window! : undefined
+  const lines = splitVisibleLines(fullContent ?? window!.content)
+  const totalLines =
+    snapshot.state === 'full' ? lines.length : window!.totalLines
+  const desiredStart = Math.max(1, selector.range.startLine ?? 1)
+  const desiredEnd = Math.min(totalLines, selector.range.endLine ?? totalLines)
+  if (desiredStart > totalLines || desiredEnd < desiredStart) {
+    return errorItem(
+      selector,
+      target.displayPath,
+      filesystemError(
+        'invalid_request',
+        `${RANGE_BLOCK_MARKER}requested lines ${desiredStart}-${selector.range.endLine ?? totalLines} but file ${target.displayPath} has only ${numFmt.format(totalLines)} lines.]`,
+        { retryable: true, recovery: 'read_smaller_range' },
+      ),
+    )
+  }
+
+  const sourceStart = window?.startLine ?? 1
+  const sourceEnd = window?.endLine ?? totalLines
+  const returnedStart = Math.max(desiredStart, sourceStart)
+  const returnedEnd = Math.min(desiredEnd, sourceEnd)
+  if (returnedEnd < returnedStart) {
+    return errorItem(
+      selector,
+      target.displayPath,
+      filesystemError(
+        'too_large',
+        'The requested range was outside the bounded snapshot. Request a smaller range.',
+        { retryable: true, recovery: 'read_smaller_range' },
+      ),
+    )
+  }
+
+  const startIndex = returnedStart - sourceStart
+  const endIndex = returnedEnd - sourceStart
+  const slice = lines.slice(startIndex, endIndex + 1).join('\n')
+  let body = renderWithLinePrefixes(
+    lines,
+    startIndex,
+    endIndex,
+    returnedEnd,
+    sourceStart - 1,
+  )
+  const covered = returnedStart === desiredStart && returnedEnd === desiredEnd
+  const exceedsRenderLimit = body.length > MAX_RENDER_CHARS
+  const complete = covered && !exceedsRenderLimit
+  if (!complete) {
+    body = `${body.slice(0, MAX_RENDER_CHARS)}\n\n[FILE_TOO_LARGE: This range exceeded a bounded read or render limit. Request a smaller line range before editing; do not edit from this truncated range.]`
+  }
+  const rangeHash = complete ? getContentHash(slice) : undefined
+  const readCapability = rangeHash
+    ? encodeReadCapabilityToken({
+        startLine: desiredStart,
+        endLine: desiredEnd,
+        hash: rangeHash,
+      })
+    : undefined
+  const header = complete
+    ? `${RANGE_BLOCK_MARKER}lines ${desiredStart}-${desiredEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=${rangeHash}; readCapability=${readCapability}; for str_replace pass basedOnRead: "${readCapability}"]\n`
+    : `${RANGE_BLOCK_MARKER}lines ${returnedStart}-${returnedEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=omitted; readCapability=omitted; request a smaller range before editing]\n`
+  return {
+    selector: 'range',
+    requestIndex: selector.requestIndex,
+    path: target.displayPath,
+    status: complete ? 'ok' : 'partial',
+    content: header + body,
+    startLine: complete ? desiredStart : returnedStart,
+    endLine: complete ? desiredEnd : returnedEnd,
+    totalLines,
+    complete,
+    ...(rangeHash ? { rangeHash, readCapability } : {}),
+    ...(!complete
+      ? { truncation: { reason: 'character_limit' as const } }
+      : {}),
+  }
+}
+
+export async function getFilesStructured(params: {
   filePaths: string[]
   cwd: string
   fs: CodebuffFileSystem
-  /**
-   * Filter to classify files before reading.
-   * If provided, the caller takes full control of filtering (no gitignore check).
-   * If not provided, the SDK applies gitignore checking automatically.
-   */
+  /** Custom policy composes with mandatory sensitive and ignore policy. */
   fileFilter?: FileFilter
-  /**
-   * Optional per-file 1-indexed inclusive line ranges. Each entry reads only
-   * the requested slice of the file. Range reads are additive: they never
-   * affect the plain `filePaths` reads (which keep their byte-for-byte
-   * behavior), and if a path appears in both, the ranged value wins.
-   */
   ranges?: FileLineRange[]
-}) {
-  const { filePaths, cwd, fs, fileFilter, ranges } = params
+  signal?: AbortSignal
+}): Promise<ReadFilesResultV1> {
+  const { filePaths, cwd, fs, fileFilter, ranges = [], signal } = params
+  const plan = await planNativeReads({
+    filePaths,
+    ranges,
+    cwd,
+    fs,
+    fileFilter,
+    signal,
+  })
+  const results = plan.selectors.map((selector) => {
+    if (!selector.resolved.ok) {
+      return errorItem(
+        selector,
+        selector.resolved.displayPath,
+        selector.resolved.error,
+      )
+    }
+    const snapshot = plan.snapshots.get(selector.resolved.target.operationPath)!
+    return selector.selector === 'file'
+      ? renderWholeFileItem(selector, snapshot)
+      : renderRangeItem(selector, snapshot)
+  })
+  return buildReadFilesResultV1(results)
+}
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Operation aborted', 'AbortError')
+}
+
+function legacyErrorValue(error: FilesystemError): string {
+  switch (error.code) {
+    case 'not_found':
+      return FILE_READ_STATUS.DOES_NOT_EXIST
+    case 'blocked':
+      return FILE_READ_STATUS.IGNORED
+    case 'outside_project':
+      return FILE_READ_STATUS.OUTSIDE_PROJECT
+    case 'too_large':
+    case 'unsupported':
+      return `${FILE_READ_STATUS.TOO_LARGE} ${error.message}`
+    default:
+      return error.message === FILE_READ_STATUS.ERROR
+        ? FILE_READ_STATUS.ERROR
+        : `${FILE_READ_STATUS.ERROR} ${error.message}`
+  }
+}
+
+export async function getFiles(
+  params: Parameters<typeof getFilesStructured>[0],
+): Promise<Record<string, string | null>> {
+  const structured = await getFilesStructured({
+    ...params,
+    filePaths: params.filePaths.filter(Boolean),
+    ranges: params.ranges?.filter((range) => Boolean(range.path)),
+  })
   const result: Record<string, string | null> = {}
-  const wholeFileReadPaths = new Set<string>()
-  const MAX_CHARS = 100_000 // 100k characters threshold
-  const numFmt = new Intl.NumberFormat('en-US')
-  const fmtNum = (n: number) => numFmt.format(n)
-
-  const readOne = (filePath: string) =>
-    readOneFile({ filePath, cwd, fs, fileFilter })
-
-  // Concurrently read all requested whole files and ranges. File I/O is
-  // independent across paths, so we run them in parallel via Promise.all and
-  // reassemble results in input order (index-aligned) to preserve the
-  // existing output contract. Each result is rendered into `result` in input
-  // order so ranged reads that share a path with a whole-file read still
-  // concatenate deterministically.
-  const rangeList = ranges ?? []
-  const [wholeResults, rangeResults] = await Promise.all([
-    Promise.all(filePaths.map((filePath) => readOne(filePath))),
-    Promise.all(rangeList.map((range) => readOne(range.path))),
-  ])
-
-  // Render whole-file reads in input order (unchanged behavior).
-  for (const read of wholeResults) {
-    if (!read) {
-      continue
-    }
-    const { relativePath, content, status, isExampleFile } = read
-    wholeFileReadPaths.add(relativePath)
-    if (content === undefined) {
-      result[relativePath] = status ?? FILE_READ_STATUS.ERROR
-      continue
-    }
-
-    if (content.length > MAX_CHARS) {
-      // Intelligent head+tail truncation: keep the top of the file (imports,
-      // types, exports) AND the bottom (often the entry point / trailing
-      // exports), with a clear truncation marker between them naming the
-      // omitted line range. Line-number prefixes let the model spot exactly
-      // which lines it has and which it does not.
-      const lines = content.split('\n')
-      const totalLines = lines.length
-      const { headEnd, tailStart } = pickHeadTailLines(lines, MAX_CHARS)
-
-      let rendered: string
-      if (headEnd < 0 || tailStart > totalLines - 1 || tailStart <= headEnd + 1) {
-        // Degenerate cases (e.g. one massive line). Fall back to a head-only
-        // truncation with a single TRUNCATED marker and no line prefixes,
-        // since prefix alignment is meaningless for a single huge line.
-        rendered =
-          content.slice(0, MAX_CHARS) +
-          '\n\n[FILE_TOO_LARGE: This file is ' +
-          fmtNum(content.length) +
-          ' chars (' +
-          fmtNum(totalLines) +
-          ' lines), exceeding the ' +
-          fmtNum(MAX_CHARS) +
-          ' char limit. The content above has been truncated. Re-read specific sections with read_files using the ranges parameter, e.g. ranges: [{ path: "' +
-          relativePath +
-          '", startLine, endLine }]. Do not edit from this truncated content. Large-file edits require basedOnRead from fresh range read headers: startLine, endLine, and rangeHash. For patch edits, include one basedOnRead read cap per touched hunk.]'
-      } else {
-        const head = renderWithLinePrefixes(lines, 0, headEnd, totalLines)
-        const tail = renderWithLinePrefixes(
-          lines,
-          tailStart,
-          totalLines - 1,
-          totalLines,
-        )
-        const omittedStart = headEnd + 2 // 1-indexed first omitted line
-        const omittedEnd = tailStart // 1-indexed last omitted line (tailStart is 0-indexed, so tailStart+1-1)
-        const omittedCount = omittedEnd - omittedStart + 1
-        rendered =
-          head +
-          '\n\n[FILE_TOO_LARGE: This file is ' +
-          fmtNum(content.length) +
-          ' chars (' +
-          fmtNum(totalLines) +
-          ' lines), exceeding the ' +
-          fmtNum(MAX_CHARS) +
-          ' char limit. Omitted lines ' +
-          fmtNum(omittedStart) +
-          '-' +
-          fmtNum(omittedEnd) +
-          ' (' +
-          fmtNum(omittedCount) +
-          ' lines). Re-read specific sections with read_files using the ranges parameter, e.g. ranges: [{ path: "' +
-          relativePath +
-          '", startLine, endLine }]. Do not edit from this truncated content. Large-file edits require basedOnRead from fresh range read headers: startLine, endLine, and rangeHash.]\n\n' +
-          tail
-      }
-
-      result[relativePath] = rendered
-    } else {
-      // Prepend TEMPLATE marker for example files
-      result[relativePath] = isExampleFile
-        ? FILE_READ_STATUS.TEMPLATE + '\n' + content
-        : content
-    }
+  const wholePaths = new Set<string>()
+  for (const item of structured.results) {
+    if (item.selector !== 'file') continue
+    wholePaths.add(item.path)
+    result[item.path] =
+      item.status === 'error'
+        ? legacyErrorValue(item.error)
+        : item.template
+          ? `${FILE_READ_STATUS.TEMPLATE}\n${item.content ?? ''}`
+          : (item.content ?? '')
   }
-  // Render ranged reads in input order. Additive; if a path appears in both,
-  // the ranged value wins (it's the more specific request). Multiple ranges
-  // for the same file are concatenated instead of overwriting each other so
-  // every requested range header/hash remains visible to the caller.
-  for (let i = 0; i < rangeList.length; i++) {
-    const range = rangeList[i]
-    const read = rangeResults[i]
-    if (!read) {
-      continue
-    }
-    const { relativePath, content, status } = read
-    if (content === undefined) {
-      const renderedStatus = status ?? FILE_READ_STATUS.ERROR
-      result[relativePath] = result[relativePath]
-        ? `${result[relativePath]}\n\n${renderedStatus}`
-        : renderedStatus
-      continue
-    }
-
-    const lines = content.split('\n')
-    const totalLines = lines.length
-    const start = Math.max(1, range.startLine ?? 1)
-    const end = Math.min(totalLines, range.endLine ?? totalLines)
-
-    let renderedRange: string
-    if (start > totalLines || end < start) {
-      renderedRange = `${RANGE_BLOCK_MARKER}requested lines ${start}-${range.endLine ?? totalLines} but file ${relativePath} has only ${fmtNum(totalLines)} lines.]`
-    } else {
-      const slice = lines.slice(start - 1, end).join('\n')
-      const rangeHash = getContentHash(slice)
-      const readCapability = encodeReadCapabilityToken({
-        startLine: start,
-        endLine: end,
-        hash: rangeHash,
-      })
-      // Single-line header with the readCapability inline so the model can
-      // copy ONE value into `basedOnRead` instead of a 9-line copy-safe
-      // template (which historically padded the read with format noise and
-      // increased mispairs). The structured marker `[RANGE_BLOCK ` is a
-      // stable prefix consumers can detect without parsing the header text.
-      const header =
-        `${RANGE_BLOCK_MARKER}lines ${start}-${end} of ${fmtNum(totalLines)} in ${relativePath}; rangeHash=${rangeHash}; readCapability=${readCapability}; ` +
-        `for str_replace pass basedOnRead: "${readCapability}"]\n`
-      // cat -n style numbered body — line numbers reflect the file's actual
-      // 1-indexed lines so the model can refer to lines directly without
-      // re-deriving them from the range header.
-      let body = renderWithLinePrefixes(lines, start - 1, end - 1, end)
-      if (body.length > MAX_CHARS) {
-        body =
-          body.slice(0, MAX_CHARS) +
-          '\n\n[FILE_TOO_LARGE: This range is ' +
-          fmtNum(slice.length) +
-          ' chars, exceeding the ' +
-          fmtNum(MAX_CHARS) +
-          ' char limit. Request a smaller line range before editing; do not edit from this truncated range.]'
-      }
-      renderedRange = header + body
-    }
-
-    const existing = result[relativePath]
-    const shouldReplaceWholeFileRead =
-      wholeFileReadPaths.has(relativePath) && !isRenderedRangeResult(existing)
-    result[relativePath] =
-      existing && !shouldReplaceWholeFileRead
-        ? `${existing}\n\n${renderedRange}`
-        : renderedRange
+  for (const item of structured.results) {
+    if (item.selector !== 'range') continue
+    const value =
+      item.status === 'error'
+        ? legacyErrorValue(item.error)
+        : (item.content ?? '')
+    const existing = result[item.path]
+    const replaceWhole =
+      wholePaths.has(item.path) && !isRenderedRangeResult(existing)
+    result[item.path] =
+      existing && !replaceWhole ? `${existing}\n\n${value}` : value
   }
-
   return result
 }
 
-/**
- * Identifies a rendered range-read result by the stable structured marker
- * prefix. Use this instead of fragile header-text substring checks so the
- * human-readable portion of the header can evolve without breaking consumers.
- */
+export async function getFileForEditResult(params: {
+  filePath: string
+  cwd: string
+  fs: CodebuffFileSystem
+  fileFilter?: FileFilter
+}): Promise<OptionalFileReadResult> {
+  const plan = await planNativeReads({
+    filePaths: [params.filePath],
+    ranges: [],
+    cwd: params.cwd,
+    fs: params.fs,
+    fileFilter: params.fileFilter,
+  })
+  const selector = plan.selectors[0]!
+  if (!selector.resolved.ok) {
+    return {
+      status: selector.resolved.error.code as Exclude<
+        OptionalFileReadResult['status'],
+        'found'
+      >,
+      path: selector.resolved.displayPath,
+      error: selector.resolved.error,
+    }
+  }
+  const snapshot = plan.snapshots.get(selector.resolved.target.operationPath)!
+  if (snapshot.state !== 'full') {
+    const error =
+      snapshot.state === 'error'
+        ? snapshot.error
+        : filesystemError(
+            'too_large',
+            `${FILE_READ_STATUS.TOO_LARGE} Full-file editing is unavailable above 10MB.`,
+            { retryable: true, recovery: 'read_smaller_range' },
+          )
+    return {
+      status: error.code as Exclude<OptionalFileReadResult['status'], 'found'>,
+      path: selector.resolved.target.displayPath,
+      error,
+    }
+  }
+  return {
+    status: 'found',
+    path: selector.resolved.target.displayPath,
+    content: snapshot.content,
+    template: selector.resolved.target.isExampleFile,
+  }
+}
+
+/** Legacy optional-file adapter. Prefer getFileForEditResult for typed state. */
+export async function getFileForEdit(
+  params: Parameters<typeof getFileForEditResult>[0],
+): Promise<string | null> {
+  const result = await getFileForEditResult(params)
+  return result.status === 'found'
+    ? result.content
+    : legacyErrorValue(result.error)
+}
+
+function legacyReadError(
+  value: string | null | undefined,
+): FilesystemError | null {
+  if (value === null || value === undefined) {
+    return filesystemError('not_found', FILE_READ_STATUS.DOES_NOT_EXIST, {
+      retryable: true,
+      recovery: 'discover_path',
+    })
+  }
+  const trimmed = value.trim()
+  if (trimmed.startsWith(FILE_READ_STATUS.DOES_NOT_EXIST)) {
+    return filesystemError('not_found', value, {
+      retryable: true,
+      recovery: 'discover_path',
+    })
+  }
+  if (trimmed.startsWith(FILE_READ_STATUS.IGNORED)) {
+    return filesystemError('blocked', value, { retryable: false })
+  }
+  if (trimmed.startsWith(FILE_READ_STATUS.OUTSIDE_PROJECT)) {
+    return filesystemError('outside_project', value, { retryable: false })
+  }
+  if (trimmed.startsWith(FILE_READ_STATUS.TOO_LARGE)) {
+    return filesystemError('too_large', value, {
+      retryable: true,
+      recovery: 'read_smaller_range',
+    })
+  }
+  if (trimmed.startsWith(BINARY_MARKER)) {
+    return filesystemError('binary', value, { retryable: false })
+  }
+  if (trimmed.startsWith(UNSUPPORTED_ENCODING_MARKER)) {
+    return filesystemError('unsupported_encoding', value, {
+      retryable: false,
+      recovery: 'use_supported_encoding',
+    })
+  }
+  if (trimmed.startsWith(FILE_READ_STATUS.ERROR)) {
+    return filesystemError('io_error', value, {
+      retryable: true,
+      recovery: 'read_again',
+    })
+  }
+  return null
+}
+
+type ExpectedOverrideSelector =
+  | { selector: 'file'; path: string }
+  | { selector: 'range'; path: string; range: FileLineRange }
+
+function overrideRangeMatchesRequest(
+  item: ReadFilesItemV1,
+  range: FileLineRange,
+): boolean {
+  if (item.selector !== 'range' || item.status === 'error') return false
+  const requestedStart = Math.max(1, range.startLine ?? 1)
+  const requestedEnd = range.endLine ?? item.totalLines
+  const expectedEnd = Math.min(requestedEnd, item.totalLines)
+  return (
+    item.startLine === requestedStart &&
+    item.endLine <= requestedEnd &&
+    (!item.complete || item.endLine === expectedEnd)
+  )
+}
+
+function missingOverrideItem(
+  selector: ExpectedOverrideSelector,
+  requestIndex: number,
+  message = 'The read_files override did not return a result for the requested selector.',
+): ReadFilesItemV1 {
+  return {
+    selector: selector.selector,
+    requestIndex,
+    path: selector.path,
+    status: 'error',
+    error: filesystemError('invalid_request', message, {
+      retryable: true,
+      recovery: 'read_again',
+    }),
+  }
+}
+
+export function normalizeReadFilesOverrideResult(params: {
+  filePaths: string[]
+  ranges?: FileLineRange[]
+  raw: ReadFilesResultV1 | Record<string, string | null>
+}): ReadFilesResultV1 {
+  const { filePaths, ranges = [], raw } = params
+  const selectors: ExpectedOverrideSelector[] = [
+    ...filePaths.map((pathValue) => ({
+      selector: 'file' as const,
+      path: pathValue,
+    })),
+    ...ranges.map((range) => ({
+      selector: 'range' as const,
+      path: range.path,
+      range,
+    })),
+  ]
+  const results: ReadFilesItemV1[] = []
+
+  if (isReadFilesResultV1(raw)) {
+    const used = new Set<number>()
+    for (
+      let requestIndex = 0;
+      requestIndex < selectors.length;
+      requestIndex++
+    ) {
+      const selector = selectors[requestIndex]!
+      let sourceIndex = requestIndex
+      let item: ReadFilesItemV1 | undefined = raw.results[sourceIndex]
+      if (
+        !item ||
+        item.selector !== selector.selector ||
+        item.path !== selector.path ||
+        (selector.selector === 'range' &&
+          !overrideRangeMatchesRequest(item, selector.range)) ||
+        used.has(sourceIndex)
+      ) {
+        sourceIndex = raw.results.findIndex(
+          (candidate, index) =>
+            !used.has(index) &&
+            candidate.selector === selector.selector &&
+            candidate.path === selector.path &&
+            (selector.selector !== 'range' ||
+              overrideRangeMatchesRequest(candidate, selector.range)),
+        )
+        item = sourceIndex >= 0 ? raw.results[sourceIndex] : undefined
+      }
+      if (!item) {
+        results.push(missingOverrideItem(selector, requestIndex))
+        continue
+      }
+      used.add(sourceIndex)
+      results.push({ ...item, requestIndex })
+    }
+    return buildReadFilesResultV1(results)
+  }
+
+  for (let requestIndex = 0; requestIndex < selectors.length; requestIndex++) {
+    const selector = selectors[requestIndex]!
+    if (
+      selector.selector === 'range' &&
+      ranges.filter((range) => range.path === selector.path).length > 1
+    ) {
+      results.push(
+        missingOverrideItem(
+          selector,
+          requestIndex,
+          'Legacy path-keyed read_files overrides cannot safely correlate multiple ranges for the same path. Return structured-v1 results instead.',
+        ),
+      )
+      continue
+    }
+    const value = raw[selector.path]
+    const error = legacyReadError(value)
+    if (error) {
+      results.push({
+        selector: selector.selector,
+        requestIndex,
+        path: selector.path,
+        status: 'error',
+        error,
+      })
+      continue
+    }
+    const content = value ?? ''
+    if (selector.selector === 'file') {
+      if (isRenderedRangeResult(content)) {
+        results.push(
+          missingOverrideItem(
+            selector,
+            requestIndex,
+            'The legacy path-keyed override returned a range block for a whole-file selector.',
+          ),
+        )
+        continue
+      }
+      const template = content.startsWith(FILE_READ_STATUS.TEMPLATE)
+      const renderedContent = template
+        ? content.slice(FILE_READ_STATUS.TEMPLATE.length).replace(/^\n/, '')
+        : content
+      const partial = renderedContent.includes('[FILE_TOO_LARGE:')
+      results.push({
+        selector: 'file',
+        requestIndex,
+        path: selector.path,
+        status: partial ? 'partial' : 'ok',
+        content: renderedContent,
+        complete: !partial,
+        template,
+        ...(partial
+          ? { truncation: { reason: 'character_limit' as const } }
+          : {}),
+      })
+      continue
+    }
+
+    const header = content.match(
+      /^\[RANGE_BLOCK lines (\d+)-(\d+) of ([\d,]+).*?rangeHash=([^;\]]+); readCapability=([^;\]]+)/,
+    )
+    if (!header) {
+      results.push(
+        missingOverrideItem(
+          selector,
+          requestIndex,
+          'The legacy read_files override did not return a valid range block for the requested range.',
+        ),
+      )
+      continue
+    }
+    const partial =
+      content.includes('[FILE_TOO_LARGE:') || header[4] === 'omitted'
+    const startLine = Number(header[1])
+    const endLine = Number(header[2])
+    const requestedStart = Math.max(1, selector.range.startLine ?? 1)
+    const requestedEnd = selector.range.endLine ?? Number.MAX_SAFE_INTEGER
+    if (startLine !== requestedStart || endLine > requestedEnd) {
+      results.push(
+        missingOverrideItem(
+          selector,
+          requestIndex,
+          'The legacy read_files override returned coordinates that do not match the requested range.',
+        ),
+      )
+      continue
+    }
+    results.push({
+      selector: 'range',
+      requestIndex,
+      path: selector.path,
+      status: partial ? 'partial' : 'ok',
+      content,
+      startLine,
+      endLine,
+      totalLines: Number(header[3]!.replaceAll(',', '')),
+      complete: !partial,
+      ...(!partial ? { rangeHash: header[4], readCapability: header[5] } : {}),
+      ...(partial
+        ? { truncation: { reason: 'character_limit' as const } }
+        : {}),
+    })
+  }
+  return buildReadFilesResultV1(results)
+}
+
+/** v0 and v1 overrides keep one logical batch call and ordered adaptation. */
+export async function getFilesStructuredFromOverride(params: {
+  filePaths: string[]
+  ranges?: FileLineRange[]
+  override: (input: {
+    filePaths: string[]
+    ranges?: FileLineRange[]
+  }) => Promise<ReadFilesResultV1 | Record<string, string | null>>
+}): Promise<ReadFilesResultV1> {
+  const { filePaths, ranges = [], override } = params
+  const raw = await override({ filePaths, ranges })
+  return normalizeReadFilesOverrideResult({ filePaths, ranges, raw })
+}
+
 export function isRenderedRangeResult(
   value: string | null | undefined,
 ): boolean {

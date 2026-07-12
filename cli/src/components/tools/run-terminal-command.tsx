@@ -6,13 +6,19 @@ import type { ToolRenderConfig } from './types'
 export interface ParsedTerminalOutput {
   output: string | null
   startingCwd?: string
+  jobId?: string
+  status?: string
+  detached?: boolean
+  logFile?: string
 }
 
 /**
  * Parse terminal command output from JSON or raw string format.
  * Exported for testing.
  */
-export const parseTerminalOutput = (rawOutput: string | undefined): ParsedTerminalOutput => {
+export const parseTerminalOutput = (
+  rawOutput: string | undefined,
+): ParsedTerminalOutput => {
   if (!rawOutput) {
     return { output: null }
   }
@@ -23,16 +29,27 @@ export const parseTerminalOutput = (rawOutput: string | undefined): ParsedTermin
     const value = Array.isArray(parsed) ? parsed[0]?.value : parsed
     if (value) {
       const startingCwd = value.startingCwd
+      const metadata = {
+        startingCwd,
+        jobId: typeof value.jobId === 'string' ? value.jobId : undefined,
+        status:
+          typeof value.backgroundProcessStatus === 'string'
+            ? value.backgroundProcessStatus
+            : undefined,
+        detached:
+          typeof value.detached === 'boolean' ? value.detached : undefined,
+        logFile: typeof value.logFile === 'string' ? value.logFile : undefined,
+      }
       // Handle error case
       if (value.errorMessage) {
-        return { output: `Error: ${value.errorMessage}`, startingCwd }
+        return { output: `Error: ${value.errorMessage}`, ...metadata }
       }
       // Combine stdout and stderr for display
       // Use trimEnd() to preserve leading spaces (used for UI elements like trees/tables)
       const stdout = value.stdout || ''
       const stderr = value.stderr || ''
       const output = (stdout + stderr).trimEnd() || null
-      return { output, startingCwd }
+      return { output, ...metadata }
     }
     return { output: null }
   } catch {
@@ -51,12 +68,19 @@ export const RunTerminalCommandComponent = defineToolComponent({
 
   render(toolBlock, _theme, options): ToolRenderConfig {
     // Extract command and timeout from input
-    const input = toolBlock.input as { command?: string; timeout_seconds?: number } | undefined
-    const command = typeof input?.command === 'string' ? input.command.trim() : ''
-    const timeoutSeconds = typeof input?.timeout_seconds === 'number' ? input.timeout_seconds : undefined
+    const input = toolBlock.input as
+      | { command?: string; timeout_seconds?: number }
+      | undefined
+    const command =
+      typeof input?.command === 'string' ? input.command.trim() : ''
+    const timeoutSeconds =
+      typeof input?.timeout_seconds === 'number'
+        ? input.timeout_seconds
+        : undefined
 
     // Extract output and startingCwd from tool result
-    const { output, startingCwd } = parseTerminalOutput(toolBlock.output)
+    const { output, startingCwd, jobId, status, detached, logFile } =
+      parseTerminalOutput(toolBlock.output)
 
     // Custom content component using shared TerminalCommandDisplay
     const content = (
@@ -66,6 +90,10 @@ export const RunTerminalCommandComponent = defineToolComponent({
         expandable={true}
         maxVisibleLines={5}
         cwd={startingCwd}
+        jobId={jobId}
+        status={status}
+        detached={detached}
+        logFile={logFile}
         timeoutSeconds={timeoutSeconds}
         availableWidth={options.availableWidth}
       />

@@ -10,6 +10,7 @@ function createReleaseHttpClient({
   httpsModule = https,
   tlsModule = tls,
 }) {
+  const MAX_REDIRECTS = 5
   function getProxyUrl() {
     return (
       env.HTTPS_PROXY ||
@@ -143,12 +144,28 @@ function createReleaseHttpClient({
 
   async function httpGet(url, options = {}) {
     const reqOptions = await buildRequestOptions(url, options)
+    const redirectCount = options.redirectCount || 0
 
     return new Promise((resolve, reject) => {
       const req = httpsModule.get(reqOptions, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
+        if ([301, 302, 307, 308].includes(res.statusCode)) {
+          if (!res.headers.location) {
+            res.resume()
+            reject(
+              new Error(`Redirect response missing Location header: ${url}`),
+            )
+            return
+          }
+          if (redirectCount >= MAX_REDIRECTS) {
+            res.resume()
+            reject(new Error(`Too many redirects while requesting ${url}`))
+            return
+          }
           res.resume()
-          httpGet(new URL(res.headers.location, url).href, options)
+          httpGet(new URL(res.headers.location, url).href, {
+            ...options,
+            redirectCount: redirectCount + 1,
+          })
             .then(resolve)
             .catch(reject)
           return

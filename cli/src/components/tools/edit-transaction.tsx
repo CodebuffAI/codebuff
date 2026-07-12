@@ -3,11 +3,17 @@ import { TextAttributes } from '@opentui/core'
 import { DiffViewer } from './diff-viewer'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
+import {
+  getCanonicalMutationResult,
+  getCanonicalProposalResult,
+  getStructuredErrorMessages,
+} from '../../utils/tool-result-normalizer'
 
 import type { ToolRenderConfig, ToolBlock } from './types'
 
 type TransactionFile = {
   path: string
+  destinationPath?: string
   diff: string | null
 }
 
@@ -22,7 +28,9 @@ function isQueued(toolBlock: ToolBlock): boolean {
   return !hasOutput && toolBlock.queued === true
 }
 
-function getTransactionValue(toolBlock: ToolBlock): Record<string, unknown> | null {
+function getTransactionValue(
+  toolBlock: ToolBlock,
+): Record<string, unknown> | null {
   const outputRaw = toolBlock.outputRaw
   if (Array.isArray(outputRaw) && outputRaw[0]?.value) {
     return outputRaw[0].value as Record<string, unknown>
@@ -34,6 +42,30 @@ function getTransactionValue(toolBlock: ToolBlock): Record<string, unknown> | nu
 }
 
 function getTransactionFiles(toolBlock: ToolBlock): TransactionFile[] {
+  const canonical = getCanonicalMutationResult(toolBlock.outputRaw)
+  if (canonical && Array.isArray(canonical.actions)) {
+    return canonical.actions.map((raw) => {
+      const action = raw as Record<string, unknown>
+      return {
+        path: String(action.path),
+        destinationPath:
+          typeof action.destinationPath === 'string'
+            ? action.destinationPath
+            : undefined,
+        diff: typeof action.patch === 'string' ? action.patch : null,
+      }
+    })
+  }
+  const proposal = getCanonicalProposalResult(toolBlock.outputRaw)
+  if (proposal && Array.isArray(proposal.operations)) {
+    return proposal.operations.map((raw) => {
+      const operation = raw as Record<string, unknown>
+      return {
+        path: String(operation.path),
+        diff: typeof operation.patch === 'string' ? operation.patch : null,
+      }
+    })
+  }
   const value = getTransactionValue(toolBlock)
   if (!value || !Array.isArray(value.files)) return []
 
@@ -59,11 +91,35 @@ function getTransactionFiles(toolBlock: ToolBlock): TransactionFile[] {
 }
 
 function getTransactionError(toolBlock: ToolBlock): string | null {
+  const errors = getStructuredErrorMessages(toolBlock.outputRaw)
+  if (errors.length > 0) return errors.join('\n')
   const value = getTransactionValue(toolBlock)
   if (!value) return null
   if (typeof value.errorMessage === 'string') return value.errorMessage
   if (typeof value.error === 'string') return value.error
   return null
+}
+
+function getTransactionRows(toolBlock: ToolBlock): string[] {
+  const canonical = getCanonicalMutationResult(toolBlock.outputRaw)
+  if (canonical && Array.isArray(canonical.actions)) {
+    return canonical.actions.map((raw) => {
+      const action = raw as Record<string, unknown>
+      const rollback = action.rollback as Record<string, unknown> | undefined
+      const error = action.error as Record<string, unknown> | undefined
+      const pathLabel =
+        action.action === 'move' && typeof action.destinationPath === 'string'
+          ? `${String(action.path)} → ${action.destinationPath}`
+          : String(action.path)
+      return `${String(action.index)}. ${pathLabel} • ${String(action.action)} • ${String(action.outcome)}${rollback?.attempted ? ` • rollback ${rollback.succeeded ? 'succeeded' : 'failed'}` : ''}${error?.message ? ` • ${String(error.message)}` : ''}`
+    })
+  }
+  const value = getTransactionValue(toolBlock)
+  if (!value || !Array.isArray(value.failures)) return []
+  return value.failures.map((raw) => {
+    const failure = raw as Record<string, unknown>
+    return `${String(failure.editIndex ?? '?')}. ${String(failure.path ?? failure.id ?? 'unknown')} • ${String(failure.errorMessage ?? failure.error ?? 'failed')}`
+  })
 }
 
 const TransactionHeader = ({
@@ -80,9 +136,7 @@ const TransactionHeader = ({
       <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
         {name}
       </span>
-      {queued ? (
-        <span fg={theme.muted}>{' queued'}</span>
-      ) : null}
+      {queued ? <span fg={theme.muted}>{' queued'}</span> : null}
     </text>
   )
 }
@@ -93,9 +147,12 @@ export const EditTransactionComponent = defineToolComponent({
   render(toolBlock, _theme, options): ToolRenderConfig {
     const files = getTransactionFiles(toolBlock)
     const error = getTransactionError(toolBlock)
+    const rows = getTransactionRows(toolBlock)
     const queued = isQueued(toolBlock)
     const isProposed = String(toolBlock.toolName).startsWith('propose_')
-    const title = isProposed ? 'Propose transaction' : 'Edit transaction'
+    const proposal = getCanonicalProposalResult(toolBlock.outputRaw)
+    const mutation = getCanonicalMutationResult(toolBlock.outputRaw)
+    const title = isProposed || proposal ? 'Proposal transaction' : 'Edit transaction'
     const collapsedPreview = error
       ? error.split('\n')[0]
       : files.length > 0
@@ -108,12 +165,20 @@ export const EditTransactionComponent = defineToolComponent({
       collapsedPreview,
       content: (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          <TransactionHeader name={title} queued={queued} />
+          <TransactionHeader
+            name={`${title}${toolBlock.lifecycle === 'cancelled' ? ' cancelled' : proposal ? ` ${String(proposal.state)}` : mutation ? ` ${String(mutation.outcome)}` : ''}`}
+            queued={queued}
+          />
           {error ? (
             <box style={{ paddingLeft: 2, width: '100%' }}>
               <text style={{ wrapMode: 'word' }}>{error}</text>
             </box>
           ) : null}
+          {rows.map((row, index) => (
+            <text key={`${index}-${row}`} fg={_theme.muted} style={{ wrapMode: 'word' }}>
+              {row}
+            </text>
+          ))}
           {files.map((file) => (
             <box
               key={file.path}

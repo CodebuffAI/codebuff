@@ -24,6 +24,7 @@ import type {
   PromptAiSdkStructuredFn,
 } from './llm'
 import type { Logger } from './logger'
+import type { CodebuffFileSystem } from '../filesystem'
 
 /** Shared dependencies */
 export type AgentRuntimeDeps = {
@@ -45,6 +46,11 @@ export type AgentRuntimeDeps = {
   promptAiSdkStream: PromptAiSdkStreamFn
   promptAiSdk: PromptAiSdkFn
   promptAiSdkStructured: PromptAiSdkStructuredFn
+  /** Resolve the primary BYOK model's declared context window before a run. */
+  resolveModelContextWindow?: (params: {
+    agentId?: string
+    model?: string
+  }) => number | undefined
 
   // Mutable State
   databaseAgentCache: DatabaseAgentCache
@@ -65,6 +71,12 @@ export type AgentRuntimeScopedDeps = {
   requestMcpToolData: RequestMcpToolDataFn
   requestFiles: RequestFilesFn
   requestOptionalFile: RequestOptionalFileFn
+  /** Filesystem view used by runtime-native discovery tools such as read_subtree. */
+  fileSystem?: CodebuffFileSystem
+  /** Shared path policy classifier; blocked paths are omitted from discovery. */
+  fileFilter?: (path: string) => {
+    status: 'blocked' | 'allow-example' | 'allow'
+  }
   sendAction: SendActionFn
   sendSubagentChunk: SendSubagentChunkFn
 

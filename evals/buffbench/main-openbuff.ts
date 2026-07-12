@@ -49,7 +49,10 @@ async function main() {
   if (repoPathOverride) {
     // Normalize the override path to an absolute file:// URL.
     const absRepoPath = path.resolve(repoPathOverride)
-    if (!fs.existsSync(absRepoPath) || !fs.existsSync(path.join(absRepoPath, '.git'))) {
+    if (
+      !fs.existsSync(absRepoPath) ||
+      !fs.existsSync(path.join(absRepoPath, '.git'))
+    ) {
       throw new Error(
         `OPENBUFF_REPO_PATH="${repoPathOverride}" does not point at a valid openbuff git worktree (expected a directory containing a .git entry).`,
       )
@@ -59,9 +62,9 @@ async function main() {
     // Load the embedded eval JSON, override repoUrl, and write to a temp file
     // so runBuffBench (which reads repoUrl from the eval JSON) picks up the
     // local clone path.
-    const evalData = JSON.parse(
-      fs.readFileSync(embeddedEvalPath, 'utf-8'),
-    ) as { repoUrl: string }
+    const evalData = JSON.parse(fs.readFileSync(embeddedEvalPath, 'utf-8')) as {
+      repoUrl: string
+    }
     const originalUrl = evalData.repoUrl
     evalData.repoUrl = overrideUrl
 

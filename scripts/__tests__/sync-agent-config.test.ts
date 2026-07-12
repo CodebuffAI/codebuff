@@ -1,5 +1,11 @@
 import { expect, test, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -97,7 +103,10 @@ test('checkCliKnowledgeReferences flags missing file reference in cli/knowledge.
 test('checkCliKnowledgeReferences passes when referenced file exists', () => {
   writeCanonicalFiles(tmpRoot)
   mkdirSync(join(tmpRoot, 'cli', 'src', 'hooks'), { recursive: true })
-  writeFileSync(join(tmpRoot, 'cli', 'src', 'hooks', 'use-present.ts'), '// ok\n')
+  writeFileSync(
+    join(tmpRoot, 'cli', 'src', 'hooks', 'use-present.ts'),
+    '// ok\n',
+  )
   writeFileSync(
     join(tmpRoot, 'cli', 'knowledge.md'),
     '# CLI\n\nSee `cli/src/hooks/use-present.ts` for details.\n',
@@ -124,7 +133,11 @@ test('formatAgentConfigSyncReport produces passing message when no findings', ()
 
 test('formatAgentConfigSyncReport lists findings with file:line locations', () => {
   const report = formatAgentConfigSyncReport([
-    { file: 'AGENTS.md', line: 42, message: 'Repo Map references `packages/missing` but it does not exist.' },
+    {
+      file: 'AGENTS.md',
+      line: 42,
+      message: 'Repo Map references `packages/missing` but it does not exist.',
+    },
   ])
   expect(report).toContain('AGENTS.md:42')
   expect(report).toContain('packages/missing')

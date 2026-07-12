@@ -79,7 +79,9 @@ describe('write_todos tool', () => {
       })
       const value = output.output[0].value as unknown as WriteTodosOutput
 
-      expect(value.message).toContain('Current active progress: 1/2 tasks completed')
+      expect(value.message).toContain(
+        'Current active progress: 1/2 tasks completed',
+      )
       expect(value.message).not.toContain('417/821 tasks completed')
       expect(value.todoSummary).toMatchObject({
         totalCount: 2,
@@ -360,9 +362,10 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
-      canSuggestFollowups?: boolean
-    }
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
     agentState.canSuggestFollowups = false
     const followupAgent: AgentTemplate = {
       ...testAgent,
@@ -388,7 +391,10 @@ describe('runAgentStep - set_output tool', () => {
       }),
     )
     expect(chunks).not.toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'suggest_followups',
+      }),
     )
   })
 
@@ -406,9 +412,10 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
-      canSuggestFollowups?: boolean
-    }
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
     agentState.canSuggestFollowups = true
     const followupAgent: AgentTemplate = {
       ...testAgent,
@@ -426,10 +433,16 @@ describe('runAgentStep - set_output tool', () => {
     })
 
     expect(chunks).toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'suggest_followups',
+      }),
     )
     expect(chunks).toContainEqual(
-      expect.objectContaining({ type: 'tool_result', toolName: 'suggest_followups' }),
+      expect.objectContaining({
+        type: 'tool_result',
+        toolName: 'suggest_followups',
+      }),
     )
   })
 
@@ -463,9 +476,10 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
-      canSuggestFollowups?: boolean
-    }
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
     agentState.canSuggestFollowups = true
     const followupAgent: AgentTemplate = {
       ...testAgent,
@@ -494,7 +508,10 @@ describe('runAgentStep - set_output tool', () => {
       }),
     )
     expect(chunks).not.toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'suggest_followups',
+      }),
     )
   })
 
@@ -532,9 +549,10 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
-      canSuggestFollowups?: boolean
-    }
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
     agentState.canSuggestFollowups = true
     const followupAgent: AgentTemplate = {
       ...testAgent,
@@ -586,9 +604,10 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
-      canSuggestFollowups?: boolean
-    }
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
     agentState.canSuggestFollowups = true
     const followupAgent: AgentTemplate = {
       ...testAgent,
@@ -606,7 +625,10 @@ describe('runAgentStep - set_output tool', () => {
     })
 
     expect(chunks).toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'rewrite_symbol' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'rewrite_symbol',
+      }),
     )
     expect(chunks).toContainEqual(
       expect.objectContaining({
@@ -617,7 +639,10 @@ describe('runAgentStep - set_output tool', () => {
       }),
     )
     expect(chunks).not.toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'suggest_followups',
+      }),
     )
   })
 
@@ -640,9 +665,10 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
-      canSuggestFollowups?: boolean
-    }
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
     agentState.canSuggestFollowups = true
     const followupAgent: AgentTemplate = {
       ...testAgent,
@@ -660,7 +686,10 @@ describe('runAgentStep - set_output tool', () => {
     })
 
     expect(chunks).toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'suggest_followups',
+      }),
     )
     expect(chunks).toContainEqual(
       expect.objectContaining({
@@ -694,9 +723,10 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
-      canSuggestFollowups?: boolean
-    }
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
     agentState.canSuggestFollowups = true
     const followupAgent: AgentTemplate = {
       ...testAgent,
@@ -714,7 +744,10 @@ describe('runAgentStep - set_output tool', () => {
     })
 
     expect(chunks).toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'suggest_followups',
+      }),
     )
     expect(chunks).toContainEqual(
       expect.objectContaining({
@@ -725,7 +758,10 @@ describe('runAgentStep - set_output tool', () => {
       }),
     )
     expect(chunks).not.toContainEqual(
-      expect.objectContaining({ type: 'tool_call', toolName: 'rewrite_symbol' }),
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'rewrite_symbol',
+      }),
     )
   })
 

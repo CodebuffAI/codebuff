@@ -2,7 +2,7 @@ import * as path from 'path'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import { resolveFilePathWithinProject } from './path-utils'
+import { resolveFilePathForFileSystemOperation } from './path-utils'
 
 export async function listDirectory(params: {
   directoryPath: string
@@ -17,7 +17,11 @@ export async function listDirectory(params: {
     // The previous `startsWith(projectPath)` check was a weak string prefix
     // that admitted sibling directories like /project-evil/ (whose path starts
     // with the string /project) and relied on lexical comparison alone.
-    const resolved = resolveFilePathWithinProject(projectPath, directoryPath)
+    const resolved = await resolveFilePathForFileSystemOperation(
+      projectPath,
+      directoryPath,
+      fs,
+    )
     if (!resolved) {
       return [
         {
@@ -28,7 +32,7 @@ export async function listDirectory(params: {
         },
       ]
     }
-    const resolvedPath = resolved.fullPath
+    const resolvedPath = resolved.operationPath
 
     const entries = await fs.readdir(resolvedPath, {
       withFileTypes: true,

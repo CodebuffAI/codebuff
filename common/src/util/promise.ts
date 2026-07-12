@@ -81,7 +81,9 @@ export async function withTimeout<T>(
       if (controller && !controller.signal.aborted) {
         try {
           controller.abort(
-            new Error(`withTimeout aborted after ${timeoutMs}ms: ${timeoutMessage}`),
+            new Error(
+              `withTimeout aborted after ${timeoutMs}ms: ${timeoutMessage}`,
+            ),
           )
         } catch {
           // controller.abort() never throws for an un-aborted controller, but

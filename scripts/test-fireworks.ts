@@ -15,15 +15,25 @@ const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 const FIREWORKS_MODEL = 'accounts/fireworks/models/minimax-m2p5'
 
 // Fireworks pricing constants used by this diagnostic script.
-const FIREWORKS_INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
+const FIREWORKS_INPUT_COST_PER_TOKEN = 0.3 / 1_000_000
 const FIREWORKS_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const FIREWORKS_OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+const FIREWORKS_OUTPUT_COST_PER_TOKEN = 1.2 / 1_000_000
 
-function computeCost(usage: Record<string, unknown>): { cost: number; breakdown: string } {
-  const inputTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
-  const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
-  const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined
-  const cachedTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
+function computeCost(usage: Record<string, unknown>): {
+  cost: number
+  breakdown: string
+} {
+  const inputTokens =
+    typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
+  const outputTokens =
+    typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
+  const promptDetails = usage.prompt_tokens_details as
+    | Record<string, unknown>
+    | undefined
+  const cachedTokens =
+    typeof promptDetails?.cached_tokens === 'number'
+      ? promptDetails.cached_tokens
+      : 0
   const nonCachedInput = Math.max(0, inputTokens - cachedTokens)
 
   const inputCost = nonCachedInput * FIREWORKS_INPUT_COST_PER_TOKEN
@@ -48,7 +58,9 @@ const testPrompt = 'Say "hello world" and nothing else.'
 async function testFireworksDirect() {
   const apiKey = process.env.FIREWORKS_API_KEY
   if (!apiKey) {
-    console.error('❌ FIREWORKS_API_KEY is not set. Add it to .env.local or pass it directly.')
+    console.error(
+      '❌ FIREWORKS_API_KEY is not set. Add it to .env.local or pass it directly.',
+    )
     process.exit(1)
   }
 
@@ -111,7 +123,9 @@ async function testFireworksDirect() {
 
   if (!streamResponse.ok) {
     const errorText = await streamResponse.text()
-    console.error(`❌ Fireworks streaming API returned ${streamResponse.status}: ${errorText}`)
+    console.error(
+      `❌ Fireworks streaming API returned ${streamResponse.status}: ${errorText}`,
+    )
     process.exit(1)
   }
 
@@ -145,7 +159,9 @@ async function testFireworksDirect() {
         const delta = chunk.choices?.[0]?.delta
         if (delta?.content) streamContent += delta.content
         if (delta?.reasoning_content) {
-          console.log(`   [reasoning chunk] ${delta.reasoning_content.slice(0, 80)}...`)
+          console.log(
+            `   [reasoning chunk] ${delta.reasoning_content.slice(0, 80)}...`,
+          )
         }
         if (chunk.usage) streamUsage = chunk.usage
       } catch {
@@ -158,7 +174,9 @@ async function testFireworksDirect() {
   console.log(`✅ Stream response (${streamElapsed}ms, ${chunkCount} chunks):`)
   console.log(`   Content: ${streamContent}`)
   if (streamUsage) {
-    const { cost: streamCost, breakdown: streamBreakdown } = computeCost(streamUsage as Record<string, unknown>)
+    const { cost: streamCost, breakdown: streamBreakdown } = computeCost(
+      streamUsage as Record<string, unknown>,
+    )
     console.log(`   Usage: ${JSON.stringify(streamUsage)}`)
     console.log(`   Computed cost: $${streamCost.toFixed(8)}`)
     console.log(`         ${streamBreakdown}`)

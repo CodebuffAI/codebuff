@@ -5,9 +5,7 @@ import type { SdkEnv } from '../types/env'
 /**
  * Test-only SDK env builder.
  */
-export const createTestSdkEnv = (
-  overrides: Partial<SdkEnv> = {},
-): SdkEnv => ({
+export const createTestSdkEnv = (overrides: Partial<SdkEnv> = {}): SdkEnv => ({
   ...createTestBaseEnv(),
 
   // SDK-specific defaults

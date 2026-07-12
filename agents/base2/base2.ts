@@ -31,7 +31,7 @@ export function createBase2(
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
-    hasNoValidation = mode === 'fast',
+    hasNoValidation = false,
     planOnly = false,
     executePlan = false,
     noAskUser = false,
@@ -73,15 +73,22 @@ export function createBase2(
       'read_image',
       'read_subtree',
       'read_outline',
+      'read_proposal_workspace',
+      'read_proposals',
       !isFast && 'write_todos',
       'create_plan',
       'update_plan_status',
       'str_replace',
+      'apply_patch',
       'rewrite_symbol',
       'edit_transaction',
       'write_file',
       'propose_str_replace',
       'propose_write_file',
+      'propose_edit_transaction',
+      'accept_proposal',
+      'reject_proposal',
+      'apply_proposal',
       'run_file_change_hooks',
       'suggest_followups',
       !noAskUser && 'ask_user',
@@ -94,6 +101,8 @@ export function createBase2(
       'read_logs',
       'git_status',
     ),
+    programmaticToolNames: ['spawn_agent_inline'],
+    programmaticConfig: { hasNoValidation },
     spawnableAgents: buildArray(
       'file-picker',
       'code-searcher',
@@ -112,7 +121,7 @@ export function createBase2(
       'doc-writer',
       'test-writer',
       'librarian',
-      'context-pruner',
+      'synthesizer',
     ),
 
     systemPrompt: `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Openbuff, a CLI tool where users can chat with you to code with AI.
@@ -159,15 +168,16 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
 - **Prefer rewrite_symbol for whole-symbol edits:** To replace an entire function, class, method, or type, use rewrite_symbol with the symbol name and its full new body — it locates the exact definition from the syntax tree, so you don't copy the old text and the edit can't drift. Use str_replace for partial/in-body edits or files rewrite_symbol can't parse (it falls back with guidance).
 - **Use edit_transaction for related edits:** When edits across multiple files, or multiple dependent edits in one file, must stay consistent, prefer edit_transaction so the runtime can preflight them together and apply them as an atomic client-side batch. For TypeScript import-only changes, use TypeScript-aware structured operations like insert_import/remove_import when available; use str_replace for simple one-file text changes.
+- **Proposal workflow is explicit:** Proposal tools only create typed previews; they never count as changed files. Use read_proposal_workspace to inspect the overlay, read_proposals to obtain the current revision/base hash, accept_proposal or reject_proposal with those CAS fields, and apply_proposal only after acceptance. A stale proposal must be rebuilt from fresh reads rather than treated as applied.
 - **Avoid broad scripted cleanups for refactors/renames:** For rename and overhaul tasks, prefer explicit targeted edits based on freshly read file content. Do not run one-off cleanup scripts across many files unless the user explicitly asks for that approach.
 
 # Harness-enforced recovery workflow
 
 When tools, tests, or reviewers report a failure, treat that feedback as the current source of truth and follow this state machine instead of continuing free-form edits:
 
-1. **Failed edit circuit breaker:** If \`str_replace\` or \`write_file\` reports an error, do not retry an edit to that file from memory. First re-read the exact current file region with \`read_files\` (use \`ranges\` for large files), then make one minimal edit based on the fresh text.
-2. **Stale-context guard:** Before editing a file after any intervening edit, failed edit, test failure, or reviewer comment involving that file, re-read the exact relevant lines. Do not rely on earlier snippets or mental snapshots.
-3. **Atomic transaction recovery:** If \`edit_transaction\` aborts, no files changed. Re-read the failed file ranges named in the diagnostic, fix ambiguous \`oldString\` targets with a longer anchor or \`occurrenceIndex\`, then retry the whole related transaction rather than applying only the previously successful edits.
+1. **Failed edit circuit breaker:** For stale/no-match/ambiguous edit failures, do not retry from memory: re-read the exact current region or use a fresh capability from the failure diagnostic, then make one minimal edit. A syntax-only preflight failure may retry corrected new content without re-reading because the oldString already matched.
+2. **Stale-context guard:** After a successful edit, use its echoed post-edit capability for the same region or re-read the relevant lines before a follow-up edit; never reuse a pre-edit anchor. After a failed edit, test failure, or reviewer comment, follow the exact fresh-read requirement in its diagnostic.
+3. **Atomic edit recovery:** If an atomic \`str_replace\` batch or \`edit_transaction\` aborts, no requested changes were applied. Re-read the failed file ranges named in the diagnostic, rebuild the entire batch/transaction from one fresh snapshot, and do not peel off remembered replacements into alternating success/failure retries.
 4. **Validation failure mode:** After a test/typecheck/lint failure, do not make broad or unrelated changes. Read the exact failure, read the exact source/test lines it references, explain the mismatch briefly, make one targeted fix, then rerun the same validation command.
 
 5. **Reviewer blockers are blocking:** If a reviewer returns \`BLOCKING:\` or asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), treat that exact finding as the controlling next action. Copy or paraphrase the specific blocker into your todos/progress state, do that action next, and do not run another review, continue unrelated implementation, or finalize while it is unresolved. In the next review prompt, explicitly state the blocker you fixed and how you fixed it.
@@ -196,7 +206,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Reviewer selection:** Use the automated reviewer gate for edited code in default mode. Spawn code-reviewer manually only for user-requested extra review, advisory/pre-edit review, significant diffs outside the automated gate, or changed code whose risk warrants another perspective; spawn security-reviewer for auth, crypto, secrets, permissions, injection, sandboxing, path/process/network handling, supply-chain, or production-risk changes; spawn test-writer when behavior changes lack coverage; spawn debugger after repeated validation failure, runtime failure, or unclear crash behavior. Do not duplicate the same post-edit review manually.
 - **Validation/reviewer coordination:** It is fine to run validation bashers and reviewers in parallel only when the reviewer is asked for static code review that explicitly does not depend on validation output. Always wait for both. Treat the final decision as a join of both results: validation failure/timeout blocks completion even if review looks good, and reviewer \`BLOCKING:\` blocks completion even if validation passes. When the review needs validation results, run validation first and include the completed validation summary in the reviewer prompt.
   ${buildArray(
-    '- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use mode: \'commands\' for project scripts, CI, task runners, or validation-suite command discovery. Do not rely on query_index alone for correctness.',
+    "- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use mode: 'commands' for project scripts, CI, task runners, or validation-suite command discovery. Do not rely on query_index alone for correctness.",
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits when the relevant files, APIs, or commands are not already obvious. Use query_index, list_directory, and glob directly for searching and exploring the codebase.',
     isDefault &&
       '- Spawn the editor agent after discovery for non-trivial source changes. Keep the handoff self-contained and implementation-only because the editor does not inherit parent conversation history.',
@@ -232,7 +242,7 @@ ${buildArray(
   !isFast && '- Speed is important, but a secondary goal.',
   isFast &&
     '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
-  '- If a tool fails, try again, or try a different tool or approach.',
+  '- If a tool fails, follow its recovery guidance and the harness-enforced recovery workflow above; do not blindly retry the same remembered payload.',
   '- **Fetching logs:** Prefer tail -n or ranged reads (e.g. read_files with ranges) over dumping whole log files into context. For a live or long-running process, capture its output incrementally (e.g. tail a log file across steps) rather than blocking indefinitely on a single command.',
   isDefault &&
     '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
@@ -339,7 +349,7 @@ ${securityReviewSection}
             isFast,
           }),
 
-    handleSteps: function* ({ agentState, prompt, params }) {
+    handleSteps: function* ({ agentState, prompt, params, config }) {
       type Base2AgentState = NonNullable<typeof agentState> & {
         base2ActiveWork?: Base2ActiveWorkState
         canSuggestFollowups?: boolean
@@ -347,11 +357,11 @@ ${securityReviewSection}
 
       const mutableAgentState = (agentState ?? {}) as Base2AgentState
       const agentId = mutableAgentState.agentId
+      const configuredHasNoValidation = config?.hasNoValidation
       const runValidationGate =
-        typeof hasNoValidation === 'boolean'
-          ? !hasNoValidation
-          : agentId !== 'base2-fast' &&
-            agentId !== 'base2-fast-no-validation'
+        typeof configuredHasNoValidation === 'boolean'
+          ? !configuredHasNoValidation
+          : agentId !== 'base2-fast' && agentId !== 'base2-fast-no-validation'
       // M3 (R1a–R1d) automated phase-gate predicates. These mirror the
       // advisory glob list in securityReviewSection (quality-prompt-section.ts)
       // so the automated gate and the advisory prompt agree on what is
@@ -376,11 +386,7 @@ ${securityReviewSection}
         'rbac',
         'policy',
       ]
-      const SECURITY_SENSITIVE_NAME_SUBSTRINGS = [
-        'secret',
-        'token',
-        'apikey',
-      ]
+      const SECURITY_SENSITIVE_NAME_SUBSTRINGS = ['secret', 'token', 'apikey']
       const runReviewerGate = runValidationGate
       const reviewerAgentType = 'code-reviewer'
       const MAX_REPAIR_ROUNDS = 3
@@ -400,30 +406,34 @@ ${securityReviewSection}
         )
       const hadCurrentPhase =
         !!existingActiveWorkState &&
-        Object.prototype.hasOwnProperty.call(existingActiveWorkState, 'currentPhase')
-      const activeWorkState =
-        existingActiveWorkState ??
-        {
-          touchedFiles: [],
-          changedFiles: [],
-          pendingGateFiles: [],
-          currentPhase: 'idle',
-          latestWorkSummary: '',
-          openReviewerBlockers: [],
-          lastValidationSummary: '',
-          nextRequiredAction: '',
-          lastPinnedStateMessage: '',
-          gatePassedFiles: [],
-          gatePassedPendingFiles: [],
-          gatePassedReviewerVerdict: '',
-          gatePassedValidationSummary: '',
-          gatePassedFingerprint: '',
-          lastReviewerGateSkipReason: '',
-          preEditSecurityReviewDone: false,
-          testWriterGateDone: false,
-          docWriterGateDone: false,
-          auxGatesLastPendingFiles: [],
-        }
+        Object.prototype.hasOwnProperty.call(
+          existingActiveWorkState,
+          'currentPhase',
+        )
+      const activeWorkState = existingActiveWorkState ?? {
+        touchedFiles: [],
+        changedFiles: [],
+        pendingGateFiles: [],
+        currentPhase: 'idle',
+        latestWorkSummary: '',
+        openReviewerBlockers: [],
+        lastValidationSummary: '',
+        nextRequiredAction: '',
+        lastPinnedStateMessage: '',
+        gatePassedFiles: [],
+        gatePassedPendingFiles: [],
+        gatePassedReviewerVerdict: '',
+        gatePassedValidationSummary: '',
+        gatePassedFingerprint: '',
+        lastReviewerGateSkipReason: '',
+        preEditSecurityReviewDone: false,
+        securityReviewGateDone: false,
+        reviewerCrashCount: 0,
+        reviewerGateBypassReason: '',
+        testWriterGateDone: false,
+        docWriterGateDone: false,
+        auxGatesLastPendingFiles: [],
+      }
       activeWorkState.touchedFiles ??= []
       activeWorkState.changedFiles ??= []
       activeWorkState.pendingGateFiles ??= []
@@ -439,14 +449,22 @@ ${securityReviewSection}
       activeWorkState.nextRequiredAction ??= ''
       activeWorkState.lastPinnedStateMessage ??= ''
       activeWorkState.preEditSecurityReviewDone ??= false
+      activeWorkState.securityReviewGateDone ??=
+        activeWorkState.preEditSecurityReviewDone
+      activeWorkState.reviewerCrashCount ??= 0
+      activeWorkState.reviewerGateBypassReason ??= ''
       activeWorkState.testWriterGateDone ??= false
       activeWorkState.docWriterGateDone ??= false
       activeWorkState.auxGatesLastPendingFiles ??= []
       activeWorkState.workflowTodoProgress = normalizeWorkflowTodoProgress(
         activeWorkState.workflowTodoProgress,
       )
-      activeWorkState.touchedFiles = normalizeGateFileList(activeWorkState.touchedFiles)
-      activeWorkState.changedFiles = normalizeGateFileList(activeWorkState.changedFiles)
+      activeWorkState.touchedFiles = normalizeGateFileList(
+        activeWorkState.touchedFiles,
+      )
+      activeWorkState.changedFiles = normalizeGateFileList(
+        activeWorkState.changedFiles,
+      )
       activeWorkState.pendingGateFiles = normalizeGateFileList(
         activeWorkState.pendingGateFiles,
       )
@@ -478,15 +496,41 @@ ${securityReviewSection}
       )
         ? mutableAgentState.messageHistory.length
         : 0
-      let currentConversationMessages: unknown = mutableAgentState.messageHistory
-      if (shouldProactivelyQueryIndex(prompt)) {
+      let currentConversationMessages: unknown =
+        mutableAgentState.messageHistory
+      const retrievalDecision = classifyProactiveRetrieval(prompt)
+      if (retrievalDecision) {
+        if (retrievalDecision.scope === 'cross-subsystem') {
+          yield {
+            toolName: 'list_directory',
+            input: { path: '.' },
+          } as any
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content:
+                '<system>Production breadth guard: this request was deterministically classified as cross-subsystem. Before claiming completeness, enumerate the top-level subsystems in scope, assign distinct discovery/reasoning shards in bounded waves, and explicitly mark every top-level subsystem covered or out-of-scope. A single search/read path is insufficient.</system>',
+            },
+            includeToolCall: false,
+          } as any
+        }
         yield {
           toolName: 'query_index',
           input: {
             query: prompt,
-            limit: 20,
+            limit: retrievalDecision.limit,
+            mode: retrievalDecision.mode,
           },
         }
+        yield {
+          toolName: 'add_message',
+          input: {
+            role: 'user',
+            content: `<system>Proactive retrieval route: scope=${retrievalDecision.scope}; mode=${retrievalDecision.mode}; reason=${retrievalDecision.reason}. Verify retrieved candidates against the live filesystem before editing.</system>`,
+          },
+          includeToolCall: false,
+        } as any
       }
 
       const initialGitStatus = yield {
@@ -549,17 +593,19 @@ ${securityReviewSection}
         // validation/reviewer gate: the gate would re-yield STEP, which would
         // re-trigger the step-cap (stepsRemaining is still 0), looping forever.
         if (hitStepCap) {
-          activeWorkState.currentPhase = 'final_response_allowed'
+          activeWorkState.currentPhase = 'blocked'
           activeWorkState.nextRequiredAction =
-            'Step cap reached; turn ended automatically. Summarize what was completed and suggest resuming on the next turn if work remains.'
+            'Step cap reached before required validation/review completed. Resume this work first and complete the pending gate files before finalizing.'
           activeWorkState.latestWorkSummary =
-            'Step-cap guard fired; agent turn ended automatically to prevent exceeding maxAgentSteps.'
-          mutableAgentState.canSuggestFollowups = true
+            'Step-cap guard interrupted the turn with validation/review still pending.'
+          mutableAgentState.canSuggestFollowups = false
+          finalResponseGateOpen = false
           markActiveWorkStateChanged()
           break
         }
         if (Array.isArray((stepResult as any)?.agentState?.messageHistory)) {
-          currentConversationMessages = (stepResult as any).agentState.messageHistory
+          currentConversationMessages = (stepResult as any).agentState
+            .messageHistory
         }
         let editsThisStep = false
         const files = extractChangedFiles(
@@ -654,10 +700,14 @@ ${securityReviewSection}
         // test-writer re-spawns for the original source file, forever). The
         // reset snapshot stored in auxGatesLastPendingFiles is therefore the
         // aux-relevant subset.
-        const auxRelevantPendingFiles =
-          selectAuxRelevantFiles(currentPendingGateFiles)
+        const auxRelevantPendingFiles = selectAuxRelevantFiles(
+          currentPendingGateFiles,
+        )
         if (
-          detectPendingGateFileSetChange(activeWorkState, auxRelevantPendingFiles)
+          detectPendingGateFileSetChange(
+            activeWorkState,
+            auxRelevantPendingFiles,
+          )
         ) {
           resetAuxGateFlags(activeWorkState, auxRelevantPendingFiles)
           markActiveWorkStateChanged()
@@ -677,6 +727,14 @@ ${securityReviewSection}
         // unchanged. Idempotent per pending gate file set via the done-flags
         // above.
         let auxGateFiredThisIteration = false
+        const requestRequiresTests =
+          /\b(?:add|write|update|fix|increase|improve)\b[^\n]{0,40}\btests?\b|\btest coverage\b/i.test(
+            prompt ?? '',
+          )
+        const requestRequiresDocs =
+          /\b(?:docs?|documentation|document|readme|guide)\b/i.test(
+            prompt ?? '',
+          )
         // 1) test-writer gate
         if (
           runValidationGate &&
@@ -687,32 +745,53 @@ ${securityReviewSection}
           const testWriterSelection = selectTestWriterTargets(
             currentPendingGateFiles,
           )
-          if (
-            testWriterSelection.targetFiles.length > 0 &&
-            testWriterSelection.testCommand
-          ) {
+          if (requestRequiresTests && testWriterSelection.groups.length > 0) {
+            auxGateFiredThisIteration = true
+            let testWriterCrash = ''
+            for (const group of testWriterSelection.groups) {
+              const testWriterResult = yield {
+                toolName: 'spawn_agent_inline',
+                input: {
+                  agent_type: 'test-writer',
+                  params: {
+                    target_files: group.targetFiles,
+                    test_command: group.testCommand,
+                  },
+                },
+                includeToolCall: false,
+              } as any
+              testWriterCrash =
+                detectReviewerCrash(
+                  (testWriterResult as any)?.toolResult ?? testWriterResult,
+                ) ?? ''
+              if (testWriterCrash) break
+            }
+            if (testWriterCrash) {
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.nextRequiredAction =
+                'The requested test-writer run failed. Resolve or retry it before final validation.'
+              activeWorkState.latestWorkSummary = `Test-writer failed: ${testWriterCrash}`
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'blocked',
+                pendingFileCount: currentPendingGateFiles.length,
+                pendingFiles: currentPendingGateFiles,
+                validationStatus: 'failed',
+                reviewerStatus: 'failed',
+                reuseReason: 'aux-gate:test-writer',
+              })
+              continue
+            }
             activeWorkState.testWriterGateDone = true
             markActiveWorkStateChanged()
             emitGateTelemetry({
               currentPhase: 'awaiting_validation',
               pendingFileCount: currentPendingGateFiles.length,
               pendingFiles: currentPendingGateFiles,
-              reviewerStatus: 'passed',
               validationStatus: 'passed',
+              reviewerStatus: 'passed',
               reuseReason: 'aux-gate:test-writer',
             })
-            auxGateFiredThisIteration = true
-            yield {
-              toolName: 'spawn_agent_inline',
-              input: {
-                agent_type: 'test-writer',
-                params: {
-                  target_files: testWriterSelection.targetFiles,
-                  test_command: testWriterSelection.testCommand,
-                },
-              },
-              includeToolCall: false,
-            } as any
           } else {
             activeWorkState.testWriterGateDone = true
             markActiveWorkStateChanged()
@@ -726,29 +805,47 @@ ${securityReviewSection}
           !activeWorkState.docWriterGateDone
         ) {
           const docTargets = selectDocWriterTargets(currentPendingGateFiles)
-          if (docTargets.length > 0) {
+          if (requestRequiresDocs && docTargets.length > 0) {
+            auxGateFiredThisIteration = true
+            const docWriterResult = yield {
+              toolName: 'spawn_agent_inline',
+              input: {
+                agent_type: 'doc-writer',
+                params: {
+                  source_files: docTargets,
+                },
+              },
+              includeToolCall: false,
+            } as any
+            const docWriterCrash = detectReviewerCrash(
+              (docWriterResult as any)?.toolResult ?? docWriterResult,
+            )
+            if (docWriterCrash) {
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.nextRequiredAction =
+                'The requested doc-writer run failed. Resolve or retry it before final validation.'
+              activeWorkState.latestWorkSummary = `Doc-writer failed: ${docWriterCrash}`
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'blocked',
+                pendingFileCount: currentPendingGateFiles.length,
+                pendingFiles: currentPendingGateFiles,
+                validationStatus: 'failed',
+                reviewerStatus: 'failed',
+                reuseReason: 'aux-gate:doc-writer',
+              })
+              continue
+            }
             activeWorkState.docWriterGateDone = true
             markActiveWorkStateChanged()
             emitGateTelemetry({
               currentPhase: 'awaiting_validation',
               pendingFileCount: currentPendingGateFiles.length,
               pendingFiles: currentPendingGateFiles,
-              reviewerStatus: 'passed',
               validationStatus: 'passed',
+              reviewerStatus: 'passed',
               reuseReason: 'aux-gate:doc-writer',
             })
-            auxGateFiredThisIteration = true
-            yield {
-              toolName: 'spawn_agent_inline',
-              input: {
-                agent_type: 'doc-writer',
-                params: {
-                  source_files: docTargets,
-                  target_doc_files: ['docs/agents-and-tools.md'],
-                },
-              },
-              includeToolCall: false,
-            } as any
           } else {
             activeWorkState.docWriterGateDone = true
             markActiveWorkStateChanged()
@@ -759,9 +856,54 @@ ${securityReviewSection}
           runValidationGate &&
           editsHappened &&
           currentPendingGateFiles.length > 0 &&
-          !activeWorkState.preEditSecurityReviewDone &&
+          !activeWorkState.securityReviewGateDone &&
           matchesSecuritySensitiveGlob(currentPendingGateFiles)
         ) {
+          auxGateFiredThisIteration = true
+          const securityReviewResult = yield {
+            toolName: 'spawn_agent_inline',
+            input: {
+              agent_type: 'security-reviewer',
+              params: { changed_files: currentPendingGateFiles },
+            },
+            includeToolCall: false,
+          } as any
+          const securityToolResult =
+            (securityReviewResult as any)?.toolResult ?? securityReviewResult
+          const securityCrash = detectReviewerCrash(securityToolResult)
+          const securityBlockers = collectReviewerBlockers(securityToolResult)
+          const securityVerdict =
+            getReviewerFinalizationVerdict(securityToolResult)
+          if (
+            securityCrash ||
+            securityBlockers.length > 0 ||
+            !securityVerdict
+          ) {
+            activeWorkState.currentPhase = 'blocked'
+            activeWorkState.openReviewerBlockers =
+              securityBlockers.length > 0
+                ? securityBlockers
+                : [
+                    securityCrash
+                      ? `Security reviewer crashed: ${securityCrash}`
+                      : 'Security reviewer did not return a valid blocking/non-blocking verdict.',
+                  ]
+            activeWorkState.nextRequiredAction =
+              'Resolve the security review failure or blocking findings before validation and finalization.'
+            activeWorkState.latestWorkSummary =
+              'Security review did not produce a clean finalization verdict.'
+            markActiveWorkStateChanged()
+            emitGateTelemetry({
+              currentPhase: 'blocked',
+              pendingFileCount: currentPendingGateFiles.length,
+              pendingFiles: currentPendingGateFiles,
+              reviewerStatus: 'failed',
+              validationStatus: 'failed',
+              reuseReason: 'aux-gate:security-reviewer',
+            })
+            continue
+          }
+          activeWorkState.securityReviewGateDone = true
           activeWorkState.preEditSecurityReviewDone = true
           markActiveWorkStateChanged()
           emitGateTelemetry({
@@ -772,15 +914,6 @@ ${securityReviewSection}
             validationStatus: 'passed',
             reuseReason: 'aux-gate:security-reviewer',
           })
-          auxGateFiredThisIteration = true
-          yield {
-            toolName: 'spawn_agent_inline',
-            input: {
-              agent_type: 'security-reviewer',
-              params: { changed_files: currentPendingGateFiles },
-            },
-            includeToolCall: false,
-          } as any
         }
         // After any aux gate fired (or all three skipped/marked done), re-loop
         // so validation+reviewer (the FINAL gate) re-enters on a fresh read.
@@ -861,8 +994,10 @@ ${securityReviewSection}
           }
           activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
           activeWorkState.gatePassedPendingFiles = currentPendingGateFiles
-          activeWorkState.gatePassedReviewerVerdict = conversationReviewerVerdict
-          activeWorkState.gatePassedValidationSummary = conversationValidationSummary
+          activeWorkState.gatePassedReviewerVerdict =
+            conversationReviewerVerdict
+          activeWorkState.gatePassedValidationSummary =
+            conversationValidationSummary
           activeWorkState.gatePassedFingerprint = buildGateFingerprint(
             currentPendingGateFiles,
             currentGitStatusLineMap,
@@ -909,7 +1044,8 @@ ${securityReviewSection}
             currentGitStatusLineMap,
           )
         ) {
-          const durableReviewerVerdict = reviewerFinalizationVerdictFromDurablePass()
+          const durableReviewerVerdict =
+            reviewerFinalizationVerdictFromDurablePass()
           const durableValidationSummary =
             activeWorkState.gatePassedValidationSummary ||
             activeWorkState.lastValidationSummary ||
@@ -976,10 +1112,7 @@ ${securityReviewSection}
         // only `check_background_agent` for its result if validation passes.
         const staticReviewConcurrency =
           runReviewerGate && editsHappened && staticReviewOnlyEnabled
-        if (
-          staticReviewConcurrency &&
-          !activeWorkState.staticReviewerJobId
-        ) {
+        if (staticReviewConcurrency && !activeWorkState.staticReviewerJobId) {
           const bgReview = yield {
             toolName: 'spawn_agents',
             input: {
@@ -1006,7 +1139,8 @@ ${securityReviewSection}
             activeWorkState.staticReviewerJobId = bgJobId
           }
         }
-        let validationSummary = 'No file changes were detected, so no validation hooks ran.'
+        let validationSummary =
+          'No file changes were detected, so no validation hooks ran.'
         if (editsHappened && runValidationGate) {
           const verify = yield {
             toolName: 'run_file_change_hooks',
@@ -1025,9 +1159,7 @@ ${securityReviewSection}
           } else {
             const repairRound = activeWorkState.repairRoundCount ?? 0
             const parsed = parseValidationFailures(failures)
-            const hasParseableFailures = parsed.some(
-              (p) => p.file.length > 0,
-            )
+            const hasParseableFailures = parsed.some((p) => p.file.length > 0)
             const canRepair =
               repairRound < MAX_REPAIR_ROUNDS && hasParseableFailures
             if (canRepair) {
@@ -1047,16 +1179,48 @@ ${securityReviewSection}
                 repairRound: repairRound + 1,
                 blockerCount: failures.length,
               })
+              let debuggerContext = ''
+              if (repairRound >= 1) {
+                const diagnosis = yield {
+                  toolName: 'spawn_agents',
+                  input: {
+                    agents: [
+                      {
+                        agent_type: 'debugger',
+                        prompt: [
+                          'Diagnose these repeated validation failures before another repair attempt.',
+                          `Pending files: ${Array.from(pendingGateFiles).join(', ')}`,
+                          ...failures,
+                        ].join('\n'),
+                        params: {
+                          suspect_files: Array.from(pendingGateFiles),
+                        },
+                      },
+                    ],
+                  },
+                } as any
+                try {
+                  debuggerContext = JSON.stringify(
+                    (diagnosis as any)?.toolResult ?? [],
+                  ).slice(0, 6_000)
+                } catch {
+                  debuggerContext = 'Debugger output was not serializable.'
+                }
+              }
               const repair = yield {
                 toolName: 'spawn_agents',
                 input: {
                   agents: [
                     {
                       agent_type: 'editor',
-                      prompt: buildRepairEditorPrompt(
-                        parsed,
-                        Array.from(pendingGateFiles),
-                      ),
+                      prompt:
+                        buildRepairEditorPrompt(
+                          parsed,
+                          Array.from(pendingGateFiles),
+                        ) +
+                        (debuggerContext
+                          ? `\n\nDebugger diagnosis from the prior repeated failure:\n${debuggerContext}`
+                          : ''),
                     },
                   ],
                 },
@@ -1103,7 +1267,8 @@ ${securityReviewSection}
               } else {
                 activeWorkState.nextRequiredAction =
                   'Fix the remaining validation hook failures before doing anything else.'
-                activeWorkState.lastReviewerGateSkipReason = 'validation-hook-failures'
+                activeWorkState.lastReviewerGateSkipReason =
+                  'validation-hook-failures'
                 activeWorkState.currentPhase = 'blocked'
                 activeWorkState.latestWorkSummary = `Repair editor (round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}) ran but ${reFailures.length} failure(s) remain.`
                 markActiveWorkStateChanged()
@@ -1196,7 +1361,8 @@ ${securityReviewSection}
                 )
                 if (escalateFailures.length === 0) {
                   validationSummary = summarizeHookResults(
-                    (escalateVerify as any) && (escalateVerify as any).toolResult,
+                    (escalateVerify as any) &&
+                      (escalateVerify as any).toolResult,
                   )
                   activeWorkState.lastValidationSummary = validationSummary
                   activeWorkState.currentPhase = 'awaiting_review'
@@ -1216,7 +1382,8 @@ ${securityReviewSection}
               }
               activeWorkState.nextRequiredAction =
                 'Fix the blocking validation hook failures before doing anything else.'
-              activeWorkState.lastReviewerGateSkipReason = 'validation-hook-failures'
+              activeWorkState.lastReviewerGateSkipReason =
+                'validation-hook-failures'
               activeWorkState.currentPhase = 'blocked'
               activeWorkState.latestWorkSummary = `Validation failed for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`
               markActiveWorkStateChanged()
@@ -1225,7 +1392,11 @@ ${securityReviewSection}
                 pendingFileCount: pendingGateFiles.size,
                 pendingFiles: Array.from(pendingGateFiles),
                 validationStatus: 'failed',
-                skipReason: hasParseableFailures ? (activeWorkState.repairEscalationDone ? 'escalation-exhausted' : 'repair-budget-exhausted') : 'unparseable-failures',
+                skipReason: hasParseableFailures
+                  ? activeWorkState.repairEscalationDone
+                    ? 'escalation-exhausted'
+                    : 'repair-budget-exhausted'
+                  : 'unparseable-failures',
                 blockerCount: failures.length,
                 repairRound,
               })
@@ -1259,10 +1430,7 @@ ${securityReviewSection}
           activeWorkState.lastReviewerGateSkipReason = ''
           markActiveWorkStateChanged()
           let reviewerToolResult: unknown
-          if (
-            staticReviewConcurrency &&
-            activeWorkState.staticReviewerJobId
-          ) {
+          if (staticReviewConcurrency && activeWorkState.staticReviewerJobId) {
             const checkResult = yield {
               toolName: 'check_background_agent',
               input: {
@@ -1300,8 +1468,7 @@ ${securityReviewSection}
                 ],
               },
             } as any
-            reviewerToolResult =
-              (review as any) && (review as any).toolResult
+            reviewerToolResult = (review as any) && (review as any).toolResult
           }
           const blockers = collectReviewerBlockers(reviewerToolResult)
           if (blockers.length > 0) {
@@ -1342,23 +1509,49 @@ ${securityReviewSection}
             const reviewerCrash = detectReviewerCrash(reviewerToolResult)
             activeWorkState.currentPhase = 'blocked'
             if (reviewerCrash) {
-              activeWorkState.nextRequiredAction =
-                'Reviewer agent crashed; do NOT retry the same prompt blindly. Either retry once, escalate to a different reviewer, or proceed without the reviewer gate after recording the crash in STATUS.md.'
-              markActiveWorkStateChanged()
-              yield {
-                toolName: 'add_message',
-                input: {
-                  role: 'user',
-                  content: [
-                    `Reviewer gate: ${reviewerAgentType} CRASHED (no usable verdict). The reviewer agent itself errored; its output cannot be trusted.`,
-                    '',
-                    `Crash detail: ${reviewerCrash}`,
-                    '',
-                    'Recovery: retry the reviewer once if the error looks transient (network/timeout). If it recurs, switch to a different reviewer agent or proceed without the reviewer gate and record the crash in STATUS.md. Do not silently loop on the same crashing prompt.',
-                  ].join('\n'),
-                },
-                includeToolCall: false,
-              } as any
+              activeWorkState.reviewerCrashCount =
+                (activeWorkState.reviewerCrashCount ?? 0) + 1
+              const bypassAuthorized =
+                activeWorkState.reviewerCrashCount > 1 &&
+                hasReviewerBypassAuthorization(currentConversationMessages)
+              if (bypassAuthorized) {
+                activeWorkState.reviewerGateBypassReason = `User authorized bypass after ${activeWorkState.reviewerCrashCount} reviewer crashes: ${reviewerCrash}`
+                activeWorkState.nextRequiredAction = ''
+                activeWorkState.currentPhase = 'awaiting_review'
+                reviewerFinalizationVerdict = 'NON_BLOCKING'
+                markActiveWorkStateChanged()
+                emitGateTelemetry({
+                  currentPhase: 'awaiting_review',
+                  pendingFileCount: pendingGateFiles.size,
+                  pendingFiles: Array.from(pendingGateFiles),
+                  reviewerStatus: 'skipped',
+                  validationStatus: 'passed',
+                  skipReason: 'user-authorized-reviewer-crash-bypass',
+                })
+              } else {
+                activeWorkState.nextRequiredAction =
+                  activeWorkState.reviewerCrashCount === 1
+                    ? 'Retry the reviewer gate once. If it crashes again, ask the user whether to bypass the reviewer with the validation result recorded.'
+                    : 'Reviewer crashed repeatedly. Ask the user explicitly whether to bypass this gate; do not retry again without new configuration.'
+                markActiveWorkStateChanged()
+                yield {
+                  toolName: 'add_message',
+                  input: {
+                    role: 'user',
+                    content: [
+                      `Reviewer gate: ${reviewerAgentType} CRASHED (attempt ${activeWorkState.reviewerCrashCount}).`,
+                      '',
+                      `Crash detail: ${reviewerCrash}`,
+                      '',
+                      activeWorkState.reviewerCrashCount === 1
+                        ? 'Retry this reviewer once. Do not silently loop.'
+                        : 'Do not retry again. Ask the user whether to bypass the reviewer gate based on the completed validation evidence. The bypass is accepted only after an explicit user response containing "bypass reviewer gate".',
+                    ].join('\n'),
+                  },
+                  includeToolCall: false,
+                } as any
+                continue
+              }
             } else {
               activeWorkState.nextRequiredAction =
                 'Clarify or resolve the reviewer gate result; reviewer did not return LOOKS_GOOD or NON_BLOCKING.'
@@ -1376,17 +1569,14 @@ ${securityReviewSection}
                 includeToolCall: false,
               } as any
             }
-            continue
+            if (!reviewerFinalizationVerdict) continue
           }
         }
 
         if (runValidationGate) {
           const passedPendingFiles = Array.from(pendingGateFiles)
           let activeWorkStateChanged = false
-          if (
-            passedPendingFiles.length > 0 &&
-            reviewerFinalizationVerdict
-          ) {
+          if (passedPendingFiles.length > 0 && reviewerFinalizationVerdict) {
             activeWorkState.openReviewerBlockers = []
             pendingGateFiles.clear()
             activeWorkState.pendingGateFiles = []
@@ -1397,7 +1587,8 @@ ${securityReviewSection}
             }
             activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
             activeWorkState.gatePassedPendingFiles = passedPendingFiles
-            activeWorkState.gatePassedReviewerVerdict = reviewerFinalizationVerdict
+            activeWorkState.gatePassedReviewerVerdict =
+              reviewerFinalizationVerdict
             activeWorkState.gatePassedValidationSummary = validationSummary
             activeWorkState.gatePassedFingerprint = buildGateFingerprint(
               passedPendingFiles,
@@ -1410,6 +1601,9 @@ ${securityReviewSection}
             activeWorkState.repairEscalationDone = undefined
             activeWorkState.staticReviewerJobId = undefined
             activeWorkState.preEditSecurityReviewDone = false
+            activeWorkState.securityReviewGateDone = false
+            activeWorkState.reviewerCrashCount = 0
+            activeWorkState.reviewerGateBypassReason = ''
             activeWorkState.testWriterGateDone = false
             activeWorkState.docWriterGateDone = false
             activeWorkState.auxGatesLastPendingFiles = []
@@ -1442,7 +1636,8 @@ ${securityReviewSection}
             currentPhase: 'final_response_allowed',
             pendingFileCount: passedPendingFiles.length,
             pendingFiles: passedPendingFiles,
-            reviewerStatus: passedPendingFiles.length > 0 ? 'passed' : 'skipped',
+            reviewerStatus:
+              passedPendingFiles.length > 0 ? 'passed' : 'skipped',
             validationStatus: validationHooksSkipped ? 'skipped' : 'passed',
             reviewerVerdict: passVerdict,
             hooksRan: !validationHooksSkipped,
@@ -1592,9 +1787,10 @@ ${securityReviewSection}
           changedFiles.add(file)
           pendingGateFiles.add(file)
           gatePassedFiles.delete(file)
-          activeWorkState.gatePassedFiles = activeWorkState.gatePassedFiles.filter(
-            (passedFile) => passedFile !== file,
-          )
+          activeWorkState.gatePassedFiles =
+            activeWorkState.gatePassedFiles.filter(
+              (passedFile) => passedFile !== file,
+            )
           if (activeWorkState.gatePassedPendingFiles.includes(file)) {
             activeWorkState.gatePassedPendingFiles = []
             activeWorkState.gatePassedReviewerVerdict = ''
@@ -1646,6 +1842,14 @@ ${securityReviewSection}
           typeof process.cwd === 'function'
             ? process.cwd().replace(/\\/g, '/').replace(/\/+$/, '')
             : ''
+        const isAbsolute =
+          normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)
+        if (
+          isAbsolute &&
+          (!cwd || (normalized !== cwd && !normalized.startsWith(`${cwd}/`)))
+        ) {
+          return ''
+        }
         if (cwd && (normalized === cwd || normalized.startsWith(`${cwd}/`))) {
           normalized = normalized.slice(cwd.length).replace(/^\/+/, '')
         }
@@ -1665,6 +1869,36 @@ ${securityReviewSection}
           normalizedFiles.push(normalized)
         }
         return normalizedFiles
+      }
+
+      function hasReviewerBypassAuthorization(messages: unknown): boolean {
+        if (!Array.isArray(messages)) return false
+        for (const message of messages) {
+          if (!message || typeof message !== 'object') continue
+          const record = message as Record<string, unknown>
+          if (record.role !== 'user') continue
+          const texts: string[] = []
+          const collect = (value: unknown): void => {
+            if (typeof value === 'string') {
+              texts.push(value)
+              return
+            }
+            if (Array.isArray(value)) {
+              for (const item of value) collect(item)
+              return
+            }
+            if (value && typeof value === 'object') {
+              const nested = value as Record<string, unknown>
+              collect(nested.text)
+              collect(nested.content)
+            }
+          }
+          collect(record.content)
+          if (texts.some((text) => /\bbypass reviewer gate\b/i.test(text))) {
+            return true
+          }
+        }
+        return false
       }
 
       function gateFileSetsEqual(left: string[], right: string[]): boolean {
@@ -1740,16 +1974,28 @@ ${securityReviewSection}
       }
 
       function selectTestWriterTargets(files: string[]): {
-        targetFiles: string[]
-        testCommand: string | null
+        groups: Array<{ targetFiles: string[]; testCommand: string }>
       } {
         const targetFiles = files.filter(isNonTestSourceFile)
         if (!targetFiles.length) {
-          return { targetFiles: [], testCommand: null }
+          return { groups: [] }
         }
-        // Per file-set: use the first target file's package command.
-        const testCommand = inferPackageTestCommand(targetFiles[0])
-        return { targetFiles, testCommand }
+        const filesByCommand = new Map<string, string[]>()
+        for (const file of targetFiles) {
+          const testCommand = inferPackageTestCommand(file)
+          if (!testCommand) continue
+          const group = filesByCommand.get(testCommand) ?? []
+          group.push(file)
+          filesByCommand.set(testCommand, group)
+        }
+        return {
+          groups: [...filesByCommand.entries()].map(
+            ([testCommand, groupedFiles]) => ({
+              targetFiles: groupedFiles,
+              testCommand,
+            }),
+          ),
+        }
       }
 
       function isPublicApiSourceFile(filePath: string): boolean {
@@ -1826,6 +2072,7 @@ ${securityReviewSection}
         currentFiles: string[],
       ): void {
         activeWorkState.preEditSecurityReviewDone = false
+        activeWorkState.securityReviewGateDone = false
         activeWorkState.testWriterGateDone = false
         activeWorkState.docWriterGateDone = false
         activeWorkState.auxGatesLastPendingFiles = currentFiles
@@ -1834,9 +2081,7 @@ ${securityReviewSection}
       function getConversationGatePassForPendingFiles(
         files: string[],
         messages: unknown,
-      ):
-        | { reviewerVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' }
-        | undefined {
+      ): { reviewerVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' } | undefined {
         if (files.length === 0 || !Array.isArray(messages)) return undefined
         let latestMatchingPass:
           | { reviewerVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' }
@@ -1867,9 +2112,7 @@ ${securityReviewSection}
         return latestMatchingPass
       }
 
-      function extractGateStateBlocksFromMessage(
-        message: unknown,
-      ): Array<{
+      function extractGateStateBlocksFromMessage(message: unknown): Array<{
         gate: string
         status: string
         details: string
@@ -1930,7 +2173,8 @@ ${securityReviewSection}
         if (record.type === 'json' && 'value' in record) {
           collectMessageText(record.value, out)
         }
-        if (Array.isArray(record.content)) collectMessageText(record.content, out)
+        if (Array.isArray(record.content))
+          collectMessageText(record.content, out)
       }
 
       function extractPendingFilesFromGateDetails(details: string): string[] {
@@ -2043,7 +2287,9 @@ ${securityReviewSection}
           )
         }
         if (state.lastValidationSummary && state.pendingGateFiles.length > 0) {
-          sections.push(`Last validation summary: ${state.lastValidationSummary}`)
+          sections.push(
+            `Last validation summary: ${state.lastValidationSummary}`,
+          )
         }
         if (state.nextRequiredAction) {
           sections.push(`Next required action: ${state.nextRequiredAction}`)
@@ -2110,13 +2356,16 @@ ${securityReviewSection}
               if (todos.length === 0) continue
               latestTodos = todos
               const toolCallId =
-                typeof toolCall.toolCallId === 'string' ? toolCall.toolCallId : ''
+                typeof toolCall.toolCallId === 'string'
+                  ? toolCall.toolCallId
+                  : ''
               if (toolCallId) pendingToolCalls.set(toolCallId, todos)
             }
           }
 
           if (record.role !== 'tool') continue
-          const toolName = typeof record.toolName === 'string' ? record.toolName : ''
+          const toolName =
+            typeof record.toolName === 'string' ? record.toolName : ''
           const toolCallId =
             typeof record.toolCallId === 'string' ? record.toolCallId : ''
           if (toolName !== 'write_todos' && !pendingToolCalls.has(toolCallId)) {
@@ -2128,13 +2377,16 @@ ${securityReviewSection}
             continue
           }
           const callTodos = pendingToolCalls.get(toolCallId)
-          if (callTodos && toolCallSucceeded(record.content)) latestTodos = callTodos
+          if (callTodos && toolCallSucceeded(record.content))
+            latestTodos = callTodos
         }
 
         return buildWorkflowTodoProgress(latestTodos)
       }
 
-      function extractWorkflowTodosFromValue(value: unknown): Base2WorkflowTodo[] {
+      function extractWorkflowTodosFromValue(
+        value: unknown,
+      ): Base2WorkflowTodo[] {
         const todos = findWorkflowTodoArray(value)
         if (!todos) return []
         const normalizedTodos: Base2WorkflowTodo[] = []
@@ -2170,7 +2422,10 @@ ${securityReviewSection}
           if (jsonTodos) return jsonTodos
         }
         const directTodos = record.todos
-        if (Array.isArray(directTodos) && directTodos.some(isWorkflowTodoLike)) {
+        if (
+          Array.isArray(directTodos) &&
+          directTodos.some(isWorkflowTodoLike)
+        ) {
           return directTodos
         }
         for (const nested of Object.values(record)) {
@@ -2187,15 +2442,18 @@ ${securityReviewSection}
       }
 
       function getWorkflowTodoContent(record: Record<string, unknown>): string {
-        const content = record.content ?? record.text ?? record.title ?? record.task
+        const content =
+          record.content ?? record.text ?? record.title ?? record.task
         return typeof content === 'string' ? content.trim() : ''
       }
 
       function getWorkflowTodoStatus(record: Record<string, unknown>): string {
         const status = record.status ?? record.state
         if (typeof status === 'string') return status.trim().toLowerCase()
-        if (record.completed === true || record.done === true) return 'completed'
-        if (record.completed === false || record.done === false) return 'pending'
+        if (record.completed === true || record.done === true)
+          return 'completed'
+        if (record.completed === false || record.done === false)
+          return 'pending'
         return 'pending'
       }
 
@@ -2257,7 +2515,11 @@ ${securityReviewSection}
         if (record.type === 'json' && 'value' in record) {
           return toolCallSucceeded(record.value)
         }
-        if (record.success === false || 'error' in record || 'errorMessage' in record) {
+        if (
+          record.success === false ||
+          'error' in record ||
+          'errorMessage' in record
+        ) {
           return false
         }
         if (record.success === true) return true
@@ -2265,7 +2527,11 @@ ${securityReviewSection}
           // Only trust the success-verb regex when the message does not itself
           // contain a failure indicator, otherwise messages like "No updates
           // were saved" would false-positive on "saved".
-          if (/\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i.test(record.message)) {
+          if (
+            /\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i.test(
+              record.message,
+            )
+          ) {
             return false
           }
           return /\b(success|successful|updated|wrote|written|saved)\b/i.test(
@@ -2290,18 +2556,16 @@ ${securityReviewSection}
             for (const part of record.content) {
               if (!part || typeof part !== 'object') continue
               const toolCall = part as Record<string, unknown>
-              const toolName =
-                typeof toolCall.toolName === 'string' ? toolCall.toolName : ''
-              if (toolCall.type === 'tool-call' && isFileChangingTool(toolName)) {
+              if (
+                toolCall.type === 'tool-call' &&
+                typeof toolCall.toolName === 'string' &&
+                isFileChangingTool(toolCall.toolName)
+              ) {
                 collectToolInputFiles(toolCall.input, out)
               }
             }
-            continue
           }
-
-          const toolName =
-            typeof record.toolName === 'string' ? record.toolName : ''
-          if (record.role === 'tool' && isFileChangingTool(toolName)) {
+          if (record.role === 'tool') {
             visitToolValue(record.content, out)
           }
         }
@@ -2320,29 +2584,22 @@ ${securityReviewSection}
         if (record.type === 'json' && 'value' in record) {
           visitToolValue(record.value, out)
         }
-        const toolName =
-          typeof record.toolName === 'string'
-            ? record.toolName
-            : typeof record.cb_tool_name === 'string'
-              ? record.cb_tool_name
-              : ''
-        const input = record.input
-        if (isFileChangingTool(toolName)) {
-          collectToolInputFiles(input, out)
-        }
-        if (typeof record.file === 'string' && hasEditArtifact(record)) {
-          out.add(record.file)
-        }
-        if (Array.isArray(record.changedFiles)) {
-          for (const file of record.changedFiles) {
-            if (typeof file === 'string') out.add(file)
+        if (hasEditArtifact(record)) {
+          for (const action of record.actions as Array<
+            Record<string, unknown>
+          >) {
+            if (action.outcome !== 'applied') continue
+            if (typeof action.path === 'string') out.add(action.path)
+            if (
+              action.action === 'move' &&
+              typeof action.destinationPath === 'string'
+            ) {
+              out.add(action.destinationPath)
+            }
           }
         }
-        if (typeof record.path === 'string' && hasEditArtifact(record)) {
-          out.add(record.path)
-        }
         for (const nested of Object.values(record)) {
-          if (nested !== input) visitToolValue(nested, out)
+          visitToolValue(nested, out)
         }
       }
 
@@ -2385,26 +2642,53 @@ ${securityReviewSection}
       }
 
       function hasEditArtifact(record: Record<string, unknown>): boolean {
-        if (
-          typeof record.unifiedDiff === 'string' ||
-          typeof record.diff === 'string' ||
-          typeof record.patch === 'string'
-        ) {
-          return true
-        }
-        if (record.success === true) return true
-        if (record.success === false || 'error' in record || 'errorMessage' in record) {
-          return false
-        }
-        if (typeof record.message !== 'string') return false
-        // Only trust the success-verb regex when the message does not itself
-        // contain a failure indicator, otherwise messages like "No edits were
-        // applied" would false-positive on "applied".
-        if (/\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i.test(record.message)) {
-          return false
-        }
-        return /\b(success|successful|applied|wrote|written|edited|replaced)\b/i.test(
-          record.message,
+        return (
+          record.kind === 'file_mutation_result' &&
+          record.version === 1 &&
+          typeof record.operationId === 'string' &&
+          record.operationId.length > 0 &&
+          (record.authorityTier === 'portable_path' ||
+            record.authorityTier === 'conditional_commit') &&
+          (record.outcome === 'applied' ||
+            record.outcome === 'partial' ||
+            record.outcome === 'rollback_incomplete') &&
+          Array.isArray(record.actions) &&
+          record.authorityReceipt !== null &&
+          typeof record.authorityReceipt === 'object' &&
+          !Array.isArray(record.authorityReceipt) &&
+          (record.authorityReceipt as Record<string, unknown>).operationId ===
+            record.operationId &&
+          (record.authorityReceipt as Record<string, unknown>).receiptId ===
+            record.receiptId &&
+          Array.isArray(
+            (record.authorityReceipt as Record<string, unknown>).actions,
+          ) &&
+          (
+            (record.authorityReceipt as Record<string, unknown>)
+              .actions as unknown[]
+          ).length === record.actions.length &&
+          record.actions.every(
+            (action, index) =>
+              action !== null &&
+              typeof action === 'object' &&
+              (action as Record<string, unknown>).index === index &&
+              typeof (action as Record<string, unknown>).actionId ===
+                'string' &&
+              typeof (action as Record<string, unknown>).path === 'string' &&
+              (
+                (record.authorityReceipt as Record<string, unknown>)
+                  .actions as Array<Record<string, unknown>>
+              )[index]?.actionId ===
+                (action as Record<string, unknown>).actionId,
+          ) &&
+          Array.isArray(record.errors) &&
+          Array.isArray(record.freshCapabilities) &&
+          record.actions.some(
+            (action) =>
+              action !== null &&
+              typeof action === 'object' &&
+              (action as Record<string, unknown>).outcome === 'applied',
+          )
         )
       }
 
@@ -2413,7 +2697,9 @@ ${securityReviewSection}
         if (!Array.isArray(toolResult)) return []
         for (const part of toolResult) {
           const value =
-            part && (part as any).type === 'json' ? (part as any).value : undefined
+            part && (part as any).type === 'json'
+              ? (part as any).value
+              : undefined
           const status =
             value && typeof value === 'object'
               ? (value as Record<string, unknown>).status
@@ -2441,7 +2727,9 @@ ${securityReviewSection}
         if (!Array.isArray(toolResult)) return map
         for (const part of toolResult) {
           const value =
-            part && (part as any).type === 'json' ? (part as any).value : undefined
+            part && (part as any).type === 'json'
+              ? (part as any).value
+              : undefined
           const status =
             value && typeof value === 'object'
               ? (value as Record<string, unknown>).status
@@ -2511,7 +2799,9 @@ ${securityReviewSection}
         if (getBuiltinModule) {
           fs = getBuiltinModule('node:fs') as typeof import('node:fs')
           path = getBuiltinModule('node:path') as typeof import('node:path')
-          crypto = getBuiltinModule('node:crypto') as typeof import('node:crypto')
+          crypto = getBuiltinModule(
+            'node:crypto',
+          ) as typeof import('node:crypto')
         } else if (typeof req === 'function') {
           fs = req('node:fs')
           path = req('node:path')
@@ -2539,10 +2829,11 @@ ${securityReviewSection}
           // via .toString() and rebuilt with new Function, so module-level
           // caches would not survive reconstruction).
           const cacheKey = `${absolutePath}\t${stat.mtimeMs}\t${stat.size}`
-          const markerCache =
-            (readGateFileContentMarker as unknown as {
+          const markerCache = (
+            readGateFileContentMarker as unknown as {
               cache?: Map<string, string>
-            }).cache
+            }
+          ).cache
           if (markerCache && markerCache.has(cacheKey)) {
             return markerCache.get(cacheKey)!
           }
@@ -2600,9 +2891,7 @@ ${securityReviewSection}
         if (Array.isArray(toolResult)) {
           for (const part of toolResult) {
             const value =
-              part && (part as any).type === 'json'
-                ? (part as any).value
-                : part
+              part && (part as any).type === 'json' ? (part as any).value : part
             candidates.push(value)
           }
         } else if (toolResult && typeof toolResult === 'object') {
@@ -2629,7 +2918,10 @@ ${securityReviewSection}
         const structuredBlockers: string[] = []
         for (const entry of structured) {
           if (entry.verdict === 'BLOCKING') {
-            const findings = entry.findings.length > 0 ? entry.findings : ['(no findings provided)']
+            const findings =
+              entry.findings.length > 0
+                ? entry.findings
+                : ['(no findings provided)']
             for (const finding of findings) {
               structuredBlockers.push(`BLOCKING: ${finding}`)
             }
@@ -2655,7 +2947,10 @@ ${securityReviewSection}
       function detectReviewerCrash(toolResult: unknown): string | null {
         return findReviewerCrash(toolResult)
       }
-      function findReviewerCrash(value: unknown, depth: number = 0): string | null {
+      function findReviewerCrash(
+        value: unknown,
+        depth: number = 0,
+      ): string | null {
         // Depth cap (matches gate-reviewer.ts): reviewer tool results can
         // carry deeply nested tool-call trees; 8 is well past any realistic
         // envelope but stops pathological recursion.
@@ -2675,11 +2970,17 @@ ${securityReviewSection}
         // only consult this when no verdict was emitted — a reviewer whose
         // inner tool errored AND who produced no verdict is effectively
         // crashed from the operator's perspective.
-        if (typeof record.errorMessage === 'string' && record.errorMessage.trim()) {
+        if (
+          typeof record.errorMessage === 'string' &&
+          record.errorMessage.trim()
+        ) {
           return record.errorMessage.trim()
         }
         if (record.type === 'error' && typeof record.message === 'string') {
-          return record.message.trim() || 'reviewer agent reported an unspecified error'
+          return (
+            record.message.trim() ||
+            'reviewer agent reported an unspecified error'
+          )
         }
         if (record.type === 'json' && 'value' in record) {
           const nested = findReviewerCrash((record as any).value, depth + 1)
@@ -2775,7 +3076,8 @@ ${securityReviewSection}
             // BLOCKING is never a finalization verdict, and missing coverage
             // still blocks regardless of the text verdict (coverage-adequacy
             // contract).
-            if (verdict !== 'LOOKS_GOOD' && verdict !== 'NON_BLOCKING') return ''
+            if (verdict !== 'LOOKS_GOOD' && verdict !== 'NON_BLOCKING')
+              return ''
             if (coverage === 'missing') return ''
             return verdict === 'LOOKS_GOOD' ? 'LOOKS_GOOD' : 'NON_BLOCKING'
           } catch {
@@ -2798,12 +3100,22 @@ ${securityReviewSection}
         collectStrings(toolResult, texts)
         for (const text of texts) {
           const normalized = stripReviewerPreamble(text)
-          if (hasReviewerLineVerdict(normalized, 'LOOKS_GOOD')) return 'LOOKS_GOOD'
-          if (hasReviewerLineVerdict(normalized, 'NON_BLOCKING')) return 'NON_BLOCKING'
-          if (/\breviewer gate passed\s*(?:with\s+|\(\s*)LOOKS_GOOD\b/i.test(normalized)) {
+          if (hasReviewerLineVerdict(normalized, 'LOOKS_GOOD'))
+            return 'LOOKS_GOOD'
+          if (hasReviewerLineVerdict(normalized, 'NON_BLOCKING'))
+            return 'NON_BLOCKING'
+          if (
+            /\breviewer gate passed\s*(?:with\s+|\(\s*)LOOKS_GOOD\b/i.test(
+              normalized,
+            )
+          ) {
             return 'LOOKS_GOOD'
           }
-          if (/\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(normalized)) {
+          if (
+            /\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(
+              normalized,
+            )
+          ) {
             return 'NON_BLOCKING'
           }
           const embedded = extractEmbeddedJsonVerdict(normalized)
@@ -2819,9 +3131,7 @@ ${securityReviewSection}
        * outputs return an empty list so the existing text-mode logic stays in
        * charge.
        */
-      function collectStructuredReviewerOutputs(
-        value: unknown,
-      ): Array<{
+      function collectStructuredReviewerOutputs(value: unknown): Array<{
         verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
         findings: string[]
         coverage?: 'covered' | 'missing' | 'n/a'
@@ -2878,11 +3188,19 @@ ${securityReviewSection}
             const rawCoverage = record.coverage
             if (typeof rawCoverage === 'string') {
               const lower = rawCoverage.trim().toLowerCase()
-              if (lower === 'covered' || lower === 'missing' || lower === 'n/a') {
+              if (
+                lower === 'covered' ||
+                lower === 'missing' ||
+                lower === 'n/a'
+              ) {
                 coverage = lower
               }
             }
-            out.push({ verdict: upper as 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings, coverage })
+            out.push({
+              verdict: upper as 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING',
+              findings,
+              coverage,
+            })
             return
           }
         }
@@ -2960,15 +3278,20 @@ ${securityReviewSection}
         return `Configured file-change hooks passed: ${names}.`
       }
 
-      function extractHookResults(toolResult: unknown): Record<string, unknown>[] {
+      function extractHookResults(
+        toolResult: unknown,
+      ): Record<string, unknown>[] {
         const hooks: Record<string, unknown>[] = []
         if (!Array.isArray(toolResult)) return hooks
         for (const part of toolResult) {
           const value =
-            part && (part as any).type === 'json' ? (part as any).value : undefined
+            part && (part as any).type === 'json'
+              ? (part as any).value
+              : undefined
           if (!Array.isArray(value)) continue
           for (const hook of value) {
-            if (hook && typeof hook === 'object') hooks.push(hook as Record<string, unknown>)
+            if (hook && typeof hook === 'object')
+              hooks.push(hook as Record<string, unknown>)
           }
         }
         return hooks
@@ -2978,9 +3301,7 @@ ${securityReviewSection}
       // `handleSteps` is serialized via `toString()` + `new Function(...)`
       // and cannot reference module-scope imports at reconstruction time.
       // `agents/__tests__/gate-repair-parity.test.ts` enforces parity.
-      function parseValidationFailures(
-        failures: string[],
-      ): {
+      function parseValidationFailures(failures: string[]): {
         file: string
         line?: number
         column?: number
@@ -2999,7 +3320,9 @@ ${securityReviewSection}
           if (typeof raw !== 'string' || !raw.trim()) continue
           let source = 'unknown'
           let body = raw
-          const prefixMatch = raw.match(/^\-\s+(\S+)\s+failed\s+\(exit\s+\d+\):\s*\n?/)
+          const prefixMatch = raw.match(
+            /^\-\s+(\S+)\s+failed\s+\(exit\s+\d+\):\s*\n?/,
+          )
           if (prefixMatch) {
             source = prefixMatch[1]
             body = raw.slice(prefixMatch[0].length)
@@ -3201,12 +3524,80 @@ ${securityReviewSection}
         return lines.join('\n')
       }
 
-      function shouldProactivelyQueryIndex(value: unknown): value is string {
-        if (typeof value !== 'string') return false
+      function classifyProactiveRetrieval(value: unknown):
+        | {
+            scope: 'focused' | 'multi-file' | 'cross-subsystem' | 'unknown'
+            mode: 'search' | 'explain' | 'commands'
+            limit: number
+            reason: string
+          }
+        | undefined {
+        if (typeof value !== 'string') return undefined
         const text = value.trim()
-        if (text.length < 12) return false
-        if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
-        return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
+        if (text.length < 12) return undefined
+        if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text))
+          return undefined
+        if (/^(continue|go on|proceed|keep going|resume)\b/i.test(text)) {
+          return undefined
+        }
+
+        const codeIntent =
+          /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor|audit|review|investigate|architecture|flow|index|context)\b/i.test(
+            text,
+          )
+        if (!codeIntent) return undefined
+
+        if (
+          /\b(command|script|typecheck|lint|build|ci|workflow|validation|test command|package script)\b/i.test(
+            text,
+          )
+        ) {
+          return {
+            scope: 'focused',
+            mode: 'commands',
+            limit: 12,
+            reason: 'validation-or-command discovery',
+          }
+        }
+
+        const isBroad =
+          /\b(audit|across|all places|whole|entire|end[- ]to[- ]end|cross[- ]cutting|feature gaps|production readiness|architecture|general ability)\b/i.test(
+            text,
+          )
+        if (isBroad) {
+          return {
+            scope: 'cross-subsystem',
+            mode: 'explain',
+            limit: 30,
+            reason: 'broad or cross-cutting task surface',
+          }
+        }
+
+        const concernCount = [
+          /\b(cli|tui|ui|ux|frontend)\b/i,
+          /\b(sdk|api)\b/i,
+          /\b(agent|runtime|orchestrat|context)\b/i,
+          /\b(index|retriev|search)\b/i,
+          /\b(test|eval|ci)\b/i,
+          /\bdocs?|documentation\b/i,
+        ].filter((pattern) => pattern.test(text)).length
+        if (concernCount >= 2) {
+          return {
+            scope: 'multi-file',
+            mode: 'explain',
+            limit: 24,
+            reason: 'multiple distinct subsystems or concerns',
+          }
+        }
+
+        return {
+          scope: /\.(?:ts|tsx|js|jsx|py|go|rs|md)\b/.test(text)
+            ? 'focused'
+            : 'unknown',
+          mode: 'search',
+          limit: 14,
+          reason: 'codebase intent with relevant files not yet verified',
+        }
       }
     },
   }
@@ -3288,7 +3679,7 @@ function buildImplementationStepPrompt({
     'Consider loading relevant skills with the skill tool if they might help with the current task. Do not reload skills that were already loaded earlier in this conversation.',
     'Use dedicated tools before shell fallbacks: git_status for repo status, read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, deterministic edit tools for file changes, and basher only for commands without a dedicated tool.',
     isDefault &&
-      `For non-trivial edits, spawn the editor after context discovery with a compact implementation-only prompt containing all of these envelope fields: Requirements, Target files, Constraints/non-goals, Patterns, Risks. Use those exact field labels in the prompt so the editor can scan them as a checklist. The editor does not inherit parent conversation history, so the prompt must contain the implementation context it needs. If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not put validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, todos, or other parent-only orchestration tasks in the editor handoff. After the editor returns, the default runtime will independently detect changed files, run configured validation hooks, and spawn code-reviewer before finalization.`, 
+      `For non-trivial edits, spawn the editor after context discovery with a compact implementation-only prompt containing all of these envelope fields: Requirements, Target files, Constraints/non-goals, Patterns, Risks. Use those exact field labels in the prompt so the editor can scan them as a checklist. The editor does not inherit parent conversation history, so the prompt must contain the implementation context it needs. If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not put validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, todos, or other parent-only orchestration tasks in the editor handoff. After the editor returns, the default runtime will independently detect changed files, run configured validation hooks, and spawn code-reviewer before finalization.`,
     isDefault &&
       'Use the phase triggers from the spawning guidelines: context agents before edits when scope is unclear, thinker for complex post-discovery reasoning, bashers for validation, debugger for repeated failures, and doc/test writers when docs or tests are required. Join all parallel validation/review results before completing.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.`,

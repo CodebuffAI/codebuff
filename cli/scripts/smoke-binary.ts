@@ -158,7 +158,9 @@ async function main(): Promise<void> {
   clearTimeout(killTimer)
 
   const fail = (reason: string): never => {
-    console.error(`smoke-binary: FAIL — ${reason} (exit code ${earlyExitCode}).`)
+    console.error(
+      `smoke-binary: FAIL — ${reason} (exit code ${earlyExitCode}).`,
+    )
     console.error('--- captured output (truncated to 8KB) ---')
     console.error(captured.slice(0, 8 * 1024))
     process.exit(1)

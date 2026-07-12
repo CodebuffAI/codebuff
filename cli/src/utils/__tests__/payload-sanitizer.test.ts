@@ -53,9 +53,13 @@ describe('payload-sanitizer', () => {
     const content = sanitized.messageHistory[0].content
 
     expect(content[0].type).toBe('text')
-    expect(content[0].text).toContain('omitted persisted file image/png payload')
+    expect(content[0].text).toContain(
+      'omitted persisted file image/png payload',
+    )
     expect(content[1].type).toBe('text')
-    expect(content[1].text).toContain('omitted persisted image image/jpeg payload')
+    expect(content[1].text).toContain(
+      'omitted persisted image image/jpeg payload',
+    )
     expect(JSON.stringify(sanitized)).not.toContain('b'.repeat(1_000))
     expect(JSON.stringify(sanitized)).not.toContain('c'.repeat(1_000))
   })

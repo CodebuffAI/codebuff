@@ -14,7 +14,8 @@ function createMockLogger(): Logger {
     trace: () => {},
     debug: () => {},
     info: () => {},
-    warn: (obj: any, msg?: string) => calls.push({ level: 'warn', msg: msg ?? '' }),
+    warn: (obj: any, msg?: string) =>
+      calls.push({ level: 'warn', msg: msg ?? '' }),
     error: () => {},
     fatal: () => {},
     child: () => createMockLogger(),
@@ -115,9 +116,7 @@ test('parsePatternsIndex handles backtick-wrapped and bare file paths', () => {
 test('loadPatternsIndex returns empty for missing project root', () => {
   expect(loadPatternsIndex('')).toEqual([])
   // Non-existent directory
-  expect(loadPatternsIndex('/nonexistent/path/that/does/not/exist')).toEqual(
-    [],
-  )
+  expect(loadPatternsIndex('/nonexistent/path/that/does/not/exist')).toEqual([])
 })
 
 test('loadPatternsIndex returns empty when INDEX.md is absent', () => {

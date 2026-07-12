@@ -45,20 +45,21 @@ describe('StrReplaceComponent', () => {
   })
 
   test('renders write_file create with addition-only diff body', () => {
-    const toolBlock = createWriteFileToolBlock(
-      { path: 'src/new-file.ts' },
-      [
-        {
-          type: 'json',
-          value: {
-            message: 'Created file successfully',
-            unifiedDiff: '@@\n+export const value = 1\n',
-          },
+    const toolBlock = createWriteFileToolBlock({ path: 'src/new-file.ts' }, [
+      {
+        type: 'json',
+        value: {
+          message: 'Created file successfully',
+          unifiedDiff: '@@\n+export const value = 1\n',
         },
-      ],
-    )
+      },
+    ])
 
-    const result = renderToolComponent(toolBlock, chatThemes.dark, renderOptions)
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
 
     expect(result).toBeDefined()
     expect(result?.content).toBeDefined()
@@ -70,20 +71,21 @@ describe('StrReplaceComponent', () => {
   })
 
   test('renders str_replace edit with diff body', () => {
-    const toolBlock = createStrReplaceToolBlock(
-      { path: 'src/existing.ts' },
-      [
-        {
-          type: 'json',
-          value: {
-            message: 'String replace applied successfully',
-            unifiedDiff: '@@\n-oldLine\n+newLine\n',
-          },
+    const toolBlock = createStrReplaceToolBlock({ path: 'src/existing.ts' }, [
+      {
+        type: 'json',
+        value: {
+          message: 'String replace applied successfully',
+          unifiedDiff: '@@\n-oldLine\n+newLine\n',
         },
-      ],
-    )
+      },
+    ])
 
-    const result = renderToolComponent(toolBlock, chatThemes.dark, renderOptions)
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
 
     expect(result).toBeDefined()
     expect(result?.content).toBeDefined()
@@ -93,6 +95,46 @@ describe('StrReplaceComponent', () => {
     expect(markup).toContain('src/existing.ts')
     expect(markup).toContain('-oldLine')
     expect(markup).toContain('+newLine')
+  })
+
+  test('renders canonical mutation action patches and create identity', () => {
+    const toolBlock = createWriteFileToolBlock(
+      { path: 'src/canonical.ts', content: 'export const x = 1\n' },
+      [
+        {
+          type: 'json',
+          value: {
+            kind: 'file_mutation_result',
+            version: 1,
+            operationId: 'op',
+            outcome: 'applied',
+            authorityTier: 'portable_path',
+            actions: [
+              {
+                actionId: 'a',
+                index: 0,
+                action: 'create',
+                path: 'src/canonical.ts',
+                outcome: 'applied',
+                beforeHash: null,
+                afterHash: 'sha256:x',
+                patch: '@@\n+export const x = 1\n',
+              },
+            ],
+            errors: [],
+            freshCapabilities: [],
+          },
+        },
+      ],
+    )
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
+    const markup = renderToStaticMarkup(result?.content as React.ReactElement)
+    expect(markup).toContain('Create')
+    expect(markup).toContain('+export const x = 1')
   })
 
   test('pending create does not render diff body', () => {
@@ -105,7 +147,11 @@ describe('StrReplaceComponent', () => {
       content: 'export const value = 1',
     })
 
-    const result = renderToolComponent(toolBlock, chatThemes.dark, renderOptions)
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
 
     expect(result).toBeDefined()
     expect(result?.content).toBeDefined()
@@ -120,20 +166,21 @@ describe('StrReplaceComponent', () => {
   })
 
   test('failed edit does not render diff body', () => {
-    const toolBlock = createStrReplaceToolBlock(
-      { path: 'src/existing.ts' },
-      [
-        {
-          type: 'json',
-          value: {
-            errorMessage: 'String replace failed: no match found',
-            unifiedDiff: '@@\n+newLine\n',
-          },
+    const toolBlock = createStrReplaceToolBlock({ path: 'src/existing.ts' }, [
+      {
+        type: 'json',
+        value: {
+          errorMessage: 'String replace failed: no match found',
+          unifiedDiff: '@@\n+newLine\n',
         },
-      ],
-    )
+      },
+    ])
 
-    const result = renderToolComponent(toolBlock, chatThemes.dark, renderOptions)
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
 
     expect(result).toBeDefined()
     expect(result?.content).toBeDefined()
@@ -141,5 +188,35 @@ describe('StrReplaceComponent', () => {
     const markup = renderToStaticMarkup(result?.content as React.ReactElement)
     expect(markup).toContain('failed')
     expect(markup).not.toContain('+newLine')
+  })
+
+  test('failed edit keeps bounded multiline recovery details visible', () => {
+    const toolBlock = createStrReplaceToolBlock({ path: 'src/existing.ts' }, [
+      {
+        type: 'json',
+        value: {
+          errorMessage: [
+            'Atomic str_replace batch aborted: 1 of 7 replacements failed.',
+            'No changes were made.',
+            'Replacement 3/7 failed:',
+            'The old string was not found.',
+            'Recovery: re-read the exact current range.',
+          ].join('\n\n'),
+        },
+      },
+    ])
+
+    const result = renderToolComponent(
+      toolBlock,
+      chatThemes.dark,
+      renderOptions,
+    )
+    const markup = renderToStaticMarkup(result?.content as React.ReactElement)
+
+    expect(markup).toContain('No changes were made.')
+    expect(markup).toContain('Replacement 3/7 failed:')
+    expect(markup).toContain('The old string was not found.')
+    expect(markup).toContain('…')
+    expect(markup).toContain('Recovery: re-read')
   })
 })

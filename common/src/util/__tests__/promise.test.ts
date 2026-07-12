@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import { INITIAL_RETRY_DELAY, withRetry } from '../promise'
 
@@ -79,13 +87,14 @@ describe('withRetry', () => {
       capturedDelays = []
 
       // Capture the delay values passed to setTimeout
-      setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
-        ((callback: () => void, delay: number) => {
-          capturedDelays.push(delay)
-          callback()
-          return 0 as unknown as NodeJS.Timeout
-        }) as typeof setTimeout,
-      )
+      setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(((
+        callback: () => void,
+        delay: number,
+      ) => {
+        capturedDelays.push(delay)
+        callback()
+        return 0 as unknown as NodeJS.Timeout
+      }) as typeof setTimeout)
     })
 
     afterEach(() => {

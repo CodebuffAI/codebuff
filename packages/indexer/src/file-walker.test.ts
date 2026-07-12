@@ -4,7 +4,12 @@ import * as path from 'node:path'
 
 import { describe, expect, test } from 'bun:test'
 
-import { BINARY_EXTENSIONS, walkProject } from './file-walker'
+import {
+  BINARY_EXTENSIONS,
+  normalizeRelativePath,
+  walkProject,
+  walkProjectDetailed,
+} from './file-walker'
 
 // ---------------------------------------------------------------------------
 // BINARY_EXTENSIONS set
@@ -145,13 +150,17 @@ describe('file-walker BINARY_EXTENSIONS', () => {
   })
 })
 
+test('canonicalizes Windows-style relative paths for portable graph keys', () => {
+  expect(normalizeRelativePath('packages\\indexer\\src\\query.ts')).toBe(
+    'packages/indexer/src/query.ts',
+  )
+})
+
 // ---------------------------------------------------------------------------
 // walkProject binary skip behavior
 // ---------------------------------------------------------------------------
 
-async function makeTempProject(
-  files: Record<string, string>,
-): Promise<string> {
+async function makeTempProject(files: Record<string, string>): Promise<string> {
   const root = await fs.promises.mkdtemp(
     path.join(os.tmpdir(), 'codebuff-walker-'),
   )
@@ -164,6 +173,70 @@ async function makeTempProject(
 }
 
 describe('file-walker walkProject', () => {
+  test('applies nested ignore files and mandatory sensitive-path policy', async () => {
+    const root = await makeTempProject({
+      'src/keep.ts': 'export const keep = true\n',
+      'src/.gitignore': 'ignored.ts\n',
+      'src/ignored.ts': 'export const secret = true\n',
+      'src/.openbuffignore': 'private/\n',
+      'src/private/data.ts': 'private\n',
+      '.env': 'TOKEN=secret\n',
+      '.env.example': 'TOKEN=example\n',
+      'id_ed25519': 'private key\n',
+    })
+
+    const paths = (await walkProject(root)).map((file) => file.relativePath)
+    expect(paths).toContain('src/keep.ts')
+    expect(paths).toContain('.env.example')
+    expect(paths).not.toContain('src/ignored.ts')
+    expect(paths).not.toContain('src/private/data.ts')
+    expect(paths).not.toContain('.env')
+    expect(paths).not.toContain('id_ed25519')
+  })
+
+  test('excludes generated operational artifacts by default', async () => {
+    const root = await makeTempProject({
+      '.agents/sessions/a/findings.md': 'stale audit\n',
+      '.agents/custom-agent.ts': 'export default {}\n',
+      '.omx/plans/plan.md': 'generated plan\n',
+      'evals/buffbench/task-base2-lite-error-ab12.json': '{}\n',
+      'src/main.ts': 'export const main = true\n',
+    })
+    expect((await walkProject(root)).map((file) => file.relativePath)).toEqual([
+      '.agents/custom-agent.ts',
+      'src/main.ts',
+    ])
+  })
+
+  test('reports deterministic partial coverage when maxFiles is reached', async () => {
+    const root = await makeTempProject({
+      'a/1.ts': '1',
+      'b/2.ts': '2',
+      'c/3.ts': '3',
+    })
+    const result = await walkProjectDetailed(root, [], 2)
+    expect(result.files.map((file) => file.relativePath)).toEqual(['a/1.ts', 'b/2.ts'])
+    expect(result.truncated).toBe(true)
+    expect(result.skippedFiles).toBe(1)
+    expect(result.skippedPrefixes).toEqual(['c'])
+  })
+
+  test('allocates capped coverage fairly across top-level prefixes', async () => {
+    const root = await makeTempProject({
+      'a/1.ts': '1',
+      'a/2.ts': '2',
+      'a/3.ts': '3',
+      'b/1.ts': '1',
+      'c/1.ts': '1',
+    })
+    const result = await walkProjectDetailed(root, [], 3)
+    expect(result.files.map((file) => file.relativePath)).toEqual([
+      'a/1.ts',
+      'b/1.ts',
+      'c/1.ts',
+    ])
+    expect(result.skippedPrefixes).toEqual(['a'])
+  })
   test('skips binary files during walk', async () => {
     const root = await makeTempProject({
       'src/main.ts': 'export const x = 1\n',

@@ -52,9 +52,9 @@ describe('terminal enter detection', () => {
   })
 
   test('recognizes keypad Enter as plain Enter', () => {
-    expect(
-      isPlainEnterKey({ name: 'kpenter', sequence: '\x1b[57414u' }),
-    ).toBe(true)
+    expect(isPlainEnterKey({ name: 'kpenter', sequence: '\x1b[57414u' })).toBe(
+      true,
+    )
     expect(isPlainEnterKey({ name: '', sequence: '\x1bOM' })).toBe(true)
   })
 

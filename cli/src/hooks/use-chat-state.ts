@@ -40,7 +40,9 @@ export interface UseChatStateReturn {
   inputValue: string
   cursorPosition: number
   lastEditDueToNav: boolean
-  setInputValue: (value: InputValue | ((prev: InputValue) => InputValue)) => void
+  setInputValue: (
+    value: InputValue | ((prev: InputValue) => InputValue),
+  ) => void
   inputFocused: boolean
   setInputFocused: (focused: boolean) => void
 

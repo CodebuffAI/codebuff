@@ -39,6 +39,8 @@ export interface CliAgentConfig {
   model?: string
   /** Default mode when mode param is not specified. Defaults to 'work' */
   defaultMode?: CliAgentMode
+  /** Modes exposed by this agent. Defaults to both work and review. */
+  supportedModes?: readonly CliAgentMode[]
   spawnerPromptExtras?: string
   extraInputParams?: ExtraInputParams
   /** Custom instructions for work mode. If not provided, uses getWorkModeInstructions() */

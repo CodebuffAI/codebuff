@@ -1,4 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 import type { SpawnSyncReturns } from 'child_process'
 import fs from 'fs'
 import os from 'os'
@@ -212,7 +220,10 @@ describe('init-direnv', () => {
     test('returns parsed env vars on successful export', () => {
       spawnSyncSpy.mockReturnValue({
         status: 0,
-        stdout: JSON.stringify({ DATABASE_URL: 'postgres://localhost', API_KEY: 'secret' }),
+        stdout: JSON.stringify({
+          DATABASE_URL: 'postgres://localhost',
+          API_KEY: 'secret',
+        }),
         stderr: '',
         pid: 1234,
         output: [],
@@ -264,7 +275,8 @@ describe('init-direnv', () => {
       spawnSyncSpy.mockReturnValue({
         status: 1,
         stdout: '',
-        stderr: 'direnv: error /path/to/.envrc is blocked. Run `direnv allow` to approve its content',
+        stderr:
+          'direnv: error /path/to/.envrc is blocked. Run `direnv allow` to approve its content',
         pid: 1234,
         output: [],
         signal: null,
@@ -381,7 +393,10 @@ describe('init-direnv', () => {
     })
 
     test('sets environment variables from direnv export', () => {
-      fs.writeFileSync(path.join(tempDir, '.envrc'), 'export TEST_VAR=test_value')
+      fs.writeFileSync(
+        path.join(tempDir, '.envrc'),
+        'export TEST_VAR=test_value',
+      )
       process.chdir(tempDir)
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
@@ -405,12 +420,62 @@ describe('init-direnv', () => {
             signal: null,
           } as SpawnSyncReturns<string>
         }
-        return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null } as SpawnSyncReturns<string>
+        return {
+          status: 1,
+          stdout: '',
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+        } as SpawnSyncReturns<string>
       })
 
       initializeDirenv()
 
       expect(process.env.TEST_VAR).toBe('test_value')
+    })
+
+    test('restores variables from the previous project before loading the next one', () => {
+      const firstProject = path.join(tempDir, 'first')
+      const secondProject = path.join(tempDir, 'second')
+      fs.mkdirSync(firstProject)
+      fs.mkdirSync(secondProject)
+      fs.writeFileSync(
+        path.join(firstProject, '.envrc'),
+        'export PROJECT_ONLY=first',
+      )
+
+      spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'sh' && args?.[1]?.includes('command -v direnv')) {
+          return {
+            status: 0,
+            stdout: '/usr/local/bin/direnv',
+            stderr: '',
+            pid: 1234,
+            output: [],
+            signal: null,
+          } as SpawnSyncReturns<string>
+        }
+        if (cmd === 'direnv' && args?.[0] === 'export') {
+          return {
+            status: 0,
+            stdout: JSON.stringify({ PROJECT_ONLY: 'first' }),
+            stderr: '',
+            pid: 1234,
+            output: [],
+            signal: null,
+          } as SpawnSyncReturns<string>
+        }
+        throw new Error(`Unexpected command: ${cmd}`)
+      })
+
+      process.chdir(firstProject)
+      initializeDirenv()
+      expect(process.env.PROJECT_ONLY).toBe('first')
+
+      process.chdir(secondProject)
+      initializeDirenv()
+      expect(process.env.PROJECT_ONLY).toBeUndefined()
     })
 
     test('unsets environment variables when direnv returns null', () => {
@@ -439,7 +504,14 @@ describe('init-direnv', () => {
             signal: null,
           } as SpawnSyncReturns<string>
         }
-        return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null } as SpawnSyncReturns<string>
+        return {
+          status: 1,
+          stdout: '',
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+        } as SpawnSyncReturns<string>
       })
 
       initializeDirenv()
@@ -448,7 +520,10 @@ describe('init-direnv', () => {
     })
 
     test('does nothing when direnv is not available', () => {
-      fs.writeFileSync(path.join(tempDir, '.envrc'), 'export SHOULD_NOT_SET=value')
+      fs.writeFileSync(
+        path.join(tempDir, '.envrc'),
+        'export SHOULD_NOT_SET=value',
+      )
       process.chdir(tempDir)
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
@@ -491,7 +566,10 @@ describe('init-direnv', () => {
     })
 
     test('does nothing when direnv export fails', () => {
-      fs.writeFileSync(path.join(tempDir, '.envrc'), 'export SHOULD_NOT_SET=value')
+      fs.writeFileSync(
+        path.join(tempDir, '.envrc'),
+        'export SHOULD_NOT_SET=value',
+      )
       process.chdir(tempDir)
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
@@ -515,7 +593,14 @@ describe('init-direnv', () => {
             signal: null,
           } as SpawnSyncReturns<string>
         }
-        return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null } as SpawnSyncReturns<string>
+        return {
+          status: 1,
+          stdout: '',
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+        } as SpawnSyncReturns<string>
       })
 
       initializeDirenv()

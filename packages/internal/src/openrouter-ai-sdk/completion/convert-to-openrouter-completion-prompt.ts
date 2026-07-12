@@ -12,7 +12,6 @@ import type {
   LanguageModelV2ToolResultPart,
 } from '@ai-sdk/provider'
 
-
 export function convertToOpenRouterCompletionPrompt({
   prompt,
   inputFormat,

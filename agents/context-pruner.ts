@@ -52,14 +52,8 @@ const definition: AgentDefinition = {
     /** Agent IDs whose output should be excluded from spawn_agents results */
     const SPAWN_AGENTS_OUTPUT_BLACKLIST = [
       'file-picker',
-      'researcher-web',
-      'researcher-docs',
-      'basher',
       'code-reviewer',
       'security-reviewer',
-      'librarian',
-      'tmux-cli',
-      'browser-use',
     ]
     const REVIEWER_AGENT_TYPES = ['code-reviewer', 'security-reviewer']
 
@@ -146,6 +140,8 @@ const definition: AgentDefinition = {
     const KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS = 300
     const KNOWLEDGE_MEMORY_ENTRY_CHARS = 240
     const KNOWLEDGE_MEMORY_FILE_FINDING_CHARS = 160
+    const TOOL_ERROR_DETAIL_CHARS = 1_200
+    const EDIT_RESULT_DETAIL_CHARS = 2_000
 
     /** Tool categories for knowledge memory extraction */
     const FILE_INSPECTION_TOOLS = [
@@ -162,12 +158,12 @@ const definition: AgentDefinition = {
     ]
     const EDIT_TOOLS = [
       'str_replace',
-      'propose_str_replace',
       'write_file',
-      'propose_write_file',
       'rewrite_symbol',
       'edit_transaction',
       'replace_range',
+      'apply_patch',
+      'apply_smart_patch',
     ]
     const VALIDATION_TOOLS = ['run_terminal_command', 'basher']
     // =============================================================================
@@ -260,15 +256,11 @@ const definition: AgentDefinition = {
         }
         case 'propose_write_file': {
           const path = input.path as string | undefined
-          return path
-            ? `proposed writing: ${path}`
-            : 'proposed a file write'
+          return path ? `proposed writing: ${path}` : 'proposed a file write'
         }
         case 'propose_str_replace': {
           const path = input.path as string | undefined
-          return path
-            ? `proposed editing: ${path}`
-            : 'proposed a file edit'
+          return path ? `proposed editing: ${path}` : 'proposed a file edit'
         }
         case 'read_subtree': {
           const paths = input.paths as string[] | undefined
@@ -283,21 +275,15 @@ const definition: AgentDefinition = {
           if (pattern && flags) {
             return `code search for "${pattern}" (${flags})`
           }
-          return pattern
-            ? `code search for "${pattern}"`
-            : 'code search'
+          return pattern ? `code search for "${pattern}"` : 'code search'
         }
         case 'glob': {
           const pattern = input.pattern as string | undefined
-          return pattern
-            ? `glob search for ${pattern}`
-            : 'glob search'
+          return pattern ? `glob search for ${pattern}` : 'glob search'
         }
         case 'list_directory': {
           const path = input.path as string | undefined
-          return path
-            ? `listed directory: ${path}`
-            : 'listed a directory'
+          return path ? `listed directory: ${path}` : 'listed a directory'
         }
         case 'find_files': {
           const prompt = input.prompt as string | undefined
@@ -389,7 +375,10 @@ const definition: AgentDefinition = {
             if (incomplete.length === 0) {
               return `Todos: ${completed}/${todos.length} complete (all done!)`
             }
-            const visibleIncomplete = incomplete.slice(0, MAX_TODO_TASKS_IN_SUMMARY)
+            const visibleIncomplete = incomplete.slice(
+              0,
+              MAX_TODO_TASKS_IN_SUMMARY,
+            )
             const remainingTasks = visibleIncomplete
               .map((t) => `- ${t.task}`)
               .join('\n')
@@ -543,8 +532,7 @@ const definition: AgentDefinition = {
     const assistantToolBudget: number =
       params?.assistantToolBudget ?? ASSISTANT_TOOL_BUDGET
     const userBudget: number = params?.userBudget ?? USER_BUDGET
-    const toolFactsBudget: number =
-      params?.toolFactsBudget ?? TOOL_FACTS_BUDGET
+    const toolFactsBudget: number = params?.toolFactsBudget ?? TOOL_FACTS_BUDGET
 
     function shouldExcludeMessage(message: Message): boolean {
       if (message.tags?.includes('INSTRUCTIONS_PROMPT')) return true
@@ -582,9 +570,7 @@ const definition: AgentDefinition = {
      * Splits on the --- separator and determines each chunk's role
      * based on its prefix marker.
      */
-    function parseSummaryIntoEntries(
-      summaryText: string,
-    ): Array<{
+    function parseSummaryIntoEntries(summaryText: string): Array<{
       role: 'user' | 'assistant_tool' | 'tool_facts'
       parts: string[]
     }> {
@@ -595,10 +581,7 @@ const definition: AgentDefinition = {
           /<pinned_active_work_state>[\s\S]*?<\/pinned_active_work_state>\n*/g,
           '',
         )
-        .replace(
-          /<knowledge_memory>[\s\S]*?<\/knowledge_memory>\n*/g,
-          '',
-        )
+        .replace(/<knowledge_memory>[\s\S]*?<\/knowledge_memory>\n*/g, '')
         .trim()
       if (!withoutPinnedState) return []
 
@@ -697,10 +680,12 @@ const definition: AgentDefinition = {
       if (!blockMatch) return km
       const block = blockMatch[1]
 
-      const goalMatch = block.match(/Goal:\s*([\s\S]*?)(?=\nDecisions:|\nFiles Inspected:|\nEdits Made:|\nValidation Results:|\nBlockers:|\nNext Action:|$)/)
+      const goalMatch = block.match(
+        /Goal:\s*([\s\S]*?)(?=\nDecisions:|\nFiles Inspected:|\nEdits Made:|\nValidation Results:|\nBlockers:|\nNext Action:|$)/,
+      )
       if (goalMatch) km.goal = goalMatch[1].trim()
 
-        // Capture every "Header:\n  - entry" list section in one pass.
+      // Capture every "Header:\n  - entry" list section in one pass.
       // NOTE: must use a regex literal (not `new RegExp(template)`) so that
       // \s/\S are interpreted as regex whitespace classes. In a template
       // literal, `\s` becomes a literal `s`, which silently breaks parsing
@@ -760,6 +745,343 @@ const definition: AgentDefinition = {
       return pathRaw.replace(/^['"]|['"]$/g, '').trim()
     }
 
+    function isRecord(value: unknown): value is Record<string, unknown> {
+      return (
+        Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+      )
+    }
+
+    function isReadFailureText(text: string): boolean {
+      return /^\[(?:FILE_DOES_NOT_EXIST|BLOCKED|FILE_OUTSIDE_PROJECT|FILE_TOO_LARGE|FILE_READ_ERROR)\]/.test(
+        text.trim(),
+      )
+    }
+
+    function isEditFailureText(text: string): boolean {
+      return (
+        /\b(?:not|never)\s+(?:been\s+)?(?:applied|updated|created|written|edited|replaced|successful(?:ly)?)\b/i.test(
+          text,
+        ) ||
+        /\b(?:could|can|did|was|were|is|are|has|have|had)\s+not\s+(?:been\s+)?(?:apply|applied|update|updated|create|created|write|written|edit|edited|replace|replaced|succeed|successful)/i.test(
+          text,
+        ) ||
+        /\bfailed to (?:apply|update|create|write|edit|replace)\b/i.test(
+          text,
+        ) ||
+        /\bno changes were (?:made|written)\b/i.test(text)
+      )
+    }
+
+    function addUniqueText(texts: string[], text: string): void {
+      const trimmed = text.trim()
+      if (trimmed && !texts.includes(trimmed)) texts.push(trimmed)
+    }
+
+    function collectFailureTexts(
+      value: unknown,
+      texts: string[],
+      depth = 0,
+    ): void {
+      if (depth > 8 || value === null || value === undefined) return
+      if (typeof value === 'string') {
+        if (
+          isReadFailureText(value) ||
+          /^(?:error|failed)\b/i.test(value.trim()) ||
+          isEditFailureText(value)
+        ) {
+          addUniqueText(texts, value)
+        }
+        return
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) collectFailureTexts(item, texts, depth + 1)
+        return
+      }
+      if (!isRecord(value)) return
+
+      if (
+        value.kind === 'read_files_result' &&
+        value.version === 1 &&
+        Array.isArray(value.results)
+      ) {
+        for (const result of value.results) {
+          if (!isRecord(result) || result.status !== 'error') continue
+          if (
+            isRecord(result.error) &&
+            typeof result.error.message === 'string'
+          ) {
+            addUniqueText(texts, result.error.message)
+          }
+        }
+      }
+
+      const errorMessage = value.errorMessage
+      if (typeof errorMessage === 'string') addUniqueText(texts, errorMessage)
+      const error = value.error
+      if (typeof error === 'string') addUniqueText(texts, error)
+      else if (error !== undefined) collectFailureTexts(error, texts, depth + 1)
+
+      const explicitlyFailed =
+        value.success === false || value.applied === false
+      if (explicitlyFailed && typeof value.message === 'string') {
+        addUniqueText(texts, value.message)
+      } else if (value.success === false) {
+        addUniqueText(texts, 'success: false')
+      } else if (value.applied === false) {
+        addUniqueText(texts, 'applied: false')
+      }
+      if (
+        typeof value.message === 'string' &&
+        (/^(?:error|failed)\b/i.test(value.message.trim()) ||
+          isEditFailureText(value.message))
+      ) {
+        addUniqueText(texts, value.message)
+      }
+      if (
+        typeof value.status === 'string' &&
+        /^(?:failed|error|blocked)$/i.test(value.status)
+      ) {
+        addUniqueText(texts, `status: ${value.status}`)
+      }
+
+      const summary = value.summary
+      if (isRecord(summary)) {
+        const failed = summary.failed
+        const requested = summary.requested
+        if (typeof failed === 'number' && failed > 0) {
+          addUniqueText(
+            texts,
+            typeof requested === 'number'
+              ? `${failed} of ${requested} requested read(s) failed.`
+              : `${failed} requested read(s) failed.`,
+          )
+        }
+      } else if (
+        typeof value.failed === 'number' &&
+        value.failed > 0 &&
+        typeof value.requested === 'number'
+      ) {
+        addUniqueText(
+          texts,
+          `${value.failed} of ${value.requested} requested read(s) failed.`,
+        )
+      }
+
+      for (const [key, nested] of Object.entries(value)) {
+        if (key === 'errorMessage' || key === 'error' || key === 'message') {
+          continue
+        }
+        collectFailureTexts(nested, texts, depth + 1)
+      }
+    }
+
+    function summarizeToolFailure(values: unknown[]): string | null {
+      const texts: string[] = []
+      for (const value of values) collectFailureTexts(value, texts)
+      if (texts.length === 0) return null
+      return truncateLongText(texts.join('\n'), TOOL_ERROR_DETAIL_CHARS)
+    }
+
+    function hasFailureMarker(values: unknown[]): boolean {
+      return summarizeToolFailure(values) !== null
+    }
+
+    function getInspectionPaths(
+      toolName: string,
+      input: Record<string, unknown>,
+    ): string[] {
+      const paths: string[] = []
+      const addPath = (value: unknown) => {
+        if (typeof value === 'string' && value.trim()) {
+          addUniqueText(paths, value.trim())
+        }
+      }
+
+      if (Array.isArray(input.paths)) {
+        for (const path of input.paths) addPath(path)
+      }
+      if (toolName === 'read_files') {
+        if (Array.isArray(input.ranges)) {
+          for (const range of input.ranges) {
+            if (isRecord(range)) addPath(range.path)
+          }
+        }
+        if (Array.isArray(input.symbols)) {
+          for (const symbolRequest of input.symbols) {
+            if (isRecord(symbolRequest)) addPath(symbolRequest.path)
+          }
+        }
+      }
+      addPath(input.path)
+      if (paths.length === 0 && typeof input.pattern === 'string') {
+        paths.push(`glob: ${input.pattern}`)
+      }
+      if (paths.length === 0 && typeof input.query === 'string') {
+        paths.push(`index: ${input.query}`)
+      }
+      return paths
+    }
+
+    function getEditPaths(input: Record<string, unknown>): string[] {
+      const paths: string[] = []
+      const addPath = (value: unknown) => {
+        if (typeof value === 'string' && value.trim()) {
+          addUniqueText(paths, value.trim())
+        }
+      }
+      addPath(extractPathFromInput(input))
+      if (isRecord(input.operation)) addPath(input.operation.path)
+      if (Array.isArray(input.edits)) {
+        for (const edit of input.edits) {
+          if (isRecord(edit)) addPath(extractPathFromInput(edit))
+        }
+      }
+      return paths
+    }
+
+    function getSuccessfulReadPaths(
+      input: Record<string, unknown>,
+      values: unknown[],
+    ): string[] {
+      const requestedPaths = getInspectionPaths('read_files', input)
+      if (values.length === 0 || requestedPaths.length === 0) return []
+
+      for (const value of values) {
+        if (!isRecord(value) || value.kind !== 'read_files_result') continue
+        if (value.version !== 1 || !Array.isArray(value.results)) return []
+        const canonicalPaths: string[] = []
+        for (const result of value.results) {
+          if (
+            isRecord(result) &&
+            typeof result.path === 'string' &&
+            (result.status === 'ok' || result.status === 'partial')
+          ) {
+            addUniqueText(canonicalPaths, result.path)
+          }
+        }
+        const requestedPathSet = new Set(requestedPaths)
+        return canonicalPaths.filter((path) => requestedPathSet.has(path))
+      }
+
+      const successfulPaths: string[] = []
+      let sawStructuredEntry = false
+      let summaryFailed: number | null = null
+      let summaryOk: number | null = null
+      let directContentSucceeded = false
+
+      const inspect = (value: unknown, depth = 0): void => {
+        if (depth > 5 || value === null || value === undefined) return
+        if (Array.isArray(value)) {
+          for (const item of value) inspect(item, depth + 1)
+          return
+        }
+        if (!isRecord(value)) return
+
+        if (isRecord(value.summary)) {
+          const failed = value.summary.failed
+          const ok = value.summary.ok
+          if (typeof failed === 'number') summaryFailed = failed
+          if (typeof ok === 'number') summaryOk = ok
+        } else {
+          if (typeof value.failed === 'number') summaryFailed = value.failed
+          if (typeof value.ok === 'number') summaryOk = value.ok
+        }
+
+        const path = typeof value.path === 'string' ? value.path.trim() : ''
+        if (path && typeof value.content === 'string') {
+          sawStructuredEntry = true
+          if (!isReadFailureText(value.content))
+            addUniqueText(successfulPaths, path)
+        } else if (path && Array.isArray(value.slices)) {
+          sawStructuredEntry = true
+          if (value.slices.length > 0) addUniqueText(successfulPaths, path)
+        } else if (typeof value.content === 'string') {
+          sawStructuredEntry = true
+          directContentSucceeded = !isReadFailureText(value.content)
+        }
+      }
+
+      for (const value of values) inspect(value)
+      if (successfulPaths.length > 0) {
+        const requestedPathSet = new Set(requestedPaths)
+        return successfulPaths.filter((path) => requestedPathSet.has(path))
+      }
+      if (sawStructuredEntry) {
+        return directContentSucceeded &&
+          (summaryFailed === null || summaryFailed === 0)
+          ? requestedPaths
+          : []
+      }
+      if (summaryFailed !== null) {
+        return summaryFailed === 0 && (summaryOk ?? 0) > 0 ? requestedPaths : []
+      }
+      return hasFailureMarker(values) ? [] : requestedPaths
+    }
+
+    function getConfirmedMutationPaths(values: unknown[]): string[] {
+      const paths = new Set<string>()
+      const inspect = (value: unknown, depth = 0): void => {
+        if (depth > 6 || value === null || value === undefined) {
+          return
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) inspect(item, depth + 1)
+          return
+        }
+        if (!isRecord(value)) return
+        if (
+          value.kind === 'file_mutation_result' &&
+          value.version === 1 &&
+          typeof value.operationId === 'string' &&
+          value.operationId.length > 0 &&
+          (value.authorityTier === 'portable_path' ||
+            value.authorityTier === 'conditional_commit') &&
+          (value.outcome === 'applied' ||
+            value.outcome === 'partial' ||
+            value.outcome === 'rollback_incomplete') &&
+          Array.isArray(value.actions) &&
+          value.authorityReceipt !== null &&
+          typeof value.authorityReceipt === 'object' &&
+          !Array.isArray(value.authorityReceipt) &&
+          (value.authorityReceipt as Record<string, unknown>).operationId ===
+            value.operationId &&
+          (value.authorityReceipt as Record<string, unknown>).receiptId ===
+            value.receiptId &&
+          Array.isArray(
+            (value.authorityReceipt as Record<string, unknown>).actions,
+          ) &&
+          ((value.authorityReceipt as Record<string, unknown>)
+            .actions as unknown[]).length === value.actions.length &&
+          value.actions.every(
+            (action, index) =>
+              isRecord(action) &&
+              action.index === index &&
+              typeof action.actionId === 'string' &&
+              typeof action.path === 'string' &&
+              (((value.authorityReceipt as Record<string, unknown>)
+                .actions as Array<Record<string, unknown>>)[index]?.actionId ===
+                action.actionId),
+          ) &&
+          Array.isArray(value.errors) &&
+          Array.isArray(value.freshCapabilities)
+        ) {
+          for (const action of value.actions) {
+            if (!isRecord(action) || action.outcome !== 'applied') continue
+            if (typeof action.path === 'string') paths.add(action.path)
+            if (
+              action.action === 'move' &&
+              typeof action.destinationPath === 'string'
+            ) {
+              paths.add(action.destinationPath)
+            }
+          }
+        }
+        for (const nested of Object.values(value)) inspect(nested, depth + 1)
+      }
+      for (const value of values) inspect(value)
+      return [...paths]
+    }
+
     function extractFindingsSummary(text: string): string {
       // Pull a one-line finding from tool result text: look for the first
       // non-empty line that looks like a finding, or truncate the whole thing.
@@ -795,7 +1117,9 @@ const definition: AgentDefinition = {
       if (km.editsMade.length > KNOWLEDGE_MEMORY_MAX_EDITS) {
         km.editsMade = km.editsMade.slice(-KNOWLEDGE_MEMORY_MAX_EDITS)
       }
-      if (km.validationResults.length > KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS) {
+      if (
+        km.validationResults.length > KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS
+      ) {
         km.validationResults = km.validationResults.slice(
           -KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS,
         )
@@ -838,7 +1162,9 @@ const definition: AgentDefinition = {
           text,
           KNOWLEDGE_MEMORY_MAX_GOAL_CHARS * CHARS_PER_TOKEN,
         )
-        return truncated.replace(/\[\.\.\.truncated \d+ chars\.\.\.\]\n*/g, ' ').trim()
+        return truncated
+          .replace(/\[\.\.\.truncated \d+ chars\.\.\.\]\n*/g, ' ')
+          .trim()
       }
       return ''
     }
@@ -854,7 +1180,7 @@ const definition: AgentDefinition = {
         if (
           /^(?:Decision|Decided|Chose|Using|Selected|Will use|Opted)[:)]?\s/i.test(
             trimmed,
-        ) ||
+          ) ||
           /^[-*]\s*(?:Decision|Decided|Chose|Using|Selected)[:)]?\s/i.test(
             trimmed,
           )
@@ -878,7 +1204,10 @@ const definition: AgentDefinition = {
       const lines: string[] = []
       const withoutThink = text.replace(/<think>[\s\S]*?<\/think>/g, '')
       for (const line of withoutThink.split('\n')) {
-        const trimmed = line.trim().replace(/^[-*]\s*/, '').trim()
+        const trimmed = line
+          .trim()
+          .replace(/^[-*]\s*/, '')
+          .trim()
         if (!trimmed || trimmed.startsWith('```')) continue
         if (isActionableReviewerLine(trimmed)) {
           addUniqueEntry(lines, trimmed)
@@ -911,6 +1240,38 @@ const definition: AgentDefinition = {
       const lines: string[] = []
       collectReviewerOutputText(value, lines)
       return lines.length > 0 ? lines.join('\n') : JSON.stringify(value)
+    }
+
+    function extractFilePickerFacts(
+      value: unknown,
+    ): Array<{ path: string; summary: string }> {
+      const facts: Array<{ path: string; summary: string }> = []
+      const visit = (candidate: unknown): void => {
+        if (!candidate || typeof candidate !== 'object') return
+        if (Array.isArray(candidate)) {
+          for (const item of candidate) visit(item)
+          return
+        }
+        const record = candidate as Record<string, unknown>
+        if (Array.isArray(record.files)) {
+          for (const file of record.files) {
+            if (!file || typeof file !== 'object') continue
+            const fileRecord = file as Record<string, unknown>
+            const path =
+              typeof fileRecord.path === 'string' ? fileRecord.path.trim() : ''
+            const summary =
+              typeof fileRecord.summary === 'string'
+                ? fileRecord.summary.trim()
+                : ''
+            if (path && summary && !facts.some((fact) => fact.path === path)) {
+              facts.push({ path, summary })
+            }
+          }
+        }
+        for (const nested of Object.values(record)) visit(nested)
+      }
+      visit(value)
+      return facts.slice(0, 12)
     }
 
     function extractReviewerFindingSummary(value: unknown): string {
@@ -1015,7 +1376,11 @@ const definition: AgentDefinition = {
           continue
         }
 
-        if (/^Workflow todo progress \(authoritative resumable state\):/i.test(trimmed)) {
+        if (
+          /^Workflow todo progress \(authoritative resumable state\):/i.test(
+            trimmed,
+          )
+        ) {
           flushWorkflowTodoLines()
           workflowTodoLines = [trimmed]
           workflowTodoHasNextAction = false
@@ -1027,7 +1392,9 @@ const definition: AgentDefinition = {
             workflowTodoLines.push(trimmed)
             continue
           }
-          const nextActionMatch = trimmed.match(/^Next workflow action:\s*(.+)$/i)
+          const nextActionMatch = trimmed.match(
+            /^Next workflow action:\s*(.+)$/i,
+          )
           if (nextActionMatch) {
             workflowTodoLines.push(trimmed)
             workflowTodoHasNextAction = nextActionMatch[1].trim().length > 0
@@ -1065,7 +1432,11 @@ const definition: AgentDefinition = {
 
         if (isInFinalResponseAllowedState) continue
 
-        if (/^Reviewer findings from (?:code-reviewer|security-reviewer):/i.test(trimmed)) {
+        if (
+          /^Reviewer findings from (?:code-reviewer|security-reviewer):/i.test(
+            trimmed,
+          )
+        ) {
           addUniqueLine(pinned, trimmed)
           continue
         }
@@ -1108,10 +1479,7 @@ const definition: AgentDefinition = {
           /<pinned_active_work_state>[\s\S]*?<\/pinned_active_work_state>\n*/g,
           '',
         )
-        .replace(
-          /<knowledge_memory>[\s\S]*?<\/knowledge_memory>\n*/g,
-          '',
-        )
+        .replace(/<knowledge_memory>[\s\S]*?<\/knowledge_memory>\n*/g, '')
       const withoutSystemReminders = withoutPinnedState.replace(
         /<system_reminder>[\s\S]*?<\/system_reminder>\n*/g,
         '',
@@ -1138,11 +1506,17 @@ const definition: AgentDefinition = {
           ) ||
           isActionableReviewerLine(trimmed) ||
           /^(?:[-*]\s*)?NON_BLOCKING\b/i.test(trimmed) ||
-          /^Reviewer findings from (?:code-reviewer|security-reviewer):/i.test(trimmed) ||
+          /^Reviewer findings from (?:code-reviewer|security-reviewer):/i.test(
+            trimmed,
+          ) ||
           /^Open questions?\s*\(block/i.test(trimmed) ||
           /^[-*]\s*Q\d+\b\s*[:\u2014-]/i.test(trimmed)
 
-        if (/^Workflow todo progress \(authoritative resumable state\):/i.test(trimmed)) {
+        if (
+          /^Workflow todo progress \(authoritative resumable state\):/i.test(
+            trimmed,
+          )
+        ) {
           skippingTodoList = false
           skippingWorkflowTodoProgress = true
           continue
@@ -1249,6 +1623,19 @@ const definition: AgentDefinition = {
       knowledgeMemory.goal = extractGoalFromMessages()
     }
 
+    const toolResultValuesByCallId = new Map<string, unknown[]>()
+    for (const message of messagesToSummarize) {
+      if (message.role !== 'tool') continue
+      const toolMessage = message as ToolMessage
+      const values = toolResultValuesByCallId.get(toolMessage.toolCallId) ?? []
+      if (Array.isArray(toolMessage.content)) {
+        for (const part of toolMessage.content) {
+          if (part.type === 'json' && 'value' in part) values.push(part.value)
+        }
+      }
+      toolResultValuesByCallId.set(toolMessage.toolCallId, values)
+    }
+
     for (const message of messagesToSummarize) {
       if (message.role === 'user') {
         let text = getTextContent(message).trim()
@@ -1283,14 +1670,20 @@ const definition: AgentDefinition = {
                 /<think>[\s\S]*?<\/think>/g,
                 '',
               )
-              for (const line of extractActiveWorkLines(rawTextWithoutThinkTags)) {
+              for (const line of extractActiveWorkLines(
+                rawTextWithoutThinkTags,
+              )) {
                 addUniqueLine(pinnedActiveWorkLines, line)
               }
               // M5: Extract decisions and blockers from assistant text
-              for (const decision of extractDecisionsFromAssistantText(rawTextWithoutThinkTags)) {
+              for (const decision of extractDecisionsFromAssistantText(
+                rawTextWithoutThinkTags,
+              )) {
                 addUniqueEntry(knowledgeMemory.decisions, decision)
               }
-              for (const blocker of extractBlockersFromText(rawTextWithoutThinkTags)) {
+              for (const blocker of extractBlockersFromText(
+                rawTextWithoutThinkTags,
+              )) {
                 addUniqueEntry(knowledgeMemory.blockers, blocker)
               }
               const textWithoutThinkTags = sanitizeOperationalStateText(
@@ -1302,37 +1695,34 @@ const definition: AgentDefinition = {
             } else if (part.type === 'tool-call') {
               const toolName = part.toolName as string
               const input = (part.input as Record<string, unknown>) || {}
+              const resultValues =
+                toolResultValuesByCallId.get(part.toolCallId as string) ?? []
               toolSummaries.push(summarizeToolCall(toolName, input))
-              // M5: Extract files inspected from tool-call input
+              // M5: Record inspection facts only after the matching tool result
+              // proves the call succeeded. Failed/missing results remain tool
+              // facts below but must not become durable "Files Inspected" state.
               if (FILE_INSPECTION_TOOLS.includes(toolName)) {
-                const paths = Array.isArray(input.paths)
-                  ? (input.paths as string[])
-                  : input.path
-                    ? [input.path as string]
-                    : input.pattern
-                      ? [`glob: ${input.pattern}`]
-                      : input.query
-                        ? [`index: ${input.query}`]
-                        : []
+                const paths =
+                  toolName === 'read_files'
+                    ? getSuccessfulReadPaths(input, resultValues)
+                    : hasFailureMarker(resultValues) ||
+                        resultValues.length === 0
+                      ? []
+                      : getInspectionPaths(toolName, input)
                 for (const p of paths) {
                   if (typeof p === 'string' && p.trim()) {
                     addUniqueEntry(knowledgeMemory.filesInspected, p.trim())
                   }
                 }
               }
-              // M5: Extract edits made from tool-call input
+              // M5: Likewise, an edit attempt is not an edit made. Require a
+              // matching success result before persisting changed paths.
               if (EDIT_TOOLS.includes(toolName)) {
-                const path = extractPathFromInput(input)
-                if (path) {
-                  addUniqueEntry(knowledgeMemory.editsMade, `${path}: ${toolName}`)
-                }
-                if (toolName === 'edit_transaction' && Array.isArray(input.edits)) {
-                  for (const edit of input.edits as Array<Record<string, unknown>>) {
-                    const editPath = extractPathFromInput(edit)
-                    if (editPath) {
-                      addUniqueEntry(knowledgeMemory.editsMade, `${editPath}: edit_transaction`)
-                    }
-                  }
+                for (const path of getConfirmedMutationPaths(resultValues)) {
+                  addUniqueEntry(
+                    knowledgeMemory.editsMade,
+                    `${path}: ${toolName}`,
+                  )
                 }
               }
             }
@@ -1361,21 +1751,19 @@ const definition: AgentDefinition = {
       } else if (message.role === 'tool') {
         const toolMessage = message as ToolMessage
         const entryParts: string[] = []
+        const resultValues =
+          toolResultValuesByCallId.get(toolMessage.toolCallId) ?? []
+        const failureText = summarizeToolFailure(resultValues)
+        if (failureText) {
+          entryParts.push(
+            `Tool error from ${toolMessage.toolName}: ${failureText}`,
+          )
+        }
 
         if (Array.isArray(toolMessage.content)) {
           for (const part of toolMessage.content) {
             if (part.type === 'json' && part.value) {
               const value = part.value as Record<string, unknown>
-
-              if (value.errorMessage || value.error) {
-                let errorText = String(value.errorMessage || value.error)
-                if (errorText.length > 100) {
-                  errorText = errorText.slice(0, 100) + '...'
-                }
-                entryParts.push(
-                  `Tool error from ${toolMessage.toolName}: ${errorText}`,
-                )
-              }
 
               if (
                 toolMessage.toolName === 'run_terminal_command' &&
@@ -1386,10 +1774,10 @@ const definition: AgentDefinition = {
                   entryParts.push(`Command failed with exit code: ${exitCode}`)
                 }
                 // M5: Record validation result
-                const command = typeof value.command === 'string' ? value.command : ''
-                const commandSummary = command.length > 80
-                  ? command.slice(0, 77) + '...'
-                  : command
+                const command =
+                  typeof value.command === 'string' ? value.command : ''
+                const commandSummary =
+                  command.length > 80 ? command.slice(0, 77) + '...' : command
                 addUniqueEntry(
                   knowledgeMemory.validationResults,
                   `${commandSummary || toolMessage.toolName}: exit ${exitCode}`,
@@ -1426,17 +1814,12 @@ const definition: AgentDefinition = {
                 }
               }
 
-              if (
-                toolMessage.toolName === 'str_replace' ||
-                toolMessage.toolName === 'propose_str_replace' ||
-                toolMessage.toolName === 'write_file' ||
-                toolMessage.toolName === 'propose_write_file'
-              ) {
+              if (EDIT_TOOLS.includes(toolMessage.toolName)) {
                 const resultStr = JSON.stringify(value)
-                const truncatedResult =
-                  resultStr.length > 2000
-                    ? resultStr.slice(0, 2000) + '...'
-                    : resultStr
+                const truncatedResult = truncateLongText(
+                  resultStr,
+                  EDIT_RESULT_DETAIL_CHARS,
+                )
                 entryParts.push(
                   `Edit result from ${toolMessage.toolName}:\n${truncatedResult}`,
                 )
@@ -1465,8 +1848,37 @@ const definition: AgentDefinition = {
                   !SPAWN_AGENTS_OUTPUT_BLACKLIST.includes(r.agentType),
               )
               const reviewerResults = agentResults.filter(
-                (r) => r.agentType && REVIEWER_AGENT_TYPES.includes(r.agentType),
+                (r) =>
+                  r.agentType && REVIEWER_AGENT_TYPES.includes(r.agentType),
               )
+              const filePickerFacts = agentResults
+                .filter((result) => result.agentType === 'file-picker')
+                .flatMap((result) =>
+                  extractFilePickerFacts(result.value?.value),
+                )
+                .slice(0, 12)
+              for (const fact of filePickerFacts) {
+                addUniqueEntry(
+                  knowledgeMemory.filesInspected,
+                  `${fact.path}: ${truncateLongText(
+                    fact.summary,
+                    KNOWLEDGE_MEMORY_FILE_FINDING_CHARS,
+                  )} (discovered by file-picker)`,
+                )
+              }
+              if (filePickerFacts.length > 0) {
+                entryParts.push(
+                  `File-picker discoveries:\n${filePickerFacts
+                    .map(
+                      (fact) =>
+                        `- ${fact.path}: ${truncateLongText(
+                          fact.summary,
+                          KNOWLEDGE_MEMORY_FILE_FINDING_CHARS,
+                        )}`,
+                    )
+                    .join('\n')}`,
+                )
+              }
               for (const reviewerResult of reviewerResults) {
                 const findingSummary = extractReviewerFindingSummary(
                   reviewerResult.value?.value,

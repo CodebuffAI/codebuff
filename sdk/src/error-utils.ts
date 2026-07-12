@@ -22,7 +22,10 @@ export const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 /**
  * Creates an Error with a statusCode property
  */
-export function createHttpError(message: string, statusCode: number): HttpError {
+export function createHttpError(
+  message: string,
+  statusCode: number,
+): HttpError {
   const error = new Error(message) as HttpError
   error.statusCode = statusCode
   return error
@@ -45,14 +48,19 @@ export function createForbiddenError(message = 'Access forbidden'): HttpError {
 /**
  * Creates a payment required error (402)
  */
-export function createPaymentRequiredError(message = 'Payment required'): HttpError {
+export function createPaymentRequiredError(
+  message = 'Payment required',
+): HttpError {
   return createHttpError(message, 402)
 }
 
 /**
  * Creates a server error (500 by default, or custom 5xx)
  */
-export function createServerError(message = 'Server error', statusCode = 500): HttpError {
+export function createServerError(
+  message = 'Server error',
+  statusCode = 500,
+): HttpError {
   return createHttpError(message, statusCode)
 }
 

@@ -270,7 +270,7 @@ export async function parseFileStructure(
     while (stack.length > 0) {
       const node = stack.pop()!
       const kind = DEFINITION_NODE_KINDS[node.type]
-      if (kind) {
+      if (kind && !node.hasError) {
         const name = extractDefName(node)
         if (name) {
           const startLine = node.startPosition.row + 1
@@ -281,7 +281,7 @@ export async function parseFileStructure(
             symbols.push({ name, kind, startLine, endLine, depth: 0 })
           }
         }
-      } else if (node.type === 'variable_declarator') {
+      } else if (node.type === 'variable_declarator' && !node.hasError) {
         // Function/arrow/class consts + top-level value consts — the grammar's
         // declaration patterns don't cover these (incl. non-exported ones).
         const vkind = variableDeclaratorKind(node)

@@ -95,7 +95,4 @@ export {
   createRgJsonMatch,
   createRgJsonContext,
 } from './child-process'
-export type {
-  MockChildProcess,
-  CodeSearchResult,
-} from './child-process'
+export type { MockChildProcess, CodeSearchResult } from './child-process'

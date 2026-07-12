@@ -54,7 +54,9 @@ describe('runProgrammaticStep', () => {
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
   let mockParams: ParamsOf<typeof runProgrammaticStep>
-  let executeToolCallSpy: ReturnType<typeof spyOn<typeof toolExecutor, 'executeToolCall'>>
+  let executeToolCallSpy: ReturnType<
+    typeof spyOn<typeof toolExecutor, 'executeToolCall'>
+  >
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeEach(() => {
@@ -216,6 +218,48 @@ describe('runProgrammaticStep', () => {
   })
 
   describe('tool execution', () => {
+    it('rejects undeclared tools yielded by handleSteps', async () => {
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'run_terminal_command',
+          input: { command: 'echo unsafe' },
+        }
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['read_files', 'end_turn']
+      mockTemplate.programmaticToolNames = []
+
+      const result = await runProgrammaticStep(mockParams)
+
+      expect(result.endTurn).toBe(true)
+      expect(result.agentState.output?.error).toContain(
+        'Programmatic tool run_terminal_command is not available',
+      )
+      expect(executeToolCallSpy).not.toHaveBeenCalled()
+    })
+
+    it('allows explicitly declared hidden programmatic tools', async () => {
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'run_terminal_command',
+          input: { command: 'echo allowed' },
+        }
+        yield { toolName: 'end_turn', input: {} }
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['end_turn']
+      mockTemplate.programmaticToolNames = ['run_terminal_command']
+
+      const result = await runProgrammaticStep(mockParams)
+
+      expect(result.endTurn).toBe(true)
+      expect(executeToolCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ toolName: 'run_terminal_command' }),
+      )
+    })
+
     it('should not add tool call message for add_message tool', async () => {
       const mockGenerator = (function* () {
         yield {
@@ -504,7 +548,11 @@ describe('runProgrammaticStep', () => {
           'type' in chunk &&
           chunk.type === 'tool_call',
       ) as
-        | { agentId?: string; parentAgentId?: string; includeToolCall?: boolean }
+        | {
+            agentId?: string
+            parentAgentId?: string
+            includeToolCall?: boolean
+          }
         | undefined
       expect(toolCallEvent).toMatchObject({
         agentId: 'test-agent-id',
@@ -1089,7 +1137,10 @@ describe('runProgrammaticStep', () => {
       expect(result.endTurn).toBe(true)
       expect(result.agentState.output?.error).toContain('Generator error')
       expect(
-        responseChunks.some((chunk) => typeof chunk === 'string' && chunk.includes('Generator error')),
+        responseChunks.some(
+          (chunk) =>
+            typeof chunk === 'string' && chunk.includes('Generator error'),
+        ),
       ).toBe(true)
     })
 
@@ -1163,7 +1214,9 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep({
         ...mockParams,
         template: schemaTemplate as unknown as AgentTemplate,
-        localAgentTemplates: { 'test-agent': schemaTemplate as unknown as AgentTemplate },
+        localAgentTemplates: {
+          'test-agent': schemaTemplate as unknown as AgentTemplate,
+        },
       })
 
       expect(result.endTurn).toBe(true)
@@ -1213,7 +1266,9 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep({
         ...mockParams,
         template: schemaTemplate as unknown as AgentTemplate,
-        localAgentTemplates: { 'test-agent': schemaTemplate as unknown as AgentTemplate },
+        localAgentTemplates: {
+          'test-agent': schemaTemplate as unknown as AgentTemplate,
+        },
       })
 
       // Should end turn (validation may fail but execution continues)
@@ -1257,6 +1312,46 @@ describe('runProgrammaticStep', () => {
         anyField: 'any value',
         anotherField: 123,
       })
+    })
+
+    it('enforces the agent filesystem write scope before dispatching a tool', async () => {
+      const scopedTemplate = {
+        ...mockTemplate,
+        filesystemScope: { write: ['docs/**', 'README.md'] },
+        toolNames: ['write_file', 'end_turn'],
+      }
+      scopedTemplate.handleSteps = function* () {
+        yield {
+          toolName: 'write_file',
+          input: {
+            path: 'src/escaped.ts',
+            instructions: 'Must be blocked by the runtime scope.',
+            content: 'export const escaped = true\n',
+          },
+        }
+        yield { toolName: 'end_turn', input: {} }
+      }
+
+      executeToolCallSpy.mockRestore()
+      const responseChunks: Array<{ type?: string; message?: string }> = []
+      mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk as any)
+
+      await runProgrammaticStep({
+        ...mockParams,
+        template: scopedTemplate as AgentTemplate,
+        localAgentTemplates: {
+          'test-agent': scopedTemplate as AgentTemplate,
+        },
+      })
+
+      expect(responseChunks).toContainEqual(
+        expect.objectContaining({
+          type: 'error',
+          message: expect.stringContaining(
+            'filesystem write scope. Disallowed path(s): src/escaped.ts',
+          ),
+        }),
+      )
     })
 
     it('should work with outputMode structured_output but no outputSchema defined', async () => {

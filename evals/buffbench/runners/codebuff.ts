@@ -5,7 +5,6 @@ import path from 'path'
 import type { Runner, RunnerResult, AgentStep, RunnerOptions } from './runner'
 import type { OpenbuffClient } from '@openbuff/sdk'
 
-
 const DEBUG_ERROR = true
 
 export class CodebuffRunner implements Runner {
@@ -38,7 +37,10 @@ export class CodebuffRunner implements Runner {
     this.parentSha = options.parentSha
   }
 
-  async run(prompt: string, options: RunnerOptions = {}): Promise<RunnerResult> {
+  async run(
+    prompt: string,
+    options: RunnerOptions = {},
+  ): Promise<RunnerResult> {
     const steps: AgentStep[] = []
     let totalCostUsd = 0
 

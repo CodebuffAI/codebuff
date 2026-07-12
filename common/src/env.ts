@@ -3,7 +3,9 @@ import { clientEnvSchema, clientProcessEnv } from './env-schema'
 const parsedEnv = clientEnvSchema.safeParse(clientProcessEnv)
 if (!parsedEnv.success) {
   console.error('Environment validation failed:', parsedEnv.error.issues)
-  throw new Error(`Invalid environment configuration: ${parsedEnv.error.message}`)
+  throw new Error(
+    `Invalid environment configuration: ${parsedEnv.error.message}`,
+  )
 }
 
 export const env = parsedEnv.data

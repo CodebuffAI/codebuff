@@ -65,7 +65,7 @@ export const handleReadDocs = (async (
   const creditsUsed = 0
 
   try {
-    const documentation = await fetchContext7LibraryDocumentation({
+    const documentationResult = await fetchContext7LibraryDocumentation({
       query: libraryTitle,
       topic,
       tokens: max_tokens,
@@ -73,7 +73,7 @@ export const handleReadDocs = (async (
       fetch,
     })
 
-    if (typeof documentation !== 'string') {
+    if (!documentationResult) {
       const docMsg = `No documentation found for "${libraryTitle}"${topic ? ` (topic: ${topic})` : ''}`
       return {
         output: jsonToolResult({
@@ -83,6 +83,9 @@ export const handleReadDocs = (async (
         creditsUsed,
       }
     }
+
+    const { documentation, selectedLibrary, alternatives } =
+      documentationResult
 
     const docsDuration = Date.now() - docsStartTime
     const resultLength = documentation.length
@@ -101,7 +104,31 @@ export const handleReadDocs = (async (
     )
 
     return {
-      output: jsonToolResult({ documentation }),
+      output: [
+        {
+          type: 'json' as const,
+          value: {
+            documentation,
+            library: {
+              id: selectedLibrary.id,
+              title: selectedLibrary.title,
+              branch: selectedLibrary.branch,
+              lastUpdateDate: selectedLibrary.lastUpdateDate,
+              ...(selectedLibrary.trustScore !== undefined
+                ? { trustScore: selectedLibrary.trustScore }
+                : {}),
+              alternatives: alternatives.map((library) => ({
+                id: library.id,
+                title: library.title,
+                branch: library.branch,
+                ...(library.trustScore !== undefined
+                  ? { trustScore: library.trustScore }
+                  : {}),
+              })),
+            },
+          },
+        },
+      ],
       creditsUsed,
     }
   } catch (error) {

@@ -12,7 +12,10 @@
 
 import type { FetchFunction } from '@ai-sdk/provider-utils'
 
-type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+type FetchLike = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>
 
 // ============================================================================
 // JWT / Account ID
@@ -85,9 +88,7 @@ function convertUserContentParts(content: unknown): unknown {
   })
 }
 
-function convertMessages(
-  messages: ChatCompletionsMessage[],
-): unknown[] {
+function convertMessages(messages: ChatCompletionsMessage[]): unknown[] {
   const input: unknown[] = []
 
   for (const msg of messages) {
@@ -96,7 +97,11 @@ function convertMessages(
         // System messages are extracted to top-level `instructions` field;
         // if any slip through, convert to developer role
         if (msg.content) {
-          input.push({ type: 'message', role: 'developer', content: msg.content })
+          input.push({
+            type: 'message',
+            role: 'developer',
+            content: msg.content,
+          })
         }
         break
       }
@@ -111,7 +116,11 @@ function convertMessages(
 
       case 'assistant': {
         if (msg.content) {
-          input.push({ type: 'message', role: 'assistant', content: msg.content })
+          input.push({
+            type: 'message',
+            role: 'assistant',
+            content: msg.content,
+          })
         }
         if (msg.tool_calls) {
           for (const tc of msg.tool_calls) {
@@ -171,7 +180,9 @@ export function transformChatGptBackendRequestBody(
   const systemMessages = messages.filter((m) => m.role === 'system')
   const nonSystemMessages = messages.filter((m) => m.role !== 'system')
   const instructions = systemMessages
-    .map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))
+    .map((m) =>
+      typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+    )
     .join('\n\n')
 
   const transformed: Record<string, unknown> = {
@@ -414,9 +425,7 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
 
         const chunk: Record<string, unknown> = {
           id: responseId,
-          choices: [
-            { index: 0, delta: {}, finish_reason: finishReason },
-          ],
+          choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
         }
 
         if (usage) {
@@ -448,8 +457,7 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
         emit(controller, {
           error: {
             message:
-              (errorObj?.message as string) ??
-              'ChatGPT backend request failed',
+              (errorObj?.message as string) ?? 'ChatGPT backend request failed',
             type: (errorObj?.type as string) ?? 'server_error',
           },
         })

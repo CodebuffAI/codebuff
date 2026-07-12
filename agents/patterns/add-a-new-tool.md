@@ -1,6 +1,7 @@
 # Pattern: Add a new tool to the agent runtime
 
 ## When to use
+
 You need to add a new tool (e.g. a read-only query, a state mutation, or a
 code-gen helper) that agents can call during a run.
 
@@ -39,6 +40,7 @@ code-gen helper) that agents can call during a run.
    in `docs/`.
 
 ## Validation
+
 ```bash
 bun --cwd=common run typecheck
 bun --cwd=packages/agent-runtime run typecheck
@@ -46,6 +48,7 @@ bun test packages/agent-runtime/src/tools/handlers/tool/__tests__/<tool-name>.te
 ```
 
 ## Conventions
+
 - Tool names are `kebab-case`.
 - Params files live in `common/src/tools/params/tool/`; handlers in
   `packages/agent-runtime/src/tools/handlers/tool/`.
@@ -54,6 +57,7 @@ bun test packages/agent-runtime/src/tools/handlers/tool/__tests__/<tool-name>.te
   capability flow from `str_replace`/`replace_range`.
 
 ## Risks
+
 - Forgetting to add the tool to `ToolName` causes a type error at the
   dispatch site — fix by extending the union in `constants.ts`.
 - Tools that mutate durable state should also emit a plan event via

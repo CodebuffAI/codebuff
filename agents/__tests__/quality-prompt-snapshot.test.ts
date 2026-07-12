@@ -62,7 +62,9 @@ describe('shared craftsmanship prompt sections', () => {
     expect(broadAuditSection).toContain('auth/error/loading states')
     expect(broadAuditSection).toContain('accessibility')
     expect(broadAuditSection).toContain('responsiveness')
-    expect(broadAuditSection).toContain('explicitly mark frontend/UI coverage out-of-scope')
+    expect(broadAuditSection).toContain(
+      'explicitly mark frontend/UI coverage out-of-scope',
+    )
     expect(broadAuditSection).toContain('file-picker is discovery-focused')
     expect(broadAuditSection).toContain('write their findings to durable files')
     expect(broadAuditSection).toContain('general-agent shards')
@@ -86,7 +88,9 @@ describe('shared craftsmanship prompt sections', () => {
   test('securityReviewSection contains the required security-review topics (not byte-frozen)', () => {
     // securityReviewSection is advisory guidance that may evolve; only assert
     // topic coverage so future tightening does not silently drop a rule.
-    expect(securityReviewSection).toContain('# Security-Sensitive File Patterns')
+    expect(securityReviewSection).toContain(
+      '# Security-Sensitive File Patterns',
+    )
     expect(securityReviewSection).toContain('security-reviewer')
     expect(securityReviewSection).toContain('advisory')
     expect(securityReviewSection).toContain('pre-edit')

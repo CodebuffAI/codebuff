@@ -10,7 +10,10 @@ import {
 
 describe('preflightValidateSyntax — JS/TS (Bun.Transpiler)', () => {
   it('accepts valid TypeScript', () => {
-    const result = preflightValidateSyntax('example.ts', 'const x: number = 42\n')
+    const result = preflightValidateSyntax(
+      'example.ts',
+      'const x: number = 42\n',
+    )
     expect(result.valid).toBe(true)
   })
 
@@ -23,7 +26,10 @@ describe('preflightValidateSyntax — JS/TS (Bun.Transpiler)', () => {
   })
 
   it('accepts valid JavaScript', () => {
-    const result = preflightValidateSyntax('script.js', 'function foo() { return 1 }\n')
+    const result = preflightValidateSyntax(
+      'script.js',
+      'function foo() { return 1 }\n',
+    )
     expect(result.valid).toBe(true)
   })
 
@@ -85,11 +91,10 @@ describe('preflightValidateSyntax — Python', () => {
     expect(result.message).toContain('Unbalanced')
   })
 
-  it('rejects Python with tab indentation', () => {
+  it('[COR-M10] accepts syntactically valid Python with tab indentation', () => {
     const content = 'def foo():\n\treturn 1\n'
     const result = preflightValidateSyntax('tabs.py', content)
-    expect(result.valid).toBe(false)
-    expect(result.message).toContain('tabs')
+    expect(result.valid).toBe(true)
   })
 
   it('rejects Python indentation increase without colon', () => {
@@ -112,10 +117,7 @@ describe('preflightValidateSyntax — Python', () => {
   })
 
   it('accepts Python with inline comments', () => {
-    const content = [
-      'x = 1  # this: is a comment',
-      'y = 2',
-    ].join('\n')
+    const content = ['x = 1  # this: is a comment', 'y = 2'].join('\n')
     const result = preflightValidateSyntax('comments.py', content)
     expect(result.valid).toBe(true)
   })
@@ -296,7 +298,11 @@ describe('countDelimitersOutsideStringsAndComments', () => {
 
 describe('formatPreflightErrorMessage', () => {
   it('includes the tool name, path, and syntax message', () => {
-    const msg = formatPreflightErrorMessage('str_replace', 'foo.ts', 'Unexpected token')
+    const msg = formatPreflightErrorMessage(
+      'str_replace',
+      'foo.ts',
+      'Unexpected token',
+    )
     expect(msg).toContain('str_replace')
     expect(msg).toContain('foo.ts')
     expect(msg).toContain('Unexpected token')
@@ -334,5 +340,16 @@ describe('formatPreflightErrorMessage', () => {
     expect(msg).toContain('apply_smart_patch')
     expect(msg).toContain('smart patch was NOT written to disk')
     expect(msg).toContain('Recovery')
+  })
+
+  it('[ERR-M03] accurately says the rejected candidate left the current file unchanged', () => {
+    const msg = formatPreflightErrorMessage(
+      'write_file',
+      'candidate.ts',
+      'Unexpected token',
+    )
+    expect(msg).toContain('current file remains unchanged')
+    expect(msg).toContain('Correct or rebuild the candidate content')
+    expect(msg).not.toContain('current lines of the broken file')
   })
 })

@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { getBundledRgPath } from '../native/ripgrep'
+import { isMandatorySensitiveReadPath } from '../../../common/src/util/sensitive-paths'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -183,7 +184,8 @@ export function findFilesMatchingContent({
         {
           type: 'json',
           value: {
-            errorMessage: error instanceof Error ? error.message : String(error),
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
           },
         },
       ])
@@ -319,6 +321,7 @@ export function findFilesMatchingContent({
             searchCwd,
             file,
           )
+          if (isMandatorySensitiveReadPath(projectRelativeFile)) continue
           if (seenFilesWithoutGroups.has(projectRelativeFile)) continue
           seenFilesWithoutGroups.add(projectRelativeFile)
           filesWithoutGroups.push(projectRelativeFile)
@@ -346,7 +349,6 @@ export function findFilesMatchingContent({
         return
       }
 
-
       for (const line of lines) {
         if (!line) continue
         let evt: any
@@ -360,6 +362,7 @@ export function findFilesMatchingContent({
         const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
         const lineNumber = evt.data.line_number ?? 0
         if (!filePath || !lineNumber) continue
+        if (isMandatorySensitiveReadPath(filePath)) continue
 
         let fileMatches = matchesByFile.get(filePath)
         if (!fileMatches) {
@@ -443,6 +446,7 @@ export function findFilesMatchingContent({
               const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
               const lineNumber = evt.data.line_number ?? 0
               if (!filePath || !lineNumber) continue
+              if (isMandatorySensitiveReadPath(filePath)) continue
               let fileMatches = matchesByFile.get(filePath)
               if (!fileMatches) {
                 if (matchesByFile.size >= maxFiles) {
@@ -466,7 +470,10 @@ export function findFilesMatchingContent({
               searchCwd,
               file,
             )
-            if (!seenFilesWithoutGroups.has(projectRelativeFile)) {
+            if (
+              !isMandatorySensitiveReadPath(projectRelativeFile) &&
+              !seenFilesWithoutGroups.has(projectRelativeFile)
+            ) {
               seenFilesWithoutGroups.add(projectRelativeFile)
               filesWithoutGroups.push(projectRelativeFile)
             }
@@ -578,7 +585,10 @@ function toProjectRelativeFile(
 
 function isPathInside(candidate: string, root: string): boolean {
   const relative = path.relative(root, candidate)
-  return relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
+  return (
+    relative === '' ||
+    (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
+  )
 }
 
 export function parseSafeRipgrepFlags(
@@ -630,7 +640,9 @@ export function parseSafeRipgrepFlags(
         return unsupportedFlag(token)
       }
       if (!value) {
-        return { errorMessage: `Invalid ripgrep flag '${token}': missing value.` }
+        return {
+          errorMessage: `Invalid ripgrep flag '${token}': missing value.`,
+        }
       }
       result.push(name, value)
       continue
@@ -644,7 +656,9 @@ export function parseSafeRipgrepFlags(
     if (switchesWithValue.has(token)) {
       const value = tokens.tokens[i + 1]
       if (value === undefined) {
-        return { errorMessage: `Invalid ripgrep flag '${token}': missing value.` }
+        return {
+          errorMessage: `Invalid ripgrep flag '${token}': missing value.`,
+        }
       }
       result.push(token, value)
       i++
@@ -698,7 +712,10 @@ function splitFlagTokens(
   }
 
   if (quote) {
-    return { ok: false, errorMessage: 'Invalid ripgrep flags: unterminated quote.' }
+    return {
+      ok: false,
+      errorMessage: 'Invalid ripgrep flags: unterminated quote.',
+    }
   }
   if (current) tokens.push(current)
   return { ok: true, tokens }

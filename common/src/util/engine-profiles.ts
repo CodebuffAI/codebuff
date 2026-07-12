@@ -4,11 +4,7 @@ import type { FileTreeNode } from './file'
 // Types
 // ---------------------------------------------------------------------------
 
-export type SupportedEngineId =
-  | 'unity'
-  | 'godot'
-  | 'unreal'
-  | 'bevy'
+export type SupportedEngineId = 'unity' | 'godot' | 'unreal' | 'bevy'
 
 export type EngineProfile = {
   id: SupportedEngineId
@@ -142,12 +138,8 @@ function collectFilePaths(
  * that use a different assets path.
  */
 function detectBevyHeuristic(filePaths: string[]): boolean {
-  const hasCargoToml = filePaths.some(
-    (p) => normalizePath(p) === 'Cargo.toml',
-  )
-  const hasAssetsDir = filePaths.some((p) =>
-    pathStartsWith(p, 'assets/'),
-  )
+  const hasCargoToml = filePaths.some((p) => normalizePath(p) === 'Cargo.toml')
+  const hasAssetsDir = filePaths.some((p) => pathStartsWith(p, 'assets/'))
   return hasCargoToml && hasAssetsDir
 }
 
@@ -182,11 +174,7 @@ export function detectEngineProfiles(
     // Check manifest files (exact path match)
     for (const manifest of manifestPaths) {
       const normalizedManifest = normalizePath(manifest)
-      if (
-        filePaths.some(
-          (p) => normalizePath(p) === normalizedManifest,
-        )
-      ) {
+      if (filePaths.some((p) => normalizePath(p) === normalizedManifest)) {
         detected.add(engineId)
         break
       }

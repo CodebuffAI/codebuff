@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  LANGUAGE_CAPABILITY_REGISTRY,
+  detectLanguageIdForPath,
   detectLanguageProfiles,
+  detectLanguageProfilesFromPaths,
+  detectLanguageProfilesFromTask,
   formatLanguageProfilePrompt,
   formatLanguageProfilePromptForFileTree,
+  selectLanguageProfiles,
 } from '../language-profiles'
 
 import type { FileTreeNode } from '../file'
@@ -36,7 +41,7 @@ describe('language profile prompts', () => {
       file('Gemfile'),
       file('composer.json'),
       file('Package.swift'),
-      file('build.gradle.kts'),
+      file('Main.kt'),
       file('project.godot'),
       directory('src', [
         file('main.py', 'src/main.py'),
@@ -89,36 +94,50 @@ describe('language profile prompts', () => {
       ['index.php', 'php'],
       ['Package.swift', 'swift'],
       ['Main.kt', 'kotlin'],
-      ['build.gradle.kts', 'kotlin'],
       ['Player.gd', 'gdscript'],
     ]
 
     for (const [name, id] of cases) {
-      expect(detectLanguageProfiles([file(name)]).map((profile) => profile.id)).toEqual([
-        id,
-      ])
+      expect(
+        detectLanguageProfiles([file(name)]).map((profile) => profile.id),
+      ).toEqual([id])
     }
   })
 
   test('detects supported language manifests', () => {
     const cases: Array<[string, string]> = [
       ['pom.xml', 'java'],
-      ['build.gradle', 'java'],
       ['App.csproj', 'csharp'],
-      ['Solution.sln', 'csharp'],
       ['Gemfile', 'ruby'],
       ['example.gemspec', 'ruby'],
       ['composer.json', 'php'],
       ['Package.swift', 'swift'],
-      ['settings.gradle.kts', 'kotlin'],
       ['project.godot', 'gdscript'],
     ]
 
     for (const [name, id] of cases) {
-      expect(detectLanguageProfiles([file(name)]).map((profile) => profile.id)).toEqual([
-        id,
-      ])
+      expect(
+        detectLanguageProfiles([file(name)]).map((profile) => profile.id),
+      ).toEqual([id])
     }
+  })
+
+  test('does not infer a source language from ambiguous Gradle DSL files', () => {
+    expect(
+      detectLanguageProfiles([
+        file('build.gradle'),
+        file('build.gradle.kts'),
+        file('settings.gradle.kts'),
+      ]),
+    ).toEqual([])
+  })
+
+  test('does not misclassify F# or Visual Basic projects as C#', () => {
+    expect(detectLanguageProfiles([file('Library.fsproj')])).toEqual([])
+    expect(detectLanguageProfiles([file('Application.vbproj')])).toEqual([])
+    expect(
+      detectLanguageProfiles([file('Workspace.sln'), file('Library.fsproj')]),
+    ).toEqual([])
   })
 
   test('ignores empty directories, hidden files, and unsupported extensions', () => {
@@ -134,19 +153,21 @@ describe('language profile prompts', () => {
   })
 
   test('normalizes source-file extension casing', () => {
-    expect(detectLanguageProfiles([file('APP.TSX')]).map((profile) => profile.id)).toEqual([
-      'typescript',
-    ])
-    expect(detectLanguageProfiles([file('SCRIPT.PY')]).map((profile) => profile.id)).toEqual([
-      'python',
-    ])
+    expect(
+      detectLanguageProfiles([file('APP.TSX')]).map((profile) => profile.id),
+    ).toEqual(['typescript'])
+    expect(
+      detectLanguageProfiles([file('SCRIPT.PY')]).map((profile) => profile.id),
+    ).toEqual(['python'])
   })
 
   test('keeps manifest filename matching case-sensitive', () => {
     expect(detectLanguageProfiles([file('package.JSON')])).toEqual([])
-    expect(detectLanguageProfiles([file('Package.swift')]).map((profile) => profile.id)).toEqual([
-      'swift',
-    ])
+    expect(
+      detectLanguageProfiles([file('Package.swift')]).map(
+        (profile) => profile.id,
+      ),
+    ).toEqual(['swift'])
   })
 
   test('returns an empty prompt when no supported language is detected', () => {
@@ -154,7 +175,7 @@ describe('language profile prompts', () => {
     expect(formatLanguageProfilePromptForFileTree([file('README.md')])).toBe('')
   })
 
-  test('renders compact guidance that points to idiom files without inlining them', () => {
+  test('renders bundled idiom guidance without assuming files in the user repo', () => {
     const prompt = formatLanguageProfilePromptForFileTree([
       file('Cargo.toml'),
       directory('src', [file('main.rs', 'src/main.rs')]),
@@ -162,9 +183,10 @@ describe('language profile prompts', () => {
 
     expect(prompt).toContain('## Language profile')
     expect(prompt).toContain('Detected: Rust')
-    expect(prompt).toContain('Use language-native idioms')
-    expect(prompt).toContain('`read_files` `agents/idioms/rust.md`')
-    expect(prompt).not.toContain('Let ownership and borrowing drive the design')
+    expect(prompt).toContain('Let ownership and borrowing drive the design')
+    expect(prompt).toContain('repository-local compiler')
+    expect(prompt).not.toContain('agents/idioms/')
+    expect(prompt).not.toContain('`read_files`')
   })
 
   test('detects GDScript from .gd extension and project.godot manifest', () => {
@@ -184,7 +206,7 @@ describe('language profile prompts', () => {
     ).toEqual(['gdscript'])
   })
 
-  test('renders GDScript profile guidance with idiom file pointer', () => {
+  test('renders bundled GDScript profile guidance', () => {
     const prompt = formatLanguageProfilePromptForFileTree([
       file('project.godot'),
       directory('scripts', [file('Player.gd', 'scripts/Player.gd')]),
@@ -193,20 +215,21 @@ describe('language profile prompts', () => {
     expect(prompt).toContain('## Language profile')
     expect(prompt).toContain('Detected: GDScript')
     expect(prompt).toContain('Godot node conventions')
-    expect(prompt).toContain('`read_files` `agents/idioms/gdscript.md`')
+    expect(prompt).toContain('res:// scene/resource references')
+    expect(prompt).not.toContain('agents/idioms/gdscript.md')
   })
 
-  test('renders only relevant idiom file pointers for detected languages', () => {
+  test('renders only relevant bundled guidance for detected languages', () => {
     const prompt = formatLanguageProfilePromptForFileTree([
       file('composer.json'),
       directory('src', [file('Controller.php', 'src/Controller.php')]),
     ])
 
     expect(prompt).toContain('Detected: PHP')
-    expect(prompt).toContain('`read_files` `agents/idioms/php.md`')
-    expect(prompt).not.toContain('agents/idioms/python.md')
-    expect(prompt).not.toContain('agents/idioms/rust.md')
-    expect(prompt).not.toContain('agents/idioms/kotlin.md')
+    expect(prompt).toContain('Composer autoloading')
+    expect(prompt).not.toContain('context managers')
+    expect(prompt).not.toContain('ownership and borrowing')
+    expect(prompt).not.toContain('coroutine dispatcher')
   })
 
   test('deduplicates multiple .gd files into a single GDScript profile', () => {
@@ -251,5 +274,83 @@ describe('language profile prompts', () => {
     expect(detectLanguageProfiles([file('data.gdjson')])).not.toContainEqual(
       expect.objectContaining({ id: 'gdscript' }),
     )
+  })
+
+  test('derives path detection and tool metadata from the canonical registry', () => {
+    expect(detectLanguageIdForPath('src\\server\\APP.PY')).toBe('python')
+    expect(detectLanguageIdForPath('native/CMakeLists.txt')).toBe('cpp')
+    expect(
+      detectLanguageProfilesFromPaths([
+        'frontend/App.tsx',
+        'backend/Cargo.toml',
+      ]).map((profile) => profile.id),
+    ).toEqual(['typescript', 'rust'])
+
+    expect(LANGUAGE_CAPABILITY_REGISTRY.rust.tools.languageServer).toContain(
+      'rust-analyzer',
+    )
+    expect(LANGUAGE_CAPABILITY_REGISTRY.python.validation.project).toEqual([
+      'typecheck',
+      'test',
+    ])
+  })
+
+  test('scopes polyglot profiles to explicit target paths and task languages', () => {
+    const tree: FileTreeNode[] = [
+      directory('web', [file('App.tsx', 'web/App.tsx')]),
+      directory('service', [file('main.py', 'service/main.py')]),
+      directory('native', [file('lib.rs', 'native/lib.rs')]),
+    ]
+
+    expect(
+      selectLanguageProfiles({
+        fileTree: tree,
+        targetPaths: ['native/lib.rs'],
+      }).map((profile) => profile.id),
+    ).toEqual(['rust'])
+
+    expect(
+      selectLanguageProfiles({
+        fileTree: tree,
+        targetPaths: ['README.md'],
+        taskText: 'Add Pyright-safe Python request validation',
+      }).map((profile) => profile.id),
+    ).toEqual(['python'])
+
+    const prompt = formatLanguageProfilePromptForFileTree(tree, {
+      targetPaths: ['service/main.py'],
+    })
+    expect(prompt).toContain('Detected: Python')
+    expect(prompt).not.toContain('TypeScript/JavaScript')
+    expect(prompt).not.toContain('Rust')
+  })
+
+  test('uses explicit task signals without treating ordinary lowercase go as Go', () => {
+    expect(
+      detectLanguageProfilesFromTask('Please go fix the parser').map(
+        (profile) => profile.id,
+      ),
+    ).toEqual([])
+    expect(
+      detectLanguageProfilesFromTask('Fix the Go parser in parser.go').map(
+        (profile) => profile.id,
+      ),
+    ).toEqual(['go'])
+    expect(
+      detectLanguageProfilesFromTask('Update JavaScript, not Java').map(
+        (profile) => profile.id,
+      ),
+    ).toEqual(['typescript', 'java'])
+  })
+
+  test('falls back to repository languages when no focused signal exists', () => {
+    const tree = [file('app.ts'), file('worker.py')]
+    expect(
+      selectLanguageProfiles({
+        fileTree: tree,
+        targetPaths: ['README.md'],
+        taskText: 'Improve the documentation',
+      }).map((profile) => profile.id),
+    ).toEqual(['typescript', 'python'])
   })
 })

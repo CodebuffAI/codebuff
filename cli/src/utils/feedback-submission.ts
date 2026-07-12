@@ -14,9 +14,11 @@ export function resolveFeedbackSubmission(
   activeClientFeedbackId: string | null,
   submittedClientFeedbackId: string,
 ): FeedbackSubmissionResolution {
-  const isCurrentSubmission = activeClientFeedbackId === submittedClientFeedbackId
+  const isCurrentSubmission =
+    activeClientFeedbackId === submittedClientFeedbackId
   return {
     isCurrentSubmission,
-    shouldSettleSubmission: isCurrentSubmission || activeClientFeedbackId === null,
+    shouldSettleSubmission:
+      isCurrentSubmission || activeClientFeedbackId === null,
   }
 }

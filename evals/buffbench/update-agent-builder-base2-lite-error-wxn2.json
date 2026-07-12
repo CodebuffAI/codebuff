@@ -38,18 +38,14 @@
           {
             "agent_type": "read_subtree",
             "params": {
-              "paths": [
-                ".agents"
-              ],
+              "paths": [".agents"],
               "maxTokens": 8000
             }
           },
           {
             "agent_type": "read_subtree",
             "params": {
-              "paths": [
-                ".agents/examples"
-              ],
+              "paths": [".agents/examples"],
               "maxTokens": 4000
             }
           },

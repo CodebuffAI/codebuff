@@ -60,9 +60,7 @@ function makeAgentResults(runs: EvalRun[]): AgentEvalResults {
 describe('eval-idioms-v1 fixture', () => {
   test('contains python, rust, and go idiom seed tasks with useful validation', () => {
     const evalPath = path.join(__dirname, '..', 'eval-idioms-v1.json')
-    const evalData = JSON.parse(
-      fs.readFileSync(evalPath, 'utf8'),
-    ) as EvalDataV2
+    const evalData = JSON.parse(fs.readFileSync(evalPath, 'utf8')) as EvalDataV2
 
     expect(evalData.evalCommits.map((commit) => commit.id)).toEqual([
       'idiom-seed-python-pathlib-contexts-comprehensions',
@@ -108,7 +106,11 @@ describe('eval-idioms-v1 fixture', () => {
     for (const commit of evalData.evalCommits) {
       expect(commit.spec).toContain('Initial seed fixture')
       expect(commit.fileDiffs.length).toBeGreaterThan(0)
-      expect(commit.supplementalFiles.some((file) => file.startsWith('agents/idioms/'))).toBe(true)
+      expect(
+        commit.supplementalFiles.some((file) =>
+          file.startsWith('agents/idioms/'),
+        ),
+      ).toBe(true)
     }
   })
 })
@@ -208,9 +210,13 @@ describe('judgeCommitResult', () => {
 
     expect(judgePrompts).toHaveLength(2)
     for (const prompt of judgePrompts) {
-      expect(prompt).toContain('## User Prompt (What the agent was asked to do)')
+      expect(prompt).toContain(
+        '## User Prompt (What the agent was asked to do)',
+      )
       expect(prompt).toContain('Fix the cache status bug.')
-      expect(prompt).toContain('## Task Specification (Expected observable outcome)')
+      expect(prompt).toContain(
+        '## Task Specification (Expected observable outcome)',
+      )
       expect(prompt).toContain(
         'The implementation must update the cache and expose a new status line.',
       )
@@ -376,14 +382,16 @@ describe('runTask proposal dry-run reporting', () => {
                 lessons: [
                   {
                     whatWentWrong: 'Edited Python without reading idioms.',
-                    whatShouldHaveBeenDone: 'Read agents/idioms/python.md first.',
+                    whatShouldHaveBeenDone:
+                      'Read agents/idioms/python.md first.',
                   },
                 ],
                 proposals: [
                   {
                     kind: 'append_system_prompt_guidance',
                     target: { agentId: 'agent-a' },
-                    guidance: 'Before non-trivial Python edits, read agents/idioms/python.md.',
+                    guidance:
+                      'Before non-trivial Python edits, read agents/idioms/python.md.',
                     rationale: 'Addresses the missing idiom-read lesson.',
                   },
                 ],
@@ -448,13 +456,18 @@ describe('runTask proposal dry-run reporting', () => {
           durationMs: 10,
           cost: 0,
           trace: [],
+          retrievalFlow: {
+            queryCallCount: 0,
+            queryResultPaths: [],
+            successfulReadPaths: [],
+            relevantReadPaths: [],
+            irrelevantReadPaths: [],
+          },
         }),
       })
 
       expect(lessonsPrompt).toContain('Idiom Score: 4/10')
-      expect(lessonsPrompt).toContain(
-        'Non-Idiomatic Patterns: manual open()',
-      )
+      expect(lessonsPrompt).toContain('Non-Idiomatic Patterns: manual open()')
 
       const proposalDryRun = agentResults[0]?.evalRun.proposalDryRun
       expect(proposalDryRun?.appliedCount).toBe(1)
@@ -548,6 +561,13 @@ describe('runTask idiom pattern reporting', () => {
           durationMs: 10,
           cost: 0,
           trace: [],
+          retrievalFlow: {
+            queryCallCount: 0,
+            queryResultPaths: [],
+            successfulReadPaths: [],
+            relevantReadPaths: [],
+            irrelevantReadPaths: [],
+          },
         }),
       })
 
@@ -581,7 +601,10 @@ describe('cache recall eval', () => {
     const result = evaluateCacheRecall({
       config: {
         minCacheHitRatio: 0.5,
-        requiredRecallSubstrings: ['<knowledge_memory>', 'Validated: typecheck clean'],
+        requiredRecallSubstrings: [
+          '<knowledge_memory>',
+          'Validated: typecheck clean',
+        ],
       },
       cacheUsage: computeCacheUsageMetrics({
         cachedInputTokens: 600,
@@ -603,6 +626,7 @@ describe('cache recall eval', () => {
         'Validated: typecheck clean',
       ],
       missingRecallSubstrings: [],
+      recallEvaluated: true,
       recallPassed: true,
       failureReason: undefined,
     })
@@ -638,13 +662,25 @@ describe('cache recall eval', () => {
       }),
     )
 
-    expect(output.command).toBe('buffbench cache-recall eval')
+    expect(output.command).toBe('buffbench cache-usage eval')
     expect(output.exitCode).toBe(1)
     expect(output.stderr).toContain('cache hit ratio 0.100 below required 0.9')
     expect(JSON.parse(output.stdout)).toMatchObject({
       passed: false,
       cacheHitRatio: 0.1,
+      recallEvaluated: false,
     })
+  })
+
+  test('fails closed when recall assertions are required but missing', () => {
+    const result = evaluateCacheRecall({
+      config: { requireRecallAssertions: true },
+    })
+
+    expect(result.passed).toBe(false)
+    expect(result.recallEvaluated).toBe(false)
+    expect(result.recallPassed).toBe(false)
+    expect(result.failureReason).toContain('recall assertions are required')
   })
 })
 
@@ -685,7 +721,9 @@ describe('summarizeAgentRuns', () => {
       },
     })
 
-    const summary = summarizeAgentRuns(makeAgentResults([lowScoreRun, normalRun]))
+    const summary = summarizeAgentRuns(
+      makeAgentResults([lowScoreRun, normalRun]),
+    )
 
     expect(summary.validRuns).toEqual([lowScoreRun, normalRun])
     expect(summary.runsExcludingFailures).toEqual([normalRun])

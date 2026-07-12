@@ -68,7 +68,8 @@ export function formatValidationErrorsForMessage(
 
       const { fieldName, message } = formatValidationError(error.message)
       const errorMsg = fieldName ? `${fieldName}: ${message}` : message
-      const truncatedMsg = errorMsg.length > 68 ? errorMsg.substring(0, 65) + '...' : errorMsg
+      const truncatedMsg =
+        errorMsg.length > 68 ? errorMsg.substring(0, 65) + '...' : errorMsg
 
       let output = index === 0 ? '' : '\n\n'
       output += agentId

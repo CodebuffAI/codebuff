@@ -177,8 +177,14 @@ describe('M7.2 — stale-index detection in explain', () => {
 
   test('staleness note does not alter the result shape or score', () => {
     const stale = makeExplainIndex(Date.now() - 10 * 60 * 1000)
-    const explainResults = queryIndex(stale, 'auth', { mode: 'explain', limit: 5 })
-    const searchResults = queryIndex(stale, 'auth', { mode: 'search', limit: 5 })
+    const explainResults = queryIndex(stale, 'auth', {
+      mode: 'explain',
+      limit: 5,
+    })
+    const searchResults = queryIndex(stale, 'auth', {
+      mode: 'search',
+      limit: 5,
+    })
 
     expect(explainResults.length).toBeGreaterThan(0)
     expect(searchResults.length).toBeGreaterThan(0)

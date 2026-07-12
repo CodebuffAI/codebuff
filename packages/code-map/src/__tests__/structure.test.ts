@@ -24,8 +24,16 @@ describe('parseFileStructure', () => {
     const syms = (await parseFileStructure(src, 'x.ts')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
 
-    expect(byName.greet).toMatchObject({ kind: 'function', startLine: 1, endLine: 3 })
-    expect(byName.helper).toMatchObject({ kind: 'function', startLine: 5, endLine: 7 })
+    expect(byName.greet).toMatchObject({
+      kind: 'function',
+      startLine: 1,
+      endLine: 3,
+    })
+    expect(byName.helper).toMatchObject({
+      kind: 'function',
+      startLine: 5,
+      endLine: 7,
+    })
     expect(byName.MAX).toMatchObject({ kind: 'variable', startLine: 9 })
     expect(byName.outer).toMatchObject({ kind: 'function' })
     // The const INSIDE outer() is a local and must NOT pollute the outline.
@@ -34,6 +42,15 @@ describe('parseFileStructure', () => {
 
   test('returns null for unsupported extensions', async () => {
     expect(await parseFileStructure('hello', 'notes.unknownext')).toBeNull()
+  })
+
+  test('keeps healthy symbols but omits malformed rewrite ranges', async () => {
+    const symbols = await parseFileStructure(
+      'export function good() { return 1 }\nexport function broken( {\n  return 1\n}\n',
+      'broken.ts',
+    )
+    expect(symbols?.map((symbol) => symbol.name)).toContain('good')
+    expect(symbols?.map((symbol) => symbol.name)).not.toContain('broken')
   })
 
   test('extracts TypeScript functions, classes, methods, interfaces, types', async () => {
@@ -59,12 +76,28 @@ describe('parseFileStructure', () => {
     expect(syms).not.toBeNull()
     const byName = Object.fromEntries((syms ?? []).map((s) => [s.name, s]))
 
-    expect(byName.Foo).toMatchObject({ kind: 'interface', startLine: 1, endLine: 3 })
+    expect(byName.Foo).toMatchObject({
+      kind: 'interface',
+      startLine: 1,
+      endLine: 3,
+    })
     expect(byName.Bar).toMatchObject({ kind: 'type', startLine: 5 })
-    expect(byName.greet).toMatchObject({ kind: 'function', startLine: 7, endLine: 9 })
-    expect(byName.Service).toMatchObject({ kind: 'class', startLine: 11, endLine: 15 })
+    expect(byName.greet).toMatchObject({
+      kind: 'function',
+      startLine: 7,
+      endLine: 9,
+    })
+    expect(byName.Service).toMatchObject({
+      kind: 'class',
+      startLine: 11,
+      endLine: 15,
+    })
     // Method nested inside the class is reported with depth > 0.
-    expect(byName.run).toMatchObject({ kind: 'method', startLine: 12, endLine: 14 })
+    expect(byName.run).toMatchObject({
+      kind: 'method',
+      startLine: 12,
+      endLine: 14,
+    })
     expect(byName.run.depth).toBeGreaterThan(0)
     expect(byName.Service.depth).toBe(0)
   })
@@ -103,9 +136,21 @@ describe('parseFileStructure', () => {
 
     const syms = (await parseFileStructure(src, 'a.py')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
-    expect(byName.Animal).toMatchObject({ kind: 'class', startLine: 1, endLine: 3 })
-    expect(byName.speak).toMatchObject({ kind: 'method', startLine: 2, endLine: 3 })
-    expect(byName.top_level).toMatchObject({ kind: 'function', startLine: 5, endLine: 6 })
+    expect(byName.Animal).toMatchObject({
+      kind: 'class',
+      startLine: 1,
+      endLine: 3,
+    })
+    expect(byName.speak).toMatchObject({
+      kind: 'method',
+      startLine: 2,
+      endLine: 3,
+    })
+    expect(byName.top_level).toMatchObject({
+      kind: 'function',
+      startLine: 5,
+      endLine: 6,
+    })
   })
 
   test('extracts Go funcs, methods, and types (no spurious reference symbols)', async () => {
@@ -154,11 +199,27 @@ describe('parseFileStructure', () => {
 
     const syms = (await parseFileStructure(src, 'm.rs')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
-    expect(byName.Point).toMatchObject({ kind: 'struct', startLine: 1, endLine: 3 })
+    expect(byName.Point).toMatchObject({
+      kind: 'struct',
+      startLine: 1,
+      endLine: 3,
+    })
     // `new` lives inside `impl Point`, so it is reported as a method.
-    expect(byName.new).toMatchObject({ kind: 'method', startLine: 6, endLine: 8 })
-    expect(byName.main).toMatchObject({ kind: 'function', startLine: 11, endLine: 11 })
-    expect(byName['impl Point']).toMatchObject({ kind: 'impl', startLine: 5, endLine: 9 })
+    expect(byName.new).toMatchObject({
+      kind: 'method',
+      startLine: 6,
+      endLine: 8,
+    })
+    expect(byName.main).toMatchObject({
+      kind: 'function',
+      startLine: 11,
+      endLine: 11,
+    })
+    expect(byName['impl Point']).toMatchObject({
+      kind: 'impl',
+      startLine: 5,
+      endLine: 9,
+    })
   })
 
   test('extracts JavaScript classes, methods, and functions', async () => {
@@ -173,9 +234,21 @@ describe('parseFileStructure', () => {
 
     const syms = (await parseFileStructure(src, 'service.js')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
-    expect(byName.Widget).toMatchObject({ kind: 'class', startLine: 1, endLine: 5 })
-    expect(byName.render).toMatchObject({ kind: 'method', startLine: 2, endLine: 4 })
-    expect(byName.helper).toMatchObject({ kind: 'function', startLine: 6, endLine: 6 })
+    expect(byName.Widget).toMatchObject({
+      kind: 'class',
+      startLine: 1,
+      endLine: 5,
+    })
+    expect(byName.render).toMatchObject({
+      kind: 'method',
+      startLine: 2,
+      endLine: 4,
+    })
+    expect(byName.helper).toMatchObject({
+      kind: 'function',
+      startLine: 6,
+      endLine: 6,
+    })
   })
 
   test('extracts Java interfaces, classes, constructors, and methods', async () => {
@@ -192,8 +265,13 @@ describe('parseFileStructure', () => {
     ].join('\n')
 
     const syms = (await parseFileStructure(src, 'Example.java')) ?? []
-    const byName = Object.fromEntries(syms.map((s) => [`${s.name}:${s.startLine}`, s]))
-    expect(byName['RunnableThing:2']).toMatchObject({ kind: 'interface', endLine: 4 })
+    const byName = Object.fromEntries(
+      syms.map((s) => [`${s.name}:${s.startLine}`, s]),
+    )
+    expect(byName['RunnableThing:2']).toMatchObject({
+      kind: 'interface',
+      endLine: 4,
+    })
     expect(byName['run:3']).toMatchObject({ kind: 'method' })
     expect(byName['Service:5']).toMatchObject({ kind: 'class', endLine: 9 })
     expect(byName['Service:6']).toMatchObject({ kind: 'method' })
@@ -213,7 +291,9 @@ describe('parseFileStructure', () => {
     ].join('\n')
 
     const syms = (await parseFileStructure(src, 'Program.cs')) ?? []
-    const byName = Object.fromEntries(syms.map((s) => [`${s.name}:${s.startLine}`, s]))
+    const byName = Object.fromEntries(
+      syms.map((s) => [`${s.name}:${s.startLine}`, s]),
+    )
     expect(byName['Demo:1']).toMatchObject({ kind: 'module', endLine: 7 })
     expect(byName['IWorker:2']).toMatchObject({ kind: 'interface' })
     expect(byName['Worker:3']).toMatchObject({ kind: 'class', endLine: 6 })
@@ -235,7 +315,11 @@ describe('parseFileStructure', () => {
 
     const syms = (await parseFileStructure(src, 'lib.cpp')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
-    expect(byName.Engine).toMatchObject({ kind: 'class', startLine: 2, endLine: 5 })
+    expect(byName.Engine).toMatchObject({
+      kind: 'class',
+      startLine: 2,
+      endLine: 5,
+    })
     expect(byName.start).toMatchObject({ kind: 'method', startLine: 4 })
     expect(byName.Point).toMatchObject({ kind: 'struct', startLine: 6 })
     expect(byName.helper).toMatchObject({ kind: 'function', startLine: 7 })
@@ -258,14 +342,32 @@ describe('parseFileStructure', () => {
 
     const syms = (await parseFileStructure(src, 'app.rb')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
-    expect(byName.Demo).toMatchObject({ kind: 'module', startLine: 1, endLine: 11 })
-    expect(byName.Worker).toMatchObject({ kind: 'class', startLine: 2, endLine: 10 })
-    expect(byName.run).toMatchObject({ kind: 'method', startLine: 3, endLine: 5 })
-    expect(byName.helper).toMatchObject({ kind: 'method', startLine: 7, endLine: 9 })
+    expect(byName.Demo).toMatchObject({
+      kind: 'module',
+      startLine: 1,
+      endLine: 11,
+    })
+    expect(byName.Worker).toMatchObject({
+      kind: 'class',
+      startLine: 2,
+      endLine: 10,
+    })
+    expect(byName.run).toMatchObject({
+      kind: 'method',
+      startLine: 3,
+      endLine: 5,
+    })
+    expect(byName.helper).toMatchObject({
+      kind: 'method',
+      startLine: 7,
+      endLine: 9,
+    })
   })
 
   test('returns null for registered languages whose wasm grammar is unavailable', async () => {
-    expect(await parseFileStructure('<?php function demo() {}', 'index.php')).toBeNull()
+    expect(
+      await parseFileStructure('<?php function demo() {}', 'index.php'),
+    ).toBeNull()
     expect(await parseFileStructure('func demo() {}', 'App.swift')).toBeNull()
     expect(await parseFileStructure('fun demo() {}', 'Main.kt')).toBeNull()
   })
@@ -290,12 +392,26 @@ describe('parseFileStructure', () => {
 
     const syms = (await parseFileStructure(src, 'Player.gd')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
-    expect(byName.PlayerController).toMatchObject({ kind: 'class', startLine: 3 })
+    expect(byName.PlayerController).toMatchObject({
+      kind: 'class',
+      startLine: 3,
+    })
     expect(byName.speed).toMatchObject({ kind: 'variable', startLine: 5 })
     expect(byName.MAX_HP).toMatchObject({ kind: 'constant', startLine: 6 })
-    expect(byName._ready).toMatchObject({ kind: 'function', startLine: 8, endLine: 9 })
-    expect(byName.move).toMatchObject({ kind: 'function', startLine: 11, endLine: 12 })
-    expect(byName.health_changed).toMatchObject({ kind: 'signal', startLine: 14 })
+    expect(byName._ready).toMatchObject({
+      kind: 'function',
+      startLine: 8,
+      endLine: 9,
+    })
+    expect(byName.move).toMatchObject({
+      kind: 'function',
+      startLine: 11,
+      endLine: 12,
+    })
+    expect(byName.health_changed).toMatchObject({
+      kind: 'signal',
+      startLine: 14,
+    })
   })
 
   test('extracts GDScript enums and inner class definitions', async () => {
@@ -318,12 +434,22 @@ describe('parseFileStructure', () => {
 
     const syms = (await parseFileStructure(src, 'Enums.gd')) ?? []
     const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
-    expect(byName.Direction).toMatchObject({ kind: 'enum', startLine: 3, endLine: 8 })
-    expect(byName.InnerHelper).toMatchObject({ kind: 'class', startLine: 10, endLine: 14 })
+    expect(byName.Direction).toMatchObject({
+      kind: 'enum',
+      startLine: 3,
+      endLine: 8,
+    })
+    expect(byName.InnerHelper).toMatchObject({
+      kind: 'class',
+      startLine: 10,
+      endLine: 14,
+    })
     expect(byName.data).toMatchObject({ kind: 'variable', startLine: 11 })
     // Function inside the inner class should be relabeled as a method
     expect(byName.process).toBeDefined()
-    expect(byName.process.kind === 'function' || byName.process.kind === 'method').toBe(true)
+    expect(
+      byName.process.kind === 'function' || byName.process.kind === 'method',
+    ).toBe(true)
   })
 
   test('returns empty array (not null) for empty GDScript file', async () => {

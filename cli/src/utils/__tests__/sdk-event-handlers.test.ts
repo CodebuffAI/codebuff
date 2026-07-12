@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
 import { createMessageUpdater } from '../message-updater'
-import { createEventHandler, createStreamChunkHandler } from '../sdk-event-handlers'
+import {
+  createEventHandler,
+  createStreamChunkHandler,
+} from '../sdk-event-handlers'
 
 import type { ChatMessage } from '../../types/chat'
 import type { EventHandlerState } from '../sdk-event-handlers'
@@ -83,6 +86,245 @@ const createTestContext = () => {
 }
 
 describe('sdk-event-handlers', () => {
+  test('renders provider retry/failover recovery as an ordered resilience timeline', () => {
+    const { ctx, getMessages } = createTestContext()
+    const retryStates: boolean[] = []
+    ctx.setIsRetrying = (retrying) => retryStates.push(retrying)
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'provider_status',
+      status: 'retrying',
+      model: 'primary',
+      attempt: 2,
+      maxAttempts: 4,
+      delayMs: 500,
+    })
+    handleEvent({
+      type: 'provider_status',
+      status: 'failover',
+      model: 'primary',
+      nextModel: 'backup',
+    })
+    handleEvent({
+      type: 'provider_status',
+      status: 'recovered',
+      model: 'backup',
+    })
+
+    expect(retryStates).toEqual([true, true, false])
+    const text = getMessages()[0]
+      .blocks?.map((block) => ('content' in block ? block.content : ''))
+      .join('\n')
+    expect(text).toContain('retrying (attempt 2/4)')
+    expect(text).toContain('primary → backup')
+    expect(text).toContain('recovered on backup')
+  })
+
+  test('surfaces runtime errors without stack-frame lines', () => {
+    const { ctx, getMessages } = createTestContext()
+    createEventHandler(ctx)({
+      type: 'error',
+      message: 'Provider failed\n    at secret/path.ts:1:2',
+    })
+    expect(getMessages()[0].userError).toBe('Provider failed')
+  })
+
+  test('background agent cards remain running until polling reports settlement', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'child-1',
+      agentType: 'researcher-web',
+      displayName: 'Researcher',
+      parentAgentId: 'main-agent',
+      spawnToolCallId: 'spawn-bg',
+      spawnIndex: 0,
+      prompt: 'research',
+      onlyChild: true,
+    } as any)
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'spawn-bg',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentId: 'child-1',
+              agentName: 'Researcher',
+              agentType: 'researcher-web',
+              value: {
+                background: true,
+                jobId: 'bg-agent-1',
+                message: 'launched',
+              },
+            },
+          ],
+        },
+      ],
+    } as any)
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({
+      type: 'agent',
+      status: 'running',
+      backgroundJobId: 'bg-agent-1',
+    })
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'check-bg',
+      toolName: 'check_background_agent',
+      output: [
+        {
+          type: 'json',
+          value: {
+            jobId: 'bg-agent-1',
+            status: 'completed',
+            newChunks: [],
+            result: {
+              type: 'lastMessage',
+              value: [
+                {
+                  role: 'assistant',
+                  content: [{ type: 'text', text: 'done' }],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    } as any)
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({
+      type: 'agent',
+      status: 'complete',
+      backgroundJobId: 'bg-agent-1',
+    })
+  })
+
+  test('[ERR-H01] terminal cancellation is immutable when a late result arrives', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-1',
+      toolName: 'read_files',
+      input: { paths: ['a.ts'] },
+    } as any)
+    ctx.message.updater.updateAiMessageBlocks((blocks) =>
+      blocks.map((block) =>
+        block.type === 'tool'
+          ? { ...block, lifecycle: 'cancelled' as const }
+          : block,
+      ),
+    )
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'read_files',
+      output: [{ type: 'json', value: { ok: true } }],
+    } as any)
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({
+      type: 'tool',
+      lifecycle: 'cancelled',
+    })
+  })
+
+  test('[COR-H03] any error part makes the terminal tool lifecycle failed', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-2',
+      toolName: 'apply_patch',
+      input: {},
+    } as any)
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'tool-2',
+      toolName: 'apply_patch',
+      output: [
+        { type: 'json', value: { applied: true } },
+        { type: 'json', value: { errorMessage: 'post-commit report failed' } },
+      ],
+    } as any)
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({ lifecycle: 'failed' })
+  })
+
+  test('late canonical mutation result replaces cancellation with authoritative state', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-late',
+      toolName: 'write_file',
+      input: { path: 'a.ts' },
+    } as any)
+    ctx.message.updater.updateAiMessageBlocks((blocks) =>
+      blocks.map((block) =>
+        block.type === 'tool'
+          ? { ...block, lifecycle: 'cancelled' as const }
+          : block,
+      ),
+    )
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'tool-late',
+      toolName: 'write_file',
+      output: [
+        {
+          type: 'json',
+          value: {
+            kind: 'file_mutation_result',
+            version: 1,
+            operationId: 'op',
+            outcome: 'applied',
+            authorityTier: 'portable_path',
+            actions: [
+              {
+                actionId: 'a',
+                index: 0,
+                action: 'create',
+                path: 'a.ts',
+                outcome: 'applied',
+                beforeHash: null,
+                afterHash: 'sha256:x',
+              },
+            ],
+            errors: [],
+            freshCapabilities: [],
+          },
+        },
+      ],
+    } as any)
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({
+      lifecycle: 'succeeded',
+      interrupted: true,
+    })
+  })
+
+  test('[ERR-H01] subagent error finishes persist failed status', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'agent-1',
+      agentType: 'editor',
+      displayName: 'Editor',
+      onlyChild: false,
+    } as any)
+    handleEvent({
+      type: 'subagent_finish',
+      agentId: 'agent-1',
+      agentType: 'editor',
+      displayName: 'Editor',
+      onlyChild: false,
+      error: 'timed out',
+    } as any)
+    expect(getMessages()[0].blocks?.[0]).toMatchObject({ status: 'failed' })
+  })
+
   test('extracts plan content from root stream', () => {
     const { ctx, getMessages } = createTestContext()
     const handleChunk = createStreamChunkHandler(ctx)
@@ -108,5 +350,48 @@ describe('sdk-event-handlers', () => {
     handleEvent({ type: 'context_window', used: 50000, max: 200000 })
 
     expect(captured.usage).toEqual({ used: 50000, max: 200000 })
+  })
+
+  test('keeps the last context usage after finish', () => {
+    const captured: Array<{ used: number; max: number } | null> = []
+    const { ctx } = createTestContext()
+    ctx.streaming.setContextWindowUsage = (usage) => captured.push(usage)
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({ type: 'context_window', used: 150000, max: 200000 })
+    handleEvent({ type: 'finish', totalCost: 0 } as any)
+
+    expect(captured).toEqual([{ used: 150000, max: 200000 }])
+  })
+
+  test('persists context compaction details in the assistant message', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    const categories = {
+      toolResults: { tokens: 10, percent: 10, messages: 1 },
+      todos: { tokens: 10, percent: 10, messages: 1 },
+      fileReads: { tokens: 20, percent: 20, messages: 2 },
+      subagents: { tokens: 20, percent: 20, messages: 2 },
+      userAssistantMessages: { tokens: 40, percent: 40, messages: 4 },
+    }
+
+    handleEvent({
+      type: 'context_compaction',
+      action: 'mechanical_trim',
+      before: { tokens: 190000, messages: 20, categories },
+      after: { tokens: 120000, messages: 12, categories },
+      removedCategories: ['toolResults', 'fileReads'],
+      retainedKnowledgeMemory: false,
+      recovery: 'Re-read exact files before editing.',
+    })
+
+    const text = getMessages()[0].blocks?.find(
+      (block) => block.type === 'text' && block.content.includes('context'),
+    )
+    const content = String(text?.type === 'text' ? text.content : '')
+    expect(text?.type).toBe('text')
+    expect(content).toContain('190,000 → 120,000 tokens')
+    expect(content).toContain('Removed: toolResults, fileReads')
+    expect(content).toContain('Retained knowledge memory: no')
   })
 })

@@ -3,10 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 
-import {
-  setProjectRoot,
-  setCurrentChatId,
-} from '../../project-files'
+import { setProjectRoot, setCurrentChatId } from '../../project-files'
 import {
   saveCheckpoint,
   loadCheckpoint,
@@ -18,9 +15,13 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 // Use a real temp project root + chat id so getCheckpointPath() resolves into
 // our isolated temp dir (matching the integration-test pattern in this repo,
 // rather than module mocking which doesn't reliably intercept bound imports).
-const tmpProjectRoot = path.join(os.tmpdir(), `codebuff-checkpoint-test-${process.pid}`)
+const tmpProjectRoot = path.join(
+  os.tmpdir(),
+  `codebuff-checkpoint-test-${process.pid}`,
+)
 const tmpConfigDir = path.join(tmpProjectRoot, '.codebuff-config')
 const chatId = 'test-chat-checkpoint'
+const originalConfigDir = process.env.OPENBUFF_CONFIG_DIR
 
 function makeAgentState(agentId: string): AgentState {
   return {
@@ -50,6 +51,7 @@ describe('turn checkpoint (P2-3)', () => {
       fs.rmSync(tmpProjectRoot, { recursive: true, force: true })
     }
     fs.mkdirSync(tmpConfigDir, { recursive: true })
+    process.env.OPENBUFF_CONFIG_DIR = tmpConfigDir
     setProjectRoot(tmpProjectRoot)
     setCurrentChatId(chatId)
     // Stub the config dir resolution so getProjectDataDir uses our temp dir.
@@ -62,6 +64,8 @@ describe('turn checkpoint (P2-3)', () => {
   })
 
   afterEach(() => {
+    if (originalConfigDir === undefined) delete process.env.OPENBUFF_CONFIG_DIR
+    else process.env.OPENBUFF_CONFIG_DIR = originalConfigDir
     if (fs.existsSync(tmpProjectRoot)) {
       fs.rmSync(tmpProjectRoot, { recursive: true, force: true })
     }

@@ -14,10 +14,18 @@ describe('analytics-log helpers', () => {
 
   it('returns null for non-object data', () => {
     expect(
-      toTrackableAnalyticsPayload({ data: null, level: baseLevel, msg: baseMsg }),
+      toTrackableAnalyticsPayload({
+        data: null,
+        level: baseLevel,
+        msg: baseMsg,
+      }),
     ).toBeNull()
     expect(
-      toTrackableAnalyticsPayload({ data: 'x', level: baseLevel, msg: baseMsg }),
+      toTrackableAnalyticsPayload({
+        data: 'x',
+        level: baseLevel,
+        msg: baseMsg,
+      }),
     ).toBeNull()
   })
 

@@ -22,7 +22,8 @@ const DOCS_SECTION_REGEX = /^##\s+Docs\s*$/im
 // Matches `cli/`, `packages/agent-runtime/`, `docs/architecture.md`, etc.
 // Requires a `/` after the top-level dir name to avoid matching bare filenames
 // like `cli-args.test.ts`.
-const BACKTICK_PATH_REGEX = /`((?:src|packages|cli|common|sdk|agents|scripts|docs|\.github|\.agents)\/[A-Za-z0-9._\/-]*?)`/g
+const BACKTICK_PATH_REGEX =
+  /`((?:src|packages|cli|common|sdk|agents|scripts|docs|\.github|\.agents)\/[A-Za-z0-9._\/-]*?)`/g
 
 function projectRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -203,7 +204,9 @@ export function formatAgentConfigSyncReport(findings: SyncFinding[]): string {
     lines.push(`  ${loc} — ${finding.message}`)
   }
   lines.push('')
-  lines.push('Fix: update the referenced config file(s) to match repo structure, or create the missing files/directories.')
+  lines.push(
+    'Fix: update the referenced config file(s) to match repo structure, or create the missing files/directories.',
+  )
   return lines.join('\n')
 }
 

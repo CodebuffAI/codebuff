@@ -5,9 +5,11 @@ file maps each shipped agent identity to the subset of project knowledge
 files it should load into its system prompt, so agents that only need a
 subset of the docs don't pay the full context cost on every turn.
 
-The runtime currently has no task-type discriminator, so the routing key
-is the agent identity (`agentTemplate.id`). When this file is absent, the
-loader falls back to today's behavior (all root knowledge files).
+Routes may target an agent identity (`agentTemplate.id`) or a task-specific
+identity in the form `agent:task`, where task is one of `audit`, `planning`,
+`implementation`, `debugging`, `validation`, or `general`. Task-specific rows
+take precedence and are rendered within a bounded character budget. When this
+file is absent, the loader falls back to root knowledge files.
 
 This file is consumed by `common/src/util/router.ts` and wired into the
 agent runtime via the `{CODEBUFF_ROUTED_KNOWLEDGE_FILES}` placeholder in
@@ -15,14 +17,19 @@ agent runtime via the `{CODEBUFF_ROUTED_KNOWLEDGE_FILES}` placeholder in
 (`scripts/memory-drift-guard.ts`) lints this file for entries that point
 at files which no longer exist on disk.
 
-| agent | knowledge_files |
-| --- | --- |
-| base2 | AGENTS.md, docs/architecture.md, docs/agents-and-tools.md, docs/deterministic-edit-system.md |
-| base2-evals | AGENTS.md, docs/testing.md |
-| base2-execute-plan | AGENTS.md, docs/architecture.md, docs/development.md |
-| base2-fast | AGENTS.md |
-| base2-fast-no-validation | AGENTS.md |
-| base2-plan | AGENTS.md, docs/architecture.md, docs/development.md |
+| agent                    | knowledge_files                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| base2                    | AGENTS.md, docs/architecture.md, docs/agents-and-tools.md, docs/deterministic-edit-system.md |
+| base2:audit              | AGENTS.md, docs/architecture.md, docs/request-flow.md, docs/testing.md                       |
+| base2:debugging          | AGENTS.md, docs/architecture.md, docs/request-flow.md, docs/development.md                   |
+| base2:implementation     | AGENTS.md, docs/architecture.md, docs/agents-and-tools.md                                    |
+| base2:planning           | AGENTS.md, docs/architecture.md, docs/request-flow.md                                        |
+| base2:validation         | AGENTS.md, docs/testing.md, docs/development.md                                              |
+| base2-evals              | AGENTS.md, docs/testing.md                                                                   |
+| base2-execute-plan       | AGENTS.md, docs/architecture.md, docs/development.md                                         |
+| base2-fast               | AGENTS.md                                                                                    |
+| base2-fast-no-validation | AGENTS.md                                                                                    |
+| base2-plan               | AGENTS.md, docs/architecture.md, docs/development.md                                         |
 
 ## Editing this file
 

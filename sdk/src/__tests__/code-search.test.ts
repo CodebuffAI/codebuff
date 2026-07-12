@@ -78,6 +78,28 @@ describe('codeSearch', () => {
       expect(value.stdout).toContain('  Line 1: import foo from "bar"')
       expect(value.stdout).toContain('file2.ts:')
     })
+
+    it('filters mandatory-sensitive file matches from exact search output', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'token',
+      })
+      mockProcess.stdout.emit(
+        'data',
+        Buffer.from(
+          [
+            createRgJsonMatch('.env', 1, 'TOKEN=super-secret'),
+            createRgJsonMatch('src/config.ts', 2, 'export const token = "safe"'),
+          ].join('\n'),
+        ),
+      )
+      mockProcess.emit('close', 0)
+
+      const value = asCodeSearchResult((await searchPromise)[0])
+      expect(value.stdout).not.toContain('super-secret')
+      expect(value.stdout).not.toContain('.env:')
+      expect(value.stdout).toContain('src/config.ts:')
+    })
   })
 
   describe('context flags handling', () => {
@@ -955,7 +977,7 @@ describe('codeSearch', () => {
       expect(value.errorMessage).toBeUndefined()
       expect(value.stdout).toContain('test content')
       const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
-      expect(spawnOptions.cwd).toBe(path.join(tmpDir, 'link'))
+      expect(spawnOptions.cwd).toBe(path.join(tmpDir, 'real'))
     })
   })
 

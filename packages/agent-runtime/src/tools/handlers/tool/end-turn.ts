@@ -1,5 +1,7 @@
 import { listRunningBackgroundJobs } from '@codebuff/common/util/pending-background-jobs'
 
+import { listRunningBackgroundAgentJobs } from '../../../util/background-agent-jobs'
+
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
@@ -17,7 +19,8 @@ export const handleEndTurn = (async (params: {
   await previousToolCallFinished
 
   const runningJobs = listRunningBackgroundJobs()
-  if (runningJobs.length === 0) {
+  const runningAgentJobs = listRunningBackgroundAgentJobs()
+  if (runningJobs.length === 0 && runningAgentJobs.length === 0) {
     return { output: [{ type: 'json', value: { message: 'Turn ended.' } }] }
   }
 
@@ -32,9 +35,18 @@ export const handleEndTurn = (async (params: {
     startedAt: job.startedAt,
   }))
   const remaining = runningJobs.length - listed.length
+  const listedAgents = runningAgentJobs
+    .slice(0, MAX_JOBS_LISTED)
+    .map((job) => ({
+      jobId: job.jobId,
+      agentType: job.agentType,
+      agentName: job.agentName,
+      startedAt: job.startedAt,
+    }))
+  const remainingAgents = runningAgentJobs.length - listedAgents.length
   const summary =
-    `Turn ended. ${runningJobs.length} background job(s) are still running. ` +
-    `Use check_job/read_logs/kill_job to manage them.`
+    `Turn ended. ${runningJobs.length} shell job(s) and ${runningAgentJobs.length} agent job(s) are still running. ` +
+    `Use check_job/read_logs/kill_job or check_background_agent to manage them.`
 
   return {
     output: [
@@ -43,7 +55,13 @@ export const handleEndTurn = (async (params: {
         value: {
           message: summary,
           pendingBackgroundJobs: listed,
-          ...(remaining > 0 ? { pendingBackgroundJobsTruncated: remaining } : {}),
+          pendingBackgroundAgentJobs: listedAgents,
+          ...(remaining > 0
+            ? { pendingBackgroundJobsTruncated: remaining }
+            : {}),
+          ...(remainingAgents > 0
+            ? { pendingBackgroundAgentJobsTruncated: remainingAgents }
+            : {}),
         },
       },
     ],

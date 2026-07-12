@@ -66,7 +66,8 @@ describe('processStrReplace', () => {
   })
 
   it('preserves mixed line endings in untouched text', async () => {
-    const initialContent = 'const crlf = 1;\r\nconst lf = 2;\nconst target = 3;\r\n'
+    const initialContent =
+      'const crlf = 1;\r\nconst lf = 2;\nconst target = 3;\r\n'
 
     const result = await processStrReplace({
       path: 'mixed.ts',
@@ -90,7 +91,8 @@ describe('processStrReplace', () => {
   })
 
   it('preserves the original line ending of modified lines in mixed files', async () => {
-    const initialContent = 'const crlf = 1;\r\nconst lf = 2;\nconst another = 3;\r\n'
+    const initialContent =
+      'const crlf = 1;\r\nconst lf = 2;\nconst another = 3;\r\n'
 
     const result = await processStrReplace({
       path: 'mixed.ts',
@@ -318,12 +320,14 @@ describe('processStrReplace', () => {
       expect(result.content).toBe(
         'const x = 10;\nconst y = 2;\nconst z = 30;\n',
       )
+      expect(result.failedReplacementCount).toBe(1)
       expect(
-        result.messages.some((msg) =>
-          msg.includes(
-            'The old string "const w = 4;" was not found in the file, skipping.',
-          ) &&
-          msg.includes('Please re-read the current file/range and try again'),
+        result.messages.some(
+          (msg) =>
+            msg.includes(
+              'The old string "const w = 4;" was not found in the file, skipping.',
+            ) &&
+            msg.includes('Please re-read the current file/range and try again'),
         ),
       ).toBe(true)
     }
@@ -361,6 +365,7 @@ describe('processStrReplace', () => {
     if ('error' in result) {
       expect(result.error).toContain('Atomic str_replace batch aborted')
       expect(result.error).toContain('NO changes were made')
+      expect(result.error).toContain('Replacement 2/3 failed:')
       expect(result.error).toContain('const w = 4;')
       expect(result.error).not.toContain('+const x = 10;')
       expect(result.error).not.toContain('+const z = 30;')
@@ -462,11 +467,13 @@ describe('processStrReplace', () => {
         expect(result.content).toBe(
           'ALPHA bar ALPHA\nbeta token beta token beta token\nQUX',
         )
-        expect(result.messages).toHaveLength(1)
-        expect(result.messages[0]).toContain(
+        expect(result.failedReplacementCount).toBe(1)
+        expect(result.messages).toHaveLength(2)
+        expect(result.messages[0]).toContain('Partial str_replace applied')
+        expect(result.messages[1]).toContain(
           'Found 3 occurrences of "beta token"',
         )
-        expect(result.messages[0]).toContain('set allowMultiple to true')
+        expect(result.messages[1]).toContain('set allowMultiple to true')
       }
     })
 
@@ -489,7 +496,9 @@ describe('processStrReplace', () => {
         expect(result.error).toContain('shorter than 10 characters')
         expect(result.error).toContain('matches 3 locations')
         expect(result.error).toContain('allowMultiple=true cannot override')
-        expect(result.error).toContain('Occurrence ranges for read_files.ranges recovery:')
+        expect(result.error).toContain(
+          'Occurrence ranges for read_files.ranges recovery:',
+        )
       }
     })
 
@@ -551,7 +560,9 @@ describe('processStrReplace', () => {
         path: 'test.ts',
         replacements: [
           {
-            oldString: ['function target() {', '...', '} // end target'].join('\n'),
+            oldString: ['function target() {', '...', '} // end target'].join(
+              '\n',
+            ),
             newString: 'function target() {\n  return 2\n} // end target',
             allowMultiple: false,
           },
@@ -563,7 +574,9 @@ describe('processStrReplace', () => {
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
       if ('content' in result) {
-        expect(result.content).toBe('function target() {\n  return 2\n} // end target\n')
+        expect(result.content).toBe(
+          'function target() {\n  return 2\n} // end target\n',
+        )
         expect(result.messages).toContain(
           'Matched explicit `...` elision in oldString at lines 1-5.',
         )
@@ -571,7 +584,9 @@ describe('processStrReplace', () => {
     })
 
     it('should preserve exact-match precedence for literal ellipsis text', async () => {
-      const initialContent = ['start literal', '...', 'end literal', ''].join('\n')
+      const initialContent = ['start literal', '...', 'end literal', ''].join(
+        '\n',
+      )
 
       const result = await processStrReplace({
         path: 'test.ts',
@@ -610,7 +625,9 @@ describe('processStrReplace', () => {
         path: 'test.ts',
         replacements: [
           {
-            oldString: ['function target() {', '...', '} // end target'].join('\n'),
+            oldString: ['function target() {', '...', '} // end target'].join(
+              '\n',
+            ),
             newString: 'function target() {\n  return 3\n} // end target',
             allowMultiple: false,
           },
@@ -639,7 +656,9 @@ describe('processStrReplace', () => {
         path: 'test.ts',
         replacements: [
           {
-            oldString: ['function target() {', '...', '} // end target'].join('\n'),
+            oldString: ['function target() {', '...', '} // end target'].join(
+              '\n',
+            ),
             newString: 'function target() {\n  return 2\n} // end target',
             allowMultiple: true,
           },
@@ -657,7 +676,11 @@ describe('processStrReplace', () => {
     })
 
     it('should treat inline ellipsis as literal text, not an elision marker', async () => {
-      const initialContent = ['start literal', 'middle literal', 'end literal'].join('\n')
+      const initialContent = [
+        'start literal',
+        'middle literal',
+        'end literal',
+      ].join('\n')
 
       const result = await processStrReplace({
         path: 'test.ts',
@@ -956,9 +979,7 @@ function test3() {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('The old string')
-      expect(result.error).toContain(
-        'target block was already changed/removed',
-      )
+      expect(result.error).toContain('target block was already changed/removed')
     }
   })
 
@@ -1007,9 +1028,7 @@ function test3() {
       expect(result.error).toContain('The old string')
       expect(
         result.error.includes('Closest candidate ranges') ||
-          result.error.includes(
-            'target block was already changed/removed',
-          ),
+          result.error.includes('target block was already changed/removed'),
       ).toBe(true)
     }
   })
@@ -1062,9 +1081,7 @@ function test3() {
       expect(result.error).toContain('The old string')
       // The delimiter-balance check makes tryNearMatchAutoCorrect return null,
       // so the rich diagnostic error (with candidate ranges) is emitted.
-      expect(result.error).toContain(
-        'Closest candidate ranges',
-      )
+      expect(result.error).toContain('Closest candidate ranges')
     }
   })
 
@@ -1074,10 +1091,9 @@ function test3() {
     // exact match must NOT be auto-corrected even if a single high-similarity
     // candidate exists, because short strings too easily match the wrong spot.
     // It must instead return an error.
-    const initialContent = [
-      'const alphaValue = 1',
-      'const betaValue = 2',
-    ].join('\n')
+    const initialContent = ['const alphaValue = 1', 'const betaValue = 2'].join(
+      '\n',
+    )
     // 24 chars after trim — below the 30-char autocorrect threshold.
     const oldStr = 'const alphaValu = 1'
     const newStr = 'const alphaValue = 10'
@@ -1139,7 +1155,8 @@ function test3() {
   })
 
   it('should suppress low-similarity fuzzy candidates and give stale-read guidance', async () => {
-    const initialContent = 'const firstVar = 1;\nconst secondVar = 2;\nconst thirdVar = 3;\n'
+    const initialContent =
+      'const firstVar = 1;\nconst secondVar = 2;\nconst thirdVar = 3;\n'
     const oldStr = 'const completelyDifferentValue = 200;'
     const newStr = 'const secondVar = 20;'
 
@@ -1158,9 +1175,7 @@ function test3() {
       expect(result.error).toContain(
         'The old string "const completelyDifferentValue = 200;" was not found',
       )
-      expect(result.error).toContain(
-        'target block was already changed/removed',
-      )
+      expect(result.error).toContain('target block was already changed/removed')
       expect(result.error).toContain('No useful candidate ranges found')
       expect(result.error).toContain('re-read the current file/range')
       expect(result.error).not.toContain('Candidate 1: lines')
@@ -1191,7 +1206,9 @@ function test3() {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Closest candidate ranges for read_files.ranges recovery:')
+      expect(result.error).toContain(
+        'Closest candidate ranges for read_files.ranges recovery:',
+      )
       expect(result.error).toContain('Candidate 1: lines')
       expect(result.error).toContain('Candidate 2: lines')
       expect(result.error).toContain('targetAlpha')
@@ -1396,7 +1413,9 @@ function test3() {
       // The fresh-token hint points at the CURRENT content of the same line range.
       const expectedFreshHash = getContentHash(lines[300])
       expect(result.error).toContain('readCapability=cap.')
-      expect(result.error).toContain('Fresh capability token for the CURRENT content of lines 301-301')
+      expect(result.error).toContain(
+        'Fresh capability token for the CURRENT content of lines 301-301',
+      )
       // The emitted token decodes to the current content hash, not the stale one.
       expect(result.error).toContain(expectedFreshHash)
     }
@@ -1575,6 +1594,7 @@ function test3() {
     if ('error' in result) {
       expect(result.error).toContain('Atomic str_replace batch aborted')
       expect(result.error).toContain('NO changes were made')
+      expect(result.error).toContain('Replacement 2/2 failed:')
       expect(result.error).toContain('const missing = 1;')
       expect(result.error).toContain('already changed/removed')
       expect(result.error).toContain('consider replace_range with expectedHash')
@@ -1762,7 +1782,7 @@ function test3() {
     }
   })
 
-  it('scopes skipIfMissing deletion checks to the anchored range', async () => {
+  it('[ABI-M07] scopes deletion-only skipIfMissing checks to the anchored range', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 100
         ? 'console.log("debug")'
@@ -1840,7 +1860,9 @@ function test3() {
 
     expect('content' in result).toBe(true)
     if ('content' in result) {
-      expect(result.content).toContain('const target = 2;\r\nconst neighbor = 1;')
+      expect(result.content).toContain(
+        'const target = 2;\r\nconst neighbor = 1;',
+      )
       expect(result.content).toContain('\r\n')
     }
   })
@@ -2056,7 +2078,9 @@ function test3() {
       expect('error' in result).toBe(true)
       if ('error' in result) {
         expect(result.error).toContain('basedOnRead')
-        expect(result.error).toContain('Do NOT resubmit the same basedOnRead literal')
+        expect(result.error).toContain(
+          'Do NOT resubmit the same basedOnRead literal',
+        )
       }
     })
 
@@ -2139,9 +2163,38 @@ function test3() {
       }
     })
 
+    it('uses strict-specific guidance when a unique oldString has an invalid required capability', async () => {
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+            basedOnRead: 'dummy' as any,
+          },
+        ],
+        requireFreshReadCapability: true,
+        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
+        logger,
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain(
+          'Strict read-before-edit requires a valid fresh basedOnRead capability',
+        )
+        expect(result.error).not.toContain(
+          'oldString is not uniquely matchable',
+        )
+      }
+    })
+
     it('auto-strips an invalid anchor on a large file when oldString is unique', async () => {
       const lines = Array.from({ length: 1_001 }, (_, index) =>
-        index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+        index === 500
+          ? 'const target = 1;'
+          : `const filler${index} = ${index};`,
       )
       const result = await processStrReplace({
         path: 'large.ts',
@@ -2175,9 +2228,7 @@ function test3() {
             basedOnRead: '/placeholder' as any,
           },
         ],
-        initialContentPromise: Promise.resolve(
-          'const y = 2;\nconst y = 2;\n',
-        ),
+        initialContentPromise: Promise.resolve('const y = 2;\nconst y = 2;\n'),
         logger,
       })
 
@@ -2194,7 +2245,9 @@ function test3() {
   describe('echoed fresh anchors on write (large files)', () => {
     it('echoes a reusable regionAnchor readCapability after a large-file edit', async () => {
       const lines = Array.from({ length: 1_001 }, (_, index) =>
-        index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+        index === 500
+          ? 'const target = 1;'
+          : `const filler${index} = ${index};`,
       )
       const initialContent = lines.join('\n')
 
@@ -2221,7 +2274,9 @@ function test3() {
 
       // The echoed token must validate against the POST-edit content exactly as
       // a freshly-read anchor would: a second edit using it must apply.
-      const tokenMatch = anchorMessage!.match(/readCapability=(cap\.[A-Za-z0-9_-]+)/)
+      const tokenMatch = anchorMessage!.match(
+        /readCapability=(cap\.[A-Za-z0-9_-]+)/,
+      )
       expect(tokenMatch).not.toBeNull()
       const echoedToken = tokenMatch![1]
 
@@ -2251,7 +2306,11 @@ function test3() {
       const result = await processStrReplace({
         path: 'small.ts',
         replacements: [
-          { oldString: 'const y = 2;', newString: 'const y = 3;', allowMultiple: false },
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+          },
         ],
         initialContentPromise: Promise.resolve(initialContent),
         logger,

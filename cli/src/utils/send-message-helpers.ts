@@ -4,23 +4,20 @@
  * For block-level operations, import from message-block-helpers.ts or block-operations.ts.
  */
 
-import { has } from 'lodash'
-
 import { shouldHideAgent } from './constants'
 import { formatTimestamp } from './helpers'
-import { autoCollapseBlocks , createAgentBlock } from './message-block-helpers'
+import { autoCollapseBlocks, createAgentBlock } from './message-block-helpers'
 
 import type { AgentMode } from './constants'
-import type {
-  ChatMessage,
-  ContentBlock,
-} from '../types/chat'
+import type { ChatMessage, ContentBlock } from '../types/chat'
 
 // -----------------------------------------------------------------------------
 // Message Creation Helpers
 // -----------------------------------------------------------------------------
 
-export const createModeDividerMessage = (agentMode: AgentMode): ChatMessage => ({
+export const createModeDividerMessage = (
+  agentMode: AgentMode,
+): ChatMessage => ({
   id: `divider-${Date.now()}`,
   variant: 'ai',
   content: '',
@@ -110,7 +107,7 @@ export const isSpawnAgentsResult = (outputValue: unknown): boolean =>
   Array.isArray(outputValue) &&
   outputValue.some((v: unknown) => {
     if (typeof v !== 'object' || v === null) return false
-    return has(v, 'agentName') || has(v, 'agentType')
+    return 'agentName' in v || 'agentType' in v
   })
 
 // -----------------------------------------------------------------------------
@@ -132,7 +129,9 @@ export const markMessageComplete = (
   return {
     ...message,
     isComplete: true,
-    ...(options?.completionTime ? { completionTime: options.completionTime } : {}),
+    ...(options?.completionTime
+      ? { completionTime: options.completionTime }
+      : {}),
     ...(options?.credits !== undefined ? { credits: options.credits } : {}),
     metadata,
   }

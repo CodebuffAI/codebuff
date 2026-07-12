@@ -314,8 +314,9 @@ console.log(add(1, 2));
 
   describe('read_proposal_workspace', () => {
     it('reads disk for untouched files and proposal content after a file is proposed', async () => {
-      const requestOptionalFile = mock(async ({ filePath }: { filePath: string }) =>
-        mockFiles[filePath] ?? null,
+      const requestOptionalFile = mock(
+        async ({ filePath }: { filePath: string }) =>
+          mockFiles[filePath] ?? null,
       )
 
       const readWorkspace = async (path: string) => {

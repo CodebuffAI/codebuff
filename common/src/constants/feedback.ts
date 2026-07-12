@@ -1,4 +1,9 @@
-export const FEEDBACK_CATEGORIES = ['good_result', 'bad_result', 'app_bug', 'other'] as const
+export const FEEDBACK_CATEGORIES = [
+  'good_result',
+  'bad_result',
+  'app_bug',
+  'other',
+] as const
 export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number]
 
 export const FEEDBACK_SOURCES = ['cli', 'sdk', 'web'] as const

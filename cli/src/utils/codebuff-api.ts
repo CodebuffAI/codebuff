@@ -28,7 +28,10 @@ export interface CodebuffApiClient {
   ): Promise<ApiResponse<T>>
 
   /** Make a GET request */
-  get<T>(path: string, options?: Record<string, unknown>): Promise<ApiResponse<T>>
+  get<T>(
+    path: string,
+    options?: Record<string, unknown>,
+  ): Promise<ApiResponse<T>>
 
   /** Make a POST request */
   post<T>(
@@ -52,7 +55,10 @@ export interface CodebuffApiClient {
   ): Promise<ApiResponse<T>>
 
   /** Make a DELETE request */
-  delete<T>(path: string, options?: Record<string, unknown>): Promise<ApiResponse<T>>
+  delete<T>(
+    path: string,
+    options?: Record<string, unknown>,
+  ): Promise<ApiResponse<T>>
 }
 
 // ============================================================================
@@ -60,9 +66,15 @@ export interface CodebuffApiClient {
 // The stub client always returns a no-op success response.
 // ============================================================================
 
-function createStubClient(baseUrl: string, authToken?: string): CodebuffApiClient {
-  const stubOk = <T>(data?: T): ApiResponse<T> =>
-    ({ ok: true, status: 200, data })
+function createStubClient(
+  baseUrl: string,
+  authToken?: string,
+): CodebuffApiClient {
+  const stubOk = <T>(data?: T): ApiResponse<T> => ({
+    ok: true,
+    status: 200,
+    data,
+  })
 
   const stubRequest = async <T>(
     _method: string,
@@ -75,13 +87,23 @@ function createStubClient(baseUrl: string, authToken?: string): CodebuffApiClien
     baseUrl,
     authToken,
     request: stubRequest,
-    get: <T>(_path: string, _options?: Record<string, unknown>) => stubRequest<T>('GET', _path),
-    post: <T>(_path: string, _body?: Record<string, unknown>, _options?: Record<string, unknown>) =>
-      stubRequest<T>('POST', _path),
-    put: <T>(_path: string, _body?: Record<string, unknown>, _options?: Record<string, unknown>) =>
-      stubRequest<T>('PUT', _path),
-    patch: <T>(_path: string, _body?: Record<string, unknown>, _options?: Record<string, unknown>) =>
-      stubRequest<T>('PATCH', _path),
+    get: <T>(_path: string, _options?: Record<string, unknown>) =>
+      stubRequest<T>('GET', _path),
+    post: <T>(
+      _path: string,
+      _body?: Record<string, unknown>,
+      _options?: Record<string, unknown>,
+    ) => stubRequest<T>('POST', _path),
+    put: <T>(
+      _path: string,
+      _body?: Record<string, unknown>,
+      _options?: Record<string, unknown>,
+    ) => stubRequest<T>('PUT', _path),
+    patch: <T>(
+      _path: string,
+      _body?: Record<string, unknown>,
+      _options?: Record<string, unknown>,
+    ) => stubRequest<T>('PATCH', _path),
     delete: <T>(_path: string, _options?: Record<string, unknown>) =>
       stubRequest<T>('DELETE', _path),
   }

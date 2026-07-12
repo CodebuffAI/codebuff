@@ -8,13 +8,14 @@ Agents in Openbuff can be either prompt-based or programmatic (utilizing `handle
 
 - Shipped agents reside in the `agents/` monorepo package.
 - Project-local or custom agents live in the `.agents/` folder of your project.
-- Programmatic agent generator functions execute in a secure sandbox; agent templates define tool permissions and which subagents can be spawned.
+- Programmatic agent generator functions execute in a secure sandbox. Calls yielded by `handleSteps` are restricted to declared `toolNames`, declared hidden `programmaticToolNames`, and a small runtime context-management allowlist; templates also define which subagents can be spawned.
+- Local agent precedence is project `.agents` → parent `.agents` → home `~/.agents`. The loader preserves the winning source path for UI links, supports `.ts`, `.tsx`, `.js`, `.mjs`, and `.cjs`, and reports per-agent validation diagnostics instead of failing the entire registry.
 
 ### Orchestrator-spawnable vs. pattern-specific agents
 
 Not every shipped agent is directly spawnable by the orchestrator (`base2` / `base-deep`). Agents fall into two categories:
 
-**Orchestrator-spawnable agents** are listed in the `spawnableAgents` array of `base2.ts` and `base-deep.ts`. These are general-purpose specialists the orchestrator can delegate to at policy-defined phase boundaries: `file-picker`, `code-searcher`, `code-reviewer`, `editor`, `thinker`, `basher`, `researcher-web`, `researcher-docs`, `git-committer`, `debugger`, `doc-writer`, `security-reviewer`, `test-writer`, `librarian`, `context-pruner`, and others. Adding an agent to `spawnableAgents` means the orchestrator may spawn it when the current phase and task scope make its capabilities relevant; it does not mean agents should be spawned randomly or for tiny direct-answer tasks.
+**Orchestrator-spawnable agents** are listed in the `spawnableAgents` array of `base2.ts` and `base-deep.ts`. These are general-purpose specialists the orchestrator can delegate to at policy-defined phase boundaries: `file-picker`, `code-searcher`, `code-reviewer`, `editor`, `thinker`, `basher`, `researcher-web`, `researcher-docs`, `git-committer`, `debugger`, `doc-writer`, `security-reviewer`, `test-writer`, `librarian`, and others. `context-pruner` is runtime-internal and is not publicly spawnable. Adding an agent to `spawnableAgents` means the orchestrator may spawn it when the current phase and task scope make its capabilities relevant; it does not mean agents should be spawned randomly or for tiny direct-answer tasks.
 
 Common phase triggers and routing policies:
 
@@ -31,10 +32,24 @@ Common phase triggers and routing policies:
 Cross-cutting orchestration policy:
 
 - Ask the user before destructive commands, public API/contract changes, dependency additions, schema/data migrations, release/publish/deploy actions, production-affecting scripts, or ambiguous product behavior.
+- Terminal execution is enforced by runtime permission profiles, not prompt text alone: `read-only`, the clone-scoped `librarian-read-only`, `workspace-write`, and explicit `full-access`. Background commands are request-owned unless `detach` is explicitly requested.
+- Browser-use defaults to `params.interactionPolicy: "read-only"`. Clicks, typing, uploads, evaluation, and other browser-state mutations require `allow-interactions`; each run receives an isolated browser session that is closed with the owning SDK run.
 - Prefer dedicated tools over shell fallbacks: `git_status` for repo state, file/read/search tools for inspection, `read_image` for images, deterministic edit tools for edits, configured hooks for validation, and browser/CLI visual agents for smoke checks.
 - Maintain durable plan artifacts in EXECUTE_PLAN at phase boundaries, blockers, validation/review results, and finalization.
 - Parallelism is allowed for independent discovery shards, independent validation commands, and static review that does not depend on validation output. Dependent edits, fragile debug loops, and validation-repair cycles stay sequential.
 - The orchestrator must join all required results before completion. Reviewers running alongside validation provide static review only; failed or timed-out validation still blocks a green finish.
+
+`run_file_change_hooks` runs user-configured hooks and, only when a trusted
+project explicitly sets `autoFileChangeHooks: true`, combines them with bounded
+manifest inference. The opt-in is required because compilers, plugins, build
+scripts, and tests can execute repository-controlled code. Inference prefers explicit project scripts and supports native checks for
+JavaScript/TypeScript, Python, Rust, Go, Java/Kotlin, .NET, C/C++, Ruby, PHP,
+Swift, and Godot. Compiler and linter output is normalized into structured
+diagnostics (`file`, range, severity, code, message, command, source) while the
+original bounded stdout/stderr remains available for recovery.
+
+- Automated security/test/doc auxiliary agents have explicit lifecycle handling. Their done flags are written only after successful completion; crashes and blocking security verdicts persist as blockers. Test/doc writers run automatically only when the user request explicitly includes those deliverables, and mixed-package test targets are routed to package-specific commands.
+- Reaching the orchestrator step cap leaves work blocked with pending gates intact and disables follow-up/completion affordances. Reviewer crashes retry once; repeated crashes require the explicit user phrase `bypass reviewer gate` before finalization can continue.
 
 **Pattern-specific agents** are intentionally **excluded** from `spawnableAgents` because they have a narrow contract that only makes sense within a specific workflow pattern. They are spawned by the pattern flow itself, not by the orchestrator:
 
@@ -54,20 +69,24 @@ Several shipped agents share prompt text through centralized sections rather tha
 - The same file also exports `buildBroadAuditSection(finalizeClause)`, which injects the orchestrator's scope-then-shard contract for broad, open-ended, and audit-style requests. The generated section tells `base2` / `base-deep` to measure repository breadth before synthesis, cover frontend/page/route/UI wiring when a frontend exists, spawn file-picker and code-searcher shards by subsystem, add general-agent reasoning/audit shards that can write durable findings files for whole-codebase or production-readiness audits, use thinker for post-discovery synthesis when useful, and interpolate `finalizeClause` for the current prompt path.
 - The same file also exports orchestrator-only guidance for gate awareness, security-sensitive file review, and git discipline. `base2` and `base-deep` interpolate those sections; the `editor` intentionally does not, because validation/review, security triage, and git workflow orchestration remain parent-agent responsibilities.
 - `common/src/constants/prompt-sections.ts` owns the shared Frontend Development section. `packages/agent-runtime/src/templates/types.ts` exposes it as the `{CODEBUFF_FRONTEND_SECTION}` placeholder, and `packages/agent-runtime/src/templates/strings.ts` replaces that placeholder only when `fileTreeHasFrontendFiles` detects `.tsx` or `.jsx` files in the project tree.
-- `common/src/util/language-profiles.ts` owns the `{CODEBUFF_LANGUAGE_PROFILE}` placeholder behavior. It detects TypeScript/JavaScript, Python, Rust, Go, Java, C#/.NET, C/C++, Ruby, PHP, Swift, Kotlin, and GDScript from `ProjectFileContext.fileTree`, renders only a compact language profile, and tells agents to `read_files` the matching `agents/idioms/<lang>.md` file before non-trivial edits instead of injecting full idiom bodies. To add another first-class language, add a compact `agents/idioms/<lang>.md` contract, extend the language profile mappings, and cover both extension and manifest detection where applicable.
+- `common/src/util/language-capabilities.ts` is the canonical registry for TypeScript/JavaScript, Python, Rust, Go, Java, C#/.NET, C/C++, Ruby, PHP, Swift, Kotlin, and GDScript. It owns extensions, manifests, bundled idioms, language-server/compiler/formatter/linter/test metadata, and focused/project validation stages. `common/src/util/language-profiles.ts` derives `{CODEBUFF_LANGUAGE_PROFILE}` detection from that registry.
+  - Guidance is self-contained and bundled with Openbuff; agents no longer attempt to read `agents/idioms/*` from the user's repository.
+  - Explicit target paths and task-language signals take precedence over repository-wide detection, limiting prompt noise in polyglot repositories. The whole file tree remains the fallback when no focused signal exists.
+  - The same scoped language profile is available to the orchestrator, editor, test writer, and reviewer.
   - GDScript is detected via `.gd` source files (extension is case-normalized, so `.GD` also matches) and the `project.godot` manifest (exact filename match, case-sensitive). The idiom file is `agents/idioms/gdscript.md`.
   - Public inputs are file-tree nodes (`FileTreeNode[]`) or an explicit `LanguageProfile[]`; public outputs are stable-order `LanguageProfile` objects or a Markdown prompt string. No supported languages detected returns an empty string.
   - Detection uses source extensions plus common manifests. Source extensions are case-normalized; manifest names are matched exactly (for example, `Package.swift` is Swift, while differently-cased manifest names are not treated as manifests).
-  - The rendered prompt lists detected display names, compact per-language guidance, and the matching idiom file path. It intentionally says not to load every idiom file up front.
+  - The rendered prompt lists detected display names plus compact bundled idiom guidance, while explicitly preferring more-specific repository compiler, framework, formatter, linter, and test conventions.
   - Example output shape:
 
     ```md
     ## Language profile
 
-    Detected: Rust. Use language-native idioms and existing project conventions. Do not load every idiom file up front.
+    Detected: Rust. Prefer repository-local compiler, framework, API, formatter, linter, and test conventions when they are more specific than this bundled guidance.
 
-    - Rust: Respect ownership and borrowing, return Result/Option idiomatically, and keep error handling explicit and precise. Before non-trivial Rust edits, `read_files` `agents/idioms/rust.md`.
+    - Rust: Respect ownership and borrowing, return Result/Option idiomatically, and keep error handling explicit and precise. Let ownership and borrowing drive the design; clone only when the cost and intent are clear.
     ```
+
 - `common/src/util/engine-profiles.ts` owns the engine profile detection layer. It is wired into the same `{CODEBUFF_LANGUAGE_PROFILE}` placeholder alongside the language profile: `strings.ts` concatenates `formatLanguageProfilePromptForFileTree(fileTree)` and `formatEngineProfilePromptForFileTree(fileTree)`, so agents receive both language and engine guidance in a single section. No game engine detected returns an empty string (no engine section is rendered).
   - Public inputs are file-tree nodes (`FileTreeNode[]`); public outputs are stable-order `EngineProfile` objects or a Markdown prompt string. The exported API mirrors `language-profiles.ts`: `detectEngineProfiles(fileTree)`, `formatEngineProfilePrompt({ profiles })`, and `formatEngineProfilePromptForFileTree(fileTree)`.
   - Detection signals per engine:
@@ -86,14 +105,16 @@ Several shipped agents share prompt text through centralized sections rather tha
 
     - Unity: Treat Unity assets (scenes, prefabs, ScriptableObjects) as first-class project files. GUID references in .meta files link assets; preserve them when moving or renaming. Avoid reading large binary assets (.png, .fbx, .prefab binary sections) as text — use path/metadata instead.
     ```
+
   - Gotcha: directory patterns are stored with trailing slashes (e.g. `Assets/`) but the matcher strips the trailing slash internally, so `Assets/` matches `Assets/Scripts/Player.cs` without doubling the separator.
+
 - The `editor` prompt includes Code Craftsmanship plus the conditional language and frontend placeholders, so implementation agents get the same style guidance as the orchestrator without inheriting the parent system prompt.
 
 ### Researcher-web agent contract
 
 The shipped `researcher-web` agent is the web-search specialist spawned
-during the discovery phase. Its input schema accepts a single `prompt`
-string. The agent runs a programmatic `handleSteps` generator that
+during the discovery phase. Its input schema accepts a `prompt` plus optional
+depth, locale, preferred-domain, and date-range controls. The agent runs a programmatic `handleSteps` generator that
 automatically routes between two modes depending on the prompt:
 
 - **Simple (single-query) path** — for short, focused prompts (< 60
@@ -121,10 +142,10 @@ results, the query is retried with a shorter keyword-based version.
 Failed subquestions are included in the final report with their error
 message.
 
-**Output format:** broad prompts produce a synthesized report with
-`## <question>` sections per subquestion and a combined `### Sources /
-Links` list with deduplicated citations. Simple prompts return the
-raw search result text.
+**Output format:** every path returns structured output. Each question records
+`answered`, `failed`, or `skipped`, its answer, and citations tied to that
+question. A deduplicated source list and explicit `skippedQuestions` array make
+bounded-call omissions visible to the parent agent.
 
 Gotchas: the decomposer uses heuristic regex, not an LLM, so unusual
 prompt structures may stay on the simple path. The max-call bounds (5
@@ -308,12 +329,13 @@ Minimal plan response with artifact metadata:
 # Plan
 
 ## Artifacts
+
 - Session: .agents/sessions/auth-refresh
 - SPEC.md: .agents/sessions/auth-refresh/SPEC.md
 - PLAN.md: .agents/sessions/auth-refresh/PLAN.md
 - STATUS.md: .agents/sessions/auth-refresh/STATUS.md
 - LESSONS.md: .agents/sessions/auth-refresh/LESSONS.md
-</PLAN>
+  </PLAN>
 ```
 
 Gotchas:
@@ -408,7 +430,7 @@ Tools represent the capabilities given to agents to interact with your system.
 
 `query_index` queries the local codebase graph index. It is intended for retrieval-led context gathering before reading or editing files.
 
-The index tracks file paths, extensions, symbols, imports, markdown headings, documentation concepts, package scripts, CI workflow commands, task-runner files, and graph relationships between files/symbols/imports/calls/headings/concepts. Results are discovery hints: always verify returned files with `read_files` or `read_subtree` before editing.
+The index tracks file paths, extensions, symbols, imports, markdown headings, documentation concepts, package scripts, CI workflow commands, task-runner files, and graph relationships between files/symbols/imports/calls/headings/concepts. Import/reference extraction covers JavaScript/TypeScript, Python, Rust, Go, Java/Kotlin packages, C/C++ includes, C# namespaces, Ruby requires, PHP namespaces/includes, Swift modules, and GDScript resources. Results are discovery hints: always verify returned files with `read_files` or `read_subtree` before editing.
 
 Supported modes:
 
@@ -417,7 +439,7 @@ Supported modes:
 - `neighbors` — graph-adjacent files for a `from` path, or neighbors around files matching `query`.
 - `path` — shortest graph path between `from` and `to`, or a graph path inferred from `query` matches.
 - `references` — files that reference (import/call) the `from` path, expanding outward from a known symbol or file.
-- `commands` — command-discovery search that prioritizes package manifests, CI workflows, task runners, and testing/contributing docs; useful for prompts like “run the broader validation suite”.
+- `commands` — command-discovery search that prioritizes package manifests, CI workflows, task runners, and testing/contributing docs. Cargo, Go, Python, Maven/Gradle, .NET, Composer, SwiftPM, CMake, Ruby, and Godot manifests contribute native validation concepts.
 
 Examples:
 
@@ -472,11 +494,15 @@ Three independent stages keep binary and oversized files out of the index AND ou
 **Stage 1 — file-walker (`packages/indexer/src/file-walker.ts`).** `walkProject(projectRoot, extraExclude)` is the filesystem walker that feeds `buildMetadataIndex` / `updateMetadataIndex`. It applies, in order:
 
 - `DEFAULT_EXCLUDE_DIRS` — `node_modules`, `.git`, `dist`, `build`, `.next`, `.nuxt`, `.output`, `.turbo`, `coverage`, `.cache`, `.codebuff-index`, `tmp`, `.tmp`, `out`, and others.
-- `.gitignore` + `.codebuffignore` patterns (loaded and applied via the `ignore` library).
+- nested `.gitignore`, `.openbuffignore`, and legacy `.codebuffignore`
+  patterns, plus the same mandatory sensitive-path policy enforced by file-read
+  tools.
 - `extraExclude` directory names passed by the caller (the indexer uses this for the cache directory).
 - `MAX_FILE_SIZE` — files larger than 500 KB are skipped (never `stat`-hashed).
 - `BINARY_EXTENSIONS` — after stat, files whose lowercase extension is in this set are skipped before they are ever hashed or read. The set covers game-engine binary assets (`.uasset`, `.umap`, `.unity`, `.prefab`, `.fbx`, `.obj`, `.blend`, `.meta`, ...), images/textures, audio, video, 3D/animation, compiled/packaged, compressed archives, and binary containers (`.pdf`, `.sqlite`, `.bin`, ...). See the `BINARY_EXTENSIONS` export in `file-walker.ts` for the full list.
-- `MAX_FILES` — the walk stops collecting after 20,000 files.
+- the configured `maxFiles` limit (20,000 by default). Traversal is sorted and
+  status reports partial coverage, skipped counts, and uncovered prefixes when
+  the limit is reached.
 
 `walkProject` returns `WalkedFile[]` (`absolutePath`, `relativePath`, `ext`, `mtime`, `size`). `metadata-indexer.ts` imports the same `BINARY_EXTENSIONS` from `./file-walker` and repeats the check inside `indexWalkedFile` as a second line of defense, so files added through a path other than the walker are still dropped before being read as UTF-8.
 
@@ -494,7 +520,11 @@ Gotchas:
 
 - There are **three** independent binary/unimportant extension lists: `BINARY_EXTENSIONS` in `file-walker.ts` (used by the walker + `metadata-indexer.ts`), the local `BINARY_EXTENSIONS` in `project-file-tree.ts` (used by the tree builder), and `unimportantExtensions` in `truncate-file-tree.ts` (used by the truncator). They overlap heavily but are not unified; adding a new binary extension means updating all three. The separation is intentional to avoid `common/` → `packages/indexer/` and `packages/agent-runtime/` → `common/` import cycles.
 - `.meta`, `.prefab`, and `.unity` (Unity text serialization formats) are intentionally **excluded** from the `BINARY_EXTENSIONS` sets in both `file-walker.ts` and `project-file-tree.ts` so the indexer and file tree include them as text — they are YAML in Unity's text serialization mode and are parsed for asset references (see "Asset reference extraction" below). They **are** included in `truncate-file-tree.ts`'s `unimportantExtensions` list, so they are dropped from the agent-facing system-prompt file tree even though they remain in the indexer's graph. This split is deliberate: the indexer needs them for the asset reference graph; the system prompt does not need them because they are not source files an agent would edit.
-- The 500 KB `MAX_FILE_SIZE` and `MAX_FILES` 20,000 caps are walk-time limits for the indexer only; `truncate-file-tree.ts` has its own token-budget limits that are independent of file count.
+- The 500 KB `MAX_FILE_SIZE` and configurable `maxFiles` caps are walk-time
+  limits for the indexer only; `truncate-file-tree.ts` has its own token-budget
+  limits that are independent of file count. Configuration defaults, semantic
+  privacy/cost behavior, lifecycle states, and repair commands are documented
+  canonically in [Configuration: Indexing and retrieval](configuration.md#indexing-and-retrieval).
 - All extension matching is case-normalized (lowercased before lookup) and is a coarse extension allowlist, not a content sniff. A text file renamed `.bin` is skipped; a binary file with a non-binary extension is caught by the size limit (or by UTF-8 read failure inside `indexWalkedFile`).
 - `truncate-file-tree.ts` rebuilds the tree immutably in `removeUnimportantFiles`; it does not mutate the input `fileTree` so other consumers of `ProjectFileContext.fileTree` are unaffected.
 
@@ -526,12 +556,12 @@ edges and are NOT exported from the package entrypoint:
 
 `AssetRef.refType` is one of:
 
-| `refType` | Source format | Example raw ref |
-|---|---|---|
-| `guid` | Unity `.meta`/`.prefab`/`.unity` | 32-char hex GUID |
-| `res_path` | Godot `.tscn`/`.tres`/`.gd` | `res://textures/player.png` |
+| `refType`    | Source format                    | Example raw ref                        |
+| ------------ | -------------------------------- | -------------------------------------- |
+| `guid`       | Unity `.meta`/`.prefab`/`.unity` | 32-char hex GUID                       |
+| `res_path`   | Godot `.tscn`/`.tres`/`.gd`      | `res://textures/player.png`            |
 | `asset_path` | Unreal `.uproject`, Bevy configs | `Source/MyModule`, `assets/sprite.png` |
-| `file_id` | Unity `.prefab`/`.unity` (local) | integer `{fileID: 12345}` |
+| `file_id`    | Unity `.prefab`/`.unity` (local) | integer `{fileID: 12345}`              |
 
 Per-engine extraction strategy:
 
@@ -583,9 +613,11 @@ Example:
 }
 ```
 
-### `read_slices`
+### `read_slices` (deprecated compatibility alias)
 
-`read_slices` retrieves exact targeted implementation slices for specified function, class, or method names in a file rather than reading the entire file. This is highly effective when used in combination with `read_outline` to load only the specific segments of code relevant to a task.
+`read_slices` remains registered but is not prompt-visible for compatibility
+after its shared path-policy and read-only scheduling migration. Prefer `read_files`
+with `symbols: [{ path, names }]` for new targeted-read workflows.
 
 Example:
 
@@ -602,15 +634,17 @@ Example:
 tools. Under strict-mode edit flows they participate in staged
 read-before-edit enforcement:
 
-- A recent `read_files` call on the target path authorizes a subsequent
-  edit to that path.
+- A recent whole-file `read_files.paths` call authorizes subsequent
+  exact-match edits to that path. Range and symbol reads remain scoped and
+  require their `readCapability`/`rangeHash` on the follow-up edit.
 - `basedOnRead` accepts either a `readCapability` token copied from a
   fresh `read_files` range header or an explicit `{ startLine, endLine,
-  hash }` object. The runtime verifies the embedded hash for large-file
+hash }` object. The runtime verifies the embedded hash for large-file
   edits before applying the edit.
-- A successful edit invalidates the per-path authorization. Editing the
-  same path again requires a new `read_files` call (or carrying the
-  echoed post-edit `basedOnRead` forward).
+- A successful edit keeps path-level authorization during the editing flow,
+  while exact-match follow-up edits chain from the latest prepared content.
+  For large or ambiguous follow-up edits, carry the echoed post-edit
+  `basedOnRead` forward or re-read the target range.
 - Stale or failed edits should be recovered by re-reading the exact
   target range named in the diagnostic and retrying with the new
   `basedOnRead`, not by guessing from memory.
@@ -740,11 +774,13 @@ On success the result carries `branch`, `created: true`, `switched`, and (when s
 
 ### `apply_smart_patch`
 
-`apply_smart_patch` is a highly robust, self-healing unified-diff patch applicator. It applies unified diff hunk(s) containing changes to a file using three advanced protection layers:
-
-1. **Fuzzy Line Alignment (Layer A & B):** Uses fuzz factor constraints to locate the target lines even if they have shifted due to other modifications in the file.
-2. **AST-Aware Syntax Auto-Correction (Layer C):** Automatically repairs minor syntax formatting mistakes or closing bracket/brace/parenthesis mismatches to prevent syntax errors.
-3. **Preflight Compile Validation:** Runs a virtual preflight compilation/syntax check before writing the changes to disk. It will fail closed if the edit would corrupt the file or break compilation.
+`apply_smart_patch` applies a range-scoped unified diff with bounded local
+alignment. It routes the final whole-file content through the shared filesystem
+authority with an expected-content hash, never performs global syntax healing,
+and fails closed when a hunk has no unique match unless positional fallback is
+explicitly enabled. Validation reports `passed | failed | skipped` plus the
+validator identity; unsupported file types are reported as skipped rather than
+as compiler-validated.
 
 Example:
 
@@ -753,11 +789,29 @@ Example:
   "path": "sdk/src/provider-config.ts",
   "patch": "@@ -120,6 +120,7 @@\\n-  const lineEnding = \"\\\\n\"\\n+  const lineEnding = currentContent.includes(\"\\\\r\\\\n\") ? \"\\\\r\\\\n\" : \"\\\\n\"\\n   const initialContentLineCount = 100\\n",
   "fuzzFactor": 3,
-  "autoHeal": true,
+  "autoHeal": false,
   "preflightCompile": true,
   "allowPositionalFallback": false
 }
 ```
+
+### Proposal review and application
+
+Proposal tools maintain a per-run overlay and typed ledger without changing
+the real workspace. `propose_str_replace`, `propose_write_file`, and
+`propose_edit_transaction` return a `proposal_result` containing a stable id,
+revision, aggregate base hash, ordered operations, and state. Use
+`read_proposal_workspace` for the read-your-own-writes view and
+`read_proposals` to refresh proposal state.
+
+State changes use compare-and-swap fields: `proposalId`, `expectedRevision`,
+and `expectedBaseHash`. `accept_proposal` and `reject_proposal` do not write
+files. `apply_proposal` is valid only after acceptance; it revalidates every
+base path, sends one coordinated authority-backed transaction, verifies the
+post-commit state, and records a commit receipt. Repeated apply is idempotent.
+Base drift transitions the proposal to `stale`; proposal previews and rejected
+or stale records never count as applied mutations, changed files, or edit
+memory.
 
 ### Direct subagent tool calls
 
@@ -852,12 +906,12 @@ The handler's `onResponseChunk` callback tags each forwarded
 `PrintModeEvent` with a `parentAgentId` so the CLI can nest the child's
 output under the correct agent block:
 
-| Event type | injected field |
-|---|---|
-| `subagent_start` / `subagent_finish` | `parentAgentId` set to the **parent orchestrator's** `agentId` (or the event's existing `parentAgentId` if already set), so the child block nests under the orchestrator |
-| `tool_call` / `tool_result` | `parentAgentId` set to the **child's** `agentId`, so the child's tool calls render inside the child's own agent block, not the orchestrator's |
-| `text` | `agentId` set to the **child's** `agentId` (empty `text` is dropped), so child prose attributes to the child block |
-| other events (e.g. `reasoning_delta`, plain strings) | forwarded verbatim, no field injected |
+| Event type                                           | injected field                                                                                                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `subagent_start` / `subagent_finish`                 | `parentAgentId` set to the **parent orchestrator's** `agentId` (or the event's existing `parentAgentId` if already set), so the child block nests under the orchestrator |
+| `tool_call` / `tool_result`                          | `parentAgentId` set to the **child's** `agentId`, so the child's tool calls render inside the child's own agent block, not the orchestrator's                            |
+| `text`                                               | `agentId` set to the **child's** `agentId` (empty `text` is dropped), so child prose attributes to the child block                                                       |
+| other events (e.g. `reasoning_delta`, plain strings) | forwarded verbatim, no field injected                                                                                                                                    |
 
 This mirrors the `ensureParentAgentId` logic the `spawn_agents` handler
 applies, and is what makes an aux-gate `test-writer` / `doc-writer` /
@@ -971,7 +1025,7 @@ Behavior:
   keeps the count within Anthropic's 4-breakpoint limit.
 - Runs every aggregated message through `modelMessageSchema.safeParse`
   and throws `convertCbToModelMessages: Message at index N failed
-  schema validation.` on failure, with the full message, aggregated
+schema validation.` on failure, with the full message, aggregated
   array, and zod error logged when a `logger` is supplied.
 
 #### `getCacheAnchorSummary`
@@ -1027,19 +1081,19 @@ Every entry conforms to the `SlashCommand` interface:
 The static command set (current as of the source file) is grouped by
 purpose:
 
-| Group | Commands |
-|---|---|
-| Diagnostics / info | `info` (`status`), `help` (`h`, `?`, implicit), `setup`, `models`, `provider` |
-| Project scaffold | `init` (implicit) |
-| Provider account | `connect` (`chatgpt`, `connect:chatgpt`) — only present when `CHATGPT_OAUTH_ENABLED` is `true` |
-| Edit history | `undo`, `redo` |
-| Durable plans | `interview`, `resume-plan` (`rp`), `update-plan` (`up`), `plan-status` (`ps`), `lessons` (`lesson`) |
-| Code review | `review` |
-| Conversation | `new` (`n`, `clear`, `c`, `reset`, implicit), `history` (`chats`), `prompts` (`prompt-search`) |
-| Agent shortcuts | `agent:general` (inserts `@general-agent `) |
-| Feedback / misc | `feedback`, `bash` (`!`), `diff`, `changes`, `image` (`img`, `attach`) |
-| Mode switching | `mode:<mode>` for every mode in `AGENT_MODES`, each with a `model:<mode>` alias |
-| Theme / session | `theme:toggle`, `exit` (`quit`, `q`, implicit) |
+| Group              | Commands                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| Diagnostics / info | `info` (`status`), `help` (`h`, `?`, implicit), `setup`, `models`, `provider`                       |
+| Project scaffold   | `init` (implicit)                                                                                   |
+| Provider account   | `connect` (`chatgpt`, `connect:chatgpt`) — only present when `CHATGPT_OAUTH_ENABLED` is `true`      |
+| Edit history       | `undo`, `redo`                                                                                      |
+| Durable plans      | `interview`, `resume-plan` (`rp`), `update-plan` (`up`), `plan-status` (`ps`), `lessons` (`lesson`) |
+| Code review        | `review`                                                                                            |
+| Conversation       | `new` (`n`, `clear`, `c`, `reset`, implicit), `history` (`chats`), `prompts` (`prompt-search`)      |
+| Agent shortcuts    | `agent:general` (inserts `@general-agent `)                                                         |
+| Feedback / misc    | `feedback`, `bash` (`!`), `diff`, `changes`, `image` (`img`, `attach`)                              |
+| Mode switching     | `mode:<mode>` for every mode in `AGENT_MODES`, each with a `model:<mode>` alias                     |
+| Theme / session    | `theme:toggle`, `exit` (`quit`, `q`, implicit)                                                      |
 
 Starting a new durable plan is done by switching to plan MODE via
 `mode:plan` (documented in the Mode switching row below); the standalone
@@ -1095,12 +1149,12 @@ command inserts the prompt into the input field for review before sending.
 This avoids hardcoding commands that may not match the project's actual
 setup.
 
-| Engine | Commands |
-|---|---|
-| Unity | `unity:build`, `unity:run`, `unity:test`, `unity:watch` |
-| Godot | `godot:build`, `godot:run`, `godot:test`, `godot:watch` |
+| Engine | Commands                                                    |
+| ------ | ----------------------------------------------------------- |
+| Unity  | `unity:build`, `unity:run`, `unity:test`, `unity:watch`     |
+| Godot  | `godot:build`, `godot:run`, `godot:test`, `godot:watch`     |
 | Unreal | `unreal:build`, `unreal:run`, `unreal:test`, `unreal:watch` |
-| Bevy | `bevy:build`, `bevy:run`, `bevy:test`, `bevy:watch` |
+| Bevy   | `bevy:build`, `bevy:run`, `bevy:test`, `bevy:watch`         |
 
 The same module exports `getGameDevJobGuidance(engineIds)`, which returns
 `GameDevJobGuidance[]` — engine-specific readiness patterns, error

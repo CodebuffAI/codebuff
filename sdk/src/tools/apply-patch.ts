@@ -1,15 +1,117 @@
 import path from 'path'
 
 import { applyPatchParams } from '@codebuff/common/tools/params/tool/apply-patch'
-import { getContentHash as computeContentHash, normalizeLineEndings } from '@codebuff/common/util/content-hash'
-import { resolveFilePathWithinProject } from './path-utils'
+import {
+  getContentHash as computeContentHash,
+  normalizeLineEndings,
+} from '@codebuff/common/util/content-hash'
+import {
+  composeFilesystemPolicies,
+  FilesystemAuthority,
+  type FilesystemAuthorityPolicy,
+  hashFileContent,
+} from './filesystem-authority'
+import {
+  fileMutationResultV1Schema,
+  type CommitReceiptV1,
+} from '@codebuff/common/tools/results/filesystem'
+import { isFileIgnored } from '@codebuff/common/project-file-tree'
+import { isMandatorySensitiveReadPath } from '@codebuff/common/util/sensitive-paths'
+import type { FileFilter } from './read-files'
 
 import type { ApplyPatchOperation } from '@codebuff/common/tools/params/tool/apply-patch'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import { buildFreshWholeFileCapability } from './mutation-capabilities'
 
 type ApplyPatchResult = CodebuffToolOutput<'apply_patch'>
 type ApplyPatchJson = ApplyPatchResult[number] & { type: 'json' }
+
+const defaultAuthorities = new WeakMap<
+  CodebuffFileSystem,
+  Map<
+    string,
+    Array<{
+      fileFilter?: FileFilter
+      filesystemPolicy?: FilesystemAuthorityPolicy
+      authority: FilesystemAuthority
+    }>
+  >
+>()
+
+export function getDefaultFilesystemAuthority(
+  cwd: string,
+  fs: CodebuffFileSystem,
+  fileFilter?: FileFilter,
+  filesystemPolicy?: FilesystemAuthorityPolicy,
+): FilesystemAuthority {
+  let byRoot = defaultAuthorities.get(fs)
+  if (!byRoot) {
+    byRoot = new Map()
+    defaultAuthorities.set(fs, byRoot)
+  }
+  const normalizedRoot = path.resolve(cwd)
+  const entries = byRoot.get(normalizedRoot) ?? []
+  const existing = entries.find(
+    (entry) =>
+      entry.fileFilter === fileFilter &&
+      entry.filesystemPolicy === filesystemPolicy,
+  )
+  if (existing) return existing.authority
+
+  const authorityFileSystem = Object.assign(Object.create(fs), {
+    createFileExclusive:
+      fs.createFileExclusive ??
+      ((
+        filePath: Parameters<CodebuffFileSystem['writeFile']>[0],
+        data: Parameters<CodebuffFileSystem['writeFile']>[1],
+      ) => fs.writeFile(filePath, data, { flag: 'wx' })),
+  }) as CodebuffFileSystem
+  const mandatoryMutationPolicy: FilesystemAuthorityPolicy = {
+    name: 'mandatory-mutation-policy',
+    async evaluate(context) {
+      const canonicalRelative = path.relative(
+        normalizedRoot,
+        context.canonicalPath,
+      )
+      const aliases = [
+        context.portablePath,
+        canonicalRelative.split(path.sep).join('/'),
+      ].flatMap((alias) => [alias, alias.toLowerCase()])
+      if (aliases.some(isMandatorySensitiveReadPath)) {
+        return { allowed: false, code: 'sensitive_path', redactPath: true }
+      }
+      if (
+        fileFilter &&
+        aliases.some((alias) => fileFilter(alias).status === 'blocked')
+      ) {
+        return { allowed: false, code: 'custom_filter' }
+      }
+      for (const alias of aliases) {
+        if (
+          await isFileIgnored({
+            filePath: alias,
+            projectRoot: normalizedRoot,
+            fs,
+          })
+        ) {
+          return { allowed: false, code: 'ignored_path' }
+        }
+      }
+      return { allowed: true }
+    },
+  }
+  const authority = new FilesystemAuthority(
+    normalizedRoot,
+    authorityFileSystem,
+    filesystemPolicy
+      ? composeFilesystemPolicies(mandatoryMutationPolicy, filesystemPolicy)
+      : mandatoryMutationPolicy,
+  )
+  entries.push({ fileFilter, filesystemPolicy, authority })
+  byRoot.set(normalizedRoot, entries)
+  return authority
+}
 type PatchAction = 'add' | 'delete' | 'update'
 type DiffMode = 'default' | 'create'
 
@@ -123,6 +225,20 @@ function isDone(state: ParserState, prefixes: string[]): boolean {
 
 function isWrappedAtHeader(line: string): boolean {
   return /^@@.*@@(?: .*)?$/.test(line)
+}
+
+function getUnifiedOldStartIndex(line: string): number | undefined {
+  const match = line.match(
+    /^@@\s+-(\d+)(?:,(\d+))?\s+\+\d+(?:,\d+)?\s+@@(?: .*)?$/,
+  )
+  if (!match) return undefined
+
+  const oldStart = Number(match[1])
+  const oldCount = match[2] === undefined ? 1 : Number(match[2])
+  if (!Number.isSafeInteger(oldStart) || !Number.isSafeInteger(oldCount)) {
+    return undefined
+  }
+  return oldCount === 0 ? oldStart : Math.max(0, oldStart - 1)
 }
 
 function parseCreateDiff(lines: string[]): string {
@@ -316,27 +432,42 @@ function findContextCore(
   lines: string[],
   context: string[],
   start: number,
+  expectedIndex?: number,
 ): { newIndex: number; fuzz: number } {
   if (context.length === 0) {
-    return { newIndex: start, fuzz: 0 }
-  }
-
-  for (let i = start; i < lines.length; i += 1) {
-    if (equalsSlice(lines, context, i, (value) => value)) {
-      return { newIndex: i, fuzz: 0 }
+    return {
+      newIndex:
+        expectedIndex === undefined
+          ? start
+          : Math.min(lines.length, Math.max(0, expectedIndex)),
+      fuzz: 0,
     }
   }
 
-  for (let i = start; i < lines.length; i += 1) {
-    if (equalsSlice(lines, context, i, (value) => value.trimEnd())) {
-      return { newIndex: i, fuzz: 1 }
+  for (const { mapFn, fuzz } of [
+    { mapFn: (value: string) => value, fuzz: 0 },
+    { mapFn: (value: string) => value.trimEnd(), fuzz: 1 },
+    { mapFn: (value: string) => value.trim(), fuzz: 100 },
+  ]) {
+    const matches: number[] = []
+    for (let i = start; i < lines.length; i += 1) {
+      if (equalsSlice(lines, context, i, mapFn)) {
+        matches.push(i)
+      }
     }
-  }
 
-  for (let i = start; i < lines.length; i += 1) {
-    if (equalsSlice(lines, context, i, (value) => value.trim())) {
-      return { newIndex: i, fuzz: 100 }
+    if (matches.length === 0) continue
+    if (matches.length === 1) {
+      return { newIndex: matches[0]!, fuzz }
     }
+    if (expectedIndex !== undefined && matches.includes(expectedIndex)) {
+      return { newIndex: expectedIndex, fuzz }
+    }
+
+    const lineNumbers = matches.map((index) => index + 1).join(', ')
+    throw new Error(
+      `Ambiguous Context: matched ${matches.length} locations starting at lines ${lineNumbers}. Use a correct unified hunk header with the target old-file line number, or include more unique context lines.`,
+    )
   }
 
   return { newIndex: -1, fuzz: 0 }
@@ -347,19 +478,20 @@ function findContext(
   context: string[],
   start: number,
   eof: boolean,
+  expectedIndex?: number,
 ): { newIndex: number; fuzz: number } {
   if (eof) {
     const endStart = Math.max(0, lines.length - context.length)
-    const endMatch = findContextCore(lines, context, endStart)
+    const endMatch = findContextCore(lines, context, endStart, expectedIndex)
     if (endMatch.newIndex !== -1) {
       return endMatch
     }
 
-    const fallback = findContextCore(lines, context, start)
+    const fallback = findContextCore(lines, context, start, expectedIndex)
     return { newIndex: fallback.newIndex, fuzz: fallback.fuzz + 10000 }
   }
 
-  return findContextCore(lines, context, start)
+  return findContextCore(lines, context, start, expectedIndex)
 }
 
 function parseUpdateDiff(
@@ -381,6 +513,7 @@ function parseUpdateDiff(
     const line = typeof current === 'string' ? current : ''
 
     let anchor = ''
+    let expectedOldIndex: number | undefined
     const hasBareHeader = line === '@@'
     const hasWrappedHeader = isWrappedAtHeader(line)
     const hasAnchorHeader = line.startsWith('@@ ') && !hasWrappedHeader
@@ -390,6 +523,9 @@ function parseUpdateDiff(
       anchor = line.slice(3)
       parser.index += 1
     } else if (hasBareHeader || hasWrappedHeader) {
+      if (hasWrappedHeader) {
+        expectedOldIndex = getUnifiedOldStartIndex(line)
+      }
       parser.index += 1
     }
 
@@ -406,7 +542,13 @@ function parseUpdateDiff(
       parser.index,
     )
 
-    const { newIndex, fuzz } = findContext(inputLines, nextContext, cursor, eof)
+    const { newIndex, fuzz } = findContext(
+      inputLines,
+      nextContext,
+      cursor,
+      eof,
+      expectedOldIndex,
+    )
 
     if (newIndex === -1) {
       const nextContextText = nextContext.join('\n')
@@ -447,7 +589,9 @@ function applyChunks(input: string, chunks: Chunk[]): string {
       )
     }
 
-    destinationLines.push(...originalLines.slice(originalIndex, chunk.origIndex))
+    destinationLines.push(
+      ...originalLines.slice(originalIndex, chunk.origIndex),
+    )
     originalIndex = chunk.origIndex
 
     if (chunk.insLines.length > 0) {
@@ -673,20 +817,123 @@ function validatePatchChunksWithinRanges(params: {
   return null
 }
 
-function successResult(file: string, action: PatchAction): ApplyPatchJson {
+function successResult(params: {
+  file: string
+  action: PatchAction
+  operationId: string
+  receipt: CommitReceiptV1
+  beforeHash: string | null
+  afterHash: string | null
+  finalContent?: string
+  canonicalPath?: string
+}): ApplyPatchJson {
+  const action =
+    params.action === 'add'
+      ? ('create' as const)
+      : params.action === 'delete'
+        ? ('delete' as const)
+        : ('update' as const)
   return {
     type: 'json',
-    value: {
-      message: 'Applied 1 patch operation.',
-      applied: [{ file, action }],
-    },
+    value: fileMutationResultV1Schema.parse({
+      kind: 'file_mutation_result',
+      version: 1,
+      operationId: params.operationId,
+      outcome: 'applied',
+      actions: [
+        {
+          actionId: `${params.operationId}:0`,
+          index: 0,
+          action,
+          path: params.file,
+          outcome: 'applied',
+          beforeHash: params.beforeHash,
+          afterHash: params.receipt.actions[0]?.afterHash ?? params.afterHash,
+        },
+      ],
+      authorityTier: params.receipt.authorityTier,
+      receiptId: params.receipt.receiptId,
+      authorityReceipt: params.receipt,
+      errors: [],
+      freshCapabilities:
+        action === 'delete' || params.finalContent === undefined
+          ? []
+          : [
+              buildFreshWholeFileCapability(
+                params.canonicalPath ?? params.file,
+                params.finalContent,
+              ),
+            ],
+    }),
   }
 }
 
-function errorResult(errorMessage: string): ApplyPatchJson {
+async function errorResult(
+  errorMessage: string,
+  authority: FilesystemAuthority,
+  callId: string,
+  operation?: ApplyPatchOperation,
+  operationId = crypto.randomUUID(),
+): Promise<ApplyPatchJson> {
+  const code = /changed after it was read|stale/i.test(errorMessage)
+    ? 'stale_state'
+    : /exists|collision/i.test(errorMessage)
+      ? 'already_exists'
+      : /invalid input|invalid path/i.test(errorMessage)
+        ? 'invalid_request'
+        : 'application_rejected'
+  const provenNotApplied =
+    !operation ||
+    /invalid input|invalid path|denied|changed after it was read|stale|exists|collision|large-file apply_patch blocked|failed to apply patch/i.test(
+      errorMessage,
+    )
+  const action = operation
+    ? {
+        actionId: `${operationId}:0`,
+        index: 0,
+        action:
+          operation.type === 'create_file'
+            ? ('create' as const)
+            : operation.type === 'delete_file'
+              ? ('delete' as const)
+              : ('update' as const),
+        path: operation.path,
+        beforeHash: null,
+      }
+    : undefined
+  const receipt = provenNotApplied
+    ? authority.issueNotStartedReceipt({
+        operationId,
+        callId,
+        authorityTier: 'portable_path',
+        actions: action ? [action] : [],
+      })
+    : undefined
   return {
     type: 'json',
-    value: { errorMessage },
+    value: fileMutationResultV1Schema.parse({
+      kind: 'file_mutation_result',
+      version: 1,
+      operationId,
+      outcome: provenNotApplied ? 'not_applied' : 'unconfirmed',
+      actions: operation
+        ? [
+            {
+              ...action!,
+              outcome: provenNotApplied ? 'not_applied' : 'unconfirmed',
+              beforeHash: null,
+              afterHash: null,
+              error: { code, message: errorMessage, retryable: false },
+            },
+          ]
+        : [],
+      authorityTier: provenNotApplied ? 'portable_path' : null,
+      ...(receipt
+        ? { receiptId: receipt.receiptId, authorityReceipt: receipt }
+        : {}),
+      errors: [{ code, message: errorMessage, retryable: false }],
+      freshCapabilities: [],
+    }),
   }
 }
 
@@ -709,93 +956,387 @@ export async function applyPatchTool(params: {
   parameters: unknown
   cwd: string
   fs: CodebuffFileSystem
+  authority?: FilesystemAuthority
+  fileFilter?: FileFilter
+  callId?: string
+  signal?: AbortSignal
+  filesystemPolicy?: FilesystemAuthorityPolicy
 }): Promise<ApplyPatchResult> {
   const { parameters, cwd, fs } = params
+  const authority =
+    params.authority ??
+    getDefaultFilesystemAuthority(
+      cwd,
+      fs,
+      params.fileFilter,
+      params.filesystemPolicy,
+    )
   const parsedOperation = parseOperation(parameters)
 
   if ('errorMessage' in parsedOperation) {
-    return [errorResult(parsedOperation.errorMessage)]
+    return [
+      await errorResult(
+        parsedOperation.errorMessage,
+        authority,
+        params.callId ?? 'apply_patch-invalid-input',
+      ),
+    ]
   }
   const { operation } = parsedOperation
+  const operationId = crypto.randomUUID()
 
   try {
-    const resolved = resolveFilePathWithinProject(cwd, operation.path)
-    if (!resolved) {
+    const operationKind =
+      operation.type === 'create_file'
+        ? 'create'
+        : operation.type === 'delete_file'
+          ? 'delete'
+          : 'overwrite'
+    const authorization = await authority.authorizePath(
+      operation.path,
+      operationKind,
+    )
+    if (!authorization.allowed) {
       throw new Error(`Invalid path: ${operation.path}`)
     }
-    const fullPath = resolved.fullPath
+    const authorizedPath = authorization.path
+    const fullPath = authorizedPath.operationPath
+    authority.registerOperation({
+      id: operationId,
+      kind: operationKind,
+      paths: [authorizedPath],
+    })
 
     if (operation.type === 'create_file') {
       const sanitizedDiff = sanitizeUnifiedDiff(operation.diff)
       const { result: content } = applyDiff('', sanitizedDiff, 'create')
 
       await fs.mkdir(path.dirname(fullPath), { recursive: true })
-      await fs.writeFile(fullPath, content)
+      let receipt: CommitReceiptV1 | undefined
+      await authority.withAuthorizedPathLocks([authorizedPath], async () => {
+        const commitAuthorization = await authority.authorizeCommit(
+          authorizedPath,
+          'create',
+        )
+        if (!commitAuthorization.allowed) {
+          throw new Error(`Create denied: ${commitAuthorization.code}`)
+        }
+        throwIfAborted(params.signal)
+        const begun = authority.beginCommit(operationId)
+        if (!begun.begun) throw new Error('Create commit could not begin.')
+        try {
+          const created = await authority.createExclusive(
+            commitAuthorization.path,
+            content,
+          )
+          if (!created.supported) {
+            throw new Error(
+              'Exclusive create is unsupported by this filesystem adapter.',
+            )
+          }
+          receipt = await authority.issueCommittedReceipt({
+            operationId,
+            callId: params.callId ?? operationId,
+            authorityTier: 'portable_path',
+            actions: [
+              {
+                actionId: `${operationId}:0`,
+                index: 0,
+                action: 'create',
+                path: operation.path,
+                beforeHash: null,
+              },
+            ],
+            expectedFinalHashes: {
+              [operation.path]: hashFileContent(content),
+            },
+          })
+          authority.finishCommit(begun.lease, { succeeded: true })
+        } catch (error) {
+          authority.finishCommit(begun.lease, {
+            succeeded: false,
+            errorCode: 'CREATE_FAILED',
+          })
+          throw error
+        }
+      })
 
-      return [successResult(operation.path, 'add')]
+      return [
+        successResult({
+          file: operation.path,
+          action: 'add',
+          operationId,
+          receipt: receipt!,
+          beforeHash: null,
+          afterHash: computeContentHash(content),
+          finalContent: content,
+          canonicalPath: authorizedPath.canonicalPath,
+        }),
+      ]
     }
 
     if (operation.type === 'delete_file') {
-      await fs.unlink(fullPath)
-      return [successResult(operation.path, 'delete')]
+      let deletedHash = ''
+      let receipt: CommitReceiptV1 | undefined
+      await authority.withAuthorizedPathLocks([authorizedPath], async () => {
+        const oldContent = await fs.readFile(fullPath)
+        const expected = {
+          state: 'present' as const,
+          hash: hashFileContent(
+            typeof oldContent === 'string'
+              ? oldContent
+              : Buffer.from(oldContent),
+          ),
+        }
+        deletedHash = expected.hash
+        const commitAuthorization = await authority.authorizeCommit(
+          authorizedPath,
+          'delete',
+        )
+        if (!commitAuthorization.allowed) {
+          throw new Error(`Delete denied: ${commitAuthorization.code}`)
+        }
+        const validation = await authority.revalidateExpectedState(
+          commitAuthorization.path,
+          expected,
+        )
+        if (!validation.matches) {
+          throw new Error(
+            `Delete rejected for ${operation.path}: the file changed after it was read. Re-read it before retrying.`,
+          )
+        }
+        throwIfAborted(params.signal)
+        const begun = authority.beginCommit(operationId)
+        if (!begun.begun) throw new Error('Delete commit could not begin.')
+        try {
+          const conditional = await authority.conditionalDelete(
+            commitAuthorization.path,
+            expected.hash,
+          )
+          if (conditional.supported) {
+            if (!conditional.result.applied) {
+              throw new Error(
+                `Delete rejected for ${operation.path}: the file changed immediately before deletion.`,
+              )
+            }
+          } else {
+            await fs.unlink(fullPath)
+          }
+          receipt = await authority.issueCommittedReceipt({
+            operationId,
+            callId: params.callId ?? operationId,
+            authorityTier: conditional.supported
+              ? 'conditional_commit'
+              : 'portable_path',
+            actions: [
+              {
+                actionId: `${operationId}:0`,
+                index: 0,
+                action: 'delete',
+                path: operation.path,
+                beforeHash: deletedHash,
+              },
+            ],
+            expectedFinalHashes: { [operation.path]: null },
+          })
+          authority.finishCommit(begun.lease, { succeeded: true })
+        } catch (error) {
+          authority.finishCommit(begun.lease, {
+            succeeded: false,
+            errorCode: 'DELETE_FAILED',
+          })
+          throw error
+        }
+      })
+      return [
+        successResult({
+          file: operation.path,
+          action: 'delete',
+          operationId,
+          receipt: receipt!,
+          beforeHash: deletedHash,
+          afterHash: null,
+        }),
+      ]
     }
 
-    const sanitizedDiff = sanitizeUnifiedDiff(operation.diff)
-    const oldContent = await fs.readFile(fullPath, 'utf-8')
-    const isLargeFile =
-      oldContent.length > LARGE_FILE_CHAR_THRESHOLD ||
-      getLineCount(oldContent) > LARGE_FILE_LINE_THRESHOLD
-    if (isLargeFile && (!operation.basedOnRead || operation.basedOnRead.length === 0)) {
-      return [
-        errorResult(
-          [
+    let updateBeforeHash = ''
+    let updateAfterHash = ''
+    let updateReceipt: CommitReceiptV1 | undefined
+    const updateError = await authority.withAuthorizedPathLocks(
+      [authorizedPath],
+      async (): Promise<string | null> => {
+        const sanitizedDiff = sanitizeUnifiedDiff(operation.diff)
+        const oldContent = await fs.readFile(fullPath, 'utf-8')
+        const expected = {
+          state: 'present' as const,
+          hash: hashFileContent(oldContent),
+        }
+        updateBeforeHash = expected.hash
+        const isLargeFile =
+          oldContent.length > LARGE_FILE_CHAR_THRESHOLD ||
+          getLineCount(oldContent) > LARGE_FILE_LINE_THRESHOLD
+        if (
+          isLargeFile &&
+          (!operation.basedOnRead || operation.basedOnRead.length === 0)
+        ) {
+          return [
             `Large-file apply_patch blocked for ${operation.path}: this file has ${getLineCount(oldContent).toLocaleString()} lines and ${oldContent.length.toLocaleString()} characters.`,
             'Do not use naked apply_patch on large files.',
             'First read every touched hunk with read_files.ranges, then retry with operation.basedOnRead containing { startLine, endLine, hash: rangeHash } for each hunk.',
-          ].join('\n'),
-        ),
-      ]
-    }
+          ].join('\n')
+        }
 
-    const requiredRanges = operation.basedOnRead
-      ? validateReadCapabilities({
-          path: operation.path,
-          content: oldContent,
-          capabilities: operation.basedOnRead,
+        const requiredRanges = operation.basedOnRead
+          ? validateReadCapabilities({
+              path: operation.path,
+              content: oldContent,
+              capabilities: operation.basedOnRead,
+            })
+          : []
+        if (typeof requiredRanges === 'string') return requiredRanges
+
+        const patchResult = tryApplyPatchWithFallbacks({
+          oldContent,
+          diff: sanitizedDiff,
+          requiredRanges,
         })
-      : []
-    if (typeof requiredRanges === 'string') {
-      return [errorResult(requiredRanges)]
-    }
-
-    const patchResult = tryApplyPatchWithFallbacks({
-      oldContent,
-      diff: sanitizedDiff,
-      requiredRanges,
-    })
-
-    if (!patchResult.patched) {
-      return [
-        errorResult(
-          formatPatchFailureMessage({
+        if (patchResult.patched === null) {
+          return formatPatchFailureMessage({
             path: operation.path,
             attemptedStrategies: patchResult.attemptedStrategies,
             lastError: patchResult.lastError,
-          }),
+          })
+        }
+
+        const updatedContent = preserveOriginalLineEndings({
+          original: oldContent,
+          patched: patchResult.patched,
+        })
+        updateAfterHash = computeContentHash(updatedContent)
+        const commitAuthorization = await authority.authorizeCommit(
+          authorizedPath,
+          'overwrite',
+        )
+        if (!commitAuthorization.allowed) {
+          return `Update denied: ${commitAuthorization.code}`
+        }
+        throwIfAborted(params.signal)
+        if (authority.capabilities.capabilities.has('conditional_commit')) {
+          const begun = authority.beginCommit(operationId)
+          if (!begun.begun) return 'Update commit could not begin.'
+          const conditional = await authority.conditionalCommit(
+            commitAuthorization.path,
+            updatedContent,
+            expected,
+          )
+          if (!conditional.supported || !conditional.result.applied) {
+            authority.finishCommit(begun.lease, {
+              succeeded: false,
+              errorCode: 'STALE_STATE',
+            })
+            return `Update rejected for ${operation.path}: the file changed after it was read. Re-read it before retrying.`
+          }
+          updateReceipt = await authority.issueCommittedReceipt({
+            operationId,
+            callId: params.callId ?? operationId,
+            authorityTier: 'conditional_commit',
+            actions: [
+              {
+                actionId: `${operationId}:0`,
+                index: 0,
+                action: 'update',
+                path: operation.path,
+                beforeHash: updateBeforeHash,
+              },
+            ],
+            expectedFinalHashes: {
+              [operation.path]: hashFileContent(updatedContent),
+            },
+          })
+          authority.finishCommit(begun.lease, { succeeded: true })
+          return null
+        }
+        const validation = await authority.revalidateExpectedState(
+          commitAuthorization.path,
+          expected,
+        )
+        if (!validation.matches) {
+          return `Update rejected for ${operation.path}: the file changed after it was read. Re-read it before retrying.`
+        }
+        const begun = authority.beginCommit(operationId)
+        if (!begun.begun) return 'Update commit could not begin.'
+        try {
+          await fs.writeFile(fullPath, updatedContent)
+          updateReceipt = await authority.issueCommittedReceipt({
+            operationId,
+            callId: params.callId ?? operationId,
+            authorityTier: 'portable_path',
+            actions: [
+              {
+                actionId: `${operationId}:0`,
+                index: 0,
+                action: 'update',
+                path: operation.path,
+                beforeHash: updateBeforeHash,
+              },
+            ],
+            expectedFinalHashes: {
+              [operation.path]: hashFileContent(updatedContent),
+            },
+          })
+          authority.finishCommit(begun.lease, { succeeded: true })
+        } catch (error) {
+          authority.finishCommit(begun.lease, {
+            succeeded: false,
+            errorCode: 'WRITE_FAILED',
+          })
+          throw error
+        }
+        return null
+      },
+    )
+    if (updateError) {
+      authority.cancel(operationId)
+      return [
+        await errorResult(
+          updateError,
+          authority,
+          params.callId ?? operationId,
+          operation,
+          operationId,
         ),
       ]
     }
 
-    await fs.writeFile(
-      fullPath,
-      preserveOriginalLineEndings({
-        original: oldContent,
-        patched: patchResult.patched,
+    return [
+      successResult({
+        file: operation.path,
+        action: 'update',
+        operationId,
+        receipt: updateReceipt!,
+        beforeHash: updateBeforeHash,
+        afterHash: updateAfterHash,
+        finalContent: await fs.readFile(authorizedPath.operationPath, 'utf-8'),
+        canonicalPath: authorizedPath.canonicalPath,
       }),
-    )
-
-    return [successResult(operation.path, 'update')]
+    ]
   } catch (error) {
-    return [errorResult(error instanceof Error ? error.message : String(error))]
+    return [
+      await errorResult(
+        error instanceof Error ? error.message : String(error),
+        authority,
+        params.callId ?? operationId,
+        operation,
+        operationId,
+      ),
+    ]
   }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Operation aborted', 'AbortError')
 }

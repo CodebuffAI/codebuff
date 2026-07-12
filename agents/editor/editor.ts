@@ -18,6 +18,14 @@ type CodeEditorVariant =
 const EDITOR_VARIANTS_WITH_THINK_TAGS: ReadonlySet<CodeEditorVariant> = new Set(
   ['opus'],
 )
+const EDITOR_MODELS: Record<CodeEditorVariant, AgentDefinition['model']> = {
+  'gpt-5': 'openai/gpt-5.3',
+  opus: 'anthropic/claude-opus-4.7',
+  glm: 'z-ai/glm-4.7',
+  kimi: 'moonshotai/kimi-k2.6',
+  deepseek: 'deepseek/deepseek-v4-pro',
+  minimax: 'minimax/minimax-m2.7',
+}
 
 export const createCodeEditor = (options: {
   model: CodeEditorVariant
@@ -25,6 +33,7 @@ export const createCodeEditor = (options: {
   const { model } = options
   return {
     publisher,
+    model: EDITOR_MODELS[model],
     displayName: 'Code Editor',
     spawnerPrompt:
       "Expert code editor that implements code changes based on the user's request. Spawn this agent with a prompt containing only a compact implementation brief: implementation-scoped requirements, target files, constraints/non-goals, relevant patterns, and code-level risks. Do not rely on inherited conversation history, and do not include validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, or other parent-only orchestration tasks in the editor handoff. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits it can use edit_transaction to preflight and apply changes atomically.",
@@ -32,12 +41,12 @@ export const createCodeEditor = (options: {
     toolNames: [
       'read_files',
       'read_outline',
+      'apply_patch',
       'write_file',
       'str_replace',
       'replace_range',
       'rewrite_symbol',
       'edit_transaction',
-      'set_output',
     ],
 
     includeMessageHistory: false,
@@ -52,7 +61,8 @@ Do not perform or attempt parent-orchestrator responsibilities. You cannot run v
 You may make edits across multiple turns. After each edit you will see whether it applied successfully:
 - To replace an entire function/class/method/type, prefer rewrite_symbol (name + full new body): it finds the exact definition from the syntax tree, so you don't copy old text and it can't drift. For large files, read_outline shows the structure and read_files with a symbols selector pulls a specific symbol's current body. Use str_replace for partial in-body edits.
 - If rewrite_symbol cannot parse or find the symbol, read the exact current range with read_files.ranges and use replace_range with that rangeHash. Do not fall back to whole-file write_file just because a structural parser failed.
-- If a str_replace fails because the oldString did not match the file exactly, read the error, then retry with a corrected oldString (copy the exact current text) or use replace_range with a fresh rangeHash for medium/large blocks.
+- If str_replace fails because oldString was stale, missing, or ambiguous, re-read the exact current range (or use the fresh capability in the diagnostic) before retrying. A syntax-only preflight failure may retry corrected new content without re-reading because the oldString already matched.
+- If an atomic str_replace batch aborts, no replacements were applied. Re-read the failed ranges and rebuild the whole batch from that one fresh snapshot; do not peel off remembered replacements into a success/failure retry cascade.
 - If edit_transaction aborts, no files changed. Re-read the failed file ranges named in the diagnostic, fix ambiguous oldString targets with a longer anchor or occurrenceIndex, then retry the whole related transaction so dependent edits stay consistent.
 - Never use ultra-broad anchors such as a lone closing brace plus newline, blank lines, or common punctuation as oldString/insertion anchors. If a diagnostic reports many occurrences, do not guess an occurrence from memory: use rewrite_symbol for whole symbols, replace_range with a fresh rangeHash for block insertions, or occurrenceIndex only when the exact occurrence is known from the diagnostic/read.
 - Use edit_transaction when edits across multiple files, dependent edits in one file, or import-only TypeScript edits must be preflighted together and applied atomically. Prefer str_replace for simple one-file text changes, and write_file for new files or major rewrites.
@@ -66,7 +76,7 @@ Deterministic large-file editing (follow this exactly to avoid edits that fail f
 - Before editing a large file, ALWAYS read the exact target range yourself with read_files (use the ranges parameter for big files) immediately before the edit. Never reuse a basedOnRead capability token that came from the parent agent or from a read you did before any intervening edit — those are stale and will be rejected even though the file is readable.
 - For medium/large function or block replacements, prefer replace_range after read_files.ranges. Copy startLine, endLine, and expectedHash from the fresh range header, and put the complete replacement text for that selected range in newContent.
 - Copy the basedOnRead readCapability token verbatim from the header of your own most recent read of that exact range, and put it on each replacement that touches a large file, including replacements inside edit_transaction str_replace edits.
-- To make several edits to the same file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead), or use one edit_transaction when related edits must be preflighted atomically. All replacements in a single call are validated against the same pre-edit file, so they will not invalidate each other.
+- To make several non-overlapping edits to the same file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead), or use one edit_transaction when related edits must be preflighted atomically. Replacements apply sequentially, so if one replacement changes text another oldString expects, consolidate them into one larger replacement, replace_range, or rewrite_symbol.
 - Edit, get proof, edit again: after a successful str_replace or edit_transaction on a large file, the result message may include a fresh anchor for the edited region, shown as a concrete readCapability token. For the next edit near that changed region, copy that exact echoed readCapability as basedOnRead instead of re-reading. This is the proof that the runtime minted from the post-edit file contents.
 - Only re-read after a successful edit when there is no echoed anchor for the region you need, when you need a different region, or when the previous edit failed/stale-anchor error tells you to re-read. Do NOT make repeated one-change calls to the same large file using old pre-edit anchors.
 - If an edit is rejected because the anchor/line count looks stale, do not retry from memory: re-read the exact current range first, then make one edit based on that fresh read.
@@ -185,8 +195,8 @@ Your implementation should:
 
 More style notes:
 - Extra try/catch blocks clutter the code -- use them sparingly.
-- Optional arguments are code smell and worse than required arguments.
-- New components often should be added to a new file, not added to an existing file.
+- Use required arguments when they represent real invariants; use defaults, optionals, builders, or overloads when they are idiomatic for the active language and match the surrounding API.
+- Preserve the project's file-organization conventions. Split a new component or module only when that improves cohesion in this ecosystem.
 
 Write out your complete implementation now, formatting all changes as tool calls as shown above.
 
@@ -199,7 +209,10 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
     handleSteps: function* ({ agentState: initialAgentState, prompt }) {
       const initialMessageHistoryLength =
         initialAgentState.messageHistory.length
-      const targetFiles = extractTargetFiles(prompt, initialAgentState.messageHistory)
+      const targetFiles = extractTargetFiles(
+        prompt,
+        initialAgentState.messageHistory,
+      )
 
       // Keep stepping while the model is still emitting edit tool calls so it
       // can implement multi-file changes and recover from failed str_replaces.
@@ -216,7 +229,10 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
 
       const newMessages = messageHistory.slice(initialMessageHistoryLength)
       const changedFiles = extractChangedFiles(newMessages)
-      const targetFileProgress = buildTargetFileProgress(targetFiles, changedFiles)
+      const targetFileProgress = buildTargetFileProgress(
+        targetFiles,
+        changedFiles,
+      )
 
       yield {
         toolName: 'set_output',
@@ -255,29 +271,53 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
       }
 
       function hasEditArtifact(record: Record<string, unknown>): boolean {
-        if (
-          typeof record.unifiedDiff === 'string' ||
-          typeof record.diff === 'string' ||
-          typeof record.patch === 'string'
-        ) {
-          return true
-        }
-        if (record.success === true) return true
-        if (
-          record.success === false ||
-          'error' in record ||
-          'errorMessage' in record
-        ) {
-          return false
-        }
-        if (typeof record.message !== 'string') return false
-        // Prefer explicit success/error fields. Only trust the success-verb
-        // regex when the message does not itself contain a failure indicator.
-        if (/\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i.test(record.message)) {
-          return false
-        }
-        return /\b(success|successful|applied|wrote|written|edited|replaced)\b/i.test(
-          record.message,
+        return (
+          record.kind === 'file_mutation_result' &&
+          record.version === 1 &&
+          typeof record.operationId === 'string' &&
+          record.operationId.length > 0 &&
+          (record.authorityTier === 'portable_path' ||
+            record.authorityTier === 'conditional_commit') &&
+          (record.outcome === 'applied' ||
+            record.outcome === 'partial' ||
+            record.outcome === 'rollback_incomplete') &&
+          Array.isArray(record.actions) &&
+          record.authorityReceipt !== null &&
+          typeof record.authorityReceipt === 'object' &&
+          !Array.isArray(record.authorityReceipt) &&
+          (record.authorityReceipt as Record<string, unknown>).operationId ===
+            record.operationId &&
+          (record.authorityReceipt as Record<string, unknown>).receiptId ===
+            record.receiptId &&
+          Array.isArray(
+            (record.authorityReceipt as Record<string, unknown>).actions,
+          ) &&
+          (
+            (record.authorityReceipt as Record<string, unknown>)
+              .actions as unknown[]
+          ).length === record.actions.length &&
+          record.actions.every(
+            (action, index) =>
+              action !== null &&
+              typeof action === 'object' &&
+              (action as Record<string, unknown>).index === index &&
+              typeof (action as Record<string, unknown>).actionId ===
+                'string' &&
+              typeof (action as Record<string, unknown>).path === 'string' &&
+              (
+                (record.authorityReceipt as Record<string, unknown>)
+                  .actions as Array<Record<string, unknown>>
+              )[index]?.actionId ===
+                (action as Record<string, unknown>).actionId,
+          ) &&
+          Array.isArray(record.errors) &&
+          Array.isArray(record.freshCapabilities) &&
+          record.actions.some(
+            (action) =>
+              action !== null &&
+              typeof action === 'object' &&
+              (action as Record<string, unknown>).outcome === 'applied',
+          )
         )
       }
 
@@ -319,29 +359,22 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         if (record.type === 'json' && 'value' in record) {
           visit(record.value, out)
         }
-        const toolName =
-          typeof record.toolName === 'string'
-            ? record.toolName
-            : typeof record.cb_tool_name === 'string'
-              ? record.cb_tool_name
-              : ''
-        const input = record.input
-        if (isFileChangingTool(toolName)) {
-          collectToolInputFiles(input, out)
-        }
-        if (typeof record.file === 'string' && hasEditArtifact(record)) {
-          out.add(record.file)
-        }
-        if (Array.isArray(record.changedFiles)) {
-          for (const file of record.changedFiles) {
-            if (typeof file === 'string') out.add(file)
+        if (hasEditArtifact(record)) {
+          for (const action of record.actions as Array<
+            Record<string, unknown>
+          >) {
+            if (action.outcome !== 'applied') continue
+            if (typeof action.path === 'string') out.add(action.path)
+            if (
+              action.action === 'move' &&
+              typeof action.destinationPath === 'string'
+            ) {
+              out.add(action.destinationPath)
+            }
           }
         }
-        if (typeof record.path === 'string' && hasEditArtifact(record)) {
-          out.add(record.path)
-        }
         for (const nested of Object.values(record)) {
-          if (nested !== input) visit(nested, out)
+          visit(nested, out)
         }
       }
 
@@ -380,13 +413,18 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         return [...files]
       }
 
-      function collectTargetFilesFromText(text: string, files: Set<string>): void {
+      function collectTargetFilesFromText(
+        text: string,
+        files: Set<string>,
+      ): void {
         const targetFilesSection = text.match(
           /(?:^|\n)\s*Target files?:\s*\n([\s\S]*?)(?=\n\s*\S[^\n]*:|$)/i,
         )
         if (targetFilesSection) {
           for (const line of targetFilesSection[1].split(/\r?\n/)) {
-            const match = line.match(/(?:^|[-*]\s+)(`?)([^`\s]+\.[A-Za-z][\w.-]*)\1/)
+            const match = line.match(
+              /(?:^|[-*]\s+)(`?)([^`\s]+\.[A-Za-z][\w.-]*)\1/,
+            )
             if (match) addTargetFile(match[2], files)
           }
         }
@@ -428,8 +466,7 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         collectText(record.content, texts)
         collectText(record.prompt, texts)
       }
-
-      },
+    },
   } satisfies Omit<AgentDefinition, 'id'>
 }
 

@@ -202,8 +202,14 @@ async function parseTokensForScoring(params: {
   remainingBytes: number
   diagnostics: ParseDiagnostic[]
 }): Promise<ParsedTokensForScoring> {
-  const { filePath, fullPath, languageConfig, readFile, remainingBytes, diagnostics } =
-    params
+  const {
+    filePath,
+    fullPath,
+    languageConfig,
+    readFile,
+    remainingBytes,
+    diagnostics,
+  } = params
 
   if (!readFile) {
     return parseTokensWithLimits(fullPath, languageConfig, undefined, {

@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test'
 
-import { OpenAICompatibleCompletionLanguageModel } from './openai-compatible-completion-language-model';
+import { OpenAICompatibleCompletionLanguageModel } from './openai-compatible-completion-language-model'
 
 import type {
   LanguageModelV2,
   LanguageModelV2StreamPart,
-} from '@ai-sdk/provider';
-import type { FetchFunction } from '@ai-sdk/provider-utils';
+} from '@ai-sdk/provider'
+import type { FetchFunction } from '@ai-sdk/provider-utils'
 
 function createModel(fetch: FetchFunction) {
   return new OpenAICompatibleCompletionLanguageModel('test-model', {
@@ -14,44 +14,42 @@ function createModel(fetch: FetchFunction) {
     headers: () => ({}),
     url: () => 'https://example.test/completions',
     fetch,
-  });
+  })
 }
 
 async function collectStreamChunks(
   chunksToSend: unknown[],
 ): Promise<LanguageModelV2StreamPart[]> {
-  const encoder = new TextEncoder();
+  const encoder = new TextEncoder()
   const stream = new ReadableStream({
     start(controller) {
       for (const chunk of chunksToSend) {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`),
-        );
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
       }
-      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-      controller.close();
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+      controller.close()
     },
-  });
+  })
   const fetch = (async () =>
     new Response(stream, {
       status: 200,
       headers: { 'content-type': 'text/event-stream' },
-    })) as unknown as FetchFunction;
-  const model = createModel(fetch);
+    })) as unknown as FetchFunction
+  const model = createModel(fetch)
 
   const result = await model.doStream({
     prompt: [{ role: 'user', content: [{ type: 'text', text: 'Write' }] }],
-  } as Parameters<LanguageModelV2['doStream']>[0]);
-  const chunks: LanguageModelV2StreamPart[] = [];
-  const reader = result.stream.getReader();
+  } as Parameters<LanguageModelV2['doStream']>[0])
+  const chunks: LanguageModelV2StreamPart[] = []
+  const reader = result.stream.getReader()
   while (true) {
-    const { done, value } = await reader.read();
+    const { done, value } = await reader.read()
     if (done) {
-      break;
+      break
     }
-    chunks.push(value);
+    chunks.push(value)
   }
-  return chunks;
+  return chunks
 }
 
 describe('OpenAICompatibleCompletionLanguageModel billing telemetry streaming', () => {
@@ -85,9 +83,9 @@ describe('OpenAICompatibleCompletionLanguageModel billing telemetry streaming', 
           },
         ],
       },
-    ]);
+    ])
 
-    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false);
+    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false)
     expect(chunks).toEqual([
       { type: 'stream-start', warnings: [] },
       {
@@ -109,8 +107,8 @@ describe('OpenAICompatibleCompletionLanguageModel billing telemetry streaming', 
           totalTokens: undefined,
         },
       },
-    ]);
-  });
+    ])
+  })
 
   it('ignores billing.summary telemetry without changing finish state', async () => {
     const chunks = await collectStreamChunks([
@@ -142,19 +140,19 @@ describe('OpenAICompatibleCompletionLanguageModel billing telemetry streaming', 
           },
         ],
       },
-    ]);
+    ])
 
-    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false);
+    expect(chunks.some((chunk) => chunk.type === 'error')).toBe(false)
     expect(chunks).toContainEqual({
       type: 'text-delta',
       id: '0',
       delta: 'Hello',
-    });
+    })
     expect(chunks).toContainEqual(
       expect.objectContaining({
         type: 'finish',
         finishReason: 'stop',
       }),
-    );
-  });
-});
+    )
+  })
+})

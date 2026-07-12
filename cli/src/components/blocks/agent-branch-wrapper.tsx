@@ -399,8 +399,9 @@ export const AgentBranchWrapper = memo(
                 )
               })
             : undefined
-          const canUsePositionalFallback =
-            !/^candidate-\d+$/i.test(implementationId)
+          const canUsePositionalFallback = !/^candidate-\d+$/i.test(
+            implementationId,
+          )
           const implementationIndex = canUsePositionalFallback
             ? getImplementationIdIndex(implementationId)
             : undefined
@@ -431,7 +432,7 @@ export const AgentBranchWrapper = memo(
             gap: 0,
             width: '100%',
             minWidth: 0,
-            flexShrink: 1,
+            flexShrink: 0,
           }}
         >
           <text style={{ wrapMode: 'word' }}>
@@ -489,7 +490,7 @@ export const AgentBranchWrapper = memo(
           gap: 0,
           width: '100%',
           minWidth: 0,
-          flexShrink: 1,
+          flexShrink: 0,
         }}
       >
         <AgentBranchItem

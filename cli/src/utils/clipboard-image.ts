@@ -1,5 +1,13 @@
 import { spawnSync } from 'child_process'
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import os from 'os'
 import path from 'path'
 
@@ -16,9 +24,25 @@ export interface ClipboardImageResult {
  * Get a temp directory for clipboard images
  */
 function getClipboardTempDir(): string {
-  const tempDir = path.join(os.tmpdir(), 'codebuff-clipboard-images')
+  const owner = typeof process.getuid === 'function' ? process.getuid() : 'user'
+  const tempDir = path.join(os.tmpdir(), `openbuff-clipboard-images-${owner}`)
   if (!existsSync(tempDir)) {
-    mkdirSync(tempDir, { recursive: true })
+    mkdirSync(tempDir, { recursive: true, mode: 0o700 })
+  }
+  try {
+    chmodSync(tempDir, 0o700)
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    for (const entry of readdirSync(tempDir)) {
+      const entryPath = path.join(tempDir, entry)
+      if (
+        statSync(entryPath).isFile() &&
+        statSync(entryPath).mtimeMs < cutoff
+      ) {
+        unlinkSync(entryPath)
+      }
+    }
+  } catch {
+    // Cleanup and chmod are best effort on platforms without POSIX modes.
   }
   return tempDir
 }
@@ -27,14 +51,21 @@ function getClipboardTempDir(): string {
  * Generate a unique filename for a clipboard image
  */
 function generateImageFilename(): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  return `clipboard-${timestamp}.png`
+  return `clipboard-${crypto.randomUUID()}.png`
+}
+
+const secureClipboardImage = (imagePath: string): void => {
+  try {
+    chmodSync(imagePath, 0o600)
+  } catch {
+    // Best effort on Windows and exotic filesystems.
+  }
 }
 
 /**
  * Check if clipboard contains an image (macOS)
  * Uses 'clipboard info' which is the fastest way to check clipboard types.
- * 
+ *
  * Note: We do NOT filter out clipboards that contain file URLs here, because
  * copying images from Finder/Preview/Safari often includes both a file URL
  * AND the actual image data. The caller handles priority (file paths are
@@ -42,24 +73,26 @@ function generateImageFilename(): string {
  */
 function hasImageMacOS(): boolean {
   try {
-    const result = spawnSync('osascript', [
-      '-e',
-      'clipboard info',
-    ], { encoding: 'utf-8', timeout: 1000 })
-    
+    const result = spawnSync('osascript', ['-e', 'clipboard info'], {
+      encoding: 'utf-8',
+      timeout: 1000,
+    })
+
     if (result.status !== 0) {
       return false
     }
-    
+
     const output = result.stdout || ''
-    
+
     // Check for image types in clipboard info
-    return output.includes('«class PNGf»') || 
-           output.includes('TIFF') || 
-           output.includes('«class JPEG»') ||
-           output.includes('public.png') ||
-           output.includes('public.tiff') ||
-           output.includes('public.jpeg')
+    return (
+      output.includes('«class PNGf»') ||
+      output.includes('TIFF') ||
+      output.includes('«class JPEG»') ||
+      output.includes('public.png') ||
+      output.includes('public.tiff') ||
+      output.includes('public.jpeg')
+    )
   } catch {
     return false
   }
@@ -73,17 +106,18 @@ function readImageMacOS(): ClipboardImageResult {
     const tempDir = getClipboardTempDir()
     const filename = generateImageFilename()
     const imagePath = path.join(tempDir, filename)
-    
+
     // Try pngpaste first (if installed)
     const pngpasteResult = spawnSync('pngpaste', [imagePath], {
       encoding: 'utf-8',
       timeout: 5000,
     })
-    
+
     if (pngpasteResult.status === 0 && existsSync(imagePath)) {
+      secureClipboardImage(imagePath)
       return { success: true, imagePath, filename }
     }
-    
+
     // Fallback: use osascript to save clipboard image
     const script = `
       set thePath to "${imagePath}"
@@ -109,16 +143,17 @@ function readImageMacOS(): ClipboardImageResult {
         end try
       end try
     `
-    
+
     const result = spawnSync('osascript', ['-e', script], {
       encoding: 'utf-8',
       timeout: 10000,
     })
-    
+
     if (result.status === 0 && existsSync(imagePath)) {
+      secureClipboardImage(imagePath)
       return { success: true, imagePath, filename }
     }
-    
+
     return {
       success: false,
       error: result.stderr || 'Failed to read image from clipboard',
@@ -137,12 +172,12 @@ function readImageMacOS(): ClipboardImageResult {
 function hasImageLinux(): boolean {
   try {
     // Check available clipboard targets
-    const result = spawnSync('xclip', [
-      '-selection', 'clipboard',
-      '-t', 'TARGETS',
-      '-o',
-    ], { encoding: 'utf-8', timeout: 5000 })
-    
+    const result = spawnSync(
+      'xclip',
+      ['-selection', 'clipboard', '-t', 'TARGETS', '-o'],
+      { encoding: 'utf-8', timeout: 5000 },
+    )
+
     if (result.status !== 0) {
       // Try wl-paste for Wayland
       const wlResult = spawnSync('wl-paste', ['--list-types'], {
@@ -155,11 +190,13 @@ function hasImageLinux(): boolean {
       }
       return false
     }
-    
+
     const output = result.stdout || ''
-    return output.includes('image/png') || 
-           output.includes('image/jpeg') || 
-           output.includes('image/tiff')
+    return (
+      output.includes('image/png') ||
+      output.includes('image/jpeg') ||
+      output.includes('image/tiff')
+    )
   } catch {
     return false
   }
@@ -173,30 +210,30 @@ function readImageLinux(): ClipboardImageResult {
     const tempDir = getClipboardTempDir()
     const filename = generateImageFilename()
     const imagePath = path.join(tempDir, filename)
-    
+
     // Try xclip first
-    let result = spawnSync('xclip', [
-      '-selection', 'clipboard',
-      '-t', 'image/png',
-      '-o',
-    ], { timeout: 5000, maxBuffer: 50 * 1024 * 1024 })
-    
+    let result = spawnSync(
+      'xclip',
+      ['-selection', 'clipboard', '-t', 'image/png', '-o'],
+      { timeout: 5000, maxBuffer: 50 * 1024 * 1024 },
+    )
+
     if (result.status === 0 && result.stdout && result.stdout.length > 0) {
-      writeFileSync(imagePath, result.stdout)
+      writeFileSync(imagePath, result.stdout, { mode: 0o600 })
       return { success: true, imagePath, filename }
     }
-    
+
     // Try wl-paste for Wayland
     result = spawnSync('wl-paste', ['--type', 'image/png'], {
       timeout: 5000,
       maxBuffer: 50 * 1024 * 1024,
     })
-    
+
     if (result.status === 0 && result.stdout && result.stdout.length > 0) {
-      writeFileSync(imagePath, result.stdout)
+      writeFileSync(imagePath, result.stdout, { mode: 0o600 })
       return { success: true, imagePath, filename }
     }
-    
+
     return {
       success: false,
       error: 'No image found in clipboard or failed to read',
@@ -222,7 +259,7 @@ function hasImageWindows(): boolean {
       encoding: 'utf-8',
       timeout: 5000,
     })
-    
+
     return result.stdout?.trim() === 'true'
   } catch {
     return false
@@ -237,7 +274,7 @@ function readImageWindows(): ClipboardImageResult {
     const tempDir = getClipboardTempDir()
     const filename = generateImageFilename()
     const imagePath = path.join(tempDir, filename)
-    
+
     const script = `
       Add-Type -AssemblyName System.Windows.Forms
       $img = [System.Windows.Forms.Clipboard]::GetImage()
@@ -248,16 +285,17 @@ function readImageWindows(): ClipboardImageResult {
         Write-Output "no image"
       }
     `
-    
+
     const result = spawnSync('powershell', ['-STA', '-Command', script], {
       encoding: 'utf-8',
       timeout: 10000,
     })
-    
+
     if (result.stdout?.trim() === 'success' && existsSync(imagePath)) {
+      secureClipboardImage(imagePath)
       return { success: true, imagePath, filename }
     }
-    
+
     return {
       success: false,
       error: 'No image in clipboard or failed to save',
@@ -275,7 +313,7 @@ function readImageWindows(): ClipboardImageResult {
  */
 export function hasClipboardImage(): boolean {
   const platform = process.platform
-  
+
   switch (platform) {
     case 'darwin':
       return hasImageMacOS()
@@ -294,7 +332,7 @@ export function hasClipboardImage(): boolean {
  */
 export function readClipboardImage(): ClipboardImageResult {
   const platform = process.platform
-  
+
   switch (platform) {
     case 'darwin':
       return readImageMacOS()
@@ -315,33 +353,38 @@ export function readClipboardImage(): ClipboardImageResult {
  * file or folder. Used to detect drag-drop of files/folders into the terminal.
  * Returns the resolved path and whether it's a directory, or null.
  */
-export function getFileOrFolderPathFromText(text: string, cwd: string): { path: string; isDirectory: boolean } | null {
+export function getFileOrFolderPathFromText(
+  text: string,
+  cwd: string,
+): { path: string; isDirectory: boolean } | null {
   // Must be single line
   if (text.includes('\n') || text.includes('\r')) return null
-  
+
   let trimmed = text.trim()
   if (!trimmed) return null
-  
+
   // Handle file:// URLs
   if (trimmed.startsWith('file://')) {
     trimmed = decodeURIComponent(trimmed.slice(7))
   }
-  
+
   // Skip other URLs
   if (trimmed.includes('://')) return null
-  
+
   // Remove surrounding quotes
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
     trimmed = trimmed.slice(1, -1)
   }
-  
+
   try {
     const resolvedPath = resolveFilePath(trimmed, cwd)
     if (!existsSync(resolvedPath)) return null
     // Skip images — they're handled by image-specific logic
     if (isImageFile(resolvedPath)) return null
-    
+
     const stats = statSync(resolvedPath)
     return {
       path: resolvedPath,
@@ -357,38 +400,43 @@ export function getFileOrFolderPathFromText(text: string, cwd: string): { path: 
  * Used to detect drag-drop of image files into the terminal.
  * Returns the resolved absolute path if valid, null otherwise.
  */
-export function getImageFilePathFromText(text: string, cwd: string): string | null {
+export function getImageFilePathFromText(
+  text: string,
+  cwd: string,
+): string | null {
   // Must be single line (no internal newlines, including Windows \r\n)
   if (text.includes('\n') || text.includes('\r')) return null
-  
+
   // Must not be empty or have only whitespace
   let trimmed = text.trim()
   if (!trimmed) return null
-  
+
   // Handle file:// URLs that some systems use for dragged files
   if (trimmed.startsWith('file://')) {
     trimmed = decodeURIComponent(trimmed.slice(7))
   }
-  
+
   // Skip if it looks like a URL (but not file:// which we already handled)
   if (trimmed.includes('://')) return null
-  
+
   // Remove surrounding quotes that some terminals add
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
     trimmed = trimmed.slice(1, -1)
   }
-  
+
   try {
     // Try to resolve the path
     const resolvedPath = resolveFilePath(trimmed, cwd)
-    
+
     // Check if file exists
     if (!existsSync(resolvedPath)) return null
-    
+
     // Check if it's a supported image format
     if (!isImageFile(resolvedPath)) return null
-    
+
     return resolvedPath
   } catch {
     return null
@@ -398,7 +446,7 @@ export function getImageFilePathFromText(text: string, cwd: string): string | nu
 /**
  * Read file URL/path from clipboard when a file has been copied (e.g., from Finder).
  * Returns the POSIX path if a file URL is found, null otherwise.
- * 
+ *
  * When you copy a file in Finder (Cmd+C), the clipboard contains a file reference,
  * not plain text. pbpaste won't return the path, but we can use AppleScript to
  * extract it.
@@ -406,19 +454,19 @@ export function getImageFilePathFromText(text: string, cwd: string): string | nu
 function readClipboardFilePathMacOS(): string | null {
   try {
     // First check if clipboard contains a file URL
-    const infoResult = spawnSync('osascript', [
-      '-e',
-      'clipboard info',
-    ], { encoding: 'utf-8', timeout: 1000 })
-    
+    const infoResult = spawnSync('osascript', ['-e', 'clipboard info'], {
+      encoding: 'utf-8',
+      timeout: 1000,
+    })
+
     if (infoResult.status !== 0) return null
-    
+
     const info = infoResult.stdout || ''
     // Check for file URL type in clipboard (furl = file URL)
     if (!info.includes('«class furl»') && !info.includes('public.file-url')) {
       return null
     }
-    
+
     // Extract the file path using AppleScript
     const script = `
       try
@@ -428,12 +476,12 @@ function readClipboardFilePathMacOS(): string | null {
         return ""
       end try
     `
-    
+
     const result = spawnSync('osascript', ['-e', script], {
       encoding: 'utf-8',
       timeout: 1000,
     })
-    
+
     if (result.status === 0 && result.stdout) {
       const filePath = result.stdout.trim()
       if (filePath && existsSync(filePath)) {
@@ -463,7 +511,7 @@ function readClipboardFilePathWindows(): string | null {
       encoding: 'utf-8',
       timeout: 1000,
     })
-    
+
     if (result.status === 0 && result.stdout) {
       const filePath = result.stdout.trim()
       if (filePath && existsSync(filePath)) {
@@ -483,12 +531,12 @@ function readClipboardFilePathWindows(): string | null {
 function readClipboardFilePathLinux(): string | null {
   try {
     // Try to get file URI from clipboard
-    let result = spawnSync('xclip', [
-      '-selection', 'clipboard',
-      '-t', 'text/uri-list',
-      '-o',
-    ], { encoding: 'utf-8', timeout: 1000 })
-    
+    let result = spawnSync(
+      'xclip',
+      ['-selection', 'clipboard', '-t', 'text/uri-list', '-o'],
+      { encoding: 'utf-8', timeout: 1000 },
+    )
+
     if (result.status !== 0) {
       // Try wl-paste for Wayland
       result = spawnSync('wl-paste', ['--type', 'text/uri-list'], {
@@ -496,7 +544,7 @@ function readClipboardFilePathLinux(): string | null {
         timeout: 1000,
       })
     }
-    
+
     if (result.status === 0 && result.stdout) {
       const output = result.stdout.trim()
       // Parse file:// URLs
@@ -521,13 +569,13 @@ function readClipboardFilePathLinux(): string | null {
  * Read file path from clipboard when a file has been copied.
  * This handles the case where a user copies a file in their file manager.
  * Returns the file path if found, null otherwise.
- * 
+ *
  * Note: This returns ANY file path, not just images. Callers should check
  * if the file is an image using isImageFile() if needed.
  */
 export function readClipboardFilePath(): string | null {
   const platform = process.platform
-  
+
   switch (platform) {
     case 'darwin':
       return readClipboardFilePathMacOS()
@@ -561,23 +609,32 @@ export function readClipboardText(): string | null {
   try {
     const platform = process.platform
     let result: ReturnType<typeof spawnSync>
-    
+
     switch (platform) {
       case 'darwin':
         result = spawnSync('pbpaste', [], { encoding: 'utf-8', timeout: 1000 })
         break
       case 'win32':
-        result = spawnSync('powershell', ['-Command', 'Get-Clipboard'], { encoding: 'utf-8', timeout: 1000 })
+        result = spawnSync('powershell', ['-Command', 'Get-Clipboard'], {
+          encoding: 'utf-8',
+          timeout: 1000,
+        })
         break
       case 'linux':
-        result = spawnSync('xclip', ['-selection', 'clipboard', '-o'], { encoding: 'utf-8', timeout: 1000 })
+        result = spawnSync('xclip', ['-selection', 'clipboard', '-o'], {
+          encoding: 'utf-8',
+          timeout: 1000,
+        })
         break
       default:
         return null
     }
-    
+
     if (result.status === 0 && result.stdout) {
-      const output = typeof result.stdout === 'string' ? result.stdout : result.stdout.toString('utf-8')
+      const output =
+        typeof result.stdout === 'string'
+          ? result.stdout
+          : result.stdout.toString('utf-8')
       return output.replace(/\n+$/, '')
     }
     return null
@@ -585,4 +642,3 @@ export function readClipboardText(): string | null {
     return null
   }
 }
-

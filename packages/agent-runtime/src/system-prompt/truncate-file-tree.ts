@@ -319,8 +319,7 @@ const removeUnimportantFiles = (fileTree: FileTreeNode[]): FileTreeNode[] => {
       // Keep directory if it has any important children. Build a filtered
       // children array WITHOUT mutating the original node — the caller's file
       // tree must remain pristine for other consumers.
-      const filteredChildren =
-        node.children?.filter(shouldKeepFile) ?? []
+      const filteredChildren = node.children?.filter(shouldKeepFile) ?? []
       return filteredChildren.length > 0
     }
 
@@ -355,9 +354,7 @@ const removeUnimportantFiles = (fileTree: FileTreeNode[]): FileTreeNode[] => {
     return { ...node, children: newChildren }
   }
 
-  return fileTree
-    .map(rebuild)
-    .filter((n): n is FileTreeNode => n !== null)
+  return fileTree.map(rebuild).filter((n): n is FileTreeNode => n !== null)
 }
 
 const unimportantExtensions = [

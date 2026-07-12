@@ -1,17 +1,20 @@
-import * as fs from 'fs'
-
 import { jsonToolResult } from '@codebuff/common/util/messages'
+import { getContentHash } from '@codebuff/common/util/content-hash'
 
 import {
   preflightValidateSyntax,
   formatPreflightErrorMessage,
-  countDelimitersOutsideStringsAndComments,
-  isJavaScriptLikePath,
 } from '../../../util/preflight-syntax-validation'
+import { coordinateEditApplication } from './edit-application-coordinator'
+import { normalizeToolPath } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { FileProcessingState } from './write-file'
+import type {
+  ClientToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 
 type ToolName = 'apply_smart_patch'
 
@@ -23,37 +26,55 @@ interface Hunk {
   lines: string[]
 }
 
-export const handleApplySmartPatch = (async (
-  params: {
-    previousToolCallFinished: Promise<void>
-    toolCall: any
-    requestOptionalFile: RequestOptionalFileFn
-    fileProcessingState: FileProcessingState
-  },
-): Promise<{ output: any }> => {
+export const handleApplySmartPatch = (async (params: {
+  previousToolCallFinished: Promise<void>
+  toolCall: any
+  requestOptionalFile: RequestOptionalFileFn
+  requestClientToolCall: (
+    toolCall: ClientToolCall<'apply_smart_patch'>,
+  ) => Promise<CodebuffToolOutput<'apply_smart_patch'>>
+  fileProcessingState: FileProcessingState
+}): Promise<{ output: any }> => {
   const {
     previousToolCallFinished,
     toolCall,
     requestOptionalFile,
+    requestClientToolCall,
     fileProcessingState,
   } = params
   const {
-    path,
+    path: inputPath,
     patch,
     fuzzFactor = 3,
-    autoHeal = true,
     preflightCompile = true,
     allowPositionalFallback = false,
   } = toolCall.input
+  const path = normalizeToolPath(inputPath)
+  if (!path) {
+    return {
+      output: jsonToolResult({
+        file: inputPath,
+        applied: false,
+        validatorStatus: 'skipped',
+        validatorIdentity: 'not-run:unsafe-path',
+        message: `apply_smart_patch path traversal blocked: "${inputPath}" resolves outside the project root.`,
+      }),
+    }
+  }
 
   await previousToolCallFinished
 
-  const originalContent = await requestOptionalFile({ ...params, filePath: path })
+  const originalContent = await requestOptionalFile({
+    ...params,
+    filePath: path,
+  })
   if (originalContent === null) {
     return {
       output: jsonToolResult({
         file: path,
         applied: false,
+        validatorStatus: 'skipped',
+        validatorIdentity: 'not-run:file-missing',
         message: 'Error: File does not exist.',
       }),
     }
@@ -68,7 +89,7 @@ export const handleApplySmartPatch = (async (
   let finalLines = [...fileLines]
   let totalOffset = 0
   let matchedLineNum = hunks[0]?.oldStart || 1
-  let syntaxAutoHealed = false
+  const syntaxAutoHealed = false
 
   // Apply each hunk with Layer B (Fuzzy Line Alignment)
   for (const hunk of hunks) {
@@ -100,6 +121,8 @@ export const handleApplySmartPatch = (async (
           output: jsonToolResult({
             file: path,
             applied: false,
+            validatorStatus: 'skipped',
+            validatorIdentity: 'not-run:patch-conflict',
             message: `Smart patch conflict: ${mergeResult.message}. No changes were written.`,
           }),
         }
@@ -114,6 +137,8 @@ export const handleApplySmartPatch = (async (
           output: jsonToolResult({
             file: path,
             applied: false,
+            validatorStatus: 'skipped',
+            validatorIdentity: 'not-run:hunk-alignment',
             message:
               'Smart patch could not find a unique matching hunk; no changes were written. Retry with more context lines or use exact str_replace fallback.',
           }),
@@ -128,17 +153,7 @@ export const handleApplySmartPatch = (async (
     }
   }
 
-  let updatedContent = finalLines.join(lineEnding)
-
-  // --- LAYER C: Syntax Self-Healing ---
-  if (autoHeal) {
-    const healResult = autoHealSyntax(updatedContent, path)
-    if (healResult.healed) {
-      updatedContent = healResult.content
-      syntaxAutoHealed = true
-    }
-  }
-
+  const updatedContent = finalLines.join(lineEnding)
   // --- VIRTUAL COMPILE TRANSACTIONS: Preflight Syntax Check ---
   if (preflightCompile) {
     const syntaxValidation = preflightValidateSyntax(path, updatedContent)
@@ -147,6 +162,8 @@ export const handleApplySmartPatch = (async (
         output: jsonToolResult({
           file: path,
           applied: false,
+          validatorStatus: 'failed',
+          validatorIdentity: getValidatorIdentity(path),
           message: formatPreflightErrorMessage(
             'apply_smart_patch',
             path,
@@ -157,37 +174,61 @@ export const handleApplySmartPatch = (async (
     }
   }
 
-  try {
-    fs.writeFileSync(path, updatedContent, 'utf8')
-    delete fileProcessingState.promisesByPath[path]
-  } catch (error: any) {
+  const application = await coordinateEditApplication<'write_file'>({
+    toolName: 'write_file',
+    fileProcessingState,
+    paths: [path],
+    wholeFileContentByPath: new Map([[path, updatedContent]]),
+    apply: () =>
+      (
+        requestClientToolCall as unknown as (
+          clientToolCall: ClientToolCall<'write_file'>,
+        ) => Promise<CodebuffToolOutput<'write_file'>>
+      )({
+        toolCallId: toolCall.toolCallId,
+        toolName: 'write_file',
+        input: {
+          type: 'file',
+          path,
+          content: updatedContent,
+          expectedHash: getContentHash(originalContent),
+        },
+      }),
+  })
+  if (application.status !== 'applied') {
     return {
       output: jsonToolResult({
         file: path,
         applied: false,
-        message: `Failed to write file to disk: ${error.message}`,
+        validatorStatus: preflightCompile ? 'passed' : 'skipped',
+        validatorIdentity: preflightCompile
+          ? getValidatorIdentity(path)
+          : 'disabled-by-request',
+        message:
+          application.status === 'threw'
+            ? `Failed to apply smart patch through the client filesystem authority: ${application.error instanceof Error ? application.error.message : String(application.error)}`
+            : 'The client did not confirm that the smart patch content was applied. Re-read the file before retrying.',
       }),
     }
   }
 
-  return {
-    output: jsonToolResult({
-      file: path,
-      applied: true,
-      alignedLine: matchedLineNum,
-      offsetAdjusted: totalOffset,
-      syntaxAutoHealed,
-      preflightPassed: preflightCompile,
-      message: `Smart Patch Applied successfully! ${
-        syntaxAutoHealed
-          ? 'Syntactical issues were automatically auto-healed.'
-          : ''
-      }`,
-    }),
-  }
+  return { output: application.output as CodebuffToolOutput<ToolName> }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
 
-function parseUnifiedDiffHunks(patch: string, fallbackOldLength: number): Hunk[] {
+function getValidatorIdentity(path: string): string {
+  const extension = path.split('.').pop()?.toLowerCase()
+  if (['ts', 'tsx', 'js', 'jsx'].includes(extension ?? '')) {
+    return `bun-transpiler:${extension}`
+  }
+  if (extension === 'py') return 'python-structural-validator:v1'
+  if (extension === 'go') return 'go-structural-validator:v1'
+  return 'no-validator-for-file-type'
+}
+
+function parseUnifiedDiffHunks(
+  patch: string,
+  fallbackOldLength: number,
+): Hunk[] {
   const hunks: Hunk[] = []
   const patchLines = patch.split('\n')
   let currentHunk: Hunk | null = null
@@ -261,6 +302,11 @@ function findBestHunkLineIndex(params: {
   fuzzFactor: number
 }): number {
   const { finalLines, expectedOldLines, targetStart, fuzzFactor } = params
+  if (expectedOldLines.length === 0) {
+    // Unified diff zero-old-count hunks identify the insertion boundary after
+    // oldStart lines, unlike replacement hunks whose oldStart is one-based.
+    return Math.max(0, Math.min(finalLines.length, targetStart))
+  }
   const maxSearchOffset = Math.max(20, fuzzFactor * 5)
   const minSearchIdx = Math.max(0, targetStart - 1 - maxSearchOffset)
   const maxSearchIdx = Math.min(
@@ -276,16 +322,6 @@ function findBestHunkLineIndex(params: {
   })
   if (isAcceptableMatch(localMatch, expectedOldLines)) {
     return localMatch.bestLineIndex
-  }
-
-  const globalMatch = findBestMatchInRange({
-    finalLines,
-    expectedOldLines,
-    minSearchIdx: 0,
-    maxSearchIdx: Math.max(0, finalLines.length - expectedOldLines.length),
-  })
-  if (isAcceptableMatch(globalMatch, expectedOldLines)) {
-    return globalMatch.bestLineIndex
   }
 
   return -1
@@ -333,46 +369,6 @@ function isAcceptableMatch(
   if (match.bestLineIndex === -1) return false
   if (expectedOldLines.length === 0) return true
   return match.bestScore >= 0.7 && match.bestScoreCount === 1
-}
-
-/**
- * Basic syntax self-healing: checks bracket balance and trailing commas.
- * Only applies to JavaScript-like files (.ts/.tsx/.js/.jsx).
- */
-function autoHealSyntax(
-  content: string,
-  path: string,
-): { healed: boolean; content: string } {
-  // Auto-heal only applies to JavaScript-like files. Other file types
-  // (Python, Go, etc.) have different syntax rules and are skipped.
-  if (!isJavaScriptLikePath(path)) {
-    return { healed: false, content }
-  }
-
-  let healed = false
-  let currentContent = content
-
-  const { openBraces, closeBraces } = countDelimitersOutsideStringsAndComments(
-    currentContent,
-    'javascript',
-  )
-
-  if (openBraces > closeBraces) {
-    const missing = openBraces - closeBraces
-    currentContent += '\n' + '}'.repeat(missing)
-    healed = true
-  }
-
-  const normalized = currentContent.replace(/,(\s*,)+/g, ',')
-  if (normalized !== currentContent) {
-    currentContent = normalized
-    healed = true
-  }
-
-  return {
-    healed,
-    content: currentContent,
-  }
 }
 
 /**

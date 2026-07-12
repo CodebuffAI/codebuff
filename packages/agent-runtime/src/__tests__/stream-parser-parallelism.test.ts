@@ -47,6 +47,7 @@ const testAgentTemplate: AgentTemplate = {
     'query_index',
     'str_replace',
     'write_file',
+    'run_terminal_command',
     'end_turn',
   ],
   spawnableAgents: [],
@@ -59,6 +60,7 @@ function buildProcessStreamParams(overrides: {
   stream: AsyncGenerator<StreamChunk, PromptResult<string | null>>
   agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
   agentState?: SessionState['mainAgentState']
+  onResponseChunk?: (chunk: any) => void
 }) {
   const sessionState = getInitialSessionState(mockFileContext)
   return {
@@ -85,7 +87,7 @@ function buildProcessStreamParams(overrides: {
     userId: 'test-user',
     userInputId: 'test-input-id',
     onCostCalculated: async () => {},
-    onResponseChunk: () => {},
+    onResponseChunk: overrides.onResponseChunk ?? (() => {}),
   }
 }
 
@@ -110,7 +112,12 @@ function createParallelReadsStream(
         input: { paths: [`file-${i}.txt`] },
       }
     }
-    yield { type: 'tool-call' as const, toolName: 'end_turn', toolCallId: 'end', input: {} }
+    yield {
+      type: 'tool-call' as const,
+      toolName: 'end_turn',
+      toolCallId: 'end',
+      input: {},
+    }
     return { value: 'mock-message-id' } as PromptResult<string | null>
   }
   return generator()
@@ -140,9 +147,7 @@ describe('stream parser tool parallelism (P0-4)', () => {
 
     const stream = createParallelReadsStream(READ_COUNT)
     const start = Date.now()
-    await processStream(
-      buildProcessStreamParams({ stream, agentRuntimeImpl }),
-    )
+    await processStream(buildProcessStreamParams({ stream, agentRuntimeImpl }))
     const elapsed = Date.now() - start
 
     // Assert parallelism: elapsed must be well under the serialized floor,
@@ -318,7 +323,11 @@ describe('stream parser tool parallelism (P0-4)', () => {
     const stream = createMockStreamWithToolCalls([
       {
         toolName: 'write_file',
-        input: { path, instructions: 'write content', content: 'written content' },
+        input: {
+          path,
+          instructions: 'write content',
+          content: 'written content',
+        },
       },
       {
         toolName: 'read_files',
@@ -371,7 +380,11 @@ describe('stream parser tool parallelism (P0-4)', () => {
       { toolName: 'read_files', input: { paths: ['concurrent-rw.txt'] } },
       {
         toolName: 'write_file',
-        input: { path: 'concurrent-rw.txt', instructions: 'write new content', content: 'new content' },
+        input: {
+          path: 'concurrent-rw.txt',
+          instructions: 'write new content',
+          content: 'new content',
+        },
       },
       { toolName: 'end_turn', input: {} },
     ])
@@ -395,6 +408,102 @@ describe('stream parser tool parallelism (P0-4)', () => {
     expect(elapsed).toBeGreaterThanOrEqual(READ_DELAY_MS)
     // Should complete well within a serialized-reads floor would imply a bug.
     expect(elapsed).toBeLessThan(READ_DELAY_MS * 3)
+  })
+
+  it('[MUT-H03][ABI-M09] queues a named write behind a prior global write barrier', async () => {
+    const events: string[] = []
+    let releaseTerminal!: () => void
+    const terminalGate = new Promise<void>((resolve) => {
+      releaseTerminal = resolve
+    })
+    let terminalStarted!: () => void
+    const terminalStart = new Promise<void>((resolve) => {
+      terminalStarted = resolve
+    })
+
+    const agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      sendAction: () => {},
+      requestFiles: async () => ({}),
+      requestOptionalFile: async () => null,
+      requestToolCall: async (params: any) => {
+        if (params.toolName === 'run_terminal_command') {
+          events.push('global-start')
+          terminalStarted()
+          await terminalGate
+          events.push('global-finish')
+          return {
+            output: [
+              {
+                type: 'json',
+                value: { command: 'hold', stdout: '', exitCode: 0 },
+              },
+            ],
+          }
+        }
+        if (params.toolName === 'write_file') {
+          events.push('named-write')
+        }
+        return { output: [] }
+      },
+    }
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.readAuthorizationsByPath = {
+      'after-global.txt': true,
+    }
+    const toolEvents: unknown[] = []
+    let writeCallObserved!: () => void
+    const writeCall = new Promise<void>((resolve) => {
+      writeCallObserved = resolve
+    })
+    const stream = createMockStreamWithToolCalls([
+      {
+        toolName: 'run_terminal_command',
+        input: { command: 'hold', process_type: 'SYNC' },
+      },
+      {
+        toolName: 'write_file',
+        input: {
+          path: 'after-global.txt',
+          instructions: 'write after terminal',
+          content: 'after',
+        },
+      },
+      { toolName: 'end_turn', input: {} },
+    ])
+
+    const processing = processStream(
+      buildProcessStreamParams({
+        stream,
+        agentRuntimeImpl,
+        agentState: sessionState.mainAgentState,
+        onResponseChunk: (chunk) => {
+          toolEvents.push(chunk)
+          if (
+            chunk &&
+            typeof chunk === 'object' &&
+            chunk.type === 'tool_call' &&
+            chunk.toolName === 'write_file'
+          ) {
+            writeCallObserved()
+          }
+        },
+      }),
+    )
+    await terminalStart
+    await writeCall
+    expect(events).toEqual(['global-start'])
+    expect(toolEvents).toContainEqual(
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'write_file',
+        queued: true,
+      }),
+    )
+
+    releaseTerminal()
+    await processing
+    expect(events).toEqual(['global-start', 'global-finish', 'named-write'])
   })
 })
 

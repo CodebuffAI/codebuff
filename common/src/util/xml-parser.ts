@@ -24,4 +24,3 @@ export function parseToolCallXml(xmlString: string): Record<string, string> {
 
   return result
 }
-

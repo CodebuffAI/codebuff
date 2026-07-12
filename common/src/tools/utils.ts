@@ -14,7 +14,7 @@ export function getToolCallString<T extends ToolName | (string & {})>(
   const endsAgentStepValue =
     toolName in toolParams
       ? toolParams[toolName as keyof typeof toolParams].endsAgentStep
-      : endsAgentStep[0] ?? false
+      : (endsAgentStep[0] ?? false)
   return $getToolCallString({
     toolName,
     inputSchema: null,

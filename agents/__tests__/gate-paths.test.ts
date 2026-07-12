@@ -68,7 +68,10 @@ function stripTypeScriptAnnotations(functionSource: string): string {
       'function gateFileSetsEqual(left: string[], right: string[]): boolean',
       'function gateFileSetsEqual(left, right)',
     )
-    .replace('const normalizedFiles: string[] = []', 'const normalizedFiles = []')
+    .replace(
+      'const normalizedFiles: string[] = []',
+      'const normalizedFiles = []',
+    )
     .replace('new Set<string>()', 'new Set()')
 }
 
@@ -96,9 +99,8 @@ describe('gate-paths helpers', () => {
 
     expect(normalizeGateFilePath('  src/a.ts  ')).toBe('src/a.ts')
     expect(normalizeGateFilePath('src\\nested\\b.ts')).toBe('src/nested/b.ts')
-    expect(normalizeGateFilePath('file:///C:/proj/src/a.ts')).toBe(
-      'C:/proj/src/a.ts',
-    )
+    expect(normalizeGateFilePath('file:///C:/proj/src/a.ts')).toBe('')
+    expect(normalizeGateFilePath('/etc/passwd')).toBe('')
     expect(normalizeGateFilePath('./src/a.ts')).toBe('src/a.ts')
     expect(normalizeGateFilePath('././src/a.ts')).toBe('src/a.ts')
     expect(normalizeGateFilePath(`${cwd}/src/a.ts`)).toBe('src/a.ts')
@@ -136,6 +138,7 @@ describe('gate-paths helpers', () => {
       '  src/a.ts  ',
       'src\\nested\\b.ts',
       'file:///C:/proj/src/a.ts',
+      '/etc/passwd',
       './src/a.ts',
       '././src/a.ts',
       `${cwd}/src/a.ts`,

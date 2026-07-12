@@ -61,7 +61,9 @@ export function convertToOpenAICompatibleChatMessages(
           convertedContent.every(
             (part) =>
               part.type === 'text' &&
-              Object.keys(part).every((key) => key === 'type' || key === 'text'),
+              Object.keys(part).every(
+                (key) => key === 'type' || key === 'text',
+              ),
           )
 
         messages.push({

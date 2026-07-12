@@ -3,6 +3,26 @@
     "enabled": true,
     "cacheDir": ".codebuff-index",
     "exclude": [],
+    "maxFiles": 20000,
+    "weights": {
+      "lexical": {
+        "fileName": 5,
+        "path": 2,
+        "symbol": 3,
+        "heading": 2.5,
+        "concept": 1.5,
+        "import": 1
+      },
+      "graph": {
+        "defines": 1,
+        "imports": 0.7,
+        "references": 0.9,
+        "containsHeading": 0.8,
+        "mentions": 0.6,
+        "calls": 1.1
+      },
+      "semanticBlend": 1
+    },
     "semantic": {
       "enabled": false
     }

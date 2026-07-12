@@ -10,7 +10,9 @@ import { logger } from './logger'
 // OSC 52 without threading the renderer through every call site.
 let registeredRenderer: Record<string, unknown> | null = null
 
-export function registerClipboardRenderer(renderer: Record<string, unknown>): void {
+export function registerClipboardRenderer(
+  renderer: Record<string, unknown>,
+): void {
   registeredRenderer = renderer
 }
 
@@ -101,11 +103,17 @@ export async function copyTextToClipboard(
     if (isRemoteSession()) {
       // Remote/SSH: prefer renderer OSC 52 (through render pipeline),
       // then our manual OSC 52, then platform tools
-      copied = tryCopyViaRenderer(text) || tryCopyViaOsc52(text) || tryCopyViaPlatformTool(text)
+      copied =
+        tryCopyViaRenderer(text) ||
+        tryCopyViaOsc52(text) ||
+        tryCopyViaPlatformTool(text)
     } else {
       // Local: prefer platform tools (reliable with tmux),
       // then renderer OSC 52, then our manual OSC 52 as fallback
-      copied = tryCopyViaPlatformTool(text) || tryCopyViaRenderer(text) || tryCopyViaOsc52(text)
+      copied =
+        tryCopyViaPlatformTool(text) ||
+        tryCopyViaRenderer(text) ||
+        tryCopyViaOsc52(text)
     }
 
     if (!copied) {
@@ -140,7 +148,6 @@ export function clearClipboardMessage() {
   emitClipboardMessage(null)
 }
 
-
 // =============================================================================
 // OSC52 Clipboard Support
 // =============================================================================
@@ -154,8 +161,12 @@ export function isRemoteSession(): boolean {
 }
 
 function tryCopyViaPlatformTool(text: string): boolean {
-  const { execSync } = require('child_process') as typeof import('child_process')
-  const opts = { input: text, stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[] }
+  const { execSync } =
+    require('child_process') as typeof import('child_process')
+  const opts = {
+    input: text,
+    stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[],
+  }
 
   try {
     if (process.platform === 'darwin') {

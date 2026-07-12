@@ -352,9 +352,7 @@ describe('gitBranch', () => {
       expect(result.errorMessage).toBeUndefined()
       // The checkout call must carry the mapped branchName, proving the mapping
       // preserved the value end-to-end through the dispatch → gitBranch path.
-      const checkoutCall = spawn.mock.calls.find(
-        (c) => c[1][0] === 'checkout',
-      )
+      const checkoutCall = spawn.mock.calls.find((c) => c[1][0] === 'checkout')
       expect(checkoutCall).toBeDefined()
       expect(checkoutCall![1]).toContain('-b')
       expect(checkoutCall![1]).toContain('feat/dispatch-path')
@@ -428,9 +426,7 @@ describe('gitBranch', () => {
       const checkoutCall = spawn.mock.calls.find((c) => c[1][0] === 'checkout')
       expect(checkoutCall).toBeUndefined()
       // No rev-parse either (that only runs when switching).
-      const revParseCall = spawn.mock.calls.find(
-        (c) => c[1][0] === 'rev-parse',
-      )
+      const revParseCall = spawn.mock.calls.find((c) => c[1][0] === 'rev-parse')
       expect(revParseCall).toBeUndefined()
     })
   })

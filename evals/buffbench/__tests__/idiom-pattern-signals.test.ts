@@ -30,7 +30,8 @@ describe('idiom pattern signals', () => {
   })
 
   test('detects conservative Rust non-idioms in added diff lines', () => {
-    const findings = detectIdiomPatternSignals(`diff --git a/src/lib.rs b/src/lib.rs
+    const findings =
+      detectIdiomPatternSignals(`diff --git a/src/lib.rs b/src/lib.rs
 @@ -10,3 +10,6 @@ fn load() -> Result<String, Error> {
 +let raw = std::fs::read_to_string(path).unwrap();
 +let label = name.clone();
@@ -48,7 +49,8 @@ describe('idiom pattern signals', () => {
   })
 
   test('detects conservative Go non-idioms in added diff lines', () => {
-    const findings = detectIdiomPatternSignals(`diff --git a/server.go b/server.go
+    const findings =
+      detectIdiomPatternSignals(`diff --git a/server.go b/server.go
 @@ -20,4 +20,7 @@ func load() error {
 +value, _ := strconv.Atoi(raw)
 +if err != nil { panic(err) }

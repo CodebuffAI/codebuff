@@ -5,8 +5,6 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
-import { applyPatch } from 'diff'
-
 import { processFileBlock } from '../process-file-block'
 
 import type {
@@ -65,10 +63,9 @@ describe('processFileBlockModule', () => {
   })
 
   describe('processFileBlock', () => {
-    it('should handle markdown code blocks when creating new files', async () => {
+    it('[ABI-M05] preserves markdown fences verbatim when creating new files', async () => {
       const newContent =
         '```typescript\nfunction test() {\n  return true;\n}\n```'
-      const expectedContent = 'function test() {\n  return true;\n}'
 
       const result = await processFileBlock({
         path: 'test.ts',
@@ -87,7 +84,7 @@ describe('processFileBlockModule', () => {
       }
       expect(value.path).toBe('test.ts')
       expect(value.patch).toBeUndefined()
-      expect(value.content).toBe(expectedContent)
+      expect(value.content).toBe(newContent)
     })
 
     it('should handle Windows line endings with multi-line changes', async () => {
@@ -121,11 +118,7 @@ describe('processFileBlockModule', () => {
 
       expect(value.path).toBe('test.ts')
       expect(value.content).toBe(newContent)
-      expect(value.patch).toBeDefined()
-      if (value.patch) {
-        const updatedFile = applyPatch(oldContent, value.patch)
-        expect(updatedFile).toBe(newContent)
-      }
+      expect(value.patch).toBeUndefined()
     })
 
     it('should handle empty or whitespace-only changes', async () => {
@@ -150,7 +143,7 @@ describe('processFileBlockModule', () => {
       }
     })
 
-    it('should preserve Windows line endings in patch and content', async () => {
+    it('[ABI-M05] preserves caller-supplied Windows line endings exactly', async () => {
       const oldContent = 'const x = 1;\r\nconst y = 2;\r\n'
       const newContent = 'const x = 1;\r\nconst z = 3;\r\n'
 
@@ -175,22 +168,69 @@ describe('processFileBlockModule', () => {
       expect(value.content).toContain('\r\n')
       expect(value.content.split('\r\n').length).toBe(3) // 2 lines + empty line
 
-      // Verify patch has Windows line endings
-      expect(value.patch).toBeDefined()
-      if (value.patch) {
-        expect(value.patch).toContain('\r\n')
-        const updatedFile = applyPatch(oldContent, value.patch)
-        expect(updatedFile).toBe(newContent)
+      expect(value.patch).toBeUndefined()
+    })
 
-        // Verify patch can be applied and preserves line endings
-        const patchLines = value.patch.split('\r\n')
-        expect(patchLines.some((line) => line.startsWith('-const y'))).toBe(
-          true,
-        )
-        expect(patchLines.some((line) => line.startsWith('+const z'))).toBe(
-          true,
-        )
+    it('[ABI-M05] treats a line-ending-only overwrite as an exact byte change', async () => {
+      const result = await processFileBlock({
+        path: 'line-endings.txt',
+        initialContentPromise: Promise.resolve('first\nsecond\n'),
+        newContent: 'first\r\nsecond\r\n',
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted || 'error' in result.value) {
+        throw new Error('Expected line-ending-only overwrite success')
       }
+      expect(result.value.content).toBe('first\r\nsecond\r\n')
+    })
+
+    it('[ABI-M05] preserves leading newlines and mixed line endings on overwrite', async () => {
+      const newContent = '\nfirst\r\nsecond\nthird\r\n'
+      const result = await processFileBlock({
+        path: 'mixed.txt',
+        initialContentPromise: Promise.resolve('old\n'),
+        newContent,
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted || 'error' in result.value) {
+        throw new Error('Expected exact-content overwrite success')
+      }
+      expect(result.value.content).toBe(newContent)
+      expect(result.value.patch).toBeUndefined()
+    })
+
+    it('[ABI-M05] preserves empty content when creating a file', async () => {
+      const result = await processFileBlock({
+        path: 'empty.txt',
+        initialContentPromise: Promise.resolve(null),
+        newContent: '',
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted || 'error' in result.value) {
+        throw new Error('Expected empty-file creation success')
+      }
+      expect(result.value.content).toBe('')
+    })
+
+    it('[ABI-M05] preserves empty content when overwriting a small file', async () => {
+      const result = await processFileBlock({
+        path: 'empty.txt',
+        initialContentPromise: Promise.resolve('remove me'),
+        newContent: '',
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted || 'error' in result.value) {
+        throw new Error('Expected empty-file overwrite success')
+      }
+      expect(result.value.content).toBe('')
     })
 
     it('should block a large-file overwrite that drastically shrinks the file (truncated-context data loss)', async () => {
@@ -220,6 +260,38 @@ describe('processFileBlockModule', () => {
         expect(value.error).toContain('truncated')
         expect(value.error).toContain('str_replace')
       }
+    })
+
+    it('[COR-M09] blocks a large-file overwrite with severe byte shrink only', async () => {
+      const oldContent = Array.from({ length: 1_200 }, () =>
+        'x'.repeat(100),
+      ).join('\n')
+      const newContent = Array.from({ length: 1_200 }, () => 'x').join('\n')
+      const result = await processFileBlock({
+        path: 'byte-shrink.txt',
+        initialContentPromise: Promise.resolve(oldContent),
+        newContent,
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted) throw new Error('Expected recoverable rejection')
+      expect('error' in result.value).toBe(true)
+    })
+
+    it('[COR-M09] blocks a large-file overwrite with severe line shrink only', async () => {
+      const oldContent = Array.from({ length: 1_200 }, () => 'x').join('\n')
+      const newContent = 'x'.repeat(oldContent.length)
+      const result = await processFileBlock({
+        path: 'line-shrink.txt',
+        initialContentPromise: Promise.resolve(oldContent),
+        newContent,
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted) throw new Error('Expected recoverable rejection')
+      expect('error' in result.value).toBe(true)
     })
 
     it('should allow a legitimate large-file rewrite that keeps a similar size', async () => {

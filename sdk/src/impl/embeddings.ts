@@ -17,7 +17,9 @@ import { resolveConfiguredProviderModel } from '../provider-config'
 import { getSystemProcessEnv } from '../env'
 
 /** Batch embedder shape shared with the indexer's semantic engine. */
-export type EmbedFn = (texts: string[]) => Promise<number[][]>
+export type EmbedFn = ((texts: string[]) => Promise<number[][]>) & {
+  cacheKey?: string
+}
 
 export function createConfiguredEmbedder(
   modelString: string,
@@ -43,9 +45,13 @@ export function createConfiguredEmbedder(
     headers: () => (apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
   })
 
-  return async (texts: string[]) => {
+  const embed: EmbedFn = async (texts: string[]) => {
     if (texts.length === 0) return []
     const { embeddings } = await embedMany({ model, values: texts })
     return embeddings
   }
+  // Deliberately excludes credentials. These fields fully identify the
+  // resolved endpoint/model whose vector space determines cache compatibility.
+  embed.cacheKey = JSON.stringify({ providerId, baseURL, providerModel })
+  return embed
 }

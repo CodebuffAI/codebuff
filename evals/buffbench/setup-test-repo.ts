@@ -74,10 +74,7 @@ async function executeGitCommandWithRetry(
   throw lastError || new Error('Git command failed after all retries')
 }
 
-export function executeInitCommand(
-  initCommand: string,
-  repoDir: string,
-): void {
+export function executeInitCommand(initCommand: string, repoDir: string): void {
   execSync(initCommand, {
     cwd: repoDir,
     stdio: 'inherit',
@@ -122,14 +119,21 @@ export async function setupTestRepo(
   // Self-clone guard for file:// URLs: reject remotes that resolve inside
   // TEST_REPOS_DIR to avoid recursive cloning / disk-fill loops.
   if (repoUrl.startsWith('file://')) {
-    const fileRemotePath = path.resolve(decodeURIComponent(repoUrl.slice('file://'.length)))
+    const fileRemotePath = path.resolve(
+      decodeURIComponent(repoUrl.slice('file://'.length)),
+    )
     const resolvedTestReposDir = path.resolve(TEST_REPOS_DIR)
-    if (fileRemotePath === resolvedTestReposDir || fileRemotePath.startsWith(resolvedTestReposDir + path.sep)) {
+    if (
+      fileRemotePath === resolvedTestReposDir ||
+      fileRemotePath.startsWith(resolvedTestReposDir + path.sep)
+    ) {
       throw new Error(
         `Refusing to clone file:// URL ${repoUrl}: the remote path resolves inside TEST_REPOS_DIR (${resolvedTestReposDir}), which would create a recursive-clone loop. Point file:// at a worktree outside evals/buffbench/test-repos/ instead.`,
       )
     }
-    console.log(`file:// remote detected - cloning from local path: ${fileRemotePath}`)
+    console.log(
+      `file:// remote detected - cloning from local path: ${fileRemotePath}`,
+    )
   }
 
   // Create test-repos directory if it doesn't exist

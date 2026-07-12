@@ -140,6 +140,11 @@ describe('gate-files helpers — inline copies match canonical exports', () => {
     // hasEditArtifact parity — covers diff artifacts, explicit success/error,
     // success-verb messages, failure-indicator messages, and edge cases.
     const records: Record<string, unknown>[] = [
+      {
+        kind: 'file_mutation_result',
+        authorityTier: 'portable_path',
+        actions: [{ path: 'src/a.ts', outcome: 'applied' }],
+      },
       { unifiedDiff: 'diff --git a b' },
       { diff: '@@ -1 +1 @@' },
       { patch: '*** Begin Patch' },
@@ -239,9 +244,7 @@ describe('gate-files helpers — inline copies match canonical exports', () => {
       {
         type: 'json',
         value: {
-          nested: [
-            { toolName: 'write_file', input: { path: 'src/i.ts' } },
-          ],
+          nested: [{ toolName: 'write_file', input: { path: 'src/i.ts' } }],
         },
       },
       // mixed array of shapes

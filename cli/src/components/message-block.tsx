@@ -69,301 +69,191 @@ interface MessageBlockProps {
   isLastMessage?: boolean
 }
 
-const MessageAttachments = memo(({
-  imageAttachments,
-  textAttachments,
-  fileAttachments,
-}: {
-  imageAttachments: ImageAttachment[]
-  textAttachments: TextAttachment[]
-  fileAttachments: FileAttachment[]
-}) => {
-  if (imageAttachments.length === 0 && textAttachments.length === 0 && fileAttachments.length === 0) {
-    return null
-  }
+const MessageAttachments = memo(
+  ({
+    imageAttachments,
+    textAttachments,
+    fileAttachments,
+  }: {
+    imageAttachments: ImageAttachment[]
+    textAttachments: TextAttachment[]
+    fileAttachments: FileAttachment[]
+  }) => {
+    if (
+      imageAttachments.length === 0 &&
+      textAttachments.length === 0 &&
+      fileAttachments.length === 0
+    ) {
+      return null
+    }
 
-  return (
-    <box
-      style={{
-        flexDirection: 'row',
-        gap: 1,
-        flexWrap: 'wrap',
-      }}
-    >
-      {imageAttachments.map((attachment) => (
-        <ImageCard
-          key={attachment.path}
-          image={attachment}
-          showRemoveButton={false}
-        />
-      ))}
-      {textAttachments.map((attachment) => (
-        <TextAttachmentCard
-          key={attachment.id}
-          attachment={attachment}
-          showRemoveButton={false}
-        />
-      ))}
-      {fileAttachments.map((attachment) => (
-        <FileAttachmentCard
-          key={attachment.path}
-          attachment={attachment}
-          showRemoveButton={false}
-        />
-      ))}
-    </box>
-  )
-})
-
-export const MessageBlock = memo(({
-  messageId,
-  blocks,
-  content,
-  isUser,
-  isAi,
-  isLoading,
-  timestamp,
-  isComplete,
-  completionTime,
-  credits,
-  cacheHitRate,
-  timerStartTime,
-  textColor,
-  timestampColor,
-  markdownOptions,
-  availableWidth,
-  markdownPalette,
-  onToggleCollapsed,
-  onBuildFast,
-  onFeedback,
-  onCloseFeedback,
-  onEditMessage,
-  onInsertCommand,
-  validationErrors,
-  userError,
-  onOpenFeedback,
-  attachments,
-  textAttachments,
-  fileAttachments,
-  metadata,
-  isLastMessage,
-}: MessageBlockProps) => {
-  const [showValidationPopover, setShowValidationPopover] = useState(false)
-
-  const bashCwd = metadata?.bashCwd ? formatCwd(metadata.bashCwd) : undefined
-
-  useWhyDidYouUpdateById(
-    'MessageBlock',
-    messageId,
-    {
-      messageId,
-      blocks,
-      content,
-      isUser,
-      isAi,
-      isLoading,
-      timestamp,
-      isComplete,
-      completionTime,
-      credits,
-      timerStartTime,
-      textColor,
-      timestampColor,
-      markdownOptions,
-      availableWidth,
-      markdownPalette,
-      onToggleCollapsed,
-      onBuildFast,
-      onFeedback,
-      onCloseFeedback,
-      onEditMessage,
-      onInsertCommand,
-      validationErrors,
-      onOpenFeedback,
-      metadata,
-      isLastMessage,
-    },
-    {
-      logLevel: 'debug',
-      enabled: getCliEnv().CODEBUFF_PERF_TEST === 'true',
-    },
-  )
-
-  const theme = useTheme()
-  const resolvedTextColor = textColor ?? theme.foreground
-  const bashCwdDisplay = bashCwd
-    ? wrapTextPreservingNewlines(
-        bashCwd,
-        Math.max(10, availableWidth - timestamp.length - 5),
-      )
-    : undefined
-
-  return (
-    <box
-      style={{
-        flexDirection: 'column',
-        width: '100%',
-      }}
-    >
-      {/* User message timestamp with error indicator (non-bash commands) */}
-      {isUser && !bashCwd && (
-        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-          <text
-            attributes={TextAttributes.DIM}
-            style={{
-              wrapMode: 'none',
-              fg: timestampColor,
-            }}
-          >
-            {`[${timestamp}]`}
-          </text>
-
-          {validationErrors && validationErrors.length > 0 && (
-            <Button
-              onClick={() => setShowValidationPopover(!showValidationPopover)}
-            >
-              <text
-                style={{
-                  fg: theme.error,
-                  wrapMode: 'none',
-                }}
-              >
-                [!]
-              </text>
-            </Button>
-          )}
-        </box>
-      )}
-
-      {/* Bash command metadata header (timestamp + cwd) - copy button moved inline */}
-      {bashCwd && (
-        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-          <text
-            attributes={TextAttributes.DIM}
-            style={{
-              wrapMode: 'none',
-              fg: timestampColor,
-            }}
-          >
-            {`[${timestamp}]`}
-          </text>
-          <text
-            attributes={TextAttributes.DIM}
-            style={{
-              wrapMode: 'none',
-              fg: theme.muted,
-            }}
-          >
-            •
-          </text>
-          <text
-            attributes={TextAttributes.DIM}
-            style={{
-              wrapMode: 'word',
-              fg: theme.muted,
-            }}
-          >
-            {bashCwdDisplay}
-          </text>
-        </box>
-      )}
-
-      {/* Show validation popover below timestamp when expanded */}
-      {isUser &&
-        !bashCwd &&
-        validationErrors &&
-        validationErrors.length > 0 &&
-        showValidationPopover && (
-          <box style={{ paddingTop: 1, paddingBottom: 1 }}>
-            <ValidationErrorPopover
-              errors={validationErrors}
-              onOpenFeedback={onOpenFeedback}
-              onClose={() => setShowValidationPopover(false)}
-            />
-          </box>
-        )}
-
-      <box style={{ flexDirection: 'column', gap: 1, width: '100%' }}>
-        {blocks ? (
-          <box
-            style={{
-              flexDirection: 'column',
-              gap: 1,
-              width: '100%',
-            }}
-          >
-            <BlocksRenderer
-              sourceBlocks={blocks}
-              messageId={messageId}
-              isLoading={isLoading}
-              isComplete={isComplete}
-              isUser={isUser}
-              textColor={resolvedTextColor}
-              availableWidth={availableWidth}
-              markdownPalette={markdownPalette}
-              onToggleCollapsed={onToggleCollapsed}
-              onBuildFast={onBuildFast}
-              onInsertCommand={onInsertCommand}
-              isLastMessage={isLastMessage}
-              contentToCopy={isUser ? content : undefined}
-            />
-          </box>
-        ) : (
-          <UserContentWithCopyButton
-            content={content}
-            messageId={messageId}
-            isLoading={isLoading}
-            isComplete={isComplete}
-            isUser={isUser}
-            textColor={resolvedTextColor}
-            codeBlockWidth={markdownOptions.codeBlockWidth}
-            palette={markdownOptions.palette}
-            showCopyButton={isUser}
+    return (
+      <box
+        style={{
+          flexDirection: 'row',
+          gap: 1,
+          flexWrap: 'wrap',
+        }}
+      >
+        {imageAttachments.map((attachment) => (
+          <ImageCard
+            key={attachment.path}
+            image={attachment}
+            showRemoveButton={false}
           />
-        )}
-        {/* Show attachments for user messages */}
-        {isUser &&
-          ((attachments && attachments.length > 0) ||
-            (textAttachments && textAttachments.length > 0) ||
-            (fileAttachments && fileAttachments.length > 0)) && (
-            <MessageAttachments
-              imageAttachments={attachments ?? []}
-              textAttachments={textAttachments ?? []}
-              fileAttachments={fileAttachments ?? []}
-            />
-          )}
+        ))}
+        {textAttachments.map((attachment) => (
+          <TextAttachmentCard
+            key={attachment.id}
+            attachment={attachment}
+            showRemoveButton={false}
+          />
+        ))}
+        {fileAttachments.map((attachment) => (
+          <FileAttachmentCard
+            key={attachment.path}
+            attachment={attachment}
+            showRemoveButton={false}
+          />
+        ))}
       </box>
+    )
+  },
+)
 
-      {/* Display runtime error banner for AI messages */}
-      {isAi && userError && <UserErrorBanner error={userError} />}
+export const MessageBlock = memo(
+  ({
+    messageId,
+    blocks,
+    content,
+    isUser,
+    isAi,
+    isLoading,
+    timestamp,
+    isComplete,
+    completionTime,
+    credits,
+    cacheHitRate,
+    timerStartTime,
+    textColor,
+    timestampColor,
+    markdownOptions,
+    availableWidth,
+    markdownPalette,
+    onToggleCollapsed,
+    onBuildFast,
+    onFeedback,
+    onCloseFeedback,
+    onEditMessage,
+    onInsertCommand,
+    validationErrors,
+    userError,
+    onOpenFeedback,
+    attachments,
+    textAttachments,
+    fileAttachments,
+    metadata,
+    isLastMessage,
+  }: MessageBlockProps) => {
+    const [showValidationPopover, setShowValidationPopover] = useState(false)
 
-      {isAi && (
-        <MessageFooter
-          messageId={messageId}
-          blocks={blocks}
-          content={content}
-          isLoading={isLoading}
-          isComplete={isComplete}
-          completionTime={completionTime}
-          credits={credits}
-          cacheHitRate={cacheHitRate}
-          timerStartTime={timerStartTime}
-          onFeedback={onFeedback}
-          onCloseFeedback={onCloseFeedback}
-        />
-      )}
+    const bashCwd = metadata?.bashCwd ? formatCwd(metadata.bashCwd) : undefined
 
-      {/* Edit & resend affordance for complete user messages */}
-      {isUser && isComplete !== false && !isLoading && onEditMessage && (
-        <box
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            alignSelf: 'flex-end',
-            gap: 1,
-          }}
-        >
-          <Button onClick={() => onEditMessage(messageId, content)}>
+    useWhyDidYouUpdateById(
+      'MessageBlock',
+      messageId,
+      {
+        messageId,
+        blocks,
+        content,
+        isUser,
+        isAi,
+        isLoading,
+        timestamp,
+        isComplete,
+        completionTime,
+        credits,
+        timerStartTime,
+        textColor,
+        timestampColor,
+        markdownOptions,
+        availableWidth,
+        markdownPalette,
+        onToggleCollapsed,
+        onBuildFast,
+        onFeedback,
+        onCloseFeedback,
+        onEditMessage,
+        onInsertCommand,
+        validationErrors,
+        onOpenFeedback,
+        metadata,
+        isLastMessage,
+      },
+      {
+        logLevel: 'debug',
+        enabled: getCliEnv().CODEBUFF_PERF_TEST === 'true',
+      },
+    )
+
+    const theme = useTheme()
+    const resolvedTextColor = textColor ?? theme.foreground
+    const bashCwdDisplay = bashCwd
+      ? wrapTextPreservingNewlines(
+          bashCwd,
+          Math.max(10, availableWidth - timestamp.length - 5),
+        )
+      : undefined
+
+    return (
+      <box
+        style={{
+          flexDirection: 'column',
+          width: '100%',
+        }}
+      >
+        {/* User message timestamp with error indicator (non-bash commands) */}
+        {isUser && !bashCwd && (
+          <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+            <text
+              attributes={TextAttributes.DIM}
+              style={{
+                wrapMode: 'none',
+                fg: timestampColor,
+              }}
+            >
+              {`[${timestamp}]`}
+            </text>
+
+            {validationErrors && validationErrors.length > 0 && (
+              <Button
+                onClick={() => setShowValidationPopover(!showValidationPopover)}
+              >
+                <text
+                  style={{
+                    fg: theme.error,
+                    wrapMode: 'none',
+                  }}
+                >
+                  [!]
+                </text>
+              </Button>
+            )}
+          </box>
+        )}
+
+        {/* Bash command metadata header (timestamp + cwd) - copy button moved inline */}
+        {bashCwd && (
+          <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+            <text
+              attributes={TextAttributes.DIM}
+              style={{
+                wrapMode: 'none',
+                fg: timestampColor,
+              }}
+            >
+              {`[${timestamp}]`}
+            </text>
             <text
               attributes={TextAttributes.DIM}
               style={{
@@ -371,11 +261,129 @@ export const MessageBlock = memo(({
                 fg: theme.muted,
               }}
             >
-              {'[✎ edit]'}
+              •
             </text>
-          </Button>
+            <text
+              attributes={TextAttributes.DIM}
+              style={{
+                wrapMode: 'word',
+                fg: theme.muted,
+              }}
+            >
+              {bashCwdDisplay}
+            </text>
+          </box>
+        )}
+
+        {/* Show validation popover below timestamp when expanded */}
+        {isUser &&
+          !bashCwd &&
+          validationErrors &&
+          validationErrors.length > 0 &&
+          showValidationPopover && (
+            <box style={{ paddingTop: 1, paddingBottom: 1 }}>
+              <ValidationErrorPopover
+                errors={validationErrors}
+                onOpenFeedback={onOpenFeedback}
+                onClose={() => setShowValidationPopover(false)}
+              />
+            </box>
+          )}
+
+        <box style={{ flexDirection: 'column', gap: 1, width: '100%' }}>
+          {blocks ? (
+            <box
+              style={{
+                flexDirection: 'column',
+                gap: 1,
+                width: '100%',
+              }}
+            >
+              <BlocksRenderer
+                sourceBlocks={blocks}
+                messageId={messageId}
+                isLoading={isLoading}
+                isComplete={isComplete}
+                isUser={isUser}
+                textColor={resolvedTextColor}
+                availableWidth={availableWidth}
+                markdownPalette={markdownPalette}
+                onToggleCollapsed={onToggleCollapsed}
+                onBuildFast={onBuildFast}
+                onInsertCommand={onInsertCommand}
+                isLastMessage={isLastMessage}
+                contentToCopy={isUser ? content : undefined}
+              />
+            </box>
+          ) : (
+            <UserContentWithCopyButton
+              content={content}
+              messageId={messageId}
+              isLoading={isLoading}
+              isComplete={isComplete}
+              isUser={isUser}
+              textColor={resolvedTextColor}
+              codeBlockWidth={markdownOptions.codeBlockWidth}
+              palette={markdownOptions.palette}
+              showCopyButton={isUser}
+            />
+          )}
+          {/* Show attachments for user messages */}
+          {isUser &&
+            ((attachments && attachments.length > 0) ||
+              (textAttachments && textAttachments.length > 0) ||
+              (fileAttachments && fileAttachments.length > 0)) && (
+              <MessageAttachments
+                imageAttachments={attachments ?? []}
+                textAttachments={textAttachments ?? []}
+                fileAttachments={fileAttachments ?? []}
+              />
+            )}
         </box>
-      )}
-    </box>
-  )
-})
+
+        {/* Display runtime error banner for AI messages */}
+        {isAi && userError && <UserErrorBanner error={userError} />}
+
+        {isAi && (
+          <MessageFooter
+            messageId={messageId}
+            blocks={blocks}
+            content={content}
+            isLoading={isLoading}
+            isComplete={isComplete}
+            completionTime={completionTime}
+            credits={credits}
+            cacheHitRate={cacheHitRate}
+            timerStartTime={timerStartTime}
+            onFeedback={onFeedback}
+            onCloseFeedback={onCloseFeedback}
+          />
+        )}
+
+        {/* Edit & resend affordance for complete user messages */}
+        {isUser && isComplete !== false && !isLoading && onEditMessage && (
+          <box
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              alignSelf: 'flex-end',
+              gap: 1,
+            }}
+          >
+            <Button onClick={() => onEditMessage(messageId, content)}>
+              <text
+                attributes={TextAttributes.DIM}
+                style={{
+                  wrapMode: 'none',
+                  fg: theme.muted,
+                }}
+              >
+                {'[✎ edit]'}
+              </text>
+            </Button>
+          </box>
+        )}
+      </box>
+    )
+  },
+)

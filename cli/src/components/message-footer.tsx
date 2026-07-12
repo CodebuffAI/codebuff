@@ -220,13 +220,20 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
 
 const CostIndicator: React.FC<{ cost: number }> = ({ cost }) => {
   const theme = useTheme()
+  const dollars = cost / 100
+  const formatted = dollars < 0.01 ? dollars.toFixed(4) : dollars.toFixed(2)
 
   return (
     <text
       attributes={TextAttributes.DIM}
-      style={{ wrapMode: 'none', fg: theme.secondary, marginTop: 0, marginBottom: 0 }}
+      style={{
+        wrapMode: 'none',
+        fg: theme.secondary,
+        marginTop: 0,
+        marginBottom: 0,
+      }}
     >
-      {`cost ${cost}`}
+      {`cost $${formatted}`}
     </text>
   )
 }
@@ -238,7 +245,12 @@ const CacheHitRateIndicator: React.FC<{ rate: number }> = ({ rate }) => {
   return (
     <text
       attributes={TextAttributes.DIM}
-      style={{ wrapMode: 'none', fg: theme.secondary, marginTop: 0, marginBottom: 0 }}
+      style={{
+        wrapMode: 'none',
+        fg: theme.secondary,
+        marginTop: 0,
+        marginBottom: 0,
+      }}
     >
       {`cache ${pct}%`}
     </text>

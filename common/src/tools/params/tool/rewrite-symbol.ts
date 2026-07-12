@@ -12,7 +12,9 @@ const inputSchema = z
     path: z
       .string()
       .min(1, 'Path cannot be empty')
-      .describe('File path containing the symbol, relative to the project root.'),
+      .describe(
+        'File path containing the symbol, relative to the project root.',
+      ),
     symbol: z
       .string()
       .min(1)
@@ -22,7 +24,7 @@ const inputSchema = z
     content: z
       .string()
       .describe(
-        "The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body). Provide REAL newlines/tabs in the string — literal backslash-n (\\n) and backslash-t (\\t) sequences are not interpreted and will be written verbatim into the file. This matches str_replace.",
+        'The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body). Provide REAL newlines/tabs in the string — literal backslash-n (\\n) and backslash-t (\\t) sequences are not interpreted and will be written verbatim into the file. This matches str_replace.',
       ),
     occurrence: z
       .number()

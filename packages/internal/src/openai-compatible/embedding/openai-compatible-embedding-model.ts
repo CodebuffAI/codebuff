@@ -1,79 +1,67 @@
-import {
-  TooManyEmbeddingValuesForCallError,
-} from '@ai-sdk/provider';
+import { TooManyEmbeddingValuesForCallError } from '@ai-sdk/provider'
 import {
   combineHeaders,
   createJsonErrorResponseHandler,
   createJsonResponseHandler,
   parseProviderOptions,
   postJsonToApi,
-} from '@ai-sdk/provider-utils';
-import { z } from 'zod/v4';
+} from '@ai-sdk/provider-utils'
+import { z } from 'zod/v4'
 
-import {
-  openaiCompatibleEmbeddingProviderOptions,
-} from './openai-compatible-embedding-options';
-import {
-  defaultOpenAICompatibleErrorStructure
-} from '../openai-compatible-error';
+import { openaiCompatibleEmbeddingProviderOptions } from './openai-compatible-embedding-options'
+import { defaultOpenAICompatibleErrorStructure } from '../openai-compatible-error'
 
-import type {
-  OpenAICompatibleEmbeddingModelId} from './openai-compatible-embedding-options';
-import type {
-  ProviderErrorStructure} from '../openai-compatible-error';
-import type {
-  EmbeddingModelV2} from '@ai-sdk/provider';
-import type {
-  FetchFunction} from '@ai-sdk/provider-utils';
+import type { OpenAICompatibleEmbeddingModelId } from './openai-compatible-embedding-options'
+import type { ProviderErrorStructure } from '../openai-compatible-error'
+import type { EmbeddingModelV2 } from '@ai-sdk/provider'
+import type { FetchFunction } from '@ai-sdk/provider-utils'
 
 type OpenAICompatibleEmbeddingConfig = {
   /**
 Override the maximum number of embeddings per call.
    */
-  maxEmbeddingsPerCall?: number;
+  maxEmbeddingsPerCall?: number
 
   /**
 Override the parallelism of embedding calls.
   */
-  supportsParallelCalls?: boolean;
+  supportsParallelCalls?: boolean
 
-  provider: string;
-  url: (options: { modelId: string; path: string }) => string;
-  headers: () => Record<string, string | undefined>;
-  fetch?: FetchFunction;
-  errorStructure?: ProviderErrorStructure<any>;
-};
+  provider: string
+  url: (options: { modelId: string; path: string }) => string
+  headers: () => Record<string, string | undefined>
+  fetch?: FetchFunction
+  errorStructure?: ProviderErrorStructure<any>
+}
 
-export class OpenAICompatibleEmbeddingModel
-  implements EmbeddingModelV2<string>
-{
-  readonly specificationVersion = 'v2';
-  readonly modelId: OpenAICompatibleEmbeddingModelId;
+export class OpenAICompatibleEmbeddingModel implements EmbeddingModelV2<string> {
+  readonly specificationVersion = 'v2'
+  readonly modelId: OpenAICompatibleEmbeddingModelId
 
-  private readonly config: OpenAICompatibleEmbeddingConfig;
+  private readonly config: OpenAICompatibleEmbeddingConfig
 
   get provider(): string {
-    return this.config.provider;
+    return this.config.provider
   }
 
   get maxEmbeddingsPerCall(): number {
-    return this.config.maxEmbeddingsPerCall ?? 2048;
+    return this.config.maxEmbeddingsPerCall ?? 2048
   }
 
   get supportsParallelCalls(): boolean {
-    return this.config.supportsParallelCalls ?? true;
+    return this.config.supportsParallelCalls ?? true
   }
 
   constructor(
     modelId: OpenAICompatibleEmbeddingModelId,
     config: OpenAICompatibleEmbeddingConfig,
   ) {
-    this.modelId = modelId;
-    this.config = config;
+    this.modelId = modelId
+    this.config = config
   }
 
   private get providerOptionsName(): string {
-    return this.config.provider.split('.')[0].trim();
+    return this.config.provider.split('.')[0].trim()
   }
 
   async doEmbed({
@@ -88,16 +76,16 @@ export class OpenAICompatibleEmbeddingModel
       provider: 'openai-compatible',
       providerOptions,
       schema: openaiCompatibleEmbeddingProviderOptions,
-    });
+    })
     const providerOptionsResult = await parseProviderOptions({
       provider: this.providerOptionsName,
       providerOptions,
       schema: openaiCompatibleEmbeddingProviderOptions,
-    });
+    })
     const compatibleOptions = Object.assign(
       baseOptionsResult ?? {},
       providerOptionsResult ?? {},
-    );
+    )
 
     if (values.length > this.maxEmbeddingsPerCall) {
       throw new TooManyEmbeddingValuesForCallError({
@@ -105,7 +93,7 @@ export class OpenAICompatibleEmbeddingModel
         modelId: this.modelId,
         maxEmbeddingsPerCall: this.maxEmbeddingsPerCall,
         values,
-      });
+      })
     }
 
     const {
@@ -133,16 +121,16 @@ export class OpenAICompatibleEmbeddingModel
       ),
       abortSignal,
       fetch: this.config.fetch,
-    });
+    })
 
     return {
-      embeddings: response.data.map(item => item.embedding),
+      embeddings: response.data.map((item) => item.embedding),
       usage: response.usage
         ? { tokens: response.usage.prompt_tokens }
         : undefined,
       providerMetadata: response.providerMetadata,
       response: { headers: responseHeaders, body: rawValue },
-    };
+    }
   }
 }
 
@@ -154,4 +142,4 @@ const openaiTextEmbeddingResponseSchema = z.object({
   providerMetadata: z
     .record(z.string(), z.record(z.string(), z.any()))
     .optional(),
-});
+})

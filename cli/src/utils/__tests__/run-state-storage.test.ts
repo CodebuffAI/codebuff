@@ -10,13 +10,18 @@ import {
   saveChatState,
   loadMostRecentChatState,
   clearChatState,
+  isValidChatId,
 } from '../run-state-storage'
 import type { ChatMessage, ContentBlock } from '../../types/chat'
 import type { RunState } from '@openbuff/sdk'
 
 // Mock the project-files module
 const mockProjectDataDir = path.join(os.tmpdir(), 'codebuff-test-project')
-const mockCurrentChatDir = path.join(mockProjectDataDir, 'chats', 'test-chat-123')
+const mockCurrentChatDir = path.join(
+  mockProjectDataDir,
+  'chats',
+  'test-chat-123',
+)
 
 // Mock the module before importing
 const originalGetProjectDataDir = () => mockProjectDataDir
@@ -47,7 +52,15 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'agent', agentId: 'agent-1', agentName: 'TestAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
+            {
+              type: 'agent',
+              agentId: 'agent-1',
+              agentName: 'TestAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
           ],
         },
       ]
@@ -65,7 +78,13 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'tool', toolCallId: 'tool-1', toolName: 'glob', input: {}, output: '' },
+            {
+              type: 'tool',
+              toolCallId: 'tool-1',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
           ],
         },
       ]
@@ -91,7 +110,13 @@ describe('run-state-storage', () => {
               content: '',
               status: 'complete',
               blocks: [
-                { type: 'tool', toolCallId: 'nested-tool', toolName: 'glob', input: {}, output: '' },
+                {
+                  type: 'tool',
+                  toolCallId: 'nested-tool',
+                  toolName: 'glob',
+                  input: {},
+                  output: '',
+                },
                 {
                   type: 'agent',
                   agentId: 'child-agent',
@@ -100,7 +125,13 @@ describe('run-state-storage', () => {
                   content: '',
                   status: 'complete',
                   blocks: [
-                    { type: 'tool', toolCallId: 'deep-tool', toolName: 'glob', input: {}, output: '' },
+                    {
+                      type: 'tool',
+                      toolCallId: 'deep-tool',
+                      toolName: 'glob',
+                      input: {},
+                      output: '',
+                    },
                   ],
                 },
               ],
@@ -147,8 +178,22 @@ describe('run-state-storage', () => {
           timestamp: new Date().toISOString(),
           blocks: [
             { type: 'text', content: 'Some text' },
-            { type: 'agent', agentId: 'agent-1', agentName: 'TestAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
-            { type: 'tool', toolCallId: 'tool-1', toolName: 'glob', input: {}, output: '' },
+            {
+              type: 'agent',
+              agentId: 'agent-1',
+              agentName: 'TestAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
+            {
+              type: 'tool',
+              toolCallId: 'tool-1',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
           ],
         },
       ]
@@ -168,7 +213,15 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'agent', agentId: 'shared-id', agentName: 'TestAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
+            {
+              type: 'agent',
+              agentId: 'shared-id',
+              agentName: 'TestAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
           ],
         },
         {
@@ -177,7 +230,13 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'tool', toolCallId: 'shared-id', toolName: 'glob', input: {}, output: '' },
+            {
+              type: 'tool',
+              toolCallId: 'shared-id',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
           ],
         },
       ]
@@ -185,7 +244,7 @@ describe('run-state-storage', () => {
       const ids = getAllToggleIdsFromMessages(messages)
 
       // Current implementation returns all occurrences without deduplication
-      expect(ids.filter(id => id === 'shared-id')).toHaveLength(2)
+      expect(ids.filter((id) => id === 'shared-id')).toHaveLength(2)
     })
   })
 
@@ -202,6 +261,24 @@ describe('run-state-storage', () => {
     test('returns path with correct filename', () => {
       const testPath = path.join(mockCurrentChatDir, 'chat-messages.json')
       expect(testPath).toContain('chat-messages.json')
+    })
+  })
+
+  describe('chat id containment', () => {
+    test('accepts a single chat directory name', () => {
+      expect(isValidChatId('2026-07-12T10-30-00.000Z')).toBe(true)
+    })
+
+    test.each([
+      '../other-project',
+      '../../secrets',
+      'nested/chat',
+      '/absolute/chat',
+      '.',
+      '..',
+      '   ',
+    ])('rejects unsafe chat id %s', (chatId) => {
+      expect(isValidChatId(chatId)).toBe(false)
     })
   })
 
@@ -258,7 +335,13 @@ describe('run-state-storage', () => {
               status: 'complete',
               blocks: [
                 { type: 'text', content: 'Nested content' },
-                { type: 'tool', toolCallId: 'tool-xyz', toolName: 'glob', input: {}, output: '' },
+                {
+                  type: 'tool',
+                  toolCallId: 'tool-xyz',
+                  toolName: 'glob',
+                  input: {},
+                  output: '',
+                },
               ],
             },
           ],
@@ -315,7 +398,13 @@ describe('run-state-storage', () => {
                 content: '',
                 status: 'complete',
                 blocks: [
-                  { type: 'tool', toolCallId: 'deep-tool', toolName: 'glob', input: {}, output: '' },
+                  {
+                    type: 'tool',
+                    toolCallId: 'deep-tool',
+                    toolName: 'glob',
+                    input: {},
+                    output: '',
+                  },
                 ],
               },
             ],
@@ -349,9 +438,31 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'agent', agentId: 'first', agentName: 'FirstAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
-            { type: 'tool', toolCallId: 'second', toolName: 'glob', input: {}, output: '' },
-            { type: 'agent', agentId: 'third', agentName: 'ThirdAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
+            {
+              type: 'agent',
+              agentId: 'first',
+              agentName: 'FirstAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
+            {
+              type: 'tool',
+              toolCallId: 'second',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
+            {
+              type: 'agent',
+              agentId: 'third',
+              agentName: 'ThirdAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
           ],
         },
       ]

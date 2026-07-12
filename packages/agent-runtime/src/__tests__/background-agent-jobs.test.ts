@@ -7,6 +7,8 @@ import {
   appendBackgroundAgentChunk,
   getBackgroundAgentJob,
   readNewBackgroundAgentChunks,
+  takeDroppedBackgroundAgentChunkCount,
+  cancelBackgroundAgentJob,
   __clearBackgroundAgentJobsForTest,
 } from '../util/background-agent-jobs'
 
@@ -190,6 +192,28 @@ describe('background-agent-jobs registry', () => {
     expect(job.readOffset).toBeGreaterThanOrEqual(0)
     const polled = readNewBackgroundAgentChunks(job)
     expect(polled.length).toBe(job.chunks.length)
+    expect(takeDroppedBackgroundAgentChunkCount(job)).toBe(10)
+    expect(takeDroppedBackgroundAgentChunkCount(job)).toBe(0)
+  })
+
+  test('cancelBackgroundAgentJob aborts a running coroutine and preserves cancelled status', async () => {
+    const job = allocateBackgroundAgentJob({
+      agentType: 'basher',
+      agentName: 'Basher',
+    })
+    let rejectPromise!: (reason: unknown) => void
+    attachBackgroundAgentPromise(
+      job,
+      new Promise((_resolve, reject) => {
+        rejectPromise = reject
+      }),
+    )
+    const result = cancelBackgroundAgentJob(job.jobId)
+    expect(result).toEqual({ cancelled: true, status: 'cancelled' })
+    expect(job.abortController.signal.aborted).toBe(true)
+    rejectPromise(new Error('aborted'))
+    await Promise.resolve()
+    expect(job.status).toBe('cancelled')
   })
 
   test('a pre-allocated jobId is available before the promise attaches', () => {

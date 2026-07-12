@@ -4,6 +4,7 @@ import os from 'os'
 import path from 'path'
 
 import { setProjectRoot } from '../../project-files'
+import { useChatStore } from '../../state/chat-store'
 import { useFeedbackStore } from '../../state/feedback-store'
 import {
   COMMAND_REGISTRY,
@@ -308,6 +309,7 @@ describe('command factory pattern', () => {
 
     afterEach(() => {
       fs.rmSync(tmpRoot, { recursive: true, force: true })
+      useChatStore.getState().setAgentMode('DEFAULT')
     })
 
     test('resume-plan reads artifacts into the prompt', () => {
@@ -326,9 +328,9 @@ describe('command factory pattern', () => {
       resumeCmd!.handler(params, 'auth-refresh')
 
       expect(sendMessage).toHaveBeenCalledTimes(1)
-      const calls = sendMessage.mock.calls as unknown as Array<[
-        { content: string; agentMode: string },
-      ]>
+      const calls = sendMessage.mock.calls as unknown as Array<
+        [{ content: string; agentMode: string }]
+      >
       const call = calls[0][0]
       expect(call.agentMode).toBe('EXECUTE_PLAN')
       expect(call.content).toContain('.agents/sessions/auth-refresh')
@@ -343,6 +345,23 @@ describe('command factory pattern', () => {
       )
       expect(call.content).not.toContain('Read STATUS.md and PLAN.md first')
       expect(call.content).toContain('update_plan_status')
+    })
+
+    test('resume-plan switches the persistent agent mode to EXECUTE_PLAN', () => {
+      writeArtifact('auth-refresh', 'PLAN.md', '# Plan\n- [ ] task one')
+
+      // Start from a non-execute mode to prove the toggle actually switches.
+      useChatStore.getState().setAgentMode('PLAN')
+
+      const resumeCmd = COMMAND_REGISTRY.find((c) => c.name === 'resume-plan')
+      const params = createMockParams({
+        inputValue: '/resume-plan auth-refresh',
+        sendMessage: mock(async () => {}),
+      })
+
+      resumeCmd!.handler(params, 'auth-refresh')
+
+      expect(useChatStore.getState().agentMode).toBe('EXECUTE_PLAN')
     })
 
     test('resume-plan with missing session does not send', () => {
@@ -374,9 +393,9 @@ describe('command factory pattern', () => {
 
       updateCmd!.handler(params, '.agents/sessions/foo API changed')
 
-      const calls = sendMessage.mock.calls as unknown as Array<[
-        { content: string; agentMode: string },
-      ]>
+      const calls = sendMessage.mock.calls as unknown as Array<
+        [{ content: string; agentMode: string }]
+      >
       const call = calls[0][0]
       expect(call.content).toContain('User note/context: API changed')
       expect(call.content).toContain('spec body')
@@ -397,9 +416,9 @@ describe('command factory pattern', () => {
 
       lessonsCmd!.handler(params, 'foo always run tests')
 
-      const calls = sendMessage.mock.calls as unknown as Array<[
-        { content: string; agentMode: string },
-      ]>
+      const calls = sendMessage.mock.calls as unknown as Array<
+        [{ content: string; agentMode: string }]
+      >
       const call = calls[0][0]
       expect(call.content).toContain(
         'User note/context to incorporate: always run tests',
@@ -425,9 +444,9 @@ describe('command factory pattern', () => {
 
       expect(sendMessage).not.toHaveBeenCalled()
       expect(setMessages).toHaveBeenCalled()
-      const setMessagesCalls = setMessages.mock.calls as unknown as Array<[
-        (prev: unknown[]) => Array<{ content: string }>,
-      ]>
+      const setMessagesCalls = setMessages.mock.calls as unknown as Array<
+        [(prev: unknown[]) => Array<{ content: string }>]
+      >
       const updater = setMessagesCalls[0][0]
       const next = updater([])
       const systemMessage = next[next.length - 1]

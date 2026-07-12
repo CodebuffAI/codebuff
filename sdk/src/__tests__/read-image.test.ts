@@ -24,7 +24,10 @@ function createMockFs(files: Record<string, Buffer>): CodebuffFileSystem {
     readFile: async (filePath: PathLike) => {
       const file = files[String(filePath)]
       if (file) return file
-      throw createNodeError(`ENOENT: no such file or directory: ${filePath}`, 'ENOENT')
+      throw createNodeError(
+        `ENOENT: no such file or directory: ${filePath}`,
+        'ENOENT',
+      )
     },
     stat: async (filePath: PathLike) => {
       const file = files[String(filePath)]
@@ -37,10 +40,14 @@ function createMockFs(files: Record<string, Buffer>): CodebuffFileSystem {
           mtimeMs: Date.now(),
         }
       }
-      throw createNodeError(`ENOENT: no such file or directory: ${filePath}`, 'ENOENT')
+      throw createNodeError(
+        `ENOENT: no such file or directory: ${filePath}`,
+        'ENOENT',
+      )
     },
     readdir: async () => [],
     mkdir: async () => undefined,
+    realpath: async (filePath: PathLike) => String(filePath),
     unlink: async () => undefined,
     writeFile: async () => undefined,
   } as unknown as CodebuffFileSystem

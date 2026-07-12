@@ -3,6 +3,8 @@ import { sleep } from '@codebuff/common/util/promise'
 import {
   getBackgroundAgentJob,
   readNewBackgroundAgentChunks,
+  takeDroppedBackgroundAgentChunkCount,
+  cancelBackgroundAgentJob,
   type BackgroundAgentChunk,
 } from '../../../util/background-agent-jobs'
 
@@ -44,7 +46,8 @@ export const handleCheckBackgroundAgent = (async ({
 }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   await previousToolCallFinished
 
-  const { jobId, wait_for, timeout_seconds = 0 } = toolCall.input
+  const { jobId, wait_for, timeout_seconds = 0, cancel = false } =
+    toolCall.input
   const job = getBackgroundAgentJob(jobId)
   if (!job) {
     return {
@@ -53,6 +56,32 @@ export const handleCheckBackgroundAgent = (async ({
         value: {
           jobId,
           errorMessage: `No background agent job found with id "${jobId}".`,
+        },
+      } as unknown as CodebuffToolOutput<ToolName>,
+    }
+  }
+
+  if (cancel) {
+    const cancelResult = cancelBackgroundAgentJob(jobId)
+    if ('errorMessage' in cancelResult) {
+      return {
+        output: {
+          type: 'json',
+          value: { jobId, errorMessage: cancelResult.errorMessage },
+        } as unknown as CodebuffToolOutput<ToolName>,
+      }
+    }
+    const newChunks = readNewBackgroundAgentChunks(job)
+    return {
+      output: {
+        type: 'json',
+        value: {
+          jobId,
+          status: job.status,
+          newChunks,
+          cancelled: true,
+          droppedChunks: takeDroppedBackgroundAgentChunkCount(job),
+          error: job.error,
         },
       } as unknown as CodebuffToolOutput<ToolName>,
     }
@@ -70,6 +99,10 @@ export const handleCheckBackgroundAgent = (async ({
           newChunks,
           ...(job.status === 'completed' ? { result: job.result } : {}),
           ...(job.status === 'error' ? { error: job.error } : {}),
+          ...(job.status === 'cancelled'
+            ? { error: job.error, cancelled: true }
+            : {}),
+          droppedChunks: takeDroppedBackgroundAgentChunkCount(job),
         },
       } as unknown as CodebuffToolOutput<ToolName>,
     }
@@ -102,6 +135,10 @@ export const handleCheckBackgroundAgent = (async ({
         newChunks: chunks,
         ...(job.status === 'completed' ? { result: job.result } : {}),
         ...(job.status === 'error' ? { error: job.error } : {}),
+        ...(job.status === 'cancelled'
+          ? { error: job.error, cancelled: true }
+          : {}),
+        droppedChunks: takeDroppedBackgroundAgentChunkCount(job),
         matched,
         killed: false,
       },

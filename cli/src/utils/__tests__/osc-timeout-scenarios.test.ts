@@ -111,16 +111,16 @@ describe('OSC Timeout Protection Scenarios', () => {
       // Users shouldnt wait more than 3 seconds for theme detection
       expect(globalTimeout).toBeLessThanOrEqual(3000)
 
-      // But it should be long enough to actually work
-      expect(globalTimeout).toBeGreaterThanOrEqual(1000)
+      // Still leaves enough room for two bounded local terminal probes.
+      expect(globalTimeout).toBeGreaterThanOrEqual(500)
     })
 
     test('query timeout allows for network latency in SSH scenarios', () => {
       const queryTimeout = getQueryOscTimeout()
 
-      // SSH terminals might have up to 200-300ms latency
-      // Query timeout should accommodate this plus some buffer
-      expect(queryTimeout).toBeGreaterThanOrEqual(300)
+      // Keep one probe useful on moderate-latency terminals without imposing
+      // a one-second first-paint penalty when both probes are unsupported.
+      expect(queryTimeout).toBeGreaterThanOrEqual(200)
     })
   })
 

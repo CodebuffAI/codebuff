@@ -50,10 +50,7 @@ export function filterSupplementalFiles(
 /**
  * Clone a repo and fetch all necessary commits for validation
  */
-function setupRepoForValidation(
-  repoUrl: string,
-  parentShas: string[],
-): string {
+function setupRepoForValidation(repoUrl: string, parentShas: string[]): string {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-filter-'))
   const repoDir = path.join(tempDir, 'repo')
 
@@ -63,7 +60,7 @@ function setupRepoForValidation(
   // Fetch all the parent commits we need to check
   const uniqueShas = [...new Set(parentShas)]
   console.log(`Fetching ${uniqueShas.length} commits...`)
-  
+
   for (const sha of uniqueShas) {
     try {
       execSync(`git fetch origin ${sha}`, {
@@ -96,8 +93,13 @@ function cleanupRepo(repoDir: string): void {
 function processEvalFile(
   evalFilePath: string,
   dryRun: boolean,
-): { totalRemoved: number; commitUpdates: { id: string; removed: string[] }[] } {
-  const evalData: EvalDataV2 = JSON.parse(fs.readFileSync(evalFilePath, 'utf-8'))
+): {
+  totalRemoved: number
+  commitUpdates: { id: string; removed: string[] }[]
+} {
+  const evalData: EvalDataV2 = JSON.parse(
+    fs.readFileSync(evalFilePath, 'utf-8'),
+  )
   const commitUpdates: { id: string; removed: string[] }[] = []
   let totalRemoved = 0
 
@@ -151,10 +153,14 @@ function main() {
   const evalFiles = args.filter((arg) => !arg.startsWith('--'))
 
   if (evalFiles.length === 0) {
-    console.log('Usage: bun run filter-supplemental-files.ts [--dry-run] <eval-file.json> ...')
+    console.log(
+      'Usage: bun run filter-supplemental-files.ts [--dry-run] <eval-file.json> ...',
+    )
     console.log('')
     console.log('Options:')
-    console.log('  --dry-run  Show what would be removed without modifying files')
+    console.log(
+      '  --dry-run  Show what would be removed without modifying files',
+    )
     console.log('')
     console.log('Examples:')
     console.log('  bun run filter-supplemental-files.ts eval-manifold2.json')
@@ -162,13 +168,15 @@ function main() {
     process.exit(1)
   }
 
-  console.log(`${dryRun ? '[DRY RUN] ' : ''}Processing ${evalFiles.length} eval file(s)...\n`)
+  console.log(
+    `${dryRun ? '[DRY RUN] ' : ''}Processing ${evalFiles.length} eval file(s)...\n`,
+  )
 
   let grandTotalRemoved = 0
 
   for (const evalFile of evalFiles) {
     const evalFilePath = path.resolve(evalFile)
-    
+
     if (!fs.existsSync(evalFilePath)) {
       console.log(`⚠️  File not found: ${evalFile}`)
       continue
@@ -190,13 +198,17 @@ function main() {
           console.log(`  - ${file}`)
         }
       }
-      console.log(`\n${dryRun ? 'Would remove' : 'Removed'} ${totalRemoved} total files from ${commitUpdates.length} commits`)
+      console.log(
+        `\n${dryRun ? 'Would remove' : 'Removed'} ${totalRemoved} total files from ${commitUpdates.length} commits`,
+      )
       grandTotalRemoved += totalRemoved
     }
   }
 
   console.log(`\n${'='.repeat(50)}`)
-  console.log(`${dryRun ? '[DRY RUN] Would remove' : 'Removed'} ${grandTotalRemoved} total supplementalFiles across all files`)
+  console.log(
+    `${dryRun ? '[DRY RUN] Would remove' : 'Removed'} ${grandTotalRemoved} total supplementalFiles across all files`,
+  )
 
   if (dryRun && grandTotalRemoved > 0) {
     console.log('\nRun without --dry-run to apply changes.')

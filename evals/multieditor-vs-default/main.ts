@@ -65,9 +65,7 @@ async function main() {
   const suitePath = resolve(
     process.argv[2] ?? 'multieditor-vs-default/sample-suite.json',
   )
-  const resultsPath = process.argv[3]
-    ? resolve(process.argv[3])
-    : undefined
+  const resultsPath = process.argv[3] ? resolve(process.argv[3]) : undefined
 
   const suite = multieditorEvalSuiteSchema.parse(await loadJson(suitePath))
   const rawResults = resultsPath ? await loadJson(resultsPath) : []

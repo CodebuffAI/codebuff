@@ -89,13 +89,22 @@ export type Base2ActiveWorkState = Base2GateState & {
    */
   staticReviewerJobId?: string
   /**
-   * M3 (R1a) — true after the automated pre-edit security-reviewer gate has
+   * Legacy alias for securityReviewGateDone retained for serialized-state
+   * compatibility. The automated security gate is post-edit.
+   */
+  preEditSecurityReviewDone?: boolean
+  /**
+   * True after the automated post-edit security-reviewer gate has
    * fired for the current pending gate file set. Reset to false whenever the
    * pending gate file set changes (detected via auxGatesLastPendingFiles vs
    * gateFileSetsEqual). Backward-compatible: older serialized state lacks
    * this field (treated as false).
    */
-  preEditSecurityReviewDone?: boolean
+  securityReviewGateDone?: boolean
+  /** Number of consecutive final-reviewer crashes for the pending file set. */
+  reviewerCrashCount?: number
+  /** Durable reason when the user explicitly authorizes a reviewer bypass. */
+  reviewerGateBypassReason?: string
   /**
    * M3 (R1b) — true after the automated post-edit test-writer gate has fired
    * for the current pending gate file set. Reset on pending-file-set change.

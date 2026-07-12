@@ -1297,4 +1297,98 @@ describe('Run Cancellation Handling', () => {
       (lastMessage.content[0] as { type: 'text'; text: string }).text,
     ).toContain('User interrupted the response')
   })
+
+  it('[MUT-H01] timeout aborts shared execution, blocks new tools, and awaits cleanup', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let observedSignal: AbortSignal | undefined
+    let releaseCleanup!: () => void
+    const cleanupGate = new Promise<void>((resolve) => {
+      releaseCleanup = resolve
+    })
+    let signalReady!: () => void
+    const signalObserved = new Promise<void>((resolve) => {
+      signalReady = resolve
+    })
+    let blockedToolCall = false
+    const lateChunks: string[] = []
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        observedSignal = params.signal
+        signalReady()
+        await new Promise<void>((resolve) => {
+          if (params.signal.aborted) return resolve()
+          params.signal.addEventListener('abort', () => resolve(), {
+            once: true,
+          })
+        })
+        try {
+          await params.requestToolCall({
+            userInputId: params.promptId,
+            toolName: 'end_turn',
+            input: {},
+          })
+        } catch {
+          blockedToolCall = true
+        }
+        await cleanupGate
+        await params.sendAction({
+          action: {
+            type: 'response-chunk',
+            userInputId: params.promptId,
+            chunk: 'late chunk',
+          },
+        })
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
+        return {
+          sessionState,
+          output: { type: 'lastMessage' as const, value: [] },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      runTimeoutMs: 5,
+    })
+    let publiclySettled = false
+    const runPromise = client
+      .run({
+        agent: 'base2',
+        prompt: 'time out',
+        handleStreamChunk: (chunk) => {
+          if (typeof chunk === 'string') lateChunks.push(chunk)
+        },
+      })
+      .then((result) => {
+        publiclySettled = true
+        return result
+      })
+
+    await signalObserved
+    await new Promise((resolve) => setTimeout(resolve, 15))
+    expect(observedSignal?.aborted).toBe(true)
+    expect(blockedToolCall).toBe(true)
+    expect(publiclySettled).toBe(false)
+
+    releaseCleanup()
+    const result = await runPromise
+    expect(result.output).toMatchObject({
+      type: 'error',
+      message: 'Run timed out after 5ms',
+    })
+    expect(lateChunks).toEqual([])
+  })
 })

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { applyPatch } from 'diff'
 
 import { processEditTransaction } from '../process-edit-transaction'
+import { getContentHash } from '@codebuff/common/util/content-hash'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -54,7 +55,9 @@ describe('processEditTransaction', () => {
     if ('files' in result) {
       expect(result.files).toHaveLength(2)
       const helper = result.files.find((file) => file.path === 'src/helper.ts')
-      const test = result.files.find((file) => file.path === 'src/helper.test.ts')
+      const test = result.files.find(
+        (file) => file.path === 'src/helper.test.ts',
+      )
       expect(helper?.content).toBe('export const value = 2\n')
       expect(test?.content).toBe('expect(value).toBe(2)\n')
       expect(applyPatch('export const value = 1\n', helper!.patch)).toBe(
@@ -486,9 +489,146 @@ describe('processEditTransaction', () => {
     }
   })
 
+  it('dispatches language-native structured imports beyond TypeScript', async () => {
+    const cases = [
+      {
+        path: 'app/service.py',
+        initial:
+          '"""Service module."""\n\nfrom __future__ import annotations\nfrom app.base import Base\n\nclass Service(Base):\n    pass\n',
+        statement: 'from app.models import User',
+        expected:
+          '"""Service module."""\n\nfrom __future__ import annotations\nfrom app.base import Base\nfrom app.models import User\n\nclass Service(Base):\n    pass\n',
+      },
+      {
+        path: 'app/new_service.py',
+        initial: '"""Service module."""\n\nclass Service:\n    pass\n',
+        statement: 'from app.models import User',
+        expected:
+          '"""Service module."""\nfrom app.models import User\n\nclass Service:\n    pass\n',
+      },
+      {
+        path: 'src/lib.rs',
+        initial: 'use crate::base::Base;\n\npub fn run() {}\n',
+        statement: 'use crate::models::User;',
+        expected:
+          'use crate::base::Base;\nuse crate::models::User;\n\npub fn run() {}\n',
+      },
+      {
+        path: 'src/new_lib.rs',
+        initial:
+          '#![forbid(unsafe_code)]\n//! Crate documentation.\n\npub fn run() {}\n',
+        statement: 'use crate::models::User;',
+        expected:
+          '#![forbid(unsafe_code)]\n//! Crate documentation.\nuse crate::models::User;\n\npub fn run() {}\n',
+      },
+      {
+        path: 'cmd/main.go',
+        initial: 'package main\n\nfunc main() {}\n',
+        statement: 'import "fmt"',
+        expected: 'package main\nimport "fmt"\n\nfunc main() {}\n',
+      },
+      {
+        path: 'src/App.java',
+        initial: 'package app;\n\npublic class App {}\n',
+        statement: 'import app.models.User;',
+        expected:
+          'package app;\nimport app.models.User;\n\npublic class App {}\n',
+      },
+      {
+        path: 'src/main.cpp',
+        initial: '#include "base.h"\n\nint main() {}\n',
+        statement: '#include "user.h"',
+        expected: '#include "base.h"\n#include "user.h"\n\nint main() {}\n',
+      },
+      {
+        path: 'scripts/player.gd',
+        initial: 'extends Node\n\nfunc _ready():\n    pass\n',
+        statement: 'const Helpers = preload("res://scripts/helpers.gd")',
+        expected:
+          'extends Node\nconst Helpers = preload("res://scripts/helpers.gd")\n\nfunc _ready():\n    pass\n',
+      },
+      {
+        path: 'src/App.php',
+        initial:
+          '<?php\n\n/* bootstrap */\ndeclare(strict_types=1);\n\n// domain namespace\nnamespace App {\n\nfinal class App {}\n}\n',
+        statement: 'use App\\Models\\User;',
+        expected:
+          '<?php\n\n/* bootstrap */\ndeclare(strict_types=1);\n\n// domain namespace\nnamespace App {\nuse App\\Models\\User;\n\nfinal class App {}\n}\n',
+      },
+    ]
+
+    for (const item of cases) {
+      const result = await processEditTransaction({
+        initialContentByPath: new Map([[item.path, item.initial]]),
+        logger,
+        edits: [
+          {
+            type: 'structured',
+            path: item.path,
+            operation: {
+              kind: 'insert_import',
+              importStatement: item.statement,
+            },
+          },
+        ],
+      })
+      expect('files' in result).toBe(true)
+      if ('files' in result) expect(result.files[0].content).toBe(item.expected)
+    }
+  })
+
+  it('inserts and removes imports inside an existing Go import block', async () => {
+    const initial = [
+      'package main',
+      '',
+      'import (',
+      '\t"os"',
+      ')',
+      '',
+      'func main() {}',
+      '',
+    ].join('\n')
+    const inserted = await processEditTransaction({
+      initialContentByPath: new Map([['cmd/main.go', initial]]),
+      logger,
+      edits: [
+        {
+          type: 'structured',
+          path: 'cmd/main.go',
+          operation: { kind: 'insert_import', importStatement: 'import "fmt"' },
+        },
+      ],
+    })
+    expect('files' in inserted).toBe(true)
+    if (!('files' in inserted)) return
+    expect(inserted.files[0].content).toContain('import (\n\t"os"\n\t"fmt"\n)')
+
+    const removed = await processEditTransaction({
+      initialContentByPath: new Map([
+        ['cmd/main.go', inserted.files[0].content],
+      ]),
+      logger,
+      edits: [
+        {
+          type: 'structured',
+          path: 'cmd/main.go',
+          operation: { kind: 'remove_import', moduleSpecifier: 'os' },
+        },
+      ],
+    })
+    expect('files' in removed).toBe(true)
+    if ('files' in removed) {
+      expect(removed.files[0].content).not.toContain('"os"')
+      expect(removed.files[0].content).toContain('"fmt"')
+    }
+  })
+
   it('aborts when structured insert_import would be a no-op duplicate', async () => {
     const initialContentByPath = new Map<string, string | null>([
-      ['src/helper.ts', "import { value } from './value'\n\nexport { value }\n"],
+      [
+        'src/helper.ts',
+        "import { value } from './value'\n\nexport { value }\n",
+      ],
     ])
 
     const result = await processEditTransaction({
@@ -523,7 +663,10 @@ describe('processEditTransaction', () => {
 
   it('aborts invalid structured remove_import payloads at runtime', async () => {
     const initialContentByPath = new Map<string, string | null>([
-      ['src/helper.ts', "import { value } from './value'\n\nexport { value }\n"],
+      [
+        'src/helper.ts',
+        "import { value } from './value'\n\nexport { value }\n",
+      ],
     ])
 
     const result = await processEditTransaction({
@@ -592,9 +735,9 @@ describe('processEditTransaction', () => {
     if ('files' in result) {
       expect(result.files).toHaveLength(1)
       expect(result.files[0].content).toBe('export const value = 2\n')
-      expect(
-        applyPatch('const value = 1\n', result.files[0].patch),
-      ).toBe('export const value = 2\n')
+      expect(applyPatch('const value = 1\n', result.files[0].patch)).toBe(
+        'export const value = 2\n',
+      )
     }
   })
 
@@ -796,6 +939,64 @@ describe('processEditTransaction', () => {
     if ('error' in result) {
       expect(result.error).toContain('Atomic edit_transaction aborted')
       expect(result.error).toContain('oldString was not uniquely identifiable')
+    }
+  })
+
+  it('composes range, patch, and whole-file transaction primitives', async () => {
+    const initial = 'one\ntwo\nthree\n'
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/file.ts', initial]]),
+      logger,
+      edits: [
+        {
+          type: 'replace_range',
+          path: 'src/file.ts',
+          startLine: 2,
+          endLine: 2,
+          expectedHash: getContentHash('two'),
+          newContent: 'TWO',
+        },
+        {
+          type: 'patch',
+          path: 'src/file.ts',
+          diff: '@@ -1,3 +1,3 @@\n-one\n+ONE\n TWO\n three\n',
+        },
+        {
+          type: 'write_file',
+          path: 'src/file.ts',
+          content: 'final\n',
+        },
+      ],
+    })
+
+    expect('files' in result ? result.files[0]?.content : null).toBe('final\n')
+  })
+
+  it('rewrite_symbol replaces the contiguous preceding documentation comment', async () => {
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([
+        [
+          'src/file.ts',
+          '/** Old documentation. */\nexport function target() {\n  return 1\n}\n',
+        ],
+      ]),
+      logger,
+      edits: [
+        {
+          type: 'rewrite_symbol',
+          path: 'src/file.ts',
+          symbol: 'target',
+          content:
+            '/** New documentation. */\nexport function target() {\n  return 2\n}',
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files[0].content).toContain('/** New documentation. */')
+      expect(result.files[0].content).not.toContain('Old documentation')
+      expect(result.files[0].content).toContain('return 2')
     }
   })
 })

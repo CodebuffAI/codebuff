@@ -66,7 +66,11 @@ export function computeBackoffDelayMs(params: {
   baseDelayMs?: number
   jitter?: boolean
 }): number {
-  const { attempt, baseDelayMs = RETRY_BACKOFF_BASE_DELAY_MS, jitter = true } = params
+  const {
+    attempt,
+    baseDelayMs = RETRY_BACKOFF_BASE_DELAY_MS,
+    jitter = true,
+  } = params
 
   const exponent = attempt < 0 ? 0 : attempt
   const base = Math.min(

@@ -25,7 +25,6 @@ import type {
   UserModelMessage,
 } from 'ai'
 
-
 export function toContentString(msg: ModelMessage): string {
   const { content } = msg
   if (typeof content === 'string') return content
@@ -205,7 +204,9 @@ function convertUiMessage(
     ...(message.keepDuringTruncation !== undefined && {
       keepDuringTruncation: message.keepDuringTruncation,
     }),
-    ...(message.keepLastTags !== undefined && { keepLastTags: message.keepLastTags }),
+    ...(message.keepLastTags !== undefined && {
+      keepLastTags: message.keepLastTags,
+    }),
   })) as ModelMessageWithAuxiliaryData[]
 }
 
@@ -371,9 +372,7 @@ function messageContentHash(message: ModelMessageWithAuxiliaryData): string {
   if (typeof content === 'string') return quickHash(content)
   return quickHash(
     content
-      .map((p) =>
-        'text' in p && typeof p.text === 'string' ? p.text : p.type,
-      )
+      .map((p) => ('text' in p && typeof p.text === 'string' ? p.text : p.type))
       .join('\n'),
   )
 }
@@ -401,7 +400,11 @@ function messageContentHash(message: ModelMessageWithAuxiliaryData): string {
  */
 function findCacheAnchorIndices(
   aggregated: ModelMessageWithAuxiliaryData[],
-): Array<{ type: 'system' | 'stable-history' | 'tail'; index: number; reason: string }> {
+): Array<{
+  type: 'system' | 'stable-history' | 'tail'
+  index: number
+  reason: string
+}> {
   const anchors: Array<{
     type: 'system' | 'stable-history' | 'tail'
     index: number
@@ -626,8 +629,8 @@ export function systemMessage(
   params:
     | SystemContent
     | ({
-      content: SystemContent
-    } & Omit<SystemMessage, 'role' | 'content'>),
+        content: SystemContent
+      } & Omit<SystemMessage, 'role' | 'content'>),
 ): SystemMessage {
   if (typeof params === 'object' && 'content' in params) {
     return {
@@ -660,8 +663,8 @@ export function userMessage(
   params:
     | UserContent
     | ({
-      content: UserContent
-    } & Omit<UserMessage, 'role' | 'content'>),
+        content: UserContent
+      } & Omit<UserMessage, 'role' | 'content'>),
 ): UserMessage {
   if (typeof params === 'object' && 'content' in params) {
     return {
@@ -698,8 +701,8 @@ export function assistantMessage(
   params:
     | AssistantContent
     | ({
-      content: AssistantContent
-    } & Omit<AssistantMessage, 'role' | 'content'>),
+        content: AssistantContent
+      } & Omit<AssistantMessage, 'role' | 'content'>),
 ): AssistantMessage {
   if (typeof params === 'object' && 'content' in params) {
     return {
@@ -785,10 +788,10 @@ function sanitizeJsonToolResultValue(
 export function jsonToolResult<T extends JSONValue>(
   value: T,
 ): [
-    Extract<ToolResultOutput, { type: 'json' }> & {
-      value: T
-    },
-  ] {
+  Extract<ToolResultOutput, { type: 'json' }> & {
+    value: T
+  },
+] {
   // The ai SDK's `modelMessageSchema` accepts bare-array tool-result values,
   // so we sanitize directly without any top-level envelope. Recursion through
   // `sanitizeJsonToolResultValue` preserves nested arrays and drops

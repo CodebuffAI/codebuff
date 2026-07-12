@@ -19,6 +19,9 @@ interface SuggestionMenuProps {
   maxVisible: number
   prefix?: string
   onItemClick?: (index: number) => void
+  statusMessage?: string
+  statusIsError?: boolean
+  onRetry?: () => void
 }
 
 export const SuggestionMenu = ({
@@ -27,6 +30,9 @@ export const SuggestionMenu = ({
   maxVisible,
   prefix = '/',
   onItemClick,
+  statusMessage,
+  statusIsError = false,
+  onRetry,
 }: SuggestionMenuProps) => {
   const theme = useTheme()
   const { terminalWidth } = useTerminalDimensions()
@@ -43,7 +49,7 @@ export const SuggestionMenu = ({
     setHoveredIndex(null)
   }, [items])
 
-  if (items.length === 0) {
+  if (items.length === 0 && !statusMessage) {
     return null
   }
 
@@ -62,13 +68,13 @@ export const SuggestionMenu = ({
 
   // Calculate max label length for alignment
   const maxLabelLength = Math.max(
-    ...visibleItems.map(
-      (item) => effectivePrefix.length + item.label.length,
-    ),
+    0,
+    ...visibleItems.map((item) => effectivePrefix.length + item.label.length),
   )
 
   // Find the longest description to determine if we can use same-line layout
   const maxDescriptionLength = Math.max(
+    0,
     ...visibleItems.map((item) => item.description.length),
   )
 
@@ -86,7 +92,9 @@ export const SuggestionMenu = ({
     const descriptionColor = isHighlighted ? theme.foreground : theme.muted
     const highlightColor = theme.primary
 
-    const handleClick = onItemClick ? () => onItemClick(absoluteIndex) : undefined
+    const handleClick = onItemClick
+      ? () => onItemClick(absoluteIndex)
+      : undefined
     const handleMouseOver = () => {
       setHoveredIndex(absoluteIndex)
       setHasHoveredSinceOpen(true)
@@ -109,7 +117,9 @@ export const SuggestionMenu = ({
             paddingRight: 1,
             paddingTop: 0,
             paddingBottom: 0,
-            backgroundColor: isHighlighted ? theme.surfaceHover : theme.background,
+            backgroundColor: isHighlighted
+              ? theme.surfaceHover
+              : theme.background,
             width: '100%',
           }}
         >
@@ -126,7 +136,7 @@ export const SuggestionMenu = ({
               color={textColor}
               highlightColor={highlightColor}
             />
-            <span>{padding}  </span>
+            <span>{padding} </span>
             <HighlightedSubsequenceText
               text={item.description}
               indices={item.descriptionHighlightIndices}
@@ -150,7 +160,9 @@ export const SuggestionMenu = ({
             paddingRight: 1,
             paddingTop: 0,
             paddingBottom: 0,
-            backgroundColor: isHighlighted ? theme.surfaceHover : theme.background,
+            backgroundColor: isHighlighted
+              ? theme.surfaceHover
+              : theme.background,
             width: '100%',
           }}
         >
@@ -201,6 +213,23 @@ export const SuggestionMenu = ({
       }}
       onMouseOut={() => setHoveredIndex(null)}
     >
+      {statusMessage ? (
+        <Button
+          onClick={onRetry}
+          style={{
+            paddingLeft: 1,
+            paddingRight: 1,
+            paddingTop: 0,
+            paddingBottom: 0,
+            width: '100%',
+          }}
+        >
+          <text style={{ fg: statusIsError ? theme.error : theme.muted }}>
+            {statusMessage}
+            {onRetry ? ' (click to retry)' : ''}
+          </text>
+        </Button>
+      ) : null}
       {visibleItems.map(renderSuggestionItem)}
     </box>
   )

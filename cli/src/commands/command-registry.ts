@@ -7,10 +7,12 @@ import {
 } from '@codebuff/common/util/plan-artifacts'
 
 import { registerPlanTimelineCommand } from './plan-timeline'
+import { handleIndexCommand } from './index-command'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInfoCommand } from './info'
 import { handleInitializationFlowLocally } from './init'
+import { buildSafeGitCommand } from './git-command-args'
 import {
   formatArtifactsForPrompt,
   getActivePlanSessionSlug,
@@ -31,6 +33,12 @@ import {
 import { runBashCommand } from './router'
 import { useThemeStore } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
+import { getProjectRoot } from '../project-files'
+import {
+  getAgentRegistryDiagnostics,
+  getLoadedMCPServers,
+  getProjectAgentTrustStatus,
+} from '../utils/local-agent-registry'
 import { useFeedbackStore } from '../state/feedback-store'
 import { AGENT_MODES } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
@@ -43,7 +51,11 @@ import {
 } from '../utils/openbuff-provider'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { fuzzyMatch } from '../utils/fuzzy-match'
-import { getSkillByName } from '../utils/skill-registry'
+import {
+  getProjectSkillTrustStatus,
+  getSkillByName,
+  getSkillCount,
+} from '../utils/skill-registry'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue, PendingAttachment } from '../types/store'
@@ -262,10 +274,10 @@ const formatPlanListReport = (): string => {
       session.progress.total > 0
         ? ` ${session.progress.done}/${session.progress.total} done`
         : ''
-    const current = session.currentTask ? `  current: "${session.currentTask}"` : ''
-    lines.push(
-      `${activeMarker}${badge} ${session.slug}${progress}${current}`,
-    )
+    const current = session.currentTask
+      ? `  current: "${session.currentTask}"`
+      : ''
+    lines.push(`${activeMarker}${badge} ${session.slug}${progress}${current}`)
   }
   if (active) {
     lines.push('', `Active session: ${active}`)
@@ -351,25 +363,32 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'diff',
     handler: (params, args) => {
       const trimmedArgs = args.trim()
-      // /diff with no args: unstaged diff. With args: pass through (e.g. --cached, --stat).
-      const command = trimmedArgs
-        ? `git diff ${trimmedArgs}`
-        : 'git diff'
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
-      runBashCommand(command)
+      try {
+        runBashCommand(buildSafeGitCommand('diff', trimmedArgs))
+      } catch (error) {
+        appendLocalMessage(
+          params,
+          `/diff: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
     },
   }),
   defineCommandWithArgs({
     name: 'changes',
     handler: (params, args) => {
       const trimmedArgs = args.trim()
-      const command = trimmedArgs
-        ? `git status ${trimmedArgs}`
-        : 'git status --short'
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
-      runBashCommand(command)
+      try {
+        runBashCommand(buildSafeGitCommand('status', trimmedArgs, ['--short']))
+      } catch (error) {
+        appendLocalMessage(
+          params,
+          `/changes: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
     },
   }),
   defineCommand({
@@ -419,8 +438,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
         useChatStore.getState().pastMessageSnapshots.length > 0
       useChatStore.getState().undoMessages()
       const message = hadSnapshot
-        ? 'Reverted to previous conversation state.'
-        : 'Nothing to undo.'
+        ? 'Reverted conversation/message history. Files were not changed.'
+        : 'Nothing to undo in conversation/message history. Files were not changed.'
       params.setMessages((prev) => [...prev, getSystemMessage(message)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
@@ -433,8 +452,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
         useChatStore.getState().futureMessageSnapshots.length > 0
       useChatStore.getState().redoMessages()
       const message = hadSnapshot
-        ? 'Re-applied undone conversation state.'
-        : 'Nothing to redo.'
+        ? 'Re-applied conversation/message history. Files were not changed.'
+        : 'Nothing to redo in conversation/message history. Files were not changed.'
       params.setMessages((prev) => [...prev, getSystemMessage(message)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
@@ -491,7 +510,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
         params.setMessages((prev) => [
           ...prev,
           getUserMessage(params.inputValue.trim()),
-          getSystemMessage(error instanceof Error ? error.message : String(error)),
+          getSystemMessage(
+            error instanceof Error ? error.message : String(error),
+          ),
         ])
       }
       params.saveToHistory(params.inputValue.trim())
@@ -579,6 +600,65 @@ const ALL_COMMANDS: CommandDefinition[] = [
         ])
       }
       params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'doctor',
+    aliases: ['diagnose'],
+    handler: (params) => {
+      const diagnostics = getAgentRegistryDiagnostics()
+      let providerStatus: string
+      try {
+        providerStatus = formatOpenbuffProviderStatus()
+      } catch (error) {
+        providerStatus = `Provider configuration error: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      }
+      const message = [
+        'Openbuff doctor',
+        '',
+        `Project: ${getProjectRoot()}`,
+        `Project agents: ${getProjectAgentTrustStatus() ? 'trusted and enabled' : 'disabled (use --trust-project-agents to enable)'}`,
+        `Project skills: ${getProjectSkillTrustStatus() ? 'trusted and enabled' : 'disabled with project-agent trust policy'}`,
+        `Loaded skills: ${getSkillCount()}`,
+        `Loaded MCP servers: ${Object.keys(getLoadedMCPServers()).length}`,
+        `Agent diagnostics: ${diagnostics.length}`,
+        ...diagnostics
+          .slice(0, 10)
+          .map(
+            (diagnostic) =>
+              `- ${diagnostic.filePath || diagnostic.agentId}: ${diagnostic.message}`,
+          ),
+        '',
+        providerStatus,
+      ].join('\n')
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage(message),
+      ])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'index',
+    handler: async (params, args) => {
+      const input = params.inputValue.trim() || '/index'
+      let message: string
+      try {
+        message = await handleIndexCommand(args)
+      } catch (error) {
+        message = `Index command failed: ${error instanceof Error ? error.message : String(error)}`
+      }
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(input),
+        getSystemMessage(message),
+      ])
+      params.saveToHistory(input)
       clearInput(params)
     },
   }),
@@ -740,6 +820,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
         return
       }
       clearInput(params)
+      // Resuming a plan drops the user into execute-plan mode so the persistent
+      // toggle matches the turn being sent (mirrors the mode:* commands).
+      useChatStore.getState().setAgentMode('EXECUTE_PLAN')
       sendPromptCommand(
         params,
         buildResumePlanPrompt({
@@ -1002,23 +1085,30 @@ function createSkillCommand(skillName: string): CommandDefinition {
           getSystemMessage(`Skill not found: ${skillName}`),
         ])
         params.saveToHistory(params.inputValue.trim())
-        params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+        params.setInputValue({
+          text: '',
+          cursorPosition: 0,
+          lastEditDueToNav: false,
+        })
         return
       }
 
       const trimmed = params.inputValue.trim()
       params.saveToHistory(trimmed)
-      params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+      params.setInputValue({
+        text: '',
+        cursorPosition: 0,
+        lastEditDueToNav: false,
+      })
 
       // Build the message content with skill context and optional user args
       const skillContext = `<skill name="${skill.name}">
 ${skill.content}
 </skill>`
 
-      const userPrompt = `I invoke the following skill:\n\n${skillContext}\n\n`
-        + (args.trim()
-          ? `User request: ${args.trim()}`
-          : '')
+      const userPrompt =
+        `I invoke the following skill:\n\n${skillContext}\n\n` +
+        (args.trim() ? `User request: ${args.trim()}` : '')
 
       // Check streaming/queue state
       if (

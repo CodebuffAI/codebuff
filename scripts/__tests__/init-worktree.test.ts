@@ -37,7 +37,10 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 test('init WorktreeArgsSchema accepts valid name + port', () => {
-  const result = InitSchema.safeParse({ name: 'feature-branch', backendPort: 8001 })
+  const result = InitSchema.safeParse({
+    name: 'feature-branch',
+    backendPort: 8001,
+  })
   expect(result.success).toBe(true)
   if (result.success) {
     expect(result.data.name).toBe('feature-branch')

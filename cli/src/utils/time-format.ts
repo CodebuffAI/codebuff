@@ -15,7 +15,9 @@ export const formatResetTime = (resetDate: Date | null): string => {
  * @param resetDate - The date when the quota/resource resets
  * @returns Human-readable string like "4d 7h" or "2h 30m"
  */
-export const formatResetTimeLong = (resetDate: Date | string | null): string => {
+export const formatResetTimeLong = (
+  resetDate: Date | string | null,
+): string => {
   if (!resetDate) return ''
   return formatTimeUntil(resetDate, { fallback: 'now' })
 }

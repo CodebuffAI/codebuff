@@ -197,7 +197,9 @@ export const ToolCallItem = ({
   // Width in cells of the toggle label (toggle arrow or bullet). Used to align
   // expanded content directly under the toggle icon.
   const toggleIndent = stringWidth(toggleLabel)
-  const rawCollapsedPreviewText = isStreaming ? streamingPreview : finishedPreview
+  const rawCollapsedPreviewText = isStreaming
+    ? streamingPreview
+    : finishedPreview
   const collapsedPreviewWidth = Math.max(
     10,
     (availableWidth ?? 80) - toggleIndent,

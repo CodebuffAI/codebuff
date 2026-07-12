@@ -15,7 +15,7 @@ sources override earlier ones (see [Merge semantics](#merge-semantics) for
 the exact rules):
 
 1. **`OPENBUFF_PROVIDER_CONFIG`** — explicit env var pointing at a single
-   config file (or a directory of fragments). When set, Openbuff loads *only*
+   config file (or a directory of fragments). When set, Openbuff loads _only_
    this path and skips the global + ancestor search below.
 2. **`~/.config/openbuff/provider-config.json`** — user-global config.
 3. **`~/.config/openbuff/openbuff.json`** — user-global config (alternate
@@ -57,8 +57,8 @@ openbuff.d/
       "type": "openai-compatible",
       "baseURL": "https://api.openai.com/v1",
       "apiKeyEnv": "OPENAI_API_KEY",
-      "models": ["gpt-5.5", "gpt-5.4-mini"]
-    }
+      "models": ["gpt-5.5", "gpt-5.4-mini"],
+    },
   },
 
   // Routing — openbuff.json / routes.json is the single source of truth.
@@ -72,9 +72,9 @@ openbuff.d/
       "name": "typecheck-sdk",
       "command": "cd sdk && bun run typecheck",
       "filePattern": "sdk/src/**/*.ts",
-      "timeoutSeconds": 240
-    }
-  ]
+      "timeoutSeconds": 240,
+    },
+  ],
 }
 ```
 
@@ -88,7 +88,7 @@ For each agent step, Openbuff resolves the model in this priority order:
 4. An explicit `model` passed by the caller (last resort).
 5. **Hard error** — if nothing is configured, Openbuff throws:
    `No model configured for agent '<id>'. Run /setup or set defaultModel
-   (or agents['<id>']) in your openbuff.json.`
+(or agents['<id>']) in your openbuff.json.`
 
 There is **no hardcoded per-agent fallback**. The `model:` field on agent
 templates is documentation of intent only — it is never read at runtime. This
@@ -125,18 +125,18 @@ When a provider has `apiKeyEnv`, discovery auth is controlled by
         "endpoint": "https://catalog.example.com/models",
         "auth": "provider",
         "arrayPath": "results.models",
-        "idPath": "slug"
-      }
-    }
-  }
+        "idPath": "slug",
+      },
+    },
+  },
 }
 ```
 
 ### Failover routing
 
-Failover is a *secondary* layer that sits on top of the model-routing
+Failover is a _secondary_ layer that sits on top of the model-routing
 resolution above. It does not change how a request's primary model is chosen;
-it only kicks in *after* the primary model has been selected and the provider
+it only kicks in _after_ the primary model has been selected and the provider
 request has failed in a failover-eligible way.
 
 The `failoverModels` field (top-level in `openbuff.json` / `routes.json`)
@@ -145,7 +145,10 @@ lists model IDs to try as backup providers when the primary fails:
 ```jsonc
 {
   "defaultModel": "openai/gpt-5.5",
-  "failoverModels": ["openrouter/anthropic/claude-sonnet-4.5", "opencode-go/glm-5.1"]
+  "failoverModels": [
+    "openrouter/anthropic/claude-sonnet-4.5",
+    "opencode-go/glm-5.1",
+  ],
 }
 ```
 
@@ -159,7 +162,7 @@ Behavior, matched to the implementation in `sdk/src/impl/failover.ts` and
   the primary, so a `failoverModels` entry that repeats the primary does not
   cause a redundant same-model attempt (`resolveModelsToTry`).
 - **Duplicate backups are collapsed automatically.** `resolveModelsToTry` also
-  dedupes *within* `failoverModels` itself, preserving first-seen order — so a
+  dedupes _within_ `failoverModels` itself, preserving first-seen order — so a
   misconfigured list like `["backup-a", "backup-a", "backup-b"]` is treated as
   `["backup-a", "backup-b"]` and the loop never wastefully retries the same
   backup model twice.
@@ -206,11 +209,11 @@ removed. Declare capabilities explicitly:
       "modelCapabilities": {
         "claude-opus-4-8": {
           "context": { "windowTokens": 200000 },
-          "quality": { "tier": "frontier" }
-        }
-      }
-    }
-  }
+          "quality": { "tier": "frontier" },
+        },
+      },
+    },
+  },
 }
 ```
 
@@ -225,51 +228,97 @@ Per-model overrides still win over the provider default — declare
 `defaultCapabilities`, the field that is read; it does not revive the removed
 legacy top-level `contextWindowTokens` field.)
 
-### Indexing weights
+### Indexing and retrieval
 
-The `indexing` config (loaded from `openbuff.d/indexing.json`) exposes an
-optional `weights` tuning surface for the file indexer's relevance scoring.
-`weights` is entirely optional and backwards compatible — when omitted (or when
-an individual sub-field is omitted), the indexer falls back to its historical
-hardcoded defaults. Every field is a number.
+The `indexing` config (loaded from `openbuff.d/indexing.json`) controls the
+local repository index used by `query_index`. Lexical and graph metadata stay
+on the local machine. Semantic indexing is opt-in and sends a bounded sample of
+each eligible file (path, symbols, headings, concepts, and up to 4,000
+characters of implementation text) to the embedding model configured by the
+user. That can incur provider cost and disclose source to that provider, so do
+not enable it for a repository whose source may not be sent to the selected
+BYOK provider.
 
 ```jsonc
 {
   "indexing": {
+    "enabled": true,
+    "cacheDir": ".codebuff-index",
+    "exclude": [],
+    "maxFiles": 20000,
     "weights": {
       "lexical": {
-        "fileName": 1,
-        "path": 0.6,
-        "symbol": 2.5,
-        "heading": 2,
+        "fileName": 5,
+        "path": 2,
+        "symbol": 3,
+        "heading": 2.5,
         "concept": 1.5,
-        "import": 1.2
+        "import": 1,
       },
       "graph": {
-        "defines": 3,
-        "imports": 2.5,
-        "references": 1.5,
-        "containsHeading": 1,
-        "mentions": 0.8,
-        "calls": 2
+        "defines": 1,
+        "imports": 0.7,
+        "references": 0.9,
+        "containsHeading": 0.8,
+        "mentions": 0.6,
+        "calls": 1.1,
       },
-      "semanticBlend": 0.6
-    }
-  }
+      "semanticBlend": 1,
+    },
+    "semantic": {
+      "enabled": false,
+      "model": "openai/text-embedding-3-small",
+    },
+  },
 }
 ```
 
+- `enabled` (`true`) — disables all index construction and queries when false.
+- `cacheDir` (`.codebuff-index`) — must be one hidden directory name and may
+  not be `.git`. Openbuff owns this directory and only excludes its owned cache
+  output from Git.
+- `exclude` (`[]`) — additional directory names or ignore-style paths. The
+  walker also enforces mandatory sensitive-path rules, nested `.gitignore` and
+  `.openbuffignore` files, and default transient/build exclusions including
+  `.agents/sessions`, `.omx`, `node_modules`, build output, caches, and
+  generated eval logs. Project-local agent definitions elsewhere under
+  `.agents` remain indexable.
+- `maxFiles` (`20000`, allowed range `100..100000`) — maximum indexed files.
+  Traversal is deterministic. If the cap is reached, status reports partial
+  coverage, skipped counts, and uncovered prefixes instead of presenting the
+  index as complete.
 - `lexical` — term-match weights per match location:
-  - `fileName` (1), `path` (0.6), `symbol` (2.5), `heading` (2),
-    `concept` (1.5), `import` (1.2).
+  - `fileName` (5), `path` (2), `symbol` (3), `heading` (2.5),
+    `concept` (1.5), `import` (1).
 - `graph` — code-graph edge weights:
-  - `defines` (3), `imports` (2.5), `references` (1.5),
-    `containsHeading` (1), `mentions` (0.8), `calls` (2).
-- `semanticBlend` (0.6) — how strongly semantic similarity blends into the
-  final lexical+graph score.
+  - `defines` (1), `imports` (0.7), `references` (0.9),
+    `containsHeading` (0.8), `mentions` (0.6), `calls` (1.1).
+- `semanticBlend` (1) — how strongly semantic similarity blends into the final
+  lexical+graph score. Set it to `0` to disable semantic-only contributions.
+- `semantic.enabled` (`false`) and `semantic.model` — opt into embeddings with
+  an explicitly configured model. Existing vectors are reused by file content
+  hash; only changed files are re-embedded.
 
-The values above mirror `openbuff.d/indexing.json` so docs and config stay
-aligned; adjust them only if you want to re-weight scoring for this repo.
+All ranking weights must be finite and non-negative. Omitting a weight uses the
+default shown above.
+
+#### Index lifecycle, status, and repair
+
+Openbuff loads a compatible cached snapshot immediately, incrementally
+reconciles it with filesystem changes, and serves the snapshot as explicitly
+`stale` while refresh is running. Cache age alone does not force a full parse or
+full re-embedding. A full rebuild is reserved for incompatible configuration or
+schema changes, an invalid/unowned cache, or an explicit rebuild request.
+
+Index status distinguishes `disabled`, `building`, `ready`, `stale`,
+`degraded`, and `empty`. It also reports semantic state, indexed file count,
+age, refresh state, parse diagnostics, and partial-coverage details. In the
+CLI, use `/index status` to inspect it, `/index explain <query>` to inspect
+ranking evidence, and `/index rebuild` to repair the cache. A degraded index
+keeps usable last-known-good metadata where possible; returned paths are still
+discovery hints and should be verified with `read_files` or `read_subtree`.
+
+The example at `openbuff.d.example/indexing.json` mirrors these defaults.
 
 ## Merge semantics
 
@@ -304,8 +353,12 @@ Example:
 // ~/.config/openbuff/openbuff.json (global)
 {
   "fileChangeHooks": [
-    { "name": "prettier", "command": "prettier --check", "filePattern": "**/*.{ts,tsx}" }
-  ]
+    {
+      "name": "prettier",
+      "command": "prettier --check",
+      "filePattern": "**/*.{ts,tsx}",
+    },
+  ],
 }
 ```
 
@@ -313,10 +366,19 @@ Example:
 // openbuff.d/hooks.json (project)
 {
   "fileChangeHooks": [
-    { "name": "typecheck-sdk", "command": "cd sdk && bun run typecheck", "filePattern": "sdk/src/**/*.ts", "timeoutSeconds": 240 },
+    {
+      "name": "typecheck-sdk",
+      "command": "cd sdk && bun run typecheck",
+      "filePattern": "sdk/src/**/*.ts",
+      "timeoutSeconds": 240,
+    },
     // Override the global prettier hook to also write fixes.
-    { "name": "prettier", "command": "prettier --write", "filePattern": "**/*.{ts,tsx}" }
-  ]
+    {
+      "name": "prettier",
+      "command": "prettier --write",
+      "filePattern": "**/*.{ts,tsx}",
+    },
+  ],
 }
 ```
 
@@ -335,15 +397,15 @@ configured `fileChangeHooks` using the concat-with-dedup rules above. Set
 
 Inferred hooks currently include:
 
-| Manifest | Inferred hooks |
-|----------|----------------|
-| `package.json` | `bunx eslint .` when `eslint` is listed in `dependencies` or `devDependencies`; `bunx tsc --noEmit` when `typescript` is listed. Openbuff does not infer or execute `package.json` scripts by default. |
-| `go.mod` | `test -z "$(gofmt -l .)"`, `go vet ./...` |
-| `Cargo.toml` | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` |
-| `pyproject.toml` or `requirements.txt` | `ruff check .` |
-| `Gemfile` | `rubocop` |
-| `Package.swift` | `swift-format lint --recursive .` |
-| `*.csproj` | `dotnet format --verify-no-changes` |
+| Manifest                               | Inferred hooks                                                                                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `package.json`                         | `bunx eslint .` when `eslint` is listed in `dependencies` or `devDependencies`; `bunx tsc --noEmit` when `typescript` is listed. Openbuff does not infer or execute `package.json` scripts by default. |
+| `go.mod`                               | `test -z "$(gofmt -l .)"`, `go vet ./...`                                                                                                                                                              |
+| `Cargo.toml`                           | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`                                                                                                                        |
+| `pyproject.toml` or `requirements.txt` | `ruff check .`                                                                                                                                                                                         |
+| `Gemfile`                              | `rubocop`                                                                                                                                                                                              |
+| `Package.swift`                        | `swift-format lint --recursive .`                                                                                                                                                                      |
+| `*.csproj`                             | `dotnet format --verify-no-changes`                                                                                                                                                                    |
 
 These commands are validation-only by default. For safety, inferred hooks use fixed
 commands selected from dependency/manifest presence; they do not run
@@ -357,10 +419,10 @@ hook with a project-specific command, or disable inferred hooks with
 
 ```jsonc
 {
-  "name": "typecheck-sdk",            // optional, used for display + dedup identity
+  "name": "typecheck-sdk", // optional, used for display + dedup identity
   "command": "cd sdk && bun run typecheck", // shell command, run from repo root
-  "filePattern": "sdk/src/**/*.ts",   // optional glob; hook runs only when a changed file matches
-  "timeoutSeconds": 240                // optional; default 180, max 3600
+  "filePattern": "sdk/src/**/*.ts", // optional glob; hook runs only when a changed file matches
+  "timeoutSeconds": 240, // optional; default 180, max 3600
 }
 ```
 
@@ -376,17 +438,17 @@ The `name` field is a **free-form string** — there is no schema field or
 validation enforcing a naming pattern. However, the orchestrator's repair loop
 surfaces hook names directly in gate-state boxes and repair guidance (e.g.
 `typecheck-sdk failed (exit 1)`), so a consistent prefix convention makes it
-immediately clear to the agent *what kind* of validation failed and how to
+immediately clear to the agent _what kind_ of validation failed and how to
 react.
 
 **Convention: prefix hook names with their validation category.**
 
-| Prefix        | Purpose                                      | Example name            |
-|---------------|----------------------------------------------|-------------------------|
-| `typecheck-`  | TypeScript / language typechecking           | `typecheck-sdk`         |
-| `lint-`       | Linters (eslint, prettier, ruff, etc.)       | `lint-cli`              |
-| `test-`       | Test suites (unit, integration, e2e)         | `test-agent-runtime`    |
-| `build-`      | Compilation / bundling                       | `build-sdk`             |
+| Prefix       | Purpose                                | Example name         |
+| ------------ | -------------------------------------- | -------------------- |
+| `typecheck-` | TypeScript / language typechecking     | `typecheck-sdk`      |
+| `lint-`      | Linters (eslint, prettier, ruff, etc.) | `lint-cli`           |
+| `test-`      | Test suites (unit, integration, e2e)   | `test-agent-runtime` |
+| `build-`     | Compilation / bundling                 | `build-sdk`          |
 
 - **Why a convention, not a schema field?** The `FileChangeHook` type has no
   `kind`/`category` field — adding one would require a migration of all
@@ -410,14 +472,49 @@ keeping the gate fast and avoiding false blockers from unrelated failures.
 // openbuff.d/hooks.json
 {
   "fileChangeHooks": [
-    { "name": "typecheck-common",       "command": "cd common && bun run typecheck",                "filePattern": "common/src/**/*.ts",            "timeoutSeconds": 180 },
-    { "name": "typecheck-sdk",          "command": "cd sdk && bun run typecheck",                   "filePattern": "sdk/src/**/*.ts",               "timeoutSeconds": 240 },
-    { "name": "typecheck-cli",          "command": "cd cli && bun run typecheck",                    "filePattern": "cli/src/**/*.{ts,tsx}",         "timeoutSeconds": 240 },
-    { "name": "typecheck-agents",       "command": "cd agents && bun run typecheck",                 "filePattern": "agents/**/*.ts",                "timeoutSeconds": 180 },
-    { "name": "typecheck-.agents",      "command": "cd .agents && bun run typecheck",               "filePattern": ".agents/**/*.ts",               "timeoutSeconds": 180 },
-    { "name": "typecheck-agent-runtime","command": "cd packages/agent-runtime && bun run typecheck","filePattern": "packages/agent-runtime/src/**/*.ts", "timeoutSeconds": 240 },
-    { "name": "typecheck-indexer",      "command": "cd packages/indexer && bun run typecheck",      "filePattern": "packages/indexer/src/**/*.ts",   "timeoutSeconds": 180 }
-  ]
+    {
+      "name": "typecheck-common",
+      "command": "cd common && bun run typecheck",
+      "filePattern": "common/src/**/*.ts",
+      "timeoutSeconds": 180,
+    },
+    {
+      "name": "typecheck-sdk",
+      "command": "cd sdk && bun run typecheck",
+      "filePattern": "sdk/src/**/*.ts",
+      "timeoutSeconds": 240,
+    },
+    {
+      "name": "typecheck-cli",
+      "command": "cd cli && bun run typecheck",
+      "filePattern": "cli/src/**/*.{ts,tsx}",
+      "timeoutSeconds": 240,
+    },
+    {
+      "name": "typecheck-agents",
+      "command": "cd agents && bun run typecheck",
+      "filePattern": "agents/**/*.ts",
+      "timeoutSeconds": 180,
+    },
+    {
+      "name": "typecheck-.agents",
+      "command": "cd .agents && bun run typecheck",
+      "filePattern": ".agents/**/*.ts",
+      "timeoutSeconds": 180,
+    },
+    {
+      "name": "typecheck-agent-runtime",
+      "command": "cd packages/agent-runtime && bun run typecheck",
+      "filePattern": "packages/agent-runtime/src/**/*.ts",
+      "timeoutSeconds": 240,
+    },
+    {
+      "name": "typecheck-indexer",
+      "command": "cd packages/indexer && bun run typecheck",
+      "filePattern": "packages/indexer/src/**/*.ts",
+      "timeoutSeconds": 180,
+    },
+  ],
 }
 ```
 

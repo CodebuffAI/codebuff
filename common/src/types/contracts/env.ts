@@ -74,6 +74,8 @@ export type BaseEnv = {
   NODE_PATH?: string
   PATH?: string
   OPENBUFF_LOCAL_MODE?: string
+  OPENBUFF_TELEMETRY?: string
+  DO_NOT_TRACK?: string
 }
 
 // =============================================================================

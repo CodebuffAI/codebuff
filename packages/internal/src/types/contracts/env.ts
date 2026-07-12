@@ -6,10 +6,7 @@
  */
 
 import type { ServerEnv } from '../../env-schema'
-import type {
-  BaseEnv,
-  CiEnv,
-} from '@codebuff/common/types/contracts/env'
+import type { BaseEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 
 // Re-export common base types
 export type {

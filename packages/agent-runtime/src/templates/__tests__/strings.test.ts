@@ -115,9 +115,7 @@ describe('getAgentPrompt', () => {
   })
 
   test('formats current date for prompts', () => {
-    expect(formatCurrentDate(new Date(2026, 4, 22, 12))).toBe(
-      'May 22, 2026',
-    )
+    expect(formatCurrentDate(new Date(2026, 4, 22, 12))).toBe('May 22, 2026')
   })
 
   test('omits frontend section when file tree has no frontend files', async () => {
@@ -234,6 +232,7 @@ describe('getAgentPrompt', () => {
         ],
       }),
       agentState: createMockAgentState('language-agent'),
+      intitialAgentPrompt: 'Update src/main.py without changing package.json.',
       agentTemplates,
       additionalToolDefinitions: async () => ({}),
       logger: createMockLogger(),
@@ -243,10 +242,13 @@ describe('getAgentPrompt', () => {
     })
 
     expect(result).toContain('## Language profile')
-    expect(result).toContain('Detected: TypeScript/JavaScript, Python')
-    expect(result).toContain('`read_files` `agents/idioms/typescript.md`')
-    expect(result).toContain('`read_files` `agents/idioms/python.md`')
-    expect(result).not.toContain('Prefer precise TypeScript types over broad casts')
+    expect(result).toContain('Detected: Python')
+    expect(result).not.toContain('TypeScript/JavaScript')
+    expect(result).toContain('Keep resource lifetimes in context managers')
+    expect(result).not.toContain('agents/idioms/')
+    expect(result).not.toContain(
+      'Prefer precise TypeScript types over broad casts',
+    )
     expect(result).not.toContain(PLACEHOLDER.LANGUAGE_PROFILE)
   })
 
@@ -438,8 +440,12 @@ describe('getAgentPrompt', () => {
 
       expect(result).toBeDefined()
       expect(result).toContain('You can spawn the following agents:')
-      expect(result).toContain('- file-picker: Spawn to find relevant files in a codebase')
-      expect(result).toContain('- code-searcher: Mechanically runs multiple code search queries')
+      expect(result).toContain(
+        '- file-picker: Spawn to find relevant files in a codebase',
+      )
+      expect(result).toContain(
+        '- code-searcher: Mechanically runs multiple code search queries',
+      )
     })
 
     test('includes only agent name when spawnerPrompt is not defined', async () => {

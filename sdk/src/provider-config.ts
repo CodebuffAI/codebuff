@@ -35,7 +35,7 @@ const envVarNameSchema = z
 const modelMapSchema = z.record(z.string().min(1), z.string().min(1))
 const positiveIntSchema = z.number().int().positive()
 const nonNegativeNumberSchema = z.number().nonnegative()
-const providerModeNames = ['default', 'plan'] as const
+const providerModeNames = ['default', 'plan', 'executePlan'] as const
 type ProviderModeName = (typeof providerModeNames)[number]
 export const reasoningEffortSchema = z.enum([
   'high',
@@ -57,6 +57,7 @@ const modeModelSchema = z
   .object({
     default: routableModelValueSchema.optional(),
     plan: routableModelValueSchema.optional(),
+    executePlan: routableModelValueSchema.optional(),
   })
   .default({})
 
@@ -165,6 +166,20 @@ export const modelCapabilitiesSchema = z.object({
       tier: z.enum(['economy', 'balanced', 'premium', 'frontier']).optional(),
       score: z.number().min(0).max(100).optional(),
       label: z.string().min(1).optional(),
+      /** Empirical coding scores only. Omit dimensions that have not been measured. */
+      coding: z
+        .array(
+          z.object({
+            score: z.number().min(0).max(100),
+            language: z.string().min(1).optional(),
+            taskType: z.string().min(1).optional(),
+            agentRole: z.string().min(1).optional(),
+            sampleSize: positiveIntSchema.optional(),
+            measuredAt: z.string().min(1).optional(),
+            benchmark: z.string().min(1).optional(),
+          }),
+        )
+        .optional(),
     })
     .optional(),
 })
@@ -313,17 +328,27 @@ const indexingConfigSchema = z
     /** Build a lightweight local repository index for faster file discovery. */
     enabled: z.boolean().default(true),
     /** Cache directory relative to the project root. */
-    cacheDir: z.string().min(1).default('.codebuff-index'),
+    cacheDir: z
+      .string()
+      .regex(
+        /^\.[A-Za-z0-9._-]+$/,
+        'indexing.cacheDir must be a single hidden directory name',
+      )
+      .refine((value) => value !== '.git', 'indexing.cacheDir cannot be .git')
+      .default('.codebuff-index'),
     /** Additional path patterns or directory names to exclude from indexing. */
     exclude: z.array(z.string().min(1)).default([]),
-    /** Optional semantic indexing configuration. Reserved for future embedding support. */
+    /** Maximum files to index before reporting partial coverage. */
+    maxFiles: z.number().int().min(100).max(100_000).optional(),
+    /** Optional BYOK semantic indexing. Sends bounded file samples to the configured embedding model. */
     semantic: z
       .object({
         enabled: z.boolean().default(false),
         model: z.string().min(1).optional(),
       })
       .refine((value) => !value.enabled || Boolean(value.model), {
-        message: 'indexing.semantic.model is required when semantic indexing is enabled',
+        message:
+          'indexing.semantic.model is required when semantic indexing is enabled',
         path: ['model'],
       })
       .default(DEFAULT_INDEXING_CONFIG.semantic),
@@ -342,25 +367,25 @@ const indexingConfigSchema = z
       .object({
         lexical: z
           .object({
-            fileName: z.number().finite().optional(),
-            path: z.number().finite().optional(),
-            symbol: z.number().finite().optional(),
-            heading: z.number().finite().optional(),
-            concept: z.number().finite().optional(),
-            import: z.number().finite().optional(),
+            fileName: nonNegativeNumberSchema.optional(),
+            path: nonNegativeNumberSchema.optional(),
+            symbol: nonNegativeNumberSchema.optional(),
+            heading: nonNegativeNumberSchema.optional(),
+            concept: nonNegativeNumberSchema.optional(),
+            import: nonNegativeNumberSchema.optional(),
           })
           .optional(),
         graph: z
           .object({
-            defines: z.number().finite().optional(),
-            imports: z.number().finite().optional(),
-            references: z.number().finite().optional(),
-            containsHeading: z.number().finite().optional(),
-            mentions: z.number().finite().optional(),
-            calls: z.number().finite().optional(),
+            defines: nonNegativeNumberSchema.optional(),
+            imports: nonNegativeNumberSchema.optional(),
+            references: nonNegativeNumberSchema.optional(),
+            containsHeading: nonNegativeNumberSchema.optional(),
+            mentions: nonNegativeNumberSchema.optional(),
+            calls: nonNegativeNumberSchema.optional(),
           })
           .optional(),
-        semanticBlend: z.number().finite().optional(),
+        semanticBlend: nonNegativeNumberSchema.optional(),
       })
       .optional(),
   })
@@ -413,6 +438,7 @@ export const providerConfigFileSchema = z
       .object({
         default: reasoningEffortSchema.optional(),
         plan: reasoningEffortSchema.optional(),
+        executePlan: reasoningEffortSchema.optional(),
       })
       .default({}),
     /** Per-agent requested model overrides. Keys are agent IDs; values are provider-resolvable model IDs. */
@@ -439,7 +465,7 @@ export const providerConfigFileSchema = z
         }),
       )
       .default([]),
-    /** Set false to disable manifest-inferred file-change hooks. */
+    /** Explicit trust boundary for manifest-inferred commands. These may execute repository-controlled build scripts/plugins. Default is disabled; set true only for trusted projects. */
     autoFileChangeHooks: z.boolean().optional(),
     /**
      * Maximum number of agent steps in a single run before the loop stops.
@@ -488,7 +514,6 @@ export const providerConfigFileSchema = z
       const effort = routableModelValueToReasoningEffort(value)
       if (effort) modeReasoningEfforts[mode] = effort
     }
-
 
     const defaultModel = routableModelValueToModel(config.defaultModel)
     const defaultReasoningEffort =
@@ -560,6 +585,10 @@ export type ResolvedProviderModel = {
 export type LoadedProviderConfig = {
   config: ProviderConfigFile
   sourceFilePaths: string[]
+  diagnostics?: Array<{
+    filePath: string
+    message: string
+  }>
   sourceFiles?: {
     providers?: Record<string, string>
     routes?: {
@@ -605,25 +634,35 @@ function normalizeConfigFragmentPaths(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string')
 }
 
-function resolveConfigFragmentPath(configPath: string, fragmentPath: string): string {
+function resolveConfigFragmentPath(
+  configPath: string,
+  fragmentPath: string,
+): string {
   return path.isAbsolute(fragmentPath)
     ? fragmentPath
     : path.resolve(path.dirname(configPath), fragmentPath)
 }
 
-function expandFragmentPaths(resolvedConfigPath: string, fragmentPaths: string[]): string[] {
+function expandFragmentPaths(
+  resolvedConfigPath: string,
+  fragmentPaths: string[],
+): string[] {
   const expanded: string[] = []
   for (const fragmentPath of fragmentPaths) {
-    const resolvedPath = resolveConfigFragmentPath(resolvedConfigPath, fragmentPath)
+    const resolvedPath = resolveConfigFragmentPath(
+      resolvedConfigPath,
+      fragmentPath,
+    )
     if (!fs.existsSync(resolvedPath)) {
       continue
     }
     const stat = fs.statSync(resolvedPath)
     if (stat.isDirectory()) {
-      const files = fs.readdirSync(resolvedPath)
-        .filter(file => file.endsWith('.json'))
+      const files = fs
+        .readdirSync(resolvedPath)
+        .filter((file) => file.endsWith('.json'))
         .sort()
-        .map(file => path.join(resolvedPath, file))
+        .map((file) => path.join(resolvedPath, file))
       expanded.push(...files)
     } else {
       expanded.push(resolvedPath)
@@ -748,7 +787,10 @@ function readProviderConfigFile(
     const configDir = path.dirname(resolvedConfigPath)
     const implicitDir = path.join(configDir, 'openbuff.d')
     if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
-      if (!fragmentPaths.includes('openbuff.d') && !fragmentPaths.includes('./openbuff.d')) {
+      if (
+        !fragmentPaths.includes('openbuff.d') &&
+        !fragmentPaths.includes('./openbuff.d')
+      ) {
         fragmentPaths.push('openbuff.d')
       }
     }
@@ -769,7 +811,10 @@ function readProviderConfigFile(
       const loadedFragment = readProviderConfigFile(resolvedPath, state)
       config = mergeProviderConfigs(config, loadedFragment.config)
       sourceFilePaths.push(...loadedFragment.sourceFilePaths)
-      sourceFiles = mergeSourceFiles(sourceFiles, loadedFragment.sourceFiles ?? {})
+      sourceFiles = mergeSourceFiles(
+        sourceFiles,
+        loadedFragment.sourceFiles ?? {},
+      )
     }
 
     const parseResult = providerConfigFileSchema.safeParse(rawConfig)
@@ -780,12 +825,17 @@ function readProviderConfigFile(
     }
     config = mergeProviderConfigs(config, parseResult.data)
 
-    const currentSourceFiles = getSourceFilesFromRawConfig(rawConfig, resolvedConfigPath)
+    const currentSourceFiles = getSourceFilesFromRawConfig(
+      rawConfig,
+      resolvedConfigPath,
+    )
     sourceFiles = mergeSourceFiles(sourceFiles, currentSourceFiles)
 
     const result = {
       config,
-      sourceFilePaths: Array.from(new Set([...sourceFilePaths, resolvedConfigPath])),
+      sourceFilePaths: Array.from(
+        new Set([...sourceFilePaths, resolvedConfigPath]),
+      ),
       sourceFiles,
     }
     state.cache.set(resolvedConfigPath, result)
@@ -947,8 +997,7 @@ function warnIfAncestorConfigHasApiKeyEnv(
   const ancestorPaths = sourceFilePaths.filter((p) => {
     const resolved = path.resolve(p)
     return (
-      resolved !== projectRoot &&
-      !resolved.startsWith(projectRoot + path.sep)
+      resolved !== projectRoot && !resolved.startsWith(projectRoot + path.sep)
     )
   })
   if (ancestorPaths.length === 0) {
@@ -1015,7 +1064,10 @@ function collectProviderConfigDependencyPaths(
   const resolvedConfigPath = path.resolve(configPath)
   addProviderConfigDependencyPath(state.paths, state.seen, resolvedConfigPath)
 
-  if (state.stack.has(resolvedConfigPath) || !fs.existsSync(resolvedConfigPath)) {
+  if (
+    state.stack.has(resolvedConfigPath) ||
+    !fs.existsSync(resolvedConfigPath)
+  ) {
     return state.paths
   }
 
@@ -1047,14 +1099,23 @@ function collectProviderConfigDependencyPaths(
     }
 
     for (const fragmentPath of fragmentPaths) {
-      const resolvedPath = resolveConfigFragmentPath(resolvedConfigPath, fragmentPath)
+      const resolvedPath = resolveConfigFragmentPath(
+        resolvedConfigPath,
+        fragmentPath,
+      )
       addProviderConfigDependencyPath(state.paths, state.seen, resolvedPath)
       if (!fs.existsSync(resolvedPath)) continue
 
       const stat = fs.statSync(resolvedPath)
       if (stat.isDirectory()) {
-        for (const file of fs.readdirSync(resolvedPath).filter(file => file.endsWith('.json')).sort()) {
-          collectProviderConfigDependencyPaths(path.join(resolvedPath, file), state)
+        for (const file of fs
+          .readdirSync(resolvedPath)
+          .filter((file) => file.endsWith('.json'))
+          .sort()) {
+          collectProviderConfigDependencyPaths(
+            path.join(resolvedPath, file),
+            state,
+          )
         }
       } else {
         collectProviderConfigDependencyPaths(resolvedPath, state)
@@ -1076,11 +1137,15 @@ function buildProviderConfigCacheKey(
   configPaths: string[],
   explicitConfigPath: string | undefined,
 ): string {
-  const parts: string[] = explicitConfigPath ? [`env=${explicitConfigPath}`] : []
+  const parts: string[] = explicitConfigPath
+    ? [`env=${explicitConfigPath}`]
+    : []
   const dependencyPaths: string[] = []
   const seen = new Set<string>()
   for (const configPath of configPaths) {
-    for (const dependencyPath of collectProviderConfigDependencyPaths(configPath)) {
+    for (const dependencyPath of collectProviderConfigDependencyPaths(
+      configPath,
+    )) {
       addProviderConfigDependencyPath(dependencyPaths, seen, dependencyPath)
     }
   }
@@ -1124,6 +1189,7 @@ export function loadProviderConfigSync(
 
   let config = emptyProviderConfig()
   const sourceFilePaths: string[] = []
+  const diagnostics: NonNullable<LoadedProviderConfig['diagnostics']> = []
   let sourceFiles: NonNullable<LoadedProviderConfig['sourceFiles']> = {
     providers: {},
     routes: {
@@ -1141,11 +1207,18 @@ export function loadProviderConfigSync(
       const parsedConfig = readProviderConfigFile(configPath)
       config = mergeProviderConfigs(config, parsedConfig.config)
       sourceFilePaths.push(...parsedConfig.sourceFilePaths)
-      sourceFiles = mergeSourceFiles(sourceFiles, parsedConfig.sourceFiles ?? {})
+      sourceFiles = mergeSourceFiles(
+        sourceFiles,
+        parsedConfig.sourceFiles ?? {},
+      )
     } catch (error) {
       if (explicitConfigPath) {
         throw error
       }
+      diagnostics.push({
+        filePath: configPath,
+        message: error instanceof Error ? error.message : String(error),
+      })
     }
   }
 
@@ -1160,7 +1233,12 @@ export function loadProviderConfigSync(
     }
   }
 
-  const result: LoadedProviderConfig = { config, sourceFilePaths, sourceFiles }
+  const result: LoadedProviderConfig = {
+    config,
+    sourceFilePaths,
+    sourceFiles,
+    diagnostics,
+  }
   providerConfigCache = { key: cacheKey, config: result }
   return result
 }
@@ -1427,6 +1505,7 @@ type ProviderMode = ProviderModeName
 const modeAgentIds: Record<ProviderMode, string[]> = {
   default: ['base', 'base2'],
   plan: ['base-plan', 'base2-plan'],
+  executePlan: ['base-execute-plan', 'base2-execute-plan'],
 }
 
 function resolveModeForAgentId(
@@ -1444,6 +1523,85 @@ function resolveModeForAgentId(
 export type ResolvedAgentModelConfig = {
   model: string
   reasoningEffort?: OpenbuffReasoningEffort
+}
+
+export type CodingRoutingContext = {
+  language?: string
+  taskType?: string
+  agentRole?: string
+}
+
+export type EmpiricalModelRecommendation = {
+  model: string
+  score: number
+  sampleSize?: number
+  benchmark?: string
+  matchedContext: CodingRoutingContext
+}
+
+/**
+ * Opt-in recommendation layer. This deliberately does not participate in
+ * resolveConfiguredAgentModelConfig, so explicit mode/agent/default routes
+ * remain authoritative. Models without a matching measurement are excluded.
+ */
+export function recommendConfiguredModel(params: {
+  context: CodingRoutingContext
+  loadedConfig?: LoadedProviderConfig
+}): EmpiricalModelRecommendation | undefined {
+  const { context, loadedConfig = loadProviderConfigSync() } = params
+  const recommendations: EmpiricalModelRecommendation[] = []
+
+  for (const [providerId, provider] of Object.entries(
+    loadedConfig.config.providers,
+  )) {
+    const models = Array.isArray(provider.models)
+      ? provider.models
+      : Object.keys(provider.models)
+    for (const model of models) {
+      const capabilities = resolveModelCapabilities({
+        providerId,
+        model,
+        loadedConfig,
+      })
+      const matches = (capabilities.quality?.coding ?? []).filter(
+        (measurement) =>
+          (!measurement.language ||
+            measurement.language === context.language) &&
+          (!measurement.taskType ||
+            measurement.taskType === context.taskType) &&
+          (!measurement.agentRole ||
+            measurement.agentRole === context.agentRole),
+      )
+      if (matches.length === 0) continue
+      matches.sort((a, b) => {
+        const specificity = (value: typeof a) =>
+          Number(Boolean(value.language)) +
+          Number(Boolean(value.taskType)) +
+          Number(Boolean(value.agentRole))
+        return specificity(b) - specificity(a) || b.score - a.score
+      })
+      const best = matches[0]!
+      recommendations.push({
+        model: `${providerId}/${model}`,
+        score: best.score,
+        sampleSize: best.sampleSize,
+        benchmark: best.benchmark,
+        matchedContext: {
+          language: best.language,
+          taskType: best.taskType,
+          agentRole: best.agentRole,
+        },
+      })
+    }
+  }
+
+  return recommendations.sort(
+    (a, b) =>
+      b.score - a.score ||
+      Object.values(b.matchedContext).filter(Boolean).length -
+        Object.values(a.matchedContext).filter(Boolean).length ||
+      (b.sampleSize ?? 0) - (a.sampleSize ?? 0),
+  )[0]
 }
 
 export function resolveConfiguredAgentModelConfig(params: {
@@ -1535,8 +1693,7 @@ export function resolveConfiguredProviderModel(params: {
   loadedConfig?: LoadedProviderConfig
 }): ResolvedProviderModel | undefined {
   const { model, env = getSystemProcessEnv() } = params
-  const loadedConfig =
-    params.loadedConfig ?? loadProviderConfigSync({ env })
+  const loadedConfig = params.loadedConfig ?? loadProviderConfigSync({ env })
 
   for (const [providerId, provider] of Object.entries(
     loadedConfig.config.providers,
@@ -1726,8 +1883,7 @@ export const OPENBUFF_PROVIDER_PRESETS = {
   openrouter: {
     id: 'openrouter',
     label: 'OpenRouter',
-    description:
-      'OpenRouter with Claude Sonnet for primary work and planning.',
+    description: 'OpenRouter with Claude Sonnet for primary work and planning.',
     envHelp: 'export OPENROUTER_API_KEY="your_openrouter_api_key"',
     config: {
       defaultModel: 'openrouter/anthropic/claude-sonnet-4.5',
@@ -1918,7 +2074,10 @@ function tryWriteFragmentedConfig(
     const rootDir = path.dirname(rootPath)
     const implicitDir = path.join(rootDir, 'openbuff.d')
     if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
-      if (!fragmentPaths.includes('openbuff.d') && !fragmentPaths.includes('./openbuff.d')) {
+      if (
+        !fragmentPaths.includes('openbuff.d') &&
+        !fragmentPaths.includes('./openbuff.d')
+      ) {
         fragmentPaths.push('openbuff.d')
       }
     }
@@ -1935,7 +2094,9 @@ function tryWriteFragmentedConfig(
     for (const resolvedFragmentPath of expandedPaths) {
       if (fs.existsSync(resolvedFragmentPath)) {
         try {
-          const rawFragment = JSON.parse(fs.readFileSync(resolvedFragmentPath, 'utf8'))
+          const rawFragment = JSON.parse(
+            fs.readFileSync(resolvedFragmentPath, 'utf8'),
+          )
           parsedFragments.set(resolvedFragmentPath, rawFragment)
           for (const key of Object.keys(rawFragment)) {
             keyToPathMap.set(key, resolvedFragmentPath)
@@ -1947,17 +2108,32 @@ function tryWriteFragmentedConfig(
     }
 
     // Default target paths based on name heuristics or key maps
-    const providersPath = [...parsedFragments.keys()].find(
-      p => p.endsWith('providers.json') || p.endsWith('provider.json') || keyToPathMap.has('providers') || keyToPathMap.has('provider')
-    ) ?? expandedPaths.find(p => p.endsWith('providers.json') || p.endsWith('provider.json'))
+    const providersPath =
+      [...parsedFragments.keys()].find(
+        (p) =>
+          p.endsWith('providers.json') ||
+          p.endsWith('provider.json') ||
+          keyToPathMap.has('providers') ||
+          keyToPathMap.has('provider'),
+      ) ??
+      expandedPaths.find(
+        (p) => p.endsWith('providers.json') || p.endsWith('provider.json'),
+      )
 
-    const routesPath = [...parsedFragments.keys()].find(
-      p => p.endsWith('routes.json') || keyToPathMap.has('modes') || keyToPathMap.has('defaultModel') || keyToPathMap.has('visionModel') || keyToPathMap.has('agents')
-    ) ?? expandedPaths.find(p => p.endsWith('routes.json'))
+    const routesPath =
+      [...parsedFragments.keys()].find(
+        (p) =>
+          p.endsWith('routes.json') ||
+          keyToPathMap.has('modes') ||
+          keyToPathMap.has('defaultModel') ||
+          keyToPathMap.has('visionModel') ||
+          keyToPathMap.has('agents'),
+      ) ?? expandedPaths.find((p) => p.endsWith('routes.json'))
 
-    const indexingPath = [...parsedFragments.keys()].find(
-      p => p.endsWith('indexing.json') || keyToPathMap.has('indexing')
-    ) ?? expandedPaths.find(p => p.endsWith('indexing.json'))
+    const indexingPath =
+      [...parsedFragments.keys()].find(
+        (p) => p.endsWith('indexing.json') || keyToPathMap.has('indexing'),
+      ) ?? expandedPaths.find((p) => p.endsWith('indexing.json'))
 
     const fragmentPayloads = new Map<string, Record<string, any>>()
     const getPayload = (resolvedPath: string): Record<string, any> => {
@@ -1970,7 +2146,11 @@ function tryWriteFragmentedConfig(
       return payload
     }
 
-    const routeKey = (key: string, value: any, fallbackPath: string | undefined) => {
+    const routeKey = (
+      key: string,
+      value: any,
+      fallbackPath: string | undefined,
+    ) => {
       if (value === undefined) return
       const targetPath = keyToPathMap.get(key) ?? fallbackPath
       if (targetPath) {
@@ -2009,21 +2189,46 @@ function tryWriteFragmentedConfig(
 
     // Write back updated fragments
     for (const [resolvedPath, payload] of fragmentPayloads.entries()) {
-      fs.writeFileSync(resolvedPath, JSON.stringify(payload, null, 2) + '\n')
+      writeJsonFileAtomic(resolvedPath, payload)
     }
 
     // Remove key-value routing fields from the root config so they are not duplicated
     for (const key of ['providers', 'provider', 'indexing', ...routingKeys]) {
-      if (keyToPathMap.has(key) || (key === 'providers' && providersPath) || (key === 'provider' && providersPath) || (key === 'indexing' && indexingPath) || (routingKeys.includes(key) && routesPath)) {
+      if (
+        keyToPathMap.has(key) ||
+        (key === 'providers' && providersPath) ||
+        (key === 'provider' && providersPath) ||
+        (key === 'indexing' && indexingPath) ||
+        (routingKeys.includes(key) && routesPath)
+      ) {
         delete rawRoot[key]
       }
     }
 
     // Write back root
-    fs.writeFileSync(rootPath, JSON.stringify(rawRoot, null, 2) + '\n')
+    writeJsonFileAtomic(rootPath, rawRoot)
     return true
   } catch (error) {
     return false
+  }
+}
+
+function writeJsonFileAtomic(filePath: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  const tempPath = `${filePath}.tmp.${process.pid}.${Date.now()}`
+  fs.writeFileSync(tempPath, JSON.stringify(value, null, 2) + '\n', {
+    mode: 0o600,
+  })
+  try {
+    fs.renameSync(tempPath, filePath)
+  } catch (error) {
+    if (
+      !['EEXIST', 'EPERM'].includes((error as NodeJS.ErrnoException).code ?? '')
+    ) {
+      throw error
+    }
+    fs.unlinkSync(filePath)
+    fs.renameSync(tempPath, filePath)
   }
 }
 
@@ -2066,8 +2271,7 @@ export function writeProviderConfigFile(params: {
         newConfig.defaultReasoningEffort,
       visionModel: existingConfig.visionModel ?? newConfig.visionModel,
       visionReasoningEffort:
-        existingConfig.visionReasoningEffort ??
-        newConfig.visionReasoningEffort,
+        existingConfig.visionReasoningEffort ?? newConfig.visionReasoningEffort,
       modes: {
         ...(newConfig.modes ?? {}),
         ...(existingConfig.modes ?? {}),
@@ -2098,7 +2302,7 @@ export function writeProviderConfigFile(params: {
       return configPath
     }
 
-    fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2) + '\n')
+    writeJsonFileAtomic(configPath, mergedConfig)
     return configPath
   }
 
@@ -2106,7 +2310,7 @@ export function writeProviderConfigFile(params: {
     return configPath
   }
 
-  fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2) + '\n')
+  writeJsonFileAtomic(configPath, newConfig)
   return configPath
 }
 
@@ -2117,8 +2321,7 @@ export function getMissingProviderEnvVars(
   } = {},
 ): string[] {
   const env = params.env ?? getSystemProcessEnv()
-  const loadedConfig =
-    params.loadedConfig ?? loadProviderConfigSync({ env })
+  const loadedConfig = params.loadedConfig ?? loadProviderConfigSync({ env })
   const missing = new Set<string>()
   for (const provider of Object.values(loadedConfig.config.providers)) {
     if (
@@ -2169,9 +2372,13 @@ export function describeLoadedProviderConfig(
           .map(([from, to]) => `${from}->${to}`)
           .join(', ')
     const sourceFile = loadedConfig.sourceFiles?.providers?.[providerId]
-    const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
+    const sourceSuffix = sourceFile
+      ? ` (defined in ${getRelativeConfigPath(sourceFile)})`
+      : ''
     if (provider.type === 'chatgpt-oauth') {
-      lines.push(`- ${providerId}: ChatGPT/Codex OAuth | models=${models}${sourceSuffix}`)
+      lines.push(
+        `- ${providerId}: ChatGPT/Codex OAuth | models=${models}${sourceSuffix}`,
+      )
     } else {
       const kindSuffix =
         provider.type === 'anthropic-compatible' ? ' [anthropic]' : ''
@@ -2183,6 +2390,14 @@ export function describeLoadedProviderConfig(
   const missing = getMissingProviderEnvVars({ loadedConfig })
   if (missing.length) {
     lines.push(`Missing env: ${missing.join(', ')}`)
+  }
+  if (loadedConfig.diagnostics?.length) {
+    lines.push('Config errors:')
+    for (const diagnostic of loadedConfig.diagnostics) {
+      lines.push(
+        `- ${getRelativeConfigPath(diagnostic.filePath)}: ${diagnostic.message}`,
+      )
+    }
   }
   return lines.join('\n')
 }

@@ -20,23 +20,31 @@ describe('use-activity-query utilities', () => {
   describe('setActivityQueryData', () => {
     test('stores data in cache', () => {
       setActivityQueryData(['test'], { value: 'hello' })
-      expect(getActivityQueryData<{ value: string }>(['test'])).toEqual({ value: 'hello' })
+      expect(getActivityQueryData<{ value: string }>(['test'])).toEqual({
+        value: 'hello',
+      })
     })
 
     test('overwrites existing data', () => {
       setActivityQueryData(['test'], { value: 'first' })
       setActivityQueryData(['test'], { value: 'second' })
-      expect(getActivityQueryData<{ value: string }>(['test'])).toEqual({ value: 'second' })
+      expect(getActivityQueryData<{ value: string }>(['test'])).toEqual({
+        value: 'second',
+      })
     })
 
     test('handles complex query keys', () => {
       setActivityQueryData(['users', 1], { name: 'John' })
-      expect(getActivityQueryData<{ name: string }>(['users', 1])).toEqual({ name: 'John' })
+      expect(getActivityQueryData<{ name: string }>(['users', 1])).toEqual({
+        name: 'John',
+      })
     })
 
     test('handles query keys with objects', () => {
       setActivityQueryData(['complex', { id: 1 }], { data: 'test' })
-      expect(getActivityQueryData<{ data: string }>(['complex', { id: 1 }])).toEqual({
+      expect(
+        getActivityQueryData<{ data: string }>(['complex', { id: 1 }]),
+      ).toEqual({
         data: 'test',
       })
     })
@@ -126,9 +134,9 @@ describe('use-activity-query utilities', () => {
 
     test('object keys are serialized correctly', () => {
       setActivityQueryData(['query', { page: 1, sort: 'asc' }], 'page1')
-      expect(getActivityQueryData<string>(['query', { page: 1, sort: 'asc' }])).toBe(
-        'page1',
-      )
+      expect(
+        getActivityQueryData<string>(['query', { page: 1, sort: 'asc' }]),
+      ).toBe('page1')
     })
 
     test('nested objects in keys work correctly', () => {
@@ -179,7 +187,9 @@ describe('useActivityQuery hook behavior', () => {
 
       // Objects
       setActivityQueryData(['object'], { a: 1, b: 2 })
-      expect(getActivityQueryData<{ a: number; b: number }>(['object'])).toEqual({ a: 1, b: 2 })
+      expect(
+        getActivityQueryData<{ a: number; b: number }>(['object']),
+      ).toEqual({ a: 1, b: 2 })
 
       // Null
       setActivityQueryData(['null'], null)
@@ -195,7 +205,9 @@ describe('useActivityQuery hook behavior', () => {
       invalidateActivityQuery(['preserve'])
 
       // Data should still be accessible
-      expect(getActivityQueryData<typeof originalData>(['preserve'])).toEqual(originalData)
+      expect(getActivityQueryData<typeof originalData>(['preserve'])).toEqual(
+        originalData,
+      )
     })
 
     test('multiple invalidations do not remove data', () => {
@@ -257,10 +269,10 @@ describe('staleness calculation', () => {
   test('data is considered stale after staleTime has passed', () => {
     const staleTime = 100 // 100ms
     const testKey = ['stale-test']
-    
+
     // Set data with a timestamp in the past
     setActivityQueryData(testKey, 'test-value')
-    
+
     // Immediately after setting, data should be fresh
     const dataImmediately = getActivityQueryData<string>(testKey)
     expect(dataImmediately).toBe('test-value')
@@ -268,14 +280,14 @@ describe('staleness calculation', () => {
 
   test('invalidated data should be refetchable', () => {
     const testKey = ['invalidate-test']
-    
+
     // Set initial data
     setActivityQueryData(testKey, 'initial')
     expect(getActivityQueryData<string>(testKey)).toBe('initial')
-    
+
     // Invalidate - should mark as stale (dataUpdatedAt = 0)
     invalidateActivityQuery(testKey)
-    
+
     // Data should still exist but be stale
     expect(getActivityQueryData<string>(testKey)).toBe('initial')
   })
@@ -285,7 +297,7 @@ describe('refetch interval staleness bug fix', () => {
   // This test verifies the fix for the bug where refetch intervals stopped working
   // because isStale was captured in a closure and never updated.
   // The fix ensures staleness is computed dynamically by reading from cache.
-  
+
   beforeEach(() => {
     resetActivityQueryCache()
   })
@@ -294,14 +306,14 @@ describe('refetch interval staleness bug fix', () => {
     const before = Date.now()
     setActivityQueryData(['timing-test'], 'value')
     const after = Date.now()
-    
+
     // The data should exist
     expect(getActivityQueryData<string>(['timing-test'])).toBe('value')
-    
+
     // We can't directly access dataUpdatedAt, but we can verify the data was set
     // and invalidation resets it to 0
     invalidateActivityQuery(['timing-test'])
-    
+
     // Data should still exist after invalidation
     expect(getActivityQueryData<string>(['timing-test'])).toBe('value')
   })
@@ -311,40 +323,40 @@ describe('refetch interval staleness bug fix', () => {
     // 1. Data is fetched (fresh)
     // 2. staleTime passes
     // 3. Interval should refetch (was broken before fix)
-    
+
     const testKey = ['refetch-bug-test']
-    
+
     // Step 1: Set "fresh" data
     setActivityQueryData(testKey, 'fresh-data')
     expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
-    
+
     // Step 2: Invalidate to simulate staleness (sets dataUpdatedAt to 0)
     invalidateActivityQuery(testKey)
-    
+
     // The data should still exist but be considered stale
     // (dataUpdatedAt is 0, so any staleTime > 0 would make it stale)
     expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
-    
+
     // In the old buggy code, the interval tick would check closure-captured isStale
     // which was false (computed when effect ran right after fetch).
     // In the fixed code, staleness is computed dynamically from cache.
-    
+
     // We can't easily test the hook behavior without React, but we verify
     // the cache manipulation works correctly for the staleness check
   })
 
   test('multiple data updates preserve latest data', () => {
     const testKey = ['multi-update-test']
-    
+
     setActivityQueryData(testKey, 'first')
     expect(getActivityQueryData<string>(testKey)).toBe('first')
-    
+
     setActivityQueryData(testKey, 'second')
     expect(getActivityQueryData<string>(testKey)).toBe('second')
-    
+
     setActivityQueryData(testKey, 'third')
     expect(getActivityQueryData<string>(testKey)).toBe('third')
-    
+
     // Invalidate and verify data is preserved
     invalidateActivityQuery(testKey)
     expect(getActivityQueryData<string>(testKey)).toBe('third')
@@ -364,10 +376,10 @@ describe('cache listener notifications', () => {
   test('setActivityQueryData notifies listeners', () => {
     const testKey = ['listener-test']
     let notificationCount = 0
-    
+
     // First set up some data so the cache entry exists
     setActivityQueryData(testKey, 'initial')
-    
+
     // Now update the data - we can't directly subscribe but we can verify
     // the data is updated properly
     setActivityQueryData(testKey, 'updated')
@@ -376,23 +388,23 @@ describe('cache listener notifications', () => {
 
   test('invalidateActivityQuery notifies listeners', () => {
     const testKey = ['invalidate-listener-test']
-    
+
     // Set initial data
     setActivityQueryData(testKey, 'data')
-    
+
     // Invalidate should trigger listeners
     invalidateActivityQuery(testKey)
-    
+
     // Data should still be there but marked stale
     expect(getActivityQueryData<string>(testKey)).toBe('data')
   })
 
   test('removeActivityQuery clears data and notifies listeners', () => {
     const testKey = ['remove-listener-test']
-    
+
     setActivityQueryData(testKey, 'data')
     expect(getActivityQueryData<string>(testKey)).toBe('data')
-    
+
     removeActivityQuery(testKey)
     expect(getActivityQueryData<string>(testKey)).toBeUndefined()
   })
@@ -421,23 +433,23 @@ describe('polling and staleness simulation', () => {
     const testKey = ['stale-time-test']
     const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000 // 30 seconds
-    
+
     // Set data at t=0
     setActivityQueryData(testKey, 'fresh-data')
-    
+
     // Data was set at mockNow (1000000), so dataUpdatedAt = 1000000
     expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
     expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh
-    
+
     // Advance time by 25 seconds - still fresh
     mockNow += 25000
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // Advance time past staleTime
     mockNow += 10000 // Now 35 seconds have passed
     // Data should now be considered stale (35s > 30s staleTime)
     expect(isEntryStale(serializedKey, staleTime)).toBe(true)
-    
+
     // The data is still accessible even when stale
     expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
   })
@@ -446,15 +458,15 @@ describe('polling and staleness simulation', () => {
     const testKey = ['invalidate-stale-test']
     const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
-    
+
     // Set fresh data
     setActivityQueryData(testKey, 'data')
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // Invalidate immediately makes it stale (dataUpdatedAt = 0)
     invalidateActivityQuery(testKey)
     expect(isEntryStale(serializedKey, staleTime)).toBe(true)
-    
+
     // Data still exists but would be refetched on next access
     expect(getActivityQueryData<string>(testKey)).toBe('data')
   })
@@ -463,22 +475,22 @@ describe('polling and staleness simulation', () => {
     const testKey = ['reset-timer-test']
     const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
-    
+
     // Set initial data
     setActivityQueryData(testKey, 'initial')
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // Advance time past staleTime
     mockNow += 35000
     expect(isEntryStale(serializedKey, staleTime)).toBe(true)
-    
+
     // Update data - should reset the timer
     setActivityQueryData(testKey, 'updated')
     expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh again
-    
+
     // Data is fresh again
     expect(getActivityQueryData<string>(testKey)).toBe('updated')
-    
+
     // Advance a little bit - should still be fresh
     mockNow += 10000
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
@@ -488,10 +500,10 @@ describe('polling and staleness simulation', () => {
   test('staleTime of 0 means always stale', () => {
     const testKey = ['zero-stale-test']
     const serializedKey = JSON.stringify(testKey)
-    
+
     // Set data
     setActivityQueryData(testKey, 'data')
-    
+
     // With staleTime=0, data is always considered stale
     // (this means refetch should happen on every interval tick)
     expect(isEntryStale(serializedKey, 0)).toBe(true)
@@ -527,19 +539,19 @@ describe('refetch on activity behavior', () => {
     const testKey = ['activity-refetch-test']
     const staleTime = 30000
     const idleThreshold = 30000
-    
+
     // Set initial data
     setActivityQueryData(testKey, 'initial')
-    
+
     // Simulate time passing beyond staleTime
     mockNow += 35000
-    
+
     // At this point, if user was idle and becomes active,
     // and data is stale, a refetch should occur
-    
+
     // Data should still be accessible
     expect(getActivityQueryData<string>(testKey)).toBe('initial')
-    
+
     // Update with new data (simulating what refetch would do)
     setActivityQueryData(testKey, 'refetched')
     expect(getActivityQueryData<string>(testKey)).toBe('refetched')
@@ -547,15 +559,15 @@ describe('refetch on activity behavior', () => {
 
   test('pause when idle should prevent polling updates', () => {
     const testKey = ['pause-idle-test']
-    
+
     // Set data
     setActivityQueryData(testKey, 'before-idle')
-    
+
     // When pauseWhenIdle is true and user is idle:
     // - Polling interval fires
     // - But isUserActive returns false
     // - So no refetch happens
-    
+
     // Data remains unchanged
     expect(getActivityQueryData<string>(testKey)).toBe('before-idle')
   })
@@ -571,9 +583,9 @@ describe('cache edge cases and error handling', () => {
 
   test('setting undefined data should still create cache entry', () => {
     const testKey = ['undefined-test']
-    
+
     setActivityQueryData(testKey, undefined)
-    
+
     // getActivityQueryData returns undefined for both "not in cache" and "data is undefined"
     // This is expected behavior - undefined is a valid cached value
     expect(getActivityQueryData(testKey)).toBeUndefined()
@@ -581,15 +593,15 @@ describe('cache edge cases and error handling', () => {
 
   test('setting null data should store null', () => {
     const testKey = ['null-test']
-    
+
     setActivityQueryData(testKey, null)
-    
+
     expect(getActivityQueryData(testKey)).toBeNull()
   })
 
   test('complex nested objects should be stored correctly', () => {
     const testKey = ['complex-object-test']
-    
+
     const complexData = {
       user: {
         id: 1,
@@ -603,9 +615,9 @@ describe('cache edge cases and error handling', () => {
       },
       timestamp: new Date('2024-01-01'),
     }
-    
+
     setActivityQueryData(testKey, complexData)
-    
+
     const cached = getActivityQueryData<typeof complexData>(testKey)
     expect(cached?.user.profile.settings.notifications).toEqual([1, 2, 3])
     expect(cached?.timestamp).toEqual(new Date('2024-01-01'))
@@ -613,10 +625,10 @@ describe('cache edge cases and error handling', () => {
 
   test('array data should be stored and retrieved correctly', () => {
     const testKey = ['array-test']
-    
+
     const arrayData = [1, 2, 3, { nested: 'value' }]
     setActivityQueryData(testKey, arrayData)
-    
+
     const cached = getActivityQueryData<typeof arrayData>(testKey)
     expect(cached).toEqual(arrayData)
     expect(cached?.[3]).toEqual({ nested: 'value' })
@@ -636,20 +648,20 @@ describe('cache edge cases and error handling', () => {
 
   test('getting data after remove should return undefined', () => {
     const testKey = ['remove-then-get-test']
-    
+
     setActivityQueryData(testKey, 'data')
     removeActivityQuery(testKey)
-    
+
     expect(getActivityQueryData(testKey)).toBeUndefined()
   })
 
   test('setting data after remove should work', () => {
     const testKey = ['remove-then-set-test']
-    
+
     setActivityQueryData(testKey, 'first')
     removeActivityQuery(testKey)
     setActivityQueryData(testKey, 'second')
-    
+
     expect(getActivityQueryData<string>(testKey)).toBe('second')
   })
 })
@@ -677,31 +689,31 @@ describe('error-only entries and persistent error handling', () => {
   test('setErrorOnlyCacheEntry creates entry with no data and error', () => {
     const testKey = ['error-entry-test']
     const error = new Error('Network error')
-    
+
     setErrorOnlyCacheEntry(testKey, error)
-    
+
     // Data should be undefined (error-only entry)
     expect(getActivityQueryData(testKey)).toBeUndefined()
   })
 
   test('error-only entry with recent errorUpdatedAt should NOT be stale', () => {
     // This test verifies the fix for the infinite refetch loop bug.
-    // 
+    //
     // Scenario:
     // 1. Fetch fails with no prior data
     // 2. Error is stored with errorUpdatedAt = now
     // 3. Polling tick fires
     // 4. isEntryStale should return FALSE if errorUpdatedAt is recent
     // 5. This prevents immediate refetch loop
-    
+
     const testKey = ['error-only-fresh-test']
     const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000 // 30 seconds
     const error = new Error('API error')
-    
+
     // Create error-only entry at current time (mockNow = 1000000)
     setErrorOnlyCacheEntry(testKey, error, mockNow)
-    
+
     // Entry has errorUpdatedAt = 1000000, current time = 1000000
     // Time since error: 0ms, staleTime: 30000ms
     // Should NOT be stale because error is recent
@@ -713,17 +725,17 @@ describe('error-only entries and persistent error handling', () => {
     const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000 // 30 seconds
     const error = new Error('API error')
-    
+
     // Create error-only entry at current time
     setErrorOnlyCacheEntry(testKey, error, mockNow)
-    
+
     // Initially not stale
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // Advance time by 25 seconds - still fresh
     mockNow += 25000
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // Advance time past staleTime (now 35 seconds since error)
     mockNow += 10000
     expect(isEntryStale(serializedKey, staleTime)).toBe(true)
@@ -734,38 +746,38 @@ describe('error-only entries and persistent error handling', () => {
     // Without the fix, isEntryStale returned true immediately and caused
     // rapid refetches. With the fix, isEntryStale uses errorUpdatedAt,
     // preventing rapid refetches.
-    
+
     const queryKey = ['activity', 'current']
     const serializedKey = JSON.stringify(queryKey)
     const staleTime = 30000
     const refetchInterval = 60000 // 60 seconds
     const error = new Error('Failed to fetch subscription: 500')
-    
+
     // Simulate first fetch failure at t=0
     setErrorOnlyCacheEntry(queryKey, error, mockNow)
-    
+
     // Immediately after error, entry should NOT be stale
     // This is the critical fix - prevents immediate refetch loop
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // Simulate polling interval at t=1s (as reported in bug)
     mockNow += 1000
     // Entry should still NOT be stale (only 1s since error, staleTime is 30s)
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // Simulate many 1-second intervals - none should trigger refetch until staleTime
     for (let i = 0; i < 28; i++) {
       mockNow += 1000
       expect(isEntryStale(serializedKey, staleTime)).toBe(false)
     }
-    
+
     // Now at t=29s - should still be fresh (29s is not > 30s)
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // At t=30s - should still be fresh (30s is not > 30s, need strictly greater)
     mockNow += 1000
     expect(isEntryStale(serializedKey, staleTime)).toBe(false)
-    
+
     // At t=31s - now stale, refetch should be allowed (31s > 30s)
     mockNow += 1000
     expect(isEntryStale(serializedKey, staleTime)).toBe(true)
@@ -775,9 +787,9 @@ describe('error-only entries and persistent error handling', () => {
     const testKey = ['zero-stale-error-test']
     const serializedKey = JSON.stringify(testKey)
     const error = new Error('Some error')
-    
+
     setErrorOnlyCacheEntry(testKey, error, mockNow)
-    
+
     // With staleTime=0, entry is always considered stale
     expect(isEntryStale(serializedKey, 0)).toBe(true)
   })
@@ -788,11 +800,11 @@ describe('error-only entries and persistent error handling', () => {
     const testKey = ['null-error-time-test']
     const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
-    
+
     // Create entry without errorUpdatedAt (using undefined which gets stored as null)
     // Note: setErrorOnlyCacheEntry always sets errorUpdatedAt, so we test via regular data
     // and then invalidate it
-    
+
     // Non-existent key is stale
     expect(isEntryStale(serializedKey, staleTime)).toBe(true)
   })
@@ -801,17 +813,17 @@ describe('error-only entries and persistent error handling', () => {
     const testKey = ['data-precedence-test']
     const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
-    
+
     // First, set an error-only entry
     setErrorOnlyCacheEntry(testKey, new Error('Initial error'), mockNow)
     expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh error
-    
+
     // Now set successful data (this is what happens on successful retry)
     setActivityQueryData(testKey, { subscription: 'active' })
-    
+
     // Staleness should now be based on dataUpdatedAt, not errorUpdatedAt
     expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh data
-    
+
     // Advance time past staleTime
     mockNow += 35000
     expect(isEntryStale(serializedKey, staleTime)).toBe(true) // Stale based on dataUpdatedAt

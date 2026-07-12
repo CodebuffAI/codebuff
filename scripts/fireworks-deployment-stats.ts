@@ -47,7 +47,11 @@ type Deployment = {
   }
 }
 
-type PromSample = { name: string; labels: Record<string, string>; value: number }
+type PromSample = {
+  name: string
+  labels: Record<string, string>
+  value: number
+}
 
 const HISTOGRAM_METRICS = [
   { key: 'latency_to_first_token_ms', label: 'TTFT (ms)' },
@@ -60,16 +64,23 @@ const HISTOGRAM_METRICS = [
   { key: 'tokens_generated_per_request', label: 'gen toks/req' },
 ] as const
 
-async function fetchDeployments(apiKey: string, accountId: string): Promise<Deployment[]> {
+async function fetchDeployments(
+  apiKey: string,
+  accountId: string,
+): Promise<Deployment[]> {
   const res = await fetch(`${API_BASE}/accounts/${accountId}/deployments`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   })
-  if (!res.ok) throw new Error(`Deployments list ${res.status}: ${await res.text()}`)
+  if (!res.ok)
+    throw new Error(`Deployments list ${res.status}: ${await res.text()}`)
   const data = (await res.json()) as { deployments: Deployment[] }
   return data.deployments ?? []
 }
 
-async function fetchPrometheusMetrics(apiKey: string, accountId: string): Promise<PromSample[]> {
+async function fetchPrometheusMetrics(
+  apiKey: string,
+  accountId: string,
+): Promise<PromSample[]> {
   const res = await fetch(`${API_BASE}/accounts/${accountId}/metrics`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   })
@@ -110,8 +121,14 @@ function parsePrometheus(text: string): PromSample[] {
   return samples
 }
 
-function scalarFor(samples: PromSample[], name: string, deploymentId: string): number | undefined {
-  return samples.find((s) => s.name === name && s.labels.deployment_id === deploymentId)?.value
+function scalarFor(
+  samples: PromSample[],
+  name: string,
+  deploymentId: string,
+): number | undefined {
+  return samples.find(
+    (s) => s.name === name && s.labels.deployment_id === deploymentId,
+  )?.value
 }
 
 function bucketPercentiles(
@@ -122,17 +139,21 @@ function bucketPercentiles(
 ): { total: number; values: Record<number, number> } | null {
   const buckets = samples
     .filter(
-      (s) => s.name === `${metricKey}_bucket:sum_by_deployment` && s.labels.deployment_id === deploymentId,
+      (s) =>
+        s.name === `${metricKey}_bucket:sum_by_deployment` &&
+        s.labels.deployment_id === deploymentId,
     )
     .map((s) => ({
-      le: s.labels.le === '+Inf' ? Number.POSITIVE_INFINITY : Number(s.labels.le),
+      le:
+        s.labels.le === '+Inf' ? Number.POSITIVE_INFINITY : Number(s.labels.le),
       cum: s.value,
     }))
     .sort((a, b) => a.le - b.le)
 
   if (buckets.length === 0) return null
   const total = buckets[buckets.length - 1].cum
-  if (total === 0) return { total, values: Object.fromEntries(percentiles.map((p) => [p, 0])) }
+  if (total === 0)
+    return { total, values: Object.fromEntries(percentiles.map((p) => [p, 0])) }
 
   const values: Record<number, number> = {}
   for (const p of percentiles) {
@@ -180,9 +201,11 @@ function parseDuration(d: string): string {
 
 function renderDeployment(d: Deployment, samples: PromSample[]): void {
   const deploymentId = d.name.split('/').pop()!
-  const shape = d.deploymentShape.split('/').slice(-3, -2)[0] ?? d.deploymentShape
+  const shape =
+    d.deploymentShape.split('/').slice(-3, -2)[0] ?? d.deploymentShape
 
-  const stateIcon = d.state === 'READY' ? '✅' : d.state === 'UPDATING' ? '🔄' : '⚠️'
+  const stateIcon =
+    d.state === 'READY' ? '✅' : d.state === 'UPDATING' ? '🔄' : '⚠️'
 
   console.log('━'.repeat(80))
   console.log(`${stateIcon}  ${d.name}`)
@@ -198,15 +221,47 @@ function renderDeployment(d: Deployment, samples: PromSample[]): void {
   )
   console.log(`    updated=${d.updateTime}`)
 
-  const kvBlocks = scalarFor(samples, 'generator_kv_blocks_fraction:avg_by_deployment', deploymentId)
-  const kvSlots = scalarFor(samples, 'generator_kv_slots_fraction:avg_by_deployment', deploymentId)
-  const active = scalarFor(samples, 'generator_num_active_fraction:avg_by_deployment', deploymentId)
-  const fwdTime = scalarFor(samples, 'generator_model_forward_time:avg_by_deployment', deploymentId)
+  const kvBlocks = scalarFor(
+    samples,
+    'generator_kv_blocks_fraction:avg_by_deployment',
+    deploymentId,
+  )
+  const kvSlots = scalarFor(
+    samples,
+    'generator_kv_slots_fraction:avg_by_deployment',
+    deploymentId,
+  )
+  const active = scalarFor(
+    samples,
+    'generator_num_active_fraction:avg_by_deployment',
+    deploymentId,
+  )
+  const fwdTime = scalarFor(
+    samples,
+    'generator_model_forward_time:avg_by_deployment',
+    deploymentId,
+  )
 
-  const reqRate = scalarFor(samples, 'request_counter_total:sum_by_deployment', deploymentId)
-  const promptTokRate = scalarFor(samples, 'tokens_prompt_total:sum_by_deployment', deploymentId)
-  const cachedPromptRate = scalarFor(samples, 'tokens_cached_prompt_total:sum_by_deployment', deploymentId)
-  const genTokGauge = scalarFor(samples, 'tokens_generated_gauge:sum_by_deployment', deploymentId)
+  const reqRate = scalarFor(
+    samples,
+    'request_counter_total:sum_by_deployment',
+    deploymentId,
+  )
+  const promptTokRate = scalarFor(
+    samples,
+    'tokens_prompt_total:sum_by_deployment',
+    deploymentId,
+  )
+  const cachedPromptRate = scalarFor(
+    samples,
+    'tokens_cached_prompt_total:sum_by_deployment',
+    deploymentId,
+  )
+  const genTokGauge = scalarFor(
+    samples,
+    'tokens_generated_gauge:sum_by_deployment',
+    deploymentId,
+  )
   const err400 = samples.find(
     (s) =>
       s.name === 'requests_error_total:sum_by_deployment' &&
@@ -225,7 +280,9 @@ function renderDeployment(d: Deployment, samples: PromSample[]): void {
       ? cachedPromptRate / promptTokRate
       : undefined
   const errRate400 =
-    reqRate && reqRate > 0 && err400 !== undefined ? err400 / reqRate : undefined
+    reqRate && reqRate > 0 && err400 !== undefined
+      ? err400 / reqRate
+      : undefined
 
   console.log('\n  GPU / capacity')
   console.log(
@@ -279,16 +336,24 @@ async function main() {
   ])
 
   const filtered = filter
-    ? deployments.filter((d) => d.name.endsWith(`/${filter}`) || d.name === filter)
+    ? deployments.filter(
+        (d) => d.name.endsWith(`/${filter}`) || d.name === filter,
+      )
     : deployments
 
   if (filtered.length === 0) {
-    console.error(`No deployments matched${filter ? ` "${filter}"` : ''} in account ${accountId}`)
+    console.error(
+      `No deployments matched${filter ? ` "${filter}"` : ''} in account ${accountId}`,
+    )
     process.exit(1)
   }
 
-  console.log(`Fireworks account: ${accountId}  •  ${filtered.length} deployment(s)`)
-  console.log(`Rates below are per-second (Prometheus recording rules; ~30s update cadence).`)
+  console.log(
+    `Fireworks account: ${accountId}  •  ${filtered.length} deployment(s)`,
+  )
+  console.log(
+    `Rates below are per-second (Prometheus recording rules; ~30s update cadence).`,
+  )
   console.log()
 
   for (const d of filtered) renderDeployment(d, samples)

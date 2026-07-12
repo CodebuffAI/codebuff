@@ -144,7 +144,7 @@ export async function* processStreamWithTags(params: {
     const toolName = parsedParams[toolNameParam] as keyof typeof processors
     const processor =
       typeof toolName === 'string'
-        ? processors[toolName] ?? defaultProcessor(toolName)
+        ? (processors[toolName] ?? defaultProcessor(toolName))
         : undefined
     if (!processor) {
       trackEvent({

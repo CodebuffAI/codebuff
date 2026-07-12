@@ -90,7 +90,9 @@ describe('credentials', () => {
       ;(os as any).homedir = () => tmpDir
 
       try {
-        const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'chatgpt-nonexistent-env' } as any
+        const env = {
+          NEXT_PUBLIC_CB_ENVIRONMENT: 'chatgpt-nonexistent-env',
+        } as any
         const creds = getChatGptOAuthCredentials(env)
         expect(creds).toBeNull()
       } finally {
@@ -121,7 +123,9 @@ describe('credentials', () => {
 
   describe('save/clear ChatGPT OAuth credentials', () => {
     test('saves and clears ChatGPT OAuth credentials while preserving user credentials', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-save-clear-test-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'chatgpt-save-clear-test-'),
+      )
       const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
       const originalHomedir = os.homedir
       ;(os as any).homedir = () => tmpDir
@@ -137,7 +141,10 @@ describe('credentials', () => {
             token: 'token-chatgpt',
           },
         }
-        fs.writeFileSync(path.join(configDir, 'credentials.json'), JSON.stringify(initial))
+        fs.writeFileSync(
+          path.join(configDir, 'credentials.json'),
+          JSON.stringify(initial),
+        )
 
         const newCreds: ChatGptOAuthCredentials = {
           accessToken: 'chatgpt-access',
@@ -193,12 +200,16 @@ describe('credentials', () => {
     })
 
     test('returns null when no credentials exist', async () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-norefresh-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'chatgpt-norefresh-'),
+      )
       const originalHomedir = os.homedir
       ;(os as any).homedir = () => tmpDir
 
       try {
-        const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'chatgpt-norefresh-env' } as any
+        const env = {
+          NEXT_PUBLIC_CB_ENVIRONMENT: 'chatgpt-norefresh-env',
+        } as any
         const result = await refreshChatGptOAuthToken(env)
         expect(result).toBeNull()
       } finally {
@@ -208,7 +219,9 @@ describe('credentials', () => {
     })
 
     test('successfully refreshes token', async () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-refresh-test-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'chatgpt-refresh-test-'),
+      )
       const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
       const originalHomedir = os.homedir
       ;(os as any).homedir = () => tmpDir
@@ -225,7 +238,10 @@ describe('credentials', () => {
             connectedAt: Date.now() - 7_200_000,
           },
         }
-        fs.writeFileSync(path.join(configDir, 'credentials.json'), JSON.stringify(credentials))
+        fs.writeFileSync(
+          path.join(configDir, 'credentials.json'),
+          JSON.stringify(credentials),
+        )
 
         const mockFetch = mock(() =>
           Promise.resolve({
@@ -271,7 +287,9 @@ describe('credentials', () => {
 
   describe('credentials file permissions (0600) and redaction', () => {
     test('saveChatGptOAuthCredentials writes credentials.json with mode 0600', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-save-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'chatgpt-perms-save-'),
+      )
       const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
       const originalHomedir = os.homedir
       ;(os as any).homedir = () => tmpDir
@@ -297,7 +315,9 @@ describe('credentials', () => {
     })
 
     test('saveChatGptOAuthCredentials creates config dir with mode 0700', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-dir-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'chatgpt-perms-dir-'),
+      )
       const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
       const originalHomedir = os.homedir
       ;(os as any).homedir = () => tmpDir
@@ -320,7 +340,9 @@ describe('credentials', () => {
     })
 
     test('saveChatGptOAuthCredentials tightens an existing 0777 dir down to 0700', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-tighten-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'chatgpt-perms-tighten-'),
+      )
       const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
       const originalHomedir = os.homedir
       ;(os as any).homedir = () => tmpDir
@@ -348,7 +370,9 @@ describe('credentials', () => {
     })
 
     test('clearChatGptOAuthCredentials preserves 0600 mode on rewrite', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-clear-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'chatgpt-perms-clear-'),
+      )
       const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
       const originalHomedir = os.homedir
       ;(os as any).homedir = () => tmpDir

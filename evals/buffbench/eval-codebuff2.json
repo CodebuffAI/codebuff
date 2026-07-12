@@ -9,10 +9,7 @@
       "binPath": "bin/bun"
     }
   ],
-  "finalCheckCommands": [
-    "bun run typecheck",
-    "bun run test"
-  ],
+  "finalCheckCommands": ["bun run typecheck", "bun run test"],
   "evalCommits": [
     {
       "id": "add-base2-lite",

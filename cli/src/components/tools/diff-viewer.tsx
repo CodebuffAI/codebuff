@@ -56,6 +56,24 @@ interface ParsedDiff {
   hunks: Hunk[]
 }
 
+export const DIFF_INITIAL_MAX_LINES = 80
+export const DIFF_INITIAL_MAX_HUNKS = 8
+export const DIFF_MAX_RENDER_NODES = 400
+
+export function getInitiallyCollapsedDiffHunks(parsed: ParsedDiff): number[] {
+  let visibleLines = 0
+  return parsed.hunks
+    .filter((hunk, index) => {
+      if (index >= DIFF_INITIAL_MAX_HUNKS) return true
+      if (visibleLines + hunk.bodyLines.length > DIFF_INITIAL_MAX_LINES) {
+        return true
+      }
+      visibleLines += hunk.bodyLines.length
+      return false
+    })
+    .map((hunk) => hunk.index)
+}
+
 interface SideBySideRow {
   oldSide: BodyLine | null
   newSide: BodyLine | null
@@ -109,7 +127,9 @@ const isFileHeaderLine = (line: string): boolean =>
 
 const HUNK_RE = /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@?(.*)$/
 
-function parseHunkHeader(line: string): Pick<Hunk, 'oldStart' | 'newStart' | 'oldLen' | 'newLen'> {
+function parseHunkHeader(
+  line: string,
+): Pick<Hunk, 'oldStart' | 'newStart' | 'oldLen' | 'newLen'> {
   const m = line.match(HUNK_RE)
   if (m) {
     return {
@@ -134,7 +154,9 @@ function parseHunkHeader(line: string): Pick<Hunk, 'oldStart' | 'newStart' | 'ol
  * `\\ No newline at end of file` markers are skipped (not rendered as rows).
  */
 export function parseDiffIntoHunks(diffText: string): ParsedDiff {
-  const rawLines = diffText.length ? diffText.replace(/\n+$/, '').split('\n') : []
+  const rawLines = diffText.length
+    ? diffText.replace(/\n+$/, '').split('\n')
+    : []
   const fileHeaders: string[] = []
   const hunks: Hunk[] = []
   let currentHunk: Hunk | null = null
@@ -295,10 +317,17 @@ export const DiffViewer = ({
   initiallyCollapsedHunks = [],
 }: DiffViewerProps) => {
   const theme = useTheme()
+  const parsedDiff = parseDiffIntoHunks(diffText)
   const [collapsedHunks, setCollapsedHunks] = useState<Set<number>>(
-    () => new Set(initiallyCollapsedHunks),
+    () =>
+      new Set([
+        ...getInitiallyCollapsedDiffHunks(parsedDiff),
+        ...initiallyCollapsedHunks,
+      ]),
   )
   const width = Math.max(10, availableWidth ?? 80)
+  const effectiveShowLineNumbers = showLineNumbers && width >= 24
+  let renderNodeCount = 0
 
   const toggleHunk = (index: number) => {
     setCollapsedHunks((prev) => {
@@ -317,7 +346,7 @@ export const DiffViewer = ({
         : theme.foreground
 
   // Unified-mode geometry: gutter = ' ' + old(4) + ' ' + new(4) + '│'
-  const gutterWidth = showLineNumbers ? 1 + 4 + 1 + 4 + 1 : 0
+  const gutterWidth = effectiveShowLineNumbers ? 1 + 4 + 1 + 4 + 1 : 0
   const signWidth = 1
   const textWrapWidth = Math.max(1, width - gutterWidth - signWidth)
 
@@ -332,7 +361,9 @@ export const DiffViewer = ({
 
   if (diffText.trim() === '') {
     return (
-      <box style={{ flexDirection: 'column', gap: 0, width: '100%', flexGrow: 1 }}>
+      <box
+        style={{ flexDirection: 'column', gap: 0, width: '100%', flexGrow: 1 }}
+      >
         <text style={{ wrapMode: 'none' }}>
           <span fg={theme.muted}>(no changes)</span>
         </text>
@@ -340,19 +371,21 @@ export const DiffViewer = ({
     )
   }
 
-  const { fileHeaders, hunks } = parseDiffIntoHunks(diffText)
+  const { fileHeaders, hunks } = parsedDiff
 
   const renderFileHeader = (line: string, idx: number): ReactNode => {
     const safeLine = line.length === 0 ? ' ' : line
     const { fg, attrs } = lineColor(line, theme.name, theme.muted)
     const resolvedFg = fg || theme.foreground
-    return wrapTextToVisualLines(safeLine, width).map((wrappedLine, wrapIdx) => (
-      <text key={`fh-${idx}-${wrapIdx}`} style={{ wrapMode: 'none' }}>
-        <span fg={resolvedFg} attributes={attrs}>
-          {wrappedLine}
-        </span>
-      </text>
-    ))
+    return wrapTextToVisualLines(safeLine, width).map((wrappedLine, wrapIdx) =>
+      renderNodeCount++ < DIFF_MAX_RENDER_NODES ? (
+        <text key={`fh-${idx}-${wrapIdx}`} style={{ wrapMode: 'none' }}>
+          <span fg={resolvedFg} attributes={attrs}>
+            {wrappedLine}
+          </span>
+        </text>
+      ) : null,
+    )
   }
 
   const renderHunkHeader = (hunk: Hunk): ReactNode => {
@@ -367,7 +400,10 @@ export const DiffViewer = ({
     if (collapsible && hasBody) {
       return (
         <box style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Button onClick={() => toggleHunk(hunk.index)} style={{ flexDirection: 'row' }}>
+          <Button
+            onClick={() => toggleHunk(hunk.index)}
+            style={{ flexDirection: 'row' }}
+          >
             <text style={{ wrapMode: 'none' }}>
               <span fg="cyan" attributes={TextAttributes.BOLD}>
                 {label}
@@ -378,7 +414,8 @@ export const DiffViewer = ({
       )
     }
 
-    const headerText = hasBody && collapsible ? `${marker} ${hunk.header}` : hunk.header
+    const headerText =
+      hasBody && collapsible ? `${marker} ${hunk.header}` : hunk.header
     return (
       <box style={{ flexDirection: 'row', alignItems: 'center' }}>
         <text style={{ wrapMode: 'none' }}>
@@ -392,21 +429,25 @@ export const DiffViewer = ({
 
   const renderUnifiedBody = (hunk: Hunk): ReactNode =>
     hunk.bodyLines.flatMap((bodyLine, lineIdx) => {
-      const sign = bodyLine.type === 'add' ? '+' : bodyLine.type === 'del' ? '-' : ' '
+      const sign =
+        bodyLine.type === 'add' ? '+' : bodyLine.type === 'del' ? '-' : ' '
       const color = colorForType(bodyLine.type)
       const wrapped = wrapTextToVisualLines(bodyLine.text, textWrapWidth)
       return wrapped.map((seg, wrapIdx) => {
         const isFirst = wrapIdx === 0
         const oldStr = formatLineNumber(isFirst ? bodyLine.oldNum : null)
         const newStr = formatLineNumber(isFirst ? bodyLine.newNum : null)
-        const gutter = showLineNumbers ? ` ${oldStr} ${newStr}│` : ''
+        const gutter = effectiveShowLineNumbers ? ` ${oldStr} ${newStr}│` : ''
         const signChar = isFirst ? sign : ' '
+        if (renderNodeCount++ >= DIFF_MAX_RENDER_NODES) return null
         return (
           <text
             key={`b-${hunk.index}-${lineIdx}-${wrapIdx}`}
             style={{ wrapMode: 'none' }}
           >
-            {showLineNumbers ? <span fg={theme.muted}>{gutter}</span> : null}
+            {effectiveShowLineNumbers ? (
+              <span fg={theme.muted}>{gutter}</span>
+            ) : null}
             <span fg={color}>
               {signChar}
               {seg}
@@ -419,38 +460,54 @@ export const DiffViewer = ({
   const renderSideBySideBody = (hunk: Hunk): ReactNode => {
     const rows = pairSideBySideRows(hunk.bodyLines)
     return rows.flatMap((row, rowIdx) => {
-      const leftColor = row.oldSide ? colorForType(row.oldSide.type) : theme.muted
-      const rightColor = row.newSide ? colorForType(row.newSide.type) : theme.muted
+      const leftColor = row.oldSide
+        ? colorForType(row.oldSide.type)
+        : theme.muted
+      const rightColor = row.newSide
+        ? colorForType(row.newSide.type)
+        : theme.muted
       const leftWrapped = row.oldSide
-        ? wrapTextToVisualLines(row.oldSide.text, sxsTextWidth)
+        ? wrapTextToVisualLines(row.oldSide.text, Math.max(1, sxsTextWidth - 1))
         : ['']
       const rightWrapped = row.newSide
-        ? wrapTextToVisualLines(row.newSide.text, sxsTextWidth)
+        ? wrapTextToVisualLines(row.newSide.text, Math.max(1, sxsTextWidth - 1))
         : ['']
       const maxLines = Math.max(leftWrapped.length, rightWrapped.length, 1)
       const out: ReactNode[] = []
       for (let w = 0; w < maxLines; w++) {
+        if (renderNodeCount++ >= DIFF_MAX_RENDER_NODES) break
         const leftSeg = leftWrapped[w] ?? ''
         const rightSeg = rightWrapped[w] ?? ''
         const leftNum =
           w === 0 && row.oldSide ? formatLineNumber(row.oldSide.oldNum) : null
         const rightNum =
           w === 0 && row.newSide ? formatLineNumber(row.newSide.newNum) : null
+        const leftMarker = w === 0 && row.oldSide?.type === 'del' ? '-' : ' '
+        const rightMarker = w === 0 && row.newSide?.type === 'add' ? '+' : ' '
         out.push(
-          <text key={`sxs-${hunk.index}-${rowIdx}-${w}`} style={{ wrapMode: 'none' }}>
-            {showLineNumbers ? (
+          <text
+            key={`sxs-${hunk.index}-${rowIdx}-${w}`}
+            style={{ wrapMode: 'none' }}
+          >
+            {effectiveShowLineNumbers ? (
               <span fg={theme.muted}>
                 {leftNum !== null ? `${leftNum} ` : ''.padEnd(sxsNumWidth)}
               </span>
             ) : null}
-            <span fg={leftColor}>{leftSeg.padEnd(sxsTextWidth)}</span>
+            <span fg={leftColor}>
+              {leftMarker}
+              {leftSeg.padEnd(Math.max(1, sxsTextWidth - 1))}
+            </span>
             <span fg={theme.muted}>{sxsSeparator}</span>
-            {showLineNumbers ? (
+            {effectiveShowLineNumbers ? (
               <span fg={theme.muted}>
                 {rightNum !== null ? `${rightNum} ` : ''.padEnd(sxsNumWidth)}
               </span>
             ) : null}
-            <span fg={rightColor}>{rightSeg}</span>
+            <span fg={rightColor}>
+              {rightMarker}
+              {rightSeg}
+            </span>
           </text>,
         )
       }
@@ -459,7 +516,9 @@ export const DiffViewer = ({
   }
 
   return (
-    <box style={{ flexDirection: 'column', gap: 0, width: '100%', flexGrow: 1 }}>
+    <box
+      style={{ flexDirection: 'column', gap: 0, width: '100%', flexGrow: 1 }}
+    >
       {fileHeaders.flatMap((line, idx) => renderFileHeader(line, idx))}
       {hunks.map((hunk) => {
         const collapsed = collapsedHunks.has(hunk.index)
@@ -477,6 +536,11 @@ export const DiffViewer = ({
           </box>
         )
       })}
+      {renderNodeCount >= DIFF_MAX_RENDER_NODES ? (
+        <text
+          fg={theme.muted}
+        >{`… render capped at ${DIFF_MAX_RENDER_NODES} nodes; collapse hunks or narrow the diff`}</text>
+      ) : null}
     </box>
   )
 }

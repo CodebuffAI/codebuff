@@ -98,7 +98,10 @@ function* markdownFiles(root: string, directory = root): Generator<string> {
     const projectPath = toProjectPath(root, absolutePath)
 
     if (entry.isDirectory()) {
-      if (SKIP_DIRECTORIES.has(entry.name) || shouldSkipPath(projectPath + '/')) {
+      if (
+        SKIP_DIRECTORIES.has(entry.name) ||
+        shouldSkipPath(projectPath + '/')
+      ) {
         continue
       }
       yield* markdownFiles(root, absolutePath)
@@ -122,7 +125,9 @@ function isAllowed(projectPath: string, line: string): boolean {
   )
 }
 
-export function findByokWordingViolations(root = projectRoot()): WordingViolation[] {
+export function findByokWordingViolations(
+  root = projectRoot(),
+): WordingViolation[] {
   const violations: WordingViolation[] = []
 
   for (const path of markdownFiles(root)) {
@@ -157,8 +162,7 @@ export function formatByokWordingViolations(
   return [
     'Potential forbidden hosted-product wording:',
     ...violations.map(
-      (violation) =>
-        `${violation.path}:${violation.line}: ${violation.text}`,
+      (violation) => `${violation.path}:${violation.line}: ${violation.text}`,
     ),
   ].join('\n')
 }

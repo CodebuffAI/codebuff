@@ -3,9 +3,7 @@
     "local": {
       "type": "openai-compatible",
       "baseURL": "http://localhost:11434/v1",
-      "models": [
-        "new-model"
-      ],
+      "models": ["new-model"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,

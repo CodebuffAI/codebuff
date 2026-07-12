@@ -114,18 +114,18 @@ function getCacheEntry<T>(key: string): CacheEntry<T> | undefined {
 export function isEntryStale(key: string, staleTime: number): boolean {
   const entry = getCacheEntry(key)
   if (!entry) return true
-  
+
   // If we have successful data, use its timestamp for staleness
   if (entry.dataUpdatedAt !== 0) {
     return staleTime === 0 || Date.now() - entry.dataUpdatedAt > staleTime
   }
-  
+
   // No successful data - check if we have a recent error
   // Use errorUpdatedAt to prevent rapid retries on persistent errors
   if (entry.errorUpdatedAt !== null) {
     return staleTime === 0 || Date.now() - entry.errorUpdatedAt > staleTime
   }
-  
+
   // No data and no error timestamp - entry is stale
   return true
 }
@@ -246,7 +246,7 @@ export type UseActivityQueryResult<T> = {
 
 /**
  * Activity-aware query hook that provides caching and refetching based on user activity.
- * 
+ *
  * This hook replaces TanStack Query with terminal-specific activity awareness:
  * - Detects when user is active (typing, mouse movement, keyboard shortcuts)
  * - Can pause polling when user is idle to save resources
@@ -273,7 +273,7 @@ export function useActivityQuery<T>(
   const mountedRef = useRef(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const wasIdleRef = useRef(false)
-  
+
   // Store queryFn in a ref to avoid recreating doFetch when queryFn changes.
   // This is critical because inline arrow functions create new references on every render,
   // which would cause the polling interval to reset constantly.
@@ -345,7 +345,10 @@ export function useActivityQuery<T>(
           const t = setTimeout(() => {
             retryTimeouts.delete(serializedKey)
             // only retry if still mounted somewhere and key not deleted
-            if (getRefCount(serializedKey) > 0 && getGeneration(serializedKey) === myGen) {
+            if (
+              getRefCount(serializedKey) > 0 &&
+              getGeneration(serializedKey) === myGen
+            ) {
               void doFetch()
             }
           }, 1000 * next)
@@ -420,7 +423,7 @@ export function useActivityQuery<T>(
     const shouldFetchOnMount =
       refetchOnMount === 'always' ||
       (refetchOnMount && currentlyStale) ||
-      (!currentEntry)
+      !currentEntry
 
     if (shouldFetchOnMount) void doFetch()
 
@@ -456,7 +459,15 @@ export function useActivityQuery<T>(
         intervalRef.current = null
       }
     }
-  }, [enabled, refetchInterval, pauseWhenIdle, idleThreshold, staleTime, serializedKey, doFetch])
+  }, [
+    enabled,
+    refetchInterval,
+    pauseWhenIdle,
+    idleThreshold,
+    staleTime,
+    serializedKey,
+    doFetch,
+  ])
 
   // Refetch on activity after idle
   useEffect(() => {
@@ -481,7 +492,14 @@ export function useActivityQuery<T>(
       unsubscribe()
       clearInterval(checkIdle)
     }
-  }, [enabled, refetchOnActivity, idleThreshold, staleTime, serializedKey, doFetch])
+  }, [
+    enabled,
+    refetchOnActivity,
+    idleThreshold,
+    staleTime,
+    serializedKey,
+    doFetch,
+  ])
 
   // Garbage collection
   useEffect(() => {
@@ -501,7 +519,10 @@ export function useActivityQuery<T>(
     data,
     isLoading,
     isFetching,
-    isSuccess: cachedEntry != null && cachedEntry.error == null && cachedEntry.dataUpdatedAt !== 0,
+    isSuccess:
+      cachedEntry != null &&
+      cachedEntry.error == null &&
+      cachedEntry.dataUpdatedAt !== 0,
     error,
     refetch,
   }
@@ -535,7 +556,9 @@ export function removeActivityQuery(queryKey: readonly unknown[]): void {
 /**
  * Read cached data.
  */
-export function getActivityQueryData<T>(queryKey: readonly unknown[]): T | undefined {
+export function getActivityQueryData<T>(
+  queryKey: readonly unknown[],
+): T | undefined {
   const key = serializeQueryKey(queryKey)
   return getCacheEntry<T>(key)?.data
 }
@@ -543,7 +566,10 @@ export function getActivityQueryData<T>(queryKey: readonly unknown[]): T | undef
 /**
  * Write cached data (optimistic updates).
  */
-export function setActivityQueryData<T>(queryKey: readonly unknown[], data: T): void {
+export function setActivityQueryData<T>(
+  queryKey: readonly unknown[],
+  data: T,
+): void {
   const key = serializeQueryKey(queryKey)
   setCacheEntry(key, {
     data,
@@ -610,7 +636,9 @@ export const _retryTestHelpers = {
   setRetryCount(queryKey: readonly unknown[], count: number): void {
     retryCounts.set(serializeQueryKey(queryKey), count)
   },
-  getRetryTimeout(queryKey: readonly unknown[]): ReturnType<typeof setTimeout> | undefined {
+  getRetryTimeout(
+    queryKey: readonly unknown[],
+  ): ReturnType<typeof setTimeout> | undefined {
     return retryTimeouts.get(serializeQueryKey(queryKey))
   },
   setRefCount(queryKey: readonly unknown[], count: number): void {

@@ -168,9 +168,9 @@ describe('isFailoverEligibleError', () => {
   })
 
   it('returns true for 504 gateway timeout', () => {
-    expect(isFailoverEligibleError(createHttpError('gateway timeout', 504))).toBe(
-      true,
-    )
+    expect(
+      isFailoverEligibleError(createHttpError('gateway timeout', 504)),
+    ).toBe(true)
   })
 
   it('returns false for 408 request timeout — retry-only, not failover-eligible', () => {
@@ -196,9 +196,9 @@ describe('isFailoverEligibleError', () => {
   })
 
   it('returns false for 422 unprocessable entity', () => {
-    expect(
-      isFailoverEligibleError(createHttpError('unprocessable', 422)),
-    ).toBe(false)
+    expect(isFailoverEligibleError(createHttpError('unprocessable', 422))).toBe(
+      false,
+    )
   })
 
   it('returns false for a plain Error with no status code', () => {

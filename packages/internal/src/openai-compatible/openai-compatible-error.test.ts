@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test'
 
 import {
   defaultOpenAICompatibleErrorStructure,
   openaiCompatibleErrorDataSchema,
-} from './openai-compatible-error';
+} from './openai-compatible-error'
 
 describe('openaiCompatibleErrorDataSchema', () => {
   it('parses Google OpenAI-compatible error arrays', () => {
@@ -22,10 +22,10 @@ describe('openaiCompatibleErrorDataSchema', () => {
           ],
         },
       },
-    ]);
+    ])
 
     expect(defaultOpenAICompatibleErrorStructure.errorToMessage(parsed)).toBe(
       'Request had invalid authentication credentials. Expected OAuth 2 access token. (ACCESS_TOKEN_TYPE_UNSUPPORTED)',
-    );
-  });
-});
+    )
+  })
+})

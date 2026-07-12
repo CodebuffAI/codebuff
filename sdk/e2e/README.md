@@ -7,7 +7,7 @@ This folder contains end-to-end tests, integration tests, unit tests, and runnab
 ```
 sdk/e2e/
 ├── streaming/          # E2E tests for streaming behavior
-├── workflows/          # E2E tests for multi-step workflows  
+├── workflows/          # E2E tests for multi-step workflows
 ├── custom-agents/      # E2E tests for custom agent & tool integration
 ├── features/           # E2E tests for SDK feature coverage
 ├── integration/        # Integration tests (SDK + API mechanics)
@@ -22,45 +22,49 @@ sdk/e2e/
 ## Test Categories
 
 ### E2E Tests (`test:e2e`)
+
 Full end-to-end tests that exercise complete user workflows with real API calls.
 
 ```bash
 bun run test:e2e
 ```
 
-| Category | Description |
-|----------|-------------|
-| `streaming/` | Subagent streaming, concurrent streams |
-| `workflows/` | Multi-turn conversations, error recovery |
-| `custom-agents/` | Custom agents with custom tools |
-| `features/` | projectFiles, knowledgeFiles, maxAgentSteps |
+| Category         | Description                                 |
+| ---------------- | ------------------------------------------- |
+| `streaming/`     | Subagent streaming, concurrent streams      |
+| `workflows/`     | Multi-turn conversations, error recovery    |
+| `custom-agents/` | Custom agents with custom tools             |
+| `features/`      | projectFiles, knowledgeFiles, maxAgentSteps |
 
 ### Integration Tests (`test:integration`)
+
 Tests that verify SDK + API integration mechanics.
 
 ```bash
 bun run test:integration
 ```
 
-| Test | Description |
-|------|-------------|
-| `event-types` | Validates all PrintModeEvent types are emitted |
-| `event-ordering` | Validates event sequence (start → content → finish) |
-| `stream-chunks` | Tests handleStreamChunk callback |
-| `connection-check` | Tests checkConnection() method |
+| Test               | Description                                         |
+| ------------------ | --------------------------------------------------- |
+| `event-types`      | Validates all PrintModeEvent types are emitted      |
+| `event-ordering`   | Validates event sequence (start → content → finish) |
+| `stream-chunks`    | Tests handleStreamChunk callback                    |
+| `connection-check` | Tests checkConnection() method                      |
 
 ### Unit Tests (`test`)
+
 Pure unit tests with no external dependencies.
 
 ```bash
 bun run test
 ```
 
-| Test | Description |
-|------|-------------|
+| Test                      | Description                        |
+| ------------------------- | ---------------------------------- |
 | `event-collector.test.ts` | Tests EventCollector utility class |
 
 ### Examples
+
 Runnable scripts demonstrating SDK usage patterns. Not tests - just examples!
 
 ```bash
@@ -70,14 +74,14 @@ bun run sdk/e2e/examples/code-reviewer.example.ts
 
 > Note: Examples are run directly via `bun run <path>`, not via an npm script.
 
-| Example | Description |
-|---------|-------------|
-| `code-reviewer.example.ts` | AI code review |
-| `code-explainer.example.ts` | Explain code in plain English |
+| Example                               | Description                         |
+| ------------------------------------- | ----------------------------------- |
+| `code-reviewer.example.ts`            | AI code review                      |
+| `code-explainer.example.ts`           | Explain code in plain English       |
 | `commit-message-generator.example.ts` | Generate commit messages from diffs |
-| `sdk-lint.example.ts` | AI-powered linter |
-| `sdk-refactor.example.ts` | Code refactoring |
-| `sdk-test-gen.example.ts` | Unit test generation |
+| `sdk-lint.example.ts`                 | AI-powered linter                   |
+| `sdk-refactor.example.ts`             | Code refactoring                    |
+| `sdk-test-gen.example.ts`             | Unit test generation                |
 
 ## Running All Tests
 
@@ -104,10 +108,18 @@ bun run test:e2e && bun run test:integration && bun run test
 ## Writing Tests
 
 ### E2E Test Pattern
+
 ```typescript
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { OpenbuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  isAuthError,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('E2E: My Test', () => {
   let client: OpenbuffClient
@@ -117,24 +129,29 @@ describe('E2E: My Test', () => {
     client = new OpenbuffClient({ apiKey: getApiKey() })
   })
 
-  test('does something', async () => {
-    if (skipIfNoApiKey()) return
-    const collector = new EventCollector()
-    
-    const result = await client.run({
-      agent: DEFAULT_AGENT,
-      prompt: 'Test prompt',
-      handleEvent: collector.handleEvent,
-    })
+  test(
+    'does something',
+    async () => {
+      if (skipIfNoApiKey()) return
+      const collector = new EventCollector()
 
-    if (isAuthError(result.output)) return
-    
-    expect(result.output.type).not.toBe('error')
-  }, DEFAULT_TIMEOUT)
+      const result = await client.run({
+        agent: DEFAULT_AGENT,
+        prompt: 'Test prompt',
+        handleEvent: collector.handleEvent,
+      })
+
+      if (isAuthError(result.output)) return
+
+      expect(result.output.type).not.toBe('error')
+    },
+    DEFAULT_TIMEOUT,
+  )
 })
 ```
 
 ### Unit Test Pattern
+
 ```typescript
 import { describe, test, expect, beforeEach } from 'bun:test'
 import { EventCollector } from '../event-collector'

@@ -20,7 +20,10 @@ function GridLayoutInner<T>({
   footer,
   marginTop = 0,
 }: GridLayoutProps<T>): ReactNode {
-  const { columns, columnWidth, columnGroups } = useGridLayout(items, availableWidth)
+  const { columns, columnWidth, columnGroups } = useGridLayout(
+    items,
+    availableWidth,
+  )
 
   if (items.length === 0) return null
 

@@ -3,7 +3,10 @@ import { describe, expect, test } from 'bun:test'
 import { handleReadOutline } from '../tools/handlers/tool/read-outline'
 import { handleReadSlices } from '../tools/handlers/tool/read-slices'
 import { processStrReplace } from '../process-str-replace'
-import { extractSlices, extendRangeToPrecedingComment } from '../structural-read'
+import {
+  extractSlices,
+  extendRangeToPrecedingComment,
+} from '../structural-read'
 import { mockFileContext } from './test-utils'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -129,7 +132,9 @@ describe('read_outline handler (AST-backed)', () => {
     expect(outputJson(python).outline).toMatch(/  Lines 4-5: method greet/)
     expect(outputJson(python).outline).toMatch(/Lines 7-8: function helper/)
 
-    expect(outputJson(rust).outline).toContain('Line 1: use std::path::PathBuf;')
+    expect(outputJson(rust).outline).toContain(
+      'Line 1: use std::path::PathBuf;',
+    )
     expect(outputJson(rust).outline).toMatch(/Lines 3-5: struct Counter/)
     expect(outputJson(rust).outline).toMatch(/Lines 7-11: impl impl Counter/)
     expect(outputJson(rust).outline).toMatch(/  Lines 8-10: method new/)
@@ -243,9 +248,9 @@ describe('read_slices handler (AST-backed + capability tokens)', () => {
       startLine: 11,
       endLine: 13,
     })
-    expect(goSlices.find((s: any) => s.symbol === 'Run')?.readCapability).toMatch(
-      /^cap\./,
-    )
+    expect(
+      goSlices.find((s: any) => s.symbol === 'Run')?.readCapability,
+    ).toMatch(/^cap\./)
   })
 
   test('returns empty slices array for a missing file', async () => {
@@ -269,7 +274,11 @@ describe('extractSlices (shared core for read_files symbols + read_slices)', () 
     expect(greet.readCapability).toMatch(/^cap\./)
 
     const service = slices.find((s) => s.symbol === 'Service')!
-    expect(service).toMatchObject({ symbol: 'Service', startLine: 8, endLine: 12 })
+    expect(service).toMatchObject({
+      symbol: 'Service',
+      startLine: 8,
+      endLine: 12,
+    })
   })
 
   test('extracts non-TS symbols with reusable capability tokens', async () => {
@@ -298,16 +307,31 @@ describe('extractSlices (shared core for read_files symbols + read_slices)', () 
     const slices = await extractSlices(TS_SRC, 'svc.ts', ['doesNotExist'])
     expect(slices).toEqual([])
   })
+
+  test('[COR-M07] heuristic matches are declaration-only and grant no edit capability', async () => {
+    const content = [
+      '// target is discussed here',
+      'target()',
+      '',
+      'function target() {',
+      '  return true',
+      '}',
+    ].join('\n')
+    const slices = await extractSlices(content, 'unsupported.txt', ['target'])
+
+    expect(slices).toHaveLength(1)
+    expect(slices[0]).toMatchObject({
+      symbol: 'target',
+      startLine: 4,
+      endLine: 6,
+    })
+    expect(slices[0]?.readCapability).toBeUndefined()
+  })
 })
 
 describe('extendRangeToPrecedingComment', () => {
   test('extends upward to include a single-line JSDoc block', () => {
-    const lines = [
-      '/** JSDoc */',
-      'export function foo() {',
-      '  return 1',
-      '}',
-    ]
+    const lines = ['/** JSDoc */', 'export function foo() {', '  return 1', '}']
     const result = extendRangeToPrecedingComment(lines, 2)
     expect(result.startLine).toBe(1)
     expect(result.commentPrefix).toContain('/** JSDoc */')
@@ -318,7 +342,7 @@ describe('extendRangeToPrecedingComment', () => {
       '/**',
       ' * First line.',
       ' * Second line.',
-       ' */',
+      ' */',
       'export function bar() {',
       '  return 2',
       '}',
@@ -357,11 +381,7 @@ describe('extendRangeToPrecedingComment', () => {
   })
 
   test('does NOT extend when there is no preceding comment', () => {
-    const lines = [
-      'export function noDoc() {',
-      '  return 5',
-      '}',
-    ]
+    const lines = ['export function noDoc() {', '  return 5', '}']
     const result = extendRangeToPrecedingComment(lines, 1)
     expect(result.startLine).toBe(1)
     expect(result.commentPrefix).toBe('')

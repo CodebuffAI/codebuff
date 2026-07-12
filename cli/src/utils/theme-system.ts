@@ -25,21 +25,21 @@ export function supportsTruecolor(env: CliEnv = getCliEnv()): boolean {
   if (_truecolorSupport !== null) {
     return _truecolorSupport
   }
-  
+
   const termProgram = env.TERM_PROGRAM?.toLowerCase() ?? ''
-  
+
   // Terminal.app (Apple_Terminal) does NOT support truecolor - only 256 colors
   if (termProgram === 'apple_terminal') {
     _truecolorSupport = false
     return false
   }
-  
+
   const colorterm = env.COLORTERM?.toLowerCase()
   if (colorterm === 'truecolor' || colorterm === '24bit') {
     _truecolorSupport = true
     return true
   }
-  
+
   // Some terminals that are known to support truecolor
   const truecolorTerminals = [
     'iterm.app',
@@ -50,30 +50,32 @@ export function supportsTruecolor(env: CliEnv = getCliEnv()): boolean {
     'ghostty',
     'vscode',
   ]
-  
-  if (truecolorTerminals.some(t => termProgram.includes(t))) {
+
+  if (truecolorTerminals.some((t) => termProgram.includes(t))) {
     _truecolorSupport = true
     return true
   }
-  
+
   // Check TERM for known truecolor-capable values
   const term = env.TERM?.toLowerCase() ?? ''
   if (term.includes('truecolor') || term.includes('24bit')) {
     _truecolorSupport = true
     return true
   }
-  
+
   // xterm-kitty, alacritty, etc.
-  if (term === 'xterm-kitty' || term === 'alacritty' || term.includes('ghostty')) {
+  if (
+    term === 'xterm-kitty' ||
+    term === 'alacritty' ||
+    term.includes('ghostty')
+  ) {
     _truecolorSupport = true
     return true
   }
-  
+
   _truecolorSupport = false
   return false
 }
-
-
 
 /**
  * Get the block color for the logo based on theme and terminal capabilities.
@@ -205,9 +207,7 @@ const collectExistingPaths = (candidates: string[]): string[] => {
   return [...seen]
 }
 
-const resolveVSCodeSettingsPaths = (
-  env: CliEnv = getCliEnv(),
-): string[] => {
+const resolveVSCodeSettingsPaths = (env: CliEnv = getCliEnv()): string[] => {
   const settings: string[] = []
   const home = homedir()
 
@@ -233,9 +233,7 @@ const resolveVSCodeSettingsPaths = (
   return settings
 }
 
-const resolveJetBrainsLafPaths = (
-  env: CliEnv = getCliEnv(),
-): string[] => {
+const resolveJetBrainsLafPaths = (env: CliEnv = getCliEnv()): string[] => {
   const candidates: string[] = []
 
   // Check IDE config dirs
@@ -283,9 +281,7 @@ const resolveJetBrainsLafPaths = (
   return candidates
 }
 
-const resolveZedSettingsPaths = (
-  env: CliEnv = getCliEnv(),
-): string[] => {
+const resolveZedSettingsPaths = (env: CliEnv = getCliEnv()): string[] => {
   const home = homedir()
   const paths: string[] = []
 
@@ -381,9 +377,7 @@ const extractJetBrainsTheme = (content: string): ThemeName | null => {
   return null
 }
 
-const isVSCodeFamilyTerminal = (
-  env: CliEnv = getCliEnv(),
-): boolean => {
+const isVSCodeFamilyTerminal = (env: CliEnv = getCliEnv()): boolean => {
   if (env.TERM_PROGRAM?.toLowerCase() === 'vscode') {
     return true
   }
@@ -403,9 +397,7 @@ const isVSCodeFamilyTerminal = (
   return false
 }
 
-const isJetBrainsTerminal = (
-  env: CliEnv = getCliEnv(),
-): boolean => {
+const isJetBrainsTerminal = (env: CliEnv = getCliEnv()): boolean => {
   if (env.TERMINAL_EMULATOR?.toLowerCase().includes('jetbrains')) {
     return true
   }
@@ -423,16 +415,12 @@ const isJetBrainsTerminal = (
   return false
 }
 
-const isZedTerminal = (
-  env: CliEnv = getCliEnv(),
-): boolean => {
+const isZedTerminal = (env: CliEnv = getCliEnv()): boolean => {
   const termProgram = env.TERM_PROGRAM?.toLowerCase()
   return termProgram === 'zed' || false
 }
 
-const detectVSCodeTheme = (
-  env: CliEnv = getCliEnv(),
-): ThemeName | null => {
+const detectVSCodeTheme = (env: CliEnv = getCliEnv()): ThemeName | null => {
   if (!isVSCodeFamilyTerminal(env)) {
     return null
   }
@@ -457,8 +445,7 @@ const detectVSCodeTheme = (
     }
   }
 
-  const themeKindEnv =
-    env.VSCODE_THEME_KIND ?? env.VSCODE_COLOR_THEME_KIND
+  const themeKindEnv = env.VSCODE_THEME_KIND ?? env.VSCODE_COLOR_THEME_KIND
   if (themeKindEnv) {
     const normalized = themeKindEnv.trim().toLowerCase()
     if (normalized === 'dark' || normalized === 'hc') return 'dark'
@@ -468,9 +455,7 @@ const detectVSCodeTheme = (
   return null
 }
 
-const detectJetBrainsTheme = (
-  env: CliEnv = getCliEnv(),
-): ThemeName | null => {
+const detectJetBrainsTheme = (env: CliEnv = getCliEnv()): ThemeName | null => {
   if (!isJetBrainsTerminal(env)) {
     return null
   }
@@ -573,9 +558,7 @@ const extractZedTheme = (content: string): ThemeName | null => {
   return null
 }
 
-const detectZedTheme = (
-  env: CliEnv = getCliEnv(),
-): ThemeName | null => {
+const detectZedTheme = (env: CliEnv = getCliEnv()): ThemeName | null => {
   if (!isZedTerminal(env)) {
     return null
   }
@@ -611,24 +594,20 @@ const detectZedTheme = (
   return null
 }
 
-export const detectIDETheme = (
-  env: CliEnv = getCliEnv(),
-): ThemeName | null => {
+export const detectIDETheme = (env: CliEnv = getCliEnv()): ThemeName | null => {
   const theme = detectVSCodeTheme(env)
   if (theme) return theme
-  
+
   const jbTheme = detectJetBrainsTheme(env)
   if (jbTheme) return jbTheme
-  
+
   const zedTheme = detectZedTheme(env)
   if (zedTheme) return zedTheme
-  
+
   return null
 }
 
-export const getIDEThemeConfigPaths = (
-  env: CliEnv = getCliEnv(),
-): string[] => {
+export const getIDEThemeConfigPaths = (env: CliEnv = getCliEnv()): string[] => {
   const paths = new Set<string>()
   for (const path of resolveVSCodeSettingsPaths(env)) {
     paths.add(path)
@@ -1235,11 +1214,11 @@ export function enableManualThemeRefresh() {
 
 /**
  * OSC Terminal Theme Detection
- * 
+ *
  * OSC detection is now run synchronously at app startup in index.tsx,
  * BEFORE OpenTUI is initialized. This avoids stdin conflicts since
  * OpenTUI hasn't attached its listeners yet.
- * 
+ *
  * The detected theme is stored via setOscDetectedTheme() and retrieved
  * via getOscDetectedTheme() when building the theme.
  */

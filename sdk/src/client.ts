@@ -47,7 +47,6 @@ export class OpenbuffClient {
   ): Promise<RunState> {
     return run({ ...this.options, ...options })
   }
-
 }
 
 /**

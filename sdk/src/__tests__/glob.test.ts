@@ -1,5 +1,8 @@
 import * as projectFileTree from '@codebuff/common/project-file-tree'
 import { describe, test, expect, afterEach, spyOn } from 'bun:test'
+import nodeFs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 import { glob } from '../tools/glob'
 
@@ -17,7 +20,9 @@ function mockFileTree(filePaths: string[]) {
   )
 }
 
-const fs = {} as unknown as CodebuffFileSystem
+const fs = {
+  stat: async () => ({ mtimeMs: 0 }),
+} as unknown as CodebuffFileSystem
 
 function getValue(result: Awaited<ReturnType<typeof glob>>) {
   const value = result[0].value as
@@ -36,12 +41,7 @@ describe('glob tool', () => {
   })
 
   test('matches patterns against project-relative paths when no cwd', async () => {
-    mockFileTree([
-      'src/a.ts',
-      'src/b.ts',
-      'src/nested/c.ts',
-      'docs/readme.md',
-    ])
+    mockFileTree(['src/a.ts', 'src/b.ts', 'src/nested/c.ts', 'docs/readme.md'])
 
     const value = getValue(
       await glob({ pattern: 'src/*.ts', projectPath: PROJECT_PATH, fs }),
@@ -160,5 +160,69 @@ describe('glob tool', () => {
     // "pkg/subextra/b.ts" must NOT be included just because its prefix
     // starts with "pkg/sub".
     expect(value.files).toEqual(['pkg/sub/a.ts'])
+  })
+
+  test('rejects a cwd outside the project instead of broadening the search', async () => {
+    mockFileTree(['src/a.ts', 'outside.ts'])
+
+    const result = await glob({
+      pattern: '**/*.ts',
+      projectPath: PROJECT_PATH,
+      cwd: '../outside',
+      fs,
+    })
+
+    expect(result[0].value).toEqual({
+      errorMessage:
+        "Invalid cwd: Path '../outside' is outside the project directory.",
+    })
+  })
+
+  test('rejects a cwd symlink that escapes the project', async () => {
+    const projectRoot = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'glob-root-'))
+    const outsideRoot = nodeFs.mkdtempSync(
+      path.join(os.tmpdir(), 'glob-outside-'),
+    )
+    nodeFs.symlinkSync(outsideRoot, path.join(projectRoot, 'escape'))
+    mockFileTree(['src/a.ts'])
+
+    try {
+      const result = await glob({
+        pattern: '**/*.ts',
+        projectPath: projectRoot,
+        cwd: 'escape',
+        fs: nodeFs.promises,
+      })
+
+      expect(result[0].value).toEqual({
+        errorMessage:
+          "Invalid cwd: Path 'escape' is outside the project directory.",
+      })
+    } finally {
+      nodeFs.rmSync(projectRoot, { recursive: true, force: true })
+      nodeFs.rmSync(outsideRoot, { recursive: true, force: true })
+    }
+  })
+
+  test('sorts matches by descending modification time with path tie-breaking', async () => {
+    mockFileTree(['src/z.ts', 'src/a.ts', 'src/m.ts'])
+    const mtimes: Record<string, number> = {
+      '/project/src/z.ts': 100,
+      '/project/src/a.ts': 200,
+      '/project/src/m.ts': 200,
+    }
+    const orderedFs = {
+      stat: async (filePath: string) => ({ mtimeMs: mtimes[filePath] ?? 0 }),
+    } as unknown as CodebuffFileSystem
+
+    const value = getValue(
+      await glob({
+        pattern: 'src/*.ts',
+        projectPath: PROJECT_PATH,
+        fs: orderedFs,
+      }),
+    )
+
+    expect(value.files).toEqual(['src/a.ts', 'src/m.ts', 'src/z.ts'])
   })
 })

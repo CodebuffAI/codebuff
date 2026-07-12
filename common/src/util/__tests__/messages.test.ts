@@ -28,7 +28,10 @@ describe('withCacheControl', () => {
     const result = withCacheControl(obj)
 
     expect(result.providerOptions).toBeDefined()
-    const resultOptions = result.providerOptions as Record<string, ProviderWithCacheControl>
+    const resultOptions = result.providerOptions as Record<
+      string,
+      ProviderWithCacheControl
+    >
     expect(resultOptions.anthropic?.cache_control).toEqual({
       type: 'ephemeral',
     })
@@ -48,13 +51,12 @@ describe('withCacheControl', () => {
     } as Parameters<typeof withCacheControl>[0]
     const result = withCacheControl(obj)
 
-    const resultAnthropicOptions = result.providerOptions?.anthropic as ProviderWithCacheControl
+    const resultAnthropicOptions = result.providerOptions
+      ?.anthropic as ProviderWithCacheControl
     expect(resultAnthropicOptions.cache_control).toEqual({
       type: 'ephemeral',
     })
-    expect(resultAnthropicOptions.someOtherOption).toBe(
-      'value',
-    )
+    expect(resultAnthropicOptions.someOtherOption).toBe('value')
   })
 
   it('should not mutate original object', () => {
@@ -69,10 +71,15 @@ describe('withCacheControl', () => {
     const obj = {} as Parameters<typeof withCacheControl>[0]
     const result = withCacheControl(obj)
 
-    const resultOptions = result.providerOptions as Record<string, ProviderWithCacheControl>
+    const resultOptions = result.providerOptions as Record<
+      string,
+      ProviderWithCacheControl
+    >
     expect(resultOptions.anthropic?.cache_control?.type).toBe('ephemeral')
     expect(resultOptions.openrouter?.cache_control?.type).toBe('ephemeral')
-    expect(resultOptions.openaiCompatible?.cache_control?.type).toBe('ephemeral')
+    expect(resultOptions.openaiCompatible?.cache_control?.type).toBe(
+      'ephemeral',
+    )
   })
 })
 
@@ -251,7 +258,9 @@ describe('convertCbToModelMessages', () => {
           role: 'tool',
           toolName: 'test_tool',
           toolCallId: 'call_123',
-          content: jsonToolResult([{ path: 'src/file.ts', content: 'content' }]),
+          content: jsonToolResult([
+            { path: 'src/file.ts', content: 'content' },
+          ]),
         },
       ]
 
@@ -740,7 +749,9 @@ describe('convertCbToModelMessages', () => {
         typeof result[2].content !== 'string' &&
         result[2].content.length > 0
       ) {
-        const lastContentPart = result[2].content[result[2].content.length - 1] as { providerOptions?: Record<string, ProviderWithCacheControl> }
+        const lastContentPart = result[2].content[
+          result[2].content.length - 1
+        ] as { providerOptions?: Record<string, ProviderWithCacheControl> }
         expect(
           lastContentPart.providerOptions?.anthropic?.cache_control,
         ).toEqual({
@@ -841,10 +852,14 @@ describe('convertCbToModelMessages', () => {
       const lastMessage = result[4]
       expect(lastMessage.role).toBe('assistant')
       if (typeof lastMessage.content !== 'string') {
-        const lastPart = lastMessage.content[lastMessage.content.length - 1] as {
+        const lastPart = lastMessage.content[
+          lastMessage.content.length - 1
+        ] as {
           providerOptions?: Record<string, ProviderWithCacheControl>
         }
-        expect(lastPart.providerOptions?.openaiCompatible?.cache_control).toEqual({
+        expect(
+          lastPart.providerOptions?.openaiCompatible?.cache_control,
+        ).toEqual({
           type: 'ephemeral',
         })
       }
@@ -855,7 +870,9 @@ describe('convertCbToModelMessages', () => {
         const part = instructionsMsg.content[0] as {
           providerOptions?: Record<string, ProviderWithCacheControl>
         }
-        expect(part.providerOptions?.openaiCompatible?.cache_control).toBeUndefined()
+        expect(
+          part.providerOptions?.openaiCompatible?.cache_control,
+        ).toBeUndefined()
       }
     })
 
@@ -1075,66 +1092,66 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
-  // M2 telemetry: getCacheAnchorSummary returns per-anchor metadata without
-  // modifying messages. Used by cache-debug snapshots to detect anchor churn.
-  describe('getCacheAnchorSummary (M2 telemetry)', () => {
-    it('returns system + stable-history + tail anchors with content hashes', () => {
-      const messages: Message[] = [
-        systemMessage('System'),
-        userMessage('Context'),
-        assistantMessage('Response'),
-        userMessage('More context'),
-        userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
-      ]
+    // M2 telemetry: getCacheAnchorSummary returns per-anchor metadata without
+    // modifying messages. Used by cache-debug snapshots to detect anchor churn.
+    describe('getCacheAnchorSummary (M2 telemetry)', () => {
+      it('returns system + stable-history + tail anchors with content hashes', () => {
+        const messages: Message[] = [
+          systemMessage('System'),
+          userMessage('Context'),
+          assistantMessage('Response'),
+          userMessage('More context'),
+          userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
+        ]
 
-      const anchors = getCacheAnchorSummary(messages)
+        const anchors = getCacheAnchorSummary(messages)
 
-      expect(anchors).toHaveLength(3)
-      expect(anchors.map((a) => a.type)).toEqual([
-        'system',
-        'stable-history',
-        'tail',
-      ])
-      // system anchor at index 0
-      expect(anchors[0].index).toBe(0)
-      expect(anchors[0].contentHash).toMatch(/^[0-9a-f]{8}$/)
-      // stable-history anchor before USER_PROMPT (index 3)
-      expect(anchors[1].index).toBe(3)
-      // tail anchor at last index (4)
-      expect(anchors[2].index).toBe(4)
-      // each anchor has a reason string
-      for (const anchor of anchors) {
-        expect(anchor.reason).toBeTruthy()
-        expect(typeof anchor.reason).toBe('string')
-      }
+        expect(anchors).toHaveLength(3)
+        expect(anchors.map((a) => a.type)).toEqual([
+          'system',
+          'stable-history',
+          'tail',
+        ])
+        // system anchor at index 0
+        expect(anchors[0].index).toBe(0)
+        expect(anchors[0].contentHash).toMatch(/^[0-9a-f]{8}$/)
+        // stable-history anchor before USER_PROMPT (index 3)
+        expect(anchors[1].index).toBe(3)
+        // tail anchor at last index (4)
+        expect(anchors[2].index).toBe(4)
+        // each anchor has a reason string
+        for (const anchor of anchors) {
+          expect(anchor.reason).toBeTruthy()
+          expect(typeof anchor.reason).toBe('string')
+        }
+      })
+
+      it('does not modify the original messages', () => {
+        const messages: Message[] = [
+          systemMessage('System'),
+          userMessage('Context'),
+          userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
+        ]
+
+        const before = cloneDeep(messages)
+        getCacheAnchorSummary(messages)
+        expect(messages).toEqual(before)
+      })
+
+      it('dedupes when system is also the tail (single message)', () => {
+        const messages: Message[] = [systemMessage('Lonely system')]
+
+        const anchors = getCacheAnchorSummary(messages)
+
+        expect(anchors).toHaveLength(1)
+        expect(anchors[0].type).toBe('system')
+        expect(anchors[0].index).toBe(0)
+      })
+
+      it('returns empty for empty messages', () => {
+        expect(getCacheAnchorSummary([])).toEqual([])
+      })
     })
-
-    it('does not modify the original messages', () => {
-      const messages: Message[] = [
-        systemMessage('System'),
-        userMessage('Context'),
-        userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
-      ]
-
-      const before = cloneDeep(messages)
-      getCacheAnchorSummary(messages)
-      expect(messages).toEqual(before)
-    })
-
-    it('dedupes when system is also the tail (single message)', () => {
-      const messages: Message[] = [systemMessage('Lonely system')]
-
-      const anchors = getCacheAnchorSummary(messages)
-
-      expect(anchors).toHaveLength(1)
-      expect(anchors[0].type).toBe('system')
-      expect(anchors[0].index).toBe(0)
-    })
-
-    it('returns empty for empty messages', () => {
-      expect(getCacheAnchorSummary([])).toEqual([])
-    })
-  })
 
     it('should handle array content with cache control on non-text parts', () => {
       const messages: Message[] = [
@@ -1266,7 +1283,9 @@ describe('convertCbToModelMessages', () => {
         {
           id: 'ui-1',
           role: 'user' as const,
-          parts: [{ type: 'text' as const, text: 'Hello from persisted UI state' }],
+          parts: [
+            { type: 'text' as const, text: 'Hello from persisted UI state' },
+          ],
           content: 'stale UI content must not be sent to the model',
           providerOptions: { anthropic: { someOption: 'value' } },
           tags: ['USER_PROMPT'],
@@ -1284,9 +1303,7 @@ describe('convertCbToModelMessages', () => {
       expect(result).toEqual([
         {
           role: 'user',
-          content: [
-            { type: 'text', text: 'Hello from persisted UI state' },
-          ],
+          content: [{ type: 'text', text: 'Hello from persisted UI state' }],
           providerOptions: { anthropic: { someOption: 'value' } },
           tags: ['USER_PROMPT'],
           sentAt: 0,
@@ -1354,12 +1371,17 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: false,
       })
 
-      const resultMessage = result[0] as { tags?: string[]; timeToLive?: string; providerOptions?: Record<string, ProviderWithCacheControl> }
+      const resultMessage = result[0] as {
+        tags?: string[]
+        timeToLive?: string
+        providerOptions?: Record<string, ProviderWithCacheControl>
+      }
       expect(resultMessage.tags).toEqual(['custom_tag'])
       expect(resultMessage.timeToLive).toBe('agentStep')
-      expect((resultMessage.providerOptions?.anthropic as ProviderWithCacheControl)?.someOption).toBe(
-        'value',
-      )
+      expect(
+        (resultMessage.providerOptions?.anthropic as ProviderWithCacheControl)
+          ?.someOption,
+      ).toBe('value')
     })
 
     it('should not mutate original messages', () => {
@@ -1456,7 +1478,7 @@ describe('jsonToolResult', () => {
     ])
   })
 
-  it('should not mutate the caller\'s array', () => {
+  it("should not mutate the caller's array", () => {
     const value = [{ path: 'src/file.ts', content: 'content' }]
     const snapshot = cloneDeep(value)
     jsonToolResult(value)

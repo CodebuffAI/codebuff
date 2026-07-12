@@ -16,9 +16,7 @@ export const LOGO_SMALL = `
   ╚═════╝  ╚═════╝ 
 `
 
-export const SHADOW_CHARS = new Set([
-  '╔', '╗', '╚', '╝', '║', '═',
-])
+export const SHADOW_CHARS = new Set(['╔', '╗', '╚', '╝', '║', '═'])
 
 export const SHEEN_STEP = 2
 export const SHEEN_INTERVAL_MS = 80

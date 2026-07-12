@@ -21,6 +21,8 @@ export const createTestBaseEnv = (
   NODE_ENV: 'test',
   NODE_PATH: undefined,
   PATH: '/usr/bin',
+  OPENBUFF_TELEMETRY: undefined,
+  DO_NOT_TRACK: undefined,
   ...overrides,
 })
 

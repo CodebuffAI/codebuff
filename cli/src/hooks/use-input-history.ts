@@ -1,8 +1,8 @@
 import { useRef, useCallback, useEffect } from 'react'
 
 import {
+  appendMessageHistory,
   loadMessageHistory,
-  saveMessageHistory,
 } from '../utils/message-history'
 
 import type { InputValue } from '../types/store'
@@ -64,15 +64,12 @@ export const useInputHistory = (
 
   const saveToHistory = useCallback((message: string) => {
     // Re-read from disk to pick up messages from other terminals
-    const diskHistory = loadMessageHistory()
-    const newHistory = [...diskHistory, message]
+    appendMessageHistory(message)
+    const newHistory = [...loadMessageHistory()]
     messageHistoryRef.current = newHistory
     historyIndexRef.current = -1
     currentDraftRef.current = ''
     currentDraftModeRef.current = 'default'
-
-    // Persist to disk
-    saveMessageHistory(newHistory)
   }, [])
 
   const navigateUp = useCallback(() => {

@@ -1,25 +1,18 @@
 /**
  * Idiom-read traceability signals.
  *
- * For non-TypeScript edits, this pure trace analysis verifies that the agent
- * read the matching `agents/idioms/<lang>.md` file before the first edit to a
- * source file in that language. It is an eval/reporting gate, not runtime
- * enforcement.
+ * For non-TypeScript edits, this pure trace analysis verifies that the edit is
+ * covered by Openbuff's bundled language capability registry. Guidance is now
+ * injected directly into prompts; user repositories no longer need to contain
+ * or read `agents/idioms/<lang>.md` files.
  */
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import { detectLanguageIdForPath } from '@codebuff/common/util/language-profiles'
 
-export type IdiomTraceLanguageId =
-  | 'python'
-  | 'rust'
-  | 'go'
-  | 'java'
-  | 'csharp'
-  | 'cpp'
-  | 'ruby'
-  | 'php'
-  | 'swift'
-  | 'kotlin'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { SupportedLanguageId } from '@codebuff/common/util/language-capabilities'
+
+export type IdiomTraceLanguageId = Exclude<SupportedLanguageId, 'typescript'>
 
 export type IdiomTraceVerdict = 'pass' | 'fail' | 'skip'
 
@@ -36,6 +29,8 @@ export interface IdiomTraceabilitySignals {
   nonTypeScriptEditCount: number
   languageSignals: IdiomTraceLanguageSignal[]
   hasRequiredReads: boolean
+  /** Prompt delivery is not present in PrintModeEvent traces. */
+  deliveryObservable: boolean
   isEmpty: boolean
 }
 
@@ -46,79 +41,44 @@ export interface IdiomTraceabilityEvaluation {
 }
 
 const EDIT_TOOL_NAMES = new Set([
+  'apply_patch',
+  'apply_smart_patch',
   'str_replace',
   'write_file',
+  'replace_range',
   'rewrite_symbol',
   'edit_transaction',
 ])
 
-const TYPESCRIPT_EXTENSIONS = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-])
-
-const EXTENSION_LANGUAGE_MAP: Record<string, IdiomTraceLanguageId> = {
-  '.py': 'python',
-  '.rs': 'rust',
-  '.go': 'go',
-  '.java': 'java',
-  '.cs': 'csharp',
-  '.c': 'cpp',
-  '.cc': 'cpp',
-  '.cpp': 'cpp',
-  '.cxx': 'cpp',
-  '.h': 'cpp',
-  '.hh': 'cpp',
-  '.hpp': 'cpp',
-  '.hxx': 'cpp',
-  '.rb': 'ruby',
-  '.php': 'php',
-  '.swift': 'swift',
-  '.kt': 'kotlin',
-  '.kts': 'kotlin',
-}
-
-export function idiomPathForLanguage(
-  languageId: IdiomTraceLanguageId,
-): string {
-  return `agents/idioms/${languageId}.md`
+export function idiomPathForLanguage(languageId: IdiomTraceLanguageId): string {
+  return `bundled:language-capabilities/${languageId}`
 }
 
 export function normalizeTracePath(path: string): string {
   return path.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+/g, '/')
 }
 
-function extensionForPath(path: string): string | undefined {
-  const normalized = normalizeTracePath(path).toLowerCase()
-  const lastSegment = normalized.split('/').pop() ?? normalized
-  const dotIndex = lastSegment.lastIndexOf('.')
-  if (dotIndex <= 0) return undefined
-  return lastSegment.slice(dotIndex)
-}
-
 export function languageForEditedPath(
   path: string,
 ): IdiomTraceLanguageId | 'typescript' | undefined {
-  const extension = extensionForPath(path)
-  if (!extension) return undefined
-  if (TYPESCRIPT_EXTENSIONS.has(extension)) return 'typescript'
-  return EXTENSION_LANGUAGE_MAP[extension]
+  return detectLanguageIdForPath(normalizeTracePath(path))
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function stringField(record: Record<string, unknown>, key: string): string | undefined {
+function stringField(
+  record: Record<string, unknown>,
+  key: string,
+): string | undefined {
   const value = record[key]
   return typeof value === 'string' ? value : undefined
 }
 
-function extractEditPaths(event: Extract<PrintModeEvent, { type: 'tool_call' }>): string[] {
+function extractEditPaths(
+  event: Extract<PrintModeEvent, { type: 'tool_call' }>,
+): string[] {
   if (!EDIT_TOOL_NAMES.has(event.toolName)) return []
 
   const input = event.input
@@ -133,61 +93,29 @@ function extractEditPaths(event: Extract<PrintModeEvent, { type: 'tool_call' }>)
       .filter((path): path is string => path !== undefined)
   }
 
+  if (event.toolName === 'apply_patch') {
+    const patch = stringField(input, 'patch') ?? stringField(input, 'input')
+    if (!patch) return []
+    return [...patch.matchAll(/^\*\*\* (?:Add|Update|Delete) File:\s*(.+)$/gm)]
+      .map((match) => match[1]?.trim())
+      .filter((path): path is string => Boolean(path))
+  }
+
   const path = stringField(input, 'path')
   return path ? [path] : []
-}
-
-function extractReadFilesPaths(
-  event: Extract<PrintModeEvent, { type: 'tool_call' }>,
-): string[] {
-  if (event.toolName !== 'read_files') return []
-  const input = event.input
-  if (!isRecord(input)) return []
-
-  const paths = new Set<string>()
-  const rawPaths = input.paths
-  if (Array.isArray(rawPaths)) {
-    for (const path of rawPaths) {
-      if (typeof path === 'string') paths.add(normalizeTracePath(path))
-    }
-  }
-
-  const ranges = input.ranges
-  if (Array.isArray(ranges)) {
-    for (const range of ranges) {
-      if (!isRecord(range)) continue
-      const path = stringField(range, 'path')
-      if (path) paths.add(normalizeTracePath(path))
-    }
-  }
-
-  const symbols = input.symbols
-  if (Array.isArray(symbols)) {
-    for (const symbol of symbols) {
-      if (!isRecord(symbol)) continue
-      const path = stringField(symbol, 'path')
-      if (path) paths.add(normalizeTracePath(path))
-    }
-  }
-
-  return [...paths]
 }
 
 export function computeIdiomTraceabilitySignals(
   events: readonly PrintModeEvent[],
 ): IdiomTraceabilitySignals {
-  const readIndicesByPath = new Map<string, number[]>()
-  const signalsByLanguage = new Map<IdiomTraceLanguageId, IdiomTraceLanguageSignal>()
+  const signalsByLanguage = new Map<
+    IdiomTraceLanguageId,
+    IdiomTraceLanguageSignal
+  >()
   let nonTypeScriptEditCount = 0
 
   events.forEach((event, index) => {
     if (event.type !== 'tool_call') return
-
-    for (const path of extractReadFilesPaths(event)) {
-      const existing = readIndicesByPath.get(path) ?? []
-      existing.push(index)
-      readIndicesByPath.set(path, existing)
-    }
 
     for (const rawPath of extractEditPaths(event)) {
       const normalizedPath = normalizeTracePath(rawPath)
@@ -204,17 +132,12 @@ export function computeIdiomTraceabilitySignals(
         continue
       }
 
-      const priorReadIndex = (readIndicesByPath.get(idiomPath) ?? [])
-        .filter((readIndex) => readIndex < index)
-        .at(-1)
-
       signalsByLanguage.set(languageId, {
         languageId,
         idiomPath,
         editedPaths: [normalizedPath],
         firstEditIndex: index,
-        priorReadIndex,
-        satisfied: priorReadIndex !== undefined,
+        satisfied: true,
       })
     }
   })
@@ -229,6 +152,7 @@ export function computeIdiomTraceabilitySignals(
     nonTypeScriptEditCount,
     languageSignals,
     hasRequiredReads,
+    deliveryObservable: false,
     isEmpty,
   }
 }
@@ -244,13 +168,23 @@ export function evaluateIdiomTraceability(
     }
   }
 
+  if (!signals.deliveryObservable) {
+    return {
+      verdict: 'skip',
+      signals,
+      reasons: [
+        'Bundled language guidance is validated by prompt-construction tests; PrintModeEvent traces do not expose system-prompt delivery.',
+      ],
+    }
+  }
+
   const missing = signals.languageSignals.filter((signal) => !signal.satisfied)
   if (missing.length === 0) {
     return {
       verdict: 'pass',
       signals,
       reasons: [
-        `All ${signals.languageSignals.length} non-TypeScript language(s) read matching idiom guidance before first edit.`,
+        `All ${signals.languageSignals.length} non-TypeScript language edit(s) were covered by bundled capability guidance.`,
       ],
     }
   }

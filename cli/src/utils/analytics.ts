@@ -73,9 +73,9 @@ function resolveDeps(): ResolvedAnalyticsDeps {
   }
 }
 
-let loggerModulePromise:
-  | Promise<{ logger: { debug: (data: any, msg?: string, ...args: any[]) => void } }>
-  | null = null
+let loggerModulePromise: Promise<{
+  logger: { debug: (data: any, msg?: string, ...args: any[]) => void }
+}> | null = null
 
 const loadLogger = () => {
   if (!loggerModulePromise) {

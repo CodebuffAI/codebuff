@@ -5,6 +5,30 @@ import contextPruner from '../context-pruner'
 import type { AgentState } from '../types/agent-definition'
 import type { JSONValue, Message, ToolMessage } from '../types/util-types'
 
+function withCommittedReceipt(value: any): any {
+  const receiptId = `${value.operationId}:receipt`
+  return {
+    ...value,
+    receiptId,
+    authorityReceipt: {
+      kind: 'commit_receipt',
+      version: 1,
+      receiptId,
+      operationId: value.operationId,
+      callId: `${value.operationId}:call`,
+      authorityTier: value.authorityTier,
+      status: 'committed',
+      actions: value.actions.map((action: any) => ({
+        ...action,
+        status: 'committed',
+      })),
+      finalHashes: Object.fromEntries(
+        value.actions.map((action: any) => [action.path, action.afterHash]),
+      ),
+    },
+  }
+}
+
 // Helper to create a minimal mock AgentState for testing
 function createMockAgentState(
   messageHistory: Message[],
@@ -293,9 +317,7 @@ describe('context-pruner handleSteps', () => {
       },
       {
         role: 'user',
-        content: [
-          { type: 'text', text: 'User message after a long pause' },
-        ],
+        content: [{ type: 'text', text: 'User message after a long pause' }],
         tags: ['USER_PROMPT'],
         sentAt: now,
       },
@@ -418,6 +440,209 @@ describe('context-pruner handleSteps', () => {
     const content = results[0].input.messages[0].content[0].text
 
     expect(content).toContain('Tool error from read_files: File not found')
+  })
+
+  test('records only successfully read paths from a mixed read_files result', () => {
+    const messages = [
+      createMessage('user', 'Inspect both files'),
+      createToolCallMessage('call-1', 'read_files', {
+        paths: ['good.ts', 'missing.ts'],
+      }),
+      createToolResultMessage('call-1', 'read_files', [
+        { summary: { ok: 1, failed: 1, requested: 2 } },
+        { path: 'good.ts', content: 'export const good = true' },
+        {
+          path: 'missing.ts',
+          content: '[FILE_DOES_NOT_EXIST] File not found',
+        },
+      ]),
+    ]
+
+    const results = runHandleSteps(messages, 50000, 10000)
+    const content = results[0].input.messages[0].content[0].text
+    const knowledgeMemory =
+      content.match(/<knowledge_memory>([\s\S]*?)<\/knowledge_memory>/)?.[1] ??
+      ''
+
+    expect(knowledgeMemory).toContain('good.ts')
+    expect(knowledgeMemory).not.toContain('missing.ts')
+    expect(content).toContain(
+      'Tool error from read_files: 1 of 2 requested read(s) failed.',
+    )
+    expect(content).toContain('[FILE_DOES_NOT_EXIST] File not found')
+  })
+
+  test('uses canonical read status and preserves typed error details', () => {
+    const messages = [
+      createMessage('user', 'Inspect both files'),
+      createToolCallMessage('call-1', 'read_files', {
+        paths: ['good.ts', 'missing.ts'],
+      }),
+      createToolResultMessage('call-1', 'read_files', {
+        kind: 'read_files_result',
+        version: 1,
+        status: 'partial',
+        summary: {
+          requested: 2,
+          ok: 1,
+          partial: 0,
+          failed: 1,
+          uniquePaths: 2,
+        },
+        results: [
+          {
+            selector: 'file',
+            requestIndex: 0,
+            path: 'good.ts',
+            status: 'ok',
+            content: 'export const good = true',
+            complete: true,
+            template: false,
+          },
+          {
+            selector: 'file',
+            requestIndex: 1,
+            path: 'missing.ts',
+            status: 'error',
+            error: {
+              code: 'not_found',
+              message: 'missing.ts does not exist',
+              retryable: true,
+              recovery: 'discover_path',
+            },
+          },
+        ],
+      }),
+    ]
+
+    const results = runHandleSteps(messages, 50000, 10000)
+    const content = results[0].input.messages[0].content[0].text
+    const knowledgeMemory =
+      content.match(/<knowledge_memory>([\s\S]*?)<\/knowledge_memory>/)?.[1] ??
+      ''
+
+    expect(knowledgeMemory).toContain('good.ts')
+    expect(knowledgeMemory).not.toContain('missing.ts')
+    expect(content).toContain('missing.ts does not exist')
+  })
+
+  test('requires a matching successful result before persisting read/edit facts', () => {
+    const longFailure =
+      'ATOMIC_FAILURE_HEAD\n' +
+      'x'.repeat(3000) +
+      '\nRECOVERY_TAIL: re-read the exact range'
+    const messages = [
+      createMessage('user', 'Read and edit the file'),
+      createToolCallMessage('read-call', 'read_files', {
+        paths: ['never-read.ts'],
+      }),
+      createToolResultMessage('different-read-call', 'read_files', {
+        content: 'orphan result',
+      }),
+      createToolCallMessage('failed-edit', 'str_replace', {
+        path: 'unchanged.ts',
+        replacements: [],
+      }),
+      createToolResultMessage('failed-edit', 'str_replace', {
+        file: 'unchanged.ts',
+        errorMessage: longFailure,
+      }),
+      createToolCallMessage('successful-edit', 'write_file', {
+        path: 'changed.ts',
+        content: 'export const changed = true',
+      }),
+      createToolResultMessage('successful-edit', 'write_file', withCommittedReceipt({
+        kind: 'file_mutation_result',
+        version: 1,
+        operationId: 'successful-edit',
+        outcome: 'applied',
+        authorityTier: 'portable_path',
+        actions: [
+          {
+            actionId: 'successful-edit:0',
+            index: 0,
+            action: 'create',
+            path: 'changed.ts',
+            outcome: 'applied',
+            beforeHash: null,
+            afterHash: 'after',
+          },
+        ],
+        errors: [],
+        freshCapabilities: [],
+      })),
+    ]
+
+    const results = runHandleSteps(messages, 50000, 10000)
+    const content = results[0].input.messages[0].content[0].text
+    const knowledgeMemory =
+      content.match(/<knowledge_memory>([\s\S]*?)<\/knowledge_memory>/)?.[1] ??
+      ''
+
+    expect(knowledgeMemory).not.toContain('never-read.ts')
+    expect(knowledgeMemory).not.toContain('unchanged.ts')
+    expect(knowledgeMemory).toContain('changed.ts: write_file')
+    expect(content).toContain(
+      'Tool error from str_replace: ATOMIC_FAILURE_HEAD',
+    )
+    expect(content).toContain('RECOVERY_TAIL: re-read the exact range')
+    expect(content).toContain('[...truncated')
+    expect(content).not.toContain('x'.repeat(2500))
+  })
+
+  test('treats applied false edit results as failures, not edits made', () => {
+    const messages = [
+      createMessage('user', 'Apply the smart patch'),
+      createToolCallMessage('call-1', 'apply_smart_patch', {
+        path: 'src/conflict.ts',
+        patch: '@@ -1 +1 @@\n-old\n+new',
+      }),
+      createToolResultMessage('call-1', 'apply_smart_patch', {
+        file: 'src/conflict.ts',
+        applied: false,
+        message: 'Smart patch conflict. No changes were written.',
+      }),
+    ]
+
+    const results = runHandleSteps(messages, 50000, 10000)
+    const content = results[0].input.messages[0].content[0].text
+    const knowledgeMemory =
+      content.match(/<knowledge_memory>([\s\S]*?)<\/knowledge_memory>/)?.[1] ??
+      ''
+
+    expect(knowledgeMemory).not.toContain('src/conflict.ts')
+    expect(content).toContain(
+      'Tool error from apply_smart_patch: Smart patch conflict.',
+    )
+    expect(content).toContain('Edit result from apply_smart_patch:')
+  })
+
+  test('does not classify negated success wording as an applied edit', () => {
+    const messages = [
+      createMessage('user', 'Apply the patch'),
+      createToolCallMessage('call-negated', 'apply_patch', {
+        operation: {
+          type: 'update_file',
+          path: 'src/not-applied.ts',
+          diff: '@@ -1 +1 @@\n-old\n+new',
+        },
+      }),
+      createToolResultMessage('call-negated', 'apply_patch', {
+        file: 'src/not-applied.ts',
+        message: 'Patch was not applied successfully.',
+      }),
+    ]
+
+    const results = runHandleSteps(messages, 50000, 10000)
+    const content = results[0].input.messages[0].content[0].text
+    const knowledgeMemory =
+      content.match(/<knowledge_memory>([\s\S]*?)<\/knowledge_memory>/)?.[1] ??
+      ''
+
+    expect(knowledgeMemory).not.toContain('src/not-applied.ts')
+    expect(content).toContain(
+      'Tool error from apply_patch: Patch was not applied successfully.',
+    )
   })
 
   test('notes when user messages have images', () => {
@@ -822,19 +1047,34 @@ describe('context-pruner handleSteps', () => {
     })
     const firstContent = firstResults[0].input.messages[0].content[0].text
     expect(firstContent).toContain('<pinned_active_work_state>')
-    expect(firstContent).toContain('BLOCKING: Preserve this exact reviewer blocker text.')
-    expect(firstContent).not.toContain('NON_BLOCKING: Also preserve this exact suggestion.')
+    expect(firstContent).toContain(
+      'BLOCKING: Preserve this exact reviewer blocker text.',
+    )
+    expect(firstContent).not.toContain(
+      'NON_BLOCKING: Also preserve this exact suggestion.',
+    )
 
     const secondResults = runHandleSteps(
-      [firstResults[0].input.messages[0], createMessage('assistant', 'more work')],
+      [
+        firstResults[0].input.messages[0],
+        createMessage('assistant', 'more work'),
+      ],
       250000,
       200000,
       { assistantToolBudget: 1, userBudget: 1 },
     )
     const secondContent = secondResults[0].input.messages[0].content[0].text
-    expect(secondContent).toContain('BLOCKING: Preserve this exact reviewer blocker text.')
-    expect(secondContent).not.toContain('NON_BLOCKING: Also preserve this exact suggestion.')
-    expect(secondContent.match(/BLOCKING: Preserve this exact reviewer blocker text\./g)).toHaveLength(1)
+    expect(secondContent).toContain(
+      'BLOCKING: Preserve this exact reviewer blocker text.',
+    )
+    expect(secondContent).not.toContain(
+      'NON_BLOCKING: Also preserve this exact suggestion.',
+    )
+    expect(
+      secondContent.match(
+        /BLOCKING: Preserve this exact reviewer blocker text\./g,
+      ),
+    ).toHaveLength(1)
   })
 
   test('pins plan-declared open questions (header + Q\d bullets) across compaction', () => {
@@ -859,9 +1099,7 @@ describe('context-pruner handleSteps', () => {
     })
     const firstContent = firstResults[0].input.messages[0].content[0].text
     expect(firstContent).toContain('<pinned_active_work_state>')
-    expect(firstContent).toContain(
-      'Open questions (block Milestone 4):',
-    )
+    expect(firstContent).toContain('Open questions (block Milestone 4):')
     expect(firstContent).toContain(
       '- Q2 \u2014 docs/harness-card.md: top-level contributor doc or per-agent artifact?',
     )
@@ -873,15 +1111,16 @@ describe('context-pruner handleSteps', () => {
     )
 
     const secondResults = runHandleSteps(
-      [firstResults[0].input.messages[0], createMessage('assistant', 'more work')],
+      [
+        firstResults[0].input.messages[0],
+        createMessage('assistant', 'more work'),
+      ],
       250000,
       200000,
       { assistantToolBudget: 1, userBudget: 1 },
     )
     const secondContent = secondResults[0].input.messages[0].content[0].text
-    expect(secondContent).toContain(
-      'Open questions (block Milestone 4):',
-    )
+    expect(secondContent).toContain('Open questions (block Milestone 4):')
     expect(secondContent).toContain(
       '- Q2 \u2014 docs/harness-card.md: top-level contributor doc or per-agent artifact?',
     )
@@ -897,7 +1136,10 @@ describe('context-pruner handleSteps', () => {
     // This is the root-cause fix for post-compaction amnesia: the extractive
     // summary dropped file bodies and evidence, leaving only path stubs.
     const firstMessages = [
-      createMessage('user', 'Refactor the cache-control anchors in messages.ts'),
+      createMessage(
+        'user',
+        'Refactor the cache-control anchors in messages.ts',
+      ),
       createMessage(
         'assistant',
         [
@@ -915,10 +1157,26 @@ describe('context-pruner handleSteps', () => {
         path: 'common/src/util/messages.ts',
         replacements: [],
       }),
-      createToolResultMessage('call-2', 'str_replace', {
-        file: 'common/src/util/messages.ts',
-        success: true,
-      }),
+      createToolResultMessage('call-2', 'str_replace', withCommittedReceipt({
+        kind: 'file_mutation_result',
+        version: 1,
+        operationId: 'call-2',
+        outcome: 'applied',
+        authorityTier: 'portable_path',
+        actions: [
+          {
+            actionId: 'call-2:0',
+            index: 0,
+            action: 'update',
+            path: 'common/src/util/messages.ts',
+            outcome: 'applied',
+            beforeHash: 'before',
+            afterHash: 'after',
+          },
+        ],
+        errors: [],
+        freshCapabilities: [],
+      })),
       createToolCallMessage('call-3', 'run_terminal_command', {
         command: 'bun test util/__tests__/messages.test.ts',
       }),
@@ -940,9 +1198,7 @@ describe('context-pruner handleSteps', () => {
     expect(firstContent).toContain('</knowledge_memory>')
     // Structured fields are populated from the tool calls above.
     expect(firstContent).toContain('Goal:')
-    expect(firstContent).toMatch(
-      /Decision:.*stable-prefix strategy/,
-    )
+    expect(firstContent).toMatch(/Decision:.*stable-prefix strategy/)
     expect(firstContent).toContain('Files Inspected:')
     expect(firstContent).toContain('common/src/util/messages.ts')
     expect(firstContent).toContain('Edits Made:')
@@ -952,7 +1208,10 @@ describe('context-pruner handleSteps', () => {
     // Second compaction: feed the first summary back in. The structured
     // block must survive verbatim (parsed and re-emitted), not be lost.
     const secondResults = runHandleSteps(
-      [firstResults[0].input.messages[0], createMessage('assistant', 'more work')],
+      [
+        firstResults[0].input.messages[0],
+        createMessage('assistant', 'more work'),
+      ],
       250000,
       200000,
       { assistantToolBudget: 1, userBudget: 1 },
@@ -964,9 +1223,7 @@ describe('context-pruner handleSteps', () => {
     expect(secondContent).toContain('common/src/util/messages.ts')
     expect(secondContent).toContain('exit 0')
     // No duplicate emission of the block (RISK2: rolling eviction keeps one).
-    expect(
-      secondContent.match(/<knowledge_memory>/g),
-    ).toHaveLength(1)
+    expect(secondContent.match(/<knowledge_memory>/g)).toHaveLength(1)
   })
 
   test('does not pin edited file and task ledger entries without active harness blockers', () => {
@@ -1146,9 +1403,7 @@ describe('context-pruner code_search with flags', () => {
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain(
-      'code search for "myFunction" (-g *.ts -i)',
-    )
+    expect(content).toContain('code search for "myFunction" (-g *.ts -i)')
   })
 })
 
@@ -1395,6 +1650,64 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     )
   })
 
+  test('forces above-threshold discovery compaction and preserves facts for resumed work', () => {
+    const constraint =
+      'CONSTRAINT_CONTEXT_RECALL: semantic compaction must run before mechanical trimming.'
+    const messages = [
+      createMessage(
+        'user',
+        `Find authentication implementation files. ${constraint}`,
+      ),
+      createToolCallMessage('call-picker', 'spawn_agents', {
+        agents: [
+          {
+            agent_type: 'file-picker',
+            prompt: 'Find authentication implementation files',
+          },
+        ],
+      }),
+      createToolResultMessage('call-picker', 'spawn_agents', [
+        {
+          agentType: 'file-picker',
+          value: {
+            type: 'structuredOutput',
+            value: {
+              files: [
+                {
+                  path: 'src/auth/session.ts',
+                  summary: 'Owns session creation and refresh behavior.',
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('src/auth/session.ts')
+    expect(content).toContain('Owns session creation and refresh behavior.')
+    expect(content).toContain('(discovered by file-picker)')
+    expect(content).toContain(constraint)
+
+    const resumed = runHandleSteps(
+      [
+        createMessage('user', content),
+        createMessage(
+          'user',
+          'Continue implementation using the retained discovery evidence.',
+        ),
+      ],
+      250000,
+      200000,
+    )[0].input.messages[0].content[0].text
+    expect(resumed).toContain('src/auth/session.ts')
+    expect(resumed).toContain(constraint)
+    expect(resumed).toContain('(discovered by file-picker)')
+  })
+
   test('includes params in spawn_agents summary', () => {
     const messages = [
       createMessage('user', 'Run a command'),
@@ -1468,8 +1781,7 @@ describe('context-pruner spawn_agents with prompt and params', () => {
               findings: [
                 {
                   severity: 'SECURITY',
-                  summary:
-                    'SECURITY: Escape redirect target in src/auth.ts.',
+                  summary: 'SECURITY: Escape redirect target in src/auth.ts.',
                 },
               ],
             },
@@ -1548,7 +1860,9 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     expect(content).not.toContain('Todos: 417/821 complete')
     expect(content).not.toContain('Remaining: none')
     expect(content).not.toContain('Historical changed files: src/old.ts')
-    expect(content).not.toContain('Latest work summary: Previous completed work')
+    expect(content).not.toContain(
+      'Latest work summary: Previous completed work',
+    )
   })
 
   test('preserves incomplete workflow todo progress even when gate phase is final-response allowed', () => {
@@ -1583,7 +1897,9 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     expect(content).toContain(
       'Next workflow action: Apply a targeted guard/fix with focused regression coverage',
     )
-    expect(content).toContain('Continue from this item; do not restart earlier completed workflow steps.')
+    expect(content).toContain(
+      'Continue from this item; do not restart earlier completed workflow steps.',
+    )
     expect(content.match(/Next workflow action:/g)).toHaveLength(1)
   })
 
@@ -1634,9 +1950,15 @@ describe('context-pruner spawn_agents with prompt and params', () => {
 
     expect(content).not.toContain('<pinned_active_work_state>')
     expect(content).not.toContain('Harness pinned active-work state')
-    expect(content).not.toContain('NON_BLOCKING: Consider a follow-up polish pass.')
-    expect(content).not.toContain('Pending validation/reviewer gate files: src/stale.ts')
-    expect(content).not.toContain('Next required action: Resolve stale feedback before finalizing.')
+    expect(content).not.toContain(
+      'NON_BLOCKING: Consider a follow-up polish pass.',
+    )
+    expect(content).not.toContain(
+      'Pending validation/reviewer gate files: src/stale.ts',
+    )
+    expect(content).not.toContain(
+      'Next required action: Resolve stale feedback before finalizing.',
+    )
     expect(content).not.toContain('Current phase: final_response_allowed')
     expect(content).not.toContain('Todos: 10/10 complete')
     expect(content).not.toContain('- Old completed task')
@@ -1664,11 +1986,19 @@ describe('context-pruner spawn_agents with prompt and params', () => {
 
     expect(content).toContain('<pinned_active_work_state>')
     expect(content).toContain('Current phase: awaiting_validation')
-    expect(content).toContain('Pending validation/reviewer gate files: src/current.ts')
-    expect(content).toContain('Next required action: Run validation for current work.')
+    expect(content).toContain(
+      'Pending validation/reviewer gate files: src/current.ts',
+    )
+    expect(content).toContain(
+      'Next required action: Run validation for current work.',
+    )
     expect(content).not.toContain('Current phase: final_response_allowed')
-    expect(content).not.toContain('Pending validation/reviewer gate files: src/stale.ts')
-    expect(content).not.toContain('Next required action: Stale finalization action.')
+    expect(content).not.toContain(
+      'Pending validation/reviewer gate files: src/stale.ts',
+    )
+    expect(content).not.toContain(
+      'Next required action: Stale finalization action.',
+    )
   })
 
   test('pins active harness phase and blocker lines', () => {
@@ -1694,8 +2024,12 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     expect(content).toContain('<pinned_active_work_state>')
     expect(content).toContain('Current phase: blocked')
     expect(content).toContain('BLOCKING: Fix src/current.ts before finalizing.')
-    expect(content).toContain('Pending validation/reviewer gate files: src/current.ts')
-    expect(content).toContain('Next required action: Resolve the reviewer feedback.')
+    expect(content).toContain(
+      'Pending validation/reviewer gate files: src/current.ts',
+    )
+    expect(content).toContain(
+      'Next required action: Resolve the reviewer feedback.',
+    )
     expect(content).not.toContain('Historical changed files: src/old.ts')
     expect(content).not.toContain('Latest work summary: Old completed edit')
   })
@@ -1874,7 +2208,10 @@ First assistant response
       [
         summary1,
         createMessage('user', 'Another large follow-up ' + 'z'.repeat(2000)),
-        createMessage('assistant', 'Another large response ' + 'q'.repeat(2000)),
+        createMessage(
+          'assistant',
+          'Another large response ' + 'q'.repeat(2000),
+        ),
       ],
       tightBudgets,
     )
@@ -2444,6 +2781,60 @@ describe('context-pruner str_replace and write_file tool results', () => {
     expect(content).toContain('errorMessage')
     expect(content).toContain('No match found for old string')
   })
+
+  test('preserves bounded head-and-tail diagnostics for every edit tool', () => {
+    const toolInputs: Array<[string, Record<string, unknown>]> = [
+      [
+        'edit_transaction',
+        {
+          edits: [
+            {
+              type: 'str_replace',
+              path: 'src/transaction.ts',
+              replacements: [],
+            },
+          ],
+        },
+      ],
+      [
+        'apply_patch',
+        { operation: { type: 'update_file', path: 'src/patch.ts', diff: '' } },
+      ],
+      ['apply_smart_patch', { path: 'src/smart.ts', patch: '' }],
+      [
+        'replace_range',
+        { path: 'src/range.ts', startLine: 1, endLine: 1, newContent: '' },
+      ],
+      [
+        'rewrite_symbol',
+        { path: 'src/symbol.ts', symbol: 'target', content: '' },
+      ],
+    ]
+    const messages: Message[] = [createMessage('user', 'Try the edits')]
+    toolInputs.forEach(([toolName, input], index) => {
+      const toolCallId = `edit-${index}`
+      messages.push(createToolCallMessage(toolCallId, toolName, input))
+      messages.push(
+        createToolResultMessage(toolCallId, toolName, {
+          errorMessage:
+            `HEAD_${toolName}\n` +
+            'x'.repeat(2400) +
+            `\nTAIL_${toolName}: deterministic recovery`,
+        }),
+      )
+    })
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    for (const [toolName] of toolInputs) {
+      expect(content).toContain(`Edit result from ${toolName}:`)
+      expect(content).toContain(`HEAD_${toolName}`)
+      expect(content).toContain(`TAIL_${toolName}: deterministic recovery`)
+    }
+    expect(content).toContain('[...truncated')
+    expect(content).not.toContain('x'.repeat(2000))
+  })
 })
 
 describe('context-pruner glob and list_directory tools', () => {
@@ -2520,9 +2911,7 @@ describe('context-pruner glob and list_directory tools', () => {
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain(
-      'inspected subtrees: src/components, src/utils',
-    )
+    expect(content).toContain('inspected subtrees: src/components, src/utils')
   })
 })
 
@@ -3089,16 +3478,14 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).not.toContain('_LONG_ASST_MIDDLE_MARKER_') // Middle marker falls in truncated gap
 
     // === Tool call summaries present ===
-    expect(content).toContain(
-      'inspected files: src/model.ts, src/service.ts',
-    )
+    expect(content).toContain('inspected files: src/model.ts, src/service.ts')
     expect(content).toContain('edited file: src/model.ts')
     expect(content).toContain('delegated agents:')
 
-    // === str_replace result: present but truncated at 2k chars ===
+    // === str_replace result: bounded at 2k chars with head and tail retained ===
     expect(content).toContain('Edit result from str_replace:')
     expect(content).toContain('DIFF_START_MARKER_')
-    expect(content).not.toContain('_DIFF_END_MARKER') // Truncated by 2k result limit
+    expect(content).toContain('_DIFF_END_MARKER')
 
     // === spawn_agents tool entry: truncated by TOOL_ENTRY_LIMIT ===
     expect(content).toContain('AGENT_0_OUTPUT_START_') // First agent's start in 80% prefix

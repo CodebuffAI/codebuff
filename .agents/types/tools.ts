@@ -2,8 +2,10 @@
  * Union type of all available tool names
  */
 export type ToolName =
+  | 'accept_proposal'
   | 'apply_patch'
   | 'apply_smart_patch'
+  | 'apply_proposal'
   | 'add_message'
   | 'ask_user'
   | 'check_background_agent'
@@ -28,12 +30,14 @@ export type ToolName =
   | 'read_image'
   | 'read_logs'
   | 'read_outline'
+  | 'read_proposals'
   | 'read_slices'
   | 'read_proposal_workspace'
   | 'read_subtree'
   | 'replace_range'
   | 'rewrite_symbol'
   | 'render_ui'
+  | 'reject_proposal'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
   | 'set_messages'
@@ -53,8 +57,10 @@ export type ToolName =
  * Map of tool names to their parameter types
  */
 export interface ToolParamsMap {
+  accept_proposal: AcceptProposalParams
   apply_patch: ApplyPatchParams
   apply_smart_patch: ApplySmartPatchParams
+  apply_proposal: ApplyProposalParams
   add_message: AddMessageParams
   ask_user: AskUserParams
   check_background_agent: CheckBackgroundAgentParams
@@ -79,12 +85,14 @@ export interface ToolParamsMap {
   read_image: ReadImageParams
   read_logs: ReadLogsParams
   read_outline: ReadOutlineParams
+  read_proposals: ReadProposalsParams
   read_slices: ReadSlicesParams
   read_proposal_workspace: ReadProposalWorkspaceParams
   read_subtree: ReadSubtreeParams
   replace_range: ReplaceRangeParams
   rewrite_symbol: RewriteSymbolParams
   render_ui: RenderUiParams
+  reject_proposal: RejectProposalParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
@@ -99,6 +107,15 @@ export interface ToolParamsMap {
   web_search: WebSearchParams
   write_file: WriteFileParams
   write_todos: WriteTodosParams
+}
+
+/**
+ * Parameters for accept_proposal tool
+ */
+export interface AcceptProposalParams {
+  proposalId: string
+  expectedRevision: number
+  expectedBaseHash: string
 }
 
 /**
@@ -133,7 +150,7 @@ export interface ApplyPatchParams {
 }
 
 /**
- * Apply a smart self-healing unified diff patch with fuzzy line alignment, AST-aware syntax auto-correction, and preflight compile validation.
+ * Apply a range-scoped unified diff patch with bounded fuzzy line alignment and preflight syntax validation.
  */
 export interface ApplySmartPatchParams {
   /** File path to apply the smart patch to, relative to the project root. */
@@ -142,12 +159,21 @@ export interface ApplySmartPatchParams {
   patch: string
   /** Max lines of surrounding context displacement to allow when matching target patch region (Layer B). */
   fuzzFactor?: number
-  /** If true, auto-heal minor syntax formatting or closing/bracket mismatches (Layer C). */
+  /** Deprecated compatibility flag. Smart patch never performs global syntax healing; candidate syntax is validated without unrelated mutations. */
   autoHeal?: boolean
   /** If true, run virtual preflight syntax/compile checks before writing changes to disk. */
   preflightCompile?: boolean
   /** If true, apply a hunk at its line number when no unique fuzzy match is found. Defaults to false so smart patches fail closed instead of risking misplaced edits. */
   allowPositionalFallback?: boolean
+}
+
+/**
+ * Parameters for apply_proposal tool
+ */
+export interface ApplyProposalParams {
+  proposalId: string
+  expectedRevision: number
+  expectedBaseHash: string
 }
 
 /**
@@ -201,6 +227,8 @@ export interface CheckBackgroundAgentParams {
   wait_for?: string
   /** Max seconds to wait for new chunks / the wait_for pattern. 0 (default) returns immediately with whatever new chunks exist (poll mode); >0 blocks up to this long (follow mode). */
   timeout_seconds?: number
+  /** When true, explicitly cancel the running background agent before returning its final status. Defaults to false. */
+  cancel?: boolean
 }
 
 /**
@@ -213,7 +241,7 @@ export interface CheckJobParams {
   wait_for?: string
   /** Max seconds to wait for new output / the wait_for pattern. 0 (default) returns immediately with whatever new output exists (poll mode); >0 blocks up to this long (follow mode). */
   timeout_seconds?: number
-  /** Follow mode only: when the follow-timeout fires (deadline reached, wait_for not yet matched, job still running) send SIGTERM to the background job and reflect the post-kill status/exitCode plus `killed: true` in the result. Defaults to true. Set to false to keep the job alive (e.g. so you can poll it again later). Poll mode (timeout_seconds 0/omitted) never kills regardless of this flag. */
+  /** Follow mode only: when true and the follow-timeout fires (deadline reached, wait_for not yet matched, job still running), send SIGTERM to the background job and reflect the post-kill status/exitCode plus `killed: true` in the result. Defaults to false so observational polling never terminates work unless explicitly requested. Poll mode (timeout_seconds 0/omitted) never kills regardless of this flag. */
   kill_on_timeout?: boolean
 }
 
@@ -237,7 +265,7 @@ export interface CodeSearchParams {
 export interface EndTurnParams {}
 
 /**
- * Preflight related edits across one or more files as an atomic transaction, then apply the prepared file patches as one client-side batch.
+ * Preflight related edits together, then apply them in one coordinated client-side transaction with deterministic order and explicit rollback outcomes.
  */
 export interface EditTransactionParams {
   /** All edits that must preflight together. If any edit fails during preflight, no files are changed. */
@@ -259,7 +287,7 @@ export interface EditTransactionParams {
           allowMultiple?: boolean
           /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
           occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
+          /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
           basedOnRead?:
             | string
             | {
@@ -296,19 +324,81 @@ export interface EditTransactionParams {
               text: string
             }
           | {
-              /** TypeScript-aware import insertion. */
+              /** Language-aware import insertion. */
               kind: 'insert_import'
-              /** Complete TypeScript import statement to add, e.g. "import { foo } from 'bar'". */
+              /** Complete language-native import statement to add, e.g. "import { foo } from 'bar'", "from app import value", or "use crate::value". */
               importStatement: string
             }
           | {
-              /** TypeScript-aware import removal. */
+              /** Language-aware import removal. */
               kind: 'remove_import'
-              /** Complete TypeScript import statement to remove. Required unless moduleSpecifier is provided. */
+              /** Complete language-native import statement to remove. Required unless moduleSpecifier is provided. */
               importStatement?: string
               /** Module specifier to remove imports from, e.g. "react" or "./helper". */
               moduleSpecifier?: string
             }
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'create'
+        /** Exact bytes to write to the new file. */
+        content: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'delete'
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'move'
+        /** New project-relative path. The destination must be absent. */
+        destinationPath: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'replace_range'
+        startLine: number
+        endLine: number
+        expectedHash: string
+        newContent: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'rewrite_symbol'
+        symbol: string
+        content: string
+        occurrence?: number
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'patch'
+        diff: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'write_file'
+        content: string
       }[]
 }
 
@@ -365,7 +455,7 @@ export interface GitBranchParams {
 }
 
 /**
- * Search for files matching a glob pattern. Returns matching file paths sorted by modification time.
+ * Search for files matching a glob pattern. Returns matching file paths sorted by modification time (newest first, then path for deterministic ties).
  */
 export interface GlobParams {
   /** Glob pattern to match files against (e.g., *.js, src/glob/*.ts, glob/test/glob/*.go). */
@@ -423,7 +513,7 @@ export interface ProposeEditTransactionParams {
           allowMultiple?: boolean
           /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
           occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
+          /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
           basedOnRead?:
             | string
             | {
@@ -460,19 +550,81 @@ export interface ProposeEditTransactionParams {
               text: string
             }
           | {
-              /** TypeScript-aware import insertion. */
+              /** Language-aware import insertion. */
               kind: 'insert_import'
-              /** Complete TypeScript import statement to add, e.g. "import { foo } from 'bar'". */
+              /** Complete language-native import statement to add, e.g. "import { foo } from 'bar'", "from app import value", or "use crate::value". */
               importStatement: string
             }
           | {
-              /** TypeScript-aware import removal. */
+              /** Language-aware import removal. */
               kind: 'remove_import'
-              /** Complete TypeScript import statement to remove. Required unless moduleSpecifier is provided. */
+              /** Complete language-native import statement to remove. Required unless moduleSpecifier is provided. */
               importStatement?: string
               /** Module specifier to remove imports from, e.g. "react" or "./helper". */
               moduleSpecifier?: string
             }
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'create'
+        /** Exact bytes to write to the new file. */
+        content: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'delete'
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'move'
+        /** New project-relative path. The destination must be absent. */
+        destinationPath: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'replace_range'
+        startLine: number
+        endLine: number
+        expectedHash: string
+        newContent: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'rewrite_symbol'
+        symbol: string
+        content: string
+        occurrence?: number
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'patch'
+        diff: string
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        type: 'write_file'
+        content: string
       }[]
 }
 
@@ -482,6 +634,8 @@ export interface ProposeEditTransactionParams {
 export interface ProposeStrReplaceParams {
   /** The path to the file to edit. */
   path: string
+  /** Apply all proposed replacements or leave the proposal overlay unchanged. */
+  atomic?: boolean
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
@@ -490,7 +644,9 @@ export interface ProposeStrReplaceParams {
     newString: string
     /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
-    /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
+    /** Target the exact 1-indexed occurrence. */
+    occurrenceIndex?: number
+    /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
     basedOnRead?:
       | string
       | {
@@ -501,6 +657,8 @@ export interface ProposeStrReplaceParams {
           /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
           hash: string
         }
+    /** For deletion proposals only, treat a missing target as already applied. */
+    skipIfMissing?: boolean
   }[]
 }
 
@@ -551,7 +709,7 @@ export interface ReadDocsParams {
  */
 export interface ReadFilesParams {
   /** List of file paths to read. Batch results include a separate summary entry with ok/failed/requested counts when available. */
-  paths: string[]
+  paths?: string[]
   /** Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine. */
   ranges?: {
     /** File path to read a line range from, relative to the project root. */
@@ -598,6 +756,13 @@ export interface ReadLogsParams {
 export interface ReadOutlineParams {
   /** File path to generate the AST-like outline for, relative to the project root. */
   path: string
+}
+
+/**
+ * Parameters for read_proposals tool
+ */
+export interface ReadProposalsParams {
+  proposalIds?: string[]
 }
 
 /**
@@ -676,6 +841,15 @@ export interface RenderUiParams {
 }
 
 /**
+ * Parameters for reject_proposal tool
+ */
+export interface RejectProposalParams {
+  proposalId: string
+  expectedRevision: number
+  expectedBaseHash: string
+}
+
+/**
  * Parameters for run_file_change_hooks tool
  */
 export interface RunFileChangeHooksParams {
@@ -691,6 +865,8 @@ export interface RunTerminalCommandParams {
   command: string
   /** Either SYNC (waits, returns output) or BACKGROUND (starts a detached job and returns immediately with a jobId — poll/follow it with check_job). Use BACKGROUND for long-running or never-exiting processes (dev servers, watchers, log tails) so you don't block the turn. Default SYNC */
   process_type?: 'SYNC' | 'BACKGROUND'
+  /** For BACKGROUND commands only: keep the job running if the owning request is cancelled. Defaults to false. */
+  detach?: boolean
   /** The working directory to run the command in. Default is the project root. */
   cwd?: string
   /** Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30 */
@@ -721,7 +897,7 @@ export interface SkillParams {
 }
 
 /**
- * Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.
+ * Spawn up to 8 agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. Split larger work into bounded waves. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.
  */
 export interface SpawnAgentsParams {
   agents: {
@@ -804,7 +980,7 @@ export interface StrReplaceParams {
     allowMultiple?: boolean
     /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Lets you disambiguate repeated text without a re-read or a longer oldString. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. If a fresh basedOnRead range is also given, occurrences are counted within that range. */
     occurrenceIndex?: number
-    /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
+    /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
     basedOnRead?:
       | string
       | {
@@ -815,6 +991,8 @@ export interface StrReplaceParams {
           /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
           hash: string
         }
+    /** For deletion replacements only: treat an already-missing oldString as a successful idempotent no-op. */
+    skipIfMissing?: boolean
   }[]
 }
 
@@ -905,17 +1083,6 @@ export interface WriteFileParams {
   instructions: string
   /** Complete file content to write to the file. */
   content: string
-  /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
-  basedOnRead?:
-    | string
-    | {
-        /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-        startLine: number
-        /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-        endLine: number
-        /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-        hash: string
-      }
 }
 
 /**

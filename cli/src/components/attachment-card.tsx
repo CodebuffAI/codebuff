@@ -54,7 +54,9 @@ export const AttachmentCard = ({
           onMouseOut={() => setIsCloseHovered(false)}
           style={{ marginLeft: 1, paddingLeft: 0, paddingRight: 0 }}
         >
-          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>X</text>
+          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
+            X
+          </text>
         </Button>
       ) : (
         // Keep layout aligned when there is no close button

@@ -1,4 +1,3 @@
-
 import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
 import * as mcpClientModule from '@codebuff/common/mcp/client'
 import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
@@ -38,13 +37,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     let createPlanResult: ToolResultOutput[] | undefined
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { requestToolCall, sendAction, promptId } = params
-        const sessionState = getInitialSessionState(
-          getStubProjectFileContext(),
-        )
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         createPlanResult = (
           await requestToolCall({
@@ -93,18 +88,21 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(createPlanResult).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: '.agents/sessions/test-session/PLAN.md',
-          message: 'Created file successfully.',
-        },
-      },
-    ])
-    expect(await fs.readFile('/repo/.agents/sessions/test-session/PLAN.md', 'utf-8')).toBe(
-      '# Plan\n\n- Write the plan artifact\n',
-    )
+    expect(
+      createPlanResult?.[0]?.type === 'json' ? createPlanResult[0].value : null,
+    ).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      actions: [
+        expect.objectContaining({
+          action: 'create',
+          path: '.agents/sessions/test-session/PLAN.md',
+        }),
+      ],
+    })
+    expect(
+      await fs.readFile('/repo/.agents/sessions/test-session/PLAN.md', 'utf-8'),
+    ).toBe('# Plan\n\n- Write the plan artifact\n')
   })
 
   it('validates overridden native client tool inputs before calling the override', async () => {
@@ -125,13 +123,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     let overrideCalled = false
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { requestToolCall, sendAction, promptId } = params
-        const sessionState = getInitialSessionState(
-          getStubProjectFileContext(),
-        )
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         globResult = (
           await requestToolCall({
@@ -183,7 +177,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     const firstOutput = globResult?.[0]
     expect(firstOutput?.type).toBe('json')
     if (firstOutput?.type !== 'json') {
-      throw new Error('Expected glob override validation to return a JSON error')
+      throw new Error(
+        'Expected glob override validation to return a JSON error',
+      )
     }
     expect(firstOutput.value).toMatchObject({
       errorMessage: expect.stringContaining('Invalid input'),
@@ -207,13 +203,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     let readDocsResult: ToolResultOutput[] | undefined
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { requestToolCall, sendAction, promptId } = params
-        const sessionState = getInitialSessionState(
-          getStubProjectFileContext(),
-        )
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         readDocsResult = (
           await requestToolCall({
@@ -274,6 +266,160 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     ])
   })
 
+  it('[ABI-H01] never dispatches apply_patch through a write_file override', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let writeOverrideCalled = false
+    let patchResult: ToolResultOutput[] | undefined
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
+        patchResult = (
+          await requestToolCall({
+            userInputId: promptId,
+            toolName: 'apply_patch',
+            input: {
+              operation: {
+                type: 'create_file',
+                path: 'new.txt',
+                diff: '@@\n+new\n',
+              },
+            },
+          })
+        ).output
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: { type: 'lastMessage', value: [] },
+          },
+        })
+        return {
+          sessionState,
+          output: { type: 'lastMessage' as const, value: [] },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      overrideTools: {
+        write_file: async () => {
+          writeOverrideCalled = true
+          return [{ type: 'json', value: { message: 'legacy write' } }]
+        },
+      },
+    })
+    await client.run({ agent: 'base2', prompt: 'apply patch' })
+
+    expect(writeOverrideCalled).toBe(false)
+    expect(patchResult?.[0]).toMatchObject({
+      type: 'json',
+      value: { errorMessage: expect.stringContaining('cwd is required') },
+    })
+  })
+
+  it('[ABI-H03][MUT-M05] external mutation overrides cannot self-certify application', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let overrideResult: ToolResultOutput[] | undefined
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
+        overrideResult = (
+          await requestToolCall({
+            userInputId: promptId,
+            toolName: 'write_file',
+            input: { type: 'file', path: 'fake.txt', content: 'fake' },
+          })
+        ).output
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: { type: 'lastMessage', value: [] },
+          },
+        })
+        return {
+          sessionState,
+          output: { type: 'lastMessage' as const, value: [] },
+        }
+      },
+    )
+
+    let changedCalls = 0
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      onFilesChanged: () => changedCalls++,
+      overrideTools: {
+        write_file: async () => [
+          {
+            type: 'json',
+            value: {
+              kind: 'file_mutation_result',
+              version: 1,
+              operationId: 'fabricated',
+              outcome: 'applied',
+              actions: [
+                {
+                  actionId: 'fabricated:0',
+                  index: 0,
+                  action: 'create',
+                  path: 'fake.txt',
+                  outcome: 'applied',
+                  beforeHash: null,
+                  afterHash: 'fake-hash',
+                },
+              ],
+              authorityTier: 'portable_path',
+              receiptId: 'fabricated',
+              errors: [],
+              freshCapabilities: [],
+            },
+          },
+        ],
+      },
+    })
+    await client.run({ agent: 'base2', prompt: 'write fake file' })
+
+    expect(overrideResult?.[0]).toMatchObject({
+      type: 'json',
+      value: {
+        kind: 'file_mutation_result',
+        outcome: 'unconfirmed',
+        authorityTier: null,
+        actions: [expect.objectContaining({ outcome: 'unconfirmed' })],
+      },
+    })
+    expect(changedCalls).toBe(0)
+  })
+
   it('returns the SDK unsupported-tool error for published tools without native handlers', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
@@ -291,13 +437,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     let readDocsResult: ToolResultOutput[] | undefined
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { requestToolCall, sendAction, promptId } = params
-        const sessionState = getInitialSessionState(
-          getStubProjectFileContext(),
-        )
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         readDocsResult = (
           await requestToolCall({
@@ -380,13 +522,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     })
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { requestToolCall, sendAction, promptId } = params
-        const sessionState = getInitialSessionState(
-          getStubProjectFileContext(),
-        )
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         await requestToolCall({
           userInputId: promptId,
@@ -463,13 +601,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     )
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { requestToolCall, sendAction, promptId } = params
-        const sessionState = getInitialSessionState(
-          getStubProjectFileContext(),
-        )
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         await requestToolCall({
           userInputId: promptId,
@@ -529,13 +663,9 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, action: promptAction, promptId } = params
-        const sessionState = getInitialSessionState(
-          getStubProjectFileContext(),
-        )
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         await sendAction({
           action: {
@@ -609,6 +739,7 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
 
     const events: PrintModeEvent[] = []
     const streamChunks: StreamChunk[] = []
+    const callbackOrder: string[] = []
 
     const client = new OpenbuffClient({
       apiKey: 'test-key',
@@ -617,11 +748,19 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     const result = await client.run({
       agent: 'base2',
       prompt: 'hello world',
-      handleEvent: (event) => {
+      handleEvent: async (event) => {
+        callbackOrder.push(`event:${event.type}:start`)
+        if (event.type === 'subagent_start') {
+          await new Promise((resolve) => setTimeout(resolve, 5))
+        }
         events.push(event)
+        callbackOrder.push(`event:${event.type}:end`)
       },
-      handleStreamChunk: (chunk) => {
+      handleStreamChunk: async (chunk) => {
+        callbackOrder.push('chunk:start')
+        await Promise.resolve()
         streamChunks.push(chunk)
+        callbackOrder.push('chunk:end')
       },
     })
 
@@ -642,5 +781,13 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     ])
 
     expect(result.output.type).toBe('lastMessage')
+    expect(callbackOrder).toEqual([
+      'event:subagent_start:start',
+      'event:subagent_start:end',
+      'chunk:start',
+      'chunk:end',
+      'event:subagent_finish:start',
+      'event:subagent_finish:end',
+    ])
   })
 })

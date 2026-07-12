@@ -24,7 +24,10 @@ function withTempDir(run: (dir: string) => void): void {
 }
 
 function fakeRunner(
-  exitByCommand: Record<string, { exitCode: number; stdout?: string; stderr?: string }>,
+  exitByCommand: Record<
+    string,
+    { exitCode: number; stdout?: string; stderr?: string }
+  >,
 ) {
   const calls: string[] = []
   const paramsList: Array<Record<string, unknown>> = []
@@ -35,7 +38,11 @@ function fakeRunner(
     return [
       {
         type: 'json' as const,
-        value: { exitCode: r.exitCode, stdout: r.stdout ?? '', stderr: r.stderr ?? '' },
+        value: {
+          exitCode: r.exitCode,
+          stdout: r.stdout ?? '',
+          stderr: r.stderr ?? '',
+        },
       },
     ] as CodebuffToolOutput<'run_terminal_command'>
   }) as any
@@ -226,14 +233,65 @@ describe('runFileChangeHooks', () => {
       timeout_seconds: 30,
     })
   })
+
+  test('runs per-file syntax hooks only for safe matching changed files', async () => {
+    const { run, calls } = fakeRunner({
+      "php -l 'src/a.php' && php -l 'src/space file.php'": { exitCode: 0 },
+    })
+    await runFileChangeHooks({
+      files: ['src/a.php', 'src/space file.php', '../outside.php', 'README.md'],
+      cwd: '/repo',
+      hooks: [
+        {
+          name: 'php syntax',
+          command: 'php -l',
+          filePattern: '**/*.php',
+          runPerFile: true,
+        },
+      ],
+      runCommand: run,
+    })
+
+    expect(calls).toEqual(["php -l 'src/a.php' && php -l 'src/space file.php'"])
+  })
+
+  test('adds structured diagnostics without discarding native output', async () => {
+    const { run } = fakeRunner({
+      'npx --no-install tsc --noEmit': {
+        exitCode: 2,
+        stderr: '/repo/src/a.ts(2,4): error TS2322: Type mismatch',
+      },
+    })
+    const out = await runFileChangeHooks({
+      files: ['src/a.ts'],
+      cwd: '/repo',
+      hooks: [{ name: 'typecheck', command: 'npx --no-install tsc --noEmit' }],
+      runCommand: run,
+    })
+
+    expect(jsonValue(out)?.[0]).toMatchObject({
+      hookName: 'typecheck',
+      exitCode: 2,
+      diagnostics: [
+        {
+          file: 'src/a.ts',
+          severity: 'error',
+          code: 'TS2322',
+          message: 'Type mismatch',
+          command: 'npx --no-install tsc --noEmit',
+        },
+      ],
+    })
+  })
 })
 
 describe('inferFileChangeHooks', () => {
-  test('infers JavaScript lint and typecheck hooks from package dependencies without running package scripts', () => {
+  test('prefers explicit package scripts and the declared package manager', () => {
     withTempDir((dir) => {
       writeFileSync(
         path.join(dir, 'package.json'),
         JSON.stringify({
+          packageManager: 'pnpm@10.0.0',
           scripts: { lint: 'custom-lint', typecheck: 'custom-typecheck' },
           devDependencies: { eslint: '^9.0.0', typescript: '^5.0.0' },
         }),
@@ -241,27 +299,40 @@ describe('inferFileChangeHooks', () => {
 
       expect(inferFileChangeHooks(dir)).toEqual([
         {
-          name: 'lint',
-          command: 'bunx eslint .',
-          filePattern: '**/*.{js,jsx,ts,tsx}',
+          name: 'script:lint',
+          command: "pnpm run 'lint'",
+          filePattern: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
         },
         {
-          name: 'typecheck',
-          command: 'bunx tsc --noEmit',
-          filePattern: '**/*.{ts,tsx}',
+          name: 'script:typecheck',
+          command: "pnpm run 'typecheck'",
+          filePattern: '**/*.{ts,tsx,mts,cts}',
         },
       ])
     })
   })
 
-  test('does not infer package script hooks when matching dependencies are absent', () => {
+  test('uses local dependency executables without allowing package downloads', () => {
     withTempDir((dir) => {
       writeFileSync(
         path.join(dir, 'package.json'),
-        JSON.stringify({ scripts: { lint: 'eslint .', typecheck: 'tsc --noEmit' } }),
+        JSON.stringify({
+          devDependencies: { eslint: '^9.0.0', typescript: '^5.0.0' },
+        }),
       )
 
-      expect(inferFileChangeHooks(dir)).toEqual([])
+      expect(inferFileChangeHooks(dir)).toEqual([
+        {
+          name: 'lint',
+          command: 'npx --no-install eslint .',
+          filePattern: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
+        },
+        {
+          name: 'typecheck',
+          command: 'npx --no-install tsc --noEmit',
+          filePattern: '**/*.{ts,tsx,mts,cts}',
+        },
+      ])
     })
   })
 
@@ -277,6 +348,7 @@ describe('inferFileChangeHooks', () => {
           filePattern: '**/*.go',
         },
         { name: 'go vet', command: 'go vet ./...', filePattern: '**/*.go' },
+        { name: 'go test', command: 'go test ./...', filePattern: '**/*.go' },
       ])
     })
   })
@@ -286,8 +358,14 @@ describe('inferFileChangeHooks', () => {
       writeFileSync(path.join(dir, 'Cargo.toml'), '[package]\nname = "demo"\n')
       writeFileSync(path.join(dir, 'requirements.txt'), 'ruff\n')
       writeFileSync(path.join(dir, 'go.mod'), 'module demo\n')
-      writeFileSync(path.join(dir, 'Gemfile'), 'source "https://rubygems.org"\n')
-      writeFileSync(path.join(dir, 'Package.swift'), '// swift-tools-version: 5.9\n')
+      writeFileSync(
+        path.join(dir, 'Gemfile'),
+        'source "https://rubygems.org"\ngem "rubocop"\n',
+      )
+      writeFileSync(
+        path.join(dir, 'Package.swift'),
+        '// swift-tools-version: 5.9\n',
+      )
       mkdirSync(path.join(dir, 'app'))
       writeFileSync(path.join(dir, 'app', 'Demo.csproj'), '<Project />\n')
 
@@ -298,10 +376,22 @@ describe('inferFileChangeHooks', () => {
           filePattern: '**/*.go',
         },
         { name: 'go vet', command: 'go vet ./...', filePattern: '**/*.go' },
+        { name: 'go test', command: 'go test ./...', filePattern: '**/*.go' },
         {
           name: 'dotnet format',
-          command: 'dotnet format --verify-no-changes',
-          filePattern: '**/*.{cs,csproj}',
+          command:
+            "dotnet format 'app/Demo.csproj' --verify-no-changes --no-restore",
+          filePattern: '**/*.{cs,csproj,sln}',
+        },
+        {
+          name: 'dotnet build',
+          command: "dotnet build 'app/Demo.csproj' --nologo --no-restore",
+          filePattern: '**/*.{cs,csproj,sln}',
+        },
+        {
+          name: 'dotnet test',
+          command: "dotnet test 'app/Demo.csproj' --nologo --no-restore",
+          filePattern: '**/*.{cs,csproj,sln}',
         },
         {
           name: 'cargo fmt',
@@ -313,12 +403,96 @@ describe('inferFileChangeHooks', () => {
           command: 'cargo clippy --all-targets --all-features -- -D warnings',
           filePattern: '**/*.rs',
         },
-        { name: 'ruff', command: 'ruff check .', filePattern: '**/*.py' },
-        { name: 'rubocop', command: 'rubocop', filePattern: '**/*.rb' },
         {
-          name: 'swift-format',
-          command: 'swift-format lint --recursive .',
-          filePattern: '**/*.swift',
+          name: 'cargo test',
+          command: 'cargo test --workspace --all-targets',
+          filePattern: '**/*.rs',
+        },
+        { name: 'ruff', command: 'ruff check .', filePattern: '**/*.py' },
+        {
+          name: 'rubocop',
+          command: 'bundle exec rubocop',
+          filePattern: '**/*.rb',
+        },
+        {
+          name: 'swift build',
+          command: 'swift build --jobs 2',
+          filePattern: '**/*.{swift,xcodeproj}',
+        },
+        {
+          name: 'swift test',
+          command: 'swift test --parallel',
+          filePattern: '**/*.{swift,xcodeproj}',
+        },
+      ])
+    })
+  })
+
+  test('infers bounded JVM, PHP, CMake, and Godot validation', () => {
+    withTempDir((dir) => {
+      writeFileSync(path.join(dir, 'build.gradle.kts'), 'plugins { java }\n')
+      writeFileSync(path.join(dir, 'gradlew'), '#!/bin/sh\n')
+      writeFileSync(
+        path.join(dir, 'composer.json'),
+        JSON.stringify({
+          scripts: { analyse: 'phpstan analyse' },
+          'require-dev': { 'phpstan/phpstan': '^2' },
+        }),
+      )
+      writeFileSync(
+        path.join(dir, 'CMakePresets.json'),
+        JSON.stringify({
+          buildPresets: [{ name: 'debug', configurePreset: 'debug' }],
+        }),
+      )
+      writeFileSync(path.join(dir, 'project.godot'), '[application]\n')
+
+      expect(inferFileChangeHooks(dir)).toEqual([
+        {
+          name: 'gradle check',
+          command:
+            './gradlew --no-daemon --console=plain --max-workers=2 check',
+          filePattern: '**/*.{java,kt,kts,gradle}',
+        },
+        {
+          name: 'composer validate',
+          command: 'composer validate --no-check-publish --no-interaction',
+          filePattern: '**/composer.{json,lock}',
+        },
+        {
+          name: 'composer:analyse',
+          command: "composer run-script --no-interaction 'analyse'",
+          filePattern: '**/*.php',
+        },
+        {
+          name: 'cmake build',
+          command: "cmake --build --preset 'debug' --parallel 2",
+          filePattern: '**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}',
+        },
+        {
+          name: 'godot validation',
+          command: 'godot --headless --editor --quit --path .',
+          filePattern: '**/*.{gd,gdshader,tscn,tres,godot}',
+        },
+      ])
+    })
+  })
+
+  test('falls back to changed-file PHP syntax checks when no analyzer is configured', () => {
+    withTempDir((dir) => {
+      writeFileSync(path.join(dir, 'composer.json'), JSON.stringify({}))
+
+      expect(inferFileChangeHooks(dir)).toEqual([
+        {
+          name: 'composer validate',
+          command: 'composer validate --no-check-publish --no-interaction',
+          filePattern: '**/composer.{json,lock}',
+        },
+        {
+          name: 'php syntax',
+          command: 'php -l',
+          filePattern: '**/*.php',
+          runPerFile: true,
         },
       ])
     })

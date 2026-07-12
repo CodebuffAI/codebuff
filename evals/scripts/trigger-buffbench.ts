@@ -16,7 +16,7 @@ function checkGitHubToken() {
   if (!token) {
     error(
       'CODEBUFF_GITHUB_TOKEN environment variable is required but not set.\n' +
-      'Please set it with your GitHub personal access token or use the infisical setup.'
+        'Please set it with your GitHub personal access token or use the infisical setup.',
     )
   }
   return token
@@ -24,7 +24,9 @@ function checkGitHubToken() {
 
 function getCurrentBranch(): string {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim()
+    return execSync('git rev-parse --abbrev-ref HEAD', {
+      encoding: 'utf8',
+    }).trim()
   } catch {
     return 'main'
   }
@@ -70,7 +72,9 @@ async function main() {
   await triggerWorkflow(token, branch)
 
   log('')
-  log('Monitor progress at: https://github.com/CodebuffAI/codebuff/actions/workflows/buffbench.yml')
+  log(
+    'Monitor progress at: https://github.com/CodebuffAI/codebuff/actions/workflows/buffbench.yml',
+  )
 }
 
 main().catch((err) => {

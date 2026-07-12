@@ -1,6 +1,12 @@
 import { describe, test, expect } from 'bun:test'
 
-import filePicker, { createFilePicker, extractSpawnResults, extractAgentText, extractErrorMessage, isObject } from '../file-explorer/file-picker'
+import filePicker, {
+  createFilePicker,
+  extractSpawnResults,
+  extractAgentText,
+  extractErrorMessage,
+  isObject,
+} from '../file-explorer/file-picker'
 
 import type { AgentState, ToolCall, StepText } from '../types/agent-definition'
 
@@ -32,8 +38,9 @@ describe('file-picker agent', () => {
       expect(filePicker.displayName).toBe('Fletcher the File Fetcher')
     })
 
-    test('has output mode set to last_message', () => {
-      expect(filePicker.outputMode).toBe('last_message')
+    test('has structured file output', () => {
+      expect(filePicker.outputMode).toBe('structured_output')
+      expect(filePicker.outputSchema).toBeDefined()
     })
 
     test('does not include message history', () => {
@@ -86,16 +93,27 @@ describe('file-picker agent', () => {
 
     test('has optional directories parameter', () => {
       const dirSchema = filePicker.inputSchema?.params?.properties?.directories
-      const dirSchemaObj = dirSchema && typeof dirSchema === 'object' && !Array.isArray(dirSchema) ? dirSchema : undefined
+      const dirSchemaObj =
+        dirSchema && typeof dirSchema === 'object' && !Array.isArray(dirSchema)
+          ? dirSchema
+          : undefined
       expect(dirSchemaObj?.type).toBe('array')
       expect(filePicker.inputSchema?.params?.required).toHaveLength(0)
     })
 
     test('directories is array of strings', () => {
       const dirSchema = filePicker.inputSchema?.params?.properties?.directories
-      const dirSchemaObj = dirSchema && typeof dirSchema === 'object' && !Array.isArray(dirSchema) ? dirSchema : undefined
+      const dirSchemaObj =
+        dirSchema && typeof dirSchema === 'object' && !Array.isArray(dirSchema)
+          ? dirSchema
+          : undefined
       const itemsSchema = dirSchemaObj?.items
-      const itemsSchemaObj = itemsSchema && typeof itemsSchema === 'object' && !Array.isArray(itemsSchema) ? itemsSchema as { type?: string } : undefined
+      const itemsSchemaObj =
+        itemsSchema &&
+        typeof itemsSchema === 'object' &&
+        !Array.isArray(itemsSchema)
+          ? (itemsSchema as { type?: string })
+          : undefined
       expect(itemsSchemaObj?.type).toBe('string')
     })
   })
@@ -286,7 +304,10 @@ describe('file-picker agent', () => {
                     {
                       role: 'assistant',
                       content: [
-                        { type: 'text', text: 'src/file.ts\nsrc/file.ts\nsrc/other.ts' },
+                        {
+                          type: 'text',
+                          text: 'src/file.ts\nsrc/file.ts\nsrc/other.ts',
+                        },
                       ],
                     },
                   ],
@@ -396,6 +417,85 @@ describe('file-picker agent', () => {
       expect(stepText.text).toContain('File lister failed')
     })
 
+    test('keeps valid paths when neighboring file-lister lines are malformed', () => {
+      const generator = createFilePicker().handleSteps!({
+        agentState: createMockAgentState(),
+        logger: createMockLogger() as any,
+        params: {},
+      })
+      generator.next()
+      const result = generator.next({
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: [
+              {
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Files:\n- `src/a.ts`\nhttps://example.com\n2. src/b.ts',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: true,
+      })
+      expect((result.value as ToolCall<'read_files'>).input.paths).toEqual([
+        'src/a.ts',
+        'src/b.ts',
+      ])
+    })
+
+    test('enforces requested directory scope on returned candidates', () => {
+      const generator = createFilePicker().handleSteps!({
+        agentState: createMockAgentState(),
+        logger: createMockLogger() as any,
+        params: { directories: ['packages/sdk'] },
+      })
+      generator.next()
+      const result = generator.next({
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: [
+              {
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'packages/sdk/a.ts\ncli/src/outside.ts',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: true,
+      })
+      expect((result.value as ToolCall<'read_files'>).input.paths).toEqual([
+        'packages/sdk/a.ts',
+      ])
+    })
+
     // M2.2: relevance scoring orders paths by prompt-keyword matches, and caps
     // to the top 12 (matching the spawner prompt's advertised limit).
     test('orders paths by prompt-keyword relevance', () => {
@@ -406,7 +506,7 @@ describe('file-picker agent', () => {
       const generator = defaultPicker.handleSteps!({
         agentState: mockAgentState,
         logger: mockLogger as any,
-        prompt: 'Find authentication files',
+        prompt: 'Find auth files',
         params: {},
       })
 
@@ -450,7 +550,7 @@ describe('file-picker agent', () => {
       // auth-bearing paths score higher than unrelated/utils paths.
       expect(paths[0]).toBe('src/auth/login.ts')
       expect(paths[1]).toBe('src/auth/session.ts')
-      // The two non-auth files come after, ordered alphabetically as a tiebreak.
+      // The two non-auth files retain the file-lister's upstream rank.
       expect(paths).toContain('src/unrelated.ts')
       expect(paths).toContain('src/utils/helpers.ts')
       expect(paths).toHaveLength(4)
@@ -471,7 +571,10 @@ describe('file-picker agent', () => {
       generator.next()
 
       // 15 candidate paths — should be capped to 12.
-      const fifteenPaths = Array.from({ length: 15 }, (_, i) => `src/file${i}.ts`).join('\n')
+      const fifteenPaths = Array.from(
+        { length: 15 },
+        (_, i) => `src/file${i}.ts`,
+      ).join('\n')
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -573,7 +676,7 @@ describe('file-picker agent', () => {
     })
 
     test('requests full paths', () => {
-      expect(filePicker.instructionsPrompt).toContain('full paths')
+      expect(filePicker.instructionsPrompt).toContain('full path')
     })
 
     test('instructs not to use tools', () => {
@@ -729,17 +832,23 @@ describe('file-picker agent', () => {
     })
 
     test('returns empty array when no json result found', () => {
-      expect(extractSpawnResults([{ type: 'string', value: 'hello' }])).toEqual([])
+      expect(extractSpawnResults([{ type: 'string', value: 'hello' }])).toEqual(
+        [],
+      )
     })
   })
 
   describe('extractErrorMessage', () => {
     test('extracts message from error result', () => {
-      expect(extractErrorMessage({ type: 'error', message: 'Something failed' })).toBe('Something failed')
+      expect(
+        extractErrorMessage({ type: 'error', message: 'Something failed' }),
+      ).toBe('Something failed')
     })
 
     test('falls back to value if no message', () => {
-      expect(extractErrorMessage({ type: 'error', value: 'Error value' })).toBe('Error value')
+      expect(extractErrorMessage({ type: 'error', value: 'Error value' })).toBe(
+        'Error value',
+      )
     })
 
     test('returns null for non-error types', () => {

@@ -7,6 +7,7 @@ import {
   createAgentState,
   extractSubagentContextParams,
   buildSpawnParamsWithHandoff,
+  normalizeSpawnedAgentOutput,
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -131,6 +132,8 @@ export const handleSpawnAgentInline = (async (
     parentAgentState,
     agentState: childAgentState,
     fingerprintId,
+    spawnToolCallId: toolCall.toolCallId,
+    spawnIndex: 0,
     parentSystemPrompt: system,
     parentTools,
     onResponseChunk: (chunk: string | PrintModeEvent) => {
@@ -196,5 +199,14 @@ export const handleSpawnAgentInline = (async (
   // Update parent agent state to reflect shared message history
   parentAgentState.messageHistory = result.agentState.messageHistory
 
-  return { output: [{ type: 'json', value: { message: 'Agent spawned.' } }] }
+  return {
+    output: [
+      {
+        type: 'json',
+        value: normalizeSpawnedAgentOutput(result.output) ?? {
+          message: 'Agent completed without structured output.',
+        },
+      },
+    ],
+  }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

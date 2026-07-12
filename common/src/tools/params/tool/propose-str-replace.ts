@@ -7,10 +7,12 @@ import {
   normalizeReplacementAliases,
 } from '../utils'
 import { basedOnReadSchema } from '../based-on-read'
+import { proposalResultV1Schema } from '../../results/filesystem'
 
 import type { $ToolParams } from '../../constants'
 
 export const proposeUpdateFileResultSchema = z.union([
+  proposalResultV1Schema,
   z.object({
     file: z.string(),
     message: z.string(),
@@ -30,6 +32,13 @@ const inputSchema = z
       .string()
       .min(1, 'Path cannot be empty')
       .describe(`The path to the file to edit.`),
+    atomic: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'Apply all proposed replacements or leave the proposal overlay unchanged.',
+      ),
     replacements: z
       .preprocess(
         coerceToArray,
@@ -38,27 +47,53 @@ const inputSchema = z
             z
               .preprocess(
                 normalizeReplacementAliases,
-                z.object({
-                  oldString: z
-                    .string()
-                    .min(1, 'oldString cannot be empty')
-                    .describe(
-                      `The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`,
-                    ),
-                  newString: z
-                    .string()
-                    .describe(
-                      `The string to replace the corresponding oldString with. Can be empty to delete.`,
-                    ),
-                  allowMultiple: z
-                    .boolean()
-                    .optional()
-                    .default(false)
-                    .describe(
-                      'Whether to allow multiple replacements of oldString.',
-                    ),
-                  basedOnRead: basedOnReadSchema,
-                }),
+                z
+                  .object({
+                    oldString: z
+                      .string()
+                      .min(1, 'oldString cannot be empty')
+                      .describe(
+                        `The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`,
+                      ),
+                    newString: z
+                      .string()
+                      .describe(
+                        `The string to replace the corresponding oldString with. Can be empty to delete.`,
+                      ),
+                    allowMultiple: z
+                      .boolean()
+                      .optional()
+                      .default(false)
+                      .describe(
+                        'Whether to allow multiple replacements of oldString.',
+                      ),
+                    occurrenceIndex: z
+                      .number()
+                      .int()
+                      .min(1)
+                      .optional()
+                      .describe('Target the exact 1-indexed occurrence.'),
+                    basedOnRead: basedOnReadSchema,
+                    skipIfMissing: z
+                      .boolean()
+                      .optional()
+                      .describe(
+                        'For deletion proposals only, treat a missing target as already applied.',
+                      ),
+                  })
+                  .superRefine((replacement, ctx) => {
+                    if (
+                      replacement.skipIfMissing &&
+                      replacement.newString !== ''
+                    ) {
+                      ctx.addIssue({
+                        code: 'custom',
+                        path: ['skipIfMissing'],
+                        message:
+                          'skipIfMissing is only valid for deletion replacements.',
+                      })
+                    }
+                  }),
               )
               .describe('Pair of oldString and newString values.'),
           )

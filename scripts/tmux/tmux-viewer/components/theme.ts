@@ -43,12 +43,12 @@ export function getTheme(): ViewerTheme {
   // Simple detection based on COLORTERM or default to dark
   const colorTerm = process.env.COLORTERM ?? ''
   const term = process.env.TERM ?? ''
-  
+
   // Most terminals are dark by default, so we default to dark
   // This is a simple heuristic - a more robust solution would use OSC detection
   if (colorTerm.includes('light') || term.includes('light')) {
     return lightTheme
   }
-  
+
   return darkTheme
 }

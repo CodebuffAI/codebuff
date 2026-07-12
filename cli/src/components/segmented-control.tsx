@@ -70,9 +70,15 @@ export const SegmentedControl = ({
           <React.Fragment key={seg.id}>
             {leftOfHovered ? (
               <box style={{ flexDirection: 'column', gap: 0 }}>
-                <text fg={seg.frameColor} selectable={false}>╭</text>
-                <text fg={seg.frameColor} selectable={false}>│</text>
-                <text fg={seg.frameColor} selectable={false}>╰</text>
+                <text fg={seg.frameColor} selectable={false}>
+                  ╭
+                </text>
+                <text fg={seg.frameColor} selectable={false}>
+                  │
+                </text>
+                <text fg={seg.frameColor} selectable={false}>
+                  ╰
+                </text>
               </box>
             ) : null}
 
@@ -104,9 +110,15 @@ export const SegmentedControl = ({
 
             {rightOfHovered ? (
               <box style={{ flexDirection: 'column', gap: 0 }}>
-                <text fg={seg.frameColor} selectable={false}>╮</text>
-                <text fg={seg.frameColor} selectable={false}>│</text>
-                <text fg={seg.frameColor} selectable={false}>╯</text>
+                <text fg={seg.frameColor} selectable={false}>
+                  ╮
+                </text>
+                <text fg={seg.frameColor} selectable={false}>
+                  │
+                </text>
+                <text fg={seg.frameColor} selectable={false}>
+                  ╯
+                </text>
               </box>
             ) : null}
           </React.Fragment>

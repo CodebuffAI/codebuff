@@ -6,14 +6,7 @@ import {
   createMockChildProcess,
   createRgJsonMatch,
 } from '@codebuff/common/testing/mocks'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-} from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -82,6 +75,20 @@ describe('findFilesMatchingContent', () => {
     const args = mockSpawn.mock.calls[0][1] as string[]
     expect(args).toContain('-l')
     expect(args).toContain('needle')
+  })
+
+  it('filters mandatory-sensitive paths from files-only results', async () => {
+    const searchPromise = findFilesMatchingContent({
+      projectPath,
+      pattern: 'token',
+    })
+    mockProcess.stdout.emit(
+      'data',
+      Buffer.from('.env\nsrc/config.ts\nid_ed25519\n'),
+    )
+    mockProcess.emit('close', 0)
+
+    expect(getValue(await searchPromise).files).toEqual(['src/config.ts'])
   })
 
   it('rejects cwd values outside the project root', async () => {

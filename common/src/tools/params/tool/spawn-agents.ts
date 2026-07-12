@@ -1,5 +1,7 @@
 import z from 'zod/v4'
 
+import { MAX_SPAWN_BATCH_SIZE } from '../../../constants/agents'
+
 import { jsonObjectSchema } from '../../../types/json'
 import {
   $getNativeToolCallExampleString,
@@ -90,7 +92,7 @@ const inputSchema = z
             .number()
             .optional()
             .describe(
-              'Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template\'s defaultTimeoutMs, or 20 minutes if unset.',
+              "Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template's defaultTimeoutMs, or 20 minutes if unset.",
             ),
           params: z
             .preprocess(
@@ -161,9 +163,7 @@ const inputSchema = z
                   filePaths: z
                     .array(z.string())
                     .optional()
-                    .describe(
-                      'Relevant file paths to read (general-agent)',
-                    ),
+                    .describe('Relevant file paths to read (general-agent)'),
                   directories: z
                     .array(z.string())
                     .optional()
@@ -182,11 +182,16 @@ const inputSchema = z
             .optional()
             .describe('Parameters object for the agent'),
         })
-        .array(),
+        .array()
+        .min(1)
+        .max(
+          MAX_SPAWN_BATCH_SIZE,
+          `A spawn batch can contain at most ${MAX_SPAWN_BATCH_SIZE} agents. Split larger work into bounded waves.`,
+        ),
     ),
   })
   .describe(
-    `Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.`,
+    `Spawn up to ${MAX_SPAWN_BATCH_SIZE} agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. Split larger work into bounded waves. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.`,
   )
 const description = `
 Use this tool to spawn agents to help you complete the user request. Each agent has specific requirements for prompt and params based on their tools schema.

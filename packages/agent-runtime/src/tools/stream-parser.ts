@@ -1,10 +1,8 @@
 import { toolNames } from '@codebuff/common/tools/constants'
+import { toolMetadata } from '@codebuff/common/tools/metadata'
 import { buildArray } from '@codebuff/common/util/array'
 import { AbortError } from '@codebuff/common/util/error'
-import {
-  assistantMessage,
-  userMessage,
-} from '@codebuff/common/util/messages'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { processStreamWithTools } from '../tool-stream-parser'
@@ -33,22 +31,6 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-const READ_ONLY_TOOLS_ARRAY = [
-  'read_files',
-  'read_image',
-  'read_subtree',
-  'read_outline',
-  'list_directory',
-  'glob',
-  'query_index',
-  // Additional read-only tools that only consume state (no fileProcessingState
-  // mutations). Verified safe to run concurrently with each other.
-  'code_search',
-  'find_files',
-  'git_status',
-  'read_logs',
-] as const
-
 /**
  * Tools that only perform read operations and are safe to run concurrently with
  * each other. These tools only mutate idempotent bookkeeping in fileProcessingState
@@ -56,8 +38,11 @@ const READ_ONLY_TOOLS_ARRAY = [
  * contents. Concurrent reads on the same path are safe because the mutations are
  * idempotent and write tools are serialized after all in-flight reads.
  */
-const READ_ONLY_TOOLS = new Set<string>(READ_ONLY_TOOLS_ARRAY)
-type ReadonlyToolName = (typeof READ_ONLY_TOOLS_ARRAY)[number]
+const READ_ONLY_TOOLS = new Set<string>(
+  toolNames.filter(
+    (toolName) => toolMetadata[toolName].scheduling === 'read_only',
+  ),
+)
 
 export async function processStream(
   params: {
@@ -93,10 +78,7 @@ export async function processStream(
   > &
     ParamsExcluding<
       typeof processStreamWithTools,
-      | 'processors'
-      | 'defaultProcessor'
-      | 'loggerOptions'
-      | 'executeXmlToolCall'
+      'processors' | 'defaultProcessor' | 'loggerOptions' | 'executeXmlToolCall'
     >,
 ) {
   const {
@@ -120,7 +102,8 @@ export async function processStream(
   const toolResults: ToolMessage[] = []
   const toolResultsToAddToMessageHistory: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
-  const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] = []
+  const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] =
+    []
   const assistantMessages: Message[] = []
   let hadToolCallError = false
   const errorMessages: Message[] = []
@@ -139,12 +122,12 @@ export async function processStream(
   // via this global barrier (they might touch any path, so they are treated
   // conservatively as cross-path writes).
   let customToolBarrier: Promise<void> = Promise.resolve()
+  let activeGlobalWrite: Promise<void> | undefined
   // Read-only tools only mutate idempotent bookkeeping in fileProcessingState
   // (read auth grants, clearing stale promise refs) and are safe to run
-  // concurrently with each other. They are tracked here; writes drain this list
-  // (they waited for all in-flight reads) so the next write only needs to wait
-  // for its own path's barrier.
-  let inFlightReads: Promise<void>[] = []
+  // concurrently with each other. Active reads remain in this set until they
+  // settle so every subsequently issued write observes the same read barrier.
+  const inFlightReads = new Set<Promise<void>>()
 
   // Returns the outstanding write barrier for a path, or a resolved promise if
   // this is the first write on that path (it has no prior barrier and may begin
@@ -157,6 +140,12 @@ export async function processStream(
   ): void => {
     writeBarriersByPath.set(path, barrier)
   }
+  const waitForOutstandingTools = () =>
+    Promise.all([
+      ...writeBarriersByPath.values(),
+      customToolBarrier,
+      ...inFlightReads,
+    ]).then(() => {})
 
   // Extracts the normalized target path from a write tool's input, for the
   // purpose of selecting the per-path write barrier. Returns `undefined` when
@@ -172,9 +161,19 @@ export async function processStream(
     if (
       name === 'str_replace' ||
       name === 'write_file' ||
-      name === 'apply_smart_patch'
+      name === 'apply_smart_patch' ||
+      name === 'create_plan' ||
+      name === 'replace_range'
     ) {
       const raw = toolInput.path
+      if (typeof raw !== 'string' || raw.length === 0) return undefined
+      const normalized = normalizeToolPath(raw)
+      return normalized.length > 0 ? normalized : undefined
+    }
+    if (name === 'apply_patch') {
+      const operation = toolInput.operation
+      if (!operation || typeof operation !== 'object') return undefined
+      const raw = (operation as { path?: unknown }).path
       if (typeof raw !== 'string' || raw.length === 0) return undefined
       const normalized = normalizeToolPath(raw)
       return normalized.length > 0 ? normalized : undefined
@@ -189,9 +188,7 @@ export async function processStream(
           typeof edit === 'object' &&
           typeof (edit as { path?: unknown }).path === 'string'
         ) {
-          const normalized = normalizeToolPath(
-            (edit as { path: string }).path,
-          )
+          const normalized = normalizeToolPath((edit as { path: string }).path)
           if (normalized.length > 0) {
             paths.push(normalized)
           } else {
@@ -229,7 +226,12 @@ export async function processStream(
     failedEditRequiresReadByPath: {},
     consecutiveStrReplaceFailuresByPath: {},
     strictReadBeforeEdit: true,
-    readAuthorizationsByPath: { ...(agentState.readAuthorizationsByPath ?? {}) },
+    readAuthorizationsByPath: {
+      ...(agentState.readAuthorizationsByPath ?? {}),
+    },
+    readAuthorizationHashesByPath: {
+      ...(agentState.readAuthorizationHashesByPath ?? {}),
+    },
   }
 
   // === RESPONSE HANDLER ===
@@ -259,7 +261,7 @@ export async function processStream(
   function createToolExecutionCallback(toolName: string, isXmlMode: boolean) {
     const responseHandler = createResponseHandler()
     return {
-      onTagStart: () => { },
+      onTagStart: () => {},
       onTagEnd: async (
         _: string,
         input: Record<string, string>,
@@ -274,10 +276,10 @@ export async function processStream(
         // Check if this is an agent tool call that should be transformed to spawn_agents
         const transformed = !isNativeTool
           ? tryTransformAgentToolCall({
-            toolName,
-            input,
-            spawnableAgents: agentTemplate.spawnableAgents,
-          })
+              toolName,
+              input,
+              spawnableAgents: agentTemplate.spawnableAgents,
+            })
           : null
 
         // Determine if this is a read-only tool. Read-only tools only mutate
@@ -288,8 +290,7 @@ export async function processStream(
         // all in-flight reads AND prior writes to complete.
         const resolvedToolName = transformed ? transformed.toolName : toolName
         const isReadOnlyTool =
-          isNativeTool &&
-          READ_ONLY_TOOLS.has(resolvedToolName as ReadonlyToolName)
+          isNativeTool && READ_ONLY_TOOLS.has(resolvedToolName)
 
         // Determine the target path for this write tool, so it can be assigned
         // a per-path barrier. Named-path writes (str_replace / write_file /
@@ -310,10 +311,19 @@ export async function processStream(
         // (writePath === undefined) omit `queued` (treated as not-queued). Only
         // `true` is emitted; the field is absent otherwise to keep event
         // objects minimal and avoid breaking exact-shape test assertions.
-        const queued =
-          writePath !== undefined && writeBarriersByPath.has(writePath)
-            ? true
-            : undefined
+        const queued = !isReadOnlyTool
+          ? writePath !== undefined
+            ? writeBarriersByPath.has(writePath) ||
+              activeGlobalWrite !== undefined ||
+              inFlightReads.size > 0
+              ? true
+              : undefined
+            : activeGlobalWrite !== undefined ||
+                writeBarriersByPath.size > 0 ||
+                inFlightReads.size > 0
+              ? true
+              : undefined
+          : undefined
 
         // Compute the dependency promise for this tool.
         // - Read-only tools: wait for ALL outstanding writes (every path's last
@@ -321,9 +331,9 @@ export async function processStream(
         //   state from any path, but do NOT wait for other in-flight reads
         //   (reads stay concurrent with each other) and do NOT advance any
         //   write barrier.
-        // - Named-path writes: wait only for prior writes to the SAME path (the
-        //   per-path barrier) plus all in-flight reads (reads it must observe).
-        //   They do NOT wait on other paths' writes.
+        // - Named-path writes: wait for prior global/unknown-path work, prior
+        //   writes to the SAME path, and all active reads. They do not wait on
+        //   unrelated named paths.
         // - Custom/unknown-path writes: wait for ALL outstanding writes + all
         //   in-flight reads (conservative, since they might touch any path).
         let previousPromise: Promise<void>
@@ -335,17 +345,18 @@ export async function processStream(
           previousPromise = Promise.all(allWriteBarriers).then(() => {})
         } else if (writePath !== undefined) {
           const pathBarrier = getWriteBarrierForPath(writePath)
-          previousPromise =
-            inFlightReads.length > 0
-              ? Promise.all([...inFlightReads, pathBarrier]).then(() => {})
-              : pathBarrier
+          previousPromise = Promise.all([
+            customToolBarrier,
+            pathBarrier,
+            ...inFlightReads,
+          ]).then(() => {})
         } else {
           const allWriteBarriers = [
             customToolBarrier,
             ...writeBarriersByPath.values(),
           ]
           previousPromise =
-            inFlightReads.length > 0
+            inFlightReads.size > 0
               ? Promise.all([...allWriteBarriers, ...inFlightReads]).then(
                   () => {},
                 )
@@ -403,20 +414,21 @@ export async function processStream(
         // Update the dependency chains.
         // - Read-only tools: tracked in inFlightReads (concurrent with each
         //   other); they do NOT advance any write barrier.
-        // - Named-path writes: advance only that path's barrier slot and drain
-        //   inFlightReads (this write consumed them). Other paths' barriers are
-        //   untouched, so concurrent writes on other paths keep running.
-        // - Custom/unknown-path writes: advance the global custom-tool barrier
-        //   and drain inFlightReads. Named-path barriers are untouched.
+        // - Named-path writes: advance only that path's barrier slot. Other
+        //   paths remain concurrent, while active reads self-remove on settle.
+        // - Custom/unknown-path writes: advance the global barrier. All later
+        //   named writes wait for it, regardless of path extraction.
         const settledToolPromise = toolPromise.then(
           () => {},
           () => {},
         )
         if (isReadOnlyTool) {
-          inFlightReads.push(settledToolPromise)
+          inFlightReads.add(settledToolPromise)
+          settledToolPromise.then(() =>
+            inFlightReads.delete(settledToolPromise),
+          )
         } else if (writePath !== undefined) {
           setWriteBarrierForPath(writePath, settledToolPromise)
-          inFlightReads = []
           // Clean up the per-path barrier entry once this write settles, so
           // `writeBarriersByPath.has(writePath)` accurately reflects in-flight
           // writes (and the finalization join only awaits outstanding entries).
@@ -430,7 +442,12 @@ export async function processStream(
           })
         } else {
           customToolBarrier = settledToolPromise
-          inFlightReads = []
+          activeGlobalWrite = settledToolPromise
+          settledToolPromise.then(() => {
+            if (activeGlobalWrite === settledToolPromise) {
+              activeGlobalWrite = undefined
+            }
+          })
         }
 
         // For XML mode, await execution so results appear inline before stream continues
@@ -550,21 +567,6 @@ export async function processStream(
         )
       }
     }
-
-    if (!signal.aborted) {
-      // Wait for ALL outstanding writes (across every path, including the
-      // custom-tool barrier) and all in-flight reads before finalizing the
-      // stream. This is the cumulative join barrier, generalized from the old
-      // single global `lastWriteFinished` chain to the per-path barrier map.
-      // `customToolBarrier` is always defined (initialized to a resolved
-      // promise), and an empty `writeBarriersByPath` contributes no entries, so
-      // the join resolves immediately when nothing is outstanding.
-      await Promise.all([
-        ...writeBarriersByPath.values(),
-        customToolBarrier,
-        ...inFlightReads,
-      ])
-    }
   } finally {
     // === FINALIZATION ===
     // Write back cross-turn read authorization. Any path that read_files or
@@ -573,15 +575,11 @@ export async function processStream(
     // hydrate it. This is the write-back half of the cross-turn state
     // isolation fix; the read-back half is the hydration in the
     // fileProcessingState initializer above.
-    if (!agentState.readAuthorizationsByPath) {
-      agentState.readAuthorizationsByPath = {}
+    agentState.readAuthorizationsByPath = {
+      ...(fileProcessingState.readAuthorizationsByPath ?? {}),
     }
-    for (const [path, auth] of Object.entries(
-      fileProcessingState.readAuthorizationsByPath ?? {},
-    )) {
-      if (auth) {
-        agentState.readAuthorizationsByPath[path] = true
-      }
+    agentState.readAuthorizationHashesByPath = {
+      ...(fileProcessingState.readAuthorizationHashesByPath ?? {}),
     }
 
     // Trigger cleanup of the processStreamWithTools generator so it flushes any
@@ -595,6 +593,12 @@ export async function processStream(
       // Generator cleanup failed; assistantMessages may be incomplete but
       // we must not swallow the original error.
     }
+
+    // Cancellation stops new dispatch, but terminal publication waits for all
+    // already-started cooperative tools to unwind. SDK legacy overrides are
+    // raced against the shared signal, so a non-cooperative external promise
+    // cannot hold this cleanup barrier open or publish a late result.
+    await waitForOutstandingTools()
 
     // This runs even when the stream throws (e.g., AbortError mid-iteration).
     // Build message history from the current agentState.messageHistory so that
@@ -611,15 +615,16 @@ export async function processStream(
     const completedToolCallIds = new Set(
       toolResultsToAddToMessageHistory.map((r) => r.toolCallId),
     )
-    const filteredToolCalls =
-      toolCallsToAddToMessageHistory.filter((tc) =>
-        completedToolCallIds.has(tc.toolCallId),
-      )
+    const filteredToolCalls = toolCallsToAddToMessageHistory.filter((tc) =>
+      completedToolCallIds.has(tc.toolCallId),
+    )
 
     agentState.messageHistory = buildArray<Message>([
       ...agentState.messageHistory,
       ...assistantMessages,
-      ...filteredToolCalls.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
+      ...filteredToolCalls.map((toolCall) =>
+        assistantMessage({ ...toolCall, type: 'tool-call' }),
+      ),
       ...toolResultsToAddToMessageHistory,
       ...errorMessages,
     ])

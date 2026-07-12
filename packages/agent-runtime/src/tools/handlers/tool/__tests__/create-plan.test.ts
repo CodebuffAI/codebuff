@@ -33,10 +33,7 @@ describe('isNonTrivialSessionPlan', () => {
 
   test('returns true for long session PLAN.md content', () => {
     expect(
-      isNonTrivialSessionPlan(
-        '.agents/sessions/foo/PLAN.md',
-        'a'.repeat(600),
-      ),
+      isNonTrivialSessionPlan('.agents/sessions/foo/PLAN.md', 'a'.repeat(600)),
     ).toBe(true)
   })
 })

@@ -11,10 +11,7 @@ import type {
   BrowserAction,
   BrowserResponse,
 } from '@codebuff/common/browser-actions'
-import type {
-  Log,
-  NetworkEvent,
-} from '@codebuff/common/browser-actions'
+import type { Log, NetworkEvent } from '@codebuff/common/browser-actions'
 import type { JSONValue } from '@codebuff/common/types/json'
 import { getSdkEnv } from '../env'
 
@@ -80,24 +77,27 @@ const PNG_SIGNATURE = Buffer.from([
 ])
 const CRC_TABLE = makeCrcTable()
 
-let browserSession: BrowserSession | null = null
+const browserSessions = new Map<string, BrowserSession>()
+const DEFAULT_BROWSER_SESSION_KEY = 'default'
 
 export async function browserLogs(
   action: BrowserAction,
+  sessionKey = DEFAULT_BROWSER_SESSION_KEY,
 ): Promise<CodebuffToolOutput<'browser_logs'>> {
   try {
     if (action.type === 'stop') {
-      await stopBrowser()
+      await stopBrowserSession(sessionKey)
       return [jsonResult({ success: true, action: action.type, logs: [] })]
     }
 
-    const session = await ensureBrowserSession()
+    const session = await ensureBrowserSession(sessionKey)
     const page = await getActivePage(session)
     await enablePageDomains(page)
 
     if (action.type === 'start' || action.type === 'navigate') {
       const url = normalizeBrowserUrl(action.url)
-      const waitUntil = action.type === 'navigate' ? action.waitUntil : undefined
+      const waitUntil =
+        action.type === 'navigate' ? action.waitUntil : undefined
       await waitForCommand(
         page,
         'Page.navigate',
@@ -119,10 +119,9 @@ export async function browserLogs(
       if (isRecord(snapshot)) {
         response.text =
           typeof snapshot.text === 'string' ? snapshot.text : undefined
-        response.elements =
-          Array.isArray(snapshot.elements)
-            ? (snapshot.elements as BrowserResponse['elements'])
-            : undefined
+        response.elements = Array.isArray(snapshot.elements)
+          ? (snapshot.elements as BrowserResponse['elements'])
+          : undefined
       }
       return [jsonResult(response)]
     }
@@ -144,7 +143,9 @@ export async function browserLogs(
           ...(await buildResponse(session, page, action.type)),
           screenshotAttached: result.length > 0,
         }),
-        ...(result ? [{ type: 'media' as const, data: result, mediaType }] : []),
+        ...(result
+          ? [{ type: 'media' as const, data: result, mediaType }]
+          : []),
       ]
     }
 
@@ -153,12 +154,16 @@ export async function browserLogs(
       if (action.waitForNavigation) {
         await waitForLoad(page, 'load', action.timeout ?? 15_000)
       }
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'type') {
       const result = await typeIntoElement(page, action)
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'key') {
@@ -204,12 +209,16 @@ export async function browserLogs(
         clickCount: 0,
         timeout: action.timeout,
       })
-      return [jsonResult(await buildResponse(session, page, action.type, point))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, point)),
+      ]
     }
 
     if (action.type === 'drag') {
       const result = await drag(page, action)
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'select') {
@@ -224,13 +233,19 @@ export async function browserLogs(
         action,
         action.timeout,
       )
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'scroll') {
       const amount = action.amount ?? 600
-      const axis = action.direction === 'left' || action.direction === 'right' ? 'left' : 'top'
-      const sign = action.direction === 'up' || action.direction === 'left' ? -1 : 1
+      const axis =
+        action.direction === 'left' || action.direction === 'right'
+          ? 'left'
+          : 'top'
+      const sign =
+        action.direction === 'up' || action.direction === 'left' ? -1 : 1
       const result = await evaluateInTarget(
         page,
         scrollScript({
@@ -242,12 +257,21 @@ export async function browserLogs(
         action,
         action.timeout,
       )
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'evaluate') {
-      const result = await evaluateInTarget(page, action.script, action, action.timeout)
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      const result = await evaluateInTarget(
+        page,
+        action.script,
+        action,
+        action.timeout,
+      )
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'wait_for') {
@@ -264,27 +288,45 @@ export async function browserLogs(
         action,
         action.timeout ?? 15_000,
       )
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'upload') {
-      const result = await uploadFiles(page, action.selector, action.paths, action)
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      const result = await uploadFiles(
+        page,
+        action.selector,
+        action.paths,
+        action,
+      )
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'cookie') {
       const result = await handleCookieAction(page, action)
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'storage') {
       const result = await evaluateInTarget(
         page,
-        storageScript(action.storage, action.operation, action.key, action.value),
+        storageScript(
+          action.storage,
+          action.operation,
+          action.key,
+          action.value,
+        ),
         action,
         action.timeout,
       )
-      return [jsonResult(await buildResponse(session, page, action.type, result))]
+      return [
+        jsonResult(await buildResponse(session, page, action.type, result)),
+      ]
     }
 
     if (action.type === 'viewport') {
@@ -354,7 +396,11 @@ export async function browserLogs(
     if (action.type === 'tab') {
       const result = await handleTabAction(session, action)
       const activePage = await getActivePage(session)
-      return [jsonResult(await buildResponse(session, activePage, action.type, result))]
+      return [
+        jsonResult(
+          await buildResponse(session, activePage, action.type, result),
+        ),
+      ]
     }
 
     if (action.type === 'recording') {
@@ -375,7 +421,8 @@ export async function browserLogs(
         },
         action.timeout ?? 15_000,
       )
-      const data = isRecord(result) && typeof result.data === 'string' ? result.data : ''
+      const data =
+        isRecord(result) && typeof result.data === 'string' ? result.data : ''
       return [
         jsonResult({
           ...(await buildResponse(session, page, action.type)),
@@ -391,8 +438,11 @@ export async function browserLogs(
 
     if (action.type === 'diagnose') {
       const results = []
-      for (const step of action.steps.slice(0, action.maxSteps ?? action.steps.length)) {
-        const stepOutput = await browserLogs(step.action)
+      for (const step of action.steps.slice(
+        0,
+        action.maxSteps ?? action.steps.length,
+      )) {
+        const stepOutput = await browserLogs(step.action, sessionKey)
         const json = stepOutput.find((item) => item.type === 'json')
         results.push({
           label: step.label,
@@ -404,7 +454,11 @@ export async function browserLogs(
         })
       }
       const activePage = await getActivePage(session)
-      return [jsonResult(await buildResponse(session, activePage, action.type, { results }))]
+      return [
+        jsonResult(
+          await buildResponse(session, activePage, action.type, { results }),
+        ),
+      ]
     }
 
     const unsupportedAction = action as BrowserAction
@@ -440,9 +494,12 @@ export function buildPdfAttachmentMetadata(data: string) {
   }
 }
 
-async function ensureBrowserSession(): Promise<BrowserSession> {
-  if (browserSession && browserSession.child.exitCode === null) {
-    return browserSession
+async function ensureBrowserSession(
+  sessionKey: string,
+): Promise<BrowserSession> {
+  const existingSession = browserSessions.get(sessionKey)
+  if (existingSession && existingSession.child.exitCode === null) {
+    return existingSession
   }
 
   const chrome = findChromeExecutable()
@@ -480,13 +537,19 @@ async function ensureBrowserSession(): Promise<BrowserSession> {
     networkOffset: 0,
     recording: null,
   }
-  const page = await connectPage(session, target.id, target.webSocketDebuggerUrl)
+  const page = await connectPage(
+    session,
+    target.id,
+    target.webSocketDebuggerUrl,
+  )
   session.pages.set(target.id, page)
 
   child.on('exit', () => {
-    if (browserSession === session) browserSession = null
+    if (browserSessions.get(sessionKey) === session) {
+      browserSessions.delete(sessionKey)
+    }
   })
-  browserSession = session
+  browserSessions.set(sessionKey, session)
   return session
 }
 
@@ -529,9 +592,15 @@ async function getActivePage(session: BrowserSession): Promise<BrowserPage> {
     (candidate) => candidate.id === session.activeTargetId,
   )
   if (!target?.webSocketDebuggerUrl) {
-    throw new Error(`Active browser target not found: ${session.activeTargetId}`)
+    throw new Error(
+      `Active browser target not found: ${session.activeTargetId}`,
+    )
   }
-  const page = await connectPage(session, target.id, target.webSocketDebuggerUrl)
+  const page = await connectPage(
+    session,
+    target.id,
+    target.webSocketDebuggerUrl,
+  )
   session.pages.set(target.id, page)
   return page
 }
@@ -546,9 +615,9 @@ async function enablePageDomains(page: BrowserPage) {
   ])
 }
 
-async function stopBrowser() {
-  const session = browserSession
-  browserSession = null
+export async function stopBrowserSession(sessionKey: string) {
+  const session = browserSessions.get(sessionKey)
+  browserSessions.delete(sessionKey)
   if (!session) return
   for (const page of session.pages.values()) {
     try {
@@ -574,7 +643,18 @@ async function stopBrowser() {
   }
 }
 
-function handleCdpMessage(session: BrowserSession, page: BrowserPage, raw: string) {
+export async function stopBrowserSessionsByPrefix(prefix: string) {
+  const keys = [...browserSessions.keys()].filter((key) =>
+    key.startsWith(prefix),
+  )
+  await Promise.all(keys.map((key) => stopBrowserSession(key)))
+}
+
+function handleCdpMessage(
+  session: BrowserSession,
+  page: BrowserPage,
+  raw: string,
+) {
   let message: CdpResponse
   try {
     message = JSON.parse(raw) as CdpResponse
@@ -605,7 +685,11 @@ function handleCdpMessage(session: BrowserSession, page: BrowserPage, raw: strin
   }
 }
 
-function recordEvent(session: BrowserSession, page: BrowserPage, message: CdpResponse) {
+function recordEvent(
+  session: BrowserSession,
+  page: BrowserPage,
+  message: CdpResponse,
+) {
   const params = message.params ?? {}
   const timestamp = Date.now()
   if (message.method === 'Runtime.executionContextCreated') {
@@ -616,7 +700,10 @@ function recordEvent(session: BrowserSession, page: BrowserPage, message: CdpRes
     }
   }
   if (message.method === 'Runtime.executionContextDestroyed') {
-    const id = typeof params.executionContextId === 'number' ? params.executionContextId : undefined
+    const id =
+      typeof params.executionContextId === 'number'
+        ? params.executionContextId
+        : undefined
     if (id !== undefined) {
       for (const [frameId, contextId] of page.executionContexts) {
         if (contextId === id) page.executionContexts.delete(frameId)
@@ -662,8 +749,7 @@ function recordEvent(session: BrowserSession, page: BrowserPage, message: CdpRes
     session.networks.push({
       url: String(response.url ?? ''),
       method: String(params.type ?? 'GET'),
-      status:
-        typeof response.status === 'number' ? response.status : undefined,
+      status: typeof response.status === 'number' ? response.status : undefined,
       timestamp,
     })
   }
@@ -805,7 +891,8 @@ async function resolveFrameId(
   if (target.frameSelector) return undefined
   if (!target.frameId && !target.frameUrl && !target.frameName) return undefined
   const frameId =
-    target.frameId ?? (await findFrameId(page, target.frameUrl, target.frameName, timeoutMs))
+    target.frameId ??
+    (await findFrameId(page, target.frameUrl, target.frameName, timeoutMs))
   if (!frameId) throw new Error('No matching frame found')
   return frameId
 }
@@ -820,8 +907,12 @@ async function findFrameId(
   const frames: Record<string, unknown>[] = []
   collectFrames(isRecord(result) ? result.frameTree : undefined, frames)
   const match = frames.find((frame) => {
-    const urlMatches = frameUrl ? String(frame.url ?? '').includes(frameUrl) : true
-    const nameMatches = frameName ? String(frame.name ?? '') === frameName : true
+    const urlMatches = frameUrl
+      ? String(frame.url ?? '').includes(frameUrl)
+      : true
+    const nameMatches = frameName
+      ? String(frame.name ?? '') === frameName
+      : true
     return urlMatches && nameMatches
   })
   return typeof match?.id === 'string' ? match.id : undefined
@@ -893,12 +984,17 @@ type BrowserTarget = {
 }
 
 async function listTargets(port: number): Promise<BrowserTarget[]> {
-  const raw = (await fetchJson(
-    `http://127.0.0.1:${port}/json/list`,
-  )) as Array<Record<string, unknown>>
+  const raw = (await fetchJson(`http://127.0.0.1:${port}/json/list`)) as Array<
+    Record<string, unknown>
+  >
   return raw
     .filter(
-      (item): item is Record<string, unknown> & { id: string; webSocketDebuggerUrl: string } =>
+      (
+        item,
+      ): item is Record<string, unknown> & {
+        id: string
+        webSocketDebuggerUrl: string
+      } =>
         typeof item.id === 'string' &&
         typeof item.webSocketDebuggerUrl === 'string',
     )
@@ -1015,7 +1111,11 @@ async function clickElement(
   action: Extract<BrowserAction, { type: 'click' }>,
 ): Promise<unknown> {
   if (action.x !== undefined || action.y !== undefined) {
-    const point = await pointInTarget(page, requirePoint(action.x, action.y), action)
+    const point = await pointInTarget(
+      page,
+      requirePoint(action.x, action.y),
+      action,
+    )
     await dispatchMouse(page, 'click', point, {
       button: action.button ?? 'left',
       clickCount: action.clickCount ?? 1,
@@ -1194,7 +1294,11 @@ async function drag(
 ): Promise<unknown> {
   const start = action.fromSelector
     ? await elementPoint(page, action.fromSelector, action)
-    : await pointInTarget(page, requirePoint(action.fromX, action.fromY), action)
+    : await pointInTarget(
+        page,
+        requirePoint(action.fromX, action.fromY),
+        action,
+      )
   const end = action.toSelector
     ? await elementPoint(page, action.toSelector, action)
     : await pointInTarget(page, requirePoint(action.toX, action.toY), action)
@@ -1239,7 +1343,8 @@ async function elementPoint(
     target,
     target.timeout,
   )
-  if (!isRecord(result)) throw new Error(`Could not locate element: ${selector}`)
+  if (!isRecord(result))
+    throw new Error(`Could not locate element: ${selector}`)
   const frameId = await resolveFrameId(page, target, target.timeout ?? 15_000)
   const frameOffset = frameId
     ? await frameViewportOffset(page, frameId, target.timeout ?? 15_000)
@@ -1270,7 +1375,10 @@ async function pointInTarget(
 
   const frameId = await resolveFrameId(page, target, timeoutMs)
   if (!frameId) return point
-  return translateFramePoint(point, await frameViewportOffset(page, frameId, timeoutMs))
+  return translateFramePoint(
+    point,
+    await frameViewportOffset(page, frameId, timeoutMs),
+  )
 }
 
 async function frameSelectorViewportOffset(
@@ -1278,8 +1386,16 @@ async function frameSelectorViewportOffset(
   frameSelector: string,
   timeoutMs: number,
 ): Promise<{ x: number; y: number }> {
-  const result = await evaluate(page, frameSelectorOffsetScript(frameSelector), timeoutMs)
-  if (!isRecord(result) || typeof result.x !== 'number' || typeof result.y !== 'number') {
+  const result = await evaluate(
+    page,
+    frameSelectorOffsetScript(frameSelector),
+    timeoutMs,
+  )
+  if (
+    !isRecord(result) ||
+    typeof result.x !== 'number' ||
+    typeof result.y !== 'number'
+  ) {
     throw new Error('Could not resolve frame viewport offset')
   }
   return { x: result.x, y: result.y }
@@ -1290,12 +1406,18 @@ async function frameViewportOffset(
   frameId: string,
   timeoutMs: number,
 ): Promise<{ x: number; y: number }> {
-  const owner = await waitForCommand(page, 'DOM.getFrameOwner', { frameId }, timeoutMs)
+  const owner = await waitForCommand(
+    page,
+    'DOM.getFrameOwner',
+    { frameId },
+    timeoutMs,
+  )
   const backendNodeId =
     isRecord(owner) && typeof owner.backendNodeId === 'number'
       ? owner.backendNodeId
       : undefined
-  if (backendNodeId === undefined) throw new Error('Could not resolve frame owner')
+  if (backendNodeId === undefined)
+    throw new Error('Could not resolve frame owner')
   const model = await waitForCommand(
     page,
     'DOM.getBoxModel',
@@ -1303,10 +1425,16 @@ async function frameViewportOffset(
     timeoutMs,
   )
   const content =
-    isRecord(model) && isRecord(model.model) && Array.isArray(model.model.content)
+    isRecord(model) &&
+    isRecord(model.model) &&
+    Array.isArray(model.model.content)
       ? model.model.content
       : undefined
-  if (!content || typeof content[0] !== 'number' || typeof content[1] !== 'number') {
+  if (
+    !content ||
+    typeof content[0] !== 'number' ||
+    typeof content[1] !== 'number'
+  ) {
     throw new Error('Could not resolve frame viewport offset')
   }
   return { x: content[0], y: content[1] }
@@ -1319,8 +1447,12 @@ export function translateFramePoint(
   return { x: offset.x + point.x, y: offset.y + point.y }
 }
 
-function requirePoint(x: number | undefined, y: number | undefined): { x: number; y: number } {
-  if (x === undefined || y === undefined) throw new Error('x and y are required')
+function requirePoint(
+  x: number | undefined,
+  y: number | undefined,
+): { x: number; y: number } {
+  if (x === undefined || y === undefined)
+    throw new Error('x and y are required')
   return { x, y }
 }
 
@@ -1330,7 +1462,12 @@ async function uploadFiles(
   paths: string[],
   target: FrameTarget & { timeout?: number },
 ): Promise<unknown> {
-  if (target.frameSelector || target.frameId || target.frameUrl || target.frameName) {
+  if (
+    target.frameSelector ||
+    target.frameId ||
+    target.frameUrl ||
+    target.frameName
+  ) {
     throw new Error('upload currently supports top-level file inputs only')
   }
   const documentResult = await waitForCommand(
@@ -1339,7 +1476,10 @@ async function uploadFiles(
     { depth: -1, pierce: true },
     target.timeout ?? 15_000,
   )
-  const root = isRecord(documentResult) && isRecord(documentResult.root) ? documentResult.root : null
+  const root =
+    isRecord(documentResult) && isRecord(documentResult.root)
+      ? documentResult.root
+      : null
   const nodeId = typeof root?.nodeId === 'number' ? root.nodeId : undefined
   if (nodeId === undefined) throw new Error('Could not resolve DOM document')
   const nodeResult = await waitForCommand(
@@ -1348,12 +1488,18 @@ async function uploadFiles(
     { nodeId, selector },
     target.timeout ?? 15_000,
   )
-  const inputNodeId = isRecord(nodeResult) && typeof nodeResult.nodeId === 'number' ? nodeResult.nodeId : 0
+  const inputNodeId =
+    isRecord(nodeResult) && typeof nodeResult.nodeId === 'number'
+      ? nodeResult.nodeId
+      : 0
   if (!inputNodeId) throw new Error(`No element matches selector: ${selector}`)
   await waitForCommand(
     page,
     'DOM.setFileInputFiles',
-    { nodeId: inputNodeId, files: paths.map((filePath) => path.resolve(filePath)) },
+    {
+      nodeId: inputNodeId,
+      files: paths.map((filePath) => path.resolve(filePath)),
+    },
     target.timeout ?? 15_000,
   )
   return { uploaded: paths.length, selector }
@@ -1397,11 +1543,21 @@ async function handleCookieAction(
     return waitForCommand(
       page,
       'Network.deleteCookies',
-      { name: action.name, url: action.url, domain: action.domain, path: action.path },
+      {
+        name: action.name,
+        url: action.url,
+        domain: action.domain,
+        path: action.path,
+      },
       action.timeout ?? 15_000,
     )
   }
-  return waitForCommand(page, 'Network.clearBrowserCookies', {}, action.timeout ?? 15_000)
+  return waitForCommand(
+    page,
+    'Network.clearBrowserCookies',
+    {},
+    action.timeout ?? 15_000,
+  )
 }
 
 async function handleTabAction(
@@ -1418,7 +1574,11 @@ async function handleTabAction(
       )}`,
       { method: 'PUT' },
     )
-    if (!isRecord(raw) || typeof raw.id !== 'string' || typeof raw.webSocketDebuggerUrl !== 'string') {
+    if (
+      !isRecord(raw) ||
+      typeof raw.id !== 'string' ||
+      typeof raw.webSocketDebuggerUrl !== 'string'
+    ) {
       throw new Error('Chrome did not return a new tab target')
     }
     const page = await connectPage(session, raw.id, raw.webSocketDebuggerUrl)
@@ -1429,26 +1589,36 @@ async function handleTabAction(
   const targetId = await resolveTabId(session, action)
   if (!targetId) throw new Error('No matching tab found')
   if (action.operation === 'switch') {
-    const target = (await listTargets(session.port)).find((item) => item.id === targetId)
-    if (!target?.webSocketDebuggerUrl) throw new Error('Target has no websocket URL')
-    const page = await connectPage(session, target.id, target.webSocketDebuggerUrl)
+    const target = (await listTargets(session.port)).find(
+      (item) => item.id === targetId,
+    )
+    if (!target?.webSocketDebuggerUrl)
+      throw new Error('Target has no websocket URL')
+    const page = await connectPage(
+      session,
+      target.id,
+      target.webSocketDebuggerUrl,
+    )
     session.pages.set(target.id, page)
     session.activeTargetId = target.id
-    await fetch(`http://127.0.0.1:${session.port}/json/activate/${target.id}`).catch(
-      () => undefined,
-    )
+    await fetch(
+      `http://127.0.0.1:${session.port}/json/activate/${target.id}`,
+    ).catch(() => undefined)
     return { targetId, tabs: await tabsResult(session) }
   }
   if (action.operation === 'close') {
-    if (session.pages.size <= 1) throw new Error('Cannot close the last browser tab')
-    await fetch(`http://127.0.0.1:${session.port}/json/close/${targetId}`).catch(
-      () => undefined,
-    )
+    if (session.pages.size <= 1)
+      throw new Error('Cannot close the last browser tab')
+    await fetch(
+      `http://127.0.0.1:${session.port}/json/close/${targetId}`,
+    ).catch(() => undefined)
     const page = session.pages.get(targetId)
     page?.ws.close()
     session.pages.delete(targetId)
     if (session.activeTargetId === targetId) {
-      const nextTarget = (await listTargets(session.port)).find((item) => item.type === 'page')
+      const nextTarget = (await listTargets(session.port)).find(
+        (item) => item.type === 'page',
+      )
       if (!nextTarget) throw new Error('No browser tabs remain')
       session.activeTargetId = nextTarget.id
     }
@@ -1491,7 +1661,8 @@ async function handleRecordingAction(
   action: Extract<BrowserAction, { type: 'recording' }>,
 ): Promise<CodebuffToolOutput<'browser_logs'>> {
   if (action.operation === 'start') {
-    if (session.recording) throw new Error('A browser recording is already active')
+    if (session.recording)
+      throw new Error('A browser recording is already active')
     session.recording = {
       targetId: page.targetId,
       startedAt: Date.now(),
@@ -1520,10 +1691,15 @@ async function handleRecordingAction(
   const recording = session.recording
   if (!recording) throw new Error('No browser recording is active')
   session.recording = null
-  await waitForCommand(page, 'Page.stopScreencast', {}, action.timeout ?? 15_000).catch(
-    () => undefined,
+  await waitForCommand(
+    page,
+    'Page.stopScreencast',
+    {},
+    action.timeout ?? 15_000,
+  ).catch(() => undefined)
+  const apng = buildApng(
+    recording.frames.map((frame) => Buffer.from(frame.data, 'base64')),
   )
-  const apng = buildApng(recording.frames.map((frame) => Buffer.from(frame.data, 'base64')))
   return [
     jsonResult({
       ...(await buildResponse(session, page, action.type, {
@@ -1562,7 +1738,9 @@ async function pixelDiff(
       ? readFileSync(path.resolve(action.expectedImagePath))
       : undefined
   if (!expectedBuffer) {
-    throw new Error('pixel_diff requires expectedImagePath or expectedImageBase64')
+    throw new Error(
+      'pixel_diff requires expectedImagePath or expectedImageBase64',
+    )
   }
   const actual = PNG.sync.read(Buffer.from(actualBase64, 'base64'))
   const expected = PNG.sync.read(expectedBuffer)
@@ -1661,7 +1839,10 @@ export function frameSelectorOffsetScript(frameSelector: string): string {
   })()`
 }
 
-function elementPointScript(selector: string, frameSelector: string | undefined): string {
+function elementPointScript(
+  selector: string,
+  frameSelector: string | undefined,
+): string {
   return `(() => {
     const frame = ${frameSelector ? `document.querySelector(${JSON.stringify(frameSelector)})` : 'null'};
     const doc = frame ? frame.contentDocument : document;
@@ -1679,7 +1860,10 @@ function elementPointScript(selector: string, frameSelector: string | undefined)
   })()`
 }
 
-function focusScript(selector: string, frameSelector: string | undefined): string {
+function focusScript(
+  selector: string,
+  frameSelector: string | undefined,
+): string {
   return `(() => {
     const el = ${queryExpression(selector, frameSelector)};
     el.scrollIntoView({ block: 'center', inline: 'center' });
@@ -1798,7 +1982,10 @@ function storageScript(
   })()`
 }
 
-function queryExpression(selector: string, frameSelector: string | undefined): string {
+function queryExpression(
+  selector: string,
+  frameSelector: string | undefined,
+): string {
   return `(() => {
     const frame = ${frameSelector ? `document.querySelector(${JSON.stringify(frameSelector)})` : 'null'};
     const doc = frame ? frame.contentDocument : document;
@@ -1810,25 +1997,33 @@ function queryExpression(selector: string, frameSelector: string | undefined): s
 }
 
 function keyDefinition(key: string, text: string | undefined) {
-  const named: Record<string, { key: string; code: string; keyCode: number }> = {
-    Enter: { key: 'Enter', code: 'Enter', keyCode: 13 },
-    Tab: { key: 'Tab', code: 'Tab', keyCode: 9 },
-    Escape: { key: 'Escape', code: 'Escape', keyCode: 27 },
-    Backspace: { key: 'Backspace', code: 'Backspace', keyCode: 8 },
-    Delete: { key: 'Delete', code: 'Delete', keyCode: 46 },
-    ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38 },
-    ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 },
-    ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', keyCode: 37 },
-    ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39 },
-  }
+  const named: Record<string, { key: string; code: string; keyCode: number }> =
+    {
+      Enter: { key: 'Enter', code: 'Enter', keyCode: 13 },
+      Tab: { key: 'Tab', code: 'Tab', keyCode: 9 },
+      Escape: { key: 'Escape', code: 'Escape', keyCode: 27 },
+      Backspace: { key: 'Backspace', code: 'Backspace', keyCode: 8 },
+      Delete: { key: 'Delete', code: 'Delete', keyCode: 46 },
+      ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38 },
+      ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 },
+      ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', keyCode: 37 },
+      ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39 },
+    }
   const match = named[key]
   if (match) return { ...match, text: text ?? '' }
   const char = text ?? (key.length === 1 ? key : '')
   const code = key.length === 1 ? `Key${key.toUpperCase()}` : key
-  return { key, code, keyCode: key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0, text: char }
+  return {
+    key,
+    code,
+    keyCode: key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0,
+    text: char,
+  }
 }
 
-function modifierBitmask(modifiers: Array<'Alt' | 'Control' | 'Meta' | 'Shift'>): number {
+function modifierBitmask(
+  modifiers: Array<'Alt' | 'Control' | 'Meta' | 'Shift'>,
+): number {
   let bitmask = 0
   if (modifiers.includes('Alt')) bitmask |= 1
   if (modifiers.includes('Control')) bitmask |= 2
@@ -1898,7 +2093,11 @@ function buildApng(frames: Buffer[]): Buffer {
   if (!ihdr || !iend) return frames[0]
   const width = ihdr.data.readUInt32BE(0)
   const height = ihdr.data.readUInt32BE(4)
-  const chunks: Buffer[] = [PNG_SIGNATURE, writePngChunk('IHDR', ihdr.data), writePngChunk('acTL', uint32Pair(frames.length, 0))]
+  const chunks: Buffer[] = [
+    PNG_SIGNATURE,
+    writePngChunk('IHDR', ihdr.data),
+    writePngChunk('acTL', uint32Pair(frames.length, 0)),
+  ]
   let sequence = 0
   parsed.forEach((frame, index) => {
     chunks.push(
@@ -1950,7 +2149,10 @@ function writePngChunk(type: string, data: Buffer): Buffer {
   output.writeUInt32BE(data.length, 0)
   typeBuffer.copy(output, 4)
   data.copy(output, 8)
-  output.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 8 + data.length)
+  output.writeUInt32BE(
+    crc32(Buffer.concat([typeBuffer, data])),
+    8 + data.length,
+  )
   return output
 }
 

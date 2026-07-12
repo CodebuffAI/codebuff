@@ -1,3 +1,4 @@
+import { isReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import {
@@ -90,10 +91,17 @@ export const handleFindFiles = (async (
   })
 
   if (requestedFiles && requestedFiles.length > 0) {
-    const addedFiles = await getFileReadingUpdates({
+    const readResult = await getFileReadingUpdates({
       ...params,
       requestedFiles,
     })
+    const addedFiles = readResult.results.flatMap((result) =>
+      result.status !== 'error' &&
+      result.selector !== 'symbols' &&
+      typeof result.content === 'string'
+        ? [{ path: result.path, content: result.content }]
+        : [],
+    )
 
     if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
       uploadExpandedFileContextForTraining({
@@ -145,7 +153,21 @@ async function uploadExpandedFileContextForTraining(
   // up to 50k tokens
   const filesToUpload: Record<string, { content: string; tokens: number }> = {}
   for (const file of files) {
-    const content = loadedFiles[file]
+    const structuredItem = isReadFilesResultV1(loadedFiles)
+      ? loadedFiles.results.find(
+          (result) =>
+            result.selector === 'file' &&
+            result.path === file &&
+            result.status !== 'error',
+        )
+      : undefined
+    const content = isReadFilesResultV1(loadedFiles)
+      ? structuredItem &&
+        'content' in structuredItem &&
+        typeof structuredItem.content === 'string'
+        ? structuredItem.content
+        : undefined
+      : loadedFiles[file]
     if (content === null || content === undefined) {
       continue
     }

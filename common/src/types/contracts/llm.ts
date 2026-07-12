@@ -1,6 +1,9 @@
 import type { TrackEventFn } from './analytics'
 import type { SendActionFn } from './client'
-import type { OpenRouterProviderRoutingOptions , AgentTemplate } from '../agent-template'
+import type {
+  OpenRouterProviderRoutingOptions,
+  AgentTemplate,
+} from '../agent-template'
 import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'

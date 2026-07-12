@@ -29,11 +29,12 @@ function formatTimestamp() {
 }
 
 function checkGitHubToken() {
-  const token = process.env.OPENBUFF_GITHUB_TOKEN || process.env.CODEBUFF_GITHUB_TOKEN
+  const token =
+    process.env.OPENBUFF_GITHUB_TOKEN || process.env.CODEBUFF_GITHUB_TOKEN
   if (!token) {
     error(
       'OPENBUFF_GITHUB_TOKEN or CODEBUFF_GITHUB_TOKEN environment variable is required but not set.\n' +
-      'Please set it with your GitHub personal access token or use the infisical setup.'
+        'Please set it with your GitHub personal access token or use the infisical setup.',
     )
   }
 

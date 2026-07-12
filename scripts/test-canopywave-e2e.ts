@@ -27,7 +27,9 @@ async function main() {
   const apiKey = process.env.OPENBUFF_API_KEY
   if (!apiKey) {
     console.error('❌ OPENBUFF_API_KEY is not set.')
-    console.error('   Example: OPENBUFF_API_KEY=<key> bun scripts/test-canopywave-e2e.ts')
+    console.error(
+      '   Example: OPENBUFF_API_KEY=<key> bun scripts/test-canopywave-e2e.ts',
+    )
     process.exit(1)
   }
 
@@ -98,10 +100,13 @@ async function main() {
   console.log()
 
   // Summarize events
-  const eventTypes = events.reduce((acc, e) => {
-    acc[e.type] = (acc[e.type] ?? 0) + 1
-    return acc
-  }, {} as Record<string, number>)
+  const eventTypes = events.reduce(
+    (acc, e) => {
+      acc[e.type] = (acc[e.type] ?? 0) + 1
+      return acc
+    },
+    {} as Record<string, number>,
+  )
   console.log(`── Event Summary ──`)
   for (const [type, count] of Object.entries(eventTypes)) {
     console.log(`   ${type}: ${count}`)

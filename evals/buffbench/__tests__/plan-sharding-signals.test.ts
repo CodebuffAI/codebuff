@@ -32,7 +32,8 @@ function toolCall(
 ): PrintModeEvent {
   return {
     type: 'tool_call',
-    toolCallId: overrides.toolCallId ?? `tc-${Math.random().toString(36).slice(2, 8)}`,
+    toolCallId:
+      overrides.toolCallId ?? `tc-${Math.random().toString(36).slice(2, 8)}`,
     toolName,
     input,
     parentAgentId: overrides.parentAgentId,
@@ -40,7 +41,11 @@ function toolCall(
 }
 
 function spawnAgentsCall(
-  agents: Array<{ agent_type: string; prompt: string; params?: Record<string, unknown> }>,
+  agents: Array<{
+    agent_type: string
+    prompt: string
+    params?: Record<string, unknown>
+  }>,
   overrides: Partial<{ toolCallId: string; parentAgentId: string }> = {},
 ): PrintModeEvent {
   return toolCall('spawn_agents', { agents }, overrides)
@@ -56,7 +61,8 @@ function subagentStart(
 ): PrintModeEvent {
   return {
     type: 'subagent_start',
-    agentId: overrides.agentId ?? `sub-${Math.random().toString(36).slice(2, 8)}`,
+    agentId:
+      overrides.agentId ?? `sub-${Math.random().toString(36).slice(2, 8)}`,
     agentType: overrides.agentType ?? 'file-picker',
     displayName: overrides.agentType ?? 'file-picker',
     onlyChild: overrides.onlyChild ?? false,
@@ -101,15 +107,21 @@ const SHORT_PROMPT = 'do the thing'
 describe('classifyPrompt', () => {
   test('classifies audit-style prompts as audit', () => {
     expect(classifyPrompt(AUDIT_PROMPT)).toBe('audit')
-    expect(classifyPrompt('Please review the codebase for technical debt.')).toBe('audit')
+    expect(
+      classifyPrompt('Please review the codebase for technical debt.'),
+    ).toBe('audit')
     expect(classifyPrompt('check this codebase for any issues')).toBe('audit')
-    expect(classifyPrompt('Run a codebase audit for security review.')).toBe('audit')
+    expect(classifyPrompt('Run a codebase audit for security review.')).toBe(
+      'audit',
+    )
     expect(classifyPrompt(PRODUCTION_READY_AUDIT_PROMPT)).toBe('audit')
   })
 
   test('classifies implementation prompts as implementation', () => {
     expect(classifyPrompt(IMPL_PROMPT)).toBe('implementation')
-    expect(classifyPrompt('Fix the bug in the auth module.')).toBe('implementation')
+    expect(classifyPrompt('Fix the bug in the auth module.')).toBe(
+      'implementation',
+    )
     expect(classifyPrompt('Refactor the config loader.')).toBe('implementation')
   })
 
@@ -183,9 +195,7 @@ describe('classifyBreadth', () => {
   })
 
   test('single-target: "in <file>" phrasing', () => {
-    const result = classifyBreadth(
-      'Find issues in agents/base2/base2.ts',
-    )
+    const result = classifyBreadth('Find issues in agents/base2/base2.ts')
     expect(result.kind).toBe('single-target')
     expect(result.hasSingleFileTarget).toBe(true)
   })
@@ -225,9 +235,7 @@ describe('classifyBreadth', () => {
   })
 
   test('domains are de-duplicated and sorted', () => {
-    const result = classifyBreadth(
-      'Audit the sdk, the cli, and the sdk again',
-    )
+    const result = classifyBreadth('Audit the sdk, the cli, and the sdk again')
     expect(result.domains).toEqual(['cli', 'sdk'])
     expect(result.domainCount).toBe(2)
   })
@@ -237,6 +245,18 @@ describe('classifyBreadth', () => {
     expect(result.kind).toBe('broad-audit')
     expect(result.domains).toEqual(['agents', 'cli', 'sdk'])
     expect(result.domainCount).toBe(3)
+  })
+
+  test('broad-audit: conceptual context/indexing/UX request maps to repo domains', () => {
+    const result = classifyBreadth(
+      'Audit our context, indexing and general ability to gather context effectively for feature gaps, feature improvements and ux flow issues.',
+    )
+
+    expect(result.kind).toBe('broad-audit')
+    expect(result.domains).toEqual(
+      expect.arrayContaining(['cli', 'indexer', 'runtime']),
+    )
+    expect(result.hasBreadthMarker).toBe(true)
   })
 })
 
@@ -260,10 +280,9 @@ describe('extractSpawnAgentsCalls', () => {
 
   test('ignores nested spawn_agents calls (parentAgentId set)', () => {
     const events: PrintModeEvent[] = [
-      spawnAgentsCall(
-        [{ agent_type: 'editor', prompt: 'x' }],
-        { parentAgentId: 'sub-1' },
-      ),
+      spawnAgentsCall([{ agent_type: 'editor', prompt: 'x' }], {
+        parentAgentId: 'sub-1',
+      }),
     ]
     expect(extractSpawnAgentsCalls(events)).toEqual([])
   })
@@ -471,9 +490,7 @@ describe('evaluateShardingVerdict', () => {
     const signals = computePlanShardingSignals({ events, prompt: AUDIT_PROMPT })
     const eval_ = evaluateShardingVerdict(signals)
     expect(eval_.verdict).toBe('fail')
-    expect(
-      eval_.reasons.some((r) => r.includes('Only 1 subagent')),
-    ).toBe(true)
+    expect(eval_.reasons.some((r) => r.includes('Only 1 subagent'))).toBe(true)
   })
 
   test('fail: no subagents and no spawn_agents calls for an audit prompt', () => {
@@ -481,9 +498,9 @@ describe('evaluateShardingVerdict', () => {
     const signals = computePlanShardingSignals({ events, prompt: AUDIT_PROMPT })
     const eval_ = evaluateShardingVerdict(signals)
     expect(eval_.verdict).toBe('fail')
-    expect(
-      eval_.reasons.some((r) => r.includes('No spawn_agents calls')),
-    ).toBe(true)
+    expect(eval_.reasons.some((r) => r.includes('No spawn_agents calls'))).toBe(
+      true,
+    )
   })
 
   test('skip: implementation prompt does not require sharding', () => {
@@ -727,7 +744,10 @@ describe('evaluateMinimumShardRule', () => {
     })
     expect(signals.promptKind).toBe('audit')
 
-    const result = evaluateShardingVerdict(signals, PRODUCTION_READY_AUDIT_PROMPT)
+    const result = evaluateShardingVerdict(
+      signals,
+      PRODUCTION_READY_AUDIT_PROMPT,
+    )
     expect(result.verdict).toBe('fail')
     expect(
       result.reasons.some((r) =>
@@ -787,8 +807,12 @@ describe('buildCoverageMatrix', () => {
     // 3 pairs across 5 domains: first 3 covered, last 2 uncovered.
     expect(matrix.uncoveredDomains).toHaveLength(2)
     expect(matrix.allCovered).toBe(false)
-    expect(matrix.entries.slice(0, 3).every((e) => e.assignedPairs === 1)).toBe(true)
-    expect(matrix.entries.slice(3).every((e) => e.assignedPairs === 0)).toBe(true)
+    expect(matrix.entries.slice(0, 3).every((e) => e.assignedPairs === 1)).toBe(
+      true,
+    )
+    expect(matrix.entries.slice(3).every((e) => e.assignedPairs === 0)).toBe(
+      true,
+    )
   })
 
   test('vacuously satisfied for single-target breadth', () => {
@@ -888,7 +912,10 @@ describe('evaluatePlannerOutputCoverage', () => {
       events: shardingEvents(5, 5),
       prompt: BROAD_AUDIT_3_DOMAINS,
     })
-    const baseEvaluation = evaluateShardingVerdict(signals, BROAD_AUDIT_3_DOMAINS)
+    const baseEvaluation = evaluateShardingVerdict(
+      signals,
+      BROAD_AUDIT_3_DOMAINS,
+    )
     expect(baseEvaluation.verdict).toBe('pass')
 
     const result = evaluatePlannerOutputCoverage({
@@ -909,7 +936,10 @@ describe('evaluatePlannerOutputCoverage', () => {
       events: shardingEvents(5, 5),
       prompt: BROAD_AUDIT_3_DOMAINS,
     })
-    const baseEvaluation = evaluateShardingVerdict(signals, BROAD_AUDIT_3_DOMAINS)
+    const baseEvaluation = evaluateShardingVerdict(
+      signals,
+      BROAD_AUDIT_3_DOMAINS,
+    )
     const result = evaluatePlannerOutputCoverage({
       evaluation: baseEvaluation,
       breadth: classifyBreadth(BROAD_AUDIT_3_DOMAINS),

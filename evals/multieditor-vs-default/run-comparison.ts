@@ -35,10 +35,7 @@ function assertCleanWorktree(cwd: string) {
   const unsafe = status
     .split('\n')
     .filter(Boolean)
-    .filter(
-      (line) =>
-        !line.startsWith('?? evals/multieditor-vs-default/'),
-    )
+    .filter((line) => !line.startsWith('?? evals/multieditor-vs-default/'))
   if (unsafe.length > 0) {
     console.error('Uncommitted changes detected. Refusing to run.')
     console.error('Changes:')
@@ -185,7 +182,8 @@ async function main() {
     'Add a JSDoc comment to the createCodeEditor function in agents/editor/editor.ts describing its parameters and return type'
 
   const outputDir = resolve(
-    process.env.MULTIEDITOR_OUTPUT_DIR ?? join(cwd, 'debug/multieditor-vs-default'),
+    process.env.MULTIEDITOR_OUTPUT_DIR ??
+      join(cwd, 'debug/multieditor-vs-default'),
   )
   mkdirSync(outputDir, { recursive: true })
 

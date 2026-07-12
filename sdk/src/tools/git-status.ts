@@ -134,7 +134,10 @@ export async function gitStatus(params: {
   const lines = status.stdout.split('\n')
   const branchLine = lines.find((line) => line.startsWith('## '))
   const branch = branchLine ? branchLine.replace(/^## /, '').trim() : undefined
-  const statusBody = lines.filter((line) => !line.startsWith('## ')).join('\n').trim()
+  const statusBody = lines
+    .filter((line) => !line.startsWith('## '))
+    .join('\n')
+    .trim()
 
   let diff: string | undefined
   let truncated = false
@@ -142,7 +145,10 @@ export async function gitStatus(params: {
     const diffArgs = ['diff', '--no-color']
     if (params.staged) diffArgs.splice(1, 0, '--staged')
     if (params.path) {
-      const resolvedDiffPath = resolveFilePathWithinProject(params.cwd, params.path)
+      const resolvedDiffPath = resolveFilePathWithinProject(
+        params.cwd,
+        params.path,
+      )
       if (!resolvedDiffPath) {
         return [
           {
@@ -170,7 +176,9 @@ export async function gitStatus(params: {
     }
     diff = diffResult.stdout
     if (diff.length > maxChars) {
-      diff = diff.slice(0, maxChars) + `\n[...truncated ${diff.length - maxChars} chars]`
+      diff =
+        diff.slice(0, maxChars) +
+        `\n[...truncated ${diff.length - maxChars} chars]`
       truncated = true
     }
   }

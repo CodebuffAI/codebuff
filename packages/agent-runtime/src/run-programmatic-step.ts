@@ -12,7 +12,6 @@ import { clearProposedContentForRun } from './tools/handlers/tool/proposed-conte
 import { executeToolCall } from './tools/tool-executor'
 import { parseTextWithToolCalls } from './util/parse-tool-calls-from-text'
 
-
 import type { FileProcessingState } from './tools/handlers/tool/write-file'
 import type { ExecuteToolCallParams } from './tools/tool-executor'
 import type { ParsedSegment } from './util/parse-tool-calls-from-text'
@@ -46,7 +45,8 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 // module-level state has one explicit lifecycle and one place to audit.
 // See C2.4 (per-run context encapsulation).
 class AgentRunContextRegistry {
-  private readonly runIdToGenerator: Record<string, StepGenerator | undefined> = {}
+  private readonly runIdToGenerator: Record<string, StepGenerator | undefined> =
+    {}
   private readonly runIdToStepAll: Set<string> = new Set()
   // Tracks which agent instance (agentState.agentId) created the generator
   // cached for a given runId. Used to detect a runId collision between two
@@ -58,7 +58,11 @@ class AgentRunContextRegistry {
     return this.runIdToGenerator[runId]
   }
 
-  setGenerator(runId: string, generator: StepGenerator, ownerAgentId: string): void {
+  setGenerator(
+    runId: string,
+    generator: StepGenerator,
+    ownerAgentId: string,
+  ): void {
     this.runIdToGenerator[runId] = generator
     this.runIdToOwnerAgentId.set(runId, ownerAgentId)
   }
@@ -243,7 +247,9 @@ export async function runProgrammaticStep(
   // happen if startAgentRun returns globally-unique runIds; warn loudly if it
   // does so the underlying id-generation bug can be found.
   if (generator) {
-    const ownerAgentId = agentRunContextRegistry.getOwnerAgentId(agentState.runId)
+    const ownerAgentId = agentRunContextRegistry.getOwnerAgentId(
+      agentState.runId,
+    )
     if (ownerAgentId !== undefined && ownerAgentId !== agentState.agentId) {
       logger.warn(
         {
@@ -261,16 +267,16 @@ export async function runProgrammaticStep(
   if (!generator) {
     const createLogMethod =
       (level: 'debug' | 'info' | 'warn' | 'error') =>
-        (data: any, msg?: string) => {
-          logger[level](data, msg) // Log to backend
-          handleStepsLogChunk({
-            userInputId,
-            runId: agentState.runId ?? 'undefined',
-            level,
-            data,
-            message: msg,
-          })
-        }
+      (data: any, msg?: string) => {
+        logger[level](data, msg) // Log to backend
+        handleStepsLogChunk({
+          userInputId,
+          runId: agentState.runId ?? 'undefined',
+          level,
+          data,
+          message: msg,
+        })
+      }
 
     const streamingLogger = {
       debug: createLogMethod('debug'),
@@ -304,6 +310,7 @@ export async function runProgrammaticStep(
       prompt,
       params: toolCallParams,
       logger: streamingLogger,
+      config: template.programmaticConfig,
     })
     generator = initializedGenerator
     agentRunContextRegistry.setGenerator(
@@ -343,7 +350,12 @@ export async function runProgrammaticStep(
     failedEditRequiresReadByPath: {},
     consecutiveStrReplaceFailuresByPath: {},
     strictReadBeforeEdit: true,
-    readAuthorizationsByPath: { ...(agentState.readAuthorizationsByPath ?? {}) },
+    readAuthorizationsByPath: {
+      ...(agentState.readAuthorizationsByPath ?? {}),
+    },
+    readAuthorizationHashesByPath: {
+      ...(agentState.readAuthorizationHashesByPath ?? {}),
+    },
   }
   const agentContext = agentState.agentContext
 
@@ -405,7 +417,7 @@ export async function runProgrammaticStep(
       if (!parseResult.success) {
         throw new Error(
           `Invalid yield value from handleSteps in agent ${template.id}: ${parseResult.error.message}. ` +
-          `Received: ${JSON.stringify(result.value)}`,
+            `Received: ${JSON.stringify(result.value)}`,
         )
       }
 
@@ -501,8 +513,9 @@ export async function runProgrammaticStep(
   } catch (error) {
     endTurn = true
 
-    const errorMessage = `Error executing handleSteps for agent ${template.id}: ${error instanceof Error ? error.message : 'Unknown error'
-      }`
+    const errorMessage = `Error executing handleSteps for agent ${template.id}: ${
+      error instanceof Error ? error.message : 'Unknown error'
+    }`
     logger.error(
       { error: getErrorObject(error), template: template.id },
       errorMessage,
@@ -557,15 +570,11 @@ export async function runProgrammaticStep(
     // so a successful read_files followed by a downstream error still
     // carries its auth to the next turn. The read-back half of the fix
     // is the hydration in the fileProcessingState initializer above.
-    if (!agentState.readAuthorizationsByPath) {
-      agentState.readAuthorizationsByPath = {}
+    agentState.readAuthorizationsByPath = {
+      ...(fileProcessingState.readAuthorizationsByPath ?? {}),
     }
-    for (const [authPath, auth] of Object.entries(
-      fileProcessingState.readAuthorizationsByPath ?? {},
-    )) {
-      if (auth) {
-        agentState.readAuthorizationsByPath[authPath] = true
-      }
+    agentState.readAuthorizationHashesByPath = {
+      ...(fileProcessingState.readAuthorizationHashesByPath ?? {}),
     }
 
     if (endTurn) {
@@ -695,22 +704,27 @@ async function executeSingleToolCall(
 ): Promise<ToolResultOutput[] | undefined> {
   const {
     addProgrammaticToolResultContext,
+    agentTemplate,
     agentState,
     onResponseChunk,
     toolResults,
   } = params
 
-  // Note: We don't check if the tool is available for the agent template anymore.
-  // You can run any tool from handleSteps now!
-  // if (!template.toolNames.includes(toolCall.toolName)) {
-  //   throw new Error(
-  //     `Tool ${toolCall.toolName} is not available for agent ${template.id}. Available tools: ${template.toolNames.join(', ')}`,
-  //   )
-  // }
+  const programmaticToolAllowed =
+    PROGRAMMATIC_CONTEXT_MANAGEMENT_TOOLS.has(toolCallToExecute.toolName) ||
+    agentTemplate.toolNames.includes(toolCallToExecute.toolName) ||
+    (agentTemplate.programmaticToolNames ?? []).includes(
+      toolCallToExecute.toolName,
+    )
+  if (!programmaticToolAllowed) {
+    throw new Error(
+      `Programmatic tool ${toolCallToExecute.toolName} is not available for agent ${agentTemplate.id}. ` +
+        `Declare it in toolNames or programmaticToolNames.`,
+    )
+  }
 
   const toolCallId = crypto.randomUUID()
-  const includeStructuredToolCall =
-    toolCallToExecute.includeToolCall === true
+  const includeStructuredToolCall = toolCallToExecute.includeToolCall === true
   const excludeToolFromMessageHistory = !includeStructuredToolCall
 
   // Add assistant message with the tool call before executing it
@@ -801,7 +815,8 @@ async function executeSingleToolCall(
                   'agentId' in chunkForClient && chunkForClient.agentId
                     ? chunkForClient.agentId
                     : agentState.agentId,
-                parentAgentId: chunkForClient.parentAgentId ?? toolEventParentId,
+                parentAgentId:
+                  chunkForClient.parentAgentId ?? toolEventParentId,
               })
               return
             }

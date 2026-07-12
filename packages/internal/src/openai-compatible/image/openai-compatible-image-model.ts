@@ -3,37 +3,33 @@ import {
   createJsonErrorResponseHandler,
   createJsonResponseHandler,
   postJsonToApi,
-} from '@ai-sdk/provider-utils';
-import { z } from 'zod/v4';
+} from '@ai-sdk/provider-utils'
+import { z } from 'zod/v4'
 
-import {
-  defaultOpenAICompatibleErrorStructure
-} from '../openai-compatible-error';
+import { defaultOpenAICompatibleErrorStructure } from '../openai-compatible-error'
 
-import type {
-  ProviderErrorStructure} from '../openai-compatible-error';
-import type { OpenAICompatibleImageModelId } from './openai-compatible-image-settings';
-import type { ImageModelV2, ImageModelV2CallWarning } from '@ai-sdk/provider';
-import type {
-  FetchFunction} from '@ai-sdk/provider-utils';
+import type { ProviderErrorStructure } from '../openai-compatible-error'
+import type { OpenAICompatibleImageModelId } from './openai-compatible-image-settings'
+import type { ImageModelV2, ImageModelV2CallWarning } from '@ai-sdk/provider'
+import type { FetchFunction } from '@ai-sdk/provider-utils'
 
 export type OpenAICompatibleImageModelConfig = {
-  provider: string;
-  headers: () => Record<string, string | undefined>;
-  url: (options: { modelId: string; path: string }) => string;
-  fetch?: FetchFunction;
-  errorStructure?: ProviderErrorStructure<any>;
+  provider: string
+  headers: () => Record<string, string | undefined>
+  url: (options: { modelId: string; path: string }) => string
+  fetch?: FetchFunction
+  errorStructure?: ProviderErrorStructure<any>
   _internal?: {
-    currentDate?: () => Date;
-  };
-};
+    currentDate?: () => Date
+  }
+}
 
 export class OpenAICompatibleImageModel implements ImageModelV2 {
-  readonly specificationVersion = 'v2';
-  readonly maxImagesPerCall = 10;
+  readonly specificationVersion = 'v2'
+  readonly maxImagesPerCall = 10
 
   get provider(): string {
-    return this.config.provider;
+    return this.config.provider
   }
 
   constructor(
@@ -53,7 +49,7 @@ export class OpenAICompatibleImageModel implements ImageModelV2 {
   }: Parameters<ImageModelV2['doGenerate']>[0]): Promise<
     Awaited<ReturnType<ImageModelV2['doGenerate']>>
   > {
-    const warnings: Array<ImageModelV2CallWarning> = [];
+    const warnings: Array<ImageModelV2CallWarning> = []
 
     if (aspectRatio != null) {
       warnings.push({
@@ -61,14 +57,14 @@ export class OpenAICompatibleImageModel implements ImageModelV2 {
         setting: 'aspectRatio',
         details:
           'This model does not support aspect ratio. Use `size` instead.',
-      });
+      })
     }
 
     if (seed != null) {
-      warnings.push({ type: 'unsupported-setting', setting: 'seed' });
+      warnings.push({ type: 'unsupported-setting', setting: 'seed' })
     }
 
-    const currentDate = this.config._internal?.currentDate?.() ?? new Date();
+    const currentDate = this.config._internal?.currentDate?.() ?? new Date()
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
         path: '/images/generations',
@@ -91,17 +87,17 @@ export class OpenAICompatibleImageModel implements ImageModelV2 {
       ),
       abortSignal,
       fetch: this.config.fetch,
-    });
+    })
 
     return {
-      images: response.data.map(item => item.b64_json),
+      images: response.data.map((item) => item.b64_json),
       warnings,
       response: {
         timestamp: currentDate,
         modelId: this.modelId,
         headers: responseHeaders,
       },
-    };
+    }
   }
 }
 
@@ -109,4 +105,4 @@ export class OpenAICompatibleImageModel implements ImageModelV2 {
 // this approach limits breakages when the API changes and increases efficiency
 const openaiCompatibleImageResponseSchema = z.object({
   data: z.array(z.object({ b64_json: z.string() })),
-});
+})

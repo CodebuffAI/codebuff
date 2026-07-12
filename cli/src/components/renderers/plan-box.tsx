@@ -1,7 +1,10 @@
 import { memo, useState } from 'react'
 
 import { useTheme } from '../../hooks/use-theme'
-import { renderMarkdown, type MarkdownPalette } from '../../utils/markdown-renderer'
+import {
+  renderMarkdown,
+  type MarkdownPalette,
+} from '../../utils/markdown-renderer'
 import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 import { BuildModeButtons } from '../build-mode-buttons'
@@ -102,14 +105,18 @@ export const PlanBox = memo(
                   paddingRight: 1,
                   borderStyle: 'single',
                   borderColor:
-                    hoveredCommand === command ? theme.foreground : theme.secondary,
+                    hoveredCommand === command
+                      ? theme.foreground
+                      : theme.secondary,
                   customBorderChars: BORDER_CHARS,
                 }}
                 onClick={() => onInsertCommand(command)}
                 onMouseOver={() => setHoveredCommand(command)}
-                onMouseOut={() => setHoveredCommand((current) =>
-                  current === command ? null : current,
-                )}
+                onMouseOut={() =>
+                  setHoveredCommand((current) =>
+                    current === command ? null : current,
+                  )
+                }
               >
                 <text wrapMode="none" style={{ fg: theme.secondary }}>
                   {command}
@@ -123,4 +130,3 @@ export const PlanBox = memo(
     )
   },
 )
-

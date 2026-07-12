@@ -36,15 +36,33 @@ export const createFilePicker = (): Omit<SecretAgentDefinition, 'id'> => {
         required: [],
       },
     },
-    outputMode: 'last_message',
+    outputMode: 'structured_output',
+    outputSchema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              path: { type: 'string' },
+              summary: { type: 'string' },
+            },
+            required: ['path', 'summary'],
+          },
+        },
+      },
+      required: ['files'],
+    },
     includeMessageHistory: false,
     toolNames: ['spawn_agents'],
+    programmaticToolNames: ['read_files'],
     spawnableAgents: ['file-lister'],
 
     systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
     instructionsPrompt: `Instructions:
 Provide an extremely short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
-In your report, please give a very concise analysis that includes the full paths of files that are relevant and (extremely briefly) how they could be useful.
+Return structured output with a \`files\` array. Each entry must contain the exact full path relative to the project root in \`path\` and an extremely brief \`summary\` of why it is useful.
 
 Do not use any further tools or spawn any further agents.
   `.trim(),
@@ -83,7 +101,8 @@ function extractAgentText(agentOutput: any): string | null {
 
   // lastMessage / allMessages format — traverse messages for assistant text
   if (
-    (agentOutput.type === 'lastMessage' || agentOutput.type === 'allMessages') &&
+    (agentOutput.type === 'lastMessage' ||
+      agentOutput.type === 'allMessages') &&
     Array.isArray(agentOutput.value)
   ) {
     for (let i = agentOutput.value.length - 1; i >= 0; i--) {
@@ -128,9 +147,12 @@ function isObject(value: any): value is Record<string, unknown> {
  * Process spawn_agents results from a file-lister agent into file paths.
  * Pure function — does not yield, so it survives .toString() serialization.
  */
-function processSpawnResults(
-  spawnResults: any[],
-): { paths: string[]; hasResults: boolean; errorText: string | null; debugMessage: string | null } {
+function processSpawnResults(spawnResults: any[]): {
+  paths: string[]
+  hasResults: boolean
+  errorText: string | null
+  debugMessage: string | null
+} {
   const allPaths = new Set<string>()
   let hasResults = false
   let debugMessage: string | null = null
@@ -139,7 +161,10 @@ function processSpawnResults(
     const fileListText = extractAgentText(result)
     if (fileListText) {
       hasResults = true
-      const paths = fileListText.split('\n').filter(Boolean)
+      const paths = fileListText
+        .split('\n')
+        .map(normalizeFileListerLine)
+        .filter((path): path is string => Boolean(path))
       for (const path of paths) {
         allPaths.add(path)
       }
@@ -155,16 +180,38 @@ function processSpawnResults(
     }
   }
 
-  const errorText = spawnResults
-    .map(extractErrorMessage)
-    .filter(Boolean)
-    .join('; ') || null
+  const errorText =
+    spawnResults.map(extractErrorMessage).filter(Boolean).join('; ') || null
 
   if (spawnResults.length > 0) {
-    debugMessage = `failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`
+    debugMessage = `failed to extract text from spawned results (types: ${spawnResults
+      .map((r: any) => r?.type)
+      .filter(Boolean)
+      .join(', ')})`
   }
 
   return { paths: [], hasResults: false, errorText, debugMessage }
+}
+
+function normalizeFileListerLine(line: string): string | null {
+  let value = line.trim()
+  if (!value) return null
+  const inlineCode = value.match(/`([^`]+)`/)
+  if (inlineCode) value = inlineCode[1].trim()
+  value = value
+    .replace(/^[-*+]\s+/, '')
+    .replace(/^\d+[.)]\s+/, '')
+    .replace(/^['"]|['"]$/g, '')
+    .trim()
+  if (
+    !value ||
+    /^(files?|paths?|here(?:'s| are)|result|relevant)\b/i.test(value) ||
+    /^https?:\/\//i.test(value) ||
+    value.includes('\0')
+  ) {
+    return null
+  }
+  return value
 }
 
 const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
@@ -187,7 +234,8 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
     if (!agentOutput) return null
     if (typeof agentOutput === 'string') return agentOutput
     if (
-      (agentOutput.type === 'lastMessage' || agentOutput.type === 'allMessages') &&
+      (agentOutput.type === 'lastMessage' ||
+        agentOutput.type === 'allMessages') &&
       Array.isArray(agentOutput.value)
     ) {
       for (let i = agentOutput.value.length - 1; i >= 0; i--) {
@@ -204,7 +252,13 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
     if (agentOutput.type === 'structuredOutput') {
       if (typeof agentOutput.value === 'string') return agentOutput.value
       if (isObject(agentOutput.value)) {
-        for (const key of ['message', 'text', 'content', 'output', 'response']) {
+        for (const key of [
+          'message',
+          'text',
+          'content',
+          'output',
+          'response',
+        ]) {
           const val = agentOutput.value[key]
           if (typeof val === 'string' && val) return val
         }
@@ -221,7 +275,12 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
   }
   const processSpawnResults = (
     spawnResults: any[],
-  ): { paths: string[]; hasResults: boolean; errorText: string | null; debugMessage: string | null } => {
+  ): {
+    paths: string[]
+    hasResults: boolean
+    errorText: string | null
+    debugMessage: string | null
+  } => {
     const allPaths = new Set<string>()
     let hasResults = false
     let debugMessage: string | null = null
@@ -229,18 +288,51 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
       const fileListText = extractAgentText(result)
       if (fileListText) {
         hasResults = true
-        const paths = fileListText.split('\n').filter(Boolean)
+        const paths = fileListText
+          .split('\n')
+          .map((line) => {
+            let value = line.trim()
+            if (!value) return null
+            const inlineCode = value.match(/`([^`]+)`/)
+            if (inlineCode) value = inlineCode[1].trim()
+            value = value
+              .replace(/^[-*+]\s+/, '')
+              .replace(/^\d+[.)]\s+/, '')
+              .replace(/^['"]|['"]$/g, '')
+              .trim()
+            if (
+              !value ||
+              /^(files?|paths?|here(?:'s| are)|result|relevant)\b/i.test(
+                value,
+              ) ||
+              /^https?:\/\//i.test(value) ||
+              value.includes('\0')
+            ) {
+              return null
+            }
+            return value
+          })
+          .filter((path): path is string => Boolean(path))
         for (const path of paths) {
           allPaths.add(path)
         }
       }
     }
     if (hasResults) {
-      return { paths: Array.from(allPaths), hasResults: true, errorText: null, debugMessage: null }
+      return {
+        paths: Array.from(allPaths),
+        hasResults: true,
+        errorText: null,
+        debugMessage: null,
+      }
     }
-    const errorText = spawnResults.map(extractErrorMessage).filter(Boolean).join('; ') || null
+    const errorText =
+      spawnResults.map(extractErrorMessage).filter(Boolean).join('; ') || null
     if (spawnResults.length > 0) {
-      debugMessage = `failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`
+      debugMessage = `failed to extract text from spawned results (types: ${spawnResults
+        .map((r: any) => r?.type)
+        .filter(Boolean)
+        .join(', ')})`
     }
     return { paths: [], hasResults: false, errorText, debugMessage }
   }
@@ -259,12 +351,13 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
     if (trimmed.includes('\\..') || trimmed.includes('..\\')) return false
     // Absolute paths are only allowed if they're inside the project root.
     if (trimmed.startsWith('/') || /^[A-Za-z]:[\\/]/.test(trimmed)) {
-      const cwd =
-        typeof process.cwd === 'function' ? process.cwd() : ''
+      const cwd = typeof process.cwd === 'function' ? process.cwd() : ''
       if (!cwd) return false
       const normalized = trimmed.replace(/\\/g, '/')
       const projectRoot = cwd.replace(/\\/g, '/').replace(/\/+$/, '')
-      return normalized === projectRoot || normalized.startsWith(projectRoot + '/')
+      return (
+        normalized === projectRoot || normalized.startsWith(projectRoot + '/')
+      )
     }
     return true
   }
@@ -282,13 +375,34 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
   } satisfies ToolCall
 
   const spawnResults = extractSpawnResults(fileListerResults)
-  const { paths: rawPaths, hasResults, errorText, debugMessage } =
-    processSpawnResults(spawnResults)
+  const {
+    paths: rawPaths,
+    hasResults,
+    errorText,
+    debugMessage,
+  } = processSpawnResults(spawnResults)
   // Filter out unsafe paths before read_files (C1.9).
   const paths = rawPaths.filter(isSafeProjectPath)
-  const droppedCount = rawPaths.length - paths.length
+  const requestedDirectories = Array.isArray(params?.directories)
+    ? params.directories
+        .filter((value): value is string => typeof value === 'string')
+        .map((value) => value.replace(/\\/g, '/').replace(/^\.\//, ''))
+        .map((value) => value.replace(/^\/+|\/+$/g, ''))
+        .filter(Boolean)
+    : []
+  const scopedPaths = paths.filter((candidate) => {
+    if (requestedDirectories.length === 0) return true
+    const normalized = candidate.replace(/\\/g, '/').replace(/^\.\//, '')
+    return requestedDirectories.some(
+      (directory) =>
+        normalized === directory || normalized.startsWith(directory + '/'),
+    )
+  })
+  const droppedCount = rawPaths.length - scopedPaths.length
   if (droppedCount > 0) {
-    logger?.debug?.(`file-picker: dropped ${droppedCount} path(s) outside project root or containing traversal`)
+    logger?.debug?.(
+      `file-picker: dropped ${droppedCount} path(s) outside project root or containing traversal`,
+    )
   }
 
   if (!hasResults) {
@@ -313,29 +427,36 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
     candidatePaths: string[],
     query: string | undefined,
   ): { path: string; score: number }[] => {
-    const keywords =
-      (query ?? '').toLowerCase().match(/[a-z0-9]{3,}/g) ?? []
+    const keywords = (query ?? '').toLowerCase().match(/[a-z0-9]{3,}/g) ?? []
     const uniqueKeywords = Array.from(new Set(keywords))
-    const scored = candidatePaths.map((p) => {
+    const scored = candidatePaths.map((p, upstreamIndex) => {
       const lower = p.toLowerCase()
       let score = 0
       for (const kw of uniqueKeywords) {
         if (lower.includes(kw)) score += 1
       }
-      return { path: p, score }
+      return { path: p, score, upstreamIndex }
     })
     scored.sort(
       (a, b) =>
-        b.score - a.score || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0),
+        b.score - a.score || a.upstreamIndex - b.upstreamIndex,
     )
     return scored
   }
-  const scoredPaths = scorePathsByPromptRelevance(paths, prompt)
+  const scoredPaths = scorePathsByPromptRelevance(scopedPaths, prompt)
   const orderedPaths = scoredPaths.slice(0, MAX_PICKER_FILES).map((s) => s.path)
-  if (paths.length > MAX_PICKER_FILES) {
+  if (scopedPaths.length > MAX_PICKER_FILES) {
     logger?.debug?.(
-      `file-picker: capped ${paths.length} candidate(s) to top ${MAX_PICKER_FILES} by prompt relevance`,
+      `file-picker: capped ${scopedPaths.length} candidate(s) to top ${MAX_PICKER_FILES} by prompt relevance`,
     )
+  }
+
+  if (orderedPaths.length === 0) {
+    yield {
+      type: 'STEP_TEXT',
+      text: 'No safe project-relative file paths were returned by file-lister.',
+    } satisfies StepText
+    return
   }
 
   yield {

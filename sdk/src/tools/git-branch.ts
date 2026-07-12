@@ -79,10 +79,7 @@ export async function gitBranch(params: {
   // Capture previous branch for return info (only meaningful when switching)
   let previousBranch: string | undefined
   if (doSwitch) {
-    const revResult = await runGit(
-      ['rev-parse', '--abbrev-ref', 'HEAD'],
-      cwd,
-    )
+    const revResult = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
     if (revResult.exitCode === 0) {
       previousBranch = revResult.stdout.trim()
     }

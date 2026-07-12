@@ -8,7 +8,12 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { OpenbuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Streaming: Subagent Streaming', () => {
   let client: OpenbuffClient

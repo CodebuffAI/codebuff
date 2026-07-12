@@ -1,6 +1,47 @@
 import { describe, test, expect } from 'bun:test'
 
-import { isInsideStringDelimiters, parseAtInLine } from '../use-suggestion-engine'
+import {
+  getMentionSuggestionStatus,
+  isInsideStringDelimiters,
+  parseAtInLine,
+} from '../use-suggestion-engine'
+
+describe('file suggestion loading states', () => {
+  test('distinguishes loading, empty, error/retry, and inactive states', () => {
+    expect(
+      getMentionSuggestionStatus({
+        active: true,
+        fileStatus: 'loading',
+        agentMatchCount: 0,
+        fileMatchCount: 0,
+      }),
+    ).toMatchObject({ message: 'Loading project files…', canRetry: false })
+    expect(
+      getMentionSuggestionStatus({
+        active: true,
+        fileStatus: 'empty',
+        agentMatchCount: 0,
+        fileMatchCount: 0,
+      }),
+    ).toMatchObject({ message: 'No project files are available.' })
+    expect(
+      getMentionSuggestionStatus({
+        active: true,
+        fileStatus: 'error',
+        agentMatchCount: 0,
+        fileMatchCount: 0,
+      }),
+    ).toMatchObject({ isError: true, canRetry: true })
+    expect(
+      getMentionSuggestionStatus({
+        active: false,
+        fileStatus: 'error',
+        agentMatchCount: 0,
+        fileMatchCount: 0,
+      }),
+    ).toEqual({ isError: false, canRetry: false })
+  })
+})
 
 describe('@ mention edge cases - quote detection', () => {
   test('isInsideStringDelimiters detects position inside double quotes', () => {

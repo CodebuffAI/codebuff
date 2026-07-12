@@ -13,7 +13,6 @@ import type {
   OpenRouterCompletionSettings,
 } from './types/openrouter-completion-settings'
 
-
 /**
 @deprecated Use `createOpenRouter` instead.
  */

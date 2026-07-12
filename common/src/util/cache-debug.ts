@@ -37,10 +37,9 @@ function normalizeForJson(value: unknown): SerializableValue {
 
   if (typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => [
-        key,
-        normalizeForJson(entryValue),
-      ]),
+      Object.entries(value as Record<string, unknown>).map(
+        ([key, entryValue]) => [key, normalizeForJson(entryValue)],
+      ),
     )
   }
 
@@ -77,7 +76,10 @@ function summarizeDataUrl(value: string): SerializableValue {
   }
 }
 
-export function summarizeCacheDebugValue(value: SerializableValue, keyHint?: string): SerializableValue {
+export function summarizeCacheDebugValue(
+  value: SerializableValue,
+  keyHint?: string,
+): SerializableValue {
   if (keyHint && isSecretKey(keyHint) && typeof value === 'string') {
     return summarizeSecret(value)
   }
@@ -93,7 +95,11 @@ export function summarizeCacheDebugValue(value: SerializableValue, keyHint?: str
     return value
   }
 
-  if ('url' in value && typeof value.url === 'string' && value.url.startsWith('data:')) {
+  if (
+    'url' in value &&
+    typeof value.url === 'string' &&
+    value.url.startsWith('data:')
+  ) {
     return {
       ...value,
       url: summarizeDataUrl(value.url),
@@ -102,14 +108,23 @@ export function summarizeCacheDebugValue(value: SerializableValue, keyHint?: str
 
   return Object.fromEntries(
     Object.entries(value).map(([key, entryValue]) => {
-      if (key === 'file_data' && typeof entryValue === 'string' && entryValue.startsWith('data:')) {
+      if (
+        key === 'file_data' &&
+        typeof entryValue === 'string' &&
+        entryValue.startsWith('data:')
+      ) {
         return [key, summarizeDataUrl(entryValue)]
       }
       if (key === 'arguments' && typeof entryValue === 'string') {
         return [key, entryValue]
       }
       if (key === 'content' && typeof entryValue === 'string') {
-        return [key, entryValue.startsWith('data:') ? summarizeDataUrl(entryValue) : summarizePromptText(entryValue)]
+        return [
+          key,
+          entryValue.startsWith('data:')
+            ? summarizeDataUrl(entryValue)
+            : summarizePromptText(entryValue),
+        ]
       }
       return [key, summarizeCacheDebugValue(entryValue, key)]
     }),
@@ -185,14 +200,29 @@ export function normalizeProviderRequestBodyForCacheDebug(params: {
   const record = body as SerializableRecord
   const normalized: SerializableRecord = {}
 
-  for (const key of ['model', 'messages', 'tools', 'tool_choice', 'response_format', 'reasoning', 'reasoning_effort', 'verbosity', 'provider']) {
+  for (const key of [
+    'model',
+    'messages',
+    'tools',
+    'tool_choice',
+    'response_format',
+    'reasoning',
+    'reasoning_effort',
+    'verbosity',
+    'provider',
+  ]) {
     if (key in record) {
       normalized[key] = summarizeCacheDebugValue(record[key])
     }
   }
 
   if (params.provider === 'openrouter') {
-    for (const key of ['models', 'plugins', 'web_search_options', 'include_reasoning']) {
+    for (const key of [
+      'models',
+      'plugins',
+      'web_search_options',
+      'include_reasoning',
+    ]) {
       if (key in record) {
         normalized[key] = summarizeCacheDebugValue(record[key])
       }

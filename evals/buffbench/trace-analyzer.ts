@@ -10,10 +10,9 @@ import type {
   FinalCheckOutput,
   ProposalDryRunReport,
 } from './types'
+import type { RetrievalFlowMetrics } from './retrieval-flow-metrics'
 import type { IdiomTraceabilityEvaluation } from './idiom-traceability-signals'
 import type { AgentDefinition, OpenbuffClient } from '@openbuff/sdk'
-
-
 
 export interface AgentTraceData {
   agentId: string
@@ -28,6 +27,7 @@ export interface AgentTraceData {
   timestamp: string
   finalCheckOutputs?: FinalCheckOutput[]
   cacheRecallEval?: CacheRecallEvalResult
+  retrievalFlow?: RetrievalFlowMetrics
   idiomTraceability?: IdiomTraceabilityEvaluation
   proposalDryRun?: ProposalDryRunReport
 }

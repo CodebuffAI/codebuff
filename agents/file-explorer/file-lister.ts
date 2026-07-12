@@ -58,11 +58,15 @@ Again: Do not call any tools or write anything else other than the chosen file p
 
   handleSteps: function* ({ prompt, params }) {
     const directories = params?.directories ?? []
+    const scopedPrompt =
+      directories.length > 0
+        ? `${prompt ?? ''}\nOnly return files within: ${directories.join(', ')}`
+        : prompt
     if (typeof prompt === 'string' && prompt.trim().length > 0) {
       yield {
         toolName: 'query_index',
         input: {
-          query: prompt,
+          query: scopedPrompt,
           limit: 24,
         },
       }
@@ -71,7 +75,7 @@ Again: Do not call any tools or write anything else other than the chosen file p
       toolName: 'read_subtree',
       input: {
         paths: directories,
-        maxTokens: 500_000,
+        maxTokens: 20_000,
       },
     }
 

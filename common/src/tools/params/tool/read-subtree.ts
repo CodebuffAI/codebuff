@@ -1,6 +1,10 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  coerceToArray,
+  jsonToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -63,6 +67,10 @@ export const readSubtreeParams = {
             'tokens',
             'depth-based',
           ]),
+          liveNodeCount: z.number().int().nonnegative().optional(),
+          liveScanTruncated: z.boolean().optional(),
+          liveScanMaxNodes: z.number().int().positive().optional(),
+          recovery: z.string().optional(),
         }),
         z.object({
           path: z.string(),
@@ -75,11 +83,17 @@ export const readSubtreeParams = {
             'depth-based',
           ]),
           printedTreeOmittedForLength: z.literal(true),
+          liveNodeCount: z.number().int().nonnegative().optional(),
+          liveScanTruncated: z.boolean().optional(),
+          liveScanMaxNodes: z.number().int().positive().optional(),
+          recovery: z.string().optional(),
         }),
         z.object({
           path: z.string(),
           type: z.literal('file'),
           variables: z.array(z.string()),
+          variablesSource: z.literal('cached').optional(),
+          symbolsMayBeStale: z.boolean().optional(),
         }),
         z.object({
           path: z.string(),

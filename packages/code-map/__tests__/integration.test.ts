@@ -4,9 +4,8 @@ import { Parser } from 'web-tree-sitter'
 import { getLanguageConfig, setWasmDir } from '../src/languages'
 import { parseTokens, getFileTokenScores } from '../src/parse'
 
-import type { LanguageConfig} from '../src/languages';
-import type { Language, Query } from 'web-tree-sitter';
-
+import type { LanguageConfig } from '../src/languages'
+import type { Language, Query } from 'web-tree-sitter'
 
 // Test timeout for async operations
 const TEST_TIMEOUT = 15000

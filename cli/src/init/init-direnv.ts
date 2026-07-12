@@ -9,6 +9,21 @@ import path from 'path'
 
 import { logger } from '../utils/logger'
 
+const originalEnvValues = new Map<string, string | undefined>()
+let appliedDirenvKeys = new Set<string>()
+
+function restorePreviousDirenvEnvironment(): void {
+  for (const key of appliedDirenvKeys) {
+    const originalValue = originalEnvValues.get(key)
+    if (originalValue === undefined) {
+      delete process.env[key]
+    } else {
+      process.env[key] = originalValue
+    }
+  }
+  appliedDirenvKeys = new Set()
+}
+
 /**
  * Search up the directory tree for .envrc, stopping at git root.
  * @internal
@@ -65,7 +80,9 @@ export function isDirenvAvailable(): boolean {
 }
 
 /** @internal */
-export function getDirenvExport(envrcDir: string): Record<string, string | null> | null {
+export function getDirenvExport(
+  envrcDir: string,
+): Record<string, string | null> | null {
   try {
     const result = spawnSync('direnv', ['export', 'json'], {
       cwd: envrcDir,
@@ -76,9 +93,7 @@ export function getDirenvExport(envrcDir: string): Record<string, string | null>
 
     if (result.status !== 0) {
       if (result.stderr?.includes('is blocked')) {
-        logger.warn(
-          'direnv: .envrc is blocked. Run `direnv allow` to enable.',
-        )
+        logger.warn('direnv: .envrc is blocked. Run `direnv allow` to enable.')
       }
       return null
     }
@@ -101,6 +116,7 @@ export function getDirenvExport(envrcDir: string): Record<string, string | null>
 
 /** Load direnv environment into process.env. Safe to call even if direnv is not installed. */
 export function initializeDirenv(): void {
+  restorePreviousDirenvEnvironment()
   if (!isDirenvAvailable()) {
     return
   }
@@ -116,11 +132,15 @@ export function initializeDirenv(): void {
   }
   let appliedCount = 0
   for (const [key, value] of Object.entries(envVars)) {
+    if (!originalEnvValues.has(key)) {
+      originalEnvValues.set(key, process.env[key])
+    }
     if (value === null) {
       delete process.env[key]
     } else {
       process.env[key] = value
     }
+    appliedDirenvKeys.add(key)
     appliedCount++
   }
 

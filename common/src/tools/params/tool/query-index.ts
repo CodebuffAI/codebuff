@@ -20,17 +20,26 @@ const inputSchema = z
       .number()
       .int()
       .positive()
+      .max(50)
       .optional()
       .default(20)
       .describe('Maximum number of results to return. Defaults to 20.'),
     fileTypes: z
       .array(z.string().min(1))
+      .max(20)
       .optional()
       .describe(
         `Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only.`,
       ),
     mode: z
-      .enum(['search', 'neighbors', 'path', 'explain', 'commands', 'references'])
+      .enum([
+        'search',
+        'neighbors',
+        'path',
+        'explain',
+        'commands',
+        'references',
+      ])
       .optional()
       .default('search')
       .describe(
@@ -49,28 +58,43 @@ const inputSchema = z
   })
   .superRefine((input, ctx) => {
     const mode = input.mode ?? 'search'
-    if ((mode === 'search' || mode === 'explain') && input.query.trim().length === 0) {
+    if (
+      (mode === 'search' || mode === 'explain') &&
+      input.query.trim().length === 0
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['query'],
         message: 'query is required for search and explain modes',
       })
     }
-    if (mode === 'neighbors' && !input.from && input.query.trim().length === 0) {
+    if (
+      mode === 'neighbors' &&
+      !input.from &&
+      input.query.trim().length === 0
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['from'],
         message: 'from or query is required for neighbors mode',
       })
     }
-    if (mode === 'path' && (!input.from || !input.to) && input.query.trim().length === 0) {
+    if (
+      mode === 'path' &&
+      (!input.from || !input.to) &&
+      input.query.trim().length === 0
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['query'],
         message: 'query or both from/to paths are required for path mode',
       })
     }
-    if (mode === 'references' && !input.from && input.query.trim().length === 0) {
+    if (
+      mode === 'references' &&
+      !input.from &&
+      input.query.trim().length === 0
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['from'],
@@ -170,6 +194,20 @@ export const queryIndexParams = {
       totalIndexed: z.number(),
       indexAge: z.number(),
       message: z.string(),
+      status: z
+        .object({
+          state: z.enum(['disabled', 'building', 'ready', 'stale', 'degraded', 'empty']),
+          ready: z.boolean(),
+          stale: z.boolean(),
+          refreshing: z.boolean(),
+          semantic: z.enum(['disabled', 'building', 'ready', 'unavailable', 'failed']),
+          totalIndexed: z.number(),
+          indexAge: z.number(),
+          diagnostics: z.array(z.object({ filePath: z.string(), stage: z.enum(['language', 'read', 'parse']), message: z.string() })),
+          coverage: z.object({ truncated: z.boolean(), maxFiles: z.number(), skippedFiles: z.number(), skippedPrefixes: z.array(z.string()) }).optional(),
+          message: z.string(),
+        })
+        .optional(),
     }),
   ),
 } satisfies $ToolParams

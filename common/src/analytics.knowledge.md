@@ -6,10 +6,10 @@ This document describes the runtime and CLI analytics implementation using PostH
 
 The codebase has **two separate analytics modules** serving different use cases:
 
-| Module | Location | Use Case |
-|--------|----------|----------|
-| Runtime | `common/src/analytics.ts` | Agent runtime and local integration processes |
-| CLI | `cli/src/utils/analytics.ts` | Interactive CLI application |
+| Module  | Location                     | Use Case                                      |
+| ------- | ---------------------------- | --------------------------------------------- |
+| Runtime | `common/src/analytics.ts`    | Agent runtime and local integration processes |
+| CLI     | `cli/src/utils/analytics.ts` | Interactive CLI application                   |
 
 Both modules share common types and utilities from `common/src/analytics-core.ts`.
 
@@ -120,9 +120,15 @@ Both modules support **dependency injection** for testing without `mock.module()
 ### Runtime Testing
 
 ```typescript
-import { resetServerAnalyticsState, type ServerAnalyticsDeps } from '@codebuff/common/analytics'
+import {
+  resetServerAnalyticsState,
+  type ServerAnalyticsDeps,
+} from '@codebuff/common/analytics'
 
-const mockClient = { capture: mock(() => {}), flush: mock(() => Promise.resolve()) }
+const mockClient = {
+  capture: mock(() => {}),
+  flush: mock(() => Promise.resolve()),
+}
 const deps: ServerAnalyticsDeps = { createClient: () => mockClient }
 
 beforeEach(() => {
@@ -135,18 +141,21 @@ beforeEach(() => {
 ```typescript
 import { resetAnalyticsState, type AnalyticsDeps } from './analytics'
 
-const mockClient = { 
-  capture: mock(() => {}), 
-  identify: mock(() => {}), 
-  alias: mock(() => {}),  // For testing alias calls
+const mockClient = {
+  capture: mock(() => {}),
+  identify: mock(() => {}),
+  alias: mock(() => {}), // For testing alias calls
   flush: mock(() => Promise.resolve()),
   captureException: mock(() => {}),
 }
 const deps: AnalyticsDeps = {
-  env: { NEXT_PUBLIC_POSTHOG_API_KEY: 'test', NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://test' },
+  env: {
+    NEXT_PUBLIC_POSTHOG_API_KEY: 'test',
+    NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://test',
+  },
   isProd: true,
   createClient: () => mockClient,
-  generateAnonymousId: () => 'anon_test-uuid',  // Fixed ID for predictable tests
+  generateAnonymousId: () => 'anon_test-uuid', // Fixed ID for predictable tests
 }
 
 beforeEach(() => {

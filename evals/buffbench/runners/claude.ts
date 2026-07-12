@@ -22,7 +22,10 @@ export class ClaudeRunner implements Runner {
     this.env = env
   }
 
-  async run(prompt: string, options: RunnerOptions = {}): Promise<RunnerResult> {
+  async run(
+    prompt: string,
+    options: RunnerOptions = {},
+  ): Promise<RunnerResult> {
     const steps: AgentStep[] = []
     let totalCostUsd = 0
 

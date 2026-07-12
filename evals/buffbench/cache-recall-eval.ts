@@ -14,7 +14,8 @@ export function computeCacheUsageMetrics(params: {
   return {
     cachedInputTokens,
     inputTokens,
-    cacheHitRatio: inputTokens > 0 ? cachedInputTokens / inputTokens : undefined,
+    cacheHitRatio:
+      inputTokens > 0 ? cachedInputTokens / inputTokens : undefined,
   }
 }
 
@@ -24,7 +25,9 @@ export function evaluateCacheRecall(params: {
   finalMessageHistoryText?: string
 }): CacheRecallEvalResult {
   const { config, cacheUsage, finalMessageHistoryText = '' } = params
-  const missingRecallSubstrings = (config.requiredRecallSubstrings ?? []).filter(
+  const requiredRecallSubstrings = config.requiredRecallSubstrings ?? []
+  const recallEvaluated = requiredRecallSubstrings.length > 0
+  const missingRecallSubstrings = requiredRecallSubstrings.filter(
     (substring) => !finalMessageHistoryText.includes(substring),
   )
 
@@ -33,8 +36,13 @@ export function evaluateCacheRecall(params: {
     config.minCacheHitRatio === undefined ||
     (observedCacheHitRatio !== undefined &&
       observedCacheHitRatio >= config.minCacheHitRatio)
-  const recallPassed = missingRecallSubstrings.length === 0
-  const passed = cacheHitRatioPassed && recallPassed
+  const recallPassed = recallEvaluated && missingRecallSubstrings.length === 0
+  const recallAssertionsConfigured =
+    !config.requireRecallAssertions || recallEvaluated
+  const passed =
+    cacheHitRatioPassed &&
+    recallAssertionsConfigured &&
+    (!recallEvaluated || recallPassed)
 
   const failureReasons: string[] = []
   if (!cacheHitRatioPassed) {
@@ -47,6 +55,11 @@ export function evaluateCacheRecall(params: {
     )
   }
   if (!recallPassed) {
+    if (!recallEvaluated && config.requireRecallAssertions) {
+      failureReasons.push('recall assertions are required but none were configured')
+    }
+  }
+  if (recallEvaluated && !recallPassed) {
     failureReasons.push(
       `missing recall substrings: ${missingRecallSubstrings.join(', ')}`,
     )
@@ -59,9 +72,11 @@ export function evaluateCacheRecall(params: {
     cacheHitRatio: observedCacheHitRatio,
     minCacheHitRatio: config.minCacheHitRatio,
     cacheHitRatioPassed,
-    requiredRecallSubstrings: config.requiredRecallSubstrings ?? [],
+    requiredRecallSubstrings,
     missingRecallSubstrings,
+    recallEvaluated,
     recallPassed,
-    failureReason: failureReasons.length > 0 ? failureReasons.join('; ') : undefined,
+    failureReason:
+      failureReasons.length > 0 ? failureReasons.join('; ') : undefined,
   }
 }

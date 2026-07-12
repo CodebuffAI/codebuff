@@ -161,7 +161,7 @@ export const App = ({
       resetChatStore()
       setResumeChatId(chatId)
     },
-    [closeChatHistory, resetChatStore]
+    [closeChatHistory, resetChatStore],
   )
 
   const handleNewChat = useCallback(() => {

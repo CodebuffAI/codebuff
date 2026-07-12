@@ -40,7 +40,8 @@ export function collectReviewerBlockers(toolResult: unknown): string[] {
   const structuredBlockers: string[] = []
   for (const entry of structured) {
     if (entry.verdict === 'BLOCKING') {
-      const findings = entry.findings.length > 0 ? entry.findings : ['(no findings provided)']
+      const findings =
+        entry.findings.length > 0 ? entry.findings : ['(no findings provided)']
       for (const finding of findings) {
         structuredBlockers.push(`BLOCKING: ${finding}`)
       }
@@ -104,7 +105,9 @@ function findReviewerCrash(value: unknown, depth: number = 0): string | null {
     return record.errorMessage.trim()
   }
   if (record.type === 'error' && typeof record.message === 'string') {
-    return record.message.trim() || 'reviewer agent reported an unspecified error'
+    return (
+      record.message.trim() || 'reviewer agent reported an unspecified error'
+    )
   }
   if (record.type === 'json' && 'value' in record) {
     const nested = findReviewerCrash(record.value, depth + 1)
@@ -190,9 +193,14 @@ function extractEmbeddedJsonVerdict(
       verdict?: unknown
       coverage?: unknown
     }
-    const verdict = typeof parsed.verdict === 'string' ? parsed.verdict.trim().toUpperCase() : ''
+    const verdict =
+      typeof parsed.verdict === 'string'
+        ? parsed.verdict.trim().toUpperCase()
+        : ''
     const coverage =
-      typeof parsed.coverage === 'string' ? parsed.coverage.trim().toLowerCase() : ''
+      typeof parsed.coverage === 'string'
+        ? parsed.coverage.trim().toLowerCase()
+        : ''
     // BLOCKING is never a finalization verdict, and missing coverage still
     // blocks regardless of the text verdict (coverage-adequacy contract).
     if (verdict !== 'LOOKS_GOOD' && verdict !== 'NON_BLOCKING') return ''
@@ -224,11 +232,18 @@ export function getReviewerFinalizationVerdict(
   for (const text of texts) {
     const normalized = stripReviewerPreamble(text)
     if (hasReviewerLineVerdict(normalized, 'LOOKS_GOOD')) return 'LOOKS_GOOD'
-    if (hasReviewerLineVerdict(normalized, 'NON_BLOCKING')) return 'NON_BLOCKING'
-    if (/\breviewer gate passed\s*(?:with\s+|\(\s*)LOOKS_GOOD\b/i.test(normalized)) {
+    if (hasReviewerLineVerdict(normalized, 'NON_BLOCKING'))
+      return 'NON_BLOCKING'
+    if (
+      /\breviewer gate passed\s*(?:with\s+|\(\s*)LOOKS_GOOD\b/i.test(normalized)
+    ) {
       return 'LOOKS_GOOD'
     }
-    if (/\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(normalized)) {
+    if (
+      /\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(
+        normalized,
+      )
+    ) {
       return 'NON_BLOCKING'
     }
     const embedded = extractEmbeddedJsonVerdict(normalized)
@@ -295,7 +310,11 @@ function visitForStructuredVerdict(
           coverage = lower
         }
       }
-      out.push({ verdict: upper as ReviewerStructuredVerdict, findings, coverage })
+      out.push({
+        verdict: upper as ReviewerStructuredVerdict,
+        findings,
+        coverage,
+      })
       return
     }
   }

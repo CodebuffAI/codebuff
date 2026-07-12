@@ -17,12 +17,13 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
     )
   }
 
-  const defaultMode = config.defaultMode ?? 'work'
+  const supportedModes = config.supportedModes ?? CLI_AGENT_MODES
+  const defaultMode = config.defaultMode ?? supportedModes[0] ?? 'work'
   const modeDescriptions = {
     work: 'implementation tasks',
     review: `code review via ${config.cliName}`,
   }
-  const modeDescParts = CLI_AGENT_MODES.map((mode) => {
+  const modeDescParts = supportedModes.map((mode) => {
     const isDefault = mode === defaultMode
     return `"${mode}" for ${modeDescriptions[mode]}${isDefault ? ' (default)' : ''}`
   })
@@ -30,7 +31,7 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
   const baseInputParams = {
     mode: {
       type: 'string' as const,
-      enum: [...CLI_AGENT_MODES],
+      enum: [...supportedModes],
       description: `Operation mode - ${modeDescParts.join(', ')}`,
     },
   }
@@ -64,6 +65,7 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
     outputMode: 'structured_output',
     outputSchema,
     includeMessageHistory: false,
+    terminalPermissionProfile: 'tmux-test',
 
     toolNames: [
       'run_terminal_command',

@@ -22,7 +22,10 @@ describe('Streaming: Concurrent Streams', () => {
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new OpenbuffClient({ ...getByokTestClientOptions(), agentDefinitions: [DEFAULT_AGENT_DEFINITION] })
+    client = new OpenbuffClient({
+      ...getByokTestClientOptions(),
+      agentDefinitions: [DEFAULT_AGENT_DEFINITION],
+    })
   })
 
   test(

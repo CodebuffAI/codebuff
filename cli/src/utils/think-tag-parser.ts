@@ -16,7 +16,14 @@ export type ThinkSegment = {
  * These are prefixes that could become a complete tag with more input.
  */
 const PARTIAL_OPEN_PREFIXES = ['<', '<t', '<th', '<thi', '<thin', '<think']
-const PARTIAL_CLOSE_PREFIXES = ['</', '</t', '</th', '</thi', '</thin', '</think']
+const PARTIAL_CLOSE_PREFIXES = [
+  '</',
+  '</t',
+  '</th',
+  '</thi',
+  '</thin',
+  '</think',
+]
 
 /**
  * Check if text ends with a potential partial tag that we should buffer.
@@ -65,7 +72,10 @@ export function parseThinkTags(text: string): ThinkSegment[] {
       }
       // Content before closing tag is thinking
       if (closeIdx > 0) {
-        segments.push({ type: 'thinking', content: remaining.slice(0, closeIdx) })
+        segments.push({
+          type: 'thinking',
+          content: remaining.slice(0, closeIdx),
+        })
       }
       remaining = remaining.slice(closeIdx + THINK_CLOSE_TAG.length)
       insideThink = false

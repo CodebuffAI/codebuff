@@ -1,10 +1,58 @@
 import { describe, expect, it, afterEach } from 'bun:test'
-import { handleApplySmartPatch } from '../tools/handlers/tool/apply-smart-patch'
+import { handleApplySmartPatch as handleApplySmartPatchRuntime } from '../tools/handlers/tool/apply-smart-patch'
 import { unlinkSync, existsSync } from 'fs'
 
 const tempFilePath = 'packages/agent-runtime/src/__tests__/smart-patch-temp.ts'
-const tempPythonPath = 'packages/agent-runtime/src/__tests__/smart-patch-temp.py'
+const tempPythonPath =
+  'packages/agent-runtime/src/__tests__/smart-patch-temp.py'
 const tempGoPath = 'packages/agent-runtime/src/__tests__/smart-patch-temp.go'
+
+const handleApplySmartPatch = (params: any) =>
+  handleApplySmartPatchRuntime({
+    ...params,
+    requestClientToolCall: async (toolCall: any) => {
+      if (
+        toolCall.toolName !== 'write_file' ||
+        toolCall.input.type !== 'file'
+      ) {
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              errorMessage: 'Expected a full write_file client mutation.',
+            },
+          },
+        ]
+      }
+      await Bun.write(toolCall.input.path, toolCall.input.content)
+      return [
+        {
+          type: 'json' as const,
+          value: {
+            kind: 'file_mutation_result',
+            version: 1,
+            operationId: toolCall.toolCallId,
+            outcome: 'applied',
+            actions: [
+              {
+                actionId: `${toolCall.toolCallId}:0`,
+                index: 0,
+                action: 'update',
+                path: toolCall.input.path,
+                outcome: 'applied',
+                beforeHash: toolCall.input.expectedHash,
+                afterHash: 'after',
+              },
+            ],
+            authorityTier: 'portable_path',
+            receiptId: toolCall.toolCallId,
+            errors: [],
+            freshCapabilities: [],
+          },
+        },
+      ]
+    },
+  } as any)
 
 function cleanupTempFiles() {
   for (const path of [tempFilePath, tempPythonPath, tempGoPath]) {
@@ -64,16 +112,18 @@ export function process(val: number) {
     } as any)
 
     const result = output[0].value
-    expect(result.file).toBe(tempFilePath)
-    expect(result.applied).toBe(true)
-    expect(result.syntaxAutoHealed).toBe(false)
+    expect(result).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      actions: [expect.objectContaining({ path: tempFilePath })],
+    })
 
     const updatedContent = await Bun.file(tempFilePath).text()
     expect(updatedContent).toContain('const result = val * 3')
     expect(updatedContent).not.toContain('const result = val * 2')
   })
 
-  it('Layer C: auto-heals unmatched curly braces', async () => {
+  it('[COR-H02] never auto-heals unmatched braces or mutates the file globally', async () => {
     const originalContent = `export function test() {
   console.log("hello")
 }`
@@ -108,13 +158,12 @@ export function process(val: number) {
     } as any)
 
     const result = output[0].value
-    expect(result.applied).toBe(true)
-    expect(result.syntaxAutoHealed).toBe(true)
-    expect(result.preflightPassed).toBe(true)
+    expect(result.applied).toBe(false)
+    expect(result.validatorStatus).toBe('failed')
+    expect(result.validatorIdentity).toBe('bun-transpiler:ts')
 
     const updatedContent = await Bun.file(tempFilePath).text()
-    expect(updatedContent).toContain('newFunc()')
-    expect(updatedContent.trim().endsWith('}')).toBe(true)
+    expect(updatedContent).toBe(originalContent)
   })
 
   it('Preflight Validation: fails if the code has a syntax error that cannot be healed', async () => {
@@ -152,6 +201,8 @@ export function process(val: number) {
 
     const result = output[0].value
     expect(result.applied).toBe(false)
+    expect(result.validatorStatus).toBe('failed')
+    expect(result.validatorIdentity).toBe('bun-transpiler:ts')
     expect(result.message).toContain('Preflight Syntax Validation Failed')
 
     const updatedContent = await Bun.file(tempFilePath).text()
@@ -195,7 +246,10 @@ export function test() {
     } as any)
 
     const result = output[0].value
-    expect(result.applied).toBe(true)
+    expect(result).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+    })
 
     const finalContent = await Bun.file(tempFilePath).text()
     expect(finalContent).toBe(`import { a } from './a'
@@ -325,7 +379,10 @@ export function test() {
     } as any)
 
     const result = output[0].value
-    expect(result.applied).toBe(true)
+    expect(result).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+    })
     expect(await Bun.file(tempPythonPath).text()).toContain('hello buffy')
   })
 
@@ -366,7 +423,9 @@ func main() {
 
     const result = output[0].value
     expect(result.applied).toBe(false)
-    expect(result.message).toContain('Go files must include a valid package declaration')
+    expect(result.message).toContain(
+      'Go files must include a valid package declaration',
+    )
     expect(await Bun.file(tempGoPath).text()).toBe(originalContent)
   })
 
@@ -408,6 +467,78 @@ export const untouched = true
     expect(await Bun.file(tempFilePath).text()).toBe(originalContent)
   })
 
+  it('[SEC-H03] does not search globally beyond the bounded hunk range', async () => {
+    const filler = Array.from(
+      { length: 30 },
+      (_, index) => `// filler ${index}`,
+    )
+    const originalContent = [...filler, 'export const target = true', ''].join(
+      '\n',
+    )
+    await Bun.write(tempFilePath, originalContent)
+    const patch = `@@ -1,1 +1,1 @@
+-export const target = true
++export const target = false`
+    const fileProcessingState = {
+      promisesByPath: {},
+      allPromises: [],
+      failedEditRequiresReadByPath: {},
+    }
+
+    const { output } = await handleApplySmartPatch({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        input: {
+          path: tempFilePath,
+          patch,
+          fuzzFactor: 0,
+          autoHeal: false,
+          preflightCompile: false,
+        },
+      },
+      requestOptionalFile: async () => originalContent,
+      fileProcessingState,
+    } as any)
+
+    expect(output[0].value.applied).toBe(false)
+    expect(await Bun.file(tempFilePath).text()).toBe(originalContent)
+  })
+
+  it('[COR-H01] applies insertion-only hunks at the exact adjusted position', async () => {
+    const originalContent = 'first\nsecond\nthird\n'
+    await Bun.write(tempFilePath, originalContent)
+    const patch = `@@ -2,0 +3,1 @@
++inserted`
+    const fileProcessingState = {
+      promisesByPath: {},
+      allPromises: [],
+      failedEditRequiresReadByPath: {},
+    }
+
+    const { output } = await handleApplySmartPatch({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        input: {
+          path: tempFilePath,
+          patch,
+          fuzzFactor: 3,
+          autoHeal: false,
+          preflightCompile: false,
+        },
+      },
+      requestOptionalFile: async () => originalContent,
+      fileProcessingState,
+    } as any)
+
+    expect(output[0].value).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+    })
+    expect(await Bun.file(tempFilePath).text()).toBe(
+      'first\nsecond\ninserted\nthird\n',
+    )
+  })
+
   it('Python preflight: ignores # characters inside strings', async () => {
     const originalContent = `def has_hash(value):
     if value == "#":
@@ -445,8 +576,13 @@ export const untouched = true
     } as any)
 
     const result = output[0].value
-    expect(result.applied).toBe(true)
-    expect(await Bun.file(tempPythonPath).text()).toContain('return bool(value)')
+    expect(result).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+    })
+    expect(await Bun.file(tempPythonPath).text()).toContain(
+      'return bool(value)',
+    )
   })
 
   it('Go preflight: allows function types and multiline function declarations', async () => {
@@ -495,7 +631,10 @@ func main() {
     } as any)
 
     const result = output[0].value
-    expect(result.applied).toBe(true)
+    expect(result).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+    })
     const updatedContent = await Bun.file(tempGoPath).text()
     expect(updatedContent).toContain('type HandlerFunc func(string) error')
     expect(updatedContent).toContain('func main(\n) {')
@@ -547,7 +686,10 @@ func foo(
     } as any)
 
     const result = output[0].value
-    expect(result.applied).toBe(true)
+    expect(result).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+    })
     expect(await Bun.file(tempGoPath).text()).toContain('return "buffy", nil')
   })
 })

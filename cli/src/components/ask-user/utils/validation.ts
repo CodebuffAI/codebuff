@@ -27,7 +27,7 @@ export interface QuestionValidation {
 export function validateOtherText(
   text: string,
   validation?: QuestionValidation,
-  maxLength: number = 500
+  maxLength: number = 500,
 ): ValidationResult {
   // Default max length check
   if (text.length > maxLength) {

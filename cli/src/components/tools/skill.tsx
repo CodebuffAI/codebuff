@@ -13,17 +13,14 @@ export const SkillComponent = defineToolComponent({
   render(toolBlock): ToolRenderConfig {
     const input = toolBlock.input as any
 
-    const skillName =
-      typeof input?.name === 'string' ? input.name.trim() : ''
+    const skillName = typeof input?.name === 'string' ? input.name.trim() : ''
 
     if (!skillName) {
       return { content: null }
     }
 
     return {
-      content: (
-        <SimpleToolCallItem name="Load Skill" description={skillName} />
-      ),
+      content: <SimpleToolCallItem name="Load Skill" description={skillName} />,
     }
   },
 })

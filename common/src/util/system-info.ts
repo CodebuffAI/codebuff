@@ -40,7 +40,6 @@ export const findChromeExecutable = (): string | null => {
 }
 
 export const getSystemInfo = (processEnv: ProcessEnv = getProcessEnv()) => {
-
   return {
     platform,
     shell: 'bash',

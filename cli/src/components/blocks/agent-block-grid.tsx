@@ -46,8 +46,8 @@ export const AgentBlockGrid = memo(
         style={{
           flexDirection: 'column',
           gap: 0,
-          flexGrow: 1,
-          flexShrink: 1,
+          flexGrow: 0,
+          flexShrink: 0,
           minWidth: 0,
         }}
       >

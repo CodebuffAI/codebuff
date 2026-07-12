@@ -96,9 +96,7 @@ export function extractUnityRefs(
     const match = guidRegex.exec(content)
     if (match) {
       const guid = match[1].toLowerCase()
-      const assetPath = selfPath
-        ? selfPath.replace(/\.meta$/, '')
-        : selfPath
+      const assetPath = selfPath ? selfPath.replace(/\.meta$/, '') : selfPath
       refs.push({
         rawRef: guid,
         refType: 'guid',
@@ -112,7 +110,10 @@ export function extractUnityRefs(
   // .prefab / .unity: extract external guid references.
   let m: RegExpExecArray | null
   const guidRegex = new RegExp(UNITY_GUID_REGEX_SOURCE, 'g')
-  while ((m = guidRegex.exec(content)) !== null && refs.length < MAX_ASSET_REFS_PER_FILE) {
+  while (
+    (m = guidRegex.exec(content)) !== null &&
+    refs.length < MAX_ASSET_REFS_PER_FILE
+  ) {
     const guid = m[1].toLowerCase()
     const key = `guid:${guid}`
     if (!seen.has(key)) {
@@ -127,7 +128,10 @@ export function extractUnityRefs(
 
   // Also extract fileID references (local, always unresolved).
   const fileIdRegex = new RegExp(UNITY_FILEID_REGEX_SOURCE, 'g')
-  while ((m = fileIdRegex.exec(content)) !== null && refs.length < MAX_ASSET_REFS_PER_FILE) {
+  while (
+    (m = fileIdRegex.exec(content)) !== null &&
+    refs.length < MAX_ASSET_REFS_PER_FILE
+  ) {
     const fileId = m[1]
     const key = `file_id:${fileId}`
     if (!seen.has(key)) {
@@ -154,7 +158,8 @@ export function extractUnityRefs(
  * We extract the `res://` path, stripping the protocol to get a project-
  * relative path.
  */
-const GODOT_EXT_RESOURCE_REGEX_SOURCE = '\\[ext_resource[^\\]]*path="res:\\/\\/([^"]+)"'
+const GODOT_EXT_RESOURCE_REGEX_SOURCE =
+  '\\[ext_resource[^\\]]*path="res:\\/\\/([^"]+)"'
 
 /**
  * Godot preload()/load() regex source. GDScript code references resources via:
@@ -178,7 +183,10 @@ export function extractGodotRefs(content: string): AssetRef[] {
 
   let m: RegExpExecArray | null
   const regex = new RegExp(GODOT_EXT_RESOURCE_REGEX_SOURCE, 'g')
-  while ((m = regex.exec(content)) !== null && refs.length < MAX_ASSET_REFS_PER_FILE) {
+  while (
+    (m = regex.exec(content)) !== null &&
+    refs.length < MAX_ASSET_REFS_PER_FILE
+  ) {
     const resPath = m[1]
     const key = `res:${resPath}`
     if (!seen.has(key)) {
@@ -209,7 +217,10 @@ export function extractGodotScriptRefs(content: string): AssetRef[] {
 
   let m: RegExpExecArray | null
   const regex = new RegExp(GODOT_PRELOAD_REGEX_SOURCE, 'g')
-  while ((m = regex.exec(content)) !== null && refs.length < MAX_ASSET_REFS_PER_FILE) {
+  while (
+    (m = regex.exec(content)) !== null &&
+    refs.length < MAX_ASSET_REFS_PER_FILE
+  ) {
     const resPath = m[1]
     const key = `res:${resPath}`
     if (!seen.has(key)) {
@@ -311,16 +322,29 @@ export function extractUnrealRefs(content: string): AssetRef[] {
  * file paths (contain `/` and/or have a known extension) to avoid noise from
  * arbitrary string values.
  */
-const BEVY_ASSET_PATH_REGEX = /["']([a-zA-Z0-9_\-./]+\.(?:png|jpg|jpeg|gif|bmp|svg|wav|mp3|ogg|flac|fbx|obj|gltf|glb|ron|toml))["']/gi
+const BEVY_ASSET_PATH_REGEX =
+  /["']([a-zA-Z0-9_\-./]+\.(?:png|jpg|jpeg|gif|bmp|svg|wav|mp3|ogg|flac|fbx|obj|gltf|glb|ron|toml))["']/gi
 
 /**
  * Known Bevy asset file extensions for path detection.
  */
 const BEVY_ASSET_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg',
-  '.wav', '.mp3', '.ogg', '.flac',
-  '.fbx', '.obj', '.gltf', '.glb',
-  '.ron', '.toml',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.bmp',
+  '.svg',
+  '.wav',
+  '.mp3',
+  '.ogg',
+  '.flac',
+  '.fbx',
+  '.obj',
+  '.gltf',
+  '.glb',
+  '.ron',
+  '.toml',
 ])
 
 export function extractBevyRefs(content: string): AssetRef[] {
@@ -329,7 +353,10 @@ export function extractBevyRefs(content: string): AssetRef[] {
 
   let m: RegExpExecArray | null
   const regex = new RegExp(BEVY_ASSET_PATH_REGEX.source, 'gi')
-  while ((m = regex.exec(content)) !== null && refs.length < MAX_ASSET_REFS_PER_FILE) {
+  while (
+    (m = regex.exec(content)) !== null &&
+    refs.length < MAX_ASSET_REFS_PER_FILE
+  ) {
     const assetPath = m[1]
     const key = `bevy:${assetPath}`
     if (!seen.has(key) && !assetPath.startsWith('http')) {

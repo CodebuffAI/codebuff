@@ -34,9 +34,10 @@ export const useChatInput = ({
 
   // Estimate the collapsed toggle width as rendered by AgentModeToggle.
   // Hide in bash mode, compact height, or narrow width.
-  const estimatedToggleWidth = inputMode !== 'default' || isCompactHeight || isNarrowWidth
-    ? 0
-    : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
+  const estimatedToggleWidth =
+    inputMode !== 'default' || isCompactHeight || isNarrowWidth
+      ? 0
+      : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
 
   // The content box that wraps the input row has paddingLeft/paddingRight = 1
   // (see cli/src/chat.tsx). Subtract those columns so our MultilineInput width

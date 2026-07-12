@@ -2,7 +2,15 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage } from '@codebuff/common/util/messages'
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
@@ -12,6 +20,7 @@ import {
   getMatchingSpawn,
   isBaseAgent,
   toolNotAgentError,
+  validateAgentInput,
 } from '../tools/handlers/tool/spawn-agent-utils'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
@@ -74,16 +83,18 @@ describe('Spawn Agents Permissions', () => {
       ...handleSpawnAgentsBaseParams,
       tools: {},
     }
-    spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(async (options) => ({
-      agentState: {
-        ...options.agentState,
-        messageHistory: [assistantMessage('Mock agent response')],
-      },
-      output: {
-        type: 'lastMessage',
-        value: [assistantMessage('Mock agent response')],
-      },
-    }))
+    spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(
+      async (options) => ({
+        agentState: {
+          ...options.agentState,
+          messageHistory: [assistantMessage('Mock agent response')],
+        },
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('Mock agent response')],
+        },
+      }),
+    )
   })
 
   afterEach(() => {
@@ -92,9 +103,9 @@ describe('Spawn Agents Permissions', () => {
 
   it('matches underscored agent names to hyphenated spawnable agents', () => {
     expect(getMatchingSpawn(['file-picker'], 'file_picker')).toBe('file-picker')
-    expect(getMatchingSpawn(['openbuff/file-picker@1.0.0'], 'file_picker')).toBe(
-      'openbuff/file-picker@1.0.0',
-    )
+    expect(
+      getMatchingSpawn(['openbuff/file-picker@1.0.0'], 'file_picker'),
+    ).toBe('openbuff/file-picker@1.0.0')
   })
 
   it('allows spawning when the child agent is spawnable', async () => {
@@ -118,6 +129,36 @@ describe('Spawn Agents Permissions', () => {
     expect(JSON.stringify(output)).toContain('Mock agent response')
   })
 
+  it('keeps mixed background and foreground reports in input order', async () => {
+    const parentAgent = createMockAgent('parent', ['thinker'])
+    const childAgent = createMockAgent('thinker')
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+      toolName: 'spawn_agents',
+      toolCallId: 'spawn-mixed',
+      input: {
+        agents: [
+          { agent_type: 'thinker', prompt: 'background', background: true },
+          { agent_type: 'thinker', prompt: 'foreground' },
+        ],
+      },
+    }
+
+    const { output } = await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { thinker: childAgent },
+      toolCall,
+    })
+    const reports = output[0]?.type === 'json' ? output[0].value : undefined
+    expect(Array.isArray(reports)).toBe(true)
+    expect((reports as any[])[0].value).toMatchObject({ background: true })
+    expect(JSON.stringify((reports as any[])[1].value)).toContain(
+      'Mock agent response',
+    )
+  })
+
   it('rejects inline spawning when the child agent is not spawnable', async () => {
     const parentAgent = createMockAgent('parent', ['thinker'])
     const childAgent = createMockAgent('reviewer')
@@ -138,15 +179,44 @@ describe('Spawn Agents Permissions', () => {
       }),
     ).rejects.toThrow('is not allowed to spawn child agent type reviewer')
   })
+
+  it('rejects spawn batches above the sibling fan-out limit', async () => {
+    const parentAgent = createMockAgent('parent', ['thinker'])
+    const childAgent = createMockAgent('thinker')
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall = {
+      toolName: 'spawn_agents',
+      toolCallId: 'spawn-too-many',
+      input: {
+        agents: Array.from({ length: 9 }, (_, index) => ({
+          agent_type: 'thinker',
+          prompt: `task ${index}`,
+        })),
+      },
+    } as CodebuffToolCall<'spawn_agents'>
+
+    await expect(
+      handleSpawnAgents({
+        ...handleSpawnAgentsBaseParams,
+        agentState: sessionState.mainAgentState,
+        agentTemplate: parentAgent,
+        localAgentTemplates: { thinker: childAgent },
+        toolCall,
+      }),
+    ).rejects.toThrow('at most 8 agents')
+  })
 })
 
 describe('base-agent spawn helpers', () => {
   it('exposes the canonical set of base agent ids', () => {
     // Guard against accidental additions/removals — runtime spawn-permission
     // checks and the tool-executor pre-validation block must agree.
-    expect([...BASE_AGENT_IDS].sort()).toEqual(
-      ['base', 'base-experimental', 'base-free', 'base-max'],
-    )
+    expect([...BASE_AGENT_IDS].sort()).toEqual([
+      'base',
+      'base-experimental',
+      'base-free',
+      'base-max',
+    ])
   })
 
   it('isBaseAgent returns true for every entry in BASE_AGENT_IDS', () => {
@@ -182,5 +252,65 @@ describe('base-agent spawn helpers', () => {
       `"" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
     )
     expect(toolNotAgentError('weird name!')).toContain('"weird name!"')
+  })
+})
+
+describe('editor implementation brief validation', () => {
+  const editorTemplate = {
+    id: 'editor',
+    inputSchema: {
+      prompt: {
+        safeParse: () => ({ success: true }),
+      },
+    },
+  } as unknown as AgentTemplate
+
+  it('rejects empty, incidental, and placeholder-only sections', () => {
+    expect(() =>
+      validateAgentInput(
+        editorTemplate,
+        'editor',
+        [
+          'Requirements:',
+          'N/A',
+          'Target files:',
+          'N/A',
+          'Constraints/non-goals:',
+          'N/A',
+          'Patterns:',
+          'N/A',
+          'Risks:',
+          'N/A',
+        ].join('\n'),
+      ),
+    ).toThrow('Missing brief fields/sections')
+    expect(() =>
+      validateAgentInput(
+        editorTemplate,
+        'editor',
+        'The requirements mention target files, constraints, patterns and risks in passing.',
+      ),
+    ).toThrow('Missing brief fields/sections')
+  })
+
+  it('accepts non-empty multiline labeled sections', () => {
+    expect(() =>
+      validateAgentInput(
+        editorTemplate,
+        'editor',
+        [
+          'Requirements:',
+          '- Add the behavior.',
+          'Target files:',
+          '- src/a.ts',
+          'Constraints/non-goals:',
+          '- Do not change APIs.',
+          'Patterns:',
+          '- Follow src/b.ts.',
+          'Risks:',
+          '- Preserve compatibility.',
+        ].join('\n'),
+      ),
+    ).not.toThrow()
   })
 })

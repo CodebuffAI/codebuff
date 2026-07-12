@@ -20,8 +20,10 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
 
 // List of all available tools
 export const toolNames = [
+  'accept_proposal',
   'apply_patch',
   'apply_smart_patch',
+  'apply_proposal',
   'add_subgoal',
   'add_message',
   'ask_user',
@@ -49,12 +51,14 @@ export const toolNames = [
   'read_image',
   'read_logs',
   'read_outline',
+  'read_proposals',
   'read_slices',
   'read_proposal_workspace',
   'read_subtree',
   'replace_range',
   'rewrite_symbol',
   'render_ui',
+  'reject_proposal',
   'run_file_change_hooks',
   'run_terminal_command',
   'set_messages',
@@ -74,8 +78,10 @@ export const toolNames = [
 ] as const
 
 export const publishedTools = [
+  'accept_proposal',
   'apply_patch',
   'apply_smart_patch',
+  'apply_proposal',
   'add_message',
   'ask_user',
   'check_background_agent',
@@ -100,12 +106,14 @@ export const publishedTools = [
   'read_image',
   'read_logs',
   'read_outline',
+  'read_proposals',
   'read_slices',
   'read_proposal_workspace',
   'read_subtree',
   'replace_range',
   'rewrite_symbol',
   'render_ui',
+  'reject_proposal',
   'run_file_change_hooks',
   'run_terminal_command',
   'set_messages',
@@ -125,6 +133,17 @@ export const publishedTools = [
 
 export type ToolName = (typeof toolNames)[number]
 export type PublishedToolName = (typeof publishedTools)[number]
+
+/**
+ * Registered compatibility tools that shipped agents must not expose until
+ * their shared filesystem-authority/result-contract migrations are complete.
+ * Registration remains intact so persisted histories and external callers can
+ * receive an explicit compatibility response instead of an unknown-tool error.
+ */
+export const quarantinedToolNames: readonly ToolName[] = [
+  'apply_smart_patch',
+  'read_slices',
+]
 
 /** Only used for validating tool definitions */
 export type $ToolParams<T extends ToolName = ToolName> = Required<

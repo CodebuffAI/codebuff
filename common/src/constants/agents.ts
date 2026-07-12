@@ -128,3 +128,6 @@ export const MAX_AGENT_STEPS_DEFAULT = 200
  * unbounded recursion (e.g. file-picker -> file-picker -> ...).
  */
 export const MAX_SPAWN_DEPTH_DEFAULT = 3
+
+/** Maximum sibling agents accepted by one spawn_agents call. */
+export const MAX_SPAWN_BATCH_SIZE = 8

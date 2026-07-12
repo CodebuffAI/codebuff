@@ -5,7 +5,7 @@ import { logger } from '../utils/logger'
 import type { PendingAttachment } from '../types/store'
 import type { MutableRefObject } from 'react'
 
-export type StreamStatus = 'idle' | 'waiting' | 'streaming'
+export type StreamStatus = 'idle' | 'waiting' | 'streaming' | 'cancelling'
 
 export type QueuedMessage = {
   content: string
@@ -50,10 +50,7 @@ export type BeginQueuedMessageProcessingParams = {
   watchdogTimeoutRef: MutableRefObject<QueueWatchdogTimer | null>
   queueProcessingOwnerRef: MutableRefObject<symbol | null>
   setCanProcessQueue: (can: boolean) => void
-  setTimeoutFn?: (
-    callback: () => void,
-    timeoutMs: number,
-  ) => QueueWatchdogTimer
+  setTimeoutFn?: (callback: () => void, timeoutMs: number) => QueueWatchdogTimer
   clearTimeoutFn?: (timeout: QueueWatchdogTimer) => void
 }
 
@@ -105,6 +102,7 @@ export const beginQueuedMessageProcessing = (
 export type CompleteQueuedMessageProcessingParams = {
   messageToProcess: QueuedMessage
   sendMessage: (message: QueuedMessage) => Promise<void>
+  onRejected?: (message: QueuedMessage, error: unknown) => void
   isProcessingQueueRef: MutableRefObject<boolean>
   watchdogTimeoutRef: MutableRefObject<QueueWatchdogTimer | null>
   queueProcessingRun: QueueProcessingRun
@@ -116,6 +114,7 @@ export const completeQueuedMessageProcessing = (
   const {
     messageToProcess,
     sendMessage,
+    onRejected,
     isProcessingQueueRef,
     watchdogTimeoutRef,
     queueProcessingRun,
@@ -127,6 +126,7 @@ export const completeQueuedMessageProcessing = (
         { error: err },
         '[message-queue] sendMessage promise rejected',
       )
+      onRejected?.(messageToProcess, err)
     })
     .finally(() => {
       if (!queueProcessingRun.isCurrentQueueProcessingOwner()) {
@@ -147,6 +147,7 @@ export const completeQueuedMessageProcessing = (
 export type RunQueuedMessageParams = BeginQueuedMessageProcessingParams & {
   messageToProcess: QueuedMessage
   sendMessage: (message: QueuedMessage) => Promise<void>
+  onRejected?: (message: QueuedMessage, error: unknown) => void
 }
 
 export const runQueuedMessage = (params: RunQueuedMessageParams): void => {
@@ -155,6 +156,7 @@ export const runQueuedMessage = (params: RunQueuedMessageParams): void => {
   completeQueuedMessageProcessing({
     messageToProcess: params.messageToProcess,
     sendMessage: params.sendMessage,
+    onRejected: params.onRejected,
     isProcessingQueueRef: params.isProcessingQueueRef,
     watchdogTimeoutRef: params.watchdogTimeoutRef,
     queueProcessingRun,
@@ -307,6 +309,19 @@ export const useMessageQueue = (
     completeQueuedMessageProcessing({
       messageToProcess,
       sendMessage,
+      onRejected: (rejectedMessage) => {
+        // A queued prompt is user data. Put it back at the front and pause the
+        // queue so a transient or deterministic send failure cannot silently
+        // discard it or trigger an unbounded retry loop.
+        setQueuedMessages((current) => {
+          const restored = [rejectedMessage, ...current]
+          queuedMessagesRef.current = restored
+          return restored
+        })
+        isQueuePausedRef.current = true
+        setQueuePausedState(true)
+        setCanProcessQueue(false)
+      },
       isProcessingQueueRef,
       watchdogTimeoutRef,
       queueProcessingRun,
@@ -321,7 +336,13 @@ export const useMessageQueue = (
 
   useEffect(() => {
     processNextMessage()
-  }, [canProcessQueue, streamStatus, queuedMessages.length, processNextMessage, isChainInProgressRef])
+  }, [
+    canProcessQueue,
+    streamStatus,
+    queuedMessages.length,
+    processNextMessage,
+    isChainInProgressRef,
+  ])
 
   const addToQueue = useCallback(
     (message: string, attachments: PendingAttachment[] = []) => {

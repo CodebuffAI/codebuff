@@ -261,7 +261,10 @@ describe('normalizeProviderRequestBodyForCacheDebug', () => {
     }) as Record<string, unknown>
     const serialized = JSON.stringify(out)
     const tools = out['tools'] as Array<Record<string, unknown>>
-    const headers = tools[0]['headers'] as Record<string, Record<string, unknown>>
+    const headers = tools[0]['headers'] as Record<
+      string,
+      Record<string, unknown>
+    >
 
     expect(headers['Authorization']).toEqual({
       type: 'redacted-secret',

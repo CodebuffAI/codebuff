@@ -30,7 +30,10 @@ import type {
 import type { ReactNode } from 'react'
 
 // Helper component to work around TypeScript's Fragment key typing issue
-const KeyedFragment = React.Fragment as React.FC<{ key?: string | number; children?: ReactNode }>
+const KeyedFragment = React.Fragment as React.FC<{
+  key?: string | number
+  children?: ReactNode
+}>
 
 // Helper to wrap segments in KeyedFragments
 const wrapSegmentsInFragments = (
@@ -107,10 +110,7 @@ const resolvePalette = (
   return palette
 }
 
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkBreaks)
+const processor = unified().use(remarkParse).use(remarkGfm).use(remarkBreaks)
 
 type MarkdownNode = Content | Root
 
@@ -260,7 +260,10 @@ function appendWrappedInlineSegment(
   if (isWhitespace && currentWidth.value === 0) return
 
   if (segmentWidth <= maxWidth) {
-    if (currentWidth.value > 0 && currentWidth.value + segmentWidth > maxWidth) {
+    if (
+      currentWidth.value > 0 &&
+      currentWidth.value + segmentWidth > maxWidth
+    ) {
       nodes.push('\n')
       currentWidth.value = 0
       if (isWhitespace) return
@@ -281,7 +284,10 @@ function appendWrappedInlineSegment(
     if (tokenWidth > maxWidth && !tokenIsWhitespace) {
       for (const char of token) {
         const charWidth = stringWidth(char)
-        if (currentWidth.value > 0 && currentWidth.value + charWidth > maxWidth) {
+        if (
+          currentWidth.value > 0 &&
+          currentWidth.value + charWidth > maxWidth
+        ) {
           nodes.push('\n')
           currentWidth.value = 0
         }
@@ -313,7 +319,13 @@ function wrapInlineNodes(
   const wrapped: ReactNode[] = []
   const currentWidth = { value: 0 }
   segments.forEach((segment) => {
-    appendWrappedInlineSegment(wrapped, segment, maxWidth, nextKey, currentWidth)
+    appendWrappedInlineSegment(
+      wrapped,
+      segment,
+      maxWidth,
+      nextKey,
+      currentWidth,
+    )
   })
 
   return wrapped
@@ -328,7 +340,11 @@ const hasUnescapedMarker = (value: string): boolean => {
     let idx = value.indexOf(marker)
     while (idx !== -1) {
       let backslashes = 0
-      for (let offset = idx - 1; offset >= 0 && value[offset] === '\\'; offset -= 1) {
+      for (
+        let offset = idx - 1;
+        offset >= 0 && value[offset] === '\\';
+        offset -= 1
+      ) {
         backslashes += 1
       }
       if (backslashes % 2 === 0) {
@@ -352,7 +368,11 @@ const findClosingDelimiter = (
       return -1
     }
     let backslashes = 0
-    for (let offset = idx - 1; offset >= 0 && value[offset] === '\\'; offset -= 1) {
+    for (
+      let offset = idx - 1;
+      offset >= 0 && value[offset] === '\\';
+      offset -= 1
+    ) {
       backslashes += 1
     }
     if (backslashes % 2 === 0) {
@@ -422,10 +442,9 @@ const parseInlineFallback = (value: string): InlineFallbackNode[] => {
         (node) => !(node.type === 'text' && node.value.length === 0),
       )
 
-      const emphasisNode: InlineFallbackNode =
-        isDouble
-          ? { type: 'strong', children }
-          : { type: 'emphasis', children }
+      const emphasisNode: InlineFallbackNode = isDouble
+        ? { type: 'strong', children }
+        : { type: 'emphasis', children }
 
       nodes.push(emphasisNode)
       index = closing + markerLength
@@ -498,7 +517,9 @@ const nodeToPlainText = (node: MarkdownNode): string => {
       return getChildrenText((node as Root).children as MarkdownNode[])
 
     case 'paragraph':
-      return getChildrenText((node as Paragraph).children as MarkdownNode[]) + '\n\n'
+      return (
+        getChildrenText((node as Paragraph).children as MarkdownNode[]) + '\n\n'
+      )
 
     case 'text':
       return (node as Text).value
@@ -525,7 +546,9 @@ const nodeToPlainText = (node: MarkdownNode): string => {
         list.children
           .map((item, idx) => {
             const marker = list.ordered ? `${(list.start ?? 1) + idx}. ` : '- '
-            const text = getChildrenText((item as ListItem).children as MarkdownNode[]).trimEnd()
+            const text = getChildrenText(
+              (item as ListItem).children as MarkdownNode[],
+            ).trimEnd()
             return marker + text
           })
           .join('\n') + '\n\n'
@@ -557,20 +580,23 @@ const nodeToPlainText = (node: MarkdownNode): string => {
 
     case 'link': {
       const link = node as Link
-      const label = link.children.length > 0
-        ? getChildrenText(link.children as MarkdownNode[])
-        : link.url
+      const label =
+        link.children.length > 0
+          ? getChildrenText(link.children as MarkdownNode[])
+          : link.url
       return label
     }
 
     case 'table': {
       const table = node as Table
-      return table.children
-        .map((row) => {
-          const cells = (row as TableRow).children as TableCell[]
-          return cells.map((cell) => nodeToPlainText(cell)).join(' | ')
-        })
-        .join('\n') + '\n\n'
+      return (
+        table.children
+          .map((row) => {
+            const cells = (row as TableRow).children as TableCell[]
+            return cells.map((cell) => nodeToPlainText(cell)).join(' | ')
+          })
+          .join('\n') + '\n\n'
+      )
     }
 
     case 'tableRow':
@@ -897,12 +923,12 @@ const renderTable = (table: Table, state: RenderState): ReactNode[] => {
     const availableForContent = availableWidth - numSeparators * separatorWidth
     const totalNaturalContent = naturalWidths.reduce((a, b) => a + b, 0)
     const scale = availableForContent / totalNaturalContent
-    
+
     columnWidths = naturalWidths.map((w) => {
       // Minimum 3 chars, scale the rest
       return Math.max(3, Math.floor(w * scale))
     })
-    
+
     // Distribute any remaining width to columns that were clamped
     let usedWidth = columnWidths.reduce((a, b) => a + b, 0)
     let remaining = availableForContent - usedWidth
@@ -916,7 +942,11 @@ const renderTable = (table: Table, state: RenderState): ReactNode[] => {
   }
 
   // Helper to render a horizontal separator line
-  const renderSeparator = (leftChar: string, midChar: string, rightChar: string): void => {
+  const renderSeparator = (
+    leftChar: string,
+    midChar: string,
+    rightChar: string,
+  ): void => {
     let line = leftChar
     columnWidths.forEach((width, idx) => {
       line += '─'.repeat(width + 2) // +2 for padding spaces
@@ -970,8 +1000,7 @@ const renderTable = (table: Table, state: RenderState): ReactNode[] => {
             attributes={isHeader ? TextAttributes.BOLD : undefined}
           >
             {' '}
-            {displayText}
-            {' '}
+            {displayText}{' '}
           </span>,
         )
 
@@ -1199,9 +1228,7 @@ const mergeStreamingSegments = (segments: ReactNode[]): ReactNode => {
   return (
     <>
       {segments.map((segment, idx) => (
-        <KeyedFragment key={`stream-segment-${idx}`}>
-          {segment}
-        </KeyedFragment>
+        <KeyedFragment key={`stream-segment-${idx}`}>{segment}</KeyedFragment>
       ))}
     </>
   )

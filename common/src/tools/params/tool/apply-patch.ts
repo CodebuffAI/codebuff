@@ -2,10 +2,12 @@ import z from 'zod/v4'
 
 import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 import { basedOnReadRangeSchema } from '../based-on-read'
+import { fileMutationResultV1Schema } from '../../results/filesystem'
 
 import type { $ToolParams } from '../../constants'
 
 export const applyPatchResultSchema = z.union([
+  fileMutationResultV1Schema,
   z.object({
     message: z.string(),
     applied: z.array(

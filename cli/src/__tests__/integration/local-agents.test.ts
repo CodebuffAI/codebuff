@@ -20,13 +20,17 @@ import { setProjectRoot, getProjectRoot } from '../../project-files'
 import {
   loadAgentDefinitions,
   loadLocalAgents,
-  initializeAgentRegistry,
+  initializeAgentRegistry as initializeAgentRegistryImpl,
   findAgentsDirectory,
   getLoadedAgentsData,
   getLoadedAgentsMessage,
+  getAgentRegistryDiagnostics,
   announceLoadedAgents,
   __resetLocalAgentRegistryForTests,
 } from '../../utils/local-agent-registry'
+
+const initializeAgentRegistry = () =>
+  initializeAgentRegistryImpl({ trustProjectAgents: true })
 
 const MODEL_NAME = 'anthropic/claude-sonnet-4'
 
@@ -72,7 +76,9 @@ describe('Local Agent Integration', () => {
     // No user-defined agents should be loaded (bundled agents like
     // `test-writer` are compiled into the CLI binary and may still appear).
     expect(
-      definitions.find((d) => d.id.startsWith('test-') && d.id !== 'test-writer')
+      definitions.find(
+        (d) => d.id.startsWith('test-') && d.id !== 'test-writer',
+      ),
     ).toBeUndefined()
   })
 
@@ -337,12 +343,9 @@ describe('Local Agent Integration', () => {
     )
 
     await initializeAgentRegistry()
-    const definitions = loadAgentDefinitions()
-    const result = await validateAgents(definitions, { remote: false })
-
-    expect(result.success).toBe(false)
+    const diagnostics = getAgentRegistryDiagnostics()
     expect(
-      result.validationErrors
+      diagnostics
         .map((error) => error.message)
         .join('\n')
         .toLowerCase(),
@@ -557,8 +560,12 @@ describe('Local Agent Integration', () => {
       (d) => d.id === 'test-async-generator-agent',
     )
 
-    expect(asyncAgent).toBeDefined()
-    expect(asyncAgent!.handleSteps).toBeDefined()
+    expect(asyncAgent).toBeUndefined()
+    expect(
+      getAgentRegistryDiagnostics().some(
+        (error) => error.agentId === 'test-async-generator-agent',
+      ),
+    ).toBe(true)
   })
 
   // ============================================================================
@@ -611,22 +618,12 @@ describe('Local Agent Integration', () => {
     const definitions = loadAgentDefinitions()
     const fullAgent = definitions.find((d) => d.id === 'test-full-agent')
 
-    expect(fullAgent).toBeDefined()
-    expect(fullAgent!.displayName).toBe('Fully Specified Agent')
-    expect(fullAgent!.version).toBe('1.2.3')
-    expect(fullAgent!.publisher).toBe('test-publisher')
-    expect(fullAgent!.toolNames).toContain('read_files')
-    expect(fullAgent!.spawnableAgents).toContain('openbuff/file-picker@0.0.1')
-    expect(fullAgent!.systemPrompt).toBe('You are a helpful assistant.')
-    expect(fullAgent!.instructionsPrompt).toBe(
-      'Follow these instructions carefully.',
-    )
-    expect(fullAgent!.stepPrompt).toBe('Think step by step.')
-    expect(fullAgent!.spawnerPrompt).toBe('Use this agent for complex tasks.')
-    expect(fullAgent!.includeMessageHistory).toBe(true)
-    expect(fullAgent!.outputMode).toBe('structured_output')
-    expect(fullAgent!.outputSchema).toBeDefined()
-    expect(fullAgent!.inputSchema).toBeDefined()
+    expect(fullAgent).toBeUndefined()
+    expect(
+      getAgentRegistryDiagnostics().some(
+        (error) => error.agentId === 'test-full-agent',
+      ),
+    ).toBe(true)
   })
 
   // ============================================================================
@@ -641,7 +638,11 @@ describe('Local Agent Integration', () => {
     // With bundled agents, this will return data (not null)
     // The key is that user agents from test-* should not be present
     if (data) {
-      expect(data.agents.find((a) => a.id.startsWith('test-'))).toBeUndefined()
+      expect(
+        data.agents.find(
+          (a) => a.id.startsWith('test-') && a.filePath !== '[bundled]',
+        ),
+      ).toBeUndefined()
     }
   })
 
@@ -677,7 +678,10 @@ describe('Local Agent Integration', () => {
     // With bundled agents, this will return a message (not null)
     // The key is that user agents from test-* should not be present
     if (message) {
-      expect(message).not.toContain('test-')
+      const userAgents = getLoadedAgentsData()?.agents.filter(
+        (agent) => agent.filePath !== '[bundled]',
+      )
+      expect(userAgents).toEqual([])
     }
   })
 
@@ -1131,22 +1135,16 @@ describe('Local Agent Integration', () => {
 
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
-    const result = await validateAgents(definitions, { remote: false })
-
-    // Should have validation errors for invalid spawnable agent format
-    const badAgent = definitions.find(
-      (d) => d.id === 'test-bad-spawnable-agent',
-    )
-    expect(badAgent).toBeDefined()
-
-    // The validation should catch the format issue
-    const hasSpawnableError = result.validationErrors.some(
+    expect(
+      definitions.find((d) => d.id === 'test-bad-spawnable-agent'),
+    ).toBeUndefined()
+    const hasSpawnableError = getAgentRegistryDiagnostics().some(
       (e) =>
         e.message.toLowerCase().includes('spawnable') ||
         e.message.toLowerCase().includes('format') ||
-        e.id.includes('test-bad-spawnable'),
+        e.agentId.includes('test-bad-spawnable'),
     )
-    expect(hasSpawnableError || !result.success).toBe(true)
+    expect(hasSpawnableError).toBe(true)
   })
 
   test('validates agents with conflicting outputMode and outputSchema', async () => {
@@ -1173,13 +1171,9 @@ describe('Local Agent Integration', () => {
     )
 
     await initializeAgentRegistry()
-    const definitions = loadAgentDefinitions()
-    const result = await validateAgents(definitions, { remote: false })
-
-    // Should flag that outputSchema requires structured_output mode
-    expect(result.success).toBe(false)
+    const diagnostics = getAgentRegistryDiagnostics()
     expect(
-      result.validationErrors.some(
+      diagnostics.some(
         (e) =>
           e.message.toLowerCase().includes('structured') ||
           e.message.toLowerCase().includes('output'),

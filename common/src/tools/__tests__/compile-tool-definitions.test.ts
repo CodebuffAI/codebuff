@@ -16,6 +16,8 @@ describe('compileToolDefinitions', () => {
     expect(definitions).toContain('  [key: string]: any')
     expect(definitions).toContain('export interface SpawnAgentsParams {')
     expect(definitions).toContain('"params"?: {')
-    expect(definitions).toMatch(/"params"\?: \{[\s\S]*\[key: string\]: any[\s\S]*\}/)
+    expect(definitions).toMatch(
+      /"params"\?: \{[\s\S]*\[key: string\]: any[\s\S]*\}/,
+    )
   })
 })

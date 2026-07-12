@@ -25,7 +25,9 @@ describe('handleCheckJob', () => {
     const { output } = await handleCheckJob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
-      requestClientToolCall: async (clientToolCall: ClientToolCall<'check_job'>) => {
+      requestClientToolCall: async (
+        clientToolCall: ClientToolCall<'check_job'>,
+      ) => {
         forwardedToolCall = clientToolCall
         return [
           {

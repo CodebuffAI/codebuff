@@ -2,7 +2,7 @@ import { mock } from 'bun:test'
 
 import type { CodebuffFileSystem } from '../../types/filesystem'
 import type { Mock } from 'bun:test'
-import type { PathLike , Stats } from 'node:fs'
+import type { PathLike, Stats } from 'node:fs'
 
 export interface CreateMockFsOptions {
   files?: Record<string, string>
@@ -14,6 +14,7 @@ export interface CreateMockFsOptions {
     path: string,
     options?: { recursive?: boolean },
   ) => Promise<string | undefined>
+  realpathImpl?: (path: string) => Promise<string>
   statImpl?: (path: string) => Promise<Stats>
   unlinkImpl?: (path: string) => Promise<void>
 }
@@ -32,8 +33,13 @@ export interface MockFsWithMocks {
       options?: { recursive?: boolean },
     ) => Promise<string | undefined>
   >
+  realpath: Mock<(path: PathLike) => Promise<string>>
   stat: Mock<(path: PathLike) => Promise<Stats>>
   unlink: Mock<(path: PathLike) => Promise<void>>
+}
+
+function notFoundError(message: string): Error & { code: 'ENOENT' } {
+  return Object.assign(new Error(message), { code: 'ENOENT' as const })
 }
 
 /** Creates a mock filesystem compatible with CodebuffFileSystem. */
@@ -45,6 +51,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     readdirImpl,
     writeFileImpl,
     mkdirImpl,
+    realpathImpl,
     statImpl,
     unlinkImpl,
   } = options
@@ -57,7 +64,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     if (pathStr in writtenFiles) {
       return writtenFiles[pathStr]
     }
-    throw new Error(`File not found: ${pathStr}`)
+    throw notFoundError(`File not found: ${pathStr}`)
   }
 
   const defaultReaddir = async (path: PathLike): Promise<string[]> => {
@@ -65,7 +72,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     if (pathStr in directories) {
       return directories[pathStr]
     }
-    throw new Error(`Directory not found: ${pathStr}`)
+    throw notFoundError(`Directory not found: ${pathStr}`)
   }
 
   const defaultWriteFile = async (
@@ -85,10 +92,13 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
   const defaultUnlink = async (path: PathLike): Promise<void> => {
     const pathStr = String(path)
     if (!(pathStr in writtenFiles)) {
-      throw new Error(`File not found: ${pathStr}`)
+      throw notFoundError(`File not found: ${pathStr}`)
     }
     delete writtenFiles[pathStr]
   }
+
+  const defaultRealpath = async (path: PathLike): Promise<string> =>
+    String(path)
 
   const defaultStat = async (path: PathLike): Promise<Stats> => {
     const pathStr = String(path)
@@ -96,7 +106,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     const isDir = pathStr in directories || createdDirs.has(pathStr)
 
     if (!isFile && !isDir) {
-      throw new Error(`Path not found: ${pathStr}`)
+      throw notFoundError(`Path not found: ${pathStr}`)
     }
 
     return {
@@ -149,6 +159,10 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     ? async (path: PathLike) => statImpl(String(path))
     : defaultStat
 
+  const realpathFn = realpathImpl
+    ? async (path: PathLike) => realpathImpl(String(path))
+    : defaultRealpath
+
   const unlinkFn = unlinkImpl
     ? async (path: PathLike) => unlinkImpl(String(path))
     : defaultUnlink
@@ -158,6 +172,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     readdir: mock(readdirFn),
     writeFile: mock(writeFileFn),
     mkdir: mock(mkdirFn),
+    realpath: mock(realpathFn),
     stat: mock(statFn),
     unlink: mock(unlinkFn),
   } as unknown as MockFs
@@ -169,6 +184,7 @@ export function restoreMockFs(mockFs: MockFs): void {
   mocks.readdir.mockRestore()
   mocks.writeFile.mockRestore()
   mocks.mkdir.mockRestore()
+  mocks.realpath.mockRestore()
   mocks.stat.mockRestore()
   mocks.unlink.mockRestore()
 }
@@ -179,6 +195,7 @@ export function clearMockFs(mockFs: MockFs): void {
   mocks.readdir.mockClear()
   mocks.writeFile.mockClear()
   mocks.mkdir.mockClear()
+  mocks.realpath.mockClear()
   mocks.stat.mockClear()
   mocks.unlink.mockClear()
 }

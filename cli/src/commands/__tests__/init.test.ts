@@ -36,6 +36,7 @@ describe('handleInitializationFlowLocally', () => {
   let existsSyncSpy: ReturnType<typeof spyOn>
   let writeFileSyncSpy: ReturnType<typeof spyOn>
   let mkdirSyncSpy: ReturnType<typeof spyOn>
+  let linkSyncSpy: ReturnType<typeof spyOn>
   let getProjectRootSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
@@ -48,6 +49,9 @@ describe('handleInitializationFlowLocally', () => {
     existsSyncSpy = spyOn(fs, 'existsSync').mockReturnValue(false)
     writeFileSyncSpy = spyOn(fs, 'writeFileSync').mockImplementation(() => {})
     mkdirSyncSpy = spyOn(fs, 'mkdirSync').mockImplementation(() => undefined)
+    linkSyncSpy = spyOn(fs, 'linkSync').mockImplementation(() => {})
+    spyOn(fs, 'unlinkSync').mockImplementation(() => {})
+    spyOn(fs, 'rmdirSync').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -61,8 +65,15 @@ describe('handleInitializationFlowLocally', () => {
       const { postUserMessage } = handleInitializationFlowLocally()
 
       expect(writeFileSyncSpy).toHaveBeenCalledWith(
-        path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
+        expect.stringContaining(
+          path.join(TEST_PROJECT_ROOT, `${KNOWLEDGE_FILE_NAME}.`),
+        ),
         expect.stringContaining('# Project knowledge'),
+        { flag: 'wx' },
+      )
+      expect(linkSyncSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`${KNOWLEDGE_FILE_NAME}.`),
+        path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
 
       // Check message indicates creation
@@ -72,21 +83,24 @@ describe('handleInitializationFlowLocally', () => {
     })
 
     test('skips knowledge.md creation when it already exists', () => {
-      existsSyncSpy.mockImplementation((p: unknown) =>
-        p === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
+      existsSyncSpy.mockImplementation(
+        (p: unknown) => p === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
 
       const { postUserMessage } = handleInitializationFlowLocally()
 
       // writeFileSync should not be called for knowledge.md
       const knowledgeWriteCalls = writeFileSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
       expect(knowledgeWriteCalls.length).toBe(0)
 
       // Check message indicates file already exists
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('📋 `knowledge.md` already exists')
+      expect(getMessageText(messages)).toContain(
+        '📋 `knowledge.md` already exists',
+      )
     })
   })
 
@@ -106,15 +120,16 @@ describe('handleInitializationFlowLocally', () => {
     })
 
     test('skips .agents directory creation when it already exists', () => {
-      existsSyncSpy.mockImplementation((p: unknown) =>
-        p === path.join(TEST_PROJECT_ROOT, '.agents'),
+      existsSyncSpy.mockImplementation(
+        (p: unknown) => p === path.join(TEST_PROJECT_ROOT, '.agents'),
       )
 
       const { postUserMessage } = handleInitializationFlowLocally()
 
       // mkdirSync should not be called for .agents directory
       const agentsDirCalls = mkdirSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, '.agents'),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, '.agents'),
       )
       expect(agentsDirCalls.length).toBe(0)
 
@@ -151,12 +166,15 @@ describe('handleInitializationFlowLocally', () => {
 
       // mkdirSync should not be called for .agents/types directory
       const typesDirCalls = mkdirSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, '.agents', 'types'),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, '.agents', 'types'),
       )
       expect(typesDirCalls.length).toBe(0)
 
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('📋 `.agents/types/` already exists')
+      expect(getMessageText(messages)).toContain(
+        '📋 `.agents/types/` already exists',
+      )
     })
   })
 
@@ -169,8 +187,8 @@ describe('handleInitializationFlowLocally', () => {
       // Check that writeFileSync was called for type files
       const typeFiles = ['agent-definition.ts', 'tools.ts', 'util-types.ts']
       for (const fileName of typeFiles) {
-        const fileCalls = writeFileSyncSpy.mock.calls.filter((call: unknown[]) =>
-          (call[0] as string).endsWith(fileName),
+        const fileCalls = writeFileSyncSpy.mock.calls.filter(
+          (call: unknown[]) => (call[0] as string).includes(`${fileName}.`),
         )
         expect(fileCalls.length).toBe(1)
       }
@@ -195,18 +213,19 @@ describe('handleInitializationFlowLocally', () => {
 
       // agent-definition.ts should NOT be written
       const agentDefCalls = writeFileSyncSpy.mock.calls.filter(
-        (call: unknown[]) => (call[0] as string).endsWith('agent-definition.ts'),
+        (call: unknown[]) =>
+          (call[0] as string).includes('agent-definition.ts.'),
       )
       expect(agentDefCalls.length).toBe(0)
 
       // tools.ts and util-types.ts should be written
       const toolsCalls = writeFileSyncSpy.mock.calls.filter((call: unknown[]) =>
-        (call[0] as string).endsWith('tools.ts'),
+        (call[0] as string).includes('tools.ts.'),
       )
       expect(toolsCalls.length).toBe(1)
 
-      const utilTypesCalls = writeFileSyncSpy.mock.calls.filter((call: unknown[]) =>
-        (call[0] as string).endsWith('util-types.ts'),
+      const utilTypesCalls = writeFileSyncSpy.mock.calls.filter(
+        (call: unknown[]) => (call[0] as string).includes('util-types.ts.'),
       )
       expect(utilTypesCalls.length).toBe(1)
 
@@ -258,10 +277,10 @@ describe('handleInitializationFlowLocally', () => {
   })
 
   describe('error handling', () => {
-    test('handles writeFileSync errors for type files gracefully', () => {
+    test('rolls back and reports write errors for type files', () => {
       existsSyncSpy.mockReturnValue(false)
       writeFileSyncSpy.mockImplementation((p: unknown) => {
-        if ((p as string).endsWith('tools.ts')) {
+        if ((p as string).includes('tools.ts.')) {
           throw new Error('Permission denied')
         }
       })
@@ -271,22 +290,22 @@ describe('handleInitializationFlowLocally', () => {
       const messages = postUserMessage([])
       const messageContent = getMessageText(messages)
 
-      // Should have error message for tools.ts
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/tools.ts`')
+      expect(messageContent).toContain('Initialization failed')
       expect(messageContent).toContain('Permission denied')
+      expect(linkSyncSpy).toHaveBeenCalled()
     })
 
     test('handles writeFileSync errors for knowledge.md gracefully', () => {
       existsSyncSpy.mockReturnValue(false)
       writeFileSyncSpy.mockImplementation((p: unknown) => {
-        if ((p as string).endsWith(KNOWLEDGE_FILE_NAME)) {
+        if ((p as string).includes(`${KNOWLEDGE_FILE_NAME}.`)) {
           throw new Error('Disk full')
         }
       })
 
-      // The function should throw when knowledge.md write fails
-      // since knowledge.md write is not wrapped in try-catch
-      expect(() => handleInitializationFlowLocally()).toThrow('Disk full')
+      const messages = handleInitializationFlowLocally().postUserMessage([])
+      expect(getMessageText(messages)).toContain('Disk full')
+      expect(getMessageText(messages)).toContain('run `/init` again')
     })
 
     test('handles mkdirSync errors for .agents directory gracefully', () => {
@@ -298,9 +317,8 @@ describe('handleInitializationFlowLocally', () => {
         return undefined
       })
 
-      // The function should throw when .agents directory creation fails
-      // since mkdirSync is not wrapped in try-catch
-      expect(() => handleInitializationFlowLocally()).toThrow('Cannot create directory')
+      const messages = handleInitializationFlowLocally().postUserMessage([])
+      expect(getMessageText(messages)).toContain('Cannot create directory')
     })
 
     test('handles mkdirSync errors for .agents/types directory gracefully', () => {
@@ -315,15 +333,17 @@ describe('handleInitializationFlowLocally', () => {
         return undefined
       })
 
-      // The function should throw when .agents/types directory creation fails
-      expect(() => handleInitializationFlowLocally()).toThrow('Permission denied for types dir')
+      const messages = handleInitializationFlowLocally().postUserMessage([])
+      expect(getMessageText(messages)).toContain(
+        'Permission denied for types dir',
+      )
     })
 
-    test('continues copying other files when one type file fails', () => {
+    test('does not continue after a type file failure', () => {
       existsSyncSpy.mockReturnValue(false)
       writeFileSyncSpy.mockImplementation((p: unknown) => {
         // Only fail for agent-definition.ts
-        if ((p as string).endsWith('agent-definition.ts')) {
+        if ((p as string).includes('agent-definition.ts.')) {
           throw new Error('File locked')
         }
       })
@@ -332,19 +352,15 @@ describe('handleInitializationFlowLocally', () => {
       const messages = postUserMessage([])
       const messageContent = getMessageText(messages)
 
-      // Should have error for agent-definition.ts
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/agent-definition.ts`')
+      expect(messageContent).toContain('Initialization failed')
       expect(messageContent).toContain('File locked')
-
-      // But should still succeed for tools.ts and util-types.ts
-      expect(messageContent).toContain('✅ Copied `.agents/types/tools.ts`')
-      expect(messageContent).toContain('✅ Copied `.agents/types/util-types.ts`')
+      expect(messageContent).not.toContain('✅ Copied `.agents/types/tools.ts`')
     })
 
     test('handles non-Error exceptions in type file copying', () => {
       existsSyncSpy.mockReturnValue(false)
       writeFileSyncSpy.mockImplementation((p: unknown) => {
-        if ((p as string).endsWith('util-types.ts')) {
+        if ((p as string).includes('util-types.ts.')) {
           // Throw a non-Error value
           throw 'string error'
         }
@@ -354,15 +370,14 @@ describe('handleInitializationFlowLocally', () => {
       const messages = postUserMessage([])
       const messageContent = getMessageText(messages)
 
-      // Should handle non-Error exceptions gracefully
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/util-types.ts`')
+      expect(messageContent).toContain('Initialization failed')
       expect(messageContent).toContain('string error')
     })
 
     test('handles null/undefined exceptions in type file copying', () => {
       existsSyncSpy.mockReturnValue(false)
       writeFileSyncSpy.mockImplementation((p: unknown) => {
-        if ((p as string).endsWith('tools.ts')) {
+        if ((p as string).includes('tools.ts.')) {
           // Throw null
           throw null
         }
@@ -372,8 +387,7 @@ describe('handleInitializationFlowLocally', () => {
       const messages = postUserMessage([])
       const messageContent = getMessageText(messages)
 
-      // Should handle null exceptions with 'Unknown' fallback
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/tools.ts`')
+      expect(messageContent).toContain('Initialization failed')
       expect(messageContent).toContain('Unknown')
     })
   })
@@ -395,7 +409,8 @@ describe('handleInitializationFlowLocally', () => {
 
       // Should NOT create knowledge.md
       const knowledgeWriteCalls = writeFileSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
       expect(knowledgeWriteCalls.length).toBe(0)
 
@@ -412,8 +427,8 @@ describe('handleInitializationFlowLocally', () => {
       expect(typesDirCalls.length).toBe(1)
 
       // Should copy type files
-      const typeFileCalls = writeFileSyncSpy.mock.calls.filter((call: unknown[]) =>
-        (call[0] as string).startsWith(typesDir),
+      const typeFileCalls = writeFileSyncSpy.mock.calls.filter(
+        (call: unknown[]) => (call[0] as string).startsWith(typesDir),
       )
       expect(typeFileCalls.length).toBe(3)
 

@@ -730,10 +730,10 @@ describe('processBlocks', () => {
       const { handlers, calls } = createMockHandlers()
       const blocks: ContentBlock[] = [
         createTextBlock('text at 0'),
-        createNonImplementorAgent('fp-1', 'file-picker'),   // index 1
-        createNonImplementorAgent('b-1', 'basher'),          // index 2
-        createNonImplementorAgent('cr-1', 'code-reviewer'),  // index 3
-        createNonImplementorAgent('cs-1', 'code-searcher'),  // index 4
+        createNonImplementorAgent('fp-1', 'file-picker'), // index 1
+        createNonImplementorAgent('b-1', 'basher'), // index 2
+        createNonImplementorAgent('cr-1', 'code-reviewer'), // index 3
+        createNonImplementorAgent('cs-1', 'code-searcher'), // index 4
         createTextBlock('text at 5'),
       ]
 
@@ -800,11 +800,11 @@ describe('splitAgentsBySize', () => {
     ]
     const result = splitAgentsBySize(agents)
     expect(result).toEqual([
-      [agents[0]],          // file-picker (small)
-      [agents[1]],          // code-reviewer (large)
+      [agents[0]], // file-picker (small)
+      [agents[1]], // code-reviewer (large)
       [agents[2], agents[3]], // basher + basher (small)
-      [agents[4]],          // editor (large)
-      [agents[5]],          // researcher-web (small)
+      [agents[4]], // editor (large)
+      [agents[5]], // researcher-web (small)
     ])
   })
 })

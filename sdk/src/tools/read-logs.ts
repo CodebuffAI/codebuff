@@ -103,7 +103,10 @@ export async function readLogs(
 
   const isInsideRoot = (target: string) => {
     const relative = path.relative(rootRealPath, target)
-    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+    return (
+      relative === '' ||
+      (!relative.startsWith('..') && !path.isAbsolute(relative))
+    )
   }
 
   if (!isInsideRoot(resolved)) {

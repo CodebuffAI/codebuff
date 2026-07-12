@@ -18,11 +18,7 @@ function omitMediaPayloadsForTokenCount(
     return `[${this.type} ${this.mediaType ?? 'media'} payload omitted from token estimate; ${value.length} base64 chars]`
   }
 
-  if (
-    typeof value === 'string' &&
-    key === 'image' &&
-    this?.type === 'image'
-  ) {
+  if (typeof value === 'string' && key === 'image' && this?.type === 'image') {
     return `[image ${this.mediaType ?? 'media'} payload omitted from token estimate; ${value.length} base64 chars]`
   }
 

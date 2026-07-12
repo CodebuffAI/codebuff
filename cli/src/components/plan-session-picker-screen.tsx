@@ -39,11 +39,9 @@ interface PlanSessionPickerScreenProps {
   onCancel: () => void
 }
 
-export const PlanSessionPickerScreen: React.FC<PlanSessionPickerScreenProps> = ({
-  command,
-  onSelectSession,
-  onCancel,
-}) => {
+export const PlanSessionPickerScreen: React.FC<
+  PlanSessionPickerScreenProps
+> = ({ command, onSelectSession, onCancel }) => {
   const theme = useTheme()
   const { terminalWidth, terminalHeight } = useTerminalLayout()
   const contentWidth = terminalWidth - LAYOUT.CONTENT_PADDING
@@ -302,14 +300,16 @@ export const PlanSessionPickerScreen: React.FC<PlanSessionPickerScreenProps> = (
         >
           <box style={{ flexGrow: 1, flexShrink: 1 }}>
             <text style={{ fg: theme.muted }}>
-              ↑↓ navigate · Enter select · Esc {searchQuery ? 'clear search' : 'cancel'} · Ctrl+C cancel
+              ↑↓ navigate · Enter select · Esc{' '}
+              {searchQuery ? 'clear search' : 'cancel'} · Ctrl+C cancel
             </text>
           </box>
 
           {!isNarrowWidth && (
             <box style={{ flexShrink: 0 }}>
               <text style={{ fg: theme.muted }}>
-                {filteredItems.length} session{filteredItems.length === 1 ? '' : 's'}
+                {filteredItems.length} session
+                {filteredItems.length === 1 ? '' : 's'}
               </text>
             </box>
           )}

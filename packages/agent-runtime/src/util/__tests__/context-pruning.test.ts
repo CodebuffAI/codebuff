@@ -141,7 +141,9 @@ describe('getModelContextReservedTokens (M4.2 unified reserved-token policy)', (
 
 describe('getModelContextMessageLimit (M4 unified threshold convergence)', () => {
   it('returns DEFAULT_MAX_CONTEXT_TOKENS when model window is unknown', () => {
-    expect(getModelContextMessageLimit(undefined)).toBe(DEFAULT_MAX_CONTEXT_TOKENS)
+    expect(getModelContextMessageLimit(undefined)).toBe(
+      DEFAULT_MAX_CONTEXT_TOKENS,
+    )
   })
 
   it('subtracts the reserved overhead from the model context window', () => {

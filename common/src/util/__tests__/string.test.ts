@@ -53,13 +53,13 @@ describe('pluralize', () => {
     expect(pluralize(2, 'person')).toBe('2 people')
     expect(pluralize(2, 'child')).toBe('2 children')
     expect(pluralize(2, 'mouse')).toBe('2 mice')
-    
+
     // -ex/-ix → -ices (no reliable rule, must be hardcoded)
     expect(pluralize(2, 'index')).toBe('2 indices')
     expect(pluralize(2, 'vertex')).toBe('2 vertices')
     expect(pluralize(2, 'matrix')).toBe('2 matrices')
     expect(pluralize(2, 'appendix')).toBe('2 appendices')
-    
+
     // Latin -um → -a
     expect(pluralize(2, 'datum')).toBe('2 data')
     expect(pluralize(2, 'medium')).toBe('2 media')
@@ -123,7 +123,7 @@ describe('pluralize', () => {
     expect(pluralize(2, 'data')).toBe('2 data')
     expect(pluralize(2, 'metadata')).toBe('2 metadata')
     expect(pluralize(2, 'feedback')).toBe('2 feedback')
-    
+
     // Other words ending in -s that don't change
     expect(pluralize(2, 'series')).toBe('2 series')
     expect(pluralize(2, 'chassis')).toBe('2 chassis')
@@ -135,7 +135,7 @@ describe('pluralize', () => {
     expect(pluralize(2, 'hero')).toBe('2 heroes')
     expect(pluralize(2, 'echo')).toBe('2 echoes')
     expect(pluralize(2, 'veto')).toBe('2 vetoes')
-    
+
     // Tech terms that just add -s
     expect(pluralize(2, 'photo')).toBe('2 photos')
     expect(pluralize(2, 'video')).toBe('2 videos')
@@ -160,11 +160,11 @@ describe('pluralize', () => {
     expect(pluralize(2, 'shelf')).toBe('2 shelves')
     expect(pluralize(2, 'self')).toBe('2 selves')
     expect(pluralize(2, 'leaf')).toBe('2 leaves')
-    
+
     // -fe to -ves
     expect(pluralize(2, 'knife')).toBe('2 knives')
     expect(pluralize(2, 'life')).toBe('2 lives')
-    
+
     // Tech/design terms that just add -s
     expect(pluralize(2, 'proof')).toBe('2 proofs') // mathematical proofs
     expect(pluralize(2, 'brief')).toBe('2 briefs') // design briefs
@@ -236,4 +236,3 @@ describe('pluralize', () => {
     expect(pluralize(2, 'dependency')).toBe('2 dependencies')
   })
 })
-

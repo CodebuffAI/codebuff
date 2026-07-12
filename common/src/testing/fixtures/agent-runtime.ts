@@ -249,7 +249,8 @@ export function createTestAgentRuntimeParams(
         }
         return promptSuccess('mock-message-id')
       }),
-    promptAiSdk: overrides.promptAiSdk ?? mock(async () => promptSuccess('Mock response')),
+    promptAiSdk:
+      overrides.promptAiSdk ?? mock(async () => promptSuccess('Mock response')),
     promptAiSdkStructured:
       overrides.promptAiSdkStructured ?? mock(async () => promptSuccess({})),
     requestMcpToolData: overrides.requestMcpToolData ?? mock(async () => ({})),

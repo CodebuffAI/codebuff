@@ -87,7 +87,9 @@ export class EventCollector {
     return this.streamChunks
       .filter(
         (c): c is Extract<StreamChunk, { type: 'subagent_chunk' }> =>
-          typeof c !== 'string' && c.type === 'subagent_chunk' && c.agentId === agentId,
+          typeof c !== 'string' &&
+          c.type === 'subagent_chunk' &&
+          c.agentId === agentId,
       )
       .map((c) => c.chunk)
   }
@@ -96,7 +98,9 @@ export class EventCollector {
   verifyEventOrder(expectedOrder: PrintModeEvent['type'][]): boolean {
     let lastIndex = -1
     for (const type of expectedOrder) {
-      const index = this.events.findIndex((e, i) => i > lastIndex && e.type === type)
+      const index = this.events.findIndex(
+        (e, i) => i > lastIndex && e.type === type,
+      )
       if (index === -1) return false
       lastIndex = index
     }

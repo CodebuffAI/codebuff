@@ -53,7 +53,9 @@ type PythonLineState = {
  * Exported for direct unit testing of the loader mapping; production code
  * calls it indirectly via `validateJavaScriptLikeSyntax`.
  */
-export function getBunTranspilerLoader(path: string): BunTranspilerLoader | null {
+export function getBunTranspilerLoader(
+  path: string,
+): BunTranspilerLoader | null {
   if (path.endsWith('.tsx')) return 'tsx'
   if (path.endsWith('.jsx')) return 'jsx'
   if (path.endsWith('.ts')) return 'ts'
@@ -112,8 +114,16 @@ export function formatPreflightErrorMessage(
   return [
     `Preflight Syntax Validation Failed: ${toolName} rejected due to syntax error in ${path}: ${syntaxMessage}`,
     toolSpecificGuidance,
-    'Recovery: re-read the exact current lines of the broken file, then fix the specific syntax error with a small targeted edit.',
+    `Recovery: the current file remains unchanged. Correct or rebuild the candidate content against the current ${path}, then submit a small targeted edit.`,
   ].join('\n')
+}
+
+function getPythonIndentColumns(leadingWhitespace: string): number {
+  let columns = 0
+  for (const character of leadingWhitespace) {
+    columns = character === '\t' ? columns + (8 - (columns % 8)) : columns + 1
+  }
+  return columns
 }
 
 function validateJavaScriptLikeSyntax(
@@ -159,17 +169,14 @@ function validatePythonSyntax(content: string): SyntaxValidationResult {
     }
 
     const leadingWhitespace = line.match(/^\s*/)?.[0] ?? ''
-    if (leadingWhitespace.includes('\t')) {
-      return {
-        valid: false,
-        message: `Python indentation uses tabs at line ${index + 1}; use spaces for predictable block validation.`,
-      }
-    }
-
-    const indent = leadingWhitespace.length
+    const indent = getPythonIndentColumns(leadingWhitespace)
     const previousIndent = indentStack[indentStack.length - 1]
     if (indent > previousIndent) {
-      const previousCodeLine = findPreviousPythonCodeLine(lines, lineStates, index)
+      const previousCodeLine = findPreviousPythonCodeLine(
+        lines,
+        lineStates,
+        index,
+      )
       if (!previousCodeLine?.trimEnd().endsWith(':')) {
         return {
           valid: false,
@@ -204,7 +211,9 @@ function validatePythonSyntax(content: string): SyntaxValidationResult {
           message: `Python block opener at line ${index + 1} has no body.`,
         }
       }
-      const nextIndent = nextCodeLine.match(/^\s*/)?.[0].length ?? 0
+      const nextIndent = getPythonIndentColumns(
+        nextCodeLine.match(/^\s*/)?.[0] ?? '',
+      )
       if (nextIndent <= indent) {
         return {
           valid: false,
@@ -501,7 +510,10 @@ function isGoBlockStatementMissingOpeningBrace(
     const line = stripGoLineComment(lines[index]).trim()
     if (!line) continue
 
-    if (index > startIndex && /^\s*(?:func|if|for|switch|select)\b/.test(line)) {
+    if (
+      index > startIndex &&
+      /^\s*(?:func|if|for|switch|select)\b/.test(line)
+    ) {
       return true
     }
 

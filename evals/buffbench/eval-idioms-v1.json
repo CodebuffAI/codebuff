@@ -17,6 +17,13 @@
       "parentSha": "seed-python-idioms-v1-parent",
       "spec": "Initial seed fixture, not generated from a real commit. Update the Python file-processing helper so it is idiomatic Python: use pathlib.Path instead of manual os.path string handling, use context managers for file I/O, prefer clear comprehensions for simple transformations, and keep public signatures typed.",
       "prompt": "Make the Python data loader idiomatic while preserving behavior. Favor pathlib, context managers, comprehensions where they stay readable, and precise typing. Avoid broad exception swallowing and manual file close patterns.",
+      "languages": ["python"],
+      "taskType": "refactor",
+      "difficulty": "medium",
+      "finalCheckCommands": [
+        "python -m pytest",
+        "python -m ruff check ."
+      ],
       "supplementalFiles": [
         "agents/idioms/python.md",
         "pyproject.toml",
@@ -36,6 +43,13 @@
       "parentSha": "seed-rust-idioms-v1-parent",
       "spec": "Initial seed fixture, not generated from a real commit. Update the Rust config parser idiomatically: return Result, use the ? operator for fallible calls, avoid unwrap/expect in library code, avoid unnecessary clone calls, and use iterator adapters where they improve clarity without fighting ownership.",
       "prompt": "Refactor the Rust config loader to idiomatic Rust while preserving behavior. Propagate errors with Result and ?, keep ownership/borrowing simple, prefer iterators for straightforward filtering/mapping, and do not use unwrap, expect, or avoidable clone calls.",
+      "languages": ["rust"],
+      "taskType": "refactor",
+      "difficulty": "medium",
+      "finalCheckCommands": [
+        "cargo test",
+        "cargo clippy -- -D warnings"
+      ],
       "supplementalFiles": [
         "agents/idioms/rust.md",
         "Cargo.toml",
@@ -55,6 +69,13 @@
       "parentSha": "seed-go-idioms-v1-parent",
       "spec": "Initial seed fixture, not generated from a real commit. Update the Go storage helper idiomatically: handle errors explicitly, wrap returned errors with %w, keep interfaces small and consumer-owned, and leave the code gofmt-formatted.",
       "prompt": "Make the Go storage helper idiomatic without changing behavior. Return errors instead of panicking, wrap contextual errors with fmt.Errorf and %w, define only small interfaces needed by consumers, and keep formatting compatible with gofmt.",
+      "languages": ["go"],
+      "taskType": "refactor",
+      "difficulty": "medium",
+      "finalCheckCommands": [
+        "go test ./...",
+        "test -z \"$(gofmt -l .)\""
+      ],
       "supplementalFiles": [
         "agents/idioms/go.md",
         "go.mod",

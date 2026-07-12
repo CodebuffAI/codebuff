@@ -7,9 +7,9 @@ const baseDefinition = createCliAgent({
   displayName: 'Claude Code CLI',
   cliName: 'Claude Code',
   shortName: 'claude-code',
-  startCommand: 'claude --dangerously-skip-permissions',
+  startCommand: 'claude --permission-mode acceptEdits',
   permissionNote:
-    'Always use `--dangerously-skip-permissions` when testing to avoid permission prompts that would block automated tests.',
+    'Use `--permission-mode acceptEdits` for non-interactive workspace-scoped testing. Do not disable all permission checks.',
 })
 
 // Constants must be inside handleSteps since it gets serialized via .toString()
@@ -18,7 +18,7 @@ const definition: AgentDefinition = {
   // External CLI driving real implementation/review work via tmux can run genuinely long.
   defaultTimeoutMs: 30 * 60 * 1000,
   handleSteps: function* ({ prompt, params, logger }) {
-    const START_COMMAND = 'claude --dangerously-skip-permissions'
+    const START_COMMAND = 'claude --permission-mode acceptEdits'
     const CLI_NAME = 'Claude Code'
 
     yield {
@@ -123,6 +123,14 @@ const definition: AgentDefinition = {
     }
 
     yield 'STEP_ALL'
+    yield {
+      toolName: 'run_terminal_command',
+      input: {
+        command: './scripts/tmux/tmux-cli.sh stop "' + sessionName + '"',
+        timeout_seconds: 15,
+      },
+      includeToolCall: false,
+    }
   },
 }
 

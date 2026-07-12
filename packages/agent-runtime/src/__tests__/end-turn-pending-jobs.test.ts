@@ -5,10 +5,15 @@ import {
   upsertPendingBackgroundJob,
 } from '@codebuff/common/util/pending-background-jobs'
 
+import {
+  __clearBackgroundAgentJobsForTest,
+  allocateBackgroundAgentJob,
+} from '../util/background-agent-jobs'
 import { handleEndTurn } from '../tools/handlers/tool/end-turn'
 
 afterEach(() => {
   __clearPendingBackgroundJobsForTest()
+  __clearBackgroundAgentJobsForTest()
 })
 
 const runHandler = async () => {
@@ -48,12 +53,30 @@ describe('handleEndTurn', () => {
     })
 
     const value = await runHandler()
-    expect(value.message).toContain('2 background job(s) are still running')
+    expect(value.message).toContain('2 shell job(s)')
     expect(value.pendingBackgroundJobs).toEqual([
       { jobId: 'job-test-1', command: 'echo hi', startedAt: 1 },
       { jobId: 'job-test-2', command: 'sleep 100', startedAt: 2 },
     ])
     expect(value.pendingBackgroundJobsTruncated).toBeUndefined()
+  })
+
+  test('surfaces running background agent jobs', async () => {
+    const job = allocateBackgroundAgentJob({
+      agentType: 'researcher-web',
+      agentName: 'Web researcher',
+    })
+
+    const value = await runHandler()
+    expect(value.message).toContain('1 agent job(s)')
+    expect(value.pendingBackgroundAgentJobs).toEqual([
+      {
+        jobId: job.jobId,
+        agentType: 'researcher-web',
+        agentName: 'Web researcher',
+        startedAt: job.startedAt,
+      },
+    ])
   })
 
   test('truncates the listed jobs when more than five are running', async () => {

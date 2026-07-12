@@ -256,6 +256,10 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
       if (key.name === 'tab') {
         return handleTabCompletion()
       }
+      if ((key.name === 'return' || key.name === 'enter') && key.ctrl) {
+        selectCurrentDirectory()
+        return true
+      }
       if (key.name === 'up') {
         setFocusedIndex((prev) => Math.max(0, prev - 1))
         return true
@@ -301,6 +305,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
       tryNavigateToPath,
       directories,
       navigateToDirectory,
+      selectCurrentDirectory,
     ],
   )
 
@@ -497,7 +502,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             }}
             border={['top', 'bottom', 'left', 'right']}
           >
-            <text style={{ fg: '#1a1a1a' }}>Open</text>
+            <text style={{ fg: '#1a1a1a' }}>Open (Ctrl+Enter)</text>
           </Button>
         </box>
       </box>

@@ -3,8 +3,9 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
+import { isMandatorySensitiveReadPath } from '../../../common/src/util/sensitive-paths'
 import { getBundledRgPath } from '../native/ripgrep'
-import { resolveFilePathWithinProject } from './path-utils'
+import { resolveFilePathForOperation } from './path-utils'
 import { parseSafeRipgrepFlags } from './find-files-matching-content'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
@@ -81,8 +82,8 @@ export function codeSearch({
       if (resolvedFull === projectRoot) {
         return projectRoot
       }
-      const resolved = resolveFilePathWithinProject(projectRoot, requested)
-      return resolved?.fullPath ?? null
+      const resolved = resolveFilePathForOperation(projectRoot, requested)
+      return resolved?.operationPath ?? null
     })()
     if (searchCwd === null) {
       return resolve([
@@ -327,6 +328,7 @@ export function codeSearch({
         if (evt.type === 'match' || evt.type === 'context') {
           // Handle both text and bytes for non-UTF8 paths
           const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+          if (isMandatorySensitiveReadPath(filePath)) continue
           const lineNumber = evt.data.line_number ?? 0
           // Strip trailing newlines to prevent blank lines in output
           const rawText = evt.data.lines?.text ?? ''
@@ -430,7 +432,9 @@ export function codeSearch({
                   evt.data.path?.text ?? evt.data.path?.bytes ?? ''
                 const lineNumber = evt.data.line_number ?? 0
                 const rawText = evt.data.lines?.text ?? ''
-                const lineText = truncateMatchLine(rawText.replace(/\r?\n$/, ''))
+                const lineText = truncateMatchLine(
+                  rawText.replace(/\r?\n$/, ''),
+                )
                 const formattedLine = `${filePath}:${lineNumber}:${lineText}`
 
                 if (!fileGroups.has(filePath)) {

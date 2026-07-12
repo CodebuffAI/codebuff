@@ -36,9 +36,7 @@ describe('engine profile detection — Unity', () => {
       directory('ProjectSettings', [
         file('ProjectVersion.txt', 'ProjectSettings/ProjectVersion.txt'),
       ]),
-      directory('Assets', [
-        file('Player.cs', 'Assets/Scripts/Player.cs'),
-      ]),
+      directory('Assets', [file('Player.cs', 'Assets/Scripts/Player.cs')]),
     ]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['unity'])
   })
@@ -54,17 +52,13 @@ describe('engine profile detection — Unity', () => {
   })
 
   test('detects Unity via .asmdef assembly definition', () => {
-    const tree: FileTreeNode[] = [
-      file('MyGame.asmdef'),
-    ]
+    const tree: FileTreeNode[] = [file('MyGame.asmdef')]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['unity'])
   })
 
   test('detects Unity via Assets/ directory pattern', () => {
     const tree: FileTreeNode[] = [
-      directory('Assets', [
-        file('readme.md', 'Assets/readme.md'),
-      ]),
+      directory('Assets', [file('readme.md', 'Assets/readme.md')]),
     ]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['unity'])
   })
@@ -79,9 +73,7 @@ describe('engine profile detection — Unity', () => {
   })
 
   test('does not detect Unity from .csproj alone (could be any C# project)', () => {
-    const tree: FileTreeNode[] = [
-      file('MyApp.csproj'),
-    ]
+    const tree: FileTreeNode[] = [file('MyApp.csproj')]
     // .csproj is not a unique Unity signal — it's in the language profile instead
     const result = detectEngineProfiles(tree)
     expect(result.find((p) => p.id === 'unity')).toBeUndefined()
@@ -96,40 +88,29 @@ describe('engine profile detection — Godot', () => {
   test('detects Godot via project.godot manifest', () => {
     const tree: FileTreeNode[] = [
       file('project.godot'),
-      directory('scenes', [
-        file('Main.tscn', 'scenes/Main.tscn'),
-      ]),
+      directory('scenes', [file('Main.tscn', 'scenes/Main.tscn')]),
     ]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['godot'])
   })
 
   test('detects Godot via .tscn scene files', () => {
-    const tree: FileTreeNode[] = [
-      file('Level1.tscn'),
-      file('Player.gd'),
-    ]
+    const tree: FileTreeNode[] = [file('Level1.tscn'), file('Player.gd')]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['godot'])
   })
 
   test('detects Godot via .tres resource files', () => {
-    const tree: FileTreeNode[] = [
-      file('Character.tres'),
-    ]
+    const tree: FileTreeNode[] = [file('Character.tres')]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['godot'])
   })
 
   test('detects Godot via .gd GDScript files', () => {
-    const tree: FileTreeNode[] = [
-      file('PlayerController.gd'),
-    ]
+    const tree: FileTreeNode[] = [file('PlayerController.gd')]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['godot'])
   })
 
   test('detects Godot via addons/ directory', () => {
     const tree: FileTreeNode[] = [
-      directory('addons', [
-        file('plugin.cfg', 'addons/my_plugin/plugin.cfg'),
-      ]),
+      directory('addons', [file('plugin.cfg', 'addons/my_plugin/plugin.cfg')]),
     ]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['godot'])
   })
@@ -152,17 +133,13 @@ describe('engine profile detection — Unreal', () => {
 
   test('detects Unreal via .uasset files', () => {
     const tree: FileTreeNode[] = [
-      directory('Content', [
-        file('Hero.uasset', 'Content/Hero.uasset'),
-      ]),
+      directory('Content', [file('Hero.uasset', 'Content/Hero.uasset')]),
     ]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['unreal'])
   })
 
   test('detects Unreal via .umap files', () => {
-    const tree: FileTreeNode[] = [
-      file('Level1.umap'),
-    ]
+    const tree: FileTreeNode[] = [file('Level1.umap')]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['unreal'])
   })
 
@@ -193,12 +170,8 @@ describe('engine profile detection — Bevy', () => {
   test('detects Bevy via Cargo.toml + assets/ heuristic', () => {
     const tree: FileTreeNode[] = [
       file('Cargo.toml'),
-      directory('src', [
-        file('main.rs', 'src/main.rs'),
-      ]),
-      directory('assets', [
-        file('player.png', 'assets/player.png'),
-      ]),
+      directory('src', [file('main.rs', 'src/main.rs')]),
+      directory('assets', [file('player.png', 'assets/player.png')]),
     ]
     expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['bevy'])
   })
@@ -206,18 +179,14 @@ describe('engine profile detection — Bevy', () => {
   test('does not detect Bevy from Cargo.toml alone (could be any Rust project)', () => {
     const tree: FileTreeNode[] = [
       file('Cargo.toml'),
-      directory('src', [
-        file('main.rs', 'src/main.rs'),
-      ]),
+      directory('src', [file('main.rs', 'src/main.rs')]),
     ]
     expect(detectEngineProfiles(tree)).toEqual([])
   })
 
   test('does not detect Bevy from assets/ alone (could be any project)', () => {
     const tree: FileTreeNode[] = [
-      directory('assets', [
-        file('image.png', 'assets/image.png'),
-      ]),
+      directory('assets', [file('image.png', 'assets/image.png')]),
     ]
     expect(detectEngineProfiles(tree)).toEqual([])
   })
@@ -233,7 +202,10 @@ describe('engine profile detection — mixed repos', () => {
     const tree: FileTreeNode[] = [
       directory('unity', [
         directory('ProjectSettings', [
-          file('ProjectVersion.txt', 'unity/ProjectSettings/ProjectVersion.txt'),
+          file(
+            'ProjectVersion.txt',
+            'unity/ProjectSettings/ProjectVersion.txt',
+          ),
         ]),
         directory('Assets', [
           file('Scene.unity', 'unity/Assets/Scenes/Scene.unity'),
@@ -254,13 +226,9 @@ describe('engine profile detection — mixed repos', () => {
       directory('ProjectSettings', [
         file('ProjectVersion.txt', 'ProjectSettings/ProjectVersion.txt'),
       ]),
-      directory('Assets', [
-        file('Player.cs', 'Assets/Scripts/Player.cs'),
-      ]),
+      directory('Assets', [file('Player.cs', 'Assets/Scripts/Player.cs')]),
       file('package.json'),
-      directory('tools', [
-        file('build.js', 'tools/build.js'),
-      ]),
+      directory('tools', [file('build.js', 'tools/build.js')]),
     ]
     const result = detectEngineProfiles(tree).map((p) => p.id)
     expect(result).toEqual(['unity'])
@@ -278,9 +246,7 @@ describe('engine profile detection — mixed repos', () => {
         file('font.ttf', 'assets/font.ttf'),
       ]),
       file('package.json'),
-      directory('web', [
-        file('index.ts', 'web/index.ts'),
-      ]),
+      directory('web', [file('index.ts', 'web/index.ts')]),
     ]
     const result = detectEngineProfiles(tree).map((p) => p.id)
     expect(result).toEqual(['bevy'])
@@ -315,9 +281,7 @@ describe('engine profile detection — mixed repos', () => {
       file('Game.uproject'),
       // Bevy
       file('Cargo.toml'),
-      directory('assets', [
-        file('texture.png', 'assets/texture.png'),
-      ]),
+      directory('assets', [file('texture.png', 'assets/texture.png')]),
     ]
     const result = detectEngineProfiles(tree).map((p) => p.id)
     expect(result).toEqual(['unity', 'godot', 'unreal', 'bevy'])
@@ -347,9 +311,7 @@ describe('engine profile prompt formatting', () => {
       directory('ProjectSettings', [
         file('ProjectVersion.txt', 'ProjectSettings/ProjectVersion.txt'),
       ]),
-      directory('Assets', [
-        file('Scene.unity', 'Assets/Scenes/Scene.unity'),
-      ]),
+      directory('Assets', [file('Scene.unity', 'Assets/Scenes/Scene.unity')]),
     ]
     const prompt = formatEngineProfilePromptForFileTree(tree)
     expect(prompt).toContain('## Engine profile')
@@ -360,10 +322,7 @@ describe('engine profile prompt formatting', () => {
   })
 
   test('renders Godot profile with ExtResource/SubResource guidance', () => {
-    const tree: FileTreeNode[] = [
-      file('project.godot'),
-      file('Main.tscn'),
-    ]
+    const tree: FileTreeNode[] = [file('project.godot'), file('Main.tscn')]
     const prompt = formatEngineProfilePromptForFileTree(tree)
     expect(prompt).toContain('Detected: Godot')
     expect(prompt).toContain('ExtResource')
@@ -374,9 +333,7 @@ describe('engine profile prompt formatting', () => {
   test('renders Unreal profile with .uasset/.umap guidance', () => {
     const tree: FileTreeNode[] = [
       file('MyGame.uproject'),
-      directory('Content', [
-        file('Hero.uasset', 'Content/Hero.uasset'),
-      ]),
+      directory('Content', [file('Hero.uasset', 'Content/Hero.uasset')]),
     ]
     const prompt = formatEngineProfilePromptForFileTree(tree)
     expect(prompt).toContain('Detected: Unreal Engine')
@@ -387,9 +344,7 @@ describe('engine profile prompt formatting', () => {
   test('renders Bevy profile with ECS guidance', () => {
     const tree: FileTreeNode[] = [
       file('Cargo.toml'),
-      directory('assets', [
-        file('player.png', 'assets/player.png'),
-      ]),
+      directory('assets', [file('player.png', 'assets/player.png')]),
     ]
     const prompt = formatEngineProfilePromptForFileTree(tree)
     expect(prompt).toContain('Detected: Bevy')
@@ -416,9 +371,7 @@ describe('engine profile prompt formatting', () => {
   test('does not render engine guidance for non-game C# project', () => {
     const tree: FileTreeNode[] = [
       file('MyApp.csproj'),
-      directory('src', [
-        file('Program.cs', 'src/Program.cs'),
-      ]),
+      directory('src', [file('Program.cs', 'src/Program.cs')]),
     ]
     const prompt = formatEngineProfilePromptForFileTree(tree)
     // No engine profile should be rendered — .csproj alone is not a Unity signal

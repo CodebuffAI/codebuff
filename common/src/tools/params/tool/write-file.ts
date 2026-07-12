@@ -2,7 +2,6 @@ import z from 'zod/v4'
 
 import { updateFileResultSchema } from './str-replace'
 import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
-import { basedOnReadSchema } from '../based-on-read'
 
 import type { $ToolParams } from '../../constants'
 
@@ -18,7 +17,6 @@ const inputSchema = z
       .string()
       .describe('What the change is intended to do in only one sentence.'),
     content: z.string().describe(`Complete file content to write to the file.`),
-    basedOnRead: basedOnReadSchema,
   })
   .describe(`Create or overwrite a file with the given content.`)
 const description = `
@@ -28,7 +26,7 @@ Format the \`content\` parameter with the entire content of the file.
 
 #### Additional Info
 
-Do not use this tool to delete or rename a file. Instead run a terminal command for that.
+Do not use this tool to delete or rename a file. Use apply_patch.delete_file for a simple deletion, or edit_transaction delete/move for coordinated deletes and renames so the mutation remains authority-checked and visible in receipts and summaries.
 
 Examples:
 

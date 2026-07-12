@@ -75,7 +75,9 @@ describe('truncateToLines', () => {
 describe('createTextPasteHandler - ANSI stripping', () => {
   test('strips ANSI escape sequences from pasted text', () => {
     let result: InputValue | null = null
-    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+    const handler = createTextPasteHandler('', 0, (value) => {
+      result = value
+    })
 
     handler('\x1b[31mred text\x1b[0m')
 
@@ -86,7 +88,9 @@ describe('createTextPasteHandler - ANSI stripping', () => {
 
   test('passes through plain text unchanged', () => {
     let result: InputValue | null = null
-    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+    const handler = createTextPasteHandler('', 0, (value) => {
+      result = value
+    })
 
     handler('plain text')
 
@@ -96,7 +100,9 @@ describe('createTextPasteHandler - ANSI stripping', () => {
 
   test('strips complex ANSI sequences (bold, 256-color)', () => {
     let result: InputValue | null = null
-    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+    const handler = createTextPasteHandler('', 0, (value) => {
+      result = value
+    })
 
     handler('\x1b[1m\x1b[38;5;196mbold colored\x1b[0m')
 
@@ -106,7 +112,9 @@ describe('createTextPasteHandler - ANSI stripping', () => {
 
   test('does not insert when text is only ANSI codes (empty after stripping)', () => {
     let result: InputValue | null = null
-    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+    const handler = createTextPasteHandler('', 0, (value) => {
+      result = value
+    })
 
     handler('\x1b[31m\x1b[0m')
 
@@ -115,7 +123,9 @@ describe('createTextPasteHandler - ANSI stripping', () => {
 
   test('inserts stripped text at cursor position in existing text', () => {
     let result: InputValue | null = null
-    const handler = createTextPasteHandler('hello world', 5, (value) => { result = value })
+    const handler = createTextPasteHandler('hello world', 5, (value) => {
+      result = value
+    })
 
     handler('\x1b[32m pasted\x1b[0m')
 
@@ -131,7 +141,9 @@ describe('createPasteHandler - ANSI stripping', () => {
     const handler = createPasteHandler({
       text: '',
       cursorPosition: 0,
-      onChange: (value) => { result = value },
+      onChange: (value) => {
+        result = value
+      },
     })
 
     handler('\x1b[31mhello\x1b[0m')
@@ -147,7 +159,9 @@ describe('createPasteHandler - ANSI stripping', () => {
       text: '',
       cursorPosition: 0,
       onChange: () => {},
-      onPasteLongText: (text) => { longTextResult = text },
+      onPasteLongText: (text) => {
+        longTextResult = text
+      },
     })
 
     // Create text that is over threshold BEFORE stripping but under AFTER
@@ -164,7 +178,9 @@ describe('createPasteHandler - ANSI stripping', () => {
     const handler = createPasteHandler({
       text: 'existing ',
       cursorPosition: 9,
-      onChange: (value) => { result = value },
+      onChange: (value) => {
+        result = value
+      },
     })
 
     handler('\x1b[1m\x1b[34mblue bold text\x1b[0m')
@@ -180,7 +196,9 @@ describe('createPasteHandler - ANSI stripping', () => {
       text: '',
       cursorPosition: 0,
       onChange: () => {},
-      onPasteLongText: (text) => { longTextResult = text },
+      onPasteLongText: (text) => {
+        longTextResult = text
+      },
     })
 
     const longContent = 'x'.repeat(LONG_TEXT_THRESHOLD + 1)

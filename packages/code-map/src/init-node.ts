@@ -42,9 +42,9 @@ export function setTreeSitterWasmPath(wasmPath: string): void {
 }
 
 function getEmbeddedWasmBinary(): Uint8Array | undefined {
-  return (
-    globalThis as { [WASM_BINARY_GLOBAL_KEY]?: Uint8Array }
-  )[WASM_BINARY_GLOBAL_KEY]
+  return (globalThis as { [WASM_BINARY_GLOBAL_KEY]?: Uint8Array })[
+    WASM_BINARY_GLOBAL_KEY
+  ]
 }
 
 /**

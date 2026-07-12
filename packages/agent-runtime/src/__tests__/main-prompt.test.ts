@@ -32,7 +32,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 let mainPromptBaseParams: any
 
-
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 
 const mockAgentStream = (chunks: StreamChunk[]) => {
@@ -157,7 +156,6 @@ describe('mainPrompt', () => {
         ],
       }),
     )
-
   })
 
   afterEach(() => {
@@ -336,6 +334,7 @@ describe('mainPrompt', () => {
     // Verify the write_file call was made with the correct arguments
     expect(requestToolCallSpy).toHaveBeenCalledWith({
       userInputId: expect.any(String), // userInputId
+      callId: expect.any(String),
       toolName: 'write_file',
       input: expect.objectContaining({
         type: 'file',

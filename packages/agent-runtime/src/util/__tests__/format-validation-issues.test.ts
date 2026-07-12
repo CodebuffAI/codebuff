@@ -48,7 +48,9 @@ describe('formatValidationIssues', () => {
     })
     expect(summary).toContain('Missing required replacement fields:')
     expect(summary).toContain('- replacements[0].newString')
-    expect(summary).toContain('If the intent is deletion, set "newString": "" explicitly.')
+    expect(summary).toContain(
+      'If the intent is deletion, set "newString": "" explicitly.',
+    )
   })
 
   test('falls back to detailed messages for non-missing issues', () => {

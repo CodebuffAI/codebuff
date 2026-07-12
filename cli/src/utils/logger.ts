@@ -2,7 +2,6 @@ import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
-
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
@@ -134,10 +133,9 @@ function sendAnalyticsAndLog(
       projectRoot = undefined
     }
     if (projectRoot) {
-      const logTarget =
-        IS_DEV
-          ? path.join(projectRoot, 'debug', 'cli.jsonl')
-          : path.join(getCurrentChatDir(), 'log.jsonl')
+      const logTarget = IS_DEV
+        ? path.join(projectRoot, 'debug', 'cli.jsonl')
+        : path.join(getCurrentChatDir(), 'log.jsonl')
 
       setLogPath(logTarget)
     }
@@ -258,7 +256,9 @@ export const logger: Record<LogLevel, pino.LogFn> = Object.fromEntries(
 
 setAnalyticsErrorLogger((error, context) => {
   const err =
-    error instanceof Error ? error : new Error(typeof error === 'string' ? error : 'Unknown analytics error')
+    error instanceof Error
+      ? error
+      : new Error(typeof error === 'string' ? error : 'Unknown analytics error')
 
   logger.warn(
     {

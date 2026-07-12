@@ -70,7 +70,10 @@ describe('PlanBox', () => {
         metadata={{
           customArtifacts: [
             { label: 'DESIGN.md', path: '.agents/sessions/demo/DESIGN.md' },
-            { label: 'Test Results', path: '.agents/sessions/demo/test-results.json' },
+            {
+              label: 'Test Results',
+              path: '.agents/sessions/demo/test-results.json',
+            },
           ],
         }}
         availableWidth={80}
@@ -81,7 +84,9 @@ describe('PlanBox', () => {
 
     expect(markup).toContain('Artifacts')
     expect(markup).toContain('DESIGN.md: .agents/sessions/demo/DESIGN.md')
-    expect(markup).toContain('Test Results: .agents/sessions/demo/test-results.json')
+    expect(markup).toContain(
+      'Test Results: .agents/sessions/demo/test-results.json',
+    )
   })
 
   test('renders custom artifact commands as clickable buttons', () => {

@@ -17,13 +17,7 @@ const SectionHeader = ({ children }: { children: React.ReactNode }) => {
 }
 
 /** Keyboard shortcut item */
-const Shortcut = ({
-  keys,
-  action,
-}: {
-  keys: string
-  action: string
-}) => {
+const Shortcut = ({ keys, action }: { keys: string; action: string }) => {
   const theme = useTheme()
   return (
     <box style={{ flexDirection: 'row', gap: 1 }}>
@@ -60,18 +54,30 @@ export const HelpBanner = ({ fileTree }: { fileTree?: FileTreeNode[] }) => {
   )
 
   return (
-    <BottomBanner
-      borderColorKey="info"
-      onClose={() => setInputMode('default')}
-    >
+    <BottomBanner borderColorKey="info" onClose={() => setInputMode('default')}>
       <box style={{ flexDirection: 'column', gap: 1, flexGrow: 1 }}>
         {/* Shortcuts Section */}
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Shortcuts</SectionHeader>
-          <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 2, paddingLeft: 2 }}>
+          <box
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              columnGap: 2,
+              paddingLeft: 2,
+            }}
+          >
             <Shortcut keys="Ctrl+C / Esc" action="stop" />
-            <Shortcut keys="Ctrl+J / Opt+Enter" action="newline" />
+            <Shortcut
+              keys="Ctrl+J / Shift+Enter / Opt+Enter"
+              action="newline"
+            />
             <Shortcut keys="↑↓" action="history" />
+            <Shortcut keys="PgUp / PgDn" action="scroll output" />
+            <Shortcut keys="Ctrl+P" action="command palette" />
+            <Shortcut keys="Ctrl+R" action="search prompt history" />
+            <Shortcut keys="Ctrl+V" action="paste text/image" />
+            <Shortcut keys="Tab / Shift+Tab" action="navigate suggestions" />
             <Shortcut keys="Ctrl+T" action="collapse/expand agents" />
           </box>
         </box>
@@ -79,7 +85,14 @@ export const HelpBanner = ({ fileTree }: { fileTree?: FileTreeNode[] }) => {
         {/* Features Section */}
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Features</SectionHeader>
-          <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 2, paddingLeft: 2 }}>
+          <box
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              columnGap: 2,
+              paddingLeft: 2,
+            }}
+          >
             <Shortcut keys="/" action="commands" />
             <Shortcut keys="@files" action="mention" />
             <Shortcut keys="@agents" action="use agent" />
@@ -118,13 +131,8 @@ export const HelpBanner = ({ fileTree }: { fileTree?: FileTreeNode[] }) => {
                 }}
               >
                 {gameDevCommands.map((cmd) => (
-                  <box
-                    key={cmd.id}
-                    style={{ flexDirection: 'row', gap: 1 }}
-                  >
-                    <text style={{ fg: theme.foreground }}>
-                      {`/${cmd.id}`}
-                    </text>
+                  <box key={cmd.id} style={{ flexDirection: 'row', gap: 1 }}>
+                    <text style={{ fg: theme.foreground }}>{`/${cmd.id}`}</text>
                     <text style={{ fg: theme.muted }}>{cmd.description}</text>
                   </box>
                 ))}

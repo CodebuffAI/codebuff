@@ -1,6 +1,13 @@
 import { useRenderer } from '@opentui/react'
 import { useMemo } from 'react'
 
+import {
+  HEIGHT_MD_BREAKPOINT,
+  HEIGHT_XS_BREAKPOINT,
+  WIDTH_MD_BREAKPOINT,
+  WIDTH_XS_BREAKPOINT,
+} from './use-terminal-layout'
+
 export interface TerminalBreakpoints {
   // Width-based
   width: number
@@ -18,14 +25,14 @@ export interface TerminalBreakpoints {
 }
 
 const WIDTH_BREAKPOINTS = {
-  narrow: 60,
-  mediumWidth: 100,
+  narrow: WIDTH_XS_BREAKPOINT,
+  mediumWidth: WIDTH_MD_BREAKPOINT,
 } as const
 
 const HEIGHT_BREAKPOINTS = {
   verySmall: 15,
-  small: 20,
-  medium: 30,
+  small: HEIGHT_XS_BREAKPOINT,
+  medium: HEIGHT_MD_BREAKPOINT,
 } as const
 
 /**

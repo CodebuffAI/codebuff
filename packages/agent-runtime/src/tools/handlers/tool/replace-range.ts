@@ -1,32 +1,80 @@
-import { normalizeToolPath } from './write-file'
+import {
+  formatUnsafeToolPathError,
+  grantWholeFileReadAuthorization,
+  isWholeFileReadAuthorizationFresh,
+  normalizeToolPath,
+  revokeWholeFileReadAuthorization,
+} from './write-file'
+import {
+  coordinateEditApplication,
+  invalidatePreparedEditPaths,
+} from './edit-application-coordinator'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-export const handleReplaceRange = (async ({
-  previousToolCallFinished,
-  toolCall,
-  fileProcessingState,
-  requestClientToolCall,
-}) => {
-  await previousToolCallFinished
+export const handleReplaceRange = (async (params) => {
+  const {
+    previousToolCallFinished,
+    toolCall,
+    fileProcessingState,
+    requestClientToolCall,
+    requestOptionalFile,
+  } = params
   const path = normalizeToolPath(toolCall.input.path)
+  if (!path) {
+    return {
+      output: [
+        {
+          type: 'json' as const,
+          value: {
+            file: toolCall.input.path,
+            errorMessage: formatUnsafeToolPathError(
+              'replace_range',
+              toolCall.input.path,
+            ),
+          },
+        },
+      ],
+    }
+  }
+
+  await previousToolCallFinished
   const hasFreshnessAnchor =
     toolCall.input.expectedHash !== undefined &&
     toolCall.input.expectedHash !== null &&
     toolCall.input.expectedHash !== ''
+  const currentContent =
+    typeof requestOptionalFile === 'function'
+      ? await requestOptionalFile({ ...params, filePath: path })
+      : null
+  const hadStoredWholeFileAuthorization = Boolean(
+    fileProcessingState.readAuthorizationsByPath?.[path] ||
+    fileProcessingState.readAuthorizationHashesByPath?.[path],
+  )
+  const hadFreshWholeFileAuthorization =
+    typeof currentContent === 'string' &&
+    isWholeFileReadAuthorizationFresh(fileProcessingState, path, currentContent)
+  if (hadStoredWholeFileAuthorization && !hadFreshWholeFileAuthorization) {
+    revokeWholeFileReadAuthorization(fileProcessingState, path)
+  }
   if (
     fileProcessingState.strictReadBeforeEdit &&
     !hasFreshnessAnchor &&
-    !fileProcessingState.readAuthorizationsByPath?.[path]
+    !hadFreshWholeFileAuthorization
   ) {
-    fileProcessingState.failedEditRequiresReadByPath[path] = true
+    invalidatePreparedEditPaths({
+      fileProcessingState,
+      paths: [path],
+    })
     return {
       output: [
         {
           type: 'json' as const,
           value: {
             file: path,
-            errorMessage: `replace_range blocked: strict read-before-edit is enabled and no read authorization exists for ${path}. Call read_files for this exact path before retrying, or supply the expectedHash from a fresh read_files.ranges call.`,
+            errorMessage: hadStoredWholeFileAuthorization
+              ? `replace_range blocked: ${path} changed after its last whole-file read, so the stored authorization was revoked. Call read_files for this exact path before retrying, or supply the expectedHash from a fresh read_files.ranges call.`
+              : `replace_range blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${path}. Call read_files for this exact path before retrying, or supply the expectedHash from a fresh read_files.ranges call.`,
           },
         },
       ],
@@ -41,19 +89,35 @@ export const handleReplaceRange = (async ({
       path,
     },
   }
-  const output = await requestClientToolCall(clientToolCall)
-  const firstOutput = output[0]
-  if (
-    firstOutput?.type === 'json' &&
-    firstOutput.value &&
-    typeof firstOutput.value === 'object' &&
-    'errorMessage' in firstOutput.value
-  ) {
-    fileProcessingState.failedEditRequiresReadByPath[path] = true
-  } else {
-    delete fileProcessingState.failedEditRequiresReadByPath[path]
-    // Strict read-before-edit: read authorization is sticky once granted -
-    // do NOT consume on success. See str-replace.ts for the full rationale.
+  const application = await coordinateEditApplication<'replace_range'>({
+    toolName: 'replace_range',
+    fileProcessingState,
+    paths: [path],
+    apply: () => requestClientToolCall(clientToolCall),
+  })
+  if (application.status === 'threw') {
+    return {
+      output: [
+        {
+          type: 'json' as const,
+          value: {
+            file: path,
+            errorMessage: `replace_range failed while applying the prepared range: ${application.error instanceof Error ? application.error.message : String(application.error)}. Re-read the range before retrying.`,
+          },
+        },
+      ],
+    }
   }
-  return { output }
+  if (application.status === 'applied' && hadFreshWholeFileAuthorization) {
+    const updatedContent =
+      typeof requestOptionalFile === 'function'
+        ? await requestOptionalFile({ ...params, filePath: path })
+        : null
+    if (typeof updatedContent === 'string') {
+      grantWholeFileReadAuthorization(fileProcessingState, path, updatedContent)
+    } else {
+      revokeWholeFileReadAuthorization(fileProcessingState, path)
+    }
+  }
+  return { output: application.output }
 }) satisfies CodebuffToolHandlerFunction<'replace_range'>

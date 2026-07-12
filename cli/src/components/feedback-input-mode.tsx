@@ -60,7 +60,11 @@ const CATEGORY_OPTIONS = [
 // If a new category is added to FEEDBACK_CATEGORIES, TypeScript will error here until
 // a corresponding entry is added to CATEGORY_OPTIONS above.
 type CoveredCategories = (typeof CATEGORY_OPTIONS)[number]['id']
-type _AssertAllCategoriesCovered = [FeedbackCategory] extends [CoveredCategories] ? true : never
+type _AssertAllCategoriesCovered = [FeedbackCategory] extends [
+  CoveredCategories,
+]
+  ? true
+  : never
 const _exhaustiveCheck: _AssertAllCategoriesCovered = true
 void _exhaustiveCheck
 
@@ -126,10 +130,14 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
             onCursorChange(cursor + 1)
             return true
           }}
-          onPaste={createTextPasteHandler(value, cursor, ({ text, cursorPosition }) => {
-            onChange(text)
-            onCursorChange(cursorPosition)
-          })}
+          onPaste={createTextPasteHandler(
+            value,
+            cursor,
+            ({ text, cursorPosition }) => {
+              onChange(text)
+              onCursorChange(cursorPosition)
+            },
+          )}
           placeholder={placeholder}
           focused={inputFocused && !isSubmitting}
           maxHeight={5}

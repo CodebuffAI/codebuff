@@ -57,6 +57,7 @@ Then inside the CLI:
 ```
 
 This creates:
+
 ```
 knowledge.md               # Project context for Openbuff
 .agents/
@@ -219,7 +220,7 @@ wsl --install
 sudo apt-get install tmux
 ```
 
-See [cli/src/__tests__/README.md](cli/src/__tests__/README.md) for comprehensive testing documentation.
+See [cli/src/**tests**/README.md](cli/src/__tests__/README.md) for comprehensive testing documentation.
 
 Some ways you can help:
 
@@ -243,4 +244,3 @@ Some ways you can help:
 **Community & Support**: [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues)
 
 **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
-

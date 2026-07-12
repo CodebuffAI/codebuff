@@ -34,9 +34,7 @@ export const RaisedPill = ({
   style,
 }: RaisedPillProps): React.ReactNode => {
   const leftRightPadding =
-    padding > 0
-      ? [{ text: ' '.repeat(padding), fg: textColor }]
-      : []
+    padding > 0 ? [{ text: ' '.repeat(padding), fg: textColor }] : []
 
   const normalizedSegments: Array<{
     text: string
@@ -70,9 +68,7 @@ export const RaisedPill = ({
         <span fg={frameColor}>{`╭${horizontal}╮`}</span>
       </text>
       <text>
-        <span fg={frameColor}>
-          │
-        </span>
+        <span fg={frameColor}>│</span>
         {normalizedSegments.map((segment, idx) => (
           <span
             key={idx}
@@ -83,9 +79,7 @@ export const RaisedPill = ({
             {segment.text}
           </span>
         ))}
-        <span fg={frameColor}>
-          │
-        </span>
+        <span fg={frameColor}>│</span>
       </text>
       <text>
         <span fg={frameColor}>{`╰${horizontal}╯`}</span>

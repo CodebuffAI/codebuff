@@ -75,16 +75,26 @@ describe('runWithTimeoutSignal', () => {
 
 describe('external runner abort handling', () => {
   test('classifies abort errors without treating startup messages as aborts', () => {
-    expect(isAbortError(Object.assign(new Error('aborted by shell setup'), {
-      code: 'ENOENT',
-    }))).toBe(false)
-    expect(isAbortError(Object.assign(new Error('The operation was aborted'), {
-      code: 'ABORT_ERR',
-    }))).toBe(true)
-    expect(isAbortError({
-      name: 'AbortError',
-      message: 'The operation was aborted',
-    })).toBe(true)
+    expect(
+      isAbortError(
+        Object.assign(new Error('aborted by shell setup'), {
+          code: 'ENOENT',
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      isAbortError(
+        Object.assign(new Error('The operation was aborted'), {
+          code: 'ABORT_ERR',
+        }),
+      ),
+    ).toBe(true)
+    expect(
+      isAbortError({
+        name: 'AbortError',
+        message: 'The operation was aborted',
+      }),
+    ).toBe(true)
   })
 
   test('ClaudeRunner reports signal abort distinctly from startup failure', async () => {
@@ -122,7 +132,9 @@ describe('external runner abort handling', () => {
 
       await expect(runPromise).rejects.toThrow('Claude CLI run aborted')
       await expect(runPromise).rejects.not.toThrow('failed to start')
-      const stagedMarker = await Bun.$`git diff --cached --name-only`.cwd(tmpRoot).text()
+      const stagedMarker = await Bun.$`git diff --cached --name-only`
+        .cwd(tmpRoot)
+        .text()
       expect(stagedMarker).not.toContain('git-cleanup-marker')
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true })
@@ -132,7 +144,9 @@ describe('external runner abort handling', () => {
 
 describe('runAgentOnCommit', () => {
   test('computes cache recall eval and appends deterministic final-check output', async () => {
-    const tmpRoot = mkdtempSync(join(tmpdir(), 'buffbench-cache-recall-runner-'))
+    const tmpRoot = mkdtempSync(
+      join(tmpdir(), 'buffbench-cache-recall-runner-'),
+    )
 
     try {
       writeFileSync(join(tmpRoot, 'README.md'), 'initial\n')
@@ -227,7 +241,9 @@ describe('executeInitCommand', () => {
         tmpRoot,
       )
 
-      await expect(Bun.file(outputPath).text()).resolves.toBe('hello quoted world')
+      await expect(Bun.file(outputPath).text()).resolves.toBe(
+        'hello quoted world',
+      )
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true })
     }

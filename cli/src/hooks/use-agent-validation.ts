@@ -1,7 +1,10 @@
 import { validateAgents } from '@openbuff/sdk'
 import { useCallback, useState } from 'react'
 
-import { loadAgentDefinitions } from '../utils/local-agent-registry'
+import {
+  getAgentRegistryDiagnostics,
+  loadAgentDefinitions,
+} from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import { filterNetworkErrors } from '../utils/validation-error-helpers'
 
@@ -42,14 +45,23 @@ export const useAgentValidation = (): UseAgentValidationResult => {
       const validationResult = await validateAgents(agentDefinitions, {
         remote: false,
       })
+      const loadDiagnostics = getAgentRegistryDiagnostics().map(
+        (diagnostic, index) => ({
+          id: `${diagnostic.agentId || 'local-agent'}_load_${index}`,
+          message: diagnostic.filePath
+            ? `${diagnostic.message} (${diagnostic.filePath})`
+            : diagnostic.message,
+        }),
+      )
 
-      if (validationResult.success) {
+      if (validationResult.success && loadDiagnostics.length === 0) {
         setValidationErrors([])
         return { success: true, errors: [] }
       } else {
-        const filteredValidationErrors = filterNetworkErrors(
-          validationResult.validationErrors,
-        )
+        const filteredValidationErrors = [
+          ...filterNetworkErrors(validationResult.validationErrors),
+          ...loadDiagnostics,
+        ]
 
         if (filteredValidationErrors.length === 0) {
           setValidationErrors([])

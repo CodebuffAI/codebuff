@@ -42,7 +42,9 @@ function getSimilarity(s1: string, s2: string): number {
 
   const m = a.length
   const n = b.length
-  const d: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+  const d: number[][] = Array.from({ length: m + 1 }, () =>
+    Array(n + 1).fill(0),
+  )
 
   for (let i = 0; i <= m; i++) d[i][0] = i
   for (let j = 0; j <= n; j++) d[0][j] = j
@@ -53,7 +55,7 @@ function getSimilarity(s1: string, s2: string): number {
       d[i][j] = Math.min(
         d[i - 1][j] + 1,
         d[i][j - 1] + 1,
-        d[i - 1][j - 1] + cost
+        d[i - 1][j - 1] + cost,
       )
     }
   }
@@ -140,7 +142,11 @@ export const handleWriteTodos = (async (params: {
 
   // Save the new merged master list
   try {
-    fs.writeFileSync(stateFilePath, JSON.stringify(mergedTodos, null, 2), 'utf8')
+    fs.writeFileSync(
+      stateFilePath,
+      JSON.stringify(mergedTodos, null, 2),
+      'utf8',
+    )
   } catch (err) {
     // Persisting is best-effort; the in-memory list is returned to the model
     // regardless, but surface the failure so silent state loss is debuggable.

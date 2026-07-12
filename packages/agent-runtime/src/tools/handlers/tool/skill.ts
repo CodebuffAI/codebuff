@@ -1,6 +1,12 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
-import { SKILLS_DIR_NAME, SKILL_FILE_NAME } from '@codebuff/common/constants/skills'
-import { SkillFrontmatterSchema, type SkillDefinition } from '@codebuff/common/types/skill'
+import {
+  SKILLS_DIR_NAME,
+  SKILL_FILE_NAME,
+} from '@codebuff/common/constants/skills'
+import {
+  SkillFrontmatterSchema,
+  type SkillDefinition,
+} from '@codebuff/common/types/skill'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -158,7 +164,12 @@ export const handleSkill = (async (params: {
     }
   }
 
-  const result: { name: string; description: string; content: string; license?: string } = {
+  const result: {
+    name: string
+    description: string
+    content: string
+    license?: string
+  } = {
     name: skill.name,
     description: skill.description,
     content: skill.content,

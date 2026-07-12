@@ -90,7 +90,9 @@ describe('CommitSelectionSchema variant normalization', () => {
   test('merges entries across multiple variant keys', () => {
     const raw = {
       selectedCommits: [{ sha: 'sha-1', reason: 'r1', shortDescription: 'd1' }],
-      selected_commits: [{ sha: 'sha-2', reason: 'r2', shortDescription: 'd2' }],
+      selected_commits: [
+        { sha: 'sha-2', reason: 'r2', shortDescription: 'd2' },
+      ],
       commits: [{ sha: 'sha-3', reason: 'r3', shortDescription: 'd3' }],
     }
     const parsed = CommitSelectionSchema.parse(raw)
@@ -144,9 +146,7 @@ describe('CommitSelectionSchema variant normalization', () => {
 
   test('falls back across shortDescription / description', () => {
     const raw = {
-      selected_commits: [
-        { sha: 's1', description: 'uses description field' },
-      ],
+      selected_commits: [{ sha: 's1', description: 'uses description field' }],
     }
     const parsed = CommitSelectionSchema.parse(raw)
     expect(parsed.selectedCommits[0].shortDescription).toBe(
@@ -188,7 +188,13 @@ describe('CommitSelectionSchema variant normalization', () => {
   test('does not throw on unexpected extra fields (passthrough)', () => {
     const raw = {
       selectedCommits: [
-        { sha: 's1', reason: 'r', shortDescription: 'd', is_hard: true, extra: 'x' },
+        {
+          sha: 's1',
+          reason: 'r',
+          shortDescription: 'd',
+          is_hard: true,
+          extra: 'x',
+        },
       ],
       extra_top_level: 'ignored',
     }

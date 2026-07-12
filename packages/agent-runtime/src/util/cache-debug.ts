@@ -108,10 +108,9 @@ function normalizeForJson(value: unknown): SerializableValue {
 
   if (typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => [
-        key,
-        normalizeForJson(entryValue),
-      ]),
+      Object.entries(value as Record<string, unknown>).map(
+        ([key, entryValue]) => [key, normalizeForJson(entryValue)],
+      ),
     )
   }
 
@@ -144,9 +143,7 @@ function writeSnapshot(params: {
   const { snapshot, logger } = params
   mkdirSync(dirname(snapshot.filePath), { recursive: true })
   writeFileSync(snapshot.filePath, JSON.stringify(snapshot, null, 2))
-  logger.debug(
-    `[Cache Debug] Wrote enriched snapshot to ${snapshot.filePath}`,
-  )
+  logger.debug(`[Cache Debug] Wrote enriched snapshot to ${snapshot.filePath}`)
 }
 
 function serializeMessage(message: Message): CacheDebugMessageSnapshot {
@@ -156,7 +153,8 @@ function serializeMessage(message: Message): CacheDebugMessageSnapshot {
     tags: 'tags' in message ? message.tags : undefined,
     timeToLive: 'timeToLive' in message ? message.timeToLive : undefined,
     sentAt: 'sentAt' in message ? message.sentAt : undefined,
-    providerOptions: 'providerOptions' in message ? message.providerOptions : undefined,
+    providerOptions:
+      'providerOptions' in message ? message.providerOptions : undefined,
     toolCallId: 'toolCallId' in message ? message.toolCallId : undefined,
     toolName: 'toolName' in message ? message.toolName : undefined,
   }
@@ -271,7 +269,10 @@ export function enrichCacheDebugSnapshotWithUsage(params: {
 
     writeSnapshot({ snapshot: updated, logger })
   } catch (err) {
-    logger.warn({ error: err }, '[Cache Debug] Failed to enrich snapshot with usage')
+    logger.warn(
+      { error: err },
+      '[Cache Debug] Failed to enrich snapshot with usage',
+    )
   }
 }
 
@@ -316,4 +317,3 @@ export function enrichCacheDebugSnapshotWithProviderRequest(params: {
     logger.warn({ error: err }, '[Cache Debug] Failed to enrich snapshot')
   }
 }
-

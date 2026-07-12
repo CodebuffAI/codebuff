@@ -48,8 +48,7 @@ const paramsSchema = {
 const codeSearcher: SecretAgentDefinition = {
   id: 'code-searcher',
   displayName: 'Code Searcher',
-  spawnerPrompt:
-    `Mechanically runs multiple code search queries (using ripgrep line-oriented search) and returns up to 250 results across all source files, showing each line that matches the search pattern. Excludes git-ignored files. You MUST pass searchQueries in params. Example input: { "params": { "searchQueries": [{ "pattern": "createUser", "flags": "-g *.ts" }, { "pattern": "deleteUser", "flags": "-g *.ts" }, { "pattern": "UserSchema", "maxResults": 5 }] } }`,
+  spawnerPrompt: `Mechanically runs multiple code search queries (using ripgrep line-oriented search) and returns up to 250 results across all source files, showing each line that matches the search pattern. Excludes git-ignored files. You MUST pass searchQueries in params. Example input: { "params": { "searchQueries": [{ "pattern": "createUser", "flags": "-g *.ts" }, { "pattern": "deleteUser", "flags": "-g *.ts" }, { "pattern": "UserSchema", "maxResults": 5 }] } }`,
   publisher,
   includeMessageHistory: false,
   toolNames: ['code_search', 'set_output'],
@@ -134,7 +133,9 @@ const codeSearcher: SecretAgentDefinition = {
           message:
             `No search ran: none of the ${rawQueries.length} provided ` +
             `quer${rawQueries.length === 1 ? 'y' : 'ies'} had a valid "pattern". ` +
-            (invalidQueries.length > 0 ? `${invalidQueries.join('; ')}. ` : '') +
+            (invalidQueries.length > 0
+              ? `${invalidQueries.join('; ')}. `
+              : '') +
             `Each query needs a non-empty string "pattern".`,
           results: [],
         },
@@ -143,58 +144,10 @@ const codeSearcher: SecretAgentDefinition = {
       return
     }
 
-    // Allow-list of safe ripgrep flags. Mirrors parseSafeRipgrepFlags in the
-    // SDK (find-files-matching-content.ts). code_search already enforces this
-    // server-side, but we reject obviously unsafe queries up front so the agent
-    // gets a clear "unsupported flag" message rather than a silently dropped
-    // search. Helpers stay inline because handleSteps is serialized via
-    // .toString() and cannot close over module-level imports.
-    const SAFE_SWITCHES_NO_VALUE = new Set([
-      '-i', '--ignore-case', '-S', '--smart-case', '-s', '--case-sensitive',
-      '-w', '--word-regexp', '-F', '--fixed-strings', '-U', '--multiline',
-      '--multiline-dotall',
-      '-n', '--line-number',
-    ])
-    const SAFE_SWITCHES_WITH_VALUE = new Set([
-      '-g', '--glob', '-t', '--type', '-T', '--type-not',
-      '-A', '--after-context', '-B', '--before-context', '-C', '--context',
-    ])
-    function isSafeFlagsString(flags: string | undefined): { ok: true } | { ok: false; reason: string } {
-      if (!flags) return { ok: true }
-      const tokens = flags.match(/\S+/g) ?? []
-      for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i]
-        const eqIndex = token.indexOf('=')
-        const name = eqIndex > 0 ? token.slice(0, eqIndex) : token
-        if (eqIndex > 0) {
-          if (!SAFE_SWITCHES_WITH_VALUE.has(name)) {
-            return { ok: false, reason: `Unsupported ripgrep flag '${token}'.` }
-          }
-          continue
-        }
-        if (SAFE_SWITCHES_NO_VALUE.has(token)) continue
-        if (SAFE_SWITCHES_WITH_VALUE.has(token)) {
-          if (i + 1 >= tokens.length) {
-            return { ok: false, reason: `Invalid ripgrep flag '${token}': missing value.` }
-          }
-          i++
-          continue
-        }
-        return { ok: false, reason: `Unsupported ripgrep flag '${token}'.` }
-      }
-      return { ok: true }
-    }
-
     const toolResults: JSONValue[] = []
     let matchedQueryCount = 0
+    let rejectedQueryCount = invalidQueries.length
     for (const query of validQueries) {
-      const flagsCheck = isSafeFlagsString(query.flags)
-      if (!flagsCheck.ok) {
-        toolResults.push({
-          errorMessage: `Skipping query for pattern "${query.pattern}": ${flagsCheck.reason} Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not, -A/-B/-C (with value).`,
-        })
-        continue
-      }
       const { toolResult } = yield {
         toolName: 'code_search',
         input: {
@@ -209,6 +162,18 @@ const codeSearcher: SecretAgentDefinition = {
           .filter((result) => result.type === 'json')
           .map((result) => result.value)
         toolResults.push(...jsonValues)
+        if (
+          jsonValues.some(
+            (value) =>
+              value !== null &&
+              typeof value === 'object' &&
+              !Array.isArray(value) &&
+              typeof (value as Record<string, unknown>).errorMessage ===
+                'string',
+          )
+        ) {
+          rejectedQueryCount++
+        }
         if (jsonValues.some(isNonEmptyResult)) {
           matchedQueryCount++
         }
@@ -219,9 +184,9 @@ const codeSearcher: SecretAgentDefinition = {
     // matches vs. an error like a malformed ripgrep flag), rather than handing
     // back results with an empty message.
     const summaryParts: string[] = [
-      `Ran ${validQueries.length} quer${
-        validQueries.length === 1 ? 'y' : 'ies'
-      }; ${matchedQueryCount} returned matches.`,
+      `Attempted ${rawQueries.length} quer${
+        rawQueries.length === 1 ? 'y' : 'ies'
+      }; executed ${validQueries.length}; rejected ${rejectedQueryCount}; ${matchedQueryCount} returned matches.`,
     ]
     if (invalidQueries.length > 0) {
       summaryParts.push(
@@ -261,11 +226,7 @@ const codeSearcher: SecretAgentDefinition = {
           // File header lines look like "./path/to/file.ts:" or "file.ts:"
           // (end with ':', no leading whitespace). The leading "Found N matches"
           // summary line does not end with ':' so it is not misclassified.
-          if (
-            line.length > 0 &&
-            !line.startsWith(' ') &&
-            line.endsWith(':')
-          ) {
+          if (line.length > 0 && !line.startsWith(' ') && line.endsWith(':')) {
             currentFile = line.slice(0, -1).replace(/^\.\//, '')
             continue
           }

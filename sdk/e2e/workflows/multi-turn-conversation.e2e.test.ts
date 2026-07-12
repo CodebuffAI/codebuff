@@ -21,7 +21,10 @@ describe('Workflows: Multi-Turn Conversation', () => {
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new OpenbuffClient({ ...getByokTestClientOptions(), agentDefinitions: [DEFAULT_AGENT_DEFINITION] })
+    client = new OpenbuffClient({
+      ...getByokTestClientOptions(),
+      agentDefinitions: [DEFAULT_AGENT_DEFINITION],
+    })
   })
 
   test(

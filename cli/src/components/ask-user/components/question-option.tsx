@@ -33,12 +33,17 @@ export const QuestionOption: React.FC<QuestionOptionProps> = memo(
 
     // Extract label and description
     const label = typeof option === 'string' ? option : option.label
-    const description = typeof option === 'object' ? option.description : undefined
+    const description =
+      typeof option === 'object' ? option.description : undefined
 
     const selectedFg = theme.name === 'dark' ? '#ffffff' : '#000000'
     const symbol = isMultiSelect
-      ? isSelected ? SYMBOLS.CHECKBOX_CHECKED : SYMBOLS.CHECKBOX_UNCHECKED
-      : isSelected ? SYMBOLS.SELECTED : SYMBOLS.UNSELECTED
+      ? isSelected
+        ? SYMBOLS.CHECKBOX_CHECKED
+        : SYMBOLS.CHECKBOX_UNCHECKED
+      : isSelected
+        ? SYMBOLS.SELECTED
+        : SYMBOLS.UNSELECTED
     const fg = isFocused ? '#000000' : isSelected ? selectedFg : theme.muted
     const attributes = isFocused || isSelected ? TextAttributes.BOLD : undefined
 
@@ -83,7 +88,7 @@ export const QuestionOption: React.FC<QuestionOptionProps> = memo(
       prev.onSelect === next.onSelect &&
       prev.onMouseOver === next.onMouseOver
     )
-  }
+  },
 )
 
 QuestionOption.displayName = 'QuestionOption'

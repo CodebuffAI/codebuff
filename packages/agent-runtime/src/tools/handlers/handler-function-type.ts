@@ -47,6 +47,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     repoId: string | undefined
     repoUrl: string | undefined
     runId: string
+    spawnParams?: Record<string, any>
     sendSubagentChunk: SendSubagentChunkFn
     signal: AbortSignal
     system: string

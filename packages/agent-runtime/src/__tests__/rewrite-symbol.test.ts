@@ -119,6 +119,95 @@ describe('rewrite_symbol handler', () => {
     expect(capturedPatch).not.toMatch(/^[-+].*return 2/m)
   })
 
+  test('remains available as structural recovery after raw str_replace trips its breaker', async () => {
+    const state = freshState()
+    state.consecutiveStrReplaceFailuresByPath['svc.ts'] = 3
+    state.failedEditRequiresReadByPath['svc.ts'] = true
+    let capturedPatch: string | undefined
+
+    const result = await handleRewriteSymbol({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'structural-recovery',
+        input: {
+          path: 'svc.ts',
+          symbol: 'greet',
+          content:
+            'export function greet(name: string) {\n  return `recovered ${name}`\n}',
+        },
+      },
+      fileProcessingState: state,
+      logger: noopLogger,
+      requestClientToolCall: async (toolCall: any) => {
+        capturedPatch = toolCall?.input?.content
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              kind: 'file_mutation_result',
+              version: 1,
+              operationId: 'structural-recovery',
+              outcome: 'applied',
+              actions: [
+                {
+                  actionId: 'structural-recovery:0',
+                  index: 0,
+                  action: 'update',
+                  path: toolCall?.input?.path,
+                  outcome: 'applied',
+                  beforeHash: 'before',
+                  afterHash: 'after',
+                },
+              ],
+              authorityTier: 'portable_path',
+              receiptId: 'structural-recovery',
+              errors: [],
+              freshCapabilities: [],
+            },
+          },
+        ]
+      },
+      writeToClient: () => {},
+      requestOptionalFile: async () => SRC,
+    } as any)
+
+    expect(outputJson(result).errorMessage).toBeUndefined()
+    expect(capturedPatch).toContain('+  return `recovered ${name}`')
+    expect(state.consecutiveStrReplaceFailuresByPath['svc.ts']).toBeUndefined()
+  })
+
+  test('does not clear the failure budget when structural recovery is rejected by the client', async () => {
+    const state = freshState()
+    state.consecutiveStrReplaceFailuresByPath['svc.ts'] = 3
+
+    const result = await handleRewriteSymbol({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'rejected-structural-recovery',
+        input: {
+          path: 'svc.ts',
+          symbol: 'greet',
+          content:
+            'export function greet(name: string) {\n  return `recovered ${name}`\n}',
+        },
+      },
+      fileProcessingState: state,
+      logger: noopLogger,
+      requestClientToolCall: async () => [
+        {
+          type: 'json' as const,
+          value: { file: 'svc.ts', errorMessage: 'client rejected patch' },
+        },
+      ],
+      writeToClient: () => {},
+      requestOptionalFile: async () => SRC,
+    } as any)
+
+    expect(outputJson(result).errorMessage).toContain('client rejected patch')
+    expect(state.consecutiveStrReplaceFailuresByPath['svc.ts']).toBe(3)
+    expect(state.failedEditRequiresReadByPath['svc.ts']).toBe(true)
+  })
+
   test('errors clearly when the symbol is not found', async () => {
     const result = await handleRewriteSymbol({
       previousToolCallFinished: Promise.resolve(),
@@ -214,7 +303,7 @@ describe('rewrite_symbol handler', () => {
     const src = [
       '/**',
       ' * Original doc.',
-       ' */',
+      ' */',
       'export function documented() {',
       '  return 1',
       '}',
@@ -373,7 +462,11 @@ describe('rewrite_symbol handler', () => {
       path: 'server.go',
       symbol: 'Run',
       source,
-      content: ['func (s *Server) Run() error {', '\treturn fmt.Errorf("stopped")', '}'].join('\n'),
+      content: [
+        'func (s *Server) Run() error {',
+        '\treturn fmt.Errorf("stopped")',
+        '}',
+      ].join('\n'),
     })
     expect(method.value.errorMessage).toBeUndefined()
     expect(method.patch).toContain('-\treturn nil')
@@ -384,7 +477,11 @@ describe('rewrite_symbol handler', () => {
       path: 'server.go',
       symbol: 'New',
       source,
-      content: ['func New(name string) *Server {', '\treturn &Server{Name: "updated-" + name}', '}'].join('\n'),
+      content: [
+        'func New(name string) *Server {',
+        '\treturn &Server{Name: "updated-" + name}',
+        '}',
+      ].join('\n'),
     })
     expect(fn.value.errorMessage).toBeUndefined()
     expect(fn.patch).toContain('-\treturn &Server{Name: name}')
@@ -423,7 +520,9 @@ describe('rewrite_symbol handler', () => {
     })
     expect(csharp.value.errorMessage).toBeUndefined()
     expect(csharp.patch).toContain('-  public void Run() { Helper(); }')
-    expect(csharp.patch).toContain('+  public void Run() { Helper(); Helper(); }')
+    expect(csharp.patch).toContain(
+      '+  public void Run() { Helper(); Helper(); }',
+    )
     expect(csharp.patch).not.toMatch(/^[-+].*private void Helper/m)
   })
 })

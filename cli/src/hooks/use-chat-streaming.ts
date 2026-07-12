@@ -6,12 +6,15 @@ import { RECONNECTION_MESSAGE_DURATION_MS } from '@openbuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState, useTransition } from 'react'
 
-
 import { logger } from '../utils/logger'
 import { useConnectionStatus } from './use-connection-status'
 import { useElapsedTime } from './use-elapsed-time'
 import { useExitHandler } from './use-exit-handler'
-import { useMessageQueue, type QueuedMessage, type StreamStatus } from './use-message-queue'
+import {
+  useMessageQueue,
+  type QueuedMessage,
+  type StreamStatus,
+} from './use-message-queue'
 import { useQueueControls } from './use-queue-controls'
 import { useQueueUi } from './use-queue-ui'
 import { useTimeout } from './use-timeout'
@@ -26,7 +29,11 @@ import type { MutableRefObject } from 'react'
 export interface UseChatStreamingOptions {
   agentMode: AgentMode
   inputValue: string
-  setInputValue: (value: { text: string; cursorPosition: number; lastEditDueToNav: boolean }) => void
+  setInputValue: (value: {
+    text: string
+    cursorPosition: number
+    lastEditDueToNav: boolean
+  }) => void
   terminalWidth: number
   separatorWidth: number
   isChainInProgressRef: MutableRefObject<boolean>
@@ -157,7 +164,9 @@ export function useChatStreaming({
           '[chat-streaming] sendMessageRef.current is undefined; message dropped.',
         )
         return Promise.reject(
-          new Error('Send handler is not initialized yet. Please retry shortly.'),
+          new Error(
+            'Send handler is not initialized yet. Please retry shortly.',
+          ),
         )
       }
       return send({

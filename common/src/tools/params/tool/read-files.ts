@@ -1,6 +1,14 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  coerceToArray,
+  jsonToolResultSchema,
+} from '../utils'
+import {
+  readFilesResultV1Schema,
+  readFilesSliceSchema,
+} from '../../results/filesystem'
 
 import type { $ToolParams } from '../../constants'
 
@@ -23,18 +31,8 @@ export const fileContentsSchema = z.union([
   }),
   z.object({
     path: z.string(),
-    slices: z.array(
-      z.object({
-        symbol: z.string(),
-        kind: z.string().optional(),
-        content: z.string(),
-        startLine: z.number(),
-        endLine: z.number(),
-        /** Read capability token for this slice's exact range; pass as
-         *  basedOnRead on a follow-up large-file str_replace with no re-read. */
-        readCapability: z.string().optional(),
-      }),
-    ),
+    slices: z.array(readFilesSliceSchema),
+    errorMessage: z.string().optional(),
   }),
 ])
 
@@ -54,14 +52,20 @@ const inputSchema = z
             ),
         ),
       )
-      .describe('List of file paths to read. Batch results include a separate summary entry with ok/failed/requested counts when available.'),
+      .optional()
+      .default([])
+      .describe(
+        'List of file paths to read. Batch results include a separate summary entry with ok/failed/requested counts when available.',
+      ),
     ranges: z
       .array(
         z.object({
           path: z
             .string()
             .min(1)
-            .describe('File path to read a line range from, relative to the project root.'),
+            .describe(
+              'File path to read a line range from, relative to the project root.',
+            ),
           startLine: z
             .number()
             .int()
@@ -73,7 +77,9 @@ const inputSchema = z
             .int()
             .min(1)
             .optional()
-            .describe('1-indexed inclusive end line. Defaults to the last line.'),
+            .describe(
+              '1-indexed inclusive end line. Defaults to the last line.',
+            ),
         }),
       )
       .optional()
@@ -86,19 +92,34 @@ const inputSchema = z
           path: z
             .string()
             .min(1)
-            .describe('File path to extract symbol slices from, relative to the project root.'),
+            .describe(
+              'File path to extract symbol slices from, relative to the project root.',
+            ),
           names: z
-            .preprocess(
-              coerceToArray,
-              z.array(z.string().min(1)),
-            )
-            .describe('Symbol names (functions, classes, interfaces, methods) to slice.'),
+            .preprocess(coerceToArray, z.array(z.string().min(1)))
+            .describe(
+              'Symbol names (functions, classes, interfaces, methods) to slice.',
+            ),
         }),
       )
       .optional()
       .describe(
         'Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes its line range and a readCapability you can reuse as basedOnRead on a later edit.',
       ),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.paths.length === 0 &&
+      (value.ranges?.length ?? 0) === 0 &&
+      (value.symbols?.length ?? 0) === 0
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['paths'],
+        message:
+          'read_files requires at least one path, range, or symbol selector.',
+      })
+    }
   })
   .describe(
     `Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
@@ -131,5 +152,7 @@ export const readFilesParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: jsonToolResultSchema(fileContentsSchema.array()),
+  outputSchema: jsonToolResultSchema(
+    z.union([readFilesResultV1Schema, fileContentsSchema.array()]),
+  ),
 } satisfies $ToolParams

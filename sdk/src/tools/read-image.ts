@@ -1,4 +1,3 @@
-import * as nodeFs from 'fs'
 import path from 'path'
 
 import {
@@ -10,7 +9,7 @@ import {
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 
-import { resolveFilePathWithinProject } from './path-utils'
+import { resolveFilePathForFileSystemOperation } from './path-utils'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
@@ -29,8 +28,9 @@ export async function readImages(params: {
   paths: string[]
   cwd: string
   fs: CodebuffFileSystem
+  signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'read_image'>> {
-  const { paths, cwd, fs } = params
+  const { paths, cwd, fs, signal } = params
   const images: Array<{
     path: string
     status: 'attached' | 'error'
@@ -43,7 +43,7 @@ export async function readImages(params: {
 
   let rootRealPath: string
   try {
-    rootRealPath = nodeFs.realpathSync(cwd)
+    rootRealPath = await fs.realpath(cwd)
   } catch {
     rootRealPath = path.resolve(cwd)
   }
@@ -73,7 +73,21 @@ export async function readImages(params: {
       }
 
   const processOne = async (imagePath: string): Promise<ProcessedImage> => {
-    const resolvedPath = resolveFilePathWithinProject(cwd, imagePath)
+    if (signal?.aborted) {
+      return {
+        kind: 'error',
+        entry: {
+          path: imagePath,
+          status: 'error',
+          message: 'Image read cancelled.',
+        },
+      }
+    }
+    const resolvedPath = await resolveFilePathForFileSystemOperation(
+      cwd,
+      imagePath,
+      fs,
+    )
     if (!resolvedPath) {
       return {
         kind: 'error',
@@ -85,7 +99,7 @@ export async function readImages(params: {
       }
     }
 
-    const { relativePath, fullPath } = resolvedPath
+    const { relativePath, operationPath: fullPath } = resolvedPath
     const ext = path.extname(relativePath).toLowerCase()
     if (!isSupportedImageExtension(ext)) {
       return {
@@ -118,7 +132,7 @@ export async function readImages(params: {
     // points through) escapes the project root, reject before reading.
     let realResolved: string | null = null
     try {
-      realResolved = nodeFs.realpathSync(fullPath)
+      realResolved = await fs.realpath(fullPath)
     } catch {
       // File may not exist yet; fall through and let fs.stat below produce
       // the normal DOES_NOT_EXIST error.

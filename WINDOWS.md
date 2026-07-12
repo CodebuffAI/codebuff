@@ -39,6 +39,7 @@ Running into problems? Here are solutions to the most common Windows-specific is
 ### Issue: "Failed to determine latest version" on First Run
 
 **Symptom**:
+
 ```powershell
 PS C:\> openbuff
 ❌ Failed to determine latest version
@@ -47,6 +48,7 @@ Please check your internet connection and try again
 
 **Cause**:
 Openbuff checks GitHub for the latest release on first run. This fails when:
+
 - Corporate firewall blocks `github.com`
 - Proxy settings not configured
 - Network connectivity issues
@@ -59,12 +61,14 @@ Openbuff checks GitHub for the latest release on first run. This fails when:
    Openbuff natively supports proxy environment variables. This is the recommended fix:
 
    **PowerShell:**
+
    ```powershell
    $env:HTTPS_PROXY = "http://your-proxy-server:port"
    openbuff
    ```
 
    **CMD:**
+
    ```cmd
    set HTTPS_PROXY=http://your-proxy-server:port
    openbuff
@@ -73,16 +77,20 @@ Openbuff checks GitHub for the latest release on first run. This fails when:
    To make it permanent, add `HTTPS_PROXY` to your Windows System Environment Variables (Settings → System → Advanced → Environment Variables).
 
 2. **Verify network access**:
+
    ```powershell
    curl https://registry.npmjs.org/@openbuff/cli/latest
    ```
+
    If this fails, you have a network/firewall issue.
 
 3. **Configure npm proxy** (for the `npm install` step only):
+
    ```powershell
    npm config set proxy http://your-proxy-server:port
    npm config set https-proxy http://your-proxy-server:port
    ```
+
    Note: This only helps with `npm install`. Openbuff's own downloads use `HTTPS_PROXY` instead.
 
 4. **Disable VPN temporarily** or whitelist `registry.npmjs.org` and `github.com` in your firewall
@@ -101,12 +109,14 @@ Openbuff checks GitHub for the latest release on first run. This fails when:
 ### Issue: "Bash is required but was not found" Error
 
 **Symptom**:
+
 ```
 Bash is required but was not found on this Windows system.
 ```
 
 **Cause**:
 Openbuff requires bash for command execution. This error appears when:
+
 - Git for Windows is not installed
 - You're not running inside WSL
 - bash.exe is not in your PATH
@@ -161,6 +171,7 @@ Complex git commands may have issues with Windows path handling or shell escapin
 > **Note:** This applies to legacy cloud-mode login. Openbuff local/BYOK mode does not require cloud auth.
 
 **Symptom**:
+
 ```
 Press ENTER to open your browser and finish logging in...
 
@@ -203,11 +214,13 @@ When running Openbuff in Git Bash (MINGW64), the `start` command is not availabl
 
 **What it means**:
 This is **not an error** - it's an informational message indicating:
+
 - Your local binary needs to be downloaded/updated
 - "error" is a placeholder version (not a real error state)
 - Openbuff will automatically download the correct version
 
 **What to do**:
+
 - Wait for the download to complete: "Download complete! Starting Openbuff..."
 - If download fails, check your internet connection
 - If it persists, try the solutions in "Failed to determine latest version" above
@@ -225,6 +238,7 @@ If these solutions don't resolve your problem:
 3. **Join the community**: Participate via GitHub Discussions
 
 When reporting issues, please include:
+
 - Windows version: `winver` command
 - PowerShell/Git Bash/CMD
 - Node version: `node --version`

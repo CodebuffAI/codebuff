@@ -94,7 +94,10 @@ describe('killJob', () => {
 
   test('returns an errorMessage when the running job has no pid', async () => {
     const job = makeJob({
-      child: { pid: undefined, kill: () => true } as unknown as BackgroundJob['child'],
+      child: {
+        pid: undefined,
+        kill: () => true,
+      } as unknown as BackgroundJob['child'],
     })
     const out = await killJob({ jobId: job.jobId })
     expect(value(out).errorMessage).toMatch(/no process id to kill/)

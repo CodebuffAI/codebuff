@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
+import { getContentHash } from '@codebuff/common/util/content-hash'
 
 import { changeFile, changeFiles } from '../tools/change-file'
 
 describe('changeFile', () => {
-  test('returns a simple success message for string replacements', async () => {
+  test('returns a canonical authority-backed result for string replacements', async () => {
     const fs = createMockFs({
       files: {
         '/repo/src/file.ts': 'const value = 1\n',
@@ -22,21 +23,24 @@ describe('changeFile', () => {
       fs,
     })
 
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: 'src/file.ts',
-          message: 'String replace applied successfully.',
-        },
-      },
-    ])
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      version: 1,
+      outcome: 'applied',
+      actions: [
+        expect.objectContaining({
+          action: 'update',
+          path: 'src/file.ts',
+          outcome: 'applied',
+        }),
+      ],
+    })
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'const value = 2\n',
     )
   })
 
-  test('tolerates absolute paths inside the project for string replacements', async () => {
+  test('rejects absolute prompt paths even when they point inside the project', async () => {
     const fs = createMockFs({
       files: {
         '/repo/src/file.ts': 'const value = 1\n',
@@ -53,21 +57,17 @@ describe('changeFile', () => {
       fs,
     })
 
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: 'src/file.ts',
-          message: 'String replace applied successfully.',
-        },
-      },
-    ])
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'blocked' })],
+    })
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
-      'const value = 2\n',
+      'const value = 1\n',
     )
   })
 
-  test('returns a simple success message for new file writes', async () => {
+  test('returns a canonical authority-backed result for new file writes', async () => {
     const fs = createMockFs()
 
     const result = await changeFile({
@@ -80,21 +80,17 @@ describe('changeFile', () => {
       fs,
     })
 
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: 'src/file.ts',
-          message: 'Created file successfully.',
-        },
-      },
-    ])
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      actions: [expect.objectContaining({ action: 'create' })],
+    })
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'const value = 1\n',
     )
   })
 
-  test('tolerates absolute paths inside the project for file writes', async () => {
+  test('rejects absolute file-write prompt paths inside the project', async () => {
     const fs = createMockFs()
 
     const result = await changeFile({
@@ -107,18 +103,11 @@ describe('changeFile', () => {
       fs,
     })
 
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: 'src/file.ts',
-          message: 'Created file successfully.',
-        },
-      },
-    ])
-    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
-      'const value = 1\n',
-    )
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+    })
+    await expect(fs.readFile('/repo/src/file.ts', 'utf-8')).rejects.toThrow()
   })
 
   test('accepts paths whose file names start with two dots inside the project', async () => {
@@ -127,26 +116,22 @@ describe('changeFile', () => {
     const result = await changeFile({
       parameters: {
         type: 'file',
-        path: '/repo/..config',
+        path: '..config',
         content: 'value = true\n',
       },
       cwd: '/repo',
       fs,
     })
 
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: '..config',
-          message: 'Created file successfully.',
-        },
-      },
-    ])
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      actions: [expect.objectContaining({ path: '..config' })],
+    })
     expect(await fs.readFile('/repo/..config', 'utf-8')).toBe('value = true\n')
   })
 
-  test('returns a simple success message for overwritten file writes', async () => {
+  test('returns a canonical result for overwritten file writes', async () => {
     const fs = createMockFs({
       files: {
         '/repo/src/file.ts': 'const value = 1\n',
@@ -163,18 +148,36 @@ describe('changeFile', () => {
       fs,
     })
 
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: 'src/file.ts',
-          message: 'Overwrote file successfully.',
-        },
-      },
-    ])
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      actions: [expect.objectContaining({ action: 'update' })],
+    })
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'const value = 2\n',
     )
+  })
+
+  test('uses conditionalCommit for updates when the adapter provides it', async () => {
+    const fs = createMockFs({ files: { '/repo/src/file.ts': 'before\n' } })
+    let conditionalCalls = 0
+    fs.conditionalCommit = async () => {
+      conditionalCalls += 1
+      return { applied: false, actualHash: getContentHash('external\n') }
+    }
+
+    const result = await changeFile({
+      parameters: { type: 'file', path: 'src/file.ts', content: 'after\n' },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(conditionalCalls).toBe(1)
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'stale_state' })],
+    })
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe('before\n')
   })
 
   test('rejects absolute paths outside the project', async () => {
@@ -218,28 +221,20 @@ describe('changeFile', () => {
       fs,
     })
 
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          message: 'Atomic edit_transaction applied 2 file change(s).',
-          files: [
-            {
-              path: 'src/one.ts',
-              patch: '@@ -1,1 +1,1 @@\n-const one = 1\n+const one = 2\n',
-              messages: [],
-            },
-            {
-              path: 'src/two.ts',
-              patch: '@@ -1,1 +1,1 @@\n-const two = 1\n+const two = 2\n',
-              messages: [],
-            },
-          ],
-        },
-      },
-    ])
-    expect(await fs.readFile('/repo/src/one.ts', 'utf-8')).toBe('const one = 2\n')
-    expect(await fs.readFile('/repo/src/two.ts', 'utf-8')).toBe('const two = 2\n')
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      actions: [
+        expect.objectContaining({ path: 'src/one.ts', outcome: 'applied' }),
+        expect.objectContaining({ path: 'src/two.ts', outcome: 'applied' }),
+      ],
+    })
+    expect(await fs.readFile('/repo/src/one.ts', 'utf-8')).toBe(
+      'const one = 2\n',
+    )
+    expect(await fs.readFile('/repo/src/two.ts', 'utf-8')).toBe(
+      'const two = 2\n',
+    )
   })
 
   test('does not write any file when one atomic file change fails to prepare', async () => {
@@ -270,10 +265,17 @@ describe('changeFile', () => {
     const output = result[0]
     expect(output.type).toBe('json')
     if (output.type === 'json') {
-      expect(output.value).toHaveProperty('errorMessage')
+      expect(output.value).toMatchObject({
+        kind: 'file_mutation_result',
+        outcome: 'not_applied',
+      })
     }
-    expect(await fs.readFile('/repo/src/one.ts', 'utf-8')).toBe('const one = 1\n')
-    expect(await fs.readFile('/repo/src/two.ts', 'utf-8')).toBe('const two = 1\n')
+    expect(await fs.readFile('/repo/src/one.ts', 'utf-8')).toBe(
+      'const one = 1\n',
+    )
+    expect(await fs.readFile('/repo/src/two.ts', 'utf-8')).toBe(
+      'const two = 1\n',
+    )
   })
 
   test('rolls back files written before an atomic write failure', async () => {
@@ -281,10 +283,12 @@ describe('changeFile', () => {
       '/repo/src/one.ts': 'const one = 1\n',
       '/repo/src/two.ts': 'const two = 1\n',
     }
+    let failedWrite = false
     const fs = createMockFs({
       files,
       writeFileImpl: async (path, content) => {
-        if (path === '/repo/src/two.ts') {
+        if (path === '/repo/src/two.ts' && !failedWrite) {
+          failedWrite = true
           throw new Error('disk full')
         }
         files[path] = content
@@ -311,12 +315,263 @@ describe('changeFile', () => {
     const output = result[0]
     expect(output.type).toBe('json')
     if (output.type === 'json') {
-      expect(output.value).toHaveProperty('errorMessage')
-      expect(String((output.value as { errorMessage?: string }).errorMessage)).toContain(
-        'Rolled back',
-      )
+      expect(output.value).toMatchObject({
+        kind: 'file_mutation_result',
+        outcome: 'rolled_back',
+      })
     }
     expect(files['/repo/src/one.ts']).toBe('const one = 1\n')
     expect(files['/repo/src/two.ts']).toBe('const two = 1\n')
+  })
+
+  test('reports an incomplete rollback without claiming atomic restoration', async () => {
+    const files: Record<string, string> = {
+      '/repo/src/one.ts': 'const one = 1\n',
+      '/repo/src/two.ts': 'const two = 1\n',
+    }
+    const fs = createMockFs({
+      files,
+      writeFileImpl: async (path, content) => {
+        if (path === '/repo/src/two.ts') throw new Error('disk full')
+        if (path === '/repo/src/one.ts' && content === 'const one = 1\n') {
+          throw new Error('rollback denied')
+        }
+        files[path] = content
+      },
+    })
+
+    const result = await changeFiles({
+      parameters: [
+        {
+          type: 'patch',
+          path: 'src/one.ts',
+          content: '@@ -1,1 +1,1 @@\n-const one = 1\n+const one = 2\n',
+        },
+        {
+          type: 'patch',
+          path: 'src/two.ts',
+          content: '@@ -1,1 +1,1 @@\n-const two = 1\n+const two = 2\n',
+        },
+      ],
+      cwd: '/repo',
+      fs,
+    })
+
+    const value = result[0]?.type === 'json' ? result[0].value : undefined
+    expect(value).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'rollback_incomplete',
+      actions: expect.arrayContaining([
+        expect.objectContaining({
+          path: 'src/one.ts',
+          outcome: 'applied',
+          rollback: expect.objectContaining({
+            attempted: true,
+            succeeded: false,
+          }),
+        }),
+      ]),
+      authorityReceipt: expect.objectContaining({
+        status: 'rollback_incomplete',
+      }),
+    })
+    expect(files['/repo/src/one.ts']).toBe('const one = 2\n')
+  })
+
+  test('[ABI-M08] coordinates create, delete, and move with expected state', async () => {
+    const fs = createMockFs({
+      files: {
+        '/repo/delete.txt': 'remove me',
+        '/repo/source.txt': 'move me',
+      },
+    })
+
+    const result = await changeFiles({
+      parameters: [
+        {
+          type: 'file',
+          path: 'created.txt',
+          content: 'created',
+          expectedHash: null,
+        },
+        {
+          type: 'delete',
+          path: 'delete.txt',
+          expectedHash: getContentHash('remove me'),
+        },
+        {
+          type: 'move',
+          path: 'source.txt',
+          destinationPath: 'moved.txt',
+          expectedHash: getContentHash('move me'),
+          destinationExpectedHash: null,
+        },
+      ],
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      actions: [
+        expect.objectContaining({ action: 'create', path: 'created.txt' }),
+        expect.objectContaining({ action: 'delete', path: 'delete.txt' }),
+        expect.objectContaining({
+          action: 'move',
+          path: 'source.txt',
+          destinationPath: 'moved.txt',
+        }),
+      ],
+    })
+    expect(await fs.readFile('/repo/created.txt', 'utf-8')).toBe('created')
+    await expect(fs.readFile('/repo/delete.txt', 'utf-8')).rejects.toThrow()
+    await expect(fs.readFile('/repo/source.txt', 'utf-8')).rejects.toThrow()
+    expect(await fs.readFile('/repo/moved.txt', 'utf-8')).toBe('move me')
+  })
+
+  test('[ABI-M08] rejects a stale lifecycle transaction before commit', async () => {
+    const fs = createMockFs({ files: { '/repo/delete.txt': 'current' } })
+    const result = await changeFiles({
+      parameters: [
+        {
+          type: 'delete',
+          path: 'delete.txt',
+          expectedHash: getContentHash('stale'),
+        },
+      ],
+      cwd: '/repo',
+      fs,
+    })
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'stale_state' })],
+    })
+    expect(await fs.readFile('/repo/delete.txt', 'utf-8')).toBe('current')
+  })
+
+  test('[ABI-M08] revalidates state after commit authorization', async () => {
+    let targetReads = 0
+    const fs = createMockFs({
+      files: { '/repo/file.txt': 'before' },
+      readFileImpl: async (path) => {
+        if (path !== '/repo/file.txt') throw new Error('not found')
+        targetReads++
+        return targetReads === 1 ? 'before' : 'external-change'
+      },
+    })
+    const result = await changeFiles({
+      parameters: [
+        {
+          type: 'file',
+          path: 'file.txt',
+          content: 'after',
+          expectedHash: getContentHash('before'),
+        },
+      ],
+      cwd: '/repo',
+      fs,
+    })
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'stale_state' })],
+    })
+    expect(targetReads).toBeGreaterThanOrEqual(2)
+  })
+
+  test('mandatory mutation policy blocks sensitive and custom-filtered paths', async () => {
+    const fs = createMockFs()
+    const sensitive = await changeFile({
+      parameters: { type: 'file', path: '.env', content: 'SECRET=value' },
+      cwd: '/repo',
+      fs,
+    })
+    expect(
+      sensitive[0]?.type === 'json' ? sensitive[0].value : null,
+    ).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'blocked' })],
+    })
+    const customBlocked = await changeFile({
+      parameters: { type: 'file', path: 'blocked.txt', content: 'nope' },
+      cwd: '/repo',
+      fs,
+      fileFilter: (path) => ({
+        status: path === 'blocked.txt' ? 'blocked' : 'allow',
+      }),
+    })
+    expect(
+      customBlocked[0]?.type === 'json' ? customBlocked[0].value : null,
+    ).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'blocked' })],
+    })
+    await expect(fs.readFile('/repo/.env', 'utf-8')).rejects.toThrow()
+    await expect(fs.readFile('/repo/blocked.txt', 'utf-8')).rejects.toThrow()
+  })
+
+  test('successful transactions include an authority-owned verified receipt', async () => {
+    const fs = createMockFs({ files: { '/repo/file.txt': 'before' } })
+    const result = await changeFiles({
+      parameters: [
+        {
+          type: 'file',
+          path: 'file.txt',
+          content: 'after',
+          expectedHash: getContentHash('before'),
+        },
+      ],
+      cwd: '/repo',
+      fs,
+      callId: 'tool-call',
+    })
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'applied',
+      authorityReceipt: {
+        kind: 'commit_receipt',
+        callId: 'tool-call',
+        status: 'committed',
+        finalHashes: { 'file.txt': getContentHash('after') },
+      },
+    })
+  })
+
+  test('[ABI-M08] rolls back a partially committed portable move', async () => {
+    const files: Record<string, string> = { '/repo/source.txt': 'move me' }
+    let failSourceUnlink = true
+    const fs = createMockFs({ files })
+    const unlink = fs.unlink.bind(fs)
+    fs.unlink = async (filePath) => {
+      if (String(filePath) === '/repo/source.txt' && failSourceUnlink) {
+        failSourceUnlink = false
+        throw new Error('source unlink failed')
+      }
+      return unlink(filePath)
+    }
+    const result = await changeFiles({
+      parameters: [
+        {
+          type: 'move',
+          path: 'source.txt',
+          destinationPath: 'moved.txt',
+          expectedHash: getContentHash('move me'),
+          destinationExpectedHash: null,
+        },
+      ],
+      cwd: '/repo',
+      fs,
+    })
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'rolled_back',
+      actions: [expect.objectContaining({ outcome: 'rolled_back' })],
+    })
+    expect(await fs.readFile('/repo/source.txt', 'utf-8')).toBe('move me')
+    await expect(fs.readFile('/repo/moved.txt', 'utf-8')).rejects.toThrow()
   })
 })

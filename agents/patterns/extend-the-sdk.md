@@ -1,6 +1,7 @@
 # Pattern: Extend the SDK
 
 ## When to use
+
 You need to add a new model provider, modify the provider config layer, or
 extend the SDK's model discovery / request flow.
 
@@ -35,6 +36,7 @@ extend the SDK's model discovery / request flow.
    provider config and a fetch mock.
 
 ## Validation
+
 ```bash
 bun --cwd=common run typecheck
 bun --cwd=sdk run typecheck
@@ -43,6 +45,7 @@ bun test sdk/src/__tests__/model-provider.test.ts
 ```
 
 ## Conventions
+
 - Provider names are lowercase, hyphenated (`openai`, `openrouter`,
   `opencode-zen`).
 - Never hardcode API keys — read from env via `common/src/env-schema.ts`.
@@ -52,6 +55,7 @@ bun test sdk/src/__tests__/model-provider.test.ts
   provider-specific — extend only if the new provider uses OAuth.
 
 ## Risks
+
 - `resolveConfiguredProviderModel` has subtle fallback semantics; a missing
   capability flag can cause the wrong model variant to be selected. Test
   with both explicit and auto-resolved model names.

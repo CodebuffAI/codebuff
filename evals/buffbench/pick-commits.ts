@@ -78,9 +78,7 @@ function pickSha(raw: RawCommitSelectionEntry): string {
   return (raw.sha ?? raw.commit ?? raw.commit_hash ?? '').trim()
 }
 
-function joinListOrString(
-  value: string | string[] | undefined,
-): string {
+function joinListOrString(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value.filter(Boolean).join(' ')
   return (value ?? '').trim()
 }
@@ -95,9 +93,7 @@ function pickReason(raw: RawCommitSelectionEntry): string {
 }
 function pickShortDescription(raw: RawCommitSelectionEntry): string {
   return (
-    (raw.shortDescription ?? '').trim() ||
-    (raw.description ?? '').trim() ||
-    ''
+    (raw.shortDescription ?? '').trim() || (raw.description ?? '').trim() || ''
   )
 }
 
@@ -117,14 +113,19 @@ export const CommitSelectionSchema = z
   })
   .passthrough()
   .transform(
-    (raw): { selectedCommits: z.infer<typeof CanonicalCommitSelectionEntrySchema>[] } => {
+    (
+      raw,
+    ): {
+      selectedCommits: z.infer<typeof CanonicalCommitSelectionEntrySchema>[]
+    } => {
       const rawList: RawCommitSelectionEntry[] = []
       rawList.push(...(raw.selectedCommits ?? []))
       rawList.push(...(raw.selected_commits ?? []))
       rawList.push(...(raw.commits ?? []))
       if (Array.isArray(raw.selected)) {
         for (const item of raw.selected) {
-          if (item && typeof item === 'object') rawList.push(item as RawCommitSelectionEntry)
+          if (item && typeof item === 'object')
+            rawList.push(item as RawCommitSelectionEntry)
         }
       } else if (raw.selected && typeof raw.selected === 'object') {
         rawList.push(raw.selected as RawCommitSelectionEntry)
@@ -141,7 +142,9 @@ export const CommitSelectionSchema = z
       return { selectedCommits: normalized }
     },
   )
-  .pipe(z.object({ selectedCommits: z.array(CanonicalCommitSelectionEntrySchema) }))
+  .pipe(
+    z.object({ selectedCommits: z.array(CanonicalCommitSelectionEntrySchema) }),
+  )
 
 const COMMIT_SCREENING_PROMPT = `You are an expert at identifying HARD and CHALLENGING code changes in git commits that would make difficult evaluation examples for an AI coding assistant.
 
@@ -205,7 +208,11 @@ Return your response as JSON with the selected commits. If none of the commits a
 const fingerprintId = 'commit-picker'
 const userInputId = 'commit-picker'
 
-function getCommits(repoPath: string, limit: number, afterCommit?: string): CommitInfo[] {
+function getCommits(
+  repoPath: string,
+  limit: number,
+  afterCommit?: string,
+): CommitInfo[] {
   const gitArgs = [
     'log',
     '--pretty=format:%H|%an|%ad|%s',
@@ -219,11 +226,10 @@ function getCommits(repoPath: string, limit: number, afterCommit?: string): Comm
     gitArgs.push(`${afterCommit}^`) // Start from the parent of the specified commit
   }
 
-  const gitLogOutput = execFileSync(
-    'git',
-    gitArgs,
-    { cwd: repoPath, encoding: 'utf-8' },
-  )
+  const gitLogOutput = execFileSync('git', gitArgs, {
+    cwd: repoPath,
+    encoding: 'utf-8',
+  })
 
   const lines = gitLogOutput.split('\n').filter((line) => line.trim() !== '')
 
@@ -660,7 +666,9 @@ if (require.main === module) {
   const args = process.argv.slice(2)
 
   if (args.length === 0) {
-    console.log('Usage: bun run pick-commits <repo-url> [output-path] [limit] [--after <commit-sha>]')
+    console.log(
+      'Usage: bun run pick-commits <repo-url> [output-path] [limit] [--after <commit-sha>]',
+    )
     console.log('')
     console.log('Examples:')
     console.log('  bun run pick-commits https://github.com/user/repo')

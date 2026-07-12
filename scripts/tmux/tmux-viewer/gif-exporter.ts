@@ -52,7 +52,7 @@ interface RenderContext {
  */
 function calculateDimensions(
   sessionData: SessionData,
-  options: GifExportOptions
+  options: GifExportOptions,
 ): { width: number; height: number; charWidth: number; lineHeight: number } {
   const fontSize = options.fontSize ?? 14
   // Approximate character dimensions for monospace font
@@ -80,7 +80,8 @@ function calculateDimensions(
 
   const width = options.width ?? Math.ceil(termWidth * charWidth + padding * 2)
   const height =
-    options.height ?? Math.ceil(termHeight * lineHeight + padding * 2 + labelHeight)
+    options.height ??
+    Math.ceil(termHeight * lineHeight + padding * 2 + labelHeight)
 
   return { width, height, charWidth, lineHeight }
 }
@@ -93,9 +94,10 @@ function renderFrame(
   capture: Capture,
   canvasWidth: number,
   canvasHeight: number,
-  renderCtx: RenderContext
+  renderCtx: RenderContext,
 ): void {
-  const { fontSize, lineHeight, bgColor, fgColor, labelColor, showLabel } = renderCtx
+  const { fontSize, lineHeight, bgColor, fgColor, labelColor, showLabel } =
+    renderCtx
 
   // Clear and fill background
   ctx.fillStyle = bgColor
@@ -113,7 +115,8 @@ function renderFrame(
 
   // Render label if enabled
   if (showLabel) {
-    const label = capture.frontMatter.label || `Capture ${capture.frontMatter.sequence}`
+    const label =
+      capture.frontMatter.label || `Capture ${capture.frontMatter.sequence}`
     const time = formatTimestamp(capture.frontMatter.timestamp)
 
     ctx.fillStyle = labelColor
@@ -139,7 +142,9 @@ function renderFrame(
   ctx.fillStyle = fgColor
 
   const lines = capture.content.split('\n')
-  const maxLines = Math.floor((canvasHeight - contentStartY - padding) / lineHeight)
+  const maxLines = Math.floor(
+    (canvasHeight - contentStartY - padding) / lineHeight,
+  )
 
   for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
     const line = lines[i]
@@ -155,7 +160,7 @@ function renderFrame(
     ctx.fillText(
       `... ${lines.length - maxLines} more lines`,
       padding,
-      canvasHeight - padding - fontSize
+      canvasHeight - padding - fontSize,
     )
   }
 }
@@ -165,7 +170,9 @@ function renderFrame(
  */
 function stripAnsiCodes(text: string): string {
   // eslint-disable-next-line no-control-regex
-  return text.replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+  return text
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
 }
 
 /**
@@ -194,7 +201,7 @@ function formatTimestamp(isoTimestamp: string): string {
  */
 export async function renderSessionToGif(
   sessionData: SessionData,
-  options: GifExportOptions
+  options: GifExportOptions,
 ): Promise<string> {
   const captures = sessionData.captures
 
@@ -212,11 +219,14 @@ export async function renderSessionToGif(
   const showLabel = options.showLabel !== false
 
   // Calculate dimensions
-  const { width, height, charWidth, lineHeight } = calculateDimensions(sessionData, {
-    ...options,
-    fontSize,
-    showLabel,
-  })
+  const { width, height, charWidth, lineHeight } = calculateDimensions(
+    sessionData,
+    {
+      ...options,
+      fontSize,
+      showLabel,
+    },
+  )
 
   // Create canvas
   const canvas = createCanvas(width, height)

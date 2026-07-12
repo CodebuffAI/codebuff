@@ -284,12 +284,7 @@ describe('game-dev presets — getGameDevJobGuidance', () => {
   })
 
   test('returns guidance for all 4 engines in stable order', () => {
-    const guidance = getGameDevJobGuidance([
-      'bevy',
-      'unreal',
-      'godot',
-      'unity',
-    ])
+    const guidance = getGameDevJobGuidance(['bevy', 'unreal', 'godot', 'unity'])
     expect(guidance.length).toBe(4)
     expect(guidance.map((g) => g.engineId)).toEqual([
       'bevy',
@@ -300,10 +295,7 @@ describe('game-dev presets — getGameDevJobGuidance', () => {
   })
 
   test('skips unknown engine IDs gracefully', () => {
-    const guidance = getGameDevJobGuidance([
-      'unity',
-      'godot',
-    ])
+    const guidance = getGameDevJobGuidance(['unity', 'godot'])
     expect(guidance.length).toBe(2)
     expect(guidance.map((g) => g.engineId)).toEqual(['unity', 'godot'])
   })

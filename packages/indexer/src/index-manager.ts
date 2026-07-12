@@ -1,9 +1,28 @@
 import { buildMetadataIndex, updateMetadataIndex } from './metadata-indexer'
-import { isIndexReady, isIndexStale, loadIndex, saveIndex } from './index-store'
+import {
+  isIndexReady,
+  isIndexStale,
+  loadIndex,
+  loadSemanticVectors,
+  saveIndex,
+  saveSemanticVectors,
+} from './index-store'
 import { queryIndex, type QueryOptions } from './query'
-import { buildFileVectors, semanticSearch, blendSemanticScores } from './semantic'
+import {
+  buildFileVectors,
+  getSemanticConfigFingerprint,
+  semanticSearch,
+  blendSemanticScores,
+} from './semantic'
 import type { EmbedFn, FileVector, SemanticHit } from './semantic'
-import type { IndexingConfig, LexicalWeights, MetadataIndex, QueryIndexMode, QueryIndexResult } from './types'
+import type {
+  IndexingConfig,
+  IndexStatus,
+  LexicalWeights,
+  MetadataIndex,
+  QueryIndexMode,
+  QueryIndexResult,
+} from './types'
 
 export class IndexManager {
   // Bounded LRU-ish (FIFO) cache of per-project-root singletons. Prevents
@@ -50,7 +69,14 @@ export class IndexManager {
     // Wire an embedder the first time one is supplied (the CLI builds it from
     // the BYOK provider config). Kept out of the instance key so providing it
     // does not fork the singleton.
-    if (embed && !instance.embed) instance.embed = embed
+    if (embed && !instance.embed) {
+      instance.embed = embed
+      if (instance.index && instance.config.semantic?.enabled) {
+        instance.fileVectors = []
+        instance.forceRefresh = true
+        instance.ensureBuilt()
+      }
+    }
     return instance
   }
 
@@ -67,11 +93,8 @@ export class IndexManager {
         enabled: config.semantic?.enabled ?? false,
         model: config.semantic?.model,
       },
-      // Graph weights are baked into the persisted index at build time, so a
-      // different graph-weights config needs a distinct singleton (and rebuild).
-      // Lexical/semanticBlend only affect query time and are threaded through
-      // QueryOptions per call, so they do not need to fork the singleton.
-      graphWeights: config.weights?.graph ?? null,
+      maxFiles: config.maxFiles ?? 20_000,
+      weights: config.weights ?? null,
     })
   }
 
@@ -119,9 +142,9 @@ export class IndexManager {
   async waitUntilReady(timeoutMs = 30_000): Promise<void> {
     if (
       isIndexReady(this.index) &&
-      !isIndexStale(this.index) &&
       !this.forceRefresh &&
-      !this.staleRefreshPending
+      !this.staleRefreshPending &&
+      (!this.config.semantic?.enabled || !this.embed || this.isSemanticReady())
     ) {
       return
     }
@@ -141,30 +164,55 @@ export class IndexManager {
    */
   query(
     query: string,
-    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string; lexicalWeights?: LexicalWeights } = {},
-  ): { results: QueryIndexResult[]; ready: boolean; totalIndexed: number; indexAge: number } {
+    options: {
+      limit?: number
+      fileTypes?: string[]
+      mode?: QueryIndexMode
+      from?: string
+      to?: string
+      lexicalWeights?: LexicalWeights
+    } = {},
+  ): {
+    results: QueryIndexResult[]
+    ready: boolean
+    totalIndexed: number
+    indexAge: number
+    status: IndexStatus
+  } {
     if (this.config.enabled === false) {
-      return { results: [], ready: false, totalIndexed: 0, indexAge: 0 }
+      return {
+        results: [],
+        ready: false,
+        totalIndexed: 0,
+        indexAge: 0,
+        status: this.getStatus(),
+      }
     }
     if (!isIndexReady(this.index)) {
-      this.ensureBuilt()
-      return { results: [], ready: false, totalIndexed: 0, indexAge: 0 }
-    }
-    if (this.forceRefresh || this.staleRefreshPending) {
       this.ensureBuilt()
       return {
         results: [],
         ready: false,
-        totalIndexed: this.index.fileCount,
-        indexAge: Date.now() - this.index.builtAt,
+        totalIndexed: 0,
+        indexAge: 0,
+        status: this.getStatus(),
       }
     }
-    const results = queryIndex(this.index, query, withConfigLexicalWeights(options, this.config))
+    if (this.forceRefresh || this.staleRefreshPending) {
+      this.ensureBuilt()
+      // Continue with the last known-good snapshot while refresh runs.
+    }
+    const results = queryIndex(
+      this.index,
+      query,
+      withConfigLexicalWeights(options, this.config),
+    )
     return {
       results,
       ready: true,
       totalIndexed: this.index.fileCount,
       indexAge: Date.now() - this.index.builtAt,
+      status: this.getStatus(),
     }
   }
 
@@ -179,14 +227,31 @@ export class IndexManager {
    */
   async queryBlended(
     query: string,
-    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string; lexicalWeights?: LexicalWeights } = {},
-  ): Promise<{ results: QueryIndexResult[]; ready: boolean; totalIndexed: number; indexAge: number }> {
+    options: {
+      limit?: number
+      fileTypes?: string[]
+      mode?: QueryIndexMode
+      from?: string
+      to?: string
+      lexicalWeights?: LexicalWeights
+    } = {},
+  ): Promise<{
+    results: QueryIndexResult[]
+    ready: boolean
+    totalIndexed: number
+    indexAge: number
+    status: IndexStatus
+  }> {
     const lexical = this.query(query, options)
     if (!lexical.ready || !this.index || !this.isSemanticReady()) {
       return lexical
     }
     // Semantic blending only applies to free-text search, not graph traversal.
-    if (options.mode && options.mode !== 'search' && options.mode !== 'explain') {
+    if (
+      options.mode &&
+      options.mode !== 'search' &&
+      options.mode !== 'explain'
+    ) {
       return lexical
     }
 
@@ -225,14 +290,18 @@ export class IndexManager {
     try {
       const existing = await loadIndex(this.projectRoot, cacheDir)
       let index: MetadataIndex
-      if (existing && !isIndexStale(existing)) {
-        index = await updateMetadataIndex(existing, this.projectRoot, this.config)
+      if (existing) {
+        index = await updateMetadataIndex(
+          existing,
+          this.projectRoot,
+          this.config,
+        )
       } else {
         index = await buildMetadataIndex(this.projectRoot, this.config)
       }
       await saveIndex(index, this.projectRoot, cacheDir)
       this.index = index
-      await this._buildVectors(index)
+      await this._buildVectors(index, cacheDir)
     } catch (err) {
       // Index build failures are never fatal
       console.debug('[indexer] build failed:', err)
@@ -243,12 +312,32 @@ export class IndexManager {
    * Embed all indexed files when semantic indexing is enabled and an embedder
    * is wired. Non-fatal: a failure here leaves lexical search fully functional.
    */
-  private async _buildVectors(index: MetadataIndex): Promise<void> {
+  private async _buildVectors(
+    index: MetadataIndex,
+    cacheDir: string,
+  ): Promise<void> {
     if (!this.config.semantic?.enabled || !this.embed) return
     try {
+      const fingerprint = getSemanticConfigFingerprint(
+        this.config.semantic,
+        this.embed,
+      )
+      const persisted = await loadSemanticVectors(
+        this.projectRoot,
+        fingerprint,
+        cacheDir,
+      )
       this.fileVectors = await buildFileVectors(
         Object.values(index.files),
         this.embed,
+        64,
+        [...this.fileVectors, ...persisted],
+      )
+      await saveSemanticVectors(
+        this.projectRoot,
+        fingerprint,
+        this.fileVectors,
+        cacheDir,
       )
     } catch (err) {
       console.debug('[indexer] semantic vector build failed:', err)
@@ -260,9 +349,56 @@ export class IndexManager {
   isSemanticReady(): boolean {
     return Boolean(
       this.config.semantic?.enabled &&
-        this.embed &&
-        this.fileVectors.length > 0,
+      this.embed &&
+      this.fileVectors.length > 0,
     )
+  }
+
+  getStatus(): IndexStatus {
+    const indexAge = this.index ? Date.now() - this.index.builtAt : 0
+    const refreshing = Boolean(this.buildPromise || this.staleRefreshPending)
+    const stale = Boolean(
+      this.index &&
+      (this.forceRefresh || refreshing || isIndexStale(this.index)),
+    )
+    const diagnostics = this.index?.parseDiagnostics ?? []
+    const state: IndexStatus['state'] =
+      this.config.enabled === false
+        ? 'disabled'
+        : !this.index
+          ? refreshing
+            ? 'building'
+            : 'empty'
+          : diagnostics.length > 0
+            ? 'degraded'
+            : stale
+              ? 'stale'
+              : 'ready'
+    const semantic: IndexStatus['semantic'] = !this.config.semantic?.enabled
+      ? 'disabled'
+      : this.isSemanticReady()
+        ? 'ready'
+        : this.embed
+          ? refreshing
+            ? 'building'
+            : 'failed'
+          : 'unavailable'
+    const coverage = this.index?.coverage
+    const coverageNotice = coverage?.truncated
+      ? ` Index truncated at ${coverage.maxFiles} files; skipped ${coverage.skippedFiles} file(s) under ${coverage.skippedPrefixes.join(', ') || 'unknown prefixes'}.`
+      : ''
+    return {
+      state,
+      ready: Boolean(this.index),
+      stale,
+      refreshing,
+      semantic,
+      totalIndexed: this.index?.fileCount ?? 0,
+      indexAge,
+      diagnostics,
+      coverage,
+      message: `${state === 'ready' ? 'Index ready.' : state === 'stale' ? 'Serving a stale snapshot while refreshing.' : state === 'degraded' ? 'Index ready with parser diagnostics.' : state === 'building' ? 'Index is building.' : state === 'disabled' ? 'Indexing is disabled.' : 'Index is empty or unavailable.'}${coverageNotice}`,
+    }
   }
 
   /**

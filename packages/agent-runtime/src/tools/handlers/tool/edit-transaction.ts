@@ -1,4 +1,16 @@
-import { normalizeToolPath } from './write-file'
+import { getContentHash } from '@codebuff/common/util/content-hash'
+
+import {
+  formatUnsafeToolPathError,
+  grantWholeFileReadAuthorization,
+  isWholeFileReadAuthorizationFresh,
+  normalizeToolPath,
+  revokeWholeFileReadAuthorization,
+} from './write-file'
+import {
+  coordinateEditApplication,
+  invalidatePreparedEditPaths,
+} from './edit-application-coordinator'
 import { processEditTransaction } from '../../../process-edit-transaction'
 import {
   preflightValidateSyntax,
@@ -16,6 +28,28 @@ import type { FileChange } from '@codebuff/common/actions'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+
+export const TRANSACTION_SNAPSHOT_CONCURRENCY = 8
+
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  mapper: (value: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length)
+  let nextIndex = 0
+  const workers = Array.from(
+    { length: Math.min(concurrency, values.length) },
+    async () => {
+      while (nextIndex < values.length) {
+        const index = nextIndex++
+        results[index] = await mapper(values[index]!, index)
+      }
+    },
+  )
+  await Promise.all(workers)
+  return results
+}
 
 export const handleEditTransaction = (async (
   params: {
@@ -42,27 +76,39 @@ export const handleEditTransaction = (async (
   const edits = toolCall.input.edits.map((edit) => ({
     ...edit,
     path: normalizeToolPath(edit.path),
+    ...(edit.type === 'move'
+      ? { destinationPath: normalizeToolPath(edit.destinationPath) }
+      : {}),
   }))
 
-  // Reject path-traversal payloads up front: normalizeToolPath returns '' for
-  // any edit target containing a `..` segment (mirrors gate-paths defense).
-  // Block the whole transaction rather than letting downstream logic operate
-  // on an empty path. Report the original (pre-normalization) input path so the
-  // agent can see exactly which edit was rejected.
-  const traversalBlockedIndex = edits.findIndex((edit) => !edit.path)
-  if (traversalBlockedIndex !== -1) {
-    const originalPath = toolCall.input.edits[traversalBlockedIndex].path
+  // Block the whole transaction rather than forwarding an unsafe/empty path.
+  // Report the original input so the agent can correct the exact edit.
+  const unsafePathIndex = edits.findIndex(
+    (edit) => !edit.path || (edit.type === 'move' && !edit.destinationPath),
+  )
+  if (unsafePathIndex !== -1) {
+    const originalEdit = toolCall.input.edits[unsafePathIndex]
+    const originalPath =
+      originalEdit.type === 'move' && !edits[unsafePathIndex].destinationPath
+        ? originalEdit.destinationPath
+        : originalEdit.path
     return {
       output: [
         {
           type: 'json',
           value: {
-            errorMessage: `edit_transaction path traversal blocked: "${originalPath}" resolves outside the project root.`,
+            errorMessage: formatUnsafeToolPathError(
+              'edit_transaction',
+              originalPath,
+            ),
             failures: [
               {
-                editIndex: traversalBlockedIndex,
+                editIndex: unsafePathIndex,
                 path: originalPath,
-                errorMessage: `Path "${originalPath}" resolves outside the project root.`,
+                errorMessage: formatUnsafeToolPathError(
+                  'edit_transaction',
+                  originalPath,
+                ),
               },
             ],
           },
@@ -73,6 +119,59 @@ export const handleEditTransaction = (async (
 
   await previousToolCallFinished
 
+  const uniquePaths = Array.from(
+    new Set(
+      edits.flatMap((edit) =>
+        edit.type === 'move' ? [edit.path, edit.destinationPath] : [edit.path],
+      ),
+    ),
+  )
+  const initialContentByPath = new Map<string, string | null>()
+  const snapshots = await mapWithConcurrency(
+    uniquePaths,
+    TRANSACTION_SNAPSHOT_CONCURRENCY,
+    async (path) => {
+      const previousPromises = fileProcessingState.promisesByPath[path]
+      const previousEdit = previousPromises?.[previousPromises.length - 1]
+      const initialContent = previousEdit
+        ? await previousEdit.then((maybeResult) =>
+            maybeResult && 'content' in maybeResult
+              ? maybeResult.content
+              : requestOptionalFile({ ...params, filePath: path }),
+          )
+        : await requestOptionalFile({ ...params, filePath: path })
+
+      return initialContent
+    },
+  )
+  uniquePaths.forEach((path, index) => {
+    initialContentByPath.set(path, snapshots[index]!)
+  })
+
+  const freshWholeFileAuthorizationPaths = new Set<string>()
+  const staleWholeFileAuthorizationPaths = new Set<string>()
+  for (const path of uniquePaths) {
+    const initialContent = initialContentByPath.get(path)
+    const hasStoredAuthorization = Boolean(
+      fileProcessingState.readAuthorizationsByPath?.[path] ||
+      fileProcessingState.readAuthorizationHashesByPath?.[path],
+    )
+    const isFresh =
+      typeof initialContent === 'string' &&
+      isWholeFileReadAuthorizationFresh(
+        fileProcessingState,
+        path,
+        initialContent,
+      )
+    if (isFresh) {
+      freshWholeFileAuthorizationPaths.add(path)
+    } else if (hasStoredAuthorization) {
+      staleWholeFileAuthorizationPaths.add(path)
+      revokeWholeFileReadAuthorization(fileProcessingState, path)
+    }
+  }
+
+  const requireFreshReadCapabilityForPaths = new Set<string>()
   if (fileProcessingState.strictReadBeforeEdit) {
     const failures: Array<{
       editIndex: number
@@ -80,22 +179,32 @@ export const handleEditTransaction = (async (
       errorMessage: string
     }> = []
     edits.forEach((edit, editIndex) => {
-      const isAuthorized = Boolean(
-        fileProcessingState.readAuthorizationsByPath?.[edit.path],
-      )
-      if (isAuthorized) return
-      // Per-edit basedOnRead anchors satisfy strict mode without a prior read.
+      if (
+        edit.type === 'create' &&
+        initialContentByPath.get(edit.path) === null
+      ) {
+        return
+      }
+      if (freshWholeFileAuthorizationPaths.has(edit.path)) return
+      // Per-edit basedOnRead anchors satisfy strict mode without a prior read,
+      // but every replacement must carry its own scoped capability.
       const hasBasedOnRead =
         edit.type === 'str_replace' &&
         Array.isArray(edit.replacements) &&
-        edit.replacements.some((replacement) =>
+        edit.replacements.length > 0 &&
+        edit.replacements.every((replacement) =>
           Boolean(replacement.basedOnRead),
         )
-      if (hasBasedOnRead) return
+      if (hasBasedOnRead) {
+        requireFreshReadCapabilityForPaths.add(edit.path)
+        return
+      }
       failures.push({
         editIndex,
         path: edit.path,
-        errorMessage: `Edit blocked: strict read-before-edit is enabled and no read authorization exists for ${edit.path}. Call read_files for this exact path before retrying, or include a basedOnRead capability on at least one replacement.`,
+        errorMessage: staleWholeFileAuthorizationPaths.has(edit.path)
+          ? `Edit blocked: ${edit.path} changed after its last whole-file read, so the stored authorization was revoked. Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`
+          : `Edit blocked: strict read-before-edit is enabled and no fresh whole-file read authorization exists for ${edit.path}. Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`,
       })
     })
     if (failures.length > 0) {
@@ -106,7 +215,7 @@ export const handleEditTransaction = (async (
             value: {
               errorMessage: [
                 'edit_transaction blocked: strict read-before-edit is enabled and one or more paths have no read authorization.',
-                'Next: call read_files for each blocked path (the exact target file and line range) before retrying, or include a basedOnRead capability on at least one replacement of each blocked str_replace edit.',
+                'Next: call read_files with paths for each blocked file before retrying, or include a matching fresh basedOnRead capability on every replacement of each blocked str_replace edit.',
               ].join('\n'),
               failures,
             },
@@ -116,32 +225,89 @@ export const handleEditTransaction = (async (
     }
   }
 
-  const uniquePaths = Array.from(new Set(edits.map((edit) => edit.path)))
-  const initialContentByPath = new Map<string, string | null>()
-  for (const path of uniquePaths) {
-    const previousPromises = fileProcessingState.promisesByPath[path]
-    const previousEdit = previousPromises?.[previousPromises.length - 1]
-    const initialContent = previousEdit
-      ? await previousEdit.then((maybeResult) =>
-          maybeResult && 'content' in maybeResult
-            ? maybeResult.content
-            : requestOptionalFile({ ...params, filePath: path }),
-        )
-      : await requestOptionalFile({ ...params, filePath: path })
-
-    initialContentByPath.set(path, initialContent)
+  const lifecycleFailures = edits.flatMap((edit, editIndex) => {
+    const source = initialContentByPath.get(edit.path)
+    if (edit.type === 'create' && source !== null) {
+      return [
+        {
+          editIndex,
+          path: edit.path,
+          errorMessage: 'Create destination already exists.',
+        },
+      ]
+    }
+    if (
+      (edit.type === 'delete' || edit.type === 'move') &&
+      typeof source !== 'string'
+    ) {
+      return [
+        {
+          editIndex,
+          path: edit.path,
+          errorMessage: `${edit.type === 'delete' ? 'Delete' : 'Move'} source does not exist.`,
+        },
+      ]
+    }
+    if (
+      edit.type === 'move' &&
+      initialContentByPath.get(edit.destinationPath) !== null
+    ) {
+      return [
+        {
+          editIndex,
+          path: edit.destinationPath,
+          errorMessage: 'Move destination already exists.',
+        },
+      ]
+    }
+    return []
+  })
+  if (lifecycleFailures.length > 0) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage:
+              'edit_transaction lifecycle preflight failed; no changes were applied.',
+            failures: lifecycleFailures,
+          },
+        },
+      ],
+    }
   }
 
-  const transactionResult = await processEditTransaction({
-    edits,
-    initialContentByPath,
-    logger,
-  })
+  const contentEdits = edits.filter(
+    (edit) =>
+      edit.type === 'str_replace' ||
+      edit.type === 'structured' ||
+      edit.type === 'replace_range' ||
+      edit.type === 'rewrite_symbol' ||
+      edit.type === 'patch' ||
+      edit.type === 'write_file',
+  )
+  const transactionResult =
+    contentEdits.length > 0
+      ? await processEditTransaction({
+          edits: contentEdits,
+          initialContentByPath,
+          logger,
+          requireFreshReadCapabilityForPaths,
+        })
+      : {
+          tool: 'edit_transaction' as const,
+          message: `Prepared ${edits.length} lifecycle edit(s).`,
+          files: [],
+        }
 
   if ('error' in transactionResult) {
-    for (const failure of transactionResult.failures) {
-      fileProcessingState.failedEditRequiresReadByPath[failure.path] = true
-    }
+    invalidatePreparedEditPaths({
+      fileProcessingState,
+      paths:
+        transactionResult.failures.length > 0
+          ? transactionResult.failures.map((failure) => failure.path)
+          : uniquePaths,
+    })
 
     return {
       output: [
@@ -156,23 +322,12 @@ export const handleEditTransaction = (async (
     }
   }
 
-  const markAllTransactionPathsAsRequiringRead = () => {
-    for (const transactionFile of transactionResult.files) {
-      fileProcessingState.failedEditRequiresReadByPath[
-        transactionFile.path
-      ] = true
-    }
-  }
-
   // --- VIRTUAL COMPILE TRANSACTIONS: Preflight Syntax Validation ---
   // Uses the shared preflightValidateSyntax utility which handles JS/TS
   // (Bun.Transpiler), Python (structural validation), and Go (structural
   // validation). In Node.js, JS/TS validation is gracefully skipped.
   for (const file of transactionResult.files) {
-    const syntaxValidation = preflightValidateSyntax(
-      file.path,
-      file.content,
-    )
+    const syntaxValidation = preflightValidateSyntax(file.path, file.content)
     if (!syntaxValidation.valid) {
       // A preflight syntax failure is NOT a stale-anchor failure: the edits
       // were structurally applied but the resulting content has a syntax
@@ -206,21 +361,147 @@ export const handleEditTransaction = (async (
     }
   }
 
-  let clientResult: CodebuffToolOutput<'edit_transaction'>
-  try {
-    clientResult = await requestClientToolCall({
-      toolCallId: toolCall.toolCallId,
-      toolName: 'edit_transaction',
-      input: transactionResult.files.map(
-        (file): FileChange => ({
-          type: 'patch',
-          path: file.path,
-          content: file.patch,
-        }),
-      ),
+  for (const edit of edits) {
+    if (edit.type !== 'create') continue
+    const syntaxValidation = preflightValidateSyntax(edit.path, edit.content)
+    if (!syntaxValidation.valid) {
+      return {
+        output: [
+          {
+            type: 'json',
+            value: {
+              errorMessage: formatPreflightErrorMessage(
+                'edit_transaction',
+                edit.path,
+                syntaxValidation.message,
+              ),
+              failures: [
+                {
+                  editIndex: edits.indexOf(edit),
+                  path: edit.path,
+                  errorMessage: syntaxValidation.message,
+                },
+              ],
+            },
+          },
+        ],
+      }
+    }
+  }
+
+  const preparedContentByPath = new Map(
+    transactionResult.files.map((file) => [file.path, file]),
+  )
+  const firstContentEditIndexByPath = new Map<string, number>()
+  edits.forEach((edit, index) => {
+    if (
+      !['create', 'delete', 'move'].includes(edit.type) &&
+      !firstContentEditIndexByPath.has(edit.path)
+    ) {
+      firstContentEditIndexByPath.set(edit.path, index)
+    }
+  })
+  const clientChanges: Array<{ index: number; change: FileChange }> = []
+  for (const [path, file] of preparedContentByPath) {
+    const initial = initialContentByPath.get(path) ?? null
+    clientChanges.push({
+      index: firstContentEditIndexByPath.get(path)!,
+      change: {
+        type: 'patch',
+        path,
+        content: file.patch,
+        expectedHash: initial === null ? null : getContentHash(initial),
+      },
     })
-  } catch (error) {
-    markAllTransactionPathsAsRequiringRead()
+  }
+  edits.forEach((edit, index) => {
+    if (edit.type === 'create') {
+      clientChanges.push({
+        index,
+        change: {
+          type: 'file',
+          path: edit.path,
+          content: edit.content,
+          expectedHash: null,
+        },
+      })
+    } else if (edit.type === 'delete') {
+      const initial = initialContentByPath.get(edit.path)
+      if (typeof initial === 'string') {
+        clientChanges.push({
+          index,
+          change: {
+            type: 'delete',
+            path: edit.path,
+            expectedHash: getContentHash(initial),
+          },
+        })
+      }
+    } else if (edit.type === 'move') {
+      const initial = initialContentByPath.get(edit.path)
+      if (typeof initial === 'string') {
+        clientChanges.push({
+          index,
+          change: {
+            type: 'move',
+            path: edit.path,
+            destinationPath: edit.destinationPath,
+            expectedHash: getContentHash(initial),
+            destinationExpectedHash: null,
+          },
+        })
+      }
+    }
+  })
+  clientChanges.sort((a, b) => a.index - b.index)
+
+  const appliedFiles: {
+    path: string
+    patch: string
+    messages: string[]
+  }[] = []
+  const application = await coordinateEditApplication<'edit_transaction'>({
+    toolName: 'edit_transaction',
+    fileProcessingState,
+    paths: uniquePaths,
+    apply: () =>
+      requestClientToolCall({
+        toolCallId: toolCall.toolCallId,
+        toolName: 'edit_transaction',
+        input: clientChanges.map(({ change }) => change),
+      }),
+    onApplied: () => {
+      for (const file of transactionResult.files) {
+        if (freshWholeFileAuthorizationPaths.has(file.path)) {
+          grantWholeFileReadAuthorization(
+            fileProcessingState,
+            file.path,
+            file.content,
+          )
+        }
+        const fileProcessingResult = Promise.resolve({
+          tool: 'edit_transaction' as const,
+          path: file.path,
+          toolCallId: toolCall.toolCallId,
+          content: file.content,
+          patch: file.patch,
+          messages: file.messages,
+        })
+        if (!fileProcessingState.promisesByPath[file.path]) {
+          fileProcessingState.promisesByPath[file.path] = []
+        }
+        fileProcessingState.promisesByPath[file.path].push(fileProcessingResult)
+        fileProcessingState.allPromises.push(fileProcessingResult)
+        appliedFiles.push({
+          path: file.path,
+          patch: file.patch,
+          messages: file.messages,
+        })
+      }
+    },
+  })
+
+  if (application.status === 'threw') {
     return {
       output: [
         {
@@ -228,14 +509,19 @@ export const handleEditTransaction = (async (
           value: {
             errorMessage: [
               'edit_transaction failed while atomically applying preflighted patches.',
-              `Client threw: ${error instanceof Error ? error.message : String(error)}`,
+              `Client threw: ${application.error instanceof Error ? application.error.message : String(application.error)}`,
               'No in-memory transaction state was recorded. Re-read all affected files before retrying.',
             ].join('\n'),
             failures: [
               {
                 editIndex: -1,
-                path: transactionResult.files.map((file) => file.path).join(', '),
-                errorMessage: error instanceof Error ? error.message : String(error),
+                path: transactionResult.files
+                  .map((file) => file.path)
+                  .join(', '),
+                errorMessage:
+                  application.error instanceof Error
+                    ? application.error.message
+                    : String(application.error),
               },
             ],
           },
@@ -244,56 +530,9 @@ export const handleEditTransaction = (async (
     }
   }
 
-  const resultValue = clientResult[0]?.value
-  if (
-    resultValue &&
-    typeof resultValue === 'object' &&
-    'errorMessage' in resultValue
-  ) {
-    markAllTransactionPathsAsRequiringRead()
-    return { output: clientResult }
+  if (application.status === 'rejected') {
+    return { output: application.output }
   }
 
-  const appliedFiles: {
-    path: string
-    patch: string
-    messages: string[]
-  }[] = []
-
-  for (const file of transactionResult.files) {
-    const fileProcessingResult = Promise.resolve({
-      tool: 'edit_transaction' as const,
-      path: file.path,
-      toolCallId: toolCall.toolCallId,
-      content: file.content,
-      patch: file.patch,
-      messages: file.messages,
-    })
-    if (!fileProcessingState.promisesByPath[file.path]) {
-      fileProcessingState.promisesByPath[file.path] = []
-    }
-    fileProcessingState.promisesByPath[file.path].push(fileProcessingResult)
-    fileProcessingState.allPromises.push(fileProcessingResult)
-    delete fileProcessingState.failedEditRequiresReadByPath[file.path]
-    // Strict read-before-edit: read authorization is sticky once granted -
-    // do NOT consume on success. See str-replace.ts for the full rationale.
-
-    appliedFiles.push({
-      path: file.path,
-      patch: file.patch,
-      messages: file.messages,
-    })
-  }
-
-  return {
-    output: [
-      {
-        type: 'json',
-        value: {
-          message: transactionResult.message,
-          files: appliedFiles,
-        },
-      },
-    ],
-  }
+  return { output: application.output }
 }) satisfies CodebuffToolHandlerFunction<'edit_transaction'>

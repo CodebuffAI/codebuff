@@ -71,9 +71,9 @@ describe('withTimeout abort support', () => {
   it('aborts the controller on deadline before rejecting', async () => {
     const controller = new AbortController()
     const slow = new Promise<string>(() => {}) // never resolves
-    await expect(
-      withTimeout(slow, 20, 'boom', { controller }),
-    ).rejects.toThrow('boom')
+    await expect(withTimeout(slow, 20, 'boom', { controller })).rejects.toThrow(
+      'boom',
+    )
     expect(controller.signal.aborted).toBe(true)
   })
 
@@ -131,7 +131,12 @@ describe('spawn_agents timeout_seconds override wiring', () => {
       clientSessionId: 'test-session',
       fileContext: testFileContext,
       localAgentTemplates: { 'test-agent': mockAgentTemplate },
-      logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} } as any,
+      logger: {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      } as any,
       system: '',
       tools: {},
       userId: undefined,
@@ -333,4 +338,3 @@ describe('createCombinedAbortSignal (AbortSignal.any fallback)', () => {
     expect(b.signal.aborted).toBe(false)
   })
 })
-

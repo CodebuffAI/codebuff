@@ -67,12 +67,11 @@ Advanced ripgrep flags (use the flags parameter):
 - File type filtering: "-t ts -t js" (TypeScript and JavaScript), "-t py" (Python), etc.
 - Exclude file types: "--type-not py" to exclude Python files
 - Context lines: "-A 3" (3 lines after), "-B 2" (2 lines before), "-C 2" (2 lines before and after)
-- Line numbers: "-n" to show line numbers
-- Count matches: "-c" to count matches per file
-- Only filenames: "-l" to show only filenames with matches
-- Invert match: "-v" to show lines that don't match
 - Word boundaries: "-w" to match whole words only
 - Fixed strings: "-F" to treat pattern as literal string (not regex)
+- Multiline matching: "-U" and "--multiline-dotall"
+
+Only the flags listed above are accepted. Output-shape-changing or effectful ripgrep flags such as -c, -l, -v, -r/--replace, --exec, and -z/--null are rejected.
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 

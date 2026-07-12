@@ -43,7 +43,10 @@ describe('Unit: EventCollector', () => {
     })
 
     test('tracks error events separately', () => {
-      const errorEvent: PrintModeEvent = { type: 'error', message: 'Test error' }
+      const errorEvent: PrintModeEvent = {
+        type: 'error',
+        message: 'Test error',
+      }
       collector.handleEvent(errorEvent)
 
       expect(collector.events).toHaveLength(1)

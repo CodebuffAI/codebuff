@@ -209,7 +209,9 @@ function compareProviderRequests(
           const prevVal = JSON.stringify(prevObj[key])
           const currVal = JSON.stringify(currObj[key])
           const status = prevVal === currVal ? '✅' : '❌'
-          console.log(`       ${status} ${key}: ${prevVal === currVal ? 'identical' : 'differs'}`)
+          console.log(
+            `       ${status} ${key}: ${prevVal === currVal ? 'identical' : 'differs'}`,
+          )
         }
       }
 
@@ -220,32 +222,51 @@ function compareProviderRequests(
           const prevMsgsJson = JSON.stringify(prevMsgs)
           const currMsgsJson = JSON.stringify(currMsgs)
           if (prevMsgsJson === currMsgsJson) {
-            console.log(`       ✅ messages: identical (${prevMsgs.length} messages)`)
+            console.log(
+              `       ✅ messages: identical (${prevMsgs.length} messages)`,
+            )
           } else {
-            console.log(`       ❌ messages: differ (${prevMsgs.length} → ${currMsgs.length})`)
+            console.log(
+              `       ❌ messages: differ (${prevMsgs.length} → ${currMsgs.length})`,
+            )
 
             // Compare with cache_control stripped to check structural stability
             const minLen = Math.min(prevMsgs.length, currMsgs.length)
             let firstRawDiff = -1
             let firstStructDiff = -1
             for (let i = 0; i < minLen; i++) {
-              if (firstRawDiff < 0 && JSON.stringify(prevMsgs[i]) !== JSON.stringify(currMsgs[i])) {
+              if (
+                firstRawDiff < 0 &&
+                JSON.stringify(prevMsgs[i]) !== JSON.stringify(currMsgs[i])
+              ) {
                 firstRawDiff = i
               }
-              if (firstStructDiff < 0 && JSON.stringify(stripCacheControlFromMessage(prevMsgs[i])) !== JSON.stringify(stripCacheControlFromMessage(currMsgs[i]))) {
+              if (
+                firstStructDiff < 0 &&
+                JSON.stringify(stripCacheControlFromMessage(prevMsgs[i])) !==
+                  JSON.stringify(stripCacheControlFromMessage(currMsgs[i]))
+              ) {
                 firstStructDiff = i
               }
             }
             if (firstRawDiff >= 0) {
-              console.log(`          First raw diff at message index ${firstRawDiff}`)
+              console.log(
+                `          First raw diff at message index ${firstRawDiff}`,
+              )
             }
             if (firstStructDiff >= 0) {
-              console.log(`          First structural diff (ignoring cache_control) at message index ${firstStructDiff}`)
+              console.log(
+                `          First structural diff (ignoring cache_control) at message index ${firstStructDiff}`,
+              )
             } else if (prevMsgs.length === currMsgs.length) {
-              console.log(`          ✅ Structurally identical (only cache_control placement differs)`)
+              console.log(
+                `          ✅ Structurally identical (only cache_control placement differs)`,
+              )
             }
             if (prevMsgs.length !== currMsgs.length) {
-              console.log(`          Message count: ${prevMsgs.length} → ${currMsgs.length}`)
+              console.log(
+                `          Message count: ${prevMsgs.length} → ${currMsgs.length}`,
+              )
             }
           }
         }
@@ -254,7 +275,12 @@ function compareProviderRequests(
   }
 }
 
-function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile: string) {
+function comparePair(
+  prev: Snapshot,
+  curr: Snapshot,
+  prevFile: string,
+  currFile: string,
+) {
   printSectionHeader(
     `Comparing step ${prev.index} → ${curr.index}  (${prev.agentType})`,
   )
@@ -262,20 +288,34 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
   console.log(`  File B: ${currFile}`)
   console.log(`  Time:   ${prev.timestamp} → ${curr.timestamp}`)
   if (prev.model || curr.model) {
-    console.log(`  Model:  ${prev.model ?? 'unknown'} → ${curr.model ?? 'unknown'}`)
+    console.log(
+      `  Model:  ${prev.model ?? 'unknown'} → ${curr.model ?? 'unknown'}`,
+    )
   }
   if (prev.systemHash || curr.systemHash) {
-    console.log(`  Hashes: system=${prev.systemHash ?? '?'}→${curr.systemHash ?? '?'}  tools=${prev.toolsHash ?? '?'}→${curr.toolsHash ?? '?'}`)
+    console.log(
+      `  Hashes: system=${prev.systemHash ?? '?'}→${curr.systemHash ?? '?'}  tools=${prev.toolsHash ?? '?'}→${curr.toolsHash ?? '?'}`,
+    )
   }
-  for (const snap of [{ label: 'A', data: prev }, { label: 'B', data: curr }]) {
+  for (const snap of [
+    { label: 'A', data: prev },
+    { label: 'B', data: curr },
+  ]) {
     if (snap.data.usage) {
       const u = snap.data.usage
-      const hitRate = u.inputTokens > 0 ? ((u.cachedInputTokens / u.inputTokens) * 100).toFixed(1) : '0.0'
-      console.log(`  Usage ${snap.label}: ${u.inputTokens} in, ${u.outputTokens} out, ${u.cachedInputTokens} cached (${hitRate}% cache hit)`)
+      const hitRate =
+        u.inputTokens > 0
+          ? ((u.cachedInputTokens / u.inputTokens) * 100).toFixed(1)
+          : '0.0'
+      console.log(
+        `  Usage ${snap.label}: ${u.inputTokens} in, ${u.outputTokens} out, ${u.cachedInputTokens} cached (${hitRate}% cache hit)`,
+      )
     }
   }
   if (prev.runId !== curr.runId) {
-    console.log(`  ⚠️  Different runs: ${prev.runId ?? '?'} → ${curr.runId ?? '?'}`)
+    console.log(
+      `  ⚠️  Different runs: ${prev.runId ?? '?'} → ${curr.runId ?? '?'}`,
+    )
   }
 
   const prevSystem = prev.preConversion.systemPrompt
@@ -307,9 +347,7 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
   const prevToolJson = JSON.stringify(prevTools)
   const currToolJson = JSON.stringify(currTools)
   if (prevToolJson === currToolJson) {
-    console.log(
-      `     ✅ IDENTICAL (${Object.keys(prevTools).length} tools)`,
-    )
+    console.log(`     ✅ IDENTICAL (${Object.keys(prevTools).length} tools)`)
   } else {
     console.log(`     ❌ DIFFERS`)
     if (toolDiff.added.length > 0) {
@@ -325,7 +363,9 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
         const toolB = JSON.stringify(currTools[toolName], null, 2)
         const charDiff = findFirstDifference(toolA, toolB)
         if (charDiff) {
-          console.log(`       ${toolName} - first diff at char ${charDiff.index}:`)
+          console.log(
+            `       ${toolName} - first diff at char ${charDiff.index}:`,
+          )
           console.log(`         A: ...${JSON.stringify(charDiff.contextA)}...`)
           console.log(`         B: ...${JSON.stringify(charDiff.contextB)}...`)
         }
@@ -335,9 +375,7 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
 
   // Compare messages (pre-conversion)
   console.log('\n  💬 Messages (pre-conversion):')
-  console.log(
-    `     Count: ${prevMessages.length} → ${currMessages.length}`,
-  )
+  console.log(`     Count: ${prevMessages.length} → ${currMessages.length}`)
   const msgDiff = compareMessages(prevMessages, currMessages)
   if (!msgDiff) {
     console.log(`     ✅ IDENTICAL`)
@@ -371,13 +409,15 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
 
   if (systemIdentical && toolsIdentical) {
     console.log(
-      '     ✅ Pre-conversion system prompt and tools are IDENTICAL — cache should hit if TTL hasn\'t expired',
+      "     ✅ Pre-conversion system prompt and tools are IDENTICAL — cache should hit if TTL hasn't expired",
     )
   } else {
     const causes: string[] = []
     if (!systemIdentical) causes.push('system prompt changed')
     if (!toolsIdentical) causes.push('tool definitions changed')
-    console.log(`     ❌ PRE-CONVERSION CACHE MISS expected — ${causes.join(' and ')}`)
+    console.log(
+      `     ❌ PRE-CONVERSION CACHE MISS expected — ${causes.join(' and ')}`,
+    )
   }
 
   // Check post-conversion structural stability (ignoring cache_control positions)
@@ -390,21 +430,33 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
       const minLen = Math.min(prevMsgs.length, currMsgs.length)
       let sharedStructural = 0
       for (let i = 0; i < minLen; i++) {
-        if (JSON.stringify(stripCacheControlFromMessage(prevMsgs[i])) === JSON.stringify(stripCacheControlFromMessage(currMsgs[i]))) {
+        if (
+          JSON.stringify(stripCacheControlFromMessage(prevMsgs[i])) ===
+          JSON.stringify(stripCacheControlFromMessage(currMsgs[i]))
+        ) {
           sharedStructural++
         } else {
           break
         }
       }
-      console.log(`     📊 Post-conversion shared prefix: ${sharedStructural}/${minLen} messages (ignoring cache_control)`)
+      console.log(
+        `     📊 Post-conversion shared prefix: ${sharedStructural}/${minLen} messages (ignoring cache_control)`,
+      )
       if (sharedStructural < minLen && systemIdentical && toolsIdentical) {
-        console.log(`     ⚠️  Structural content differs in shared prefix — possible conversion issue`)
+        console.log(
+          `     ⚠️  Structural content differs in shared prefix — possible conversion issue`,
+        )
       }
     }
   }
 }
 
-function parseArgs(): { dir: string; agentFilter?: string; runFilter?: string; crossRun: boolean } {
+function parseArgs(): {
+  dir: string
+  agentFilter?: string
+  runFilter?: string
+  crossRun: boolean
+} {
   const args = process.argv.slice(2)
   let dir = join(process.cwd(), 'debug', 'cache-debug')
   let agentFilter: string | undefined
@@ -439,7 +491,7 @@ function main() {
     console.error(
       '\nMake sure CACHE_DEBUG_FULL_LOGGING is enabled in packages/agent-runtime/src/constants.ts',
     )
-    console.error('and you\'ve run at least two prompts to generate snapshots.')
+    console.error("and you've run at least two prompts to generate snapshots.")
     process.exit(1)
   }
 
@@ -466,7 +518,9 @@ function main() {
 
   if (runFilter) {
     allSnapshots = allSnapshots.filter(
-      (s) => s.snapshot.runId === runFilter || s.snapshot.runId?.startsWith(runFilter),
+      (s) =>
+        s.snapshot.runId === runFilter ||
+        s.snapshot.runId?.startsWith(runFilter),
     )
   }
 
@@ -478,11 +532,17 @@ function main() {
     console.log(`  Filtered to run: ${runFilter}`)
   }
 
-  const withProviderRequest = allSnapshots.filter((s) => s.snapshot.providerRequest !== undefined).length
-  console.log(`  Provider request data: ${withProviderRequest}/${allSnapshots.length} snapshots`)
+  const withProviderRequest = allSnapshots.filter(
+    (s) => s.snapshot.providerRequest !== undefined,
+  ).length
+  console.log(
+    `  Provider request data: ${withProviderRequest}/${allSnapshots.length} snapshots`,
+  )
 
   if (allSnapshots.length < 2) {
-    console.error('\nNeed at least 2 snapshots to compare. Send another prompt.')
+    console.error(
+      '\nNeed at least 2 snapshots to compare. Send another prompt.',
+    )
     process.exit(1)
   }
 
@@ -506,13 +566,18 @@ function main() {
     }
 
     console.log(`\n${'═'.repeat(80)}`)
-    console.log(`  Summary: compared ${totalPairs} consecutive pair(s) across all runs`)
+    console.log(
+      `  Summary: compared ${totalPairs} consecutive pair(s) across all runs`,
+    )
     console.log(`${'═'.repeat(80)}\n`)
     return
   }
 
   // Default: group by runId and compare within each run
-  const byRun = new Map<string, Array<{ snapshot: Snapshot; filename: string }>>()
+  const byRun = new Map<
+    string,
+    Array<{ snapshot: Snapshot; filename: string }>
+  >()
   const noRunId: Array<{ snapshot: Snapshot; filename: string }> = []
 
   for (const s of allSnapshots) {
@@ -528,10 +593,16 @@ function main() {
   }
 
   // Filter to runs with at least 2 steps
-  const multiStepRuns = [...byRun.entries()].filter(([, snaps]) => snaps.length >= 2)
-  const singleStepRuns = [...byRun.entries()].filter(([, snaps]) => snaps.length < 2)
+  const multiStepRuns = [...byRun.entries()].filter(
+    ([, snaps]) => snaps.length >= 2,
+  )
+  const singleStepRuns = [...byRun.entries()].filter(
+    ([, snaps]) => snaps.length < 2,
+  )
 
-  console.log(`\n  Runs: ${byRun.size} total, ${multiStepRuns.length} with multiple steps`)
+  console.log(
+    `\n  Runs: ${byRun.size} total, ${multiStepRuns.length} with multiple steps`,
+  )
   if (singleStepRuns.length > 0) {
     console.log(`  Skipping ${singleStepRuns.length} single-step run(s)`)
   }
@@ -552,12 +623,16 @@ function main() {
 
     console.log(`\n${'═'.repeat(80)}`)
     console.log(`  Run: ${runId}  (${snaps.length} steps)`)
-    console.log(`  Agent: ${snaps[0].snapshot.agentType}  Model: ${snaps[0].snapshot.model ?? 'unknown'}`)
+    console.log(
+      `  Agent: ${snaps[0].snapshot.agentType}  Model: ${snaps[0].snapshot.model ?? 'unknown'}`,
+    )
     console.log(`${'═'.repeat(80)}`)
 
     // Print step overview
     for (const s of snaps) {
-      console.log(`    Step ${s.snapshot.index}: ${s.snapshot.preConversion.messages.length} msgs  (${s.filename})`)
+      console.log(
+        `    Step ${s.snapshot.index}: ${s.snapshot.preConversion.messages.length} msgs  (${s.filename})`,
+      )
     }
 
     // Compare consecutive steps
@@ -573,7 +648,9 @@ function main() {
   }
 
   console.log(`\n${'═'.repeat(80)}`)
-  console.log(`  Summary: compared ${totalPairs} consecutive step pair(s) across ${multiStepRuns.length} run(s)`)
+  console.log(
+    `  Summary: compared ${totalPairs} consecutive step pair(s) across ${multiStepRuns.length} run(s)`,
+  )
   console.log(`${'═'.repeat(80)}\n`)
 }
 

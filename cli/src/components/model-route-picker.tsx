@@ -21,7 +21,10 @@ import type {
   ModelRouteTarget,
   ReasoningEffortInput,
 } from '../utils/openbuff-provider'
-import type { OpenbuffReasoningEffort, ProviderConfigFileInput } from '@openbuff/sdk'
+import type {
+  OpenbuffReasoningEffort,
+  ProviderConfigFileInput,
+} from '@openbuff/sdk'
 
 const LAYOUT = {
   CONTENT_PADDING: 4,
@@ -35,7 +38,9 @@ type RoutableModelValue =
   | { model: string; reasoningEffort?: OpenbuffReasoningEffort }
 
 /** Extract display string from a routable model value (string or { model, reasoningEffort }). */
-function displayModel(route: RoutableModelValue | undefined): string | undefined {
+function displayModel(
+  route: RoutableModelValue | undefined,
+): string | undefined {
   if (!route) return undefined
   if (typeof route === 'string') return route
   return route.model
@@ -133,11 +138,11 @@ const firstSelectableIndex = (items: SelectableListItem[]): number => {
 }
 
 /** Filter out section headers that have no visible child routes. */
-function filterOrphanHeaders(filtered: SelectableListItem[]): SelectableListItem[] {
+function filterOrphanHeaders(
+  filtered: SelectableListItem[],
+): SelectableListItem[] {
   const routeIds = new Set(
-    filtered
-      .filter((item) => !isHeaderItem(item))
-      .map((item) => item.id),
+    filtered.filter((item) => !isHeaderItem(item)).map((item) => item.id),
   )
 
   const headerPrefixes = new Map<string, string[]>([
@@ -230,7 +235,9 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       secondary: defaultModel ?? '(not set)',
       target: { type: 'default' },
       currentModel: defaultModel ?? undefined,
-      currentReasoningEffort: getRouteReasoningEffort(config, { type: 'default' }),
+      currentReasoningEffort: getRouteReasoningEffort(config, {
+        type: 'default',
+      }),
     })
 
     items.push({
@@ -243,16 +250,23 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     })
 
     // Modes
-    const modes: Array<'default' | 'plan'> = ['default', 'plan']
+    const modes: Array<'default' | 'plan' | 'executePlan'> = [
+      'default',
+      'plan',
+      'executePlan',
+    ]
     for (const mode of modes) {
       const model = displayModel(config.modes?.[mode])
       items.push({
         id: `route-mode-${mode}`,
-        label: `mode:${mode}`,
+        label: `mode:${mode === 'executePlan' ? 'execute-plan' : mode}`,
         secondary: model ?? '(not set)',
         target: { type: 'mode', mode },
         currentModel: model ?? undefined,
-        currentReasoningEffort: getRouteReasoningEffort(config, { type: 'mode', mode }),
+        currentReasoningEffort: getRouteReasoningEffort(config, {
+          type: 'mode',
+          mode,
+        }),
       })
     }
 
@@ -273,7 +287,10 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
         secondary: displayModel(model) ?? '(not set)',
         target: { type: 'agent', agentId },
         currentModel: displayModel(model) ?? undefined,
-        currentReasoningEffort: getRouteReasoningEffort(config, { type: 'agent', agentId }),
+        currentReasoningEffort: getRouteReasoningEffort(config, {
+          type: 'agent',
+          agentId,
+        }),
       })
     }
 
@@ -284,9 +301,10 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
   const selectableRouteItems: SelectableListItem[] = useMemo(
     () =>
       routeItems.map((route) => {
-        const reasoningSuffix = !route.isHeader && route.currentReasoningEffort
-          ? ` (reasoning: ${formatReasoning(route.currentReasoningEffort)})`
-          : ''
+        const reasoningSuffix =
+          !route.isHeader && route.currentReasoningEffort
+            ? ` (reasoning: ${formatReasoning(route.currentReasoningEffort)})`
+            : ''
         return {
           id: route.id,
           label: route.isHeader
@@ -364,15 +382,18 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
   const filteredReasoningOptions = useMemo(() => {
     if (!rightSearchQuery.trim()) return selectableReasoningItems
     const q = rightSearchQuery.toLowerCase()
-    return selectableReasoningItems.filter((item) =>
-      item.label.toLowerCase().includes(q) ||
-      (item.secondary ?? '').toLowerCase().includes(q),
+    return selectableReasoningItems.filter(
+      (item) =>
+        item.label.toLowerCase().includes(q) ||
+        (item.secondary ?? '').toLowerCase().includes(q),
     )
   }, [selectableReasoningItems, rightSearchQuery])
 
   // Right Pane Items & Empty Messages
   const rightItems = useMemo(() => {
-    return rightView === 'model-select' ? filteredModels : filteredReasoningOptions
+    return rightView === 'model-select'
+      ? filteredModels
+      : filteredReasoningOptions
   }, [rightView, filteredModels, filteredReasoningOptions])
 
   const rightEmptyMessage = useMemo(() => {
@@ -384,11 +405,15 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
 
   // Bound indexes dynamically
   useEffect(() => {
-    setLeftFocusedIndex((prev) => Math.min(Math.max(0, filteredRoutes.length - 1), prev))
+    setLeftFocusedIndex((prev) =>
+      Math.min(Math.max(0, filteredRoutes.length - 1), prev),
+    )
   }, [filteredRoutes])
 
   useEffect(() => {
-    setRightFocusedIndex((prev) => Math.min(Math.max(0, rightItems.length - 1), prev))
+    setRightFocusedIndex((prev) =>
+      Math.min(Math.max(0, rightItems.length - 1), prev),
+    )
   }, [rightItems])
 
   useEffect(() => {
@@ -418,11 +443,15 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
           return true
         }
         if (key.name === 'up') {
-          setLeftFocusedIndex((prev) => nextSelectableIndex(filteredRoutes, prev, -1))
+          setLeftFocusedIndex((prev) =>
+            nextSelectableIndex(filteredRoutes, prev, -1),
+          )
           return true
         }
         if (key.name === 'down') {
-          setLeftFocusedIndex((prev) => nextSelectableIndex(filteredRoutes, prev, 1))
+          setLeftFocusedIndex((prev) =>
+            nextSelectableIndex(filteredRoutes, prev, 1),
+          )
           return true
         }
         if (
@@ -458,7 +487,9 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
           return true
         }
         if (key.name === 'down') {
-          setRightFocusedIndex((prev) => Math.min(rightItems.length - 1, prev + 1))
+          setRightFocusedIndex((prev) =>
+            Math.min(rightItems.length - 1, prev + 1),
+          )
           return true
         }
         if (key.name === 'return' || key.name === 'enter') {
@@ -467,7 +498,9 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
 
           if (rightView === 'model-select') {
             // Model Selected! Progress to reasoning select
-            const modelOption = availableModels.find((opt) => opt.model === focusedItem.id)
+            const modelOption = availableModels.find(
+              (opt) => opt.model === focusedItem.id,
+            )
             setSelectedModelId(focusedItem.id)
             setSelectedModelDiscovered(modelOption?.discovered ?? false)
             setRightView('reasoning-select')
@@ -489,10 +522,16 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
               }
 
               const editableConfig = getEditableConfig()
-              setRouteModel(editableConfig, highlightedRoute.target, selectedModelId, reasoningChoice)
+              setRouteModel(
+                editableConfig,
+                highlightedRoute.target,
+                selectedModelId,
+                reasoningChoice,
+              )
               const configPath = writeMergedConfig(editableConfig)
 
-              const reasoningDisplay = reasoningChoice === 'default' ? 'default' : reasoningChoice
+              const reasoningDisplay =
+                reasoningChoice === 'default' ? 'default' : reasoningChoice
               const msg = `✓ Saved: ${highlightedRoute.label} → ${selectedModelId} (reasoning: ${reasoningDisplay})`
               setStatusMessage(msg)
 
@@ -500,7 +539,9 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
                 clearTimeout(statusClearTimerRef.current)
               }
               statusClearTimerRef.current = setTimeout(() => {
-                setStatusMessage((current) => (current === msg ? null : current))
+                setStatusMessage((current) =>
+                  current === msg ? null : current,
+                )
               }, 4000)
 
               setConfigKey((k) => k + 1)
@@ -509,7 +550,9 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
               setSelectedModelDiscovered(false)
               onConfigUpdated?.()
             } catch (error) {
-              setStatusMessage(`✗ ${error instanceof Error ? error.message : String(error)}`)
+              setStatusMessage(
+                `✗ ${error instanceof Error ? error.message : String(error)}`,
+              )
             }
           }
           return true
@@ -536,8 +579,12 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
   )
 
   const activeRouteLabel = highlightedRoute ? highlightedRoute.label : 'None'
-  const activeModelDisplay = highlightedRoute ? (highlightedRoute.currentModel || '(not set)') : '—'
-  const activeReasoningDisplay = highlightedRoute ? formatReasoning(highlightedRoute.currentReasoningEffort) : 'default'
+  const activeModelDisplay = highlightedRoute
+    ? highlightedRoute.currentModel || '(not set)'
+    : '—'
+  const activeReasoningDisplay = highlightedRoute
+    ? formatReasoning(highlightedRoute.currentReasoningEffort)
+    : 'default'
 
   const helpText =
     activePane === 'left'
@@ -570,11 +617,15 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
             flexShrink: 0,
           }}
         >
-          <text style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}>
+          <text
+            style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}
+          >
             Model Route & Agent Configuration Dashboard
           </text>
           {statusMessage && (
-            <text style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>
+            <text
+              style={{ fg: theme.success, attributes: TextAttributes.BOLD }}
+            >
               {statusMessage}
             </text>
           )}
@@ -602,10 +653,16 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
             flexShrink: 1,
           }}
         >
-          <text style={{ fg: activePane === 'left' ? theme.primary : theme.muted, attributes: TextAttributes.BOLD, marginBottom: 0 }}>
+          <text
+            style={{
+              fg: activePane === 'left' ? theme.primary : theme.muted,
+              attributes: TextAttributes.BOLD,
+              marginBottom: 0,
+            }}
+          >
             {activePane === 'left' ? '▶ Route Targets' : '  Route Targets'}
           </text>
-          
+
           <box style={{ flexShrink: 0, marginBottom: 0 }}>
             <MultilineInput
               value={leftSearchQuery}
@@ -627,7 +684,10 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
               focused={activePane === 'left'}
               maxHeight={1}
               minHeight={1}
-              cursorPosition={Math.min(leftSearchCursor, leftSearchQuery.length)}
+              cursorPosition={Math.min(
+                leftSearchCursor,
+                leftSearchQuery.length,
+              )}
             />
           </box>
 
@@ -661,8 +721,16 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
             flexShrink: 1,
           }}
         >
-          <text style={{ fg: activePane === 'right' ? theme.primary : theme.muted, attributes: TextAttributes.BOLD, marginBottom: 0 }}>
-            {activePane === 'right' ? '▶ Configuration Detail' : '  Configuration Detail'}
+          <text
+            style={{
+              fg: activePane === 'right' ? theme.primary : theme.muted,
+              attributes: TextAttributes.BOLD,
+              marginBottom: 0,
+            }}
+          >
+            {activePane === 'right'
+              ? '▶ Configuration Detail'
+              : '  Configuration Detail'}
           </text>
 
           {/* Active Route Status Card */}
@@ -679,14 +747,20 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
             }}
             border={['top', 'bottom', 'left', 'right']}
           >
-            <text style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>
+            <text
+              style={{ fg: theme.success, attributes: TextAttributes.BOLD }}
+            >
               Active Target: {activeRouteLabel}
             </text>
             <text style={{ fg: theme.foreground }}>
-              Model: <span style={{ fg: theme.primary }}>{activeModelDisplay}</span>
+              Model:{' '}
+              <span style={{ fg: theme.primary }}>{activeModelDisplay}</span>
             </text>
             <text style={{ fg: theme.foreground }}>
-              Reasoning: <span style={{ fg: theme.primary }}>{activeReasoningDisplay}</span>
+              Reasoning:{' '}
+              <span style={{ fg: theme.primary }}>
+                {activeReasoningDisplay}
+              </span>
             </text>
           </box>
 
@@ -709,11 +783,18 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
                   },
                 )}
                 onKeyIntercept={handleKeyIntercept}
-                placeholder={rightView === 'model-select' ? "Search models..." : "Search reasoning..."}
+                placeholder={
+                  rightView === 'model-select'
+                    ? 'Search models...'
+                    : 'Search reasoning...'
+                }
                 focused={activePane === 'right'}
                 maxHeight={1}
                 minHeight={1}
-                cursorPosition={Math.min(rightSearchCursor, rightSearchQuery.length)}
+                cursorPosition={Math.min(
+                  rightSearchCursor,
+                  rightSearchQuery.length,
+                )}
               />
             </box>
           )}
@@ -722,7 +803,8 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
             style={{
               flexDirection: 'column',
               borderStyle: 'single',
-              borderColor: activePane === 'right' ? theme.primary : theme.border,
+              borderColor:
+                activePane === 'right' ? theme.primary : theme.border,
               flexGrow: 1,
               flexShrink: 1,
               overflow: 'hidden',

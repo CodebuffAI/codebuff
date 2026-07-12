@@ -188,9 +188,7 @@ const IMPLEMENTATION_PHRASES = [
 export function classifyPrompt(prompt: string): PromptKind {
   const normalized = prompt.toLowerCase()
 
-  const isAudit = AUDIT_PHRASES.some((phrase) =>
-    normalized.includes(phrase),
-  )
+  const isAudit = AUDIT_PHRASES.some((phrase) => normalized.includes(phrase))
   const isImplementation = IMPLEMENTATION_PHRASES.some((phrase) =>
     normalized.includes(phrase),
   )
@@ -254,6 +252,22 @@ const KNOWN_DOMAINS = [
   'auth',
 ] as const
 
+/** Natural-language aliases that map product concepts back to repo domains. */
+const DOMAIN_ALIASES: Partial<
+  Record<(typeof KNOWN_DOMAINS)[number], readonly string[]>
+> = {
+  agents: ['agent orchestration', 'subagents', 'file picker', 'file-picker'],
+  cli: ['ux', 'user experience', 'tui', 'interface flow'],
+  indexer: ['index', 'indexing', 'retrieval', 'search ranking'],
+  runtime: [
+    'context gathering',
+    'gather context',
+    'context window',
+    'compaction',
+    'conversation memory',
+  ],
+}
+
 /**
  * Breadth marker phrases that signal a whole-codebase audit intent. Matched
  * case-insensitively as substrings (they are distinctive enough on their own).
@@ -268,6 +282,10 @@ const BREADTH_MARKERS = [
   'full codebase',
   'every module',
   'all modules',
+  'feature gaps',
+  'feature improvements',
+  'ux flow issues',
+  'general ability to gather context',
 ] as const
 
 /**
@@ -298,7 +316,10 @@ export function classifyBreadth(prompt: string): BreadthClassification {
   const domains = new Set<string>()
   for (const domain of KNOWN_DOMAINS) {
     const re = new RegExp(`(?:^|[^\w])${domain}(?:[^\w]|$)`, 'i')
-    if (re.test(normalized)) {
+    const aliasMatched = (DOMAIN_ALIASES[domain] ?? []).some((alias) =>
+      normalized.includes(alias),
+    )
+    if (re.test(normalized) || aliasMatched) {
       domains.add(domain)
     }
   }
@@ -314,7 +335,9 @@ export function classifyBreadth(prompt: string): BreadthClassification {
   PATH_LITERAL_REGEX.lastIndex = 0
   const hasPathLiteral = PATH_LITERAL_REGEX.test(normalized)
   const hasSingleFileTarget =
-    hasPathLiteral || IN_FILE_REGEX.test(normalized) || THE_FILE_REGEX.test(normalized)
+    hasPathLiteral ||
+    IN_FILE_REGEX.test(normalized) ||
+    THE_FILE_REGEX.test(normalized)
 
   // 4. Classify.
   let kind: BreadthKind
@@ -356,7 +379,9 @@ export function extractSpawnAgentsCalls(
     const agents = extractAgentsArray(event)
     calls.push({
       toolCallId: event.toolCallId,
-      agentTypes: agents.map((a) => a.agent_type).filter((t): t is string => !!t),
+      agentTypes: agents
+        .map((a) => a.agent_type)
+        .filter((t): t is string => !!t),
       agentCount: agents.length,
     })
   }
@@ -426,9 +451,7 @@ function computePeakConcurrency(events: readonly PrintModeEvent[]): number {
  * `read_files`). A trace with zero subagents and one direct tool call is the
  * "surface-level single codesearch" anti-pattern.
  */
-function countTopLevelDirectTools(
-  events: readonly PrintModeEvent[],
-): number {
+function countTopLevelDirectTools(events: readonly PrintModeEvent[]): number {
   let count = 0
   for (const event of events) {
     if (event.type !== 'tool_call') continue
@@ -454,7 +477,9 @@ function countAgentType(
   const startsCount = subagentStarts.filter(
     (s) => s.agentType === agentType,
   ).length
-  const requestedCount = requestedAgentTypes.filter((type) => type === agentType).length
+  const requestedCount = requestedAgentTypes.filter(
+    (type) => type === agentType,
+  ).length
   return Math.max(startsCount, requestedCount)
 }
 
@@ -759,9 +784,7 @@ export function evaluateSubsystemEnumeration(params: {
     }
   }
 
-  const lowerDomains = new Set(
-    breadth.domains.map((d) => d.toLowerCase()),
-  )
+  const lowerDomains = new Set(breadth.domains.map((d) => d.toLowerCase()))
 
   const auditedDirs = topLevelDirs.filter((d) =>
     lowerDomains.has(d.toLowerCase()),
@@ -818,7 +841,10 @@ export function evaluateShardingVerdict(
     )
   }
 
-  if (signals.spawnAgentsCallCount === 0 && signals.subagentStarts.length === 0) {
+  if (
+    signals.spawnAgentsCallCount === 0 &&
+    signals.subagentStarts.length === 0
+  ) {
     reasons.push('No spawn_agents calls and no subagent_start events in trace.')
   }
 
@@ -834,7 +860,8 @@ export function evaluateShardingVerdict(
     )
   }
 
-  const pass = (signals.subagentStarts.length >= 2 || batchSharded) &&
+  const pass =
+    (signals.subagentStarts.length >= 2 || batchSharded) &&
     (concurrencySharded || batchSharded)
 
   let verdict: ShardingVerdict = pass ? 'pass' : 'fail'

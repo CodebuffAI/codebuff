@@ -2,7 +2,11 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { models } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
-import { getErrorObject, promptAborted, promptSuccess } from '@codebuff/common/util/error'
+import {
+  getErrorObject,
+  promptAborted,
+  promptSuccess,
+} from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
@@ -27,10 +31,7 @@ import {
   resolveConfiguredAgentModelConfig,
 } from '../provider-config'
 import { refreshChatGptOAuthToken } from '../credentials'
-import {
-  getErrorStatusCode,
-  isRetryableStatusCode,
-} from '../error-utils'
+import { getErrorStatusCode, isRetryableStatusCode } from '../error-utils'
 import {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
@@ -75,7 +76,10 @@ const providerOrder = {
 }
 
 function isImageMediaType(mediaType: unknown): boolean {
-  return typeof mediaType === 'string' && mediaType.toLowerCase().startsWith('image/')
+  return (
+    typeof mediaType === 'string' &&
+    mediaType.toLowerCase().startsWith('image/')
+  )
 }
 
 function valueContainsImageInput(value: unknown): boolean {
@@ -158,14 +162,12 @@ export function computeCostCentsFromUsage(params: {
   const chargeableInputTokens = Math.max(0, rawInputTokens - cachedInputTokens)
   const outputTokens = safeNonNeg(usage.outputTokens)
 
-  const effectiveInputRate =
-    inputRate !== undefined ? inputRate : 0
+  const effectiveInputRate = inputRate !== undefined ? inputRate : 0
   const cachedInputRate =
     pricing.cachedInputPerMillionTokens !== undefined
       ? pricing.cachedInputPerMillionTokens
       : effectiveInputRate
-  const effectiveOutputRate =
-    outputRate !== undefined ? outputRate : 0
+  const effectiveOutputRate = outputRate !== undefined ? outputRate : 0
 
   const inputCostDollars =
     (chargeableInputTokens * effectiveInputRate +
@@ -447,8 +449,12 @@ async function awaitOptionalPostStreamMetadata<T>(params: {
   logger: ParamsOf<PromptAiSdkStreamFn>['logger']
   timeoutMs?: number
 }): Promise<T | undefined> {
-  const { promise, label, logger, timeoutMs = POST_STREAM_METADATA_TIMEOUT_MS } =
-    params
+  const {
+    promise,
+    label,
+    logger,
+    timeoutMs = POST_STREAM_METADATA_TIMEOUT_MS,
+  } = params
 
   let timeout: number | undefined
   const guardedPromise = Promise.resolve(promise).catch((error) => {
@@ -546,26 +552,17 @@ function isTransientNetworkError(error: unknown): boolean {
   // TypeError is only treated as transient when the message also
   // indicates a network/fetch failure, to avoid retrying programming errors.
   const transientErrorNames = ['TimeoutError', 'FetchError']
-  if (
-    err.name &&
-    transientErrorNames.some((n) => err.name === n)
-  ) {
+  if (err.name && transientErrorNames.some((n) => err.name === n)) {
     return true
   }
 
   // AbortError from the underlying fetch (not our user cancellation)
-  if (
-    err.name === 'AbortError' &&
-    !message.includes('user cancelled')
-  ) {
+  if (err.name === 'AbortError' && !message.includes('user cancelled')) {
     return true
   }
 
   // TypeError from Node fetch for network failures
-  if (
-    err.name === 'TypeError' &&
-    message.includes('fetch')
-  ) {
+  if (err.name === 'TypeError' && message.includes('fetch')) {
     return true
   }
 
@@ -592,10 +589,7 @@ function isTransientNetworkError(error: unknown): boolean {
   }
 
   // Check if AbortError by message (but not from our own signal.aborted)
-  if (
-    message.includes('abort') &&
-    !message.includes('user cancelled')
-  ) {
+  if (message.includes('abort') && !message.includes('user cancelled')) {
     return true
   }
 
@@ -673,12 +667,15 @@ export async function* promptAiSdkStream(
     chatGptOAuthRetried?: boolean
   },
 ): ReturnType<PromptAiSdkStreamFn> {
-  const {
-    providerOptions: originalProviderOptions,
-    ...streamParams
-  } = params
+  const { providerOptions: originalProviderOptions, ...streamParams } = params
 
-  const { logger, trackEvent, userId, userInputId, model: requestedModel } = params
+  const {
+    logger,
+    trackEvent,
+    userId,
+    userInputId,
+    model: requestedModel,
+  } = params
   const agentChunkMetadata =
     params.agentId != null ? { agentId: params.agentId } : undefined
 
@@ -697,6 +694,23 @@ export async function* promptAiSdkStream(
   // If content was yielded, we cannot safely retry without duplicating output.
   let anyContentYielded = false
   let lastError: unknown
+  const emitProviderStatus = (chunk: {
+    status: 'retrying' | 'failover' | 'recovered'
+    model?: string
+    nextModel?: string
+    attempt?: number
+    maxAttempts?: number
+    delayMs?: number
+    statusCode?: number
+  }) => {
+    params.sendAction({
+      action: {
+        type: 'response-chunk',
+        userInputId,
+        chunk: { type: 'provider_status', ...chunk },
+      },
+    })
+  }
 
   const loadedConfig = loadProviderConfigSync()
   // When the caller's `model` is undefined (e.g. bundled agents whose model
@@ -717,211 +731,451 @@ export async function* promptAiSdkStream(
       : undefined)
   const modelsToTry = resolveModelsToTry(effectiveRequestedModel, loadedConfig)
 
-  for (let failoverIndex = 0; failoverIndex < modelsToTry.length; failoverIndex++) {
+  for (
+    let failoverIndex = 0;
+    failoverIndex < modelsToTry.length;
+    failoverIndex++
+  ) {
     const failoverModel = modelsToTry[failoverIndex]
     try {
-  for (let attempt = 0; attempt <= MAX_RETRIES_PER_MESSAGE; attempt++) {
-    // Track if we've yielded content in THIS attempt (for ChatGPT OAuth fallback)
-    let hasYieldedContent = false
-    let response: ReturnType<typeof streamText>
-    let aiSDKModel: LanguageModel
-    let isChatGptOAuth: boolean
-    let compatibility: { supportsTools: boolean; stripProviderMetadata: boolean; stripCacheControl: boolean }
+      for (let attempt = 0; attempt <= MAX_RETRIES_PER_MESSAGE; attempt++) {
+        // Track if we've yielded content in THIS attempt (for ChatGPT OAuth fallback)
+        let hasYieldedContent = false
+        let response: ReturnType<typeof streamText>
+        let aiSDKModel: LanguageModel
+        let isChatGptOAuth: boolean
+        let compatibility: {
+          supportsTools: boolean
+          stripProviderMetadata: boolean
+          stripCacheControl: boolean
+        }
 
-    try {
-      const modelParams: ModelRequestParams = {
-        apiKey: params.apiKey,
-        model: failoverModel,
-        agentId: params.agentId,
-        skipChatGptOAuth: params.skipChatGptOAuth,
-        costMode: params.costMode,
-        requiresVision: valueContainsImageInput(params.messages),
-        // Failover attempts (failoverIndex > 0) must honor the explicit
-        // failoverModel over openbuff.json mode/agent/defaultModel routing;
-        // otherwise every backup model would silently re-resolve to the same
-        // primary and failover would be a no-op (M8.1).
-        preferModelParam: failoverIndex > 0,
-      }
-      const modelResult = await getModelForRequest(modelParams)
-      aiSDKModel = modelResult.model
-      isChatGptOAuth = modelResult.isChatGptOAuth
-      compatibility = modelResult.compatibility
-      const { reasoningEffort, effectiveModel, contextWindowTokens, pricing } = modelResult
+        try {
+          const modelParams: ModelRequestParams = {
+            apiKey: params.apiKey,
+            model: failoverModel,
+            agentId: params.agentId,
+            skipChatGptOAuth: params.skipChatGptOAuth,
+            costMode: params.costMode,
+            requiresVision: valueContainsImageInput(params.messages),
+            // Failover attempts (failoverIndex > 0) must honor the explicit
+            // failoverModel over openbuff.json mode/agent/defaultModel routing;
+            // otherwise every backup model would silently re-resolve to the same
+            // primary and failover would be a no-op (M8.1).
+            preferModelParam: failoverIndex > 0,
+          }
+          const modelResult = await getModelForRequest(modelParams)
+          aiSDKModel = modelResult.model
+          isChatGptOAuth = modelResult.isChatGptOAuth
+          compatibility = modelResult.compatibility
+          const {
+            reasoningEffort,
+            effectiveModel,
+            contextWindowTokens,
+            pricing,
+          } = modelResult
 
-      if (isChatGptOAuth && failoverIndex === 0 && attempt === 0) {
-        trackEvent({
-          event: AnalyticsEvent.CHATGPT_OAUTH_REQUEST,
-          userId: userId ?? '',
-          properties: {
-            model: requestedModel,
-            userInputId,
-          },
-          logger,
-        })
-      }
-
-      const providerOptionsWithReasoning = withConfiguredReasoningEffort(
-        originalProviderOptions as Record<string, JSONObject> | undefined,
-        reasoningEffort,
-      )
-      const requestProviderOptions =
-        isChatGptOAuth || compatibility.stripProviderMetadata
-          ? providerOptionsWithReasoning
-          : getProviderOptions({
-            ...params,
-            // Use the resolved effective model (post-openbuff.json routing) so
-            // provider ordering and allow_fallbacks are based on the actual
-            // model being used, not the optional requested template field.
-            model: effectiveModel,
-            providerOptions: providerOptionsWithReasoning,
-            agentProviderOptions: params.agentProviderOptions,
-          })
-
-      response = streamText({
-        ...streamParams,
-        ...(compatibility.supportsTools === false
-          ? { tools: undefined, toolChoice: undefined }
-          : {}),
-        prompt: undefined,
-        model: aiSDKModel,
-        messages: convertCbToModelMessages({
-          ...params,
-          messages: getMessagesForModelContext({
-            messages: params.messages,
-            contextWindowTokens: contextWindowTokens ?? undefined,
-            logger,
-            trackEvent,
-            userId,
-            userInputId,
-            model: effectiveModel,
-          }),
-          includeCacheControl:
-            isChatGptOAuth && compatibility.stripCacheControl === false,
-        }),
-        ...(isChatGptOAuth && { maxRetries: 0 }),
-        ...(hasProviderOptions(requestProviderOptions)
-          ? { providerOptions: requestProviderOptions }
-          : {}),
-        // Handle tool call errors gracefully by passing them through to our validation layer
-        // instead of throwing (which would halt the agent). The only special case is when
-        // the tool name matches a spawnable agent - transform those to spawn_agents calls.
-        experimental_repairToolCall: async ({ toolCall, tools, error }) => {
-          const { spawnableAgents = [], localAgentTemplates = {} } = params
-          const toolName = toolCall.toolName
-
-          // Check if this is a NoSuchToolError for a spawnable agent
-          // If so, transform to spawn_agents call
-          if (NoSuchToolError.isInstance(error) && 'spawn_agents' in tools) {
-            // Also check for underscore variant (e.g., "file_picker" -> "file-picker")
-            const toolNameWithHyphens = toolName.replace(/_/g, '-')
-
-            const matchingAgentId = spawnableAgents.find((agentId) => {
-              const withoutVersion = agentId.split('@')[0]
-              const parts = withoutVersion.split('/')
-              const agentName = parts[parts.length - 1]
-              return (
-                agentName === toolName ||
-                agentName === toolNameWithHyphens ||
-                agentId === toolName
-              )
+          if (isChatGptOAuth && failoverIndex === 0 && attempt === 0) {
+            trackEvent({
+              event: AnalyticsEvent.CHATGPT_OAUTH_REQUEST,
+              userId: userId ?? '',
+              properties: {
+                model: requestedModel,
+                userInputId,
+              },
+              logger,
             })
-            const isSpawnableAgent = matchingAgentId !== undefined
-            const isLocalAgent =
-              toolName in localAgentTemplates ||
-              toolNameWithHyphens in localAgentTemplates
+          }
 
-            if (isSpawnableAgent || isLocalAgent) {
-              // Transform agent tool call to spawn_agents
-              const deepParseJson = (value: unknown): unknown => {
-                if (typeof value === 'string') {
-                  try {
-                    return deepParseJson(JSON.parse(value))
-                  } catch {
+          const providerOptionsWithReasoning = withConfiguredReasoningEffort(
+            originalProviderOptions as Record<string, JSONObject> | undefined,
+            reasoningEffort,
+          )
+          const requestProviderOptions =
+            isChatGptOAuth || compatibility.stripProviderMetadata
+              ? providerOptionsWithReasoning
+              : getProviderOptions({
+                  ...params,
+                  // Use the resolved effective model (post-openbuff.json routing) so
+                  // provider ordering and allow_fallbacks are based on the actual
+                  // model being used, not the optional requested template field.
+                  model: effectiveModel,
+                  providerOptions: providerOptionsWithReasoning,
+                  agentProviderOptions: params.agentProviderOptions,
+                })
+
+          response = streamText({
+            ...streamParams,
+            ...(compatibility.supportsTools === false
+              ? { tools: undefined, toolChoice: undefined }
+              : {}),
+            prompt: undefined,
+            model: aiSDKModel,
+            messages: convertCbToModelMessages({
+              ...params,
+              messages: getMessagesForModelContext({
+                messages: params.messages,
+                contextWindowTokens: contextWindowTokens ?? undefined,
+                logger,
+                trackEvent,
+                userId,
+                userInputId,
+                model: effectiveModel,
+              }),
+              includeCacheControl:
+                isChatGptOAuth && compatibility.stripCacheControl === false,
+            }),
+            ...(isChatGptOAuth && { maxRetries: 0 }),
+            ...(hasProviderOptions(requestProviderOptions)
+              ? { providerOptions: requestProviderOptions }
+              : {}),
+            // Handle tool call errors gracefully by passing them through to our validation layer
+            // instead of throwing (which would halt the agent). The only special case is when
+            // the tool name matches a spawnable agent - transform those to spawn_agents calls.
+            experimental_repairToolCall: async ({ toolCall, tools, error }) => {
+              const { spawnableAgents = [], localAgentTemplates = {} } = params
+              const toolName = toolCall.toolName
+
+              // Check if this is a NoSuchToolError for a spawnable agent
+              // If so, transform to spawn_agents call
+              if (
+                NoSuchToolError.isInstance(error) &&
+                'spawn_agents' in tools
+              ) {
+                // Also check for underscore variant (e.g., "file_picker" -> "file-picker")
+                const toolNameWithHyphens = toolName.replace(/_/g, '-')
+
+                const matchingAgentId = spawnableAgents.find((agentId) => {
+                  const withoutVersion = agentId.split('@')[0]
+                  const parts = withoutVersion.split('/')
+                  const agentName = parts[parts.length - 1]
+                  return (
+                    agentName === toolName ||
+                    agentName === toolNameWithHyphens ||
+                    agentId === toolName
+                  )
+                })
+                const isSpawnableAgent = matchingAgentId !== undefined
+                const isLocalAgent =
+                  toolName in localAgentTemplates ||
+                  toolNameWithHyphens in localAgentTemplates
+
+                if (isSpawnableAgent || isLocalAgent) {
+                  // Transform agent tool call to spawn_agents
+                  const deepParseJson = (value: unknown): unknown => {
+                    if (typeof value === 'string') {
+                      try {
+                        return deepParseJson(JSON.parse(value))
+                      } catch {
+                        return value
+                      }
+                    }
+                    if (Array.isArray(value)) return value.map(deepParseJson)
+                    if (value !== null && typeof value === 'object') {
+                      return Object.fromEntries(
+                        Object.entries(value).map(([k, v]) => [
+                          k,
+                          deepParseJson(v),
+                        ]),
+                      )
+                    }
                     return value
                   }
+
+                  let input: Record<string, unknown> = {}
+                  try {
+                    const rawInput =
+                      typeof toolCall.input === 'string'
+                        ? JSON.parse(toolCall.input)
+                        : (toolCall.input as Record<string, unknown>)
+                    input = deepParseJson(rawInput) as Record<string, unknown>
+                  } catch {
+                    // If parsing fails, use empty object
+                  }
+
+                  const prompt =
+                    typeof input.prompt === 'string' ? input.prompt : undefined
+                  const agentParams = Object.fromEntries(
+                    Object.entries(input).filter(
+                      ([key, value]) =>
+                        !(key === 'prompt' && typeof value === 'string'),
+                    ),
+                  )
+
+                  // Use the matching agent ID or corrected name with hyphens
+                  const correctedAgentType =
+                    matchingAgentId ??
+                    (toolNameWithHyphens in localAgentTemplates
+                      ? toolNameWithHyphens
+                      : toolName)
+
+                  const spawnAgentsInput = {
+                    agents: [
+                      {
+                        agent_type: correctedAgentType,
+                        ...(prompt !== undefined && { prompt }),
+                        ...(Object.keys(agentParams).length > 0 && {
+                          params: agentParams,
+                        }),
+                      },
+                    ],
+                  }
+
+                  logger.info(
+                    {
+                      originalToolName: toolName,
+                      transformedInput: spawnAgentsInput,
+                    },
+                    'Transformed agent tool call to spawn_agents',
+                  )
+
+                  return {
+                    ...toolCall,
+                    toolName: 'spawn_agents',
+                    input: JSON.stringify(spawnAgentsInput),
+                  }
                 }
-                if (Array.isArray(value)) return value.map(deepParseJson)
-                if (value !== null && typeof value === 'object') {
-                  return Object.fromEntries(
-                    Object.entries(value).map(([k, v]) => [k, deepParseJson(v)]),
+              }
+
+              // For all other cases (invalid args, unknown tools, etc.), pass through
+              // the original tool call.
+              logger.info(
+                {
+                  toolName,
+                  errorType: error.name,
+                  error: error.message,
+                },
+                'Tool error - passing through for graceful error handling',
+              )
+              return toolCall
+            },
+          })
+
+          const stopSequenceHandler = new StopSequenceHandler(
+            params.stopSequences,
+          )
+
+          for await (const chunkValue of response.fullStream) {
+            if (chunkValue.type !== 'text-delta') {
+              const flushed = stopSequenceHandler.flush()
+              if (flushed) {
+                hasYieldedContent = true
+                anyContentYielded = true
+                yield {
+                  type: 'text',
+                  text: flushed,
+                  ...(agentChunkMetadata ?? {}),
+                }
+              }
+            }
+            if (chunkValue.type === 'error') {
+              // Error chunks from fullStream are non-network errors (tool failures, model issues, rate limits, etc.)
+              // Network errors which cannot be recovered from are thrown, not yielded as chunks.
+
+              const errorBody = APICallError.isInstance(chunkValue.error)
+                ? chunkValue.error.responseBody
+                : undefined
+              const mainErrorMessage =
+                chunkValue.error instanceof Error
+                  ? chunkValue.error.message
+                  : typeof chunkValue.error === 'string'
+                    ? chunkValue.error
+                    : JSON.stringify(chunkValue.error)
+              const errorMessage = buildArray([
+                mainErrorMessage,
+                errorBody,
+              ]).join('\n')
+
+              // Pass these errors back to the agent so it can see what went wrong and retry.
+              // Note: If you find any other error types that should be passed through to the agent, add them here!
+              if (
+                NoSuchToolError.isInstance(chunkValue.error) ||
+                InvalidToolInputError.isInstance(chunkValue.error) ||
+                ToolCallRepairError.isInstance(chunkValue.error) ||
+                TypeValidationError.isInstance(chunkValue.error)
+              ) {
+                logger.warn(
+                  {
+                    chunk: { ...chunkValue, error: undefined },
+                    error: getErrorObject(chunkValue.error),
+                    model: params.model,
+                  },
+                  'Tool call error in AI SDK stream - passing through to agent to retry',
+                )
+                hasYieldedContent = true
+                anyContentYielded = true
+                yield {
+                  type: 'error',
+                  message: errorMessage,
+                }
+                continue
+              }
+
+              const chatGptErrorPolicy = classifyChatGptOAuthStreamError({
+                isChatGptOAuth,
+                skipChatGptOAuth: params.skipChatGptOAuth,
+                hasYieldedContent,
+                error: chunkValue.error,
+              })
+
+              if (chatGptErrorPolicy === 'fallback-rate-limit') {
+                const rateLimitErrorDetails =
+                  chunkValue.error instanceof Error
+                    ? chunkValue.error.message
+                    : String(chunkValue.error)
+                logger.warn(
+                  { error: getErrorObject(chunkValue.error) },
+                  'ChatGPT OAuth rate limited during stream',
+                )
+
+                trackEvent({
+                  event: AnalyticsEvent.CHATGPT_OAUTH_RATE_LIMITED,
+                  userId: userId ?? '',
+                  properties: {
+                    model: requestedModel,
+                    userInputId,
+                  },
+                  logger,
+                })
+
+                markChatGptOAuthRateLimited()
+
+                // ChatGPT OAuth is rate-limited: re-resolve the model through the
+                // configured openbuff.json providers instead.
+                // Prevent parent retry while delegating to child stream
+                anyContentYielded = true
+                const fallbackResult = yield* promptAiSdkStream({
+                  ...params,
+                  skipChatGptOAuth: true,
+                })
+                return fallbackResult
+              }
+
+              if (chatGptErrorPolicy === 'fail-auth-reconnect') {
+                logger.info(
+                  { error: getErrorObject(chunkValue.error) },
+                  'ChatGPT OAuth auth error during stream, attempting token refresh',
+                )
+
+                trackEvent({
+                  event: AnalyticsEvent.CHATGPT_OAUTH_AUTH_ERROR,
+                  userId: userId ?? '',
+                  properties: {
+                    model: requestedModel,
+                    userInputId,
+                  },
+                  logger,
+                })
+
+                // Try refreshing the token and retrying once before failing/falling back
+                if (!params.chatGptOAuthRetried) {
+                  const refreshed = await refreshChatGptOAuthToken()
+                  if (refreshed) {
+                    logger.info(
+                      { model: requestedModel },
+                      'ChatGPT OAuth token refreshed, retrying request',
+                    )
+                    // Prevent parent retry while delegating to child stream
+                    anyContentYielded = true
+                    const retryResult = yield* promptAiSdkStream({
+                      ...params,
+                      chatGptOAuthRetried: true,
+                    })
+                    return retryResult
+                  }
+                  logger.warn(
+                    { model: requestedModel },
+                    'ChatGPT OAuth token refresh failed, unable to recover',
                   )
                 }
-                return value
+
+                // Refresh failed or already retried: re-resolve the model through
+                // the configured openbuff.json providers instead.
+                // Prevent parent retry while delegating to child stream
+                anyContentYielded = true
+                const fallbackResult = yield* promptAiSdkStream({
+                  ...params,
+                  skipChatGptOAuth: true,
+                })
+                return fallbackResult
               }
 
-              let input: Record<string, unknown> = {}
-              try {
-                const rawInput =
-                  typeof toolCall.input === 'string'
-                    ? JSON.parse(toolCall.input)
-                    : (toolCall.input as Record<string, unknown>)
-                input = deepParseJson(rawInput) as Record<string, unknown>
-              } catch {
-                // If parsing fails, use empty object
-              }
-
-              const prompt =
-                typeof input.prompt === 'string' ? input.prompt : undefined
-              const agentParams = Object.fromEntries(
-                Object.entries(input).filter(
-                  ([key, value]) =>
-                    !(key === 'prompt' && typeof value === 'string'),
-                ),
+              logger.error(
+                {
+                  chunk: { ...chunkValue, error: undefined },
+                  error: getErrorObject(chunkValue.error),
+                  model: params.model,
+                },
+                'Error in AI SDK stream',
               )
 
-              // Use the matching agent ID or corrected name with hyphens
-              const correctedAgentType =
-                matchingAgentId ??
-                (toolNameWithHyphens in localAgentTemplates
-                  ? toolNameWithHyphens
-                  : toolName)
-
-              const spawnAgentsInput = {
-                agents: [
-                  {
-                    agent_type: correctedAgentType,
-                    ...(prompt !== undefined && { prompt }),
-                    ...(Object.keys(agentParams).length > 0 && {
-                      params: agentParams,
-                    }),
-                  },
-                ],
+              // For all other errors, throw them -- they are fatal.
+              throw chunkValue.error
+            }
+            if (chunkValue.type === 'reasoning-delta') {
+              const reasoningExcluded = (
+                ['openrouter', 'codebuff'] as const
+              ).some(
+                (p) =>
+                  (
+                    params.providerOptions?.[p] as
+                      | OpenRouterProviderOptions
+                      | undefined
+                  )?.reasoning?.exclude,
+              )
+              if (!reasoningExcluded) {
+                hasYieldedContent = true
+                anyContentYielded = true
+                yield {
+                  type: 'reasoning',
+                  text: chunkValue.text,
+                }
+              }
+            }
+            if (chunkValue.type === 'text-delta') {
+              if (!params.stopSequences) {
+                if (chunkValue.text) {
+                  hasYieldedContent = true
+                  anyContentYielded = true
+                  yield {
+                    type: 'text',
+                    text: chunkValue.text,
+                    ...(agentChunkMetadata ?? {}),
+                  }
+                }
+                continue
               }
 
-              logger.info(
-                { originalToolName: toolName, transformedInput: spawnAgentsInput },
-                'Transformed agent tool call to spawn_agents',
+              const stopSequenceResult = stopSequenceHandler.process(
+                chunkValue.text,
               )
-
-              return {
+              if (stopSequenceResult.text) {
+                hasYieldedContent = true
+                anyContentYielded = true
+                yield {
+                  type: 'text',
+                  text: stopSequenceResult.text,
+                  ...(agentChunkMetadata ?? {}),
+                }
+              }
+              if (stopSequenceResult.endOfStream) {
+                break
+              }
+            }
+            if (chunkValue.type === 'tool-call') {
+              hasYieldedContent = true
+              anyContentYielded = true
+              const { providerMetadata, ...toolCall } = chunkValue
+              yield {
                 ...toolCall,
-                toolName: 'spawn_agents',
-                input: JSON.stringify(spawnAgentsInput),
+                ...(providerMetadata
+                  ? { providerOptions: providerMetadata }
+                  : {}),
               }
             }
           }
-
-          // For all other cases (invalid args, unknown tools, etc.), pass through
-          // the original tool call.
-          logger.info(
-            {
-              toolName,
-              errorType: error.name,
-              error: error.message,
-            },
-            'Tool error - passing through for graceful error handling',
-          )
-          return toolCall
-        },
-      })
-
-      const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
-
-      for await (const chunkValue of response.fullStream) {
-        if (chunkValue.type !== 'text-delta') {
           const flushed = stopSequenceHandler.flush()
           if (flushed) {
-            hasYieldedContent = true
             anyContentYielded = true
             yield {
               type: 'text',
@@ -929,355 +1183,169 @@ export async function* promptAiSdkStream(
               ...(agentChunkMetadata ?? {}),
             }
           }
-        }
-        if (chunkValue.type === 'error') {
-          // Error chunks from fullStream are non-network errors (tool failures, model issues, rate limits, etc.)
-          // Network errors which cannot be recovered from are thrown, not yielded as chunks.
 
-          const errorBody = APICallError.isInstance(chunkValue.error)
-            ? chunkValue.error.responseBody
-            : undefined
-          const mainErrorMessage =
-            chunkValue.error instanceof Error
-              ? chunkValue.error.message
-              : typeof chunkValue.error === 'string'
-                ? chunkValue.error
-                : JSON.stringify(chunkValue.error)
-          const errorMessage = buildArray([mainErrorMessage, errorBody]).join('\n')
-
-          // Pass these errors back to the agent so it can see what went wrong and retry.
-          // Note: If you find any other error types that should be passed through to the agent, add them here!
-          if (
-            NoSuchToolError.isInstance(chunkValue.error) ||
-            InvalidToolInputError.isInstance(chunkValue.error) ||
-            ToolCallRepairError.isInstance(chunkValue.error) ||
-            TypeValidationError.isInstance(chunkValue.error)
-          ) {
-            logger.warn(
-              {
-                chunk: { ...chunkValue, error: undefined },
-                error: getErrorObject(chunkValue.error),
-                model: params.model,
-              },
-              'Tool call error in AI SDK stream - passing through to agent to retry',
-            )
-            hasYieldedContent = true
-            anyContentYielded = true
-            yield {
-              type: 'error',
-              message: errorMessage,
-            }
-            continue
-          }
-
-          const chatGptErrorPolicy = classifyChatGptOAuthStreamError({
-            isChatGptOAuth,
-            skipChatGptOAuth: params.skipChatGptOAuth,
-            hasYieldedContent,
-            error: chunkValue.error,
-          })
-
-          if (chatGptErrorPolicy === 'fallback-rate-limit') {
-            const rateLimitErrorDetails = chunkValue.error instanceof Error ? chunkValue.error.message : String(chunkValue.error)
-            logger.warn(
-              { error: getErrorObject(chunkValue.error) },
-              'ChatGPT OAuth rate limited during stream',
-            )
-
-            trackEvent({
-              event: AnalyticsEvent.CHATGPT_OAUTH_RATE_LIMITED,
-              userId: userId ?? '',
-              properties: {
-                model: requestedModel,
-                userInputId,
-              },
-              logger,
-            })
-
-            markChatGptOAuthRateLimited()
-
-            // ChatGPT OAuth is rate-limited: re-resolve the model through the
-            // configured openbuff.json providers instead.
-            // Prevent parent retry while delegating to child stream
-            anyContentYielded = true
-            const fallbackResult = yield* promptAiSdkStream({
-              ...params,
-              skipChatGptOAuth: true,
-            })
-            return fallbackResult
-          }
-
-          if (chatGptErrorPolicy === 'fail-auth-reconnect') {
-            logger.info(
-              { error: getErrorObject(chunkValue.error) },
-              'ChatGPT OAuth auth error during stream, attempting token refresh',
-            )
-
-            trackEvent({
-              event: AnalyticsEvent.CHATGPT_OAUTH_AUTH_ERROR,
-              userId: userId ?? '',
-              properties: {
-                model: requestedModel,
-                userInputId,
-              },
-              logger,
-            })
-
-            // Try refreshing the token and retrying once before failing/falling back
-            if (!params.chatGptOAuthRetried) {
-              const refreshed = await refreshChatGptOAuthToken()
-              if (refreshed) {
-                logger.info({ model: requestedModel }, 'ChatGPT OAuth token refreshed, retrying request')
-                // Prevent parent retry while delegating to child stream
-                anyContentYielded = true
-                const retryResult = yield* promptAiSdkStream({
-                  ...params,
-                  chatGptOAuthRetried: true,
-                })
-                return retryResult
-              }
-              logger.warn({ model: requestedModel }, 'ChatGPT OAuth token refresh failed, unable to recover')
-            }
-
-            // Refresh failed or already retried: re-resolve the model through
-            // the configured openbuff.json providers instead.
-            // Prevent parent retry while delegating to child stream
-            anyContentYielded = true
-            const fallbackResult = yield* promptAiSdkStream({
-              ...params,
-              skipChatGptOAuth: true,
-            })
-            return fallbackResult
-          }
-
-          logger.error(
-            {
-              chunk: { ...chunkValue, error: undefined },
-              error: getErrorObject(chunkValue.error),
-              model: params.model,
-            },
-            'Error in AI SDK stream',
-          )
-
-          // For all other errors, throw them -- they are fatal.
-          throw chunkValue.error
-        }
-        if (chunkValue.type === 'reasoning-delta') {
-          const reasoningExcluded = (['openrouter', 'codebuff'] as const).some(
-            (p) =>
-              (
-                params.providerOptions?.[p] as
-                | OpenRouterProviderOptions
-                | undefined
-              )?.reasoning?.exclude,
-          )
-          if (!reasoningExcluded) {
-            hasYieldedContent = true
-            anyContentYielded = true
-            yield {
-              type: 'reasoning',
-              text: chunkValue.text,
-            }
-          }
-        }
-        if (chunkValue.type === 'text-delta') {
-          if (!params.stopSequences) {
-            if (chunkValue.text) {
-              hasYieldedContent = true
-              anyContentYielded = true
-              yield {
-                type: 'text',
-                text: chunkValue.text,
-                ...(agentChunkMetadata ?? {}),
-              }
-            }
-            continue
-          }
-
-          const stopSequenceResult = stopSequenceHandler.process(chunkValue.text)
-          if (stopSequenceResult.text) {
-            hasYieldedContent = true
-            anyContentYielded = true
-            yield {
-              type: 'text',
-              text: stopSequenceResult.text,
-              ...(agentChunkMetadata ?? {}),
-            }
-          }
-          if (stopSequenceResult.endOfStream) {
-            break
-          }
-        }
-        if (chunkValue.type === 'tool-call') {
-          hasYieldedContent = true
-          anyContentYielded = true
-          const { providerMetadata, ...toolCall } = chunkValue
-          yield {
-            ...toolCall,
-            ...(providerMetadata
-              ? { providerOptions: providerMetadata }
-              : {}),
-          }
-        }
-      }
-      const flushed = stopSequenceHandler.flush()
-      if (flushed) {
-        anyContentYielded = true
-        yield {
-          type: 'text',
-          text: flushed,
-          ...(agentChunkMetadata ?? {}),
-        }
-      }
-
-      // Stream completed successfully — collect post-stream metadata
-      const responseValue = await awaitOptionalPostStreamMetadata({
-        promise: response.response,
-        label: 'provider response metadata',
-        logger,
-      })
-      const messageId =
-        responseValue && typeof responseValue.id === 'string'
-          ? responseValue.id
-          : null
-
-      if (params.onCacheDebugProviderRequestBuilt) {
-        const requestMetadata = await awaitOptionalPostStreamMetadata({
-          promise: response.request,
-          label: 'provider request metadata',
-          logger,
-        })
-        if (requestMetadata) {
-          emitCacheDebugProviderRequest({
-            callback: params.onCacheDebugProviderRequestBuilt,
-            provider: getModelProvider(aiSDKModel),
-            rawBody: requestMetadata.body,
-          })
-        }
-      }
-
-      if (params.onCacheDebugUsageReceived) {
-        const usageResult = await awaitOptionalPostStreamMetadata({
-          promise: response.usage,
-          label: 'provider usage metadata',
-          logger,
-        })
-        if (usageResult) {
-          emitCacheDebugUsage({
-            callback: params.onCacheDebugUsageReceived,
-            usage: usageResult,
-          })
-        }
-      }
-
-      // Skip provider-cost tracking for ChatGPT OAuth because the request runs
-      // under the user's provider-owned ChatGPT/Codex subscription.
-      if (!isChatGptOAuth && !compatibility.stripProviderMetadata) {
-        const providerMetadataResult = await awaitOptionalPostStreamMetadata({
-          promise: response.providerMetadata,
-          label: 'provider usage metadata',
-          logger,
-        })
-        const providerMetadata = providerMetadataResult ?? {}
-
-        let costOverrideDollars: number | undefined
-        if (providerMetadata.codebuff) {
-          if (providerMetadata.codebuff.usage) {
-            const openrouterUsage = providerMetadata.codebuff
-              .usage as OpenRouterUsageAccounting
-
-            costOverrideDollars =
-              (openrouterUsage.cost ?? 0) +
-              (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
-          }
-        }
-
-        // Fallback (M8.2): when the provider does not return OpenRouter-style
-        // cost metadata, compute cost from token usage × the configured
-        // `modelCapabilities.pricing` capability so BYOK providers get cost
-        // tracking too.
-        if (costOverrideDollars === undefined && pricing) {
-          const usageResult = await awaitOptionalPostStreamMetadata({
-            promise: response.usage,
-            label: 'provider usage metadata for cost',
+          // Stream completed successfully — collect post-stream metadata
+          const responseValue = await awaitOptionalPostStreamMetadata({
+            promise: response.response,
+            label: 'provider response metadata',
             logger,
           })
-          if (usageResult) {
-            const fallbackCents = computeCostCentsFromUsage({
-              usage: usageResult,
-              pricing,
+          const messageId =
+            responseValue && typeof responseValue.id === 'string'
+              ? responseValue.id
+              : null
+
+          if (params.onCacheDebugProviderRequestBuilt) {
+            const requestMetadata = await awaitOptionalPostStreamMetadata({
+              promise: response.request,
+              label: 'provider request metadata',
+              logger,
             })
-            if (fallbackCents !== undefined && params.onCostCalculated) {
-              await params.onCostCalculated(fallbackCents)
+            if (requestMetadata) {
+              emitCacheDebugProviderRequest({
+                callback: params.onCacheDebugProviderRequestBuilt,
+                provider: getModelProvider(aiSDKModel),
+                rawBody: requestMetadata.body,
+              })
             }
           }
-        } else if (params.onCostCalculated && costOverrideDollars) {
-          // Report provider cost in cents for local/BYOK telemetry only.
-          await params.onCostCalculated(
-            calculateProviderCostCents({ costDollars: costOverrideDollars }),
+
+          if (params.onCacheDebugUsageReceived) {
+            const usageResult = await awaitOptionalPostStreamMetadata({
+              promise: response.usage,
+              label: 'provider usage metadata',
+              logger,
+            })
+            if (usageResult) {
+              emitCacheDebugUsage({
+                callback: params.onCacheDebugUsageReceived,
+                usage: usageResult,
+              })
+            }
+          }
+
+          // Skip provider-cost tracking for ChatGPT OAuth because the request runs
+          // under the user's provider-owned ChatGPT/Codex subscription.
+          if (!isChatGptOAuth && !compatibility.stripProviderMetadata) {
+            const providerMetadataResult =
+              await awaitOptionalPostStreamMetadata({
+                promise: response.providerMetadata,
+                label: 'provider usage metadata',
+                logger,
+              })
+            const providerMetadata = providerMetadataResult ?? {}
+
+            let costOverrideDollars: number | undefined
+            if (providerMetadata.codebuff) {
+              if (providerMetadata.codebuff.usage) {
+                const openrouterUsage = providerMetadata.codebuff
+                  .usage as OpenRouterUsageAccounting
+
+                costOverrideDollars =
+                  (openrouterUsage.cost ?? 0) +
+                  (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+              }
+            }
+
+            // Fallback (M8.2): when the provider does not return OpenRouter-style
+            // cost metadata, compute cost from token usage × the configured
+            // `modelCapabilities.pricing` capability so BYOK providers get cost
+            // tracking too.
+            if (costOverrideDollars === undefined && pricing) {
+              const usageResult = await awaitOptionalPostStreamMetadata({
+                promise: response.usage,
+                label: 'provider usage metadata for cost',
+                logger,
+              })
+              if (usageResult) {
+                const fallbackCents = computeCostCentsFromUsage({
+                  usage: usageResult,
+                  pricing,
+                })
+                if (fallbackCents !== undefined && params.onCostCalculated) {
+                  await params.onCostCalculated(fallbackCents)
+                }
+              }
+            } else if (params.onCostCalculated && costOverrideDollars) {
+              // Report provider cost in cents for local/BYOK telemetry only.
+              await params.onCostCalculated(
+                calculateProviderCostCents({
+                  costDollars: costOverrideDollars,
+                }),
+              )
+            }
+          }
+
+          if (attempt > 0 || failoverIndex > 0) {
+            emitProviderStatus({ status: 'recovered', model: failoverModel })
+          }
+          return promptSuccess(messageId)
+        } catch (error) {
+          lastError = error
+
+          // Don't retry user-cancelled requests
+          if (params.signal.aborted) {
+            throw error
+          }
+
+          if (anyContentYielded) {
+            // Content was already yielded to the caller — cannot safely retry
+            logger.warn(
+              { error: getErrorObject(error), attempt: attempt + 1 },
+              'Stream error after content was yielded, cannot retry',
+            )
+            throw error
+          }
+
+          // Retry on transient network errors OR retryable HTTP status codes
+          // (408/429/500/502/503/504). The AI SDK surfaces provider 5xx responses
+          // as APICallError with a `statusCode`/`status` property; without this
+          // check, a provider 500 would be thrown immediately rather than retried.
+          const statusCode = getErrorStatusCode(error)
+          const isRetryableStatus = isRetryableStatusCode(statusCode)
+          if (!isTransientNetworkError(error) && !isRetryableStatus) {
+            throw error
+          }
+
+          if (attempt >= MAX_RETRIES_PER_MESSAGE) {
+            logger.error(
+              {
+                error: getErrorObject(error),
+                attempts: attempt + 1,
+                statusCode,
+              },
+              'Stream failed after all retry attempts',
+            )
+            throw error
+          }
+
+          const delayMs = computeBackoffDelayMs({
+            attempt,
+            baseDelayMs: RETRY_BACKOFF_BASE_DELAY_MS,
+          })
+          logger.warn(
+            {
+              error: getErrorObject(error),
+              attempt: attempt + 1,
+              maxRetries: MAX_RETRIES_PER_MESSAGE,
+              delayMs,
+              statusCode,
+            },
+            isRetryableStatus
+              ? `Retryable HTTP ${statusCode} during stream, retrying with delay`
+              : 'Transient network error during stream, retrying with delay',
           )
+          emitProviderStatus({
+            status: 'retrying',
+            model: failoverModel,
+            attempt: attempt + 2,
+            maxAttempts: MAX_RETRIES_PER_MESSAGE + 1,
+            delayMs,
+            ...(statusCode !== undefined ? { statusCode } : {}),
+          })
+          await waitForBackoffDelay({ delayMs, signal: params.signal })
         }
       }
-
-      return promptSuccess(messageId)
-    } catch (error) {
-      lastError = error
-
-      // Don't retry user-cancelled requests
-      if (params.signal.aborted) {
-        throw error
-      }
-
-      if (anyContentYielded) {
-        // Content was already yielded to the caller — cannot safely retry
-        logger.warn(
-          { error: getErrorObject(error), attempt: attempt + 1 },
-          'Stream error after content was yielded, cannot retry',
-        )
-        throw error
-      }
-
-      // Retry on transient network errors OR retryable HTTP status codes
-      // (408/429/500/502/503/504). The AI SDK surfaces provider 5xx responses
-      // as APICallError with a `statusCode`/`status` property; without this
-      // check, a provider 500 would be thrown immediately rather than retried.
-      const statusCode = getErrorStatusCode(error)
-      const isRetryableStatus = isRetryableStatusCode(statusCode)
-      if (!isTransientNetworkError(error) && !isRetryableStatus) {
-        throw error
-      }
-
-      if (attempt >= MAX_RETRIES_PER_MESSAGE) {
-        logger.error(
-          {
-            error: getErrorObject(error),
-            attempts: attempt + 1,
-            statusCode,
-          },
-          'Stream failed after all retry attempts',
-        )
-        throw error
-      }
-
-      const delayMs = computeBackoffDelayMs({
-        attempt,
-        baseDelayMs: RETRY_BACKOFF_BASE_DELAY_MS,
-      })
-      logger.warn(
-        {
-          error: getErrorObject(error),
-          attempt: attempt + 1,
-          maxRetries: MAX_RETRIES_PER_MESSAGE,
-          delayMs,
-          statusCode,
-        },
-        isRetryableStatus
-          ? `Retryable HTTP ${statusCode} during stream, retrying with delay`
-          : 'Transient network error during stream, retrying with delay',
-      )
-      await waitForBackoffDelay({ delayMs, signal: params.signal })
-    }
-  }
     } catch (error) {
       lastError = error
 
@@ -1311,6 +1379,12 @@ export async function* promptAiSdkStream(
         },
         'Provider failover: primary model failed, trying next configured model',
       )
+      emitProviderStatus({
+        status: 'failover',
+        model: failoverModel,
+        nextModel: modelsToTry[failoverIndex + 1],
+        ...(statusCode !== undefined ? { statusCode } : {}),
+      })
     }
   }
 
@@ -1352,18 +1426,19 @@ export async function promptAiSdk(
   } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
-    (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
+    (params as { providerOptions?: Record<string, JSONObject> })
+      .providerOptions,
     reasoningEffort,
   )
   const requestProviderOptions = compatibility.stripProviderMetadata
     ? providerOptionsWithReasoning
     : getProviderOptions({
-      ...params,
-      model: effectiveModelSdk,
-      providerOptions: providerOptionsWithReasoning,
-      agentProviderOptions: params.agentProviderOptions,
-      cacheDebugCorrelation: params.cacheDebugCorrelation,
-    })
+        ...params,
+        model: effectiveModelSdk,
+        providerOptions: providerOptionsWithReasoning,
+        agentProviderOptions: params.agentProviderOptions,
+        cacheDebugCorrelation: params.cacheDebugCorrelation,
+      })
 
   const response = await generateText({
     ...params,
@@ -1468,18 +1543,19 @@ export async function promptAiSdkStructured<T>(
   } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
-    (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
+    (params as { providerOptions?: Record<string, JSONObject> })
+      .providerOptions,
     reasoningEffort,
   )
   const requestProviderOptions = compatibility.stripProviderMetadata
     ? providerOptionsWithReasoning
     : getProviderOptions({
-      ...params,
-      model: effectiveModelStructured,
-      providerOptions: providerOptionsWithReasoning,
-      agentProviderOptions: params.agentProviderOptions,
-      cacheDebugCorrelation: params.cacheDebugCorrelation,
-    })
+        ...params,
+        model: effectiveModelStructured,
+        providerOptions: providerOptionsWithReasoning,
+        agentProviderOptions: params.agentProviderOptions,
+        cacheDebugCorrelation: params.cacheDebugCorrelation,
+      })
 
   const response = await generateObject<z.ZodType<T>, 'object'>({
     ...params,

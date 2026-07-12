@@ -42,6 +42,26 @@ describe('subagent card width containment', () => {
     expect(hasWrappedLine(markup, 'abcdefghij')).toBe(true)
   })
 
+  test('contains keyed expanded child components inside the card width', () => {
+    const markup = renderToStaticMarkup(
+      <AgentBranchItem
+        name="Editor"
+        isCollapsed={false}
+        isStreaming={false}
+        preview=""
+        availableWidth={14}
+      >
+        <box key="wide-tool-output" style={{ width: 100 }}>
+          <text>abcdefghijklmnopqrstuvwxyz</text>
+        </box>
+      </AgentBranchItem>,
+    )
+
+    expect(markup).toContain(
+      'flex-grow:1;flex-shrink:1;min-width:0;width:100%;overflow:hidden;gap:1',
+    )
+  })
+
   test('wraps collapsed tool preview inside its available width', () => {
     const markup = renderToStaticMarkup(
       <ToolCallItem

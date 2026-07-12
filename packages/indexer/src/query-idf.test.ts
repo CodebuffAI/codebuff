@@ -5,7 +5,17 @@ import { queryIndex } from './query'
 import type { IndexedFile, MetadataIndex } from './types'
 
 function file(path: string, symbols: string[]): IndexedFile {
-  return { path, mtime: 1, size: 100, hash: path, ext: '.ts', symbols, imports: [], headings: [], concepts: [] }
+  return {
+    path,
+    mtime: 1,
+    size: 100,
+    hash: path,
+    ext: '.ts',
+    symbols,
+    imports: [],
+    headings: [],
+    concepts: [],
+  }
 }
 
 // Six files all mention the ubiquitous token "config"; exactly one also defines

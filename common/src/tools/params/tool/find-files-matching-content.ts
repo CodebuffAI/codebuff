@@ -32,9 +32,7 @@ const inputSchema = z
       .positive()
       .optional()
       .default(100)
-      .describe(
-        `Maximum number of unique files to return. Defaults to 100.`,
-      ),
+      .describe(`Maximum number of unique files to return. Defaults to 100.`),
     groupBySymbol: z
       .boolean()
       .optional()
@@ -49,7 +47,9 @@ const inputSchema = z
       .max(120)
       .optional()
       .default(15)
-      .describe('Maximum seconds to let ripgrep run before returning partial results. Defaults to 15.'),
+      .describe(
+        'Maximum seconds to let ripgrep run before returning partial results. Defaults to 15.',
+      ),
   })
   .describe(
     `List unique file paths whose content matches a pattern, with optional symbol grouping. Built on top of ripgrep (rg).`,

@@ -2,14 +2,14 @@
 
 /**
  * tmux-viewer - Interactive TUI for viewing tmux session data
- * 
+ *
  * Usage:
  *   bun scripts/tmux/tmux-viewer/index.tsx <session-name>
  *   bun scripts/tmux/tmux-viewer/index.tsx <session-name> --json
  *   bun scripts/tmux/tmux-viewer/index.tsx <session-name> --replay
  *   bun scripts/tmux/tmux-viewer/index.tsx <session-name> --export-gif output.gif
  *   bun scripts/tmux/tmux-viewer/index.tsx --list
- * 
+ *
  * Both humans and AIs can use this tool:
  *   - Humans: Interactive TUI with keyboard navigation
  *   - AIs: Use --json flag to get structured output
@@ -46,9 +46,20 @@ function parseArgs(): ParsedArgs {
     .option('--json', 'Output session data as JSON (for AI consumption)')
     .option('--list', 'List available sessions')
     .option('--replay', 'Start in replay mode (auto-playing through captures)')
-    .option('--export-gif [path]', 'Export session as animated GIF (default: <session>.gif)')
-    .option('--frame-delay <ms>', 'Frame delay in ms for GIF export (default: 1500)', parseInt)
-    .option('--font-size <px>', 'Font size in pixels for GIF export (default: 14)', parseInt)
+    .option(
+      '--export-gif [path]',
+      'Export session as animated GIF (default: <session>.gif)',
+    )
+    .option(
+      '--frame-delay <ms>',
+      'Frame delay in ms for GIF export (default: 1500)',
+      parseInt,
+    )
+    .option(
+      '--font-size <px>',
+      'Font size in pixels for GIF export (default: 14)',
+      parseInt,
+    )
     .argument('[session]', 'Session name to view')
     .parse(process.argv)
 
@@ -67,19 +78,20 @@ function parseArgs(): ParsedArgs {
 }
 
 async function main(): Promise<void> {
-  const { session, json, list, replay, exportGif, frameDelay, fontSize } = parseArgs()
+  const { session, json, list, replay, exportGif, frameDelay, fontSize } =
+    parseArgs()
   const projectRoot = process.cwd()
 
   // List sessions mode
   if (list) {
     const sessions = await listSessions(projectRoot)
-    
+
     if (sessions.length === 0) {
       console.log(yellow('No sessions found in debug/tmux-sessions/'))
       console.log(dim('Start a session with: ./scripts/tmux/tmux-cli.sh start'))
       process.exit(0)
     }
-    
+
     console.log(cyan('Available sessions:'))
     for (const s of sessions) {
       console.log(`  ${s}`)
@@ -90,27 +102,47 @@ async function main(): Promise<void> {
   // If no session specified, show help or list
   if (!session) {
     const sessions = await listSessions(projectRoot)
-    
+
     if (sessions.length === 0) {
       console.log(red('No session specified and no sessions found.'))
       console.log('')
       console.log('Usage:')
       console.log('  bun scripts/tmux/tmux-viewer/index.tsx <session-name>')
-      console.log('  bun scripts/tmux/tmux-viewer/index.tsx <session-name> --json')
-      console.log('  bun scripts/tmux/tmux-viewer/index.tsx <session-name> --export-gif output.gif')
+      console.log(
+        '  bun scripts/tmux/tmux-viewer/index.tsx <session-name> --json',
+      )
+      console.log(
+        '  bun scripts/tmux/tmux-viewer/index.tsx <session-name> --export-gif output.gif',
+      )
       console.log('  bun scripts/tmux/tmux-viewer/index.tsx --list')
       console.log('')
       console.log(dim('Start a session with: ./scripts/tmux/tmux-cli.sh start'))
       process.exit(1)
     }
-    
+
     // Use the most recent session
     const mostRecent = sessions[0]
     console.log(dim(`Using most recent session: ${mostRecent}`))
-    return runViewer(mostRecent, json, replay, exportGif, frameDelay, fontSize, projectRoot)
+    return runViewer(
+      mostRecent,
+      json,
+      replay,
+      exportGif,
+      frameDelay,
+      fontSize,
+      projectRoot,
+    )
   }
 
-  return runViewer(session, json, replay, exportGif, frameDelay, fontSize, projectRoot)
+  return runViewer(
+    session,
+    json,
+    replay,
+    exportGif,
+    frameDelay,
+    fontSize,
+    projectRoot,
+  )
 }
 
 async function runViewer(
@@ -120,7 +152,7 @@ async function runViewer(
   exportGif: string | boolean,
   frameDelay: number | undefined,
   fontSize: number | undefined,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<void> {
   // Load session data
   let data
@@ -146,16 +178,15 @@ async function runViewer(
 
   // GIF export mode
   if (exportGif) {
-    const outputPath = typeof exportGif === 'string' 
-      ? exportGif 
-      : getSuggestedFilename(data)
-    
+    const outputPath =
+      typeof exportGif === 'string' ? exportGif : getSuggestedFilename(data)
+
     console.log(cyan(`Exporting session "${sessionName}" to GIF...`))
     console.log(dim(`  Frames: ${data.captures.length}`))
     console.log(dim(`  Delay: ${frameDelay ?? 1500}ms per frame`))
     console.log(dim(`  Output: ${outputPath}`))
     console.log('')
-    
+
     try {
       const result = await renderSessionToGif(data, {
         outputPath,
@@ -172,7 +203,7 @@ async function runViewer(
 
   // Interactive TUI mode
   let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
-  
+
   const handleExit = () => {
     renderer?.destroy()
     process.exit(0)
@@ -197,7 +228,7 @@ async function runViewer(
       onExit={handleExit}
       onJsonOutput={handleJsonOutput}
       startInReplayMode={replayMode}
-    />
+    />,
   )
 }
 

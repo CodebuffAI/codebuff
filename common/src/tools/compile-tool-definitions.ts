@@ -100,7 +100,10 @@ function jsonSchemaToTypeScript(schema: any): string {
 }
 
 function getAdditionalPropertiesType(schema: any): string | null {
-  if (!('additionalProperties' in schema) || schema.additionalProperties === false) {
+  if (
+    !('additionalProperties' in schema) ||
+    schema.additionalProperties === false
+  ) {
     return null
   }
   if (schema.additionalProperties === true) {

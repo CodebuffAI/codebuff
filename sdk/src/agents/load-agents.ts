@@ -132,20 +132,22 @@ const getAllAgentFiles = (dir: string): string[] => {
   return files
 }
 
-const getDefaultAgentDirs = () => {
+const getDefaultAgentDirs = (includeProjectAgents: boolean) => {
   const cwdAgents = path.join(process.cwd(), '.agents')
   const parentAgents = path.join(process.cwd(), '..', '.agents')
   const homeAgents = path.join(os.homedir(), '.agents')
-  return [cwdAgents, parentAgents, homeAgents]
+  // Load lowest priority first so later assignments produce the documented
+  // project > parent > home precedence for duplicate agent ids.
+  return includeProjectAgents
+    ? [homeAgents, parentAgents, cwdAgents]
+    : [homeAgents]
 }
 
 /**
  * Load agent definitions from `.agents` directories.
  *
- * By default, searches for agents in:
- * - `{cwd}/.agents`
- * - `{cwd}/../.agents`
- * - `{homedir}/.agents`
+ * By default, searches only `{homedir}/.agents`. Project and parent agent
+ * modules are executable code and require `includeProjectAgents: true`.
  *
  * Agent files can be `.ts`, `.tsx`, `.js`, `.mjs`, or `.cjs`.
  * TypeScript files are loaded natively by Bun's runtime.
@@ -160,6 +162,9 @@ const getDefaultAgentDirs = () => {
  * ```typescript
  * // Load from default locations
  * const agents = await loadLocalAgents({ verbose: true })
+ *
+ * // Explicitly trust executable project/parent agents
+ * const trustedAgents = await loadLocalAgents({ includeProjectAgents: true })
  *
  * // Load from a specific directory
  * const agents = await loadLocalAgents({ agentsPath: './my-agents' })
@@ -186,6 +191,7 @@ const getDefaultAgentDirs = () => {
 // Overload: validate: true returns result with agents and errors
 export async function loadLocalAgents(options: {
   agentsPath?: string
+  includeProjectAgents?: boolean
   verbose?: boolean
   validate: true
 }): Promise<LoadLocalAgentsResult>
@@ -193,6 +199,7 @@ export async function loadLocalAgents(options: {
 // Overload: validate: false or omitted returns just agents (backward compatible)
 export async function loadLocalAgents(options: {
   agentsPath?: string
+  includeProjectAgents?: boolean
   verbose?: boolean
   validate?: false
 }): Promise<LoadedAgents>
@@ -200,16 +207,20 @@ export async function loadLocalAgents(options: {
 // Implementation
 export async function loadLocalAgents({
   agentsPath,
+  includeProjectAgents = true,
   verbose = false,
   validate = false,
 }: {
   agentsPath?: string
+  includeProjectAgents?: boolean
   verbose?: boolean
   validate?: boolean
 }): Promise<LoadedAgents | LoadLocalAgentsResult> {
   const agents: LoadedAgents = {}
 
-  const agentDirs = agentsPath ? [agentsPath] : getDefaultAgentDirs()
+  const agentDirs = agentsPath
+    ? [agentsPath]
+    : getDefaultAgentDirs(includeProjectAgents)
   const allAgentFiles = agentDirs.flatMap((dir) => getAllAgentFiles(dir))
 
   if (allAgentFiles.length === 0) {
@@ -235,9 +246,7 @@ export async function loadLocalAgents({
 
       if (agentDefinition.model === '') {
         if (verbose) {
-          console.error(
-            `Agent definition has invalid empty model: ${fullPath}`,
-          )
+          console.error(`Agent definition has invalid empty model: ${fullPath}`)
         }
         continue
       }

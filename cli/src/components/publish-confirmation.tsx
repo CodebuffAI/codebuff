@@ -150,7 +150,9 @@ const AgentSection: React.FC<AgentSectionProps> = ({
           }}
         >
           {title && !titleInBorder ? (
-            <text style={{ fg: theme.secondary, attributes: TextAttributes.BOLD }}>
+            <text
+              style={{ fg: theme.secondary, attributes: TextAttributes.BOLD }}
+            >
               {titleText}
             </text>
           ) : (
@@ -174,7 +176,9 @@ const AgentSection: React.FC<AgentSectionProps> = ({
           {/* Title row inside the box when titleInBorder is true */}
           {titleInBorder && titleText && (
             <box style={{ paddingLeft: 1, paddingRight: 1 }}>
-              <text style={{ fg: theme.secondary, attributes: TextAttributes.BOLD }}>
+              <text
+                style={{ fg: theme.secondary, attributes: TextAttributes.BOLD }}
+              >
                 {titleText}
               </text>
             </box>
@@ -226,11 +230,17 @@ const AgentSection: React.FC<AgentSectionProps> = ({
   )
 }
 
-const DirectionLabel: React.FC<{ theme: ReturnType<typeof useTheme>; direction: 'up' | 'down' }> = ({ theme, direction }) => (
+const DirectionLabel: React.FC<{
+  theme: ReturnType<typeof useTheme>
+  direction: 'up' | 'down'
+}> = ({ theme, direction }) => (
   <box style={{ flexDirection: 'column', alignItems: 'center', gap: 0 }}>
     <text style={{ fg: theme.border }}> │</text>
     <text style={{ fg: theme.muted }}>spawns</text>
-    <text style={{ fg: theme.border }}> {direction === 'down' ? '↓' : '↑'}</text>
+    <text style={{ fg: theme.border }}>
+      {' '}
+      {direction === 'down' ? '↓' : '↑'}
+    </text>
   </box>
 )
 
@@ -246,26 +256,32 @@ export const PublishConfirmation: React.FC<PublishConfirmationProps> = ({
 
   const selectedIds = useMemo(
     () => new Set(selectedAgents.map((a) => a.id)),
-    [selectedAgents]
+    [selectedAgents],
   )
 
   // Only include non-bundled agents in localAgentIds for dependency resolution
   // (allAgents is already filtered to exclude bundled agents)
   const localAgentIds = useMemo(
     () => new Set(allAgents.map((a) => a.id)),
-    [allAgents]
+    [allAgents],
   )
 
   // Compute dependencies (agents the selected agents spawn)
   const dependencyIds = useMemo(
     () => computeDependencies(selectedIds, agentDefinitions, localAgentIds),
-    [selectedIds, agentDefinitions, localAgentIds]
+    [selectedIds, agentDefinitions, localAgentIds],
   )
 
   // Compute dependents (agents that spawn the selected agents)
   const dependentIds = useMemo(
-    () => computeDependents(selectedIds, dependencyIds, agentDefinitions, localAgentIds),
-    [selectedIds, dependencyIds, agentDefinitions, localAgentIds]
+    () =>
+      computeDependents(
+        selectedIds,
+        dependencyIds,
+        agentDefinitions,
+        localAgentIds,
+      ),
+    [selectedIds, dependencyIds, agentDefinitions, localAgentIds],
   )
 
   // Build lists with display info
@@ -275,7 +291,7 @@ export const PublishConfirmation: React.FC<PublishConfirmationProps> = ({
         id: a.id,
         displayName: a.displayName,
       })),
-    [selectedAgents]
+    [selectedAgents],
   )
 
   const dependencyList = useMemo(
@@ -287,7 +303,7 @@ export const PublishConfirmation: React.FC<PublishConfirmationProps> = ({
           displayName: agent?.displayName ?? id,
         }
       }),
-    [dependencyIds, allAgents]
+    [dependencyIds, allAgents],
   )
 
   const dependentList = useMemo(
@@ -299,7 +315,7 @@ export const PublishConfirmation: React.FC<PublishConfirmationProps> = ({
           displayName: agent?.displayName ?? id,
         }
       }),
-    [dependentIds, allAgents]
+    [dependentIds, allAgents],
   )
 
   const hasDependents = dependentList.length > 0
@@ -307,49 +323,22 @@ export const PublishConfirmation: React.FC<PublishConfirmationProps> = ({
 
   return (
     <box style={{ flexDirection: 'column', gap: 0 }}>
-        {/* Parents section (agents that spawn the selected - optional) */}
-        {hasDependents && (
-          <>
-            {includeDependents ? (
-              // Show expanded list when included
-              <>
-                <AgentSection
-                  title="PARENTS"
-                  titleInBorder
-                  agents={dependentList}
-                  theme={theme}
-                  symbol="+"
-                  symbolColor={theme.info}
-                  textColor={theme.muted}
-                  maxHeight={SECTION_MAX_HEIGHT}
-                  rightContent={
-                    <Button
-                      onClick={onToggleDependents}
-                      onMouseOver={() => setToggleHovered(true)}
-                      onMouseOut={() => setToggleHovered(false)}
-                      style={{
-                        backgroundColor: 'transparent',
-                        paddingLeft: 0,
-                        paddingRight: 0,
-                      }}
-                    >
-                      <text
-                        style={{
-                          fg: toggleHovered ? theme.error : theme.secondary,
-                          attributes: toggleHovered ? TextAttributes.UNDERLINE : undefined,
-                        }}
-                      >
-                        − remove
-                      </text>
-                    </Button>
-                  }
-                />
-                <DirectionLabel theme={theme} direction="down" />
-              </>
-            ) : (
-              // Show clickable placeholder to add parents - centered pill button
-              <>
-                <box style={{ alignItems: 'center' }}>
+      {/* Parents section (agents that spawn the selected - optional) */}
+      {hasDependents && (
+        <>
+          {includeDependents ? (
+            // Show expanded list when included
+            <>
+              <AgentSection
+                title="PARENTS"
+                titleInBorder
+                agents={dependentList}
+                theme={theme}
+                symbol="+"
+                symbolColor={theme.info}
+                textColor={theme.muted}
+                maxHeight={SECTION_MAX_HEIGHT}
+                rightContent={
                   <Button
                     onClick={onToggleDependents}
                     onMouseOver={() => setToggleHovered(true)}
@@ -358,45 +347,77 @@ export const PublishConfirmation: React.FC<PublishConfirmationProps> = ({
                       backgroundColor: 'transparent',
                       paddingLeft: 0,
                       paddingRight: 0,
-                      paddingTop: 0,
-                      paddingBottom: 0,
                     }}
                   >
-                    <box
-                      border
-                      borderStyle="single"
-                      borderColor={toggleHovered ? theme.info : theme.border}
-                      customBorderChars={BORDER_CHARS}
-                      style={{ paddingLeft: 1, paddingRight: 1 }}
+                    <text
+                      style={{
+                        fg: toggleHovered ? theme.error : theme.secondary,
+                        attributes: toggleHovered
+                          ? TextAttributes.UNDERLINE
+                          : undefined,
+                      }}
                     >
-                      <text
-                        style={{
-                          fg: toggleHovered ? theme.info : theme.muted,
-                          attributes: toggleHovered ? TextAttributes.BOLD : undefined,
-                        }}
-                      >
-                        ⊕ Add {dependentList.length} parent{dependentList.length !== 1 ? 's' : ''}
-                      </text>
-                    </box>
+                      − remove
+                    </text>
                   </Button>
-                </box>
-                <DirectionLabel theme={theme} direction="down" />
-              </>
-            )}
-          </>
-        )}
+                }
+              />
+              <DirectionLabel theme={theme} direction="down" />
+            </>
+          ) : (
+            // Show clickable placeholder to add parents - centered pill button
+            <>
+              <box style={{ alignItems: 'center' }}>
+                <Button
+                  onClick={onToggleDependents}
+                  onMouseOver={() => setToggleHovered(true)}
+                  onMouseOut={() => setToggleHovered(false)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    paddingLeft: 0,
+                    paddingRight: 0,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                  }}
+                >
+                  <box
+                    border
+                    borderStyle="single"
+                    borderColor={toggleHovered ? theme.info : theme.border}
+                    customBorderChars={BORDER_CHARS}
+                    style={{ paddingLeft: 1, paddingRight: 1 }}
+                  >
+                    <text
+                      style={{
+                        fg: toggleHovered ? theme.info : theme.muted,
+                        attributes: toggleHovered
+                          ? TextAttributes.BOLD
+                          : undefined,
+                      }}
+                    >
+                      ⊕ Add {dependentList.length} parent
+                      {dependentList.length !== 1 ? 's' : ''}
+                    </text>
+                  </box>
+                </Button>
+              </box>
+              <DirectionLabel theme={theme} direction="down" />
+            </>
+          )}
+        </>
+      )}
 
-        {/* Selected section */}
-        <AgentSection
-          title="SELECTED"
-          titleInBorder
-          agents={selectedList}
-          theme={theme}
-          symbol="✓"
-          symbolColor={theme.success}
-          textColor={theme.foreground}
-          maxHeight={SECTION_MAX_HEIGHT}
-        />
+      {/* Selected section */}
+      <AgentSection
+        title="SELECTED"
+        titleInBorder
+        agents={selectedList}
+        theme={theme}
+        symbol="✓"
+        symbolColor={theme.success}
+        textColor={theme.foreground}
+        maxHeight={SECTION_MAX_HEIGHT}
+      />
 
       {/* Spawns section (agents the selected spawn) - no title */}
       {hasDependencies && (

@@ -162,8 +162,12 @@ describe('computeBackoffDelayMs', () => {
   })
 
   test('returns an integer', () => {
-    expect(Number.isInteger(computeBackoffDelayMs({ attempt: 0, jitter: false }))).toBe(true)
-    expect(Number.isInteger(computeBackoffDelayMs({ attempt: 1, jitter: false }))).toBe(true)
+    expect(
+      Number.isInteger(computeBackoffDelayMs({ attempt: 0, jitter: false })),
+    ).toBe(true)
+    expect(
+      Number.isInteger(computeBackoffDelayMs({ attempt: 1, jitter: false })),
+    ).toBe(true)
     // jittered results should also be integers (Math.round)
     for (let i = 0; i < 20; i++) {
       expect(Number.isInteger(computeBackoffDelayMs({ attempt: i }))).toBe(true)

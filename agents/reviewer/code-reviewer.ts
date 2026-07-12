@@ -44,6 +44,8 @@ For reference, here is the original user request:
 ${PLACEHOLDER.USER_INPUT_PROMPT}
 </user_message>
 
+${PLACEHOLDER.LANGUAGE_PROFILE}
+
 # Task
 
 Your task is to provide helpful critical feedback on the last file changes made by the assistant. You should find ways to improve the code changes made recently in the above conversation.
@@ -86,6 +88,7 @@ NOTE: You cannot make any changes directly! The only tool you may call is read_f
 - Make sure there are no missing imports.
 - Make sure no sections were deleted that weren't supposed to be deleted.
 - Make sure the new code matches the style of the existing code.
+- Apply the active language profile when checking ownership/resource lifetime, error propagation, concurrency/async behavior, package/module boundaries, public API compatibility, and ecosystem-native test conventions. Do not transplant TypeScript-specific style rules into other languages.
 - Make sure there are no unnecessary try/catch blocks. Prefer to remove those.
 - Do not infer test, typecheck, lint, build, or basher status from silence or from the parent saying validation is running. Only mention validation status if completed results are included in your prompt or visible conversation context.
 

@@ -21,7 +21,13 @@ const TREE_SITTER_RUNTIME_WASM = 'tree-sitter.wasm'
  * obvious and easy to update.
  */
 function extractWasmFilesFromBuildScript(): string[] {
-  const buildScriptPath = join(import.meta.dir, '..', '..', 'scripts', 'build.ts')
+  const buildScriptPath = join(
+    import.meta.dir,
+    '..',
+    '..',
+    'scripts',
+    'build.ts',
+  )
   const source = readFileSync(buildScriptPath, 'utf-8')
 
   // Find the `const wasmFiles = [...]` block inside copyWasmFiles().

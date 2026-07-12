@@ -104,10 +104,7 @@ export const setModelDiscoveryCachePathForTest = setModelDiscoveryCachePath
 // Utilities
 // ---------------------------------------------------------------------------
 
-function getByPath(
-  value: unknown,
-  dottedPath: string | undefined,
-): unknown {
+function getByPath(value: unknown, dottedPath: string | undefined): unknown {
   if (!dottedPath) return value
   return dottedPath.split('.').reduce<unknown>((current, segment) => {
     if (current == null) return undefined
@@ -191,11 +188,7 @@ function createDiscoveryAbortSignal(params: {
   } else {
     parent?.addEventListener('abort', onParentAbort, { once: true })
     timeout = setTimeout(() => {
-      abort(
-        new Error(
-          `Model discovery timed out after ${timeoutMs}ms.`,
-        ),
-      )
+      abort(new Error(`Model discovery timed out after ${timeoutMs}ms.`))
     }, timeoutMs)
   }
 
@@ -216,9 +209,7 @@ function openRouterCapabilities(
   model: Record<string, unknown>,
 ): ModelCapabilities | undefined {
   const contextLength =
-    typeof model.context_length === 'number'
-      ? model.context_length
-      : undefined
+    typeof model.context_length === 'number' ? model.context_length : undefined
   const pricing =
     typeof model.pricing === 'object' && model.pricing
       ? (model.pricing as Record<string, unknown>)
@@ -261,8 +252,7 @@ function normalizeModelsFromResponse(params: {
 }): DiscoveredModel[] {
   const arrayPath =
     params.arrayPath ?? (params.strategy === 'ollama' ? 'models' : 'data')
-  const idPath =
-    params.idPath ?? (params.strategy === 'ollama' ? 'name' : 'id')
+  const idPath = params.idPath ?? (params.strategy === 'ollama' ? 'name' : 'id')
   const array = getByPath(params.json, arrayPath)
   if (!Array.isArray(array)) {
     throw new Error(
@@ -305,10 +295,7 @@ export function getProviderDiscoveryConfig(
   if (provider.type !== 'openai-compatible') return undefined
   const providerDiscovery = provider.discovery
   if (providerDiscovery) return providerDiscovery
-  if (
-    providerId === 'openrouter' ||
-    provider.baseURL.includes('openrouter.ai')
-  )
+  if (providerId === 'openrouter' || provider.baseURL.includes('openrouter.ai'))
     return { strategy: 'openrouter' }
   if (
     providerId === 'ollama' ||
@@ -394,9 +381,10 @@ export function readModelDiscoveryCache(): Record<
   const cachePath = resolveCachePath()
   if (!fs.existsSync(cachePath)) return {}
   try {
-    return JSON.parse(
-      fs.readFileSync(cachePath, 'utf8'),
-    ) as Record<string, ProviderModelDiscoveryResult>
+    return JSON.parse(fs.readFileSync(cachePath, 'utf8')) as Record<
+      string,
+      ProviderModelDiscoveryResult
+    >
   } catch {
     // Corrupt or unreadable cache — treat as empty so discovery can re-populate.
     return {}
@@ -413,9 +401,7 @@ export function writeModelDiscoveryCache(
   fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2) + '\n')
 }
 
-export function getCachedProviderModels(
-  providerId: string,
-): DiscoveredModel[] {
+export function getCachedProviderModels(providerId: string): DiscoveredModel[] {
   return readModelDiscoveryCache()[providerId]?.models ?? []
 }
 
@@ -425,9 +411,7 @@ export function getCachedProviderModels(
 
 export function getAvailableProviderModels(
   loadedConfig = loadProviderConfigSync(),
-): Array<
-  DiscoveredModel & { providerId: string; configured: boolean }
-> {
+): Array<DiscoveredModel & { providerId: string; configured: boolean }> {
   const cache = readModelDiscoveryCache()
   const out: Array<
     DiscoveredModel & { providerId: string; configured: boolean }
@@ -476,9 +460,7 @@ export function addDiscoveredModelToProviderConfig(params: {
     ? params.modelId.slice(prefix.length)
     : params.modelId
 
-  const config: ProviderConfigFileInput = structuredClone(
-    loadedConfig.config,
-  )
+  const config: ProviderConfigFileInput = structuredClone(loadedConfig.config)
   const editableProvider = config.providers?.[params.providerId]
   if (!editableProvider)
     throw new Error(`Provider '${params.providerId}' is not editable.`)
@@ -499,7 +481,9 @@ export function addDiscoveredModelToProviderConfig(params: {
     )
   const sourceConfigPath = loadedConfig.sourceFilePaths.at(-1)
   return writeProviderConfigFile({
-    cwd: params.cwd ?? (sourceConfigPath ? path.dirname(sourceConfigPath) : undefined),
+    cwd:
+      params.cwd ??
+      (sourceConfigPath ? path.dirname(sourceConfigPath) : undefined),
     config,
   })
 }
@@ -526,8 +510,7 @@ export function formatDiscoveredModels(
   lines.push('')
   for (const model of result.models) {
     const isConfigured =
-      configured.has(model.id) ||
-      configured.has(`${providerId}/${model.id}`)
+      configured.has(model.id) || configured.has(`${providerId}/${model.id}`)
     const suffix = isConfigured ? ' (configured)' : ' (discovered)'
     lines.push(`  ${model.id}${suffix}`)
   }

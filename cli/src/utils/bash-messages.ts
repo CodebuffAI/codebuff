@@ -79,7 +79,7 @@ export function formatBashContextForPrompt(
 ): string {
   // Only include completed commands
   const completedCommands = pendingBashMessages.filter((msg) => !msg.isRunning)
-  
+
   if (completedCommands.length === 0) {
     return ''
   }

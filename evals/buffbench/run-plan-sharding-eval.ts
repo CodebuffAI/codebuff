@@ -140,8 +140,12 @@ async function main() {
   console.log(
     `top-level direct tools: ${signals.topLevelDirectToolCount} | single-codesearch-only: ${signals.singleCodesearchOnly}`,
   )
-  console.log(`distinct agent types: ${signals.distinctAgentTypes.join(', ') || '(none)'}`)
-  console.log(`credits: ${cost.toFixed(1)} | duration: ${(durationMs / 1000).toFixed(1)}s | events: ${events.length}`)
+  console.log(
+    `distinct agent types: ${signals.distinctAgentTypes.join(', ') || '(none)'}`,
+  )
+  console.log(
+    `credits: ${cost.toFixed(1)} | duration: ${(durationMs / 1000).toFixed(1)}s | events: ${events.length}`,
+  )
   console.log('\nReasons:')
   for (const reason of evaluation.reasons) {
     console.log(`  - ${reason}`)
@@ -153,7 +157,13 @@ async function main() {
     for (const entry of coverageMatrix.entries) {
       const status = entry.covered ? 'covered' : 'uncovered'
       console.log(
-        '  - ' + entry.domain + ': ' + entry.assignedPairs + ' pair(s) [' + status + ']',
+        '  - ' +
+          entry.domain +
+          ': ' +
+          entry.assignedPairs +
+          ' pair(s) [' +
+          status +
+          ']',
       )
     }
     if (!coverageMatrix.allCovered) {
@@ -173,7 +183,8 @@ async function main() {
     }
     if (!plannerOutputCoverage.allCovered) {
       console.log(
-        '  Missing domains: ' + plannerOutputCoverage.uncoveredDomains.join(', '),
+        '  Missing domains: ' +
+          plannerOutputCoverage.uncoveredDomains.join(', '),
       )
     }
   }

@@ -9,6 +9,7 @@ import { clearProviderConfigCacheForTest } from '@openbuff/sdk'
 import { setProjectRoot } from '../../project-files'
 import {
   addCustomOpenbuffProvider,
+  configureOpenbuffModelFromArgs,
   handleOpenbuffProviderCommand,
   handleOpenbuffProviderWizardInput,
   startOpenbuffProviderWizard,
@@ -107,6 +108,80 @@ describe('openbuff-provider custom setup', () => {
     expect(result.message).not.toContain('\\n')
   })
 
+  test('model route edits preserve unrelated configuration', () => {
+    fs.writeFileSync(
+      path.join(tempDir!, 'openbuff.json'),
+      JSON.stringify(
+        {
+          providers: {
+            local: {
+              type: 'openai-compatible',
+              baseURL: 'http://localhost:11434/v1',
+              models: ['qwen-coder'],
+            },
+          },
+          defaultModel: 'local/old-model',
+          visionModel: 'local/vision-model',
+          failoverModels: ['local/fallback-model'],
+          maxAgentSteps: 42,
+          indexing: { enabled: false },
+        },
+        null,
+        2,
+      ),
+    )
+    clearProviderConfigCacheForTest()
+
+    configureOpenbuffModelFromArgs('set default local/qwen-coder')
+
+    expect(readOpenbuffConfig()).toMatchObject({
+      defaultModel: 'local/qwen-coder',
+      visionModel: 'local/vision-model',
+      failoverModels: ['local/fallback-model'],
+      maxAgentSteps: 42,
+      indexing: { enabled: false },
+    })
+  })
+
+  test('recommends only empirically measured models by language and task', () => {
+    fs.writeFileSync(
+      path.join(tempDir!, 'openbuff.json'),
+      JSON.stringify({
+        providers: {
+          local: {
+            type: 'openai-compatible',
+            baseURL: 'http://localhost:11434/v1',
+            models: ['rust-specialist', 'unmeasured'],
+            modelCapabilities: {
+              'rust-specialist': {
+                quality: {
+                  coding: [
+                    {
+                      language: 'rust',
+                      taskType: 'bugfix',
+                      agentRole: 'editor',
+                      score: 91,
+                      sampleSize: 24,
+                      benchmark: 'buffbench-rust-v1',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    clearProviderConfigCacheForTest()
+
+    const message = configureOpenbuffModelFromArgs(
+      'recommend rust bugfix editor',
+    )
+    expect(message).toContain('Recommended model: local/rust-specialist')
+    expect(message).toContain('91/100 across 24 samples')
+    expect(message).toContain('buffbench-rust-v1')
+  })
+
   test('custom provider wizard validates URL and API key env before writing', () => {
     expect(startOpenbuffProviderWizard()).toContain('Openbuff provider wizard')
     expect(handleOpenbuffProviderWizardInput('custom')).toMatchObject({
@@ -115,7 +190,9 @@ describe('openbuff-provider custom setup', () => {
     expect(handleOpenbuffProviderWizardInput('claude-gateway')).toMatchObject({
       done: false,
     })
-    expect(handleOpenbuffProviderWizardInput('anthropic-compatible')).toMatchObject({
+    expect(
+      handleOpenbuffProviderWizardInput('anthropic-compatible'),
+    ).toMatchObject({
       done: false,
     })
 
@@ -124,7 +201,9 @@ describe('openbuff-provider custom setup', () => {
     expect(invalidUrl.message).toContain('valid base URL')
     expect(fs.existsSync(path.join(tempDir!, 'openbuff.json'))).toBe(false)
 
-    expect(handleOpenbuffProviderWizardInput('https://cc.freemodel.dev')).toMatchObject({
+    expect(
+      handleOpenbuffProviderWizardInput('https://cc.freemodel.dev'),
+    ).toMatchObject({
       done: false,
     })
 
@@ -133,7 +212,9 @@ describe('openbuff-provider custom setup', () => {
     expect(invalidEnv.message).toContain('environment variable name')
     expect(fs.existsSync(path.join(tempDir!, 'openbuff.json'))).toBe(false)
 
-    expect(handleOpenbuffProviderWizardInput('FREEMODEL_API_KEY')).toMatchObject({
+    expect(
+      handleOpenbuffProviderWizardInput('FREEMODEL_API_KEY'),
+    ).toMatchObject({
       done: false,
     })
     const done = handleOpenbuffProviderWizardInput('claude-sonnet-4-5')

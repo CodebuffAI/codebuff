@@ -1,6 +1,6 @@
-import { z } from 'zod/v4';
+import { z } from 'zod/v4'
 
-export type OpenAICompatibleChatModelId = string;
+export type OpenAICompatibleChatModelId = string
 
 export const openaiCompatibleProviderOptions = z.object({
   /**
@@ -18,8 +18,8 @@ export const openaiCompatibleProviderOptions = z.object({
    * Controls the verbosity of the generated text. Defaults to `medium`.
    */
   textVerbosity: z.string().optional(),
-});
+})
 
 export type OpenAICompatibleProviderOptions = z.infer<
   typeof openaiCompatibleProviderOptions
->;
+>

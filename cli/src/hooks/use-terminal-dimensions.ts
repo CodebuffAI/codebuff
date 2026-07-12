@@ -1,4 +1,7 @@
-import { useRenderer, useTerminalDimensions as useOpenTuiDimensions } from '@opentui/react'
+import {
+  useRenderer,
+  useTerminalDimensions as useOpenTuiDimensions,
+} from '@opentui/react'
 import { useMemo } from 'react'
 
 export const useTerminalDimensions = () => {
@@ -15,7 +18,9 @@ export const useTerminalDimensions = () => {
 
   const resolvedTerminalWidth = useMemo(
     () =>
-      sanitizeDimension(measuredWidth) ?? sanitizeDimension(renderer?.width) ?? 80,
+      sanitizeDimension(measuredWidth) ??
+      sanitizeDimension(renderer?.width) ??
+      80,
     [measuredWidth, renderer?.width],
   )
 

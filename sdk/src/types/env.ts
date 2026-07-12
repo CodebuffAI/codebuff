@@ -6,10 +6,7 @@
  * - WASM module directory
  */
 
-import type {
-  BaseEnv,
-  ClientEnv,
-} from '@codebuff/common/types/contracts/env'
+import type { BaseEnv, ClientEnv } from '@codebuff/common/types/contracts/env'
 
 /**
  * SDK-specific env vars for binary paths and WASM.

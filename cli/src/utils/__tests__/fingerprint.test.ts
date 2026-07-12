@@ -10,7 +10,8 @@ describe('fingerprint utilities', () => {
       })
 
       test('should detect enhanced fingerprint with full hash', () => {
-        const fullHash = 'enhanced-Ks7mN2pQxR3vW5yZ8aB4cD6eF9gH1iJ2kL4mN5oP7qR8sT0uV1wX3yZ'
+        const fullHash =
+          'enhanced-Ks7mN2pQxR3vW5yZ8aB4cD6eF9gH1iJ2kL4mN5oP7qR8sT0uV1wX3yZ'
         expect(getFingerprintType(fullHash)).toBe('enhanced_cli')
       })
 

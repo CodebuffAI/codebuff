@@ -1,6 +1,10 @@
 import { IndexManager } from '@codebuff/indexer'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
-import { OpenbuffClient, loadProviderConfigSync, createConfiguredEmbedder } from '@openbuff/sdk'
+import {
+  OpenbuffClient,
+  loadProviderConfigSync,
+  createConfiguredEmbedder,
+} from '@openbuff/sdk'
 
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
@@ -65,6 +69,7 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
   clientInstance = new OpenbuffClient({
     cwd: getProjectRoot(),
     logger,
+    filesystemResultFormat: 'structured-v1',
     overrideTools: {
       ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
         const askUserResponse = await AskUserBridge.request(
@@ -95,7 +100,12 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
                 indexAge: 0,
                 message:
                   'Codebase indexing is disabled in openbuff.json; fall back to read_subtree, glob, or code_search.',
-              },
+                status: {
+                  state: 'disabled', ready: false, stale: false, refreshing: false,
+                  semantic: 'disabled', totalIndexed: 0, indexAge: 0,
+                  diagnostics: [], message: 'Indexing is disabled.',
+                },
+              } as JSONObject,
             },
           ]
         }
@@ -103,7 +113,8 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
         // the index can build vectors and blend semantic hits into results.
         const embedder =
           indexingConfig.semantic?.enabled && indexingConfig.semantic?.model
-            ? (createConfiguredEmbedder(indexingConfig.semantic.model) ?? undefined)
+            ? (createConfiguredEmbedder(indexingConfig.semantic.model) ??
+              undefined)
             : undefined
         const manager = IndexManager.getInstance(
           projectRoot,
@@ -130,7 +141,8 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
           }
           if (item.symbols) output.symbols = item.symbols
           if (item.headings) output.headings = item.headings
-          if (item.matchedSnippets) output.matchedSnippets = item.matchedSnippets
+          if (item.matchedSnippets)
+            output.matchedSnippets = item.matchedSnippets
           if (item.relatedFiles) {
             output.relatedFiles = item.relatedFiles.map((related) => {
               const relatedOutput: JSONObject = {
@@ -152,10 +164,9 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
               results,
               totalIndexed: result.totalIndexed,
               indexAge: result.indexAge,
-              message: result.ready
-                ? `Found ${result.results.length} indexed file result(s).${semanticNotice}`
-                : `Index is still building or unavailable; fall back to read_subtree, glob, or code_search.${semanticNotice}`,
-            },
+              status: result.status as unknown as JSONObject,
+              message: `${result.status.message} Found ${result.results.length} indexed file result(s).${semanticNotice}`,
+            } as JSONObject,
           },
         ]
       },

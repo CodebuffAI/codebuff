@@ -1,7 +1,0 @@
-{"ts":"2026-07-05T21:10:28.829Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
-{"ts":"2026-07-05T21:10:43.553Z","kind":"append_lesson","summary":"Appended entry \"M1 executed — 2026-07-06\" to STATUS.md","payload":{"heading":"M1 executed — 2026-07-06","artifact":"STATUS.md"}}
-{"ts":"2026-07-05T21:11:08.727Z","kind":"append_lesson","summary":"Appended entry \"M1 execution gotchas — 2026-07-06\" to LESSONS.md","payload":{"heading":"M1 execution gotchas — 2026-07-06","artifact":"LESSONS.md"}}
-{"ts":"2026-07-05T21:11:37.239Z","kind":"append_lesson","summary":"Appended entry \"M1 execution gotchas — 2026-07-06\" to LESSONS.md","payload":{"heading":"M1 execution gotchas — 2026-07-06","artifact":"LESSONS.md"}}
-{"ts":"2026-07-05T21:18:08.743Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
-{"ts":"2026-07-05T21:18:08.743Z","kind":"current_task","summary":"Current task pointer cleared","payload":{"currentTask":null}}
-{"ts":"2026-07-05T21:18:40.222Z","kind":"append_lesson","summary":"Appended entry \"M1 execution + aux subagent completion — 2026-07-06\" to LESSONS.md","payload":{"heading":"M1 execution + aux subagent completion — 2026-07-06","artifact":"LESSONS.md"}}

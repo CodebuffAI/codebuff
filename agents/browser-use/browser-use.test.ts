@@ -113,10 +113,7 @@ async function runTask(
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const traceFile = path.join(
-    TRACE_DIR,
-    `${timestamp}_${task.name}.json`,
-  )
+  const traceFile = path.join(TRACE_DIR, `${timestamp}_${task.name}.json`)
   fs.writeFileSync(traceFile, JSON.stringify(trace, null, 2))
 
   const success = output?.type !== 'error'
@@ -151,15 +148,25 @@ async function main() {
   const taskIndexArg = process.argv[2]
   const tasksToRun =
     taskIndexArg !== undefined
-      ? [{ task: TASKS[parseInt(taskIndexArg, 10)], index: parseInt(taskIndexArg, 10) }]
+      ? [
+          {
+            task: TASKS[parseInt(taskIndexArg, 10)],
+            index: parseInt(taskIndexArg, 10),
+          },
+        ]
       : TASKS.map((task, index) => ({ task, index }))
 
   if (tasksToRun.some((t) => !t.task)) {
-    console.error(`Invalid task index: ${taskIndexArg}. Available: 0-${TASKS.length - 1}`)
+    console.error(
+      `Invalid task index: ${taskIndexArg}. Available: 0-${TASKS.length - 1}`,
+    )
     process.exit(1)
   }
 
-  const agents = await loadLocalAgents({ agentsPath: path.join(process.cwd(), 'agents'), verbose: true })
+  const agents = await loadLocalAgents({
+    agentsPath: path.join(process.cwd(), 'agents'),
+    verbose: true,
+  })
   const agentDefinitions = Object.values(agents) as AgentDefinition[]
 
   const browserAgent = agentDefinitions.find((a) => a.id === 'browser-use')
@@ -173,11 +180,16 @@ async function main() {
     cwd: process.cwd(),
   })
 
-  const results: Array<{ name: string; success: boolean; traceFile: string }> = []
+  const results: Array<{ name: string; success: boolean; traceFile: string }> =
+    []
 
   for (const { task, index } of tasksToRun) {
     const result = await runTask(client, task, agentDefinitions, index)
-    results.push({ name: task.name, success: result.success, traceFile: result.traceFile })
+    results.push({
+      name: task.name,
+      success: result.success,
+      traceFile: result.traceFile,
+    })
   }
 
   console.log(`\n${'='.repeat(60)}`)

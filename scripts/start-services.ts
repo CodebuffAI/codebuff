@@ -17,7 +17,14 @@
  */
 
 import { spawn, spawnSync, type ChildProcess } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, openSync } from 'fs'
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  unlinkSync,
+  openSync,
+} from 'fs'
 import { join, resolve } from 'path'
 
 const PROJECT_ROOT = resolve(import.meta.dir, '..')
@@ -94,11 +101,15 @@ function startDb(): boolean {
   process.stdout.write('  db        starting...\r')
 
   const logFile = openSync(join(LOG_DIR, 'db.log'), 'w')
-  const result = spawnSync(BUN_PATH, ['--cwd', 'packages/internal', 'db:start'], {
-    cwd: PROJECT_ROOT,
-    stdio: ['ignore', logFile, logFile],
-    env: process.env,
-  })
+  const result = spawnSync(
+    BUN_PATH,
+    ['--cwd', 'packages/internal', 'db:start'],
+    {
+      cwd: PROJECT_ROOT,
+      stdio: ['ignore', logFile, logFile],
+      env: process.env,
+    },
+  )
 
   if (result.status !== 0) {
     fail('db', 'failed to start')
@@ -131,7 +142,11 @@ function spawnBackgroundProcess(
 function startBackgroundServices(): ServicePids {
   const pids: ServicePids = {}
 
-  const sdk = spawnBackgroundProcess(BUN_PATH, ['run', '--cwd', 'sdk', 'build'], 'sdk.log')
+  const sdk = spawnBackgroundProcess(
+    BUN_PATH,
+    ['run', '--cwd', 'sdk', 'build'],
+    'sdk.log',
+  )
   if (sdk.pid) pids.sdk = sdk.pid
   ok('sdk', '(building)')
 

@@ -1,10 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import {
-  assistantMessage,
-  userMessage,
-} from '@codebuff/common/util/messages'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import {
   describe,
   expect,
@@ -23,7 +20,10 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { ImagePart, TextPart } from '@codebuff/common/types/messages/content-part'
+import type {
+  ImagePart,
+  TextPart,
+} from '@codebuff/common/types/messages/content-part'
 
 /**
  * Tests to verify that image content is NOT propagated to spawned subagents via the `content` parameter.
@@ -66,7 +66,10 @@ describe('Spawn Agents Image Content Propagation', () => {
             assistantMessage('Mock agent response'),
           ],
         },
-        output: { type: 'lastMessage', value: [assistantMessage('Mock agent response')] },
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('Mock agent response')],
+        },
       }
     })
 
@@ -188,9 +191,7 @@ describe('Spawn Agents Image Content Propagation', () => {
 
       const imageContent = createImageContent()
 
-      sessionState.mainAgentState.messageHistory = [
-        userMessage('Hello'),
-      ]
+      sessionState.mainAgentState.messageHistory = [userMessage('Hello')]
 
       await handleSpawnAgents({
         ...handleSpawnAgentsBaseParams,
@@ -245,9 +246,7 @@ describe('Spawn Agents Image Content Propagation', () => {
 
       const imageContent = createImageContent()
 
-      sessionState.mainAgentState.messageHistory = [
-        userMessage('Hello'),
-      ]
+      sessionState.mainAgentState.messageHistory = [userMessage('Hello')]
 
       await handleSpawnAgentInline({
         ...handleSpawnAgentsBaseParams,
@@ -320,7 +319,10 @@ describe('Spawn Agents Image Content Propagation', () => {
             ...options.agentState,
             messageHistory: [assistantMessage('Mock response')],
           },
-          output: { type: 'lastMessage', value: [assistantMessage('Mock response')] },
+          output: {
+            type: 'lastMessage',
+            value: [assistantMessage('Mock response')],
+          },
         }
       })
 

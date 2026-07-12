@@ -31,7 +31,11 @@ TextureImporter:
 `
 
   test('extracts self-identifying GUID from .meta file', () => {
-    const refs = extractUnityRefs(SAMPLE_META, true, 'Assets/Textures/player.png.meta')
+    const refs = extractUnityRefs(
+      SAMPLE_META,
+      true,
+      'Assets/Textures/player.png.meta',
+    )
     expect(refs).toHaveLength(1)
     expect(refs[0].refType).toBe('guid')
     expect(refs[0].rawRef).toBe('a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6')
@@ -47,7 +51,11 @@ TextureImporter: {}
   })
 
   test('resolvedPath strips .meta suffix', () => {
-    const refs = extractUnityRefs(SAMPLE_META, true, 'Assets/Prefabs/Enemy.prefab.meta')
+    const refs = extractUnityRefs(
+      SAMPLE_META,
+      true,
+      'Assets/Prefabs/Enemy.prefab.meta',
+    )
     expect(refs[0].resolvedPath).toBe('Assets/Prefabs/Enemy.prefab')
   })
 })
@@ -75,7 +83,11 @@ PrefabInstance:
 `
 
   test('extracts external guid references from .prefab', () => {
-    const refs = extractUnityRefs(SAMPLE_PREFAB, false, 'Assets/Prefabs/Player.prefab')
+    const refs = extractUnityRefs(
+      SAMPLE_PREFAB,
+      false,
+      'Assets/Prefabs/Player.prefab',
+    )
     const guidRefs = refs.filter((r) => r.refType === 'guid')
     expect(guidRefs).toHaveLength(2)
     expect(guidRefs[0].rawRef).toBe('abcdef0123456789abcdef0123456789')
@@ -86,7 +98,11 @@ PrefabInstance:
   })
 
   test('extracts fileID references', () => {
-    const refs = extractUnityRefs(SAMPLE_PREFAB, false, 'Assets/Prefabs/Player.prefab')
+    const refs = extractUnityRefs(
+      SAMPLE_PREFAB,
+      false,
+      'Assets/Prefabs/Player.prefab',
+    )
     const fileIdRefs = refs.filter((r) => r.refType === 'file_id')
     expect(fileIdRefs.length).toBeGreaterThan(0)
     expect(fileIdRefs[0].resolvedPath).toBeNull()
@@ -174,7 +190,9 @@ func _ready():
   test('extracts preload() res:// paths from .gd files', () => {
     const refs = extractGodotScriptRefs(SAMPLE_GD)
     expect(refs.length).toBeGreaterThanOrEqual(3)
-    expect(refs.some((r) => r.rawRef === 'res://textures/player.png')).toBe(true)
+    expect(refs.some((r) => r.rawRef === 'res://textures/player.png')).toBe(
+      true,
+    )
     expect(refs.some((r) => r.rawRef === 'res://scenes/maze.tscn')).toBe(true)
   })
 
@@ -201,7 +219,9 @@ var b = preload("res://tex.png")
   })
 
   test('returns empty for .gd without preload/load calls', () => {
-    const refs = extractGodotScriptRefs('extends Node2D\n\nfunc _ready():\n    pass\n')
+    const refs = extractGodotScriptRefs(
+      'extends Node2D\n\nfunc _ready():\n    pass\n',
+    )
     expect(refs).toHaveLength(0)
   })
 
@@ -244,7 +264,9 @@ describe('asset-refs: Unreal .uproject', () => {
 
   test('extracts plugin names as asset_path refs', () => {
     const refs = extractUnrealRefs(SAMPLE_UPROJECT)
-    const pluginRefs = refs.filter((r) => r.resolvedPath?.startsWith('Plugins/'))
+    const pluginRefs = refs.filter((r) =>
+      r.resolvedPath?.startsWith('Plugins/'),
+    )
     expect(pluginRefs).toHaveLength(2)
     expect(pluginRefs[0].rawRef).toBe('Niagara')
     expect(pluginRefs[0].resolvedPath).toBe('Plugins/Niagara')
@@ -416,20 +438,30 @@ describe('asset-refs: GUID map and resolution', () => {
       'Assets/Player.png.meta': {
         ext: '.meta',
         assetRefs: [
-          { rawRef: 'aaaabbbbccccddddeeeeffff00001111', refType: 'guid' as const, resolvedPath: 'Assets/Player.png' },
+          {
+            rawRef: 'aaaabbbbccccddddeeeeffff00001111',
+            refType: 'guid' as const,
+            resolvedPath: 'Assets/Player.png',
+          },
         ],
       },
       'Assets/Enemy.png.meta': {
         ext: '.meta',
         assetRefs: [
-          { rawRef: '11112222333344445555666677778888', refType: 'guid' as const, resolvedPath: 'Assets/Enemy.png' },
+          {
+            rawRef: '11112222333344445555666677778888',
+            refType: 'guid' as const,
+            resolvedPath: 'Assets/Enemy.png',
+          },
         ],
       },
       'src/main.ts': { ext: '.ts' },
     }
     const map = buildGuidToPathMap(files)
     expect(map.size).toBe(2)
-    expect(map.get('aaaabbbbccccddddeeeeffff00001111')).toBe('Assets/Player.png')
+    expect(map.get('aaaabbbbccccddddeeeeffff00001111')).toBe(
+      'Assets/Player.png',
+    )
     expect(map.get('11112222333344445555666677778888')).toBe('Assets/Enemy.png')
   })
 
@@ -453,8 +485,12 @@ describe('asset-refs: GUID map and resolution', () => {
   })
 
   test('resolveGuidRef is case-sensitive (GUIDs are lowercased at extraction)', () => {
-    const map = new Map([['abcdef0123456789abcdef0123456789', 'Assets/Player.png']])
-    expect(resolveGuidRef('abcdef0123456789abcdef0123456789', map)).toBe('Assets/Player.png')
+    const map = new Map([
+      ['abcdef0123456789abcdef0123456789', 'Assets/Player.png'],
+    ])
+    expect(resolveGuidRef('abcdef0123456789abcdef0123456789', map)).toBe(
+      'Assets/Player.png',
+    )
     expect(resolveGuidRef('ABCDEF0123456789ABCDEF0123456789', map)).toBeNull()
   })
 })
@@ -512,7 +548,9 @@ PrefabInstance:
         e.from === 'file:Assets/Prefabs/Player.prefab',
     )
     // The GUID reference should resolve to the .meta file (the asset path).
-    expect(refEdges.some((e) => e.to.includes('Assets/Textures/player.png'))).toBe(true)
+    expect(
+      refEdges.some((e) => e.to.includes('Assets/Textures/player.png')),
+    ).toBe(true)
   })
 
   test('Godot .tscn gets res:// refs and creates references edges', async () => {
@@ -537,14 +575,12 @@ PrefabInstance:
     // Note: player.png is a .png so it's in BINARY_EXTENSIONS and will NOT
     // be in the index (skipped by file-walker). player.gd IS indexed.
     const tscnRefEdges = index.graph.edges.filter(
-      (e) =>
-        e.type === 'references' &&
-        e.from === 'file:scenes/player.tscn',
+      (e) => e.type === 'references' && e.from === 'file:scenes/player.tscn',
     )
     // player.gd is a text file and should be indexed → reference edge.
-    expect(
-      tscnRefEdges.some((e) => e.to === 'file:scripts/player.gd'),
-    ).toBe(true)
+    expect(tscnRefEdges.some((e) => e.to === 'file:scripts/player.gd')).toBe(
+      true,
+    )
   })
 
   test('Unreal .uproject gets module/plugin refs', async () => {
@@ -592,13 +628,9 @@ var scene = preload("res://scenes/level.tscn")
     // player.png is binary (BINARY_EXTENSIONS), so it won't be in the index
     // and won't get an edge — but level.tscn IS a text file and indexed.
     const gdRefEdges = index.graph.edges.filter(
-      (e) =>
-        e.type === 'references' &&
-        e.from === 'file:scripts/player.gd',
+      (e) => e.type === 'references' && e.from === 'file:scripts/player.gd',
     )
-    expect(
-      gdRefEdges.some((e) => e.to === 'file:scenes/level.tscn'),
-    ).toBe(true)
+    expect(gdRefEdges.some((e) => e.to === 'file:scenes/level.tscn')).toBe(true)
   })
 
   test('non-asset files do not get assetRefs field', async () => {
@@ -662,16 +694,22 @@ describe('asset-refs: binary file skip', () => {
     expect(index.files['Assets/big_texture.png.meta']?.assetRefs).toBeDefined()
     // The .prefab references the GUID, and the edge resolves to the .meta file.
     const refEdges = index.graph.edges.filter(
-      (e) => e.from === 'file:Assets/Referral.prefab' && e.type === 'references',
+      (e) =>
+        e.from === 'file:Assets/Referral.prefab' && e.type === 'references',
     )
-    expect(refEdges.some((e) => e.to === 'file:Assets/big_texture.png.meta')).toBe(true)
+    expect(
+      refEdges.some((e) => e.to === 'file:Assets/big_texture.png.meta'),
+    ).toBe(true)
   })
 
   test('Unity text files (.meta, .prefab, .unity) ARE indexed as text', async () => {
     const root = await makeTempProject({
-      'Assets/player.meta': 'fileFormatVersion: 2\nguid: 1234567890abcdef1234567890abcdef\n',
-      'Assets/player.prefab': '%YAML 1.1\n--- !u!1 &1\nGameObject:\n  m_Name: Player\n',
-      'Assets/scene.unity': '%YAML 1.1\n--- !u!1 &1\nGameObject:\n  m_Name: Scene\n',
+      'Assets/player.meta':
+        'fileFormatVersion: 2\nguid: 1234567890abcdef1234567890abcdef\n',
+      'Assets/player.prefab':
+        '%YAML 1.1\n--- !u!1 &1\nGameObject:\n  m_Name: Player\n',
+      'Assets/scene.unity':
+        '%YAML 1.1\n--- !u!1 &1\nGameObject:\n  m_Name: Scene\n',
     })
 
     const index = await buildMetadataIndex(root)
@@ -771,8 +809,7 @@ describe('asset-refs: multi-engine project', () => {
     // Unity: .prefab → .meta reference edge (GUID resolution)
     const unityEdges = index.graph.edges.filter(
       (e) =>
-        e.from === 'file:Assets/prefabs/Hero.prefab' &&
-        e.type === 'references',
+        e.from === 'file:Assets/prefabs/Hero.prefab' && e.type === 'references',
     )
     expect(
       unityEdges.some((e) => e.to === 'file:Assets/textures/hero.png.meta'),
@@ -781,12 +818,11 @@ describe('asset-refs: multi-engine project', () => {
     // Godot: .tscn → .gd reference edge (ext_resource res:// resolution)
     const godotEdges = index.graph.edges.filter(
       (e) =>
-        e.from === 'file:godot_scenes/maze.tscn' &&
-        e.type === 'references',
+        e.from === 'file:godot_scenes/maze.tscn' && e.type === 'references',
     )
-    expect(
-      godotEdges.some((e) => e.to === 'file:addons/tool/tool.gd'),
-    ).toBe(true)
+    expect(godotEdges.some((e) => e.to === 'file:addons/tool/tool.gd')).toBe(
+      true,
+    )
 
     // The .png binary file is NOT in the index.
     expect(index.files['Assets/textures/hero.png']).toBeUndefined()
@@ -798,7 +834,9 @@ describe('asset-refs: multi-engine project', () => {
 // ---------------------------------------------------------------------------
 
 async function makeTempProject(files: Record<string, string>): Promise<string> {
-  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'codebuff-asset-refs-'))
+  const root = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), 'codebuff-asset-refs-'),
+  )
   for (const [relativePath, content] of Object.entries(files)) {
     const absolutePath = path.join(root, relativePath)
     await fs.promises.mkdir(path.dirname(absolutePath), { recursive: true })

@@ -203,9 +203,9 @@ describe('use-suggestion-engine - filterFileMatches', () => {
         results.some((r) => r.filePath.includes('use-suggestion-engine')),
       ).toBe(true)
       expect(results.some((r) => r.filePath.includes('use-timeout'))).toBe(true)
-      expect(results.some((r) => r.filePath.includes('use-message-queue'))).toBe(
-        true,
-      )
+      expect(
+        results.some((r) => r.filePath.includes('use-message-queue')),
+      ).toBe(true)
     })
 
     test('matches "cli/hooks/use-" to specific hook files', () => {

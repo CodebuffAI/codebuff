@@ -27,10 +27,16 @@ describe('replaceRange', () => {
     expect(result[0].type).toBe('json')
     if (result[0].type === 'json') {
       expect(result[0].value).toMatchObject({
-        file: 'src/file.ts',
-        message: 'Replaced lines 2-2 successfully.',
+        kind: 'file_mutation_result',
+        outcome: 'applied',
+        actions: [
+          expect.objectContaining({
+            action: 'update',
+            path: 'src/file.ts',
+            outcome: 'applied',
+          }),
+        ],
       })
-      expect(result[0].value).toHaveProperty('patch')
     }
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'line 1\nupdated line 2\nline 3\n',
@@ -75,9 +81,13 @@ describe('replaceRange', () => {
       const errorMessage = result[0].value.errorMessage
       expect(errorMessage).not.toContain('Checked current lines: 2-2.')
       expect(errorMessage).toContain('Current file length: 3 lines.')
-      expect(errorMessage).toContain(`Current hash for requested range: ${currentHash}.`)
+      expect(errorMessage).toContain(
+        `Current hash for requested range: ${currentHash}.`,
+      )
       expect(errorMessage).toContain('discard any old expectedHash/rangeHash')
-      expect(errorMessage).toContain('re-read this path with a visible line span first')
+      expect(errorMessage).toContain(
+        're-read this path with a visible line span first',
+      )
       expect(errorMessage).toContain(
         'Re-read with read_files ranges: [{ path: "src/file.ts", startLine: 2, endLine: 2 }]',
       )
@@ -86,7 +96,9 @@ describe('replaceRange', () => {
         'Retry replace_range only if the fresh read shows the selected range still contains the intended target.',
       )
       expect(errorMessage).toContain('If the fresh read shows the target moved')
-      expect(errorMessage).toContain('str_replace/rewrite_symbol with fresh context')
+      expect(errorMessage).toContain(
+        'str_replace/rewrite_symbol with fresh context',
+      )
     }
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'line 1\nline 2\nline 3\n',
@@ -157,7 +169,9 @@ describe('replaceRange', () => {
         type: 'json',
         value: {
           file: 'src/file.ts',
-          errorMessage: expect.stringContaining('identical to the current range'),
+          errorMessage: expect.stringContaining(
+            'identical to the current range',
+          ),
         },
       },
     ])

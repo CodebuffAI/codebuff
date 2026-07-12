@@ -11,8 +11,7 @@ const DEBUG_LOG_MAX_OBJECT_KEYS = 160
 const SENSITIVE_KEY_PATTERN =
   /^(.*(?:token|access_token|refresh_token|id_token|authorization|api[_-]?key|apikey|secret|bearer|password|passwd|credential).*)$/i
 
-const isSensitiveKey = (key: string): boolean =>
-  SENSITIVE_KEY_PATTERN.test(key)
+const isSensitiveKey = (key: string): boolean => SENSITIVE_KEY_PATTERN.test(key)
 
 type SanitizeOptions = {
   maxStringLength: number
@@ -103,9 +102,7 @@ const sanitizeObject = (
     const redactedImageBlock: Record<string, unknown> = {}
     for (const [key, child] of Object.entries(value)) {
       redactedImageBlock[key] =
-        key === 'image'
-          ? ''
-          : sanitizeValue(child, options, seen)
+        key === 'image' ? '' : sanitizeValue(child, options, seen)
     }
     redactedImageBlock.imageRedacted = true
     redactedImageBlock.imageLength = value.image.length

@@ -18,7 +18,9 @@ const inputSchema = z
       .enum(['SIGTERM', 'SIGKILL'])
       .default('SIGTERM')
       .optional()
-      .describe('Signal to send. Defaults to SIGTERM; use SIGKILL only if graceful termination fails.'),
+      .describe(
+        'Signal to send. Defaults to SIGTERM; use SIGKILL only if graceful termination fails.',
+      ),
   })
   .describe('Cancel a background job started by run_terminal_command.')
 
@@ -47,7 +49,7 @@ export const killJobParams = {
     z.union([
       z.object({
         jobId: z.string(),
-        status: z.enum(['running', 'completed', 'error']),
+        status: z.enum(['running', 'completed', 'error', 'lost']),
         killed: z.boolean(),
         signal: z.enum(['SIGTERM', 'SIGKILL']),
         exitCode: z.number().nullable().optional(),

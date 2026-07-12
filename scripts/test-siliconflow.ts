@@ -16,17 +16,27 @@ const SILICONFLOW_BASE_URL = 'https://api.siliconflow.com/v1'
 const SILICONFLOW_MODEL = 'MiniMaxAI/MiniMax-M2.5'
 
 // Pricing constants — https://siliconflow.com/pricing
-const INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
+const INPUT_COST_PER_TOKEN = 0.3 / 1_000_000
 const CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+const OUTPUT_COST_PER_TOKEN = 1.2 / 1_000_000
 
 const MAX_TOKENS = 100
 
-function computeCost(usage: Record<string, unknown>): { cost: number; breakdown: string } {
-  const inputTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
-  const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
-  const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined
-  const cachedTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
+function computeCost(usage: Record<string, unknown>): {
+  cost: number
+  breakdown: string
+} {
+  const inputTokens =
+    typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
+  const outputTokens =
+    typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
+  const promptDetails = usage.prompt_tokens_details as
+    | Record<string, unknown>
+    | undefined
+  const cachedTokens =
+    typeof promptDetails?.cached_tokens === 'number'
+      ? promptDetails.cached_tokens
+      : 0
   const nonCachedInput = Math.max(0, inputTokens - cachedTokens)
 
   const inputCost = nonCachedInput * INPUT_COST_PER_TOKEN
@@ -182,14 +192,28 @@ async function makeConversationStreamRequest(
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ SiliconFlow streaming API returned ${response.status}: ${errorText}`)
-    return { label, usage: null, elapsedMs: Date.now() - startTime, outputTokens: 0, responseContent: '' }
+    console.error(
+      `❌ SiliconFlow streaming API returned ${response.status}: ${errorText}`,
+    )
+    return {
+      label,
+      usage: null,
+      elapsedMs: Date.now() - startTime,
+      outputTokens: 0,
+      responseContent: '',
+    }
   }
 
   const reader = response.body?.getReader()
   if (!reader) {
     console.error('❌ No response body reader')
-    return { label, usage: null, elapsedMs: Date.now() - startTime, outputTokens: 0, responseContent: '' }
+    return {
+      label,
+      usage: null,
+      elapsedMs: Date.now() - startTime,
+      outputTokens: 0,
+      responseContent: '',
+    }
   }
 
   const decoder = new TextDecoder()
@@ -230,35 +254,61 @@ async function makeConversationStreamRequest(
   }
 
   const elapsedMs = Date.now() - startTime
-  const outputTokens = streamUsage && typeof streamUsage.completion_tokens === 'number'
-    ? streamUsage.completion_tokens
-    : 0
+  const outputTokens =
+    streamUsage && typeof streamUsage.completion_tokens === 'number'
+      ? streamUsage.completion_tokens
+      : 0
 
-  const generationTimeMs = firstContentChunkTime !== undefined
-    ? Date.now() - firstContentChunkTime
-    : elapsedMs
-  const outputTokensPerSec = generationTimeMs > 0
-    ? (outputTokens / (generationTimeMs / 1000))
-    : 0
+  const generationTimeMs =
+    firstContentChunkTime !== undefined
+      ? Date.now() - firstContentChunkTime
+      : elapsedMs
+  const outputTokensPerSec =
+    generationTimeMs > 0 ? outputTokens / (generationTimeMs / 1000) : 0
 
   // Print compact per-turn stats
-  const inputTokens = streamUsage && typeof streamUsage.prompt_tokens === 'number' ? streamUsage.prompt_tokens : 0
-  const promptDetails = streamUsage?.prompt_tokens_details as Record<string, unknown> | undefined
-  const cachedTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
-  const cacheRate = inputTokens > 0 ? ((cachedTokens / inputTokens) * 100).toFixed(1) : '0.0'
-  const cost = streamUsage ? `$${computeCost(streamUsage).cost.toFixed(6)}` : 'err'
+  const inputTokens =
+    streamUsage && typeof streamUsage.prompt_tokens === 'number'
+      ? streamUsage.prompt_tokens
+      : 0
+  const promptDetails = streamUsage?.prompt_tokens_details as
+    | Record<string, unknown>
+    | undefined
+  const cachedTokens =
+    typeof promptDetails?.cached_tokens === 'number'
+      ? promptDetails.cached_tokens
+      : 0
+  const cacheRate =
+    inputTokens > 0 ? ((cachedTokens / inputTokens) * 100).toFixed(1) : '0.0'
+  const cost = streamUsage
+    ? `$${computeCost(streamUsage).cost.toFixed(6)}`
+    : 'err'
 
-  console.log(`   ✅ ${(elapsedMs / 1000).toFixed(2)}s | TTFT ${ttftMs !== undefined ? (ttftMs / 1000).toFixed(2) + 's' : 'n/a'} | ${inputTokens} in (${cachedTokens} cached, ${cacheRate}%) | ${outputTokens} out @ ${outputTokensPerSec.toFixed(1)} tok/s | ${cost}`)
-  console.log(`   Response: ${streamContent.slice(0, 150)}${streamContent.length > 150 ? '...' : ''}`)
+  console.log(
+    `   ✅ ${(elapsedMs / 1000).toFixed(2)}s | TTFT ${ttftMs !== undefined ? (ttftMs / 1000).toFixed(2) + 's' : 'n/a'} | ${inputTokens} in (${cachedTokens} cached, ${cacheRate}%) | ${outputTokens} out @ ${outputTokensPerSec.toFixed(1)} tok/s | ${cost}`,
+  )
+  console.log(
+    `   Response: ${streamContent.slice(0, 150)}${streamContent.length > 150 ? '...' : ''}`,
+  )
   console.log()
 
-  return { label, usage: streamUsage, elapsedMs, outputTokens, ttftMs, outputTokensPerSec, responseContent: streamContent }
+  return {
+    label,
+    usage: streamUsage,
+    elapsedMs,
+    outputTokens,
+    ttftMs,
+    outputTokensPerSec,
+    responseContent: streamContent,
+  }
 }
 
 async function main() {
   const apiKey = process.env.SILICON_FLOW_API_KEY
   if (!apiKey) {
-    console.error('❌ SILICON_FLOW_API_KEY is not set. Add it to .env.local or pass it directly.')
+    console.error(
+      '❌ SILICON_FLOW_API_KEY is not set. Add it to .env.local or pass it directly.',
+    )
     process.exit(1)
   }
 
@@ -282,11 +332,16 @@ async function main() {
     conversationHistory.push({ role: 'user', content: TURN_PROMPTS[i] })
 
     const label = `Turn ${i + 1}/${TURN_PROMPTS.length}${i === 0 ? ' (cold)' : ''}`
-    const result = await makeConversationStreamRequest(label, apiKey, [...conversationHistory])
+    const result = await makeConversationStreamRequest(label, apiKey, [
+      ...conversationHistory,
+    ])
     results.push(result)
 
     if (result.responseContent) {
-      conversationHistory.push({ role: 'assistant', content: result.responseContent })
+      conversationHistory.push({
+        role: 'assistant',
+        content: result.responseContent,
+      })
     }
   }
 
@@ -296,7 +351,9 @@ async function main() {
   console.log('━'.repeat(120))
   console.log()
 
-  console.log('   Turn | Time     | TTFT    | Input  | Cached | Cache%  | Output | tok/s  | e2e t/s | Cost')
+  console.log(
+    '   Turn | Time     | TTFT    | Input  | Cached | Cache%  | Output | tok/s  | e2e t/s | Cost',
+  )
   console.log('   ' + '-'.repeat(110))
 
   let totalCost = 0
@@ -307,16 +364,34 @@ async function main() {
 
   for (const r of results) {
     const time = `${(r.elapsedMs / 1000).toFixed(2)}s`
-    const ttft = r.ttftMs !== undefined ? `${(r.ttftMs / 1000).toFixed(2)}s` : 'n/a'
-    const tokSec = r.outputTokensPerSec !== undefined ? r.outputTokensPerSec.toFixed(1) : 'n/a'
-    const e2eTokSec = r.elapsedMs > 0 ? (r.outputTokens / (r.elapsedMs / 1000)).toFixed(1) : 'n/a'
+    const ttft =
+      r.ttftMs !== undefined ? `${(r.ttftMs / 1000).toFixed(2)}s` : 'n/a'
+    const tokSec =
+      r.outputTokensPerSec !== undefined
+        ? r.outputTokensPerSec.toFixed(1)
+        : 'n/a'
+    const e2eTokSec =
+      r.elapsedMs > 0
+        ? (r.outputTokens / (r.elapsedMs / 1000)).toFixed(1)
+        : 'n/a'
     const cost = r.usage ? computeCost(r.usage).cost : 0
     const costStr = r.usage ? `$${cost.toFixed(6)}` : 'err'
 
-    const inputTokens = r.usage && typeof r.usage.prompt_tokens === 'number' ? r.usage.prompt_tokens : 0
-    const promptDetails = r.usage?.prompt_tokens_details as Record<string, unknown> | undefined
-    const cachedTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
-    const cacheRate = inputTokens > 0 ? `${((cachedTokens / inputTokens) * 100).toFixed(1)}%` : '0.0%'
+    const inputTokens =
+      r.usage && typeof r.usage.prompt_tokens === 'number'
+        ? r.usage.prompt_tokens
+        : 0
+    const promptDetails = r.usage?.prompt_tokens_details as
+      | Record<string, unknown>
+      | undefined
+    const cachedTokens =
+      typeof promptDetails?.cached_tokens === 'number'
+        ? promptDetails.cached_tokens
+        : 0
+    const cacheRate =
+      inputTokens > 0
+        ? `${((cachedTokens / inputTokens) * 100).toFixed(1)}%`
+        : '0.0%'
 
     totalCost += cost
     totalInputTokens += inputTokens
@@ -331,10 +406,18 @@ async function main() {
 
   console.log('   ' + '-'.repeat(110))
 
-  const overallCacheRate = totalInputTokens > 0 ? ((totalCachedTokens / totalInputTokens) * 100).toFixed(1) : '0.0'
+  const overallCacheRate =
+    totalInputTokens > 0
+      ? ((totalCachedTokens / totalInputTokens) * 100).toFixed(1)
+      : '0.0'
   const totalTimeStr = `${(totalElapsedMs / 1000).toFixed(2)}s`
-  const overallTokSec = totalElapsedMs > 0 ? (totalOutputTokens / (totalElapsedMs / 1000)).toFixed(1) : 'n/a'
-  console.log(`   ${'TOTAL'.padEnd(25)} | ${totalTimeStr.padStart(8)} |         | ${String(totalInputTokens).padStart(6)} | ${String(totalCachedTokens).padStart(6)} | ${(overallCacheRate + '%').padStart(7)} | ${String(totalOutputTokens).padStart(6)} |        | ${overallTokSec.padStart(7)} | $${totalCost.toFixed(6)}`)
+  const overallTokSec =
+    totalElapsedMs > 0
+      ? (totalOutputTokens / (totalElapsedMs / 1000)).toFixed(1)
+      : 'n/a'
+  console.log(
+    `   ${'TOTAL'.padEnd(25)} | ${totalTimeStr.padStart(8)} |         | ${String(totalInputTokens).padStart(6)} | ${String(totalCachedTokens).padStart(6)} | ${(overallCacheRate + '%').padStart(7)} | ${String(totalOutputTokens).padStart(6)} |        | ${overallTokSec.padStart(7)} | $${totalCost.toFixed(6)}`,
+  )
   console.log()
 
   // ── Cost analysis ──
@@ -344,13 +427,22 @@ async function main() {
   console.log()
 
   // What would the cost be without caching?
-  const costWithoutCaching = totalInputTokens * INPUT_COST_PER_TOKEN + totalOutputTokens * OUTPUT_COST_PER_TOKEN
+  const costWithoutCaching =
+    totalInputTokens * INPUT_COST_PER_TOKEN +
+    totalOutputTokens * OUTPUT_COST_PER_TOKEN
   const savings = costWithoutCaching - totalCost
-  const savingsPercent = costWithoutCaching > 0 ? ((savings / costWithoutCaching) * 100).toFixed(1) : '0.0'
+  const savingsPercent =
+    costWithoutCaching > 0
+      ? ((savings / costWithoutCaching) * 100).toFixed(1)
+      : '0.0'
 
   console.log(`   Total cost (actual):        $${totalCost.toFixed(6)}`)
-  console.log(`   Total cost (no caching):    $${costWithoutCaching.toFixed(6)}`)
-  console.log(`   Savings from caching:       $${savings.toFixed(6)} (${savingsPercent}%)`)
+  console.log(
+    `   Total cost (no caching):    $${costWithoutCaching.toFixed(6)}`,
+  )
+  console.log(
+    `   Savings from caching:       $${savings.toFixed(6)} (${savingsPercent}%)`,
+  )
   console.log()
   console.log(`   Total input tokens:         ${totalInputTokens}`)
   console.log(`   Total cached tokens:        ${totalCachedTokens}`)
@@ -359,20 +451,29 @@ async function main() {
   console.log()
 
   // TTFT analysis
-  const ttfts = results.filter((r) => r.ttftMs !== undefined).map((r) => r.ttftMs!)
+  const ttfts = results
+    .filter((r) => r.ttftMs !== undefined)
+    .map((r) => r.ttftMs!)
   if (ttfts.length > 0) {
     const avgTtft = ttfts.reduce((a, b) => a + b, 0) / ttfts.length
     const minTtft = Math.min(...ttfts)
     const maxTtft = Math.max(...ttfts)
-    console.log(`   TTFT — avg: ${(avgTtft / 1000).toFixed(2)}s, min: ${(minTtft / 1000).toFixed(2)}s, max: ${(maxTtft / 1000).toFixed(2)}s`)
+    console.log(
+      `   TTFT — avg: ${(avgTtft / 1000).toFixed(2)}s, min: ${(minTtft / 1000).toFixed(2)}s, max: ${(maxTtft / 1000).toFixed(2)}s`,
+    )
 
     if (results[0].ttftMs !== undefined && ttfts.length > 1) {
       const coldTtft = results[0].ttftMs
       const warmTtfts = ttfts.slice(1)
-      const avgWarmTtft = warmTtfts.reduce((a, b) => a + b, 0) / warmTtfts.length
-      console.log(`   TTFT — cold (turn 1): ${(coldTtft / 1000).toFixed(2)}s, avg warm (turns 2-${TURN_PROMPTS.length}): ${(avgWarmTtft / 1000).toFixed(2)}s`)
+      const avgWarmTtft =
+        warmTtfts.reduce((a, b) => a + b, 0) / warmTtfts.length
+      console.log(
+        `   TTFT — cold (turn 1): ${(coldTtft / 1000).toFixed(2)}s, avg warm (turns 2-${TURN_PROMPTS.length}): ${(avgWarmTtft / 1000).toFixed(2)}s`,
+      )
       if (avgWarmTtft < coldTtft) {
-        console.log(`   ✅ Warm TTFT is ${((1 - avgWarmTtft / coldTtft) * 100).toFixed(1)}% faster than cold TTFT`)
+        console.log(
+          `   ✅ Warm TTFT is ${((1 - avgWarmTtft / coldTtft) * 100).toFixed(1)}% faster than cold TTFT`,
+        )
       }
     }
   }

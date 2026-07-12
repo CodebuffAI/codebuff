@@ -2,7 +2,12 @@
  * Pure utility functions for collapse/expand all functionality.
  */
 
-import type { ChatMessage, ContentBlock, TextContentBlock, ThinkingCollapseState } from '../types/chat'
+import type {
+  ChatMessage,
+  ContentBlock,
+  TextContentBlock,
+  ThinkingCollapseState,
+} from '../types/chat'
 
 /**
  * Type representing a block that supports collapsing.
@@ -29,7 +34,11 @@ function isCollapsibleBlock(block: ContentBlock): block is CollapsibleBlock {
   if (block.type === 'text' && 'thinkingId' in block && block.thinkingId) {
     return true
   }
-  if (block.type === 'agent' || block.type === 'tool' || block.type === 'agent-list') {
+  if (
+    block.type === 'agent' ||
+    block.type === 'tool' ||
+    block.type === 'agent-list'
+  ) {
     return true
   }
   return false

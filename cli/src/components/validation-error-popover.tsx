@@ -12,7 +12,6 @@ import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import type { LocalAgentInfo } from '../utils/local-agent-registry'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 
-
 interface ValidationErrorPopoverProps {
   errors: Array<{ id: string; message: string }>
   onOpenFeedback?: (options: {

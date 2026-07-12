@@ -18,6 +18,10 @@ interface TerminalCommandDisplayProps {
   isRunning?: boolean
   /** Working directory where the command was run */
   cwd?: string
+  jobId?: string
+  status?: string
+  detached?: boolean
+  logFile?: string
   /** Timeout in seconds for the command */
   timeoutSeconds?: number
   /** Optional width override for wrapping calculations */
@@ -34,6 +38,11 @@ export const TerminalCommandDisplay = ({
   expandable = true,
   maxVisibleLines,
   isRunning = false,
+  cwd,
+  jobId,
+  status,
+  detached,
+  logFile,
   timeoutSeconds,
   availableWidth,
 }: TerminalCommandDisplayProps) => {
@@ -61,17 +70,28 @@ export const TerminalCommandDisplay = ({
       </span>
       {timeoutLabel && (
         <span fg={theme.muted} attributes={TextAttributes.DIM}>
-          {' '}({timeoutLabel})
+          {' '}
+          ({timeoutLabel})
         </span>
       )}
     </text>
   )
+  const metadata = [
+    cwd ? `cwd ${cwd}` : undefined,
+    status ? `status ${status}` : undefined,
+    jobId ? `job ${jobId}` : undefined,
+    detached !== undefined ? (detached ? 'detached' : 'attached') : undefined,
+    logFile ? `log ${logFile}` : undefined,
+  ].filter(Boolean)
 
   // No output case
   if (!output) {
     return (
       <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
         {commandHeader}
+        {metadata.length > 0 ? (
+          <text fg={theme.muted}>{metadata.join(' · ')}</text>
+        ) : null}
         {/* Running indicator */}
         {isRunning && <text fg={theme.muted}>...</text>}
       </box>
@@ -108,6 +128,9 @@ export const TerminalCommandDisplay = ({
   return (
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
       {commandHeader}
+      {metadata.length > 0 ? (
+        <text fg={theme.muted}>{metadata.join(' · ')}</text>
+      ) : null}
       {/* Output */}
       <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
         {hasMoreLines && !expandable && (

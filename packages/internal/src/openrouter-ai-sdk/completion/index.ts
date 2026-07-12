@@ -31,8 +31,6 @@ import type { ParseResult } from '@ai-sdk/provider-utils'
 import type { FinishReason } from 'ai'
 import type { z } from 'zod/v4'
 
-
-
 type OpenRouterCompletionConfig = {
   provider: string
   compatibility: 'strict' | 'compatible'

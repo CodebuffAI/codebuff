@@ -299,14 +299,18 @@ describe('unwrapPromptResult with AbortError', () => {
 
 describe('PromptResult integration patterns', () => {
   describe('early return pattern', () => {
-    async function mockLlmCall(shouldAbort: boolean): Promise<PromptResult<string>> {
+    async function mockLlmCall(
+      shouldAbort: boolean,
+    ): Promise<PromptResult<string>> {
       if (shouldAbort) {
         return promptAborted('User cancelled')
       }
       return promptSuccess('LLM response')
     }
 
-    async function callerWithEarlyReturn(shouldAbort: boolean): Promise<string | null> {
+    async function callerWithEarlyReturn(
+      shouldAbort: boolean,
+    ): Promise<string | null> {
       const result = await mockLlmCall(shouldAbort)
       if (result.aborted) {
         return null
@@ -326,7 +330,9 @@ describe('PromptResult integration patterns', () => {
   })
 
   describe('unwrap with try/catch pattern', () => {
-    async function mockLlmCall(shouldAbort: boolean): Promise<PromptResult<string>> {
+    async function mockLlmCall(
+      shouldAbort: boolean,
+    ): Promise<PromptResult<string>> {
       if (shouldAbort) {
         return promptAborted('Signal triggered')
       }
@@ -337,7 +343,9 @@ describe('PromptResult integration patterns', () => {
       return unwrapPromptResult(await mockLlmCall(shouldAbort))
     }
 
-    async function outerCaller(shouldAbort: boolean): Promise<{ result: string; wasAborted: boolean }> {
+    async function outerCaller(
+      shouldAbort: boolean,
+    ): Promise<{ result: string; wasAborted: boolean }> {
       try {
         const result = await callerWithUnwrap(shouldAbort)
         return { result, wasAborted: false }
@@ -363,14 +371,18 @@ describe('PromptResult integration patterns', () => {
   })
 
   describe('nested function abort propagation', () => {
-    async function deepestCall(signal: { aborted: boolean }): Promise<PromptResult<number>> {
+    async function deepestCall(signal: {
+      aborted: boolean
+    }): Promise<PromptResult<number>> {
       if (signal.aborted) {
         return promptAborted('Aborted at deepest level')
       }
       return promptSuccess(42)
     }
 
-    async function middleCall(signal: { aborted: boolean }): Promise<PromptResult<string>> {
+    async function middleCall(signal: {
+      aborted: boolean
+    }): Promise<PromptResult<string>> {
       const result = await deepestCall(signal)
       if (result.aborted) {
         return result // Propagate abort
@@ -378,7 +390,9 @@ describe('PromptResult integration patterns', () => {
       return promptSuccess(`Value: ${result.value}`)
     }
 
-    async function topCall(signal: { aborted: boolean }): Promise<PromptResult<string[]>> {
+    async function topCall(signal: {
+      aborted: boolean
+    }): Promise<PromptResult<string[]>> {
       const result = await middleCall(signal)
       if (result.aborted) {
         return result // Propagate abort
@@ -406,7 +420,9 @@ describe('PromptResult integration patterns', () => {
   })
 
   describe('mixed pattern with fallback', () => {
-    async function primaryProvider(signal: { aborted: boolean }): Promise<PromptResult<string>> {
+    async function primaryProvider(signal: {
+      aborted: boolean
+    }): Promise<PromptResult<string>> {
       if (signal.aborted) {
         return promptAborted()
       }
@@ -414,14 +430,18 @@ describe('PromptResult integration patterns', () => {
       throw new Error('Primary provider unavailable')
     }
 
-    async function fallbackProvider(signal: { aborted: boolean }): Promise<PromptResult<string>> {
+    async function fallbackProvider(signal: {
+      aborted: boolean
+    }): Promise<PromptResult<string>> {
       if (signal.aborted) {
         return promptAborted()
       }
       return promptSuccess('Fallback result')
     }
 
-    async function callWithFallback(signal: { aborted: boolean }): Promise<PromptResult<string>> {
+    async function callWithFallback(signal: {
+      aborted: boolean
+    }): Promise<PromptResult<string>> {
       try {
         const result = await primaryProvider(signal)
         // If aborted, don't try fallback
@@ -456,7 +476,9 @@ describe('PromptResult integration patterns', () => {
   })
 
   describe('abort during async iteration', () => {
-    async function* generateValues(signal: { aborted: boolean }): AsyncGenerator<PromptResult<number>> {
+    async function* generateValues(signal: {
+      aborted: boolean
+    }): AsyncGenerator<PromptResult<number>> {
       for (let i = 0; i < 5; i++) {
         if (signal.aborted) {
           yield promptAborted(`Aborted at iteration ${i}`)
@@ -466,7 +488,9 @@ describe('PromptResult integration patterns', () => {
       }
     }
 
-    async function collectValues(signal: { aborted: boolean }): Promise<{ values: number[]; abortedAt?: string }> {
+    async function collectValues(signal: {
+      aborted: boolean
+    }): Promise<{ values: number[]; abortedAt?: string }> {
       const values: number[] = []
       for await (const result of generateValues(signal)) {
         if (result.aborted) {
@@ -489,7 +513,7 @@ describe('PromptResult integration patterns', () => {
       // Simulate abort after first value
       const generator = generateValues(signal)
       const results: number[] = []
-      
+
       for await (const result of generator) {
         if (result.aborted) break
         results.push(result.value)
@@ -497,7 +521,7 @@ describe('PromptResult integration patterns', () => {
           signal.aborted = true
         }
       }
-      
+
       expect(results).toEqual([0, 1])
     })
   })
@@ -572,7 +596,9 @@ describe('ABORT_ERROR_MESSAGE constant', () => {
 
 describe('AbortController integration', () => {
   describe('signal.aborted check pattern', () => {
-    async function mockLlmCallWithSignal(signal: AbortSignal): Promise<PromptResult<string>> {
+    async function mockLlmCallWithSignal(
+      signal: AbortSignal,
+    ): Promise<PromptResult<string>> {
       if (signal.aborted) {
         return promptAborted('Signal was already aborted')
       }
@@ -625,7 +651,9 @@ describe('AbortController integration', () => {
       return promptSuccess('step3 result')
     }
 
-    async function runSequentialSteps(signal: AbortSignal): Promise<PromptResult<string[]>> {
+    async function runSequentialSteps(
+      signal: AbortSignal,
+    ): Promise<PromptResult<string[]>> {
       const results: string[] = []
 
       const r1 = await step1(signal)
@@ -649,7 +677,11 @@ describe('AbortController integration', () => {
       const result = await runSequentialSteps(controller.signal)
       expect(result.aborted).toBe(false)
       if (!result.aborted) {
-        expect(result.value).toEqual(['step1 result', 'step2 result', 'step3 result'])
+        expect(result.value).toEqual([
+          'step1 result',
+          'step2 result',
+          'step3 result',
+        ])
       }
       expect(callLog).toEqual(['step1', 'step2', 'step3'])
     })
@@ -668,14 +700,18 @@ describe('AbortController integration', () => {
   describe('fallback should NOT occur on abort (user intent)', () => {
     let fallbackCalled = false
 
-    async function primaryModel(signal: AbortSignal): Promise<PromptResult<string>> {
+    async function primaryModel(
+      signal: AbortSignal,
+    ): Promise<PromptResult<string>> {
       if (signal.aborted) {
         return promptAborted('User cancelled')
       }
       return promptSuccess('Primary model response')
     }
 
-    async function fallbackModel(signal: AbortSignal): Promise<PromptResult<string>> {
+    async function fallbackModel(
+      signal: AbortSignal,
+    ): Promise<PromptResult<string>> {
       fallbackCalled = true
       if (signal.aborted) {
         return promptAborted('User cancelled')
@@ -714,7 +750,11 @@ describe('AbortController integration', () => {
     it('returns primary result when not aborted', async () => {
       fallbackCalled = false
       const controller = new AbortController()
-      const result = await callWithFallbackOnError(controller.signal, false, false)
+      const result = await callWithFallbackOnError(
+        controller.signal,
+        false,
+        false,
+      )
       expect(result.aborted).toBe(false)
       if (!result.aborted) {
         expect(result.value).toBe('Primary model response')
@@ -725,7 +765,11 @@ describe('AbortController integration', () => {
     it('propagates abort without fallback (respects user intent)', async () => {
       fallbackCalled = false
       const controller = new AbortController()
-      const result = await callWithFallbackOnError(controller.signal, false, true)
+      const result = await callWithFallbackOnError(
+        controller.signal,
+        false,
+        true,
+      )
       expect(result.aborted).toBe(true)
       // Verify fallback was never called - abort means user wants to stop, not retry
       expect(fallbackCalled).toBe(false)
@@ -734,7 +778,11 @@ describe('AbortController integration', () => {
     it('uses fallback on non-abort error', async () => {
       fallbackCalled = false
       const controller = new AbortController()
-      const result = await callWithFallbackOnError(controller.signal, true, false)
+      const result = await callWithFallbackOnError(
+        controller.signal,
+        true,
+        false,
+      )
       expect(result.aborted).toBe(false)
       if (!result.aborted) {
         expect(result.value).toBe('Fallback model response')

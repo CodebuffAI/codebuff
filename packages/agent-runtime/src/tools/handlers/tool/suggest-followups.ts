@@ -14,5 +14,7 @@ export const handleSuggestFollowups = (async (params: {
   const { followups: _followups } = toolCall.input
 
   await previousToolCallFinished
-  return { output: [{ type: 'json', value: { message: 'Followups suggested!' } }] }
+  return {
+    output: [{ type: 'json', value: { message: 'Followups suggested!' } }],
+  }
 }) satisfies CodebuffToolHandlerFunction<'suggest_followups'>

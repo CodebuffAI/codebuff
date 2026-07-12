@@ -7,10 +7,7 @@ import {
   getProposedContent,
   setProposedContent,
 } from './proposed-content-store'
-import {
-  getContentHash,
-  processStrReplace,
-} from '../../../process-str-replace'
+import { getContentHash, processStrReplace } from '../../../process-str-replace'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -84,6 +81,7 @@ export const handleProposeStrReplace = (async (
   const strReplaceResultPromise = processStrReplace({
     path,
     replacements,
+    atomic: toolCall.input.atomic,
     initialContentPromise: latestContentPromise,
     logger,
   }).catch((error: any) => {
@@ -94,15 +92,6 @@ export const handleProposeStrReplace = (async (
       error: 'Unknown error: Failed to process the propose_str_replace.',
     }
   })
-
-  // Store the proposed content for future propose calls on the same file (by runId)
-  setProposedContent(
-    runId,
-    path,
-    strReplaceResultPromise.then((result) =>
-      'content' in result ? result.content : null,
-    ),
-  )
 
   await previousToolCallFinished
 
@@ -133,13 +122,18 @@ export const handleProposeStrReplace = (async (
     }
   }
 
-  const message = strReplaceResult.messages.length > 0
-    ? strReplaceResult.messages.join('\n\n')
-    : 'Proposed string replacement'
+  const message =
+    strReplaceResult.messages.length > 0
+      ? strReplaceResult.messages.join('\n\n')
+      : 'Proposed string replacement'
+
+  // Commit the overlay only after successful preflight. A failed proposal must
+  // preserve the last valid proposed content for read-your-own-writes.
+  setProposedContent(runId, path, Promise.resolve(strReplaceResult.content))
 
   // Record the successful proposal artifact at the source of truth. finalContent
   // is the resolved overlay content the parent can write deterministically.
-  appendProposalArtifact(runId, {
+  const proposal = appendProposalArtifact(runId, {
     toolName: 'propose_str_replace',
     input: toolCall.input,
     result: {
@@ -157,11 +151,7 @@ export const handleProposeStrReplace = (async (
     output: [
       {
         type: 'json',
-        value: {
-          file: path,
-          message,
-          unifiedDiff: strReplaceResult.patch,
-        },
+        value: proposal!,
       },
     ],
   }

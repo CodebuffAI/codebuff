@@ -1,12 +1,18 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 import { useChatStore } from '../../state/chat-store'
 import type { PendingImageAttachment } from '../../types/store'
 import {
   addClipboardPlaceholder,
+  addPendingFileFromPath,
+  addPendingFileMention,
   addPendingImageFromBase64,
   addPendingImageWithError,
   capturePendingAttachments,
+  getFileAttachmentContextMetadata,
 } from '../pending-attachments'
 
 /** Helper to get only image attachments from the unified pendingAttachments array */
@@ -19,13 +25,119 @@ function getPendingImages(): PendingImageAttachment[] {
 }
 
 describe('pending-attachments', () => {
+  let tempDir: string
+
   beforeEach(() => {
     // Reset the store before each test
     useChatStore.getState().clearPendingAttachments()
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-attachments-'))
   })
 
   afterEach(() => {
     useChatStore.getState().clearPendingAttachments()
+    fs.rmSync(tempDir, { recursive: true, force: true })
+  })
+
+  const waitForFileRead = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  describe('file attachment completeness', () => {
+    test('marks a complete text file as full with byte provenance', async () => {
+      const filePath = path.join(tempDir, 'small.txt')
+      fs.writeFileSync(filePath, 'hello')
+
+      addPendingFileFromPath(filePath, false)
+      await waitForFileRead()
+
+      const attachment = useChatStore
+        .getState()
+        .pendingAttachments.find((item) => item.kind === 'file')
+      expect(attachment?.status).toBe('ready')
+      expect(
+        attachment && getFileAttachmentContextMetadata(attachment),
+      ).toMatchObject({
+        completeness: 'full',
+        provenance: 'attachment',
+        bytesRead: 5,
+        totalBytes: 5,
+      })
+      expect(attachment?.note).toContain('full')
+    })
+
+    test('marks long text as truncated and large files as metadata-only', async () => {
+      const longPath = path.join(tempDir, 'long.txt')
+      const largePath = path.join(tempDir, 'large.txt')
+      fs.writeFileSync(longPath, 'x'.repeat(110 * 1024))
+      fs.writeFileSync(largePath, 'x'.repeat(1024 * 1024 + 1))
+
+      addPendingFileFromPath(longPath, false)
+      addPendingFileFromPath(largePath, false)
+      await waitForFileRead()
+
+      const files = useChatStore
+        .getState()
+        .pendingAttachments.filter((item) => item.kind === 'file')
+      expect(getFileAttachmentContextMetadata(files[0]!)).toMatchObject({
+        completeness: 'truncated',
+      })
+      expect(getFileAttachmentContextMetadata(files[1]!)).toMatchObject({
+        completeness: 'metadata-only',
+        bytesRead: 0,
+      })
+    })
+
+    test('records shallow directory bounds', async () => {
+      const directoryPath = path.join(tempDir, 'folder')
+      fs.mkdirSync(directoryPath)
+      for (let index = 0; index < 105; index++) {
+        fs.writeFileSync(path.join(directoryPath, `${index}.txt`), '')
+      }
+
+      addPendingFileFromPath(directoryPath, true)
+      await waitForFileRead()
+
+      const attachment = useChatStore
+        .getState()
+        .pendingAttachments.find((item) => item.kind === 'file')!
+      expect(getFileAttachmentContextMetadata(attachment)).toMatchObject({
+        completeness: 'shallow-directory',
+        entriesIncluded: 100,
+        totalEntries: 105,
+      })
+      expect(attachment.note).toContain('100/105')
+    })
+
+    test('@file selection resolves inside the project with explicit provenance', async () => {
+      fs.mkdirSync(path.join(tempDir, 'src'))
+      fs.writeFileSync(path.join(tempDir, 'src', 'feature.ts'), 'export {}')
+
+      addPendingFileMention('src/feature.ts', false, tempDir)
+      await waitForFileRead()
+
+      const attachment = useChatStore
+        .getState()
+        .pendingAttachments.find((item) => item.kind === 'file')!
+      expect(attachment.path).toBe('src/feature.ts')
+      expect(getFileAttachmentContextMetadata(attachment)).toMatchObject({
+        completeness: 'full',
+        provenance: '@file selection',
+      })
+    })
+
+    test('@file selection blocks mandatory sensitive paths', async () => {
+      fs.writeFileSync(path.join(tempDir, '.env'), 'SECRET=value')
+
+      addPendingFileMention('.env', false, tempDir)
+      await waitForFileRead()
+
+      const attachment = useChatStore
+        .getState()
+        .pendingAttachments.find((item) => item.kind === 'file')!
+      expect(attachment.status).toBe('error')
+      expect(attachment.content).toBe('')
+      expect(attachment.note).toContain('sensitive-file policy')
+    })
   })
 
   describe('addClipboardPlaceholder', () => {

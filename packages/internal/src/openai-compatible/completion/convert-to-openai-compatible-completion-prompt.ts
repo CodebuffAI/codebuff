@@ -1,30 +1,29 @@
 import {
   InvalidPromptError,
   UnsupportedFunctionalityError,
-} from '@ai-sdk/provider';
+} from '@ai-sdk/provider'
 
-import type {
-  LanguageModelV2Prompt} from '@ai-sdk/provider';
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider'
 
 export function convertToOpenAICompatibleCompletionPrompt({
   prompt,
   user = 'user',
   assistant = 'assistant',
 }: {
-  prompt: LanguageModelV2Prompt;
-  user?: string;
-  assistant?: string;
+  prompt: LanguageModelV2Prompt
+  user?: string
+  assistant?: string
 }): {
-  prompt: string;
-  stopSequences?: string[];
+  prompt: string
+  stopSequences?: string[]
 } {
   // transform to a chat message format:
-  let text = '';
+  let text = ''
 
   // if first message is a system message, add it to the text:
   if (prompt[0].role === 'system') {
-    text += `${prompt[0].content}\n\n`;
-    prompt = prompt.slice(1);
+    text += `${prompt[0].content}\n\n`
+    prompt = prompt.slice(1)
   }
 
   for (const { role, content } of prompt) {
@@ -33,65 +32,65 @@ export function convertToOpenAICompatibleCompletionPrompt({
         throw new InvalidPromptError({
           message: 'Unexpected system message in prompt: ${content}',
           prompt,
-        });
+        })
       }
 
       case 'user': {
         const userMessage = content
-          .map(part => {
+          .map((part) => {
             switch (part.type) {
               case 'text': {
-                return part.text;
+                return part.text
               }
             }
             return
           })
           .filter(Boolean)
-          .join('');
+          .join('')
 
-        text += `${user}:\n${userMessage}\n\n`;
-        break;
+        text += `${user}:\n${userMessage}\n\n`
+        break
       }
 
       case 'assistant': {
         const assistantMessage = content
-          .map(part => {
+          .map((part) => {
             switch (part.type) {
               case 'text': {
-                return part.text;
+                return part.text
               }
               case 'tool-call': {
                 throw new UnsupportedFunctionalityError({
                   functionality: 'tool-call messages',
-                });
+                })
               }
             }
             return undefined
           })
-          .join('');
+          .join('')
 
-        text += `${assistant}:\n${assistantMessage}\n\n`;
-        break;
+        text += `${assistant}:\n${assistantMessage}\n\n`
+        break
       }
 
       case 'tool': {
         throw new UnsupportedFunctionalityError({
           functionality: 'tool messages',
-        });
+        })
       }
 
       default: {
-        const _exhaustiveCheck: never = role;
-        throw new Error(`Unsupported role: ${_exhaustiveCheck}`);
+        const _exhaustiveCheck: never = role
+        throw new Error(`Unsupported role: ${_exhaustiveCheck}`)
       }
     }
   }
 
   // Assistant message prefix:
-  text += `${assistant}:\n`;
+  text += `${assistant}:\n`
 
   return {
     prompt: text,
     stopSequences: [`\n${user}:`],
-  };
+  }
 }

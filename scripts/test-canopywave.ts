@@ -25,7 +25,9 @@ const testPrompt = 'Say "hello world" and nothing else.'
 async function testCanopyWaveDirect() {
   const apiKey = process.env.CANOPYWAVE_API_KEY
   if (!apiKey) {
-    console.error('❌ CANOPYWAVE_API_KEY is not set. Add it to .env.local or pass it directly.')
+    console.error(
+      '❌ CANOPYWAVE_API_KEY is not set. Add it to .env.local or pass it directly.',
+    )
     process.exit(1)
   }
 
@@ -71,7 +73,10 @@ async function testCanopyWaveDirect() {
   if (debugData.choices) {
     debugData.choices = debugData.choices.map((c: Record<string, unknown>) => ({
       ...c,
-      message: { ...(c.message as Record<string, unknown>), content: '<truncated>' },
+      message: {
+        ...(c.message as Record<string, unknown>),
+        content: '<truncated>',
+      },
     }))
   }
   console.log(JSON.stringify(debugData, null, 2))
@@ -80,31 +85,40 @@ async function testCanopyWaveDirect() {
   // ── Streaming ──
   console.log('── Test 2: CanopyWave API (streaming, include_usage only) ──')
   const streamStart = Date.now()
-  const streamResponse = await fetch(`${CANOPYWAVE_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+  const streamResponse = await fetch(
+    `${CANOPYWAVE_BASE_URL}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: CANOPYWAVE_MODEL,
+        messages: [{ role: 'user', content: testPrompt }],
+        max_tokens: 64,
+        stream: true,
+        stream_options: { include_usage: true },
+      }),
     },
-    body: JSON.stringify({
-      model: CANOPYWAVE_MODEL,
-      messages: [{ role: 'user', content: testPrompt }],
-      max_tokens: 64,
-      stream: true,
-      stream_options: { include_usage: true },
-    }),
-  })
+  )
 
   if (!streamResponse.ok) {
     const errorText = await streamResponse.text()
-    console.error(`❌ CanopyWave streaming API returned ${streamResponse.status}: ${errorText}`)
+    console.error(
+      `❌ CanopyWave streaming API returned ${streamResponse.status}: ${errorText}`,
+    )
     process.exit(1)
   }
 
   await consumeStream(streamResponse, streamStart, 'include_usage only')
 }
 
-async function consumeStream(streamResponse: Response, streamStart: number, label: string) {
+async function consumeStream(
+  streamResponse: Response,
+  streamStart: number,
+  label: string,
+) {
   const reader = streamResponse.body?.getReader()
   if (!reader) {
     console.error('❌ No response body reader')
@@ -136,7 +150,9 @@ async function consumeStream(streamResponse: Response, streamStart: number, labe
         const delta = chunk.choices?.[0]?.delta
         if (delta?.content) streamContent += delta.content
         if (delta?.reasoning_content) {
-          console.log(`   [reasoning chunk] ${delta.reasoning_content.slice(0, 80)}...`)
+          console.log(
+            `   [reasoning chunk] ${delta.reasoning_content.slice(0, 80)}...`,
+          )
         }
         if (chunk.usage) {
           allUsageChunks.push(chunk.usage)
@@ -152,7 +168,9 @@ async function consumeStream(streamResponse: Response, streamStart: number, labe
   }
 
   const streamElapsed = Date.now() - streamStart
-  console.log(`✅ Stream response [${label}] (${streamElapsed}ms, ${chunkCount} chunks):`)
+  console.log(
+    `✅ Stream response [${label}] (${streamElapsed}ms, ${chunkCount} chunks):`,
+  )
   console.log(`   Content: ${streamContent}`)
   console.log()
   console.log(`   ── First 3 raw chunks ──`)
@@ -177,11 +195,14 @@ async function testChatCompletionsEndpoint() {
   const codebuffApiKey = process.env.OPENBUFF_API_KEY
   if (!codebuffApiKey) {
     console.error('❌ OPENBUFF_API_KEY is not set. Pass it as an env var.')
-    console.error('   Example: OPENBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint')
+    console.error(
+      '   Example: OPENBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint',
+    )
     process.exit(1)
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'http://localhost:3000'
+  const appUrl =
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'http://localhost:3000'
   const endpoint = `${appUrl}/api/v1/chat/completions`
   const runId = process.env.RUN_ID ?? 'test-run-id-canopywave'
 
@@ -237,8 +258,10 @@ async function testChatCompletionsEndpoint() {
     console.log(`⚠️  Response ${response.status} (${elapsed}ms):`)
     console.log(`   ${JSON.stringify(data)}`)
     if (response.status === 400 && data.message?.includes('runId')) {
-      console.log('   ℹ️  This is expected if you don\'t have a valid run_id.')
-      console.log('   ℹ️  The request reached the endpoint — routing to CanopyWave is wired up.')
+      console.log("   ℹ️  This is expected if you don't have a valid run_id.")
+      console.log(
+        '   ℹ️  The request reached the endpoint — routing to CanopyWave is wired up.',
+      )
     } else if (response.status === 401) {
       console.log('   ℹ️  Auth failed. Make sure OPENBUFF_API_KEY is valid.')
     }
@@ -310,13 +333,21 @@ async function testChatCompletionsEndpoint() {
       }
     }
 
-    console.log(`✅ Stream response (${streamElapsed}ms, ${chunkCount} chunks):`)
+    console.log(
+      `✅ Stream response (${streamElapsed}ms, ${chunkCount} chunks):`,
+    )
     console.log(`   Content: ${streamContent}`)
-    console.log(`   Chunks with usage: ${chunksWithUsage} (should be exactly 1)`)
+    console.log(
+      `   Chunks with usage: ${chunksWithUsage} (should be exactly 1)`,
+    )
     if (chunksWithUsage > 1) {
-      console.log(`   ⚠️  Multiple usage chunks detected — billing fix may not be working!`)
+      console.log(
+        `   ⚠️  Multiple usage chunks detected — billing fix may not be working!`,
+      )
     } else if (chunksWithUsage === 1) {
-      console.log(`   ✅ Only 1 usage chunk — billing fix is working correctly!`)
+      console.log(
+        `   ✅ Only 1 usage chunk — billing fix is working correctly!`,
+      )
     } else {
       console.log(`   ⚠️  No usage chunks received!`)
     }
@@ -337,7 +368,9 @@ async function testChatCompletionsEndpoint() {
     console.log(`⚠️  Response ${streamResponse.status} (${streamElapsed}ms):`)
     console.log(`   ${JSON.stringify(data)}`)
     if (streamResponse.status === 400 && data.message?.includes('runId')) {
-      console.log('   ℹ️  Expected without a valid run_id. Endpoint is reachable and routing works.')
+      console.log(
+        '   ℹ️  Expected without a valid run_id. Endpoint is reachable and routing works.',
+      )
     }
   }
   console.log()
@@ -365,7 +398,9 @@ async function main() {
       break
     default:
       console.error(`Unknown mode: ${mode}`)
-      console.error('Usage: bun scripts/test-canopywave.ts [direct|endpoint|both]')
+      console.error(
+        'Usage: bun scripts/test-canopywave.ts [direct|endpoint|both]',
+      )
       process.exit(1)
   }
 

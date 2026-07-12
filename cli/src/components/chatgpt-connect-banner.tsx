@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useKeyboard } from '@opentui/react'
 
 import { loadProviderConfigSync } from '@openbuff/sdk'
 
@@ -14,6 +15,8 @@ import {
 } from '../utils/chatgpt-oauth'
 import { setupOpenbuffProviderFromArgs } from '../utils/openbuff-provider'
 import { BORDER_CHARS } from '../utils/ui-constants'
+
+import type { KeyEvent } from '@opentui/core'
 
 type FlowState =
   | 'checking'
@@ -35,7 +38,8 @@ export const ChatGptConnectBanner = () => {
   const [isDisconnectHovered, setIsDisconnectHovered] = useState(false)
   const [isConnectHovered, setIsConnectHovered] = useState(false)
   const [isRetryHovered, setIsRetryHovered] = useState(false)
-  const [autoConfigState, setAutoConfigState] = useState<AutoConfigState>('idle')
+  const [autoConfigState, setAutoConfigState] =
+    useState<AutoConfigState>('idle')
   const [autoConfigError, setAutoConfigError] = useState<string | null>(null)
 
   function maybePromptAutoConfig(): void {
@@ -45,7 +49,8 @@ export const ChatGptConnectBanner = () => {
       if (!hasCodexProvider) {
         setAutoConfigState('prompt')
       }
-    } catch {        // If config can't be read, quietly skip the prompt; the user can still run /setup codex
+    } catch {
+      // If config can't be read, quietly skip the prompt; the user can still run /setup codex
     }
   }
 
@@ -105,10 +110,32 @@ export const ChatGptConnectBanner = () => {
       setAutoConfigError(null)
       setAutoConfigState('done')
     } catch (err) {
-      setAutoConfigError(err instanceof Error ? err.message : 'Failed to auto-configure')
+      setAutoConfigError(
+        err instanceof Error ? err.message : 'Failed to auto-configure',
+      )
       // Keep the button visible so the user can retry
     }
   }
+
+  useKeyboard((key: KeyEvent) => {
+    if (key.name === 'escape') {
+      key.preventDefault()
+      handleClose()
+      return
+    }
+    if (key.name === 'd' && flowState === 'connected') {
+      key.preventDefault()
+      handleDisconnect()
+      return
+    }
+    if (key.name !== 'return' && key.name !== 'enter') return
+    key.preventDefault()
+    if (flowState === 'error' || flowState === 'not-connected') {
+      handleConnect()
+    } else if (flowState === 'connected' && autoConfigState === 'prompt') {
+      handleAutoConfigure()
+    }
+  })
 
   const panelStyle = {
     width: '100%' as const,
@@ -139,32 +166,41 @@ export const ChatGptConnectBanner = () => {
       onMouseOver={() => setIsCloseHovered(true)}
       onMouseOut={() => setIsCloseHovered(false)}
     >
-      <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
-        x
-      </text>
+      <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>x</text>
     </Button>
   )
 
   if (flowState === 'connected') {
     const showAutoConfig = autoConfigState === 'prompt'
-    const showAutoConfigError = autoConfigState === 'prompt' && autoConfigError != null
-    const statusText = autoConfigState === 'done'
-      ? '✓ ChatGPT connected · Codex provider added'
-      : showAutoConfigError
-        ? `✓ ChatGPT connected · ${autoConfigError}`
-        : showAutoConfig
-          ? '✓ ChatGPT connected · Route requests through Codex?'
-          : '✓ ChatGPT connected'
+    const showAutoConfigError =
+      autoConfigState === 'prompt' && autoConfigError != null
+    const statusText =
+      autoConfigState === 'done'
+        ? '✓ ChatGPT connected · Codex provider added'
+        : showAutoConfigError
+          ? `✓ ChatGPT connected · ${autoConfigError}`
+          : showAutoConfig
+            ? '✓ ChatGPT connected · Route requests through Codex?'
+            : '✓ ChatGPT connected'
 
     return (
-      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <box
+        style={{
+          ...panelStyle,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <text style={{ fg: theme.foreground }}>{statusText}</text>
         <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
           {showAutoConfig && (
             <Button
               style={{
                 ...actionButtonStyle,
-                borderColor: isAutoConfigHovered ? theme.foreground : theme.border,
+                borderColor: isAutoConfigHovered
+                  ? theme.foreground
+                  : theme.border,
               }}
               onClick={handleAutoConfigure}
               onMouseOver={() => setIsAutoConfigHovered(true)}
@@ -178,7 +214,9 @@ export const ChatGptConnectBanner = () => {
           <Button
             style={{
               ...actionButtonStyle,
-              borderColor: isDisconnectHovered ? theme.foreground : theme.border,
+              borderColor: isDisconnectHovered
+                ? theme.foreground
+                : theme.border,
             }}
             onClick={handleDisconnect}
             onMouseOver={() => setIsDisconnectHovered(true)}
@@ -196,7 +234,14 @@ export const ChatGptConnectBanner = () => {
 
   if (flowState === 'error') {
     return (
-      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <box
+        style={{
+          ...panelStyle,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <text style={{ fg: theme.error, flexShrink: 1 }}>
           {error ?? 'Unknown error'}
         </text>
@@ -223,25 +268,34 @@ export const ChatGptConnectBanner = () => {
   if (flowState === 'waiting-for-code') {
     return (
       <box style={{ ...panelStyle, flexDirection: 'column' }}>
-        <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <box
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <text style={{ fg: theme.foreground }}>Connecting to ChatGPT...</text>
           {closeButton}
         </box>
         <text style={{ fg: theme.muted }}>
           Sign in via your browser to connect.
         </text>
-        {authUrl ? (
-          <text style={{ fg: theme.muted }}>
-            {authUrl}
-          </text>
-        ) : null}
+        {authUrl ? <text style={{ fg: theme.muted }}>{authUrl}</text> : null}
       </box>
     )
   }
 
   if (flowState === 'not-connected') {
     return (
-      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <box
+        style={{
+          ...panelStyle,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Button
           style={{
             ...actionButtonStyle,
@@ -272,8 +326,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
     stopChatGptOAuthServer()
     return {
       success: true,
-      message:
-        `Successfully connected your ChatGPT subscription! If needed, run /setup codex to route requests through Codex, or click Use Codex preset if the banner is still open.`,
+      message: `Successfully connected your ChatGPT subscription! If needed, run /setup codex to route requests through Codex, or click Use Codex preset if the banner is still open.`,
     }
   } catch (err) {
     return {

@@ -1,10 +1,4 @@
-import {
-  promptSuccess,
-  type PromptResult,
-} from '@codebuff/common/util/error'
-import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
-import { createPatch } from 'diff'
-
+import { promptSuccess, type PromptResult } from '@codebuff/common/util/error'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 type WriteFileSuccess = {
@@ -35,7 +29,8 @@ const LARGE_FILE_OVERWRITE_MIN_RATIO = 0.3
 function isLargeFileContent(content: string): boolean {
   return (
     content.length > LARGE_FILE_CHAR_THRESHOLD ||
-    content.replace(/\r\n/g, '\n').split('\n').length > LARGE_FILE_LINE_THRESHOLD
+    content.replace(/\r\n/g, '\n').split('\n').length >
+      LARGE_FILE_LINE_THRESHOLD
   )
 }
 
@@ -59,7 +54,7 @@ function describeUnsafeLargeFileOverwrite(params: {
   const charRatio = newContent.length / Math.max(1, initialContent.length)
 
   if (
-    lineRatio >= LARGE_FILE_OVERWRITE_MIN_RATIO ||
+    lineRatio >= LARGE_FILE_OVERWRITE_MIN_RATIO &&
     charRatio >= LARGE_FILE_OVERWRITE_MIN_RATIO
   ) {
     return null
@@ -79,33 +74,24 @@ function describeUnsafeLargeFileOverwrite(params: {
  * Returns a PromptResult wrapping the result:
  * - `{ aborted: false, value: WriteFileResult }` on success or recoverable error
  */
-export async function processFileBlock(
-  params: {
-    path: string
-    initialContentPromise: Promise<string | null>
-    newContent: string
-    logger: Logger
-  },
-): Promise<PromptResult<WriteFileResult>> {
-  const {
-    path,
-    initialContentPromise,
-    newContent,
-    logger,
-  } = params
+export async function processFileBlock(params: {
+  path: string
+  initialContentPromise: Promise<string | null>
+  newContent: string
+  logger: Logger
+}): Promise<PromptResult<WriteFileResult>> {
+  const { path, initialContentPromise, newContent, logger } = params
   const initialContent = await initialContentPromise
 
   if (initialContent === null) {
-    const cleanContent = cleanMarkdownCodeBlock(newContent)
-
     logger.debug(
-      { path, cleanContent },
+      { path, newContent },
       `processFileBlock: Created new file ${path}`,
     )
     return promptSuccess({
       tool: 'write_file' as const,
       path,
-      content: cleanContent,
+      content: newContent,
       patch: undefined,
       messages: [`Created new file ${path}`],
     })
@@ -126,7 +112,7 @@ export async function processFileBlock(
   const unsafeOverwrite = describeUnsafeLargeFileOverwrite({
     path,
     initialContent,
-    newContent: cleanMarkdownCodeBlock(newContent),
+    newContent,
   })
   if (unsafeOverwrite) {
     logger.warn(
@@ -140,52 +126,21 @@ export async function processFileBlock(
     })
   }
 
-  const lineEnding = initialContent.includes('\r\n') ? '\r\n' : '\n'
-  const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
-  const normalizedInitialContent = normalizeLineEndings(initialContent)
-  const normalizedNewContent = normalizeLineEndings(newContent)
-
-  let patch = createPatch(path, normalizedInitialContent, normalizedNewContent)
-  const lines = patch.split('\n')
-  const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
-  if (hunkStartIndex !== -1) {
-    patch = lines.slice(hunkStartIndex).join('\n')
-  } else {
-    logger.debug(
-      {
-        path,
-        initialContent,
-        changes: newContent,
-        patch,
-      },
-      `processFileBlock: No change to ${path}`,
-    )
-    return promptSuccess({
-      tool: 'write_file' as const,
-      path,
-      error: 'The new content was the same as the old content, skipping.',
-    })
-  }
   logger.debug(
     {
       path,
       newContent,
-      patch,
     },
     `processFileBlock: Updated file ${path}`,
-  )
-
-  const patchOriginalLineEndings = patch.replaceAll('\n', lineEnding)
-  const updatedContentOriginalLineEndings = normalizedNewContent.replaceAll(
-    '\n',
-    lineEnding,
   )
 
   return promptSuccess({
     tool: 'write_file' as const,
     path,
-    content: updatedContentOriginalLineEndings,
-    patch: patchOriginalLineEndings,
+    content: newContent,
+    // Whole-file writes are sent as full content so caller-supplied bytes stay
+    // authoritative; generating/applying a text patch could normalize them.
+    patch: undefined,
     messages: [],
   })
 }

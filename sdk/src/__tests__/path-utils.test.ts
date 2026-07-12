@@ -5,8 +5,26 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import {
   getProjectPathLookupKeys,
+  isSafeProjectRelativePath,
+  resolveFilePathForFileSystemOperation,
+  resolveFilePathForOperation,
   resolveFilePathWithinProject,
 } from '../tools/path-utils'
+
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+
+describe('[SEC-H01] isSafeProjectRelativePath', () => {
+  test('rejects traversal, absolute, drive, UNC, and NUL inputs before I/O', () => {
+    expect(isSafeProjectRelativePath('../secret')).toBe(false)
+    expect(isSafeProjectRelativePath('src/../secret')).toBe(false)
+    expect(isSafeProjectRelativePath('/repo/file.ts')).toBe(false)
+    expect(isSafeProjectRelativePath('C:\\repo\\file.ts')).toBe(false)
+    expect(isSafeProjectRelativePath('\\\\server\\share\\file.ts')).toBe(false)
+    expect(isSafeProjectRelativePath('src/secret\0.txt')).toBe(false)
+    expect(isSafeProjectRelativePath('src/file.ts')).toBe(true)
+    expect(isSafeProjectRelativePath('..config')).toBe(true)
+  })
+})
 
 describe('resolveFilePathWithinProject', () => {
   test('normalizes relative paths to full and project-relative paths', () => {
@@ -37,12 +55,12 @@ describe('resolveFilePathWithinProject', () => {
   })
 
   test('allows file names that start with two dots inside the project', () => {
-    expect(resolveFilePathWithinProject('/repo', '/repo/..config')).toMatchObject(
-      {
-        fullPath: '/repo/..config',
-        relativePath: '..config',
-      },
-    )
+    expect(
+      resolveFilePathWithinProject('/repo', '/repo/..config'),
+    ).toMatchObject({
+      fullPath: '/repo/..config',
+      relativePath: '..config',
+    })
   })
 
   test('rejects paths outside the project', () => {
@@ -96,9 +114,7 @@ describe('resolveFilePathWithinProject — symlink containment', () => {
 
   test('rejects a symlink that points outside the project', () => {
     expect(resolveFilePathWithinProject(tmpDir, 'evil')).toBeNull()
-    expect(
-      resolveFilePathWithinProject(tmpDir, 'evil/file.ts'),
-    ).toBeNull()
+    expect(resolveFilePathWithinProject(tmpDir, 'evil/file.ts')).toBeNull()
   })
 
   test('rejects an outside symlink even when the target file does not exist', () => {
@@ -108,11 +124,34 @@ describe('resolveFilePathWithinProject — symlink containment', () => {
   })
 
   test('allows a symlink that points inside the project', () => {
-    expect(
-      resolveFilePathWithinProject(tmpDir, 'link/file.ts'),
-    ).toMatchObject({
+    expect(resolveFilePathWithinProject(tmpDir, 'link/file.ts')).toMatchObject({
       fullPath: path.join(tmpDir, 'link', 'file.ts'),
       relativePath: path.join('link', 'file.ts'),
+    })
+  })
+
+  test('pins filesystem operations to the dereferenced in-project target', () => {
+    expect(resolveFilePathForOperation(tmpDir, 'link/file.ts')).toMatchObject({
+      operationPath: path.join(tmpDir, 'real', 'file.ts'),
+      relativePath: path.join('link', 'file.ts'),
+    })
+  })
+
+  test('pins missing create targets through an in-project directory symlink', () => {
+    expect(
+      resolveFilePathForOperation(tmpDir, 'link/missing/nested.ts'),
+    ).toMatchObject({
+      operationPath: path.join(tmpDir, 'real', 'missing', 'nested.ts'),
+    })
+  })
+
+  test('preserves the final symlink for unlink-style operations', () => {
+    expect(
+      resolveFilePathForOperation(tmpDir, 'link', {
+        followFinalSymlink: false,
+      }),
+    ).toMatchObject({
+      operationPath: path.join(tmpDir, 'link'),
     })
   })
 
@@ -124,4 +163,22 @@ describe('resolveFilePathWithinProject — symlink containment', () => {
       relativePath: 'src/file.ts',
     })
   })
+})
+
+test('filesystem operations resolve symlinks through the injected filesystem', async () => {
+  const virtualFs = {
+    realpath: async (input: string) => {
+      if (input === '/virtual/repo') return '/virtual/repo'
+      if (input === '/virtual/repo/link') return '/outside'
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    },
+  } as unknown as CodebuffFileSystem
+
+  await expect(
+    resolveFilePathForFileSystemOperation(
+      '/virtual/repo',
+      'link/file.ts',
+      virtualFs,
+    ),
+  ).resolves.toBeNull()
 })

@@ -62,7 +62,7 @@ describe('MessageBlock completion time', () => {
     )
 
     expect(markup).toContain('7s')
-    expect(markup).toContain('cost 3')
+    expect(markup).toContain('cost $0.03')
   })
 
   test('omits completion line when not complete', () => {
@@ -76,6 +76,6 @@ describe('MessageBlock completion time', () => {
     )
 
     expect(markup).not.toContain('7s')
-    expect(markup).not.toContain('cost 3')
+    expect(markup).not.toContain('cost $0.03')
   })
 })

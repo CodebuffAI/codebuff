@@ -97,14 +97,8 @@ describe('Prompt Caching', () => {
 
       const magic1 = Math.floor(10000 + Math.random() * 90000)
       const magic2 = Math.floor(10000 + Math.random() * 90000)
-      const tempFile1 = path.join(
-        __dirname,
-        `cache-test-magic-${magic1}.tmp`,
-      )
-      const tempFile2 = path.join(
-        __dirname,
-        `cache-test-magic-${magic2}.tmp`,
-      )
+      const tempFile1 = path.join(__dirname, `cache-test-magic-${magic1}.tmp`)
+      const tempFile2 = path.join(__dirname, `cache-test-magic-${magic2}.tmp`)
 
       try {
         fs.writeFileSync(tempFile1, `MAGIC_NUMBER=${magic1}`)
@@ -132,9 +126,7 @@ describe('Prompt Caching', () => {
         expect(run1.output.type).not.toBe('error')
 
         const responseText = extractOutputText(run1.output)
-        console.log(
-          `Magic number: ${magic1}, LLM response: "${responseText}"`,
-        )
+        console.log(`Magic number: ${magic1}, LLM response: "${responseText}"`)
         expect(responseText).toContain(String(magic1))
 
         const cost1 = collector1.getLastEvent('finish')?.totalCost ?? -1
@@ -162,8 +154,12 @@ describe('Prompt Caching', () => {
         )
         expect(cost2).toBeLessThanOrEqual(cost1 * 0.5)
       } finally {
-        try { fs.unlinkSync(tempFile1) } catch {}
-        try { fs.unlinkSync(tempFile2) } catch {}
+        try {
+          fs.unlinkSync(tempFile1)
+        } catch {}
+        try {
+          fs.unlinkSync(tempFile2)
+        } catch {}
       }
     },
     DEFAULT_TIMEOUT * 2,

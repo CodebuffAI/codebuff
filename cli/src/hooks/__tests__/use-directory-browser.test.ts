@@ -169,7 +169,11 @@ describe('useDirectoryBrowser - path validation', () => {
 
 describe('useDirectoryBrowser - directory entry conversion', () => {
   // Test the logic for converting directory entries to list items
-  const convertToListItem = (entry: { name: string; path: string; isParent: boolean }) => ({
+  const convertToListItem = (entry: {
+    name: string
+    path: string
+    isParent: boolean
+  }) => ({
     id: entry.path,
     label: entry.name,
     icon: entry.isParent ? '📂' : '📁',
@@ -178,25 +182,33 @@ describe('useDirectoryBrowser - directory entry conversion', () => {
   test('converts parent directory entry correctly', () => {
     const entry = { name: '..', path: '/home', isParent: true }
     const result = convertToListItem(entry)
-    
+
     expect(result.id).toBe('/home')
     expect(result.label).toBe('..')
     expect(result.icon).toBe('📂')
   })
 
   test('converts regular directory entry correctly', () => {
-    const entry = { name: 'Documents', path: '/home/user/Documents', isParent: false }
+    const entry = {
+      name: 'Documents',
+      path: '/home/user/Documents',
+      isParent: false,
+    }
     const result = convertToListItem(entry)
-    
+
     expect(result.id).toBe('/home/user/Documents')
     expect(result.label).toBe('Documents')
     expect(result.icon).toBe('📁')
   })
 
   test('handles special characters in directory names', () => {
-    const entry = { name: 'My Folder (2024)', path: '/home/My Folder (2024)', isParent: false }
+    const entry = {
+      name: 'My Folder (2024)',
+      path: '/home/My Folder (2024)',
+      isParent: false,
+    }
     const result = convertToListItem(entry)
-    
+
     expect(result.id).toBe('/home/My Folder (2024)')
     expect(result.label).toBe('My Folder (2024)')
   })

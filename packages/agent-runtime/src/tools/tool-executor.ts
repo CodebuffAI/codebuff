@@ -1,7 +1,17 @@
 import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
+import {
+  buildNativeToolResultErrorOutputV1,
+  buildReadFilesResultV1,
+  fileMutationResultV1Schema,
+  reconcileFileMutationResultV1,
+  type ReadFilesItemV1,
+} from '@codebuff/common/tools/results/filesystem'
+import { getToolMetadata } from '@codebuff/common/tools/metadata'
+import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
+import * as path from 'path'
 
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
@@ -60,6 +70,202 @@ export type ToolCallError = {
   input: unknown
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
+
+export function normalizeNativeToolOutput<T extends ToolName>(params: {
+  toolName: T
+  toolCallId: string
+  output: CodebuffToolOutput<T>
+}):
+  | { valid: true; output: CodebuffToolOutput<T>; issues: [] }
+  | {
+      valid: false
+      output: CodebuffToolOutput<T>
+      issues: ReadonlyArray<{ message: string }>
+    } {
+  const parsed = toolParams[params.toolName].outputSchema.safeParse(
+    params.output,
+  )
+  if (parsed.success) {
+    if (getToolMetadata(params.toolName).resultContract === 'mutation_v1') {
+      const canonical = params.output.some((part) => {
+        if (part.type !== 'json') return false
+        const mutation = fileMutationResultV1Schema.safeParse(part.value)
+        return (
+          mutation.success &&
+          (mutation.data.outcome === 'unconfirmed' ||
+            mutation.data.authorityReceipt?.callId === params.toolCallId)
+        )
+      })
+      if (!canonical) {
+        const mismatchedCanonical = params.output.some(
+          (part) =>
+            part.type === 'json' &&
+            fileMutationResultV1Schema.safeParse(part.value).success,
+        )
+        if (mismatchedCanonical) {
+          return {
+            valid: false,
+            output: jsonToolResult(
+              fileMutationResultV1Schema.parse({
+                kind: 'file_mutation_result',
+                version: 1,
+                operationId: `${params.toolCallId}:unconfirmed`,
+                outcome: 'unconfirmed',
+                actions: [],
+                authorityTier: null,
+                errors: [
+                  {
+                    code: 'malformed_result',
+                    message:
+                      'Canonical mutation receipt did not correlate to the active tool call.',
+                    retryable: false,
+                    recovery: 'fix_result',
+                  },
+                ],
+                freshCapabilities: [],
+              }),
+            ) as CodebuffToolOutput<T>,
+            issues: [
+              {
+                message: 'mutation receipt callId did not match the tool call',
+              },
+            ],
+          }
+        }
+        const diagnosticRecords = params.output
+          .filter((part) => part.type === 'json')
+          .map((part) => part.value)
+          .filter(
+            (value) =>
+              value !== null &&
+              typeof value === 'object' &&
+              !Array.isArray(value),
+          ) as Record<string, unknown>[]
+        const diagnostic =
+          diagnosticRecords.find(
+            (value) => typeof value.errorMessage === 'string',
+          ) ?? diagnosticRecords[0]
+        const message =
+          typeof diagnostic?.errorMessage === 'string'
+            ? diagnostic.errorMessage
+            : 'Legacy mutation output was accepted but could not be authority-verified.'
+        const path =
+          typeof diagnostic?.file === 'string'
+            ? diagnostic.file
+            : typeof diagnostic?.path === 'string'
+              ? diagnostic.path
+              : undefined
+        const patch =
+          typeof diagnostic?.patch === 'string'
+            ? diagnostic.patch
+            : typeof diagnostic?.unifiedDiff === 'string'
+              ? diagnostic.unifiedDiff
+              : undefined
+        const operationId = `${params.toolCallId}:legacy`
+        const hasError = typeof diagnostic?.errorMessage === 'string'
+        return {
+          valid: true,
+          output: jsonToolResult(
+            fileMutationResultV1Schema.parse({
+              kind: 'file_mutation_result',
+              version: 1,
+              operationId,
+              outcome: 'unconfirmed',
+              actions: path
+                ? [
+                    {
+                      actionId: `${operationId}:0`,
+                      index: 0,
+                      action: 'update',
+                      path,
+                      outcome: 'unconfirmed',
+                      beforeHash: null,
+                      afterHash: null,
+                      ...(patch ? { patch } : {}),
+                      ...(hasError
+                        ? {
+                            error: {
+                              code: 'application_rejected',
+                              message,
+                              retryable: true,
+                              recovery: 'read_again',
+                            },
+                          }
+                        : {}),
+                    },
+                  ]
+                : [],
+              authorityTier: null,
+              errors: hasError
+                ? [
+                    {
+                      code: 'application_rejected',
+                      message,
+                      retryable: true,
+                      recovery: 'read_again',
+                    },
+                  ]
+                : [],
+              freshCapabilities: [],
+            }),
+          ) as CodebuffToolOutput<T>,
+          issues: [],
+        }
+      }
+    }
+    return { valid: true, output: params.output, issues: [] }
+  }
+  if (getToolMetadata(params.toolName).resultContract === 'mutation_v1') {
+    const first = params.output[0]
+    const raw = first?.type === 'json' ? first.value : undefined
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const record = raw as Record<string, unknown>
+      const receipt = record.authorityReceipt
+      const operationId =
+        typeof record.operationId === 'string'
+          ? record.operationId
+          : receipt &&
+              typeof receipt === 'object' &&
+              !Array.isArray(receipt) &&
+              typeof (receipt as Record<string, unknown>).operationId ===
+                'string'
+            ? ((receipt as Record<string, unknown>).operationId as string)
+            : undefined
+      if (operationId) {
+        const reconciled = reconcileFileMutationResultV1({
+          lifecycle: {
+            kind: 'tool_lifecycle',
+            version: 1,
+            callId: params.toolCallId,
+            sequence: 0,
+            state: 'succeeded',
+          },
+          operationId,
+          handlerResult: raw,
+          receipt,
+        })
+        if (reconciled.mutation.outcome !== 'unconfirmed') {
+          return {
+            valid: false,
+            output: jsonToolResult(
+              reconciled.mutation,
+            ) as CodebuffToolOutput<T>,
+            issues: parsed.error.issues,
+          }
+        }
+      }
+    }
+  }
+  return {
+    valid: false,
+    output: buildNativeToolResultErrorOutputV1({
+      toolName: params.toolName,
+      callId: params.toolCallId,
+      issueCount: parsed.error.issues.length,
+    }) as CodebuffToolOutput<T>,
+    issues: parsed.error.issues,
+  }
+}
 
 const bareStringFieldRepairAllowlist: Partial<
   Record<string, readonly string[]>
@@ -168,7 +374,9 @@ function getFieldSpecificHint(
       .filter((p): p is string => Boolean(p)),
   )
   const fieldNames = new Set(
-    issues.flatMap((issue) => issue.path?.map((segment) => String(segment)) ?? []),
+    issues.flatMap(
+      (issue) => issue.path?.map((segment) => String(segment)) ?? [],
+    ),
   )
 
   if (
@@ -230,6 +438,82 @@ function isFileChangingTool(toolName: string): boolean {
     toolName === 'str_replace' ||
     toolName === 'write_file'
   )
+}
+
+function scopePatternMatches(filePath: string, pattern: string): boolean {
+  const normalizedPattern = pattern.replace(/\\/g, '/').replace(/^\.\//, '')
+  let source = '^'
+  for (let index = 0; index < normalizedPattern.length; index++) {
+    const char = normalizedPattern[index]
+    if (char === '*' && normalizedPattern[index + 1] === '*') {
+      source += '.*'
+      index++
+    } else if (char === '*') {
+      source += '[^/]*'
+    } else if (char === '?') {
+      source += '[^/]'
+    } else {
+      source += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    }
+  }
+  return new RegExp(`${source}$`).test(filePath)
+}
+
+function normalizeScopedToolPath(rawPath: string, projectRoot: string): string {
+  const absolute = path.isAbsolute(rawPath)
+    ? path.resolve(rawPath)
+    : path.resolve(projectRoot, rawPath)
+  const relative = path.relative(projectRoot, absolute).replace(/\\/g, '/')
+  return relative || '.'
+}
+
+function getFilesystemToolPaths(
+  toolName: string,
+  input: Record<string, unknown>,
+): { access: 'read' | 'write'; paths: string[] } | undefined {
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : typeof value === 'string'
+        ? [value]
+        : []
+  if (toolName === 'read_files' || toolName === 'read_subtree') {
+    return { access: 'read', paths: strings(input.paths) }
+  }
+  if (toolName === 'read_outline' || toolName === 'list_directory') {
+    return { access: 'read', paths: strings(input.path) }
+  }
+  if (toolName === 'glob' || toolName === 'code_search') {
+    return { access: 'read', paths: strings(input.cwd ?? '.') }
+  }
+  if (toolName === 'apply_patch') {
+    const operation = input.operation
+    return {
+      access: 'write',
+      paths:
+        operation && typeof operation === 'object'
+          ? strings((operation as Record<string, unknown>).path)
+          : [],
+    }
+  }
+  if (toolName === 'edit_transaction') {
+    const edits = Array.isArray(input.edits) ? input.edits : []
+    return {
+      access: 'write',
+      paths: edits.flatMap((edit) =>
+        edit && typeof edit === 'object'
+          ? [
+              ...strings((edit as Record<string, unknown>).path),
+              ...strings((edit as Record<string, unknown>).destinationPath),
+            ]
+          : [],
+      ),
+    }
+  }
+  if (isFileChangingTool(toolName)) {
+    return { access: 'write', paths: strings(input.path) }
+  }
+  return undefined
 }
 
 export function parseRawToolCall<T extends ToolName = ToolName>(params: {
@@ -306,11 +590,10 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   localAgentTemplates: Record<string, AgentTemplate>
   logger: Logger
   previousToolCallFinished: Promise<void>
-  // True when this is a named-path write waiting behind a prior same-path write
-  // that is still in flight. Threaded through so the emitted `tool_call` event
-  // can carry `queued`, and so a `tool_start` transition can fire once the
-  // barrier resolves. Omitted (undefined) for read-only tools and custom/
-  // unknown-path writes.
+  // True when a write is waiting behind an active read or write barrier.
+  // Threaded through so the emitted `tool_call` event can carry `queued`, and
+  // so a `tool_start` transition fires once the dependency resolves. This is
+  // independent of whether a single target path can be extracted.
   queued?: boolean
   prompt: string | undefined
   providerOptions?: ProviderMetadata
@@ -396,6 +679,39 @@ export async function executeToolCall<T extends ToolName>(
       `${toolName} error: ${toolCall.error}`,
     )
     return previousToolCallFinished
+  }
+
+  const filesystemAccess = getFilesystemToolPaths(
+    toolName,
+    toolCall.input as Record<string, unknown>,
+  )
+  const allowedPatterns = filesystemAccess
+    ? agentTemplate.filesystemScope?.[filesystemAccess.access]
+    : undefined
+  if (filesystemAccess && allowedPatterns) {
+    const deniedPaths = filesystemAccess.paths
+      .map((rawPath) => ({
+        rawPath,
+        normalized: normalizeScopedToolPath(
+          rawPath,
+          params.fileContext.projectRoot,
+        ),
+      }))
+      .filter(
+        ({ normalized }) =>
+          normalized.startsWith('../') ||
+          path.isAbsolute(normalized) ||
+          !allowedPatterns.some((pattern) =>
+            scopePatternMatches(normalized, pattern),
+          ),
+      )
+    if (deniedPaths.length > 0) {
+      onResponseChunk({
+        type: 'error',
+        message: `Tool \`${toolName}\` was blocked by the ${agentTemplate.id} filesystem ${filesystemAccess.access} scope. Disallowed path(s): ${deniedPaths.map(({ rawPath }) => rawPath).join(', ')}. Allowed patterns: ${allowedPatterns.join(', ')}.`,
+      })
+      return previousToolCallFinished
+    }
   }
 
   const canSuggestFollowups = (agentState as { canSuggestFollowups?: boolean })
@@ -596,6 +912,7 @@ export async function executeToolCall<T extends ToolName>(
 
       const clientToolResult = await requestToolCall({
         userInputId,
+        callId: clientToolCall.toolCallId,
         toolName: clientToolCall.toolName,
         input: clientToolCall.input,
         signal: params.signal,
@@ -605,11 +922,87 @@ export async function executeToolCall<T extends ToolName>(
   })
 
   return toolResultPromise.then(async ({ output, creditsUsed }) => {
+    let validatedOutput = output
+    if (toolName === 'read_files') {
+      const parsed = toolParams.read_files.outputSchema.safeParse(output)
+      if (!parsed.success) {
+        logger.error(
+          {
+            toolCallId: toolCall.toolCallId,
+            issues: parsed.error.issues,
+          },
+          'Native read_files output failed schema validation',
+        )
+        const input = finalToolCall.input as {
+          paths?: string[]
+          ranges?: Array<{ path: string }>
+          symbols?: Array<{ path: string }>
+        }
+        const selectors = [
+          ...(input.paths ?? []).map((path) => ({
+            selector: 'file' as const,
+            path,
+          })),
+          ...(input.ranges ?? []).map((range) => ({
+            selector: 'range' as const,
+            path: range.path,
+          })),
+          ...(input.symbols ?? []).map((symbol) => ({
+            selector: 'symbols' as const,
+            path: symbol.path,
+          })),
+        ]
+        const results: ReadFilesItemV1[] = (
+          selectors.length > 0
+            ? selectors
+            : [{ selector: 'file' as const, path: '<read_files>' }]
+        ).map((selector, requestIndex) => ({
+          ...selector,
+          requestIndex,
+          status: 'error' as const,
+          error: {
+            code: 'io_error' as const,
+            message:
+              'The read_files harness produced a malformed result. Retry the read; no read authorization was granted.',
+            retryable: true,
+            recovery: 'read_again' as const,
+          },
+        }))
+        for (const { path } of selectors) {
+          delete params.fileProcessingState.readAuthorizationsByPath?.[path]
+          delete params.fileProcessingState.readAuthorizationHashesByPath?.[
+            path
+          ]
+          params.fileProcessingState.failedEditRequiresReadByPath[path] = true
+        }
+        validatedOutput = jsonToolResult(
+          buildReadFilesResultV1(results),
+        ) as typeof output
+      }
+    } else {
+      const normalized = normalizeNativeToolOutput({
+        toolName,
+        toolCallId: toolCall.toolCallId,
+        output,
+      })
+      if (!normalized.valid) {
+        logger.error(
+          {
+            toolCallId: toolCall.toolCallId,
+            toolName,
+            issueCount: normalized.issues.length,
+            issues: normalized.issues.map((issue) => issue.message),
+          },
+          'Native tool output failed schema validation',
+        )
+        validatedOutput = normalized.output
+      }
+    }
     const toolResult: ToolMessage = {
       role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: output,
+      content: validatedOutput,
     }
 
     onResponseChunk({

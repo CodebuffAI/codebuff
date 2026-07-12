@@ -4,24 +4,18 @@ import {
   createJsonErrorResponseHandler,
   createJsonResponseHandler,
   parseProviderOptions,
-  postJsonToApi
-} from '@ai-sdk/provider-utils';
-import { z } from 'zod/v4';
+  postJsonToApi,
+} from '@ai-sdk/provider-utils'
+import { z } from 'zod/v4'
 
-import {
-  defaultOpenAICompatibleErrorStructure
-} from '../openai-compatible-error';
-import { convertToOpenAICompatibleCompletionPrompt } from './convert-to-openai-compatible-completion-prompt';
-import { getResponseMetadata } from './get-response-metadata';
-import { mapOpenAICompatibleFinishReason } from './map-openai-compatible-finish-reason';
-import {
-  openaiCompatibleCompletionProviderOptions,
-} from './openai-compatible-completion-options';
+import { defaultOpenAICompatibleErrorStructure } from '../openai-compatible-error'
+import { convertToOpenAICompatibleCompletionPrompt } from './convert-to-openai-compatible-completion-prompt'
+import { getResponseMetadata } from './get-response-metadata'
+import { mapOpenAICompatibleFinishReason } from './map-openai-compatible-finish-reason'
+import { openaiCompatibleCompletionProviderOptions } from './openai-compatible-completion-options'
 
-import type {
-  OpenAICompatibleCompletionModelId} from './openai-compatible-completion-options';
-import type {
-  ProviderErrorStructure} from '../openai-compatible-error';
+import type { OpenAICompatibleCompletionModelId } from './openai-compatible-completion-options'
+import type { ProviderErrorStructure } from '../openai-compatible-error'
 import type {
   APICallError,
   LanguageModelV2,
@@ -30,62 +24,61 @@ import type {
   LanguageModelV2FinishReason,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
-} from '@ai-sdk/provider';
+} from '@ai-sdk/provider'
 import type {
   FetchFunction,
   ParseResult,
-  ResponseHandler} from '@ai-sdk/provider-utils';
+  ResponseHandler,
+} from '@ai-sdk/provider-utils'
 
 type OpenAICompatibleCompletionConfig = {
-  provider: string;
-  includeUsage?: boolean;
-  headers: () => Record<string, string | undefined>;
-  url: (options: { modelId: string; path: string }) => string;
-  fetch?: FetchFunction;
-  errorStructure?: ProviderErrorStructure<any>;
+  provider: string
+  includeUsage?: boolean
+  headers: () => Record<string, string | undefined>
+  url: (options: { modelId: string; path: string }) => string
+  fetch?: FetchFunction
+  errorStructure?: ProviderErrorStructure<any>
 
   /**
    * The supported URLs for the model.
    */
-  supportedUrls?: () => LanguageModelV2['supportedUrls'];
-};
+  supportedUrls?: () => LanguageModelV2['supportedUrls']
+}
 
-export class OpenAICompatibleCompletionLanguageModel
-  implements LanguageModelV2
-{
-  readonly specificationVersion = 'v2';
+export class OpenAICompatibleCompletionLanguageModel implements LanguageModelV2 {
+  readonly specificationVersion = 'v2'
 
-  readonly modelId: OpenAICompatibleCompletionModelId;
-  private readonly config: OpenAICompatibleCompletionConfig;
-  private readonly failedResponseHandler: ResponseHandler<APICallError>;
-  private readonly chunkSchema; // type inferred via constructor
+  readonly modelId: OpenAICompatibleCompletionModelId
+  private readonly config: OpenAICompatibleCompletionConfig
+  private readonly failedResponseHandler: ResponseHandler<APICallError>
+  private readonly chunkSchema // type inferred via constructor
 
   constructor(
     modelId: OpenAICompatibleCompletionModelId,
     config: OpenAICompatibleCompletionConfig,
   ) {
-    this.modelId = modelId;
-    this.config = config;
+    this.modelId = modelId
+    this.config = config
 
     // initialize error handling:
     const errorStructure =
-      config.errorStructure ?? defaultOpenAICompatibleErrorStructure;
+      config.errorStructure ?? defaultOpenAICompatibleErrorStructure
     this.chunkSchema = createOpenAICompatibleCompletionChunkSchema(
       errorStructure.errorSchema,
-    );
-    this.failedResponseHandler = createJsonErrorResponseHandler(errorStructure);
+    )
+    this.failedResponseHandler = createJsonErrorResponseHandler(errorStructure)
   }
 
   get provider(): string {
-    return this.config.provider;
+    return this.config.provider
   }
 
   private get providerOptionsName(): string {
-    return this.config.provider.split('.')[0].trim();
+    return this.config.provider.split('.')[0].trim()
   }
 
   get supportedUrls() {
-    return this.config.supportedUrls?.() ?? {};
+    return this.config.supportedUrls?.() ?? {}
   }
 
   private async getArgs({
@@ -103,26 +96,26 @@ export class OpenAICompatibleCompletionLanguageModel
     tools,
     toolChoice,
   }: Parameters<LanguageModelV2['doGenerate']>[0]) {
-    const warnings: LanguageModelV2CallWarning[] = [];
+    const warnings: LanguageModelV2CallWarning[] = []
 
     // Parse provider options
     const completionOptionsResult = await parseProviderOptions({
       provider: this.providerOptionsName,
       providerOptions,
       schema: openaiCompatibleCompletionProviderOptions,
-    });
-    const completionOptions = completionOptionsResult ?? {};
+    })
+    const completionOptions = completionOptionsResult ?? {}
 
     if (topK != null) {
-      warnings.push({ type: 'unsupported-setting', setting: 'topK' });
+      warnings.push({ type: 'unsupported-setting', setting: 'topK' })
     }
 
     if (tools?.length) {
-      warnings.push({ type: 'unsupported-setting', setting: 'tools' });
+      warnings.push({ type: 'unsupported-setting', setting: 'tools' })
     }
 
     if (toolChoice != null) {
-      warnings.push({ type: 'unsupported-setting', setting: 'toolChoice' });
+      warnings.push({ type: 'unsupported-setting', setting: 'toolChoice' })
     }
 
     if (responseFormat != null && responseFormat.type !== 'text') {
@@ -130,13 +123,13 @@ export class OpenAICompatibleCompletionLanguageModel
         type: 'unsupported-setting',
         setting: 'responseFormat',
         details: 'JSON response format is not supported.',
-      });
+      })
     }
 
     const { prompt: completionPrompt, stopSequences } =
-      convertToOpenAICompatibleCompletionPrompt({ prompt });
+      convertToOpenAICompatibleCompletionPrompt({ prompt })
 
-    const stop = [...(stopSequences ?? []), ...(userStopSequences ?? [])];
+    const stop = [...(stopSequences ?? []), ...(userStopSequences ?? [])]
 
     return {
       args: {
@@ -165,13 +158,13 @@ export class OpenAICompatibleCompletionLanguageModel
         stop: stop.length > 0 ? stop : undefined,
       },
       warnings,
-    };
+    }
   }
 
   async doGenerate(
     options: Parameters<LanguageModelV2['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
-    const { args, warnings } = await this.getArgs(options);
+    const { args, warnings } = await this.getArgs(options)
 
     const {
       responseHeaders,
@@ -190,14 +183,14 @@ export class OpenAICompatibleCompletionLanguageModel
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
-    });
+    })
 
-    const choice = response.choices[0];
-    const content: Array<LanguageModelV2Content> = [];
+    const choice = response.choices[0]
+    const content: Array<LanguageModelV2Content> = []
 
     // text content:
     if (choice.text != null && choice.text.length > 0) {
-      content.push({ type: 'text', text: choice.text });
+      content.push({ type: 'text', text: choice.text })
     }
 
     return {
@@ -215,13 +208,13 @@ export class OpenAICompatibleCompletionLanguageModel
         body: rawResponse,
       },
       warnings,
-    };
+    }
   }
 
   async doStream(
     options: Parameters<LanguageModelV2['doStream']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
-    const { args, warnings } = await this.getArgs(options);
+    const { args, warnings } = await this.getArgs(options)
 
     const body = {
       ...args,
@@ -231,7 +224,7 @@ export class OpenAICompatibleCompletionLanguageModel
       stream_options: this.config.includeUsage
         ? { include_usage: true }
         : undefined,
-    };
+    }
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -246,15 +239,15 @@ export class OpenAICompatibleCompletionLanguageModel
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
-    });
+    })
 
-    let finishReason: LanguageModelV2FinishReason = 'unknown';
+    let finishReason: LanguageModelV2FinishReason = 'unknown'
     const usage: LanguageModelV2Usage = {
       inputTokens: undefined,
       outputTokens: undefined,
       totalTokens: undefined,
-    };
-    let isFirstChunk = true;
+    }
+    let isFirstChunk = true
 
     return {
       stream: response.pipeThrough(
@@ -263,67 +256,67 @@ export class OpenAICompatibleCompletionLanguageModel
           LanguageModelV2StreamPart
         >({
           start(controller) {
-            controller.enqueue({ type: 'stream-start', warnings });
+            controller.enqueue({ type: 'stream-start', warnings })
           },
 
           transform(chunk, controller) {
             if (options.includeRawChunks) {
-              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
+              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue })
             }
 
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
               if (isOpenAICompatibleBillingSummaryChunk(chunk.rawValue)) {
-                return;
+                return
               }
 
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
-              return;
+              finishReason = 'error'
+              controller.enqueue({ type: 'error', error: chunk.error })
+              return
             }
 
-            const value = chunk.value;
+            const value = chunk.value
 
             // Some OpenAI-compatible providers send successful billing telemetry
             // chunks outside the normal completion choices stream. Ignore them
             // without emitting response metadata or changing finish state.
             if (isOpenAICompatibleBillingSummaryChunk(value)) {
-              return;
+              return
             }
 
             // handle error chunks:
             if ('error' in value) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: value.error });
-              return;
+              finishReason = 'error'
+              controller.enqueue({ type: 'error', error: value.error })
+              return
             }
 
             if (isFirstChunk) {
-              isFirstChunk = false;
+              isFirstChunk = false
 
               controller.enqueue({
                 type: 'response-metadata',
                 ...getResponseMetadata(value),
-              });
+              })
 
               controller.enqueue({
                 type: 'text-start',
                 id: '0',
-              });
+              })
             }
 
             if (value.usage != null) {
-              usage.inputTokens = value.usage.prompt_tokens ?? undefined;
-              usage.outputTokens = value.usage.completion_tokens ?? undefined;
-              usage.totalTokens = value.usage.total_tokens ?? undefined;
+              usage.inputTokens = value.usage.prompt_tokens ?? undefined
+              usage.outputTokens = value.usage.completion_tokens ?? undefined
+              usage.totalTokens = value.usage.total_tokens ?? undefined
             }
 
-            const choice = value.choices[0];
+            const choice = value.choices[0]
 
             if (choice?.finish_reason != null) {
               finishReason = mapOpenAICompatibleFinishReason(
                 choice.finish_reason,
-              );
+              )
             }
 
             if (choice?.text != null) {
@@ -331,26 +324,26 @@ export class OpenAICompatibleCompletionLanguageModel
                 type: 'text-delta',
                 id: '0',
                 delta: choice.text,
-              });
+              })
             }
           },
 
           flush(controller) {
             if (!isFirstChunk) {
-              controller.enqueue({ type: 'text-end', id: '0' });
+              controller.enqueue({ type: 'text-end', id: '0' })
             }
 
             controller.enqueue({
               type: 'finish',
               finishReason,
               usage,
-            });
+            })
           },
         }),
       ),
       request: { body },
       response: { headers: responseHeaders },
-    };
+    }
   }
 }
 
@@ -358,7 +351,7 @@ const usageSchema = z.object({
   prompt_tokens: z.number(),
   completion_tokens: z.number(),
   total_tokens: z.number(),
-});
+})
 
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
@@ -373,7 +366,7 @@ const openaiCompatibleCompletionResponseSchema = z.object({
     }),
   ),
   usage: usageSchema.nullish(),
-});
+})
 
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
@@ -402,16 +395,16 @@ const createOpenAICompatibleCompletionChunkSchema = <
       usage: usageSchema.nullish(),
     }),
     errorSchema,
-  ]);
+  ])
 
 type OpenAICompatibleCompletionChunk = z.infer<
   ReturnType<typeof createOpenAICompatibleCompletionChunkSchema>
->;
+>
 
 type OpenAICompatibleBillingSummaryChunk = Extract<
   OpenAICompatibleCompletionChunk,
   { object: 'billing.summary' }
->;
+>
 
 function isOpenAICompatibleBillingSummaryChunk(
   value: unknown,
@@ -421,5 +414,5 @@ function isOpenAICompatibleBillingSummaryChunk(
     typeof value === 'object' &&
     'object' in value &&
     value.object === 'billing.summary'
-  );
+  )
 }

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 
-import { calculateFingerprint, generateFingerprintIdSync } from '../utils/fingerprint'
+import {
+  calculateFingerprint,
+  generateFingerprintIdSync,
+} from '../utils/fingerprint'
 import { logger } from '../utils/logger'
 
 interface UseFingerprintResult {

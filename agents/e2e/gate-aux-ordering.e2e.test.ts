@@ -2,12 +2,18 @@ import { describe, expect, test } from 'bun:test'
 
 import { createBase2 } from '../base2/base2'
 
-function parseGateStateBlock(
-  text: string,
-): { gate: string; status: string; details: string } {
+function parseGateStateBlock(text: string): {
+  gate: string
+  status: string
+  details: string
+} {
   const match = text.match(/<gate-state>([\s\S]*?)<\/gate-state>/)
   expect(match).not.toBeNull()
-  return JSON.parse(match![1]) as { gate: string; status: string; details: string }
+  return JSON.parse(match![1]) as {
+    gate: string
+    status: string
+    details: string
+  }
 }
 
 function feedJson(value: unknown) {
@@ -27,13 +33,11 @@ function finishStepWithToolResult(value: unknown) {
 //    returns `'cd cli && bun run typecheck && bun test'` and isNonTestSourceFile
 //    is true, so selectTestWriterTargets keeps it.
 //  - doc-writer: `cli/src/` -> isPublicApiSourceFile is true, so
-//    selectDocWriterTargets keeps it; target_doc_files is fixed to
-//    `['docs/agents-and-tools.md']`.
+//    selectDocWriterTargets keeps it.
 //  - security-reviewer: the `auth` path segment is in SECURITY_SENSITIVE_GLOBS,
 //    so matchesSecuritySensitiveGlob is true.
 const AUX_TRIPLE_FILE = 'cli/src/auth/session.ts'
 const AUX_TEST_COMMAND = 'cd cli && bun run typecheck && bun test'
-const AUX_DOC_TARGETS = ['docs/agents-and-tools.md']
 
 // All aux gates use spawn_agent_inline with includeToolCall:false.
 const AUX_AGENT_TYPES = ['test-writer', 'doc-writer', 'security-reviewer']
@@ -49,10 +53,12 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
   test('fires test-writer -> doc-writer -> security-reviewer before validation hooks + code-reviewer, then does not re-spawn', () => {
     const base2 = createBase2('default')
     const agentState = { agentId: 'base2-custom' }
+    const prompt =
+      'Implement the auth session lifecycle change, add tests, and update docs.'
     const gen = base2.handleSteps!({
       agentState,
       // 'implement' + 'code' triggers shouldProactivelyQueryIndex.
-      prompt: 'Implement the auth session lifecycle change.',
+      prompt,
       params: {},
     } as any)
 
@@ -60,7 +66,7 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     expect(gen.next().value).toMatchObject({
       toolName: 'query_index',
       input: {
-        query: 'Implement the auth session lifecycle change.',
+        query: prompt,
         limit: 20,
       },
     })
@@ -111,7 +117,6 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
         agent_type: 'doc-writer',
         params: {
           source_files: [AUX_TRIPLE_FILE],
-          target_doc_files: AUX_DOC_TARGETS,
         },
       },
       includeToolCall: false,
@@ -139,17 +144,21 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       'security-reviewer',
     )
 
-    // The three done-flags are set as each aux gate fires (all true by now).
+    // The security gate is not marked done until its yielded reviewer result
+    // is resumed and validated.
     expect((agentState as any).base2ActiveWork).toMatchObject({
       testWriterGateDone: true,
       docWriterGateDone: true,
-      preEditSecurityReviewDone: true,
+      securityReviewGateDone: false,
+      preEditSecurityReviewDone: false,
     })
 
     // Invariant 3: after all three aux gates fire, auxGateFiredThisIteration
     // causes a `continue` that re-enters the loop. The re-loop starts with a
     // fresh context-pruner spawn.
-    const reLoopContextPruner = gen.next(feedJson([]))
+    const reLoopContextPruner = gen.next(
+      feedJson(['NON_BLOCKING: No security concerns found.']),
+    )
     expect(reLoopContextPruner.value).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
@@ -221,13 +230,14 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       status: 'passed',
     })
 
-    // 10) Final state: finalization allowed, all three aux done-flags true, and
-    // the pending gate files cleared.
+    // 10) Finalization clears the pending files and resets per-edit-set aux
+    // flags so a future distinct edit set can run them again.
     expect((agentState as any).base2ActiveWork).toMatchObject({
       currentPhase: 'final_response_allowed',
-      testWriterGateDone: true,
-      docWriterGateDone: true,
-      preEditSecurityReviewDone: true,
+      testWriterGateDone: false,
+      docWriterGateDone: false,
+      securityReviewGateDone: false,
+      preEditSecurityReviewDone: false,
       pendingGateFiles: [],
     })
   })
@@ -237,13 +247,16 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     const agentState = { agentId: 'base2-custom' }
     const gen = base2.handleSteps!({
       agentState,
-      prompt: 'Implement the auth session lifecycle change.',
+      prompt:
+        'Implement the auth session lifecycle change, add tests, and update docs.',
       params: {},
     } as any)
 
     // Drive to the point where all three aux gates have fired once.
     expect(gen.next().value).toMatchObject({ toolName: 'query_index' })
-    expect(gen.next(feedJson([])).value).toMatchObject({ toolName: 'git_status' })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'git_status',
+    })
     expect(gen.next(feedJson({ status: '' })).value).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
@@ -271,11 +284,14 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     expect((agentState as any).base2ActiveWork).toMatchObject({
       testWriterGateDone: true,
       docWriterGateDone: true,
-      preEditSecurityReviewDone: true,
+      securityReviewGateDone: false,
+      preEditSecurityReviewDone: false,
     })
 
     // The aux block `continue`d; re-loop starts with context-pruner.
-    expect(gen.next(feedJson([])).value).toMatchObject({
+    expect(
+      gen.next(feedJson(['NON_BLOCKING: No security concerns found.'])).value,
+    ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
     })

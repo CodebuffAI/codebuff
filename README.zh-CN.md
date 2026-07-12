@@ -14,7 +14,6 @@
 
 Openbuff 的多智能体架构基于真实开源仓库的编码任务评测持续优化（[评测详情](evals/README.md)）。
 
-
 ## 工作原理
 
 当你让 Openbuff "给我的 API 加上身份验证"时，它可能会调用：
@@ -68,6 +67,7 @@ openbuff
 ```
 
 这会生成：
+
 ```
 knowledge.md               # Openbuff 用的项目上下文
 .agents/
@@ -226,7 +226,7 @@ wsl --install
 sudo apt-get install tmux
 ```
 
-更完整的测试文档见 [cli/src/__tests__/README.md](cli/src/__tests__/README.md)。
+更完整的测试文档见 [cli/src/**tests**/README.md](cli/src/__tests__/README.md)。
 
 可以帮忙的方向：
 

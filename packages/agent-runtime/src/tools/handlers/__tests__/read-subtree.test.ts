@@ -19,6 +19,10 @@ interface ReadSubtreeResultEntry {
   truncationLevel?: 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
   variables?: string[]
   errorMessage?: string
+  liveNodeCount?: number
+  liveScanTruncated?: boolean
+  liveScanMaxNodes?: number
+  recovery?: string
 }
 
 function createLogger(): Logger {
@@ -161,7 +165,7 @@ describe('handleReadSubtree', () => {
     expect(String(errEntry!.errorMessage)).toContain('does-not-exist')
   })
 
-  it('supplements the default root subtree with files created after the tree snapshot', async () => {
+  it('[COR-M08] uses the live root as authoritative over the cached snapshot', async () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
 
@@ -170,7 +174,10 @@ describe('handleReadSubtree', () => {
     )
     try {
       nodeFs.mkdirSync(nodePath.join(tmpRoot, 'src'))
-      nodeFs.writeFileSync(nodePath.join(tmpRoot, 'src', 'index.ts'), 'export {}')
+      nodeFs.writeFileSync(
+        nodePath.join(tmpRoot, 'src', 'index.ts'),
+        'export {}',
+      )
       nodeFs.writeFileSync(nodePath.join(tmpRoot, 'root-new.ts'), 'export {}')
       fileContext.projectRoot = tmpRoot
 
@@ -194,7 +201,12 @@ describe('handleReadSubtree', () => {
       expect(rootEntry).toBeTruthy()
       expect(rootEntry!.printedTree).toContain('src/')
       expect(rootEntry!.printedTree).toContain('root-new.ts')
-      expect(rootEntry!.printedTree).toContain('package.json')
+      expect(rootEntry!.printedTree).not.toContain('package.json')
+      expect(rootEntry).toMatchObject({
+        liveNodeCount: 4,
+        liveScanTruncated: false,
+        liveScanMaxNodes: 1000,
+      })
     } finally {
       nodeFs.rmSync(tmpRoot, { recursive: true, force: true })
     }
@@ -240,7 +252,7 @@ describe('handleReadSubtree', () => {
     }
   })
 
-  it('supplements cached directories with files created after the tree snapshot', async () => {
+  it('[COR-M08] removes deleted cached nodes from live directory results', async () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
 
@@ -274,8 +286,8 @@ describe('handleReadSubtree', () => {
       expect(dirEntry).toBeTruthy()
       expect(dirEntry!.printedTree).toContain('index.ts')
       expect(dirEntry!.printedTree).toContain('new.ts')
-      expect(dirEntry!.printedTree).toContain('util.ts')
-      expect(dirEntry!.printedTree).toContain('helper')
+      expect(dirEntry!.printedTree).not.toContain('util.ts')
+      expect(dirEntry!.printedTree).not.toContain('helper')
     } finally {
       nodeFs.rmSync(tmpRoot, { recursive: true, force: true })
     }
@@ -301,7 +313,10 @@ describe('handleReadSubtree', () => {
         input: {
           paths: [
             nodePath.join(outsideRoot, 'secret.txt'),
-            nodePath.relative(tmpRoot, nodePath.join(outsideRoot, 'secret.txt')),
+            nodePath.relative(
+              tmpRoot,
+              nodePath.join(outsideRoot, 'secret.txt'),
+            ),
           ],
           maxTokens: 50000,
         },
@@ -348,7 +363,10 @@ describe('handleReadSubtree', () => {
       const toolCall: CodebuffToolCall<'read_subtree'> = {
         toolName: 'read_subtree',
         toolCallId: 'tc-symlink-escape',
-        input: { paths: ['live-dir', 'live-dir/link-outside'], maxTokens: 50000 },
+        input: {
+          paths: ['live-dir', 'live-dir/link-outside'],
+          maxTokens: 50000,
+        },
       }
 
       const { output } = await handleReadSubtree({
@@ -564,5 +582,39 @@ describe('handleReadSubtree', () => {
     expect(smallDirEntry!.tokenCount).toBeLessThanOrEqual(
       largeDirEntry!.tokenCount!,
     )
+  })
+
+  it('[ERR-M02] reports the live node cutoff with recovery guidance', async () => {
+    const fileContext = buildMockFileContext()
+    const logger = createLogger()
+    const tmpRoot = nodeFs.mkdtempSync(
+      nodePath.join(nodeOs.tmpdir(), 'openbuff-read-subtree-limit-'),
+    )
+    try {
+      for (let index = 0; index < 1_010; index++) {
+        nodeFs.writeFileSync(nodePath.join(tmpRoot, `file-${index}.txt`), '')
+      }
+      fileContext.projectRoot = tmpRoot
+      const { output } = await handleReadSubtree({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolName: 'read_subtree',
+          toolCallId: 'tc-live-limit',
+          input: { paths: ['.'], maxTokens: 50_000 },
+        },
+        fileContext,
+        logger,
+      })
+      const entry = (output[0].value as ReadSubtreeResultEntry[])[0]
+      expect(entry).toMatchObject({
+        type: 'directory',
+        liveNodeCount: 1000,
+        liveScanTruncated: true,
+        liveScanMaxNodes: 1000,
+        recovery: expect.stringContaining('narrower subtree'),
+      })
+    } finally {
+      nodeFs.rmSync(tmpRoot, { recursive: true, force: true })
+    }
   })
 })

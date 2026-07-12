@@ -98,7 +98,8 @@ export const PromptHistorySearchScreen: React.FC<
   }, [])
 
   const filteredPrompts = useMemo(
-    () => filterAndScorePrompts(allPrompts, searchQuery, LAYOUT.MAX_RENDERED_ITEMS),
+    () =>
+      filterAndScorePrompts(allPrompts, searchQuery, LAYOUT.MAX_RENDERED_ITEMS),
     [allPrompts, searchQuery],
   )
 
@@ -174,10 +175,7 @@ export const PromptHistorySearchScreen: React.FC<
     terminalWidth - LAYOUT.CONTENT_PADDING,
     LAYOUT.MAX_CONTENT_WIDTH,
   )
-  const contentWidth = Math.min(
-    LAYOUT.PREFERRED_CONTENT_WIDTH,
-    contentMaxWidth,
-  )
+  const contentWidth = Math.min(LAYOUT.PREFERRED_CONTENT_WIDTH, contentMaxWidth)
   const availableListHeight = Math.max(
     3,
     terminalHeight - LAYOUT.HEADER_HEIGHT - LAYOUT.INPUT_HEIGHT - 2,
@@ -221,8 +219,8 @@ export const PromptHistorySearchScreen: React.FC<
             Prompt History Search
           </text>
           <text style={{ fg: theme.muted }}>
-            {'  '}Type to fuzzy-search past prompts · Enter to use · Esc to close
-            · Ctrl+R toggles
+            {'  '}Type to fuzzy-search past prompts · Enter to use · Esc to
+            close · Ctrl+R toggles
           </text>
         </box>
 

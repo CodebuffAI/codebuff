@@ -35,7 +35,10 @@ interface FeedbackActions {
   setIsSubmitting: (isSubmitting: boolean) => void
   saveCurrentInput: (value: string, cursor: number) => void
   restoreSavedInput: () => { value: string; cursor: number }
-  markMessageFeedbackSubmitted: (messageId: string, category: FeedbackCategory) => void
+  markMessageFeedbackSubmitted: (
+    messageId: string,
+    category: FeedbackCategory,
+  ) => void
   resetFeedbackForm: () => void
   reset: () => void
 }
@@ -142,14 +145,18 @@ export const useFeedbackStore = create<FeedbackStore>()(
         messagesWithFeedback: new Set(),
         messageFeedbackCategories: new Map(),
       })),
-  }))
+  })),
 )
 
 export const selectIsFeedbackOpen = (state: FeedbackStore) => state.feedbackMode
-export const selectFeedbackMessageId = (state: FeedbackStore) => state.feedbackMessageId
-export const selectIsFeedbackOpenForMessage = (messageId: string) => (state: FeedbackStore) =>
-  state.feedbackMode && state.feedbackMessageId === messageId
-export const selectHasSubmittedFeedback = (messageId: string) => (state: FeedbackStore) =>
-  state.messagesWithFeedback.has(messageId)
-export const selectMessageFeedbackCategory = (messageId: string) => (state: FeedbackStore) =>
-  state.messageFeedbackCategories.get(messageId)
+export const selectFeedbackMessageId = (state: FeedbackStore) =>
+  state.feedbackMessageId
+export const selectIsFeedbackOpenForMessage =
+  (messageId: string) => (state: FeedbackStore) =>
+    state.feedbackMode && state.feedbackMessageId === messageId
+export const selectHasSubmittedFeedback =
+  (messageId: string) => (state: FeedbackStore) =>
+    state.messagesWithFeedback.has(messageId)
+export const selectMessageFeedbackCategory =
+  (messageId: string) => (state: FeedbackStore) =>
+    state.messageFeedbackCategories.get(messageId)

@@ -33,7 +33,11 @@ const renderHook = <T, P>(
   render()
 
   return {
-    result: { get current() { return result! } },
+    result: {
+      get current() {
+        return result!
+      },
+    },
     rerender: (nextProps: P) => {
       props = nextProps
       render()

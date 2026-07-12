@@ -12,28 +12,44 @@ on:
           - patch
           - minor
           - major
-      checkout_ref:
-        description: 'Git ref to build from (commit SHA, branch, or tag). Defaults to latest main.'
-        required: false
-        default: ''
-        type: string
 
 concurrency:
   group: cli-prod-release
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  prepare-and-commit-prod:
+  validate-release-source:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Validate release source
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun scripts/check-env-architecture.ts
+          bun run --cwd cli typecheck
+          HOME="$RUNNER_TEMP/openbuff-test-home" bun run --cwd cli test
+
+  prepare-and-commit-prod:
+    needs: validate-release-source
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
 
       - uses: ./.github/actions/setup-project
 
@@ -58,7 +74,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit and push version bumpAdd commentMore actions
+      - name: Commit and push version bump
         run: |
           git stash
           git pull --rebase origin main
@@ -85,14 +101,19 @@ jobs:
       binary-name: openbuff
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-package
-      checkout-ref: ${{ inputs.checkout_ref || github.sha }}
+      checkout-ref: v${{ needs.prepare-and-commit-prod.outputs.new_version }}
       env-overrides: '{"NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
-    secrets: inherit
+    secrets:
+      OPENBUFF_GITHUB_TOKEN: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
 
   # Create GitHub release with all binaries
   create-prod-release:
     needs: [prepare-and-commit-prod, build-prod-binaries]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v6
 
@@ -106,6 +127,22 @@ jobs:
         with:
           name: updated-package
           path: cli/release/
+
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > SHA256SUMS
+          while IFS= read -r file; do
+            checksum=$(sha256sum "$file" | awk '{print $1}')
+            printf '%s  %s\n' "$checksum" "$(basename "$file")" >> SHA256SUMS
+          done < <(find binaries -type f -name 'openbuff-*.tar.gz' | sort)
+          test -s SHA256SUMS
+
+      - name: Attest release binaries
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'binaries/*/openbuff-*.tar.gz'
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -126,11 +163,13 @@ jobs:
             ### Platform Binaries
             - `openbuff-linux-x64.tar.gz` - Linux x64
             - `openbuff-linux-arm64.tar.gz` - Linux ARM64
-            - `openbuff-darwin-x64.tar.gz` - macOS Intel
-            - `openbuff-darwin-arm64.tar.gz` - macOS Apple Silicon
+            - `openbuff-darwin-x64.tar.gz` - macOS 13+ Intel
+            - `openbuff-darwin-x64-legacy.tar.gz` - macOS 11–12 Intel
+            - `openbuff-darwin-arm64.tar.gz` - macOS 13+ Apple Silicon
             - `openbuff-win32-x64.tar.gz` - Windows x64
           files: |
             binaries/*/openbuff-*
+            SHA256SUMS
           repository: AnzoBenjamin/openbuff
           token: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
 
@@ -159,6 +198,6 @@ jobs:
       - name: Publish to npm
         run: |
           cd cli/release
-          npm publish --access public
+          npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

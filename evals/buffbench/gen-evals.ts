@@ -140,8 +140,7 @@ export async function generateEvalFileV2({
 }): Promise<void> {
   const actualRepoName = extractRepoNameFromUrl(repoUrl)
 
-  const client = new OpenbuffClient({
-  })
+  const client = new OpenbuffClient({})
 
   const finalOutputPath =
     outputPath || path.join(__dirname, `eval-${actualRepoName}-v2.json`)
@@ -190,14 +189,17 @@ export async function generateEvalFileV2({
         })
 
         // Filter out supplementalFiles that don't exist at parentSha
-        const { valid: validSupplementalFiles, removed } = filterSupplementalFiles(
-          repoPath,
-          parentSha,
-          taskResult.supplementalFiles,
-        )
+        const { valid: validSupplementalFiles, removed } =
+          filterSupplementalFiles(
+            repoPath,
+            parentSha,
+            taskResult.supplementalFiles,
+          )
 
         if (removed.length > 0) {
-          console.log(`⚠️  Filtered out ${removed.length} supplementalFiles that don't exist at parentSha:`)
+          console.log(
+            `⚠️  Filtered out ${removed.length} supplementalFiles that don't exist at parentSha:`,
+          )
           for (const file of removed) {
             console.log(`   - ${file}`)
           }

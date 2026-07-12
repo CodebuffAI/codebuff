@@ -215,7 +215,9 @@ describe('error-utils', () => {
     })
 
     test('returns string directly', () => {
-      expect(sanitizeErrorMessage('Plain string error')).toBe('Plain string error')
+      expect(sanitizeErrorMessage('Plain string error')).toBe(
+        'Plain string error',
+      )
     })
 
     test('extracts message from object with message property', () => {

@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 import { createBase2 } from './base2/base2'
 import { createCodeEditor } from './editor/editor'
 import thinker from './thinker/thinker'
+import { quarantinedToolNames } from '@codebuff/common/tools/constants'
 
 /**
  * Guards against the "registered but unusable" failure mode: a tool can be in
@@ -10,9 +13,7 @@ import thinker from './thinker/thinker'
  * `toolNames`, so no agent can ever call it. (This is exactly what happened to
  * read_outline / read_slices / rewrite_symbol on first add.)
  *
- * read_slices has since been folded into read_files's `symbols` mode and is now
- * a deprecated alias the shipped agents no longer list, so it is intentionally
- * absent from the required set below.
+ * read_slices remains registered for compatibility but is not prompt-visible.
  *
  * The orchestrator (base2, all modes) must expose the structural read/edit
  * tools, and the direct code editor must expose the structural edit tools.
@@ -33,6 +34,15 @@ describe('agent tool reachability', () => {
         'read_files',
         'str_replace',
         'write_file',
+        'apply_patch',
+        'read_proposal_workspace',
+        'read_proposals',
+        'propose_str_replace',
+        'propose_write_file',
+        'propose_edit_transaction',
+        'accept_proposal',
+        'reject_proposal',
+        'apply_proposal',
         ...HARNESS_STATE_TOOLS,
       ] as const) {
         expect(tools).toContain(tool)
@@ -46,9 +56,43 @@ describe('agent tool reachability', () => {
       expect(tools).toContain(tool)
     }
   })
+
+  test('shipped primary agents do not expose quarantined compatibility tools', () => {
+    const definitions = [
+      createBase2('default'),
+      createBase2('fast'),
+      createCodeEditor({ model: 'opus' }),
+    ]
+
+    for (const definition of definitions) {
+      for (const toolName of quarantinedToolNames) {
+        expect(
+          definition.toolNames ?? [],
+          `${definition.displayName} must not expose quarantined tool ${toolName}`,
+        ).not.toContain(toolName)
+      }
+    }
+  })
 })
 
 describe('agent prompt/tool availability alignment', () => {
+  test('prompts and docs align restored compatibility tools', () => {
+    const repoRoot = path.resolve(import.meta.dir, '..')
+    const runtimePrompts = readFileSync(
+      path.join(repoRoot, 'packages/agent-runtime/src/tools/prompts.ts'),
+      'utf8',
+    )
+    const toolsDoc = readFileSync(
+      path.join(repoRoot, 'docs/agents-and-tools.md'),
+      'utf8',
+    )
+
+    expect(runtimePrompts).not.toContain('Prefer \\`read_slices\\`')
+    expect(runtimePrompts).not.toContain('Prefer \\`apply_smart_patch\\`')
+    expect(toolsDoc).toContain('`read_slices` (deprecated compatibility alias)')
+    expect(toolsDoc).toContain('### `apply_smart_patch`')
+  })
+
   test('structured-output agents without set_output do not prompt the model to call it', () => {
     const defs = [thinker]
 

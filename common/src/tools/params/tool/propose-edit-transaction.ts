@@ -2,10 +2,12 @@ import z from 'zod/v4'
 
 import { transactionEditSchema } from './edit-transaction'
 import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import { proposalResultV1Schema } from '../../results/filesystem'
 
 import type { $ToolParams } from '../../constants'
 
 export const proposeEditTransactionResultSchema = z.union([
+  proposalResultV1Schema,
   z.object({
     message: z.string(),
     files: z.array(

@@ -3,6 +3,7 @@ import {
   getProjectFileTree,
 } from '@codebuff/common/project-file-tree'
 import micromatch from 'micromatch'
+import path from 'path'
 
 import { resolveFilePathWithinProject } from './path-utils'
 
@@ -30,10 +31,21 @@ export async function glob(params: {
       // Resolve the caller-supplied cwd against the project root so a
       // traversal payload (e.g. "../../outside") cannot scope the glob to
       // files outside the project. If the cwd does not resolve inside the
-      // project, drop it and match against the whole project tree instead.
-      const resolvedCwd = resolveFilePathWithinProject(projectPath, normalizedCwd)
+      // project, fail closed instead of silently broadening the search to the
+      // whole repository.
+      const resolvedCwd = resolveFilePathWithinProject(
+        projectPath,
+        normalizedCwd,
+      )
       if (!resolvedCwd) {
-        normalizedCwd = ''
+        return [
+          {
+            type: 'json',
+            value: {
+              errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
+            },
+          },
+        ]
       } else {
         normalizedCwd = resolvedCwd.relativePath
       }
@@ -68,6 +80,24 @@ export async function glob(params: {
     } else {
       matchingFiles = micromatch(allFilePaths, pattern)
     }
+
+    const filesWithMtime = await Promise.all(
+      matchingFiles.map(async (filePath) => {
+        try {
+          const stats = await fs.stat(path.join(projectPath, filePath))
+          return { filePath, mtimeMs: stats.mtimeMs }
+        } catch {
+          // A file may disappear between tree enumeration and stat. Keep it in
+          // the deterministic tail instead of failing the entire discovery.
+          return { filePath, mtimeMs: 0 }
+        }
+      }),
+    )
+    matchingFiles = filesWithMtime
+      .sort(
+        (a, b) => b.mtimeMs - a.mtimeMs || a.filePath.localeCompare(b.filePath),
+      )
+      .map(({ filePath }) => filePath)
 
     return [
       {

@@ -22,12 +22,19 @@ export const SelectedChips: React.FC<SelectedChipsProps> = ({
   }
 
   return (
-    <box style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 1, paddingRight: 1, flexWrap: 'wrap' }}>
+    <box
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingLeft: 1,
+        paddingRight: 1,
+        flexWrap: 'wrap',
+      }}
+    >
       {selectedAgents.map((agent) => {
         const isHovered = hoveredChipId === agent.id
-        const displayText = agent.displayName !== agent.id
-          ? agent.displayName
-          : agent.id
+        const displayText =
+          agent.displayName !== agent.id ? agent.displayName : agent.id
 
         return (
           <Button
@@ -74,7 +81,6 @@ export const SelectedChips: React.FC<SelectedChipsProps> = ({
           </Button>
         )
       })}
-
     </box>
   )
 }

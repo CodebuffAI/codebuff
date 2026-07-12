@@ -38,6 +38,26 @@ export interface SearchResult {
   trustScore?: number
 }
 
+export interface Context7DocumentationResult {
+  documentation: string
+  selectedLibrary: SearchResult
+  alternatives: SearchResult[]
+}
+
+function rankLibraryCandidate(candidate: SearchResult, query: string): number {
+  const normalizedQuery = query.trim().toLowerCase()
+  const normalizedTitle = candidate.title.trim().toLowerCase()
+  const normalizedId = candidate.id.toLowerCase()
+  let score = 0
+  if (normalizedTitle === normalizedQuery) score += 10_000
+  else if (normalizedTitle.startsWith(normalizedQuery)) score += 2_000
+  else if (normalizedTitle.includes(normalizedQuery)) score += 1_000
+  if (normalizedId.endsWith(`/${normalizedQuery}`)) score += 500
+  score += Math.round((candidate.trustScore ?? 0) * 10)
+  score += Math.min(250, Math.log10((candidate.stars ?? 0) + 1) * 50)
+  return score
+}
+
 /**
  * Lists all available documentation projects from Context7
  * @returns Array of projects with their metadata, or null if the request fails
@@ -140,7 +160,7 @@ export async function fetchContext7LibraryDocumentation(
     logger: Logger
     fetch: typeof globalThis.fetch
   } & ParamsOf<typeof searchLibraries>,
-): Promise<string | null> {
+): Promise<Context7DocumentationResult | null> {
   const { query, tokens, topic, folders, logger, fetch } = params
 
   const apiStartTime = Date.now()
@@ -168,7 +188,14 @@ export async function fetchContext7LibraryDocumentation(
     return null
   }
 
-  const selectedLibrary = libraries[0]
+  const rankedLibraries = libraries
+    .map((library, originalIndex) => ({
+      library,
+      originalIndex,
+      score: rankLibraryCandidate(library, query),
+    }))
+    .sort((a, b) => b.score - a.score || a.originalIndex - b.originalIndex)
+  const selectedLibrary = rankedLibraries[0].library
   const libraryId = selectedLibrary.id
 
   logger.debug(
@@ -264,7 +291,11 @@ export async function fetchContext7LibraryDocumentation(
       'Documentation fetch completed successfully',
     )
 
-    return text
+    return {
+      documentation: text,
+      selectedLibrary,
+      alternatives: rankedLibraries.slice(1, 5).map(({ library }) => library),
+    }
   } catch (error) {
     const totalDuration = Date.now() - apiStartTime
     logger.error(

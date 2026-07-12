@@ -89,7 +89,9 @@ describe('new bundled agents (M2.6)', () => {
 
     test('instructions prompt says validation is parent-owned', () => {
       expect(testWriter.instructionsPrompt).toContain('parent/basher')
-      expect(testWriter.instructionsPrompt).toContain('Do not run terminal commands directly')
+      expect(testWriter.instructionsPrompt).toContain(
+        'Do not run terminal commands directly',
+      )
     })
   })
 

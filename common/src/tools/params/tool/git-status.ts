@@ -12,16 +12,22 @@ const inputSchema = z
       .boolean()
       .default(false)
       .optional()
-      .describe('When true, also return the unified diff of uncommitted changes.'),
+      .describe(
+        'When true, also return the unified diff of uncommitted changes.',
+      ),
     staged: z
       .boolean()
       .default(false)
       .optional()
-      .describe('When true with include_diff, returns the staged diff instead of unstaged.'),
+      .describe(
+        'When true with include_diff, returns the staged diff instead of unstaged.',
+      ),
     path: z
       .string()
       .optional()
-      .describe('Optional path to scope status/diff to (relative to project root).'),
+      .describe(
+        'Optional path to scope status/diff to (relative to project root).',
+      ),
     max_chars: z
       .number()
       .int()
@@ -29,9 +35,13 @@ const inputSchema = z
       .max(200_000)
       .default(40_000)
       .optional()
-      .describe('Maximum characters of diff output to return. Defaults to 40,000.'),
+      .describe(
+        'Maximum characters of diff output to return. Defaults to 40,000.',
+      ),
   })
-  .describe('Read-only git status and (optionally) diff for the current project.')
+  .describe(
+    'Read-only git status and (optionally) diff for the current project.',
+  )
 
 const description = `
 Read-only \`git status --short\` (and optionally \`git diff\`) for the current project. Use this when you need a quick "what changed" view without shelling out via run_terminal_command.

@@ -77,19 +77,19 @@ describe('gate-repair helpers — inline copies match canonical exports', () => 
     const failureInputs: string[][] = [
       // tsc with multiple errors in one hook output
       [
-        '- tsc failed (exit 1):\nsrc/foo.ts(12,5): error TS2322: Type \'string\' is not assignable to type \'number\'.\nsrc/foo.ts(28,10): error TS2304: Cannot find name \'bar\'.',
+        "- tsc failed (exit 1):\nsrc/foo.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.\nsrc/foo.ts(28,10): error TS2304: Cannot find name 'bar'.",
       ],
       // eslint with rule codes
       [
-        '- eslint failed (exit 1):\nsrc/bar.ts:10:5: no-unused-vars is defined but never used [eslint/no-unused-vars]\nsrc/bar.ts:20:3: unexpected token \'{\' [eslint/parse-error]',
+        "- eslint failed (exit 1):\nsrc/bar.ts:10:5: no-unused-vars is defined but never used [eslint/no-unused-vars]\nsrc/bar.ts:20:3: unexpected token '{' [eslint/parse-error]",
       ],
       // generic gcc-style: file:line: message (no column)
       [
-        '- gcc failed (exit 2):\nsrc/main.c:42: error: expected \';\' before \'}\' token',
+        "- gcc failed (exit 2):\nsrc/main.c:42: error: expected ';' before '}' token",
       ],
       // mixed: tsc error + a non-parseable raw line
       [
-        '- tsc failed (exit 1):\nsrc/a.ts(5,1): error TS1005: \'{\' expected.\nsome random non-diagnostic line that has no file:line pattern',
+        "- tsc failed (exit 1):\nsrc/a.ts(5,1): error TS1005: '{' expected.\nsome random non-diagnostic line that has no file:line pattern",
       ],
       // empty / malformed
       [''],
@@ -112,11 +112,36 @@ describe('gate-repair helpers — inline copies match canonical exports', () => 
     // pending-files-present shapes.
     const parsedInputs: ParsedValidationFailure[][] = [
       [],
-      [{ file: 'src/a.ts', line: 10, column: 5, message: 'error TS1', source: 'tsc' }],
       [
-        { file: 'src/a.ts', line: 10, column: 5, message: 'error TS1', source: 'tsc' },
-        { file: 'src/a.ts', line: 25, column: 1, message: 'error TS2', source: 'tsc' },
-        { file: 'src/b.ts', line: 3, message: 'eslint issue', source: 'eslint' },
+        {
+          file: 'src/a.ts',
+          line: 10,
+          column: 5,
+          message: 'error TS1',
+          source: 'tsc',
+        },
+      ],
+      [
+        {
+          file: 'src/a.ts',
+          line: 10,
+          column: 5,
+          message: 'error TS1',
+          source: 'tsc',
+        },
+        {
+          file: 'src/a.ts',
+          line: 25,
+          column: 1,
+          message: 'error TS2',
+          source: 'tsc',
+        },
+        {
+          file: 'src/b.ts',
+          line: 3,
+          message: 'eslint issue',
+          source: 'eslint',
+        },
         { file: '', message: 'unparseable raw output', source: 'unknown' },
       ],
       [{ file: '', message: 'only unparseable', source: 'gcc' }],
@@ -129,9 +154,9 @@ describe('gate-repair helpers — inline copies match canonical exports', () => 
 
     for (const parsed of parsedInputs) {
       for (const pendingFiles of pendingFilesCases) {
-        expect(inlineHelpers.buildRepairEditorPrompt(parsed, pendingFiles)).toBe(
-          buildRepairEditorPrompt(parsed, pendingFiles),
-        )
+        expect(
+          inlineHelpers.buildRepairEditorPrompt(parsed, pendingFiles),
+        ).toBe(buildRepairEditorPrompt(parsed, pendingFiles))
       }
     }
   })

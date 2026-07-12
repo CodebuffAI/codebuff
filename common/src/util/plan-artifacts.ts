@@ -242,7 +242,9 @@ export function readPlanState(
  */
 export function writePlanState(
   slug: string,
-  patch: Partial<Omit<PlanSessionState, 'schemaVersion' | 'slug' | 'createdAt'>>,
+  patch: Partial<
+    Omit<PlanSessionState, 'schemaVersion' | 'slug' | 'createdAt'>
+  >,
   projectRoot?: string,
 ): PlanSessionState | null {
   const sessionDir = resolveSessionDir(slug, projectRoot)
@@ -255,9 +257,10 @@ export function writePlanState(
     schemaVersion: 1,
     slug,
     status: patch.status ?? existing?.status ?? 'active',
-    currentTask: patch.currentTask !== undefined
-      ? patch.currentTask
-      : existing?.currentTask ?? null,
+    currentTask:
+      patch.currentTask !== undefined
+        ? patch.currentTask
+        : (existing?.currentTask ?? null),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
@@ -316,7 +319,11 @@ function normalizePlanState(
 export function readActiveSessionPointer(): string | null {
   const root = safeProjectRoot()
   if (!root) return null
-  const pointerPath = path.join(root, '.agents', ACTIVE_SESSION_POINTER_FILENAME)
+  const pointerPath = path.join(
+    root,
+    '.agents',
+    ACTIVE_SESSION_POINTER_FILENAME,
+  )
   if (!fs.existsSync(pointerPath)) return null
   try {
     const raw = fs.readFileSync(pointerPath, 'utf8').trim()
@@ -554,7 +561,10 @@ function normalizePlanEvent(parsed: unknown): PlanEvent | null {
   if (typeof parsed !== 'object' || parsed === null) return null
   const obj = parsed as Record<string, unknown>
   const kind = obj.kind
-  if (typeof kind !== 'string' || !PLAN_EVENT_KINDS.includes(kind as PlanEventKind)) {
+  if (
+    typeof kind !== 'string' ||
+    !PLAN_EVENT_KINDS.includes(kind as PlanEventKind)
+  ) {
     return null
   }
   if (typeof obj.ts !== 'string' || typeof obj.summary !== 'string') {

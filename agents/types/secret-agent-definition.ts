@@ -10,8 +10,10 @@ export type AllToolNames =
   | 'spawn_agent_inline'
   | 'update_subgoal'
 
-export interface SecretAgentDefinition
-  extends Omit<AgentDefinition, 'toolNames'> {
+export interface SecretAgentDefinition extends Omit<
+  AgentDefinition,
+  'toolNames'
+> {
   /** Tools this agent can use. */
   toolNames?: AllToolNames[]
 }
@@ -20,7 +22,10 @@ export interface SecretAgentDefinition
 // Placeholders (re-exported from @codebuff/agent-runtime/templates/types)
 // ============================================================================
 
-export { PLACEHOLDER, placeholderValues } from '@codebuff/agent-runtime/templates/types'
+export {
+  PLACEHOLDER,
+  placeholderValues,
+} from '@codebuff/agent-runtime/templates/types'
 export type { PlaceholderValue } from '@codebuff/agent-runtime/templates/types'
 
 // ============================================================================

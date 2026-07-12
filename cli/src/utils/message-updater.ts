@@ -57,7 +57,7 @@ export const createMessageUpdater = (
   const markComplete = (metadata?: Partial<ChatMessage>) => {
     updateAiMessage((msg) => {
       const { metadata: messageMetadata, ...rest } = metadata ?? {}
-      
+
       // Mark native reasoning blocks as complete by setting thinkingOpen = false
       // This ensures thinking blocks auto-collapse when the message finishes
       // Check for thinkingOpen !== false to handle both true (native) and undefined (legacy)
@@ -71,7 +71,7 @@ export const createMessageUpdater = (
         }
         return block
       })
-      
+
       const nextMessage: ChatMessage = {
         ...msg,
         isComplete: true,
@@ -200,7 +200,7 @@ export const createBatchedMessageUpdater = (
       prev.map((msg) => {
         if (msg.id !== aiMessageId) return msg
         const { metadata: messageMetadata, ...rest } = metadata ?? {}
-        
+
         // Mark native reasoning blocks as complete by setting thinkingOpen = false
         // This ensures thinking blocks auto-collapse when the message finishes
         // Check for thinkingOpen !== false to handle both true (native) and undefined (legacy)
@@ -214,7 +214,7 @@ export const createBatchedMessageUpdater = (
           }
           return block
         })
-        
+
         const nextMessage: ChatMessage = {
           ...msg,
           isComplete: true,

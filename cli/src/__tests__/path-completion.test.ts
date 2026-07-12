@@ -60,9 +60,7 @@ describe('getPathCompletion', () => {
 
       // Path ending with / means "complete inside this directory"
       const result = getPathCompletion(path.join(tempDir, 'subdir') + path.sep)
-      expect(result).toBe(
-        path.join(tempDir, 'subdir', 'nested') + path.sep,
-      )
+      expect(result).toBe(path.join(tempDir, 'subdir', 'nested') + path.sep)
     })
   })
 
@@ -202,7 +200,9 @@ describe('getPathCompletion', () => {
       mkdirSync(path.join(tempDir, 'a', 'b', 'c', 'target'))
 
       const result = getPathCompletion(path.join(tempDir, 'a', 'b', 'c', 'tar'))
-      expect(result).toBe(path.join(tempDir, 'a', 'b', 'c', 'target') + path.sep)
+      expect(result).toBe(
+        path.join(tempDir, 'a', 'b', 'c', 'target') + path.sep,
+      )
     })
 
     test('handles paths with spaces in directory names', () => {

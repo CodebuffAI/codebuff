@@ -103,15 +103,16 @@ export async function mainPrompt(
 
     agentType = agentId
   } else {
-    agentType = (
-      {
-        ask: AgentTemplateTypes.ask,
-        lite: AgentTemplateTypes.base_free,
-        normal: AgentTemplateTypes.base,
-        max: AgentTemplateTypes.base_max,
-        experimental: 'base2',
-      } satisfies Record<CostMode, AgentTemplateType>
-    )[costMode ?? 'normal'] ?? 'base2'
+    agentType =
+      (
+        {
+          ask: AgentTemplateTypes.ask,
+          lite: AgentTemplateTypes.base_free,
+          normal: AgentTemplateTypes.base,
+          max: AgentTemplateTypes.base_max,
+          experimental: 'base2',
+        } satisfies Record<CostMode, AgentTemplateType>
+      )[costMode ?? 'normal'] ?? 'base2'
   }
 
   // Clear the session-cached system prompt when the agent type changes so
@@ -201,13 +202,18 @@ export async function callMainPrompt(
     assembleLocalAgentTemplates({ fileContext, logger })
 
   if (validationErrors.length > 0) {
+    const message = `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`
     sendAction({
       action: {
         type: 'prompt-error',
-        message: `Invalid agent config: ${validationErrors.map((err) => err.message).join('\n')}`,
+        message,
         userInputId: promptId,
       },
     })
+    return {
+      sessionState: action.sessionState,
+      output: { type: 'error' as const, message },
+    }
   }
 
   sendAction({

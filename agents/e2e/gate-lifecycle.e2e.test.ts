@@ -2,12 +2,18 @@ import { describe, expect, test } from 'bun:test'
 
 import { createBase2 } from '../base2/base2'
 
-function parseGateStateBlock(
-  text: string,
-): { gate: string; status: string; details: string } {
+function parseGateStateBlock(text: string): {
+  gate: string
+  status: string
+  details: string
+} {
   const match = text.match(/<gate-state>([\s\S]*?)<\/gate-state>/)
   expect(match).not.toBeNull()
-  return JSON.parse(match![1]) as { gate: string; status: string; details: string }
+  return JSON.parse(match![1]) as {
+    gate: string
+    status: string
+    details: string
+  }
 }
 
 function feedJson(value: unknown) {
@@ -54,7 +60,9 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     expect(
       gen.next(finishStepWithToolResult({ file: 'src/lifecycle.ts' })).value,
     ).toMatchObject({ toolName: 'git_status', input: {} })
-    expect(gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'run_file_change_hooks',
       input: { files: ['src/lifecycle.ts'] },
     })
@@ -73,7 +81,8 @@ describe('base2 deterministic gate lifecycle e2e', () => {
       toolName: 'add_message',
       input: { role: 'user' },
     })
-    const validationFailureText = (validationFailed.value as any).input.content as string
+    const validationFailureText = (validationFailed.value as any).input
+      .content as string
     expect(validationFailureText).toContain('Verification gate')
     expect(validationFailureText).toContain('TS2322')
     expect(parseGateStateBlock(validationFailureText)).toMatchObject({
@@ -96,7 +105,9 @@ describe('base2 deterministic gate lifecycle e2e', () => {
       input: { agent_type: 'context-pruner' },
     })
     const validationPinnedState = gen.next()
-    expect(validationPinnedState.value).toMatchObject({ toolName: 'add_message' })
+    expect(validationPinnedState.value).toMatchObject({
+      toolName: 'add_message',
+    })
     expect((validationPinnedState.value as any).input.content).toContain(
       'Current phase: blocked',
     )
@@ -111,14 +122,15 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     ).toMatchObject({ toolName: 'git_status' })
 
     // Invariant 6: passing validation advances to reviewer instead of finalizing.
-    expect(gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'run_file_change_hooks',
       input: { files: ['src/lifecycle.ts'] },
     })
     expect(
-      gen.next(
-        feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]),
-      ).value,
+      gen.next(feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]))
+        .value,
     ).toMatchObject({
       toolName: 'spawn_agents',
       input: { agents: [{ agent_type: 'code-reviewer' }] },
@@ -165,14 +177,15 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     ).toMatchObject({ toolName: 'git_status' })
 
     // Invariant 10: validation passes after the reviewer fix.
-    expect(gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'run_file_change_hooks',
       input: { files: ['src/lifecycle.ts'] },
     })
     expect(
-      gen.next(
-        feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]),
-      ).value,
+      gen.next(feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]))
+        .value,
     ).toMatchObject({
       toolName: 'spawn_agents',
       input: { agents: [{ agent_type: 'code-reviewer' }] },

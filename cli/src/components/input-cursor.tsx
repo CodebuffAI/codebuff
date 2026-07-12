@@ -19,7 +19,7 @@ export const InputCursor: React.FC<InputCursorProps> = ({
   char = '▍',
   color,
   blinkDelay = 500,
-  blinkInterval = 500,  // Faster blinking
+  blinkInterval = 500, // Faster blinking
   bold = true,
 }) => {
   // false = normal/visible, true = invisible

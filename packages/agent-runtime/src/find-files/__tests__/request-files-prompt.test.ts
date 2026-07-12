@@ -56,7 +56,9 @@ describe('requestRelevantFiles', () => {
   beforeEach(() => {
     agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
-      promptAiSdk: mock(() => Promise.resolve(promptSuccess('file1.ts\nfile2.ts'))),
+      promptAiSdk: mock(() =>
+        Promise.resolve(promptSuccess('file1.ts\nfile2.ts')),
+      ),
     }
   })
 

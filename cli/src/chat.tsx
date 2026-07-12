@@ -44,7 +44,10 @@ import { useEvent } from './hooks/use-event'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSendMessage } from './hooks/use-send-message'
-import { useSuggestionEngine } from './hooks/use-suggestion-engine'
+import {
+  getMentionSuggestionStatus,
+  useSuggestionEngine,
+} from './hooks/use-suggestion-engine'
 import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
@@ -74,6 +77,7 @@ import { logger } from './utils/logger'
 import {
   addClipboardPlaceholder,
   addPendingFileFromPath,
+  addPendingFileMention,
   addPendingImageFromFile,
   validateAndAddImage,
 } from './utils/pending-attachments'
@@ -92,8 +96,6 @@ import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import { AGENT_MODE_TO_ID, type AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
-
-
 
 export const Chat = ({
   headerContent,
@@ -135,7 +137,6 @@ export const Chat = ({
 
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
-
 
   // Get chat state from extracted hook
   const {
@@ -232,6 +233,8 @@ export const Chat = ({
     slashSuggestionItems,
     agentSuggestionItems,
     fileSuggestionItems,
+    fileSuggestionStatus,
+    retryFileSuggestions,
   } = useSuggestionEngine({
     disableAgentSuggestions: forceFileOnlyMentions || inputMode !== 'default',
     inputValue: inputMode === 'bash' ? '' : inputValue,
@@ -259,7 +262,12 @@ export const Chat = ({
       })
     }
     prevSlashActiveRef.current = slashContext.active
-  }, [slashContext.active, slashContext.query, slashMatches.length, inputValue.length])
+  }, [
+    slashContext.active,
+    slashContext.query,
+    slashMatches.length,
+    inputValue.length,
+  ])
 
   // Reset suggestion menu indexes when context changes
   useEffect(() => {
@@ -328,11 +336,8 @@ export const Chat = ({
     setForceFileOnlyMentions(true)
   }, [cursorPosition, inputValue, setInputValue])
 
-  const { saveToHistory, navigateUp, navigateDown, resetHistoryNavigation } = useInputHistory(
-    inputValue,
-    setInputValue,
-    { inputMode, setInputMode },
-  )
+  const { saveToHistory, navigateUp, navigateDown, resetHistoryNavigation } =
+    useInputHistory(inputValue, setInputValue, { inputMode, setInputMode })
 
   // Use extracted streaming hook for connection, timer, queue, and exit handling
   const {
@@ -460,8 +465,7 @@ export const Chat = ({
     onBeforeMessageSend: validateAgents,
     mainAgentTimer,
     scrollToLatest,
-    onTotalCost: (costCents) =>
-      setSessionCostCents((prev) => prev + costCents),
+    onTotalCost: (costCents) => setSessionCostCents((prev) => prev + costCents),
     onTimerEvent: () => {},
     isQueuePausedRef,
     isProcessingQueueRef,
@@ -553,7 +557,10 @@ export const Chat = ({
         }
 
         // Restore attachments if they were preserved and none have been added since
-        if (preservedAttachments && useChatStore.getState().pendingAttachments.length === 0) {
+        if (
+          preservedAttachments &&
+          useChatStore.getState().pendingAttachments.length === 0
+        ) {
           useChatStore.setState((state) => {
             state.pendingAttachments = preservedAttachments
           })
@@ -630,6 +637,11 @@ export const Chat = ({
         const fileIndex = index - agentMatches.length
         const selectedFile = fileMatches[fileIndex]
         if (!selectedFile) return
+        addPendingFileMention(
+          selectedFile.filePath,
+          selectedFile.isDirectory,
+          getProjectRoot(),
+        )
         replacement = `@${selectedFile.filePath} `
       }
       const before = inputValue.slice(0, mentionContext.startIndex)
@@ -891,7 +903,12 @@ export const Chat = ({
     })
     setInputFocused(true)
     resetHistoryNavigation()
-  }, [restoreSavedInput, setInputValue, setInputFocused, resetHistoryNavigation])
+  }, [
+    restoreSavedInput,
+    setInputValue,
+    setInputFocused,
+    resetHistoryNavigation,
+  ])
 
   const handleCloseFeedback = useCallback(() => {
     closeFeedback()
@@ -912,10 +929,18 @@ export const Chat = ({
         .then((result) => handleCommandResult(result))
         .catch((error) => {
           logger.error({ error }, '[review] Failed to submit review prompt')
-          showClipboardMessage('Failed to send review request', { durationMs: 3000 })
+          showClipboardMessage('Failed to send review request', {
+            durationMs: 3000,
+          })
         })
     },
-    [closeReviewScreen, setInputFocused, onSubmitPrompt, agentMode, handleCommandResult],
+    [
+      closeReviewScreen,
+      setInputFocused,
+      onSubmitPrompt,
+      agentMode,
+      handleCommandResult,
+    ],
   )
 
   const handleCloseReviewScreen = useCallback(() => {
@@ -1104,10 +1129,12 @@ export const Chat = ({
       onMentionMenuUp: () => setAgentSelectedIndex((prev) => prev - 1),
       onMentionMenuTab: () => {
         const totalMatches = agentMatches.length + fileMatches.length
+        if (totalMatches === 0) return
         setAgentSelectedIndex((prev) => (prev + 1) % totalMatches)
       },
       onMentionMenuShiftTab: () => {
         const totalMatches = agentMatches.length + fileMatches.length
+        if (totalMatches === 0) return
         setAgentSelectedIndex(
           (prev) => (totalMatches + prev - 1) % totalMatches,
         )
@@ -1125,6 +1152,11 @@ export const Chat = ({
             const fileIndex = index - agentMatches.length
             const selectedFile = fileMatches[fileIndex]
             if (!selectedFile) return false
+            addPendingFileMention(
+              selectedFile.filePath,
+              selectedFile.isDirectory,
+              getProjectRoot(),
+            )
             replacement = `@${selectedFile.filePath} `
           }
           const before = inputValue.slice(0, mentionContext.startIndex)
@@ -1150,13 +1182,24 @@ export const Chat = ({
         let replacement: string
         const index = agentSelectedIndex
         if (index < agentMatches.length) {
-          const selected = agentMatches.length > 0 ? (agentMatches[index] || agentMatches[0]) : undefined
+          const selected =
+            agentMatches.length > 0
+              ? agentMatches[index] || agentMatches[0]
+              : undefined
           if (!selected) return
           replacement = `@${selected.id} `
         } else {
           const fileIndex = index - agentMatches.length
-          const selectedFile = fileMatches.length > 0 ? (fileMatches[fileIndex] || fileMatches[0]) : undefined
+          const selectedFile =
+            fileMatches.length > 0
+              ? fileMatches[fileIndex] || fileMatches[0]
+              : undefined
           if (!selectedFile) return
+          addPendingFileMention(
+            selectedFile.filePath,
+            selectedFile.isDirectory,
+            getProjectRoot(),
+          )
           replacement = `@${selectedFile.filePath} `
         }
         const before = inputValue.slice(0, mentionContext.startIndex)
@@ -1217,7 +1260,7 @@ export const Chat = ({
             (error) => {
               logger.error({ error }, 'Failed to add pending image from file')
               showClipboardMessage('Failed to add image', { durationMs: 3000 })
-            }
+            },
           )
         }, 0)
       },
@@ -1299,6 +1342,8 @@ export const Chat = ({
     disabled:
       askUserState !== null ||
       reviewMode ||
+      commandPaletteOpen ||
+      promptHistoryOpen ||
       modelRoutePickerOpen ||
       providerPickerOpen ||
       planSessionPickerCommand !== null,
@@ -1361,8 +1406,16 @@ export const Chat = ({
   const hasMentionSuggestions =
     !slashContext.active &&
     mentionContext.active &&
-    (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
+    (agentSuggestionItems.length > 0 ||
+      fileSuggestionItems.length > 0 ||
+      fileSuggestionStatus !== 'idle')
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
+  const mentionSuggestionState = getMentionSuggestionStatus({
+    active: mentionContext.active,
+    fileStatus: fileSuggestionStatus,
+    agentMatchCount: agentSuggestionItems.length,
+    fileMatchCount: fileSuggestionItems.length,
+  })
 
   const inputLayoutMetrics = useMemo(() => {
     // In bash mode, layout is based on the actual input (no ! prefix needed)
@@ -1437,9 +1490,8 @@ export const Chat = ({
           message = setupOpenbuffProviderFromArgs(selection.preset)
         } else if (selection.type === 'connect-codex') {
           const setupMessage = setupOpenbuffProviderFromArgs('codex')
-          const connectResult = await handleOpenbuffProviderCommand(
-            'connect codex',
-          )
+          const connectResult =
+            await handleOpenbuffProviderCommand('connect codex')
           message = `${setupMessage}\n\n${connectResult.message}`
           if (connectResult.connectCodex) {
             setInputMode('connect:chatgpt')
@@ -1515,8 +1567,9 @@ export const Chat = ({
           const result = await onSubmitPrompt(commandString, agentMode)
           handleCommandResult(result)
         }}
-        onSelectFile={(filePath) => {
+        onSelectFile={(filePath, isDirectory) => {
           setCommandPaletteOpen(false)
+          addPendingFileMention(filePath, isDirectory, getProjectRoot())
           setInputValue((prev) => ({
             text:
               prev.text.slice(0, prev.cursorPosition) +
@@ -1690,6 +1743,11 @@ export const Chat = ({
             agentSelectedIndex={agentSelectedIndex}
             onSlashItemClick={handleSlashItemClick}
             onMentionItemClick={handleMentionItemClick}
+            mentionSuggestionStatus={mentionSuggestionState.message}
+            mentionSuggestionStatusIsError={mentionSuggestionState.isError}
+            onRetryMentionSuggestions={
+              mentionSuggestionState.canRetry ? retryFileSuggestions : undefined
+            }
             theme={theme}
             terminalHeight={terminalHeight}
             separatorWidth={separatorWidth}

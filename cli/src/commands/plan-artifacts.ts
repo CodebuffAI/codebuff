@@ -82,7 +82,10 @@ function readCurrentTaskForSession(absSessionDir: string): string | null {
  * normalization rules live in one place (`common/src/util/plan-artifacts.ts`)
  * and stay in lockstep with the runtime handler.
  */
-function readStateForSession(absSessionDir: string, slug: string): PlanSessionState {
+function readStateForSession(
+  absSessionDir: string,
+  slug: string,
+): PlanSessionState {
   const state = !fs.existsSync(absSessionDir) ? null : readPlanState(slug)
   if (state) return state
   const now = new Date().toISOString()
@@ -155,14 +158,14 @@ export function resolvePlanSessionDir(input: string): ResolveResult {
     ? projectRoot
     : projectRoot + path.sep
   if (abs !== projectRoot && !abs.startsWith(rootWithSep)) {
-    return { ok: false, error: 'Resolved session path escapes the project root.' }
+    return {
+      ok: false,
+      error: 'Resolved session path escapes the project root.',
+    }
   }
 
   // Use forward slashes for the project-relative display form.
-  const sessionDir = path
-    .relative(projectRoot, abs)
-    .split(path.sep)
-    .join('/')
+  const sessionDir = path.relative(projectRoot, abs).split(path.sep).join('/')
 
   return { ok: true, sessionDir, absSessionDir: abs }
 }
@@ -189,7 +192,8 @@ export function readPlanArtifacts(input: string): PlanArtifacts | null {
       if (raw.length > MAX_ARTIFACT_BYTES) {
         const head = raw.slice(0, MAX_ARTIFACT_BYTES)
         const dropped = raw.length - head.length
-        files[name] = `${head}\n\n[...truncated ${dropped} chars to keep prompt bounded; read the file directly for full contents...]`
+        files[name] =
+          `${head}\n\n[...truncated ${dropped} chars to keep prompt bounded; read the file directly for full contents...]`
         truncated.push(name)
       } else {
         files[name] = raw
@@ -292,7 +296,10 @@ export function listPlanSessions(): PlanSessionSummary[] {
       }
       return summary
     })
-    .filter((session): session is PlanSessionSummary & { mtimeMs: number } => session !== null)
+    .filter(
+      (session): session is PlanSessionSummary & { mtimeMs: number } =>
+        session !== null,
+    )
     .sort((a, b) => b.mtimeMs - a.mtimeMs || a.slug.localeCompare(b.slug))
     .map((session): PlanSessionSummary => {
       const { mtimeMs: _mtimeMs, ...rest } = session

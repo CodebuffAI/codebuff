@@ -72,10 +72,7 @@ function loadInlineGateReviewerHelpers(): GateReviewerHelpers {
   )
   const transpiler = new Bun.Transpiler({ loader: 'ts' })
   const base2JavaScript = transpiler.transformSync(base2Source)
-  const helperSource = [
-    ...INLINE_HELPER_NAMES,
-    ...INLINE_DEPENDENCY_NAMES,
-  ]
+  const helperSource = [...INLINE_HELPER_NAMES, ...INLINE_DEPENDENCY_NAMES]
     .map((functionName) =>
       extractInlineFunctionSource(base2JavaScript, functionName),
     )
@@ -167,7 +164,11 @@ describe('gate-reviewer helpers', () => {
       collectReviewerBlockers({
         type: 'json',
         value: [
-          { verdict: 'NON_BLOCKING', findings: ['minor nit'], coverage: 'missing' },
+          {
+            verdict: 'NON_BLOCKING',
+            findings: ['minor nit'],
+            coverage: 'missing',
+          },
         ],
       }),
     ).toEqual([
@@ -223,9 +224,9 @@ describe('gate-reviewer helpers', () => {
     expect(detectReviewerCrash({ errorMessage: '  spawn failed  ' })).toBe(
       'spawn failed',
     )
-    expect(
-      detectReviewerCrash({ type: 'error', message: '  boom  ' }),
-    ).toBe('boom')
+    expect(detectReviewerCrash({ type: 'error', message: '  boom  ' })).toBe(
+      'boom',
+    )
     expect(detectReviewerCrash({ type: 'error', message: '' })).toBe(
       'reviewer agent reported an unspecified error',
     )
@@ -390,7 +391,9 @@ describe('gate-reviewer helpers', () => {
       ),
     ).toBe('')
     expect(
-      getReviewerFinalizationVerdict('LOOKS_GOOD: handled by existing line-verdict path'),
+      getReviewerFinalizationVerdict(
+        'LOOKS_GOOD: handled by existing line-verdict path',
+      ),
     ).toBe('LOOKS_GOOD')
   })
 

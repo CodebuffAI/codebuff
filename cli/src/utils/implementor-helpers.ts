@@ -3,19 +3,13 @@ import type {
   ContentBlock,
   ToolContentBlock,
 } from '../types/chat'
+import { getToolMetadata } from '@codebuff/common/tools/metadata'
+import {
+  getCanonicalMutationPrimaryAction,
+  getCanonicalMutationResult,
+} from './tool-result-normalizer'
 
 export const IMPLEMENTOR_AGENT_IDS = ['editor-implementor'] as const
-
-/** All edit tool names (both direct and proposed variants) */
-const ALL_EDIT_TOOL_NAMES = [
-  'str_replace',
-  'replace_range',
-  'write_file',
-  'propose_str_replace',
-  'propose_write_file',
-  'edit_transaction',
-  'propose_edit_transaction',
-] as const
 
 /** Transaction tool names that return a multi-file `{ files: [...] }` result. */
 const TRANSACTION_TOOL_NAMES = [
@@ -74,13 +68,23 @@ function extractTransactionFiles(
 const isProposedToolName = (toolName: ToolContentBlock['toolName']): boolean =>
   typeof toolName === 'string' && toolName.startsWith('propose_')
 
+const isEditOrProposalToolName = (
+  toolName: ToolContentBlock['toolName'],
+): boolean => {
+  const kind = getToolMetadata(toolName).kind
+  return kind === 'mutation' || kind === 'proposal'
+}
+
 /** Whether a content block is an edit tool block (direct or proposed). */
 export function isEditToolBlock(block: ContentBlock): boolean {
   return (
-    block.type === 'tool' &&
-    ALL_EDIT_TOOL_NAMES.includes(
-      block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
-    )
+    block.type === 'tool' && getToolMetadata(block.toolName).kind === 'mutation'
+  )
+}
+
+export function isProposalToolBlock(block: ContentBlock): boolean {
+  return (
+    block.type === 'tool' && getToolMetadata(block.toolName).kind === 'proposal'
   )
 }
 
@@ -223,8 +227,6 @@ function parseUnifiedDiffsString(
   return entries
 }
 
-
-
 /**
  * Synthesize edit tool blocks from a proposal/implementor agent's structured
  * output (`{ toolCalls, toolResults, unifiedDiffs }`).
@@ -314,8 +316,6 @@ export function synthesizeProposalToolBlocks(
 
   return blocks
 }
-
-
 
 function normalizeTransactionResultForRendering(
   result: Record<string, unknown>,
@@ -587,6 +587,13 @@ export function extractValueForKey(output: string, key: string): string | null {
  * Extract file path from tool block.
  */
 function extractFilePathFromOutputRaw(outputRaw: unknown): string | null {
+  const canonicalAction = getCanonicalMutationPrimaryAction(outputRaw)
+  if (canonicalAction) {
+    if (typeof canonicalAction.destinationPath === 'string') {
+      return canonicalAction.destinationPath
+    }
+    if (typeof canonicalAction.path === 'string') return canonicalAction.path
+  }
   const value =
     Array.isArray(outputRaw) && outputRaw[0]?.value
       ? (outputRaw[0].value as Record<string, unknown>)
@@ -619,6 +626,12 @@ export function extractFilePath(toolBlock: ToolContentBlock): string | null {
  */
 export function extractDiff(toolBlock: ToolContentBlock): string | null {
   let hasSuccessfulOutput = false
+  const canonicalMutation = getCanonicalMutationResult(toolBlock.outputRaw)
+  const canonicalAction = getCanonicalMutationPrimaryAction(toolBlock.outputRaw)
+  if (canonicalMutation) {
+    if (typeof canonicalAction?.patch === 'string') return canonicalAction.patch
+    hasSuccessfulOutput = canonicalMutation.outcome === 'applied'
+  }
 
   // First try to get from outputRaw (for executed tool results)
   // outputRaw is typically an array like [{type: "json", value: {unifiedDiff: "..."}}]
@@ -830,6 +843,8 @@ function constructDiffFromWriteFile(content: string): string {
  * Check if a tool is a "create new file" operation.
  */
 export function isCreateFile(toolBlock: ToolContentBlock): boolean {
+  const canonicalAction = getCanonicalMutationPrimaryAction(toolBlock.outputRaw)
+  if (canonicalAction?.action === 'create') return true
   const outputStr = typeof toolBlock.output === 'string' ? toolBlock.output : ''
   const outputRaw = toolBlock.outputRaw as unknown
   const outputRawValue =
@@ -987,12 +1002,7 @@ export function getFileStatsFromBlocks(
   }
 
   for (const block of blocks) {
-    if (
-      block.type === 'tool' &&
-      ALL_EDIT_TOOL_NAMES.includes(
-        block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
-      )
-    ) {
+    if (block.type === 'tool' && isEditOrProposalToolName(block.toolName)) {
       // Transaction tools change multiple files in one tool call; expand the
       // result's files array into per-file stats so the card shows real diffs
       // instead of "no changes". A failed/no-files transaction yields no
@@ -1037,9 +1047,7 @@ export function buildActivityTimeline(
       }
     } else if (
       block.type === 'tool' &&
-      ALL_EDIT_TOOL_NAMES.includes(
-        block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
-      )
+      isEditOrProposalToolName(block.toolName)
     ) {
       // Transaction tools change multiple files in one call; emit one timeline
       // edit per changed file so each file's diff is viewable. Checked before

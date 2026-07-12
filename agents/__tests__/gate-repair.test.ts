@@ -8,7 +8,7 @@ import {
 describe('parseValidationFailures', () => {
   test('parses tsc diagnostic format: file(line,col): error TSxxxx: message', () => {
     const failures = [
-      '- tsc failed (exit 1):\nsrc/foo.ts(12,5): error TS2322: Type \'string\' is not assignable to type \'number\'.\nsrc/foo.ts(28,10): error TS2304: Cannot find name \'bar\'.',
+      "- tsc failed (exit 1):\nsrc/foo.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.\nsrc/foo.ts(28,10): error TS2304: Cannot find name 'bar'.",
     ]
     const result = parseValidationFailures(failures)
     expect(result).toEqual([
@@ -16,14 +16,15 @@ describe('parseValidationFailures', () => {
         file: 'src/foo.ts',
         line: 12,
         column: 5,
-        message: 'error: TS2322: Type \'string\' is not assignable to type \'number\'.',
+        message:
+          "error: TS2322: Type 'string' is not assignable to type 'number'.",
         source: 'tsc',
       },
       {
         file: 'src/foo.ts',
         line: 28,
         column: 10,
-        message: 'error: TS2304: Cannot find name \'bar\'.',
+        message: "error: TS2304: Cannot find name 'bar'.",
         source: 'tsc',
       },
     ])
@@ -31,7 +32,7 @@ describe('parseValidationFailures', () => {
 
   test('parses tsc warning severity', () => {
     const failures = [
-      '- tsc failed (exit 1):\nsrc/a.ts(3,1): warning TS6133: \'x\' is declared but its value is never read.',
+      "- tsc failed (exit 1):\nsrc/a.ts(3,1): warning TS6133: 'x' is declared but its value is never read.",
     ]
     const result = parseValidationFailures(failures)
     expect(result).toEqual([
@@ -39,7 +40,8 @@ describe('parseValidationFailures', () => {
         file: 'src/a.ts',
         line: 3,
         column: 1,
-        message: 'warning: TS6133: \'x\' is declared but its value is never read.',
+        message:
+          "warning: TS6133: 'x' is declared but its value is never read.",
         source: 'tsc',
       },
     ])
@@ -47,7 +49,7 @@ describe('parseValidationFailures', () => {
 
   test('parses eslint unix format: file:line:col: message', () => {
     const failures = [
-      '- eslint failed (exit 1):\nsrc/bar.ts:10:5: no-unused-vars is defined but never used [eslint/no-unused-vars]\nsrc/bar.ts:20:3: unexpected token \'{\' [eslint/parse-error]',
+      "- eslint failed (exit 1):\nsrc/bar.ts:10:5: no-unused-vars is defined but never used [eslint/no-unused-vars]\nsrc/bar.ts:20:3: unexpected token '{' [eslint/parse-error]",
     ]
     const result = parseValidationFailures(failures)
     expect(result).toEqual([
@@ -55,14 +57,15 @@ describe('parseValidationFailures', () => {
         file: 'src/bar.ts',
         line: 10,
         column: 5,
-        message: 'no-unused-vars is defined but never used [eslint/no-unused-vars]',
+        message:
+          'no-unused-vars is defined but never used [eslint/no-unused-vars]',
         source: 'eslint',
       },
       {
         file: 'src/bar.ts',
         line: 20,
         column: 3,
-        message: 'unexpected token \'{\' [eslint/parse-error]',
+        message: "unexpected token '{' [eslint/parse-error]",
         source: 'eslint',
       },
     ])
@@ -70,7 +73,7 @@ describe('parseValidationFailures', () => {
 
   test('parses gcc format: file:line: message (no column)', () => {
     const failures = [
-      '- gcc failed (exit 2):\nsrc/main.c:42: error: expected \';\' before \'}\' token\nsrc/main.c:88: warning: unused variable \'x\'',
+      "- gcc failed (exit 2):\nsrc/main.c:42: error: expected ';' before '}' token\nsrc/main.c:88: warning: unused variable 'x'",
     ]
     const result = parseValidationFailures(failures)
     expect(result).toEqual([
@@ -78,14 +81,14 @@ describe('parseValidationFailures', () => {
         file: 'src/main.c',
         line: 42,
         column: undefined,
-        message: 'error: expected \';\' before \'}\' token',
+        message: "error: expected ';' before '}' token",
         source: 'gcc',
       },
       {
         file: 'src/main.c',
         line: 88,
         column: undefined,
-        message: 'warning: unused variable \'x\'',
+        message: "warning: unused variable 'x'",
         source: 'gcc',
       },
     ])
@@ -126,7 +129,7 @@ describe('parseValidationFailures', () => {
 
   test('mixed parseable and unparseable lines in one body', () => {
     const failures = [
-      '- tsc failed (exit 1):\nsrc/a.ts(5,1): error TS1005: \'{\' expected.\nSome random build step note that has no location.',
+      "- tsc failed (exit 1):\nsrc/a.ts(5,1): error TS1005: '{' expected.\nSome random build step note that has no location.",
     ]
     const result = parseValidationFailures(failures)
     // The parseable line wins (tscRe matches first), so the unparseable note
@@ -136,7 +139,7 @@ describe('parseValidationFailures', () => {
         file: 'src/a.ts',
         line: 5,
         column: 1,
-        message: 'error: TS1005: \'{\' expected.',
+        message: "error: TS1005: '{' expected.",
         source: 'tsc',
       },
     ])
@@ -163,9 +166,27 @@ describe('parseValidationFailures', () => {
 describe('buildRepairEditorPrompt', () => {
   test('groups failures by file', () => {
     const parsed = [
-      { file: 'src/a.ts', line: 10, column: 5, message: 'error TS1', source: 'tsc' },
-      { file: 'src/a.ts', line: 25, column: 1, message: 'error TS2', source: 'tsc' },
-      { file: 'src/b.ts', line: 3, column: undefined, message: 'eslint issue', source: 'eslint' },
+      {
+        file: 'src/a.ts',
+        line: 10,
+        column: 5,
+        message: 'error TS1',
+        source: 'tsc',
+      },
+      {
+        file: 'src/a.ts',
+        line: 25,
+        column: 1,
+        message: 'error TS2',
+        source: 'tsc',
+      },
+      {
+        file: 'src/b.ts',
+        line: 3,
+        column: undefined,
+        message: 'eslint issue',
+        source: 'eslint',
+      },
     ]
     const prompt = buildRepairEditorPrompt(parsed, [])
     expect(prompt).toContain('Failing locations (file:line:column — message):')
@@ -204,7 +225,13 @@ describe('buildRepairEditorPrompt', () => {
 
   test('renders line-only location (no column) with just the line number', () => {
     const parsed = [
-      { file: 'src/c.ts', line: 42, column: undefined, message: 'gcc error', source: 'gcc' },
+      {
+        file: 'src/c.ts',
+        line: 42,
+        column: undefined,
+        message: 'gcc error',
+        source: 'gcc',
+      },
     ]
     const prompt = buildRepairEditorPrompt(parsed, [])
     expect(prompt).toContain('    42 — [gcc] gcc error')

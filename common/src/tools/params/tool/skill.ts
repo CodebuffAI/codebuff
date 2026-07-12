@@ -9,10 +9,7 @@ const endsAgentStep = true
 
 const inputSchema = z
   .object({
-    name: z
-      .string()
-      .min(1)
-      .describe('The name of the skill to load'),
+    name: z.string().min(1).describe('The name of the skill to load'),
   })
   .describe(
     'Load a skill by name to get its full instructions. Skills provide reusable behaviors and instructions.',

@@ -51,7 +51,9 @@ const myArrow = (y: string) => {
     const result = output[0].value
     expect(result.path).toBe('test.ts')
     // AST-backed outline: imports as header lines, definitions with line spans.
-    expect(result.outline).toContain("Line 2: import { something } from './somewhere'")
+    expect(result.outline).toContain(
+      "Line 2: import { something } from './somewhere'",
+    )
     expect(result.outline).toContain('type MyType')
     expect(result.outline).toContain('interface MyInterface')
     expect(result.outline).toContain('class MyClass')
@@ -125,7 +127,9 @@ class AnotherSymbol {
     expect(getTargetSlice!.startLine).toBe(4)
     expect(getTargetSlice!.endLine).toBe(7)
 
-    const anotherSymbolSlice = result.slices.find((s) => s.symbol === 'AnotherSymbol')
+    const anotherSymbolSlice = result.slices.find(
+      (s) => s.symbol === 'AnotherSymbol',
+    )
     expect(anotherSymbolSlice).toBeDefined()
     expect(anotherSymbolSlice!.content).toContain('class AnotherSymbol')
     expect(anotherSymbolSlice!.startLine).toBe(9)
@@ -149,10 +153,34 @@ class AnotherSymbol {
     const result = output[0].value
     expect(result.slices).toHaveLength(0)
   })
+
+  it('[SEC-M05] rejects unsafe paths before requesting file content', async () => {
+    let called = false
+    const { output } = await handleReadSlices({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        input: { path: '../outside.ts', symbols: ['secret'] },
+      },
+      requestOptionalFile: async () => {
+        called = true
+        return 'secret'
+      },
+    } as any)
+
+    expect(called).toBe(false)
+    expect(output[0].value).toMatchObject({
+      path: '../outside.ts',
+      slices: [],
+      errorMessage: expect.stringContaining('path traversal blocked'),
+    })
+  })
 })
 
 describe('read_outline path containment', () => {
-  const makeParams = (path: string, requestOptionalFile: (p: { filePath: string }) => Promise<string | null>) =>
+  const makeParams = (
+    path: string,
+    requestOptionalFile: (p: { filePath: string }) => Promise<string | null>,
+  ) =>
     ({
       previousToolCallFinished: Promise.resolve(),
       toolCall: { input: { path } },
@@ -170,7 +198,9 @@ describe('read_outline path containment', () => {
       called = true
       return 'content'
     }
-    const { output } = await handleReadOutline(makeParams('/etc/passwd', requestOptionalFile))
+    const { output } = await handleReadOutline(
+      makeParams('/etc/passwd', requestOptionalFile),
+    )
     const result = output[0].value
     expect(result.outline).toBe('Error: File does not exist.')
     expect(called).toBe(false)
@@ -182,7 +212,9 @@ describe('read_outline path containment', () => {
       called = true
       return 'content'
     }
-    const { output } = await handleReadOutline(makeParams('../outside.ts', requestOptionalFile))
+    const { output } = await handleReadOutline(
+      makeParams('../outside.ts', requestOptionalFile),
+    )
     const result = output[0].value
     expect(result.outline).toBe('Error: File does not exist.')
     expect(called).toBe(false)
@@ -195,7 +227,9 @@ describe('read_outline path containment', () => {
       }
       return null
     }
-    const { output } = await handleReadOutline(makeParams('src/file.ts', requestOptionalFile))
+    const { output } = await handleReadOutline(
+      makeParams('src/file.ts', requestOptionalFile),
+    )
     const result = output[0].value
     // AST outline surfaces `export const x = 1` as a variable on line 1.
     expect(result.outline).toContain('variable x')

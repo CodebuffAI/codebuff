@@ -1,7 +1,6 @@
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test'
 
-
 import { useChatStore } from '../../state/chat-store'
 
 describe('useAskUserBridge', () => {
@@ -11,7 +10,7 @@ describe('useAskUserBridge', () => {
       selectedOption?: string
       selectedOptions?: string[]
       otherText?: string
-    }>
+    }>,
   ) => {
     AskUserBridge.submit({ answers })
   }

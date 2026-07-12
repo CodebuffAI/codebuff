@@ -1,6 +1,7 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import { extractSlices } from '../../../structural-read'
+import { formatUnsafeToolPathError, normalizeToolPath } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -26,11 +27,42 @@ export const handleReadSlices = (async (params: {
 
   await previousToolCallFinished
 
-  const rawContent = await requestOptionalFile({ ...params, filePath: path })
-  if (rawContent === null) {
-    return { output: jsonToolResult({ path, slices: [] }) }
+  const normalizedPath = normalizeToolPath(path)
+  if (!normalizedPath) {
+    return {
+      output: jsonToolResult({
+        path,
+        slices: [],
+        errorMessage: formatUnsafeToolPathError('read_slices', path),
+      }),
+    }
   }
 
-  const slices = await extractSlices(rawContent, path, symbols)
+  let rawContent: string | null
+  try {
+    rawContent = await requestOptionalFile({
+      ...params,
+      filePath: normalizedPath,
+    })
+  } catch (error) {
+    return {
+      output: jsonToolResult({
+        path: normalizedPath,
+        slices: [],
+        errorMessage: error instanceof Error ? error.message : String(error),
+      }),
+    }
+  }
+  if (rawContent === null) {
+    return {
+      output: jsonToolResult({
+        path,
+        slices: [],
+        errorMessage: `File does not exist: ${path}`,
+      }),
+    }
+  }
+
+  const slices = await extractSlices(rawContent, normalizedPath, symbols)
   return { output: jsonToolResult({ path, slices }) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

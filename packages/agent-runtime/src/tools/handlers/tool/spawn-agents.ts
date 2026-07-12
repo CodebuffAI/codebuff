@@ -1,4 +1,5 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
+import { MAX_SPAWN_BATCH_SIZE } from '@codebuff/common/constants/agents'
 
 import {
   allocateBackgroundAgentJob,
@@ -13,6 +14,8 @@ import {
   executeSubagent,
   extractSubagentContextParams,
   buildSpawnParamsWithHandoff,
+  normalizeSpawnedAgentOutput,
+  createCombinedAbortSignal,
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -40,6 +43,14 @@ export type SendSubagentChunk = (data: {
 type ToolName = 'spawn_agents'
 type SpawnAgentReport = { agentType: string } & JSONObject
 type SpawnAgentInput = CodebuffToolCall<ToolName>['input']['agents'][number]
+type ValidatedSpawnAgent = {
+  spawnIndex: number
+  input: SpawnAgentInput
+  agentTemplate: AgentTemplate
+  agentType: string
+  runtimeSpawnParams: Record<string, unknown> | undefined
+  subAgentState: AgentState
+}
 
 export const handleSpawnAgents = (async (
   params: {
@@ -94,41 +105,68 @@ export const handleSpawnAgents = (async (
 
   await previousToolCallFinished
 
+  if (agents.length > MAX_SPAWN_BATCH_SIZE) {
+    throw new Error(
+      `spawn_agents accepts at most ${MAX_SPAWN_BATCH_SIZE} agents per call; received ${agents.length}. Split the work into bounded waves.`,
+    )
+  }
+
+  // Validate the complete batch before launching any detached work. Without
+  // this preflight, an invalid later entry could throw after earlier
+  // background agents had started but before their job ids were returned.
+  const validatedAgents: ValidatedSpawnAgent[] = await Promise.all(
+    agents.map(async (input, spawnIndex) => {
+      const {
+        agent_type: agentTypeStr,
+        prompt,
+        params: spawnParams,
+        handoff,
+      } = input
+      const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
+        ...params,
+        agentTypeStr,
+        parentAgentTemplate,
+      })
+      validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+      const runtimeSpawnParams = buildSpawnParamsWithHandoff({
+        agentType,
+        handoff,
+        spawnParams,
+      }) as Record<string, unknown> | undefined
+      return {
+        spawnIndex,
+        input,
+        agentTemplate,
+        agentType,
+        runtimeSpawnParams,
+        subAgentState: createAgentState(
+          agentType,
+          agentTemplate,
+          parentAgentState,
+          {},
+        ),
+      }
+    }),
+  )
+
   // Background agents are launched detached: their executeSubagent promise is
   // not awaited, the coroutine runs as a fire-and-forget same-process job, and
   // spawn_agents returns immediately with a per-agent jobId report. The parent
   // polls progress via check_background_agent. Only foreground (blocking)
   // agents go through the Promise.allSettled aggregation path.
-  const backgroundReports: SpawnAgentReport[] = []
-  for (const {
-    agent_type: agentTypeStr,
-    prompt,
-    params: spawnParams,
-    handoff,
-    background,
-    timeout_seconds,
-  } of agents) {
-    if (!background) continue
-
-    const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
-      ...params,
-      agentTypeStr,
-      parentAgentTemplate,
-    })
-
-    validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
-    const runtimeSpawnParams = buildSpawnParamsWithHandoff({
-      agentType,
-      handoff,
-      spawnParams,
-    })
-
-    const subAgentState = createAgentState(
-      agentType,
+  const reports: Array<SpawnAgentReport | undefined> = new Array(
+    validatedAgents.length,
+  )
+  for (const validated of validatedAgents) {
+    if (!validated.input.background) continue
+    const {
       agentTemplate,
-      parentAgentState,
-      {},
-    )
+      agentType,
+      runtimeSpawnParams,
+      subAgentState,
+      spawnIndex,
+    } = validated
+    const { prompt, timeout_seconds } = validated.input
 
     const contextParams = extractSubagentContextParams(params)
 
@@ -140,11 +178,18 @@ export const handleSpawnAgents = (async (
       agentType,
       agentName: agentTemplate.displayName,
     })
+    const backgroundSignal = contextParams.signal
+      ? createCombinedAbortSignal(
+          contextParams.signal,
+          job.abortController.signal,
+        )
+      : job.abortController.signal
 
     // Detached coroutine: do NOT await. The registry tracks lifecycle and
     // buffers streamed chunks for check_background_agent to poll.
     const detachedPromise = executeSubagent({
       ...contextParams,
+      signal: backgroundSignal,
       ancestorRunIds: parentAgentState.ancestorRunIds,
       userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
       prompt: prompt || '',
@@ -153,6 +198,8 @@ export const handleSpawnAgents = (async (
       parentAgentState,
       agentState: subAgentState,
       fingerprintId,
+      spawnToolCallId: toolCall.toolCallId,
+      spawnIndex,
       // Per-spawn wall-clock override (seconds → ms; -1 → no timeout).
       subagentTimeoutMs:
         timeout_seconds === undefined ? undefined : timeout_seconds * 1000,
@@ -188,9 +235,18 @@ export const handleSpawnAgents = (async (
       },
     })
 
-    attachBackgroundAgentPromise(job, detachedPromise as Promise<unknown>)
+    attachBackgroundAgentPromise(
+      job,
+      detachedPromise.then((result) => ({
+        agentId: result.agentState.agentId,
+        agentName: agentTemplate.displayName,
+        agentType,
+        output: normalizeSpawnedAgentOutput(result.output),
+        creditsUsed: result.agentState.creditsUsed || 0,
+      })),
+    )
 
-    backgroundReports.push({
+    reports[spawnIndex] = {
       agentId: subAgentState.agentId,
       agentName: agentTemplate.displayName,
       agentType,
@@ -199,38 +255,23 @@ export const handleSpawnAgents = (async (
         jobId: job.jobId,
         message: `Agent launched in background. Poll progress with check_background_agent({ jobId: "${job.jobId}" }).`,
       } as JSONValue,
-    })
+    }
   }
 
-  const foregroundAgents = agents.filter((entry) => !entry.background)
+  const foregroundAgents = validatedAgents.filter(
+    (entry) => !entry.input.background,
+  )
   const results = await Promise.allSettled(
     foregroundAgents.map(
       async ({
-        agent_type: agentTypeStr,
-        prompt,
-        params: spawnParams,
-        handoff,
-        timeout_seconds,
+        input,
+        agentTemplate,
+        agentType,
+        runtimeSpawnParams,
+        subAgentState,
+        spawnIndex,
       }) => {
-        const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
-          ...params,
-          agentTypeStr,
-          parentAgentTemplate,
-        })
-
-        validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
-        const runtimeSpawnParams = buildSpawnParamsWithHandoff({
-          agentType,
-          handoff,
-          spawnParams,
-        })
-
-        const subAgentState = createAgentState(
-          agentType,
-          agentTemplate,
-          parentAgentState,
-          {},
-        )
+        const { prompt, timeout_seconds } = input
 
         // Extract common context params to avoid bugs from spreading all params
         const contextParams = extractSubagentContextParams(params)
@@ -247,6 +288,8 @@ export const handleSpawnAgents = (async (
           parentAgentState,
           agentState: subAgentState,
           fingerprintId,
+          spawnToolCallId: toolCall.toolCallId,
+          spawnIndex,
           isOnlyChild: foregroundAgents.length === 1,
           // Per-spawn wall-clock override (seconds → ms; -1 → no timeout).
           subagentTimeoutMs:
@@ -322,34 +365,32 @@ export const handleSpawnAgents = (async (
     ),
   )
 
-  const reports: SpawnAgentReport[] = [
-    ...backgroundReports,
-    ...(await Promise.all(
-      results.map(async (result, index): Promise<SpawnAgentReport> => {
+  await Promise.all(
+    results.map(async (result, index): Promise<void> => {
+        const spawnIndex = foregroundAgents[index].spawnIndex
         if (result.status === 'fulfilled') {
           const { output, agentType, agentName, agentState } = result.value
-          return {
+          reports[spawnIndex] = {
             agentId: agentState.agentId,
             agentName,
             agentType,
             value: normalizeSpawnedAgentOutput(output) as JSONValue,
           }
         } else {
-          const agentTypeStr = foregroundAgents[index].agent_type
-          return {
+          const agentTypeStr = foregroundAgents[index].input.agent_type
+          reports[spawnIndex] = {
             agentType: agentTypeStr,
             agentName: agentTypeStr,
             value: { errorMessage: `Error spawning agent: ${result.reason}` },
           }
         }
       }),
-    )),
-  ]
+  )
 
   // Aggregate costs from subagents (foreground only; background agent costs
   // are accumulated into their own AgentState and surfaced on poll).
   results.forEach((result, index) => {
-    const agentInfo = foregroundAgents[index]
+    const agentInfo = foregroundAgents[index].input
     let subAgentCredits = 0
 
     if (result.status === 'fulfilled') {
@@ -390,24 +431,16 @@ export const handleSpawnAgents = (async (
     }
   })
 
-  return { output: jsonToolResult(reports) }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
-
-function normalizeSpawnedAgentOutput(output: any): any {
-  if (
-    output &&
-    typeof output === 'object' &&
-    !Array.isArray(output) &&
-    (output as Record<string, unknown>).type === 'error'
-  ) {
-    const message = (output as Record<string, unknown>).message
-    return {
-      errorMessage:
-        typeof message === 'string' && message.trim()
-          ? message
-          : 'Subagent failed before producing output',
-    }
+  return {
+    output: jsonToolResult(
+      reports.map(
+        (report, index) =>
+          report ?? {
+            agentType: validatedAgents[index].agentType,
+            agentName: validatedAgents[index].agentTemplate.displayName,
+            value: { errorMessage: 'Agent did not produce a spawn report.' },
+          },
+      ),
+    ),
   }
-
-  return output
-}
+}) satisfies CodebuffToolHandlerFunction<ToolName>

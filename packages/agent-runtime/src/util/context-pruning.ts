@@ -1,7 +1,8 @@
-import { trimMessagesToFitTokenLimit } from './messages'
+import { trimMessagesToFitTokenLimitWithReport } from './messages'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ContextTrimReport } from './messages'
 
 /**
  * Default maximum context tokens before auto-pruning triggers. Matches the
@@ -98,7 +99,7 @@ export function maybePruneContext(params: {
   contextTokenCount: number
   maxTotalTokens?: number
   logger: Logger
-}): { messages: Message[]; pruned: boolean } {
+}): { messages: Message[]; pruned: boolean; report?: ContextTrimReport } {
   const {
     messages,
     systemTokens,
@@ -111,12 +112,12 @@ export function maybePruneContext(params: {
     return { messages, pruned: false }
   }
 
-  const prunedMessages = trimMessagesToFitTokenLimit({
+  const report = trimMessagesToFitTokenLimitWithReport({
     messages,
     systemTokens,
     maxTotalTokens,
     logger,
   })
 
-  return { messages: prunedMessages, pruned: true }
+  return { messages: report.messages, pruned: true, report }
 }

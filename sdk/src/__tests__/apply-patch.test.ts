@@ -1,10 +1,139 @@
-import { describe, expect, test } from 'bun:test'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 
 import { applyPatchTool, getPatchRangeContentHash } from '../tools/apply-patch'
 
+function expectAppliedAction(
+  value: unknown,
+  action: 'add' | 'update' | 'delete',
+): void {
+  const canonicalAction = action === 'add' ? 'create' : action
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    value.kind === 'file_mutation_result' &&
+    'actions' in value &&
+    Array.isArray(value.actions)
+  ) {
+    expect(value).toMatchObject({ outcome: 'applied' })
+    expect(value.actions[0]?.action).toBe(canonicalAction)
+    return
+  }
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('applied' in value) ||
+    !Array.isArray(value.applied)
+  ) {
+    throw new Error('Expected canonical apply_patch success result')
+  }
+  expect(value.applied[0]?.action).toBe(action)
+}
+
+function getMutationErrorMessage(result: unknown): string {
+  const value = (result as any)?.[0]?.value
+  if (
+    value?.kind !== 'file_mutation_result' ||
+    !Array.isArray(value.errors) ||
+    typeof value.errors[0]?.message !== 'string'
+  ) {
+    throw new Error('Expected canonical mutation error result')
+  }
+  return value.errors[0].message
+}
+
 describe('applyPatchTool', () => {
+  test('[MUT-H02] create_file uses exclusive create and rejects a collision', async () => {
+    const fs = createMockFs({
+      files: { '/repo/src/new.txt': 'existing\n' },
+    })
+    fs.createFileExclusive = async () => {
+      throw Object.assign(new Error('File exists'), { code: 'EEXIST' })
+    }
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'create_file',
+          path: 'src/new.txt',
+          diff: '+replacement\n',
+        },
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(getMutationErrorMessage(result)).toContain('File exists')
+    expect(result[0]?.value).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+      authorityReceipt: {
+        kind: 'commit_receipt',
+        status: 'not_started',
+      },
+    })
+    expect(await fs.readFile('/repo/src/new.txt', 'utf-8')).toBe('existing\n')
+  })
+
+  test('[MUT-H02] update_file rejects stale expected state before commit', async () => {
+    let reads = 0
+    let writeCalled = false
+    const fs = createMockFs({
+      readFileImpl: async () => {
+        reads += 1
+        return reads === 1 ? 'const value = 1\n' : 'const external = true\n'
+      },
+      writeFileImpl: async () => {
+        writeCalled = true
+      },
+    })
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'src/file.ts',
+          diff: '@@ -1,1 +1,1 @@\n-const value = 1\n+const value = 2\n',
+        },
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(getMutationErrorMessage(result)).toContain('changed after it was read')
+    expect(writeCalled).toBe(false)
+  })
+
+  test('[MUT-H02] delete_file rejects stale expected state before unlink', async () => {
+    let reads = 0
+    let unlinkCalled = false
+    const fs = createMockFs({
+      readFileImpl: async () => {
+        reads += 1
+        return reads === 1 ? 'original\n' : 'external change\n'
+      },
+      unlinkImpl: async () => {
+        unlinkCalled = true
+      },
+    })
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: { type: 'delete_file', path: 'src/file.ts' },
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(getMutationErrorMessage(result)).toContain('changed after it was read')
+    expect(unlinkCalled).toBe(false)
+  })
+
   test('applies a standard update patch', async () => {
     const fs = createMockFs({
       files: {
@@ -33,10 +162,161 @@ describe('applyPatchTool', () => {
     if ('errorMessage' in result[0].value) {
       throw new Error(`Unexpected error: ${result[0].value.errorMessage}`)
     }
-    expect(result[0].value.applied[0]?.action).toBe('update')
+    expectAppliedAction(result[0].value, 'update')
 
     const updated = await fs.readFile('/repo/src/file.ts', 'utf-8')
     expect(updated).toContain('const a = 2')
+  })
+
+  test('allows an update patch to delete all file content', async () => {
+    const fs = createMockFs({
+      files: {
+        '/repo/src/file.ts': 'const a = 1\n',
+      },
+    })
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'src/file.ts',
+          diff: '@@ -1,1 +0,0 @@\n-const a = 1\n',
+        },
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result[0]?.type).toBe('json')
+    if (result[0]?.type !== 'json') {
+      throw new Error('Expected JSON tool result')
+    }
+    expect('errorMessage' in result[0].value).toBe(false)
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe('')
+  })
+
+  test('uses unified old-line coordinates to target repeated context', async () => {
+    const original = [
+      'start',
+      'const value = 1',
+      'end',
+      'separator',
+      'start',
+      'const value = 1',
+      'end',
+      '',
+    ].join('\n')
+    const fs = createMockFs({
+      files: { '/repo/src/file.ts': original },
+    })
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'src/file.ts',
+          diff: [
+            '@@ -5,3 +5,3 @@',
+            ' start',
+            '-const value = 1',
+            '+const value = 2',
+            ' end',
+            '',
+          ].join('\n'),
+        },
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result[0]?.type).toBe('json')
+    if (result[0]?.type !== 'json') {
+      throw new Error('Expected JSON tool result')
+    }
+    expect('errorMessage' in result[0].value).toBe(false)
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
+      [
+        'start',
+        'const value = 1',
+        'end',
+        'separator',
+        'start',
+        'const value = 2',
+        'end',
+        '',
+      ].join('\n'),
+    )
+  })
+
+  test('rejects ambiguous coordinate-less patches without editing', async () => {
+    const original = [
+      'start',
+      'const value = 1',
+      'end',
+      'separator',
+      'start',
+      'const value = 1',
+      'end',
+      '',
+    ].join('\n')
+    const fs = createMockFs({
+      files: { '/repo/src/file.ts': original },
+    })
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'src/file.ts',
+          diff: [
+            '@@',
+            ' start',
+            '-const value = 1',
+            '+const value = 2',
+            ' end',
+            '',
+          ].join('\n'),
+        },
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result[0]?.type).toBe('json')
+    if (result[0]?.type !== 'json') {
+      throw new Error('Expected JSON tool result')
+    }
+    expect(getMutationErrorMessage(result)).toContain('Ambiguous Context')
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(original)
+  })
+
+  test('uses the unified coordinate for zero-context insertions', async () => {
+    const fs = createMockFs({
+      files: {
+        '/repo/src/file.ts': 'a\nb\nc\n',
+      },
+    })
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'src/file.ts',
+          diff: '@@ -2,0 +3,1 @@\n+inserted\n',
+        },
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result[0]?.type).toBe('json')
+    if (result[0]?.type !== 'json') {
+      throw new Error('Expected JSON tool result')
+    }
+    expect('errorMessage' in result[0].value).toBe(false)
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
+      'a\nb\ninserted\nc\n',
+    )
   })
 
   test('applies update patch when hunks use bare @@ headers', async () => {
@@ -126,9 +406,14 @@ describe('applyPatchTool', () => {
         operation: {
           type: 'update_file',
           path: 'src/file.ts',
-          diff: ['@@ -1 +1 @@', ' line1', '-line2', '+line2 changed', ' line3', ''].join(
-            '\n',
-          ),
+          diff: [
+            '@@ -1 +1 @@',
+            ' line1',
+            '-line2',
+            '+line2 changed',
+            ' line3',
+            '',
+          ].join('\n'),
         },
       },
       cwd: '/repo',
@@ -161,12 +446,7 @@ describe('applyPatchTool', () => {
         operation: {
           type: 'update_file',
           path: 'src/file.ts',
-          diff: [
-            '@@ target',
-            '+inserted',
-            ' after',
-            '',
-          ].join('\n'),
+          diff: ['@@ target', '+inserted', ' after', ''].join('\n'),
         },
       },
       cwd: '/repo',
@@ -184,7 +464,9 @@ describe('applyPatchTool', () => {
     }
 
     const updated = await fs.readFile('/repo/src/file.ts', 'utf-8')
-    expect(updated).toBe(['before', 'target', 'inserted', 'after', ''].join('\n'))
+    expect(updated).toBe(
+      ['before', 'target', 'inserted', 'after', ''].join('\n'),
+    )
   })
 
   test('applies update patch when file has CRLF line endings', async () => {
@@ -215,7 +497,7 @@ describe('applyPatchTool', () => {
     if ('errorMessage' in result[0].value) {
       throw new Error(`Unexpected error: ${result[0].value.errorMessage}`)
     }
-    expect(result[0].value.applied[0]?.action).toBe('update')
+    expectAppliedAction(result[0].value, 'update')
 
     const updated = await fs.readFile('/repo/src/file.ts', 'utf-8')
     expect(updated).toContain('line1 changed')
@@ -257,7 +539,7 @@ describe('applyPatchTool', () => {
     if ('errorMessage' in result[0].value) {
       throw new Error(`Unexpected error: ${result[0].value.errorMessage}`)
     }
-    expect(result[0].value.applied[0]?.action).toBe('update')
+    expectAppliedAction(result[0].value, 'update')
 
     const updated = await fs.readFile('/repo/src/file.ts', 'utf-8')
     expect(updated).toContain('const a = 2')
@@ -275,8 +557,7 @@ describe('applyPatchTool', () => {
         operation: {
           type: 'update_file',
           path: 'src/file.ts',
-          diff:
-            'Patch below:\r\n```diff\r\n@@ -1,1 +1,1 @@\r\n-const a = 1\r\n+const a = 2\r\n```',
+          diff: 'Patch below:\r\n```diff\r\n@@ -1,1 +1,1 @@\r\n-const a = 1\r\n+const a = 2\r\n```',
         },
       },
       cwd: '/repo',
@@ -292,7 +573,7 @@ describe('applyPatchTool', () => {
     if ('errorMessage' in result[0].value) {
       throw new Error(`Unexpected error: ${result[0].value.errorMessage}`)
     }
-    expect(result[0].value.applied[0]?.action).toBe('update')
+    expectAppliedAction(result[0].value, 'update')
 
     const updated = await fs.readFile('/repo/src/file.ts', 'utf-8')
     expect(updated).toBe('const a = 2\r\n')
@@ -326,7 +607,7 @@ describe('applyPatchTool', () => {
     if ('errorMessage' in result[0].value) {
       throw new Error(`Unexpected error: ${result[0].value.errorMessage}`)
     }
-    expect(result[0].value.applied[0]?.action).toBe('update')
+    expectAppliedAction(result[0].value, 'update')
 
     const updated = await fs.readFile('/repo/src/file.ts', 'utf-8')
     expect(updated).toContain('line1 changed\nline2\n')
@@ -357,12 +638,7 @@ describe('applyPatchTool', () => {
       throw new Error('Expected JSON tool result')
     }
 
-    expect('errorMessage' in result[0].value).toBe(true)
-    if (!('errorMessage' in result[0].value)) {
-      throw new Error('Expected errorMessage in tool result')
-    }
-
-    const message = result[0].value.errorMessage
+    const message = getMutationErrorMessage(result)
     expect(message).toContain('Failed to apply patch to src/file.ts')
     expect(message).toContain('Tried strategies:')
     expect(message).toContain('Please re-read the file')
@@ -394,10 +670,12 @@ describe('applyPatchTool', () => {
     if (result[0]?.type !== 'json') {
       throw new Error('Expected JSON tool result')
     }
-    expect(result[0].value).toEqual({
-      errorMessage: expect.stringContaining('Large-file apply_patch blocked'),
-    })
-    expect(await fs.readFile('/repo/src/large.ts', 'utf-8')).toBe(lines.join('\n'))
+    expect(getMutationErrorMessage(result)).toContain(
+      'Large-file apply_patch blocked',
+    )
+    expect(await fs.readFile('/repo/src/large.ts', 'utf-8')).toBe(
+      lines.join('\n'),
+    )
   })
 
   test('applies multi-hunk large-file patch with valid basedOnRead ranges', async () => {
@@ -497,10 +775,12 @@ describe('applyPatchTool', () => {
     if (result[0]?.type !== 'json') {
       throw new Error('Expected JSON tool result')
     }
-    expect(result[0].value).toEqual({
-      errorMessage: expect.stringContaining('the basedOnRead range is stale'),
-    })
-    expect(await fs.readFile('/repo/src/large.ts', 'utf-8')).toBe(lines.join('\n'))
+    expect(getMutationErrorMessage(result)).toContain(
+      'the basedOnRead range is stale',
+    )
+    expect(await fs.readFile('/repo/src/large.ts', 'utf-8')).toBe(
+      lines.join('\n'),
+    )
   })
 
   test('rejects large-file patch hunks outside provided basedOnRead ranges', async () => {
@@ -552,10 +832,12 @@ describe('applyPatchTool', () => {
     if (result[0]?.type !== 'json') {
       throw new Error('Expected JSON tool result')
     }
-    expect(result[0].value).toEqual({
-      errorMessage: expect.stringContaining('outside the provided basedOnRead ranges'),
-    })
-    expect(await fs.readFile('/repo/src/large.ts', 'utf-8')).toBe(lines.join('\n'))
+    expect(getMutationErrorMessage(result)).toContain(
+      'outside the provided basedOnRead ranges',
+    )
+    expect(await fs.readFile('/repo/src/large.ts', 'utf-8')).toBe(
+      lines.join('\n'),
+    )
   })
 
   test('returns structured error for malformed basedOnRead entries', async () => {
@@ -588,9 +870,9 @@ describe('applyPatchTool', () => {
     if (result[0]?.type !== 'json') {
       throw new Error('Expected JSON tool result')
     }
-    expect(result[0].value).toEqual({
-      errorMessage: expect.stringContaining('Invalid apply_patch input'),
-    })
+    expect(getMutationErrorMessage(result)).toContain(
+      'Invalid apply_patch input',
+    )
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'const target = 1;\n',
     )
@@ -642,11 +924,131 @@ describe('applyPatchTool', () => {
       throw new Error('Expected JSON tool result')
     }
 
-    expect('errorMessage' in result[0].value).toBe(true)
-    if (!('errorMessage' in result[0].value)) {
-      throw new Error('Expected errorMessage in tool result')
-    }
+    expect(getMutationErrorMessage(result)).toContain(
+      'Invalid Add File Line: oops',
+    )
+  })
+})
 
-    expect(result[0].value.errorMessage).toContain('Invalid Add File Line: oops')
+describe('applyPatchTool symlink containment', () => {
+  let projectRoot: string
+  let outsideRoot: string
+
+  beforeEach(() => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'apply-patch-root-'))
+    outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'apply-patch-outside-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(projectRoot, { recursive: true, force: true })
+    fs.rmSync(outsideRoot, { recursive: true, force: true })
+  })
+
+  test('updates through an in-project symlink without replacing the link', async () => {
+    const target = path.join(projectRoot, 'target.txt')
+    const link = path.join(projectRoot, 'link.txt')
+    fs.writeFileSync(target, 'before\n')
+    fs.symlinkSync(target, link)
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'link.txt',
+          diff: '@@ -1,1 +1,1 @@\n-before\n+after\n',
+        },
+      },
+      cwd: projectRoot,
+      fs: fs.promises,
+    })
+
+    expect(result[0]?.value).not.toHaveProperty('errorMessage')
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true)
+    expect(fs.readFileSync(target, 'utf8')).toBe('after\n')
+  })
+
+  test('blocks a safe lexical symlink whose canonical target is sensitive', async () => {
+    const target = path.join(projectRoot, '.env')
+    const link = path.join(projectRoot, 'safe-link.txt')
+    fs.writeFileSync(target, 'SECRET=before\n')
+    fs.symlinkSync(target, link)
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'safe-link.txt',
+          diff: '@@ -1,1 +1,1 @@\n-SECRET=before\n+SECRET=after\n',
+        },
+      },
+      cwd: projectRoot,
+      fs: fs.promises,
+    })
+
+    expect(getMutationErrorMessage(result)).toContain('Invalid path')
+    expect(fs.readFileSync(target, 'utf8')).toBe('SECRET=before\n')
+  })
+
+  test('rejects an in-project symlink whose target is outside', async () => {
+    const outsideTarget = path.join(outsideRoot, 'secret.txt')
+    fs.writeFileSync(outsideTarget, 'secret\n')
+    fs.symlinkSync(outsideTarget, path.join(projectRoot, 'escape.txt'))
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'update_file',
+          path: 'escape.txt',
+          diff: '@@ -1,1 +1,1 @@\n-secret\n+changed\n',
+        },
+      },
+      cwd: projectRoot,
+      fs: fs.promises,
+    })
+
+    expect(getMutationErrorMessage(result)).toContain('Invalid path')
+    expect(fs.readFileSync(outsideTarget, 'utf8')).toBe('secret\n')
+  })
+
+  test('deletes an allowed in-project symlink instead of its target', async () => {
+    const target = path.join(projectRoot, 'target.txt')
+    const link = path.join(projectRoot, 'link.txt')
+    fs.writeFileSync(target, 'keep\n')
+    fs.symlinkSync(target, link)
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: { type: 'delete_file', path: 'link.txt' },
+      },
+      cwd: projectRoot,
+      fs: fs.promises,
+    })
+
+    expect(result[0]?.value).not.toHaveProperty('errorMessage')
+    expect(fs.existsSync(link)).toBe(false)
+    expect(fs.readFileSync(target, 'utf8')).toBe('keep\n')
+  })
+
+  test('creates missing files through an in-project directory symlink', async () => {
+    const realDirectory = path.join(projectRoot, 'real')
+    fs.mkdirSync(realDirectory)
+    fs.symlinkSync(realDirectory, path.join(projectRoot, 'link'))
+
+    const result = await applyPatchTool({
+      parameters: {
+        operation: {
+          type: 'create_file',
+          path: 'link/nested/new.txt',
+          diff: '+created\n',
+        },
+      },
+      cwd: projectRoot,
+      fs: fs.promises,
+    })
+
+    expect(result[0]?.value).not.toHaveProperty('errorMessage')
+    expect(
+      fs.readFileSync(path.join(realDirectory, 'nested', 'new.txt'), 'utf8'),
+    ).toBe('created')
   })
 })

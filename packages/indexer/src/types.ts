@@ -1,13 +1,15 @@
 export interface IndexedFile {
-  path: string       // relative to project root
-  mtime: number      // ms epoch, for cache invalidation
-  size: number       // bytes
-  hash: string       // sha256 content hash, for robust cache invalidation
-  ext: string        // '.ts', '.md', etc.
-  symbols: string[]  // top exported/defined identifiers from code-map
-  imports: string[]  // import paths (regex extracted)
+  path: string // relative to project root
+  mtime: number // ms epoch, for cache invalidation
+  size: number // bytes
+  hash: string // sha256 content hash, for robust cache invalidation
+  ext: string // '.ts', '.md', etc.
+  symbols: string[] // top exported/defined identifiers from code-map
+  imports: string[] // import paths (regex extracted)
   headings: string[] // for .md/.mdx only
   concepts: string[] // normalized doc concepts/headings for graph search
+  /** Bounded implementation text used only when semantic indexing is enabled. */
+  contentSample?: string
   /** Asset references extracted from game-engine text files (Unity .meta/.prefab/.unity, Godot .tscn/.tres, Unreal .uproject, Bevy). Undefined for files with no asset refs. */
   assetRefs?: import('./asset-refs').AssetRef[]
 }
@@ -56,6 +58,35 @@ export interface MetadataIndex {
   files: Record<string, IndexedFile>
   graph: IndexGraph
   parseDiagnostics?: ParseDiagnostic[]
+  coverage?: IndexCoverage
+}
+
+export interface IndexCoverage {
+  truncated: boolean
+  maxFiles: number
+  skippedFiles: number
+  skippedPrefixes: string[]
+}
+
+export type IndexStatusState =
+  | 'disabled'
+  | 'building'
+  | 'ready'
+  | 'stale'
+  | 'degraded'
+  | 'empty'
+
+export interface IndexStatus {
+  state: IndexStatusState
+  ready: boolean
+  stale: boolean
+  refreshing: boolean
+  semantic: 'disabled' | 'building' | 'ready' | 'unavailable' | 'failed'
+  totalIndexed: number
+  indexAge: number
+  diagnostics: ParseDiagnostic[]
+  coverage?: IndexCoverage
+  message: string
 }
 
 export type QueryIndexMode =
@@ -140,7 +171,16 @@ export interface RelatedFile {
 export interface QueryIndexResult {
   path: string
   score: number
-  matchedOn: Array<'symbol' | 'path' | 'heading' | 'import' | 'graph' | 'concept' | 'semantic' | 'command'>
+  matchedOn: Array<
+    | 'symbol'
+    | 'path'
+    | 'heading'
+    | 'import'
+    | 'graph'
+    | 'concept'
+    | 'semantic'
+    | 'command'
+  >
   symbols?: string[]
   headings?: string[]
   matchedSnippets?: string[]
@@ -152,6 +192,7 @@ export interface IndexingConfig {
   enabled?: boolean
   cacheDir?: string
   exclude?: string[]
+  maxFiles?: number
   semantic?: {
     enabled?: boolean
     model?: string

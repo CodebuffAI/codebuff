@@ -32,12 +32,8 @@ function makeCall(
 
 describe('validatePlanStatusPath', () => {
   test('accepts STATUS.md and LESSONS.md under .agents/sessions/<slug>/', () => {
-    expect(
-      validatePlanStatusPath('.agents/sessions/foo/STATUS.md'),
-    ).toBeNull()
-    expect(
-      validatePlanStatusPath('.agents/sessions/foo/LESSONS.md'),
-    ).toBeNull()
+    expect(validatePlanStatusPath('.agents/sessions/foo/STATUS.md')).toBeNull()
+    expect(validatePlanStatusPath('.agents/sessions/foo/LESSONS.md')).toBeNull()
     expect(
       validatePlanStatusPath('./.agents/sessions/foo-bar/STATUS.md'),
     ).toBeNull()
@@ -48,19 +44,19 @@ describe('validatePlanStatusPath', () => {
   })
 
   test('rejects path traversal', () => {
-    expect(
-      validatePlanStatusPath('.agents/sessions/../STATUS.md'),
-    ).toMatch(/traversal/)
+    expect(validatePlanStatusPath('.agents/sessions/../STATUS.md')).toMatch(
+      /traversal/,
+    )
   })
 
   test('rejects SPEC.md and other non-updatable names', () => {
     // SPEC.md is create-only — not allowed by update_plan_status.
-    expect(
-      validatePlanStatusPath('.agents/sessions/foo/SPEC.md'),
-    ).toMatch(/only \.agents/)
-    expect(
-      validatePlanStatusPath('.agents/sessions/foo/NOTES.md'),
-    ).toMatch(/only \.agents/)
+    expect(validatePlanStatusPath('.agents/sessions/foo/SPEC.md')).toMatch(
+      /only \.agents/,
+    )
+    expect(validatePlanStatusPath('.agents/sessions/foo/NOTES.md')).toMatch(
+      /only \.agents/,
+    )
   })
 
   test('rejects empty string', () => {
@@ -169,10 +165,9 @@ describe('handleUpdatePlanStatus', () => {
     prevCwd = process.cwd()
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-plan-status-'))
     process.chdir(tempDir)
-    fs.mkdirSync(
-      path.join(tempDir, '.agents', 'sessions', 'demo'),
-      { recursive: true },
-    )
+    fs.mkdirSync(path.join(tempDir, '.agents', 'sessions', 'demo'), {
+      recursive: true,
+    })
   })
 
   afterEach(() => {
@@ -207,7 +202,9 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('rejects symlinked artifacts that resolve outside the project root', async () => {
-    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-plan-status-outside-'))
+    const outsideDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'update-plan-status-outside-'),
+    )
     try {
       const outsideFile = path.join(outsideDir, 'STATUS.md')
       fs.writeFileSync(outsideFile, '- [ ] Task A\n')
@@ -255,10 +252,7 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('updates a matching checklist line in place', async () => {
-    const target = path.join(
-      tempDir,
-      '.agents/sessions/demo/STATUS.md',
-    )
+    const target = path.join(tempDir, '.agents/sessions/demo/STATUS.md')
     fs.writeFileSync(
       target,
       [
@@ -277,7 +271,11 @@ describe('handleUpdatePlanStatus', () => {
       toolCall: makeCall({
         path: '.agents/sessions/demo/STATUS.md',
         updates: [
-          { task: 'P0-11 update_plan_status', completed: true, note: 'shipped' },
+          {
+            task: 'P0-11 update_plan_status',
+            completed: true,
+            note: 'shipped',
+          },
         ],
       }),
       logger: silentLogger,
@@ -288,17 +286,12 @@ describe('handleUpdatePlanStatus', () => {
 
     const next = fs.readFileSync(target, 'utf8')
     expect(next).toContain('_Author prose that must be preserved._')
-    expect(next).toContain(
-      '- [x] P0-11 update_plan_status tool (shipped)',
-    )
+    expect(next).toContain('- [x] P0-11 update_plan_status tool (shipped)')
     expect(next).toContain('- [ ] P0-12 follow-up work')
   })
 
   test('appends a delimited entry when requested', async () => {
-    const target = path.join(
-      tempDir,
-      '.agents/sessions/demo/LESSONS.md',
-    )
+    const target = path.join(tempDir, '.agents/sessions/demo/LESSONS.md')
     fs.writeFileSync(target, '# Lessons\n\nExisting note.\n')
 
     const result = await handleUpdatePlanStatus({
@@ -321,10 +314,7 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('reports no changes when nothing matches and no append given', async () => {
-    const target = path.join(
-      tempDir,
-      '.agents/sessions/demo/STATUS.md',
-    )
+    const target = path.join(tempDir, '.agents/sessions/demo/STATUS.md')
     fs.writeFileSync(target, '- [ ] Task A\n')
 
     const result = await handleUpdatePlanStatus({
@@ -342,10 +332,7 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('sessionStatus creates STATE.json with the new status', async () => {
-    const target = path.join(
-      tempDir,
-      '.agents/sessions/demo/STATUS.md',
-    )
+    const target = path.join(tempDir, '.agents/sessions/demo/STATUS.md')
     fs.writeFileSync(target, '# Status\n\n- [ ] Task A\n')
 
     const result = await handleUpdatePlanStatus({
@@ -375,10 +362,7 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('currentTask updates the PLAN.md annotation', async () => {
-    const planPath = path.join(
-      tempDir,
-      '.agents/sessions/demo/PLAN.md',
-    )
+    const planPath = path.join(tempDir, '.agents/sessions/demo/PLAN.md')
     fs.writeFileSync(planPath, '# Plan\n\n- [ ] P0-7 work\n- [ ] P0-8 other\n')
 
     const result = await handleUpdatePlanStatus({
@@ -400,10 +384,7 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('currentTask with empty string clears the pointer', async () => {
-    const planPath = path.join(
-      tempDir,
-      '.agents/sessions/demo/PLAN.md',
-    )
+    const planPath = path.join(tempDir, '.agents/sessions/demo/PLAN.md')
     fs.writeFileSync(
       planPath,
       '# Plan\n<!-- current-task: P0-7 -->\n- [ ] P0-7 work\n',
@@ -427,14 +408,8 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('tri-state in_progress status auto-sets currentTask in PLAN.md', async () => {
-    const planPath = path.join(
-      tempDir,
-      '.agents/sessions/demo/PLAN.md',
-    )
-    fs.writeFileSync(
-      planPath,
-      '# Plan\n- [ ] P0-7 work\n- [ ] P0-8 other\n',
-    )
+    const planPath = path.join(tempDir, '.agents/sessions/demo/PLAN.md')
+    fs.writeFileSync(planPath, '# Plan\n- [ ] P0-7 work\n- [ ] P0-8 other\n')
 
     const result = await handleUpdatePlanStatus({
       previousToolCallFinished: Promise.resolve(),
@@ -454,10 +429,7 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('sessionStatus and currentTask together write both to STATE.json', async () => {
-    const planPath = path.join(
-      tempDir,
-      '.agents/sessions/demo/PLAN.md',
-    )
+    const planPath = path.join(tempDir, '.agents/sessions/demo/PLAN.md')
     fs.writeFileSync(planPath, '# Plan\n- [ ] P0-7 work\n')
 
     const result = await handleUpdatePlanStatus({
@@ -487,10 +459,7 @@ describe('handleUpdatePlanStatus', () => {
   })
 
   test('rejects unknown sessionStatus values', async () => {
-    const target = path.join(
-      tempDir,
-      '.agents/sessions/demo/STATUS.md',
-    )
+    const target = path.join(tempDir, '.agents/sessions/demo/STATUS.md')
     fs.writeFileSync(target, '# Status\n')
 
     const result = await handleUpdatePlanStatus({

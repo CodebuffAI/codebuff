@@ -7,8 +7,6 @@ import { ReasoningDetailType } from '../schemas/reasoning-details'
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details'
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider'
 
-
-
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ]

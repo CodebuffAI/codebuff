@@ -11,17 +11,27 @@ export interface SpawnAgentMatch {
 export const findMatchingSpawnAgent = (
   spawnAgentsMap: Map<string, SpawnAgentInfo>,
   eventAgentType: string,
+  spawnToolCallId?: string,
+  spawnIndex?: number,
 ): SpawnAgentMatch | null => {
-  const eventBaseName = getAgentBaseName(eventAgentType || '')
+  if (spawnToolCallId !== undefined && spawnIndex !== undefined) {
+    const tempId = `${spawnToolCallId}-${spawnIndex}`
+    const info = spawnAgentsMap.get(tempId)
+    return info ? { tempId, info } : null
+  }
 
+  const eventBaseName = getAgentBaseName(eventAgentType || '')
+  const matches: SpawnAgentMatch[] = []
   for (const [tempId, info] of spawnAgentsMap.entries()) {
     const storedBaseName = getAgentBaseName(info.agentType || '')
     if (eventBaseName === storedBaseName) {
-      return { tempId, info }
+      matches.push({ tempId, info })
     }
   }
-
-  return null
+  // Legacy events have no correlation metadata. Only reconcile by type when
+  // the match is unique; choosing the first same-type spawn swaps cards when
+  // concurrent identical agents start out of order.
+  return matches.length === 1 ? matches[0] : null
 }
 
 export const resolveSpawnAgentToReal = (options: {

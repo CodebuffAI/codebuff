@@ -33,10 +33,7 @@ type CachedUserInfo = Partial<
   NonNullable<Awaited<GetUserInfoFromApiKeyOutput<UserColumn>>>
 >
 
-const userInfoCache: Record<
-  string,
-  CachedUserInfo | null
-> = {}
+const userInfoCache: Record<string, CachedUserInfo | null> = {}
 
 const agentsResponseSchema = z.object({
   version: z.string(),
@@ -70,7 +67,12 @@ async function fetchWithRetry(
           baseDelayMs: RETRY_BACKOFF_BASE_DELAY_MS,
         })
         logger?.warn(
-          { status: response.status, attempt: attempt + 1, url: String(url), delayMs },
+          {
+            status: response.status,
+            attempt: attempt + 1,
+            url: String(url),
+            delayMs,
+          },
           `Retryable HTTP error, retrying in ${delayMs}ms`,
         )
         await new Promise((resolve) => setTimeout(resolve, delayMs))
@@ -88,7 +90,12 @@ async function fetchWithRetry(
           baseDelayMs: RETRY_BACKOFF_BASE_DELAY_MS,
         })
         logger?.warn(
-          { error: getErrorObject(lastError), attempt: attempt + 1, url: String(url), delayMs },
+          {
+            error: getErrorObject(lastError),
+            attempt: attempt + 1,
+            url: String(url),
+            delayMs,
+          },
           `Network error, retrying in ${delayMs}ms`,
         )
         await new Promise((resolve) => setTimeout(resolve, delayMs))
@@ -111,11 +118,11 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   }
   if (
     cached &&
-    fields.every((field) =>
-      Object.prototype.hasOwnProperty.call(cached, field),
-    )
+    fields.every((field) => Object.prototype.hasOwnProperty.call(cached, field))
   ) {
-    return Object.fromEntries(fields.map((field) => [field, cached[field]])) as {
+    return Object.fromEntries(
+      fields.map((field) => [field, cached[field]]),
+    ) as {
       [K in T]: CachedUserInfo[K]
     } as Awaited<GetUserInfoFromApiKeyOutput<T>>
   }
@@ -152,7 +159,11 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     throw createNetworkError('Network request failed')
   }
 
-  if (response.status === 401 || response.status === 403 || response.status === 404) {
+  if (
+    response.status === 401 ||
+    response.status === 403 ||
+    response.status === 404
+  ) {
     logger.error(
       { apiKey, fields, status: response.status },
       'getUserInfoFromApiKey authentication failed',

@@ -9,6 +9,7 @@ const baseDefinition = createCliAgent({
   shortName: 'codebuff-local',
   startCommand: 'bun --cwd=cli run dev',
   permissionNote: 'No permission flags needed for Openbuff local dev server.',
+  supportedModes: ['work'],
   skipPrepPhase: true,
   cliSpecificDocs: `## Openbuff CLI Specific Guidance
 
@@ -133,6 +134,14 @@ const definition: AgentDefinition = {
     }
 
     yield 'STEP_ALL'
+    yield {
+      toolName: 'run_terminal_command',
+      input: {
+        command: './scripts/tmux/tmux-cli.sh stop "' + sessionName + '"',
+        timeout_seconds: 15,
+      },
+      includeToolCall: false,
+    }
   },
 }
 

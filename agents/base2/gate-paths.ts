@@ -31,6 +31,14 @@ export function normalizeGateFilePath(file: string): string {
     typeof process.cwd === 'function'
       ? process.cwd().replace(/\\/g, '/').replace(/\/+$/, '')
       : ''
+  const isAbsolute =
+    normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)
+  if (
+    isAbsolute &&
+    (!cwd || (normalized !== cwd && !normalized.startsWith(`${cwd}/`)))
+  ) {
+    return ''
+  }
   if (cwd && (normalized === cwd || normalized.startsWith(`${cwd}/`))) {
     normalized = normalized.slice(cwd.length).replace(/^\/+/, '')
   }

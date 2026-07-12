@@ -19,16 +19,22 @@ const inputSchema = z
       .number()
       .int()
       .min(1)
-      .describe('1-indexed inclusive start line from a fresh read_files.ranges result.'),
+      .describe(
+        '1-indexed inclusive start line from a fresh read_files.ranges result.',
+      ),
     endLine: z
       .number()
       .int()
       .min(1)
-      .describe('1-indexed inclusive end line from a fresh read_files.ranges result.'),
+      .describe(
+        '1-indexed inclusive end line from a fresh read_files.ranges result.',
+      ),
     expectedHash: z
       .string()
       .min(1)
-      .describe('The sha256 rangeHash returned by read_files.ranges for this exact range.'),
+      .describe(
+        'The sha256 rangeHash returned by read_files.ranges for this exact range.',
+      ),
     newContent: z
       .string()
       .describe('Complete replacement content for the selected line range.'),
@@ -36,7 +42,9 @@ const inputSchema = z
   .refine((input) => input.startLine <= input.endLine, {
     message: 'startLine must be <= endLine',
   })
-  .describe('Replace a previously read line range only if its hash still matches.')
+  .describe(
+    'Replace a previously read line range only if its hash still matches.',
+  )
 
 const description = `
 Use this tool for reliable edits to medium and large files after reading an exact line range with read_files.ranges.

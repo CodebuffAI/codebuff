@@ -36,8 +36,7 @@ export function handleInfoCommand(): {
     `Version: ${version}`,
     `Workspace: ${projectRoot}`,
     'Auth: Local/BYOK Mode',
-  ]
-    .join('\n')
+  ].join('\n')
 
   const postUserMessage: PostUserMessageFn = (prev) => [
     ...prev,

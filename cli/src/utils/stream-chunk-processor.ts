@@ -1,4 +1,7 @@
-import { appendTextToAgentBlock, appendTextToRootStream } from './block-operations'
+import {
+  appendTextToAgentBlock,
+  appendTextToRootStream,
+} from './block-operations'
 
 import type { StreamChunkEvent } from './sdk-event-handlers'
 import type { ContentBlock } from '../types/chat'
@@ -7,9 +10,9 @@ export type ChunkDestination =
   | { type: 'root'; textType: 'text' | 'reasoning' }
   | { type: 'agent'; agentId: string; textType: 'text' | 'reasoning' }
 
-export const destinationFromTextEvent = (
-  event: { agentId?: string },
-): ChunkDestination => {
+export const destinationFromTextEvent = (event: {
+  agentId?: string
+}): ChunkDestination => {
   if (event.agentId) {
     return { type: 'agent', agentId: event.agentId, textType: 'text' }
   }
@@ -47,7 +50,12 @@ export const processTextChunk = (
   }
 
   if (destination.type === 'agent') {
-    return appendTextToAgentBlock(blocks, destination.agentId, text, destination.textType)
+    return appendTextToAgentBlock(
+      blocks,
+      destination.agentId,
+      text,
+      destination.textType,
+    )
   }
 
   return appendTextToRootStream(blocks, {

@@ -368,7 +368,9 @@ describe('clampScoresByDeterministicSignals', () => {
     }
     const clamped = clampScoresByDeterministicSignals(result, signals)
     expect(clamped.analysis.startsWith('[deterministic clamp')).toBe(true)
-    expect(clamped.analysis).toContain('The agent did a reasonable job overall.')
+    expect(clamped.analysis).toContain(
+      'The agent did a reasonable job overall.',
+    )
   })
 
   test('handles missing analysis field gracefully', () => {
@@ -407,7 +409,9 @@ describe('clampScoresByDeterministicSignals', () => {
 describe('integration: compute → clamp', () => {
   test('a compile failure flows from outputs to clamped scores', () => {
     const outputs: FinalCheckOutput[] = [
-      makeOutput('bun run typecheck', 1, { stderr: 'TS2304: Cannot find name' }),
+      makeOutput('bun run typecheck', 1, {
+        stderr: 'TS2304: Cannot find name',
+      }),
       makeOutput('bun run test', 0),
     ]
     const signals = computeDeterministicSignals(outputs)

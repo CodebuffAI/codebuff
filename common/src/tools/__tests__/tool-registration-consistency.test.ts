@@ -3,7 +3,11 @@ import { join } from 'path'
 
 import { describe, expect, it } from 'bun:test'
 
-import { toolNames } from '../constants'
+import {
+  publishedTools,
+  quarantinedToolNames,
+  toolNames,
+} from '../constants'
 import { compileToolDefinitions } from '../compile-tool-definitions'
 import { toolParams } from '../list'
 
@@ -22,9 +26,7 @@ describe('tool registration consistency', () => {
 
   const readToolNameUnion = (relativePath: string): Set<string> => {
     const source = readFileSync(join(repoRoot, relativePath), 'utf8')
-    const unionMatch = source.match(
-      /export type ToolName =([\s\S]*?)\n\n/,
-    )
+    const unionMatch = source.match(/export type ToolName =([\s\S]*?)\n\n/)
     expect(unionMatch).not.toBeNull()
     const names = (unionMatch?.[1] ?? '')
       .split('|')
@@ -41,6 +43,14 @@ describe('tool registration consistency', () => {
   it('each toolParams entry self-reports its own tool name', () => {
     for (const name of toolNames) {
       expect(toolParams[name].toolName).toBe(name)
+    }
+  })
+
+  it('quarantined compatibility tools remain registered and published', () => {
+    for (const toolName of quarantinedToolNames) {
+      expect(toolNames).toContain(toolName)
+      expect(publishedTools).toContain(toolName)
+      expect(toolParams[toolName].toolName).toBe(toolName)
     }
   })
 

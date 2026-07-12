@@ -1,3 +1,4 @@
+import { existsSync } from 'fs'
 import path from 'path'
 
 import { getBundledRgPath } from '@openbuff/sdk'
@@ -18,6 +19,15 @@ const getRipgrepPath = async (): Promise<string> => {
   const rgFileName = process.platform === 'win32' ? 'rg.exe' : 'rg'
   const outPath = path.join(binaryDir, rgFileName)
 
+  // The macOS 11/12 Intel release ships a separately compiled ripgrep sibling
+  // because the standard bundled x64-darwin binary targets a newer macOS SDK.
+  if (env.CODEBUFF_CLI_LEGACY_MACOS === 'true') {
+    if (!existsSync(outPath)) {
+      throw new Error(`Legacy ripgrep binary is missing at ${outPath}`)
+    }
+    return outPath
+  }
+
   // Check if already extracted
   const outPathExists = await Bun.file(outPath).exists()
   if (outPathExists) {
@@ -29,7 +39,7 @@ const getRipgrepPath = async (): Promise<string> => {
     // Use require() with literal paths to ensure the binary gets bundled into the compiled CLI
     // This is necessary for Bun's binary compilation to include the ripgrep binary
     let embeddedRgPath: string
-    
+
     if (process.platform === 'darwin' && process.arch === 'arm64') {
       embeddedRgPath = require('../../../sdk/dist/vendor/ripgrep/arm64-darwin/rg')
     } else if (process.platform === 'darwin' && process.arch === 'x64') {
@@ -41,7 +51,9 @@ const getRipgrepPath = async (): Promise<string> => {
     } else if (process.platform === 'win32' && process.arch === 'x64') {
       embeddedRgPath = require('../../../sdk/dist/vendor/ripgrep/x64-win32/rg.exe')
     } else {
-      throw new Error(`Unsupported platform: ${process.platform}-${process.arch}`)
+      throw new Error(
+        `Unsupported platform: ${process.platform}-${process.arch}`,
+      )
     }
 
     // Copy SDK's bundled binary to binary directory for portability

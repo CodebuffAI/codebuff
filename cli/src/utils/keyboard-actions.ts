@@ -2,7 +2,6 @@ import { getInputModeConfig, type InputMode } from './input-modes'
 import { isPlainEnterKey } from './terminal-enter-detection'
 import type { KeyEvent } from '@opentui/core'
 
-
 /**
  * State needed to determine keyboard actions in chat input contexts.
  * This is a focused subset of app state relevant to keyboard handling.
@@ -158,7 +157,11 @@ export function resolveChatKeyboardAction(
   // Escape should exit the current mode BEFORE interrupting streams
   // Exception: modes with blockKeyboardExit cannot be escaped
   const modeConfig = getInputModeConfig(state.inputMode)
-  if (isEscape && state.inputMode !== 'default' && !modeConfig.blockKeyboardExit) {
+  if (
+    isEscape &&
+    state.inputMode !== 'default' &&
+    !modeConfig.blockKeyboardExit
+  ) {
     return { type: 'exit-input-mode' }
   }
 

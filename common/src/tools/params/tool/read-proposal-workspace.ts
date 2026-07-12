@@ -17,6 +17,11 @@ export const readProposalWorkspaceResultSchema = z.union([
   }),
   z.object({
     path: z.string(),
+    source: z.literal('proposal'),
+    deleted: z.literal(true),
+  }),
+  z.object({
+    path: z.string(),
     errorMessage: z.string(),
   }),
 ])

@@ -122,7 +122,11 @@ function createMockHistoryNavigator(initialHistory: string[] = []) {
     inputMode: 'default',
   }
 
-  const setInputValue = (value: { text: string; cursorPosition: number; lastEditDueToNav: boolean }) => {
+  const setInputValue = (value: {
+    text: string
+    cursorPosition: number
+    lastEditDueToNav: boolean
+  }) => {
     state.inputValue = value.text
   }
 
@@ -143,7 +147,8 @@ function createMockHistoryNavigator(initialHistory: string[] = []) {
     state.isNavigating = true
 
     if (state.historyIndex === -1) {
-      state.currentDraft = state.inputMode === 'bash' ? '!' + state.inputValue : state.inputValue
+      state.currentDraft =
+        state.inputMode === 'bash' ? '!' + state.inputValue : state.inputValue
       state.currentDraftMode = state.inputMode
       state.historyIndex = history.length - 1
     } else if (state.historyIndex > 0) {
@@ -247,7 +252,7 @@ describe('use-input-history - cross-mode navigation', () => {
 
       expect(nav.state.inputMode).toBe('default')
       nav.navigateUp()
-      
+
       expect(nav.state.inputMode).toBe('bash')
       expect(nav.state.inputValue).toBe('ls -la')
       expect(nav.state.historyIndex).toBe(1)
@@ -345,11 +350,7 @@ describe('use-input-history - cross-mode navigation', () => {
 
   describe('navigation through entire history', () => {
     test('can navigate up through all entries and back down to draft', () => {
-      const nav = createMockHistoryNavigator([
-        'first',
-        '!second',
-        'third',
-      ])
+      const nav = createMockHistoryNavigator(['first', '!second', 'third'])
 
       nav.state.inputValue = 'draft'
       nav.state.inputMode = 'default'
@@ -449,7 +450,7 @@ describe('use-input-history - isNavigating flag behavior', () => {
       expect(nav.state.historyIndex).toBe(1)
 
       nav.resetHistoryNavigation()
-      
+
       expect(nav.state.historyIndex).toBe(-1)
       expect(nav.state.currentDraft).toBe('')
       expect(nav.state.currentDraftMode).toBe('default')
@@ -497,7 +498,7 @@ describe('use-input-history - resetHistoryNavigation', () => {
     nav.resetHistoryNavigation()
     nav.resetHistoryNavigation()
     nav.resetHistoryNavigation()
-    
+
     expect(nav.state.historyIndex).toBe(-1)
     expect(nav.state.currentDraft).toBe('')
     expect(nav.state.currentDraftMode).toBe('default')
@@ -524,7 +525,7 @@ describe('use-input-history - edge cases', () => {
 
       nav.state.inputValue = 'current text'
       nav.navigateUp()
-      
+
       expect(nav.state.inputValue).toBe('current text')
       expect(nav.state.historyIndex).toBe(-1)
     })
@@ -534,7 +535,7 @@ describe('use-input-history - edge cases', () => {
 
       nav.state.inputValue = 'current text'
       nav.navigateDown()
-      
+
       expect(nav.state.inputValue).toBe('current text')
       expect(nav.state.historyIndex).toBe(-1)
     })
@@ -565,7 +566,7 @@ describe('use-input-history - edge cases', () => {
 
       nav.state.inputValue = 'draft'
       nav.navigateDown()
-      
+
       expect(nav.state.inputValue).toBe('draft')
       expect(nav.state.historyIndex).toBe(-1)
     })
@@ -636,7 +637,7 @@ describe('use-input-history - edge cases', () => {
     test('handles very long history entries', () => {
       const longText = 'a'.repeat(10000)
       const longBashCommand = '!' + 'b'.repeat(10000)
-      
+
       const nav = createMockHistoryNavigator([longText, longBashCommand])
 
       nav.navigateUp()
@@ -676,7 +677,11 @@ describe('use-input-history - mode preservation', () => {
   })
 
   test('preserves bash mode draft when navigating through default entries', () => {
-    const nav = createMockHistoryNavigator(['default 1', 'default 2', 'default 3'])
+    const nav = createMockHistoryNavigator([
+      'default 1',
+      'default 2',
+      'default 3',
+    ])
 
     nav.state.inputMode = 'bash'
     nav.state.inputValue = 'npm test'

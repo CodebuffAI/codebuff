@@ -22,7 +22,9 @@ describe('computeCostCentsFromUsage', () => {
       inputTokens: 1_000_000,
       outputTokens: 500_000,
     }
-    expect(computeCostCentsFromUsage({ usage, pricing: undefined })).toBeUndefined()
+    expect(
+      computeCostCentsFromUsage({ usage, pricing: undefined }),
+    ).toBeUndefined()
   })
 
   test('returns undefined when pricing has neither input nor output rate', () => {

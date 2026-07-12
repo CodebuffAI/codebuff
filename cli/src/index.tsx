@@ -21,13 +21,13 @@ import {
   QueryClientProvider,
   focusManager,
 } from '@tanstack/react-query'
-import { Command } from 'commander'
 import { green, red } from 'picocolors'
 import React from 'react'
 
 import { App } from './app'
-import { initializeApp } from './init/init-app'
-import { getProjectRoot, setProjectRoot } from './project-files'
+import { parseCliArgs } from './cli-args'
+import { initializeApp, switchProjectContext } from './init/init-app'
+import { getProjectRoot, startNewChat } from './project-files'
 import { trackEvent } from './utils/analytics'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { getCliEnv } from './utils/env'
@@ -35,12 +35,14 @@ import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
-import { installProcessCleanupHandlers, TERMINAL_RESET_SEQUENCES } from './utils/renderer-cleanup'
+import {
+  installProcessCleanupHandlers,
+  TERMINAL_RESET_SEQUENCES,
+} from './utils/renderer-cleanup'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
 
-import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
 const require = createRequire(import.meta.url)
@@ -68,7 +70,7 @@ function loadPackageVersion(): string {
 // Without this, refetchInterval won't work because TanStack Query thinks the app is "unfocused"
 focusManager.setEventListener(() => {
   // No-op: no event listeners in CLI environment (no window focus/visibility events)
-  return () => { }
+  return () => {}
 })
 focusManager.setFocused(true)
 
@@ -88,68 +90,6 @@ function createQueryClient(): QueryClient {
       },
     },
   })
-}
-
-type ParsedArgs = {
-  initialPrompt: string | null
-  agent?: string
-  clearLogs: boolean
-  continue: boolean
-  continueId?: string | null
-  cwd?: string
-  initialMode?: AgentMode
-}
-
-function parseArgs(): ParsedArgs {
-  const program = new Command()
-
-  // Local-first CLI with all options
-  program
-    .name('openbuff')
-    .description('Local/BYOK AI coding assistant')
-    .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
-    .option(
-      '--agent <agent-id>',
-      'Run a specific agent id (skips loading local .agents overrides)',
-    )
-    .option('--clear-logs', 'Remove any existing CLI log files before starting')
-    .option(
-      '--continue [conversation-id]',
-      'Continue from a previous conversation (optionally specify a conversation id)',
-    )
-    .option(
-      '--cwd <directory>',
-      'Set the working directory (default: current directory)',
-    )
-    .option('--plan', 'Start in PLAN mode')
-    .option('--local', 'Local/BYOK mode (default; kept for compatibility)')
-    .addHelpText('after', '\nCommands:\n  init                           Create local project context')
-    .helpOption('-h, --help', 'Show this help message')
-    .argument('[prompt...]', 'Initial prompt to send to the agent')
-    .allowExcessArguments(true)
-    .parse(process.argv)
-
-  const options = program.opts()
-  const args = program.args
-
-  const continueFlag = options.continue
-
-  // Determine initial mode from flags.
-  let initialMode: AgentMode | undefined
-  if (options.plan) initialMode = 'PLAN'
-
-  return {
-    initialPrompt: args.length > 0 ? args.join(' ') : null,
-    agent: options.agent,
-    clearLogs: options.clearLogs || false,
-    continue: Boolean(continueFlag),
-    continueId:
-      typeof continueFlag === 'string' && continueFlag.trim().length > 0
-        ? continueFlag.trim()
-        : null,
-    cwd: options.cwd,
-    initialMode,
-  }
 }
 
 async function main(): Promise<void> {
@@ -177,7 +117,9 @@ async function main(): Promise<void> {
     try {
       dirListing = fs.readdirSync(execDir)
     } catch (err) {
-      dirListing = [`<readdir failed: ${err instanceof Error ? err.message : err}>`]
+      dirListing = [
+        `<readdir failed: ${err instanceof Error ? err.message : err}>`,
+      ]
     }
     console.error(
       `[smoke diag] execPath=${process.execPath}\n` +
@@ -251,7 +193,8 @@ async function main(): Promise<void> {
     continueId,
     cwd,
     initialMode,
-  } = parseArgs()
+    trustProjectAgents,
+  } = parseCliArgs(process.argv, { version: loadPackageVersion() })
 
   const isPublishCommand = process.argv[2] === 'publish'
   const hasAgentOverride = Boolean(agent?.trim())
@@ -278,19 +221,17 @@ async function main(): Promise<void> {
   // Initialize agent registry (loads user agents via SDK).
   // When --agent is provided, skip local .agents to avoid overrides.
   if (isPublishCommand || !hasAgentOverride) {
-    await initializeAgentRegistry()
+    await initializeAgentRegistry({ trustProjectAgents })
   }
 
   // Initialize skill registry (loads skills from .agents/skills)
-  await initializeSkillRegistry()
+  await initializeSkillRegistry({ trustProjectSkills: trustProjectAgents })
 
   // Handle publish command before rendering the app
   if (isPublishCommand) {
     logger.error(red('Agent publishing is disabled in local mode.'))
     process.exit(1)
   }
-
-
 
   if (clearLogs) {
     clearLogFile()
@@ -315,7 +256,10 @@ async function main(): Promise<void> {
           setFileTree(tree)
         }
       } catch (error) {
-        // Silently fail - fileTree is optional for @ menu
+        logger.warn(
+          { error },
+          'Failed to load the initial project file tree for suggestions',
+        )
       }
     }, [])
 
@@ -326,35 +270,46 @@ async function main(): Promise<void> {
     // Callback for when user selects a new project from the picker
     const handleProjectChange = React.useCallback(
       async (newProjectPath: string) => {
-        // Change process working directory
-        process.chdir(newProjectPath)
+        const previousProjectRoot = getProjectRoot()
 
-        // Track directory change (avoid logging full paths for privacy)
-        const isGitRepo = fs.existsSync(path.join(newProjectPath, '.git'))
-        const pathDepth = newProjectPath.split(path.sep).filter(Boolean).length
-        trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
-          isGitRepo,
-          pathDepth,
-          isHomeDir: newProjectPath === os.homedir(),
-        })
-        // Update the project root in the module state
-        setProjectRoot(newProjectPath)
-        // Reset client to ensure tools use the updated project root
-        resetCodebuffClient()
-        // Save to recent projects list
-        saveRecentProject(newProjectPath)
-        // Update local state
-        setCurrentProjectRoot(newProjectPath)
-        // Reset file tree state to trigger reload
-        setFileTree([])
-        // Hide the picker and show the chat
-        setShowProjectPickerScreen(false)
+        try {
+          await switchProjectContext(newProjectPath)
+          resetCodebuffClient()
+          if (isPublishCommand || !hasAgentOverride) {
+            await initializeAgentRegistry({ trustProjectAgents })
+          }
+          await initializeSkillRegistry({
+            trustProjectSkills: trustProjectAgents,
+          })
+          startNewChat()
+
+          // Track directory change (avoid logging full paths for privacy)
+          const isGitRepo = fs.existsSync(path.join(newProjectPath, '.git'))
+          const pathDepth = newProjectPath
+            .split(path.sep)
+            .filter(Boolean).length
+          trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
+            isGitRepo,
+            pathDepth,
+            isHomeDir: newProjectPath === os.homedir(),
+          })
+          saveRecentProject(newProjectPath)
+          setCurrentProjectRoot(getProjectRoot())
+          setFileTree([])
+          setShowProjectPickerScreen(false)
+        } catch (error) {
+          await switchProjectContext(previousProjectRoot)
+          resetCodebuffClient()
+          logger.error({ error }, 'Failed to switch projects')
+          throw error
+        }
       },
       [],
     )
 
     return (
       <App
+        key={currentProjectRoot}
         initialPrompt={initialPrompt}
         agentId={agent}
         fileTree={fileTree}

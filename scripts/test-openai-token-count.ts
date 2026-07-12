@@ -21,7 +21,13 @@ if (!OPENAI_API_KEY) {
 const ENDPOINT = 'https://api.openai.com/v1/responses/input_tokens'
 
 // Models to test — tries each, skips if unavailable
-const MODELS_TO_TEST = ['gpt-5.3-codex', 'gpt-5.3', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini']
+const MODELS_TO_TEST = [
+  'gpt-5.3-codex',
+  'gpt-5.3',
+  'gpt-4.1-nano',
+  'gpt-4o',
+  'gpt-4o-mini',
+]
 
 interface TokenCountResponse {
   object: string
@@ -36,7 +42,10 @@ interface TestCase {
 
 async function callTokenCount(
   body: Record<string, unknown>,
-): Promise<{ ok: true; data: TokenCountResponse } | { ok: false; status: number; error: string }> {
+): Promise<
+  | { ok: true; data: TokenCountResponse }
+  | { ok: false; status: number; error: string }
+> {
   const response = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
@@ -71,8 +80,14 @@ function buildTestCases(model: string): TestCase[] {
         input: [{ role: 'user', content: 'Hello world' }],
       },
       validate: (res) => {
-        assert(res.input_tokens > 0, `Expected > 0 tokens, got ${res.input_tokens}`)
-        assert(res.input_tokens < 50, `Expected < 50 tokens for short message, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 0,
+          `Expected > 0 tokens, got ${res.input_tokens}`,
+        )
+        assert(
+          res.input_tokens < 50,
+          `Expected < 50 tokens for short message, got ${res.input_tokens}`,
+        )
       },
     },
     {
@@ -82,7 +97,10 @@ function buildTestCases(model: string): TestCase[] {
         input: 'Hello world',
       },
       validate: (res) => {
-        assert(res.input_tokens > 0, `Expected > 0 tokens, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 0,
+          `Expected > 0 tokens, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -92,10 +110,14 @@ function buildTestCases(model: string): TestCase[] {
       body: {
         model,
         input: [{ role: 'user', content: 'Hello' }],
-        instructions: 'You are a helpful coding assistant. Always respond in TypeScript.',
+        instructions:
+          'You are a helpful coding assistant. Always respond in TypeScript.',
       },
       validate: (res) => {
-        assert(res.input_tokens > 10, `Expected > 10 tokens with instructions, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 10,
+          `Expected > 10 tokens with instructions, got ${res.input_tokens}`,
+        )
       },
     },
     {
@@ -111,7 +133,8 @@ function buildTestCases(model: string): TestCase[] {
       body: {
         model,
         input: [{ role: 'user', content: 'Hi' }],
-        instructions: 'You are an expert software engineer who writes clean, well-tested TypeScript code.',
+        instructions:
+          'You are an expert software engineer who writes clean, well-tested TypeScript code.',
       },
       validate: () => {},
     },
@@ -123,12 +146,19 @@ function buildTestCases(model: string): TestCase[] {
         model,
         input: [
           { role: 'user', content: 'What is TypeScript?' },
-          { role: 'assistant', content: 'TypeScript is a typed superset of JavaScript that compiles to plain JavaScript.' },
+          {
+            role: 'assistant',
+            content:
+              'TypeScript is a typed superset of JavaScript that compiles to plain JavaScript.',
+          },
           { role: 'user', content: 'How do I define an interface?' },
         ],
       },
       validate: (res) => {
-        assert(res.input_tokens > 20, `Expected > 20 tokens for multi-turn, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 20,
+          `Expected > 20 tokens for multi-turn, got ${res.input_tokens}`,
+        )
       },
     },
     {
@@ -141,7 +171,10 @@ function buildTestCases(model: string): TestCase[] {
         })),
       },
       validate: (res) => {
-        assert(res.input_tokens > 50, `Expected > 50 tokens for 10 messages, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 50,
+          `Expected > 50 tokens for 10 messages, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -158,19 +191,23 @@ function buildTestCases(model: string): TestCase[] {
         ],
       },
       validate: (res) => {
-        assert(res.input_tokens > 0, `Expected > 0 tokens, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 0,
+          `Expected > 0 tokens, got ${res.input_tokens}`,
+        )
       },
     },
     {
       name: '8. Plain string content (our current format)',
       body: {
         model,
-        input: [
-          { role: 'user', content: 'Hello world' },
-        ],
+        input: [{ role: 'user', content: 'Hello world' }],
       },
       validate: (res) => {
-        assert(res.input_tokens > 0, `Expected > 0 tokens, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 0,
+          `Expected > 0 tokens, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -187,7 +224,10 @@ function buildTestCases(model: string): TestCase[] {
         ],
       },
       validate: (res) => {
-        assert(res.input_tokens > 200, `Expected > 200 tokens for long text, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 200,
+          `Expected > 200 tokens for long text, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -208,7 +248,10 @@ function buildTestCases(model: string): TestCase[] {
         ],
       },
       validate: (res) => {
-        assert(res.input_tokens > 10, `Expected > 10 tokens for JSON content, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 10,
+          `Expected > 10 tokens for JSON content, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -234,7 +277,10 @@ export async function fetchData(url: string): Promise<unknown> {
         ],
       },
       validate: (res) => {
-        assert(res.input_tokens > 20, `Expected > 20 tokens for code content, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 20,
+          `Expected > 20 tokens for code content, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -246,7 +292,10 @@ export async function fetchData(url: string): Promise<unknown> {
         input: [{ role: 'user', content: 'x' }],
       },
       validate: (res) => {
-        assert(res.input_tokens > 0, `Expected > 0 tokens for single char, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 0,
+          `Expected > 0 tokens for single char, got ${res.input_tokens}`,
+        )
       },
     },
     {
@@ -256,19 +305,23 @@ export async function fetchData(url: string): Promise<unknown> {
         input: [{ role: 'user', content: '' }],
       },
       validate: (res) => {
-        assert(res.input_tokens >= 0, `Expected >= 0 tokens for empty string, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens >= 0,
+          `Expected >= 0 tokens for empty string, got ${res.input_tokens}`,
+        )
       },
     },
     {
       name: '14. Unicode / emoji content',
       body: {
         model,
-        input: [
-          { role: 'user', content: '你好世界 🌍 こんにちは مرحبا' },
-        ],
+        input: [{ role: 'user', content: '你好世界 🌍 こんにちは مرحبا' }],
       },
       validate: (res) => {
-        assert(res.input_tokens > 0, `Expected > 0 tokens for unicode, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 0,
+          `Expected > 0 tokens for unicode, got ${res.input_tokens}`,
+        )
       },
     },
     {
@@ -276,11 +329,18 @@ export async function fetchData(url: string): Promise<unknown> {
       body: {
         model,
         input: [
-          { role: 'user', content: 'Line 1\nLine 2\nLine 3\t\ttabbed\n\n\nMultiple blank lines' },
+          {
+            role: 'user',
+            content:
+              'Line 1\nLine 2\nLine 3\t\ttabbed\n\n\nMultiple blank lines',
+          },
         ],
       },
       validate: (res) => {
-        assert(res.input_tokens > 5, `Expected > 5 tokens, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 5,
+          `Expected > 5 tokens, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -292,7 +352,10 @@ export async function fetchData(url: string): Promise<unknown> {
         input: [],
       },
       validate: (res) => {
-        assert(res.input_tokens >= 0, `Expected >= 0 tokens for empty input, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens >= 0,
+          `Expected >= 0 tokens for empty input, got ${res.input_tokens}`,
+        )
       },
     },
 
@@ -305,16 +368,20 @@ export async function fetchData(url: string): Promise<unknown> {
           { role: 'user', content: 'Read the file src/index.ts' },
           {
             role: 'assistant',
-            content: 'I\'ll read that file for you.',
+            content: "I'll read that file for you.",
           },
           {
             role: 'user',
-            content: 'export function main() {\n  console.log("Hello, world!");\n}',
+            content:
+              'export function main() {\n  console.log("Hello, world!");\n}',
           },
         ],
       },
       validate: (res) => {
-        assert(res.input_tokens > 20, `Expected > 20 tokens for tool result pattern, got ${res.input_tokens}`)
+        assert(
+          res.input_tokens > 20,
+          `Expected > 20 tokens for tool result pattern, got ${res.input_tokens}`,
+        )
       },
     },
   ]
@@ -322,13 +389,52 @@ export async function fetchData(url: string): Promise<unknown> {
 
 function generateLongText(wordCount: number): string {
   const words = [
-    'function', 'const', 'let', 'return', 'async', 'await', 'import', 'export',
-    'interface', 'type', 'class', 'extends', 'implements', 'string', 'number',
-    'boolean', 'undefined', 'null', 'void', 'promise', 'array', 'object', 'map',
-    'set', 'error', 'try', 'catch', 'throw', 'new', 'this', 'super', 'if', 'else',
-    'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'default',
+    'function',
+    'const',
+    'let',
+    'return',
+    'async',
+    'await',
+    'import',
+    'export',
+    'interface',
+    'type',
+    'class',
+    'extends',
+    'implements',
+    'string',
+    'number',
+    'boolean',
+    'undefined',
+    'null',
+    'void',
+    'promise',
+    'array',
+    'object',
+    'map',
+    'set',
+    'error',
+    'try',
+    'catch',
+    'throw',
+    'new',
+    'this',
+    'super',
+    'if',
+    'else',
+    'for',
+    'while',
+    'do',
+    'switch',
+    'case',
+    'break',
+    'continue',
+    'default',
   ]
-  return Array.from({ length: wordCount }, (_, i) => words[i % words.length]).join(' ')
+  return Array.from(
+    { length: wordCount },
+    (_, i) => words[i % words.length],
+  ).join(' ')
 }
 
 async function findWorkingModel(): Promise<string | null> {
@@ -340,22 +446,30 @@ async function findWorkingModel(): Promise<string | null> {
     if (result.ok) {
       return model
     }
-    console.log(`  ⚠ Model ${model} not available (${result.status}: ${result.error.slice(0, 120)}), trying next...`)
+    console.log(
+      `  ⚠ Model ${model} not available (${result.status}: ${result.error.slice(0, 120)}), trying next...`,
+    )
   }
   return null
 }
 
 async function main() {
-  console.log('\n=== OpenAI Responses API Token Counting — Real API Tests ===\n')
+  console.log(
+    '\n=== OpenAI Responses API Token Counting — Real API Tests ===\n',
+  )
   console.log(`Endpoint: ${ENDPOINT}`)
-  console.log(`API key: ${OPENAI_API_KEY!.slice(0, 8)}...${OPENAI_API_KEY!.slice(-4)}`)
+  console.log(
+    `API key: ${OPENAI_API_KEY!.slice(0, 8)}...${OPENAI_API_KEY!.slice(-4)}`,
+  )
   console.log('')
 
   // Find a working model
   console.log('Finding available model...')
   const model = await findWorkingModel()
   if (!model) {
-    console.error('❌ No available models found. Check your API key and model access.')
+    console.error(
+      '❌ No available models found. Check your API key and model access.',
+    )
     process.exit(1)
   }
   console.log(`✅ Using model: ${model}\n`)
@@ -363,7 +477,12 @@ async function main() {
   const testCases = buildTestCases(model)
   let passed = 0
   let failed = 0
-  const results: Array<{ name: string; tokens: number | null; status: string; error?: string }> = []
+  const results: Array<{
+    name: string
+    tokens: number | null
+    status: string
+    error?: string
+  }> = []
 
   for (const testCase of testCases) {
     process.stdout.write(`  ${testCase.name} ... `)
@@ -379,7 +498,12 @@ async function main() {
         process.exit(1)
       }
       failed++
-      results.push({ name: testCase.name, tokens: null, status: 'API_ERROR', error: result.error.slice(0, 200) })
+      results.push({
+        name: testCase.name,
+        tokens: null,
+        status: 'API_ERROR',
+        error: result.error.slice(0, 200),
+      })
       continue
     }
 
@@ -387,12 +511,21 @@ async function main() {
       testCase.validate(result.data)
       console.log(`✅ (${result.data.input_tokens} tokens)`)
       passed++
-      results.push({ name: testCase.name, tokens: result.data.input_tokens, status: 'PASS' })
+      results.push({
+        name: testCase.name,
+        tokens: result.data.input_tokens,
+        status: 'PASS',
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.log(`❌ ${msg}`)
       failed++
-      results.push({ name: testCase.name, tokens: result.data.input_tokens, status: 'FAIL', error: msg })
+      results.push({
+        name: testCase.name,
+        tokens: result.data.input_tokens,
+        status: 'FAIL',
+        error: msg,
+      })
     }
   }
 
@@ -445,7 +578,9 @@ async function main() {
   const test4 = results.find((r) => r.name.startsWith('4.'))!
   const test4b = results.find((r) => r.name.startsWith('4b.'))!
   if (test4?.tokens != null && test4b?.tokens != null) {
-    console.log(`\nInstructions impact: ${test4.tokens} tokens → ${test4b.tokens} tokens (+${test4b.tokens - test4.tokens} from instructions)`)
+    console.log(
+      `\nInstructions impact: ${test4.tokens} tokens → ${test4b.tokens} tokens (+${test4b.tokens - test4.tokens} from instructions)`,
+    )
   }
 
   // Token comparison for tests 7 vs 8 (content format)
@@ -453,7 +588,9 @@ async function main() {
   const test8 = results.find((r) => r.name.startsWith('8.'))!
   if (test7?.tokens != null && test8?.tokens != null) {
     const formatMatch = test7.tokens === test8.tokens
-    console.log(`Content format: typed=${test7.tokens}, plain=${test8.tokens} ${formatMatch ? '(✅ equivalent)' : '(⚠️  different!)'}`)
+    console.log(
+      `Content format: typed=${test7.tokens}, plain=${test8.tokens} ${formatMatch ? '(✅ equivalent)' : '(⚠️  different!)'}`,
+    )
   }
 
   console.log('')

@@ -37,10 +37,8 @@ export function useWhyDidYouUpdate<T extends Record<string, any>>(
   } = {},
 ): void {
   const env = getCliEnv()
-  const {
-    logLevel = 'info',
-    enabled = env.NODE_ENV === 'development',
-  } = options
+  const { logLevel = 'info', enabled = env.NODE_ENV === 'development' } =
+    options
 
   const previousProps = useRef<T | null>(null)
   const renderCount = useRef(0)

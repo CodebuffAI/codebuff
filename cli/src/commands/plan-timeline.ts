@@ -45,7 +45,9 @@ export function formatPlanTimelineReport(
       `EVENTS.jsonl is created automatically when update_plan_status runs against this session.`,
     ].join('\n')
   }
-  const lines: string[] = [`Timeline for ${slug} (${events.length} event${events.length === 1 ? '' : 's'}):`]
+  const lines: string[] = [
+    `Timeline for ${slug} (${events.length} event${events.length === 1 ? '' : 's'}):`,
+  ]
   for (const event of events) {
     const ts = event.ts
     const kind = event.kind.padEnd(16)
@@ -151,7 +153,11 @@ export function registerPlanTimelineCommand(): CommandDefinition {
             '/plan-timeline: missing session slug. Usage: /plan-timeline <slug> [--kind task_update|session_status|current_task|append_lesson].',
           ),
         ])
-        params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+        params.setInputValue({
+          text: '',
+          cursorPosition: 0,
+          lastEditDueToNav: false,
+        })
         return
       }
       const resolved = resolvePlanTimelinePath(parsed.slug)
@@ -163,7 +169,11 @@ export function registerPlanTimelineCommand(): CommandDefinition {
             `/plan-timeline: no EVENTS.jsonl found for session "${parsed.slug}". Run update_plan_status against this session first.`,
           ),
         ])
-        params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+        params.setInputValue({
+          text: '',
+          cursorPosition: 0,
+          lastEditDueToNav: false,
+        })
         return
       }
       const events = readPlanTimeline(parsed.slug, parsed.kind)
@@ -173,7 +183,11 @@ export function registerPlanTimelineCommand(): CommandDefinition {
         getUserMessage(params.inputValue.trim()),
         getSystemMessage(report),
       ])
-      params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+      params.setInputValue({
+        text: '',
+        cursorPosition: 0,
+        lastEditDueToNav: false,
+      })
       return
     },
   })

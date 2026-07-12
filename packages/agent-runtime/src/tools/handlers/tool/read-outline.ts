@@ -15,16 +15,18 @@ import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/cli
 
 type ToolName = 'read_outline'
 
-export const handleReadOutline = (async (
-  params: {
-    previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<ToolName>
-    requestOptionalFile: RequestOptionalFileFn
-    fileContext: import('@codebuff/common/util/file').ProjectFileContext
-  },
-): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
-  const { previousToolCallFinished, toolCall, requestOptionalFile, fileContext } =
-    params
+export const handleReadOutline = (async (params: {
+  previousToolCallFinished: Promise<void>
+  toolCall: CodebuffToolCall<ToolName>
+  requestOptionalFile: RequestOptionalFileFn
+  fileContext: import('@codebuff/common/util/file').ProjectFileContext
+}): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+  const {
+    previousToolCallFinished,
+    toolCall,
+    requestOptionalFile,
+    fileContext,
+  } = params
   const { path } = toolCall.input
 
   await previousToolCallFinished
@@ -50,7 +52,18 @@ export const handleReadOutline = (async (
     }
   }
 
-  const rawContent = await requestOptionalFile({ ...params, filePath: path })
+  let rawContent: string | null
+  try {
+    rawContent = await requestOptionalFile({ ...params, filePath: path })
+  } catch (error) {
+    return {
+      output: jsonToolResult({
+        path,
+        outline: '',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      }),
+    }
+  }
   if (rawContent === null) {
     return {
       output: jsonToolResult({
@@ -64,7 +77,7 @@ export const handleReadOutline = (async (
     return {
       output: jsonToolResult({
         path,
-        outline: markdownOutline(rawContent),
+        outline: limitOutline(markdownOutline(rawContent)),
       }),
     }
   }
@@ -72,12 +85,11 @@ export const handleReadOutline = (async (
   // Preferred path: accurate, multi-language structure from tree-sitter.
   const structure = await getFileStructure(rawContent, path)
   if (structure !== null) {
-    const outline = renderStructureOutline(rawContent, structure)
+    const outline = limitOutline(renderStructureOutline(rawContent, structure))
     return {
       output: jsonToolResult({
         path,
-        outline:
-          outline || '[No structural components found in this file]',
+        outline: outline || '[No structural components found in this file]',
       }),
     }
   }
@@ -87,13 +99,18 @@ export const handleReadOutline = (async (
   return {
     output: jsonToolResult({
       path,
-      outline: regexOutline(rawContent),
+      outline: limitOutline(regexOutline(rawContent)),
     }),
   }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
 
 function isMarkdownPath(path: string): boolean {
   return /\.(md|mdx|markdown)$/i.test(path)
+}
+
+function limitOutline(outline: string): string {
+  if (outline.length <= 100_000) return outline
+  return `${outline.slice(0, 100_000)}\n[Outline truncated at 100,000 characters. Read a narrower symbol or range.]`
 }
 
 function markdownOutline(rawContent: string): string {
@@ -119,7 +136,9 @@ function markdownOutline(rawContent: string): string {
       .trim()
     if (!text) continue
 
-    outlineLines.push(`${'  '.repeat(level - 1)}Line ${i + 1}: ${'#'.repeat(level)} ${text}`)
+    outlineLines.push(
+      `${'  '.repeat(level - 1)}Line ${i + 1}: ${'#'.repeat(level)} ${text}`,
+    )
   }
 
   return outlineLines.join('\n') || '[No markdown headings found in this file]'
@@ -191,7 +210,9 @@ function regexOutline(rawContent: string): string {
     const arrowFuncMatch = trimmed.match(
       /^(export\s+)?const\s+(\w+)\s*=\s*(async\s*)?\([^)]*\)\s*=>/,
     )
-    const methodMatch = trimmed.match(/^\s*(async\s+)?(\w+)\s*\([^)]*\)\s*(\{|\b)/)
+    const methodMatch = trimmed.match(
+      /^\s*(async\s+)?(\w+)\s*\([^)]*\)\s*(\{|\b)/,
+    )
 
     if (classMatch) {
       outlineLines.push(`Line ${i + 1}: class ${classMatch[3]}`)

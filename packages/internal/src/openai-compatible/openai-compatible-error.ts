@@ -1,6 +1,6 @@
-import { z } from 'zod/v4';
+import { z } from 'zod/v4'
 
-import type { ZodType } from 'zod/v4';
+import type { ZodType } from 'zod/v4'
 
 const openaiCompatibleErrorPayloadSchema = z.object({
   error: z.object({
@@ -15,66 +15,66 @@ const openaiCompatibleErrorPayloadSchema = z.object({
     status: z.string().nullish(),
     details: z.array(z.any()).nullish(),
   }),
-});
+})
 
-export const openaiCompatibleErrorDataSchema = z.preprocess(value => {
+export const openaiCompatibleErrorDataSchema = z.preprocess((value) => {
   if (!Array.isArray(value)) {
-    return value;
+    return value
   }
 
   return (
-    value.find(item => item && typeof item === 'object' && 'error' in item) ??
+    value.find((item) => item && typeof item === 'object' && 'error' in item) ??
     value
-  );
-}, openaiCompatibleErrorPayloadSchema);
+  )
+}, openaiCompatibleErrorPayloadSchema)
 
 export type OpenAICompatibleErrorData = z.infer<
   typeof openaiCompatibleErrorDataSchema
->;
+>
 
 export type ProviderErrorStructure<T> = {
-  errorSchema: ZodType<T>;
-  errorToMessage: (error: T) => string;
-  isRetryable?: (response: Response, error?: T) => boolean;
-};
+  errorSchema: ZodType<T>
+  errorToMessage: (error: T) => string
+  isRetryable?: (response: Response, error?: T) => boolean
+}
 
 export const defaultOpenAICompatibleErrorStructure: ProviderErrorStructure<OpenAICompatibleErrorData> =
   {
     errorSchema: openaiCompatibleErrorDataSchema,
-    errorToMessage: data => {
-      const reason = getGoogleRpcReason(data.error.details);
+    errorToMessage: (data) => {
+      const reason = getGoogleRpcReason(data.error.details)
       if (reason && !data.error.message.includes(reason)) {
-        return `${data.error.message} (${reason})`;
+        return `${data.error.message} (${reason})`
       }
-      return data.error.message;
+      return data.error.message
     },
-  };
+  }
 
 function getGoogleRpcReason(details: unknown[] | null | undefined) {
   if (!Array.isArray(details)) {
-    return undefined;
+    return undefined
   }
 
   for (const detail of details) {
     if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
-      continue;
+      continue
     }
 
-    const detailRecord = detail as Record<string, unknown>;
+    const detailRecord = detail as Record<string, unknown>
     if (typeof detailRecord.reason === 'string') {
-      return detailRecord.reason;
+      return detailRecord.reason
     }
 
-    const metadata = detailRecord.metadata;
+    const metadata = detailRecord.metadata
     if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-      continue;
+      continue
     }
 
-    const reason = (metadata as Record<string, unknown>).reason;
+    const reason = (metadata as Record<string, unknown>).reason
     if (typeof reason === 'string') {
-      return reason;
+      return reason
     }
   }
 
-  return undefined;
+  return undefined
 }

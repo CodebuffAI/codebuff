@@ -41,6 +41,20 @@ interface ChatDirInfo {
   mtime: Date
 }
 
+async function mapInBatches<T, R>(
+  items: T[],
+  batchSize: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = []
+  for (let index = 0; index < items.length; index += batchSize) {
+    results.push(
+      ...(await Promise.all(items.slice(index, index + batchSize).map(mapper))),
+    )
+  }
+  return results
+}
+
 /**
  * List all available chats sorted by most recent first
  * @param maxChats - Maximum number of chats to load (default: 500)
@@ -119,6 +133,64 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
       { error: error instanceof Error ? error.message : String(error) },
       'Failed to list chats',
     )
+    return []
+  }
+}
+
+export async function getAllChatsAsync(
+  maxChats: number = 500,
+): Promise<ChatHistoryEntry[]> {
+  const chatsDir = getChatsDir()
+  try {
+    const chatIds = await fs.promises.readdir(chatsDir)
+    const infos = (
+      await mapInBatches(
+        chatIds,
+        32,
+        async (chatId): Promise<ChatDirInfo | null> => {
+          const chatPath = path.join(chatsDir, chatId)
+          try {
+            const stat = await fs.promises.stat(chatPath)
+            return stat.isDirectory()
+              ? {
+                  chatId,
+                  chatPath,
+                  messagesPath: path.join(chatPath, 'chat-messages.json'),
+                  mtime: stat.mtime,
+                }
+              : null
+          } catch {
+            return null
+          }
+        },
+      )
+    )
+      .filter((info): info is ChatDirInfo => info !== null)
+      .sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
+      .slice(0, maxChats)
+
+    const entries = await mapInBatches(
+      infos,
+      16,
+      async (info): Promise<ChatHistoryEntry | null> => {
+        try {
+          const messages = JSON.parse(
+            await fs.promises.readFile(info.messagesPath, 'utf8'),
+          ) as ChatMessage[]
+          if (messages.length === 0) return null
+          return {
+            chatId: info.chatId,
+            lastPrompt: getFirstUserPrompt(messages),
+            timestamp: info.mtime,
+            messageCount: messages.length,
+          }
+        } catch {
+          return null
+        }
+      },
+    )
+    return entries.filter((entry): entry is ChatHistoryEntry => entry !== null)
+  } catch {
     return []
   }
 }

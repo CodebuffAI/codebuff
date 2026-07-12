@@ -7,8 +7,13 @@
  */
 
 import { TextAttributes } from '@opentui/core'
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 
 import { getTheme } from './theme'
 
@@ -199,10 +204,7 @@ export const SessionViewer: React.FC<SessionViewerProps> = ({
           padding: 1,
         }}
       >
-        <CapturePanel
-          capture={selectedCapture}
-          theme={theme}
-        />
+        <CapturePanel capture={selectedCapture} theme={theme} />
 
         <TimelinePanel
           captures={captures}
@@ -294,9 +296,10 @@ const TimelinePanel: React.FC<{
       // Each card takes TIMELINE_CARD_WIDTH + 1 (for gap)
       const cardTotalWidth = TIMELINE_CARD_WIDTH + 1
       // Position of the selected card's center (including left padding)
-      const cardCenterPosition = centerPadding + (selectedIndex * cardTotalWidth) + (TIMELINE_CARD_WIDTH / 2)
+      const cardCenterPosition =
+        centerPadding + selectedIndex * cardTotalWidth + TIMELINE_CARD_WIDTH / 2
       // Scroll so that the card center is in the middle of the viewport
-      const scrollX = Math.max(0, cardCenterPosition - (viewportWidth / 2))
+      const scrollX = Math.max(0, cardCenterPosition - viewportWidth / 2)
       scrollRef.current.scrollTo({ x: scrollX, y: 0 })
     }
   }, [selectedIndex, captures.length, centerPadding, viewportWidth])
@@ -484,7 +487,8 @@ const Footer: React.FC<{
   currentIndex: number
   totalCaptures: number
 }> = ({ theme, isPlaying, playbackSpeed, currentIndex, totalCaptures }) => {
-  const position = totalCaptures > 0 ? `${currentIndex + 1}/${totalCaptures}` : '0/0'
+  const position =
+    totalCaptures > 0 ? `${currentIndex + 1}/${totalCaptures}` : '0/0'
   const speedDisplay = `${playbackSpeed.toFixed(1)}s`
   const playIcon = isPlaying ? '⏸' : '▶'
 

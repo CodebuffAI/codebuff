@@ -5,7 +5,14 @@ import {
   getProjectFileTree,
   type PathInfo,
 } from '@codebuff/common/project-file-tree'
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { LRUCache } from '@codebuff/common/util/lru-cache'
 
@@ -75,13 +82,16 @@ interface MentionParseResult {
 
 // Helper to check if a position is inside string delimiters (double quotes or backticks only)
 // Single quotes are excluded because they're commonly used as apostrophes (don't, it's, etc.)
-export const isInsideStringDelimiters = (text: string, position: number): boolean => {
+export const isInsideStringDelimiters = (
+  text: string,
+  position: number,
+): boolean => {
   let inDoubleQuote = false
   let inBacktick = false
 
   for (let i = 0; i < position; i++) {
     const char = text[i]
-    
+
     // Check if this character is escaped by counting preceding backslashes
     let numBackslashes = 0
     let j = i - 1
@@ -89,7 +99,7 @@ export const isInsideStringDelimiters = (text: string, position: number): boolea
       numBackslashes++
       j--
     }
-    
+
     // If there's an odd number of backslashes, the character is escaped
     const isEscaped = numBackslashes % 2 === 1
 
@@ -117,7 +127,7 @@ export const parseAtInLine = (line: string): MentionParseResult => {
   }
 
   const beforeChar = atIndex > 0 ? line[atIndex - 1] : ''
-  
+
   // Don't trigger on escaped @: \@
   if (beforeChar === '\\') {
     return { active: false, query: '', atIndex: -1 }
@@ -136,7 +146,8 @@ export const parseAtInLine = (line: string): MentionParseResult => {
 
   const afterAt = line.slice(atIndex + 1)
   const firstSpaceIndex = afterAt.search(/\s/)
-  const query = firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
+  const query =
+    firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
 
   if (firstSpaceIndex !== -1) {
     return { active: false, query: '', atIndex: -1 }
@@ -289,10 +300,7 @@ const createHighlightIndices = (start: number, end: number): number[] => [
   ...range(start, end),
 ]
 
-const createPushUnique = <T, K>(
-  getKey: (item: T) => K,
-  seen: Set<K>,
-) => {
+const createPushUnique = <T, K>(getKey: (item: T) => K, seen: Set<K>) => {
   return (target: T[], item: T) => {
     const key = getKey(item)
     if (!seen.has(key)) {
@@ -324,7 +332,9 @@ const filterFileMatches = (
   const hasSlashes = querySegments.length > 1
 
   // Helper to match path segments (for queries with /)
-  const matchPathSegments = (filePath: string): { indices: number[]; score: number } | null => {
+  const matchPathSegments = (
+    filePath: string,
+  ): { indices: number[]; score: number } | null => {
     const pathLower = filePath.toLowerCase()
     const highlightIndices: number[] = []
     let searchStart = 0
@@ -380,7 +390,10 @@ const filterFileMatches = (
       else if (fileNameLower.startsWith(normalized)) {
         const fileNameStart = filePath.lastIndexOf(fileName)
         matchResult = {
-          indices: createHighlightIndices(fileNameStart, fileNameStart + normalized.length),
+          indices: createHighlightIndices(
+            fileNameStart,
+            fileNameStart + normalized.length,
+          ),
           score: -500 + filePath.length, // High priority
         }
       }
@@ -401,19 +414,20 @@ const filterFileMatches = (
     if (matchResult) {
       // Adjust score: prefer shorter paths
       const lengthPenalty = filePath.length * 2
-      
+
       // Give bonus for exact directory matches (query matches the full path)
       // e.g. "cli" should prioritize "cli/" directory over "cli/package.json"
       const isExactMatch = pathLower === normalized
       const isExactDirMatch = isDirectory && isExactMatch
       const exactMatchBonus = isExactDirMatch ? -500 : 0
-      
+
       // Only penalize directories when they're not an exact or prefix match
       // This ensures "cli/" appears before "cli/src/file.ts" when searching "cli"
       const isPrefixMatch = pathLower.startsWith(normalized)
       const dirPenalty = isDirectory && !isPrefixMatch ? 50 : 0
-      
-      const finalScore = matchResult.score + lengthPenalty + dirPenalty + exactMatchBonus
+
+      const finalScore =
+        matchResult.score + lengthPenalty + dirPenalty + exactMatchBonus
 
       pushUnique(matches, {
         filePath,
@@ -509,6 +523,44 @@ export interface SuggestionEngineResult {
   slashSuggestionItems: SuggestionItem[]
   agentSuggestionItems: SuggestionItem[]
   fileSuggestionItems: SuggestionItem[]
+  fileSuggestionStatus: 'idle' | 'loading' | 'ready' | 'empty' | 'error'
+  retryFileSuggestions: () => void
+}
+
+export function getMentionSuggestionStatus(input: {
+  active: boolean
+  fileStatus: SuggestionEngineResult['fileSuggestionStatus']
+  agentMatchCount: number
+  fileMatchCount: number
+}): { message?: string; isError: boolean; canRetry: boolean } {
+  if (!input.active) {
+    return { isError: false, canRetry: false }
+  }
+  if (input.fileStatus === 'loading') {
+    return {
+      message: 'Loading project files…',
+      isError: false,
+      canRetry: false,
+    }
+  }
+  if (input.fileStatus === 'error') {
+    return {
+      message: 'File suggestions unavailable; agent matches may be stale.',
+      isError: true,
+      canRetry: true,
+    }
+  }
+  if (input.agentMatchCount === 0 && input.fileMatchCount === 0) {
+    return {
+      message:
+        input.fileStatus === 'empty'
+          ? 'No project files are available.'
+          : 'No matching agents or files.',
+      isError: false,
+      canRetry: false,
+    }
+  }
+  return { isError: false, canRetry: false }
 }
 
 interface SuggestionEngineOptions {
@@ -548,6 +600,10 @@ export const useSuggestionEngine = ({
   const [filePaths, setFilePaths] = useState<PathInfo[]>(() =>
     flattenFileTree(fileTree),
   )
+  const [fileSuggestionStatus, setFileSuggestionStatus] = useState<
+    SuggestionEngineResult['fileSuggestionStatus']
+  >(() => (fileTree.length > 0 ? 'ready' : 'idle'))
+  const lastFileRefreshAtRef = useRef(fileTree.length > 0 ? Date.now() : 0)
 
   useEffect(() => {
     slashCacheRef.current.clear()
@@ -562,7 +618,12 @@ export const useSuggestionEngine = ({
   }, [filePaths])
 
   useEffect(() => {
-    setFilePaths(flattenFileTree(fileTree))
+    const nextPaths = flattenFileTree(fileTree)
+    setFilePaths(nextPaths)
+    if (nextPaths.length > 0) {
+      setFileSuggestionStatus('ready')
+      lastFileRefreshAtRef.current = Date.now()
+    }
   }, [fileTree])
 
   const slashContext = useMemo(
@@ -579,38 +640,40 @@ export const useSuggestionEngine = ({
     [inputValue, cursorPosition],
   )
 
+  const refreshFileSuggestions = useCallback(async () => {
+    const requestId = ++fileRefreshIdRef.current
+    setFileSuggestionStatus('loading')
+    try {
+      const projectRoot = getProjectRoot()
+      const freshTree = await getProjectFileTree({
+        projectRoot,
+        fs,
+      })
+
+      if (fileRefreshIdRef.current !== requestId) {
+        return
+      }
+
+      const nextPaths = flattenFileTree(freshTree)
+      setFilePaths(nextPaths)
+      lastFileRefreshAtRef.current = Date.now()
+      setFileSuggestionStatus(nextPaths.length > 0 ? 'ready' : 'empty')
+    } catch (error) {
+      if (fileRefreshIdRef.current !== requestId) return
+      setFileSuggestionStatus('error')
+      logger.warn({ error }, 'Failed to refresh file suggestions from disk')
+    }
+  }, [])
+
   useEffect(() => {
     if (!mentionContext.active) {
       return
     }
 
-    const requestId = ++fileRefreshIdRef.current
-    let cancelled = false
+    if (Date.now() - lastFileRefreshAtRef.current < 30_000) return
 
-    const refreshFilePaths = async () => {
-      try {
-        const projectRoot = getProjectRoot()
-        const freshTree = await getProjectFileTree({
-          projectRoot,
-          fs,
-        })
-
-        if (cancelled || fileRefreshIdRef.current !== requestId) {
-          return
-        }
-
-        setFilePaths(flattenFileTree(freshTree))
-      } catch (error) {
-        logger.debug({ error }, 'Failed to refresh file suggestions from disk')
-      }
-    }
-
-    void refreshFilePaths()
-
-    return () => {
-      cancelled = true
-    }
-  }, [mentionContext.active])
+    void refreshFileSuggestions()
+  }, [mentionContext.active, refreshFileSuggestions])
 
   const slashMatches = useMemo<MatchedSlashCommand[]>(() => {
     if (!slashContext.active) {
@@ -696,18 +759,22 @@ export const useSuggestionEngine = ({
       // Show directories with trailing / in the label
       const displayLabel = file.isDirectory ? `${fileName}/` : fileName
       const displayPath = file.isDirectory ? `${file.filePath}/` : file.filePath
-      
+
       return {
         id: file.filePath,
         label: displayLabel,
         labelHighlightIndices: file.pathHighlightIndices
-          ? file.pathHighlightIndices.map((idx) => {
-              const fileNameStart = file.filePath.lastIndexOf(fileName)
-              return idx >= fileNameStart ? idx - fileNameStart : -1
-            }).filter((idx) => idx >= 0)
+          ? file.pathHighlightIndices
+              .map((idx) => {
+                const fileNameStart = file.filePath.lastIndexOf(fileName)
+                return idx >= fileNameStart ? idx - fileNameStart : -1
+              })
+              .filter((idx) => idx >= 0)
           : null,
         description: isRootLevel ? '.' : displayPath,
-        descriptionHighlightIndices: isRootLevel ? null : file.pathHighlightIndices,
+        descriptionHighlightIndices: isRootLevel
+          ? null
+          : file.pathHighlightIndices,
       }
     })
   }, [fileMatches])
@@ -721,5 +788,9 @@ export const useSuggestionEngine = ({
     slashSuggestionItems,
     agentSuggestionItems,
     fileSuggestionItems,
+    fileSuggestionStatus,
+    retryFileSuggestions: () => {
+      void refreshFileSuggestions()
+    },
   }
 }

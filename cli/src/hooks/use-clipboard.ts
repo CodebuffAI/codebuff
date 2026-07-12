@@ -63,8 +63,7 @@ export const useClipboard = () => {
           : null
 
       // Filter out cursor character from selected text
-      const cleanedText =
-        rawText?.replaceAll(CURSOR_CHAR, '') ?? null
+      const cleanedText = rawText?.replaceAll(CURSOR_CHAR, '') ?? null
 
       if (!cleanedText || cleanedText.trim().length === 0) {
         pendingSelectionRef.current = null

@@ -130,7 +130,9 @@ export const DynamicAgentDefinitionSchema = z.object({
     .and(
       z.union([
         z.object({ max_tokens: z.number() }),
-        z.object({ effort: z.enum(['high', 'medium', 'low', 'minimal', 'none']) }),
+        z.object({
+          effort: z.enum(['high', 'medium', 'low', 'minimal', 'none']),
+        }),
       ]),
     )
     .optional(),
@@ -182,6 +184,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   // Optional wall-clock timeout (ms) for a single subagent execution. -1
   // disables the timeout. Undefined falls back to DEFAULT_SUBAGENT_TIMEOUT_MS.
   defaultTimeoutMs: z.number().optional(),
+  maxSpawnDepth: z.number().int().min(0).optional(),
 
   // Tools and spawnable agents
   mcpServers: z.record(z.string(), mcpConfigSchema).default(() => ({})),
@@ -190,6 +193,24 @@ export const DynamicAgentDefinitionSchema = z.object({
     .array()
     .optional()
     .default(() => []),
+  programmaticToolNames: z.string().array().optional(),
+  terminalPermissionProfile: z
+    .enum([
+      'read-only',
+      'librarian-read-only',
+      'git-commit',
+      'tmux-test',
+      'workspace-write',
+      'full-access',
+    ])
+    .optional(),
+  filesystemScope: z
+    .object({
+      read: z.array(z.string()).optional(),
+      write: z.array(z.string()).optional(),
+    })
+    .optional(),
+  programmaticConfig: z.record(z.string(), z.unknown()).optional(),
   spawnableAgents: z
     .array(z.string())
     .optional()

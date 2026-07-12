@@ -17,7 +17,9 @@ describe('code-reviewer prompt isolation', () => {
   test('instructs reviewer to read exact final files instead of diff fragments', () => {
     const reviewer = createReviewer('anthropic/claude-opus-4.7')
 
-    expect(reviewer.instructionsPrompt).toContain('Always gather complete context')
+    expect(reviewer.instructionsPrompt).toContain(
+      'Always gather complete context',
+    )
     expect(reviewer.instructionsPrompt).toContain('diff fragments')
     expect(reviewer.instructionsPrompt).toContain('read_files with ranges')
   })

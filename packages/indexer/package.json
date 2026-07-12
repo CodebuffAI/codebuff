@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
     "ignore": "^7.0.5"
   }
 }

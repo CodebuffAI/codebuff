@@ -95,6 +95,10 @@ export const getStatusIndicatorState = ({
     return { kind: 'paused' }
   }
 
+  if (streamStatus === 'cancelling') {
+    return { kind: 'waiting', phaseLabel: 'Cancelling' }
+  }
+
   // Derive phase-aware label from active agent types
   const phaseLabel =
     activeAgentTypes && activeAgentTypes.size > 0

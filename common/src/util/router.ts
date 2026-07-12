@@ -19,11 +19,19 @@ import fs from 'fs'
 import path from 'path'
 
 import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '../constants/knowledge'
+import { isMandatorySensitiveReadPath } from './sensitive-paths'
 
 import type { Logger } from '../types/contracts/logger'
 
 /** Map from agent identity to the list of knowledge files it should load. */
 export type RouterTable = Record<string, string[]>
+export type KnowledgeTaskType =
+  | 'audit'
+  | 'planning'
+  | 'implementation'
+  | 'debugging'
+  | 'validation'
+  | 'general'
 
 const ROUTER_FILENAME = 'ROUTER.md'
 
@@ -128,18 +136,24 @@ export function loadRouterTable(
 export function resolveRoutedKnowledgeFiles(opts: {
   routerTable: RouterTable
   agentId: string | undefined
+  taskType?: KnowledgeTaskType
   knowledgeFiles: Record<string, string>
   logger?: Logger
 }): string[] {
-  const { routerTable, agentId, knowledgeFiles, logger } = opts
+  const { routerTable, agentId, taskType, knowledgeFiles, logger } = opts
   const available = new Set(Object.keys(knowledgeFiles))
-  if (agentId && Object.prototype.hasOwnProperty.call(routerTable, agentId)) {
-    const routed = routerTable[agentId]
+  const routeKey = agentId
+    ? [`${agentId}:${taskType ?? 'general'}`, agentId].find((key) =>
+        Object.prototype.hasOwnProperty.call(routerTable, key),
+      )
+    : undefined
+  if (routeKey) {
+    const routed = routerTable[routeKey]
     const kept = routed.filter((p) => available.has(p))
     const dropped = routed.filter((p) => !available.has(p))
     if (dropped.length > 0) {
       logger?.warn(
-        { agentId, dropped },
+        { agentId, taskType, routeKey, dropped },
         '[router] ROUTER.md entry for agent points at files that are not present in knowledgeFiles; check the route table for stale paths.',
       )
     }
@@ -153,6 +167,78 @@ export function resolveRoutedKnowledgeFiles(opts: {
   })
 }
 
+export function inferKnowledgeTaskType(
+  prompt: string | undefined,
+): KnowledgeTaskType {
+  const text = (prompt ?? '').toLowerCase()
+  if (/\b(audit|review across|feature gaps|production readiness)\b/.test(text))
+    return 'audit'
+  if (/\b(plan|design|architecture|approach|spec)\b/.test(text))
+    return 'planning'
+  if (/\b(debug|diagnose|investigate|root cause|why does|failure)\b/.test(text))
+    return 'debugging'
+  if (/\b(test|typecheck|lint|build|validate|verification|ci)\b/.test(text))
+    return 'validation'
+  if (/\b(implement|fix|change|add|remove|refactor|update|edit)\b/.test(text))
+    return 'implementation'
+  return 'general'
+}
+
+export function getKnowledgeBudgetChars(taskType: KnowledgeTaskType): number {
+  switch (taskType) {
+    case 'audit':
+      return 48_000
+    case 'planning':
+    case 'debugging':
+      return 36_000
+    case 'implementation':
+      return 30_000
+    case 'validation':
+      return 20_000
+    case 'general':
+      return 16_000
+  }
+}
+
+export function loadRoutedKnowledgeContents(opts: {
+  projectRoot: string
+  files: string[]
+  knowledgeFiles: Record<string, string>
+  logger?: Logger
+}): Record<string, string> {
+  const contents: Record<string, string> = {}
+  for (const file of opts.files) {
+    if (
+      path.isAbsolute(file) ||
+      file.split(/[\\/]+/).some((segment) => segment === '..') ||
+      isMandatorySensitiveReadPath(file)
+    ) {
+      opts.logger?.warn(
+        { file },
+        '[router] Ignoring unsafe routed knowledge path.',
+      )
+      continue
+    }
+    if (Object.prototype.hasOwnProperty.call(opts.knowledgeFiles, file)) {
+      contents[file] = opts.knowledgeFiles[file]
+      continue
+    }
+    const absolutePath = path.resolve(opts.projectRoot, file)
+    const root = path.resolve(opts.projectRoot)
+    if (absolutePath !== root && !absolutePath.startsWith(`${root}${path.sep}`))
+      continue
+    try {
+      contents[file] = fs.readFileSync(absolutePath, 'utf8')
+    } catch (err) {
+      opts.logger?.warn(
+        { err, file },
+        '[router] Failed to load an explicitly routed knowledge file.',
+      )
+    }
+  }
+  return contents
+}
+
 /**
  * Render the matched knowledge files into the same `\`\`\`<path>\n<content>\n\`\`\``
  * block format used by `KNOWLEDGE_FILES_CONTENTS`. Returns an empty string
@@ -161,15 +247,25 @@ export function resolveRoutedKnowledgeFiles(opts: {
 export function formatRoutedKnowledgeSection(opts: {
   files: string[]
   knowledgeFiles: Record<string, string>
+  maxChars?: number
 }): string {
-  const { files, knowledgeFiles } = opts
+  const { files, knowledgeFiles, maxChars = Number.POSITIVE_INFINITY } = opts
   if (files.length === 0) return ''
-  return files
-    .map((p) => {
-      const content = (knowledgeFiles[p] ?? '').trim()
-      if (!content) return null
-      return `\`\`\`${p}\n${content}\n\`\`\``
-    })
-    .filter((block): block is string => block !== null)
-    .join('\n\n')
+  const blocks: string[] = []
+  let remaining = maxChars
+  for (const p of files) {
+    let content = (knowledgeFiles[p] ?? '').trim()
+    if (!content || remaining <= 0) continue
+    const overhead = p.length + 9
+    const contentBudget = Math.max(0, remaining - overhead)
+    if (content.length > contentBudget) {
+      const notice = '\n\n[Knowledge file truncated to routing budget]'
+      content =
+        content.slice(0, Math.max(0, contentBudget - notice.length)) + notice
+    }
+    const block = `\`\`\`${p}\n${content}\n\`\`\``
+    blocks.push(block)
+    remaining -= block.length + 2
+  }
+  return blocks.join('\n\n')
 }

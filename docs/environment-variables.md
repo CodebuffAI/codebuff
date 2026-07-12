@@ -32,6 +32,7 @@ Document only environment variables that are implemented in code. During the for
 
 - `OPENBUFF_LOCAL_MODE` controls local/BYOK mode. `CODEBUFF_LOCAL_MODE` is NOT supported (removed in the BYOK purge).
 - `OPENBUFF_PROVIDER_CONFIG` points to provider configuration JSON. `CODEBUFF_PROVIDER_CONFIG` is NOT supported (removed in the BYOK purge).
+- `OPENBUFF_TELEMETRY=0` (also `false` or `off`) disables runtime analytics. `DO_NOT_TRACK=1` is honored as a standard compatibility opt-out. The interactive local CLI currently emits no analytics, but these controls also cover shared runtime code used by integrations.
 - `CODEBUFF_API_KEY` is a legacy upstream compatibility name for Codebuff API authentication and any live tests that still exercise that compatibility path. Openbuff local/BYOK provider mode does not require a Codebuff API key.
 - `CODEBUFF_GIT_BASH_PATH` is the Windows bash path override used by the SDK terminal command helper.
 - `CODEBUFF_CHATGPT_OAUTH_TOKEN` is the legacy ChatGPT OAuth token name. `OPENBUFF_CHATGPT_OAUTH_TOKEN` is implemented as an alias; the SDK resolves `CODEBUFF_CHATGPT_OAUTH_TOKEN ?? OPENBUFF_CHATGPT_OAUTH_TOKEN` (`sdk/src/env.ts`), so the legacy name takes precedence over the alias (reversed from the API-key ordering).

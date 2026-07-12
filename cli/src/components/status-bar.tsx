@@ -41,6 +41,15 @@ const StatusActionButton = ({
 
 const SHIMMER_INTERVAL_MS = 160
 
+const formatTokenCount = (tokens: number): string => {
+  if (tokens < 1_000) return Math.round(tokens).toString()
+  if (tokens < 1_000_000) {
+    const value = tokens / 1_000
+    return `${value >= 100 ? Math.round(value) : value.toFixed(1).replace(/\.0$/, '')}k`
+  }
+  return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, '')}m`
+}
+
 interface StatusBarProps {
   timerStartTime: number | null
   isAtBottom: boolean
@@ -104,7 +113,6 @@ export const StatusBar = ({
     return () => clearInterval(interval)
   }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
-
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
       case 'ctrlC':
@@ -164,17 +172,21 @@ export const StatusBar = ({
   }
 
   const renderContextWindowUsage = () => {
-    if (!contextWindowUsage) {
+    if (!contextWindowUsage || contextWindowUsage.max <= 0) {
       return null
     }
 
     const pct = Math.round(
       (contextWindowUsage.used / contextWindowUsage.max) * 100,
     )
-    // Color-code: warning when approaching context limit (>= 70%)
-    const fg = pct >= 70 ? theme.warning : theme.secondary
+    const fg =
+      pct >= 90 ? theme.error : pct >= 70 ? theme.warning : theme.secondary
 
-    return <span fg={fg}>{`ctx ${pct}%`}</span>
+    return (
+      <span fg={fg}>
+        {`ctx ${formatTokenCount(contextWindowUsage.used)}/${formatTokenCount(contextWindowUsage.max)} (${pct}%)`}
+      </span>
+    )
   }
 
   const renderSessionCost = () => {
@@ -183,7 +195,9 @@ export const StatusBar = ({
     }
     const dollars = sessionCostCents / 100
     const formatted =
-      dollars < 0.01 ? `$${(sessionCostCents / 100).toFixed(4)}` : `$${dollars.toFixed(2)}`
+      dollars < 0.01
+        ? `$${(sessionCostCents / 100).toFixed(4)}`
+        : `$${dollars.toFixed(2)}`
     return <span fg={theme.secondary}>{`cost ${formatted}`}</span>
   }
 
@@ -192,7 +206,10 @@ export const StatusBar = ({
       return null
     }
     // Shorten common provider prefixes for compactness
-    const short = modelName.replace(/^(openai|anthropic|google|openrouter)\//, '')
+    const short = modelName.replace(
+      /^(openai|anthropic|google|openrouter)\//,
+      '',
+    )
     return <span fg={theme.secondary}>{short}</span>
   }
 

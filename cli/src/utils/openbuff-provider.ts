@@ -12,6 +12,7 @@ import {
   getProviderDiscoveryConfig,
   loadProviderConfigSync,
   readModelDiscoveryCache,
+  recommendConfiguredModel,
   resolveConfiguredAgentModel,
   resolveConfiguredAgentModelConfig,
   resolveConfiguredProviderModel,
@@ -22,10 +23,7 @@ import {
 import type { ModelDiscoveryFetch } from '@openbuff/sdk'
 
 import { getProjectRoot } from '../project-files'
-import {
-  disconnectChatGptOAuth,
-  getChatGptOAuthStatus,
-} from './chatgpt-oauth'
+import { disconnectChatGptOAuth, getChatGptOAuthStatus } from './chatgpt-oauth'
 import { AGENT_MODE_TO_ID } from './constants'
 
 import type {
@@ -35,8 +33,13 @@ import type {
 } from '@openbuff/sdk'
 import type { AgentMode } from './constants'
 
-function asAgentId(agent: AgentDefinition | string, fallbackMode: AgentMode): string {
-  return typeof agent === 'string' ? agent : agent.id || AGENT_MODE_TO_ID[fallbackMode]
+function asAgentId(
+  agent: AgentDefinition | string,
+  fallbackMode: AgentMode,
+): string {
+  return typeof agent === 'string'
+    ? agent
+    : agent.id || AGENT_MODE_TO_ID[fallbackMode]
 }
 
 function asAgentModel(agent: AgentDefinition | string): string {
@@ -52,11 +55,14 @@ const REASONING_EFFORTS = [
   'none',
 ] as const
 
-export type ReasoningEffortInput = OpenbuffReasoningEffort | 'default' | undefined
+export type ReasoningEffortInput =
+  | OpenbuffReasoningEffort
+  | 'default'
+  | undefined
 
 export type ModelRouteTarget =
   | { type: 'default' }
-  | { type: 'mode'; mode: 'default' | 'plan' }
+  | { type: 'mode'; mode: 'default' | 'plan' | 'executePlan' }
   | { type: 'agent'; agentId: string }
 
 export type KnownModelOption = {
@@ -127,9 +133,7 @@ function formatCapabilitiesSuffix(
   return summary ? ` | ${summary}` : ''
 }
 
-function parseReasoningEffort(
-  value: string | undefined,
-): ReasoningEffortInput {
+function parseReasoningEffort(value: string | undefined): ReasoningEffortInput {
   if (!value) {
     return undefined
   }
@@ -161,12 +165,15 @@ function reasoningEffortMenu(): string {
 
 function resolveReasoningEffortChoice(value: string): ReasoningEffortInput {
   const numeric = Number(value.trim())
-  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= REASONING_EFFORTS.length) {
+  if (
+    Number.isInteger(numeric) &&
+    numeric >= 1 &&
+    numeric <= REASONING_EFFORTS.length
+  ) {
     return parseReasoningEffort(REASONING_EFFORTS[numeric - 1])
   }
   return parseReasoningEffort(value)
 }
-
 
 export function setRouteModel(
   config: ProviderConfigFileInput,
@@ -307,15 +314,21 @@ export function formatOpenbuffModelStatus(): string {
     const sourceFile =
       loadedConfig.sourceFiles?.routes?.modes?.[mode.toLowerCase()] ??
       loadedConfig.sourceFiles?.routes?.agents?.[agentId]
-    const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
+    const sourceSuffix = sourceFile
+      ? ` (defined in ${getRelativeConfigPath(sourceFile)})`
+      : ''
     lines.push(
       `${mode.toLowerCase()}: ${agentId} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}${sourceSuffix}`,
     )
   }
 
   lines.push('')
-  lines.push(`Config files: ${loadedConfig.sourceFilePaths.map(getRelativeConfigPath).join(', ') || 'not found'}`)
-  lines.push(`Agent overrides: ${Object.keys(loadedConfig.config.agents ?? {}).length}`)
+  lines.push(
+    `Config files: ${loadedConfig.sourceFilePaths.map(getRelativeConfigPath).join(', ') || 'not found'}`,
+  )
+  lines.push(
+    `Agent overrides: ${Object.keys(loadedConfig.config.agents ?? {}).length}`,
+  )
 
   const missing = getMissingProviderEnvVars({ loadedConfig })
   if (missing.length) {
@@ -324,7 +337,9 @@ export function formatOpenbuffModelStatus(): string {
   }
 
   lines.push('')
-  lines.push('Tip: Run `/models configure` to configure routing interactively in a graphical menu, or `/models set default <model-id>` to quickly route your defaults.')
+  lines.push(
+    'Tip: Run `/models configure` to configure routing interactively in a graphical menu, or `/models set default <model-id>` to quickly route your defaults.',
+  )
 
   return lines.join('\n')
 }
@@ -339,19 +354,16 @@ export function writeMergedConfig(config: ProviderConfigFileInput): string {
 
 export function getEditableConfig(): ProviderConfigFileInput {
   const loadedConfig = loadProviderConfigSync()
-  return structuredClone({
-    providers: loadedConfig.config.providers,
-    defaultModel: loadedConfig.config.defaultModel,
-    defaultReasoningEffort: loadedConfig.config.defaultReasoningEffort,
-    modes: loadedConfig.config.modes,
-    modeReasoningEfforts: loadedConfig.config.modeReasoningEfforts,
-    agents: loadedConfig.config.agents,
-    agentReasoningEfforts: loadedConfig.config.agentReasoningEfforts,
-  })
+  // Route/provider edits must start from the complete resolved config. A
+  // projection here silently reset unrelated settings when force-writing.
+  return structuredClone(loadedConfig.config)
 }
 
 /** Persist a discovered model into the provider's config file so it can be routed. */
-export function persistModelToProviderConfig(providerId: string, modelId: string): string {
+export function persistModelToProviderConfig(
+  providerId: string,
+  modelId: string,
+): string {
   // Strip provider prefix if the caller passed a full routable ID like
   // "ollama/llama3" so we store "llama3" rather than "ollama/llama3" inside
   // the provider's models array.
@@ -420,7 +432,8 @@ export function getKnownModelOptions(): KnownModelOption[] {
         model: routableModel,
         capabilitiesSummary: discovered.capabilities
           ? formatModelCapabilitiesSummary(discovered.capabilities)
-          : formatCapabilitiesForModel(routableModel, loadedConfig) || undefined,
+          : formatCapabilitiesForModel(routableModel, loadedConfig) ||
+            undefined,
         discovered: true,
       })
     }
@@ -463,14 +476,44 @@ export function configureOpenbuffModelFromArgs(args: string): string {
     return startOpenbuffModelsWizard()
   }
 
+  if (parts[0] === 'recommend') {
+    const [language, taskType, agentRole] = parts.slice(1)
+    if (!language) {
+      throw new Error(
+        'Usage: /models recommend <language> [task-type] [agent-role]',
+      )
+    }
+    const recommendation = recommendConfiguredModel({
+      context: { language, taskType, agentRole },
+    })
+    if (!recommendation) {
+      return `No empirical model measurements match language=${language}${taskType ? `, task=${taskType}` : ''}${agentRole ? `, role=${agentRole}` : ''}. Add provider modelCapabilities.quality.coding measurements or run multilingual evaluations first.`
+    }
+    return [
+      `Recommended model: ${recommendation.model}`,
+      `Measured score: ${recommendation.score}/100${recommendation.sampleSize ? ` across ${recommendation.sampleSize} samples` : ''}`,
+      recommendation.benchmark
+        ? `Benchmark: ${recommendation.benchmark}`
+        : 'Benchmark: not recorded',
+      `Matched evidence: ${
+        Object.entries(recommendation.matchedContext)
+          .filter(([, value]) => value)
+          .map(([key, value]) => `${key}=${value}`)
+          .join(', ') || 'general coding measurement'
+      }`,
+      'This is an opt-in recommendation; explicit default, mode, and agent routes remain unchanged.',
+    ].join('\n')
+  }
+
   if (parts[0] !== 'set') {
     return [
       formatOpenbuffModelStatus(),
       '',
       'Commands:',
       '- /models configure',
+      '- /models recommend <language> [task-type] [agent-role]',
       '- /models set default <provider/model> [reasoningEffort]',
-      '- /models set mode <default|plan> <provider/model> [reasoningEffort]',
+      '- /models set mode <default|plan|execute-plan> <provider/model> [reasoningEffort]',
       '- /models set agent <agent-id> <provider/model> [reasoningEffort]',
       '- /models set reasoning default|mode|agent ... <effort>',
     ].join('\n')
@@ -482,28 +525,45 @@ export function configureOpenbuffModelFromArgs(args: string): string {
     const routeTarget = parts[2]
     if (routeTarget === 'default') {
       const effort = parseReasoningEffort(parts[3])
-      if (!effort) throw new Error('Usage: /models set reasoning default <effort>')
+      if (!effort)
+        throw new Error('Usage: /models set reasoning default <effort>')
       setRouteReasoningEffort(config, { type: 'default' }, effort)
     } else if (routeTarget === 'mode') {
-      const mode = parts[3] as 'default' | 'plan'
+      const modeInput = parts[3]
+      const mode = (
+        modeInput === 'execute-plan' ? 'executePlan' : modeInput
+      ) as 'default' | 'plan' | 'executePlan'
       const effort = parseReasoningEffort(parts[4])
-      if (!mode || !['default', 'plan'].includes(mode) || !effort) {
-        throw new Error('Usage: /models set reasoning mode <default|plan> <effort>')
+      if (
+        !mode ||
+        !['default', 'plan', 'executePlan'].includes(mode) ||
+        !effort
+      ) {
+        throw new Error(
+          'Usage: /models set reasoning mode <default|plan|execute-plan> <effort>',
+        )
       }
       setRouteReasoningEffort(config, { type: 'mode', mode }, effort)
     } else if (routeTarget === 'agent') {
       const agentId = parts[3]
       const effort = parseReasoningEffort(parts[4])
       if (!agentId || !effort) {
-        throw new Error('Usage: /models set reasoning agent <agent-id> <effort>')
+        throw new Error(
+          'Usage: /models set reasoning agent <agent-id> <effort>',
+        )
       }
       setRouteReasoningEffort(config, { type: 'agent', agentId }, effort)
     } else {
-      throw new Error('Usage: /models set reasoning default|mode|agent ... <effort>')
+      throw new Error(
+        'Usage: /models set reasoning default|mode|agent ... <effort>',
+      )
     }
   } else if (target === 'default') {
     const model = parts[2]
-    if (!model) throw new Error('Usage: /models set default <provider/model> [reasoningEffort]')
+    if (!model)
+      throw new Error(
+        'Usage: /models set default <provider/model> [reasoningEffort]',
+      )
     setRouteModel(
       config,
       { type: 'default' },
@@ -511,10 +571,16 @@ export function configureOpenbuffModelFromArgs(args: string): string {
       parseReasoningEffort(parts[3]),
     )
   } else if (target === 'mode') {
-    const mode = parts[2] as 'default' | 'plan'
+    const modeInput = parts[2]
+    const mode = (modeInput === 'execute-plan' ? 'executePlan' : modeInput) as
+      | 'default'
+      | 'plan'
+      | 'executePlan'
     const model = parts[3]
-    if (!mode || !['default', 'plan'].includes(mode) || !model) {
-      throw new Error('Usage: /models set mode <default|plan> <provider/model> [reasoningEffort]')
+    if (!mode || !['default', 'plan', 'executePlan'].includes(mode) || !model) {
+      throw new Error(
+        'Usage: /models set mode <default|plan|execute-plan> <provider/model> [reasoningEffort]',
+      )
     }
     setRouteModel(
       config,
@@ -526,7 +592,9 @@ export function configureOpenbuffModelFromArgs(args: string): string {
     const agentId = parts[2]
     const model = parts[3]
     if (!agentId || !model) {
-      throw new Error('Usage: /models set agent <agent-id> <provider/model> [reasoningEffort]')
+      throw new Error(
+        'Usage: /models set agent <agent-id> <provider/model> [reasoningEffort]',
+      )
     }
     setRouteModel(
       config,
@@ -551,7 +619,10 @@ export function setupOpenbuffProviderFromArgs(args: string): string {
     return formatOpenbuffProviderStatus()
   }
 
-  const preset = OPENBUFF_PROVIDER_PRESETS[presetId as keyof typeof OPENBUFF_PROVIDER_PRESETS]
+  const preset =
+    OPENBUFF_PROVIDER_PRESETS[
+      presetId as keyof typeof OPENBUFF_PROVIDER_PRESETS
+    ]
   if (!preset) {
     return [
       `Unknown Openbuff provider preset: ${presetId}`,
@@ -621,7 +692,9 @@ export function addCustomOpenbuffProvider(provider: {
   const models = provider.models.map((model) => model.trim()).filter(Boolean)
 
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(id)) {
-    throw new Error('Provider id must use letters, numbers, dashes, or underscores.')
+    throw new Error(
+      'Provider id must use letters, numbers, dashes, or underscores.',
+    )
   }
   if (!baseURL) {
     throw new Error('Provider base URL is required.')
@@ -657,7 +730,9 @@ function providerPresetMenu(): string {
   const presets = Object.values(OPENBUFF_PROVIDER_PRESETS)
   return [
     'Choose a provider to add:',
-    ...presets.map((preset, index) => `${index + 1}. ${preset.label} (${preset.id})`),
+    ...presets.map(
+      (preset, index) => `${index + 1}. ${preset.label} (${preset.id})`,
+    ),
     `${presets.length + 1}. Custom OpenAI/Anthropic-compatible provider`,
     '',
     'Type a number or preset id. Press Escape to cancel.',
@@ -691,7 +766,7 @@ type ModelsWizardState =
   | { step: 'agent-id' }
   | { step: 'agent-model'; agentId: string }
   | { step: 'default-model' }
-  | { step: 'mode-model'; mode: 'default' | 'plan' }
+  | { step: 'mode-model'; mode: 'default' | 'plan' | 'executePlan' }
   | { step: 'reasoning-effort'; target: ModelRouteTarget; model: string }
 
 let modelsWizardState: ModelsWizardState | null = null
@@ -708,7 +783,7 @@ export function startOpenbuffModelsWizard(): string {
     '',
     'What do you want to route?',
     '1. default fallback model',
-    '2. mode (default/plan)',
+    '2. mode (default/plan/execute-plan)',
     '3. agent/subagent override',
     '',
     'Type a number. Press Escape to cancel.',
@@ -750,12 +825,18 @@ export function handleOpenbuffProviderWizardInput(input: string): {
       }
     }
 
-    return { done: false, message: `Unknown provider choice.\n\n${providerPresetMenu()}` }
+    return {
+      done: false,
+      message: `Unknown provider choice.\n\n${providerPresetMenu()}`,
+    }
   }
 
   if (providerWizardState.step === 'custom-id') {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(value)) {
-      return { done: false, message: 'Use letters, numbers, dashes, or underscores.' }
+      return {
+        done: false,
+        message: 'Use letters, numbers, dashes, or underscores.',
+      }
     }
     providerWizardState = { step: 'custom-type', id: value }
     return {
@@ -774,7 +855,11 @@ export function handleOpenbuffProviderWizardInput(input: string): {
           'Use `openai-compatible` or `anthropic-compatible` (aliases: openai, anthropic, claude).',
       }
     }
-    providerWizardState = { step: 'custom-base-url', id: providerWizardState.id, type }
+    providerWizardState = {
+      step: 'custom-base-url',
+      id: providerWizardState.id,
+      type,
+    }
     return {
       done: false,
       message:
@@ -881,13 +966,16 @@ export function handleOpenbuffModelsWizardInput(input: string): {
   if (modelsWizardState.step === 'target') {
     if (value === '1' || value.toLowerCase() === 'default') {
       modelsWizardState = { step: 'default-model' }
-      return { done: false, message: `Choose default model:\n\n${formatModelChoices()}` }
+      return {
+        done: false,
+        message: `Choose default model:\n\n${formatModelChoices()}`,
+      }
     }
     if (value === '2' || value.toLowerCase() === 'mode') {
       modelsWizardState = { step: 'mode' }
       return {
         done: false,
-        message: 'Which mode? Type one of: default, plan',
+        message: 'Which mode? Type one of: default, plan, execute-plan',
       }
     }
     if (value === '3' || value.toLowerCase() === 'agent') {
@@ -905,20 +993,30 @@ export function handleOpenbuffModelsWizardInput(input: string): {
   }
 
   if (modelsWizardState.step === 'mode') {
-    const mode = value.toLowerCase()
-    if (!['default', 'plan'].includes(mode)) {
-      return { done: false, message: 'Type one of: default, plan' }
+    const rawMode = value.toLowerCase()
+    const mode = rawMode === 'execute-plan' ? 'executePlan' : rawMode
+    if (!['default', 'plan', 'executePlan'].includes(mode)) {
+      return {
+        done: false,
+        message: 'Type one of: default, plan, execute-plan',
+      }
     }
     modelsWizardState = {
       step: 'mode-model',
-      mode: mode as 'default' | 'plan',
+      mode: mode as 'default' | 'plan' | 'executePlan',
     }
-    return { done: false, message: `Choose model for ${mode}:\n\n${formatModelChoices()}` }
+    return {
+      done: false,
+      message: `Choose model for ${mode}:\n\n${formatModelChoices()}`,
+    }
   }
 
   if (modelsWizardState.step === 'agent-id') {
     modelsWizardState = { step: 'agent-model', agentId: value }
-    return { done: false, message: `Choose model for ${value}:\n\n${formatModelChoices()}` }
+    return {
+      done: false,
+      message: `Choose model for ${value}:\n\n${formatModelChoices()}`,
+    }
   }
 
   if (modelsWizardState.step === 'reasoning-effort') {
@@ -933,7 +1031,9 @@ export function handleOpenbuffModelsWizardInput(input: string): {
     const configPath = writeMergedConfig(config)
     return {
       done: true,
-      message: [`Updated ${configPath}`, '', formatOpenbuffModelStatus()].join('\n'),
+      message: [`Updated ${configPath}`, '', formatOpenbuffModelStatus()].join(
+        '\n',
+      ),
     }
   }
 
@@ -1016,16 +1116,22 @@ export async function handleOpenbuffProviderCommand(args: string): Promise<{
     const loadedConfig = loadProviderConfigSync()
     const provider = loadedConfig.config.providers[providerId]
     if (!provider) {
-      return { message: `Provider '${providerId}' is not configured. Run /provider add first.` }
+      return {
+        message: `Provider '${providerId}' is not configured. Run /provider add first.`,
+      }
     }
 
     if (rest[1] === 'add') {
       // Strip provider prefix if user pasted a full routable ID like "ollama/llama3"
       // so we add "llama3" rather than "ollama/llama3" inside the provider models list.
       const prefix = `${providerId}/`
-      const modelId = rest[2]?.startsWith(prefix) ? rest[2].slice(prefix.length) : rest[2]
+      const modelId = rest[2]?.startsWith(prefix)
+        ? rest[2].slice(prefix.length)
+        : rest[2]
       if (!modelId) {
-        return { message: 'Usage: /provider models <provider-id> add <model-id>' }
+        return {
+          message: 'Usage: /provider models <provider-id> add <model-id>',
+        }
       }
       try {
         const configPath = addDiscoveredModelToProviderConfig({
@@ -1063,7 +1169,9 @@ export async function handleOpenbuffProviderCommand(args: string): Promise<{
           loadedConfig,
           fetch: globalThis.fetch as ModelDiscoveryFetch,
         })
-        return { message: formatDiscoveredModels(providerId, result, loadedConfig) }
+        return {
+          message: formatDiscoveredModels(providerId, result, loadedConfig),
+        }
       } catch (error) {
         return {
           message: `Model discovery failed for '${providerId}': ${error instanceof Error ? error.message : String(error)}`,
@@ -1079,9 +1187,13 @@ export async function handleOpenbuffProviderCommand(args: string): Promise<{
       const hint = discoveryConfig
         ? `Run /provider models ${providerId} --refresh to discover available models, then /provider models ${providerId} add <model-id> to add one to config.`
         : `Provider '${providerId}' does not support live model discovery.`
-      return { message: `No cached discovered models for '${providerId}'. ${hint}` }
+      return {
+        message: `No cached discovered models for '${providerId}'. ${hint}`,
+      }
     }
-    return { message: formatDiscoveredModels(providerId, cachedResult, loadedConfig) }
+    return {
+      message: formatDiscoveredModels(providerId, cachedResult, loadedConfig),
+    }
   }
 
   return {
@@ -1142,8 +1254,7 @@ export function getOpenbuffProviderReadiness(params: {
     ) {
       return {
         ok: false,
-        message:
-          `Openbuff routed ${agentId} to '${requestedModel}', but Codex/ChatGPT is not connected. Run /provider connect codex.`,
+        message: `Openbuff routed ${agentId} to '${requestedModel}', but Codex/ChatGPT is not connected. Run /provider connect codex.`,
       }
     }
   } catch (error) {

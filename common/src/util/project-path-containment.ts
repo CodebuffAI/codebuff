@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 
+import type { CodebuffFileSystem } from '../types/filesystem'
+
 /**
  * Result of resolving a caller-supplied path against a project root.
  *
@@ -54,6 +56,34 @@ function realpathOrLexical(fsPath: string): string {
 // invocation. Shared by all callers across the SDK and the agent runtime
 // that import this helper.
 const projectRootRealpathCache = new Map<string, string>()
+const projectRootFileSystemRealpathCache = new WeakMap<
+  CodebuffFileSystem,
+  Map<string, string>
+>()
+
+async function realpathOrLexicalForFileSystem(
+  fsPath: string,
+  fileSystem: CodebuffFileSystem,
+): Promise<string> {
+  try {
+    return String(await fileSystem.realpath(fsPath))
+  } catch {
+    const tail: string[] = []
+    let current = fsPath
+    while (true) {
+      try {
+        const realAncestor = String(await fileSystem.realpath(current))
+        return tail.length === 0
+          ? realAncestor
+          : path.join(realAncestor, ...tail.reverse())
+      } catch {
+        if (current === path.dirname(current)) return fsPath
+        tail.push(path.basename(current))
+        current = path.dirname(current)
+      }
+    }
+  }
+}
 
 /**
  * Resolve `input` against `projectRoot` and verify it stays inside the
@@ -117,6 +147,59 @@ export function resolveProjectPath(
     realFullPath,
     relativePath: relativeLexical,
   }
+}
+
+/**
+ * Async containment resolver for operations executed through an injected
+ * filesystem. Realpath checks and the eventual I/O must use the same
+ * filesystem instance; otherwise a virtual or wrapped filesystem could expose
+ * symlinks that the host filesystem cannot see.
+ */
+export async function resolveProjectPathForFileSystem(
+  projectRoot: string,
+  input: string,
+  fileSystem: CodebuffFileSystem,
+): Promise<ContainedProjectPath | null> {
+  if (!input) return null
+
+  const resolvedRoot = path.resolve(projectRoot)
+  const fullPath = path.isAbsolute(input)
+    ? path.resolve(input)
+    : path.resolve(resolvedRoot, input)
+  const relativeLexical = path.relative(resolvedRoot, fullPath)
+  if (
+    relativeLexical === '..' ||
+    relativeLexical.startsWith('..' + path.sep) ||
+    path.isAbsolute(relativeLexical) ||
+    relativeLexical.split(path.sep).includes('..')
+  ) {
+    return null
+  }
+
+  let cache = projectRootFileSystemRealpathCache.get(fileSystem)
+  if (!cache) {
+    cache = new Map<string, string>()
+    projectRootFileSystemRealpathCache.set(fileSystem, cache)
+  }
+  let realRoot = cache.get(resolvedRoot)
+  if (realRoot === undefined) {
+    realRoot = await realpathOrLexicalForFileSystem(resolvedRoot, fileSystem)
+    cache.set(resolvedRoot, realRoot)
+  }
+  const realFullPath = await realpathOrLexicalForFileSystem(
+    fullPath,
+    fileSystem,
+  )
+  const realRelative = path.relative(realRoot, realFullPath)
+  if (
+    realRelative === '..' ||
+    realRelative.startsWith('..' + path.sep) ||
+    path.isAbsolute(realRelative)
+  ) {
+    return null
+  }
+
+  return { fullPath, realFullPath, relativePath: relativeLexical }
 }
 
 /**

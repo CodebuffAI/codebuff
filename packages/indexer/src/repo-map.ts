@@ -80,13 +80,17 @@ export function compareRetrievalStrategies(
 ): RetrievalComparisonReport {
   return {
     total: cases.length,
-    queryIndex: evaluateStrategy(
-      cases,
-      (testCase) => queryIndex(index, testCase.query, { limit: 10, ...testCase.queryOptions }).map((result) => result.path),
+    queryIndex: evaluateStrategy(cases, (testCase) =>
+      queryIndex(index, testCase.query, {
+        limit: 10,
+        ...testCase.queryOptions,
+      }).map((result) => result.path),
     ),
-    repoMap: evaluateStrategy(
-      cases,
-      (testCase) => queryRepoMap(index, testCase.query, { maxFiles: 10, ...testCase.repoMapOptions }).map((result) => result.path),
+    repoMap: evaluateStrategy(cases, (testCase) =>
+      queryRepoMap(index, testCase.query, {
+        maxFiles: 10,
+        ...testCase.repoMapOptions,
+      }).map((result) => result.path),
     ),
   }
 }
@@ -111,7 +115,9 @@ export function queryRepoMap(
     .slice(0, limit)
 }
 
-export function formatRetrievalComparisonReport(report: RetrievalComparisonReport): string {
+export function formatRetrievalComparisonReport(
+  report: RetrievalComparisonReport,
+): string {
   const lines = [
     '# Retrieval Comparison',
     '',
@@ -147,8 +153,10 @@ function formatRepoMapEntry(entry: RepoMapEntry): string {
   const parts = [`${entry.path} (${entry.ext || 'no ext'})`]
   if (entry.symbols.length) parts.push(`  symbols: ${entry.symbols.join(', ')}`)
   if (entry.imports.length) parts.push(`  imports: ${entry.imports.join(', ')}`)
-  if (entry.headings.length) parts.push(`  headings: ${entry.headings.join(' > ')}`)
-  if (entry.concepts.length) parts.push(`  concepts: ${entry.concepts.slice(0, 8).join(', ')}`)
+  if (entry.headings.length)
+    parts.push(`  headings: ${entry.headings.join(' > ')}`)
+  if (entry.concepts.length)
+    parts.push(`  concepts: ${entry.concepts.slice(0, 8).join(', ')}`)
   return parts.join('\n')
 }
 
@@ -164,9 +172,12 @@ function evaluateStrategy(
     const firstExpectedRank = actualPaths.findIndex((path) =>
       testCase.expectedPaths.includes(path),
     )
-    if (firstExpectedRank >= 0) reciprocalRankTotal += 1 / (firstExpectedRank + 1)
+    if (firstExpectedRank >= 0)
+      reciprocalRankTotal += 1 / (firstExpectedRank + 1)
 
-    const missing = testCase.expectedPaths.filter((path) => !actualPaths.includes(path))
+    const missing = testCase.expectedPaths.filter(
+      (path) => !actualPaths.includes(path),
+    )
     if (missing.length) {
       failed.push({
         query: testCase.query,
@@ -179,11 +190,15 @@ function evaluateStrategy(
   return {
     passed: cases.length - failed.length,
     failed,
-    meanReciprocalRank: cases.length === 0 ? 0 : round(reciprocalRankTotal / cases.length),
+    meanReciprocalRank:
+      cases.length === 0 ? 0 : round(reciprocalRankTotal / cases.length),
   }
 }
 
-function scoreRepoMapEntry(entry: RepoMapEntry, tokens: string[]): QueryIndexResult {
+function scoreRepoMapEntry(
+  entry: RepoMapEntry,
+  tokens: string[],
+): QueryIndexResult {
   let score = 0
   const matchedOn = new Set<QueryIndexResult['matchedOn'][number]>()
   const normalizedPath = entry.path.toLowerCase()
@@ -197,7 +212,9 @@ function scoreRepoMapEntry(entry: RepoMapEntry, tokens: string[]): QueryIndexRes
       score += 4
       matchedOn.add('symbol')
     }
-    if (entry.headings.some((heading) => heading.toLowerCase().includes(token))) {
+    if (
+      entry.headings.some((heading) => heading.toLowerCase().includes(token))
+    ) {
       score += 2
       matchedOn.add('heading')
     }
@@ -205,7 +222,9 @@ function scoreRepoMapEntry(entry: RepoMapEntry, tokens: string[]): QueryIndexRes
       score += 1
       matchedOn.add('import')
     }
-    if (entry.concepts.some((concept) => concept.toLowerCase().includes(token))) {
+    if (
+      entry.concepts.some((concept) => concept.toLowerCase().includes(token))
+    ) {
       score += 2
       matchedOn.add('concept')
     }
@@ -221,7 +240,10 @@ function scoreRepoMapEntry(entry: RepoMapEntry, tokens: string[]): QueryIndexRes
   }
 }
 
-function matchesFileType(file: IndexedFile, fileTypes: string[] | undefined): boolean {
+function matchesFileType(
+  file: IndexedFile,
+  fileTypes: string[] | undefined,
+): boolean {
   if (!fileTypes?.length) return true
   const normalized = new Set(fileTypes.map(normalizeFileType))
   return normalized.has(normalizeFileType(file.ext))

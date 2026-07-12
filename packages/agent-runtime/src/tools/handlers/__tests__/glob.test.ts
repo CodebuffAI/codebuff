@@ -326,8 +326,6 @@ describe('handleGlob', () => {
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     const value = output[0].value as GlobResultValue
     expect(value.files?.length).toBe(3)
-    expect(value.files?.every((f) => f.includes('components'))).toBe(
-      true,
-    )
+    expect(value.files?.every((f) => f.includes('components'))).toBe(true)
   })
 })

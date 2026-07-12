@@ -43,6 +43,13 @@ const definition: AgentDefinition = {
           description:
             'Starting URL to navigate to. If not provided, the agent will determine the URL from the prompt or dev-server output.',
         },
+        interactionPolicy: {
+          type: 'string' as const,
+          enum: ['read-only', 'allow-interactions'],
+          default: 'read-only',
+          description:
+            'External-action policy. Defaults to read-only inspection. Set allow-interactions only when clicks, typing, uploads, storage/cookie mutation, or other site interactions are authorized.',
+        },
       },
     },
   },
@@ -156,6 +163,7 @@ const definition: AgentDefinition = {
     'browser_logs',
     'add_message',
   ],
+  terminalPermissionProfile: 'read-only',
 
   systemPrompt: `You are an expert browser automation agent. You use the browser_logs tool to navigate web pages, interact with elements, capture screenshots, record sessions, and verify application behavior.
 
@@ -242,6 +250,8 @@ Example workflow:
   instructionsPrompt: `Instructions:
 
 ## Your Task
+
+Obey params.interactionPolicy. Under read-only, use only navigation, snapshots, screenshots, waits, PDF/pixel diff, diagnostics, and stop. Do not click, type, upload, evaluate, or mutate browser/site state. If interactions are required but not authorized, return a partial result explaining the needed policy.
 
 You are given a browser task to accomplish. Follow this workflow:
 

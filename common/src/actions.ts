@@ -12,12 +12,32 @@ import type { PrintModeEvent } from './types/print-mode'
 import type { AgentOutput, SessionState, ToolCall } from './types/session-state'
 import type { ProjectFileContext } from './util/file'
 
-export const FileChangeSchema = z.object({
+export const FileContentChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
   path: z.string(),
   content: z.string(),
+  /** Expected pre-commit content hash; null requires an exclusive create. */
+  expectedHash: z.string().nullable().optional(),
 })
+export const FileDeleteChangeSchema = z.object({
+  type: z.literal('delete'),
+  path: z.string(),
+  expectedHash: z.string().min(1),
+})
+export const FileMoveChangeSchema = z.object({
+  type: z.literal('move'),
+  path: z.string(),
+  destinationPath: z.string(),
+  expectedHash: z.string().min(1),
+  destinationExpectedHash: z.null(),
+})
+export const FileChangeSchema = z.union([
+  FileContentChangeSchema,
+  FileDeleteChangeSchema,
+  FileMoveChangeSchema,
+])
 export type FileChange = z.infer<typeof FileChangeSchema>
+export type FileContentChange = z.infer<typeof FileContentChangeSchema>
 export const CHANGES = z.array(FileChangeSchema)
 export type FileChanges = z.infer<typeof CHANGES>
 
@@ -69,7 +89,7 @@ type ClientActionMcpToolData = {
   tools: {
     name: string
     description?: string
-    inputSchema: { type: 'object';[k: string]: unknown }
+    inputSchema: { type: 'object'; [k: string]: unknown }
   }[]
 }
 

@@ -161,12 +161,16 @@ async function main() {
   console.log('  1. Clean and build the SDK')
   console.log('  2. Run TypeScript checks')
   console.log('  3. Run smoke tests on dist')
-  console.log('  4. Run all compatibility tests (CJS, ESM, ripgrep, tree-sitter)')
+  console.log(
+    '  4. Run all compatibility tests (CJS, ESM, ripgrep, tree-sitter)',
+  )
 
   if (options.skipBuild) {
     console.log('\n⚠️  Skipping build step (--skip-build flag)')
     if (!existsSync(distPath)) {
-      throw new Error('dist directory not found. Run without --skip-build first.')
+      throw new Error(
+        'dist directory not found. Run without --skip-build first.',
+      )
     }
   }
 

@@ -5,7 +5,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { setAllBlocksCollapsedState, hasAnyExpandedBlocks } from '../utils/collapse-helpers'
+import {
+  setAllBlocksCollapsedState,
+  hasAnyExpandedBlocks,
+} from '../utils/collapse-helpers'
 import { buildMessageTree } from '../utils/message-tree-utils'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
@@ -119,7 +122,9 @@ export function useChatMessages({
                 const isExpanded = block.thinkingCollapseState === 'expanded'
                 return {
                   ...block,
-                  thinkingCollapseState: isExpanded ? 'preview' as const : 'expanded' as const,
+                  thinkingCollapseState: isExpanded
+                    ? ('preview' as const)
+                    : ('expanded' as const),
                   userOpened: !isExpanded, // Mark as user-opened if expanding
                 }
               }

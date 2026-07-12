@@ -11,9 +11,13 @@ const inputSchema = z
     path: z
       .string()
       .min(1, 'Path cannot be empty')
-      .describe('File path to generate the AST-like outline for, relative to the project root.'),
+      .describe(
+        'File path to generate the AST-like outline for, relative to the project root.',
+      ),
   })
-  .describe('Generate an outline of imports, exports, classes, methods, and function signatures in a source file without reading the entire implementation.')
+  .describe(
+    'Generate an outline of imports, exports, classes, methods, and function signatures in a source file without reading the entire implementation.',
+  )
 
 const description = `
 Example:
@@ -38,6 +42,7 @@ export const readOutlineParams = {
     z.object({
       path: z.string(),
       outline: z.string(),
+      errorMessage: z.string().optional(),
     }),
   ),
 } satisfies $ToolParams

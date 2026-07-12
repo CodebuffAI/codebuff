@@ -1,6 +1,6 @@
-import { z } from 'zod/v4';
+import { z } from 'zod/v4'
 
-export type OpenAICompatibleCompletionModelId = string;
+export type OpenAICompatibleCompletionModelId = string
 
 export const openaiCompatibleCompletionProviderOptions = z.object({
   /**
@@ -26,8 +26,8 @@ export const openaiCompatibleCompletionProviderOptions = z.object({
    * monitor and detect abuse.
    */
   user: z.string().optional(),
-});
+})
 
 export type OpenAICompatibleCompletionProviderOptions = z.infer<
   typeof openaiCompatibleCompletionProviderOptions
->;
+>

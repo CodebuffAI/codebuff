@@ -36,9 +36,7 @@ describe('browser_logs', () => {
       'data:text/html,<h1>Smoke</h1>',
     )
     expect(normalizeBrowserUrl('localhost:5173')).toBe('http://localhost:5173')
-    expect(normalizeBrowserUrl('127.0.0.1:3001')).toBe(
-      'http://127.0.0.1:3001',
-    )
+    expect(normalizeBrowserUrl('127.0.0.1:3001')).toBe('http://127.0.0.1:3001')
   })
 
   test('browser tool input schema is object-shaped for function calling', () => {
@@ -77,9 +75,26 @@ describe('browser_logs', () => {
       { type: 'wait_for', selector: '[data-loaded="true"]', timeout: 5000 },
       { type: 'upload', selector: 'input[type="file"]', paths: ['README.md'] },
       { type: 'cookie', operation: 'set', name: 'token', value: 'abc' },
-      { type: 'storage', storage: 'local', operation: 'set', key: 'token', value: 'abc' },
-      { type: 'viewport', width: 390, height: 844, isMobile: true, hasTouch: true },
-      { type: 'network', offline: false, latency: 100, downloadThroughput: 50_000 },
+      {
+        type: 'storage',
+        storage: 'local',
+        operation: 'set',
+        key: 'token',
+        value: 'abc',
+      },
+      {
+        type: 'viewport',
+        width: 390,
+        height: 844,
+        isMobile: true,
+        hasTouch: true,
+      },
+      {
+        type: 'network',
+        offline: false,
+        latency: 100,
+        downloadThroughput: 50_000,
+      },
       { type: 'tab', operation: 'create', url: 'about:blank' },
       { type: 'recording', operation: 'start', everyNthFrame: 2 },
       { type: 'pdf', printBackground: true },
@@ -87,7 +102,9 @@ describe('browser_logs', () => {
     ]
 
     for (const action of actions) {
-      expect(BrowserActionSchema.parse(action).type).toBe(action.type as BrowserAction['type'])
+      expect(BrowserActionSchema.parse(action).type).toBe(
+        action.type as BrowserAction['type'],
+      )
     }
   })
 
@@ -149,7 +166,9 @@ describe('browser_logs', () => {
   })
 
   test('pdf metadata is JSON-only so unsupported PDF media does not break chat conversion', () => {
-    const metadata = buildPdfAttachmentMetadata(Buffer.from('%PDF').toString('base64'))
+    const metadata = buildPdfAttachmentMetadata(
+      Buffer.from('%PDF').toString('base64'),
+    )
 
     expect(metadata).toEqual({
       pdfAttached: true,

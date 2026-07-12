@@ -10,7 +10,11 @@ import type { AgentState } from '../types/agent-definition'
 
 type MockToolResult = Array<{
   type: 'json'
-  value: { result?: string; errorMessage?: string; links?: Array<{ href: string; text: string }> }
+  value: {
+    result?: string
+    errorMessage?: string
+    links?: Array<{ href: string; text: string }>
+  }
 }>
 
 function createMockAgentState(): AgentState {
@@ -53,13 +57,37 @@ function runGenerator(prompt: string, params?: Record<string, any>) {
     const value = next.value
 
     // If the generator yielded a web_search tool call, feed it a mock result
-    if (value && typeof value === 'object' && 'toolName' in value && value.toolName === 'web_search') {
+    if (
+      value &&
+      typeof value === 'object' &&
+      'toolName' in value &&
+      value.toolName === 'web_search'
+    ) {
       const mockResult: MockToolResult = [
-        { type: 'json', value: { result: 'Mock search result for: ' + (value.input.query ?? value.input.url ?? ''), links: [{ href: 'https://example.com/1', text: 'Link 1' }, { href: 'https://example.com/2', text: 'Link 2' }] } },
+        {
+          type: 'json',
+          value: {
+            result:
+              'Mock search result for: ' +
+              (value.input.query ?? value.input.url ?? ''),
+            links: [
+              { href: 'https://example.com/1', text: 'Link 1' },
+              { href: 'https://example.com/2', text: 'Link 2' },
+            ],
+          },
+        },
       ]
-      next = generator.next({ toolResult: mockResult, stepsComplete: false, agentState: createMockAgentState() })
+      next = generator.next({
+        toolResult: mockResult,
+        stepsComplete: false,
+        agentState: createMockAgentState(),
+      })
     } else {
-      next = generator.next({ toolResult: undefined, stepsComplete: false, agentState: createMockAgentState() })
+      next = generator.next({
+        toolResult: undefined,
+        stepsComplete: false,
+        agentState: createMockAgentState(),
+      })
     }
   }
 
@@ -72,19 +100,27 @@ function runGenerator(prompt: string, params?: Record<string, any>) {
 function collectToolCalls(prompt: string) {
   const yields = runGenerator(prompt)
   return yields
-    .filter((y) => y.value && typeof y.value === 'object' && y.value.toolName === 'web_search')
+    .filter(
+      (y) =>
+        y.value &&
+        typeof y.value === 'object' &&
+        y.value.toolName === 'web_search',
+    )
     .map((y) => ({ input: y.value.input, toolName: y.value.toolName }))
 }
 
 /**
- * Drive the generator and collect the final STEP_TEXT output.
+ * Drive the generator and collect the final structured set_output payload.
  */
 function getStepText(prompt: string) {
   const yields = runGenerator(prompt)
-  const stepText = yields.find(
-    (y) => y.value && typeof y.value === 'object' && y.value.type === 'STEP_TEXT',
+  const output = yields.find(
+    (y) =>
+      y.value &&
+      typeof y.value === 'object' &&
+      y.value.toolName === 'set_output',
   )
-  return stepText?.value?.text ?? ''
+  return JSON.stringify(output?.value?.input?.data ?? {})
 }
 
 // ---------------------------------------------------------------------------
@@ -105,8 +141,9 @@ describe('researcher-web agent', () => {
       expect(researcherWeb.toolNames).toContain('web_search')
     })
 
-    test('has output mode last_message', () => {
-      expect(researcherWeb.outputMode).toBe('last_message')
+    test('has structured research output', () => {
+      expect(researcherWeb.outputMode).toBe('structured_output')
+      expect(researcherWeb.outputSchema).toBeDefined()
     })
 
     test('does not include parent message history', () => {
@@ -155,7 +192,7 @@ describe('researcher-web agent', () => {
 
     test('simple prompt output contains links', () => {
       const stepText = getStepText('What is Bun?')
-      expect(stepText).toContain('Links:')
+      expect(stepText).toContain('https://example.com/1')
       expect(stepText).toContain('https://example.com/1')
     })
 
@@ -166,7 +203,9 @@ describe('researcher-web agent', () => {
     })
 
     test('strips meta instructions from the query', () => {
-      const stepText = getStepText('search the web for Python async best practices')
+      const stepText = getStepText(
+        'search the web for Python async best practices',
+      )
       // The meta instruction \"search the web for\" should be stripped
       expect(stepText).toContain('Python async')
     })
@@ -180,8 +219,8 @@ describe('researcher-web agent', () => {
     test('detects numbered-list prompt and makes multiple web_search calls', () => {
       const broadPrompt =
         '1. How does Unity handle prefab instantiation?\n' +
-        '2. What is Godot\'s scene tree optimization approach?\n' +
-        '3. Compare Unreal\'s Blueprint vs C++ performance tradeoffs'
+        "2. What is Godot's scene tree optimization approach?\n" +
+        "3. Compare Unreal's Blueprint vs C++ performance tradeoffs"
       const calls = collectToolCalls(broadPrompt)
       // Should yield at least 2 (one per numbered item), bounded by MAX_TOTAL_CALLS=3
       expect(calls.length).toBeGreaterThanOrEqual(2)
@@ -190,7 +229,7 @@ describe('researcher-web agent', () => {
 
     test('detects multi-question prompt with multiple question marks', () => {
       const broadPrompt =
-        'What is Unity\'s DOTS architecture? How does it compare to traditional GameObject?' +
+        "What is Unity's DOTS architecture? How does it compare to traditional GameObject?" +
         'Which rendering pipeline should I use for mobile?'
       const calls = collectToolCalls(broadPrompt)
       expect(calls.length).toBeGreaterThanOrEqual(2)
@@ -220,9 +259,12 @@ describe('researcher-web agent', () => {
       // A long prompt with numbered items triggers decomposition
       const base = 'Unity engine architecture and scene management. '
       const longWithNumbers =
-        '1. ' + base.repeat(3) +
-        '\n2. Godot scene tree design and optimization. ' + base.repeat(2) +
-        '\n3. Unreal Engine 5 level streaming approach. ' + base.repeat(2)
+        '1. ' +
+        base.repeat(3) +
+        '\n2. Godot scene tree design and optimization. ' +
+        base.repeat(2) +
+        '\n3. Unreal Engine 5 level streaming approach. ' +
+        base.repeat(2)
       expect(longWithNumbers.length).toBeGreaterThan(400)
       const calls = collectToolCalls(longWithNumbers)
       expect(calls.length).toBeGreaterThanOrEqual(2)
@@ -242,12 +284,12 @@ describe('researcher-web agent', () => {
     test('game-engine-style broad prompt triggers multiple focused searches', () => {
       const gamePrompt =
         '1. What rendering pipeline should I use for a 2D mobile game in Unity 6?\n' +
-        '2. How does Godot 4.4\'s Vulkan backend compare to Unity\'s URP for performance?\n' +
+        "2. How does Godot 4.4's Vulkan backend compare to Unity's URP for performance?\n" +
         '3. What are the best practices for asset bundle management in Unreal Engine 5.5?\n' +
         '4. How does Bevy 0.15 handle ECS scheduling for large open-world scenes?'
       const calls = collectToolCalls(gamePrompt)
       expect(calls.length).toBeGreaterThanOrEqual(2)
-      expect(calls.length).toBeLessThanOrEqual(3) // bounded by MAX_TOTAL_CALLS
+      expect(calls.length).toBeLessThanOrEqual(5) // one reserved attempt per decomposed question
     })
 
     test('a pasted broad prompt is NOT searched as a single literal query', () => {
@@ -258,7 +300,9 @@ describe('researcher-web agent', () => {
       const calls = collectToolCalls(broadPrompt)
       // The whole prompt should NOT appear as a single query
       const queriesHaveFullPrompt = calls.some(
-        (c) => c.input.query && c.input.query.includes('Unity vs Godot architecture comparison'),
+        (c) =>
+          c.input.query &&
+          c.input.query.includes('Unity vs Godot architecture comparison'),
       )
       // At least one subquery should be shorter than the full prompt
       const shorterQueries = calls.filter(
@@ -269,25 +313,22 @@ describe('researcher-web agent', () => {
       expect(calls.length).toBeGreaterThanOrEqual(2)
     })
 
-    test('synthesized report has sections per subquestion with ## headings', () => {
+    test('structured report has per-question statuses and sources', () => {
       const broadPrompt =
         '1. What is Unity DOTS?\n' +
         '2. How does Godot MultiMesh work?\n' +
         '3. Compare Bevy vs Unreal ECS'
       const stepText = getStepText(broadPrompt)
-      // Should contain ## headings for each subquestion
-      expect(stepText).toContain('##')
-      // Should contain Sources / Links section
-      expect(stepText).toContain('### Sources / Links')
+      expect(stepText).toContain('"questions"')
+      expect(stepText).toContain('"status":"answered"')
+      expect(stepText).toContain('"sources"')
     })
 
     test('links are deduplicated across multiple subqueries', () => {
       const broadPrompt =
-        '1. Unity DOTS overview\n' +
-        '2. Unity ECS performance'
+        '1. Unity DOTS overview\n' + '2. Unity ECS performance'
       const stepText = getStepText(broadPrompt)
-      // Links section should exist
-      expect(stepText).toContain('Sources / Links')
+      expect(stepText).toContain('"sources"')
     })
   })
 
@@ -300,7 +341,8 @@ describe('researcher-web agent', () => {
       const generator = researcherWeb.handleSteps!({
         agentState: createMockAgentState(),
         logger: mockLogger as any,
-        prompt: '1. Unity DOTS architecture\n2. Godot rendering pipeline\n3. Bevy ECS scheduling',
+        prompt:
+          '1. Unity DOTS architecture\n2. Godot rendering pipeline\n3. Bevy ECS scheduling',
         params: {},
       })
 
@@ -311,10 +353,19 @@ describe('researcher-web agent', () => {
       // Drive through until we find a web_search with a query.
       while (!next.done) {
         const val = next.value
-        if (val && typeof val === 'object' && 'toolName' in val && val.toolName === 'web_search' && (val as any).input.query) {
+        if (
+          val &&
+          typeof val === 'object' &&
+          'toolName' in val &&
+          val.toolName === 'web_search' &&
+          (val as any).input.query
+        ) {
           // Feed empty result (no results) to trigger retry
           const emptyResult: MockToolResult = [
-            { type: 'json', value: { errorMessage: 'No search results found' } },
+            {
+              type: 'json',
+              value: { errorMessage: 'No search results found' },
+            },
           ]
           next = generator.next({
             toolResult: emptyResult,
@@ -323,7 +374,12 @@ describe('researcher-web agent', () => {
           })
           // The next yield should either be another web_search (retry) or a STEP_TEXT
           const nextVal = next.value
-          if (nextVal && typeof nextVal === 'object' && 'toolName' in nextVal && nextVal.toolName === 'web_search') {
+          if (
+            nextVal &&
+            typeof nextVal === 'object' &&
+            'toolName' in nextVal &&
+            nextVal.toolName === 'web_search'
+          ) {
             // Retry query should be shorter (core keywords only)
             const queryInput = (nextVal as any).input?.query
             expect(queryInput).toBeDefined()
@@ -396,7 +452,8 @@ describe('researcher-web agent', () => {
     })
 
     test('prompt with only one question mark stays on simple path', () => {
-      const singleQuestion = 'What is the best Unity render pipeline for mobile?'
+      const singleQuestion =
+        'What is the best Unity render pipeline for mobile?'
       const calls = collectToolCalls(singleQuestion)
       expect(calls).toHaveLength(1)
     })
@@ -404,7 +461,8 @@ describe('researcher-web agent', () => {
     test('prompt with two question marks decomposes via question-sentence extraction', () => {
       // Two question marks: decomposePrompt's
       // question-sentence strategy extracts both sentences → broad path triggers.
-      const twoQuestions = 'What is the Unity render pipeline? And how do I configure it?'
+      const twoQuestions =
+        'What is the Unity render pipeline? And how do I configure it?'
       const calls = collectToolCalls(twoQuestions)
       expect(calls).toHaveLength(2)
     })
@@ -430,7 +488,7 @@ describe('researcher-web agent', () => {
     test('AC: a pasted broad game-engine research prompt is decomposed into multiple focused queries', () => {
       const intensivePrompt =
         'I need to compare different rendering approaches for my game project:\n' +
-        '1. How does Unity 6\'s Scriptable Render Pipeline compare to Godot 4.4\'s Vulkan renderer\n' +
+        "1. How does Unity 6's Scriptable Render Pipeline compare to Godot 4.4's Vulkan renderer\n" +
         '   for a stylized low-poly aesthetic with custom shaders?\n' +
         '2. What are the draw-call limits on mobile (iOS/Android) for Unity URP vs Godot Mobile\n' +
         '   renderer, and which handles batching better for thousands of small mesh instances?\n' +
@@ -440,26 +498,28 @@ describe('researcher-web agent', () => {
         '   cel-shading pass compared to Unity Shader Graph or Godot VisualShader?'
       const calls = collectToolCalls(intensivePrompt)
       expect(calls.length).toBeGreaterThanOrEqual(2)
-      expect(calls.length).toBeLessThanOrEqual(3)
+      expect(calls.length).toBeLessThanOrEqual(5)
 
       // No single query should contain the FULL original prompt text
       // Each query should be focused on one subquestion
       for (const call of calls) {
         if (call.input.query) {
           // The query should NOT be a verbatim substring of the huge original prompt
-          expect(call.input.query.length).toBeLessThan(intensivePrompt.length / 2)
+          expect(call.input.query.length).toBeLessThan(
+            intensivePrompt.length / 2,
+          )
         }
       }
     })
 
-    test('AC: synthesized report has sections and links for broad prompts', () => {
+    test('AC: structured report has questions and links for broad prompts', () => {
       const broadPrompt =
         '1. Unity DOTS introduction\n' +
         '2. Godot scene tree architecture\n' +
         '3. Bevy ECS for beginners'
       const stepText = getStepText(broadPrompt)
-      expect(stepText).toContain('##')
-      expect(stepText).toContain('### Sources / Links')
+      expect(stepText).toContain('"questions"')
+      expect(stepText).toContain('"sources"')
       expect(stepText).toContain('https://example.com/')
     })
   })

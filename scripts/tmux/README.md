@@ -14,6 +14,7 @@ Helper scripts for testing TUI applications (Terminal User Interface apps) using
 Many TUI apps (using frameworks like OpenTUI, Ink, Textual, etc.) process keyboard input character-by-character. When tmux sends characters rapidly via `send-keys`, they get dropped or garbled. These scripts automatically wrap input in bracketed paste escape sequences (`\e[200~...\e[201~`), which tells the terminal to process the input atomically.
 
 **Without these scripts:**
+
 ```bash
 # ❌ Characters get dropped!
 tmux send-keys -t session "hello world"
@@ -21,6 +22,7 @@ tmux send-keys -t session "hello world"
 ```
 
 **With these scripts:**
+
 ```bash
 # ✅ Works correctly
 ./scripts/tmux/tmux-send.sh session "hello world"
@@ -244,8 +246,8 @@ started_local: Wed Jan  1 12:00:00 PST 2025
 dimensions:
   width: 120
   height: 30
-cli_mode: custom  # or "binary" or "dynamic"
-cli_command: claude  # or path to binary, or "bun --cwd=cli run dev"
+cli_mode: custom # or "binary" or "dynamic"
+cli_command: claude # or path to binary, or "bun --cwd=cli run dev"
 status: active
 ```
 
@@ -256,21 +258,21 @@ The `commands.yaml` file records every input sent to the app as a YAML array:
 ```yaml
 - timestamp: 2025-01-01T12:00:05Z
   type: text
-  input: "/help"
+  input: '/help'
   auto_enter: true
 
 - timestamp: 2025-01-01T12:00:10Z
   type: text
-  input: "hello world"
+  input: 'hello world'
   auto_enter: true
 
 - timestamp: 2025-01-01T12:00:15Z
   type: key
-  input: "Escape"
+  input: 'Escape'
 
 - timestamp: 2025-01-01T12:00:20Z
   type: text
-  input: "partial input"
+  input: 'partial input'
   auto_enter: false
 ```
 
@@ -292,6 +294,7 @@ dimensions:
 ```
 
 The front-matter provides:
+
 - **sequence**: Order of captures (1, 2, 3, ...)
 - **label**: Descriptive label if provided via `--label`
 - **timestamp**: ISO 8601 timestamp
@@ -333,6 +336,7 @@ tmux has-session -t SESSION_NAME && echo "exists" || echo "not found"
 ## Used By
 
 These scripts are used by TUI testing agents:
+
 - `@codebuff-tester` - Tests the Openbuff CLI (legacy agent ID)
 - `@claude-code-tester` - Tests Claude Code CLI
 - `@codex-tester` - Tests OpenAI Codex CLI

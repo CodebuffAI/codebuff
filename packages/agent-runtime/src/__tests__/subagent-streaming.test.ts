@@ -19,19 +19,21 @@ describe('Subagent Streaming', () => {
   it('sends subagent start and finish events during agent execution', async () => {
     const writeToClient = mock(() => {})
     const sendSubagentChunk = mock(() => {})
-    spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(async (options) => {
-      options.onResponseChunk?.('Thinking about the problem...')
-      return {
-        agentState: {
-          ...options.agentState,
-          messageHistory: [assistantMessage('Test response from subagent')],
-        },
-        output: {
-          type: 'lastMessage',
-          value: [assistantMessage('Test response from subagent')],
-        },
-      }
-    })
+    spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(
+      async (options) => {
+        options.onResponseChunk?.('Thinking about the problem...')
+        return {
+          agentState: {
+            ...options.agentState,
+            messageHistory: [assistantMessage('Test response from subagent')],
+          },
+          output: {
+            type: 'lastMessage',
+            value: [assistantMessage('Test response from subagent')],
+          },
+        }
+      },
+    )
 
     const childTemplate = {
       id: 'thinker',

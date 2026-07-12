@@ -26,6 +26,9 @@ on:
         type: string
         description: 'JSON object of environment variable overrides'
         default: '{}'
+    secrets:
+      OPENBUFF_GITHUB_TOKEN:
+        required: false
 
 jobs:
   build-binaries:
@@ -42,13 +45,18 @@ jobs:
             bun_target: bun-linux-arm64
             platform: linux
             arch: arm64
-            # Cross-compiles on x64 runner; binary can't be executed here.
-            smoke_test: false
+            smoke_test: emulated
           - os: macos-15-intel
             target: darwin-x64
             bun_target: bun-darwin-x64
             platform: darwin
             arch: x64
+          - os: macos-15-intel
+            target: darwin-x64-legacy
+            bun_target: bun-darwin-x64
+            platform: darwin
+            arch: x64
+            legacy_macos: true
           - os: macos-14
             target: darwin-arm64
             bun_target: bun-darwin-arm64
@@ -61,6 +69,12 @@ jobs:
           ref: ${{ inputs.checkout-ref || github.sha }}
 
       - uses: ./.github/actions/setup-project
+
+      - name: Set up Zig for legacy macOS native library
+        if: matrix.legacy_macos == true
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
 
       - name: Download staging metadata
         if: inputs.artifact-name != ''
@@ -160,6 +174,63 @@ jobs:
             echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
           fi
 
+      - name: Prepare macOS 11 legacy toolchain
+        if: matrix.legacy_macos == true
+        shell: bash
+        run: |
+          set -euo pipefail
+          LEGACY_DIR="$RUNNER_TEMP/openbuff-macos11"
+          mkdir -p "$LEGACY_DIR"
+
+          curl -L --fail --retry 3 \
+            -o "$LEGACY_DIR/bun.zip" \
+            https://github.com/oven-sh/bun/releases/download/bun-v1.0.36/bun-darwin-x64.zip
+          unzip -q "$LEGACY_DIR/bun.zip" -d "$LEGACY_DIR/bun"
+          chmod +x "$LEGACY_DIR/bun/bun-darwin-x64/bun"
+
+          curl -L --fail --retry 3 \
+            -o "$LEGACY_DIR/opentui.tar.gz" \
+            https://github.com/anomalyco/opentui/archive/refs/tags/v0.2.2.tar.gz
+          mkdir -p "$LEGACY_DIR/opentui"
+          tar -xzf "$LEGACY_DIR/opentui.tar.gz" \
+            -C "$LEGACY_DIR/opentui" --strip-components=1
+          pushd "$LEGACY_DIR/opentui/packages/core/src/zig"
+          zig build -Dtarget=x86_64-macos.11.0 -Doptimize=ReleaseFast
+          popd
+
+          curl -L --fail --retry 3 \
+            -o "$LEGACY_DIR/ripgrep.tar.gz" \
+            https://github.com/BurntSushi/ripgrep/archive/refs/tags/14.1.1.tar.gz
+          mkdir -p "$LEGACY_DIR/ripgrep"
+          tar -xzf "$LEGACY_DIR/ripgrep.tar.gz" \
+            -C "$LEGACY_DIR/ripgrep" --strip-components=1
+          pushd "$LEGACY_DIR/ripgrep"
+          MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --locked
+          popd
+
+          echo "OPENBUFF_COMPILER_BIN=$LEGACY_DIR/bun/bun-darwin-x64/bun" >> "$GITHUB_ENV"
+          echo "OPENBUFF_LEGACY_OPENTUI_LIB=$LEGACY_DIR/opentui/packages/core/src/zig/lib/x86_64-macos.11.0/libopentui.dylib" >> "$GITHUB_ENV"
+          echo "OPENBUFF_LEGACY_RIPGREP_BIN=$LEGACY_DIR/ripgrep/target/release/rg" >> "$GITHUB_ENV"
+
+      - name: Rebuild Intel ripgrep for macOS 13
+        if: matrix.target == 'darwin-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG_DIR="$RUNNER_TEMP/openbuff-ripgrep-macos13"
+          mkdir -p "$RG_DIR/source"
+          curl -L --fail --retry 3 \
+            -o "$RG_DIR/ripgrep.tar.gz" \
+            https://github.com/BurntSushi/ripgrep/archive/refs/tags/14.1.1.tar.gz
+          tar -xzf "$RG_DIR/ripgrep.tar.gz" \
+            -C "$RG_DIR/source" --strip-components=1
+          pushd "$RG_DIR/source"
+          MACOSX_DEPLOYMENT_TARGET=13.0 cargo build --release --locked
+          popd
+          cp "$RG_DIR/source/target/release/rg" sdk/vendor/ripgrep/x64-darwin/rg
+          xcrun vtool -show-build sdk/vendor/ripgrep/x64-darwin/rg | \
+            grep -Eq 'minos 13(\.0+)?'
+
       - name: Build binary
         run: bun run scripts/build-binary.ts ${{ inputs.binary-name }} ${{ inputs.new-version }}
         working-directory: cli
@@ -169,9 +240,25 @@ jobs:
           OVERRIDE_TARGET: ${{ matrix.bun_target }}
           OVERRIDE_PLATFORM: ${{ matrix.platform }}
           OVERRIDE_ARCH: ${{ matrix.arch }}
+          OPENBUFF_LEGACY_MACOS_BUILD: ${{ matrix.legacy_macos == true && 'true' || 'false' }}
+
+      - name: Verify macOS 11 deployment targets
+        if: matrix.legacy_macos == true
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            "cli/bin/${{ inputs.binary-name }}" \
+            cli/bin/libopentui.dylib \
+            cli/bin/rg
+          do
+            echo "Checking $file"
+            xcrun vtool -show-build "$file" | tee "$RUNNER_TEMP/vtool.txt"
+            grep -Eq 'minos 11(\.0+)?' "$RUNNER_TEMP/vtool.txt"
+          done
 
       - name: Smoke test binary
-        if: matrix.smoke_test != false
+        if: matrix.smoke_test != 'emulated'
         shell: bash
         run: |
           cd cli/bin
@@ -183,12 +270,29 @@ jobs:
 
           # Fast path: --version exits synchronously through commander, so it
           # only catches early sync failures. Run it for parity with old CI.
-          "$BIN" --version
+          VERSION_OUTPUT=$("$BIN" --version | tail -n 1)
+          test "$VERSION_OUTPUT" = "${{ inputs.new-version }}"
 
           # Slow path: keep the binary alive long enough for *async* startup
           # failures (e.g. the Parser.init rejection that crashed the
           # post-OpenTUI-upgrade Windows build) to surface in stdout/stderr.
           bun ../scripts/smoke-binary.ts "$BIN"
+
+      - name: Set up QEMU for Linux ARM64 smoke
+        if: matrix.smoke_test == 'emulated'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Smoke test Linux ARM64 binary
+        if: matrix.smoke_test == 'emulated'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/arm64 \
+            -v "$PWD/cli/bin:/app:ro" \
+            ubuntu:24.04 \
+            bash -lc '/app/${{ inputs.binary-name }} --version | tail -n 1 | grep -Fx "${{ inputs.new-version }}" && /app/${{ inputs.binary-name }} --help >/dev/null'
 
       - name: Create tarball
         shell: bash
@@ -200,7 +304,11 @@ jobs:
           # Bundle the binary alongside tree-sitter.wasm — the CLI loads
           # the wasm as a sibling file at runtime since bun --compile
           # asset embedding wasn't reliable on Windows.
-          tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE" tree-sitter.wasm
+          FILES=("$BINARY_FILE" tree-sitter.wasm)
+          if [[ "${{ matrix.legacy_macos == true }}" == "true" ]]; then
+            FILES+=(libopentui.dylib rg)
+          fi
+          tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C cli/bin "${FILES[@]}"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v7
@@ -332,7 +440,8 @@ jobs:
           BIN="./${{ inputs.binary-name }}.exe"
 
           # Sync check — exits via commander before async tasks fire.
-          "$BIN" --version
+          VERSION_OUTPUT=$("$BIN" --version | tail -n 1)
+          test "$VERSION_OUTPUT" = "${{ inputs.new-version }}"
 
           # Long-running check — gives async startup failures time to surface.
           # This is the step that would have caught the post-OpenTUI-upgrade

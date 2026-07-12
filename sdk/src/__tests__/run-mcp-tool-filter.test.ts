@@ -78,9 +78,9 @@ describe('MCP tool filtering', () => {
 
         filteredTools = await requestMcpToolData({
           mcpConfig: browserMcpConfig,
-          toolNames: TEST_AGENT.toolNames!
-            .filter((toolName) => toolName.startsWith('browser/'))
-            .map((toolName) => toolName.slice('browser/'.length)),
+          toolNames: TEST_AGENT.toolNames!.filter((toolName) =>
+            toolName.startsWith('browser/'),
+          ).map((toolName) => toolName.slice('browser/'.length)),
         })
 
         await sendAction({

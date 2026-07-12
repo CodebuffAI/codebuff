@@ -5,7 +5,10 @@ import { sanitizeErrorMessage, getErrorStatusCode } from '@openbuff/sdk'
  *
  * The goal is to provide clear, consistent messaging across the CLI.
  */
-export function formatErrorForDisplay(error: unknown, fallbackTitle: string): string {
+export function formatErrorForDisplay(
+  error: unknown,
+  fallbackTitle: string,
+): string {
   const statusCode = getErrorStatusCode(error)
 
   // Authentication-specific messaging based on statusCode
@@ -49,7 +52,10 @@ export function formatErrorForDisplay(error: unknown, fallbackTitle: string): st
  * Example output:
  *   "⚠️ Network error: Server error. Please try again later. • 3 messages will retry when connection is restored"
  */
-export function formatRetryBannerMessage(error: unknown, pendingCount: number): string {
+export function formatRetryBannerMessage(
+  error: unknown,
+  pendingCount: number,
+): string {
   const baseTitle = 'Network error'
   const formatted = formatErrorForDisplay(error, baseTitle)
 

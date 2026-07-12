@@ -32,6 +32,11 @@ const basher: AgentDefinition = {
           description:
             'For SYNC commands, save complete combined stdout/stderr to a /tmp log and return extracted failure lines in the summary output. Useful for broad test suites whose output may be truncated.',
         },
+        retain_full_log: {
+          type: 'boolean',
+          description:
+            'Keep the temporary full log after the result is produced. Defaults to false; set true only when the caller will inspect or preserve it.',
+        },
         failure_pattern: {
           type: 'string',
           description:
@@ -50,6 +55,15 @@ const basher: AgentDefinition = {
           type: 'string',
           description:
             'SYNC (default, waits and returns output) or BACKGROUND (starts a detached job and returns a jobId immediately). Use BACKGROUND for long-running or never-exiting commands (dev servers, watchers, log tails); poll/follow the returned jobId with the check_job tool.',
+        },
+        cwd: {
+          type: 'string',
+          description: 'Optional project-relative working directory.',
+        },
+        detach: {
+          type: 'boolean',
+          description:
+            'For BACKGROUND commands only, keep the job alive after request cancellation. Defaults to false.',
         },
       },
       required: ['command'],
@@ -83,7 +97,9 @@ Do not use any tools! Only report the output of the command.`,
       console.error('Basher agent: missing required "command" parameter')
       yield {
         toolName: 'set_output',
-        input: { data: { errorMessage: 'Missing required "command" parameter' } },
+        input: {
+          data: { errorMessage: 'Missing required "command" parameter' },
+        },
       } as ToolCall<'set_output'>
       return
     }
@@ -95,7 +111,11 @@ Do not use any tools! Only report the output of the command.`,
       | 'BACKGROUND'
       | undefined
     const save_full_log = params?.save_full_log as boolean | undefined
-    const shouldSaveFullLog = save_full_log === true && process_type !== 'BACKGROUND'
+    const retain_full_log = params?.retain_full_log as boolean | undefined
+    const cwd = params?.cwd as string | undefined
+    const detach = params?.detach as boolean | undefined
+    const shouldSaveFullLog =
+      save_full_log === true && process_type !== 'BACKGROUND'
     const failure_pattern =
       (params?.failure_pattern as string | undefined) ??
       '\\(fail\\)|error:|Expected|Received|panic|Unhandled|not ok'
@@ -109,20 +129,20 @@ Do not use any tools! Only report the output of the command.`,
     const fullLogPath = shouldSaveFullLog
       ? `/tmp/openbuff-basher-${crypto.randomUUID()}.log`
       : undefined
-    const commandToRun =
-      shouldSaveFullLog
-        ? [
-            'set -o pipefail',
-            `(${command}) 2>&1 | tee ${shellQuote(fullLogPath!)} >/dev/null`,
-            'status=${PIPESTATUS[0]}',
-            `echo "full_log_path=${fullLogPath}"`,
-            'echo "exit_status=$status"',
-            `grep -n -E ${shellQuote(failure_pattern)} ${shellQuote(
-              fullLogPath!,
-            )} | head -${failureLineLimit} || true`,
-            'exit "$status"',
-          ].join('\n')
-        : command
+    const commandToRun = shouldSaveFullLog
+      ? [
+          'set -o pipefail',
+          `(${command}) 2>&1 | tee ${shellQuote(fullLogPath!)} >/dev/null`,
+          'status=${PIPESTATUS[0]}',
+          ...(retain_full_log ? [`echo "full_log_path=${fullLogPath}"`] : []),
+          'echo "exit_status=$status"',
+          `grep -n -E ${shellQuote(failure_pattern)} ${shellQuote(
+            fullLogPath!,
+          )} | head -${failureLineLimit} || true`,
+          ...(!retain_full_log ? [`rm -f ${shellQuote(fullLogPath!)}`] : []),
+          'exit "$status"',
+        ].join('\n')
+      : command
 
     // Run the command. Command reporting is deterministic: a successful shell
     // call must not be turned into a provider failure by a follow-up LLM step.
@@ -132,6 +152,8 @@ Do not use any tools! Only report the output of the command.`,
         command: commandToRun,
         ...(process_type !== undefined && { process_type }),
         ...(timeout_seconds !== undefined && { timeout_seconds }),
+        ...(cwd !== undefined && { cwd }),
+        ...(detach !== undefined && { detach }),
       },
       ...(what_to_summarize && { includeToolCall: false }),
     } as ToolCall<'run_terminal_command'>
@@ -159,10 +181,12 @@ Do not use any tools! Only report the output of the command.`,
       `Command: ${command}`,
       `Requested summary: ${what_to_summarize}`,
     ]
-    if (fullLogPath) {
-      lines.push(`Full log: ${fullLogPath}`)
+    if (fullLogPath && retain_full_log) {
+      lines.push(`Full log retained: ${fullLogPath}`)
       lines.push(`Failure pattern: ${failure_pattern}`)
       lines.push(`Max failure lines: ${failureLineLimit}`)
+    } else if (fullLogPath) {
+      lines.push('Full log deleted after extracting relevant lines.')
     }
 
     const appendBounded = (label: string, value: unknown, maxChars: number) => {
@@ -223,6 +247,30 @@ Do not use any tools! Only report the output of the command.`,
         appendBounded('Command output JSON', output, 8_000)
     } else {
       appendBounded('Command output JSON', output, 8_000)
+    }
+
+    const focusWords = (
+      what_to_summarize.toLowerCase().match(/[a-z0-9_]{4,}/g) ?? []
+    ).filter((word, index, words) => words.indexOf(word) === index)
+    const combinedOutput =
+      output && typeof output === 'object'
+        ? [
+            (output as Record<string, unknown>).stdout,
+            (output as Record<string, unknown>).stderr,
+            (output as Record<string, unknown>).message,
+            (output as Record<string, unknown>).errorMessage,
+          ]
+            .filter((value): value is string => typeof value === 'string')
+            .join('\n')
+        : ''
+    const focusedLines = combinedOutput
+      .split('\n')
+      .filter((line) =>
+        focusWords.some((word) => line.toLowerCase().includes(word)),
+      )
+      .slice(0, 80)
+    if (focusedLines.length > 0) {
+      lines.push('', 'Focused excerpts:', ...focusedLines)
     }
 
     yield {

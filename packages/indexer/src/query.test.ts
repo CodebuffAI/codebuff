@@ -73,19 +73,77 @@ const index: MetadataIndex = {
   },
   graph: {
     nodes: {
-      'file:src/auth.ts': { id: 'file:src/auth.ts', type: 'file', label: 'src/auth.ts', path: 'src/auth.ts' },
-      'file:src/db.ts': { id: 'file:src/db.ts', type: 'file', label: 'src/db.ts', path: 'src/db.ts' },
-      'file:docs/authentication.md': { id: 'file:docs/authentication.md', type: 'file', label: 'docs/authentication.md', path: 'docs/authentication.md' },
-      'file:.bun-install/noisy.ts': { id: 'file:.bun-install/noisy.ts', type: 'file', label: '.bun-install/noisy.ts', path: '.bun-install/noisy.ts' },
-      'symbol:AuthProvider': { id: 'symbol:AuthProvider', type: 'symbol', label: 'AuthProvider' },
-      'concept:authentication': { id: 'concept:authentication', type: 'concept', label: 'authentication' },
+      'file:src/auth.ts': {
+        id: 'file:src/auth.ts',
+        type: 'file',
+        label: 'src/auth.ts',
+        path: 'src/auth.ts',
+      },
+      'file:src/db.ts': {
+        id: 'file:src/db.ts',
+        type: 'file',
+        label: 'src/db.ts',
+        path: 'src/db.ts',
+      },
+      'file:docs/authentication.md': {
+        id: 'file:docs/authentication.md',
+        type: 'file',
+        label: 'docs/authentication.md',
+        path: 'docs/authentication.md',
+      },
+      'file:.bun-install/noisy.ts': {
+        id: 'file:.bun-install/noisy.ts',
+        type: 'file',
+        label: '.bun-install/noisy.ts',
+        path: '.bun-install/noisy.ts',
+      },
+      'symbol:AuthProvider': {
+        id: 'symbol:AuthProvider',
+        type: 'symbol',
+        label: 'AuthProvider',
+      },
+      'concept:authentication': {
+        id: 'concept:authentication',
+        type: 'concept',
+        label: 'authentication',
+      },
     },
     edges: [
-      { from: 'file:src/auth.ts', to: 'file:src/db.ts', type: 'references', weight: 0.9, label: './db' },
-      { from: 'file:src/auth.ts', to: 'symbol:AuthProvider', type: 'defines', weight: 1, label: 'AuthProvider' },
-      { from: 'file:.bun-install/noisy.ts', to: 'symbol:AuthProvider', type: 'defines', weight: 1, label: 'AuthProvider' },
-      { from: 'file:docs/authentication.md', to: 'concept:authentication', type: 'mentions', weight: 0.6, label: 'authentication' },
-      { from: 'file:src/auth.ts', to: 'concept:authentication', type: 'mentions', weight: 0.6, label: 'authentication' },
+      {
+        from: 'file:src/auth.ts',
+        to: 'file:src/db.ts',
+        type: 'references',
+        weight: 0.9,
+        label: './db',
+      },
+      {
+        from: 'file:src/auth.ts',
+        to: 'symbol:AuthProvider',
+        type: 'defines',
+        weight: 1,
+        label: 'AuthProvider',
+      },
+      {
+        from: 'file:.bun-install/noisy.ts',
+        to: 'symbol:AuthProvider',
+        type: 'defines',
+        weight: 1,
+        label: 'AuthProvider',
+      },
+      {
+        from: 'file:docs/authentication.md',
+        to: 'concept:authentication',
+        type: 'mentions',
+        weight: 0.6,
+        label: 'authentication',
+      },
+      {
+        from: 'file:src/auth.ts',
+        to: 'concept:authentication',
+        type: 'mentions',
+        weight: 0.6,
+        label: 'authentication',
+      },
     ],
   },
 }
@@ -103,8 +161,12 @@ describe('queryIndex', () => {
   test('supports doc concept matches', () => {
     const results = queryIndex(index, 'authentication', { limit: 5 })
 
-    expect(results.some((result) => result.path === 'docs/authentication.md')).toBe(true)
-    expect(results.some((result) => result.matchedOn.includes('concept'))).toBe(true)
+    expect(
+      results.some((result) => result.path === 'docs/authentication.md'),
+    ).toBe(true)
+    expect(results.some((result) => result.matchedOn.includes('concept'))).toBe(
+      true,
+    )
   })
 
   test('supports neighbors mode from an explicit file', () => {
@@ -115,7 +177,9 @@ describe('queryIndex', () => {
     })
 
     expect(results.map((result) => result.path)).toContain('src/db.ts')
-    expect(results.map((result) => result.path)).toContain('docs/authentication.md')
+    expect(results.map((result) => result.path)).toContain(
+      'docs/authentication.md',
+    )
   })
 
   test('supports path mode between explicit files', () => {
@@ -125,12 +189,18 @@ describe('queryIndex', () => {
       to: 'src/db.ts',
     })
 
-    expect(results.map((result) => result.path)).toEqual(['src/auth.ts', 'src/db.ts'])
+    expect(results.map((result) => result.path)).toEqual([
+      'src/auth.ts',
+      'src/db.ts',
+    ])
     expect(results[0]?.explanation).toContain('Graph path')
   })
 
   test('supports explain mode', () => {
-    const results = queryIndex(index, 'AuthProvider', { mode: 'explain', limit: 1 })
+    const results = queryIndex(index, 'AuthProvider', {
+      mode: 'explain',
+      limit: 1,
+    })
 
     expect(results[0]?.explanation).toContain('Matched on')
   })
@@ -138,7 +208,9 @@ describe('queryIndex', () => {
   test('penalizes explicit vendor/cache noise even when paths are shallow', () => {
     const results = queryIndex(index, 'AuthProvider', { limit: 5 })
 
-    expect(results.findIndex((result) => result.path === 'src/auth.ts')).toBeLessThan(
+    expect(
+      results.findIndex((result) => result.path === 'src/auth.ts'),
+    ).toBeLessThan(
       results.findIndex((result) => result.path === '.bun-install/noisy.ts'),
     )
   })
@@ -146,7 +218,10 @@ describe('queryIndex', () => {
   test('evaluates query quality cases', () => {
     const report = evaluateQueryIndexQuality(index, [
       { query: 'AuthProvider', expectedPaths: ['src/auth.ts'] },
-      { query: 'authentication flow', expectedPaths: ['docs/authentication.md'] },
+      {
+        query: 'authentication flow',
+        expectedPaths: ['docs/authentication.md'],
+      },
     ])
 
     expect(report.total).toBe(2)
@@ -157,14 +232,22 @@ describe('queryIndex', () => {
 
   test('prioritizes command sources for validation-suite queries', () => {
     const commandIndex = makeCommandIndex()
-    const results = queryIndex(commandIndex, 'Run the broader project validation suite', {
-      limit: 5,
-    })
+    const results = queryIndex(
+      commandIndex,
+      'Run the broader project validation suite',
+      {
+        limit: 5,
+      },
+    )
 
     expect(results[0]?.path).toBe('package.json')
     expect(results[0]?.matchedOn).toContain('command')
-    expect(results[0]?.matchedSnippets).toContain('package script: typecheck=bun --filter=* run typecheck')
-    expect(results.findIndex((result) => result.path === 'src/validation-error.ts')).toBeGreaterThan(
+    expect(results[0]?.matchedSnippets).toContain(
+      'package script: typecheck=bun --filter=* run typecheck',
+    )
+    expect(
+      results.findIndex((result) => result.path === 'src/validation-error.ts'),
+    ).toBeGreaterThan(
       results.findIndex((result) => result.path === 'package.json'),
     )
   })
@@ -191,7 +274,9 @@ describe('queryIndex', () => {
     })
 
     expect(results[0]?.path).toBe('src/command-registry.ts')
-    expect(results.findIndex((result) => result.path === 'package.json')).toBeGreaterThan(
+    expect(
+      results.findIndex((result) => result.path === 'package.json'),
+    ).toBeGreaterThan(
       results.findIndex((result) => result.path === 'src/command-registry.ts'),
     )
   })
@@ -202,7 +287,9 @@ describe('queryIndex', () => {
       limit: 5,
     })
 
-    expect(results.map((result) => result.path)).toEqual(['docs/authentication.md'])
+    expect(results.map((result) => result.path)).toEqual([
+      'docs/authentication.md',
+    ])
   })
 
   test('resolveLexicalWeights returns historical defaults with no arg', () => {
@@ -395,7 +482,12 @@ function makeCommandIndex(): MetadataIndex {
         symbols: [],
         imports: [],
         headings: [],
-        concepts: ['ci workflow', 'validation suite', 'run:bun run typecheck', 'run:bun test'],
+        concepts: [
+          'ci workflow',
+          'validation suite',
+          'run:bun run typecheck',
+          'run:bun test',
+        ],
       },
       'docs/testing.md': {
         path: 'docs/testing.md',

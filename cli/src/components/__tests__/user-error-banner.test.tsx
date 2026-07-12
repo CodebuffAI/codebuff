@@ -83,9 +83,7 @@ describe('UserErrorBanner', () => {
   test('renders with long error message', () => {
     const longError = 'A'.repeat(500)
 
-    const markup = renderToStaticMarkup(
-      <UserErrorBanner error={longError} />,
-    )
+    const markup = renderToStaticMarkup(<UserErrorBanner error={longError} />)
 
     expect(markup).toContain('Error')
     expect(markup).toContain(longError)

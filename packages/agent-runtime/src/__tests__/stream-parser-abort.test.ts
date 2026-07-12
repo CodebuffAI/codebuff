@@ -32,14 +32,19 @@ describe('stream parser abort handling', () => {
     includeMessageHistory: true,
     inheritParentSystemPrompt: false,
     mcpServers: {},
-    toolNames: ['read_files', 'end_turn'],
+    toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
     spawnableAgents: [],
     systemPrompt: 'Test system prompt',
     instructionsPrompt: 'Test instructions',
     stepPrompt: 'Test step prompt',
   }
 
-  function getAssistantText(messageHistory: { role: string; content: { type: string; text?: string }[] }[]): string[] {
+  function getAssistantText(
+    messageHistory: {
+      role: string
+      content: { type: string; text?: string }[]
+    }[],
+  ): string[] {
     return messageHistory
       .filter((m): m is AssistantMessage => m.role === 'assistant')
       .flatMap((m) => m.content)
@@ -53,7 +58,10 @@ describe('stream parser abort handling', () => {
     // The stream yields text chunks that get buffered in processStreamWithTools.
     // Since no tool call arrives after the text, the buffer is never flushed
     // normally. The try/finally in processStreamWithTools should flush it on abort.
-    async function* mockStream(): AsyncGenerator<StreamChunk, PromptResult<string | null>> {
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
       yield { type: 'text' as const, text: 'Hello ' }
       yield { type: 'text' as const, text: 'world' }
       abortController.abort()
@@ -109,7 +117,10 @@ describe('stream parser abort handling', () => {
     // Text before tool call gets flushed when the tool call arrives.
     // Text after the tool call sits in the buffer and is only flushed
     // by the try/finally on abort.
-    async function* mockStream(): AsyncGenerator<StreamChunk, PromptResult<string | null>> {
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
       yield { type: 'text' as const, text: 'Analyzing code...' }
       yield {
         type: 'tool-call' as const,
@@ -179,7 +190,10 @@ describe('stream parser abort handling', () => {
     // but the signal.aborted check at the top of the outer loop breaks before
     // the next iteration. streamWithTags.return() triggers the generator's
     // finally → flush(), preserving all buffered text.
-    async function* mockStream(): AsyncGenerator<StreamChunk, PromptResult<string | null>> {
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
       yield { type: 'text' as const, text: 'Starting ' }
       yield { type: 'text' as const, text: 'analysis' }
       abortController.abort()
@@ -233,4 +247,94 @@ describe('stream parser abort handling', () => {
     expect(allText).toContain('... more text')
   })
 
+  it('[MUT-H01] awaits cooperative terminal-tool cleanup before abort settles', async () => {
+    const abortController = new AbortController()
+    let terminalStarted!: () => void
+    const terminalStart = new Promise<void>((resolve) => {
+      terminalStarted = resolve
+    })
+    let releaseCleanup!: () => void
+    const cleanupGate = new Promise<void>((resolve) => {
+      releaseCleanup = resolve
+    })
+    let cleanupFinished = false
+
+    agentRuntimeImpl.requestToolCall = async ({ toolName, signal }) => {
+      if (toolName === 'run_terminal_command') {
+        terminalStarted()
+        await new Promise<void>((resolve) => {
+          if (signal?.aborted) return resolve()
+          signal?.addEventListener('abort', () => resolve(), { once: true })
+        })
+        await cleanupGate
+        cleanupFinished = true
+      }
+      return { output: [] }
+    }
+
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
+      yield {
+        type: 'tool-call' as const,
+        toolName: 'run_terminal_command',
+        toolCallId: 'terminal-1',
+        input: { command: 'hold', process_type: 'SYNC' },
+      }
+      await terminalStart
+      abortController.abort(new Error('timeout'))
+      return { aborted: true }
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const abortObserved = new Promise<void>((resolve) => {
+      abortController.signal.addEventListener('abort', () => resolve(), {
+        once: true,
+      })
+    })
+    let settled = false
+    const processing = processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState: sessionState.mainAgentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: testAgentTemplate,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': testAgentTemplate },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: abortController.signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: () => {},
+    })
+      .catch((error) => error)
+      .then((result) => {
+        settled = true
+        return result
+      })
+
+    await terminalStart
+    await abortObserved
+    expect(abortController.signal.aborted).toBe(true)
+    expect(settled).toBe(false)
+    expect(cleanupFinished).toBe(false)
+
+    releaseCleanup()
+    const result = await processing
+    expect(isAbortError(result)).toBe(true)
+    expect(cleanupFinished).toBe(true)
+  })
 })

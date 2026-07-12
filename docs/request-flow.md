@@ -54,13 +54,15 @@ through a hosted Openbuff/Codebuff service in this primary flow.
    read. Openbuff does not consult a hosted model registry.
 4. **Local tool handlers** are registered. These execute on the user's
    machine, never on a server:
-   - `write_file`, `str_replace`, `edit_transaction`, `apply_patch`,
-     `apply_smart_patch` → file edits
+   - `write_file`, `str_replace`, `edit_transaction`, `apply_patch` → active
+     file edits (`apply_smart_patch` remains registered only as a quarantined
+     compatibility surface until its authority migration is complete)
    - `run_terminal_command` → shell commands
    - `code_search`, `find_files_matching_content`, `glob`, `list_directory`
      → file search
-   - `read_files`, `read_outline`, `read_slices`, `read_subtree` → file
-     reading
+   - `read_files`, `read_outline`, `read_subtree` → active file reading
+     (`read_slices` remains registered only as a quarantined compatibility
+     alias for persisted/external calls; new prompts use `read_files.symbols`)
    - `create_plan`, `update_plan_status` → plan artifact authoring
    - Custom tool definitions and MCP tools
 5. **Action handlers** stream provider output back to the CLI:
@@ -176,15 +178,19 @@ applicators) participate in a staged read-before-edit policy. Under
 strict-mode edit flows, the runtime requires a recent `read_files`
 authorization for each path before an edit is accepted:
 
-- A successful `read_files` call mints a per-path authorization that allows a
-  subsequent edit to that file.
+- A successful whole-file `read_files.paths` call mints a per-path
+  authorization that allows subsequent exact-match edits to that file. Range
+  and symbol reads do not grant whole-file authorization; follow-up edits must
+  carry their scoped `readCapability`/`rangeHash`.
 - `basedOnRead` (the read capability returned from a fresh `read_files`
   range) is the explicit authorization path for large-file or
   ambiguous-anchor edits. The runtime verifies the embedded hash before
   applying the edit and rejects stale or mismatched anchors.
-- A successful edit **invalidates** the per-path authorization. Further
-  edits to that path require a new `read_files` call (or a fresh
-  `basedOnRead` minted from a post-edit range read).
+- A successful edit keeps the per-path authorization for the rest of the
+  editing flow, while the runtime chains subsequent exact-match edits from the
+  latest prepared content. The authorization is path-level permission, not a
+  freshness proof: large/ambiguous follow-up edits should use the fresh
+  post-edit `basedOnRead` returned by the successful edit or re-read the range.
 - Stale-anchor or anchor-not-found failures should be recovered by
   re-reading the exact target range and retrying with the new
   `basedOnRead`, not by guessing from memory.

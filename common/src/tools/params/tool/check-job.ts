@@ -33,10 +33,10 @@ const inputSchema = z
       ),
     kill_on_timeout: z
       .boolean()
-      .default(true)
+      .default(false)
       .optional()
       .describe(
-        'Follow mode only: when the follow-timeout fires (deadline reached, wait_for not yet matched, job still running) send SIGTERM to the background job and reflect the post-kill status/exitCode plus `killed: true` in the result. Defaults to true. Set to false to keep the job alive (e.g. so you can poll it again later). Poll mode (timeout_seconds 0/omitted) never kills regardless of this flag.',
+        'Follow mode only: when true and the follow-timeout fires (deadline reached, wait_for not yet matched, job still running), send SIGTERM to the background job and reflect the post-kill status/exitCode plus `killed: true` in the result. Defaults to false so observational polling never terminates work unless explicitly requested. Poll mode (timeout_seconds 0/omitted) never kills regardless of this flag.',
       ),
   })
   .describe(
@@ -47,7 +47,7 @@ const description = `
 Poll or follow a background job (started by run_terminal_command with process_type: BACKGROUND).
 
 - Poll mode (no wait_for/timeout): returns immediately with output produced since your last check_job for this job, plus status (running|completed|error) and exitCode when finished.
-- Follow mode (wait_for and/or timeout_seconds): blocks — bounded by timeout_seconds — until wait_for appears in new output or the job exits, then returns. \`matched\` indicates whether wait_for was seen. If the follow-timeout fires while the job is still running, check_job sends SIGTERM to the job (unless kill_on_timeout is false) and returns the post-kill status/exitCode with \`killed: true\`; set kill_on_timeout to false to leave the job running so you can poll it again later. Poll mode never kills.
+- Follow mode (wait_for and/or timeout_seconds): blocks — bounded by timeout_seconds — until wait_for appears in new output or the job exits, then returns. \`matched\` indicates whether wait_for was seen. A timeout leaves the job running by default; set kill_on_timeout to true only when the timeout should explicitly terminate it. Poll mode never kills.
 
 Output never repeats lines across calls: each check_job call advances that job's read offset and returns only new output. If you need the full/latest tail without consuming incremental output, use read_logs with the jobId. Prefer check_job over blocking SYNC commands for dev servers, build watchers, and log tails.
 
@@ -73,7 +73,7 @@ export const checkJobParams = {
     z.union([
       z.object({
         jobId: z.string(),
-        status: z.enum(['running', 'completed', 'error']),
+        status: z.enum(['running', 'completed', 'error', 'lost']),
         newOutput: z.string(),
         exitCode: z.number().optional(),
         matched: z.boolean().optional(),

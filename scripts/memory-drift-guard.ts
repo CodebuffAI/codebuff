@@ -1,9 +1,4 @@
-import {
-  readdirSync,
-  readFileSync,
-  existsSync,
-  type Dirent,
-} from 'node:fs'
+import { readdirSync, readFileSync, existsSync, type Dirent } from 'node:fs'
 import { dirname, relative, resolve, sep, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -46,9 +41,11 @@ const SKIP_PATH_PREFIXES = [
 const PATH_QUOTED_REGEX =
   /`((?:src|packages|cli|common|sdk|agents|scripts|docs)\/[A-Za-z0-9._\/-]+\.[A-Za-z]+)`/g
 
-const COMMAND_REGEX = /bun\s+(?:--cwd[=\s]+[^\s]+\s+)?run\s+(?:--cwd[=\s]+[^\s]+\s+)?([a-zA-Z0-9:_-]+)/g
+const COMMAND_REGEX =
+  /bun\s+(?:--cwd[=\s]+[^\s]+\s+)?run\s+(?:--cwd[=\s]+[^\s]+\s+)?([a-zA-Z0-9:_-]+)/g
 
-const DEPENDENCY_REGEX = /from ['"](@codebuff\/[a-z0-9-]+|@openbuff\/[a-z0-9-]+)['"]/g
+const DEPENDENCY_REGEX =
+  /from ['"](@codebuff\/[a-z0-9-]+|@openbuff\/[a-z0-9-]+)['"]/g
 
 const CROSS_FILE_LINK_REGEX = /\[[^\]]+\]\((\.[^)]+\.md)\)/g
 
@@ -78,7 +75,10 @@ function* markdownFiles(root: string, directory = root): Generator<string> {
     const projectPath = toProjectPath(root, absolutePath)
 
     if (entry.isDirectory()) {
-      if (SKIP_DIRECTORIES.has(entry.name) || shouldSkipPath(projectPath + '/')) {
+      if (
+        SKIP_DIRECTORIES.has(entry.name) ||
+        shouldSkipPath(projectPath + '/')
+      ) {
         continue
       }
       yield* markdownFiles(root, absolutePath)
@@ -132,10 +132,7 @@ function nearestPackageJsonSubdir(root: string, filePath: string): string {
   return '.'
 }
 
-function scriptMissingInPkg(
-  pkg: any | undefined,
-  scriptName: string,
-): boolean {
+function scriptMissingInPkg(pkg: any | undefined, scriptName: string): boolean {
   if (!pkg || typeof pkg !== 'object') {
     return true
   }
@@ -265,7 +262,8 @@ export function checkIndexSync(root: string): Finding[] {
     const projectPath = indexFile
     const lines = readLines(abs)
     const linkRegex = /\[[^\]]+\]\(([^)]+)\)/g
-    const quotedRegex = /`((?:src|packages|cli|common|sdk|agents|scripts|docs)\/[A-Za-z0-9._\/-]+(?:\.[A-Za-z]+)?)`/g
+    const quotedRegex =
+      /`((?:src|packages|cli|common|sdk|agents|scripts|docs)\/[A-Za-z0-9._\/-]+(?:\.[A-Za-z]+)?)`/g
     lines.forEach((line, index) => {
       linkRegex.lastIndex = 0
       let m: RegExpExecArray | null
@@ -369,11 +367,15 @@ export function checkStaleness(root: string): Finding[] {
 function lastCommitEpoch(root: string, pathspec: string): number | null {
   let stdout: string
   try {
-    stdout = execFileSync('git', ['log', '-1', '--format=%ct', '--', pathspec], {
-      cwd: root,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+    stdout = execFileSync(
+      'git',
+      ['log', '-1', '--format=%ct', '--', pathspec],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
   } catch {
     return null
   }
@@ -387,11 +389,15 @@ function lastCommitEpoch(root: string, pathspec: string): number | null {
 
 function pathHasWorkingTreeChanges(root: string, pathspec: string): boolean {
   try {
-    const stdout = execFileSync('git', ['status', '--porcelain', '--', pathspec], {
-      cwd: root,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+    const stdout = execFileSync(
+      'git',
+      ['status', '--porcelain', '--', pathspec],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
     return stdout.trim() !== ''
   } catch {
     return false
@@ -429,7 +435,11 @@ export function checkCommand(root: string): Finding[] {
         let subdir = cwdMatch ? cwdMatch[1] : ''
         // If --cwd points outside the project root (absolute path not under
         // root), ignore it and fall back to cwd inference.
-        if (subdir && subdir.startsWith('/') && !subdir.startsWith(root + sep)) {
+        if (
+          subdir &&
+          subdir.startsWith('/') &&
+          !subdir.startsWith(root + sep)
+        ) {
           subdir = ''
         }
         if (!subdir) {
@@ -713,7 +723,10 @@ export function checkBrokenLink(root: string): Finding[] {
   return findings
 }
 
-export const CHECKERS: Array<{ name: string; run: (root: string) => Finding[] }> = [
+export const CHECKERS: Array<{
+  name: string
+  run: (root: string) => Finding[]
+}> = [
   { name: 'path', run: checkPath },
   { name: 'edges', run: checkEdges },
   { name: 'index-sync', run: checkIndexSync },
@@ -727,7 +740,9 @@ export const CHECKERS: Array<{ name: string; run: (root: string) => Finding[] }>
   { name: 'broken-link', run: checkBrokenLink },
 ]
 
-export function runMemoryDriftGuard(root = projectRoot()): MemoryDriftGuardResult {
+export function runMemoryDriftGuard(
+  root = projectRoot(),
+): MemoryDriftGuardResult {
   const checkers: CheckerResult[] = CHECKERS.map(({ name, run }) => ({
     name,
     findings: run(root),
@@ -736,7 +751,9 @@ export function runMemoryDriftGuard(root = projectRoot()): MemoryDriftGuardResul
   return { score, checkers }
 }
 
-export function formatMemoryDriftReport(result: MemoryDriftGuardResult): string {
+export function formatMemoryDriftReport(
+  result: MemoryDriftGuardResult,
+): string {
   if (result.score === 0) {
     return `Memory drift guard passed: 0 findings across ${result.checkers.length} checkers.`
   }

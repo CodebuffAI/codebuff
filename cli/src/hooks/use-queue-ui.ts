@@ -1,7 +1,6 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { useMemo } from 'react'
 
-
 import { formatQueuedPreview } from '../utils/helpers'
 
 import type { QueuedMessage } from './use-message-queue'

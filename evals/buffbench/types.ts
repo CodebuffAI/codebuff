@@ -38,6 +38,41 @@ export interface EvalCommitV2 {
   prompt: string
   supplementalFiles: string[]
   fileDiffs: FileDiff[]
+  languages?: string[]
+  frameworks?: string[]
+  taskType?: string
+  difficulty?: 'easy' | 'medium' | 'hard' | 'expert'
+  finalCheckCommands?: string[]
+}
+
+export interface CapabilityMetricInput {
+  model: string
+  score: number
+  language?: string
+  taskType?: string
+  agentRole?: string
+}
+
+export interface AggregatedCapabilityMetric extends CapabilityMetricInput {
+  sampleSize: number
+}
+
+export function aggregateCapabilityMetrics(
+  inputs: CapabilityMetricInput[],
+): AggregatedCapabilityMetric[] {
+  const groups = new Map<string, { template: CapabilityMetricInput; total: number; count: number }>()
+  for (const input of inputs) {
+    const key = JSON.stringify([input.model, input.language, input.taskType, input.agentRole])
+    const current = groups.get(key) ?? { template: input, total: 0, count: 0 }
+    current.total += input.score
+    current.count += 1
+    groups.set(key, current)
+  }
+  return [...groups.values()].map(({ template, total, count }) => ({
+    ...template,
+    score: total / count,
+    sampleSize: count,
+  }))
 }
 
 export interface BinInstall {
@@ -51,6 +86,8 @@ export interface CacheRecallEvalConfig {
   minCacheHitRatio?: number
   /** Substrings that must survive in final message history after compaction. */
   requiredRecallSubstrings?: string[]
+  /** Fail the eval when no recall assertions were configured. */
+  requireRecallAssertions?: boolean
 }
 
 export interface CacheRecallEvalResult {
@@ -62,6 +99,7 @@ export interface CacheRecallEvalResult {
   cacheHitRatioPassed: boolean
   requiredRecallSubstrings: string[]
   missingRecallSubstrings: string[]
+  recallEvaluated: boolean
   recallPassed: boolean
   failureReason?: string
 }
@@ -81,6 +119,7 @@ export interface EvalDataV2 {
 export interface FinalCheckOutput {
   command: string
   exitCode: number
+  outcome?: 'passed' | 'failed' | 'cancelled' | 'timed_out'
   stdout: string
   stderr: string
 }
@@ -110,6 +149,7 @@ export interface EvalRun {
   error?: string
   finalCheckOutputs?: FinalCheckOutput[]
   cacheRecallEval?: CacheRecallEvalResult
+  retrievalFlow?: import('./retrieval-flow-metrics').RetrievalFlowMetrics
   idiomTraceability?: IdiomTraceabilityEvaluation
   proposalDryRun?: ProposalDryRunReport
 }

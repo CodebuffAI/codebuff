@@ -1,4 +1,3 @@
-
 import {
   getAnalyticsEventId,
   toTrackableAnalyticsPayload,
@@ -34,9 +33,7 @@ export function createAnalyticsDispatcher({
   const buffered: AnalyticsDispatchInput[] = []
   const isDevEnv = envName === 'dev'
 
-  function flushBufferWithUser(
-    userId: string,
-  ): AnalyticsDispatchPayload[] {
+  function flushBufferWithUser(userId: string): AnalyticsDispatchPayload[] {
     if (!buffered.length) {
       return []
     }
@@ -54,9 +51,7 @@ export function createAnalyticsDispatcher({
     return toSend
   }
 
-  function process(
-    input: AnalyticsDispatchInput,
-  ): AnalyticsDispatchPayload[] {
+  function process(input: AnalyticsDispatchInput): AnalyticsDispatchPayload[] {
     if (isDevEnv) {
       return []
     }

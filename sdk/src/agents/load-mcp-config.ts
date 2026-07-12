@@ -92,11 +92,13 @@ const MCP_CONFIG_FILE_NAME = 'mcp.json'
  * Get default directories to search for mcp.json.
  * Matches the agent loading directories for consistency.
  */
-const getDefaultMcpConfigDirs = (): string[] => {
+const getDefaultMcpConfigDirs = (includeProjectConfig: boolean): string[] => {
   const cwdAgents = path.join(process.cwd(), '.agents')
   const parentAgents = path.join(process.cwd(), '..', '.agents')
   const homeAgents = path.join(os.homedir(), '.agents')
-  return [cwdAgents, parentAgents, homeAgents]
+  return includeProjectConfig
+    ? [homeAgents, parentAgents, cwdAgents]
+    : [homeAgents]
 }
 
 /**
@@ -125,16 +127,17 @@ const getDefaultMcpConfigDirs = (): string[] => {
  * ```
  */
 export async function loadMCPConfig(options: {
+  includeProjectConfig?: boolean
   verbose?: boolean
 }): Promise<LoadedMCPConfig> {
-  const { verbose = false } = options
+  const { includeProjectConfig = false, verbose = false } = options
 
   const mergedConfig: LoadedMCPConfig = {
     mcpServers: {},
     _sourceFilePath: '',
   }
 
-  const mcpConfigDirs = getDefaultMcpConfigDirs()
+  const mcpConfigDirs = getDefaultMcpConfigDirs(includeProjectConfig)
 
   for (const dir of mcpConfigDirs) {
     const configPath = path.join(dir, MCP_CONFIG_FILE_NAME)
@@ -204,16 +207,17 @@ export async function loadMCPConfig(options: {
  * @returns Record of MCP server configurations keyed by server name
  */
 export function loadMCPConfigSync(options: {
+  includeProjectConfig?: boolean
   verbose?: boolean
 }): LoadedMCPConfig {
-  const { verbose = false } = options
+  const { includeProjectConfig = false, verbose = false } = options
 
   const mergedConfig: LoadedMCPConfig = {
     mcpServers: {},
     _sourceFilePath: '',
   }
 
-  const mcpConfigDirs = getDefaultMcpConfigDirs()
+  const mcpConfigDirs = getDefaultMcpConfigDirs(includeProjectConfig)
 
   for (const dir of mcpConfigDirs) {
     const configPath = path.join(dir, MCP_CONFIG_FILE_NAME)

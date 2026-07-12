@@ -28,7 +28,9 @@ import type { LoadedProviderConfig } from '../provider-config'
  *   providers; backoff is the proven response.
  * - 408 (timeout): retry-only. Network-level; failover unlikely to help.
  */
-export const FAILOVER_ELIGIBLE_STATUS_CODES = new Set([401, 403, 500, 502, 503, 504])
+export const FAILOVER_ELIGIBLE_STATUS_CODES = new Set([
+  401, 403, 500, 502, 503, 504,
+])
 
 /**
  * Resolve the ordered list of models to attempt for a request, starting with

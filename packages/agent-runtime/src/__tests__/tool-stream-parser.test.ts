@@ -543,5 +543,4 @@ describe('processStreamWithTags', () => {
       message: expect.stringContaining('JSON parsing failed'),
     })
   })
-
 })

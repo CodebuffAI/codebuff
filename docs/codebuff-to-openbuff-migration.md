@@ -34,9 +34,9 @@ When adding or editing user-facing docs, examples, CLI help text, website copy, 
 
 ### 1.1 Local Mode Control
 
-| Variable | Status | File |
-|----------|--------|------|
-| `OPENBUFF_LOCAL_MODE` | ✅ Primary | `common/src/constants/local-mode.ts` |
+| Variable              | Status                  | File                                 |
+| --------------------- | ----------------------- | ------------------------------------ |
+| `OPENBUFF_LOCAL_MODE` | ✅ Primary              | `common/src/constants/local-mode.ts` |
 | `CODEBUFF_LOCAL_MODE` | ❌ Removed (BYOK purge) | `common/src/constants/local-mode.ts` |
 
 **Detail:** `isLocalModeEnabled()` checks `OPENBUFF_LOCAL_MODE`, defaults to `true` (local mode on). The `CODEBUFF_LOCAL_MODE` fallback was removed in the BYOK legacy purge.
@@ -48,19 +48,20 @@ common/src/constants/local-mode.ts
 
 ### 1.2 Provider Config Path
 
-| Variable | Status | File |
-|----------|--------|------|
-| `OPENBUFF_PROVIDER_CONFIG` | ✅ Primary | `sdk/src/provider-config.ts` |
+| Variable                   | Status                  | File                         |
+| -------------------------- | ----------------------- | ---------------------------- |
+| `OPENBUFF_PROVIDER_CONFIG` | ✅ Primary              | `sdk/src/provider-config.ts` |
 | `CODEBUFF_PROVIDER_CONFIG` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
 
 ### 1.3 API Key
 
-| Variable | Status | File |
-|----------|--------|------|
-| `OPENBUFF_API_KEY` | ✅ Primary | `sdk/src/env.ts` |
+| Variable           | Status                    | File                                              |
+| ------------------ | ------------------------- | ------------------------------------------------- |
+| `OPENBUFF_API_KEY` | ✅ Primary                | `sdk/src/env.ts`                                  |
 | `CODEBUFF_API_KEY` | ✅ Compatibility fallback | `sdk/src/env.ts`, `common/src/constants/paths.ts` |
 
 **Detail:** The SDK resolves the API key as `process.env.OPENBUFF_API_KEY ?? process.env.CODEBUFF_API_KEY` (`sdk/src/env.ts`), so `OPENBUFF_API_KEY` is primary and `CODEBUFF_API_KEY` is the sole retained runtime fallback. Used for legacy/hosted Codebuff API auth and live integration tests. BYOK mode doesn't require it.
+
 ```
 sdk/src/env.ts
   - return process.env.OPENBUFF_API_KEY ?? process.env.CODEBUFF_API_KEY
@@ -70,40 +71,40 @@ common/src/constants/paths.ts
 
 ### 1.4 BYOK OpenRouter
 
-| Variable | Status | File |
-|----------|--------|------|
+| Variable                   | Status       | File                           |
+| -------------------------- | ------------ | ------------------------------ |
 | `CODEBUFF_BYOK_OPENROUTER` | ⚠️ Only name | `common/src/constants/byok.ts` |
 
 **Detail:** The header is `x-openrouter-api-key`. This env var was never given an Openbuff alias.
 
 ### 1.5 ChatGPT OAuth Token
 
-| Variable | Status | File |
-|----------|--------|------|
-| `CODEBUFF_CHATGPT_OAUTH_TOKEN` | ✅ Compatibility fallback (legacy precedence) | `common/src/constants/chatgpt-oauth.ts`, `sdk/src/env.ts` |
-| `OPENBUFF_CHATGPT_OAUTH_TOKEN` | ✅ Alias | `common/src/constants/chatgpt-oauth.ts`, `common/src/env-ci.ts` |
+| Variable                       | Status                                        | File                                                            |
+| ------------------------------ | --------------------------------------------- | --------------------------------------------------------------- |
+| `CODEBUFF_CHATGPT_OAUTH_TOKEN` | ✅ Compatibility fallback (legacy precedence) | `common/src/constants/chatgpt-oauth.ts`, `sdk/src/env.ts`       |
+| `OPENBUFF_CHATGPT_OAUTH_TOKEN` | ✅ Alias                                      | `common/src/constants/chatgpt-oauth.ts`, `common/src/env-ci.ts` |
 
 **Detail:** The SDK resolves the ChatGPT OAuth token as `process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN ?? process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN` (`sdk/src/env.ts`). Note the **reversed precedence** vs. the API key: the legacy `CODEBUFF_*` name takes precedence over the `OPENBUFF_*` alias here (pre-existing inconsistency). `common/src/env-ci.ts` mirrors both into the CI env contract.
 
 ### 1.6 CI/Internal Variables
 
-| Variable | Status | File | Notes |
-|----------|--------|------|-------|
-| `CODEBUFF_GITHUB_ACTIONS` | ⚠️ Only name | `common/src/env.ts` | `IS_CI` check |
-| `CODEBUFF_GITHUB_TOKEN` | ✅ Compatibility fallback | `cli/scripts/release.ts` | Release script reads `OPENBUFF_GITHUB_TOKEN` (primary) then `CODEBUFF_GITHUB_TOKEN` (fallback); eval/CI scripts still use `CODEBUFF_GITHUB_TOKEN` only |
-| `CODEBUFF_IS_BINARY` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
-| `CODEBUFF_CLI_VERSION` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
-| `CODEBUFF_CLI_TARGET` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
-| `CODEBUFF_CLI_EDITOR` | ⚠️ Only name | `cli/src/types/env.ts`, `common/src/types/contracts/env.ts` | CLI editor override |
-| `CODEBUFF_EDITOR` | ⚠️ Only name | `cli/src/types/env.ts` | Fallback editor |
-| `CODEBUFF_GIT_BASH_PATH` | ⚠️ Only name | `sdk/src/tools/run-terminal-command.ts` | Windows bash.exe path override |
-| `CODEBUFF_FULL_TELEMETRY` | ⚠️ Only name | `common/src/util/analytics-sampling.ts` | Debug telemetry |
-| `CODEBUFF_RG_PATH` | ⚠️ Only name | `sdk/src/env.ts` | Ripgrep binary path |
-| `CODEBUFF_WASM_DIR` | ⚠️ Only name | `sdk/src/env.ts` | WASM directory |
-| `CODEBUFF_NPM_REGISTRY` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
-| `NEXT_PUBLIC_CODEBUFF_APP_URL` | ⚠️ Required primary field | `common/src/env-schema.ts` | Web app URL |
-| `NEXT_PUBLIC_OPENBUFF_APP_URL` | ✅ Optional alias field | `common/src/env-schema.ts` | Optional public client env field; current primary app URL accessors still read `NEXT_PUBLIC_CODEBUFF_APP_URL` |
-| `NEXT_PUBLIC_CODEBUFF_BACKEND_URL` | ⚠️ Only name | `scripts/cleanup-worktree.ts` | Backend URL |
+| Variable                           | Status                    | File                                                        | Notes                                                                                                                                                  |
+| ---------------------------------- | ------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CODEBUFF_GITHUB_ACTIONS`          | ⚠️ Only name              | `common/src/env.ts`                                         | `IS_CI` check                                                                                                                                          |
+| `CODEBUFF_GITHUB_TOKEN`            | ✅ Compatibility fallback | `cli/scripts/release.ts`                                    | Release script reads `OPENBUFF_GITHUB_TOKEN` (primary) then `CODEBUFF_GITHUB_TOKEN` (fallback); eval/CI scripts still use `CODEBUFF_GITHUB_TOKEN` only |
+| `CODEBUFF_IS_BINARY`               | ⚠️ Only name              | `cli/scripts/build-binary.ts`                               | Build flag                                                                                                                                             |
+| `CODEBUFF_CLI_VERSION`             | ⚠️ Only name              | `cli/scripts/build-binary.ts`                               | Build flag                                                                                                                                             |
+| `CODEBUFF_CLI_TARGET`              | ⚠️ Only name              | `cli/scripts/build-binary.ts`                               | Build flag                                                                                                                                             |
+| `CODEBUFF_CLI_EDITOR`              | ⚠️ Only name              | `cli/src/types/env.ts`, `common/src/types/contracts/env.ts` | CLI editor override                                                                                                                                    |
+| `CODEBUFF_EDITOR`                  | ⚠️ Only name              | `cli/src/types/env.ts`                                      | Fallback editor                                                                                                                                        |
+| `CODEBUFF_GIT_BASH_PATH`           | ⚠️ Only name              | `sdk/src/tools/run-terminal-command.ts`                     | Windows bash.exe path override                                                                                                                         |
+| `CODEBUFF_FULL_TELEMETRY`          | ⚠️ Only name              | `common/src/util/analytics-sampling.ts`                     | Debug telemetry                                                                                                                                        |
+| `CODEBUFF_RG_PATH`                 | ⚠️ Only name              | `sdk/src/env.ts`                                            | Ripgrep binary path                                                                                                                                    |
+| `CODEBUFF_WASM_DIR`                | ⚠️ Only name              | `sdk/src/env.ts`                                            | WASM directory                                                                                                                                         |
+| `CODEBUFF_NPM_REGISTRY`            | ⚠️ Only name              | `cli/scripts/build-binary.ts`                               | Build flag                                                                                                                                             |
+| `NEXT_PUBLIC_CODEBUFF_APP_URL`     | ⚠️ Required primary field | `common/src/env-schema.ts`                                  | Web app URL                                                                                                                                            |
+| `NEXT_PUBLIC_OPENBUFF_APP_URL`     | ✅ Optional alias field   | `common/src/env-schema.ts`                                  | Optional public client env field; current primary app URL accessors still read `NEXT_PUBLIC_CODEBUFF_APP_URL`                                          |
+| `NEXT_PUBLIC_CODEBUFF_BACKEND_URL` | ⚠️ Only name              | `scripts/cleanup-worktree.ts`                               | Backend URL                                                                                                                                            |
 
 > ⚠️ **Note about `NEXT_PUBLIC_*` variables:** These are build-time/client env vars that must stay coordinated across the env schema, env fixtures, and all accessors. `NEXT_PUBLIC_OPENBUFF_APP_URL` is already accepted as an optional schema field, but `NEXT_PUBLIC_CODEBUFF_APP_URL` remains the required primary field used by current app URL accessors. Further `OPENBUFF_*` aliases should be handled in a separate build-config migration phase.
 
@@ -115,23 +116,23 @@ common/src/constants/paths.ts
 
 ### 2.1 Provider Config Files
 
-| Path | Status | File |
-|------|--------|------|
-| `openbuff.json` (project dir + ancestors) | ✅ Primary | `sdk/src/provider-config.ts` |
-| `codebuff.json` (project dir) | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
+| Path                                      | Status                  | File                         |
+| ----------------------------------------- | ----------------------- | ---------------------------- |
+| `openbuff.json` (project dir + ancestors) | ✅ Primary              | `sdk/src/provider-config.ts` |
+| `codebuff.json` (project dir)             | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
 
 ### 2.2 Global Config Directories
 
-| Path | Status | File |
-|------|--------|------|
-| `~/.config/openbuff/` | ✅ Primary | `sdk/src/provider-config.ts` (`getOpenbuffConfigDirs()`) |
-| `~/.config/openbuff/provider-config.json` | ✅ Primary | `sdk/src/provider-config.ts` |
-| `~/.config/openbuff/openbuff.json` | ✅ Primary | `sdk/src/provider-config.ts` |
-| `~/.config/openbuff-<env>/` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
-| `~/.config/openbuff-<env>/provider-config.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
-| `~/.config/openbuff-<env>/openbuff.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
-| `~/.config/manicode/provider-config.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
-| `~/.config/manicode/codebuff.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
+| Path                                            | Status                  | File                                                     |
+| ----------------------------------------------- | ----------------------- | -------------------------------------------------------- |
+| `~/.config/openbuff/`                           | ✅ Primary              | `sdk/src/provider-config.ts` (`getOpenbuffConfigDirs()`) |
+| `~/.config/openbuff/provider-config.json`       | ✅ Primary              | `sdk/src/provider-config.ts`                             |
+| `~/.config/openbuff/openbuff.json`              | ✅ Primary              | `sdk/src/provider-config.ts`                             |
+| `~/.config/openbuff-<env>/`                     | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts`                             |
+| `~/.config/openbuff-<env>/provider-config.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts`                             |
+| `~/.config/openbuff-<env>/openbuff.json`        | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts`                             |
+| `~/.config/manicode/provider-config.json`       | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts`                             |
+| `~/.config/manicode/codebuff.json`              | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts`                             |
 
 > 📝 **Note on `manicode` / env-suffix paths:** The `~/.config/manicode/` directory (from the **Manicode** project — a separate, earlier fork) and the `~/.config/openbuff-<env>/` env-suffix variants were removed in the BYOK legacy purge so that `~/.config/openbuff/` is the single global config dir. There is no migration shim; existing users re-auth via `/setup` or `/provider connect codex`. See [docs/configuration.md](./configuration.md).
 
@@ -152,39 +153,39 @@ sdk/src/provider-config.ts
 
 ### 3.1 BYOK Constants
 
-| Constant | Value | Status | File |
-|----------|-------|--------|------|
-| `BYOK_OPENROUTER_HEADER` | `'x-openrouter-api-key'` | ⚠️ Only name | `common/src/constants/byok.ts` |
+| Constant                  | Value                        | Status       | File                           |
+| ------------------------- | ---------------------------- | ------------ | ------------------------------ |
+| `BYOK_OPENROUTER_HEADER`  | `'x-openrouter-api-key'`     | ⚠️ Only name | `common/src/constants/byok.ts` |
 | `BYOK_OPENROUTER_ENV_VAR` | `'CODEBUFF_BYOK_OPENROUTER'` | ⚠️ Only name | `common/src/constants/byok.ts` |
 
 ### 3.2 Local Mode Constants
 
-| Constant | Value | Status | File |
-|----------|-------|--------|------|
-| `OPENBUFF_LOCAL_MODE_ENV_VAR` | `'OPENBUFF_LOCAL_MODE'` | ✅ Primary | `common/src/constants/local-mode.ts` |
-| `CODEBUFF_LOCAL_MODE_ENV_VAR` | `'CODEBUFF_LOCAL_MODE'` | ❌ Removed (BYOK purge) | `common/src/constants/local-mode.ts` |
-| `LOCAL_MODE_API_KEY` | `'openbuff-local-mode'` | ✅ Openbuff | `common/src/constants/local-mode.ts` |
-| `LOCAL_MODE_USER_ID` | `'local-user'` | — Generic | `common/src/constants/local-mode.ts` |
-| `LOCAL_MODE_USER_EMAIL` | `'local@openbuff.local'` | ✅ Openbuff | `common/src/constants/local-mode.ts` |
+| Constant                      | Value                    | Status                  | File                                 |
+| ----------------------------- | ------------------------ | ----------------------- | ------------------------------------ |
+| `OPENBUFF_LOCAL_MODE_ENV_VAR` | `'OPENBUFF_LOCAL_MODE'`  | ✅ Primary              | `common/src/constants/local-mode.ts` |
+| `CODEBUFF_LOCAL_MODE_ENV_VAR` | `'CODEBUFF_LOCAL_MODE'`  | ❌ Removed (BYOK purge) | `common/src/constants/local-mode.ts` |
+| `LOCAL_MODE_API_KEY`          | `'openbuff-local-mode'`  | ✅ Openbuff             | `common/src/constants/local-mode.ts` |
+| `LOCAL_MODE_USER_ID`          | `'local-user'`           | — Generic               | `common/src/constants/local-mode.ts` |
+| `LOCAL_MODE_USER_EMAIL`       | `'local@openbuff.local'` | ✅ Openbuff             | `common/src/constants/local-mode.ts` |
 
 ### 3.3 API Key
 
-| Constant | Value | Status | File |
-|----------|-------|--------|------|
+| Constant          | Value                | Status       | File                            |
+| ----------------- | -------------------- | ------------ | ------------------------------- |
 | `API_KEY_ENV_VAR` | `'CODEBUFF_API_KEY'` | ⚠️ Only name | `common/src/constants/paths.ts` |
 
 ### 3.4 ChatGPT OAuth
 
-| Constant | Value | Status | File |
-|----------|-------|--------|------|
-| `CHATGPT_OAUTH_TOKEN_ENV_VAR` | `'CODEBUFF_CHATGPT_OAUTH_TOKEN'` | ✅ Primary (legacy precedence) | `common/src/constants/chatgpt-oauth.ts` |
-| `OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR` | `'OPENBUFF_CHATGPT_OAUTH_TOKEN'` | ✅ Alias | `common/src/constants/chatgpt-oauth.ts` |
+| Constant                               | Value                            | Status                         | File                                    |
+| -------------------------------------- | -------------------------------- | ------------------------------ | --------------------------------------- |
+| `CHATGPT_OAUTH_TOKEN_ENV_VAR`          | `'CODEBUFF_CHATGPT_OAUTH_TOKEN'` | ✅ Primary (legacy precedence) | `common/src/constants/chatgpt-oauth.ts` |
+| `OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR` | `'OPENBUFF_CHATGPT_OAUTH_TOKEN'` | ✅ Alias                       | `common/src/constants/chatgpt-oauth.ts` |
 
 ### 3.5 Analytics Events
 
-| Event | Status | File |
-|-------|--------|------|
-| `UPDATE_CODEBUFF_FAILED` | ⚠️ Codebuff name | `common/src/constants/analytics-events.ts` |
+| Event                          | Status           | File                                       |
+| ------------------------------ | ---------------- | ------------------------------------------ |
+| `UPDATE_CODEBUFF_FAILED`       | ⚠️ Codebuff name | `common/src/constants/analytics-events.ts` |
 | `CODEBUFF_REFERRER_ATTRIBUTED` | ⚠️ Codebuff name | `common/src/constants/analytics-events.ts` |
 
 ---
@@ -203,28 +204,28 @@ const cliName = isLocalMode() ? 'openbuff' : 'codebuff'
 
 ### 4.2 Files Using Dynamic Branding
 
-| File | Usage |
-|------|-------|
-| `cli/src/hooks/use-send-message.ts` (line ~368) | Error message branding |
-| `cli/src/hooks/use-exit-handler.ts` (line ~31) | "To continue this session later, run: <name>" |
-| `cli/src/hooks/use-send-message.ts` (line ~368) | Analytics product name |
-| `cli/src/hooks/use-exit-handler.ts` (line ~31) | Login header and "run <name> to start" |
-| `cli/src/utils/terminal-title.ts` (line ~18) | Terminal window title prefix |
-| `cli/src/utils/chatgpt-oauth.ts` (line ~125) | OAuth UI branding |
-| `cli/src/commands/init.ts` (line ~20) | Initialization branding |
+| File                                            | Usage                                         |
+| ----------------------------------------------- | --------------------------------------------- |
+| `cli/src/hooks/use-send-message.ts` (line ~368) | Error message branding                        |
+| `cli/src/hooks/use-exit-handler.ts` (line ~31)  | "To continue this session later, run: <name>" |
+| `cli/src/hooks/use-send-message.ts` (line ~368) | Analytics product name                        |
+| `cli/src/hooks/use-exit-handler.ts` (line ~31)  | Login header and "run <name> to start"        |
+| `cli/src/utils/terminal-title.ts` (line ~18)    | Terminal window title prefix                  |
+| `cli/src/utils/chatgpt-oauth.ts` (line ~125)    | OAuth UI branding                             |
+| `cli/src/commands/init.ts` (line ~20)           | Initialization branding                       |
 
 ### 4.3 CLI Entry Point
 
-| File | Detail |
-|------|--------|
+| File                | Detail                                                         |
+| ------------------- | -------------------------------------------------------------- |
 | `cli/src/index.tsx` | Description: `'Openbuff CLI - local/BYOK AI coding assistant'` |
-| `cli/src/index.tsx` | Flag: `--local` for local/BYOK mode (compatibility) |
+| `cli/src/index.tsx` | Flag: `--local` for local/BYOK mode (compatibility)            |
 
 ### 4.4 Binary Names
 
-| Binary | Status |
-|--------|--------|
-| `openbuff` | ✅ Primary binary name |
+| Binary     | Status                                                               |
+| ---------- | -------------------------------------------------------------------- |
+| `openbuff` | ✅ Primary binary name                                               |
 | `codebuff` | ✅ Compatibility alias (while fork still builds the old binary name) |
 
 ---
@@ -233,17 +234,17 @@ const cliName = isLocalMode() ? 'openbuff' : 'codebuff'
 
 ### 5.1 Published Package
 
-| Name | Status | File |
-|------|--------|------|
+| Name            | Status                 | File               |
+| --------------- | ---------------------- | ------------------ |
 | `@openbuff/sdk` | ✅ Primary (published) | `sdk/package.json` |
 
 > **Note:** The old `@codebuff/sdk` package on npm is the upstream Codebuff package, not this fork. This fork publishes and consumes `@openbuff/sdk`.
 
 ### 5.2 SDK Client Class
 
-| Name | Status | File |
-|------|--------|------|
-| `OpenbuffClient` | ✅ Primary | `sdk/src/client.ts` |
+| Name             | Status                 | File                |
+| ---------------- | ---------------------- | ------------------- |
+| `OpenbuffClient` | ✅ Primary             | `sdk/src/client.ts` |
 | `CodebuffClient` | ✅ Compatibility alias | `sdk/src/client.ts` |
 
 **Detail:** Both `OpenbuffClient` and `CodebuffClient` are exported from `@openbuff/sdk`; `OpenbuffClient` is the primary class and `CodebuffClient` is a retained compatibility alias.
@@ -252,13 +253,13 @@ const cliName = isLocalMode() ? 'openbuff' : 'codebuff'
 
 All internal packages use `@codebuff/*` import paths (the published SDK is `@openbuff/sdk`, listed in 5.1 above):
 
-| Package | Status |
-|---------|--------|
-| `@codebuff/common` | ⚠️ Codebuff name (internal-only) |
-| `@codebuff/internal` | ⚠️ Codebuff name (internal-only) |
+| Package                   | Status                           |
+| ------------------------- | -------------------------------- |
+| `@codebuff/common`        | ⚠️ Codebuff name (internal-only) |
+| `@codebuff/internal`      | ⚠️ Codebuff name (internal-only) |
 | `@codebuff/agent-runtime` | ⚠️ Codebuff name (internal-only) |
-| `@codebuff/code-map` | ⚠️ Codebuff name (internal-only) |
-| `@codebuff/indexer` | ⚠️ Codebuff name (internal-only) |
+| `@codebuff/code-map`      | ⚠️ Codebuff name (internal-only) |
+| `@codebuff/indexer`       | ⚠️ Codebuff name (internal-only) |
 
 **TODO:** These require significant migration effort (package.json renames, import rewrites across hundreds of files). <!-- allow-todo -->
 
@@ -294,11 +295,11 @@ The config keys in `openbuff.json` / `codebuff.json` are provider-focused and do
 
 The system prompt infrastructure uses `CODEBUFF_*` placeholders that get substituted at runtime:
 
-| Placeholder | File |
-|-------------|------|
-| `{CODEBUFF_TOOLS_PROMPT}` | Multiple agent definitions |
-| `{CODEBUFF_AGENTS_PROMPT}` | Multiple agent definitions |
-| `{CODEBUFF_FILE_TREE_PROMPT}` | Multiple agent definitions |
+| Placeholder                     | File                       |
+| ------------------------------- | -------------------------- |
+| `{CODEBUFF_TOOLS_PROMPT}`       | Multiple agent definitions |
+| `{CODEBUFF_AGENTS_PROMPT}`      | Multiple agent definitions |
+| `{CODEBUFF_FILE_TREE_PROMPT}`   | Multiple agent definitions |
 | `{CODEBUFF_SYSTEM_INFO_PROMPT}` | Multiple agent definitions |
 | `{CODEBUFF_GIT_CHANGES_PROMPT}` | Multiple agent definitions |
 
@@ -318,25 +319,25 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 
 ### 9.1 Files Still Mentioning "Codebuff" Heavily
 
-| File | Notes |
-|------|-------|
-| `README.md` | Fork compatibility note explains the naming situation |
-| `README.zh-CN.md` | Same as above in Chinese |
-| `CONTRIBUTING.md` | References to `CODEBUFF_*` env vars |
-| `WINDOWS.md` | Notes about local/BYOK vs cloud mode |
-| `sdk/README.md` | Documents the naming compatibility surface |
-| `docs/local-mode.md` | BYOK provider setup docs |
-| `docs/environment-variables.md` | Env var documentation |
+| File                                                | Notes                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `README.md`                                         | Fork compatibility note explains the naming situation                                            |
+| `README.zh-CN.md`                                   | Same as above in Chinese                                                                         |
+| `CONTRIBUTING.md`                                   | References to `CODEBUFF_*` env vars                                                              |
+| `WINDOWS.md`                                        | Notes about local/BYOK vs cloud mode                                                             |
+| `sdk/README.md`                                     | Documents the naming compatibility surface                                                       |
+| `docs/local-mode.md`                                | BYOK provider setup docs                                                                         |
+| `docs/environment-variables.md`                     | Env var documentation                                                                            |
 | `common/src/templates/initial-agents-dir/README.md` | Agent README template that should use Openbuff branding and label compatibility names explicitly |
-| `.github/knowledge.md` | CI configuration |
-| `cli/release-staging/README.md` | Release notes |
+| `.github/knowledge.md`                              | CI configuration                                                                                 |
+| `cli/release-staging/README.md`                     | Release notes                                                                                    |
 
 ### 9.2 Files with Codebuff in the Path (Hardcoded)
 
-| Path | Status |
-|------|--------|
-| `common/src/constants/byok.ts` (not in path, just content) | — |
-| No actual file paths contain "codebuff" as a directory name that needs migration. | — |
+| Path                                                                              | Status |
+| --------------------------------------------------------------------------------- | ------ |
+| `common/src/constants/byok.ts` (not in path, just content)                        | —      |
+| No actual file paths contain "codebuff" as a directory name that needs migration. | —      |
 
 ---
 
@@ -380,16 +381,19 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 ## 11. Migration Plan (Suggested Order)
 
 ### Phase 1: Low-Hanging Fruit
+
 1. ✅ DONE — Add `OPENBUFF_API_KEY` as alias alongside `CODEBUFF_API_KEY` (`OPENBUFF_API_KEY` primary with `CODEBUFF_API_KEY` runtime fallback; see §1.3 and §10)
 2. Add `OPENBUFF_BYOK_OPENROUTER` alias
 3. ✅ DONE — Add `OPENBUFF_CHATGPT_OAUTH_TOKEN` alias (`OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR` in `common/src/constants/chatgpt-oauth.ts`; SDK resolves `CODEBUFF_CHATGPT_OAUTH_TOKEN ?? OPENBUFF_CHATGPT_OAUTH_TOKEN`; note reversed precedence vs. API key — see §1.5)
 4. Add `OPENBUFF_CLI_EDITOR` / `OPENBUFF_EDITOR` aliases
 
 ### Phase 2: Build/CI Variables
+
 5. Add `OPENBUFF_IS_BINARY`, `OPENBUFF_CLI_VERSION`, `OPENBUFF_CLI_TARGET` aliases
 6. Expand `OPENBUFF_GITHUB_*` support beyond the CLI release script where other CI/release scripts still use only `CODEBUFF_GITHUB_*`
 
 ### Phase 3: Package Ecosystem (Major Effort)
+
 7. ✅ DONE — Rename `@codebuff/sdk` → `@openbuff/sdk` (published; `@openbuff/sdk` is live on npm)
 8. ✅ DONE — Rename `CodebuffClient` → `OpenbuffClient` (with retained `CodebuffClient` compat alias; both exported from `@openbuff/sdk`)
 9. Rename `@codebuff/*` internal packages → `@openbuff/*` (still outstanding)
@@ -398,6 +402,7 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 > ✅ **Completed:** `@openbuff/sdk` is live on npm with `OpenbuffClient` primary and `CodebuffClient` compatibility alias (both exported from `@openbuff/sdk`). The historical dual-publishing note for context: Renaming the legacy `@codebuff/sdk` package to `@openbuff/sdk` would break all downstream consumers who import `CodebuffClient` via the old `@codebuff/sdk` package path. This requires a **dual-publishing deprecation period** where both the legacy `@codebuff/sdk` and the new `@openbuff/sdk` are published to npm simultaneously for at least one major version. During this period, the legacy `@codebuff/sdk` should emit deprecation warnings directing users to migrate to `@openbuff/sdk`. The same applies to `CodebuffClient` → `OpenbuffClient` (export both names from both packages during the transition).
 
 ### Phase 4: Template Placeholders
+
 11. Add `{OPENBUFF_*}` placeholder aliases that map to the same values
 12. Update built-in agent templates to use new placeholders
 
@@ -416,6 +421,7 @@ When adding a new `OPENBUFF_*` alias, these files typically need updates:
 7. **README / CONTRIBUTING:** Update any referenced variable names
 
 ### Validation Checklist
+
 - [ ] New constant defined with both names (Openbuff primary + Codebuff compat)
 - [ ] `isLocalMode()` / `isLocalModeEnabled()` checks updated if needed
 - [ ] TypeScript types updated

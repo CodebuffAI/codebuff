@@ -77,10 +77,11 @@ describe('useHoverToggle timing (controller)', () => {
     originalNow = Date.now
 
     let now = 1_000
-    const mockDateNow: MockDateNow = Object.assign(
-      () => now,
-      { set: (v: number) => { now = v } }
-    )
+    const mockDateNow: MockDateNow = Object.assign(() => now, {
+      set: (v: number) => {
+        now = v
+      },
+    })
     Date.now = mockDateNow
 
     globalThis.setTimeout = ((fn: () => void, ms?: number) => {

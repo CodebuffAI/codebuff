@@ -56,6 +56,7 @@ function createMockFs(config: {
     },
     readdir: async () => [],
     mkdir: async () => undefined,
+    realpath: async (filePath: PathLike) => String(filePath),
     writeFile: async () => undefined,
   } as unknown as CodebuffFileSystem
 }
@@ -65,7 +66,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
     mock.restore()
   })
 
-  it('should invoke fileFilter callback and block files when filter returns blocked', async () => {
+  it('[SEC-H01] applies mandatory sensitive policy before the custom filter', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',
@@ -95,9 +96,9 @@ describe('OpenbuffClientOptions fileFilter', () => {
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         // Simulate agent requesting files
-        requestedFiles = await requestFiles({
+        requestedFiles = (await requestFiles({
           filePaths: ['.env', 'src/index.ts'],
-        })
+        })) as Record<string, string | null>
 
         await sendAction({
           action: {
@@ -135,6 +136,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
       cwd: '/project',
       fsSource: mockFs,
       fileFilter,
+      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -143,7 +145,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(filterCalls).toContain('.env')
+    expect(filterCalls).not.toContain('.env')
     expect(filterCalls).toContain('src/index.ts')
     expect(requestedFiles['.env']).toBe(FILE_READ_STATUS.IGNORED)
     expect(requestedFiles['src/index.ts']).toBe('console.log("hello")')
@@ -178,9 +180,9 @@ describe('OpenbuffClientOptions fileFilter', () => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
-        requestedFiles = await requestFiles({
+        requestedFiles = (await requestFiles({
           filePaths: ['.env.example'],
-        })
+        })) as Record<string, string | null>
 
         await sendAction({
           action: {
@@ -216,6 +218,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
       cwd: '/project',
       fsSource: mockFs,
       fileFilter,
+      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -230,7 +233,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
     )
   })
 
-  it('should pass fileFilter to requestOptionalFile as well', async () => {
+  it('[SEC-H02] preserves mandatory blocking through requestOptionalFile', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',
@@ -251,7 +254,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
       },
     })
 
-    let optionalFileResult: string | null = null
+    let optionalFileError: string | undefined
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
@@ -259,9 +262,11 @@ describe('OpenbuffClientOptions fileFilter', () => {
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         // Use requestOptionalFile which should also use the fileFilter
-        optionalFileResult = await requestOptionalFile({
-          filePath: 'secret.key',
-        })
+        try {
+          await requestOptionalFile({ filePath: 'secret.key' })
+        } catch (error) {
+          optionalFileError = error instanceof Error ? error.message : String(error)
+        }
 
         await sendAction({
           action: {
@@ -298,6 +303,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
+      filesystemResultFormat: 'legacy-v0',
       fileFilter,
     })
 
@@ -307,12 +313,11 @@ describe('OpenbuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(filterCalls).toContain('secret.key')
-    // Optional file should return null for blocked files (via toOptionalFile)
-    expect(optionalFileResult).toBeNull()
+    expect(filterCalls).not.toContain('secret.key')
+    expect(optionalFileError).toContain('read_files blocked')
   })
 
-  it('should tolerate absolute requestOptionalFile paths inside cwd', async () => {
+  it('[SEC-H01] rejects absolute requestOptionalFile paths inside cwd', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',
@@ -333,16 +338,18 @@ describe('OpenbuffClientOptions fileFilter', () => {
       },
     })
 
-    const optionalFileResult: { current: string | null } = { current: null }
+    let optionalFileError: string | undefined
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestOptionalFile } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
-        optionalFileResult.current = await requestOptionalFile({
-          filePath: '/project/src/index.ts',
-        })
+        try {
+          await requestOptionalFile({ filePath: '/project/src/index.ts' })
+        } catch (error) {
+          optionalFileError = error instanceof Error ? error.message : String(error)
+        }
 
         await sendAction({
           action: {
@@ -370,6 +377,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
+      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -378,7 +386,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(optionalFileResult.current).toBe('normal file content')
+    expect(optionalFileError).toContain('read_files outside_project')
   })
 
   it('should allow all files when no fileFilter is provided', async () => {
@@ -409,9 +417,9 @@ describe('OpenbuffClientOptions fileFilter', () => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
-        requestedFiles = await requestFiles({
+        requestedFiles = (await requestFiles({
           filePaths: ['src/index.ts'],
-        })
+        })) as Record<string, string | null>
 
         await sendAction({
           action: {
@@ -435,11 +443,13 @@ describe('OpenbuffClientOptions fileFilter', () => {
       },
     )
 
-    // No fileFilter provided
+    // No fileFilter provided. This assertion exercises explicit legacy
+    // compatibility; structured-v1 is the SDK default.
     const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
+      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -449,6 +459,71 @@ describe('OpenbuffClientOptions fileFilter', () => {
 
     expect(result.output.type).toBe('lastMessage')
     expect(requestedFiles['src/index.ts']).toBe('normal file content')
+  })
+
+  it('returns structured read results by default', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+    spyOn(projectFileTree, 'isFileIgnored').mockResolvedValue(false)
+
+    const mockFs = createMockFs({
+      files: {
+        '/project/src/index.ts': { content: 'normal file content' },
+      },
+    })
+    let requestedFiles: unknown
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { sendAction, promptId, requestFiles } = params
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
+        requestedFiles = await requestFiles({
+          filePaths: ['src/index.ts'],
+        })
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: { type: 'lastMessage', value: [] },
+          },
+        })
+        return {
+          sessionState,
+          output: { type: 'lastMessage' as const, value: [] },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      cwd: '/project',
+      fsSource: mockFs,
+      overrideTools: {
+        read_files: async ({ filePaths }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [filePath, 'normal file content']),
+          ),
+      },
+    })
+    await client.run({ agent: 'base2', prompt: 'read files' })
+
+    expect(requestedFiles).toMatchObject({
+      kind: 'read_files_result',
+      version: 1,
+      status: 'ok',
+      summary: { requested: 1, ok: 1, partial: 0, failed: 0 },
+    })
   })
 
   it('should run fileFilter before gitignore check', async () => {

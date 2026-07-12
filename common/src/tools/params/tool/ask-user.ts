@@ -1,19 +1,19 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  coerceToArray,
+  jsonToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
 export const questionSchema = z.object({
   question: z.string().describe('The question to ask the user'),
-  header: z
-    .string()
-    .max(18)
-    .optional()
-    .describe(
-      // Tell the llm 12 chars so that if it goes over slightly, it will still be under the max.
-      'Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"',
-    ),
+  header: z.string().max(18).optional().describe(
+    // Tell the llm 12 chars so that if it goes over slightly, it will still be under the max.
+    'Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"',
+  ),
   options: z
     .preprocess(
       coerceToArray,
@@ -70,9 +70,7 @@ const inputSchema = z
     questions: z
       .preprocess(
         coerceToArray,
-        z
-          .array(questionSchema)
-          .min(1, 'Must provide at least one question'),
+        z.array(questionSchema).min(1, 'Must provide at least one question'),
       )
       .describe('List of multiple choice questions to ask the user'),
   })

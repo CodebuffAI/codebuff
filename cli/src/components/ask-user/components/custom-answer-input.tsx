@@ -39,24 +39,24 @@ export const CustomAnswerInput: React.FC<CustomAnswerInputProps> = memo(
             paddingRight: 1,
           }}
         >
-        <MultilineInput
-          value={value}
-          cursorPosition={cursorPosition}
-          onChange={(inputValue) => {
-            onChange(inputValue.text, inputValue.cursorPosition)
-          }}
-          onSubmit={onSubmit}
-          onPaste={(text) => {
-            if (text) {
-              onPaste(text)
-            }
-          }}
-          focused={focused}
-          maxHeight={5}
-          minHeight={1}
-          placeholder="Type your answer..."
-          showScrollbar={true}
-        />
+          <MultilineInput
+            value={value}
+            cursorPosition={cursorPosition}
+            onChange={(inputValue) => {
+              onChange(inputValue.text, inputValue.cursorPosition)
+            }}
+            onSubmit={onSubmit}
+            onPaste={(text) => {
+              if (text) {
+                onPaste(text)
+              }
+            }}
+            focused={focused}
+            maxHeight={5}
+            minHeight={1}
+            placeholder="Type your answer..."
+            showScrollbar={true}
+          />
         </box>
       </box>
     )

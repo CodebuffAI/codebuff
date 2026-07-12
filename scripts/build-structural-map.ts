@@ -235,7 +235,10 @@ interface GraphStats {
 
 function computeGraphStats(index: MetadataIndex): GraphStats {
   const inDegree = new Map<string, number>()
-  const crossDir = new Map<string, { from: string; to: string; count: number }>()
+  const crossDir = new Map<
+    string,
+    { from: string; to: string; count: number }
+  >()
 
   for (const edge of index.graph.edges) {
     if (edge.type !== 'imports' && edge.type !== 'calls') continue
@@ -275,9 +278,7 @@ function renderMap(index: MetadataIndex, root: string): string {
   const builtAt = new Date(index.builtAt).toISOString()
   const byDir = summarizeByDir(index.files)
   const { mostImportedFiles, crossDirEdges } = computeGraphStats(index)
-  const entryPoints = Object.keys(index.files)
-    .filter(isEntryPoint)
-    .sort()
+  const entryPoints = Object.keys(index.files).filter(isEntryPoint).sort()
 
   lines.push(`# Structural Map — ${path.basename(root)}`)
   lines.push('')
@@ -288,7 +289,9 @@ function renderMap(index: MetadataIndex, root: string): string {
     `- **Graph:** ${Object.keys(index.graph.nodes).length} nodes, ${index.graph.edges.length} edges`,
   )
   lines.push('')
-  lines.push('> Pin this file in context. Every audit shard navigates from here instead of doing fuzzy round-trip discovery.')
+  lines.push(
+    '> Pin this file in context. Every audit shard navigates from here instead of doing fuzzy round-trip discovery.',
+  )
   lines.push('')
 
   // Entry points
@@ -368,7 +371,9 @@ function renderMap(index: MetadataIndex, root: string): string {
     `Total indexed source: **${formatBytes(totalBytes)}** across **${byDir.size}** top-level directories.`,
   )
   lines.push('')
-  lines.push('When sharding for an audit, aim for ~5–15 files per shard. Use the table above to group small dirs together and split huge dirs (e.g. split `src/` by subdirectory).')
+  lines.push(
+    'When sharding for an audit, aim for ~5–15 files per shard. Use the table above to group small dirs together and split huge dirs (e.g. split `src/` by subdirectory).',
+  )
   lines.push('')
 
   return lines.join('\n')

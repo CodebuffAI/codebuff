@@ -223,10 +223,7 @@ describe('GridLayout', () => {
     })
 
     test('passes calculated columnWidth to renderItem for multi-column', () => {
-      const items = [
-        createTestItem('a', 'A'),
-        createTestItem('b', 'B'),
-      ]
+      const items = [createTestItem('a', 'A'), createTestItem('b', 'B')]
       const widths: number[] = []
 
       renderToStaticMarkup(
@@ -398,10 +395,7 @@ describe('GridLayout', () => {
     })
 
     test('medium width (100-149) uses up to 2 columns', () => {
-      const items = [
-        createTestItem('a', 'Alpha'),
-        createTestItem('b', 'Beta'),
-      ]
+      const items = [createTestItem('a', 'Alpha'), createTestItem('b', 'Beta')]
 
       const markup = renderToStaticMarkup(
         <GridLayout
@@ -625,10 +619,7 @@ describe('GridLayout', () => {
     })
 
     test('handles boundary width (21 chars) - still single column due to threshold', () => {
-      const items = [
-        createTestItem('a', 'A'),
-        createTestItem('b', 'B'),
-      ]
+      const items = [createTestItem('a', 'A'), createTestItem('b', 'B')]
       const widths: number[] = []
 
       renderToStaticMarkup(
@@ -651,10 +642,7 @@ describe('GridLayout', () => {
     })
 
     test('forces single column when width is just below threshold (20 chars)', () => {
-      const items = [
-        createTestItem('a', 'A'),
-        createTestItem('b', 'B'),
-      ]
+      const items = [createTestItem('a', 'A'), createTestItem('b', 'B')]
       const widths: number[] = []
 
       renderToStaticMarkup(
@@ -781,10 +769,7 @@ describe('GridLayout', () => {
     })
 
     test('transition works with 2 items', () => {
-      const items = [
-        createTestItem('a', 'One'),
-        createTestItem('b', 'Two'),
-      ]
+      const items = [createTestItem('a', 'One'), createTestItem('b', 'Two')]
 
       // 2-column layout
       const twoCol = renderToStaticMarkup(
@@ -882,10 +867,7 @@ describe('GridLayout', () => {
     })
 
     test('columnWidth is passed correctly in both layouts', () => {
-      const items = [
-        createTestItem('a', 'A'),
-        createTestItem('b', 'B'),
-      ]
+      const items = [createTestItem('a', 'A'), createTestItem('b', 'B')]
 
       const twoColWidths: number[] = []
       const oneColWidths: number[] = []
@@ -932,7 +914,7 @@ describe('GridLayout', () => {
 
       // Simulate rapid resize: 2-col -> 1-col -> 2-col -> 1-col
       const widths = [120, 80, 120, 80]
-      
+
       for (const width of widths) {
         const markup = renderToStaticMarkup(
           <GridLayout

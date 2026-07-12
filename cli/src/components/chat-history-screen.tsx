@@ -10,7 +10,7 @@ import { useTheme } from '../hooks/use-theme'
 import {
   deleteChatSession,
   formatRelativeTime,
-  getAllChats,
+  getAllChatsAsync,
 } from '../utils/chat-history'
 import { createTextPasteHandler } from '../utils/strings'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
@@ -49,16 +49,26 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
   const contentWidth = terminalWidth - LAYOUT.CONTENT_PADDING
 
   // Two-phase loading: load initial chats immediately, then more in background
-  const [chats, setChats] = useState(() => getAllChats(LAYOUT.INITIAL_CHATS))
+  const [chats, setChats] = useState<
+    Awaited<ReturnType<typeof getAllChatsAsync>>
+  >([])
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   // Load more chats in the background after initial render
   useEffect(() => {
-    // Use setTimeout to defer the expensive loading to after first paint
-    const timer = setTimeout(() => {
-      setChats(getAllChats(LAYOUT.INITIAL_CHATS + LAYOUT.BACKGROUND_CHATS))
-    }, 0)
-    return () => clearTimeout(timer)
+    let cancelled = false
+    void getAllChatsAsync(LAYOUT.INITIAL_CHATS).then((initial) => {
+      if (cancelled) return
+      setChats(initial)
+      return getAllChatsAsync(
+        LAYOUT.INITIAL_CHATS + LAYOUT.BACKGROUND_CHATS,
+      ).then((all) => {
+        if (!cancelled) setChats(all)
+      })
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleDeleteChat = useCallback((chatId: string) => {

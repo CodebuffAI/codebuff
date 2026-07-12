@@ -4,12 +4,18 @@ import path from 'path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
-import { loadMCPConfig, loadMCPConfigSync, mcpFileSchema } from '../agents/load-mcp-config'
+import {
+  loadMCPConfig,
+  loadMCPConfigSync,
+  mcpFileSchema,
+} from '../agents/load-mcp-config'
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 
 // Helper to safely access stdio config properties
-function isStdioConfig(config: MCPConfig): config is MCPConfig & { command: string; env?: Record<string, string> } {
+function isStdioConfig(
+  config: MCPConfig,
+): config is MCPConfig & { command: string; env?: Record<string, string> } {
   return 'command' in config
 }
 
@@ -54,7 +60,9 @@ describe('mcpFileSchema', () => {
     if (result.success) {
       const remoteServer = result.data.mcpServers.remoteServer
       expect(remoteServer).toBeDefined()
-      expect('url' in remoteServer && remoteServer.url).toBe('https://example.com/mcp')
+      expect('url' in remoteServer && remoteServer.url).toBe(
+        'https://example.com/mcp',
+      )
     }
   })
 
@@ -100,7 +108,10 @@ describe('loadMCPConfigSync', () => {
 
   it('should return empty config when no mcp.json exists in project dir', () => {
     // No mcp.json in tempDir/.agents - should not find any project-specific servers
-    const result = loadMCPConfigSync({ verbose: false })
+    const result = loadMCPConfigSync({
+      includeProjectConfig: true,
+      verbose: false,
+    })
     // Check that no server named 'testProjectServer' exists (which we'd create if one existed)
     expect(result.mcpServers.testProjectServer).toBeUndefined()
   })
@@ -122,7 +133,10 @@ describe('loadMCPConfigSync', () => {
       JSON.stringify(mcpConfig, null, 2),
     )
 
-    const result = loadMCPConfigSync({ verbose: false })
+    const result = loadMCPConfigSync({
+      includeProjectConfig: true,
+      verbose: false,
+    })
     expect(result.mcpServers.testServer).toBeDefined()
     const testServer = result.mcpServers.testServer
     if (isStdioConfig(testServer)) {
@@ -155,7 +169,10 @@ describe('loadMCPConfigSync', () => {
       JSON.stringify(mcpConfig, null, 2),
     )
 
-    const result = loadMCPConfigSync({ verbose: false })
+    const result = loadMCPConfigSync({
+      includeProjectConfig: true,
+      verbose: false,
+    })
     expect(result.mcpServers.envServer).toBeDefined()
     const envServer = result.mcpServers.envServer
     if (isStdioConfig(envServer)) {
@@ -187,7 +204,10 @@ describe('loadMCPConfigSync', () => {
     )
 
     // Should not throw, just skip the server with missing env var
-    const result = loadMCPConfigSync({ verbose: false })
+    const result = loadMCPConfigSync({
+      includeProjectConfig: true,
+      verbose: false,
+    })
     // The server with missing env var should not be loaded
     expect(result.mcpServers.missingEnvServer).toBeUndefined()
   })
@@ -211,7 +231,10 @@ describe('loadMCPConfigSync', () => {
       JSON.stringify(projectConfig, null, 2),
     )
 
-    const result = loadMCPConfigSync({ verbose: false })
+    const result = loadMCPConfigSync({
+      includeProjectConfig: true,
+      verbose: false,
+    })
 
     // Project config should be loaded
     const projectServer = result.mcpServers.projectServer
@@ -267,7 +290,10 @@ describe('loadMCPConfig', () => {
       JSON.stringify(mcpConfig, null, 2),
     )
 
-    const result = await loadMCPConfig({ verbose: false })
+    const result = await loadMCPConfig({
+      includeProjectConfig: true,
+      verbose: false,
+    })
     expect(result.mcpServers.asyncServer).toBeDefined()
     const asyncServer = result.mcpServers.asyncServer
     if (isStdioConfig(asyncServer)) {

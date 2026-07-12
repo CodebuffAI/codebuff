@@ -49,12 +49,12 @@ function substituteEnvInRecord(
 }
 
 function stableHash(value: unknown): string {
-  return createHash('sha256')
-    .update(JSON.stringify(value))
-    .digest('hex')
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
-function hashRecordValues(record: Record<string, string>): Record<string, string> {
+function hashRecordValues(
+  record: Record<string, string>,
+): Record<string, string> {
   const normalized: Record<string, string> = {}
   for (const [key, value] of Object.entries(record)) {
     // Header/env names are normalized first; later duplicates deterministically win.

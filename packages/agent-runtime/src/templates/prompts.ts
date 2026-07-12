@@ -57,9 +57,11 @@ export function buildAgentToolInputSchema(
     schemaFields.params = z.preprocess(coerceToObject, inputSchema.params)
   }
 
-  schemaFields.handoff = agentHandoffSchema.optional().describe(
-    'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
-  )
+  schemaFields.handoff = agentHandoffSchema
+    .optional()
+    .describe(
+      'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
+    )
 
   return z
     .object(schemaFields)

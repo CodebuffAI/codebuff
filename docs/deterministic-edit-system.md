@@ -22,21 +22,28 @@ Prefer `code_search` when the matching lines and surrounding context are needed.
 
 ## Staged read-before-edit enforcement
 
-Edit tools (`str_replace`, `edit_transaction`, `apply_patch`,
-`apply_smart_patch`) participate in a staged read-before-edit policy.
+Active edit tools (`str_replace`, `write_file`, `replace_range`,
+`rewrite_symbol`, `edit_transaction`, and `apply_patch`) participate in a
+staged read-before-edit policy. `apply_smart_patch` remains registered for
+persisted/external compatibility but is quarantined from shipped agents so new
+workflows use the single authority-backed `apply_patch` surface.
 Under strict-mode edit flows, the runtime requires a recent `read_files`
 authorization for each touched path before accepting an edit:
 
-- A successful `read_files` call mints a per-path authorization for
-  follow-up edits to that path.
+- A successful whole-file `read_files.paths` call mints a per-path
+  authorization for follow-up exact-match edits. Range and symbol reads stay
+  scoped: follow-up edits must carry their `readCapability`/`rangeHash` rather
+  than receiving whole-file authorization.
 - `basedOnRead` (the read capability returned from a `read_files` range
   header, or the freshly echoed capability on a successful large-file
   edit) is the explicit authorization path. The runtime verifies the
   embedded hash and rejects stale or mismatched anchors before any file
   is changed.
-- A successful edit invalidates the per-path authorization. To edit the
-  same path again, re-read it (or carry forward the echoed post-edit
-  `basedOnRead` for the same region).
+- A successful edit keeps the path-level authorization during the editing
+  flow, and exact-match edits chain from the latest prepared content. This
+  authorization is not a content-freshness proof; carry forward the echoed
+  post-edit `basedOnRead` for the same region or re-read before a
+  large/ambiguous follow-up edit.
 - On a stale-anchor or anchor-not-found failure, re-read the exact target
   range and retry with the new `basedOnRead` rather than guessing from
   memory. The diagnostic always lists the closest candidate range to

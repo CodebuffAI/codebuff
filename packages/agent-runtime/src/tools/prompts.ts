@@ -118,7 +118,11 @@ function compactToolDefinitionForProvider(
 
 function hasMeaningfulJsonSchema(jsonSchema: Record<string, unknown>): boolean {
   const properties = jsonSchema.properties
-  if (properties && typeof properties === 'object' && Object.keys(properties).length > 0) {
+  if (
+    properties &&
+    typeof properties === 'object' &&
+    Object.keys(properties).length > 0
+  ) {
     return true
   }
 
@@ -142,12 +146,12 @@ function paramsSection(params: { schema: z.ZodType; endsAgentStep: boolean }) {
   const safeSchema = ensureJsonSchemaCompatible(schema)
   const schemaWithEndsAgentStepParam = endsAgentStep
     ? safeSchema.and(
-      z.object({
-        [endsAgentStepParam]: z
-          .literal(endsAgentStep)
-          .describe('Easp flag must be set to true'),
-      }),
-    )
+        z.object({
+          [endsAgentStepParam]: z
+            .literal(endsAgentStep)
+            .describe('Easp flag must be set to true'),
+        }),
+      )
     : safeSchema
   const jsonSchema = toJsonSchemaSafe(schemaWithEndsAgentStepParam)
   delete jsonSchema.description
@@ -242,13 +246,13 @@ You (Buffy) have access to the following tools. Call them when needed.
 Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
 ${getToolCallString(
-    'tool_name',
-    {
-      parameter1: 'value1',
-      parameter2: 123,
-    },
-    false,
-  )}
+  'tool_name',
+  {
+    parameter1: 'value1',
+    parameter2: 123,
+  },
+  false,
+)}
 
 ### Commentary
 
@@ -262,20 +266,20 @@ User: can you update the console logs in example/file.ts?
 Assistant: Sure thing! Let's update that file!
 
 ${getToolCallString(
-    'example_editing_tool',
-    {
-      example_file_path: 'path/to/example/file.ts',
-      example_array: [
-        {
-          old_content_with_newlines:
-            "// some context\nconsole.log('Hello world!');\n",
-          new_content_with_newlines:
-            "// some context\nconsole.log('Hello from Buffy!');\n",
-        },
-      ],
-    },
-    false,
-  )}
+  'example_editing_tool',
+  {
+    example_file_path: 'path/to/example/file.ts',
+    example_array: [
+      {
+        old_content_with_newlines:
+          "// some context\nconsole.log('Hello world!');\n",
+        new_content_with_newlines:
+          "// some context\nconsole.log('Hello from Buffy!');\n",
+      },
+    ],
+  },
+  false,
+)}
 
 All done with the update!
 User: thanks it worked! :)
@@ -293,8 +297,8 @@ However, most of the time, the user will refer to files from their own cwd. You 
 All tools are very slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task.
 
 - Prefer \`read_outline\` to get a fast structural summary (imports, classes, methods, and functions) of a large file instead of loading the whole file with \`read_files\`.
-- Prefer \`read_slices\` to read only the specific class, function, or method implementations you need, minimizing token overhead and latency.
-- Prefer \`apply_smart_patch\` instead of \`str_replace\` or \`write_file\` for applying edits. It uses fuzzy line alignment, AST-aware syntax auto-healing, and preflight compiler safety checks, preventing typical merge conflicts and syntax errors.
+- Prefer \`read_files\` with a \`symbols\` selector to read only the specific class, function, or method implementations you need.
+- Prefer deterministic \`str_replace\`, \`replace_range\`, \`rewrite_symbol\`, or \`edit_transaction\` edits based on a fresh read. Compatibility tools that are absent from the active tool list must not be recommended.
 - When using write_file, make sure to only include a few lines of context and not the entire file.
 
 ## Tool Results
@@ -349,7 +353,8 @@ export const fullToolList = (
         endsAgentStep: toolDef.endsAgentStep ?? true,
         exampleInputs: toolDef.exampleInputs,
       })
-    }),]
+    }),
+  ]
 
   return `## List of Tools
 
@@ -398,13 +403,13 @@ Use the tools below to complete the user request, if applicable.
 Tool calls use a specific XML and JSON-like format. Adhere *precisely* to this nested element structure:
 
 ${getToolCallString(
-    'tool_name',
-    {
-      parameter1: 'value1',
-      parameter2: 123,
-    },
-    false,
-  )}
+  'tool_name',
+  {
+    parameter1: 'value1',
+    parameter2: 123,
+  },
+  false,
+)}
 
 Important: You only have access to the tools below. Do not use any other tools -- they are not available to you, instead they may have been previously used by other agents.
 

@@ -1,1 +1,1 @@
-export type OpenAICompatibleImageModelId = string;
+export type OpenAICompatibleImageModelId = string

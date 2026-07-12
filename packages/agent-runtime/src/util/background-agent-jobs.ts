@@ -32,6 +32,8 @@
  * once the buffer exceeds this many entries to bound memory on long agents.
  */
 const MAX_BUFFERED_CHUNKS = 200
+const MAX_BACKGROUND_AGENT_JOBS = 100
+const SETTLED_JOB_TTL_MS = 30 * 60 * 1000
 
 /**
  * A single streamed chunk from a background agent turn. Mirrors the
@@ -48,7 +50,11 @@ export interface BackgroundAgentChunk {
   timestamp: number
 }
 
-export type BackgroundAgentJobStatus = 'running' | 'completed' | 'error'
+export type BackgroundAgentJobStatus =
+  | 'running'
+  | 'completed'
+  | 'error'
+  | 'cancelled'
 
 export interface BackgroundAgentJob {
   jobId: string
@@ -58,6 +64,7 @@ export interface BackgroundAgentJob {
   agentName: string
   status: BackgroundAgentJobStatus
   startedAt: number
+  completedAt?: number
   /** Resolved value when status === 'completed'; undefined otherwise. */
   result?: unknown
   /** Rejection reason when status === 'error'; undefined otherwise. */
@@ -69,6 +76,10 @@ export interface BackgroundAgentJob {
    * Polls return only the chunks appended since the last poll.
    */
   readOffset: number
+  /** Unseen chunks evicted since the previous poll. */
+  droppedChunks: number
+  /** Controller owned by this job and used for explicit cancellation. */
+  abortController: AbortController
   /** The detached coroutine promise. Stored for lifecycle bookkeeping only. */
   promise: Promise<unknown>
 }
@@ -85,6 +96,29 @@ function nextJobId(): string {
   return `bg-agent-${process.pid}-${jobCounter}`
 }
 
+function sweepBackgroundAgentJobs(now = Date.now()): void {
+  for (const [jobId, job] of jobs) {
+    if (
+      job.status !== 'running' &&
+      job.completedAt !== undefined &&
+      now - job.completedAt > SETTLED_JOB_TTL_MS
+    ) {
+      jobs.delete(jobId)
+    }
+  }
+
+  if (jobs.size <= MAX_BACKGROUND_AGENT_JOBS) return
+  const settled = [...jobs.values()]
+    .filter((job) => job.status !== 'running')
+    .sort(
+      (a, b) => (a.completedAt ?? a.startedAt) - (b.completedAt ?? b.startedAt),
+    )
+  for (const job of settled) {
+    if (jobs.size <= MAX_BACKGROUND_AGENT_JOBS) break
+    jobs.delete(job.jobId)
+  }
+}
+
 /**
  * Allocate a job id and a pending job record WITHOUT a coroutine promise yet.
  * This split is required because {@link executeSubagent} synchronously fires
@@ -97,6 +131,7 @@ export function allocateBackgroundAgentJob(params: {
   agentType: string
   agentName: string
 }): BackgroundAgentJob {
+  sweepBackgroundAgentJobs()
   const { agentType, agentName } = params
   const jobId = nextJobId()
   const job: BackgroundAgentJob = {
@@ -107,6 +142,8 @@ export function allocateBackgroundAgentJob(params: {
     startedAt: Date.now(),
     chunks: [],
     readOffset: 0,
+    droppedChunks: 0,
+    abortController: new AbortController(),
     // Placeholder promise replaced by {@link attachBackgroundAgentPromise}.
     promise: Promise.resolve(),
   }
@@ -161,12 +198,16 @@ export function registerBackgroundAgentJob(params: {
 function attachJobCompletionHandlers(job: BackgroundAgentJob): void {
   job.promise.then(
     (result) => {
+      if (job.status === 'cancelled') return
       job.status = 'completed'
       job.result = result
+      job.completedAt = Date.now()
     },
     (error) => {
+      if (job.status === 'cancelled') return
       job.status = 'error'
       job.error = error instanceof Error ? error.message : String(error)
+      job.completedAt = Date.now()
     },
   )
 }
@@ -185,7 +226,11 @@ export function appendBackgroundAgentChunk(
   if (job.chunks.length > MAX_BUFFERED_CHUNKS) {
     job.chunks.shift()
     // Keep readOffset sane if we evict chunks the poller hasn't seen yet.
-    if (job.readOffset > 0) job.readOffset -= 1
+    if (job.readOffset > 0) {
+      job.readOffset -= 1
+    } else {
+      job.droppedChunks += 1
+    }
   }
 }
 
@@ -195,7 +240,22 @@ export function appendBackgroundAgentChunk(
 export function getBackgroundAgentJob(
   jobId: string,
 ): BackgroundAgentJob | undefined {
+  sweepBackgroundAgentJobs()
   return jobs.get(jobId)
+}
+
+export function listRunningBackgroundAgentJobs(): Array<
+  Pick<BackgroundAgentJob, 'jobId' | 'agentType' | 'agentName' | 'startedAt'>
+> {
+  sweepBackgroundAgentJobs()
+  return [...jobs.values()]
+    .filter((job) => job.status === 'running')
+    .map(({ jobId, agentType, agentName, startedAt }) => ({
+      jobId,
+      agentType,
+      agentName,
+      startedAt,
+    }))
 }
 
 /**
@@ -213,6 +273,34 @@ export function readNewBackgroundAgentChunks(
   const available = job.chunks.slice(job.readOffset)
   job.readOffset = job.chunks.length
   return available
+}
+
+/** Return and reset the count of unseen chunks evicted since the last poll. */
+export function takeDroppedBackgroundAgentChunkCount(
+  job: BackgroundAgentJob,
+): number {
+  const count = job.droppedChunks
+  job.droppedChunks = 0
+  return count
+}
+
+export function cancelBackgroundAgentJob(jobId: string):
+  | { cancelled: true; status: 'cancelled' }
+  | { errorMessage: string } {
+  const job = jobs.get(jobId)
+  if (!job) {
+    return { errorMessage: `No background agent job found with id "${jobId}".` }
+  }
+  if (job.status !== 'running') {
+    return {
+      errorMessage: `Background agent job "${jobId}" is already ${job.status}.`,
+    }
+  }
+  job.status = 'cancelled'
+  job.completedAt = Date.now()
+  job.error = 'Cancelled by check_background_agent.'
+  job.abortController.abort(new Error(job.error))
+  return { cancelled: true, status: 'cancelled' }
 }
 
 /** Test-only: clear the registry between tests. */

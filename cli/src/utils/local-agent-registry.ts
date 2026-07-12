@@ -1,5 +1,4 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
 import { pluralize } from '@codebuff/common/util/string'
@@ -9,6 +8,7 @@ import {
 } from '@openbuff/sdk'
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
+import type { AgentValidationError } from '@openbuff/sdk'
 
 import { getProjectRoot } from '../project-files'
 import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
@@ -40,6 +40,8 @@ let userAgentsCache: Record<string, AgentDefinition> = {}
 let userAgentFilePaths: Map<string, string> = new Map()
 // Cache for MCP servers loaded from mcp.json in .agents directories
 let mcpServersCache: Record<string, MCPConfig> = {}
+let agentRegistryDiagnostics: AgentValidationError[] = []
+let projectAgentsTrusted = true
 
 /**
  * Initialize the agent registry by loading user agents via the SDK.
@@ -52,25 +54,49 @@ let mcpServersCache: Record<string, MCPConfig> = {}
  *
  * Later directories take precedence, so project agents override global ones.
  */
-export async function initializeAgentRegistry(): Promise<void> {
+export async function initializeAgentRegistry(options?: {
+  trustProjectAgents?: boolean
+}): Promise<void> {
+  // Derived listings must never outlive the definitions they were built from.
+  cachedAgentsByMode.clear()
+  cachedAgentsDir = null
   try {
-    // Let SDK load from all default directories (cwd, parent, home)
-    userAgentsCache = await sdkLoadLocalAgents({ verbose: false })
-    // Build ID-to-filepath map by scanning all agent directories
-    userAgentFilePaths = buildAgentFilePathMap(getDefaultAgentDirs())
+    const trustProjectAgents = options?.trustProjectAgents ?? true
+    projectAgentsTrusted = trustProjectAgents
+    const loaded = await sdkLoadLocalAgents({
+      includeProjectAgents: trustProjectAgents,
+      verbose: false,
+      validate: true,
+    })
+    userAgentsCache = loaded.agents
+    userAgentFilePaths = new Map(
+      Object.values(loaded.agents).map((agent) => [
+        agent.id,
+        agent._sourceFilePath,
+      ]),
+    )
+    agentRegistryDiagnostics = loaded.validationErrors
   } catch (error) {
-    // Fall back to empty cache if SDK loading fails, but log a warning
+    // Keep the last known-good definitions on catastrophic refresh failure.
     logger.warn(
       { error },
       'Failed to load user agents from .agents directories',
     )
-    userAgentsCache = {}
-    userAgentFilePaths = new Map()
+    agentRegistryDiagnostics = [
+      {
+        agentId: '(registry)',
+        filePath: '',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    ]
   }
 
   // Load MCP config from mcp.json files in .agents directories
   try {
-    const mcpConfig = loadMCPConfigSync({ verbose: false })
+    const mcpConfig = loadMCPConfigSync({
+      includeProjectConfig: options?.trustProjectAgents ?? true,
+      verbose: false,
+    })
     mcpServersCache = mcpConfig.mcpServers
     if (Object.keys(mcpServersCache).length > 0) {
       logger.debug(
@@ -83,67 +109,7 @@ export async function initializeAgentRegistry(): Promise<void> {
     }
   } catch (error) {
     logger.warn({ error }, 'Failed to load MCP config from .agents directories')
-    mcpServersCache = {}
   }
-}
-
-/**
- * Get default agent directories to scan.
- * Matches the SDK's getDefaultAgentDirs() to ensure consistency.
- */
-const getDefaultAgentDirs = (): string[] => {
-  const cwdAgents = path.join(process.cwd(), AGENTS_DIR_NAME)
-  const parentAgents = path.join(process.cwd(), '..', AGENTS_DIR_NAME)
-  const homeAgents = path.join(os.homedir(), AGENTS_DIR_NAME)
-  return [cwdAgents, parentAgents, homeAgents]
-}
-
-/**
- * Scan agent directories and build a map from agent ID to source file path.
- * Uses regex to extract IDs from files without requiring module loading.
- * Later directories in the list take precedence (can override earlier ones).
- */
-const buildAgentFilePathMap = (agentsDirs: string[]): Map<string, string> => {
-  const idToPath = new Map<string, string>()
-  const idRegex = /id\s*:\s*['"`]([^'"`]+)['"`]/i
-
-  const scanDirectory = (dir: string): void => {
-    try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true })
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name)
-        if (entry.isDirectory() && !entry.name.startsWith('.')) {
-          scanDirectory(fullPath)
-          continue
-        }
-        if (
-          !entry.isFile() ||
-          !entry.name.endsWith('.ts') ||
-          entry.name.endsWith('.d.ts') ||
-          entry.name.endsWith('.test.ts')
-        ) {
-          continue
-        }
-        try {
-          const content = fs.readFileSync(fullPath, 'utf8')
-          const match = content.match(idRegex)
-          if (match?.[1]) {
-            idToPath.set(match[1], fullPath)
-          }
-        } catch {
-          // Skip files that can't be read
-        }
-      }
-    } catch {
-      // Skip directories that can't be read
-    }
-  }
-
-  // Scan all directories - later directories override earlier ones
-  for (const agentsDir of agentsDirs) {
-    scanDirectory(agentsDir)
-  }
-  return idToPath
 }
 
 /**
@@ -433,16 +399,27 @@ export const getLoadedAgentsMessage = (): string | null => {
 export const getLoadedAgentsData = (): {
   agents: LocalAgentInfo[]
   agentsDir: string
+  diagnostics: AgentValidationError[]
 } | null => {
   const agents = loadLocalAgents()
   const agentsDir = findAgentsDirectory()
 
-  if (!agentsDir || !agents.length) {
+  if ((!agentsDir || !agents.length) && agentRegistryDiagnostics.length === 0) {
     return null
   }
 
-  return { agents, agentsDir }
+  return {
+    agents,
+    agentsDir: agentsDir ?? '',
+    diagnostics: [...agentRegistryDiagnostics],
+  }
 }
+
+export const getAgentRegistryDiagnostics = (): AgentValidationError[] => [
+  ...agentRegistryDiagnostics,
+]
+
+export const getProjectAgentTrustStatus = (): boolean => projectAgentsTrusted
 
 // ============================================================================
 // Testing utilities
@@ -458,6 +435,8 @@ export const __resetLocalAgentRegistryForTests = (): void => {
   userAgentsCache = {}
   userAgentFilePaths = new Map()
   mcpServersCache = {}
+  agentRegistryDiagnostics = []
+  projectAgentsTrusted = true
 }
 
 /**

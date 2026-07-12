@@ -25,11 +25,7 @@ async function main() {
   // backend's loops integration; review the logs or wire a local notifier if
   // automated reporting is needed).
   const { metadata, metaAnalysis, ...agentResults } = results
-  const summary = formatBuffBenchSummary(
-    agentResults,
-    metadata,
-    metaAnalysis,
-  )
+  const summary = formatBuffBenchSummary(agentResults, metadata, metaAnalysis)
   console.log('\n' + summary)
 
   process.exit(0)

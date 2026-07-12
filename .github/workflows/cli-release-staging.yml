@@ -1,31 +1,45 @@
 name: CLI Release Staging
 
 on:
-  pull_request:
-    branches: ['main']
-  push:
-    branches: ['**']
+  workflow_dispatch:
 
 concurrency:
   group: cli-staging-release
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  prepare-and-commit-staging:
+  validate-release-source:
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[codecane]')) ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[codecane]'))
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Validate release source
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun scripts/check-env-architecture.ts
+          bun run --cwd cli typecheck
+          HOME="$RUNNER_TEMP/openbuff-test-home" bun run --cwd cli test
+
+  prepare-and-commit-staging:
+    needs: validate-release-source
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: main
 
       - uses: ./.github/actions/setup-project
 
@@ -122,17 +136,22 @@ jobs:
       binary-name: codecane
       new-version: ${{ needs.prepare-and-commit-staging.outputs.new_version }}
       artifact-name: cli-staging-metadata
-      checkout-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      checkout-ref: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
       env-overrides: '{"NEXT_PUBLIC_CB_ENVIRONMENT":"prod"}'
-    secrets: inherit
+    secrets:
+      OPENBUFF_GITHUB_TOKEN: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
 
   create-staging-release:
     needs: [prepare-and-commit-staging, build-staging-binaries]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
 
       - name: Clean up old CLI prereleases
         env:
@@ -174,6 +193,22 @@ jobs:
           name: cli-staging-metadata
           path: cli/release-staging/
 
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > SHA256SUMS
+          while IFS= read -r file; do
+            checksum=$(sha256sum "$file" | awk '{print $1}')
+            printf '%s  %s\n' "$checksum" "$(basename "$file")" >> SHA256SUMS
+          done < <(find binaries -type f -name 'codecane-*.tar.gz' | sort)
+          test -s SHA256SUMS
+
+      - name: Attest release binaries
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'binaries/*/codecane-*.tar.gz'
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -190,13 +225,15 @@ jobs:
             ### Included Binaries
             - `codecane-linux-x64.tar.gz`
             - `codecane-linux-arm64.tar.gz`
-            - `codecane-darwin-x64.tar.gz`
-            - `codecane-darwin-arm64.tar.gz`
+            - `codecane-darwin-x64.tar.gz` - macOS 13+ Intel
+            - `codecane-darwin-x64-legacy.tar.gz` - macOS 11–12 Intel
+            - `codecane-darwin-arm64.tar.gz` - macOS 13+ Apple Silicon
             - `codecane-win32-x64.tar.gz`
 
             After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
           files: |
             binaries/*/codecane-*
+            SHA256SUMS
           repository: AnzoBenjamin/openbuff
           token: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
 
@@ -214,7 +251,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
 
       - name: Download CLI staging package
         uses: actions/download-artifact@v8
@@ -231,6 +268,6 @@ jobs:
       - name: Publish codecane staging package to npm
         run: |
           cd cli/release-staging
-          npm publish --access public
+          npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

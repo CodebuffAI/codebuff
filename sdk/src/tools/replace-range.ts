@@ -1,11 +1,12 @@
-import { createPatch } from 'diff'
-
 import { getContentHash as computeContentHash } from '@codebuff/common/util/content-hash'
 import { normalizeLineEndings } from '@codebuff/common/util/content-hash'
-import { resolveFilePathWithinProject } from './path-utils'
+import { resolveFilePathForFileSystemOperation } from './path-utils'
+import { changeFile } from './change-file'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { FileFilter } from './read-files'
+import type { FilesystemAuthorityPolicy } from './filesystem-authority'
 
 type ReplaceRangeParams = {
   path: string
@@ -21,7 +22,9 @@ export function getRangeContentHash(content: string): string {
   return computeContentHash(content)
 }
 
-function parseReplaceRangeParams(parameters: unknown): ReplaceRangeParams | null {
+function parseReplaceRangeParams(
+  parameters: unknown,
+): ReplaceRangeParams | null {
   if (typeof parameters !== 'object' || parameters === null) {
     return null
   }
@@ -55,7 +58,10 @@ function errorResult(
   return [{ type: 'json', value: { file, errorMessage } }]
 }
 
-function getDisplayLineCount(lines: string[], normalizedContent: string): number {
+function getDisplayLineCount(
+  lines: string[],
+  normalizedContent: string,
+): number {
   // split('\n') includes a trailing empty segment for files ending in a newline;
   // read_files renders the human-visible line count without that phantom line.
   if (normalizedContent.length === 0) {
@@ -104,18 +110,26 @@ export async function replaceRange(params: {
   parameters: unknown
   cwd: string
   fs: CodebuffFileSystem
+  signal?: AbortSignal
+  fileFilter?: FileFilter
+  callId?: string
+  filesystemPolicy?: FilesystemAuthorityPolicy
 }): Promise<CodebuffToolOutput<'replace_range'>> {
   const input = parseReplaceRangeParams(params.parameters)
   if (!input) {
     return errorResult('', 'Missing or invalid replace_range parameters.')
   }
 
-  const resolvedPath = resolveFilePathWithinProject(params.cwd, input.path)
+  const resolvedPath = await resolveFilePathForFileSystemOperation(
+    params.cwd,
+    input.path,
+    params.fs,
+  )
   if (!resolvedPath) {
     return errorResult(input.path, 'file path is outside the project directory')
   }
 
-  const { fullPath, relativePath } = resolvedPath
+  const { operationPath: fullPath, relativePath } = resolvedPath
   if (input.startLine < 1 || input.endLine < input.startLine) {
     return errorResult(relativePath, 'startLine must be >= 1 and <= endLine')
   }
@@ -180,23 +194,18 @@ export async function replaceRange(params: {
     ...lines.slice(endLine),
   ]
   const updatedContent = updatedLines.join('\n').replaceAll('\n', lineEnding)
-  await params.fs.writeFile(fullPath, updatedContent)
-
-  let patch = createPatch(relativePath, oldContent, updatedContent)
-  const patchLines = patch.split('\n')
-  const hunkStartIndex = patchLines.findIndex((line) => line.startsWith('@@'))
-  if (hunkStartIndex !== -1) {
-    patch = patchLines.slice(hunkStartIndex).join('\n')
-  }
-
-  return [
-    {
-      type: 'json',
-      value: {
-        file: relativePath,
-        message: `Replaced lines ${input.startLine}-${endLine} successfully.`,
-        patch,
-      },
+  return changeFile({
+    parameters: {
+      type: 'file',
+      path: relativePath,
+      content: updatedContent,
+      expectedHash: computeContentHash(oldContent),
     },
-  ]
+    cwd: params.cwd,
+    fs: params.fs,
+    signal: params.signal,
+    fileFilter: params.fileFilter,
+    callId: params.callId,
+    filesystemPolicy: params.filesystemPolicy,
+  }) as Promise<CodebuffToolOutput<'replace_range'>>
 }

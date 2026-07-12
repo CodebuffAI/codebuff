@@ -342,9 +342,9 @@ describe('commander agent', () => {
       }
       expect(toolCall.toolName).toBe('set_output')
       expect(toolCall.input.data.message).toContain('Command: bun test')
-      expect(toolCall.input.data.message).toContain('Full log: /tmp/openbuff-basher-')
-      expect(toolCall.input.data.message).toContain('Failure pattern: FAIL|Expected')
-      expect(toolCall.input.data.message).toContain('Max failure lines: 7')
+      expect(toolCall.input.data.message).toContain(
+        'Full log deleted after extracting relevant lines.',
+      )
       expect(toolCall.input.data.message).toContain('10:Expected 1 received 2')
     })
 

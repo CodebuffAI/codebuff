@@ -2,9 +2,12 @@ import { existsSync, statSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { getDirectories, hasGitDirectory } from '../utils/directory-browser'
+import {
+  getDirectoriesAsync,
+  hasGitDirectoryAsync,
+} from '../utils/directory-browser'
 
 import type { DirectoryEntry } from '../utils/directory-browser'
 
@@ -39,12 +42,23 @@ export function useDirectoryBrowser({
   initialPath,
 }: UseDirectoryBrowserOptions = {}): UseDirectoryBrowserReturn {
   const [currentPath, setCurrentPath] = useState(initialPath ?? os.homedir())
+  const [directories, setDirectories] = useState<DirectoryEntry[]>([])
+  const [isGitRepo, setIsGitRepo] = useState(false)
 
-  // Get directories for current path
-  const directories = useMemo(() => getDirectories(currentPath), [currentPath])
-
-  // Check if current directory has .git
-  const isGitRepo = useMemo(() => hasGitDirectory(currentPath), [currentPath])
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([
+      getDirectoriesAsync(currentPath),
+      hasGitDirectoryAsync(currentPath),
+    ]).then(([nextDirectories, nextIsGitRepo]) => {
+      if (cancelled) return
+      setDirectories(nextDirectories)
+      setIsGitRepo(nextIsGitRepo)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [currentPath])
 
   // Expand ~ to home directory
   const expandPath = useCallback((inputPath: string): string => {

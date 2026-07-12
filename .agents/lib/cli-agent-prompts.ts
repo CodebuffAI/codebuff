@@ -73,17 +73,18 @@ The review should focus on these key areas:
    - Missing or incomplete type definitions`
 
 export function getSpawnerPrompt(config: CliAgentConfig): string {
-  const defaultMode = config.defaultMode ?? 'work'
+  const supportedModes = config.supportedModes ?? CLI_AGENT_MODES
+  const defaultMode = config.defaultMode ?? supportedModes[0] ?? 'work'
   const modeDescriptions = {
     work: `Use ${config.cliName} to implement features, fix bugs, refactor code, or complete other coding tasks.`,
     review: `Uses ${config.cliName} CLI to perform code reviews on specified files or directories.`,
   }
-  const modeLines = CLI_AGENT_MODES.map((mode) => {
+  const modeLines = supportedModes.map((mode) => {
     const isDefault = mode === defaultMode
     return `- \`${mode}\`${isDefault ? ' (default)' : ''}: ${modeDescriptions[mode]}`
   }).join('\n')
 
-  const base = `Expert at using ${config.cliName} CLI via tmux for implementation work or code reviews.
+  const base = `Expert at using ${config.cliName} CLI via tmux for ${supportedModes.includes('review') ? 'implementation work or code reviews' : 'implementation work'}.
 
 **Modes:**
 ${modeLines}
@@ -105,7 +106,7 @@ export function getSystemPrompt(config: CliAgentConfig): string {
     ? `\n${config.cliSpecificDocs}\n`
     : '\n'
 
-  return `You are an expert at using ${config.cliName} CLI via tmux for implementation work and code reviews. You have access to helper scripts that handle the complexities of tmux communication with TUI apps.
+  return `You are an expert at using ${config.cliName} CLI via tmux for ${config.supportedModes?.includes('review') === false ? 'implementation work' : 'implementation work and code reviews'}. You have access to helper scripts that handle the complexities of tmux communication with TUI apps.
 
 ## Session Management
 
@@ -282,14 +283,15 @@ Use ${config.cliName} to complete implementation tasks like building features, f
 }
 
 export function getInstructionsPrompt(config: CliAgentConfig): string {
-  const defaultMode = config.defaultMode ?? 'work'
+  const supportedModes = config.supportedModes ?? CLI_AGENT_MODES
+  const defaultMode = config.defaultMode ?? supportedModes[0] ?? 'work'
   const workModeInstructions =
     config.workModeInstructions ?? getWorkModeInstructions(config)
   const reviewModeInstructions =
     config.reviewModeInstructions ?? getDefaultReviewModeInstructions(config)
 
   const modeNames = { work: 'Work Mode', review: 'Review Mode' }
-  const nonDefaultModes = CLI_AGENT_MODES.filter((m) => m !== defaultMode)
+  const nonDefaultModes = supportedModes.filter((m) => m !== defaultMode)
   const modeChecks = nonDefaultModes
     .map(
       (m) => `- If \`mode\` is "${m}": follow **${modeNames[m]}** instructions`,
@@ -330,7 +332,7 @@ ${workModeInstructions}
 
 ---
 
-${reviewModeInstructions}
+${supportedModes.includes('review') ? reviewModeInstructions : ''}
 
 ---
 

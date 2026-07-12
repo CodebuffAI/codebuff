@@ -32,9 +32,14 @@ export type SubscriptionTierPrice = keyof typeof SUBSCRIPTION_TIERS
 
 export const DEFAULT_TIER = SUBSCRIPTION_TIERS[200]
 
-export function createSubscriptionPriceMappings(priceIds: Record<SubscriptionTierPrice, string>) {
+export function createSubscriptionPriceMappings(
+  priceIds: Record<SubscriptionTierPrice, string>,
+) {
   const priceToTier = Object.fromEntries(
-    Object.entries(priceIds).map(([tier, priceId]) => [priceId, Number(tier) as SubscriptionTierPrice]),
+    Object.entries(priceIds).map(([tier, priceId]) => [
+      priceId,
+      Number(tier) as SubscriptionTierPrice,
+    ]),
   ) as Record<string, SubscriptionTierPrice>
 
   function getTierFromPriceId(priceId: string): SubscriptionTierPrice | null {

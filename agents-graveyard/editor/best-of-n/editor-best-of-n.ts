@@ -310,7 +310,7 @@ function* handleStepsMax({
     content:
       'errorMessage' in result
         ? `Error: ${result.errorMessage}`
-        : extractLastMessageText(result) ?? '',
+        : (extractLastMessageText(result) ?? ''),
   }))
 
   // Spawn selector with implementations as params
@@ -507,7 +507,7 @@ function* handleStepsOpus({
     content:
       'errorMessage' in result
         ? `Error: ${result.errorMessage}`
-        : extractLastMessageText(result) ?? '',
+        : (extractLastMessageText(result) ?? ''),
   }))
 
   // Spawn selector with implementations as params

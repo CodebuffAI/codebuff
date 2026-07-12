@@ -10,7 +10,11 @@
  * surface that avoids a direct agent-runtime → sdk dependency.
  */
 
-export type PendingBackgroundJobStatus = 'running' | 'completed' | 'error'
+export type PendingBackgroundJobStatus =
+  | 'running'
+  | 'completed'
+  | 'error'
+  | 'lost'
 
 export interface PendingBackgroundJobEntry {
   jobId: string
@@ -21,7 +25,9 @@ export interface PendingBackgroundJobEntry {
 
 const pendingJobs = new Map<string, PendingBackgroundJobEntry>()
 
-export function upsertPendingBackgroundJob(entry: PendingBackgroundJobEntry): void {
+export function upsertPendingBackgroundJob(
+  entry: PendingBackgroundJobEntry,
+): void {
   pendingJobs.set(entry.jobId, entry)
 }
 

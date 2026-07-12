@@ -18,7 +18,8 @@ const makeTempDir = () => {
   return dir
 }
 
-const value = (output: Awaited<ReturnType<typeof readLogs>>): any => output[0].value
+const value = (output: Awaited<ReturnType<typeof readLogs>>): any =>
+  output[0].value
 
 afterEach(() => {
   __clearJobsForTest()

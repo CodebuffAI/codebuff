@@ -11,7 +11,36 @@ type InlineChangedFileHelpers = {
   extractChangedFilesFromMessages: ExtractChangedFilesFromMessages
 }
 
-type InlineHelperFactory = (processValue: typeof process) => InlineChangedFileHelpers
+type InlineHelperFactory = (
+  processValue: typeof process,
+) => InlineChangedFileHelpers
+
+function withCommittedReceipt<T extends Record<string, any>>(value: T): T {
+  const receiptId = `${value.operationId}:receipt`
+  return {
+    ...value,
+    receiptId,
+    authorityReceipt: {
+      kind: 'commit_receipt',
+      version: 1,
+      receiptId,
+      operationId: value.operationId,
+      callId: `${value.operationId}:call`,
+      authorityTier: value.authorityTier,
+      status: 'committed',
+      actions: value.actions.map((action: Record<string, unknown>) => ({
+        ...action,
+        status: 'committed',
+      })),
+      finalHashes: Object.fromEntries(
+        value.actions.map((action: Record<string, unknown>) => [
+          action.path,
+          action.afterHash,
+        ]),
+      ),
+    },
+  }
+}
 
 const INLINE_HELPER_NAMES = [
   'extractChangedFilesFromMessages',
@@ -104,26 +133,28 @@ describe('serialized base2 changed-file helpers', () => {
       },
       {
         role: 'tool',
-        toolName: 'write_file',
+        toolName: 'edit_transaction',
         content: [
           {
             type: 'json',
-            value: {
-              file: 'src/e.ts',
-              success: true,
-            },
-          },
-        ],
-      },
-      {
-        role: 'tool',
-        toolName: 'replace_range',
-        content: [
-          {
-            type: 'json',
-            value: {
-              changedFiles: ['src/f.ts', './src/a.ts'],
-            },
+            value: withCommittedReceipt({
+              kind: 'file_mutation_result',
+              version: 1,
+              operationId: 'gate-all',
+              outcome: 'applied',
+              authorityTier: 'portable_path',
+              actions: ['a', 'b', 'c', 'd', 'e', 'f'].map((name, index) => ({
+                actionId: name,
+                index,
+                action: 'update',
+                path: `src/${name}.ts`,
+                outcome: 'applied',
+                beforeHash: 'before',
+                afterHash: 'after',
+              })),
+              errors: [],
+              freshCapabilities: [],
+            }),
           },
         ],
       },
@@ -173,10 +204,26 @@ describe('serialized base2 changed-file helpers', () => {
         content: [
           {
             type: 'json',
-            value: {
-              file: 'src/ok.ts',
-              success: true,
-            },
+            value: withCommittedReceipt({
+              kind: 'file_mutation_result',
+              version: 1,
+              operationId: 'gate-ok',
+              outcome: 'applied',
+              authorityTier: 'portable_path',
+              actions: [
+                {
+                  actionId: 'ok',
+                  index: 0,
+                  action: 'update',
+                  path: 'src/ok.ts',
+                  outcome: 'applied',
+                  beforeHash: 'before',
+                  afterHash: 'after',
+                },
+              ],
+              errors: [],
+              freshCapabilities: [],
+            }),
           },
         ],
       },

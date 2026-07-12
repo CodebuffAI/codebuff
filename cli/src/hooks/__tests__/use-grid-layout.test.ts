@@ -214,10 +214,7 @@ describe('computeGridLayout', () => {
     })
 
     test('7 items in 3 columns (uneven)', () => {
-      const result = computeGridLayout(
-        ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-        180,
-      )
+      const result = computeGridLayout(['a', 'b', 'c', 'd', 'e', 'f', 'g'], 180)
       expect(result.columnGroups).toEqual([
         ['a', 'd', 'g'],
         ['b', 'e'],

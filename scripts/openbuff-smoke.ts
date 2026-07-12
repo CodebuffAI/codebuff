@@ -1,6 +1,10 @@
 #!/usr/bin/env bun
 
-import { OpenbuffClient, describeLoadedProviderConfig, loadProviderConfigSync } from '@openbuff/sdk'
+import {
+  OpenbuffClient,
+  describeLoadedProviderConfig,
+  loadProviderConfigSync,
+} from '@openbuff/sdk'
 
 import { loadAgentDefinitions } from '../cli/src/utils/local-agent-registry'
 
@@ -31,14 +35,17 @@ try {
   }
 
   const output =
-    result.output?.type === 'lastMessage' || result.output?.type === 'allMessages'
+    result.output?.type === 'lastMessage' ||
+    result.output?.type === 'allMessages'
       ? JSON.stringify(result.output.value)
       : result.output?.type === 'structuredOutput'
         ? JSON.stringify(result.output.value)
         : ''
   console.log(output || '(no textual output)')
   if (!output.includes('OPENBUFF_SMOKE_OK')) {
-    console.error('Openbuff smoke failed: expected OPENBUFF_SMOKE_OK in output.')
+    console.error(
+      'Openbuff smoke failed: expected OPENBUFF_SMOKE_OK in output.',
+    )
     process.exit(1)
   }
 

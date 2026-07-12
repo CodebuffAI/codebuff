@@ -1,8 +1,13 @@
 import React from 'react'
 
+import { DiscoveryOutput, discoveryStatus } from './discovery-output'
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
+import {
+  getStructuredErrorMessages,
+  getToolOutputRecords,
+} from '../../utils/tool-result-normalizer'
 
 import type { ToolRenderConfig } from './types'
 
@@ -14,7 +19,7 @@ import type { ToolRenderConfig } from './types'
 export const ListDirectoryComponent = defineToolComponent({
   toolName: 'list_directory',
 
-  render(toolBlock): ToolRenderConfig {
+  render(toolBlock, _theme, options): ToolRenderConfig {
     const input = toolBlock.input as any
 
     // Extract directories from input
@@ -39,22 +44,55 @@ export const ListDirectoryComponent = defineToolComponent({
       return { content: null }
     }
 
-    // Format directory list
-    const description = directories.join(', ')
+    const record = getToolOutputRecords(toolBlock.outputRaw)[0]
+    const files = Array.isArray(record?.files)
+      ? record.files.filter((file): file is string => typeof file === 'string')
+      : []
+    const childDirectories = Array.isArray(record?.directories)
+      ? record.directories.filter(
+          (directory): directory is string => typeof directory === 'string',
+        )
+      : []
+    const entries = [
+      ...childDirectories.map((directory) => `${directory}/`),
+      ...files,
+    ]
+    const error = getStructuredErrorMessages(
+      toolBlock.outputRaw ?? toolBlock.output,
+    )[0]
+    const hasOutput =
+      toolBlock.outputRaw !== undefined || Boolean(toolBlock.output?.trim())
+    const status = discoveryStatus({
+      lifecycle: toolBlock.lifecycle,
+      hasOutput,
+      error,
+      count: entries.length,
+    })
+    const description = `${directories.join(', ')}${hasOutput && !error ? ` (${childDirectories.length} dirs, ${files.length} files)` : ''} · ${status}`
 
     // Use a wrapper component to access theme
     const ListDirectoryContent = () => {
       const theme = useTheme()
       return (
-        <SimpleToolCallItem
-          name="List"
-          description={description}
-          descriptionColor={theme.directory}
-        />
+        <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+          <SimpleToolCallItem
+            name="List"
+            description={description}
+            descriptionColor={theme.directory}
+          />
+          <DiscoveryOutput
+            status={status}
+            error={error}
+            provenance={directories.join(', ')}
+            items={entries}
+            availableWidth={options.availableWidth}
+          />
+        </box>
       )
     }
 
     return {
+      collapsedPreview: description,
       content: <ListDirectoryContent />,
     }
   },

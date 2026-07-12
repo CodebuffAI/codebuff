@@ -136,7 +136,10 @@ export function parseToolCallsFromText(
   text: string,
 ): Omit<ParsedToolCallFromText, 'type'>[] {
   return parseTextWithToolCalls(text)
-    .filter((segment): segment is ParsedToolCallFromText => segment.type === 'tool_call')
+    .filter(
+      (segment): segment is ParsedToolCallFromText =>
+        segment.type === 'tool_call',
+    )
     .map(({ toolName, input }) => ({ toolName, input }))
 }
 

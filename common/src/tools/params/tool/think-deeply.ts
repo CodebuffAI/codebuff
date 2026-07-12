@@ -1,9 +1,6 @@
 import z from 'zod/v4'
 
-import {
-  $getNativeToolCallExampleString,
-  textToolResultSchema,
-} from '../utils'
+import { $getNativeToolCallExampleString, textToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 

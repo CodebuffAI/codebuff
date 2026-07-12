@@ -230,9 +230,14 @@ describe('parse module', () => {
         message: string
       }> = []
 
-      const result = parseTokens('test.ts', mockLanguageConfig, () => 'content', {
-        diagnostics,
-      })
+      const result = parseTokens(
+        'test.ts',
+        mockLanguageConfig,
+        () => 'content',
+        {
+          diagnostics,
+        },
+      )
 
       expect(result).toEqual({
         numLines: 0,

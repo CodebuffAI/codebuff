@@ -4,7 +4,10 @@ import React, { memo, type ReactNode } from 'react'
 import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { getLastNVisualLines, wrapTextPreservingNewlines } from '../utils/text-layout'
+import {
+  getLastNVisualLines,
+  wrapTextPreservingNewlines,
+} from '../utils/text-layout'
 
 import type { ThinkingCollapseState } from '../types/chat'
 
@@ -31,11 +34,10 @@ export const Thinking = memo(
     const { contentMaxWidth } = useTerminalDimensions()
 
     // Special case: single **bold** string under 100 chars gets compact rendering
-    const singleBoldMatch = content.length < 100 ? content.trim().match(/^\*\*([^*]+)\*\*$/) : null
+    const singleBoldMatch =
+      content.length < 100 ? content.trim().match(/^\*\*([^*]+)\*\*$/) : null
     if (singleBoldMatch) {
-      return (
-        null
-      )
+      return null
     }
 
     const width = Math.max(10, availableWidth ?? contentMaxWidth)
@@ -59,11 +61,13 @@ export const Thinking = memo(
     const showFull = thinkingCollapseState === 'expanded'
     const showPreview = thinkingCollapseState === 'preview' && lines.length > 0
 
-    const toggleIndicator =
-      !isThinkingComplete ? '• '
-        : showFull ? '▾ '
-          : showPreview ? '• '
-            : '▸ '
+    const toggleIndicator = !isThinkingComplete
+      ? '• '
+      : showFull
+        ? '▾ '
+        : showPreview
+          ? '• '
+          : '▸ '
 
     return (
       <Button

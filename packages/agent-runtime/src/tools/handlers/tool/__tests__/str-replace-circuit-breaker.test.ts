@@ -29,11 +29,16 @@ function makeStrReplaceCall(
 }
 
 const noopWriteToClient = (_chunk: string) => {}
-const emptyRequestClientToolCall = async () =>
-  [] as unknown as CodebuffToolOutput<'str_replace'>
+const confirmedRequestClientToolCall = async (toolCall: any) =>
+  [
+    {
+      type: 'json' as const,
+      value: { file: toolCall.input.path, message: 'client confirmed edit' },
+    },
+  ] as CodebuffToolOutput<'str_replace'>
 
 describe('handleStrReplace circuit breaker (Fix C)', () => {
-  it('returns a circuit-breaker errorMessage when the per-path consecutive-failure counter reaches the limit', async () => {
+  it('returns a circuit-breaker errorMessage when the per-path failure budget reaches the limit', async () => {
     const path = 'blocked.ts'
     // STR_REPLACE_MAX_CONSECUTIVE_FAILURES is 3 in source. Pre-set the counter
     // to the limit so the next call is the one that trips the breaker. The
@@ -58,7 +63,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       }),
       fileProcessingState,
       logger: silentLogger,
-      requestClientToolCall: emptyRequestClientToolCall,
+      requestClientToolCall: confirmedRequestClientToolCall,
       // Never reached because the breaker short-circuits first.
       requestOptionalFile: async () => null,
       writeToClient: noopWriteToClient,
@@ -69,9 +74,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       | undefined
     expect(value).toBeDefined()
     expect(value?.errorMessage).toMatch(/^str_replace circuit breaker:/)
-    expect(value?.errorMessage).toContain(
-      'consecutive failed or auto-corrected',
-    )
+    expect(value?.errorMessage).toContain('failed or auto-corrected')
   })
 
   it('does NOT trip the breaker when the counter is below the limit', async () => {
@@ -98,7 +101,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       }),
       fileProcessingState,
       logger: silentLogger,
-      requestClientToolCall: emptyRequestClientToolCall,
+      requestClientToolCall: confirmedRequestClientToolCall,
       // No file on disk -> processStrReplace reports "does not exist", which is
       // NOT the circuit-breaker message.
       requestOptionalFile: async () => null,
@@ -149,7 +152,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       }),
       fileProcessingState,
       logger: silentLogger,
-      requestClientToolCall: emptyRequestClientToolCall,
+      requestClientToolCall: confirmedRequestClientToolCall,
       requestOptionalFile: async () => fileContent,
       writeToClient: noopWriteToClient,
     })
@@ -161,10 +164,12 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
     // The counter is pre-set to the limit and a fresh basedOnRead no longer
     // resets it, so the breaker must trip before any file processing.
     expect(value?.errorMessage).toMatch(/^str_replace circuit breaker:/)
-    expect(value?.errorMessage).toContain('consecutive failed or auto-corrected')
+    expect(value?.errorMessage).toContain('failed or auto-corrected')
     // The counter is NOT cleared by the fresh basedOnRead; it stays at the
     // limit.
-    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(3)
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(
+      3,
+    )
   })
 
   it('trips the breaker after a re-read-and-retry loop of repeated failures even when each retry carries a fresh basedOnRead', async () => {
@@ -205,7 +210,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       }),
       fileProcessingState,
       logger: silentLogger,
-      requestClientToolCall: emptyRequestClientToolCall,
+      requestClientToolCall: confirmedRequestClientToolCall,
       requestOptionalFile: async () => fileContent,
       writeToClient: noopWriteToClient,
     })
@@ -218,8 +223,13 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
     // it 3). The breaker does NOT trip on this call (it trips when the counter
     // is ALREADY >= 3 at the START of the call), but the counter must now be 3
     // so the NEXT attempt — even with a fresh basedOnRead — will trip it.
-    expect(value?.errorMessage ?? '').not.toMatch(/^str_replace circuit breaker:/)
-    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(3)
+    expect(value?.errorMessage ?? '').not.toMatch(
+      /^str_replace circuit breaker:/,
+    )
+    expect(value?.errorMessage).toContain('str_replace retry limit reached')
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(
+      3,
+    )
 
     // Second attempt: a fresh basedOnRead re-read, same broken payload. Before
     // the fix the counter would reset to 0 here and the loop would continue
@@ -245,7 +255,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       }),
       fileProcessingState,
       logger: silentLogger,
-      requestClientToolCall: emptyRequestClientToolCall,
+      requestClientToolCall: confirmedRequestClientToolCall,
       requestOptionalFile: async () => fileContent,
       writeToClient: noopWriteToClient,
     })
@@ -260,6 +270,87 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
     expect(value2?.errorMessage).toContain('rewrite_symbol')
     // Counter is unchanged by the tripped attempt (the breaker returns before
     // any processing that would increment it).
-    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(3)
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(
+      3,
+    )
+  })
+
+  it('does not erase prior failures after an exact-match success', async () => {
+    const path = 'alternating-loop.ts'
+    const fileContent = 'const x = 1\nconst y = 2\n'
+    const fileProcessingState = getFileProcessingValues({
+      consecutiveStrReplaceFailuresByPath: { [path]: 1 },
+      strictReadBeforeEdit: false,
+    })
+
+    const result = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeStrReplaceCall({
+        path,
+        atomic: false,
+        replacements: [
+          {
+            oldString: 'const x = 1',
+            newString: 'const x = 2',
+            allowMultiple: false,
+          },
+        ],
+      }),
+      fileProcessingState,
+      logger: silentLogger,
+      requestClientToolCall: confirmedRequestClientToolCall,
+      requestOptionalFile: async () => fileContent,
+      writeToClient: noopWriteToClient,
+    })
+
+    const value = result.output[0]?.value as
+      | { errorMessage?: string; message?: string }
+      | undefined
+    expect(value?.errorMessage).toBeUndefined()
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(
+      1,
+    )
+  })
+
+  it('charges the failure budget for a non-atomic partial success', async () => {
+    const path = 'partial-loop.ts'
+    const fileContent = 'const x = 1\nconst y = 2\n'
+    const fileProcessingState = getFileProcessingValues({
+      strictReadBeforeEdit: false,
+    })
+
+    const result = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeStrReplaceCall({
+        path,
+        atomic: false,
+        replacements: [
+          {
+            oldString: 'const x = 1',
+            newString: 'const x = 2',
+            allowMultiple: false,
+          },
+          {
+            oldString: 'const missing = 1',
+            newString: 'const missing = 2',
+            allowMultiple: false,
+          },
+        ],
+      }),
+      fileProcessingState,
+      logger: silentLogger,
+      requestClientToolCall: confirmedRequestClientToolCall,
+      requestOptionalFile: async () => fileContent,
+      writeToClient: noopWriteToClient,
+    })
+
+    const value = result.output[0]?.value as
+      | { errorMessage?: string; message?: string }
+      | undefined
+    expect(value?.errorMessage).toBeUndefined()
+    expect(value?.message).toContain('Partial str_replace applied')
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(
+      1,
+    )
   })
 })

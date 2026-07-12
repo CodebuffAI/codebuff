@@ -5,10 +5,16 @@ import { processImagesForMessage } from '../image-processor'
 import type { PendingImageAttachment } from '../../types/store'
 
 // Type for the processor function used in tests
-type ProcessorResult = 
-  | { success: true; imagePart: { type: 'image'; image: string; mediaType: string } }
+type ProcessorResult =
+  | {
+      success: true
+      imagePart: { type: 'image'; image: string; mediaType: string }
+    }
   | { success: false; error: string }
-type MockProcessor = (path: string, projectRoot: string) => Promise<ProcessorResult>
+type MockProcessor = (
+  path: string,
+  projectRoot: string,
+) => Promise<ProcessorResult>
 
 // Minimal logger type for tests - only need warn for these tests
 interface TestLogger {
@@ -19,7 +25,10 @@ interface TestLogger {
   fatal: (...args: unknown[]) => void
 }
 
-const createPendingImage = (path: string, processedImage?: { base64: string; mediaType: string }): PendingImageAttachment => ({
+const createPendingImage = (
+  path: string,
+  processedImage?: { base64: string; mediaType: string },
+): PendingImageAttachment => ({
   kind: 'image',
   path,
   filename: path.split('/').pop() ?? 'image.png',
@@ -29,10 +38,12 @@ const createPendingImage = (path: string, processedImage?: { base64: string; med
 
 describe('processImagesForMessage', () => {
   test('uses pre-processed image data from pendingImages without re-reading from disk', async () => {
-    const pendingImages = [createPendingImage('/tmp/pic.png', {
-      base64: 'pre-processed-base64-data',
-      mediaType: 'image/png',
-    })]
+    const pendingImages = [
+      createPendingImage('/tmp/pic.png', {
+        base64: 'pre-processed-base64-data',
+        mediaType: 'image/png',
+      }),
+    ]
     const processor = mock(async () => ({
       success: true,
       imagePart: {
@@ -60,10 +71,12 @@ describe('processImagesForMessage', () => {
   })
 
   test('processes inline image paths that are not in pendingImages', async () => {
-    const pendingImages = [createPendingImage('/tmp/pic.png', {
-      base64: 'pre-processed-base64-data',
-      mediaType: 'image/png',
-    })]
+    const pendingImages = [
+      createPendingImage('/tmp/pic.png', {
+        base64: 'pre-processed-base64-data',
+        mediaType: 'image/png',
+      }),
+    ]
     const processor = mock(async () => ({
       success: true,
       imagePart: {
@@ -112,7 +125,13 @@ describe('processImagesForMessage', () => {
       pendingImages,
       projectRoot: '/repo',
       processor: processor as MockProcessor,
-      log: { warn, error: () => {}, debug: () => {}, info: () => {}, fatal: () => {} } as TestLogger,
+      log: {
+        warn,
+        error: () => {},
+        debug: () => {},
+        info: () => {},
+        fatal: () => {},
+      } as TestLogger,
     })
 
     // Should warn about missing processedImage and fall back to disk
@@ -126,9 +145,23 @@ describe('processImagesForMessage', () => {
 
   test('skips images with processing or error status', async () => {
     const pendingImages: PendingImageAttachment[] = [
-      { kind: 'image', path: '/tmp/processing.png', filename: 'processing.png', status: 'processing' },
-      { kind: 'image', path: '/tmp/error.png', filename: 'error.png', status: 'error', note: 'failed' },
-      createPendingImage('/tmp/ready.png', { base64: 'ready-data', mediaType: 'image/png' }),
+      {
+        kind: 'image',
+        path: '/tmp/processing.png',
+        filename: 'processing.png',
+        status: 'processing',
+      },
+      {
+        kind: 'image',
+        path: '/tmp/error.png',
+        filename: 'error.png',
+        status: 'error',
+        note: 'failed',
+      },
+      createPendingImage('/tmp/ready.png', {
+        base64: 'ready-data',
+        mediaType: 'image/png',
+      }),
     ]
     const processor = mock(async () => ({
       success: true,
@@ -169,7 +202,13 @@ describe('processImagesForMessage', () => {
       pendingImages,
       projectRoot: '/repo',
       processor: processor as MockProcessor,
-      log: { warn, error: () => {}, debug: () => {}, info: () => {}, fatal: () => {} } as TestLogger,
+      log: {
+        warn,
+        error: () => {},
+        debug: () => {},
+        info: () => {},
+        fatal: () => {},
+      } as TestLogger,
     })
 
     expect(warn).toHaveBeenCalled()
@@ -177,10 +216,12 @@ describe('processImagesForMessage', () => {
   })
 
   test('deduplicates: does not process inline path that matches pending image path', async () => {
-    const pendingImages = [createPendingImage('/tmp/pic.png', {
-      base64: 'pre-processed-data',
-      mediaType: 'image/png',
-    })]
+    const pendingImages = [
+      createPendingImage('/tmp/pic.png', {
+        base64: 'pre-processed-data',
+        mediaType: 'image/png',
+      }),
+    ]
     const processor = mock(async () => ({
       success: true,
       imagePart: {

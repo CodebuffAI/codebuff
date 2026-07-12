@@ -2,7 +2,6 @@ import { resetTerminalTitle } from './terminal-title'
 
 import type { CliRenderer } from '@opentui/core'
 
-
 let renderer: CliRenderer | null = null
 let handlersInstalled = false
 let terminalStateReset = false

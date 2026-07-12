@@ -40,7 +40,8 @@ export const OptionsList: React.FC<OptionsListProps> = memo(
     const isMultiSelect = question.multiSelect
 
     const isCustomSelected = answer?.isCustom ?? false
-    const isCustomFocused = focusedOptionIndex === question.options.length || isTypingCustom
+    const isCustomFocused =
+      focusedOptionIndex === question.options.length || isTypingCustom
     const selectedFg = theme.name === 'dark' ? '#ffffff' : '#000000'
     const customSymbol = isMultiSelect
       ? isCustomSelected
@@ -49,8 +50,13 @@ export const OptionsList: React.FC<OptionsListProps> = memo(
       : isCustomSelected
         ? SYMBOLS.SELECTED
         : SYMBOLS.UNSELECTED
-    const customFg = isCustomFocused ? '#000000' : isCustomSelected ? selectedFg : theme.muted
-    const customAttributes = isCustomFocused || isCustomSelected ? TextAttributes.BOLD : undefined
+    const customFg = isCustomFocused
+      ? '#000000'
+      : isCustomSelected
+        ? selectedFg
+        : theme.muted
+    const customAttributes =
+      isCustomFocused || isCustomSelected ? TextAttributes.BOLD : undefined
 
     const handleOptionSelect = (optionIndex: number) => {
       if (isMultiSelect) {
@@ -80,7 +86,7 @@ export const OptionsList: React.FC<OptionsListProps> = memo(
         {/* Options */}
         {question.options.map((option, optionIndex) => {
           const isSelected = isMultiSelect
-            ? answer?.selectedIndices?.has(optionIndex) ?? false
+            ? (answer?.selectedIndices?.has(optionIndex) ?? false)
             : answer?.selectedIndex === optionIndex
 
           return (

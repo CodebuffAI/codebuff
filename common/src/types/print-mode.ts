@@ -15,6 +15,20 @@ export const printModeErrorSchema = z.object({
 })
 export type PrintModeError = z.infer<typeof printModeErrorSchema>
 
+export const printModeProviderStatusSchema = z.object({
+  type: z.literal('provider_status'),
+  status: z.enum(['retrying', 'failover', 'recovered']),
+  model: z.string().optional(),
+  nextModel: z.string().optional(),
+  attempt: z.number().int().positive().optional(),
+  maxAttempts: z.number().int().positive().optional(),
+  delayMs: z.number().nonnegative().optional(),
+  statusCode: z.number().int().optional(),
+})
+export type PrintModeProviderStatus = z.infer<
+  typeof printModeProviderStatusSchema
+>
+
 export const printModeDownloadStatusSchema = z.object({
   type: z.literal('download'),
   version: z.string(),
@@ -81,6 +95,9 @@ export const printModeSubagentStartSchema = z.object({
   parentAgentId: z.string().optional(),
   params: z.record(z.string(), z.any()).optional(),
   prompt: z.string().optional(),
+  /** Correlates this real agent with its optimistic spawn tool card. */
+  spawnToolCallId: z.string().optional(),
+  spawnIndex: z.number().int().nonnegative().optional(),
 })
 export type PrintModeSubagentStart = z.infer<
   typeof printModeSubagentStartSchema
@@ -95,6 +112,8 @@ export const printModeSubagentFinishSchema = z.object({
   parentAgentId: z.string().optional(),
   params: z.record(z.string(), z.any()).optional(),
   prompt: z.string().optional(),
+  spawnToolCallId: z.string().optional(),
+  spawnIndex: z.number().int().nonnegative().optional(),
   // Present when the subagent finished due to an error (e.g. wall-clock
   // timeout) rather than completing normally. Lets the UI distinguish a
   // failed finish from a successful one.
@@ -138,11 +157,55 @@ export type PrintModeContextWindow = z.infer<
   typeof printModeContextWindowSchema
 >
 
+const contextCategoryStatsSchema = z.object({
+  tokens: z.number(),
+  percent: z.number(),
+  messages: z.number(),
+})
+
+const contextCategorySummarySchema = z.object({
+  toolResults: contextCategoryStatsSchema,
+  todos: contextCategoryStatsSchema,
+  fileReads: contextCategoryStatsSchema,
+  subagents: contextCategoryStatsSchema,
+  userAssistantMessages: contextCategoryStatsSchema,
+})
+
+export const printModeContextCompactionSchema = z.object({
+  type: z.literal('context_compaction'),
+  action: z.enum(['semantic_compaction', 'mechanical_trim']),
+  before: z.object({
+    tokens: z.number(),
+    messages: z.number(),
+    categories: contextCategorySummarySchema,
+  }),
+  after: z.object({
+    tokens: z.number(),
+    messages: z.number(),
+    categories: contextCategorySummarySchema,
+  }),
+  removedCategories: z
+    .enum([
+      'toolResults',
+      'todos',
+      'fileReads',
+      'subagents',
+      'userAssistantMessages',
+    ])
+    .array(),
+  retainedKnowledgeMemory: z.boolean(),
+  recovery: z.string(),
+})
+export type PrintModeContextCompaction = z.infer<
+  typeof printModeContextCompactionSchema
+>
+
 export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeDownloadStatusSchema,
   printModeErrorSchema,
   printModeFinishSchema,
   printModePhaseSchema,
+  printModeProviderStatusSchema,
   printModeStartSchema,
   printModeSubagentFinishSchema,
   printModeSubagentStartSchema,
@@ -151,6 +214,7 @@ export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeToolResultSchema,
   printModeToolStartSchema,
 
+  printModeContextCompactionSchema,
   printModeContextWindowSchema,
   printModeReasoningDeltaSchema,
 ])

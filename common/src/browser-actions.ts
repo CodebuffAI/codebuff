@@ -281,9 +281,7 @@ export const BrowserKeyActionSchema = z
     key: z.string().min(1),
     text: z.string().optional(),
     command: z.enum(['press', 'down', 'up']).optional(),
-    modifiers: z
-      .array(z.enum(['Alt', 'Control', 'Meta', 'Shift']))
-      .optional(),
+    modifiers: z.array(z.enum(['Alt', 'Control', 'Meta', 'Shift'])).optional(),
   })
   .merge(OptionalBrowserConfigSchema)
 

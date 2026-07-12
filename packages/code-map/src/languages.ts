@@ -71,7 +71,7 @@ export const WASM_FILES = {
 /* ------------------------------------------------------------------ */
 export const languageTable: LanguageConfig[] = [
   {
-    extensions: ['.ts'],
+    extensions: ['.ts', '.mts', '.cts'],
     wasmFile: WASM_FILES['tree-sitter-typescript.wasm'],
     queryPathOrContent: typescriptQuery,
   },
@@ -86,7 +86,7 @@ export const languageTable: LanguageConfig[] = [
     queryPathOrContent: javascriptQuery,
   },
   {
-    extensions: ['.py'],
+    extensions: ['.py', '.pyi'],
     wasmFile: WASM_FILES['tree-sitter-python.wasm'],
     queryPathOrContent: pythonQuery,
   },
@@ -101,7 +101,7 @@ export const languageTable: LanguageConfig[] = [
     queryPathOrContent: csharpQuery,
   },
   {
-    extensions: ['.cpp', '.hpp'],
+    extensions: ['.c', '.cc', '.cpp', '.cxx', '.h', '.hh', '.hpp', '.hxx'],
     wasmFile: WASM_FILES['tree-sitter-cpp.wasm'],
     queryPathOrContent: cppQuery,
   },
@@ -143,7 +143,9 @@ export const languageTable: LanguageConfig[] = [
 ]
 
 export const SUPPORTED_CODE_EXTENSIONS = Object.freeze(
-  languageTable.flatMap((config) => config.extensions.map((ext) => ext.toLowerCase())),
+  languageTable.flatMap((config) =>
+    config.extensions.map((ext) => ext.toLowerCase()),
+  ),
 )
 
 /* ------------------------------------------------------------------ */

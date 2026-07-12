@@ -1,9 +1,11 @@
 import type { ServerAction } from '../../actions'
 import type { MCPConfig } from '../mcp'
 import type { ToolResultOutput } from '../messages/content-part'
+import type { ReadFilesResultV1 } from '../../tools/results/filesystem'
 
 export type RequestToolCallFn = (params: {
   userInputId: string
+  callId?: string
   toolName: string
   input: Record<string, any> & { timeout_seconds?: number }
   mcpConfig?: MCPConfig
@@ -29,10 +31,13 @@ export type FileLineRange = {
   endLine?: number
 }
 
+export type LegacyReadFilesMap = Record<string, string | null>
+export type RequestFilesResult = ReadFilesResultV1 | LegacyReadFilesMap
+
 export type RequestFilesFn = (params: {
   filePaths: string[]
   ranges?: FileLineRange[]
-}) => Promise<Record<string, string | null>>
+}) => Promise<RequestFilesResult>
 
 export type RequestOptionalFileFn = (params: {
   filePath: string

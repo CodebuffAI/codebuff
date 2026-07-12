@@ -41,7 +41,9 @@ export function resolveLexicalWeights(
 ): Required<LexicalWeights> {
   const resolved: Required<LexicalWeights> = { ...DEFAULT_LEXICAL_WEIGHTS }
   if (weights) {
-    for (const key of Object.keys(DEFAULT_LEXICAL_WEIGHTS) as (keyof LexicalWeights)[]) {
+    for (const key of Object.keys(
+      DEFAULT_LEXICAL_WEIGHTS,
+    ) as (keyof LexicalWeights)[]) {
       const value = weights[key]
       if (typeof value === 'number' && Number.isFinite(value)) {
         resolved[key] = value
@@ -123,9 +125,8 @@ export function evaluateQueryIndexQuality(
     total: cases.length,
     passed: cases.length - failed.length,
     failed,
-    meanReciprocalRank: cases.length === 0
-      ? 0
-      : roundScore(reciprocalRankTotal / cases.length),
+    meanReciprocalRank:
+      cases.length === 0 ? 0 : roundScore(reciprocalRankTotal / cases.length),
   }
 }
 
@@ -137,7 +138,8 @@ export function queryIndex(
   const { limit = 20, fileTypes, mode = 'search' } = options
   const tokens = tokenizeQuery(query)
   const adjacency = buildAdjacency(index.graph?.edges ?? [])
-  const commandIntent = mode === 'commands' || isCommandDiscoveryQuery(query, tokens)
+  const commandIntent =
+    mode === 'commands' || isCommandDiscoveryQuery(query, tokens)
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
 
   if (mode === 'neighbors') {
@@ -150,9 +152,27 @@ export function queryIndex(
     return queryReferences(index, adjacency, tokens, options).slice(0, limit)
   }
   if (mode === 'explain') {
-    return querySearch(index, adjacency, tokens, fileTypes, limit, true, commandIntent, lexicalWeights)
+    return querySearch(
+      index,
+      adjacency,
+      tokens,
+      fileTypes,
+      limit,
+      true,
+      commandIntent,
+      lexicalWeights,
+    )
   }
-  return querySearch(index, adjacency, tokens, fileTypes, limit, mode === 'commands', commandIntent, lexicalWeights)
+  return querySearch(
+    index,
+    adjacency,
+    tokens,
+    fileTypes,
+    limit,
+    mode === 'commands',
+    commandIntent,
+    lexicalWeights,
+  )
 }
 
 function querySearch(
@@ -172,10 +192,16 @@ function querySearch(
       .map((file) => ({
         path: file.path,
         score: commandIntent ? commandDiscoveryBoost(file, tokens) : 0,
-        matchedOn: commandIntent ? (['command'] as QueryIndexResult['matchedOn']) : [],
-        matchedSnippets: commandIntent ? commandMatchedSnippets(file, tokens) : undefined,
+        matchedOn: commandIntent
+          ? (['command'] as QueryIndexResult['matchedOn'])
+          : [],
+        matchedSnippets: commandIntent
+          ? commandMatchedSnippets(file, tokens)
+          : undefined,
       }))
-    return (commandIntent ? results.sort((a, b) => b.score - a.score) : results).slice(0, limit)
+    return (
+      commandIntent ? results.sort((a, b) => b.score - a.score) : results
+    ).slice(0, limit)
   }
 
   const directResults = new Map<string, QueryIndexResult>()
@@ -198,7 +224,10 @@ function querySearch(
       if (existing) {
         existing.score += related.score
         existing.matchedOn = addMatchedOn(existing.matchedOn, 'graph')
-        existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, related.relatedFiles)
+        existing.relatedFiles = mergeRelatedFiles(
+          existing.relatedFiles,
+          related.relatedFiles,
+        )
       } else {
         directResults.set(path, {
           path,
@@ -221,7 +250,9 @@ function querySearch(
       score: roundScore(result.score),
       relatedFiles: result.relatedFiles?.slice(0, MAX_RELATED_FILES_PER_RESULT),
       matchedSnippets: result.matchedSnippets?.slice(0, 5),
-      explanation: explain ? explainResult(result, { ageMs: indexAgeMs, stale }) : undefined,
+      explanation: explain
+        ? explainResult(result, { ageMs: indexAgeMs, stale })
+        : undefined,
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -234,7 +265,13 @@ function queryNeighbors(
   options: QueryOptions,
 ): QueryIndexResult[] {
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
-  const seedPaths = findSeedPaths(index, tokens, options.from, options.fileTypes, lexicalWeights)
+  const seedPaths = findSeedPaths(
+    index,
+    tokens,
+    options.from,
+    options.fileTypes,
+    lexicalWeights,
+  )
   const related = new Map<string, QueryIndexResult>()
   for (const seedPath of seedPaths) {
     for (const item of getRelatedFiles(index, adjacency, seedPath, 2)) {
@@ -242,11 +279,14 @@ function queryNeighbors(
         item.path === seedPath ||
         isNoisyFilePath(item.path) ||
         !matchesFileType(index.files[item.path], options.fileTypes)
-      ) continue
+      )
+        continue
       const existing = related.get(item.path)
       if (existing) {
         existing.score += item.score
-        existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [{ ...item, path: seedPath }])
+        existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [
+          { ...item, path: seedPath },
+        ])
       } else {
         const file = index.files[item.path]
         related.set(item.path, {
@@ -273,8 +313,24 @@ function queryPath(
   options: QueryOptions,
 ): QueryIndexResult[] {
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
-  const from = options.from ?? findSeedPaths(index, tokens, undefined, options.fileTypes, lexicalWeights)[0]
-  const to = options.to ?? findSeedPaths(index, tokens, undefined, options.fileTypes, lexicalWeights).find((path) => path !== from)
+  const from =
+    options.from ??
+    findSeedPaths(
+      index,
+      tokens,
+      undefined,
+      options.fileTypes,
+      lexicalWeights,
+    )[0]
+  const to =
+    options.to ??
+    findSeedPaths(
+      index,
+      tokens,
+      undefined,
+      options.fileTypes,
+      lexicalWeights,
+    ).find((path) => path !== from)
   if (!from || !to) return []
 
   const path = shortestFilePath(index, adjacency, from, to)
@@ -332,7 +388,10 @@ function scoreFile(
       // Forward substring (token inside a longer symbol) is the common case.
       // The reverse (symbol inside the token) is only allowed for substantial
       // symbols — otherwise a 1-2 char symbol matches almost every token.
-      if (symLower.includes(token) || (symLower.length >= 4 && token.includes(symLower))) {
+      if (
+        symLower.includes(token) ||
+        (symLower.length >= 4 && token.includes(symLower))
+      ) {
         score += lexicalWeights.symbol * weight
         matchedOn.add('symbol')
         break
@@ -382,7 +441,9 @@ function scoreFile(
     matchedOn: Array.from(matchedOn),
     symbols: file.symbols.slice(0, 10),
     headings: file.headings.slice(0, 5),
-    matchedSnippets: commandIntent ? commandMatchedSnippets(file, tokens) : undefined,
+    matchedSnippets: commandIntent
+      ? commandMatchedSnippets(file, tokens)
+      : undefined,
   }
 }
 
@@ -438,15 +499,26 @@ function scoreGraphNeighborhood(
   adjacency: GraphAdjacency,
   directResults: Map<string, QueryIndexResult>,
 ): Map<string, { score: number; relatedFiles: RelatedFile[] }> {
-  const graphScores = new Map<string, { score: number; relatedFiles: RelatedFile[] }>()
+  const graphScores = new Map<
+    string,
+    { score: number; relatedFiles: RelatedFile[] }
+  >()
   const sortedDirectResults = Array.from(directResults.values())
     .sort((a, b) => b.score - a.score)
     .slice(0, 25)
 
   for (const result of sortedDirectResults) {
     const boost = Math.min(3, result.score / 4)
-    for (const related of getRelatedFiles(index, adjacency, result.path, boost)) {
-      const current = graphScores.get(related.path) ?? { score: 0, relatedFiles: [] }
+    for (const related of getRelatedFiles(
+      index,
+      adjacency,
+      result.path,
+      boost,
+    )) {
+      const current = graphScores.get(related.path) ?? {
+        score: 0,
+        relatedFiles: [],
+      }
       current.score += related.score
       current.relatedFiles = mergeRelatedFiles(current.relatedFiles, [
         {
@@ -487,8 +559,9 @@ function getRelatedFiles(
       continue
     }
 
-    const secondHopEdges = (adjacency.get(neighborNodeId) ?? [])
-      .filter((secondEdge) => !sameEdge(secondEdge, edge))
+    const secondHopEdges = (adjacency.get(neighborNodeId) ?? []).filter(
+      (secondEdge) => !sameEdge(secondEdge, edge),
+    )
     if (
       LOW_VALUE_RELATED_NODE_TYPES.has(neighborNode?.type ?? '') &&
       secondHopEdges.length > 12
@@ -497,14 +570,16 @@ function getRelatedFiles(
     }
 
     for (const secondEdge of secondHopEdges.slice(0, 40)) {
-      const secondNeighborId = secondEdge.from === neighborNodeId ? secondEdge.to : secondEdge.from
+      const secondNeighborId =
+        secondEdge.from === neighborNodeId ? secondEdge.to : secondEdge.from
       if (secondNeighborId === fileId) continue
       const secondNeighbor = index.graph.nodes[secondNeighborId]
       if (
         secondNeighbor?.type !== 'file' ||
         !secondNeighbor.path ||
         isNoisyFilePath(secondNeighbor.path)
-      ) continue
+      )
+        continue
       related.push({
         path: secondNeighbor.path,
         score: edge.weight * secondEdge.weight * boost * 0.6,
@@ -549,7 +624,8 @@ function shortestFilePath(
         typeof nextNode.path === 'string' &&
         nextNode.path !== to &&
         isNoisyFilePath(nextNode.path)
-      ) continue
+      )
+        continue
       if (seen.has(next)) continue
       seen.add(next)
       queue.push([...currentPath, next])
@@ -601,7 +677,13 @@ function queryReferences(
   options: QueryOptions,
 ): QueryIndexResult[] {
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
-  const seedPaths = findSeedPaths(index, tokens, options.from, options.fileTypes, lexicalWeights)
+  const seedPaths = findSeedPaths(
+    index,
+    tokens,
+    options.from,
+    options.fileTypes,
+    lexicalWeights,
+  )
   const results = new Map<string, QueryIndexResult>()
 
   for (const seedPath of seedPaths) {
@@ -615,7 +697,8 @@ function queryReferences(
       if (importerNode?.type !== 'file' || !importerNode.path) continue
       if (importerNode.path === seedPath) continue
       if (isNoisyFilePath(importerNode.path)) continue
-      if (!matchesFileType(index.files[importerNode.path], options.fileTypes)) continue
+      if (!matchesFileType(index.files[importerNode.path], options.fileTypes))
+        continue
 
       const isReliable = edge.type === 'references'
       const file = index.files[importerNode.path]
@@ -627,7 +710,9 @@ function queryReferences(
         existing.score += edge.weight
         existing.matchedOn = addMatchedOn(existing.matchedOn, 'graph')
         if (existing.relatedFiles) {
-          existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [{ path: seedPath, score: edge.weight, reason, via: edge.label }])
+          existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [
+            { path: seedPath, score: edge.weight, reason, via: edge.label },
+          ])
         }
       } else {
         results.set(importerNode.path, {
@@ -636,7 +721,9 @@ function queryReferences(
           matchedOn: ['graph'],
           symbols: file?.symbols.slice(0, 10),
           headings: file?.headings.slice(0, 5),
-          relatedFiles: [{ path: seedPath, score: edge.weight, reason, via: edge.label }],
+          relatedFiles: [
+            { path: seedPath, score: edge.weight, reason, via: edge.label },
+          ],
           explanation: `${importerNode.path} ${reason}`,
         })
       }
@@ -662,7 +749,10 @@ function buildAdjacency(edges: IndexEdge[]): GraphAdjacency {
   return adjacency
 }
 
-function matchesFileType(file: IndexedFile | undefined, fileTypes: string[] | undefined): boolean {
+function matchesFileType(
+  file: IndexedFile | undefined,
+  fileTypes: string[] | undefined,
+): boolean {
   if (!file) return false
   if (!fileTypes || fileTypes.length === 0) return true
   const ext = normalizeFileType(file.ext)
@@ -684,8 +774,10 @@ function isNoisyFilePath(filePath: string): boolean {
 }
 
 function reasonForEdge(edge: IndexEdge, forward: boolean): string {
-  if (edge.type === 'calls') return forward ? 'calls this file' : 'called by this file'
-  if (edge.type === 'references') return forward ? 'references this file' : 'referenced by this file'
+  if (edge.type === 'calls')
+    return forward ? 'calls this file' : 'called by this file'
+  if (edge.type === 'references')
+    return forward ? 'references this file' : 'referenced by this file'
   if (edge.type === 'imports') return 'shares import dependency'
   if (edge.type === 'defines') return 'shares symbol relationship'
   if (edge.type === 'mentions') return 'shares documentation concept'
@@ -694,7 +786,12 @@ function reasonForEdge(edge: IndexEdge, forward: boolean): string {
 }
 
 function sameEdge(a: IndexEdge, b: IndexEdge): boolean {
-  return a.from === b.from && a.to === b.to && a.type === b.type && a.label === b.label
+  return (
+    a.from === b.from &&
+    a.to === b.to &&
+    a.type === b.type &&
+    a.label === b.label
+  )
 }
 
 function mergeRelatedFiles(
@@ -747,12 +844,21 @@ function commandDiscoveryBoost(file: IndexedFile, tokens: string[]): number {
 
   for (const concept of file.concepts) {
     if (concept.startsWith('script:')) boost += 3
-    if (concept.includes('validation suite') || concept.includes('command configuration')) boost += 4
+    if (
+      concept.includes('validation suite') ||
+      concept.includes('command configuration')
+    )
+      boost += 4
     if (tokens.some((token) => concept.includes(token))) boost += 2
   }
   for (const heading of file.headings) {
     const lower = heading.toLowerCase()
-    if (Array.from(COMMAND_DISCOVERY_TOKENS).some((token) => lower.includes(token))) boost += 2
+    if (
+      Array.from(COMMAND_DISCOVERY_TOKENS).some((token) =>
+        lower.includes(token),
+      )
+    )
+      boost += 2
   }
   return boost
 }
@@ -760,7 +866,11 @@ function commandDiscoveryBoost(file: IndexedFile, tokens: string[]): number {
 function commandMatchedSnippets(file: IndexedFile, tokens: string[]): string[] {
   const snippets: string[] = []
   for (const concept of file.concepts) {
-    if (!concept.startsWith('script:') && !concept.startsWith('run:') && !concept.includes('validation suite')) {
+    if (
+      !concept.startsWith('script:') &&
+      !concept.startsWith('run:') &&
+      !concept.includes('validation suite')
+    ) {
       continue
     }
     const normalized = concept.toLowerCase()
@@ -772,8 +882,10 @@ function commandMatchedSnippets(file: IndexedFile, tokens: string[]): string[] {
       snippets.push(concept.replace(/^script:/, 'package script: '))
     }
   }
-  if (snippets.length === 0 && isPackageJsonPath(file.path)) snippets.push('package.json scripts')
-  if (snippets.length === 0 && isCiWorkflowPath(file.path)) snippets.push('CI workflow commands')
+  if (snippets.length === 0 && isPackageJsonPath(file.path))
+    snippets.push('package.json scripts')
+  if (snippets.length === 0 && isCiWorkflowPath(file.path))
+    snippets.push('CI workflow commands')
   return snippets.slice(0, 5)
 }
 
@@ -783,11 +895,17 @@ function isCommandDiscoveryQuery(query: string, _tokens: string[]): boolean {
 }
 
 function isCommandDiscoveryFile(file: IndexedFile): boolean {
-  return isPackageJsonPath(file.path) ||
+  return (
+    isPackageJsonPath(file.path) ||
     isCiWorkflowPath(file.path) ||
     isTaskRunnerPath(file.path) ||
     isCommandDocsPath(file.path) ||
-    file.concepts.some((concept) => concept.startsWith('script:') || concept.includes('command configuration'))
+    file.concepts.some(
+      (concept) =>
+        concept.startsWith('script:') ||
+        concept.includes('command configuration'),
+    )
+  )
 }
 
 function isPackageJsonPath(filePath: string): boolean {
@@ -795,27 +913,34 @@ function isPackageJsonPath(filePath: string): boolean {
 }
 
 function isCiWorkflowPath(filePath: string): boolean {
-  return filePath.startsWith('.github/workflows/') || filePath.includes('/.github/workflows/')
+  return (
+    filePath.startsWith('.github/workflows/') ||
+    filePath.includes('/.github/workflows/')
+  )
 }
 
 function isTaskRunnerPath(filePath: string): boolean {
   const normalized = filePath.toLowerCase().replace(/\\/g, '/')
-  return normalized.endsWith('makefile') ||
+  return (
+    normalized.endsWith('makefile') ||
     normalized.endsWith('justfile') ||
     normalized.endsWith('turbo.json') ||
     normalized.endsWith('nx.json') ||
     normalized.endsWith('gulpfile.js') ||
     normalized.endsWith('gruntfile.js')
+  )
 }
 
 function isCommandDocsPath(filePath: string): boolean {
   const normalized = filePath.toLowerCase().replace(/\\/g, '/')
-  return normalized === 'contributing.md' ||
+  return (
+    normalized === 'contributing.md' ||
     normalized === 'docs/testing.md' ||
     normalized === 'docs/development.md' ||
     normalized.endsWith('/contributing.md') ||
     normalized.endsWith('/testing.md') ||
     normalized.endsWith('/development.md')
+  )
 }
 
 function roundScore(score: number): number {
@@ -863,9 +988,43 @@ const COMMAND_DISCOVERY_TOKENS = new Set([
 ])
 
 const STOP_WORDS = new Set([
-  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all',
-  'can', 'has', 'her', 'was', 'one', 'our', 'out', 'had',
-  'have', 'him', 'his', 'how', 'its', 'may', 'new', 'now',
-  'old', 'see', 'two', 'who', 'did', 'get', 'let', 'too',
-  'use', 'way', 'add', 'any', 'via', 'per', 'run',
+  'the',
+  'and',
+  'for',
+  'are',
+  'but',
+  'not',
+  'you',
+  'all',
+  'can',
+  'has',
+  'her',
+  'was',
+  'one',
+  'our',
+  'out',
+  'had',
+  'have',
+  'him',
+  'his',
+  'how',
+  'its',
+  'may',
+  'new',
+  'now',
+  'old',
+  'see',
+  'two',
+  'who',
+  'did',
+  'get',
+  'let',
+  'too',
+  'use',
+  'way',
+  'add',
+  'any',
+  'via',
+  'per',
+  'run',
 ])

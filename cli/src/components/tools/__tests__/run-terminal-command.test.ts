@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { parseTerminalOutput, RunTerminalCommandComponent } from '../run-terminal-command'
+import {
+  parseTerminalOutput,
+  RunTerminalCommandComponent,
+} from '../run-terminal-command'
 
 import type { ChatTheme } from '../../../types/theme-system'
 import type { ToolBlock } from '../types'
@@ -24,7 +27,10 @@ const createToolBlock = (
   type: 'tool',
   toolName: 'run_terminal_command',
   toolCallId: 'test-tool-call-id',
-  input: { command, ...(timeoutSeconds !== undefined && { timeout_seconds: timeoutSeconds }) },
+  input: {
+    command,
+    ...(timeoutSeconds !== undefined && { timeout_seconds: timeoutSeconds }),
+  },
   output,
 })
 
@@ -46,7 +52,10 @@ const createJsonOutput = (stdout: string, stderr = ''): string => {
 describe('RunTerminalCommandComponent', () => {
   describe('render', () => {
     test('returns content and collapsedPreview', () => {
-      const toolBlock = createToolBlock('ls -la', createJsonOutput('file1\nfile2'))
+      const toolBlock = createToolBlock(
+        'ls -la',
+        createJsonOutput('file1\nfile2'),
+      )
       const mockTheme = {} as ChatTheme
       const mockOptions = {
         availableWidth: 80,
@@ -54,7 +63,11 @@ describe('RunTerminalCommandComponent', () => {
         labelWidth: 10,
       }
 
-      const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
+      const result = RunTerminalCommandComponent.render(
+        toolBlock,
+        mockTheme,
+        mockOptions,
+      )
 
       expect(result).toBeDefined()
       expect(result.content).toBeDefined()
@@ -107,7 +120,9 @@ describe('RunTerminalCommandComponent', () => {
       const outputWithTrailing = '  leading preserved\ntrailing removed   \n\n'
       const expectedOutput = '  leading preserved\ntrailing removed'
 
-      const { output } = parseTerminalOutput(createJsonOutput(outputWithTrailing))
+      const { output } = parseTerminalOutput(
+        createJsonOutput(outputWithTrailing),
+      )
 
       expect(output).toBe(expectedOutput)
       // Leading spaces preserved
@@ -167,25 +182,51 @@ describe('RunTerminalCommandComponent', () => {
     test('passes undefined timeoutSeconds when timeout_seconds not provided', () => {
       const toolBlock = createToolBlock('ls -la', createJsonOutput('output'))
 
-      const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
+      const result = RunTerminalCommandComponent.render(
+        toolBlock,
+        mockTheme,
+        mockOptions,
+      )
 
-      expect((result.content as RenderContentElement).props.timeoutSeconds).toBeUndefined()
+      expect(
+        (result.content as RenderContentElement).props.timeoutSeconds,
+      ).toBeUndefined()
     })
 
     test('passes timeoutSeconds for positive timeout', () => {
-      const toolBlock = createToolBlock('npm test', createJsonOutput('tests passed'), 60)
+      const toolBlock = createToolBlock(
+        'npm test',
+        createJsonOutput('tests passed'),
+        60,
+      )
 
-      const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
+      const result = RunTerminalCommandComponent.render(
+        toolBlock,
+        mockTheme,
+        mockOptions,
+      )
 
-      expect((result.content as RenderContentElement).props.timeoutSeconds).toBe(60)
+      expect(
+        (result.content as RenderContentElement).props.timeoutSeconds,
+      ).toBe(60)
     })
 
     test('passes timeoutSeconds for no timeout (-1)', () => {
-      const toolBlock = createToolBlock('long-running-task', createJsonOutput('done'), -1)
+      const toolBlock = createToolBlock(
+        'long-running-task',
+        createJsonOutput('done'),
+        -1,
+      )
 
-      const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
+      const result = RunTerminalCommandComponent.render(
+        toolBlock,
+        mockTheme,
+        mockOptions,
+      )
 
-      expect((result.content as RenderContentElement).props.timeoutSeconds).toBe(-1)
+      expect(
+        (result.content as RenderContentElement).props.timeoutSeconds,
+      ).toBe(-1)
     })
   })
 

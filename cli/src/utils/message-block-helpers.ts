@@ -1,4 +1,4 @@
-import { isEqual } from 'lodash'
+import { isDeepStrictEqual } from 'node:util'
 
 import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
 import { sanitizeMediaForUiState } from './payload-sanitizer'
@@ -27,12 +27,10 @@ export const getAgentBaseName = (type: string): string => {
   return segment.split('@')[0].replace(/_/g, '-')
 }
 
-const GATE_STATE_BLOCK_RE =
-  /<gate-state>\s*([\s\S]*?)\s*<\/gate-state>/i
+const GATE_STATE_BLOCK_RE = /<gate-state>\s*([\s\S]*?)\s*<\/gate-state>/i
 
-const GATE_STATE_STATUSES: ReadonlySet<GateStateStatus> = new Set<
-  GateStateStatus
->(['pending', 'passed', 'failed', 'skipped'])
+const GATE_STATE_STATUSES: ReadonlySet<GateStateStatus> =
+  new Set<GateStateStatus>(['pending', 'passed', 'failed', 'skipped'])
 
 /**
  * Parse the pinned Base2 gate-state shape from a message buffer.
@@ -90,10 +88,9 @@ export const parseGateStateBlock = (
  * does not also render as prose.
  */
 export const scrubGateStateTags = (s: string): string =>
-  s.replace(new RegExp(GATE_STATE_BLOCK_RE.source, 'gi'), '').replace(
-    /\n{3,}/g,
-    '\n\n',
-  )
+  s
+    .replace(new RegExp(GATE_STATE_BLOCK_RE.source, 'gi'), '')
+    .replace(/\n{3,}/g, '\n\n')
 
 /**
  * Extracts plan content from a buffer containing <PLAN>...</PLAN> tags.
@@ -210,8 +207,13 @@ const getPlanSessionCommandTarget = (
   if (explicitSession) return explicitSession
 
   const artifactPath =
-    metadata.planPath ?? metadata.statusPath ?? metadata.specPath ?? metadata.lessonsPath
-  return artifactPath?.match(/^(\.agents\/sessions\/[^/]+)/)?.[1] ?? artifactPath
+    metadata.planPath ??
+    metadata.statusPath ??
+    metadata.specPath ??
+    metadata.lessonsPath
+  return (
+    artifactPath?.match(/^(\.agents\/sessions\/[^/]+)/)?.[1] ?? artifactPath
+  )
 }
 
 const getCustomArtifactCommand = (path: string): string =>
@@ -221,12 +223,9 @@ const withPlanCommands = (
   metadata: PlanArtifactMetadata,
 ): PlanArtifactMetadata => {
   const commandTarget = getPlanSessionCommandTarget(metadata)
-  const customArtifactCommands =
-    metadata.customArtifacts?.length
-      ? metadata.customArtifacts.map(({ path }) =>
-          getCustomArtifactCommand(path),
-        )
-      : undefined
+  const customArtifactCommands = metadata.customArtifacts?.length
+    ? metadata.customArtifacts.map(({ path }) => getCustomArtifactCommand(path))
+    : undefined
 
   if (!commandTarget) {
     if (!customArtifactCommands) {
@@ -298,7 +297,9 @@ export const extractPlanMetadata = (
     }
   }
 
-  return isNonEmptyPlanMetadata(metadata) ? withPlanCommands(metadata) : undefined
+  return isNonEmptyPlanMetadata(metadata)
+    ? withPlanCommands(metadata)
+    : undefined
 }
 
 export const insertPlanBlock = (
@@ -325,7 +326,9 @@ export const autoCollapseBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
   return blocks.map((block) => {
     // Handle thinking blocks (grouped text blocks)
     if (block.type === 'text' && block.thinkingId) {
-      return block.userOpened ? block : { ...block, thinkingCollapseState: 'hidden' as const }
+      return block.userOpened
+        ? block
+        : { ...block, thinkingCollapseState: 'hidden' as const }
     }
 
     // Handle agent blocks
@@ -415,8 +418,11 @@ const formatBrowserUseStructuredOutput = (
         item.recordingAttached === true ? 'recording attached' : undefined,
       ].filter(Boolean)
       const suffixParts = [url, ...mediaFlags]
-      const suffix = suffixParts.length > 0 ? ` (${suffixParts.join('; ')})` : ''
-      lines.push(`- ${passed} ${name}${suffix}${details ? ` — ${details}` : ''}`)
+      const suffix =
+        suffixParts.length > 0 ? ` (${suffixParts.join('; ')})` : ''
+      lines.push(
+        `- ${passed} ${name}${suffix}${details ? ` — ${details}` : ''}`,
+      )
     }
   }
 
@@ -446,6 +452,54 @@ const formatBrowserUseStructuredOutput = (
   return lines.join('\n')
 }
 
+const formatResearcherWebStructuredOutput = (
+  value: UnknownRecord,
+): string | undefined => {
+  const data = isRecordValue(value.data) ? value.data : value
+  const questions = Array.isArray(data.questions) ? data.questions : undefined
+  const sources = Array.isArray(data.sources) ? data.sources : []
+  if (!questions) return undefined
+  const lines = ['Web research:']
+  for (const item of questions) {
+    if (!isRecordValue(item)) continue
+    const question = getStringField(item, 'question') ?? 'Question'
+    const status = getStringField(item, 'status') ?? 'unknown'
+    const answer = getStringField(item, 'answer') ?? ''
+    lines.push(`- ${question} [${status}]${answer ? ` — ${answer}` : ''}`)
+    const citations = Array.isArray(item.citations) ? item.citations : []
+    for (const citation of citations) {
+      if (typeof citation === 'string') lines.push(`  Source: ${citation}`)
+    }
+  }
+  if (sources.length > 0) {
+    lines.push('', 'Sources:')
+    for (const source of sources) {
+      if (!isRecordValue(source)) continue
+      const url = getStringField(source, 'url')
+      const title = getStringField(source, 'title')
+      if (url) lines.push(`- ${title || url}: ${url}`)
+    }
+  }
+  return lines.join('\n')
+}
+
+const formatResearcherDocsStructuredOutput = (
+  value: UnknownRecord,
+): string | undefined => {
+  const status = getStringField(value, 'status')
+  const answer = getStringField(value, 'answer')
+  const source = getStringField(value, 'source')
+  const version = getStringField(value, 'version')
+  if (!status || answer === undefined || !source || !version) return undefined
+  const lines = [
+    `Documentation research ${status}: ${source} (${version})`,
+    answer,
+  ]
+  const failure = getStringField(value, 'failure')
+  if (failure) lines.push('', `Limitation: ${failure}`)
+  return lines.join('\n')
+}
+
 /**
  * Extracts text content from a Message object's content array.
  * Handles assistant messages with TextPart content.
@@ -455,8 +509,11 @@ const extractTextFromMessageContent = (content: unknown): string => {
     return ''
   }
   return content
-    .filter((part): part is { text: string } =>
-      isRecordValue(part) && part.type === 'text' && typeof part.text === 'string',
+    .filter(
+      (part): part is { text: string } =>
+        isRecordValue(part) &&
+        part.type === 'text' &&
+        typeof part.text === 'string',
     )
     .map((part) => part.text)
     .join('')
@@ -498,9 +555,10 @@ export const extractSpawnAgentResultContent = (
     return { content: String(obj.error), hasError: true }
   }
   if (obj.type === 'error') {
-    const message = typeof obj.message === 'string'
-      ? obj.message
-      : JSON.stringify(obj, null, 2)
+    const message =
+      typeof obj.message === 'string'
+        ? obj.message
+        : JSON.stringify(obj, null, 2)
     return { content: message, hasError: true }
   }
 
@@ -512,15 +570,19 @@ export const extractSpawnAgentResultContent = (
     return { content: String(nestedValue.error), hasError: true }
   }
   if (nestedValue?.type === 'error') {
-    const message = typeof nestedValue.message === 'string'
-      ? nestedValue.message
-      : JSON.stringify(nestedValue, null, 2)
+    const message =
+      typeof nestedValue.message === 'string'
+        ? nestedValue.message
+        : JSON.stringify(nestedValue, null, 2)
     return { content: message, hasError: true }
   }
 
   // Handle lastMessage and allMessages output modes: { type: "lastMessage"|"allMessages", value: [Message array] }
   // This is common for agents like researcher-web
-  if ((obj.type === 'lastMessage' || obj.type === 'allMessages') && Array.isArray(obj.value)) {
+  if (
+    (obj.type === 'lastMessage' || obj.type === 'allMessages') &&
+    Array.isArray(obj.value)
+  ) {
     const messages = obj.value as Array<{ role?: string; content?: unknown }>
     const textContent = messages
       .filter((msg) => msg?.role === 'assistant')
@@ -538,6 +600,14 @@ export const extractSpawnAgentResultContent = (
       const browserUseSummary = formatBrowserUseStructuredOutput(value)
       if (browserUseSummary) {
         return { content: browserUseSummary, hasError: false }
+      }
+      const webResearchSummary = formatResearcherWebStructuredOutput(value)
+      if (webResearchSummary) {
+        return { content: webResearchSummary, hasError: false }
+      }
+      const docsResearchSummary = formatResearcherDocsStructuredOutput(value)
+      if (docsResearchSummary) {
+        return { content: docsResearchSummary, hasError: false }
       }
       if (typeof value.message === 'string') {
         return { content: value.message, hasError: false }
@@ -650,7 +720,15 @@ export interface CreateAgentBlockOptions {
 export const createAgentBlock = (
   options: CreateAgentBlockOptions,
 ): AgentContentBlock => {
-  const { agentId, agentType, prompt, params, spawnToolCallId, spawnIndex, parentAgentType } = options
+  const {
+    agentId,
+    agentType,
+    prompt,
+    params,
+    spawnToolCallId,
+    spawnIndex,
+    parentAgentType,
+  } = options
   const shouldCollapse =
     shouldCollapseByDefault(agentType || '') ||
     shouldCollapseForParent(agentType || '', parentAgentType)
@@ -850,7 +928,11 @@ export const moveSpawnAgentBlock = (
   // If there's a parentId, we need to move the block under the parent.
   // First check if the block is already under the correct parent.
   if (parentId) {
-    const isAlreadyUnderParent = checkBlockIsUnderParent(blocks, tempId, parentId)
+    const isAlreadyUnderParent = checkBlockIsUnderParent(
+      blocks,
+      tempId,
+      parentId,
+    )
     if (isAlreadyUnderParent) {
       // Block is already under the correct parent, just update it in place
       return updateBlocksRecursively(blocks, tempId, updateAgentBlock)
@@ -993,7 +1075,10 @@ const formatToolOutput = (
     return JSON.stringify(toolOutput, null, 2)
   }
 
-  if (toolName === 'edit_transaction' || toolName === 'propose_edit_transaction') {
+  if (
+    toolName === 'edit_transaction' ||
+    toolName === 'propose_edit_transaction'
+  ) {
     return formatTransactionToolOutput(toolOutput)
   }
 
@@ -1014,22 +1099,13 @@ const hasMediaPayload = (
 
   if (!Array.isArray(value)) {
     const record = value as Record<string, unknown>
-    if (
-      record.type === 'media' &&
-      typeof record.data === 'string'
-    ) {
+    if (record.type === 'media' && typeof record.data === 'string') {
       return true
     }
-    if (
-      record.type === 'file' &&
-      typeof record.data === 'string'
-    ) {
+    if (record.type === 'file' && typeof record.data === 'string') {
       return true
     }
-    if (
-      record.type === 'image' &&
-      typeof record.image === 'string'
-    ) {
+    if (record.type === 'image' && typeof record.image === 'string') {
       return true
     }
   }
@@ -1061,7 +1137,7 @@ export const updateToolBlockWithOutput = (
     } else if (block.type === 'agent' && block.blocks) {
       const updatedBlocks = updateToolBlockWithOutput(block.blocks, options)
       // Avoid creating new block if nested blocks didn't change
-      if (isEqual(block.blocks, updatedBlocks)) {
+      if (isDeepStrictEqual(block.blocks, updatedBlocks)) {
         return block
       }
       return { ...block, blocks: updatedBlocks }

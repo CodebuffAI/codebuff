@@ -6,7 +6,6 @@ import { AGENT_MODES } from '../utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { SkillsMap } from '@codebuff/common/types/skill'
 
-
 export interface SlashCommand {
   id: string
   label: string
@@ -38,6 +37,18 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'info',
     description: 'Show CLI diagnostic information (version, workspace, auth)',
     aliases: ['status'],
+  },
+  {
+    id: 'doctor',
+    label: 'doctor',
+    description:
+      'Diagnose provider, trust, agent, skill, and MCP configuration',
+    aliases: ['diagnose'],
+  },
+  {
+    id: 'index',
+    label: 'index',
+    description: 'Show status, refresh the index, or explain retrieval results',
   },
   {
     id: 'help',
@@ -81,17 +92,20 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'undo',
     label: 'undo',
-    description: 'Undo the last change made by the assistant',
+    description:
+      'Undo the last conversation/message history change (files are unchanged)',
   },
   {
     id: 'redo',
     label: 'redo',
-    description: 'Redo the most recent undone change',
+    description:
+      'Redo the most recent conversation/message history change (files are unchanged)',
   },
   {
     id: 'interview',
     label: 'interview',
-    description: 'AI asks a series of questions to flesh out request into a spec',
+    description:
+      'AI asks a series of questions to flesh out request into a spec',
   },
   {
     id: 'resume-plan',

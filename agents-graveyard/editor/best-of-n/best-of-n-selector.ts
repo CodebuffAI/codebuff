@@ -108,12 +108,13 @@ Try to select an implementation that fulfills all the requirements in the user's
 
 ## Response Format
 
-${isSonnet || isOpus
-        ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! As soon as you know for sure which implementation is the best, you should output your choice.
+${
+  isSonnet || isOpus
+    ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! As soon as you know for sure which implementation is the best, you should output your choice.
 
 Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId and short reason.`
-        : `Output a single tool call to set_output with the selected implementationId. Do not write anything else.`
-      }`,
+    : `Output a single tool call to set_output with the selected implementationId. Do not write anything else.`
+}`,
   }
 }
 

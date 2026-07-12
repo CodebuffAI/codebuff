@@ -24,22 +24,22 @@ Openbuff's provider and model routing configuration is powerful but confusing fo
 
 ### Entry Points
 
-| Command | Behavior |
-|---------|----------|
-| `/provider` | Opens provider picker |
-| `/provider status` | Status display |
-| `/provider add` | Starts text wizard (provider preset, custom) |
-| `/provider add <preset>` | Writes preset config directly |
-| `/provider connect codex` | Starts OAuth flow |
-| `/provider disconnect codex` | Clears OAuth token |
-| `/models` | Opens model routing picker |
-| `/models configure` | Starts text wizard |
-| `/models set default <model>` | Direct config write |
-| `/models set mode <mode> <model>` | Direct config write |
-| `/models set agent <id> <model>` | Direct config write |
-| `/models set editor-proposal <1-5> <model>` | Direct config write |
-| `/models set editor-selector <model>` | Direct config write |
-| `/setup <preset>` | Shorthand for `/provider add <preset>` (verify exact availability in current command registry) |
+| Command                                     | Behavior                                                                                       |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `/provider`                                 | Opens provider picker                                                                          |
+| `/provider status`                          | Status display                                                                                 |
+| `/provider add`                             | Starts text wizard (provider preset, custom)                                                   |
+| `/provider add <preset>`                    | Writes preset config directly                                                                  |
+| `/provider connect codex`                   | Starts OAuth flow                                                                              |
+| `/provider disconnect codex`                | Clears OAuth token                                                                             |
+| `/models`                                   | Opens model routing picker                                                                     |
+| `/models configure`                         | Starts text wizard                                                                             |
+| `/models set default <model>`               | Direct config write                                                                            |
+| `/models set mode <mode> <model>`           | Direct config write                                                                            |
+| `/models set agent <id> <model>`            | Direct config write                                                                            |
+| `/models set editor-proposal <1-5> <model>` | Direct config write                                                                            |
+| `/models set editor-selector <model>`       | Direct config write                                                                            |
+| `/setup <preset>`                           | Shorthand for `/provider add <preset>` (verify exact availability in current command registry) |
 
 ### Input Modes
 
@@ -89,14 +89,14 @@ The codebase already has reusable components for interactive selection:
 
 ### Is this a good idea? **Yes, absolutely.**
 
-| Factor | Assessment |
-|--------|-----------|
-| User confusion | High. The current text wizard is a likely source of friction for new Openbuff users who must learn routing concepts before they can send a prompt. |
-| Existing primitives | Excellent. All UI components (SelectableList, useSearchableList, keyboard handling, full-screen layouts) already exist and are proven. |
-| Implementation complexity | Moderate. Main work is wiring config state to interactive screens, not building new UI primitives. |
-| Risk of regressions | Low. Current text commands (`/models set`, `/provider add <preset>`) remain unchanged. New screens are additive. |
-| Impact on power users | Neutral-to-positive. Text commands are preserved; screens add visual discoverability. |
-| Impact on new users | Very positive. Connected → routed in 1-2 interactions instead of 5-7. |
+| Factor                    | Assessment                                                                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User confusion            | High. The current text wizard is a likely source of friction for new Openbuff users who must learn routing concepts before they can send a prompt. |
+| Existing primitives       | Excellent. All UI components (SelectableList, useSearchableList, keyboard handling, full-screen layouts) already exist and are proven.             |
+| Implementation complexity | Moderate. Main work is wiring config state to interactive screens, not building new UI primitives.                                                 |
+| Risk of regressions       | Low. Current text commands (`/models set`, `/provider add <preset>`) remain unchanged. New screens are additive.                                   |
+| Impact on power users     | Neutral-to-positive. Text commands are preserved; screens add visual discoverability.                                                              |
+| Impact on new users       | Very positive. Connected → routed in 1-2 interactions instead of 5-7.                                                                              |
 
 ### Key insight
 
@@ -115,17 +115,17 @@ For terminal apps, a full-screen screen is better than a popup because:
 
 Recommended keyboard model (consistent with existing screens):
 
-| Key | Action |
-|-----|--------|
-| `↑` / `↓` | Navigate items |
-| `Enter` | Select / edit |
-| `Esc` | Back / cancel |
-| `/` | Focus search (when in a model list) |
-| `s` | Save changes |
-| `r` | Reset/revert to saved |
-| `a` | Add provider |
-| `d` | Delete provider/route override |
-| `?` | Toggle help overlay (only when not focused in a text/search input) |
+| Key       | Action                                                             |
+| --------- | ------------------------------------------------------------------ |
+| `↑` / `↓` | Navigate items                                                     |
+| `Enter`   | Select / edit                                                      |
+| `Esc`     | Back / cancel                                                      |
+| `/`       | Focus search (when in a model list)                                |
+| `s`       | Save changes                                                       |
+| `r`       | Reset/revert to saved                                              |
+| `a`       | Add provider                                                       |
+| `d`       | Delete provider/route override                                     |
+| `?`       | Toggle help overlay (only when not focused in a text/search input) |
 
 ### Phase 1: Post-Connect Auto-Configure
 
@@ -145,6 +145,7 @@ After `/provider connect codex` succeeds:
 3. If yes: "Codex is connected and configured. Use `/models` to adjust routing."
 
 This requires:
+
 - A small post-OAuth hook in the `connect:chatgpt` input mode handler (or the command that handles `/provider connect codex`)
 - A `writeProviderConfigFile` call (or equivalent helper from `cli/src/utils/openbuff-provider.ts`) with the Codex preset merged into existing config
 - A simple confirm screen (3 buttons) using existing `Button` / `SelectableList` patterns
@@ -208,6 +209,7 @@ cli/src/hooks/use-openbuff-config.ts         — draft config state management
 ```
 
 Key features:
+
 - Models are grouped by provider, showing connection status
 - Search filters across provider names and model IDs
 - Current value highlighted
@@ -299,12 +301,12 @@ This allows users to see available models without manually entering model IDs.
 
 Leverage existing building blocks:
 
-| Component | Location | Reuse |
-|-----------|----------|-------|
-| `SelectableList` | `cli/src/components/selectable-list.tsx` | Provider list, model list, route list |
-| `useSearchableList` | `cli/src/hooks/use-searchable-list.ts` | Search/filter in all pickers |
-| `MultilineInput` | `cli/src/components/multiline-input.tsx` | Search input, custom provider fields |
-| `Button` | `cli/src/components/button.tsx` | Action buttons (save, add, delete) |
+| Component           | Location                                     | Reuse                                      |
+| ------------------- | -------------------------------------------- | ------------------------------------------ |
+| `SelectableList`    | `cli/src/components/selectable-list.tsx`     | Provider list, model list, route list      |
+| `useSearchableList` | `cli/src/hooks/use-searchable-list.ts`       | Search/filter in all pickers               |
+| `MultilineInput`    | `cli/src/components/multiline-input.tsx`     | Search input, custom provider fields       |
+| `Button`            | `cli/src/components/button.tsx`              | Action buttons (save, add, delete)         |
 | `ChatHistoryScreen` | `cli/src/components/chat-history-screen.tsx` | Pattern for full-screen with search + list |
 
 ### State Management
@@ -318,10 +320,10 @@ interface OpenbuffSetupState {
   dirty: boolean
   activeSection: 'providers' | 'routing' | 'editor' | null
   editingRoute: ModelRouteTarget | null
-  
+
   loadDraft: () => void
   updateDraft: (patch: Partial<ProviderConfigFileInput>) => void
-  saveDraft: () => string  // returns config path
+  saveDraft: () => string // returns config path
   revertDraft: () => void
   clearDraft: () => void
 }
@@ -357,13 +359,13 @@ When saving the draft, reuse `providerConfigFileSchema.safeParse()` from `sdk/sr
 
 ## Rollout Plan
 
-| Phase | Scope | Est. Effort | Impact |
-|-------|-------|-------------|--------|
-| **1** | Post-connect auto-configure prompt | Small (1-2 days) | Eliminates the #1 new-user confusion |
+| Phase | Scope                                              | Est. Effort       | Impact                                     |
+| ----- | -------------------------------------------------- | ----------------- | ------------------------------------------ |
+| **1** | Post-connect auto-configure prompt                 | Small (1-2 days)  | Eliminates the #1 new-user confusion       |
 | **2** | Searchable model route picker (`ModelSetupScreen`) | Medium (3-5 days) | Major UX improvement for all model routing |
-| **3** | Provider picker screen | Medium (2-3 days) | Better than text wizard for provider setup |
-| **4** | Unified `/setup` local setup screen | Medium (2-3 days) | Single entry point for all config |
-| **5** | Model discovery (optional) | Medium (3-5 days) | Nice-to-have for dynamic model lists |
+| **3** | Provider picker screen                             | Medium (2-3 days) | Better than text wizard for provider setup |
+| **4** | Unified `/setup` local setup screen                | Medium (2-3 days) | Single entry point for all config          |
+| **5** | Model discovery (optional)                         | Medium (3-5 days) | Nice-to-have for dynamic model lists       |
 
 **Recommended start:** Phase 1 (post-connect auto-configure) is the highest-ROI change. It's small, safe, and eliminates the most common failure mode for new users.
 

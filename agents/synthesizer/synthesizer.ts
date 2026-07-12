@@ -33,7 +33,8 @@ const definition: SecretAgentDefinition = {
     properties: {
       message: {
         type: 'string',
-        description: 'A one-paragraph summary of the synthesized report, including the count of findings by severity and the top cross-cutting themes.',
+        description:
+          'A one-paragraph summary of the synthesized report, including the count of findings by severity and the top cross-cutting themes.',
       },
       reportPath: {
         type: 'string',
@@ -44,6 +45,14 @@ const definition: SecretAgentDefinition = {
   outputMode: 'structured_output',
   inheritParentSystemPrompt: true,
   includeMessageHistory: false,
+  filesystemScope: {
+    read: [
+      '.agents/sessions/*/findings',
+      '.agents/sessions/*/findings/**/*.md',
+      '.agents/sessions/*/findings/*.md',
+    ],
+    write: ['.agents/sessions/*/AUDIT-REPORT.md'],
+  },
   spawnableAgents: [],
   toolNames: [
     'read_files',

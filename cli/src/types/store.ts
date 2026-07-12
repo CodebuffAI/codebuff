@@ -74,7 +74,10 @@ export type PendingFileAttachment = {
 }
 
 /** Unified attachment type with discriminator */
-export type PendingAttachment = PendingImageAttachment | PendingTextAttachment | PendingFileAttachment
+export type PendingAttachment =
+  | PendingImageAttachment
+  | PendingTextAttachment
+  | PendingFileAttachment
 
 /** @deprecated Use PendingImageAttachment instead */
 export type PendingImage = PendingImageAttachment

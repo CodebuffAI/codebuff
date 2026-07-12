@@ -27,17 +27,18 @@ SESSION=$(./scripts/tmux/tmux-cli.sh start)
 
 ### Available Scripts
 
-| Script | Purpose |
-|--------|--------|
-| `tmux-cli.sh` | Unified interface with subcommands (start, send, capture, stop, list) |
-| `tmux-start.sh` | Start a CLI test session with custom name/dimensions |
-| `tmux-send.sh` | Send input using bracketed paste mode (handles escaping) |
-| `tmux-capture.sh` | Capture terminal output with YAML metadata |
-| `tmux-stop.sh` | Stop individual or all test sessions |
+| Script            | Purpose                                                               |
+| ----------------- | --------------------------------------------------------------------- |
+| `tmux-cli.sh`     | Unified interface with subcommands (start, send, capture, stop, list) |
+| `tmux-start.sh`   | Start a CLI test session with custom name/dimensions                  |
+| `tmux-send.sh`    | Send input using bracketed paste mode (handles escaping)              |
+| `tmux-capture.sh` | Capture terminal output with YAML metadata                            |
+| `tmux-stop.sh`    | Stop individual or all test sessions                                  |
 
 ### Session Logs
 
 All session data is saved to `debug/tmux-sessions/{session}/` in YAML format:
+
 - `session-info.yaml` - Session metadata
 - `commands.yaml` - All commands sent with timestamps
 - `capture-*.txt` - Terminal captures with YAML front-matter
@@ -136,7 +137,13 @@ tmux send-keys -t my-session Enter
 ```typescript
 async function sendInput(sessionName: string, text: string): Promise<void> {
   // Use bracketed paste mode for reliable input
-  await tmux(['send-keys', '-t', sessionName, '-l', `\x1b[200~${text}\x1b[201~`])
+  await tmux([
+    'send-keys',
+    '-t',
+    sessionName,
+    '-l',
+    `\x1b[200~${text}\x1b[201~`,
+  ])
 }
 
 // Usage:
@@ -209,7 +216,9 @@ function tmux(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn('tmux', args, { stdio: 'pipe' })
     let stdout = ''
-    proc.stdout?.on('data', (data) => { stdout += data.toString() })
+    proc.stdout?.on('data', (data) => {
+      stdout += data.toString()
+    })
     proc.on('close', (code) => {
       code === 0 ? resolve(stdout) : reject(new Error('tmux failed'))
     })
@@ -222,22 +231,32 @@ async function sendInput(session: string, text: string): Promise<void> {
 
 async function testCLI() {
   const session = `test-${Date.now()}`
-  
+
   try {
     // Start CLI
-    await tmux(['new-session', '-d', '-s', session, '-x', '120', '-y', '30', 
-                'bun', 'run', 'src/index.tsx'])
+    await tmux([
+      'new-session',
+      '-d',
+      '-s',
+      session,
+      '-x',
+      '120',
+      '-y',
+      '30',
+      'bun',
+      'run',
+      'src/index.tsx',
+    ])
     await sleep(4000)
-    
+
     // Send input
     await sendInput(session, 'hello world')
     await tmux(['send-keys', '-t', session, 'Enter'])
     await sleep(2000)
-    
+
     // Capture output
     const output = await tmux(['capture-pane', '-t', session, '-p'])
     console.log(output)
-    
   } finally {
     await tmux(['kill-session', '-t', session]).catch(() => {})
   }
@@ -300,6 +319,7 @@ tmux kill-session -t "$SESSION" 2>/dev/null || true
 ## Integration with Bun Tests
 
 The `.bin/bun` wrapper automatically detects tmux requirements for files matching:
+
 - `*integration*.test.ts`
 - `*e2e*.test.ts`
 

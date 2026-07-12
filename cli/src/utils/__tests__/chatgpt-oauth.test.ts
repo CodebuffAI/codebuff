@@ -24,7 +24,9 @@ describe('chatgpt-oauth utility', () => {
       } as unknown as Response
     }) as unknown as typeof fetch
 
-    const error = await exchangeChatGptCodeForTokens('auth-code').catch((e) => e)
+    const error = await exchangeChatGptCodeForTokens('auth-code').catch(
+      (e) => e,
+    )
 
     expect(error).toBeInstanceOf(Error)
     expect(error.message).toContain('status 401')

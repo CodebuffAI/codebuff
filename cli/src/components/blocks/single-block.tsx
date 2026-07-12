@@ -127,10 +127,7 @@ export const SingleBlock = memo(
 
       case 'gate-state': {
         return (
-          <box
-            key={`${messageId}-gate-state-${idx}`}
-            style={{ width: '100%' }}
-          >
+          <box key={`${messageId}-gate-state-${idx}`} style={{ width: '100%' }}>
             <GateStateBox block={block} />
           </box>
         )

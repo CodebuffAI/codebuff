@@ -15,6 +15,15 @@ const AGENT_TYPE_LABELS: Array<{ pattern: string; label: string }> = [
   { pattern: 'directory-lister', label: 'exploring files...' },
   { pattern: 'glob-matcher', label: 'finding files...' },
   { pattern: 'context-pruner', label: 'pruning context...' },
+  { pattern: 'security-reviewer', label: 'checking security...' },
+  { pattern: 'test-writer', label: 'writing tests...' },
+  { pattern: 'doc-writer', label: 'writing docs...' },
+  { pattern: 'git-committer', label: 'preparing commit...' },
+  { pattern: 'librarian', label: 'reading external repo...' },
+  { pattern: 'synthesizer', label: 'synthesizing findings...' },
+  { pattern: 'browser-use', label: 'testing in browser...' },
+  { pattern: 'tmux-cli', label: 'testing CLI...' },
+  { pattern: 'debugger', label: 'debugging...' },
 ]
 
 /**

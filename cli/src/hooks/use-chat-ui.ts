@@ -90,7 +90,7 @@ export function useChatUI({
     return () => {
       scrollbox.verticalScrollBar.off('change', checkOverflow)
     }
-  }, [])
+  })
 
   // Inertial scroll acceleration
   const inertialScrollAcceleration = useMemo(

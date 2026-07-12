@@ -274,35 +274,76 @@ export function buildSpawnParamsWithHandoff(params: {
   }
 }
 
-/**
- * Required labeled sections in an editor agent's implementation brief, each
- * with lenient case-insensitive alias substrings used to detect the field's
- * presence. A field is considered present if ANY of its aliases appears as a
- * substring of the lowercased prompt.
- */
-const REQUIRED_EDITOR_BRIEF_FIELDS: { label: string; aliases: string[] }[] = [
-  { label: 'Requirements', aliases: ['Requirements', 'implementation task'] },
-  { label: 'Target files', aliases: ['Target files'] },
-  {
-    label: 'Constraints/non-goals',
-    aliases: ['Constraints/non-goals', 'Constraints', 'non-goals'],
-  },
-  { label: 'Patterns', aliases: ['Patterns', 'relevant patterns'] },
-  { label: 'Risks', aliases: ['Risks', 'code-level risks'] },
-]
+export function normalizeSpawnedAgentOutput(output: any): any {
+  if (
+    output &&
+    typeof output === 'object' &&
+    !Array.isArray(output) &&
+    (output as Record<string, unknown>).type === 'error'
+  ) {
+    const message = (output as Record<string, unknown>).message
+    return {
+      errorMessage:
+        typeof message === 'string' && message.trim()
+          ? message
+          : 'Subagent failed before producing output',
+    }
+  }
+  return output
+}
 
-/**
- * Returns the labels of required editor brief fields whose NO alias is present
- * in the (lowercased) prompt. A field is considered present if any of its
- * aliases appears as a case-insensitive substring. Returns ALL labels for an
- * empty/whitespace prompt.
- */
+const REQUIRED_EDITOR_BRIEF_FIELDS = [
+  'Requirements',
+  'Target files',
+  'Constraints/non-goals',
+  'Patterns',
+  'Risks',
+] as const
+
+const EMPTY_EDITOR_SECTION_VALUES = new Set([
+  '',
+  'n/a',
+  'na',
+  'none',
+  'none.',
+  'not applicable',
+  'tbd',
+  'unknown',
+  '-',
+])
+
 function findMissingEditorBriefFields(prompt: string): string[] {
-  const lower = prompt.toLowerCase()
-  return REQUIRED_EDITOR_BRIEF_FIELDS.filter(
-    (field) =>
-      !field.aliases.some((alias) => lower.includes(alias.toLowerCase())),
-  ).map((field) => field.label)
+  const headingPattern = /^\s*(?:#{1,4}\s*)?([^:\n]+):\s*(.*)$/gm
+  const matches = [...prompt.matchAll(headingPattern)]
+  const values = new Map<string, string>()
+  for (const [index, match] of matches.entries()) {
+    const start = (match.index ?? 0) + match[0].length
+    const end = matches[index + 1]?.index ?? prompt.length
+    const inlineValue = match[2].trim()
+    const followingLines = prompt.slice(start, end).trim()
+    values.set(
+      match[1].trim().toLowerCase(),
+      [inlineValue, followingLines].filter(Boolean).join('\n').trim(),
+    )
+  }
+  const valueFor = (label: (typeof REQUIRED_EDITOR_BRIEF_FIELDS)[number]) => {
+    const aliases =
+      label === 'Constraints/non-goals'
+        ? ['constraints/non-goals', 'constraints', 'non-goals']
+        : label === 'Patterns'
+          ? ['patterns', 'relevant patterns']
+          : label === 'Risks'
+            ? ['risks', 'code-level risks']
+            : [label.toLowerCase()]
+    return aliases
+      .map((alias) => values.get(alias)?.trim())
+      .find(
+        (value) =>
+          value !== undefined &&
+          !EMPTY_EDITOR_SECTION_VALUES.has(value.toLowerCase()),
+      )
+  }
+  return REQUIRED_EDITOR_BRIEF_FIELDS.filter((label) => !valueFor(label))
 }
 
 /**
@@ -338,9 +379,7 @@ export function validateAgentInput(
         [
           header,
           'Missing brief fields/sections:',
-          ...REQUIRED_EDITOR_BRIEF_FIELDS.map(
-            (field) => `- ${field.label}`,
-          ),
+          ...REQUIRED_EDITOR_BRIEF_FIELDS.map((field) => `- ${field}`),
           'Do not rely on parent conversation history.',
         ].join('\n'),
       )
@@ -449,7 +488,15 @@ export function logAgentSpawn(params: {
   } = params
   logger.debug(
     {
-      agentTemplate,
+      agentTemplate: {
+        id: agentTemplate.id,
+        displayName: agentTemplate.displayName,
+        model: agentTemplate.model,
+        toolNames: agentTemplate.toolNames,
+        programmaticToolNames: agentTemplate.programmaticToolNames,
+        spawnableAgents: agentTemplate.spawnableAgents,
+        mcpServerNames: Object.keys(agentTemplate.mcpServers ?? {}),
+      },
       prompt,
       params: spawnParams,
       agentId,
@@ -501,6 +548,8 @@ export async function executeSubagent(
       isOnlyChild?: boolean
       ancestorRunIds: string[]
       subagentTimeoutMs?: number
+      spawnToolCallId?: string
+      spawnIndex?: number
     } & ParamsExcluding<typeof loopAgentSteps, 'agentType' | 'ancestorRunIds'>,
     'isOnlyChild' | 'clearUserPromptMessagesAfterResponse'
   >,
@@ -519,6 +568,8 @@ export async function executeSubagent(
     prompt,
     spawnParams,
     subagentTimeoutMs,
+    spawnToolCallId,
+    spawnIndex,
   } = withDefaults
 
   // Enforce a max spawn depth to prevent unbounded subagent recursion
@@ -526,8 +577,8 @@ export async function executeSubagent(
   // depth 0; each spawn increments depth by 1. ancestorRunIds accumulates one
   // entry per ancestor, so its length equals the current parent's depth.
   const currentDepth = parentAgentState.ancestorRunIds.length
-  const maxSpawnDepth =
-    (agentTemplate.maxSpawnDepth ?? MAX_SPAWN_DEPTH_DEFAULT) as number
+  const maxSpawnDepth = (agentTemplate.maxSpawnDepth ??
+    MAX_SPAWN_DEPTH_DEFAULT) as number
   if (currentDepth + 1 > maxSpawnDepth) {
     throw new Error(
       `Maximum spawn depth (${maxSpawnDepth}) reached: cannot spawn agent "${agentTemplate.id}" at depth ${currentDepth + 1}. ` +
@@ -545,6 +596,8 @@ export async function executeSubagent(
     parentAgentId: parentAgentState.agentId,
     prompt,
     params: spawnParams,
+    spawnToolCallId,
+    spawnIndex,
   }
   onResponseChunk(startEvent)
 
@@ -555,7 +608,10 @@ export async function executeSubagent(
   // subagent without affecting its siblings). AbortSignal.any is available in
   // Node 20+ and Bun. If unavailable at runtime, fall back to a manual
   // EventTarget bridge so this stays safe on older runtimes.
-  const resolvedTimeoutMs = resolveSubagentTimeoutMs(agentTemplate, subagentTimeoutMs)
+  const resolvedTimeoutMs = resolveSubagentTimeoutMs(
+    agentTemplate,
+    subagentTimeoutMs,
+  )
   const timeoutController =
     resolvedTimeoutMs > 0 ? new AbortController() : undefined
   const parentSignal = withDefaults.signal
@@ -603,6 +659,8 @@ export async function executeSubagent(
       parentAgentId: parentAgentState.agentId,
       prompt,
       params: spawnParams,
+      spawnToolCallId,
+      spawnIndex,
       error: error instanceof Error ? error.message : String(error),
     })
     throw error
@@ -618,6 +676,8 @@ export async function executeSubagent(
       parentAgentId: parentAgentState.agentId,
       prompt,
       params: spawnParams,
+      spawnToolCallId,
+      spawnIndex,
     })
   }
 
@@ -660,4 +720,3 @@ export function createCombinedAbortSignal(
   }
   return controller.signal
 }
-

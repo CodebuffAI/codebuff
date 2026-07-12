@@ -25,10 +25,11 @@ npm install -g @openbuff/cli
 After installation, you can start Openbuff by running:
 
 ```bash
-openbuff [project-directory]
+openbuff --cwd /path/to/project
 ```
 
-If no project directory is specified, Openbuff will use the current directory.
+If `--cwd` is omitted, Openbuff uses the current directory. Positional
+arguments are treated as the initial coding prompt, not as a project path.
 
 Once running, simply chat with Openbuff to say what coding task you want done.
 
@@ -79,18 +80,21 @@ If you see `Failed to download openbuff: Request timeout` or `Failed to determin
 Openbuff respects standard proxy environment variables. Set `HTTPS_PROXY` to route traffic through your proxy:
 
 **Linux / macOS (bash/zsh):**
+
 ```bash
 export HTTPS_PROXY=http://your-proxy-server:port
 openbuff
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 $env:HTTPS_PROXY = "http://your-proxy-server:port"
 openbuff
 ```
 
 **Windows (CMD):**
+
 ```cmd
 set HTTPS_PROXY=http://your-proxy-server:port
 openbuff
@@ -100,11 +104,11 @@ To make it permanent, add the `export` or `set` line to your shell profile (e.g.
 
 **Supported environment variables:**
 
-| Variable | Purpose |
-|---|---|
-| `HTTPS_PROXY` / `https_proxy` | Proxy for HTTPS requests (recommended) |
-| `HTTP_PROXY` / `http_proxy` | Fallback proxy for HTTP requests |
-| `NO_PROXY` / `no_proxy` | Comma-separated list of hostnames to bypass the proxy (port suffixes are ignored) |
+| Variable                      | Purpose                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| `HTTPS_PROXY` / `https_proxy` | Proxy for HTTPS requests (recommended)                                            |
+| `HTTP_PROXY` / `http_proxy`   | Fallback proxy for HTTP requests                                                  |
+| `NO_PROXY` / `no_proxy`       | Comma-separated list of hostnames to bypass the proxy (port suffixes are ignored) |
 
 Both `http://` and `https://` proxy URLs are supported. Proxy authentication is supported via URL credentials (e.g. `http://user:password@proxy:port`).
 

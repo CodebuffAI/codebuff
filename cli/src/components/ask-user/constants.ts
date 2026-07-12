@@ -26,13 +26,10 @@ export type AskUserOption = string | { label: string; description?: string }
 
 /** Helper to extract label from an option (handles both string and object formats) */
 export const getOptionLabel = (option: AskUserOption): string => {
-  return typeof option === 'string' ? option : option?.label ?? ''
+  return typeof option === 'string' ? option : (option?.label ?? '')
 }
 
 /** Constant for the "Custom" option index */
 export const CUSTOM_OPTION_INDEX: number = -1
 
-export const KEYBOARD_HINTS = [
-  '↑↓ navigate •',
-  'Enter select',
-] as const
+export const KEYBOARD_HINTS = ['↑↓ navigate •', 'Enter select'] as const

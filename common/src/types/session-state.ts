@@ -4,6 +4,7 @@ import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
 import type { Message } from './messages/codebuff-message'
 import type { ProjectFileContext } from '../util/file'
+import type { ProposalResultV1 } from '../tools/results/filesystem'
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
@@ -88,17 +89,20 @@ export type AgentState = {
    * agentState rather than on the per-turn fileProcessingState, which is
    * recreated on every processStream / runProgrammaticStep invocation.
    *
-   * NOTE: this map grows monotonically for the lifetime of a single
-   * agentState. It is bounded by the number of distinct paths the agent
-   * touches, which in practice stays small. A long-lived agent that
-   * processes many unrelated files in one run could accumulate a non-trivial
-   * number of entries, but each entry is just a `true` literal so the memory
-   * footprint is negligible compared to the rest of agentState. No eviction
-   * is implemented; if that ever becomes a concern, the right place to add
-   * one is `getInitialAgentState` (reset) and the write-back in
-   * stream-parser.ts / run-programmatic-step.ts (cap or LRU).
+   * Entries are revoked when their paired content hash is stale or an edit
+   * application fails. The registry is otherwise bounded by the distinct
+   * paths touched during a run; no separate eviction policy is implemented.
    */
   readAuthorizationsByPath?: Record<string, true>
+  /**
+   * Content hash paired with each whole-file read authorization. The Boolean
+   * registry above remains as the compatibility/presence map, but an entry is
+   * authoritative only when this map contains the hash of the exact whole-file
+   * content the agent read or most recently wrote successfully.
+   */
+  readAuthorizationHashesByPath?: Record<string, string>
+  /** Typed current-attempt proposal records. Proposal state is not mutation state. */
+  proposalLedger?: ProposalResultV1[]
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [
@@ -195,6 +199,7 @@ export function getInitialAgentState(): AgentState {
     toolDefinitions: {},
     contextTokenCount: 0,
     readAuthorizationsByPath: {},
+    readAuthorizationHashesByPath: {},
   }
 }
 export function getInitialSessionState(

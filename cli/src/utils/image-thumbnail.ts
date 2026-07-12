@@ -37,7 +37,11 @@ export async function extractThumbnailColors(
     // Resize to target dimensions (height * 2 because we use half-blocks)
     // Use bilinear interpolation for smoother downscaling (sharper than nearest-neighbor)
     const resizedHeight = targetHeight * 2
-    image.resize({ w: targetWidth, h: resizedHeight, mode: ResizeStrategy.BILINEAR })
+    image.resize({
+      w: targetWidth,
+      h: resizedHeight,
+      mode: ResizeStrategy.BILINEAR,
+    })
 
     const width = image.width
     const height = image.height
@@ -61,7 +65,8 @@ export async function extractThumbnailColors(
   } catch (error) {
     logger.warn(
       {
-        source: typeof source === 'string' ? source : `Buffer(len=${source.length})`,
+        source:
+          typeof source === 'string' ? source : `Buffer(len=${source.length})`,
         error: error instanceof Error ? error.message : String(error),
       },
       'Failed to extract thumbnail colors from image',

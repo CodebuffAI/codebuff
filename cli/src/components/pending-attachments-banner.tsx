@@ -47,10 +47,19 @@ export const PendingAttachmentsBanner = () => {
   const hasValidImages = validImages.length > 0
   const hasTextAttachments = pendingTextAttachments.length > 0
   const hasFileAttachments = pendingFileAttachments.length > 0
-  const hasErrorsOnly = errorImages.length > 0 && !hasValidImages && !hasTextAttachments && !hasFileAttachments
+  const hasErrorsOnly =
+    errorImages.length > 0 &&
+    !hasValidImages &&
+    !hasTextAttachments &&
+    !hasFileAttachments
 
   // Nothing to show
-  if (!hasValidImages && !hasTextAttachments && !hasFileAttachments && errorImages.length === 0) {
+  if (
+    !hasValidImages &&
+    !hasTextAttachments &&
+    !hasFileAttachments &&
+    errorImages.length === 0
+  ) {
     return null
   }
 

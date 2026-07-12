@@ -14,14 +14,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 function buildCloneCommand(repoUrl: string, repoDir: string): string {
   const depthFlag = '--depth 1'
   const noLocalFlag = repoUrl.startsWith('file://') ? '--no-local' : ''
-  return [
-    'git',
-    'clone',
-    noLocalFlag,
-    depthFlag,
-    repoUrl,
-    repoDir,
-  ]
+  return ['git', 'clone', noLocalFlag, depthFlag, repoUrl, repoDir]
     .filter(Boolean)
     .join(' ')
 }

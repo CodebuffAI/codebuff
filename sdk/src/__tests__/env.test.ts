@@ -1,6 +1,10 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 
-import { getChatGptOAuthTokenFromEnv, getOpenbuffApiKeyFromEnv, getSdkEnv } from '../env'
+import {
+  getChatGptOAuthTokenFromEnv,
+  getOpenbuffApiKeyFromEnv,
+  getSdkEnv,
+} from '../env'
 import { createTestSdkEnv } from '../testing/env'
 
 describe('sdk/env', () => {

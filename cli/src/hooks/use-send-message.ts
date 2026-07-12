@@ -28,6 +28,7 @@ import { createSendMessageTimerController } from '../utils/send-message-timer'
 import {
   cleanupProviderReadinessFailure,
   createRunOwnership,
+  finalizeQueueState,
   handleRunCompletion,
   handleRunError,
   prepareUserMessage as prepareUserMessageHelper,
@@ -50,9 +51,7 @@ interface UseSendMessageOptions {
   activeSubagentsRef: React.MutableRefObject<Set<string>>
   isChainInProgressRef: React.MutableRefObject<boolean>
   setStreamStatus: (status: StreamStatus) => void
-  setContextWindowUsage: (
-    usage: { used: number; max: number } | null,
-  ) => void
+  setContextWindowUsage: (usage: { used: number; max: number } | null) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
@@ -580,16 +579,16 @@ export const useSendMessage = ({
         )
         const runState = await client.run(runConfig)
 
-        // Finalize: persist state and mark complete. If this run was aborted or
-        // superseded by a newer send, skip persistence so late completions cannot
-        // clobber the newer run's state/checkpoint ownership.
-        if (!isCurrentRunActive(abortController.signal)) {
+        // Accept an aborted run's preserved state while it still owns the send.
+        // This serializes cancel-A/send-B and prevents continuation from forking
+        // from what the user sees in the TUI.
+        if (!isCurrentRunOwner()) {
           logger.debug(
             {
               aborted: abortController.signal.aborted,
               isCurrentRunOwner: isCurrentRunOwner(),
             },
-            '[send-message] Ignoring run completion after abort or superseded send',
+            '[send-message] Ignoring run completion from superseded send',
           )
           return
         }
@@ -602,8 +601,7 @@ export const useSendMessage = ({
           saveChatState(runState, currentMessages)
           return currentMessages
         })
-        // P2-3: The turn completed successfully — clear any mid-turn
-        // checkpoint so it can't interfere with the next turn.
+        // The SDK state is authoritative for both success and cooperative abort.
         clearCheckpoint()
         resumableCheckpointRef.current = null
         handleRunCompletion({
@@ -623,10 +621,6 @@ export const useSendMessage = ({
           isQueuePausedRef,
         })
       } catch (error) {
-        // If this run was aborted, the abort handler already handled cleanup.
-        // Don't run error handling to avoid interfering with any new run that
-        // may have started. Uses per-run abortController.signal (not shared
-        // streamRefs) so a newer run's reset() can't clear this flag.
         if (!abortController.signal.aborted) {
           handleRunError({
             error,
@@ -640,15 +634,20 @@ export const useSendMessage = ({
             isQueuePausedRef,
           })
         } else {
-          logger.debug({ error }, '[send-message] Ignoring error after abort')
+          logger.debug({ error }, '[send-message] Run rejected after abort')
+          if (isCurrentRunOwner()) {
+            finalizeQueueState({
+              setStreamStatus,
+              setCanProcessQueue,
+              updateChainInProgress,
+              isProcessingQueueRef,
+              isQueuePausedRef,
+              resumeQueue,
+            })
+          }
         }
       } finally {
-        // If this run was aborted, the abort handler already released the chain lock
-        // and queue processing state. Don't touch shared state here to avoid
-        // interfering with any new run that may have started after the abort.
-        // Uses per-run abortController.signal (not shared streamRefs) so a newer
-        // run's reset() can't clear this flag.
-        if (isCurrentRunActive(abortController.signal)) {
+        if (isCurrentRunOwner()) {
           if (isChainInProgressRef.current) {
             logger.warn(
               {},

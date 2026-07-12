@@ -92,7 +92,9 @@ describe('code-searcher agent', () => {
       },
       includeToolCall: false,
     })
-    expect(output.input.message).toContain('Ran 1 query')
+    expect(output.input.message).toContain(
+      'Attempted 2 queries; executed 1; rejected 1',
+    )
     expect(output.input.message).toContain('1 returned matches')
     expect(output.input.message).toContain('Skipped 1 invalid query')
     // M2.1: a heuristic digest is emitted alongside raw results.

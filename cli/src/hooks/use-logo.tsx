@@ -1,13 +1,21 @@
 import React, { useMemo } from 'react'
 
-import { LOGO, LOGO_SMALL, SHADOW_CHARS, parseLogoLines } from '../components/logo-constants'
-
+import {
+  LOGO,
+  LOGO_SMALL,
+  SHADOW_CHARS,
+  parseLogoLines,
+} from '../components/logo-constants'
 
 interface UseLogoOptions {
   /** Available width for rendering the logo */
   availableWidth: number
   /** Optional function to apply styling to each character (e.g., for sheen animation) */
-  applySheenToChar?: (char: string, charIndex: number, lineIndex: number) => React.ReactNode
+  applySheenToChar?: (
+    char: string,
+    charIndex: number,
+    lineIndex: number,
+  ) => React.ReactNode
   /** Color to apply to the text variant */
   textColor?: string
   /** Accent color for shadow/border characters */
@@ -71,12 +79,24 @@ export const useLogo = ({
         return <span key={charIndex}>{char}</span>
       }
       if (char === '█') {
-        return <span key={charIndex} fg={blockColor}>{char}</span>
+        return (
+          <span key={charIndex} fg={blockColor}>
+            {char}
+          </span>
+        )
       }
       if (SHADOW_CHARS.has(char)) {
-        return <span key={charIndex} fg={accentColor}>{char}</span>
+        return (
+          <span key={charIndex} fg={accentColor}>
+            {char}
+          </span>
+        )
       }
-      return <span key={charIndex} fg={accentColor}>{char}</span>
+      return (
+        <span key={charIndex} fg={accentColor}>
+          {char}
+        </span>
+      )
     }
 
     return (
@@ -94,7 +114,14 @@ export const useLogo = ({
         ))}
       </>
     )
-  }, [rawLogoString, availableWidth, applySheenToChar, textColor, accentColor, blockColor])
+  }, [
+    rawLogoString,
+    availableWidth,
+    applySheenToChar,
+    textColor,
+    accentColor,
+    blockColor,
+  ])
 
   return { component, textBlock }
 }

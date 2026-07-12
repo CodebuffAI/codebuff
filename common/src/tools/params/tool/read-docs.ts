@@ -80,6 +80,25 @@ export const readDocsParams = {
   outputSchema: jsonToolResultSchema(
     z.object({
       documentation: z.string(),
+      library: z
+        .object({
+          id: z.string(),
+          title: z.string(),
+          branch: z.string(),
+          lastUpdateDate: z.string(),
+          trustScore: z.number().optional(),
+          alternatives: z
+            .array(
+              z.object({
+                id: z.string(),
+                title: z.string(),
+                branch: z.string(),
+                trustScore: z.number().optional(),
+              }),
+            )
+            .optional(),
+        })
+        .optional(),
     }),
   ),
 } satisfies $ToolParams

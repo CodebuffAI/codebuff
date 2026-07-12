@@ -153,7 +153,10 @@ describe('fetchContext7LibraryDocumentation', () => {
       fetch: fetchMock as unknown as typeof globalThis.fetch,
     })
 
-    expect(out).toBe('# React Docs\n\nUseful content.')
+    expect(out).toMatchObject({
+      documentation: '# React Docs\n\nUseful content.',
+      selectedLibrary: { id: '/react', title: 'React' },
+    })
     expect(fetchMock).toHaveBeenCalledTimes(2)
 
     // Verify the doc URL carries the optional query params and type=txt.
@@ -164,6 +167,41 @@ describe('fetchContext7LibraryDocumentation', () => {
     expect(docUrl.searchParams.get('tokens')).toBe('5000')
     expect(docUrl.searchParams.get('topic')).toBe('hooks')
     expect(docUrl.searchParams.get('type')).toBe('txt')
+  })
+
+  test('ranks an exact library title above an ambiguous first result and preserves alternatives', async () => {
+    const base = {
+      description: '',
+      branch: 'main',
+      lastUpdateDate: '2026-01-01',
+      state: 'finalized',
+      totalTokens: 100,
+      totalSnippets: 2,
+      totalPages: 1,
+    }
+    const fetchMock = mock(async (url: URL | string) => {
+      const parsed = new URL(url.toString())
+      if (parsed.pathname === '/api/v1/search') {
+        return makeResponse({
+          results: [
+            { ...base, id: '/other/react-tools', title: 'React Tools' },
+            { ...base, id: '/facebook/react', title: 'React' },
+          ],
+        })
+      }
+      if (parsed.pathname === '/api/v1//facebook/react') {
+        return makeResponse('official docs')
+      }
+      throw new Error(`unexpected url: ${parsed}`)
+    })
+
+    const out = await fetchContext7LibraryDocumentation({
+      query: 'React',
+      logger: noopLogger,
+      fetch: fetchMock as unknown as typeof globalThis.fetch,
+    })
+    expect(out?.selectedLibrary.id).toBe('/facebook/react')
+    expect(out?.alternatives[0]?.id).toBe('/other/react-tools')
   })
 
   test('returns null when no libraries are found by search', async () => {

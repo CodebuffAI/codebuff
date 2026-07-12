@@ -8,9 +8,9 @@ type GateAuxHelpers = {
   matchesSecuritySensitiveGlob: (files: string[]) => boolean
   inferPackageTestCommand: (filePath: string) => string | null
   isNonTestSourceFile: (filePath: string) => boolean
-  selectTestWriterTargets: (
-    files: string[],
-  ) => { targetFiles: string[]; testCommand: string | null }
+  selectTestWriterTargets: (files: string[]) => {
+    groups: Array<{ targetFiles: string[]; testCommand: string }>
+  }
   isPublicApiSourceFile: (filePath: string) => boolean
   selectDocWriterTargets: (files: string[]) => string[]
   // Reorder helper: the aux-relevant subset used for the *GateDone reset
@@ -135,9 +135,7 @@ function loadInlineGateAuxHelpers(): GateAuxHelpers {
   return buildHelpers(process)
 }
 
-function createState(
-  over: Partial<AuxWorkState> = {},
-): AuxWorkState {
+function createState(over: Partial<AuxWorkState> = {}): AuxWorkState {
   return {
     auxGatesLastPendingFiles: [],
     preEditSecurityReviewDone: false,
@@ -187,9 +185,7 @@ describe('gate-aux-triggers', () => {
 
     test('non-sensitive util file is false', () => {
       expect(
-        helpers.matchesSecuritySensitiveGlob([
-          'common/src/util/strings.ts',
-        ]),
+        helpers.matchesSecuritySensitiveGlob(['common/src/util/strings.ts']),
       ).toBe(false)
     })
 
@@ -215,107 +211,134 @@ describe('gate-aux-triggers', () => {
       const result = helpers.selectTestWriterTargets([
         'packages/sdk/src/run.ts',
       ])
-      expect(result.targetFiles).toEqual(['packages/sdk/src/run.ts'])
-      expect(result.testCommand).toBe(
-        'cd packages/sdk && bun run typecheck && bun test',
-      )
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['packages/sdk/src/run.ts'],
+          testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+        },
+      ])
     })
 
     test('agents/<dir> non-test maps to agents package command', () => {
       const result = helpers.selectTestWriterTargets([
         'agents/git-committer/git-committer.ts',
       ])
-      expect(result.targetFiles).toEqual([
-        'agents/git-committer/git-committer.ts',
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['agents/git-committer/git-committer.ts'],
+          testCommand: 'cd agents && bun run typecheck && bun test',
+        },
       ])
-      expect(result.testCommand).toBe(
-        'cd agents && bun run typecheck && bun test',
-      )
     })
 
     test('common/src maps to common package command', () => {
-      const result = helpers.selectTestWriterTargets(['common/src/tools/list.ts'])
-      expect(result.targetFiles).toEqual(['common/src/tools/list.ts'])
-      expect(result.testCommand).toBe(
-        'cd common && bun run typecheck && bun test',
-      )
+      const result = helpers.selectTestWriterTargets([
+        'common/src/tools/list.ts',
+      ])
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['common/src/tools/list.ts'],
+          testCommand: 'cd common && bun run typecheck && bun test',
+        },
+      ])
     })
 
     test('cli/src maps to cli package command', () => {
       const result = helpers.selectTestWriterTargets([
         'cli/src/components/foo.tsx',
       ])
-      expect(result.targetFiles).toEqual(['cli/src/components/foo.tsx'])
-      expect(result.testCommand).toBe(
-        'cd cli && bun run typecheck && bun test',
-      )
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['cli/src/components/foo.tsx'],
+          testCommand: 'cd cli && bun run typecheck && bun test',
+        },
+      ])
     })
 
     test('__tests__ file is filtered out', () => {
       const result = helpers.selectTestWriterTargets([
         'packages/sdk/src/__tests__/run.test.ts',
       ])
-      expect(result.targetFiles).toEqual([])
-      expect(result.testCommand).toBeNull()
+      expect(result.groups).toEqual([])
     })
 
     test('.md file is filtered out', () => {
       const result = helpers.selectTestWriterTargets([
         'docs/agents-and-tools.md',
       ])
-      expect(result.targetFiles).toEqual([])
-      expect(result.testCommand).toBeNull()
+      expect(result.groups).toEqual([])
     })
 
     test('agents base2 test file is filtered out', () => {
       const result = helpers.selectTestWriterTargets([
         'agents/base2/__tests__/base2.test.ts',
       ])
-      expect(result.targetFiles).toEqual([])
-      expect(result.testCommand).toBeNull()
+      expect(result.groups).toEqual([])
     })
 
-    test('mixed set keeps only non-test source; testCommand from first target', () => {
+    test('mixed set keeps only non-test source in its package group', () => {
       const result = helpers.selectTestWriterTargets([
         'packages/sdk/src/run.ts',
         'packages/sdk/src/__tests__/run.test.ts',
         'docs/foo.md',
       ])
-      expect(result.targetFiles).toEqual(['packages/sdk/src/run.ts'])
-      expect(result.testCommand).toBe(
-        'cd packages/sdk && bun run typecheck && bun test',
-      )
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['packages/sdk/src/run.ts'],
+          testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+        },
+      ])
     })
 
     test('evals/ file is filtered out', () => {
-      const result = helpers.selectTestWriterTargets(['evals/buffbench/main.ts'])
-      expect(result.targetFiles).toEqual([])
-      expect(result.testCommand).toBeNull()
+      const result = helpers.selectTestWriterTargets([
+        'evals/buffbench/main.ts',
+      ])
+      expect(result.groups).toEqual([])
     })
 
-    test('empty input yields empty targets and null command', () => {
+    test('groups mixed packages by their own validation command', () => {
+      const result = helpers.selectTestWriterTargets([
+        'packages/sdk/src/run.ts',
+        'cli/src/chat.tsx',
+      ])
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['packages/sdk/src/run.ts'],
+          testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+        },
+        {
+          targetFiles: ['cli/src/chat.tsx'],
+          testCommand: 'cd cli && bun run typecheck && bun test',
+        },
+      ])
+    })
+
+    test('empty input yields no groups', () => {
       const result = helpers.selectTestWriterTargets([])
-      expect(result).toEqual({ targetFiles: [], testCommand: null })
+      expect(result).toEqual({ groups: [] })
     })
   })
 
   describe('docWriterGate (selectDocWriterTargets)', () => {
     test('packages/<name>/src included', () => {
-      expect(helpers.selectDocWriterTargets(['packages/sdk/src/run.ts'])).toEqual(
-        ['packages/sdk/src/run.ts'],
-      )
+      expect(
+        helpers.selectDocWriterTargets(['packages/sdk/src/run.ts']),
+      ).toEqual(['packages/sdk/src/run.ts'])
     })
 
     test('agents/<dir> non-test included', () => {
       expect(
-        helpers.selectDocWriterTargets(['agents/git-committer/git-committer.ts']),
+        helpers.selectDocWriterTargets([
+          'agents/git-committer/git-committer.ts',
+        ]),
       ).toEqual(['agents/git-committer/git-committer.ts'])
     })
 
     test('common/src included', () => {
-      expect(helpers.selectDocWriterTargets(['common/src/tools/list.ts'])).toEqual(
-        ['common/src/tools/list.ts'],
-      )
+      expect(
+        helpers.selectDocWriterTargets(['common/src/tools/list.ts']),
+      ).toEqual(['common/src/tools/list.ts'])
     })
 
     test('cli/src included', () => {
@@ -326,7 +349,9 @@ describe('gate-aux-triggers', () => {
 
     test('__tests__ excluded', () => {
       expect(
-        helpers.selectDocWriterTargets(['packages/sdk/src/__tests__/run.test.ts']),
+        helpers.selectDocWriterTargets([
+          'packages/sdk/src/__tests__/run.test.ts',
+        ]),
       ).toEqual([])
     })
 
@@ -337,9 +362,9 @@ describe('gate-aux-triggers', () => {
     })
 
     test('evals/ excluded', () => {
-      expect(helpers.selectDocWriterTargets(['evals/buffbench/main.ts'])).toEqual(
-        [],
-      )
+      expect(
+        helpers.selectDocWriterTargets(['evals/buffbench/main.ts']),
+      ).toEqual([])
     })
 
     test('agents/__tests__/ prefix excluded', () => {
@@ -478,9 +503,7 @@ describe('gate-aux-triggers', () => {
     test('switching to a new set is detected; reset clears flags again', () => {
       const state = createState()
       helpers.resetAuxGateFlags(state, ['a.ts', 'b.ts'])
-      expect(
-        helpers.detectPendingGateFileSetChange(state, ['c.ts']),
-      ).toBe(true)
+      expect(helpers.detectPendingGateFileSetChange(state, ['c.ts'])).toBe(true)
       helpers.resetAuxGateFlags(state, ['c.ts'])
       expect(state.preEditSecurityReviewDone).toBe(false)
       expect(state.testWriterGateDone).toBe(false)

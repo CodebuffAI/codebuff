@@ -9,7 +9,9 @@ import { gitStatus } from '../tools/git-status'
 
 import type { MockChildProcess } from '@codebuff/common/testing/mocks'
 
-function getErrorMessage(result: Awaited<ReturnType<typeof gitStatus>>): string {
+function getErrorMessage(
+  result: Awaited<ReturnType<typeof gitStatus>>,
+): string {
   const firstEntry = result[0]
   expect(firstEntry.type).toBe('json')
   const value = firstEntry.value as { errorMessage?: string }

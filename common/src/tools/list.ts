@@ -3,6 +3,12 @@ import z from 'zod/v4'
 import { CHANGES, FileChangeSchema } from '../actions'
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
+import {
+  acceptProposalParams,
+  applyProposalParams,
+  readProposalsParams,
+  rejectProposalParams,
+} from './params/tool/proposal-actions'
 import { applyPatchParams } from './params/tool/apply-patch'
 import { applySmartPatchParams } from './params/tool/apply-smart-patch'
 import { askUserParams } from './params/tool/ask-user'
@@ -58,10 +64,12 @@ import type { ToolMessage } from '../types/messages/codebuff-message'
 import type { ToolCallPart } from '../types/messages/content-part'
 
 export const toolParams = {
+  accept_proposal: acceptProposalParams,
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
   apply_patch: applyPatchParams,
   apply_smart_patch: applySmartPatchParams,
+  apply_proposal: applyProposalParams,
   ask_user: askUserParams,
   browser_logs: browserLogsParams,
   check_background_agent: checkBackgroundAgentParams,
@@ -87,12 +95,14 @@ export const toolParams = {
   read_files: readFilesParams,
   read_image: readImageParams,
   read_outline: readOutlineParams,
+  read_proposals: readProposalsParams,
   read_slices: readSlicesParams,
   read_proposal_workspace: readProposalWorkspaceParams,
   read_subtree: readSubtreeParams,
   replace_range: replaceRangeParams,
   rewrite_symbol: rewriteSymbolParams,
   render_ui: renderUIParams,
+  reject_proposal: rejectProposalParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,
   set_messages: setMessagesParams,
@@ -204,7 +214,17 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('run_terminal_command'),
     input: toolParams.run_terminal_command.inputSchema.and(
-      z.object({ mode: z.enum(['assistant', 'user']) }),
+      z.object({
+        mode: z.enum(['assistant', 'user']),
+        permission_profile: z.enum([
+          'read-only',
+          'librarian-read-only',
+          'git-commit',
+          'tmux-test',
+          'workspace-write',
+          'full-access',
+        ]),
+      }),
     ),
   }),
   z.object({

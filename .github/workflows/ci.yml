@@ -82,9 +82,11 @@ jobs:
         package:
           [
             .agents,
+            agents,
             cli,
             common,
             packages/agent-runtime,
+            packages/indexer,
             packages/internal,
             sdk,
           ]
@@ -140,13 +142,8 @@ jobs:
           max_attempts: 3
           command: |
             cd ${{ matrix.package }}
-            if [ "${{ matrix.package }}" = ".agents" ]; then
-              TEST_FILES=$(find __tests__ -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort | tr '\n' ' ')
-              if [ -n "$TEST_FILES" ]; then
-                bun test $TEST_FILES
-              else
-                echo "No regular tests found in .agents"
-              fi
+            if [ "${{ matrix.package }}" = ".agents" ] || [ "${{ matrix.package }}" = "agents" ]; then
+              bun run test
             else
               # Run all non-integration tests in a single bun test invocation
               # This avoids xargs exit code issues with orphaned child processes
@@ -169,13 +166,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package:
-          [
-            cli,
-            common,
-            packages/agent-runtime,
-            sdk,
-          ]
+        package: [cli, common, packages/agent-runtime, sdk]
     name: test-integration-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:

@@ -1,6 +1,7 @@
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
+import { getToolOutputValues } from '../../utils/tool-result-normalizer'
 
 import type { ToolRenderConfig } from './types'
 
@@ -24,14 +25,40 @@ export const ReadSubtreeComponent = defineToolComponent({
         : paths[0] || ''
 
     const finalPath = displayPath || '.'
+    const entries = getToolOutputValues(toolBlock.outputRaw).flatMap((value) =>
+      Array.isArray(value) ? value : [],
+    ) as Array<Record<string, unknown>>
+    const failures = entries.filter(
+      (entry) => typeof entry.errorMessage === 'string',
+    )
+    const truncated = entries.filter(
+      (entry) =>
+        entry.liveScanTruncated === true ||
+        (typeof entry.truncationLevel === 'string' &&
+          entry.truncationLevel !== 'none'),
+    )
+    const statusName =
+      toolBlock.lifecycle === 'cancelled'
+        ? 'Subtree cancelled'
+        : failures.length === entries.length && entries.length > 0
+          ? 'Subtree failed'
+          : failures.length > 0 || truncated.length > 0
+            ? 'Subtree partial'
+            : 'List deeply'
 
     // Use a wrapper component to access theme
     const ReadSubtreeContent = () => {
       const theme = useTheme()
       return (
         <SimpleToolCallItem
-          name="List deeply"
-          description={finalPath}
+          name={statusName}
+          description={
+            failures[0]?.errorMessage
+              ? `${finalPath} · ${String(failures[0].errorMessage)}`
+              : truncated[0]?.recovery
+                ? `${finalPath} · ${String(truncated[0].recovery)}`
+                : finalPath
+          }
           descriptionColor={theme.directory}
         />
       )

@@ -49,8 +49,7 @@ function makeAgentResults(
     agentId,
     runs,
     averageScore: averages?.averageScore ?? 5,
-    averageScoreExcludingFailures:
-      averages?.averageScoreExcludingFailures ?? 5,
+    averageScoreExcludingFailures: averages?.averageScoreExcludingFailures ?? 5,
     averageCost: averages?.averageCost ?? 10,
     averageDuration: averages?.averageDuration ?? 5_000,
   }
@@ -351,18 +350,14 @@ describe('compareRuns: run counts', () => {
         makeEvalRun(),
       ]),
     ]
-    const after = [
-      makeAgentResults('agent-a', [makeEvalRun(), makeEvalRun()]),
-    ]
+    const after = [makeAgentResults('agent-a', [makeEvalRun(), makeEvalRun()])]
     const result = compareRuns(before, after)
     expect(result.agentDeltas[0].beforeRunCount).toBe(3)
     expect(result.agentDeltas[0].afterRunCount).toBe(2)
   })
 
   test('should report 0 run counts for missing agents', () => {
-    const before = [
-      makeAgentResults('agent-a', [makeEvalRun(), makeEvalRun()]),
-    ]
+    const before = [makeAgentResults('agent-a', [makeEvalRun(), makeEvalRun()])]
     const result = compareRuns(before, [])
     const delta = result.agentDeltas.find((d) => d.agentId === 'agent-a')!
     expect(delta.beforeRunCount).toBe(2)
@@ -391,7 +386,9 @@ describe('formatComparisonReport', () => {
     const result = compareRuns(before, after)
     const report = formatComparisonReport(result)
     expect(report).toContain('## BuffBench Before/After Comparison')
-    expect(report).toContain('| Agent | Score Δ | Cost Δ | Duration Δ | Runs | Status |')
+    expect(report).toContain(
+      '| Agent | Score Δ | Cost Δ | Duration Δ | Runs | Status |',
+    )
     expect(report).toContain('agent-a')
     expect(report).toContain('Overall:')
   })
@@ -427,7 +424,9 @@ describe('formatComparisonReport', () => {
     const report = formatComparisonReport(result)
     expect(report).toContain('## BuffBench Before/After Comparison')
     // Table headers present even with no rows
-    expect(report).toContain('|-------|---------|--------|------------|------|--------|')
+    expect(report).toContain(
+      '|-------|---------|--------|------------|------|--------|',
+    )
   })
 })
 
@@ -444,10 +443,14 @@ describe('compareRuns: summary line formatting', () => {
       }),
     ]
     const after = [
-      makeAgentResults('agent-a', [makeEvalRun(), makeEvalRun(), makeEvalRun()], {
-        averageScore: 7,
-        averageCost: 15,
-      }),
+      makeAgentResults(
+        'agent-a',
+        [makeEvalRun(), makeEvalRun(), makeEvalRun()],
+        {
+          averageScore: 7,
+          averageCost: 15,
+        },
+      ),
     ]
     const result = compareRuns(before, after)
     const summary = result.agentDeltas[0].summary
@@ -472,7 +475,9 @@ describe('compareRuns: summary line formatting', () => {
       makeAgentResults('agent-a', [makeEvalRun()], { averageDuration: 60_000 }),
     ]
     const after = [
-      makeAgentResults('agent-a', [makeEvalRun()], { averageDuration: 120_000 }),
+      makeAgentResults('agent-a', [makeEvalRun()], {
+        averageDuration: 120_000,
+      }),
     ]
     const result = compareRuns(before, after)
     expect(result.agentDeltas[0].summary).toMatch(/\d+\.\dm/)

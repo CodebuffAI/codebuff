@@ -5,7 +5,7 @@ import path from 'path'
 import { describe, expect, test, beforeEach } from 'bun:test'
 import { z } from 'zod/v4'
 
-import { initialSessionState } from '../run-state'
+import { applyOverridesToSessionState, initialSessionState } from '../run-state'
 
 import type { MockStatResult } from '@codebuff/common/testing/mock-types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -421,5 +421,44 @@ describe('Initial Session State', () => {
     expect(sessionState.mainAgentState.directCreditsUsed).toBe(0)
     expect(sessionState.mainAgentState.output).toBeUndefined()
     expect(sessionState.mainAgentState.parentId).toBeUndefined()
+  })
+
+  test('refreshes live file context when continuing a session', async () => {
+    const projectRoot = mkdtempSync(path.join(os.tmpdir(), 'openbuff-resume-'))
+    try {
+      mkdirSync(path.join(projectRoot, 'src'))
+      writeFileSync(
+        path.join(projectRoot, 'src', 'index.ts'),
+        'export const current = true',
+      )
+      writeFileSync(
+        path.join(projectRoot, 'knowledge.md'),
+        '# Current knowledge',
+      )
+      const sessionState = await initialSessionState({
+        cwd: projectRoot,
+        projectFiles: {
+          'src/deleted.ts': 'export const deleted = true',
+          'knowledge.md': '# Old knowledge',
+        },
+        logger: mockLogger,
+      })
+
+      const continued = await applyOverridesToSessionState(
+        projectRoot,
+        sessionState,
+        {},
+        { logger: mockLogger },
+      )
+      const renderedTree = JSON.stringify(continued.fileContext.fileTree)
+
+      expect(renderedTree).toContain('index.ts')
+      expect(renderedTree).not.toContain('deleted.ts')
+      expect(continued.fileContext.knowledgeFiles['knowledge.md']).toContain(
+        'Current knowledge',
+      )
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true })
+    }
   })
 })

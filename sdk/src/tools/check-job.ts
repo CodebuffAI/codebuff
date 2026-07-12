@@ -35,9 +35,9 @@ export async function checkJob(params: {
 }): Promise<CodebuffToolOutput<'check_job'>> {
   const { jobId, wait_for: waitFor } = params
   const timeoutMs = Math.max(0, (params.timeout_seconds ?? 0) * 1000)
-  // Default to killing the job when the follow-timeout fires. Poll mode
-  // (timeoutMs === 0) never kills — only the follow-timeout branch below can.
-  const killOnTimeout = params.kill_on_timeout ?? true
+  // Observation must be non-destructive by default. Callers can explicitly
+  // request termination when a follow timeout represents a hard deadline.
+  const killOnTimeout = params.kill_on_timeout ?? false
 
   const job = getBackgroundJob(jobId)
   if (!job) {
@@ -63,15 +63,12 @@ export async function checkJob(params: {
     const chunk = readNewJobOutput(job)
     if (collected.length + chunk.length > COLLECTED_CAP) {
       const head = collected.slice(0, COLLECTED_CAP - COLLECTED_TAIL_KEEP)
-      const overflow =
-        collected.length + chunk.length - COLLECTED_CAP
+      const overflow = collected.length + chunk.length - COLLECTED_CAP
       const tail = (collected + chunk).slice(
         (collected + chunk).length - COLLECTED_TAIL_KEEP,
       )
       collected =
-        head +
-        `\n…[poll truncated ${overflow} chars mid-stream]\n` +
-        tail
+        head + `\n…[poll truncated ${overflow} chars mid-stream]\n` + tail
     } else {
       collected += chunk
     }

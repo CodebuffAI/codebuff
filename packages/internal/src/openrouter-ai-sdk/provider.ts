@@ -1,4 +1,3 @@
-
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils'
 
 import { OpenRouterChatLanguageModel } from './chat'

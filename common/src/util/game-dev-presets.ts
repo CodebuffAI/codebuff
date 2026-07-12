@@ -85,16 +85,8 @@ const ENGINE_JOB_GUIDANCE: Record<SupportedEngineId, GameDevJobGuidance> = {
       'Running scene',
       'Export successful',
     ],
-    errorPatterns: [
-      'SCRIPT ERROR',
-      'Parse Error',
-      'ERROR:',
-      'CRASH:',
-    ],
-    logPaths: [
-      '~/.godot/editor_data/logs/',
-      'logs/',
-    ],
+    errorPatterns: ['SCRIPT ERROR', 'Parse Error', 'ERROR:', 'CRASH:'],
+    logPaths: ['~/.godot/editor_data/logs/', 'logs/'],
     stopInstructions:
       'Send SIGTERM to the Godot editor or headless export process. Godot exits cleanly on SIGTERM. If running headless export, the process exits on its own when the export completes — only kill if it hangs.',
   },
@@ -132,15 +124,8 @@ const ENGINE_JOB_GUIDANCE: Record<SupportedEngineId, GameDevJobGuidance> = {
       'Successfully initialized',
       'Finished',
     ],
-    errorPatterns: [
-      'panicked at',
-      'error[E',
-      'thread main panicked',
-      'FAILED',
-    ],
-    logPaths: [
-      'logs/',
-    ],
+    errorPatterns: ['panicked at', 'error[E', 'thread main panicked', 'FAILED'],
+    logPaths: ['logs/'],
     stopInstructions:
       'Send SIGTERM to the cargo run or cargo watch process. Rust processes exit cleanly on SIGTERM. If cargo watch is running, kill it with kill_job before rebuilding to avoid stale recompile loops.',
   },
@@ -160,10 +145,7 @@ const ENGINE_JOB_GUIDANCE: Record<SupportedEngineId, GameDevJobGuidance> = {
  * runs them with the user's confirmation. This avoids hardcoding commands
  * that may not match the project's actual setup.
  */
-const ENGINE_PRESETS: Record<
-  SupportedEngineId,
-  GameDevPreset[]
-> = {
+const ENGINE_PRESETS: Record<SupportedEngineId, GameDevPreset[]> = {
   unity: [
     {
       id: 'unity:build',
@@ -214,7 +196,7 @@ const ENGINE_PRESETS: Record<
       label: 'godot:test',
       description: 'Run GUT (Godot Unit Test) or integration tests',
       insertText:
-        'Run the Godot test suite. Look for GUT (Godot Unit Test) addon in addons/gut or a test/ directory. Run tests via `godot --headless -s` with the test script or GUT\'s command-line interface. Use a synchronous terminal command and report results.',
+        "Run the Godot test suite. Look for GUT (Godot Unit Test) addon in addons/gut or a test/ directory. Run tests via `godot --headless -s` with the test script or GUT's command-line interface. Use a synchronous terminal command and report results.",
     },
     {
       id: 'godot:watch',
@@ -230,7 +212,7 @@ const ENGINE_PRESETS: Record<
       label: 'unreal:build',
       description: 'Build the Unreal project (UBT/UnrealBuildTool)',
       insertText:
-        'Build the Unreal project. Check the .uproject file for modules and engine version. Run UnrealBuildTool via the UBT command or the project\'s Build.sh/Build.bat. Use a synchronous terminal command — Unreal builds are long, so set timeout accordingly.',
+        "Build the Unreal project. Check the .uproject file for modules and engine version. Run UnrealBuildTool via the UBT command or the project's Build.sh/Build.bat. Use a synchronous terminal command — Unreal builds are long, so set timeout accordingly.",
     },
     {
       id: 'unreal:run',
@@ -334,9 +316,7 @@ export function getGameDevJobGuidance(
  * (We return a compatible shape but keep the type definition in the CLI
  * to avoid a circular dependency from common/ -> cli/.)
  */
-export function getGameDevSlashCommands(
-  engineIds: SupportedEngineId[],
-): Array<{
+export function getGameDevSlashCommands(engineIds: SupportedEngineId[]): Array<{
   id: string
   label: string
   description: string

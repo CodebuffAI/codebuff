@@ -92,7 +92,7 @@ describe('XML tool result ordering', () => {
 
     expect(executeStartIndex).toBeGreaterThan(-1)
     expect(executeDoneIndex).toBeGreaterThan(-1)
-    
+
     // The tool execution should complete before "Text after" is processed
     if (textAfterIndex > -1) {
       expect(executeDoneIndex).toBeLessThan(textAfterIndex)
@@ -102,7 +102,7 @@ describe('XML tool result ordering', () => {
   it('should track tool_call and tool_result events in correct order', async () => {
     // This test simulates what happens in the full processStream flow
     // where we capture both tool_call and tool_result events
-    
+
     const events: { type: string; toolName?: string; order: number }[] = []
     let eventCounter = 0
 
@@ -141,10 +141,10 @@ describe('XML tool result ordering', () => {
       executeXmlToolCall: async ({ toolName }) => {
         // Simulate tool_call event
         events.push({ type: 'tool_call', toolName, order: eventCounter++ })
-        
+
         // Simulate async tool execution
         await new Promise((resolve) => setTimeout(resolve, 5))
-        
+
         // Simulate tool_result event
         events.push({ type: 'tool_result', toolName, order: eventCounter++ })
       },
@@ -212,7 +212,7 @@ describe('XML tool result ordering', () => {
     // This test verifies that awaiting inside executeXmlToolCall doesn't cause a deadlock.
     // The fix: pass Promise.resolve() instead of previousToolCallFinished for XML mode,
     // so the tool can execute immediately without waiting for the stream to finish.
-    
+
     const xmlToolCall = `<codebuff_tool_call>
 {"cb_tool_name": "test_tool", "param": "value"}
 </codebuff_tool_call>`
@@ -233,7 +233,7 @@ describe('XML tool result ordering', () => {
     // 3. streamDonePromise only resolves when stream ends
     // 4. Stream can't end because it's waiting for executeXmlToolCall
     // => Deadlock!
-    
+
     const timeoutPromise = new Promise<'timeout'>((resolve) =>
       setTimeout(() => resolve('timeout'), 1000),
     )

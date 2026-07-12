@@ -105,8 +105,11 @@ function parseArgs(): {
   return { modelKey, useDeployment, intervals }
 }
 
-const { modelKey, useDeployment: USE_DEPLOYMENT, intervals: INTERVALS_SEC } =
-  parseArgs()
+const {
+  modelKey,
+  useDeployment: USE_DEPLOYMENT,
+  intervals: INTERVALS_SEC,
+} = parseArgs()
 const MODEL = MODEL_CONFIGS[modelKey]
 if (USE_DEPLOYMENT && !MODEL.deploymentModel) {
   console.error(`❌ No custom deployment configured for ${MODEL.id}`)
@@ -412,9 +415,7 @@ async function sendRequest(
   const waitedStr =
     waitedSec > 0 ? `after ${formatDuration(waitedSec)} wait` : 'cold prime'
   console.log(
-    `   ✅ ${label.padEnd(28)} | ${waitedStr.padEnd(22)} | ${(
-      elapsedMs / 1000
-    )
+    `   ✅ ${label.padEnd(28)} | ${waitedStr.padEnd(22)} | ${(elapsedMs / 1000)
       .toFixed(2)
       .padStart(5)}s | TTFT ${
       ttftMs !== undefined ? (ttftMs / 1000).toFixed(2) + 's' : 'n/a'
@@ -426,9 +427,7 @@ async function sendRequest(
   )
   if (streamContent) {
     const preview = streamContent.replace(/\s+/g, ' ').slice(0, 120)
-    console.log(
-      `      ↳ ${preview}${streamContent.length > 120 ? '...' : ''}`,
-    )
+    console.log(`      ↳ ${preview}${streamContent.length > 120 ? '...' : ''}`)
   }
 
   return {
@@ -462,7 +461,9 @@ async function sleepWithProgress(totalMs: number, label: string) {
   const start = Date.now()
   const end = start + totalMs
   // Print a dot every 10 seconds so the user knows we're still alive
-  process.stdout.write(`   ⏳ ${label}: waiting ${formatDuration(Math.round(totalMs / 1000))}`)
+  process.stdout.write(
+    `   ⏳ ${label}: waiting ${formatDuration(Math.round(totalMs / 1000))}`,
+  )
   while (Date.now() < end) {
     const remainingMs = end - Date.now()
     const sliceMs = Math.min(10_000, remainingMs)

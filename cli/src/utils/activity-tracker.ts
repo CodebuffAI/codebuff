@@ -1,6 +1,6 @@
 /**
  * Activity Tracker Module
- * 
+ *
  * A singleton module that tracks user activity in the terminal.
  * Used by the ads feature and activity-aware query hooks.
  */

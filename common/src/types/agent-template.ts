@@ -157,6 +157,22 @@ export type AgentTemplate<
 
   mcpServers: Record<string, MCPConfig>
   toolNames: (ToolName | (string & {}))[]
+  /** Hidden capabilities callable only from the trusted `handleSteps` generator. */
+  programmaticToolNames?: (ToolName | (string & {}))[]
+  terminalPermissionProfile?:
+    | 'read-only'
+    | 'librarian-read-only'
+    | 'git-commit'
+    | 'tmux-test'
+    | 'workspace-write'
+    | 'full-access'
+  /** Runtime-enforced project-relative glob allowlists for filesystem tools. */
+  filesystemScope?: {
+    read?: string[]
+    write?: string[]
+  }
+  /** Serializable configuration supplied to trusted handleSteps generators. */
+  programmaticConfig?: Record<string, unknown>
   spawnableAgents: AgentTemplateType[]
 
   spawnerPrompt?: string
@@ -237,6 +253,7 @@ export type StepHandler<
   prompt: P
   params: T
   logger: Logger
+  config?: Record<string, unknown>
 }) => StepGenerator
 
 export { Logger, PublicAgentState }

@@ -22,7 +22,10 @@ export interface SecretAgentDefinition extends Omit<
 // Placeholders (re-exported from @codebuff/agent-runtime/templates/types)
 // ============================================================================
 
-export { PLACEHOLDER, placeholderValues } from '@codebuff/agent-runtime/templates/types'
+export {
+  PLACEHOLDER,
+  placeholderValues,
+} from '@codebuff/agent-runtime/templates/types'
 export type { PlaceholderValue } from '@codebuff/agent-runtime/templates/types'
 
 // ============================================================================

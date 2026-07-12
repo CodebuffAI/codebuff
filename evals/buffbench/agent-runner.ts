@@ -10,12 +10,13 @@ import {
   computeCacheUsageMetrics,
   evaluateCacheRecall,
 } from './cache-recall-eval'
+import { computeRetrievalFlowMetrics } from './retrieval-flow-metrics'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { CodexRunner } from './runners/codex'
 import { OpenCodeRunner } from './runners/opencode'
 
-import type { Runner, AgentStep } from './runners/runner'
+import { isAbortError, type Runner, type AgentStep } from './runners/runner'
 import type {
   CacheRecallEvalConfig,
   CacheRecallEvalResult,
@@ -75,6 +76,7 @@ export async function runAgentOnCommit({
   trace: AgentStep[]
   finalCheckOutputs?: FinalCheckOutput[]
   cacheRecallEval?: CacheRecallEvalResult
+  retrievalFlow: ReturnType<typeof computeRetrievalFlowMetrics>
 }> {
   console.log(`[${commit.id}] Running agent ${agentId}...`)
   const startTime = Date.now()
@@ -89,108 +91,114 @@ export async function runAgentOnCommit({
   try {
     const timeoutMs = 60 * 60 * 1000 // 60 minutes
     await runWithTimeoutSignal(
-      async (timeoutSignal) => withTestRepo(
-        {
-          repoUrl,
-          parentSha: commit.parentSha,
-          initCommand,
-          env,
-        },
-        async (repoDir) => {
-          // Select the appropriate runner
-          let runner: Runner
-          if (externalAgentType === 'claude') {
-            runner = new ClaudeRunner(repoDir, env)
-          } else if (externalAgentType === 'codex') {
-            runner = new CodexRunner(repoDir, env)
-          } else if (externalAgentType === 'opencode') {
-            runner = new OpenCodeRunner(repoDir, env)
-          } else {
-            runner = new CodebuffRunner({
-              cwd: repoDir,
-              env,
-              client,
-              agentId,
-              localAgentDefinitions,
-              printEvents,
-              commitId: commit.id,
-              parentSha: commit.parentSha,
-            })
-          }
-
-          console.log(
-            `[${commit.id}] Running agent: ${externalAgentType || 'codebuff'}`,
-          )
-
-          const result = await runner.run(commit.prompt, {
-            signal: timeoutSignal,
-          })
-          trace.push(...result.steps)
-          cost = result.totalCostUsd
-          diff = result.diff
-
-          if (cacheRecallEval) {
-            cacheRecallEvalResult = evaluateCacheRecall({
-              config: cacheRecallEval,
-              cacheUsage:
-                result.cachedInputTokens !== undefined &&
-                result.inputTokens !== undefined
-                  ? computeCacheUsageMetrics({
-                      cachedInputTokens: result.cachedInputTokens,
-                      inputTokens: result.inputTokens,
-                    })
-                  : undefined,
-              finalMessageHistoryText: result.finalMessageHistoryText,
-            })
-          }
-
-          const contextFilePaths = new Set<string>([
-            ...commit.supplementalFiles,
-            ...commit.fileDiffs.map((fd) => fd.path),
-          ])
-          for (const { status, path } of commit.fileDiffs) {
-            if (status === 'added') {
-              contextFilePaths.delete(path)
+      async (timeoutSignal) =>
+        withTestRepo(
+          {
+            repoUrl,
+            parentSha: commit.parentSha,
+            initCommand,
+            env,
+          },
+          async (repoDir) => {
+            // Select the appropriate runner
+            let runner: Runner
+            if (externalAgentType === 'claude') {
+              runner = new ClaudeRunner(repoDir, env)
+            } else if (externalAgentType === 'codex') {
+              runner = new CodexRunner(repoDir, env)
+            } else if (externalAgentType === 'opencode') {
+              runner = new OpenCodeRunner(repoDir, env)
+            } else {
+              runner = new CodebuffRunner({
+                cwd: repoDir,
+                env,
+                client,
+                agentId,
+                localAgentDefinitions,
+                printEvents,
+                commitId: commit.id,
+                parentSha: commit.parentSha,
+              })
             }
-          }
 
-          for (const filePath of contextFilePaths) {
-            try {
-              const content = execSync(
-                `git show ${commit.parentSha}:${JSON.stringify(filePath)}`,
-                {
-                  cwd: repoDir,
-                  encoding: 'utf-8',
-                  maxBuffer: 10 * 1024 * 1024,
-                },
-              )
-              contextFiles[filePath] = content
-            } catch (error) {
-              contextFiles[filePath] = ''
-            }
-          }
-
-          // Run final check commands if specified
-          if (finalCheckCommands && finalCheckCommands.length > 0) {
             console.log(
-              `[${commit.id}] Running ${finalCheckCommands.length} final check commands...`,
+              `[${commit.id}] Running agent: ${externalAgentType || 'codebuff'}`,
             )
-            finalCheckOutputs = await runFinalCheckCommands(
-              finalCheckCommands,
-              repoDir,
-              env,
-              timeoutSignal,
-            )
-          }
 
-          if (cacheRecallEvalResult) {
-            finalCheckOutputs = [
-              ...(finalCheckOutputs ?? []),
-              cacheRecallEvalToFinalCheckOutput(cacheRecallEvalResult),
-            ]
-          }
-        },
-      ),
+            const result = await runner.run(commit.prompt, {
+              signal: timeoutSignal,
+            })
+            trace.push(...result.steps)
+            cost = result.totalCostUsd
+            diff = result.diff
+
+            if (cacheRecallEval) {
+              cacheRecallEvalResult = evaluateCacheRecall({
+                config: cacheRecallEval,
+                cacheUsage:
+                  result.cachedInputTokens !== undefined &&
+                  result.inputTokens !== undefined
+                    ? computeCacheUsageMetrics({
+                        cachedInputTokens: result.cachedInputTokens,
+                        inputTokens: result.inputTokens,
+                      })
+                    : undefined,
+                finalMessageHistoryText: result.finalMessageHistoryText,
+              })
+            }
+
+            const contextFilePaths = new Set<string>([
+              ...commit.supplementalFiles,
+              ...commit.fileDiffs.map((fd) => fd.path),
+            ])
+            for (const { status, path } of commit.fileDiffs) {
+              if (status === 'added') {
+                contextFilePaths.delete(path)
+              }
+            }
+
+            for (const filePath of contextFilePaths) {
+              try {
+                const content = execSync(
+                  `git show ${commit.parentSha}:${JSON.stringify(filePath)}`,
+                  {
+                    cwd: repoDir,
+                    encoding: 'utf-8',
+                    maxBuffer: 10 * 1024 * 1024,
+                  },
+                )
+                contextFiles[filePath] = content
+              } catch (error) {
+                contextFiles[filePath] = ''
+              }
+            }
+
+            // Run final check commands if specified
+            const resolvedFinalCheckCommands =
+              commit.finalCheckCommands ?? finalCheckCommands
+            if (
+              resolvedFinalCheckCommands &&
+              resolvedFinalCheckCommands.length > 0
+            ) {
+              console.log(
+                `[${commit.id}] Running ${resolvedFinalCheckCommands.length} final check commands...`,
+              )
+              finalCheckOutputs = await runFinalCheckCommands(
+                resolvedFinalCheckCommands,
+                repoDir,
+                env,
+                timeoutSignal,
+              )
+            }
+
+            if (cacheRecallEvalResult) {
+              finalCheckOutputs = [
+                ...(finalCheckOutputs ?? []),
+                cacheRecallEvalToFinalCheckOutput(cacheRecallEvalResult),
+              ]
+            }
+          },
+        ),
       timeoutMs,
       `Agent ${agentId} timed out after ${timeoutMs / 1000} seconds`,
     )
@@ -209,6 +217,15 @@ export async function runAgentOnCommit({
     trace,
     finalCheckOutputs,
     cacheRecallEval: cacheRecallEvalResult,
+    retrievalFlow: computeRetrievalFlowMetrics({
+      trace,
+      expectedPaths: [
+        ...commit.supplementalFiles,
+        ...commit.fileDiffs
+          .filter((file) => file.status !== 'added')
+          .map((file) => file.path),
+      ],
+    }),
   }
 }
 
@@ -216,8 +233,11 @@ export function cacheRecallEvalToFinalCheckOutput(
   result: CacheRecallEvalResult,
 ): FinalCheckOutput {
   return {
-    command: 'buffbench cache-recall eval',
+    command: result.recallEvaluated
+      ? 'buffbench cache-recall eval'
+      : 'buffbench cache-usage eval',
     exitCode: result.passed ? 0 : 1,
+    outcome: result.passed ? 'passed' : 'failed',
     stdout: JSON.stringify(result, null, 2),
     stderr: result.failureReason ?? '',
   }
@@ -244,6 +264,7 @@ export async function runFinalCheckCommands(
       results.push({
         command,
         exitCode: 0,
+        outcome: 'passed',
         stdout,
         stderr,
       })
@@ -251,9 +272,17 @@ export async function runFinalCheckCommands(
     } catch (error: any) {
       // Command failed, but we still capture the output
       const exitCode = typeof error.code === 'number' ? error.code : 1
+      const aborted = isAbortError(error) || signal?.aborted === true
+      const abortReason = String(signal?.reason ?? error?.message ?? '')
+      const outcome = aborted
+        ? /timed?\s*out|timeout/i.test(abortReason)
+          ? 'timed_out'
+          : 'cancelled'
+        : 'failed'
       results.push({
         command,
         exitCode,
+        outcome,
         stdout: error.stdout || '',
         stderr: error.stderr || error.message || '',
       })

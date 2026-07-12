@@ -7,8 +7,42 @@ export type {
   ImagePart,
 } from '@codebuff/common/types/messages/content-part'
 export { run } from './run'
-export { getFiles } from './tools/read-files'
+export { getFiles, getFilesStructured } from './tools/read-files'
+export { changeFile, changeFiles } from './tools/change-file'
+export { applyPatchTool } from './tools/apply-patch'
+export { replaceRange } from './tools/replace-range'
+export { readImages } from './tools/read-image'
+export { createNodeFileSystem } from './tools/node-filesystem'
+export {
+  diagnosticParsers,
+  parseLanguageDiagnostics,
+} from './tools/language-diagnostics'
+export type {
+  DiagnosticParser,
+  DiagnosticParserInput,
+  LanguageDiagnostic,
+  LanguageDiagnosticPosition,
+  LanguageDiagnosticRange,
+  LanguageDiagnosticSeverity,
+} from './tools/language-diagnostics'
+export {
+  FilesystemAuthority,
+  allowAllFilesystemPolicy,
+  composeFilesystemPolicies,
+  detectFilesystemCapabilities,
+  expectedStateMatches,
+  hashFileContent,
+} from './tools/filesystem-authority'
 export type { FileFilter, FileFilterResult } from './tools/read-files'
+export type {
+  FilesystemError,
+  ReadFilesItemV1,
+  ReadFilesResultV1,
+} from '@codebuff/common/tools/results/filesystem'
+export type {
+  LegacyReadFilesMap,
+  RequestFilesResult,
+} from '@codebuff/common/types/contracts/client'
 export type {
   OpenbuffClientOptions,
   CodebuffClientOptions,
@@ -49,10 +83,7 @@ export type {
   LoadLocalAgentsResult,
   AgentValidationError,
 } from './agents/load-agents'
-export type {
-  MCPFileConfig,
-  LoadedMCPConfig,
-} from './agents/load-mcp-config'
+export type { MCPFileConfig, LoadedMCPConfig } from './agents/load-mcp-config'
 
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
@@ -83,7 +114,14 @@ export {
   computeBackoffDelayMs,
 } from './retry-config'
 
-export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+export type {
+  CodebuffFileSystem,
+  CodebuffFileSystemCapabilities,
+  CodebuffConditionalCommitOptions,
+  CodebuffConditionalCommitResult,
+  CodebuffConditionalDeleteResult,
+  CodebuffTextRangeReadResult,
+} from '@codebuff/common/types/filesystem'
 
 // Tree-sitter / code-map exports
 export {
@@ -99,8 +137,6 @@ export {
   promptAiSdkStream,
   promptAiSdkStructured,
 } from './impl/llm'
-export {
-  resetChatGptOAuthRateLimit,
-} from './impl/model-provider'
+export { resetChatGptOAuthRateLimit } from './impl/model-provider'
 export { createConfiguredEmbedder } from './impl/embeddings'
 export type { EmbedFn } from './impl/embeddings'

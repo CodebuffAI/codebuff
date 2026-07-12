@@ -146,10 +146,7 @@ async function runTask(
         }
       }
     }
-  } else if (
-    output?.type === 'structuredOutput' &&
-    output.value === null
-  ) {
+  } else if (output?.type === 'structuredOutput' && output.value === null) {
     // The SDK returns `{ type: 'structuredOutput', value: null }` when a
     // structured-output agent finishes without ever calling `set_output`.
     // The earlier generic message here ("Expected structuredOutput, got:
@@ -199,10 +196,7 @@ async function runTask(
     }
   }
 
-  if (
-    output?.type === 'structuredOutput' &&
-    output.value !== null
-  ) {
+  if (output?.type === 'structuredOutput' && output.value !== null) {
     const data = output.value as LibrarianOutput
     console.log(`Answer length: ${data.answer?.length ?? 0} chars`)
     console.log(`Relevant files: ${data.relevantFiles?.length ?? 0}`)
@@ -211,10 +205,7 @@ async function runTask(
   console.log(`${'─'.repeat(60)}`)
 
   // Clean up the cloned repo after validation
-  if (
-    output?.type === 'structuredOutput' &&
-    output.value !== null
-  ) {
+  if (output?.type === 'structuredOutput' && output.value !== null) {
     const data = output.value as LibrarianOutput
     if (data.cloneDir && fs.existsSync(data.cloneDir)) {
       console.log(`Cleaning up ${data.cloneDir}...`)

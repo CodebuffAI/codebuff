@@ -19,7 +19,11 @@ const helperModules = [
   },
 ]
 
-function createResponse(statusCode: number, headers: Record<string, string>, body = '') {
+function createResponse(
+  statusCode: number,
+  headers: Record<string, string>,
+  body = '',
+) {
   const response = Readable.from(body.length > 0 ? [body] : [])
   return Object.assign(response, {
     statusCode,
@@ -91,7 +95,10 @@ for (const helperModule of helperModules) {
               this.options = options
             }
           },
-          get(options: Record<string, any>, callback: (response: Readable) => void) {
+          get(
+            options: Record<string, any>,
+            callback: (response: Readable) => void,
+          ) {
             httpsGetCalls.push(options)
             options.agent.createConnection(options)
             queueMicrotask(() => {
@@ -173,14 +180,17 @@ for (const helperModule of helperModules) {
         },
         httpsModule: {
           Agent: class FakeAgent {},
-          get(options: Record<string, any>, callback: (response: Readable) => void) {
+          get(
+            options: Record<string, any>,
+            callback: (response: Readable) => void,
+          ) {
             httpsGetCalls.push(options)
             callCount += 1
 
             queueMicrotask(() => {
               if (callCount === 1) {
                 callback(
-                  createResponse(302, {
+                  createResponse(307, {
                     location: '/redirected',
                   }),
                 )
@@ -222,10 +232,83 @@ for (const helperModule of helperModules) {
         hostname: 'registry.npmjs.org',
         path: '/redirected',
       })
-      expect(httpsGetCalls.every((call) => call.createConnection === undefined)).toBe(
-        true,
-      )
+      expect(
+        httpsGetCalls.every((call) => call.createConnection === undefined),
+      ).toBe(true)
       expect(httpsGetCalls.every((call) => call.agent != null)).toBe(true)
+    })
+
+    test('rejects redirects without a Location header', async () => {
+      const { createReleaseHttpClient } = require(helperModule.path)
+      const client = createReleaseHttpClient({
+        env: {},
+        userAgent: 'release-test-agent',
+        requestTimeout: 2500,
+        httpModule: {},
+        httpsModule: {
+          Agent: class FakeAgent {},
+          get(
+            _options: Record<string, unknown>,
+            callback: (response: Readable) => void,
+          ) {
+            queueMicrotask(() => callback(createResponse(302, {})))
+            return {
+              on() {
+                return this
+              },
+              setTimeout() {
+                return this
+              },
+              destroy() {},
+            }
+          },
+        },
+        tlsModule: {},
+      })
+
+      await expect(
+        client.httpGet('https://registry.npmjs.org/openbuff/latest'),
+      ).rejects.toThrow('Redirect response missing Location header')
+    })
+
+    test('bounds redirect chains', async () => {
+      let callCount = 0
+      const { createReleaseHttpClient } = require(helperModule.path)
+      const client = createReleaseHttpClient({
+        env: {},
+        userAgent: 'release-test-agent',
+        requestTimeout: 2500,
+        httpModule: {},
+        httpsModule: {
+          Agent: class FakeAgent {},
+          get(
+            _options: Record<string, unknown>,
+            callback: (response: Readable) => void,
+          ) {
+            callCount += 1
+            queueMicrotask(() =>
+              callback(
+                createResponse(308, { location: `/redirect-${callCount}` }),
+              ),
+            )
+            return {
+              on() {
+                return this
+              },
+              setTimeout() {
+                return this
+              },
+              destroy() {},
+            }
+          },
+        },
+        tlsModule: {},
+      })
+
+      await expect(
+        client.httpGet('https://registry.npmjs.org/openbuff/latest'),
+      ).rejects.toThrow('Too many redirects')
+      expect(callCount).toBe(6)
     })
   })
 }

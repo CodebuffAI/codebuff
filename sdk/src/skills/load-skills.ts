@@ -159,20 +159,27 @@ function discoverSkillsFromDirectory(
 /**
  * Gets the default skills directories to search.
  * Searches both .claude/skills and .agents/skills for Claude Code compatibility.
- * 
+ *
  * Order (later overrides earlier):
  * - ~/.claude/skills/ (global Claude-compatible)
  * - ~/.agents/skills/ (global Codebuff)
  * - {cwd}/.claude/skills/ (project Claude-compatible)
  * - {cwd}/.agents/skills/ (project Codebuff)
  */
-function getDefaultSkillsDirs(cwd: string): string[] {
+function getDefaultSkillsDirs(
+  cwd: string,
+  includeProjectSkills: boolean,
+): string[] {
   const home = os.homedir()
-  return [
+  const globalDirs = [
     // Global directories (Claude-compatible first, then Codebuff)
     path.join(home, '.claude', SKILLS_DIR_NAME),
     path.join(home, '.agents', SKILLS_DIR_NAME),
-    // Project directories (Claude-compatible first, then Codebuff)
+  ]
+  if (!includeProjectSkills) return globalDirs
+  return [
+    ...globalDirs,
+    // Project directories (Claude-compatible first, then Openbuff)
     path.join(cwd, '.claude', SKILLS_DIR_NAME),
     path.join(cwd, '.agents', SKILLS_DIR_NAME),
   ]
@@ -183,6 +190,8 @@ export type LoadSkillsOptions = {
   cwd?: string
   /** Optional specific skills directory path */
   skillsPath?: string
+  /** Include project-local skill directories. Defaults to true for SDK compatibility. */
+  includeProjectSkills?: boolean
   /** Whether to log errors during loading */
   verbose?: boolean
 }
@@ -218,12 +227,21 @@ export type LoadSkillsOptions = {
  * console.log(gitReleaseSkill.description)
  * ```
  */
-export async function loadSkills(options: LoadSkillsOptions = {}): Promise<SkillsMap> {
-  const { cwd = process.cwd(), skillsPath, verbose = false } = options
+export async function loadSkills(
+  options: LoadSkillsOptions = {},
+): Promise<SkillsMap> {
+  const {
+    cwd = process.cwd(),
+    skillsPath,
+    includeProjectSkills = true,
+    verbose = false,
+  } = options
 
   const skills: SkillsMap = {}
 
-  const skillsDirs = skillsPath ? [skillsPath] : getDefaultSkillsDirs(cwd)
+  const skillsDirs = skillsPath
+    ? [skillsPath]
+    : getDefaultSkillsDirs(cwd, includeProjectSkills)
 
   for (const skillsDir of skillsDirs) {
     const dirSkills = discoverSkillsFromDirectory(skillsDir, verbose)
@@ -233,5 +251,3 @@ export async function loadSkills(options: LoadSkillsOptions = {}): Promise<Skill
 
   return skills
 }
-
-

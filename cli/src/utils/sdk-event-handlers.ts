@@ -1,4 +1,4 @@
-import { isEqual } from 'lodash'
+import { isDeepStrictEqual } from 'node:util'
 import { match } from 'ts-pattern'
 
 import {
@@ -7,7 +7,13 @@ import {
   closeNativeReasoningBlock,
   closeNativeReasoningInAgent,
   markAgentComplete,
+  markAgentFailed,
 } from './block-operations'
+import {
+  getCanonicalMutationResult,
+  hasMultipartError,
+  isTerminalToolBlock,
+} from './tool-result-normalizer'
 import { shouldHideAgent } from './constants'
 import {
   createAgentBlock,
@@ -52,6 +58,7 @@ import type {
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   PrintModeContextWindow,
+  PrintModeContextCompaction,
   PrintModeEvent as SDKEvent,
   PrintModeFinish,
   PrintModePhase,
@@ -198,6 +205,8 @@ const handleSubagentStart = (
   const spawnAgentMatch = findMatchingSpawnAgent(
     state.streaming.streamRefs.state.spawnAgentsMap,
     event.agentType || '',
+    event.spawnToolCallId,
+    event.spawnIndex,
   )
 
   if (spawnAgentMatch) {
@@ -274,7 +283,9 @@ const handleSubagentFinish = (
   state.subagents.removeActiveSubagent(event.agentId)
 
   state.message.updater.updateAiMessageBlocks((blocks) =>
-    markAgentComplete(blocks, event.agentId),
+    event.error
+      ? markAgentFailed(blocks, event.agentId, event.error)
+      : markAgentComplete(blocks, event.agentId),
   )
 
   updateStreamingAgents(state, { remove: event.agentId })
@@ -340,6 +351,7 @@ const handleRegularToolCall = (
     // waiting on a prior same-path write (queued) from one that is actively
     // running but has no result yet (pending). Omitted when not queued.
     ...(event.queued !== undefined && { queued: event.queued }),
+    lifecycle: event.queued === true ? 'queued' : 'running',
   }
 
   if (event.parentAgentId && event.agentId) {
@@ -390,15 +402,19 @@ const handleToolCall = (state: EventHandlerState, event: PrintModeToolCall) => {
  * recursive block-lookup style as `updateToolBlockWithOutput` so nested agent
  * tool blocks (when `parentAgentId` is set) are handled.
  */
-const handleToolStart = (state: EventHandlerState, event: PrintModeToolStart) => {
+const handleToolStart = (
+  state: EventHandlerState,
+  event: PrintModeToolStart,
+) => {
   const flipQueued = (blocks: ContentBlock[]): ContentBlock[] =>
     blocks.map((block) => {
       if (block.type === 'tool' && block.toolCallId === event.toolCallId) {
-        return { ...block, queued: false }
+        if (isTerminalToolBlock(block)) return block
+        return { ...block, queued: false, lifecycle: 'running' as const }
       } else if (block.type === 'agent' && block.blocks) {
         const updatedBlocks = flipQueued(block.blocks)
         // Avoid creating a new agent block ref when nothing changed.
-        if (isEqual(block.blocks, updatedBlocks)) {
+        if (isDeepStrictEqual(block.blocks, updatedBlocks)) {
           return block
         }
         return { ...block, blocks: updatedBlocks }
@@ -428,7 +444,9 @@ const getSpawnResultForBlock = (
     return results[block.spawnIndex]
   }
 
-  return results.find((result) => getSpawnResultAgentId(result) === block.agentId)
+  return results.find(
+    (result) => getSpawnResultAgentId(result) === block.agentId,
+  )
 }
 
 const applySpawnAgentResultToBlock = (
@@ -438,6 +456,11 @@ const applySpawnAgentResultToBlock = (
   if (!result?.value) {
     return block
   }
+
+  const backgroundJobId =
+    result.value?.background === true && typeof result.value?.jobId === 'string'
+      ? result.value.jobId
+      : undefined
 
   const existingBlocks = block.blocks ?? []
   const { content, hasError } = extractSpawnAgentResultContent(result.value)
@@ -456,7 +479,12 @@ const applySpawnAgentResultToBlock = (
     return {
       ...block,
       blocks: finalBlocks,
-      status: hasError ? ('failed' as const) : ('complete' as const),
+      ...(backgroundJobId ? { backgroundJobId } : {}),
+      status: hasError
+        ? ('failed' as const)
+        : backgroundJobId
+          ? ('running' as const)
+          : ('complete' as const),
     }
   }
 
@@ -507,9 +535,66 @@ const handleSpawnAgentsResult = (
     updateSpawnAgentBlocks(blocks, toolCallId, results),
   )
 
-  results.forEach((_, index: number) => {
+  results.forEach((result, index: number) => {
+    if (result?.value?.background === true) return
     const agentId = `${toolCallId}-${index}`
     updateStreamingAgents(state, { remove: agentId })
+  })
+}
+
+const updateBackgroundAgentCard = (
+  blocks: ContentBlock[],
+  value: Record<string, unknown>,
+): ContentBlock[] => {
+  const jobId = typeof value.jobId === 'string' ? value.jobId : undefined
+  if (!jobId) return blocks
+  return blocks.map((block) => {
+    if (block.type !== 'agent') return block
+    if (block.backgroundJobId === jobId) {
+      const status = String(value.status ?? 'running')
+      const resultSummary = extractSpawnAgentResultContent(value.result)
+      const chunks = Array.isArray(value.newChunks) ? value.newChunks : []
+      const chunkText = chunks
+        .map((chunk) => {
+          if (!chunk || typeof chunk !== 'object') return ''
+          const payload = (chunk as Record<string, unknown>).payload
+          if (typeof payload === 'string') return payload
+          if (
+            payload &&
+            typeof payload === 'object' &&
+            typeof (payload as Record<string, unknown>).text === 'string'
+          ) {
+            return String((payload as Record<string, unknown>).text)
+          }
+          return ''
+        })
+        .filter(Boolean)
+        .join('')
+      const appended = [chunkText, resultSummary.content]
+        .filter(Boolean)
+        .join('\n')
+      const existingBlocks = block.blocks ?? []
+      return {
+        ...block,
+        blocks: appended
+          ? [
+              ...existingBlocks,
+              { type: 'text', content: appended } as ContentBlock,
+            ]
+          : existingBlocks,
+        status:
+          status === 'completed'
+            ? 'complete'
+            : status === 'error'
+              ? 'failed'
+              : status === 'cancelled'
+                ? 'cancelled'
+                : 'running',
+      }
+    }
+    return block.blocks
+      ? { ...block, blocks: updateBackgroundAgentCard(block.blocks, value) }
+      : block
   })
 }
 
@@ -524,7 +609,8 @@ const appendResultOnlyToolBlockToAgent = (
     const existingBlocks = block.blocks ?? []
     if (
       existingBlocks.some(
-        (child) => child.type === 'tool' && child.toolCallId === event.toolCallId,
+        (child) =>
+          child.type === 'tool' && child.toolCallId === event.toolCallId,
       )
     ) {
       return block
@@ -536,6 +622,7 @@ const appendResultOnlyToolBlockToAgent = (
       toolName: event.toolName as ToolName,
       input: {},
       agentId: event.agentId,
+      lifecycle: hasMultipartError(event.output) ? 'failed' : 'succeeded',
     }
 
     return {
@@ -564,7 +651,8 @@ const handleToolResult = (
   )
 
   const firstOutput = event.output?.[0]
-  const firstOutputValue = firstOutput && 'value' in firstOutput ? firstOutput.value : undefined
+  const firstOutputValue =
+    firstOutput && 'value' in firstOutput ? firstOutput.value : undefined
   const isSpawnAgentsResult =
     Array.isArray(firstOutputValue) &&
     firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
@@ -574,21 +662,59 @@ const handleToolResult = (
     return
   }
 
+  if (
+    event.toolName === 'check_background_agent' &&
+    firstOutputValue &&
+    typeof firstOutputValue === 'object' &&
+    !Array.isArray(firstOutputValue)
+  ) {
+    state.message.updater.updateAiMessageBlocks((blocks) =>
+      updateBackgroundAgentCard(
+        blocks,
+        firstOutputValue as Record<string, unknown>,
+      ),
+    )
+  }
+
   state.message.updater.updateAiMessageBlocks((blocks) => {
     const updatedBlocks = updateToolBlockWithOutput(blocks, {
       toolCallId: event.toolCallId,
       toolOutput: event.output,
     })
-    return appendResultOnlyToolBlockToAgent(updatedBlocks, event)
+    const withLifecycle = updatedBlocks.map(
+      function markResult(block): ContentBlock {
+        if (block.type === 'tool' && block.toolCallId === event.toolCallId) {
+          if (block.lifecycle === 'cancelled') {
+            const mutation = getCanonicalMutationResult(event.output)
+            if (!mutation) return block
+            return {
+              ...block,
+              interrupted: true,
+              lifecycle:
+                mutation.outcome === 'applied' ||
+                mutation.outcome === 'rolled_back'
+                  ? 'succeeded'
+                  : 'failed',
+            }
+          }
+          return {
+            ...block,
+            lifecycle: hasMultipartError(event.output) ? 'failed' : 'succeeded',
+          }
+        }
+        if (block.type === 'agent' && block.blocks) {
+          return { ...block, blocks: block.blocks.map(markResult) }
+        }
+        return block
+      },
+    )
+    return appendResultOnlyToolBlockToAgent(withLifecycle, event)
   })
 
   updateStreamingAgents(state, { remove: event.toolCallId })
 }
 
-const handlePhase = (
-  state: EventHandlerState,
-  event: PrintModePhase,
-) => {
+const handlePhase = (state: EventHandlerState, event: PrintModePhase) => {
   // Phase events provide structured progress info for the status bar.
   // The detail field carries a human-readable description (e.g. "reading 5 files").
   // These are stored on the stream refs so the status bar can read them.
@@ -610,11 +736,34 @@ const handleContextWindow = (
   })
 }
 
-const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
-  // Clear context-window usage when the run finishes so the status bar
-  // doesn't show stale data from the previous run.
-  state.streaming.setContextWindowUsage(null)
+const handleContextCompaction = (
+  state: EventHandlerState,
+  event: PrintModeContextCompaction,
+) => {
+  const action =
+    event.action === 'semantic_compaction'
+      ? 'Semantic context compaction'
+      : 'Emergency context trim'
+  const removed =
+    event.removedCategories.length > 0
+      ? ` Removed: ${event.removedCategories.join(', ')}.`
+      : ''
+  const retained = event.retainedKnowledgeMemory
+    ? ' Retained knowledge memory: yes.'
+    : ' Retained knowledge memory: no.'
+  const content = `${action}: ${event.before.tokens.toLocaleString()} → ${event.after.tokens.toLocaleString()} tokens; ${event.before.messages} → ${event.after.messages} messages.${removed}${retained} ${event.recovery}`
 
+  state.message.updater.updateAiMessageBlocks((blocks) => [
+    ...blocks,
+    {
+      type: 'text' as const,
+      textType: 'text' as const,
+      content,
+    },
+  ])
+}
+
+const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
   if (typeof event.totalCost === 'number' && state.onTotalCost) {
     state.onTotalCost(event.totalCost)
   }
@@ -637,6 +786,38 @@ const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
       },
     ]
   })
+}
+
+const handleRuntimeError = (
+  state: EventHandlerState,
+  event: Extract<SDKEvent, { type: 'error' }>,
+) => {
+  const message = event.message
+    .split('\n')
+    .filter((line, index) => index === 0 || !/^\s*at\s/.test(line))
+    .join('\n')
+    .trim()
+  state.logger.error({ event }, 'SDK runtime error event')
+  state.message.updater.setError(
+    message || 'The agent runtime reported an error.',
+  )
+}
+
+const handleProviderStatus = (
+  state: EventHandlerState,
+  event: Extract<SDKEvent, { type: 'provider_status' }>,
+) => {
+  state.setIsRetrying(event.status !== 'recovered')
+  const content =
+    event.status === 'retrying'
+      ? `Provider request failed; retrying${event.attempt ? ` (attempt ${event.attempt}/${event.maxAttempts})` : ''}${event.delayMs ? ` in ${(event.delayMs / 1000).toFixed(1)}s` : ''}.`
+      : event.status === 'failover'
+        ? `Provider failover: ${event.model ?? 'primary model'} → ${event.nextModel ?? 'backup model'}.`
+        : `Provider connection recovered${event.model ? ` on ${event.model}` : ''}.`
+  state.message.updater.updateAiMessageBlocks((blocks) => [
+    ...blocks,
+    { type: 'text' as const, textType: 'text' as const, content },
+  ])
 }
 
 export const createStreamChunkHandler =
@@ -683,9 +864,12 @@ export const createEventHandler =
       .with({ type: 'tool_start' }, (e) => handleToolStart(state, e))
       .with({ type: 'tool_result' }, (e) => handleToolResult(state, e))
       .with({ type: 'finish' }, (e) => handleFinish(state, e))
+      .with({ type: 'error' }, (e) => handleRuntimeError(state, e))
+      .with({ type: 'provider_status' }, (e) => handleProviderStatus(state, e))
       .with({ type: 'phase' }, (e) => handlePhase(state, e))
-      .with({ type: 'context_window' }, (e) =>
-        handleContextWindow(state, e),
+      .with({ type: 'context_window' }, (e) => handleContextWindow(state, e))
+      .with({ type: 'context_compaction' }, (e) =>
+        handleContextCompaction(state, e),
       )
       .otherwise(() => undefined)
   }

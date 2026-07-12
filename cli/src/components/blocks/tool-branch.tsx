@@ -28,7 +28,9 @@ export const ToolBranch = memo(
   }: ToolBranchProps) => {
     const theme = useTheme()
     // Derive streaming boolean for this specific tool to avoid re-renders when other tools/agents change
-    const isStreaming = useChatStore((state) => state.streamingAgents.has(toolBlock.toolCallId))
+    const isStreaming = useChatStore((state) =>
+      state.streamingAgents.has(toolBlock.toolCallId),
+    )
 
     const sanitizePreview = (value: string): string =>
       value.replace(/[#*_`~\[\]()]/g, '').trim()
@@ -44,7 +46,7 @@ export const ToolBranch = memo(
     }
 
     const displayInfo = { name: toolBlock.toolName }
-    
+
     // Check if there's a registered custom component for this tool
     const toolRenderConfig = renderToolComponent(toolBlock, theme, {
       availableWidth,
@@ -52,11 +54,14 @@ export const ToolBranch = memo(
       previewPrefix: '',
       labelWidth: 0,
     })
-    
+
     // Tools without a registered component (fallback rendering) should be collapsed by default
     const hasRegisteredComponent = toolRenderConfig !== undefined
-    const isCollapsed = toolBlock.isCollapsed ?? 
-      (hasRegisteredComponent ? shouldCollapseToolByDefault(toolBlock.toolName) : true)
+    const isCollapsed =
+      toolBlock.isCollapsed ??
+      (hasRegisteredComponent
+        ? shouldCollapseToolByDefault(toolBlock.toolName)
+        : true)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =
@@ -79,7 +84,7 @@ export const ToolBranch = memo(
         : null
 
     const streamingPreview = isStreaming
-      ? commandPreview ?? `${sanitizePreview(firstLine)}...`
+      ? (commandPreview ?? `${sanitizePreview(firstLine)}...`)
       : ''
 
     const getToolFinishedPreview = useCallback(
@@ -104,8 +109,8 @@ export const ToolBranch = memo(
     )
 
     const finishedPreview = !isStreaming
-      ? toolRenderConfig?.collapsedPreview ??
-        getToolFinishedPreview(commandPreview, lastLine)
+      ? (toolRenderConfig?.collapsedPreview ??
+        getToolFinishedPreview(commandPreview, lastLine))
       : ''
 
     const agentMarkdownOptions = {
@@ -159,21 +164,17 @@ export const ToolBranch = memo(
           minWidth: 0,
         }}
       >
-        {toolRenderConfig ? (
-          toolRenderConfig.content
-        ) : (
-          <ToolCallItem
-            name={headerName}
-            content={renderableDisplayContent}
-            isCollapsed={isCollapsed}
-            isStreaming={isStreaming}
-            streamingPreview={streamingPreview}
-            finishedPreview={finishedPreview}
-            onToggle={handleToggle}
-            titleSuffix={undefined}
-            availableWidth={availableWidth}
-          />
-        )}
+        <ToolCallItem
+          name={headerName}
+          content={toolRenderConfig?.content ?? renderableDisplayContent}
+          isCollapsed={isCollapsed}
+          isStreaming={isStreaming}
+          streamingPreview={streamingPreview}
+          finishedPreview={toolRenderConfig?.collapsedPreview ?? finishedPreview}
+          onToggle={handleToggle}
+          titleSuffix={undefined}
+          availableWidth={availableWidth}
+        />
       </box>
     )
   },

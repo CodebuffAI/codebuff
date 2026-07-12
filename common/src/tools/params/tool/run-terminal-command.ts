@@ -29,7 +29,8 @@ export const terminalCommandOutputSchema = z.union([
   z.object({
     command: z.string(),
     processId: z.number(),
-    backgroundProcessStatus: z.enum(['running', 'completed', 'error']),
+    backgroundProcessStatus: z.enum(['running', 'completed', 'error', 'lost']),
+    detached: z.boolean().optional(),
     /** Job id to poll/follow with the check_job tool. */
     jobId: z.string().optional(),
     /** Temp file the background job streams its combined output to. */
@@ -38,6 +39,22 @@ export const terminalCommandOutputSchema = z.union([
   z.object({
     command: z.string(),
     errorMessage: z.string(),
+    timedOut: z.boolean().optional(),
+    spawnFailed: z.boolean().optional(),
+    permissionDenied: z.boolean().optional(),
+    permissionProfile: z
+      .enum([
+        'read-only',
+        'librarian-read-only',
+        'git-commit',
+        'tmux-test',
+        'workspace-write',
+        'full-access',
+      ])
+      .optional(),
+    stdout: z.string().optional(),
+    stderr: z.string().optional(),
+    exitCode: z.number().optional(),
   }),
 ])
 
@@ -55,6 +72,13 @@ const inputSchema = z
       .default('SYNC')
       .describe(
         `Either SYNC (waits, returns output) or BACKGROUND (starts a detached job and returns immediately with a jobId — poll/follow it with check_job). Use BACKGROUND for long-running or never-exiting processes (dev servers, watchers, log tails) so you don't block the turn. Default SYNC`,
+      ),
+    detach: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        `For BACKGROUND commands only: keep the job running if the owning request is cancelled. Defaults to false.`,
       ),
     cwd: z
       .string()

@@ -42,9 +42,61 @@ afterAll(() => {
 })
 
 describe('IndexManager semantic integration', () => {
+  test('reuses persisted vectors across manager instances and fingerprints by model', async () => {
+    const root = makeProject()
+    let firstEmbeddedTexts = 0
+    const firstEmbed: EmbedFn = async (texts) => {
+      firstEmbeddedTexts += texts.length
+      return fakeEmbed(texts)
+    }
+    const first = IndexManager.getInstance(
+      root,
+      { semantic: { enabled: true, model: 'embedding-v1' } },
+      firstEmbed,
+    )
+    await first.waitUntilReady(10_000)
+    expect(firstEmbeddedTexts).toBeGreaterThan(0)
+
+    let cachedEmbeddedTexts = 0
+    const cachedEmbed: EmbedFn = async (texts) => {
+      cachedEmbeddedTexts += texts.length
+      return fakeEmbed(texts)
+    }
+    // A query-time weight creates a distinct manager while retaining the same
+    // semantic fingerprint, simulating a fresh process over the same cache.
+    const cached = IndexManager.getInstance(
+      root,
+      {
+        semantic: { enabled: true, model: 'embedding-v1' },
+        weights: { semanticBlend: 0.5 },
+      },
+      cachedEmbed,
+    )
+    await cached.waitUntilReady(10_000)
+    expect(cached.isSemanticReady()).toBe(true)
+    expect(cachedEmbeddedTexts).toBe(0)
+
+    let changedModelEmbeddedTexts = 0
+    const changedModelEmbed: EmbedFn = async (texts) => {
+      changedModelEmbeddedTexts += texts.length
+      return fakeEmbed(texts)
+    }
+    const changedModel = IndexManager.getInstance(
+      root,
+      { semantic: { enabled: true, model: 'embedding-v2' } },
+      changedModelEmbed,
+    )
+    await changedModel.waitUntilReady(10_000)
+    expect(changedModelEmbeddedTexts).toBeGreaterThan(0)
+  })
+
   test('builds vectors and ranks files by semantic similarity', async () => {
     const root = makeProject()
-    const mgr = IndexManager.getInstance(root, { semantic: { enabled: true } }, fakeEmbed)
+    const mgr = IndexManager.getInstance(
+      root,
+      { semantic: { enabled: true } },
+      fakeEmbed,
+    )
     await mgr.waitUntilReady(10_000)
 
     expect(mgr.isSemanticReady()).toBe(true)
@@ -55,7 +107,11 @@ describe('IndexManager semantic integration', () => {
 
   test('searchSemantic returns [] when semantic is disabled', async () => {
     const root = makeProject()
-    const mgr = IndexManager.getInstance(root, { semantic: { enabled: false } }, fakeEmbed)
+    const mgr = IndexManager.getInstance(
+      root,
+      { semantic: { enabled: false } },
+      fakeEmbed,
+    )
     await mgr.waitUntilReady(10_000)
     expect(mgr.isSemanticReady()).toBe(false)
     expect(await mgr.searchSemantic('anything')).toEqual([])
@@ -63,10 +119,16 @@ describe('IndexManager semantic integration', () => {
 
   test('queryBlended folds semantic hits into the ranking', async () => {
     const root = makeProject()
-    const mgr = IndexManager.getInstance(root, { semantic: { enabled: true } }, fakeEmbed)
+    const mgr = IndexManager.getInstance(
+      root,
+      { semantic: { enabled: true } },
+      fakeEmbed,
+    )
     await mgr.waitUntilReady(10_000)
 
-    const blended = await mgr.queryBlended('user login auth token', { limit: 5 })
+    const blended = await mgr.queryBlended('user login auth token', {
+      limit: 5,
+    })
     expect(blended.ready).toBe(true)
     expect(blended.results[0].path).toContain('auth')
     // A purely-semantic hit carries the 'semantic' matchedOn marker.
@@ -76,7 +138,11 @@ describe('IndexManager semantic integration', () => {
 
   test('queryBlended returns pure lexical results when semantic is off', async () => {
     const root = makeProject()
-    const mgr = IndexManager.getInstance(root, { semantic: { enabled: false } }, fakeEmbed)
+    const mgr = IndexManager.getInstance(
+      root,
+      { semantic: { enabled: false } },
+      fakeEmbed,
+    )
     await mgr.waitUntilReady(10_000)
     const blended = await mgr.queryBlended('auth', { limit: 5 })
     expect(blended.ready).toBe(true)
@@ -96,11 +162,14 @@ describe('IndexManager semantic integration', () => {
     await mgrZero.waitUntilReady(10_000)
     expect(mgrZero.isSemanticReady()).toBe(true)
 
-    const blendedZero = await mgrZero.queryBlended('auth repayment', { limit: 5 })
+    const blendedZero = await mgrZero.queryBlended('auth repayment', {
+      limit: 5,
+    })
     expect(blendedZero.ready).toBe(true)
-    const paymentZero = blendedZero.results.find((r) => r.path.includes('payment'))
-    expect(paymentZero).toBeDefined()
-    expect(paymentZero?.score).toBe(0)
+    const paymentZero = blendedZero.results.find((r) =>
+      r.path.includes('payment'),
+    )
+    expect(paymentZero).toBeUndefined()
 
     // With the default blend weight (1), the same purely-semantic hit surfaces
     // with a nonzero score — proving the weight is actually threaded through.
@@ -112,8 +181,12 @@ describe('IndexManager semantic integration', () => {
     )
     await mgrDefault.waitUntilReady(10_000)
 
-    const blendedDefault = await mgrDefault.queryBlended('auth repayment', { limit: 5 })
-    const paymentDefault = blendedDefault.results.find((r) => r.path.includes('payment'))
+    const blendedDefault = await mgrDefault.queryBlended('auth repayment', {
+      limit: 5,
+    })
+    const paymentDefault = blendedDefault.results.find((r) =>
+      r.path.includes('payment'),
+    )
     expect(paymentDefault).toBeDefined()
     expect(paymentDefault?.score).toBeGreaterThan(0)
   })

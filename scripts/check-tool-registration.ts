@@ -44,7 +44,8 @@ function checkTool(tool: string): Check[] {
       ok: (toolNames as readonly string[]).includes(tool),
     },
     {
-      label: 'params schema registered in common/src/tools/list.ts (toolParams)',
+      label:
+        'params schema registered in common/src/tools/list.ts (toolParams)',
       ok: Object.prototype.hasOwnProperty.call(toolParams, tool),
     },
     {
@@ -77,7 +78,9 @@ function checkTool(tool: string): Check[] {
 function main() {
   const tool = process.argv[2]
   if (!tool) {
-    console.error('Usage: bun run scripts/check-tool-registration.ts <tool_name>')
+    console.error(
+      'Usage: bun run scripts/check-tool-registration.ts <tool_name>',
+    )
     process.exit(2)
   }
 
@@ -85,7 +88,8 @@ function main() {
   console.log(`Tool readiness check for: ${tool}\n`)
   for (const check of checks) {
     const mark = check.ok ? '✓' : '✗'
-    const detail = !check.ok && check.detail ? ` (expected ${check.detail})` : ''
+    const detail =
+      !check.ok && check.detail ? ` (expected ${check.detail})` : ''
     console.log(`  ${mark} ${check.label}${detail}`)
   }
 

@@ -72,8 +72,7 @@ describe('tryToDoStringReplacementWithExtraIndentation', () => {
   })
 
   it('should not add indentation to empty lines', () => {
-    const oldFileContent =
-      '    const x = 1;\n\n    const y = 2;\n'
+    const oldFileContent = '    const x = 1;\n\n    const y = 2;\n'
     const searchContent = 'const x = 1;\n\nconst y = 2;\n'
     const replaceContent = 'const x = 10;\n\nconst y = 20;\n'
 
@@ -84,9 +83,7 @@ describe('tryToDoStringReplacementWithExtraIndentation', () => {
     })
 
     expect(result).not.toBeNull()
-    expect(result!.searchContent).toBe(
-      '    const x = 1;\n\n    const y = 2;\n',
-    )
+    expect(result!.searchContent).toBe('    const x = 1;\n\n    const y = 2;\n')
     expect(result!.replaceContent).toBe(
       '    const x = 10;\n\n    const y = 20;\n',
     )

@@ -289,8 +289,8 @@ function useCollapsibleContent(
   const showToggle = isCollapsible
   const displayContent =
     isCollapsible && !isExpanded
-      ? truncateToLines(normalizedContent, MAX_COLLAPSED_LINES) ??
-        normalizedContent
+      ? (truncateToLines(normalizedContent, MAX_COLLAPSED_LINES) ??
+        normalizedContent)
       : normalizedContent
 
   return {
@@ -314,10 +314,7 @@ const CollapseToggle = memo(({ isExpanded, onToggle }: CollapseToggleProps) => {
   const theme = useTheme()
 
   return (
-    <Button
-      style={{ marginTop: 0 }}
-      onClick={() => onToggle(!isExpanded)}
-    >
+    <Button style={{ marginTop: 0 }} onClick={() => onToggle(!isExpanded)}>
       <text
         fg={theme.secondary}
         style={{ wrapMode: 'word' }}

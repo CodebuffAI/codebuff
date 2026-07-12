@@ -5,6 +5,29 @@ import editor, { createCodeEditor } from '../editor/editor'
 import type { AgentState } from '../types/agent-definition'
 
 describe('editor agent', () => {
+  const withCommittedReceipt = (value: any) => {
+    const receiptId = `${value.operationId}:receipt`
+    return {
+      ...value,
+      receiptId,
+      authorityReceipt: {
+        kind: 'commit_receipt',
+        version: 1,
+        receiptId,
+        operationId: value.operationId,
+        callId: `${value.operationId}:call`,
+        authorityTier: value.authorityTier,
+        status: 'committed',
+        actions: value.actions.map((action: any) => ({
+          ...action,
+          status: 'committed',
+        })),
+        finalHashes: Object.fromEntries(
+          value.actions.map((action: any) => [action.path, action.afterHash]),
+        ),
+      },
+    }
+  }
   const createMockAgentState = (messageHistory: any[] = []): AgentState => ({
     agentId: 'editor-test',
     runId: 'test-run',
@@ -26,7 +49,7 @@ describe('editor agent', () => {
     })
 
     test('uses opus model by default', () => {
-      expect(editor.model).toBeUndefined()
+      expect(editor.model).toBe('anthropic/claude-opus-4.7')
     })
 
     test('has output mode set to structured_output', () => {
@@ -44,22 +67,44 @@ describe('editor agent', () => {
     test('documents structured implementation briefs', () => {
       expect(editor.spawnerPrompt).toContain('compact implementation brief')
       expect(editor.spawnerPrompt).toContain('Spawn this agent with a prompt')
-      expect(editor.spawnerPrompt).toContain('Do not rely on inherited conversation history')
-      expect(editor.spawnerPrompt).toContain('do not include validation commands')
-      expect(editor.spawnerPrompt).not.toContain('expected validation, and risks')
-      expect(editor.spawnerPrompt).not.toContain('inherits the context of the entire conversation')
-      expect(editor.instructionsPrompt).toContain("Treat the spawn prompt's implementation-scoped requirements")
-      expect(editor.instructionsPrompt).toContain('Do not perform or attempt parent-orchestrator responsibilities')
+      expect(editor.spawnerPrompt).toContain(
+        'Do not rely on inherited conversation history',
+      )
+      expect(editor.spawnerPrompt).toContain(
+        'do not include validation commands',
+      )
+      expect(editor.spawnerPrompt).not.toContain(
+        'expected validation, and risks',
+      )
+      expect(editor.spawnerPrompt).not.toContain(
+        'inherits the context of the entire conversation',
+      )
+      expect(editor.instructionsPrompt).toContain(
+        "Treat the spawn prompt's implementation-scoped requirements",
+      )
+      expect(editor.instructionsPrompt).toContain(
+        'Do not perform or attempt parent-orchestrator responsibilities',
+      )
       expect(editor.instructionsPrompt).toContain('You cannot run validation')
-      expect(editor.instructionsPrompt).toContain('shell-based cleanup/deletion')
-      expect(editor.instructionsPrompt).toContain('parent responsibilities after you return')
+      expect(editor.instructionsPrompt).toContain(
+        'shell-based cleanup/deletion',
+      )
+      expect(editor.instructionsPrompt).toContain(
+        'parent responsibilities after you return',
+      )
       expect(editor.instructionsPrompt).toContain('If edit_transaction aborts')
-      expect(editor.instructionsPrompt).toContain('retry the whole related transaction')
-      expect(editor.instructionsPrompt).toContain('Never use ultra-broad anchors')
+      expect(editor.instructionsPrompt).toContain(
+        'retry the whole related transaction',
+      )
+      expect(editor.instructionsPrompt).toContain(
+        'Never use ultra-broad anchors',
+      )
       expect(editor.instructionsPrompt).toContain('many occurrences')
       expect(editor.instructionsPrompt).toContain('Do not create scratch')
       expect(editor.instructionsPrompt).toContain('Code Craftsmanship')
-      expect(editor.instructionsPrompt).not.toContain('run configured validation hooks')
+      expect(editor.instructionsPrompt).not.toContain(
+        'run configured validation hooks',
+      )
       expect(editor.instructionsPrompt).not.toContain('Spawn a code-reviewer')
       expect(editor.instructionsPrompt).not.toContain('git push')
       expect(editor.instructionsPrompt).not.toContain('basher')
@@ -73,7 +118,8 @@ describe('editor agent', () => {
       expect(editor.toolNames).toContain('replace_range')
       expect(editor.toolNames).toContain('rewrite_symbol')
       expect(editor.toolNames).toContain('edit_transaction')
-      expect(editor.toolNames).toContain('set_output')
+      expect(editor.toolNames).not.toContain('set_output')
+      expect(editor.toolNames).toContain('apply_patch')
       expect(editor.toolNames).not.toContain('read_slices')
       expect(editor.toolNames).toHaveLength(8)
     })
@@ -82,36 +128,42 @@ describe('editor agent', () => {
   describe('createCodeEditor', () => {
     test('creates opus editor by default', () => {
       const opusEditor = createCodeEditor({ model: 'opus' })
-      expect(opusEditor.model).toBeUndefined()
+      expect(opusEditor.model).toBe('anthropic/claude-opus-4.7')
     })
 
     test('creates gpt-5 editor', () => {
       const gpt5Editor = createCodeEditor({ model: 'gpt-5' })
-      expect(gpt5Editor.model).toBeUndefined()
+      expect(gpt5Editor.model).toBe('openai/gpt-5.3')
     })
 
     test('creates glm editor', () => {
       const glmEditor = createCodeEditor({ model: 'glm' })
-      expect(glmEditor.model).toBeUndefined()
+      expect(glmEditor.model).toBe('z-ai/glm-4.7')
     })
 
     test('creates kimi editor', () => {
       const kimiEditor = createCodeEditor({ model: 'kimi' })
-      expect(kimiEditor.model).toBeUndefined()
+      expect(kimiEditor.model).toBe('moonshotai/kimi-k2.6')
     })
 
     test('creates deepseek editor', () => {
       const deepseekEditor = createCodeEditor({ model: 'deepseek' })
-      expect(deepseekEditor.model).toBeUndefined()
+      expect(deepseekEditor.model).toBe('deepseek/deepseek-v4-pro')
     })
 
     test('creates minimax editor', () => {
       const minimaxEditor = createCodeEditor({ model: 'minimax' })
-      expect(minimaxEditor.model).toBeUndefined()
+      expect(minimaxEditor.model).toBe('minimax/minimax-m2.7')
     })
 
     test('non-opus editors do not include think tags in instructions', () => {
-      for (const model of ['gpt-5', 'glm', 'kimi', 'deepseek', 'minimax'] as const) {
+      for (const model of [
+        'gpt-5',
+        'glm',
+        'kimi',
+        'deepseek',
+        'minimax',
+      ] as const) {
         const codeEditor = createCodeEditor({ model })
         expect(codeEditor.instructionsPrompt).not.toContain('<think>')
         expect(codeEditor.instructionsPrompt).not.toContain('</think>')
@@ -150,7 +202,9 @@ describe('editor agent', () => {
     test('contains replace_range guidance and format example', () => {
       expect(editor.instructionsPrompt).toContain('replace_range')
       expect(editor.instructionsPrompt).toContain('read_files.ranges')
-      expect(editor.instructionsPrompt).toContain('"cb_tool_name": "replace_range"')
+      expect(editor.instructionsPrompt).toContain(
+        '"cb_tool_name": "replace_range"',
+      )
       expect(editor.instructionsPrompt).toContain('"expectedHash"')
       expect(editor.instructionsPrompt).toContain('"newContent"')
     })
@@ -161,8 +215,12 @@ describe('editor agent', () => {
     })
 
     test('contains edit_transaction format example', () => {
-      expect(editor.instructionsPrompt).toContain('"cb_tool_name": "edit_transaction"')
-      expect(editor.instructionsPrompt).toContain('preflighted and applied atomically')
+      expect(editor.instructionsPrompt).toContain(
+        '"cb_tool_name": "edit_transaction"',
+      )
+      expect(editor.instructionsPrompt).toContain(
+        'preflighted and applied atomically',
+      )
       expect(editor.instructionsPrompt).toContain('"edits"')
       expect(editor.instructionsPrompt).toContain('"type": "str_replace"')
       expect(editor.instructionsPrompt).toContain('"type": "structured"')
@@ -201,8 +259,12 @@ describe('editor agent', () => {
 
     test('requires an implementation-only spawn prompt', () => {
       expect(editor.spawnerPrompt).toContain('Spawn this agent with a prompt')
-      expect(editor.spawnerPrompt).toContain('Do not rely on inherited conversation history')
-      expect(editor.spawnerPrompt).not.toContain('Do not specify an input prompt')
+      expect(editor.spawnerPrompt).toContain(
+        'Do not rely on inherited conversation history',
+      )
+      expect(editor.spawnerPrompt).not.toContain(
+        'Do not specify an input prompt',
+      )
     })
 
     test('mentions reading files for target context', () => {
@@ -312,7 +374,9 @@ describe('editor agent', () => {
         input: { output: { messages: any[] } }
       }
       expect(toolCall.input.output.messages).toHaveLength(3)
-      expect(toolCall.input.output.messages[0].content[0].text).toBe('Message 2')
+      expect(toolCall.input.output.messages[0].content[0].text).toBe(
+        'Message 2',
+      )
     })
 
     test('handleSteps can be serialized for sandbox execution', () => {
@@ -424,26 +488,40 @@ describe('editor agent', () => {
 
       const updatedState = createMockAgentState([
         {
-          role: 'assistant',
+          role: 'tool',
+          toolName: 'edit_transaction',
           content: [
             {
-              type: 'tool-call',
-              toolName: 'apply_patch',
-              input: {
-                operation: {
-                  type: 'update_file',
-                  path: 'src/from-apply-patch.ts',
-                  diff: '@@\n-before\n+after\n',
-                },
-              },
-            },
-            {
-              type: 'tool-call',
-              toolName: 'apply_smart_patch',
-              input: {
-                path: 'src/from-smart-patch.ts',
-                patch: '@@\n-before\n+after\n',
-              },
+              type: 'json',
+              value: withCommittedReceipt({
+                kind: 'file_mutation_result',
+                version: 1,
+                operationId: 'editor-multi',
+                outcome: 'applied',
+                authorityTier: 'portable_path',
+                actions: [
+                  {
+                    actionId: 'a',
+                    index: 0,
+                    action: 'update',
+                    path: 'src/from-apply-patch.ts',
+                    outcome: 'applied',
+                    beforeHash: 'before',
+                    afterHash: 'after',
+                  },
+                  {
+                    actionId: 'b',
+                    index: 1,
+                    action: 'update',
+                    path: 'src/from-smart-patch.ts',
+                    outcome: 'applied',
+                    beforeHash: 'before',
+                    afterHash: 'after',
+                  },
+                ],
+                errors: [],
+                freshCapabilities: [],
+              }),
             },
           ],
         },
@@ -522,15 +600,31 @@ describe('editor agent', () => {
       const result = generator.next({
         agentState: createMockAgentState([
           {
-            role: 'assistant',
+            role: 'tool',
+            toolName: 'str_replace',
             content: [
               {
-                type: 'tool-call',
-                toolName: 'str_replace',
-                input: {
-                  path: 'agents/base2/base2.ts',
-                  replacements: [{ oldString: 'before', newString: 'after' }],
-                },
+                type: 'json',
+                value: withCommittedReceipt({
+                  kind: 'file_mutation_result',
+                  version: 1,
+                  operationId: 'editor-progress',
+                  outcome: 'applied',
+                  authorityTier: 'portable_path',
+                  actions: [
+                    {
+                      actionId: 'edit',
+                      index: 0,
+                      action: 'update',
+                      path: 'agents/base2/base2.ts',
+                      outcome: 'applied',
+                      beforeHash: 'before',
+                      afterHash: 'after',
+                    },
+                  ],
+                  errors: [],
+                  freshCapabilities: [],
+                }),
               },
             ],
           },
@@ -558,8 +652,10 @@ describe('editor agent', () => {
       expect(editor.instructionsPrompt).toContain('try/catch')
     })
 
-    test('mentions optional arguments', () => {
-      expect(editor.instructionsPrompt).toContain('Optional arguments')
+    test('uses language-idiomatic argument conventions', () => {
+      expect(editor.instructionsPrompt).toContain(
+        'defaults, optionals, builders, or overloads',
+      )
     })
 
     test('mentions new components in new files', () => {

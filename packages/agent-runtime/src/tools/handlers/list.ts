@@ -1,6 +1,12 @@
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
 import { handleApplyPatch } from './tool/apply-patch'
+import {
+  handleAcceptProposal,
+  handleApplyProposal,
+  handleReadProposals,
+  handleRejectProposal,
+} from './tool/proposal-actions'
 import { handleApplySmartPatch } from './tool/apply-smart-patch'
 import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
@@ -63,9 +69,11 @@ import type { ToolName } from '@codebuff/common/tools/constants'
  * - Returns a promise that will be awaited
  */
 export const codebuffToolHandlers = {
+  accept_proposal: handleAcceptProposal,
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
   apply_patch: handleApplyPatch,
+  apply_proposal: handleApplyProposal,
   apply_smart_patch: handleApplySmartPatch,
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
@@ -92,12 +100,14 @@ export const codebuffToolHandlers = {
   read_files: handleReadFiles,
   read_image: handleReadImage,
   read_outline: handleReadOutline,
+  read_proposals: handleReadProposals,
   read_slices: handleReadSlices,
   read_proposal_workspace: handleReadProposalWorkspace,
   read_subtree: handleReadSubtree,
   replace_range: handleReplaceRange,
   rewrite_symbol: handleRewriteSymbol,
   render_ui: handleRenderUI,
+  reject_proposal: handleRejectProposal,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
   set_messages: handleSetMessages,

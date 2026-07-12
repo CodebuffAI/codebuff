@@ -145,7 +145,10 @@ describe('CopyButton - copied state reset timing', () => {
         clearTimeout(currentTimerId)
       }
       copyButtonHandlers.handleCopy()
-      currentTimerId = setTimeout(() => {}, COPIED_RESET_DELAY_MS) as unknown as number
+      currentTimerId = setTimeout(
+        () => {},
+        COPIED_RESET_DELAY_MS,
+      ) as unknown as number
     }
 
     handleCopy()

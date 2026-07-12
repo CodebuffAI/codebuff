@@ -98,21 +98,25 @@ describe('durable plan artifact policy', () => {
 
   test('validatePlanArtifactPath accepts all durable artifact names', () => {
     for (const name of PLAN_ARTIFACT_NAMES) {
-      expect(validatePlanArtifactPath(`.agents/sessions/demo/${name}`)).toBeNull()
-      expect(validatePlanArtifactPath(`./.agents/sessions/demo/${name}`)).toBeNull()
+      expect(
+        validatePlanArtifactPath(`.agents/sessions/demo/${name}`),
+      ).toBeNull()
+      expect(
+        validatePlanArtifactPath(`./.agents/sessions/demo/${name}`),
+      ).toBeNull()
     }
   })
 
   test('validatePlanArtifactPath rejects absolute, traversal, and unknown artifact paths', () => {
-    expect(validatePlanArtifactPath('/tmp/.agents/sessions/demo/PLAN.md')).toMatch(
-      /absolute paths/,
-    )
-    expect(validatePlanArtifactPath('C:/work/.agents/sessions/demo/PLAN.md')).toMatch(
-      /absolute paths/,
-    )
-    expect(validatePlanArtifactPath('.agents/sessions/../demo/PLAN.md')).toMatch(
-      /path traversal/,
-    )
+    expect(
+      validatePlanArtifactPath('/tmp/.agents/sessions/demo/PLAN.md'),
+    ).toMatch(/absolute paths/)
+    expect(
+      validatePlanArtifactPath('C:/work/.agents/sessions/demo/PLAN.md'),
+    ).toMatch(/absolute paths/)
+    expect(
+      validatePlanArtifactPath('.agents/sessions/../demo/PLAN.md'),
+    ).toMatch(/path traversal/)
     expect(validatePlanArtifactPath('.agents/sessions/demo/NOTES.md')).toMatch(
       /only \.agents\/sessions\/<slug>\//,
     )
@@ -122,8 +126,12 @@ describe('durable plan artifact policy', () => {
   test('validatePlanStatusPath accepts PLAN.md, STATUS.md, and LESSONS.md', () => {
     expect(validatePlanStatusPath('.agents/sessions/demo/PLAN.md')).toBeNull()
     expect(validatePlanStatusPath('.agents/sessions/demo/STATUS.md')).toBeNull()
-    expect(validatePlanStatusPath('.agents/sessions/demo/LESSONS.md')).toBeNull()
-    expect(validatePlanStatusPath('./.agents/sessions/demo/STATUS.md')).toBeNull()
+    expect(
+      validatePlanStatusPath('.agents/sessions/demo/LESSONS.md'),
+    ).toBeNull()
+    expect(
+      validatePlanStatusPath('./.agents/sessions/demo/STATUS.md'),
+    ).toBeNull()
     // SPEC.md is still create-only.
     expect(validatePlanStatusPath('.agents/sessions/demo/SPEC.md')).toMatch(
       /only \.agents\/sessions\/<slug>\//,
@@ -143,7 +151,9 @@ describe('durable plan artifact policy', () => {
     )
     expect(getSessionDirForArtifact('docs/PLAN.md')).toBeNull()
 
-    expect(getSessionSlugForArtifact('.agents/sessions/demo/PLAN.md')).toBe('demo')
+    expect(getSessionSlugForArtifact('.agents/sessions/demo/PLAN.md')).toBe(
+      'demo',
+    )
     expect(getSessionSlugForArtifact('docs/PLAN.md')).toBeNull()
   })
 
@@ -182,13 +192,18 @@ describe('durable plan artifact policy', () => {
 
 describe('current-task annotation', () => {
   test('reads an existing pointer annotation', () => {
-    const body = '# Plan\n\n<!-- current-task: P0-12 follow-up -->\n\n- [ ] work\n'
+    const body =
+      '# Plan\n\n<!-- current-task: P0-12 follow-up -->\n\n- [ ] work\n'
     expect(readCurrentTaskAnnotation(body)).toBe('P0-12 follow-up')
   })
 
   test('returns null for "none" and empty annotations', () => {
-    expect(readCurrentTaskAnnotation('# Plan\n<!-- current-task: none -->\n')).toBeNull()
-    expect(readCurrentTaskAnnotation('# Plan\n<!-- current-task: -->\n')).toBeNull()
+    expect(
+      readCurrentTaskAnnotation('# Plan\n<!-- current-task: none -->\n'),
+    ).toBeNull()
+    expect(
+      readCurrentTaskAnnotation('# Plan\n<!-- current-task: -->\n'),
+    ).toBeNull()
   })
 
   test('returns null when no annotation is present', () => {
@@ -205,8 +220,7 @@ describe('current-task annotation', () => {
   })
 
   test('setCurrentTaskAnnotation rewrites an existing annotation', () => {
-    const body =
-      '# Plan\n<!-- current-task: P0-7 -->\n- [ ] work\n'
+    const body = '# Plan\n<!-- current-task: P0-7 -->\n- [ ] work\n'
     const next = setCurrentTaskAnnotation(body, 'P0-8')
     expect(next).toContain('<!-- current-task: P0-8 -->')
     expect(next).not.toContain('<!-- current-task: P0-7 -->')
@@ -231,12 +245,7 @@ describe('current-task annotation', () => {
   })
 
   test('setCurrentTaskAnnotationLines rewrites an existing annotation in place', () => {
-    const lines = [
-      '# Plan',
-      '<!-- current-task: P0-7 -->',
-      '- [ ] work',
-      '',
-    ]
+    const lines = ['# Plan', '<!-- current-task: P0-7 -->', '- [ ] work', '']
     const next = setCurrentTaskAnnotationLines(lines, 'P0-8')
     expect(next[1]).toBe('<!-- current-task: P0-8 -->')
     // Surrounding content must be preserved.

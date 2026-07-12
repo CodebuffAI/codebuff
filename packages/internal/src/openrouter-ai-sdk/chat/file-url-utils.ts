@@ -1,4 +1,3 @@
-
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils'
 
 import { isUrl } from './is-url'

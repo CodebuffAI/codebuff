@@ -1,4 +1,8 @@
-import { createPatch } from 'diff'
+import { applyPatch, createPatch } from 'diff'
+import {
+  getContentHash,
+  normalizeLineEndings,
+} from '@codebuff/common/util/content-hash'
 
 import { processStrReplace } from './process-str-replace'
 import { processStructuredEdit } from './process-structured-edit'
@@ -24,7 +28,28 @@ type StrReplaceTransactionEdit = {
   }[]
 }
 
-type TransactionEdit = StrReplaceTransactionEdit | StructuredTransactionEdit
+type TransactionEdit =
+  | StrReplaceTransactionEdit
+  | StructuredTransactionEdit
+  | {
+      id?: string
+      type: 'replace_range'
+      path: string
+      startLine: number
+      endLine: number
+      expectedHash: string
+      newContent: string
+    }
+  | {
+      id?: string
+      type: 'rewrite_symbol'
+      path: string
+      symbol: string
+      content: string
+      occurrence?: number
+    }
+  | { id?: string; type: 'patch'; path: string; diff: string }
+  | { id?: string; type: 'write_file'; path: string; content: string }
 
 type TransactionFailure = {
   editIndex: number
@@ -44,6 +69,7 @@ export async function processEditTransaction(params: {
   edits: TransactionEdit[]
   initialContentByPath: Map<string, string | null>
   logger: Logger
+  requireFreshReadCapabilityForPaths?: Set<string>
 }): Promise<
   | {
       tool: 'edit_transaction'
@@ -56,7 +82,12 @@ export async function processEditTransaction(params: {
       failures: TransactionFailure[]
     }
 > {
-  const { edits, initialContentByPath, logger } = params
+  const {
+    edits,
+    initialContentByPath,
+    logger,
+    requireFreshReadCapabilityForPaths = new Set<string>(),
+  } = params
   const workingContentByPath = new Map(initialContentByPath)
   const messagesByPath = new Map<string, string[]>()
   const failures: TransactionFailure[] = []
@@ -76,6 +107,9 @@ export async function processEditTransaction(params: {
       edit,
       initialContentPromise: Promise.resolve(currentContent ?? null),
       logger,
+      requireFreshReadCapability: requireFreshReadCapabilityForPaths.has(
+        edit.path,
+      ),
     })
 
     if ('error' in result) {
@@ -115,7 +149,10 @@ export async function processEditTransaction(params: {
   const files: TransactionFileChange[] = []
   for (const [path, initialContent] of initialContentByPath.entries()) {
     const finalContent = workingContentByPath.get(path)
-    if (typeof initialContent !== 'string' || typeof finalContent !== 'string') {
+    if (
+      typeof initialContent !== 'string' ||
+      typeof finalContent !== 'string'
+    ) {
       continue
     }
     if (initialContent === finalContent) continue
@@ -138,7 +175,8 @@ export async function processEditTransaction(params: {
   if (files.length === 0) {
     return {
       tool: 'edit_transaction',
-      error: 'Atomic edit_transaction produced no file changes. Re-read the target files/ranges and retry with replacements that change current content.',
+      error:
+        'Atomic edit_transaction produced no file changes. Re-read the target files/ranges and retry with replacements that change current content.',
       failures: [],
     }
   }
@@ -154,6 +192,7 @@ async function processTransactionEdit(params: {
   edit: TransactionEdit
   initialContentPromise: Promise<string | null>
   logger: Logger
+  requireFreshReadCapability: boolean
 }): Promise<
   | {
       content: string
@@ -163,7 +202,8 @@ async function processTransactionEdit(params: {
       error: string
     }
 > {
-  const { edit, initialContentPromise, logger } = params
+  const { edit, initialContentPromise, logger, requireFreshReadCapability } =
+    params
   switch (edit.type) {
     case 'str_replace': {
       const initialContent = await initialContentPromise
@@ -172,6 +212,7 @@ async function processTransactionEdit(params: {
           path: edit.path,
           replacements: edit.replacements,
           atomic: true,
+          requireFreshReadCapability,
           initialContentPromise: Promise.resolve(initialContent),
           logger,
         })
@@ -181,6 +222,7 @@ async function processTransactionEdit(params: {
         path: edit.path,
         replacements: edit.replacements,
         atomic: true,
+        requireFreshReadCapability,
         initialContentPromise: Promise.resolve(initialContent),
         logger,
       })
@@ -194,6 +236,97 @@ async function processTransactionEdit(params: {
         initialContentPromise,
         logger,
       })
+    case 'replace_range': {
+      const initialContent = await initialContentPromise
+      if (initialContent === null) {
+        return { error: `Cannot replace a range in missing file ${edit.path}.` }
+      }
+      const normalized = normalizeLineEndings(initialContent)
+      const lines = normalized.split('\n')
+      const visibleLineCount =
+        normalized.length === 0
+          ? 0
+          : lines.at(-1) === ''
+            ? lines.length - 1
+            : lines.length
+      if (edit.startLine < 1 || edit.endLine > visibleLineCount) {
+        return {
+          error: `replace_range ${edit.startLine}-${edit.endLine} is outside ${edit.path} (${visibleLineCount} lines).`,
+        }
+      }
+      const currentRange = lines
+        .slice(edit.startLine - 1, edit.endLine)
+        .join('\n')
+      if (getContentHash(currentRange) !== edit.expectedHash) {
+        return {
+          error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read the exact range.`,
+        }
+      }
+      const replacementLines = normalizeLineEndings(edit.newContent).split('\n')
+      lines.splice(
+        edit.startLine - 1,
+        edit.endLine - edit.startLine + 1,
+        ...replacementLines,
+      )
+      return {
+        content: lines.join('\n'),
+        messages: [
+          `Replaced lines ${edit.startLine}-${edit.endLine} in ${edit.path}.`,
+        ],
+      }
+    }
+    case 'rewrite_symbol': {
+      const initialContent = await initialContentPromise
+      if (initialContent === null) {
+        return {
+          error: `Cannot rewrite a symbol in missing file ${edit.path}.`,
+        }
+      }
+      const { extractSlices, extendRangeToPrecedingComment } = await import(
+        './structural-read'
+      )
+      const matches = await extractSlices(
+        initialContent,
+        edit.path,
+        [edit.symbol],
+        edit.occurrence ?? 5,
+      )
+      const match = edit.occurrence ? matches[edit.occurrence - 1] : matches[0]
+      if (!match || (!edit.occurrence && matches.length > 1)) {
+        return {
+          error:
+            matches.length > 1
+              ? `Multiple symbols named ${edit.symbol} exist in ${edit.path}; pass occurrence.`
+              : `Symbol ${edit.symbol} was not found in ${edit.path}.`,
+        }
+      }
+      const lines = normalizeLineEndings(initialContent).split('\n')
+      const extended = extendRangeToPrecedingComment(lines, match.startLine)
+      lines.splice(
+        extended.startLine - 1,
+        match.endLine - extended.startLine + 1,
+        ...normalizeLineEndings(edit.content).split('\n'),
+      )
+      return {
+        content: lines.join('\n'),
+        messages: [`Rewrote symbol ${edit.symbol} in ${edit.path}.`],
+      }
+    }
+    case 'patch': {
+      const initialContent = await initialContentPromise
+      if (initialContent === null) {
+        return { error: `Cannot apply a patch to missing file ${edit.path}.` }
+      }
+      const content = applyPatch(initialContent, edit.diff)
+      return content === false
+        ? { error: `Patch did not apply cleanly to ${edit.path}.` }
+        : { content, messages: [`Applied patch to ${edit.path}.`] }
+    }
+    case 'write_file':
+      return {
+        content: edit.content,
+        messages: [`Prepared whole-file content for ${edit.path}.`],
+      }
     default: {
       const _exhaustive: never = edit
       return {

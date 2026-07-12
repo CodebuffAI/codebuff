@@ -694,6 +694,10 @@ export async function applyOverridesToSessionState(
     customToolDefinitions?: CustomToolDefinition[]
     maxAgentSteps?: number
   },
+  runtime?: {
+    fs?: CodebuffFileSystem
+    logger?: Logger
+  },
 ): Promise<SessionState> {
   // Deep clone to avoid mutating the original session state
   const sessionState = JSON.parse(
@@ -705,28 +709,55 @@ export async function applyOverridesToSessionState(
     sessionState.mainAgentState.stepsRemaining = overrides.maxAgentSteps
   }
 
-  // Apply projectFiles override (recomputes file tree and token scores)
-  if (overrides.projectFiles !== undefined) {
-    if (cwd) {
-      const projectIndex = getProjectIndexInput({
-        cwd,
-        projectFiles: overrides.projectFiles,
-      })
-      if (projectIndex) {
-        const { fileTree, fileTokenScores, tokenCallers } =
-          await computeProjectIndex(projectIndex)
-        sessionState.fileContext.fileTree = fileTree
-        sessionState.fileContext.fileTokenScores = fileTokenScores
-        sessionState.fileContext.tokenCallers = tokenCallers
-      }
-    } else {
-      // If projectFiles are provided but no cwd, reset file context fields
-      sessionState.fileContext.fileTree = []
-      sessionState.fileContext.fileTokenScores = {}
-      sessionState.fileContext.tokenCallers = {}
+  // Refresh project context for every continued run. Explicit projectFiles
+  // remain authoritative for virtual/in-memory projects; otherwise rediscover
+  // the live filesystem so creates, deletes, renames, and symbol changes are
+  // reflected in the next system prompt.
+  if (cwd) {
+    const fs = runtime?.fs ?? (require('fs') as typeof fsType).promises
+    const logger = runtime?.logger ?? {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const discoveredProject =
+      overrides.projectFiles === undefined
+        ? await discoverProjectPaths({ cwd, fs })
+        : undefined
+    const projectIndex = getProjectIndexInput({
+      cwd,
+      fs,
+      logger,
+      projectFiles: overrides.projectFiles,
+      discoveredProject,
+    })
+    if (projectIndex) {
+      const { fileTree, fileTokenScores, tokenCallers } =
+        await computeProjectIndex(projectIndex)
+      sessionState.fileContext.fileTree = fileTree
+      sessionState.fileContext.fileTokenScores = fileTokenScores
+      sessionState.fileContext.tokenCallers = tokenCallers
     }
 
-    // Auto-derive knowledgeFiles if not explicitly provided
+    if (overrides.knowledgeFiles === undefined) {
+      sessionState.fileContext.knowledgeFiles = overrides.projectFiles
+        ? deriveKnowledgeFiles(overrides.projectFiles)
+        : discoveredProject
+          ? await loadKnowledgeFilesFromPaths({
+              cwd,
+              filePaths: discoveredProject.filePaths,
+              fs,
+              logger,
+            })
+          : {}
+    }
+  } else if (overrides.projectFiles !== undefined) {
+    // Explicit virtual files without a cwd cannot be scored safely.
+    sessionState.fileContext.fileTree = []
+    sessionState.fileContext.fileTokenScores = {}
+    sessionState.fileContext.tokenCallers = {}
+
     if (overrides.knowledgeFiles === undefined) {
       sessionState.fileContext.knowledgeFiles = deriveKnowledgeFiles(
         overrides.projectFiles,

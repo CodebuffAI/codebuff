@@ -1,4 +1,3 @@
-
 import { shouldCollapseByDefault } from './constants'
 import {
   isImplementorAgent,

@@ -1,17 +1,16 @@
 import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebuff/common/constants/knowledge'
 import { frontendSection } from '@codebuff/common/constants/prompt-sections'
-import {
-  formatLanguageProfilePromptForFileTree,
-} from '@codebuff/common/util/language-profiles'
-import {
-  formatEngineProfilePromptForFileTree,
-} from '@codebuff/common/util/engine-profiles'
+import { formatLanguageProfilePromptForFileTree } from '@codebuff/common/util/language-profiles'
+import { formatEngineProfilePromptForFileTree } from '@codebuff/common/util/engine-profiles'
 import {
   formatPatternsIndexPrompt,
   loadPatternsIndex,
 } from '@codebuff/common/util/patterns'
 import {
   formatRoutedKnowledgeSection,
+  getKnowledgeBudgetChars,
+  inferKnowledgeTaskType,
+  loadRoutedKnowledgeContents,
   loadRouterTable,
   resolveRoutedKnowledgeFiles,
 } from '@codebuff/common/util/router'
@@ -121,7 +120,10 @@ export async function formatPrompt(
     [PLACEHOLDER.FRONTEND_SECTION]: () =>
       fileTreeHasFrontendFiles(fileContext.fileTree) ? frontendSection : '',
     [PLACEHOLDER.LANGUAGE_PROFILE]: () =>
-      formatLanguageProfilePromptForFileTree(fileContext.fileTree) +
+      formatLanguageProfilePromptForFileTree(fileContext.fileTree, {
+        taskText: lastUserInput ?? intitialAgentPrompt ?? '',
+        maxProfiles: 3,
+      }) +
       formatEngineProfilePromptForFileTree(fileContext.fileTree),
     [PLACEHOLDER.FILE_TREE_PROMPT]: () =>
       getProjectFileTreePrompt({
@@ -170,18 +172,34 @@ export async function formatPrompt(
       // knowledge files (`~/.knowledge.md`) are always merged in, matching
       // the existing `KNOWLEDGE_FILES_CONTENTS` provider.
       const routerTable = loadRouterTable(fileContext.projectRoot, logger)
-      const routed = resolveRoutedKnowledgeFiles({
-        routerTable,
-        agentId: agentTemplate?.id,
+      const taskType = inferKnowledgeTaskType(lastUserInput)
+      const routeKey = agentTemplate?.id
+        ? [`${agentTemplate.id}:${taskType}`, agentTemplate.id].find((key) =>
+            Object.prototype.hasOwnProperty.call(routerTable, key),
+          )
+        : undefined
+      const selectedFiles = routeKey
+        ? routerTable[routeKey]
+        : resolveRoutedKnowledgeFiles({
+            routerTable,
+            agentId: agentTemplate?.id,
+            taskType,
+            knowledgeFiles: fileContext.knowledgeFiles,
+            logger,
+          })
+      const routedContents = loadRoutedKnowledgeContents({
+        projectRoot: fileContext.projectRoot,
+        files: selectedFiles,
         knowledgeFiles: fileContext.knowledgeFiles,
         logger,
       })
       const blocks: string[] = []
-      for (const p of routed) {
-        const content = (fileContext.knowledgeFiles[p] ?? '').trim()
-        if (!content) continue
-        blocks.push('```' + p + '\n' + content + '\n```')
-      }
+      const projectSection = formatRoutedKnowledgeSection({
+        files: selectedFiles,
+        knowledgeFiles: routedContents,
+        maxChars: getKnowledgeBudgetChars(taskType),
+      })
+      if (projectSection) blocks.push(projectSection)
       for (const [p, content] of Object.entries(
         fileContext.userKnowledgeFiles ?? {},
       )) {

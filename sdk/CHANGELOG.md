@@ -7,6 +7,7 @@ All notable changes to the @openbuff/sdk package will be documented in this file
 First public release of `@openbuff/sdk` (forked lineage from Codebuff SDK; see `docs/codebuff-to-openbuff-migration.md`).
 
 ### Added — Provider layer
+
 - Multi-provider router with per-model failover chains and retry config (`ProviderConfig`, `RetryConfig`). Honors provider-declared `context.windowTokens` with a safe fallback when absent.
 - New built-in tools: `git_branch`, `git_status`, `apply_patch`, `str_replace` (with `edit_transaction` atomic batch), `read_subtree`, `read_outline`, `read_image`, `query_index`, `code_search`, `run_terminal_command`, `list_directory`, `glob`, `file_picker`.
 - Cost accounting + token usage tracking per run, surfaced in `RunResult.output`.
@@ -14,12 +15,14 @@ First public release of `@openbuff/sdk` (forked lineage from Codebuff SDK; see `
 - `code_map` indexer: tree-sitter-powered symbol extraction with `query_index` graph edges, reference/blast-radius mode, and deterministic `.openbuff.d/indexing.json` schema.
 
 ### Added — Agent runtime
+
 - `base2` orchestrator with a validation/reviewer gate, gate-repair loop, coverage verdicts, craftsmanship prompt sections, and session-state `AgentOutput` schema.
 - Bundled agents: `debugger`, `doc-writer`, `git-committer`, `security-reviewer`, `test-writer`, `librarian`, `context-pruner`, `researcher`, `thinker`, `synthesizer`.
 - Subagent timeouts, background agents, budget enforcement, and parallel I/O for `read_files` / `read_image`.
 - `handleSteps` generators now receive `hitStepCap` in `TNext` so orchestrators can break out on the step cap instead of falling through to the gate.
 
 ### Fixed
+
 - `suggest_followups` is now retracted mid-step the moment a file-changing tool executes (both in `base2`'s edits-detected blocks and in `tool-executor.ts`), preventing same-step follow-up suggestions after edits.
 - Step-cap early-return no longer causes an infinite validation/reviewer gate loop: `runAgentStep` returns `hitStepCap`, threaded through `loopAgentSteps` → `runProgrammaticStep` → `generator.next({ hitStepCap })`, and `base2` breaks out of its `while(true)` when it fires.
 - `runAgentStep` resolves the agent's model from `agentId` before failover, fixing the "Agent run error: undefined" regression.
@@ -28,6 +31,7 @@ First public release of `@openbuff/sdk` (forked lineage from Codebuff SDK; see `
 - Provider config honors `context.windowTokens`; missing values fall back to a safe default.
 
 ### Changed
+
 - Removed `isLocalMode` / `localMode` flag and the `LOCAL_MODE_API_KEY` sentinel; local-mode plumbing and hosted-backend DB/auth/email surfaces purged.
 - Debug-log message history capped to the last 50 messages to bound memory.
 - Removed dead `_sendSubagentChunk` and per-iteration `cloneDeep`.

@@ -25,7 +25,9 @@ export function formatValidationIssues(params: {
     })
     .filter((message): message is string => Boolean(message))
 
-  return details.length > 0 ? details.join('; ') : JSON.stringify(issues, null, 2)
+  return details.length > 0
+    ? details.join('; ')
+    : JSON.stringify(issues, null, 2)
 }
 
 function summarizeToolSpecificValidationIssues(
@@ -63,7 +65,9 @@ function summarizeToolSpecificValidationIssues(
   ].join('\n')
 }
 
-function summarizeMissingRequiredFields(issues: ValidationIssue[]): string | undefined {
+function summarizeMissingRequiredFields(
+  issues: ValidationIssue[],
+): string | undefined {
   const missingFields = issues.flatMap((issue) => {
     const isMissing =
       issue.code === 'invalid_type' &&

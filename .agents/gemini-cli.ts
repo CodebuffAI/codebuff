@@ -7,9 +7,9 @@ const baseDefinition = createCliAgent({
   displayName: 'Gemini CLI',
   cliName: 'Gemini',
   shortName: 'gemini',
-  startCommand: 'gemini --yolo',
+  startCommand: 'gemini --approval-mode auto_edit',
   permissionNote:
-    'Always use `--yolo` (or `--approval-mode yolo`) when testing to auto-approve all tool actions and avoid prompts that would block automated tests.',
+    'Use `--approval-mode auto_edit` for non-interactive workspace edits. Do not use yolo/full-access bypasses.',
   cliSpecificDocs: `## Gemini CLI Commands
 
 Gemini CLI uses slash commands for navigation:
@@ -24,7 +24,7 @@ const definition: AgentDefinition = {
   // External CLI driving real implementation/review work via tmux can run genuinely long.
   defaultTimeoutMs: 30 * 60 * 1000,
   handleSteps: function* ({ prompt, params, logger }) {
-    const START_COMMAND = 'gemini --yolo'
+    const START_COMMAND = 'gemini --approval-mode auto_edit'
     const CLI_NAME = 'Gemini'
 
     yield {
@@ -129,6 +129,14 @@ const definition: AgentDefinition = {
     }
 
     yield 'STEP_ALL'
+    yield {
+      toolName: 'run_terminal_command',
+      input: {
+        command: './scripts/tmux/tmux-cli.sh stop "' + sessionName + '"',
+        timeout_seconds: 15,
+      },
+      includeToolCall: false,
+    }
   },
 }
 

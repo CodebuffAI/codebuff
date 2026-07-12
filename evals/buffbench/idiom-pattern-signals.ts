@@ -55,19 +55,22 @@ const RUST_RULES: IdiomPatternRule[] = [
     patternId: 'rust-unwrap',
     language: 'rust',
     test: (line) => /\.unwrap\(\)/.test(line),
-    message: 'Avoid unwrap in eval tasks; propagate or handle errors explicitly.',
+    message:
+      'Avoid unwrap in eval tasks; propagate or handle errors explicitly.',
   },
   {
     patternId: 'rust-expect',
     language: 'rust',
     test: (line) => /\.expect\("[^"]*"\)/.test(line),
-    message: 'Avoid expect in production paths; return Result with context instead.',
+    message:
+      'Avoid expect in production paths; return Result with context instead.',
   },
   {
     patternId: 'rust-unnecessary-clone',
     language: 'rust',
     test: (line) => /\.clone\(\)/.test(line),
-    message: 'Review clone usage and prefer borrowing or ownership transfer when obvious.',
+    message:
+      'Review clone usage and prefer borrowing or ownership transfer when obvious.',
   },
 ]
 
@@ -170,9 +173,7 @@ function addedLinesFromDiff(diff: string): DiffAddedLine[] {
   return addedLines
 }
 
-export function detectIdiomPatternSignals(
-  diff: string,
-): IdiomPatternFinding[] {
+export function detectIdiomPatternSignals(diff: string): IdiomPatternFinding[] {
   return addedLinesFromDiff(diff).flatMap((addedLine) => {
     const language = languageForDiffPath(addedLine.path)
     if (!language) return []

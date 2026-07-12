@@ -81,7 +81,7 @@ export const readLogsParams = {
         path: z.string(),
         resolvedPath: z.string(),
         jobId: z.string().optional(),
-        status: z.enum(['running', 'completed', 'error']).optional(),
+        status: z.enum(['running', 'completed', 'error', 'lost']).optional(),
         lines: z.number(),
         content: z.string(),
         truncated: z.boolean().optional(),

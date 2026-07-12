@@ -227,9 +227,7 @@ export function clampScoresByDeterministicSignals(
 
   const note = `[deterministic clamp: ${reason} check failed → scores capped at ${cap}]`
   // Prepend the note so it's visible in reports without burying the analysis.
-  clamped.analysis = clamped.analysis
-    ? `${note}\n${clamped.analysis}`
-    : note
+  clamped.analysis = clamped.analysis ? `${note}\n${clamped.analysis}` : note
 
   return clamped
 }

@@ -96,7 +96,7 @@ describe('PromptResult type and helpers', () => {
         expect(result.reason).toBe('Request cancelled')
         return
       }
-      
+
       // This code should not be reached
       expect(true).toBe(false)
     })
@@ -114,7 +114,9 @@ describe('PromptResult type and helpers', () => {
         return result.value
       }
 
-      await expect(callerThatThrows()).rejects.toThrow('Prompt aborted: Request cancelled')
+      await expect(callerThatThrows()).rejects.toThrow(
+        'Prompt aborted: Request cancelled',
+      )
     })
 
     it('should support unwrap helper pattern', () => {
@@ -140,7 +142,10 @@ describe('PromptResult type and helpers', () => {
 
     it('should detect DOMException AbortError', () => {
       // Simulate a DOMException-like error (as thrown by fetch when aborted)
-      const error = new DOMException('signal is aborted without reason', 'AbortError')
+      const error = new DOMException(
+        'signal is aborted without reason',
+        'AbortError',
+      )
       expect(isAbortError(error)).toBe(true)
     })
 

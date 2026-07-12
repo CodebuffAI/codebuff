@@ -2,17 +2,13 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { runTerminalCommand } from '@openbuff/sdk'
 
-
 import {
   findCommand,
   findCommandSuggestions,
   type RouterParams,
   type CommandResult,
 } from './command-registry'
-import {
-  isSlashCommand,
-  parseCommandInput,
-} from './router-utils'
+import { isSlashCommand, parseCommandInput } from './router-utils'
 import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
 import { buildInterviewPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
@@ -35,6 +31,11 @@ import {
   hasProcessingImages,
   validateAndAddImage,
 } from '../utils/pending-attachments'
+import {
+  finishBashCommand,
+  registerBashCommand,
+} from '../utils/bash-command-controller'
+const INTERACTIVE_BASH_TIMEOUT_SECONDS = 10 * 60
 
 /**
  * Run a bash command with automatic ghost/direct mode selection.
@@ -51,6 +52,7 @@ export function runBashCommand(command: string) {
 
   const ghost = streamingAgents.size > 0 || isChainInProgress
   const id = crypto.randomUUID()
+  const abortController = registerBashCommand(id)
   const commandCwd = process.cwd()
   const startTime = Date.now()
 
@@ -81,13 +83,14 @@ export function runBashCommand(command: string) {
     command,
     process_type: 'SYNC',
     cwd: commandCwd,
-    timeout_seconds: -1,
+    timeout_seconds: INTERACTIVE_BASH_TIMEOUT_SECONDS,
     env: getSystemProcessEnv(),
+    signal: abortController.signal,
   })
     .then(([{ value }]) => {
       const stdout = 'stdout' in value ? value.stdout || '' : ''
       const stderr = 'stderr' in value ? value.stderr || '' : ''
-      const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
+      const exitCode = 'exitCode' in value ? (value.exitCode ?? 0) : 0
 
       // Track terminal command completion
       const durationMs = Date.now() - startTime
@@ -148,6 +151,9 @@ export function runBashCommand(command: string) {
           addedToHistory: true,
         })
       }
+    })
+    .finally(() => {
+      finishBashCommand(id)
     })
     .catch((error) => {
       const errorMessage =
@@ -504,14 +510,15 @@ export async function routeUserPrompt(
     })
 
     const suggestions = findCommandSuggestions(attemptedCmd)
-    const suggestionText = suggestions.length > 0
-      ? ` Did you mean: ${suggestions.join(', ')}?`
-      : ''
+    const suggestionText =
+      suggestions.length > 0 ? ` Did you mean: ${suggestions.join(', ')}?` : ''
 
     setMessages((prev) => [
       ...prev,
       getUserMessage(trimmed),
-      getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}${suggestionText}`),
+      getSystemMessage(
+        `Command not found: ${JSON.stringify(trimmed)}${suggestionText}`,
+      ),
     ])
     return
   }

@@ -78,9 +78,9 @@ const baseDefinition = createCliAgent({
   displayName: 'Codex CLI',
   cliName: 'Codex',
   shortName: 'codex',
-  startCommand: 'codex -a never -s danger-full-access',
+  startCommand: 'codex -a never -s workspace-write',
   permissionNote:
-    'Always use `-a never -s danger-full-access` when testing to avoid approval prompts that would block automated tests.',
+    'Use `-a never -s workspace-write` so automated tests remain non-interactive without host-wide access.',
   extraInputParams: {
     reviewType: {
       type: 'string',
@@ -98,7 +98,7 @@ const definition: AgentDefinition = {
   // External CLI driving real implementation/review work via tmux can run genuinely long.
   defaultTimeoutMs: 30 * 60 * 1000,
   handleSteps: function* ({ prompt, params, logger }) {
-    const START_COMMAND = 'codex -a never -s danger-full-access'
+    const START_COMMAND = 'codex -a never -s workspace-write'
     const CLI_NAME = 'Codex'
 
     yield {
@@ -203,6 +203,14 @@ const definition: AgentDefinition = {
     }
 
     yield 'STEP_ALL'
+    yield {
+      toolName: 'run_terminal_command',
+      input: {
+        command: './scripts/tmux/tmux-cli.sh stop "' + sessionName + '"',
+        timeout_seconds: 15,
+      },
+      includeToolCall: false,
+    }
   },
 }
 

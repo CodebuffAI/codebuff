@@ -1,198 +1,207 @@
+import {
+  LANGUAGE_CAPABILITY_REGISTRY,
+  SUPPORTED_LANGUAGE_IDS,
+  type LanguageCapability,
+  type SupportedLanguageId,
+} from './language-capabilities'
+
 import type { FileTreeNode } from './file'
 
-export type SupportedLanguageId =
-  | 'typescript'
-  | 'python'
-  | 'rust'
-  | 'go'
-  | 'java'
-  | 'csharp'
-  | 'cpp'
-  | 'ruby'
-  | 'php'
-  | 'swift'
-  | 'kotlin'
-  | 'gdscript'
+export {
+  LANGUAGE_CAPABILITY_REGISTRY,
+  SUPPORTED_LANGUAGE_IDS,
+  getLanguageCapability,
+} from './language-capabilities'
+export type {
+  LanguageCapability,
+  LanguageToolMetadata,
+  LanguageToolRole,
+  LanguageValidationMetadata,
+  LanguageValidationStage,
+  SupportedLanguageId,
+} from './language-capabilities'
 
-export type LanguageProfile = {
-  id: SupportedLanguageId
-  displayName: string
-  idiomFile: `agents/idioms/${SupportedLanguageId}.md`
-  guidance: string
+/** Backwards-compatible name for callers that only need prompt fields. */
+export type LanguageProfile = LanguageCapability
+
+export type LanguageProfileSelection = {
+  fileTree: FileTreeNode[]
+  /** Files the task is expected to read or modify. */
+  targetPaths?: readonly string[]
+  /** Natural-language task text used only for explicit language signals. */
+  taskText?: string
+  /** Optional output cap after applying stable registry order. */
+  maxProfiles?: number
 }
 
-const LANGUAGE_PROFILES: Record<SupportedLanguageId, LanguageProfile> = {
-  typescript: {
-    id: 'typescript',
-    displayName: 'TypeScript/JavaScript',
-    idiomFile: 'agents/idioms/typescript.md',
-    guidance:
-      'Favor typed, modular changes; preserve existing framework patterns, async boundaries, and lint/format conventions.',
-  },
-  python: {
-    id: 'python',
-    displayName: 'Python',
-    idiomFile: 'agents/idioms/python.md',
-    guidance:
-      'Prefer simple, explicit code with clear names, context managers, standard typing, and project-local test/style conventions.',
-  },
-  rust: {
-    id: 'rust',
-    displayName: 'Rust',
-    idiomFile: 'agents/idioms/rust.md',
-    guidance:
-      'Respect ownership and borrowing, return Result/Option idiomatically, and keep error handling explicit and precise.',
-  },
-  go: {
-    id: 'go',
-    displayName: 'Go',
-    idiomFile: 'agents/idioms/go.md',
-    guidance:
-      'Keep code small and explicit, handle errors immediately, and follow package-level naming and interface conventions.',
-  },
-  java: {
-    id: 'java',
-    displayName: 'Java',
-    idiomFile: 'agents/idioms/java.md',
-    guidance:
-      'Preserve package structure and build conventions; prefer clear types, small methods, and existing dependency-injection/test patterns.',
-  },
-  csharp: {
-    id: 'csharp',
-    displayName: 'C#/.NET',
-    idiomFile: 'agents/idioms/csharp.md',
-    guidance:
-      'Follow existing .NET conventions, nullable annotations, async patterns, and project-level formatting/analyzer expectations.',
-  },
-  cpp: {
-    id: 'cpp',
-    displayName: 'C/C++',
-    idiomFile: 'agents/idioms/cpp.md',
-    guidance:
-      'Respect ownership, RAII, const-correctness, and the project standard/version before changing APIs or memory behavior.',
-  },
-  ruby: {
-    id: 'ruby',
-    displayName: 'Ruby',
-    idiomFile: 'agents/idioms/ruby.md',
-    guidance:
-      'Keep Ruby expressive and simple; preserve Rails/RSpec or project-local conventions, blocks, naming, and dependency boundaries.',
-  },
-  php: {
-    id: 'php',
-    displayName: 'PHP',
-    idiomFile: 'agents/idioms/php.md',
-    guidance:
-      'Follow Composer/autoloading and framework conventions; keep types, exceptions, and array/object shapes explicit where the project does.',
-  },
-  swift: {
-    id: 'swift',
-    displayName: 'Swift',
-    idiomFile: 'agents/idioms/swift.md',
-    guidance:
-      'Use Swift value semantics, optionals, protocols, and concurrency patterns idiomatically while preserving package conventions.',
-  },
-  kotlin: {
-    id: 'kotlin',
-    displayName: 'Kotlin',
-    idiomFile: 'agents/idioms/kotlin.md',
-    guidance:
-      'Prefer null-safety, data classes, sealed types, coroutines, and Gradle conventions that match the surrounding code.',
-  },
-  gdscript: {
-    id: 'gdscript',
-    displayName: 'GDScript',
-    idiomFile: 'agents/idioms/gdscript.md',
-    guidance:
-      'Follow Godot node conventions, use signals and typed variables where the project does, and preserve scene/resource references and @export patterns.',
-  },
+type LanguageLookupMaps = {
+  extension: ReadonlyMap<string, SupportedLanguageId>
+  manifestName: ReadonlyMap<string, SupportedLanguageId>
+  manifestExtension: ReadonlyMap<string, SupportedLanguageId>
 }
 
-const LANGUAGE_ORDER: SupportedLanguageId[] = [
-  'typescript',
-  'python',
-  'rust',
-  'go',
-  'java',
-  'csharp',
-  'cpp',
-  'ruby',
-  'php',
-  'swift',
-  'kotlin',
-  'gdscript',
-]
-
-const EXTENSION_LANGUAGE_MAP: Record<string, SupportedLanguageId> = {
-  '.cjs': 'typescript',
-  '.cts': 'typescript',
-  '.js': 'typescript',
-  '.jsx': 'typescript',
-  '.mjs': 'typescript',
-  '.mts': 'typescript',
-  '.ts': 'typescript',
-  '.tsx': 'typescript',
-  '.py': 'python',
-  '.pyi': 'python',
-  '.rs': 'rust',
-  '.go': 'go',
-  '.java': 'java',
-  '.cs': 'csharp',
-  '.c': 'cpp',
-  '.cc': 'cpp',
-  '.cpp': 'cpp',
-  '.cxx': 'cpp',
-  '.h': 'cpp',
-  '.hh': 'cpp',
-  '.hpp': 'cpp',
-  '.hxx': 'cpp',
-  '.rb': 'ruby',
-  '.php': 'php',
-  '.swift': 'swift',
-  '.kt': 'kotlin',
-  '.kts': 'kotlin',
-  '.gd': 'gdscript',
+function buildUniqueLookup(
+  entries: ReadonlyArray<readonly [string, SupportedLanguageId]>,
+  label: string,
+): ReadonlyMap<string, SupportedLanguageId> {
+  const lookup = new Map<string, SupportedLanguageId>()
+  for (const [signal, languageId] of entries) {
+    const existing = lookup.get(signal)
+    if (existing && existing !== languageId) {
+      throw new Error(
+        `Duplicate ${label} language signal ${signal}: ${existing}, ${languageId}`,
+      )
+    }
+    lookup.set(signal, languageId)
+  }
+  return lookup
 }
 
-const MANIFEST_EXTENSION_LANGUAGE_MAP: Record<string, SupportedLanguageId> = {
-  '.csproj': 'csharp',
-  '.fsproj': 'csharp',
-  '.vbproj': 'csharp',
-  '.sln': 'csharp',
-  '.gemspec': 'ruby',
+function buildLanguageLookups(): LanguageLookupMaps {
+  const extensionEntries: Array<readonly [string, SupportedLanguageId]> = []
+  const manifestNameEntries: Array<readonly [string, SupportedLanguageId]> = []
+  const manifestExtensionEntries: Array<
+    readonly [string, SupportedLanguageId]
+  > = []
+
+  for (const languageId of SUPPORTED_LANGUAGE_IDS) {
+    const capability = LANGUAGE_CAPABILITY_REGISTRY[languageId]
+    for (const extension of capability.extensions) {
+      extensionEntries.push([extension.toLowerCase(), languageId])
+    }
+    for (const manifestName of capability.manifestNames) {
+      manifestNameEntries.push([manifestName, languageId])
+    }
+    for (const extension of capability.manifestExtensions) {
+      manifestExtensionEntries.push([extension.toLowerCase(), languageId])
+    }
+  }
+
+  return {
+    extension: buildUniqueLookup(extensionEntries, 'source extension'),
+    manifestName: buildUniqueLookup(manifestNameEntries, 'manifest name'),
+    manifestExtension: buildUniqueLookup(
+      manifestExtensionEntries,
+      'manifest extension',
+    ),
+  }
 }
 
-const MANIFEST_LANGUAGE_MAP: Record<string, SupportedLanguageId> = {
-  'package.json': 'typescript',
-  'tsconfig.json': 'typescript',
-  'jsconfig.json': 'typescript',
-  'pyproject.toml': 'python',
-  'requirements.txt': 'python',
-  'setup.py': 'python',
-  'setup.cfg': 'python',
-  Pipfile: 'python',
-  'Cargo.toml': 'rust',
-  'Cargo.lock': 'rust',
-  'go.mod': 'go',
-  'go.sum': 'go',
-  'pom.xml': 'java',
-  'build.gradle': 'java',
-  'settings.gradle': 'java',
-  'gradle.properties': 'java',
-  Gemfile: 'ruby',
-  'Gemfile.lock': 'ruby',
-  'composer.json': 'php',
-  'composer.lock': 'php',
-  'Package.swift': 'swift',
-  'build.gradle.kts': 'kotlin',
-  'settings.gradle.kts': 'kotlin',
-  'project.godot': 'gdscript',
+const LANGUAGE_LOOKUPS = buildLanguageLookups()
+
+function getBaseName(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/')
+  return normalized.slice(normalized.lastIndexOf('/') + 1)
 }
 
 function getFileExtension(name: string): string {
-  const index = name.lastIndexOf('.')
+  const baseName = getBaseName(name)
+  const index = baseName.lastIndexOf('.')
   if (index <= 0) return ''
-  return name.slice(index).toLowerCase()
+  return baseName.slice(index).toLowerCase()
+}
+
+export function detectLanguageIdForPath(
+  filePath: string,
+): SupportedLanguageId | undefined {
+  const baseName = getBaseName(filePath)
+  if (
+    [
+      'build.gradle',
+      'build.gradle.kts',
+      'settings.gradle',
+      'settings.gradle.kts',
+      'gradle.properties',
+    ].includes(baseName)
+  ) {
+    return undefined
+  }
+  const extension = getFileExtension(baseName)
+
+  return (
+    LANGUAGE_LOOKUPS.manifestName.get(baseName) ??
+    LANGUAGE_LOOKUPS.manifestExtension.get(extension) ??
+    LANGUAGE_LOOKUPS.extension.get(extension)
+  )
+}
+
+function profilesForIds(
+  detected: ReadonlySet<SupportedLanguageId>,
+  maxProfiles?: number,
+): LanguageProfile[] {
+  const ordered = SUPPORTED_LANGUAGE_IDS.filter((id) => detected.has(id)).map(
+    (id) => LANGUAGE_CAPABILITY_REGISTRY[id],
+  )
+  if (maxProfiles === undefined) return ordered
+  return ordered.slice(0, Math.max(0, Math.floor(maxProfiles)))
+}
+
+export function detectLanguageProfilesFromPaths(
+  filePaths: readonly string[],
+): LanguageProfile[] {
+  const detected = new Set<SupportedLanguageId>()
+  for (const filePath of filePaths) {
+    const languageId = detectLanguageIdForPath(filePath)
+    if (languageId) detected.add(languageId)
+  }
+  return profilesForIds(detected)
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function containsTaskAlias(taskText: string, alias: string): boolean {
+  const escaped = escapeRegex(alias)
+  const startsWithWord = /^\w/.test(alias)
+  const endsWithWord = /\w$/.test(alias)
+  const pattern = `${startsWithWord ? '\\b' : ''}${escaped}${endsWithWord ? '\\b' : ''}`
+  return new RegExp(pattern, 'i').test(taskText)
+}
+
+function containsPathSignal(taskText: string, signal: string): boolean {
+  const escaped = escapeRegex(signal)
+  return new RegExp(`${escaped}(?=$|[\\s\`'"),:;])`, 'i').test(taskText)
+}
+
+/**
+ * Detect explicit language signals in task text. Ambiguous lowercase "go" is
+ * intentionally ignored; "Go", "Golang", .go paths, go.mod, and Go tool
+ * names remain reliable signals.
+ */
+export function detectLanguageProfilesFromTask(
+  taskText: string,
+): LanguageProfile[] {
+  const detected = new Set<SupportedLanguageId>()
+
+  for (const languageId of SUPPORTED_LANGUAGE_IDS) {
+    const capability = LANGUAGE_CAPABILITY_REGISTRY[languageId]
+    const hasAlias = capability.taskAliases.some((alias) =>
+      containsTaskAlias(taskText, alias),
+    )
+    const hasManifest = capability.manifestNames.some((manifest) =>
+      containsPathSignal(taskText, manifest),
+    )
+    const hasManifestExtension = capability.manifestExtensions.some(
+      (extension) => containsPathSignal(taskText, extension),
+    )
+    const hasSourceExtension = capability.extensions.some((extension) =>
+      containsPathSignal(taskText, extension),
+    )
+    const explicitlyNamesGo = languageId === 'go' && /\bGo\b/.test(taskText)
+
+    if (
+      hasAlias ||
+      hasManifest ||
+      hasManifestExtension ||
+      hasSourceExtension ||
+      explicitlyNamesGo
+    ) {
+      detected.add(languageId)
+    }
+  }
+
+  return profilesForIds(detected)
 }
 
 function collectDetectedLanguages(
@@ -205,17 +214,8 @@ function collectDetectedLanguages(
       continue
     }
 
-    const extension = getFileExtension(node.name)
-    const manifestLanguage =
-      MANIFEST_LANGUAGE_MAP[node.name] ??
-      MANIFEST_EXTENSION_LANGUAGE_MAP[extension]
-    if (manifestLanguage) {
-      detected.add(manifestLanguage)
-      continue
-    }
-
-    const extensionLanguage = EXTENSION_LANGUAGE_MAP[extension]
-    if (extensionLanguage) detected.add(extensionLanguage)
+    const languageId = detectLanguageIdForPath(node.name)
+    if (languageId) detected.add(languageId)
   }
 }
 
@@ -224,9 +224,34 @@ export function detectLanguageProfiles(
 ): LanguageProfile[] {
   const detected = new Set<SupportedLanguageId>()
   collectDetectedLanguages(fileTree, detected)
-  return LANGUAGE_ORDER.filter((id) => detected.has(id)).map(
-    (id) => LANGUAGE_PROFILES[id],
+  return profilesForIds(detected)
+}
+
+/**
+ * Prefer explicit target paths and task language names over every language in
+ * a polyglot repository. Repository-wide detection is the fallback when the
+ * caller has no focused signal.
+ */
+export function selectLanguageProfiles({
+  fileTree,
+  targetPaths = [],
+  taskText = '',
+  maxProfiles,
+}: LanguageProfileSelection): LanguageProfile[] {
+  const focusedIds = new Set<SupportedLanguageId>()
+  for (const profile of detectLanguageProfilesFromPaths(targetPaths)) {
+    focusedIds.add(profile.id)
+  }
+  for (const profile of detectLanguageProfilesFromTask(taskText)) {
+    focusedIds.add(profile.id)
+  }
+
+  if (focusedIds.size > 0) return profilesForIds(focusedIds, maxProfiles)
+
+  const repositoryIds = new Set(
+    detectLanguageProfiles(fileTree).map((profile) => profile.id),
   )
+  return profilesForIds(repositoryIds, maxProfiles)
 }
 
 export function formatLanguageProfilePrompt(params: {
@@ -239,17 +264,18 @@ export function formatLanguageProfilePrompt(params: {
   const rows = profiles
     .map(
       (profile) =>
-        `- ${profile.displayName}: ${profile.guidance} Before non-trivial ${profile.displayName} edits, \`read_files\` \`${profile.idiomFile}\`.`,
+        `- ${profile.displayName}: ${profile.guidance} ${profile.idiomGuidance.join(' ')}`,
     )
     .join('\n')
 
-  return `## Language profile\n\nDetected: ${languages}. Use language-native idioms and existing project conventions. Do not load every idiom file up front.\n\n${rows}\n`
+  return `## Language profile\n\nDetected: ${languages}. Prefer repository-local compiler, framework, API, formatter, linter, and test conventions when they are more specific than this bundled guidance.\n\n${rows}\n`
 }
 
 export function formatLanguageProfilePromptForFileTree(
   fileTree: FileTreeNode[],
+  scope: Omit<LanguageProfileSelection, 'fileTree'> = {},
 ): string {
   return formatLanguageProfilePrompt({
-    profiles: detectLanguageProfiles(fileTree),
+    profiles: selectLanguageProfiles({ fileTree, ...scope }),
   })
 }

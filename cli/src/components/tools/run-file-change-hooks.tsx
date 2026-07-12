@@ -2,6 +2,7 @@ import { TextAttributes } from '@opentui/core'
 
 import { useTheme } from '../../hooks/use-theme'
 import { defineToolComponent } from './types'
+import { getToolOutputValues } from '../../utils/tool-result-normalizer'
 
 import type { ToolRenderConfig } from './types'
 
@@ -29,29 +30,25 @@ export const RunFileChangeHooksComponent = defineToolComponent({
     const input = toolBlock.input as { files?: string[] } | undefined
     const files = Array.isArray(input?.files) ? input!.files : []
 
-    // Output is the JSON array shape produced by file-change-hooks.ts.
-    let header = 'Hooks'
-    const body =
-      files.length > 0 ? files.join(', ') : 'no files'
-
-    if (toolBlock.output) {
-      try {
-        const parsed = JSON.parse(toolBlock.output)
-        const value = Array.isArray(parsed) ? parsed[0]?.value : parsed
-        if (Array.isArray(value)) {
-          const first = value[0] as HookResult | undefined
-          if (first?.validationStatus) {
-            header = first.validationStatus === 'no_hooks_configured'
-              ? 'Hooks (none configured)'
-              : first.validationStatus === 'hooks_skipped'
-                ? 'Hooks (skipped)'
-                : 'Hooks'
-          }
-        }
-      } catch {
-        // Not JSON yet (still streaming) — fall through to the streaming label.
-      }
-    }
+    const results = getToolOutputValues(toolBlock.outputRaw).flatMap((value) =>
+      Array.isArray(value) ? (value as HookResult[]) : [],
+    )
+    const failed = results.filter(
+      (result) =>
+        Boolean(result.errorMessage) ||
+        (typeof result.exitCode === 'number' && result.exitCode !== 0),
+    ).length
+    const skipped = results.filter((result) =>
+      ['no_hooks_configured', 'hooks_skipped'].includes(
+        result.validationStatus ?? '',
+      ),
+    ).length
+    const passed = Math.max(0, results.length - failed - skipped)
+    const header =
+      results.length === 0
+        ? 'Hooks'
+        : `Hooks (${passed} passed${failed ? `, ${failed} failed` : ''}${skipped ? `, ${skipped} skipped` : ''})`
+    const body = files.length > 0 ? files.join(', ') : 'no files'
 
     const content = (
       <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
@@ -63,6 +60,31 @@ export const RunFileChangeHooksComponent = defineToolComponent({
         <text style={{ wrapMode: 'word' }}>
           <span fg={theme.muted}>{body}</span>
         </text>
+        {results.map((result, index) => {
+          const isFailed =
+            Boolean(result.errorMessage) ||
+            (typeof result.exitCode === 'number' && result.exitCode !== 0)
+          const isSkipped = ['no_hooks_configured', 'hooks_skipped'].includes(
+            result.validationStatus ?? '',
+          )
+          const output = [result.errorMessage, result.stderr, result.stdout]
+            .find((value) => typeof value === 'string' && value.trim())
+            ?.trim()
+            .split('\n')
+            .slice(0, 4)
+            .join('\n')
+          return (
+            <box
+              key={`${result.hookName ?? 'hook'}-${index}`}
+              style={{ flexDirection: 'column' }}
+            >
+              <text fg={isFailed ? theme.error : theme.muted}>
+                {`${isFailed ? '✗' : isSkipped ? '○' : '✓'} ${result.hookName ?? result.message ?? 'hook'}${typeof result.exitCode === 'number' ? ` (exit ${result.exitCode})` : ''}`}
+              </text>
+              {output ? <text fg={theme.muted}>{output}</text> : null}
+            </box>
+          )
+        })}
       </box>
     )
 

@@ -5,11 +5,7 @@ import { defineToolComponent } from './types'
 
 import type { ToolRenderConfig } from './types'
 
-/**
- * UI component for the spawn_agents tool — the reviewer stage. Labels the
- * stage "Review" with the spawned agent types so it is visually distinguishable
- * from the hooks (verification-gate) stage.
- */
+/** UI component for any spawn_agents call, regardless of agent role. */
 export const SpawnAgentsComponent = defineToolComponent({
   toolName: 'spawn_agents',
 
@@ -20,7 +16,15 @@ export const SpawnAgentsComponent = defineToolComponent({
       | undefined
     const agents = Array.isArray(input?.agents) ? input!.agents : []
 
-    const header = 'Review'
+    const count = agents.length
+    const header =
+      toolBlock.lifecycle === 'failed'
+        ? `Agent spawn failed (${count})`
+        : toolBlock.lifecycle === 'cancelled'
+          ? `Agent spawn cancelled (${count})`
+          : toolBlock.lifecycle === 'succeeded'
+            ? `Agents completed (${count})`
+            : `Agents running (${count})`
     const body =
       agents
         .map((a) => a?.agent_type)

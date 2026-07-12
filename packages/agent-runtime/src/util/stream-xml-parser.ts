@@ -5,10 +5,7 @@
  * Handles partial tags at chunk boundaries using a stateful approach.
  */
 
-import {
-  toolNameParam,
-  toolXmlName,
-} from '@codebuff/common/tools/constants'
+import { toolNameParam, toolXmlName } from '@codebuff/common/tools/constants'
 
 // Use flexible tag matching without requiring specific newlines
 const startToolTag = `<${toolXmlName}>`
@@ -226,7 +223,9 @@ function normalizeToolCallJsonContent(content: string): string {
 
   // Models often wrap the JSON in a markdown fence even though the XML tag is
   // already the delimiter. Strip common fences before parsing.
-  const fenceMatch = normalized.match(/^```(?:json|javascript|js)?\s*([\s\S]*?)\s*```$/i)
+  const fenceMatch = normalized.match(
+    /^```(?:json|javascript|js)?\s*([\s\S]*?)\s*```$/i,
+  )
   if (fenceMatch) {
     normalized = fenceMatch[1].trim()
   }

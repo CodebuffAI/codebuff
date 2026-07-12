@@ -35,6 +35,14 @@ function makeSkillsMap(skills: SkillDefinition[]): SkillsMap {
 
 describe('slash-commands module', () => {
   describe('SLASH_COMMANDS', () => {
+    test('[COR-H04] undo and redo describe conversation history, not filesystem rollback', () => {
+      for (const id of ['undo', 'redo']) {
+        const command = SLASH_COMMANDS.find((entry) => entry.id === id)
+        expect(command?.description).toContain('conversation/message history')
+        expect(command?.description).toContain('files are unchanged')
+      }
+    })
+
     test('is a non-empty array', () => {
       expect(Array.isArray(SLASH_COMMANDS)).toBe(true)
       expect(SLASH_COMMANDS.length).toBeGreaterThan(0)
@@ -92,19 +100,13 @@ describe('slash-commands module', () => {
     })
 
     test('durable-plan aliases resolve to the right commands', () => {
-      const rp = SLASH_COMMANDS.find((cmd) =>
-        cmd.aliases?.includes('rp'),
-      )
+      const rp = SLASH_COMMANDS.find((cmd) => cmd.aliases?.includes('rp'))
       expect(rp?.id).toBe('resume-plan')
 
-      const up = SLASH_COMMANDS.find((cmd) =>
-        cmd.aliases?.includes('up'),
-      )
+      const up = SLASH_COMMANDS.find((cmd) => cmd.aliases?.includes('up'))
       expect(up?.id).toBe('update-plan')
 
-      const ps = SLASH_COMMANDS.find((cmd) =>
-        cmd.aliases?.includes('ps'),
-      )
+      const ps = SLASH_COMMANDS.find((cmd) => cmd.aliases?.includes('ps'))
       expect(ps?.id).toBe('plan-status')
 
       const lesson = SLASH_COMMANDS.find((cmd) =>
@@ -387,7 +389,9 @@ describe('slash-commands module', () => {
       expect(typeof buildCmd!.insertText).toBe('string')
       expect(buildCmd!.insertText!.length).toBeGreaterThan(0)
       // insertText should be a natural-language prompt, not a raw shell command
-      expect(buildCmd!.insertText!).not.toMatch(/^\s*(cargo|godot|unity|npm|yarn)/i)
+      expect(buildCmd!.insertText!).not.toMatch(
+        /^\s*(cargo|godot|unity|npm|yarn)/i,
+      )
     })
 
     test('game-dev command descriptions are present and ≤50 chars', () => {

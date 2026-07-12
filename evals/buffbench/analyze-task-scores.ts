@@ -462,10 +462,14 @@ Examples:
     runsAnalyzed = result.runsAnalyzed
   }
 
-  console.error(`Found ${taskStats.size} tasks across ${runsAnalyzed.length} runs`)
+  console.error(
+    `Found ${taskStats.size} tasks across ${runsAnalyzed.length} runs`,
+  )
 
   // Print hard tasks summary to stderr
-  const sortedTasks = Array.from(taskStats.values()).sort((a, b) => a.avg - b.avg)
+  const sortedTasks = Array.from(taskStats.values()).sort(
+    (a, b) => a.avg - b.avg,
+  )
   const hardTasks = sortedTasks.filter((t) => t.avg <= hardThreshold)
   if (hardTasks.length > 0) {
     console.error(`\n=== Hard Tasks (avg <= ${hardThreshold}) ===`)

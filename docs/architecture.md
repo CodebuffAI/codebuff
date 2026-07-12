@@ -104,11 +104,17 @@ Tree-sitter based source code parser that extracts function/variable names for f
 - **Supports:** TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, C#, Ruby, PHP, Swift, Kotlin, GDScript
 
 The tree-sitter WASM grammars ship from `@vscode/tree-sitter-wasm`. GDScript is compiled from the `PrestonKnopp/tree-sitter-gdscript` grammar and manually placed in the same `wasm/` directory. If a grammar's `.wasm` file is absent at runtime, `getLanguageConfig` catches the load failure and returns `undefined` (graceful no-op) — files of that extension are skipped for symbol extraction but still indexed by path and extension.
+
 - **Depends on:** nothing (leaf package)
 
 ### `packages/indexer/` — Codebase Graph Indexer
 
 Builds and queries the local codebase graph index backing the `query_index` tool for retrieval-led context gathering.
+
+The import graph uses language-aware extraction and conservative resolution for
+the supported ecosystems rather than treating every repository as
+JavaScript/TypeScript. Ambiguous module suffixes remain unresolved instead of
+creating a guessed reference edge.
 
 - **Key responsibilities:** indexes file paths, extensions, symbols, imports, markdown headings, documentation concepts, package scripts, and CI workflow commands into a graph supporting ranked search, neighbor, and shortest-path queries.
 - **Depends on:** `code-map` (`@codebuff/code-map`), `ignore`

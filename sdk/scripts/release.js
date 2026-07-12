@@ -37,7 +37,9 @@ function run(command) {
 }
 
 function readPackageJson() {
-  return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'))
+  return JSON.parse(
+    fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'),
+  )
 }
 
 function writePackageJson(pkg) {
@@ -58,7 +60,9 @@ function setVersion(versionType, pkg) {
     // npm version rewrites package.json; re-read it
     return readPackageJson().version
   } else {
-    error(`Invalid version argument: ${versionType}\nExpected patch | minor | major | <semver> | --dry-run`)
+    error(
+      `Invalid version argument: ${versionType}\nExpected patch | minor | major | <semver> | --dry-run`,
+    )
   }
   writePackageJson(pkg)
   return pkg.version

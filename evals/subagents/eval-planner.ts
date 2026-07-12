@@ -1,10 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import {
-  OpenbuffClient,
-  loadLocalAgents,
-} from '@openbuff/sdk'
+import { OpenbuffClient, loadLocalAgents } from '@openbuff/sdk'
 import { createTwoFilesPatch } from 'diff'
 
 import { withTestRepo } from './test-repo-utils'
@@ -230,8 +227,7 @@ async function main() {
 
   const { repoUrl, initCommand, evalCommits } = evalData
 
-  const client = new OpenbuffClient({
-  })
+  const client = new OpenbuffClient({})
 
   const agentsPath = path.join(__dirname, '../../.agents')
   const localAgentDefinitions = Object.values(

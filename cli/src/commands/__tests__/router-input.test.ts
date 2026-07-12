@@ -139,7 +139,9 @@ describe('router-utils', () => {
     })
 
     test('parseCommandInput matches all implicitCommand commands', () => {
-      const implicitCommands = SLASH_COMMANDS.filter((cmd) => cmd.implicitCommand)
+      const implicitCommands = SLASH_COMMANDS.filter(
+        (cmd) => cmd.implicitCommand,
+      )
       for (const cmd of implicitCommands) {
         expect(parseCommandInput(cmd.id)).toEqual({
           command: cmd.id.toLowerCase(),
@@ -151,14 +153,7 @@ describe('router-utils', () => {
   })
 
   describe('slash commands only work with / prefix', () => {
-    const slashCommands = [
-      'exit',
-      'clear',
-      'new',
-      'init',
-      'bash',
-      'feedback',
-    ]
+    const slashCommands = ['exit', 'clear', 'new', 'init', 'bash', 'feedback']
 
     for (const cmd of slashCommands) {
       test(`"/${cmd}" is recognized as slash command`, () => {
@@ -186,7 +181,6 @@ describe('router-utils', () => {
       })
     }
   })
-
 })
 
 describe('command-registry', () => {
@@ -307,7 +301,12 @@ describe('command-registry', () => {
     })
 
     test('durable plan commands expose slash metadata and resolve aliases', () => {
-      for (const id of ['resume-plan', 'update-plan', 'plan-status', 'lessons']) {
+      for (const id of [
+        'resume-plan',
+        'update-plan',
+        'plan-status',
+        'lessons',
+      ]) {
         expect(SLASH_COMMANDS.find((cmd) => cmd.id === id)).toBeDefined()
         expect(findCommand(id)?.name).toBe(id)
       }

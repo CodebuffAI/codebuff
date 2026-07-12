@@ -142,7 +142,11 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
       const newState = copyButtonHandlers.handleCopy()
       setIsCopied(newState.isCopied)
       setIsHovered(newState.isHovered)
-      setTimeout('reset-copied', () => setIsCopied(false), COPIED_RESET_DELAY_MS)
+      setTimeout(
+        'reset-copied',
+        () => setIsCopied(false),
+        COPIED_RESET_DELAY_MS,
+      )
     } catch (_error) {
       // Error is already logged and displayed by copyTextToClipboard
     }

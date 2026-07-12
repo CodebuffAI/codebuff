@@ -1,4 +1,5 @@
-import { mkdirSync, readdirSync, statSync } from 'fs'
+import { createHash } from 'crypto'
+import { mkdirSync, readdirSync, realpathSync, statSync } from 'fs'
 import path from 'path'
 
 import { setProjectRootResolver } from '@codebuff/common/util/plan-artifacts'
@@ -46,6 +47,28 @@ export function startNewChat() {
   return currentChatId
 }
 
+export function getProjectStorageKey(root: string): string {
+  let canonicalRoot = path.resolve(root)
+  try {
+    canonicalRoot = realpathSync.native(canonicalRoot)
+  } catch {
+    // The root may disappear between selection and persistence. The resolved
+    // absolute path is still stable enough to keep it isolated from peers.
+  }
+
+  if (process.platform === 'win32') {
+    canonicalRoot = canonicalRoot.toLowerCase()
+  }
+
+  const readableName =
+    path.basename(canonicalRoot).replace(/[^a-zA-Z0-9._-]/g, '_') || 'project'
+  const rootHash = createHash('sha256')
+    .update(canonicalRoot)
+    .digest('hex')
+    .slice(0, 12)
+  return `${readableName}-${rootHash}`
+}
+
 // Get the project-specific data directory
 export function getProjectDataDir(): string {
   const root = getProjectRoot()
@@ -53,8 +76,11 @@ export function getProjectDataDir(): string {
     throw new Error('Project root not set')
   }
 
-  const baseName = path.basename(root)
-  const baseDir = path.join(getConfigDir(), 'projects', baseName)
+  const baseDir = path.join(
+    getConfigDir(),
+    'projects',
+    getProjectStorageKey(root),
+  )
 
   return baseDir
 }

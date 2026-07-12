@@ -104,10 +104,7 @@ export function extendRangeToPrecedingComment(
   // Case 2: preceding line is a `//` line comment. Grab the contiguous run.
   if (/^\s*\/\//.test(prevLine)) {
     let runStart = prevIdx
-    while (
-      runStart - 1 >= 0 &&
-      /^\s*\/\//.test(lines[runStart - 1])
-    ) {
+    while (runStart - 1 >= 0 && /^\s*\/\//.test(lines[runStart - 1])) {
       runStart--
     }
     const runLines = lines.slice(runStart, prevIdx + 1)
@@ -183,9 +180,9 @@ const DEFAULT_MAX_MATCHES_PER_SYMBOL = 5
 /**
  * Extract code slices for the given symbol names from a file's raw content,
  * preferring tree-sitter structure and falling back to a regex heuristic for
- * unparseable files or symbols the parser doesn't surface. Each slice carries a
- * readCapability minted identically to read_files ranges, so it can be reused
- * as basedOnRead on a follow-up large-file edit with no re-read.
+ * unparseable files or symbols the parser doesn't surface. Parser-proven
+ * declarations carry an edit capability; heuristic slices are read-only and
+ * require an exact range read before editing.
  *
  * Shared by read_files (symbols mode) and the deprecated read_slices alias.
  */
@@ -225,17 +222,15 @@ export async function extractSlices(
 
     const fallback = regexSlice(rawContent, symbol, filePath)
     if (fallback) {
-      const { readCapability, sliceContent } = mintSliceCapability({
-        content: rawContent,
-        startLine: fallback.startLine,
-        endLine: fallback.endLine,
-      })
+      const lines = rawContent.replace(/\r\n/g, '\n').split('\n')
+      const sliceContent = lines
+        .slice(fallback.startLine - 1, fallback.endLine)
+        .join('\n')
       slices.push({
         symbol,
         content: sliceContent,
         startLine: fallback.startLine,
         endLine: fallback.endLine,
-        readCapability,
       })
     }
   }
@@ -271,16 +266,10 @@ function regexSlice(
         /\b(function|class|const|let|var|def|interface|type|struct|fn|func)\b/.test(
           line,
         ) ||
-        /^\s*\w+\s*\(/.test(line)
+        /^\s*(?:(?:public|private|protected|static|async|export)\s+)*[A-Za-z_$][\w$]*\s*\([^;]*\)\s*(?::[^={]+)?\s*[{:]\s*$/.test(
+          line,
+        )
       ) {
-        startLine = i
-        break
-      }
-    }
-  }
-  if (startLine === -1) {
-    for (let i = 0; i < lines.length; i++) {
-      if (symbolRegex.test(lines[i])) {
         startLine = i
         break
       }

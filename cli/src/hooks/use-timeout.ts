@@ -34,22 +34,25 @@ import { useCallback, useEffect, useRef } from 'react'
 export function useTimeout() {
   const timeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
-  const setTimeout = useCallback((key: string, callback: () => void, delay: number) => {
-    const timeouts = timeoutsRef.current
+  const setTimeout = useCallback(
+    (key: string, callback: () => void, delay: number) => {
+      const timeouts = timeoutsRef.current
 
-    // Clear existing timeout for this key if it exists
-    const existingTimeout = timeouts.get(key)
-    if (existingTimeout) {
-      globalThis.clearTimeout(existingTimeout)
-    }
+      // Clear existing timeout for this key if it exists
+      const existingTimeout = timeouts.get(key)
+      if (existingTimeout) {
+        globalThis.clearTimeout(existingTimeout)
+      }
 
-    // Set new timeout with automatic cleanup after execution
-    const timeoutId = globalThis.setTimeout(() => {
-      callback()
-      timeouts.delete(key)
-    }, delay)
-    timeouts.set(key, timeoutId)
-  }, [])
+      // Set new timeout with automatic cleanup after execution
+      const timeoutId = globalThis.setTimeout(() => {
+        callback()
+        timeouts.delete(key)
+      }, delay)
+      timeouts.set(key, timeoutId)
+    },
+    [],
+  )
 
   const clearTimeout = useCallback((key?: string) => {
     const timeouts = timeoutsRef.current

@@ -4,6 +4,10 @@ import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
+import {
+  getConfirmedAppliedActionsV1,
+  isFileMutationResultV1,
+} from '@codebuff/common/tools/results/filesystem'
 import { isEqual } from 'lodash'
 
 import {
@@ -170,16 +174,18 @@ function simplifyToolResultHelper(params: {
 const shortenedMessageTokenFactor = 0.5
 export const COMPACTED_CONTEXT_POINTER =
   'Previous context compacted into <knowledge_memory>; see the current conversation summary for older details.'
-const replacementMessage = userMessage(withSystemTags(COMPACTED_CONTEXT_POINTER))
+const replacementMessage = userMessage(
+  withSystemTags(COMPACTED_CONTEXT_POINTER),
+)
 
-type ContextCategory =
+export type ContextCategory =
   | 'toolResults'
   | 'todos'
   | 'fileReads'
   | 'subagents'
   | 'userAssistantMessages'
 
-type ContextCategorySummary = Record<
+export type ContextCategorySummary = Record<
   ContextCategory,
   { tokens: number; percent: number; messages: number }
 >
@@ -245,6 +251,50 @@ export function getContextCategoryTelemetry(
   return summary
 }
 
+export type ContextTrimReport = {
+  messages: Message[]
+  beforeTokens: number
+  afterTokens: number
+  beforeMessageCount: number
+  afterMessageCount: number
+  beforeCategories: ContextCategorySummary
+  afterCategories: ContextCategorySummary
+  removedCategories: ContextCategory[]
+  retainedKnowledgeMemory: boolean
+}
+
+function messageContainsText(message: Message, needle: string): boolean {
+  return message.content.some(
+    (part) => part.type === 'text' && part.text.includes(needle),
+  )
+}
+
+function buildMechanicalRecoveryMessage(params: {
+  beforeMessageCount: number
+  afterMessageCount: number
+  removedCategories: ContextCategory[]
+  retainedKnowledgeMemory: boolean
+}): Message {
+  const removed =
+    params.removedCategories.length > 0
+      ? params.removedCategories.join(', ')
+      : 'uncategorized history'
+  return userMessage(
+    withSystemTags(
+      [
+        '<mechanical_context_recovery>',
+        COMPACTED_CONTEXT_POINTER,
+        `Emergency mechanical trim retained ${params.afterMessageCount} of ${params.beforeMessageCount} messages.`,
+        `Removed or reduced categories: ${removed}.`,
+        params.retainedKnowledgeMemory
+          ? 'A semantic <knowledge_memory> artifact remains in the retained history; use it as the recovery source.'
+          : 'No semantic <knowledge_memory> artifact was retained. Re-read exact files, constraints, and validation evidence before relying on older context.',
+        '</mechanical_context_recovery>',
+      ].join('\n'),
+    ),
+  )
+}
+
 /**
  * Trims messages from the beginning to fit within token limits while preserving
  * important content. Also simplifies large tool results to save tokens.
@@ -265,6 +315,15 @@ export function trimMessagesToFitTokenLimit(params: {
   maxTotalTokens?: number
   logger: Logger
 }): Message[] {
+  return trimMessagesToFitTokenLimitWithReport(params).messages
+}
+
+export function trimMessagesToFitTokenLimitWithReport(params: {
+  messages: Message[]
+  systemTokens: number
+  maxTotalTokens?: number
+  logger: Logger
+}): ContextTrimReport {
   const { messages, systemTokens, maxTotalTokens = 190_000, logger } = params
   const maxMessageTokens = maxTotalTokens - systemTokens
 
@@ -272,7 +331,23 @@ export function trimMessagesToFitTokenLimit(params: {
   const initialTokens = countTokensJson(messages)
 
   if (initialTokens < maxMessageTokens) {
-    return messages
+    const categories = getContextCategoryTelemetry(messages)
+    return {
+      messages,
+      beforeTokens: initialTokens,
+      afterTokens: initialTokens,
+      beforeMessageCount: messages.length,
+      afterMessageCount: messages.length,
+      beforeCategories: categories,
+      afterCategories: categories,
+      removedCategories: [],
+      retainedKnowledgeMemory: messages.some((message) =>
+        messageContainsText(
+          message,
+          '<knowledge_memory>\nPinned structured knowledge memory.',
+        ),
+      ),
+    }
   }
 
   const initialContextCategoryTelemetry = getContextCategoryTelemetry(messages)
@@ -381,20 +456,59 @@ export function trimMessagesToFitTokenLimit(params: {
     }
   }
 
+  const afterCategories = getContextCategoryTelemetry(trimmedMessages)
+  const removedCategories = (
+    Object.keys(initialContextCategoryTelemetry) as ContextCategory[]
+  ).filter(
+    (category) =>
+      afterCategories[category].messages <
+        initialContextCategoryTelemetry[category].messages ||
+      afterCategories[category].tokens <
+        initialContextCategoryTelemetry[category].tokens,
+  )
+  const retainedKnowledgeMemory = trimmedMessages.some((message) =>
+    messageContainsText(
+      message,
+      '<knowledge_memory>\nPinned structured knowledge memory.',
+    ),
+  )
+  const recoveryIndex = trimmedMessages.findIndex((message) =>
+    messageContainsText(message, COMPACTED_CONTEXT_POINTER),
+  )
+  if (recoveryIndex !== -1) {
+    trimmedMessages[recoveryIndex] = buildMechanicalRecoveryMessage({
+      beforeMessageCount: messages.length,
+      afterMessageCount: trimmedMessages.length,
+      removedCategories,
+      retainedKnowledgeMemory,
+    })
+  }
+  const finalTokens = countTokensJson(trimmedMessages)
+
   logger.debug(
     {
       initialTokens,
-      finalTokens: countTokensJson(trimmedMessages),
+      finalTokens,
       maxMessageTokens,
       contextCategoryTelemetry: {
         before: initialContextCategoryTelemetry,
-        after: getContextCategoryTelemetry(trimmedMessages),
+        after: afterCategories,
       },
     },
     'Context category telemetry after trimming messages',
   )
 
-  return trimmedMessages
+  return {
+    messages: trimmedMessages,
+    beforeTokens: initialTokens,
+    afterTokens: finalTokens,
+    beforeMessageCount: messages.length,
+    afterMessageCount: trimmedMessages.length,
+    beforeCategories: initialContextCategoryTelemetry,
+    afterCategories,
+    removedCategories,
+    retainedKnowledgeMemory,
+  }
 }
 
 export function getMessagesSubset(params: {
@@ -538,19 +652,24 @@ export function getEditedFiles(params: {
           )
         },
       )
-      .map((m) => {
+      .flatMap((m) => {
         try {
           const fileInfo = m.content[0].value
-          if ('errorMessage' in fileInfo) {
-            return null
+          if (isFileMutationResultV1(fileInfo)) {
+            return getConfirmedAppliedActionsV1(fileInfo).map(
+              (action) => action.path,
+            )
           }
-          return fileInfo.file
+          if ('errorMessage' in fileInfo) {
+            return []
+          }
+          return [fileInfo.file]
         } catch (error) {
           logger.error(
             { error: getErrorObject(error), m },
             'Error parsing file info',
           )
-          return null
+          return []
         }
       }),
   )
@@ -570,16 +689,34 @@ export function getPreviouslyReadFiles(params: {
     if (message.role !== 'tool') continue
     if (message.toolName === 'read_files') {
       try {
-        files.push(
-          ...(
-            message as CodebuffToolMessage<'read_files'>
-          ).content[0].value.filter(
-            (
-              file,
-            ): file is Extract<typeof file, { content: string }> =>
-              'content' in file,
-          ),
-        )
+        const value = (message as CodebuffToolMessage<'read_files'>).content[0]
+          .value
+        if (Array.isArray(value)) {
+          files.push(
+            ...value.filter(
+              (file): file is Extract<typeof file, { content: string }> =>
+                'content' in file,
+            ),
+          )
+        } else {
+          files.push(
+            ...value.results.flatMap((result) =>
+              result.status !== 'error' &&
+              result.selector === 'file' &&
+              typeof result.content === 'string'
+                ? [
+                    {
+                      path: result.path,
+                      content: result.content,
+                      ...('referencedBy' in result && result.referencedBy
+                        ? { referencedBy: result.referencedBy }
+                        : {}),
+                    },
+                  ]
+                : [],
+            ),
+          )
+        }
       } catch (error) {
         logger.error(
           { error: getErrorObject(error), message },
@@ -597,9 +734,7 @@ export function getPreviouslyReadFiles(params: {
         }
         files.push(
           ...v.filter(
-            (
-              file,
-            ): file is Extract<typeof file, { content: string }> =>
+            (file): file is Extract<typeof file, { content: string }> =>
               'content' in file,
           ),
         )

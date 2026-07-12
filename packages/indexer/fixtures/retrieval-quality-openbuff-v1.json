@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "name": "openbuff-repository-retrieval-v1",
+  "documents": [
+    {
+      "path": "packages/indexer/src/index-manager.ts",
+      "symbols": [
+        "IndexManager",
+        "waitUntilReady",
+        "queryBlended",
+        "getStatus"
+      ],
+      "concepts": ["index lifecycle", "stale refresh", "semantic status"]
+    },
+    {
+      "path": "packages/indexer/src/index-store.ts",
+      "symbols": [
+        "loadIndex",
+        "saveIndex",
+        "loadSemanticVectors",
+        "saveSemanticVectors"
+      ],
+      "concepts": [
+        "durable cache",
+        "schema migration",
+        "content hash",
+        "fingerprint"
+      ]
+    },
+    {
+      "path": "packages/indexer/src/semantic.ts",
+      "symbols": [
+        "cosineSimilarity",
+        "fileEmbeddingText",
+        "buildFileVectors",
+        "semanticSearch"
+      ],
+      "concepts": ["embedding vectors", "semantic ranking"]
+    },
+    {
+      "path": "packages/indexer/src/metadata-indexer.ts",
+      "symbols": ["buildMetadataIndex", "updateMetadataIndex"],
+      "concepts": ["metadata graph", "incremental parsing"]
+    },
+    {
+      "path": "packages/indexer/src/file-walker.ts",
+      "symbols": ["walkProject"],
+      "concepts": ["excluded paths", "maximum files", "repository walk"]
+    },
+    {
+      "path": "packages/indexer/src/query.ts",
+      "symbols": ["queryIndex", "evaluateQueryIndexQuality"],
+      "concepts": ["graph references", "neighbors", "ranking"]
+    },
+    {
+      "path": "packages/indexer/src/repo-map.ts",
+      "symbols": ["buildRepoMap", "compareRetrievalStrategies"],
+      "concepts": ["repository map", "retrieval comparison"]
+    },
+    {
+      "path": "common/src/tools/params/tool/query-index.ts",
+      "symbols": ["queryIndexParams"],
+      "concepts": ["query_index tool", "zod parameters", "graph modes"]
+    },
+    {
+      "path": "sdk/src/impl/embeddings.ts",
+      "symbols": ["createConfiguredEmbedder"],
+      "concepts": ["OpenAI compatible embeddings", "provider model endpoint"]
+    },
+    {
+      "path": "sdk/src/provider-config.ts",
+      "symbols": ["providerConfigFileSchema"],
+      "concepts": ["indexing configuration", "semantic model"]
+    },
+    {
+      "path": "agents/patterns/audit-codebase.md",
+      "symbols": [],
+      "concepts": [
+        "broad codebase audit",
+        "scope then shard",
+        "coverage matrix"
+      ]
+    },
+    {
+      "path": "docs/request-flow.md",
+      "symbols": [],
+      "concepts": ["request lifecycle", "CLI SDK runtime provider"]
+    },
+    {
+      "path": "docs/agents-and-tools.md",
+      "symbols": [],
+      "concepts": ["agents tools", "query index"]
+    },
+    {
+      "path": "evals/buffbench/retrieval-flow-metrics.ts",
+      "symbols": ["computeRetrievalFlowMetrics"],
+      "concepts": [
+        "query to read conversion",
+        "false read ratio",
+        "relevant read before edit"
+      ]
+    },
+    {
+      "path": "evals/buffbench/cache-recall-eval.ts",
+      "symbols": ["evaluateCacheRecall"],
+      "concepts": ["cache recall assertions", "cache hit ratio"]
+    }
+  ],
+  "queries": [
+    {
+      "id": "semantic-cache",
+      "query": "durable semantic vector cache schema migration content hash fingerprint",
+      "relevant": [
+        { "path": "packages/indexer/src/index-store.ts", "relevance": 3 },
+        { "path": "packages/indexer/src/semantic.ts", "relevance": 1 }
+      ]
+    },
+    {
+      "id": "semantic-engine",
+      "query": "cosine similarity file embedding text semantic search",
+      "relevant": [
+        { "path": "packages/indexer/src/semantic.ts", "relevance": 3 }
+      ]
+    },
+    {
+      "id": "index-lifecycle",
+      "query": "index manager stale refresh readiness semantic status",
+      "relevant": [
+        { "path": "packages/indexer/src/index-manager.ts", "relevance": 3 }
+      ]
+    },
+    {
+      "id": "file-walk",
+      "query": "walk repository excluded paths maximum files",
+      "relevant": [
+        { "path": "packages/indexer/src/file-walker.ts", "relevance": 3 }
+      ]
+    },
+    {
+      "id": "graph-query",
+      "query": "query index graph references neighbors ranking",
+      "relevant": [
+        { "path": "packages/indexer/src/query.ts", "relevance": 3 },
+        {
+          "path": "common/src/tools/params/tool/query-index.ts",
+          "relevance": 1
+        }
+      ]
+    },
+    {
+      "id": "embedder-provider",
+      "query": "createConfiguredEmbedder semantic configured embedder",
+      "relevant": [{ "path": "sdk/src/impl/embeddings.ts", "relevance": 3 }]
+    },
+    {
+      "id": "audit-sharding",
+      "query": "broad codebase audit scope then shard coverage matrix",
+      "relevant": [
+        { "path": "agents/patterns/audit-codebase.md", "relevance": 3 }
+      ]
+    },
+    {
+      "id": "retrieval-flow",
+      "query": "computeRetrievalFlowMetrics query read conversion false read ratio",
+      "relevant": [
+        { "path": "evals/buffbench/retrieval-flow-metrics.ts", "relevance": 3 }
+      ]
+    },
+    {
+      "id": "cache-recall",
+      "query": "cache recall assertions cache hit ratio",
+      "relevant": [
+        { "path": "evals/buffbench/cache-recall-eval.ts", "relevance": 3 }
+      ]
+    },
+    {
+      "id": "tool-schema",
+      "query": "queryIndexParams zod query index tool parameters",
+      "relevant": [
+        {
+          "path": "common/src/tools/params/tool/query-index.ts",
+          "relevance": 3
+        }
+      ]
+    }
+  ]
+}

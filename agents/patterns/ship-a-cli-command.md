@@ -1,6 +1,7 @@
 # Pattern: Ship a CLI slash command
 
 ## When to use
+
 You need to add a new slash command (e.g. `/plan-timeline`, `/plans`) that
 users can invoke from the Openbuff CLI input box.
 
@@ -32,6 +33,7 @@ users can invoke from the Openbuff CLI input box.
 5. **Document** user-facing commands in `docs/` or `cli/knowledge.md`.
 
 ## Validation
+
 ```bash
 bun --cwd=cli run typecheck
 bun --cwd=cli test src/commands
@@ -39,6 +41,7 @@ bun test cli/src/commands/__tests__/command-args.test.ts
 ```
 
 ## Conventions
+
 - Command names are `kebab-case` after the leading `/`.
 - Aliases are short forms (e.g. `tl` for `plan-timeline`).
 - Commands that read durable state should resolve the project root via the
@@ -47,6 +50,7 @@ bun test cli/src/commands/__tests__/command-args.test.ts
   unless the command is explicitly stateful.
 
 ## Risks
+
 - Forgetting to update `command-args.test.ts` — the registry wiring test
   will fail if metadata is missing.
 - Commands that call `setProjectRootResolver(...)` directly instead of

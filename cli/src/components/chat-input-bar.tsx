@@ -49,6 +49,9 @@ interface ChatInputBarProps {
   agentSelectedIndex: number
   onSlashItemClick?: (index: number) => void
   onMentionItemClick?: (index: number) => void
+  mentionSuggestionStatus?: string
+  mentionSuggestionStatusIsError?: boolean
+  onRetryMentionSuggestions?: () => void
 
   // Layout
   theme: Theme
@@ -98,6 +101,9 @@ export const ChatInputBar = ({
   agentSelectedIndex,
   onSlashItemClick,
   onMentionItemClick,
+  mentionSuggestionStatus,
+  mentionSuggestionStatusIsError,
+  onRetryMentionSuggestions,
   theme,
   terminalHeight,
   separatorWidth,
@@ -305,6 +311,9 @@ export const ChatInputBar = ({
             maxVisible={5}
             prefix="@"
             onItemClick={onMentionItemClick}
+            statusMessage={mentionSuggestionStatus}
+            statusIsError={mentionSuggestionStatusIsError}
+            onRetry={onRetryMentionSuggestions}
           />
         ) : null}
         <box
@@ -320,7 +329,10 @@ export const ChatInputBar = ({
           {modeConfig.label && (
             <box style={{ flexShrink: 0, paddingRight: 1 }}>
               <text>
-                <span bg={theme.info} fg={theme.background}>{` ${modeConfig.label} `}</span>
+                <span
+                  bg={theme.info}
+                  fg={theme.background}
+                >{` ${modeConfig.label} `}</span>
               </text>
             </box>
           )}
@@ -388,6 +400,9 @@ export const ChatInputBar = ({
             maxVisible={normalModeMaxVisible}
             prefix="@"
             onItemClick={onMentionItemClick}
+            statusMessage={mentionSuggestionStatus}
+            statusIsError={mentionSuggestionStatusIsError}
+            onRetry={onRetryMentionSuggestions}
           />
         ) : null}
         <box
@@ -410,7 +425,10 @@ export const ChatInputBar = ({
             {modeConfig.label && (
               <box style={{ flexShrink: 0, paddingRight: 1 }}>
                 <text>
-                  <span bg={theme.info} fg={theme.background}>{` ${modeConfig.label} `}</span>
+                  <span
+                    bg={theme.info}
+                    fg={theme.background}
+                  >{` ${modeConfig.label} `}</span>
                 </text>
               </box>
             )}

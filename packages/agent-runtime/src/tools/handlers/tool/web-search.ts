@@ -4,6 +4,8 @@ import {
   WEBSEARCH_TIMEOUT_MS,
   executeWebSearch,
   extractLinks,
+  fetchPublicWebUrl,
+  readResponseTextWithLimit,
   resolveGitHubUrl,
   stripHtml,
 } from './web-search-utils'
@@ -21,6 +23,7 @@ export const handleWebSearch = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'web_search'>
   logger: Logger
+  signal: AbortSignal
 
   agentStepId: string
   clientSessionId: string
@@ -35,6 +38,7 @@ export const handleWebSearch = (async (params: {
   const {
     previousToolCallFinished,
     toolCall,
+    signal,
 
     agentStepId,
     clientSessionId,
@@ -72,37 +76,43 @@ export const handleWebSearch = (async (params: {
       const fetchUrl = rawUrl ?? url
       const isRaw = rawUrl !== null
 
-      const response = await fetch(fetchUrl, {
+      const combinedSignal = AbortSignal.any([
+        signal,
+        AbortSignal.timeout(WEBSEARCH_TIMEOUT_MS),
+      ])
+      const { response, finalUrl } = await fetchPublicWebUrl({
+        url: fetchUrl,
         headers: {
           'User-Agent':
             'Mozilla/5.0 (compatible; Codebuff/1.0; +https://openbuff.dev)',
         },
-        signal: AbortSignal.timeout(WEBSEARCH_TIMEOUT_MS),
+        signal: combinedSignal,
       })
 
       if (!response.ok) {
         return {
           output: jsonToolResult({
-            errorMessage: `Failed to fetch ${fetchUrl}: HTTP ${response.status} ${response.statusText}`,
+            errorMessage: `Failed to fetch ${finalUrl.href}: HTTP ${response.status} ${response.statusText}`,
           }),
           creditsUsed,
         }
       }
 
       const contentType = response.headers.get('content-type') ?? ''
-      const rawHtml = await response.text()
+      const { text: rawHtml, truncated: bodyTruncated } =
+        await readResponseTextWithLimit({ response })
       const isHtml = !isRaw && contentType.includes('text/html')
       const content = isHtml ? stripHtml(rawHtml) : rawHtml
       const result =
-        content.length > MAX_FETCH_LENGTH
+        bodyTruncated || content.length > MAX_FETCH_LENGTH
           ? content.slice(0, MAX_FETCH_LENGTH) +
-            '\n\n[Content truncated — page exceeds 50,000 characters]'
+            '\n\n[Content truncated — page exceeded the safe fetch limit]'
           : content
 
       // Extract links from HTML pages (not raw text/markdown)
       const shouldExtractLinks = include_links !== false && isHtml
       const links = shouldExtractLinks
-        ? extractLinks(rawHtml, url, max_links ?? 40)
+        ? extractLinks(rawHtml, finalUrl.href, max_links ?? 40)
         : undefined
 
       logger.info(
@@ -115,10 +125,15 @@ export const handleWebSearch = (async (params: {
         },
         'URL fetch completed',
       )
-      if (links !== undefined) {
-        return { output: jsonToolResult({ result, links }), creditsUsed }
+      const sourceLink = { href: finalUrl.href, text: finalUrl.href }
+      const provenanceLinks = [
+        sourceLink,
+        ...(links ?? []).filter((link) => link.href !== finalUrl.href),
+      ]
+      return {
+        output: jsonToolResult({ result, links: provenanceLinks }),
+        creditsUsed,
       }
-      return { output: jsonToolResult({ result }), creditsUsed }
     } catch (error) {
       const errorMessage = `Error fetching ${url}: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -182,7 +197,15 @@ export const handleWebSearch = (async (params: {
     )
     return {
       output: jsonToolResult({
-        result: JSON.stringify(searchResult.results, null, 2),
+        result: searchResult.results
+          .map(
+            (item, index) =>
+              `${index + 1}. ${item.title || item.url}\n${item.description}\nSource: ${item.url}`,
+          )
+          .join('\n\n'),
+        links: searchResult.results
+          .filter((item) => item.url)
+          .map((item) => ({ href: item.url, text: item.title || item.url })),
       }),
       creditsUsed,
     }

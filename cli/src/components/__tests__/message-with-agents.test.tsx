@@ -108,13 +108,17 @@ const createErrorMessage = (id: string, content: string): ChatMessage => ({
 })
 
 // Creates an agent message without the required agent info (for error testing)
-const createMalformedAgentMessage = (id: string, content: string): ChatMessage => ({
-  id,
-  variant: 'agent',
-  content,
-  timestamp: new Date().toISOString(),
-  // Intentionally missing agent property
-} as ChatMessage)
+const createMalformedAgentMessage = (
+  id: string,
+  content: string,
+): ChatMessage =>
+  ({
+    id,
+    variant: 'agent',
+    content,
+    timestamp: new Date().toISOString(),
+    // Intentionally missing agent property
+  }) as ChatMessage
 
 const createModeDividerMessage = (id: string, mode: string): ChatMessage => ({
   id,
@@ -140,12 +144,14 @@ const defaultCallbacks = {
 
 const planCommand = '/mode:execute_plan Build it!'
 
-const initializeStore = (overrides: {
-  messageTree?: Map<string, ChatMessage[]>
-  isWaitingForResponse?: boolean
-  timerStartTime?: number | null
-  availableWidth?: number
-} = {}) => {
+const initializeStore = (
+  overrides: {
+    messageTree?: Map<string, ChatMessage[]>
+    isWaitingForResponse?: boolean
+    timerStartTime?: number | null
+    availableWidth?: number
+  } = {},
+) => {
   useMessageBlockStore.setState({
     context: {
       theme,
@@ -273,8 +279,8 @@ describe('MessageBlockStore', () => {
         onInsertCommand: mockInsertCommand,
       })
 
-      const storedCallback = useMessageBlockStore.getState().callbacks
-        .onInsertCommand
+      const storedCallback =
+        useMessageBlockStore.getState().callbacks.onInsertCommand
       storedCallback('/mode:execute_plan Build it!')
 
       expect(insertedCommand).toBe('/mode:execute_plan Build it!')
@@ -332,7 +338,9 @@ describe('MessageBlockStore', () => {
       expect(typeof state.callbacks.onInsertCommand).toBe('function')
       // They should not throw when called
       expect(() => state.callbacks.onToggleCollapsed('test-id')).not.toThrow()
-      expect(() => state.callbacks.onInsertCommand('test-command')).not.toThrow()
+      expect(() =>
+        state.callbacks.onInsertCommand('test-command'),
+      ).not.toThrow()
     })
   })
 })
@@ -347,10 +355,7 @@ describe('MessageWithAgents', () => {
       const message = createUserMessage('user-1', 'Hello from user')
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).toContain('Hello from user')
@@ -360,10 +365,7 @@ describe('MessageWithAgents', () => {
       const message = createAiMessage('ai-1', 'Hello from AI')
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).toContain('Hello from AI')
@@ -373,23 +375,21 @@ describe('MessageWithAgents', () => {
       const message = createErrorMessage('error-1', 'An error occurred')
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).toContain('An error occurred')
     })
 
     test('renders agent message with agent name displayed', () => {
-      const message = createAgentMessage('agent-1', 'Agent response', 'Code Searcher')
+      const message = createAgentMessage(
+        'agent-1',
+        'Agent response',
+        'Code Searcher',
+      )
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).toContain('Code Searcher')
@@ -400,10 +400,7 @@ describe('MessageWithAgents', () => {
       const message = createAiMessage('ai-md', '**Bold** and *italic*')
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       // Content should be present (markdown rendering may transform it)
@@ -415,10 +412,7 @@ describe('MessageWithAgents', () => {
       const message = createAiMessage('ai-empty', '')
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).toBeDefined()
@@ -428,7 +422,10 @@ describe('MessageWithAgents', () => {
   describe('long user message collapse behavior', () => {
     // A user message with more than MAX_COLLAPSED_LINES (3) lines should be
     // rendered collapsed-by-default with a "Show more" toggle.
-    const longUserContent = Array.from({ length: 10 }, (_, i) => `Line ${i + 1}`).join('\n')
+    const longUserContent = Array.from(
+      { length: 10 },
+      (_, i) => `Line ${i + 1}`,
+    ).join('\n')
 
     test('renders a "Show more" toggle for a long complete user message', () => {
       const message: ChatMessage = {
@@ -437,10 +434,7 @@ describe('MessageWithAgents', () => {
       }
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).toContain('Show more')
@@ -459,10 +453,7 @@ describe('MessageWithAgents', () => {
       }
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).not.toContain('Show more')
@@ -477,10 +468,7 @@ describe('MessageWithAgents', () => {
       }
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       expect(markup).not.toContain('Show more')
@@ -514,10 +502,7 @@ describe('MessageWithAgents', () => {
       const message = createModeDividerMessage('mode-1', 'Edit Mode')
 
       const markup = renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       // Mode text should appear
@@ -615,8 +600,8 @@ describe('callback invocation', () => {
     })
 
     // Verify callback is stored and retrievable
-    const storedCallback = useMessageBlockStore.getState().callbacks
-      .onToggleCollapsed
+    const storedCallback =
+      useMessageBlockStore.getState().callbacks.onToggleCollapsed
     storedCallback('test-message-id')
 
     expect(toggleCalledWith).toBe('test-message-id')
@@ -670,16 +655,13 @@ describe('callback invocation', () => {
     // callback there before rendering and restore both snapshots before asserting.
     const initialCallbacks = useMessageBlockStore.getInitialState().callbacks
     const previousInitialInsertCommand = initialCallbacks.onInsertCommand
-    const previousLiveInsertCommand = useMessageBlockStore.getState().callbacks
-      .onInsertCommand
+    const previousLiveInsertCommand =
+      useMessageBlockStore.getState().callbacks.onInsertCommand
     initialCallbacks.onInsertCommand = onInsertCommand
 
     try {
       renderToStaticMarkup(
-        <MessageWithAgents
-          {...baseMessageWithAgentsProps}
-          message={message}
-        />,
+        <MessageWithAgents {...baseMessageWithAgentsProps} message={message} />,
       )
 
       const commandButton = capturedButtons.find(
@@ -710,7 +692,10 @@ describe('layout handling', () => {
     const widths = [20, 80, 120, 300]
 
     for (const width of widths) {
-      const message = createAiMessage(`width-${width}`, `Content at width ${width}`)
+      const message = createAiMessage(
+        `width-${width}`,
+        `Content at width ${width}`,
+      )
       const markup = renderToStaticMarkup(
         <MessageWithAgents
           message={message}

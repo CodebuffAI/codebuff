@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'fs'
+import { promises as fs, readdirSync, statSync } from 'fs'
 import path from 'path'
 
 export type DirectoryEntry = {
@@ -54,9 +54,44 @@ export function getDirectories(dirPath: string): DirectoryEntry[] {
   // Sort non-parent entries alphabetically (case-insensitive)
   const parentEntry = entries.find((e) => e.isParent)
   const childEntries = entries.filter((e) => !e.isParent)
-  childEntries.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+  childEntries.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+  )
 
   return parentEntry ? [parentEntry, ...childEntries] : childEntries
+}
+
+export async function getDirectoriesAsync(
+  dirPath: string,
+): Promise<DirectoryEntry[]> {
+  const parentDir = path.dirname(dirPath)
+  const parentEntry: DirectoryEntry | undefined =
+    parentDir === dirPath
+      ? undefined
+      : { name: '..', path: parentDir, isParent: true, isGitRepo: false }
+  try {
+    const items = await fs.readdir(dirPath, { withFileTypes: true })
+    const directories = items.filter(
+      (item) => item.isDirectory() && !item.name.startsWith('.'),
+    )
+    const childEntries = await Promise.all(
+      directories.map(async (item): Promise<DirectoryEntry> => {
+        const fullPath = path.join(dirPath, item.name)
+        return {
+          name: item.name,
+          path: fullPath,
+          isParent: false,
+          isGitRepo: await hasGitDirectoryAsync(fullPath),
+        }
+      }),
+    )
+    childEntries.sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+    )
+    return parentEntry ? [parentEntry, ...childEntries] : childEntries
+  } catch {
+    return parentEntry ? [parentEntry] : []
+  }
 }
 
 /**
@@ -66,6 +101,14 @@ export function hasGitDirectory(dirPath: string): boolean {
   try {
     const gitPath = path.join(dirPath, '.git')
     return statSync(gitPath).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+export async function hasGitDirectoryAsync(dirPath: string): Promise<boolean> {
+  try {
+    return (await fs.stat(path.join(dirPath, '.git'))).isDirectory()
   } catch {
     return false
   }

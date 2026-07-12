@@ -14,7 +14,9 @@ function getOutputExcerpt(value: unknown): string | undefined {
     : trimmed
 }
 
-function summarizeCommandStatus(exitCode: unknown): 'passed' | 'failed' | 'unknown' {
+function summarizeCommandStatus(
+  exitCode: unknown,
+): 'passed' | 'failed' | 'unknown' {
   if (typeof exitCode !== 'number') return 'unknown'
   return exitCode === 0 ? 'passed' : 'failed'
 }
@@ -22,10 +24,30 @@ function summarizeCommandStatus(exitCode: unknown): 'passed' | 'failed' | 'unkno
 export function simplifyReadFileResults(
   messageContent: CodebuffToolOutput<'read_files'>,
 ): CodebuffToolOutput<'read_files'> {
+  const value = structuredClone(messageContent[0]).value
+  if (!Array.isArray(value)) {
+    return [
+      {
+        type: 'json',
+        value: {
+          ...value,
+          results: value.results.map((entry) => {
+            if (entry.status === 'error') return entry
+            if (entry.selector === 'symbols') {
+              const { slices: _slices, ...rest } = entry
+              return { ...rest, slicesOmittedForLength: true as const }
+            }
+            const { content: _content, ...rest } = entry
+            return { ...rest, contentOmittedForLength: true as const }
+          }),
+        },
+      },
+    ]
+  }
   return [
     {
       type: 'json',
-      value: structuredClone(messageContent[0]).value.map((entry) => {
+      value: value.map((entry) => {
         if ('summary' in entry) {
           return entry
         }
@@ -53,7 +75,8 @@ export function simplifyTerminalCommandResults(params: {
     const stdout = 'stdout' in content ? content.stdout : undefined
     const status = summarizeCommandStatus(exitCode)
     const stderrExcerpt = getOutputExcerpt(stderr)
-    const stdoutExcerpt = status === 'failed' ? getOutputExcerpt(stdout) : undefined
+    const stdoutExcerpt =
+      status === 'failed' ? getOutputExcerpt(stdout) : undefined
 
     return [
       {

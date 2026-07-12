@@ -97,4 +97,3 @@ describe('getUserInfoFromApiKey', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
-

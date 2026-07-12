@@ -8,10 +8,7 @@ import {
   enrichCacheDebugSnapshotWithUsage,
   enrichCacheDebugSnapshotWithProviderRequest,
 } from '../cache-debug'
-import {
-  systemMessage,
-  userMessage,
-} from '@codebuff/common/util/messages'
+import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import type { CacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -57,7 +54,12 @@ describe('createCacheDebugSnapshot', () => {
     expect(correlation.projectRoot).toBe(projectRoot)
     expect(correlation.filename).toMatch(/^000-base-[0-9a-f-]{36}\.json$/)
 
-    const filePath = join(projectRoot, 'debug', 'cache-debug', correlation.filename)
+    const filePath = join(
+      projectRoot,
+      'debug',
+      'cache-debug',
+      correlation.filename,
+    )
     expect(existsSync(filePath)).toBe(true)
     const snapshot = JSON.parse(readFileSync(filePath, 'utf8'))
     expect(snapshot.id).toBe(correlation.snapshotId)
@@ -121,8 +123,6 @@ describe('createCacheDebugSnapshot', () => {
     expect(correlation.filename).toMatch(/^003-___-[0-9a-f-]{36}\.json$/)
   })
 
-
-
   test('serializes Uint8Array content as a typed stub', () => {
     const bytes = new Uint8Array([1, 2, 3, 4])
     const messages: Message[] = [makeMessage('tool', bytes)]
@@ -134,12 +134,11 @@ describe('createCacheDebugSnapshot', () => {
       logger: noopLogger,
       projectRoot,
     })
-    const files = require('fs').readdirSync(join(projectRoot, 'debug', 'cache-debug'))
+    const files = require('fs').readdirSync(
+      join(projectRoot, 'debug', 'cache-debug'),
+    )
     const snapshot = JSON.parse(
-      readFileSync(
-        join(projectRoot, 'debug', 'cache-debug', files[0]),
-        'utf8',
-      ),
+      readFileSync(join(projectRoot, 'debug', 'cache-debug', files[0]), 'utf8'),
     )
     expect(snapshot.preConversion.messages[0].content).toEqual({
       type: 'Uint8Array',
@@ -172,7 +171,12 @@ describe('createCacheDebugSnapshot', () => {
       projectRoot,
     })
 
-    const filePath = join(projectRoot, 'debug', 'cache-debug', correlation.filename)
+    const filePath = join(
+      projectRoot,
+      'debug',
+      'cache-debug',
+      correlation.filename,
+    )
     const snapshot = JSON.parse(readFileSync(filePath, 'utf8'))
 
     expect(Array.isArray(snapshot.cacheAnchors)).toBe(true)
@@ -203,7 +207,12 @@ describe('createCacheDebugSnapshot', () => {
       projectRoot,
     })
 
-    const filePath = join(projectRoot, 'debug', 'cache-debug', correlation.filename)
+    const filePath = join(
+      projectRoot,
+      'debug',
+      'cache-debug',
+      correlation.filename,
+    )
     const snapshot = JSON.parse(readFileSync(filePath, 'utf8'))
     expect(Array.isArray(snapshot.cacheAnchors)).toBe(true)
     expect(snapshot.cacheAnchors).toHaveLength(0)
@@ -260,7 +269,12 @@ describe('enrichCacheDebugSnapshotWithUsage', () => {
         filename: 'nope.json',
         projectRoot,
       },
-      usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0, totalTokens: 2 },
+      usage: {
+        inputTokens: 1,
+        outputTokens: 1,
+        cachedInputTokens: 0,
+        totalTokens: 2,
+      },
       logger,
     })
     expect(warn).toHaveBeenCalledTimes(1)
@@ -279,7 +293,12 @@ describe('enrichCacheDebugSnapshotWithUsage', () => {
     const logger = { ...noopLogger, warn } as unknown as Logger
     enrichCacheDebugSnapshotWithUsage({
       correlation: { ...correlation, snapshotId: 'wrong-id' },
-      usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0, totalTokens: 2 },
+      usage: {
+        inputTokens: 1,
+        outputTokens: 1,
+        cachedInputTokens: 0,
+        totalTokens: 2,
+      },
       logger,
     })
     expect(warn).toHaveBeenCalledTimes(1)
@@ -300,13 +319,17 @@ describe('enrichCacheDebugSnapshotWithUsage', () => {
     const warn = mock(() => {})
     const logger = { ...noopLogger, warn } as unknown as Logger
     // Make the snapshot file unreadable by removing it mid-enrichment.
-    rmSync(
-      join(projectRoot, 'debug', 'cache-debug', correlation.filename),
-      { force: true },
-    )
+    rmSync(join(projectRoot, 'debug', 'cache-debug', correlation.filename), {
+      force: true,
+    })
     enrichCacheDebugSnapshotWithUsage({
       correlation,
-      usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0, totalTokens: 2 },
+      usage: {
+        inputTokens: 1,
+        outputTokens: 1,
+        cachedInputTokens: 0,
+        totalTokens: 2,
+      },
       logger,
     })
     expect(warn).toHaveBeenCalledTimes(1)
