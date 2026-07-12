@@ -634,9 +634,11 @@ Example:
 tools. Under strict-mode edit flows they participate in staged
 read-before-edit enforcement:
 
-- A recent whole-file `read_files.paths` call authorizes subsequent
-  exact-match edits to that path. Range and symbol reads remain scoped and
-  require their `readCapability`/`rangeHash` on the follow-up edit.
+- A recent complete whole-file `read_files.paths` call authorizes subsequent
+  exact-match edits to that path and returns a short `readCapability` that can
+  be copied when explicit proof is useful. Truncated reads expose no
+  capability. Range and symbol reads remain scoped and require their
+  `readCapability`/`rangeHash` on the follow-up edit.
 - `basedOnRead` accepts either a `readCapability` token copied from a
   fresh `read_files` range header or an explicit `{ startLine, endLine,
 hash }` object. The runtime verifies the embedded hash for large-file

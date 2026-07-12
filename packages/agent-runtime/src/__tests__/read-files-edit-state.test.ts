@@ -1869,6 +1869,70 @@ describe('read_files edit-state recovery', () => {
       }
     })
 
+    it('exposes a whole-file readCapability that directly authorizes the next strict edit', async () => {
+      const path = 'client/src/routes/dashboard.ip.tsx'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      const readResult = await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-capability-read',
+          toolName: 'read_files',
+          input: { paths: [path] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState,
+        requestFiles: async () => ({ [path]: diskContent }),
+        logger,
+      } as any)
+      const readOutput = readResult.output[0]
+      expect(readOutput.type).toBe('json')
+      if (readOutput.type !== 'json') return
+      const readCapability = (readOutput.value as any).results[0]
+        .readCapability as string
+      expect(readCapability).toMatch(/^cap\.v2\./)
+
+      // Prove that the visible capability is independently sufficient rather
+      // than accidentally relying on the handler's hidden per-path state.
+      delete fileProcessingState.readAuthorizationsByPath?.[path]
+      delete fileProcessingState.readAuthorizationHashesByPath?.[path]
+      let applied = false
+      const editResult = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-capability-edit',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+                basedOnRead: readCapability,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async () => diskContent,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return confirmedMutationOutput(toolCall)
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(applied).toBe(true)
+      expect(editResult.output[0]?.type).toBe('json')
+      if (editResult.output[0]?.type === 'json') {
+        expect(editResult.output[0].value).not.toHaveProperty('errorMessage')
+      }
+    })
+
     it('revokes and blocks a cross-turn whole-file authorization when the file changed externally', async () => {
       const path = 'src/stale-auth.ts'
       const readContent = 'export const value = 1\n'

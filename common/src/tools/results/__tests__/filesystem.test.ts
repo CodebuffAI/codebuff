@@ -126,6 +126,50 @@ describe('structured filesystem results', () => {
     ).toBe(false)
   })
 
+  it('allows whole-file capabilities only on complete reads', () => {
+    const complete = buildReadFilesResultV1([
+      {
+        selector: 'file',
+        requestIndex: 0,
+        path: 'src/a.ts',
+        status: 'ok',
+        content: 'a',
+        complete: true,
+        template: false,
+        readCapability: 'cap.v2.1.1.example',
+      },
+    ])
+    expect(readFilesResultV1Schema.safeParse(complete).success).toBe(true)
+
+    expect(
+      readFilesResultV1Schema.safeParse({
+        kind: 'read_files_result',
+        version: 1,
+        status: 'partial',
+        summary: {
+          requested: 1,
+          ok: 0,
+          partial: 1,
+          failed: 0,
+          uniquePaths: 1,
+        },
+        results: [
+          {
+            selector: 'file',
+            requestIndex: 0,
+            path: 'src/a.ts',
+            status: 'partial',
+            content: 'a',
+            complete: false,
+            template: false,
+            readCapability: 'cap.v2.1.1.example',
+            truncation: { reason: 'character_limit' },
+          },
+        ],
+      }).success,
+    ).toBe(false)
+  })
+
   it('rejects aggregate status and request-index drift', () => {
     const result = buildReadFilesResultV1([
       {

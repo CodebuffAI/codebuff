@@ -494,6 +494,7 @@ const readFilesFileItemSchema = z
     contentOmittedForLength: z.literal(true).optional(),
     complete: z.boolean(),
     template: z.boolean(),
+    readCapability: z.string().optional(),
     referencedBy: z.record(z.string(), z.string().array()).optional(),
     truncation: z
       .object({
@@ -508,6 +509,10 @@ const readFilesFileItemSchema = z
       (typeof value.content === 'string') !==
       (value.contentOmittedForLength === true),
     'read_files file results require exactly one content payload or omission marker',
+  )
+  .refine(
+    (value) => value.complete || value.readCapability === undefined,
+    'partial file results cannot expose edit capabilities',
   )
 
 const readFilesRangeItemSchema = z

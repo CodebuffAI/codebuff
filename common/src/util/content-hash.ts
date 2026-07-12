@@ -35,6 +35,8 @@ export type ReplacementReadCapability = {
 }
 
 export const READ_CAPABILITY_TOKEN_PREFIX = 'cap.'
+const READ_CAPABILITY_TOKEN_VERSION = 'v2'
+const SHA256_HEX_PATTERN = /^sha256:([a-f0-9]{64})$/
 
 /**
  * Encodes a read capability as a single self-contained opaque token. The token
@@ -43,8 +45,10 @@ export const READ_CAPABILITY_TOKEN_PREFIX = 'cap.'
  * mispair. read_files mints these tokens; str_replace decodes and re-validates
  * them statelessly against the current file (the hash is still the authority).
  *
- * Format: `cap.` + base64url(`${startLine}:${endLine}:${hash}`).
- * Keep this format byte-identical to the decoder below.
+ * Current format: `cap.v2.<startLine>.<endLine>.<base64url sha256 bytes>`.
+ * This is substantially shorter and easier to copy than the legacy token,
+ * which base64url-encoded the entire textual `start:end:sha256:<hex>` payload.
+ * The decoder continues to accept that legacy format for in-flight runs.
  */
 export function encodeReadCapabilityToken(params: {
   startLine: number
@@ -52,6 +56,15 @@ export function encodeReadCapabilityToken(params: {
   hash: string
 }): string {
   const { startLine, endLine, hash } = params
+  const sha256Match = hash.match(SHA256_HEX_PATTERN)
+  if (sha256Match) {
+    const digest = Buffer.from(sha256Match[1]!, 'hex').toString('base64url')
+    return `${READ_CAPABILITY_TOKEN_PREFIX}${READ_CAPABILITY_TOKEN_VERSION}.${startLine}.${endLine}.${digest}`
+  }
+
+  // Preserve support for callers using a non-canonical hash during a gradual
+  // migration. Production call sites use getContentHash() and therefore emit
+  // the shorter v2 form above.
   return (
     READ_CAPABILITY_TOKEN_PREFIX +
     Buffer.from(`${startLine}:${endLine}:${hash}`).toString('base64url')
@@ -67,11 +80,35 @@ export function encodeReadCapabilityToken(params: {
 export function decodeReadCapabilityToken(
   token: string,
 ): ReplacementReadCapability | string {
+  token = normalizeCopiedReadCapabilityToken(token)
   if (token.startsWith('whole.')) {
     return `Invalid basedOnRead: ${JSON.stringify(token)} is a legacy mutation capability, not read authorization. New mutation results expose reusable cap.* tokens; for this legacy result, re-read the target with read_files and copy its readCapability.`
   }
   if (!token.startsWith(READ_CAPABILITY_TOKEN_PREFIX)) {
     return `Invalid basedOnRead: expected a read capability token ("${READ_CAPABILITY_TOKEN_PREFIX}...") or a { startLine, endLine, hash } object, but received ${JSON.stringify(token)}.`
+  }
+  const v2Prefix = `${READ_CAPABILITY_TOKEN_PREFIX}${READ_CAPABILITY_TOKEN_VERSION}.`
+  if (token.startsWith(v2Prefix)) {
+    const match = token.match(/^cap\.v2\.(\d+)\.(\d+)\.([A-Za-z0-9_-]{43})$/)
+    if (!match) {
+      return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
+    }
+    const startLine = Number(match[1])
+    const endLine = Number(match[2])
+    const digest = Buffer.from(match[3]!, 'base64url')
+    if (
+      !Number.isInteger(startLine) ||
+      !Number.isInteger(endLine) ||
+      digest.length !== 32 ||
+      digest.toString('base64url') !== match[3]
+    ) {
+      return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
+    }
+    return {
+      startLine,
+      endLine,
+      hash: `sha256:${digest.toString('hex')}`,
+    }
   }
   let decoded: string
   try {
@@ -94,4 +131,18 @@ export function decodeReadCapabilityToken(
     return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
   }
   return { startLine, endLine, hash }
+}
+
+function normalizeCopiedReadCapabilityToken(token: string): string {
+  let normalized = token.trim()
+  normalized = normalized.replace(/^readCapability\s*=\s*/i, '')
+  if (
+    normalized.length >= 2 &&
+    ((normalized.startsWith('"') && normalized.endsWith('"')) ||
+      (normalized.startsWith("'") && normalized.endsWith("'")) ||
+      (normalized.startsWith('`') && normalized.endsWith('`')))
+  ) {
+    normalized = normalized.slice(1, -1).trim()
+  }
+  return normalized
 }

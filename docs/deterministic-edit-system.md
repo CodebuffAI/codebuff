@@ -30,10 +30,12 @@ workflows use the single authority-backed `apply_patch` surface.
 Under strict-mode edit flows, the runtime requires a recent `read_files`
 authorization for each touched path before accepting an edit:
 
-- A successful whole-file `read_files.paths` call mints a per-path
-  authorization for follow-up exact-match edits. Range and symbol reads stay
-  scoped: follow-up edits must carry their `readCapability`/`rangeHash` rather
-  than receiving whole-file authorization.
+- A successful complete whole-file `read_files.paths` call mints a per-path
+  authorization for follow-up exact-match edits and returns a short
+  `readCapability` that can be copied directly when explicit proof is needed.
+  Truncated reads expose no capability. Range and symbol reads stay scoped:
+  follow-up edits must carry their `readCapability`/`rangeHash` rather than
+  receiving whole-file authorization.
 - `basedOnRead` (the read capability returned from a `read_files` range
   header, or the freshly echoed capability on a successful large-file
   edit) is the explicit authorization path. The runtime verifies the

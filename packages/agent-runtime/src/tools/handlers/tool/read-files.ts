@@ -2,6 +2,11 @@ import {
   buildReadFilesResultV1,
   type ReadFilesItemV1,
 } from '@codebuff/common/tools/results/filesystem'
+import {
+  encodeReadCapabilityToken,
+  getContentHash,
+  normalizeLineEndings,
+} from '@codebuff/common/util/content-hash'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import {
@@ -124,10 +129,22 @@ export const handleReadFiles = (async (
   })
   const fileResults = fileReadResult.results.map((result) => {
     if (result.selector !== 'file' || result.status === 'error') return result
+    const completeReadCapability =
+      result.complete && typeof result.content === 'string'
+        ? encodeReadCapabilityToken({
+            startLine: 1,
+            endLine: normalizeLineEndings(result.content).split('\n').length,
+            hash: getContentHash(result.content),
+          })
+        : undefined
     const refs = fileContext.tokenCallers?.[result.path]
-    return refs && Object.keys(refs).length > 0
-      ? { ...result, referencedBy: refs }
-      : result
+    return {
+      ...result,
+      ...(completeReadCapability
+        ? { readCapability: completeReadCapability }
+        : {}),
+      ...(refs && Object.keys(refs).length > 0 ? { referencedBy: refs } : {}),
+    }
   })
 
   const successfulReadPaths = new Set(

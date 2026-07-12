@@ -708,7 +708,7 @@ export interface ReadDocsParams {
  * Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
  */
 export interface ReadFilesParams {
-  /** List of file paths to read. Batch results include a separate summary entry with ok/failed/requested counts when available. */
+  /** List of file paths to read. Each complete result includes a readCapability that can be copied directly to basedOnRead for a follow-up edit. Batch results include a separate summary entry with ok/failed/requested counts when available. */
   paths?: string[]
   /** Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine. */
   ranges?: {

@@ -665,6 +665,15 @@ function renderWholeFileItem(
     content: renderedContent,
     complete: !partial,
     template: target.isExampleFile,
+    ...(!partial
+      ? {
+          readCapability: encodeReadCapabilityToken({
+            startLine: 1,
+            endLine: normalizeLineEndings(content).split('\n').length,
+            hash: getContentHash(content),
+          }),
+        }
+      : {}),
     ...(truncation ? { truncation } : {}),
   }
 }

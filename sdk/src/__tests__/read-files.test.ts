@@ -1,7 +1,10 @@
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import * as projectFileTree from '@codebuff/common/project-file-tree'
 import { createNodeError } from '@codebuff/common/testing/errors'
-import { getContentHash } from '@codebuff/common/util/content-hash'
+import {
+  decodeReadCapabilityToken,
+  getContentHash,
+} from '@codebuff/common/util/content-hash'
 import {
   describe,
   test,
@@ -423,7 +426,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[RANGE_BLOCK lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+; for str_replace pass basedOnRead: "cap\.[A-Za-z0-9_-]+"\]\n3\tline 3\n4\tline 4\n5\tline 5$/,
+        /^\[RANGE_BLOCK lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.v2\.3\.5\.[A-Za-z0-9_-]{43}; for str_replace pass basedOnRead: "cap\.v2\.3\.5\.[A-Za-z0-9_-]{43}"\]\n3\tline 3\n4\tline 4\n5\tline 5$/,
       )
     })
 
@@ -440,7 +443,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[RANGE_BLOCK lines 1-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+;/,
+        /^\[RANGE_BLOCK lines 1-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.v2\.1\.10\.[A-Za-z0-9_-]{43};/,
       )
       // Each body line is prefixed with its 1-indexed line number (cat -n style).
       for (let i = 1; i <= 10; i++) {
@@ -888,12 +891,28 @@ describe('getFiles', () => {
         template: true,
         content: 'A=example',
       })
+      const completeFile = result.results[0]
+      expect(
+        completeFile && 'readCapability' in completeFile
+          ? decodeReadCapabilityToken(completeFile.readCapability ?? '')
+          : undefined,
+      ).toEqual({
+        startLine: 1,
+        endLine: 1,
+        hash: getContentHash('A=example'),
+      })
       expect(result.results[1]).toMatchObject({
         selector: 'file',
         status: 'partial',
         complete: false,
         truncation: { reason: 'character_limit' },
       })
+      const partialFile = result.results[1]
+      expect(
+        partialFile && 'readCapability' in partialFile
+          ? partialFile.readCapability
+          : undefined,
+      ).toBeUndefined()
     })
 
     test('does not expose an edit capability for a truncated range', async () => {

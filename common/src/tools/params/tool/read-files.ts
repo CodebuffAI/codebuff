@@ -55,7 +55,7 @@ const inputSchema = z
       .optional()
       .default([])
       .describe(
-        'List of file paths to read. Batch results include a separate summary entry with ok/failed/requested counts when available.',
+        'List of file paths to read. Each complete result includes a readCapability that can be copied directly to basedOnRead for a follow-up edit. Batch results include a separate summary entry with ok/failed/requested counts when available.',
       ),
     ranges: z
       .array(
@@ -129,6 +129,7 @@ Read files from disk. For large files, prefer ranges or symbol slices over full-
 
 Important:
 - Full reads may be truncated for large files; the truncation marker includes the original character and line counts. Do not edit from truncated content.
+- Every complete whole-file read returns a short readCapability token. Copy it verbatim to basedOnRead when an edit asks for explicit read proof; do not invent or reconstruct a token.
 - Symbol slices: pass \`symbols: [{ path, names }]\` to pull just the named functions/classes/methods (each with its line range and a readCapability) instead of the whole file. Prefer this when you already know the symbol names — pair it with read_outline to discover names in a large file first (outline to see structure, then symbols to pull what you need). Use \`ranges\` when you're paging by line number instead.
 - Range reads return a header with startLine, endLine, and rangeHash.
 - Use replace_range for medium/large line-count-changing edits, copying expectedHash from rangeHash.
