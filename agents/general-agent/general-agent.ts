@@ -68,6 +68,7 @@ export const createGeneralAgent = (options: {
       'str_replace',
       'write_file',
     ],
+    programmaticToolNames: ['spawn_agent_inline'],
 
     instructionsPrompt: buildArray(
       `Use the spawn_agents tool to spawn agents to help you complete the user request.`,

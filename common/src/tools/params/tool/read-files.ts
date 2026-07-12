@@ -38,7 +38,7 @@ export const fileContentsSchema = z.union([
 
 const toolName = 'read_files'
 const endsAgentStep = true
-const inferSingleRecoveryRangePath = (input: unknown): unknown => {
+const inferSingleSelectorPath = (input: unknown): unknown => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input
   const record = input as Record<string, unknown>
   const paths = Array.isArray(record.paths)
@@ -47,29 +47,33 @@ const inferSingleRecoveryRangePath = (input: unknown): unknown => {
       ? [record.paths]
       : []
   if (paths.length !== 1 || typeof paths[0] !== 'string') return input
-  if (!Array.isArray(record.ranges)) return input
-
   let inferredPath = false
-  const ranges = record.ranges.map((range) => {
-    if (!range || typeof range !== 'object' || Array.isArray(range)) {
-      return range
-    }
-    const rangeRecord = range as Record<string, unknown>
-    if (rangeRecord.path !== undefined) return range
-    inferredPath = true
-    return { ...rangeRecord, path: paths[0] }
-  })
+  const inferPath = (selectors: unknown): unknown => {
+    if (!Array.isArray(selectors)) return selectors
+    return selectors.map((selector) => {
+      if (!selector || typeof selector !== 'object' || Array.isArray(selector)) {
+        return selector
+      }
+      const selectorRecord = selector as Record<string, unknown>
+      if (selectorRecord.path !== undefined) return selector
+      inferredPath = true
+      return { ...selectorRecord, path: paths[0] }
+    })
+  }
+  const ranges = inferPath(record.ranges)
+  const symbols = inferPath(record.symbols)
   if (!inferredPath) return input
 
-  // The sole path is acting as shorthand for the recovery range, not as a
-  // second whole-file selector. Keeping both would let the legacy SDK range
-  // payload replace the whole-file payload and make the read look malformed.
-  return { ...record, paths: [], ranges }
+  // The sole path is acting as shorthand for the scoped selector, not as a
+  // second whole-file selector. This also recovers the common model shape
+  // `{ paths: [file], symbols: [{ names }] }` without weakening ambiguous
+  // multi-file validation.
+  return { ...record, paths: [], ranges, symbols }
 }
 
 const inputSchema = z
   .preprocess(
-    inferSingleRecoveryRangePath,
+    inferSingleSelectorPath,
     z.object({
       paths: z
         .preprocess(
