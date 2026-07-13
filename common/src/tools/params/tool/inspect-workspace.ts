@@ -6,9 +6,11 @@ import type { $ToolParams } from '../../constants'
 
 const toolName = 'inspect_workspace'
 const endsAgentStep = true
-const inputSchema = z.object({}).describe(
-  'Inspect the current repository/worktree identity and Git state without modifying it.',
-)
+const inputSchema = z
+  .object({})
+  .describe(
+    'Inspect the current repository/worktree identity and Git state without modifying it.',
+  )
 
 export const inspectWorkspaceParams = {
   toolName,
@@ -19,6 +21,9 @@ export const inspectWorkspaceParams = {
   outputSchema: jsonToolResultSchema(
     z.union([
       z.object({
+        repositoryId: z.string(),
+        workspaceId: z.string(),
+        canonicalRoot: z.string(),
         repositoryRoot: z.string(),
         workingDirectory: z.string(),
         gitCommonDir: z.string(),

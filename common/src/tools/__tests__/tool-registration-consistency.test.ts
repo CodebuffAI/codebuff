@@ -3,11 +3,7 @@ import { join } from 'path'
 
 import { describe, expect, it } from 'bun:test'
 
-import {
-  publishedTools,
-  quarantinedToolNames,
-  toolNames,
-} from '../constants'
+import { publishedTools, quarantinedToolNames, toolNames } from '../constants'
 import { compileToolDefinitions } from '../compile-tool-definitions'
 import { toolParams } from '../list'
 
@@ -108,5 +104,17 @@ describe('tool registration consistency', () => {
         unexpected: [],
       })
     }
+  })
+
+  it('generated agent and fresh-install template tool types do not drift', () => {
+    expect(readFileSync(join(repoRoot, 'agents/types/tools.ts'), 'utf8')).toBe(
+      readFileSync(
+        join(
+          repoRoot,
+          'common/src/templates/initial-agents-dir/types/tools.ts',
+        ),
+        'utf8',
+      ),
+    )
   })
 })

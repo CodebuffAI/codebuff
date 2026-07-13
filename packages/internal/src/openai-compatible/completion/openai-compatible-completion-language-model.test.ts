@@ -53,6 +53,22 @@ async function collectStreamChunks(
 }
 
 describe('OpenAICompatibleCompletionLanguageModel billing telemetry streaming', () => {
+  it('rejects a non-streaming response with no choices', async () => {
+    const fetch = (async () =>
+      Response.json({
+        id: 'cmpl-empty',
+        model: 'test-model',
+        choices: [],
+      })) as unknown as FetchFunction
+    const model = createModel(fetch)
+
+    await expect(
+      model.doGenerate({
+        prompt: [{ role: 'user', content: [{ type: 'text', text: 'Write' }] }],
+      } as Parameters<LanguageModelV2['doGenerate']>[0]),
+    ).rejects.toThrow('contained no choices')
+  })
+
   it('ignores billing.summary telemetry before the first completion chunk', async () => {
     const chunks = await collectStreamChunks([
       {

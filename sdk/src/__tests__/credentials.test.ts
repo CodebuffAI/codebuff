@@ -26,7 +26,7 @@ describe('credentials', () => {
   } as const
 
   describe('getConfigDir', () => {
-    test('returns fixed openbuff config path regardless of environment', () => {
+    test('returns the default openbuff config path', () => {
       const dir = getConfigDir(testEnv as any)
       expect(dir).toContain('openbuff')
       expect(dir).toContain('.config')
@@ -45,6 +45,19 @@ describe('credentials', () => {
       const dir = getConfigDir(emptyEnv as any)
       expect(dir).toContain('openbuff')
       expect(dir).not.toContain('manicode')
+    })
+
+    test('honors OPENBUFF_CONFIG_DIR before XDG_CONFIG_HOME', () => {
+      const dir = getConfigDir({
+        OPENBUFF_CONFIG_DIR: '/custom/openbuff',
+        XDG_CONFIG_HOME: '/xdg/config',
+      } as any)
+      expect(dir).toBe('/custom/openbuff')
+    })
+
+    test('honors XDG_CONFIG_HOME', () => {
+      const dir = getConfigDir({ XDG_CONFIG_HOME: '/xdg/config' } as any)
+      expect(dir).toBe(path.join('/xdg/config', 'openbuff'))
     })
   })
 

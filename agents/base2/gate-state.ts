@@ -145,6 +145,8 @@ export type Base2ActiveWorkState = Base2GateState & {
    * Backward-compatible.
    */
   docWriterGateDone?: boolean
+  /** Reviewer-family specialist gates completed for the current pending set. */
+  specialistReviewGatesDone?: string[]
   /**
    * M3 (R1d) — snapshot of the pendingGateFiles used to detect that the
    * pending gate file set has changed, so the three aux-gate done-flags above

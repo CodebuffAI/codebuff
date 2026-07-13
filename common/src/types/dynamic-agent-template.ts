@@ -199,6 +199,7 @@ export const DynamicAgentDefinitionSchema = z.object({
       'read-only',
       'librarian-read-only',
       'git-commit',
+      'dependency-mutation',
       'tmux-test',
       'workspace-write',
       'full-access',

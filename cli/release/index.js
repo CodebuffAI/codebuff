@@ -17,6 +17,61 @@ const npmPackageName = '@openbuff/cli'
 const binaryName = 'openbuff'
 const MIN_LEGACY_MACOS_MAJOR = 11
 const MIN_SUPPORTED_MACOS_MAJOR = 13
+const OLD_BINARY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+const OLD_BINARY_MAX_COUNT = 2
+
+function resolveConfigDir(env, platform, homeDir) {
+  if (env.OPENBUFF_CONFIG_DIR) return env.OPENBUFF_CONFIG_DIR
+  if (platform === 'win32' && env.APPDATA) {
+    return path.join(env.APPDATA, 'openbuff')
+  }
+  if (env.XDG_CONFIG_HOME) {
+    return path.join(env.XDG_CONFIG_HOME, 'openbuff')
+  }
+  return path.join(homeDir, '.config', 'openbuff')
+}
+
+function getManagedSiblingNames(tempDir) {
+  const extracted = fs.existsSync(tempDir) ? fs.readdirSync(tempDir) : []
+  const wasmSiblings = extracted.filter(
+    (name) =>
+      name === 'tree-sitter.wasm' ||
+      /^tree-sitter-[a-z0-9-]+\.wasm$/i.test(name),
+  )
+  return [...new Set([...wasmSiblings, 'libopentui.dylib', 'rg'])]
+}
+
+function cleanupOldBinaryBackups(binaryPath, now = Date.now()) {
+  const dir = path.dirname(binaryPath)
+  const prefix = `${path.basename(binaryPath)}.old.`
+  if (!fs.existsSync(dir)) return []
+  const backups = fs
+    .readdirSync(dir)
+    .filter((name) => name.startsWith(prefix))
+    .map((name) => ({
+      name,
+      timestamp: Number(name.slice(prefix.length)),
+    }))
+    .filter((item) => Number.isFinite(item.timestamp))
+    .sort((a, b) => b.timestamp - a.timestamp)
+  const removed = []
+  for (const [index, backup] of backups.entries()) {
+    if (
+      index < OLD_BINARY_MAX_COUNT &&
+      now - backup.timestamp <= OLD_BINARY_MAX_AGE_MS
+    ) {
+      continue
+    }
+    const backupPath = path.join(dir, backup.name)
+    try {
+      fs.unlinkSync(backupPath)
+      removed.push(backupPath)
+    } catch {
+      // Locked backups are retried on the next launch.
+    }
+  }
+  return removed
+}
 
 /**
  * Terminal escape sequences to reset terminal state after the child process exits.
@@ -54,7 +109,7 @@ function resetTerminal() {
 
 function createConfig(binName) {
   const homeDir = os.homedir()
-  const configDir = path.join(homeDir, '.config', 'openbuff')
+  const configDir = resolveConfigDir(process.env, process.platform, homeDir)
   const resolvedBinaryName =
     process.platform === 'win32' ? `${binName}.exe` : binName
 
@@ -644,31 +699,11 @@ async function downloadBinary(version) {
     }
     fs.renameSync(tempBinaryPath, CONFIG.binaryPath)
 
-    // Move tree-sitter.wasm next to the binary if the tarball included
-    // it. The CLI binary loads this at startup; embedding it inside the
-    // binary itself was unreliable on Windows (bun --compile asset
-    // bundling silently dropped or unbound it across several attempts),
-    // so we ship it as a sibling file instead. Older artifacts that
-    // pre-date this change won't have the wasm and will still install —
-    // they'll just hit the same crash they had before, which is fine.
-    const tempWasmPath = path.join(CONFIG.tempDownloadDir, 'tree-sitter.wasm')
-    if (fs.existsSync(tempWasmPath)) {
-      const targetWasmPath = path.join(
-        path.dirname(CONFIG.binaryPath),
-        'tree-sitter.wasm',
-      )
-      try {
-        if (fs.existsSync(targetWasmPath)) fs.unlinkSync(targetWasmPath)
-      } catch {
-        // best effort; rename below will surface the real error if it matters
-      }
-      fs.renameSync(tempWasmPath, targetWasmPath)
-    }
-
-    // Legacy macOS archives also contain native OpenTUI and ripgrep siblings.
-    // Move them only when present so current platform archives remain
-    // unchanged.
-    for (const siblingName of ['libopentui.dylib', 'rg']) {
+    // Preserve every managed sibling extracted from the release archive.
+    // This includes the parser runtime, all language grammar WASMs, and
+    // legacy native/ripgrep assets. Deriving the grammar list from the
+    // archive keeps the installer aligned with the build manifest.
+    for (const siblingName of getManagedSiblingNames(CONFIG.tempDownloadDir)) {
       const tempSiblingPath = path.join(CONFIG.tempDownloadDir, siblingName)
       if (!fs.existsSync(tempSiblingPath)) continue
       const targetSiblingPath = path.join(
@@ -839,6 +874,10 @@ async function main() {
 
   assertSupportedPlatform()
 
+  if (process.platform === 'win32') {
+    cleanupOldBinaryBackups(CONFIG.binaryPath)
+  }
+
   await ensureBinaryExists()
 
   const child = spawn(CONFIG.binaryPath, args, {
@@ -871,6 +910,9 @@ if (require.main === module) {
 }
 
 module.exports = {
+  cleanupOldBinaryBackups,
   compareVersions,
+  getManagedSiblingNames,
   parseExpectedChecksum,
+  resolveConfigDir,
 }

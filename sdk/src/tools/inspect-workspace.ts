@@ -1,5 +1,6 @@
 import path from 'node:path'
 
+import { resolveWorkspaceIdentity } from '../services/repository-identity'
 import { runGit } from './git-status'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
@@ -9,8 +10,6 @@ export async function inspectWorkspace(params: {
   signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'inspect_workspace'>> {
   const commands = await Promise.all([
-    runGit(['rev-parse', '--show-toplevel'], params.cwd, params.signal),
-    runGit(['rev-parse', '--git-common-dir'], params.cwd, params.signal),
     runGit(['branch', '--show-current'], params.cwd, params.signal),
     runGit(
       ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
@@ -25,33 +24,50 @@ export async function inspectWorkspace(params: {
       params.signal,
     ),
   ])
-  const [root, commonDir, branch, upstream, head, status, defaultRef] = commands
-  if (root.exitCode !== 0 || commonDir.exitCode !== 0 || head.exitCode !== 0) {
+  const [branch, upstream, head, status, defaultRef] = commands
+  let identity
+  try {
+    identity = await resolveWorkspaceIdentity(params)
+  } catch (error) {
     return [
       {
         type: 'json',
         value: {
           errorMessage:
-            root.stderr.trim() ||
-            commonDir.stderr.trim() ||
+            error instanceof Error
+              ? error.message
+              : 'Unable to inspect the current Git workspace.',
+        },
+      },
+    ]
+  }
+  if (head.exitCode !== 0) {
+    return [
+      {
+        type: 'json',
+        value: {
+          errorMessage:
             head.stderr.trim() ||
             'Unable to inspect the current Git workspace.',
         },
       },
     ]
   }
-  const repositoryRoot = path.resolve(params.cwd, root.stdout.trim())
-  const gitCommonDir = path.resolve(repositoryRoot, commonDir.stdout.trim())
   const statusText = status.stdout.trimEnd()
   const statusLines = statusText.split('\n').filter(Boolean)
   return [
     {
       type: 'json',
       value: {
-        repositoryRoot,
+        repositoryId: identity.repositoryId,
+        workspaceId: identity.workspaceId,
+        canonicalRoot: identity.canonicalRoot,
+        repositoryRoot: identity.repositoryRoot,
         workingDirectory: path.resolve(params.cwd),
-        gitCommonDir,
-        isLinkedWorktree: path.resolve(repositoryRoot, '.git') !== gitCommonDir,
+        gitCommonDir: identity.gitCommonDir,
+        isLinkedWorktree:
+          path.resolve(identity.repositoryRoot, '.git') !==
+          identity.gitCommonDir,
         ...(branch.stdout.trim() ? { branch: branch.stdout.trim() } : {}),
         ...(upstream.exitCode === 0 && upstream.stdout.trim()
           ? { upstream: upstream.stdout.trim() }

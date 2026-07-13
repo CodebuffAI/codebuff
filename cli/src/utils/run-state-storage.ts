@@ -33,6 +33,94 @@ type PersistedChatState = {
   messages: ChatMessage[]
 }
 
+function quarantineCorruptStateFile(filePath: string): string | null {
+  const quarantinePath = `${filePath}.corrupt.${Date.now()}.${process.pid}`
+  try {
+    fs.renameSync(filePath, quarantinePath)
+    return quarantinePath
+  } catch (error) {
+    logger.warn(
+      {
+        filePath,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to quarantine corrupt chat state envelope',
+    )
+    return null
+  }
+}
+
+export function loadChatStateFromCompatibilityFiles(
+  chatDir: string,
+): SavedChatState | null {
+  const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
+  const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
+  if (!fs.existsSync(runStatePath) || !fs.existsSync(messagesPath)) {
+    logger.debug(
+      { runStatePath, messagesPath },
+      'Missing state files in chat directory',
+    )
+    return null
+  }
+
+  const runState = sanitizeForChatPersistence(
+    JSON.parse(fs.readFileSync(runStatePath, 'utf8')) as RunState,
+  )
+  const messages = sanitizeForChatPersistence(
+    JSON.parse(fs.readFileSync(messagesPath, 'utf8')) as ChatMessage[],
+  )
+  if (!runState || !Array.isArray(messages)) {
+    logger.warn(
+      { runStatePath, messagesPath },
+      'Legacy chat state files are malformed',
+    )
+    return null
+  }
+
+  const chatId = path.basename(chatDir)
+  logger.info(
+    { runStatePath, messagesPath, messageCount: messages.length, chatId },
+    'Loaded chat state from compatibility files',
+  )
+  return { runState, messages, chatId }
+}
+
+export function loadChatStateFromDirectory(
+  chatDir: string,
+): SavedChatState | null {
+  const chatStatePath = path.join(chatDir, CHAT_STATE_FILENAME)
+  if (fs.existsSync(chatStatePath)) {
+    try {
+      const persisted = sanitizeForChatPersistence(
+        JSON.parse(fs.readFileSync(chatStatePath, 'utf8')) as PersistedChatState,
+      )
+      if (
+        persisted.version !== 1 ||
+        !persisted.runState ||
+        !Array.isArray(persisted.messages)
+      ) {
+        throw new Error('Chat state envelope has an invalid shape')
+      }
+      return {
+        runState: persisted.runState,
+        messages: persisted.messages,
+        chatId: path.basename(chatDir),
+      }
+    } catch (error) {
+      const quarantinePath = quarantineCorruptStateFile(chatStatePath)
+      logger.warn(
+        {
+          chatStatePath,
+          quarantinePath,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Chat state envelope is corrupt; attempting compatibility recovery',
+      )
+    }
+  }
+  return loadChatStateFromCompatibilityFiles(chatDir)
+}
+
 function writeJsonAtomic(filePath: string, value: unknown): void {
   const tempPath = `${filePath}.tmp.${process.pid}.${Date.now()}`
   fs.writeFileSync(tempPath, JSON.stringify(value, null, 2), { mode: 0o600 })
@@ -199,62 +287,7 @@ export function loadMostRecentChatState(
       return null
     }
 
-    const chatStatePath = path.join(chatDir, CHAT_STATE_FILENAME)
-    const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
-    const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
-
-    if (fs.existsSync(chatStatePath)) {
-      const persisted = sanitizeForChatPersistence(
-        JSON.parse(
-          fs.readFileSync(chatStatePath, 'utf8'),
-        ) as PersistedChatState,
-      )
-      if (
-        persisted.version !== 1 ||
-        !persisted.runState ||
-        !Array.isArray(persisted.messages)
-      ) {
-        logger.warn({ chatStatePath }, 'Chat state envelope is malformed')
-        return null
-      }
-      return {
-        runState: persisted.runState,
-        messages: persisted.messages,
-        chatId: path.basename(chatDir),
-      }
-    }
-
-    if (!fs.existsSync(runStatePath) || !fs.existsSync(messagesPath)) {
-      logger.debug(
-        { runStatePath, messagesPath },
-        'Missing state files in chat directory',
-      )
-      return null
-    }
-
-    const runStateContent = fs.readFileSync(runStatePath, 'utf8')
-    const messagesContent = fs.readFileSync(messagesPath, 'utf8')
-
-    const runState = sanitizeForChatPersistence(
-      JSON.parse(runStateContent) as RunState,
-    )
-    const messages = sanitizeForChatPersistence(
-      JSON.parse(messagesContent) as ChatMessage[],
-    )
-
-    const resolvedChatId = path.basename(chatDir)
-
-    logger.info(
-      {
-        runStatePath,
-        messagesPath,
-        messageCount: messages.length,
-        chatId: resolvedChatId,
-      },
-      'Loaded chat state from chat directory',
-    )
-
-    return { runState, messages, chatId: resolvedChatId }
+    return loadChatStateFromDirectory(chatDir)
   } catch (error) {
     logger.error(
       {

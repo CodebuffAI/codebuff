@@ -19,6 +19,8 @@ export const getChangeReviewBundleParams = {
     z.union([
       z.object({
         snapshotId: z.string(),
+        repositoryId: z.string(),
+        workspaceId: z.string(),
         headCommit: z.string(),
         status: z.string(),
         files: z.array(z.string()),

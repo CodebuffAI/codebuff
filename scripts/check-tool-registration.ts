@@ -3,8 +3,9 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-import { toolNames } from '@codebuff/common/tools/constants'
+import { publishedTools, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
+import { toolMetadata } from '@codebuff/common/tools/metadata'
 
 /**
  * "New tool readiness checklist" — answers the single question we got wrong
@@ -34,7 +35,25 @@ function fileMentions(relativePath: string, needle: string): boolean {
   }
 }
 
-function checkTool(tool: string): Check[] {
+function directoryMentions(relativePath: string, needle: string): boolean {
+  const root = join(repoRoot, relativePath)
+  const visit = (directory: string): boolean => {
+    let entries
+    try {
+      entries = Array.from(
+        new Bun.Glob('**/*').scanSync({ cwd: directory, onlyFiles: true }),
+      )
+    } catch {
+      return false
+    }
+    return entries.some((entry) =>
+      fileMentions(join(relativePath, entry), needle),
+    )
+  }
+  return visit(root)
+}
+
+export function checkTool(tool: string): Check[] {
   const quoted = `'${tool}'`
   const handlerImport = `./tool/${tool.replace(/_/g, '-')}`
 
@@ -49,12 +68,22 @@ function checkTool(tool: string): Check[] {
       ok: Object.prototype.hasOwnProperty.call(toolParams, tool),
     },
     {
+      label: 'tool is included in the published SDK tool surface',
+      ok: (publishedTools as readonly string[]).includes(tool),
+    },
+    {
       label: 'runtime handler registered in agent-runtime handlers/list.ts',
       ok: fileMentions(
         'packages/agent-runtime/src/tools/handlers/list.ts',
         `${tool}:`,
       ),
       detail: handlerImport,
+    },
+    {
+      label: 'SDK dispatch handles the tool in sdk/src/run.ts',
+      ok:
+        fileMentions('sdk/src/run.ts', `toolName === '${tool}'`) ||
+        fileMentions('sdk/src/run.ts', `toolName === "${tool}"`),
     },
     {
       label: 'generated agent tool type present (agents/types/tools.ts)',
@@ -69,8 +98,31 @@ function checkTool(tool: string): Check[] {
       ),
     },
     {
-      label: 'documented in docs/deterministic-edit-system.md (usage guidance)',
-      ok: fileMentions('docs/deterministic-edit-system.md', tool),
+      label: 'CLI generated initial-agent type source contains the tool',
+      ok: fileMentions(
+        'cli/src/data/initial-agent-type-sources.generated.ts',
+        quoted,
+      ),
+    },
+    {
+      label: 'CLI renderer metadata classifies the tool',
+      ok: Object.prototype.hasOwnProperty.call(toolMetadata, tool),
+    },
+    {
+      label: 'CLI renderer registry enforces metadata dispositions',
+      ok:
+        fileMentions(
+          'cli/src/components/tools/registry.ts',
+          'toolRendererDispositions',
+        ) &&
+        fileMentions(
+          'cli/src/components/tools/registry.ts',
+          'Missing metadata-declared custom renderer',
+        ),
+    },
+    {
+      label: 'documented somewhere under docs/',
+      ok: directoryMentions('docs', tool),
     },
   ]
 }
@@ -104,4 +156,4 @@ function main() {
   console.log('\nAll layers present. Tool is consistently registered.')
 }
 
-main()
+if (import.meta.main) main()

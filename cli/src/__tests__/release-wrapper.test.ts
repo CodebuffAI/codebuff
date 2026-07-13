@@ -1,7 +1,9 @@
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -305,6 +307,96 @@ describe('release wrapper platform selection', () => {
 })
 
 describe('release wrapper update safety', () => {
+  test.each(wrappers)(
+    '%s bounds stale Windows binary backups',
+    (_, wrapperPath) => {
+      const tempDir = mkdtempSync(path.join(tmpdir(), 'openbuff-backups-'))
+      const binaryPath = path.join(tempDir, 'openbuff.exe')
+      const now = Date.now()
+      const recent = [now - 1_000, now - 2_000, now - 3_000]
+      const old = now - 8 * 24 * 60 * 60 * 1000
+      for (const timestamp of [...recent, old]) {
+        writeFileSync(`${binaryPath}.old.${timestamp}`, 'backup')
+      }
+      writeFileSync(path.join(tempDir, 'unrelated.old.1'), 'keep')
+      try {
+        const { cleanupOldBinaryBackups } = require(
+          path.join(repoRoot, wrapperPath),
+        )
+        cleanupOldBinaryBackups(binaryPath, now)
+
+        const remaining = readdirSync(tempDir).filter((name) =>
+          name.startsWith('openbuff.exe.old.'),
+        )
+        expect(remaining.sort()).toEqual(
+          recent
+            .slice(0, 2)
+            .map((timestamp) => `openbuff.exe.old.${timestamp}`)
+            .sort(),
+        )
+        expect(existsSync(path.join(tempDir, 'unrelated.old.1'))).toBe(true)
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true })
+      }
+    },
+  )
+
+  test.each(wrappers)(
+    '%s preserves every extracted tree-sitter grammar sibling',
+    (_, wrapperPath) => {
+      const tempDir = mkdtempSync(path.join(tmpdir(), 'openbuff-wasm-assets-'))
+      try {
+        writeFileSync(path.join(tempDir, 'tree-sitter.wasm'), 'runtime')
+        writeFileSync(path.join(tempDir, 'tree-sitter-typescript.wasm'), 'ts')
+        writeFileSync(path.join(tempDir, 'tree-sitter-python.wasm'), 'py')
+        writeFileSync(path.join(tempDir, 'not-managed.wasm'), 'other')
+        const { getManagedSiblingNames } = require(
+          path.join(repoRoot, wrapperPath),
+        )
+
+        expect(getManagedSiblingNames(tempDir)).toContain(
+          'tree-sitter-typescript.wasm',
+        )
+        expect(getManagedSiblingNames(tempDir)).toContain(
+          'tree-sitter-python.wasm',
+        )
+        expect(getManagedSiblingNames(tempDir)).not.toContain(
+          'not-managed.wasm',
+        )
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true })
+      }
+    },
+  )
+
+  test.each(wrappers)(
+    '%s resolves config overrides consistently',
+    (_, wrapperPath) => {
+      const { resolveConfigDir } = require(path.join(repoRoot, wrapperPath))
+      expect(
+        resolveConfigDir(
+          { OPENBUFF_CONFIG_DIR: '/custom/openbuff' },
+          'linux',
+          '/home/test',
+        ),
+      ).toBe('/custom/openbuff')
+      expect(
+        resolveConfigDir(
+          { XDG_CONFIG_HOME: '/xdg/config' },
+          'linux',
+          '/home/test',
+        ),
+      ).toBe('/xdg/config/openbuff')
+      expect(
+        resolveConfigDir(
+          { APPDATA: 'C:\\Users\\test\\AppData\\Roaming' },
+          'win32',
+          'C:\\Users\\test',
+        ),
+      ).toBe(path.join('C:\\Users\\test\\AppData\\Roaming', 'openbuff'))
+    },
+  )
+
   test.each(wrappers)(
     '%s compares prerelease versions without forcing an update loop',
     (_, wrapperPath) => {

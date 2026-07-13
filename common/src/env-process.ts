@@ -24,6 +24,7 @@ export const getBaseEnv = (): BaseEnv => ({
   USERPROFILE: process.env.USERPROFILE,
   APPDATA: process.env.APPDATA,
   XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  OPENBUFF_CONFIG_DIR: process.env.OPENBUFF_CONFIG_DIR,
   TERM: process.env.TERM,
   TERM_PROGRAM: process.env.TERM_PROGRAM,
   TERM_BACKGROUND: process.env.TERM_BACKGROUND,

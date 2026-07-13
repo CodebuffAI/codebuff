@@ -24,6 +24,7 @@ Common phase triggers and routing policies:
 - `thinker` — reasoning phase after context gathering for complex design, architecture, tradeoff, risk, spec/plan critique, or debugging strategy choices. Use it to synthesize discovered evidence when no file writes are needed; skip it for straightforward edits and never use it as a replacement for reading files.
 - `editor` — implementation phase for non-trivial source changes, with a self-contained implementation brief because it does not rely on parent context. Skip it for tiny one-file edits and direct answers.
 - `basher` — validation phase for tests, typechecks, lints, builds, or command discovery that lacks a dedicated harness tool. Prefer configured hooks and deterministic path-to-suite routing first, such as agents/base2 prompt/gate checks, SDK checks for `packages/sdk/*`, runtime checks for `packages/agent-runtime/*`, common/dependent checks for `common/*`, and CLI typecheck plus visual smoke for `cli/src/components/*` or `cli/src/hooks/*`.
+- `dependency-manager` — explicit dependency-mutation phase only. It receives structured manager/operation/package/workspace inputs, constructs one bounded ecosystem-native command, and supports npm/pnpm/Yarn/Bun, uv/Poetry/pip, Cargo, Go modules, .NET, Bundler, Composer, SwiftPM, Dart/Flutter Pub, Mix, Maven dependency resolution, and Gradle dependency inspection. It cannot run arbitrary shell or global installs, and a missing-package diagnostic alone is not authorization to spawn it.
 - `debugger` — repair phase after repeated validation failures, runtime failures, or unclear crash behavior.
 - `code-reviewer`, `security-reviewer` — review phase after meaningful edits or security-sensitive changes; blocking findings prevent completion. Security review is required for auth, crypto, secrets, permissions, injection, sandboxing, path/process/network handling, supply-chain, or production-risk changes.
 - `test-writer`, `doc-writer` — coverage phase when tests or docs are required or directly implied by acceptance criteria.
@@ -46,8 +47,8 @@ The root orchestrator has a versioned, local control-plane surface for work that
 - `inspect_workspace` records repository/worktree identity, branch state, and a content snapshot.
 - `get_task` reads the current durable task and lifecycle revision.
 - `get_change_review_bundle` produces snapshot-bound changed-file and diff evidence for reviewers.
-- `inspect_environment` reports manifests, lockfiles, package managers, and locally available toolchains without executing project code.
-- `get_affected_tests` and `get_build_targets` map changed files to existing test candidates and package scripts.
+- `inspect_environment` recursively reports nested JavaScript, Python, Rust, Go, Maven/Gradle, .NET, and Swift workspaces, their manifests/lockfiles, inferred managers with explicit confidence, and locally available toolchains without executing project code.
+- `get_affected_tests` and `get_build_targets` map changed files to the nearest workspace, existing test candidates, and manager-specific validation/build commands. Targets report `confirmed`, `inferred`, or `unknown` confidence instead of presenting guesses as discovered facts.
 - `run_targeted_validation` executes only an explicitly selected target against an expected snapshot and rejects stale or mid-run-mutated snapshots.
 - `inspect_codebase_structure` creates the authoritative snapshot-bound audit inventory, including subsystems, entrypoints, routes, commands, public APIs, tests, generated sources, and a detected language/framework capability packet.
 - `inspect_feature_completeness` follows a claimed feature vertically across runtime wiring, consumers, tests, docs, and failure-state evidence.

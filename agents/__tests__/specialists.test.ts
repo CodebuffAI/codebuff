@@ -14,6 +14,7 @@ import productReviewer from '../specialists/product-reviewer'
 import releaseManager from '../specialists/release-manager'
 import reliabilityReviewer from '../specialists/reliability-reviewer'
 import uxVisualReviewer from '../specialists/ux-visual-reviewer'
+import { createBase2 } from '../base2/base2'
 
 const specialists = [
   architect,
@@ -75,5 +76,42 @@ describe('specialist agents', () => {
       expect(agent.toolNames).not.toContain('str_replace')
       expect(agent.toolNames).not.toContain('run_targeted_validation')
     }
+  })
+
+  test('are available while planning and executing durable plans', () => {
+    for (const options of [{ planOnly: true }, { executePlan: true }]) {
+      const spawnable = createBase2('default', options).spawnableAgents ?? []
+      for (const agent of specialists) {
+        expect(spawnable).toContain(agent.id)
+      }
+    }
+  })
+
+  test('use distinct advisory and post-edit reviewer contracts', () => {
+    const advisoryInput = architect.inputSchema as any
+    const advisoryOutput = architect.outputSchema as any
+    expect(advisoryInput.params.required).not.toContain('snapshot_id')
+    expect(advisoryOutput.required).not.toContain('verdict')
+    expect(advisoryOutput.properties.family.enum).toEqual(['advisory'])
+
+    const reviewerInput = dependencyReviewer.inputSchema as any
+    const reviewerOutput = dependencyReviewer.outputSchema as any
+    expect(reviewerInput.params.required).toContain('snapshot_id')
+    expect(reviewerOutput.required).toContain('verdict')
+    expect(reviewerOutput.required).toContain('coverage')
+    expect(reviewerOutput.properties.family.enum).toEqual(['reviewer'])
+    expect(
+      reviewerOutput.properties.dimensions.required,
+    ).toContain('manifest_and_lockfile_correctness')
+    expect(
+      reviewerOutput.properties.findings.items.required,
+    ).toEqual([
+      'id',
+      'severity',
+      'dimension',
+      'summary',
+      'evidence',
+      'correction',
+    ])
   })
 })

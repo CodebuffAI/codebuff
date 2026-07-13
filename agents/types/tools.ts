@@ -534,8 +534,36 @@ export interface InspectFeatureCompletenessParams {
  */
 export interface EvaluateAuditCoverageParams {
   snapshot_id: string
-  structural_receipts: string[]
-  features: string[]
+  structural_receipts: {
+    schema_version: 1
+    snapshot_id: string
+    shard_id: string
+    subsystem_ids: string[]
+    files: string[]
+    domains:
+      | 'security'
+      | 'correctness'
+      | 'state-mutation'
+      | 'error-handling'
+      | 'performance'
+      | 'dependency-hygiene'
+      | 'test-coverage'
+      | 'api-contract'[]
+  }[]
+  features: {
+    schema_version: 1
+    snapshot_id: string
+    feature: string
+    evidence_kind: 'verified'
+    evidence: {
+      entrypoints: string[]
+      implementation: string[]
+      consumers: string[]
+      tests: string[]
+      docs: string[]
+      failure_states: string[]
+    }
+  }[]
   out_of_scope?: {
     id: string
     reason: string

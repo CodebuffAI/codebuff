@@ -72,6 +72,11 @@ export const AGENT_PERSONAS = {
     purpose:
       'Commits code changes to git with a well-crafted commit message. Spawn when you need to stage and commit related changes with an appropriate message.',
   } as const,
+  'dependency-manager': {
+    displayName: 'Dependency Manager',
+    purpose:
+      'Runs an explicitly requested package-manager dependency mutation under a narrowly constrained terminal policy.',
+  } as const,
   architect: { displayName: 'Architecture Specialist', purpose: 'Produces source-backed architecture decisions and migration paths.' } as const,
   'product-reviewer': { displayName: 'Product and Spec Reviewer', purpose: 'Reviews requirements and user-facing acceptance criteria.' } as const,
   'integration-agent': { displayName: 'Integration Specialist', purpose: 'Plans safe integration ordering, conflicts, and revalidation.' } as const,

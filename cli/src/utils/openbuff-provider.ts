@@ -1218,6 +1218,15 @@ export function getOpenbuffProviderReadiness(params: {
   agentMode: AgentMode
 }): { ok: true } | { ok: false; message: string } {
   const loadedConfig = loadProviderConfigSync()
+  if (loadedConfig.diagnostics?.length) {
+    const details = loadedConfig.diagnostics
+      .map(({ filePath, message }) => `- ${filePath}: ${message}`)
+      .join('\n')
+    return {
+      ok: false,
+      message: `Openbuff provider configuration is invalid. Fix the configuration before running an agent:\n${details}`,
+    }
+  }
   if (
     loadedConfig.sourceFilePaths.length === 0 &&
     Object.keys(loadedConfig.config.providers).length === 0

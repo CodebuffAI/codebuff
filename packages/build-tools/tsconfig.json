@@ -4,6 +4,7 @@
     "outDir": "dist",
     "rootDir": ".",
     "module": "commonjs",
+    "moduleResolution": "node",
     "target": "es2020"
   },
   "include": ["**/*.ts"],

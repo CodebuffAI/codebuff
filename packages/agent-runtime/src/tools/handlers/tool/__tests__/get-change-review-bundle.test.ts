@@ -22,6 +22,8 @@ describe('handleGetChangeReviewBundle', () => {
             type: 'json',
             value: {
               snapshotId: 'snapshot',
+              repositoryId: 'repo-id',
+              workspaceId: 'workspace-id',
               headCommit: 'head',
               status: '',
               files: [],

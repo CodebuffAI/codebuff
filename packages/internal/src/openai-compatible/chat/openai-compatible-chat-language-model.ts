@@ -1,4 +1,7 @@
 import {
+  InvalidResponseDataError,
+} from '@ai-sdk/provider'
+import {
   combineHeaders,
   createEventSourceResponseHandler,
   createJsonErrorResponseHandler,
@@ -326,6 +329,12 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
     })
 
     const choice = responseBody.choices[0]
+    if (!choice) {
+      throw new InvalidResponseDataError({
+        data: rawResponse,
+        message: 'OpenAI-compatible chat response contained no choices.',
+      })
+    }
     const content: Array<LanguageModelV2Content> = []
 
     // text content:

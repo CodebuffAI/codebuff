@@ -5,6 +5,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   collectReviewerBlockers,
   collectReviewerAttestationIssues,
+  collectReviewerFindingRecords,
   detectReviewerCrash,
   getReviewerFinalizationVerdict,
   stripReviewerPreamble,
@@ -117,6 +118,36 @@ describe('gate-reviewer helpers', () => {
       'BLOCKING: Fix A',
       'BLOCKING: Fix B',
       'BLOCKING: (no findings provided)',
+    ])
+  })
+
+  test('preserves stable structured finding metadata', () => {
+    const result = {
+      verdict: 'BLOCKING',
+      findings: [
+        {
+          id: 'dependency-reviewer:manifest_and_lockfile_correctness:stale-lock',
+          severity: 'high',
+          dimension: 'manifest_and_lockfile_correctness',
+          summary: 'The lockfile does not match the manifest.',
+          evidence: ['package.json adds x', 'bun.lock omits x'],
+          correction: 'Regenerate the lockfile with the repository manager.',
+        },
+      ],
+      coverage: 'n/a',
+    }
+    expect(collectReviewerBlockers(result)).toEqual([
+      'BLOCKING: [dependency-reviewer:manifest_and_lockfile_correctness:stale-lock] The lockfile does not match the manifest.',
+    ])
+    expect(collectReviewerFindingRecords(result)).toEqual([
+      {
+        id: 'dependency-reviewer:manifest_and_lockfile_correctness:stale-lock',
+        text: 'The lockfile does not match the manifest.',
+        severity: 'high',
+        dimension: 'manifest_and_lockfile_correctness',
+        evidence: ['package.json adds x', 'bun.lock omits x'],
+        correction: 'Regenerate the lockfile with the repository manager.',
+      },
     ])
   })
 

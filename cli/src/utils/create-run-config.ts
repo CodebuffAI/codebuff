@@ -99,7 +99,7 @@ export function isSensitiveFile(filePath: string): boolean {
   return (
     isEnvFile(basename) ||
     SENSITIVE_EXTENSIONS.has(ext) ||
-    SENSITIVE_BASENAMES.has(basename) ||
+    SENSITIVE_BASENAMES.has(basenameLower) ||
     matchesPattern(basenameLower)
   )
 }
