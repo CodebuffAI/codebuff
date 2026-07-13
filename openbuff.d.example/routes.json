@@ -31,6 +31,7 @@
     "glob-matcher": "agentrouter/gpt-5.5",
     "context-pruner": "agentrouter/gpt-5.5",
     "basher": "agentrouter/gpt-5.5",
+    "dependency-manager": "agentrouter/gpt-5.5",
     "browser-use": "agentrouter/gpt-5.5",
     "researcher": "agentrouter/gpt-5.5",
     "researcher-web": "agentrouter/gpt-5.5",

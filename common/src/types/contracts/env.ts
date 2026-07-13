@@ -61,6 +61,7 @@ export type BaseEnv = {
   USERPROFILE?: string // Windows home
   APPDATA?: string // Windows app data
   XDG_CONFIG_HOME?: string // Linux config home
+  OPENBUFF_CONFIG_DIR?: string // Explicit Openbuff config override
 
   // Terminal detection
   TERM?: string

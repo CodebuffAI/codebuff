@@ -312,11 +312,19 @@ describe('inferFileChangeHooks', () => {
     })
   })
 
-  test('uses local dependency executables without allowing package downloads', () => {
+  test.each([
+    ['npm', undefined, 'npx --no-install'],
+    ['bun', 'bun@1.3.14', 'bunx --no-install'],
+    ['pnpm', 'pnpm@10.0.0', 'pnpm exec'],
+    ['yarn', 'yarn@4.0.0', 'yarn exec'],
+  ])(
+    'uses %s local dependency executables without allowing package downloads',
+    (_manager, packageManager, executablePrefix) => {
     withTempDir((dir) => {
       writeFileSync(
         path.join(dir, 'package.json'),
         JSON.stringify({
+          ...(packageManager ? { packageManager } : {}),
           devDependencies: { eslint: '^9.0.0', typescript: '^5.0.0' },
         }),
       )
@@ -324,17 +332,18 @@ describe('inferFileChangeHooks', () => {
       expect(inferFileChangeHooks(dir)).toEqual([
         {
           name: 'lint',
-          command: 'npx --no-install eslint .',
+          command: `${executablePrefix} eslint .`,
           filePattern: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
         },
         {
           name: 'typecheck',
-          command: 'npx --no-install tsc --noEmit',
+          command: `${executablePrefix} tsc --noEmit`,
           filePattern: '**/*.{ts,tsx,mts,cts}',
         },
       ])
     })
-  })
+    },
+  )
 
   test('ignores malformed package.json while preserving other inferred hooks', () => {
     withTempDir((dir) => {

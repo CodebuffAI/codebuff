@@ -25,6 +25,22 @@ const toolCallMetadata = {
 }
 
 describe('OpenAICompatibleChatLanguageModel tool-call metadata', () => {
+  it('rejects a non-streaming response with no choices', async () => {
+    const fetch = (async () =>
+      Response.json({
+        id: 'chatcmpl-empty',
+        model: 'test-model',
+        choices: [],
+      })) as unknown as FetchFunction
+    const model = createModel(fetch)
+
+    await expect(
+      model.doGenerate({
+        prompt: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
+      } as any),
+    ).rejects.toThrow('contained no choices')
+  })
+
   it('preserves extra tool-call fields in non-streaming responses', async () => {
     const fetch = (async () =>
       new Response(

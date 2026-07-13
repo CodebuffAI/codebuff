@@ -73,19 +73,21 @@ const WSL_BASH_PATH_PATTERNS = ['system32', 'windowsapps']
 /**
  * Find bash executable on Windows.
  * Priority:
- * 1. CODEBUFF_GIT_BASH_PATH environment variable (user override)
- * 2. Common Git Bash installation locations (most reliable)
- * 3. Non-WSL bash in PATH (e.g., Git Bash added to PATH)
- * 4. WSL bash in PATH (last resort - System32, WindowsApps)
+ * 1. OPENBUFF_GIT_BASH_PATH environment variable (user override)
+ * 2. CODEBUFF_GIT_BASH_PATH legacy environment variable
+ * 3. Common Git Bash installation locations (most reliable)
+ * 4. Non-WSL bash in PATH (e.g., Git Bash added to PATH)
+ * 5. WSL bash in PATH (last resort - System32, WindowsApps)
  *
  * WSL bash is deprioritized because it can fail with cryptic errors when:
  * - The WSL VM is not running
  * - Quote/argument escaping issues between Windows and Linux
  * - UTF-16 encoding mismatches
  */
-function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
+export function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
   // Check for user-specified path via environment variable
-  const customPath = env.CODEBUFF_GIT_BASH_PATH
+  const customPath =
+    env.OPENBUFF_GIT_BASH_PATH ?? env.CODEBUFF_GIT_BASH_PATH
   if (customPath && fs.existsSync(customPath)) {
     return customPath
   }
@@ -153,11 +155,11 @@ To fix this, you have several options:
 
 2. Use WSL (Windows Subsystem for Linux):
    Run in PowerShell (Admin): wsl --install
-   Then run Codebuff inside WSL.
+   Then run Openbuff inside WSL.
 
 3. Set a custom bash path:
-   Set the CODEBUFF_GIT_BASH_PATH environment variable to your bash.exe location.
-   Example: set CODEBUFF_GIT_BASH_PATH=C:\\path\\to\\bash.exe`,
+   Set the OPENBUFF_GIT_BASH_PATH environment variable to your bash.exe location.
+   Example: set OPENBUFF_GIT_BASH_PATH=C:\\path\\to\\bash.exe`,
   )
 }
 

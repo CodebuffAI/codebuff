@@ -20,6 +20,9 @@ describe('handleInspectWorkspace', () => {
         {
           type: 'json',
           value: {
+            repositoryId: 'repo-id',
+            workspaceId: 'workspace-id',
+            canonicalRoot: '/repo',
             repositoryRoot: '/repo',
             workingDirectory: '/repo',
             gitCommonDir: '/repo/.git',
@@ -47,6 +50,9 @@ describe('handleInspectWorkspace', () => {
       {
         type: 'json',
         value: {
+          repositoryId: 'repo-id',
+          workspaceId: 'workspace-id',
+          canonicalRoot: '/repo',
           repositoryRoot: '/repo',
           workingDirectory: '/repo',
           gitCommonDir: '/repo/.git',

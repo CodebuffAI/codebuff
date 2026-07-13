@@ -23,6 +23,24 @@ type StructuredReviewerOutput = {
   snapshotFingerprint?: string
   reviewedFiles?: string[]
   schemaVersion?: number
+  findingRecords?: ReviewerFindingRecord[]
+}
+
+export type ReviewerFindingRecord = {
+  id: string
+  text: string
+  severity?: string
+  dimension?: string
+  evidence: string[]
+  correction?: string
+}
+
+export function collectReviewerFindingRecords(
+  toolResult: unknown,
+): ReviewerFindingRecord[] {
+  return collectStructuredReviewerOutputs(toolResult).flatMap(
+    (entry) => entry.findingRecords ?? [],
+  )
 }
 
 export function collectReviewerAttestationIssues(
@@ -337,6 +355,19 @@ function visitForStructuredVerdict(
         for (const finding of rawFindings) {
           if (typeof finding === 'string' && finding.trim()) {
             findings.push(finding.trim())
+          } else if (finding && typeof finding === 'object') {
+            const findingRecord = finding as Record<string, unknown>
+            const id =
+              typeof findingRecord.id === 'string'
+                ? findingRecord.id.trim()
+                : ''
+            const summary =
+              typeof findingRecord.summary === 'string'
+                ? findingRecord.summary.trim()
+                : typeof findingRecord.text === 'string'
+                  ? findingRecord.text.trim()
+                  : ''
+            if (summary) findings.push(id ? `[${id}] ${summary}` : summary)
           }
         }
       }
@@ -384,6 +415,40 @@ function visitForStructuredVerdict(
           typeof record.schemaVersion === 'number'
             ? record.schemaVersion
             : undefined,
+        findingRecords: Array.isArray(rawFindings)
+          ? rawFindings.flatMap((finding) => {
+              if (!finding || typeof finding !== 'object') return []
+              const item = finding as Record<string, unknown>
+              const id = typeof item.id === 'string' ? item.id.trim() : ''
+              const text =
+                typeof item.summary === 'string'
+                  ? item.summary.trim()
+                  : typeof item.text === 'string'
+                    ? item.text.trim()
+                    : ''
+              if (!id || !text) return []
+              return [
+                {
+                  id,
+                  text,
+                  ...(typeof item.severity === 'string'
+                    ? { severity: item.severity }
+                    : {}),
+                  ...(typeof item.dimension === 'string'
+                    ? { dimension: item.dimension }
+                    : {}),
+                  evidence: Array.isArray(item.evidence)
+                    ? item.evidence.filter(
+                        (value): value is string => typeof value === 'string',
+                      )
+                    : [],
+                  ...(typeof item.correction === 'string'
+                    ? { correction: item.correction }
+                    : {}),
+                },
+              ]
+            })
+          : undefined,
       })
       return
     }

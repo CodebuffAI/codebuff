@@ -4,7 +4,25 @@ import path from 'path'
 import { describe, expect, it } from 'bun:test'
 
 import { getBackgroundJob, killBackgroundJob } from '../tools/background-jobs'
-import { runTerminalCommand } from '../tools/run-terminal-command'
+import {
+  findWindowsBash,
+  runTerminalCommand,
+} from '../tools/run-terminal-command'
+
+describe('Windows bash prerequisite', () => {
+  it('honors the Openbuff-specific Git Bash override', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-bash-'))
+    const bashPath = path.join(dir, 'bash.exe')
+    fs.writeFileSync(bashPath, '')
+    try {
+      expect(findWindowsBash({ OPENBUFF_GIT_BASH_PATH: bashPath })).toBe(
+        bashPath,
+      )
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
 
 describe('runTerminalCommand cwd containment', () => {
   it('returns a structured timeout result with partial output', async () => {

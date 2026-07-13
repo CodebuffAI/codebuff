@@ -29,6 +29,7 @@ import { listRunningBackgroundJobs } from '@codebuff/common/util/pending-backgro
 import { cloneDeep } from 'lodash'
 
 import { getErrorStatusCode } from './error-utils'
+import { getHarnessStateDir } from './credentials'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { changeFile, changeFiles } from './tools/change-file'
@@ -58,7 +59,11 @@ import { runTargetedValidation } from './tools/run-targeted-validation'
 import { inspectEnvironment } from './tools/inspect-environment'
 import { getAffectedTests } from './tools/get-affected-tests'
 import { getBuildTargets } from './tools/get-build-targets'
-import { evaluateAuditCoverageTool, inspectCodebaseStructureTool, inspectFeatureCompletenessTool } from './tools/audit-intelligence'
+import {
+  evaluateAuditCoverageTool,
+  inspectCodebaseStructureTool,
+  inspectFeatureCompletenessTool,
+} from './tools/audit-intelligence'
 import { gitBranch } from './tools/git-branch'
 import { runFileChangeHooks } from './tools/file-change-hooks'
 import { createNodeFileSystem } from './tools/node-filesystem'
@@ -156,6 +161,8 @@ export type OpenbuffClientOptions = {
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
   env?: Record<string, string>
+  /** Harness control-plane state root. Defaults to the Openbuff config directory. */
+  harnessStateDir?: string
 
   handleEvent?: (event: PrintModeEvent) => void | Promise<void>
   handleStreamChunk?: (
@@ -378,6 +385,7 @@ async function runOnce({
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
+  harnessStateDir,
   runTimeoutMs,
 
   handleEvent,
@@ -640,6 +648,7 @@ async function runOnce({
         fileFilter,
         filesystemPolicy,
         env,
+        harnessStateDir: harnessStateDir ?? getHarnessStateDir(env),
         signal: toolSignal ?? runSignal,
       })
     },
@@ -977,6 +986,7 @@ async function handleToolCall({
   fileFilter,
   filesystemPolicy,
   env,
+  harnessStateDir,
   onFilesChanged,
   onFilesystemMutation,
   verifyExternalMutation,
@@ -990,6 +1000,7 @@ async function handleToolCall({
   fileFilter?: FileFilter
   filesystemPolicy?: FilesystemAuthorityPolicy
   env?: Record<string, string>
+  harnessStateDir: string
   onFilesChanged?: OpenbuffClientOptions['onFilesChanged']
   onFilesystemMutation?: OpenbuffClientOptions['onFilesystemMutation']
   verifyExternalMutation?: OpenbuffClientOptions['verifyExternalMutation']
@@ -1313,6 +1324,7 @@ async function handleToolCall({
       result = await getChangeReviewBundle({
         cwd: requireCwd(cwd, 'get_change_review_bundle'),
         max_chars: (input as { max_chars?: number }).max_chars,
+        stateDir: harnessStateDir,
         signal,
       })
     } else if (toolName === 'run_targeted_validation') {
@@ -1343,11 +1355,20 @@ async function handleToolCall({
         (input as { files: string[] }).files,
       )
     } else if (toolName === 'inspect_codebase_structure') {
-      result = inspectCodebaseStructureTool(requireCwd(cwd, toolName), (input as { scope?: string[] }).scope)
+      result = inspectCodebaseStructureTool(
+        requireCwd(cwd, toolName),
+        (input as { scope?: string[] }).scope,
+      )
     } else if (toolName === 'inspect_feature_completeness') {
-      result = inspectFeatureCompletenessTool(requireCwd(cwd, toolName), input as { feature: string; snapshot_id: string; scope?: string[] })
+      result = inspectFeatureCompletenessTool(
+        requireCwd(cwd, toolName),
+        input as { feature: string; snapshot_id: string; scope?: string[] },
+      )
     } else if (toolName === 'evaluate_audit_coverage') {
-      result = evaluateAuditCoverageTool(requireCwd(cwd, toolName), input as { snapshot_id: string; structural_receipts: string[]; features: string[]; out_of_scope?: Array<{ id: string; reason: string }>; scope?: string[] })
+      result = evaluateAuditCoverageTool(
+        requireCwd(cwd, toolName),
+        input as Parameters<typeof evaluateAuditCoverageTool>[1],
+      )
     } else if (toolName === 'git_branch') {
       // The Zod schema (`common/src/tools/params/tool/git-branch.ts`) exposes
       // snake_case input: `{ branch_name, switch, allow_dirty }`. The SDK

@@ -135,6 +135,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@codebuff/code-map": "workspace:*",
+        "@codebuff/common": "workspace:*",
+        "ai": "^5.0.52",
+        "diff": "8.0.3",
         "gpt-tokenizer": "^2.8.1",
         "lodash": "4.17.23",
         "open-websearch": "^2.1.11",
@@ -170,8 +173,12 @@
       "name": "@codebuff/internal",
       "version": "1.0.0",
       "dependencies": {
+        "@ai-sdk/provider": "^2.0.1",
         "@ai-sdk/provider-utils": "^3.0.17",
         "@codebuff/common": "workspace:*",
+        "ai": "^5.0.52",
+      },
+      "devDependencies": {
         "msw": "^2.12.1",
       },
     },

@@ -34,11 +34,11 @@ Document only environment variables that are implemented in code. During the for
 - `OPENBUFF_PROVIDER_CONFIG` points to provider configuration JSON. `CODEBUFF_PROVIDER_CONFIG` is NOT supported (removed in the BYOK purge).
 - `OPENBUFF_TELEMETRY=0` (also `false` or `off`) disables runtime analytics. `DO_NOT_TRACK=1` is honored as a standard compatibility opt-out. The interactive local CLI currently emits no analytics, but these controls also cover shared runtime code used by integrations.
 - `CODEBUFF_API_KEY` is a legacy upstream compatibility name for Codebuff API authentication and any live tests that still exercise that compatibility path. Openbuff local/BYOK provider mode does not require a Codebuff API key.
-- `CODEBUFF_GIT_BASH_PATH` is the Windows bash path override used by the SDK terminal command helper.
+- `OPENBUFF_GIT_BASH_PATH` is the primary Windows bash path override used by the SDK terminal command helper. `CODEBUFF_GIT_BASH_PATH` remains a compatibility fallback.
 - `CODEBUFF_CHATGPT_OAUTH_TOKEN` is the legacy ChatGPT OAuth token name. `OPENBUFF_CHATGPT_OAUTH_TOKEN` is implemented as an alias; the SDK resolves `CODEBUFF_CHATGPT_OAUTH_TOKEN ?? OPENBUFF_CHATGPT_OAUTH_TOKEN` (`sdk/src/env.ts`), so the legacy name takes precedence over the alias (reversed from the API-key ordering).
 - `NEXT_PUBLIC_CODEBUFF_APP_URL` remains the required public app URL field. `NEXT_PUBLIC_OPENBUFF_APP_URL` is implemented as an optional public client env field in `common/src/env-schema.ts`, but current accessors still require and read the Codebuff-named URL for the primary app URL.
 
-`CODEBUFF_API_KEY` functions as a runtime fallback (`OPENBUFF_API_KEY ?? CODEBUFF_API_KEY` in `sdk/src/env.ts`, Openbuff primary). `CODEBUFF_CHATGPT_OAUTH_TOKEN` also has an `OPENBUFF_*` alias but with reversed precedence (legacy name primary). `CODEBUFF_GIT_BASH_PATH` is the Windows bash-path override with no Openbuff alias implemented.
+`CODEBUFF_API_KEY` functions as a runtime fallback (`OPENBUFF_API_KEY ?? CODEBUFF_API_KEY` in `sdk/src/env.ts`, Openbuff primary). `CODEBUFF_CHATGPT_OAUTH_TOKEN` also has an `OPENBUFF_*` alias but with reversed precedence (legacy name primary). `OPENBUFF_GIT_BASH_PATH` takes precedence over the legacy `CODEBUFF_GIT_BASH_PATH` fallback.
 
 Do not document an `OPENBUFF_*` alias unless the code implements it.
 

@@ -12,6 +12,7 @@ import {
   gitDisciplineSection,
   qualitySection,
   securityReviewSection,
+  specialistRoutingSection,
 } from './quality-prompt-section'
 import { publisher } from '../constants'
 import {
@@ -123,6 +124,7 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'basher',
+      'dependency-manager',
       isDefault && 'thinker',
       isDefault && 'general-agent',
       isDefault && 'editor',
@@ -137,20 +139,20 @@ export function createBase2(
       'test-writer',
       'librarian',
       'synthesizer',
-      isDefault && 'architect',
-      isDefault && 'product-reviewer',
-      isDefault && 'integration-agent',
-      isDefault && 'performance-specialist',
-      isDefault && 'reliability-reviewer',
-      isDefault && 'migration-reviewer',
-      isDefault && 'accessibility-reviewer',
-      isDefault && 'ux-visual-reviewer',
-      isDefault && 'compatibility-reviewer',
-      isDefault && 'dependency-reviewer',
-      isDefault && 'incident-coordinator',
-      isDefault && 'release-manager',
-      isDefault && 'docs-architect',
-      isDefault && 'evaluator',
+      'architect',
+      'product-reviewer',
+      'integration-agent',
+      'performance-specialist',
+      'reliability-reviewer',
+      'migration-reviewer',
+      'accessibility-reviewer',
+      'ux-visual-reviewer',
+      'compatibility-reviewer',
+      'dependency-reviewer',
+      'incident-coordinator',
+      'release-manager',
+      'docs-architect',
+      'evaluator',
     ),
 
     systemPrompt: `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Openbuff, a CLI tool where users can chat with you to code with AI.
@@ -173,6 +175,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
     }
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
+- **Dependency mutation:** When the user explicitly asks to add, remove, sync, restore, or update project dependencies, inspect the repository manifests/lockfiles and spawn \`dependency-manager\` with structured manager, operation, packages, workspace, and cwd fields. Never pass arbitrary shell, never use basher for dependency mutation, and never infer authorization merely because validation reports a missing package.
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.
 - **Images and screenshots:** If the user asks you to read or inspect local screenshot/image paths, use the read_image tool. Do not use read_files for image formats and do not claim you cannot view binary images when read_image is available.
 - **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.
@@ -355,6 +358,8 @@ ${PLACEHOLDER.FRONTEND_SECTION}
 ${gitDisciplineSection}
 
 ${securityReviewSection}
+
+${specialistRoutingSection}
 `,
 
     instructionsPrompt: planOnly
@@ -469,6 +474,7 @@ ${securityReviewSection}
         validationAssurance: 'none',
         testWriterGateDone: false,
         docWriterGateDone: false,
+        specialistReviewGatesDone: [],
         auxGatesLastPendingFiles: [],
       }
       activeWorkState.touchedFiles ??= []
@@ -495,6 +501,7 @@ ${securityReviewSection}
       activeWorkState.validationAssurance ??= 'none'
       activeWorkState.testWriterGateDone ??= false
       activeWorkState.docWriterGateDone ??= false
+      activeWorkState.specialistReviewGatesDone ??= []
       activeWorkState.auxGatesLastPendingFiles ??= []
       activeWorkState.workflowTodoProgress = normalizeWorkflowTodoProgress(
         activeWorkState.workflowTodoProgress,
@@ -958,6 +965,117 @@ ${securityReviewSection}
             validationStatus: 'passed',
             reuseReason: 'aux-gate:security-reviewer',
           })
+        }
+        // 4) deterministic reviewer-family specialist gates. Advisory
+        // specialists never participate in this blocking post-edit path.
+        if (
+          runValidationGate &&
+          editsHappened &&
+          currentPendingGateFiles.length > 0
+        ) {
+          const routedSpecialists = selectSpecialistReviewersInline({
+            files: currentPendingGateFiles,
+            requirements: prompt ?? '',
+          }).filter(
+            (agentType) =>
+              !activeWorkState.specialistReviewGatesDone?.includes(agentType),
+          )
+          if (routedSpecialists.length > 0) {
+            auxGateFiredThisIteration = true
+            const bundleResult = yield {
+              toolName: 'get_change_review_bundle',
+              input: {},
+              includeToolCall: false,
+            } as any
+            const bundle = extractChangeReviewBundle(
+              (bundleResult as any)?.toolResult ?? bundleResult,
+            )
+            if (!bundle.snapshotId) {
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.openReviewerBlockers = [
+                `Specialist review snapshot failed: ${bundle.errorMessage || 'missing snapshotId'}`,
+              ]
+              activeWorkState.nextRequiredAction =
+                'Restore a valid change-review snapshot before specialist review.'
+              markActiveWorkStateChanged()
+              continue
+            }
+            let specialistBlocked = false
+            for (const agentType of routedSpecialists) {
+              const specialistResult = yield {
+                toolName: 'spawn_agent_inline',
+                input: {
+                  agent_type: agentType,
+                  prompt: [
+                    'Perform the routed post-edit specialist review.',
+                    `Requirements: ${prompt ?? '(none supplied)'}`,
+                    `Changed files: ${currentPendingGateFiles.join(', ')}`,
+                    `Snapshot ID (echo exactly): ${bundle.snapshotId}`,
+                  ].join('\n'),
+                  params: {
+                    files: currentPendingGateFiles,
+                    snapshot_id: bundle.snapshotId,
+                  },
+                },
+                includeToolCall: false,
+              } as any
+              const specialistToolResult =
+                (specialistResult as any)?.toolResult ?? specialistResult
+              const crash = detectReviewerCrash(specialistToolResult)
+              const blockers = collectReviewerBlockers(specialistToolResult)
+              blockers.push(
+                ...collectReviewerAttestationIssues(
+                  specialistToolResult,
+                  bundle.snapshotId,
+                  currentPendingGateFiles,
+                ),
+              )
+              const verdict = getReviewerFinalizationVerdict(
+                specialistToolResult,
+              )
+              if (crash || blockers.length > 0 || !verdict) {
+                const normalizedBlockers =
+                  blockers.length > 0
+                    ? blockers
+                    : [
+                        crash
+                          ? `${agentType} crashed: ${crash}`
+                          : `${agentType} did not return a valid finalization verdict.`,
+                      ]
+                const records = collectReviewerFindingRecordsInline(
+                  specialistToolResult,
+                )
+                activeWorkState.currentPhase = 'blocked'
+                activeWorkState.openReviewerBlockers = normalizedBlockers
+                activeWorkState.openReviewerFindings = normalizedBlockers.map(
+                  (text: string, index: number) => ({
+                    id:
+                      records[index]?.id ??
+                      buildReviewerFindingId(text, index),
+                    gateId: `${agentType}:${bundle.snapshotId}`,
+                    text: records[index]?.text ?? text,
+                    status: 'open' as const,
+                    files: currentPendingGateFiles,
+                    snapshotFingerprint: bundle.snapshotId,
+                    createdAt: new Date().toISOString(),
+                  }),
+                )
+                activeWorkState.nextRequiredAction = `Resolve ${agentType} findings before validation and finalization.`
+                activeWorkState.latestWorkSummary = `${agentType} blocked the current change snapshot.`
+                markActiveWorkStateChanged()
+                specialistBlocked = true
+                break
+              }
+              activeWorkState.specialistReviewGatesDone = Array.from(
+                new Set([
+                  ...(activeWorkState.specialistReviewGatesDone ?? []),
+                  agentType,
+                ]),
+              )
+              markActiveWorkStateChanged()
+            }
+            if (specialistBlocked) continue
+          }
         }
         // After any aux gate fired (or all three skipped/marked done), re-loop
         // so validation+reviewer (the FINAL gate) re-enters on a fresh read.
@@ -2280,6 +2398,125 @@ ${securityReviewSection}
         return !gateFileSetsEqual(last, currentFiles)
       }
 
+      function selectSpecialistReviewersInline(params: {
+        files: string[]
+        requirements: string
+      }): string[] {
+        const files = params.files.map((file) =>
+          file.replace(/\\/g, '/').toLowerCase(),
+        )
+        const requirements = params.requirements.toLowerCase()
+        const joined = `${files.join('\n')}\n${requirements}`
+        const selected = new Set<string>()
+        if (
+          files.some((file) =>
+            /(?:^|\/)(?:package\.json|bun\.lockb?|pnpm-lock\.yaml|yarn\.lock|package-lock\.json|pyproject\.toml|uv\.lock|poetry\.lock|cargo\.toml|cargo\.lock|go\.mod|go\.sum|gemfile(?:\.lock)?|composer\.(?:json|lock)|pom\.xml|build\.gradle(?:\.kts)?|package\.swift)$/.test(
+              file,
+            ),
+          ) ||
+          /\b(?:dependency|dependencies|lockfile|package manager|supply chain|license|vulnerabilit)/.test(
+            requirements,
+          )
+        ) selected.add('dependency-reviewer')
+        if (
+          /(?:^|\/)(?:migrations?|schema|database|db)(?:\/|\.)|\.sql$|\b(?:migration|backfill|schema change|database compatibility|rollback)\b/.test(
+            joined,
+          )
+        ) selected.add('migration-reviewer')
+        if (
+          /\b(?:public api|backward compat|breaking change|deprecat|serialization|persisted format|config contract|environment variable|cli flag)\b/.test(
+            requirements,
+          ) ||
+          files.some((file) =>
+            /(?:^|\/)(?:index|exports?|public-api)\.[^.]+$|(?:^|\/)(?:routes?|config|schemas?|types)\//.test(
+              file,
+            ),
+          )
+        ) selected.add('compatibility-reviewer')
+        if (
+          /\b(?:race|concurr|retry|retries|cancel|abort|idempoten|deadlock|state machine|resource leak|partial failure)\b/.test(
+            requirements,
+          ) ||
+          files.some((file) =>
+            /(?:^|\/)(?:queues?|workers?|jobs?|cache|state|session|process|async|concurrency)(?:\/|\.)/.test(
+              file,
+            ),
+          )
+        ) selected.add('reliability-reviewer')
+        if (
+          /\b(?:performance|latency|throughput|benchmark|profil|allocation|hot path|load test|complexity)\b/.test(
+            requirements,
+          ) || files.some((file) => /(?:bench|perf|load-test|profil)/.test(file))
+        ) selected.add('performance-specialist')
+        const hasUiFiles = files.some((file) =>
+          /(?:^|\/)(?:components?|pages?|views?|screens?|ui|app)(?:\/|\.)|\.(?:tsx|jsx|vue|svelte|css|scss)$/.test(
+            file,
+          ),
+        )
+        if (
+          hasUiFiles &&
+          /\b(?:accessibility|a11y|keyboard|focus|screen reader|aria|contrast|reduced motion)\b/.test(
+            requirements,
+          )
+        ) selected.add('accessibility-reviewer')
+        if (
+          hasUiFiles &&
+          /\b(?:visual|layout|responsive|design system|spacing|hierarchy|screenshot|viewport|interaction)\b/.test(
+            requirements,
+          )
+        ) selected.add('ux-visual-reviewer')
+        if (
+          /\b(?:user-facing|acceptance criteria|product behavior|user flow|end-to-end|ux|onboarding)\b/.test(
+            requirements,
+          )
+        ) selected.add('product-reviewer')
+        if (/\b(?:independent evaluat|score against|requirement coverage)\b/.test(requirements))
+          selected.add('evaluator')
+        return [
+          'dependency-reviewer',
+          'migration-reviewer',
+          'compatibility-reviewer',
+          'reliability-reviewer',
+          'performance-specialist',
+          'accessibility-reviewer',
+          'ux-visual-reviewer',
+          'product-reviewer',
+          'evaluator',
+        ].filter((agent) => selected.has(agent))
+      }
+
+      function extractChangeReviewBundle(value: unknown): {
+        snapshotId: string
+        errorMessage: string
+      } {
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const found = extractChangeReviewBundle(item)
+            if (found.snapshotId || found.errorMessage) return found
+          }
+          return { snapshotId: '', errorMessage: '' }
+        }
+        if (!value || typeof value !== 'object')
+          return { snapshotId: '', errorMessage: '' }
+        const record = value as Record<string, unknown>
+        if (record.type === 'json' && 'value' in record)
+          return extractChangeReviewBundle(record.value)
+        if (typeof record.snapshotId === 'string')
+          return { snapshotId: record.snapshotId, errorMessage: '' }
+        if (typeof record.errorMessage === 'string')
+          return { snapshotId: '', errorMessage: record.errorMessage }
+        if ('toolResult' in record) return extractChangeReviewBundle(record.toolResult)
+        return { snapshotId: '', errorMessage: '' }
+      }
+
+      function collectReviewerFindingRecordsInline(
+        toolResult: unknown,
+      ): Array<{ id: string; text: string }> {
+        return collectStructuredReviewerOutputs(toolResult).flatMap((entry) =>
+          entry.findingRecords ?? [],
+        )
+      }
+
       function resetAuxGateFlags(
         activeWorkState: Base2ActiveWorkState,
         currentFiles: string[],
@@ -2288,6 +2525,7 @@ ${securityReviewSection}
         activeWorkState.securityReviewGateDone = false
         activeWorkState.testWriterGateDone = false
         activeWorkState.docWriterGateDone = false
+        activeWorkState.specialistReviewGatesDone = []
         activeWorkState.auxGatesLastPendingFiles = currentFiles
       }
 
@@ -3430,6 +3668,7 @@ ${securityReviewSection}
         snapshotFingerprint?: string
         reviewedFiles?: string[]
         schemaVersion?: number
+        findingRecords?: Array<{ id: string; text: string }>
       }> {
         const out: Array<{
           verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
@@ -3440,6 +3679,7 @@ ${securityReviewSection}
           snapshotFingerprint?: string
           reviewedFiles?: string[]
           schemaVersion?: number
+          findingRecords?: Array<{ id: string; text: string }>
         }> = []
         visitForStructuredVerdict(value, out)
         return out
@@ -3456,6 +3696,7 @@ ${securityReviewSection}
           snapshotFingerprint?: string
           reviewedFiles?: string[]
           schemaVersion?: number
+          findingRecords?: Array<{ id: string; text: string }>
         }>,
       ): void {
         if (!value) return
@@ -3486,6 +3727,16 @@ ${securityReviewSection}
               for (const finding of rawFindings) {
                 if (typeof finding === 'string' && finding.trim()) {
                   findings.push(finding.trim())
+                } else if (finding && typeof finding === 'object') {
+                  const item = finding as Record<string, unknown>
+                  const id = typeof item.id === 'string' ? item.id.trim() : ''
+                  const text =
+                    typeof item.summary === 'string'
+                      ? item.summary.trim()
+                      : typeof item.text === 'string'
+                        ? item.text.trim()
+                        : ''
+                  if (text) findings.push(id ? `[${id}] ${text}` : text)
                 }
               }
             }
@@ -3537,6 +3788,20 @@ ${securityReviewSection}
                 typeof record.schemaVersion === 'number'
                   ? record.schemaVersion
                   : undefined,
+              findingRecords: Array.isArray(rawFindings)
+                ? rawFindings.flatMap((finding) => {
+                    if (!finding || typeof finding !== 'object') return []
+                    const item = finding as Record<string, unknown>
+                    const id = typeof item.id === 'string' ? item.id.trim() : ''
+                    const text =
+                      typeof item.summary === 'string'
+                        ? item.summary.trim()
+                        : typeof item.text === 'string'
+                          ? item.text.trim()
+                          : ''
+                    return id && text ? [{ id, text }] : []
+                  })
+                : undefined,
             })
             return
           }

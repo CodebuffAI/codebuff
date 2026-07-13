@@ -137,7 +137,9 @@ export async function gitStatus(params: {
   const statusBody = lines
     .filter((line) => !line.startsWith('## '))
     .join('\n')
-    .trim()
+    // Porcelain status uses the first two columns for index/worktree state;
+    // trimming the leading space corrupts the first changed path.
+    .trimEnd()
 
   let diff: string | undefined
   let truncated = false

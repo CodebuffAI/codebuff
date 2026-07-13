@@ -10,7 +10,7 @@ import { env } from '@codebuff/common/env'
 import { userSchema } from '@codebuff/common/util/credentials'
 import { z } from 'zod/v4'
 
-import { getChatGptOAuthTokenFromEnv } from './env'
+import { getChatGptOAuthTokenFromEnv, getSdkEnv } from './env'
 
 import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { User } from '@codebuff/common/util/credentials'
@@ -68,9 +68,32 @@ export const userFromJson = (json: string): User | null => {
  * Get the config directory path based on the environment.
  * Uses the clientEnv to determine the environment suffix.
  */
-export const getConfigDir = (_clientEnv: ClientEnv = env): string => {
+type ConfigPathEnv = ClientEnv & {
+  OPENBUFF_CONFIG_DIR?: string
+  XDG_CONFIG_HOME?: string
+  APPDATA?: string
+}
+
+export const getConfigDir = (
+  clientEnv: Partial<ConfigPathEnv> = env,
+): string => {
+  const configEnv: Partial<ConfigPathEnv> = {
+    ...getSdkEnv(),
+    ...clientEnv,
+  }
+  if (configEnv.OPENBUFF_CONFIG_DIR) return configEnv.OPENBUFF_CONFIG_DIR
+  if (process.platform === 'win32' && configEnv.APPDATA) {
+    return path.join(configEnv.APPDATA, 'openbuff')
+  }
+  if (configEnv.XDG_CONFIG_HOME) {
+    return path.join(configEnv.XDG_CONFIG_HOME, 'openbuff')
+  }
   return path.join(os.homedir(), '.config', 'openbuff')
 }
+
+export const getHarnessStateDir = (
+  clientEnv: Partial<ConfigPathEnv> = env,
+): string => path.join(getConfigDir(clientEnv), 'state', 'harness')
 
 /**
  * Get the credentials file path based on the environment.

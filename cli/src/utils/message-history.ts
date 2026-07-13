@@ -14,6 +14,8 @@ import type {
 } from '../types/chat'
 
 const MAX_HISTORY_SIZE = 1000
+export const MESSAGE_HISTORY_COMPACT_THRESHOLD_BYTES = 256 * 1024
+const MESSAGE_HISTORY_LOCK_STALE_MS = 30_000
 
 export function getUserMessage(
   message: string | ContentBlock[],
@@ -71,11 +73,75 @@ export const getMessageHistoryPath = (): string => {
 export const getMessageHistoryJournalPath = (): string =>
   path.join(getConfigDir(), 'message-history.jsonl')
 
+const getMessageHistoryLockPath = (): string =>
+  path.join(getConfigDir(), 'message-history.lock')
+
+function withMessageHistoryLock<T>(operation: () => T): T {
+  const lockPath = getMessageHistoryLockPath()
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true })
+  let lockFd: number | undefined
+  try {
+    const waitState = new Int32Array(new SharedArrayBuffer(4))
+    for (let attempt = 0; attempt < 50; attempt++) {
+      try {
+        lockFd = fs.openSync(lockPath, 'wx', 0o600)
+        break
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code
+        if (code !== 'EEXIST') throw error
+        try {
+          const lockAge = Date.now() - fs.statSync(lockPath).mtimeMs
+          if (lockAge > MESSAGE_HISTORY_LOCK_STALE_MS) {
+            fs.unlinkSync(lockPath)
+            continue
+          }
+        } catch (statError) {
+          if ((statError as NodeJS.ErrnoException).code === 'ENOENT') continue
+          throw statError
+        }
+        if (attempt === 49) {
+          throw new Error('Message history is busy in another Openbuff process')
+        }
+        Atomics.wait(waitState, 0, 0, 10)
+      }
+    }
+    if (lockFd === undefined) throw new Error('Failed to acquire message history lock')
+    return operation()
+  } finally {
+    if (lockFd !== undefined) {
+      fs.closeSync(lockFd)
+      try {
+        if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath)
+      } catch {
+        // A later operation can recover a stale lock.
+      }
+    }
+  }
+}
+
+function writeHistorySnapshot(history: string[]): void {
+  const historyPath = getMessageHistoryPath()
+  const temporaryPath = `${historyPath}.${process.pid}.${crypto.randomUUID()}.tmp`
+  fs.writeFileSync(temporaryPath, JSON.stringify(history, null, 2), {
+    mode: 0o600,
+  })
+  fs.renameSync(temporaryPath, historyPath)
+}
+
+function compactMessageHistory(): void {
+  const journalPath = getMessageHistoryJournalPath()
+  const history = loadMessageHistoryUnlocked()
+  writeHistorySnapshot(history)
+  const temporaryJournalPath = `${journalPath}.${process.pid}.${crypto.randomUUID()}.tmp`
+  fs.writeFileSync(temporaryJournalPath, '', { mode: 0o600 })
+  fs.renameSync(temporaryJournalPath, journalPath)
+}
+
 /**
  * Load message history from file system
  * @returns Array of previous messages, most recent last
  */
-export const loadMessageHistory = (): string[] => {
+const loadMessageHistoryUnlocked = (): string[] => {
   const historyPath = getMessageHistoryPath()
   const journalPath = getMessageHistoryJournalPath()
 
@@ -117,6 +183,9 @@ export const loadMessageHistory = (): string[] => {
   return history.slice(-MAX_HISTORY_SIZE)
 }
 
+export const loadMessageHistory = (): string[] =>
+  withMessageHistoryLock(loadMessageHistoryUnlocked)
+
 /**
  * Append one prompt using O_APPEND. This avoids the cross-terminal lost-update
  * race inherent in read/modify/rename of a shared JSON array.
@@ -124,15 +193,20 @@ export const loadMessageHistory = (): string[] => {
 export const appendMessageHistory = (message: string): void => {
   const configDir = getConfigDir()
   try {
-    fs.mkdirSync(configDir, { recursive: true })
-    fs.appendFileSync(
-      getMessageHistoryJournalPath(),
-      `${JSON.stringify(message)}\n`,
-      {
+    withMessageHistoryLock(() => {
+      fs.mkdirSync(configDir, { recursive: true })
+      const journalPath = getMessageHistoryJournalPath()
+      fs.appendFileSync(journalPath, `${JSON.stringify(message)}\n`, {
         encoding: 'utf8',
         mode: 0o600,
-      },
-    )
+      })
+      if (
+        fs.statSync(journalPath).size >=
+        MESSAGE_HISTORY_COMPACT_THRESHOLD_BYTES
+      ) {
+        compactMessageHistory()
+      }
+    })
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error.message : String(error) },
@@ -146,7 +220,6 @@ export const appendMessageHistory = (message: string): void => {
  */
 export const saveMessageHistory = (history: string[]): void => {
   const configDir = getConfigDir()
-  const historyPath = getMessageHistoryPath()
 
   try {
     // Ensure config directory exists
@@ -160,11 +233,13 @@ export const saveMessageHistory = (history: string[]): void => {
         ? history.slice(history.length - MAX_HISTORY_SIZE)
         : history
 
-    const temporaryPath = `${historyPath}.${process.pid}.${crypto.randomUUID()}.tmp`
-    fs.writeFileSync(temporaryPath, JSON.stringify(limitedHistory, null, 2), {
-      mode: 0o600,
+    withMessageHistoryLock(() => {
+      writeHistorySnapshot(limitedHistory)
+      const journalPath = getMessageHistoryJournalPath()
+      const temporaryJournalPath = `${journalPath}.${process.pid}.${crypto.randomUUID()}.tmp`
+      fs.writeFileSync(temporaryJournalPath, '', { mode: 0o600 })
+      fs.renameSync(temporaryJournalPath, journalPath)
     })
-    fs.renameSync(temporaryPath, historyPath)
   } catch (error) {
     logger.error(
       {

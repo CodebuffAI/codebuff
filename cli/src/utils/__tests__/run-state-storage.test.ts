@@ -11,6 +11,7 @@ import {
   loadMostRecentChatState,
   clearChatState,
   isValidChatId,
+  loadChatStateFromDirectory,
 } from '../run-state-storage'
 import type { ChatMessage, ContentBlock } from '../../types/chat'
 import type { RunState } from '@openbuff/sdk'
@@ -283,6 +284,47 @@ describe('run-state-storage', () => {
   })
 
   describe('file serialization format', () => {
+    test('recovers from compatibility files when the envelope is corrupt', () => {
+      const runState = {
+        output: { type: 'error', message: 'Recovered output' },
+      } as unknown as RunState
+      const messages: ChatMessage[] = [
+        {
+          id: 'recovered-message',
+          variant: 'user',
+          content: 'Recovered prompt',
+          timestamp: new Date().toISOString(),
+          blocks: [],
+        },
+      ]
+      fs.writeFileSync(
+        path.join(mockCurrentChatDir, 'run-state.json'),
+        JSON.stringify(runState),
+      )
+      fs.writeFileSync(
+        path.join(mockCurrentChatDir, 'chat-messages.json'),
+        JSON.stringify(messages),
+      )
+      fs.writeFileSync(
+        path.join(mockCurrentChatDir, 'chat-state.json'),
+        '{ corrupt json',
+      )
+
+      const recovered = loadChatStateFromDirectory(mockCurrentChatDir)
+
+      expect(recovered?.runState).toEqual(runState)
+      expect(recovered?.messages).toEqual(messages)
+      expect(recovered?.chatId).toBe('test-chat-123')
+      expect(fs.existsSync(path.join(mockCurrentChatDir, 'chat-state.json'))).toBe(
+        false,
+      )
+      expect(
+        fs
+          .readdirSync(mockCurrentChatDir)
+          .some((name) => name.startsWith('chat-state.json.corrupt.')),
+      ).toBe(true)
+    })
+
     test('run state JSON structure is preserved through serialization', () => {
       const runState: RunState = {
         output: {

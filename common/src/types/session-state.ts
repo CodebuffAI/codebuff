@@ -169,6 +169,7 @@ export const AgentTemplateTypeList = [
   'ux_visual_reviewer',
   'compatibility_reviewer',
   'dependency_reviewer',
+  'dependency_manager',
   'incident_coordinator',
   'release_manager',
   'docs_architect',

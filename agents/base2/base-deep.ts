@@ -10,6 +10,7 @@ import {
   gitDisciplineSection,
   qualitySection,
   securityReviewSection,
+  specialistRoutingSection,
 } from './quality-prompt-section'
 
 function buildDeepSystemPrompt(
@@ -143,6 +144,8 @@ ${PLACEHOLDER.FRONTEND_SECTION}
 ${gitDisciplineSection}
 
 ${securityReviewSection}
+
+${specialistRoutingSection}
 `
 }
 
@@ -358,6 +361,7 @@ export function createBaseDeep(options?: {
       'researcher-web',
       'researcher-docs',
       'basher',
+      'dependency-manager',
       'thinker',
       'code-reviewer',
       'security-reviewer',

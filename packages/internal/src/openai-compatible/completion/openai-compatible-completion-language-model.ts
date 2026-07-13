@@ -1,4 +1,7 @@
 import {
+  InvalidResponseDataError,
+} from '@ai-sdk/provider'
+import {
   combineHeaders,
   createEventSourceResponseHandler,
   createJsonErrorResponseHandler,
@@ -186,6 +189,12 @@ export class OpenAICompatibleCompletionLanguageModel implements LanguageModelV2 
     })
 
     const choice = response.choices[0]
+    if (!choice) {
+      throw new InvalidResponseDataError({
+        data: rawResponse,
+        message: 'OpenAI-compatible completion response contained no choices.',
+      })
+    }
     const content: Array<LanguageModelV2Content> = []
 
     // text content:

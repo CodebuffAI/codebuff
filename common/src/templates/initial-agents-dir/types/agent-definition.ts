@@ -168,6 +168,7 @@ export interface AgentDefinition {
     | 'read-only'
     | 'librarian-read-only'
     | 'git-commit'
+    | 'dependency-mutation'
     | 'tmux-test'
     | 'workspace-write'
     | 'full-access'

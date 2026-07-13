@@ -26,6 +26,7 @@ export async function runTargetedValidation(params: {
   env?: NodeJS.ProcessEnv
   signal?: AbortSignal
   fileSystem?: CodebuffFileSystem
+  runHooks?: typeof runFileChangeHooks
 }): Promise<CodebuffToolOutput<'run_targeted_validation'>> {
   const artifactKinds = params.artifactKinds ?? []
   const before = bundleValue(
@@ -50,7 +51,7 @@ export async function runTargetedValidation(params: {
       },
     ]
   }
-  const hookOutput = await runFileChangeHooks({
+  const hookOutput = await (params.runHooks ?? runFileChangeHooks)({
     files: params.files,
     cwd: params.cwd,
     env: params.env,
@@ -67,7 +68,9 @@ export async function runTargetedValidation(params: {
     'errorMessage' in after || after.snapshotId !== before.snapshotId
   const failed = results.some(
     (result) =>
-      typeof result.exitCode === 'number' && result.exitCode !== 0,
+      (typeof result.exitCode === 'number' && result.exitCode !== 0) ||
+      typeof result.errorMessage === 'string' ||
+      result.permissionDenied === true,
   )
   const skipped =
     results.length === 0 ||

@@ -1708,6 +1708,7 @@ describe('model-provider', () => {
       expect(config.agentReasoningEfforts['repair-editor']).toBe('high')
       expect(config.agents.architect).toBe('openai/gpt-5.5')
       expect(config.agents['release-manager']).toBe('openai/gpt-5.5')
+      expect(config.agents['dependency-manager']).toBe('openai/gpt-5.5')
       expect(config.agentReasoningEfforts.evaluator).toBe('high')
     })
 
@@ -1788,6 +1789,68 @@ describe('model-provider', () => {
       expect(mergedConfig.maxAgentSteps).toBe(42)
     })
 
+    test('updates fragmented provider config without flattening the root', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-fragments-'),
+      )
+      const fragmentDir = path.join(tempDir, 'openbuff.d')
+      fs.mkdirSync(fragmentDir)
+      fs.writeFileSync(
+        path.join(tempDir, 'openbuff.json'),
+        JSON.stringify({ extends: ['./openbuff.d'] }),
+      )
+      fs.writeFileSync(
+        path.join(fragmentDir, 'providers.json'),
+        JSON.stringify({ providers: {} }),
+      )
+      fs.writeFileSync(
+        path.join(fragmentDir, 'routes.json'),
+        JSON.stringify({ defaultModel: 'custom/existing', agents: {} }),
+      )
+
+      writeProviderConfigFile({
+        cwd: tempDir,
+        config: createProviderPresetConfig('openai'),
+      })
+
+      const root = JSON.parse(
+        fs.readFileSync(path.join(tempDir, 'openbuff.json'), 'utf8'),
+      )
+      const providers = JSON.parse(
+        fs.readFileSync(path.join(fragmentDir, 'providers.json'), 'utf8'),
+      )
+      const routes = JSON.parse(
+        fs.readFileSync(path.join(fragmentDir, 'routes.json'), 'utf8'),
+      )
+      expect(root.extends).toEqual(['./openbuff.d'])
+      expect(root.providers).toBeUndefined()
+      expect(root.defaultModel).toBeUndefined()
+      expect(root.agents).toBeUndefined()
+      expect(providers.providers.openai).toBeDefined()
+      expect(routes.defaultModel).toBe('custom/existing')
+      expect(routes.agents['repair-editor']).toBeDefined()
+    })
+
+    test('does not flatten config when a fragment is malformed', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-fragments-'),
+      )
+      const fragmentDir = path.join(tempDir, 'openbuff.d')
+      const rootPath = path.join(tempDir, 'openbuff.json')
+      fs.mkdirSync(fragmentDir)
+      const originalRoot = JSON.stringify({ extends: ['./openbuff.d'] })
+      fs.writeFileSync(rootPath, originalRoot)
+      fs.writeFileSync(path.join(fragmentDir, 'providers.json'), '{ bad json')
+
+      expect(() =>
+        writeProviderConfigFile({
+          cwd: tempDir,
+          config: createProviderPresetConfig('openai'),
+        }),
+      ).toThrow('Cannot merge with existing config')
+      expect(fs.readFileSync(rootPath, 'utf8')).toBe(originalRoot)
+    })
+
     test('writeProviderConfigFile throws clear error for malformed existing config without force', () => {
       const tempDir = fs.mkdtempSync(
         path.join(os.tmpdir(), 'codebuff-provider-'),
@@ -1848,6 +1911,7 @@ describe('model-provider', () => {
       delete process.env[PROVIDER_CONFIG_ENV_VAR]
       tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-discovery-'))
       process.env[PROVIDER_CONFIG_ENV_VAR] = path.join(tempDir, 'openbuff.json')
+      setModelDiscoveryCachePath(path.join(tempDir, 'model-cache.json'))
     })
 
     afterEach(() => {

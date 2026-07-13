@@ -2070,8 +2070,12 @@ export function createProviderPresetConfig(
     'docs-architect',
     'evaluator',
   ] as const
+  const defaultRoutedAgents = [
+    ...highReasoningAgents,
+    'dependency-manager',
+  ] as const
   const seededAgents = Object.fromEntries(
-    highReasoningAgents.map((agentId) => [
+    defaultRoutedAgents.map((agentId) => [
       agentId,
       presetConfig.agents?.[agentId] ?? defaultModel!,
     ]),
@@ -2114,9 +2118,13 @@ function tryWriteFragmentedConfig(
   rootPath: string,
   newConfig: ProviderConfigFileInput,
 ): boolean {
+  if (!fs.existsSync(rootPath)) return false
+  let rawRoot: Record<string, any>
   try {
-    if (!fs.existsSync(rootPath)) return false
-    const rawRoot = JSON.parse(fs.readFileSync(rootPath, 'utf8'))
+    rawRoot = JSON.parse(fs.readFileSync(rootPath, 'utf8'))
+  } catch {
+    return false
+  }
     const fragmentPaths = [
       ...normalizeConfigFragmentPaths(rawRoot?.extends),
       ...normalizeConfigFragmentPaths(rawRoot?.include),
@@ -2144,16 +2152,12 @@ function tryWriteFragmentedConfig(
 
     for (const resolvedFragmentPath of expandedPaths) {
       if (fs.existsSync(resolvedFragmentPath)) {
-        try {
-          const rawFragment = JSON.parse(
-            fs.readFileSync(resolvedFragmentPath, 'utf8'),
-          )
-          parsedFragments.set(resolvedFragmentPath, rawFragment)
-          for (const key of Object.keys(rawFragment)) {
-            keyToPathMap.set(key, resolvedFragmentPath)
-          }
-        } catch {
-          // ignore parsing error
+        const rawFragment = JSON.parse(
+          fs.readFileSync(resolvedFragmentPath, 'utf8'),
+        )
+        parsedFragments.set(resolvedFragmentPath, rawFragment)
+        for (const key of Object.keys(rawFragment)) {
+          keyToPathMap.set(key, resolvedFragmentPath)
         }
       }
     }
@@ -2238,11 +2242,6 @@ function tryWriteFragmentedConfig(
       }
     }
 
-    // Write back updated fragments
-    for (const [resolvedPath, payload] of fragmentPayloads.entries()) {
-      writeJsonFileAtomic(resolvedPath, payload)
-    }
-
     // Remove key-value routing fields from the root config so they are not duplicated
     for (const key of ['providers', 'provider', 'indexing', ...routingKeys]) {
       if (
@@ -2256,11 +2255,85 @@ function tryWriteFragmentedConfig(
       }
     }
 
-    // Write back root
-    writeJsonFileAtomic(rootPath, rawRoot)
+    const transaction = new Map<string, unknown>(fragmentPayloads)
+    transaction.set(rootPath, rawRoot)
+    writeJsonFilesTransaction(transaction)
     return true
+}
+
+function writeJsonFilesTransaction(files: Map<string, unknown>): void {
+  const transactionId = `${process.pid}.${Date.now()}`
+  const staged = [...files].map(([filePath, value], index) => {
+    const parentDir = path.dirname(filePath)
+    fs.mkdirSync(parentDir, { recursive: true })
+    fs.accessSync(parentDir, fs.constants.W_OK)
+    const existed = fs.existsSync(filePath)
+    if (existed) {
+      if (!fs.statSync(filePath).isFile()) {
+        throw new Error(`Provider config transaction target is not a file: ${filePath}`)
+      }
+      fs.accessSync(filePath, fs.constants.R_OK | fs.constants.W_OK)
+    }
+    return {
+      filePath,
+      existed,
+      tempPath: `${filePath}.tmp.${transactionId}.${index}`,
+      backupPath: `${filePath}.bak.${transactionId}.${index}`,
+      serialized: JSON.stringify(value, null, 2) + '\n',
+      backupCreated: false,
+      installed: false,
+    }
+  })
+
+  try {
+    for (const item of staged) {
+      fs.writeFileSync(item.tempPath, item.serialized, { mode: 0o600 })
+    }
+
+    for (const item of staged) {
+      if (item.existed) {
+        fs.renameSync(item.filePath, item.backupPath)
+        item.backupCreated = true
+      }
+      fs.renameSync(item.tempPath, item.filePath)
+      item.installed = true
+    }
+
+    for (const item of staged) {
+      if (fs.existsSync(item.backupPath)) fs.unlinkSync(item.backupPath)
+    }
   } catch (error) {
-    return false
+    const rollbackErrors: string[] = []
+    for (const item of [...staged].reverse()) {
+      try {
+        if (item.installed && fs.existsSync(item.filePath)) {
+          fs.unlinkSync(item.filePath)
+        }
+        if (item.backupCreated && fs.existsSync(item.backupPath)) {
+          fs.renameSync(item.backupPath, item.filePath)
+        }
+      } catch (rollbackError) {
+        rollbackErrors.push(
+          `${item.filePath}: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+        )
+      }
+    }
+    const rollbackSuffix = rollbackErrors.length
+      ? ` Rollback errors: ${rollbackErrors.join('; ')}`
+      : ''
+    throw new Error(
+      `Failed to commit fragmented provider config transaction: ${error instanceof Error ? error.message : String(error)}.${rollbackSuffix}`,
+    )
+  } finally {
+    for (const item of staged) {
+      for (const cleanupPath of [item.tempPath, item.backupPath]) {
+        try {
+          if (fs.existsSync(cleanupPath)) fs.unlinkSync(cleanupPath)
+        } catch {
+          // Best-effort cleanup after commit or rollback.
+        }
+      }
+    }
   }
 }
 

@@ -28,6 +28,10 @@ describe('terminal command permission policy', () => {
       'rg TODO src | sh',
       'rm src/file.ts',
       'git commit -m x',
+      'cat package.json > copied.json',
+      'find . -delete',
+      "find . -exec touch marker ';'",
+      "sed -n 'w copied.txt' package.json",
     ]) {
       expect(
         evaluateTerminalCommandPolicy({
@@ -50,12 +54,63 @@ describe('terminal command permission policy', () => {
       'cat /tmp/../../etc/passwd',
       'bash -c "cat /etc/passwd"',
       'eval "git push origin main"',
+      'cp src/file.ts ../outside.ts',
     ]) {
       expect(
         evaluateTerminalCommandPolicy({
           command,
           mode: 'assistant',
           permissionProfile: 'workspace-write',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
+  it('allows only isolated package mutations in dependency-mutation mode', () => {
+    for (const command of [
+      'npm install -w server',
+      'pnpm add prom-client --filter server',
+      "pnpm --filter 'server' add prom-client",
+      'yarn add prom-client',
+      "yarn workspace 'server' add prom-client",
+      'bun add prom-client',
+      "bun --filter 'server' add prom-client",
+      'uv sync',
+      'cargo add serde',
+      'go mod tidy',
+      'dotnet restore',
+      'composer require vendor/pkg',
+      'swift package resolve',
+      'flutter pub get',
+      'mix deps.get',
+      'mvn dependency:resolve',
+      './gradlew dependencies',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'dependency-mutation',
+          projectRoot,
+        }),
+      ).toEqual({ allowed: true })
+    }
+    for (const command of [
+      'npm test',
+      'npm install && curl https://example.com',
+      'npm install; git status',
+      'bash -c "npm install"',
+      'npm install -g typescript',
+      'pip install --user requests',
+      "yarn workspace 'server' install",
+      'npm install --prefix ../outside',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'dependency-mutation',
           projectRoot,
         }).allowed,
       ).toBe(false)

@@ -259,7 +259,7 @@ function inferPackageJsonHooks(
   } else if ('eslint' in dependencies) {
     hooks.push({
       name: 'lint',
-      command: 'npx --no-install eslint .',
+      command: localPackageExecutableCommand(packageRunner, 'eslint', '.'),
       filePattern: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
     })
   }
@@ -273,12 +273,33 @@ function inferPackageJsonHooks(
   } else if ('typescript' in dependencies) {
     hooks.push({
       name: 'typecheck',
-      command: 'npx --no-install tsc --noEmit',
+      command: localPackageExecutableCommand(
+        packageRunner,
+        'tsc',
+        '--noEmit',
+      ),
       filePattern: '**/*.{ts,tsx,mts,cts}',
     })
   }
 
   return hooks
+}
+
+function localPackageExecutableCommand(
+  packageRunner: string,
+  executable: string,
+  args: string,
+): string {
+  switch (packageRunner) {
+    case 'bun':
+      return `bunx --no-install ${executable} ${args}`
+    case 'pnpm':
+      return `pnpm exec ${executable} ${args}`
+    case 'yarn':
+      return `yarn exec ${executable} ${args}`
+    default:
+      return `npx --no-install ${executable} ${args}`
+  }
 }
 
 function inferPythonHooks(snapshot: ManifestSnapshot): FileChangeHook[] {

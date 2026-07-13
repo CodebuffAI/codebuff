@@ -9,7 +9,32 @@ import { getCliEnv } from './env'
  * Used by project-files, settings, message-history, recent-projects, etc.
  */
 export const getConfigDir = (): string => {
-  const configuredDir = getCliEnv().OPENBUFF_CONFIG_DIR
-  if (configuredDir) return configuredDir
-  return path.join(os.homedir(), '.config', 'openbuff')
+  return resolveOpenbuffConfigDir({
+    env: getCliEnv(),
+    platform: process.platform,
+    homeDir: os.homedir(),
+  })
+}
+
+export const resolveOpenbuffConfigDir = ({
+  env,
+  platform,
+  homeDir,
+}: {
+  env: {
+    OPENBUFF_CONFIG_DIR?: string
+    XDG_CONFIG_HOME?: string
+    APPDATA?: string
+  }
+  platform: NodeJS.Platform
+  homeDir: string
+}): string => {
+  if (env.OPENBUFF_CONFIG_DIR) return env.OPENBUFF_CONFIG_DIR
+  if (platform === 'win32' && env.APPDATA) {
+    return path.join(env.APPDATA, 'openbuff')
+  }
+  if (env.XDG_CONFIG_HOME) {
+    return path.join(env.XDG_CONFIG_HOME, 'openbuff')
+  }
+  return path.join(homeDir, '.config', 'openbuff')
 }

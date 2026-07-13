@@ -269,6 +269,7 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
           'read-only',
           'librarian-read-only',
           'git-commit',
+          'dependency-mutation',
           'tmux-test',
           'workspace-write',
           'full-access',
