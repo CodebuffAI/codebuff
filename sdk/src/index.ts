@@ -90,7 +90,11 @@ export {
 } from '@codebuff/code-map'
 export type { FileTokenData, TokenCallerMap } from '@codebuff/code-map'
 
-export { runTerminalCommand } from './tools/run-terminal-command'
+export {
+  getActiveTerminalCommandProcesses,
+  runTerminalCommand,
+} from './tools/run-terminal-command'
+export type { ActiveTerminalCommandProcess } from './tools/run-terminal-command'
 export {
   promptAiSdk,
   promptAiSdkStream,

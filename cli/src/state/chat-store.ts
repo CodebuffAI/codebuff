@@ -493,8 +493,10 @@ export const useChatStore = create<ChatStore>()(
         state.inputValue = initialState.inputValue
         state.cursorPosition = initialState.cursorPosition
         state.lastEditDueToNav = initialState.lastEditDueToNav
-        state.inputFocused = initialState.inputFocused
-        state.isFocusSupported = initialState.isFocusSupported
+        // Terminal capabilities and focus outlive a chat. Resetting these can
+        // re-enable animation while the app is still unfocused, and focus
+        // support would stay false because the mounted detector only reports
+        // support once per subscription.
         state.activeSubagents = new Set(initialState.activeSubagents)
         state.isChainInProgress = initialState.isChainInProgress
         state.slashSelectedIndex = initialState.slashSelectedIndex

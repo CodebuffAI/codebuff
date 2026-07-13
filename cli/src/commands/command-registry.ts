@@ -6,6 +6,10 @@ import { handleCopyConversationCommand } from './copy-conversation'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
+import {
+  collectProcessDiagnostics,
+  formatProcessDiagnostics,
+} from './process-diagnostics'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
 import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
@@ -207,6 +211,16 @@ const ALL_COMMANDS: CommandDefinition[] = [
     handler: async (params) => {
       const { postUserMessage } = await handleHelpCommand()
       params.setMessages((prev) => postUserMessage(prev))
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'diagnostics',
+    aliases: ['diag', 'processes'],
+    handler: (params) => {
+      const diagnostics = formatProcessDiagnostics(collectProcessDiagnostics())
+      params.setMessages((prev) => [...prev, getSystemMessage(diagnostics)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

@@ -56,6 +56,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['h', '?'],
     implicitCommand: true,
   },
+  {
+    id: 'diagnostics',
+    label: 'diagnostics',
+    description: 'Show local CLI resource usage and terminal tool process IDs',
+    aliases: ['diag', 'processes'],
+  },
   ...(CHATGPT_OAUTH_ENABLED
     ? [
         {

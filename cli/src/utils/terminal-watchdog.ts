@@ -61,6 +61,21 @@ import type { ChildProcess } from 'child_process'
 let watchdog: ChildProcess | null = null
 let disarmFilePath: string | null = null
 
+/** Read-only watchdog state for local process diagnostics. */
+export function getTerminalWatchdogDiagnostics() {
+  const external = disarmFilePath !== null
+  const childIsRunning = Boolean(
+    watchdog?.pid &&
+      watchdog.exitCode === null &&
+      watchdog.signalCode === null,
+  )
+  return {
+    armed: childIsRunning || external,
+    external,
+    pid: !external && childIsRunning ? watchdog?.pid : undefined,
+  }
+}
+
 /** Reset payload with ESC as printf-compatible octal escapes. */
 function printfPayload(): string {
   return TERMINAL_RESET_SEQUENCES.replace(/\x1b/g, '\\033')

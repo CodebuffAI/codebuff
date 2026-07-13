@@ -280,7 +280,7 @@ export const Chat = ({
   useEffect(() => {
     const timeoutId = setTimeout(updateHeaderVisibility, 0)
     return () => clearTimeout(timeoutId)
-  }, [messages.length, terminalHeight, terminalWidth, updateHeaderVisibility])
+  }, [messages, terminalHeight, terminalWidth, updateHeaderVisibility])
 
   const localAgents = useMemo(() => loadLocalAgents(agentMode), [agentMode])
   const inputMode = useChatStore((state) => state.inputMode)
@@ -1567,7 +1567,7 @@ export const Chat = ({
         >
           <ChatHeader
             projectRoot={getProjectRoot()}
-            animationEnabled={isHeaderVisible}
+            animationEnabled={isHeaderVisible && inputFocused}
           />
         </box>
         {IS_FREEBUFF && (
