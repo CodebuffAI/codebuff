@@ -28,6 +28,7 @@ export function createBase2(
     planOnly?: boolean
     noAskUser?: boolean
     noReview?: boolean
+    noGravityIndex?: boolean
     model?: SecretAgentDefinition['model']
     providerOptions?: SecretAgentDefinition['providerOptions']
   },
@@ -37,6 +38,7 @@ export function createBase2(
     planOnly = false,
     noAskUser = false,
     noReview = false,
+    noGravityIndex = false,
     model: modelOverride,
     providerOptions,
   } = options ?? {}
@@ -110,7 +112,7 @@ export function createBase2(
       'list_directory',
       'glob',
       'render_ui',
-      'gravity_index',
+      !noGravityIndex && 'gravity_index',
       ENABLE_COMPOSIO_TOOLS && [...COMPOSIO_META_TOOL_NAMES],
     ),
     spawnableAgents: buildArray(
@@ -152,7 +154,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
     - Create an impressive demonstration showcasing web development capabilities
 - **Refactoring Awareness:** Whenever you modify an exported symbol like a function or class or variable, you should find and update all the references to it appropriately by spawning a code-searcher agent.
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
-- **Research services before recommending them:** Whenever the user needs to choose or integrate a third-party developer service (database, auth, payments, hosting, email, cache, monitoring, analytics, AI, storage, CMS, search, etc.), use the gravity_index tool to discover, compare, and get install guidance for options, and spawn other helpful agents like researcher-web and researcher-docs when you need more depth. Don't recommend or integrate a service from memory alone.
+${noGravityIndex ? '' : "- **Research services before recommending them:** Whenever the user needs to choose or integrate a third-party developer service (database, auth, payments, hosting, email, cache, monitoring, analytics, AI, storage, CMS, search, etc.), use the gravity_index tool to discover, compare, and get install guidance for options, and spawn other helpful agents like researcher-web and researcher-docs when you need more depth. Don't recommend or integrate a service from memory alone.\n"}
 ${
       noAskUser
         ? ''

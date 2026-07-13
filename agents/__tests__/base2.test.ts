@@ -44,6 +44,15 @@ describe('base2 reviewer selection', () => {
   })
 })
 
+describe('base2 optional tools', () => {
+  test('omits gravity_index and its instruction together', () => {
+    const base2 = createBase2('free', { noGravityIndex: true })
+
+    expect(base2.toolNames).not.toContain('gravity_index')
+    expect(base2.systemPrompt).not.toContain('gravity_index')
+  })
+})
+
 describe('base2 context pruning', () => {
   const getContextPrunerParams = (
     mode: Parameters<typeof createBase2>[0],

@@ -136,6 +136,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     FREEBUFF_MIMO_V25_MODEL_ID,
+    FREEBUFF_GLM_V52_MODEL_ID,
   ]),
 
   // File exploration agents

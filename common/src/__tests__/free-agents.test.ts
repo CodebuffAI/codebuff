@@ -6,6 +6,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -160,6 +161,12 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_MIMO_V25_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-glm',
+        FREEBUFF_GLM_V52_MODEL_ID,
+      ),
+    ).toBe(true)
   })
 
   test('allows legacy code-reviewer-lite with freebuff reviewer models', () => {
@@ -199,6 +206,7 @@ describe('free mode agent model allowlist', () => {
       FREEBUFF_KIMI_MODEL_ID,
       FREEBUFF_MIMO_V25_PRO_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_GLM_V52_MODEL_ID,
     ]) {
       expect(
         isFreeModeAllowedAgentModel(FREEBUFF_DESKTOP_THREAD_AGENT_ID, model),
