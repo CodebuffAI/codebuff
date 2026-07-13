@@ -140,7 +140,10 @@ export async function formatPrompt(
         logger,
       }),
     [PLACEHOLDER.GIT_CHANGES_PROMPT]: () => getGitChangesPrompt(fileContext),
-    [PLACEHOLDER.REMAINING_STEPS]: () => `${agentState.stepsRemaining!}`,
+    [PLACEHOLDER.REMAINING_STEPS]: () =>
+      agentState.stepsRemaining < 0
+        ? 'unlimited (no-progress watchdog active)'
+        : `${agentState.stepsRemaining}`,
     [PLACEHOLDER.PROJECT_ROOT]: () => fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: () => getSystemInfoPrompt(fileContext),
     [PLACEHOLDER.USER_CWD]: () => fileContext.cwd,

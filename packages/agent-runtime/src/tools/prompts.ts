@@ -1,5 +1,6 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
+import { getToolMetadata } from '@codebuff/common/tools/metadata'
 import { AVAILABLE_SKILLS_PLACEHOLDER } from '@codebuff/common/tools/params/tool/skill'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
@@ -235,6 +236,11 @@ export const getToolsInstructions = (
   ) {
     return ''
   }
+  const hasMutationTool = tools.some(
+    (toolName) =>
+      toolName in toolParams &&
+      getToolMetadata(toolName as ToolName).kind === 'mutation',
+  )
 
   return `
 # Tools
@@ -283,6 +289,16 @@ ${getToolCallString(
 
 All done with the update!
 User: thanks it worked! :)
+
+${
+  hasMutationTool
+    ? `## Deterministic Editing Discipline
+
+- Every edit payload is self-contained. Never use references such as "[see patch above]", "same as above", or omitted code placeholders.
+- Copy exact oldString text from a current read. For range edits, copy the returned capability/hash exactly instead of guessing it.
+- If an edit result says a fresh read is required, perform that read before retrying. If an atomic transaction aborts, rebuild and retry the related transaction as a whole from the fresh snapshot.`
+    : ''
+}
 
 ## Working Directory
 

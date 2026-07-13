@@ -53,7 +53,7 @@ describe('code-searcher agent', () => {
       params: {
         searchQueries: [
           { flags: '-g *.ts' },
-          { pattern: 'edit_transaction', flags: '-n -g *.ts' },
+          { pattern: 'edit_transaction', flags: ['-g', '*.ts'] },
         ],
       },
     })
@@ -62,7 +62,7 @@ describe('code-searcher agent', () => {
       toolName: 'code_search',
       input: {
         pattern: 'edit_transaction',
-        flags: '-n -g *.ts',
+        flags: ['-g', '*.ts'],
       },
     })
 

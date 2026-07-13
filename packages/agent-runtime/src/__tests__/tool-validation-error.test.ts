@@ -437,6 +437,45 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('repairs double-stringified spawn_agents lists and stringified entries', () => {
+    const entry = {
+      agent_type: 'basher',
+      prompt: 'Run tests',
+      params: { command: 'bun test' },
+    }
+    for (const agents of [
+      JSON.stringify(JSON.stringify([entry])),
+      [JSON.stringify(entry)],
+    ]) {
+      const result = parseRawToolCall({
+        rawToolCall: {
+          toolName: 'spawn_agents',
+          toolCallId: 'spawn-agents-deep-string-tool-call-id',
+          input: { agents },
+        },
+      })
+      expect('error' in result).toBe(false)
+      if (!('error' in result)) {
+        expect(result.input.agents).toEqual([entry])
+      }
+    }
+  })
+
+  it('gives spawn-specific recovery for truncated agent JSON', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-truncated-tool-call-id',
+        input: { agents: '[{"agent_type":' },
+      },
+    })
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Pass agents as an array of objects')
+      expect(result.error).toContain('truncated JSON')
+    }
+  })
+
   it('should parse stringified params for spawn_agent_inline', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -639,6 +678,43 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('rejects explicit edit placeholders before handler execution', () => {
+    for (const rawToolCall of [
+      {
+        toolName: 'str_replace' as const,
+        toolCallId: 'placeholder-str-replace',
+        input: {
+          path: 'src/a.ts',
+          replacements: [
+            { oldString: '[see patch above]', newString: 'const a = 1' },
+          ],
+        },
+      },
+      {
+        toolName: 'edit_transaction' as const,
+        toolCallId: 'placeholder-edit-transaction',
+        input: {
+          edits: [
+            {
+              type: 'str_replace' as const,
+              path: 'src/a.ts',
+              replacements: [
+                { oldString: '[see patch above]', newString: 'const a = 1' },
+              ],
+            },
+          ],
+        },
+      },
+    ]) {
+      const result = parseRawToolCall({ rawToolCall })
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('explicit placeholder')
+        expect(result.error).toContain('exact current')
+      }
+    }
+  })
+
   it('should include failed-edit recovery guidance for invalid replacement shapes', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -678,6 +754,59 @@ describe('tool validation error handling', () => {
       expect(result.error).toContain(
         'The arguments may be malformed or incomplete',
       )
+    }
+  })
+
+  it('gives set_output-specific recovery for incomplete stringified input', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'set_output',
+        toolCallId: 'incomplete-set-output-tool-call-id',
+        input: '{"data":{"schemaVersion":3,"findings":[',
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Pass the result as an object directly')
+      expect(result.error).toContain('Do not JSON.stringify')
+      expect(result.error).toContain('Keep findings and evidence compact')
+    }
+  })
+
+  it('gives set_output-specific recovery when data contains incomplete JSON', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'set_output',
+        toolCallId: 'string-data-set-output-tool-call-id',
+        input: { data: '{"schemaVersion":3,"findings":[' },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Pass a real object to set_output')
+      expect(result.error).toContain('Do not JSON.stringify')
+    }
+  })
+
+  it('repairs a complete JSON-stringified set_output data object', () => {
+    const data = {
+      schemaVersion: 3,
+      family: 'reviewer',
+      verdict: 'NON_BLOCKING',
+    }
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'set_output',
+        toolCallId: 'string-data-set-output-tool-call-id',
+        input: { data: JSON.stringify(data) },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input).toEqual({ data })
     }
   })
 
@@ -844,6 +973,70 @@ describe('tool validation error handling', () => {
     ).toThrow('Missing required: command')
   })
 
+  it('rejects a Basher missing command before publishing the spawn tool call', async () => {
+    const parent: AgentTemplate = {
+      ...testAgentTemplate,
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['basher'],
+    }
+    const basher: AgentTemplate = {
+      ...testAgentTemplate,
+      id: 'basher',
+      inputSchema: { params: z.object({ command: z.string().min(1) }) },
+      toolNames: ['run_terminal_command'],
+      spawnableAgents: [],
+    }
+    const invalidSpawn: StreamChunk = {
+      type: 'tool-call',
+      toolName: 'spawn_agents',
+      toolCallId: 'basher-missing-command-tool-call-id',
+      input: { agents: [{ agent_type: 'basher', params: {} }] },
+    }
+    async function* mockStream() {
+      yield invalidSpawn
+      return promptSuccess('mock-message-id')
+    }
+    const responseChunks: (string | PrintModeEvent)[] = []
+    const sessionState = getInitialSessionState(mockFileContext)
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState: sessionState.mainAgentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: parent,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': parent, basher },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: (chunk) => responseChunks.push(chunk),
+    })
+
+    const events = responseChunks.filter(
+      (chunk): chunk is PrintModeEvent => typeof chunk !== 'string',
+    )
+    expect(events.some((event) => event.type === 'tool_call')).toBe(false)
+    expect(events.some((event) => event.type === 'tool_result')).toBe(false)
+    expect(events.find((event) => event.type === 'error')).toMatchObject({
+      type: 'error',
+      message: expect.stringContaining('Missing required: command'),
+    })
+  })
+
   it('should still emit tool_call and tool_result for valid tool calls', async () => {
     // Create an agent that has read_files tool
     const agentWithReadFiles: AgentTemplate = {
@@ -946,6 +1139,74 @@ describe('tool validation error handling', () => {
         typeof chunk !== 'string' && chunk.type === 'error',
     )
     expect(errorEvents.length).toBe(0)
+  })
+
+  it('emits a terminal tool_result when a published native handler rejects', async () => {
+    const agentWithTerminal: AgentTemplate = {
+      ...testAgentTemplate,
+      toolNames: ['run_terminal_command', 'end_turn'],
+    }
+    const toolCall: StreamChunk = {
+      type: 'tool-call',
+      toolName: 'run_terminal_command',
+      toolCallId: 'rejecting-terminal-tool-call-id',
+      input: { command: 'bun test' },
+    }
+    async function* mockStream() {
+      yield toolCall
+      return promptSuccess('mock-message-id')
+    }
+
+    agentRuntimeImpl.requestToolCall = async () => {
+      throw new Error('terminal bridge disconnected')
+    }
+    const sessionState = getInitialSessionState(mockFileContext)
+    const responseChunks: (string | PrintModeEvent)[] = []
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState: sessionState.mainAgentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: agentWithTerminal,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': agentWithTerminal },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: (chunk) => responseChunks.push(chunk),
+    })
+
+    const events = responseChunks.filter(
+      (chunk): chunk is PrintModeEvent => typeof chunk !== 'string',
+    )
+    expect(events.filter((event) => event.type === 'tool_call')).toHaveLength(1)
+    const results = events.filter(
+      (event): event is Extract<PrintModeEvent, { type: 'tool_result' }> =>
+        event.type === 'tool_result',
+    )
+    expect(results).toHaveLength(1)
+    expect(results[0].output[0]).toMatchObject({
+      type: 'json',
+      value: {
+        kind: 'native_tool_result_error',
+        lifecycle: { state: 'failed' },
+        error: { message: expect.stringContaining('bridge disconnected') },
+      },
+    })
   })
 
   it('should parse input JSON string from AI SDK before validation', async () => {

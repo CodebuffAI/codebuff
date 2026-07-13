@@ -364,12 +364,22 @@ describe('parseFileStructure', () => {
     })
   })
 
-  test('returns null for registered languages whose wasm grammar is unavailable', async () => {
+  test('extracts structures for PHP, Swift, and Kotlin', async () => {
     expect(
-      await parseFileStructure('<?php function demo() {}', 'index.php'),
-    ).toBeNull()
-    expect(await parseFileStructure('func demo() {}', 'App.swift')).toBeNull()
-    expect(await parseFileStructure('fun demo() {}', 'Main.kt')).toBeNull()
+      await parseFileStructure('<?php function phpDemo() {}', 'index.php'),
+    ).toEqual([
+      expect.objectContaining({ name: 'phpDemo', kind: 'function' }),
+    ])
+    expect(
+      await parseFileStructure('func swiftDemo() {}', 'App.swift'),
+    ).toEqual([
+      expect.objectContaining({ name: 'swiftDemo', kind: 'function' }),
+    ])
+    expect(
+      await parseFileStructure('fun kotlinDemo() {}', 'Main.kt'),
+    ).toEqual([
+      expect.objectContaining({ name: 'kotlinDemo', kind: 'function' }),
+    ])
   })
 
   test('extracts GDScript functions, classes, and variables (Godot 4.x)', async () => {

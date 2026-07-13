@@ -551,26 +551,30 @@ describe('context-pruner handleSteps', () => {
         path: 'changed.ts',
         content: 'export const changed = true',
       }),
-      createToolResultMessage('successful-edit', 'write_file', withCommittedReceipt({
-        kind: 'file_mutation_result',
-        version: 1,
-        operationId: 'successful-edit',
-        outcome: 'applied',
-        authorityTier: 'portable_path',
-        actions: [
-          {
-            actionId: 'successful-edit:0',
-            index: 0,
-            action: 'create',
-            path: 'changed.ts',
-            outcome: 'applied',
-            beforeHash: null,
-            afterHash: 'after',
-          },
-        ],
-        errors: [],
-        freshCapabilities: [],
-      })),
+      createToolResultMessage(
+        'successful-edit',
+        'write_file',
+        withCommittedReceipt({
+          kind: 'file_mutation_result',
+          version: 1,
+          operationId: 'successful-edit',
+          outcome: 'applied',
+          authorityTier: 'portable_path',
+          actions: [
+            {
+              actionId: 'successful-edit:0',
+              index: 0,
+              action: 'create',
+              path: 'changed.ts',
+              outcome: 'applied',
+              beforeHash: null,
+              afterHash: 'after',
+            },
+          ],
+          errors: [],
+          freshCapabilities: [],
+        }),
+      ),
     ]
 
     const results = runHandleSteps(messages, 50000, 10000)
@@ -798,7 +802,13 @@ describe('context-pruner handleSteps', () => {
     const summaryContent = (resultMessages[0].content[0] as { text: string })
       .text
     expect(summaryContent).toContain('Older request')
-    expect(summaryContent).not.toContain('LATEST LIVE REQUEST')
+    expect(summaryContent).toContain('Goal:\n  LATEST LIVE REQUEST')
+    expect(
+      summaryContent.replace(
+        /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+        '',
+      ),
+    ).not.toContain('LATEST LIVE REQUEST')
     expect(resultMessages[1]).toEqual(
       expect.objectContaining({
         role: 'user',
@@ -1157,26 +1167,30 @@ describe('context-pruner handleSteps', () => {
         path: 'common/src/util/messages.ts',
         replacements: [],
       }),
-      createToolResultMessage('call-2', 'str_replace', withCommittedReceipt({
-        kind: 'file_mutation_result',
-        version: 1,
-        operationId: 'call-2',
-        outcome: 'applied',
-        authorityTier: 'portable_path',
-        actions: [
-          {
-            actionId: 'call-2:0',
-            index: 0,
-            action: 'update',
-            path: 'common/src/util/messages.ts',
-            outcome: 'applied',
-            beforeHash: 'before',
-            afterHash: 'after',
-          },
-        ],
-        errors: [],
-        freshCapabilities: [],
-      })),
+      createToolResultMessage(
+        'call-2',
+        'str_replace',
+        withCommittedReceipt({
+          kind: 'file_mutation_result',
+          version: 1,
+          operationId: 'call-2',
+          outcome: 'applied',
+          authorityTier: 'portable_path',
+          actions: [
+            {
+              actionId: 'call-2:0',
+              index: 0,
+              action: 'update',
+              path: 'common/src/util/messages.ts',
+              outcome: 'applied',
+              beforeHash: 'before',
+              afterHash: 'after',
+            },
+          ],
+          errors: [],
+          freshCapabilities: [],
+        }),
+      ),
       createToolCallMessage('call-3', 'run_terminal_command', {
         command: 'bun test util/__tests__/messages.test.ts',
       }),
@@ -1269,7 +1283,7 @@ describe('context-pruner long message truncation', () => {
   const runHandleSteps = (
     messages: Message[],
     contextTokenCount: number,
-    maxContextLength: number,
+    maxContextLength?: number,
     budgets?: {
       assistantToolBudget?: number
       userBudget?: number
@@ -1287,7 +1301,10 @@ describe('context-pruner long message truncation', () => {
     const generator = contextPruner.handleSteps!({
       agentState: mockAgentState,
       logger: mockLogger,
-      params: { maxContextLength, ...budgets },
+      params: {
+        ...(maxContextLength !== undefined ? { maxContextLength } : {}),
+        ...budgets,
+      },
     })
     const results: any[] = []
     let result = generator.next()
@@ -2045,7 +2062,7 @@ describe('context-pruner repeated compaction', () => {
   const runHandleSteps = (
     messages: Message[],
     contextTokenCount: number,
-    maxContextLength: number,
+    maxContextLength?: number,
     budgets?: {
       assistantToolBudget?: number
       userBudget?: number
@@ -2063,7 +2080,10 @@ describe('context-pruner repeated compaction', () => {
     const generator = contextPruner.handleSteps!({
       agentState: mockAgentState,
       logger: mockLogger,
-      params: { maxContextLength, ...budgets },
+      params: {
+        ...(maxContextLength !== undefined ? { maxContextLength } : {}),
+        ...budgets,
+      },
     })
     const results: any[] = []
     let result = generator.next()
@@ -2258,7 +2278,7 @@ First assistant response
       return result[0].input.messages[0]
     }
 
-    const tightBudgets = { assistantToolBudget: 25, userBudget: 25 }
+    const tightBudgets = { assistantToolBudget: 20, userBudget: 15 }
 
     // === CYCLE 1: 3 pairs of messages, tight budgets drop the oldest ===
     const cycle1Messages = [
@@ -2544,7 +2564,7 @@ describe('context-pruner threshold behavior', () => {
   const runHandleSteps = (
     messages: Message[],
     contextTokenCount: number,
-    maxContextLength: number,
+    maxContextLength?: number,
     budgets?: {
       assistantToolBudget?: number
       userBudget?: number
@@ -2562,7 +2582,10 @@ describe('context-pruner threshold behavior', () => {
     const generator = contextPruner.handleSteps!({
       agentState: mockAgentState,
       logger: mockLogger,
-      params: { maxContextLength, ...budgets },
+      params: {
+        ...(maxContextLength !== undefined ? { maxContextLength } : {}),
+        ...budgets,
+      },
     })
     const results: any[] = []
     let result = generator.next()
@@ -2605,6 +2628,137 @@ describe('context-pruner threshold behavior', () => {
     expect(results[0].input.messages).toHaveLength(1)
     expect(results[0].input.messages[0].content[0].text).toContain(
       '<conversation_summary>',
+    )
+  })
+
+  test('scales the default semantic threshold to 70% of a 500k context window', () => {
+    mockAgentState.contextWindowTokens = 500_000
+    const messages = [
+      createMessage('user', 'Hello'),
+      createMessage('assistant', 'Hi'),
+    ]
+
+    const under = runHandleSteps(messages, 349_000)
+    expect(under[0].input.messages).toHaveLength(2)
+
+    const over = runHandleSteps(messages, 350_000)
+    expect(over[0].input.messages[0].content[0].text).toContain(
+      '<conversation_summary>',
+    )
+  })
+
+  test('scales the default semantic threshold to 70% of a one-million-token window', () => {
+    mockAgentState.contextWindowTokens = 1_000_000
+    const messages = [
+      createMessage('user', 'Hello'),
+      createMessage('assistant', 'Hi'),
+    ]
+
+    const under = runHandleSteps(messages, 699_000)
+    expect(under[0].input.messages).toHaveLength(2)
+
+    const over = runHandleSteps(messages, 700_000)
+    expect(over[0].input.messages[0].content[0].text).toContain(
+      '<conversation_summary>',
+    )
+  })
+
+  test('keeps other categories when the newest user entry exhausts only the user budget', () => {
+    const messages: Message[] = [
+      createToolCallMessage('edit-1', 'write_file', {
+        path: 'src/preserved.ts',
+      }),
+      createToolResultMessage(
+        'edit-1',
+        'write_file',
+        withCommittedReceipt({
+          kind: 'file_mutation_result',
+          version: 1,
+          operationId: 'edit-1',
+          authorityTier: 'portable_path',
+          outcome: 'applied',
+          actions: [
+            {
+              index: 0,
+              actionId: 'edit-1:0',
+              action: 'write',
+              path: 'src/preserved.ts',
+              outcome: 'applied',
+              afterHash: 'after',
+            },
+          ],
+          errors: [],
+          freshCapabilities: [],
+        }),
+      ),
+      createMessage('user', 'x'.repeat(5_000)),
+    ]
+
+    const results = runHandleSteps(messages, 250_000, 200_000, {
+      userBudget: 1,
+      assistantToolBudget: 2_000,
+      toolFactsBudget: 2_000,
+    })
+    const content = results[0].input.messages[0].content[0].text
+    expect(content).toContain('Edit result from write_file')
+    expect(content).toContain('src/preserved.ts')
+  })
+
+  test('refreshes the pinned goal from the latest live user request', () => {
+    const latest: Message = {
+      ...createMessage('user', 'Implement the corrected compaction behavior'),
+      tags: ['USER_PROMPT'],
+    }
+    const results = runHandleSteps(
+      [
+        createMessage('user', 'Old request that has been superseded'),
+        createMessage('assistant', 'Working on the old request'),
+        latest,
+      ],
+      250_000,
+      200_000,
+    )
+    const content = results[0].input.messages[0].content[0].text
+    expect(content).toContain(
+      'Goal:\n  Implement the corrected compaction behavior',
+    )
+  })
+
+  test('preserves a structured inline reviewer receipt with the full fingerprint', () => {
+    const fingerprint = 'a'.repeat(64)
+    const messages: Message[] = [
+      createToolCallMessage('review-1', 'spawn_agent_inline', {
+        agent_type: 'dependency-reviewer',
+      }),
+      createToolResultMessage('review-1', 'spawn_agent_inline', {
+        schemaVersion: 3,
+        family: 'reviewer',
+        verdict: 'NON_BLOCKING',
+        snapshotFingerprint: fingerprint,
+        reviewedFiles: ['package.json'],
+        coverage: 'covered',
+        dimensions: { manifest: 'pass' },
+        findings: [
+          {
+            id: 'dependency-reviewer:manifest:lockfile',
+            severity: 'low',
+            dimension: 'manifest',
+            summary: 'Lockfile is consistent.',
+            evidence: ['package.json matches bun.lock'],
+            correction: 'No action required.',
+          },
+        ],
+        requirementCoverage: [],
+      }),
+    ]
+
+    const results = runHandleSteps(messages, 250_000, 200_000)
+    const content = results[0].input.messages[0].content[0].text
+    expect(content).toContain('Review Receipts:')
+    expect(content).toContain('dependency-reviewer: verdict=NON_BLOCKING')
+    expect(content).toContain(`snapshot=${fingerprint}`)
+    expect(content).toContain(
+      'findingIds=dependency-reviewer:manifest:lockfile',
     )
   })
 })
@@ -3326,8 +3480,8 @@ describe('context-pruner dual-budget behavior', () => {
 
     // Budget large enough for middle + recent entries but not oldest
     const results = runHandleSteps(messages, 250000, 200000, {
-      assistantToolBudget: 25,
-      userBudget: 25,
+      assistantToolBudget: 30,
+      userBudget: 16,
     })
 
     const resultMessages = results[0].input.messages
@@ -3508,7 +3662,7 @@ describe('context-pruner dual-budget behavior', () => {
       content: [
         {
           type: 'text',
-          text: `<conversation_summary>\nThis is a summary of the conversation so far. The original messages have been condensed to save context space.\n\n[USER]\nOLD_DROPPED_USER: ${'X'.repeat(600)}\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT: ${'Y'.repeat(600)}\n\n---\n\n[USER]\nOLD_DROPPED_USER_2: Asked about deployment\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT_2: ${'Explained deployment process. '.repeat(80)}\n</conversation_summary>`,
+          text: `<conversation_summary>\nThis is a summary of the conversation so far. The original messages have been condensed to save context space.\n\n[USER]\nOLD_DROPPED_USER: ${'X'.repeat(600)}\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT: ${'Y'.repeat(600)}\n\n---\n\n[USER]\nOLD_DROPPED_USER_2: ${'Asked about deployment. '.repeat(40)}\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT_2: ${'Explained deployment process. '.repeat(80)}\n</conversation_summary>`,
         },
       ],
     }

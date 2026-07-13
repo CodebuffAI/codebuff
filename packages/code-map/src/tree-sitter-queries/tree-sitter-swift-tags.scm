@@ -1,13 +1,10 @@
 ; Swift tag query — function/class/struct/enum/protocol definitions.
 ;
-; The @vscode/tree-sitter-wasm package does NOT bundle a Swift grammar, so
-; loading this language config no-ops gracefully (getLanguageConfig returns
-; undefined) until a Swift WASM grammar is supplied.
+; tree-sitter-wasms models class, struct, and enum declarations through the
+; shared class_declaration node with a declaration-kind child.
 
 (function_declaration name: (simple_identifier) @identifier)
 (class_declaration name: (type_identifier) @identifier)
-(struct_declaration name: (type_identifier) @identifier)
-(enum_declaration name: (type_identifier) @identifier)
 (protocol_declaration name: (type_identifier) @identifier)
 
-(call_expression function: (simple_identifier) @call.identifier)
+(call_expression (simple_identifier) @call.identifier)

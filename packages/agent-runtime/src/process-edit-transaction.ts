@@ -130,17 +130,12 @@ export async function processEditTransaction(params: {
   }
 
   if (failures.length > 0) {
+    const firstFailure = failures[0]
     return {
       tool: 'edit_transaction',
       error: [
-        `Atomic edit_transaction aborted: ${failures.length} of ${edits.length} edit(s) failed, so NO files were changed.`,
-        'Recovery required: re-read the failed file ranges, then retry the whole transaction so related files stay consistent.',
-        ...failures.map((failure) =>
-          [
-            `Edit ${failure.editIndex}${failure.id ? ` (${failure.id})` : ''} failed for ${failure.path}:`,
-            failure.errorMessage,
-          ].join('\n'),
-        ),
+        `Atomic edit_transaction aborted during preflight at edit ${firstFailure.editIndex + 1} of ${edits.length}, so NO files were changed.`,
+        'The detailed cause is listed once in failures below. Re-read only when that failure explicitly requires it, then retry the whole related transaction from one current snapshot.',
       ].join('\n\n'),
       failures,
     }

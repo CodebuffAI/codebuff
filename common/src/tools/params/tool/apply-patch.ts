@@ -1,6 +1,10 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  isObviousEditPlaceholder,
+  jsonToolResultSchema,
+} from '../utils'
 import { basedOnReadRangeSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
 
@@ -24,17 +28,24 @@ export const applyPatchResultSchema = z.union([
 
 const toolName = 'apply_patch'
 const endsAgentStep = false
+const patchTextSchema = z
+  .string()
+  .min(1, 'Diff cannot be empty')
+  .refine((value) => !isObviousEditPlaceholder(value), {
+    message:
+      'diff is an explicit placeholder. Provide the complete unified diff in this tool call.',
+  })
 
 const operationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('create_file'),
     path: z.string().min(1, 'Path cannot be empty'),
-    diff: z.string().min(1, 'Diff cannot be empty'),
+    diff: patchTextSchema,
   }),
   z.object({
     type: z.literal('update_file'),
     path: z.string().min(1, 'Path cannot be empty'),
-    diff: z.string().min(1, 'Diff cannot be empty'),
+    diff: patchTextSchema,
     basedOnRead: z
       .array(basedOnReadRangeSchema)
       .optional()
@@ -62,6 +73,7 @@ const description = `
 Use this tool to apply file operations using Codex-style apply_patch format.
 
 Each call performs a single operation on one file.
+Every diff must be self-contained. References such as "[see patch above]" are rejected because tool calls do not share an out-of-band patch buffer.
 
 Operation types:
 - create_file: Create a new file. Requires path and diff (lines prefixed with +).

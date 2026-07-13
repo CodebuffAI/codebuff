@@ -65,6 +65,21 @@ For comprehensive E2E terminal testing (which requires `tmux`):
 
 - See [cli/src/**tests**/README.md](../cli/src/__tests__/README.md) for detailed instructions on E2E test runs.
 
+## Tree-sitter release assets
+
+The compiled CLI and published SDK ship `tree-sitter.wasm`, every language
+grammar declared by `packages/code-map/src/wasm-files.ts`, and a
+`tree-sitter-manifest.json` containing SHA-256 hashes. Release wrappers verify
+that manifest on startup and redownload the current release if an installed
+asset is missing or corrupted. Compiled binaries also have a checksum-pinned
+legacy-wrapper repair path for installations whose older npm wrapper preserved
+the parser runtime but discarded language grammars.
+
+When adding a language, update the canonical WASM manifest, provide a compatible
+tag query, and keep `all-language-wasm.test.ts` green. Builds fail when an
+advertised grammar cannot be packaged; missing grammars must not be treated as
+optional.
+
 ## CLI Command References
 
 Use the `openbuff` namespace for new commands and help text. Do not reintroduce `codebuff` command parsers.

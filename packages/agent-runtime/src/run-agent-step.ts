@@ -9,7 +9,11 @@ import {
   isAbortError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
-import { systemMessage, userMessage } from '@codebuff/common/util/messages'
+import {
+  assistantMessage,
+  systemMessage,
+  userMessage,
+} from '@codebuff/common/util/messages'
 import { type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 
@@ -29,6 +33,10 @@ import { getAgentPrompt } from './templates/strings'
 import { getToolSet } from './tools/prompts'
 import { processStream } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
+import {
+  evaluateRepeatedStepLoop,
+  REPEATED_STEP_LOOP_LIMIT,
+} from './util/step-loop-guard'
 import {
   initBudgetFromTemplate,
   checkBudgetExceeded,
@@ -194,7 +202,8 @@ export const runAgentStep = async (
   agentState: AgentState
   fullResponse: string
   shouldEndTurn: boolean
-  // True when shouldEndTurn is due to the step-cap guard (stepsRemaining <= 0),
+  // True when shouldEndTurn is due to an explicit fixed step cap
+  // (stepsRemaining === 0),
   // not a natural turn end. Threading this through loopAgentSteps →
   // runProgrammaticStep → the base2 generator lets orchestrators break out
   // instead of falling through to the validation/reviewer gate, which would
@@ -245,28 +254,28 @@ export const runAgentStep = async (
     logger,
   })
 
-  if (agentState.stepsRemaining <= 0) {
-    logger.warn(
-      `Detected too many consecutive assistant messages without user prompt`,
-    )
+  if (agentState.stepsRemaining === 0) {
+    logger.warn('Agent step limit reached; ending with a resumable checkpoint')
 
-    onResponseChunk(`${STEP_WARNING_MESSAGE}\n\n`)
+    onResponseChunk(`${STEP_CAP_REACHED_MESSAGE}\n\n`)
 
-    // Update message history to include the warning
+    // Persist the checkpoint as an assistant response. Streaming the text
+    // without recording it left last_message agents with no assistant turn,
+    // which was later misreported as "No response from agent".
     agentState = {
       ...agentState,
       messageHistory: [
         ...expireMessages(agentState.messageHistory, 'userPrompt'),
-        userMessage(
-          withSystemTags(
-            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps in openbuff.json. If the task is incomplete, the user can resume on the next turn.`,
-          ),
-        ),
+        assistantMessage({
+          content: STEP_CAP_REACHED_MESSAGE,
+          tags: ['STEP_CAP_REACHED'],
+          keepDuringTruncation: true,
+        }),
       ],
     }
     return {
       agentState,
-      fullResponse: STEP_WARNING_MESSAGE,
+      fullResponse: STEP_CAP_REACHED_MESSAGE,
       shouldEndTurn: true,
       hitStepCap: true,
       messageId: null,
@@ -454,6 +463,9 @@ export const runAgentStep = async (
       })
     }
   }
+  const onModelContextResolved = (contextWindowTokens: number | undefined) => {
+    agentState.contextWindowTokens = contextWindowTokens
+  }
 
   logger.debug(
     {
@@ -581,6 +593,7 @@ export const runAgentStep = async (
     messages: [systemMessage(system), ...agentState.messageHistory],
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,
+    onModelContextResolved,
     template: agentTemplate,
     onCostCalculated,
   })
@@ -712,9 +725,24 @@ export const runAgentStep = async (
     shouldEndTurn = true
   }
 
+  const repeatedStepLoop = evaluateRepeatedStepLoop({
+    previousSignature: agentState.lastStepProgressSignature,
+    previousRepeatCount: agentState.repeatedStepProgressCount,
+    toolCalls,
+    toolResults,
+    isThinkOnly,
+    responseText: responseWithoutThinkTags,
+    shouldEndTurn,
+  })
+
   agentState = {
     ...agentState,
-    stepsRemaining: agentState.stepsRemaining - 1,
+    stepsRemaining:
+      agentState.stepsRemaining > 0
+        ? agentState.stepsRemaining - 1
+        : agentState.stepsRemaining,
+    lastStepProgressSignature: repeatedStepLoop.signature,
+    repeatedStepProgressCount: repeatedStepLoop.repeatCount,
     agentContext,
     // Apply the step's accumulated cost once, here, on the post-spread object.
     // This avoids the stale-closure mutation bug where late async cost callbacks
@@ -727,6 +755,33 @@ export const runAgentStep = async (
     cacheInputTokens: agentState.cacheInputTokens + stepCacheInputTokens,
     cacheTotalInputTokens:
       agentState.cacheTotalInputTokens + stepCacheTotalInputTokens,
+  }
+
+  if (repeatedStepLoop.shouldStop) {
+    const message = [
+      `No-progress watchdog stopped the turn after ${REPEATED_STEP_LOOP_LIMIT} identical step patterns.`,
+      'Current work and run state were preserved.',
+      'Resume after changing the approach or inputs; productive runs are not limited by a fixed step count.',
+    ].join(' ')
+    agentState = {
+      ...agentState,
+      messageHistory: [
+        ...agentState.messageHistory,
+        assistantMessage({
+          content: message,
+          tags: ['NO_PROGRESS_LOOP_GUARD'],
+          keepDuringTruncation: true,
+        }),
+      ],
+    }
+    onResponseChunk(`${message}\n\n`)
+    return {
+      agentState,
+      fullResponse: message,
+      shouldEndTurn: true,
+      messageId: null,
+      nResponses: undefined,
+    }
   }
 
   // P1-5: Enforce per-run budgets after accumulation. If either cap is
@@ -950,6 +1005,10 @@ export async function loopAgentSteps(
     agentId: agentTemplate.id,
     model: agentTemplate.model,
   })
+  // Seed the state before the first programmatic step. The context-pruner runs
+  // before the first LLM request, so waiting for the streaming callback would
+  // make the first compaction use the legacy fallback even for 500k/1M models.
+  initialAgentState.contextWindowTokens = resolvedModelContextWindow
   const effectiveMaxContextLength =
     maxContextLength ??
     (resolvedModelContextWindow === undefined
@@ -1143,6 +1202,10 @@ export async function loopAgentSteps(
     initialAgentState.systemPrompt = system
     initialAgentState.toolDefinitions = toolDefinitions
     let currentAgentState: AgentState = initialAgentState
+    if (prompt?.trim()) {
+      currentAgentState.lastStepProgressSignature = undefined
+      currentAgentState.repeatedStepProgressCount = 0
+    }
 
     // Convert tool definitions to Anthropic format for accurate token counting
     // Tool definitions are stored as { [name]: { description, inputSchema } }
@@ -1161,7 +1224,7 @@ export async function loopAgentSteps(
     let currentParams = spawnParams
     let totalSteps = 0
     let nResponses: string[] | undefined = undefined
-    // True when the most recent LLM step ended due to the step-cap guard. Threading
+    // True when the most recent LLM step ended due to an explicit step cap. Threading
     // this into the next programmatic-step invocation lets orchestrators (base2)
     // break out instead of falling through to the validation/reviewer gate, which
     // would re-yield STEP and re-trigger the step-cap, causing an infinite loop.
@@ -1642,17 +1705,18 @@ export async function loopAgentSteps(
   }
 }
 
-const STEP_WARNING_MESSAGE = [
-  "I've made quite a few responses in a row.",
-  "Let me pause here to make sure we're still on the right track.",
-  "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+const STEP_CAP_REACHED_MESSAGE = [
+  'Agent step limit reached before this turn completed.',
+  'Current work and run state were preserved, so the task can resume safely on the next turn.',
+  'Increase maxAgentSteps in openbuff.json if this workload routinely needs a larger step budget.',
 ].join(' ')
 
 /**
  * How many steps before the cap the one-time near-cap checkpoint nudge fires.
  * Compared with `===` against the per-step-decrementing stepsRemaining, so it
  * triggers at most once and only for runs whose budget exceeds this threshold.
- * At 30 remaining steps this is ~15% of the default 200-step budget.
+ * Unlimited runs never match this threshold; it applies only to configured
+ * fixed caps that begin above 30 steps.
  */
 const NEAR_STEP_CAP_WARNING_THRESHOLD = 30
 

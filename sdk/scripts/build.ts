@@ -2,10 +2,12 @@
 // Creates ESM + CJS bundles with TypeScript declarations
 
 import { mkdir, cp, readFile, writeFile, rm } from 'fs/promises'
+import { createHash } from 'crypto'
 import Module from 'module'
 import { delimiter, join } from 'path'
 
 import { generateDtsBundle } from 'dts-bundle-generator'
+import { LANGUAGE_WASM_FILES } from '../../packages/code-map/src/wasm-files'
 
 const workspaceNodeModules = join(import.meta.dir, '..', 'node_modules')
 const existingNodePath = process.env.NODE_PATH ?? ''
@@ -570,40 +572,42 @@ async function fixToolHelpers() {
 }
 
 /**
- * Copy WASM files from @vscode/tree-sitter-wasm to shared dist/wasm directory
+ * Copy every advertised language grammar to the shared dist/wasm directory.
  */
 async function copyWasmFiles() {
-  const wasmSourceDir = '../node_modules/@vscode/tree-sitter-wasm/wasm'
-  const wasmFiles = [
-    'tree-sitter.wasm', // Main tree-sitter WASM file
-    'tree-sitter-c-sharp.wasm',
-    'tree-sitter-cpp.wasm',
-    'tree-sitter-go.wasm',
-    'tree-sitter-java.wasm',
-    'tree-sitter-javascript.wasm',
-    'tree-sitter-python.wasm',
-    'tree-sitter-ruby.wasm',
-    'tree-sitter-rust.wasm',
-    'tree-sitter-tsx.wasm',
-    'tree-sitter-typescript.wasm',
-    'tree-sitter-kotlin.wasm',
-    'tree-sitter-php.wasm',
-    'tree-sitter-swift.wasm',
-    'tree-sitter-gdscript.wasm',
-  ]
+  const wasmFiles = ['tree-sitter.wasm', ...LANGUAGE_WASM_FILES]
 
   // Create shared wasm directory
   await mkdir('dist/wasm', { recursive: true })
 
-  // Copy each WASM file to shared directory only
+  const manifest: Record<string, string> = {}
   for (const wasmFile of wasmFiles) {
-    try {
-      await cp(`${wasmSourceDir}/${wasmFile}`, `dist/wasm/${wasmFile}`)
-      console.log(`  ✓ Copied ${wasmFile}`)
-    } catch (error) {
-      console.warn(`  ⚠ Warning: Could not copy ${wasmFile}:`, error.message)
+    const sourceName =
+      wasmFile === 'tree-sitter-c-sharp.wasm'
+        ? 'tree-sitter-c_sharp.wasm'
+        : wasmFile
+    const candidates =
+      wasmFile === 'tree-sitter.wasm'
+        ? [`../node_modules/web-tree-sitter/${wasmFile}`]
+        : [
+            `../node_modules/tree-sitter-wasms/out/${sourceName}`,
+            `../node_modules/@vscode/tree-sitter-wasm/wasm/${wasmFile}`,
+          ]
+    const source = candidates.find((candidate) => Bun.file(candidate).size > 0)
+    if (!source) {
+      throw new Error(
+        `Missing required tree-sitter asset ${wasmFile}; searched ${candidates.join(', ')}`,
+      )
     }
+    const bytes = await readFile(source)
+    await cp(source, `dist/wasm/${wasmFile}`)
+    manifest[wasmFile] = createHash('sha256').update(bytes).digest('hex')
+    console.log(`  ✓ Copied ${wasmFile}`)
   }
+  await writeFile(
+    'dist/wasm/tree-sitter-manifest.json',
+    `${JSON.stringify({ schemaVersion: 1, files: manifest }, null, 2)}\n`,
+  )
 }
 
 async function copyRipgrepVendor() {

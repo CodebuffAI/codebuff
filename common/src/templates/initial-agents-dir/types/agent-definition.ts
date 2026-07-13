@@ -356,6 +356,12 @@ export interface AgentState {
    */
   contextTokenCount: number
 
+  /** Context window resolved from the active model/provider, when known. */
+  contextWindowTokens?: number
+
+  /** Runtime-owned orchestrator state preserved independently of messages. */
+  base2ActiveWork?: Record<string, unknown>
+
   /**
    * Deterministic record of every proposal tool call made during the CURRENT
    * proposal attempt of this run, in execution order.

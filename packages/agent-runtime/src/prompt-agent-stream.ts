@@ -37,6 +37,7 @@ export const getAgentStreamFromTemplate = (params: {
     normalizedBody?: unknown
   }) => void
   onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
+  onModelContextResolved?: (contextWindowTokens: number | undefined) => void
 
   onCostCalculated?: (providerCostCents: number) => Promise<void>
   promptAiSdkStream: PromptAiSdkStreamFn
@@ -62,6 +63,7 @@ export const getAgentStreamFromTemplate = (params: {
     cacheDebugCorrelation,
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,
+    onModelContextResolved,
 
     sendAction,
     onCostCalculated,
@@ -103,6 +105,7 @@ export const getAgentStreamFromTemplate = (params: {
     cacheDebugCorrelation,
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,
+    onModelContextResolved,
 
     onCostCalculated,
     sendAction,

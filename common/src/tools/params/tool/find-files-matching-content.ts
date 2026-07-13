@@ -15,10 +15,10 @@ const inputSchema = z
         `Regex pattern (ripgrep syntax) to match file content against.`,
       ),
     flags: z
-      .string()
+      .union([z.string(), z.array(z.string())])
       .optional()
       .describe(
-        `Optional safe ripgrep flags. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Examples: "-i", "-g *.ts -g *.tsx", "-g !*.test.ts", "-F". Use code_search for advanced ripgrep options.`,
+        `Optional safe ripgrep flags as one string or argv tokens. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Examples: "-g *.ts -g *.tsx" or ["-g", "*.ts", "-g", "*.tsx"]. Do not quote the entire expression inside the JSON string.`,
       ),
     cwd: z
       .string()

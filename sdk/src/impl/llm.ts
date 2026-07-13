@@ -26,6 +26,7 @@ import {
   markChatGptOAuthRateLimited,
 } from './model-provider'
 import { resolveModelsToTry, isFailoverEligibleError } from './failover'
+import { buildSpawnAgentsInputForDirectAgentCall } from './direct-agent-tool-repair'
 import {
   loadProviderConfigSync,
   resolveConfiguredAgentModelConfig,
@@ -774,6 +775,7 @@ export async function* promptAiSdkStream(
             contextWindowTokens,
             pricing,
           } = modelResult
+          params.onModelContextResolved?.(contextWindowTokens ?? undefined)
 
           if (isChatGptOAuth && failoverIndex === 0 && attempt === 0) {
             trackEvent({
@@ -861,47 +863,6 @@ export async function* promptAiSdkStream(
                   toolNameWithHyphens in localAgentTemplates
 
                 if (isSpawnableAgent || isLocalAgent) {
-                  // Transform agent tool call to spawn_agents
-                  const deepParseJson = (value: unknown): unknown => {
-                    if (typeof value === 'string') {
-                      try {
-                        return deepParseJson(JSON.parse(value))
-                      } catch {
-                        return value
-                      }
-                    }
-                    if (Array.isArray(value)) return value.map(deepParseJson)
-                    if (value !== null && typeof value === 'object') {
-                      return Object.fromEntries(
-                        Object.entries(value).map(([k, v]) => [
-                          k,
-                          deepParseJson(v),
-                        ]),
-                      )
-                    }
-                    return value
-                  }
-
-                  let input: Record<string, unknown> = {}
-                  try {
-                    const rawInput =
-                      typeof toolCall.input === 'string'
-                        ? JSON.parse(toolCall.input)
-                        : (toolCall.input as Record<string, unknown>)
-                    input = deepParseJson(rawInput) as Record<string, unknown>
-                  } catch {
-                    // If parsing fails, use empty object
-                  }
-
-                  const prompt =
-                    typeof input.prompt === 'string' ? input.prompt : undefined
-                  const agentParams = Object.fromEntries(
-                    Object.entries(input).filter(
-                      ([key, value]) =>
-                        !(key === 'prompt' && typeof value === 'string'),
-                    ),
-                  )
-
                   // Use the matching agent ID or corrected name with hyphens
                   const correctedAgentType =
                     matchingAgentId ??
@@ -909,16 +870,17 @@ export async function* promptAiSdkStream(
                       ? toolNameWithHyphens
                       : toolName)
 
-                  const spawnAgentsInput = {
-                    agents: [
-                      {
-                        agent_type: correctedAgentType,
-                        ...(prompt !== undefined && { prompt }),
-                        ...(Object.keys(agentParams).length > 0 && {
-                          params: agentParams,
-                        }),
-                      },
-                    ],
+                  const spawnAgentsInput =
+                    buildSpawnAgentsInputForDirectAgentCall({
+                      agentType: correctedAgentType,
+                      input: toolCall.input,
+                    })
+                  if (!spawnAgentsInput) {
+                    logger.warn(
+                      { originalToolName: toolName },
+                      'Could not safely parse direct agent tool input; leaving the original call for normal validation',
+                    )
+                    return toolCall
                   }
 
                   logger.info(

@@ -470,12 +470,12 @@ export const providerConfigFileSchema = z
     /** Explicit trust boundary for manifest-inferred commands. These may execute repository-controlled build scripts/plugins. Default is disabled; set true only for trusted projects. */
     autoFileChangeHooks: z.boolean().optional(),
     /**
-     * Maximum number of agent steps in a single run before the loop stops.
-     * Unset → MAX_AGENT_STEPS_DEFAULT. Raise it for large migrations; the
-     * runtime warns as the run approaches the cap so work can be checkpointed
-     * and resumed instead of stopping silently.
+     * Optional fixed agent-step cap. Unset or -1 means unlimited productive
+     * steps; a repeated-step watchdog still stops identical no-progress loops.
      */
-    maxAgentSteps: z.number().int().positive().max(100000).optional(),
+    maxAgentSteps: z
+      .union([z.literal(-1), z.number().int().positive().max(100000)])
+      .optional(),
   })
   .transform((config) => {
     const agents: Record<string, string> = {}
@@ -551,7 +551,7 @@ export const providerConfigFileSchema = z
         autoFileChangeHooks: config.autoFileChangeHooks,
       }),
       // Optional in the resolved config: omitted unless explicitly set, so
-      // callers fall back to MAX_AGENT_STEPS_DEFAULT.
+      // callers use the unlimited default plus the no-progress watchdog.
       ...(config.maxAgentSteps !== undefined && {
         maxAgentSteps: config.maxAgentSteps,
       }),

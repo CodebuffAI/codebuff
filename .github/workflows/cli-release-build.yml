@@ -308,6 +308,7 @@ jobs:
           for wasm in cli/bin/tree-sitter*.wasm; do
             FILES+=("$(basename "$wasm")")
           done
+          FILES+=(tree-sitter-manifest.json)
           if [[ "${{ matrix.legacy_macos == true }}" == "true" ]]; then
             FILES+=(libopentui.dylib rg)
           fi
@@ -461,6 +462,7 @@ jobs:
           for wasm in cli/bin/tree-sitter*.wasm; do
             FILES+=("$(basename "$wasm")")
           done
+          FILES+=(tree-sitter-manifest.json)
           tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "${FILES[@]}"
 
       - name: Upload binary artifact

@@ -54,7 +54,7 @@ export function findFilesMatchingContent({
 }: {
   projectPath: string
   pattern: string
-  flags?: string
+  flags?: string | string[]
   cwd?: string
   maxFiles?: number
   groupBySymbol?: boolean
@@ -98,6 +98,28 @@ export function findFilesMatchingContent({
       ])
     }
 
+    try {
+      if (!fs.statSync(searchCwdReal).isDirectory()) {
+        return resolve([
+          {
+            type: 'json',
+            value: {
+              errorMessage: `Invalid cwd: Path '${cwd ?? '.'}' is a file, but find_files_matching_content requires a directory. Use flags such as -g to restrict the search to a file.`,
+            },
+          },
+        ])
+      }
+    } catch {
+      return resolve([
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Invalid cwd: Path '${cwd ?? '.'}' does not exist or cannot be read. find_files_matching_content requires an existing directory.`,
+          },
+        },
+      ])
+    }
+
     if (!isPathInside(searchCwdReal, projectRootReal)) {
       return resolve([
         {
@@ -109,7 +131,9 @@ export function findFilesMatchingContent({
       ])
     }
 
-    const parsedFlags = parseSafeRipgrepFlags(flags || '')
+    const parsedFlags = parseSafeRipgrepFlags(flags || [], {
+      toolName: 'find_files_matching_content',
+    })
     if ('errorMessage' in parsedFlags) {
       return resolve([
         {
@@ -592,16 +616,35 @@ function isPathInside(candidate: string, root: string): boolean {
 }
 
 export function parseSafeRipgrepFlags(
-  flags: string,
+  flags: string | string[],
   options?: {
     /** Additional flags that take a value (e.g. -A/-B/-C context flags for code_search). */
     extraSwitchesWithValue?: string[]
     /** Additional standalone switches that take no value. */
     extraSwitchesWithoutValue?: string[]
+    /** Used to keep recovery guidance accurate for the calling tool. */
+    toolName?: 'code_search' | 'find_files_matching_content'
   },
 ): { flags: string[] } | { errorMessage: string } {
-  const tokens = splitFlagTokens(flags)
-  if (!tokens.ok) return { errorMessage: tokens.errorMessage }
+  const initialTokens = Array.isArray(flags)
+    ? { ok: true as const, tokens: flags }
+    : splitFlagTokens(flags)
+  if (!initialTokens.ok) return { errorMessage: initialTokens.errorMessage }
+
+  // Tolerate one accidental quote layer around the whole expression, e.g.
+  // flags: "'-t ts -g src/**'". Re-tokenize only when the first pass produced
+  // one switch-looking token containing whitespace; normal quoted glob values
+  // already produce a separate switch + value pair and are left untouched.
+  let tokenList = initialTokens.tokens
+  if (
+    tokenList.length === 1 &&
+    /^-/.test(tokenList[0]) &&
+    /\s/.test(tokenList[0])
+  ) {
+    const reparsed = splitFlagTokens(tokenList[0])
+    if (!reparsed.ok) return { errorMessage: reparsed.errorMessage }
+    tokenList = reparsed.tokens
+  }
 
   const result: string[] = []
   const switchesWithoutValue = new Set([
@@ -630,14 +673,14 @@ export function parseSafeRipgrepFlags(
     ...(options?.extraSwitchesWithValue ?? []),
   ])
 
-  for (let i = 0; i < tokens.tokens.length; i++) {
-    const token = tokens.tokens[i]
+  for (let i = 0; i < tokenList.length; i++) {
+    const token = tokenList[i]
     const eqIndex = token.indexOf('=')
     if (eqIndex > 0) {
       const name = token.slice(0, eqIndex)
       const value = token.slice(eqIndex + 1)
       if (!switchesWithValue.has(name)) {
-        return unsupportedFlag(token)
+        return unsupportedFlag(token, options?.toolName)
       }
       if (!value) {
         return {
@@ -654,7 +697,7 @@ export function parseSafeRipgrepFlags(
     }
 
     if (switchesWithValue.has(token)) {
-      const value = tokens.tokens[i + 1]
+      const value = tokenList[i + 1]
       if (value === undefined) {
         return {
           errorMessage: `Invalid ripgrep flag '${token}': missing value.`,
@@ -665,15 +708,22 @@ export function parseSafeRipgrepFlags(
       continue
     }
 
-    return unsupportedFlag(token)
+    return unsupportedFlag(token, options?.toolName)
   }
 
   return { flags: result }
 }
 
-function unsupportedFlag(token: string): { errorMessage: string } {
+function unsupportedFlag(
+  token: string,
+  toolName?: 'code_search' | 'find_files_matching_content',
+): { errorMessage: string } {
+  const recovery =
+    toolName === 'find_files_matching_content'
+      ? 'Use code_search only when you need its documented context flags.'
+      : 'Use only the documented safe flags; line numbers are already enabled automatically.'
   return {
-    errorMessage: `Unsupported ripgrep flag '${token}'. Allowed flags: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Use code_search for advanced ripgrep options.`,
+    errorMessage: `Unsupported ripgrep flag '${token}'. Allowed flags: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. ${recovery}`,
   }
 }
 

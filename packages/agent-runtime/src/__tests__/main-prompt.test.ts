@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { promptSuccess } from '@codebuff/common/util/error'
+import { userMessage } from '@codebuff/common/util/messages'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
@@ -345,15 +346,11 @@ describe('mainPrompt', () => {
     })
   })
 
-  it('should force end of response after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {
+  it('returns a resumable assistant checkpoint when the step cap is reached', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
 
-    // Set up message history with many consecutive assistant messages
     sessionState.mainAgentState.stepsRemaining = 0
-    sessionState.mainAgentState.messageHistory = [
-      { role: 'user', content: 'Initial prompt' },
-      ...Array(20).fill({ role: 'assistant', content: 'Assistant response' }),
-    ]
+    sessionState.mainAgentState.messageHistory = [userMessage('Initial prompt')]
 
     const action = {
       type: 'prompt' as const,
@@ -370,7 +367,42 @@ describe('mainPrompt', () => {
       action,
     })
 
-    expect(output.type).toBeDefined() // Output should exist
+    expect(output.type).toBe('lastMessage')
+    if (output.type === 'lastMessage') {
+      const checkpoint = output.value.at(-1)
+      expect(checkpoint?.role).toBe('assistant')
+      expect(checkpoint?.tags).toContain('STEP_CAP_REACHED')
+      expect(JSON.stringify(checkpoint?.content)).toContain(
+        'Agent step limit reached',
+      )
+      expect(JSON.stringify(checkpoint?.content)).not.toContain(
+        "I've made quite a few responses",
+      )
+    }
+  })
+
+  it('does not decrement or stop the default unlimited step sentinel', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+    expect(sessionState.mainAgentState.stepsRemaining).toBe(-1)
+    sessionState.mainAgentState.lastStepProgressSignature = 'sha256:stale'
+    sessionState.mainAgentState.repeatedStepProgressCount = 5
+
+    const { sessionState: nextState } = await mainPrompt({
+      ...mainPromptBaseParams,
+      action: {
+        type: 'prompt' as const,
+        prompt: 'Respond normally.',
+        sessionState,
+        fingerprintId: 'test',
+        costMode: 'max' as const,
+        promptId: 'test',
+        toolResults: [],
+      },
+      localAgentTemplates: mockLocalAgentTemplates,
+    })
+
+    expect(nextState.mainAgentState.stepsRemaining).toBe(-1)
+    expect(nextState.mainAgentState.repeatedStepProgressCount).toBe(0)
   })
 
   it('should update consecutiveAssistantMessages when new prompt is received', async () => {

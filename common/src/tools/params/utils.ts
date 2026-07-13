@@ -57,6 +57,44 @@ export function coerceToObject(val: unknown): unknown {
   return val
 }
 
+function parseJsonBounded(value: unknown, maxDepth = 3): unknown {
+  let parsed = value
+  for (let depth = 0; depth < maxDepth && typeof parsed === 'string'; depth++) {
+    try {
+      parsed = JSON.parse(parsed)
+    } catch {
+      return parsed
+    }
+  }
+  return parsed
+}
+
+/**
+ * Repairs the common spawn_agents encodings produced by tool-calling models:
+ * a stringified array, a double-stringified array, or stringified object
+ * entries. Malformed/truncated values remain untouched so Zod fails closed.
+ */
+export function normalizeSpawnAgentList(value: unknown): unknown {
+  const decoded = parseJsonBounded(value)
+  const entries = Array.isArray(decoded) ? decoded : [decoded]
+  return entries.map((entry) => {
+    const parsedEntry = parseJsonBounded(entry)
+    return parsedEntry !== null &&
+      typeof parsedEntry === 'object' &&
+      !Array.isArray(parsedEntry)
+      ? parsedEntry
+      : entry
+  })
+}
+
+const OBVIOUS_EDIT_PLACEHOLDER =
+  /^\s*[\[<{(]\s*(?:(?:see|use|same as|copy|paste|insert)\b[\s\S]*\b(?:above|below|patch|code|content|here)|(?:old|new|existing|current)\s+(?:code|content)\s+here)\s*[\]}>)]\s*$/i
+
+/** True only for explicit prose placeholders that can never be file content. */
+export function isObviousEditPlaceholder(value: string): boolean {
+  return OBVIOUS_EDIT_PLACEHOLDER.test(value)
+}
+
 /**
  * Handles common replacement-key aliases emitted by some models while keeping
  * the documented schema stable.

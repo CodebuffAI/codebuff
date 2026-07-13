@@ -116,6 +116,7 @@ const definition: AgentDefinition = {
      * threshold.
      */
     const DEFAULT_MAX_CONTEXT_LENGTH = 140_000
+    const SEMANTIC_CONTEXT_WINDOW_FRACTION = 0.7
 
     /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
     const CACHE_EXPIRY_MS: number = params?.cacheExpiryMs ?? 5 * 60 * 1000
@@ -136,10 +137,12 @@ const definition: AgentDefinition = {
     const KNOWLEDGE_MEMORY_MAX_FILES_INSPECTED = 25
     const KNOWLEDGE_MEMORY_MAX_EDITS = 25
     const KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS = 12
+    const KNOWLEDGE_MEMORY_MAX_REVIEW_RECEIPTS = 12
     const KNOWLEDGE_MEMORY_MAX_BLOCKERS = 8
     const KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS = 300
     const KNOWLEDGE_MEMORY_ENTRY_CHARS = 240
     const KNOWLEDGE_MEMORY_FILE_FINDING_CHARS = 160
+    const KNOWLEDGE_MEMORY_REVIEW_RECEIPT_CHARS = 1_200
     const TOOL_ERROR_DETAIL_CHARS = 1_200
     const EDIT_RESULT_DETAIL_CHARS = 2_000
 
@@ -435,8 +438,20 @@ const definition: AgentDefinition = {
     // =============================================================================
 
     const messages = agentState.messageHistory
+    const resolvedContextWindow = agentState.contextWindowTokens
+    const modelAwareDefaultContextLength =
+      typeof resolvedContextWindow === 'number' &&
+      Number.isFinite(resolvedContextWindow) &&
+      resolvedContextWindow > 0
+        ? Math.max(
+            1,
+            Math.floor(
+              resolvedContextWindow * SEMANTIC_CONTEXT_WINDOW_FRACTION,
+            ),
+          )
+        : DEFAULT_MAX_CONTEXT_LENGTH
     const maxContextLength: number =
-      params?.maxContextLength ?? DEFAULT_MAX_CONTEXT_LENGTH
+      params?.maxContextLength ?? modelAwareDefaultContextLength
 
     // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
     // (these are inserted for the context-pruner subagent itself)
@@ -460,7 +475,32 @@ const definition: AgentDefinition = {
       const lastUserPromptIndex = currentMessages.findLastIndex((message) =>
         message.tags?.includes('USER_PROMPT'),
       )
-      if (lastUserPromptIndex !== -1) {
+      const candidate =
+        lastUserPromptIndex !== -1
+          ? currentMessages[lastUserPromptIndex]
+          : undefined
+      const candidateText = candidate
+        ? getTextContent(candidate)
+            .trim()
+            .replace(/^<user_message>\s*/i, '')
+            .replace(/\s*<\/user_message>$/i, '')
+        : ''
+      let isParamsPrompt = false
+      if (candidateText) {
+        try {
+          const parsed = JSON.parse(candidateText)
+          isParamsPrompt =
+            parsed !== null &&
+            typeof parsed === 'object' &&
+            !Array.isArray(parsed) &&
+            Object.keys(parsed).some((key) =>
+              Object.prototype.hasOwnProperty.call(params, key),
+            )
+        } catch {
+          isParamsPrompt = false
+        }
+      }
+      if (lastUserPromptIndex !== -1 && isParamsPrompt) {
         currentMessages.splice(lastUserPromptIndex, 1)
       }
     }
@@ -648,6 +688,7 @@ const definition: AgentDefinition = {
       filesInspected: string[] // "path: finding"
       editsMade: string[] // "path: summary"
       validationResults: string[]
+      reviewReceipts: string[]
       blockers: string[]
       nextAction: string
     }
@@ -659,6 +700,7 @@ const definition: AgentDefinition = {
         filesInspected: [],
         editsMade: [],
         validationResults: [],
+        reviewReceipts: [],
         blockers: [],
         nextAction: '',
       }
@@ -681,7 +723,7 @@ const definition: AgentDefinition = {
       const block = blockMatch[1]
 
       const goalMatch = block.match(
-        /Goal:\s*([\s\S]*?)(?=\nDecisions:|\nFiles Inspected:|\nEdits Made:|\nValidation Results:|\nBlockers:|\nNext Action:|$)/,
+        /Goal:\s*([\s\S]*?)(?=\nDecisions:|\nFiles Inspected:|\nEdits Made:|\nValidation Results:|\nReview Receipts:|\nBlockers:|\nNext Action:|$)/,
       )
       if (goalMatch) km.goal = goalMatch[1].trim()
 
@@ -691,7 +733,7 @@ const definition: AgentDefinition = {
       // literal, `\s` becomes a literal `s`, which silently breaks parsing
       // and causes structured fields to be lost on re-compaction.
       const SECTION_RE =
-        /^(Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):\s*([\s\S]*?)(?=\n(?:Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):|(?![\s\S]))/gm
+        /^(Goal|Decisions|Files Inspected|Edits Made|Validation Results|Review Receipts|Blockers|Next Action):\s*([\s\S]*?)(?=\n(?:Goal|Decisions|Files Inspected|Edits Made|Validation Results|Review Receipts|Blockers|Next Action):|(?![\s\S]))/gm
       let sectionMatch: RegExpExecArray | null
       while ((sectionMatch = SECTION_RE.exec(block)) !== null) {
         const header = sectionMatch[1]
@@ -712,6 +754,8 @@ const definition: AgentDefinition = {
           km.editsMade = items
         } else if (header === 'Validation Results') {
           km.validationResults = items
+        } else if (header === 'Review Receipts') {
+          km.reviewReceipts = items
         } else if (header === 'Blockers') {
           km.blockers = items
         }
@@ -1050,17 +1094,20 @@ const definition: AgentDefinition = {
           Array.isArray(
             (value.authorityReceipt as Record<string, unknown>).actions,
           ) &&
-          ((value.authorityReceipt as Record<string, unknown>)
-            .actions as unknown[]).length === value.actions.length &&
+          (
+            (value.authorityReceipt as Record<string, unknown>)
+              .actions as unknown[]
+          ).length === value.actions.length &&
           value.actions.every(
             (action, index) =>
               isRecord(action) &&
               action.index === index &&
               typeof action.actionId === 'string' &&
               typeof action.path === 'string' &&
-              (((value.authorityReceipt as Record<string, unknown>)
-                .actions as Array<Record<string, unknown>>)[index]?.actionId ===
-                action.actionId),
+              (
+                (value.authorityReceipt as Record<string, unknown>)
+                  .actions as Array<Record<string, unknown>>
+              )[index]?.actionId === action.actionId,
           ) &&
           Array.isArray(value.errors) &&
           Array.isArray(value.freshCapabilities)
@@ -1124,6 +1171,11 @@ const definition: AgentDefinition = {
           -KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS,
         )
       }
+      if (km.reviewReceipts.length > KNOWLEDGE_MEMORY_MAX_REVIEW_RECEIPTS) {
+        km.reviewReceipts = km.reviewReceipts.slice(
+          -KNOWLEDGE_MEMORY_MAX_REVIEW_RECEIPTS,
+        )
+      }
       if (km.blockers.length > KNOWLEDGE_MEMORY_MAX_BLOCKERS) {
         km.blockers = km.blockers.slice(-KNOWLEDGE_MEMORY_MAX_BLOCKERS)
       }
@@ -1144,20 +1196,35 @@ const definition: AgentDefinition = {
       km.validationResults = km.validationResults.map((e) =>
         capEntry(e, KNOWLEDGE_MEMORY_ENTRY_CHARS),
       )
+      km.reviewReceipts = km.reviewReceipts.map((e) =>
+        capEntry(e, KNOWLEDGE_MEMORY_REVIEW_RECEIPT_CHARS),
+      )
       km.blockers = km.blockers.map((e) =>
         capEntry(e, KNOWLEDGE_MEMORY_ENTRY_CHARS),
       )
     }
 
-    /** Detect goal from the earliest substantive user message. */
+    /** Detect the latest substantive user request or override. */
     function extractGoalFromMessages(): string {
-      for (const message of messagesToSummarize) {
-        if (message.role !== 'user') continue
+      const candidates = [
+        ...(latestLiveUserPromptMessage ? [latestLiveUserPromptMessage] : []),
+        ...messagesToSummarize,
+      ].filter((message) => message.role === 'user')
+      const taggedCandidates = candidates
+        .filter((message) => message.tags?.includes('USER_PROMPT'))
+        .reverse()
+      const ordered =
+        taggedCandidates.length > 0
+          ? taggedCandidates
+          : [...candidates].reverse()
+      for (const message of ordered) {
         const text = sanitizeOperationalStateText(getTextContent(message))
         if (!text) continue
         // Skip tool-result-style user messages and system tags
         if (text.startsWith('[USER]')) continue
         if (text.startsWith('<')) continue
+        if (text === CONTINUATION_PROMPT_TEXT) continue
+        if (/^(?:Reviewer|Verification|Harness) gate:/i.test(text)) continue
         const truncated = truncateLongText(
           text,
           KNOWLEDGE_MEMORY_MAX_GOAL_CHARS * CHARS_PER_TOKEN,
@@ -1167,6 +1234,96 @@ const definition: AgentDefinition = {
           .trim()
       }
       return ''
+    }
+
+    function extractNextActionFromRuntimeState(pinnedLines: string[]): string {
+      const activeWork = agentState.base2ActiveWork
+      if (activeWork && typeof activeWork === 'object') {
+        const nextRequiredAction = activeWork.nextRequiredAction
+        if (
+          typeof nextRequiredAction === 'string' &&
+          nextRequiredAction.trim()
+        ) {
+          return nextRequiredAction.trim()
+        }
+        const workflow = activeWork.workflowTodoProgress
+        if (workflow && typeof workflow === 'object') {
+          const nextWorkflowAction = (workflow as Record<string, unknown>)
+            .nextWorkflowAction
+          if (
+            typeof nextWorkflowAction === 'string' &&
+            nextWorkflowAction.trim()
+          ) {
+            return nextWorkflowAction.trim()
+          }
+        }
+        // Runtime state is authoritative: an explicitly empty next action
+        // clears stale action text retained in an older summary.
+        return ''
+      }
+      for (let index = pinnedLines.length - 1; index >= 0; index--) {
+        const match = pinnedLines[index].match(
+          /^(?:Next required action|Next workflow action):\s*(.+)$/i,
+        )
+        if (match?.[1]) return match[1].trim()
+      }
+      return ''
+    }
+
+    function findStructuredReviewerOutput(
+      value: unknown,
+    ): Record<string, unknown> | null {
+      if (!value) return null
+      if (Array.isArray(value)) {
+        for (let index = value.length - 1; index >= 0; index--) {
+          const found = findStructuredReviewerOutput(value[index])
+          if (found) return found
+        }
+        return null
+      }
+      if (typeof value !== 'object') return null
+      const record = value as Record<string, unknown>
+      if (record.type === 'json' && 'value' in record) {
+        return findStructuredReviewerOutput(record.value)
+      }
+      if (
+        typeof record.verdict === 'string' &&
+        ['LOOKS_GOOD', 'NON_BLOCKING', 'BLOCKING'].includes(
+          record.verdict.trim().toUpperCase(),
+        )
+      ) {
+        return record
+      }
+      for (const nested of Object.values(record)) {
+        const found = findStructuredReviewerOutput(nested)
+        if (found) return found
+      }
+      return null
+    }
+
+    function formatStructuredReviewReceipt(
+      agentType: string,
+      value: unknown,
+    ): string {
+      const record = findStructuredReviewerOutput(value)
+      if (!record) return ''
+      const verdict = String(record.verdict).trim().toUpperCase()
+      const fingerprint =
+        typeof record.snapshotFingerprint === 'string'
+          ? record.snapshotFingerprint
+          : '(legacy/unattested)'
+      const coverage =
+        typeof record.coverage === 'string' ? record.coverage : 'n/a'
+      const findingIds = Array.isArray(record.findings)
+        ? record.findings.flatMap((finding) =>
+            finding &&
+            typeof finding === 'object' &&
+            typeof (finding as Record<string, unknown>).id === 'string'
+              ? [(finding as Record<string, string>).id]
+              : [],
+          )
+        : []
+      return `${agentType}: verdict=${verdict}; snapshot=${fingerprint}; coverage=${coverage}; findingIds=${findingIds.join(',') || '(none)'}`
     }
 
     /** Detect decision lines from assistant text (heuristic: lines starting with decision markers). */
@@ -1317,6 +1474,13 @@ const definition: AgentDefinition = {
         sections.push(
           `Validation Results:\n${km.validationResults
             .map((v) => `  - ${v}`)
+            .join('\n')}`,
+        )
+      }
+      if (km.reviewReceipts.length > 0) {
+        sections.push(
+          `Review Receipts:\n${km.reviewReceipts
+            .map((receipt) => `  - ${receipt}`)
             .join('\n')}`,
         )
       }
@@ -1619,12 +1783,33 @@ const definition: AgentDefinition = {
 
     // M5: Initialize structured knowledge memory from previous summary
     const knowledgeMemory = extractPreviousKnowledgeMemory()
-    if (!knowledgeMemory.goal) {
-      knowledgeMemory.goal = extractGoalFromMessages()
-    }
+    knowledgeMemory.goal = extractGoalFromMessages() || knowledgeMemory.goal
+    knowledgeMemory.nextAction = extractNextActionFromRuntimeState(
+      pinnedActiveWorkLines,
+    )
 
     const toolResultValuesByCallId = new Map<string, unknown[]>()
+    const toolInputsByCallId = new Map<
+      string,
+      { toolName: string; input: Record<string, unknown> }
+    >()
     for (const message of messagesToSummarize) {
+      if (message.role === 'assistant' && Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (
+            part.type === 'tool-call' &&
+            typeof part.toolCallId === 'string'
+          ) {
+            toolInputsByCallId.set(part.toolCallId, {
+              toolName: String(part.toolName),
+              input:
+                part.input && typeof part.input === 'object'
+                  ? (part.input as Record<string, unknown>)
+                  : {},
+            })
+          }
+        }
+      }
       if (message.role !== 'tool') continue
       const toolMessage = message as ToolMessage
       const values = toolResultValuesByCallId.get(toolMessage.toolCallId) ?? []
@@ -1880,10 +2065,28 @@ const definition: AgentDefinition = {
                 )
               }
               for (const reviewerResult of reviewerResults) {
+                const receipt = formatStructuredReviewReceipt(
+                  reviewerResult.agentType ?? 'reviewer',
+                  reviewerResult.value?.value,
+                )
                 const findingSummary = extractReviewerFindingSummary(
                   reviewerResult.value?.value,
                 )
-                if (findingSummary) {
+                if (receipt) {
+                  addUniqueEntry(knowledgeMemory.reviewReceipts, receipt)
+                  entryParts.push(`Review receipt: ${receipt}`)
+                }
+                const structured = findStructuredReviewerOutput(
+                  reviewerResult.value?.value,
+                )
+                const verdict =
+                  typeof structured?.verdict === 'string'
+                    ? structured.verdict.trim().toUpperCase()
+                    : ''
+                if (
+                  findingSummary &&
+                  (verdict === 'BLOCKING' || structured === null)
+                ) {
                   addUniqueEntry(
                     knowledgeMemory.blockers,
                     `${reviewerResult.agentType}: ${findingSummary}`,
@@ -1927,6 +2130,32 @@ const definition: AgentDefinition = {
           }
         }
 
+        if (toolMessage.toolName === 'spawn_agent_inline') {
+          const spawnCall = toolInputsByCallId.get(toolMessage.toolCallId)
+          const agentType =
+            typeof spawnCall?.input.agent_type === 'string'
+              ? spawnCall.input.agent_type
+              : 'inline-reviewer'
+          const receipt = formatStructuredReviewReceipt(agentType, resultValues)
+          if (receipt) {
+            addUniqueEntry(knowledgeMemory.reviewReceipts, receipt)
+            entryParts.push(`Review receipt: ${receipt}`)
+            const structured = findStructuredReviewerOutput(resultValues)
+            if (
+              typeof structured?.verdict === 'string' &&
+              structured.verdict.trim().toUpperCase() === 'BLOCKING'
+            ) {
+              const findingSummary = extractReviewerFindingSummary(resultValues)
+              if (findingSummary) {
+                addUniqueEntry(
+                  knowledgeMemory.blockers,
+                  `${agentType}: ${findingSummary}`,
+                )
+              }
+            }
+          }
+        }
+
         if (entryParts.length > 0) {
           const joinedToolEntry = truncateLongText(
             entryParts.join('\n\n'),
@@ -1957,7 +2186,8 @@ const definition: AgentDefinition = {
     let assistantToolTokens = 0
     let userTokens = 0
     let toolFactsTokens = 0
-    let cutoffIndex = 0
+    const includeEntry = new Array(allEntries.length).fill(false)
+    const saturatedRoles = new Set<'user' | 'assistant_tool' | 'tool_facts'>()
 
     for (let i = allEntries.length - 1; i >= 0; i--) {
       const entry = allEntries[i]
@@ -1965,24 +2195,28 @@ const definition: AgentDefinition = {
       const entryTokens = Math.ceil(entryText.length / CHARS_PER_TOKEN)
 
       if (entry.role === 'user') {
+        if (saturatedRoles.has('user')) continue
         if (userTokens + entryTokens > userBudget) {
-          cutoffIndex = i + 1
-          break
+          saturatedRoles.add('user')
+          continue
         }
         userTokens += entryTokens
       } else if (entry.role === 'tool_facts') {
+        if (saturatedRoles.has('tool_facts')) continue
         if (toolFactsTokens + entryTokens > toolFactsBudget) {
-          cutoffIndex = i + 1
-          break
+          saturatedRoles.add('tool_facts')
+          continue
         }
         toolFactsTokens += entryTokens
       } else {
+        if (saturatedRoles.has('assistant_tool')) continue
         if (assistantToolTokens + entryTokens > assistantToolBudget) {
-          cutoffIndex = i + 1
-          break
+          saturatedRoles.add('assistant_tool')
+          continue
         }
         assistantToolTokens += entryTokens
       }
+      includeEntry[i] = true
     }
 
     // Phase 3: Build final summary from included entries
@@ -2011,8 +2245,8 @@ const definition: AgentDefinition = {
       summaryParts.push(knowledgeMemoryBlock)
     }
 
-    for (let i = cutoffIndex; i < allEntries.length; i++) {
-      summaryParts.push(...allEntries[i].parts)
+    for (let i = 0; i < allEntries.length; i++) {
+      if (includeEntry[i]) summaryParts.push(...allEntries[i].parts)
     }
 
     // Fallback: if nothing fit within budgets, always include at least the newest entry

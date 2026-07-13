@@ -14,6 +14,7 @@ import { handleLookupAgentInfo } from '../tools/handlers/tool/lookup-agent-info'
 import {
   ensureZodSchema,
   buildToolDescription,
+  getToolsInstructions,
   getToolSet,
 } from '../tools/prompts'
 
@@ -28,6 +29,17 @@ const createMockLogger = () => ({
 })
 
 describe('Schema handling error recovery', () => {
+  describe('mutation tool instructions', () => {
+    test('adds self-contained edit guidance only for mutation-capable agents', () => {
+      const mutationPrompt = getToolsInstructions(['str_replace'], {})
+      const readOnlyPrompt = getToolsInstructions(['read_files'], {})
+
+      expect(mutationPrompt).toContain('Deterministic Editing Discipline')
+      expect(mutationPrompt).toContain('[see patch above]')
+      expect(readOnlyPrompt).not.toContain('Deterministic Editing Discipline')
+    })
+  })
+
   describe('/compact prompt schema', () => {
     test('prescribes the structured knowledge-memory fields (M8 regression)', () => {
       const prompt = additionalSystemPrompts['/compact']
@@ -137,6 +149,33 @@ describe('Schema handling error recovery', () => {
 
       // Should return a valid schema
       expect(() => z.toJSONSchema(inputSchema, { io: 'input' })).not.toThrow()
+    })
+  })
+
+  describe('direct agent control envelope', () => {
+    test('exposes background and timeout controls for every direct agent tool', () => {
+      const schema = buildAgentToolInputSchema({
+        id: 'editor',
+        displayName: 'Editor',
+        inputSchema: { prompt: z.string() },
+        outputMode: 'last_message',
+        includeMessageHistory: false,
+        inheritParentSystemPrompt: false,
+        mcpServers: {},
+        toolNames: [],
+        spawnableAgents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      } as AgentTemplate)
+
+      expect(
+        schema.safeParse({
+          prompt: 'Implement it',
+          background: true,
+          timeout_seconds: 120,
+        }).success,
+      ).toBe(true)
     })
   })
 
@@ -285,6 +324,32 @@ describe('Schema handling error recovery', () => {
               agent_type: 'openbuff/basher@1.0.0',
               prompt: 'Run pwd',
               params: null,
+            },
+          ],
+        },
+      })
+    })
+
+    test('preserves background and timeout controls on direct agent tool calls', () => {
+      const transformed = tryTransformAgentToolCall({
+        toolName: 'editor',
+        input: {
+          prompt: 'Implement the change',
+          background: true,
+          timeout_seconds: 90,
+        },
+        spawnableAgents: ['openbuff/editor@1.0.0'],
+      })
+
+      expect(transformed).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'openbuff/editor@1.0.0',
+              prompt: 'Implement the change',
+              background: true,
+              timeout_seconds: 90,
             },
           ],
         },

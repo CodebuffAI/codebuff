@@ -32,6 +32,7 @@ First public release of `@openbuff/sdk` (forked lineage from Codebuff SDK; see `
 
 ### Changed
 
+- Agent runs no longer have a fixed step cap by default. Unset or `-1` `maxAgentSteps` means unlimited productive steps; a repeated-step watchdog stops six identical no-progress patterns while cancellation, subagent timeouts, budgets, spawn-depth limits, and context compaction remain active.
 - Removed `isLocalMode` / `localMode` flag and the `LOCAL_MODE_API_KEY` sentinel; local-mode plumbing and hosted-backend DB/auth/email surfaces purged.
 - Debug-log message history capped to the last 50 messages to bound memory.
 - Removed dead `_sendSubagentChunk` and per-iteration `cloneDeep`.

@@ -516,7 +516,7 @@ export const markAgentFailed = (
   updateBlocksRecursively(blocks, agentId, (block) => {
     if (block.type !== 'agent' || block.status === 'cancelled') return block
     const closedBlocks = block.blocks
-      ? closeNativeReasoningBlock(block.blocks)
+      ? markRunningToolsAsFailed(closeNativeReasoningBlock(block.blocks))
       : []
     return {
       ...block,
@@ -532,6 +532,28 @@ export const markAgentFailed = (
           ]
         : closedBlocks,
     }
+  })
+
+/** Mark every unresolved tool call failed without changing terminal calls. */
+export const markRunningToolsAsFailed = (
+  blocks: ContentBlock[],
+): ContentBlock[] =>
+  blocks.map((block) => {
+    if (block.type === 'tool') {
+      if (
+        block.lifecycle === 'succeeded' ||
+        block.lifecycle === 'failed' ||
+        block.lifecycle === 'cancelled' ||
+        block.outputRaw !== undefined
+      ) {
+        return block
+      }
+      return { ...block, queued: false, lifecycle: 'failed' as const }
+    }
+    if (block.type === 'agent' && block.blocks) {
+      return { ...block, blocks: markRunningToolsAsFailed(block.blocks) }
+    }
+    return block
   })
 
 /** Mark every unresolved tool call terminal without changing completed calls. */

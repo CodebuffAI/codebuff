@@ -80,6 +80,22 @@ describe('model-provider', () => {
   })
 
   describe('custom provider config', () => {
+    test('accepts explicit unlimited maxAgentSteps mode', () => {
+      const result = providerConfigFileSchema.safeParse({
+        maxAgentSteps: -1,
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.maxAgentSteps).toBe(-1)
+      }
+    })
+
+    test('rejects zero as an ambiguous maxAgentSteps value', () => {
+      expect(
+        providerConfigFileSchema.safeParse({ maxAgentSteps: 0 }).success,
+      ).toBe(false)
+    })
+
     test('recommends only empirically measured models for the requested coding context', () => {
       const parsed = providerConfigFileSchema.parse({
         providers: {

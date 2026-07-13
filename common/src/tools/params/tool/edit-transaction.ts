@@ -3,6 +3,7 @@ import z from 'zod/v4'
 import {
   $getNativeToolCallExampleString,
   coerceToArray,
+  isObviousEditPlaceholder,
   jsonToolResultSchema,
   normalizeReplacementAliases,
   normalizeReplacementList,
@@ -51,6 +52,22 @@ const replacementSchema = z.preprocess(
         ),
     })
     .superRefine((replacement, ctx) => {
+      if (isObviousEditPlaceholder(replacement.oldString)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['oldString'],
+          message:
+            'oldString is an explicit placeholder, not file content. Copy exact current text from read_files or use replace_range with a fresh expectedHash.',
+        })
+      }
+      if (isObviousEditPlaceholder(replacement.newString)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['newString'],
+          message:
+            'newString is an explicit placeholder, not replacement content. Provide the complete intended text.',
+        })
+      }
       if (replacement.skipIfMissing && replacement.newString !== '') {
         ctx.addIssue({
           code: 'custom',
@@ -141,7 +158,12 @@ const structuredEditSchema = editBaseSchema.extend({
 
 const createFileEditSchema = editBaseSchema.extend({
   type: z.literal('create'),
-  content: z.string().describe('Exact bytes to write to the new file.'),
+  content: z
+    .string()
+    .refine((value) => !isObviousEditPlaceholder(value), {
+      message: 'content is an explicit placeholder; provide exact file bytes.',
+    })
+    .describe('Exact bytes to write to the new file.'),
 })
 
 const deleteFileEditSchema = editBaseSchema.extend({
@@ -162,7 +184,10 @@ const replaceRangeEditSchema = editBaseSchema
     startLine: z.number().int().min(1),
     endLine: z.number().int().min(1),
     expectedHash: z.string().min(1),
-    newContent: z.string(),
+    newContent: z.string().refine((value) => !isObviousEditPlaceholder(value), {
+      message:
+        'newContent is an explicit placeholder; provide the complete range replacement.',
+    }),
   })
   .refine((edit) => edit.startLine <= edit.endLine, {
     message: 'startLine must be <= endLine',
@@ -171,18 +196,28 @@ const replaceRangeEditSchema = editBaseSchema
 const rewriteSymbolEditSchema = editBaseSchema.extend({
   type: z.literal('rewrite_symbol'),
   symbol: z.string().min(1),
-  content: z.string(),
+  content: z.string().refine((value) => !isObviousEditPlaceholder(value), {
+    message:
+      'content is an explicit placeholder; provide the complete symbol source.',
+  }),
   occurrence: z.number().int().positive().optional(),
 })
 
 const patchEditSchema = editBaseSchema.extend({
   type: z.literal('patch'),
-  diff: z.string().min(1),
+  diff: z
+    .string()
+    .min(1)
+    .refine((value) => !isObviousEditPlaceholder(value), {
+      message: 'diff is an explicit placeholder; provide the complete patch.',
+    }),
 })
 
 const writeFileEditSchema = editBaseSchema.extend({
   type: z.literal('write_file'),
-  content: z.string(),
+  content: z.string().refine((value) => !isObviousEditPlaceholder(value), {
+    message: 'content is an explicit placeholder; provide exact file bytes.',
+  }),
 })
 
 export const transactionEditSchema = z.discriminatedUnion('type', [
@@ -246,6 +281,7 @@ const description = `
 Use this tool when related edits across one or more files should be preflighted together before applying, such as updating a utility and its tests together.
 
 Important:
+- Never use prose placeholders such as "[see patch above]" in any edit. Each oldString must contain exact current file content and each newString/content/diff field must contain the complete intended bytes. Placeholder calls are rejected before they can consume a valid read authorization.
 - The transaction preflights every edit against in-memory file contents first.
 - If ANY edit fails during preflight, NO files are changed.
 - Every per-file edit is atomic during preflight, including small files.

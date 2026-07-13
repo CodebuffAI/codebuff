@@ -234,8 +234,8 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
 
       // Keep stepping while the model is still emitting edit tool calls so it
       // can implement multi-file changes and recover from failed str_replaces.
-      // Unbounded: stepsRemaining (default 200, configurable via maxAgentSteps
-      // in openbuff.json) already prevents runaway loops.
+      // Productive steps are unlimited by default. The runtime's repeated-step
+      // watchdog, cancellation, budgets, and subagent timeout bound runaway work.
       while (true) {
         const result = yield 'STEP'
         agentState = result.agentState
@@ -435,7 +435,7 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         files: Set<string>,
       ): void {
         const targetFilesSection = text.match(
-          /(?:^|\n)\s*Target files?:\s*\n([\s\S]*?)(?=\n\s*\S[^\n]*:|$)/i,
+          /(?:^|\n)\s*(?:#{1,4}\s+)?Target files?\s*:?\s*\n([\s\S]*?)(?=\n\s*(?:#{1,4}\s+\S|\S[^\n]*:)|$)/i,
         )
         if (targetFilesSection) {
           for (const line of targetFilesSection[1].split(/\r?\n/)) {

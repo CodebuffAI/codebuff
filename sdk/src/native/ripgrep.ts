@@ -1,10 +1,20 @@
-import { constants, existsSync, accessSync } from 'fs'
+import { constants, accessSync, statSync } from 'fs'
 import { join, dirname, delimiter } from 'path'
 import { fileURLToPath } from 'url'
 
 import { getSdkEnv } from '../env'
 
 import type { SdkEnv } from '../types/env'
+
+function isExecutableFile(candidate: string): boolean {
+  try {
+    if (!statSync(candidate).isFile()) return false
+    accessSync(candidate, constants.X_OK)
+    return true
+  } catch {
+    return false
+  }
+}
 
 function findExecutableOnPath(binaryName: string, env: SdkEnv): string | null {
   const pathEnv = env.PATH
@@ -13,10 +23,7 @@ function findExecutableOnPath(binaryName: string, env: SdkEnv): string | null {
   for (const dir of pathEnv.split(delimiter)) {
     if (!dir) continue
     const candidate = join(dir, binaryName)
-    try {
-      accessSync(candidate, constants.X_OK)
-      return candidate
-    } catch {}
+    if (isExecutableFile(candidate)) return candidate
   }
 
   return null
@@ -33,7 +40,7 @@ export function getBundledRgPath(
 ): string {
   // Allow override via environment variable, but do not return a stale path.
   // If the configured binary is missing, continue to bundled/PATH fallbacks.
-  if (env.CODEBUFF_RG_PATH && existsSync(env.CODEBUFF_RG_PATH)) {
+  if (env.CODEBUFF_RG_PATH && isExecutableFile(env.CODEBUFF_RG_PATH)) {
     return env.CODEBUFF_RG_PATH
   }
 
@@ -79,7 +86,7 @@ export function getBundledRgPath(
       platformDir,
       binaryName,
     )
-    if (existsSync(devPath)) {
+    if (isExecutableFile(devPath)) {
       vendorPath = devPath
     }
 
@@ -91,7 +98,7 @@ export function getBundledRgPath(
       platformDir,
       binaryName,
     )
-    if (existsSync(distPath)) {
+    if (isExecutableFile(distPath)) {
       vendorPath = distPath
     }
   }
@@ -113,7 +120,7 @@ export function getBundledRgPath(
         platformDir,
         binaryName,
       )
-      if (existsSync(cjsPath)) {
+      if (isExecutableFile(cjsPath)) {
         vendorPath = cjsPath
       }
       const cjsPath2 = join(
@@ -123,13 +130,13 @@ export function getBundledRgPath(
         platformDir,
         binaryName,
       )
-      if (existsSync(cjsPath2)) {
+      if (isExecutableFile(cjsPath2)) {
         vendorPath = cjsPath2
       }
     }
   }
 
-  if (vendorPath && existsSync(vendorPath)) {
+  if (vendorPath && isExecutableFile(vendorPath)) {
     return vendorPath
   }
 
@@ -150,7 +157,7 @@ export function getBundledRgPath(
     platformDir,
     binaryName,
   )
-  if (existsSync(distVendorPath)) {
+  if (isExecutableFile(distVendorPath)) {
     return distVendorPath
   }
 

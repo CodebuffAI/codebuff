@@ -19,6 +19,30 @@ export type Base2WorkflowTodoProgress = {
   nextWorkflowAction: string
 }
 
+export type Base2ReviewReceipt = {
+  gateId: string
+  reviewer: string
+  verdict: 'LOOKS_GOOD' | 'NON_BLOCKING'
+  snapshotFingerprint: string
+  reviewedFiles: string[]
+  coverage?: 'covered' | 'missing' | 'n/a'
+  dimensions: Record<string, string>
+  findings: Array<{
+    id: string
+    text: string
+    severity?: string
+    dimension?: string
+    evidence: string[]
+    correction?: string
+  }>
+  requirementCoverage: Array<{
+    requirement: string
+    status: string
+    evidence: string[]
+  }>
+  recordedAt: string
+}
+
 // Typed runtime-owned gate state. Field names are kept identical to the
 // historical Base2ActiveWorkState shape so existing serialized
 // base2ActiveWork objects keep round-tripping. The new
@@ -147,6 +171,8 @@ export type Base2ActiveWorkState = Base2GateState & {
   docWriterGateDone?: boolean
   /** Reviewer-family specialist gates completed for the current pending set. */
   specialistReviewGatesDone?: string[]
+  /** Compact source-backed receipts from successful reviewer passes. */
+  reviewReceipts?: Base2ReviewReceipt[]
   /**
    * M3 (R1d) — snapshot of the pendingGateFiles used to detect that the
    * pending gate file set has changed, so the three aux-gate done-flags above

@@ -2733,8 +2733,14 @@ describe('read_files edit-state recovery', () => {
       expect(applied).toBe(false)
       expect(result.output[0]?.type).toBe('json')
       if (result.output[0]?.type === 'json') {
-        const value = result.output[0].value as { errorMessage?: string }
+        const value = result.output[0].value as {
+          errorMessage?: string
+          failures?: Array<{ errorMessage?: string }>
+        }
         expect(String(value.errorMessage)).toContain(
+          'Atomic edit_transaction aborted during preflight at edit 1 of 1',
+        )
+        expect(String(value.failures?.[0]?.errorMessage)).toContain(
           'basedOnRead did not match the current file content',
         )
       }

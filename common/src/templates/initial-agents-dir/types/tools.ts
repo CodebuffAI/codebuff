@@ -271,8 +271,8 @@ export interface CheckJobParams {
 export interface CodeSearchParams {
   /** The pattern to search for. */
   pattern: string
-  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match). */
-  flags?: string
+  /** Optional ripgrep flags as one string or argv tokens (e.g., "-i -g *.ts -g *.js" or ["-i", "-g", "*.ts"]). JSON quotes delimit the string; do not embed another quote pair around the entire expression. Line numbers are automatic. */
+  flags?: string | string[]
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
   /** Maximum number of results to return per file. Defaults to 15. There is also a global limit of 250 results across all files. */
@@ -436,8 +436,8 @@ export interface FindFilesParams {
 export interface FindFilesMatchingContentParams {
   /** Regex pattern (ripgrep syntax) to match file content against. */
   pattern: string
-  /** Optional safe ripgrep flags. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Examples: "-i", "-g *.ts -g *.tsx", "-g !*.test.ts", "-F". Use code_search for advanced ripgrep options. */
-  flags?: string
+  /** Optional safe ripgrep flags as one string or argv tokens. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Examples: "-g *.ts -g *.tsx" or ["-g", "*.ts", "-g", "*.tsx"]. Do not quote the entire expression inside the JSON string. */
+  flags?: string | string[]
   /** Optional working directory to search within, relative to the project root. Defaults to the project root. */
   cwd?: string
   /** Maximum number of unique files to return. Defaults to 100. */
@@ -1093,8 +1093,8 @@ export interface SpawnAgentsParams {
       searchQueries?: {
         /** The pattern to search for */
         pattern: string
-        /** Optional ripgrep flags (e.g., "-i", "-g *.ts") */
-        flags?: string
+        /** Optional ripgrep flags as one string or argv tokens (e.g. "-i -g *.ts" or ["-i", "-g", "*.ts"]). Do not quote the entire expression inside the JSON string. */
+        flags?: string | string[]
         /** Optional working directory relative to project root */
         cwd?: string
         /** Max results per file. Default 15 */

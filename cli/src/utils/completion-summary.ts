@@ -70,10 +70,12 @@ export function computeCompletionSummary(
     'edited' | 'failed' | 'unconfirmed' | 'rolled_back' | 'rollback_incomplete'
   >()
 
-  function walk(children: ContentBlock[]) {
+  function walk(children: ContentBlock[], insideAgent = false): number {
+    let countedErrors = 0
     for (const block of children) {
       if (block.type === 'tool') {
-        if (isEditToolBlock(block)) {
+        const isEdit = isEditToolBlock(block)
+        if (isEdit) {
           const canonical = getCanonicalMutationResult(block.outputRaw)
           if (canonical) {
             const confirmed = new Set(
@@ -151,8 +153,17 @@ export function computeCompletionSummary(
         }
 
         // Detect errors from tool output
-        if (block.outputRaw && isErrorOutput(block)) {
+        // Edit failures already have a dedicated per-file outcome above.
+        // Counting them again as generic errors made recoverable edit retries
+        // dominate the completion summary.
+        if (
+          !insideAgent &&
+          !isEdit &&
+          block.outputRaw &&
+          isErrorOutput(block)
+        ) {
           summary.errors++
+          countedErrors++
         }
       }
 
@@ -172,9 +183,6 @@ export function computeCompletionSummary(
           if (block.status === 'failed') summary.auxiliaryFailed++
           else if (block.status === 'complete') summary.auxiliaryCompleted++
         }
-        if (block.status === 'failed') {
-          summary.errors++
-        }
         // Check for code-reviewer agent verdict
         if (
           block.agentType?.includes('code-reviewer') &&
@@ -188,11 +196,24 @@ export function computeCompletionSummary(
             }
           }
         }
-        if (block.blocks) {
-          walk(block.blocks)
+        const descendantErrors = block.blocks
+          ? walk(block.blocks, true)
+          : 0
+        // Auxiliary failures already have their own explicit count. For other
+        // agents, count the failed wrapper only when no nested tool/agent error
+        // already explains it.
+        if (
+          block.status === 'failed' &&
+          !isAuxiliary &&
+          descendantErrors === 0
+        ) {
+          summary.errors++
+          countedErrors++
         }
+        countedErrors += descendantErrors
       }
     }
+    return countedErrors
   }
 
   walk(blocks)

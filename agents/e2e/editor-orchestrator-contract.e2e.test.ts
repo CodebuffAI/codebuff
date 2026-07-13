@@ -79,15 +79,15 @@ function createCliContext() {
 describe('editor to orchestrator contract e2e', () => {
   test('validated brief and canonical edit receipt reach the parent gate and CLI', () => {
     const brief = [
-      'Requirements:',
+      '## Requirements',
       '- Change src/lifecycle.ts while preserving its public API.',
-      'Target files:',
+      '## Target files',
       '- src/lifecycle.ts (read before editing).',
-      'Constraints/non-goals:',
+      '## Constraints/non-goals',
       '- Do not change unrelated files or run parent validation.',
-      'Patterns:',
+      '## Patterns',
       '- Follow the existing lifecycle state transition style.',
-      'Risks:',
+      '## Risks',
       '- Preserve retry idempotency and mutation receipt correlation.',
     ].join('\n')
     const editorTemplate = {

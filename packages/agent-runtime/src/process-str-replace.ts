@@ -528,6 +528,7 @@ export async function processStrReplace(params: {
       continue
     }
     const match = tryMatchOldStr({
+      path,
       initialContent: matchContent,
       oldStr: normalizedOldStr,
       newStr: normalizedNewStr,
@@ -1232,6 +1233,7 @@ function findClosestMatches(params: {
 const MIN_USEFUL_DIAGNOSTIC_SIMILARITY = 0.45
 
 function formatClosestMatchDiagnostics(
+  path: string,
   matches: {
     closestBlock: string
     startLine: number
@@ -1257,7 +1259,7 @@ function formatClosestMatchDiagnostics(
     .map((match, index) =>
       [
         `Candidate ${index + 1}: lines ${match.startLine}-${match.endLine} (similarity ${Math.round(match.similarity * 100)}%)`,
-        `Recovery read: read_files ranges: [{ path, startLine: ${match.startLine}, endLine: ${match.endLine} }]`,
+        `Recovery read: read_files ranges: [{ path: ${JSON.stringify(path)}, startLine: ${match.startLine}, endLine: ${match.endLine} }]`,
         '```',
         match.closestBlock,
         '```',
@@ -1752,6 +1754,7 @@ function findElidedOldStringMatches(params: {
 }
 
 const tryMatchOldStr = (params: {
+  path: string
   initialContent: string
   oldStr: string
   newStr: string
@@ -1760,7 +1763,7 @@ const tryMatchOldStr = (params: {
 }):
   | { success: true; oldStr: string; message?: string }
   | { success: false; error: string } => {
-  const { initialContent, oldStr, newStr, allowMultiple, logger } = params
+  const { path, initialContent, oldStr, newStr, allowMultiple, logger } = params
   // count the number of occurrences of oldStr in initialContent
   const count = initialContent.split(oldStr).length - 1
   if (count > 1 && oldStr.trim().length < TINY_ANCHOR_MULTI_MATCH_MIN_LENGTH) {
@@ -1877,7 +1880,7 @@ const tryMatchOldStr = (params: {
     'This often means the target block was already changed/removed, or the oldString came from a stale read.',
     'Please re-read the current file/range and try again with an oldString copied exactly from fresh read_files output.',
   ].join(' ')
-  const diagnostics = formatClosestMatchDiagnostics(closestMatches)
+  const diagnostics = formatClosestMatchDiagnostics(path, closestMatches)
   if (diagnostics) {
     errorMsg += `\n\nClosest candidate ranges for read_files.ranges recovery:\n${diagnostics}`
   }

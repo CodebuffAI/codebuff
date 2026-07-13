@@ -2,6 +2,7 @@ import z from 'zod/v4'
 
 import {
   $getNativeToolCallExampleString,
+  isObviousEditPlaceholder,
   jsonToolResultSchema,
   normalizeReplacementAliases,
   normalizeReplacementList,
@@ -91,6 +92,22 @@ const inputSchema = z
                       ),
                   })
                   .superRefine((replacement, ctx) => {
+                    if (isObviousEditPlaceholder(replacement.oldString)) {
+                      ctx.addIssue({
+                        code: 'custom',
+                        path: ['oldString'],
+                        message:
+                          'oldString is an explicit placeholder, not file content. Copy the exact current text from read_files or use replace_range with a fresh expectedHash.',
+                      })
+                    }
+                    if (isObviousEditPlaceholder(replacement.newString)) {
+                      ctx.addIssue({
+                        code: 'custom',
+                        path: ['newString'],
+                        message:
+                          'newString is an explicit placeholder, not replacement content. Provide the complete intended text.',
+                      })
+                    }
                     if (
                       replacement.skipIfMissing &&
                       replacement.newString !== ''
@@ -115,6 +132,7 @@ const description = `
 Use this tool to make edits within existing files.
 
 Important:
+Never send prose placeholders such as "[see patch above]" in oldString or newString. Tool calls do not share an out-of-band patch buffer: oldString must contain exact current file text and newString must contain the complete replacement.
 If you are making multiple non-overlapping edits from the same current file snapshot, use one str_replace call with multiple replacements instead of multiple str_replace tool calls. Replacements apply sequentially: if one replacement changes text another oldString expects, consolidate them into one larger replacement or use replace_range/rewrite_symbol.
 Use atomic: true when replacements are one logical change and should be all-or-nothing; any failed replacement will abort the batch with no changes. Omit atomic (or set false) when independent small-file replacements may partially succeed. Large-file edits are always atomic.
 For large files, str_replace still applies against the full current file atomically. If oldString is unique, a naked str_replace can apply safely without basedOnRead. Use basedOnRead from read_files.ranges when oldString is ambiguous or you want to constrain the edit to a specific range; stale anchors fall back to deterministic full-file matching when possible.

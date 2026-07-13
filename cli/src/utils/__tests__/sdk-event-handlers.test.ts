@@ -306,6 +306,10 @@ describe('sdk-event-handlers', () => {
 
   test('[ERR-H01] subagent error finishes persist failed status', () => {
     const { ctx, getMessages } = createTestContext()
+    let streaming = new Set<string>()
+    ctx.streaming.setStreamingAgents = (updater) => {
+      streaming = updater(streaming)
+    }
     const handleEvent = createEventHandler(ctx)
     handleEvent({
       type: 'subagent_start',
@@ -315,6 +319,15 @@ describe('sdk-event-handlers', () => {
       onlyChild: false,
     } as any)
     handleEvent({
+      type: 'tool_call',
+      toolCallId: 'nested-tool-1',
+      toolName: 'edit_transaction',
+      input: { edits: [] },
+      agentId: 'agent-1',
+      parentAgentId: 'agent-1',
+    } as any)
+    expect(streaming.has('nested-tool-1')).toBe(true)
+    handleEvent({
       type: 'subagent_finish',
       agentId: 'agent-1',
       agentType: 'editor',
@@ -323,6 +336,12 @@ describe('sdk-event-handlers', () => {
       error: 'timed out',
     } as any)
     expect(getMessages()[0].blocks?.[0]).toMatchObject({ status: 'failed' })
+    expect((getMessages()[0].blocks?.[0] as any).blocks?.[0]).toMatchObject({
+      type: 'tool',
+      lifecycle: 'failed',
+    })
+    expect(streaming.has('agent-1')).toBe(false)
+    expect(streaming.has('nested-tool-1')).toBe(false)
   })
 
   test('root finish settles orphaned foreground agent cards', () => {
@@ -341,6 +360,59 @@ describe('sdk-event-handlers', () => {
     handleEvent({ type: 'finish', totalCost: 0 } as any)
 
     expect(getMessages()[0].blocks?.[0]).toMatchObject({ status: 'failed' })
+  })
+
+  test('root finish fails unresolved foreground tools but preserves live background tools', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'root-running-tool',
+      toolName: 'read_files',
+      input: { paths: ['a.ts'] },
+    } as any)
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'background-agent',
+      agentType: 'researcher-web',
+      displayName: 'Researcher',
+      onlyChild: false,
+    } as any)
+    ctx.message.updater.updateAiMessageBlocks((blocks) =>
+      blocks.map((block) =>
+        block.type === 'agent' && block.agentId === 'background-agent'
+          ? {
+              ...block,
+              backgroundJobId: 'bg-1',
+              blocks: [
+                {
+                  type: 'tool' as const,
+                  toolCallId: 'background-running-tool',
+                  toolName: 'web_search' as any,
+                  input: {},
+                  lifecycle: 'running' as const,
+                },
+              ],
+            }
+          : block,
+      ),
+    )
+
+    handleEvent({ type: 'finish', totalCost: 0 } as any)
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect(blocks.find((block) => block.type === 'tool')).toMatchObject({
+      toolCallId: 'root-running-tool',
+      lifecycle: 'failed',
+    })
+    const background = blocks.find(
+      (block) => block.type === 'agent' && block.agentId === 'background-agent',
+    ) as any
+    expect(background).toMatchObject({
+      status: 'running',
+      backgroundJobId: 'bg-1',
+    })
+    expect(background.blocks[0]).toMatchObject({ lifecycle: 'running' })
   })
 
   test('extracts plan content from root stream', () => {

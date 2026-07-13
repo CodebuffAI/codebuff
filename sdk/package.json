@@ -78,7 +78,8 @@
     "@types/pngjs": "^6.0.5",
     "adm-zip": "^0.5.12",
     "dts-bundle-generator": "^9.5.1",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "tree-sitter-wasms": "0.1.13"
   },
   "author": ""
 }

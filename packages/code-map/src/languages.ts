@@ -7,6 +7,7 @@ import './types'
 import { Language, Parser, Query } from 'web-tree-sitter'
 
 import { initTreeSitterForNode } from './init-node'
+import { repairGrammarWasm } from './grammar-wasm-repair'
 import { DEBUG_PARSING } from './parse'
 
 /* ------------------------------------------------------------------ */
@@ -262,7 +263,17 @@ class UnifiedLanguageLoader implements RuntimeLanguageLoader {
       if (fallbackPath) {
         lang = await Language.load(fallbackPath)
       } else {
-        throw err
+        // Legacy npm wrappers update the compiled binary but preserved only
+        // tree-sitter.wasm. A compiled CLI can securely repair a missing
+        // language grammar from pinned package bytes; SDK consumers remain
+        // offline and receive the original load error.
+        const repairDir = process.env.CODEBUFF_WASM_DIR
+        const repairedPath =
+          process.env.CODEBUFF_IS_BINARY === 'true' && repairDir
+            ? await repairGrammarWasm({ wasmFile, targetDir: repairDir })
+            : null
+        if (!repairedPath) throw err
+        lang = await Language.load(repairedPath)
       }
     }
 

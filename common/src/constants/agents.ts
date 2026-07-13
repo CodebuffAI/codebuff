@@ -136,7 +136,12 @@ export const AGENT_NAME_TO_TYPES = Object.entries(AGENT_NAMES).reduce(
   {} as Record<string, string[]>,
 )
 
-export const MAX_AGENT_STEPS_DEFAULT = 200
+/**
+ * Sentinel used when no explicit maxAgentSteps cap is configured. Productive
+ * runs are unlimited by default; repeated identical steps are handled by the
+ * runtime loop watchdog instead of an unconditional counter.
+ */
+export const MAX_AGENT_STEPS_DEFAULT = -1
 
 /**
  * Maximum nesting depth for subagent spawning. The root orchestrator runs at

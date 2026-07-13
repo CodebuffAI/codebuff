@@ -1,12 +1,10 @@
 ; Kotlin tag query — function/class/interface/object declarations.
 ;
-; The @vscode/tree-sitter-wasm package does NOT bundle a Kotlin grammar, so
-; loading this language config no-ops gracefully (getLanguageConfig returns
-; undefined) until a Kotlin WASM grammar is supplied.
+; The prebuilt Kotlin grammar does not expose named fields, so identifier
+; captures intentionally use positional child patterns.
 
-(function_declaration name: (simple_identifier) @identifier)
-(class_declaration name: (type_identifier) @identifier)
-(interface_declaration name: (type_identifier) @identifier)
-(object_declaration name: (type_identifier) @identifier)
+(function_declaration (simple_identifier) @identifier)
+(class_declaration (type_identifier) @identifier)
+(object_declaration (type_identifier) @identifier)
 
-(call_expression function: (simple_identifier) @call.identifier)
+(call_expression (simple_identifier) @call.identifier)

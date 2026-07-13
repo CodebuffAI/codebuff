@@ -15,6 +15,24 @@ const MIN_LEGACY_MACOS_MAJOR = 11
 const MIN_SUPPORTED_MACOS_MAJOR = 13
 const OLD_BINARY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 const OLD_BINARY_MAX_COUNT = 2
+const TREE_SITTER_MANIFEST = 'tree-sitter-manifest.json'
+const REQUIRED_TREE_SITTER_ASSETS = [
+  'tree-sitter.wasm',
+  'tree-sitter-c-sharp.wasm',
+  'tree-sitter-cpp.wasm',
+  'tree-sitter-go.wasm',
+  'tree-sitter-java.wasm',
+  'tree-sitter-javascript.wasm',
+  'tree-sitter-python.wasm',
+  'tree-sitter-ruby.wasm',
+  'tree-sitter-rust.wasm',
+  'tree-sitter-typescript.wasm',
+  'tree-sitter-tsx.wasm',
+  'tree-sitter-kotlin.wasm',
+  'tree-sitter-php.wasm',
+  'tree-sitter-swift.wasm',
+  'tree-sitter-gdscript.wasm',
+]
 
 function resolveConfigDir(env, platform, homeDir) {
   if (env.OPENBUFF_CONFIG_DIR) return env.OPENBUFF_CONFIG_DIR
@@ -34,7 +52,55 @@ function getManagedSiblingNames(tempDir) {
       name === 'tree-sitter.wasm' ||
       /^tree-sitter-[a-z0-9-]+\.wasm$/i.test(name),
   )
-  return [...new Set([...wasmSiblings, 'libopentui.dylib', 'rg'])]
+  return [
+    ...new Set([
+      ...wasmSiblings,
+      ...(extracted.includes(TREE_SITTER_MANIFEST)
+        ? [TREE_SITTER_MANIFEST]
+        : []),
+      'libopentui.dylib',
+      'rg',
+    ]),
+  ]
+}
+
+function getTreeSitterAssetProblems(dir) {
+  const manifestPath = path.join(dir, TREE_SITTER_MANIFEST)
+  if (!fs.existsSync(manifestPath)) return [TREE_SITTER_MANIFEST]
+  let manifest
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  } catch {
+    return [`${TREE_SITTER_MANIFEST}:invalid`]
+  }
+  if (
+    manifest?.schemaVersion !== 1 ||
+    !manifest.files ||
+    typeof manifest.files !== 'object'
+  ) {
+    return [`${TREE_SITTER_MANIFEST}:invalid`]
+  }
+  const problems = []
+  for (const required of REQUIRED_TREE_SITTER_ASSETS) {
+    if (!(required in manifest.files)) problems.push(`${required}:unlisted`)
+  }
+  for (const [name, expectedHash] of Object.entries(manifest.files)) {
+    if (!/^tree-sitter(?:-[a-z0-9-]+)?\.wasm$/i.test(name)) {
+      problems.push(`${name}:invalid-name`)
+      continue
+    }
+    const filePath = path.join(dir, name)
+    if (!fs.existsSync(filePath)) {
+      problems.push(name)
+      continue
+    }
+    const actualHash = crypto
+      .createHash('sha256')
+      .update(fs.readFileSync(filePath))
+      .digest('hex')
+    if (actualHash !== expectedHash) problems.push(`${name}:checksum`)
+  }
+  return problems
 }
 
 function cleanupOldBinaryBackups(binaryPath, now = Date.now()) {
@@ -651,6 +717,15 @@ async function downloadBinary(version) {
     strict: true,
   })
 
+  const extractedAssetProblems = getTreeSitterAssetProblems(
+    CONFIG.tempDownloadDir,
+  )
+  if (extractedAssetProblems.length) {
+    throw new Error(
+      `Release archive has incomplete tree-sitter assets: ${extractedAssetProblems.join(', ')}`,
+    )
+  }
+
   const tempBinaryPath = path.join(CONFIG.tempDownloadDir, CONFIG.binaryName)
 
   // Verify the binary was extracted
@@ -726,6 +801,9 @@ async function downloadBinary(version) {
 
 async function ensureBinaryExists() {
   const currentVersion = getCurrentVersion()
+  const assetProblems = currentVersion
+    ? getTreeSitterAssetProblems(CONFIG.configDir)
+    : []
   const pendingVersion = getPendingUpdateVersion()
   const packagedVersion = getLocalPackageVersion()
   const packagedUpdate =
@@ -734,10 +812,17 @@ async function ensureBinaryExists() {
       compareVersions(currentVersion, packagedVersion) < 0)
       ? packagedVersion
       : null
-  const requestedVersion = pendingVersion || packagedUpdate
+  const requestedVersion =
+    pendingVersion || packagedUpdate || (assetProblems.length ? currentVersion : null)
 
   if (currentVersion !== null && !requestedVersion) {
     return
+  }
+
+  if (assetProblems.length) {
+    console.error(
+      `Repairing incomplete tree-sitter assets: ${assetProblems.join(', ')}`,
+    )
   }
 
   const version = requestedVersion || (await getLatestVersion())
@@ -908,6 +993,7 @@ module.exports = {
   cleanupOldBinaryBackups,
   compareVersions,
   getManagedSiblingNames,
+  getTreeSitterAssetProblems,
   parseExpectedChecksum,
   resolveConfigDir,
 }

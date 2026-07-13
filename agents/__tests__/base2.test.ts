@@ -583,7 +583,9 @@ describe('base2 verification and reviewer gates', () => {
     })
     expect(
       gen.next({
-        toolResult: [{ type: 'json', value: { status: ' M src/a.ts', diff: 'diff' } }],
+        toolResult: [
+          { type: 'json', value: { status: ' M src/a.ts', diff: 'diff' } },
+        ],
       } as any).value,
     ).toMatchObject({ toolName: 'spawn_agent_inline' })
     const maybePinnedState = gen.next().value
@@ -679,7 +681,9 @@ describe('base2 verification and reviewer gates', () => {
     })
     expect(
       gen.next({
-        toolResult: [{ type: 'json', value: { status: ' M src/a.ts', diff: 'diff' } }],
+        toolResult: [
+          { type: 'json', value: { status: ' M src/a.ts', diff: 'diff' } },
+        ],
       } as any).value,
     ).toMatchObject({ toolName: 'spawn_agent_inline' })
     expect(gen.next().value).toBe('STEP')
@@ -1093,7 +1097,7 @@ describe('base2 verification and reviewer gates', () => {
   })
 
   test('hitStepCap breaks out instead of falling through to the validation/reviewer gate', () => {
-    // Regression: when the step-cap guard (stepsRemaining <= 0) fires, the LLM
+    // Regression: when an explicit fixed cap (stepsRemaining === 0) fires, the LLM
     // step returns shouldEndTurn=true. Before the hitStepCap flag was threaded
     // through, base2 fell through to the gate (since `if (!stepsComplete)
     // continue` didn't trigger for stepsComplete=true). The gate would re-yield
@@ -2670,15 +2674,44 @@ describe('base2 verification and reviewer gates', () => {
         toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
       } as any).value,
     ).toMatchObject({ toolName: 'run_file_change_hooks' })
-    expect(
-      gen.next({ toolResult: [{ type: 'json', value: [] }] } as any).value,
-    ).toMatchObject({ toolName: 'spawn_agents' })
+    const reviewCall = gen.next({
+      toolResult: [{ type: 'json', value: [] }],
+    } as any).value as any
+    expect(reviewCall).toMatchObject({ toolName: 'spawn_agents' })
+    const reviewPrompt = reviewCall.input.agents[0].prompt as string
+    const snapshotFingerprint = reviewPrompt
+      .split('Snapshot fingerprint (echo exactly): ')[1]
+      .split('\nValidation gate summary:')[0]
     const gatePassed = gen.next({
       toolResult: [
         {
           type: 'json',
           value: [
-            { verdict: 'NON_BLOCKING', findings: 'minor style suggestion' },
+            {
+              schemaVersion: 3,
+              verdict: 'NON_BLOCKING',
+              snapshotFingerprint,
+              reviewedFiles: ['src/a.ts'],
+              coverage: 'covered',
+              dimensions: { correctness: 'pass' },
+              findings: [
+                {
+                  id: 'code-reviewer:correctness:minor-style',
+                  summary: 'Minor style suggestion.',
+                  severity: 'low',
+                  dimension: 'correctness',
+                  evidence: ['src/a.ts uses the expected behavior.'],
+                  correction: 'Optional naming cleanup.',
+                },
+              ],
+              requirementCoverage: [
+                {
+                  requirement: 'Requested behavior',
+                  status: 'satisfied',
+                  evidence: ['src/a.ts'],
+                },
+              ],
+            },
           ],
         },
       ],
@@ -2692,6 +2725,26 @@ describe('base2 verification and reviewer gates', () => {
       currentPhase: 'final_response_allowed',
       gatePassedReviewerVerdict: 'NON_BLOCKING',
     })
+    expect((agentState as any).base2ActiveWork.reviewReceipts).toEqual([
+      expect.objectContaining({
+        reviewer: 'code-reviewer',
+        verdict: 'NON_BLOCKING',
+        snapshotFingerprint,
+        reviewedFiles: ['src/a.ts'],
+        findings: [
+          expect.objectContaining({
+            id: 'code-reviewer:correctness:minor-style',
+            evidence: ['src/a.ts uses the expected behavior.'],
+          }),
+        ],
+        requirementCoverage: [
+          expect.objectContaining({
+            requirement: 'Requested behavior',
+            evidence: ['src/a.ts'],
+          }),
+        ],
+      }),
+    ])
   })
 
   test('execute-plan prompts use injected artifacts without repeated unchanged reads', () => {

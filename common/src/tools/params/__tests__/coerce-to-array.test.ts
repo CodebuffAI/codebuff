@@ -4,6 +4,8 @@ import z from 'zod/v4'
 import {
   coerceToArray,
   coerceToObject,
+  isObviousEditPlaceholder,
+  normalizeSpawnAgentList,
   normalizeReplacementAliases,
 } from '../utils'
 
@@ -70,6 +72,33 @@ describe('coerceToObject', () => {
   it('passes through arrays and primitives so validation can reject them', () => {
     expect(coerceToObject(['a'])).toEqual(['a'])
     expect(coerceToObject(1)).toBe(1)
+  })
+})
+
+describe('normalizeSpawnAgentList', () => {
+  const entry = { agent_type: 'editor', prompt: 'Implement the change' }
+
+  it('repairs one-level and double-stringified arrays', () => {
+    expect(normalizeSpawnAgentList(JSON.stringify([entry]))).toEqual([entry])
+    expect(
+      normalizeSpawnAgentList(JSON.stringify(JSON.stringify([entry]))),
+    ).toEqual([entry])
+  })
+
+  it('repairs stringified entries without fabricating malformed objects', () => {
+    expect(normalizeSpawnAgentList([JSON.stringify(entry)])).toEqual([entry])
+    expect(normalizeSpawnAgentList('[{"agent_type":')).toEqual([
+      '[{"agent_type":',
+    ])
+  })
+})
+
+describe('isObviousEditPlaceholder', () => {
+  it('detects explicit patch placeholders but preserves real bracketed code', () => {
+    expect(isObviousEditPlaceholder('[see patch above]')).toBe(true)
+    expect(isObviousEditPlaceholder('<insert current code here>')).toBe(true)
+    expect(isObviousEditPlaceholder('[index]')).toBe(false)
+    expect(isObviousEditPlaceholder('const value = [1, 2]')).toBe(false)
   })
 })
 

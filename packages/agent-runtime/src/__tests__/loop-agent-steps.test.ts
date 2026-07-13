@@ -136,7 +136,7 @@ describe('loopAgentSteps', () => {
     const events: unknown[] = []
     const resolveModelContextWindow = mock(() => 32_000)
 
-    await loopAgentSteps({
+    const result = await loopAgentSteps({
       ...baseParams,
       resolveModelContextWindow,
       onResponseChunk: (event) => events.push(event),
@@ -151,6 +151,7 @@ describe('loopAgentSteps', () => {
       used: expect.any(Number),
       max: 32_000,
     })
+    expect(result.agentState.contextWindowTokens).toBe(32_000)
   })
 
   it('runs semantic programmatic compaction before the mechanical brake', async () => {

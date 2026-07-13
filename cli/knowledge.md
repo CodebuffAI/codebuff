@@ -1,5 +1,12 @@
 # CLI Package Knowledge
 
+## Long-running Agent UX
+
+- Productive agent runs are unlimited by default. `maxAgentSteps` is an optional fixed cap; `-1` selects unlimited mode.
+- The runtime stops repeated no-progress patterns separately, and the CLI renders the resulting resumable checkpoint instead of treating it as a missing agent response.
+- Completion summaries count final file outcomes, terminal top-level failures, and auxiliary-agent failures without duplicating recovered nested tool errors.
+- Regenerate bundled agents and starter type sources with `bun run prebuild:agents` after changing shipped agents or public tool schemas.
+
 ## Slash Commands and Plan Mode
 
 - Durable planning is entered through `mode:plan`; the standalone `/plan` command is intentionally absent from `COMMAND_REGISTRY` and `SLASH_COMMANDS` so there is one plan-entry path.

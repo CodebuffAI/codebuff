@@ -22,7 +22,7 @@ Common phase triggers and routing policies:
 - `file-picker`, `code-searcher`, `researcher-web`, `researcher-docs` — discovery phase when files, APIs, docs, or commands are not already obvious. Scope first as `tiny`, `focused`, `multi-file`, `cross-subsystem`, or `unknown surface`; scale reads/searches and parallel shards accordingly. For large-repo planning, do not use file-pickers as the only shards: they are discovery-focused and should be paired with code-searchers plus reasoning-capable shards when analysis is required.
 - `general-agent` — focused reasoning/audit shards after discovery for larger repositories or complex domains. Give each shard explicit files or a narrow subsystem, and when compaction could lose results, instruct it to write findings to `.agents/sessions/<slug>/findings/*.md` instead of returning everything in chat.
 - `thinker` — reasoning phase after context gathering for complex design, architecture, tradeoff, risk, spec/plan critique, or debugging strategy choices. Use it to synthesize discovered evidence when no file writes are needed; skip it for straightforward edits and never use it as a replacement for reading files.
-- `editor` — implementation phase for non-trivial source changes, with a self-contained implementation brief because it does not rely on parent context. Skip it for tiny one-file edits and direct answers.
+- `editor` — implementation phase for non-trivial source changes, with a self-contained implementation brief because it does not rely on parent context. The five brief fields accept either colon labels (`Requirements:`) or normal Markdown headings (`## Requirements`). Skip it for tiny one-file edits and direct answers.
 - `basher` — validation phase for tests, typechecks, lints, builds, or command discovery that lacks a dedicated harness tool. Prefer configured hooks and deterministic path-to-suite routing first, such as agents/base2 prompt/gate checks, SDK checks for `packages/sdk/*`, runtime checks for `packages/agent-runtime/*`, common/dependent checks for `common/*`, and CLI typecheck plus visual smoke for `cli/src/components/*` or `cli/src/hooks/*`.
 - `dependency-manager` — explicit dependency-mutation phase only. It receives structured manager/operation/package/workspace inputs, constructs one bounded ecosystem-native command, and supports npm/pnpm/Yarn/Bun, uv/Poetry/pip, Cargo, Go modules, .NET, Bundler, Composer, SwiftPM, Dart/Flutter Pub, Mix, Maven dependency resolution, and Gradle dependency inspection. It cannot run arbitrary shell or global installs, and a missing-package diagnostic alone is not authorization to spawn it.
 - `debugger` — repair phase after repeated validation failures, runtime failures, or unclear crash behavior.
@@ -70,7 +70,7 @@ diagnostics (`file`, range, severity, code, message, command, source) while the
 original bounded stdout/stderr remains available for recovery.
 
 - Automated security/test/doc auxiliary agents have explicit lifecycle handling. Their done flags are written only after successful completion; crashes and blocking security verdicts persist as blockers. Test/doc writers run automatically only when the user request explicitly includes those deliverables, and mixed-package test targets are routed to package-specific commands.
-- Reaching the orchestrator step cap leaves work blocked with pending gates intact and disables follow-up/completion affordances. Reviewer crashes retry once; repeated crashes require the explicit user phrase `bypass reviewer gate` before finalization can continue.
+- Productive agent steps are unlimited by default. A repeated-step watchdog stops identical no-progress loops, while cancellation, subagent wall-clock timeouts, cost/token budgets, spawn-depth limits, and context compaction remain independent safeguards. Users may still configure a positive `maxAgentSteps` fixed cap; `-1` explicitly selects unlimited mode. Reviewer crashes retry once; repeated crashes require the explicit user phrase `bypass reviewer gate` before finalization can continue.
 
 **Pattern-specific agents** are intentionally **excluded** from `spawnableAgents` because they have a narrow contract that only makes sense within a specific workflow pattern. They are spawned by the pattern flow itself, not by the orchestrator:
 
@@ -892,6 +892,14 @@ Input fields:
   do not match the child agent's schema still fail validation.
 - `handoff` (object, optional) — structured handoff payload forwarded to
   the child spawn entry.
+- `background` (boolean, optional) — launches the child as a background job.
+- `timeout_seconds` (number, optional) — per-spawn wall-clock deadline; `-1`
+  disables the deadline.
+
+`spawn_agents.agents` also performs bounded repair for one- or
+double-stringified arrays and stringified object entries. Malformed or
+truncated JSON remains rejected; the runtime never fabricates an empty agent
+entry or silently drops required parameters.
 
 Example:
 

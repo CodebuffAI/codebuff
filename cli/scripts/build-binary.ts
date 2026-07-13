@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process'
+import { createHash } from 'crypto'
 import { createRequire } from 'module'
 import {
   chmodSync,
@@ -246,17 +247,24 @@ async function main() {
   const siblingWasm = join(binDir, 'tree-sitter.wasm')
   writeFileSync(siblingWasm, readFileSync(sourceWasm))
   logAlways(`Copied tree-sitter.wasm sibling: ${sourceWasm} → ${siblingWasm}`)
-  const grammarWasmDir = findGrammarWasmDir()
   let copiedGrammarCount = 0
+  const wasmManifest: Record<string, string> = {
+    'tree-sitter.wasm': createHash('sha256')
+      .update(readFileSync(siblingWasm))
+      .digest('hex'),
+  }
   for (const wasmFile of LANGUAGE_WASM_FILES) {
-    const source = join(grammarWasmDir, wasmFile)
-    if (!existsSync(source)) {
-      logAlways(`Skipping unavailable optional tree-sitter grammar: ${wasmFile}`)
-      continue
-    }
+    const source = findGrammarWasmSource(wasmFile)
     copyFileSync(source, join(binDir, wasmFile))
+    wasmManifest[wasmFile] = createHash('sha256')
+      .update(readFileSync(source))
+      .digest('hex')
     copiedGrammarCount++
   }
+  writeFileSync(
+    join(binDir, 'tree-sitter-manifest.json'),
+    `${JSON.stringify({ schemaVersion: 1, files: wasmManifest }, null, 2)}\n`,
+  )
   logAlways(`Copied ${copiedGrammarCount} tree-sitter language grammars`)
 
   if (targetInfo.platform !== 'win32') {
@@ -346,22 +354,21 @@ function findWebTreeSitterWasm(): string {
   }
 }
 
-function findGrammarWasmDir(): string {
+function findGrammarWasmSource(wasmFile: string): string {
+  const treeSitterWasmsName =
+    wasmFile === 'tree-sitter-c-sharp.wasm'
+      ? 'tree-sitter-c_sharp.wasm'
+      : wasmFile
   const candidates = [
-    join(repoRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'),
-    join(cliRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'),
+    join(repoRoot, 'node_modules', 'tree-sitter-wasms', 'out', treeSitterWasmsName),
+    join(cliRoot, 'node_modules', 'tree-sitter-wasms', 'out', treeSitterWasmsName),
+    join(repoRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm', wasmFile),
+    join(cliRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm', wasmFile),
   ]
-  const requiredCoreGrammars = [
-    'tree-sitter-javascript.wasm',
-    'tree-sitter-typescript.wasm',
-    'tree-sitter-tsx.wasm',
-  ]
-  const found = candidates.find((candidate) =>
-    requiredCoreGrammars.every((file) => existsSync(join(candidate, file))),
-  )
+  const found = candidates.find((candidate) => existsSync(candidate))
   if (!found) {
     throw new Error(
-      `Could not locate packaged tree-sitter language grammars. Searched:\n  - ${candidates.join('\n  - ')}`,
+      `Could not locate required tree-sitter grammar ${wasmFile}. Searched:\n  - ${candidates.join('\n  - ')}`,
     )
   }
   return found

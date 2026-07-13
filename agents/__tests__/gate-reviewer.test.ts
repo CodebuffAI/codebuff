@@ -273,6 +273,24 @@ describe('gate-reviewer helpers', () => {
     ).toEqual([])
   })
 
+  test('newer structured review schemas cannot bypass snapshot attestation', () => {
+    expect(
+      collectReviewerAttestationIssues(
+        {
+          schemaVersion: 3,
+          verdict: 'NON_BLOCKING',
+          snapshotFingerprint: 'stale',
+          reviewedFiles: ['src/a.ts'],
+        },
+        'current',
+        ['src/a.ts', 'src/b.ts'],
+      ),
+    ).toEqual([
+      'BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree',
+      'BLOCKING: reviewer did not attest to every pending file: src/b.ts',
+    ])
+  })
+
   test('getReviewerFinalizationVerdict blocks finalization when coverage is missing', () => {
     expect(
       getReviewerFinalizationVerdict({

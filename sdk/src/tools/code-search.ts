@@ -49,7 +49,7 @@ export function codeSearch({
 }: {
   projectPath: string
   pattern: string
-  flags?: string
+  flags?: string | string[]
   cwd?: string
   maxResults?: number
   globalMaxResults?: number
@@ -96,13 +96,38 @@ export function codeSearch({
       ])
     }
 
+    if (cwd !== undefined) {
+      try {
+        if (!fs.statSync(searchCwd).isDirectory()) {
+          return resolve([
+            {
+              type: 'json',
+              value: {
+                errorMessage: `Invalid cwd: Path '${cwd}' is a file, but code_search requires a directory. Use the file path as a search filter instead of cwd.`,
+              },
+            },
+          ])
+        }
+      } catch {
+        return resolve([
+          {
+            type: 'json',
+            value: {
+              errorMessage: `Invalid cwd: Path '${cwd}' does not exist or cannot be read. code_search requires an existing directory.`,
+            },
+          },
+        ])
+      }
+    }
+
     // Parse flags through an allow-list so callers can't inject dangerous
     // ripgrep flags (e.g. --exec runs a command per match, -r/--replace mutates
     // files, -z/--null changes output framing). code_search additionally allows
     // the -A/-B/-C context flags (value-taking) since the JSON parser already
     // handles match + context events. Unsupported flags return an error result
     // instead of being silently dropped or passed through.
-    const parsedFlags = parseSafeRipgrepFlags(flags || '', {
+    const parsedFlags = parseSafeRipgrepFlags(flags || [], {
+      toolName: 'code_search',
       extraSwitchesWithValue: [
         '-A',
         '-B',

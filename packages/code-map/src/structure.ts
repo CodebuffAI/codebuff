@@ -33,8 +33,10 @@ const DEFINITION_NODE_KINDS: Record<string, string> = {
   method_signature: 'method',
   abstract_method_signature: 'method',
   class_declaration: 'class',
+  object_declaration: 'class',
   abstract_class_declaration: 'class',
   interface_declaration: 'interface',
+  protocol_declaration: 'interface',
   type_alias_declaration: 'type',
   enum_declaration: 'enum',
   // Python (function_definition/class_definition)
@@ -81,6 +83,7 @@ const DEFINITION_NODE_KINDS: Record<string, string> = {
 
 const IDENTIFIER_NODE_TYPES = new Set([
   'identifier',
+  'simple_identifier',
   'type_identifier',
   'field_identifier',
   'property_identifier',
@@ -156,6 +159,26 @@ function extractDefName(node: Node): string | null {
 
   const id = findIdentifier(node)
   return id ? lastSegment(id.text) : null
+}
+
+function definitionKind(node: Node): string | undefined {
+  const base = DEFINITION_NODE_KINDS[node.type]
+  if (node.type !== 'class_declaration') return base
+  // Swift and Kotlin share class_declaration across class/struct/enum and
+  // class/interface respectively. Preserve the language-level kind by reading
+  // the declaration keyword child instead of flattening every type to class.
+  const keywordKinds: Record<string, string> = {
+    class: 'class',
+    struct: 'struct',
+    enum: 'enum',
+    interface: 'interface',
+  }
+  for (const child of node.children) {
+    if (!child) continue
+    const kind = keywordKinds[child.type]
+    if (kind) return kind
+  }
+  return base
 }
 
 // Definition kinds that turn a contained free function into a "method".
@@ -269,7 +292,7 @@ export async function parseFileStructure(
     const stack: Node[] = [tree.rootNode]
     while (stack.length > 0) {
       const node = stack.pop()!
-      const kind = DEFINITION_NODE_KINDS[node.type]
+      const kind = definitionKind(node)
       if (kind && !node.hasError) {
         const name = extractDefName(node)
         if (name) {

@@ -13,10 +13,10 @@ const inputSchema = z
       .min(1, 'Pattern cannot be empty')
       .describe(`The pattern to search for.`),
     flags: z
-      .string()
+      .union([z.string(), z.array(z.string())])
       .optional()
       .describe(
-        `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match).`,
+        `Optional ripgrep flags as one string or argv tokens (e.g., "-i -g *.ts -g *.js" or ["-i", "-g", "*.ts"]). JSON quotes delimit the string; do not embed another quote pair around the entire expression. Line numbers are automatic.`,
       ),
     cwd: z
       .string()
@@ -64,7 +64,7 @@ The pattern supports regular expressions and will search recursively through all
 Advanced ripgrep flags (use the flags parameter):
 
 - Case sensitivity: "-i" for case-insensitive search
-- File type filtering: "-t ts -t js" (TypeScript and JavaScript), "-t py" (Python), etc.
+- File type filtering: "-t ts -t js" (TypeScript and JavaScript), "-t py" (Python), etc. The equivalent structured form is ["-t", "ts", "-t", "js"].
 - Exclude file types: "--type-not py" to exclude Python files
 - Context lines: "-A 3" (3 lines after), "-B 2" (2 lines before), "-C 2" (2 lines before and after)
 - Word boundaries: "-w" to match whole words only
@@ -72,6 +72,7 @@ Advanced ripgrep flags (use the flags parameter):
 - Multiline matching: "-U" and "--multiline-dotall"
 
 Only the flags listed above are accepted. Output-shape-changing or effectful ripgrep flags such as -c, -l, -v, -r/--replace, --exec, and -z/--null are rejected.
+Do not pass -n/--line-number; code_search already enables line numbers internally.
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 
@@ -111,7 +112,7 @@ ${$getNativeToolCallExampleString({
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
-  input: { pattern: 'TODO', flags: '-n --type-not py' },
+  input: { pattern: 'TODO', flags: '--type-not py' },
   endsAgentStep,
 })}
 ${$getNativeToolCallExampleString({

@@ -155,9 +155,9 @@ Be extremely concise.`,
     // Allow the reviewer to deterministically read the exact final files
     // (including ranged reads for large files) before producing its feedback,
     // instead of being forced to review from whatever partial diff context
-    // happened to be in the prompt. Unbounded: stepsRemaining (default 200,
-    // configurable via maxAgentSteps in openbuff.json) already prevents runaway
-    // loops.
+    // happened to be in the prompt. Productive steps are unlimited by default;
+    // the repeated-step watchdog, cancellation, budgets, and timeout safeguards
+    // bound runaway work.
     while (true) {
       const result = yield 'STEP'
       if (result.stepsComplete) break

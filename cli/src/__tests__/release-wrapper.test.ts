@@ -11,6 +11,7 @@ import {
 import { tmpdir } from 'os'
 import path from 'path'
 import { spawnSync } from 'child_process'
+import { createHash } from 'crypto'
 import { createRequire } from 'module'
 
 import { describe, expect, test } from 'bun:test'
@@ -76,6 +77,36 @@ function getWrapperMetadataName(wrapperName: WrapperName) {
     : 'codecane-metadata.json'
 }
 
+function writeValidTreeSitterAssets(configDir: string) {
+  const files = [
+    'tree-sitter.wasm',
+    'tree-sitter-c-sharp.wasm',
+    'tree-sitter-cpp.wasm',
+    'tree-sitter-go.wasm',
+    'tree-sitter-java.wasm',
+    'tree-sitter-javascript.wasm',
+    'tree-sitter-python.wasm',
+    'tree-sitter-ruby.wasm',
+    'tree-sitter-rust.wasm',
+    'tree-sitter-typescript.wasm',
+    'tree-sitter-tsx.wasm',
+    'tree-sitter-kotlin.wasm',
+    'tree-sitter-php.wasm',
+    'tree-sitter-swift.wasm',
+    'tree-sitter-gdscript.wasm',
+  ]
+  const hashes: Record<string, string> = {}
+  for (const name of files) {
+    const bytes = Buffer.from(name)
+    writeFileSync(path.join(configDir, name), bytes)
+    hashes[name] = createHash('sha256').update(bytes).digest('hex')
+  }
+  writeFileSync(
+    path.join(configDir, 'tree-sitter-manifest.json'),
+    JSON.stringify({ schemaVersion: 1, files: hashes }),
+  )
+}
+
 function runWrapperWithMockPlatform({
   arch,
   hardwareArch,
@@ -97,6 +128,7 @@ function runWrapperWithMockPlatform({
   const binaryName = getWrapperBinaryName(wrapperName)
 
   mkdirSync(configDir, { recursive: true })
+  writeValidTreeSitterAssets(configDir)
   writeFileSync(
     path.join(configDir, getWrapperMetadataName(wrapperName)),
     JSON.stringify({ version: wrapperVersions[wrapperName], platformKey }),
@@ -350,6 +382,7 @@ describe('release wrapper update safety', () => {
         writeFileSync(path.join(tempDir, 'tree-sitter.wasm'), 'runtime')
         writeFileSync(path.join(tempDir, 'tree-sitter-typescript.wasm'), 'ts')
         writeFileSync(path.join(tempDir, 'tree-sitter-python.wasm'), 'py')
+        writeFileSync(path.join(tempDir, 'tree-sitter-manifest.json'), '{}')
         writeFileSync(path.join(tempDir, 'not-managed.wasm'), 'other')
         const { getManagedSiblingNames } = require(
           path.join(repoRoot, wrapperPath),
@@ -364,6 +397,37 @@ describe('release wrapper update safety', () => {
         expect(getManagedSiblingNames(tempDir)).not.toContain(
           'not-managed.wasm',
         )
+        expect(getManagedSiblingNames(tempDir)).toContain(
+          'tree-sitter-manifest.json',
+        )
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true })
+      }
+    },
+  )
+
+  test.each(wrappers)(
+    '%s detects missing and corrupted installed grammar assets',
+    (_, wrapperPath) => {
+      const tempDir = mkdtempSync(path.join(tmpdir(), 'openbuff-wasm-check-'))
+      try {
+        writeValidTreeSitterAssets(tempDir)
+        const { getTreeSitterAssetProblems } = require(
+          path.join(repoRoot, wrapperPath),
+        )
+        expect(getTreeSitterAssetProblems(tempDir)).toEqual([])
+
+        writeFileSync(
+          path.join(tempDir, 'tree-sitter-javascript.wasm'),
+          'corrupt',
+        )
+        expect(getTreeSitterAssetProblems(tempDir)).toEqual([
+          'tree-sitter-javascript.wasm:checksum',
+        ])
+        rmSync(path.join(tempDir, 'tree-sitter-manifest.json'))
+        expect(getTreeSitterAssetProblems(tempDir)).toEqual([
+          'tree-sitter-manifest.json',
+        ])
       } finally {
         rmSync(tempDir, { recursive: true, force: true })
       }

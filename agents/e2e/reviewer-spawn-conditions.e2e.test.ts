@@ -38,7 +38,16 @@ describe('base2 reviewer spawn conditions e2e', () => {
 
     expect(gen.next().value).toMatchObject({
       toolName: 'query_index',
-      input: { query: 'Edit the lifecycle file.', limit: 20 },
+      input: {
+        query: 'Edit the lifecycle file.',
+        limit: 14,
+        mode: 'search',
+      },
+    })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+      includeToolCall: false,
     })
     expect(gen.next(feedJson([])).value).toMatchObject({
       toolName: 'git_status',
@@ -80,7 +89,16 @@ describe('base2 reviewer spawn conditions e2e', () => {
 
     expect(gen.next().value).toMatchObject({
       toolName: 'query_index',
-      input: { query: 'Edit the lifecycle file quickly.', limit: 20 },
+      input: {
+        query: 'Edit the lifecycle file quickly.',
+        limit: 14,
+        mode: 'search',
+      },
+    })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+      includeToolCall: false,
     })
     expect(gen.next(feedJson([])).value).toMatchObject({
       toolName: 'git_status',

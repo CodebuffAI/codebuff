@@ -5,6 +5,7 @@ import type {
   Base2ActiveWorkState,
   Base2WorkflowTodo,
   Base2WorkflowTodoProgress,
+  Base2ReviewReceipt,
 } from './gate-state'
 import {
   buildBroadAuditSection,
@@ -475,6 +476,7 @@ ${specialistRoutingSection}
         testWriterGateDone: false,
         docWriterGateDone: false,
         specialistReviewGatesDone: [],
+        reviewReceipts: [],
         auxGatesLastPendingFiles: [],
       }
       activeWorkState.touchedFiles ??= []
@@ -502,6 +504,7 @@ ${specialistRoutingSection}
       activeWorkState.testWriterGateDone ??= false
       activeWorkState.docWriterGateDone ??= false
       activeWorkState.specialistReviewGatesDone ??= []
+      activeWorkState.reviewReceipts ??= []
       activeWorkState.auxGatesLastPendingFiles ??= []
       activeWorkState.workflowTodoProgress = normalizeWorkflowTodoProgress(
         activeWorkState.workflowTodoProgress,
@@ -639,7 +642,7 @@ ${specialistRoutingSection}
           stepsComplete: boolean
           hitStepCap?: boolean
         }
-        // If the LLM step hit the step-cap guard (stepsRemaining <= 0), the turn
+        // If the LLM step hit an explicit fixed cap (stepsRemaining === 0), the turn
         // is over. Break out immediately instead of falling through to the
         // validation/reviewer gate: the gate would re-yield STEP, which would
         // re-trigger the step-cap (stepsRemaining is still 0), looping forever.
@@ -718,7 +721,7 @@ ${specialistRoutingSection}
             !gatePassedFiles.has(file)
           ) {
             editsHappened = true
-            recordChangedFiles([file])
+            recordChangedFiles([file], { fromStatusObservation: true })
             activeWorkState.latestWorkSummary = `Git status shows pending changed files: ${Array.from(pendingGateFiles).join(', ')}`
             markActiveWorkStateChanged()
             if (!gatePassedForCurrentEdits) editsThisStep = true
@@ -1030,9 +1033,8 @@ ${specialistRoutingSection}
                   currentPendingGateFiles,
                 ),
               )
-              const verdict = getReviewerFinalizationVerdict(
-                specialistToolResult,
-              )
+              const verdict =
+                getReviewerFinalizationVerdict(specialistToolResult)
               if (crash || blockers.length > 0 || !verdict) {
                 const normalizedBlockers =
                   blockers.length > 0
@@ -1042,16 +1044,14 @@ ${specialistRoutingSection}
                           ? `${agentType} crashed: ${crash}`
                           : `${agentType} did not return a valid finalization verdict.`,
                       ]
-                const records = collectReviewerFindingRecordsInline(
-                  specialistToolResult,
-                )
+                const records =
+                  collectReviewerFindingRecordsInline(specialistToolResult)
                 activeWorkState.currentPhase = 'blocked'
                 activeWorkState.openReviewerBlockers = normalizedBlockers
                 activeWorkState.openReviewerFindings = normalizedBlockers.map(
                   (text: string, index: number) => ({
                     id:
-                      records[index]?.id ??
-                      buildReviewerFindingId(text, index),
+                      records[index]?.id ?? buildReviewerFindingId(text, index),
                     gateId: `${agentType}:${bundle.snapshotId}`,
                     text: records[index]?.text ?? text,
                     status: 'open' as const,
@@ -1071,6 +1071,11 @@ ${specialistRoutingSection}
                   ...(activeWorkState.specialistReviewGatesDone ?? []),
                   agentType,
                 ]),
+              )
+              recordSuccessfulReviewReceipt(
+                specialistToolResult,
+                agentType,
+                bundle.snapshotId,
               )
               markActiveWorkStateChanged()
             }
@@ -1402,19 +1407,37 @@ ${specialistRoutingSection}
                       agent_type: 'repair-editor',
                       handoff: {
                         schemaVersion: 1,
-                        taskId: activeWorkState.repairSessionId ?? 'validation-repair',
+                        taskId:
+                          activeWorkState.repairSessionId ??
+                          'validation-repair',
                         role: 'repair-editor',
-                        objective: 'Resolve the current validation failures without unrelated changes.',
-                        findings: failures.map((text: string, index: number) => ({
-                          id: `VF-${index + 1}`,
-                          text,
-                          files: Array.from(pendingGateFiles),
-                          snapshotFingerprint: buildGateFingerprint(Array.from(pendingGateFiles), currentGitStatusLineMap, validationSummary),
-                        })),
+                        objective:
+                          'Resolve the current validation failures without unrelated changes.',
+                        findings: failures.map(
+                          (text: string, index: number) => ({
+                            id: `VF-${index + 1}`,
+                            text,
+                            files: Array.from(pendingGateFiles),
+                            snapshotFingerprint: buildGateFingerprint(
+                              Array.from(pendingGateFiles),
+                              currentGitStatusLineMap,
+                              validationSummary,
+                            ),
+                          }),
+                        ),
                         permissions: {
                           readablePaths: Array.from(pendingGateFiles),
                           writablePaths: Array.from(pendingGateFiles),
-                          allowedTools: ['read_files', 'read_outline', 'apply_patch', 'write_file', 'str_replace', 'replace_range', 'rewrite_symbol', 'edit_transaction'],
+                          allowedTools: [
+                            'read_files',
+                            'read_outline',
+                            'apply_patch',
+                            'write_file',
+                            'str_replace',
+                            'replace_range',
+                            'rewrite_symbol',
+                            'edit_transaction',
+                          ],
                         },
                       },
                       prompt:
@@ -1533,19 +1556,37 @@ ${specialistRoutingSection}
                         agent_type: 'repair-editor',
                         handoff: {
                           schemaVersion: 1,
-                          taskId: activeWorkState.repairSessionId ?? 'validation-escalation',
+                          taskId:
+                            activeWorkState.repairSessionId ??
+                            'validation-escalation',
                           role: 'repair-editor',
-                          objective: 'Resolve the exhausted validation failures through root-cause repair.',
-                          findings: failures.map((text: string, index: number) => ({
-                            id: `VF-${index + 1}`,
-                            text,
-                            files: Array.from(pendingGateFiles),
-                            snapshotFingerprint: buildGateFingerprint(Array.from(pendingGateFiles), currentGitStatusLineMap, validationSummary),
-                          })),
+                          objective:
+                            'Resolve the exhausted validation failures through root-cause repair.',
+                          findings: failures.map(
+                            (text: string, index: number) => ({
+                              id: `VF-${index + 1}`,
+                              text,
+                              files: Array.from(pendingGateFiles),
+                              snapshotFingerprint: buildGateFingerprint(
+                                Array.from(pendingGateFiles),
+                                currentGitStatusLineMap,
+                                validationSummary,
+                              ),
+                            }),
+                          ),
                           permissions: {
                             readablePaths: Array.from(pendingGateFiles),
                             writablePaths: Array.from(pendingGateFiles),
-                            allowedTools: ['read_files', 'read_outline', 'apply_patch', 'write_file', 'str_replace', 'replace_range', 'rewrite_symbol', 'edit_transaction'],
+                            allowedTools: [
+                              'read_files',
+                              'read_outline',
+                              'apply_patch',
+                              'write_file',
+                              'str_replace',
+                              'replace_range',
+                              'rewrite_symbol',
+                              'edit_transaction',
+                            ],
                           },
                         },
                         prompt: buildEscalationEditorPrompt(
@@ -1807,6 +1848,13 @@ ${specialistRoutingSection}
           }
           reviewerFinalizationVerdict =
             getReviewerFinalizationVerdict(reviewerToolResult)
+          if (reviewerFinalizationVerdict) {
+            recordSuccessfulReviewReceipt(
+              reviewerToolResult,
+              reviewerAgentType,
+              reviewSnapshotFingerprint,
+            )
+          }
           if (!reviewerFinalizationVerdict) {
             // Distinguish a reviewer CRASH (agent itself errored / produced no
             // output) from a reviewer that ran successfully but failed to
@@ -2111,10 +2159,12 @@ ${specialistRoutingSection}
 
       function recordChangedFiles(
         files: string[],
-        opts?: { fromRepair?: boolean },
+        opts?: { fromRepair?: boolean; fromStatusObservation?: boolean },
       ): void {
         const normalizedFiles = normalizeGateFileList(files)
+        let discoveredNewPendingFile = false
         for (const file of normalizedFiles) {
+          if (!pendingGateFiles.has(file)) discoveredNewPendingFile = true
           changedFiles.add(file)
           pendingGateFiles.add(file)
           gatePassedFiles.delete(file)
@@ -2138,7 +2188,15 @@ ${specialistRoutingSection}
             activeWorkState.pendingGateFiles.push(file)
           }
         }
-        if (normalizedFiles.length > 0) {
+        if (
+          normalizedFiles.length > 0 &&
+          (!opts?.fromStatusObservation || discoveredNewPendingFile)
+        ) {
+          // Completion is content-scoped, not path-scoped. A fresh edit to an
+          // already-reviewed path must rerun specialist gates. A repeated
+          // git_status observation is not fresh edit evidence, so it must not
+          // clear a specialist receipt and create an infinite review loop.
+          activeWorkState.specialistReviewGatesDone = []
           activeWorkState.lastReviewerGateSkipReason = ''
           activeWorkState.currentPhase = 'awaiting_validation'
           if (!opts?.fromRepair && !activeWorkState.repairSessionId) {
@@ -2417,12 +2475,14 @@ ${specialistRoutingSection}
           /\b(?:dependency|dependencies|lockfile|package manager|supply chain|license|vulnerabilit)/.test(
             requirements,
           )
-        ) selected.add('dependency-reviewer')
+        )
+          selected.add('dependency-reviewer')
         if (
           /(?:^|\/)(?:migrations?|schema|database|db)(?:\/|\.)|\.sql$|\b(?:migration|backfill|schema change|database compatibility|rollback)\b/.test(
             joined,
           )
-        ) selected.add('migration-reviewer')
+        )
+          selected.add('migration-reviewer')
         if (
           /\b(?:public api|backward compat|breaking change|deprecat|serialization|persisted format|config contract|environment variable|cli flag)\b/.test(
             requirements,
@@ -2432,7 +2492,8 @@ ${specialistRoutingSection}
               file,
             ),
           )
-        ) selected.add('compatibility-reviewer')
+        )
+          selected.add('compatibility-reviewer')
         if (
           /\b(?:race|concurr|retry|retries|cancel|abort|idempoten|deadlock|state machine|resource leak|partial failure)\b/.test(
             requirements,
@@ -2442,12 +2503,15 @@ ${specialistRoutingSection}
               file,
             ),
           )
-        ) selected.add('reliability-reviewer')
+        )
+          selected.add('reliability-reviewer')
         if (
           /\b(?:performance|latency|throughput|benchmark|profil|allocation|hot path|load test|complexity)\b/.test(
             requirements,
-          ) || files.some((file) => /(?:bench|perf|load-test|profil)/.test(file))
-        ) selected.add('performance-specialist')
+          ) ||
+          files.some((file) => /(?:bench|perf|load-test|profil)/.test(file))
+        )
+          selected.add('performance-specialist')
         const hasUiFiles = files.some((file) =>
           /(?:^|\/)(?:components?|pages?|views?|screens?|ui|app)(?:\/|\.)|\.(?:tsx|jsx|vue|svelte|css|scss)$/.test(
             file,
@@ -2458,19 +2522,26 @@ ${specialistRoutingSection}
           /\b(?:accessibility|a11y|keyboard|focus|screen reader|aria|contrast|reduced motion)\b/.test(
             requirements,
           )
-        ) selected.add('accessibility-reviewer')
+        )
+          selected.add('accessibility-reviewer')
         if (
           hasUiFiles &&
           /\b(?:visual|layout|responsive|design system|spacing|hierarchy|screenshot|viewport|interaction)\b/.test(
             requirements,
           )
-        ) selected.add('ux-visual-reviewer')
+        )
+          selected.add('ux-visual-reviewer')
         if (
           /\b(?:user-facing|acceptance criteria|product behavior|user flow|end-to-end|ux|onboarding)\b/.test(
             requirements,
           )
-        ) selected.add('product-reviewer')
-        if (/\b(?:independent evaluat|score against|requirement coverage)\b/.test(requirements))
+        )
+          selected.add('product-reviewer')
+        if (
+          /\b(?:independent evaluat|score against|requirement coverage)\b/.test(
+            requirements,
+          )
+        )
           selected.add('evaluator')
         return [
           'dependency-reviewer',
@@ -2505,16 +2576,52 @@ ${specialistRoutingSection}
           return { snapshotId: record.snapshotId, errorMessage: '' }
         if (typeof record.errorMessage === 'string')
           return { snapshotId: '', errorMessage: record.errorMessage }
-        if ('toolResult' in record) return extractChangeReviewBundle(record.toolResult)
+        if ('toolResult' in record)
+          return extractChangeReviewBundle(record.toolResult)
         return { snapshotId: '', errorMessage: '' }
       }
 
       function collectReviewerFindingRecordsInline(
         toolResult: unknown,
       ): Array<{ id: string; text: string }> {
-        return collectStructuredReviewerOutputs(toolResult).flatMap((entry) =>
-          entry.findingRecords ?? [],
+        return collectStructuredReviewerOutputs(toolResult).flatMap(
+          (entry) => entry.findingRecords ?? [],
         )
+      }
+
+      function recordSuccessfulReviewReceipt(
+        toolResult: unknown,
+        reviewer: string,
+        expectedFingerprint: string,
+      ): void {
+        const structured = collectStructuredReviewerOutputs(toolResult)
+        const result = structured[structured.length - 1]
+        if (
+          !result ||
+          (result.verdict !== 'LOOKS_GOOD' && result.verdict !== 'NON_BLOCKING')
+        ) {
+          return
+        }
+        const gateId = `${reviewer}:${expectedFingerprint}`
+        const receipt: Base2ReviewReceipt = {
+          gateId,
+          reviewer,
+          verdict: result.verdict,
+          snapshotFingerprint:
+            result.snapshotFingerprint ?? expectedFingerprint,
+          reviewedFiles: result.reviewedFiles ?? [],
+          ...(result.coverage ? { coverage: result.coverage } : {}),
+          dimensions: result.dimensions ?? {},
+          findings: result.findingRecords ?? [],
+          requirementCoverage: result.requirementCoverage ?? [],
+          recordedAt: new Date().toISOString(),
+        }
+        activeWorkState.reviewReceipts = [
+          ...(activeWorkState.reviewReceipts ?? []).filter(
+            (existing) => existing.gateId !== gateId,
+          ),
+          receipt,
+        ].slice(-24)
       }
 
       function resetAuxGateFlags(
@@ -3452,7 +3559,13 @@ ${specialistRoutingSection}
         const structured = collectStructuredReviewerOutputs(toolResult)
         if (structured.length === 0) return []
         const result = structured[structured.length - 1]
-        if (result.schemaVersion !== 1) return []
+        if (
+          typeof result.schemaVersion !== 'number' ||
+          !Number.isInteger(result.schemaVersion) ||
+          result.schemaVersion <= 0
+        ) {
+          return []
+        }
         const issues: string[] = []
         if (result.snapshotFingerprint !== expectedFingerprint) {
           issues.push(
@@ -3664,22 +3777,44 @@ ${specialistRoutingSection}
         findings: string[]
         coverage?: 'covered' | 'missing' | 'n/a'
         dimensions?: Record<string, string>
-        requirementCoverage?: Array<{ requirement: string; status: string }>
+        requirementCoverage?: Array<{
+          requirement: string
+          status: string
+          evidence: string[]
+        }>
         snapshotFingerprint?: string
         reviewedFiles?: string[]
         schemaVersion?: number
-        findingRecords?: Array<{ id: string; text: string }>
+        findingRecords?: Array<{
+          id: string
+          text: string
+          severity?: string
+          dimension?: string
+          evidence: string[]
+          correction?: string
+        }>
       }> {
         const out: Array<{
           verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
           findings: string[]
           coverage?: 'covered' | 'missing' | 'n/a'
           dimensions?: Record<string, string>
-          requirementCoverage?: Array<{ requirement: string; status: string }>
+          requirementCoverage?: Array<{
+            requirement: string
+            status: string
+            evidence: string[]
+          }>
           snapshotFingerprint?: string
           reviewedFiles?: string[]
           schemaVersion?: number
-          findingRecords?: Array<{ id: string; text: string }>
+          findingRecords?: Array<{
+            id: string
+            text: string
+            severity?: string
+            dimension?: string
+            evidence: string[]
+            correction?: string
+          }>
         }> = []
         visitForStructuredVerdict(value, out)
         return out
@@ -3692,11 +3827,22 @@ ${specialistRoutingSection}
           findings: string[]
           coverage?: 'covered' | 'missing' | 'n/a'
           dimensions?: Record<string, string>
-          requirementCoverage?: Array<{ requirement: string; status: string }>
+          requirementCoverage?: Array<{
+            requirement: string
+            status: string
+            evidence: string[]
+          }>
           snapshotFingerprint?: string
           reviewedFiles?: string[]
           schemaVersion?: number
-          findingRecords?: Array<{ id: string; text: string }>
+          findingRecords?: Array<{
+            id: string
+            text: string
+            severity?: string
+            dimension?: string
+            evidence: string[]
+            correction?: string
+          }>
         }>,
       ): void {
         if (!value) return
@@ -3759,9 +3905,9 @@ ${specialistRoutingSection}
               dimensions:
                 record.dimensions && typeof record.dimensions === 'object'
                   ? (Object.fromEntries(
-                      Object.entries(record.dimensions as Record<string, unknown>).filter(
-                        (entry) => typeof entry[1] === 'string',
-                      ),
+                      Object.entries(
+                        record.dimensions as Record<string, unknown>,
+                      ).filter((entry) => typeof entry[1] === 'string'),
                     ) as Record<string, string>)
                   : undefined,
               requirementCoverage: Array.isArray(record.requirementCoverage)
@@ -3769,9 +3915,21 @@ ${specialistRoutingSection}
                     if (!item || typeof item !== 'object') return []
                     const requirement = (item as any).requirement
                     const status = (item as any).status
+                    const evidence = (item as any).evidence
                     return typeof requirement === 'string' &&
                       typeof status === 'string'
-                      ? [{ requirement, status: status.toLowerCase() }]
+                      ? [
+                          {
+                            requirement,
+                            status: status.toLowerCase(),
+                            evidence: Array.isArray(evidence)
+                              ? evidence.filter(
+                                  (value: unknown): value is string =>
+                                    typeof value === 'string',
+                                )
+                              : [],
+                          },
+                        ]
                       : []
                   })
                 : undefined,
@@ -3799,7 +3957,29 @@ ${specialistRoutingSection}
                         : typeof item.text === 'string'
                           ? item.text.trim()
                           : ''
-                    return id && text ? [{ id, text }] : []
+                    return id && text
+                      ? [
+                          {
+                            id,
+                            text,
+                            ...(typeof item.severity === 'string'
+                              ? { severity: item.severity }
+                              : {}),
+                            ...(typeof item.dimension === 'string'
+                              ? { dimension: item.dimension }
+                              : {}),
+                            evidence: Array.isArray(item.evidence)
+                              ? item.evidence.filter(
+                                  (value): value is string =>
+                                    typeof value === 'string',
+                                )
+                              : [],
+                            ...(typeof item.correction === 'string'
+                              ? { correction: item.correction }
+                              : {}),
+                          },
+                        ]
+                      : []
                   })
                 : undefined,
             })
@@ -4235,11 +4415,18 @@ ${buildArray(
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex architecture, design tradeoff, risk, debugging strategy, or repeated-failure reasoning, spawn the thinker agent after you have gathered enough context. Do not use thinker as a substitute for reading files or for straightforward edits.`,
   isDefault &&
     `- IMPORTANT: Before spawning the editor agent for non-trivial changes, prepare a compact implementation brief and pass it as the editor prompt. The editor does not inherit parent conversation history, so the prompt must be a self-contained envelope with these labeled fields (use these exact headings as a compact checklist; omit a field only when truly N/A):
-    - Requirements: the user-facing requirement and acceptance criteria the editor must satisfy.
-    - Target files: explicit project-relative paths the editor should edit (and any nearby files it must read first to avoid drift).
-    - Constraints/non-goals: invariants to preserve, public behavior to keep stable, scope boundaries the editor must not cross.
-    - Patterns: existing code/style conventions and idioms in the codebase the change must follow.
-    - Risks: code-level edge cases, fragile call sites, or refactoring traps the editor should watch for.
+    Use either colon labels or Markdown headings; both are accepted. Copyable template:
+      Colon-label equivalents are also valid: Requirements:, Target files:, Constraints/non-goals:, Patterns:, Risks:.
+      ## Requirements
+      - The user-facing requirement and acceptance criteria.
+      ## Target files
+      - Explicit project-relative paths to edit or read first.
+      ## Constraints/non-goals
+      - Invariants, stable behavior, and scope boundaries.
+      ## Patterns
+      - Existing code/style conventions to follow.
+      ## Risks
+      - Edge cases, fragile call sites, and refactoring traps.
     If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not spawn editor for tiny one-file edits or direct answers. Do not include parent-only work such as validation commands, terminal/shell cleanup, deleting files, visual smoke tests, code review, git operations, todos, or post-edit orchestration steps. After the editor returns, handle those parent-only responsibilities yourself.`,
   isFast &&
     '- Implement the changes using the appropriate deterministic editing tool: rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, and write_file only for new files or whole-file rewrites. Implement all the changes in one go.',

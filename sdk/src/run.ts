@@ -67,6 +67,10 @@ import {
 import { gitBranch } from './tools/git-branch'
 import { runFileChangeHooks } from './tools/file-change-hooks'
 import { createNodeFileSystem } from './tools/node-filesystem'
+import {
+  createToolExecutionDeadline,
+  getDefaultToolExecutionTimeoutMs,
+} from './tool-execution-deadline'
 import type { FilesystemAuthorityPolicy } from './tools/filesystem-authority'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -624,33 +628,43 @@ async function runOnce({
           if (cloneMatch?.[1]) ownedLibrarianCloneDirs.add(cloneMatch[1])
         }
       }
-      return handleToolCall({
-        action: {
-          type: 'tool-call-request',
-          requestId: callId ?? crypto.randomUUID(),
-          userInputId,
-          toolName,
-          input,
-          timeout: undefined,
-          mcpConfig,
-        },
-        overrides: overrideTools ?? {},
-        onFilesChanged,
-        onFilesystemMutation,
-        verifyExternalMutation,
-        customToolDefinitions: customToolDefinitions
-          ? Object.fromEntries(
-              customToolDefinitions.map((def) => [def.toolName, def]),
-            )
-          : {},
-        cwd,
-        fs,
-        fileFilter,
-        filesystemPolicy,
-        env,
-        harnessStateDir: harnessStateDir ?? getHarnessStateDir(env),
-        signal: toolSignal ?? runSignal,
+      const timeoutMs = getDefaultToolExecutionTimeoutMs(toolName)
+      const deadline = createToolExecutionDeadline({
+        parentSignal: toolSignal ?? runSignal,
+        timeoutMs,
+        toolName,
       })
+      try {
+        return await handleToolCall({
+          action: {
+            type: 'tool-call-request',
+            requestId: callId ?? crypto.randomUUID(),
+            userInputId,
+            toolName,
+            input,
+            timeout: timeoutMs,
+            mcpConfig,
+          },
+          overrides: overrideTools ?? {},
+          onFilesChanged,
+          onFilesystemMutation,
+          verifyExternalMutation,
+          customToolDefinitions: customToolDefinitions
+            ? Object.fromEntries(
+                customToolDefinitions.map((def) => [def.toolName, def]),
+              )
+            : {},
+          cwd,
+          fs,
+          fileFilter,
+          filesystemPolicy,
+          env,
+          harnessStateDir: harnessStateDir ?? getHarnessStateDir(env),
+          signal: deadline.signal,
+        })
+      } finally {
+        deadline.dispose()
+      }
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
       const mcpClientId = await getMCPClient(mcpConfig)

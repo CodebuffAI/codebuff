@@ -282,13 +282,51 @@ const handleSubagentFinish = (
   state.streaming.streamRefs.setters.removeAgentAccumulator(event.agentId)
   state.subagents.removeActiveSubagent(event.agentId)
 
-  state.message.updater.updateAiMessageBlocks((blocks) =>
-    event.error
-      ? markAgentFailed(blocks, event.agentId, event.error)
-      : markAgentComplete(blocks, event.agentId),
-  )
+  const unresolvedToolIds = new Set<string>()
+  state.message.updater.updateAiMessageBlocks((blocks) => {
+    if (event.error) {
+      collectUnresolvedToolIdsForAgent(blocks, event.agentId, unresolvedToolIds)
+      return markAgentFailed(blocks, event.agentId, event.error)
+    }
+    return markAgentComplete(blocks, event.agentId)
+  })
 
   updateStreamingAgents(state, { remove: event.agentId })
+  for (const toolCallId of unresolvedToolIds) {
+    updateStreamingAgents(state, { remove: toolCallId })
+  }
+}
+
+const collectUnresolvedToolIds = (
+  blocks: ContentBlock[],
+  out: Set<string>,
+): void => {
+  for (const block of blocks) {
+    if (block.type === 'tool') {
+      if (!isTerminalToolBlock(block) && block.outputRaw === undefined) {
+        out.add(block.toolCallId)
+      }
+    } else if (block.type === 'agent' && block.blocks) {
+      collectUnresolvedToolIds(block.blocks, out)
+    }
+  }
+}
+
+const collectUnresolvedToolIdsForAgent = (
+  blocks: ContentBlock[],
+  agentId: string,
+  out: Set<string>,
+): void => {
+  for (const block of blocks) {
+    if (block.type !== 'agent') continue
+    if (block.agentId === agentId) {
+      collectUnresolvedToolIds(block.blocks ?? [], out)
+      return
+    }
+    if (block.blocks) {
+      collectUnresolvedToolIdsForAgent(block.blocks, agentId, out)
+    }
+  }
 }
 
 const handleSpawnAgentsToolCall = (
@@ -769,8 +807,9 @@ const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
   }
 
   // Compute and append a completion summary as a text block.
+  const settledIds = new Set<string>()
   state.message.updater.updateAiMessageBlocks((blocks) => {
-    const settledBlocks = settleOrphanedForegroundAgents(blocks)
+    const settledBlocks = settleOrphanedForegroundAgents(blocks, settledIds)
     // Walk the accumulated blocks to tally what happened
     const summary = computeCompletionSummary(settledBlocks)
     if (!summary) return settledBlocks
@@ -787,17 +826,32 @@ const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
       },
     ]
   })
+  for (const id of settledIds) {
+    updateStreamingAgents(state, { remove: id })
+  }
 }
 
 const settleOrphanedForegroundAgents = (
   blocks: ContentBlock[],
+  settledIds: Set<string>,
 ): ContentBlock[] =>
   blocks.map((block) => {
+    if (block.type === 'tool') {
+      if (isTerminalToolBlock(block) || block.outputRaw !== undefined) {
+        return block
+      }
+      settledIds.add(block.toolCallId)
+      return { ...block, queued: false, lifecycle: 'failed' as const }
+    }
     if (block.type !== 'agent') return block
+    // Detached background agents remain live after the root turn finishes and
+    // are reconciled only by check_background_agent.
+    if (block.backgroundJobId && block.status === 'running') return block
     const nestedBlocks = block.blocks
-      ? settleOrphanedForegroundAgents(block.blocks)
+      ? settleOrphanedForegroundAgents(block.blocks, settledIds)
       : block.blocks
     if (block.status === 'running' && !block.backgroundJobId) {
+      settledIds.add(block.agentId)
       return { ...block, blocks: nestedBlocks, status: 'failed' as const }
     }
     return nestedBlocks === block.blocks

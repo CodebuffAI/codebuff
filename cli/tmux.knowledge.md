@@ -1,5 +1,10 @@
 # tmux Knowledge for CLI Testing
 
+## Long-run Checkpoint Verification
+
+- When exercising a long agent run, distinguish a resumable `Agent step limit reached` or `No-progress watchdog` checkpoint from a crash. The checkpoint should remain visible in the final capture and must not be rendered as `No response from agent`.
+- Completion-summary captures should report recovered nested tool attempts only inside the expanded agent card, not inflate the terminal `errors` count after the agent ultimately succeeds.
+
 ## tmux Harness Behavior
 
 - Prefer `scripts/tmux/` helpers for CLI smoke tests because they wrap tmux session lifecycle, bracketed paste input, terminal capture, and `debug/tmux-sessions/` logging consistently.

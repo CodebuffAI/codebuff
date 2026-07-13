@@ -1,6 +1,10 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  isObviousEditPlaceholder,
+  jsonToolResultSchema,
+} from '../utils'
 import { updateFileResultSchema } from './str-replace'
 
 import type { $ToolParams } from '../../constants'
@@ -23,6 +27,10 @@ const inputSchema = z
       ),
     content: z
       .string()
+      .refine((value) => !isObviousEditPlaceholder(value), {
+        message:
+          'content is an explicit placeholder. Provide the complete replacement source for the symbol.',
+      })
       .describe(
         'The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body). Provide REAL newlines/tabs in the string — literal backslash-n (\\n) and backslash-t (\\t) sequences are not interpreted and will be written verbatim into the file. This matches str_replace.',
       ),
@@ -57,6 +65,7 @@ ${$getNativeToolCallExampleString({
 Purpose: Structural, drift-proof edits. Instead of copying a symbol's current text into str_replace's oldString (which breaks if the file changed), name the symbol and provide its full replacement; the runtime finds its exact range from the AST. Best supported for TypeScript/JavaScript source files where read_outline shows concrete symbols. For JSON, Markdown, plain text, or files/languages where no syntax-tree symbol is available, the tool returns guidance to use read_files + str_replace/replace_range instead.
 
 IMPORTANT: \`content\` is written verbatim — pass actual newlines and tabs, not backslash escape sequences. \`"foo\\nbar"\` writes the literal characters \`foo\\nbar\` into the file, not two lines.
+The content must be self-contained; references such as "[see code above]" are rejected.
 `.trim()
 
 export const rewriteSymbolParams = {

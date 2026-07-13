@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@vscode/tree-sitter-wasm": "0.1.4",
+    "tree-sitter-wasms": "0.1.13",
     "web-tree-sitter": "0.25.10"
   },
   "devDependencies": {}

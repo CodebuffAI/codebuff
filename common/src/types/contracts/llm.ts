@@ -56,6 +56,8 @@ export type PromptAiSdkStreamFn = (
       normalizedBody?: unknown
     }) => void
     onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
+    /** Reports the post-routing model context window to the runtime. */
+    onModelContextResolved?: (contextWindowTokens: number | undefined) => void
     includeCacheControl?: boolean
     cacheDebugCorrelation?: string
     agentProviderOptions?: OpenRouterProviderRoutingOptions

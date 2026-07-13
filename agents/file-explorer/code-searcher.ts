@@ -5,7 +5,7 @@ import type { JSONValue } from '../types/util-types'
 
 interface SearchQuery {
   pattern: string
-  flags?: string
+  flags?: string | string[]
   cwd?: string
   maxResults?: number
 }
@@ -23,8 +23,11 @@ const paramsSchema = {
             description: 'The pattern to search for',
           },
           flags: {
-            type: 'string' as const,
-            description: `Optional safe ripgrep flags. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not, -A/--after-context, -B/--before-context, -C/--context (with a numeric value). Examples: "-i", "-g *.ts -g *.tsx", "-g !*.test.ts", "-A 3". Dangerous flags (e.g. --exec, -r/--replace, -z/--null) are rejected.`,
+            anyOf: [
+              { type: 'string' as const },
+              { type: 'array' as const, items: { type: 'string' as const } },
+            ],
+            description: `Optional safe ripgrep flags as a string or argv token array. Examples: "-g *.ts -A 3" or ["-g", "*.ts", "-A", "3"]. Do not quote the entire expression inside a JSON string. Dangerous flags (e.g. --exec, -r/--replace, -z/--null) are rejected.`,
           },
           cwd: {
             type: 'string' as const,

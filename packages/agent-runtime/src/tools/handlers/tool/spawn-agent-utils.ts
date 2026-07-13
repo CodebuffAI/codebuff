@@ -358,16 +358,21 @@ const EMPTY_EDITOR_SECTION_VALUES = new Set([
 ])
 
 function findMissingEditorBriefFields(prompt: string): string[] {
-  const headingPattern = /^\s*(?:#{1,4}\s*)?([^:\n]+):\s*(.*)$/gm
+  // Accept both compact labels (`Requirements:`) and ordinary Markdown
+  // headings (`## Requirements`). Models frequently choose the latter even
+  // when the handoff prompt shows colon labels.
+  const headingPattern =
+    /^\s*(?:(?:#{1,4}\s+)([^:\n]+?)(?::\s*(.*))?|([^:\n]+):\s*(.*))$/gm
   const matches = [...prompt.matchAll(headingPattern)]
   const values = new Map<string, string>()
   for (const [index, match] of matches.entries()) {
     const start = (match.index ?? 0) + match[0].length
     const end = matches[index + 1]?.index ?? prompt.length
-    const inlineValue = match[2].trim()
+    const label = (match[1] ?? match[3] ?? '').trim().toLowerCase()
+    const inlineValue = (match[2] ?? match[4] ?? '').trim()
     const followingLines = prompt.slice(start, end).trim()
     values.set(
-      match[1].trim().toLowerCase(),
+      label,
       [inlineValue, followingLines].filter(Boolean).join('\n').trim(),
     )
   }
@@ -412,7 +417,10 @@ export function validateAgentInput(
     }
   }
 
-  if (agentType === 'editor') {
+  if (
+    agentTemplate.id === 'editor' ||
+    normalizeAgentIdForLookup(agentType) === 'editor'
+  ) {
     const trimmedPrompt = (prompt ?? '').trim()
     const missingFields = findMissingEditorBriefFields(trimmedPrompt)
     const header =
@@ -521,6 +529,7 @@ export function createAgentState(
     systemPrompt: '',
     toolDefinitions: {},
     contextTokenCount: parentAgentState.contextTokenCount,
+    contextWindowTokens: parentAgentState.contextWindowTokens,
   }
 }
 
@@ -568,9 +577,9 @@ export function logAgentSpawn(params: {
 }
 
 /**
- * Default wall-clock bound for a single subagent execution. A stuck subagent
- * would otherwise burn up to {@link MAX_AGENT_STEPS_DEFAULT} steps; this
- * unblocks the parent after a generous 20-minute window. The timeout now aborts
+ * Default wall-clock bound for a single subagent execution. This unblocks the
+ * parent after a generous 20-minute window even when each step differs enough
+ * to avoid the repeated-step watchdog. The timeout aborts
  * the AbortController threaded into loopAgentSteps (via AbortSignal.any with
  * the parent signal), so the stuck LLM stream is actually cancelled rather than
  * orphaned.

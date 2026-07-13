@@ -658,6 +658,34 @@ describe('editor agent', () => {
         pendingTargetFiles: ['agents/__tests__/base2.test.ts'],
       })
     })
+
+    test('pre-reads targets from Markdown heading briefs without colons', () => {
+      const mockAgentState = createMockAgentState([])
+      const generator = editor.handleSteps!({
+        agentState: mockAgentState,
+        logger: { debug() {}, info() {}, warn() {}, error() {} } as any,
+        params: {},
+        prompt: [
+          '## Requirements',
+          '- Implement the change.',
+          '## Target files',
+          '- server/src/db/elastic.ts',
+          '- server/src/db/elastic.test.ts',
+          '## Constraints/non-goals',
+          '- Preserve the existing API.',
+        ].join('\n'),
+      } as any)
+
+      expect(generator.next().value).toEqual({
+        toolName: 'read_files',
+        input: {
+          paths: [
+            'server/src/db/elastic.ts',
+            'server/src/db/elastic.test.ts',
+          ],
+        },
+      })
+    })
   })
 
   describe('style notes in instructions', () => {

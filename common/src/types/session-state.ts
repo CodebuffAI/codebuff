@@ -36,6 +36,10 @@ export type AgentState = {
   childRunIds: string[]
   messageHistory: Message[]
   stepsRemaining: number
+  /** Hash of the previous repeated-step watchdog observation. */
+  lastStepProgressSignature?: string
+  /** Consecutive count for the current repeated-step signature. */
+  repeatedStepProgressCount?: number
   creditsUsed: number
   directCreditsUsed: number
   /**
@@ -81,6 +85,12 @@ export type AgentState = {
    */
   contextTokenCount: number
   /**
+   * Context window resolved from the active provider/model configuration.
+   * The SDK reports this after routing so semantic compaction can scale with
+   * 500k/1M models instead of assuming the legacy 200k-class window.
+   */
+  contextWindowTokens?: number
+  /**
    * Cross-turn read authorization registry for the strict read-before-edit
    * gate. Each entry is a path that the agent has read (or successfully
    * written) at least once during this run, granting a sticky read auth
@@ -103,6 +113,8 @@ export type AgentState = {
   readAuthorizationHashesByPath?: Record<string, string>
   /** Typed current-attempt proposal records. Proposal state is not mutation state. */
   proposalLedger?: ProposalResultV1[]
+  /** Runtime-owned orchestrator state that must survive message compaction. */
+  base2ActiveWork?: Record<string, unknown>
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [
@@ -204,6 +216,8 @@ export function getInitialAgentState(): AgentState {
     childRunIds: [],
     messageHistory: [],
     stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
+    lastStepProgressSignature: undefined,
+    repeatedStepProgressCount: 0,
     creditsUsed: 0,
     directCreditsUsed: 0,
     cacheInputTokens: 0,
@@ -213,6 +227,7 @@ export function getInitialAgentState(): AgentState {
     systemPrompt: '',
     toolDefinitions: {},
     contextTokenCount: 0,
+    contextWindowTokens: undefined,
     readAuthorizationsByPath: {},
     readAuthorizationHashesByPath: {},
   }

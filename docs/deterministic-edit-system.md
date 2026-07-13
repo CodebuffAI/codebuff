@@ -16,6 +16,12 @@ Use `find_files_matching_content` when you need the unique set of files whose co
 
 Prefer `code_search` when the matching lines and surrounding context are needed. Prefer `find_files_matching_content` when the next step is deduping file paths and reading or editing those files. The tool streams ripgrep output internally into bounded, deduped file sets so large searches do not require holding the full stdout payload in memory; future client protocols can expose those internal progress updates incrementally.
 
+Both search tools accept safe ripgrep flags either as one string or as an argv
+array, for example `"-t ts -g src/**"` or `["-t", "ts", "-g",
+"src/**"]`. One accidental quote layer around the whole string is repaired,
+then the normal strict allowlist is still applied. Do not pass `-n`: line
+numbers are enabled internally by `code_search`.
+
 ## Background jobs at turn boundaries
 
 `run_terminal_command` with `process_type: "BACKGROUND"` registers running jobs in a shared process registry. `end_turn` surfaces any still-running job IDs so agents do not silently leak dev servers, watchers, or log tails across turns. Use `check_job`, `read_logs`, or `kill_job` to inspect or stop them before finishing when appropriate.
@@ -65,6 +71,11 @@ Replacement batches discard only operation-less placeholder entries such as
 `{}` or `{ allowMultiple: false }`, which some providers append after valid
 replacements. One-sided entries, misspelled payload keys, and batches containing
 only placeholders still fail schema validation.
+
+Prose references such as `[see patch above]` are rejected at schema validation
+for every active mutation payload. Each edit call must carry its exact
+`oldString` and complete replacement bytes. Because this rejection occurs
+before edit preparation, it does not consume a valid prior read authorization.
 
 `edit_transaction.edits` also accepts a JSON-stringified array and decodes it
 before validating each edit. Non-JSON strings and invalid decoded edit objects

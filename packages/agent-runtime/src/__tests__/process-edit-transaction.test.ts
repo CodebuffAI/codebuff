@@ -109,6 +109,8 @@ describe('processEditTransaction', () => {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('during preflight at edit 2 of 2')
+      expect(result.error).not.toContain(result.failures[0]!.errorMessage)
       expect(result.error).toContain('NO files were changed')
       expect(result.failures).toEqual([
         expect.objectContaining({
@@ -938,7 +940,9 @@ describe('processEditTransaction', () => {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('Atomic edit_transaction aborted')
-      expect(result.error).toContain('oldString was not uniquely identifiable')
+      expect(result.failures[0]?.errorMessage).toContain(
+        'oldString was not uniquely identifiable',
+      )
     }
   })
 

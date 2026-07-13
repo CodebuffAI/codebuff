@@ -27,6 +27,20 @@ function finishStepWithToolResult(value: unknown) {
   } as any
 }
 
+function reviewerResult(snapshotFingerprint: string, reviewedFiles: string[]) {
+  return feedJson({
+    schemaVersion: 1,
+    family: 'reviewer',
+    verdict: 'NON_BLOCKING',
+    snapshotFingerprint,
+    reviewedFiles,
+    findings: [],
+    coverage: 'covered',
+    dimensions: {},
+    requirementCoverage: [],
+  })
+}
+
 // A pending gate file that satisfies ALL THREE pre-reviewer aux predicates in
 // a single iteration:
 //  - test-writer: non-test source under `cli/src/` -> inferPackageTestCommand
@@ -163,11 +177,30 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       preEditSecurityReviewDone: false,
     })
 
-    // Invariant 3: after all three aux gates fire, auxGateFiredThisIteration
-    // causes a `continue` that re-enters the loop. The re-loop starts with a
-    // fresh context-pruner spawn.
-    const reLoopContextPruner = gen.next(
+    // The auth/session file also routes through the deterministic reliability
+    // specialist gate. It must review the same snapshot before the aux block
+    // can re-enter the loop.
+    const specialistBundle = gen.next(
       feedJson(['NON_BLOCKING: No security concerns found.']),
+    )
+    expect(specialistBundle.value).toMatchObject({
+      toolName: 'get_change_review_bundle',
+      input: {},
+      includeToolCall: false,
+    })
+    const specialistSpawn = gen.next(
+      feedJson({ snapshotId: 'aux-ordering-snapshot' }),
+    )
+    expect(specialistSpawn.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'reliability-reviewer' },
+      includeToolCall: false,
+    })
+
+    // Invariant 3: after every routed aux gate passes,
+    // auxGateFiredThisIteration re-enters the loop at context pruning.
+    const reLoopContextPruner = gen.next(
+      reviewerResult('aux-ordering-snapshot', [AUX_TRIPLE_FILE]),
     )
     expect(reLoopContextPruner.value).toMatchObject({
       toolName: 'spawn_agent_inline',
@@ -186,11 +219,11 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       `Pending validation/reviewer gate files: ${AUX_TRIPLE_FILE}`,
     )
 
-    // Re-loop model step: no new files, same pending set. Finishing drives to
+    // Re-loop model step: no new edits, same pending set. Finishing drives to
     // git_status, NOT directly to run_file_change_hooks.
     expect(gen.next().value).toBe('STEP')
     expect(
-      gen.next(finishStepWithToolResult({ file: AUX_TRIPLE_FILE })).value,
+      gen.next(finishStepWithToolResult({})).value,
     ).toMatchObject({ toolName: 'git_status', input: {} })
 
     // Invariant 4 (no infinite re-spawn loop): with the same aux-relevant
@@ -277,7 +310,7 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     })
     expect(gen.next().value).toBe('STEP')
     expect(
-      gen.next(finishStepWithToolResult({ file: AUX_TRIPLE_FILE })).value,
+      gen.next(finishStepWithToolResult({})).value,
     ).toMatchObject({ toolName: 'git_status' })
 
     // First iteration fires all three aux gates in order.
@@ -302,9 +335,28 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       preEditSecurityReviewDone: false,
     })
 
+    const specialistBundle = gen.next(
+      feedJson(['NON_BLOCKING: No security concerns found.']),
+    )
+    expect(specialistBundle.value).toMatchObject({
+      toolName: 'get_change_review_bundle',
+      input: {},
+      includeToolCall: false,
+    })
+    const specialistSpawn = gen.next(
+      feedJson({ snapshotId: 'aux-idempotency-snapshot' }),
+    )
+    expect(specialistSpawn.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'reliability-reviewer' },
+      includeToolCall: false,
+    })
+
     // The aux block `continue`d; re-loop starts with context-pruner.
     expect(
-      gen.next(feedJson(['NON_BLOCKING: No security concerns found.'])).value,
+      gen.next(
+        reviewerResult('aux-idempotency-snapshot', [AUX_TRIPLE_FILE]),
+      ).value,
     ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },

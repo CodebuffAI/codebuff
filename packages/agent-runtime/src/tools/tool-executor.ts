@@ -28,6 +28,8 @@ import {
   isBaseAgent,
   normalizeSpawnAgentType,
   toolNotAgentError,
+  validateAgentInput,
+  validateAndGetAgentTemplate,
 } from './handlers/tool/spawn-agent-utils'
 import { getAgentTemplate } from '../templates/agent-registry'
 import { ensureZodSchema } from './prompts'
@@ -73,6 +75,43 @@ export type ToolCallError = {
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
 
+function makeAbortableBarrier(
+  barrier: Promise<void>,
+  signal: AbortSignal,
+): Promise<void> {
+  if (signal.aborted) {
+    return Promise.reject(
+      new DOMException(
+        signal.reason instanceof Error ? signal.reason.message : 'Aborted',
+        'AbortError',
+      ),
+    )
+  }
+  return new Promise<void>((resolve, reject) => {
+    let settled = false
+    const finish = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      signal.removeEventListener('abort', onAbort)
+      callback()
+    }
+    const onAbort = () =>
+      finish(() =>
+        reject(
+          new DOMException(
+            signal.reason instanceof Error ? signal.reason.message : 'Aborted',
+            'AbortError',
+          ),
+        ),
+      )
+    signal.addEventListener('abort', onAbort, { once: true })
+    barrier.then(
+      () => finish(resolve),
+      (error) => finish(() => reject(error)),
+    )
+  })
+}
+
 export function buildSpawnAgentsHandlerFailureOutput(
   input: unknown,
   error: unknown,
@@ -114,6 +153,24 @@ export function normalizeNativeToolOutput<T extends ToolName>(params: {
       output: CodebuffToolOutput<T>
       issues: ReadonlyArray<{ message: string }>
     } {
+  const canonicalHandlerFailure = params.output.some((part) => {
+    if (part.type !== 'json' || !part.value || typeof part.value !== 'object') {
+      return false
+    }
+    const value = part.value as Record<string, unknown>
+    const lifecycle = value.lifecycle
+    return (
+      value.kind === 'native_tool_result_error' &&
+      value.version === 1 &&
+      lifecycle !== null &&
+      typeof lifecycle === 'object' &&
+      (lifecycle as Record<string, unknown>).callId === params.toolCallId &&
+      (lifecycle as Record<string, unknown>).state === 'failed'
+    )
+  })
+  if (canonicalHandlerFailure) {
+    return { valid: true, output: params.output, issues: [] }
+  }
   const parsed = toolParams[params.toolName].outputSchema.safeParse(
     params.output,
   )
@@ -380,12 +437,45 @@ function stringInputError(
   const parseDetails = parseError
     ? ` Parsing as JSON failed: ${parseError}. The arguments may be malformed or incomplete.`
     : ' Parsing succeeded, but the parsed value was still a string.'
+  const retryHint =
+    toolName === 'set_output'
+      ? ' Pass the result as an object directly, for example { "data": { "schemaVersion": 1, ... } }. Do not JSON.stringify the object. Keep findings and evidence compact enough to complete one tool call.'
+      : ' Re-issue the tool call with the full arguments object and properly escaped string values.'
   return {
     toolName,
     toolCallId,
     input: {},
-    error: `Invalid parameters for ${toolName}: expected the tool arguments to be an object, but received a string.${parseDetails} Re-issue the tool call with the full arguments object and properly escaped string values.`,
+    error: `Invalid parameters for ${toolName}: expected the tool arguments to be an object, but received a string.${parseDetails}${retryHint}`,
   }
+}
+
+function repairSetOutputData(
+  toolName: string,
+  input: unknown,
+): unknown {
+  if (
+    toolName !== 'set_output' ||
+    input === null ||
+    Array.isArray(input) ||
+    typeof input !== 'object'
+  ) {
+    return input
+  }
+  const record = input as Record<string, unknown>
+  if (typeof record.data !== 'string') return input
+
+  let parsed: unknown = record.data
+  for (let i = 0; i < 3 && typeof parsed === 'string'; i++) {
+    try {
+      parsed = JSON.parse(parsed)
+    } catch {
+      return input
+    }
+  }
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
+    return input
+  }
+  return { ...record, data: parsed }
 }
 
 function getFieldSpecificHint(
@@ -456,6 +546,18 @@ function getToolValidationHint(
     const base =
       'Expected shape: { "path": string, "instructions": string, "content": string }. Quote string values and escape newlines/quotes inside content.'
     return fieldHint ? `${base}\n\n${fieldHint}` : base
+  }
+  if (toolName === 'set_output') {
+    return [
+      'Expected shape: { "data": { ...structured fields... } } (or the structured fields directly at top level).',
+      'Pass a real object to set_output. Do not JSON.stringify it or place serialized JSON inside data. Keep findings and evidence concise enough to finish the tool call.',
+    ].join('\n')
+  }
+  if (toolName === 'spawn_agents') {
+    return [
+      'Expected shape: { "agents": [{ "agent_type": string, "prompt"?: string, "params"?: object }] }.',
+      'Pass agents as an array of objects. Valid stringified or double-stringified JSON is repaired automatically, but truncated JSON and non-object entries are rejected. Do not stringify each agent entry.',
+    ].join('\n')
   }
   return fieldHint
 }
@@ -573,7 +675,11 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     )
   }
 
-  const result = paramsSchema.safeParse(processedParameters.input)
+  const repairedInput = repairSetOutputData(
+    toolName,
+    processedParameters.input,
+  )
+  const result = paramsSchema.safeParse(repairedInput)
 
   if (!result.success) {
     const issues = result.error.issues as ValidationIssue[]
@@ -674,6 +780,10 @@ export async function executeToolCall<T extends ToolName>(
     queued,
   } = params
   const toolCallId = params.toolCallId ?? generateCompactId()
+  const abortablePreviousToolCallFinished = makeAbortableBarrier(
+    previousToolCallFinished,
+    params.signal,
+  )
 
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
@@ -697,7 +807,7 @@ export async function executeToolCall<T extends ToolName>(
       type: 'error',
       message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools provided at the start of the conversation AND that you most recently have permission to use.`,
     })
-    return previousToolCallFinished
+    return abortablePreviousToolCallFinished
   }
 
   if ('error' in toolCall) {
@@ -710,7 +820,7 @@ export async function executeToolCall<T extends ToolName>(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
     )
-    return previousToolCallFinished
+    return abortablePreviousToolCallFinished
   }
 
   const filesystemAccess = getFilesystemToolPaths(
@@ -742,7 +852,7 @@ export async function executeToolCall<T extends ToolName>(
         type: 'error',
         message: `Tool \`${toolName}\` was blocked by the ${agentTemplate.id} filesystem ${filesystemAccess.access} scope. Disallowed path(s): ${deniedPaths.map(({ rawPath }) => rawPath).join(', ')}. Allowed patterns: ${allowedPatterns.join(', ')}.`,
       })
-      return previousToolCallFinished
+      return abortablePreviousToolCallFinished
     }
   }
 
@@ -758,7 +868,7 @@ export async function executeToolCall<T extends ToolName>(
         message:
           'Tool `suggest_followups` is not available yet. Finish the requested work first; for edited code, wait until the automated validation/reviewer gate has passed and you have written a user-visible completion summary.',
       })
-      return previousToolCallFinished
+      return abortablePreviousToolCallFinished
     }
   } else if (
     canSuggestFollowups === true &&
@@ -770,7 +880,7 @@ export async function executeToolCall<T extends ToolName>(
       message:
         'File-changing tools are not available after suggest_followups in the same step. If more edits are needed, make them before final follow-up suggestions so validation and review can rerun.',
     })
-    return previousToolCallFinished
+    return abortablePreviousToolCallFinished
   }
 
   // Retract suggest_followups permission for the remainder of this step as
@@ -849,10 +959,20 @@ export async function executeToolCall<T extends ToolName>(
                 error: `Agent "${agentTypeStr}" does not exist`,
               }
             }
-          } catch {
+            const entry = agent as Record<string, unknown>
+            validateAgentInput(
+              template,
+              agentTypeStr,
+              typeof entry.prompt === 'string' ? entry.prompt : undefined,
+              entry.params,
+            )
+          } catch (error) {
             return {
               valid: false as const,
-              error: `Agent "${agentTypeStr}" could not be loaded`,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : `Agent "${agentTypeStr}" could not be loaded or validated`,
             }
           }
 
@@ -881,11 +1001,42 @@ export async function executeToolCall<T extends ToolName>(
             { toolName, errors },
             'All agents in spawn_agents are invalid, not streaming tool call',
           )
-          return previousToolCallFinished
+          return abortablePreviousToolCallFinished
         }
         const errorMsg = `Some agents could not be spawned: ${errors.join('; ')}. Proceeding with valid agents only.`
         onResponseChunk({ type: 'error', message: errorMsg })
         effectiveInput = { ...effectiveInput, agents: validAgents }
+      }
+    }
+  } else if (toolName === 'spawn_agent_inline') {
+    const inlineInput = effectiveInput as {
+      agent_type?: unknown
+      prompt?: unknown
+      params?: unknown
+    }
+    if (typeof inlineInput.agent_type === 'string') {
+      try {
+        const validated = await validateAndGetAgentTemplate({
+          ...params,
+          agentTypeStr: inlineInput.agent_type,
+          parentAgentTemplate: agentTemplate,
+        })
+        validateAgentInput(
+          validated.agentTemplate,
+          validated.agentType,
+          typeof inlineInput.prompt === 'string'
+            ? inlineInput.prompt
+            : undefined,
+          inlineInput.params,
+        )
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        onResponseChunk({ type: 'error', message })
+        logger.debug(
+          { toolName, error: message },
+          'spawn_agent_inline input failed pre-publication validation',
+        )
+        return abortablePreviousToolCallFinished
       }
     }
   }
@@ -909,9 +1060,10 @@ export async function executeToolCall<T extends ToolName>(
   // double-resolution is harmless). Attach the `.then` immediately after the
   // `tool_call` emit so ordering vs `tool_result` is guaranteed.
   if (queued === true) {
-    previousToolCallFinished.then(() => {
-      onResponseChunk({ type: 'tool_start', toolCallId })
-    })
+    abortablePreviousToolCallFinished.then(
+      () => onResponseChunk({ type: 'tool_start', toolCallId }),
+      () => {},
+    )
   }
 
   // Cast to any to avoid type errors
@@ -930,39 +1082,47 @@ export async function executeToolCall<T extends ToolName>(
     toolCallsToAddToMessageHistory.push(finalToolCall)
   }
 
-  const toolResultPromise = handler({
-    ...params,
-    toolCall: finalToolCall,
-    previousToolCallFinished,
-    writeToClient: onResponseChunk,
-    requestClientToolCall: (async (
-      clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
-    ) => {
-      if (params.signal.aborted) {
-        return []
-      }
+  const toolResultPromise = Promise.resolve().then(() =>
+    handler({
+      ...params,
+      toolCall: finalToolCall,
+      previousToolCallFinished: abortablePreviousToolCallFinished,
+      writeToClient: onResponseChunk,
+      requestClientToolCall: (async (
+        clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
+      ) => {
+        if (params.signal.aborted) {
+          return []
+        }
 
-      const clientToolResult = await requestToolCall({
-        userInputId,
-        callId: clientToolCall.toolCallId,
-        toolName: clientToolCall.toolName,
-        input: clientToolCall.input,
-        signal: params.signal,
-      })
-      return clientToolResult.output as CodebuffToolOutput<T>
-    }) as any,
-  })
+        const clientToolResult = await requestToolCall({
+          userInputId,
+          callId: clientToolCall.toolCallId,
+          toolName: clientToolCall.toolName,
+          input: clientToolCall.input,
+          signal: params.signal,
+        })
+        return clientToolResult.output as CodebuffToolOutput<T>
+      }) as any,
+    }),
+  )
 
   const recoverableToolResultPromise = toolResultPromise.catch((error) => {
-    if (toolName !== 'spawn_agents' || isAbortError(error)) {
-      throw error
-    }
+    if (isAbortError(error)) throw error
     logger.warn(
-      { error, toolCallId: toolCall.toolCallId },
-      'spawn_agents handler failed after tool-call publication; returning a terminal failure report',
+      { error, toolName, toolCallId: toolCall.toolCallId },
+      'Native tool handler failed after tool-call publication; returning a terminal failure result',
     )
     return {
-      output: buildSpawnAgentsHandlerFailureOutput(finalToolCall.input, error),
+      output:
+        toolName === 'spawn_agents'
+          ? buildSpawnAgentsHandlerFailureOutput(finalToolCall.input, error)
+          : (buildNativeToolResultErrorOutputV1({
+              toolName,
+              callId: toolCall.toolCallId,
+              issueCount: 1,
+              message: `The ${toolName} handler failed after the tool call started: ${error instanceof Error ? error.message : String(error)}. No successful result is confirmed.`,
+            }) as CodebuffToolOutput<T>),
     } as Awaited<ReturnType<typeof handler>>
   })
 
@@ -1177,6 +1337,10 @@ export async function executeCustomToolCall(
     userInputId,
     queued,
   } = params
+  const abortablePreviousToolCallFinished = makeAbortableBarrier(
+    previousToolCallFinished,
+    params.signal,
+  )
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
       ...params,
@@ -1210,7 +1374,7 @@ export async function executeCustomToolCall(
       type: 'error',
       message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
     })
-    return previousToolCallFinished
+    return abortablePreviousToolCallFinished
   }
 
   if ('error' in toolCall) {
@@ -1223,7 +1387,7 @@ export async function executeCustomToolCall(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
     )
-    return previousToolCallFinished
+    return abortablePreviousToolCallFinished
   }
 
   // Only emit tool_call event after permission check passes
@@ -1246,12 +1410,15 @@ export async function executeCustomToolCall(
   // For custom/unknown-path writes `queued` is typically undefined, so this
   // is a no-op in practice — guarded for consistency with native writes.
   if (queued === true) {
-    previousToolCallFinished.then(() => {
-      onResponseChunk({
-        type: 'tool_start',
-        toolCallId: toolCall.toolCallId,
-      })
-    })
+    abortablePreviousToolCallFinished.then(
+      () => {
+        onResponseChunk({
+          type: 'tool_start',
+          toolCallId: toolCall.toolCallId,
+        })
+      },
+      () => {},
+    )
   }
 
   toolCalls.push(toolCall)
@@ -1259,7 +1426,7 @@ export async function executeCustomToolCall(
     toolCallsToAddToMessageHistory.push(toolCall)
   }
 
-  return previousToolCallFinished
+  return abortablePreviousToolCallFinished
     .then(async () => {
       if (params.signal.aborted) {
         return null
@@ -1283,6 +1450,19 @@ export async function executeCustomToolCall(
         signal: params.signal,
       })
       return clientToolResult.output satisfies ToolResultOutput[]
+    })
+    .catch((error) => {
+      if (isAbortError(error)) throw error
+      logger.warn(
+        { error, toolName, toolCallId: toolCall.toolCallId },
+        'Custom tool handler failed after tool-call publication; returning a terminal failure result',
+      )
+      return buildNativeToolResultErrorOutputV1({
+        toolName,
+        callId: toolCall.toolCallId,
+        issueCount: 1,
+        message: `The ${toolName} handler failed after the tool call started: ${error instanceof Error ? error.message : String(error)}. No successful result is confirmed.`,
+      })
     })
     .then((result) => {
       if (!result) {
@@ -1347,6 +1527,12 @@ export function tryTransformAgentToolCall(params: {
   }
   if (Object.hasOwn(input, 'handoff')) {
     agentEntry.handoff = input.handoff
+  }
+  if (Object.hasOwn(input, 'background')) {
+    agentEntry.background = input.background
+  }
+  if (Object.hasOwn(input, 'timeout_seconds')) {
+    agentEntry.timeout_seconds = input.timeout_seconds
   }
   const spawnAgentsInput = {
     agents: [agentEntry],

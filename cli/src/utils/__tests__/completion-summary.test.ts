@@ -225,6 +225,73 @@ describe('computeCompletionSummary', () => {
     const summary = computeCompletionSummary(blocks)
     expect(summary?.errors).toBe(1)
   })
+
+  test('does not count an edit failure again as a generic error', () => {
+    const summary = computeCompletionSummary([
+      makeEditBlock({
+        outputRaw: [
+          { type: 'json', value: { errorMessage: 'oldString not found' } },
+        ],
+      }),
+    ])
+    expect(summary).toMatchObject({ filesFailed: 1, errors: 0 })
+  })
+
+  test('does not double-count a failed agent and its nested tool error', () => {
+    const summary = computeCompletionSummary([
+      {
+        type: 'agent',
+        agentId: 'a1',
+        agentName: 'Editor',
+        agentType: 'editor',
+        content: '',
+        status: 'failed',
+        blocks: [
+          makeEditBlock({
+            toolName: 'run_terminal_command',
+            outputRaw: [{ type: 'json', value: { errorMessage: 'boom' } }],
+          }),
+        ],
+      },
+    ])
+    expect(summary?.errors).toBe(1)
+  })
+
+  test('does not report recovered nested tool errors after an agent completes', () => {
+    const summary = computeCompletionSummary([
+      {
+        type: 'agent',
+        agentId: 'a1',
+        agentName: 'Editor',
+        agentType: 'editor',
+        content: 'Recovered and completed.',
+        status: 'complete',
+        blocks: [
+          makeEditBlock({
+            toolName: 'run_terminal_command',
+            outputRaw: [
+              { type: 'json', value: { errorMessage: 'transient failure' } },
+            ],
+          }),
+        ],
+      },
+    ])
+    expect(summary?.errors ?? 0).toBe(0)
+  })
+
+  test('does not repeat an auxiliary failure in the generic error count', () => {
+    const summary = computeCompletionSummary([
+      {
+        type: 'agent',
+        agentId: 'a1',
+        agentName: 'Security Reviewer',
+        agentType: 'security-reviewer',
+        content: '',
+        status: 'failed',
+      },
+    ])
+    expect(summary).toMatchObject({ auxiliaryFailed: 1, errors: 0 })
+  })
 })
 
 describe('formatCompletionSummary', () => {

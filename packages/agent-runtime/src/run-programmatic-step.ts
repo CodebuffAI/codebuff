@@ -162,7 +162,8 @@ export async function runProgrammaticStep(
     repoUrl: string | undefined
     stepNumber: number
     stepsComplete: boolean
-    // True when stepsComplete is due to the step-cap guard (stepsRemaining <= 0).
+    // True when stepsComplete is due to an explicit fixed step cap
+    // (stepsRemaining === 0).
     // Forwarded to the generator so orchestrators (e.g. base2) can break out
     // instead of falling through to the validation/reviewer gate, which would
     // re-yield STEP and re-trigger the step-cap, causing an infinite loop.

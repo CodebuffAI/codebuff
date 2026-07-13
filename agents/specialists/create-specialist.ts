@@ -12,7 +12,27 @@ type SpecialistConfig = {
   intelligence?: Array<'environment' | 'tests' | 'builds' | 'audit'>
 }
 
-export function createSpecialist(config: SpecialistConfig): SecretAgentDefinition {
+const MAX_REVIEWED_FILES = 200
+const MAX_FINDINGS = 20
+const MAX_REQUIREMENTS = 100
+const MAX_EVIDENCE_ITEMS = 8
+const MAX_PATH_LENGTH = 1_000
+const MAX_TEXT_LENGTH = 2_000
+
+const boundedString = (maxLength = MAX_TEXT_LENGTH) => ({
+  type: 'string' as const,
+  maxLength,
+})
+
+const boundedStringArray = (maxItems = MAX_EVIDENCE_ITEMS) => ({
+  type: 'array' as const,
+  maxItems,
+  items: boundedString(),
+})
+
+export function createSpecialist(
+  config: SpecialistConfig,
+): SecretAgentDefinition {
   const family = config.advisory ? 'advisory' : 'reviewer'
   const dimensionKeys = config.focus.map((item) =>
     item
@@ -24,7 +44,7 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
     type: 'object' as const,
     properties: {
       id: {
-        type: 'string' as const,
+        ...boundedString(240),
         description: `Stable ID formatted as ${config.id}:<dimension>:<slug>.`,
       },
       severity: {
@@ -32,9 +52,9 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
         enum: ['critical', 'high', 'medium', 'low'],
       },
       dimension: { type: 'string' as const, enum: dimensionKeys },
-      summary: { type: 'string' as const },
-      evidence: { type: 'array' as const, items: { type: 'string' as const } },
-      correction: { type: 'string' as const },
+      summary: boundedString(),
+      evidence: boundedStringArray(),
+      correction: boundedString(),
     },
     required: [
       'id',
@@ -64,22 +84,29 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
     displayName: config.displayName,
     spawnerPrompt: config.purpose,
     inputSchema: {
-      prompt: { type: 'string', description: 'The exact scoped question or review task.' },
+      prompt: {
+        type: 'string',
+        description: 'The exact scoped question or review task.',
+      },
       params: {
         type: 'object',
         properties: {
           files: {
             type: 'array',
-            items: { type: 'string' },
+            maxItems: MAX_REVIEWED_FILES,
+            items: boundedString(MAX_PATH_LENGTH),
             description: 'Exact files in scope.',
           },
           snapshot_id: {
             type: 'string',
+            maxLength: 512,
             description: 'Expected change-review snapshot fingerprint.',
           },
           command: {
             type: 'string',
-            description: 'Optional bounded diagnostic command for terminal-enabled specialists.',
+            maxLength: 4_000,
+            description:
+              'Optional bounded diagnostic command for terminal-enabled specialists.',
           },
         },
         required: config.advisory ? [] : ['snapshot_id'],
@@ -92,12 +119,20 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
           properties: {
             schemaVersion: { type: 'number' },
             family: { type: 'string', enum: ['advisory'] },
-            snapshotFingerprint: { type: 'string' },
-            reviewedFiles: { type: 'array', items: { type: 'string' } },
+            snapshotFingerprint: boundedString(512),
+            reviewedFiles: {
+              type: 'array',
+              maxItems: MAX_REVIEWED_FILES,
+              items: boundedString(MAX_PATH_LENGTH),
+            },
             dimensions: dimensionsSchema,
-            findings: { type: 'array', items: findingSchema },
-            recommendations: { type: 'array', items: { type: 'string' } },
-            evidence: { type: 'array', items: { type: 'string' } },
+            findings: {
+              type: 'array',
+              maxItems: MAX_FINDINGS,
+              items: findingSchema,
+            },
+            recommendations: boundedStringArray(20),
+            evidence: boundedStringArray(20),
           },
           required: [
             'schemaVersion',
@@ -118,28 +153,34 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
               type: 'string',
               enum: ['LOOKS_GOOD', 'NON_BLOCKING', 'BLOCKING'],
             },
-            snapshotFingerprint: { type: 'string' },
-            reviewedFiles: { type: 'array', items: { type: 'string' } },
+            snapshotFingerprint: boundedString(512),
+            reviewedFiles: {
+              type: 'array',
+              maxItems: MAX_REVIEWED_FILES,
+              items: boundedString(MAX_PATH_LENGTH),
+            },
             coverage: {
               type: 'string',
               enum: ['covered', 'missing', 'n/a'],
             },
             dimensions: dimensionsSchema,
-            findings: { type: 'array', items: findingSchema },
+            findings: {
+              type: 'array',
+              maxItems: MAX_FINDINGS,
+              items: findingSchema,
+            },
             requirementCoverage: {
               type: 'array',
+              maxItems: MAX_REQUIREMENTS,
               items: {
                 type: 'object',
                 properties: {
-                  requirement: { type: 'string' },
+                  requirement: boundedString(),
                   status: {
                     type: 'string',
                     enum: ['satisfied', 'missing', 'uncertain'],
                   },
-                  evidence: {
-                    type: 'array',
-                    items: { type: 'string' },
-                  },
+                  evidence: boundedStringArray(),
                 },
                 required: ['requirement', 'status', 'evidence'],
               },
@@ -175,7 +216,10 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
         ? (['get_build_targets'] as const)
         : []),
       ...(config.intelligence?.includes('audit')
-        ? (['inspect_codebase_structure', 'inspect_feature_completeness'] as const)
+        ? ([
+            'inspect_codebase_structure',
+            'inspect_feature_completeness',
+          ] as const)
         : []),
       ...(config.terminal ? (['run_terminal_command'] as const) : []),
       'set_output',
@@ -192,7 +236,7 @@ export function createSpecialist(config: SpecialistConfig): SecretAgentDefinitio
         : 'Return family=reviewer. Any material issue requiring a code or contract change is BLOCKING.',
       'Focus areas:',
       ...config.focus.map((item) => `- ${item}`),
-      `Use these exact dimension keys: ${dimensionKeys.join(', ')}. Every finding ID must be stable and formatted ${config.id}:<dimension>:<slug>; include severity, concrete evidence, and an actionable correction. Return the required structured output and do not modify files.`,
+      `Use these exact dimension keys: ${dimensionKeys.join(', ')}. Every finding ID must be stable and formatted ${config.id}:<dimension>:<slug>; include severity, concrete evidence, and an actionable correction. Keep the result compact: at most ${MAX_FINDINGS} findings and ${MAX_EVIDENCE_ITEMS} evidence items per finding. Call set_output with a JSON object directly; never JSON.stringify the object or wrap it in a string. Return the required structured output and do not modify files.`,
     ].join('\n'),
   }
 }

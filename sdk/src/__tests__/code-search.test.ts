@@ -51,6 +51,40 @@ describe('codeSearch', () => {
         expect((error as Error).message).toContain('Ripgrep binary not found')
       }
     })
+
+    it('does not accept a directory as CODEBUFF_RG_PATH', () => {
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-dir-'))
+      try {
+        expect(
+          getBundledRgPath(undefined, {
+            CODEBUFF_RG_PATH: directory,
+            PATH: '',
+          }),
+        ).not.toBe(directory)
+      } catch (error) {
+        expect((error as Error).message).toContain('Ripgrep binary not found')
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true })
+      }
+    })
+
+    it('does not accept a non-executable file as CODEBUFF_RG_PATH', () => {
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-file-'))
+      const candidate = path.join(directory, 'rg')
+      fs.writeFileSync(candidate, '#!/bin/sh\nexit 0\n', { mode: 0o600 })
+      try {
+        expect(
+          getBundledRgPath(undefined, {
+            CODEBUFF_RG_PATH: candidate,
+            PATH: '',
+          }),
+        ).not.toBe(candidate)
+      } catch (error) {
+        expect((error as Error).message).toContain('Ripgrep binary not found')
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true })
+      }
+    })
   })
 
   describe('basic search', () => {
@@ -89,7 +123,11 @@ describe('codeSearch', () => {
         Buffer.from(
           [
             createRgJsonMatch('.env', 1, 'TOKEN=super-secret'),
-            createRgJsonMatch('src/config.ts', 2, 'export const token = "safe"'),
+            createRgJsonMatch(
+              'src/config.ts',
+              2,
+              'export const token = "safe"',
+            ),
           ].join('\n'),
         ),
       )
@@ -733,6 +771,30 @@ describe('codeSearch', () => {
       expect(userGlobPairs).toEqual(['*.ts', '*.tsx'])
     })
 
+    it('accepts structured flags and repairs a quoted combined expression', async () => {
+      for (const flags of [
+        ['-t', 'ts', '-g', 'src/**'],
+        "'-t ts -g src/**'",
+      ]) {
+        const searchPromise = codeSearch({
+          projectPath: '/test/project',
+          pattern: 'import',
+          flags,
+        })
+        mockProcess.stdout.emit(
+          'data',
+          Buffer.from(createRgJsonMatch('src/file.ts', 1, 'import x')),
+        )
+        mockProcess.emit('close', 0)
+        await searchPromise
+
+        const spawnArgs = mockSpawn.mock.calls.at(-1)![1] as string[]
+        expect(spawnArgs).toEqual(
+          expect.arrayContaining(['-t', 'ts', '-g', 'src/**']),
+        )
+      }
+    })
+
     it('should strip single quotes from glob pattern arguments (regression: spawn has no shell)', async () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
@@ -870,8 +932,11 @@ describe('codeSearch', () => {
 
   describe('cwd parameter handling', () => {
     it('should handle cwd: "." correctly', async () => {
+      const projectPath = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'code-search-cwd-'),
+      )
       const searchPromise = codeSearch({
-        projectPath: '/test/project',
+        projectPath,
         pattern: 'test',
         cwd: '.',
       })
@@ -893,12 +958,17 @@ describe('codeSearch', () => {
       expect(mockSpawn).toHaveBeenCalled()
       const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
       // When cwd is '.', it should resolve to the project root
-      expect(spawnOptions.cwd).toBe('/test/project')
+      expect(spawnOptions.cwd).toBe(projectPath)
+      fs.rmSync(projectPath, { recursive: true, force: true })
     })
 
     it('should handle cwd: "subdir" correctly', async () => {
+      const projectPath = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'code-search-cwd-'),
+      )
+      fs.mkdirSync(path.join(projectPath, 'subdir'))
       const searchPromise = codeSearch({
-        projectPath: '/test/project',
+        projectPath,
         pattern: 'test',
         cwd: 'subdir',
       })
@@ -917,7 +987,8 @@ describe('codeSearch', () => {
       // Verify spawn was called with correct cwd
       expect(mockSpawn).toHaveBeenCalled()
       const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
-      expect(spawnOptions.cwd).toBe('/test/project/subdir')
+      expect(spawnOptions.cwd).toBe(path.join(projectPath, 'subdir'))
+      fs.rmSync(projectPath, { recursive: true, force: true })
     })
 
     it('should reject cwd outside project directory', async () => {
@@ -961,6 +1032,22 @@ describe('codeSearch', () => {
       })
       const value = asCodeSearchResult(result[0])
       expect(value.errorMessage).toContain('outside the project directory')
+    })
+
+    it('rejects a file passed as cwd before spawning ripgrep', async () => {
+      const filePath = path.join(tmpDir, 'package.json')
+      fs.writeFileSync(filePath, '{}')
+
+      const result = await codeSearch({
+        projectPath: tmpDir,
+        pattern: 'test',
+        cwd: 'package.json',
+      })
+
+      const value = asCodeSearchResult(result[0])
+      expect(value.errorMessage).toContain('is a file')
+      expect(value.errorMessage).toContain('requires a directory')
+      expect(mockSpawn).not.toHaveBeenCalled()
     })
 
     it('allows a cwd symlink that stays inside the project', async () => {

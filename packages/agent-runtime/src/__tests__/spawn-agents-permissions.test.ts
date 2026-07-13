@@ -336,6 +336,27 @@ describe('editor implementation brief validation', () => {
     ).not.toThrow()
   })
 
+  it('accepts non-empty Markdown heading sections without colons', () => {
+    expect(() =>
+      validateAgentInput(
+        editorTemplate,
+        'editor',
+        [
+          '## Requirements',
+          '- Add the behavior.',
+          '## Target files',
+          '- src/a.ts',
+          '## Constraints/non-goals',
+          '- Do not change APIs.',
+          '## Patterns',
+          '- Follow src/b.ts.',
+          '## Risks',
+          '- Preserve compatibility.',
+        ].join('\n'),
+      ),
+    ).not.toThrow()
+  })
+
   it('accepts a concrete prose brief with actionable target files', () => {
     expect(() =>
       validateAgentInput(
@@ -344,5 +365,15 @@ describe('editor implementation brief validation', () => {
         'Implement the IP dashboard in client/src/routes/dashboard.ip.tsx and update client/src/components/dashboard/Sidebar.tsx to add navigation. Follow the existing dashboard component patterns and preserve unrelated routes.',
       ),
     ).not.toThrow()
+  })
+
+  it('enforces the editor brief for fully-qualified spawn ids', () => {
+    expect(() =>
+      validateAgentInput(
+        editorTemplate,
+        'openbuff/editor@1.0.0',
+        'Please make the change.',
+      ),
+    ).toThrow('Missing brief fields/sections')
   })
 })

@@ -104,6 +104,21 @@ describe('findFilesMatchingContent', () => {
     expect(mockSpawn).not.toHaveBeenCalled()
   })
 
+  it('rejects a file passed as cwd before spawning ripgrep', async () => {
+    fs.writeFileSync(path.join(projectPath, 'package.json'), '{}')
+
+    const result = await findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      cwd: 'package.json',
+    })
+
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toContain('is a file')
+    expect(value.errorMessage).toContain('requires a directory')
+    expect(mockSpawn).not.toHaveBeenCalled()
+  })
+
   it('rejects cwd symlinks that escape the project root', async () => {
     const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ffc-outside-'))
     try {
@@ -142,6 +157,51 @@ describe('findFilesMatchingContent', () => {
     expect(args).toContain('-*.ts')
     expect(args).toContain('--type')
     expect(args).toContain('ts')
+  })
+
+  it('repairs one accidental outer quote layer around combined flags', async () => {
+    const searchPromise = findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: "'-t ts -g src/**'",
+    })
+
+    mockProcess.stdout.emit('data', Buffer.from('src/a.ts\n'))
+    mockProcess.emit('close', 0)
+
+    await searchPromise
+    const args = mockSpawn.mock.calls[0][1] as string[]
+    expect(args).toContain('-t')
+    expect(args).toContain('ts')
+    expect(args).toContain('-g')
+    expect(args).toContain('src/**')
+  })
+
+  it('accepts structured argv flag tokens', async () => {
+    const searchPromise = findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: ['-t', 'ts', '-g', 'src/**'],
+    })
+
+    mockProcess.stdout.emit('data', Buffer.from('src/a.ts\n'))
+    mockProcess.emit('close', 0)
+
+    await searchPromise
+    const args = mockSpawn.mock.calls[0][1] as string[]
+    expect(args).toEqual(expect.arrayContaining(['-t', 'ts', '-g', 'src/**']))
+  })
+
+  it('still rejects dangerous flags after outer-quote repair', async () => {
+    const result = await findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: "'--exec rm -rf /'",
+    })
+
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toContain('Unsupported ripgrep flag')
+    expect(mockSpawn).not.toHaveBeenCalled()
   })
 
   it('rejects unsafe ripgrep flags', async () => {

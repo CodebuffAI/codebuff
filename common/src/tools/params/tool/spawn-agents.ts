@@ -5,9 +5,9 @@ import { MAX_SPAWN_BATCH_SIZE } from '../../../constants/agents'
 import { jsonObjectSchema } from '../../../types/json'
 import {
   $getNativeToolCallExampleString,
-  coerceToArray,
   coerceToObject,
   jsonToolResultSchema,
+  normalizeSpawnAgentList,
 } from '../utils'
 
 import type { $ToolParams } from '../../constants'
@@ -80,7 +80,7 @@ const endsAgentStep = true
 const inputSchema = z
   .object({
     agents: z.preprocess(
-      coerceToArray,
+      normalizeSpawnAgentList,
       z
         .object({
           agent_type: z.string().describe('Agent to spawn'),
@@ -149,10 +149,10 @@ const inputSchema = z
                           .string()
                           .describe('The pattern to search for'),
                         flags: z
-                          .string()
+                          .union([z.string(), z.array(z.string())])
                           .optional()
                           .describe(
-                            'Optional ripgrep flags (e.g., "-i", "-g *.ts")',
+                            'Optional ripgrep flags as one string or argv tokens (e.g. "-i -g *.ts" or ["-i", "-g", "*.ts"]). Do not quote the entire expression inside the JSON string.',
                           ),
                         cwd: z
                           .string()

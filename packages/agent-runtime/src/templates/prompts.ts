@@ -62,6 +62,14 @@ export function buildAgentToolInputSchema(
     .describe(
       'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
     )
+  schemaFields.background = z
+    .boolean()
+    .optional()
+    .describe('Launch the agent as a background job when true.')
+  schemaFields.timeout_seconds = z
+    .number()
+    .optional()
+    .describe('Optional per-spawn wall-clock timeout in seconds; -1 disables it.')
 
   return z
     .object(schemaFields)

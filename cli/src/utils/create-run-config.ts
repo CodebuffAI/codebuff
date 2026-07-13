@@ -105,13 +105,16 @@ export function isSensitiveFile(filePath: string): boolean {
 }
 
 /**
- * Resolve the per-run agent step cap. Configurable via `maxAgentSteps` in
- * openbuff.json; falls back to MAX_AGENT_STEPS_DEFAULT when unset or unreadable.
+ * Resolve the optional per-run agent step cap. Unset defaults to unlimited;
+ * `maxAgentSteps` remains available for users who want a fixed bound.
  */
 function resolveMaxAgentSteps(): number {
   try {
     const configured = loadProviderConfigSync().config.maxAgentSteps
-    if (typeof configured === 'number' && configured > 0) {
+    if (
+      typeof configured === 'number' &&
+      (configured === -1 || configured > 0)
+    ) {
       return Math.floor(configured)
     }
   } catch {

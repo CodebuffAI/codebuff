@@ -40,7 +40,18 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     // Invariant: codebase-oriented lifecycle prompts first gather indexed context.
     expect(gen.next().value).toMatchObject({
       toolName: 'query_index',
-      input: { query: 'Implement the lifecycle change.', limit: 20 },
+      input: {
+        query: 'Implement the lifecycle change.',
+        limit: 14,
+        mode: 'search',
+      },
+    })
+
+    // Invariant: retrieval routing is explicit before the working-tree snapshot.
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+      includeToolCall: false,
     })
 
     // Invariant: every lifecycle then starts from an explicit working-tree snapshot.
@@ -148,8 +159,8 @@ describe('base2 deterministic gate lifecycle e2e', () => {
       'BLOCKING: Handle lifecycle retry idempotently.',
     )
 
-    // Invariant 8: reviewer blocker persists and the next recovery iteration
-    // again starts with context pruning before model work resumes.
+    // Invariant 8: reviewer blocker persists and is handed directly to the
+    // repair-editor with typed path/tool permissions.
     expect((agentState as any).base2ActiveWork).toMatchObject({
       currentPhase: 'blocked',
       pendingGateFiles: ['src/lifecycle.ts'],
@@ -157,7 +168,39 @@ describe('base2 deterministic gate lifecycle e2e', () => {
       nextRequiredAction:
         'Resolve the reviewer feedback below before any unrelated work, final response, or another review.',
     })
-    expect(gen.next().value).toMatchObject({
+    const repairEditorSpawn = gen.next()
+    expect(repairEditorSpawn.value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'repair-editor',
+            handoff: {
+              schemaVersion: 1,
+              findings: [
+                {
+                  files: ['src/lifecycle.ts'],
+                  text: 'BLOCKING: Handle lifecycle retry idempotently.',
+                },
+              ],
+              permissions: {
+                readablePaths: ['src/lifecycle.ts'],
+                writablePaths: ['src/lifecycle.ts'],
+              },
+            },
+          },
+        ],
+      },
+    })
+    expect(gen.next(feedJson([{ file: 'src/lifecycle.ts' }])).value).toMatchObject(
+      { toolName: 'git_status', input: {} },
+    )
+
+    // The repair result re-enters the normal loop at context pruning, with
+    // the blocker still pinned until validation and a fresh review clear it.
+    expect(
+      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
     })
@@ -171,10 +214,11 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     )
     expect(gen.next().value).toBe('STEP')
 
-    // Invariant 9: the model applies the reviewer-requested fix.
-    expect(
-      gen.next(finishStepWithToolResult({ file: 'src/lifecycle.ts' })).value,
-    ).toMatchObject({ toolName: 'git_status' })
+    // Invariant 9: repair-editor already applied the requested fix, so the
+    // parent model can finish without claiming another edit.
+    expect(gen.next(finishStepWithToolResult({})).value).toMatchObject({
+      toolName: 'git_status',
+    })
 
     // Invariant 10: validation passes after the reviewer fix.
     expect(

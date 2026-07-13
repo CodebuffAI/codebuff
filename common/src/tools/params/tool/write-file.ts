@@ -1,7 +1,11 @@
 import z from 'zod/v4'
 
 import { updateFileResultSchema } from './str-replace'
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  isObviousEditPlaceholder,
+  jsonToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -16,13 +20,20 @@ const inputSchema = z
     instructions: z
       .string()
       .describe('What the change is intended to do in only one sentence.'),
-    content: z.string().describe(`Complete file content to write to the file.`),
+    content: z
+      .string()
+      .refine((value) => !isObviousEditPlaceholder(value), {
+        message:
+          'content is an explicit placeholder. Provide the complete file content; write_file cannot read an out-of-band patch.',
+      })
+      .describe(`Complete file content to write to the file.`),
   })
   .describe(`Create or overwrite a file with the given content.`)
 const description = `
 Create or replace a file with the given content.
 
 Format the \`content\` parameter with the entire content of the file.
+Never pass references such as "[see patch above]"; every call must contain the complete bytes to write.
 
 #### Additional Info
 

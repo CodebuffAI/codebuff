@@ -100,12 +100,10 @@ describe('specialist agents', () => {
     expect(reviewerOutput.required).toContain('verdict')
     expect(reviewerOutput.required).toContain('coverage')
     expect(reviewerOutput.properties.family.enum).toEqual(['reviewer'])
-    expect(
-      reviewerOutput.properties.dimensions.required,
-    ).toContain('manifest_and_lockfile_correctness')
-    expect(
-      reviewerOutput.properties.findings.items.required,
-    ).toEqual([
+    expect(reviewerOutput.properties.dimensions.required).toContain(
+      'manifest_and_lockfile_correctness',
+    )
+    expect(reviewerOutput.properties.findings.items.required).toEqual([
       'id',
       'severity',
       'dimension',
@@ -113,5 +111,17 @@ describe('specialist agents', () => {
       'evidence',
       'correction',
     ])
+    expect(reviewerOutput.properties.findings.maxItems).toBe(20)
+    expect(
+      reviewerOutput.properties.findings.items.properties.evidence.maxItems,
+    ).toBe(8)
+    expect(
+      reviewerOutput.properties.findings.items.properties.summary.maxLength,
+    ).toBe(2_000)
+    expect(reviewerOutput.properties.reviewedFiles.maxItems).toBe(200)
+    expect(reviewerOutput.properties.requirementCoverage.maxItems).toBe(100)
+    expect(dependencyReviewer.instructionsPrompt).toContain(
+      'never JSON.stringify',
+    )
   })
 })

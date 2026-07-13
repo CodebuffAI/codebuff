@@ -6,6 +6,7 @@ This package contains code shared across the Openbuff monorepo, especially the l
 
 - Message-conversion helpers in `src/util` are the boundary between Openbuff `Message[]` history and provider-facing AI SDK `ModelMessage[]` requests; keep cache-anchor summaries, JSON/media tool results, and diagnostics redaction centralized there.
 - Provider credential helpers in `src/api-keys` and MCP cache-key helpers must keep raw secrets out of logs, cache keys, and serialized diagnostics while still producing stable non-secret endpoint identities.
+- `AgentState.stepsRemaining === -1` is the unlimited default. Optional positive fixed caps remain supported, while repeated-step signatures and counts are persisted separately so the runtime can stop identical no-progress loops without truncating productive work.
 
 ## Key Areas
 

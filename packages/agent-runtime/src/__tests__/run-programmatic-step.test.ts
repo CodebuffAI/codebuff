@@ -1704,7 +1704,7 @@ describe('runProgrammaticStep', () => {
           // Analyze the input
           yield {
             toolName: 'code_search',
-            input: { pattern: 'TODO', flags: '-n' },
+            input: { pattern: 'TODO' },
           }
 
           // Create analysis report

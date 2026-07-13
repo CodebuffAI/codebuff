@@ -1,6 +1,10 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  isObviousEditPlaceholder,
+  jsonToolResultSchema,
+} from '../utils'
 
 import { updateFileResultSchema } from './str-replace'
 
@@ -37,6 +41,10 @@ const inputSchema = z
       ),
     newContent: z
       .string()
+      .refine((value) => !isObviousEditPlaceholder(value), {
+        message:
+          'newContent is an explicit placeholder. Provide the complete replacement content for the range.',
+      })
       .describe('Complete replacement content for the selected line range.'),
   })
   .refine((input) => input.startLine <= input.endLine, {
@@ -54,6 +62,7 @@ Important:
 - Do not include a trailing phantom line beyond the visible file length; if a stale-range diagnostic reports the current file length, re-read with endLine <= that line count.
 - The runtime verifies the current range hash before editing and rejects stale edits before changing the file.
 - newContent replaces the entire selected range, so include all lines that should remain in that range.
+- Never pass an out-of-band reference such as "[see patch above]"; newContent must be complete.
 - Prefer this over str_replace for large-file function/block edits or line-count-changing changes.
 
 Example:

@@ -19,7 +19,11 @@ type StructuredReviewerOutput = {
   findings: string[]
   coverage?: ReviewerCoverage
   dimensions?: Record<string, string>
-  requirementCoverage?: Array<{ requirement: string; status: string }>
+  requirementCoverage?: Array<{
+    requirement: string
+    status: string
+    evidence: string[]
+  }>
   snapshotFingerprint?: string
   reviewedFiles?: string[]
   schemaVersion?: number
@@ -51,15 +55,25 @@ export function collectReviewerAttestationIssues(
   const structured = collectStructuredReviewerOutputs(toolResult)
   if (structured.length === 0) return []
   const result = structured[structured.length - 1]
-  if (result.schemaVersion !== 1) return []
+  if (
+    typeof result.schemaVersion !== 'number' ||
+    !Number.isInteger(result.schemaVersion) ||
+    result.schemaVersion <= 0
+  ) {
+    return []
+  }
   const issues: string[] = []
   if (result.snapshotFingerprint !== expectedFingerprint) {
-    issues.push('BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree')
+    issues.push(
+      'BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree',
+    )
   }
   const reviewed = new Set(result.reviewedFiles ?? [])
   const missing = pendingFiles.filter((file) => !reviewed.has(file))
   if (missing.length > 0) {
-    issues.push(`BLOCKING: reviewer did not attest to every pending file: ${missing.join(', ')}`)
+    issues.push(
+      `BLOCKING: reviewer did not attest to every pending file: ${missing.join(', ')}`,
+    )
   }
   return issues
 }
@@ -99,11 +113,16 @@ export function collectReviewerBlockers(toolResult: unknown): string[] {
     }
     for (const [dimension, status] of Object.entries(entry.dimensions ?? {})) {
       if (status.toLowerCase() === 'block') {
-        structuredBlockers.push(`BLOCKING: ${dimension} review dimension failed`)
+        structuredBlockers.push(
+          `BLOCKING: ${dimension} review dimension failed`,
+        )
       }
     }
     for (const requirement of entry.requirementCoverage ?? []) {
-      if (requirement.status === 'missing' || requirement.status === 'uncertain') {
+      if (
+        requirement.status === 'missing' ||
+        requirement.status === 'uncertain'
+      ) {
         structuredBlockers.push(
           `BLOCKING: requirement ${requirement.status}: ${requirement.requirement}`,
         )
@@ -386,10 +405,12 @@ function visitForStructuredVerdict(
         dimensions:
           record.dimensions && typeof record.dimensions === 'object'
             ? Object.fromEntries(
-                Object.entries(record.dimensions as Record<string, unknown>)
-                  .filter((entry): entry is [string, string] =>
+                Object.entries(
+                  record.dimensions as Record<string, unknown>,
+                ).filter(
+                  (entry): entry is [string, string] =>
                     typeof entry[1] === 'string',
-                  ),
+                ),
               )
             : undefined,
         requirementCoverage: Array.isArray(record.requirementCoverage)
@@ -397,8 +418,21 @@ function visitForStructuredVerdict(
               if (!item || typeof item !== 'object') return []
               const requirement = (item as Record<string, unknown>).requirement
               const status = (item as Record<string, unknown>).status
-              return typeof requirement === 'string' && typeof status === 'string'
-                ? [{ requirement, status: status.toLowerCase() }]
+              const evidence = (item as Record<string, unknown>).evidence
+              return typeof requirement === 'string' &&
+                typeof status === 'string'
+                ? [
+                    {
+                      requirement,
+                      status: status.toLowerCase(),
+                      evidence: Array.isArray(evidence)
+                        ? evidence.filter(
+                            (value): value is string =>
+                              typeof value === 'string',
+                          )
+                        : [],
+                    },
+                  ]
                 : []
             })
           : undefined,
