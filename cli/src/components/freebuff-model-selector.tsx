@@ -10,6 +10,7 @@ import React, {
 } from 'react'
 
 import { Button } from './button'
+import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
@@ -20,11 +21,13 @@ import {
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
 } from '@codebuff/common/constants/freebuff-models'
-import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+import {
+  getRateLimitsByModel,
+  getReferralInfo,
+} from '@codebuff/common/types/freebuff-session'
 
 import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
-import { useFreebuffLandingFocusStore } from '../state/freebuff-landing-focus-store'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
@@ -41,7 +44,12 @@ import {
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
-import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
+import type { FreebuffReferralFocusTarget } from './freebuff-referral-banner'
+import type {
+  BoxRenderable,
+  KeyEvent,
+  ScrollBoxRenderable,
+} from '@opentui/core'
 
 // The picker opens collapsed to a single recommended hero so a new user can
 // start with one Enter press without reading six boxes. The "see all models"
@@ -96,10 +104,10 @@ const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
  * so taglines line up across rows. On narrow terminals the secondary details
  * (warning / deployment hours) drop onto an indented second line under the row.
  *
- * On short terminals the parent passes `maxHeight`: the row list then lives
- * in a scrollbox capped at that many rows, a scrollbar appears when the
- * models don't all fit, and Tab/arrow navigation keeps the focused row
- * scrolled into view.
+ * On short terminals the parent passes `maxHeight`: the model rows and the
+ * referral/GLM controls live in one scrollbox capped at that many rows. A
+ * scrollbar appears when the whole menu doesn't fit, and Tab/arrow navigation
+ * keeps the focused control scrolled into view.
  */
 interface FreebuffModelSelectorProps {
   /** Max vertical rows the picker may occupy. When the rendered rows exceed
@@ -126,7 +134,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
   const session = useFreebuffSessionStore((s) => s.session)
   const accessTier =
-    session && 'accessTier' in session ? session.accessTier : 'full'
+    (session && 'accessTier' in session ? session.accessTier : undefined) ??
+    'full'
   const now = useNow(60_000)
   const deploymentAvailabilityLabel = useMemo(
     () => getFreebuffDeploymentAvailabilityLabel(new Date(now)),
@@ -177,26 +186,27 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // default selection; their own model when expanded for a returning user).
   const [focusedId, setFocusedId] = useState<string>(() => selectedModel)
 
-  // Focus targets contributed by the sibling referral banner (its copy / GLM
-  // buttons). The picker owns the only landing-screen keyboard handler, so it
-  // appends these after its own rows: arrowing down past the "see all models"
-  // toggle walks into them, and wrapping carries back up. `setLandingFocusedId`
-  // mirrors our cursor out so the banner can render its focused button.
-  const extraTargets = useFreebuffLandingFocusStore((s) => s.extraTargets)
-  const setLandingFocusedId = useFreebuffLandingFocusStore(
-    (s) => s.setFocusedId,
-  )
+  // The referral banner contributes its GLM/copy actions to the selector's
+  // navigation order. Keeping them local avoids a global focus bridge now that
+  // the banner renders inside this selector.
+  const [extraTargets, setExtraTargets] = useState<
+    FreebuffReferralFocusTarget[]
+  >([])
   const extraTargetIds = useMemo(
     () => extraTargets.map((t) => t.id),
     [extraTargets],
   )
-  useEffect(() => {
-    setLandingFocusedId(focusedId)
-  }, [focusedId, setLandingFocusedId])
-  // Clear the mirrored cursor when the picker unmounts so a stale id doesn't
-  // leave the banner's button looking focused on a screen without the picker.
-  useEffect(() => () => setLandingFocusedId(null), [setLandingFocusedId])
-
+  const contentRef = useRef<BoxRenderable | null>(null)
+  const [measuredContentHeight, setMeasuredContentHeight] = useState<
+    number | null
+  >(null)
+  const syncContentHeight = useCallback(() => {
+    const nextHeight = contentRef.current?.height
+    if (!nextHeight) return
+    setMeasuredContentHeight((current) =>
+      current === nextHeight ? current : nextHeight,
+    )
+  }, [])
   const sections = useMemo(() => {
     if (!expanded) return [] as readonly Section[]
     if (accessTier === 'limited') {
@@ -273,6 +283,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // the queue for, so re-picking is always meaningful.
   const committedModelId: string | null = null
   const rateLimitsByModel = getRateLimitsByModel(session)
+  const referral = getReferralInfo(session)
 
   // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
   // · resets in …". All premium models share one pool; the server replicates
@@ -393,60 +404,60 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     [wrapDetails],
   )
 
-  // Flattened vertical layout: every navigable element's top offset + height
-  // within the scroll content, plus the total. Mirrors the JSX below exactly so
-  // the auto-scroll math lands the focused row precisely. A button is 2 border
-  // rows + its text line(s); in wrapDetails mode a row with a warning or
-  // deployment-hours label spills its details onto a second indented line.
+  // Initial model-only height estimate. The content wrapper below reports its
+  // actual laid-out height, including wrapped referral copy and responsive
+  // action rows; this estimate only avoids a zero-height first frame.
   // Headers add 1 row; sections after the first add 1 row of marginTop; the
   // toggle adds its marginTop + 1.
   const SECTION_GAP = 1
   const TOGGLE_MARGIN = 1
-  const { totalHeight, offsetById } = useMemo(() => {
-    const offsets: Record<string, { top: number; height: number }> = {}
+  const estimatedModelHeight = useMemo(() => {
     let y = 0
-    // Recommended hero (a titled row, same height rules as any other row).
     const heroHeight = 2 + (rowWraps(recommendedModel) ? 2 : 1)
-    offsets[recommendedModel.id] = { top: y, height: heroHeight }
     y += heroHeight
     sections.forEach((section) => {
       y += SECTION_GAP // every section sits below the hero (or prior one) with a gap
       if (section.label) y += 1
       section.models.forEach((m) => {
-        const h = 2 + (rowWraps(m) ? 2 : 1)
-        offsets[m.id] = { top: y, height: h }
-        y += h
+        y += 2 + (rowWraps(m) ? 2 : 1)
       })
     })
     if (canCollapse) {
       y += TOGGLE_MARGIN
-      offsets[TOGGLE_ID] = { top: y, height: 1 }
       y += 1
     }
-    return { totalHeight: y, offsetById: offsets }
+    return y
   }, [sections, rowWraps, recommendedModel, canCollapse])
 
-  const needsScroll = totalHeight > maxHeight
-  const scrollViewportHeight = Math.max(1, Math.min(totalHeight, maxHeight))
+  // When a referral exists, start at the parent's full allowance until the
+  // wrapper reports its intrinsic height. This is conservative for the first
+  // layout pass and cannot clip wrapped copy on a narrow terminal.
+  const contentHeight =
+    measuredContentHeight ?? (referral ? maxHeight : estimatedModelHeight)
+
+  const needsScroll = contentHeight > maxHeight
+  const scrollViewportHeight = Math.max(1, Math.min(contentHeight, maxHeight))
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   // Keep the keyboard-focused element inside the viewport as the user
-  // Tabs/arrows through a list taller than the available rows.
-  useEffect(() => {
+  // Tabs/arrows through a list taller than the available rows. Child ids let
+  // OpenTUI use the real post-wrap geometry instead of a second hand-maintained
+  // row model. Reset a stale offset when a resize makes everything fit.
+  useLayoutEffect(() => {
     const sb = scrollRef.current
-    if (!sb || !needsScroll) return
-    // Referral-banner focus targets live outside the scrollbox, so they have no
-    // offset entry — there's nothing to scroll into view when one is focused.
-    const entry = offsetById[focusedId]
-    if (!entry) return
-    const viewportHeight = sb.viewport.height
-    const currentScroll = sb.scrollTop
-    if (entry.top < currentScroll) {
-      sb.scrollTop = entry.top
-    } else if (entry.top + entry.height > currentScroll + viewportHeight) {
-      sb.scrollTop = entry.top + entry.height - viewportHeight
+    if (!sb) return
+    if (!needsScroll) {
+      sb.scrollTop = 0
+      return
     }
-  }, [focusedId, offsetById, needsScroll])
+    sb.scrollChildIntoView(focusedId)
+    // The final referral action has explanatory/footer content after it. When
+    // it is focused, reveal the real bottom of the measured content as well as
+    // the button itself so the card does not look cut off.
+    if (focusedId === extraTargetIds.at(-1)) {
+      sb.scrollTop = Math.max(0, sb.scrollHeight - sb.viewport.height)
+    }
+  }, [focusedId, contentHeight, needsScroll, extraTargetIds])
 
   const isJoinable = useCallback(
     (modelId: string) => {
@@ -615,6 +626,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     return (
       <Button
         key={model.id}
+        id={model.id}
         title={recommended ? ' RECOMMENDED ' : undefined}
         titleAlignment={recommended ? 'left' : undefined}
         onClick={() => {
@@ -709,14 +721,23 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // to browse past the recommended pick. Expanded: a quiet way back to the
   // single-card view.
   const toggleFocused = focusedId === TOGGLE_ID
-  const toggleColor = toggleFocused ? theme.primary : theme.muted
+  const toggleHovered = hoveredId === TOGGLE_ID
+  const toggleColor = toggleFocused
+    ? theme.primary
+    : toggleHovered
+      ? theme.foreground
+      : theme.muted
   const toggleLabel = expanded
     ? '↑  Show fewer'
     : `↓  See all ${availableModels.length} models`
   const toggleContent = canCollapse ? (
     <Button
+      id={TOGGLE_ID}
       onClick={toggleExpanded}
-      onMouseOver={() => setFocusedId(TOGGLE_ID)}
+      onMouseOver={() => setHoveredId(TOGGLE_ID)}
+      onMouseOut={() =>
+        setHoveredId((curr) => (curr === TOGGLE_ID ? null : curr))
+      }
       style={{ marginTop: TOGGLE_MARGIN }}
     >
       <text style={{ wrapMode: 'none' }}>
@@ -767,9 +788,30 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         },
       }}
     >
-      {renderModelButton(recommendedModel, { recommended: true })}
-      {sectionsContent}
-      {toggleContent}
+      <box
+        ref={contentRef}
+        onSizeChange={syncContentHeight}
+        style={{
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 0,
+          width: buttonOuterWidth,
+          flexShrink: 0,
+        }}
+      >
+        {renderModelButton(recommendedModel, { recommended: true })}
+        {sectionsContent}
+        {toggleContent}
+        {referral && (
+          <FreebuffReferralBanner
+            width={buttonOuterWidth}
+            referral={referral}
+            accessTier={accessTier}
+            focusedId={focusedId}
+            onFocusTargetsChange={setExtraTargets}
+          />
+        )}
+      </box>
     </scrollbox>
   )
 }

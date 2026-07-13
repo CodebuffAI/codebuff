@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
-import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import { ShimmerText } from './shimmer-text'
 import {
   refreshFreebuffLandingMetadata,
@@ -324,20 +323,24 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // remain (see selectorMaxHeight below), so there's no need to hide them.
   //
   // Exception: when the picker is collapsed it shrinks to ~5 rows, freeing the
-  // ~6 rows the big logo needs. So on a mid-height window with a collapsed
-  // picker we promote the wordmark back to the full ASCII logo — it fills what
-  // would otherwise be dead space above the card. Expanding the list reclaims
-  // those rows and drops back to the wordmark. 26 is the smallest window where
-  // the logo block, heading, collapsed picker, streak, and ad all coexist
-  // without the picker needing to scroll.
+  // ~6 rows the big logo needs. So on a mid-height window with a collapsed,
+  // referral-free picker we promote the wordmark back to the full ASCII logo —
+  // it fills what would otherwise be dead space above the card. A referral card
+  // or expanded list keeps the compact wordmark and gives those rows back to
+  // the scrollable menu. 26 is the smallest window where the logo block,
+  // heading, collapsed picker, streak, and ad all coexist without scrolling.
   //
   // The picker (rendered below) owns this and reports it via onExpandedChange;
   // we default to collapsed so the first paint reserves logo space correctly.
   const [selectorExpanded, setSelectorExpanded] = useState(false)
   const COLLAPSED_LOGO_MIN_HEIGHT = 26
+  const hasReferralMenu =
+    session?.status === 'none' && Boolean(getReferralInfo(session))
   const fullLogoFits =
     terminalHeight >= 40 ||
-    (!selectorExpanded && terminalHeight >= COLLAPSED_LOGO_MIN_HEIGHT)
+    (!selectorExpanded &&
+      !hasReferralMenu &&
+      terminalHeight >= COLLAPSED_LOGO_MIN_HEIGHT)
   const logoMode: 'full' | 'text' | 'none' = fullLogoFits
     ? 'full'
     : terminalHeight >= 20
@@ -502,28 +505,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   const streakBonusRows = streakBonusNote
     ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
     : 0
-  // GLM referral banner (landing, full tier). Reserve the rows it occupies so
-  // the scrollbox shrinks to make room — under-reserving lets the landing
-  // content overflow the terminal height, and the flex column then squashes the
-  // banner so its bordered button overlaps the line above it. Both the copy and
-  // "Use GLM 5.2" controls are bordered boxes (3 rows), so count those rows.
-  const referralInfo = isLanding ? getReferralInfo(session) : undefined
-  const referralBannerRows = !referralInfo
-    ? 0
-    : accessTier === 'limited'
-      ? // Limited daily-session referral: marginTop 1 + the invite line (wraps
-        // to two rows) + the bordered "Copy invite link" button (3 rows).
-        1 + 2 + 3
-      : (referralInfo.weeklySessionsRemaining ?? 0) > 0
-        ? // Unlocked card: marginTop 1 + border 2 + status 1 + the bordered
-          // action-button row 3 + optional connect-github row.
-          1 + 2 + 1 + 3 + (referralInfo.githubLinked ? 0 : 1)
-        : // Locked: marginTop 1 + the invite line (wraps to two rows now that it
-          // carries the full "most powerful open-source model" pitch) + the
-          // bordered "Copy invite link" button (3 rows).
-          1 + 2 + 3
-  const belowPickerRows =
-    streakRows + noticeRows + streakBonusRows + referralBannerRows
+  // The referral/GLM card now lives inside the model selector's scrollbox, so
+  // only genuinely fixed status lines below the selector reduce its viewport.
+  const belowPickerRows = streakRows + noticeRows + streakBonusRows
   const counterRows = showBelowPickerCounter
     ? 1 /* marginTop */ + wrappedRows(counterText)
     : 0
@@ -708,7 +692,6 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   {streakBonusNote}
                 </text>
               )}
-              <FreebuffReferralBanner />
             </box>
           )}
 
