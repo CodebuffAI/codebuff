@@ -6,7 +6,6 @@ import {
   CHATGPT_OAUTH_CLIENT_ID,
   CHATGPT_OAUTH_TOKEN_URL,
 } from '@codebuff/common/constants/chatgpt-oauth'
-import { env } from '@codebuff/common/env'
 import { userSchema } from '@codebuff/common/util/credentials'
 import { z } from 'zod/v4'
 
@@ -75,12 +74,12 @@ type ConfigPathEnv = ClientEnv & {
 }
 
 export const getConfigDir = (
-  clientEnv: Partial<ConfigPathEnv> = env,
+  clientEnv?: Partial<ConfigPathEnv>,
 ): string => {
-  const configEnv: Partial<ConfigPathEnv> = {
-    ...getSdkEnv(),
-    ...clientEnv,
-  }
+  // An explicitly injected environment is authoritative. Merging live process
+  // variables into it breaks test isolation and lets a host XDG/APPDATA value
+  // redirect an otherwise isolated caller into the real user config.
+  const configEnv: Partial<ConfigPathEnv> = clientEnv ?? getSdkEnv()
   if (configEnv.OPENBUFF_CONFIG_DIR) return configEnv.OPENBUFF_CONFIG_DIR
   if (process.platform === 'win32' && configEnv.APPDATA) {
     return path.join(configEnv.APPDATA, 'openbuff')
@@ -92,17 +91,17 @@ export const getConfigDir = (
 }
 
 export const getHarnessStateDir = (
-  clientEnv: Partial<ConfigPathEnv> = env,
+  clientEnv?: Partial<ConfigPathEnv>,
 ): string => path.join(getConfigDir(clientEnv), 'state', 'harness')
 
 /**
  * Get the credentials file path based on the environment.
  */
-export const getCredentialsPath = (clientEnv: ClientEnv = env): string => {
+export const getCredentialsPath = (clientEnv?: ClientEnv): string => {
   return path.join(getConfigDir(clientEnv), 'credentials.json')
 }
 
-export const getUserCredentials = (clientEnv: ClientEnv = env): User | null => {
+export const getUserCredentials = (clientEnv?: ClientEnv): User | null => {
   const credentialsPath = getCredentialsPath(clientEnv)
   if (!fs.existsSync(credentialsPath)) {
     return null
@@ -140,7 +139,7 @@ export interface ChatGptOAuthCredentials {
  * Environment variable takes precedence.
  */
 export const getChatGptOAuthCredentials = (
-  clientEnv: ClientEnv = env,
+  clientEnv?: ClientEnv,
 ): ChatGptOAuthCredentials | null => {
   // 1. Environment variable takes highest precedence
   const envToken = getChatGptOAuthTokenFromEnv()
@@ -174,7 +173,7 @@ export const getChatGptOAuthCredentials = (
 
 export const saveChatGptOAuthCredentials = (
   credentials: ChatGptOAuthCredentials,
-  clientEnv: ClientEnv = env,
+  clientEnv?: ClientEnv,
 ): void => {
   const configDir = getConfigDir(clientEnv)
   const credentialsPath = getCredentialsPath(clientEnv)
@@ -210,7 +209,7 @@ export const saveChatGptOAuthCredentials = (
 }
 
 export const clearChatGptOAuthCredentials = (
-  clientEnv: ClientEnv = env,
+  clientEnv?: ClientEnv,
 ): void => {
   const credentialsPath = getCredentialsPath(clientEnv)
   if (!fs.existsSync(credentialsPath)) {
@@ -234,7 +233,7 @@ export const clearChatGptOAuthCredentials = (
   }
 }
 
-export const isChatGptOAuthValid = (clientEnv: ClientEnv = env): boolean => {
+export const isChatGptOAuthValid = (clientEnv?: ClientEnv): boolean => {
   const credentials = getChatGptOAuthCredentials(clientEnv)
   if (!credentials) {
     return false
@@ -246,7 +245,7 @@ export const isChatGptOAuthValid = (clientEnv: ClientEnv = env): boolean => {
 let chatGptRefreshPromise: Promise<ChatGptOAuthCredentials | null> | null = null
 
 export const refreshChatGptOAuthToken = async (
-  clientEnv: ClientEnv = env,
+  clientEnv?: ClientEnv,
 ): Promise<ChatGptOAuthCredentials | null> => {
   if (chatGptRefreshPromise) {
     return chatGptRefreshPromise
@@ -319,7 +318,7 @@ export const refreshChatGptOAuthToken = async (
 }
 
 export const getValidChatGptOAuthCredentials = async (
-  clientEnv: ClientEnv = env,
+  clientEnv?: ClientEnv,
 ): Promise<ChatGptOAuthCredentials | null> => {
   const credentials = getChatGptOAuthCredentials(clientEnv)
   if (!credentials) {

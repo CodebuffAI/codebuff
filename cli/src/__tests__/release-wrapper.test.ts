@@ -123,6 +123,7 @@ function runWrapperWithMockPlatform({
         env: {
           ...process.env,
           HOME: tempDir,
+          OPENBUFF_CONFIG_DIR: configDir,
           NODE_OPTIONS: '',
           OPENBUFF_TEST_HARDWARE_ARCH: hardwareArch,
           ...(macOSVersion
