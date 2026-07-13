@@ -11,7 +11,6 @@ import {
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
-  FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -58,10 +57,9 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // id in FREE_MODE_AGENT_MODELS that can spawn subagents MUST also be listed
   // here, or the chat-completions hierarchy gate 403s the subagents with
   // "Free mode subagents must run under an active freebuff session root"
-  // (2026-07-09 incident: hy3/kat trial runs failed at spawn_agent_inline).
+  // (2026-07-09 incident: trial runs failed at spawn_agent_inline).
   'base2-free-hy3',
   'base2-free-hy3-atlas',
-  'base2-free-kat-coder-pro-v2',
   FREEBUFF_DESKTOP_THREAD_AGENT_ID,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
@@ -119,9 +117,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
   'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_ATLAS_MODEL_ID]),
-  'base2-free-kat-coder-pro-v2': new Set([
-    FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
-  ]),
 
   // Freebuff Desktop's single hosted root agent — one root id across all its
   // models (the user picks the model per tab), so it allows the full desktop

@@ -10,7 +10,6 @@ export const ALLOWED_MODEL_PREFIXES = [
   'minimax',
   'mimo',
   'tencent',
-  'kwaipilot',
 ] as const
 
 export const costModes = [
@@ -55,7 +54,6 @@ export const openrouterModels = {
   openrouter_grok_4: 'x-ai/grok-4-07-09',
   openrouter_tencent_hy3: 'tencent/hy3',
   openrouter_tencent_hy3_free: 'tencent/hy3:free',
-  openrouter_kwaipilot_kat_coder_pro_v2: 'kwaipilot/kat-coder-pro-v2',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
@@ -180,7 +178,6 @@ export type Model = (typeof models)[keyof typeof models] | (string & {})
 const nonCacheableModels = [
   models.openrouter_grok_4,
   models.openrouter_tencent_hy3_free,
-  models.openrouter_kwaipilot_kat_coder_pro_v2,
   models.tencentHy3,
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {

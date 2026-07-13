@@ -13,7 +13,6 @@ import {
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-  FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
@@ -221,33 +220,19 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('KAT Coder Pro V2 is a Freebuff Web premium test model', () => {
-    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
-    )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+  test('KAT Coder Pro V2 is fully retired from Freebuff Web and Cloud', () => {
+    const retiredKatModelId = 'kwaipilot/kat-coder-pro-v2'
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      retiredKatModelId,
     )
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+      retiredKatModelId,
     )
-
-    expect(isFreebuffWebModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID)).toBe(true)
-    expect(
-      isFreebuffWebPremiumModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID),
-    ).toBe(true)
-    expect(isFreebuffPremiumModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID)).toBe(
-      false,
+    expect(isFreebuffWebModelId(retiredKatModelId)).toBe(false)
+    expect(isFreebuffWebPremiumModelId(retiredKatModelId)).toBe(false)
+    expect(resolveFreebuffWebModel(retiredKatModelId)).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
     )
-    expect(
-      isFreebuffWebGodOnlyModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID),
-    ).toBe(false)
-    expect(resolveFreebuffWebModel(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID)).toBe(
-      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
-    )
-    expect(
-      getFreebuffWebModel(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID).displayName,
-    ).toBe('KAT Coder Pro V2')
   })
 
   test('MiniMax M2.7 support is fully removed', () => {

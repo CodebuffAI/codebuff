@@ -67,8 +67,6 @@ export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3
 export const FREEBUFF_HY3_ATLAS_MODEL_ID = atlasCloudModels.tencentHy3
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
-export const FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID =
-  openrouterModels.openrouter_kwaipilot_kat_coder_pro_v2
 export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
@@ -229,16 +227,6 @@ const HY3_ATLAS_MODEL = {
   experimental: true,
 } as const satisfies FreebuffModelOption
 
-const KAT_CODER_PRO_V2_MODEL = {
-  id: FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
-  displayName: 'KAT Coder Pro V2',
-  tagline: 'Coding test model',
-  availability: 'always',
-  premium: true,
-  multimodal: false,
-  experimental: true,
-} as const satisfies FreebuffModelOption
-
 const MIMO_V25_MODEL = {
   id: FREEBUFF_MIMO_V25_MODEL_ID,
   displayName: 'MiMo 2.5',
@@ -320,7 +308,6 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
  *  surfaces do not pick it up during the initial web rollout. */
 export const FREEBUFF_WEB_MODELS = [
   HY3_MODEL,
-  KAT_CODER_PRO_V2_MODEL,
   GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
@@ -341,7 +328,6 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_HY3_MODEL_ID,
-  FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
 ] as const
 
@@ -467,20 +453,13 @@ export type FreebuffAccessTier = 'full' | 'limited'
  *  loads, but every agent send is rejected server-side. */
 export type FreebuffWebAccessTier = FreebuffAccessTier | 'blocked'
 
-/** Freebuff Web limited-tier session pool. Deliberately separate from the
- *  CLI's Postgres-backed session pool — enforced entirely in Convex. */
-export const FREEBUFF_WEB_LIMITED_SESSION_LIMIT = 5
-export const FREEBUFF_WEB_LIMITED_SESSION_LENGTH_MS = 60 * 60 * 1000
-
 /** Temporary project-creation cap for outer-region (limited-tier) Freebuff Web
  *  users. A new project consumes one slot; the quota resets at midnight
  *  Pacific time. */
 export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 3
 
-/** Models exempt from Freebuff Web geo limits: geo-limited users can run
- *  these without consuming limited sessions. Matches the shared limited
- *  model set (DeepSeek V4 Flash, MiMo 2.5); every other model stays
- *  geo-gated. Web-only — the CLI's limited pool is unaffected. */
+/** Models available to limited-region Freebuff Web users. They share the
+ * limited-region session pool; every other model remains geo-gated. */
 export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -493,8 +472,7 @@ export function isFreebuffWebGeoExemptModelId(
   return FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS.some((modelId) => modelId === id)
 }
 
-/** Models a limited-tier Freebuff Web user may select: the geo-exempt models
- *  (unlimited) plus the shared limited set (session-gated). */
+/** Models a limited-tier Freebuff Web user may select. */
 export const FREEBUFF_WEB_LIMITED_MODEL_IDS = [
   ...new Set<string>([
     ...FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS,
@@ -510,9 +488,7 @@ export function isFreebuffWebModelAllowedForLimitedTier(
 }
 
 /** Coerce a limited-tier Freebuff Web selection (premium ids, stale
- *  localStorage values) to an allowed model. Falls back to the limited
- *  default (DeepSeek V4 Flash), which is geo-exempt, so limited users land
- *  on unlimited usage. */
+ * localStorage values) to the allowed default (DeepSeek V4 Flash). */
 export function resolveFreebuffWebModelForLimitedTier(
   id: string | null | undefined,
 ): string {
@@ -558,9 +534,12 @@ export function isFreebuffModelAllowedForAccessTier(
 export function isFreebuffSessionModelId(
   id: string | null | undefined,
 ): id is SupportedFreebuffModelId | FreebuffWebModelId {
-  return isSupportedFreebuffModelId(id) || isFreebuffWebModelId(id, {
-    includeGodOnly: true,
-  })
+  return (
+    isSupportedFreebuffModelId(id) ||
+    isFreebuffWebModelId(id, {
+      includeGodOnly: true,
+    })
+  )
 }
 
 export function isFreebuffSessionModelAllowedForAccessTier(
