@@ -103,7 +103,15 @@ Tree-sitter based source code parser that extracts function/variable names for f
 
 - **Supports:** TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, C#, Ruby, PHP, Swift, Kotlin, GDScript
 
-The tree-sitter WASM grammars ship from `@vscode/tree-sitter-wasm`. GDScript is compiled from the `PrestonKnopp/tree-sitter-gdscript` grammar and manually placed in the same `wasm/` directory. If a grammar's `.wasm` file is absent at runtime, `getLanguageConfig` catches the load failure and returns `undefined` (graceful no-op) — files of that extension are skipped for symbol extraction but still indexed by path and extension.
+The tree-sitter WASM grammars normally ship from `tree-sitter-wasms` or
+`@vscode/tree-sitter-wasm`. Grammars those packages do not publish, including
+GDScript, use an immutable source URL and pinned SHA-256 in
+`packages/code-map/src/grammar-wasm-repair.ts`. Release builds and legacy
+installed binaries accept downloaded executable WASM only after checksum
+verification. If a grammar still cannot be loaded at runtime,
+`getLanguageConfig` returns `undefined` (graceful no-op) — files of that
+extension are skipped for symbol extraction but still indexed by path and
+extension.
 
 - **Depends on:** nothing (leaf package)
 

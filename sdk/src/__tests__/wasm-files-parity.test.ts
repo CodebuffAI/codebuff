@@ -25,11 +25,16 @@ describe('build.ts copyWasmFiles / WASM_FILES parity', () => {
     const source = readBuildScript()
 
     expect(source).toContain(
+      "import { resolveGrammarWasmSource } from '../../packages/code-map/src/grammar-wasm-repair'",
+    )
+    expect(source).toContain(
       "import { LANGUAGE_WASM_FILES } from '../../packages/code-map/src/wasm-files'",
     )
     expect(source).toContain(
       `const wasmFiles = ['${TREE_SITTER_RUNTIME_WASM}', ...LANGUAGE_WASM_FILES]`,
     )
+    expect(source).toContain('await resolveGrammarWasmSource({')
+    expect(source).toContain('process.exitCode = 1')
 
     // Grammar filenames belong in packages/code-map/src/wasm-files.ts only.
     // Keeping them out of the SDK build script prevents the two lists drifting.

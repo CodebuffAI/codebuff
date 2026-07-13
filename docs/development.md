@@ -76,8 +76,10 @@ legacy-wrapper repair path for installations whose older npm wrapper preserved
 the parser runtime but discarded language grammars.
 
 When adding a language, update the canonical WASM manifest, provide a compatible
-tag query, and keep `all-language-wasm.test.ts` green. Builds fail when an
-advertised grammar cannot be packaged; missing grammars must not be treated as
+tag query, add a checksum-pinned repair source when neither dependency publishes
+the grammar, and keep `all-language-wasm.test.ts` plus
+`grammar-wasm-repair.test.ts` green. Builds fail when an advertised grammar
+cannot be packaged or checksum-verified; missing grammars must not be treated as
 optional.
 
 ## CLI Command References

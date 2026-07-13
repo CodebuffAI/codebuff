@@ -47,6 +47,7 @@ jobs:
       contents: write
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
+      release_commit: ${{ steps.commit_version.outputs.release_commit }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -77,6 +78,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Commit and push version bump
+        id: commit_version
         run: |
           git stash
           git pull --rebase origin main
@@ -84,11 +86,7 @@ jobs:
           git add cli/release/package.json
           git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
           git push
-
-      - name: Create and push production tag
-        run: |
-          git tag "v${{ steps.bump_version.outputs.new_version }}"
-          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+          echo "release_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Upload updated package
         uses: actions/upload-artifact@v7
@@ -103,7 +101,7 @@ jobs:
       binary-name: openbuff
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-package
-      checkout-ref: v${{ needs.prepare-and-commit-prod.outputs.new_version }}
+      checkout-ref: ${{ needs.prepare-and-commit-prod.outputs.release_commit }}
       env-overrides: '{"NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets:
       OPENBUFF_GITHUB_TOKEN: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
@@ -118,6 +116,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare-and-commit-prod.outputs.release_commit }}
 
       - name: Download all binary artifacts
         uses: actions/download-artifact@v8
@@ -145,6 +145,23 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: 'binaries/*/openbuff-*.tar.gz'
+
+      - name: Create and push production tag
+        shell: bash
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare-and-commit-prod.outputs.release_commit }}
+          RELEASE_VERSION: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          tag="v${RELEASE_VERSION}"
+          existing_commit=$(git ls-remote --tags origin "refs/tags/${tag}" | awk '{print $1}')
+          if [ -n "$existing_commit" ]; then
+            test "$existing_commit" = "$RELEASE_COMMIT"
+            echo "Tag ${tag} already points at ${RELEASE_COMMIT}"
+          else
+            git tag "$tag" "$RELEASE_COMMIT"
+            git push origin "$tag"
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -19,6 +19,7 @@ import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
+import { resolveGrammarWasmSource } from '../../packages/code-map/src/grammar-wasm-repair'
 import { LANGUAGE_WASM_FILES } from '../../packages/code-map/src/wasm-files'
 
 type TargetInfo = {
@@ -254,7 +255,7 @@ async function main() {
       .digest('hex'),
   }
   for (const wasmFile of LANGUAGE_WASM_FILES) {
-    const source = findGrammarWasmSource(wasmFile)
+    const source = await findGrammarWasmSource(wasmFile)
     copyFileSync(source, join(binDir, wasmFile))
     wasmManifest[wasmFile] = createHash('sha256')
       .update(readFileSync(source))
@@ -354,24 +355,49 @@ function findWebTreeSitterWasm(): string {
   }
 }
 
-function findGrammarWasmSource(wasmFile: string): string {
+async function findGrammarWasmSource(wasmFile: string): Promise<string> {
   const treeSitterWasmsName =
     wasmFile === 'tree-sitter-c-sharp.wasm'
       ? 'tree-sitter-c_sharp.wasm'
       : wasmFile
   const candidates = [
-    join(repoRoot, 'node_modules', 'tree-sitter-wasms', 'out', treeSitterWasmsName),
-    join(cliRoot, 'node_modules', 'tree-sitter-wasms', 'out', treeSitterWasmsName),
-    join(repoRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm', wasmFile),
-    join(cliRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm', wasmFile),
+    join(repoRoot, 'sdk', 'dist', 'wasm', wasmFile),
+    join(
+      repoRoot,
+      'node_modules',
+      'tree-sitter-wasms',
+      'out',
+      treeSitterWasmsName,
+    ),
+    join(
+      cliRoot,
+      'node_modules',
+      'tree-sitter-wasms',
+      'out',
+      treeSitterWasmsName,
+    ),
+    join(
+      repoRoot,
+      'node_modules',
+      '@vscode',
+      'tree-sitter-wasm',
+      'wasm',
+      wasmFile,
+    ),
+    join(
+      cliRoot,
+      'node_modules',
+      '@vscode',
+      'tree-sitter-wasm',
+      'wasm',
+      wasmFile,
+    ),
   ]
-  const found = candidates.find((candidate) => existsSync(candidate))
-  if (!found) {
-    throw new Error(
-      `Could not locate required tree-sitter grammar ${wasmFile}. Searched:\n  - ${candidates.join('\n  - ')}`,
-    )
-  }
-  return found
+  return resolveGrammarWasmSource({
+    wasmFile,
+    candidates,
+    repairDir: join(repoRoot, 'sdk', 'dist', 'wasm'),
+  })
 }
 
 function patchOpenTuiAssetPaths() {

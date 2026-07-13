@@ -4,9 +4,10 @@
 import { mkdir, cp, readFile, writeFile, rm } from 'fs/promises'
 import { createHash } from 'crypto'
 import Module from 'module'
-import { delimiter, join } from 'path'
+import { delimiter, join, resolve } from 'path'
 
 import { generateDtsBundle } from 'dts-bundle-generator'
+import { resolveGrammarWasmSource } from '../../packages/code-map/src/grammar-wasm-repair'
 import { LANGUAGE_WASM_FILES } from '../../packages/code-map/src/wasm-files'
 
 const workspaceNodeModules = join(import.meta.dir, '..', 'node_modules')
@@ -576,9 +577,10 @@ async function fixToolHelpers() {
  */
 async function copyWasmFiles() {
   const wasmFiles = ['tree-sitter.wasm', ...LANGUAGE_WASM_FILES]
+  const wasmDir = resolve('dist/wasm')
 
   // Create shared wasm directory
-  await mkdir('dist/wasm', { recursive: true })
+  await mkdir(wasmDir, { recursive: true })
 
   const manifest: Record<string, string> = {}
   for (const wasmFile of wasmFiles) {
@@ -593,19 +595,26 @@ async function copyWasmFiles() {
             `../node_modules/tree-sitter-wasms/out/${sourceName}`,
             `../node_modules/@vscode/tree-sitter-wasm/wasm/${wasmFile}`,
           ]
-    const source = candidates.find((candidate) => Bun.file(candidate).size > 0)
-    if (!source) {
+    const source =
+      wasmFile === 'tree-sitter.wasm'
+        ? candidates.find((candidate) => Bun.file(candidate).size > 0)
+        : await resolveGrammarWasmSource({
+            wasmFile,
+            candidates,
+            repairDir: wasmDir,
+          })
+    if (!source)
       throw new Error(
         `Missing required tree-sitter asset ${wasmFile}; searched ${candidates.join(', ')}`,
       )
-    }
     const bytes = await readFile(source)
-    await cp(source, `dist/wasm/${wasmFile}`)
+    const target = join(wasmDir, wasmFile)
+    if (resolve(source) !== target) await cp(source, target)
     manifest[wasmFile] = createHash('sha256').update(bytes).digest('hex')
     console.log(`  ✓ Copied ${wasmFile}`)
   }
   await writeFile(
-    'dist/wasm/tree-sitter-manifest.json',
+    join(wasmDir, 'tree-sitter-manifest.json'),
     `${JSON.stringify({ schemaVersion: 1, files: manifest }, null, 2)}\n`,
   )
 }
@@ -625,5 +634,8 @@ async function copyRipgrepVendor() {
 }
 
 if (import.meta.main) {
-  build().catch(console.error)
+  build().catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
 }

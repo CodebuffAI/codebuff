@@ -10,12 +10,10 @@ type PinnedGrammarAsset = {
   packageVersion: string
   remoteFile: string
   sha256: string
+  sourceUrl?: string
 }
 
-const wasms = (
-  remoteFile: string,
-  sha256: string,
-): PinnedGrammarAsset => ({
+const wasms = (remoteFile: string, sha256: string): PinnedGrammarAsset => ({
   packageName: 'tree-sitter-wasms',
   packageVersion: '0.1.13',
   remoteFile,
@@ -78,12 +76,25 @@ export const PINNED_GRAMMAR_ASSETS: Readonly<
     '41c4fdb2249a3aa6d87eed0d383081ff09725c2248b4977043a43825980ffcc7',
   ),
   'tree-sitter-gdscript.wasm': {
-    packageName: '@vscode/tree-sitter-wasm',
-    packageVersion: '0.1.4',
+    packageName: 'tree-sitter-gdscript',
+    packageVersion: '6.1.0',
     remoteFile: 'tree-sitter-gdscript.wasm',
-    sha256:
-      'c4afe77b0c28bc23d0b1710171e5c4623cbd5da4de2ddd87add9ec26e6384f8e',
+    // The upstream grammar does not publish WASM artifacts. This immutable
+    // vendored build is documented as tree-sitter-gdscript 6.1.0 compiled
+    // with tree-sitter-cli 0.25.10 and emscripten 4.0.4 (ABI 14).
+    sourceUrl:
+      'https://raw.githubusercontent.com/lusiem/code-atlas/2e416060c2f70e99d46d09382f90523d6bd75993/grammars-vendored/tree-sitter-gdscript.wasm',
+    sha256: '42eb46aa698cb82d4bc2f0d61c8a57cdae9ec29e42c8f632430744f890879f90',
   },
+}
+
+export function getPinnedGrammarAssetUrl(wasmFile: string): string | null {
+  const asset = PINNED_GRAMMAR_ASSETS[wasmFile]
+  if (!asset) return null
+  return (
+    asset.sourceUrl ??
+    `https://cdn.jsdelivr.net/npm/${asset.packageName}@${asset.packageVersion}/${asset.packageName === 'tree-sitter-wasms' ? 'out' : 'wasm'}/${encodeURIComponent(asset.remoteFile)}`
+  )
 }
 
 export async function repairGrammarWasm(params: {
@@ -93,14 +104,15 @@ export async function repairGrammarWasm(params: {
 }): Promise<string | null> {
   const asset = PINNED_GRAMMAR_ASSETS[params.wasmFile]
   if (!asset || !path.isAbsolute(params.targetDir)) return null
+  const sourceUrl = getPinnedGrammarAssetUrl(params.wasmFile)
+  if (!sourceUrl) return null
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 30_000)
   try {
-    const response = await (params.fetchImpl ?? fetch)(
-      `https://cdn.jsdelivr.net/npm/${asset.packageName}@${asset.packageVersion}/${asset.packageName === 'tree-sitter-wasms' ? 'out' : 'wasm'}/${encodeURIComponent(asset.remoteFile)}`,
-      { signal: controller.signal },
-    )
+    const response = await (params.fetchImpl ?? fetch)(sourceUrl, {
+      signal: controller.signal,
+    })
     if (!response.ok) return null
     const bytes = new Uint8Array(await response.arrayBuffer())
     const actualHash = createHash('sha256').update(bytes).digest('hex')
@@ -117,4 +129,46 @@ export async function repairGrammarWasm(params: {
   } finally {
     clearTimeout(timeout)
   }
+}
+
+export async function resolveGrammarWasmSource(params: {
+  wasmFile: string
+  candidates: readonly string[]
+  repairDir: string
+  repairImpl?: typeof repairGrammarWasm
+}): Promise<string> {
+  const asset = PINNED_GRAMMAR_ASSETS[params.wasmFile]
+  if (!asset) {
+    throw new Error(`No pinned checksum exists for ${params.wasmFile}`)
+  }
+
+  for (const candidate of params.candidates) {
+    try {
+      const stats = await fs.stat(candidate)
+      if (!stats.isFile() || stats.size === 0) continue
+      const actualHash = createHash('sha256')
+        .update(await fs.readFile(candidate))
+        .digest('hex')
+      if (actualHash === asset.sha256) return candidate
+    } catch {
+      // Continue through candidates before attempting the pinned repair.
+    }
+  }
+
+  const repaired = await (params.repairImpl ?? repairGrammarWasm)({
+    wasmFile: params.wasmFile,
+    targetDir: params.repairDir,
+  })
+  if (repaired) {
+    try {
+      const stats = await fs.stat(repaired)
+      if (stats.isFile() && stats.size > 0) return repaired
+    } catch {
+      // Fall through to the deterministic missing-asset error below.
+    }
+  }
+
+  throw new Error(
+    `Missing required tree-sitter asset ${params.wasmFile}; searched ${params.candidates.join(', ')} and checksum-pinned repair failed`,
+  )
 }
