@@ -2,11 +2,11 @@ import z from 'zod/v4'
 
 import {
   $getNativeToolCallExampleString,
-  coerceToArray,
   isObviousEditPlaceholder,
   jsonToolResultSchema,
   normalizeReplacementAliases,
   normalizeReplacementList,
+  normalizeTransactionEditList,
 } from '../utils'
 import { basedOnReadSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
@@ -264,13 +264,13 @@ const inputSchema = z
   .object({
     edits: z
       .preprocess(
-        coerceToArray,
+        normalizeTransactionEditList,
         z
           .array(transactionEditSchema)
           .min(1, 'Transaction edits cannot be empty'),
       )
       .describe(
-        'All edits that must preflight together. A JSON-stringified edit array is accepted and decoded before validation. If any edit fails during preflight, no files are changed.',
+        'All edits that must preflight together. A JSON-stringified edit array is accepted and decoded before validation. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed.',
       ),
   })
   .describe(

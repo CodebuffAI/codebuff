@@ -2753,13 +2753,56 @@ describe('context-pruner threshold behavior', () => {
     ]
 
     const results = runHandleSteps(messages, 250_000, 200_000)
-    const content = results[0].input.messages[0].content[0].text
+    const summary = results[0].input.messages[0]
+    const content = summary.content[0].text
+    expect(summary.keepDuringTruncation).toBe(true)
     expect(content).toContain('Review Receipts:')
     expect(content).toContain('dependency-reviewer: verdict=NON_BLOCKING')
     expect(content).toContain(`snapshot=${fingerprint}`)
     expect(content).toContain(
       'findingIds=dependency-reviewer:manifest:lockfile',
     )
+  })
+
+  test('records stale snapshot reviews as refresh signals, not blockers', () => {
+    const staleSnapshot = 'c'.repeat(64)
+    const messages: Message[] = [
+      createToolCallMessage('review-stale', 'spawn_agent_inline', {
+        agent_type: 'compatibility-reviewer',
+      }),
+      createToolResultMessage('review-stale', 'spawn_agent_inline', {
+        schemaVersion: 1,
+        family: 'reviewer',
+        verdict: 'BLOCKING',
+        snapshotFingerprint: staleSnapshot,
+        reviewedFiles: ['src/public.ts'],
+        coverage: 'missing',
+        dimensions: { compatibility: 'block' },
+        findings: [
+          {
+            id: 'compatibility-reviewer:compatibility:stale-snapshot',
+            severity: 'critical',
+            dimension: 'compatibility',
+            summary: 'The supplied snapshot is stale and does not match.',
+            evidence: ['Expected a newer snapshot.'],
+            correction: 'Refresh the review bundle.',
+          },
+        ],
+        requirementCoverage: [],
+      }),
+    ]
+
+    const results = runHandleSteps(messages, 250_000, 200_000)
+    const content = results[0].input.messages[0].content[0].text
+    const knowledgeMemory = content.match(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/,
+    )?.[0]
+
+    expect(knowledgeMemory).toContain('verdict=STALE_SNAPSHOT')
+    expect(knowledgeMemory).toContain(
+      'stale snapshot review discarded; refresh the review bundle before retrying',
+    )
+    expect(knowledgeMemory).not.toContain('Blockers:')
   })
 })
 

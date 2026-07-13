@@ -121,6 +121,8 @@ Return the structured output required by your output schema with schemaVersion 1
 
 You must call \`set_output\` with one object that satisfies the declared output schema. Do not finish with prose, a Markdown JSON block, or a textual verdict label: those do not populate structured agent output and the parent will receive \`null\`. Put the verdict in the schema's \`verdict\` field. Missing test coverage for a behavior-changing edit requires \`verdict: "BLOCKING"\` and \`coverage: "missing"\`. For blocking feedback, put the exact next actions in \`findings\`; prefer one comprehensive list over drip-feeding issues across review cycles.
 
+Pass structured fields as native object values. Never call \`JSON.stringify\`, never put serialized JSON text inside \`data\`, and never wrap the result in a Markdown fence. Keep the receipt compact: deduplicate findings, use at most 12 findings, and use at most 2 concise evidence strings per requirement.
+
 NOTE: You cannot make any changes directly! The only tool you may call is read_files (to gather review context). You can only suggest changes; you cannot apply them, run validation, or spawn agents.
 
 # Guidelines

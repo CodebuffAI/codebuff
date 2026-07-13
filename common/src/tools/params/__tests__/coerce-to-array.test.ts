@@ -7,6 +7,7 @@ import {
   isObviousEditPlaceholder,
   normalizeSpawnAgentList,
   normalizeReplacementAliases,
+  normalizeTransactionEditList,
 } from '../utils'
 
 describe('coerceToArray', () => {
@@ -90,6 +91,77 @@ describe('normalizeSpawnAgentList', () => {
     expect(normalizeSpawnAgentList('[{"agent_type":')).toEqual([
       '[{"agent_type":',
     ])
+  })
+
+  it('moves an explicit top-level Basher command into params', () => {
+    expect(
+      normalizeSpawnAgentList([
+        { agent_type: 'basher', command: 'bun test', params: {} },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'basher',
+        command: 'bun test',
+        params: { command: 'bun test' },
+      },
+    ])
+  })
+
+  it('does not derive a Basher command from prompt prose', () => {
+    expect(
+      normalizeSpawnAgentList([
+        { agent_type: 'basher', prompt: 'Run bun test', params: {} },
+      ]),
+    ).toEqual([
+      { agent_type: 'basher', prompt: 'Run bun test', params: {} },
+    ])
+  })
+
+  it('preserves an explicitly nested command over a top-level alias', () => {
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'basher',
+          command: 'bun test',
+          params: '{"command":"bun run typecheck"}',
+        },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'basher',
+        command: 'bun test',
+        params: { command: 'bun run typecheck' },
+      },
+    ])
+  })
+
+  it('recovers an explicitly labelled specialist snapshot into params', () => {
+    const snapshot = 'a'.repeat(64)
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'compatibility-reviewer',
+          prompt: `Perform the review.\nSnapshot ID (echo exactly): ${snapshot}`,
+          params: { timeout_seconds: 300 },
+        },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'compatibility-reviewer',
+        prompt: `Perform the review.\nSnapshot ID (echo exactly): ${snapshot}`,
+        params: { timeout_seconds: 300, snapshot_id: snapshot },
+      },
+    ])
+  })
+
+  it('does not invent snapshot params from unlabelled prose', () => {
+    const snapshot = 'b'.repeat(64)
+    const entry = {
+      agent_type: 'compatibility-reviewer',
+      prompt: `Review commit ${snapshot}`,
+      params: { timeout_seconds: 300 },
+    }
+    expect(normalizeSpawnAgentList([entry])).toEqual([entry])
   })
 })
 
@@ -238,5 +310,55 @@ describe('normalizeReplacementAliases', () => {
       old_str: 'ignored',
       new_str: 'ignored',
     })
+  })
+})
+
+describe('normalizeTransactionEditList', () => {
+  it('infers omitted discriminators for unambiguous transaction edits', () => {
+    expect(
+      normalizeTransactionEditList([
+        { path: 'a.ts', replacements: [{ oldString: 'a', newString: 'b' }] },
+        { path: 'b.ts', operation: { kind: 'insert_text' } },
+        { path: 'c.ts', destinationPath: 'd.ts' },
+        { path: 'e.ts', diff: '@@ patch' },
+        { path: 'f.ts', symbol: 'run', content: 'function run() {}' },
+        {
+          path: 'g.ts',
+          startLine: 1,
+          endLine: 2,
+          expectedHash: 'sha256:test',
+          newContent: 'replacement',
+        },
+      ]),
+    ).toMatchObject([
+      { type: 'str_replace' },
+      { type: 'structured' },
+      { type: 'move' },
+      { type: 'patch' },
+      { type: 'rewrite_symbol' },
+      { type: 'replace_range' },
+    ])
+  })
+
+  it('preserves explicit, ambiguous, and conflicting shapes for validation', () => {
+    const explicit = { type: 'delete', path: 'a.ts' }
+    const contentOnly = { path: 'b.ts', content: 'bytes' }
+    const conflicting = {
+      path: 'c.ts',
+      replacements: [{ oldString: 'a', newString: 'b' }],
+      operation: { kind: 'insert_text' },
+    }
+
+    expect(
+      normalizeTransactionEditList([explicit, contentOnly, conflicting]),
+    ).toEqual([explicit, contentOnly, conflicting])
+  })
+
+  it('repairs a JSON-stringified transaction array', () => {
+    expect(
+      normalizeTransactionEditList(
+        JSON.stringify([{ path: 'a.ts', replacements: [] }]),
+      ),
+    ).toEqual([{ path: 'a.ts', replacements: [], type: 'str_replace' }])
   })
 })

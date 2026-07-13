@@ -269,6 +269,36 @@ function messageContainsText(message: Message, needle: string): boolean {
   )
 }
 
+function compactPinnedContextMessage(message: Message): Message {
+  if (!message.keepDuringTruncation || message.role === 'tool') return message
+  const blocks: string[] = []
+  for (const part of message.content) {
+    if (part.type !== 'text') continue
+    for (const match of part.text.matchAll(
+      /<(knowledge_memory|pinned_active_work_state)>[\s\S]*?<\/\1>/g,
+    )) {
+      if (!blocks.includes(match[0])) blocks.push(match[0])
+    }
+  }
+  if (blocks.length === 0) return message
+  return {
+    ...message,
+    content: [
+      {
+        type: 'text',
+        text: [
+          '<conversation_summary>',
+          'Emergency mechanical trim retained the pinned operational memory and removed non-authoritative summary detail.',
+          '<historical_memory>',
+          ...blocks,
+          '</historical_memory>',
+          '</conversation_summary>',
+        ].join('\n'),
+      },
+    ],
+  }
+}
+
 function buildMechanicalRecoveryMessage(params: {
   beforeMessageCount: number
   afterMessageCount: number
@@ -357,7 +387,7 @@ export function trimMessagesToFitTokenLimitWithReport(params: {
 
   // Process messages from newest to oldest
   for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
+    const m = compactPinnedContextMessage(messages[i])
     if (m.role === 'system' || m.role === 'user' || m.role === 'assistant') {
       shortenedMessages.push(m)
     } else if (m.role === 'tool') {

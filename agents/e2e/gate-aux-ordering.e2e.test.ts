@@ -41,6 +41,32 @@ function reviewerResult(snapshotFingerprint: string, reviewedFiles: string[]) {
   })
 }
 
+function staleReviewerResult(
+  snapshotFingerprint: string,
+  reviewedFiles: string[],
+) {
+  return feedJson({
+    schemaVersion: 1,
+    family: 'reviewer',
+    verdict: 'BLOCKING',
+    snapshotFingerprint,
+    reviewedFiles,
+    findings: [
+      {
+        id: 'reliability-reviewer:correctness:stale-snapshot',
+        severity: 'critical',
+        dimension: 'correctness',
+        summary: 'The supplied snapshot is stale and does not match.',
+        evidence: ['The current review bundle has a newer snapshot.'],
+        correction: 'Refresh the bundle and retry once.',
+      },
+    ],
+    coverage: 'missing',
+    dimensions: { correctness: 'block' },
+    requirementCoverage: [],
+  })
+}
+
 // A pending gate file that satisfies ALL THREE pre-reviewer aux predicates in
 // a single iteration:
 //  - test-writer: non-test source under `cli/src/` -> inferPackageTestCommand
@@ -197,10 +223,33 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       includeToolCall: false,
     })
 
+    // A stale snapshot is refreshed and retried inside the same gate
+    // iteration, before the root model gets another STEP and can manually
+    // re-spawn the specialist from compacted prose.
+    const refreshedBundle = gen.next(
+      staleReviewerResult('aux-ordering-snapshot', [AUX_TRIPLE_FILE]),
+    )
+    expect(refreshedBundle.value).toMatchObject({
+      toolName: 'get_change_review_bundle',
+      input: {},
+      includeToolCall: false,
+    })
+    const refreshedSpecialistSpawn = gen.next(
+      feedJson({ snapshotId: 'aux-ordering-snapshot-refreshed' }),
+    )
+    expect(refreshedSpecialistSpawn.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'reliability-reviewer',
+        params: { snapshot_id: 'aux-ordering-snapshot-refreshed' },
+      },
+      includeToolCall: false,
+    })
+
     // Invariant 3: after every routed aux gate passes,
     // auxGateFiredThisIteration re-enters the loop at context pruning.
     const reLoopContextPruner = gen.next(
-      reviewerResult('aux-ordering-snapshot', [AUX_TRIPLE_FILE]),
+      reviewerResult('aux-ordering-snapshot-refreshed', [AUX_TRIPLE_FILE]),
     )
     expect(reLoopContextPruner.value).toMatchObject({
       toolName: 'spawn_agent_inline',

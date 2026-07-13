@@ -214,6 +214,8 @@ You can call agents either as direct tool calls (using the listed tool name, e.g
 
 **IMPORTANT**: Many agents have REQUIRED fields in their params schema. Check the agent's schema before spawning - if params has required fields, you MUST include them in the params object. For example, code-searcher requires \`searchQueries\`, basher requires \`command\`.
 
+Agent-specific fields belong inside \`params\`. For Basher, use \`{ "agent_type": "basher", "params": { "command": "bun test" } }\`; do not send an empty params object and do not put a shell command only in the prompt.
+
 Example:
 ${$getNativeToolCallExampleString({
   toolName,

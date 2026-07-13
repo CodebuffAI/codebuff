@@ -288,7 +288,7 @@ export interface EndTurnParams {}
  * Preflight related edits together, then apply them in one coordinated client-side transaction with deterministic order and explicit rollback outcomes.
  */
 export interface EditTransactionParams {
-  /** All edits that must preflight together. A JSON-stringified edit array is accepted and decoded before validation. If any edit fails during preflight, no files are changed. */
+  /** All edits that must preflight together. A JSON-stringified edit array is accepted and decoded before validation. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed. */
   edits:
     | {
         /** Optional stable edit identifier echoed in diagnostics. */

@@ -17,7 +17,22 @@ describe('set_output input schema', () => {
     }
   })
 
-  test.each(['not json', '[]', 'null', '"text"']) (
+  test.each([
+    '```json\n{"schemaVersion":1,"verdict":"NON_BLOCKING"}\n```',
+    '// json\n{"schemaVersion":1,"verdict":"NON_BLOCKING"}',
+  ])('decodes a wrapped JSON object string inside data', (data) => {
+    const parsed = setOutputParams.inputSchema.safeParse({ data })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.data).toEqual({
+        schemaVersion: 1,
+        verdict: 'NON_BLOCKING',
+      })
+    }
+  })
+
+  test.each(['not json', '[]', 'null', '"text"'])(
     'rejects a data string that is not a JSON object: %s',
     (data) => {
       const parsed = setOutputParams.inputSchema.safeParse({ data })

@@ -177,7 +177,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
 - **Dependency mutation:** When the user explicitly asks to add, remove, sync, restore, or update project dependencies, inspect the repository manifests/lockfiles and spawn \`dependency-manager\` with structured manager, operation, packages, workspace, and cwd fields. Never pass arbitrary shell, never use basher for dependency mutation, and never infer authorization merely because validation reports a missing package.
-- **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.
+- **Don't use set_output:** The set_output tool is for spawned subagents to report results. Its absence from the root toolset is expected. Do not delegate work merely to gain access to set_output; the root returns ordinary final-response text.
 - **Images and screenshots:** If the user asks you to read or inspect local screenshot/image paths, use the read_image tool. Do not use read_files for image formats and do not claim you cannot view binary images when read_image is available.
 - **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.
 - **Prefer dedicated harness tools over shell fallbacks:** Use git_status for repository status/diffs instead of basher. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep/git status. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs.
@@ -1004,32 +1004,76 @@ ${specialistRoutingSection}
               continue
             }
             let specialistBlocked = false
+            let specialistTerminalFailure = false
             for (const agentType of routedSpecialists) {
-              const specialistResult = yield {
-                toolName: 'spawn_agent_inline',
-                input: {
-                  agent_type: agentType,
-                  prompt: [
-                    'Perform the routed post-edit specialist review.',
-                    `Requirements: ${prompt ?? '(none supplied)'}`,
-                    `Changed files: ${currentPendingGateFiles.join(', ')}`,
-                    `Snapshot ID (echo exactly): ${bundle.snapshotId}`,
-                  ].join('\n'),
-                  params: {
-                    files: currentPendingGateFiles,
-                    snapshot_id: bundle.snapshotId,
+              let expectedSnapshotId = bundle.snapshotId
+              let specialistToolResult: unknown
+              let staleAfterRetry = false
+              for (let snapshotAttempt = 0; snapshotAttempt < 2; snapshotAttempt++) {
+                const specialistResult = yield {
+                  toolName: 'spawn_agent_inline',
+                  input: {
+                    agent_type: agentType,
+                    prompt: [
+                      'Perform the routed post-edit specialist review.',
+                      `Requirements: ${prompt ?? '(none supplied)'}`,
+                      `Changed files: ${currentPendingGateFiles.join(', ')}`,
+                      `Snapshot ID (echo exactly): ${expectedSnapshotId}`,
+                    ].join('\n'),
+                    params: {
+                      files: currentPendingGateFiles,
+                      snapshot_id: expectedSnapshotId,
+                    },
                   },
-                },
-                includeToolCall: false,
-              } as any
-              const specialistToolResult =
-                (specialistResult as any)?.toolResult ?? specialistResult
+                  includeToolCall: false,
+                } as any
+                specialistToolResult =
+                  (specialistResult as any)?.toolResult ?? specialistResult
+                if (!isStaleSnapshotReviewerResult(specialistToolResult)) {
+                  break
+                }
+                if (snapshotAttempt === 1) {
+                  staleAfterRetry = true
+                  break
+                }
+                const refreshedBundleResult = yield {
+                  toolName: 'get_change_review_bundle',
+                  input: {},
+                  includeToolCall: false,
+                } as any
+                const refreshedBundle = extractChangeReviewBundle(
+                  (refreshedBundleResult as any)?.toolResult ??
+                    refreshedBundleResult,
+                )
+                if (
+                  !refreshedBundle.snapshotId ||
+                  refreshedBundle.snapshotId === expectedSnapshotId
+                ) {
+                  staleAfterRetry = true
+                  break
+                }
+                expectedSnapshotId = refreshedBundle.snapshotId
+              }
+              if (staleAfterRetry) {
+                activeWorkState.currentPhase = 'blocked'
+                activeWorkState.openReviewerBlockers = [
+                  `${agentType} could not attest to a stable snapshot after one automatic refresh.`,
+                ]
+                activeWorkState.openReviewerFindings = []
+                activeWorkState.nextRequiredAction =
+                  'Stop concurrent edits and resume once the working tree is stable; the runtime will obtain a fresh review bundle.'
+                activeWorkState.latestWorkSummary = `${agentType} stopped after two stale snapshot results.`
+                markActiveWorkStateChanged()
+                specialistBlocked = true
+                specialistTerminalFailure = true
+                break
+              }
               const crash = detectReviewerCrash(specialistToolResult)
               const blockers = collectReviewerBlockers(specialistToolResult)
               blockers.push(
                 ...collectReviewerAttestationIssues(
                   specialistToolResult,
-                  bundle.snapshotId,
+                  expectedSnapshotId,
                   currentPendingGateFiles,
                 ),
               )
@@ -1052,11 +1096,11 @@ ${specialistRoutingSection}
                   (text: string, index: number) => ({
                     id:
                       records[index]?.id ?? buildReviewerFindingId(text, index),
-                    gateId: `${agentType}:${bundle.snapshotId}`,
+                    gateId: `${agentType}:${expectedSnapshotId}`,
                     text: records[index]?.text ?? text,
                     status: 'open' as const,
                     files: currentPendingGateFiles,
-                    snapshotFingerprint: bundle.snapshotId,
+                    snapshotFingerprint: expectedSnapshotId,
                     createdAt: new Date().toISOString(),
                   }),
                 )
@@ -1075,11 +1119,14 @@ ${specialistRoutingSection}
               recordSuccessfulReviewReceipt(
                 specialistToolResult,
                 agentType,
-                bundle.snapshotId,
+                expectedSnapshotId,
               )
               markActiveWorkStateChanged()
             }
-            if (specialistBlocked) continue
+            if (specialistBlocked) {
+              if (specialistTerminalFailure) break
+              continue
+            }
           }
         }
         // After any aux gate fired (or all three skipped/marked done), re-loop
@@ -2587,6 +2634,20 @@ ${specialistRoutingSection}
         return collectStructuredReviewerOutputs(toolResult).flatMap(
           (entry) => entry.findingRecords ?? [],
         )
+      }
+
+      function isStaleSnapshotReviewerResult(toolResult: unknown): boolean {
+        const structured = collectStructuredReviewerOutputs(toolResult)
+        const result = structured[structured.length - 1]
+        return (result?.findingRecords ?? []).some((finding) => {
+          const id = finding.id.toLowerCase()
+          const text = finding.text.toLowerCase()
+          return (
+            id.endsWith(':stale-snapshot') ||
+            (text.includes('snapshot') &&
+              (text.includes('stale') || text.includes('does not match')))
+          )
+        })
       }
 
       function recordSuccessfulReviewReceipt(

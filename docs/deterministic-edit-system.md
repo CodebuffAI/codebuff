@@ -78,8 +78,11 @@ for every active mutation payload. Each edit call must carry its exact
 before edit preparation, it does not consume a valid prior read authorization.
 
 `edit_transaction.edits` also accepts a JSON-stringified array and decodes it
-before validating each edit. Non-JSON strings and invalid decoded edit objects
-remain rejected.
+before validating each edit. When `type` is omitted, the harness repairs only
+unambiguous payloads (`replacements`, `operation`, `destinationPath`, `diff`, a
+complete range payload, or `symbol` plus `content`). Content-only edits remain
+rejected because the intent could be `create` or `write_file`. Non-JSON strings,
+conflicting payload shapes, and invalid decoded edit objects remain rejected.
 
 ## Explicit elision markers
 

@@ -16,6 +16,7 @@ import {
 
 import {
   trimMessagesToFitTokenLimit,
+  trimMessagesToFitTokenLimitWithReport,
   COMPACTED_CONTEXT_POINTER,
   messagesWithSystem,
   expireMessages,
@@ -831,6 +832,40 @@ describe('trimMessagesToFitTokenLimit', () => {
   })
 
   describe('keepDuringTruncation functionality', () => {
+    it('retains compact pinned knowledge memory during emergency trimming', () => {
+      const fingerprint = 'd'.repeat(64)
+      const semanticSummary = userMessage({
+        content: [
+          '<conversation_summary>',
+          'non-authoritative detail '.repeat(2_000),
+          '<knowledge_memory>',
+          'Pinned structured knowledge memory.',
+          'Goal:',
+          '  Finish the current change safely',
+          'Review Receipts:',
+          `  - compatibility-reviewer: verdict=LOOKS_GOOD; snapshot=${fingerprint}; coverage=covered; findingIds=(none)`,
+          '</knowledge_memory>',
+          '</conversation_summary>',
+        ].join('\n'),
+        keepDuringTruncation: true,
+      })
+      const report = trimMessagesToFitTokenLimitWithReport({
+        messages: [semanticSummary, userMessage('new work '.repeat(1_000))],
+        systemTokens: 0,
+        maxTotalTokens: 2_000,
+        logger,
+      })
+      const rendered = JSON.stringify(report.messages)
+
+      expect(report.retainedKnowledgeMemory).toBe(true)
+      expect(rendered).toContain('Finish the current change safely')
+      expect(rendered).toContain(fingerprint)
+      expect(rendered).not.toContain('non-authoritative detail')
+      expect(tokenCounter.countTokensJson(report.messages)).toBeLessThanOrEqual(
+        2_000,
+      )
+    })
+
     it('preserves messages marked with keepDuringTruncation=true', () => {
       const messages: Message[] = [
         userMessage(

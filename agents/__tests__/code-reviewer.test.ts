@@ -44,6 +44,16 @@ describe('code-reviewer prompt isolation', () => {
     )
   })
 
+  test('forbids stringified or oversized reviewer receipts', () => {
+    const reviewer = createReviewer('anthropic/claude-opus-4.7')
+
+    expect(reviewer.instructionsPrompt).toContain('Never call `JSON.stringify`')
+    expect(reviewer.instructionsPrompt).toContain('at most 12 findings')
+    expect(reviewer.instructionsPrompt).toContain(
+      'at most 2 concise evidence strings per requirement',
+    )
+  })
+
   test('treats missing parallel validation output as unavailable', () => {
     const reviewer = createReviewer('anthropic/claude-opus-4.7')
 

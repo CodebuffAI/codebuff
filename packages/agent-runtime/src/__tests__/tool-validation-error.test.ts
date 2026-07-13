@@ -437,6 +437,56 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('should move an explicit top-level Basher command into params', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-top-level-command-tool-call-id',
+        input: {
+          agents: [
+            {
+              agent_type: 'basher',
+              command: 'bun test',
+              params: {},
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.agents[0].params).toEqual({ command: 'bun test' })
+    }
+  })
+
+  it('should recover an explicitly labelled specialist snapshot after compaction', () => {
+    const snapshot = 'e'.repeat(64)
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-specialist-snapshot-tool-call-id',
+        input: {
+          agents: [
+            {
+              agent_type: 'compatibility-reviewer',
+              prompt: `Perform the routed review.\nSnapshot ID to verify: ${snapshot}`,
+              params: { timeout_seconds: 300 },
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.agents[0].params).toEqual({
+        timeout_seconds: 300,
+        snapshot_id: snapshot,
+      })
+    }
+  })
+
   it('repairs double-stringified spawn_agents lists and stringified entries', () => {
     const entry = {
       agent_type: 'basher',
@@ -647,6 +697,56 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('should infer str_replace for an edit_transaction entry with replacements and no type', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'edit_transaction',
+        toolCallId: 'missing-transaction-type-tool-call-id',
+        input: {
+          edits: [
+            {
+              id: 'upload-imports',
+              path: 'client/src/routes/dashboard.upload.tsx',
+              replacements: [
+                {
+                  oldString: 'import { Upload } from "lucide-react";',
+                  newString: 'import { Upload, Info } from "lucide-react";',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.edits[0]).toMatchObject({
+        id: 'upload-imports',
+        path: 'client/src/routes/dashboard.upload.tsx',
+        type: 'str_replace',
+      })
+    }
+  })
+
+  it('should not infer ambiguous content-only edit_transaction types', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'edit_transaction',
+        toolCallId: 'ambiguous-transaction-type-tool-call-id',
+        input: {
+          edits: [{ path: 'src/new.ts', content: 'export const value = 1' }],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('edits[0].type')
+      expect(result.error).toContain('No matching discriminator')
+    }
+  })
+
   it('should summarize missing replacement fields without implying deletion', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -774,7 +874,7 @@ describe('tool validation error handling', () => {
     }
   })
 
-  it('gives set_output-specific recovery when data contains incomplete JSON', () => {
+  it('publishes set_output when data contains incomplete JSON so the handler can request a retry', () => {
     const result = parseRawToolCall({
       rawToolCall: {
         toolName: 'set_output',
@@ -783,11 +883,82 @@ describe('tool validation error handling', () => {
       },
     })
 
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('Pass a real object to set_output')
-      expect(result.error).toContain('Do not JSON.stringify')
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input as unknown).toEqual({
+        data: '{"schemaVersion":3,"findings":[',
+      })
     }
+  })
+
+  it('returns a tool result instead of an error event for incomplete set_output data', async () => {
+    const reviewer: AgentTemplate = {
+      ...testAgentTemplate,
+      id: 'reviewer-test',
+      toolNames: ['set_output'],
+      outputSchema: z.object({ verdict: z.string() }),
+    }
+    const invalidOutput: StreamChunk = {
+      type: 'tool-call',
+      toolName: 'set_output',
+      toolCallId: 'incomplete-set-output-tool-call-id',
+      input: { data: '{"verdict":"LOOKS_GOOD"' },
+    }
+    async function* mockStream() {
+      yield invalidOutput
+      return promptSuccess('mock-message-id')
+    }
+    const responseChunks: (string | PrintModeEvent)[] = []
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.agentType = reviewer.id
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState: sessionState.mainAgentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: reviewer,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { [reviewer.id]: reviewer },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: (chunk) => responseChunks.push(chunk),
+    })
+
+    const events = responseChunks.filter(
+      (chunk): chunk is PrintModeEvent => typeof chunk !== 'string',
+    )
+    expect(events.some((event) => event.type === 'error')).toBe(false)
+    expect(events.find((event) => event.type === 'tool_result')).toMatchObject({
+      type: 'tool_result',
+      toolName: 'set_output',
+      toolCallId: 'incomplete-set-output-tool-call-id',
+      output: [
+        {
+          type: 'json',
+          value: {
+            message: expect.stringContaining(
+              'malformed or incomplete JSON text',
+            ),
+          },
+        },
+      ],
+    })
+    expect(sessionState.mainAgentState.output).toBeUndefined()
   })
 
   it('repairs a complete JSON-stringified set_output data object', () => {
@@ -973,7 +1144,7 @@ describe('tool validation error handling', () => {
     ).toThrow('Missing required: command')
   })
 
-  it('rejects a Basher missing command before publishing the spawn tool call', async () => {
+  it('publishes a structured failure result when Basher is missing command', async () => {
     const parent: AgentTemplate = {
       ...testAgentTemplate,
       toolNames: ['spawn_agents', 'end_turn'],
@@ -1029,11 +1200,31 @@ describe('tool validation error handling', () => {
     const events = responseChunks.filter(
       (chunk): chunk is PrintModeEvent => typeof chunk !== 'string',
     )
-    expect(events.some((event) => event.type === 'tool_call')).toBe(false)
-    expect(events.some((event) => event.type === 'tool_result')).toBe(false)
-    expect(events.find((event) => event.type === 'error')).toMatchObject({
-      type: 'error',
-      message: expect.stringContaining('Missing required: command'),
+    expect(events.some((event) => event.type === 'error')).toBe(false)
+    expect(events.find((event) => event.type === 'tool_call')).toMatchObject({
+      type: 'tool_call',
+      toolName: 'spawn_agents',
+      toolCallId: 'basher-missing-command-tool-call-id',
+    })
+    expect(events.find((event) => event.type === 'tool_result')).toMatchObject({
+      type: 'tool_result',
+      toolName: 'spawn_agents',
+      toolCallId: 'basher-missing-command-tool-call-id',
+      output: [
+        {
+          type: 'json',
+          value: expect.arrayContaining([
+            expect.objectContaining({
+              agentType: 'basher',
+              value: {
+                errorMessage: expect.stringContaining(
+                  'Missing required: command',
+                ),
+              },
+            }),
+          ]),
+        },
+      ],
     })
   })
 

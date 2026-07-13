@@ -6,17 +6,26 @@ import type { $ToolParams } from '../../constants'
 
 const toolName = 'set_output'
 const endsAgentStep = false
-const decodeJsonObjectString = (value: unknown): unknown => {
-  if (typeof value !== 'string') return value
-  try {
-    const decoded = JSON.parse(value) as unknown
-    if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) {
+export const decodeJsonObjectString = (value: unknown): unknown => {
+  let decoded = value
+  for (let depth = 0; depth < 3 && typeof decoded === 'string'; depth++) {
+    let candidate = decoded.trim()
+    const fenced = candidate.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
+    if (fenced) candidate = fenced[1].trim()
+    candidate = candidate.replace(/^\/\/\s*json\s*(?:\r?\n|$)/i, '')
+
+    try {
+      decoded = JSON.parse(candidate) as unknown
+    } catch {
       return value
     }
-    return decoded
-  } catch {
-    return value
   }
+
+  return decoded !== null &&
+    typeof decoded === 'object' &&
+    !Array.isArray(decoded)
+    ? decoded
+    : value
 }
 
 // WHY `data` EXISTS IN THE INPUT SCHEMA:
@@ -47,7 +56,7 @@ Subagents must use this tool as it is the only way to report any findings. Nothi
 
 Note that the output schema is provided dynamically in a user prompt further down in the conversation. Be sure to follow what the latest output schema is when using this tool.
 
-Please set the output with all the information and analysis you want to pass on. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
+Please set the output with all the information and analysis you want to pass on. Pass native object fields; never call JSON.stringify or place serialized JSON text inside data. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
 Example:
 ${$getNativeToolCallExampleString({
   toolName,

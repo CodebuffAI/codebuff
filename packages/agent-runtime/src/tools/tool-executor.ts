@@ -1,5 +1,6 @@
 import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
+import { decodeJsonObjectString } from '@codebuff/common/tools/params/tool/set-output'
 import {
   buildNativeToolResultErrorOutputV1,
   buildReadFilesResultV1,
@@ -449,10 +450,7 @@ function stringInputError(
   }
 }
 
-function repairSetOutputData(
-  toolName: string,
-  input: unknown,
-): unknown {
+function repairSetOutputData(toolName: string, input: unknown): unknown {
   if (
     toolName !== 'set_output' ||
     input === null ||
@@ -463,15 +461,7 @@ function repairSetOutputData(
   }
   const record = input as Record<string, unknown>
   if (typeof record.data !== 'string') return input
-
-  let parsed: unknown = record.data
-  for (let i = 0; i < 3 && typeof parsed === 'string'; i++) {
-    try {
-      parsed = JSON.parse(parsed)
-    } catch {
-      return input
-    }
-  }
+  const parsed = decodeJsonObjectString(record.data)
   if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
     return input
   }
@@ -675,13 +665,36 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     )
   }
 
-  const repairedInput = repairSetOutputData(
-    toolName,
-    processedParameters.input,
-  )
+  const repairedInput = repairSetOutputData(toolName, processedParameters.input)
   const result = paramsSchema.safeParse(repairedInput)
 
   if (!result.success) {
+    // Keep the public set_output schema strict so providers are guided toward
+    // object-valued data. If a model still stringifies data, publish the tool
+    // call and let the handler return a recoverable validation result. This
+    // gives the agent a chance to retry instead of terminating on a raw tool
+    // parameter error. The handler never commits incomplete string data.
+    if (
+      toolName === 'set_output' &&
+      repairedInput !== null &&
+      typeof repairedInput === 'object' &&
+      !Array.isArray(repairedInput) &&
+      typeof (repairedInput as Record<string, unknown>).data === 'string'
+    ) {
+      const transportInput = {
+        ...(repairedInput as Record<string, unknown>),
+      }
+      delete transportInput[endsAgentStepParam]
+      return {
+        toolName,
+        input: transportInput,
+        toolCallId: rawToolCall.toolCallId,
+        ...(rawToolCall.providerOptions && {
+          providerOptions: rawToolCall.providerOptions,
+        }),
+      } as CodebuffToolCall<T>
+    }
+
     const issues = result.error.issues as ValidationIssue[]
     const hint = getToolValidationHint(toolName, issues)
     const summary = formatValidationIssues({ issues, toolName })
@@ -995,17 +1008,15 @@ export async function executeToolCall<T extends ToolName>(
 
       if (errors.length > 0) {
         if (validAgents.length === 0) {
-          const errorMsg = `Failed to spawn agents: ${errors.join('; ')}`
-          onResponseChunk({ type: 'error', message: errorMsg })
           logger.debug(
             { toolName, errors },
-            'All agents in spawn_agents are invalid, not streaming tool call',
+            'All agents in spawn_agents failed pre-validation; publishing the call so the handler can return a structured failure result',
           )
-          return abortablePreviousToolCallFinished
+        } else {
+          const errorMsg = `Some agents could not be spawned: ${errors.join('; ')}. Proceeding with valid agents only.`
+          onResponseChunk({ type: 'error', message: errorMsg })
+          effectiveInput = { ...effectiveInput, agents: validAgents }
         }
-        const errorMsg = `Some agents could not be spawned: ${errors.join('; ')}. Proceeding with valid agents only.`
-        onResponseChunk({ type: 'error', message: errorMsg })
-        effectiveInput = { ...effectiveInput, agents: validAgents }
       }
     }
   } else if (toolName === 'spawn_agent_inline') {

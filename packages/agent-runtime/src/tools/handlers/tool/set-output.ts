@@ -1,4 +1,5 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
+import { decodeJsonObjectString } from '@codebuff/common/tools/params/tool/set-output'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValueForError } from '../../../util/format-value'
@@ -28,10 +29,23 @@ export const handleSetOutput = (async (params: {
   fetchAgentFromDatabase: FetchAgentFromDatabaseFn
 }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const { previousToolCallFinished, toolCall, agentState, logger } = params
-  const output = toolCall.input
-  const { data } = output ?? {}
-
   await previousToolCallFinished
+
+  const rawOutput = toolCall.input as Record<string, unknown>
+  const decodedData = decodeJsonObjectString(rawOutput?.data)
+  if (typeof rawOutput?.data === 'string' && decodedData === rawOutput.data) {
+    return {
+      output: jsonToolResult({
+        message:
+          'Output was not set because data contained malformed or incomplete JSON text. Retry set_output with a real object value, not JSON.stringify(...). Keep findings and evidence concise enough to complete one tool call.',
+      }),
+    }
+  }
+  const output =
+    decodedData === rawOutput?.data
+      ? rawOutput
+      : { ...rawOutput, data: decodedData }
+  const { data } = output
 
   let agentTemplate = null
   if (agentState.agentType) {
@@ -65,7 +79,10 @@ export const handleSetOutput = (async (params: {
         const errorMessage = `${prefix}${bestError}\n\nOriginal output value:\n${formatValueForError(output)}`
         logger.error(
           {
-            output,
+            outputShape: {
+              keys: Object.keys(output),
+              dataType: Array.isArray(data) ? 'array' : typeof data,
+            },
             agentType: agentState.agentType,
             agentId: agentState.agentId,
             topLevelError: error,

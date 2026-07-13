@@ -79,11 +79,69 @@ export function normalizeSpawnAgentList(value: unknown): unknown {
   const entries = Array.isArray(decoded) ? decoded : [decoded]
   return entries.map((entry) => {
     const parsedEntry = parseJsonBounded(entry)
-    return parsedEntry !== null &&
-      typeof parsedEntry === 'object' &&
-      !Array.isArray(parsedEntry)
-      ? parsedEntry
-      : entry
+    if (
+      parsedEntry === null ||
+      typeof parsedEntry !== 'object' ||
+      Array.isArray(parsedEntry)
+    ) {
+      return entry
+    }
+
+    const record = parsedEntry as Record<string, unknown>
+    const parsedParams = parseJsonBounded(record.params)
+    const canMergeParams =
+      parsedParams === undefined ||
+      (parsedParams !== null &&
+        typeof parsedParams === 'object' &&
+        !Array.isArray(parsedParams))
+
+    if (canMergeParams) {
+      const paramsRecord = {
+        ...((parsedParams ?? {}) as Record<string, unknown>),
+      }
+      let repaired = typeof record.params === 'string'
+
+      // Direct agent calls accept legacy top-level params and convert them
+      // into the nested `params` object. Apply the same narrowly-scoped repair
+      // to spawn_agents for Basher's explicit command field. Never derive a
+      // shell command from `prompt`: prose is not executable authority.
+      if (
+        typeof record.command === 'string' &&
+        paramsRecord.command === undefined
+      ) {
+        paramsRecord.command = record.command
+        repaired = true
+      }
+
+      // Snapshot-scoped specialists verify the supplied fingerprint against
+      // the live review bundle, so recovering an explicitly labelled SHA from
+      // their prompt does not grant authority or bypass freshness checks. This
+      // repairs model calls that preserve the snapshot in prose but omit the
+      // required params.snapshot_id field after context compaction.
+      if (
+        paramsRecord.snapshot_id === undefined &&
+        typeof record.prompt === 'string'
+      ) {
+        const matches = [
+          ...record.prompt.matchAll(
+            /\b(?:Snapshot ID(?:\s*\([^)]*\)|\s+to verify)?|snapshot_id)\s*:\s*([a-f0-9]{32,128})\b/gi,
+          ),
+        ]
+        const explicitSnapshot = matches.at(-1)?.[1]
+        if (explicitSnapshot) {
+          paramsRecord.snapshot_id = explicitSnapshot
+          repaired = true
+        }
+      }
+
+      if (!repaired) return parsedEntry
+      return {
+        ...record,
+        params: paramsRecord,
+      }
+    }
+
+    return parsedEntry
   })
 }
 
@@ -164,6 +222,48 @@ export function normalizeReplacementList(val: unknown): unknown {
       'old_string',
       'new_string',
     ].some((key) => record[key] !== undefined)
+  })
+}
+
+/**
+ * Repairs omitted edit_transaction discriminators only when the payload shape
+ * identifies exactly one operation. Ambiguous content-only edits remain
+ * untouched because they could be create or write_file operations.
+ */
+export function normalizeTransactionEditList(val: unknown): unknown {
+  const edits = coerceToArray(val)
+  if (!Array.isArray(edits)) return edits
+
+  return edits.map((entry) => {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      return entry
+    }
+
+    const edit = entry as Record<string, unknown>
+    if (edit.type !== undefined) return entry
+
+    const candidateTypes: string[] = []
+    if (edit.replacements !== undefined) candidateTypes.push('str_replace')
+    if (edit.operation !== undefined) candidateTypes.push('structured')
+    if (edit.destinationPath !== undefined) candidateTypes.push('move')
+    if (edit.diff !== undefined) candidateTypes.push('patch')
+    if (edit.symbol !== undefined && edit.content !== undefined) {
+      candidateTypes.push('rewrite_symbol')
+    } else if (edit.content !== undefined) {
+      candidateTypes.push('create', 'write_file')
+    }
+    if (
+      edit.startLine !== undefined &&
+      edit.endLine !== undefined &&
+      edit.expectedHash !== undefined &&
+      edit.newContent !== undefined
+    ) {
+      candidateTypes.push('replace_range')
+    }
+
+    return candidateTypes.length === 1
+      ? { ...edit, type: candidateTypes[0] }
+      : entry
   })
 }
 

@@ -147,6 +147,18 @@ describe('base2 validation/reviewer coordination prompts', () => {
     )
     expect(base2.systemPrompt).toContain('Prefer dedicated harness tools')
     expect(base2.systemPrompt).toContain(
+      'Its absence from the root toolset is expected',
+    )
+    expect(base2.systemPrompt).toContain(
+      'Do not delegate work merely to gain access to set_output',
+    )
+    expect(base2.systemPrompt).toContain(
+      'Post-edit reviewer-family specialists are routed automatically',
+    )
+    expect(base2.systemPrompt).toContain(
+      'Do not manually re-spawn them after edits, after compaction',
+    )
+    expect(base2.systemPrompt).toContain(
       'Use git_status for repository status/diffs instead of basher',
     )
     expect(base2.systemPrompt).toContain('Atomic edit recovery')

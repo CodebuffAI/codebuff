@@ -1307,7 +1307,9 @@ const definition: AgentDefinition = {
     ): string {
       const record = findStructuredReviewerOutput(value)
       if (!record) return ''
-      const verdict = String(record.verdict).trim().toUpperCase()
+      const verdict = isStaleSnapshotReviewerOutput(value)
+        ? 'STALE_SNAPSHOT'
+        : String(record.verdict).trim().toUpperCase()
       const fingerprint =
         typeof record.snapshotFingerprint === 'string'
           ? record.snapshotFingerprint
@@ -1324,6 +1326,28 @@ const definition: AgentDefinition = {
           )
         : []
       return `${agentType}: verdict=${verdict}; snapshot=${fingerprint}; coverage=${coverage}; findingIds=${findingIds.join(',') || '(none)'}`
+    }
+
+    function isStaleSnapshotReviewerOutput(value: unknown): boolean {
+      const record = findStructuredReviewerOutput(value)
+      if (!record || !Array.isArray(record.findings)) return false
+      return record.findings.some((finding) => {
+        if (!finding || typeof finding !== 'object') return false
+        const findingRecord = finding as Record<string, unknown>
+        const id =
+          typeof findingRecord.id === 'string'
+            ? findingRecord.id.toLowerCase()
+            : ''
+        const summary =
+          typeof findingRecord.summary === 'string'
+            ? findingRecord.summary.toLowerCase()
+            : ''
+        return (
+          id.endsWith(':stale-snapshot') ||
+          (summary.includes('snapshot') &&
+            (summary.includes('stale') || summary.includes('does not match')))
+        )
+      })
     }
 
     /** Detect decision lines from assistant text (heuristic: lines starting with decision markers). */
@@ -1508,6 +1532,7 @@ const definition: AgentDefinition = {
         km.filesInspected.length > 0 ||
         km.editsMade.length > 0 ||
         km.validationResults.length > 0 ||
+        km.reviewReceipts.length > 0 ||
         km.blockers.length > 0 ||
         km.nextAction.length > 0
       )
@@ -2079,12 +2104,22 @@ const definition: AgentDefinition = {
                 const structured = findStructuredReviewerOutput(
                   reviewerResult.value?.value,
                 )
+                const staleSnapshot = isStaleSnapshotReviewerOutput(
+                  reviewerResult.value?.value,
+                )
                 const verdict =
                   typeof structured?.verdict === 'string'
                     ? structured.verdict.trim().toUpperCase()
                     : ''
+                if (staleSnapshot) {
+                  addUniqueEntry(
+                    knowledgeMemory.validationResults,
+                    `${reviewerResult.agentType}: stale snapshot review discarded; refresh the review bundle before retrying.`,
+                  )
+                }
                 if (
                   findingSummary &&
+                  !staleSnapshot &&
                   (verdict === 'BLOCKING' || structured === null)
                 ) {
                   addUniqueEntry(
@@ -2141,7 +2176,15 @@ const definition: AgentDefinition = {
             addUniqueEntry(knowledgeMemory.reviewReceipts, receipt)
             entryParts.push(`Review receipt: ${receipt}`)
             const structured = findStructuredReviewerOutput(resultValues)
+            const staleSnapshot = isStaleSnapshotReviewerOutput(resultValues)
+            if (staleSnapshot) {
+              addUniqueEntry(
+                knowledgeMemory.validationResults,
+                `${agentType}: stale snapshot review discarded; refresh the review bundle before retrying.`,
+              )
+            }
             if (
+              !staleSnapshot &&
               typeof structured?.verdict === 'string' &&
               structured.verdict.trim().toUpperCase() === 'BLOCKING'
             ) {
@@ -2281,6 +2324,8 @@ ${SUMMARY_DISCLAIMER}`,
       role: 'user',
       content: summaryContentParts,
       sentAt: now,
+      keepDuringTruncation:
+        hasSubstantivePinnedActiveWork || knowledgeMemoryBlock.length > 0,
     }
 
     const continuationMessage: UserMessage = {

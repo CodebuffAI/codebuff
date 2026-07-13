@@ -321,7 +321,7 @@ export async function getAgentPrompt<T extends StringField>(
     if (outputSchema) {
       addendum += '\n\n## Output Schema\n\n'
       addendum +=
-        'When using the set_output tool, your output must conform to this schema. You may pass the fields either directly as top-level parameters or inside a `data` field — both are accepted.\n\n'
+        'When using the set_output tool, your output must conform to this schema. You may pass the fields either directly as top-level parameters or inside a `data` field — both are accepted. Pass native object values; never call JSON.stringify or put serialized JSON text inside `data`.\n\n'
       addendum += '```json\n'
       try {
         // Convert Zod schema to JSON schema for display
