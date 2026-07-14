@@ -14,6 +14,7 @@ import {
   DEFAULT_MAX_CONTEXT_TOKENS,
   getModelContextReservedTokens,
   getModelContextMessageLimit,
+  getSemanticCompactionBudget,
   MODEL_CONTEXT_MIN_RESERVED_TOKENS,
   MODEL_CONTEXT_MAX_RESERVED_TOKENS,
   MODEL_CONTEXT_RESERVED_FRACTION,
@@ -124,18 +125,17 @@ describe('getModelContextReservedTokens (M4.2 unified reserved-token policy)', (
   })
 
   it('floors to the fraction of the window and clamps to [MIN, MAX]', () => {
-    // 10% of 100_000 = 10_000, within [1024, 16000] -> 10_000
-    expect(getModelContextReservedTokens(100_000)).toBe(10_000)
-    // 10% of 200_000 = 20_000, clamped down to MAX 16_000
-    expect(getModelContextReservedTokens(200_000)).toBe(16_000)
-    // 10% of 5_000 = 500, clamped up to MIN 1_024
-    expect(getModelContextReservedTokens(5_000)).toBe(1_024)
+    expect(getModelContextReservedTokens(100_000)).toBe(12_000)
+    expect(getModelContextReservedTokens(200_000)).toBe(24_000)
+    expect(getModelContextReservedTokens(1_000_000)).toBe(120_000)
+    expect(getModelContextReservedTokens(5_000)).toBe(2_500)
+    expect(getModelContextReservedTokens(2_000_000)).toBe(128_000)
   })
 
   it('honors the reserved fraction constant', () => {
-    expect(MODEL_CONTEXT_RESERVED_FRACTION).toBe(0.1)
-    expect(MODEL_CONTEXT_MIN_RESERVED_TOKENS).toBe(1_024)
-    expect(MODEL_CONTEXT_MAX_RESERVED_TOKENS).toBe(16_000)
+    expect(MODEL_CONTEXT_RESERVED_FRACTION).toBe(0.12)
+    expect(MODEL_CONTEXT_MIN_RESERVED_TOKENS).toBe(8_000)
+    expect(MODEL_CONTEXT_MAX_RESERVED_TOKENS).toBe(128_000)
   })
 })
 
@@ -147,16 +147,47 @@ describe('getModelContextMessageLimit (M4 unified threshold convergence)', () =>
   })
 
   it('subtracts the reserved overhead from the model context window', () => {
-    // 100_000 - 10_000 (10% reserve) = 90_000
-    expect(getModelContextMessageLimit(100_000)).toBe(90_000)
-    // 200_000 - 16_000 (clamped reserve) = 184_000
-    expect(getModelContextMessageLimit(200_000)).toBe(184_000)
-    // 5_000 - 1_024 (clamped reserve) = 3_976
-    expect(getModelContextMessageLimit(5_000)).toBe(3_976)
+    expect(getModelContextMessageLimit(100_000)).toBe(88_000)
+    expect(getModelContextMessageLimit(200_000)).toBe(176_000)
+    expect(getModelContextMessageLimit(262_144)).toBe(230_687)
+    expect(getModelContextMessageLimit(500_000)).toBe(440_000)
+    expect(getModelContextMessageLimit(1_000_000)).toBe(880_000)
+    expect(getModelContextMessageLimit(5_000)).toBe(2_500)
   })
 
   it('is always >= 1 even for tiny context windows', () => {
     expect(getModelContextMessageLimit(1)).toBeGreaterThanOrEqual(1)
     expect(getModelContextMessageLimit(0)).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('getSemanticCompactionBudget', () => {
+  it.each([
+    [128_000, 96_000, 72_000, 32_000],
+    [200_000, 160_000, 84_000, 32_000],
+    [262_144, 209_715, 110_100, 39_321],
+    [500_000, 400_000, 210_000, 75_000],
+    [1_000_000, 800_000, 420_000, 150_000],
+  ])(
+    'scales trigger and target budgets for a %i-token window',
+    (window, trigger, target, headroom) => {
+      expect(getSemanticCompactionBudget(window)).toEqual({
+        resolvedContextWindowTokens: window,
+        triggerBudgetTokens: trigger,
+        targetBudgetTokens: target,
+        headroomTokens: headroom,
+      })
+    },
+  )
+
+  it('uses conservative deterministic budgets when the window is unknown or invalid', () => {
+    expect(getSemanticCompactionBudget(undefined)).toEqual({
+      triggerBudgetTokens: 140_000,
+      targetBudgetTokens: 100_000,
+    })
+    expect(getSemanticCompactionBudget(Number.NaN)).toEqual({
+      triggerBudgetTokens: 140_000,
+      targetBudgetTokens: 100_000,
+    })
   })
 })

@@ -115,6 +115,31 @@ export function normalizeSpawnAgentList(value: unknown): unknown {
       }
       let paramsRepaired = typeof record.params === 'string'
 
+      // Provider tool-call serializers sometimes preserve an agent-specific
+      // array as a JSON string inside an otherwise valid params object (for
+      // example, `searchQueries: "[...]"`). Decode only known array-shaped
+      // handoff fields; leave commands, prompts, and arbitrary custom values
+      // untouched so intentional strings are never reinterpreted as data.
+      const arrayParamKeys = [
+        'searchQueries',
+        'filePaths',
+        'directories',
+        'prompts',
+        'changed_files',
+        'paths',
+        'patterns',
+        'queries',
+      ]
+      for (const key of arrayParamKeys) {
+        const value = paramsRecord[key]
+        const parsedValue = parseJsonBounded(value)
+        if (typeof value !== 'string' || !Array.isArray(parsedValue)) {
+          continue
+        }
+        paramsRecord[key] = parsedValue.map((item) => parseJsonBounded(item))
+        paramsRepaired = true
+      }
+
       // Direct agent calls accept legacy top-level params and convert them
       // into the nested `params` object. Apply the same narrowly-scoped repair
       // to spawn_agents for Basher's explicit command field. Never derive a
@@ -245,16 +270,21 @@ export function normalizeReplacementList(val: unknown): unknown {
  * untouched because they could be create or write_file operations.
  */
 export function normalizeTransactionEditList(val: unknown): unknown {
-  const edits = coerceToArray(val)
+  const edits = coerceToArray(parseJsonBounded(val))
   if (!Array.isArray(edits)) return edits
 
   return edits.map((entry) => {
-    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+    const parsedEntry = parseJsonBounded(entry)
+    if (
+      parsedEntry === null ||
+      typeof parsedEntry !== 'object' ||
+      Array.isArray(parsedEntry)
+    ) {
       return entry
     }
 
-    const edit = entry as Record<string, unknown>
-    if (edit.type !== undefined) return entry
+    const edit = parsedEntry as Record<string, unknown>
+    if (edit.type !== undefined) return parsedEntry
 
     const candidateTypes: string[] = []
     if (edit.replacements !== undefined) candidateTypes.push('str_replace')
@@ -267,9 +297,10 @@ export function normalizeTransactionEditList(val: unknown): unknown {
       candidateTypes.push('create', 'write_file')
     }
     if (
-      edit.startLine !== undefined &&
-      edit.endLine !== undefined &&
-      edit.expectedHash !== undefined &&
+      ((edit.startLine !== undefined &&
+        edit.endLine !== undefined &&
+        edit.expectedHash !== undefined) ||
+        edit.readCapability !== undefined) &&
       edit.newContent !== undefined
     ) {
       candidateTypes.push('replace_range')
@@ -277,7 +308,7 @@ export function normalizeTransactionEditList(val: unknown): unknown {
 
     return candidateTypes.length === 1
       ? { ...edit, type: candidateTypes[0] }
-      : entry
+      : parsedEntry
   })
 }
 

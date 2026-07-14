@@ -193,6 +193,29 @@ describe('findFilesMatchingContent', () => {
     expect(args).toEqual(expect.arrayContaining(['-t', 'ts', '-g', 'src/**']))
   })
 
+  it('ignores redundant line-number flags while preserving safe flags', async () => {
+    for (const flags of ['-n -i', ['--line-number', '-g', '*.ts']]) {
+      const searchPromise = findFilesMatchingContent({
+        projectPath,
+        pattern: 'needle',
+        flags,
+      })
+
+      mockProcess.stdout.emit('data', Buffer.from('src/a.ts\n'))
+      mockProcess.emit('close', 0)
+
+      await searchPromise
+      const args = mockSpawn.mock.calls.at(-1)![1] as string[]
+      expect(args).not.toContain('-n')
+      expect(args).not.toContain('--line-number')
+      if (Array.isArray(flags)) {
+        expect(args).toEqual(expect.arrayContaining(['-g', '*.ts']))
+      } else {
+        expect(args).toContain('-i')
+      }
+    }
+  })
+
   it('still rejects dangerous flags after outer-quote repair', async () => {
     const result = await findFilesMatchingContent({
       projectPath,

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
   ACTIVE_SESSION_POINTER_FILENAME,
   appendPlanEvent,
+  CANONICAL_PLAN_TASK_EXAMPLE,
   EVENTS_FILENAME,
   PLAN_EVENT_KINDS,
   readPlanEvents,
@@ -67,8 +68,124 @@ describe('durable plan artifact policy', () => {
       ),
     )
     expect(result.ok).toBe(false)
-    expect(result.errors).toContain('Duplicate task ID: P1-T1')
-    expect(result.errors).toContain('P1-T1 depends on missing task P0-T9')
+    expect(
+      result.errors.some(
+        (error) =>
+          error.includes('[duplicate-id]') && error.includes('"P1-T1"'),
+      ),
+    ).toBe(true)
+    expect(
+      result.errors.some(
+        (error) =>
+          error.includes('[dependency]') && error.includes('"P0-T9"'),
+      ),
+    ).toBe(true)
+  })
+
+  test('parses visible dotted IDs and safe legacy presentation variants', () => {
+    const plan = [
+      '- [x] **F0.1** Land current uncommitted diff',
+      '- [x] F0.2 Add multi-tenant schema',
+      '- [x] [F0.3] Add RLS policies',
+      '- [ ] <!-- task-id: P6.3 --> **P6.3** Marketing site',
+      '  - Depends on: F0.1, F0.2, F0.3',
+      '  - Acceptance: comparison pages are published',
+      '  - Validate: bun test marketing-site',
+    ].join('\n')
+
+    expect(parsePlanTasks(plan).map((task) => task.id)).toEqual([
+      'F0.1',
+      'F0.2',
+      'F0.3',
+      'P6.3',
+    ])
+    expect(preflightPlan(plan)).toMatchObject({
+      ok: true,
+      nextTaskId: 'P6.3',
+      errors: [],
+    })
+  })
+
+  test('accepts an explicit task-id annotation without requiring a duplicate ledger', () => {
+    const tasks = parsePlanTasks(
+      [
+        '- [ ] <!-- task-id: P6.4 --> Accessibility audit',
+        '  - Acceptance: audit findings are resolved',
+        '  - Validate: bun test accessibility',
+      ].join('\n'),
+    )
+
+    expect(tasks).toEqual([
+      {
+        id: 'P6.4',
+        title: 'Accessibility audit',
+        status: 'pending',
+        dependencies: [],
+        hasAcceptanceCriteria: true,
+        hasValidationGate: true,
+      },
+    ])
+  })
+
+  test('ignores ID-less prose and validation checkboxes as non-executable', () => {
+    const result = preflightPlan(
+      [
+        '- [ ] Run the validation gate',
+        '- [ ] npm test',
+        '- [ ] **Review deployment readiness**',
+      ].join('\n'),
+    )
+
+    expect(result.tasks).toEqual([])
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0]).toContain('[zero-tasks]')
+    expect(result.errors[0]).toContain(CANONICAL_PLAN_TASK_EXAMPLE)
+  })
+
+  test('reports malformed and conflicting task IDs without choosing one', () => {
+    const result = preflightPlan(
+      [
+        '- [ ] **P6.** Missing final segment',
+        '- [ ] <!-- task-id: P6.3 --> **P6.4** Conflicting IDs',
+      ].join('\n'),
+    )
+
+    expect(result.ok).toBe(false)
+    expect(result.tasks).toEqual([])
+    expect(
+      result.errors.some(
+        (error) =>
+          error.includes('[malformed-id]') && error.includes('"P6."'),
+      ),
+    ).toBe(true)
+    expect(
+      result.errors.some(
+        (error) =>
+          error.includes('[malformed-id]') &&
+          error.includes('visible task ID "P6.4" conflicts'),
+      ),
+    ).toBe(true)
+    expect(result.errors.every((error) => error.includes('Valid example:'))).toBe(
+      true,
+    )
+  })
+
+  test('categorizes empty dependency, acceptance, and validation fields', () => {
+    const result = preflightPlan(
+      [
+        '- [ ] P6.3 Marketing site',
+        '  - Depends on:',
+        '  - Acceptance:',
+        '  - Validate:',
+      ].join('\n'),
+    )
+
+    expect(result.ok).toBe(false)
+    for (const kind of ['dependency', 'acceptance', 'validation']) {
+      expect(result.errors.some((error) => error.includes(`[${kind}]`))).toBe(
+        true,
+      )
+    }
   })
 
   test('defines the required durable plan artifact names in canonical order', () => {

@@ -2631,36 +2631,66 @@ describe('context-pruner threshold behavior', () => {
     )
   })
 
-  test('scales the default semantic threshold to 70% of a 500k context window', () => {
-    mockAgentState.contextWindowTokens = 500_000
+  test.each([
+    [128_000, 96_000],
+    [200_000, 160_000],
+    [262_144, 209_715],
+    [500_000, 400_000],
+    [1_000_000, 800_000],
+  ])(
+    'scales the default semantic threshold for a %i-token context window',
+    (contextWindowTokens, triggerBudgetTokens) => {
+      mockAgentState.contextWindowTokens = contextWindowTokens
+      const messages = [
+        createMessage('user', 'Hello'),
+        createMessage('assistant', 'Hi'),
+      ]
+
+      const under = runHandleSteps(messages, triggerBudgetTokens - 1_000)
+      expect(under[0].input.messages).toHaveLength(2)
+
+      const over = runHandleSteps(messages, triggerBudgetTokens)
+      expect(over[0].input.messages[0].content[0].text).toContain(
+        '<conversation_summary>',
+      )
+    },
+  )
+
+  test('uses the conservative fallback when the model context window is unknown', () => {
+    mockAgentState.contextWindowTokens = undefined
     const messages = [
       createMessage('user', 'Hello'),
       createMessage('assistant', 'Hi'),
     ]
 
-    const under = runHandleSteps(messages, 349_000)
+    const under = runHandleSteps(messages, 139_000)
     expect(under[0].input.messages).toHaveLength(2)
 
-    const over = runHandleSteps(messages, 350_000)
+    const over = runHandleSteps(messages, 140_000)
     expect(over[0].input.messages[0].content[0].text).toContain(
       '<conversation_summary>',
     )
   })
 
-  test('scales the default semantic threshold to 70% of a one-million-token window', () => {
-    mockAgentState.contextWindowTokens = 1_000_000
-    const messages = [
-      createMessage('user', 'Hello'),
-      createMessage('assistant', 'Hi'),
-    ]
-
-    const under = runHandleSteps(messages, 699_000)
-    expect(under[0].input.messages).toHaveLength(2)
-
-    const over = runHandleSteps(messages, 700_000)
-    expect(over[0].input.messages[0].content[0].text).toContain(
-      '<conversation_summary>',
+  test('retains materially more history in the scaled one-million-token target', () => {
+    const messages = Array.from({ length: 8 }, (_, index) =>
+      createMessage(
+        'user',
+        `HISTORY_MARKER_${index} ` + String(index).repeat(30_000),
+      ),
     )
+
+    mockAgentState.contextWindowTokens = 200_000
+    const compactTarget = runHandleSteps(messages, 160_000)
+    const compactText = compactTarget[0].input.messages[0].content[0].text
+
+    mockAgentState.contextWindowTokens = 1_000_000
+    const largeTarget = runHandleSteps(messages, 800_000)
+    const largeText = largeTarget[0].input.messages[0].content[0].text
+
+    expect(compactText).not.toContain('HISTORY_MARKER_0')
+    expect(largeText).toContain('HISTORY_MARKER_0')
+    expect(largeText.length).toBeGreaterThan(compactText.length * 2)
   })
 
   test('keeps other categories when the newest user entry exhausts only the user budget', () => {
@@ -3220,6 +3250,26 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('I am fine!')
   })
 
+  test('skips an oversized recent entry and retains older compact evidence from the same role', () => {
+    const oversizedRecentResponse =
+      'OVERSIZED_RECENT_RESPONSE_' + 'X'.repeat(900)
+    const messages = [
+      createMessage('user', 'Keep useful evidence when compacting'),
+      createMessage('assistant', 'OLDER_COMPACT_EVIDENCE'),
+      createMessage('assistant', oversizedRecentResponse),
+    ]
+
+    const results = runHandleSteps(messages, 250000, 200000, {
+      assistantToolBudget: 20,
+      userBudget: 100,
+    })
+
+    const content = (results[0].input.messages[0].content[0] as { text: string })
+      .text
+    expect(content).toContain('OLDER_COMPACT_EVIDENCE')
+    expect(content).not.toContain('OVERSIZED_RECENT_RESPONSE_')
+  })
+
   test('respects user budget separately from assistant+tool budget', () => {
     const largeUserText = 'U'.repeat(600) // ~200 tokens
     const messages = [
@@ -3697,9 +3747,10 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('---')
   })
 
-  test('with tight budgets, drops old summary entries while keeping truncated new entries', () => {
-    // Same setup but with tight budgets: old summary entries get dropped,
-    // new entries survive (individually truncated)
+  test('with tight budgets, backfills compact old summary evidence around oversized entries', () => {
+    // Same setup but with tight budgets: new entries survive, oversized old
+    // entries are skipped, and one compact older assistant entry backfills the
+    // otherwise unused category budget.
     const previousSummary: Message = {
       role: 'user',
       content: [
@@ -3767,9 +3818,9 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('SURVIVED_FINAL_USER')
     expect(content).toContain('SURVIVED_FINAL_ASSISTANT')
 
-    // === Old summary entries dropped by budget walk ===
+    // === Old summary entries are independently budgeted ===
     expect(content).not.toContain('OLD_DROPPED_USER:')
-    expect(content).not.toContain('OLD_DROPPED_ASSISTANT:')
+    expect(content).toContain('OLD_DROPPED_ASSISTANT:')
     expect(content).not.toContain('OLD_DROPPED_USER_2:')
     expect(content).not.toContain('OLD_DROPPED_ASSISTANT_2:')
   })

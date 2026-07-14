@@ -258,3 +258,14 @@ describe('MAX_SPAWN_DEPTH enforcement in executeSubagent', () => {
     ).rejects.toThrow(/file-picker/)
   })
 })
+
+describe('createAgentState context-window isolation', () => {
+  it('does not inherit a parent model context window', () => {
+    const parent = makeParentAtDepth(0)
+    parent.contextWindowTokens = 1_000_000
+
+    const child = createAgentState('test-agent', makeTemplate(), parent, {})
+
+    expect(child.contextWindowTokens).toBeUndefined()
+  })
+})

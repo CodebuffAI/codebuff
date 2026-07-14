@@ -35,4 +35,30 @@ describe('getFileReadingUpdates', () => {
       error: { code: 'not_found' },
     })
   })
+
+  it('removes capability metadata from truncated ranges using the current header shape', async () => {
+    const capability =
+      'cap.v2.1.2.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    const result = await getFileReadingUpdates({
+      requestFiles: async () => ({
+        'range.ts':
+          `[RANGE_BLOCK lines 1-2 of 20 in range.ts; rangeHash=sha256:abc; readCapability=${capability}; preferred block edit: replace_range { readCapability: "${capability}", newContent: "..." }; scoped str_replace: basedOnRead="${capability}"]\n` +
+          '1\tline one\n2\tline two\n[FILE_TOO_LARGE: truncated]',
+      }),
+      requestedFiles: [],
+      ranges: [{ path: 'range.ts', startLine: 1, endLine: 20 }],
+    })
+
+    expect(result.results[0]).toMatchObject({
+      selector: 'range',
+      status: 'partial',
+      complete: false,
+    })
+    const item = result.results[0]
+    if (item?.status === 'partial' && 'content' in item) {
+      expect(item.content).toContain('rangeHash=omitted')
+      expect(item.content).not.toContain(capability)
+      expect(item).not.toHaveProperty('readCapability')
+    }
+  })
 })

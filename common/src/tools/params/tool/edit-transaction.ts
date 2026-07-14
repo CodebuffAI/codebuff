@@ -10,6 +10,7 @@ import {
 } from '../utils'
 import { basedOnReadSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
+import { decodeReadCapabilityToken } from '../../../util/content-hash'
 
 import { updateFileResultSchema } from './str-replace'
 
@@ -181,6 +182,13 @@ const moveFileEditSchema = editBaseSchema.extend({
 const replaceRangeEditSchema = editBaseSchema
   .extend({
     type: z.literal('replace_range'),
+    readCapability: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together.',
+      ),
     startLine: z.number().int().min(1),
     endLine: z.number().int().min(1),
     expectedHash: z.string().min(1),
@@ -191,6 +199,30 @@ const replaceRangeEditSchema = editBaseSchema
   })
   .refine((edit) => edit.startLine <= edit.endLine, {
     message: 'startLine must be <= endLine',
+  })
+  .superRefine((edit, ctx) => {
+    if (!edit.readCapability) return
+    const decoded = decodeReadCapabilityToken(edit.readCapability)
+    if (typeof decoded === 'string') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['readCapability'],
+        message: decoded,
+      })
+      return
+    }
+    if (
+      edit.startLine !== decoded.startLine ||
+      edit.endLine !== decoded.endLine ||
+      edit.expectedHash !== decoded.hash
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['readCapability'],
+        message:
+          'readCapability conflicts with the explicit range target. Copy one fresh anchor and do not mix values from different reads.',
+      })
+    }
   })
 
 const rewriteSymbolEditSchema = editBaseSchema.extend({
@@ -260,11 +292,34 @@ export const editTransactionResultSchema = z.union([
 
 const toolName = 'edit_transaction'
 const endsAgentStep = false
+const normalizeTransactionRangeCapabilities = (value: unknown): unknown => {
+  const normalized = normalizeTransactionEditList(value)
+  if (!Array.isArray(normalized)) return normalized
+  return normalized.map((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+      return entry
+    const edit = entry as Record<string, unknown>
+    if (
+      edit.type !== 'replace_range' ||
+      typeof edit.readCapability !== 'string'
+    ) {
+      return entry
+    }
+    const decoded = decodeReadCapabilityToken(edit.readCapability)
+    if (typeof decoded === 'string') return entry
+    return {
+      ...edit,
+      startLine: edit.startLine ?? decoded.startLine,
+      endLine: edit.endLine ?? decoded.endLine,
+      expectedHash: edit.expectedHash ?? decoded.hash,
+    }
+  })
+}
 const inputSchema = z
   .object({
     edits: z
       .preprocess(
-        normalizeTransactionEditList,
+        normalizeTransactionRangeCapabilities,
         z
           .array(transactionEditSchema)
           .min(1, 'Transaction edits cannot be empty'),
@@ -287,6 +342,7 @@ Important:
 - Every per-file edit is atomic during preflight, including small files.
 - Structured edits are dispatched deterministically by operation kind; supported operations include insert_text, insert_import, and remove_import.
 - Transactions can also compose replace_range, rewrite_symbol, unified patch, and whole-file write_file operations with create/delete/move lifecycle actions.
+- For replace_range edits, prefer the single readCapability copied from a fresh read_files range header; the transaction normalizes it to verified line bounds and hash during validation.
 - Use insert_import/remove_import for TypeScript import-only changes; use str_replace for larger semantic changes.
 - Large-file str_replace edits use the same deterministic semantics as str_replace: unique oldString edits can apply without basedOnRead; ambiguous targets should use basedOnRead from fresh read_files.ranges output.
 - Patches are applied as one coordinated client-side transaction after preflight. Commit failures trigger best-effort rollback and report rolled-back or rollback-incomplete outcomes; do not assume external filesystem atomicity.

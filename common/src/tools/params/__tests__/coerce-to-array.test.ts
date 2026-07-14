@@ -401,4 +401,20 @@ describe('normalizeTransactionEditList', () => {
       ),
     ).toEqual([{ path: 'a.ts', replacements: [], type: 'str_replace' }])
   })
+
+  it('repairs double-stringified arrays and stringified edit entries', () => {
+    const entry = JSON.stringify({
+      path: 'a.ts',
+      replacements: [{ oldString: 'a', newString: 'b' }],
+    })
+    expect(
+      normalizeTransactionEditList(JSON.stringify(JSON.stringify([entry]))),
+    ).toEqual([
+      {
+        path: 'a.ts',
+        replacements: [{ oldString: 'a', newString: 'b' }],
+        type: 'str_replace',
+      },
+    ])
+  })
 })

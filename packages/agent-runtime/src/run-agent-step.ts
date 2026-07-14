@@ -21,6 +21,7 @@ import { CACHE_DEBUG_FULL_LOGGING } from './constants'
 
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
+import { getEffectiveAgentToolNames } from './util/agent-tool-names'
 import {
   clearAgentGeneratorForRun,
   runProgrammaticStep,
@@ -57,6 +58,7 @@ import { countTokensJson } from './util/token-counter'
 import {
   DEFAULT_MAX_CONTEXT_TOKENS,
   getModelContextMessageLimit,
+  getSemanticCompactionBudget,
   maybePruneContext,
 } from './util/context-pruning'
 
@@ -102,17 +104,18 @@ async function additionalToolDefinitions(
   >,
 ): Promise<CustomToolDefinitions> {
   const { agentTemplate, fileContext } = params
+  const effectiveToolNames = getEffectiveAgentToolNames(agentTemplate)
 
   const defs = cloneDeep(
     Object.fromEntries(
       Object.entries(fileContext.customToolDefinitions).filter(([toolName]) =>
-        agentTemplate!.toolNames.includes(toolName),
+        effectiveToolNames.includes(toolName),
       ),
     ),
   )
   return getMCPToolData({
     ...params,
-    toolNames: agentTemplate!.toolNames,
+    toolNames: effectiveToolNames,
     mcpServers: agentTemplate!.mcpServers,
     writeTo: defs,
   })
@@ -128,7 +131,7 @@ function canReuseParentTools(params: {
   }
 
   const parentToolNames = Object.keys(parentTools)
-  const childToolNames = agentTemplate.toolNames
+  const childToolNames = getEffectiveAgentToolNames(agentTemplate)
 
   // Only reuse the parent's tool schemas when they exactly match the child
   // agent's declared tools. Reusing a superset is unsafe: the model sees tools
@@ -289,7 +292,9 @@ export const runAgentStep = async (
   // consistent stopping point (resumable next turn via persisted run state)
   // instead of being cut off mid-edit when stepsRemaining hits 0.
   if (agentState.stepsRemaining === NEAR_STEP_CAP_WARNING_THRESHOLD) {
-    const hasWriteTodos = agentTemplate.toolNames.includes('write_todos')
+    const hasWriteTodos = getEffectiveAgentToolNames(agentTemplate).includes(
+      'write_todos',
+    )
     const warningMessage = hasWriteTodos
       ? NEAR_STEP_CAP_WARNING_MESSAGE
       : NEAR_STEP_CAP_WARNING_MESSAGE_NO_WRITE_TODOS
@@ -487,7 +492,7 @@ export const runAgentStep = async (
         id: agentTemplate.id,
         displayName: agentTemplate.displayName,
         model: agentTemplate.model,
-        toolNames: agentTemplate.toolNames,
+        toolNames: getEffectiveAgentToolNames(agentTemplate),
         programmaticToolNames: agentTemplate.programmaticToolNames,
         spawnableAgents: agentTemplate.spawnableAgents,
         mcpServerNames: Object.keys(agentTemplate.mcpServers ?? {}),
@@ -696,7 +701,7 @@ export const runAgentStep = async (
 
   // If the agent has the task_completed tool, it must be called to end its turn.
   const requiresExplicitCompletion =
-    agentTemplate.toolNames.includes('task_completed')
+    getEffectiveAgentToolNames(agentTemplate).includes('task_completed')
 
   let shouldEndTurn: boolean
   if (requiresExplicitCompletion) {
@@ -1117,7 +1122,7 @@ export async function loopAgentSteps(
     const tools: ToolSet = useParentTools
       ? parentTools!
       : await getToolSet({
-          toolNames: agentTemplate.toolNames,
+          toolNames: getEffectiveAgentToolNames(agentTemplate),
           additionalToolDefinitions: async () => {
             if (!cachedAdditionalToolDefinitions) {
               cachedAdditionalToolDefinitions = await additionalToolDefinitions(
@@ -1292,6 +1297,8 @@ export async function loopAgentSteps(
           countTokensJson(messagesWithStepPrompt) + systemAndToolsTokens
 
         currentAgentState.contextTokenCount = estimateContextTokensLocally()
+        const contextTokensBeforeProgrammatic =
+          currentAgentState.contextTokenCount
 
         // 1. Run programmatic step first if it exists
         let n: number | undefined = undefined
@@ -1374,6 +1381,9 @@ export async function loopAgentSteps(
           retainedSemanticMemory &&
           historyTokensAfterProgrammatic < historyTokensBeforeProgrammatic
         ) {
+          const semanticBudget = getSemanticCompactionBudget(
+            currentAgentState.contextWindowTokens,
+          )
           const categoriesAfterProgrammatic = getContextCategoryTelemetry(
             currentAgentState.messageHistory,
           )
@@ -1391,6 +1401,15 @@ export async function loopAgentSteps(
           onResponseChunk({
             type: 'context_compaction',
             action: 'semantic_compaction',
+            resolvedContextWindowTokens:
+              semanticBudget.resolvedContextWindowTokens,
+            triggerBudgetTokens: semanticBudget.triggerBudgetTokens,
+            targetBudgetTokens: semanticBudget.targetBudgetTokens,
+            reason:
+              contextTokensBeforeProgrammatic + 1_000 >
+              semanticBudget.triggerBudgetTokens
+                ? 'Total context exceeded the model-aware semantic trigger budget.'
+                : 'The programmatic semantic pruner reduced history before the provider safety limit.',
             before: {
               tokens: historyTokensBeforeProgrammatic,
               messages: historyBeforeProgrammatic.length,
@@ -1431,6 +1450,13 @@ export async function loopAgentSteps(
           onResponseChunk({
             type: 'context_compaction',
             action: 'mechanical_trim',
+            resolvedContextWindowTokens: currentAgentState.contextWindowTokens,
+            triggerBudgetTokens:
+              effectiveMaxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
+            targetBudgetTokens:
+              effectiveMaxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
+            reason:
+              'Total context remained above the provider-safe request budget after semantic compaction.',
             before: {
               tokens: report.beforeTokens,
               messages: report.beforeMessageCount,

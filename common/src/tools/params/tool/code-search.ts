@@ -72,7 +72,7 @@ Advanced ripgrep flags (use the flags parameter):
 - Multiline matching: "-U" and "--multiline-dotall"
 
 Only the flags listed above are accepted. Output-shape-changing or effectful ripgrep flags such as -c, -l, -v, -r/--replace, --exec, and -z/--null are rejected.
-Do not pass -n/--line-number; code_search already enables line numbers internally.
+Line numbers are enabled internally. Redundant -n/--line-number inputs are ignored for compatibility; omit them from new calls.
 
 Note: Do not use the end_turn tool after this tool! You will want to see the output of this tool before ending your turn.
 

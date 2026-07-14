@@ -174,6 +174,12 @@ const contextCategorySummarySchema = z.object({
 export const printModeContextCompactionSchema = z.object({
   type: z.literal('context_compaction'),
   action: z.enum(['semantic_compaction', 'mechanical_trim']),
+  resolvedContextWindowTokens: z.number().optional(),
+  // Optional for compatibility with persisted/replayed events emitted before
+  // model-aware compaction telemetry was added.
+  triggerBudgetTokens: z.number().optional(),
+  targetBudgetTokens: z.number().optional(),
+  reason: z.string().optional(),
   before: z.object({
     tokens: z.number(),
     messages: z.number(),

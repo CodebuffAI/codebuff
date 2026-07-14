@@ -1353,7 +1353,7 @@ function test3() {
     }
   })
 
-  it('should ignore a stale readCapability token on large files when oldString is unique', async () => {
+  it('rejects a stale readCapability token on large files even when oldString is unique', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
     )
@@ -1378,15 +1378,12 @@ function test3() {
       logger,
     })
 
-    expect('content' in result).toBe(true)
-    if ('content' in result) {
-      expect(result.content).toContain('const target = 2;')
-      expect(result.content).not.toContain('const target = 1;')
-      expect(
-        result.messages.some((msg) =>
-          msg.includes('ignoring a stale basedOnRead anchor'),
-        ),
-      ).toBe(true)
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain(
+        'did not fall back to an unscoped whole-file match',
+      )
+      expect(result.error).toContain('fresh readCapability token')
     }
   })
 
@@ -1420,7 +1417,10 @@ function test3() {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('Large-file edit blocked for large.ts')
-      expect(result.error).toContain('basedOnRead anchor was stale')
+      expect(result.error).toContain('basedOnRead range is stale')
+      expect(result.error).toContain(
+        'did not fall back to an unscoped whole-file match',
+      )
     }
   })
 
@@ -1644,7 +1644,7 @@ function test3() {
       expect(result.error).toContain('Replacement 2/2 failed:')
       expect(result.error).toContain('const missing = 1;')
       expect(result.error).toContain('already changed/removed')
-      expect(result.error).toContain('consider replace_range with expectedHash')
+      expect(result.error).toContain('use replace_range with its readCapability')
       expect(result.error).not.toContain('+const first = 2;')
     }
   })
@@ -1962,7 +1962,7 @@ function test3() {
     }
   })
 
-  it('should ignore stale basedOnRead hashes on large files when oldString is unique', async () => {
+  it('rejects stale basedOnRead hashes on large files when oldString is unique', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
     )
@@ -1986,19 +1986,15 @@ function test3() {
       logger,
     })
 
-    expect('content' in result).toBe(true)
-    if ('content' in result) {
-      expect(result.content).toContain('const target = 2;')
-      expect(result.content).not.toContain('const target = 1;')
-      expect(
-        result.messages.some((msg) =>
-          msg.includes('ignoring a stale basedOnRead anchor'),
-        ),
-      ).toBe(true)
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain(
+        'did not fall back to an unscoped whole-file match',
+      )
     }
   })
 
-  it('should ignore stale basedOnRead on small files and still apply the edit', async () => {
+  it('rejects stale basedOnRead on small files instead of expanding scope', async () => {
     const initialContent = 'const x = 1;\nconst y = 2;\n'
 
     const result = await processStrReplace({
@@ -2019,18 +2015,15 @@ function test3() {
       logger,
     })
 
-    expect('content' in result).toBe(true)
-    if ('content' in result) {
-      expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
-      expect(
-        result.messages.some((msg) =>
-          msg.includes('basedOnRead was ignored for small.ts'),
-        ),
-      ).toBe(true)
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain(
+        'did not fall back to an unscoped whole-file match',
+      )
     }
   })
 
-  it('should ignore basedOnRead bounds on small files (whole-file match still works)', async () => {
+  it('honors basedOnRead bounds on small files', async () => {
     const initialContent = 'alpha\nbeta\ngamma\n'
 
     const result = await processStrReplace({
@@ -2040,8 +2033,7 @@ function test3() {
           oldString: 'gamma',
           newString: 'delta',
           allowMultiple: false,
-          // Bounds point at a different region than where the match lives; on a
-          // small file these bounds must not restrict matching.
+          // Bounds point at a different region than where the match lives.
           basedOnRead: {
             startLine: 1,
             endLine: 1,
@@ -2053,9 +2045,9 @@ function test3() {
       logger,
     })
 
-    expect('content' in result).toBe(true)
-    if ('content' in result) {
-      expect(result.content).toBe('alpha\nbeta\ndelta\n')
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('was not found in the file')
     }
   })
 
@@ -2143,7 +2135,7 @@ function test3() {
             basedOnRead: encodeReadCapabilityToken({
               startLine: 1,
               endLine: 2,
-              hash: getContentHash(initialContent),
+              hash: getContentHash('const x = 1;\nconst y = 2;'),
             }),
           },
         ],
@@ -2477,6 +2469,70 @@ function test3() {
         expect(result.error).toContain('Occurrence 1:')
         expect(result.error).toContain('Occurrence 2:')
         expect(result.error).toContain('Occurrence 3:')
+      }
+    })
+  })
+
+  describe('fresh range capability scoping', () => {
+    it('keeps a fresh small-file edit inside the proven range', async () => {
+      // The capability was minted before an unrelated later line changed. The
+      // target range itself is still fresh, so the scoped edit remains safe.
+      const initialContent = 'same\nkeep\nsame\nunrelated post-read edit\n'
+      const capability = encodeReadCapabilityToken({
+        startLine: 3,
+        endLine: 3,
+        hash: getContentHash('same'),
+      })
+      const result = await processStrReplace({
+        path: 'PLAN.md',
+        replacements: [
+          {
+            oldString: 'same',
+            newString: 'changed',
+            allowMultiple: false,
+            occurrenceIndex: 1,
+            basedOnRead: capability,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe(
+          'same\nkeep\nchanged\nunrelated post-read edit\n',
+        )
+      }
+    })
+
+    it('rejects a stale supplied range instead of guessing across the file', async () => {
+      const initialContent = 'same\nkeep\nsame changed formatting\n'
+      const staleCapability = encodeReadCapabilityToken({
+        startLine: 3,
+        endLine: 3,
+        hash: getContentHash('same'),
+      })
+      const result = await processStrReplace({
+        path: 'PLAN.md',
+        replacements: [
+          {
+            oldString: 'same',
+            newString: 'changed',
+            allowMultiple: false,
+            occurrenceIndex: 1,
+            basedOnRead: staleCapability,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain(
+          'occurrences were not counted across the whole file',
+        )
       }
     })
   })

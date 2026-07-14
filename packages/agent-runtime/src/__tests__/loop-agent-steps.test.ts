@@ -176,7 +176,10 @@ describe('loopAgentSteps', () => {
     const result = await loopAgentSteps({
       ...baseParams,
       agentState,
-      maxContextLength: 2_000,
+      // Keep the explicit provider-safe ceiling above the system/tool baseline
+      // so this case isolates semantic compaction rather than intentionally
+      // exercising the later mechanical emergency brake.
+      maxContextLength: 50_000,
       localAgentTemplates: { 'test-agent': agentTemplate },
       onResponseChunk: (event) => events.push(event),
     })
@@ -185,6 +188,9 @@ describe('loopAgentSteps', () => {
       expect.objectContaining({
         type: 'context_compaction',
         action: 'semantic_compaction',
+        triggerBudgetTokens: 140_000,
+        targetBudgetTokens: 100_000,
+        reason: expect.any(String),
         retainedKnowledgeMemory: true,
       }),
     )
@@ -219,6 +225,9 @@ describe('loopAgentSteps', () => {
       expect.objectContaining({
         type: 'context_compaction',
         action: 'mechanical_trim',
+        triggerBudgetTokens: 2_000,
+        targetBudgetTokens: 2_000,
+        reason: expect.stringContaining('provider-safe request budget'),
         retainedKnowledgeMemory: false,
         recovery: expect.stringContaining('Re-gather exact constraints'),
       }),

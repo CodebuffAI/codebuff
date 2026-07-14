@@ -11,6 +11,7 @@ import {
 import { clearProposedContentForRun } from './tools/handlers/tool/proposed-content-store'
 import { executeToolCall } from './tools/tool-executor'
 import { parseTextWithToolCalls } from './util/parse-tool-calls-from-text'
+import { getEffectiveAgentToolNames } from './util/agent-tool-names'
 
 import type { FileProcessingState } from './tools/handlers/tool/write-file'
 import type { ExecuteToolCallParams } from './tools/tool-executor'
@@ -719,7 +720,9 @@ async function executeSingleToolCall(
 
   const programmaticToolAllowed =
     PROGRAMMATIC_CONTEXT_MANAGEMENT_TOOLS.has(toolCallToExecute.toolName) ||
-    agentTemplate.toolNames.includes(toolCallToExecute.toolName) ||
+    getEffectiveAgentToolNames(agentTemplate).includes(
+      toolCallToExecute.toolName,
+    ) ||
     (agentTemplate.programmaticToolNames ?? []).includes(
       toolCallToExecute.toolName,
     )

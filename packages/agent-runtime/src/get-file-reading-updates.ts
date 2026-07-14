@@ -179,7 +179,7 @@ function normalizeLegacyReadFilesResult(params: {
     const partial = content.includes('[FILE_TOO_LARGE:')
     const structuredContent = partial
       ? content.replace(
-          /rangeHash=[^;\]]+; readCapability=[^;\]]+; for str_replace pass basedOnRead: "[^"]+"/,
+          /rangeHash=[^;\]]+; readCapability=[^;\]]+;[^\]]*/,
           'rangeHash=omitted; readCapability=omitted; request a smaller range before editing',
         )
       : content

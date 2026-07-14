@@ -19,8 +19,9 @@ Prefer `code_search` when the matching lines and surrounding context are needed.
 Both search tools accept safe ripgrep flags either as one string or as an argv
 array, for example `"-t ts -g src/**"` or `["-t", "ts", "-g",
 "src/**"]`. One accidental quote layer around the whole string is repaired,
-then the normal strict allowlist is still applied. Do not pass `-n`: line
-numbers are enabled internally by `code_search`.
+then the normal strict allowlist is still applied. Line numbers are enabled
+internally; redundant `-n`/`--line-number` inputs are discarded as harmless
+no-ops, while output-changing or effectful flags remain rejected.
 
 ## Background jobs at turn boundaries
 
@@ -47,6 +48,10 @@ authorization for each touched path before accepting an edit:
   edit) is the explicit authorization path. The runtime verifies the
   embedded hash and rejects stale or mismatched anchors before any file
   is changed.
+- `replace_range` accepts that same `readCapability` directly and decodes the
+  line bounds plus hash as one atomic target. Prefer this form for Markdown,
+  checklists, and formatting-sensitive blocks instead of copying a rendered
+  range into a large `oldString` or manually pairing three range fields.
 - A successful edit keeps the path-level authorization during the editing
   flow, and exact-match edits chain from the latest prepared content. This
   authorization is not a content-freshness proof; carry forward the echoed

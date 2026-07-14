@@ -18,6 +18,7 @@ import * as path from 'path'
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { getAgentShortName, getAgentToolName } from '../templates/prompts'
+import { getEffectiveAgentToolNames } from '../util/agent-tool-names'
 import {
   formatValidationIssues,
   type ValidationIssue,
@@ -811,14 +812,15 @@ export async function executeToolCall<T extends ToolName>(
   // This prevents the CLI from showing tool calls that the agent doesn't have permission to use
   if (
     toolCall.toolName &&
-    !agentTemplate.toolNames.includes(toolCall.toolName) &&
+    !getEffectiveAgentToolNames(agentTemplate).includes(toolCall.toolName) &&
     !fromHandleSteps
   ) {
+    const availableTools = getEffectiveAgentToolNames(agentTemplate)
     // Emit an error event instead of tool call/result pair
     // The stream parser will convert this to a user message for proper API compliance
     onResponseChunk({
       type: 'error',
-      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools provided at the start of the conversation AND that you most recently have permission to use.`,
+      message: `Tool \`${toolName}\` is not available for agent \`${agentTemplate.id}\`. Available tools: ${availableTools.length > 0 ? availableTools.map((name) => `\`${name}\``).join(', ') : '(none)'}. Use one of those tools or continue without a tool; do not retry the unavailable name.`,
     })
     return abortablePreviousToolCallFinished
   }
@@ -1355,7 +1357,7 @@ export async function executeCustomToolCall(
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
       ...params,
-      toolNames: agentTemplate.toolNames,
+      toolNames: getEffectiveAgentToolNames(agentTemplate),
       mcpServers: agentTemplate.mcpServers,
       writeTo: cloneDeep(fileContext.customToolDefinitions),
     }),
@@ -1372,18 +1374,19 @@ export async function executeCustomToolCall(
   // This prevents the CLI from showing tool calls that the agent doesn't have permission to use
   if (
     toolCall.toolName &&
-    !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
+    !getEffectiveAgentToolNames(agentTemplate).includes(toolCall.toolName) &&
     !fromHandleSteps &&
     !(
       toolCall.toolName.includes(MCP_TOOL_SEPARATOR) &&
       toolCall.toolName.split(MCP_TOOL_SEPARATOR)[0] in agentTemplate.mcpServers
     )
   ) {
+    const availableTools = getEffectiveAgentToolNames(agentTemplate)
     // Emit an error event instead of tool call/result pair
     // The stream parser will convert this to a user message for proper API compliance
     onResponseChunk({
       type: 'error',
-      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+      message: `Tool \`${toolName}\` is not available for agent \`${agentTemplate.id}\`. Available tools: ${availableTools.length > 0 ? availableTools.map((name) => `\`${name}\``).join(', ') : '(none)'}. Use one of those tools or continue without a tool; do not retry the unavailable name.`,
     })
     return abortablePreviousToolCallFinished
   }

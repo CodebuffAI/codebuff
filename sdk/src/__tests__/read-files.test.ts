@@ -426,7 +426,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[RANGE_BLOCK lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.v2\.3\.5\.[A-Za-z0-9_-]{43}; for str_replace pass basedOnRead: "cap\.v2\.3\.5\.[A-Za-z0-9_-]{43}"\]\n3\tline 3\n4\tline 4\n5\tline 5$/,
+        /^\[RANGE_BLOCK lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.v2\.3\.5\.[A-Za-z0-9_-]{43}; preferred block edit: replace_range \{ readCapability: "cap\.v2\.3\.5\.[A-Za-z0-9_-]{43}", newContent: "\.\.\." \}; scoped str_replace: basedOnRead="cap\.v2\.3\.5\.[A-Za-z0-9_-]{43}"\]\n3\tline 3\n4\tline 4\n5\tline 5$/,
       )
     })
 
@@ -512,7 +512,7 @@ describe('getFiles', () => {
         '[RANGE_BLOCK lines 8-10 of 10 in src/big.ts; rangeHash=sha256:',
       )
       expect(result['src/big.ts']).toContain(
-        'for str_replace pass basedOnRead: "cap.',
+        'preferred block edit: replace_range { readCapability: "cap.',
       )
       expect(result['src/big.ts']).toContain(
         ' 8\tline 8\n 9\tline 9\n10\tline 10',
@@ -550,7 +550,7 @@ describe('getFiles', () => {
         '[RANGE_BLOCK lines 1-2 of 10 in src/big.ts; rangeHash=sha256:',
       )
       expect(result['src/big.ts']).toContain(
-        'for str_replace pass basedOnRead: "cap.',
+        'preferred block edit: replace_range { readCapability: "cap.',
       )
       expect(result['src/big.ts']).toContain('1\tline 1\n2\tline 2')
     })
@@ -607,7 +607,7 @@ describe('getFiles', () => {
         '[RANGE_BLOCK lines 20000-20002 of 30,000 in src/large.ts; rangeHash=sha256:',
       )
       expect(result['src/large.ts']).toContain(
-        'for str_replace pass basedOnRead: "cap.',
+        'preferred block edit: replace_range { readCapability: "cap.',
       )
       expect(result['src/large.ts']).toContain(
         '20000\tline 20000\n20001\tline 20001\n20002\tline 20002',

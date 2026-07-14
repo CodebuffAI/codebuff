@@ -644,72 +644,268 @@ export type PlanPreflightResult = {
   warnings: string[]
 }
 
-const TASK_ID_RE = /^([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+)\b[\s:—-]*(.*)$/
+/**
+ * Canonical executable task syntax shown in preflight diagnostics and docs.
+ *
+ * The parser also accepts safe legacy presentation variants such as a bold or
+ * bracketed ID and an optional `task-id` comment. Keeping one canonical example
+ * avoids making agents invent a second execution ledger when an existing
+ * checklist already has stable IDs.
+ */
+export const CANONICAL_PLAN_TASK_EXAMPLE = [
+  '- [ ] P6.3 Task title',
+  '  - Acceptance: observable completion condition',
+  '  - Validate: bun test path/to/test.ts',
+].join('\n')
 
-/** Parse stable-ID checklist tasks and their indented execution contract. */
-export function parsePlanTasks(content: string): PlanTaskRecord[] {
-  const tasks: PlanTaskRecord[] = []
-  let current: PlanTaskRecord | null = null
-  for (const line of content.split('\n')) {
+const TASK_ID_SOURCE = '[A-Za-z][A-Za-z0-9]*(?:[.-][A-Za-z0-9]+)+'
+const TASK_ID_RE = new RegExp(`^${TASK_ID_SOURCE}$`)
+const BARE_TASK_ID_PREFIX_RE = new RegExp(
+  `^(${TASK_ID_SOURCE})(?=$|\\s|[:—])([\\s\\S]*)$`,
+)
+const BOLD_TASK_ID_PREFIX_RE = new RegExp(
+  `^\\*\\*(${TASK_ID_SOURCE})\\*\\*([\\s\\S]*)$`,
+)
+const BRACKETED_TASK_ID_PREFIX_RE = new RegExp(
+  `^\\[(${TASK_ID_SOURCE})\\]([\\s\\S]*)$`,
+)
+const TASK_ID_COMMENT_RE = /<!--\s*task-id:\s*([^>]*?)\s*-->/gi
+
+type PlanTaskParseIssue = {
+  kind: 'malformed-id' | 'acceptance' | 'validation' | 'dependency'
+  lineNumber: number
+  message: string
+}
+
+type ParsedPlanTask = {
+  record: PlanTaskRecord
+  lineNumber: number
+}
+
+type ParsedPlanTasks = {
+  tasks: ParsedPlanTask[]
+  issues: PlanTaskParseIssue[]
+}
+
+function stripTaskTitleSeparator(value: string): string {
+  return value
+    .trimStart()
+    .replace(/^(?::|—|-\s+)\s*/, '')
+    .trim()
+}
+
+function parseVisibleTaskId(
+  value: string,
+): { id: string; title: string } | null {
+  for (const pattern of [
+    BOLD_TASK_ID_PREFIX_RE,
+    BRACKETED_TASK_ID_PREFIX_RE,
+    BARE_TASK_ID_PREFIX_RE,
+  ]) {
+    const match = value.match(pattern)
+    if (match) {
+      return { id: match[1], title: stripTaskTitleSeparator(match[2]) }
+    }
+  }
+  return null
+}
+
+function taskIdIntentCandidate(value: string): string | null {
+  const trimmed = value.trim()
+  const wrapped =
+    trimmed.match(/^\*\*([^*]+)\*\*/) ?? trimmed.match(/^\[([^\]]+)\]/)
+  const candidate = (wrapped?.[1] ?? trimmed.match(/^(\S+)/)?.[1] ?? '').trim()
+
+  // Only surface a malformed-ID error when the leading token strongly looks
+  // like an intended stable ID. Ordinary checklist prose and validation-gate
+  // checkboxes remain non-executable and are ignored.
+  return /^[A-Za-z]{1,8}\d/.test(candidate) ? candidate : null
+}
+
+function parsePlanTaskLine(
+  value: string,
+  lineNumber: number,
+  status: PlanTaskStatus,
+): { task: ParsedPlanTask | null; issues: PlanTaskParseIssue[] } {
+  const issues: PlanTaskParseIssue[] = []
+  const annotationIds: string[] = []
+  const withoutComments = value.replace(
+    TASK_ID_COMMENT_RE,
+    (_match, rawId: string) => {
+      annotationIds.push(rawId.trim())
+      return ' '
+    },
+  )
+  const invalidAnnotationId = annotationIds.find((id) => !TASK_ID_RE.test(id))
+  if (invalidAnnotationId !== undefined) {
+    issues.push({
+      kind: 'malformed-id',
+      lineNumber,
+      message: `task-id annotation contains malformed ID "${invalidAnnotationId}"`,
+    })
+    return { task: null, issues }
+  }
+  const uniqueAnnotationIds = [...new Set(annotationIds)]
+  if (uniqueAnnotationIds.length > 1) {
+    issues.push({
+      kind: 'malformed-id',
+      lineNumber,
+      message: `checklist line contains conflicting task-id annotations (${uniqueAnnotationIds.join(', ')})`,
+    })
+    return { task: null, issues }
+  }
+
+  const visible = parseVisibleTaskId(withoutComments.trim())
+  const annotatedId = uniqueAnnotationIds[0]
+  if (visible && annotatedId && visible.id !== annotatedId) {
+    issues.push({
+      kind: 'malformed-id',
+      lineNumber,
+      message: `visible task ID "${visible.id}" conflicts with task-id annotation "${annotatedId}"`,
+    })
+    return { task: null, issues }
+  }
+
+  const id = annotatedId ?? visible?.id
+  if (!id) {
+    const malformedCandidate = taskIdIntentCandidate(withoutComments)
+    if (malformedCandidate) {
+      issues.push({
+        kind: 'malformed-id',
+        lineNumber,
+        message: `checklist line starts with malformed task ID "${malformedCandidate}"`,
+      })
+    }
+    return { task: null, issues }
+  }
+
+  return {
+    task: {
+      lineNumber,
+      record: {
+        id,
+        title: visible?.title ?? withoutComments.trim(),
+        status,
+        dependencies: [],
+        hasAcceptanceCriteria: false,
+        hasValidationGate: false,
+      },
+    },
+    issues,
+  }
+}
+
+function parsePlanTaskDetails(content: string): ParsedPlanTasks {
+  const tasks: ParsedPlanTask[] = []
+  const issues: PlanTaskParseIssue[] = []
+  let current: ParsedPlanTask | null = null
+  const lines = content.split('\n')
+  for (const [index, line] of lines.entries()) {
+    const lineNumber = index + 1
     const checkbox = line.match(TRI_STATE_CHECKBOX_LINE_RE)
     if (checkbox) {
-      const task = checkbox[4].trim().match(TASK_ID_RE)
-      current = task
-        ? {
-            id: task[1],
-            title: task[2].trim(),
-            status: TASK_MARK_STATUS[checkbox[2]] ?? 'pending',
-            dependencies: [],
-            hasAcceptanceCriteria: false,
-            hasValidationGate: false,
-          }
-        : null
+      const parsed = parsePlanTaskLine(
+        checkbox[4].trim(),
+        lineNumber,
+        TASK_MARK_STATUS[checkbox[2]] ?? 'pending',
+      )
+      current = parsed.task
+      issues.push(...parsed.issues)
       if (current) tasks.push(current)
       continue
     }
     if (!current) continue
-    const field = line.trim().match(/^[-*]\s*(Depends on|Acceptance|Validate):\s*(.+)$/i)
+    const field = line
+      .trim()
+      .match(/^[-*]\s*(?:\*\*)?(Depends on|Acceptance|Validate)(?:\*\*)?\s*:\s*(.*)$/i)
     if (!field) continue
     const key = field[1].toLowerCase()
+    const fieldValue = field[2].trim()
+    if (!fieldValue) {
+      issues.push({
+        kind:
+          key === 'acceptance'
+            ? 'acceptance'
+            : key === 'validate'
+              ? 'validation'
+              : 'dependency',
+        lineNumber,
+        message: `${current.record.id} has an empty ${field[1]} field`,
+      })
+      continue
+    }
     if (key === 'depends on') {
-      current.dependencies = field[2]
+      current.record.dependencies = fieldValue
         .split(',')
         .map((value) => value.trim())
         .filter(Boolean)
     } else if (key === 'acceptance') {
-      current.hasAcceptanceCriteria = true
+      current.record.hasAcceptanceCriteria = true
     } else if (key === 'validate') {
-      current.hasValidationGate = true
+      current.record.hasValidationGate = true
     }
   }
-  return tasks
+  return { tasks, issues }
+}
+
+/** Parse stable-ID checklist tasks and their indented execution contract. */
+export function parsePlanTasks(content: string): PlanTaskRecord[] {
+  return parsePlanTaskDetails(content).tasks.map((task) => task.record)
 }
 
 /** Validate that a PLAN.md is deterministic enough for execute-plan mode. */
 export function preflightPlan(content: string): PlanPreflightResult {
-  const tasks = parsePlanTasks(content)
+  const parsed = parsePlanTaskDetails(content)
+  const tasks = parsed.tasks.map((task) => task.record)
   const errors: string[] = []
   const warnings: string[] = []
-  const ids = new Set<string>()
-  for (const task of tasks) {
-    if (ids.has(task.id)) errors.push(`Duplicate task ID: ${task.id}`)
-    ids.add(task.id)
+  const example = `Valid example:\n${CANONICAL_PLAN_TASK_EXAMPLE}`
+  for (const issue of parsed.issues) {
+    errors.push(
+      `[${issue.kind}] PLAN.md line ${issue.lineNumber}: ${issue.message}. ${example}`,
+    )
   }
+  const taskLinesById = new Map<string, number[]>()
+  for (const task of parsed.tasks) {
+    const lines = taskLinesById.get(task.record.id) ?? []
+    lines.push(task.lineNumber)
+    taskLinesById.set(task.record.id, lines)
+  }
+  for (const [id, lines] of taskLinesById) {
+    if (lines.length > 1) {
+      errors.push(
+        `[duplicate-id] Duplicate task ID "${id}" on PLAN.md lines ${lines.join(', ')}. Stable IDs must be unique. ${example}`,
+      )
+    }
+  }
+  const ids = new Set(tasks.map((task) => task.id))
   for (const task of tasks) {
     for (const dependency of task.dependencies) {
-      if (!ids.has(dependency)) {
-        errors.push(`${task.id} depends on missing task ${dependency}`)
+      if (!TASK_ID_RE.test(dependency)) {
+        errors.push(
+          `[dependency] Task "${task.id}" has malformed dependency ID "${dependency}". Dependencies must use stable task IDs. ${example}`,
+        )
+      } else if (!ids.has(dependency)) {
+        errors.push(
+          `[dependency] Task "${task.id}" depends on missing task "${dependency}". Add that task or correct the Depends on field. ${example}`,
+        )
       }
     }
     if (!task.hasAcceptanceCriteria) {
-      warnings.push(`${task.id} has no Acceptance field`)
+      warnings.push(
+        `[acceptance] Task "${task.id}" has no Acceptance field. Add an indented "- Acceptance: ..." field.`,
+      )
     }
     if (!task.hasValidationGate) {
-      warnings.push(`${task.id} has no Validate field`)
+      warnings.push(
+        `[validation] Task "${task.id}" has no Validate field. Add an indented "- Validate: ..." field.`,
+      )
     }
   }
   if (tasks.length === 0) {
-    errors.push('PLAN.md has no checklist tasks with stable IDs')
+    errors.unshift(
+      `[zero-tasks] PLAN.md has no executable checklist tasks with valid stable IDs. ID-less prose checkboxes are ignored. ${example}`,
+    )
   }
   const done = new Set(
     tasks

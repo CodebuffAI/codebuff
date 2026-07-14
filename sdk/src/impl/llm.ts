@@ -414,6 +414,10 @@ export function getMessagesForModelContext(params: {
     const telemetryProperties = {
       contextWindowTokens: params.contextWindowTokens,
       maxTotalTokens,
+      triggerBudgetTokens: maxTotalTokens,
+      targetBudgetTokens: maxTotalTokens,
+      reason:
+        'Messages exceeded the provider-safe request budget at dispatch time.',
       inputTokens,
       outputTokens,
       tokensDropped: Math.max(0, inputTokens - outputTokens),
@@ -429,7 +433,9 @@ export function getMessagesForModelContext(params: {
         ...telemetryProperties,
       },
       'Emergency request-time context trim fired (cache_emergency_trim). ' +
-        'This indicates the unified pruning threshold was exceeded before ' +
+        `Resolved window=${params.contextWindowTokens ?? 'unknown'}, ` +
+        `trigger=${maxTotalTokens}, target=${maxTotalTokens}. ` +
+        'This indicates the provider-safe request budget was exceeded before ' +
         'the SDK fallback; expected ~0 in steady state.',
     )
 

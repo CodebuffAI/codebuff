@@ -796,6 +796,31 @@ describe('codeSearch', () => {
       }
     })
 
+    it('ignores redundant line-number flags while preserving safe flags', async () => {
+      for (const flags of ['-n -i', ['--line-number', '-g', '*.ts']]) {
+        const searchPromise = codeSearch({
+          projectPath: '/test/project',
+          pattern: 'import',
+          flags,
+        })
+        mockProcess.stdout.emit(
+          'data',
+          Buffer.from(createRgJsonMatch('file.ts', 1, 'import x')),
+        )
+        mockProcess.emit('close', 0)
+        await searchPromise
+
+        const spawnArgs = mockSpawn.mock.calls.at(-1)![1] as string[]
+        expect(spawnArgs.filter((arg) => arg === '-n')).toHaveLength(1)
+        expect(spawnArgs).not.toContain('--line-number')
+        if (Array.isArray(flags)) {
+          expect(spawnArgs).toEqual(expect.arrayContaining(['-g', '*.ts']))
+        } else {
+          expect(spawnArgs).toContain('-i')
+        }
+      }
+    })
+
     it('should strip single quotes from glob pattern arguments (regression: spawn has no shell)', async () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',

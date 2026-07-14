@@ -88,7 +88,7 @@ const FAILED_EDIT_RECOVERY_GUIDANCE = [
   'Recovery required: stop retrying this edit from memory.',
   'This usually means the target text was already changed/removed, or your oldString came from a stale read.',
   'Before attempting another str_replace on this file, re-read the exact current lines with read_files and copy the current text into oldString.',
-  'If your intent is to replace/delete a whole current line range, consider replace_range with expectedHash from read_files.ranges instead of reconstructing a large oldString.',
+  'If your intent is to replace/delete a whole current line range, re-read that narrow range and use replace_range with its readCapability instead of reconstructing a large oldString.',
   'Base the next edit on the fresh read, not on the failed oldString.',
 ].join('\n')
 
@@ -159,18 +159,15 @@ export async function processStrReplace(params: {
     initialContent.length > LARGE_FILE_CHAR_THRESHOLD ||
     initialContentLineCount > LARGE_FILE_LINE_THRESHOLD
   const useAtomicBatch = isLargeFile || atomic
-  // basedOnRead is a large-file safety anchor only. Small files are edited by
-  // exact oldString matching, which is already safe, so valid basedOnRead
-  // anchors supplied on a small file are ignored after basic runtime shape
-  // validation. This prevents repeated edit failures when a stale/mismatched
-  // basedOnRead is accidentally included on a file that does not require it (the
-  // historical small-file failure loop).
+  // Large files require deterministic targeting. On every file size, an
+  // explicitly supplied basedOnRead is also an explicit scope request and must
+  // remain fresh; callers that want an unscoped unique-literal edit should omit
+  // the capability.
   const enforceReadCapability = isLargeFile || requireFreshReadCapability
   const normalizedInitialContent = normalizeLineEndings(initialContent)
   const validatedReadRanges = new Map<string, ValidatedReadRange>()
   const readCapabilityWarnings: string[] = []
   const preflightErrors: string[] = []
-  let ignoredBasedOnReadOnSmallFile = false
   let hadNoOpSkip = false
 
   // Decode any token-form basedOnRead up front so the rest of the pipeline only
@@ -179,6 +176,9 @@ export async function processStrReplace(params: {
     ...replacement,
     basedOnRead: normalizeBasedOnRead(replacement.basedOnRead),
   }))
+  const hasSuppliedReadCapability = normalizedReplacements.some(
+    (replacement) => replacement.basedOnRead !== undefined,
+  )
 
   for (let i = 0; i < normalizedReplacements.length; i++) {
     const basedOnRead = normalizedReplacements[i].basedOnRead
@@ -257,7 +257,9 @@ export async function processStrReplace(params: {
     }
   }
 
-  if (enforceReadCapability) {
+  // A supplied capability is an explicit scope request even for a small file.
+  // Validate it so matching never silently expands to the whole file.
+  if (enforceReadCapability || hasSuppliedReadCapability) {
     for (const { basedOnRead } of normalizedReplacements) {
       if (!basedOnRead) continue
       if (typeof basedOnRead === 'string') {
@@ -335,18 +337,27 @@ export async function processStrReplace(params: {
         basedOnRead && typeof basedOnRead === 'object'
           ? validatedReadRanges.get(getReadCapabilityKey(basedOnRead))
           : undefined
-      const validatedRangeForIndex =
-        enforceReadCapability && freshValidatedRangeForIndex
-          ? getCurrentValidatedReadRange({
-              content: normalizedCurrentContent,
-              validatedRange: freshValidatedRangeForIndex,
-            })
-          : null
+      const validatedRangeForIndex = freshValidatedRangeForIndex
+        ? getCurrentValidatedReadRange({
+            content: normalizedCurrentContent,
+            validatedRange: freshValidatedRangeForIndex,
+          })
+        : null
       if (requireFreshReadCapability && !validatedRangeForIndex) {
         const occurrenceFailure = [
           `Strict read-before-edit blocked replacement ${replacementIndex + 1}/${normalizedReplacements.length} for ${path}: basedOnRead did not match the current file content.`,
           ...readCapabilityWarnings,
           'Re-read the exact target range and retry with the fresh readCapability token.',
+        ].join('\n')
+        messages.push(occurrenceFailure)
+        recordFailure(occurrenceFailure)
+        continue
+      }
+      if (basedOnRead && !validatedRangeForIndex) {
+        const occurrenceFailure = [
+          `Could not safely apply occurrenceIndex ${occurrenceIndex} for ${path}: the supplied basedOnRead range is stale or invalid, so occurrences were not counted across the whole file.`,
+          ...readCapabilityWarnings,
+          'Re-read the exact target range and retry with its fresh readCapability token.',
         ].join('\n')
         messages.push(occurrenceFailure)
         recordFailure(occurrenceFailure)
@@ -439,11 +450,8 @@ export async function processStrReplace(params: {
     }
 
     // A fresh basedOnRead is a concrete capability object whose range hash still
-    // matched the current file during preflight. Stale or never-validated object
-    // anchors are treated exactly like a MISSING anchor here: large-file edits
-    // fall back to deterministic oldString matching rather than hard-failing, so
-    // an otherwise-safe unique edit is never blocked by stale range metadata.
-    // (Malformed/placeholder string anchors are still rejected in preflight.)
+    // matched the current file during preflight. A supplied stale anchor is
+    // rejected on every file size so its scope is never silently discarded.
     const freshValidatedRange =
       basedOnRead && typeof basedOnRead === 'object'
         ? validatedReadRanges.get(getReadCapabilityKey(basedOnRead))
@@ -452,6 +460,17 @@ export async function processStrReplace(params: {
     const hasStaleBasedOnRead =
       Boolean(basedOnRead && typeof basedOnRead === 'object') &&
       !hasFreshBasedOnRead
+
+    if (hasStaleBasedOnRead && !requireFreshReadCapability) {
+      const staleScopedFailure = [
+        `Scoped str_replace blocked for ${path}: the supplied basedOnRead range is stale, so the runtime did not fall back to an unscoped whole-file match.`,
+        ...readCapabilityWarnings,
+        'Re-read the exact target range and retry with its fresh readCapability token, or deliberately omit basedOnRead and provide a unique current oldString.',
+      ].join('\n')
+      messages.push(staleScopedFailure)
+      recordFailure(staleScopedFailure)
+      continue
+    }
 
     if (enforceReadCapability && !hasFreshBasedOnRead) {
       if (requireFreshReadCapability) {
@@ -473,13 +492,8 @@ export async function processStrReplace(params: {
       if (fallback) {
         messages.push(
           [
-            hasStaleBasedOnRead
-              ? `Note: applied large-file edit by deterministic oldString match at lines ${fallback.startLine}-${fallback.endLine}, ignoring a stale basedOnRead anchor because oldString was uniquely identifiable.`
-              : `Note: applied large-file edit by deterministic oldString match at lines ${fallback.startLine}-${fallback.endLine}; no basedOnRead anchor was needed because oldString was uniquely identifiable.`,
+            `Note: applied large-file edit by deterministic oldString match at lines ${fallback.startLine}-${fallback.endLine}; no basedOnRead anchor was needed because oldString was uniquely identifiable.`,
             'This fallback is only allowed when oldString is uniquely identifiable, or when allowMultiple is true and replacing every exact occurrence is explicitly intended; ambiguous single-target large-file edits still require read_files.ranges or occurrenceIndex.',
-            hasStaleBasedOnRead && readCapabilityWarnings.length > 0
-              ? `Stale basedOnRead detail:\n${readCapabilityWarnings.join('\n')}`
-              : '',
           ]
             .filter(Boolean)
             .join('\n'),
@@ -487,9 +501,7 @@ export async function processStrReplace(params: {
       } else {
         const largeFileBlockedMessage = [
           `Large-file edit blocked for ${path}: this file has ${initialContentLineCount.toLocaleString()} lines and ${initialContent.length.toLocaleString()} characters.`,
-          hasStaleBasedOnRead
-            ? 'The supplied basedOnRead anchor was stale AND oldString was not uniquely identifiable, so the deterministic fallback could not pick a single safe target.'
-            : 'No basedOnRead anchor was supplied and oldString was not uniquely identifiable, so the deterministic fallback could not pick a single safe target.',
+          'No basedOnRead anchor was supplied and oldString was not uniquely identifiable, so the deterministic fallback could not pick a single safe target.',
           'First read the exact target window with read_files.ranges, then retry with a more specific oldString (or basedOnRead set to the readCapability token from that fresh read header).',
           readCapabilityWarnings.length > 0
             ? `basedOnRead detail:\n${readCapabilityWarnings.join('\n')}`
@@ -503,17 +515,12 @@ export async function processStrReplace(params: {
       }
     }
 
-    if (basedOnRead && !enforceReadCapability) {
-      ignoredBasedOnReadOnSmallFile = true
-    }
-
-    const validatedReadRange =
-      enforceReadCapability && freshValidatedRange
-        ? getCurrentValidatedReadRange({
-            content: normalizedCurrentContent,
-            validatedRange: freshValidatedRange,
-          })
-        : null
+    const validatedReadRange = freshValidatedRange
+      ? getCurrentValidatedReadRange({
+          content: normalizedCurrentContent,
+          validatedRange: freshValidatedRange,
+        })
+      : null
 
     const matchContent = validatedReadRange?.content ?? normalizedCurrentContent
     if (
@@ -703,15 +710,6 @@ export async function processStrReplace(params: {
                 )
                 .join('\n')}`
             : 'To make several edits to this file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead).',
-      ].join('\n'),
-    )
-  }
-
-  if (ignoredBasedOnReadOnSmallFile) {
-    messages.push(
-      [
-        `Note: basedOnRead was ignored for ${path} because this file is below the large-file threshold (${LARGE_FILE_LINE_THRESHOLD.toLocaleString()} lines / ${LARGE_FILE_CHAR_THRESHOLD.toLocaleString()} chars).`,
-        'Small files are edited by exact oldString matching; omit basedOnRead for them.',
       ].join('\n'),
     )
   }

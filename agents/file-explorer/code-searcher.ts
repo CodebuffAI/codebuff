@@ -27,7 +27,7 @@ const paramsSchema = {
               { type: 'string' as const },
               { type: 'array' as const, items: { type: 'string' as const } },
             ],
-            description: `Optional safe ripgrep flags as a string or argv token array. Examples: "-g *.ts -A 3" or ["-g", "*.ts", "-A", "3"]. Do not quote the entire expression inside a JSON string. Dangerous flags (e.g. --exec, -r/--replace, -z/--null) are rejected.`,
+            description: `Optional safe ripgrep flags as a string or argv token array. Examples: "-g *.ts -A 3" or ["-g", "*.ts", "-A", "3"]. Line numbers are automatic; redundant -n/--line-number inputs are ignored. Do not quote the entire expression inside a JSON string. Dangerous flags (e.g. --exec, -r/--replace, -z/--null) are rejected.`,
           },
           cwd: {
             type: 'string' as const,

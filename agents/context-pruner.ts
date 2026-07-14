@@ -71,28 +71,23 @@ const definition: AgentDefinition = {
     const CHARS_PER_TOKEN = 3
 
     /**
-     * Token budget for assistant text + tool-call summaries in the conversation
-     * summary. M6 (SPEC R7) rebalanced budgets so tool/assistant evidence gets
-     * at least as much protected space as user text. Tool *results* are tracked
-     * separately under TOOL_FACTS_BUDGET.
+     * Share of the model-aware summary target reserved for assistant text and
+     * tool-call summaries. Tool results are tracked separately.
      */
-    const ASSISTANT_TOOL_BUDGET = 40_000
+    const ASSISTANT_TOOL_BUDGET_FRACTION = 0.4
 
     /**
-     * Token budget for user content in the conversation summary. M6 (SPEC R7)
-     * lowered this from 50k because user goals are now protected verbatim in
-     * the structured <knowledge_memory> block (M5), reducing reliance on the
-     * free-text user budget.
+     * Share reserved for user content. User goals are also protected in the
+     * structured <knowledge_memory> block, reducing reliance on free text.
      */
-    const USER_BUDGET = 30_000
+    const USER_BUDGET_FRACTION = 0.3
 
     /**
-     * Reserved token budget for tool-result entries ("facts learned from
-     * tools"), independent of conversational role. M6 (SPEC R7): operational
-     * memory lives in tool results, so they get a protected slice that does
+     * Share reserved for tool-result entries ("facts learned from tools"),
+     * independent of conversational role. Operational memory therefore does
      * not compete with assistant text or user text.
      */
-    const TOOL_FACTS_BUDGET = 30_000
+    const TOOL_FACTS_BUDGET_FRACTION = 0.3
 
     /** Fudge factor for token count threshold to trigger pruning earlier */
     const TOKEN_COUNT_FUDGE_FACTOR = 1_000
@@ -102,21 +97,23 @@ const definition: AgentDefinition = {
      * below provider hard limits because tool schemas and step prompts are
      * added after history.
      *
-     * M4 (SPEC R4) unifies the pruning threshold around
-     * `DEFAULT_MAX_CONTEXT_TOKENS = 190_000` (exported from
-     * `packages/agent-runtime/src/util/context-pruning.ts`), shared by the
-     * runtime fallback (`maybePruneContext`) and the SDK request-time
-     * emergency brake (`getMessagesForModelContext`). This agent's inline
-     * default is intentionally lower (140k) because it performs semantic
-     * summarization (lossier but higher-fidelity) rather than mechanical
-     * trimming, so it should fire earlier. This constant is inlined (not
-     * imported) because `handleSteps` is serialized to a string at build time
-     * and cannot reference external modules — keep the value in sync with the
-     * `DEFAULT_MAX_CONTEXT_TOKENS` policy when adjusting the unified
-     * threshold.
+     * Unknown provider windows retain the conservative 140k/100k trigger and
+     * target. Resolved windows scale with bounded ratios, leaving explicit
+     * headroom for tools, system prompt, output, and provider accounting.
+     * These constants mirror `getSemanticCompactionBudget` in
+     * `packages/agent-runtime/src/util/context-pruning.ts`; they are inlined
+     * because `handleSteps` is serialized and cannot import runtime helpers.
      */
     const DEFAULT_MAX_CONTEXT_LENGTH = 140_000
-    const SEMANTIC_CONTEXT_WINDOW_FRACTION = 0.7
+    const DEFAULT_TARGET_CONTEXT_LENGTH = 100_000
+    const SEMANTIC_TRIGGER_FRACTION = 0.8
+    const SEMANTIC_TARGET_FRACTION = 0.42
+    const SEMANTIC_HEADROOM_FRACTION = 0.15
+    const SEMANTIC_MIN_HEADROOM_TOKENS = 32_000
+    const SEMANTIC_MAX_HEADROOM_TOKENS = 160_000
+    const SEMANTIC_MIN_TARGET_TOKENS = 72_000
+    const SEMANTIC_MAX_TARGET_TOKENS = 420_000
+    const EXPLICIT_LIMIT_TARGET_FRACTION = 0.6
 
     /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
     const CACHE_EXPIRY_MS: number = params?.cacheExpiryMs ?? 5 * 60 * 1000
@@ -439,19 +436,55 @@ const definition: AgentDefinition = {
 
     const messages = agentState.messageHistory
     const resolvedContextWindow = agentState.contextWindowTokens
-    const modelAwareDefaultContextLength =
+    const hasResolvedContextWindow =
       typeof resolvedContextWindow === 'number' &&
       Number.isFinite(resolvedContextWindow) &&
       resolvedContextWindow > 0
-        ? Math.max(
-            1,
-            Math.floor(
-              resolvedContextWindow * SEMANTIC_CONTEXT_WINDOW_FRACTION,
+    const semanticHeadroom = hasResolvedContextWindow
+      ? Math.min(
+          SEMANTIC_MAX_HEADROOM_TOKENS,
+          Math.max(
+            SEMANTIC_MIN_HEADROOM_TOKENS,
+            Math.floor(resolvedContextWindow * SEMANTIC_HEADROOM_FRACTION),
+          ),
+        )
+      : undefined
+    const modelAwareDefaultContextLength = hasResolvedContextWindow
+      ? Math.max(
+          1,
+          Math.min(
+            Math.floor(resolvedContextWindow * SEMANTIC_TRIGGER_FRACTION),
+            resolvedContextWindow - semanticHeadroom!,
+          ),
+        )
+      : DEFAULT_MAX_CONTEXT_LENGTH
+    const modelAwareTargetContextLength = hasResolvedContextWindow
+      ? Math.max(
+          1,
+          Math.min(
+            Math.min(
+              SEMANTIC_MAX_TARGET_TOKENS,
+              Math.max(
+                SEMANTIC_MIN_TARGET_TOKENS,
+                Math.floor(resolvedContextWindow * SEMANTIC_TARGET_FRACTION),
+              ),
             ),
-          )
-        : DEFAULT_MAX_CONTEXT_LENGTH
+            modelAwareDefaultContextLength - 1,
+          ),
+        )
+      : DEFAULT_TARGET_CONTEXT_LENGTH
     const maxContextLength: number =
       params?.maxContextLength ?? modelAwareDefaultContextLength
+    const targetContextLength =
+      params?.maxContextLength === undefined
+        ? modelAwareTargetContextLength
+        : Math.max(
+            1,
+            Math.min(
+              modelAwareTargetContextLength,
+              Math.floor(maxContextLength * EXPLICIT_LIMIT_TARGET_FRACTION),
+            ),
+          )
 
     // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
     // (these are inserted for the context-pruner subagent itself)
@@ -570,9 +603,14 @@ const definition: AgentDefinition = {
     // 3. Older summarized parts beyond the budgets are dropped
 
     const assistantToolBudget: number =
-      params?.assistantToolBudget ?? ASSISTANT_TOOL_BUDGET
-    const userBudget: number = params?.userBudget ?? USER_BUDGET
-    const toolFactsBudget: number = params?.toolFactsBudget ?? TOOL_FACTS_BUDGET
+      params?.assistantToolBudget ??
+      Math.floor(targetContextLength * ASSISTANT_TOOL_BUDGET_FRACTION)
+    const userBudget: number =
+      params?.userBudget ??
+      Math.floor(targetContextLength * USER_BUDGET_FRACTION)
+    const toolFactsBudget: number =
+      params?.toolFactsBudget ??
+      Math.floor(targetContextLength * TOOL_FACTS_BUDGET_FRACTION)
 
     function shouldExcludeMessage(message: Message): boolean {
       if (message.tags?.includes('INSTRUCTIONS_PROMPT')) return true
@@ -2230,7 +2268,6 @@ const definition: AgentDefinition = {
     let userTokens = 0
     let toolFactsTokens = 0
     const includeEntry = new Array(allEntries.length).fill(false)
-    const saturatedRoles = new Set<'user' | 'assistant_tool' | 'tool_facts'>()
 
     for (let i = allEntries.length - 1; i >= 0; i--) {
       const entry = allEntries[i]
@@ -2238,23 +2275,17 @@ const definition: AgentDefinition = {
       const entryTokens = Math.ceil(entryText.length / CHARS_PER_TOKEN)
 
       if (entry.role === 'user') {
-        if (saturatedRoles.has('user')) continue
         if (userTokens + entryTokens > userBudget) {
-          saturatedRoles.add('user')
           continue
         }
         userTokens += entryTokens
       } else if (entry.role === 'tool_facts') {
-        if (saturatedRoles.has('tool_facts')) continue
         if (toolFactsTokens + entryTokens > toolFactsBudget) {
-          saturatedRoles.add('tool_facts')
           continue
         }
         toolFactsTokens += entryTokens
       } else {
-        if (saturatedRoles.has('assistant_tool')) continue
         if (assistantToolTokens + entryTokens > assistantToolBudget) {
-          saturatedRoles.add('assistant_tool')
           continue
         }
         assistantToolTokens += entryTokens

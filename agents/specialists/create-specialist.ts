@@ -239,6 +239,9 @@ export function createSpecialist(
         : 'Return family=reviewer. Any material issue requiring a code or contract change is BLOCKING.',
       'Focus areas:',
       ...config.focus.map((item) => `- ${item}`),
+      config.terminal
+        ? 'Use only the tools exposed for this specialist. run_terminal_command is available only for the optional bounded diagnostic command; do not call a basher agent.'
+        : 'Use only the tools exposed for this specialist. Do not call basher or run terminal validation; if runtime evidence is required, report the exact missing evidence for the parent to collect.',
       `Use these exact dimension keys: ${dimensionKeys.join(', ')}. Every finding ID must be stable and formatted ${config.id}:<dimension>:<slug>; include severity, concrete evidence, and an actionable correction. Keep the result compact: at most ${MAX_FINDINGS} findings and ${MAX_EVIDENCE_ITEMS} evidence items per finding. Call set_output with a JSON object directly; never JSON.stringify the object or wrap it in a string. Return the required structured output and do not modify files.`,
     ].join('\n'),
   }

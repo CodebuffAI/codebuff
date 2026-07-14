@@ -99,6 +99,9 @@ describe('getMessagesForModelContext', () => {
       const payload = call[0] as Record<string, unknown>
       expect(payload.eventId).toBe(AnalyticsEvent.CACHE_EMERGENCY_TRIM)
       expect(payload.contextWindowTokens).toBe(2_000)
+      expect(payload.triggerBudgetTokens).toBe(1_000)
+      expect(payload.targetBudgetTokens).toBe(1_000)
+      expect(payload.reason).toContain('provider-safe request budget')
       expect(payload.inputMessageCount).toBe(messages.length)
       expect(payload.outputMessageCount).toBe(result.length)
       expect(payload.tokensDropped).toBeGreaterThan(0)

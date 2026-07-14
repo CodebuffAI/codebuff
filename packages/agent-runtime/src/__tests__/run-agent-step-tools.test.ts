@@ -251,6 +251,27 @@ describe('runAgentStep - set_output tool', () => {
     expect(result.shouldEndTurn).toBe(true)
   })
 
+  it('supplies set_output to structured agents that omitted it from toolNames', async () => {
+    testAgent = { ...testAgent, toolNames: ['end_turn'] }
+    runAgentStepBaseParams.promptAiSdkStream = async function* () {
+      yield createToolCallChunk('set_output', { message: 'Recovered output' })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const result = await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-set-output-agent',
+      localAgentTemplates: { 'test-set-output-agent': testAgent },
+      agentTemplate: testAgent,
+      agentState: sessionState.mainAgentState,
+      prompt: 'Return structured output',
+    })
+
+    expect(result.agentState.output).toEqual({ message: 'Recovered output' })
+    expect(result.shouldEndTurn).toBe(true)
+  })
+
   it('should set output with complex data', async () => {
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield createToolCallChunk('set_output', {

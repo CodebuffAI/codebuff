@@ -167,13 +167,12 @@ describe('base2 validation/reviewer coordination prompts', () => {
     expect(base2.systemPrompt).not.toContain('Initial Git Changes')
     expect(base2.spawnableAgentToolMode).toBe('generic')
     expect(base2.toolNames).not.toContain('git_status')
-    expect(base2.toolNames).not.toContain('get_change_review_bundle')
+    expect(base2.toolNames).toContain('get_change_review_bundle')
     expect(base2.toolNames).not.toContain('run_file_change_hooks')
     expect(base2.toolNames).not.toContain('inspect_codebase_structure')
     expect(base2.programmaticToolNames).toEqual(
       expect.arrayContaining([
         'git_status',
-        'get_change_review_bundle',
         'run_file_change_hooks',
         'inspect_codebase_structure',
       ]),
@@ -313,17 +312,21 @@ describe('base-deep gate lifecycle parity with base2', () => {
     expect(baseDeep.handleSteps).toBeDefined()
     expect(typeof baseDeep.handleSteps).toBe('function')
 
-    // Gate tools remain reachable to the trusted generator without bloating
-    // the model-visible tool schema set.
+    // Mutating/control gate tools remain generator-only. The read-only review
+    // bundle is also model-visible so the orchestrator can recover a fresh
+    // snapshot after compaction without hitting a tool-availability error.
     expect(baseDeep.programmaticToolNames).toEqual(
       expect.arrayContaining([
         'run_file_change_hooks',
         'git_status',
-        'get_change_review_bundle',
       ]),
     )
     expect(baseDeep.toolNames).toEqual(
-      expect.arrayContaining(['create_plan', 'update_plan_status']),
+      expect.arrayContaining([
+        'create_plan',
+        'update_plan_status',
+        'get_change_review_bundle',
+      ]),
     )
 
     // editor is required for the gate repair loop (spawned on validation

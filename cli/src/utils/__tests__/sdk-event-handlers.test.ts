@@ -468,6 +468,10 @@ describe('sdk-event-handlers', () => {
     handleEvent({
       type: 'context_compaction',
       action: 'mechanical_trim',
+      resolvedContextWindowTokens: 200000,
+      triggerBudgetTokens: 176000,
+      targetBudgetTokens: 176000,
+      reason: 'Semantic compaction did not leave enough provider headroom.',
       before: { tokens: 190000, messages: 20, categories },
       after: { tokens: 120000, messages: 12, categories },
       removedCategories: ['toolResults', 'fileReads'],
@@ -481,6 +485,12 @@ describe('sdk-event-handlers', () => {
     const content = String(text?.type === 'text' ? text.content : '')
     expect(text?.type).toBe('text')
     expect(content).toContain('190,000 → 120,000 tokens')
+    expect(content).toContain('Resolved window: 200,000 tokens')
+    expect(content).toContain('trigger budget: 176,000')
+    expect(content).toContain('target budget: 176,000')
+    expect(content).toContain(
+      'Reason: Semantic compaction did not leave enough provider headroom.',
+    )
     expect(content).toContain('Removed: toolResults, fileReads')
     expect(content).toContain('Retained knowledge memory: no')
   })

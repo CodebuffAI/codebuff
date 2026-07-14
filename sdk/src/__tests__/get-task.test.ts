@@ -65,4 +65,59 @@ describe('getTask', () => {
       },
     ])
   })
+
+  test('projects legal-ai style dotted and annotated task IDs', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-task-'))
+    roots.push(root)
+    const sessionDir = path.join(root, '.agents', 'sessions', 'legal-ai')
+    fs.mkdirSync(sessionDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(sessionDir, 'PLAN.md'),
+      [
+        '# Plan',
+        '- [x] <!-- task-id: F0.1 --> **F0.1** Land current diff',
+        '- [ ] **P6.3** Marketing site',
+        '  - Depends on: F0.1',
+        '  - Acceptance: comparison pages are published',
+        '  - Validate: bun test marketing-site',
+      ].join('\n'),
+    )
+
+    const result = getTask({ cwd: root, session: 'legal-ai' })
+    const value = result[0]?.type === 'json' ? result[0].value : undefined
+    expect(value).toMatchObject({
+      preflight: {
+        ok: true,
+        nextTaskId: 'P6.3',
+        tasks: [{ id: 'F0.1' }, { id: 'P6.3' }],
+      },
+    })
+  })
+
+  test('projects categorized preflight diagnostics with a valid example', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-task-'))
+    roots.push(root)
+    const sessionDir = path.join(root, '.agents', 'sessions', 'broken-plan')
+    fs.mkdirSync(sessionDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(sessionDir, 'PLAN.md'),
+      ['# Plan', '- [ ] **P6.** Malformed task ID'].join('\n'),
+    )
+
+    const result = getTask({ cwd: root, session: 'broken-plan' })
+    const value = result[0]?.type === 'json' ? result[0].value : undefined
+    const preflight =
+      value && 'preflight' in value
+        ? (value.preflight as { ok?: boolean; errors?: unknown[] } | undefined)
+        : undefined
+    expect(preflight?.ok).toBe(false)
+    expect(
+      preflight?.errors?.some(
+        (error) =>
+          typeof error === 'string' &&
+          error.includes('[malformed-id]') &&
+          error.includes('- [ ] P6.3 Task title'),
+      ),
+    ).toBe(true)
+  })
 })

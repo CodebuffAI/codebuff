@@ -35,4 +35,26 @@ describe('spawn_agents handoff schema', () => {
       if (result.success) expect(result.data.agents).toEqual([entry])
     }
   })
+
+  it('repairs a JSON-stringified agent-specific array inside params', () => {
+    const result = spawnAgentsParams.inputSchema.safeParse({
+      agents: [
+        {
+          agent_type: 'code-searcher',
+          params: {
+            searchQueries: JSON.stringify([
+              { pattern: 'Helmet', flags: "-g '*.tsx'" },
+            ]),
+          },
+        },
+      ],
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.agents[0]?.params?.searchQueries).toEqual([
+        { pattern: 'Helmet', flags: "-g '*.tsx'" },
+      ])
+    }
+  })
 })

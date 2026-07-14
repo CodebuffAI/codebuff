@@ -789,7 +789,16 @@ const handleContextCompaction = (
   const retained = event.retainedKnowledgeMemory
     ? ' Retained knowledge memory: yes.'
     : ' Retained knowledge memory: no.'
-  const content = `${action}: ${event.before.tokens.toLocaleString()} → ${event.after.tokens.toLocaleString()} tokens; ${event.before.messages} → ${event.after.messages} messages.${removed}${retained} ${event.recovery}`
+  const resolvedWindow = event.resolvedContextWindowTokens
+    ? event.resolvedContextWindowTokens.toLocaleString()
+    : 'unknown (conservative fallback)'
+  const budgetDetails =
+    event.triggerBudgetTokens !== undefined &&
+    event.targetBudgetTokens !== undefined
+      ? ` Resolved window: ${resolvedWindow} tokens; trigger budget: ${event.triggerBudgetTokens.toLocaleString()}; target budget: ${event.targetBudgetTokens.toLocaleString()}.`
+      : ''
+  const reason = event.reason ? ` Reason: ${event.reason}` : ''
+  const content = `${action}: ${event.before.tokens.toLocaleString()} → ${event.after.tokens.toLocaleString()} tokens; ${event.before.messages} → ${event.after.messages} messages.${budgetDetails}${reason}${removed}${retained} ${event.recovery}`
 
   state.message.updater.updateAiMessageBlocks((blocks) => [
     ...blocks,

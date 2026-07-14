@@ -41,7 +41,8 @@ const endsAgentStep = true
 const decodeFragmentedSymbolSelectors = (input: unknown): unknown => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input
   const record = input as Record<string, unknown>
-  if (!Array.isArray(record.symbols) || record.symbols.length === 0) return input
+  if (!Array.isArray(record.symbols) || record.symbols.length === 0)
+    return input
   if (!record.symbols.every((value) => typeof value === 'string')) return input
 
   const encoded = (record.symbols as string[]).join(',')
@@ -67,7 +68,11 @@ const inferSingleSelectorPath = (input: unknown): unknown => {
   const inferPath = (selectors: unknown): unknown => {
     if (!Array.isArray(selectors)) return selectors
     return selectors.map((selector) => {
-      if (!selector || typeof selector !== 'object' || Array.isArray(selector)) {
+      if (
+        !selector ||
+        typeof selector !== 'object' ||
+        Array.isArray(selector)
+      ) {
         return selector
       }
       const selectorRecord = selector as Record<string, unknown>
@@ -183,8 +188,8 @@ Important:
 - Full reads may be truncated for large files; the truncation marker includes the original character and line counts. Do not edit from truncated content.
 - Every complete whole-file read returns a short readCapability token. Copy it verbatim to basedOnRead when an edit asks for explicit read proof; do not invent or reconstruct a token.
 - Symbol slices: pass \`symbols: [{ path, names }]\` to pull just the named functions/classes/methods (each with its line range and a readCapability) instead of the whole file. Prefer this when you already know the symbol names — pair it with read_outline to discover names in a large file first (outline to see structure, then symbols to pull what you need). Use \`ranges\` when you're paging by line number instead.
-- Range reads return a header with startLine, endLine, and rangeHash.
-- Use replace_range for medium/large line-count-changing edits, copying expectedHash from rangeHash.
+- Range reads return a single readCapability that embeds startLine, endLine, and rangeHash.
+- Use replace_range for medium/large or formatting-sensitive block edits, copying that readCapability directly instead of reconstructing oldString or three separate range fields.
 - For large-file str_replace, copy basedOnRead from a fresh range read or symbol slice: startLine, endLine, hash: rangeHash (or the slice's readCapability).
 - For large-file apply_patch, include basedOnRead capabilities for every touched hunk, copied from fresh range read headers.
 

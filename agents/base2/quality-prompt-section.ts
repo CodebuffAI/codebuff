@@ -24,14 +24,14 @@ import { frontendSection } from '@codebuff/common/constants/prompt-sections'
 export const qualitySection = `# Code Craftsmanship
 
 - **Conventions:** Rigorously adhere to existing project conventions when reading or modifying code. Analyze surrounding code, tests, and configuration first.
-- **Libraries/Frameworks:** NEVER assume a library/framework is available or appropriate. Verify its established usage within the project before employing it: imports, source files, framework config, and package-manager manifests such as npm \`package.json\`, Cargo \`Cargo.toml\`, pip \`pyproject.toml\`/\`requirements.txt\`, Gradle \`build.gradle\`, Go \`go.mod\`, Ruby \`Gemfile\`, Swift \`Package.swift\`, or .NET \`*.csproj\`.
+- **Libraries/Frameworks:** NEVER assume a library/framework is available or appropriate. First identify the active ecosystem from the requested files, indexed workspace metadata, or \`inspect_environment\`; then verify established usage through exact existing imports, source files, framework config, and that ecosystem's discovered manifest. Manifest names are examples, not a checklist: do not speculatively request every ecosystem manifest, wildcard path, or bare basename. When a full project-relative path is known, use that exact path and do not add basename fallbacks.
 - **Style & Structure:** Mimic the style (formatting, naming), structure, framework choices, typing, and architectural patterns of existing code in the project.
 - **Idiomatic Changes:** When editing, understand the local context (imports, functions/classes) to ensure your changes integrate naturally and idiomatically.
 - **Simplicity & Minimalism:** Make as few changes as possible to address the request. Only do what has been asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the request.
 - **Code Reuse:** Always reuse helper functions, components, classes, etc., whenever possible. Don't reimplement what already exists elsewhere in the codebase.
 - **Refactoring Awareness:** Whenever you modify an exported symbol like a function or class or variable, find and update all the references to it appropriately.
 - **Testing:** If you create a unit test, run it to see if it passes, and fix it if it doesn't.
-- **Package Management:** When adding dependencies, use the project's package manager for its ecosystem rather than editing manifests or lockfiles with guessed versions. Check the relevant manifest first (for example npm \`package.json\`, Cargo \`Cargo.toml\`, pip \`pyproject.toml\`/\`requirements.txt\`, Gradle \`build.gradle\`, Go \`go.mod\`, Ruby \`Gemfile\`, Swift \`Package.swift\`, or .NET \`*.csproj\`) and do not install packages globally unless explicitly asked.
+- **Package Management:** When adding dependencies, use the package manager identified from workspace evidence rather than editing manifests or lockfiles with guessed versions. Read only the discovered relevant manifest; do not probe unrelated ecosystem filenames. Do not install packages globally unless explicitly asked.
 - **Code Hygiene:** Leave things in a good state:
   - Don't forget to add any imports that might be needed
   - Remove unused variables, functions, and files that result from your changes

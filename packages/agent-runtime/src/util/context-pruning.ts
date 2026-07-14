@@ -15,11 +15,10 @@ import type { ContextTrimReport } from './messages'
  *   `maybePruneContext` and the context-window status emission)
  * - `sdk/src/impl/llm.ts` (request-time emergency-brake fallback limit)
  *
- * The LLM-based context-pruner agent (`agents/context-pruner.ts`) uses a
- * lower inline default (`DEFAULT_MAX_CONTEXT_LENGTH = 140_000`) because its
- * `handleSteps` body is serialized to a string and cannot import this module;
- * that value is intentionally more aggressive since it performs semantic
- * summarization rather than mechanical trimming.
+ * The LLM-based context-pruner agent (`agents/context-pruner.ts`) uses the
+ * model-aware semantic policy below. Its serialized `handleSteps` body mirrors
+ * these constants inline and uses the conservative 140k trigger only when the
+ * provider/model window is unknown.
  */
 export const DEFAULT_MAX_CONTEXT_TOKENS = 190_000
 
@@ -30,9 +29,89 @@ export const DEFAULT_MAX_CONTEXT_TOKENS = 190_000
  * in `sdk/src/impl/llm.ts`; centralized here (M4.2) so the runtime fallback
  * and SDK request-time trim share one reserved-token policy.
  */
-export const MODEL_CONTEXT_MIN_RESERVED_TOKENS = 1_024
-export const MODEL_CONTEXT_MAX_RESERVED_TOKENS = 16_000
-export const MODEL_CONTEXT_RESERVED_FRACTION = 0.1
+export const MODEL_CONTEXT_MIN_RESERVED_TOKENS = 8_000
+export const MODEL_CONTEXT_MAX_RESERVED_TOKENS = 128_000
+export const MODEL_CONTEXT_RESERVED_FRACTION = 0.12
+export const MODEL_CONTEXT_MAX_RESERVED_FRACTION = 0.5
+
+/**
+ * Semantic compaction runs before the provider-safe emergency limit. The
+ * trigger intentionally leaves materially more room than the mechanical
+ * reserve for tool schemas, system prompts, output, and provider-side
+ * accounting differences. The target is a history budget, not a hard final
+ * request size: pinned control-plane memory and the fixed request baseline sit
+ * outside it.
+ *
+ * Keep the mirrored constants inside `agents/context-pruner.ts` in sync. That
+ * agent's `handleSteps` function is serialized and cannot import this module.
+ */
+export const SEMANTIC_COMPACTION_TRIGGER_FRACTION = 0.8
+export const SEMANTIC_COMPACTION_TARGET_FRACTION = 0.42
+export const SEMANTIC_COMPACTION_HEADROOM_FRACTION = 0.15
+export const SEMANTIC_COMPACTION_MIN_HEADROOM_TOKENS = 32_000
+export const SEMANTIC_COMPACTION_MAX_HEADROOM_TOKENS = 160_000
+export const SEMANTIC_COMPACTION_MIN_TARGET_TOKENS = 72_000
+export const SEMANTIC_COMPACTION_MAX_TARGET_TOKENS = 420_000
+export const DEFAULT_SEMANTIC_COMPACTION_TRIGGER_TOKENS = 140_000
+export const DEFAULT_SEMANTIC_COMPACTION_TARGET_TOKENS = 100_000
+
+export type SemanticCompactionBudget = {
+  resolvedContextWindowTokens?: number
+  triggerBudgetTokens: number
+  targetBudgetTokens: number
+  headroomTokens?: number
+}
+
+function isUsableContextWindow(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+/**
+ * Return deterministic, context-window-aware semantic compaction budgets.
+ * Unknown or invalid provider windows use the conservative legacy fallback.
+ */
+export function getSemanticCompactionBudget(
+  contextWindowTokens: number | undefined,
+): SemanticCompactionBudget {
+  if (!isUsableContextWindow(contextWindowTokens)) {
+    return {
+      triggerBudgetTokens: DEFAULT_SEMANTIC_COMPACTION_TRIGGER_TOKENS,
+      targetBudgetTokens: DEFAULT_SEMANTIC_COMPACTION_TARGET_TOKENS,
+    }
+  }
+
+  const headroomTokens = Math.min(
+    SEMANTIC_COMPACTION_MAX_HEADROOM_TOKENS,
+    Math.max(
+      SEMANTIC_COMPACTION_MIN_HEADROOM_TOKENS,
+      Math.floor(contextWindowTokens * SEMANTIC_COMPACTION_HEADROOM_FRACTION),
+    ),
+  )
+  const triggerBudgetTokens = Math.max(
+    1,
+    Math.min(
+      Math.floor(contextWindowTokens * SEMANTIC_COMPACTION_TRIGGER_FRACTION),
+      contextWindowTokens - headroomTokens,
+    ),
+  )
+  const scaledTargetTokens = Math.min(
+    SEMANTIC_COMPACTION_MAX_TARGET_TOKENS,
+    Math.max(
+      SEMANTIC_COMPACTION_MIN_TARGET_TOKENS,
+      Math.floor(contextWindowTokens * SEMANTIC_COMPACTION_TARGET_FRACTION),
+    ),
+  )
+
+  return {
+    resolvedContextWindowTokens: contextWindowTokens,
+    triggerBudgetTokens,
+    targetBudgetTokens: Math.max(
+      1,
+      Math.min(scaledTargetTokens, triggerBudgetTokens - 1),
+    ),
+    headroomTokens,
+  }
+}
 
 /**
  * Compute the number of tokens to reserve (output + overhead) for a given
@@ -48,10 +127,16 @@ export function getModelContextReservedTokens(
     return undefined
   }
   return Math.min(
-    MODEL_CONTEXT_MAX_RESERVED_TOKENS,
     Math.max(
-      MODEL_CONTEXT_MIN_RESERVED_TOKENS,
-      Math.floor(contextWindowTokens * MODEL_CONTEXT_RESERVED_FRACTION),
+      1,
+      Math.floor(contextWindowTokens * MODEL_CONTEXT_MAX_RESERVED_FRACTION),
+    ),
+    Math.min(
+      MODEL_CONTEXT_MAX_RESERVED_TOKENS,
+      Math.max(
+        MODEL_CONTEXT_MIN_RESERVED_TOKENS,
+        Math.floor(contextWindowTokens * MODEL_CONTEXT_RESERVED_FRACTION),
+      ),
     ),
   )
 }

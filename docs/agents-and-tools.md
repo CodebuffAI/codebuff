@@ -74,7 +74,7 @@ original bounded stdout/stderr remains available for recovery.
 
 - Automated security/test/doc auxiliary agents have explicit lifecycle handling. Their done flags are written only after successful completion; crashes and blocking security verdicts persist as blockers. Test/doc writers run automatically only when the user request explicitly includes those deliverables, and mixed-package test targets are routed to package-specific commands.
 - Productive agent steps are unlimited by default. A repeated-step watchdog stops identical no-progress loops, while cancellation, subagent wall-clock timeouts, cost/token budgets, spawn-depth limits, and context compaction remain independent safeguards. Users may still configure a positive `maxAgentSteps` fixed cap; `-1` explicitly selects unlimited mode. Reviewer crashes retry once; repeated crashes require the explicit user phrase `bypass reviewer gate` before finalization can continue.
-- Root-orchestrator gate operations such as Git-status observation, file-change hooks, structural inventory, and snapshot-bound review bundles are model-hidden programmatic tools. Their results are injected when needed, so the harness remains active without paying for those schemas on every provider request. Fresh greetings and simple gratitude prompts take a narrow conversational fast path only when no pending work or reviewer blocker exists.
+- Root-orchestrator mutating/control gate operations such as Git-status observation, file-change hooks, and structural inventory are model-hidden programmatic tools. Their results are injected when needed, so the harness remains active without paying for those schemas on every provider request. The read-only `get_change_review_bundle` tool remains model-visible so an orchestrator can refresh a stale reviewer snapshot after compaction. Fresh greetings and simple gratitude prompts take a narrow conversational fast path only when no pending work or reviewer blocker exists.
 
 **Pattern-specific agents** are intentionally **excluded** from `spawnableAgents` because they have a narrow contract that only makes sense within a specific workflow pattern. They are spawned by the pattern flow itself, not by the orchestrator:
 
@@ -232,10 +232,23 @@ Durable plan execution uses versioned `STATE.json` state. Schema version 2
 adds execution phases (`draft`, `ready`, `executing`, `validating`,
 `reviewing`, `blocked`, `paused`, and terminal states), a monotonic revision
 for compare-and-swap updates, and validation/review checkpoint evidence.
-Executable PLAN.md checklist items should begin with a stable task ID and
-include indented `Depends on`, `Acceptance`, and `Validate` fields. Resume
-prompts include a deterministic preflight summary that rejects duplicate IDs
-or missing dependencies and identifies the next dependency-ready task.
+Executable PLAN.md checklist items should use this canonical syntax:
+
+```md
+- [ ] P6.3 Task title
+  - Depends on: P6.2
+  - Acceptance: observable completion condition
+  - Validate: bun test path/to/test.ts
+```
+
+The stable ID is the first visible token after the checkbox. The parser also
+accepts existing safe variants (`**P6.3**`, `[P6.3]`, legacy hyphen IDs such as
+`P1-T1`, and an optional `<!-- task-id: P6.3 -->` annotation), so an existing
+PLAN.md does not need a duplicate execution ledger or a whole-file rewrite.
+ID-less prose checkboxes are intentionally ignored as non-executable items.
+Resume prompts include a deterministic preflight summary that reports zero
+tasks, malformed or duplicate IDs, dependency errors, and malformed execution
+fields, then identifies the next dependency-ready task.
 
 `update_plan_status` accepts `taskId` for exact task targeting (legacy
 substring `task` matching remains compatible), `expectedRevision` to reject
@@ -1007,6 +1020,38 @@ forwarded chunks (including the child's `subagent_start` /
 `subagent_finish` emitted by `executeSubagent`), so the pruner runs
 silently and produces no TUI output. This is the existing behavior; the
 `TODO` in source notes a future option may make this configurable.
+
+#### Context-window-aware compaction budgets
+
+The parent agent state carries the provider/model's resolved
+`contextWindowTokens` before the first programmatic step. Semantic compaction
+uses that value instead of treating every model as 200k-class:
+
+| Resolved window | Semantic trigger | History target | Provider-safe request limit |
+| --------------: | ---------------: | -------------: | --------------------------: |
+|            128k |              96k |            72k |                     112.64k |
+|            200k |             160k |            84k |                        176k |
+|         262,144 |         209,715 |        110,100 |                     230,687 |
+|            500k |             400k |           210k |                        440k |
+|              1m |             800k |           420k |                        880k |
+
+The trigger is bounded by both an 80% ratio and explicit 32k–160k semantic
+headroom. The target is 42% of the resolved window, bounded to 72k–420k, and
+is split across assistant/tool-call summaries, user text, and tool-result
+facts. Unknown or invalid provider windows conservatively fall back to a 140k
+trigger and 100k target. Explicit test/debug `maxContextLength` overrides also
+cap the target so compaction cannot produce a summary larger than the custom
+trigger. Within each category, the pruner prefers recent entries but skips an
+oversized entry and continues scanning for older compact evidence instead of
+discarding the remainder of that category.
+
+Mechanical trimming remains a later emergency brake. Its provider-safe limit
+reserves 12% of the declared window, bounded to 8k–128k, for system prompts,
+tool schemas, output, and provider accounting. Compaction events report the
+resolved window, trigger budget, target budget, and reason, along with category
+telemetry and whether `<knowledge_memory>` survived. The existing pinned
+control-plane, blocker, validation, review-receipt, and high-value finding
+extraction remains authoritative across repeated compaction.
 
 ### Tool-result message builders
 

@@ -149,6 +149,32 @@ describe('transaction edit-array coercion', () => {
     }
   })
 
+  test('accepts double-stringified arrays with stringified edit entries', () => {
+    const edit = {
+      id: 'marketing-head',
+      path: 'client/src/routes/_index/index.lazy.tsx',
+      type: 'str_replace',
+      replacements: [
+        {
+          oldString: 'component: HomePage,',
+          newString: 'component: HomePage,\nhead: () => ({ meta: [] }),',
+        },
+      ],
+    }
+    const parsed = editTransactionParams.inputSchema.safeParse({
+      edits: JSON.stringify(JSON.stringify([JSON.stringify(edit)])),
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.edits[0]).toMatchObject({
+        id: 'marketing-head',
+        type: 'str_replace',
+        path: edit.path,
+      })
+    }
+  })
+
   test('still rejects a non-JSON edits string', () => {
     expect(
       editTransactionParams.inputSchema.safeParse({

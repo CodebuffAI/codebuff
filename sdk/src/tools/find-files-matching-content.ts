@@ -672,9 +672,17 @@ export function parseSafeRipgrepFlags(
     '--type-not',
     ...(options?.extraSwitchesWithValue ?? []),
   ])
+  const redundantLineNumberSwitches = new Set(['-n', '--line-number'])
 
   for (let i = 0; i < tokenList.length; i++) {
     const token = tokenList[i]
+    // Both search implementations control their own output mode and add line
+    // numbers when needed. Models commonly emit the habitual `rg -n` anyway;
+    // treating that exact, harmless duplicate as a no-op avoids rejecting an
+    // otherwise valid search without weakening the dangerous-flag allowlist.
+    if (redundantLineNumberSwitches.has(token)) {
+      continue
+    }
     const eqIndex = token.indexOf('=')
     if (eqIndex > 0) {
       const name = token.slice(0, eqIndex)

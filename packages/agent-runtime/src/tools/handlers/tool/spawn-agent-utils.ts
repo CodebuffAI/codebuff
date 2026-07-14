@@ -14,6 +14,7 @@ import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValidationIssues } from '../../../util/format-validation-issues'
 import { formatValueForError } from '../../../util/format-value'
+import { getEffectiveAgentToolNames } from '../../../util/agent-tool-names'
 import {
   filterUnfinishedToolCalls,
   withSystemTags,
@@ -542,7 +543,11 @@ export function createAgentState(
     systemPrompt: '',
     toolDefinitions: {},
     contextTokenCount: parentAgentState.contextTokenCount,
-    contextWindowTokens: parentAgentState.contextWindowTokens,
+    // A child may route to a different model/provider than its parent. Do not
+    // inherit the parent's resolved window: the child's first model request
+    // resolves its own value through onModelContextResolved. Until then the
+    // context-pruning policy uses its conservative unknown-window fallback.
+    contextWindowTokens: undefined,
   }
 }
 
@@ -575,7 +580,7 @@ export function logAgentSpawn(params: {
         id: agentTemplate.id,
         displayName: agentTemplate.displayName,
         model: agentTemplate.model,
-        toolNames: agentTemplate.toolNames,
+        toolNames: getEffectiveAgentToolNames(agentTemplate),
         programmaticToolNames: agentTemplate.programmaticToolNames,
         spawnableAgents: agentTemplate.spawnableAgents,
         mcpServerNames: Object.keys(agentTemplate.mcpServers ?? {}),
