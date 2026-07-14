@@ -232,7 +232,7 @@ describe('getFiles', () => {
       expect(result['large.bin']).not.toContain('y')
       // Should contain truncation message
       expect(result['large.bin']).toContain('FILE_TOO_LARGE')
-      expect(result['large.bin']).toContain('101,001 chars')
+      expect(result['large.bin']).toContain('101,001 characters')
     })
 
     test('should read files at exactly 100k chars', async () => {
@@ -297,6 +297,83 @@ describe('getFiles', () => {
       // Should be read fully (no truncation message)
       expect(result['underlimit.bin']).toBe(justUnder100k)
       expect(result['underlimit.bin']).not.toContain('FILE_TOO_LARGE')
+    })
+
+    test('should cap combined file contents at 100k chars', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/a.txt': { content: 'a'.repeat(60_000) },
+          '/project/b.txt': { content: 'a'.repeat(60_000) },
+          '/project/c.txt': { content: 'UNIQUE_THIRD_FILE_CONTENT' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['a.txt', 'b.txt', 'c.txt'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['a.txt']).toBe('a'.repeat(60_000))
+      expect(result['b.txt']).toStartWith('a'.repeat(40_000))
+      expect(result['b.txt']).not.toContain('a'.repeat(40_001))
+      expect(result['b.txt']).toContain('combined read_files output')
+      expect(result['c.txt']).not.toContain('UNIQUE_THIRD_FILE_CONTENT')
+      expect(result['c.txt']).toContain('truncated after 0 characters')
+    })
+
+    test('should not spend the shared budget twice on path aliases', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/a.txt': { content: 'a'.repeat(60_000) },
+          '/project/b.txt': { content: 'a'.repeat(40_000) },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['a.txt', './a.txt', 'b.txt'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['a.txt']).toBe('a'.repeat(60_000))
+      expect(result['b.txt']).toBe('a'.repeat(40_000))
+    })
+
+    test('should return files with prototype-named paths', async () => {
+      const mockFs = createMockFs({
+        files: Object.fromEntries([
+          ['/project/__proto__', { content: 'prototype file content' }],
+        ]),
+      })
+
+      const result = await getFiles({
+        filePaths: ['__proto__'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(Object.hasOwn(result, '__proto__')).toBe(true)
+      expect(result['__proto__']).toBe('prototype file content')
+    })
+
+    test('should cap token-dense Unicode content before the character limit', async () => {
+      const denseContent = '🧑‍💻🔥🚀⚠️'.repeat(5_000)
+      const mockFs = createMockFs({
+        files: {
+          '/project/dense.txt': { content: denseContent },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['dense.txt'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['dense.txt']).not.toBe(denseContent)
+      expect(result['dense.txt']).toContain('estimated-token per-file limit')
+      expect(result['dense.txt']!.length).toBeLessThan(denseContent.length)
     })
   })
 

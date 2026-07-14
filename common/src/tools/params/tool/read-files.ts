@@ -35,7 +35,7 @@ const inputSchema = z
       .describe('List of file paths to read.'),
   })
   .describe(
-    `Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
+    `Read multiple files from disk. Returned file content shares a 20,000 estimated-token limit and a 100,000-character hard limit. Prefer the smallest relevant set of files and use code_search for targeted discovery.`,
   )
 const description = `
 Example:

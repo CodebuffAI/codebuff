@@ -1,5 +1,7 @@
+import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
+import { createFileReadLimiter } from '@codebuff/common/util/file-read-limits'
 
 import { resolveFilePath } from './path-utils'
 
@@ -27,11 +29,10 @@ export async function getFiles(params: {
   // If not, SDK applies default gitignore checking
   const hasCustomFilter = fileFilter !== undefined
 
-  const result: Record<string, string | null> = {}
+  const result = Object.create(null) as Record<string, string | null>
+  const seenPaths = new Set<string>()
   const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB - skip reading entirely
-  const MAX_CHARS = 100_000 // 100k characters threshold
-  const numFmt = new Intl.NumberFormat('en-US')
-  const fmtNum = (n: number) => numFmt.format(n)
+  const limiter = createFileReadLimiter({ countTokens })
 
   for (const filePath of filePaths) {
     if (!filePath) {
@@ -42,6 +43,10 @@ export async function getFiles(params: {
       cwd,
       filePath,
     )
+    if (seenPaths.has(relativePath)) {
+      continue
+    }
+    seenPaths.add(relativePath)
 
     // Apply file filter if provided
     const filterResult = fileFilter?.(relativePath)
@@ -78,21 +83,10 @@ export async function getFiles(params: {
 
       const content = await fs.readFile(fullPath, 'utf8')
 
-      if (content.length > MAX_CHARS) {
-        const truncated = content.slice(0, MAX_CHARS)
-        result[relativePath] =
-          truncated +
-          '\n\n[FILE_TOO_LARGE: This file is ' +
-          fmtNum(content.length) +
-          ' chars, exceeding the ' +
-          fmtNum(MAX_CHARS) +
-          ' char limit. The content above has been truncated. Use other tools to read other sections of the file.]'
-      } else {
-        // Prepend TEMPLATE marker for example files
-        result[relativePath] = isExampleFile
-          ? FILE_READ_STATUS.TEMPLATE + '\n' + content
-          : content
-      }
+      const limitedContent = limiter.limit(content)
+      result[relativePath] = isExampleFile
+        ? FILE_READ_STATUS.TEMPLATE + '\n' + limitedContent
+        : limitedContent
     } catch (error) {
       if (
         error &&
@@ -106,5 +100,5 @@ export async function getFiles(params: {
       }
     }
   }
-  return result
+  return { ...result }
 }
