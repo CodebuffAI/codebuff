@@ -220,6 +220,8 @@ describe('context-pruner handleSteps', () => {
     contextTokenCount?: number,
     maxContextLength?: number,
     budgets?: { assistantToolBudget?: number; userBudget?: number },
+    infoLogs?: Array<{ data: unknown; message?: string }>,
+    throwOnInfo = false,
   ) => {
     mockAgentState.messageHistory = messages
     // If contextTokenCount not provided, estimate from messages
@@ -227,7 +229,10 @@ describe('context-pruner handleSteps', () => {
       contextTokenCount ?? Math.ceil(JSON.stringify(messages).length / 3)
     const mockLogger = {
       debug: () => {},
-      info: () => {},
+      info: (data: unknown, message?: string) => {
+        if (throwOnInfo) throw new Error('logger unavailable')
+        infoLogs?.push({ data, message })
+      },
       warn: () => {},
       error: () => {},
     }
@@ -267,6 +272,37 @@ describe('context-pruner handleSteps', () => {
           messages,
         },
       }),
+    )
+  })
+
+  test('does not emit pruning telemetry when pruning is unnecessary', () => {
+    const infoLogs: Array<{ data: unknown; message?: string }> = []
+
+    runHandleSteps(
+      [createMessage('user', 'Hello')],
+      1_000,
+      200_000,
+      undefined,
+      infoLogs,
+    )
+
+    expect(infoLogs).toEqual([])
+  })
+
+  test('still prunes when telemetry logging throws', () => {
+    const results = runHandleSteps(
+      [createMessage('user', 'Keep this request')],
+      250_000,
+      200_000,
+      undefined,
+      undefined,
+      true,
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0].toolName).toBe('set_messages')
+    expect(results[0].input.messages[0].content[0].text).toContain(
+      'Keep this request',
     )
   })
 
@@ -518,7 +554,14 @@ describe('context-pruner handleSteps', () => {
       prunerParamsPrompt,
     ]
 
-    const results = runHandleSteps(messages, 250000, 200000)
+    const infoLogs: Array<{ data: any; message?: string }> = []
+    const results = runHandleSteps(
+      messages,
+      250000,
+      200000,
+      undefined,
+      infoLogs,
+    )
     const resultMessages = results[0].input.messages
 
     expect(resultMessages).toHaveLength(2)
@@ -533,6 +576,23 @@ describe('context-pruner handleSteps', () => {
       }),
     )
     expect((resultMessages[1].content[0] as { text: string }).text).toBe(
+      'LATEST LIVE REQUEST',
+    )
+    expect(infoLogs).toHaveLength(1)
+    expect(infoLogs[0]).toEqual({
+      message: 'Context pruning completed',
+      data: expect.objectContaining({
+        axiomEvent: 'context_pruning.completed',
+        trigger_reason: 'context_limit',
+        context_token_count: 250000,
+        max_context_length: 200000,
+        live_user_prompt_found: true,
+        live_user_prompt_text_preserved: true,
+        mid_turn: false,
+        dropped_user_entry_count: 0,
+      }),
+    })
+    expect(JSON.stringify(infoLogs[0].data)).not.toContain(
       'LATEST LIVE REQUEST',
     )
   })
@@ -576,6 +636,40 @@ describe('context-pruner handleSteps', () => {
       .text
     expect(continuationText).toContain('Continue the existing assistant turn')
     expect(continuationText).toContain('Do not restart completed work')
+  })
+
+  test('telemetry reports a mid-turn live prompt that exceeds the user budget', () => {
+    const liveUserPrompt: Message = {
+      role: 'user',
+      content: [{ type: 'text', text: 'OVERSIZED LIVE REQUEST' }],
+      tags: ['USER_PROMPT'],
+    }
+    const prunerParamsPrompt: Message = {
+      role: 'user',
+      content: [{ type: 'text', text: '{"maxContextLength":200000}' }],
+      tags: ['USER_PROMPT'],
+    }
+    const infoLogs: Array<{ data: any; message?: string }> = []
+
+    runHandleSteps(
+      [
+        liveUserPrompt,
+        createMessage('assistant', 'Work in progress'),
+        prunerParamsPrompt,
+      ],
+      250000,
+      200000,
+      { userBudget: 1, assistantToolBudget: 1000 },
+      infoLogs,
+    )
+
+    expect(infoLogs[0].data).toEqual(
+      expect.objectContaining({
+        live_user_prompt_found: true,
+        live_user_prompt_text_preserved: false,
+        dropped_user_entry_count: 1,
+      }),
+    )
   })
 
   test('handles empty message history', () => {

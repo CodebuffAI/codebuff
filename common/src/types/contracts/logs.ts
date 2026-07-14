@@ -21,7 +21,7 @@ export type LogRow = {
   service?: string | null
   /** Deploy environment: 'dev' | 'test' | 'prod'. */
   env: string
-  /** AnalyticsEvent name when this row is an analytics event, else null. */
+  /** Analytics or operational event name when applicable, else null. */
   event?: string | null
   /** Human-readable message (the formatted pino msg). */
   message?: string | null

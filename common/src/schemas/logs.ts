@@ -44,7 +44,7 @@ export const logRecordSchema = z.object({
   /** Client-supplied event time (ISO 8601). Server falls back to now. */
   timestamp: z.string().datetime().optional(),
   level: logLevelSchema.default('info'),
-  /** AnalyticsEvent name when this is an analytics event. */
+  /** Analytics or operational event name when applicable. */
   event: z.string().max(200).nullish(),
   message: z.string().max(MAX_LOG_MESSAGE_LENGTH).nullish(),
   client_session_id: z.string().max(200).nullish(),

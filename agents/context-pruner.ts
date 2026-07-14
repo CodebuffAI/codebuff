@@ -42,7 +42,7 @@ const definition: AgentDefinition = {
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
 
-  handleSteps: function* ({ agentState, params }) {
+  handleSteps: function* ({ agentState, params, logger }) {
     // =============================================================================
     // Constants (must be inside handleSteps since it's serialized to a string)
     // =============================================================================
@@ -77,6 +77,9 @@ const definition: AgentDefinition = {
 
     /** Fudge factor for token count threshold to trigger pruning earlier */
     const TOKEN_COUNT_FUDGE_FACTOR = 1_000
+
+    /** Axiom-only operational event understood by the logging adapters. */
+    const CONTEXT_PRUNING_COMPLETED_EVENT = 'context_pruning.completed'
 
     /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
     const CACHE_EXPIRY_MS: number = params?.cacheExpiryMs ?? 5 * 60 * 1000
@@ -379,6 +382,7 @@ const definition: AgentDefinition = {
     // The USER_PROMPT is the actual user message; INSTRUCTIONS_PROMPT comes after it
     // We need to find the USER_PROMPT and check the gap between it and the last assistant message
     let cacheWillMiss = false
+    let cacheGapMs: number | null = null
     const userPromptIndex = currentMessages.findLastIndex((message) =>
       message.tags?.includes('USER_PROMPT'),
     )
@@ -394,19 +398,19 @@ const definition: AgentDefinition = {
       }
       if (userPromptMsg.sentAt && lastAssistantMsg?.sentAt) {
         const gap = userPromptMsg.sentAt - lastAssistantMsg.sentAt
+        cacheGapMs = gap
         cacheWillMiss = gap > CACHE_EXPIRY_MS
       }
     }
+
+    const contextLimitExceeded =
+      agentState.contextTokenCount + TOKEN_COUNT_FUDGE_FACTOR > maxContextLength
 
     // Check if we need to prune at all:
     // - Prune when context exceeds max, OR
     // - Prune when prompt cache will miss (>5 min gap) to take advantage of fresh context
     // If not, return messages with just the subagent-specific tags removed
-    if (
-      agentState.contextTokenCount + TOKEN_COUNT_FUDGE_FACTOR <=
-        maxContextLength &&
-      !cacheWillMiss
-    ) {
+    if (!contextLimitExceeded && !cacheWillMiss) {
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },
@@ -552,10 +556,12 @@ const definition: AgentDefinition = {
     }
 
     // Phase 1: Summarize ALL messages into tagged entries
-    const summarizedEntries: Array<{
+    type SummaryEntry = {
       role: 'user' | 'assistant_tool'
       parts: string[]
-    }> = []
+    }
+    const summarizedEntries: SummaryEntry[] = []
+    let liveUserPromptEntry: SummaryEntry | undefined
 
     for (const message of messagesToSummarize) {
       if (message.role === 'user') {
@@ -570,10 +576,14 @@ const definition: AgentDefinition = {
             )
           }
           const imageNote = hasImages ? ' [image(s) were attached]' : ''
-          summarizedEntries.push({
+          const entry: SummaryEntry = {
             role: 'user',
             parts: [`[USER]${imageNote}\n${text}`],
-          })
+          }
+          if (message === latestLiveUserPromptMessage) {
+            liveUserPromptEntry = entry
+          }
+          summarizedEntries.push(entry)
         }
       } else if (message.role === 'assistant') {
         const textParts: string[] = []
@@ -757,8 +767,11 @@ const definition: AgentDefinition = {
     }
 
     // Parse previous summary into role-tagged entries and combine with new entries
-    const allEntries = [
-      ...parseSummaryIntoEntries(previousSummaryContent),
+    const previousSummaryEntries = parseSummaryIntoEntries(
+      previousSummaryContent,
+    )
+    const allEntries: SummaryEntry[] = [
+      ...previousSummaryEntries,
       ...summarizedEntries,
     ]
 
@@ -801,9 +814,11 @@ const definition: AgentDefinition = {
     // role selection, entries from the other role may still fit, so the old
     // "summary is empty" fallback is no longer sufficient.
     const newestEntry = allEntries[allEntries.length - 1]
+    let newestEntryForced = false
     if (newestEntry && !includedEntries.includes(newestEntry)) {
       // includedEntries is reverse-chronological until Phase 3.
       includedEntries.unshift(newestEntry)
+      newestEntryForced = true
     }
 
     // Phase 3: Build final summary from included entries
@@ -866,6 +881,64 @@ ${SUMMARY_DISCLAIMER}`,
       finalMessages.push(continuationMessage)
     } else if (latestLiveUserPromptMessage) {
       finalMessages.push({ ...latestLiveUserPromptMessage, sentAt: now })
+    }
+
+    const userEntryCount = allEntries.filter(
+      (entry) => entry.role === 'user',
+    ).length
+    const assistantToolEntryCount = allEntries.length - userEntryCount
+    const liveUserPromptHasText = latestLiveUserPromptMessage
+      ? getTextContent(latestLiveUserPromptMessage).trim().length > 0
+      : false
+    const liveUserPromptTextPreserved = latestLiveUserPromptMessage
+      ? !isMidTurnPrune ||
+        !liveUserPromptHasText ||
+        (liveUserPromptEntry !== undefined &&
+          includedEntries.includes(liveUserPromptEntry))
+      : false
+    const includedUserEntryCount = includedEntries.filter(
+      (entry) => entry.role === 'user',
+    ).length
+    const includedAssistantToolEntryCount =
+      includedEntries.length - includedUserEntryCount
+    const triggerReason = contextLimitExceeded
+      ? cacheWillMiss
+        ? 'context_limit_and_cache_expiry'
+        : 'context_limit'
+      : 'cache_expiry'
+
+    // Telemetry is best-effort and must never block the actual pruning update.
+    try {
+      logger.info(
+        {
+          axiomEvent: CONTEXT_PRUNING_COMPLETED_EVENT,
+          agent_run_id: agentState.runId,
+          parent_agent_run_id: agentState.parentId,
+          trigger_reason: triggerReason,
+          context_token_count: agentState.contextTokenCount,
+          max_context_length: maxContextLength,
+          ...(cacheGapMs === null ? {} : { cache_gap_ms: cacheGapMs }),
+          cache_expiry_ms: CACHE_EXPIRY_MS,
+          previous_summary_entry_count: previousSummaryEntries.length,
+          user_budget: userBudget,
+          user_entry_count: userEntryCount,
+          dropped_user_entry_count: userEntryCount - includedUserEntryCount,
+          assistant_tool_budget: assistantToolBudget,
+          assistant_tool_entry_count: assistantToolEntryCount,
+          dropped_assistant_tool_entry_count:
+            assistantToolEntryCount - includedAssistantToolEntryCount,
+          mid_turn: isMidTurnPrune,
+          live_user_prompt_found: latestLiveUserPromptMessage !== null,
+          live_user_prompt_text_preserved: liveUserPromptTextPreserved,
+          newest_entry_forced: newestEntryForced,
+          summary_estimated_tokens: Math.ceil(
+            summaryText.length / CHARS_PER_TOKEN,
+          ),
+        },
+        'Context pruning completed',
+      )
+    } catch {
+      // Ignore logging failures; set_messages below is the critical operation.
     }
 
     yield {

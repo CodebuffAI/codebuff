@@ -7,6 +7,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
 import { getAnalyticsEventId } from '@codebuff/common/util/analytics-log'
+import { getAxiomOnlyLogEvent } from '@codebuff/common/util/axiom-only-log'
 import {
   isFullTelemetryEnabled,
   summarizeAnalyticsValue,
@@ -153,6 +154,7 @@ function sendAnalyticsAndLog(
   const normalizedData = isStringOnly ? undefined : data
   const normalizedMsg = isStringOnly ? (data as string) : msg
   const includeData = normalizedData != null && !isEmptyObject(normalizedData)
+  const axiomOnlyLogEvent = getAxiomOnlyLogEvent(normalizedData)
 
   const toTrack = {
     ...(includeData ? { data: normalizedData } : {}),
@@ -179,7 +181,7 @@ function sendAnalyticsAndLog(
   // Send all log events to PostHog in production for better observability
   // Skip if the log already has an eventId (to avoid duplicate tracking)
   const hasEventId = includeData && getAnalyticsEventId(normalizedData) !== null
-  if (!IS_DEV && !IS_TEST && !IS_CI && !hasEventId) {
+  if (!IS_DEV && !IS_TEST && !IS_CI && !hasEventId && !axiomOnlyLogEvent) {
     const fullTelemetry = isFullTelemetryEnabled({
       distinctId: loggerContext.userId,
       properties: loggerContext,
@@ -204,8 +206,14 @@ function sendAnalyticsAndLog(
   // Mirror the log/event into the server-side Axiom logs sink via /api/logs
   // (in addition to PostHog). Best-effort and batched; skip noisy debug logs
   // and anything before we know who the user is.
-  if (!IS_DEV && !IS_TEST && !IS_CI && loggerContext.userId && level !== 'debug') {
-    const eventId =
+  if (
+    !IS_DEV &&
+    !IS_TEST &&
+    !IS_CI &&
+    loggerContext.userId &&
+    level !== 'debug'
+  ) {
+    const analyticsEventId =
       includeData && typeof normalizedData === 'object'
         ? getAnalyticsEventId(normalizedData)
         : null
@@ -219,18 +227,26 @@ function sendAnalyticsAndLog(
       }) ||
       level === 'error' ||
       level === 'fatal'
-    const shipData = includeData
-      ? includeRawData
-        ? normalizedData
-        : summarizeAnalyticsValue(normalizedData)
-      : undefined
+    const shipData = axiomOnlyLogEvent
+      ? axiomOnlyLogEvent.data
+      : includeData
+        ? includeRawData
+          ? normalizedData
+          : summarizeAnalyticsValue(normalizedData)
+        : undefined
     const record: LogRecordInput = {
       timestamp: new Date().toISOString(),
       level,
-      event: eventId ? String(eventId) : undefined,
+      event:
+        axiomOnlyLogEvent?.event ??
+        (analyticsEventId ? String(analyticsEventId) : undefined),
       message: stringFormat(normalizedMsg ?? '', ...args),
-      client_session_id: loggerContext.clientSessionId,
-      client_request_id: loggerContext.clientRequestId,
+      client_session_id:
+        (axiomOnlyLogEvent?.data.client_session_id as string | undefined) ??
+        loggerContext.clientSessionId,
+      client_request_id:
+        (axiomOnlyLogEvent?.data.client_request_id as string | undefined) ??
+        loggerContext.clientRequestId,
       fingerprint_id: loggerContext.fingerprintId,
       data: shipData,
     }
