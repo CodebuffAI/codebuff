@@ -19,18 +19,27 @@ const render = (props: React.ComponentProps<typeof DiffViewer>): string =>
 
 describe('DiffViewer', () => {
   test('[PERF-M02] initial render plan caps hunks and lines', () => {
-    const diff = Array.from({ length: DIFF_INITIAL_MAX_HUNKS + 2 }, (_, index) =>
-      `@@ -${index + 1},10 +${index + 1},10 @@\n${Array.from({ length: 10 }, () => ' context').join('\n')}`,
+    const diff = Array.from(
+      { length: DIFF_INITIAL_MAX_HUNKS + 2 },
+      (_, index) =>
+        `@@ -${index + 1},10 +${index + 1},10 @@\n${Array.from({ length: 10 }, () => ' context').join('\n')}`,
     ).join('\n')
     const parsed = parseDiffIntoHunks(diff)
     const collapsed = getInitiallyCollapsedDiffHunks(parsed)
-    const visible = parsed.hunks.filter((hunk) => !collapsed.includes(hunk.index))
+    const visible = parsed.hunks.filter(
+      (hunk) => !collapsed.includes(hunk.index),
+    )
     expect(visible.length).toBeLessThanOrEqual(DIFF_INITIAL_MAX_HUNKS)
-    expect(visible.reduce((sum, hunk) => sum + hunk.bodyLines.length, 0)).toBeLessThanOrEqual(DIFF_INITIAL_MAX_LINES)
+    expect(
+      visible.reduce((sum, hunk) => sum + hunk.bodyLines.length, 0),
+    ).toBeLessThanOrEqual(DIFF_INITIAL_MAX_LINES)
   })
 
   test('[PERF-M02] hides line-number gutters at narrow widths', () => {
-    const markup = render({ diffText: '@@ -1 +1 @@\n-old\n+new', availableWidth: 20 })
+    const markup = render({
+      diffText: '@@ -1 +1 @@\n-old\n+new',
+      availableWidth: 20,
+    })
     expect(markup).not.toContain('│')
   })
 

@@ -399,7 +399,9 @@ describe('editor implementation brief validation', () => {
         'Review compatibility.',
         {},
       ),
-    ).toThrow('exact current snapshot fingerprint from get_change_review_bundle')
+    ).toThrow(
+      'exact current snapshot fingerprint from get_change_review_bundle',
+    )
   })
 
   it('accepts a concrete prose brief with actionable target files', () => {

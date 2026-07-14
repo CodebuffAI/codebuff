@@ -148,13 +148,13 @@ function metadataFor(toolName: ToolName): ToolMetadata {
     ? 'read'
     : EFFECTFUL_VALIDATION_TOOLS.has(toolName)
       ? 'other'
-    : MUTATION_TOOLS.has(toolName)
-      ? 'mutation'
-      : PROPOSAL_TOOLS.has(toolName)
-        ? 'proposal'
-        : HIDDEN_TOOLS.has(toolName)
-          ? 'control'
-          : 'other'
+      : MUTATION_TOOLS.has(toolName)
+        ? 'mutation'
+        : PROPOSAL_TOOLS.has(toolName)
+          ? 'proposal'
+          : HIDDEN_TOOLS.has(toolName)
+            ? 'control'
+            : 'other'
   const reachability: ToolReachability = quarantined.has(toolName)
     ? 'quarantined'
     : HIDDEN_TOOLS.has(toolName)

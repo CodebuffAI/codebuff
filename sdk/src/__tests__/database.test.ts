@@ -1,12 +1,11 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
+import { randomUUID } from 'node:crypto'
 
 import { getUserInfoFromApiKey } from '../impl/database'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('getUserInfoFromApiKey', () => {
-  const originalFetch = globalThis.fetch
-
   const createLoggerMocks = (): Logger =>
     ({
       debug: mock(() => {}),
@@ -16,12 +15,13 @@ describe('getUserInfoFromApiKey', () => {
     }) as unknown as Logger
 
   afterEach(() => {
-    globalThis.fetch = originalFetch
     mock.restore()
   })
 
   test('requests only the requested fields (no implicit userColumns)', async () => {
-    const fetchMock = mock(async (input: RequestInfo | URL) => {
+    let fetchCalls = 0
+    const fetchMock = async (input: RequestInfo | URL) => {
+      fetchCalls += 1
       const urlString =
         input instanceof URL
           ? input.toString()
@@ -34,21 +34,23 @@ describe('getUserInfoFromApiKey', () => {
       expect(url.searchParams.get('fields')).toBe('id')
 
       return new Response(JSON.stringify({ id: 'user-123' }), { status: 200 })
-    })
-    globalThis.fetch = fetchMock as unknown as typeof fetch
-
+    }
+    const apiKey = `database-fields-test-key-${randomUUID()}`
     const result = await getUserInfoFromApiKey({
-      apiKey: 'test-api-key',
+      apiKey,
       fields: ['id'],
       logger: createLoggerMocks(),
+      fetch: fetchMock,
     })
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchCalls).toBe(1)
     expect(result).toEqual({ id: 'user-123' })
   })
 
   test('merges cached fields and avoids refetching when present', async () => {
-    const fetchMock = mock(async (input: RequestInfo | URL) => {
+    let fetchCalls = 0
+    const fetchMock = async (input: RequestInfo | URL) => {
+      fetchCalls += 1
       const urlString =
         input instanceof URL
           ? input.toString()
@@ -68,15 +70,14 @@ describe('getUserInfoFromApiKey', () => {
       }
 
       throw new Error(`Unexpected fields param: ${fields}`)
-    })
-    globalThis.fetch = fetchMock as unknown as typeof fetch
-
+    }
     const logger = createLoggerMocks()
 
     const first = await getUserInfoFromApiKey({
       apiKey: 'cache-test-api-key',
       fields: ['id'],
       logger,
+      fetch: fetchMock,
     })
     expect(first).toEqual({ id: 'user-123' })
 
@@ -84,6 +85,7 @@ describe('getUserInfoFromApiKey', () => {
       apiKey: 'cache-test-api-key',
       fields: ['email'],
       logger,
+      fetch: fetchMock,
     })
     expect(second).toEqual({ email: 'user@example.com' })
 
@@ -91,9 +93,10 @@ describe('getUserInfoFromApiKey', () => {
       apiKey: 'cache-test-api-key',
       fields: ['id', 'email'],
       logger,
+      fetch: fetchMock,
     })
     expect(third).toEqual({ id: 'user-123', email: 'user@example.com' })
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchCalls).toBe(2)
   })
 })

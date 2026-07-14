@@ -38,6 +38,48 @@ export const createCodeEditor = (options: {
     spawnerPrompt:
       "Expert code editor that implements code changes based on the user's request. Spawn this agent with a prompt containing only a compact implementation brief: implementation-scoped requirements, target files, constraints/non-goals, relevant patterns, and code-level risks. Do not rely on inherited conversation history, and do not include validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, or other parent-only orchestration tasks in the editor handoff. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits it can use edit_transaction to preflight and apply changes atomically.",
     outputMode: 'structured_output',
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['completed', 'partial', 'blocked'],
+        },
+        messages: { type: 'array', items: {} },
+        changedFiles: { type: 'array', items: { type: 'string' } },
+        targetFileProgress: {
+          type: 'object',
+          properties: {
+            targetFiles: { type: 'array', items: { type: 'string' } },
+            changedTargetFiles: { type: 'array', items: { type: 'string' } },
+            pendingTargetFiles: { type: 'array', items: { type: 'string' } },
+          },
+          required: [
+            'targetFiles',
+            'changedTargetFiles',
+            'pendingTargetFiles',
+          ],
+        },
+        requirementsAddressed: { type: 'array', items: { type: 'string' } },
+        acceptanceCriteriaAddressed: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        findingsAddressed: { type: 'array', items: { type: 'string' } },
+        unresolved: { type: 'array', items: { type: 'string' } },
+        requestedValidation: { type: 'array', items: { type: 'string' } },
+      },
+      required: [
+        'status',
+        'messages',
+        'changedFiles',
+        'requirementsAddressed',
+        'acceptanceCriteriaAddressed',
+        'findingsAddressed',
+        'unresolved',
+        'requestedValidation',
+      ],
+    },
     toolNames: [
       'read_files',
       'read_outline',
@@ -210,7 +252,7 @@ ${PLACEHOLDER.LANGUAGE_PROFILE}
 
 ${PLACEHOLDER.FRONTEND_SECTION}`,
 
-    handleSteps: function* ({ agentState: initialAgentState, prompt }) {
+    handleSteps: function* ({ agentState: initialAgentState, prompt, params }) {
       const initialMessageHistoryLength =
         initialAgentState.messageHistory.length
       const targetFiles = extractTargetFiles(
@@ -250,14 +292,52 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         targetFiles,
         changedFiles,
       )
+      const handoff =
+        params?.handoff && typeof params.handoff === 'object'
+          ? (params.handoff as Record<string, any>)
+          : undefined
+      const unresolved = targetFileProgress?.pendingTargetFiles ?? []
+      const status =
+        changedFiles.length === 0
+          ? 'blocked'
+          : unresolved.length > 0
+            ? 'partial'
+            : 'completed'
 
       yield {
         toolName: 'set_output',
         input: {
           output: {
+            status,
             messages: newMessages,
             changedFiles,
             ...(targetFileProgress ? { targetFileProgress } : {}),
+            requirementsAddressed:
+              [],
+            acceptanceCriteriaAddressed:
+              [],
+            findingsAddressed:
+              status === 'completed' && Array.isArray(handoff?.findings)
+                ? handoff.findings
+                    .filter((item: any) => {
+                      if (!Array.isArray(item?.files) || item.files.length === 0) {
+                        return false
+                      }
+                      return item.files.every((file: unknown) =>
+                        typeof file === 'string'
+                          ? changedFiles.some(
+                              (changedFile) =>
+                                normalizeFilePath(changedFile) ===
+                                normalizeFilePath(file),
+                            )
+                          : false,
+                      )
+                    })
+                    .map((item: any) => item.id)
+                    .filter((id: unknown): id is string => typeof id === 'string')
+                : [],
+            unresolved,
+            requestedValidation: [],
           },
         },
         includeToolCall: false,

@@ -136,6 +136,31 @@ describe('IndexManager semantic integration', () => {
     expect(authHit.matchedOn.length).toBeGreaterThan(0)
   })
 
+  test('queryBlended applies fileTypes to semantic-only candidates', async () => {
+    const root = makeProject()
+    writeFileSync(
+      join(root, 'secret-topic.md'),
+      '# Database internals\n\ndatabase database database\n',
+    )
+    const mgr = IndexManager.getInstance(
+      root,
+      { semantic: { enabled: true } },
+      fakeEmbed,
+    )
+    await mgr.waitUntilReady(10_000)
+
+    const blended = await mgr.queryBlended('database internals', {
+      limit: 10,
+      fileTypes: ['ts'],
+    })
+    expect(blended.results.every((result) => result.path.endsWith('.ts'))).toBe(
+      true,
+    )
+    expect(blended.results.some((result) => result.path.endsWith('.md'))).toBe(
+      false,
+    )
+  })
+
   test('queryBlended returns pure lexical results when semantic is off', async () => {
     const root = makeProject()
     const mgr = IndexManager.getInstance(

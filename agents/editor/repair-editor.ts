@@ -17,6 +17,7 @@ Repair specialization:
 - Every edit must map to at least one supplied finding/diagnostic.
 - Edit only implicated files and the narrowest directly required tests.
 - Do not perform unrelated cleanup, refactors, documentation, or feature work.
+- Reviewer snapshot/file-attestation mismatches are protocol failures, not source findings; do not edit files for them. Report the finding as unresolved so the parent can retry or explicitly bypass the reviewer gate.
 - Return which finding IDs were addressed and which remain unresolved.`,
 }
 

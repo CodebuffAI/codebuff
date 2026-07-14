@@ -145,6 +145,19 @@ export type Base2ActiveWorkState = Base2GateState & {
   securityReviewGateDone?: boolean
   /** Number of consecutive final-reviewer crashes for the pending file set. */
   reviewerCrashCount?: number
+  /** Number of automatic reviewer retries caused by protocol/attestation errors. */
+  reviewerProtocolRetryCount?: number
+  /** Number of reviewer-finding repair rounds for the current snapshot family. */
+  reviewerRepairRoundCount?: number
+  /** Number of consecutive schema-valid agent runs that produced no verdict. */
+  reviewerNoVerdictCount?: number
+  /** One-use, snapshot-bound reviewer bypass challenge. */
+  reviewerBypassChallenge?: {
+    id: string
+    fingerprint: string
+    issuedAfterMessageIndex: number
+    consumed: boolean
+  }
   /** Durable reason when the user explicitly authorizes a reviewer bypass. */
   reviewerGateBypassReason?: string
   /** Durable audit record for an explicitly authorized gate bypass. */

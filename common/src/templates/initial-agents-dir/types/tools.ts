@@ -153,15 +153,17 @@ export interface ApplyPatchParams {
         type: 'update_file'
         path: string
         diff: string
-        /** Required for large-file update patches. Provide one capability per touched hunk, copied from fresh read_files.ranges headers so the runtime can reject stale or out-of-range patch hunks before editing. */
-        basedOnRead?: {
-          /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-          startLine: number
-          /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-          endLine: number
-          /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-          hash: string
-        }[]
+        /** Required for large-file update patches. Prefer one authenticated cap.v3 token per touched hunk, copied from fresh read_files.ranges headers. Legacy range objects remain freshness checks but cannot authorize an otherwise unread path in strict mode. */
+        basedOnRead?:
+          | string
+          | {
+              /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
+              startLine: number
+              /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
+              endLine: number
+              /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
+              hash: string
+            }[]
       }
     | {
         type: 'delete_file'
@@ -243,6 +245,8 @@ export interface AskUserParams {
 export interface CheckBackgroundAgentParams {
   /** The jobId returned by spawn_agents({ background: true }) for the background agent turn. */
   jobId: string
+  /** Optional sequence cursor from a prior response. Polling is idempotent for an explicit cursor; nextCursor can be supplied on the next call. */
+  cursor?: number
   /** Optional substring to wait for in the new streamed chunks before returning (follow mode). Returns early as soon as it appears in any chunk payload. Useful for waiting until a background agent emits a specific milestone (e.g. a tool_result or a text marker). */
   wait_for?: string
   /** Max seconds to wait for new chunks / the wait_for pattern. 0 (default) returns immediately with whatever new chunks exist (poll mode); >0 blocks up to this long (follow mode). */
@@ -307,7 +311,7 @@ export interface EditTransactionParams {
           allowMultiple?: boolean
           /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
           occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+          /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
           basedOnRead?:
             | string
             | {
@@ -610,7 +614,7 @@ export interface LookupAgentInfoParams {
 }
 
 /**
- * Propose related edits across one or more files as an atomic transaction without applying them, returning preview diffs for review.
+ * Propose related edits across one or more files as one preflighted bundle without applying them, returning preview diffs for review.
  */
 export interface ProposeEditTransactionParams {
   /** All edits that must preflight together. If any edit fails during preflight, no preview diffs are produced. */
@@ -632,7 +636,7 @@ export interface ProposeEditTransactionParams {
           allowMultiple?: boolean
           /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
           occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+          /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
           basedOnRead?:
             | string
             | {
@@ -767,7 +771,7 @@ export interface ProposeStrReplaceParams {
     allowMultiple?: boolean
     /** Target the exact 1-indexed occurrence. */
     occurrenceIndex?: number
-    /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+    /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
     basedOnRead?:
       | string
       | {
@@ -1003,13 +1007,57 @@ export interface RunTerminalCommandParams {
   cwd?: string
   /** Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30 */
   timeout_seconds?: number
+  /** Runtime-managed background job owner; agents must omit. */
+  owner?: {
+    clientSessionId: string
+    rootRunId: string
+    parentRunId: string
+    parentAgentId: string
+  }
 }
 
 /**
- * Set the conversation history to the provided messages.
+ * Atomically replace conversation history and, when supplied, commit a validated structured task-memory revision.
  */
 export interface SetMessagesParams {
   messages: any
+  taskMemory?: {
+    schemaVersion: 1
+    goal?: string
+    requirements?: string[]
+    decisions?: string[]
+    filesInspected?: string[]
+    editsMade?: string[]
+    validationResults?: string[]
+    reviewReceipts?: string[]
+    blockers?: string[]
+    nextActions?: string[]
+    historicalSummary?: string
+    evidence?: {
+      id: string
+      kind:
+        | 'requirement'
+        | 'decision'
+        | 'read'
+        | 'edit'
+        | 'validation'
+        | 'review'
+        | 'blocker'
+        | 'handoff'
+        | 'note'
+      summary: string
+      source?: string
+      path?: string
+      freshnessHash?: string
+      workspaceRevision?: number
+      verifiedAt?: number
+      supersedes?: string[]
+      stale?: boolean
+    }[]
+    workspaceRevision?: number
+    workspaceSnapshotId?: string
+  }
+  expectedTaskMemoryRevision?: number
 }
 
 /**
@@ -1040,46 +1088,75 @@ export interface SpawnAgentsParams {
     /** If true, launch the agent detached from this turn. spawn_agents returns immediately with a jobId; the agent runs as an in-process coroutine. Poll its progress with check_background_agent. Use for long-running, non-blocking work (e.g. indexing, eval runs, multi-step research) where you do not need the result before ending your turn. The background agent shares the same process so it cannot outlive this CLI session. Defaults to false (blocking). */
     background?: boolean
     /** Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before. */
-    handoff?: {
-      schemaVersion?: 1
-      taskId?: string
-      role?: string
-      objective?: string
-      requirements?: {
-        id: string
-        text: string
-        required: boolean
-      }[]
-      acceptanceCriteria?: {
-        id: string
-        behavior: string
-        verification: string
-      }[]
-      findings?: {
-        id: string
-        text: string
-        files: string[]
-        snapshotFingerprint: string
-      }[]
-      permissions?: {
-        readablePaths: string[]
-        writablePaths: string[]
-        allowedTools: string[]
-      }
-      /** Short, plain-language summary of what the parent has already done and what it expects the child to do next. */
-      summary?: string
-      /** Paths to durable artifacts the child should treat as authoritative (e.g. .agents/sessions/<slug>/PLAN.md). */
-      artifacts?: string[]
-      /** Bulleted acceptance criteria for the spawned child agent. */
-      successCriteria?: string[]
-      /** Explicit non-goals that the child must not attempt. */
-      nonGoals?: string[]
-      /** Hard constraints (e.g. allowed paths, safety/scope rails). Children should reject work that violates these. */
-      constraints?: string[]
-      /** Optional handoff context. Prefer a JSON object for structured fields; a plain string is also accepted and normalized internally to { text: string }. */
-      context?: Record<string, any> | string
-    }
-    /** Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template's defaultTimeoutMs, or 20 minutes if unset. */
+    handoff?:
+      | {
+          schemaVersion: 1
+          taskId: string
+          role:
+            | 'orchestrator'
+            | 'explorer'
+            | 'thinker'
+            | 'editor'
+            | 'repair-editor'
+            | 'test-writer'
+            | 'doc-writer'
+            | 'dependency-manager'
+            | 'debugger'
+            | 'validator'
+            | 'reviewer'
+            | 'security-reviewer'
+            | 'committer'
+            | 'synthesizer'
+            | 'specialist'
+            | 'general'
+          objective: string
+          requirements: {
+            id: string
+            text: string
+            required: boolean
+          }[]
+          acceptanceCriteria: {
+            id: string
+            behavior: string
+            verification: string
+          }[]
+          context:
+            | {
+                path: string
+                symbols: string[]
+                reason: string
+                confidence: 'confirmed' | 'inferred' | 'unknown'
+                freshnessHash?: string
+                workspaceRevision?: number
+              }[]
+            | Record<string, any>
+            | string
+          currentBehavior?: string
+          desiredBehavior?: string
+          invariants?: string[]
+          nonGoals: string[]
+          risks?: string[]
+          unknowns?: string[]
+          findings: {
+            id: string
+            text: string
+            files: string[]
+            snapshotFingerprint: string
+          }[]
+          permissions: {
+            readablePaths: string[]
+            writablePaths: string[]
+            allowedTools: string[]
+          }
+          workspaceRevision?: number
+          workspaceSnapshotId?: string
+          summary?: string
+          artifacts?: string[]
+          successCriteria?: string[]
+          constraints?: string[]
+        }
+      | Record<string, any>
+    /** Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely for a deliberately long-running agent. Defaults to the agent template's defaultTimeoutMs, or 30 minutes if unset. */
     timeout_seconds?: number
     /** Parameters object for the agent */
     params?: {
@@ -1137,7 +1214,7 @@ export interface StrReplaceParams {
     allowMultiple?: boolean
     /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. Prefer combining it with a fresh basedOnRead range so occurrences are counted only inside a proven target window, never across unrelated file content. */
     occurrenceIndex?: number
-    /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+    /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
     basedOnRead?:
       | string
       | {
@@ -1226,12 +1303,13 @@ export interface UpdatePlanStatusParams {
   currentTask?: string
   /** Optional STATE.json compare-and-swap revision. The update fails without writing when the current revision differs. */
   expectedRevision?: number
-  /** Validation or review evidence associated with a stable task ID. */
+  /** Validation or review evidence associated with a stable task ID. Completing a PLAN task requires a passed validation checkpoint with receiptIds. */
   checkpoint?: {
     taskId: string
     phase: 'validation' | 'review'
     passed: boolean
     summary?: string
+    receiptIds?: string[]
   }
 }
 

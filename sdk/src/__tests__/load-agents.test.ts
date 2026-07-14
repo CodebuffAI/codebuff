@@ -52,7 +52,7 @@ describe('loadLocalAgents', () => {
   })
 
   describe('without validation (backward compatible)', () => {
-    test('preserves project-agent discovery by default and supports an explicit safe mode', async () => {
+    test('requires explicit trust before importing executable project agents', async () => {
       mkdirSync(agentsDir, { recursive: true })
       writeAgentFile(
         agentsDir,
@@ -62,11 +62,11 @@ describe('loadLocalAgents', () => {
       const originalCwd = process.cwd()
       process.chdir(tempDir)
       try {
-        const backwardCompatibleDefault = await loadLocalAgents({})
-        expect(backwardCompatibleDefault['project-agent']).toBeDefined()
+        const safeDefault = await loadLocalAgents({})
+        expect(safeDefault['project-agent']).toBeUndefined()
 
-        const safeMode = await loadLocalAgents({ includeProjectAgents: false })
-        expect(safeMode['project-agent']).toBeUndefined()
+        const trusted = await loadLocalAgents({ includeProjectAgents: true })
+        expect(trusted['project-agent']).toBeDefined()
       } finally {
         process.chdir(originalCwd)
       }

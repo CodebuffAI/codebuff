@@ -49,9 +49,9 @@ export function evaluateCodingStrategy(
   )
   if (
     sameHypothesis.length >= 2 &&
-    sameHypothesis.slice(-2).every((attempt) =>
-      ['unchanged', 'regressed'].includes(attempt.outcome),
-    )
+    sameHypothesis
+      .slice(-2)
+      .every((attempt) => ['unchanged', 'regressed'].includes(attempt.outcome))
   ) {
     return {
       action: 'switch_strategy',
@@ -67,7 +67,10 @@ export function evaluateCodingStrategy(
       reason: `Diagnostics survived repeated edits: ${survivingDiagnostics.join('; ')}`,
     }
   }
-  return { action: 'continue', reason: 'The latest attempt improved or changed evidence.' }
+  return {
+    action: 'continue',
+    reason: 'The latest attempt improved or changed evidence.',
+  }
 }
 
 export type RetrievalEffectiveness = {
@@ -98,7 +101,8 @@ export function measureRetrievalEffectiveness(params: {
     lateDiscoveryRate:
       decisive.size === 0
         ? 0
-        : [...decisive].filter((file) => !early.has(file)).length / decisive.size,
+        : [...decisive].filter((file) => !early.has(file)).length /
+          decisive.size,
   }
 }
 
@@ -106,7 +110,8 @@ export function validateContextPacket(packet: CodingContextPacket): string[] {
   const errors: string[] = []
   if (!packet.request.trim()) errors.push('Request is empty.')
   for (const item of packet.items) {
-    if (!item.reason.trim()) errors.push(`${item.path}: missing relevance reason.`)
+    if (!item.reason.trim())
+      errors.push(`${item.path}: missing relevance reason.`)
     if (item.relevance < 0 || item.relevance > 1) {
       errors.push(`${item.path}: relevance must be between 0 and 1.`)
     }

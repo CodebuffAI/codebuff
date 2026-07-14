@@ -1,0 +1,50 @@
+# Workspace coherence and freshness audit
+
+## Scope
+
+Traced confirmed filesystem mutations and external mutation paths through SDK mutation receipts and observers, runtime read-before-edit authorization, rollback/cancellation, CLI index invalidation, `IndexManager` stale/refresh behavior, metadata persistence, and `query_index` status/results. The review focused on whether all consumers can prove they refer to one workspace state, whether mutation deltas propagate precisely, and how failure or multi-process races affect freshness.
+
+## [HIGH] state mutation — sdk/src/run.ts:232 — There is no shared workspace revision or change journal across reads, writes, validation, and indexing
+
+- **Risk:** Read authorizations, mutation receipts, validation/reviewer snapshots, and index snapshots each use independent hashes/timestamps without a common monotonic workspace revision. A consumer therefore cannot prove that its evidence belongs to the same workspace state as another consumer, and mutations outside the canonical file tools can advance the real workspace without advancing any shared coherence token.
+- **Fix:** Add a project-scoped workspace journal with a monotonic revision and per-change path/hash deltas. Bind read capabilities, mutation receipts, index snapshots/query results, validation snapshots, and reviewer receipts to that revision; consumers should either advance incrementally from a known revision or fail/label stale when revisions differ. Persist/reconcile the journal across processes rather than keeping it only in one run object.
+- **Evidence:** `FilesystemMutationEvent` carries operation/action hashes but no workspace revision (`sdk/src/run.ts:232-244`). `MetadataIndex` carries only `builtAt`, files, and graph (`packages/indexer/src/types.ts:53-62`), while `query_index` returns age/status but no workspace/index revision (`common/src/tools/params/tool/query-index.ts:169-236`). Validation/review independently compute a Git-derived `snapshotId` (`sdk/src/tools/get-change-review-bundle.ts:14-45`) rather than consuming a revision shared with runtime reads or the index.
+
+## [HIGH] correctness — sdk/src/run.ts:1452 — Confirmed mutation notifications can be silently dropped
+
+- **Risk:** The workspace can change successfully while caches remain marked fresh: notifications are skipped whenever the run signal is aborted, and a failure in `onFilesystemMutation` prevents the fallback `onFilesChanged` callback from running because both callbacks share one swallowed `try` block.
+- **Fix:** Deliver confirmed post-commit mutation events regardless of later run cancellation, invoke detailed and coarse observers independently, and durably enqueue failed notifications for retry. Observer failures should remain non-fatal to the mutation result but must be observable through structured diagnostics/telemetry.
+- **Evidence:** Observer dispatch is guarded by `!signal?.aborted` (`sdk/src/run.ts:1452`), even though `confirmedActions` already proves a mutation occurred. `onFilesystemMutation` and `onFilesChanged` execute sequentially inside one `try`, followed by an empty `catch` (`sdk/src/run.ts:1453-1475`), so a detailed-observer exception skips coarse invalidation. Focused tests cover rejection of fabricated/unattested mutations but do not cover post-commit abort or observer-failure delivery (`sdk/src/__tests__/run-handle-event.test.ts:349-420`).
+
+## [HIGH] correctness — packages/agent-runtime/src/tools/stream-parser.ts:288 — Shell, custom, and MCP mutations do not invalidate read authorization or the index
+
+- **Risk:** A terminal command, formatter, custom tool, MCP tool, or other external process can change files while the runtime retains prior whole-file read authorizations and the CLI index remains `ready`. The next step may rely on obsolete retrieval and only discovers the mismatch if a later canonical edit happens to reread/hash that exact path.
+- **Fix:** Snapshot or journal the workspace revision around every tool classified as potentially mutating. Require custom/MCP mutation receipts when possible; otherwise conservatively advance the workspace revision and revoke affected or all read authorizations. Feed the detected path delta to index invalidation. Add filesystem watching as the backstop for changes made by unrelated processes.
+- **Evidence:** The runtime explicitly treats custom/MCP tools as writes because their side effects are unknown (`packages/agent-runtime/src/tools/stream-parser.ts:288-305`), but it later persists the existing authorization maps unchanged after tools settle (`packages/agent-runtime/src/tools/stream-parser.ts:587-606`). SDK observers run only when a tool result contains a confirmed `file_mutation_result` (`sdk/src/run.ts:1442-1452`); ordinary `run_terminal_command` output and arbitrary custom/MCP results do not satisfy that contract.
+
+## [HIGH] correctness — packages/indexer/src/index-manager.ts:142 — External changes can leave an age-stale index serving indefinitely
+
+- **Risk:** Changes from editors, Git operations, formatters, another Openbuff process, or missed observer events can leave `query_index` serving deleted paths, old symbols, and obsolete graph edges indefinitely. The status can say the snapshot is stale and “refreshing” even though no refresh was scheduled.
+- **Fix:** Trigger refresh whenever `isIndexStale(this.index)` is true, and add a debounced filesystem watcher/change journal so age is only a safety sweep. Keep serving the last-known-good snapshot during refresh, but report whether a refresh is actually scheduled and expose the snapshot revision it represents.
+- **Evidence:** `waitUntilReady()` returns immediately for any ready index unless `forceRefresh`/`staleRefreshPending` is already set (`packages/indexer/src/index-manager.ts:142-151`), and `query()` schedules refresh only for those explicit flags (`:191-204`). `getStatus()` separately marks the index stale by `isIndexStale(this.index)` (`:357-400`), so age detection does not itself initiate `_build()`.
+
+## [HIGH] performance — cli/src/utils/create-run-config.ts:158 — The CLI discards precise mutation deltas and forces repository-wide rediscovery
+
+- **Risk:** Every confirmed Openbuff edit becomes a path-less `markStale()`, so the next query walks the repository and hashes all eligible files to rediscover changes the SDK already reported. This adds avoidable latency after edits and prevents ordered, per-path index updates or deletion/move handling tied to a receipt.
+- **Fix:** Wire `onFilesystemMutation` in the CLI and pass its ordered action/path/beforeHash/afterHash delta to an `IndexManager.applyMutationDelta(revision, actions)` API. Update/remove only affected metadata and graph records, then use a background integrity sweep to reconcile missed external changes.
+- **Evidence:** The SDK exposes exact confirmed actions through `onFilesystemMutation` (`sdk/src/run.ts:1454-1469`), but the CLI config only supplies path-less `onFilesChanged`, which calls `markStale()` (`cli/src/utils/create-run-config.ts:156-165`). `markStale()` stores only a boolean (`packages/indexer/src/index-manager.ts:128-136`), and `updateMetadataIndex()` then walks the project and hashes every discovered file before finding the changed set (`packages/indexer/src/metadata-indexer.ts:170-217`).
+
+## [HIGH] state mutation — packages/indexer/src/index-store.ts:71 — Index persistence is not multi-process atomic or serialized
+
+- **Risk:** Two CLI processes indexing the same project can overwrite each other's metadata snapshots, and readers can observe a partially written `metadata.json`. Semantic vector writes use temp-and-rename but still perform an unlocked read-modify-write, so concurrent model fingerprints can be lost.
+- **Fix:** Persist both metadata and vectors through temp-file + fsync + atomic rename under a project-scoped inter-process lock/lease. Include the workspace revision and parent index revision in the persisted record, reject stale writers with compare-and-swap semantics, and merge semantic fingerprint updates under the same lock.
+- **Evidence:** `saveIndex()` writes `metadata.json` directly with `writeFile` and has no lock or revision check (`packages/indexer/src/index-store.ts:71-89`). Semantic vectors use atomic rename, but first read the current cache, mutate it in memory, and replace the file without inter-process serialization (`:135-174`), allowing last-writer-wins loss. Existing store tests cover directory ownership, schema migration, and corrupt-cache misses, not concurrent writers (`packages/indexer/src/index-store.test.ts:15-120`).
+
+## Domains with no additional high-confidence finding
+
+- **Security:** Filesystem mutation paths use canonical containment and policy checks; no additional traversal/authentication issue was identified in this coherence pass. The main security-adjacent risk is integrity loss from races, captured above.
+- **Error handling:** Mutation results and rollback outcomes are structured and the runtime generally invalidates failed prepared edits. The material observer-error swallowing is reported separately above.
+- **Dependency hygiene:** No undeclared or boundary-violating dependency was identified in the reviewed coherence path.
+- **API/ABI contracts:** Existing result schemas preserve backward-compatible optional status fields, but the missing shared revision is the material contract gap and is reported above rather than duplicated.
+- **Test coverage gaps:** Tests cover explicit `markStale()`, labeled stale serving, refresh after a known edit, rollback outcomes, and proposal/read authorization behavior. Missing post-commit abort, observer-failure, terminal/custom mutation, external watcher, revision mismatch, and multi-process cache-writer cases are attached to the findings above.
+- **Rollback/cancellation behavior:** Canonical `rollback_incomplete` actions are represented as still applied and can generate mutation deltas. The remaining coherence failure is notification suppression after cancellation, covered above.

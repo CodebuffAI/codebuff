@@ -34,7 +34,43 @@ const definition: SecretAgentDefinition = {
       required: [],
     },
   },
-  outputMode: 'last_message',
+  outputMode: 'structured_output',
+  outputSchema: {
+    type: 'object',
+    properties: {
+      schemaVersion: { type: 'number' },
+      status: {
+        type: 'string',
+        enum: ['completed', 'partial', 'blocked'],
+      },
+      completionKind: {
+        type: 'string',
+        enum: ['changed', 'noop'],
+      },
+      changedFiles: { type: 'array', items: { type: 'string' } },
+      evidence: { type: 'array', items: { type: 'string' } },
+      requirementsAddressed: { type: 'array', items: { type: 'string' } },
+      acceptanceCriteriaAddressed: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      unresolved: { type: 'array', items: { type: 'string' } },
+      requestedValidation: { type: 'array', items: { type: 'string' } },
+      summary: { type: 'string' },
+    },
+    required: [
+      'schemaVersion',
+      'status',
+      'completionKind',
+      'changedFiles',
+      'evidence',
+      'requirementsAddressed',
+      'acceptanceCriteriaAddressed',
+      'unresolved',
+      'requestedValidation',
+      'summary',
+    ],
+  },
   includeMessageHistory: false,
   filesystemScope: {
     read: [
@@ -61,6 +97,7 @@ const definition: SecretAgentDefinition = {
     'read_subtree',
     'str_replace',
     'write_file',
+    'set_output',
   ],
   spawnableAgents: [],
 
@@ -72,7 +109,7 @@ const definition: SecretAgentDefinition = {
 3. Match the existing doc style: heading depth, code-fence language tags, tone, and section ordering. Look at an adjacent doc file as a style reference.
 4. Document the public contract: what it does, the inputs/outputs, usage examples, and gotchas. Skip internal implementation details unless the prompt asks for them.
 5. For code comments, document why, not what.
-6. Return a concise summary: which doc files were created/updated and the key sections added.
+6. Finish with set_output using the declared schema. Use completionKind=changed when documentation was modified. Use completionKind=noop only when the existing docs already accurately cover every requested contract; then changedFiles must be empty and evidence must name the exact sections/files verified. Use status=completed only when every requested documentation deliverable is satisfied. List exact changedFiles, requirement/acceptance IDs addressed, unresolved items, and any parent-owned validation requests.
 Do not modify source code. Do not add marketing language. Keep examples minimal and runnable.`.trim(),
 
   handleSteps: function* ({ params }) {

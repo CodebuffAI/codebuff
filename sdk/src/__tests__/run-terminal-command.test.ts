@@ -67,7 +67,7 @@ describe('runTerminalCommand cwd containment', () => {
 
   it('terminates a background job that exceeds the bounded log quota', async () => {
     const result = await runTerminalCommand({
-      command: "yes x | head -c 12000000; sleep 30",
+      command: 'yes x | head -c 12000000; sleep 30',
       process_type: 'BACKGROUND',
       cwd: process.cwd(),
       projectRoot: process.cwd(),

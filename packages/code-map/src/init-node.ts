@@ -6,7 +6,6 @@ import { Parser } from 'web-tree-sitter'
 const TREE_SITTER_WASM_ENV_VAR = 'CODEBUFF_TREE_SITTER_WASM_PATH'
 const WASM_BINARY_GLOBAL_KEY = '__CODEBUFF_TREE_SITTER_WASM_BINARY__'
 
-
 /**
  * Override the path to `tree-sitter.wasm` used during {@link initTreeSitterForNode}.
  *
@@ -62,7 +61,6 @@ function resolveTreeSitterWasm(scriptDir: string): string {
     if (fs.existsSync(sibling)) {
       return sibling
     }
-
   } catch {
     // process.execPath may be unavailable in exotic runtimes; fall through.
   }

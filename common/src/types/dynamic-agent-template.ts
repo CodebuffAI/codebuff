@@ -182,7 +182,8 @@ export const DynamicAgentDefinitionSchema = z.object({
   maxTokensPerTurn: z.number().int().positive().optional(),
 
   // Optional wall-clock timeout (ms) for a single subagent execution. -1
-  // disables the timeout. Undefined falls back to DEFAULT_SUBAGENT_TIMEOUT_MS.
+  // disables the timeout. Undefined falls back to the shared
+  // DEFAULT_SUBAGENT_TIMEOUT_MS, which is -1 (disabled) by default.
   defaultTimeoutMs: z.number().optional(),
   maxSpawnDepth: z.number().int().min(0).optional(),
 
@@ -201,6 +202,7 @@ export const DynamicAgentDefinitionSchema = z.object({
       'librarian-read-only',
       'git-commit',
       'dependency-mutation',
+      'validation-diagnosis',
       'tmux-test',
       'workspace-write',
       'full-access',
@@ -221,6 +223,8 @@ export const DynamicAgentDefinitionSchema = z.object({
   // Input and output
   inputSchema: InputSchemaObjectSchema,
   includeMessageHistory: z.boolean().default(false),
+  messageHistoryMode: z.enum(['none', 'pinned', 'full']).optional(),
+  propagateMessageHistoryChanges: z.boolean().optional(),
   includeReasoningInMessageHistory: z.boolean().default(false),
   inheritParentSystemPrompt: z.boolean().default(false),
   outputMode: z

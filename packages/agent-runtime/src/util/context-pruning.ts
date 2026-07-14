@@ -52,6 +52,8 @@ export const SEMANTIC_COMPACTION_MIN_HEADROOM_TOKENS = 32_000
 export const SEMANTIC_COMPACTION_MAX_HEADROOM_TOKENS = 160_000
 export const SEMANTIC_COMPACTION_MIN_TARGET_TOKENS = 72_000
 export const SEMANTIC_COMPACTION_MAX_TARGET_TOKENS = 420_000
+export const SEMANTIC_COMPACTION_SMALL_WINDOW_THRESHOLD_TOKENS = 128_000
+export const SEMANTIC_COMPACTION_SMALL_WINDOW_MIN_HEADROOM_TOKENS = 2_000
 export const DEFAULT_SEMANTIC_COMPACTION_TRIGGER_TOKENS = 140_000
 export const DEFAULT_SEMANTIC_COMPACTION_TARGET_TOKENS = 100_000
 
@@ -60,6 +62,40 @@ export type SemanticCompactionBudget = {
   triggerBudgetTokens: number
   targetBudgetTokens: number
   headroomTokens?: number
+}
+
+export type EffectiveContextLimits = {
+  providerSafeMessageLimit?: number
+  statusWindowTokens: number
+}
+
+/**
+ * Resolve the live per-model limits used by runtime trimming and telemetry.
+ * Call this whenever the active routed model changes; do not cache the result
+ * for the whole run because provider failover may select a different window.
+ */
+export function getEffectiveContextLimits(
+  contextWindowTokens: number | undefined,
+  maxContextLength?: number,
+): EffectiveContextLimits {
+  const modelMessageLimit =
+    contextWindowTokens === undefined
+      ? undefined
+      : getModelContextMessageLimit(contextWindowTokens)
+  const providerSafeMessageLimit =
+    maxContextLength === undefined
+      ? modelMessageLimit
+      : modelMessageLimit === undefined
+        ? maxContextLength
+        : Math.min(maxContextLength, modelMessageLimit)
+  const statusWindowTokens =
+    maxContextLength === undefined
+      ? (contextWindowTokens ?? DEFAULT_MAX_CONTEXT_TOKENS)
+      : contextWindowTokens === undefined
+        ? maxContextLength
+        : Math.min(maxContextLength, contextWindowTokens)
+
+  return { providerSafeMessageLimit, statusWindowTokens }
 }
 
 function isUsableContextWindow(value: number | undefined): value is number {
@@ -77,6 +113,51 @@ export function getSemanticCompactionBudget(
     return {
       triggerBudgetTokens: DEFAULT_SEMANTIC_COMPACTION_TRIGGER_TOKENS,
       targetBudgetTokens: DEFAULT_SEMANTIC_COMPACTION_TARGET_TOKENS,
+    }
+  }
+
+  // Fixed 32k/72k minima are useful for large context windows but collapse the
+  // old formula for small BYOK models: a 32k window produced a one-token
+  // trigger and target because the minimum headroom equalled the whole window.
+  // Below 128k, scale against the provider-safe message limit instead so 8k,
+  // 16k, 32k, and 64k models retain a meaningful working set.
+  if (contextWindowTokens < SEMANTIC_COMPACTION_SMALL_WINDOW_THRESHOLD_TOKENS) {
+    const providerSafeMessageLimit =
+      getModelContextMessageLimit(contextWindowTokens)
+    const headroomTokens = Math.max(
+      1,
+      Math.min(
+        SEMANTIC_COMPACTION_MIN_HEADROOM_TOKENS,
+        Math.max(
+          SEMANTIC_COMPACTION_SMALL_WINDOW_MIN_HEADROOM_TOKENS,
+          Math.floor(providerSafeMessageLimit * 0.25),
+        ),
+      ),
+    )
+    const triggerBudgetTokens = Math.max(
+      1,
+      Math.min(
+        Math.floor(
+          providerSafeMessageLimit * SEMANTIC_COMPACTION_TRIGGER_FRACTION,
+        ),
+        providerSafeMessageLimit - headroomTokens,
+      ),
+    )
+    const scaledTargetTokens = Math.max(
+      1,
+      Math.floor(
+        providerSafeMessageLimit * SEMANTIC_COMPACTION_TARGET_FRACTION,
+      ),
+    )
+
+    return {
+      resolvedContextWindowTokens: contextWindowTokens,
+      triggerBudgetTokens,
+      targetBudgetTokens: Math.max(
+        1,
+        Math.min(scaledTargetTokens, triggerBudgetTokens - 1),
+      ),
+      headroomTokens,
     }
   }
 

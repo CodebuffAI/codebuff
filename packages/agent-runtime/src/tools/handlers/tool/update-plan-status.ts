@@ -17,6 +17,7 @@ import {
   type PlanTaskStatus,
 } from '@codebuff/common/util/plan-artifacts'
 import { jsonToolResult } from '@codebuff/common/util/messages'
+import { validatePlanTransition } from '../../../util/plan-execution-state'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -253,6 +254,28 @@ export const handleUpdatePlanStatus = (async (params: {
   }
 
   const nextContent = lines.join('\n') + (trailingNewline ? '\n' : '')
+  if (isPlanArtifact) {
+    const transition = validatePlanTransition({
+      originalContent: original,
+      nextContent,
+      updates: updateList,
+      unmatchedTasks,
+      currentTask:
+        currentTaskApplied === undefined
+          ? readCurrentTaskAnnotation(original)
+          : currentTaskApplied,
+      existingState,
+      checkpoint,
+    })
+    if (!transition.ok) {
+      return {
+        output: jsonToolResult({
+          file: artifactPath,
+          errorMessage: `update_plan_status: ${transition.errors.join(' ')}`,
+        }),
+      }
+    }
+  }
 
   // P0.20 — persist session state (status / currentTask) whenever any
   // session-level control was supplied or we discovered an in-progress

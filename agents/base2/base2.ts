@@ -77,20 +77,20 @@ export function createBase2(
       'read_outline',
       'read_proposal_workspace',
       'read_proposals',
-      !isFast && 'write_todos',
+      !isFast && !planOnly && 'write_todos',
       'create_plan',
       'update_plan_status',
-      'str_replace',
-      'apply_patch',
-      'rewrite_symbol',
-      'edit_transaction',
-      'write_file',
-      'propose_str_replace',
-      'propose_write_file',
-      'propose_edit_transaction',
-      'accept_proposal',
-      'reject_proposal',
-      'apply_proposal',
+      isFast && !planOnly && 'str_replace',
+      isFast && !planOnly && 'apply_patch',
+      isFast && !planOnly && 'rewrite_symbol',
+      isFast && !planOnly && 'edit_transaction',
+      isFast && !planOnly && 'write_file',
+      !planOnly && 'propose_str_replace',
+      !planOnly && 'propose_write_file',
+      !planOnly && 'propose_edit_transaction',
+      !planOnly && 'accept_proposal',
+      !planOnly && 'reject_proposal',
+      !planOnly && 'apply_proposal',
       'suggest_followups',
       !noAskUser && 'ask_user',
       'skill',
@@ -105,7 +105,7 @@ export function createBase2(
       'inspect_environment',
       'get_affected_tests',
       'get_build_targets',
-      'run_targeted_validation',
+      !planOnly && 'run_targeted_validation',
       'inspect_feature_completeness',
       'evaluate_audit_coverage',
     ),
@@ -127,20 +127,19 @@ export function createBase2(
       'code-searcher',
       'researcher-web',
       'researcher-docs',
-      'basher',
-      'dependency-manager',
+      !planOnly && 'basher',
+      !planOnly && 'dependency-manager',
       isDefault && 'thinker',
-      isDefault && 'general-agent',
-      isDefault && 'editor',
-      isDefault && 'repair-editor',
-      'tmux-cli',
-      'browser-use',
+      isDefault && !planOnly && 'editor',
+      isDefault && !planOnly && 'repair-editor',
+      !planOnly && 'tmux-cli',
+      !planOnly && 'browser-use',
       'code-reviewer',
       'security-reviewer',
-      'git-committer',
-      'debugger',
-      'doc-writer',
-      'test-writer',
+      !planOnly && 'git-committer',
+      !planOnly && 'debugger',
+      !planOnly && 'doc-writer',
+      !planOnly && 'test-writer',
       'librarian',
       'synthesizer',
       'architect',
@@ -154,7 +153,7 @@ export function createBase2(
       'compatibility-reviewer',
       'dependency-reviewer',
       'incident-coordinator',
-      'release-manager',
+      !planOnly && 'release-manager',
       'docs-architect',
       'evaluator',
     ),
@@ -227,12 +226,12 @@ When tools, tests, or reviewers report a failure, treat that feedback as the cur
 Use the spawn_agents tool to spawn specialized agents to help you complete the user's request.
 
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response. Keep simple tasks simple; do not spawn agents when a direct answer or tiny edit is enough.
-- **Task-scope classification:** Before editing, classify the task as tiny, focused, multi-file, cross-subsystem, or unknown surface. Tiny tasks require only the directly relevant read; focused tasks require reading the target file plus nearby tests/callers; multi-file tasks require search plus representative reads; cross-subsystem or unknown-surface tasks require query_index/list_directory/glob plus parallel file-picker/code-searcher shards before editing.
+- **Task-scope classification:** Before editing, classify the task as tiny, focused, multi-file, cross-subsystem, or unknown surface. Tiny tasks require only the directly relevant read; focused tasks require reading the target file plus nearby tests/callers; multi-file tasks require search plus representative reads; cross-subsystem or unknown-surface tasks start with the runtime-injected query_index result, then use one bounded parallel discovery batch only for uncovered domains.
 - **Evidence context packet:** For non-trivial edits, organize discovery into a compact task packet: request and acceptance criteria; relevant symbols with a reason, confidence, and freshness proof; callers/callees; nearby tests and public contracts; current diagnostics; prior failed hypotheses; and explicitly excluded irrelevant context. Label inference and unknowns explicitly.
 - **Hypothesis checkpoint:** Before editing, state current behavior, desired behavior, source-backed hypothesis, intended observable change, and the falsifying signal. If the same hypothesis fails twice or the same diagnostic survives two targeted edits, switch to root-cause analysis.
 - **Vertical slices and diff budget:** Prefer the smallest coherent type/schema -> implementation -> direct test -> caller slice. Avoid speculative file breadth; expand only when evidence requires it. Detect generated files and edit their source-of-truth instead.
 - **Phase-triggered delegation:** Spawn agents deterministically at phase boundaries, not randomly: context agents during discovery, thinker after context for complex design choices, editor for non-trivial implementation, bashers for validation, debugger after repeated validation/runtime failures, reviewers after edits, and doc/test writers when docs or tests are part of the acceptance criteria.
-- **Context breadth:** For unclear or cross-cutting tasks, gather broad context first: query_index early, spawn multiple file-picker/code-searcher agents from different angles, add web/docs researchers for external APIs, then verify candidates with read_files/read_outline/read_subtree before editing. For tiny obvious edits, read only the directly relevant files.
+- **Context breadth:** For unclear or cross-cutting tasks, consume the runtime-injected query_index result first, deduplicate its relatedFiles/matchedSnippets, then spawn at most one bounded batch of non-overlapping file-picker/code-searcher shards for explicit coverage gaps. Add web/docs researchers only for external APIs, then verify candidates with read_files/read_outline/read_subtree before editing. For tiny obvious edits, read only the directly relevant files.
 - **Ask-user decisions:** Ask only after context gathering, and only when the answer materially changes scope, UX, risk, data loss, migration, deployment, or API/contract behavior. Require confirmation before destructive commands, public API/contract changes, dependency additions, schema/data migrations, release/publish/deploy actions, production-affecting scripts, and ambiguous product behavior. Do not ask obvious questions; if you are >80% confident or the decision is easily reversible, choose the most conservative implementation and proceed.
 - **Editor delegation:** In default mode, use the editor for non-trivial source edits after discovery. Do not delegate tiny one-file edits or direct answers. The editor prompt must be implementation-only and self-contained; parent-only validation, review, git, terminal cleanup, and plan/todo work stays with you.
 - **Direct-edit exception:** Treat orchestrator source editing as a narrow exception. It is eligible only for one file, at most roughly 12 changed lines, no behavior/public-contract change, no required tests, no security/concurrency risk, and no open reviewer findings. Otherwise delegate implementation to editor. Validation/reviewer repairs must use repair-editor with exact diagnostics or finding IDs.
@@ -405,6 +404,12 @@ ${specialistRoutingSection}
       type Base2AgentState = NonNullable<typeof agentState> & {
         base2ActiveWork?: Base2ActiveWorkState
         canSuggestFollowups?: boolean
+        workspaceState?: {
+          revision: number
+          snapshotId: string
+        }
+        discoveryCoverage?: any
+        workflowStates?: Record<string, any>
       }
 
       const mutableAgentState = (agentState ?? {}) as Base2AgentState
@@ -442,6 +447,8 @@ ${specialistRoutingSection}
       const runReviewerGate = runValidationGate
       const reviewerAgentType = 'code-reviewer'
       const MAX_REPAIR_ROUNDS = 3
+      const MAX_REVIEWER_REPAIR_ROUNDS = 2
+      const MAX_REVIEWER_NO_VERDICT_RETRIES = 1
       // static-review-only concurrency (M3.1): when the reviewer is configured
       // for static-only review, it can run concurrently with the blocking
       // validation hooks. Defaults to false so the existing sequential
@@ -482,6 +489,10 @@ ${specialistRoutingSection}
         preEditSecurityReviewDone: false,
         securityReviewGateDone: false,
         reviewerCrashCount: 0,
+        reviewerProtocolRetryCount: 0,
+        reviewerRepairRoundCount: 0,
+        reviewerNoVerdictCount: 0,
+        reviewerBypassChallenge: undefined,
         reviewerGateBypassReason: '',
         reviewerGateBypassRecord: undefined,
         validationAssurance: 'none',
@@ -511,6 +522,9 @@ ${specialistRoutingSection}
       activeWorkState.securityReviewGateDone ??=
         activeWorkState.preEditSecurityReviewDone
       activeWorkState.reviewerCrashCount ??= 0
+      activeWorkState.reviewerProtocolRetryCount ??= 0
+      activeWorkState.reviewerRepairRoundCount ??= 0
+      activeWorkState.reviewerNoVerdictCount ??= 0
       activeWorkState.reviewerGateBypassReason ??= ''
       activeWorkState.validationAssurance ??= 'none'
       activeWorkState.testWriterGateDone ??= false
@@ -563,7 +577,6 @@ ${specialistRoutingSection}
 
       const hasActiveWork =
         activeWorkState.pendingGateFiles.length > 0 ||
-        activeWorkState.changedFiles.length > 0 ||
         activeWorkState.openReviewerBlockers.length > 0 ||
         activeWorkState.nextRequiredAction.trim().length > 0
       if (isConversationOnlyPrompt(prompt) && !hasActiveWork) {
@@ -601,13 +614,30 @@ ${specialistRoutingSection}
             includeToolCall: false,
           } as any
         }
-        yield {
+        const proactiveRetrievalResult = yield {
           toolName: 'query_index',
           input: {
             query: prompt,
             limit: retrievalDecision.limit,
             mode: retrievalDecision.mode,
           },
+        }
+        const discoveryCoordinator = (params as any)?.orchestrationControlPlane
+          ?.planDiscoveryBatch
+        if (typeof discoveryCoordinator === 'function') {
+          try {
+            mutableAgentState.discoveryCoverage = discoveryCoordinator({
+              existing: mutableAgentState.discoveryCoverage,
+              query: prompt ?? '',
+              result:
+                (proactiveRetrievalResult as any)?.toolResult ??
+                proactiveRetrievalResult,
+              workspaceRevision: mutableAgentState.workspaceState?.revision,
+            })
+          } catch {
+            // Retrieval output remains usable even if optional coverage
+            // bookkeeping cannot parse a third-party index result.
+          }
         }
         yield {
           toolName: 'add_message',
@@ -626,6 +656,9 @@ ${specialistRoutingSection}
       const initialGitStatusFiles = extractGitStatusFiles(
         (initialGitStatus as any)?.toolResult,
       ).filter((file) => !activeWorkState.gatePassedFiles.includes(file))
+      const initialGitStatusLineMap = extractGitStatusLineMap(
+        (initialGitStatus as any)?.toolResult,
+      )
       const changedFiles = new Set<string>(activeWorkState.changedFiles)
       const pendingGateFiles = new Set<string>(activeWorkState.pendingGateFiles)
       let editsHappened =
@@ -640,6 +673,35 @@ ${specialistRoutingSection}
         activeWorkState.openReviewerBlockers.length === 0 &&
         activeWorkState.nextRequiredAction.trim().length === 0
       const gatePassedFiles = new Set<string>(activeWorkState.gatePassedFiles)
+      if (
+        activeWorkState.gatePassedPendingFiles.length > 0 &&
+        activeWorkState.gatePassedFingerprint &&
+        !hasFreshGateFingerprintForPendingFiles(
+          activeWorkState.gatePassedPendingFiles,
+          initialGitStatusLineMap,
+          activeWorkState.gatePassedValidationSummary ||
+            activeWorkState.lastValidationSummary ||
+            'No configured file-change hooks ran.',
+        )
+      ) {
+        for (const file of activeWorkState.gatePassedPendingFiles) {
+          changedFiles.add(file)
+          pendingGateFiles.add(file)
+          gatePassedFiles.delete(file)
+        }
+        activeWorkState.pendingGateFiles = Array.from(pendingGateFiles)
+        activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
+        activeWorkState.gatePassedPendingFiles = []
+        activeWorkState.gatePassedReviewerVerdict = ''
+        activeWorkState.gatePassedValidationSummary = ''
+        activeWorkState.gatePassedFingerprint = ''
+        activeWorkState.currentPhase = 'awaiting_validation'
+        activeWorkState.latestWorkSummary =
+          'Previously reviewed files changed after the gate passed; validation and review were reopened.'
+        editsHappened = true
+        finalResponseGateOpen = false
+        markActiveWorkStateChanged()
+      }
       while (true) {
         yield {
           toolName: 'spawn_agent_inline',
@@ -814,13 +876,62 @@ ${specialistRoutingSection}
         // above.
         let auxGateFiredThisIteration = false
         const requestRequiresTests =
+          !/\b(?:do not|don't|without|no)\b[^\n]{0,32}\b(?:tests?|test coverage)\b/i.test(
+            prompt ?? '',
+          ) &&
           /\b(?:add|write|update|fix|increase|improve)\b[^\n]{0,40}\btests?\b|\btest coverage\b/i.test(
             prompt ?? '',
           )
         const requestRequiresDocs =
+          !/\b(?:do not|don't|without|no)\b[^\n]{0,32}\b(?:docs?|documentation|readme|guide)\b/i.test(
+            prompt ?? '',
+          ) &&
           /\b(?:docs?|documentation|document|readme|guide)\b/i.test(
             prompt ?? '',
           )
+        let writerEnvironmentSummary = ''
+        let projectTestWriterSelection:
+          | {
+              groups: Array<{
+                targetFiles: string[]
+                testCommand: string
+                candidateTests: string[]
+                manifest?: string
+                packageRoot: string
+              }>
+            }
+          | undefined
+        if (
+          (requestRequiresTests && !activeWorkState.testWriterGateDone) ||
+          (requestRequiresDocs && !activeWorkState.docWriterGateDone)
+        ) {
+          const environmentInspection = yield {
+            toolName: 'inspect_environment',
+            input: {},
+            includeToolCall: false,
+          } as any
+          writerEnvironmentSummary = summarizeWriterEnvironment(
+            (environmentInspection as any)?.toolResult ??
+              environmentInspection,
+          )
+          if (requestRequiresTests && !activeWorkState.testWriterGateDone) {
+            const affectedTests = yield {
+              toolName: 'get_affected_tests',
+              input: { files: currentPendingGateFiles },
+              includeToolCall: false,
+            } as any
+            const buildTargets = yield {
+              toolName: 'get_build_targets',
+              input: { files: currentPendingGateFiles },
+              includeToolCall: false,
+            } as any
+            projectTestWriterSelection = selectProjectAwareTestWriterTargets(
+              currentPendingGateFiles,
+              (affectedTests as any)?.toolResult ?? affectedTests,
+              (buildTargets as any)?.toolResult ?? buildTargets,
+            )
+          }
+        }
         // 1) test-writer gate
         if (
           runValidationGate &&
@@ -828,9 +939,9 @@ ${specialistRoutingSection}
           currentPendingGateFiles.length > 0 &&
           !activeWorkState.testWriterGateDone
         ) {
-          const testWriterSelection = selectTestWriterTargets(
-            currentPendingGateFiles,
-          )
+          const testWriterSelection =
+            projectTestWriterSelection ??
+            selectTestWriterTargets(currentPendingGateFiles)
           if (requestRequiresTests && testWriterSelection.groups.length > 0) {
             auxGateFiredThisIteration = true
             let testWriterCrash = ''
@@ -839,9 +950,78 @@ ${specialistRoutingSection}
                 toolName: 'spawn_agent_inline',
                 input: {
                   agent_type: 'test-writer',
+                  prompt: [
+                    'Write the requested regression/behavior coverage for the verified source contract.',
+                    `User request: ${prompt ?? ''}`,
+                    `Source files: ${group.targetFiles.join(', ')}`,
+                    `Workspace snapshot: ${mutableAgentState.workspaceState?.snapshotId ?? 'unknown'}`,
+                    `Project environment: ${writerEnvironmentSummary || 'not reported'}`,
+                    `Existing affected test candidates: ${group.candidateTests.join(', ') || '(none found)'}`,
+                    `Parent validation command: ${group.testCommand}`,
+                    'Return the declared structured writer receipt. Empty or partial output blocks finalization.',
+                  ].join('\n'),
                   params: {
                     target_files: group.targetFiles,
                     test_command: group.testCommand,
+                  },
+                  handoff: {
+                    schemaVersion: 1,
+                    taskId: `test-writer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    role: 'test-writer',
+                    objective:
+                      'Add focused tests for the requested behavior without modifying production source.',
+                    requirements: [
+                      {
+                        id: 'tests-required',
+                        text: prompt ?? 'Add the requested test coverage.',
+                        required: true,
+                      },
+                    ],
+                    acceptanceCriteria: [
+                      {
+                        id: 'tests-written',
+                        behavior:
+                          'Focused tests are added in the existing project test structure.',
+                        verification: group.testCommand,
+                      },
+                    ],
+                    context: group.targetFiles.map((path: string) => ({
+                      path,
+                      symbols: [],
+                      reason: 'Changed source contract requiring coverage.',
+                      confidence: 'confirmed' as const,
+                    })),
+                    invariants: ['Do not modify production source files.'],
+                    nonGoals: ['Unrelated test refactors or framework changes.'],
+                    risks: ['Tests must match the live source snapshot.'],
+                    unknowns: [],
+                    findings: [],
+                    permissions: {
+                      readablePaths: [
+                        ...group.targetFiles,
+                        ...group.candidateTests,
+                        ...(group.manifest ? [group.manifest] : []),
+                        ...testWriterScopePatterns(group.packageRoot),
+                        ...group.candidateTests,
+                      ],
+                      writablePaths: [
+                        ...testWriterScopePatterns(group.packageRoot),
+                      ],
+                      allowedTools: [
+                        'read_files',
+                        'read_outline',
+                        'write_file',
+                        'str_replace',
+                        'set_output',
+                      ],
+                    },
+                    workspaceRevision:
+                      mutableAgentState.workspaceState?.revision,
+                    workspaceSnapshotId:
+                      mutableAgentState.workspaceState?.snapshotId,
+                    artifacts: [],
+                    successCriteria: ['Writer receipt reports changed test files.'],
+                    constraints: ['Use the existing test framework.'],
                   },
                 },
                 includeToolCall: false,
@@ -850,6 +1030,52 @@ ${specialistRoutingSection}
                 detectReviewerCrash(
                   (testWriterResult as any)?.toolResult ?? testWriterResult,
                 ) ?? ''
+              const testWriterReceipt = extractAgentReceipt(
+                (testWriterResult as any)?.toolResult ?? testWriterResult,
+              )
+              const testWriterOutcome = extractWriterOutcome(
+                (testWriterResult as any)?.toolResult ?? testWriterResult,
+              )
+              if (
+                !testWriterCrash &&
+                (!testWriterReceipt ||
+                  testWriterReceipt.status !== 'completed' ||
+                  (!(
+                    testWriterOutcome?.completionKind === 'changed' &&
+                    testWriterReceipt.changedFiles.length > 0
+                  ) &&
+                    !(
+                      testWriterOutcome?.completionKind === 'noop' &&
+                      testWriterReceipt.changedFiles.length === 0 &&
+                      testWriterOutcome.evidence.length > 0
+                    )))
+              ) {
+                testWriterCrash =
+                  'Test-writer did not return a completed changed-files receipt or an evidence-backed no-op receipt.'
+              }
+              if (!testWriterCrash && group.testCommand) {
+                const testValidation = yield {
+                  toolName: 'spawn_agents',
+                  input: {
+                    agents: [
+                      {
+                        agent_type: 'basher',
+                        params: {
+                          command: group.testCommand,
+                          what_to_summarize:
+                            'Report whether the writer-requested validation command passed, including exact failure lines.',
+                          timeout_seconds: 300,
+                        },
+                      },
+                    ],
+                  },
+                  includeToolCall: false,
+                } as any
+                testWriterCrash =
+                  detectCommandFailure(
+                    (testValidation as any)?.toolResult ?? testValidation,
+                  ) ?? ''
+              }
               if (testWriterCrash) break
             }
             if (testWriterCrash) {
@@ -897,8 +1123,71 @@ ${specialistRoutingSection}
               toolName: 'spawn_agent_inline',
               input: {
                 agent_type: 'doc-writer',
+                prompt: [
+                  'Document the verified public contract affected by the current change.',
+                  `User request: ${prompt ?? ''}`,
+                  `Source files: ${docTargets.join(', ')}`,
+                  `Workspace snapshot: ${mutableAgentState.workspaceState?.snapshotId ?? 'unknown'}`,
+                  `Project environment: ${writerEnvironmentSummary || 'not reported'}`,
+                  'Return the declared structured writer receipt. Empty or partial output blocks finalization.',
+                ].join('\n'),
                 params: {
                   source_files: docTargets,
+                },
+                handoff: {
+                  schemaVersion: 1,
+                  taskId: `doc-writer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  role: 'doc-writer',
+                  objective:
+                    'Update documentation for the requested public behavior without modifying production source.',
+                  requirements: [
+                    {
+                      id: 'docs-required',
+                      text: prompt ?? 'Update the requested documentation.',
+                      required: true,
+                    },
+                  ],
+                  acceptanceCriteria: [
+                    {
+                      id: 'docs-written',
+                      behavior:
+                        'Documentation accurately reflects the live public contract.',
+                      verification:
+                        'Final code review checks documentation accuracy against the source snapshot.',
+                    },
+                  ],
+                  context: docTargets.map((path: string) => ({
+                    path,
+                    symbols: [],
+                    reason: 'Changed public contract requiring documentation.',
+                    confidence: 'confirmed' as const,
+                  })),
+                  invariants: ['Do not modify production source files.'],
+                  nonGoals: ['Marketing copy or unrelated documentation cleanup.'],
+                  risks: ['Documentation must not invent unsupported behavior.'],
+                  unknowns: [],
+                  findings: [],
+                  permissions: {
+                    readablePaths: [
+                      ...docTargets,
+                      ...docWriterScopePatterns(docTargets),
+                    ],
+                    writablePaths: docWriterScopePatterns(docTargets),
+                    allowedTools: [
+                      'read_files',
+                      'read_outline',
+                      'read_subtree',
+                      'str_replace',
+                      'write_file',
+                      'set_output',
+                    ],
+                  },
+                  workspaceRevision: mutableAgentState.workspaceState?.revision,
+                  workspaceSnapshotId:
+                    mutableAgentState.workspaceState?.snapshotId,
+                  artifacts: [],
+                  successCriteria: ['Writer receipt reports changed documentation files.'],
+                  constraints: ['Match adjacent documentation style.'],
                 },
               },
               includeToolCall: false,
@@ -906,11 +1195,32 @@ ${specialistRoutingSection}
             const docWriterCrash = detectReviewerCrash(
               (docWriterResult as any)?.toolResult ?? docWriterResult,
             )
-            if (docWriterCrash) {
+            const docWriterReceipt = extractAgentReceipt(
+              (docWriterResult as any)?.toolResult ?? docWriterResult,
+            )
+            const docWriterOutcome = extractWriterOutcome(
+              (docWriterResult as any)?.toolResult ?? docWriterResult,
+            )
+            const docWriterFailure =
+              docWriterCrash ??
+              (!docWriterReceipt ||
+              docWriterReceipt.status !== 'completed' ||
+              (!(
+                docWriterOutcome?.completionKind === 'changed' &&
+                docWriterReceipt.changedFiles.length > 0
+              ) &&
+                !(
+                  docWriterOutcome?.completionKind === 'noop' &&
+                  docWriterReceipt.changedFiles.length === 0 &&
+                  docWriterOutcome.evidence.length > 0
+                ))
+                ? 'Doc-writer did not return a completed changed-files receipt or an evidence-backed no-op receipt.'
+                : null)
+            if (docWriterFailure) {
               activeWorkState.currentPhase = 'blocked'
               activeWorkState.nextRequiredAction =
                 'The requested doc-writer run failed. Resolve or retry it before final validation.'
-              activeWorkState.latestWorkSummary = `Doc-writer failed: ${docWriterCrash}`
+              activeWorkState.latestWorkSummary = `Doc-writer failed: ${docWriterFailure}`
               markActiveWorkStateChanged()
               emitGateTelemetry({
                 currentPhase: 'blocked',
@@ -946,11 +1256,28 @@ ${specialistRoutingSection}
           matchesSecuritySensitiveGlob(currentPendingGateFiles)
         ) {
           auxGateFiredThisIteration = true
+          const securitySnapshotDetails = buildGateSnapshotDetails(
+            currentPendingGateFiles,
+            currentGitStatusLineMap,
+            '',
+          )
+          const securitySnapshotFingerprint = hashGateSnapshotDetails(
+            securitySnapshotDetails,
+          )
           const securityReviewResult = yield {
             toolName: 'spawn_agent_inline',
             input: {
               agent_type: 'security-reviewer',
-              params: { changed_files: currentPendingGateFiles },
+              prompt: [
+                'Perform the required snapshot-bound security review.',
+                `Pending changed files: ${currentPendingGateFiles.join(', ')}`,
+                `Snapshot fingerprint: ${securitySnapshotFingerprint}`,
+                'Return only the declared structured output.',
+              ].join('\n'),
+              params: {
+                changed_files: currentPendingGateFiles,
+                snapshot_fingerprint: securitySnapshotFingerprint,
+              },
             },
             includeToolCall: false,
           } as any
@@ -958,17 +1285,24 @@ ${specialistRoutingSection}
             (securityReviewResult as any)?.toolResult ?? securityReviewResult
           const securityCrash = detectReviewerCrash(securityToolResult)
           const securityBlockers = collectReviewerBlockers(securityToolResult)
+          const securityAttestationIssues = collectReviewerAttestationIssues(
+            securityToolResult,
+            securitySnapshotFingerprint,
+            currentPendingGateFiles,
+          )
           const securityVerdict =
             getReviewerFinalizationVerdict(securityToolResult)
           if (
             securityCrash ||
             securityBlockers.length > 0 ||
+            securityAttestationIssues.length > 0 ||
             !securityVerdict
           ) {
             activeWorkState.currentPhase = 'blocked'
             activeWorkState.openReviewerBlockers =
-              securityBlockers.length > 0
-                ? securityBlockers
+              securityBlockers.length > 0 ||
+              securityAttestationIssues.length > 0
+                ? [...securityBlockers, ...securityAttestationIssues]
                 : [
                     securityCrash
                       ? `Security reviewer crashed: ${securityCrash}`
@@ -989,6 +1323,11 @@ ${specialistRoutingSection}
             })
             continue
           }
+          recordSuccessfulReviewReceipt(
+            securityToolResult,
+            'security-reviewer',
+            securitySnapshotFingerprint,
+          )
           activeWorkState.securityReviewGateDone = true
           activeWorkState.preEditSecurityReviewDone = true
           markActiveWorkStateChanged()
@@ -1037,82 +1376,138 @@ ${specialistRoutingSection}
             }
             let specialistBlocked = false
             let specialistTerminalFailure = false
+            const specialistResults = new Map<string, unknown>()
+            const specialistSnapshots = new Map<string, string>()
             for (const agentType of routedSpecialists) {
-              let expectedSnapshotId = bundle.snapshotId
-              let specialistToolResult: unknown
-              let staleAfterRetry = false
-              for (
-                let snapshotAttempt = 0;
-                snapshotAttempt < 2;
-                snapshotAttempt++
-              ) {
-                const specialistResult = yield {
-                  toolName: 'spawn_agent_inline',
-                  input: {
-                    agent_type: agentType,
-                    prompt: [
-                      'Perform the routed post-edit specialist review.',
-                      `Requirements: ${prompt ?? '(none supplied)'}`,
-                      `Changed files: ${currentPendingGateFiles.join(', ')}`,
-                      `Snapshot ID (echo exactly): ${expectedSnapshotId}`,
-                    ].join('\n'),
-                    params: {
-                      files: currentPendingGateFiles,
-                      snapshot_id: expectedSnapshotId,
-                    },
+              specialistSnapshots.set(agentType, bundle.snapshotId)
+            }
+            const firstSpecialistBatch = yield {
+              toolName: 'spawn_agents',
+              input: {
+                agents: routedSpecialists.map((agentType) => ({
+                  agent_type: agentType,
+                  prompt: [
+                    'Perform the routed post-edit specialist review.',
+                    `Requirements: ${prompt ?? '(none supplied)'}`,
+                    `Changed files: ${currentPendingGateFiles.join(', ')}`,
+                    `Snapshot ID (echo exactly): ${bundle.snapshotId}`,
+                  ].join('\n'),
+                  params: {
+                    files: currentPendingGateFiles,
+                    snapshot_id: bundle.snapshotId,
                   },
-                  includeToolCall: false,
-                } as any
-                specialistToolResult =
-                  (specialistResult as any)?.toolResult ?? specialistResult
-                if (!isStaleSnapshotReviewerResult(specialistToolResult)) {
-                  break
-                }
-                if (snapshotAttempt === 1) {
-                  staleAfterRetry = true
-                  break
-                }
-                const refreshedBundleResult = yield {
-                  toolName: 'get_change_review_bundle',
-                  input: {},
-                  includeToolCall: false,
-                } as any
-                const refreshedBundle = extractChangeReviewBundle(
-                  (refreshedBundleResult as any)?.toolResult ??
-                    refreshedBundleResult,
-                )
-                if (
-                  !refreshedBundle.snapshotId ||
-                  refreshedBundle.snapshotId === expectedSnapshotId
-                ) {
-                  staleAfterRetry = true
-                  break
-                }
-                expectedSnapshotId = refreshedBundle.snapshotId
-              }
-              if (staleAfterRetry) {
+                })),
+              },
+              includeToolCall: false,
+            } as any
+            const firstBatchToolResult =
+              (firstSpecialistBatch as any)?.toolResult ?? firstSpecialistBatch
+            for (const agentType of routedSpecialists) {
+              specialistResults.set(
+                agentType,
+                extractSpawnedAgentResult(firstBatchToolResult, agentType),
+              )
+            }
+            const retrySpecialists = routedSpecialists.filter((agentType) => {
+              const result = specialistResults.get(agentType)
+              return (
+                isStaleSnapshotReviewerResult(result) ||
+                collectReviewerAttestationIssues(
+                  result,
+                  bundle.snapshotId,
+                  currentPendingGateFiles,
+                ).length > 0
+              )
+            })
+            if (retrySpecialists.length > 0) {
+              const refreshedBundleResult = yield {
+                toolName: 'get_change_review_bundle',
+                input: {},
+                includeToolCall: false,
+              } as any
+              const refreshedBundle = extractChangeReviewBundle(
+                (refreshedBundleResult as any)?.toolResult ??
+                  refreshedBundleResult,
+              )
+              if (!refreshedBundle.snapshotId) {
                 activeWorkState.currentPhase = 'blocked'
                 activeWorkState.openReviewerBlockers = [
-                  `${agentType} could not attest to a stable snapshot after one automatic refresh.`,
+                  'Specialist review could not obtain a refreshed snapshot after attestation failure.',
                 ]
                 activeWorkState.openReviewerFindings = []
                 activeWorkState.nextRequiredAction =
                   'Stop concurrent edits and resume once the working tree is stable; the runtime will obtain a fresh review bundle.'
-                activeWorkState.latestWorkSummary = `${agentType} stopped after two stale snapshot results.`
+                activeWorkState.latestWorkSummary =
+                  'Specialist review stopped because snapshot refresh failed.'
                 markActiveWorkStateChanged()
                 specialistBlocked = true
                 specialistTerminalFailure = true
-                break
+              } else {
+                const retryBatch = yield {
+                  toolName: 'spawn_agents',
+                  input: {
+                    agents: retrySpecialists.map((agentType) => ({
+                      agent_type: agentType,
+                      prompt: [
+                        'Retry the routed specialist review after snapshot/file attestation failure.',
+                        `Requirements: ${prompt ?? '(none supplied)'}`,
+                        `Changed files: ${currentPendingGateFiles.join(', ')}`,
+                        `Snapshot ID (echo exactly): ${refreshedBundle.snapshotId}`,
+                        'Correct the structured output directly; do not request source edits for this protocol error.',
+                      ].join('\n'),
+                      params: {
+                        files: currentPendingGateFiles,
+                        snapshot_id: refreshedBundle.snapshotId,
+                      },
+                    })),
+                  },
+                  includeToolCall: false,
+                } as any
+                const retryToolResult =
+                  (retryBatch as any)?.toolResult ?? retryBatch
+                for (const agentType of retrySpecialists) {
+                  specialistSnapshots.set(
+                    agentType,
+                    refreshedBundle.snapshotId,
+                  )
+                  specialistResults.set(
+                    agentType,
+                    extractSpawnedAgentResult(retryToolResult, agentType),
+                  )
+                }
               }
+            }
+            if (!specialistTerminalFailure) {
+              for (const agentType of routedSpecialists) {
+                const expectedSnapshotId =
+                  specialistSnapshots.get(agentType) ?? bundle.snapshotId
+                const specialistToolResult = specialistResults.get(agentType)
+                const specialistAttestationIssues =
+                  collectReviewerAttestationIssues(
+                    specialistToolResult,
+                    expectedSnapshotId,
+                    currentPendingGateFiles,
+                  )
+                if (
+                  isStaleSnapshotReviewerResult(specialistToolResult) ||
+                  specialistAttestationIssues.length > 0
+                ) {
+                  activeWorkState.currentPhase = 'blocked'
+                  activeWorkState.openReviewerBlockers = [
+                    `${agentType} could not attest to a stable snapshot after one automatic refresh.`,
+                    ...specialistAttestationIssues,
+                  ]
+                  activeWorkState.openReviewerFindings = []
+                  activeWorkState.nextRequiredAction =
+                    'Stop concurrent edits and resume once the working tree is stable; the runtime will obtain a fresh review bundle.'
+                  activeWorkState.latestWorkSummary = `${agentType} stopped after two stale snapshot results.`
+                  markActiveWorkStateChanged()
+                  specialistBlocked = true
+                  specialistTerminalFailure = true
+                  break
+                }
               const crash = detectReviewerCrash(specialistToolResult)
               const blockers = collectReviewerBlockers(specialistToolResult)
-              blockers.push(
-                ...collectReviewerAttestationIssues(
-                  specialistToolResult,
-                  expectedSnapshotId,
-                  currentPendingGateFiles,
-                ),
-              )
               const verdict =
                 getReviewerFinalizationVerdict(specialistToolResult)
               if (crash || blockers.length > 0 || !verdict) {
@@ -1158,6 +1553,7 @@ ${specialistRoutingSection}
                 expectedSnapshotId,
               )
               markActiveWorkStateChanged()
+              }
             }
             if (specialistBlocked) {
               if (specialistTerminalFailure) break
@@ -1348,6 +1744,49 @@ ${specialistRoutingSection}
           continue
         }
 
+        const reviewerProtocolBlocked =
+          runReviewerGate &&
+          editsHappened &&
+          activeWorkState.lastReviewerGateSkipReason ===
+            'reviewer-protocol-attestation-failed' &&
+          (activeWorkState.reviewerProtocolRetryCount ?? 0) >= 1
+        const reviewerProtocolBypassAuthorized =
+          reviewerProtocolBlocked &&
+          hasReviewerBypassAuthorization(
+            currentConversationMessages,
+            activeWorkState.reviewerBypassChallenge,
+            reviewChallengeFingerprint(
+              currentPendingGateFiles,
+              currentGitStatusLineMap,
+            ),
+          )
+        if (reviewerProtocolBlocked && !reviewerProtocolBypassAuthorized) {
+          const challenge = ensureReviewerBypassChallenge(
+            reviewChallengeFingerprint(
+              currentPendingGateFiles,
+              currentGitStatusLineMap,
+            ),
+            currentConversationMessages,
+          )
+          activeWorkState.currentPhase = 'blocked'
+          activeWorkState.nextRequiredAction =
+            `Reviewer protocol attestation failed twice. Fix reviewer configuration or explicitly reply "BYPASS REVIEWER ${challenge.id}"; the harness will not retry automatically.`
+          markActiveWorkStateChanged()
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: [
+                'Reviewer protocol remains blocked after the bounded retry.',
+                'No source repair or additional reviewer retry will run automatically.',
+                `Fix reviewer configuration, or explicitly reply "BYPASS REVIEWER ${challenge.id}" to finalize using the recorded validation evidence for this snapshot only.`,
+              ].join('\n'),
+            },
+            includeToolCall: false,
+          } as any
+          break
+        }
+
         // Verification gate: after the model thinks it's done, run configured
         // file-change hooks (typecheck/lint/test). If any failed, surface the
         // failures and keep the turn open so the model fixes them. The runtime's
@@ -1362,10 +1801,13 @@ ${specialistRoutingSection}
         // only `check_background_agent` for its result if validation passes.
         const staticReviewConcurrency =
           runReviewerGate && editsHappened && staticReviewOnlyEnabled
-        const reviewSnapshotFingerprint = buildGateFingerprint(
+        const reviewSnapshotDetails = buildGateSnapshotDetails(
           Array.from(pendingGateFiles),
           currentGitStatusLineMap,
           '',
+        )
+        const reviewSnapshotFingerprint = hashGateSnapshotDetails(
+          reviewSnapshotDetails,
         )
         if (staticReviewConcurrency && !activeWorkState.staticReviewerJobId) {
           const bgReview = yield {
@@ -1380,6 +1822,8 @@ ${specialistRoutingSection}
                     '',
                     `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
                     `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
+                    'Snapshot details (read for file membership; do not echo):',
+                    reviewSnapshotDetails,
                     'Validation gate summary: Reviewer running concurrently with validation (static-review-only mode).',
                     '',
                     'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, map every user requirement to evidence, and use coverage: missing when changed behavior lacks a mapped test.',
@@ -1432,6 +1876,17 @@ ${specialistRoutingSection}
             activeWorkState.currentPhase = 'awaiting_review'
             markActiveWorkStateChanged()
           } else {
+            if (activeWorkState.staticReviewerJobId) {
+              yield {
+                toolName: 'check_background_agent',
+                input: {
+                  jobId: activeWorkState.staticReviewerJobId,
+                  cancel: true,
+                },
+                includeToolCall: false,
+              } as any
+              activeWorkState.staticReviewerJobId = undefined
+            }
             const repairRound = activeWorkState.repairRoundCount ?? 0
             const parsed = parseValidationFailures(failures)
             const hasParseableFailures = parsed.some((p) => p.file.length > 0)
@@ -1496,6 +1951,30 @@ ${specialistRoutingSection}
                         role: 'repair-editor',
                         objective:
                           'Resolve the current validation failures without unrelated changes.',
+                        requirements: failures.map(
+                          (text: string, index: number) => ({
+                            id: `VF-${index + 1}`,
+                            text,
+                            required: true,
+                          }),
+                        ),
+                        acceptanceCriteria: [
+                          {
+                            id: 'validation-passes',
+                            behavior:
+                              'Every supplied validation failure is repaired without unrelated changes.',
+                            verification:
+                              'The parent reruns the targeted validation gate on the resulting workspace snapshot.',
+                          },
+                        ],
+                        context: [],
+                        invariants: [
+                          'Read each live target before editing.',
+                          'Do not modify files outside the pending gate file set.',
+                        ],
+                        nonGoals: ['Unrelated refactors or cleanup.'],
+                        risks: ['Stale validation diagnostics or overlapping user edits.'],
+                        unknowns: [],
                         findings: failures.map(
                           (text: string, index: number) => ({
                             id: `VF-${index + 1}`,
@@ -1522,6 +2001,14 @@ ${specialistRoutingSection}
                             'edit_transaction',
                           ],
                         },
+                        workspaceRevision: mutableAgentState.workspaceState?.revision,
+                        workspaceSnapshotId:
+                          mutableAgentState.workspaceState?.snapshotId,
+                        artifacts: [],
+                        successCriteria: ['Targeted validation passes.'],
+                        constraints: [
+                          'Keep every change causally tied to a supplied failure.',
+                        ],
                       },
                       prompt:
                         buildRepairEditorPrompt(
@@ -1535,6 +2022,28 @@ ${specialistRoutingSection}
                   ],
                 },
               } as any
+              const validationFindingIds = failures.map(
+                (_text: string, index: number) => `VF-${index + 1}`,
+              )
+              const validationRepairReceipt = extractAgentReceipt(
+                (repair as any)?.toolResult ?? repair,
+              )
+              if (
+                !validationRepairReceipt ||
+                validationRepairReceipt.status !== 'completed' ||
+                validationFindingIds.some(
+                  (id: string) =>
+                    !validationRepairReceipt.findingsAddressed.includes(id),
+                )
+              ) {
+                activeWorkState.currentPhase = 'blocked'
+                activeWorkState.nextRequiredAction =
+                  'Repair-editor did not return a completed receipt addressing every validation failure.'
+                activeWorkState.latestWorkSummary =
+                  'Validation repair receipt was incomplete or missing.'
+                markActiveWorkStateChanged()
+                break
+              }
               const repairGitStatus = yield {
                 toolName: 'git_status',
                 input: {},
@@ -1574,6 +2083,7 @@ ${specialistRoutingSection}
                   repairRound: repairRound + 1,
                   reuseReason: 'repair-succeeded',
                 })
+                continue
               } else {
                 activeWorkState.nextRequiredAction =
                   'Fix the remaining validation hook failures before doing anything else.'
@@ -1645,6 +2155,32 @@ ${specialistRoutingSection}
                           role: 'repair-editor',
                           objective:
                             'Resolve the exhausted validation failures through root-cause repair.',
+                          requirements: failures.map(
+                            (text: string, index: number) => ({
+                              id: `VF-${index + 1}`,
+                              text,
+                              required: true,
+                            }),
+                          ),
+                          acceptanceCriteria: [
+                            {
+                              id: 'validation-passes',
+                              behavior:
+                                'The root cause of every remaining validation failure is resolved.',
+                              verification:
+                                'The parent reruns the targeted validation gate on the resulting workspace snapshot.',
+                            },
+                          ],
+                          context: [],
+                          invariants: [
+                            'Read each live target before editing.',
+                            'Do not modify files outside the pending gate file set.',
+                          ],
+                          nonGoals: ['Speculative refactors or unrelated cleanup.'],
+                          risks: [
+                            'Repeated surface-level fixes can hide the actual root cause.',
+                          ],
+                          unknowns: [],
                           findings: failures.map(
                             (text: string, index: number) => ({
                               id: `VF-${index + 1}`,
@@ -1671,6 +2207,15 @@ ${specialistRoutingSection}
                               'edit_transaction',
                             ],
                           },
+                          workspaceRevision:
+                            mutableAgentState.workspaceState?.revision,
+                          workspaceSnapshotId:
+                            mutableAgentState.workspaceState?.snapshotId,
+                          artifacts: [],
+                          successCriteria: ['Targeted validation passes.'],
+                          constraints: [
+                            'Keep every change causally tied to a supplied failure.',
+                          ],
                         },
                         prompt: buildEscalationEditorPrompt(
                           parsed,
@@ -1681,6 +2226,28 @@ ${specialistRoutingSection}
                     ],
                   },
                 } as any
+                const escalationFindingIds = failures.map(
+                  (_text: string, index: number) => `VF-${index + 1}`,
+                )
+                const escalationReceipt = extractAgentReceipt(
+                  (escalate as any)?.toolResult ?? escalate,
+                )
+                if (
+                  !escalationReceipt ||
+                  escalationReceipt.status !== 'completed' ||
+                  escalationFindingIds.some(
+                    (id: string) =>
+                      !escalationReceipt.findingsAddressed.includes(id),
+                  )
+                ) {
+                  activeWorkState.currentPhase = 'blocked'
+                  activeWorkState.nextRequiredAction =
+                    'Escalation repair-editor did not return a completed receipt addressing every validation failure.'
+                  activeWorkState.latestWorkSummary =
+                    'Validation escalation receipt was incomplete or missing.'
+                  markActiveWorkStateChanged()
+                  break
+                }
                 const escalateGitStatus = yield {
                   toolName: 'git_status',
                   input: {},
@@ -1770,8 +2337,32 @@ ${specialistRoutingSection}
           }
         }
 
-        let reviewerFinalizationVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' = ''
-        if (runReviewerGate && editsHappened) {
+        let reviewerFinalizationVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' =
+          reviewerProtocolBypassAuthorized ? 'NON_BLOCKING' : ''
+        if (reviewerProtocolBypassAuthorized) {
+          activeWorkState.reviewerGateBypassReason =
+            'User authorized bypass after repeated reviewer protocol attestation failures.'
+          activeWorkState.reviewerGateBypassRecord = {
+            reason: activeWorkState.reviewerGateBypassReason,
+            authorizedAt: new Date().toISOString(),
+            pendingFiles: Array.from(pendingGateFiles),
+            fingerprint: reviewSnapshotFingerprint,
+            validationSummary,
+          }
+          if (activeWorkState.reviewerBypassChallenge) {
+            activeWorkState.reviewerBypassChallenge.consumed = true
+          }
+          activeWorkState.currentPhase = 'awaiting_review'
+          activeWorkState.nextRequiredAction = ''
+          activeWorkState.lastReviewerGateSkipReason =
+            'user-authorized-reviewer-protocol-bypass'
+          markActiveWorkStateChanged()
+        }
+        if (
+          runReviewerGate &&
+          editsHappened &&
+          !reviewerProtocolBypassAuthorized
+        ) {
           activeWorkState.lastReviewerGateSkipReason = ''
           markActiveWorkStateChanged()
           let reviewerToolResult: unknown
@@ -1806,6 +2397,8 @@ ${specialistRoutingSection}
                       '',
                       `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
                       `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
+                      'Snapshot details (read for file membership; do not echo):',
+                      reviewSnapshotDetails,
                       `Validation gate summary: ${validationSummary}`,
                       '',
                       'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, map every user requirement to evidence, and use coverage: missing when changed behavior lacks a mapped test.',
@@ -1816,15 +2409,101 @@ ${specialistRoutingSection}
             } as any
             reviewerToolResult = (review as any) && (review as any).toolResult
           }
-          const blockers = collectReviewerBlockers(reviewerToolResult)
-          blockers.push(
-            ...collectReviewerAttestationIssues(
+          const reviewerCrashedBeforeAttestation =
+            detectReviewerCrash(reviewerToolResult)
+          let attestationIssues = reviewerCrashedBeforeAttestation
+            ? []
+            : collectReviewerAttestationIssues(
+                reviewerToolResult,
+                reviewSnapshotFingerprint,
+                Array.from(pendingGateFiles),
+              )
+          if (
+            attestationIssues.length > 0 &&
+            (activeWorkState.reviewerProtocolRetryCount ?? 0) < 1
+          ) {
+            activeWorkState.reviewerProtocolRetryCount = 1
+            activeWorkState.currentPhase = 'awaiting_review'
+            activeWorkState.nextRequiredAction =
+              'Retry the reviewer once with corrected snapshot/file attestation; do not edit source files for a reviewer protocol error.'
+            activeWorkState.latestWorkSummary =
+              'Reviewer protocol attestation failed; running one bounded reviewer-only retry.'
+            markActiveWorkStateChanged()
+            const retryReview = yield {
+              toolName: 'spawn_agents',
+              input: {
+                agents: [
+                  {
+                    agent_type: reviewerAgentType,
+                    prompt: [
+                      'Retry the completed default-flow code review because the prior response failed the reviewer protocol contract.',
+                      '',
+                      `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                      `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
+                      'Snapshot details (read for file membership; do not echo):',
+                      reviewSnapshotDetails,
+                      `Validation gate summary: ${validationSummary}`,
+                      '',
+                      'Protocol errors from the prior response:',
+                      ...attestationIssues,
+                      '',
+                      'Return a fresh structured review object. Correct snapshotFingerprint and reviewedFiles directly; do not ask repair-editor to change source code for these protocol errors.',
+                    ].join('\n'),
+                  },
+                ],
+              },
+            } as any
+            reviewerToolResult =
+              (retryReview as any) && (retryReview as any).toolResult
+            attestationIssues = collectReviewerAttestationIssues(
               reviewerToolResult,
               reviewSnapshotFingerprint,
               Array.from(pendingGateFiles),
-            ),
-          )
+            )
+          }
+          if (attestationIssues.length > 0) {
+            activeWorkState.openReviewerBlockers = attestationIssues
+            activeWorkState.openReviewerFindings = []
+            activeWorkState.nextRequiredAction =
+              'Reviewer protocol attestation failed twice. Stop automatic retries and ask the user to fix reviewer configuration or explicitly bypass the reviewer gate.'
+            activeWorkState.currentPhase = 'blocked'
+            activeWorkState.latestWorkSummary =
+              'Reviewer protocol failed after one automatic retry; no source repair was attempted.'
+            activeWorkState.lastReviewerGateSkipReason =
+              'reviewer-protocol-attestation-failed'
+            markActiveWorkStateChanged()
+            yield {
+              toolName: 'add_message',
+              input: {
+                role: 'user',
+                content: [
+                  `Reviewer gate: ${reviewerAgentType} failed snapshot/file attestation twice.`,
+                  '',
+                  ...attestationIssues,
+                  '',
+                  'This is a reviewer protocol/configuration failure, not a source-code finding. The harness did not spawn repair-editor. Stop retrying automatically; ask the user to fix reviewer configuration or explicitly say "bypass reviewer gate".',
+                ].join('\n'),
+              },
+              includeToolCall: false,
+            } as any
+            break
+          }
+          activeWorkState.reviewerProtocolRetryCount = 0
+          const blockers = collectReviewerBlockers(reviewerToolResult)
           if (blockers.length > 0) {
+            const reviewerRepairRound: number = Number(
+              activeWorkState.reviewerRepairRoundCount ?? 0,
+            )
+            if (reviewerRepairRound >= MAX_REVIEWER_REPAIR_ROUNDS) {
+              activeWorkState.openReviewerBlockers = blockers
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.nextRequiredAction =
+                'Reviewer repair budget exhausted. Resolve the remaining findings manually or change the reviewer configuration before retrying.'
+              activeWorkState.latestWorkSummary = `Reviewer findings persisted after ${MAX_REVIEWER_REPAIR_ROUNDS} bounded repair round(s).`
+              markActiveWorkStateChanged()
+              break
+            }
+            activeWorkState.reviewerRepairRoundCount = reviewerRepairRound + 1
             activeWorkState.openReviewerBlockers = blockers
             activeWorkState.openReviewerFindings = blockers.map(
               (text: string, index: number) => ({
@@ -1863,7 +2542,7 @@ ${specialistRoutingSection}
             activeWorkState.currentPhase = 'repair_loop'
             activeWorkState.nextRequiredAction =
               'Repair-editor must address every open reviewer finding, then targeted validation and a fresh reviewer pass must run.'
-            yield {
+            const reviewerRepairResult = yield {
               toolName: 'spawn_agents',
               input: {
                 agents: [
@@ -1875,6 +2554,26 @@ ${specialistRoutingSection}
                       role: 'repair-editor',
                       objective:
                         'Resolve every open reviewer finding without unrelated changes. Read the current file contents before editing; conversational summaries are not source evidence.',
+                      requirements: activeWorkState.openReviewerFindings.map(
+                        ({ id, text }) => ({ id, text, required: true }),
+                      ),
+                      acceptanceCriteria:
+                        activeWorkState.openReviewerFindings.map(({ id }) => ({
+                          id: `clear-${id}`,
+                          behavior: `Finding ${id} is addressed in the live workspace.`,
+                          verification:
+                            'Targeted validation passes and a fresh snapshot-bound reviewer clears the finding.',
+                        })),
+                      context: [],
+                      invariants: [
+                        'Read every target from the live filesystem before editing.',
+                        'Treat every finding ID as open until a fresh reviewer clears it.',
+                      ],
+                      nonGoals: ['Unrelated diagnostics, refactors, or cleanup.'],
+                      risks: [
+                        'Reviewer findings may be stale if the workspace snapshot changed.',
+                      ],
+                      unknowns: [],
                       findings: activeWorkState.openReviewerFindings.map(
                         ({ id, text, files, snapshotFingerprint }) => ({
                           id,
@@ -1897,6 +2596,17 @@ ${specialistRoutingSection}
                           'edit_transaction',
                         ],
                       },
+                      workspaceRevision:
+                        mutableAgentState.workspaceState?.revision,
+                      workspaceSnapshotId:
+                        mutableAgentState.workspaceState?.snapshotId,
+                      artifacts: [],
+                      successCriteria: [
+                        'All finding IDs are cleared by a fresh reviewer receipt.',
+                      ],
+                      constraints: [
+                        'Keep every edit within the pending gate file set.',
+                      ],
                     },
                     prompt: [
                       'Repair the blocking reviewer findings below.',
@@ -1913,6 +2623,42 @@ ${specialistRoutingSection}
                 ],
               },
             } as any
+            const repairCrash = detectReviewerCrash(
+              (reviewerRepairResult as any)?.toolResult ?? reviewerRepairResult,
+            )
+            if (repairCrash) {
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.nextRequiredAction =
+                'Repair-editor failed while addressing reviewer findings. Inspect the failure before retrying.'
+              activeWorkState.latestWorkSummary = `Repair-editor failed: ${repairCrash}`
+              markActiveWorkStateChanged()
+              break
+            }
+            const reviewerRepairReceipt = extractAgentReceipt(
+              (reviewerRepairResult as any)?.toolResult ??
+                reviewerRepairResult,
+            )
+            const openFindingIds = new Set(
+              (activeWorkState.openReviewerFindings ?? []).map(
+                (finding) => finding.id,
+              ),
+            )
+            if (
+              !reviewerRepairReceipt ||
+              reviewerRepairReceipt.status !== 'completed' ||
+              [...openFindingIds].some(
+                (id) =>
+                  !reviewerRepairReceipt.findingsAddressed.includes(id),
+              )
+            ) {
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.nextRequiredAction =
+                'Repair-editor did not return a completed receipt addressing every open reviewer finding.'
+              activeWorkState.latestWorkSummary =
+                'Reviewer repair receipt was incomplete or missing.'
+              markActiveWorkStateChanged()
+              break
+            }
             const reviewerRepairStatus = yield {
               toolName: 'git_status',
               input: {},
@@ -1922,6 +2668,25 @@ ${specialistRoutingSection}
             ).filter((file: string) => pendingGateFiles.has(file))
             if (reviewerRepairFiles.length > 0) {
               recordChangedFiles(reviewerRepairFiles, { fromRepair: true })
+            }
+            const repairedStatusLineMap = extractGitStatusLineMap(
+              (reviewerRepairStatus as any)?.toolResult,
+            )
+            const repairedSnapshotFingerprint = hashGateSnapshotDetails(
+              buildGateSnapshotDetails(
+                Array.from(pendingGateFiles),
+                repairedStatusLineMap,
+                validationSummary,
+              ),
+            )
+            if (repairedSnapshotFingerprint === reviewSnapshotFingerprint) {
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.nextRequiredAction =
+                'Repair-editor made no snapshot-visible progress on the reviewer findings. Stop retrying and inspect the finding or handoff.'
+              activeWorkState.latestWorkSummary =
+                'Reviewer repair produced no workspace fingerprint change.'
+              markActiveWorkStateChanged()
+              break
             }
             activeWorkState.currentPhase = 'awaiting_validation'
             activeWorkState.latestWorkSummary =
@@ -1955,7 +2720,11 @@ ${specialistRoutingSection}
                 (activeWorkState.reviewerCrashCount ?? 0) + 1
               const bypassAuthorized =
                 activeWorkState.reviewerCrashCount > 1 &&
-                hasReviewerBypassAuthorization(currentConversationMessages)
+                hasReviewerBypassAuthorization(
+                  currentConversationMessages,
+                  activeWorkState.reviewerBypassChallenge,
+                  reviewSnapshotFingerprint,
+                )
               if (bypassAuthorized) {
                 activeWorkState.reviewerGateBypassReason = `User authorized bypass after ${activeWorkState.reviewerCrashCount} reviewer crashes: ${reviewerCrash}`
                 activeWorkState.reviewerGateBypassRecord = {
@@ -1964,6 +2733,9 @@ ${specialistRoutingSection}
                   pendingFiles: Array.from(pendingGateFiles),
                   fingerprint: reviewSnapshotFingerprint,
                   validationSummary,
+                }
+                if (activeWorkState.reviewerBypassChallenge) {
+                  activeWorkState.reviewerBypassChallenge.consumed = true
                 }
                 activeWorkState.nextRequiredAction = ''
                 activeWorkState.currentPhase = 'awaiting_review'
@@ -1978,10 +2750,17 @@ ${specialistRoutingSection}
                   skipReason: 'user-authorized-reviewer-crash-bypass',
                 })
               } else {
+                const challenge =
+                  activeWorkState.reviewerCrashCount > 1
+                    ? ensureReviewerBypassChallenge(
+                        reviewSnapshotFingerprint,
+                        currentConversationMessages,
+                      )
+                    : undefined
                 activeWorkState.nextRequiredAction =
                   activeWorkState.reviewerCrashCount === 1
                     ? 'Retry the reviewer gate once. If it crashes again, ask the user whether to bypass the reviewer with the validation result recorded.'
-                    : 'Reviewer crashed repeatedly. Ask the user explicitly whether to bypass this gate; do not retry again without new configuration.'
+                    : `Reviewer crashed repeatedly. Ask the user explicitly whether to reply "BYPASS REVIEWER ${challenge?.id}" for this snapshot; do not retry again without new configuration.`
                 markActiveWorkStateChanged()
                 yield {
                   toolName: 'add_message',
@@ -1994,7 +2773,7 @@ ${specialistRoutingSection}
                       '',
                       activeWorkState.reviewerCrashCount === 1
                         ? 'Retry this reviewer once. Do not silently loop.'
-                        : 'Do not retry again. Ask the user whether to bypass the reviewer gate based on the completed validation evidence. The bypass is accepted only after an explicit user response containing "bypass reviewer gate".',
+                        : `Do not retry again. Ask the user whether to bypass the reviewer gate based on the completed validation evidence. The bypass is accepted only after the exact response "BYPASS REVIEWER ${challenge?.id}".`,
                     ].join('\n'),
                   },
                   includeToolCall: false,
@@ -2002,6 +2781,19 @@ ${specialistRoutingSection}
                 continue
               }
             } else {
+              activeWorkState.reviewerNoVerdictCount =
+                (activeWorkState.reviewerNoVerdictCount ?? 0) + 1
+              if (
+                activeWorkState.reviewerNoVerdictCount >
+                MAX_REVIEWER_NO_VERDICT_RETRIES
+              ) {
+                activeWorkState.nextRequiredAction =
+                  'Reviewer repeatedly violated its structured output contract. Fix reviewer configuration before retrying.'
+                activeWorkState.latestWorkSummary =
+                  'Reviewer no-verdict retry budget exhausted.'
+                markActiveWorkStateChanged()
+                break
+              }
               activeWorkState.nextRequiredAction =
                 'Retry the automated reviewer gate; reviewer did not populate its required structured output.'
               markActiveWorkStateChanged()
@@ -2024,6 +2816,24 @@ ${specialistRoutingSection}
 
         if (runValidationGate) {
           const passedPendingFiles = Array.from(pendingGateFiles)
+          if (passedPendingFiles.length > 0 && reviewerFinalizationVerdict) {
+            const finalReviewedFingerprint = hashGateSnapshotDetails(
+              buildGateSnapshotDetails(
+                passedPendingFiles,
+                currentGitStatusLineMap,
+                '',
+              ),
+            )
+            if (finalReviewedFingerprint !== reviewSnapshotFingerprint) {
+              activeWorkState.currentPhase = 'awaiting_validation'
+              activeWorkState.latestWorkSummary =
+                'The reviewed files changed after the reviewer snapshot; validation and review were reopened.'
+              activeWorkState.nextRequiredAction =
+                'Re-run validation and review against the current file bytes.'
+              markActiveWorkStateChanged()
+              continue
+            }
+          }
           let activeWorkStateChanged = false
           if (passedPendingFiles.length > 0 && reviewerFinalizationVerdict) {
             activeWorkState.openReviewerBlockers = []
@@ -2052,7 +2862,11 @@ ${specialistRoutingSection}
             activeWorkState.staticReviewerJobId = undefined
             activeWorkState.preEditSecurityReviewDone = false
             activeWorkState.securityReviewGateDone = false
-            activeWorkState.reviewerCrashCount = 0
+              activeWorkState.reviewerCrashCount = 0
+              activeWorkState.reviewerProtocolRetryCount = 0
+              activeWorkState.reviewerRepairRoundCount = 0
+              activeWorkState.reviewerNoVerdictCount = 0
+              activeWorkState.reviewerBypassChallenge = undefined
             activeWorkState.reviewerGateBypassReason = ''
             activeWorkState.testWriterGateDone = false
             activeWorkState.docWriterGateDone = false
@@ -2207,6 +3021,16 @@ ${specialistRoutingSection}
 
       function emitGateTelemetry(payload: Record<string, unknown>): void {
         try {
+          const phase = payload.currentPhase
+          const transition = (params as any)?.orchestrationControlPlane
+            ?.transitionBase2Gate
+          if (typeof phase === 'string' && typeof transition === 'function') {
+            mutableAgentState.workflowStates ??= {}
+            mutableAgentState.workflowStates['base2-gate-v1'] = transition({
+              current: mutableAgentState.workflowStates['base2-gate-v1'],
+              phase,
+            })
+          }
           if (
             typeof console !== 'object' ||
             console === null ||
@@ -2281,6 +3105,8 @@ ${specialistRoutingSection}
           // clear a specialist receipt and create an infinite review loop.
           activeWorkState.specialistReviewGatesDone = []
           activeWorkState.lastReviewerGateSkipReason = ''
+          activeWorkState.reviewerProtocolRetryCount = 0
+          activeWorkState.reviewerNoVerdictCount = 0
           activeWorkState.currentPhase = 'awaiting_validation'
           if (!opts?.fromRepair && !activeWorkState.repairSessionId) {
             activeWorkState.repairRoundCount = 0
@@ -2343,9 +3169,69 @@ ${specialistRoutingSection}
         return normalizedFiles
       }
 
-      function hasReviewerBypassAuthorization(messages: unknown): boolean {
-        if (!Array.isArray(messages)) return false
-        for (const message of messages) {
+      function reviewChallengeFingerprint(
+        files: string[],
+        statusLineMap: Map<string, string>,
+      ): string {
+        return hashGateSnapshotDetails(
+          buildGateSnapshotDetails(files, statusLineMap, ''),
+        )
+      }
+
+      function ensureReviewerBypassChallenge(
+        fingerprint: string,
+        messages: unknown,
+      ): {
+        id: string
+        fingerprint: string
+        issuedAfterMessageIndex: number
+        consumed: boolean
+      } {
+        const existing = activeWorkState.reviewerBypassChallenge
+        if (
+          existing &&
+          existing.fingerprint === fingerprint &&
+          !existing.consumed
+        ) {
+          return existing
+        }
+        const challenge = {
+          id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+          fingerprint,
+          issuedAfterMessageIndex: Array.isArray(messages) ? messages.length : 0,
+          consumed: false,
+        }
+        activeWorkState.reviewerBypassChallenge = challenge
+        return challenge
+      }
+
+      function hasReviewerBypassAuthorization(
+        messages: unknown,
+        challenge:
+          | {
+              id: string
+              fingerprint: string
+              issuedAfterMessageIndex: number
+              consumed: boolean
+            }
+          | undefined,
+        currentFingerprint: string,
+      ): boolean {
+        if (
+          !Array.isArray(messages) ||
+          !challenge ||
+          challenge.consumed ||
+          challenge.fingerprint !== currentFingerprint
+        ) {
+          return false
+        }
+        const expected = `BYPASS REVIEWER ${challenge.id}`
+        for (
+          let index = challenge.issuedAfterMessageIndex;
+          index < messages.length;
+          index++
+        ) {
+          const message = messages[index]
           if (!message || typeof message !== 'object') continue
           const record = message as Record<string, unknown>
           if (record.role !== 'user') continue
@@ -2366,7 +3252,7 @@ ${specialistRoutingSection}
             }
           }
           collect(record.content)
-          if (texts.some((text) => /\bbypass reviewer gate\b/i.test(text))) {
+          if (texts.some((text) => text.trim() === expected)) {
             return true
           }
         }
@@ -2408,8 +3294,8 @@ ${specialistRoutingSection}
       }
 
       function inferPackageTestCommand(filePath: string): string | null {
-        // Map a source file path to its package test command. Returns null
-        // if not in a known package (gate then skips for that file).
+        // Prefer known monorepo-local commands, then fall back by ecosystem so
+        // ordinary user projects are not silently skipped.
         const pkgMatch = filePath.match(
           /^packages\/([^/]+)\/(?:src|__tests__)\//,
         )
@@ -2428,6 +3314,12 @@ ${specialistRoutingSection}
         if (filePath.startsWith('cli/src/')) {
           return 'cd cli && bun run typecheck && bun test'
         }
+        if (/\.pyi?$/.test(filePath)) return 'pytest'
+        if (/\.go$/.test(filePath)) return 'go test ./...'
+        if (/\.rs$/.test(filePath)) return 'cargo test'
+        if (/\.(java|kt|kts)$/.test(filePath)) return './gradlew test'
+        if (/\.(cs|fs|vb)$/.test(filePath)) return 'dotnet test'
+        if (/\.(tsx?|jsx?|mjs|cjs)$/.test(filePath)) return 'bun test'
         return null
       }
 
@@ -2442,11 +3334,19 @@ ${specialistRoutingSection}
         if (filePath.startsWith('evals/') || filePath.startsWith('.agents/')) {
           return false
         }
-        return !!inferPackageTestCommand(filePath)
+        return /\.(?:tsx?|jsx?|mjs|cjs|py|go|rs|java|kt|kts|cs|fs|vb)$/.test(
+          filePath,
+        )
       }
 
       function selectTestWriterTargets(files: string[]): {
-        groups: Array<{ targetFiles: string[]; testCommand: string }>
+        groups: Array<{
+          targetFiles: string[]
+          testCommand: string
+          candidateTests: string[]
+          manifest?: string
+          packageRoot: string
+        }>
       } {
         const targetFiles = files.filter(isNonTestSourceFile)
         if (!targetFiles.length) {
@@ -2465,9 +3365,190 @@ ${specialistRoutingSection}
             ([testCommand, groupedFiles]) => ({
               targetFiles: groupedFiles,
               testCommand,
+              candidateTests: [],
+              packageRoot: inferWorkspaceRootFromPath(groupedFiles[0]),
             }),
           ),
         }
+      }
+
+      function findJsonRecordWithArray(
+        value: unknown,
+        key: string,
+        depth = 0,
+      ): Record<string, unknown> | undefined {
+        if (!value || depth > 8) return undefined
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const found = findJsonRecordWithArray(item, key, depth + 1)
+            if (found) return found
+          }
+          return undefined
+        }
+        if (typeof value !== 'object') return undefined
+        const record = value as Record<string, unknown>
+        if (Array.isArray(record[key])) return record
+        if (record.type === 'json' && 'value' in record) {
+          const found = findJsonRecordWithArray(record.value, key, depth + 1)
+          if (found) return found
+        }
+        for (const nested of Object.values(record)) {
+          const found = findJsonRecordWithArray(nested, key, depth + 1)
+          if (found) return found
+        }
+        return undefined
+      }
+
+      function summarizeWriterEnvironment(value: unknown): string {
+        const record = findJsonRecordWithArray(value, 'workspaces')
+        if (!record) return ''
+        const manager =
+          typeof record.packageManager === 'string'
+            ? record.packageManager
+            : 'mixed/unknown manager'
+        const manifests = Array.isArray(record.manifests)
+          ? record.manifests.filter(
+              (item): item is string => typeof item === 'string',
+            )
+          : []
+        return `${manager}; manifests: ${manifests.slice(0, 12).join(', ') || '(none)'}`
+      }
+
+      function selectProjectAwareTestWriterTargets(
+        files: string[],
+        affectedTestResult: unknown,
+        buildTargetResult: unknown,
+      ): {
+        groups: Array<{
+          targetFiles: string[]
+          testCommand: string
+          candidateTests: string[]
+          manifest?: string
+          packageRoot: string
+        }>
+      } {
+        const sourceFiles = files.filter(isNonTestSourceFile)
+        if (sourceFiles.length === 0) return { groups: [] }
+        const affectedRecord = findJsonRecordWithArray(
+          affectedTestResult,
+          'targets',
+        )
+        const buildRecord = findJsonRecordWithArray(
+          buildTargetResult,
+          'targets',
+        )
+        const affectedTargets = Array.isArray(affectedRecord?.targets)
+          ? affectedRecord.targets.filter(
+              (item): item is Record<string, unknown> =>
+                !!item && typeof item === 'object',
+            )
+          : []
+        const buildTargets = Array.isArray(buildRecord?.targets)
+          ? buildRecord.targets.filter(
+              (item): item is Record<string, unknown> =>
+                !!item && typeof item === 'object',
+            )
+          : []
+        const byRoot = new Map<
+          string,
+          { targetFiles: string[]; candidateTests: string[] }
+        >()
+        for (const source of sourceFiles) {
+          const affected = affectedTargets.find(
+            (item) => item.source === source,
+          )
+          const root =
+            typeof affected?.packageRoot === 'string'
+              ? affected.packageRoot
+              : '.'
+          const group = byRoot.get(root) ?? {
+            targetFiles: [],
+            candidateTests: [],
+          }
+          group.targetFiles.push(source)
+          if (Array.isArray(affected?.candidates)) {
+            for (const candidate of affected.candidates) {
+              if (
+                typeof candidate === 'string' &&
+                !group.candidateTests.includes(candidate)
+              ) {
+                group.candidateTests.push(candidate)
+              }
+            }
+          }
+          byRoot.set(root, group)
+        }
+        const groups = [...byRoot.entries()].flatMap(([root, group]) => {
+          const build = buildTargets.find(
+            (item) => item.packageRoot === root,
+          )
+          const commands = Array.isArray(build?.commands)
+            ? build.commands.filter(
+                (item): item is string => typeof item === 'string',
+              )
+            : []
+          const selectedCommand =
+            commands.find((command) =>
+              /(?:^|\s)(?:test|pytest)(?:\s|$)/i.test(command),
+            ) ?? commands[0]
+          const fallbackCommand = inferPackageTestCommand(group.targetFiles[0])
+          const command = selectedCommand
+            ? root === '.'
+              ? selectedCommand
+              : `cd ${root} && ${selectedCommand}`
+            : fallbackCommand
+          if (!command) return []
+          return [
+            {
+              ...group,
+              testCommand: command,
+              packageRoot: root,
+              ...(typeof build?.manifest === 'string'
+                ? { manifest: build.manifest }
+                : {}),
+            },
+          ]
+        })
+        return groups.length > 0 ? { groups } : selectTestWriterTargets(files)
+      }
+
+      function inferWorkspaceRootFromPath(filePath: string): string {
+        const normalized = normalizeGateFilePath(filePath)
+        const segments = normalized.split('/').filter(Boolean)
+        if (
+          (segments[0] === 'packages' || segments[0] === 'apps') &&
+          segments[1]
+        ) {
+          return `${segments[0]}/${segments[1]}`
+        }
+        return segments.length > 1 ? segments[0] : '.'
+      }
+
+      function testWriterScopePatterns(packageRoot: string): string[] {
+        const prefix = packageRoot === '.' ? '' : `${packageRoot}/`
+        return [
+          `${prefix}**/*.test.*`,
+          `${prefix}**/*.spec.*`,
+          `${prefix}**/__tests__/**`,
+          `${prefix}**/test/**`,
+          `${prefix}**/tests/**`,
+        ]
+      }
+
+      function docWriterScopePatterns(sourceFiles: string[]): string[] {
+        const roots = [
+          ...new Set(sourceFiles.map(inferWorkspaceRootFromPath)),
+        ]
+        return roots.flatMap((root) => {
+          const prefix = root === '.' ? '' : `${root}/`
+          return [
+            `${prefix}docs/**`,
+            `${prefix}README*`,
+            `${prefix}**/README*`,
+            `${prefix}**/*.md`,
+            `${prefix}**/*.mdx`,
+          ]
+        })
       }
 
       function isPublicApiSourceFile(filePath: string): boolean {
@@ -2479,16 +3560,9 @@ ${specialistRoutingSection}
         if (filePath.startsWith('evals/') || filePath.startsWith('.agents/')) {
           return false
         }
-        if (/^packages\/[^/]+\/src\//.test(filePath)) return true
-        if (
-          filePath.startsWith('agents/') &&
-          !filePath.startsWith('agents/__tests__/')
-        ) {
-          return true
-        }
-        if (filePath.startsWith('common/src/')) return true
-        if (filePath.startsWith('cli/src/')) return true
-        return false
+        return /\.(?:tsx?|jsx?|mjs|cjs|py|go|rs|java|kt|kts|cs|fs|vb)$/.test(
+          filePath,
+        )
       }
 
       function selectDocWriterTargets(files: string[]): string[] {
@@ -2539,14 +3613,19 @@ ${specialistRoutingSection}
         return !gateFileSetsEqual(last, currentFiles)
       }
 
-      function selectSpecialistReviewersInline(params: {
+      function selectSpecialistReviewersInline(input: {
         files: string[]
         requirements: string
       }): string[] {
-        const files = params.files.map((file) =>
+        const runtimeRouter = (params as any)?.orchestrationControlPlane
+          ?.selectSpecialistReviewers
+        if (typeof runtimeRouter === 'function') {
+          return runtimeRouter(input)
+        }
+        const files = input.files.map((file) =>
           file.replace(/\\/g, '/').toLowerCase(),
         )
-        const requirements = params.requirements.toLowerCase()
+        const requirements = input.requirements.toLowerCase()
         const joined = `${files.join('\n')}\n${requirements}`
         const selected = new Set<string>()
         if (
@@ -2706,7 +3785,7 @@ ${specialistRoutingSection}
           verdict: result.verdict,
           snapshotFingerprint:
             result.snapshotFingerprint ?? expectedFingerprint,
-          reviewedFiles: result.reviewedFiles ?? [],
+          reviewedFiles: normalizeGateFileList(result.reviewedFiles ?? []),
           ...(result.coverage ? { coverage: result.coverage } : {}),
           dimensions: result.dimensions ?? {},
           findings: result.findingRecords ?? [],
@@ -3452,13 +4531,54 @@ ${specialistRoutingSection}
         statusLines: Map<string, string>,
         validationSummary: string,
       ): string {
+        return hashGateSnapshotDetails(
+          buildGateSnapshotDetails(files, statusLines, validationSummary),
+        )
+      }
+
+      function buildGateSnapshotDetails(
+        files: string[],
+        statusLines: Map<string, string>,
+        validationSummary: string,
+      ): string {
         const sorted = [...files].sort()
         const parts = sorted.map((file) => {
           const statusLine = statusLines.get(file) ?? ''
           const contentMarker = readGateFileContentMarker(file)
           return `${file}\t${statusLine}\t${contentMarker}`
         })
-        return `v2\n${parts.join('\n')}\n--\n${validationSummary}`
+        return `files-v3\n${parts.join('\n')}\n--\n${validationSummary}`
+      }
+
+      function hashGateSnapshotDetails(details: string): string {
+        const getBuiltinModule =
+          typeof process === 'object' &&
+          process !== null &&
+          'getBuiltinModule' in process &&
+          typeof process.getBuiltinModule === 'function'
+            ? process.getBuiltinModule.bind(process)
+            : undefined
+        const req = (globalThis as any).require as NodeJS.Require | undefined
+        let crypto: typeof import('node:crypto') | undefined
+        if (getBuiltinModule) {
+          crypto = getBuiltinModule(
+            'node:crypto',
+          ) as typeof import('node:crypto')
+        } else if (typeof req === 'function') {
+          crypto = req('node:crypto')
+        }
+        if (crypto) {
+          return `v3:${crypto.createHash('sha256').update(details).digest('hex')}`
+        }
+        // Serialized runtimes should expose a built-in module loader, but keep
+        // a deterministic single-line fallback so a loader failure never
+        // reintroduces a multiline attestation contract.
+        let hash = 2166136261
+        for (let index = 0; index < details.length; index += 1) {
+          hash ^= details.charCodeAt(index)
+          hash = Math.imul(hash, 16777619)
+        }
+        return `v3:fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}`
       }
 
       /**
@@ -3654,14 +4774,20 @@ ${specialistRoutingSection}
         pendingFiles: string[],
       ): string[] {
         const structured = collectStructuredReviewerOutputs(toolResult)
-        if (structured.length === 0) return []
+        if (structured.length === 0) {
+          return [
+            'BLOCKING: reviewer did not return the required structured snapshot attestation',
+          ]
+        }
         const result = structured[structured.length - 1]
         if (
           typeof result.schemaVersion !== 'number' ||
           !Number.isInteger(result.schemaVersion) ||
           result.schemaVersion <= 0
         ) {
-          return []
+          return [
+            'BLOCKING: reviewer returned an invalid attestation schemaVersion',
+          ]
         }
         const issues: string[] = []
         if (result.snapshotFingerprint !== expectedFingerprint) {
@@ -3669,8 +4795,14 @@ ${specialistRoutingSection}
             'BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree',
           )
         }
-        const reviewed = new Set(result.reviewedFiles ?? [])
-        const missing = pendingFiles.filter((file) => !reviewed.has(file))
+        const reviewed = new Set(
+          (result.reviewedFiles ?? [])
+            .map((file) => normalizeGateFilePath(file))
+            .filter((file) => file.length > 0),
+        )
+        const missing = pendingFiles
+          .map((file) => normalizeGateFilePath(file))
+          .filter((file) => file.length > 0 && !reviewed.has(file))
         if (missing.length > 0) {
           issues.push(
             `BLOCKING: reviewer did not attest to every pending file: ${missing.join(', ')}`,
@@ -3684,6 +4816,160 @@ ${specialistRoutingSection}
       // mirror of detectReviewerCrash in agents/base2/gate-reviewer.ts.
       function detectReviewerCrash(toolResult: unknown): string | null {
         return findReviewerCrash(toolResult)
+      }
+
+      function extractAgentReceipt(toolResult: unknown):
+        | {
+            status: string
+            changedFiles: Array<{ path: string }>
+            findingsAddressed: string[]
+            requestedValidation: string[]
+          }
+        | undefined {
+        const visit = (value: unknown, depth = 0): any => {
+          if (!value || depth > 10) return undefined
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              const found = visit(item, depth + 1)
+              if (found) return found
+            }
+            return undefined
+          }
+          if (typeof value !== 'object') return undefined
+          const record = value as Record<string, unknown>
+          if (
+            record.schemaVersion === 1 &&
+            typeof record.receiptId === 'string' &&
+            typeof record.status === 'string' &&
+            Array.isArray(record.changedFiles)
+          ) {
+            return {
+              status: record.status,
+              changedFiles: record.changedFiles.flatMap((item) => {
+                if (typeof item === 'string') return [{ path: item }]
+                if (item && typeof item === 'object') {
+                  const path = (item as Record<string, unknown>).path
+                  return typeof path === 'string' ? [{ path }] : []
+                }
+                return []
+              }),
+              findingsAddressed: Array.isArray(record.findingsAddressed)
+                ? record.findingsAddressed.filter(
+                    (item): item is string => typeof item === 'string',
+                  )
+                : [],
+              requestedValidation: Array.isArray(record.requestedValidation)
+                ? record.requestedValidation.filter(
+                    (item): item is string => typeof item === 'string',
+                  )
+                : [],
+            }
+          }
+          for (const nested of Object.values(record)) {
+            const found = visit(nested, depth + 1)
+            if (found) return found
+          }
+          return undefined
+        }
+        return visit(toolResult)
+      }
+
+      function extractWriterOutcome(toolResult: unknown):
+        | { completionKind: 'changed' | 'noop'; evidence: string[] }
+        | undefined {
+        const visit = (value: unknown, depth = 0): any => {
+          if (!value || depth > 10) return undefined
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              const found = visit(item, depth + 1)
+              if (found) return found
+            }
+            return undefined
+          }
+          if (typeof value !== 'object') return undefined
+          const record = value as Record<string, unknown>
+          if (
+            (record.completionKind === 'changed' ||
+              record.completionKind === 'noop') &&
+            Array.isArray(record.evidence)
+          ) {
+            return {
+              completionKind: record.completionKind,
+              evidence: record.evidence.filter(
+                (item): item is string => typeof item === 'string',
+              ),
+            }
+          }
+          for (const nested of Object.values(record)) {
+            const found = visit(nested, depth + 1)
+            if (found) return found
+          }
+          return undefined
+        }
+        return visit(toolResult)
+      }
+
+      function extractSpawnedAgentResult(
+        toolResult: unknown,
+        agentType: string,
+      ): unknown {
+        const visit = (value: unknown, depth = 0): unknown => {
+          if (!value || depth > 10) return undefined
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              const found = visit(item, depth + 1)
+              if (found !== undefined) return found
+            }
+            return undefined
+          }
+          if (typeof value !== 'object') return undefined
+          const record = value as Record<string, unknown>
+          if (record.agentType === agentType && 'value' in record) {
+            return record.value
+          }
+          if (record.type === 'json' && 'value' in record) {
+            const found = visit(record.value, depth + 1)
+            if (found !== undefined) return found
+          }
+          for (const nested of Object.values(record)) {
+            const found = visit(nested, depth + 1)
+            if (found !== undefined) return found
+          }
+          return undefined
+        }
+        return visit(toolResult)
+      }
+
+      function detectCommandFailure(
+        toolResult: unknown,
+        depth = 0,
+      ): string | null {
+        if (!toolResult || depth > 10) return null
+        if (Array.isArray(toolResult)) {
+          for (const item of toolResult) {
+            const failure = detectCommandFailure(item, depth + 1)
+            if (failure) return failure
+          }
+          return null
+        }
+        if (typeof toolResult !== 'object') return null
+        const record = toolResult as Record<string, unknown>
+        if (typeof record.errorMessage === 'string' && record.errorMessage) {
+          return record.errorMessage
+        }
+        if (typeof record.exitCode === 'number' && record.exitCode !== 0) {
+          return `Validation command failed with exit code ${record.exitCode}: ${typeof record.stderr === 'string' ? record.stderr.slice(0, 2_000) : ''}`
+        }
+        if (record.success === false || record.status === 'failed') {
+          return typeof record.message === 'string'
+            ? record.message
+            : 'Validation command reported failure.'
+        }
+        for (const nested of Object.values(record)) {
+          const failure = detectCommandFailure(nested, depth + 1)
+          if (failure) return failure
+        }
+        return null
       }
       function findReviewerCrash(
         value: unknown,
@@ -3734,97 +5020,7 @@ ${specialistRoutingSection}
       function getReviewerFinalizationVerdict(
         toolResult: unknown,
       ): 'LOOKS_GOOD' | 'NON_BLOCKING' | '' {
-        function extractEmbeddedJsonVerdict(
-          text: string,
-        ): 'LOOKS_GOOD' | 'NON_BLOCKING' | '' {
-          // Reviewers sometimes emit a short prose preamble before their JSON
-          // verdict object (e.g. "I now have full context. ... {\"verdict\":...}").
-          // The structured (parsed-object) path only sees parsed JSON nodes, so a
-          // verdict embedded in a plain string is invisible to it. Scan the raw
-          // text for an embedded verdict object and honor it as a text-mode
-          // fallback. Use the LAST match: a reviewer may echo a prior BLOCKING
-          // before the final LOOKS_GOOD, and we want the final verdict.
-          //
-          // NOTE: this intentionally avoids a regex literal. The inline-base2
-          // parity test (gate-reviewer.test.ts) extracts function source via a
-          // naive brace-counting scanner that does not understand regex literals
-          // or character classes, so a `}` inside a regex pattern (e.g. `[^}]`
-          // or `\}`) would prematurely close the extracted function body and
-          // break `new Function(...)`. The indexOf + brace-depth scan below
-          // contains no regex literal, so it is safe for that extractor. The
-          // same scanner also does not understand string literals, so a bare
-          // `{` or `}` inside a quoted string (e.g. the opener needle or the
-          // character comparisons below) would permanently skew its depth; we
-          // therefore build the needle from char codes and compare via
-          // charCodeAt(0) so no brace character ever appears inside a string
-          // literal in this body.
-          const VERDICT_OBJECT_OPEN = String.fromCharCode(123) + '"verdict"'
-          const candidates = []
-          let searchFrom = 0
-          while (true) {
-            const opener = text.indexOf(VERDICT_OBJECT_OPEN, searchFrom)
-            if (opener < 0) break
-            let depth = 0
-            let inString = false
-            let escape = false
-            let end = -1
-            for (let i = opener; i < text.length; i += 1) {
-              const ch = text[i]
-              if (escape) {
-                escape = false
-                continue
-              }
-              if (ch === '\\') {
-                escape = true
-                continue
-              }
-              if (ch === '"') {
-                inString = !inString
-                continue
-              }
-              if (inString) continue
-              // charCodeAt(0) comparisons avoid bare `{`/`}` inside string
-              // literals, which the naive brace-counting extractor would also
-              // miscount.
-              if (ch.charCodeAt(0) === 123) depth += 1
-              else if (ch.charCodeAt(0) === 125) {
-                depth -= 1
-                if (depth === 0) {
-                  end = i
-                  break
-                }
-              }
-            }
-            if (end < 0) break
-            candidates.push(text.slice(opener, end + 1))
-            searchFrom = end + 1
-          }
-          if (candidates.length === 0) return ''
-          const last = candidates[candidates.length - 1]
-          try {
-            const parsed = JSON.parse(last)
-            const verdict =
-              typeof parsed.verdict === 'string'
-                ? parsed.verdict.trim().toUpperCase()
-                : ''
-            const coverage =
-              typeof parsed.coverage === 'string'
-                ? parsed.coverage.trim().toLowerCase()
-                : ''
-            // BLOCKING is never a finalization verdict, and missing coverage
-            // still blocks regardless of the text verdict (coverage-adequacy
-            // contract).
-            if (verdict !== 'LOOKS_GOOD' && verdict !== 'NON_BLOCKING')
-              return ''
-            if (coverage === 'missing') return ''
-            return verdict === 'LOOKS_GOOD' ? 'LOOKS_GOOD' : 'NON_BLOCKING'
-          } catch {
-            return ''
-          }
-        }
-
-        // Structured reviewer outputs take precedence so text-mode fallbacks
-        // do not accidentally override an explicit JSON verdict.
+        // Automated gates accept only schema-backed structured reviewer output.
         const structured = collectStructuredReviewerOutputs(toolResult)
         if (structured.some((entry) => entry.coverage === 'missing')) {
           return ''
@@ -3834,31 +5030,6 @@ ${specialistRoutingSection}
           if (entry.verdict === 'NON_BLOCKING') return 'NON_BLOCKING'
         }
 
-        const texts: string[] = []
-        collectStrings(toolResult, texts)
-        for (const text of texts) {
-          const normalized = stripReviewerPreamble(text)
-          if (hasReviewerLineVerdict(normalized, 'LOOKS_GOOD'))
-            return 'LOOKS_GOOD'
-          if (hasReviewerLineVerdict(normalized, 'NON_BLOCKING'))
-            return 'NON_BLOCKING'
-          if (
-            /\breviewer gate passed\s*(?:with\s+|\(\s*)LOOKS_GOOD\b/i.test(
-              normalized,
-            )
-          ) {
-            return 'LOOKS_GOOD'
-          }
-          if (
-            /\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(
-              normalized,
-            )
-          ) {
-            return 'NON_BLOCKING'
-          }
-          const embedded = extractEmbeddedJsonVerdict(normalized)
-          if (embedded) return embedded
-        }
         return ''
       }
 
@@ -4481,7 +5652,7 @@ ${specialistRoutingSection}
     },
   }
 }
-const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Then verify the best candidates, matchedSnippets, and relatedFiles with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Cast a wide net for unclear or cross-cutting work; for tiny obvious edits, read only the directly relevant files. Use query_index, list_directory, and glob directly for searching and exploring the codebase; do not substitute basher for git status or file discovery when dedicated tools are available. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. For a large file, call read_outline first to see its structure (functions/classes/methods with line ranges, works across languages), then read_files with a symbols selector to pull just the specific symbols you need instead of the whole file. Read all the relevant files using the read_files tool.`
+const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, consume the runtime-injected query_index result first and deduplicate its candidates, matchedSnippets, and relatedFiles. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Spawn one bounded parallel discovery batch only for explicit domains the index result did not cover; give each file-picker/code-searcher a non-overlapping question and do not restart the same retrieval in multiple layers. Verify selected files with read_files/read_subtree. Use list_directory and glob only when structural/path evidence is missing, and do not substitute basher for git status or file discovery. Use read_subtree for a specific subsystem. For a large file, call read_outline first, then read_files with a symbols selector. Read all relevant files before editing.`
 
 function buildImplementationInstructionsPrompt({
   isFast,

@@ -4,6 +4,7 @@ import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 import { getContentHash } from '@codebuff/common/util/content-hash'
 
 import { changeFile, changeFiles } from '../tools/change-file'
+import { MAX_FILE_CHANGES_PER_TRANSACTION } from '@codebuff/common/actions'
 
 describe('changeFile', () => {
   test('returns a canonical authority-backed result for string replacements', async () => {
@@ -180,6 +181,28 @@ describe('changeFile', () => {
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe('before\n')
   })
 
+  test('fails closed for a guarded update when conditional commit is unavailable', async () => {
+    const fs = createMockFs({ files: { '/repo/src/file.ts': 'before\n' } })
+    fs.conditionalCommit = undefined
+
+    const result = await changeFile({
+      parameters: {
+        type: 'file',
+        path: 'src/file.ts',
+        content: 'after\n',
+        expectedHash: getContentHash('before\n'),
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'unsupported' })],
+    })
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe('before\n')
+  })
+
   test('rejects absolute paths outside the project', async () => {
     const fs = createMockFs()
 
@@ -196,7 +219,7 @@ describe('changeFile', () => {
     ).rejects.toThrow('file path is outside the project directory')
   })
 
-  test('atomically applies multiple file changes', async () => {
+  test('applies multiple preflighted file changes with a verified receipt', async () => {
     const fs = createMockFs({
       files: {
         '/repo/src/one.ts': 'const one = 1\n',
@@ -237,7 +260,7 @@ describe('changeFile', () => {
     )
   })
 
-  test('does not write any file when one atomic file change fails to prepare', async () => {
+  test('does not write any file when one coordinated change fails to prepare', async () => {
     const fs = createMockFs({
       files: {
         '/repo/src/one.ts': 'const one = 1\n',
@@ -278,7 +301,7 @@ describe('changeFile', () => {
     )
   })
 
-  test('rolls back files written before an atomic write failure', async () => {
+  test('rolls back files written before a coordinated write failure', async () => {
     const files: Record<string, string> = {
       '/repo/src/one.ts': 'const one = 1\n',
       '/repo/src/two.ts': 'const two = 1\n',
@@ -286,6 +309,12 @@ describe('changeFile', () => {
     let failedWrite = false
     const fs = createMockFs({
       files,
+      readFileImpl: async (path) => {
+        const content = files[path]
+        if (content === undefined)
+          throw Object.assign(new Error('not found'), { code: 'ENOENT' })
+        return content
+      },
       writeFileImpl: async (path, content) => {
         if (path === '/repo/src/two.ts' && !failedWrite) {
           failedWrite = true
@@ -331,6 +360,12 @@ describe('changeFile', () => {
     }
     const fs = createMockFs({
       files,
+      readFileImpl: async (path) => {
+        const content = files[path]
+        if (content === undefined)
+          throw Object.assign(new Error('not found'), { code: 'ENOENT' })
+        return content
+      },
       writeFileImpl: async (path, content) => {
         if (path === '/repo/src/two.ts') throw new Error('disk full')
         if (path === '/repo/src/one.ts' && content === 'const one = 1\n') {
@@ -376,6 +411,55 @@ describe('changeFile', () => {
       }),
     })
     expect(files['/repo/src/one.ts']).toBe('const one = 2\n')
+  })
+
+  test('does not overwrite an external edit when conditional rollback detects a conflict', async () => {
+    const fs = createMockFs({
+      files: {
+        '/repo/src/one.ts': 'one-before\n',
+        '/repo/src/two.ts': 'two-before\n',
+      },
+    })
+    const conditionalCommit = fs.conditionalCommit!.bind(fs)
+    fs.conditionalCommit = async (filePath, data, options) => {
+      if (String(filePath) === '/repo/src/two.ts') {
+        await fs.writeFile('/repo/src/one.ts', 'external\n')
+        throw new Error('disk full')
+      }
+      return conditionalCommit(filePath, data, options)
+    }
+
+    const result = await changeFiles({
+      parameters: [
+        {
+          type: 'file',
+          path: 'src/one.ts',
+          content: 'one-after\n',
+          expectedHash: getContentHash('one-before\n'),
+        },
+        {
+          type: 'file',
+          path: 'src/two.ts',
+          content: 'two-after\n',
+          expectedHash: getContentHash('two-before\n'),
+        },
+      ],
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      outcome: 'rollback_incomplete',
+      actions: [
+        expect.objectContaining({
+          path: 'src/one.ts',
+          rollback: expect.objectContaining({ succeeded: false }),
+          error: expect.objectContaining({ code: 'rollback_incomplete' }),
+        }),
+        expect.anything(),
+      ],
+    })
+    expect(await fs.readFile('/repo/src/one.ts', 'utf-8')).toBe('external\n')
   })
 
   test('[ABI-M08] coordinates create, delete, and move with expected state', async () => {
@@ -541,18 +625,9 @@ describe('changeFile', () => {
     })
   })
 
-  test('[ABI-M08] rolls back a partially committed portable move', async () => {
-    const files: Record<string, string> = { '/repo/source.txt': 'move me' }
-    let failSourceUnlink = true
-    const fs = createMockFs({ files })
-    const unlink = fs.unlink.bind(fs)
-    fs.unlink = async (filePath) => {
-      if (String(filePath) === '/repo/source.txt' && failSourceUnlink) {
-        failSourceUnlink = false
-        throw new Error('source unlink failed')
-      }
-      return unlink(filePath)
-    }
+  test('[ABI-M08] fails closed when conditional no-clobber move is unavailable', async () => {
+    const fs = createMockFs({ files: { '/repo/source.txt': 'move me' } })
+    fs.conditionalMove = undefined
     const result = await changeFiles({
       parameters: [
         {
@@ -568,10 +643,37 @@ describe('changeFile', () => {
     })
     expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
       kind: 'file_mutation_result',
-      outcome: 'rolled_back',
-      actions: [expect.objectContaining({ outcome: 'rolled_back' })],
+      outcome: 'not_applied',
+      errors: [expect.objectContaining({ code: 'unsupported' })],
     })
     expect(await fs.readFile('/repo/source.txt', 'utf-8')).toBe('move me')
     await expect(fs.readFile('/repo/moved.txt', 'utf-8')).rejects.toThrow()
+  })
+
+  test('returns a structured resource-limit result for oversized transactions', async () => {
+    const fs = createMockFs()
+    const result = await changeFiles({
+      parameters: Array.from(
+        { length: MAX_FILE_CHANGES_PER_TRANSACTION + 1 },
+        (_, index) => ({
+          type: 'file' as const,
+          path: `file-${index}.txt`,
+          content: 'x',
+          expectedHash: null,
+        }),
+      ),
+      cwd: '/repo',
+      fs,
+    })
+    expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
+      kind: 'file_mutation_result',
+      outcome: 'not_applied',
+      errors: [
+        expect.objectContaining({
+          code: 'resource_limit',
+          recovery: 'split_transaction',
+        }),
+      ],
+    })
   })
 })

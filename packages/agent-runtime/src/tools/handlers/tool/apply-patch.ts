@@ -9,8 +9,65 @@ import {
   normalizeToolPath,
   revokeWholeFileReadAuthorization,
 } from './write-file'
+import {
+  decodeReadCapabilityToken,
+  readCapabilityMatchesScope,
+} from '@codebuff/common/util/content-hash'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+
+function normalizePatchReadCapabilities(params: {
+  values: Array<string | { startLine: number; endLine: number; hash: string }>
+  projectId: string
+  path: string
+  runId: string
+}):
+  | {
+      ok: true
+      capabilities: Array<{
+        startLine: number
+        endLine: number
+        hash: string
+      }>
+      allBound: boolean
+    }
+  | { ok: false; errorMessage: string } {
+  const capabilities: Array<{
+    startLine: number
+    endLine: number
+    hash: string
+  }> = []
+  let allBound = params.values.length > 0
+  for (const value of params.values) {
+    if (typeof value !== 'string') {
+      allBound = false
+      capabilities.push(value)
+      continue
+    }
+    const decoded = decodeReadCapabilityToken(value)
+    if (typeof decoded === 'string') {
+      return { ok: false, errorMessage: decoded }
+    }
+    if (
+      !readCapabilityMatchesScope(decoded, {
+        projectId: params.projectId,
+        path: params.path,
+        runId: params.runId,
+      })
+    ) {
+      return {
+        ok: false,
+        errorMessage: `apply_patch blocked: a readCapability belongs to a different project, path, or agent run. Re-read ${params.path} in this run and copy its cap.v3 token.`,
+      }
+    }
+    capabilities.push({
+      startLine: decoded.startLine,
+      endLine: decoded.endLine,
+      hash: decoded.hash,
+    })
+  }
+  return { ok: true, capabilities, allBound }
+}
 
 export const handleApplyPatch = (async (params) => {
   const {
@@ -38,15 +95,38 @@ export const handleApplyPatch = (async (params) => {
   }
   await previousToolCallFinished
   const operation = toolCall.input.operation
+  const normalizedCapabilities =
+    operation.type === 'update_file'
+      ? normalizePatchReadCapabilities({
+          values: operation.basedOnRead ?? [],
+          projectId: params.fileContext?.projectRoot ?? '',
+          path,
+          runId: params.runId ?? '',
+        })
+      : { ok: true as const, capabilities: [], allBound: false }
+  if (!normalizedCapabilities.ok) {
+    return {
+      output: [
+        {
+          type: 'json' as const,
+          value: {
+            file: path,
+            errorMessage: normalizedCapabilities.errorMessage,
+            errorCode: 'fresh_read_required',
+            recovery: { tool: 'read_files' as const, input: { paths: [path] } },
+          },
+        },
+      ],
+    }
+  }
   if (operation.type !== 'create_file') {
     const hasStoredAuthorization = Boolean(
       fileProcessingState.readAuthorizationsByPath?.[path] ||
-        fileProcessingState.readAuthorizationHashesByPath?.[path],
+      fileProcessingState.readAuthorizationHashesByPath?.[path],
     )
     const hasRangeCapabilities =
       operation.type === 'update_file' &&
-      Array.isArray(operation.basedOnRead) &&
-      operation.basedOnRead.length > 0
+      normalizedCapabilities.allBound
     if (!hasStoredAuthorization) {
       const authorizationError = strictEditAuthorizationError({
         fileProcessingState,
@@ -113,7 +193,13 @@ export const handleApplyPatch = (async (params) => {
     toolName: 'apply_patch' as const,
     input: {
       ...toolCall.input,
-      operation: { ...toolCall.input.operation, path },
+      operation: {
+        ...toolCall.input.operation,
+        path,
+        ...(toolCall.input.operation.type === 'update_file'
+          ? { basedOnRead: normalizedCapabilities.capabilities }
+          : {}),
+      },
     },
   }
   const application = await coordinateEditApplication<'apply_patch'>({

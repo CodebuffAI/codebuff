@@ -539,7 +539,10 @@ export async function initialSessionState(
   if (agentDefinitions && agentDefinitions.length > 0) {
     processedAgentTemplates = processAgentDefinitions(agentDefinitions)
   } else {
-    processedAgentTemplates = await loadLocalAgents({ verbose: false })
+    processedAgentTemplates = await loadLocalAgents({
+      includeProjectAgents: false,
+      verbose: false,
+    })
   }
   const processedCustomToolDefinitions = processCustomToolDefinitions(
     customToolDefinitions,

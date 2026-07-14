@@ -13,6 +13,7 @@ import type {
   StructuredTransactionEdit,
 } from './process-structured-edit'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ReadCapabilityIssuer } from '@codebuff/common/util/content-hash'
 
 type StrReplaceTransactionEdit = {
   id?: string
@@ -70,6 +71,7 @@ export async function processEditTransaction(params: {
   initialContentByPath: Map<string, string | null>
   logger: Logger
   requireFreshReadCapabilityForPaths?: Set<string>
+  readCapabilityIssuer?: ReadCapabilityIssuer
 }): Promise<
   | {
       tool: 'edit_transaction'
@@ -87,46 +89,61 @@ export async function processEditTransaction(params: {
     initialContentByPath,
     logger,
     requireFreshReadCapabilityForPaths = new Set<string>(),
+    readCapabilityIssuer,
   } = params
   const workingContentByPath = new Map(initialContentByPath)
   const messagesByPath = new Map<string, string[]>()
   const failures: TransactionFailure[] = []
-  for (const [editIndex, edit] of edits.entries()) {
-    if (!workingContentByPath.has(edit.path)) {
+  for (let editIndex = 0; editIndex < edits.length; editIndex++) {
+    const edit = edits[editIndex]
+    if (!edit) continue
+    const coalescedEdit = coalesceAdjacentStrReplaceEdits(edits, editIndex)
+    const effectiveEdit = coalescedEdit?.edit ?? edit
+    const nextEditIndex = coalescedEdit?.nextEditIndex ?? editIndex + 1
+
+    if (!workingContentByPath.has(effectiveEdit.path)) {
       failures.push({
         editIndex,
-        ...(edit.id && { id: edit.id }),
-        path: edit.path,
-        errorMessage: `Cannot apply ${edit.type} edit to ${edit.path}: file was not preloaded for transaction preflight. Re-read the target file, then retry the whole transaction.`,
+        ...(effectiveEdit.id && { id: effectiveEdit.id }),
+        path: effectiveEdit.path,
+        errorMessage: `Cannot apply ${effectiveEdit.type} edit to ${effectiveEdit.path}: file was not preloaded for transaction preflight. Re-read the target file, then retry the whole transaction.`,
       })
       break
     }
 
-    const currentContent = workingContentByPath.get(edit.path)
+    const currentContent = workingContentByPath.get(effectiveEdit.path)
     const result = await processTransactionEdit({
-      edit,
+      edit: effectiveEdit,
       initialContentPromise: Promise.resolve(currentContent ?? null),
       logger,
       requireFreshReadCapability: requireFreshReadCapabilityForPaths.has(
-        edit.path,
+        effectiveEdit.path,
       ),
+      readCapabilityIssuer,
     })
 
     if ('error' in result) {
-      failures.push({
+      const failedEdit = resolveFailedEdit(
+        edits,
         editIndex,
-        ...(edit.id && { id: edit.id }),
-        path: edit.path,
+        coalescedEdit,
+        result.error,
+      )
+      failures.push({
+        editIndex: failedEdit.editIndex,
+        ...(failedEdit.edit.id && { id: failedEdit.edit.id }),
+        path: effectiveEdit.path,
         errorMessage: result.error,
       })
       break
     }
 
-    workingContentByPath.set(edit.path, result.content)
-    messagesByPath.set(edit.path, [
-      ...(messagesByPath.get(edit.path) ?? []),
+    workingContentByPath.set(effectiveEdit.path, result.content)
+    messagesByPath.set(effectiveEdit.path, [
+      ...(messagesByPath.get(effectiveEdit.path) ?? []),
       ...result.messages,
     ])
+    editIndex = nextEditIndex - 1
   }
 
   if (failures.length > 0) {
@@ -134,7 +151,7 @@ export async function processEditTransaction(params: {
     return {
       tool: 'edit_transaction',
       error: [
-        `Atomic edit_transaction aborted during preflight at edit ${firstFailure.editIndex + 1} of ${edits.length}, so NO files were changed.`,
+        `edit_transaction aborted during preflight at edit ${firstFailure.editIndex + 1} of ${edits.length}, so NO files were changed.`,
         'The detailed cause is listed once in failures below. Re-read only when that failure explicitly requires it, then retry the whole related transaction from one current snapshot.',
       ].join('\n\n'),
       failures,
@@ -144,15 +161,13 @@ export async function processEditTransaction(params: {
   const files: TransactionFileChange[] = []
   for (const [path, initialContent] of initialContentByPath.entries()) {
     const finalContent = workingContentByPath.get(path)
-    if (
-      typeof initialContent !== 'string' ||
-      typeof finalContent !== 'string'
-    ) {
+    if (typeof finalContent !== 'string') {
       continue
     }
-    if (initialContent === finalContent) continue
+    const comparisonContent = initialContent ?? ''
+    if (comparisonContent === finalContent) continue
 
-    let patch = createPatch(path, initialContent, finalContent)
+    let patch = createPatch(path, comparisonContent, finalContent)
     const lines = patch.split('\n')
     const hunkStartIndex = lines.findIndex((line) => line.startsWith('@@'))
     if (hunkStartIndex !== -1) {
@@ -171,7 +186,7 @@ export async function processEditTransaction(params: {
     return {
       tool: 'edit_transaction',
       error:
-        'Atomic edit_transaction produced no file changes. Re-read the target files/ranges and retry with replacements that change current content.',
+        'edit_transaction produced no file changes. Re-read the target files/ranges and retry with replacements that change current content.',
       failures: [],
     }
   }
@@ -179,7 +194,66 @@ export async function processEditTransaction(params: {
   return {
     tool: 'edit_transaction',
     files,
-    message: `Atomic edit_transaction prepared ${files.length} file change(s).`,
+    message: `edit_transaction preflight prepared ${files.length} coordinated file change(s).`,
+  }
+}
+
+function coalesceAdjacentStrReplaceEdits(
+  edits: TransactionEdit[],
+  startIndex: number,
+): {
+  edit: StrReplaceTransactionEdit
+  nextEditIndex: number
+  replacementEditIndexes: number[]
+} | null {
+  const firstEdit = edits[startIndex]
+  if (firstEdit?.type !== 'str_replace') return null
+
+  const replacements = [...firstEdit.replacements]
+  const replacementEditIndexes = firstEdit.replacements.map(() => startIndex)
+  let nextEditIndex = startIndex + 1
+  while (nextEditIndex < edits.length) {
+    const nextEdit = edits[nextEditIndex]
+    if (nextEdit?.type !== 'str_replace' || nextEdit.path !== firstEdit.path) {
+      break
+    }
+    replacements.push(...nextEdit.replacements)
+    replacementEditIndexes.push(
+      ...nextEdit.replacements.map(() => nextEditIndex),
+    )
+    nextEditIndex++
+  }
+
+  if (nextEditIndex === startIndex + 1) return null
+
+  return {
+    edit: {
+      ...firstEdit,
+      replacements,
+    },
+    nextEditIndex,
+    replacementEditIndexes,
+  }
+}
+
+function resolveFailedEdit(
+  edits: TransactionEdit[],
+  editIndex: number,
+  coalescedEdit: ReturnType<typeof coalesceAdjacentStrReplaceEdits>,
+  errorMessage: string,
+): { editIndex: number; edit: TransactionEdit } {
+  const replacementMatch = errorMessage.match(/replacement (\d+)/i)
+  const replacementIndex = replacementMatch
+    ? Number.parseInt(replacementMatch[1], 10) - 1
+    : -1
+  const sourceEditIndex =
+    replacementIndex >= 0
+      ? coalescedEdit?.replacementEditIndexes[replacementIndex]
+      : undefined
+  const failedEditIndex = sourceEditIndex ?? editIndex
+  return {
+    editIndex: failedEditIndex,
+    edit: edits[failedEditIndex] ?? edits[editIndex],
   }
 }
 
@@ -188,6 +262,7 @@ async function processTransactionEdit(params: {
   initialContentPromise: Promise<string | null>
   logger: Logger
   requireFreshReadCapability: boolean
+  readCapabilityIssuer?: ReadCapabilityIssuer
 }): Promise<
   | {
       content: string
@@ -197,8 +272,13 @@ async function processTransactionEdit(params: {
       error: string
     }
 > {
-  const { edit, initialContentPromise, logger, requireFreshReadCapability } =
-    params
+  const {
+    edit,
+    initialContentPromise,
+    logger,
+    requireFreshReadCapability,
+    readCapabilityIssuer,
+  } = params
   switch (edit.type) {
     case 'str_replace': {
       const initialContent = await initialContentPromise
@@ -208,6 +288,9 @@ async function processTransactionEdit(params: {
           replacements: edit.replacements,
           atomic: true,
           requireFreshReadCapability,
+          readCapabilityScope: readCapabilityIssuer
+            ? { ...readCapabilityIssuer, path: edit.path }
+            : undefined,
           initialContentPromise: Promise.resolve(initialContent),
           logger,
         })
@@ -218,6 +301,9 @@ async function processTransactionEdit(params: {
         replacements: edit.replacements,
         atomic: true,
         requireFreshReadCapability,
+        readCapabilityScope: readCapabilityIssuer
+          ? { ...readCapabilityIssuer, path: edit.path }
+          : undefined,
         initialContentPromise: Promise.resolve(initialContent),
         logger,
       })
@@ -244,7 +330,11 @@ async function processTransactionEdit(params: {
           : lines.at(-1) === ''
             ? lines.length - 1
             : lines.length
-      if (edit.startLine < 1 || edit.endLine > visibleLineCount) {
+      if (
+        edit.startLine < 1 ||
+        edit.endLine < edit.startLine ||
+        edit.endLine > visibleLineCount
+      ) {
         return {
           error: `replace_range ${edit.startLine}-${edit.endLine} is outside ${edit.path} (${visibleLineCount} lines).`,
         }
@@ -277,9 +367,8 @@ async function processTransactionEdit(params: {
           error: `Cannot rewrite a symbol in missing file ${edit.path}.`,
         }
       }
-      const { extractSlices, extendRangeToPrecedingComment } = await import(
-        './structural-read'
-      )
+      const { extractSlices, extendRangeToPrecedingComment } =
+        await import('./structural-read')
       const matches = await extractSlices(
         initialContent,
         edit.path,

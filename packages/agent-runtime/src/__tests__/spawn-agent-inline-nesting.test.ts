@@ -441,8 +441,12 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
   })
 
   it('does not copy ordinary inline-agent private history back to the parent', async () => {
+    let initialChildHistory: unknown[] = []
+    let initialChildSystemPrompt = ''
     spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(
       async (options) => {
+        initialChildHistory = [...options.agentState.messageHistory]
+        initialChildSystemPrompt = options.agentState.systemPrompt
         options.agentState.messageHistory = [
           ...options.agentState.messageHistory,
           {
@@ -488,6 +492,10 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
     })
 
     expect(sessionState.mainAgentState.messageHistory).toEqual(originalHistory)
+    expect(JSON.stringify(initialChildHistory)).not.toContain(
+      'original parent request',
+    )
+    expect(initialChildSystemPrompt).toBe('')
   })
 
   it('still applies context-pruner history updates to the parent', async () => {
@@ -565,5 +573,24 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
       'one',
       'two',
     ])
+  })
+
+  it('bounds ordinary child output before returning it to the parent', () => {
+    const normalized = normalizeSpawnedAgentOutput(
+      {
+        type: 'lastMessage',
+        value: [
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'x'.repeat(120_000) }],
+          },
+        ],
+      },
+      'general-agent',
+    )
+
+    const serialized = JSON.stringify(normalized)
+    expect(serialized.length).toBeLessThan(10_000)
+    expect(serialized).toContain('truncated')
   })
 })

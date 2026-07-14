@@ -36,4 +36,52 @@ describe('getFileTokenScores incremental reuse', () => {
     expect(data.parsed['src/parse.ts']).toBeDefined()
     expect(data.parsed['src/parse.ts'].identifiers.length).toBeGreaterThan(0)
   })
+
+  test('reports deterministic file-budget truncation and spreads work across prefixes', async () => {
+    const files = ['apps/a.ts', 'packages/a.ts', 'apps/b.ts', 'packages/b.ts']
+    const data = await getFileTokenScores(
+      process.cwd(),
+      files,
+      () => 'export function sharedSymbol() { return 1 }\n',
+      undefined,
+      { maxFiles: 2, maxFileBytes: 10_000, maxTotalBytes: 100_000 },
+    )
+
+    expect(data.coverage).toMatchObject({
+      requestedFiles: 4,
+      freshParsedFiles: 2,
+      skippedFiles: 2,
+      fileBudgetExceeded: true,
+      byteBudgetExceeded: false,
+      truncated: true,
+    })
+    expect(
+      Object.keys(data.parsed).some((file) => file.startsWith('apps/')),
+    ).toBe(true)
+    expect(
+      Object.keys(data.parsed).some((file) => file.startsWith('packages/')),
+    ).toBe(true)
+    expect(data.coverage.skippedPrefixes).toEqual(['apps', 'packages'])
+  })
+
+  test('reports byte-budget and oversized-file coverage separately', async () => {
+    const data = await getFileTokenScores(
+      process.cwd(),
+      ['src/large.ts', 'src/first.ts', 'src/after.ts'],
+      (filePath) =>
+        filePath.endsWith('large.ts')
+          ? 'x'.repeat(50)
+          : filePath.endsWith('first.ts')
+            ? 'x'.repeat(8)
+            : 'x'.repeat(5),
+      undefined,
+      { maxFiles: 10, maxFileBytes: 10, maxTotalBytes: 10 },
+    )
+
+    expect(data.coverage.oversizedFiles).toBe(1)
+    expect(data.coverage.byteBudgetExceeded).toBe(true)
+    expect(data.coverage.skippedFiles).toBe(2)
+    expect(data.coverage.skippedKnownBytes).toBeGreaterThanOrEqual(50)
+    expect(data.coverage.truncated).toBe(true)
+  })
 })

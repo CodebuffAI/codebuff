@@ -15,6 +15,11 @@ export const getBuildTargetsParams = {
           packageRoot: z.string(),
           scripts: z.array(z.string()),
           manifest: z.string(),
+          manager: z.string().optional(),
+          commands: z.array(z.string()).optional(),
+          confidence: z
+            .enum(['confirmed', 'inferred', 'unknown'])
+            .optional(),
         }),
       ),
     }),

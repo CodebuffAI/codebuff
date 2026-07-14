@@ -15,7 +15,9 @@ describe('tool execution deadlines', () => {
       FILE_MUTATION_TOOL_TIMEOUT_MS,
     )
     expect(getDefaultToolExecutionTimeoutMs('ask_user')).toBeUndefined()
-    expect(getDefaultToolExecutionTimeoutMs('run_terminal_command')).toBeUndefined()
+    expect(
+      getDefaultToolExecutionTimeoutMs('run_terminal_command'),
+    ).toBeUndefined()
   })
 
   it('aborts a hung mutation with a non-run-cancellation timeout error', async () => {

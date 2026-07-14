@@ -1880,6 +1880,7 @@ describe('read_files edit-state recovery', () => {
     it('exposes a whole-file readCapability that directly authorizes the next strict edit', async () => {
       const path = 'client/src/routes/dashboard.ip.tsx'
       const diskContent = 'export const value = 1\n'
+      const runId = 'strict-capability-run'
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
 
@@ -1894,13 +1895,14 @@ describe('read_files edit-state recovery', () => {
         fileProcessingState,
         requestFiles: async () => ({ [path]: diskContent }),
         logger,
+        runId,
       } as any)
       const readOutput = readResult.output[0]
       expect(readOutput.type).toBe('json')
       if (readOutput.type !== 'json') return
       const readCapability = (readOutput.value as any).results[0]
         .readCapability as string
-      expect(readCapability).toMatch(/^cap\.v2\./)
+      expect(readCapability).toMatch(/^cap\.v3\./)
 
       // Prove that the visible capability is independently sufficient rather
       // than accidentally relying on the handler's hidden per-path state.
@@ -1925,6 +1927,8 @@ describe('read_files edit-state recovery', () => {
           },
         },
         fileProcessingState,
+        fileContext: mockFileContext,
+        runId,
         logger,
         requestOptionalFile: async () => diskContent,
         requestClientToolCall: async (toolCall: any) => {
@@ -1999,6 +2003,7 @@ describe('read_files edit-state recovery', () => {
       const readContent = 'export const value = 1\n'
       const diskContent = 'export const value = 2\n'
       const currentLine = 'export const value = 2'
+      const runId = 'scoped-recovery-run'
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
       fileProcessingState.readAuthorizationsByPath = { [path]: true }
@@ -2023,12 +2028,19 @@ describe('read_files edit-state recovery', () => {
                   startLine: 1,
                   endLine: 1,
                   hash: getContentHash(currentLine),
+                  scope: {
+                    projectId: mockFileContext.projectRoot,
+                    path,
+                    runId,
+                  },
                 }),
               },
             ],
           },
         },
         fileProcessingState,
+        fileContext: mockFileContext,
+        runId,
         logger,
         requestOptionalFile: async () => diskContent,
         requestClientToolCall: async (toolCall: any) => {
@@ -2541,10 +2553,12 @@ describe('read_files edit-state recovery', () => {
       const path = 'src/helper.ts'
       const diskContent = 'export const value = 1\n'
       const rangeContent = 'export const value = 1'
+      const runId = 'strict-transaction-run'
       const readCapability = encodeReadCapabilityToken({
         startLine: 1,
         endLine: 1,
         hash: getContentHash(rangeContent),
+        scope: { projectId: mockFileContext.projectRoot, path, runId },
       })
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
@@ -2573,6 +2587,8 @@ describe('read_files edit-state recovery', () => {
           },
         },
         fileProcessingState,
+        fileContext: mockFileContext,
+        runId,
         logger,
         requestOptionalFile: async ({ filePath }: { filePath: string }) =>
           filePath === path ? diskContent : null,
@@ -2595,6 +2611,7 @@ describe('read_files edit-state recovery', () => {
       const diskContent = 'export const value = 1\n'
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
+      const runId = 'strict-stale-anchor-run'
       let applied = false
 
       const result = await handleStrReplace({
@@ -2613,12 +2630,19 @@ describe('read_files edit-state recovery', () => {
                   startLine: 1,
                   endLine: 1,
                   hash: getContentHash('export const value = 0'),
+                  scope: {
+                    projectId: mockFileContext.projectRoot,
+                    path,
+                    runId,
+                  },
                 }),
               },
             ],
           },
         },
         fileProcessingState,
+        fileContext: mockFileContext,
+        runId,
         logger,
         requestOptionalFile: async () => diskContent,
         requestClientToolCall: async () => {
@@ -2642,6 +2666,7 @@ describe('read_files edit-state recovery', () => {
       const path = 'src/helper.ts'
       const diskContent = 'export const value = 1\nexport const other = 1\n'
       const firstLine = 'export const value = 1'
+      const runId = 'strict-multi-anchor-run'
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
       fileProcessingState.failedEditRequiresReadByPath[path] = true
@@ -2665,6 +2690,11 @@ describe('read_files edit-state recovery', () => {
                   startLine: 1,
                   endLine: 1,
                   hash: getContentHash(firstLine),
+                  scope: {
+                    projectId: mockFileContext.projectRoot,
+                    path,
+                    runId,
+                  },
                 }),
               },
               {
@@ -2676,6 +2706,8 @@ describe('read_files edit-state recovery', () => {
           },
         },
         fileProcessingState,
+        fileContext: mockFileContext,
+        runId,
         logger,
         requestOptionalFile: async () => diskContent,
         requestClientToolCall: async () => {
@@ -2701,6 +2733,7 @@ describe('read_files edit-state recovery', () => {
       const diskContent = 'export const value = 1\n'
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
+      const runId = 'strict-stale-transaction-run'
       let applied = false
 
       const result = await handleEditTransaction({
@@ -2722,6 +2755,11 @@ describe('read_files edit-state recovery', () => {
                       startLine: 1,
                       endLine: 1,
                       hash: getContentHash('export const value = 0'),
+                      scope: {
+                        projectId: mockFileContext.projectRoot,
+                        path,
+                        runId,
+                      },
                     }),
                   },
                 ],
@@ -2730,6 +2768,8 @@ describe('read_files edit-state recovery', () => {
           },
         },
         fileProcessingState,
+        fileContext: mockFileContext,
+        runId,
         logger,
         requestOptionalFile: async () => diskContent,
         requestClientToolCall: async () => {
@@ -2746,7 +2786,7 @@ describe('read_files edit-state recovery', () => {
           failures?: Array<{ errorMessage?: string }>
         }
         expect(String(value.errorMessage)).toContain(
-          'Atomic edit_transaction aborted during preflight at edit 1 of 1',
+          'edit_transaction aborted during preflight at edit 1 of 1',
         )
         expect(String(value.failures?.[0]?.errorMessage)).toContain(
           'basedOnRead did not match the current file content',
@@ -3282,7 +3322,7 @@ describe('read_files edit-state recovery', () => {
       expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
     })
 
-    it('Reduction A: strict replace_range allows when expectedHash is supplied as freshness anchor', async () => {
+    it('strict replace_range rejects a legacy pathless expectedHash as authorization', async () => {
       const path = 'src/helper.ts'
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
@@ -3309,15 +3349,58 @@ describe('read_files edit-state recovery', () => {
         },
       } as any)
 
-      expect(applied).toBe(true)
+      expect(applied).toBe(false)
       const output = result.output[0]
       expect(output.type).toBe('json')
       if (output.type === 'json') {
-        expect(output.value).not.toHaveProperty('errorMessage')
+        expect(String((output.value as any).errorMessage)).toContain(
+          'Legacy startLine/endLine/expectedHash tuples',
+        )
       }
-      expect(
-        fileProcessingState.failedEditRequiresReadByPath[path],
-      ).toBeUndefined()
+    })
+
+    it('strict replace_range accepts a cap.v3 token bound to the target and run', async () => {
+      const path = 'src/helper.ts'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+      const scope = {
+        projectId: mockFileContext.projectRoot,
+        path,
+        runId: 'replace-range-run',
+      }
+      const readCapability = encodeReadCapabilityToken({
+        startLine: 1,
+        endLine: 1,
+        hash: getContentHash('export const value = 1'),
+        scope,
+      })
+      let applied = false
+      const result = await handleReplaceRange({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'replace-range-bound-anchor',
+          toolName: 'replace_range',
+          input: {
+            path,
+            startLine: 1,
+            endLine: 1,
+            expectedHash: getContentHash('export const value = 1'),
+            readCapability,
+            newContent: 'export const value = 2',
+          },
+        },
+        fileContext: mockFileContext,
+        runId: scope.runId,
+        fileProcessingState,
+        requestOptionalFile: async () => 'export const value = 1\n',
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return confirmedMutationOutput(toolCall)
+        },
+      } as any)
+
+      expect(applied).toBe(true)
+      expect(result.output[0]).toMatchObject({ type: 'json' })
     })
 
     it('Reduction D: strict str_replace error message omits "in this turn" and "Recovery required:"', async () => {

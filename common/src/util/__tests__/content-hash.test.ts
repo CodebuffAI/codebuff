@@ -4,6 +4,7 @@ import {
   decodeReadCapabilityToken,
   encodeReadCapabilityToken,
   getContentHash,
+  readCapabilityMatchesScope,
 } from '../content-hash'
 
 describe('read capability errors', () => {
@@ -30,6 +31,57 @@ describe('read capability errors', () => {
 
     expect(decodeReadCapabilityToken(`readCapability=\"${token}\"`)).toEqual(
       capability,
+    )
+  })
+
+  it('round-trips authenticated project/path/run-bound v3 capabilities', () => {
+    const scope = {
+      projectId: '/workspace/project',
+      path: 'src/value.ts',
+      runId: 'run-123',
+    }
+    const token = encodeReadCapabilityToken({
+      startLine: 4,
+      endLine: 8,
+      hash: getContentHash('bound content'),
+      scope,
+    })
+
+    expect(token).toMatch(
+      /^cap\.v3\.4\.8\.[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/,
+    )
+    const decoded = decodeReadCapabilityToken(token)
+    expect(typeof decoded).toBe('object')
+    if (typeof decoded !== 'string') {
+      expect(decoded.tokenVersion).toBe('v3')
+      expect(readCapabilityMatchesScope(decoded, scope)).toBe(true)
+      expect(
+        readCapabilityMatchesScope(decoded, {
+          ...scope,
+          path: 'src/other.ts',
+        }),
+      ).toBe(false)
+      expect(
+        readCapabilityMatchesScope(decoded, { ...scope, runId: 'other-run' }),
+      ).toBe(false)
+    }
+  })
+
+  it('rejects tampered v3 capability payloads', () => {
+    const token = encodeReadCapabilityToken({
+      startLine: 4,
+      endLine: 8,
+      hash: getContentHash('bound content'),
+      scope: {
+        projectId: '/workspace/project',
+        path: 'src/value.ts',
+        runId: 'run-123',
+      },
+    })
+    const tampered = token.replace('cap.v3.4.8.', 'cap.v3.4.9.')
+
+    expect(decodeReadCapabilityToken(tampered)).toContain(
+      'authentication failed',
     )
   })
 

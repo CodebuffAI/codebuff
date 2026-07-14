@@ -32,14 +32,34 @@ export type CodebuffConditionalCommitResult =
 
 export type CodebuffConditionalDeleteResult = CodebuffConditionalCommitResult
 
+export type CodebuffConditionalMoveOptions = {
+  expectedSourceHash: string
+  /** Guarded moves currently require an absent destination. */
+  expectedDestinationHash: null
+}
+
+export type CodebuffConditionalMoveResult =
+  | { applied: true }
+  | {
+      applied: false
+      actualSourceHash: string | null
+      actualDestinationHash: string | null
+    }
+
 /**
- * Optional operations that a filesystem adapter may implement atomically.
- * Their absence is meaningful: callers must not emulate the atomic guarantee
- * with a check-then-write sequence.
+ * Optional operations that a filesystem adapter may implement with native or
+ * cooperative compare-and-swap authority. Their absence is meaningful:
+ * callers must not emulate the guarantee with a check-then-write sequence.
  */
 export type CodebuffFileSystemCapabilities = {
   /** Whether process-backed tools observe the same workspace as this adapter. */
   hostProcessView?: boolean
+  /**
+   * Describes the authority behind conditional mutations. `cooperative_cas`
+   * serializes participating Openbuff processes, but cannot exclude arbitrary
+   * external filesystem writers.
+   */
+  mutationAuthority?: 'cooperative_cas' | 'native_atomic'
   readRange?: (
     path: fs.PathLike,
     start: number,
@@ -64,6 +84,16 @@ export type CodebuffFileSystemCapabilities = {
     path: fs.PathLike,
     options: { expectedHash: string },
   ) => Promise<CodebuffConditionalDeleteResult>
+  /**
+   * Move a source under the adapter's declared mutation authority only when
+   * its content hash still matches and the destination is still absent.
+   * Implementations must not replace an existing destination.
+   */
+  conditionalMove?: (
+    source: fs.PathLike,
+    destination: fs.PathLike,
+    options: CodebuffConditionalMoveOptions,
+  ) => Promise<CodebuffConditionalMoveResult>
   createFileExclusive?: (
     path: fs.PathLike,
     data: CodebuffFileContent,

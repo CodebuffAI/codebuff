@@ -296,7 +296,7 @@ ${
 
 - Every edit payload is self-contained. Never use references such as "[see patch above]", "same as above", or omitted code placeholders.
 - Copy exact oldString text from a current read. For range edits, copy the returned capability/hash exactly instead of guessing it.
-- If an edit result says a fresh read is required, perform that read before retrying. If an atomic transaction aborts, rebuild and retry the related transaction as a whole from the fresh snapshot.`
+- If an edit result says a fresh read is required, perform that read before retrying. If a coordinated transaction aborts, rebuild and retry the related transaction as a whole from the fresh snapshot.`
     : ''
 }
 

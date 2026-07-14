@@ -11,6 +11,11 @@ import {
 import { basedOnReadSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
 import { decodeReadCapabilityToken } from '../../../util/content-hash'
+import {
+  MAX_FILE_CHANGES_PER_TRANSACTION,
+  MAX_TRANSACTION_INPUT_BYTES,
+  MAX_TRANSACTION_UNIQUE_PATHS,
+} from '../../../actions'
 
 import { updateFileResultSchema } from './str-replace'
 
@@ -264,6 +269,36 @@ export const transactionEditSchema = z.discriminatedUnion('type', [
   writeFileEditSchema,
 ])
 
+export const boundedTransactionEditListSchema = z
+  .array(transactionEditSchema)
+  .min(1, 'Transaction edits cannot be empty')
+  .max(
+    MAX_FILE_CHANGES_PER_TRANSACTION,
+    `A transaction can contain at most ${MAX_FILE_CHANGES_PER_TRANSACTION} edits. Split larger changes into bounded transactions.`,
+  )
+  .superRefine((edits, ctx) => {
+    const paths = new Set(
+      edits.flatMap((edit) =>
+        edit.type === 'move' ? [edit.path, edit.destinationPath] : [edit.path],
+      ),
+    )
+    if (paths.size > MAX_TRANSACTION_UNIQUE_PATHS) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `A transaction can touch at most ${MAX_TRANSACTION_UNIQUE_PATHS} unique paths. Split larger changes into bounded transactions.`,
+      })
+    }
+    const inputBytes = new TextEncoder().encode(
+      JSON.stringify(edits),
+    ).byteLength
+    if (inputBytes > MAX_TRANSACTION_INPUT_BYTES) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Transaction input exceeds the ${MAX_TRANSACTION_INPUT_BYTES}-byte limit. Split larger changes into bounded transactions.`,
+      })
+    }
+  })
+
 export const editTransactionResultSchema = z.union([
   fileMutationResultV1Schema,
   updateFileResultSchema,
@@ -320,9 +355,7 @@ const inputSchema = z
     edits: z
       .preprocess(
         normalizeTransactionRangeCapabilities,
-        z
-          .array(transactionEditSchema)
-          .min(1, 'Transaction edits cannot be empty'),
+        boundedTransactionEditListSchema,
       )
       .describe(
         'All edits that must preflight together. Pass an actual array of edit objects; do not JSON.stringify the array or its entries. The runtime defensively decodes complete legacy JSON encodings, but malformed or truncated strings fail closed. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed.',

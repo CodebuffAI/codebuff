@@ -269,6 +269,36 @@ function messageContainsText(message: Message, needle: string): boolean {
   )
 }
 
+/**
+ * Return the newest authoritative pinned block of each supported kind.
+ * Spawned agents use this for bounded `pinned` history transfer and manual
+ * compaction uses it to avoid preserving an older stale memory block merely
+ * because it appeared first in the conversation.
+ */
+export function extractPinnedContextBlocks(messages: Message[]): string[] {
+  const newestByTag = new Map<string, string>()
+  for (
+    let messageIndex = messages.length - 1;
+    messageIndex >= 0;
+    messageIndex--
+  ) {
+    const message = messages[messageIndex]
+    for (const part of message.content) {
+      if (part.type !== 'text') continue
+      for (const match of part.text.matchAll(
+        /<(knowledge_memory|pinned_active_work_state)>[\s\S]*?<\/\1>/g,
+      )) {
+        const tag = match[1]
+        if (!newestByTag.has(tag)) newestByTag.set(tag, match[0])
+      }
+    }
+  }
+  return ['pinned_active_work_state', 'knowledge_memory'].flatMap((tag) => {
+    const block = newestByTag.get(tag)
+    return block ? [block] : []
+  })
+}
+
 function compactPinnedContextMessage(message: Message): Message {
   if (!message.keepDuringTruncation || message.role === 'tool') return message
   const blocks: string[] = []

@@ -25,7 +25,8 @@ export type EmbedFn = ((texts: string[]) => Promise<number[][]>) & {
 
 export interface FileVector {
   path: string
-  hash?: string
+  /** SHA-256 of the exact text sent to the embedding provider. */
+  embeddingHash?: string
   vector: number[]
 }
 
@@ -35,7 +36,7 @@ export interface SemanticHit {
 }
 
 /** Bump when {@link fileEmbeddingText} changes in a vector-incompatible way. */
-export const FILE_EMBEDDING_TEXT_VERSION = '1'
+export const FILE_EMBEDDING_TEXT_VERSION = '2'
 
 /**
  * Stable cache identity for vectors produced by one embedding configuration.
@@ -89,6 +90,10 @@ export function fileEmbeddingText(file: IndexedFile): string {
   return parts.filter((p) => p && p.trim().length > 0).join('\n')
 }
 
+export function fileEmbeddingHash(file: IndexedFile): string {
+  return createHash('sha256').update(fileEmbeddingText(file)).digest('hex')
+}
+
 /** Embed every file (batched) into vectors. Errors propagate to the caller. */
 export async function buildFileVectors(
   files: IndexedFile[],
@@ -96,30 +101,40 @@ export async function buildFileVectors(
   batchSize = 64,
   previous: ReadonlyArray<{
     path?: string
-    hash?: string
+    embeddingHash?: string
     vector: number[]
   }> = [],
 ): Promise<FileVector[]> {
-  // Content hashes, rather than paths, are the durable identity. This reuses a
-  // vector after a rename and avoids embedding duplicate files twice.
+  // The exact embedding input is the durable identity. Path is part of that
+  // input, so renames correctly invalidate vectors instead of reusing a vector
+  // that still semantically represents the old path.
   const previousByHash = new Map(
-    previous.filter((entry) => entry.hash).map((entry) => [entry.hash!, entry]),
+    previous
+      .filter((entry) => entry.embeddingHash)
+      .map((entry) => [entry.embeddingHash!, entry]),
   )
   const vectors: FileVector[] = []
-  const changed: IndexedFile[] = []
+  const changed: Array<{ file: IndexedFile; embeddingHash: string }> = []
   for (const file of files) {
-    const cached = previousByHash.get(file.hash)
+    const embeddingHash = fileEmbeddingHash(file)
+    const cached = previousByHash.get(embeddingHash)
     if (cached) {
-      vectors.push({ path: file.path, hash: file.hash, vector: cached.vector })
-    } else changed.push(file)
+      vectors.push({ path: file.path, embeddingHash, vector: cached.vector })
+    } else changed.push({ file, embeddingHash })
   }
   for (let i = 0; i < changed.length; i += batchSize) {
     const batch = changed.slice(i, i + batchSize)
-    const embeddings = await embed(batch.map(fileEmbeddingText))
+    const embeddings = await embed(
+      batch.map((entry) => fileEmbeddingText(entry.file)),
+    )
     for (let j = 0; j < batch.length; j++) {
       const vector = embeddings[j]
       if (vector && vector.length > 0) {
-        vectors.push({ path: batch[j].path, hash: batch[j].hash, vector })
+        vectors.push({
+          path: batch[j].file.path,
+          embeddingHash: batch[j].embeddingHash,
+          vector,
+        })
       }
     }
   }

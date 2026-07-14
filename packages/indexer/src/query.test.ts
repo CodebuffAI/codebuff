@@ -395,10 +395,9 @@ describe('queryIndex', () => {
     expect(results[0]?.path).toBe('src/auth.ts')
   })
 
-  test('references mode labels calls edges as name-based and unreliable', () => {
-    // A calls edge is name-based (highest-score ownership) and therefore
-    // ambiguous for common-named symbols. The result should carry an explicit
-    // reliability warning so the caller knows to verify.
+  test('references mode labels statically resolved calls as requiring verification', () => {
+    // Call edges are conservative static evidence, but dynamic dispatch still
+    // requires live verification before an edit relies on the relationship.
     const callsIndex: MetadataIndex = {
       ...index,
       graph: {
@@ -443,8 +442,8 @@ describe('queryIndex', () => {
     expect(paymentsResult).toBeDefined()
     expect(paymentsResult?.explanation).toContain('calls a symbol defined here')
     expect(paymentsResult?.explanation).toContain('loginUser')
-    expect(paymentsResult?.explanation).toContain('name-based')
-    expect(paymentsResult?.explanation).toContain('verify')
+    expect(paymentsResult?.explanation).toContain('statically resolved')
+    expect(paymentsResult?.explanation).toContain('verify dynamic dispatch')
   })
 })
 

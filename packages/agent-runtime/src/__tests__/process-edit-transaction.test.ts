@@ -108,7 +108,7 @@ describe('processEditTransaction', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('edit_transaction aborted')
       expect(result.error).toContain('during preflight at edit 2 of 2')
       expect(result.error).not.toContain(result.failures[0]!.errorMessage)
       expect(result.error).toContain('NO files were changed')
@@ -208,7 +208,7 @@ describe('processEditTransaction', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('edit_transaction aborted')
       expect(result.failures).toEqual([
         expect.objectContaining({
           editIndex: 0,
@@ -375,7 +375,7 @@ describe('processEditTransaction', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('edit_transaction aborted')
       expect(result.failures).toEqual([
         expect.objectContaining({
           editIndex: 0,
@@ -651,7 +651,7 @@ describe('processEditTransaction', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('edit_transaction aborted')
       expect(result.failures).toEqual([
         expect.objectContaining({
           editIndex: 0,
@@ -779,7 +779,7 @@ describe('processEditTransaction', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('edit_transaction aborted')
       expect(result.failures).toEqual([
         expect.objectContaining({
           editIndex: 1,
@@ -814,7 +814,7 @@ describe('processEditTransaction', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('edit_transaction aborted')
       expect(result.failures).toEqual([
         expect.objectContaining({
           editIndex: 0,
@@ -867,6 +867,261 @@ describe('processEditTransaction', () => {
       expect(
         applyPatch('const a = 1\nconst b = 1\n', result.files[0].patch),
       ).toBe('const a = 2\nconst b = 2\n')
+    }
+  })
+
+  it('coalesces adjacent same-file str_replace edits so original anchors survive line shifts', async () => {
+    const initialContent = 'const a = 1\nconst b = 1\n'
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/helper.ts', initialContent]]),
+      logger,
+      edits: [
+        {
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const a = 1',
+              newString: 'const a = 1\nconst inserted = true',
+              allowMultiple: false,
+              basedOnRead: {
+                startLine: 1,
+                endLine: 1,
+                hash: getContentHash('const a = 1'),
+              },
+            },
+          ],
+        },
+        {
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const b = 1',
+              newString: 'const b = 2',
+              allowMultiple: false,
+              basedOnRead: {
+                startLine: 2,
+                endLine: 2,
+                hash: getContentHash('const b = 1'),
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files).toHaveLength(1)
+      expect(result.files[0].content).toBe(
+        'const a = 1\nconst inserted = true\nconst b = 2\n',
+      )
+    }
+  })
+
+  it("coalesces id'd adjacent same-file str_replace edits so original anchors survive line shifts", async () => {
+    const initialContent = 'const a = 1\nconst b = 1\n'
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/helper.ts', initialContent]]),
+      logger,
+      edits: [
+        {
+          id: 'insert-before-second-anchor',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const a = 1',
+              newString: 'const a = 1\nconst inserted = true',
+              allowMultiple: false,
+              basedOnRead: {
+                startLine: 1,
+                endLine: 1,
+                hash: getContentHash('const a = 1'),
+              },
+            },
+          ],
+        },
+        {
+          id: 'update-shifted-anchor',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const b = 1',
+              newString: 'const b = 2',
+              allowMultiple: false,
+              basedOnRead: {
+                startLine: 2,
+                endLine: 2,
+                hash: getContentHash('const b = 1'),
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files).toHaveLength(1)
+      expect(result.files[0].content).toBe(
+        'const a = 1\nconst inserted = true\nconst b = 2\n',
+      )
+    }
+  })
+
+  it('reports the later edit id when an adjacent same-file str_replace fails', async () => {
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([
+        ['src/helper.ts', 'const a = 1\nconst b = 1\n'],
+      ]),
+      logger,
+      edits: [
+        {
+          id: 'first-update',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const a = 1',
+              newString: 'const a = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+        {
+          id: 'second-update',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const missing = 1',
+              newString: 'const missing = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('during preflight at edit 2 of 2')
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          editIndex: 1,
+          id: 'second-update',
+          path: 'src/helper.ts',
+        }),
+      ])
+    }
+  })
+
+  it("reports the later edit index when a coalesced un-id'd str_replace fails", async () => {
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([
+        ['src/helper.ts', 'const a = 1\nconst b = 1\n'],
+      ]),
+      logger,
+      edits: [
+        {
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const a = 1',
+              newString: 'const a = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+        {
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const missing = 1',
+              newString: 'const missing = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('during preflight at edit 2 of 2')
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          editIndex: 1,
+          path: 'src/helper.ts',
+          errorMessage: expect.stringContaining('Replacement 2'),
+        }),
+      ])
+    }
+  })
+
+  it('does not coalesce same-file str_replace edits across other edit types', async () => {
+    const initialContent = 'const a = 1\nconst b = 1\nconst c = 1\n'
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/helper.ts', initialContent]]),
+      logger,
+      edits: [
+        {
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const a = 1',
+              newString: 'const a = 1\nconst inserted = true',
+              allowMultiple: false,
+              basedOnRead: {
+                startLine: 1,
+                endLine: 1,
+                hash: getContentHash('const a = 1'),
+              },
+            },
+          ],
+        },
+        {
+          type: 'replace_range',
+          path: 'src/helper.ts',
+          startLine: 3,
+          endLine: 3,
+          expectedHash: getContentHash('const b = 1'),
+          newContent: 'const b = 2',
+        },
+        {
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const c = 1',
+              newString: 'const c = 2',
+              allowMultiple: false,
+              basedOnRead: {
+                startLine: 3,
+                endLine: 3,
+                hash: getContentHash('const c = 1'),
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.failures[0]).toEqual(
+        expect.objectContaining({
+          editIndex: 2,
+          path: 'src/helper.ts',
+        }),
+      )
+      expect(result.failures[0]?.errorMessage).toContain('basedOnRead')
     }
   })
 
@@ -939,7 +1194,7 @@ describe('processEditTransaction', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.error).toContain('edit_transaction aborted')
       expect(result.failures[0]?.errorMessage).toContain(
         'oldString was not uniquely identifiable',
       )
@@ -974,6 +1229,61 @@ describe('processEditTransaction', () => {
     })
 
     expect('files' in result ? result.files[0]?.content : null).toBe('final\n')
+  })
+
+  it('aborts replace_range edits with reversed line bounds', async () => {
+    const initial = 'one\ntwo\nthree\n'
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/file.ts', initial]]),
+      logger,
+      edits: [
+        {
+          type: 'replace_range',
+          path: 'src/file.ts',
+          startLine: 3,
+          endLine: 2,
+          expectedHash: getContentHash(''),
+          newContent: 'inserted',
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('edit_transaction aborted')
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          editIndex: 0,
+          path: 'src/file.ts',
+          errorMessage: expect.stringContaining('replace_range 3-2 is outside'),
+        }),
+      ])
+    }
+  })
+
+  it('creates a preloaded missing file with write_file', async () => {
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/new.ts', null]]),
+      logger,
+      edits: [
+        {
+          type: 'write_file',
+          path: 'src/new.ts',
+          content: 'export const created = true\n',
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files).toHaveLength(1)
+      expect(result.files[0].path).toBe('src/new.ts')
+      expect(result.files[0].content).toBe('export const created = true\n')
+      expect(result.files[0].patch).toContain('+export const created = true')
+      expect(applyPatch('', result.files[0].patch)).toBe(
+        'export const created = true\n',
+      )
+    }
   })
 
   it('rewrite_symbol replaces the contiguous preceding documentation comment', async () => {

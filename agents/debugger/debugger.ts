@@ -42,6 +42,7 @@ const definition: SecretAgentDefinition = {
     'run_terminal_command',
     'git_status',
   ],
+  terminalPermissionProfile: 'validation-diagnosis',
   spawnableAgents: [],
 
   systemPrompt: `You are an expert debugger. You form a minimal hypothesis, confirm it with evidence, and converge on the root cause. You never change code on a guess — you prove the cause first, then report the exact fix location.`,

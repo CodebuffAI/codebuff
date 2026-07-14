@@ -4,8 +4,7 @@ const WORKFLOW_API_URL =
   'https://api.github.com/repos/AnzoBenjamin/openbuff/actions/workflows/cli-release-prod.yml'
 const WORKFLOW_WEB_URL =
   'https://github.com/AnzoBenjamin/openbuff/actions/workflows/cli-release-prod.yml'
-const RELEASE_ACTIONS_URL =
-  'https://github.com/AnzoBenjamin/openbuff/actions'
+const RELEASE_ACTIONS_URL = 'https://github.com/AnzoBenjamin/openbuff/actions'
 const VERSION_TYPES = new Set(['patch', 'minor', 'major'])
 
 type FetchLike = typeof fetch
@@ -31,7 +30,9 @@ function formatTimestamp() {
   return now.toLocaleDateString('en-US', options)
 }
 
-export function validateVersionType(value: string): 'patch' | 'minor' | 'major' {
+export function validateVersionType(
+  value: string,
+): 'patch' | 'minor' | 'major' {
   if (!VERSION_TYPES.has(value)) {
     fail(
       `Invalid release version type '${value}'. Expected one of: patch, minor, major.`,
@@ -157,7 +158,9 @@ async function main() {
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error(`❌ Release failed: ${error instanceof Error ? error.message : String(error)}`)
+    console.error(
+      `❌ Release failed: ${error instanceof Error ? error.message : String(error)}`,
+    )
     process.exitCode = 1
   })
 }

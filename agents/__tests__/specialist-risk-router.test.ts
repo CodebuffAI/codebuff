@@ -6,11 +6,7 @@ describe('specialist risk router', () => {
   test('routes artifact risks deterministically in stable order', () => {
     expect(
       selectSpecialistReviewers({
-        files: [
-          'package.json',
-          'src/migrations/001.sql',
-          'src/public-api.ts',
-        ],
+        files: ['package.json', 'src/migrations/001.sql', 'src/public-api.ts'],
         requirements:
           'Preserve backward compatibility and make the retry state machine idempotent.',
       }),
@@ -24,7 +20,9 @@ describe('specialist risk router', () => {
 
   test('routes UI specialists only when requirements identify their risk', () => {
     const files = ['src/components/Dialog.tsx']
-    expect(selectSpecialistReviewers({ files, requirements: 'Rename a prop.' })).toEqual([])
+    expect(
+      selectSpecialistReviewers({ files, requirements: 'Rename a prop.' }),
+    ).toEqual([])
     expect(
       selectSpecialistReviewers({
         files,

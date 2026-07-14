@@ -60,8 +60,19 @@ const definition: SecretAgentDefinition = {
   },
   outputMode: 'structured_output',
   includeMessageHistory: false,
-  toolNames: ['run_terminal_command'],
-  programmaticToolNames: ['inspect_environment', 'set_output'],
+  toolNames: [
+    'run_terminal_command',
+    'read_files',
+    'write_file',
+    'apply_patch',
+  ],
+  programmaticToolNames: [
+    'inspect_environment',
+    'read_files',
+    'write_file',
+    'apply_patch',
+    'set_output',
+  ],
   terminalPermissionProfile: 'dependency-mutation',
   spawnableAgents: [],
   systemPrompt:
@@ -77,7 +88,8 @@ const definition: SecretAgentDefinition = {
         typeof value === 'string' &&
         value.trim().length > 0 &&
         !value.trim().startsWith('-') &&
-        !/[\0;&|`\r\n]/.test(value),
+        !/[\0;&|`\r\n]/.test(value) &&
+        !/:\/\/[^/@\s]+:[^/@\s]+@/.test(value),
     )
     const workspace =
       typeof params?.workspace === 'string' ? params.workspace.trim() : ''
@@ -105,22 +117,71 @@ const definition: SecretAgentDefinition = {
         },
       },
     })
+    const extractFileSnapshots = (
+      value: unknown,
+    ): Array<{ path: string; content: string }> => {
+      const snapshots: Array<{ path: string; content: string }> = []
+      const seen = new Set<string>()
+      const visit = (item: unknown, depth = 0): void => {
+        if (!item || depth > 8) return
+        if (Array.isArray(item)) {
+          for (const nested of item) visit(nested, depth + 1)
+          return
+        }
+        if (typeof item !== 'object') return
+        const record = item as Record<string, unknown>
+        const filePath =
+          typeof record.path === 'string'
+            ? record.path
+            : typeof record.canonicalPath === 'string'
+              ? record.canonicalPath
+              : undefined
+        if (
+          filePath &&
+          typeof record.content === 'string' &&
+          !seen.has(filePath)
+        ) {
+          seen.add(filePath)
+          snapshots.push({ path: filePath, content: record.content })
+        }
+        for (const nested of Object.values(record)) visit(nested, depth + 1)
+      }
+      visit(value)
+      return snapshots
+    }
 
     if (rawPackages.length !== packages.length) {
       yield emit(
         'invalid',
-        'Package specifications must be non-empty positional arguments and cannot contain shell-control characters or begin with a dash.',
+        'Package specifications must be non-empty positional arguments, cannot contain shell-control characters or begin with a dash, and cannot embed URL credentials.',
       ) as ToolCall<'set_output'>
       return
     }
     if (workspace.startsWith('-') || /[\0;&|`\r\n]/.test(workspace)) {
-      yield emit('invalid', 'The workspace selector is not a safe positional value.') as ToolCall<'set_output'>
+      yield emit(
+        'invalid',
+        'The workspace selector is not a safe positional value.',
+      ) as ToolCall<'set_output'>
       return
     }
-    if ((operation === 'add' || operation === 'remove') && packages.length === 0) {
+    if (
+      (operation === 'add' || operation === 'remove') &&
+      packages.length === 0
+    ) {
       yield emit(
         'invalid',
         `${operation} requires at least one explicit package specification.`,
+      ) as ToolCall<'set_output'>
+      return
+    }
+    if (
+      manager === 'dotnet' &&
+      (operation === 'add' || operation === 'remove') &&
+      packages.length > 1
+    ) {
+      yield emit(
+        'invalid',
+        'dotnet add/remove accepts one package per dependency transaction so a later command cannot leave a partial multi-package mutation.',
       ) as ToolCall<'set_output'>
       return
     }
@@ -171,6 +232,19 @@ const definition: SecretAgentDefinition = {
           (value): value is string => typeof value === 'string',
         )
       : []
+    const normalizedCwd =
+      typeof params?.cwd === 'string'
+        ? params.cwd.trim().replace(/\\/g, '/').replace(/^\.\//, '') || '.'
+        : '.'
+    const workspaces = Array.isArray(environmentValue?.workspaces)
+      ? environmentValue.workspaces.filter(
+          (value): value is Record<string, unknown> =>
+            !!value && typeof value === 'object',
+        )
+      : []
+    const selectedWorkspace = workspaces.find(
+      (value) => value.root === normalizedCwd,
+    )
     const manifestManager = manifests.includes('Cargo.toml')
       ? 'cargo'
       : manifests.includes('go.mod')
@@ -185,9 +259,15 @@ const definition: SecretAgentDefinition = {
               ? 'swift'
               : undefined
     const javascriptManagers = ['npm', 'pnpm', 'yarn', 'bun']
-    const detectedManager = javascriptManagers.includes(manager)
-      ? detectedPackageManager
-      : manifestManager
+    const workspaceManager =
+      typeof selectedWorkspace?.manager === 'string'
+        ? selectedWorkspace.manager
+        : undefined
+    const detectedManager =
+      workspaceManager ??
+      (javascriptManagers.includes(manager)
+        ? detectedPackageManager
+        : manifestManager)
     if (detectedManager && detectedManager !== manager) {
       yield emit(
         'invalid',
@@ -195,6 +275,38 @@ const definition: SecretAgentDefinition = {
         { detectedManager, manifests },
       ) as ToolCall<'set_output'>
       return
+    }
+
+    const selectedManifest =
+      typeof selectedWorkspace?.manifest === 'string'
+        ? selectedWorkspace.manifest
+        : manifests.find((manifest) =>
+            normalizedCwd === '.'
+              ? !manifest.includes('/')
+              : manifest.startsWith(`${normalizedCwd}/`),
+          )
+    const selectedLockfiles = (Array.isArray(environmentValue?.lockfiles)
+      ? environmentValue.lockfiles.filter(
+          (value): value is string => typeof value === 'string',
+        )
+      : []
+    ).filter((lockfile) =>
+      normalizedCwd === '.'
+        ? !lockfile.includes('/')
+        : lockfile.startsWith(`${normalizedCwd}/`),
+    )
+    const snapshotPaths = [
+      ...(selectedManifest ? [selectedManifest] : []),
+      ...selectedLockfiles,
+    ]
+    let dependencySnapshots: Array<{ path: string; content: string }> = []
+    if (snapshotPaths.length > 0) {
+      const { toolResult: dependencyRead } = yield {
+        toolName: 'read_files',
+        input: { paths: snapshotPaths },
+        includeToolCall: false,
+      } as ToolCall<'read_files'>
+      dependencySnapshots = extractFileSnapshots(dependencyRead)
     }
 
     const commands: string[] = []
@@ -219,9 +331,13 @@ const definition: SecretAgentDefinition = {
             : operation === 'update'
               ? 'update'
               : 'install'
-      commands.push(`pnpm${filter} ${verb}${packageArgs ? ` ${packageArgs}` : ''}`)
+      commands.push(
+        `pnpm${filter} ${verb}${packageArgs ? ` ${packageArgs}` : ''}`,
+      )
     } else if (manager === 'yarn') {
-      const isWorkspaceOperation = ['add', 'remove', 'update'].includes(operation)
+      const isWorkspaceOperation = ['add', 'remove', 'update'].includes(
+        operation,
+      )
       const prefix =
         workspace && isWorkspaceOperation
           ? `yarn workspace ${quote(workspace)}`
@@ -245,7 +361,9 @@ const definition: SecretAgentDefinition = {
             : operation === 'update'
               ? 'update'
               : 'install'
-      commands.push(`bun${filter} ${verb}${packageArgs ? ` ${packageArgs}` : ''}`)
+      commands.push(
+        `bun${filter} ${verb}${packageArgs ? ` ${packageArgs}` : ''}`,
+      )
     } else if (manager === 'uv') {
       commands.push(
         operation === 'add'
@@ -294,9 +412,7 @@ const definition: SecretAgentDefinition = {
       if (operation === 'restore') commands.push('dotnet restore')
       else {
         for (const packageName of packages) {
-          commands.push(
-            `dotnet ${operation} package ${quote(packageName)}`,
-          )
+          commands.push(`dotnet ${operation} package ${quote(packageName)}`)
         }
       }
     } else if (manager === 'bundler') {
@@ -320,7 +436,9 @@ const definition: SecretAgentDefinition = {
               : 'install'
       commands.push(`composer ${verb}${packageArgs ? ` ${packageArgs}` : ''}`)
     } else if (manager === 'swift') {
-      commands.push(`swift package ${operation === 'update' ? 'update' : 'resolve'}`)
+      commands.push(
+        `swift package ${operation === 'update' ? 'update' : 'resolve'}`,
+      )
     } else if (manager === 'dart' || manager === 'flutter') {
       const verb =
         operation === 'add'
@@ -330,7 +448,9 @@ const definition: SecretAgentDefinition = {
             : operation === 'update'
               ? 'upgrade'
               : 'get'
-      commands.push(`${manager} pub ${verb}${packageArgs ? ` ${packageArgs}` : ''}`)
+      commands.push(
+        `${manager} pub ${verb}${packageArgs ? ` ${packageArgs}` : ''}`,
+      )
     } else if (manager === 'mix') {
       commands.push(
         operation === 'update'
@@ -357,13 +477,80 @@ const definition: SecretAgentDefinition = {
         ?.value as Record<string, unknown> | undefined
       const failed =
         typeof resultValue?.errorMessage === 'string' ||
-        (typeof resultValue?.exitCode === 'number' && resultValue.exitCode !== 0)
+        (typeof resultValue?.exitCode === 'number' &&
+          resultValue.exitCode !== 0)
       results.push({ command, ...(resultValue ?? {}) })
       if (failed) {
+        const rollbackResults: Record<string, unknown>[] = []
+        for (const snapshot of dependencySnapshots) {
+          const { toolResult: restoreResult } = yield {
+            toolName: 'write_file',
+            input: {
+              path: snapshot.path,
+              instructions:
+                'Restore the exact pre-operation dependency file snapshot after command failure.',
+              content: snapshot.content,
+            },
+            includeToolCall: false,
+          } as ToolCall<'write_file'>
+          rollbackResults.push({
+            action: 'restore',
+            path: snapshot.path,
+            result: restoreResult,
+          })
+        }
+        const { toolResult: postFailureEnvironment } = yield {
+          toolName: 'inspect_environment',
+          input: {},
+          includeToolCall: false,
+        } as ToolCall<'inspect_environment'>
+        const postFailureValue = postFailureEnvironment?.find(
+          (part) => part.type === 'json',
+        )?.value as Record<string, unknown> | undefined
+        const createdLockfiles = Array.isArray(postFailureValue?.lockfiles)
+          ? postFailureValue.lockfiles.filter(
+              (value): value is string =>
+                typeof value === 'string' &&
+                !selectedLockfiles.includes(value) &&
+                (normalizedCwd === '.'
+                  ? !value.includes('/')
+                  : value.startsWith(`${normalizedCwd}/`)),
+            )
+          : []
+        for (const createdLockfile of createdLockfiles) {
+          const { toolResult: deleteResult } = yield {
+            toolName: 'apply_patch',
+            input: {
+              operation: { type: 'delete_file', path: createdLockfile },
+            },
+            includeToolCall: false,
+          } as ToolCall<'apply_patch'>
+          rollbackResults.push({
+            action: 'delete-created-lockfile',
+            path: createdLockfile,
+            result: deleteResult,
+          })
+        }
+        const rollbackFailed = rollbackResults.some((entry) =>
+          JSON.stringify(entry.result).includes('errorMessage'),
+        )
         yield emit('failed', `Dependency command failed: ${command}`, {
           detectedManager,
           manifests,
-          commands,
+          workspace: normalizedCwd,
+          manifest: selectedManifest,
+          dependencySnapshots: dependencySnapshots.map((snapshot) => ({
+            path: snapshot.path,
+            size: snapshot.content.length,
+          })),
+          rollbackRequired: rollbackFailed,
+          rollbackReceipt: {
+            status: rollbackFailed ? 'incomplete' : 'rolled_back',
+            restoredFiles: dependencySnapshots.map((snapshot) => snapshot.path),
+            deletedCreatedFiles: createdLockfiles,
+            results: rollbackResults,
+          },
+          commands: commands.map((value) => value.replace(/:\/\/[^/@\s]+:[^/@\s]+@/g, '://[redacted]@')),
           results,
         }) as ToolCall<'set_output'>
         return
@@ -372,7 +559,14 @@ const definition: SecretAgentDefinition = {
     yield emit('success', 'Dependency operation completed successfully.', {
       detectedManager,
       manifests,
-      commands,
+      workspace: normalizedCwd,
+      manifest: selectedManifest,
+      dependencySnapshots: dependencySnapshots.map((snapshot) => ({
+        path: snapshot.path,
+        size: snapshot.content.length,
+      })),
+      rollbackRequired: false,
+      commands: commands.map((value) => value.replace(/:\/\/[^/@\s]+:[^/@\s]+@/g, '://[redacted]@')),
       results,
     }) as ToolCall<'set_output'>
   },

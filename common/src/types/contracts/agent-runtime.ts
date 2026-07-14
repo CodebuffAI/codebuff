@@ -46,7 +46,8 @@ export type AgentRuntimeDeps = {
   promptAiSdkStream: PromptAiSdkStreamFn
   promptAiSdk: PromptAiSdkFn
   promptAiSdkStructured: PromptAiSdkStructuredFn
-  /** Resolve the primary BYOK model's declared context window before a run. */
+  /** Resolve the smallest declared context window across the agent's primary
+   * BYOK route and configured failovers before a run. */
   resolveModelContextWindow?: (params: {
     agentId?: string
     model?: string

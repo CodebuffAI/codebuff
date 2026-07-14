@@ -17,13 +17,38 @@ describe('spawn_agents handoff schema', () => {
     expect(result.success).toBe(true)
   })
 
+  it('accepts compact file evidence with freshness metadata', () => {
+    const result = spawnAgentsParams.inputSchema.safeParse({
+      agents: [
+        {
+          agent_type: 'editor',
+          handoff: {
+            schemaVersion: 1,
+            taskId: 'T1',
+            role: 'editor',
+            objective: 'Update the runtime safely.',
+            context: [
+              {
+                path: 'src/runtime.ts',
+                symbols: ['run'],
+                reason: 'Primary implementation path',
+                confidence: 'confirmed',
+                freshnessHash: 'sha256:abc',
+              },
+            ],
+          },
+        },
+      ],
+    })
+
+    expect(result.success).toBe(true)
+  })
+
   it('repairs double-stringified lists and stringified agent entries', () => {
     const entry = {
       agent_type: 'code-searcher',
       params: {
-        searchQueries: [
-          { pattern: 'authenticate', flags: ['-g', '*.ts'] },
-        ],
+        searchQueries: [{ pattern: 'authenticate', flags: ['-g', '*.ts'] }],
       },
     }
     for (const agents of [

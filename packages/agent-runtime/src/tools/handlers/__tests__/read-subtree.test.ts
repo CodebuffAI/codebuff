@@ -8,7 +8,9 @@ import { describe, it, expect } from 'bun:test'
 import { handleReadSubtree } from '../tool/read-subtree'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type { FilesystemError } from '@codebuff/common/tools/results/filesystem'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 // Type for read_subtree result entries
 interface ReadSubtreeResultEntry {
@@ -23,6 +25,11 @@ interface ReadSubtreeResultEntry {
   liveScanTruncated?: boolean
   liveScanMaxNodes?: number
   recovery?: string
+  status?: 'complete' | 'partial'
+  provenance?: 'live' | 'cached'
+  stale?: boolean
+  error?: FilesystemError
+  errors?: Array<{ path: string; error: FilesystemError }>
 }
 
 function createLogger(): Logger {
@@ -163,6 +170,98 @@ describe('handleReadSubtree', () => {
     // empty) project root, so we should get the not-found-on-disk message.
     expect(String(errEntry!.errorMessage)).toContain('Path not found')
     expect(String(errEntry!.errorMessage)).toContain('does-not-exist')
+    expect(errEntry!.error?.code).toBe('unsupported')
+    expect(errEntry!.provenance).toBe('cached')
+  })
+
+  it('does not fall back to the host filesystem when no view is injected', async () => {
+    const fileContext = buildMockFileContext()
+    const tmpRoot = nodeFs.mkdtempSync(
+      nodePath.join(nodeOs.tmpdir(), 'openbuff-read-subtree-no-fallback-'),
+    )
+    try {
+      nodeFs.writeFileSync(nodePath.join(tmpRoot, 'host-only.ts'), 'secret')
+      fileContext.projectRoot = tmpRoot
+      const { output } = await handleReadSubtree({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolName: 'read_subtree',
+          toolCallId: 'tc-no-host-fallback',
+          input: { paths: ['host-only.ts'], maxTokens: 50_000 },
+        },
+        fileContext,
+        logger: createLogger(),
+      })
+
+      expect((output[0].value as ReadSubtreeResultEntry[])[0]).toMatchObject({
+        path: 'host-only.ts',
+        provenance: 'cached',
+        error: { code: 'unsupported', retryable: false },
+      })
+    } finally {
+      nodeFs.rmSync(tmpRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('preserves typed live filesystem errors', async () => {
+    const fileContext = buildMockFileContext()
+    fileContext.projectRoot = '/project'
+    const denied = Object.assign(new Error('permission denied'), {
+      code: 'EACCES',
+    })
+    const fileSystem = {
+      realpath: async () => {
+        throw denied
+      },
+    } as unknown as CodebuffFileSystem
+    const { output } = await handleReadSubtree({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolName: 'read_subtree',
+        toolCallId: 'tc-live-error',
+        input: { paths: ['src'], maxTokens: 50_000 },
+      },
+      fileContext,
+      logger: createLogger(),
+      fileSystem,
+    })
+
+    expect((output[0].value as ReadSubtreeResultEntry[])[0]).toMatchObject({
+      path: 'src',
+      provenance: 'live',
+      error: { code: 'io_error', retryable: true, recovery: 'read_again' },
+    })
+  })
+
+  it('returns a typed cancellation without scanning the host', async () => {
+    const fileContext = buildMockFileContext()
+    fileContext.projectRoot = '/project'
+    let realpathCalls = 0
+    const fileSystem = {
+      realpath: async (path: any) => {
+        realpathCalls += 1
+        return String(path)
+      },
+    } as unknown as CodebuffFileSystem
+    const controller = new AbortController()
+    controller.abort(new DOMException('cancelled', 'AbortError'))
+    const { output } = await handleReadSubtree({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolName: 'read_subtree',
+        toolCallId: 'tc-cancelled',
+        input: { paths: ['src'], maxTokens: 50_000 },
+      },
+      fileContext,
+      logger: createLogger(),
+      fileSystem,
+      signal: controller.signal,
+    })
+
+    expect(realpathCalls).toBe(0)
+    expect((output[0].value as ReadSubtreeResultEntry[])[0]).toMatchObject({
+      error: { code: 'cancelled', retryable: true },
+    })
   })
 
   it('[COR-M08] uses the live root as authoritative over the cached snapshot', async () => {
@@ -192,6 +291,7 @@ describe('handleReadSubtree', () => {
         toolCall,
         fileContext,
         logger,
+        fileSystem: nodeFs.promises,
       })
 
       const value = output[0].value as ReadSubtreeResultEntry[]
@@ -238,6 +338,7 @@ describe('handleReadSubtree', () => {
         toolCall,
         fileContext,
         logger,
+        fileSystem: nodeFs.promises,
       })
 
       const value = output[0].value as ReadSubtreeResultEntry[]
@@ -277,6 +378,7 @@ describe('handleReadSubtree', () => {
         toolCall,
         fileContext,
         logger,
+        fileSystem: nodeFs.promises,
       })
 
       const value = output[0].value as ReadSubtreeResultEntry[]
@@ -327,6 +429,7 @@ describe('handleReadSubtree', () => {
         toolCall,
         fileContext,
         logger,
+        fileSystem: nodeFs.promises,
       })
 
       const value = output[0].value as ReadSubtreeResultEntry[]
@@ -374,6 +477,7 @@ describe('handleReadSubtree', () => {
         toolCall,
         fileContext,
         logger,
+        fileSystem: nodeFs.promises,
       })
 
       const value = output[0].value as ReadSubtreeResultEntry[]
@@ -595,6 +699,14 @@ describe('handleReadSubtree', () => {
         nodeFs.writeFileSync(nodePath.join(tmpRoot, `file-${index}.txt`), '')
       }
       fileContext.projectRoot = tmpRoot
+      let realpathCalls = 0
+      const fileSystem = {
+        ...nodeFs.promises,
+        realpath: async (path: any) => {
+          realpathCalls += 1
+          return nodeFs.promises.realpath(path)
+        },
+      } as unknown as CodebuffFileSystem
       const { output } = await handleReadSubtree({
         previousToolCallFinished: Promise.resolve(),
         toolCall: {
@@ -604,6 +716,7 @@ describe('handleReadSubtree', () => {
         },
         fileContext,
         logger,
+        fileSystem,
       })
       const entry = (output[0].value as ReadSubtreeResultEntry[])[0]
       expect(entry).toMatchObject({
@@ -613,6 +726,7 @@ describe('handleReadSubtree', () => {
         liveScanMaxNodes: 1000,
         recovery: expect.stringContaining('narrower subtree'),
       })
+      expect(realpathCalls).toBe(1000)
     } finally {
       nodeFs.rmSync(tmpRoot, { recursive: true, force: true })
     }

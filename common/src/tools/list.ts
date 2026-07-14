@@ -63,7 +63,11 @@ import { runTargetedValidationParams } from './params/tool/run-targeted-validati
 import { inspectEnvironmentParams } from './params/tool/inspect-environment'
 import { getAffectedTestsParams } from './params/tool/get-affected-tests'
 import { getBuildTargetsParams } from './params/tool/get-build-targets'
-import { evaluateAuditCoverageParams, inspectCodebaseStructureParams, inspectFeatureCompletenessParams } from './params/tool/audit-intelligence'
+import {
+  evaluateAuditCoverageParams,
+  inspectCodebaseStructureParams,
+  inspectFeatureCompletenessParams,
+} from './params/tool/audit-intelligence'
 import { getTaskParams } from './params/tool/get-task'
 import { getChangeReviewBundleParams } from './params/tool/get-change-review-bundle'
 
@@ -233,9 +237,18 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     toolName: z.literal('get_build_targets'),
     input: toolParams.get_build_targets.inputSchema,
   }),
-  z.object({ toolName: z.literal('inspect_codebase_structure'), input: toolParams.inspect_codebase_structure.inputSchema }),
-  z.object({ toolName: z.literal('inspect_feature_completeness'), input: toolParams.inspect_feature_completeness.inputSchema }),
-  z.object({ toolName: z.literal('evaluate_audit_coverage'), input: toolParams.evaluate_audit_coverage.inputSchema }),
+  z.object({
+    toolName: z.literal('inspect_codebase_structure'),
+    input: toolParams.inspect_codebase_structure.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('inspect_feature_completeness'),
+    input: toolParams.inspect_feature_completeness.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('evaluate_audit_coverage'),
+    input: toolParams.evaluate_audit_coverage.inputSchema,
+  }),
   z.object({
     toolName: z.literal('create_plan'),
     input: FileChangeSchema,
@@ -270,10 +283,12 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
           'librarian-read-only',
           'git-commit',
           'dependency-mutation',
+          'validation-diagnosis',
           'tmux-test',
           'workspace-write',
           'full-access',
         ]),
+        allowed_paths: z.array(z.string()).optional(),
       }),
     ),
   }),

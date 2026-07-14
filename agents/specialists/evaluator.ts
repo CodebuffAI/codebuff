@@ -1,2 +1,14 @@
 import { createSpecialist } from './create-specialist'
-export default createSpecialist({ id: 'evaluator', displayName: 'Independent Evaluator', purpose: 'Independently scores outputs against requirements and acceptance criteria using only source-backed evidence.', intelligence: ['audit'], focus: ['Requirement-by-requirement scoring', 'Acceptance evidence quality', 'Missing, uncertain, and regressed behavior', 'Independence from implementation claims'] })
+export default createSpecialist({
+  id: 'evaluator',
+  displayName: 'Independent Evaluator',
+  purpose:
+    'Independently scores outputs against requirements and acceptance criteria using only source-backed evidence.',
+  intelligence: ['audit'],
+  focus: [
+    'Requirement-by-requirement scoring',
+    'Acceptance evidence quality',
+    'Missing, uncertain, and regressed behavior',
+    'Independence from implementation claims',
+  ],
+})

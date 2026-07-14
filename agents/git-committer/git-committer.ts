@@ -23,7 +23,7 @@ const definition: SecretAgentDefinition = {
           type: 'array',
           items: { type: 'string' },
           description:
-            'Exact task-owned paths eligible for staging. Strongly preferred for dirty or shared repositories. The agent must not stage paths outside this allowlist.',
+            'Exact task-owned paths eligible for staging. Required. The agent must not stage paths outside this allowlist.',
         },
         branch_name: {
           type: 'string',
@@ -54,7 +54,7 @@ const definition: SecretAgentDefinition = {
           description: 'Remote used for fetch/push. Defaults to origin.',
         },
       },
-      required: [],
+      required: ['owned_paths'],
     },
   },
   outputMode: 'last_message',
@@ -75,7 +75,7 @@ const definition: SecretAgentDefinition = {
   instructionsPrompt: `Instructions:
 1. Treat the repository as shared. Inspect branch, upstream, remote/default branch, worktree membership, dirty/staged/untracked files, and in-progress merge/rebase/cherry-pick state before staging. Never alter git config.
 2. If branch_name is provided with a dirty tree, proceed only when allow_dirty_branch was explicitly set; otherwise stop. Create it through the git_branch tool. Existing worktrees are valid: report the current worktree and branch, but do not create/remove worktrees in this version.
-3. Stage only task-owned paths. When owned_paths is supplied it is a hard allowlist. Never use git add -A, git add ., or broad globs. If a file mixes unrelated user and task changes and safe hunk staging is unavailable, stop and report it rather than claiming ownership.
+3. Stage only task-owned paths. owned_paths is required and is a hard allowlist. Never use git add -A, git add ., or broad globs. If a file mixes unrelated user and task changes and safe hunk staging is unavailable, stop and report it rather than claiming ownership.
 4. If the changes span unrelated concerns, create only the logical commit requested by the caller and leave the rest untouched.
 5. Read relevant source files if the diff is insufficient. Match recent repository commit message style; default to an imperative subject under 72 characters and a body explaining why.
 6. Before committing, inspect git diff --cached, run whitespace/secret checks, and verify every staged path is task-owned. Do not amend, rebase, merge, reset, stash, or resolve conflicts.
@@ -96,10 +96,14 @@ Do not commit secrets, .env files, credentials, generated artifacts without thei
         : typeof statusValue?.message === 'string'
           ? statusValue.message.trim()
           : ''
+    const dirtyStatusLines = statusText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('##'))
 
     if (
       params?.branch_name &&
-      statusText &&
+      dirtyStatusLines.length > 0 &&
       params.allow_dirty_branch !== true
     ) {
       yield {
@@ -137,7 +141,9 @@ Do not commit secrets, .env files, credentials, generated artifacts without thei
 
     yield {
       toolName: 'run_terminal_command',
-      input: { command: 'git rev-parse --abbrev-ref --symbolic-full-name @{upstream}' },
+      input: {
+        command: 'git rev-parse --abbrev-ref --symbolic-full-name @{upstream}',
+      },
     } as ToolCall<'run_terminal_command'>
 
     yield {
@@ -219,9 +225,7 @@ Do not commit secrets, .env files, credentials, generated artifacts without thei
       const branchValue = branchResult?.find((part) => part.type === 'json')
         ?.value as Record<string, unknown> | undefined
       const branch =
-        typeof branchValue?.stdout === 'string'
-          ? branchValue.stdout.trim()
-          : ''
+        typeof branchValue?.stdout === 'string' ? branchValue.stdout.trim() : ''
       if (!branch) {
         yield {
           type: 'STEP_TEXT',

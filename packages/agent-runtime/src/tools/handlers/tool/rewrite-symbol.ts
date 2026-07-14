@@ -9,6 +9,7 @@ import {
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 function errorResult(file: string, message: string) {
   return {
@@ -25,9 +26,11 @@ function errorResult(file: string, message: string) {
  * fall back to the same heuristic slicer used by read_files(symbols).
  */
 export const handleRewriteSymbol = (async (params: {
-  previousToolCallFinished: Promise<void>
-  toolCall: any
-  requestOptionalFile: RequestOptionalFileFn
+    previousToolCallFinished: Promise<void>
+    toolCall: any
+    requestOptionalFile: RequestOptionalFileFn
+    fileContext: ProjectFileContext
+    runId: string
 }): Promise<{ output: any }> => {
   const { previousToolCallFinished, toolCall, requestOptionalFile } = params
   const {
@@ -52,6 +55,12 @@ export const handleRewriteSymbol = (async (params: {
 
   await previousToolCallFinished
 
+  const capabilityScope = {
+    projectId: params.fileContext?.projectRoot ?? '',
+    path,
+    runId: params.runId ?? '',
+  }
+
   const raw = await requestOptionalFile({ ...params, filePath: path })
   if (raw === null) {
     return errorResult(
@@ -72,6 +81,7 @@ export const handleRewriteSymbol = (async (params: {
             content: raw,
             startLine: match.startLine,
             endLine: match.endLine,
+            scope: capabilityScope,
           })
           return {
             kind: match.kind,
@@ -95,6 +105,7 @@ export const handleRewriteSymbol = (async (params: {
                 content: raw,
                 startLine: slice.startLine,
                 endLine: slice.endLine,
+                scope: capabilityScope,
               }).readCapability,
           }),
         )
@@ -141,6 +152,7 @@ export const handleRewriteSymbol = (async (params: {
           content: raw,
           startLine: extended.startLine,
           endLine: match.endLine,
+          scope: capabilityScope,
         }).readCapability
 
   // Delegate to the str_replace handler: it owns atomic apply, stale detection,

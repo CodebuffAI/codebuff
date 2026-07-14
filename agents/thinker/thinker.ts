@@ -5,11 +5,6 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'thinker',
   publisher,
-  // Thinker does deep, extended-reasoning single-step work. Raise the
-  // wall-clock bound above the 20-min shared default so genuinely long
-  // reasoning isn't cut off, but keep it bounded to avoid unbounded hangs
-  // on a stuck LLM stream.
-  defaultTimeoutMs: 30 * 60 * 1000,
   displayName: 'Theo the Theorizer',
   spawnerPrompt:
     'Makes a focused architecture, design, or root-cause decision from a self-contained evidence packet. It has no repository tools and does not inherit conversation history, so include evidence, constraints, options, and unknowns.',

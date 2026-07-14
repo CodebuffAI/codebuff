@@ -320,28 +320,28 @@ describe('inferFileChangeHooks', () => {
   ])(
     'uses %s local dependency executables without allowing package downloads',
     (_manager, packageManager, executablePrefix) => {
-    withTempDir((dir) => {
-      writeFileSync(
-        path.join(dir, 'package.json'),
-        JSON.stringify({
-          ...(packageManager ? { packageManager } : {}),
-          devDependencies: { eslint: '^9.0.0', typescript: '^5.0.0' },
-        }),
-      )
+      withTempDir((dir) => {
+        writeFileSync(
+          path.join(dir, 'package.json'),
+          JSON.stringify({
+            ...(packageManager ? { packageManager } : {}),
+            devDependencies: { eslint: '^9.0.0', typescript: '^5.0.0' },
+          }),
+        )
 
-      expect(inferFileChangeHooks(dir)).toEqual([
-        {
-          name: 'lint',
-          command: `${executablePrefix} eslint .`,
-          filePattern: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
-        },
-        {
-          name: 'typecheck',
-          command: `${executablePrefix} tsc --noEmit`,
-          filePattern: '**/*.{ts,tsx,mts,cts}',
-        },
-      ])
-    })
+        expect(inferFileChangeHooks(dir)).toEqual([
+          {
+            name: 'lint',
+            command: `${executablePrefix} eslint .`,
+            filePattern: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
+          },
+          {
+            name: 'typecheck',
+            command: `${executablePrefix} tsc --noEmit`,
+            filePattern: '**/*.{ts,tsx,mts,cts}',
+          },
+        ])
+      })
     },
   )
 

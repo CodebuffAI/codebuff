@@ -33,7 +33,43 @@ const definition: SecretAgentDefinition = {
       required: [],
     },
   },
-  outputMode: 'last_message',
+  outputMode: 'structured_output',
+  outputSchema: {
+    type: 'object',
+    properties: {
+      schemaVersion: { type: 'number' },
+      status: {
+        type: 'string',
+        enum: ['completed', 'partial', 'blocked'],
+      },
+      completionKind: {
+        type: 'string',
+        enum: ['changed', 'noop'],
+      },
+      changedFiles: { type: 'array', items: { type: 'string' } },
+      evidence: { type: 'array', items: { type: 'string' } },
+      requirementsAddressed: { type: 'array', items: { type: 'string' } },
+      acceptanceCriteriaAddressed: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      unresolved: { type: 'array', items: { type: 'string' } },
+      requestedValidation: { type: 'array', items: { type: 'string' } },
+      summary: { type: 'string' },
+    },
+    required: [
+      'schemaVersion',
+      'status',
+      'completionKind',
+      'changedFiles',
+      'evidence',
+      'requirementsAddressed',
+      'acceptanceCriteriaAddressed',
+      'unresolved',
+      'requestedValidation',
+      'summary',
+    ],
+  },
   includeMessageHistory: false,
   filesystemScope: {
     read: [
@@ -57,6 +93,7 @@ const definition: SecretAgentDefinition = {
     'read_outline',
     'write_file',
     'str_replace',
+    'set_output',
   ],
   spawnableAgents: [],
 
@@ -70,7 +107,7 @@ Instructions:
 3. Write focused tests covering: the happy path, key edge cases (empty/null/zero/boundary), and the specific behavior the prompt asked for. Prefer one assertion concept per test.
 3a. For bug fixes, prefer writing the reproducing failing test before implementation when the orchestrator invokes you in pre-implementation mode.
 4. Do not run terminal commands directly. If a test_command param is provided, include it as the validation command for the parent/basher to run after your changes.
-5. Return a concise summary: which tests were added/modified, the file path, and validation status (parent/basher-owned, not run by test-writer, or skipped if no command was provided).
+5. Finish with set_output using the declared schema. Use completionKind=changed when files were modified. Use completionKind=noop only when existing tests already cover every requested behavior; then changedFiles must be empty and evidence must name the exact existing tests/assertions you read. Use status=completed only when every requested test deliverable is satisfied. List exact changedFiles, requirement/acceptance IDs addressed, unresolved items, and the parent-owned requestedValidation commands.
 Do not refactor unrelated tests. Do not modify source code under test — if the source has a bug, report it and stop.`.trim(),
 
   handleSteps: function* () {

@@ -10,7 +10,9 @@ type Experiment = {
 
 const file = process.argv[2]
 if (!file) {
-  console.error('Usage: bun evals/buffbench/run-cross-model-experiment.ts <experiment.json>')
+  console.error(
+    'Usage: bun evals/buffbench/run-cross-model-experiment.ts <experiment.json>',
+  )
   process.exit(2)
 }
 const experiment = JSON.parse(fs.readFileSync(file, 'utf8')) as Experiment

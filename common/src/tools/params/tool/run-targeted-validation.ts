@@ -21,6 +21,8 @@ export const runTargetedValidationParams = {
     z.object({
       schemaVersion: z.literal(1),
       snapshotId: z.string(),
+      workspaceRevision: z.number().int().nonnegative().optional(),
+      workspaceSnapshotId: z.string().optional(),
       files: z.array(z.string()),
       artifactKinds: z.array(z.string()),
       status: z.enum(['passed', 'failed', 'skipped']),

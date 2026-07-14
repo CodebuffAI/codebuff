@@ -93,9 +93,9 @@ export function strictEditAuthorizationError(params: {
       ? toolName === 'str_replace'
         ? `${toolName} blocked for ${path}: a previous str_replace failed for this file and requires a fresh read before retrying.`
         : `${toolName} blocked for ${path}: a previous edit failed and requires a fresh read before retrying.`
-    : authorizationWasStale
-      ? `${toolName} blocked for ${path}: the file changed after its last whole-file read, so the stored authorization was revoked.`
-      : `${toolName} blocked for ${path}: strict read-before-edit is enabled and no fresh read authorization exists.`
+      : authorizationWasStale
+        ? `${toolName} blocked for ${path}: the file changed after its last whole-file read, so the stored authorization was revoked.`
+        : `${toolName} blocked for ${path}: strict read-before-edit is enabled and no fresh read authorization exists.`
   const scopeNote = wholeFileRequired
     ? ' A prior range-anchored edit or scoped range capability cannot authorize a whole-file overwrite.'
     : ' A scoped edit may instead provide the fresh capability/hash returned by read_files.'

@@ -23,6 +23,8 @@ function main() {
       ),
       // Local agent package types used by this repo's built-in agents/tests.
       join(process.cwd(), 'agents/types/tools.ts'),
+      // Developer-local starter agents use the same canonical tool surface.
+      join(process.cwd(), '.agents/types/tools.ts'),
     ]
 
     const writtenPaths: string[] = []

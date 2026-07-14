@@ -11,14 +11,49 @@ initializeThemeStore()
 
 test('[ERR-M06] transaction renders per-action rollback and failure detail', () => {
   const block = {
-    type: 'tool', toolName: 'edit_transaction', toolCallId: 'tx-1', input: { edits: [] },
-    outputRaw: [{ type: 'json', value: {
-      kind: 'file_mutation_result', version: 1, operationId: 'op-1', outcome: 'rollback_incomplete', authorityTier: 'portable_path', receiptId: 'r-1',
-      actions: [{ actionId: 'a', index: 0, action: 'update', path: 'src/a.ts', outcome: 'rollback_incomplete', beforeHash: 'before', afterHash: 'after', rollback: { attempted: true, succeeded: false }, error: { code: 'rollback_incomplete', message: 'restore failed', retryable: true, recovery: 'inspect_rollback' } }],
-      errors: [], freshCapabilities: [],
-    } }],
+    type: 'tool',
+    toolName: 'edit_transaction',
+    toolCallId: 'tx-1',
+    input: { edits: [] },
+    outputRaw: [
+      {
+        type: 'json',
+        value: {
+          kind: 'file_mutation_result',
+          version: 1,
+          operationId: 'op-1',
+          outcome: 'rollback_incomplete',
+          authorityTier: 'portable_path',
+          receiptId: 'r-1',
+          actions: [
+            {
+              actionId: 'a',
+              index: 0,
+              action: 'update',
+              path: 'src/a.ts',
+              outcome: 'rollback_incomplete',
+              beforeHash: 'before',
+              afterHash: 'after',
+              rollback: { attempted: true, succeeded: false },
+              error: {
+                code: 'rollback_incomplete',
+                message: 'restore failed',
+                retryable: true,
+                recovery: 'inspect_rollback',
+              },
+            },
+          ],
+          errors: [],
+          freshCapabilities: [],
+        },
+      },
+    ],
   } as ToolBlock
-  const rendered = renderToolComponent(block, chatThemes.dark, { availableWidth: 80, indentationOffset: 0, labelWidth: 0 })
+  const rendered = renderToolComponent(block, chatThemes.dark, {
+    availableWidth: 80,
+    indentationOffset: 0,
+    labelWidth: 0,
+  })
   const markup = renderToStaticMarkup(rendered?.content as React.ReactElement)
   expect(markup).toContain('rollback_incomplete')
   expect(markup).toContain('rollback failed')
@@ -64,22 +99,49 @@ test('move actions render source and destination paths', () => {
     indentationOffset: 0,
     labelWidth: 0,
   })
-  const markup = renderToStaticMarkup(
-    rendered?.content as React.ReactElement,
-  )
+  const markup = renderToStaticMarkup(rendered?.content as React.ReactElement)
   expect(markup).toContain('src/old.ts → src/new.ts')
 })
 
 describe('EditTransactionComponent proposal separation', () => {
   test('[MUT-H04] proposal state is labeled without applied mutation copy', () => {
     const block = {
-      type: 'tool', toolName: 'propose_edit_transaction', toolCallId: 'proposal-1', input: { edits: [] },
-      outputRaw: [{ type: 'json', value: {
-        kind: 'proposal_result', version: 1, proposalId: 'p-1', revision: 1, baseHash: 'base', state: 'proposed', createdAt: 'now', updatedAt: 'now', errors: [],
-        operations: [{ operationId: 'o-1', index: 0, action: 'update', path: 'src/a.ts', baseHash: 'base', patch: '@@\n-old\n+new' }],
-      } }],
+      type: 'tool',
+      toolName: 'propose_edit_transaction',
+      toolCallId: 'proposal-1',
+      input: { edits: [] },
+      outputRaw: [
+        {
+          type: 'json',
+          value: {
+            kind: 'proposal_result',
+            version: 1,
+            proposalId: 'p-1',
+            revision: 1,
+            baseHash: 'base',
+            state: 'proposed',
+            createdAt: 'now',
+            updatedAt: 'now',
+            errors: [],
+            operations: [
+              {
+                operationId: 'o-1',
+                index: 0,
+                action: 'update',
+                path: 'src/a.ts',
+                baseHash: 'base',
+                patch: '@@\n-old\n+new',
+              },
+            ],
+          },
+        },
+      ],
     } as ToolBlock
-    const rendered = renderToolComponent(block, chatThemes.dark, { availableWidth: 80, indentationOffset: 0, labelWidth: 0 })
+    const rendered = renderToolComponent(block, chatThemes.dark, {
+      availableWidth: 80,
+      indentationOffset: 0,
+      labelWidth: 0,
+    })
     const markup = renderToStaticMarkup(rendered?.content as React.ReactElement)
     expect(markup).toContain('Proposal transaction proposed')
     expect(markup).not.toContain('applied')

@@ -17,6 +17,15 @@ export type ToolName =
   | 'find_files_matching_content'
   | 'git_status'
   | 'git_branch'
+  | 'get_task'
+  | 'get_change_review_bundle'
+  | 'inspect_workspace'
+  | 'inspect_environment'
+  | 'get_affected_tests'
+  | 'get_build_targets'
+  | 'inspect_codebase_structure'
+  | 'inspect_feature_completeness'
+  | 'evaluate_audit_coverage'
   | 'glob'
   | 'kill_job'
   | 'list_directory'
@@ -39,6 +48,7 @@ export type ToolName =
   | 'render_ui'
   | 'reject_proposal'
   | 'run_file_change_hooks'
+  | 'run_targeted_validation'
   | 'run_terminal_command'
   | 'set_messages'
   | 'set_output'
@@ -72,6 +82,15 @@ export interface ToolParamsMap {
   find_files_matching_content: FindFilesMatchingContentParams
   git_status: GitStatusParams
   git_branch: GitBranchParams
+  get_task: GetTaskParams
+  get_change_review_bundle: GetChangeReviewBundleParams
+  inspect_workspace: InspectWorkspaceParams
+  inspect_environment: InspectEnvironmentParams
+  get_affected_tests: GetAffectedTestsParams
+  get_build_targets: GetBuildTargetsParams
+  inspect_codebase_structure: InspectCodebaseStructureParams
+  inspect_feature_completeness: InspectFeatureCompletenessParams
+  evaluate_audit_coverage: EvaluateAuditCoverageParams
   glob: GlobParams
   kill_job: KillJobParams
   list_directory: ListDirectoryParams
@@ -94,6 +113,7 @@ export interface ToolParamsMap {
   render_ui: RenderUiParams
   reject_proposal: RejectProposalParams
   run_file_change_hooks: RunFileChangeHooksParams
+  run_targeted_validation: RunTargetedValidationParams
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
   set_output: SetOutputParams
@@ -133,15 +153,17 @@ export interface ApplyPatchParams {
         type: 'update_file'
         path: string
         diff: string
-        /** Required for large-file update patches. Provide one capability per touched hunk, copied from fresh read_files.ranges headers so the runtime can reject stale or out-of-range patch hunks before editing. */
-        basedOnRead?: {
-          /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-          startLine: number
-          /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-          endLine: number
-          /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-          hash: string
-        }[]
+        /** Required for large-file update patches. Prefer one authenticated cap.v3 token per touched hunk, copied from fresh read_files.ranges headers. Legacy range objects remain freshness checks but cannot authorize an otherwise unread path in strict mode. */
+        basedOnRead?:
+          | string
+          | {
+              /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
+              startLine: number
+              /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
+              endLine: number
+              /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
+              hash: string
+            }[]
       }
     | {
         type: 'delete_file'
@@ -223,6 +245,8 @@ export interface AskUserParams {
 export interface CheckBackgroundAgentParams {
   /** The jobId returned by spawn_agents({ background: true }) for the background agent turn. */
   jobId: string
+  /** Optional sequence cursor from a prior response. Polling is idempotent for an explicit cursor; nextCursor can be supplied on the next call. */
+  cursor?: number
   /** Optional substring to wait for in the new streamed chunks before returning (follow mode). Returns early as soon as it appears in any chunk payload. Useful for waiting until a background agent emits a specific milestone (e.g. a tool_result or a text marker). */
   wait_for?: string
   /** Max seconds to wait for new chunks / the wait_for pattern. 0 (default) returns immediately with whatever new chunks exist (poll mode); >0 blocks up to this long (follow mode). */
@@ -251,8 +275,8 @@ export interface CheckJobParams {
 export interface CodeSearchParams {
   /** The pattern to search for. */
   pattern: string
-  /** Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match). */
-  flags?: string
+  /** Optional ripgrep flags as one string or argv tokens (e.g., "-i -g *.ts -g *.js" or ["-i", "-g", "*.ts"]). JSON quotes delimit the string; do not embed another quote pair around the entire expression. Line numbers are automatic. */
+  flags?: string | string[]
   /** Optional working directory to search within, relative to the project root. Defaults to searching the entire project. */
   cwd?: string
   /** Maximum number of results to return per file. Defaults to 15. There is also a global limit of 250 results across all files. */
@@ -268,7 +292,7 @@ export interface EndTurnParams {}
  * Preflight related edits together, then apply them in one coordinated client-side transaction with deterministic order and explicit rollback outcomes.
  */
 export interface EditTransactionParams {
-  /** All edits that must preflight together. A JSON-stringified edit array is accepted and decoded before validation. If any edit fails during preflight, no files are changed. */
+  /** All edits that must preflight together. Pass an actual array of edit objects; do not JSON.stringify the array or its entries. The runtime defensively decodes complete legacy JSON encodings, but malformed or truncated strings fail closed. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed. */
   edits:
     | {
         /** Optional stable edit identifier echoed in diagnostics. */
@@ -287,7 +311,7 @@ export interface EditTransactionParams {
           allowMultiple?: boolean
           /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
           occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+          /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
           basedOnRead?:
             | string
             | {
@@ -369,6 +393,8 @@ export interface EditTransactionParams {
         /** The file to edit. */
         path: string
         type: 'replace_range'
+        /** Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together. */
+        readCapability?: string
         startLine: number
         endLine: number
         expectedHash: string
@@ -416,8 +442,8 @@ export interface FindFilesParams {
 export interface FindFilesMatchingContentParams {
   /** Regex pattern (ripgrep syntax) to match file content against. */
   pattern: string
-  /** Optional safe ripgrep flags. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Examples: "-i", "-g *.ts -g *.tsx", "-g !*.test.ts", "-F". Use code_search for advanced ripgrep options. */
-  flags?: string
+  /** Optional safe ripgrep flags as one string or argv tokens. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Examples: "-g *.ts -g *.tsx" or ["-g", "*.ts", "-g", "*.tsx"]. Do not quote the entire expression inside the JSON string. */
+  flags?: string | string[]
   /** Optional working directory to search within, relative to the project root. Defaults to the project root. */
   cwd?: string
   /** Maximum number of unique files to return. Defaults to 100. */
@@ -452,6 +478,103 @@ export interface GitBranchParams {
   switch?: boolean
   /** When true, skip the dirty-tree refusal check. Defaults to false — the tool refuses to branch when the working tree has uncommitted changes. */
   allow_dirty?: boolean
+}
+
+/**
+ * Parameters for get_task tool
+ */
+export interface GetTaskParams {
+  /** Optional plan session slug. Defaults to .agents/ACTIVE_SESSION. */
+  session?: string
+}
+
+/**
+ * Parameters for get_change_review_bundle tool
+ */
+export interface GetChangeReviewBundleParams {
+  max_chars?: number
+}
+
+/**
+ * Inspect the current repository/worktree identity and Git state without modifying it.
+ */
+export interface InspectWorkspaceParams {}
+
+/**
+ * Parameters for inspect_environment tool
+ */
+export interface InspectEnvironmentParams {}
+
+/**
+ * Parameters for get_affected_tests tool
+ */
+export interface GetAffectedTestsParams {
+  files: string[]
+}
+
+/**
+ * Parameters for get_build_targets tool
+ */
+export interface GetBuildTargetsParams {
+  files: string[]
+}
+
+/**
+ * Parameters for inspect_codebase_structure tool
+ */
+export interface InspectCodebaseStructureParams {
+  scope?: string[]
+}
+
+/**
+ * Parameters for inspect_feature_completeness tool
+ */
+export interface InspectFeatureCompletenessParams {
+  feature: string
+  snapshot_id: string
+  scope?: string[]
+}
+
+/**
+ * Parameters for evaluate_audit_coverage tool
+ */
+export interface EvaluateAuditCoverageParams {
+  snapshot_id: string
+  structural_receipts: {
+    schema_version: 1
+    snapshot_id: string
+    shard_id: string
+    subsystem_ids: string[]
+    files: string[]
+    domains:
+      | 'security'
+      | 'correctness'
+      | 'state-mutation'
+      | 'error-handling'
+      | 'performance'
+      | 'dependency-hygiene'
+      | 'test-coverage'
+      | 'api-contract'[]
+  }[]
+  features: {
+    schema_version: 1
+    snapshot_id: string
+    feature: string
+    evidence_kind: 'verified'
+    evidence: {
+      entrypoints: string[]
+      implementation: string[]
+      consumers: string[]
+      tests: string[]
+      docs: string[]
+      failure_states: string[]
+    }
+  }[]
+  out_of_scope?: {
+    id: string
+    reason: string
+  }[]
+  scope?: string[]
 }
 
 /**
@@ -491,7 +614,7 @@ export interface LookupAgentInfoParams {
 }
 
 /**
- * Propose related edits across one or more files as an atomic transaction without applying them, returning preview diffs for review.
+ * Propose related edits across one or more files as one preflighted bundle without applying them, returning preview diffs for review.
  */
 export interface ProposeEditTransactionParams {
   /** All edits that must preflight together. If any edit fails during preflight, no preview diffs are produced. */
@@ -513,7 +636,7 @@ export interface ProposeEditTransactionParams {
           allowMultiple?: boolean
           /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
           occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+          /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
           basedOnRead?:
             | string
             | {
@@ -595,6 +718,8 @@ export interface ProposeEditTransactionParams {
         /** The file to edit. */
         path: string
         type: 'replace_range'
+        /** Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together. */
+        readCapability?: string
         startLine: number
         endLine: number
         expectedHash: string
@@ -646,7 +771,7 @@ export interface ProposeStrReplaceParams {
     allowMultiple?: boolean
     /** Target the exact 1-indexed occurrence. */
     occurrenceIndex?: number
-    /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+    /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
     basedOnRead?:
       | string
       | {
@@ -794,17 +919,19 @@ export interface ReadSubtreeParams {
 }
 
 /**
- * Replace a previously read line range only if its hash still matches.
+ * Parameters for replace_range tool
  */
 export interface ReplaceRangeParams {
   /** The path to the file to edit. */
   path: string
-  /** 1-indexed inclusive start line from a fresh read_files.ranges result. */
-  startLine: number
-  /** 1-indexed inclusive end line from a fresh read_files.ranges result. */
-  endLine: number
-  /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-  expectedHash: string
+  /** 1-indexed inclusive start line from a fresh read_files.ranges result. Omit when readCapability is supplied. */
+  startLine?: number
+  /** 1-indexed inclusive end line from a fresh read_files.ranges result. Omit when readCapability is supplied. */
+  endLine?: number
+  /** The sha256 rangeHash returned by read_files.ranges for this exact range. Omit when readCapability is supplied. */
+  expectedHash?: string
+  /** Preferred target anchor: copy the cap.* readCapability verbatim from a fresh read_files range header. It safely supplies startLine, endLine, and expectedHash as one value. */
+  readCapability?: string
   /** Complete replacement content for the selected line range. */
   newContent: string
 }
@@ -858,6 +985,15 @@ export interface RunFileChangeHooksParams {
 }
 
 /**
+ * Parameters for run_targeted_validation tool
+ */
+export interface RunTargetedValidationParams {
+  snapshot_id: string
+  files: string[]
+  artifact_kinds?: string[]
+}
+
+/**
  * Execute a CLI command from the **project root** (different from the user's cwd).
  */
 export interface RunTerminalCommandParams {
@@ -871,13 +1007,57 @@ export interface RunTerminalCommandParams {
   cwd?: string
   /** Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30 */
   timeout_seconds?: number
+  /** Runtime-managed background job owner; agents must omit. */
+  owner?: {
+    clientSessionId: string
+    rootRunId: string
+    parentRunId: string
+    parentAgentId: string
+  }
 }
 
 /**
- * Set the conversation history to the provided messages.
+ * Atomically replace conversation history and, when supplied, commit a validated structured task-memory revision.
  */
 export interface SetMessagesParams {
   messages: any
+  taskMemory?: {
+    schemaVersion: 1
+    goal?: string
+    requirements?: string[]
+    decisions?: string[]
+    filesInspected?: string[]
+    editsMade?: string[]
+    validationResults?: string[]
+    reviewReceipts?: string[]
+    blockers?: string[]
+    nextActions?: string[]
+    historicalSummary?: string
+    evidence?: {
+      id: string
+      kind:
+        | 'requirement'
+        | 'decision'
+        | 'read'
+        | 'edit'
+        | 'validation'
+        | 'review'
+        | 'blocker'
+        | 'handoff'
+        | 'note'
+      summary: string
+      source?: string
+      path?: string
+      freshnessHash?: string
+      workspaceRevision?: number
+      verifiedAt?: number
+      supersedes?: string[]
+      stale?: boolean
+    }[]
+    workspaceRevision?: number
+    workspaceSnapshotId?: string
+  }
+  expectedTaskMemoryRevision?: number
 }
 
 /**
@@ -908,21 +1088,75 @@ export interface SpawnAgentsParams {
     /** If true, launch the agent detached from this turn. spawn_agents returns immediately with a jobId; the agent runs as an in-process coroutine. Poll its progress with check_background_agent. Use for long-running, non-blocking work (e.g. indexing, eval runs, multi-step research) where you do not need the result before ending your turn. The background agent shares the same process so it cannot outlive this CLI session. Defaults to false (blocking). */
     background?: boolean
     /** Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before. */
-    handoff?: {
-      /** Short, plain-language summary of what the parent has already done and what it expects the child to do next. */
-      summary?: string
-      /** Paths to durable artifacts the child should treat as authoritative (e.g. .agents/sessions/<slug>/PLAN.md). */
-      artifacts?: string[]
-      /** Bulleted acceptance criteria for the spawned child agent. */
-      successCriteria?: string[]
-      /** Explicit non-goals that the child must not attempt. */
-      nonGoals?: string[]
-      /** Hard constraints (e.g. allowed paths, safety/scope rails). Children should reject work that violates these. */
-      constraints?: string[]
-      /** Optional handoff context. Prefer a JSON object for structured fields; a plain string is also accepted and normalized internally to { text: string }. */
-      context?: Record<string, any> | string
-    }
-    /** Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template's defaultTimeoutMs, or 20 minutes if unset. */
+    handoff?:
+      | {
+          schemaVersion: 1
+          taskId: string
+          role:
+            | 'orchestrator'
+            | 'explorer'
+            | 'thinker'
+            | 'editor'
+            | 'repair-editor'
+            | 'test-writer'
+            | 'doc-writer'
+            | 'dependency-manager'
+            | 'debugger'
+            | 'validator'
+            | 'reviewer'
+            | 'security-reviewer'
+            | 'committer'
+            | 'synthesizer'
+            | 'specialist'
+            | 'general'
+          objective: string
+          requirements: {
+            id: string
+            text: string
+            required: boolean
+          }[]
+          acceptanceCriteria: {
+            id: string
+            behavior: string
+            verification: string
+          }[]
+          context:
+            | {
+                path: string
+                symbols: string[]
+                reason: string
+                confidence: 'confirmed' | 'inferred' | 'unknown'
+                freshnessHash?: string
+                workspaceRevision?: number
+              }[]
+            | Record<string, any>
+            | string
+          currentBehavior?: string
+          desiredBehavior?: string
+          invariants?: string[]
+          nonGoals: string[]
+          risks?: string[]
+          unknowns?: string[]
+          findings: {
+            id: string
+            text: string
+            files: string[]
+            snapshotFingerprint: string
+          }[]
+          permissions: {
+            readablePaths: string[]
+            writablePaths: string[]
+            allowedTools: string[]
+          }
+          workspaceRevision?: number
+          workspaceSnapshotId?: string
+          summary?: string
+          artifacts?: string[]
+          successCriteria?: string[]
+          constraints?: string[]
+        }
+      | Record<string, any>
+    /** Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely for a deliberately long-running agent. Defaults to the agent template's defaultTimeoutMs, or 30 minutes if unset. */
     timeout_seconds?: number
     /** Parameters object for the agent */
     params?: {
@@ -942,8 +1176,8 @@ export interface SpawnAgentsParams {
       searchQueries?: {
         /** The pattern to search for */
         pattern: string
-        /** Optional ripgrep flags (e.g., "-i", "-g *.ts") */
-        flags?: string
+        /** Optional ripgrep flags as one string or argv tokens (e.g. "-i -g *.ts" or ["-i", "-g", "*.ts"]). Do not quote the entire expression inside the JSON string. */
+        flags?: string | string[]
         /** Optional working directory relative to project root */
         cwd?: string
         /** Max results per file. Default 15 */
@@ -978,9 +1212,9 @@ export interface StrReplaceParams {
     newString: string
     /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
-    /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Lets you disambiguate repeated text without a re-read or a longer oldString. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. If a fresh basedOnRead range is also given, occurrences are counted within that range. */
+    /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. Prefer combining it with a fresh basedOnRead range so occurrences are counted only inside a proven target window, never across unrelated file content. */
     occurrenceIndex?: number
-    /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
+    /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
     basedOnRead?:
       | string
       | {
@@ -1035,8 +1269,10 @@ export interface UpdatePlanStatusParams {
   path: string
   /** Targeted updates applied in order. Each entry rewrites at most one matching checklist line; unmatched updates fall through to `append`. */
   updates?: {
+    /** Stable task ID at the start of a checklist line (for example `P2-T3`). Preferred over substring matching. */
+    taskId?: string
     /** Substring of the existing task/checklist line to match (case-insensitive). The first matching `- [ ]`/`-[x]`/`-[~]`/`-[/]`/`-[!]` line in the artifact will be updated in place. */
-    task: string
+    task?: string
     /** When provided, sets the checkbox state of the matched line (true -> `[x]`, false -> `[ ]`). Ignored when `status` is also provided. */
     completed?: boolean
     /** Explicit tri-state task status. When provided, overrides `completed`. Transitions a task to `in_progress` (`[~]`), `done` (`[x]`), `cancelled` (`[/]`), `blocked` (`[!]`), or back to `pending` (`[ ]`). */
@@ -1052,9 +1288,29 @@ export interface UpdatePlanStatusParams {
     body: string
   }
   /** Optional session-level status transition. When provided, `.agents/sessions/<slug>/STATE.json` is created or updated to reflect the new lifecycle status. */
-  sessionStatus?: 'active' | 'paused' | 'completed' | 'archived'
+  sessionStatus?:
+    | 'draft'
+    | 'ready'
+    | 'active'
+    | 'executing'
+    | 'validating'
+    | 'reviewing'
+    | 'blocked'
+    | 'paused'
+    | 'completed'
+    | 'archived'
   /** Optional current-task pointer written as a `<!-- current-task: <task> -->` annotation in PLAN.md. Pass an empty string or omit to clear the pointer. Only takes effect when path targets PLAN.md. */
   currentTask?: string
+  /** Optional STATE.json compare-and-swap revision. The update fails without writing when the current revision differs. */
+  expectedRevision?: number
+  /** Validation or review evidence associated with a stable task ID. Completing a PLAN task requires a passed validation checkpoint with receiptIds. */
+  checkpoint?: {
+    taskId: string
+    phase: 'validation' | 'review'
+    passed: boolean
+    summary?: string
+    receiptIds?: string[]
+  }
 }
 
 /**

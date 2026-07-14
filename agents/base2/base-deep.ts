@@ -347,13 +347,11 @@ export function createBaseDeep(options?: {
 5. Validate — run tests + typechecks, add new tests, do E2E verification
 6. Final review — defer to the automated final validation + code-reviewer gate; fix any BLOCKING findings, revalidate, and let it re-run${noLearning ? '' : `\n7. Lessons — write LESSONS.md, update/create skills, iterative thinker brainstorm loop`}`,
     // editor is required for the gate repair loop (spawned on validation
-    // failure to fix the offending files). Keep base-deep's extra explorers
-    // (directory-lister, glob-matcher) that base2 doesn't include.
+    // failure to fix the offending files). Mechanical directory/glob work is
+    // exposed directly as tools rather than model-backed wrapper agents.
     spawnableAgents: buildArray(
       'file-picker',
       'code-searcher',
-      'directory-lister',
-      'glob-matcher',
       'researcher-web',
       'researcher-docs',
       'basher',

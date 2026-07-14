@@ -110,6 +110,8 @@ export type AgentTemplate<
   P = string | undefined,
   T = Record<string, any> | undefined,
 > = {
+  /** Runtime provenance used to enforce executable-template trust boundaries. */
+  executionSource?: 'bundled' | 'local' | 'database'
   id: AgentTemplateType
   displayName: string
   /**
@@ -140,8 +142,9 @@ export type AgentTemplate<
    * Optional wall-clock timeout in milliseconds for a single execution of this
    * agent as a subagent. When set, executeSubagent uses this as the deadline
    * (overridable per-spawn via spawn_agents' timeout_seconds). Undefined falls
-   * back to DEFAULT_SUBAGENT_TIMEOUT_MS (20 minutes). Set to -1 to disable the
-   * timeout for genuinely long-running agents.
+   * back to the shared DEFAULT_SUBAGENT_TIMEOUT_MS, which is -1 (disabled): by
+   * default there is no wall-clock timeout, so long-running agents run to
+   * completion. Set a positive value to opt this agent into a wall-clock bound.
    */
   defaultTimeoutMs?: number
 
@@ -170,6 +173,7 @@ export type AgentTemplate<
     | 'librarian-read-only'
     | 'git-commit'
     | 'dependency-mutation'
+    | 'validation-diagnosis'
     | 'tmux-test'
     | 'workspace-write'
     | 'full-access'
@@ -194,6 +198,15 @@ export type AgentTemplate<
     params?: z.ZodSchema<T>
   }
   includeMessageHistory: boolean
+  /**
+   * Fine-grained parent-history transfer policy for spawned agents.
+   * `none` transfers no parent messages, `pinned` transfers only bounded
+   * operational memory blocks, and `full` preserves legacy full-history
+   * inheritance. When omitted, includeMessageHistory maps to full/none.
+   */
+  messageHistoryMode?: 'none' | 'pinned' | 'full'
+  /** Allow an inline programmatic agent to replace the parent's message history. */
+  propagateMessageHistoryChanges?: boolean
   /**
    * Whether to append model reasoning chunks to this agent's message history.
    * Defaults to false to keep cache-sensitive histories stable.

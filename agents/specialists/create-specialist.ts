@@ -233,7 +233,7 @@ export function createSpecialist(
     instructionsPrompt: [
       config.advisory
         ? 'Read the exact current sources and task state. A snapshot_id is optional for pre-edit advisory work; when supplied, verify it against the current review bundle and echo it exactly.'
-        : 'Read the exact current sources and snapshot-scoped review bundle. snapshot_id is required; echo it exactly and return BLOCKING with a stale-snapshot finding when it differs from the current bundle.',
+        : 'Read the exact current sources and snapshot-scoped review bundle. snapshot_id is an opaque single-line token and is required; echo it exactly, list the exact normalized project-relative paths you read, and return BLOCKING with a stale-snapshot finding when it differs from the current bundle.',
       config.advisory
         ? 'Return family=advisory. Your output is design/coordination evidence; do not invent a blocking gate verdict and do not mutate files or external systems.'
         : 'Return family=reviewer. Any material issue requiring a code or contract change is BLOCKING.',
@@ -242,7 +242,7 @@ export function createSpecialist(
       config.terminal
         ? 'Use only the tools exposed for this specialist. run_terminal_command is available only for the optional bounded diagnostic command; do not call a basher agent.'
         : 'Use only the tools exposed for this specialist. Do not call basher or run terminal validation; if runtime evidence is required, report the exact missing evidence for the parent to collect.',
-      `Use these exact dimension keys: ${dimensionKeys.join(', ')}. Every finding ID must be stable and formatted ${config.id}:<dimension>:<slug>; include severity, concrete evidence, and an actionable correction. Keep the result compact: at most ${MAX_FINDINGS} findings and ${MAX_EVIDENCE_ITEMS} evidence items per finding. Call set_output with a JSON object directly; never JSON.stringify the object or wrap it in a string. Return the required structured output and do not modify files.`,
+      `Use these exact dimension keys: ${dimensionKeys.join(', ')}. Every finding ID must be stable and formatted ${config.id}:<dimension>:<slug>; include severity, concrete evidence, and an actionable correction. Keep the result compact: at most ${MAX_FINDINGS} findings and ${MAX_EVIDENCE_ITEMS} evidence items per finding. Snapshot/file-attestation mismatches are protocol failures, not source findings; report a stale-snapshot finding and do not invent a repair. Call set_output with a JSON object directly; never JSON.stringify the object or wrap it in a string. Return the required structured output and do not modify files.`,
     ].join('\n'),
   }
 }

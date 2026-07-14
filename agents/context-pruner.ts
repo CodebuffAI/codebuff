@@ -43,6 +43,8 @@ const definition: AgentDefinition = {
 
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
+  messageHistoryMode: 'full',
+  propagateMessageHistoryChanges: true,
 
   handleSteps: function* ({ agentState, params }) {
     // =============================================================================
@@ -113,6 +115,12 @@ const definition: AgentDefinition = {
     const SEMANTIC_MAX_HEADROOM_TOKENS = 160_000
     const SEMANTIC_MIN_TARGET_TOKENS = 72_000
     const SEMANTIC_MAX_TARGET_TOKENS = 420_000
+    const SEMANTIC_SMALL_WINDOW_THRESHOLD_TOKENS = 128_000
+    const SEMANTIC_SMALL_WINDOW_MIN_HEADROOM_TOKENS = 2_000
+    const MODEL_CONTEXT_MIN_RESERVED_TOKENS = 8_000
+    const MODEL_CONTEXT_MAX_RESERVED_TOKENS = 128_000
+    const MODEL_CONTEXT_RESERVED_FRACTION = 0.12
+    const MODEL_CONTEXT_MAX_RESERVED_FRACTION = 0.5
     const EXPLICIT_LIMIT_TARGET_FRACTION = 0.6
 
     /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
@@ -444,26 +452,87 @@ const definition: AgentDefinition = {
       typeof resolvedContextWindow === 'number' &&
       Number.isFinite(resolvedContextWindow) &&
       resolvedContextWindow > 0
-    const semanticHeadroom = hasResolvedContextWindow
-      ? Math.min(
+    const injectedSemanticBudget =
+      params?.semanticBudget && typeof params.semanticBudget === 'object'
+        ? params.semanticBudget
+        : undefined
+    const injectedTrigger = injectedSemanticBudget?.triggerBudgetTokens
+    const injectedTarget = injectedSemanticBudget?.targetBudgetTokens
+    const hasInjectedSemanticBudget =
+      typeof injectedTrigger === 'number' &&
+      Number.isFinite(injectedTrigger) &&
+      injectedTrigger > 0 &&
+      typeof injectedTarget === 'number' &&
+      Number.isFinite(injectedTarget) &&
+      injectedTarget > 0
+
+    // Compatibility fallback for direct template execution in tests/custom
+    // runtimes. Production injects the authoritative runtime budget above.
+    let fallbackTrigger = DEFAULT_MAX_CONTEXT_LENGTH
+    let fallbackTarget = DEFAULT_TARGET_CONTEXT_LENGTH
+    if (hasResolvedContextWindow) {
+      if (resolvedContextWindow < SEMANTIC_SMALL_WINDOW_THRESHOLD_TOKENS) {
+        const reservedTokens = Math.min(
+          Math.max(
+            1,
+            Math.floor(
+              resolvedContextWindow * MODEL_CONTEXT_MAX_RESERVED_FRACTION,
+            ),
+          ),
+          Math.min(
+            MODEL_CONTEXT_MAX_RESERVED_TOKENS,
+            Math.max(
+              MODEL_CONTEXT_MIN_RESERVED_TOKENS,
+              Math.floor(
+                resolvedContextWindow * MODEL_CONTEXT_RESERVED_FRACTION,
+              ),
+            ),
+          ),
+        )
+        const providerSafeMessageLimit = Math.max(
+          1,
+          resolvedContextWindow - reservedTokens,
+        )
+        const semanticHeadroom = Math.max(
+          1,
+          Math.min(
+            SEMANTIC_MIN_HEADROOM_TOKENS,
+            Math.max(
+              SEMANTIC_SMALL_WINDOW_MIN_HEADROOM_TOKENS,
+              Math.floor(providerSafeMessageLimit * 0.25),
+            ),
+          ),
+        )
+        fallbackTrigger = Math.max(
+          1,
+          Math.min(
+            Math.floor(providerSafeMessageLimit * SEMANTIC_TRIGGER_FRACTION),
+            providerSafeMessageLimit - semanticHeadroom,
+          ),
+        )
+        fallbackTarget = Math.max(
+          1,
+          Math.min(
+            Math.floor(providerSafeMessageLimit * SEMANTIC_TARGET_FRACTION),
+            fallbackTrigger - 1,
+          ),
+        )
+      } else {
+        const semanticHeadroom = Math.min(
           SEMANTIC_MAX_HEADROOM_TOKENS,
           Math.max(
             SEMANTIC_MIN_HEADROOM_TOKENS,
             Math.floor(resolvedContextWindow * SEMANTIC_HEADROOM_FRACTION),
           ),
         )
-      : undefined
-    const modelAwareDefaultContextLength = hasResolvedContextWindow
-      ? Math.max(
+        fallbackTrigger = Math.max(
           1,
           Math.min(
             Math.floor(resolvedContextWindow * SEMANTIC_TRIGGER_FRACTION),
-            resolvedContextWindow - semanticHeadroom!,
+            resolvedContextWindow - semanticHeadroom,
           ),
         )
-      : DEFAULT_MAX_CONTEXT_LENGTH
-    const modelAwareTargetContextLength = hasResolvedContextWindow
-      ? Math.max(
+        fallbackTarget = Math.max(
           1,
           Math.min(
             Math.min(
@@ -473,10 +542,17 @@ const definition: AgentDefinition = {
                 Math.floor(resolvedContextWindow * SEMANTIC_TARGET_FRACTION),
               ),
             ),
-            modelAwareDefaultContextLength - 1,
+            fallbackTrigger - 1,
           ),
         )
-      : DEFAULT_TARGET_CONTEXT_LENGTH
+      }
+    }
+    const modelAwareDefaultContextLength = hasInjectedSemanticBudget
+      ? injectedTrigger
+      : fallbackTrigger
+    const modelAwareTargetContextLength = hasInjectedSemanticBudget
+      ? injectedTarget
+      : fallbackTarget
     const maxContextLength: number =
       params?.maxContextLength ?? modelAwareDefaultContextLength
     const targetContextLength =
@@ -1254,12 +1330,17 @@ const definition: AgentDefinition = {
       const taggedCandidates = candidates
         .filter((message) => message.tags?.includes('USER_PROMPT'))
         .reverse()
-      const ordered =
-        taggedCandidates.length > 0
-          ? taggedCandidates
-          : [...candidates].reverse()
+      const taggedSet = new Set(taggedCandidates)
+      const ordered = [
+        ...taggedCandidates,
+        ...[...candidates]
+          .reverse()
+          .filter((message) => !taggedSet.has(message)),
+      ]
       for (const message of ordered) {
         const text = sanitizeOperationalStateText(getTextContent(message))
+          .replace(/^<user_message>([\s\S]*?)<\/user_message>$/i, '$1')
+          .trim()
         if (!text) continue
         // Skip tool-result-style user messages and system tags
         if (text.startsWith('[USER]')) continue
@@ -1849,6 +1930,36 @@ const definition: AgentDefinition = {
 
     // M5: Initialize structured knowledge memory from previous summary
     const knowledgeMemory = extractPreviousKnowledgeMemory()
+    const persistedTaskMemory =
+      params?.taskMemory &&
+      typeof params.taskMemory === 'object' &&
+      params.taskMemory.schemaVersion === 1
+        ? params.taskMemory
+        : undefined
+    if (persistedTaskMemory) {
+      if (typeof persistedTaskMemory.goal === 'string') {
+        knowledgeMemory.goal = persistedTaskMemory.goal
+      }
+      for (const [source, target] of [
+        [persistedTaskMemory.decisions, knowledgeMemory.decisions],
+        [persistedTaskMemory.filesInspected, knowledgeMemory.filesInspected],
+        [persistedTaskMemory.editsMade, knowledgeMemory.editsMade],
+        [persistedTaskMemory.validationResults, knowledgeMemory.validationResults],
+        [persistedTaskMemory.reviewReceipts, knowledgeMemory.reviewReceipts],
+        [persistedTaskMemory.blockers, knowledgeMemory.blockers],
+      ] as Array<[unknown, string[]]>) {
+        if (!Array.isArray(source)) continue
+        for (const entry of source) {
+          if (typeof entry === 'string') addUniqueEntry(target, entry)
+        }
+      }
+      if (
+        Array.isArray(persistedTaskMemory.nextActions) &&
+        typeof persistedTaskMemory.nextActions.at(-1) === 'string'
+      ) {
+        knowledgeMemory.nextAction = persistedTaskMemory.nextActions.at(-1)
+      }
+    }
     knowledgeMemory.goal = extractGoalFromMessages() || knowledgeMemory.goal
     knowledgeMemory.nextAction = extractNextActionFromRuntimeState(
       pinnedActiveWorkLines,
@@ -2388,10 +2499,88 @@ ${SUMMARY_DISCLAIMER}`,
       finalMessages.push({ ...latestLiveUserPromptMessage, sentAt: now })
     }
 
+    const memoryEvidence = Array.isArray(persistedTaskMemory?.evidence)
+      ? persistedTaskMemory.evidence.slice(-192)
+      : []
+    const memoryEvidenceKeys = new Set(
+      memoryEvidence
+        .filter((entry: unknown) => entry && typeof entry === 'object')
+        .map((entry: Record<string, unknown>) => String(entry.id ?? '')),
+    )
+    const addMemoryEvidence = (kind: string, summary: string, path?: string) => {
+      const normalized = summary.trim()
+      if (!normalized) return
+      let hash = 2166136261
+      const identity = `${kind}\n${path ?? ''}\n${normalized}`
+      for (let index = 0; index < identity.length; index += 1) {
+        hash ^= identity.charCodeAt(index)
+        hash = Math.imul(hash, 16777619)
+      }
+      const id = `memory-${kind}-${(hash >>> 0).toString(16)}`
+      if (memoryEvidenceKeys.has(id)) return
+      memoryEvidenceKeys.add(id)
+      memoryEvidence.push({
+        id,
+        kind,
+        summary: truncateLongText(normalized, 2_000),
+        ...(path ? { path } : {}),
+        verifiedAt: now,
+        ...(typeof params?.workspaceState?.revision === 'number'
+          ? { workspaceRevision: params.workspaceState.revision }
+          : {}),
+      })
+    }
+    for (const value of knowledgeMemory.decisions) {
+      addMemoryEvidence('decision', value)
+    }
+    for (const value of knowledgeMemory.filesInspected) {
+      addMemoryEvidence('read', value, value.split(':')[0]?.trim())
+    }
+    for (const value of knowledgeMemory.editsMade) {
+      addMemoryEvidence('edit', value, value.split(':')[0]?.trim())
+    }
+    for (const value of knowledgeMemory.validationResults) {
+      addMemoryEvidence('validation', value)
+    }
+    for (const value of knowledgeMemory.reviewReceipts) {
+      addMemoryEvidence('review', value)
+    }
+    for (const value of knowledgeMemory.blockers) {
+      addMemoryEvidence('blocker', value)
+    }
+
     yield {
       toolName: 'set_messages',
       input: {
         messages: finalMessages,
+        expectedTaskMemoryRevision:
+          typeof persistedTaskMemory?.revision === 'number'
+            ? persistedTaskMemory.revision
+            : -1,
+        taskMemory: {
+          schemaVersion: 1,
+          goal: knowledgeMemory.goal,
+          requirements: Array.isArray(persistedTaskMemory?.requirements)
+            ? persistedTaskMemory.requirements
+            : [],
+          decisions: knowledgeMemory.decisions,
+          filesInspected: knowledgeMemory.filesInspected,
+          editsMade: knowledgeMemory.editsMade,
+          validationResults: knowledgeMemory.validationResults,
+          reviewReceipts: knowledgeMemory.reviewReceipts,
+          blockers: knowledgeMemory.blockers,
+          nextActions: knowledgeMemory.nextAction
+            ? [knowledgeMemory.nextAction]
+            : [],
+          historicalSummary: truncateLongText(summaryText, 24_000),
+          evidence: memoryEvidence.slice(-256),
+          ...(typeof params?.workspaceState?.revision === 'number'
+            ? { workspaceRevision: params.workspaceState.revision }
+            : {}),
+          ...(typeof params?.workspaceState?.snapshotId === 'string'
+            ? { workspaceSnapshotId: params.workspaceState.snapshotId }
+            : {}),
+        },
       },
       includeToolCall: false,
     } satisfies ToolCall<'set_messages'>

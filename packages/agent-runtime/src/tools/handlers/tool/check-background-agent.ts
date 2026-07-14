@@ -2,8 +2,8 @@ import { sleep } from '@codebuff/common/util/promise'
 
 import {
   getBackgroundAgentJob,
-  readNewBackgroundAgentChunks,
-  takeDroppedBackgroundAgentChunkCount,
+  readBackgroundAgentChunks,
+  backgroundAgentJobOwnedBy,
   cancelBackgroundAgentJob,
   type BackgroundAgentChunk,
 } from '../../../util/background-agent-jobs'
@@ -13,6 +13,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { AgentState } from '@codebuff/common/types/session-state'
 
 type ToolName = 'check_background_agent'
 
@@ -40,14 +41,23 @@ function chunkToSearchString(chunk: BackgroundAgentChunk): string {
 export const handleCheckBackgroundAgent = (async ({
   previousToolCallFinished,
   toolCall,
+  agentState,
+  clientSessionId,
 }: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
+  agentState: AgentState
+  clientSessionId: string
 }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   await previousToolCallFinished
 
-  const { jobId, wait_for, timeout_seconds = 0, cancel = false } =
-    toolCall.input
+  const {
+    jobId,
+    wait_for,
+    timeout_seconds = 0,
+    cancel = false,
+    cursor,
+  } = toolCall.input
   const job = getBackgroundAgentJob(jobId)
   if (!job) {
     return {
@@ -60,6 +70,23 @@ export const handleCheckBackgroundAgent = (async ({
       } as unknown as CodebuffToolOutput<ToolName>,
     }
   }
+  const rootRunId =
+    agentState.ancestorRunIds[0] ?? agentState.runId ?? agentState.agentId
+  if (!backgroundAgentJobOwnedBy(job, { clientSessionId, rootRunId })) {
+    return {
+      output: {
+        type: 'json',
+        value: {
+          jobId,
+          errorMessage:
+            'Background agent job is not owned by this client session/root run.',
+        },
+      } as unknown as CodebuffToolOutput<ToolName>,
+    }
+  }
+  const consumerId = `${clientSessionId}:${agentState.agentId}`
+  const readChunks = () =>
+    readBackgroundAgentChunks({ job, consumerId, cursor })
 
   if (cancel) {
     const cancelResult = cancelBackgroundAgentJob(jobId)
@@ -71,16 +98,25 @@ export const handleCheckBackgroundAgent = (async ({
         } as unknown as CodebuffToolOutput<ToolName>,
       }
     }
-    const newChunks = readNewBackgroundAgentChunks(job)
+    const intent = agentState.backgroundAgentJobs?.find(
+      (entry) => entry.jobId === jobId,
+    )
+    if (intent) {
+      intent.status = 'cancelled'
+      intent.completedAt = Date.now()
+      intent.error = 'Cancelled by check_background_agent.'
+    }
+    const read = readChunks()
     return {
       output: {
         type: 'json',
         value: {
           jobId,
           status: job.status,
-          newChunks,
+          newChunks: read.chunks,
+          nextCursor: read.nextCursor,
           cancelled: true,
-          droppedChunks: takeDroppedBackgroundAgentChunkCount(job),
+          droppedChunks: read.droppedChunks,
           error: job.error,
         },
       } as unknown as CodebuffToolOutput<ToolName>,
@@ -89,20 +125,21 @@ export const handleCheckBackgroundAgent = (async ({
 
   // Poll mode: return immediately with whatever new chunks exist.
   if (!wait_for && (!timeout_seconds || timeout_seconds <= 0)) {
-    const newChunks = readNewBackgroundAgentChunks(job)
+    const read = readChunks()
     return {
       output: {
         type: 'json',
         value: {
           jobId,
           status: job.status,
-          newChunks,
+          newChunks: read.chunks,
+          nextCursor: read.nextCursor,
           ...(job.status === 'completed' ? { result: job.result } : {}),
           ...(job.status === 'error' ? { error: job.error } : {}),
           ...(job.status === 'cancelled'
             ? { error: job.error, cancelled: true }
             : {}),
-          droppedChunks: takeDroppedBackgroundAgentChunkCount(job),
+          droppedChunks: read.droppedChunks,
         },
       } as unknown as CodebuffToolOutput<ToolName>,
     }
@@ -123,6 +160,8 @@ export const handleCheckBackgroundAgent = (async ({
     return false
   }
 
+  let latestCursor = cursor
+  let droppedChunks = 0
   const buildFollowResult = (
     chunks: BackgroundAgentChunk[],
     matched: boolean,
@@ -133,12 +172,13 @@ export const handleCheckBackgroundAgent = (async ({
         jobId,
         status: job.status,
         newChunks: chunks,
+        nextCursor: latestCursor,
         ...(job.status === 'completed' ? { result: job.result } : {}),
         ...(job.status === 'error' ? { error: job.error } : {}),
         ...(job.status === 'cancelled'
           ? { error: job.error, cancelled: true }
           : {}),
-        droppedChunks: takeDroppedBackgroundAgentChunkCount(job),
+        droppedChunks,
         matched,
         killed: false,
       },
@@ -146,7 +186,14 @@ export const handleCheckBackgroundAgent = (async ({
   })
 
   const deadline = Date.now() + (timeout_seconds ?? 0) * 1000
-  let pendingChunks: BackgroundAgentChunk[] = readNewBackgroundAgentChunks(job)
+  const initialRead = readBackgroundAgentChunks({
+    job,
+    consumerId,
+    cursor: latestCursor,
+  })
+  let pendingChunks: BackgroundAgentChunk[] = initialRead.chunks
+  latestCursor = initialRead.nextCursor
+  droppedChunks += initialRead.droppedChunks
 
   // Check the initial batch for an immediate match (no wait needed).
   if (findMatch(pendingChunks)) {
@@ -157,7 +204,14 @@ export const handleCheckBackgroundAgent = (async ({
   // until the job settles or the deadline elapses.
   while (job.status === 'running' && Date.now() < deadline) {
     await sleep(200)
-    pendingChunks = pendingChunks.concat(readNewBackgroundAgentChunks(job))
+    const read = readBackgroundAgentChunks({
+      job,
+      consumerId,
+      cursor: latestCursor,
+    })
+    pendingChunks = pendingChunks.concat(read.chunks)
+    latestCursor = read.nextCursor
+    droppedChunks += read.droppedChunks
     if (findMatch(pendingChunks)) {
       return buildFollowResult(pendingChunks, true)
     }
@@ -166,6 +220,13 @@ export const handleCheckBackgroundAgent = (async ({
   // Loop exited: either the job settled or the deadline elapsed without a
   // match. Drain any final chunks accumulated since the last read so the
   // caller sees everything produced during the follow window.
-  pendingChunks = pendingChunks.concat(readNewBackgroundAgentChunks(job))
+  const finalRead = readBackgroundAgentChunks({
+    job,
+    consumerId,
+    cursor: latestCursor,
+  })
+  pendingChunks = pendingChunks.concat(finalRead.chunks)
+  latestCursor = finalRead.nextCursor
+  droppedChunks += finalRead.droppedChunks
   return buildFollowResult(pendingChunks, false)
 }) satisfies CodebuffToolHandlerFunction<ToolName>

@@ -36,6 +36,7 @@ import {
   createChatGptBackendFetch,
   extractChatGptAccountId,
 } from './chatgpt-backend-fetch'
+import { resolveModelsToTry } from './failover'
 
 import type {
   OpenbuffReasoningEffort,
@@ -165,7 +166,9 @@ export function selectAdaptiveReasoningEffort(params: {
   if (params.supported === false) return undefined
   const id = (params.agentId ?? '').toLowerCase()
   const preferred: OpenbuffReasoningEffort =
-    /thinker|debugger|reviewer|plan|base-deep|architect|integration-agent|performance-specialist|incident-coordinator|release-manager|docs-architect|evaluator/.test(id)
+    /thinker|debugger|reviewer|plan|base-deep|architect|integration-agent|performance-specialist|incident-coordinator|release-manager|docs-architect|evaluator/.test(
+      id,
+    )
       ? 'high'
       : /editor|test-writer|general-agent|base2|base$/.test(id)
         ? 'medium'
@@ -361,16 +364,63 @@ export function resolveModelContextWindow(params: {
     model: params.model,
     loadedConfig,
   }).model
-  const configured = resolveConfiguredProviderModel({
-    model: effectiveModel,
+  const windows = resolveModelsToTry(effectiveModel, loadedConfig).flatMap(
+    (candidateModel) => {
+      const configured = resolveConfiguredProviderModel({
+        model: candidateModel,
+        loadedConfig,
+      })
+      if (!configured) return []
+      const windowTokens = resolveModelCapabilities({
+        providerId: configured.providerId,
+        model: candidateModel,
+        loadedConfig,
+      })?.context?.windowTokens
+      return typeof windowTokens === 'number' &&
+        Number.isFinite(windowTokens) &&
+        windowTokens > 0
+        ? [windowTokens]
+        : []
+    },
+  )
+  // Seed the run with the primary route's capacity. The request loop updates
+  // the agent to the actual attempt window before each provider call, so a
+  // smaller failover still triggers compaction when it is selected without
+  // forcing a 1M-token primary to behave like its 32K emergency fallback from
+  // the beginning of the run.
+  return windows[0]
+}
+
+export function resolveModelContextWindows(params: {
+  agentId?: string
+  model?: string
+}): { primary?: number; failoverFloor?: number } {
+  const loadedConfig = loadProviderConfigSync()
+  const effectiveModel = resolveConfiguredAgentModelConfig({
+    agentId: params.agentId,
+    model: params.model,
     loadedConfig,
-  })
-  if (!configured) return undefined
-  return resolveModelCapabilities({
-    providerId: configured.providerId,
-    model: effectiveModel,
-    loadedConfig,
-  })?.context?.windowTokens
+  }).model
+  const windows = resolveModelsToTry(effectiveModel, loadedConfig).flatMap(
+    (candidateModel) => {
+      const configured = resolveConfiguredProviderModel({
+        model: candidateModel,
+        loadedConfig,
+      })
+      const value = configured
+        ? resolveModelCapabilities({
+            providerId: configured.providerId,
+            model: candidateModel,
+            loadedConfig,
+          })?.context?.windowTokens
+        : undefined
+      return typeof value === 'number' && value > 0 ? [value] : []
+    },
+  )
+  return {
+    ...(windows[0] ? { primary: windows[0] } : {}),
+    ...(windows.length > 0 ? { failoverFloor: Math.min(...windows) } : {}),
+  }
 }
 
 type VisionSupport = 'yes' | 'no' | 'unknown'

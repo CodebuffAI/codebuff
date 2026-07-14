@@ -1,7 +1,10 @@
+import { createHash } from 'node:crypto'
+
 import { buildMetadataIndex, updateMetadataIndex } from './metadata-indexer'
 import {
   isIndexReady,
   isIndexStale,
+  getIndexDir,
   loadIndex,
   loadSemanticVectors,
   saveIndex,
@@ -17,6 +20,9 @@ import {
 import type { EmbedFn, FileVector, SemanticHit } from './semantic'
 import type {
   IndexingConfig,
+  IndexBuildError,
+  IndexMutationDelta,
+  IndexSnapshotIdentity,
   IndexStatus,
   LexicalWeights,
   MetadataIndex,
@@ -39,6 +45,11 @@ export class IndexManager {
   private staleRefreshPending = false
   private embed?: EmbedFn
   private fileVectors: FileVector[] = []
+  private lastBuildError: IndexBuildError | undefined
+  private pendingMutationDelta: IndexMutationDelta | undefined
+  private snapshotCache:
+    | { index: MetadataIndex; identity: IndexSnapshotIdentity }
+    | undefined
   private readonly MIN_RETRY_INTERVAL_MS = 30_000
 
   private constructor(
@@ -117,9 +128,11 @@ export class IndexManager {
       return
     }
     const staleRefresh = this.forceRefresh
+    const mutationDelta = this.pendingMutationDelta
     this.forceRefresh = false
+    this.pendingMutationDelta = undefined
     this.staleRefreshPending = staleRefresh
-    this.buildPromise = this._build().finally(() => {
+    this.buildPromise = this._build(mutationDelta).finally(() => {
       this.buildPromise = null
       this.staleRefreshPending = false
     })
@@ -132,6 +145,16 @@ export class IndexManager {
    * incremental update detects exactly which files changed by mtime/hash.
    */
   markStale(): void {
+    this.pendingMutationDelta = undefined
+    this.forceRefresh = true
+  }
+
+  /** Queue a precise filesystem mutation delta for the next refresh. */
+  markPathsChanged(delta: IndexMutationDelta): void {
+    this.pendingMutationDelta = mergeMutationDeltas(
+      this.pendingMutationDelta,
+      delta,
+    )
     this.forceRefresh = true
   }
 
@@ -140,6 +163,7 @@ export class IndexManager {
    * Starts a build if needed.
    */
   async waitUntilReady(timeoutMs = 30_000): Promise<void> {
+    this.scheduleRefreshIfNeeded()
     if (
       isIndexReady(this.index) &&
       !this.forceRefresh &&
@@ -178,6 +202,7 @@ export class IndexManager {
     totalIndexed: number
     indexAge: number
     status: IndexStatus
+    snapshot?: IndexSnapshotIdentity
   } {
     if (this.config.enabled === false) {
       return {
@@ -186,6 +211,7 @@ export class IndexManager {
         totalIndexed: 0,
         indexAge: 0,
         status: this.getStatus(),
+        snapshot: undefined,
       }
     }
     if (!isIndexReady(this.index)) {
@@ -196,8 +222,10 @@ export class IndexManager {
         totalIndexed: 0,
         indexAge: 0,
         status: this.getStatus(),
+        snapshot: undefined,
       }
     }
+    this.scheduleRefreshIfNeeded()
     if (this.forceRefresh || this.staleRefreshPending) {
       this.ensureBuilt()
       // Continue with the last known-good snapshot while refresh runs.
@@ -206,13 +234,17 @@ export class IndexManager {
       this.index,
       query,
       withConfigLexicalWeights(options, this.config),
-    )
+    ).map((result) => ({
+      ...result,
+      indexedHash: this.index!.files[result.path]?.hash,
+    }))
     return {
       results,
       ready: true,
       totalIndexed: this.index.fileCount,
       indexAge: Date.now() - this.index.builtAt,
       status: this.getStatus(),
+      snapshot: this.getSnapshotIdentity(this.index),
     }
   }
 
@@ -241,6 +273,7 @@ export class IndexManager {
     totalIndexed: number
     indexAge: number
     status: IndexStatus
+    snapshot?: IndexSnapshotIdentity
   }> {
     const lexical = this.query(query, options)
     if (!lexical.ready || !this.index || !this.isSemanticReady()) {
@@ -256,7 +289,7 @@ export class IndexManager {
     }
 
     const limit = options.limit ?? 20
-    const semantic = await this.searchSemantic(query, limit)
+    const semantic = await this.searchSemantic(query, limit, options.fileTypes)
     if (semantic.length === 0) return lexical
 
     const lexByPath = new Map(lexical.results.map((r) => [r.path, r]))
@@ -275,6 +308,7 @@ export class IndexManager {
         path,
         score,
         matchedOn: ['semantic'],
+        indexedHash: file?.hash,
         symbols: file?.symbols.slice(0, 10),
         headings: file?.headings.slice(0, 5),
       }
@@ -283,29 +317,82 @@ export class IndexManager {
     return { ...lexical, results }
   }
 
-  private async _build(): Promise<void> {
+  private async _build(mutationDelta?: IndexMutationDelta): Promise<void> {
     if (this.config.enabled === false) return
     this.lastBuildAttempt = Date.now()
     const cacheDir = this.config.cacheDir ?? '.codebuff-index'
+    let stage: IndexBuildError['stage'] = 'load'
     try {
       const existing = await loadIndex(this.projectRoot, cacheDir)
+      const expectedBuiltAt = existing?.builtAt ?? null
       let index: MetadataIndex
+      stage = 'walk'
       if (existing) {
         index = await updateMetadataIndex(
           existing,
           this.projectRoot,
           this.config,
+          mutationDelta,
         )
       } else {
         index = await buildMetadataIndex(this.projectRoot, this.config)
       }
-      await saveIndex(index, this.projectRoot, cacheDir)
-      this.index = index
-      await this._buildVectors(index, cacheDir)
+      if (mutationDelta?.revision !== undefined) {
+        index.workspaceRevision = mutationDelta.revision
+      }
+      stage = 'persist'
+      const persisted = await saveIndex(index, this.projectRoot, cacheDir, {
+        expectedBuiltAt,
+      })
+      if (!persisted) {
+        this.forceRefresh = true
+        if (mutationDelta) {
+          this.pendingMutationDelta = mergeMutationDeltas(
+            this.pendingMutationDelta,
+            mutationDelta,
+          )
+        }
+      }
+      this.index = (await loadIndex(this.projectRoot, cacheDir)) ?? index
+      this.snapshotCache = undefined
+      this.lastBuildError = undefined
+      await this._buildVectors(this.index, cacheDir)
     } catch (err) {
       // Index build failures are never fatal
       console.debug('[indexer] build failed:', err)
+      this.lastBuildError = createBuildError(
+        stage,
+        err,
+        getIndexDir(this.projectRoot, cacheDir),
+      )
+      if (mutationDelta) {
+        this.pendingMutationDelta = mergeMutationDeltas(
+          this.pendingMutationDelta,
+          mutationDelta,
+        )
+      }
     }
+  }
+
+  private getSnapshotIdentity(index: MetadataIndex): IndexSnapshotIdentity {
+    if (this.snapshotCache?.index === index) return this.snapshotCache.identity
+    const hash = createHash('sha256').update(
+      `${index.version}\0${index.projectRoot}\0${index.builtAt}\0${index.workspaceRevision ?? 'unknown'}\0`,
+    )
+    for (const filePath of Object.keys(index.files).sort()) {
+      hash.update(filePath).update('\0').update(index.files[filePath]!.hash)
+    }
+    const identity: IndexSnapshotIdentity = {
+      schemaVersion: 1,
+      snapshotId: hash.digest('hex'),
+      indexVersion: index.version,
+      builtAt: index.builtAt,
+      ...(index.workspaceRevision !== undefined
+        ? { workspaceRevision: index.workspaceRevision }
+        : {}),
+    }
+    this.snapshotCache = { index, identity }
+    return identity
   }
 
   /**
@@ -342,6 +429,11 @@ export class IndexManager {
     } catch (err) {
       console.debug('[indexer] semantic vector build failed:', err)
       this.fileVectors = []
+      this.lastBuildError = createBuildError(
+        'semantic',
+        err,
+        getIndexDir(this.projectRoot, cacheDir),
+      )
     }
   }
 
@@ -355,11 +447,15 @@ export class IndexManager {
   }
 
   getStatus(): IndexStatus {
+    this.scheduleRefreshIfNeeded()
     const indexAge = this.index ? Date.now() - this.index.builtAt : 0
     const refreshing = Boolean(this.buildPromise || this.staleRefreshPending)
     const stale = Boolean(
       this.index &&
-      (this.forceRefresh || refreshing || isIndexStale(this.index)),
+      (this.forceRefresh ||
+        refreshing ||
+        this.lastBuildError ||
+        isIndexStale(this.index)),
     )
     const diagnostics = this.index?.parseDiagnostics ?? []
     const state: IndexStatus['state'] =
@@ -368,8 +464,12 @@ export class IndexManager {
         : !this.index
           ? refreshing
             ? 'building'
-            : 'empty'
-          : diagnostics.length > 0
+            : this.lastBuildError
+              ? 'failed'
+              : 'empty'
+          : diagnostics.length > 0 ||
+              this.lastBuildError ||
+              this.index.coverage?.parser?.truncated
             ? 'degraded'
             : stale
               ? 'stale'
@@ -385,7 +485,10 @@ export class IndexManager {
           : 'unavailable'
     const coverage = this.index?.coverage
     const coverageNotice = coverage?.truncated
-      ? ` Index truncated at ${coverage.maxFiles} files; skipped ${coverage.skippedFiles} file(s) under ${coverage.skippedPrefixes.join(', ') || 'unknown prefixes'}.`
+      ? ` Index coverage is partial: walker skipped ${coverage.skippedFiles} file(s) under ${coverage.skippedPrefixes.join(', ') || 'no walker prefixes'}; parser skipped ${coverage.parser?.skippedFiles ?? 0} file(s) under ${coverage.parser?.skippedPrefixes.join(', ') || 'no parser prefixes'}.`
+      : ''
+    const errorNotice = this.lastBuildError
+      ? ` Last ${this.lastBuildError.stage} error: ${this.lastBuildError.message}`
       : ''
     return {
       state,
@@ -397,7 +500,8 @@ export class IndexManager {
       indexAge,
       diagnostics,
       coverage,
-      message: `${state === 'ready' ? 'Index ready.' : state === 'stale' ? 'Serving a stale snapshot while refreshing.' : state === 'degraded' ? 'Index ready with parser diagnostics.' : state === 'building' ? 'Index is building.' : state === 'disabled' ? 'Indexing is disabled.' : 'Index is empty or unavailable.'}${coverageNotice}`,
+      lastBuildError: this.lastBuildError,
+      message: `${state === 'ready' ? 'Index ready.' : state === 'stale' ? 'Serving a stale snapshot while refreshing.' : state === 'degraded' ? 'Index ready with partial coverage or diagnostics.' : state === 'failed' ? 'Index build failed.' : state === 'building' ? 'Index is building.' : state === 'disabled' ? 'Indexing is disabled.' : 'Index is empty or unavailable.'}${coverageNotice}${errorNotice}`,
     }
   }
 
@@ -405,14 +509,37 @@ export class IndexManager {
    * Rank indexed files by semantic similarity to the query. Returns [] when
    * semantic indexing is unavailable, so callers can fall back to lexical-only.
    */
-  async searchSemantic(query: string, limit = 20): Promise<SemanticHit[]> {
+  async searchSemantic(
+    query: string,
+    limit = 20,
+    fileTypes?: string[],
+  ): Promise<SemanticHit[]> {
     if (!this.isSemanticReady() || !this.embed) return []
     try {
-      return await semanticSearch(query, this.fileVectors, this.embed, limit)
+      const allowedVectors = fileTypes?.length
+        ? this.fileVectors.filter((entry) =>
+            matchesFileTypes(this.index?.files[entry.path]?.ext, fileTypes),
+          )
+        : this.fileVectors
+      return await semanticSearch(query, allowedVectors, this.embed, limit)
     } catch (err) {
       console.debug('[indexer] semantic search failed:', err)
       return []
     }
+  }
+
+  private scheduleRefreshIfNeeded(): void {
+    if (
+      !this.index ||
+      (!isIndexStale(this.index) && !this.lastBuildError?.retryable) ||
+      this.buildPromise ||
+      this.forceRefresh ||
+      Date.now() - this.lastBuildAttempt < this.MIN_RETRY_INTERVAL_MS
+    ) {
+      return
+    }
+    this.forceRefresh = true
+    this.ensureBuilt()
   }
 }
 
@@ -432,4 +559,54 @@ function withConfigLexicalWeights(
   // Caller-supplied per-query weights take precedence over config defaults.
   if (options.lexicalWeights) return options
   return { ...options, lexicalWeights: configLexical }
+}
+
+function mergeMutationDeltas(
+  current: IndexMutationDelta | undefined,
+  next: IndexMutationDelta,
+): IndexMutationDelta {
+  const changedPaths = new Set([
+    ...(current?.changedPaths ?? []),
+    ...(next.changedPaths ?? []),
+  ])
+  const deletedPaths = new Set([
+    ...(current?.deletedPaths ?? []),
+    ...(next.deletedPaths ?? []),
+  ])
+  for (const deletedPath of deletedPaths) changedPaths.delete(deletedPath)
+  return {
+    changedPaths: Array.from(changedPaths),
+    deletedPaths: Array.from(deletedPaths),
+    complete: current
+      ? current.complete === true && next.complete === true
+      : next.complete,
+    revision: next.revision ?? current?.revision,
+  }
+}
+
+function createBuildError(
+  stage: IndexBuildError['stage'],
+  error: unknown,
+  cachePath: string,
+): IndexBuildError {
+  const message = error instanceof Error ? error.message : String(error)
+  return {
+    stage,
+    message: message.slice(0, 2_000),
+    timestamp: Date.now(),
+    retryable: !/refusing to use non-owned/i.test(message),
+    cachePath,
+  }
+}
+
+function matchesFileTypes(
+  extension: string | undefined,
+  fileTypes: string[],
+): boolean {
+  if (!extension) return false
+  const normalizedExtension = extension.replace(/^\./, '').toLowerCase()
+  return fileTypes.some(
+    (fileType) =>
+      fileType.trim().replace(/^\./, '').toLowerCase() === normalizedExtension,
+  )
 }

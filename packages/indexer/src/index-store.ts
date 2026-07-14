@@ -4,16 +4,20 @@ import * as path from 'node:path'
 
 import type { FileVector } from './semantic'
 import type { MetadataIndex } from './types'
+import { buildIndexQueryData } from './query-data'
 
 const INDEX_FILE = 'metadata.json'
 const INDEX_VERSION = '2'
 const SEMANTIC_VECTOR_FILE = 'semantic-vectors.json'
-const SEMANTIC_VECTOR_VERSION = '2'
-const LEGACY_SEMANTIC_VECTOR_VERSION = '1'
+const SEMANTIC_VECTOR_VERSION = '3'
+const LEGACY_SEMANTIC_VECTOR_VERSIONS = new Set(['1', '2'])
 const MAX_SEMANTIC_FINGERPRINTS = 4
 export const MAX_INDEX_AGE_MS = 5 * 60 * 1000 // 5 minutes
 const DEFAULT_CACHE_DIR = '.codebuff-index'
 const OWNER_FILE = '.openbuff-index-owner'
+const LOCK_FILE = '.openbuff-index.lock'
+const LOCK_TIMEOUT_MS = 10_000
+const STALE_LOCK_MS = 5 * 60_000
 
 export function sanitizeIndexCacheDir(cacheDir = DEFAULT_CACHE_DIR): string {
   const normalized = cacheDir
@@ -59,11 +63,19 @@ export async function loadIndex(
   const indexPath = path.join(getIndexDir(projectRoot, cacheDir), INDEX_FILE)
   try {
     const content = await fs.promises.readFile(indexPath, 'utf8')
-    const parsed = JSON.parse(content) as MetadataIndex
-    if (parsed.version !== INDEX_VERSION) return null
-    if (parsed.projectRoot !== projectRoot) return null
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      return null
+    }
+    if (!isMetadataIndex(parsed, projectRoot)) return null
+    if (!parsed.queryData) {
+      parsed.queryData = buildIndexQueryData(parsed.files, parsed.graph)
+    }
     return parsed
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     return null
   }
 }
@@ -72,28 +84,44 @@ export async function saveIndex(
   index: MetadataIndex,
   projectRoot: string,
   cacheDir = '.codebuff-index',
-): Promise<void> {
+  options: { expectedBuiltAt?: number | null } = {},
+): Promise<boolean> {
   const dir = getIndexDir(projectRoot, cacheDir)
   await assertCacheOwnership(dir)
   await ensureGitInfoExcludes(projectRoot, cacheDir)
   await fs.promises.mkdir(dir, { recursive: true })
-  await fs.promises
-    .writeFile(path.join(dir, OWNER_FILE), 'openbuff-index\n', {
-      flag: 'wx',
-    })
-    .catch((error: NodeJS.ErrnoException) => {
-      if (error.code !== 'EEXIST') throw error
-    })
+  await writeOwnerFile(dir)
   const indexPath = path.join(dir, INDEX_FILE)
-  await fs.promises.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf8')
+  return await withCacheLock(dir, async () => {
+    const current = await readJsonFile(indexPath)
+    const currentBuiltAt =
+      isRecord(current) &&
+      current.projectRoot === projectRoot &&
+      typeof current.builtAt === 'number'
+        ? current.builtAt
+        : null
+    if (
+      Object.prototype.hasOwnProperty.call(options, 'expectedBuiltAt') &&
+      currentBuiltAt !== options.expectedBuiltAt
+    ) {
+      return false
+    }
+    if (currentBuiltAt !== null && currentBuiltAt > index.builtAt) {
+      // A newer inter-process build won the race. Do not replace it with an
+      // older snapshot that began before the winning process.
+      return false
+    }
+    await atomicWriteJson(indexPath, index)
+    return true
+  })
 }
 
 export interface CachedSemanticVector {
-  hash: string
+  embeddingHash: string
   vector: number[]
 }
 
-interface SemanticVectorCacheV2 {
+interface SemanticVectorCacheV3 {
   version: typeof SEMANTIC_VECTOR_VERSION
   projectRoot: string
   fingerprints: Record<
@@ -103,13 +131,6 @@ interface SemanticVectorCacheV2 {
       vectors: Record<string, number[]>
     }
   >
-}
-
-interface SemanticVectorCacheV1 {
-  version: typeof LEGACY_SEMANTIC_VECTOR_VERSION
-  projectRoot: string
-  fingerprint: string
-  vectors: FileVector[]
 }
 
 /**
@@ -126,8 +147,8 @@ export async function loadSemanticVectors(
   if (!cache) return []
   const entry = cache.fingerprints[fingerprint]
   if (!entry) return []
-  return Object.entries(entry.vectors).map(([hash, vector]) => ({
-    hash,
+  return Object.entries(entry.vectors).map(([embeddingHash, vector]) => ({
+    embeddingHash,
     vector,
   }))
 }
@@ -145,33 +166,28 @@ export async function saveSemanticVectors(
   await fs.promises.mkdir(dir, { recursive: true })
   await writeOwnerFile(dir)
 
-  const existing =
-    (await readSemanticVectorCache(projectRoot, cacheDir)) ??
-    emptySemanticVectorCache(projectRoot)
-  const byHash: Record<string, number[]> = {}
-  for (const entry of vectors) {
-    if (entry.hash && isValidVector(entry.vector)) {
-      byHash[entry.hash] = entry.vector
-    }
-  }
-  existing.fingerprints[fingerprint] = {
-    updatedAt: Date.now(),
-    vectors: byHash,
-  }
-
-  const retained = Object.entries(existing.fingerprints)
-    .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)
-    .slice(0, MAX_SEMANTIC_FINGERPRINTS)
-  existing.fingerprints = Object.fromEntries(retained)
-
   const cachePath = path.join(dir, SEMANTIC_VECTOR_FILE)
-  const temporaryPath = `${cachePath}.${process.pid}.${randomUUID()}.tmp`
-  try {
-    await fs.promises.writeFile(temporaryPath, JSON.stringify(existing), 'utf8')
-    await fs.promises.rename(temporaryPath, cachePath)
-  } finally {
-    await fs.promises.rm(temporaryPath, { force: true }).catch(() => {})
-  }
+  await withCacheLock(dir, async () => {
+    const existing =
+      (await readSemanticVectorCache(projectRoot, cacheDir)) ??
+      emptySemanticVectorCache(projectRoot)
+    const byHash: Record<string, number[]> = {}
+    for (const entry of vectors) {
+      if (entry.embeddingHash && isValidVector(entry.vector)) {
+        byHash[entry.embeddingHash] = entry.vector
+      }
+    }
+    existing.fingerprints[fingerprint] = {
+      updatedAt: Date.now(),
+      vectors: byHash,
+    }
+
+    const retained = Object.entries(existing.fingerprints)
+      .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)
+      .slice(0, MAX_SEMANTIC_FINGERPRINTS)
+    existing.fingerprints = Object.fromEntries(retained)
+    await atomicWriteJson(cachePath, existing)
+  })
 }
 
 async function assertCacheOwnership(dir: string): Promise<void> {
@@ -196,7 +212,7 @@ async function writeOwnerFile(dir: string): Promise<void> {
     })
 }
 
-function emptySemanticVectorCache(projectRoot: string): SemanticVectorCacheV2 {
+function emptySemanticVectorCache(projectRoot: string): SemanticVectorCacheV3 {
   return {
     version: SEMANTIC_VECTOR_VERSION,
     projectRoot,
@@ -207,7 +223,7 @@ function emptySemanticVectorCache(projectRoot: string): SemanticVectorCacheV2 {
 async function readSemanticVectorCache(
   projectRoot: string,
   cacheDir: string,
-): Promise<SemanticVectorCacheV2 | null> {
+): Promise<SemanticVectorCacheV3 | null> {
   const cachePath = path.join(
     getIndexDir(projectRoot, cacheDir),
     SEMANTIC_VECTOR_FILE,
@@ -225,14 +241,14 @@ async function readSemanticVectorCache(
 function normalizeSemanticVectorCache(
   value: unknown,
   projectRoot: string,
-): SemanticVectorCacheV2 | null {
+): SemanticVectorCacheV3 | null {
   if (!isRecord(value) || value.projectRoot !== projectRoot) return null
 
   if (
     value.version === SEMANTIC_VECTOR_VERSION &&
     isRecord(value.fingerprints)
   ) {
-    const fingerprints: SemanticVectorCacheV2['fingerprints'] = {}
+    const fingerprints: SemanticVectorCacheV3['fingerprints'] = {}
     for (const [fingerprint, rawEntry] of Object.entries(value.fingerprints)) {
       if (!isRecord(rawEntry) || !isRecord(rawEntry.vectors)) continue
       const vectors = normalizeVectorRecord(rawEntry.vectors)
@@ -248,32 +264,14 @@ function normalizeSemanticVectorCache(
     return { version: SEMANTIC_VECTOR_VERSION, projectRoot, fingerprints }
   }
 
-  // V1 stored one fingerprint and path-oriented vectors. Normalize in memory;
-  // the next save atomically rewrites it as the hash-keyed V2 schema.
+  // Older schemas were keyed by content hash even though the embedded text
+  // included the path. Reusing them would be semantically stale after rename
+  // or for duplicate-content files, so treat them as safe misses.
   if (
-    value.version === LEGACY_SEMANTIC_VECTOR_VERSION &&
-    typeof value.fingerprint === 'string' &&
-    Array.isArray(value.vectors)
-  ) {
-    const legacy = value as unknown as SemanticVectorCacheV1
-    const vectors: Record<string, number[]> = {}
-    for (const entry of legacy.vectors) {
-      if (
-        isRecord(entry) &&
-        typeof entry.hash === 'string' &&
-        isValidVector(entry.vector)
-      ) {
-        vectors[entry.hash] = entry.vector
-      }
-    }
-    return {
-      version: SEMANTIC_VECTOR_VERSION,
-      projectRoot,
-      fingerprints: {
-        [legacy.fingerprint]: { updatedAt: 0, vectors },
-      },
-    }
-  }
+    typeof value.version === 'string' &&
+    LEGACY_SEMANTIC_VECTOR_VERSIONS.has(value.version)
+  )
+    return null
 
   return null
 }
@@ -301,6 +299,100 @@ function isValidVector(value: unknown): value is number[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isMetadataIndex(
+  value: unknown,
+  projectRoot: string,
+): value is MetadataIndex {
+  if (
+    !isRecord(value) ||
+    value.version !== INDEX_VERSION ||
+    value.projectRoot !== projectRoot ||
+    typeof value.builtAt !== 'number' ||
+    !Number.isFinite(value.builtAt) ||
+    !isRecord(value.files) ||
+    !isRecord(value.graph)
+  ) {
+    return false
+  }
+  if (!isRecord(value.graph.nodes) || !Array.isArray(value.graph.edges)) {
+    return false
+  }
+  value.fileCount = Object.keys(value.files).length
+  return true
+}
+
+async function withCacheLock<T>(
+  dir: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const lockPath = path.join(dir, LOCK_FILE)
+  const deadline = Date.now() + LOCK_TIMEOUT_MS
+
+  while (true) {
+    try {
+      const handle = await fs.promises.open(lockPath, 'wx')
+      const ownerToken = `${process.pid}:${randomUUID()}`
+      try {
+        await handle.writeFile(`${ownerToken}\n${Date.now()}\n`, 'utf8')
+        return await operation()
+      } finally {
+        await handle.close().catch(() => {})
+        try {
+          const currentOwner = await fs.promises.readFile(lockPath, 'utf8')
+          if (currentOwner.startsWith(`${ownerToken}\n`)) {
+            await fs.promises.rm(lockPath, { force: true })
+          }
+        } catch {
+          // A stale-lock recovery may already have removed it.
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      try {
+        const stat = await fs.promises.stat(lockPath)
+        if (Date.now() - stat.mtimeMs > STALE_LOCK_MS) {
+          await fs.promises.rm(lockPath, { force: true })
+          continue
+        }
+      } catch (statError) {
+        if ((statError as NodeJS.ErrnoException).code === 'ENOENT') continue
+        throw statError
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting for index cache lock: ${lockPath}`)
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+  }
+}
+
+async function atomicWriteJson(
+  filePath: string,
+  value: unknown,
+): Promise<void> {
+  const temporaryPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`
+  let handle: fs.promises.FileHandle | undefined
+  try {
+    handle = await fs.promises.open(temporaryPath, 'wx')
+    await handle.writeFile(JSON.stringify(value, null, 2), 'utf8')
+    await handle.sync()
+    await handle.close()
+    handle = undefined
+    await fs.promises.rename(temporaryPath, filePath)
+  } finally {
+    await handle?.close().catch(() => {})
+    await fs.promises.rm(temporaryPath, { force: true }).catch(() => {})
+  }
+}
+
+async function readJsonFile(filePath: string): Promise<unknown> {
+  try {
+    return JSON.parse(await fs.promises.readFile(filePath, 'utf8'))
+  } catch {
+    return null
+  }
 }
 
 async function ensureGitInfoExcludes(

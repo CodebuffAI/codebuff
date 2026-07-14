@@ -8,28 +8,55 @@ remain under the host's control.
 
 New runs default to structured `read_files` v1 results. Use
 `filesystemResultFormat: 'legacy-v0'` only for an existing compatibility
-integration.
+integration. During agent runs, complete reads carry authenticated `cap.v3`
+tokens bound to the current project, normalized path, and run; SDK callers
+should treat them as opaque and copy them only to the matching edit target.
 
-The built-in Node adapter supplies bounded line-range reads and exclusive file
-creation:
+When `run()` receives a `cwd` and no custom `fsSource`, the SDK creates a
+workspace-scoped mutation broker under the harness state directory. The broker
+supplies bounded line-range reads plus cooperative, inter-process conditional
+commit/delete/move and exclusive-create authority:
 
 ```ts
-import { createNodeFileSystem, run } from '@openbuff/sdk'
+import { run } from '@openbuff/sdk'
 
 await run({
   cwd: process.cwd(),
-  fsSource: createNodeFileSystem(),
   filesystemResultFormat: 'structured-v1',
   agent: 'base2',
   prompt: 'Update the project',
 })
 ```
 
+`createNodeFileSystem()` used by itself intentionally omits conditional
+mutations and makes guarded updates fail closed. Hosts that need the same
+brokered adapter outside `run()` can construct it explicitly:
+
+```ts
+import {
+  createNodeFileSystem,
+  WorkspaceMutationBroker,
+} from '@openbuff/sdk'
+
+const mutationBroker = await WorkspaceMutationBroker.create({
+  cwd: process.cwd(),
+  stateDir: '/path/to/openbuff/state/harness',
+})
+const fsSource = createNodeFileSystem({ mutationBroker })
+```
+
+This is cooperative CAS among participating Openbuff processes, not absolute
+kernel-enforced filesystem CAS. External editors can bypass the broker, so
+workspace revision checks and filesystem watching remain the backstop for
+outside mutations.
+
 Custom adapters should implement the optional capabilities they can guarantee:
 
 - `readTextRange` enables bounded reads of files larger than 10 MB.
 - `createFileExclusive` prevents create collisions.
 - `conditionalCommit` prevents lost updates between validation and overwrite.
+- `conditionalDelete` guards deletions with an exact-byte expected hash.
+- `conditionalMove` requires the source hash and an absent destination.
 
 Tools that require a host process, such as terminal commands and configured
 validation hooks, are separate from the filesystem adapter. Virtual or remote

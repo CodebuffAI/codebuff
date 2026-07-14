@@ -438,8 +438,7 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
       return { path: p, score, upstreamIndex }
     })
     scored.sort(
-      (a, b) =>
-        b.score - a.score || a.upstreamIndex - b.upstreamIndex,
+      (a, b) => b.score - a.score || a.upstreamIndex - b.upstreamIndex,
     )
     return scored
   }

@@ -3,11 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import {
-  getLanguageConfig,
-  languageTable,
-  setWasmDir,
-} from '../src/languages'
+import { getLanguageConfig, languageTable, setWasmDir } from '../src/languages'
 
 describe('packaged language WASM coverage', () => {
   let wasmDir: string

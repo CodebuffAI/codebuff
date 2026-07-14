@@ -60,9 +60,17 @@ export interface AggregatedCapabilityMetric extends CapabilityMetricInput {
 export function aggregateCapabilityMetrics(
   inputs: CapabilityMetricInput[],
 ): AggregatedCapabilityMetric[] {
-  const groups = new Map<string, { template: CapabilityMetricInput; total: number; count: number }>()
+  const groups = new Map<
+    string,
+    { template: CapabilityMetricInput; total: number; count: number }
+  >()
   for (const input of inputs) {
-    const key = JSON.stringify([input.model, input.language, input.taskType, input.agentRole])
+    const key = JSON.stringify([
+      input.model,
+      input.language,
+      input.taskType,
+      input.agentRole,
+    ])
     const current = groups.get(key) ?? { template: input, total: 0, count: 0 }
     current.total += input.score
     current.count += 1

@@ -289,4 +289,3 @@ The tests below are the most direct presentation verification surfaces. They are
 - Project discovery, provider config mutation, and plan artifact semantics behind picker screens; only their visible layout, focus, keyboard, validation display, and navigation surfaces are in scope here.
 - Image decoding/resizing/upload internals; only terminal sizing/transport and rendered cards/thumbnails are included.
 - Init/release/build scripts and packaging, except `cli/package.json` as OpenTUI integration metadata.
-

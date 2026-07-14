@@ -1,6 +1,7 @@
 import z from 'zod/v4'
 
 import { $getNativeToolCallExampleString, textToolResultSchema } from '../utils'
+import { taskMemoryDraftV1Schema } from '../../../types/task-memory'
 
 import type { $ToolParams } from '../../constants'
 
@@ -9,8 +10,12 @@ const endsAgentStep = true
 const inputSchema = z
   .object({
     messages: z.any(),
+    taskMemory: taskMemoryDraftV1Schema.optional(),
+    expectedTaskMemoryRevision: z.number().int().min(-1).optional(),
   })
-  .describe(`Set the conversation history to the provided messages.`)
+  .describe(
+    `Atomically replace conversation history and, when supplied, commit a validated structured task-memory revision.`,
+  )
 const description = `
 Example:
 ${$getNativeToolCallExampleString({

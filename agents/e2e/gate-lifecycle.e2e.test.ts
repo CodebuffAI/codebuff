@@ -192,9 +192,9 @@ describe('base2 deterministic gate lifecycle e2e', () => {
         ],
       },
     })
-    expect(gen.next(feedJson([{ file: 'src/lifecycle.ts' }])).value).toMatchObject(
-      { toolName: 'git_status', input: {} },
-    )
+    expect(
+      gen.next(feedJson([{ file: 'src/lifecycle.ts' }])).value,
+    ).toMatchObject({ toolName: 'git_status', input: {} })
 
     // The repair result re-enters the normal loop at context pruning, with
     // the blocker still pinned until validation and a fresh review clear it.

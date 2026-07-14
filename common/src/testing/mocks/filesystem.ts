@@ -1,4 +1,6 @@
 import { mock } from 'bun:test'
+import { createHash } from 'node:crypto'
+import { getContentHash } from '../../util/content-hash'
 
 import type { CodebuffFileSystem } from '../../types/filesystem'
 import type { Mock } from 'bun:test'
@@ -40,6 +42,10 @@ export interface MockFsWithMocks {
 
 function notFoundError(message: string): Error & { code: 'ENOENT' } {
   return Object.assign(new Error(message), { code: 'ENOENT' as const })
+}
+
+function getExactContentHash(content: string): string {
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`
 }
 
 /** Creates a mock filesystem compatible with CodebuffFileSystem. */
@@ -167,6 +173,70 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     ? async (path: PathLike) => unlinkImpl(String(path))
     : defaultUnlink
 
+  const readCurrent = async (path: PathLike): Promise<string | null> => {
+    try {
+      return await readFileFn(path)
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  const createFileExclusive: NonNullable<
+    CodebuffFileSystem['createFileExclusive']
+  > = async (path, data) => {
+    if ((await readCurrent(path)) !== null) {
+      throw Object.assign(new Error('File already exists'), { code: 'EEXIST' })
+    }
+    await writeFileFn(path, String(data))
+  }
+  const conditionalCommit: NonNullable<
+    CodebuffFileSystem['conditionalCommit']
+  > = async (path, data, { expectedHash }) => {
+    const current = await readCurrent(path)
+    const actualHash = current === null ? null : getExactContentHash(current)
+    if (actualHash !== expectedHash) return { applied: false, actualHash }
+    await writeFileFn(path, String(data))
+    return { applied: true }
+  }
+  const conditionalDelete: NonNullable<
+    CodebuffFileSystem['conditionalDelete']
+  > = async (path, { expectedHash }) => {
+    const current = await readCurrent(path)
+    const actualHash = current === null ? null : getExactContentHash(current)
+    if (actualHash !== expectedHash) return { applied: false, actualHash }
+    await unlinkFn(path)
+    return { applied: true }
+  }
+  const conditionalMove: NonNullable<
+    CodebuffFileSystem['conditionalMove']
+  > = async (source, destination, { expectedSourceHash }) => {
+    const sourceContent = await readCurrent(source)
+    const destinationContent = await readCurrent(destination)
+    const actualSourceHash =
+      sourceContent === null ? null : getExactContentHash(sourceContent)
+    const actualDestinationHash =
+      destinationContent === null
+        ? null
+        : getExactContentHash(destinationContent)
+    if (
+      actualSourceHash !== expectedSourceHash ||
+      actualDestinationHash !== null
+    ) {
+      return { applied: false, actualSourceHash, actualDestinationHash }
+    }
+    await writeFileFn(destination, sourceContent!)
+    await unlinkFn(source)
+    return { applied: true }
+  }
+
   return {
     readFile: mock(readFileFn),
     readdir: mock(readdirFn),
@@ -175,6 +245,10 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     realpath: mock(realpathFn),
     stat: mock(statFn),
     unlink: mock(unlinkFn),
+    createFileExclusive,
+    conditionalCommit,
+    conditionalDelete,
+    conditionalMove,
   } as unknown as MockFs
 }
 

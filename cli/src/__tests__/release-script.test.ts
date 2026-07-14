@@ -1,9 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  triggerWorkflow,
-  validateVersionType,
-} from '../../scripts/release'
+import { triggerWorkflow, validateVersionType } from '../../scripts/release'
 
 describe('release workflow dispatch', () => {
   test('accepts only workflow-supported version types', () => {
@@ -19,10 +16,14 @@ describe('release workflow dispatch', () => {
   test('requires a successful dispatch and verifies the created run', async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = []
     const createdAt = new Date().toISOString()
-    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+    const fetchImpl = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       const url = String(input)
       requests.push({ url, init })
-      if (url.endsWith('/dispatches')) return new Response(null, { status: 204 })
+      if (url.endsWith('/dispatches'))
+        return new Response(null, { status: 204 })
       return Response.json({
         workflow_runs: [
           {

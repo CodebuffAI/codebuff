@@ -3,6 +3,9 @@ import path from 'path'
 import {
   CHANGES,
   FileContentChangeSchema,
+  MAX_TRANSACTION_FILE_BYTES,
+  MAX_TRANSACTION_PREPARED_BYTES,
+  MAX_TRANSACTION_ROLLBACK_BYTES,
   type FileChange,
   type FileContentChange,
 } from '@codebuff/common/actions'
@@ -167,7 +170,22 @@ export async function changeFiles(params: {
 }): Promise<CodebuffToolOutput<'edit_transaction'>> {
   const { parameters, cwd, fs, signal, fileFilter, callId, filesystemPolicy } =
     params
-  const changes = CHANGES.parse(parameters)
+  const parsedChanges = CHANGES.safeParse(parameters)
+  if (!parsedChanges.success) {
+    const resourceIssue = parsedChanges.error.issues.find((issue) =>
+      /limit|at most|bounded|split/i.test(issue.message),
+    )
+    if (resourceIssue) {
+      return standaloneTransactionFailureResult(
+        filesystemError('resource_limit', resourceIssue.message, {
+          retryable: true,
+          recovery: 'split_transaction',
+        }),
+      )
+    }
+    throw parsedChanges.error
+  }
+  const changes = parsedChanges.data
   const authority = getDefaultFilesystemAuthority(
     cwd,
     fs,
@@ -175,17 +193,25 @@ export async function changeFiles(params: {
     filesystemPolicy,
   )
   const operationId = crypto.randomUUID()
-  const tier = changes.every((change) =>
-    change.type === 'delete'
-      ? Boolean(fs.conditionalDelete)
-      : change.type === 'move'
-        ? false
-        : change.expectedHash === null
-          ? true
-          : Boolean(fs.conditionalCommit),
+  const hasGuardedMutation = changes.some(
+    (change) =>
+      change.type === 'delete' ||
+      change.type === 'move' ||
+      change.expectedHash !== null,
   )
-    ? ('conditional_commit' as const)
-    : ('portable_path' as const)
+  const tier =
+    hasGuardedMutation &&
+    changes.every((change) =>
+      change.type === 'delete'
+        ? Boolean(fs.conditionalDelete)
+        : change.type === 'move'
+          ? Boolean(fs.conditionalMove)
+          : change.expectedHash === null
+            ? true
+            : Boolean(fs.conditionalCommit),
+    )
+      ? ('conditional_commit' as const)
+      : ('portable_path' as const)
   const authorized: Array<{
     change: FileChange
     source: Extract<
@@ -278,6 +304,44 @@ export async function changeFiles(params: {
         })
       }
       prepared.push(result.change)
+    }
+    const resourceFailure = validatePreparedTransactionResources(prepared)
+    if (resourceFailure) {
+      authority.cancel(operationId)
+      return transactionFailureResult({
+        authority,
+        callId: callId ?? operationId,
+        operationId,
+        changes,
+        authorityTier: tier,
+        failedIndex: resourceFailure.index,
+        error: resourceFailure.error,
+      })
+    }
+    const unsupportedChange = prepared.find((change) =>
+      change.action === 'create'
+        ? !fs.createFileExclusive
+        : change.action === 'delete'
+          ? !fs.conditionalDelete
+          : change.action === 'move'
+            ? !fs.conditionalMove
+            : !fs.conditionalCommit,
+    )
+    if (unsupportedChange) {
+      authority.cancel(operationId)
+      return transactionFailureResult({
+        authority,
+        callId: callId ?? operationId,
+        operationId,
+        changes,
+        authorityTier: 'portable_path',
+        failedIndex: unsupportedChange.index,
+        error: filesystemError(
+          'unsupported',
+          `Guarded ${unsupportedChange.action} is unavailable because this filesystem adapter does not provide the required conditional primitive. No files were changed.`,
+          { retryable: false },
+        ),
+      })
     }
     for (const entry of authorized) {
       const sourceOperation =
@@ -432,7 +496,7 @@ export async function changeFiles(params: {
           beforeHash:
             change.beforeContent === null
               ? null
-              : getContentHash(change.beforeContent),
+              : hashFileContent(change.beforeContent),
         })),
         expectedFinalHashes,
       })
@@ -461,25 +525,42 @@ export async function changeFiles(params: {
         'io_error',
         error instanceof Error ? error.message : String(error),
       )
-      const rollbackFailed = new Set<number>()
+      const rollbackFailures = new Map<number, FilesystemError>()
+      const rollbackRestored = new Set<number>()
       for (const change of committed.toReversed()) {
         try {
-          await rollbackPreparedTransactionChange(change, fs)
-        } catch {
-          rollbackFailed.add(change.index)
+          if (await rollbackPreparedTransactionChange(change, fs, authority)) {
+            rollbackRestored.add(change.index)
+          }
+        } catch (rollbackError) {
+          rollbackFailures.set(
+            change.index,
+            filesystemError(
+              'rollback_incomplete',
+              rollbackError instanceof Error
+                ? rollbackError.message
+                : String(rollbackError),
+              { retryable: false, recovery: 'inspect_rollback' },
+            ),
+          )
         }
       }
       authority.finishCommit(begun.lease, {
         succeeded: false,
         errorCode:
-          rollbackFailed.size > 0 ? 'ROLLBACK_INCOMPLETE' : 'WRITE_FAILED',
+          rollbackFailures.size > 0 ? 'ROLLBACK_INCOMPLETE' : 'WRITE_FAILED',
       })
       const committedIndexes = new Set(committed.map((change) => change.index))
       const receipt = await authority.issueObservedFailureReceipt({
         operationId,
         callId: callId ?? operationId,
         authorityTier: tier,
-        status: rollbackFailed.size > 0 ? 'rollback_incomplete' : 'rolled_back',
+        status:
+          rollbackFailures.size > 0
+            ? 'rollback_incomplete'
+            : rollbackRestored.size > 0
+              ? 'rolled_back'
+              : 'failed',
         actions: prepared.map((change) => ({
           actionId: change.actionId,
           index: change.index,
@@ -490,19 +571,18 @@ export async function changeFiles(params: {
             : {}),
           status: !committedIndexes.has(change.index)
             ? ('not_started' as const)
-            : rollbackFailed.has(change.index)
+            : rollbackFailures.has(change.index)
               ? ('rollback_failed' as const)
-              : ('rolled_back' as const),
+              : rollbackRestored.has(change.index)
+                ? ('rolled_back' as const)
+                : ('failed' as const),
           beforeHash:
             change.beforeContent === null
               ? null
-              : getContentHash(change.beforeContent),
-          ...(rollbackFailed.has(change.index)
+              : hashFileContent(change.beforeContent),
+          ...(rollbackFailures.has(change.index)
             ? {
-                error: filesystemError(
-                  'rollback_incomplete',
-                  'Rollback failed for this action.',
-                ),
+                error: rollbackFailures.get(change.index),
               }
             : {}),
         })),
@@ -532,7 +612,6 @@ type PreparedTransactionChange = {
   afterContent: string | null
   patch?: string
   beforeMode?: number
-  usedNativeMove?: boolean
 }
 
 function filesystemError(
@@ -599,10 +678,10 @@ async function prepareTransactionChange(
     beforeContent === null
       ? undefined
       : (await fs.stat(entry.source.operationPath)).mode
-  const beforeHash =
+  const freshnessHash =
     beforeContent === null ? null : getContentHash(beforeContent)
   const expectedHash = entry.change.expectedHash
-  if (expectedHash !== undefined && expectedHash !== beforeHash) {
+  if (expectedHash !== undefined && expectedHash !== freshnessHash) {
     return {
       ok: false,
       error: filesystemError(
@@ -712,7 +791,7 @@ async function commitPreparedTransactionChange(
   authority: ReturnType<typeof getDefaultFilesystemAuthority>,
 ): Promise<void> {
   if (change.action === 'delete') {
-    const expectedHash = getContentHash(change.beforeContent!)
+    const expectedHash = hashFileContent(change.beforeContent!)
     const deleted = await authority.conditionalDelete(
       change.source,
       expectedHash,
@@ -723,32 +802,24 @@ async function commitPreparedTransactionChange(
           `STALE_STATE: ${change.path} changed immediately before deletion.`,
         )
       }
-    } else {
-      await fs.unlink(change.source.operationPath)
-    }
+    } else throw new Error('Conditional delete is unsupported')
     return
   }
   if (change.action === 'move') {
     await fs.mkdir(path.dirname(change.destination!.operationPath), {
       recursive: true,
     })
-    if (fs.renameFile) {
-      await fs.renameFile(
-        change.source.operationPath,
-        change.destination!.operationPath,
-      )
-      change.usedNativeMove = true
-      return
-    }
-    const created = await authority.createExclusive(
+    const moved = await authority.conditionalMove(
+      change.source,
       change.destination!,
-      change.afterContent!,
+      hashFileContent(change.beforeContent!),
     )
-    if (!created.supported) throw new Error('Exclusive move is unsupported')
-    if (change.beforeMode !== undefined && fs.setMode) {
-      await fs.setMode(change.destination!.operationPath, change.beforeMode)
+    if (!moved.supported) throw new Error('Conditional move is unsupported')
+    if (!moved.result.applied) {
+      throw new Error(
+        `STALE_STATE: ${change.path} or ${change.destinationPath} changed immediately before move.`,
+      )
     }
-    await fs.unlink(change.source.operationPath)
     return
   }
   await fs.mkdir(path.dirname(change.source.operationPath), { recursive: true })
@@ -760,7 +831,7 @@ async function commitPreparedTransactionChange(
     if (!created.supported) throw new Error('Exclusive create is unsupported')
     return
   }
-  const expectedHash = getContentHash(change.beforeContent!)
+  const expectedHash = hashFileContent(change.beforeContent!)
   const committed = await authority.conditionalCommit(
     change.source,
     change.afterContent!,
@@ -774,50 +845,174 @@ async function commitPreparedTransactionChange(
     }
     return
   }
-  await fs.writeFile(change.source.operationPath, change.afterContent!)
+  throw new Error('Conditional commit is unsupported')
 }
 
 async function rollbackPreparedTransactionChange(
   change: PreparedTransactionChange,
   fs: CodebuffFileSystem,
-): Promise<void> {
+  authority: ReturnType<typeof getDefaultFilesystemAuthority>,
+): Promise<boolean> {
   if (change.action === 'delete') {
+    const current = await authority.snapshot(change.source)
+    if (
+      current.state === 'present' &&
+      current.hash === hashFileContent(change.beforeContent!)
+    ) {
+      return false
+    }
     await fs.mkdir(path.dirname(change.source.operationPath), {
       recursive: true,
     })
-    await fs.writeFile(change.source.operationPath, change.beforeContent!)
+    const restored = await authority.createExclusive(
+      change.source,
+      change.beforeContent!,
+    )
+    if (!restored.supported) {
+      throw new Error('Exclusive rollback recreation is unsupported')
+    }
     if (change.beforeMode !== undefined && fs.setMode) {
       await fs.setMode(change.source.operationPath, change.beforeMode)
     }
-    return
+    return true
   }
   if (change.action === 'move') {
-    if (change.usedNativeMove && fs.renameFile) {
-      await fs.renameFile(
-        change.destination!.operationPath,
-        change.source.operationPath,
+    const [sourceState, destinationState] = await Promise.all([
+      authority.snapshot(change.source),
+      authority.snapshot(change.destination!),
+    ])
+    if (
+      sourceState.state === 'present' &&
+      sourceState.hash === hashFileContent(change.beforeContent!) &&
+      destinationState.state === 'absent'
+    ) {
+      return false
+    }
+    const restored = await authority.conditionalMove(
+      change.destination!,
+      change.source,
+      hashFileContent(change.afterContent!),
+    )
+    if (!restored.supported) {
+      throw new Error('Conditional rollback move is unsupported')
+    }
+    if (!restored.result.applied) {
+      throw new Error(
+        'Rollback conflict: moved paths no longer match transaction-owned state',
       )
-      return
     }
-    await fs.mkdir(path.dirname(change.source.operationPath), {
-      recursive: true,
-    })
-    await fs.writeFile(change.source.operationPath, change.beforeContent!)
-    if (change.beforeMode !== undefined && fs.setMode) {
-      await fs.setMode(change.source.operationPath, change.beforeMode)
-    }
-    if (await fileExists({ filePath: change.destination!.operationPath, fs })) {
-      await fs.unlink(change.destination!.operationPath)
-    }
-    return
+    return true
   }
   if (change.beforeContent === null) {
-    if (await fileExists({ filePath: change.source.operationPath, fs })) {
-      await fs.unlink(change.source.operationPath)
+    const current = await authority.snapshot(change.source)
+    if (current.state === 'absent') return false
+    const removed = await authority.conditionalDelete(
+      change.source,
+      hashFileContent(change.afterContent!),
+    )
+    if (!removed.supported) {
+      throw new Error('Conditional rollback delete is unsupported')
     }
+    if (!removed.result.applied) {
+      throw new Error(
+        'Rollback conflict: created file no longer matches transaction-owned state',
+      )
+    }
+    return true
   } else {
-    await fs.writeFile(change.source.operationPath, change.beforeContent)
+    const current = await authority.snapshot(change.source)
+    if (
+      current.state === 'present' &&
+      current.hash === hashFileContent(change.beforeContent)
+    ) {
+      return false
+    }
+    const restored = await authority.conditionalCommit(
+      change.source,
+      change.beforeContent,
+      { state: 'present', hash: hashFileContent(change.afterContent!) },
+    )
+    if (!restored.supported) {
+      throw new Error('Conditional rollback commit is unsupported')
+    }
+    if (!restored.result.applied) {
+      throw new Error(
+        'Rollback conflict: updated file no longer matches transaction-owned state',
+      )
+    }
+    return true
   }
+}
+
+function validatePreparedTransactionResources(
+  prepared: readonly PreparedTransactionChange[],
+): { index: number; error: FilesystemError } | null {
+  let preparedBytes = 0
+  let rollbackBytes = 0
+  for (const change of prepared) {
+    const beforeBytes =
+      change.beforeContent === null
+        ? 0
+        : Buffer.byteLength(change.beforeContent)
+    const afterBytes =
+      change.afterContent === null ? 0 : Buffer.byteLength(change.afterContent)
+    if (
+      beforeBytes > MAX_TRANSACTION_FILE_BYTES ||
+      afterBytes > MAX_TRANSACTION_FILE_BYTES
+    ) {
+      return {
+        index: change.index,
+        error: filesystemError(
+          'resource_limit',
+          `Transaction file ${change.path} exceeds the ${MAX_TRANSACTION_FILE_BYTES}-byte per-file limit. Split the work or use a bounded range edit.`,
+          { retryable: true, recovery: 'split_transaction' },
+        ),
+      }
+    }
+    preparedBytes += beforeBytes + afterBytes
+    rollbackBytes += beforeBytes
+    if (preparedBytes > MAX_TRANSACTION_PREPARED_BYTES) {
+      return {
+        index: change.index,
+        error: filesystemError(
+          'resource_limit',
+          `Prepared transaction state exceeds the ${MAX_TRANSACTION_PREPARED_BYTES}-byte limit. Split the transaction into bounded groups.`,
+          { retryable: true, recovery: 'split_transaction' },
+        ),
+      }
+    }
+    if (rollbackBytes > MAX_TRANSACTION_ROLLBACK_BYTES) {
+      return {
+        index: change.index,
+        error: filesystemError(
+          'resource_limit',
+          `Transaction rollback state exceeds the ${MAX_TRANSACTION_ROLLBACK_BYTES}-byte limit. Split the transaction into bounded groups.`,
+          { retryable: true, recovery: 'split_transaction' },
+        ),
+      }
+    }
+  }
+  return null
+}
+
+function standaloneTransactionFailureResult(
+  error: FilesystemError,
+): CodebuffToolOutput<'edit_transaction'> {
+  return [
+    {
+      type: 'json',
+      value: fileMutationResultV1Schema.parse({
+        kind: 'file_mutation_result',
+        version: 1,
+        operationId: crypto.randomUUID(),
+        outcome: 'not_applied',
+        actions: [],
+        authorityTier: null,
+        errors: [error],
+        freshCapabilities: [],
+      }),
+    },
+  ]
 }
 
 function transactionFailureResult(params: {
@@ -952,10 +1147,12 @@ async function applyChange(params: {
         const exists = initialSnapshot.state === 'present'
         const oldContent = exists ? await fs.readFile(fullPath, 'utf-8') : null
         const beforeHash =
+          initialSnapshot.state === 'present' ? initialSnapshot.hash : null
+        const freshnessHash =
           oldContent === null ? null : getContentHash(oldContent)
         if (
           change.expectedHash !== undefined &&
-          change.expectedHash !== beforeHash
+          change.expectedHash !== freshnessHash
         ) {
           throw new MutationApplicationError(
             filesystemError(
@@ -1052,7 +1249,13 @@ async function applyChange(params: {
                 )
               }
             } else {
-              await fs.writeFile(fullPath, newContent)
+              throw new MutationApplicationError(
+                filesystemError(
+                  'unsupported',
+                  `Update rejected for ${relativePath}: this filesystem adapter does not provide conditional commit. No files were changed.`,
+                  { retryable: false },
+                ),
+              )
             }
           }
         } catch (error) {

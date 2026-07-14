@@ -18,6 +18,8 @@ This package contains code shared across the Openbuff monorepo, especially the l
 - **MCP client (`src/mcp`)**: Local MCP transport/client helpers with cache keys based on non-secret endpoint identity and hashed credential-derived values
 - **Testing (`src/testing`)**: Consolidated testing utilities re-exported from one entry point: typed mock factories (logger, analytics, database, crypto, streams), agent-runtime fixtures, error creators, dynamic module mocking, and shared test-setup helpers
 - **Provider config**: Shared validation and contracts for OpenAI-compatible, Anthropic-compatible, and other BYOK providers
+- **Workspace state**: `common/src/types/workspace-state.ts` tracks monotonically increasing local workspace revisions and bounded change records so SDK/runtime tools can tie mutation receipts, review bundles, and snapshot-aware validation to a stable `workspace.v1.<revision>.<digest>` identifier.
+- **Task memory**: `common/src/types/task-memory.ts` defines bounded Zod schemas for durable requirements, evidence, blockers, validation, and review notes that survive long task execution without leaking unbounded context.
 
 ## Scope Notes
 

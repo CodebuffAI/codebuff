@@ -336,4 +336,4 @@ Tests that need CLI environment variables call `tmux set-environment -g` before 
 
 When updating CLI interaction tests, keep tmux knowledge current with any changed readiness waits, input encoding, or capture behavior so the memory-drift guard can distinguish intentionally refreshed notes from stale runtime documentation.
 
-Recent CLI component/test updates did not change tmux harness behavior; the existing best-effort environment propagation and integration/e2e filename conventions remain current.
+Recent CLI component/test updates did not change tmux harness behavior; the existing best-effort environment propagation and integration/e2e filename conventions remain current. Index workspace watcher changes are non-visual and do not require tmux-specific readiness, capture, or input-encoding updates.

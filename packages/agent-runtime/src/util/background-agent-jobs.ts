@@ -32,7 +32,11 @@
  * once the buffer exceeds this many entries to bound memory on long agents.
  */
 const MAX_BUFFERED_CHUNKS = 200
+const MAX_BUFFERED_CHUNK_BYTES = 64 * 1024
+const MAX_CONSUMER_CURSORS = 32
 const MAX_BACKGROUND_AGENT_JOBS = 100
+const MAX_RUNNING_BACKGROUND_AGENT_JOBS = 32
+const MAX_RUNNING_BACKGROUND_AGENT_JOBS_PER_ROOT = 8
 const SETTLED_JOB_TTL_MS = 30 * 60 * 1000
 
 /**
@@ -42,6 +46,8 @@ const SETTLED_JOB_TTL_MS = 30 * 60 * 1000
  * preserves the original event type for the polling caller to interpret.
  */
 export interface BackgroundAgentChunk {
+  /** Monotonic job-local sequence number assigned by the registry. */
+  sequence: number
   /** Original event type (e.g. 'text', 'tool_call', 'tool_result'). */
   type: string
   /** Serialized chunk payload (opaque to the registry). */
@@ -62,6 +68,13 @@ export interface BackgroundAgentJob {
   agentType: string
   /** Agent template display name. */
   agentName: string
+  owner: {
+    clientSessionId: string
+    rootRunId: string
+    parentRunId: string
+    parentAgentId: string
+    userInputId: string
+  }
   status: BackgroundAgentJobStatus
   startedAt: number
   completedAt?: number
@@ -76,6 +89,9 @@ export interface BackgroundAgentJob {
    * Polls return only the chunks appended since the last poll.
    */
   readOffset: number
+  /** Per-consumer sequence cursors for backward-compatible cursor omission. */
+  consumerCursors: Map<string, number>
+  nextSequence: number
   /** Unseen chunks evicted since the previous poll. */
   droppedChunks: number
   /** Controller owned by this job and used for explicit cancellation. */
@@ -85,15 +101,8 @@ export interface BackgroundAgentJob {
 }
 
 const jobs = new Map<string, BackgroundAgentJob>()
-let jobCounter = 0
-
-/**
- * Generate a unique, human-readable job id. Mirrors the shell-job id format
- * but is namespaced `bg-agent-` to distinguish it from `job-` shell jobs.
- */
 function nextJobId(): string {
-  jobCounter += 1
-  return `bg-agent-${process.pid}-${jobCounter}`
+  return `bg-agent-${crypto.randomUUID()}`
 }
 
 function sweepBackgroundAgentJobs(now = Date.now()): void {
@@ -130,18 +139,45 @@ function sweepBackgroundAgentJobs(now = Date.now()): void {
 export function allocateBackgroundAgentJob(params: {
   agentType: string
   agentName: string
+  owner?: BackgroundAgentJob['owner']
 }): BackgroundAgentJob {
   sweepBackgroundAgentJobs()
+  const owner = params.owner ?? {
+    clientSessionId: 'unknown-session',
+    rootRunId: 'unknown-root',
+    parentRunId: 'unknown-parent-run',
+    parentAgentId: 'unknown-parent-agent',
+    userInputId: 'unknown-input',
+  }
+  const running = [...jobs.values()].filter((job) => job.status === 'running')
+  if (running.length >= MAX_RUNNING_BACKGROUND_AGENT_JOBS) {
+    throw new Error(
+      `Background agent concurrency limit reached (${MAX_RUNNING_BACKGROUND_AGENT_JOBS}). Join or cancel an existing job before spawning another.`,
+    )
+  }
+  const runningForRoot = running.filter(
+    (job) =>
+      job.owner.clientSessionId === owner.clientSessionId &&
+      job.owner.rootRunId === owner.rootRunId,
+  )
+  if (runningForRoot.length >= MAX_RUNNING_BACKGROUND_AGENT_JOBS_PER_ROOT) {
+    throw new Error(
+      `Background agent concurrency limit reached for this run (${MAX_RUNNING_BACKGROUND_AGENT_JOBS_PER_ROOT}). Join or cancel an existing job before spawning another.`,
+    )
+  }
   const { agentType, agentName } = params
   const jobId = nextJobId()
   const job: BackgroundAgentJob = {
     jobId,
     agentType,
     agentName,
+    owner,
     status: 'running',
     startedAt: Date.now(),
     chunks: [],
     readOffset: 0,
+    consumerCursors: new Map(),
+    nextSequence: 1,
     droppedChunks: 0,
     abortController: new AbortController(),
     // Placeholder promise replaced by {@link attachBackgroundAgentPromise}.
@@ -183,9 +219,10 @@ export function registerBackgroundAgentJob(params: {
   agentType: string
   agentName: string
   promise: Promise<unknown>
+  owner?: BackgroundAgentJob['owner']
 }): BackgroundAgentJob {
-  const { agentType, agentName, promise } = params
-  const job = allocateBackgroundAgentJob({ agentType, agentName })
+  const { agentType, agentName, promise, owner } = params
+  const job = allocateBackgroundAgentJob({ agentType, agentName, owner })
   attachBackgroundAgentPromise(job, promise)
   return job
 }
@@ -218,11 +255,28 @@ function attachJobCompletionHandlers(job: BackgroundAgentJob): void {
  */
 export function appendBackgroundAgentChunk(
   jobId: string,
-  chunk: BackgroundAgentChunk,
+  chunk: Omit<BackgroundAgentChunk, 'sequence'> & { sequence?: number },
 ): void {
   const job = jobs.get(jobId)
   if (!job) return
-  job.chunks.push(chunk)
+  let payload = chunk.payload
+  try {
+    const serialized = JSON.stringify(payload)
+    if (serialized.length > MAX_BUFFERED_CHUNK_BYTES) {
+      payload = {
+        truncated: true,
+        originalBytes: serialized.length,
+        preview: `${serialized.slice(0, 48_000)}...[truncated background chunk]...${serialized.slice(-8_000)}`,
+      }
+    }
+  } catch {
+    payload = { truncated: true, preview: 'Unserializable background chunk.' }
+  }
+  job.chunks.push({
+    ...chunk,
+    payload,
+    sequence: chunk.sequence ?? job.nextSequence++,
+  })
   if (job.chunks.length > MAX_BUFFERED_CHUNKS) {
     job.chunks.shift()
     // Keep readOffset sane if we evict chunks the poller hasn't seen yet.
@@ -244,12 +298,21 @@ export function getBackgroundAgentJob(
   return jobs.get(jobId)
 }
 
-export function listRunningBackgroundAgentJobs(): Array<
+export function listRunningBackgroundAgentJobs(owner?: {
+  clientSessionId: string
+  rootRunId: string
+}): Array<
   Pick<BackgroundAgentJob, 'jobId' | 'agentType' | 'agentName' | 'startedAt'>
 > {
   sweepBackgroundAgentJobs()
   return [...jobs.values()]
-    .filter((job) => job.status === 'running')
+    .filter(
+      (job) =>
+        job.status === 'running' &&
+        (!owner ||
+          (job.owner.clientSessionId === owner.clientSessionId &&
+            job.owner.rootRunId === owner.rootRunId)),
+    )
     .map(({ jobId, agentType, agentName, startedAt }) => ({
       jobId,
       agentType,
@@ -275,6 +338,42 @@ export function readNewBackgroundAgentChunks(
   return available
 }
 
+export function readBackgroundAgentChunks(params: {
+  job: BackgroundAgentJob
+  consumerId: string
+  cursor?: number
+}): {
+  chunks: BackgroundAgentChunk[]
+  nextCursor: number
+  droppedChunks: number
+} {
+  const { job, consumerId } = params
+  const cursor =
+    params.cursor ?? job.consumerCursors.get(consumerId) ?? 0
+  const firstSequence = job.chunks[0]?.sequence ?? job.nextSequence
+  const droppedChunks = Math.max(0, firstSequence - cursor - 1)
+  const chunks = job.chunks.filter((chunk) => chunk.sequence > cursor)
+  const nextCursor = chunks.at(-1)?.sequence ?? cursor
+  job.consumerCursors.set(consumerId, nextCursor)
+  if (job.consumerCursors.size > MAX_CONSUMER_CURSORS) {
+    const oldest = job.consumerCursors.keys().next().value
+    if (typeof oldest === 'string' && oldest !== consumerId) {
+      job.consumerCursors.delete(oldest)
+    }
+  }
+  return { chunks, nextCursor, droppedChunks }
+}
+
+export function backgroundAgentJobOwnedBy(
+  job: BackgroundAgentJob,
+  owner: { clientSessionId: string; rootRunId: string },
+): boolean {
+  return (
+    job.owner.clientSessionId === owner.clientSessionId &&
+    job.owner.rootRunId === owner.rootRunId
+  )
+}
+
 /** Return and reset the count of unseen chunks evicted since the last poll. */
 export function takeDroppedBackgroundAgentChunkCount(
   job: BackgroundAgentJob,
@@ -284,9 +383,9 @@ export function takeDroppedBackgroundAgentChunkCount(
   return count
 }
 
-export function cancelBackgroundAgentJob(jobId: string):
-  | { cancelled: true; status: 'cancelled' }
-  | { errorMessage: string } {
+export function cancelBackgroundAgentJob(
+  jobId: string,
+): { cancelled: true; status: 'cancelled' } | { errorMessage: string } {
   const job = jobs.get(jobId)
   if (!job) {
     return { errorMessage: `No background agent job found with id "${jobId}".` }
@@ -306,5 +405,4 @@ export function cancelBackgroundAgentJob(jobId: string):
 /** Test-only: clear the registry between tests. */
 export function __clearBackgroundAgentJobsForTest(): void {
   jobs.clear()
-  jobCounter = 0
 }

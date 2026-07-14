@@ -2125,140 +2125,140 @@ function tryWriteFragmentedConfig(
   } catch {
     return false
   }
-    const fragmentPaths = [
-      ...normalizeConfigFragmentPaths(rawRoot?.extends),
-      ...normalizeConfigFragmentPaths(rawRoot?.include),
-      ...normalizeConfigFragmentPaths(rawRoot?.includes),
-    ]
-    const rootDir = path.dirname(rootPath)
-    const implicitDir = path.join(rootDir, 'openbuff.d')
-    if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
-      if (
-        !fragmentPaths.includes('openbuff.d') &&
-        !fragmentPaths.includes('./openbuff.d')
-      ) {
-        fragmentPaths.push('openbuff.d')
-      }
+  const fragmentPaths = [
+    ...normalizeConfigFragmentPaths(rawRoot?.extends),
+    ...normalizeConfigFragmentPaths(rawRoot?.include),
+    ...normalizeConfigFragmentPaths(rawRoot?.includes),
+  ]
+  const rootDir = path.dirname(rootPath)
+  const implicitDir = path.join(rootDir, 'openbuff.d')
+  if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
+    if (
+      !fragmentPaths.includes('openbuff.d') &&
+      !fragmentPaths.includes('./openbuff.d')
+    ) {
+      fragmentPaths.push('openbuff.d')
     }
+  }
 
-    if (fragmentPaths.length === 0) return false
+  if (fragmentPaths.length === 0) return false
 
-    // Resolve and expand all fragment paths (including directory contents)
-    const expandedPaths = expandFragmentPaths(rootPath, fragmentPaths)
-    if (expandedPaths.length === 0) return false
+  // Resolve and expand all fragment paths (including directory contents)
+  const expandedPaths = expandFragmentPaths(rootPath, fragmentPaths)
+  if (expandedPaths.length === 0) return false
 
-    const parsedFragments = new Map<string, any>()
-    const keyToPathMap = new Map<string, string>()
+  const parsedFragments = new Map<string, any>()
+  const keyToPathMap = new Map<string, string>()
 
-    for (const resolvedFragmentPath of expandedPaths) {
-      if (fs.existsSync(resolvedFragmentPath)) {
-        const rawFragment = JSON.parse(
-          fs.readFileSync(resolvedFragmentPath, 'utf8'),
-        )
-        parsedFragments.set(resolvedFragmentPath, rawFragment)
-        for (const key of Object.keys(rawFragment)) {
-          keyToPathMap.set(key, resolvedFragmentPath)
-        }
-      }
-    }
-
-    // Default target paths based on name heuristics or key maps
-    const providersPath =
-      [...parsedFragments.keys()].find(
-        (p) =>
-          p.endsWith('providers.json') ||
-          p.endsWith('provider.json') ||
-          keyToPathMap.has('providers') ||
-          keyToPathMap.has('provider'),
-      ) ??
-      expandedPaths.find(
-        (p) => p.endsWith('providers.json') || p.endsWith('provider.json'),
+  for (const resolvedFragmentPath of expandedPaths) {
+    if (fs.existsSync(resolvedFragmentPath)) {
+      const rawFragment = JSON.parse(
+        fs.readFileSync(resolvedFragmentPath, 'utf8'),
       )
-
-    const routesPath =
-      [...parsedFragments.keys()].find(
-        (p) =>
-          p.endsWith('routes.json') ||
-          keyToPathMap.has('modes') ||
-          keyToPathMap.has('defaultModel') ||
-          keyToPathMap.has('visionModel') ||
-          keyToPathMap.has('agents'),
-      ) ?? expandedPaths.find((p) => p.endsWith('routes.json'))
-
-    const indexingPath =
-      [...parsedFragments.keys()].find(
-        (p) => p.endsWith('indexing.json') || keyToPathMap.has('indexing'),
-      ) ?? expandedPaths.find((p) => p.endsWith('indexing.json'))
-
-    const fragmentPayloads = new Map<string, Record<string, any>>()
-    const getPayload = (resolvedPath: string): Record<string, any> => {
-      const payload = fragmentPayloads.get(resolvedPath)
-      if (!payload) {
-        const newPayload = { ...(parsedFragments.get(resolvedPath) ?? {}) }
-        fragmentPayloads.set(resolvedPath, newPayload)
-        return newPayload
-      }
-      return payload
-    }
-
-    const routeKey = (
-      key: string,
-      value: any,
-      fallbackPath: string | undefined,
-    ) => {
-      if (value === undefined) return
-      const targetPath = keyToPathMap.get(key) ?? fallbackPath
-      if (targetPath) {
-        const payload = getPayload(targetPath)
-        payload[key] = value
-      } else {
-        rawRoot[key] = value
+      parsedFragments.set(resolvedFragmentPath, rawFragment)
+      for (const key of Object.keys(rawFragment)) {
+        keyToPathMap.set(key, resolvedFragmentPath)
       }
     }
+  }
 
-    if (newConfig.providers !== undefined) {
-      routeKey('providers', newConfig.providers, providersPath)
-    }
-    if (newConfig.provider !== undefined) {
-      routeKey('provider', newConfig.provider, providersPath)
-    }
-    if (newConfig.indexing !== undefined) {
-      routeKey('indexing', newConfig.indexing, indexingPath)
-    }
+  // Default target paths based on name heuristics or key maps
+  const providersPath =
+    [...parsedFragments.keys()].find(
+      (p) =>
+        p.endsWith('providers.json') ||
+        p.endsWith('provider.json') ||
+        keyToPathMap.has('providers') ||
+        keyToPathMap.has('provider'),
+    ) ??
+    expandedPaths.find(
+      (p) => p.endsWith('providers.json') || p.endsWith('provider.json'),
+    )
 
-    const routingKeys = [
-      'defaultModel',
-      'defaultReasoningEffort',
-      'visionModel',
-      'visionReasoningEffort',
-      'modes',
-      'modeReasoningEfforts',
-      'agents',
-      'agentReasoningEfforts',
-    ]
-    for (const key of routingKeys) {
-      if ((newConfig as any)[key] !== undefined) {
-        routeKey(key, (newConfig as any)[key], routesPath)
-      }
-    }
+  const routesPath =
+    [...parsedFragments.keys()].find(
+      (p) =>
+        p.endsWith('routes.json') ||
+        keyToPathMap.has('modes') ||
+        keyToPathMap.has('defaultModel') ||
+        keyToPathMap.has('visionModel') ||
+        keyToPathMap.has('agents'),
+    ) ?? expandedPaths.find((p) => p.endsWith('routes.json'))
 
-    // Remove key-value routing fields from the root config so they are not duplicated
-    for (const key of ['providers', 'provider', 'indexing', ...routingKeys]) {
-      if (
-        keyToPathMap.has(key) ||
-        (key === 'providers' && providersPath) ||
-        (key === 'provider' && providersPath) ||
-        (key === 'indexing' && indexingPath) ||
-        (routingKeys.includes(key) && routesPath)
-      ) {
-        delete rawRoot[key]
-      }
-    }
+  const indexingPath =
+    [...parsedFragments.keys()].find(
+      (p) => p.endsWith('indexing.json') || keyToPathMap.has('indexing'),
+    ) ?? expandedPaths.find((p) => p.endsWith('indexing.json'))
 
-    const transaction = new Map<string, unknown>(fragmentPayloads)
-    transaction.set(rootPath, rawRoot)
-    writeJsonFilesTransaction(transaction)
-    return true
+  const fragmentPayloads = new Map<string, Record<string, any>>()
+  const getPayload = (resolvedPath: string): Record<string, any> => {
+    const payload = fragmentPayloads.get(resolvedPath)
+    if (!payload) {
+      const newPayload = { ...(parsedFragments.get(resolvedPath) ?? {}) }
+      fragmentPayloads.set(resolvedPath, newPayload)
+      return newPayload
+    }
+    return payload
+  }
+
+  const routeKey = (
+    key: string,
+    value: any,
+    fallbackPath: string | undefined,
+  ) => {
+    if (value === undefined) return
+    const targetPath = keyToPathMap.get(key) ?? fallbackPath
+    if (targetPath) {
+      const payload = getPayload(targetPath)
+      payload[key] = value
+    } else {
+      rawRoot[key] = value
+    }
+  }
+
+  if (newConfig.providers !== undefined) {
+    routeKey('providers', newConfig.providers, providersPath)
+  }
+  if (newConfig.provider !== undefined) {
+    routeKey('provider', newConfig.provider, providersPath)
+  }
+  if (newConfig.indexing !== undefined) {
+    routeKey('indexing', newConfig.indexing, indexingPath)
+  }
+
+  const routingKeys = [
+    'defaultModel',
+    'defaultReasoningEffort',
+    'visionModel',
+    'visionReasoningEffort',
+    'modes',
+    'modeReasoningEfforts',
+    'agents',
+    'agentReasoningEfforts',
+  ]
+  for (const key of routingKeys) {
+    if ((newConfig as any)[key] !== undefined) {
+      routeKey(key, (newConfig as any)[key], routesPath)
+    }
+  }
+
+  // Remove key-value routing fields from the root config so they are not duplicated
+  for (const key of ['providers', 'provider', 'indexing', ...routingKeys]) {
+    if (
+      keyToPathMap.has(key) ||
+      (key === 'providers' && providersPath) ||
+      (key === 'provider' && providersPath) ||
+      (key === 'indexing' && indexingPath) ||
+      (routingKeys.includes(key) && routesPath)
+    ) {
+      delete rawRoot[key]
+    }
+  }
+
+  const transaction = new Map<string, unknown>(fragmentPayloads)
+  transaction.set(rootPath, rawRoot)
+  writeJsonFilesTransaction(transaction)
+  return true
 }
 
 function writeJsonFilesTransaction(files: Map<string, unknown>): void {
@@ -2270,7 +2270,9 @@ function writeJsonFilesTransaction(files: Map<string, unknown>): void {
     const existed = fs.existsSync(filePath)
     if (existed) {
       if (!fs.statSync(filePath).isFile()) {
-        throw new Error(`Provider config transaction target is not a file: ${filePath}`)
+        throw new Error(
+          `Provider config transaction target is not a file: ${filePath}`,
+        )
       }
       fs.accessSync(filePath, fs.constants.R_OK | fs.constants.W_OK)
     }

@@ -79,10 +79,12 @@ export function getSpawnerPrompt(config: CliAgentConfig): string {
     work: `Use ${config.cliName} to implement features, fix bugs, refactor code, or complete other coding tasks.`,
     review: `Uses ${config.cliName} CLI to perform code reviews on specified files or directories.`,
   }
-  const modeLines = supportedModes.map((mode) => {
-    const isDefault = mode === defaultMode
-    return `- \`${mode}\`${isDefault ? ' (default)' : ''}: ${modeDescriptions[mode]}`
-  }).join('\n')
+  const modeLines = supportedModes
+    .map((mode) => {
+      const isDefault = mode === defaultMode
+      return `- \`${mode}\`${isDefault ? ' (default)' : ''}: ${modeDescriptions[mode]}`
+    })
+    .join('\n')
 
   const base = `Expert at using ${config.cliName} CLI via tmux for ${supportedModes.includes('review') ? 'implementation work or code reviews' : 'implementation work'}.
 

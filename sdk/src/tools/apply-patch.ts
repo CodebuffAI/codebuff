@@ -1187,11 +1187,19 @@ export async function applyPatchTool(params: {
           ].join('\n')
         }
 
-        const requiredRanges = operation.basedOnRead
+        const serializedCapabilities = operation.basedOnRead ?? []
+        if (
+          serializedCapabilities.some(
+            (capability) => typeof capability === 'string',
+          )
+        ) {
+          return `apply_patch rejected for ${operation.path}: opaque cap.v3 tokens must be authenticated and unwrapped by the agent runtime before reaching the filesystem adapter. Re-read the target range and retry through the active runtime.`
+        }
+        const requiredRanges = serializedCapabilities.length
           ? validateReadCapabilities({
               path: operation.path,
               content: oldContent,
-              capabilities: operation.basedOnRead,
+              capabilities: serializedCapabilities as ReadCapability[],
             })
           : []
         if (typeof requiredRanges === 'string') return requiredRanges

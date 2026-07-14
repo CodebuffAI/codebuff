@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import { transactionEditSchema } from './edit-transaction'
+import { boundedTransactionEditListSchema } from './edit-transaction'
 import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 import { proposalResultV1Schema } from '../../results/filesystem'
 
@@ -35,19 +35,16 @@ const toolName = 'propose_edit_transaction'
 const endsAgentStep = false
 const inputSchema = z
   .object({
-    edits: z
-      .array(transactionEditSchema)
-      .min(1, 'Transaction edits cannot be empty')
-      .describe(
-        'All edits that must preflight together. If any edit fails during preflight, no preview diffs are produced.',
-      ),
+    edits: boundedTransactionEditListSchema.describe(
+      'All edits that must preflight together. If any edit fails during preflight, no preview diffs are produced.',
+    ),
   })
   .describe(
-    'Propose related edits across one or more files as an atomic transaction without applying them, returning preview diffs for review.',
+    'Propose related edits across one or more files as one preflighted bundle without applying them, returning preview diffs for review.',
   )
 
 const description = `
-Propose related edits across one or more files as an atomic transaction without applying them. Use this tool when drafting a multi-file change that should be reviewed as one coherent bundle before being applied.
+Propose related edits across one or more files as one preflighted bundle without applying them. Use this tool when drafting a multi-file change that should be reviewed as one coherent bundle before being applied.
 
 This tool works identically to edit_transaction's preflight, but the changes are NOT written to disk. Instead, it returns the unified diff of what would change for each affected file. Multiple propose calls on the same files stack correctly.
 

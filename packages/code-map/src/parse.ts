@@ -32,6 +32,31 @@ export interface ParseDiagnostic {
   message: string
 }
 
+export interface ParseBudget {
+  maxFiles: number
+  maxFileBytes: number
+  maxTotalBytes: number
+}
+
+export interface ParseCoverage {
+  requestedFiles: number
+  parsedFiles: number
+  reusedFiles: number
+  freshParsedFiles: number
+  parsedBytes: number
+  skippedFiles: number
+  skippedKnownBytes: number
+  skippedPrefixes: string[]
+  skippedLanguages: string[]
+  fileBudgetExceeded: boolean
+  byteBudgetExceeded: boolean
+  oversizedFiles: number
+  maxFiles: number
+  maxFileBytes: number
+  maxTotalBytes: number
+  truncated: boolean
+}
+
 type ParseTokensOptions = {
   maxBytes?: number
   remainingBytes?: number
@@ -47,6 +72,12 @@ type ParsedTokens = {
 type ParsedTokensForScoring = ParsedTokens & {
   bytes: number
   skipped: boolean
+  skipReason?:
+    | 'file_too_large'
+    | 'total_byte_budget'
+    | 'source_unavailable'
+    | 'read_error'
+    | 'parse_error'
 }
 
 type SourceReader = (filePath: string) => string | null | Promise<string | null>
@@ -79,10 +110,12 @@ export async function getFileTokenScores(
   filePaths: string[],
   readFile?: SourceReader,
   reuseParsed?: Record<string, ParsedFileTokens>,
+  budgetOverrides: Partial<ParseBudget> = {},
 ): Promise<
   FileTokenData & {
     parsed: Record<string, ParsedFileTokens>
     diagnostics: ParseDiagnostic[]
+    coverage: ParseCoverage
   }
 > {
   const startTime = Date.now()
@@ -91,10 +124,24 @@ export async function getFileTokenScores(
   const fileCallsMap = new Map<string, string[]>()
   const parsedByPath: Record<string, ParsedFileTokens> = {}
   const diagnostics: ParseDiagnostic[] = []
-  let parsedFiles = 0
+  const budget: ParseBudget = {
+    maxFiles: budgetOverrides.maxFiles ?? MAX_PARSE_FILES,
+    maxFileBytes: budgetOverrides.maxFileBytes ?? MAX_PARSE_FILE_BYTES,
+    maxTotalBytes: budgetOverrides.maxTotalBytes ?? MAX_TOTAL_PARSE_BYTES,
+  }
+  let freshParsedFiles = 0
+  let reusedFiles = 0
   let totalParsedBytes = 0
+  let skippedKnownBytes = 0
+  let oversizedFiles = 0
+  let fileBudgetExceeded = false
+  let byteBudgetExceeded = false
+  const skippedPaths: string[] = []
+  const skippedLanguages = new Set<string>()
 
-  for (const filePath of filePaths) {
+  // Round-robin top-level-prefix/language buckets so a tight parse budget does
+  // not erase every symbol from directories that happen to sort last.
+  for (const filePath of fairParseOrder(filePaths)) {
     const fullPath = path.join(projectRoot, filePath)
 
     // Incremental fast path: reuse a prior parse for an unchanged file. The
@@ -104,15 +151,27 @@ export async function getFileTokenScores(
     let parsed: ParsedFileTokens
     if (reused) {
       parsed = reused
+      reusedFiles++
     } else {
-      if (
-        parsedFiles >= MAX_PARSE_FILES ||
-        totalParsedBytes >= MAX_TOTAL_PARSE_BYTES
-      ) {
-        break
+      if (freshParsedFiles >= budget.maxFiles) {
+        fileBudgetExceeded = true
+        skippedPaths.push(filePath)
+        skippedLanguages.add(path.extname(filePath) || 'unknown')
+        skippedKnownBytes += getKnownFileSize(fullPath)
+        continue
+      }
+      if (totalParsedBytes >= budget.maxTotalBytes) {
+        byteBudgetExceeded = true
+        skippedPaths.push(filePath)
+        skippedLanguages.add(path.extname(filePath) || 'unknown')
+        skippedKnownBytes += getKnownFileSize(fullPath)
+        continue
       }
       const languageConfig = await getLanguageConfig(fullPath)
       if (!languageConfig) {
+        skippedPaths.push(filePath)
+        skippedKnownBytes += getKnownFileSize(fullPath)
+        skippedLanguages.add(path.extname(filePath) || 'unknown')
         diagnostics.push({
           filePath,
           stage: 'language',
@@ -128,12 +187,20 @@ export async function getFileTokenScores(
         fullPath,
         languageConfig,
         readFile,
-        remainingBytes: MAX_TOTAL_PARSE_BYTES - totalParsedBytes,
+        maxFileBytes: budget.maxFileBytes,
+        remainingBytes: budget.maxTotalBytes - totalParsedBytes,
         diagnostics,
       })
-      if (result.skipped) continue
+      if (result.skipped) {
+        skippedPaths.push(filePath)
+        skippedLanguages.add(path.extname(filePath) || 'unknown')
+        if (result.skipReason === 'file_too_large') oversizedFiles++
+        if (result.skipReason === 'total_byte_budget') byteBudgetExceeded = true
+        skippedKnownBytes += result.bytes || getKnownFileSize(fullPath)
+        continue
+      }
 
-      parsedFiles++
+      freshParsedFiles++
       totalParsedBytes += result.bytes
       parsed = {
         identifiers: result.identifiers,
@@ -176,7 +243,34 @@ export async function getFileTokenScores(
     }
   }
 
-  return { tokenScores, tokenCallers, parsed: parsedByPath, diagnostics }
+  const coverage: ParseCoverage = {
+    requestedFiles: filePaths.length,
+    parsedFiles: Object.keys(parsedByPath).length,
+    reusedFiles,
+    freshParsedFiles,
+    parsedBytes: totalParsedBytes,
+    skippedFiles: skippedPaths.length,
+    skippedKnownBytes,
+    skippedPrefixes: Array.from(
+      new Set(skippedPaths.map((filePath) => topLevelPrefix(filePath))),
+    ).sort(),
+    skippedLanguages: Array.from(skippedLanguages).sort(),
+    fileBudgetExceeded,
+    byteBudgetExceeded,
+    oversizedFiles,
+    maxFiles: budget.maxFiles,
+    maxFileBytes: budget.maxFileBytes,
+    maxTotalBytes: budget.maxTotalBytes,
+    truncated: skippedPaths.length > 0,
+  }
+
+  return {
+    tokenScores,
+    tokenCallers,
+    parsed: parsedByPath,
+    diagnostics,
+    coverage,
+  }
 }
 
 export function parseTokens(
@@ -199,6 +293,7 @@ async function parseTokensForScoring(params: {
   fullPath: string
   languageConfig: LanguageConfig
   readFile?: SourceReader
+  maxFileBytes: number
   remainingBytes: number
   diagnostics: ParseDiagnostic[]
 }): Promise<ParsedTokensForScoring> {
@@ -207,13 +302,14 @@ async function parseTokensForScoring(params: {
     fullPath,
     languageConfig,
     readFile,
+    maxFileBytes,
     remainingBytes,
     diagnostics,
   } = params
 
   if (!readFile) {
     return parseTokensWithLimits(fullPath, languageConfig, undefined, {
-      maxBytes: MAX_PARSE_FILE_BYTES,
+      maxBytes: maxFileBytes,
       remainingBytes,
       diagnostics,
     })
@@ -222,7 +318,7 @@ async function parseTokensForScoring(params: {
   try {
     const source = await readFile(filePath)
     return parseTokensWithLimits(filePath, languageConfig, () => source, {
-      maxBytes: MAX_PARSE_FILE_BYTES,
+      maxBytes: maxFileBytes,
       remainingBytes,
       diagnostics,
     })
@@ -236,7 +332,7 @@ async function parseTokensForScoring(params: {
       console.error(`Error reading source: ${e}`)
       console.log(filePath)
     }
-    return emptyParsedTokens(false)
+    return emptyParsedTokens('read_error')
   }
 }
 
@@ -252,18 +348,19 @@ function parseTokensWithLimits(
     const maxBytes = options.maxBytes ?? MAX_PARSE_FILE_BYTES
     const remainingBytes = options.remainingBytes ?? MAX_TOTAL_PARSE_BYTES
     if (remainingBytes <= 0) {
-      return emptyParsedTokens(true)
+      return emptyParsedTokens('total_byte_budget')
     }
 
-    const source = loadSourceWithinLimits({
+    const loaded = loadSourceWithinLimits({
       filePath,
       readFile,
       maxBytes,
       remainingBytes,
     })
-    if (!source) {
-      return emptyParsedTokens(true)
+    if (!loaded.source) {
+      return emptyParsedTokens(loaded.skipReason, loaded.bytes)
     }
+    const source = loaded.source
 
     if (!parser || !query) {
       throw new Error('Parser or query not found')
@@ -296,7 +393,7 @@ function parseTokensWithLimits(
       console.error(`Error parsing query: ${e}`)
       console.log(filePath)
     }
-    return emptyParsedTokens(false)
+    return emptyParsedTokens('parse_error')
   }
 }
 
@@ -305,26 +402,42 @@ function loadSourceWithinLimits(params: {
   readFile?: (filePath: string) => string | null
   maxBytes: number
   remainingBytes: number
-}): { code: string; bytes: number } | null {
+}): {
+  source: { code: string; bytes: number } | null
+  skipReason?: ParsedTokensForScoring['skipReason']
+  bytes: number
+} {
   const { filePath, readFile, maxBytes, remainingBytes } = params
 
   if (!readFile) {
     const bytes = fs.statSync(filePath).size
-    if (bytes > maxBytes || bytes > remainingBytes) return null
+    if (bytes > maxBytes) {
+      return { source: null, skipReason: 'file_too_large', bytes }
+    }
+    if (bytes > remainingBytes) {
+      return { source: null, skipReason: 'total_byte_budget', bytes }
+    }
 
     return {
-      code: fs.readFileSync(filePath, 'utf8'),
+      source: { code: fs.readFileSync(filePath, 'utf8'), bytes },
       bytes,
     }
   }
 
   const code = readFile(filePath)
-  if (code === null) return null
+  if (code === null) {
+    return { source: null, skipReason: 'source_unavailable', bytes: 0 }
+  }
 
   const bytes = Buffer.byteLength(code, 'utf8')
-  if (bytes > maxBytes || bytes > remainingBytes) return null
+  if (bytes > maxBytes) {
+    return { source: null, skipReason: 'file_too_large', bytes }
+  }
+  if (bytes > remainingBytes) {
+    return { source: null, skipReason: 'total_byte_budget', bytes }
+  }
 
-  return { code, bytes }
+  return { source: { code, bytes }, bytes }
 }
 
 function scoreFileTokens(fullPath: string, parsed: ParsedTokens): FileCallData {
@@ -347,24 +460,37 @@ function buildTokenCallers(
   tokenScores: Record<string, Record<string, number>>,
   fileCallsMap: Map<string, string[]>,
 ): TokenCallerMap {
-  const tokenDefinitionMap = new Map<string, string>()
-  const highestScores = new Map<string, number>()
+  const definitions = new Map<
+    string,
+    Array<{ filePath: string; extension: string }>
+  >()
 
   for (const [filePath, scores] of Object.entries(tokenScores)) {
-    for (const [token, score] of Object.entries(scores)) {
-      const currentHighestScore = highestScores.get(token) ?? -Infinity
-      if (score > currentHighestScore) {
-        highestScores.set(token, score)
-        tokenDefinitionMap.set(token, filePath)
-      }
+    for (const token of Object.keys(scores)) {
+      ;(definitions.get(token) ?? definitions.set(token, []).get(token)!).push({
+        filePath,
+        extension: path.extname(filePath).toLowerCase(),
+      })
     }
   }
 
   const tokenCallers: TokenCallerMap = {}
   for (const [callingFile, calls] of fileCallsMap.entries()) {
     for (const call of calls) {
-      const definingFile = tokenDefinitionMap.get(call)
-      if (!definingFile || callingFile === definingFile || call in {}) {
+      const candidates = definitions.get(call) ?? []
+      const callerLanguage = getLanguageFamily(callingFile)
+      const sameLanguage = candidates.filter(
+        (candidate) =>
+          getLanguageFamily(candidate.extension) === callerLanguage,
+      )
+      // Resolve only when the raw name is unambiguous in the caller's language
+      // (or globally when no same-language definition exists). Import-aware
+      // graph construction can add stronger edges later; guessing here creates
+      // false blast-radius relationships in polyglot/monorepo codebases.
+      const eligible = sameLanguage
+      const definingFile =
+        eligible.length === 1 ? eligible[0]?.filePath : undefined
+      if (!definingFile || callingFile === definingFile) {
         continue
       }
 
@@ -395,13 +521,64 @@ function boostScoresByExternalCalls(
   }
 }
 
-function emptyParsedTokens(skipped: boolean): ParsedTokensForScoring {
+function emptyParsedTokens(
+  skipReason?: ParsedTokensForScoring['skipReason'],
+  bytes = 0,
+): ParsedTokensForScoring {
   return {
     numLines: 0,
     identifiers: [],
     calls: [],
-    bytes: 0,
-    skipped,
+    bytes,
+    skipped: Boolean(skipReason),
+    skipReason,
+  }
+}
+
+function fairParseOrder(filePaths: string[]): string[] {
+  const buckets = new Map<string, string[]>()
+  for (const filePath of filePaths) {
+    const key = `${topLevelPrefix(filePath)}\0${path.extname(filePath).toLowerCase()}`
+    ;(buckets.get(key) ?? buckets.set(key, []).get(key)!).push(filePath)
+  }
+  const queues = Array.from(buckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, files]) => files)
+  const ordered: string[] = []
+  for (let offset = 0; ordered.length < filePaths.length; offset++) {
+    for (const queue of queues) {
+      const filePath = queue[offset]
+      if (filePath !== undefined) ordered.push(filePath)
+    }
+  }
+  return ordered
+}
+
+function topLevelPrefix(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/')
+  const slash = normalized.indexOf('/')
+  return slash === -1 ? '.' : normalized.slice(0, slash)
+}
+
+function getLanguageFamily(filePathOrExtension: string): string {
+  const extension = filePathOrExtension.startsWith('.')
+    ? filePathOrExtension.toLowerCase()
+    : path.extname(filePathOrExtension).toLowerCase()
+  if (['.ts', '.tsx', '.mts', '.cts'].includes(extension)) return 'typescript'
+  if (['.js', '.jsx', '.mjs', '.cjs'].includes(extension)) return 'javascript'
+  if (['.c', '.h'].includes(extension)) return 'c'
+  if (['.cc', '.cpp', '.cxx', '.hpp', '.hh', '.hxx'].includes(extension)) {
+    return 'cpp'
+  }
+  if (['.kt', '.kts'].includes(extension)) return 'kotlin'
+  return extension
+}
+
+function getKnownFileSize(filePath: string): number {
+  try {
+    return fs.statSync(filePath).size
+  } catch {
+    return 0
   }
 }
 

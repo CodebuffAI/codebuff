@@ -17,7 +17,14 @@ type IndexQueryResult = {
 }
 
 type IndexStatusView = {
-  state: 'disabled' | 'building' | 'ready' | 'stale' | 'degraded' | 'empty'
+  state:
+    | 'disabled'
+    | 'building'
+    | 'ready'
+    | 'stale'
+    | 'degraded'
+    | 'failed'
+    | 'empty'
   ready: boolean
   stale: boolean
   refreshing: boolean

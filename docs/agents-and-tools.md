@@ -522,6 +522,21 @@ Examples:
 
 Results may include `relatedFiles`, each with a relationship reason and optional `via` symbol/import/concept. Use those related files to expand context around likely entry points.
 
+The canonical response is `query_index_result` schema version 1. It includes an
+immutable index snapshot identity (`snapshotId`, index version, build time, and
+the incorporated workspace revision when known), plus `indexedHash` on each
+result. Treat that hash as retrieval provenance, not live-file authority: a
+later `read_files` result must still be used before editing. Parser coverage,
+the last structured build error, stale/refreshing state, and semantic fallback
+state are exposed in `status` and rendered by the CLI.
+
+Confirmed SDK mutations feed precise create/update/delete/move path deltas and
+the monotonic workspace revision into the index manager. Terminal, custom, and
+MCP tools fall back to conservative pathless invalidation because their exact
+mutation set is not trustworthy. Age-stale snapshots schedule a refresh
+automatically, while queries may continue to serve the labeled last-known-good
+snapshot during that refresh.
+
 #### Repo-map comparison helpers
 
 `packages/indexer/src/repo-map.ts` exports package-level helpers for retrieval evaluation and reporting. These helpers are available from the `@codebuff/indexer` entrypoint, but they do not change the default `query_index` search path.
@@ -670,6 +685,16 @@ Gotchas:
 - `fileID` refs are always `resolvedPath: null` — they are local references
   within a single serialized file and do not create cross-file edges.
 
+### `read_subtree`
+
+`read_subtree` uses the runtime's injected filesystem view for live discovery;
+it never falls back to the host process filesystem. When no live view is
+available, cached tree entries are returned with `provenance: "cached"` and
+`stale: true`, while cache misses return a typed `unsupported` error. Live
+walks reserve their 1,000-node budget before scheduling work, traverse sorted
+entries deterministically, stop admitting work at the limit, and report typed
+per-path I/O/cancellation errors plus an aggregate `partial` status.
+
 ### `read_outline`
 
 `read_outline` returns a structural AST-like outline of imports, exports, classes, methods, and function signatures in a source file. It allows understanding the composition of large files without loading their entire implementations, saving significant token counts and processing time.
@@ -704,21 +729,24 @@ tools. Under strict-mode edit flows they participate in staged
 read-before-edit enforcement:
 
 - A recent complete whole-file `read_files.paths` call authorizes subsequent
-  exact-match edits to that path and returns a short `readCapability` that can
-  be copied when explicit proof is useful. Truncated reads expose no
+  exact-match edits to that path and returns an authenticated opaque `cap.v3`
+  `readCapability` bound to the project, normalized path, and current run.
+  Truncated reads expose no
   capability. Range and symbol reads remain scoped and require their
-  `readCapability`/`rangeHash` on the follow-up edit.
-- `basedOnRead` accepts either a `readCapability` token copied from a
-  fresh `read_files` range header or an explicit `{ startLine, endLine,
-hash }` object. The runtime verifies the embedded hash for large-file
-  edits before applying the edit.
+  `readCapability` on the follow-up edit.
+- `basedOnRead` prefers a `cap.v3` token copied from a fresh `read_files`
+  range header. The runtime verifies its authentication, project/path/run
+  binding, bounds, and current content hash. Legacy `cap.v2` tokens and
+  explicit `{ startLine, endLine, hash }` objects remain freshness anchors for
+  compatible non-strict flows, but cannot authorize an otherwise unread path.
 - A successful edit keeps path-level authorization during the editing flow,
   while exact-match follow-up edits chain from the latest prepared content.
   For large or ambiguous follow-up edits, carry the echoed post-edit
   `basedOnRead` forward or re-read the target range.
 - Stale or failed edits should be recovered by re-reading the exact
   target range named in the diagnostic and retrying with the new
-  `basedOnRead`, not by guessing from memory.
+  `basedOnRead`, not by guessing from memory. A stale failure deliberately
+  emits no ready-to-use capability.
 - Recovery reads tolerate the common one-file shorthand
   `{ paths: ["file"], ranges: [{ startLine, endLine }] }`: when there is
   exactly one unambiguous path, the harness assigns it to the range and treats
@@ -777,8 +805,9 @@ Large-file and anchor behavior:
 - Large-file edits use `basedOnRead` range hashes when supplied, and fall
   back only when `oldString` is deterministic: unique for single-target
   edits, or present with `allowMultiple: true` for replace-all edits.
-- Valid `basedOnRead` anchors on small files are ignored after basic
-  shape validation because exact `oldString` matching is sufficient.
+- Supplied `basedOnRead` anchors are always scope-checked and constrain
+  matching even on small files; omit the anchor when an unscoped unique
+  literal edit is intended.
 - Placeholder or malformed string anchors such as `"dummy"` or invalid
   `cap.*` tokens are rejected on all files unless `oldString` uniquely
   matches the current file, in which case the bogus anchor is stripped and
@@ -810,8 +839,19 @@ Example:
 ```
 
 `edit_transaction` preflights every replacement against the same
-in-memory snapshot, so related cross-file or dependent same-file edits
-either all apply or none do. See
+in-memory snapshot, so a preflight failure changes no files. Commit is a
+coordinated sequence with verified receipts and conditional, conflict-safe
+rollback where the filesystem adapter supports the required primitives.
+Callers must inspect `rolled_back` and `rollback_incomplete` outcomes rather
+than assuming external filesystem atomicity. Guarded updates, deletes, and
+moves fail closed when an adapter cannot provide the required conditional
+operation. The default SDK Node path supplies these primitives through a
+worktree-scoped cooperative mutation broker with exact-byte hashes, durable
+receipts, crash recovery, and no-clobber hard-link moves. It serializes
+participating Openbuff processes but does not exclude arbitrary external
+editors; watcher and workspace-revision invalidation remain required.
+Transactions are bounded by edit, path, file-byte, prepared-state,
+and rollback-state limits; split larger work into related groups. See
 [Deterministic Edit System](./deterministic-edit-system.md) for the full
 policy and gate semantics.
 
@@ -1037,14 +1077,19 @@ uses that value instead of treating every model as 200k-class:
 
 | Resolved window | Semantic trigger | History target | Provider-safe request limit |
 | --------------: | ---------------: | -------------: | --------------------------: |
+|              8k |               2k |          1,680 |                          4k |
+|             16k |               6k |          3,360 |                          8k |
+|             32k |              18k |         10,080 |                         24k |
+|             64k |              42k |         23,520 |                         56k |
 |            128k |              96k |            72k |                     112.64k |
 |            200k |             160k |            84k |                        176k |
 |         262,144 |          209,715 |        110,100 |                     230,687 |
 |            500k |             400k |           210k |                        440k |
 |              1m |             800k |           420k |                        880k |
 
-The trigger is bounded by both an 80% ratio and explicit 32k–160k semantic
-headroom. The target is 42% of the resolved window, bounded to 72k–420k, and
+For 128k-and-larger windows, the trigger is bounded by both an 80% ratio and
+explicit 32k–160k semantic headroom. The target is 42% of the resolved window,
+bounded to 72k–420k, and
 is split across assistant/tool-call summaries, user text, and tool-result
 facts. Unknown or invalid provider windows conservatively fall back to a 140k
 trigger and 100k target. Explicit test/debug `maxContextLength` overrides also
@@ -1052,6 +1097,16 @@ cap the target so compaction cannot produce a summary larger than the custom
 trigger. Within each category, the pruner prefers recent entries but skips an
 oversized entry and continues scanning for older compact evidence instead of
 discarding the remainder of that category.
+
+For windows below 128k, fixed 32k/72k minima would consume the whole model
+budget. Those models instead scale both semantic headroom and target from the
+provider-safe message limit, retaining a meaningful working set for 8k–64k
+BYOK models. The pre-request budget uses the smallest declared window across
+each agent's independently routed primary model and configured failovers. This
+keeps a large primary safe when it fails over to a smaller model instead of
+expanding the history after a successful primary request. The SDK still
+enforces the actual attempt's provider-safe limit at dispatch time. Explicit
+`maxContextLength` overrides are clamped and cannot widen the active model.
 
 The pinned task contract retains a bounded 2,400-character beginning-and-end
 view of the latest live user request plus a 1,000-character next action. This
@@ -1067,6 +1122,40 @@ resolved window, trigger budget, target budget, and reason, along with category
 telemetry and whether `<knowledge_memory>` survived. The existing pinned
 control-plane, blocker, validation, review-receipt, and high-value finding
 extraction remains authoritative across repeated compaction.
+
+Operational memory is also stored as versioned typed task memory with a
+revision CAS and checksum. Requirements, decisions, blockers, files, edits,
+validation, review receipts, workspace revision, and next actions survive
+transcript replacement independently of prose summaries. Every provider request
+gets a role- and model-bounded compiled view; stale read/edit/validation/review
+evidence from an older workspace revision is excluded. Critical recall fields
+are budgeted before lower-priority evidence and the compiler always emits valid
+structured JSON, including for small models.
+
+Spawned agents have three parent-history transfer modes: `none`, `pinned`, and
+`full`. Ordinary specialists default to no inherited history; ordinary inline
+specialists default to the bounded `pinned` mode, which transfers only the
+newest `<pinned_active_work_state>` and `<knowledge_memory>` blocks. The
+context-pruner remains the explicit `full`-history exception because editing
+the parent transcript is its job. Custom history editors must opt in with both
+`messageHistoryMode: 'full'` and `propagateMessageHistoryChanges: true`.
+Ordinary inline children have independent system prompts, tools, and
+`agentContext`, and their private transcripts are never copied back into the
+parent. Structured handoffs and child results are bounded before entering the
+receiving agent's history; large outputs degrade to a compact receipt instead
+of injecting an unbounded child transcript.
+Typed task memory follows the same boundary: `none` receives no parent task
+memory, while `pinned`/`full` receive an isolated clone. Children never inherit
+the parent's resolved context window because their configured model route is
+resolved independently.
+
+Automatic semantic or mechanical compaction forces a main-agent checkpoint
+before the next provider request. Manual `/compact` uses the same
+`<conversation_summary>/<historical_memory>` envelope and preserves the newest
+authoritative pinned blocks rather than the first block found in history.
+`set_messages` replaces the transcript and commits the next task-memory
+revision atomically, so a stale or partially completed compactor cannot erase
+newer operational memory.
 
 ### Tool-result message builders
 

@@ -1,2 +1,13 @@
 import { createSpecialist } from './create-specialist'
-export default createSpecialist({ id: 'accessibility-reviewer', displayName: 'Accessibility Reviewer', purpose: 'Reviews keyboard, focus, semantics, screen-reader behavior, contrast, motion, and accessible state.', focus: ['Keyboard navigation and focus order', 'Semantic roles, names, and states', 'Contrast and non-color communication', 'Screen readers and reduced motion'] })
+export default createSpecialist({
+  id: 'accessibility-reviewer',
+  displayName: 'Accessibility Reviewer',
+  purpose:
+    'Reviews keyboard, focus, semantics, screen-reader behavior, contrast, motion, and accessible state.',
+  focus: [
+    'Keyboard navigation and focus order',
+    'Semantic roles, names, and states',
+    'Contrast and non-color communication',
+    'Screen readers and reduced motion',
+  ],
+})

@@ -14,14 +14,43 @@ const terminalResult = (value: Record<string, unknown>) => ({
   stepsComplete: false,
 })
 
+function advancePastSnapshotRead(
+  generator: Generator,
+  environment: Record<string, unknown>,
+) {
+  let next = generator.next(environmentResult(environment))
+  if ((next.value as any)?.toolName === 'read_files') {
+    const paths = (next.value as any).input.paths as string[]
+    next = generator.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: paths.map((path) => ({ path, content: `snapshot:${path}` })),
+        },
+      ],
+      agentState: {} as never,
+      stepsComplete: false,
+    })
+  }
+  return next
+}
+
 describe('dependency-manager', () => {
   test('uses constrained dependency mutation plus hidden environment inspection', () => {
     expect(dependencyManager.terminalPermissionProfile).toBe(
       'dependency-mutation',
     )
-    expect(dependencyManager.toolNames).toEqual(['run_terminal_command'])
+    expect(dependencyManager.toolNames).toEqual([
+      'run_terminal_command',
+      'read_files',
+      'write_file',
+      'apply_patch',
+    ])
     expect(dependencyManager.programmaticToolNames).toEqual([
       'inspect_environment',
+      'read_files',
+      'write_file',
+      'apply_patch',
       'set_output',
     ])
   })
@@ -77,11 +106,7 @@ describe('dependency-manager', () => {
       { manifests: [] },
       "flutter pub add 'http'",
     ],
-    [
-      { manager: 'mix', operation: 'sync' },
-      { manifests: [] },
-      'mix deps.get',
-    ],
+    [{ manager: 'mix', operation: 'sync' }, { manifests: [] }, 'mix deps.get'],
     [
       { manager: 'maven', operation: 'restore' },
       { manifests: ['pom.xml'] },
@@ -101,7 +126,7 @@ describe('dependency-manager', () => {
     expect(generator.next().value).toMatchObject({
       toolName: 'inspect_environment',
     })
-    expect(generator.next(environmentResult(environment)).value).toMatchObject({
+    expect(advancePastSnapshotRead(generator, environment).value).toMatchObject({
       toolName: 'run_terminal_command',
       input: { command: expected, timeout_seconds: 600 },
     })
@@ -150,11 +175,12 @@ describe('dependency-manager', () => {
     })
     generator.next()
     expect(
-      generator.next(
-        environmentResult({
+      advancePastSnapshotRead(
+        generator,
+        {
           packageManager: 'pnpm',
           manifests: ['package.json'],
-        }),
+        },
       ).value,
     ).toMatchObject({
       toolName: 'set_output',
@@ -172,11 +198,12 @@ describe('dependency-manager', () => {
     })
     generator.next()
     expect(
-      generator.next(
-        environmentResult({
+      advancePastSnapshotRead(
+        generator,
+        {
           packageManager: 'pnpm',
           manifests: ['package.json', 'Cargo.toml'],
-        }),
+        },
       ).value,
     ).toMatchObject({
       toolName: 'run_terminal_command',
@@ -196,11 +223,12 @@ describe('dependency-manager', () => {
     })
     generator.next()
     expect(
-      generator.next(
-        environmentResult({
+      advancePastSnapshotRead(
+        generator,
+        {
           packageManager: 'npm',
           manifests: ['package.json'],
-        }),
+        },
       ).value,
     ).toMatchObject({
       toolName: 'run_terminal_command',
@@ -210,13 +238,23 @@ describe('dependency-manager', () => {
       generator.next(
         terminalResult({ exitCode: 1, stderr: 'registry unavailable' }),
       ).value,
-    ).toMatchObject({
+    ).toMatchObject({ toolName: 'write_file' })
+    expect(generator.next({ toolResult: [] } as any).value).toMatchObject({
+      toolName: 'inspect_environment',
+    })
+    expect(generator.next(environmentResult({ lockfiles: [] })).value).toMatchObject({
       toolName: 'set_output',
-      input: { data: { status: 'failed' } },
+      input: {
+        data: {
+          status: 'failed',
+          rollbackRequired: false,
+          rollbackReceipt: { status: 'rolled_back' },
+        },
+      },
     })
   })
 
-  test('runs one dotnet command per package and reports success', () => {
+  test('rejects multi-package dotnet partial transactions', () => {
     const generator = dependencyManager.handleSteps!({
       agentState: {} as never,
       params: {
@@ -226,16 +264,9 @@ describe('dependency-manager', () => {
       },
       logger: {} as never,
     })
-    generator.next()
-    expect(
-      generator.next(environmentResult({ manifests: [] })).value,
-    ).toMatchObject({ input: { command: "dotnet add package 'One'" } })
-    expect(generator.next(terminalResult({ exitCode: 0 })).value).toMatchObject({
-      input: { command: "dotnet add package 'Two'" },
-    })
-    expect(generator.next(terminalResult({ exitCode: 0 })).value).toMatchObject({
+    expect(generator.next().value).toMatchObject({
       toolName: 'set_output',
-      input: { data: { status: 'success' } },
+      input: { data: { status: 'invalid' } },
     })
   })
 })

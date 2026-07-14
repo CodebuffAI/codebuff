@@ -3,9 +3,6 @@ import type { AgentDefinition } from '../types/agent-definition'
 const definition: AgentDefinition = {
   id: 'browser-use',
   displayName: 'Browser Use Agent',
-  // Browser automation flows (navigate, wait, snapshot, multi-step interactions, screenshots,
-  // recordings, PDFs, pixel diffs) can run genuinely long. Raise the wall-clock bound to 30 min.
-  defaultTimeoutMs: 30 * 60 * 1000,
   providerOptions: {
     data_collection: 'deny',
   },

@@ -47,7 +47,11 @@ import { handleRunTargetedValidation } from './tool/run-targeted-validation'
 import { handleInspectEnvironment } from './tool/inspect-environment'
 import { handleGetAffectedTests } from './tool/get-affected-tests'
 import { handleGetBuildTargets } from './tool/get-build-targets'
-import { handleEvaluateAuditCoverage, handleInspectCodebaseStructure, handleInspectFeatureCompleteness } from './tool/audit-intelligence'
+import {
+  handleEvaluateAuditCoverage,
+  handleInspectCodebaseStructure,
+  handleInspectFeatureCompleteness,
+} from './tool/audit-intelligence'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'

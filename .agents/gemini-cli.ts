@@ -21,8 +21,6 @@ Gemini CLI uses slash commands for navigation:
 // Constants must be inside handleSteps since it gets serialized via .toString()
 const definition: AgentDefinition = {
   ...baseDefinition,
-  // External CLI driving real implementation/review work via tmux can run genuinely long.
-  defaultTimeoutMs: 30 * 60 * 1000,
   handleSteps: function* ({ prompt, params, logger }) {
     const START_COMMAND = 'gemini --approval-mode auto_edit'
     const CLI_NAME = 'Gemini'

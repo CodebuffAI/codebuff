@@ -92,7 +92,9 @@ export function loadChatStateFromDirectory(
   if (fs.existsSync(chatStatePath)) {
     try {
       const persisted = sanitizeForChatPersistence(
-        JSON.parse(fs.readFileSync(chatStatePath, 'utf8')) as PersistedChatState,
+        JSON.parse(
+          fs.readFileSync(chatStatePath, 'utf8'),
+        ) as PersistedChatState,
       )
       if (
         persisted.version !== 1 ||

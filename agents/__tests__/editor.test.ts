@@ -416,10 +416,16 @@ describe('editor agent', () => {
         toolName: 'set_output',
         input: {
           output: {
+            status: 'blocked',
             messages: [
               { role: 'assistant', content: [{ type: 'text', text: 'Done' }] },
             ],
             changedFiles: [],
+            requirementsAddressed: [],
+            acceptanceCriteriaAddressed: [],
+            findingsAddressed: [],
+            unresolved: [],
+            requestedValidation: [],
           },
         },
         includeToolCall: false,
@@ -679,10 +685,7 @@ describe('editor agent', () => {
       expect(generator.next().value).toEqual({
         toolName: 'read_files',
         input: {
-          paths: [
-            'server/src/db/elastic.ts',
-            'server/src/db/elastic.test.ts',
-          ],
+          paths: ['server/src/db/elastic.ts', 'server/src/db/elastic.test.ts'],
         },
       })
     })

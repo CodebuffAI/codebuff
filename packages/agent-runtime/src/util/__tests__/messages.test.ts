@@ -23,6 +23,7 @@ import {
   getPreviouslyReadFiles,
   filterUnfinishedToolCalls,
   buildUserMessageContent,
+  extractPinnedContextBlocks,
   getContextCategoryTelemetry,
 } from '../../util/messages'
 import * as tokenCounter from '../token-counter'
@@ -59,6 +60,28 @@ function isToolCallPart(part: unknown): part is ToolCallPart {
     'toolCallId' in part
   )
 }
+
+describe('extractPinnedContextBlocks', () => {
+  it('returns only the newest authoritative block of each kind', () => {
+    const messages: Message[] = [
+      userMessage(
+        '<knowledge_memory>\nPinned structured knowledge memory.\nGoal: stale\n</knowledge_memory>',
+      ),
+      userMessage(
+        '<pinned_active_work_state>\nNext required action: validate\n</pinned_active_work_state>',
+      ),
+      userMessage(
+        '<knowledge_memory>\nPinned structured knowledge memory.\nGoal: current\n</knowledge_memory>',
+      ),
+    ]
+
+    const blocks = extractPinnedContextBlocks(messages)
+    expect(blocks).toHaveLength(2)
+    expect(blocks.join('\n')).toContain('Goal: current')
+    expect(blocks.join('\n')).not.toContain('Goal: stale')
+    expect(blocks.join('\n')).toContain('Next required action: validate')
+  })
+})
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {

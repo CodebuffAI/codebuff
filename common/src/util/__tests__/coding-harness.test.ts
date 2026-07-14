@@ -12,12 +12,22 @@ describe('coding harness evidence contracts', () => {
     expect(
       evaluateCodingStrategy([
         {
-          hypothesisId: 'H1', hypothesis: 'x', evidence: [], filesChanged: [],
-          diagnosticsBefore: ['E1'], diagnosticsAfter: ['E1'], outcome: 'unchanged',
+          hypothesisId: 'H1',
+          hypothesis: 'x',
+          evidence: [],
+          filesChanged: [],
+          diagnosticsBefore: ['E1'],
+          diagnosticsAfter: ['E1'],
+          outcome: 'unchanged',
         },
         {
-          hypothesisId: 'H1', hypothesis: 'x', evidence: [], filesChanged: [],
-          diagnosticsBefore: ['E1'], diagnosticsAfter: ['E1'], outcome: 'regressed',
+          hypothesisId: 'H1',
+          hypothesis: 'x',
+          evidence: [],
+          filesChanged: [],
+          diagnosticsBefore: ['E1'],
+          diagnosticsAfter: ['E1'],
+          outcome: 'regressed',
         },
       ]).action,
     ).toBe('switch_strategy')
@@ -26,7 +36,9 @@ describe('coding harness evidence contracts', () => {
   test('measures retrieval precision, recall, and late discovery', () => {
     expect(
       measureRetrievalEffectiveness({
-        retrieved: ['a', 'b'], useful: ['a'], decisive: ['a', 'c'],
+        retrieved: ['a', 'b'],
+        useful: ['a'],
+        decisive: ['a', 'c'],
         decisiveBeforeFirstEdit: ['a'],
       }),
     ).toEqual({ precision: 0.5, recall: 0.5, lateDiscoveryRate: 0.5 })
@@ -35,8 +47,19 @@ describe('coding harness evidence contracts', () => {
   test('requires freshness proof for confirmed context', () => {
     expect(
       validateContextPacket({
-        request: 'fix x', acceptanceCriteria: [], diagnostics: [], priorAttempts: [],
-        items: [{ path: 'a.ts', symbols: [], reason: 'target', relevance: 1, confidence: 'confirmed' }],
+        request: 'fix x',
+        acceptanceCriteria: [],
+        diagnostics: [],
+        priorAttempts: [],
+        items: [
+          {
+            path: 'a.ts',
+            symbols: [],
+            reason: 'target',
+            relevance: 1,
+            confidence: 'confirmed',
+          },
+        ],
       }),
     ).toEqual(['a.ts: confirmed context requires a freshness hash.'])
   })

@@ -3,7 +3,9 @@ import { spawn } from 'node:child_process'
 const command = process.argv[2]
 const files = process.argv.slice(3)
 if (!command || files.length === 0) {
-  console.error('Usage: bun scripts/harness-language-server.ts <command> <file...>')
+  console.error(
+    'Usage: bun scripts/harness-language-server.ts <command> <file...>',
+  )
   process.exit(2)
 }
 

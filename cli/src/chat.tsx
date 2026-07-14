@@ -1524,8 +1524,7 @@ export const Chat = ({
       // Picker-driven resume previously submitted with the mode captured when
       // the picker opened. Switch first so both the visible persistent toggle
       // and command routing enter EXECUTE_PLAN immediately.
-      const submitMode =
-        command === 'resume-plan' ? 'EXECUTE_PLAN' : agentMode
+      const submitMode = command === 'resume-plan' ? 'EXECUTE_PLAN' : agentMode
       if (command === 'resume-plan') {
         setAgentMode('EXECUTE_PLAN')
       }

@@ -271,9 +271,10 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     // Re-loop model step: no new edits, same pending set. Finishing drives to
     // git_status, NOT directly to run_file_change_hooks.
     expect(gen.next().value).toBe('STEP')
-    expect(
-      gen.next(finishStepWithToolResult({})).value,
-    ).toMatchObject({ toolName: 'git_status', input: {} })
+    expect(gen.next(finishStepWithToolResult({})).value).toMatchObject({
+      toolName: 'git_status',
+      input: {},
+    })
 
     // Invariant 4 (no infinite re-spawn loop): with the same aux-relevant
     // pending file set, the done-flags stay true and selectAuxRelevantFiles
@@ -358,9 +359,9 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       input: { agent_type: 'context-pruner' },
     })
     expect(gen.next().value).toBe('STEP')
-    expect(
-      gen.next(finishStepWithToolResult({})).value,
-    ).toMatchObject({ toolName: 'git_status' })
+    expect(gen.next(finishStepWithToolResult({})).value).toMatchObject({
+      toolName: 'git_status',
+    })
 
     // First iteration fires all three aux gates in order.
     expect(
@@ -403,9 +404,8 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
 
     // The aux block `continue`d; re-loop starts with context-pruner.
     expect(
-      gen.next(
-        reviewerResult('aux-idempotency-snapshot', [AUX_TRIPLE_FILE]),
-      ).value,
+      gen.next(reviewerResult('aux-idempotency-snapshot', [AUX_TRIPLE_FILE]))
+        .value,
     ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },

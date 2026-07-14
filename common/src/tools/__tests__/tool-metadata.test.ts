@@ -73,9 +73,9 @@ describe('tool metadata', () => {
       'update_plan_status',
       'write_file',
     ] as const) {
-      expect(toolParams[toolName].outputSchema.safeParse(mutationOutput).success).toBe(
-        true,
-      )
+      expect(
+        toolParams[toolName].outputSchema.safeParse(mutationOutput).success,
+      ).toBe(true)
     }
 
     const proposalOutput = [
@@ -109,9 +109,9 @@ describe('tool metadata', () => {
       'propose_str_replace',
       'propose_write_file',
     ] as const) {
-      expect(toolParams[toolName].outputSchema.safeParse(proposalOutput).success).toBe(
-        true,
-      )
+      expect(
+        toolParams[toolName].outputSchema.safeParse(proposalOutput).success,
+      ).toBe(true)
     }
   })
 })

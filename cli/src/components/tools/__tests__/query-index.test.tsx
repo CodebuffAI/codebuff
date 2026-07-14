@@ -22,10 +22,13 @@ const createToolBlock = (): ToolBlock & { toolName: 'query_index' } => ({
     {
       type: 'json',
       value: {
+        kind: 'query_index_result',
+        schemaVersion: 1,
         results: [
           {
             path: 'docs/authentication.md',
             score: 12.345,
+            indexedHash: 'abcdef0123456789',
             matchedOn: ['heading', 'concept'],
             relatedFiles: [
               {
@@ -39,6 +42,14 @@ const createToolBlock = (): ToolBlock & { toolName: 'query_index' } => ({
         totalIndexed: 321,
         indexAge: 125_000,
         message: 'Found 1 indexed file result(s).',
+        snapshot: {
+          schemaVersion: 1,
+          snapshotId:
+            '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+          indexVersion: '2',
+          builtAt: 1,
+          workspaceRevision: 4,
+        },
         status: {
           state: 'ready',
           ready: true,
@@ -71,12 +82,14 @@ describe('QueryIndexComponent', () => {
     expect(markup).toContain('docs/authentication.md')
     expect(markup).toContain('12.35')
     expect(markup).toContain('heading, concept')
+    expect(markup).toContain('hash abcdef012345')
     expect(markup).toContain('related to src/auth.ts')
     expect(markup).toContain('Matched on heading, concept.')
     expect(markup).toContain('Status:')
     expect(markup).toContain('ready')
     expect(markup).toContain('321 indexed files')
     expect(markup).toContain('age 2m')
+    expect(markup).toContain('Snapshot: 1234567890abcdef · workspace r4')
   })
 
   test('renders structured stale/degraded status, coverage, and diagnostics', () => {
@@ -106,6 +119,18 @@ describe('QueryIndexComponent', () => {
               maxFiles: 100,
               skippedFiles: 8,
               skippedPrefixes: ['vendor'],
+              parser: {
+                requestedFiles: 100,
+                parsedFiles: 80,
+                skippedFiles: 20,
+                skippedLanguages: ['ruby'],
+                truncated: true,
+              },
+            },
+            lastBuildError: {
+              stage: 'persist',
+              message: 'cache revision conflict',
+              retryable: true,
             },
             message: 'Index ready with parser diagnostics.',
           },
@@ -125,6 +150,8 @@ describe('QueryIndexComponent', () => {
     expect(markup).toContain('Partial coverage')
     expect(markup).toContain('src/bad.ts')
     expect(markup).toContain('syntax error')
+    expect(markup).toContain('Parser coverage: 80/100 parsed')
+    expect(markup).toContain('Build error (persist): cache revision conflict')
   })
 
   test('hard-wraps long path, snippet, related file, explanation, and header text for narrow widths', () => {

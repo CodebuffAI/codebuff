@@ -17,7 +17,9 @@ export const getTaskParams = {
     session: z
       .string()
       .optional()
-      .describe('Optional plan session slug. Defaults to .agents/ACTIVE_SESSION.'),
+      .describe(
+        'Optional plan session slug. Defaults to .agents/ACTIVE_SESSION.',
+      ),
   }),
   outputSchema: jsonToolResultSchema(
     z.union([

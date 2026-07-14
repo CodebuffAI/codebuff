@@ -4,6 +4,7 @@ import {
 } from './process-str-replace'
 
 import type { SymbolRange } from '@codebuff/code-map'
+import type { ReadCapabilityScope } from '@codebuff/common/util/content-hash'
 
 /**
  * Tree-sitter-backed structural extraction for the read_outline / read_slices
@@ -126,6 +127,7 @@ export function mintSliceCapability(params: {
   content: string
   startLine: number
   endLine: number
+  scope?: ReadCapabilityScope
 }): { readCapability: string; rangeHash: string; sliceContent: string } {
   const { content, startLine, endLine } = params
   const lines = content.replace(/\r\n/g, '\n').split('\n')
@@ -138,6 +140,7 @@ export function mintSliceCapability(params: {
       startLine: start,
       endLine: end,
       hash: rangeHash,
+      scope: params.scope,
     }),
     rangeHash,
     sliceContent,

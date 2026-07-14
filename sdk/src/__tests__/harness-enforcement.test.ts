@@ -13,7 +13,8 @@ import { LocalHarnessStore } from '../services/local-harness-store'
 
 const roots: string[] = []
 afterEach(() => {
-  for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true })
+  for (const root of roots.splice(0))
+    fs.rmSync(root, { recursive: true, force: true })
 })
 
 function setup() {
@@ -32,7 +33,10 @@ const scope = {
 describe('harness enforcement services', () => {
   test('approvals are exact-scope and single-use', () => {
     const service = new HarnessApprovalService(setup())
-    const grant = service.grant(scope, { action: 'push', target: 'origin/feature' })
+    const grant = service.grant(scope, {
+      action: 'push',
+      target: 'origin/feature',
+    })
     expect(() =>
       service.consume({
         repositoryId: 'repo-1',

@@ -1,4 +1,11 @@
 import { getContentHash } from '@codebuff/common/util/content-hash'
+import {
+  MAX_FILE_CHANGES_PER_TRANSACTION,
+  MAX_TRANSACTION_FILE_BYTES,
+  MAX_TRANSACTION_INPUT_BYTES,
+  MAX_TRANSACTION_ROLLBACK_BYTES,
+  MAX_TRANSACTION_UNIQUE_PATHS,
+} from '@codebuff/common/actions'
 
 import {
   formatUnsafeToolPathError,
@@ -28,6 +35,7 @@ import type { FileChange } from '@codebuff/common/actions'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 export const TRANSACTION_SNAPSHOT_CONCURRENCY = 8
 
@@ -63,6 +71,8 @@ export const handleEditTransaction = (async (
       toolCall: ClientToolCall<'edit_transaction'>,
     ) => Promise<CodebuffToolOutput<'edit_transaction'>>
     requestOptionalFile: RequestOptionalFileFn
+    fileContext?: ProjectFileContext
+    runId?: string
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
 ): Promise<{ output: CodebuffToolOutput<'edit_transaction'> }> => {
   const {
@@ -80,6 +90,40 @@ export const handleEditTransaction = (async (
       ? { destinationPath: normalizeToolPath(edit.destinationPath) }
       : {}),
   }))
+
+  const requestedPaths = new Set(
+    edits.flatMap((edit) =>
+      edit.type === 'move' ? [edit.path, edit.destinationPath] : [edit.path],
+    ),
+  )
+  const inputBytes = Buffer.byteLength(JSON.stringify(edits))
+  const requestLimitMessage =
+    edits.length > MAX_FILE_CHANGES_PER_TRANSACTION
+      ? `edit_transaction accepts at most ${MAX_FILE_CHANGES_PER_TRANSACTION} edits.`
+      : requestedPaths.size > MAX_TRANSACTION_UNIQUE_PATHS
+        ? `edit_transaction accepts at most ${MAX_TRANSACTION_UNIQUE_PATHS} unique paths.`
+        : inputBytes > MAX_TRANSACTION_INPUT_BYTES
+          ? `edit_transaction input exceeds the ${MAX_TRANSACTION_INPUT_BYTES}-byte limit.`
+          : null
+  if (requestLimitMessage) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `${requestLimitMessage} Split the work into bounded transactions.`,
+            failures: [
+              {
+                editIndex: -1,
+                path: [...requestedPaths].join(', '),
+                errorMessage: requestLimitMessage,
+              },
+            ],
+          },
+        },
+      ],
+    }
+  }
 
   // Block the whole transaction rather than forwarding an unsafe/empty path.
   // Report the original input so the agent can correct the exact edit.
@@ -147,6 +191,38 @@ export const handleEditTransaction = (async (
   uniquePaths.forEach((path, index) => {
     initialContentByPath.set(path, snapshots[index]!)
   })
+  let rollbackBytes = 0
+  for (const [index, path] of uniquePaths.entries()) {
+    const content = snapshots[index]
+    const bytes = content === null ? 0 : Buffer.byteLength(content)
+    rollbackBytes += bytes
+    if (
+      bytes > MAX_TRANSACTION_FILE_BYTES ||
+      rollbackBytes > MAX_TRANSACTION_ROLLBACK_BYTES
+    ) {
+      const message =
+        bytes > MAX_TRANSACTION_FILE_BYTES
+          ? `Transaction file ${path} exceeds the ${MAX_TRANSACTION_FILE_BYTES}-byte per-file limit.`
+          : `Transaction rollback state exceeds the ${MAX_TRANSACTION_ROLLBACK_BYTES}-byte limit.`
+      return {
+        output: [
+          {
+            type: 'json',
+            value: {
+              errorMessage: `${message} No files were changed. Split the work into bounded transactions or range edits.`,
+              failures: [
+                {
+                  editIndex: -1,
+                  path,
+                  errorMessage: message,
+                },
+              ],
+            },
+          },
+        ],
+      }
+    }
+  }
 
   const freshWholeFileAuthorizationPaths = new Set<string>()
   const staleWholeFileAuthorizationPaths = new Set<string>()
@@ -293,6 +369,12 @@ export const handleEditTransaction = (async (
           initialContentByPath,
           logger,
           requireFreshReadCapabilityForPaths,
+          readCapabilityIssuer: params.fileContext
+            ? {
+                projectId: params.fileContext.projectRoot,
+                runId: params.runId ?? '',
+              }
+            : undefined,
         })
       : {
           tool: 'edit_transaction' as const,
@@ -523,7 +605,7 @@ export const handleEditTransaction = (async (
           type: 'json',
           value: {
             errorMessage: [
-              'edit_transaction failed while atomically applying preflighted patches.',
+              'edit_transaction failed while applying its preflighted coordinated changes.',
               `Client threw: ${application.error instanceof Error ? application.error.message : String(application.error)}`,
               'No in-memory transaction state was recorded. Re-read all affected files before retrying.',
             ].join('\n'),

@@ -30,9 +30,7 @@ function isGeneratedOperationalArtifact(relativePath: string): boolean {
   return (
     relativePath === '.agents/sessions' ||
     relativePath.startsWith('.agents/sessions/') ||
-    /^evals\/buffbench\/[^/]+-base2-lite-error-[^/]+\.json$/i.test(
-      relativePath,
-    )
+    /^evals\/buffbench\/[^/]+-base2-lite-error-[^/]+\.json$/i.test(relativePath)
   )
 }
 
@@ -200,7 +198,9 @@ export async function walkProjectDetailed(
       const rel = normalizeRelativePath(path.relative(projectRoot, abs))
       const ignored = matchers.some(({ base, matcher }) => {
         const scoped = normalizeRelativePath(path.relative(base, abs))
-        return scoped && matcher.ignores(entry.isDirectory() ? `${scoped}/` : scoped)
+        return (
+          scoped && matcher.ignores(entry.isDirectory() ? `${scoped}/` : scoped)
+        )
       })
 
       if (entry.isDirectory()) {

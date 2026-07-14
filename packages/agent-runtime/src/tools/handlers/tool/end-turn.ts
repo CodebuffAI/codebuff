@@ -7,19 +7,31 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { AgentState } from '@codebuff/common/types/session-state'
 
 const MAX_JOBS_LISTED = 5
 
 export const handleEndTurn = (async (params: {
   previousToolCallFinished: Promise<any>
   toolCall: CodebuffToolCall<'end_turn'>
+  agentState?: AgentState
+  clientSessionId?: string
 }): Promise<{ output: CodebuffToolOutput<'end_turn'> }> => {
-  const { previousToolCallFinished } = params
+  const { previousToolCallFinished, agentState, clientSessionId } = params
 
   await previousToolCallFinished
 
-  const runningJobs = listRunningBackgroundJobs()
-  const runningAgentJobs = listRunningBackgroundAgentJobs()
+  const rootRunId = agentState
+    ? agentState.ancestorRunIds[0] ?? agentState.runId ?? agentState.agentId
+    : undefined
+  const runningJobs =
+    clientSessionId && rootRunId
+      ? listRunningBackgroundJobs({ clientSessionId, rootRunId })
+      : listRunningBackgroundJobs()
+  const runningAgentJobs =
+    clientSessionId && rootRunId
+      ? listRunningBackgroundAgentJobs({ clientSessionId, rootRunId })
+      : listRunningBackgroundAgentJobs()
   if (runningJobs.length === 0 && runningAgentJobs.length === 0) {
     return { output: [{ type: 'json', value: { message: 'Turn ended.' } }] }
   }

@@ -14,17 +14,20 @@ import {
   resolveGuidRef,
 } from './asset-refs'
 import { sanitizeIndexCacheDir } from './index-store'
+import { buildIndexQueryData } from './query-data'
 import type {
   GraphWeights,
   IndexedFile,
   IndexEdge,
   IndexGraph,
   IndexingConfig,
+  IndexMutationDelta,
   IndexNode,
   MetadataIndex,
   ParseDiagnostic,
 } from './types'
-import type { ParsedFileTokens } from '@codebuff/code-map'
+import type { ParseCoverage, ParsedFileTokens } from '@codebuff/code-map'
+import type { WalkProjectResult } from './file-walker'
 
 const CODE_EXTENSIONS = new Set(SUPPORTED_CODE_EXTENSIONS)
 
@@ -125,13 +128,17 @@ export async function buildMetadataIndex(
   let tokenScores: Record<string, Record<string, number>> = {}
   let tokenCallers: Record<string, Record<string, string[]>> = {}
   let parseDiagnostics: ParseDiagnostic[] = []
+  let parseCoverage: ParseCoverage | undefined
+  let parseData: Record<string, ParsedFileTokens> = {}
   if (codeFilePaths.length > 0) {
     try {
       const data = await getFileTokenScores(projectRoot, codeFilePaths)
       tokenScores = data.tokenScores
       tokenCallers = data.tokenCallers
       parseDiagnostics = data.diagnostics
-      parsedCacheByRoot.set(projectRoot, data.parsed)
+      parseCoverage = data.coverage
+      parseData = data.parsed
+      parsedCacheByRoot.set(projectRoot, parseData)
     } catch (error) {
       parseDiagnostics = [createParseDiagnostic(projectRoot, error)]
     }
@@ -157,13 +164,9 @@ export async function buildMetadataIndex(
     tokenCallers,
     config.weights?.graph,
     parseDiagnostics,
+    parseData,
   )
-  index.coverage = {
-    truncated: walked.truncated,
-    maxFiles: walked.maxFiles,
-    skippedFiles: walked.skippedFiles,
-    skippedPrefixes: walked.skippedPrefixes,
-  }
+  index.coverage = createIndexCoverage(walked, parseCoverage)
   return index
 }
 
@@ -171,6 +174,7 @@ export async function updateMetadataIndex(
   existing: MetadataIndex,
   projectRoot: string,
   config: IndexingConfig = {},
+  mutationDelta?: IndexMutationDelta,
 ): Promise<MetadataIndex> {
   tsAliasCacheByRoot.delete(projectRoot)
   const walked = await walkProjectDetailed(
@@ -180,10 +184,26 @@ export async function updateMetadataIndex(
   )
   const files = walked.files
   const currentByPath = new Map(files.map((f) => [f.relativePath, f]))
-  const deletedPaths = new Set(Object.keys(existing.files))
+  const preciseDelta = mutationDelta?.complete === true
+  const changedDeltaPaths = new Set(
+    (mutationDelta?.changedPaths ?? []).map(normalizeMutationPath),
+  )
+  const deletedPaths = preciseDelta
+    ? new Set((mutationDelta?.deletedPaths ?? []).map(normalizeMutationPath))
+    : new Set(Object.keys(existing.files))
 
-  for (const f of files) {
-    deletedPaths.delete(f.relativePath)
+  if (preciseDelta) {
+    for (const changedPath of changedDeltaPaths) {
+      if (!currentByPath.has(changedPath) && existing.files[changedPath]) {
+        deletedPaths.add(changedPath)
+      }
+    }
+  }
+
+  if (!preciseDelta) {
+    for (const f of files) {
+      deletedPaths.delete(f.relativePath)
+    }
   }
 
   const hashByPath = new Map<string, string>()
@@ -194,6 +214,9 @@ export async function updateMetadataIndex(
 
   for (const file of files) {
     const indexed = existing.files[file.relativePath]
+    if (preciseDelta && !changedDeltaPaths.has(file.relativePath)) {
+      continue
+    }
     let hash: string | undefined
     try {
       hash = await hashFile(file.absolutePath)
@@ -216,23 +239,29 @@ export async function updateMetadataIndex(
     }
   }
 
-  if (changedFiles.length === 0 && deletedPaths.size === 0) {
+  const needsParseHydration = existing.parseData === undefined
+  if (
+    changedFiles.length === 0 &&
+    deletedPaths.size === 0 &&
+    !needsParseHydration
+  ) {
+    const graph = buildGraph(
+      metadataOnlyChange ? updatedFiles : existing.files,
+      {},
+      loadTsAliases(projectRoot),
+      resolveGraphWeights(config.weights?.graph),
+      existing.parseData,
+    )
     return {
       ...existing,
       builtAt: Date.now(),
       files: metadataOnlyChange ? updatedFiles : existing.files,
-      graph: buildGraph(
+      graph,
+      queryData: buildIndexQueryData(
         metadataOnlyChange ? updatedFiles : existing.files,
-        extractTokenCallers(existing.graph),
-        loadTsAliases(projectRoot),
-        resolveGraphWeights(config.weights?.graph),
+        graph,
       ),
-      coverage: {
-        truncated: walked.truncated,
-        maxFiles: walked.maxFiles,
-        skippedFiles: walked.skippedFiles,
-        skippedPrefixes: walked.skippedPrefixes,
-      },
+      coverage: createIndexCoverage(walked, existing.coverage?.parser),
     }
   }
 
@@ -248,7 +277,10 @@ export async function updateMetadataIndex(
   // merged set (cheap, no tree-sitter). This avoids a full project re-parse on
   // every incremental update (e.g. after each agent edit).
   const changedPathSet = new Set(changedFiles.map((f) => f.relativePath))
-  const previousCache = getParsedCache(projectRoot)
+  const previousCache = {
+    ...(existing.parseData ?? {}),
+    ...getParsedCache(projectRoot),
+  }
   const reuseParsed: Record<string, ParsedFileTokens> = {}
   for (const codePath of allCodeFilePaths) {
     if (!changedPathSet.has(codePath) && previousCache[codePath]) {
@@ -259,6 +291,8 @@ export async function updateMetadataIndex(
   let tokenScores: Record<string, Record<string, number>> = {}
   let tokenCallers: Record<string, Record<string, string[]>> = {}
   let parseDiagnostics: ParseDiagnostic[] = []
+  let parseCoverage: ParseCoverage | undefined
+  let parseData: Record<string, ParsedFileTokens> = { ...previousCache }
   let parserDegraded = false
   if (allCodeFilePaths.length > 0) {
     try {
@@ -271,7 +305,9 @@ export async function updateMetadataIndex(
       tokenScores = data.tokenScores
       tokenCallers = data.tokenCallers
       parseDiagnostics = data.diagnostics
-      parsedCacheByRoot.set(projectRoot, data.parsed)
+      parseCoverage = data.coverage
+      parseData = data.parsed
+      parsedCacheByRoot.set(projectRoot, parseData)
     } catch (error) {
       parseDiagnostics = [createParseDiagnostic(projectRoot, error)]
       parserDegraded = true
@@ -283,17 +319,13 @@ export async function updateMetadataIndex(
       ...existing,
       builtAt: Date.now(),
       parseDiagnostics,
-      coverage: {
-        truncated: walked.truncated,
-        maxFiles: walked.maxFiles,
-        skippedFiles: walked.skippedFiles,
-        skippedPrefixes: walked.skippedPrefixes,
-      },
+      coverage: createIndexCoverage(walked, parseCoverage),
     }
   }
 
   for (const deletedPath of deletedPaths) {
     delete updatedFiles[deletedPath]
+    delete parseData[deletedPath]
   }
 
   for (const file of changedFiles) {
@@ -329,13 +361,9 @@ export async function updateMetadataIndex(
     tokenCallers,
     config.weights?.graph,
     parseDiagnostics,
+    parseData,
   )
-  index.coverage = {
-    truncated: walked.truncated,
-    maxFiles: walked.maxFiles,
-    skippedFiles: walked.skippedFiles,
-    skippedPrefixes: walked.skippedPrefixes,
-  }
+  index.coverage = createIndexCoverage(walked, parseCoverage)
   return index
 }
 
@@ -408,22 +436,56 @@ function createMetadataIndex(
   tokenCallers: Record<string, Record<string, string[]>>,
   graphWeights?: GraphWeights,
   parseDiagnostics: ParseDiagnostic[] = [],
+  parseData: Record<string, ParsedFileTokens> = {},
 ): MetadataIndex {
   const aliases = loadTsAliases(projectRoot)
+  const graph = buildGraph(
+    files,
+    tokenCallers,
+    aliases,
+    resolveGraphWeights(graphWeights),
+    parseData,
+  )
   return {
     version: '2',
     projectRoot,
     builtAt: Date.now(),
     fileCount: Object.keys(files).length,
     files,
-    graph: buildGraph(
-      files,
-      tokenCallers,
-      aliases,
-      resolveGraphWeights(graphWeights),
-    ),
+    graph,
+    queryData: buildIndexQueryData(files, graph),
+    parseData,
     parseDiagnostics,
   }
+}
+
+function createIndexCoverage(
+  walked: WalkProjectResult,
+  parser?: ParseCoverage,
+): NonNullable<MetadataIndex['coverage']> {
+  return {
+    truncated: walked.truncated || Boolean(parser?.truncated),
+    maxFiles: walked.maxFiles,
+    skippedFiles: walked.skippedFiles,
+    skippedPrefixes: walked.skippedPrefixes,
+    parser,
+  }
+}
+
+function normalizeMutationPath(filePath: string): string {
+  return filePath.replace(/\\/g, '/').replace(/^\.\//, '')
+}
+
+function getLanguageFamily(extension: string | undefined): string {
+  const normalized = extension?.toLowerCase() ?? ''
+  if (['.ts', '.tsx', '.mts', '.cts'].includes(normalized)) return 'typescript'
+  if (['.js', '.jsx', '.mjs', '.cjs'].includes(normalized)) return 'javascript'
+  if (['.c', '.h'].includes(normalized)) return 'c'
+  if (['.cc', '.cpp', '.cxx', '.hpp', '.hh', '.hxx'].includes(normalized)) {
+    return 'cpp'
+  }
+  if (['.kt', '.kts'].includes(normalized)) return 'kotlin'
+  return normalized
 }
 
 function createParseDiagnostic(
@@ -442,6 +504,7 @@ function buildGraph(
   tokenCallers: Record<string, Record<string, string[]>>,
   aliases: TsAliasMap | undefined,
   weights: Required<GraphWeights>,
+  parseData: Record<string, ParsedFileTokens> = {},
 ): IndexGraph {
   const nodes: Record<string, IndexNode> = {}
   const edges: IndexEdge[] = []
@@ -460,8 +523,13 @@ function buildGraph(
     }
 
     for (const symbol of file.symbols.slice(0, 30)) {
-      const symbolId = symbolNodeId(symbol)
-      nodes[symbolId] ??= { id: symbolId, type: 'symbol', label: symbol }
+      const symbolId = symbolNodeId(file.path, file.ext, symbol)
+      nodes[symbolId] = {
+        id: symbolId,
+        type: 'symbol',
+        label: symbol,
+        path: file.path,
+      }
       edges.push({
         from: fileId,
         to: symbolId,
@@ -583,23 +651,77 @@ function buildGraph(
     }
   }
 
+  edges.push(
+    ...buildModuleAwareCallEdges(files, parseData, aliases, weights.calls),
+  )
+
   return { nodes, edges: dedupeEdges(edges) }
 }
 
-function extractTokenCallers(
-  graph: IndexGraph,
-): Record<string, Record<string, string[]>> {
-  const tokenCallers: Record<string, Record<string, string[]>> = {}
-  for (const edge of graph.edges) {
-    if (edge.type !== 'calls') continue
-    const callerPath = graph.nodes[edge.from]?.path
-    const definingPath = graph.nodes[edge.to]?.path
-    if (!callerPath || !definingPath || !edge.label) continue
-    tokenCallers[definingPath] ??= {}
-    tokenCallers[definingPath][edge.label] ??= []
-    tokenCallers[definingPath][edge.label].push(callerPath)
+function buildModuleAwareCallEdges(
+  files: Record<string, IndexedFile>,
+  parseData: Record<string, ParsedFileTokens>,
+  aliases: TsAliasMap | undefined,
+  weight: number,
+): IndexEdge[] {
+  const definitions = new Map<string, string[]>()
+  for (const [filePath, parsed] of Object.entries(parseData)) {
+    if (!files[filePath]) continue
+    for (const symbol of parsed.identifiers) {
+      const paths = definitions.get(symbol) ?? []
+      if (!paths.includes(filePath)) paths.push(filePath)
+      definitions.set(symbol, paths)
+    }
   }
-  return tokenCallers
+
+  const edges: IndexEdge[] = []
+  for (const [callerPath, parsed] of Object.entries(parseData)) {
+    const caller = files[callerPath]
+    if (!caller) continue
+    const importedFiles = new Set(
+      caller.imports
+        .map((importPath) =>
+          resolveImportToFile(
+            caller.path,
+            caller.ext,
+            importPath,
+            files,
+            aliases,
+          ),
+        )
+        .filter((filePath): filePath is string => Boolean(filePath)),
+    )
+
+    for (const call of parsed.calls) {
+      const candidates = (definitions.get(call) ?? []).filter(
+        (filePath) => filePath !== callerPath,
+      )
+      const sameLanguage = candidates.filter(
+        (filePath) =>
+          getLanguageFamily(files[filePath]?.ext) ===
+          getLanguageFamily(caller.ext),
+      )
+      const languageCandidates = sameLanguage
+      const importedCandidates = languageCandidates.filter((filePath) =>
+        importedFiles.has(filePath),
+      )
+      const resolved =
+        importedCandidates.length === 1
+          ? importedCandidates[0]
+          : languageCandidates.length === 1
+            ? languageCandidates[0]
+            : undefined
+      if (!resolved) continue
+      edges.push({
+        from: fileNodeId(callerPath),
+        to: fileNodeId(resolved),
+        type: 'calls',
+        weight,
+        label: call,
+      })
+    }
+  }
+  return edges
 }
 
 function getIndexExcludes(config: IndexingConfig): string[] {
@@ -936,8 +1058,12 @@ function fileNodeId(filePath: string): string {
   return `file:${filePath}`
 }
 
-function symbolNodeId(symbol: string): string {
-  return `symbol:${symbol}`
+function symbolNodeId(
+  filePath: string,
+  extension: string,
+  symbol: string,
+): string {
+  return `symbol:${extension}:${filePath}#${symbol}`
 }
 
 function importNodeId(importPath: string): string {

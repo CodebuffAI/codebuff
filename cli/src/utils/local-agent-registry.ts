@@ -41,7 +41,7 @@ let userAgentFilePaths: Map<string, string> = new Map()
 // Cache for MCP servers loaded from mcp.json in .agents directories
 let mcpServersCache: Record<string, MCPConfig> = {}
 let agentRegistryDiagnostics: AgentValidationError[] = []
-let projectAgentsTrusted = true
+let projectAgentsTrusted = false
 
 /**
  * Initialize the agent registry by loading user agents via the SDK.
@@ -61,7 +61,7 @@ export async function initializeAgentRegistry(options?: {
   cachedAgentsByMode.clear()
   cachedAgentsDir = null
   try {
-    const trustProjectAgents = options?.trustProjectAgents ?? true
+    const trustProjectAgents = options?.trustProjectAgents ?? false
     projectAgentsTrusted = trustProjectAgents
     const loaded = await sdkLoadLocalAgents({
       includeProjectAgents: trustProjectAgents,
@@ -94,7 +94,7 @@ export async function initializeAgentRegistry(options?: {
   // Load MCP config from mcp.json files in .agents directories
   try {
     const mcpConfig = loadMCPConfigSync({
-      includeProjectConfig: options?.trustProjectAgents ?? true,
+      includeProjectConfig: options?.trustProjectAgents ?? false,
       verbose: false,
     })
     mcpServersCache = mcpConfig.mcpServers

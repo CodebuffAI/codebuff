@@ -150,7 +150,9 @@ describe('editor to orchestrator contract e2e', () => {
         toolResult: feedJson(receipt).toolResult,
       }).value,
     ).toMatchObject({ toolName: 'git_status' })
-    expect(generator.next(feedJson({ status: ' M src/lifecycle.ts' })).value).toMatchObject({
+    expect(
+      generator.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+    ).toMatchObject({
       toolName: 'run_file_change_hooks',
       input: { files: ['src/lifecycle.ts'] },
     })

@@ -28,6 +28,7 @@ export type HarnessRecordKind =
   | 'validation'
   | 'findings'
   | 'approvals'
+  | 'workspace-journals'
 
 const recordKinds: HarnessRecordKind[] = [
   'tasks',
@@ -38,6 +39,7 @@ const recordKinds: HarnessRecordKind[] = [
   'validation',
   'findings',
   'approvals',
+  'workspace-journals',
 ]
 
 const LOCK_WAIT_MS = 10
@@ -86,10 +88,7 @@ export class LocalHarnessStore {
     return path.join(this.rootDir, repositoryId, kind, `${id}.json`)
   }
 
-  private kindDirectory(
-    repositoryId: string,
-    kind: HarnessRecordKind,
-  ): string {
+  private kindDirectory(repositoryId: string, kind: HarnessRecordKind): string {
     assertSafeSegment(repositoryId, 'repository id')
     if (!recordKinds.includes(kind)) {
       throw new Error(`Invalid harness record kind '${kind}'.`)
@@ -123,7 +122,9 @@ export class LocalHarnessStore {
           throw statError
         }
         if (Date.now() - startedAt >= LOCK_TIMEOUT_MS) {
-          throw new Error(`Timed out acquiring harness store lock '${lockPath}'.`)
+          throw new Error(
+            `Timed out acquiring harness store lock '${lockPath}'.`,
+          )
         }
         Atomics.wait(lockWaitArray, 0, 0, LOCK_WAIT_MS)
       }
@@ -152,9 +153,9 @@ export class LocalHarnessStore {
   ): LocalHarnessRecord | undefined {
     const filePath = this.recordPath(repositoryId, kind, id)
     if (!fs.existsSync(filePath)) return undefined
-    const parsed = recordSchema.passthrough().safeParse(
-      JSON.parse(fs.readFileSync(filePath, 'utf8')),
-    )
+    const parsed = recordSchema
+      .passthrough()
+      .safeParse(JSON.parse(fs.readFileSync(filePath, 'utf8')))
     if (!parsed.success) {
       throw new Error(
         `Invalid harness record at ${filePath}: ${parsed.error.message}`,
@@ -163,10 +164,7 @@ export class LocalHarnessStore {
     return parsed.data
   }
 
-  list(
-    repositoryId: string,
-    kind: HarnessRecordKind,
-  ): LocalHarnessRecord[] {
+  list(repositoryId: string, kind: HarnessRecordKind): LocalHarnessRecord[] {
     return this.listWithDiagnostics(repositoryId, kind).records
   }
 

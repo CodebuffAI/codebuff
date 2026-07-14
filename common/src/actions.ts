@@ -12,10 +12,25 @@ import type { PrintModeEvent } from './types/print-mode'
 import type { AgentOutput, SessionState, ToolCall } from './types/session-state'
 import type { ProjectFileContext } from './util/file'
 
+export const MAX_FILE_CHANGES_PER_TRANSACTION = 128
+export const MAX_TRANSACTION_UNIQUE_PATHS = 128
+export const MAX_TRANSACTION_FILE_BYTES = 16 * 1024 * 1024
+export const MAX_TRANSACTION_INPUT_BYTES = 64 * 1024 * 1024
+export const MAX_TRANSACTION_PREPARED_BYTES = 64 * 1024 * 1024
+export const MAX_TRANSACTION_ROLLBACK_BYTES = 64 * 1024 * 1024
+
+const utf8ByteLength = (value: string): number =>
+  new TextEncoder().encode(value).byteLength
+
 export const FileContentChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
   path: z.string(),
-  content: z.string(),
+  content: z
+    .string()
+    .refine(
+      (value) => utf8ByteLength(value) <= MAX_TRANSACTION_FILE_BYTES,
+      `File mutation content exceeds the ${MAX_TRANSACTION_FILE_BYTES}-byte per-file limit.`,
+    ),
   /** Expected pre-commit content hash; null requires an exclusive create. */
   expectedHash: z.string().nullable().optional(),
 })
@@ -38,7 +53,39 @@ export const FileChangeSchema = z.union([
 ])
 export type FileChange = z.infer<typeof FileChangeSchema>
 export type FileContentChange = z.infer<typeof FileContentChangeSchema>
-export const CHANGES = z.array(FileChangeSchema)
+export const CHANGES = z
+  .array(FileChangeSchema)
+  .min(1)
+  .max(
+    MAX_FILE_CHANGES_PER_TRANSACTION,
+    `A transaction can contain at most ${MAX_FILE_CHANGES_PER_TRANSACTION} changes.`,
+  )
+  .superRefine((changes, ctx) => {
+    const paths = new Set(
+      changes.flatMap((change) =>
+        change.type === 'move'
+          ? [change.path, change.destinationPath]
+          : [change.path],
+      ),
+    )
+    if (paths.size > MAX_TRANSACTION_UNIQUE_PATHS) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `A transaction can touch at most ${MAX_TRANSACTION_UNIQUE_PATHS} unique paths. Split the transaction into bounded groups.`,
+      })
+    }
+    const inputBytes = changes.reduce(
+      (total, change) =>
+        total + ('content' in change ? utf8ByteLength(change.content) : 0),
+      0,
+    )
+    if (inputBytes > MAX_TRANSACTION_INPUT_BYTES) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Transaction content exceeds the ${MAX_TRANSACTION_INPUT_BYTES}-byte aggregate input limit. Split the transaction into bounded groups.`,
+      })
+    }
+  })
 export type FileChanges = z.infer<typeof CHANGES>
 
 type ClientActionPrompt = {

@@ -1,6 +1,4 @@
-import {
-  InvalidResponseDataError,
-} from '@ai-sdk/provider'
+import { InvalidResponseDataError } from '@ai-sdk/provider'
 import {
   combineHeaders,
   createEventSourceResponseHandler,

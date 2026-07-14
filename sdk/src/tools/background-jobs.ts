@@ -67,6 +67,12 @@ export interface BackgroundJob {
   readOffset: number
   /** Preserves incomplete UTF-8 sequences across bounded incremental reads. */
   decoder?: StringDecoder
+  owner?: {
+    clientSessionId: string
+    rootRunId: string
+    parentRunId: string
+    parentAgentId: string
+  }
 }
 
 const jobs = new Map<string, BackgroundJob>()
@@ -348,8 +354,15 @@ export function startBackgroundJob(params: {
   shellArgs: string[]
   cwd: string
   env: NodeJS.ProcessEnv
+  owner?: BackgroundJob['owner']
 }): BackgroundJob {
   const { command, shell, shellArgs, cwd, env } = params
+  const owner = params.owner ?? {
+    clientSessionId: 'unknown-session',
+    rootRunId: 'unknown-root',
+    parentRunId: 'unknown-parent',
+    parentAgentId: 'unknown-agent',
+  }
   sweepOrphanedJobFiles()
   const jobId = nextJobId()
   const logFile = getBackgroundJobFilePath(jobId, 'log')!
@@ -379,6 +392,7 @@ export function startBackgroundJob(params: {
     startedAt: Date.now(),
     readOffset: 0,
     decoder: new StringDecoder('utf8'),
+    owner,
   }
 
   upsertPendingBackgroundJob({
@@ -386,6 +400,7 @@ export function startBackgroundJob(params: {
     command,
     status: job.status,
     startedAt: job.startedAt,
+    owner,
   })
 
   let quotaExceeded = false

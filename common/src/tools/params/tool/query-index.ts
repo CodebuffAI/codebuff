@@ -171,6 +171,7 @@ export const queryIndexParams = {
       results: z.array(
         z.object({
           path: z.string(),
+          indexedHash: z.string().optional(),
           score: z.number(),
           matchedOn: z.array(z.string()),
           symbols: z.array(z.string()).optional(),
@@ -191,20 +192,94 @@ export const queryIndexParams = {
           explanation: z.string().optional(),
         }),
       ),
+      kind: z.literal('query_index_result'),
+      schemaVersion: z.literal(1),
       totalIndexed: z.number(),
       indexAge: z.number(),
+      snapshot: z
+        .object({
+          schemaVersion: z.literal(1),
+          snapshotId: z.string(),
+          indexVersion: z.literal('2'),
+          builtAt: z.number(),
+          workspaceRevision: z.union([z.string(), z.number()]).optional(),
+        })
+        .optional(),
       message: z.string(),
       status: z
         .object({
-          state: z.enum(['disabled', 'building', 'ready', 'stale', 'degraded', 'empty']),
+          state: z.enum([
+            'disabled',
+            'building',
+            'ready',
+            'stale',
+            'degraded',
+            'failed',
+            'empty',
+          ]),
           ready: z.boolean(),
           stale: z.boolean(),
           refreshing: z.boolean(),
-          semantic: z.enum(['disabled', 'building', 'ready', 'unavailable', 'failed']),
+          semantic: z.enum([
+            'disabled',
+            'building',
+            'ready',
+            'unavailable',
+            'failed',
+          ]),
           totalIndexed: z.number(),
           indexAge: z.number(),
-          diagnostics: z.array(z.object({ filePath: z.string(), stage: z.enum(['language', 'read', 'parse']), message: z.string() })),
-          coverage: z.object({ truncated: z.boolean(), maxFiles: z.number(), skippedFiles: z.number(), skippedPrefixes: z.array(z.string()) }).optional(),
+          diagnostics: z.array(
+            z.object({
+              filePath: z.string(),
+              stage: z.enum(['language', 'read', 'parse']),
+              message: z.string(),
+            }),
+          ),
+          coverage: z
+            .object({
+              truncated: z.boolean(),
+              maxFiles: z.number(),
+              skippedFiles: z.number(),
+              skippedPrefixes: z.array(z.string()),
+              parser: z
+                .object({
+                  requestedFiles: z.number(),
+                  parsedFiles: z.number(),
+                  reusedFiles: z.number(),
+                  freshParsedFiles: z.number(),
+                  parsedBytes: z.number(),
+                  skippedFiles: z.number(),
+                  skippedKnownBytes: z.number(),
+                  skippedPrefixes: z.array(z.string()),
+                  skippedLanguages: z.array(z.string()),
+                  fileBudgetExceeded: z.boolean(),
+                  byteBudgetExceeded: z.boolean(),
+                  oversizedFiles: z.number(),
+                  maxFiles: z.number(),
+                  maxFileBytes: z.number(),
+                  maxTotalBytes: z.number(),
+                  truncated: z.boolean(),
+                })
+                .optional(),
+            })
+            .optional(),
+          lastBuildError: z
+            .object({
+              stage: z.enum([
+                'load',
+                'walk',
+                'parse',
+                'persist',
+                'semantic',
+                'unknown',
+              ]),
+              message: z.string(),
+              timestamp: z.number(),
+              retryable: z.boolean(),
+              cachePath: z.string().optional(),
+            })
+            .optional(),
           message: z.string(),
         })
         .optional(),

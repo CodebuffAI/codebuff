@@ -95,15 +95,23 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
             {
               type: 'json',
               value: {
+                kind: 'query_index_result',
+                schemaVersion: 1,
                 results: [],
                 totalIndexed: 0,
                 indexAge: 0,
                 message:
                   'Codebase indexing is disabled in openbuff.json; fall back to read_subtree, glob, or code_search.',
                 status: {
-                  state: 'disabled', ready: false, stale: false, refreshing: false,
-                  semantic: 'disabled', totalIndexed: 0, indexAge: 0,
-                  diagnostics: [], message: 'Indexing is disabled.',
+                  state: 'disabled',
+                  ready: false,
+                  stale: false,
+                  refreshing: false,
+                  semantic: 'disabled',
+                  totalIndexed: 0,
+                  indexAge: 0,
+                  diagnostics: [],
+                  message: 'Indexing is disabled.',
                 },
               } as JSONObject,
             },
@@ -139,6 +147,7 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
             score: item.score,
             matchedOn: item.matchedOn,
           }
+          if (item.indexedHash) output.indexedHash = item.indexedHash
           if (item.symbols) output.symbols = item.symbols
           if (item.headings) output.headings = item.headings
           if (item.matchedSnippets)
@@ -157,13 +166,29 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
           if (item.explanation) output.explanation = item.explanation
           return output
         })
+        const snapshot: JSONObject | undefined = result.snapshot
+          ? {
+              schemaVersion: result.snapshot.schemaVersion,
+              snapshotId: result.snapshot.snapshotId,
+              indexVersion: result.snapshot.indexVersion,
+              builtAt: result.snapshot.builtAt,
+              ...(result.snapshot.workspaceRevision !== undefined
+                ? {
+                    workspaceRevision: result.snapshot.workspaceRevision,
+                  }
+                : {}),
+            }
+          : undefined
         return [
           {
             type: 'json',
             value: {
+              kind: 'query_index_result',
+              schemaVersion: 1,
               results,
               totalIndexed: result.totalIndexed,
               indexAge: result.indexAge,
+              ...(snapshot ? { snapshot } : {}),
               status: result.status as unknown as JSONObject,
               message: `${result.status.message} Found ${result.results.length} indexed file result(s).${semanticNotice}`,
             } as JSONObject,

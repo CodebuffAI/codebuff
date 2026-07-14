@@ -50,6 +50,7 @@ The public SDK used by the CLI and available to external users via `@openbuff/sd
 - **Key responsibilities:**
   - Orchestrates agent runs: initializes local session state, registers tool handlers, calls `callMainPrompt()`.
   - **Executes tool calls locally** on the user's machine (file edits, terminal commands, code search).
+  - Creates a worktree-scoped cooperative mutation broker for the default Node filesystem. Participating Openbuff processes serialize exact-byte conditional commits, deletes, creates, and no-clobber moves through a durable receipt journal; external editors remain outside this authority and are detected through workspace revision/watcher invalidation.
   - Manages model provider routing dynamically: reads `openbuff.json` to select and invoke user-configured OpenAI-compatible APIs (OpenAI, OpenRouter, Ollama, GLM, etc.), Anthropic-compatible Claude APIs, or ChatGPT OAuth directly from the client.
 - **Depends on:** none (standalone — published as `@openbuff/sdk` with no workspace dependencies)
 
@@ -176,9 +177,11 @@ page; the high-level wiring is:
 
 - **Staged read-before-edit.** Edit tools (`str_replace`,
   `edit_transaction`, patch applicators) can require a recent
-  `read_files` authorization (or an explicit `basedOnRead` capability)
-  before mutating a path under strict-mode flows. Successful edits
-  invalidate that authorization. See
+  `read_files` authorization (or an authenticated `cap.v3`
+  `basedOnRead` capability bound to the current project, path, and run)
+  before mutating a path under strict-mode flows. Legacy range hashes remain
+  freshness checks but cannot authorize an otherwise unread path. Successful
+  edits invalidate stale anchors. See
   [Deterministic Edit System](./deterministic-edit-system.md).
 - **Reviewer / validation gate.** A turn that opts into the gate tracks
   pending gate files with working-tree content markers

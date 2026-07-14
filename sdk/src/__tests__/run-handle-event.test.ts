@@ -76,10 +76,19 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     )
 
     const fs = createMockFs()
+    const mutationEvents: Array<{
+      workspaceRevision: number
+      actions: Array<{ action: string; path: string }>
+    }> = []
+    let fallbackInvalidations = 0
     const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/repo',
       fsSource: fs,
+      onFilesystemMutation: (event) => {
+        mutationEvents.push(event)
+      },
+      onFilesChanged: () => fallbackInvalidations++,
     })
 
     const result = await client.run({
@@ -93,6 +102,12 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     ).toMatchObject({
       kind: 'file_mutation_result',
       outcome: 'applied',
+      workspaceRevision: 1,
+      workspaceSnapshotId: expect.stringContaining('workspace.v1.1.'),
+      authorityReceipt: expect.objectContaining({
+        workspaceRevision: 1,
+        workspaceSnapshotId: expect.stringContaining('workspace.v1.1.'),
+      }),
       actions: [
         expect.objectContaining({
           action: 'create',
@@ -103,6 +118,18 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     expect(
       await fs.readFile('/repo/.agents/sessions/test-session/PLAN.md', 'utf-8'),
     ).toBe('# Plan\n\n- Write the plan artifact\n')
+    expect(mutationEvents).toEqual([
+      expect.objectContaining({
+        workspaceRevision: 1,
+        actions: [
+          expect.objectContaining({
+            action: 'create',
+            path: '.agents/sessions/test-session/PLAN.md',
+          }),
+        ],
+      }),
+    ])
+    expect(fallbackInvalidations).toBe(0)
   })
 
   it('validates overridden native client tool inputs before calling the override', async () => {

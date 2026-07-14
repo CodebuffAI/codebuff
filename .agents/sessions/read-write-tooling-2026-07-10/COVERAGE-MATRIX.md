@@ -1,10 +1,10 @@
 # Coverage matrix
 
-| Domain | Shard IDs | Covered |
-|--------|-----------|---------|
-| Runtime edit state and matching | runtime-edit-audit | yes |
-| SDK filesystem execution and common contracts | sdk-contract-audit | yes |
-| Agent prompts, pruning, and CLI UX | ux-prompt-audit | yes |
+| Domain                                        | Shard IDs          | Covered |
+| --------------------------------------------- | ------------------ | ------- |
+| Runtime edit state and matching               | runtime-edit-audit | yes     |
+| SDK filesystem execution and common contracts | sdk-contract-audit | yes     |
+| Agent prompts, pruning, and CLI UX            | ux-prompt-audit    | yes     |
 
 ## Subsystem enumeration
 

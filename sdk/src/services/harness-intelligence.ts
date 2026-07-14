@@ -296,6 +296,7 @@ export function getAffectedTestTargets(
   cwd: string,
   files: string[],
 ): AffectedTestTarget[] {
+  const environment = inspectHarnessEnvironment(cwd)
   return files.flatMap((source) => {
     const resolvedSource = resolveProjectPath(cwd, source)
     if (!resolvedSource) return []
@@ -310,13 +311,16 @@ export function getAffectedTestTargets(
       `${directory}/__tests__/${basename}.test${extension}`,
       `${directory}/__tests__/${basename}.spec${extension}`,
     ].filter((candidate) => fs.existsSync(path.join(cwd, candidate)))
-    const segments = normalized.split('/')
     const packageRoot =
-      segments[0] === 'packages' && segments[1]
-        ? `packages/${segments[1]}`
-        : segments.length > 1
-          ? segments[0]
-          : '.'
+      environment.workspaces
+        .filter(
+          (workspace) =>
+            workspace.root === '.' ||
+            normalized === workspace.root ||
+            normalized.startsWith(`${workspace.root}/`),
+        )
+        .sort((left, right) => right.root.length - left.root.length)[0]?.root ??
+      '.'
     return [{ source: normalized, candidates, packageRoot }]
   })
 }

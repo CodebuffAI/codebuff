@@ -14,7 +14,9 @@ import z from 'zod/v4'
  * - An object with the range's `startLine`, `endLine`, and `sha256 rangeHash`.
  *
  * Semantics:
- * - Presence bypasses the strict read-before-edit gate for the target path.
+ * - Only an authenticated cap.v3 token bound to the current project, path, and
+ *   run can satisfy strict read-before-edit without a whole-file authorization.
+ *   Legacy cap.v2/object forms remain freshness anchors only.
  * - Verification is tool-specific. Large-file `str_replace` and
  *   `apply_patch` validate the supplied range hash against current content;
  *   small-file `str_replace` normally relies on exact oldString matching. In
@@ -56,8 +58,9 @@ export const basedOnReadRangeSchema = z
 
 /**
  * Token-string OR object union accepted by str_replace/write_file/
- * propose_str_replace/edit_transaction. Presence bypasses strict
- * read-before-edit for the target path.
+ * propose_str_replace/edit_transaction. Authenticated cap.v3 tokens can satisfy
+ * strict read-before-edit for their bound path; legacy forms cannot authorize
+ * an otherwise unread path.
  */
 export const basedOnReadSchema = z
   .union([
@@ -65,11 +68,11 @@ export const basedOnReadSchema = z
       .string()
       .min(1)
       .describe(
-        'The single readCapability token copied verbatim from a fresh read_files range header (e.g. "cap.ABC123"). Preferred: one value to copy instead of three.',
+        'The single authenticated cap.v3 readCapability copied verbatim from a fresh read_files range header. Preferred: it binds the project, path, run, range, and hash as one value.',
       ),
     basedOnReadRangeSchema,
   ])
   .optional()
   .describe(
-    'Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read.',
+    'Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read.',
   )

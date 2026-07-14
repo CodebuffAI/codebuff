@@ -1,4 +1,4 @@
-import { isEqual, mapValues } from 'lodash'
+import { mapValues } from 'lodash'
 
 import {
   validateAndGetAgentTemplate,
@@ -7,8 +7,18 @@ import {
   createAgentState,
   extractSubagentContextParams,
   buildSpawnParamsWithHandoff,
+  deriveSpawnTemplateCapabilities,
+  validateVersionedAgentHandoff,
   normalizeSpawnedAgentOutput,
+  buildRuntimeAgentReceipt,
+  reconcileAgentReceiptIntoParent,
 } from './spawn-agent-utils'
+import { appendOrchestrationEvent } from '../../../util/orchestration-ledger'
+import { selectAgentAttempt } from '../../../orchestration/select-agent-attempt'
+import {
+  acquireWorkspacePathLease,
+  releaseWorkspacePathLease,
+} from '../../../util/workspace-path-leases'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -89,39 +99,105 @@ export const handleSpawnAgentInline = (async (
   })
 
   validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+  validateVersionedAgentHandoff({ agentType, handoff })
+  const effectiveAgentTemplate = deriveSpawnTemplateCapabilities({
+    agentTemplate,
+    handoff,
+    projectRoot: params.fileContext.projectRoot,
+  })
+  const selection = selectAgentAttempt({
+    candidates: [
+      {
+        template: effectiveAgentTemplate,
+        contextWindowTokens: params.resolveModelContextWindow?.({
+          agentId: effectiveAgentTemplate.id,
+          model: effectiveAgentTemplate.model,
+        }),
+        explicitRoute: true,
+      },
+    ],
+    requiredTools: handoff?.permissions.allowedTools ?? [],
+    requiredWritablePaths: handoff?.permissions.writablePaths ?? [],
+    minimumContextTokens: Math.max(
+      2_048,
+      Math.ceil(
+        ((handoff ? JSON.stringify(handoff).length : 0) +
+          (prompt?.length ?? 0)) /
+          2,
+      ),
+    ),
+    runningForRoot:
+      parentAgentState.backgroundAgentJobs?.filter(
+        (job) => job.status === 'running',
+      ).length ?? 0,
+    maxRunningForRoot: 8,
+  })
   const runtimeSpawnParams = buildSpawnParamsWithHandoff({
     agentType,
     handoff,
     spawnParams,
   })
 
-  // Override template for inline agent to share system prompt & message history with parent
+  // Inline context editors need the full parent transcript, but ordinary inline
+  // specialists receive only bounded pinned operational memory by default.
+  // This keeps each child's model window independent and avoids duplicating the
+  // parent's system/tool baseline unless the child explicitly opts in.
+  const editsParentMessageHistory =
+    agentType === 'context-pruner' ||
+    effectiveAgentTemplate.propagateMessageHistoryChanges === true
+  const inlineMessageHistoryMode = editsParentMessageHistory
+    ? 'full'
+    : (effectiveAgentTemplate.messageHistoryMode ?? 'pinned')
   const inlineTemplate = {
-    ...agentTemplate,
-    includeMessageHistory: true,
-    inheritParentSystemPrompt: true,
+    ...selection.candidate.template,
+    includeMessageHistory: inlineMessageHistoryMode !== 'none',
+    messageHistoryMode: inlineMessageHistoryMode,
+    inheritParentSystemPrompt:
+      agentType === 'context-pruner'
+        ? true
+        : effectiveAgentTemplate.inheritParentSystemPrompt,
   }
 
-  // Create child agent state that shares message history with parent
+  // Create an isolated child state with the selected bounded transfer mode.
   const childAgentState: AgentState = {
-    ...createAgentState(
-      agentType,
-      inlineTemplate,
-      parentAgentState,
-      parentAgentState.agentContext,
-    ),
-    systemPrompt: system,
-    toolDefinitions: mapValues(parentTools, (tool) => ({
-      description: tool.description,
-      inputSchema: tool.inputSchema as {},
-    })),
+    ...createAgentState(agentType, inlineTemplate, parentAgentState, {}),
+    ...(inlineTemplate.inheritParentSystemPrompt
+      ? {
+          systemPrompt: system,
+          toolDefinitions: mapValues(parentTools, (tool) => ({
+            description: tool.description,
+            inputSchema: tool.inputSchema as {},
+          })),
+        }
+      : {}),
   }
-  const inheritedParentHistory = childAgentState.messageHistory.slice(0, -1)
-
+  appendOrchestrationEvent({
+    state: parentAgentState,
+    event: {
+      type: 'spawn_started',
+      runId: parentAgentState.runId ?? parentAgentState.agentId,
+      spawnId: childAgentState.agentId,
+      taskId: handoff?.taskId,
+      agentType,
+      parentRunId: parentAgentState.runId ?? parentAgentState.agentId,
+      capabilityId: selection.capabilityId,
+      workspaceRevision: parentAgentState.workspaceState?.revision,
+      workspaceSnapshotId: parentAgentState.workspaceState?.snapshotId,
+    },
+  })
+  const leaseId = acquireWorkspacePathLease({
+    state: parentAgentState,
+    projectRoot: params.fileContext.projectRoot,
+    ownerAgentId: childAgentState.agentId,
+    taskId: handoff?.taskId,
+    paths: handoff?.permissions.writablePaths ?? [],
+  })
   // Extract common context params to avoid bugs from spreading all params
   const contextParams = extractSubagentContextParams(params)
 
-  const result = await executeSubagent({
+  let result: Awaited<ReturnType<typeof executeSubagent>>
+  try {
+    result = await executeSubagent({
     ...contextParams,
 
     // Spawn-specific params
@@ -195,29 +271,41 @@ export const handleSpawnAgentInline = (async (
       }
     },
     clearUserPromptMessagesAfterResponse: false,
-  })
+    })
+  } catch (error) {
+    releaseWorkspacePathLease(parentAgentState, leaseId)
+    throw error
+  }
 
-  // Ordinary inline agents append private reads, tool results, and output to
-  // the inherited history. Do not copy that append-only child transcript back
-  // into the orchestrator; return only the final result below. A programmatic
-  // history editor (notably context-pruner) may intentionally delete, reorder,
-  // or rewrite inherited messages via set_messages. Detect that control-plane
-  // mutation by checking the inherited prefix and propagate only then.
-  const inheritedPrefixPreserved = inheritedParentHistory.every(
-    (message, index) =>
-      index < result.agentState.messageHistory.length &&
-      isEqual(result.agentState.messageHistory[index], message),
-  )
-  if (agentType === 'context-pruner' || !inheritedPrefixPreserved) {
+  // Ordinary inline agents never write their private transcript back into the
+  // parent. Only explicit history-editor templates may propagate replacements.
+  if (editsParentMessageHistory) {
     parentAgentState.messageHistory = result.agentState.messageHistory
   }
+  const receipt = buildRuntimeAgentReceipt({
+    agentType,
+    agentId: result.agentState.agentId,
+    handoff,
+    output: result.output,
+    agentState: result.agentState,
+  })
+  reconcileAgentReceiptIntoParent({
+    parentAgentState,
+    receipt,
+    agentType,
+    objective: handoff?.objective,
+  })
+  releaseWorkspacePathLease(parentAgentState, leaseId)
 
   return {
     output: [
       {
         type: 'json',
-        value: normalizeSpawnedAgentOutput(result.output, agentType) ?? {
-          message: 'Agent completed without structured output.',
+        value: {
+          result: normalizeSpawnedAgentOutput(result.output, agentType) ?? {
+            message: 'Agent completed without structured output.',
+          },
+          agentReceipt: receipt,
         },
       },
     ],

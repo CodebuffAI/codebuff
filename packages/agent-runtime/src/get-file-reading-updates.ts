@@ -14,6 +14,7 @@ import type {
   LegacyReadFilesMap,
   RequestFilesFn,
 } from '@codebuff/common/types/contracts/client'
+import type { ReadCapabilityIssuer } from '@codebuff/common/util/content-hash'
 
 const RANGE_BLOCK_MARKER = '[RANGE_BLOCK '
 
@@ -208,11 +209,13 @@ export async function getFileReadingUpdates(params: {
   requestFiles: RequestFilesFn
   requestedFiles: string[]
   ranges?: FileLineRange[]
+  capabilityIssuer?: ReadCapabilityIssuer
 }): Promise<ReadFilesResultV1> {
-  const { requestFiles, requestedFiles, ranges = [] } = params
+  const { requestFiles, requestedFiles, ranges = [], capabilityIssuer } = params
   const loadedFiles = await requestFiles({
     filePaths: requestedFiles,
     ranges,
+    ...(capabilityIssuer ? { capabilityIssuer } : {}),
   })
   if (isReadFilesResultV1(loadedFiles)) {
     const expectedSelectors = [

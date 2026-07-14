@@ -20,6 +20,10 @@ import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { getAgentShortName, getAgentToolName } from '../templates/prompts'
 import { getEffectiveAgentToolNames } from '../util/agent-tool-names'
 import {
+  normalizeScopedToolPath,
+  scopePatternMatches,
+} from '../util/filesystem-scope'
+import {
   formatValidationIssues,
   type ValidationIssue,
 } from '../util/format-validation-issues'
@@ -570,33 +574,6 @@ function isFileChangingTool(toolName: string): boolean {
     toolName === 'str_replace' ||
     toolName === 'write_file'
   )
-}
-
-function scopePatternMatches(filePath: string, pattern: string): boolean {
-  const normalizedPattern = pattern.replace(/\\/g, '/').replace(/^\.\//, '')
-  let source = '^'
-  for (let index = 0; index < normalizedPattern.length; index++) {
-    const char = normalizedPattern[index]
-    if (char === '*' && normalizedPattern[index + 1] === '*') {
-      source += '.*'
-      index++
-    } else if (char === '*') {
-      source += '[^/]*'
-    } else if (char === '?') {
-      source += '[^/]'
-    } else {
-      source += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    }
-  }
-  return new RegExp(`${source}$`).test(filePath)
-}
-
-function normalizeScopedToolPath(rawPath: string, projectRoot: string): string {
-  const absolute = path.isAbsolute(rawPath)
-    ? path.resolve(rawPath)
-    : path.resolve(projectRoot, rawPath)
-  const relative = path.relative(projectRoot, absolute).replace(/\\/g, '/')
-  return relative || '.'
 }
 
 function getFilesystemToolPaths(

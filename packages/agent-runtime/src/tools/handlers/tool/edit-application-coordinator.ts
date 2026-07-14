@@ -224,9 +224,7 @@ export async function coordinateEditApplication<T extends ToolName>(params: {
     return { status: 'rejected', output }
   }
 
-  if (
-    !hasPositiveApplicationEvidence(output, new Set(paths))
-  ) {
+  if (!hasPositiveApplicationEvidence(output, new Set(paths))) {
     invalidatePreparedEditPaths({
       fileProcessingState: params.fileProcessingState,
       paths,

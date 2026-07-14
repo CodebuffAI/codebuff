@@ -101,6 +101,7 @@ export type PlanSessionState = {
     phase: 'validation' | 'review'
     passed: boolean
     summary?: string
+    receiptIds?: string[]
     recordedAt: string
   } | null
   /** ISO-8601 timestamp when the state file was first created. */
@@ -817,7 +818,9 @@ function parsePlanTaskDetails(content: string): ParsedPlanTasks {
     if (!current) continue
     const field = line
       .trim()
-      .match(/^[-*]\s*(?:\*\*)?(Depends on|Acceptance|Validate)(?:\*\*)?\s*:\s*(.*)$/i)
+      .match(
+        /^[-*]\s*(?:\*\*)?(Depends on|Acceptance|Validate)(?:\*\*)?\s*:\s*(.*)$/i,
+      )
     if (!field) continue
     const key = field[1].toLowerCase()
     const fieldValue = field[2].trim()

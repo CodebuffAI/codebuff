@@ -745,6 +745,8 @@ describe('simplifyQueryIndexResults', () => {
       {
         type: 'json',
         value: {
+          kind: 'query_index_result',
+          schemaVersion: 1,
           results: [
             {
               path: 'src/file1.ts',
@@ -772,6 +774,8 @@ describe('simplifyQueryIndexResults', () => {
       {
         type: 'json',
         value: {
+          kind: 'query_index_result',
+          schemaVersion: 1,
           results: [
             {
               path: 'src/file1.ts',
@@ -797,6 +801,8 @@ describe('simplifyQueryIndexResults', () => {
       {
         type: 'json',
         value: {
+          kind: 'query_index_result',
+          schemaVersion: 1,
           results: [
             {
               path: 'src/file1.ts',
@@ -818,6 +824,8 @@ describe('simplifyQueryIndexResults', () => {
       {
         type: 'json',
         value: {
+          kind: 'query_index_result',
+          schemaVersion: 1,
           results: [
             {
               path: 'src/file1.ts',
@@ -839,6 +847,8 @@ describe('simplifyQueryIndexResults', () => {
       {
         type: 'json',
         value: {
+          kind: 'query_index_result',
+          schemaVersion: 1,
           results: [
             {
               path: 'src/file1.ts',
@@ -864,6 +874,8 @@ describe('simplifyQueryIndexResults', () => {
       {
         type: 'json',
         value: {
+          kind: 'query_index_result',
+          schemaVersion: 1,
           results: [
             {
               path: 'src/file1.ts',

@@ -3,13 +3,24 @@ import { runFileChangeHooks } from './file-change-hooks'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { WorkspaceStateV1 } from '@codebuff/common/types/workspace-state'
 
 function bundleValue(
   output: Awaited<ReturnType<typeof getChangeReviewBundle>>,
-): { snapshotId: string } | { errorMessage: string } {
+):
+  | {
+      snapshotId: string
+      workspaceRevision?: number
+      workspaceSnapshotId?: string
+    }
+  | { errorMessage: string } {
   const value = output[0]?.type === 'json' ? output[0].value : undefined
   return value && 'snapshotId' in value
-    ? { snapshotId: value.snapshotId }
+    ? {
+        snapshotId: value.snapshotId,
+        workspaceRevision: value.workspaceRevision,
+        workspaceSnapshotId: value.workspaceSnapshotId,
+      }
     : {
         errorMessage:
           value && 'errorMessage' in value
@@ -27,10 +38,15 @@ export async function runTargetedValidation(params: {
   signal?: AbortSignal
   fileSystem?: CodebuffFileSystem
   runHooks?: typeof runFileChangeHooks
+  workspaceState?: WorkspaceStateV1
 }): Promise<CodebuffToolOutput<'run_targeted_validation'>> {
   const artifactKinds = params.artifactKinds ?? []
   const before = bundleValue(
-    await getChangeReviewBundle({ cwd: params.cwd, signal: params.signal }),
+    await getChangeReviewBundle({
+      cwd: params.cwd,
+      workspaceState: params.workspaceState,
+      signal: params.signal,
+    }),
   )
   if ('errorMessage' in before || before.snapshotId !== params.snapshotId) {
     return [
@@ -40,6 +56,14 @@ export async function runTargetedValidation(params: {
           schemaVersion: 1,
           snapshotId:
             'snapshotId' in before ? before.snapshotId : params.snapshotId,
+          workspaceRevision:
+            'workspaceRevision' in before
+              ? before.workspaceRevision
+              : params.workspaceState?.revision,
+          workspaceSnapshotId:
+            'workspaceSnapshotId' in before
+              ? before.workspaceSnapshotId
+              : params.workspaceState?.snapshotId,
           files: params.files,
           artifactKinds,
           status: 'failed',
@@ -62,7 +86,11 @@ export async function runTargetedValidation(params: {
     part.type === 'json' && Array.isArray(part.value) ? part.value : [],
   ) as Array<Record<string, unknown>>
   const after = bundleValue(
-    await getChangeReviewBundle({ cwd: params.cwd, signal: params.signal }),
+    await getChangeReviewBundle({
+      cwd: params.cwd,
+      workspaceState: params.workspaceState,
+      signal: params.signal,
+    }),
   )
   const snapshotChanged =
     'errorMessage' in after || after.snapshotId !== before.snapshotId
@@ -81,17 +109,21 @@ export async function runTargetedValidation(params: {
           : '',
       ),
     )
-  const status = snapshotChanged || failed ? 'failed' : skipped ? 'skipped' : 'passed'
+  const status =
+    snapshotChanged || failed ? 'failed' : skipped ? 'skipped' : 'passed'
   return [
     {
       type: 'json',
       value: {
         schemaVersion: 1,
         snapshotId: before.snapshotId,
+        workspaceRevision: before.workspaceRevision,
+        workspaceSnapshotId: before.workspaceSnapshotId,
         files: params.files,
         artifactKinds,
         status,
-        assurance: snapshotChanged || failed ? 'none' : skipped ? 'reduced' : 'full',
+        assurance:
+          snapshotChanged || failed ? 'none' : skipped ? 'reduced' : 'full',
         summary: snapshotChanged
           ? 'Validation evidence rejected because the worktree changed during validation.'
           : failed

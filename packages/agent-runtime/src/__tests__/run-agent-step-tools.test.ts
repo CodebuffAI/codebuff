@@ -906,6 +906,8 @@ describe('runAgentStep - set_output tool', () => {
       inputSchema: {},
       outputMode: 'structured_output' as const,
       includeMessageHistory: true,
+      messageHistoryMode: 'full',
+      propagateMessageHistoryChanges: true,
       inheritParentSystemPrompt: false,
       mcpServers: {},
       toolNames: ['set_messages', 'end_turn'],

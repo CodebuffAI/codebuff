@@ -39,7 +39,9 @@ export default async function infisicalRunExecutor(
   try {
     const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
     const shellArgs =
-      process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['-lc', command]
+      process.platform === 'win32'
+        ? ['/d', '/s', '/c', command]
+        : ['-lc', command]
     const result = spawnSync(
       'infisical',
       [

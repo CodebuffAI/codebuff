@@ -105,7 +105,9 @@ describe('applyPatchTool', () => {
       fs,
     })
 
-    expect(getMutationErrorMessage(result)).toContain('changed after it was read')
+    expect(getMutationErrorMessage(result)).toContain(
+      'changed after it was read',
+    )
     expect(writeCalled).toBe(false)
   })
 
@@ -130,7 +132,9 @@ describe('applyPatchTool', () => {
       fs,
     })
 
-    expect(getMutationErrorMessage(result)).toContain('changed after it was read')
+    expect(getMutationErrorMessage(result)).toContain(
+      'changed after it was read',
+    )
     expect(unlinkCalled).toBe(false)
   })
 

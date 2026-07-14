@@ -1,4 +1,7 @@
 import { HandleStepsYieldValueSchema } from '@codebuff/common/types/agent-template'
+import { selectSpecialistReviewers } from '@codebuff/common/agents/specialist-risk-router'
+import { planDiscoveryBatch } from './orchestration/discovery-coordinator'
+import { transitionBase2Gate } from './orchestration/workflow-engine'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
@@ -12,6 +15,10 @@ import { clearProposedContentForRun } from './tools/handlers/tool/proposed-conte
 import { executeToolCall } from './tools/tool-executor'
 import { parseTextWithToolCalls } from './util/parse-tool-calls-from-text'
 import { getEffectiveAgentToolNames } from './util/agent-tool-names'
+import {
+  getModelContextMessageLimit,
+  getSemanticCompactionBudget,
+} from './util/context-pruning'
 
 import type { FileProcessingState } from './tools/handlers/tool/write-file'
 import type { ExecuteToolCallParams } from './tools/tool-executor'
@@ -301,16 +308,68 @@ export async function runProgrammaticStep(
     // (agents/__tests__/context-pruner.test.ts, base2.test.ts), so the same
     // stringification contract exercised by tests is what runs in prod.
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    if (
+      template.executionSource === 'database' &&
+      typeof template.handleSteps === 'string'
+    ) {
+      throw new Error(
+        `Executable handleSteps are disabled for database-loaded agent ${template.id}. Install and explicitly trust the agent locally, or publish it as a prompt-only agent.`,
+      )
+    }
     const generatorFn =
       typeof template.handleSteps === 'string'
         ? new Function(`return (${template.handleSteps})`)()
         : template.handleSteps
 
+    // The context-pruner generator is serialized and cannot import runtime
+    // helpers. Inject the authoritative model-aware policy so production does
+    // not depend on a second copy of the budget arithmetic embedded in the
+    // agent template. Keep the caller's explicit fields additive.
+    const requestedContextLimit =
+      typeof toolCallParams?.maxContextLength === 'number' &&
+      Number.isFinite(toolCallParams.maxContextLength) &&
+      toolCallParams.maxContextLength > 0
+        ? toolCallParams.maxContextLength
+        : undefined
+    const modelMessageLimit =
+      agentState.contextWindowTokens === undefined
+        ? undefined
+        : getModelContextMessageLimit(agentState.contextWindowTokens)
+    const clampedContextLimit =
+      requestedContextLimit === undefined
+        ? undefined
+        : modelMessageLimit === undefined
+          ? requestedContextLimit
+          : Math.min(requestedContextLimit, modelMessageLimit)
+    const generatorParams =
+      template.id === 'context-pruner'
+        ? {
+            ...(toolCallParams ?? {}),
+            ...(clampedContextLimit === undefined
+              ? {}
+              : { maxContextLength: clampedContextLimit }),
+            semanticBudget: getSemanticCompactionBudget(
+              agentState.contextWindowTokens,
+            ),
+            taskMemory: agentState.taskMemory,
+            workspaceState: agentState.workspaceState,
+          }
+        : template.id.startsWith('base2')
+          ? {
+              ...(toolCallParams ?? {}),
+              orchestrationControlPlane: {
+                selectSpecialistReviewers,
+                planDiscoveryBatch,
+                transitionBase2Gate,
+              },
+            }
+          : toolCallParams
+
     // Initialize native generator
     const initializedGenerator = generatorFn({
       agentState,
       prompt,
-      params: toolCallParams,
+      params: generatorParams,
       logger: streamingLogger,
       config: template.programmaticConfig,
     })

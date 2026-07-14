@@ -132,6 +132,7 @@ describe('terminal command permission policy', () => {
           mode: 'assistant',
           permissionProfile: 'git-commit',
           projectRoot,
+          allowedPaths: ['src/a.ts'],
         }).allowed,
       ).toBe(true)
     }
@@ -148,6 +149,7 @@ describe('terminal command permission policy', () => {
           mode: 'assistant',
           permissionProfile: 'git-commit',
           projectRoot,
+          allowedPaths: ['src/a.ts'],
         }).allowed,
       ).toBe(false)
     }

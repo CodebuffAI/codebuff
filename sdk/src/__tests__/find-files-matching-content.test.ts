@@ -172,9 +172,7 @@ describe('findFilesMatchingContent', () => {
 
       await searchPromise
       const args = mockSpawn.mock.calls.at(-1)![1] as string[]
-      expect(args).toEqual(
-        expect.arrayContaining(['-t', 'ts', '-g', 'src/**']),
-      )
+      expect(args).toEqual(expect.arrayContaining(['-t', 'ts', '-g', 'src/**']))
     }
   })
 

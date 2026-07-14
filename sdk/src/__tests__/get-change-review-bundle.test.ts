@@ -6,6 +6,10 @@ import { spawnSync } from 'node:child_process'
 
 import { getChangeReviewBundle } from '../tools/get-change-review-bundle'
 import { LocalHarnessStore } from '../services/local-harness-store'
+import {
+  advanceWorkspaceState,
+  createInitialWorkspaceState,
+} from '@codebuff/common/types/workspace-state'
 
 describe('getChangeReviewBundle', () => {
   const temporaryRoots: string[] = []
@@ -17,8 +21,22 @@ describe('getChangeReviewBundle', () => {
   })
 
   test('binds status and diff to a deterministic snapshot id', async () => {
-    const first = await getChangeReviewBundle({ cwd: process.cwd() })
-    const second = await getChangeReviewBundle({ cwd: process.cwd() })
+    const cwd = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'openbuff-review-stable-'),
+    )
+    temporaryRoots.push(cwd)
+    const git = (...args: string[]) =>
+      spawnSync('git', args, { cwd, encoding: 'utf8' })
+    expect(git('init').status).toBe(0)
+    expect(git('config', 'user.email', 'test@example.com').status).toBe(0)
+    expect(git('config', 'user.name', 'Openbuff Test').status).toBe(0)
+    fs.writeFileSync(path.join(cwd, 'changed.txt'), 'initial\n')
+    expect(git('add', '.').status).toBe(0)
+    expect(git('commit', '-m', 'initial').status).toBe(0)
+    fs.writeFileSync(path.join(cwd, 'changed.txt'), 'changed\n')
+
+    const first = await getChangeReviewBundle({ cwd })
+    const second = await getChangeReviewBundle({ cwd })
     const firstValue = first[0]?.type === 'json' ? first[0].value : undefined
     const secondValue = second[0]?.type === 'json' ? second[0].value : undefined
     expect(firstValue).not.toHaveProperty('errorMessage')
@@ -64,6 +82,52 @@ describe('getChangeReviewBundle', () => {
       snapshotId: string
     }
     expect(afterValue.snapshotId).not.toBe(before)
+  })
+
+  test('binds review snapshots to the monotonic workspace revision', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-review-rev-'))
+    temporaryRoots.push(cwd)
+    const git = (...args: string[]) =>
+      spawnSync('git', args, { cwd, encoding: 'utf8' })
+    expect(git('init').status).toBe(0)
+    expect(git('config', 'user.email', 'test@example.com').status).toBe(0)
+    expect(git('config', 'user.name', 'Openbuff Test').status).toBe(0)
+    fs.writeFileSync(path.join(cwd, 'changed.txt'), 'initial\n')
+    expect(git('add', '.').status).toBe(0)
+    expect(git('commit', '-m', 'initial').status).toBe(0)
+    fs.writeFileSync(path.join(cwd, 'changed.txt'), 'changed\n')
+    const initialWorkspace = createInitialWorkspaceState()
+    const advancedWorkspace = advanceWorkspaceState(initialWorkspace, {
+      source: 'test',
+      actions: [
+        {
+          action: 'update',
+          path: 'changed.txt',
+          beforeHash: 'before',
+          afterHash: 'after',
+        },
+      ],
+    })
+
+    const first = await getChangeReviewBundle({
+      cwd,
+      workspaceState: initialWorkspace,
+    })
+    const second = await getChangeReviewBundle({
+      cwd,
+      workspaceState: advancedWorkspace,
+    })
+    const firstValue = first[0]?.type === 'json' ? first[0].value : undefined
+    const secondValue = second[0]?.type === 'json' ? second[0].value : undefined
+    expect(firstValue).not.toHaveProperty('errorMessage')
+    expect(secondValue).not.toHaveProperty('errorMessage')
+    expect((firstValue as { snapshotId: string }).snapshotId).not.toBe(
+      (secondValue as { snapshotId: string }).snapshotId,
+    )
+    expect(secondValue).toMatchObject({
+      workspaceRevision: advancedWorkspace.revision,
+      workspaceSnapshotId: advancedWorkspace.snapshotId,
+    })
   })
 
   test('returns only records bound to the current repository, workspace, snapshot, and changed files', async () => {

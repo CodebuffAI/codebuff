@@ -14,6 +14,7 @@ import {
   DEFAULT_MAX_CONTEXT_TOKENS,
   getModelContextReservedTokens,
   getModelContextMessageLimit,
+  getEffectiveContextLimits,
   getSemanticCompactionBudget,
   MODEL_CONTEXT_MIN_RESERVED_TOKENS,
   MODEL_CONTEXT_MAX_RESERVED_TOKENS,
@@ -163,6 +164,26 @@ describe('getModelContextMessageLimit (M4 unified threshold convergence)', () =>
 
 describe('getSemanticCompactionBudget', () => {
   it.each([
+    [8_000, 2_000, 1_680, 2_000],
+    [16_000, 6_000, 3_360, 2_000],
+    [32_000, 18_000, 10_080, 6_000],
+    [64_000, 42_000, 23_520, 14_000],
+  ])(
+    'keeps a meaningful working set for a small %i-token window',
+    (window, trigger, target, headroom) => {
+      expect(getSemanticCompactionBudget(window)).toEqual({
+        resolvedContextWindowTokens: window,
+        triggerBudgetTokens: trigger,
+        targetBudgetTokens: target,
+        headroomTokens: headroom,
+      })
+      expect(trigger).toBeGreaterThan(1)
+      expect(target).toBeGreaterThan(1)
+      expect(target).toBeLessThan(trigger)
+    },
+  )
+
+  it.each([
     [128_000, 96_000, 72_000, 32_000],
     [200_000, 160_000, 84_000, 32_000],
     [262_144, 209_715, 110_100, 39_321],
@@ -188,6 +209,30 @@ describe('getSemanticCompactionBudget', () => {
     expect(getSemanticCompactionBudget(Number.NaN)).toEqual({
       triggerBudgetTokens: 140_000,
       targetBudgetTokens: 100_000,
+    })
+  })
+})
+
+describe('getEffectiveContextLimits', () => {
+  it('recomputes provider-safe and status limits when failover changes windows', () => {
+    expect(getEffectiveContextLimits(1_000_000)).toEqual({
+      providerSafeMessageLimit: 880_000,
+      statusWindowTokens: 1_000_000,
+    })
+    expect(getEffectiveContextLimits(32_000)).toEqual({
+      providerSafeMessageLimit: 24_000,
+      statusWindowTokens: 32_000,
+    })
+  })
+
+  it('clamps explicit overrides to the active model instead of widening it', () => {
+    expect(getEffectiveContextLimits(32_000, 100_000)).toEqual({
+      providerSafeMessageLimit: 24_000,
+      statusWindowTokens: 32_000,
+    })
+    expect(getEffectiveContextLimits(1_000_000, 50_000)).toEqual({
+      providerSafeMessageLimit: 50_000,
+      statusWindowTokens: 50_000,
     })
   })
 })

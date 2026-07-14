@@ -273,11 +273,7 @@ function inferPackageJsonHooks(
   } else if ('typescript' in dependencies) {
     hooks.push({
       name: 'typecheck',
-      command: localPackageExecutableCommand(
-        packageRunner,
-        'tsc',
-        '--noEmit',
-      ),
+      command: localPackageExecutableCommand(packageRunner, 'tsc', '--noEmit'),
       filePattern: '**/*.{ts,tsx,mts,cts}',
     })
   }

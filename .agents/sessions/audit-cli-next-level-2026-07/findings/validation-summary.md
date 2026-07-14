@@ -1,6 +1,7 @@
 # Independent validation summary
 
-## [HIGH] Test coverage gaps — cli/src/__tests__/integration/local-agents.test.ts:1 — Current CLI suite is not green
+## [HIGH] Test coverage gaps — cli/src/**tests**/integration/local-agents.test.ts:1 — Current CLI suite is not green
+
 - **Risk:** The current worktree cannot be treated as release-ready because a fresh isolated-home run still has a broad local-agent integration failure cluster plus generated init-type drift.
 - **Fix:** Repair the underlying local-agent default/trust/test-isolation contract, regenerate init type sources, and require the full isolated CLI suite in release gates.
 - **Evidence:** Final run `HOME=/tmp/openbuff-test-home-final-20260711-2350 bun run --cwd cli test` produced 2,327 pass, 30 fail, 15 skip across 2,372 tests; 29 failures are in `integration/local-agents.test.ts` and one is `init-type-sources.test.ts`.

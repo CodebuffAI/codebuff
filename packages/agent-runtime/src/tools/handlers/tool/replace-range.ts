@@ -9,6 +9,10 @@ import {
   coordinateEditApplication,
   invalidatePreparedEditPaths,
 } from './edit-application-coordinator'
+import {
+  decodeReadCapabilityToken,
+  readCapabilityMatchesScope,
+} from '@codebuff/common/util/content-hash'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
@@ -39,10 +43,39 @@ export const handleReplaceRange = (async (params) => {
   }
 
   await previousToolCallFinished
-  const hasFreshnessAnchor =
-    toolCall.input.expectedHash !== undefined &&
-    toolCall.input.expectedHash !== null &&
-    toolCall.input.expectedHash !== ''
+  let hasBoundReadCapability = false
+  if (toolCall.input.readCapability) {
+    const decoded = decodeReadCapabilityToken(toolCall.input.readCapability)
+    if (
+      typeof decoded === 'string' ||
+      !readCapabilityMatchesScope(decoded, {
+        projectId: params.fileContext?.projectRoot ?? '',
+        path,
+        runId: params.runId ?? '',
+      })
+    ) {
+      return {
+        output: [
+          {
+            type: 'json' as const,
+            value: {
+              file: path,
+              errorMessage:
+                typeof decoded === 'string'
+                  ? decoded
+                  : `replace_range blocked: the readCapability belongs to a different project, path, or agent run. Re-read ${path} in this run and copy its cap.v3 token.`,
+              errorCode: 'fresh_read_required',
+              recovery: {
+                tool: 'read_files',
+                input: { paths: [path] },
+              },
+            },
+          },
+        ],
+      }
+    }
+    hasBoundReadCapability = true
+  }
   const currentContent =
     typeof requestOptionalFile === 'function'
       ? await requestOptionalFile({ ...params, filePath: path })
@@ -59,7 +92,7 @@ export const handleReplaceRange = (async (params) => {
   }
   if (
     fileProcessingState.strictReadBeforeEdit &&
-    !hasFreshnessAnchor &&
+    !hasBoundReadCapability &&
     !hadFreshWholeFileAuthorization
   ) {
     invalidatePreparedEditPaths({
@@ -73,8 +106,8 @@ export const handleReplaceRange = (async (params) => {
           value: {
             file: path,
             errorMessage: hadStoredWholeFileAuthorization
-              ? `replace_range blocked: ${path} changed after its last whole-file read, so the stored authorization was revoked. Call read_files for this exact path before retrying, or supply the expectedHash from a fresh read_files.ranges call.`
-              : `replace_range blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${path}. Call read_files for this exact path before retrying, or supply the expectedHash from a fresh read_files.ranges call.`,
+              ? `replace_range blocked: ${path} changed after its last whole-file read, so the stored authorization was revoked. Call read_files for this exact path before retrying and copy its cap.v3 readCapability.`
+              : `replace_range blocked: strict read-before-edit is enabled and no fresh path-bound read authorization exists for ${path}. Call read_files for this exact range and copy its cap.v3 readCapability. Legacy startLine/endLine/expectedHash tuples remain freshness checks only and cannot authorize an unread path.`,
           },
         },
       ],

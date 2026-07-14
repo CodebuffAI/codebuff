@@ -21,6 +21,12 @@ export interface PendingBackgroundJobEntry {
   command: string
   status: PendingBackgroundJobStatus
   startedAt: number
+  owner?: {
+    clientSessionId: string
+    rootRunId: string
+    parentRunId: string
+    parentAgentId: string
+  }
 }
 
 const pendingJobs = new Map<string, PendingBackgroundJobEntry>()
@@ -39,10 +45,34 @@ export function removePendingBackgroundJob(jobId: string): void {
   pendingJobs.delete(jobId)
 }
 
-export function listRunningBackgroundJobs(): PendingBackgroundJobEntry[] {
+export function getPendingBackgroundJob(
+  jobId: string,
+): PendingBackgroundJobEntry | undefined {
+  return pendingJobs.get(jobId)
+}
+
+export function pendingBackgroundJobOwnedBy(
+  entry: PendingBackgroundJobEntry,
+  owner: { clientSessionId: string; rootRunId: string },
+): boolean {
+  return (
+    entry.owner?.clientSessionId === owner.clientSessionId &&
+    entry.owner?.rootRunId === owner.rootRunId
+  )
+}
+
+export function listRunningBackgroundJobs(owner?: {
+  clientSessionId: string
+  rootRunId: string
+}): PendingBackgroundJobEntry[] {
   const running: PendingBackgroundJobEntry[] = []
   for (const entry of pendingJobs.values()) {
-    if (entry.status === 'running') running.push(entry)
+    if (
+      entry.status === 'running' &&
+      (!owner || pendingBackgroundJobOwnedBy(entry, owner))
+    ) {
+      running.push(entry)
+    }
   }
   return running
 }

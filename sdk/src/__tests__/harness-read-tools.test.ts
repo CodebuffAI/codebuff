@@ -10,7 +10,8 @@ import { inspectEnvironment } from '../tools/inspect-environment'
 
 const roots: string[] = []
 afterEach(() => {
-  for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true })
+  for (const root of roots.splice(0))
+    fs.rmSync(root, { recursive: true, force: true })
 })
 
 describe('harness intelligence read tools', () => {

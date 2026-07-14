@@ -82,7 +82,9 @@ describe('git-committer (M5.2 resurrected)', () => {
   })
 
   test('instructions prompt restricts pushing to explicit authorization', () => {
-    expect(gitCommitter.instructionsPrompt).toMatch(/push only when params\.push is true/i)
+    expect(gitCommitter.instructionsPrompt).toMatch(
+      /push only when params\.push is true/i,
+    )
     expect(gitCommitter.instructionsPrompt).toMatch(/never force-push/i)
   })
 

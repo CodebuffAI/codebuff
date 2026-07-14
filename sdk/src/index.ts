@@ -13,6 +13,7 @@ export { applyPatchTool } from './tools/apply-patch'
 export { replaceRange } from './tools/replace-range'
 export { readImages } from './tools/read-image'
 export { createNodeFileSystem } from './tools/node-filesystem'
+export type { NodeFileSystemOptions } from './tools/node-filesystem'
 export {
   diagnosticParsers,
   parseLanguageDiagnostics,
@@ -50,6 +51,7 @@ export type {
   MessageContent,
   TextContent,
   ImageContent,
+  FilesystemMutationEvent,
 } from './run'
 export { buildUserMessageContent } from '@codebuff/agent-runtime/util/messages'
 // Agent type exports
@@ -139,9 +141,20 @@ export { runTargetedValidation } from './tools/run-targeted-validation'
 export { inspectEnvironment } from './tools/inspect-environment'
 export { getAffectedTests } from './tools/get-affected-tests'
 export { getBuildTargets } from './tools/get-build-targets'
-export { inspectCodebaseStructureTool, inspectFeatureCompletenessTool, evaluateAuditCoverageTool } from './tools/audit-intelligence'
-export { inspectCodebaseStructure, inspectFeatureCompleteness, evaluateAuditCoverage } from './services/audit-intelligence'
-export type { CodebaseInventory, FeatureCompletenessRecord } from './services/audit-intelligence'
+export {
+  inspectCodebaseStructureTool,
+  inspectFeatureCompletenessTool,
+  evaluateAuditCoverageTool,
+} from './tools/audit-intelligence'
+export {
+  inspectCodebaseStructure,
+  inspectFeatureCompleteness,
+  evaluateAuditCoverage,
+} from './services/audit-intelligence'
+export type {
+  CodebaseInventory,
+  FeatureCompletenessRecord,
+} from './services/audit-intelligence'
 export {
   promptAiSdk,
   promptAiSdkStream,
@@ -149,6 +162,20 @@ export {
 } from './impl/llm'
 export { resetChatGptOAuthRateLimit } from './impl/model-provider'
 export { LocalHarnessStore } from './services/local-harness-store'
+export { WorkspaceJournalService } from './services/workspace-journal'
+export {
+  WORKSPACE_MUTATION_AUTHORITY,
+  WorkspaceMutationBroker,
+  WorkspaceMutationBrokerRecoveryError,
+} from './services/workspace-mutation-broker'
+export type {
+  WorkspaceMutationBrokerOptions,
+  WorkspaceMutationCommitResult,
+  WorkspaceMutationDeleteResult,
+  WorkspaceMutationMoveResult,
+  WorkspaceMutationReceipt,
+  WorkspaceMutationReceiptReference,
+} from './services/workspace-mutation-broker'
 export type {
   HarnessRecordKind,
   LocalHarnessRecord,

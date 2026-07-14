@@ -105,7 +105,8 @@ function withMessageHistoryLock<T>(operation: () => T): T {
         Atomics.wait(waitState, 0, 0, 10)
       }
     }
-    if (lockFd === undefined) throw new Error('Failed to acquire message history lock')
+    if (lockFd === undefined)
+      throw new Error('Failed to acquire message history lock')
     return operation()
   } finally {
     if (lockFd !== undefined) {
@@ -201,8 +202,7 @@ export const appendMessageHistory = (message: string): void => {
         mode: 0o600,
       })
       if (
-        fs.statSync(journalPath).size >=
-        MESSAGE_HISTORY_COMPACT_THRESHOLD_BYTES
+        fs.statSync(journalPath).size >= MESSAGE_HISTORY_COMPACT_THRESHOLD_BYTES
       ) {
         compactMessageHistory()
       }

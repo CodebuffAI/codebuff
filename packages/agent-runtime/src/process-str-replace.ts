@@ -7,7 +7,9 @@ import {
   normalizeLineEndings,
   encodeReadCapabilityToken,
   decodeReadCapabilityToken,
+  readCapabilityMatchesScope,
   READ_CAPABILITY_TOKEN_PREFIX,
+  type ReadCapabilityScope,
   type ReplacementReadCapability,
 } from '@codebuff/common/util/content-hash'
 
@@ -113,6 +115,8 @@ export async function processStrReplace(params: {
   atomic?: boolean
   /** Require every supplied basedOnRead capability to match current content. */
   requireFreshReadCapability?: boolean
+  /** Expected project/path/run scope for authenticated cap.v3 tokens. */
+  readCapabilityScope?: ReadCapabilityScope
   initialContentPromise: Promise<string | null>
   logger: Logger
 }): Promise<
@@ -131,6 +135,7 @@ export async function processStrReplace(params: {
     replacements,
     atomic = false,
     requireFreshReadCapability = false,
+    readCapabilityScope,
     initialContentPromise,
     logger,
   } = params
@@ -187,6 +192,16 @@ export async function processStrReplace(params: {
       if (validationError) {
         preflightErrors.push(
           `Invalid basedOnRead for replacement ${i + 1}: ${validationError}`,
+        )
+      }
+      const authorityError = validateReadCapabilityAuthority({
+        capability: basedOnRead,
+        expectedScope: readCapabilityScope,
+        requireBoundCapability: requireFreshReadCapability,
+      })
+      if (authorityError) {
+        preflightErrors.push(
+          `Invalid basedOnRead for replacement ${i + 1}: ${authorityError}`,
         )
       }
     }
@@ -677,7 +692,11 @@ export async function processStrReplace(params: {
   const normalizedFinalContent = normalizeLineEndings(currentContent)
   const hunkRanges = parseNewSideHunkRanges(finalPatch)
   const anchors = hunkRanges.map((range) =>
-    mintAnchorForRange({ content: normalizedFinalContent, ...range }),
+    mintAnchorForRange({
+      content: normalizedFinalContent,
+      scope: readCapabilityScope,
+      ...range,
+    }),
   )
   const unionStart = hunkRanges.length
     ? Math.min(...hunkRanges.map((range) => range.startLine))
@@ -691,6 +710,7 @@ export async function processStrReplace(params: {
           content: normalizedFinalContent,
           startLine: unionStart,
           endLine: unionEnd,
+          scope: readCapabilityScope,
         })
       : undefined
 
@@ -756,7 +776,28 @@ type ValidatedReadRange = {
 }
 
 function getReadCapabilityKey(basedOnRead: ReplacementReadCapability): string {
-  return `${basedOnRead.startLine}:${basedOnRead.endLine}:${basedOnRead.hash}`
+  return `${basedOnRead.startLine}:${basedOnRead.endLine}:${basedOnRead.hash}:${basedOnRead.scopeFingerprint ?? 'legacy'}`
+}
+
+function validateReadCapabilityAuthority(params: {
+  capability: ReplacementReadCapability
+  expectedScope?: ReadCapabilityScope
+  requireBoundCapability: boolean
+}): string | null {
+  const { capability, expectedScope, requireBoundCapability } = params
+  if (capability.tokenVersion === 'v3') {
+    if (!expectedScope) {
+      return 'The authenticated capability cannot be verified because this edit has no runtime project/path/run scope. Re-read the target through the active runtime.'
+    }
+    if (!readCapabilityMatchesScope(capability, expectedScope)) {
+      return 'The read capability belongs to a different project, path, or agent run. Cross-path and cross-run capability replay is not allowed; re-read this exact target in the current run.'
+    }
+    return null
+  }
+  if (requireBoundCapability) {
+    return 'Legacy pathless basedOnRead values cannot satisfy strict read-before-edit. Re-read this exact target in the current run and copy its cap.v3 readCapability.'
+  }
+  return null
 }
 
 function getCurrentValidatedReadRange(params: {
@@ -818,19 +859,11 @@ function validateReadCapability(params: {
   const currentRange = lines.slice(startLine - 1, end).join('\n')
   const currentHash = getContentHash(currentRange)
   if (currentHash !== hash) {
-    // Mint a fresh capability token for the CURRENT content of the same line
-    // range, so after a re-read confirms oldString the agent can retry
-    // immediately without having to re-derive a hash/token by hand.
-    const freshToken = encodeReadCapabilityToken({
-      startLine,
-      endLine: end,
-      hash: currentHash,
-    })
     return [
       `Large-file edit blocked for ${path}: the basedOnRead range is stale.`,
       `Expected ${hash} for lines ${startLine}-${endLine}, but current hash is ${currentHash}.`,
-      `Re-read with read_files ranges: [{ path: "${path}", startLine: ${startLine}, endLine: ${endLine} }] and retry with the new rangeHash.`,
-      `Fresh capability token for the CURRENT content of lines ${startLine}-${end} (copy oldString verbatim from a fresh read_files output, then pass this token as basedOnRead on your next edit to this range):\nreadCapability=${freshToken}`,
+      `Re-read with read_files ranges: [{ path: "${path}", startLine: ${startLine}, endLine: ${endLine} }] and retry only with the cap.v3 readCapability returned by that successful fresh read.`,
+      'No replacement capability is minted from a stale-read failure because an error response is not proof that the caller observed the current content.',
       'Tip: when editing the same file multiple times, batch all replacements into a SINGLE str_replace call (each with its own basedOnRead) so earlier edits do not invalidate later ranges.',
     ].join('\n')
   }
@@ -1346,6 +1379,7 @@ function mintAnchorForRange(params: {
   content: string
   startLine: number
   endLine: number
+  scope?: ReadCapabilityScope
 }): {
   startLine: number
   endLine: number
@@ -1365,6 +1399,7 @@ function mintAnchorForRange(params: {
       startLine,
       endLine,
       hash: rangeHash,
+      scope: params.scope,
     }),
   }
 }

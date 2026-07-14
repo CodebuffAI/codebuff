@@ -9,18 +9,31 @@ import {
 } from '@codebuff/common/util/agent-id-parsing'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
+import {
+  agentHandoffSchema,
+  agentReceiptSchema,
+} from '@codebuff/common/types/agent-handoff'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValidationIssues } from '../../../util/format-validation-issues'
 import { formatValueForError } from '../../../util/format-value'
 import { getEffectiveAgentToolNames } from '../../../util/agent-tool-names'
+import { narrowFilesystemPatterns } from '../../../util/filesystem-scope'
+import { mergeAgentReceiptIntoTaskMemory } from '../../../util/task-memory'
+import { appendOrchestrationEvent } from '../../../util/orchestration-ledger'
 import {
+  extractPinnedContextBlocks,
   filterUnfinishedToolCalls,
   withSystemTags,
 } from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type {
+  AgentHandoff,
+  AgentReceipt,
+  AgentRole,
+} from '@codebuff/common/types/agent-handoff'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
@@ -82,6 +95,7 @@ export function extractSubagentContextParams(
     promptAiSdkStream: params.promptAiSdkStream,
     promptAiSdk: params.promptAiSdk,
     promptAiSdkStructured: params.promptAiSdkStructured,
+    resolveModelContextWindow: params.resolveModelContextWindow,
     // AgentRuntimeDeps - Mutable State
     databaseAgentCache: params.databaseAgentCache,
     // AgentRuntimeDeps - Analytics
@@ -293,9 +307,26 @@ export function buildSpawnParamsWithHandoff(params: {
         })()
       : handoff
 
+  const compactValue = (value: unknown, depth = 0): unknown => {
+    if (typeof value === 'string') {
+      if (value.length <= 4_000) return value
+      return `${value.slice(0, 3_000)}...[truncated handoff]...${value.slice(-800)}`
+    }
+    if (value === null || typeof value !== 'object') return value
+    if (depth >= 6) return '[truncated nested handoff]'
+    if (Array.isArray(value)) {
+      return value.slice(0, 64).map((entry) => compactValue(entry, depth + 1))
+    }
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .slice(0, 64)
+        .map(([key, entry]) => [key, compactValue(entry, depth + 1)]),
+    )
+  }
+
   return {
     ...(spawnParams ?? {}),
-    handoff: normalizedHandoff,
+    handoff: compactValue(normalizedHandoff),
   }
 }
 
@@ -303,8 +334,39 @@ export function validateVersionedAgentHandoff(params: {
   agentType: string
   handoff: unknown
 }): void {
-  if (params.agentType !== 'repair-editor') return
   const record = params.handoff as Record<string, unknown> | undefined
+  if (!record) {
+    if (params.agentType === 'repair-editor') {
+      throw new Error(
+        'repair-editor requires a versioned handoff with schemaVersion: 1, taskId, objective, at least one finding, and explicit permissions.',
+      )
+    }
+    return
+  }
+  if (record.schemaVersion === undefined && params.agentType !== 'repair-editor') {
+    return
+  }
+  if (
+    record.schemaVersion !== 1 ||
+    typeof record.taskId !== 'string' ||
+    typeof record.role !== 'string' ||
+    typeof record.objective !== 'string'
+  ) {
+    throw new Error(
+      `Invalid versioned handoff for agent ${params.agentType}: schemaVersion 1 requires taskId, role, and objective.`,
+    )
+  }
+
+  const parsed = agentHandoffSchema.safeParse(record)
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid versioned handoff for agent ${params.agentType}: ${parsed.error.issues
+        .map((issue) => `${issue.path.join('.') || 'handoff'} ${issue.message}`)
+        .join('; ')}.`,
+    )
+  }
+
+  if (params.agentType !== 'repair-editor') return
   const findings = record?.findings
   if (
     record?.schemaVersion !== 1 ||
@@ -320,9 +382,71 @@ export function validateVersionedAgentHandoff(params: {
   }
 }
 
+export function deriveSpawnTemplateCapabilities(params: {
+  agentTemplate: AgentTemplate
+  handoff: AgentHandoff | undefined
+  projectRoot: string
+}): AgentTemplate {
+  const { agentTemplate, handoff, projectRoot } = params
+  if (!handoff) return agentTemplate
+
+  const requestedTools = new Set(handoff.permissions.allowedTools)
+  const staticTools = getEffectiveAgentToolNames(agentTemplate)
+  const disallowedTools = [...requestedTools].filter(
+    (toolName) => !staticTools.includes(toolName),
+  )
+  if (disallowedTools.length > 0) {
+    throw new Error(
+      `Handoff attempted to widen ${agentTemplate.id} tool authority with: ${disallowedTools.join(', ')}.`,
+    )
+  }
+
+  const read = narrowFilesystemPatterns({
+    requested: handoff.permissions.readablePaths,
+    staticPatterns: agentTemplate.filesystemScope?.read,
+    projectRoot,
+    access: 'read',
+    agentId: agentTemplate.id,
+  })
+  const write = narrowFilesystemPatterns({
+    requested: handoff.permissions.writablePaths,
+    staticPatterns: agentTemplate.filesystemScope?.write,
+    projectRoot,
+    access: 'write',
+    agentId: agentTemplate.id,
+  })
+
+  return {
+    ...agentTemplate,
+    toolNames: agentTemplate.toolNames.filter((toolName) =>
+      requestedTools.has(toolName),
+    ),
+    programmaticToolNames: (agentTemplate.programmaticToolNames ?? []).filter(
+      (toolName) => requestedTools.has(toolName),
+    ),
+    spawnableAgents: [],
+    filesystemScope: { read, write },
+  }
+}
+
 const REVIEWER_EVIDENCE_ITEM_LIMIT = 3
 const REVIEWER_EVIDENCE_CHARS = 360
 const REVIEWER_REQUIREMENT_EVIDENCE_LIMIT = 2
+const PARENT_AGENT_OUTPUT_MAX_CHARS = 256_000
+const PARENT_AGENT_OUTPUT_STRING_CHARS = 4_000
+const PARENT_AGENT_OUTPUT_ARRAY_ITEMS = 48
+const CONTROL_PLANE_ARRAY_FIELDS = new Set([
+  'reviewedFiles',
+  'requirementCoverage',
+  'findings',
+  'changedFiles',
+  'requirementsAddressed',
+  'acceptanceCriteriaAddressed',
+  'findingsAddressed',
+  'errors',
+  'unresolved',
+  'requestedValidation',
+])
 
 function truncateReviewerText(value: unknown, maxChars: number): unknown {
   if (typeof value !== 'string' || value.length <= maxChars) return value
@@ -395,6 +519,125 @@ function compactReviewerOutput(
   }
 }
 
+function compactAgentOutputValue(
+  value: unknown,
+  depth = 0,
+  fieldName?: string,
+  truncation = { omittedItems: 0, omittedChars: 0 },
+): unknown {
+  if (typeof value === 'string') {
+    const compacted = truncateReviewerText(
+      value,
+      PARENT_AGENT_OUTPUT_STRING_CHARS,
+    )
+    if (typeof compacted === 'string') {
+      truncation.omittedChars += Math.max(0, value.length - compacted.length)
+    }
+    return compacted
+  }
+  if (value === null || typeof value !== 'object') return value
+  if (depth >= 7) return '[truncated nested agent output]'
+  if (Array.isArray(value)) {
+    const preserveAll = fieldName
+      ? CONTROL_PLANE_ARRAY_FIELDS.has(fieldName)
+      : false
+    const entries = preserveAll
+      ? value
+      : value.slice(0, PARENT_AGENT_OUTPUT_ARRAY_ITEMS)
+    truncation.omittedItems += Math.max(0, value.length - entries.length)
+    return entries.map((entry) =>
+      compactAgentOutputValue(entry, depth + 1, undefined, truncation),
+    )
+  }
+  const compacted = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .slice(0, 64)
+      .map(([key, entry]) => [
+        key,
+        compactAgentOutputValue(entry, depth + 1, key, truncation),
+      ]),
+  )
+  return compacted
+}
+
+function boundAgentOutputForParent(
+  value: unknown,
+  agentType?: string,
+): unknown {
+  const truncation = { omittedItems: 0, omittedChars: 0 }
+  const rawCompacted = compactAgentOutputValue(
+    value,
+    0,
+    undefined,
+    truncation,
+  )
+  const compacted =
+    rawCompacted &&
+    typeof rawCompacted === 'object' &&
+    !Array.isArray(rawCompacted) &&
+    (truncation.omittedItems > 0 || truncation.omittedChars > 0)
+      ? {
+          ...(rawCompacted as Record<string, unknown>),
+          truncation: {
+            omittedItems: truncation.omittedItems,
+            omittedChars: truncation.omittedChars,
+          },
+        }
+      : rawCompacted
+  let serialized = ''
+  try {
+    serialized = JSON.stringify(compacted)
+  } catch {
+    return {
+      type: 'agentReceipt',
+      agentType,
+      truncated: true,
+      summary: 'Agent output was not serializable.',
+    }
+  }
+  if (serialized.length <= PARENT_AGENT_OUTPUT_MAX_CHARS) return compacted
+  if (compacted && typeof compacted === 'object' && !Array.isArray(compacted)) {
+    const record = compacted as Record<string, unknown>
+    const valueRecord =
+      record.value &&
+      typeof record.value === 'object' &&
+      !Array.isArray(record.value)
+        ? (record.value as Record<string, unknown>)
+        : record
+    if (
+      typeof valueRecord.verdict === 'string' ||
+      Array.isArray(valueRecord.reviewedFiles) ||
+      Array.isArray(valueRecord.requirementCoverage)
+    ) {
+      return {
+        ...(record.type ? { type: record.type } : {}),
+        value: {
+          schemaVersion: valueRecord.schemaVersion,
+          verdict: valueRecord.verdict,
+          snapshotFingerprint: valueRecord.snapshotFingerprint,
+          reviewedFiles: valueRecord.reviewedFiles,
+          findings: valueRecord.findings,
+          coverage: valueRecord.coverage,
+          dimensions: valueRecord.dimensions,
+          requirementCoverage: valueRecord.requirementCoverage,
+          truncation: {
+            omittedItems: truncation.omittedItems,
+            omittedChars:
+              truncation.omittedChars +
+              Math.max(0, serialized.length - PARENT_AGENT_OUTPUT_MAX_CHARS),
+          },
+        },
+      }
+    }
+  }
+  return {
+    type: 'agentReceipt',
+    agentType,
+    truncated: true,
+    summary: `${serialized.slice(0, 48_000)}...[truncated child output]...${serialized.slice(-8_000)}`,
+  }
+}
+
 export function normalizeSpawnedAgentOutput(
   output: any,
   agentType?: string,
@@ -421,17 +664,399 @@ export function normalizeSpawnedAgentOutput(
       typeof record.value === 'object' &&
       !Array.isArray(record.value)
     ) {
-      return {
-        ...record,
-        value: compactReviewerOutput(
-          record.value as Record<string, unknown>,
-          agentType,
-        ),
+      return boundAgentOutputForParent(
+        {
+          ...record,
+          value: compactReviewerOutput(
+            record.value as Record<string, unknown>,
+            agentType,
+          ),
+        },
+        agentType,
+      )
+    }
+    return boundAgentOutputForParent(
+      compactReviewerOutput(record, agentType),
+      agentType,
+    )
+  }
+  return boundAgentOutputForParent(output, agentType)
+}
+
+function inferAgentRole(agentType: string, handoff?: AgentHandoff): AgentRole {
+  if (handoff) return handoff.role
+  if (agentType === 'repair-editor') return 'repair-editor'
+  if (agentType.includes('editor')) return 'editor'
+  if (agentType === 'test-writer') return 'test-writer'
+  if (agentType === 'doc-writer') return 'doc-writer'
+  if (agentType === 'dependency-manager') return 'dependency-manager'
+  if (agentType === 'debugger') return 'debugger'
+  if (agentType === 'security-reviewer') return 'security-reviewer'
+  if (agentType.includes('reviewer')) return 'reviewer'
+  if (agentType === 'git-committer') return 'committer'
+  if (agentType === 'thinker') return 'thinker'
+  if (agentType === 'synthesizer') return 'synthesizer'
+  if (
+    agentType.includes('picker') ||
+    agentType.includes('searcher') ||
+    agentType.includes('explorer')
+  ) {
+    return 'explorer'
+  }
+  return 'specialist'
+}
+
+function extractReceiptStringArray(
+  output: unknown,
+  key: string,
+): string[] {
+  const found: string[] = []
+  const visit = (value: unknown, depth = 0): void => {
+    if (!value || depth > 8) return
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1)
+      return
+    }
+    if (typeof value !== 'object') return
+    const record = value as Record<string, unknown>
+    const candidate = record[key]
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        if (typeof item === 'string' && item.trim()) found.push(item.trim())
+        else if (item && typeof item === 'object') {
+          const nested = item as Record<string, unknown>
+          const text = nested.path ?? nested.id ?? nested.text
+          if (typeof text === 'string' && text.trim()) found.push(text.trim())
+        }
       }
     }
-    return compactReviewerOutput(record, agentType)
+    for (const nested of Object.values(record)) visit(nested, depth + 1)
   }
-  return output
+  visit(output)
+  return [...new Set(found)]
+}
+
+function extractMutationAttestations(value: unknown): Array<{
+  path: string
+  beforeHash?: string
+  afterHash?: string
+  mutationReceiptId?: string
+  workspaceRevision?: number
+  workspaceSnapshotId?: string
+}> {
+  const byPath = new Map<string, ReturnType<typeof extractMutationAttestations>[number]>()
+  const visit = (item: unknown, inheritedReceiptId?: string, depth = 0): void => {
+    if (!item || depth > 12) return
+    if (Array.isArray(item)) {
+      for (const nested of item) visit(nested, inheritedReceiptId, depth + 1)
+      return
+    }
+    if (typeof item !== 'object') return
+    const record = item as Record<string, unknown>
+    const receiptId =
+      typeof record.receiptId === 'string'
+        ? record.receiptId
+        : inheritedReceiptId
+    if (
+      (record.kind === 'file_mutation_result' ||
+        record.kind === 'commit_receipt') &&
+      Array.isArray(record.actions)
+    ) {
+      for (const action of record.actions) {
+        if (!action || typeof action !== 'object') continue
+        const actionRecord = action as Record<string, unknown>
+        const applied =
+          actionRecord.outcome === 'applied' ||
+          actionRecord.status === 'committed'
+        if (!applied || typeof actionRecord.path !== 'string') continue
+        const paths = [
+          actionRecord.path,
+          ...(typeof actionRecord.destinationPath === 'string'
+            ? [actionRecord.destinationPath]
+            : []),
+        ]
+        for (const path of paths) {
+          byPath.set(path, {
+            path,
+            ...(typeof actionRecord.beforeHash === 'string'
+              ? { beforeHash: actionRecord.beforeHash }
+              : {}),
+            ...(typeof actionRecord.afterHash === 'string'
+              ? { afterHash: actionRecord.afterHash }
+              : {}),
+            ...(receiptId ? { mutationReceiptId: receiptId } : {}),
+            ...(typeof record.workspaceRevision === 'number'
+              ? { workspaceRevision: record.workspaceRevision }
+              : {}),
+            ...(typeof record.workspaceSnapshotId === 'string'
+              ? { workspaceSnapshotId: record.workspaceSnapshotId }
+              : {}),
+          })
+        }
+      }
+    }
+    for (const nested of Object.values(record)) {
+      visit(nested, receiptId, depth + 1)
+    }
+  }
+  visit(value)
+  return [...byPath.values()]
+}
+
+function findReceiptStatus(output: unknown): AgentReceipt['status'] | undefined {
+  let status: AgentReceipt['status'] | undefined
+  const visit = (value: unknown, depth = 0): void => {
+    if (status || !value || depth > 8) return
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1)
+      return
+    }
+    if (typeof value !== 'object') return
+    const record = value as Record<string, unknown>
+    if (
+      record.status === 'completed' ||
+      record.status === 'partial' ||
+      record.status === 'blocked' ||
+      record.status === 'failed' ||
+      record.status === 'cancelled'
+    ) {
+      status = record.status
+      return
+    }
+    for (const nested of Object.values(record)) visit(nested, depth + 1)
+  }
+  visit(output)
+  return status
+}
+
+function extractReceiptEvidence(params: {
+  output: unknown
+  agentType: string
+  workspaceRevision?: number
+}): AgentReceipt['evidence'] {
+  const evidence: AgentReceipt['evidence'] = []
+  const kind = params.agentType.includes('reviewer')
+    ? 'review'
+    : params.agentType.includes('editor') || params.agentType.includes('writer')
+      ? 'edit'
+      : 'decision'
+  const seen = new Set<string>()
+  const add = (summary: string, source?: string, freshnessHash?: string) => {
+    const normalized = summary.trim()
+    if (!normalized || seen.has(normalized)) return
+    seen.add(normalized)
+    evidence.push({
+      id: `evidence-${generateCompactId()}`,
+      kind,
+      summary: normalized.slice(0, 2_000),
+      source,
+      freshnessHash,
+      workspaceRevision: params.workspaceRevision,
+    })
+  }
+  const visit = (value: unknown, depth = 0): void => {
+    if (!value || depth > 8) return
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1)
+      return
+    }
+    if (typeof value !== 'object') return
+    const record = value as Record<string, unknown>
+    if (Array.isArray(record.evidence)) {
+      for (const item of record.evidence) {
+        if (typeof item === 'string') add(item)
+        else if (item && typeof item === 'object') {
+          const entry = item as Record<string, unknown>
+          const summary = entry.summary ?? entry.text ?? entry.reason
+          if (typeof summary === 'string') {
+            add(
+              summary,
+              typeof entry.source === 'string' ? entry.source : undefined,
+              typeof entry.freshnessHash === 'string'
+                ? entry.freshnessHash
+                : undefined,
+            )
+          }
+        }
+      }
+    }
+    for (const nested of Object.values(record)) visit(nested, depth + 1)
+  }
+  visit(params.output)
+  for (const file of extractReceiptStringArray(params.output, 'reviewedFiles')) {
+    add(`Reviewed ${file}`, file)
+  }
+  return evidence.slice(-128)
+}
+
+export function buildRuntimeAgentReceipt(params: {
+  agentType: string
+  agentId: string
+  handoff?: AgentHandoff
+  output: unknown
+  agentState?: AgentState
+  status?: AgentReceipt['status']
+  error?: unknown
+}): AgentReceipt {
+  const mutationAttestations = extractMutationAttestations([
+    params.output,
+    params.agentState?.messageHistory,
+  ])
+  const claimedChangedFiles = extractReceiptStringArray(
+    params.output,
+    'changedFiles',
+  )
+  const actualChangedPaths = new Set(
+    mutationAttestations.map((entry) => entry.path),
+  )
+  const overclaimedPaths = claimedChangedFiles.filter(
+    (path) => !actualChangedPaths.has(path),
+  )
+  const errors = [
+    ...(params.error
+    ? [
+        {
+          message:
+            params.error instanceof Error
+              ? params.error.message
+              : String(params.error),
+          retryable: false,
+        },
+      ]
+    : []),
+    ...(overclaimedPaths.length > 0
+      ? [
+          {
+            message: `Child output claimed changed files without mutation receipts: ${overclaimedPaths.join(', ')}.`,
+            retryable: false,
+          },
+        ]
+      : []),
+  ]
+  const changedFiles = mutationAttestations.map(
+    ({ path, beforeHash, afterHash, mutationReceiptId }) => ({
+      path,
+      ...(beforeHash ? { beforeHash } : {}),
+      ...(afterHash ? { afterHash } : {}),
+      ...(mutationReceiptId ? { mutationReceiptId } : {}),
+    }),
+  )
+  const latestMutation = mutationAttestations
+    .filter((entry) => entry.workspaceRevision !== undefined)
+    .sort(
+      (left, right) =>
+        (right.workspaceRevision ?? -1) - (left.workspaceRevision ?? -1),
+    )[0]
+  const inferredRole = inferAgentRole(params.agentType, params.handoff)
+  const mutationAgent = [
+    'editor',
+    'repair-editor',
+    'test-writer',
+    'doc-writer',
+    'dependency-manager',
+  ].includes(inferredRole)
+  const claimedFindingIds = extractReceiptStringArray(
+    params.output,
+    'findingsAddressed',
+  )
+  const attestedFindingIds = params.handoff
+    ? claimedFindingIds.filter((id) => {
+        const finding = params.handoff?.findings.find((item) => item.id === id)
+        return !!finding?.files.some((path) => actualChangedPaths.has(path))
+      })
+    : claimedFindingIds
+  const receipt = agentReceiptSchema.parse({
+    schemaVersion: 1,
+    receiptId: generateCompactId(),
+    taskId: params.handoff?.taskId ?? `spawn-${params.agentId}`,
+    role: inferredRole,
+    agentId: params.agentId,
+    status:
+      params.status ??
+      (errors.length > 0 ? 'failed' : findReceiptStatus(params.output)) ??
+      (mutationAgent ? 'blocked' : 'completed'),
+    workspaceRevision:
+      latestMutation?.workspaceRevision ??
+      params.agentState?.workspaceState?.revision ??
+      params.handoff?.workspaceRevision,
+    workspaceSnapshotId:
+      latestMutation?.workspaceSnapshotId ??
+      params.agentState?.workspaceState?.snapshotId ??
+      params.handoff?.workspaceSnapshotId,
+    changedFiles,
+    requirementsAddressed: extractReceiptStringArray(
+      params.output,
+      'requirementsAddressed',
+    ),
+    acceptanceCriteriaAddressed: extractReceiptStringArray(
+      params.output,
+      'acceptanceCriteriaAddressed',
+    ),
+    findingsAddressed: attestedFindingIds,
+    evidence: extractReceiptEvidence({
+      output: params.output,
+      agentType: params.agentType,
+      workspaceRevision:
+        params.agentState?.workspaceState?.revision ??
+        params.handoff?.workspaceRevision,
+    }),
+    assumptions: extractReceiptStringArray(params.output, 'assumptions'),
+    unresolved: extractReceiptStringArray(params.output, 'unresolved'),
+    requestedValidation: extractReceiptStringArray(
+      params.output,
+      'requestedValidation',
+    ),
+    artifacts: extractReceiptStringArray(params.output, 'artifacts'),
+    errors,
+    output: normalizeSpawnedAgentOutput(
+      params.output,
+      params.agentType,
+    ) as any,
+  })
+  return receipt
+}
+
+export function reconcileAgentReceiptIntoParent(params: {
+  parentAgentState: AgentState
+  receipt: AgentReceipt
+  agentType: string
+  objective?: string
+}): void {
+  params.parentAgentState.taskMemory = mergeAgentReceiptIntoTaskMemory({
+    current: params.parentAgentState.taskMemory,
+    receipt: params.receipt,
+    objective: params.objective,
+  })
+  appendOrchestrationEvent({
+    state: params.parentAgentState,
+    event: {
+      type: 'receipt_reconciled',
+      runId:
+        params.parentAgentState.runId ?? params.parentAgentState.agentId,
+      receiptId: params.receipt.receiptId,
+      taskId: params.receipt.taskId,
+      agentType: params.agentType,
+      status: params.receipt.status,
+      workspaceRevision: params.parentAgentState.workspaceState?.revision,
+      workspaceSnapshotId:
+        params.parentAgentState.workspaceState?.snapshotId,
+    },
+  })
+  appendOrchestrationEvent({
+    state: params.parentAgentState,
+    event: {
+      type: 'spawn_finished',
+      runId:
+        params.parentAgentState.runId ?? params.parentAgentState.agentId,
+      spawnId: params.receipt.agentId,
+      agentType: params.agentType,
+      status: params.receipt.status,
+      receiptId: params.receipt.receiptId,
+      workspaceRevision: params.parentAgentState.workspaceState?.revision,
+      workspaceSnapshotId:
+        params.parentAgentState.workspaceState?.snapshotId,
+    },
+  })
 }
 
 const REQUIRED_EDITOR_BRIEF_FIELDS = [
@@ -604,8 +1229,39 @@ export function createAgentState(
   // unfinished tool calls which throw errors in the Anthropic API.
   let messageHistory: Message[] = []
 
-  if (agentTemplate.includeMessageHistory) {
+  const messageHistoryMode =
+    agentTemplate.messageHistoryMode ??
+    (agentTemplate.includeMessageHistory ? 'full' : 'none')
+
+  if (messageHistoryMode === 'full') {
     messageHistory = filterUnfinishedToolCalls(parentAgentState.messageHistory)
+  } else if (messageHistoryMode === 'pinned') {
+    const pinnedBlocks = extractPinnedContextBlocks(
+      parentAgentState.messageHistory,
+    )
+    if (pinnedBlocks.length > 0) {
+      messageHistory = [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: withSystemTags(
+                [
+                  'Bounded parent operational context for this subagent:',
+                  ...pinnedBlocks,
+                ].join('\n\n'),
+              ),
+            },
+          ],
+          tags: ['SUBAGENT_CONTEXT'],
+          keepDuringTruncation: true,
+        },
+      ]
+    }
+  }
+
+  if (messageHistoryMode !== 'none') {
     messageHistory.push({
       role: 'user',
       content: [
@@ -644,6 +1300,19 @@ export function createAgentState(
     // resolves its own value through onModelContextResolved. Until then the
     // context-pruning policy uses its conservative unknown-window fallback.
     contextWindowTokens: undefined,
+    // Operational memory is structured state, not transcript inheritance.
+    // Transfer it only when the selected parent-history mode permits bounded
+    // context, and clone so children cannot mutate the parent's source of truth.
+    taskMemory:
+      messageHistoryMode === 'none'
+        ? undefined
+        : parentAgentState.taskMemory
+          ? structuredClone(parentAgentState.taskMemory)
+          : undefined,
+    workspaceState: parentAgentState.workspaceState
+      ? structuredClone(parentAgentState.workspaceState)
+      : undefined,
+    backgroundAgentJobs: [],
   }
 }
 
@@ -681,8 +1350,23 @@ export function logAgentSpawn(params: {
         spawnableAgents: agentTemplate.spawnableAgents,
         mcpServerNames: Object.keys(agentTemplate.mcpServers ?? {}),
       },
-      prompt,
-      params: spawnParams,
+      promptMetadata: {
+        length: prompt?.length ?? 0,
+        supplied: Boolean(prompt),
+      },
+      spawnMetadata: {
+        keys:
+          spawnParams && typeof spawnParams === 'object'
+            ? Object.keys(spawnParams)
+            : [],
+        handoffTaskId:
+          spawnParams?.handoff &&
+          typeof spawnParams.handoff === 'object' &&
+          typeof (spawnParams.handoff as Record<string, unknown>).taskId ===
+            'string'
+            ? (spawnParams.handoff as Record<string, unknown>).taskId
+            : undefined,
+      },
       agentId,
       parentId,
     },
@@ -691,20 +1375,19 @@ export function logAgentSpawn(params: {
 }
 
 /**
- * Default wall-clock bound for a single subagent execution. This unblocks the
- * parent after a generous 20-minute window even when each step differs enough
- * to avoid the repeated-step watchdog. The timeout aborts
- * the AbortController threaded into loopAgentSteps (via AbortSignal.any with
- * the parent signal), so the stuck LLM stream is actually cancelled rather than
- * orphaned.
+ * Shared wall-clock default for a single subagent execution.
+ *
+ * The default prevents detached or confused children from consuming provider
+ * and process resources indefinitely. Genuinely long-running tasks can opt out
+ * explicitly with timeout_seconds: -1 or a template-specific timeout.
  */
-const DEFAULT_SUBAGENT_TIMEOUT_MS = 20 * 60 * 1000
+const DEFAULT_SUBAGENT_TIMEOUT_MS = 30 * 60 * 1000
 
 /**
  * Resolves the wall-clock timeout (ms) for a subagent execution, in precedence
  * order: explicit per-spawn override > agent template default > shared
  * DEFAULT_SUBAGENT_TIMEOUT_MS. A non-positive value (-1, 0) disables the
- * timeout entirely (used by genuinely long-running agents).
+ * timeout entirely; that is the default (see DEFAULT_SUBAGENT_TIMEOUT_MS).
  */
 export function resolveSubagentTimeoutMs(
   agentTemplate: AgentTemplate,

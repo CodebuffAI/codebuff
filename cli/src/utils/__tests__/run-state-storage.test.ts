@@ -315,9 +315,9 @@ describe('run-state-storage', () => {
       expect(recovered?.runState).toEqual(runState)
       expect(recovered?.messages).toEqual(messages)
       expect(recovered?.chatId).toBe('test-chat-123')
-      expect(fs.existsSync(path.join(mockCurrentChatDir, 'chat-state.json'))).toBe(
-        false,
-      )
+      expect(
+        fs.existsSync(path.join(mockCurrentChatDir, 'chat-state.json')),
+      ).toBe(false)
       expect(
         fs
           .readdirSync(mockCurrentChatDir)

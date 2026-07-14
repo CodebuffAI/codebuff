@@ -86,8 +86,7 @@ const WSL_BASH_PATH_PATTERNS = ['system32', 'windowsapps']
  */
 export function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
   // Check for user-specified path via environment variable
-  const customPath =
-    env.OPENBUFF_GIT_BASH_PATH ?? env.CODEBUFF_GIT_BASH_PATH
+  const customPath = env.OPENBUFF_GIT_BASH_PATH ?? env.CODEBUFF_GIT_BASH_PATH
   if (customPath && fs.existsSync(customPath)) {
     return customPath
   }
@@ -169,17 +168,20 @@ export function runTerminalCommand({
   detach = false,
   mode = 'assistant',
   permission_profile = 'workspace-write',
+  allowed_paths,
   cwd,
   projectRoot,
   timeout_seconds,
   env,
   signal,
+  owner,
 }: {
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
   detach?: boolean
   mode?: 'assistant' | 'user'
   permission_profile?: TerminalPermissionProfile
+  allowed_paths?: string[]
   cwd: string
   projectRoot?: string
   timeout_seconds: number
@@ -187,6 +189,12 @@ export function runTerminalCommand({
   /** Optional abort signal. Owned background jobs are cancelled unless
    * `detach` was explicitly requested. */
   signal?: AbortSignal
+  owner?: {
+    clientSessionId: string
+    rootRunId: string
+    parentRunId: string
+    parentAgentId: string
+  }
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   // The contract for `cwd` is "project root or a subdirectory of it". A
   // caller-supplied absolute path like `/etc` or a traversal like
@@ -215,6 +223,7 @@ export function runTerminalCommand({
     mode,
     permissionProfile: permission_profile,
     projectRoot: projectRoot ?? process.cwd(),
+    allowedPaths: allowed_paths,
   })
   if (!policy.allowed) {
     return Promise.resolve([
@@ -286,6 +295,7 @@ export function runTerminalCommand({
       shellArgs,
       cwd: containedCwd,
       env: processEnv,
+      owner,
     })
 
     if (signal && !detach) {

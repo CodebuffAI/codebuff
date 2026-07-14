@@ -2632,6 +2632,10 @@ describe('context-pruner threshold behavior', () => {
   })
 
   test.each([
+    [8_000, 2_000],
+    [16_000, 6_000],
+    [32_000, 18_000],
+    [64_000, 42_000],
     [128_000, 96_000],
     [200_000, 160_000],
     [262_144, 209_715],
@@ -2655,6 +2659,39 @@ describe('context-pruner threshold behavior', () => {
       )
     },
   )
+
+  test('keeps a one-million-token window under the model-aware trigger as a no-op', () => {
+    mockAgentState.contextWindowTokens = 1_000_000
+    const messages = [
+      createMessage('user', 'Discovery evidence should remain verbatim'),
+      createMessage('assistant', 'No compaction needed yet'),
+    ]
+
+    const results = runHandleSteps(messages, 124_000)
+
+    expect(results[0].input.messages).toHaveLength(2)
+    expect(results[0].input.messages[0].content[0].text).toBe(
+      'Discovery evidence should remain verbatim',
+    )
+    expect(results[0].input.messages[1].content[0].text).toBe(
+      'No compaction needed yet',
+    )
+  })
+
+  test('allows a one-million-token window to summarize at the model-aware trigger', () => {
+    mockAgentState.contextWindowTokens = 1_000_000
+    const messages = [
+      createMessage('user', 'Hello'),
+      createMessage('assistant', 'Hi'),
+    ]
+
+    const results = runHandleSteps(messages, 800_000)
+
+    expect(results[0].input.messages).toHaveLength(1)
+    expect(results[0].input.messages[0].content[0].text).toContain(
+      '<conversation_summary>',
+    )
+  })
 
   test('uses the conservative fallback when the model context window is unknown', () => {
     mockAgentState.contextWindowTokens = undefined

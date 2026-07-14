@@ -72,6 +72,7 @@ This means failures have at least three representations before the runtime build
   ```
 
   It detects failures by a regular expression over `content`.
+
 - `packages/agent-runtime/src/tools/handlers/tool/read-files.ts:41-77` combines whole, range, and symbol paths for path validation.
 - `packages/agent-runtime/src/tools/handlers/tool/read-files.ts:93-125` uses `toOptionalFile()` marker parsing to clear edit gates and grant whole-file authorization.
 - `packages/agent-runtime/src/tools/handlers/tool/read-files.ts:143-151` computes `requestedReadCount` from whole and range paths only. Symbol requests are excluded.
@@ -180,7 +181,12 @@ type FilesystemError = {
   message: string
   retryable: boolean
   requiresFreshRead?: boolean
-  recovery?: 'discover_path' | 'read_again' | 'read_smaller_range' | 'choose_symbol' | 'change_edit_strategy'
+  recovery?:
+    | 'discover_path'
+    | 'read_again'
+    | 'read_smaller_range'
+    | 'choose_symbol'
+    | 'change_edit_strategy'
 }
 ```
 
@@ -216,7 +222,11 @@ type ReadFilesItemV1 =
       content: string
       complete: boolean
       template: boolean
-      truncation?: { reason: 'character_limit'; omittedStartLine?: number; omittedEndLine?: number }
+      truncation?: {
+        reason: 'character_limit'
+        omittedStartLine?: number
+        omittedEndLine?: number
+      }
       referencedBy?: Record<string, string[]>
     }
   | {
@@ -290,7 +300,13 @@ Introduce one shared write result for filesystem mutation tools:
 type FileEditResultV1 = {
   kind: 'file_edit_result'
   version: 1
-  tool: 'str_replace' | 'write_file' | 'replace_range' | 'rewrite_symbol' | 'apply_patch' | 'edit_transaction'
+  tool:
+    | 'str_replace'
+    | 'write_file'
+    | 'replace_range'
+    | 'rewrite_symbol'
+    | 'apply_patch'
+    | 'edit_transaction'
   status: FilesystemResultStatus
   atomic: boolean
   changed: boolean

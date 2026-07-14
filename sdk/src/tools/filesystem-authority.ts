@@ -10,6 +10,7 @@ import {
 import type {
   CodebuffConditionalCommitResult,
   CodebuffConditionalDeleteResult,
+  CodebuffConditionalMoveResult,
   CodebuffFileContent,
   CodebuffFileSystem,
 } from '@codebuff/common/types/filesystem'
@@ -29,10 +30,11 @@ export type FilesystemCapability =
   | 'text_range_read'
   | 'conditional_commit'
   | 'conditional_delete'
+  | 'conditional_move'
   | 'exclusive_create'
 
 export type FilesystemCapabilitySnapshot = Readonly<{
-  tier: 'baseline' | 'enhanced' | 'atomic'
+  tier: 'baseline' | 'enhanced' | 'cooperative' | 'atomic'
   capabilities: ReadonlySet<FilesystemCapability>
 }>
 
@@ -491,9 +493,9 @@ export class FilesystemAuthority {
     authorizedPath: AuthorizedFilesystemPath,
     expected: ExpectedFileState,
   ): Promise<ExpectedStateValidation> {
-    // This closes stale-read mistakes inside a cooperative authority flow. It
-    // does not close a hostile external check/write race; adapters must expose
-    // conditionalCommit when that atomic guarantee is available.
+    // This closes stale-read mistakes inside an authority flow. It does not
+    // close an external check/write race; adapters must expose a native or
+    // cooperative conditionalCommit authority for guarded writes.
     const actual = await this.snapshot(authorizedPath)
     return { matches: expectedStateMatches(expected, actual), actual }
   }
@@ -562,6 +564,22 @@ export class FilesystemAuthority {
       {
         expectedHash,
       },
+    )
+    return { supported: true, result }
+  }
+
+  async conditionalMove(
+    source: AuthorizedFilesystemPath,
+    destination: AuthorizedFilesystemPath,
+    expectedSourceHash: string,
+  ): Promise<OptionalCapabilityResult<CodebuffConditionalMoveResult>> {
+    const move = this.fileSystem.conditionalMove
+    if (!move) return { supported: false, reason: 'unsupported' }
+    const result = await move.call(
+      this.fileSystem,
+      source.operationPath,
+      destination.operationPath,
+      { expectedSourceHash, expectedDestinationHash: null },
     )
     return { supported: true, result }
   }
@@ -688,15 +706,26 @@ export function detectFilesystemCapabilities(
   if (typeof fileSystem.conditionalDelete === 'function') {
     capabilities.add('conditional_delete')
   }
+  if (typeof fileSystem.conditionalMove === 'function') {
+    capabilities.add('conditional_move')
+  }
   if (typeof fileSystem.createFileExclusive === 'function') {
     capabilities.add('exclusive_create')
   }
   return {
-    tier: capabilities.has('conditional_commit')
-      ? 'atomic'
-      : capabilities.size > 1
-        ? 'enhanced'
-        : 'baseline',
+    tier:
+      capabilities.has('conditional_commit') &&
+      capabilities.has('conditional_delete') &&
+      capabilities.has('conditional_move') &&
+      capabilities.has('exclusive_create')
+        ? fileSystem.mutationAuthority === 'native_atomic'
+          ? 'atomic'
+          : fileSystem.mutationAuthority === 'cooperative_cas'
+            ? 'cooperative'
+            : 'enhanced'
+        : capabilities.size > 1
+          ? 'enhanced'
+          : 'baseline',
     capabilities,
   }
 }

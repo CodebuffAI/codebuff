@@ -63,9 +63,11 @@ describe('durable plan artifact policy', () => {
 
   test('preflight rejects duplicate and missing dependency IDs', () => {
     const result = preflightPlan(
-      ['- [ ] P1-T1 First', '- [ ] P1-T1 Duplicate', '  - Depends on: P0-T9'].join(
-        '\n',
-      ),
+      [
+        '- [ ] P1-T1 First',
+        '- [ ] P1-T1 Duplicate',
+        '  - Depends on: P0-T9',
+      ].join('\n'),
     )
     expect(result.ok).toBe(false)
     expect(
@@ -76,8 +78,7 @@ describe('durable plan artifact policy', () => {
     ).toBe(true)
     expect(
       result.errors.some(
-        (error) =>
-          error.includes('[dependency]') && error.includes('"P0-T9"'),
+        (error) => error.includes('[dependency]') && error.includes('"P0-T9"'),
       ),
     ).toBe(true)
   })
@@ -154,8 +155,7 @@ describe('durable plan artifact policy', () => {
     expect(result.tasks).toEqual([])
     expect(
       result.errors.some(
-        (error) =>
-          error.includes('[malformed-id]') && error.includes('"P6."'),
+        (error) => error.includes('[malformed-id]') && error.includes('"P6."'),
       ),
     ).toBe(true)
     expect(
@@ -165,9 +165,9 @@ describe('durable plan artifact policy', () => {
           error.includes('visible task ID "P6.4" conflicts'),
       ),
     ).toBe(true)
-    expect(result.errors.every((error) => error.includes('Valid example:'))).toBe(
-      true,
-    )
+    expect(
+      result.errors.every((error) => error.includes('Valid example:')),
+    ).toBe(true)
   })
 
   test('categorizes empty dependency, acceptance, and validation fields', () => {

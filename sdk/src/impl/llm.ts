@@ -24,6 +24,7 @@ import {
 import {
   getModelForRequest,
   markChatGptOAuthRateLimited,
+  resolveModelContextWindow,
 } from './model-provider'
 import { resolveModelsToTry, isFailoverEligibleError } from './failover'
 import { buildSpawnAgentsInputForDirectAgentCall } from './direct-agent-tool-repair'
@@ -390,13 +391,26 @@ const POST_STREAM_METADATA_TIMEOUT_MS = 500
 export function getMessagesForModelContext(params: {
   messages: Message[]
   contextWindowTokens?: number
+  maxTotalTokensOverride?: number
   logger: ParamsOf<PromptAiSdkStreamFn>['logger']
   trackEvent?: ParamsOf<PromptAiSdkStreamFn>['trackEvent']
   userId?: string
   userInputId?: string
   model?: string
 }): Message[] {
-  const maxTotalTokens = getModelContextMessageLimit(params.contextWindowTokens)
+  const resolvedMessageLimit = getModelContextMessageLimit(
+    params.contextWindowTokens,
+  )
+  const maxTotalTokens =
+    params.maxTotalTokensOverride === undefined
+      ? resolvedMessageLimit
+      : Math.max(
+          1,
+          Math.min(
+            resolvedMessageLimit,
+            Math.floor(params.maxTotalTokensOverride),
+          ),
+        )
   const trimmed = trimMessagesToFitTokenLimit({
     messages: params.messages,
     systemTokens: 0,
@@ -448,6 +462,40 @@ export function getMessagesForModelContext(params: {
   }
 
   return trimmed
+}
+
+export function getProviderContextLimitFromError(
+  error: unknown,
+): number | undefined {
+  const texts: string[] = []
+  const visit = (value: unknown, depth = 0): void => {
+    if (depth > 5 || value == null) return
+    if (typeof value === 'string') {
+      texts.push(value)
+      return
+    }
+    if (value instanceof Error) texts.push(value.message)
+    if (typeof value !== 'object') return
+    const record = value as Record<string, unknown>
+    for (const key of ['message', 'responseBody', 'body', 'cause']) {
+      if (key in record) visit(record[key], depth + 1)
+    }
+  }
+  visit(error)
+  const text = texts.join('\n')
+  const patterns = [
+    /tokens?\s*>\s*([\d,]+)\s+maximum/i,
+    /maximum context length(?:\s+is|:)\s*([\d,]+)\s*tokens?/i,
+    /context(?:_|\s)length(?:\s+is|:)\s*([\d,]+)\s*tokens?/i,
+  ]
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    const parsed = match?.[1]
+      ? Number.parseInt(match[1].replace(/,/g, ''), 10)
+      : Number.NaN
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+  }
+  return undefined
 }
 
 async function awaitOptionalPostStreamMetadata<T>(params: {
@@ -737,6 +785,11 @@ export async function* promptAiSdkStream(
         }).model
       : undefined)
   const modelsToTry = resolveModelsToTry(effectiveRequestedModel, loadedConfig)
+  const routeContextWindowTokens = resolveModelContextWindow({
+    agentId: params.agentId,
+    model: effectiveRequestedModel,
+  })
+  params.onModelContextResolved?.(routeContextWindowTokens)
 
   for (
     let failoverIndex = 0;
@@ -744,6 +797,8 @@ export async function* promptAiSdkStream(
     failoverIndex++
   ) {
     const failoverModel = modelsToTry[failoverIndex]
+    let promptTooLongRetried = false
+    let providerMessageLimitOverride: number | undefined
     try {
       for (let attempt = 0; attempt <= MAX_RETRIES_PER_MESSAGE; attempt++) {
         // Track if we've yielded content in THIS attempt (for ChatGPT OAuth fallback)
@@ -781,7 +836,13 @@ export async function* promptAiSdkStream(
             contextWindowTokens,
             pricing,
           } = modelResult
-          params.onModelContextResolved?.(contextWindowTokens ?? undefined)
+          const safeContextWindowTokens =
+            routeContextWindowTokens === undefined
+              ? contextWindowTokens
+              : contextWindowTokens === undefined
+                ? routeContextWindowTokens
+                : Math.min(routeContextWindowTokens, contextWindowTokens)
+          params.onModelContextResolved?.(safeContextWindowTokens)
 
           if (isChatGptOAuth && failoverIndex === 0 && attempt === 0) {
             trackEvent({
@@ -824,6 +885,7 @@ export async function* promptAiSdkStream(
               messages: getMessagesForModelContext({
                 messages: params.messages,
                 contextWindowTokens: contextWindowTokens ?? undefined,
+                maxTotalTokensOverride: providerMessageLimitOverride,
                 logger,
                 trackEvent,
                 userId,
@@ -1263,6 +1325,35 @@ export async function* promptAiSdkStream(
               'Stream error after content was yielded, cannot retry',
             )
             throw error
+          }
+
+          const providerContextLimit = getProviderContextLimitFromError(error)
+          if (
+            providerContextLimit !== undefined &&
+            !promptTooLongRetried &&
+            attempt < MAX_RETRIES_PER_MESSAGE
+          ) {
+            promptTooLongRetried = true
+            // Leave room for system/tool overhead and provider-side tokenization
+            // differences. The normal model-window policy is also applied, so a
+            // configured smaller window remains authoritative.
+            providerMessageLimitOverride =
+              getModelContextMessageLimit(providerContextLimit)
+            logger.warn(
+              {
+                model: failoverModel,
+                providerContextLimit,
+                messageLimit: providerMessageLimitOverride,
+              },
+              'Provider rejected an oversized prompt; retrying once with an adaptive context trim',
+            )
+            emitProviderStatus({
+              status: 'retrying',
+              model: failoverModel,
+              attempt: attempt + 2,
+              maxAttempts: MAX_RETRIES_PER_MESSAGE + 1,
+            })
+            continue
           }
 
           // Retry on transient network errors OR retryable HTTP status codes

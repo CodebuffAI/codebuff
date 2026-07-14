@@ -7,6 +7,7 @@ import { resolveWorkspaceIdentity } from '../services/repository-identity'
 import { gitStatus, runGit } from './git-status'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import type { WorkspaceStateV1 } from '@codebuff/common/types/workspace-state'
 
 const normalizeFile = (file: string) =>
   file.replace(/\\/g, '/').replace(/^\.\//, '')
@@ -16,6 +17,7 @@ async function buildSnapshotId(params: {
   headCommit: string
   status: string
   files: string[]
+  workspaceState?: WorkspaceStateV1
   signal?: AbortSignal
 }): Promise<string> {
   // Presentation diffs are intentionally bounded. Snapshot identity must not
@@ -32,7 +34,9 @@ async function buildSnapshotId(params: {
     )
   }
   const hash = createHash('sha256')
-    .update(`${params.headCommit}\0${params.status}\0`)
+    .update(
+      `${params.headCommit}\0${params.status}\0${params.workspaceState?.revision ?? 'unknown'}\0${params.workspaceState?.snapshotId ?? 'unknown'}\0`,
+    )
     .update(fullDiff.stdout)
   for (const file of [...params.files].sort()) {
     const absolute = path.join(params.cwd, file)
@@ -49,6 +53,7 @@ export async function getChangeReviewBundle(params: {
   cwd: string
   stateDir?: string
   max_chars?: number
+  workspaceState?: WorkspaceStateV1
   signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'get_change_review_bundle'>> {
   const [git, head, workspace] = await Promise.all([
@@ -91,6 +96,7 @@ export async function getChangeReviewBundle(params: {
       headCommit,
       status,
       files,
+      workspaceState: params.workspaceState,
       signal: params.signal,
     })
   } catch (error) {
@@ -167,6 +173,8 @@ export async function getChangeReviewBundle(params: {
         snapshotId,
         repositoryId: workspace.repositoryId,
         workspaceId: workspace.workspaceId,
+        workspaceRevision: params.workspaceState?.revision,
+        workspaceSnapshotId: params.workspaceState?.snapshotId,
         headCommit,
         status,
         files,

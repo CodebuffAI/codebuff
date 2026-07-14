@@ -1353,6 +1353,108 @@ function test3() {
     }
   })
 
+  it('accepts a strict cap.v3 token only for its bound project, path, and run', async () => {
+    const initialContent = 'const target = 1;\n'
+    const scope = {
+      projectId: '/project',
+      path: 'src/target.ts',
+      runId: 'run-1',
+    }
+    const token = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 1,
+      hash: getContentHash('const target = 1;'),
+      scope,
+    })
+
+    const result = await processStrReplace({
+      path: scope.path,
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: token,
+        },
+      ],
+      requireFreshReadCapability: true,
+      readCapabilityScope: scope,
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect(result).toHaveProperty('content', 'const target = 2;\n')
+  })
+
+  it('rejects cross-path replay of a strict cap.v3 token even for identical content', async () => {
+    const sourceScope = {
+      projectId: '/project',
+      path: 'src/source.ts',
+      runId: 'run-1',
+    }
+    const token = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 1,
+      hash: getContentHash('const target = 1;'),
+      scope: sourceScope,
+    })
+
+    const result = await processStrReplace({
+      path: 'src/other.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: token,
+        },
+      ],
+      requireFreshReadCapability: true,
+      readCapabilityScope: { ...sourceScope, path: 'src/other.ts' },
+      initialContentPromise: Promise.resolve('const target = 1;\n'),
+      logger,
+    })
+
+    expect(result).toHaveProperty('error')
+    if ('error' in result) {
+      expect(result.error).toContain('different project, path, or agent run')
+    }
+  })
+
+  it('does not allow legacy pathless tokens to authorize strict edits', async () => {
+    const legacyToken = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 1,
+      hash: getContentHash('const target = 1;'),
+    })
+    const result = await processStrReplace({
+      path: 'src/target.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: legacyToken,
+        },
+      ],
+      requireFreshReadCapability: true,
+      readCapabilityScope: {
+        projectId: '/project',
+        path: 'src/target.ts',
+        runId: 'run-1',
+      },
+      initialContentPromise: Promise.resolve('const target = 1;\n'),
+      logger,
+    })
+
+    expect(result).toHaveProperty('error')
+    if ('error' in result) {
+      expect(result.error).toContain(
+        'Legacy pathless basedOnRead values cannot satisfy strict',
+      )
+    }
+  })
+
   it('rejects a stale readCapability token on large files even when oldString is unique', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
@@ -1424,11 +1526,7 @@ function test3() {
     }
   })
 
-  it('should emit a fresh capability token for the current range content when rejecting a stale basedOnRead anchor (Gap #3)', async () => {
-    // When the hash mismatches, the agent should be told BOTH that the anchor is
-    // stale AND given a ready-to-use fresh token for the current content of the
-    // same line range, so after re-reading oldString it can retry without
-    // hand-deriving a new hash.
+  it('does not mint authorization from a stale basedOnRead failure', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 300 || index === 700
         ? 'const target = 1;'
@@ -1457,14 +1555,11 @@ function test3() {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      // The fresh-token hint points at the CURRENT content of the same line range.
-      const expectedFreshHash = getContentHash(lines[300])
-      expect(result.error).toContain('readCapability=cap.')
+      expect(result.error).not.toContain('readCapability=cap.')
       expect(result.error).toContain(
-        'Fresh capability token for the CURRENT content of lines 301-301',
+        'No replacement capability is minted from a stale-read failure',
       )
-      // The emitted token decodes to the current content hash, not the stale one.
-      expect(result.error).toContain(expectedFreshHash)
+      expect(result.error).toContain('Re-read with read_files ranges')
     }
   })
 
@@ -1644,7 +1739,9 @@ function test3() {
       expect(result.error).toContain('Replacement 2/2 failed:')
       expect(result.error).toContain('const missing = 1;')
       expect(result.error).toContain('already changed/removed')
-      expect(result.error).toContain('use replace_range with its readCapability')
+      expect(result.error).toContain(
+        'use replace_range with its readCapability',
+      )
       expect(result.error).not.toContain('+const first = 2;')
     }
   })

@@ -7,6 +7,11 @@ import {
 } from '../utils'
 import { basedOnReadRangeSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
+import {
+  decodeReadCapabilityToken,
+  encodeReadCapabilityToken,
+  getContentHash,
+} from '../../../util/content-hash'
 
 import type { $ToolParams } from '../../constants'
 
@@ -44,6 +49,19 @@ const patchTextSchema = z
       'diff is an explicit placeholder. Provide the complete unified diff in this tool call.',
   })
 
+const scopedReadCapabilityTokenSchema = z.string().superRefine((token, ctx) => {
+  const decoded = decodeReadCapabilityToken(token)
+  if (typeof decoded === 'string' || decoded.tokenVersion !== 'v3') {
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        typeof decoded === 'string'
+          ? decoded
+          : 'apply_patch strict authorization requires a project/path/run-bound cap.v3 token from a fresh read_files range.',
+    })
+  }
+})
+
 const operationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('create_file'),
@@ -55,10 +73,10 @@ const operationSchema = z.discriminatedUnion('type', [
     path: z.string().min(1, 'Path cannot be empty'),
     diff: patchTextSchema,
     basedOnRead: z
-      .array(basedOnReadRangeSchema)
+      .array(z.union([scopedReadCapabilityTokenSchema, basedOnReadRangeSchema]))
       .optional()
       .describe(
-        'Required for large-file update patches. Provide one capability per touched hunk, copied from fresh read_files.ranges headers so the runtime can reject stale or out-of-range patch hunks before editing.',
+        'Required for large-file update patches. Prefer one authenticated cap.v3 token per touched hunk, copied from fresh read_files.ranges headers. Legacy range objects remain freshness checks but cannot authorize an otherwise unread path in strict mode.',
       ),
   }),
   z.object({
@@ -112,11 +130,16 @@ ${$getNativeToolCallExampleString({
       path: 'lib/fib.py',
       diff: '@@\n-def fib(n):\n+def fibonacci(n):\n     if n <= 1:\n         return n\n-    return fib(n-1) + fib(n-2)\n+    return fibonacci(n-1) + fibonacci(n-2)\n',
       basedOnRead: [
-        {
+        encodeReadCapabilityToken({
           startLine: 1,
           endLine: 5,
-          hash: 'sha256:abc123',
-        },
+          hash: getContentHash('freshly read patch range'),
+          scope: {
+            projectId: '/example/project',
+            path: 'lib/fib.py',
+            runId: 'example-run',
+          },
+        }),
       ],
     },
   },

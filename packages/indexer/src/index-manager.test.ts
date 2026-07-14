@@ -5,7 +5,9 @@ import { join } from 'path'
 import { afterAll, describe, expect, test } from 'bun:test'
 
 import { IndexManager } from './index-manager'
+import { MAX_INDEX_AGE_MS } from './index-store'
 import type { EmbedFn } from './semantic'
+import type { MetadataIndex } from './types'
 
 const roots: string[] = []
 
@@ -89,7 +91,9 @@ describe('IndexManager.markStale', () => {
     mgr.markStale()
     const stale = mgr.query('loginUser')
     expect(stale.ready).toBe(true)
-    expect(stale.results.some((result) => result.path === 'src/auth.ts')).toBe(true)
+    expect(stale.results.some((result) => result.path === 'src/auth.ts')).toBe(
+      true,
+    )
     expect(stale.status.stale).toBe(true)
     expect(stale.totalIndexed).toBe(ready.totalIndexed)
 
@@ -180,5 +184,80 @@ describe('IndexManager.markStale', () => {
     expect(refreshed.results[0]?.matchedSnippets).not.toContain(
       'package script: typecheck=tsc --noEmit',
     )
+  })
+
+  test('age-stale snapshots automatically schedule a background refresh', async () => {
+    const root = makeProject()
+    const mgr = IndexManager.getInstance(root, {})
+    await mgr.waitUntilReady(10_000)
+    writeFileSync(
+      join(root, 'src', 'auth.ts'),
+      'export function refreshedLogin() {}\n',
+    )
+
+    const internal = mgr as unknown as {
+      index: MetadataIndex
+      lastBuildAttempt: number
+    }
+    internal.index.builtAt = Date.now() - MAX_INDEX_AGE_MS - 1
+    internal.lastBuildAttempt = 0
+
+    const stale = mgr.query('loginUser')
+    expect(stale.ready).toBe(true)
+    expect(stale.status.stale).toBe(true)
+    expect(stale.status.refreshing).toBe(true)
+
+    await mgr.waitUntilReady(10_000)
+    const refreshed = mgr.query('refreshedLogin')
+    expect(
+      refreshed.results.some((result) => result.path === 'src/auth.ts'),
+    ).toBe(true)
+  })
+
+  test('accepts precise path deltas for incremental refreshes', async () => {
+    const root = makeProject()
+    const mgr = IndexManager.getInstance(root, {})
+    await mgr.waitUntilReady(10_000)
+    const before = mgr.query('loginUser')
+    writeFileSync(
+      join(root, 'src', 'auth.ts'),
+      'export function deltaLogin() {}\n',
+    )
+
+    mgr.markPathsChanged({
+      changedPaths: ['src/auth.ts'],
+      complete: true,
+      revision: 7,
+    })
+    expect(mgr.query('loginUser').status.stale).toBe(true)
+    await mgr.waitUntilReady(10_000)
+    const refreshed = mgr.query('deltaLogin')
+    const result = refreshed.results.find(
+      (candidate) => candidate.path === 'src/auth.ts',
+    )
+    expect(result?.indexedHash).toHaveLength(64)
+    expect(refreshed.snapshot).toMatchObject({
+      schemaVersion: 1,
+      indexVersion: '2',
+      workspaceRevision: 7,
+    })
+    expect(refreshed.snapshot?.snapshotId).toHaveLength(64)
+    expect(refreshed.snapshot?.snapshotId).not.toBe(before.snapshot?.snapshotId)
+  })
+
+  test('exposes structured build failures instead of reporting an empty index', async () => {
+    const root = makeProject()
+    mkdirSync(join(root, '.custom-index'))
+    writeFileSync(join(root, '.custom-index', 'owned-by-user.txt'), 'user data')
+    const mgr = IndexManager.getInstance(root, { cacheDir: '.custom-index' })
+
+    await mgr.waitUntilReady(10_000)
+    const status = mgr.getStatus()
+    expect(status.state).toBe('failed')
+    expect(status.lastBuildError).toMatchObject({
+      stage: 'persist',
+      retryable: false,
+    })
+    expect(status.lastBuildError?.cachePath).toContain('.custom-index')
   })
 })

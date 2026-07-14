@@ -37,8 +37,7 @@ describe('getFileReadingUpdates', () => {
   })
 
   it('removes capability metadata from truncated ranges using the current header shape', async () => {
-    const capability =
-      'cap.v2.1.2.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    const capability = 'cap.v2.1.2.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
     const result = await getFileReadingUpdates({
       requestFiles: async () => ({
         'range.ts':

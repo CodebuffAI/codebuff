@@ -20,6 +20,7 @@ export const filesystemErrorCodeSchema = z.enum([
   'rollback_incomplete',
   'illegal_transition',
   'unsupported',
+  'resource_limit',
 ])
 
 export const filesystemErrorSchema = z.object({
@@ -39,6 +40,7 @@ export const filesystemErrorSchema = z.object({
       'retry',
       'inspect_rollback',
       'fix_result',
+      'split_transaction',
     ])
     .optional(),
 })
@@ -96,7 +98,7 @@ const fileCapabilityBaseV1Schema = z.object({
     .string()
     .min(1)
     .describe(
-      'Fresh stateless read capability for the snapshot. cap.* tokens may be copied verbatim into basedOnRead while the corresponding file content remains unchanged.',
+      'Fresh opaque read capability for the snapshot. Active cap.v3 tokens are authenticated and bound to the issuing project, path, and run; copy them verbatim only to the matching edit target.',
     ),
   snapshot: fileSnapshotV1Schema,
 })
@@ -196,6 +198,8 @@ export const fileMutationResultV1Schema = z
     actions: fileMutationActionV1Schema.array(),
     authorityTier: authorityCapabilityTierSchema.nullable(),
     receiptId: z.string().min(1).optional(),
+    workspaceRevision: z.number().int().nonnegative().optional(),
+    workspaceSnapshotId: z.string().min(1).optional(),
     authorityReceipt: z.lazy(() => commitReceiptV1Schema).optional(),
     errors: filesystemErrorSchema.array(),
     freshCapabilities: fileCapabilityV1Schema.array(),
@@ -330,6 +334,8 @@ export const commitReceiptV1Schema = z
     status: commitReceiptStatusV1Schema,
     actions: commitActionReceiptV1Schema.array(),
     finalHashes: z.record(z.string(), z.string().min(1).nullable()),
+    workspaceRevision: z.number().int().nonnegative().optional(),
+    workspaceSnapshotId: z.string().min(1).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.actions.some((action, index) => action.index !== index)) {

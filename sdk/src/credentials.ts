@@ -73,9 +73,7 @@ type ConfigPathEnv = ClientEnv & {
   APPDATA?: string
 }
 
-export const getConfigDir = (
-  clientEnv?: Partial<ConfigPathEnv>,
-): string => {
+export const getConfigDir = (clientEnv?: Partial<ConfigPathEnv>): string => {
   // An explicitly injected environment is authoritative. Merging live process
   // variables into it breaks test isolation and lets a host XDG/APPDATA value
   // redirect an otherwise isolated caller into the real user config.
@@ -208,9 +206,7 @@ export const saveChatGptOAuthCredentials = (
   }
 }
 
-export const clearChatGptOAuthCredentials = (
-  clientEnv?: ClientEnv,
-): void => {
+export const clearChatGptOAuthCredentials = (clientEnv?: ClientEnv): void => {
   const credentialsPath = getCredentialsPath(clientEnv)
   if (!fs.existsSync(credentialsPath)) {
     return

@@ -196,9 +196,7 @@ export function computeCompletionSummary(
             }
           }
         }
-        const descendantErrors = block.blocks
-          ? walk(block.blocks, true)
-          : 0
+        const descendantErrors = block.blocks ? walk(block.blocks, true) : 0
         // Auxiliary failures already have their own explicit count. For other
         // agents, count the failed wrapper only when no nested tool/agent error
         // already explains it.

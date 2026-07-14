@@ -5,6 +5,7 @@ import {
   buildFileVectors,
   cosineSimilarity,
   fileEmbeddingText,
+  fileEmbeddingHash,
   getSemanticConfigFingerprint,
   isSemanticIndexingAvailable,
   semanticSearch,
@@ -70,7 +71,7 @@ describe('semantic engine', () => {
     )
   })
 
-  test('reuses vectors for unchanged content hashes', async () => {
+  test('reuses vectors only when the exact embedding input is unchanged', async () => {
     const calls: string[][] = []
     const embed: EmbedFn = async (texts) => {
       calls.push(texts)
@@ -84,7 +85,7 @@ describe('semantic engine', () => {
     expect(calls).toHaveLength(1)
   })
 
-  test('reuses content-hash vectors across renames and duplicate files', async () => {
+  test('re-embeds renames and duplicate content because path is embedded', async () => {
     const calls: string[][] = []
     const embed: EmbedFn = async (texts) => {
       calls.push(texts)
@@ -105,13 +106,14 @@ describe('semantic engine', () => {
       previous,
     )
 
-    expect(calls).toHaveLength(1)
+    expect(calls).toHaveLength(2)
     expect(vectors.map((entry) => entry.path)).toEqual([
       'new-name.ts',
       'copy.ts',
     ])
-    expect(vectors.every((entry) => entry.vector === previous[0].vector)).toBe(
-      true,
+    expect(vectors.every((entry) => entry.embeddingHash)).toBe(true)
+    expect(vectors.map((entry) => entry.embeddingHash)).not.toContain(
+      previous[0].embeddingHash,
     )
   })
   test('isSemanticIndexingAvailable reflects whether an embedder exists', () => {
@@ -133,6 +135,12 @@ describe('semantic engine', () => {
     )
     expect(text).toContain('src/auth.ts')
     expect(text).toContain('loginUser')
+  })
+
+  test('fileEmbeddingHash changes whenever the exact embedding input changes', () => {
+    const original = file('src/auth.ts', ['loginUser'])
+    const renamed = { ...original, path: 'src/renamed-auth.ts' }
+    expect(fileEmbeddingHash(original)).not.toBe(fileEmbeddingHash(renamed))
   })
 
   test('semanticSearch ranks files by intent overlap', async () => {

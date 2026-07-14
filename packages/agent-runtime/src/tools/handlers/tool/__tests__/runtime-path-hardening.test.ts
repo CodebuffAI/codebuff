@@ -11,6 +11,10 @@ import {
   handleWriteFile,
   normalizeToolPath,
 } from '../write-file'
+import {
+  encodeReadCapabilityToken,
+  getContentHash,
+} from '@codebuff/common/util/content-hash'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -282,8 +286,91 @@ describe('runtime tool path hardening', () => {
       file: 'src/a.ts',
     })
     expect(
-      String((result.output[0]?.value as { errorMessage?: string }).errorMessage),
+      String(
+        (result.output[0]?.value as { errorMessage?: string }).errorMessage,
+      ),
     ).toContain('strict read-before-edit')
+  })
+
+  it('does not let legacy pathless apply_patch ranges authorize an unread path', async () => {
+    let clientCalls = 0
+    const result = await handleApplyPatch({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'strict-legacy-apply-patch',
+        toolName: 'apply_patch',
+        input: {
+          operation: {
+            type: 'update_file',
+            path: 'src/a.ts',
+            diff: '@@\n-old\n+new\n',
+            basedOnRead: [
+              { startLine: 1, endLine: 1, hash: getContentHash('old') },
+            ],
+          },
+        },
+      },
+      fileProcessingState: getFileProcessingValues({
+        strictReadBeforeEdit: true,
+      }),
+      requestClientToolCall: async () => {
+        clientCalls += 1
+        return []
+      },
+    } as any)
+
+    expect(clientCalls).toBe(0)
+    expect(String((result.output[0]?.value as any).errorMessage)).toContain(
+      'strict read-before-edit',
+    )
+  })
+
+  it('accepts and unwraps target-bound cap.v3 apply_patch ranges', async () => {
+    const path = 'src/a.ts'
+    const projectId = '/project'
+    const runId = 'apply-patch-run'
+    const hash = getContentHash('old')
+    const token = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 1,
+      hash,
+      scope: { projectId, path, runId },
+    })
+    let forwardedOperation: any
+    const result = await handleApplyPatch({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'strict-scoped-apply-patch',
+        toolName: 'apply_patch',
+        input: {
+          operation: {
+            type: 'update_file',
+            path,
+            diff: '@@\n-old\n+new\n',
+            basedOnRead: [token],
+          },
+        },
+      },
+      fileContext: { projectRoot: projectId },
+      runId,
+      fileProcessingState: getFileProcessingValues({
+        strictReadBeforeEdit: true,
+      }),
+      requestClientToolCall: async (toolCall: any) => {
+        forwardedOperation = toolCall.input.operation
+        return [
+          {
+            type: 'json' as const,
+            value: { file: path, message: 'applied' },
+          },
+        ]
+      },
+    } as any)
+
+    expect(forwardedOperation.basedOnRead).toEqual([
+      { startLine: 1, endLine: 1, hash },
+    ])
+    expect(result.output[0]?.value).not.toHaveProperty('errorMessage')
   })
 
   it('blocks a mixed read_files request rather than forwarding an empty path', async () => {

@@ -32,14 +32,38 @@ function createBlock(
 describe('ReadFilesComponent', () => {
   test('[ERR-M05] bounds canonical selector diagnostics and message lines', () => {
     const results = Array.from({ length: 21 }, (_, requestIndex) => ({
-      selector: 'file', requestIndex, path: `src/${requestIndex}.ts`, status: 'error',
-      error: { code: 'io_error', message: 'one\ntwo\nthree\nfour\nfive\nsix\nseven', retryable: true, recovery: 'retry' },
+      selector: 'file',
+      requestIndex,
+      path: `src/${requestIndex}.ts`,
+      status: 'error',
+      error: {
+        code: 'io_error',
+        message: 'one\ntwo\nthree\nfour\nfive\nsix\nseven',
+        retryable: true,
+        recovery: 'retry',
+      },
     }))
     const result = renderToolComponent(
-      createBlock({ paths: results.map((row) => row.path) }, [{ type: 'json', value: {
-        kind: 'read_files_result', version: 1, status: 'error',
-        summary: { requested: 21, ok: 0, partial: 0, failed: 21, uniquePaths: 21 }, results,
-      } }]), chatThemes.dark, renderOptions,
+      createBlock({ paths: results.map((row) => row.path) }, [
+        {
+          type: 'json',
+          value: {
+            kind: 'read_files_result',
+            version: 1,
+            status: 'error',
+            summary: {
+              requested: 21,
+              ok: 0,
+              partial: 0,
+              failed: 21,
+              uniquePaths: 21,
+            },
+            results,
+          },
+        },
+      ]),
+      chatThemes.dark,
+      renderOptions,
     )
     const markup = renderToStaticMarkup(result?.content as React.ReactElement)
     expect(markup).toContain('src/19.ts')

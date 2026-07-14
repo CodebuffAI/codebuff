@@ -56,7 +56,9 @@ export function evaluateCacheRecall(params: {
   }
   if (!recallPassed) {
     if (!recallEvaluated && config.requireRecallAssertions) {
-      failureReasons.push('recall assertions are required but none were configured')
+      failureReasons.push(
+        'recall assertions are required but none were configured',
+      )
     }
   }
   if (recallEvaluated && !recallPassed) {

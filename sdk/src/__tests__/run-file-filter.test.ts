@@ -265,7 +265,8 @@ describe('OpenbuffClientOptions fileFilter', () => {
         try {
           await requestOptionalFile({ filePath: 'secret.key' })
         } catch (error) {
-          optionalFileError = error instanceof Error ? error.message : String(error)
+          optionalFileError =
+            error instanceof Error ? error.message : String(error)
         }
 
         await sendAction({
@@ -348,7 +349,8 @@ describe('OpenbuffClientOptions fileFilter', () => {
         try {
           await requestOptionalFile({ filePath: '/project/src/index.ts' })
         } catch (error) {
-          optionalFileError = error instanceof Error ? error.message : String(error)
+          optionalFileError =
+            error instanceof Error ? error.message : String(error)
         }
 
         await sendAction({

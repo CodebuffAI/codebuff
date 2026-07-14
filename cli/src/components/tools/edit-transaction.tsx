@@ -152,7 +152,8 @@ export const EditTransactionComponent = defineToolComponent({
     const isProposed = String(toolBlock.toolName).startsWith('propose_')
     const proposal = getCanonicalProposalResult(toolBlock.outputRaw)
     const mutation = getCanonicalMutationResult(toolBlock.outputRaw)
-    const title = isProposed || proposal ? 'Proposal transaction' : 'Edit transaction'
+    const title =
+      isProposed || proposal ? 'Proposal transaction' : 'Edit transaction'
     const collapsedPreview = error
       ? error.split('\n')[0]
       : files.length > 0
@@ -175,7 +176,11 @@ export const EditTransactionComponent = defineToolComponent({
             </box>
           ) : null}
           {rows.map((row, index) => (
-            <text key={`${index}-${row}`} fg={_theme.muted} style={{ wrapMode: 'word' }}>
+            <text
+              key={`${index}-${row}`}
+              fg={_theme.muted}
+              style={{ wrapMode: 'word' }}
+            >
               {row}
             </text>
           ))}

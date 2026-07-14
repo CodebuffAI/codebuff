@@ -170,7 +170,9 @@ export const ToolBranch = memo(
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
           streamingPreview={streamingPreview}
-          finishedPreview={toolRenderConfig?.collapsedPreview ?? finishedPreview}
+          finishedPreview={
+            toolRenderConfig?.collapsedPreview ?? finishedPreview
+          }
           onToggle={handleToggle}
           titleSuffix={undefined}
           availableWidth={availableWidth}

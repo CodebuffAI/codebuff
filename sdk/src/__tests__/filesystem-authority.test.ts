@@ -218,6 +218,7 @@ describe('FilesystemAuthority capabilities, snapshots, and receipts', () => {
 
     const atomicFs = makeFileSystem({
       capabilities: {
+        mutationAuthority: 'native_atomic',
         readRange: async () => ({ data: new Uint8Array(), endExclusive: 0 }),
         readTextRange: async () => ({
           data: new Uint8Array(),
@@ -228,6 +229,8 @@ describe('FilesystemAuthority capabilities, snapshots, and receipts', () => {
         }),
         createFileExclusive: async () => {},
         conditionalCommit: async () => ({ applied: true }),
+        conditionalDelete: async () => ({ applied: true }),
+        conditionalMove: async () => ({ applied: true }),
       },
     })
     const snapshot = detectFilesystemCapabilities(atomicFs)
@@ -235,10 +238,35 @@ describe('FilesystemAuthority capabilities, snapshots, and receipts', () => {
     expect([...snapshot.capabilities].sort()).toEqual([
       'baseline',
       'conditional_commit',
+      'conditional_delete',
+      'conditional_move',
       'exclusive_create',
       'range_read',
       'text_range_read',
     ])
+
+    const cooperativeFs = makeFileSystem({
+      capabilities: {
+        mutationAuthority: 'cooperative_cas',
+        createFileExclusive: async () => {},
+        conditionalCommit: async () => ({ applied: true }),
+        conditionalDelete: async () => ({ applied: true }),
+        conditionalMove: async () => ({ applied: true }),
+      },
+    })
+    expect(detectFilesystemCapabilities(cooperativeFs).tier).toBe(
+      'cooperative',
+    )
+
+    const undeclaredFs = makeFileSystem({
+      capabilities: {
+        createFileExclusive: async () => {},
+        conditionalCommit: async () => ({ applied: true }),
+        conditionalDelete: async () => ({ applied: true }),
+        conditionalMove: async () => ({ applied: true }),
+      },
+    })
+    expect(detectFilesystemCapabilities(undeclaredFs).tier).toBe('enhanced')
   })
 
   test('hashes bytes deterministically and revalidates expected state', async () => {

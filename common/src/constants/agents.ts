@@ -77,20 +77,69 @@ export const AGENT_PERSONAS = {
     purpose:
       'Runs an explicitly requested package-manager dependency mutation under a narrowly constrained terminal policy.',
   } as const,
-  architect: { displayName: 'Architecture Specialist', purpose: 'Produces source-backed architecture decisions and migration paths.' } as const,
-  'product-reviewer': { displayName: 'Product and Spec Reviewer', purpose: 'Reviews requirements and user-facing acceptance criteria.' } as const,
-  'integration-agent': { displayName: 'Integration Specialist', purpose: 'Plans safe integration ordering, conflicts, and revalidation.' } as const,
-  'performance-specialist': { displayName: 'Performance Specialist', purpose: 'Evaluates profiling and benchmark evidence.' } as const,
-  'reliability-reviewer': { displayName: 'Reliability and Concurrency Reviewer', purpose: 'Reviews races, retries, cancellation, and state machines.' } as const,
-  'migration-reviewer': { displayName: 'Data and Migration Reviewer', purpose: 'Reviews migrations, backfills, compatibility, and rollback.' } as const,
-  'accessibility-reviewer': { displayName: 'Accessibility Reviewer', purpose: 'Reviews keyboard, focus, semantics, contrast, and assistive technology behavior.' } as const,
-  'ux-visual-reviewer': { displayName: 'UX and Visual Reviewer', purpose: 'Reviews visual hierarchy, responsive behavior, and interaction consistency.' } as const,
-  'compatibility-reviewer': { displayName: 'API Compatibility Reviewer', purpose: 'Reviews public API, serialization, CLI, and config compatibility.' } as const,
-  'dependency-reviewer': { displayName: 'Dependency and Supply-Chain Reviewer', purpose: 'Reviews dependency necessity, provenance, licenses, and lockfiles.' } as const,
-  'incident-coordinator': { displayName: 'Incident and Debug Coordinator', purpose: 'Coordinates incident timelines, hypotheses, and diagnostic probes.' } as const,
-  'release-manager': { displayName: 'Release Manager', purpose: 'Plans authorized release, CI, artifact, and rollback workflows.' } as const,
-  'docs-architect': { displayName: 'Documentation Architect', purpose: 'Designs documentation structure, versioning, cross-links, and coverage.' } as const,
-  evaluator: { displayName: 'Independent Evaluator', purpose: 'Scores outputs independently against requirements and evidence.' } as const,
+  architect: {
+    displayName: 'Architecture Specialist',
+    purpose:
+      'Produces source-backed architecture decisions and migration paths.',
+  } as const,
+  'product-reviewer': {
+    displayName: 'Product and Spec Reviewer',
+    purpose: 'Reviews requirements and user-facing acceptance criteria.',
+  } as const,
+  'integration-agent': {
+    displayName: 'Integration Specialist',
+    purpose: 'Plans safe integration ordering, conflicts, and revalidation.',
+  } as const,
+  'performance-specialist': {
+    displayName: 'Performance Specialist',
+    purpose: 'Evaluates profiling and benchmark evidence.',
+  } as const,
+  'reliability-reviewer': {
+    displayName: 'Reliability and Concurrency Reviewer',
+    purpose: 'Reviews races, retries, cancellation, and state machines.',
+  } as const,
+  'migration-reviewer': {
+    displayName: 'Data and Migration Reviewer',
+    purpose: 'Reviews migrations, backfills, compatibility, and rollback.',
+  } as const,
+  'accessibility-reviewer': {
+    displayName: 'Accessibility Reviewer',
+    purpose:
+      'Reviews keyboard, focus, semantics, contrast, and assistive technology behavior.',
+  } as const,
+  'ux-visual-reviewer': {
+    displayName: 'UX and Visual Reviewer',
+    purpose:
+      'Reviews visual hierarchy, responsive behavior, and interaction consistency.',
+  } as const,
+  'compatibility-reviewer': {
+    displayName: 'API Compatibility Reviewer',
+    purpose:
+      'Reviews public API, serialization, CLI, and config compatibility.',
+  } as const,
+  'dependency-reviewer': {
+    displayName: 'Dependency and Supply-Chain Reviewer',
+    purpose:
+      'Reviews dependency necessity, provenance, licenses, and lockfiles.',
+  } as const,
+  'incident-coordinator': {
+    displayName: 'Incident and Debug Coordinator',
+    purpose:
+      'Coordinates incident timelines, hypotheses, and diagnostic probes.',
+  } as const,
+  'release-manager': {
+    displayName: 'Release Manager',
+    purpose: 'Plans authorized release, CI, artifact, and rollback workflows.',
+  } as const,
+  'docs-architect': {
+    displayName: 'Documentation Architect',
+    purpose:
+      'Designs documentation structure, versioning, cross-links, and coverage.',
+  } as const,
+  evaluator: {
+    displayName: 'Independent Evaluator',
+    purpose: 'Scores outputs independently against requirements and evidence.',
+  } as const,
 } as const satisfies Partial<
   Record<
     (typeof AgentTemplateTypes)[keyof typeof AgentTemplateTypes],

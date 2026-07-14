@@ -7,10 +7,14 @@ import {
 
 const input = process.argv[2]
 if (!input) {
-  console.error('Usage: bun evals/buffbench/run-coding-harness-ablation.ts <runs.json>')
+  console.error(
+    'Usage: bun evals/buffbench/run-coding-harness-ablation.ts <runs.json>',
+  )
   process.exit(2)
 }
-const runs = JSON.parse(fs.readFileSync(input, 'utf8')) as CodingHarnessRunMetrics[]
+const runs = JSON.parse(
+  fs.readFileSync(input, 'utf8'),
+) as CodingHarnessRunMetrics[]
 const byVariant = new Map<string, CodingHarnessRunMetrics[]>()
 for (const run of runs) {
   const group = byVariant.get(run.variant) ?? []

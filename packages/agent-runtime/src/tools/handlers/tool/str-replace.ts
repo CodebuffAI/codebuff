@@ -25,6 +25,7 @@ import type {
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Fix C: after this many str_replace attempts on the same path in one turn
 // return an error or an auto-corrected near-match, hard-block further
@@ -49,6 +50,8 @@ export const handleStrReplace = (async (
     ) => Promise<CodebuffToolOutput<'str_replace'>>
     writeToClient: (chunk: string) => void
     structuralRecovery?: boolean
+    fileContext?: ProjectFileContext
+    runId?: string
 
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
@@ -257,6 +260,11 @@ export const handleStrReplace = (async (
     replacements,
     atomic,
     requireFreshReadCapability,
+    readCapabilityScope: {
+      projectId: params.fileContext?.projectRoot ?? '',
+      path,
+      runId: params.runId ?? '',
+    },
     initialContentPromise: Promise.resolve(latestContent),
     logger,
   })

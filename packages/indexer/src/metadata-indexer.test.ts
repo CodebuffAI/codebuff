@@ -35,6 +35,15 @@ describe('metadata indexer', () => {
     expect(index.graph.edges.some((edge) => edge.type === 'mentions')).toBe(
       true,
     )
+    expect(index.parseData?.['src/a.ts']).toBeDefined()
+    expect(index.coverage?.parser).toMatchObject({
+      requestedFiles: 2,
+      parsedFiles: 2,
+      truncated: false,
+    })
+    expect(index.queryData?.postings['authentication']).toContain(
+      'docs/auth.md',
+    )
   })
 
   test('uses code-map language extensions for code concepts', async () => {
@@ -108,6 +117,43 @@ describe('metadata indexer', () => {
     expect(updated?.headings).not.toContain('Alpha')
     expect(updated?.concepts).toContain('bravo')
     expect(updated?.concepts).not.toContain('alpha')
+  })
+
+  test('uses a complete path delta without absorbing unrelated external changes', async () => {
+    const root = await makeTempProject({
+      'docs/target.md': '# Target\n\nold target\n',
+      'docs/unrelated.md': '# Unrelated\n\nold unrelated\n',
+    })
+    const first = await buildMetadataIndex(root)
+    await fs.promises.writeFile(
+      path.join(root, 'docs/target.md'),
+      '# Target\n\nnew target\n',
+    )
+    await fs.promises.writeFile(
+      path.join(root, 'docs/unrelated.md'),
+      '# Unrelated\n\nexternal change\n',
+    )
+
+    const precise = await updateMetadataIndex(
+      first,
+      root,
+      {},
+      {
+        changedPaths: ['docs/target.md'],
+        complete: true,
+      },
+    )
+    expect(precise.files['docs/target.md']?.hash).not.toBe(
+      first.files['docs/target.md']?.hash,
+    )
+    expect(precise.files['docs/unrelated.md']?.hash).toBe(
+      first.files['docs/unrelated.md']?.hash,
+    )
+
+    const swept = await updateMetadataIndex(precise, root)
+    expect(swept.files['docs/unrelated.md']?.hash).not.toBe(
+      first.files['docs/unrelated.md']?.hash,
+    )
   })
 
   test('drops stale metadata when a walked file cannot be read during incremental hashing', async () => {

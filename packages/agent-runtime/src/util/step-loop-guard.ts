@@ -35,7 +35,7 @@ export function evaluateRepeatedStepLoop(params: {
         ? { thinkOnly: true }
         : params.responseText.trim()
           ? { responseText: params.responseText.trim() }
-        : undefined
+          : undefined
 
   if (!signaturePayload) {
     return { signature: undefined, repeatCount: 0, shouldStop: false }

@@ -182,7 +182,7 @@ describe('file-walker walkProject', () => {
       'src/private/data.ts': 'private\n',
       '.env': 'TOKEN=secret\n',
       '.env.example': 'TOKEN=example\n',
-      'id_ed25519': 'private key\n',
+      id_ed25519: 'private key\n',
     })
 
     const paths = (await walkProject(root)).map((file) => file.relativePath)
@@ -215,7 +215,10 @@ describe('file-walker walkProject', () => {
       'c/3.ts': '3',
     })
     const result = await walkProjectDetailed(root, [], 2)
-    expect(result.files.map((file) => file.relativePath)).toEqual(['a/1.ts', 'b/2.ts'])
+    expect(result.files.map((file) => file.relativePath)).toEqual([
+      'a/1.ts',
+      'b/2.ts',
+    ])
     expect(result.truncated).toBe(true)
     expect(result.skippedFiles).toBe(1)
     expect(result.skippedPrefixes).toEqual(['c'])

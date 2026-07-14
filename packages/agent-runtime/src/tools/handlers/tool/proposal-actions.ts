@@ -223,8 +223,7 @@ export const handleApplyProposal = (async (
         destinationMatches =
           destination !== null &&
           operation.finalContent !== undefined &&
-          getContentHash(destination) ===
-            getContentHash(operation.finalContent)
+          getContentHash(destination) === getContentHash(operation.finalContent)
       }
       if (!postCommitMatches || !destinationMatches) {
         abortProposalApplication(runId, begun.proposal.proposalId, token)

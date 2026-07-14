@@ -44,6 +44,20 @@ export interface IndexGraph {
   edges: IndexEdge[]
 }
 
+/**
+ * Persisted query accelerators derived from {@link MetadataIndex.files} and
+ * {@link MetadataIndex.graph}. They are rebuildable, so older cache files may
+ * omit them and callers must retain a compatibility fallback.
+ */
+export interface IndexQueryData {
+  /** Normalized lexical token -> matching relative file paths. */
+  postings: Record<string, string[]>
+  /** Normalized lexical token -> number of matching files. */
+  documentFrequencies: Record<string, number>
+  /** Graph node id -> indexes into `graph.edges`. */
+  adjacency: Record<string, number[]>
+}
+
 export interface ParseDiagnostic {
   filePath: string
   stage: 'language' | 'read' | 'parse'
@@ -57,8 +71,21 @@ export interface MetadataIndex {
   fileCount: number
   files: Record<string, IndexedFile>
   graph: IndexGraph
+  queryData?: IndexQueryData
+  /** Durable per-file tree-sitter summaries used by incremental rebuilds. */
+  parseData?: Record<string, import('@codebuff/code-map').ParsedFileTokens>
   parseDiagnostics?: ParseDiagnostic[]
   coverage?: IndexCoverage
+  /** Workspace journal revision incorporated by the latest precise refresh. */
+  workspaceRevision?: string | number
+}
+
+export interface IndexSnapshotIdentity {
+  schemaVersion: 1
+  snapshotId: string
+  indexVersion: MetadataIndex['version']
+  builtAt: number
+  workspaceRevision?: string | number
 }
 
 export interface IndexCoverage {
@@ -66,6 +93,16 @@ export interface IndexCoverage {
   maxFiles: number
   skippedFiles: number
   skippedPrefixes: string[]
+  /** Tree-sitter coverage is distinct from filesystem-walker coverage. */
+  parser?: import('@codebuff/code-map').ParseCoverage
+}
+
+export interface IndexBuildError {
+  stage: 'load' | 'walk' | 'parse' | 'persist' | 'semantic' | 'unknown'
+  message: string
+  timestamp: number
+  retryable: boolean
+  cachePath?: string
 }
 
 export type IndexStatusState =
@@ -74,6 +111,7 @@ export type IndexStatusState =
   | 'ready'
   | 'stale'
   | 'degraded'
+  | 'failed'
   | 'empty'
 
 export interface IndexStatus {
@@ -86,7 +124,21 @@ export interface IndexStatus {
   indexAge: number
   diagnostics: ParseDiagnostic[]
   coverage?: IndexCoverage
+  lastBuildError?: IndexBuildError
   message: string
+}
+
+/**
+ * A path-aware mutation hint. `complete: true` means the listed paths are the
+ * full mutation delta, allowing an incremental refresh to avoid re-hashing
+ * unrelated files. Age-based safety sweeps still perform a full integrity
+ * scan so missed external changes eventually converge.
+ */
+export interface IndexMutationDelta {
+  changedPaths?: string[]
+  deletedPaths?: string[]
+  complete?: boolean
+  revision?: string | number
 }
 
 export type QueryIndexMode =
@@ -170,6 +222,8 @@ export interface RelatedFile {
 
 export interface QueryIndexResult {
   path: string
+  /** Content hash captured by this immutable index snapshot. */
+  indexedHash?: string
   score: number
   matchedOn: Array<
     | 'symbol'

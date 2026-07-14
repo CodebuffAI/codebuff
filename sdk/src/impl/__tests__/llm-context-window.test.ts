@@ -4,7 +4,10 @@ import { COMPACTED_CONTEXT_POINTER } from '@codebuff/agent-runtime/util/messages
 import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { describe, expect, mock, spyOn, test } from 'bun:test'
 
-import { getMessagesForModelContext } from '../llm'
+import {
+  getMessagesForModelContext,
+  getProviderContextLimitFromError,
+} from '../llm'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -126,5 +129,36 @@ describe('getMessagesForModelContext', () => {
     } finally {
       warnSpy.mockRestore()
     }
+  })
+
+  test('honors an adaptive provider message-limit override', () => {
+    const messages: Message[] = [
+      userMessage('oversized context '.repeat(8_000)),
+    ]
+    const result = getMessagesForModelContext({
+      messages,
+      contextWindowTokens: 1_000_000,
+      maxTotalTokensOverride: 2_000,
+      logger,
+    })
+
+    expect(result).not.toEqual(messages)
+    expect(JSON.stringify(result)).toContain(COMPACTED_CONTEXT_POINTER)
+  })
+
+  test('extracts provider context limits from oversized-prompt errors', () => {
+    expect(
+      getProviderContextLimitFromError(
+        new Error('prompt is too long: 200548 tokens > 200000 maximum'),
+      ),
+    ).toBe(200_000)
+    expect(
+      getProviderContextLimitFromError({
+        responseBody: 'maximum context length is 128000 tokens',
+      }),
+    ).toBe(128_000)
+    expect(getProviderContextLimitFromError(new Error('rate limited'))).toBe(
+      undefined,
+    )
   })
 })

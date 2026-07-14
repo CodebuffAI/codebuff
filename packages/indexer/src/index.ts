@@ -8,6 +8,12 @@ export type {
   IndexEdgeType,
   IndexEdge,
   IndexGraph,
+  IndexQueryData,
+  IndexCoverage,
+  IndexStatus,
+  IndexBuildError,
+  IndexMutationDelta,
+  IndexSnapshotIdentity,
   QueryIndexMode,
   RelatedFile,
 } from './types'
@@ -22,6 +28,12 @@ export {
   isIndexReady,
 } from './index-store'
 export { queryIndex, evaluateQueryIndexQuality } from './query'
+export {
+  buildIndexQueryData,
+  collectFilePostingTokens,
+  getPostingCandidates,
+  getPostingDocumentFrequency,
+} from './query-data'
 export {
   buildRepoMap,
   compareRetrievalStrategies,
@@ -52,6 +64,7 @@ export {
   semanticSearch,
   blendSemanticScores,
   fileEmbeddingText,
+  fileEmbeddingHash,
   getSemanticConfigFingerprint,
 } from './semantic'
 export type { EmbedFn, FileVector, SemanticHit } from './semantic'

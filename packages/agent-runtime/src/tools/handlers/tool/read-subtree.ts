@@ -1,4 +1,3 @@
-import * as nodeFs from 'fs'
 import * as nodePath from 'path'
 
 import {
@@ -17,6 +16,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { FilesystemError } from '@codebuff/common/tools/results/filesystem'
 import type {
   FileTreeNode,
   ProjectFileContext,
@@ -24,23 +24,62 @@ import type {
 
 type ToolName = 'read_subtree'
 const LIVE_SUBTREE_MAX_NODES = 1000
-export const SUBTREE_IO_CONCURRENCY = 16
 
-function createIoLimiter(limit: number) {
-  let active = 0
-  const waiting: Array<() => void> = []
-  return async <T>(operation: () => Promise<T>): Promise<T> => {
-    if (active >= limit) {
-      await new Promise<void>((resolve) => waiting.push(resolve))
-    }
-    active += 1
-    try {
-      return await operation()
-    } finally {
-      active -= 1
-      waiting.shift()?.()
-    }
+type LiveScanState = {
+  count: number
+  truncated: boolean
+  errors: Array<{ path: string; error: FilesystemError }>
+}
+
+function errorCode(error: unknown): string | undefined {
+  return error && typeof error === 'object' && 'code' in error
+    ? String(error.code)
+    : undefined
+}
+
+function subtreeError(
+  code: FilesystemError['code'],
+  message: string,
+  retryable: boolean,
+  recovery?: FilesystemError['recovery'],
+): FilesystemError {
+  return { code, message, retryable, ...(recovery ? { recovery } : {}) }
+}
+
+function classifyLiveReadError(path: string, error: unknown): FilesystemError {
+  const code = errorCode(error)
+  if (code === 'ENOENT') {
+    return subtreeError(
+      'not_found',
+      `Path not found in the authorized filesystem view: ${path}.`,
+      true,
+      'discover_path',
+    )
   }
+  if (
+    code === 'AbortError' ||
+    (error instanceof Error && error.name === 'AbortError')
+  ) {
+    return subtreeError(
+      'cancelled',
+      `Live subtree read was cancelled while inspecting ${path}.`,
+      true,
+      'retry',
+    )
+  }
+  return subtreeError(
+    'io_error',
+    `The authorized filesystem view could not read ${path}.`,
+    true,
+    'read_again',
+  )
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (!signal.aborted) return
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Operation aborted', 'AbortError')
 }
 
 export const handleReadSubtree = (async (params: {
@@ -58,16 +97,15 @@ export const handleReadSubtree = (async (params: {
 }> => {
   const { previousToolCallFinished, toolCall, fileContext, logger } = params
   const signal = params.signal ?? new AbortController().signal
-  const fs = params.fileSystem ?? nodeFs.promises
+  const fs = params.fileSystem
   const { paths, maxTokens } = toolCall.input
   const tokenBudget = maxTokens
   const allFiles = new Set(getAllFilePaths(fileContext.fileTree))
-  let hasLiveProjectRoot = false
 
   const buildDirectoryResult = (
     dirNodes: FileTreeNode[],
     outPath: string,
-    liveScan?: { count: number; truncated: boolean },
+    liveScan?: LiveScanState,
   ) => {
     const subTree = deepClone(dirNodes)
 
@@ -125,6 +163,14 @@ export const handleReadSubtree = (async (params: {
             liveNodeCount: liveScan.count,
             liveScanTruncated: liveScan.truncated,
             liveScanMaxNodes: LIVE_SUBTREE_MAX_NODES,
+            status:
+              liveScan.truncated || liveScan.errors.length > 0
+                ? ('partial' as const)
+                : ('complete' as const),
+            provenance: 'live' as const,
+            ...(liveScan.errors.length > 0
+              ? { errors: liveScan.errors }
+              : {}),
             ...(liveScan.truncated
               ? {
                   recovery:
@@ -132,7 +178,11 @@ export const handleReadSubtree = (async (params: {
                 }
               : {}),
           }
-        : {}),
+        : {
+            status: 'partial' as const,
+            provenance: 'cached' as const,
+            stale: true,
+          }),
     }
   }
 
@@ -147,6 +197,7 @@ export const handleReadSubtree = (async (params: {
       variables,
       variablesSource: 'cached' as const,
       symbolsMayBeStale: true,
+      provenance: 'cached' as const,
     }
   }
 
@@ -172,122 +223,201 @@ export const handleReadSubtree = (async (params: {
   const toProjectRelativePath = (resolvedPath: string, projectRoot: string) =>
     nodePath.relative(projectRoot, resolvedPath).replace(/\\/g, '/')
 
-  const limitIo = createIoLimiter(SUBTREE_IO_CONCURRENCY)
+  type LiveNodeResult =
+    | { ok: true; node: FileTreeNode }
+    | { ok: false; path: string; error: FilesystemError }
+
+  const reserveNode = (scan: LiveScanState): boolean => {
+    if (scan.count >= LIVE_SUBTREE_MAX_NODES) {
+      scan.truncated = true
+      return false
+    }
+    // Reserve synchronously before any asynchronous policy/stat work. At most
+    // LIVE_SUBTREE_MAX_NODES recursive calls can therefore ever be admitted.
+    scan.count += 1
+    return true
+  }
 
   const buildLiveNode = async (
     resolvedPath: string,
     projectRoot: string,
-    nodesSeen: { count: number; truncated: boolean },
-  ): Promise<FileTreeNode | null> => {
-    if (signal.aborted) return null
-    if (nodesSeen.count >= LIVE_SUBTREE_MAX_NODES) {
-      nodesSeen.truncated = true
-      return null
-    }
-
+    scan: LiveScanState,
+    liveFs: CodebuffFileSystem,
+  ): Promise<LiveNodeResult> => {
     const relativePath = toProjectRelativePath(resolvedPath, projectRoot)
     const normalizedRelativePath = relativePath.replace(/\\/g, '/')
-    if (
-      normalizedRelativePath &&
-      (isMandatorySensitiveReadPath(normalizedRelativePath.toLowerCase()) ||
-        params.fileFilter?.(normalizedRelativePath).status === 'blocked' ||
+    try {
+      throwIfAborted(signal)
+      if (
+        normalizedRelativePath &&
+        (isMandatorySensitiveReadPath(normalizedRelativePath.toLowerCase()) ||
+          params.fileFilter?.(normalizedRelativePath).status === 'blocked')
+      ) {
+        return {
+          ok: false,
+          path: normalizedRelativePath,
+          error: subtreeError(
+            'blocked',
+            `Path is blocked by the authorized filesystem policy: ${normalizedRelativePath}.`,
+            false,
+          ),
+        }
+      }
+      if (
+        normalizedRelativePath &&
         (await isFileIgnored({
           filePath: normalizedRelativePath,
           projectRoot,
-          fs,
-        })))
-    ) {
-      return null
-    }
+          fs: liveFs,
+        }))
+      ) {
+        return {
+          ok: false,
+          path: normalizedRelativePath,
+          error: subtreeError(
+            'blocked',
+            `Path is ignored by the authorized filesystem policy: ${normalizedRelativePath}.`,
+            false,
+          ),
+        }
+      }
 
-    let stat: Awaited<ReturnType<CodebuffFileSystem['stat']>>
-    try {
-      const canonicalPath = await limitIo(() => fs.realpath(resolvedPath))
+      const canonicalPath = await liveFs.realpath(resolvedPath)
+      throwIfAborted(signal)
       const relativeCanonical = nodePath.relative(projectRoot, canonicalPath)
       if (
         relativeCanonical === '..' ||
         relativeCanonical.startsWith(`..${nodePath.sep}`) ||
         nodePath.isAbsolute(relativeCanonical)
       ) {
-        return null
-      }
-      stat = await limitIo(() => fs.stat(resolvedPath))
-    } catch {
-      return null
-    }
-
-    if (nodesSeen.count >= LIVE_SUBTREE_MAX_NODES) {
-      nodesSeen.truncated = true
-      return null
-    }
-    nodesSeen.count += 1
-
-    if (!stat.isDirectory()) {
-      return {
-        name: nodePath.basename(resolvedPath),
-        type: 'file',
-        filePath: relativePath,
-        lastReadTime: stat.atimeMs,
-      }
-    }
-
-    const children: FileTreeNode[] = []
-    let entries: string[]
-    try {
-      entries = (await limitIo(() => fs.readdir(resolvedPath))) as string[]
-    } catch {
-      entries = []
-    }
-    const liveChildren = await Promise.all(
-      entries
-        .sort()
-        .map((entry) =>
-          buildLiveNode(
-            nodePath.join(resolvedPath, entry),
-            projectRoot,
-            nodesSeen,
+        return {
+          ok: false,
+          path: normalizedRelativePath,
+          error: subtreeError(
+          'outside_project',
+          `Path not found in the authorized filesystem view: ${normalizedRelativePath || '.'}.`,
+            false,
           ),
-        ),
-    )
-    children.push(...liveChildren.filter((child) => child !== null))
+        }
+      }
+      const stat = await liveFs.stat(resolvedPath)
+      throwIfAborted(signal)
 
-    return {
-      name: nodePath.basename(resolvedPath),
-      type: 'directory',
-      filePath: relativePath,
-      children,
+      if (!stat.isDirectory()) {
+        return {
+          ok: true,
+          node: {
+            name: nodePath.basename(resolvedPath),
+            type: 'file',
+            filePath: relativePath,
+            lastReadTime: stat.atimeMs,
+          },
+        }
+      }
+
+      const children: FileTreeNode[] = []
+      let entries: string[]
+      try {
+        entries = ((await liveFs.readdir(resolvedPath)) as string[]).sort()
+      } catch (error) {
+        scan.errors.push({
+          path: normalizedRelativePath || '.',
+          error: classifyLiveReadError(
+            normalizedRelativePath || '.',
+            error,
+          ),
+        })
+        entries = []
+      }
+
+      // Deterministic depth-first admission keeps the selected membership
+      // stable. We never materialize promises for entries beyond the node cap.
+      for (const entry of entries) {
+        throwIfAborted(signal)
+        if (!reserveNode(scan)) break
+        const child = await buildLiveNode(
+          nodePath.join(resolvedPath, entry),
+          projectRoot,
+          scan,
+          liveFs,
+        )
+        if (child.ok) {
+          children.push(child.node)
+        } else if (
+          child.error.code !== 'blocked' &&
+          child.error.code !== 'outside_project'
+        ) {
+          scan.errors.push({ path: child.path, error: child.error })
+        }
+      }
+
+      return {
+        ok: true,
+        node: {
+          name: nodePath.basename(resolvedPath),
+          type: 'directory',
+          filePath: relativePath,
+          children,
+        },
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        path: normalizedRelativePath || '.',
+        error: classifyLiveReadError(normalizedRelativePath || '.', error),
+      }
     }
   }
 
   const isRootPath = (p: string) => p === '.' || p === '/' || p === ''
 
-  const buildLivePathNode = async (
-    p: string,
-  ): Promise<{
-    node: FileTreeNode
-    scan: { count: number; truncated: boolean }
-  } | null> => {
+  const buildLivePathNode = async (p: string) => {
+    if (!fs) {
+      return {
+        ok: false as const,
+        path: p,
+        error: subtreeError(
+          'unsupported',
+          'No live filesystem view was supplied. Only cached subtree data is available.',
+          false,
+        ),
+      }
+    }
     const { projectRoot, resolvedPath, isInsideProject } = resolveProjectPath(p)
-    if (!isInsideProject) return null
+    if (!isInsideProject) {
+      return {
+        ok: false as const,
+        path: p,
+        error: subtreeError(
+          'outside_project',
+          `Path not found in the authorized filesystem view: ${p}.`,
+          false,
+        ),
+      }
+    }
 
-    const nodesSeen = { count: 0, truncated: false }
-    const node = await buildLiveNode(resolvedPath, projectRoot, nodesSeen)
-    return node ? { node, scan: nodesSeen } : null
+    const scan: LiveScanState = { count: 0, truncated: false, errors: [] }
+    reserveNode(scan)
+    const result = await buildLiveNode(resolvedPath, projectRoot, scan, fs)
+    return result.ok ? { ok: true as const, node: result.node, scan } : result
   }
 
   const buildLivePathResult = async (p: string) => {
     const live = await buildLivePathNode(p)
-    if (!live) return null
+    if (!live.ok) return live
     const { node, scan } = live
 
     if (node.type === 'file') {
-      return buildFileResult(p)
+      return { ok: true as const, result: buildFileResult(p) }
     }
-    return buildDirectoryResult(
-      isRootPath(p) ? (node.children ?? []) : [node],
-      p,
-      scan,
-    )
+    return {
+      ok: true as const,
+      result: buildDirectoryResult(
+        isRootPath(p) ? (node.children ?? []) : [node],
+        p,
+        scan,
+      ),
+    }
   }
 
   const buildMergedDirectoryResult = async (
@@ -295,31 +425,46 @@ export const handleReadSubtree = (async (params: {
     outPath: string,
   ) => {
     const live = await buildLivePathNode(outPath)
-    if (!live || live.node.type !== 'directory') {
-      return hasLiveProjectRoot
-        ? null
-        : buildDirectoryResult(_cachedNodes, outPath)
+    if (!live.ok) {
+      return fs
+        ? live
+        : {
+            ok: true as const,
+            result: buildDirectoryResult(_cachedNodes, outPath),
+          }
+    }
+    if (live.node.type !== 'directory') {
+      return {
+        ok: false as const,
+        path: outPath,
+        error: subtreeError(
+          'invalid_request',
+          `${outPath} is not a directory.`,
+          true,
+          'discover_path',
+        ),
+      }
     }
 
     const liveNodes = isRootPath(outPath)
       ? (live.node.children ?? [])
       : [live.node]
-    return buildDirectoryResult(liveNodes, outPath, live.scan)
+    return {
+      ok: true as const,
+      result: buildDirectoryResult(liveNodes, outPath, live.scan),
+    }
   }
 
-  const buildMissingPathError = async (p: string) => {
+  const buildErrorResult = (p: string, error: FilesystemError) => {
     return {
       path: p,
-      errorMessage: `Path not found: ${p}. It is missing, blocked, ignored, or outside the authorized filesystem view. Check spelling or use list_directory/glob to discover an allowed path.`,
+      errorMessage: error.message,
+      error,
+      provenance: fs ? ('live' as const) : ('cached' as const),
     }
   }
 
   await previousToolCallFinished
-  try {
-    hasLiveProjectRoot = (await fs.stat(fileContext.projectRoot)).isDirectory()
-  } catch {
-    hasLiveProjectRoot = false
-  }
 
   // Build outputs inline so the return type is a tuple matching CodebuffToolOutput
   const requested = paths && paths.length > 0 ? paths : ['.']
@@ -333,10 +478,26 @@ export const handleReadSubtree = (async (params: {
         liveNodeCount?: number
         liveScanTruncated?: boolean
         liveScanMaxNodes?: number
+        status?: 'complete' | 'partial'
+        provenance?: 'live' | 'cached'
+        stale?: boolean
+        errors?: Array<{ path: string; error: FilesystemError }>
         recovery?: string
       }
-    | { path: string; type: 'file'; variables: string[] }
-    | { path: string; errorMessage: string }
+    | {
+        path: string
+        type: 'file'
+        variables: string[]
+        variablesSource?: 'cached'
+        symbolsMayBeStale?: boolean
+        provenance?: 'live' | 'cached'
+      }
+    | {
+        path: string
+        errorMessage: string
+        error?: FilesystemError
+        provenance?: 'live' | 'cached'
+      }
   > = []
 
   for (const rawPath of requested) {
@@ -345,16 +506,13 @@ export const handleReadSubtree = (async (params: {
 
     if (isRootPath(p)) {
       const result = await buildMergedDirectoryResult(fileContext.fileTree, p)
-      outputs.push(result ?? (await buildMissingPathError(p)))
-      continue
-    }
-    const liveResult = await buildLivePathResult(p)
-    if (liveResult) {
-      outputs.push(liveResult)
+      outputs.push(
+        result.ok ? result.result : buildErrorResult(result.path, result.error),
+      )
       continue
     }
 
-    if (!hasLiveProjectRoot) {
+    if (!fs) {
       if (allFiles.has(p)) {
         outputs.push(buildFileResult(p))
         continue
@@ -368,9 +526,25 @@ export const handleReadSubtree = (async (params: {
         outputs.push(buildFileResult(p))
         continue
       }
+      outputs.push(
+        buildErrorResult(
+          p,
+          subtreeError(
+            'unsupported',
+            `Path not found in the cached subtree snapshot: ${p}. No live filesystem view was supplied.`,
+            false,
+          ),
+        ),
+      )
+      continue
     }
 
-    outputs.push(await buildMissingPathError(p))
+    const liveResult = await buildLivePathResult(p)
+    outputs.push(
+      liveResult.ok
+        ? liveResult.result
+        : buildErrorResult(liveResult.path, liveResult.error),
+    )
   }
 
   return { output: jsonToolResult(outputs) }

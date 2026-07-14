@@ -56,9 +56,12 @@ const taskUpdateSchema = z
         'Optional short note to append to the matched line in parentheses. Preserves any existing trailing text on the line.',
       ),
   })
-  .refine((update) => update.taskId !== undefined || update.task !== undefined, {
-    message: 'Provide taskId or task.',
-  })
+  .refine(
+    (update) => update.taskId !== undefined || update.task !== undefined,
+    {
+      message: 'Provide taskId or task.',
+    },
+  )
   .describe('Targeted update to a single existing checklist line.')
 
 const appendEntrySchema = z
@@ -136,9 +139,12 @@ const inputSchema = z
         phase: z.enum(['validation', 'review']),
         passed: z.boolean(),
         summary: z.string().optional(),
+        receiptIds: z.array(z.string().min(1)).min(1).optional(),
       })
       .optional()
-      .describe('Validation or review evidence associated with a stable task ID.'),
+      .describe(
+        'Validation or review evidence associated with a stable task ID. Completing a PLAN task requires a passed validation checkpoint with receiptIds.',
+      ),
   })
   .refine(
     (input) =>

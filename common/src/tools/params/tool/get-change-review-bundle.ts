@@ -21,6 +21,8 @@ export const getChangeReviewBundleParams = {
         snapshotId: z.string(),
         repositoryId: z.string(),
         workspaceId: z.string(),
+        workspaceRevision: z.number().int().nonnegative().optional(),
+        workspaceSnapshotId: z.string().optional(),
         headCommit: z.string(),
         status: z.string(),
         files: z.array(z.string()),

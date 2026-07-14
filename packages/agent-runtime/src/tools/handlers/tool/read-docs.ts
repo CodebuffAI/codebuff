@@ -84,8 +84,7 @@ export const handleReadDocs = (async (
       }
     }
 
-    const { documentation, selectedLibrary, alternatives } =
-      documentationResult
+    const { documentation, selectedLibrary, alternatives } = documentationResult
 
     const docsDuration = Date.now() - docsStartTime
     const resultLength = documentation.length

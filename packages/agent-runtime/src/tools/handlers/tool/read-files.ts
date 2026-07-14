@@ -41,6 +41,7 @@ export const handleReadFiles = (async (
 
     fileContext: ProjectFileContext
     fileProcessingState: FileProcessingState
+    runId: string
   } & ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const {
@@ -50,6 +51,10 @@ export const handleReadFiles = (async (
     fileContext,
     fileProcessingState,
   } = params
+  const capabilityIssuer = {
+    projectId: fileContext.projectRoot,
+    runId: params.runId ?? '',
+  }
   const pathInputs = toolCall.input.paths ?? []
   const rangeInputs = toolCall.input.ranges ?? []
   const symbolInputs = toolCall.input.symbols ?? []
@@ -127,20 +132,48 @@ export const handleReadFiles = (async (
     ...params,
     requestedFiles: paths,
     ranges,
+    capabilityIssuer,
   })
   const fileResults = fileReadResult.results.map((result) => {
-    if (result.selector !== 'file' || result.status === 'error') return result
-    const completeReadCapability =
-      result.complete && typeof result.content === 'string'
-        ? encodeReadCapabilityToken({
-            startLine: 1,
-            endLine: normalizeLineEndings(result.content).split('\n').length,
-            hash: getContentHash(result.content),
-          })
+    if (result.status === 'error') return result
+    const completeReadCapability = (() => {
+      if (
+        result.selector === 'file' &&
+        result.complete &&
+        typeof result.content === 'string'
+      ) {
+        return encodeReadCapabilityToken({
+          startLine: 1,
+          endLine: normalizeLineEndings(result.content).split('\n').length,
+          hash: getContentHash(result.content),
+          scope: { ...capabilityIssuer, path: result.path },
+        })
+      }
+      if (
+        result.selector === 'range' &&
+        result.complete &&
+        result.rangeHash &&
+        /^sha256:[a-f0-9]{64}$/.test(result.rangeHash)
+      ) {
+        return encodeReadCapabilityToken({
+          startLine: result.startLine,
+          endLine: result.endLine,
+          hash: result.rangeHash,
+          scope: { ...capabilityIssuer, path: result.path },
+        })
+      }
+      return undefined
+    })()
+    const refs =
+      result.selector === 'file'
+        ? fileContext.tokenCallers?.[result.path]
         : undefined
-    const refs = fileContext.tokenCallers?.[result.path]
+    const resultWithoutCapability = { ...result }
+    if ('readCapability' in resultWithoutCapability) {
+      delete resultWithoutCapability.readCapability
+    }
     return {
-      ...result,
+      ...resultWithoutCapability,
       ...(completeReadCapability
         ? { readCapability: completeReadCapability }
         : {}),
@@ -227,7 +260,21 @@ export const handleReadFiles = (async (
       continue
     }
 
-    const slices = await extractSlices(rawContent, request.path, request.names)
+    const slices = (
+      await extractSlices(rawContent, request.path, request.names)
+    ).map((slice) =>
+      slice.readCapability
+        ? {
+            ...slice,
+            readCapability: encodeReadCapabilityToken({
+              startLine: slice.startLine,
+              endLine: slice.endLine,
+              hash: getContentHash(slice.content),
+              scope: { ...capabilityIssuer, path: request.path },
+            }),
+          }
+        : slice,
+    )
     const foundSymbols = new Set(slices.map((slice) => slice.symbol))
     const missingSymbols = request.names.filter(
       (name) => !foundSymbols.has(name),

@@ -5,6 +5,7 @@ export type TerminalPermissionProfile =
   | 'librarian-read-only'
   | 'git-commit'
   | 'dependency-mutation'
+  | 'validation-diagnosis'
   | 'tmux-test'
   | 'workspace-write'
   | 'full-access'
@@ -128,6 +129,7 @@ export function evaluateTerminalCommandPolicy(params: {
   mode: 'assistant' | 'user'
   permissionProfile: TerminalPermissionProfile
   projectRoot: string
+  allowedPaths?: string[]
 }): TerminalPolicyDecision {
   if (params.mode === 'user') return { allowed: true }
   const command = normalizeCommand(params.command)
@@ -164,14 +166,63 @@ export function evaluateTerminalCommandPolicy(params: {
     if (/[;&|]{1,2}|\$\(|`/.test(command)) {
       return {
         allowed: false,
-        reason: 'git-commit commands cannot use shell composition or substitution',
+        reason:
+          'git-commit commands cannot use shell composition or substitution',
+      }
+    }
+    const isGitAdd = /^git\s+add\b/i.test(command)
+    if (isGitAdd) {
+      const rawPaths =
+        command
+          .replace(/^git\s+add\s+/i, '')
+          .match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? []
+      const stagedPaths = rawPaths
+        .map((value) =>
+          value.replace(/^["']|["']$/g, '').replace(/^\.\//, ''),
+        )
+        .filter((value) => value !== '--')
+      if (
+        stagedPaths.length === 0 ||
+        stagedPaths.some(
+          (value) =>
+            value === '.' ||
+            value === '-A' ||
+            value === '--all' ||
+            value.startsWith('-') ||
+            /[*?\[\]{}]/.test(value),
+        )
+      ) {
+        return {
+          allowed: false,
+          reason:
+            'git-commit staging requires explicit owned file paths; broad flags, dot staging, options, and globs are forbidden',
+        }
+      }
+      const allowedPaths = new Set(
+        (params.allowedPaths ?? []).map((value) =>
+          value.replace(/\\/g, '/').replace(/^\.\//, ''),
+        ),
+      )
+      if (
+        allowedPaths.size === 0 ||
+        stagedPaths.some((value) => !allowedPaths.has(value.replace(/\\/g, '/')))
+      ) {
+        return {
+          allowed: false,
+          reason:
+            'git add paths must be an exact subset of the spawn-bound owned_paths allowlist',
+        }
       }
     }
     const isAllowedGitCommand =
-      /^git\s+(?:status|diff|log|show|rev-parse|rev-list|ls-files)\b/i.test(command) ||
+      /^git\s+(?:status|diff|log|show|rev-parse|rev-list|ls-files)\b/i.test(
+        command,
+      ) ||
       /^git\s+fetch(?:\s+--prune)?(?:\s+[A-Za-z0-9._/-]+)?$/i.test(command) ||
       /^git\s+branch\s+--show-current\b/i.test(command) ||
-      /^git\s+add\s+(?!.*(?:^|\s)--(?:intent-to-add|chmod)\b).+/i.test(command) ||
+      /^git\s+add\s+(?!.*(?:^|\s)--(?:intent-to-add|chmod)\b).+/i.test(
+        command,
+      ) ||
       (!/(?:^|\s)--amend\b/i.test(command) &&
         /^git\s+commit\s+(?=.*-m(?:\s|$)).+/i.test(command)) ||
       /^git\s+push\s+(?!.*(?:--force|-f\b|--delete\b|:))(?:-u\s+|--set-upstream\s+)?[A-Za-z0-9._/-]+\s+(?!main$|master$)[A-Za-z0-9._/-]+$/i.test(
@@ -198,7 +249,8 @@ export function evaluateTerminalCommandPolicy(params: {
     if (/[;&|]{1,2}|\$\(|`|\r|\n/.test(command)) {
       return {
         allowed: false,
-        reason: 'dependency-mutation commands cannot use shell composition or substitution',
+        reason:
+          'dependency-mutation commands cannot use shell composition or substitution',
       }
     }
     if (/(?:^|\s)(?:-g|--global|--system|--user)(?:\s|$)/i.test(command)) {
@@ -248,7 +300,8 @@ export function evaluateTerminalCommandPolicy(params: {
 
   if (
     params.permissionProfile === 'read-only' ||
-    params.permissionProfile === 'librarian-read-only'
+    params.permissionProfile === 'librarian-read-only' ||
+    params.permissionProfile === 'validation-diagnosis'
   ) {
     if (/[;&|]{1,2}|\$\(|`/.test(command)) {
       return {

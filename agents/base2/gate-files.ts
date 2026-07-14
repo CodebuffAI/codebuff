@@ -12,7 +12,7 @@
  *
  * `agents/editor/editor.ts` does NOT serialize its handleSteps and uses
  * these exports directly.
-*/
+ */
 
 import {
   fileMutationResultV1Schema,
@@ -44,9 +44,7 @@ export function isFileChangingTool(toolName: string): boolean {
  */
 export function hasEditArtifact(record: Record<string, unknown>): boolean {
   const parsed = fileMutationResultV1Schema.safeParse(record)
-  return (
-    parsed.success && getConfirmedAppliedActionsV1(parsed.data).length > 0
-  )
+  return parsed.success && getConfirmedAppliedActionsV1(parsed.data).length > 0
 }
 
 /**

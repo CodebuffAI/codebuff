@@ -1,10 +1,16 @@
 import { createReadStream, promises as nodeFs } from 'node:fs'
 
 import type {
+  CodebuffFileContent,
   CodebuffFileSystem,
   CodebuffTextRangeReadResult,
 } from '@codebuff/common/types/filesystem'
+import type { WorkspaceMutationBroker } from '../services/workspace-mutation-broker'
 import type { PathLike } from 'node:fs'
+
+export type NodeFileSystemOptions = {
+  mutationBroker?: WorkspaceMutationBroker
+}
 
 /**
  * Node's default filesystem with the bounded range capability required by
@@ -12,19 +18,71 @@ import type { PathLike } from 'node:fs'
  * file, so returned content is memory-bounded even though total line metadata
  * is computed from the same complete snapshot.
  */
-export function createNodeFileSystem(): CodebuffFileSystem {
+export function createNodeFileSystem(
+  options: NodeFileSystemOptions = {},
+): CodebuffFileSystem {
+  const mutationBroker = options.mutationBroker
   return Object.assign(Object.create(nodeFs), {
     hostProcessView: true,
+    ...(mutationBroker
+      ? {
+          mutationAuthority: mutationBroker.authorityKind,
+          conditionalCommit: (
+            filePath: PathLike,
+            data: CodebuffFileContent,
+            commitOptions: { expectedHash: string | null },
+          ) =>
+            mutationBroker.conditionalCommit(
+              filePath,
+              data,
+              commitOptions.expectedHash,
+            ),
+          conditionalDelete: (
+            filePath: PathLike,
+            deleteOptions: { expectedHash: string },
+          ) =>
+            mutationBroker.conditionalDelete(
+              filePath,
+              deleteOptions.expectedHash,
+            ),
+          conditionalMove: (
+            source: PathLike,
+            destination: PathLike,
+            moveOptions: { expectedSourceHash: string },
+          ) =>
+            mutationBroker.conditionalMove(
+              source,
+              destination,
+              moveOptions.expectedSourceHash,
+            ),
+        }
+      : {}),
     readTextRange: readNodeTextRange,
     createFileExclusive: async (
       filePath: PathLike,
-      data: Parameters<CodebuffFileSystem['writeFile']>[1],
-    ) => nodeFs.writeFile(filePath, data, { flag: 'wx' }),
+      data: CodebuffFileContent,
+    ) => {
+      if (mutationBroker) {
+        const result = await mutationBroker.createExclusive(filePath, data)
+        if (!result.applied) {
+          const error = new Error(`File already exists: ${String(filePath)}`)
+          Object.assign(error, { code: 'EEXIST' })
+          throw error
+        }
+        return
+      }
+      await nodeFs.writeFile(filePath, data, { flag: 'wx' })
+    },
     renameFile: (source: PathLike, destination: PathLike) =>
       nodeFs.rename(source, destination),
     setMode: (filePath: PathLike, mode: number) => nodeFs.chmod(filePath, mode),
   }) as CodebuffFileSystem
 }
+
+// Without a broker, conditionalCommit, conditionalDelete, and conditionalMove
+// remain deliberately absent. Node's portable fs APIs cannot atomically
+// combine a content-hash comparison with replacement/deletion. Guarded
+// callers fail closed instead of presenting check-then-write as CAS authority.
 
 async function readNodeTextRange(
   filePath: PathLike,

@@ -48,11 +48,18 @@ through a hosted Openbuff/Codebuff service in this primary flow.
 
 1. `run()` → `runOnce()` is called with the prompt, agent ID, cost mode, and
    session state.
-2. **Session state** is initialized fresh or restored from `previousRun`.
-3. **Provider routing** is resolved from `openbuff.json` (`defaultModel`,
+2. When `cwd` is present and the host did not inject a custom filesystem, the
+   SDK initializes the worktree's cooperative mutation broker in the local
+   harness state directory. It serializes participating Openbuff processes,
+   checks exact-byte hashes under the lock, writes durable receipts, and uses
+   crash-safe replacement/no-clobber primitives. If broker locking or durable
+   state is unavailable, guarded mutations fail closed. Arbitrary external
+   editors are not excluded by this broker.
+3. **Session state** is initialized fresh or restored from `previousRun`.
+4. **Provider routing** is resolved from `openbuff.json` (`defaultModel`,
    `modes`, `agents`, and provider entries). No `codebuff.json` fallback is
    read. Openbuff does not consult a hosted model registry.
-4. **Local tool handlers** are registered. These execute on the user's
+5. **Local tool handlers** are registered. These execute on the user's
    machine, never on a server:
    - `write_file`, `str_replace`, `edit_transaction`, `apply_patch` → active
      file edits (`apply_smart_patch` remains registered only as a quarantined
@@ -69,12 +76,12 @@ through a hosted Openbuff/Codebuff service in this primary flow.
    - `inspect_codebase_structure`, `inspect_feature_completeness`, `evaluate_audit_coverage` → snapshot-bound broad-audit inventory and completeness gating
    - `run_targeted_validation` → snapshot-checked scoped validation
    - Custom tool definitions and MCP tools
-5. **Action handlers** stream provider output back to the CLI:
+6. **Action handlers** stream provider output back to the CLI:
    - `response-chunk` → streams text to the CLI
    - `subagent-response-chunk` → streams subagent output
    - `prompt-response` → final result (resolves the promise)
    - `prompt-error` → error result
-6. `callMainPrompt()` is invoked (fire-and-forget, with a `.catch()`
+7. `callMainPrompt()` is invoked (fire-and-forget, with a `.catch()`
    handler).
 
 ### 3. Agent Runtime: Main Prompt
@@ -187,11 +194,14 @@ authorization for each path before an edit is accepted:
 - A successful whole-file `read_files.paths` call mints a per-path
   authorization that allows subsequent exact-match edits to that file. Range
   and symbol reads do not grant whole-file authorization; follow-up edits must
-  carry their scoped `readCapability`/`rangeHash`.
+  carry their scoped `readCapability`.
 - `basedOnRead` (the read capability returned from a fresh `read_files`
-  range) is the explicit authorization path for large-file or
-  ambiguous-anchor edits. The runtime verifies the embedded hash before
-  applying the edit and rejects stale or mismatched anchors.
+  range) is an authenticated opaque `cap.v3` token bound to the canonical
+  project identity, normalized target path, issuing run, line range, and
+  content hash. Cross-path and cross-run replay is rejected before content
+  matching. Legacy `cap.v2` tokens and explicit range-hash objects remain
+  compatible freshness assertions only; they cannot bypass strict
+  read-before-edit for an otherwise unread path.
 - A successful edit keeps the per-path authorization for the rest of the
   editing flow, while the runtime chains subsequent exact-match edits from the
   latest prepared content. The authorization is path-level permission, not a
@@ -199,7 +209,8 @@ authorization for each path before an edit is accepted:
   post-edit `basedOnRead` returned by the successful edit or re-read the range.
 - Stale-anchor or anchor-not-found failures should be recovered by
   re-reading the exact target range and retrying with the new
-  `basedOnRead`, not by guessing from memory.
+  `basedOnRead`, not by guessing from memory. Failure responses never mint a
+  replacement capability; only a successful fresh read can issue authority.
 
 This policy keeps deterministic edits aligned with the on-disk content the
 agent actually inspected, even when multiple agents or generator-driven

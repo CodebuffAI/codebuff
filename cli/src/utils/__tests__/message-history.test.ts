@@ -42,9 +42,9 @@ describe('message history compaction', () => {
     const loaded = loadMessageHistory()
     expect(loaded).toHaveLength(1000)
     expect(loaded.at(-1)).toBe('latest')
-    expect(JSON.parse(fs.readFileSync(getMessageHistoryPath(), 'utf8'))).toHaveLength(
-      1000,
-    )
+    expect(
+      JSON.parse(fs.readFileSync(getMessageHistoryPath(), 'utf8')),
+    ).toHaveLength(1000)
     expect(fs.readFileSync(getMessageHistoryJournalPath(), 'utf8')).toBe('')
   })
 

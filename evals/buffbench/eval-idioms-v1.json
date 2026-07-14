@@ -20,10 +20,7 @@
       "languages": ["python"],
       "taskType": "refactor",
       "difficulty": "medium",
-      "finalCheckCommands": [
-        "python -m pytest",
-        "python -m ruff check ."
-      ],
+      "finalCheckCommands": ["python -m pytest", "python -m ruff check ."],
       "supplementalFiles": [
         "agents/idioms/python.md",
         "pyproject.toml",
@@ -46,10 +43,7 @@
       "languages": ["rust"],
       "taskType": "refactor",
       "difficulty": "medium",
-      "finalCheckCommands": [
-        "cargo test",
-        "cargo clippy -- -D warnings"
-      ],
+      "finalCheckCommands": ["cargo test", "cargo clippy -- -D warnings"],
       "supplementalFiles": [
         "agents/idioms/rust.md",
         "Cargo.toml",
@@ -72,10 +66,7 @@
       "languages": ["go"],
       "taskType": "refactor",
       "difficulty": "medium",
-      "finalCheckCommands": [
-        "go test ./...",
-        "test -z \"$(gofmt -l .)\""
-      ],
+      "finalCheckCommands": ["go test ./...", "test -z \"$(gofmt -l .)\""],
       "supplementalFiles": [
         "agents/idioms/go.md",
         "go.mod",

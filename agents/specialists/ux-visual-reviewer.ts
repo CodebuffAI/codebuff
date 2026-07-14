@@ -1,2 +1,13 @@
 import { createSpecialist } from './create-specialist'
-export default createSpecialist({ id: 'ux-visual-reviewer', displayName: 'UX and Visual Reviewer', purpose: 'Independently reviews visual hierarchy, responsive behavior, interaction consistency, and design-system adherence.', focus: ['Visual hierarchy and information density', 'Responsive and narrow-screen behavior', 'Interaction feedback and consistency', 'Design-system and screenshot evidence'] })
+export default createSpecialist({
+  id: 'ux-visual-reviewer',
+  displayName: 'UX and Visual Reviewer',
+  purpose:
+    'Independently reviews visual hierarchy, responsive behavior, interaction consistency, and design-system adherence.',
+  focus: [
+    'Visual hierarchy and information density',
+    'Responsive and narrow-screen behavior',
+    'Interaction feedback and consistency',
+    'Design-system and screenshot evidence',
+  ],
+})

@@ -10,6 +10,7 @@ import type { ToolRenderConfig, ToolRenderOptions } from './types'
 
 type QueryIndexResult = {
   path?: unknown
+  indexedHash?: unknown
   score?: unknown
   matchedOn?: unknown
   matchedSnippets?: unknown
@@ -23,6 +24,7 @@ type QueryIndexOutput = {
   totalIndexed?: unknown
   indexAge?: unknown
   status?: unknown
+  snapshot?: unknown
 }
 
 type StructuredIndexStatus = {
@@ -37,6 +39,18 @@ type StructuredIndexStatus = {
     maxFiles?: number
     skippedFiles?: number
     skippedPrefixes?: string[]
+    parser?: {
+      parsedFiles?: number
+      requestedFiles?: number
+      skippedFiles?: number
+      skippedLanguages?: string[]
+      truncated?: boolean
+    }
+  }
+  lastBuildError?: {
+    stage?: string
+    message?: string
+    retryable?: boolean
   }
   message?: string
 }
@@ -97,6 +111,7 @@ export const QueryIndexComponent = defineToolComponent({
       const structuredStatus = extractStructuredStatus(output?.status)
       const diagnostics = structuredStatus?.diagnostics ?? []
       const coverage = structuredStatus?.coverage
+      const snapshot = extractIndexSnapshot(output?.snapshot)
 
       return (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
@@ -133,7 +148,26 @@ export const QueryIndexComponent = defineToolComponent({
             ) : null}
             {structuredStatus?.semantic ? (
               <text style={{ wrapMode: 'word' }}>
-                <span fg={theme.muted}>{`Vector embeddings: ${structuredStatus.semantic}`}</span>
+                <span
+                  fg={theme.muted}
+                >{`Vector embeddings: ${structuredStatus.semantic}`}</span>
+              </text>
+            ) : null}
+            {snapshot ? (
+              <text style={{ wrapMode: 'word' }}>
+                <span fg={theme.muted}>
+                  {`Snapshot: ${snapshot.snapshotId.slice(0, 16)}${snapshot.workspaceRevision === undefined ? '' : ` · workspace r${snapshot.workspaceRevision}`}`}
+                </span>
+              </text>
+            ) : null}
+            {structuredStatus?.lastBuildError ? (
+              <text style={{ wrapMode: 'word' }}>
+                <span fg={theme.error}>
+                  {wrapTextPreservingNewlines(
+                    `Build error (${structuredStatus.lastBuildError.stage ?? 'unknown'}): ${structuredStatus.lastBuildError.message ?? 'unknown error'}${structuredStatus.lastBuildError.retryable ? ' · retryable' : ''}`,
+                    detailColWidth,
+                  )}
+                </span>
               </text>
             ) : null}
             {coverage?.truncated ? (
@@ -141,6 +175,16 @@ export const QueryIndexComponent = defineToolComponent({
                 <span fg={theme.warning}>
                   {wrapTextPreservingNewlines(
                     `Partial coverage at ${coverage.maxFiles ?? 'configured limit'} files; skipped ${coverage.skippedFiles ?? 'unknown'} under ${(coverage.skippedPrefixes ?? []).join(', ') || 'unknown prefixes'}.`,
+                    detailColWidth,
+                  )}
+                </span>
+              </text>
+            ) : null}
+            {coverage?.parser?.truncated ? (
+              <text style={{ wrapMode: 'word' }}>
+                <span fg={theme.warning}>
+                  {wrapTextPreservingNewlines(
+                    `Parser coverage: ${coverage.parser.parsedFiles ?? 'unknown'}/${coverage.parser.requestedFiles ?? 'unknown'} parsed; skipped ${coverage.parser.skippedFiles ?? 'unknown'}${coverage.parser.skippedLanguages?.length ? ` across ${coverage.parser.skippedLanguages.join(', ')}` : ''}.`,
                     detailColWidth,
                   )}
                 </span>
@@ -180,6 +224,9 @@ export const QueryIndexComponent = defineToolComponent({
                     : '',
                   formatMatchedOn(result)
                     ? `matched: ${formatMatchedOn(result)}`
+                    : '',
+                  typeof result.indexedHash === 'string'
+                    ? `hash ${result.indexedHash.slice(0, 12)}`
                     : '',
                 ].filter(Boolean)
                 const snippet = formatSnippets(result)
@@ -356,14 +403,18 @@ function extractStructuredStatus(value: unknown): StructuredIndexStatus | null {
       }))
     : undefined
   const rawCoverage = isRecord(value.coverage) ? value.coverage : undefined
+  const rawParser =
+    rawCoverage && isRecord(rawCoverage.parser) ? rawCoverage.parser : undefined
+  const rawBuildError = isRecord(value.lastBuildError)
+    ? value.lastBuildError
+    : undefined
   return {
     state: value.state,
     ready: typeof value.ready === 'boolean' ? value.ready : undefined,
     stale: typeof value.stale === 'boolean' ? value.stale : undefined,
     refreshing:
       typeof value.refreshing === 'boolean' ? value.refreshing : undefined,
-    semantic:
-      typeof value.semantic === 'string' ? value.semantic : undefined,
+    semantic: typeof value.semantic === 'string' ? value.semantic : undefined,
     diagnostics,
     coverage: rawCoverage
       ? {
@@ -384,9 +435,65 @@ function extractStructuredStatus(value: unknown): StructuredIndexStatus | null {
                 (prefix): prefix is string => typeof prefix === 'string',
               )
             : undefined,
+          parser: rawParser
+            ? {
+                parsedFiles:
+                  typeof rawParser.parsedFiles === 'number'
+                    ? rawParser.parsedFiles
+                    : undefined,
+                requestedFiles:
+                  typeof rawParser.requestedFiles === 'number'
+                    ? rawParser.requestedFiles
+                    : undefined,
+                skippedFiles:
+                  typeof rawParser.skippedFiles === 'number'
+                    ? rawParser.skippedFiles
+                    : undefined,
+                skippedLanguages: Array.isArray(rawParser.skippedLanguages)
+                  ? rawParser.skippedLanguages.filter(
+                      (language): language is string =>
+                        typeof language === 'string',
+                    )
+                  : undefined,
+                truncated:
+                  typeof rawParser.truncated === 'boolean'
+                    ? rawParser.truncated
+                    : undefined,
+              }
+            : undefined,
+        }
+      : undefined,
+    lastBuildError: rawBuildError
+      ? {
+          stage:
+            typeof rawBuildError.stage === 'string'
+              ? rawBuildError.stage
+              : undefined,
+          message:
+            typeof rawBuildError.message === 'string'
+              ? rawBuildError.message
+              : undefined,
+          retryable:
+            typeof rawBuildError.retryable === 'boolean'
+              ? rawBuildError.retryable
+              : undefined,
         }
       : undefined,
     message: typeof value.message === 'string' ? value.message : undefined,
+  }
+}
+
+function extractIndexSnapshot(
+  value: unknown,
+): { snapshotId: string; workspaceRevision?: string | number } | undefined {
+  if (!isRecord(value) || typeof value.snapshotId !== 'string') return undefined
+  return {
+    snapshotId: value.snapshotId,
+    workspaceRevision:
+      typeof value.workspaceRevision === 'string' ||
+      typeof value.workspaceRevision === 'number'
+        ? value.workspaceRevision
+        : undefined,
   }
 }
 

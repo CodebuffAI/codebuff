@@ -5,6 +5,12 @@ import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 import type { Message } from './messages/codebuff-message'
 import type { ProjectFileContext } from '../util/file'
 import type { ProposalResultV1 } from '../tools/results/filesystem'
+import type { TaskMemoryV1 } from './task-memory'
+import type { OrchestrationLedgerV1 } from './orchestration-ledger'
+import type { DiscoveryCoverageV1 } from './discovery-coverage'
+import type { AgentReceipt } from './agent-handoff'
+import type { WorkspaceStateV1 } from './workspace-state'
+import { createInitialWorkspaceState } from './workspace-state'
 
 export const toolCallSchema = z.object({
   toolName: z.string(),
@@ -130,6 +136,53 @@ export type AgentState = {
   proposalLedger?: ProposalResultV1[]
   /** Runtime-owned orchestrator state that must survive message compaction. */
   base2ActiveWork?: Record<string, unknown>
+  /** Durable intents/terminal receipts for detached subagent work. */
+  backgroundAgentJobs?: Array<{
+    jobId: string
+    agentType: string
+    status:
+      | 'running'
+      | 'completed'
+      | 'error'
+      | 'cancelled'
+      | 'interrupted'
+    startedAt: number
+    completedAt?: number
+    error?: string
+    childRunId?: string
+    receipt?: AgentReceipt
+  }>
+  /** Typed operational memory compiled into each model request independently of chat summaries. */
+  taskMemory?: TaskMemoryV1
+  /** Monotonic workspace state shared by reads, mutations, indexing, validation, and review. */
+  workspaceState?: WorkspaceStateV1
+  /** Ordered, resumable control-plane events that survive transcript compaction. */
+  orchestrationLedger?: OrchestrationLedgerV1
+  /** Spawn-bound writable path ownership used to prevent overlapping writers. */
+  workspacePathLeases?: Array<{
+    leaseId: string
+    ownerAgentId: string
+    taskId?: string
+    paths: string[]
+    status: 'active' | 'released' | 'interrupted'
+    acquiredAt: number
+    expiresAt: number
+    releasedAt?: number
+  }>
+  /** Snapshot-bound discovery candidates and non-overlapping shard claims. */
+  discoveryCoverage?: DiscoveryCoverageV1
+  /** Declarative workflow state for deterministic orchestration subflows. */
+  workflowStates?: Record<
+    string,
+    {
+      schemaVersion: 1
+      workflowId: string
+      state: string
+      revision: number
+      updatedAt: number
+      lastEvent?: string
+    }
+  >
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [
@@ -246,6 +299,9 @@ export function getInitialAgentState(): AgentState {
     readAuthorizationsByPath: {},
     readAuthorizationHashesByPath: {},
     editRereadRequirementsByPath: {},
+    taskMemory: undefined,
+    workspaceState: createInitialWorkspaceState(),
+    backgroundAgentJobs: [],
   }
 }
 export function getInitialSessionState(

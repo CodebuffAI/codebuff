@@ -23,8 +23,13 @@ const definition: SecretAgentDefinition = {
           description:
             'List of changed file paths to review. The agent will read each one.',
         },
+        snapshot_fingerprint: {
+          type: 'string',
+          description:
+            'Opaque snapshot token that must be echoed exactly in snapshotFingerprint.',
+        },
       },
-      required: [],
+      required: ['changed_files', 'snapshot_fingerprint'],
     },
   },
   outputMode: 'structured_output',
@@ -32,22 +37,88 @@ const definition: SecretAgentDefinition = {
     type: 'object',
     properties: {
       schemaVersion: { type: 'number' },
-      verdict: { type: 'string', enum: ['LOOKS_GOOD', 'NON_BLOCKING', 'BLOCKING'] },
-      findings: { type: 'array', items: { type: 'string' } },
+      snapshotFingerprint: { type: 'string' },
+      reviewedFiles: { type: 'array', items: { type: 'string' } },
+      verdict: {
+        type: 'string',
+        enum: ['LOOKS_GOOD', 'NON_BLOCKING', 'BLOCKING'],
+      },
+      findings: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            severity: {
+              type: 'string',
+              enum: ['critical', 'high', 'medium', 'low'],
+            },
+            text: { type: 'string' },
+            evidence: { type: 'array', items: { type: 'string' } },
+            correction: { type: 'string' },
+          },
+          required: ['id', 'severity', 'text', 'evidence', 'correction'],
+        },
+      },
       coverage: { type: 'string', enum: ['covered', 'missing', 'n/a'] },
       dimensions: {
         type: 'object',
         properties: {
-          inputBoundaries: { type: 'string' },
-          authorization: { type: 'string' },
-          secretHandling: { type: 'string' },
-          resourceSafety: { type: 'string' },
-          failureMode: { type: 'string' },
+          inputBoundaries: {
+            type: 'string',
+            enum: ['pass', 'warning', 'block', 'not_applicable'],
+          },
+          authorization: {
+            type: 'string',
+            enum: ['pass', 'warning', 'block', 'not_applicable'],
+          },
+          secretHandling: {
+            type: 'string',
+            enum: ['pass', 'warning', 'block', 'not_applicable'],
+          },
+          resourceSafety: {
+            type: 'string',
+            enum: ['pass', 'warning', 'block', 'not_applicable'],
+          },
+          failureMode: {
+            type: 'string',
+            enum: ['pass', 'warning', 'block', 'not_applicable'],
+          },
         },
-        required: ['inputBoundaries', 'authorization', 'secretHandling', 'resourceSafety', 'failureMode'],
+        required: [
+          'inputBoundaries',
+          'authorization',
+          'secretHandling',
+          'resourceSafety',
+          'failureMode',
+        ],
+      },
+      requirementCoverage: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            requirement: { type: 'string' },
+            status: {
+              type: 'string',
+              enum: ['satisfied', 'missing', 'not_applicable'],
+            },
+            evidence: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['requirement', 'status', 'evidence'],
+        },
       },
     },
-    required: ['schemaVersion', 'verdict', 'findings', 'coverage', 'dimensions'],
+    required: [
+      'schemaVersion',
+      'snapshotFingerprint',
+      'reviewedFiles',
+      'verdict',
+      'findings',
+      'coverage',
+      'dimensions',
+      'requirementCoverage',
+    ],
   },
   includeMessageHistory: false,
   toolNames: [
@@ -62,8 +133,7 @@ const definition: SecretAgentDefinition = {
   systemPrompt: `You are an adversarial security reviewer. You assume hostile inputs and look for exploitable weaknesses. You review against OWASP-style categories and the project's own threat surface. You report concrete, reproducible findings with severity, not generic hardening advice.`,
 
   instructionsPrompt: `Instructions:
-Return the required structured output with schemaVersion 1 and give each security dimension a pass, warning, block, or not_applicable status. Any Critical/High/Medium exploitable finding must block the relevant dimension and the overall verdict.
-Your first visible token MUST be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD:.
+Return only the required structured output with schemaVersion 1. Echo params.snapshot_fingerprint exactly as snapshotFingerprint and list every params.changed_files entry in reviewedFiles. Give each security dimension a pass, warning, block, or not_applicable status. Any Critical/High/Medium exploitable finding must block the relevant dimension and the overall verdict.
 - Use BLOCKING: when any Critical/High/Medium exploitable finding requires a code change before finalization.
 - Use NON_BLOCKING: only for low-risk observations that do not require a change.
 - Use LOOKS_GOOD: when no exploitable issue was found.
@@ -76,7 +146,7 @@ For each changed file, do an adversarial pass checking:
 Process:
 - read_files each changed file AND code_search for the surrounding callers/validation layer (do not review in isolation).
 - For each finding, state: severity (Critical/High/Medium/Low), the exact file+line, a one-sentence repro/exploit sketch, and a concrete fix.
-- If you find no exploitable issues, begin with "LOOKS_GOOD: No exploitable issues found" and list the categories you checked.
+- Map every requested security review requirement to requirementCoverage evidence.
 - Do not recommend generic hardening (e.g. "add rate limiting") unless there is a concrete exploit path.
 Do not modify code. Review only.`.trim(),
 }

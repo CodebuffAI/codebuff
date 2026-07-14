@@ -57,4 +57,73 @@ describe('symbol-level call navigation via query_index neighbors', () => {
     expect(related.some((r) => /call/i.test(r.reason))).toBe(true)
     expect(related.some((r) => r.via === 'computeTax')).toBe(true)
   })
+
+  test('resolves duplicate symbol names through imports and refuses ambiguous raw-name edges', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'openbuff-qualified-callers-'))
+    roots.push(root)
+    mkdirSync(join(root, 'src'), { recursive: true })
+    writeFileSync(
+      join(root, 'src', 'a.ts'),
+      'export function collide() { return "a" }\n',
+    )
+    writeFileSync(
+      join(root, 'src', 'b.ts'),
+      'export function collide() { return "b" }\n',
+    )
+    writeFileSync(
+      join(root, 'src', 'caller.ts'),
+      "import { collide } from './b'\nexport const value = collide()\n",
+    )
+
+    const index = await buildMetadataIndex(root)
+    const calls = index.graph.edges.filter(
+      (edge) => edge.type === 'calls' && edge.label === 'collide',
+    )
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        from: 'file:src/caller.ts',
+        to: 'file:src/b.ts',
+      }),
+    )
+    expect(calls).not.toContainEqual(
+      expect.objectContaining({
+        from: 'file:src/caller.ts',
+        to: 'file:src/a.ts',
+      }),
+    )
+
+    const symbolNodes = Object.values(index.graph.nodes).filter(
+      (node) => node.type === 'symbol' && node.label === 'collide',
+    )
+    expect(symbolNodes).toHaveLength(2)
+    expect(new Set(symbolNodes.map((node) => node.id)).size).toBe(2)
+    expect(symbolNodes.map((node) => node.path).sort()).toEqual([
+      'src/a.ts',
+      'src/b.ts',
+    ])
+  })
+
+  test('does not create cross-language raw-name call edges', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'openbuff-language-callers-'))
+    roots.push(root)
+    mkdirSync(join(root, 'src'), { recursive: true })
+    writeFileSync(
+      join(root, 'src', 'worker.py'),
+      'def shared_name():\n    return 1\n',
+    )
+    writeFileSync(
+      join(root, 'src', 'caller.ts'),
+      'export const value = shared_name()\n',
+    )
+
+    const index = await buildMetadataIndex(root)
+    expect(
+      index.graph.edges.some(
+        (edge) =>
+          edge.type === 'calls' &&
+          edge.from === 'file:src/caller.ts' &&
+          edge.to === 'file:src/worker.py',
+      ),
+    ).toBe(false)
+  })
 })

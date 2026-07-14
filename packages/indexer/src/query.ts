@@ -9,6 +9,7 @@ import type {
 } from './types'
 
 import { MAX_INDEX_AGE_MS } from './index-store'
+import { getPostingCandidates, getPostingDocumentFrequency } from './query-data'
 
 export interface QueryOptions {
   limit?: number
@@ -54,6 +55,7 @@ export function resolveLexicalWeights(
 }
 
 type GraphAdjacency = Map<string, IndexEdge[]>
+const adjacencyCache = new WeakMap<MetadataIndex, GraphAdjacency>()
 
 const MAX_RELATED_FILES_PER_RESULT = 5
 const LOW_VALUE_RELATED_NODE_TYPES = new Set(['import', 'concept'])
@@ -137,7 +139,7 @@ export function queryIndex(
 ): QueryIndexResult[] {
   const { limit = 20, fileTypes, mode = 'search' } = options
   const tokens = tokenizeQuery(query)
-  const adjacency = buildAdjacency(index.graph?.edges ?? [])
+  const adjacency = getAdjacency(index)
   const commandIntent =
     mode === 'commands' || isCommandDiscoveryQuery(query, tokens)
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
@@ -206,8 +208,14 @@ function querySearch(
 
   const directResults = new Map<string, QueryIndexResult>()
   const idf = computeIdfForTokens(index, tokens)
+  const candidates = commandIntent ? null : getPostingCandidates(index, tokens)
+  const filesToScore = candidates
+    ? Array.from(candidates, (filePath) => index.files[filePath]).filter(
+        (file): file is IndexedFile => Boolean(file),
+      )
+    : Object.values(index.files)
 
-  for (const file of Object.values(index.files)) {
+  for (const file of filesToScore) {
     if (!matchesFileType(file, fileTypes)) continue
 
     const result = scoreFile(file, tokens, idf, commandIntent, lexicalWeights)
@@ -457,8 +465,7 @@ function computeIdfForTokens(
   index: MetadataIndex,
   tokens: string[],
 ): Map<string, number> {
-  const files = Object.values(index.files)
-  const total = files.length
+  const total = index.fileCount
   const idf = new Map<string, number>()
   if (total === 0) {
     for (const token of tokens) idf.set(token, 1)
@@ -466,9 +473,12 @@ function computeIdfForTokens(
   }
 
   for (const token of tokens) {
-    let df = 0
-    for (const file of files) {
-      if (fileContainsToken(file, token)) df++
+    let df = getPostingDocumentFrequency(index, token)
+    if (df === undefined) {
+      df = 0
+      for (const file of Object.values(index.files)) {
+        if (fileContainsToken(file, token)) df++
+      }
     }
     // log((N+1)/(df+1)) + 1 — always >= ~0.005, rare tokens ~log(N), and a
     // +1 floor keeps every match contributing at least its base weight.
@@ -644,7 +654,13 @@ function findSeedPaths(
 ): string[] {
   if (explicitPath && index.files[explicitPath]) return [explicitPath]
   const idf = computeIdfForTokens(index, tokens)
-  return Object.values(index.files)
+  const candidates = getPostingCandidates(index, tokens)
+  const files = candidates
+    ? Array.from(candidates, (filePath) => index.files[filePath]).filter(
+        (file): file is IndexedFile => Boolean(file),
+      )
+    : Object.values(index.files)
+  return files
     .filter((file) => matchesFileType(file, fileTypes))
     .map((file) => scoreFile(file, tokens, idf, false, lexicalWeights))
     .filter((result) => result.score > 0)
@@ -661,9 +677,9 @@ function findSeedPaths(
  * Two edge types are consulted, with distinct reliability profiles:
  * - `references` edges are import-aware and reliable: they connect a file that
  *   imports a module to the resolved target file. These are the primary signal.
- * - `calls` edges are name-based (highest-score ownership) and therefore
- *   ambiguous for common-named symbols. They are included as a secondary,
- *   explicitly-labelled signal so the caller knows to verify them.
+ * - `calls` edges are language/module-aware and refuse ambiguous raw-name
+ *   ownership. They remain a secondary signal because static call resolution
+ *   is conservative and cannot model every language's dynamic dispatch.
  *
  * The seed file path is taken from `options.from`. If omitted, `findSeedPaths`
  * resolves it from `query` tokens (same path-seed resolution as `neighbors`).
@@ -705,7 +721,7 @@ function queryReferences(
       const existing = results.get(importerNode.path)
       const reason = isReliable
         ? `imports this file${edge.label ? ` (${edge.label})` : ''}`
-        : `calls a symbol defined here${edge.label ? ` (${edge.label})` : ''} — name-based, verify before relying on it`
+        : `calls a symbol defined here${edge.label ? ` (${edge.label})` : ''} — statically resolved, verify dynamic dispatch before relying on it`
       if (existing) {
         existing.score += edge.weight
         existing.matchedOn = addMatchedOn(existing.matchedOn, 'graph')
@@ -735,8 +751,31 @@ function queryReferences(
     .sort((a, b) => b.score - a.score)
 }
 
-function buildAdjacency(edges: IndexEdge[]): GraphAdjacency {
+function getAdjacency(index: MetadataIndex): GraphAdjacency {
+  const cached = adjacencyCache.get(index)
+  if (cached) return cached
+  const adjacency = buildAdjacency(
+    index.graph?.edges ?? [],
+    index.queryData?.adjacency,
+  )
+  adjacencyCache.set(index, adjacency)
+  return adjacency
+}
+
+function buildAdjacency(
+  edges: IndexEdge[],
+  persisted?: Record<string, number[]>,
+): GraphAdjacency {
   const adjacency: GraphAdjacency = new Map()
+  if (persisted) {
+    for (const [nodeId, edgeIndexes] of Object.entries(persisted)) {
+      const nodeEdges = edgeIndexes
+        .map((edgeIndex) => edges[edgeIndex])
+        .filter((edge): edge is IndexEdge => Boolean(edge))
+      if (nodeEdges.length > 0) adjacency.set(nodeId, nodeEdges)
+    }
+    return adjacency
+  }
   for (const edge of edges) {
     const fromEdges = adjacency.get(edge.from) ?? []
     fromEdges.push(edge)

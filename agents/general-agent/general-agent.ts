@@ -12,10 +12,6 @@ export const createGeneralAgent = (options: {
 
   return {
     publisher,
-    // General-agent does multi-step tool exploration that can run long on
-    // large audits. Raise the wall-clock bound above the 20-min shared
-    // default to give complex investigations room to complete.
-    defaultTimeoutMs: 30 * 60 * 1000,
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'high' as const,
@@ -51,22 +47,13 @@ export const createGeneralAgent = (options: {
       'researcher-docs',
       !isGpt5 && 'file-picker',
       'code-searcher',
-      'directory-lister',
-      'glob-matcher',
-      'basher',
       'context-pruner',
     ),
     toolNames: [
       'spawn_agents',
-      'check_background_agent',
-      'check_job',
-      'read_logs',
-      'kill_job',
       'query_index',
       'read_files',
       'read_subtree',
-      'str_replace',
-      'write_file',
     ],
     programmaticToolNames: ['spawn_agent_inline'],
 
@@ -74,7 +61,7 @@ export const createGeneralAgent = (options: {
       `Use the spawn_agents tool to spawn agents to help you complete the user request.`,
       `For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use query_index mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Do not rely on query_index alone for correctness.`,
       !isGpt5 &&
-        `If you need to find more information in the codebase, file-picker is really good at finding relevant files. You should spawn multiple agents in parallel when possible to speed up the process. (e.g. spawn 3 file-pickers + 1 code-searcher + 1 researcher-web in one spawn_agents call or 3 bashers in one spawn_agents call).`,
+        `If indexed evidence leaves explicit coverage gaps, spawn one bounded parallel batch of non-overlapping file-picker/code-searcher/researcher tasks. Do not restart the same discovery through multiple agent layers.`,
     ).join('\n'),
 
     handleSteps: function* ({ prompt, params }) {

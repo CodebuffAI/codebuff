@@ -158,8 +158,7 @@ export function appendProposalArtifact(
         {
           actionId: `${runId}:${seq}:0`,
           index: 0,
-          action:
-            artifact.result.baseContent === null ? 'create' : 'update',
+          action: artifact.result.baseContent === null ? 'create' : 'update',
           path: artifact.result.file,
           baseHash: artifact.result.baseContentHash ?? null,
           ...(artifact.result.finalContent !== undefined
@@ -283,7 +282,12 @@ export function transitionStoredProposal(params: {
 }
 
 export type BeginProposalApplicationResult =
-  | { ok: true; proposal: ProposalResultV1; token?: string; idempotent: boolean }
+  | {
+      ok: true
+      proposal: ProposalResultV1
+      token?: string
+      idempotent: boolean
+    }
   | { ok: false; error: ProposalActionErrorV1 }
 
 export function beginProposalApplication(params: {

@@ -8,8 +8,6 @@ describe('harness control plane', () => {
   })
 
   test('rejects stale writers', () => {
-    expect(() => assertExpectedRevision(5, 4)).toThrow(
-      'expected 4, current 5',
-    )
+    expect(() => assertExpectedRevision(5, 4)).toThrow('expected 4, current 5')
   })
 })

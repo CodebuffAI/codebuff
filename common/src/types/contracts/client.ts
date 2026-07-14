@@ -2,6 +2,7 @@ import type { ServerAction } from '../../actions'
 import type { MCPConfig } from '../mcp'
 import type { ToolResultOutput } from '../messages/content-part'
 import type { ReadFilesResultV1 } from '../../tools/results/filesystem'
+import type { ReadCapabilityIssuer } from '../../util/content-hash'
 
 export type RequestToolCallFn = (params: {
   userInputId: string
@@ -37,6 +38,8 @@ export type RequestFilesResult = ReadFilesResultV1 | LegacyReadFilesMap
 export type RequestFilesFn = (params: {
   filePaths: string[]
   ranges?: FileLineRange[]
+  /** Runtime-only issuer scope used to mint non-replayable cap.v3 tokens. */
+  capabilityIssuer?: ReadCapabilityIssuer
 }) => Promise<RequestFilesResult>
 
 export type RequestOptionalFileFn = (params: {

@@ -1,6 +1,7 @@
 import z from 'zod/v4'
 
 import { MAX_SPAWN_BATCH_SIZE } from '../../../constants/agents'
+import { agentHandoffSchema } from '../../../types/agent-handoff'
 
 import { jsonObjectSchema } from '../../../types/json'
 import {
@@ -19,61 +20,20 @@ export const spawnAgentsOutputSchema = z
   .and(jsonObjectSchema)
   .array()
 
-/**
- * Optional, formal handoff payload that a parent can attach to a spawn_agents
- * entry to describe what the child should treat as authoritative context.
- *
- * Consumers may ignore this field entirely; it is purely additive metadata.
- * Free-form `prompt` and `params` continue to work unchanged.
- */
-export const agentHandoffSchema = z
-  .object({
-    schemaVersion: z.literal(1).optional(),
-    taskId: z.string().min(1).optional(),
-    role: z.string().min(1).optional(),
-    objective: z.string().min(1).optional(),
-    requirements: z.array(z.object({ id: z.string(), text: z.string(), required: z.boolean() })).optional(),
-    acceptanceCriteria: z.array(z.object({ id: z.string(), behavior: z.string(), verification: z.string() })).optional(),
-    findings: z.array(z.object({ id: z.string(), text: z.string(), files: z.array(z.string()), snapshotFingerprint: z.string() })).optional(),
-    permissions: z.object({ readablePaths: z.array(z.string()), writablePaths: z.array(z.string()), allowedTools: z.array(z.string()) }).optional(),
-    summary: z
-      .string()
-      .optional()
-      .describe(
-        'Short, plain-language summary of what the parent has already done and what it expects the child to do next.',
-      ),
-    artifacts: z
-      .array(z.string())
-      .optional()
-      .describe(
-        'Paths to durable artifacts the child should treat as authoritative (e.g. .agents/sessions/<slug>/PLAN.md).',
-      ),
-    successCriteria: z
-      .array(z.string())
-      .optional()
-      .describe('Bulleted acceptance criteria for the spawned child agent.'),
-    nonGoals: z
-      .array(z.string())
-      .optional()
-      .describe('Explicit non-goals that the child must not attempt.'),
-    constraints: z
-      .array(z.string())
-      .optional()
-      .describe(
-        'Hard constraints (e.g. allowed paths, safety/scope rails). Children should reject work that violates these.',
-      ),
-    context: z
-      .union([z.record(z.string(), z.unknown()), z.string()])
-      .optional()
-      .describe(
-        'Optional handoff context. Prefer a JSON object for structured fields; a plain string is also accepted and normalized internally to { text: string }.',
-      ),
-  })
-  .describe(
-    'Optional structured handoff context for a spawned agent. Backward-compatible: omit entirely to preserve existing free-form prompt-only behavior.',
-  )
+export { agentHandoffSchema }
 
-export type AgentHandoff = z.infer<typeof agentHandoffSchema>
+export type { AgentHandoff } from '../../../types/agent-handoff'
+
+const legacyUnversionedHandoffSchema = z
+  .record(z.string(), z.unknown())
+  .refine((value) => value.schemaVersion === undefined, {
+    message:
+      'Versioned handoffs must satisfy the complete canonical AgentHandoff schema.',
+  })
+const spawnHandoffSchema = z.union([
+  agentHandoffSchema,
+  legacyUnversionedHandoffSchema,
+])
 
 const toolName = 'spawn_agents'
 const endsAgentStep = true
@@ -91,7 +51,7 @@ const inputSchema = z
             .describe(
               'If true, launch the agent detached from this turn. spawn_agents returns immediately with a jobId; the agent runs as an in-process coroutine. Poll its progress with check_background_agent. Use for long-running, non-blocking work (e.g. indexing, eval runs, multi-step research) where you do not need the result before ending your turn. The background agent shares the same process so it cannot outlive this CLI session. Defaults to false (blocking).',
             ),
-          handoff: agentHandoffSchema
+          handoff: spawnHandoffSchema
             .optional()
             .describe(
               'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
@@ -100,7 +60,7 @@ const inputSchema = z
             .number()
             .optional()
             .describe(
-              "Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template's defaultTimeoutMs, or 20 minutes if unset.",
+              "Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely for a deliberately long-running agent. Defaults to the agent template's defaultTimeoutMs, or 30 minutes if unset.",
             ),
           params: z
             .preprocess(

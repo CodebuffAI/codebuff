@@ -35,6 +35,11 @@ type CachedUserInfo = Partial<
 
 const userInfoCache: Record<string, CachedUserInfo | null> = {}
 
+type FetchLike = (
+  input: Parameters<typeof globalThis.fetch>[0],
+  init?: Parameters<typeof globalThis.fetch>[1],
+) => ReturnType<typeof globalThis.fetch>
+
 const agentsResponseSchema = z.object({
   version: z.string(),
   data: DynamicAgentTemplateSchema,
@@ -48,12 +53,13 @@ async function fetchWithRetry(
   url: URL | string,
   options: RequestInit,
   logger?: { warn: (obj: object, msg: string) => void },
+  fetchFn: FetchLike = globalThis.fetch,
 ): Promise<Response> {
   let lastError: Error | null = null
 
   for (let attempt = 0; attempt <= MAX_RETRIES_PER_MESSAGE; attempt++) {
     try {
-      const response = await fetch(url, options)
+      const response = await fetchFn(url, options)
 
       // If response is OK or not retryable, return it
       if (response.ok || !isRetryableStatusCode(response.status)) {
@@ -108,9 +114,11 @@ async function fetchWithRetry(
 }
 
 export async function getUserInfoFromApiKey<T extends UserColumn>(
-  params: GetUserInfoFromApiKeyInput<T>,
+  params: GetUserInfoFromApiKeyInput<T> & {
+    fetch?: FetchLike
+  },
 ): GetUserInfoFromApiKeyOutput<T> {
-  const { apiKey, fields, logger } = params
+  const { apiKey, fields, logger, fetch: fetchFn = globalThis.fetch } = params
 
   const cached = userInfoCache[apiKey]
   if (cached === null) {
@@ -149,6 +157,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
         },
       },
       logger,
+      fetchFn,
     )
   } catch (error) {
     logger.error(
@@ -268,6 +277,17 @@ export async function fetchAgentFromDatabase(
 
     const agentConfig = parseResult.data
     const rawAgentData = agentConfig.data as DynamicAgentTemplate
+    if (rawAgentData.handleSteps) {
+      logger.error(
+        {
+          publisherId,
+          agentId,
+          version: agentConfig.version,
+        },
+        'fetchAgentFromDatabase: executable handleSteps are disabled for database-loaded agents; install and trust the agent locally instead',
+      )
+      return null
+    }
 
     // Validate the raw agent data with the original agentId (not full identifier)
     const validationResult = validateSingleAgent({
@@ -292,6 +312,7 @@ export async function fetchAgentFromDatabase(
     const agentTemplate = {
       ...validationResult.agentTemplate!,
       id: `${publisherId}/${agentId}@${agentConfig.version}`,
+      executionSource: 'database' as const,
     }
 
     logger.debug(

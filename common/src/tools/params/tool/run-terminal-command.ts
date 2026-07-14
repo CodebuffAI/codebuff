@@ -48,6 +48,7 @@ export const terminalCommandOutputSchema = z.union([
         'librarian-read-only',
         'git-commit',
         'dependency-mutation',
+        'validation-diagnosis',
         'tmux-test',
         'workspace-write',
         'full-access',
@@ -87,13 +88,22 @@ const inputSchema = z
       .describe(
         `The working directory to run the command in. Default is the project root.`,
       ),
-    timeout_seconds: z
+      timeout_seconds: z
       .number()
       .default(30)
       .optional()
       .describe(
         `Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30`,
-      ),
+        ),
+      owner: z
+        .object({
+          clientSessionId: z.string(),
+          rootRunId: z.string(),
+          parentRunId: z.string(),
+          parentAgentId: z.string(),
+        })
+        .optional()
+        .describe('Runtime-managed background job owner; agents must omit.'),
   })
   .describe(
     `Execute a CLI command from the **project root** (different from the user's cwd).`,

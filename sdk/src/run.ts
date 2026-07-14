@@ -24,6 +24,8 @@ import {
   clientToolNames,
 } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
+import { advanceWorkspaceState } from '@codebuff/common/types/workspace-state'
+import type { WorkspaceStateV1 } from '@codebuff/common/types/workspace-state'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { listRunningBackgroundJobs } from '@codebuff/common/util/pending-background-jobs'
 import { cloneDeep } from 'lodash'
@@ -32,6 +34,8 @@ import { getErrorStatusCode } from './error-utils'
 import { getHarnessStateDir } from './credentials'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
+import { WorkspaceJournalService } from './services/workspace-journal'
+import { WorkspaceMutationBroker } from './services/workspace-mutation-broker'
 import { changeFile, changeFiles } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
@@ -234,6 +238,8 @@ export type FilesystemMutationEvent = {
   callId: string
   operationId: string
   receiptId?: string
+  workspaceRevision: number
+  workspaceSnapshotId: string
   actions: Array<{
     action: 'create' | 'update' | 'delete' | 'move'
     path: string
@@ -404,7 +410,7 @@ async function runOnce({
   onFilesystemMutation,
   verifyExternalMutation,
 
-  fsSource = createNodeFileSystem,
+  fsSource,
   spawnSource,
   logger,
 
@@ -420,8 +426,28 @@ async function runOnce({
   onCheckpoint,
   resumeInterruptedTurn,
 }: RunExecutionOptions): Promise<RunState> {
-  const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
-  const fs = await fsSourceValue
+  const resolvedHarnessStateDir = harnessStateDir ?? getHarnessStateDir(env)
+  let fs: CodebuffFileSystem
+  if (fsSource !== undefined) {
+    const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
+    fs = await fsSourceValue
+  } else if (cwd) {
+    try {
+      const mutationBroker = await WorkspaceMutationBroker.create({
+        cwd,
+        stateDir: resolvedHarnessStateDir,
+      })
+      fs = createNodeFileSystem({ mutationBroker })
+    } catch (error) {
+      logger?.warn(
+        { error },
+        'Workspace mutation broker unavailable; guarded mutations will fail closed',
+      )
+      fs = createNodeFileSystem()
+    }
+  } else {
+    fs = createNodeFileSystem()
+  }
   let spawn: CodebuffSpawn
   if (spawnSource) {
     const spawnSourceValue = await spawnSource
@@ -469,6 +495,30 @@ async function runOnce({
       spawn,
       logger,
     })
+  }
+  let workspaceJournal = cwd
+    ? await WorkspaceJournalService.create({
+        rootDir: resolvedHarnessStateDir,
+        cwd,
+      }).catch(() => undefined)
+    : undefined
+  if (workspaceJournal) {
+    try {
+      const persistedWorkspace = workspaceJournal.read()
+      const currentRevision =
+        sessionState.mainAgentState.workspaceState?.revision ?? -1
+      if (persistedWorkspace.revision > currentRevision) {
+        sessionState.mainAgentState.workspaceState = persistedWorkspace
+        sessionState.mainAgentState.readAuthorizationsByPath = {}
+        sessionState.mainAgentState.readAuthorizationHashesByPath = {}
+      }
+    } catch (error) {
+      logger?.warn(
+        { error },
+        'Workspace journal unavailable; continuing with in-memory workspace state',
+      )
+      workspaceJournal = undefined
+    }
   }
 
   const timeoutAbortController = new AbortController()
@@ -659,7 +709,40 @@ async function runOnce({
           fileFilter,
           filesystemPolicy,
           env,
-          harnessStateDir: harnessStateDir ?? getHarnessStateDir(env),
+          harnessStateDir: resolvedHarnessStateDir,
+          getWorkspaceState: () => sessionState.mainAgentState.workspaceState,
+          setWorkspaceState: (state) => {
+            sessionState.mainAgentState.workspaceState = state
+          },
+          advanceWorkspaceJournal: workspaceJournal
+            ? (change) =>
+                (() => {
+                  if (!workspaceJournal) {
+                    return advanceWorkspaceState(
+                      sessionState.mainAgentState.workspaceState,
+                      change,
+                    )
+                  }
+                  try {
+                    return workspaceJournal.advance({
+                      runId:
+                        sessionState.mainAgentState.runId ??
+                        sessionState.mainAgentState.agentId,
+                      ...change,
+                    })
+                  } catch (error) {
+                    logger?.warn(
+                      { error },
+                      'Workspace journal write failed; continuing with in-memory workspace state',
+                    )
+                    workspaceJournal = undefined
+                    return advanceWorkspaceState(
+                      sessionState.mainAgentState.workspaceState,
+                      change,
+                    )
+                  }
+                })()
+            : undefined,
           signal: deadline.signal,
         })
       } finally {
@@ -684,7 +767,7 @@ async function runOnce({
 
       return filteredTools
     },
-    requestFiles: ({ filePaths, ranges }) => {
+    requestFiles: ({ filePaths, ranges, capabilityIssuer }) => {
       if (runSignal.aborted || terminalRequested) {
         throw createAbortError(runSignal)
       }
@@ -697,6 +780,7 @@ async function runOnce({
         cwd,
         fs,
         signal: runSignal,
+        capabilityIssuer,
       })
     },
     requestOptionalFile: async ({ filePath }) => {
@@ -952,6 +1036,7 @@ async function readFiles({
   cwd,
   fs,
   signal,
+  capabilityIssuer,
 }: {
   filePaths: string[]
   ranges?: FileLineRange[]
@@ -963,6 +1048,7 @@ async function readFiles({
   cwd?: string
   fs: CodebuffFileSystem
   signal: AbortSignal
+  capabilityIssuer?: import('@codebuff/common/util/content-hash').ReadCapabilityIssuer
 }) {
   if (override) {
     const output = await executeOverride({
@@ -988,6 +1074,7 @@ async function readFiles({
     fs,
     fileFilter,
     signal,
+    capabilityIssuer,
   })
 }
 
@@ -1001,6 +1088,9 @@ async function handleToolCall({
   filesystemPolicy,
   env,
   harnessStateDir,
+  getWorkspaceState,
+  setWorkspaceState,
+  advanceWorkspaceJournal,
   onFilesChanged,
   onFilesystemMutation,
   verifyExternalMutation,
@@ -1015,6 +1105,14 @@ async function handleToolCall({
   filesystemPolicy?: FilesystemAuthorityPolicy
   env?: Record<string, string>
   harnessStateDir: string
+  getWorkspaceState: () => WorkspaceStateV1 | undefined
+  setWorkspaceState: (state: WorkspaceStateV1) => void
+  advanceWorkspaceJournal?: (params: {
+    source: string
+    operationId?: string
+    receiptId?: string
+    actions: FilesystemMutationEvent['actions']
+  }) => WorkspaceStateV1
   onFilesChanged?: OpenbuffClientOptions['onFilesChanged']
   onFilesystemMutation?: OpenbuffClientOptions['onFilesystemMutation']
   verifyExternalMutation?: OpenbuffClientOptions['verifyExternalMutation']
@@ -1339,6 +1437,7 @@ async function handleToolCall({
         cwd: requireCwd(cwd, 'get_change_review_bundle'),
         max_chars: (input as { max_chars?: number }).max_chars,
         stateDir: harnessStateDir,
+        workspaceState: getWorkspaceState(),
         signal,
       })
     } else if (toolName === 'run_targeted_validation') {
@@ -1355,6 +1454,7 @@ async function handleToolCall({
         env,
         signal,
         fileSystem: fs,
+        workspaceState: getWorkspaceState(),
       })
     } else if (toolName === 'inspect_environment') {
       result = inspectEnvironment(requireCwd(cwd, 'inspect_environment'))
@@ -1449,29 +1549,95 @@ async function handleToolCall({
   const confirmedActions = mutationValue
     ? getConfirmedAppliedActionsV1(mutationValue)
     : []
-  if (confirmedActions.length > 0 && !signal?.aborted) {
-    try {
-      await onFilesystemMutation?.({
-        toolName,
-        callId: action.requestId,
-        operationId: mutationValue!.operationId,
-        ...(mutationValue!.receiptId
-          ? { receiptId: mutationValue!.receiptId }
+  if (confirmedActions.length > 0) {
+    const workspaceChange = {
+      source: `sdk:${toolName}`,
+      operationId: mutationValue!.operationId,
+      ...(mutationValue!.receiptId
+        ? { receiptId: mutationValue!.receiptId }
+        : {}),
+      actions: confirmedActions.map((confirmed) => ({
+        action: confirmed.action,
+        path: confirmed.path,
+        ...(confirmed.destinationPath
+          ? { destinationPath: confirmed.destinationPath }
           : {}),
-        actions: confirmedActions.map((confirmed) => ({
-          action: confirmed.action,
-          path: confirmed.path,
-          ...(confirmed.destinationPath
-            ? { destinationPath: confirmed.destinationPath }
-            : {}),
-          beforeHash: confirmed.beforeHash,
-          afterHash: confirmed.afterHash,
-        })),
-      })
+        beforeHash: confirmed.beforeHash,
+        afterHash: confirmed.afterHash,
+      })),
+    }
+    const workspaceState = advanceWorkspaceJournal
+      ? advanceWorkspaceJournal(workspaceChange)
+      : advanceWorkspaceState(getWorkspaceState(), workspaceChange)
+    setWorkspaceState(workspaceState)
+    const enrichedMutation = fileMutationResultV1Schema.parse({
+      ...mutationValue,
+      workspaceRevision: workspaceState.revision,
+      workspaceSnapshotId: workspaceState.snapshotId,
+      ...(mutationValue!.authorityReceipt
+        ? {
+            authorityReceipt: {
+              ...mutationValue!.authorityReceipt,
+              workspaceRevision: workspaceState.revision,
+              workspaceSnapshotId: workspaceState.snapshotId,
+            },
+          }
+        : {}),
+    })
+    result = result.map((part) =>
+      part.type === 'json' && part.value === mutationValue
+        ? { type: 'json' as const, value: enrichedMutation }
+        : part,
+    )
+    const event: FilesystemMutationEvent = {
+      toolName,
+      callId: action.requestId,
+      operationId: mutationValue!.operationId,
+      ...(mutationValue!.receiptId
+        ? { receiptId: mutationValue!.receiptId }
+        : {}),
+      workspaceRevision: workspaceState.revision,
+      workspaceSnapshotId: workspaceState.snapshotId,
+      actions: confirmedActions.map((confirmed) => ({
+        action: confirmed.action,
+        path: confirmed.path,
+        ...(confirmed.destinationPath
+          ? { destinationPath: confirmed.destinationPath }
+          : {}),
+        beforeHash: confirmed.beforeHash,
+        afterHash: confirmed.afterHash,
+      })),
+    }
+    if (onFilesystemMutation) {
+      try {
+        await onFilesystemMutation(event)
+      } catch (error) {
+        console.warn('[openbuff] filesystem mutation observer failed', error)
+        try {
+          await onFilesChanged?.()
+        } catch (fallbackError) {
+          console.warn(
+            '[openbuff] file-change fallback observer failed',
+            fallbackError,
+          )
+        }
+      }
+    } else {
+      try {
+        await onFilesChanged?.()
+      } catch (error) {
+        console.warn('[openbuff] file-change observer failed', error)
+      }
+    }
+  } else if (
+    toolName === 'run_terminal_command' ||
+    Boolean(customToolDefinitions[toolName]) ||
+    Boolean(action.mcpConfig)
+  ) {
+    try {
       await onFilesChanged?.()
-    } catch {
-      // Mutation observers are post-commit; never turn an applied mutation into
-      // a failed tool result because a host-side index refresh failed.
+    } catch (error) {
+      console.warn('[openbuff] unknown-mutation observer failed', error)
     }
   }
   return {

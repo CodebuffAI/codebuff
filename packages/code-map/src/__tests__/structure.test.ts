@@ -367,17 +367,13 @@ describe('parseFileStructure', () => {
   test('extracts structures for PHP, Swift, and Kotlin', async () => {
     expect(
       await parseFileStructure('<?php function phpDemo() {}', 'index.php'),
-    ).toEqual([
-      expect.objectContaining({ name: 'phpDemo', kind: 'function' }),
-    ])
+    ).toEqual([expect.objectContaining({ name: 'phpDemo', kind: 'function' })])
     expect(
       await parseFileStructure('func swiftDemo() {}', 'App.swift'),
     ).toEqual([
       expect.objectContaining({ name: 'swiftDemo', kind: 'function' }),
     ])
-    expect(
-      await parseFileStructure('fun kotlinDemo() {}', 'Main.kt'),
-    ).toEqual([
+    expect(await parseFileStructure('fun kotlinDemo() {}', 'Main.kt')).toEqual([
       expect.objectContaining({ name: 'kotlinDemo', kind: 'function' }),
     ])
   })

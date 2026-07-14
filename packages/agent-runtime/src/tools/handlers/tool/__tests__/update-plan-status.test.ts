@@ -382,6 +382,7 @@ describe('handleUpdatePlanStatus', () => {
       toolCall: makeCall({
         path: '.agents/sessions/demo/PLAN.md',
         currentTask: 'P0-8 other',
+        updates: [{ taskId: 'P0-8', status: 'in_progress' }],
       }),
       logger: silentLogger,
     })
@@ -450,6 +451,7 @@ describe('handleUpdatePlanStatus', () => {
         path: '.agents/sessions/demo/PLAN.md',
         sessionStatus: 'active',
         currentTask: 'P0-7 work',
+        updates: [{ taskId: 'P0-7', status: 'in_progress' }],
       }),
       logger: silentLogger,
     })

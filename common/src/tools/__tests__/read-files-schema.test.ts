@@ -98,11 +98,7 @@ describe('read_files input schema', () => {
         symbols: [
           {
             path: 'server/src/services/account.ts',
-            names: [
-              'setUserRole',
-              'changePlanForUser',
-              'listFeatureFlags',
-            ],
+            names: ['setUserRole', 'changePlanForUser', 'listFeatureFlags'],
           },
         ],
       })

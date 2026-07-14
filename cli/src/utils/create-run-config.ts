@@ -9,6 +9,7 @@ import {
   createEventHandler,
   createStreamChunkHandler,
 } from './sdk-event-handlers'
+import { ensureIndexWorkspaceWatcher } from './index-workspace-watcher'
 
 import type { EventHandlerState } from './sdk-event-handlers'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -18,6 +19,7 @@ import type {
   FileFilter,
   MessageContent,
   RunState,
+  FilesystemMutationEvent,
 } from '@openbuff/sdk'
 
 export type CreateRunConfigParams = {
@@ -138,6 +140,21 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     resumeInterruptedTurn,
   } = params
 
+  try {
+    const indexingConfig = loadProviderConfigSync().config.indexing
+    if (indexingConfig.enabled !== false) {
+      const projectRoot = getProjectRoot()
+      const manager = IndexManager.getInstance(projectRoot, indexingConfig)
+      ensureIndexWorkspaceWatcher({
+        projectRoot,
+        config: indexingConfig,
+        manager,
+      })
+    }
+  } catch {
+    // Best-effort; age-based index integrity sweeps remain available.
+  }
+
   return {
     logger,
     agent,
@@ -153,8 +170,40 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     extraCodebuffMetadata,
     onCheckpoint,
     resumeInterruptedTurn,
-    // Keep the codebase index fresh: after the agent edits files, force the
-    // next query_index to incrementally refresh instead of serving stale results.
+    onFilesystemMutation: (event: FilesystemMutationEvent) => {
+      try {
+        const indexingConfig = loadProviderConfigSync().config.indexing
+        if (indexingConfig.enabled === false) return
+        const changedPaths: string[] = []
+        const deletedPaths: string[] = []
+        for (const action of event.actions) {
+          if (action.action === 'delete') {
+            deletedPaths.push(action.path)
+          } else if (action.action === 'move') {
+            deletedPaths.push(action.path)
+            if (action.destinationPath)
+              changedPaths.push(action.destinationPath)
+          } else {
+            changedPaths.push(action.path)
+          }
+        }
+        IndexManager.getInstance(
+          getProjectRoot(),
+          indexingConfig,
+        ).markPathsChanged({
+          changedPaths,
+          deletedPaths,
+          complete: true,
+          revision: event.workspaceRevision,
+        })
+      } catch {
+        // Best-effort; never let index bookkeeping affect the run.
+      }
+    },
+    // Unknown mutation surfaces (terminal/custom/MCP tools) cannot provide a
+    // safe path delta. Retain the compatibility callback as a conservative
+    // full-refresh fallback; confirmed SDK mutations use the detailed callback
+    // above and do not invoke this path.
     onFilesChanged: () => {
       try {
         const indexingConfig = loadProviderConfigSync().config.indexing

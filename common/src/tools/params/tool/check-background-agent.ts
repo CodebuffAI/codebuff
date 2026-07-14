@@ -14,6 +14,14 @@ const inputSchema = z
       .describe(
         'The jobId returned by spawn_agents({ background: true }) for the background agent turn.',
       ),
+    cursor: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        'Optional sequence cursor from a prior response. Polling is idempotent for an explicit cursor; nextCursor can be supplied on the next call.',
+      ),
     wait_for: z
       .string()
       .min(1)
@@ -78,6 +86,7 @@ export const checkBackgroundAgentParams = {
           .array(
             z.object({
               type: z.string(),
+              sequence: z.number().int().positive(),
               // Opaque structured event (text/tool_call/tool_result/subagent_*);
               // payload can be any JSON-serializable shape, so `any` is correct.
               payload: z.any(),
@@ -89,6 +98,7 @@ export const checkBackgroundAgentParams = {
           ),
         // Resolved agent turn result; opaque structured value.
         result: z.any().optional().describe('Resolved value when completed.'),
+        nextCursor: z.number().int().nonnegative().optional(),
         error: z
           .string()
           .optional()

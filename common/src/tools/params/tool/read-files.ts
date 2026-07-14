@@ -186,7 +186,7 @@ Read files from disk. For large files, prefer ranges or symbol slices over full-
 
 Important:
 - Full reads may be truncated for large files; the truncation marker includes the original character and line counts. Do not edit from truncated content.
-- Every complete whole-file read returns a short readCapability token. Copy it verbatim to basedOnRead when an edit asks for explicit read proof; do not invent or reconstruct a token.
+- Every complete read returns an authenticated cap.v3 readCapability bound to this project, path, and agent run. Copy it verbatim to basedOnRead; cross-path/cross-run replay is rejected, and the token cannot be reconstructed from content hashes.
 - Symbol slices: pass \`symbols: [{ path, names }]\` to pull just the named functions/classes/methods (each with its line range and a readCapability) instead of the whole file. Prefer this when you already know the symbol names — pair it with read_outline to discover names in a large file first (outline to see structure, then symbols to pull what you need). Use \`ranges\` when you're paging by line number instead.
 - Range reads return a single readCapability that embeds startLine, endLine, and rangeHash.
 - Use replace_range for medium/large or formatting-sensitive block edits, copying that readCapability directly instead of reconstructing oldString or three separate range fields.

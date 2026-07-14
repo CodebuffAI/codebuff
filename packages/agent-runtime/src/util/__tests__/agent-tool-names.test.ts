@@ -19,7 +19,10 @@ describe('getEffectiveAgentToolNames', () => {
   it('adds set_output to structured-output agents that omitted it', () => {
     expect(
       getEffectiveAgentToolNames(
-        template({ outputMode: 'structured_output', toolNames: ['read_files'] }),
+        template({
+          outputMode: 'structured_output',
+          toolNames: ['read_files'],
+        }),
       ),
     ).toEqual(['read_files', 'set_output'])
   })

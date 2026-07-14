@@ -9,6 +9,8 @@
  * two implementations in sync.
  */
 
+import { normalizeGateFilePath } from './gate-paths'
+
 type ReviewerStructuredVerdict = 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
 export type ReviewerFinalizationVerdict = 'LOOKS_GOOD' | 'NON_BLOCKING' | ''
 
@@ -53,14 +55,18 @@ export function collectReviewerAttestationIssues(
   pendingFiles: string[],
 ): string[] {
   const structured = collectStructuredReviewerOutputs(toolResult)
-  if (structured.length === 0) return []
+  if (structured.length === 0) {
+    return [
+      'BLOCKING: reviewer did not return the required structured snapshot attestation',
+    ]
+  }
   const result = structured[structured.length - 1]
   if (
     typeof result.schemaVersion !== 'number' ||
     !Number.isInteger(result.schemaVersion) ||
     result.schemaVersion <= 0
   ) {
-    return []
+    return ['BLOCKING: reviewer returned an invalid attestation schemaVersion']
   }
   const issues: string[] = []
   if (result.snapshotFingerprint !== expectedFingerprint) {
@@ -68,8 +74,14 @@ export function collectReviewerAttestationIssues(
       'BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree',
     )
   }
-  const reviewed = new Set(result.reviewedFiles ?? [])
-  const missing = pendingFiles.filter((file) => !reviewed.has(file))
+  const reviewed = new Set(
+    (result.reviewedFiles ?? [])
+      .map((file) => normalizeGateFilePath(file))
+      .filter((file) => file.length > 0),
+  )
+  const missing = pendingFiles
+    .map((file) => normalizeGateFilePath(file))
+    .filter((file) => file.length > 0 && !reviewed.has(file))
   if (missing.length > 0) {
     issues.push(
       `BLOCKING: reviewer did not attest to every pending file: ${missing.join(', ')}`,
@@ -195,102 +207,10 @@ function findReviewerCrash(value: unknown, depth: number = 0): string | null {
   return null
 }
 
-function extractEmbeddedJsonVerdict(
-  text: string,
-): 'LOOKS_GOOD' | 'NON_BLOCKING' | '' {
-  // Reviewers sometimes emit a short prose preamble before their JSON
-  // verdict object (e.g. "I now have full context. ... {\"verdict\":...}").
-  // The structured (parsed-object) path only sees parsed JSON nodes, so a
-  // verdict embedded in a plain string is invisible to it. Scan the raw text
-  // for an embedded verdict object and honor it as a text-mode fallback.
-  // Use the LAST match: a reviewer may echo a prior BLOCKING before the final
-  // LOOKS_GOOD, and we want the final verdict.
-  //
-  // NOTE: this intentionally avoids a regex literal. The inline-base2 parity
-  // test (gate-reviewer.test.ts) extracts function source via a naive
-  // brace-counting scanner that does not understand regex literals or
-  // character classes, so a `}` inside a regex pattern (e.g. `[^}]` or `\}`)
-  // would prematurely close the extracted function body and break `new
-  // Function(...)`. The indexOf + brace-depth scan below contains no regex
-  // literal, so it is safe for that extractor. The same scanner also does
-  // not understand string literals, so a bare `{` or `}` inside a quoted
-  // string (e.g. the opener needle or the character comparisons below)
-  // would permanently skew its depth; we therefore build the needle from
-  // char codes and compare via charCodeAt(0) so no brace character ever
-  // appears inside a string literal in this body.
-  const VERDICT_OBJECT_OPEN = String.fromCharCode(123) + '"verdict"'
-  const candidates: string[] = []
-  let searchFrom = 0
-  // Find every `{"verdict"` opener and span to its matching closing `}`.
-  // Brace depth is tracked with respect for `\` escapes so `\"` inside JSON
-  // string values does not terminate scanning early.
-  while (true) {
-    const opener = text.indexOf(VERDICT_OBJECT_OPEN, searchFrom)
-    if (opener < 0) break
-    let depth = 0
-    let inString = false
-    let escape = false
-    let end = -1
-    for (let i = opener; i < text.length; i += 1) {
-      const ch = text[i]
-      if (escape) {
-        escape = false
-        continue
-      }
-      if (ch === '\\') {
-        escape = true
-        continue
-      }
-      if (ch === '"') {
-        inString = !inString
-        continue
-      }
-      if (inString) continue
-      // charCodeAt(0) comparisons avoid bare `{`/`}` inside string literals,
-      // which the naive brace-counting extractor would also miscount.
-      if (ch.charCodeAt(0) === 123) depth += 1
-      else if (ch.charCodeAt(0) === 125) {
-        depth -= 1
-        if (depth === 0) {
-          end = i
-          break
-        }
-      }
-    }
-    if (end < 0) break
-    candidates.push(text.slice(opener, end + 1))
-    searchFrom = end + 1
-  }
-  if (candidates.length === 0) return ''
-  const last = candidates[candidates.length - 1]
-  try {
-    const parsed = JSON.parse(last) as {
-      verdict?: unknown
-      coverage?: unknown
-    }
-    const verdict =
-      typeof parsed.verdict === 'string'
-        ? parsed.verdict.trim().toUpperCase()
-        : ''
-    const coverage =
-      typeof parsed.coverage === 'string'
-        ? parsed.coverage.trim().toLowerCase()
-        : ''
-    // BLOCKING is never a finalization verdict, and missing coverage still
-    // blocks regardless of the text verdict (coverage-adequacy contract).
-    if (verdict !== 'LOOKS_GOOD' && verdict !== 'NON_BLOCKING') return ''
-    if (coverage === 'missing') return ''
-    return verdict === 'LOOKS_GOOD' ? 'LOOKS_GOOD' : 'NON_BLOCKING'
-  } catch {
-    return ''
-  }
-}
-
 export function getReviewerFinalizationVerdict(
   toolResult: unknown,
 ): ReviewerFinalizationVerdict {
-  // Structured reviewer outputs take precedence so text-mode fallbacks
-  // do not accidentally override an explicit JSON verdict.
+  // Automated gates accept only schema-backed structured reviewer output.
   const structured = collectStructuredReviewerOutputs(toolResult)
   // Coverage-adequacy contract (M6.3): missing coverage blocks finalization
   // even if the text verdict is LOOKS_GOOD / NON_BLOCKING.
@@ -302,28 +222,6 @@ export function getReviewerFinalizationVerdict(
     if (entry.verdict === 'NON_BLOCKING') return 'NON_BLOCKING'
   }
 
-  const texts: string[] = []
-  collectStrings(toolResult, texts)
-  for (const text of texts) {
-    const normalized = stripReviewerPreamble(text)
-    if (hasReviewerLineVerdict(normalized, 'LOOKS_GOOD')) return 'LOOKS_GOOD'
-    if (hasReviewerLineVerdict(normalized, 'NON_BLOCKING'))
-      return 'NON_BLOCKING'
-    if (
-      /\breviewer gate passed\s*(?:with\s+|\(\s*)LOOKS_GOOD\b/i.test(normalized)
-    ) {
-      return 'LOOKS_GOOD'
-    }
-    if (
-      /\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(
-        normalized,
-      )
-    ) {
-      return 'NON_BLOCKING'
-    }
-    const embedded = extractEmbeddedJsonVerdict(normalized)
-    if (embedded) return embedded
-  }
   return ''
 }
 

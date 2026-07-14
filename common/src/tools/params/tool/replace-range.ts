@@ -5,7 +5,11 @@ import {
   isObviousEditPlaceholder,
   jsonToolResultSchema,
 } from '../utils'
-import { decodeReadCapabilityToken } from '../../../util/content-hash'
+import {
+  decodeReadCapabilityToken,
+  encodeReadCapabilityToken,
+  getContentHash,
+} from '../../../util/content-hash'
 
 import { updateFileResultSchema } from './str-replace'
 
@@ -163,8 +167,16 @@ ${$getNativeToolCallExampleString({
   inputSchema,
   input: {
     path: 'path/to/large-file.ts',
-    readCapability:
-      'cap.v2.120.135.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    readCapability: encodeReadCapabilityToken({
+      startLine: 120,
+      endLine: 135,
+      hash: getContentHash('freshly read example range'),
+      scope: {
+        projectId: '/example/project',
+        path: 'path/to/large-file.ts',
+        runId: 'example-run',
+      },
+    }),
     newContent: 'function updated() {\n  return true\n}',
   },
   endsAgentStep,

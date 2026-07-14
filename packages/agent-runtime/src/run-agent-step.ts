@@ -27,8 +27,14 @@ import {
   runProgrammaticStep,
 } from './run-programmatic-step'
 import { getProposalRecords } from './tools/handlers/tool/proposal-ledger-store'
+import {
+  appendOrchestrationEvent,
+  reconcileInterruptedLedgerSpawns,
+} from './util/orchestration-ledger'
+import { reconcileInterruptedPathLeases } from './util/workspace-path-leases'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
+import { getBackgroundAgentJob } from './util/background-agent-jobs'
 import { buildAgentToolSet } from './templates/prompts'
 import { getAgentPrompt } from './templates/strings'
 import { getToolSet } from './tools/prompts'
@@ -52,15 +58,22 @@ import {
   withSystemTags as withSystemTags,
   buildUserMessageContent,
   expireMessages,
+  extractPinnedContextBlocks,
   getContextCategoryTelemetry,
 } from './util/messages'
 import { countTokensJson } from './util/token-counter'
 import {
   DEFAULT_MAX_CONTEXT_TOKENS,
-  getModelContextMessageLimit,
+  getEffectiveContextLimits,
   getSemanticCompactionBudget,
   maybePruneContext,
 } from './util/context-pruning'
+import {
+  commitTaskMemory,
+  compileTaskMemoryContext,
+  deriveTaskMemoryDraftFromMessages,
+  mergeTaskMemoryDraft,
+} from './util/task-memory'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -292,9 +305,8 @@ export const runAgentStep = async (
   // consistent stopping point (resumable next turn via persisted run state)
   // instead of being cut off mid-edit when stepsRemaining hits 0.
   if (agentState.stepsRemaining === NEAR_STEP_CAP_WARNING_THRESHOLD) {
-    const hasWriteTodos = getEffectiveAgentToolNames(agentTemplate).includes(
-      'write_todos',
-    )
+    const hasWriteTodos =
+      getEffectiveAgentToolNames(agentTemplate).includes('write_todos')
     const warningMessage = hasWriteTodos
       ? NEAR_STEP_CAP_WARNING_MESSAGE
       : NEAR_STEP_CAP_WARNING_MESSAGE_NO_WRITE_TODOS
@@ -637,34 +649,71 @@ export const runAgentStep = async (
     prompt &&
     (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
   if (wasCompacted) {
-    // M5: Preserve any existing <knowledge_memory> block across manual /compact
-    // so structured knowledge memory survives both automatic pruner compaction
-    // and the user-initiated /compact path.
-    let preservedKnowledgeMemory = ''
-    for (const msg of agentState.messageHistory) {
-      if (msg.role !== 'user') continue
-      const text =
-        typeof msg.content === 'string'
-          ? msg.content
-          : Array.isArray(msg.content)
-            ? msg.content
-                .filter(
-                  (p: Record<string, unknown>) =>
-                    p.type === 'text' && typeof p.text === 'string',
-                )
-                .map((p: Record<string, unknown>) => p.text as string)
-                .join('\n')
-            : ''
-      const match = text.match(/<knowledge_memory>[\s\S]*?<\/knowledge_memory>/)
-      if (match) {
-        preservedKnowledgeMemory = match[0]
+    // Use the same conversation-summary envelope as automatic compaction and
+    // preserve the newest authoritative operational blocks, rather than the
+    // first (potentially stale) knowledge-memory block in the transcript.
+    const pinnedBlocks = extractPinnedContextBlocks(agentState.messageHistory)
+    if (!pinnedBlocks.some((block) => block.startsWith('<knowledge_memory>'))) {
+      for (
+        let index = agentState.messageHistory.length - 1;
+        index >= 0;
+        index--
+      ) {
+        const message = agentState.messageHistory[index]
+        if (message.role !== 'user') continue
+        const rawText = message.content
+          .filter((part) => part.type === 'text')
+          .map((part) => part.text)
+          .join('\n')
+        const plainText = rawText
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+        if (!plainText || /^(?:\/compact|compact)$/i.test(plainText)) continue
+        const boundedGoal =
+          plainText.length <= 2_400
+            ? plainText
+            : `${plainText.slice(0, 1_900)}...[truncated]...${plainText.slice(-400)}`
+        pinnedBlocks.push(
+          [
+            '<knowledge_memory>',
+            'Pinned structured knowledge memory. Preserve verbatim across compaction; this section is not subject to normal budget cutoff.',
+            `Goal:\n  ${boundedGoal}`,
+            '</knowledge_memory>',
+          ].join('\n'),
+        )
         break
       }
     }
-    const summaryText = preservedKnowledgeMemory
-      ? `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}\n\n${preservedKnowledgeMemory}`
-      : `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`
-    agentState.messageHistory = [userMessage(withSystemTags(summaryText))]
+    const summaryText = [
+      '<conversation_summary>',
+      'This is a summary of the conversation so far. The original messages have been condensed to save context space.',
+      '<historical_memory>',
+      fullResponse,
+      ...pinnedBlocks,
+      '</historical_memory>',
+      '</conversation_summary>',
+      'Previous context compacted into <knowledge_memory>; verify exact live files before editing.',
+    ].join('\n\n')
+    const compactedMemoryDraft = mergeTaskMemoryDraft(
+      agentState.taskMemory,
+      deriveTaskMemoryDraftFromMessages({
+        messages: agentState.messageHistory,
+        workspaceState: agentState.workspaceState,
+        fallbackSummary: fullResponse,
+      }),
+    )
+    agentState.taskMemory = commitTaskMemory({
+      current: agentState.taskMemory,
+      draft: compactedMemoryDraft,
+      expectedRevision: agentState.taskMemory?.revision ?? -1,
+    })
+    agentState.messageHistory = [
+      userMessage({
+        content: withSystemTags(summaryText),
+        keepDuringTruncation: pinnedBlocks.length > 0,
+      }),
+    ]
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
 
@@ -1014,13 +1063,37 @@ export async function loopAgentSteps(
   // before the first LLM request, so waiting for the streaming callback would
   // make the first compaction use the legacy fallback even for 500k/1M models.
   initialAgentState.contextWindowTokens = resolvedModelContextWindow
-  const effectiveMaxContextLength =
-    maxContextLength ??
-    (resolvedModelContextWindow === undefined
-      ? undefined
-      : getModelContextMessageLimit(resolvedModelContextWindow))
-  const contextWindowForStatus =
-    maxContextLength ?? resolvedModelContextWindow ?? DEFAULT_MAX_CONTEXT_TOKENS
+  reconcileInterruptedLedgerSpawns(initialAgentState)
+  reconcileInterruptedPathLeases(initialAgentState)
+  if (
+    !initialAgentState.orchestrationLedger?.events.some(
+      (event) =>
+        event.type === 'model_selected' &&
+        event.runId === (initialAgentState.runId ?? initialAgentState.agentId),
+    )
+  ) {
+    appendOrchestrationEvent({
+      state: initialAgentState,
+      event: {
+        type: 'model_selected',
+        runId: initialAgentState.runId ?? initialAgentState.agentId,
+        agentType: agentTemplate.id,
+        model: agentTemplate.model,
+        contextWindowTokens: resolvedModelContextWindow,
+        reason: 'Resolved from the configured agent/model route before the first programmatic step.',
+        workspaceRevision: initialAgentState.workspaceState?.revision,
+        workspaceSnapshotId: initialAgentState.workspaceState?.snapshotId,
+      },
+    })
+  }
+  for (const job of initialAgentState.backgroundAgentJobs ?? []) {
+    if (job.status === 'running' && !getBackgroundAgentJob(job.jobId)) {
+      job.status = 'interrupted'
+      job.completedAt = Date.now()
+      job.error =
+        'Background agent host process/session ended before a terminal receipt was recorded.'
+    }
+  }
 
   if (signal.aborted) {
     return {
@@ -1242,12 +1315,12 @@ export async function loopAgentSteps(
     // resume point. Only active when onCheckpoint is provided (main agent only).
     let lastCheckpointTime = 0
     const CHECKPOINT_INTERVAL_MS = 30_000
-    const maybeCheckpoint = (state: AgentState) => {
+    const maybeCheckpoint = (state: AgentState, force = false) => {
       if (!onCheckpoint) {
         return
       }
       const now = Date.now()
-      if (now - lastCheckpointTime >= CHECKPOINT_INTERVAL_MS) {
+      if (force || now - lastCheckpointTime >= CHECKPOINT_INTERVAL_MS) {
         lastCheckpointTime = now
         try {
           onCheckpoint(state)
@@ -1280,8 +1353,24 @@ export async function loopAgentSteps(
           logger,
           additionalToolDefinitions: additionalToolDefinitionsWithCache,
         })
+        const buildCompiledTaskMemoryMessage = (state: AgentState) =>
+          state.taskMemory
+            ? userMessage({
+                content: withSystemTags(
+                  compileTaskMemoryContext({
+                    memory: state.taskMemory,
+                    agentType: state.agentType,
+                    contextWindowTokens: state.contextWindowTokens,
+                    rootAgent: !state.parentId,
+                  }),
+                ),
+                tags: ['TASK_MEMORY_CONTEXT'],
+                keepDuringTruncation: true,
+              })
+            : false
         let messagesWithStepPrompt = buildArray(
           ...currentAgentState.messageHistory,
+          buildCompiledTaskMemoryMessage(currentAgentState),
           stepPrompt &&
             userMessage({
               content: stepPrompt,
@@ -1356,6 +1445,7 @@ export async function loopAgentSteps(
         // history before applying the deterministic emergency brake.
         messagesWithStepPrompt = buildArray(
           ...currentAgentState.messageHistory,
+          buildCompiledTaskMemoryMessage(currentAgentState),
           stepPrompt &&
             userMessage({
               content: stepPrompt,
@@ -1366,24 +1456,38 @@ export async function loopAgentSteps(
         const historyTokensAfterProgrammatic = countTokensJson(
           currentAgentState.messageHistory,
         )
+        let compactedThisIteration = false
         const retainedSemanticMemory = currentAgentState.messageHistory.some(
           (message) =>
             Array.isArray(message.content) &&
             message.content.some(
               (part) =>
                 part.type === 'text' &&
-                part.text.includes(
-                  '<knowledge_memory>\nPinned structured knowledge memory.',
+                /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/.test(
+                  part.text,
                 ),
             ),
         )
+        const semanticBudget = getSemanticCompactionBudget(
+          currentAgentState.contextWindowTokens,
+        )
+        const activeContextLimits = getEffectiveContextLimits(
+          currentAgentState.contextWindowTokens,
+          maxContextLength,
+        )
+        const activeMaxContextLength =
+          activeContextLimits.providerSafeMessageLimit
+        const activeContextWindowForStatus =
+          activeContextLimits.statusWindowTokens
+        const exceededSemanticTrigger =
+          contextTokensBeforeProgrammatic + 1_000 >
+          semanticBudget.triggerBudgetTokens
+        const hasExplicitMaxContextLength = maxContextLength !== undefined
         if (
           retainedSemanticMemory &&
-          historyTokensAfterProgrammatic < historyTokensBeforeProgrammatic
+          historyTokensAfterProgrammatic < historyTokensBeforeProgrammatic &&
+          (exceededSemanticTrigger || hasExplicitMaxContextLength)
         ) {
-          const semanticBudget = getSemanticCompactionBudget(
-            currentAgentState.contextWindowTokens,
-          )
           const categoriesAfterProgrammatic = getContextCategoryTelemetry(
             currentAgentState.messageHistory,
           )
@@ -1405,11 +1509,9 @@ export async function loopAgentSteps(
               semanticBudget.resolvedContextWindowTokens,
             triggerBudgetTokens: semanticBudget.triggerBudgetTokens,
             targetBudgetTokens: semanticBudget.targetBudgetTokens,
-            reason:
-              contextTokensBeforeProgrammatic + 1_000 >
-              semanticBudget.triggerBudgetTokens
-                ? 'Total context exceeded the model-aware semantic trigger budget.'
-                : 'The programmatic semantic pruner reduced history before the provider safety limit.',
+            reason: exceededSemanticTrigger
+              ? 'Total context exceeded the model-aware semantic trigger budget.'
+              : 'An explicit maxContextLength override allowed semantic compaction before the model-aware trigger budget.',
             before: {
               tokens: historyTokensBeforeProgrammatic,
               messages: historyBeforeProgrammatic.length,
@@ -1425,6 +1527,7 @@ export async function loopAgentSteps(
             recovery:
               'Resume from the retained <knowledge_memory> and verify exact live files before editing.',
           })
+          compactedThisIteration = true
         }
 
         // Deterministic trimming is now an emergency brake after semantic
@@ -1433,13 +1536,14 @@ export async function loopAgentSteps(
           messages: currentAgentState.messageHistory,
           systemTokens: systemAndToolsTokens,
           contextTokenCount: currentAgentState.contextTokenCount,
-          maxTotalTokens: effectiveMaxContextLength,
+          maxTotalTokens: activeMaxContextLength,
           logger,
         })
         if (pruningResult.pruned) {
           currentAgentState.messageHistory = pruningResult.messages
           messagesWithStepPrompt = buildArray(
             ...pruningResult.messages,
+            buildCompiledTaskMemoryMessage(currentAgentState),
             stepPrompt &&
               userMessage({
                 content: stepPrompt,
@@ -1452,9 +1556,9 @@ export async function loopAgentSteps(
             action: 'mechanical_trim',
             resolvedContextWindowTokens: currentAgentState.contextWindowTokens,
             triggerBudgetTokens:
-              effectiveMaxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
+              activeMaxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
             targetBudgetTokens:
-              effectiveMaxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
+              activeMaxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
             reason:
               'Total context remained above the provider-safe request budget after semantic compaction.',
             before: {
@@ -1473,12 +1577,21 @@ export async function loopAgentSteps(
               ? 'Resume from <knowledge_memory>; re-read exact live files before editing.'
               : 'Re-gather exact constraints, files, and validation evidence before continuing.',
           })
+          compactedThisIteration = true
+        }
+
+        if (compactedThisIteration) {
+          // Persist the compacted operational state before the next provider
+          // request. Otherwise a crash between compaction and the normal
+          // post-LLM checkpoint can resurrect the pre-compaction transcript or
+          // lose the newly synthesized recovery memory.
+          maybeCheckpoint(currentAgentState, true)
         }
 
         onResponseChunk({
           type: 'context_window',
           used: currentAgentState.contextTokenCount,
-          max: contextWindowForStatus,
+          max: activeContextWindowForStatus,
         })
 
         // Check if output is required but missing

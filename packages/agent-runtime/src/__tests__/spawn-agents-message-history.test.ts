@@ -20,6 +20,8 @@ import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
+import { commitTaskMemory } from '../util/task-memory'
+import { createInitialWorkspaceState } from '@codebuff/common/types/workspace-state'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
@@ -217,6 +219,135 @@ describe('Spawn Agents Message History', () => {
     expect(capturedSubAgentState.messageHistory).toHaveLength(0)
   })
 
+  it('transfers only pinned operational memory in pinned mode', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = {
+      ...createMockAgent('child-agent', false),
+      messageHistoryMode: 'pinned' as const,
+    }
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall = createSpawnToolCall('child-agent')
+    sessionState.mainAgentState.messageHistory = [
+      systemMessage('large parent system prompt'),
+      userMessage('raw conversation detail that must not transfer'),
+      userMessage({
+        content: [
+          {
+            type: 'text',
+            text: [
+              '<conversation_summary>',
+              '<historical_memory>',
+              '<knowledge_memory>',
+              'Pinned structured knowledge memory.',
+              'Goal: preserve only this bounded task state',
+              '</knowledge_memory>',
+              '</historical_memory>',
+              '</conversation_summary>',
+            ].join('\n'),
+          },
+        ],
+        keepDuringTruncation: true,
+      }),
+    ]
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    const transferred = JSON.stringify(capturedSubAgentState.messageHistory)
+    expect(transferred).toContain('<knowledge_memory>')
+    expect(transferred).toContain('preserve only this bounded task state')
+    expect(transferred).not.toContain('raw conversation detail')
+    expect(transferred).not.toContain('large parent system prompt')
+  })
+
+  it('clones typed operational memory for bounded children without inheriting the parent model window', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = {
+      ...createMockAgent('child-agent', false),
+      messageHistoryMode: 'pinned' as const,
+    }
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall = createSpawnToolCall('child-agent')
+    sessionState.mainAgentState.contextWindowTokens = 1_000_000
+    sessionState.mainAgentState.taskMemory = commitTaskMemory({
+      expectedRevision: -1,
+      draft: {
+        schemaVersion: 1,
+        goal: 'Preserve the parent goal without copying private transcript',
+        requirements: ['Keep agent histories isolated'],
+        decisions: ['Use bounded typed memory'],
+        filesInspected: [],
+        editsMade: [],
+        validationResults: [],
+        reviewReceipts: [],
+        blockers: [],
+        nextActions: ['Resolve the child model window independently'],
+        historicalSummary: '',
+        evidence: [],
+      },
+    })
+    sessionState.mainAgentState.workspaceState = createInitialWorkspaceState()
+    const parentTaskMemoryBeforeSpawn = sessionState.mainAgentState.taskMemory
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    expect(capturedSubAgentState.contextWindowTokens).toBeUndefined()
+    expect(capturedSubAgentState.taskMemory).toEqual(
+      parentTaskMemoryBeforeSpawn,
+    )
+    expect(capturedSubAgentState.taskMemory).not.toBe(
+      parentTaskMemoryBeforeSpawn,
+    )
+    expect(capturedSubAgentState.workspaceState).not.toBe(
+      sessionState.mainAgentState.workspaceState,
+    )
+  })
+
+  it('does not transfer typed task memory to transcript-isolated children', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = createMockAgent('child-agent', false)
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall = createSpawnToolCall('child-agent')
+    sessionState.mainAgentState.taskMemory = commitTaskMemory({
+      expectedRevision: -1,
+      draft: {
+        schemaVersion: 1,
+        goal: 'Private parent task',
+        requirements: [],
+        decisions: [],
+        filesInspected: [],
+        editsMade: [],
+        validationResults: [],
+        reviewReceipts: [],
+        blockers: [],
+        nextActions: [],
+        historicalSummary: '',
+        evidence: [],
+      },
+    })
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    expect(capturedSubAgentState.taskMemory).toBeUndefined()
+  })
+
   it('should handle empty message history gracefully', async () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', true)
@@ -250,6 +381,29 @@ describe('Spawn Agents Message History', () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', true)
     const sessionState = getInitialSessionState(mockFileContext)
+    const handoff = {
+      schemaVersion: 1 as const,
+      taskId: 'handoff-task',
+      role: 'specialist' as const,
+      objective: 'Continue the implementation',
+      requirements: [],
+      acceptanceCriteria: [],
+      context: {},
+      invariants: [],
+      nonGoals: [],
+      risks: [],
+      unknowns: [],
+      findings: [],
+      permissions: {
+        readablePaths: [],
+        writablePaths: [],
+        allowedTools: [],
+      },
+      summary: 'Continue the implementation',
+      artifacts: ['.agents/sessions/example/STATUS.md'],
+      successCriteria: [],
+      constraints: ['Do not edit unrelated files'],
+    }
     const toolCall: CodebuffToolCall<'spawn_agents'> = {
       toolName: 'spawn_agents' as const,
       toolCallId: 'test-tool-call-id',
@@ -259,11 +413,7 @@ describe('Spawn Agents Message History', () => {
             agent_type: 'child-agent',
             prompt: 'test prompt',
             params: { existing: 'value' },
-            handoff: {
-              summary: 'Continue the implementation',
-              artifacts: ['.agents/sessions/example/STATUS.md'],
-              constraints: ['Do not edit unrelated files'],
-            },
+            handoff,
           },
         ],
       },
@@ -279,11 +429,7 @@ describe('Spawn Agents Message History', () => {
 
     expect(capturedLoopOptions.spawnParams).toEqual({
       existing: 'value',
-      handoff: {
-        summary: 'Continue the implementation',
-        artifacts: ['.agents/sessions/example/STATUS.md'],
-        constraints: ['Do not edit unrelated files'],
-      },
+      handoff,
     })
   })
 
@@ -291,6 +437,29 @@ describe('Spawn Agents Message History', () => {
     const parentAgent = createMockAgent('parent', true)
     const childAgent = createMockAgent('child-agent', true)
     const sessionState = getInitialSessionState(mockFileContext)
+    const handoff = {
+      schemaVersion: 1 as const,
+      taskId: 'inline-handoff-task',
+      role: 'specialist' as const,
+      objective: 'Continue inline',
+      requirements: [],
+      acceptanceCriteria: [],
+      context: {},
+      invariants: [],
+      nonGoals: ['Do not fork context'],
+      risks: [],
+      unknowns: [],
+      findings: [],
+      permissions: {
+        readablePaths: [],
+        writablePaths: [],
+        allowedTools: [],
+      },
+      artifacts: [],
+      successCriteria: [],
+      constraints: [],
+      summary: 'Continue inline',
+    }
     const toolCall: CodebuffToolCall<'spawn_agent_inline'> = {
       toolName: 'spawn_agent_inline' as const,
       toolCallId: 'test-tool-call-id',
@@ -298,10 +467,7 @@ describe('Spawn Agents Message History', () => {
         agent_type: 'child-agent',
         prompt: 'test prompt',
         params: { existing: 'inline-value' },
-        handoff: {
-          summary: 'Continue inline',
-          nonGoals: ['Do not fork context'],
-        },
+        handoff,
       },
     }
 
@@ -316,10 +482,7 @@ describe('Spawn Agents Message History', () => {
 
     expect(capturedLoopOptions.spawnParams).toEqual({
       existing: 'inline-value',
-      handoff: {
-        summary: 'Continue inline',
-        nonGoals: ['Do not fork context'],
-      },
+      handoff,
     })
   })
 

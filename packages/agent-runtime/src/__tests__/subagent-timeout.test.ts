@@ -46,9 +46,12 @@ describe('resolveSubagentTimeoutMs', () => {
     expect(resolveSubagentTimeoutMs(tpl, undefined)).toBe(5 * 60 * 1000)
   })
 
-  it('falls back to DEFAULT_SUBAGENT_TIMEOUT_MS (20 min) when neither is set', () => {
+  it('falls back to the shared default (disabled / no timeout) when neither is set', () => {
     const tpl = makeTemplate()
-    expect(resolveSubagentTimeoutMs(tpl, undefined)).toBe(20 * 60 * 1000)
+    // DEFAULT_SUBAGENT_TIMEOUT_MS is -1 (disabled): agents are never killed by
+    // a wall-clock deadline unless they opt in via defaultTimeoutMs or a
+    // per-spawn timeout_seconds.
+    expect(resolveSubagentTimeoutMs(tpl, undefined)).toBe(-1)
   })
 
   it('override takes precedence over template default even when default is -1', () => {

@@ -207,7 +207,7 @@ export async function loadLocalAgents(options: {
 // Implementation
 export async function loadLocalAgents({
   agentsPath,
-  includeProjectAgents = true,
+  includeProjectAgents = false,
   verbose = false,
   validate = false,
 }: {

@@ -26,6 +26,7 @@ import {
 
 import type { FileLineRange } from '@codebuff/common/types/contracts/client'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { ReadCapabilityIssuer } from '@codebuff/common/util/content-hash'
 
 export type FileFilterResult = {
   status: 'blocked' | 'allow-example' | 'allow'
@@ -79,17 +80,19 @@ type FullSnapshot = {
   sizeBytes: number
 }
 
+type RangeWindow = {
+  content: string
+  startLine: number
+  endLine: number
+  totalLines: number
+  complete: boolean
+}
+
 type LargeSnapshot = {
   state: 'large'
   sizeBytes: number
-  window?: {
-    content: string
-    startLine: number
-    endLine: number
-    totalLines: number
-    complete: boolean
-  }
-  rangeError?: FilesystemError
+  windows?: Map<number, RangeWindow>
+  rangeErrors?: Map<number, FilesystemError>
 }
 
 type FailedSnapshot = {
@@ -338,61 +341,65 @@ async function readCanonicalSnapshot(params: {
       return {
         state: 'large',
         sizeBytes,
-        rangeError: filesystemError(
-          'unsupported',
-          'This filesystem does not advertise bounded text range reads for oversized files.',
-          { retryable: false },
+        rangeErrors: new Map(
+          ranges.map((selector) => [
+            selector.requestIndex,
+            filesystemError(
+              'unsupported',
+              'This filesystem does not advertise bounded text range reads for oversized files.',
+              { retryable: false },
+            ),
+          ]),
         ),
       }
     }
-    const startLine = Math.min(
-      ...ranges.map((selector) => Math.max(1, selector.range.startLine ?? 1)),
-    )
-    const endLine = Math.max(
-      ...ranges.map(
-        (selector) => selector.range.endLine ?? Number.MAX_SAFE_INTEGER,
-      ),
-    )
-    try {
-      throwIfAborted(signal)
-      const range = await readTextRange.call(
-        fs,
-        operationPath,
-        startLine,
-        endLine,
-        MAX_RANGE_READ_BYTES,
-      )
-      if (
-        range.data.byteLength > MAX_RANGE_READ_BYTES ||
-        range.startLine < 1 ||
-        range.endLine < 0 ||
-        range.endLine < range.startLine - 1 ||
-        range.totalLines < range.endLine
-      ) {
-        return {
-          state: 'large',
-          sizeBytes,
-          rangeError: filesystemError(
-            'io_error',
-            'The filesystem returned an invalid bounded text range result.',
-            { retryable: true, recovery: 'read_again' },
-          ),
+    const windows = new Map<number, RangeWindow>()
+    const rangeErrors = new Map<number, FilesystemError>()
+
+    // Oversized selectors are independent bounded reads. This deliberately
+    // avoids collapsing distant ranges into one min..max window whose byte
+    // budget can be consumed entirely by the unrelated gap.
+    for (const selector of ranges) {
+      const startLine = Math.max(1, selector.range.startLine ?? 1)
+      const endLine = selector.range.endLine ?? Number.MAX_SAFE_INTEGER
+      try {
+        throwIfAborted(signal)
+        const range = await readTextRange.call(
+          fs,
+          operationPath,
+          startLine,
+          endLine,
+          MAX_RANGE_READ_BYTES,
+        )
+        if (
+          range.data.byteLength > MAX_RANGE_READ_BYTES ||
+          range.startLine < 1 ||
+          range.endLine < 0 ||
+          range.endLine < range.startLine - 1 ||
+          range.totalLines < range.endLine
+        ) {
+          rangeErrors.set(
+            selector.requestIndex,
+            filesystemError(
+              'io_error',
+              'The filesystem returned an invalid bounded text range result.',
+              { retryable: true, recovery: 'read_again' },
+            ),
+          )
+          continue
         }
-      }
-      const decoded = decodeText(range.data)
-      if (!decoded.ok) {
-        return { state: 'large', sizeBytes, rangeError: decoded.error }
-      }
-      return {
-        state: 'large',
-        sizeBytes,
-        window: { ...range, content: decoded.content },
-      }
-    } catch (error) {
-      return {
-        state: 'large',
-        sizeBytes,
-        rangeError:
+        const decoded = decodeText(range.data)
+        if (!decoded.ok) {
+          rangeErrors.set(selector.requestIndex, decoded.error)
+          continue
+        }
+        windows.set(selector.requestIndex, {
+          ...range,
+          content: decoded.content,
+        })
+      } catch (error) {
+        rangeErrors.set(
+          selector.requestIndex,
           errorCode(error) === 'ENOENT'
             ? filesystemError('not_found', FILE_READ_STATUS.DOES_NOT_EXIST, {
                 retryable: true,
@@ -402,8 +409,10 @@ async function readCanonicalSnapshot(params: {
                 retryable: true,
                 recovery: 'read_again',
               }),
+        )
       }
     }
+    return { state: 'large', sizeBytes, windows, rangeErrors }
   }
 
   try {
@@ -600,6 +609,7 @@ function errorItem(
 function renderWholeFileItem(
   selector: Extract<PlannedSelector, { selector: 'file' }>,
   snapshot: ReadSnapshot,
+  capabilityIssuer?: ReadCapabilityIssuer,
 ): ReadFilesItemV1 {
   if (!selector.resolved.ok) {
     return errorItem(
@@ -671,6 +681,14 @@ function renderWholeFileItem(
             startLine: 1,
             endLine: normalizeLineEndings(content).split('\n').length,
             hash: getContentHash(content),
+            ...(capabilityIssuer
+              ? {
+                  scope: {
+                    ...capabilityIssuer,
+                    path: target.displayPath,
+                  },
+                }
+              : {}),
           }),
         }
       : {}),
@@ -681,6 +699,7 @@ function renderWholeFileItem(
 function renderRangeItem(
   selector: Extract<PlannedSelector, { selector: 'range' }>,
   snapshot: ReadSnapshot,
+  capabilityIssuer?: ReadCapabilityIssuer,
 ): ReadFilesItemV1 {
   if (!selector.resolved.ok) {
     return errorItem(
@@ -693,11 +712,15 @@ function renderRangeItem(
   if (snapshot.state === 'error') {
     return errorItem(selector, target.displayPath, snapshot.error)
   }
-  if (snapshot.state === 'large' && !snapshot.window) {
+  const largeWindow =
+    snapshot.state === 'large'
+      ? snapshot.windows?.get(selector.requestIndex)
+      : undefined
+  if (snapshot.state === 'large' && !largeWindow) {
     return errorItem(
       selector,
       target.displayPath,
-      snapshot.rangeError ??
+      snapshot.rangeErrors?.get(selector.requestIndex) ??
         filesystemError(
           'unsupported',
           'Bounded range reading is unavailable for this oversized file.',
@@ -707,7 +730,7 @@ function renderRangeItem(
   }
 
   const fullContent = snapshot.state === 'full' ? snapshot.content : undefined
-  const window = snapshot.state === 'large' ? snapshot.window! : undefined
+  const window = snapshot.state === 'large' ? largeWindow! : undefined
   const lines = splitVisibleLines(fullContent ?? window!.content)
   const totalLines =
     snapshot.state === 'full' ? lines.length : window!.totalLines
@@ -763,6 +786,14 @@ function renderRangeItem(
         startLine: desiredStart,
         endLine: desiredEnd,
         hash: rangeHash,
+        ...(capabilityIssuer
+          ? {
+              scope: {
+                ...capabilityIssuer,
+                path: target.displayPath,
+              },
+            }
+          : {}),
       })
     : undefined
   const header = complete
@@ -793,8 +824,17 @@ export async function getFilesStructured(params: {
   fileFilter?: FileFilter
   ranges?: FileLineRange[]
   signal?: AbortSignal
+  capabilityIssuer?: ReadCapabilityIssuer
 }): Promise<ReadFilesResultV1> {
-  const { filePaths, cwd, fs, fileFilter, ranges = [], signal } = params
+  const {
+    filePaths,
+    cwd,
+    fs,
+    fileFilter,
+    ranges = [],
+    signal,
+    capabilityIssuer,
+  } = params
   const plan = await planNativeReads({
     filePaths,
     ranges,
@@ -813,8 +853,8 @@ export async function getFilesStructured(params: {
     }
     const snapshot = plan.snapshots.get(selector.resolved.target.operationPath)!
     return selector.selector === 'file'
-      ? renderWholeFileItem(selector, snapshot)
-      : renderRangeItem(selector, snapshot)
+      ? renderWholeFileItem(selector, snapshot, capabilityIssuer)
+      : renderRangeItem(selector, snapshot, capabilityIssuer)
   })
   return buildReadFilesResultV1(results)
 }

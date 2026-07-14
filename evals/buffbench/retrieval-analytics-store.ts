@@ -19,7 +19,11 @@ export function appendRetrievalAnalytics(
   const output = path.join(dir, 'retrieval.jsonl')
   fs.appendFileSync(
     output,
-    JSON.stringify({ schemaVersion: 1, recordedAt: new Date().toISOString(), ...record }) + '\n',
+    JSON.stringify({
+      schemaVersion: 1,
+      recordedAt: new Date().toISOString(),
+      ...record,
+    }) + '\n',
   )
   return output
 }

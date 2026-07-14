@@ -43,8 +43,9 @@ export interface AgentDefinition {
    * Optional wall-clock timeout in milliseconds for a single execution of this
    * agent as a subagent. When set, executeSubagent uses this as the deadline
    * (overridable per-spawn via spawn_agents' timeout_seconds). Undefined falls
-   * back to the shared DEFAULT_SUBAGENT_TIMEOUT_MS (20 minutes). Set to -1 to
-   * disable the timeout for genuinely long-running agents.
+   * back to the shared DEFAULT_SUBAGENT_TIMEOUT_MS, which is -1 (disabled): by
+   * default there is no wall-clock timeout, so long-running agents run to
+   * completion. Set a positive value to opt this agent into a wall-clock bound.
    */
   defaultTimeoutMs?: number
 
@@ -175,6 +176,7 @@ export interface AgentDefinition {
     | 'librarian-read-only'
     | 'git-commit'
     | 'dependency-mutation'
+    | 'validation-diagnosis'
     | 'tmux-test'
     | 'workspace-write'
     | 'full-access'
@@ -237,6 +239,10 @@ export interface AgentDefinition {
    * Use this when the agent needs to know all the previous messages in the conversation.
    */
   includeMessageHistory?: boolean
+  /** Bounded parent-history transfer policy. Defaults from includeMessageHistory. */
+  messageHistoryMode?: 'none' | 'pinned' | 'full'
+  /** Explicit capability for inline history-editor agents. Defaults to false. */
+  propagateMessageHistoryChanges?: boolean
 
   /** Whether to append model reasoning chunks to this agent's message history.
    *

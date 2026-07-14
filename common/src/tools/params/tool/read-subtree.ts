@@ -5,6 +5,7 @@ import {
   coerceToArray,
   jsonToolResultSchema,
 } from '../utils'
+import { filesystemErrorSchema } from '../../results/filesystem'
 
 import type { $ToolParams } from '../../constants'
 
@@ -70,6 +71,17 @@ export const readSubtreeParams = {
           liveNodeCount: z.number().int().nonnegative().optional(),
           liveScanTruncated: z.boolean().optional(),
           liveScanMaxNodes: z.number().int().positive().optional(),
+          status: z.enum(['complete', 'partial']).optional(),
+          provenance: z.enum(['live', 'cached']).optional(),
+          stale: z.boolean().optional(),
+          errors: z
+            .array(
+              z.object({
+                path: z.string(),
+                error: filesystemErrorSchema,
+              }),
+            )
+            .optional(),
           recovery: z.string().optional(),
         }),
         z.object({
@@ -86,6 +98,17 @@ export const readSubtreeParams = {
           liveNodeCount: z.number().int().nonnegative().optional(),
           liveScanTruncated: z.boolean().optional(),
           liveScanMaxNodes: z.number().int().positive().optional(),
+          status: z.enum(['complete', 'partial']).optional(),
+          provenance: z.enum(['live', 'cached']).optional(),
+          stale: z.boolean().optional(),
+          errors: z
+            .array(
+              z.object({
+                path: z.string(),
+                error: filesystemErrorSchema,
+              }),
+            )
+            .optional(),
           recovery: z.string().optional(),
         }),
         z.object({
@@ -94,6 +117,7 @@ export const readSubtreeParams = {
           variables: z.array(z.string()),
           variablesSource: z.literal('cached').optional(),
           symbolsMayBeStale: z.boolean().optional(),
+          provenance: z.enum(['live', 'cached']).optional(),
         }),
         z.object({
           path: z.string(),
@@ -103,6 +127,8 @@ export const readSubtreeParams = {
         z.object({
           path: z.string(),
           errorMessage: z.string(),
+          error: filesystemErrorSchema.optional(),
+          provenance: z.enum(['live', 'cached']).optional(),
         }),
       ]),
     ),

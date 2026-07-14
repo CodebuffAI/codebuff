@@ -4,6 +4,7 @@ import { createNodeError } from '@codebuff/common/testing/errors'
 import {
   decodeReadCapabilityToken,
   getContentHash,
+  readCapabilityMatchesScope,
 } from '@codebuff/common/util/content-hash'
 import {
   describe,
@@ -1166,6 +1167,79 @@ describe('getFiles', () => {
         startLine: 20,
         endLine: 21,
       })
+    })
+
+    test('reads distant oversized ranges as independent bounded windows', async () => {
+      const rangeCalls: Array<[number, number, number]> = []
+      const mockFs = createMockFs({
+        files: {
+          '/project/huge.ts': {
+            content: '',
+            size: 20 * 1024 * 1024,
+          },
+        },
+        capabilities: {
+          readTextRange: async (_path, startLine, endLine, maxBytes) => {
+            rangeCalls.push([startLine, endLine, maxBytes])
+            return {
+              data: Buffer.from(`line ${startLine}\nline ${endLine}`),
+              startLine,
+              endLine,
+              totalLines: 50_000,
+              complete: true,
+            }
+          },
+        },
+      })
+
+      const result = await getFilesStructured({
+        filePaths: [],
+        ranges: [
+          { path: 'huge.ts', startLine: 20, endLine: 21 },
+          { path: 'huge.ts', startLine: 40_000, endLine: 40_001 },
+        ],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(rangeCalls).toEqual([
+        [20, 21, MAX_RANGE_READ_BYTES],
+        [40_000, 40_001, MAX_RANGE_READ_BYTES],
+      ])
+      expect(result.results).toHaveLength(2)
+      expect(result.results.every((item) => item.status === 'ok')).toBe(true)
+    })
+
+    test('mints scoped v3 capabilities when the runtime supplies an issuer', async () => {
+      const capabilityIssuer = {
+        projectId: '/project',
+        runId: 'run-123',
+      }
+      const result = await getFilesStructured({
+        filePaths: ['src/index.ts'],
+        cwd: '/project',
+        fs: createMockFs({
+          files: {
+            '/project/src/index.ts': { content: 'export const value = 1\n' },
+          },
+        }),
+        capabilityIssuer,
+      })
+      const item = result.results[0]
+      expect(item?.status).toBe('ok')
+      if (item?.status !== 'error' && item.selector === 'file') {
+        expect(item.readCapability).toMatch(/^cap\.v3\./)
+        const decoded = decodeReadCapabilityToken(item.readCapability!)
+        expect(typeof decoded).toBe('object')
+        if (typeof decoded !== 'string') {
+          expect(
+            readCapabilityMatchesScope(decoded, {
+              ...capabilityIssuer,
+              path: 'src/index.ts',
+            }),
+          ).toBe(true)
+        }
+      }
     })
 
     test('[ERR-M04] returns typed unsupported without retrying when range capability is absent', async () => {

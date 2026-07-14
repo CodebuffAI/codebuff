@@ -11,6 +11,8 @@ import {
   getModelForRequest,
   applyConfiguredProviderRequestCompatibility,
   normalizeAnthropicBaseURL,
+  resolveModelContextWindow,
+  resolveModelContextWindows,
   selectAdaptiveReasoningEffort,
 } from '../impl/model-provider'
 import {
@@ -54,10 +56,21 @@ function resetEnv() {
 
 describe('model-provider', () => {
   test('adaptive reasoning varies effort by agent role without selecting a model', () => {
-    expect(selectAdaptiveReasoningEffort({ agentId: 'thinker', supported: true })).toBe('high')
-    expect(selectAdaptiveReasoningEffort({ agentId: 'editor', supported: true })).toBe('medium')
-    expect(selectAdaptiveReasoningEffort({ agentId: 'context-pruner', supported: true })).toBe('low')
-    expect(selectAdaptiveReasoningEffort({ agentId: 'thinker', supported: false })).toBeUndefined()
+    expect(
+      selectAdaptiveReasoningEffort({ agentId: 'thinker', supported: true }),
+    ).toBe('high')
+    expect(
+      selectAdaptiveReasoningEffort({ agentId: 'editor', supported: true }),
+    ).toBe('medium')
+    expect(
+      selectAdaptiveReasoningEffort({
+        agentId: 'context-pruner',
+        supported: true,
+      }),
+    ).toBe('low')
+    expect(
+      selectAdaptiveReasoningEffort({ agentId: 'thinker', supported: false }),
+    ).toBeUndefined()
   })
 
   test('adaptive reasoning stays within provider-declared efforts', () => {
@@ -107,7 +120,13 @@ describe('model-provider', () => {
               'rust-model': {
                 quality: {
                   coding: [
-                    { language: 'rust', taskType: 'bug-fix', agentRole: 'editor', score: 91, sampleSize: 20 },
+                    {
+                      language: 'rust',
+                      taskType: 'bug-fix',
+                      agentRole: 'editor',
+                      score: 91,
+                      sampleSize: 20,
+                    },
                   ],
                 },
               },
@@ -117,13 +136,21 @@ describe('model-provider', () => {
       })
       expect(
         recommendConfiguredModel({
-          context: { language: 'rust', taskType: 'bug-fix', agentRole: 'editor' },
+          context: {
+            language: 'rust',
+            taskType: 'bug-fix',
+            agentRole: 'editor',
+          },
           loadedConfig: { config: parsed, sourceFilePaths: [] },
         }),
       ).toMatchObject({ model: 'local/rust-model', score: 91, sampleSize: 20 })
       expect(
         recommendConfiguredModel({
-          context: { language: 'python', taskType: 'bug-fix', agentRole: 'editor' },
+          context: {
+            language: 'python',
+            taskType: 'bug-fix',
+            agentRole: 'editor',
+          },
           loadedConfig: { config: parsed, sourceFilePaths: [] },
         }),
       ).toBeUndefined()
@@ -1476,6 +1503,47 @@ describe('model-provider', () => {
 
       expect(smallResult.contextWindowTokens).toBe(32_000)
       expect(largeResult.contextWindowTokens).toBe(1_000_000)
+    })
+
+    test('tracks primary and failover-floor context windows independently for each agent route', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          defaultModel: 'local/default-large',
+          agents: {
+            reviewer: { model: 'local/reviewer-medium' },
+          },
+          failoverModels: ['local/fallback-small'],
+          providers: {
+            local: {
+              type: 'openai-compatible',
+              baseURL: 'http://127.0.0.1:11434/v1',
+              models: ['default-large', 'reviewer-medium', 'fallback-small'],
+              modelCapabilities: {
+                'default-large': { context: { windowTokens: 1_000_000 } },
+                'reviewer-medium': { context: { windowTokens: 200_000 } },
+                'fallback-small': { context: { windowTokens: 32_000 } },
+              },
+            },
+          },
+        }),
+      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      expect(resolveModelContextWindow({ agentId: 'base2' })).toBe(1_000_000)
+      expect(resolveModelContextWindow({ agentId: 'reviewer' })).toBe(200_000)
+      expect(resolveModelContextWindows({ agentId: 'base2' })).toEqual({
+        primary: 1_000_000,
+        failoverFloor: 32_000,
+      })
+      expect(resolveModelContextWindows({ agentId: 'reviewer' })).toEqual({
+        primary: 200_000,
+        failoverFloor: 32_000,
+      })
     })
 
     test('getModelForRequest auto-picks same-provider vision fallback when no visionModel is configured', async () => {

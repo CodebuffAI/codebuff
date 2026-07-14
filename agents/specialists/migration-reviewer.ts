@@ -1,2 +1,13 @@
 import { createSpecialist } from './create-specialist'
-export default createSpecialist({ id: 'migration-reviewer', displayName: 'Data and Migration Reviewer', purpose: 'Reviews schema changes, backfills, compatibility windows, rollback paths, and irreversible operations.', focus: ['Forward and rollback paths', 'Compatibility windows and mixed versions', 'Backfill safety and validation', 'Destructive or irreversible operations'] })
+export default createSpecialist({
+  id: 'migration-reviewer',
+  displayName: 'Data and Migration Reviewer',
+  purpose:
+    'Reviews schema changes, backfills, compatibility windows, rollback paths, and irreversible operations.',
+  focus: [
+    'Forward and rollback paths',
+    'Compatibility windows and mixed versions',
+    'Backfill safety and validation',
+    'Destructive or irreversible operations',
+  ],
+})
