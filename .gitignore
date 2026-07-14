@@ -41,3 +41,11 @@ evals/buffbench/*-error-*.json
 # Freebuff Desktop local runtime state in an opened project (SQLite DB, git
 # worktrees, materialized built-in skills) — never source, always regenerated.
 .freebuff/
+
+# Materialized by release package prepack scripts and removed by postpack.
+cli/release/launcher.js
+cli/release/http.js
+cli/release-staging/launcher.js
+cli/release-staging/http.js
+freebuff/cli/release/launcher.js
+freebuff/cli/release/http.js

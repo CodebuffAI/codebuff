@@ -7,8 +7,13 @@
     "codebuff": "index.js",
     "cb": "index.js"
   },
+  "scripts": {
+    "prepack": "node ../release-core/prepare-package.js",
+    "postpack": "node ../release-core/prepare-package.js --clean"
+  },
   "files": [
     "index.js",
+    "launcher.js",
     "http.js",
     "README.md"
   ],

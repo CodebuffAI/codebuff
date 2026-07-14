@@ -6,8 +6,13 @@
   "bin": {
     "freebuff": "index.js"
   },
+  "scripts": {
+    "prepack": "node ../../../cli/release-core/prepare-package.js",
+    "postpack": "node ../../../cli/release-core/prepare-package.js --clean"
+  },
   "files": [
     "index.js",
+    "launcher.js",
     "http.js",
     "README.md"
   ],

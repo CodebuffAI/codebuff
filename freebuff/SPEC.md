@@ -205,8 +205,7 @@ freebuff/
 │   ├── build.ts      # Build script that sets FREEBUFF_MODE=true
 │   └── release/
 │       ├── package.json  # npm package metadata (name: "freebuff")
-│       ├── index.js      # Entry point (finds/runs binary)
-│       ├── http.js       # Release download and proxy helpers
+│       ├── index.js      # Thin product configuration entry point
 │       └── README.md     # npm package README
 └── web/              # (Future) Freebuff website code
 ```
@@ -230,6 +229,7 @@ Mirrors `cli/release/package.json` but with:
 - `"name": "freebuff"`
 - `"description": "Free AI coding assistant"`
 - `"bin": { "freebuff": "index.js" }`
+- Shared launcher implementation from `cli/release-core/`, materialized during `npm pack`
 - Downloads the platform-specific binary on first launch
 - Binary stored at `~/.config/manicode/freebuff` (or `freebuff.exe` on Windows)
 

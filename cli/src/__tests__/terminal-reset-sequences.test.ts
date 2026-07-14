@@ -10,16 +10,12 @@ import { TERMINAL_RESET_SEQUENCES } from '../utils/terminal-reset-sequences'
  * import the TS constant, so each carries its own copy of the reset
  * sequences (split into EXIT_ALTERNATE_SCREEN_SEQUENCE +
  * SAFE_TERMINAL_RESET_SEQUENCES). This guard turns silent drift into a test
- * failure: every sequence in the TS constant must appear as a source
- * literal in every wrapper.
+ * failure: every sequence in the TS constant must appear in the standalone
+ * launcher source bundled into each release package.
  */
 const REPO_ROOT = join(import.meta.dir, '..', '..', '..')
 
-const WRAPPER_PATHS = [
-  'cli/release/index.js',
-  'cli/release-staging/index.js',
-  'freebuff/cli/release/index.js',
-]
+const WRAPPER_PATHS = ['cli/release-core/launcher.js']
 
 /** Split the runtime constant into per-sequence source literals ('\x1b…'). */
 function sequenceSourceLiterals(): string[] {

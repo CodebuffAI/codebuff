@@ -18,19 +18,9 @@ const require = createRequire(import.meta.url)
 
 const helperModules = [
   {
-    name: 'codebuff release helper',
-    path: fileURLToPath(new URL('../../../release/http.js', import.meta.url)),
-  },
-  {
-    name: 'codebuff staging release helper',
+    name: 'shared release helper',
     path: fileURLToPath(
-      new URL('../../../release-staging/http.js', import.meta.url),
-    ),
-  },
-  {
-    name: 'freebuff release helper',
-    path: fileURLToPath(
-      new URL('../../../../freebuff/cli/release/http.js', import.meta.url),
+      new URL('../../../release-core/http.js', import.meta.url),
     ),
   },
 ]
