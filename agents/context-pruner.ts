@@ -129,15 +129,19 @@ const definition: AgentDefinition = {
       'Continue the existing assistant turn from the historical memory above. The original user request and completed assistant/tool work are recorded there. Do not restart completed work; resume with the next necessary real tool call or final response.'
 
     /** Knowledge memory block budgets (RISK2: bounded with rolling eviction of oldest) */
-    const KNOWLEDGE_MEMORY_MAX_GOAL_CHARS = 600
+    // The current user task is the most expensive fact to lose. Keep a
+    // bounded beginning+end contract large enough for requirements plus the
+    // user's trailing "what to do now" instruction, which often follows a
+    // long diagnostic transcript.
+    const KNOWLEDGE_MEMORY_MAX_GOAL_CHARS = 2_400
     const KNOWLEDGE_MEMORY_MAX_DECISIONS = 8
     const KNOWLEDGE_MEMORY_MAX_FILES_INSPECTED = 25
     const KNOWLEDGE_MEMORY_MAX_EDITS = 25
     const KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS = 12
     const KNOWLEDGE_MEMORY_MAX_REVIEW_RECEIPTS = 12
     const KNOWLEDGE_MEMORY_MAX_BLOCKERS = 8
-    const KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS = 300
-    const KNOWLEDGE_MEMORY_ENTRY_CHARS = 240
+    const KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS = 1_000
+    const KNOWLEDGE_MEMORY_ENTRY_CHARS = 480
     const KNOWLEDGE_MEMORY_FILE_FINDING_CHARS = 160
     const KNOWLEDGE_MEMORY_REVIEW_RECEIPT_CHARS = 1_200
     const TOOL_ERROR_DETAIL_CHARS = 1_200
@@ -1183,14 +1187,14 @@ const definition: AgentDefinition = {
 
     /** Apply per-field budgets with rolling eviction of oldest entries (RISK2). */
     function enforceKnowledgeMemoryBudgets(km: KnowledgeMemory): void {
-      if (km.goal.length > KNOWLEDGE_MEMORY_MAX_GOAL_CHARS) {
-        km.goal = km.goal.slice(0, KNOWLEDGE_MEMORY_MAX_GOAL_CHARS - 3) + '...'
-      }
-      if (km.nextAction.length > KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS) {
-        km.nextAction =
-          km.nextAction.slice(0, KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS - 3) +
-          '...'
-      }
+      const capTextPreservingEnds = (text: string, max: number): string =>
+        truncateLongText(text, max)
+
+      km.goal = capTextPreservingEnds(km.goal, KNOWLEDGE_MEMORY_MAX_GOAL_CHARS)
+      km.nextAction = capTextPreservingEnds(
+        km.nextAction,
+        KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS,
+      )
       if (km.decisions.length > KNOWLEDGE_MEMORY_MAX_DECISIONS) {
         km.decisions = km.decisions.slice(-KNOWLEDGE_MEMORY_MAX_DECISIONS)
       }
@@ -1219,8 +1223,7 @@ const definition: AgentDefinition = {
       }
       // Per-entry length caps
       const capEntry = (entry: string, max: number): string => {
-        if (entry.length <= max) return entry
-        return entry.slice(0, max - 3) + '...'
+        return capTextPreservingEnds(entry, max)
       }
       km.decisions = km.decisions.map((e) =>
         capEntry(e, KNOWLEDGE_MEMORY_ENTRY_CHARS),
@@ -1265,7 +1268,7 @@ const definition: AgentDefinition = {
         if (/^(?:Reviewer|Verification|Harness) gate:/i.test(text)) continue
         const truncated = truncateLongText(
           text,
-          KNOWLEDGE_MEMORY_MAX_GOAL_CHARS * CHARS_PER_TOKEN,
+          KNOWLEDGE_MEMORY_MAX_GOAL_CHARS,
         )
         return truncated
           .replace(/\[\.\.\.truncated \d+ chars\.\.\.\]\n*/g, ' ')

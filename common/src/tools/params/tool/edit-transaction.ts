@@ -325,7 +325,7 @@ const inputSchema = z
           .min(1, 'Transaction edits cannot be empty'),
       )
       .describe(
-        'All edits that must preflight together. A JSON-stringified edit array is accepted and decoded before validation. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed.',
+        'All edits that must preflight together. Pass an actual array of edit objects; do not JSON.stringify the array or its entries. The runtime defensively decodes complete legacy JSON encodings, but malformed or truncated strings fail closed. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed.',
       ),
   })
   .describe(
@@ -336,6 +336,7 @@ const description = `
 Use this tool when related edits across one or more files should be preflighted together before applying, such as updating a utility and its tests together.
 
 Important:
+- Pass edits as a real JSON array of objects. Never JSON.stringify the edits array or individual entries. Complete legacy encodings may be repaired, but truncated serialized payloads cannot be recovered safely.
 - Never use prose placeholders such as "[see patch above]" in any edit. Each oldString must contain exact current file content and each newString/content/diff field must contain the complete intended bytes. Placeholder calls are rejected before they can consume a valid read authorization.
 - The transaction preflights every edit against in-memory file contents first.
 - If ANY edit fails during preflight, NO files are changed.

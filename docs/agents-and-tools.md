@@ -954,7 +954,7 @@ so this compatibility layer does not weaken required agent parameters.
 ### `spawn_agent_inline`
 
 `spawn_agent_inline` is an orchestrator-internal tool that spawns a single
-child agent that runs **within the parent's message history**. Its schema
+child agent with a **snapshot of the parent's message history**. Its schema
 lives in `common/src/tools/params/tool/spawn-agent-inline.ts` and its
 handler in
 `packages/agent-runtime/src/tools/handlers/tool/spawn-agent-inline.ts`.
@@ -984,16 +984,24 @@ Example:
 
 The child's template overrides are forced by the inline handler:
 `includeMessageHistory: true` and `inheritParentSystemPrompt: true`,
-regardless of what the agent template declares. The child shares the
-parent's `systemPrompt` and `messageHistory`, and any messages the child
-adds are written back to the parent's `messageHistory` after execution
-(`clearUserPromptMessagesAfterResponse: false`).
+regardless of what the agent template declares. The child sees the parent's
+`systemPrompt` and a filtered copy of its `messageHistory`, but ordinary inline
+agents do not write their private reads, tool results, or intermediate prose
+back into the orchestrator history. Their final output is returned as the
+`spawn_agent_inline` tool result. If a programmatic inline child deliberately
+deletes, reorders, or rewrites inherited messages with `set_messages`, that
+control-plane mutation is propagated; append-only private child activity is
+not. `context-pruner` is always propagated because its compacted history must
+replace the parent history.
 
-There is no tool result for this tool — it returns a fixed
-`{ message: 'Agent spawned.' }` ack. The child runs until it calls
-`end_turn`, then control returns to the parent. Because the spawn ends
-the current agent step (`endsAgentStep: true`), the parent emits a new
-step after the child returns.
+Structured reviewer outputs are bounded before entering the parent history:
+all findings, corrections, dimensions, file lists, and snapshot receipts are
+retained, while repetitive evidence lists are capped and long evidence strings
+preserve bounded beginnings and endings. Full child activity still streams to
+the TUI under the child block; it is simply not replayed into later model
+requests. The child runs until it calls `end_turn`, then control returns to the
+parent. Because the spawn ends the current agent step (`endsAgentStep: true`),
+the parent emits a new step after the child returns.
 
 #### Event nesting (`parentAgentId`)
 
@@ -1031,7 +1039,7 @@ uses that value instead of treating every model as 200k-class:
 | --------------: | ---------------: | -------------: | --------------------------: |
 |            128k |              96k |            72k |                     112.64k |
 |            200k |             160k |            84k |                        176k |
-|         262,144 |         209,715 |        110,100 |                     230,687 |
+|         262,144 |          209,715 |        110,100 |                     230,687 |
 |            500k |             400k |           210k |                        440k |
 |              1m |             800k |           420k |                        880k |
 
@@ -1044,6 +1052,13 @@ cap the target so compaction cannot produce a summary larger than the custom
 trigger. Within each category, the pruner prefers recent entries but skips an
 oversized entry and continues scanning for older compact evidence instead of
 discarding the remainder of that category.
+
+The pinned task contract retains a bounded 2,400-character beginning-and-end
+view of the latest live user request plus a 1,000-character next action. This
+preserves both initial requirements and trailing instructions when a user pastes
+a long failure transcript. Reviewer blockers use larger bounded entries, while
+inline reviewer internals are isolated before compaction so they do not consume
+the orchestrator's history budget in the first place.
 
 Mechanical trimming remains a later emergency brake. Its provider-safe limit
 reserves 12% of the declared window, bounded to 8k–128k, for system prompts,

@@ -14,6 +14,7 @@ import {
 import * as runAgentStep from '../run-agent-step'
 import { mockFileContext } from './test-utils'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
+import { normalizeSpawnedAgentOutput } from '../tools/handlers/tool/spawn-agent-utils'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
@@ -437,5 +438,132 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
       )
     }
     expect(capturedChildAgentId).not.toBe(capturedParentAgentId)
+  })
+
+  it('does not copy ordinary inline-agent private history back to the parent', async () => {
+    spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(
+      async (options) => {
+        options.agentState.messageHistory = [
+          ...options.agentState.messageHistory,
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'private child analysis' }],
+          },
+          {
+            role: 'tool',
+            toolName: 'read_files',
+            toolCallId: 'private-read',
+            content: [{ type: 'json', value: 'large private file body' }],
+          },
+        ]
+        return {
+          agentState: options.agentState,
+          output: { type: 'structuredOutput', value: { message: 'done' } },
+        }
+      },
+    )
+
+    const parentAgent = {
+      ...createMockAgent('parent'),
+      spawnableAgents: ['test-writer'],
+      toolNames: ['spawn_agent_inline'],
+    }
+    const childAgent = createMockAgent('test-writer')
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.messageHistory = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'original parent request' }],
+      },
+    ]
+    const originalHistory = [...sessionState.mainAgentState.messageHistory]
+
+    await handleSpawnAgentInline({
+      ...handleSpawnAgentInlineBaseParams,
+      tools: {},
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'test-writer': childAgent },
+      toolCall: createInlineToolCall('test-writer'),
+    })
+
+    expect(sessionState.mainAgentState.messageHistory).toEqual(originalHistory)
+  })
+
+  it('still applies context-pruner history updates to the parent', async () => {
+    spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(
+      async (options) => {
+        options.agentState.messageHistory = [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'compacted parent memory' }],
+          },
+        ]
+        return {
+          agentState: options.agentState,
+          output: { type: 'lastMessage', value: [] },
+        }
+      },
+    )
+
+    const parentAgent = {
+      ...createMockAgent('parent'),
+      spawnableAgents: ['context-pruner'],
+      toolNames: ['spawn_agent_inline'],
+    }
+    const childAgent = createMockAgent('context-pruner')
+    const sessionState = getInitialSessionState(mockFileContext)
+
+    await handleSpawnAgentInline({
+      ...handleSpawnAgentInlineBaseParams,
+      tools: {},
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'context-pruner': childAgent },
+      toolCall: createInlineToolCall('context-pruner'),
+    })
+
+    expect(sessionState.mainAgentState.messageHistory).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'compacted parent memory' }],
+      },
+    ])
+  })
+
+  it('bounds reviewer evidence before returning it to the parent history', () => {
+    const longEvidence = `prefix-${'x'.repeat(600)}-suffix`
+    const normalized = normalizeSpawnedAgentOutput({
+      type: 'structuredOutput',
+      value: {
+        schemaVersion: 1,
+        family: 'reviewer',
+        verdict: 'BLOCKING',
+        findings: [
+          {
+            id: 'reviewer:dimension:finding',
+            severity: 'high',
+            evidence: [longEvidence, 'second', 'third', 'fourth'],
+          },
+        ],
+        requirementCoverage: [
+          {
+            requirement: 'Keep context bounded',
+            status: 'missing',
+            evidence: ['one', 'two', 'three'],
+          },
+        ],
+      },
+    }) as any
+
+    const findingEvidence = normalized.value.findings[0].evidence
+    expect(findingEvidence).toHaveLength(3)
+    expect(findingEvidence[0]).toContain('[truncated]')
+    expect(findingEvidence[0]).toContain('prefix-')
+    expect(findingEvidence[0]).toContain('-suffix')
+    expect(normalized.value.requirementCoverage[0].evidence).toEqual([
+      'one',
+      'two',
+    ])
   })
 })

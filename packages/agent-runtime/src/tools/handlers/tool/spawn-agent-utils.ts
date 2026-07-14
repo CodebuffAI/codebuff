@@ -320,7 +320,85 @@ export function validateVersionedAgentHandoff(params: {
   }
 }
 
-export function normalizeSpawnedAgentOutput(output: any): any {
+const REVIEWER_EVIDENCE_ITEM_LIMIT = 3
+const REVIEWER_EVIDENCE_CHARS = 360
+const REVIEWER_REQUIREMENT_EVIDENCE_LIMIT = 2
+
+function truncateReviewerText(value: unknown, maxChars: number): unknown {
+  if (typeof value !== 'string' || value.length <= maxChars) return value
+  const suffixChars = Math.min(96, Math.floor(maxChars * 0.25))
+  const prefixChars = maxChars - suffixChars - 24
+  return `${value.slice(0, prefixChars)}...[truncated]...${value.slice(-suffixChars)}`
+}
+
+function compactReviewerOutput(
+  output: Record<string, unknown>,
+  agentType?: string,
+) {
+  const isReviewer =
+    output.family === 'reviewer' ||
+    agentType?.toLowerCase().includes('reviewer')
+  if (!isReviewer || typeof output.verdict !== 'string') {
+    return output
+  }
+
+  const findings = Array.isArray(output.findings)
+    ? output.findings.map((finding) => {
+        if (!finding || typeof finding !== 'object' || Array.isArray(finding)) {
+          return finding
+        }
+        const record = finding as Record<string, unknown>
+        return {
+          ...record,
+          ...(Array.isArray(record.evidence)
+            ? {
+                evidence: record.evidence
+                  .slice(0, REVIEWER_EVIDENCE_ITEM_LIMIT)
+                  .map((item) =>
+                    truncateReviewerText(item, REVIEWER_EVIDENCE_CHARS),
+                  ),
+              }
+            : {}),
+        }
+      })
+    : output.findings
+
+  const requirementCoverage = Array.isArray(output.requirementCoverage)
+    ? output.requirementCoverage.map((requirement) => {
+        if (
+          !requirement ||
+          typeof requirement !== 'object' ||
+          Array.isArray(requirement)
+        ) {
+          return requirement
+        }
+        const record = requirement as Record<string, unknown>
+        return {
+          ...record,
+          ...(Array.isArray(record.evidence)
+            ? {
+                evidence: record.evidence
+                  .slice(0, REVIEWER_REQUIREMENT_EVIDENCE_LIMIT)
+                  .map((item) =>
+                    truncateReviewerText(item, REVIEWER_EVIDENCE_CHARS),
+                  ),
+              }
+            : {}),
+        }
+      })
+    : output.requirementCoverage
+
+  return {
+    ...output,
+    findings,
+    requirementCoverage,
+  }
+}
+
+export function normalizeSpawnedAgentOutput(
+  output: any,
+  agentType?: string,
+): any {
   if (
     output &&
     typeof output === 'object' &&
@@ -334,6 +412,24 @@ export function normalizeSpawnedAgentOutput(output: any): any {
           ? message
           : 'Subagent failed before producing output',
     }
+  }
+  if (output && typeof output === 'object' && !Array.isArray(output)) {
+    const record = output as Record<string, unknown>
+    if (
+      record.type === 'structuredOutput' &&
+      record.value &&
+      typeof record.value === 'object' &&
+      !Array.isArray(record.value)
+    ) {
+      return {
+        ...record,
+        value: compactReviewerOutput(
+          record.value as Record<string, unknown>,
+          agentType,
+        ),
+      }
+    }
+    return compactReviewerOutput(record, agentType)
   }
   return output
 }

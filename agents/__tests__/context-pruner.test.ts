@@ -2754,6 +2754,35 @@ describe('context-pruner threshold behavior', () => {
     )
   })
 
+  test('preserves both the requirements prefix and trailing action in a long live request', () => {
+    const latest: Message = {
+      ...createMessage(
+        'user',
+        [
+          'REQUIREMENT: keep reviewer context isolated from the orchestrator.',
+          'diagnostic '.repeat(500),
+          'FINAL ACTION: fix compaction without weakening deterministic edit guards.',
+        ].join('\n'),
+      ),
+      tags: ['USER_PROMPT'],
+    }
+
+    const results = runHandleSteps([latest], 250_000, 200_000)
+    const content = results[0].input.messages[0].content[0].text
+    const knowledgeMemory = content.match(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/,
+    )?.[0]
+
+    expect(knowledgeMemory).toContain(
+      'REQUIREMENT: keep reviewer context isolated from the orchestrator.',
+    )
+    expect(knowledgeMemory).toContain(
+      'FINAL ACTION: fix compaction without weakening deterministic edit guards.',
+    )
+    expect(knowledgeMemory!.length).toBeLessThan(3_000)
+    expect(knowledgeMemory).not.toContain('diagnostic '.repeat(500))
+  })
+
   test('preserves a structured inline reviewer receipt with the full fingerprint', () => {
     const fingerprint = 'a'.repeat(64)
     const messages: Message[] = [
@@ -3264,8 +3293,9 @@ describe('context-pruner dual-budget behavior', () => {
       userBudget: 100,
     })
 
-    const content = (results[0].input.messages[0].content[0] as { text: string })
-      .text
+    const content = (
+      results[0].input.messages[0].content[0] as { text: string }
+    ).text
     expect(content).toContain('OLDER_COMPACT_EVIDENCE')
     expect(content).not.toContain('OVERSIZED_RECENT_RESPONSE_')
   })

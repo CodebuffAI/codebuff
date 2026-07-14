@@ -550,6 +550,13 @@ function getToolValidationHint(
       'Pass agents as an array of objects. Valid stringified or double-stringified JSON is repaired automatically, but truncated JSON and non-object entries are rejected. Do not stringify each agent entry.',
     ].join('\n')
   }
+  if (toolName === 'edit_transaction') {
+    return [
+      'Expected shape: { "edits": [{ "id"?: string, "type": "str_replace" | "replace_range" | "structured" | "create" | "delete" | "move" | "rewrite_symbol" | "patch" | "write_file", "path": string, ... }] }.',
+      'Pass `edits` as an actual array of objects. Do not JSON.stringify the array or its entries. Complete legacy JSON strings are decoded defensively, but malformed or truncated strings cannot be reconstructed without risking partial edits.',
+      'Re-issue one complete tool call. If the payload is large, split independent edits into smaller transactions; keep edits that must remain atomic together.',
+    ].join('\n')
+  }
   return fieldHint
 }
 

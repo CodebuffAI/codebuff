@@ -112,9 +112,7 @@ describe('normalizeSpawnAgentList', () => {
       normalizeSpawnAgentList([
         { agent_type: 'basher', prompt: 'Run bun test', params: {} },
       ]),
-    ).toEqual([
-      { agent_type: 'basher', prompt: 'Run bun test', params: {} },
-    ])
+    ).toEqual([{ agent_type: 'basher', prompt: 'Run bun test', params: {} }])
   })
 
   it('preserves an explicitly nested command over a top-level alias', () => {
@@ -416,5 +414,10 @@ describe('normalizeTransactionEditList', () => {
         type: 'str_replace',
       },
     ])
+  })
+
+  it('leaves malformed serialized transaction arrays at the field boundary', () => {
+    const malformed = '[{"path":"a.ts","replacements":['
+    expect(normalizeTransactionEditList(malformed)).toBe(malformed)
   })
 })

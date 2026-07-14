@@ -270,7 +270,14 @@ export function normalizeReplacementList(val: unknown): unknown {
  * untouched because they could be create or write_file operations.
  */
 export function normalizeTransactionEditList(val: unknown): unknown {
-  const edits = coerceToArray(parseJsonBounded(val))
+  const decoded = parseJsonBounded(val)
+  // A malformed/truncated serialized array must fail at `edits` itself. Do
+  // not wrap it as a one-element array, which produces the misleading
+  // `edits[0] expected object, received string` diagnostic and encourages the
+  // model to retry the same broken payload.
+  if (typeof val === 'string' && typeof decoded === 'string') return decoded
+
+  const edits = coerceToArray(decoded)
   if (!Array.isArray(edits)) return edits
 
   return edits.map((entry) => {

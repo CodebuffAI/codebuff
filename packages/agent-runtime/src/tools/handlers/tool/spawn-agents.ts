@@ -243,7 +243,7 @@ export const handleSpawnAgents = (async (
         agentId: result.agentState.agentId,
         agentName: agentTemplate.displayName,
         agentType,
-        output: normalizeSpawnedAgentOutput(result.output),
+        output: normalizeSpawnedAgentOutput(result.output, agentType),
         creditsUsed: result.agentState.creditsUsed || 0,
       })),
     )
@@ -369,24 +369,24 @@ export const handleSpawnAgents = (async (
 
   await Promise.all(
     results.map(async (result, index): Promise<void> => {
-        const spawnIndex = foregroundAgents[index].spawnIndex
-        if (result.status === 'fulfilled') {
-          const { output, agentType, agentName, agentState } = result.value
-          reports[spawnIndex] = {
-            agentId: agentState.agentId,
-            agentName,
-            agentType,
-            value: normalizeSpawnedAgentOutput(output) as JSONValue,
-          }
-        } else {
-          const agentTypeStr = foregroundAgents[index].input.agent_type
-          reports[spawnIndex] = {
-            agentType: agentTypeStr,
-            agentName: agentTypeStr,
-            value: { errorMessage: `Error spawning agent: ${result.reason}` },
-          }
+      const spawnIndex = foregroundAgents[index].spawnIndex
+      if (result.status === 'fulfilled') {
+        const { output, agentType, agentName, agentState } = result.value
+        reports[spawnIndex] = {
+          agentId: agentState.agentId,
+          agentName,
+          agentType,
+          value: normalizeSpawnedAgentOutput(output, agentType) as JSONValue,
         }
-      }),
+      } else {
+        const agentTypeStr = foregroundAgents[index].input.agent_type
+        reports[spawnIndex] = {
+          agentType: agentTypeStr,
+          agentName: agentTypeStr,
+          value: { errorMessage: `Error spawning agent: ${result.reason}` },
+        }
+      }
+    }),
   )
 
   // Aggregate costs from subagents (foreground only; background agent costs

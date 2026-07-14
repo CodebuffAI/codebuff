@@ -729,6 +729,29 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('gives field-level recovery for a truncated serialized edit_transaction array', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'edit_transaction',
+        toolCallId: 'truncated-transaction-edits-tool-call-id',
+        input: {
+          edits:
+            '[{"id":"fix-tooltip","path":"Tooltip.tsx","type":"str_replace","replacements":[',
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('edits: Invalid input: expected array')
+      expect(result.error).not.toContain('edits[0]')
+      expect(result.error).toContain(
+        'Pass `edits` as an actual array of objects',
+      )
+      expect(result.error).toContain('cannot be reconstructed')
+    }
+  })
+
   it('should not infer ambiguous content-only edit_transaction types', () => {
     const result = parseRawToolCall({
       rawToolCall: {

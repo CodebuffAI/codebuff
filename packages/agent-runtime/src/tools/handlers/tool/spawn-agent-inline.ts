@@ -1,4 +1,4 @@
-import { mapValues } from 'lodash'
+import { isEqual, mapValues } from 'lodash'
 
 import {
   validateAndGetAgentTemplate,
@@ -116,6 +116,7 @@ export const handleSpawnAgentInline = (async (
       inputSchema: tool.inputSchema as {},
     })),
   }
+  const inheritedParentHistory = childAgentState.messageHistory.slice(0, -1)
 
   // Extract common context params to avoid bugs from spreading all params
   const contextParams = extractSubagentContextParams(params)
@@ -196,14 +197,26 @@ export const handleSpawnAgentInline = (async (
     clearUserPromptMessagesAfterResponse: false,
   })
 
-  // Update parent agent state to reflect shared message history
-  parentAgentState.messageHistory = result.agentState.messageHistory
+  // Ordinary inline agents append private reads, tool results, and output to
+  // the inherited history. Do not copy that append-only child transcript back
+  // into the orchestrator; return only the final result below. A programmatic
+  // history editor (notably context-pruner) may intentionally delete, reorder,
+  // or rewrite inherited messages via set_messages. Detect that control-plane
+  // mutation by checking the inherited prefix and propagate only then.
+  const inheritedPrefixPreserved = inheritedParentHistory.every(
+    (message, index) =>
+      index < result.agentState.messageHistory.length &&
+      isEqual(result.agentState.messageHistory[index], message),
+  )
+  if (agentType === 'context-pruner' || !inheritedPrefixPreserved) {
+    parentAgentState.messageHistory = result.agentState.messageHistory
+  }
 
   return {
     output: [
       {
         type: 'json',
-        value: normalizeSpawnedAgentOutput(result.output) ?? {
+        value: normalizeSpawnedAgentOutput(result.output, agentType) ?? {
           message: 'Agent completed without structured output.',
         },
       },

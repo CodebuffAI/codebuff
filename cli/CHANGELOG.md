@@ -8,6 +8,13 @@ All notable changes to the `@openbuff/cli` package will be documented in this fi
 
 - The `code-reviewer` gate now recognizes an embedded JSON verdict object emitted after a prose preamble (e.g. `"I now have full context. … {\"verdict\":\"LOOKS_GOOD\",…}"`). The new `extractEmbeddedJsonVerdict` helper in `agents/base2/gate-reviewer.ts` tracks brace depth with `\"`-escape and JSON-string-boundary awareness so a `}` inside a string value does not prematurely close the object, uses the last embedded verdict when a reviewer echoes a prior `BLOCKING` before a final `LOOKS_GOOD`, and rejects truncated/unknown/`coverage:"missing"` verdicts. The inline `base2.handleSteps` mirror is kept in sync and parity-tested in `agents/__tests__/gate-reviewer.test.ts`. Documented in `docs/agents-and-tools.md` under a new "## Reviewer verdict contract" section.
 
+### Fixed
+
+- Inline reviewers now receive the orchestrator history as read context without copying their private file reads, tool results, and `set_output` transcript back into the parent prompt. Deliberate `set_messages` control-plane rewrites and context-pruner compaction still propagate.
+- Structured reviewer results are bounded before entering parent history, while retaining verdicts, snapshots, findings, corrections, dimensions, and representative evidence.
+- Semantic compaction preserves a larger beginning-and-end task contract and next action so trailing instructions survive long pasted diagnostics.
+- `edit_transaction` now strongly requests real edit arrays, continues to repair complete legacy JSON encodings, and reports truncated encodings at the `edits` field with safe recovery guidance instead of a misleading `edits[0]` object error.
+
 ## [1.1.11] - 2026-07-07
 
 Patch release covering context-pruner reviewer-memory hardening, auxiliary gate-state reset fixes, and updated default agent model routing.

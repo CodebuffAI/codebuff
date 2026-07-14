@@ -3,9 +3,10 @@ import z from 'zod/v4'
 import {
   $getNativeToolCallExampleString,
   coerceToObject,
-  textToolResultSchema,
+  jsonToolResultSchema,
 } from '../utils'
 import { agentHandoffSchema } from './spawn-agents'
+import { jsonValueSchema } from '../../../types/json'
 
 import type { $ToolParams } from '../../constants'
 
@@ -26,12 +27,14 @@ const inputSchema = z
       .describe('Parameters object for the agent (if any)'),
   })
   .describe(
-    `Spawn a single agent that runs within the current message history.`,
+    `Spawn a single agent with a snapshot of the current message history.`,
   )
 const description = `
-Spawn a single agent that runs within the current message history. 
-The spawned agent sees all previous messages and any messages it adds 
-are preserved when control returns to you.
+Spawn a single agent with a snapshot of the current message history.
+The spawned agent sees all previous messages, but its private intermediate
+messages are isolated when control returns. Its final output is returned as
+this tool's result. The context-pruner is the only exception: its compacted
+message history replaces the parent history.
 
 You should prefer to use the spawn_agents tool unless instructed otherwise. This tool is only for special cases.
 
@@ -39,7 +42,7 @@ This is useful for:
 - Delegating specific tasks while maintaining context
 - Having specialized agents process information inline
 - Managing message history (e.g., summarization)
-The agent will run until it calls end_turn, then control returns to you. There is no tool result for this tool.
+The agent will run until it calls end_turn, then control returns to you with its final output.
 Example:
 ${$getNativeToolCallExampleString({
   toolName,
@@ -58,5 +61,5 @@ export const spawnAgentInlineParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: textToolResultSchema(),
+  outputSchema: jsonToolResultSchema(jsonValueSchema),
 } satisfies $ToolParams
