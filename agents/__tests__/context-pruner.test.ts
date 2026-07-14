@@ -1274,7 +1274,7 @@ First assistant response
     expect(summaryTagCount).toBe(1)
   })
 
-  test('drops old entries each cycle when budgets are tight', () => {
+  test('drops old entries independently by role across compaction cycles', () => {
     const simulateCompaction = (
       inputMessages: Message[],
       budgets: { assistantToolBudget: number; userBudget: number },
@@ -1285,7 +1285,7 @@ First assistant response
 
     const tightBudgets = { assistantToolBudget: 25, userBudget: 25 }
 
-    // === CYCLE 1: 3 pairs of messages, tight budgets drop the oldest ===
+    // === CYCLE 1: assistant budget fills before the user budget ===
     const cycle1Messages = [
       createMessage('user', 'Cycle1-Request-A'),
       createMessage('assistant', 'Cycle1-Response-A'),
@@ -1301,8 +1301,8 @@ First assistant response
     // Most recent entries should survive
     expect(summary1Text).toContain('Cycle1-Request-C')
     expect(summary1Text).toContain('Cycle1-Response-C')
-    // Oldest entries should be dropped
-    expect(summary1Text).not.toContain('Cycle1-Request-A')
+    // The oldest assistant response is dropped without evicting its user prompt
+    expect(summary1Text).toContain('Cycle1-Request-A')
     expect(summary1Text).not.toContain('Cycle1-Response-A')
 
     // === CYCLE 2: Add new messages, compact again ===
@@ -1318,7 +1318,7 @@ First assistant response
     // Newest entries from cycle 2 should survive
     expect(summary2Text).toContain('Cycle2-Request-D')
     expect(summary2Text).toContain('Cycle2-Response-D')
-    // Cycle 1's oldest survivors should now be dropped
+    // Each role continues to retain its most recent entries independently
     expect(summary2Text).not.toContain('Cycle1-Request-A')
     expect(summary2Text).not.toContain('Cycle1-Response-A')
 
@@ -1987,6 +1987,69 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('Recent short answer')
   })
 
+  test('keeps older user prompts when assistant+tool budget is exhausted', () => {
+    const importantUserPrompt =
+      'SSH connection: host=prod.example, user=deploy, key=~/.ssh/prod'
+    const messages = [
+      createMessage('user', importantUserPrompt),
+      createMessage('assistant', 'A'.repeat(600)), // ~200 tokens
+      createMessage('user', 'Recent short question'),
+      createMessage('assistant', 'Recent short answer'),
+    ]
+
+    // The older assistant response exceeds the remaining assistant budget,
+    // but both user prompts easily fit within their independent budget.
+    const results = runHandleSteps(messages, 250000, 200000, {
+      assistantToolBudget: 100,
+      userBudget: 5000,
+    })
+
+    const resultMessages = results[0].input.messages
+    expect(resultMessages).toHaveLength(1)
+
+    const content = (resultMessages[0].content[0] as { text: string }).text
+    expect(content).toContain(importantUserPrompt)
+    expect(content).toContain('Recent short question')
+    expect(content).toContain('Recent short answer')
+    expect(content).not.toContain('A'.repeat(600))
+  })
+
+  test('always keeps the newest entry when it alone exceeds its role budget', () => {
+    const newestAssistant = 'LATEST_ASSISTANT_' + 'A'.repeat(600)
+    const assistantResults = runHandleSteps(
+      [
+        createMessage('user', 'Older user prompt'),
+        createMessage('assistant', newestAssistant),
+      ],
+      250000,
+      200000,
+      { assistantToolBudget: 100, userBudget: 5000 },
+    )
+    const assistantSummary = (
+      assistantResults[0].input.messages[0].content[0] as { text: string }
+    ).text
+
+    expect(assistantSummary).toContain('Older user prompt')
+    expect(assistantSummary).toContain(newestAssistant)
+
+    const newestUser = 'LATEST_USER_' + 'U'.repeat(600)
+    const userResults = runHandleSteps(
+      [
+        createMessage('assistant', 'Older assistant response'),
+        createMessage('user', newestUser),
+      ],
+      250000,
+      200000,
+      { assistantToolBudget: 5000, userBudget: 100 },
+    )
+    const userSummary = (
+      userResults[0].input.messages[0].content[0] as { text: string }
+    ).text
+
+    expect(userSummary).toContain('Older assistant response')
+    expect(userSummary).toContain(newestUser)
+  })
+
   test('drops tool entries beyond budget at the cutoff boundary', () => {
     const messages = [
       createMessage('user', 'Old message'),
@@ -2183,7 +2246,7 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).not.toContain(largeUserContent)
   })
 
-  test('drops old summary entries individually based on budget walk', () => {
+  test('applies old summary entry budgets independently by role', () => {
     // Previous summary with identifiable oldest and middle entries
     const previousSummary: Message = {
       role: 'user',
@@ -2201,7 +2264,8 @@ describe('context-pruner dual-budget behavior', () => {
       createMessage('assistant', 'Recent response'),
     ]
 
-    // Budget large enough for middle + recent entries but not oldest
+    // The assistant budget is large enough for middle + recent entries but not
+    // the oldest assistant entry. All user entries fit their own budget.
     const results = runHandleSteps(messages, 250000, 200000, {
       assistantToolBudget: 25,
       userBudget: 25,
@@ -2216,8 +2280,8 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('MIDDLE_ASSISTANT_ENTRY')
     expect(content).toContain('Recent request')
     expect(content).toContain('Recent response')
-    // Oldest entries should be dropped
-    expect(content).not.toContain('OLDEST_USER_ENTRY')
+    // Assistant overflow must not evict the oldest user entry
+    expect(content).toContain('OLDEST_USER_ENTRY')
     expect(content).not.toContain('OLDEST_ASSISTANT_ENTRY')
   })
 
@@ -2386,7 +2450,7 @@ describe('context-pruner dual-budget behavior', () => {
       content: [
         {
           type: 'text',
-          text: `<conversation_summary>\nThis is a summary of the conversation so far. The original messages have been condensed to save context space.\n\n[USER]\nOLD_DROPPED_USER: ${'X'.repeat(600)}\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT: ${'Y'.repeat(600)}\n\n---\n\n[USER]\nOLD_DROPPED_USER_2: Asked about deployment\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT_2: ${'Explained deployment process. '.repeat(80)}\n</conversation_summary>`,
+          text: `<conversation_summary>\nThis is a summary of the conversation so far. The original messages have been condensed to save context space.\n\n[USER]\nOLD_DROPPED_USER: ${'X'.repeat(600)}\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT: ${'Y'.repeat(600)}\n\n---\n\n[USER]\nOLD_RETAINED_USER_2: Asked about deployment\n\n---\n\n[ASSISTANT]\nOLD_DROPPED_ASSISTANT_2: ${'Explained deployment process. '.repeat(80)}\n</conversation_summary>`,
         },
       ],
     }
@@ -2448,10 +2512,10 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('SURVIVED_FINAL_USER')
     expect(content).toContain('SURVIVED_FINAL_ASSISTANT')
 
-    // === Old summary entries dropped by budget walk ===
+    // === Old summary entries are budgeted independently by role ===
     expect(content).not.toContain('OLD_DROPPED_USER:')
     expect(content).not.toContain('OLD_DROPPED_ASSISTANT:')
-    expect(content).not.toContain('OLD_DROPPED_USER_2:')
+    expect(content).toContain('OLD_RETAINED_USER_2:')
     expect(content).not.toContain('OLD_DROPPED_ASSISTANT_2:')
   })
 

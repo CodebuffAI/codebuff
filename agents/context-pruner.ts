@@ -762,10 +762,15 @@ const definition: AgentDefinition = {
       ...summarizedEntries,
     ]
 
-    // Phase 2: Walk backwards through all entries to apply token budgets
+    // Phase 2: Walk backwards through all entries to apply token budgets.
+    // Exhausting one role's budget must not evict entries from the other role:
+    // user prompts are protected by the user budget independently of how much
+    // assistant/tool history the conversation accumulated, and vice versa.
     let assistantToolTokens = 0
     let userTokens = 0
-    let cutoffIndex = 0
+    let assistantToolBudgetExhausted = false
+    let userBudgetExhausted = false
+    const includedEntries: typeof allEntries = []
 
     for (let i = allEntries.length - 1; i >= 0; i--) {
       const entry = allEntries[i]
@@ -773,30 +778,39 @@ const definition: AgentDefinition = {
       const entryTokens = Math.ceil(entryText.length / CHARS_PER_TOKEN)
 
       if (entry.role === 'user') {
+        if (userBudgetExhausted) continue
         if (userTokens + entryTokens > userBudget) {
-          cutoffIndex = i + 1
-          break
+          userBudgetExhausted = true
+          continue
         }
         userTokens += entryTokens
       } else {
+        if (assistantToolBudgetExhausted) continue
         if (assistantToolTokens + entryTokens > assistantToolBudget) {
-          cutoffIndex = i + 1
-          break
+          assistantToolBudgetExhausted = true
+          continue
         }
         assistantToolTokens += entryTokens
       }
+
+      includedEntries.push(entry)
+    }
+
+    // Preserve the pre-existing guarantee that the newest entry always
+    // survives, even when it alone exceeds its role's budget. With independent
+    // role selection, entries from the other role may still fit, so the old
+    // "summary is empty" fallback is no longer sufficient.
+    const newestEntry = allEntries[allEntries.length - 1]
+    if (newestEntry && !includedEntries.includes(newestEntry)) {
+      // includedEntries is reverse-chronological until Phase 3.
+      includedEntries.unshift(newestEntry)
     }
 
     // Phase 3: Build final summary from included entries
     const summaryParts: string[] = []
 
-    for (let i = cutoffIndex; i < allEntries.length; i++) {
-      summaryParts.push(...allEntries[i].parts)
-    }
-
-    // Fallback: if nothing fit within budgets, always include at least the newest entry
-    if (summaryParts.length === 0 && allEntries.length > 0) {
-      summaryParts.push(...allEntries[allEntries.length - 1].parts)
+    for (let i = includedEntries.length - 1; i >= 0; i--) {
+      summaryParts.push(...includedEntries[i].parts)
     }
 
     const summaryText = summaryParts.join('\n\n---\n\n')
