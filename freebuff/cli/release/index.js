@@ -106,7 +106,7 @@ function createConfig(packageName) {
 }
 
 const CONFIG = createConfig(packageName)
-const { httpGet, withRetries } = createReleaseHttpClient({
+const { downloadFile, httpGet, withRetries } = createReleaseHttpClient({
   env: process.env,
   userAgent: CONFIG.userAgent,
   requestTimeout: CONFIG.requestTimeout,
@@ -512,18 +512,65 @@ function createProgressBar(percentage, width = 30) {
   return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
 }
 
-function isRetryableDownloadStatus(statusCode) {
-  return (
-    statusCode === 408 ||
-    statusCode === 425 ||
-    statusCode === 429 ||
-    statusCode >= 500
-  )
-}
-
 function isRetryableDownloadError(error) {
   if (error && typeof error.retryable === 'boolean') return error.retryable
   return !['EACCES', 'ENOSPC', 'EPERM', 'EROFS'].includes(error?.code)
+}
+
+function getPartialArchivePath(version, targetKey) {
+  return path.join(
+    CONFIG.configDir,
+    `.${packageName}-${version}-${targetKey}.tar.gz.part`,
+  )
+}
+
+function getFileSize(filePath) {
+  try {
+    return fs.statSync(filePath).size
+  } catch (error) {
+    if (error.code === 'ENOENT') return 0
+    throw error
+  }
+}
+
+function removeFileIfPresent(filePath) {
+  try {
+    fs.unlinkSync(filePath)
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
+}
+
+function formatDownloadSource(downloadUrl) {
+  try {
+    const parsedUrl = new URL(downloadUrl)
+    return `${parsedUrl.origin}${parsedUrl.pathname}`
+  } catch {
+    return downloadUrl
+  }
+}
+
+function printDownloadFailure(error) {
+  const code = error.code ? ` (${error.code})` : ''
+  console.error(`❌ Failed to download ${packageName}: ${error.message}${code}`)
+
+  if (error.requestUrl) {
+    console.error(`Download source: ${formatDownloadSource(error.requestUrl)}`)
+  }
+  if (error.downloadedBytes > 0) {
+    const total = error.totalBytes ? ` of ${formatBytes(error.totalBytes)}` : ''
+    console.error(
+      `Saved ${formatBytes(error.downloadedBytes)}${total}; the next run will resume this download.`,
+    )
+  } else if (error.requestUrl) {
+    console.error(
+      'Please retry. The release host may be temporarily unavailable.',
+    )
+  } else {
+    console.error(
+      'The downloaded update could not be installed; the existing binary was preserved when possible.',
+    )
+  }
 }
 
 function prepareTempDownloadDir() {
@@ -533,55 +580,61 @@ function prepareTempDownloadDir() {
   fs.mkdirSync(CONFIG.tempDownloadDir, { recursive: true })
 }
 
-async function downloadAndExtract(downloadUrl, version, targetKey) {
+async function downloadAndExtract(
+  downloadUrl,
+  version,
+  targetKey,
+  { quiet = false } = {},
+) {
   let attempts = 0
+  const partialArchivePath = getPartialArchivePath(version, targetKey)
+  let totalBytes = null
 
   try {
     return await withRetries(
       async (attempt) => {
         attempts = attempt
         prepareTempDownloadDir()
-        term.write('Downloading...')
+        if (!quiet) term.write('Downloading...')
 
-        const res = await httpGet(downloadUrl, {
-          timeout: CONFIG.downloadRequestTimeout,
-        })
-
-        if (res.statusCode !== 200) {
-          res.resume()
-          const error = new Error(`Download failed: HTTP ${res.statusCode}`)
-          error.statusCode = res.statusCode
-          error.retryable = isRetryableDownloadStatus(res.statusCode)
-          throw error
-        }
-
-        const totalSize = parseInt(res.headers['content-length'] || '0', 10)
-        let downloadedSize = 0
         let lastProgressTime = Date.now()
-
-        res.on('data', (chunk) => {
-          downloadedSize += chunk.length
-          const now = Date.now()
-          if (now - lastProgressTime >= 100 || downloadedSize === totalSize) {
+        const result = await downloadFile(downloadUrl, partialArchivePath, {
+          timeout: CONFIG.downloadRequestTimeout,
+          onProgress: ({ downloadedBytes, totalBytes: progressTotal }) => {
+            totalBytes = progressTotal
+            if (quiet) return
+            const now = Date.now()
+            if (
+              now - lastProgressTime < 100 &&
+              downloadedBytes !== progressTotal
+            ) {
+              return
+            }
             lastProgressTime = now
-            if (totalSize > 0) {
-              const pct = Math.round((downloadedSize / totalSize) * 100)
+            if (progressTotal) {
+              const pct = Math.round((downloadedBytes / progressTotal) * 100)
               term.write(
-                `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(
-                  totalSize,
-                )}`,
+                `Downloading... ${createProgressBar(pct)} ${pct}% of ${formatBytes(progressTotal)}`,
               )
             } else {
-              term.write(`Downloading... ${formatBytes(downloadedSize)}`)
+              term.write(`Downloading... ${formatBytes(downloadedBytes)}`)
             }
-          }
+          },
         })
+        totalBytes = result.totalBytes
 
-        await pipeline(
-          res,
-          zlib.createGunzip(),
-          tar.x({ cwd: CONFIG.tempDownloadDir }),
-        )
+        try {
+          await pipeline(
+            fs.createReadStream(partialArchivePath),
+            zlib.createGunzip(),
+            tar.x({ cwd: CONFIG.tempDownloadDir }),
+          )
+        } catch (error) {
+          // A complete archive that cannot be extracted is corrupt. Do not
+          // resume it on the next attempt.
+          removeFileIfPresent(partialArchivePath)
+          throw error
+        }
 
         const tempBinaryPath = path.join(
           CONFIG.tempDownloadDir,
@@ -589,6 +642,7 @@ async function downloadAndExtract(downloadUrl, version, targetKey) {
         )
         if (!fs.existsSync(tempBinaryPath)) {
           const files = fs.readdirSync(CONFIG.tempDownloadDir)
+          removeFileIfPresent(partialArchivePath)
           const error = new Error(
             `Binary not found after extraction. Expected: ${CONFIG.binaryName}, Available files: ${files.join(', ')}`,
           )
@@ -596,12 +650,14 @@ async function downloadAndExtract(downloadUrl, version, targetKey) {
           throw error
         }
 
+        removeFileIfPresent(partialArchivePath)
         return tempBinaryPath
       },
       {
         maxAttempts: CONFIG.downloadMaxAttempts,
         shouldRetry: isRetryableDownloadError,
         onRetry: ({ nextAttempt, delayMs }) => {
+          if (quiet) return
           term.writeLine(
             `Download interrupted. Retrying in ${delayMs / 1000}s (${nextAttempt}/${CONFIG.downloadMaxAttempts})...`,
           )
@@ -609,21 +665,33 @@ async function downloadAndExtract(downloadUrl, version, targetKey) {
       },
     )
   } catch (error) {
-    if (fs.existsSync(CONFIG.tempDownloadDir)) {
-      fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+    try {
+      fs.rmSync(CONFIG.tempDownloadDir, { recursive: true, force: true })
+    } catch {
+      // Best effort after a failed download.
     }
 
     trackUpdateFailed(error.message, version, {
       stage: 'download',
+      errorCode: error.code,
       statusCode: error.statusCode,
       target: targetKey,
       attempts,
+      bytesDownloaded: getFileSize(partialArchivePath),
+      totalBytes: error.totalBytes || totalBytes,
     })
+    error.downloadedBytes = getFileSize(partialArchivePath)
+    error.totalBytes ||= totalBytes
+    error.requestUrl ||= downloadUrl
     throw error
   }
 }
 
-async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
+async function stageBinary(
+  version,
+  targetKey = getDownloadTargetKey(),
+  options = {},
+) {
   const fileName = PLATFORM_TARGETS[targetKey]
 
   if (!fileName) {
@@ -646,30 +714,77 @@ async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
     downloadUrl,
     version,
     targetKey,
+    options,
   )
 
-  if (process.platform !== 'win32') {
-    fs.chmodSync(tempBinaryPath, 0o755)
+  try {
+    if (process.platform !== 'win32') {
+      fs.chmodSync(tempBinaryPath, 0o755)
+    }
+  } catch (error) {
+    try {
+      fs.rmSync(CONFIG.tempDownloadDir, { recursive: true, force: true })
+    } catch {
+      // Preserve the original chmod error.
+    }
+    throw error
+  }
+
+  return { tempBinaryPath, version, targetKey }
+}
+
+function replaceFileWithRollback(sourcePath, targetPath, replacements) {
+  const backupPath = fs.existsSync(targetPath)
+    ? `${targetPath}.old.${Date.now()}.${replacements.length}`
+    : null
+
+  if (backupPath) {
+    fs.renameSync(targetPath, backupPath)
   }
 
   try {
-    if (fs.existsSync(CONFIG.binaryPath)) {
-      try {
-        fs.unlinkSync(CONFIG.binaryPath)
-      } catch (err) {
-        const backupPath = CONFIG.binaryPath + `.old.${Date.now()}`
-        try {
-          fs.renameSync(CONFIG.binaryPath, backupPath)
-        } catch (renameErr) {
-          throw new Error(
-            `Failed to replace existing binary. ` +
-              `unlink error: ${err.code || err.message}, ` +
-              `rename error: ${renameErr.code || renameErr.message}`,
-          )
-        }
-      }
+    fs.renameSync(sourcePath, targetPath)
+  } catch (error) {
+    if (backupPath && fs.existsSync(backupPath)) {
+      fs.renameSync(backupPath, targetPath)
     }
-    fs.renameSync(tempBinaryPath, CONFIG.binaryPath)
+    throw error
+  }
+
+  replacements.push({ backupPath, targetPath })
+}
+
+function rollbackReplacements(replacements) {
+  for (const { backupPath, targetPath } of replacements.reverse()) {
+    removeFileIfPresent(targetPath)
+    if (backupPath && fs.existsSync(backupPath)) {
+      fs.renameSync(backupPath, targetPath)
+    }
+  }
+}
+
+function commitReplacements(replacements) {
+  for (const { backupPath } of replacements) {
+    if (!backupPath) continue
+    try {
+      removeFileIfPresent(backupPath)
+    } catch {
+      // The replacement is already committed. A stale backup is safer than
+      // rolling back a working install because cleanup failed.
+    }
+  }
+}
+
+function installStagedBinary({ tempBinaryPath, version, targetKey }) {
+  const replacements = []
+  const metadataTempPath = `${CONFIG.metadataPath}.new.${process.pid}`
+
+  try {
+    fs.writeFileSync(
+      metadataTempPath,
+      JSON.stringify({ version, target: targetKey }, null, 2),
+    )
+    replaceFileWithRollback(tempBinaryPath, CONFIG.binaryPath, replacements)
 
     // Move tree-sitter.wasm next to the binary if the tarball included
     // it. The CLI binary loads this at startup; embedding it inside the
@@ -684,19 +799,16 @@ async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
         path.dirname(CONFIG.binaryPath),
         'tree-sitter.wasm',
       )
-      try {
-        if (fs.existsSync(targetWasmPath)) fs.unlinkSync(targetWasmPath)
-      } catch {
-        // best effort; rename below will surface the real error if it matters
-      }
-      fs.renameSync(tempWasmPath, targetWasmPath)
+      replaceFileWithRollback(tempWasmPath, targetWasmPath, replacements)
     }
 
-    fs.writeFileSync(
-      CONFIG.metadataPath,
-      JSON.stringify({ version, target: targetKey }, null, 2),
-    )
+    replaceFileWithRollback(metadataTempPath, CONFIG.metadataPath, replacements)
+    commitReplacements(replacements)
+  } catch (error) {
+    rollbackReplacements(replacements)
+    throw error
   } finally {
+    removeFileIfPresent(metadataTempPath)
     if (fs.existsSync(CONFIG.tempDownloadDir)) {
       fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
     }
@@ -704,6 +816,11 @@ async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
 
   term.clearLine()
   console.log('Download complete! Starting Freebuff...')
+}
+
+async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
+  const stagedBinary = await stageBinary(version, targetKey)
+  installStagedBinary(stagedBinary)
 }
 
 async function ensureBinaryExists() {
@@ -723,13 +840,52 @@ async function ensureBinaryExists() {
     await downloadBinary(version)
   } catch (error) {
     term.clearLine()
-    console.error('❌ Failed to download freebuff:', error.message)
-    console.error('Please check your internet connection and try again')
+    printDownloadFailure(error)
     process.exit(1)
   }
 }
 
+function stopRunningProcess(runningProcess) {
+  return new Promise((resolve, reject) => {
+    let forceKillTimer
+    let forceKillTimeout
+
+    const cleanup = () => {
+      clearTimeout(forceKillTimer)
+      clearTimeout(forceKillTimeout)
+      runningProcess.removeListener('exit', handleExit)
+    }
+    const handleExit = () => {
+      cleanup()
+      resolve()
+    }
+    const fail = (error) => {
+      cleanup()
+      reject(error)
+    }
+
+    runningProcess.once('exit', handleExit)
+    forceKillTimer = setTimeout(() => {
+      forceKillTimeout = setTimeout(() => {
+        fail(new Error(`${packageName} did not exit after SIGKILL`))
+      }, 1000)
+      try {
+        runningProcess.kill('SIGKILL')
+      } catch (error) {
+        fail(error)
+      }
+    }, 5000)
+    try {
+      runningProcess.kill('SIGTERM')
+    } catch (error) {
+      fail(error)
+    }
+  })
+}
+
 async function checkForUpdates(runningProcess, exitListener) {
+  let stoppedForUpdate = false
+
   try {
     const currentVersion = getCurrentVersion()
 
@@ -740,30 +896,27 @@ async function checkForUpdates(runningProcess, exitListener) {
       currentVersion === null ||
       compareVersions(currentVersion, latestVersion) < 0
     ) {
+      const stagedBinary = await stageBinary(
+        latestVersion,
+        getDownloadTargetKey(),
+        { quiet: true },
+      )
+
       term.clearLine()
 
       runningProcess.removeListener('exit', exitListener)
-
-      await new Promise((resolve) => {
-        let exited = false
-        runningProcess.once('exit', () => {
-          exited = true
-          resolve()
-        })
-        runningProcess.kill('SIGTERM')
-        setTimeout(() => {
-          if (!exited) {
-            runningProcess.kill('SIGKILL')
-            // Safety: resolve after giving SIGKILL time to take effect
-            setTimeout(() => resolve(), 1000)
-          }
-        }, 5000)
-      })
+      try {
+        await stopRunningProcess(runningProcess)
+      } catch (error) {
+        runningProcess.on('exit', exitListener)
+        throw error
+      }
+      stoppedForUpdate = true
 
       resetTerminal({ exitAlternateScreen: true })
       console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
-      await downloadBinary(latestVersion)
+      installStagedBinary(stagedBinary)
 
       const newChild = spawnInstalledBinary({ detached: false })
       attachExitHandler(newChild)
@@ -771,7 +924,20 @@ async function checkForUpdates(runningProcess, exitListener) {
       return new Promise(() => {})
     }
   } catch (error) {
-    // Ignore update failures
+    if (stoppedForUpdate && fs.existsSync(CONFIG.binaryPath)) {
+      console.error(
+        `Update failed; restarting ${packageName} ${getCurrentVersion()}.`,
+      )
+      const child = spawnInstalledBinary({ detached: false })
+      attachExitHandler(child)
+      return new Promise(() => {})
+    }
+    try {
+      fs.rmSync(CONFIG.tempDownloadDir, { recursive: true, force: true })
+    } catch {
+      // Best effort after a failed background update.
+    }
+    // A staging failure leaves the current process and binary untouched.
   }
 }
 
@@ -986,7 +1152,11 @@ async function main() {
   }, 100)
 }
 
-main().catch((error) => {
-  console.error('❌ Unexpected error:', error.message)
-  process.exit(1)
-})
+module.exports = { stopRunningProcess }
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('❌ Unexpected error:', error.message)
+    process.exit(1)
+  })
+}

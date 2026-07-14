@@ -206,7 +206,7 @@ freebuff/
 │   └── release/
 │       ├── package.json  # npm package metadata (name: "freebuff")
 │       ├── index.js      # Entry point (finds/runs binary)
-│       ├── postinstall.js# Downloads platform binary on install
+│       ├── http.js       # Release download and proxy helpers
 │       └── README.md     # npm package README
 └── web/              # (Future) Freebuff website code
 ```
@@ -230,7 +230,7 @@ Mirrors `cli/release/package.json` but with:
 - `"name": "freebuff"`
 - `"description": "Free AI coding assistant"`
 - `"bin": { "freebuff": "index.js" }`
-- Same `postinstall.js` pattern (downloads platform-specific binary from GitHub releases)
+- Downloads the platform-specific binary on first launch
 - Binary stored at `~/.config/manicode/freebuff` (or `freebuff.exe` on Windows)
 
 ### GitHub Workflow
