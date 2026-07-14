@@ -775,6 +775,7 @@ describe('codeSearch', () => {
       for (const flags of [
         ['-t', 'ts', '-g', 'src/**'],
         "'-t ts -g src/**'",
+        '"-t ts -g src/**"',
       ]) {
         const searchPromise = codeSearch({
           projectPath: '/test/project',

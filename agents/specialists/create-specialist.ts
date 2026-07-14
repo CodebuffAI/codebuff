@@ -82,7 +82,9 @@ export function createSpecialist(
     id: config.id,
     publisher,
     displayName: config.displayName,
-    spawnerPrompt: config.purpose,
+    spawnerPrompt: config.advisory
+      ? config.purpose
+      : `${config.purpose} Requires params.snapshot_id with the exact current change-review fingerprint.`,
     inputSchema: {
       prompt: {
         type: 'string',
@@ -100,7 +102,8 @@ export function createSpecialist(
           snapshot_id: {
             type: 'string',
             maxLength: 512,
-            description: 'Expected change-review snapshot fingerprint.',
+            description:
+              'Required exact current change-review snapshot fingerprint from get_change_review_bundle. Do not invent or reuse a stale value.',
           },
           command: {
             type: 'string',

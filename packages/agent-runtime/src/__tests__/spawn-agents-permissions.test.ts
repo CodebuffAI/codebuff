@@ -11,6 +11,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
+import { z } from 'zod/v4'
 
 import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
@@ -355,6 +356,50 @@ describe('editor implementation brief validation', () => {
         ].join('\n'),
       ),
     ).not.toThrow()
+  })
+
+  it('reports every actually missing editor brief section', () => {
+    expect(() =>
+      validateAgentInput(
+        editorTemplate,
+        'editor',
+        ['## Requirements', '- Add the requested behavior.'].join('\n'),
+      ),
+    ).toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining(
+          [
+            '- Target files',
+            '- Constraints/non-goals',
+            '- Patterns',
+            '- Risks',
+          ].join('\n'),
+        ),
+      }),
+    )
+  })
+
+  it('adds actionable recovery for required Basher and compatibility snapshot params', () => {
+    const basherTemplate = {
+      id: 'basher',
+      inputSchema: { params: z.object({ command: z.string().min(1) }) },
+    } as unknown as AgentTemplate
+    expect(() =>
+      validateAgentInput(basherTemplate, 'basher', undefined, {}),
+    ).toThrow('A command mentioned only in prompt prose is never executed')
+
+    const compatibilityTemplate = {
+      id: 'compatibility-reviewer',
+      inputSchema: { params: z.object({ snapshot_id: z.string().min(1) }) },
+    } as unknown as AgentTemplate
+    expect(() =>
+      validateAgentInput(
+        compatibilityTemplate,
+        'compatibility-reviewer',
+        'Review compatibility.',
+        {},
+      ),
+    ).toThrow('exact current snapshot fingerprint from get_change_review_bundle')
   })
 
   it('accepts a concrete prose brief with actionable target files', () => {

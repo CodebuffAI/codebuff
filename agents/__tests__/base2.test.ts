@@ -159,7 +159,24 @@ describe('base2 validation/reviewer coordination prompts', () => {
       'Do not manually re-spawn them after edits, after compaction',
     )
     expect(base2.systemPrompt).toContain(
-      'Use git_status for repository status/diffs instead of basher',
+      'Repository status is injected automatically by the runtime',
+    )
+    expect(base2.systemPrompt).toContain(
+      'instead of loading the full initial diff into every request',
+    )
+    expect(base2.systemPrompt).not.toContain('Initial Git Changes')
+    expect(base2.spawnableAgentToolMode).toBe('generic')
+    expect(base2.toolNames).not.toContain('git_status')
+    expect(base2.toolNames).not.toContain('get_change_review_bundle')
+    expect(base2.toolNames).not.toContain('run_file_change_hooks')
+    expect(base2.toolNames).not.toContain('inspect_codebase_structure')
+    expect(base2.programmaticToolNames).toEqual(
+      expect.arrayContaining([
+        'git_status',
+        'get_change_review_bundle',
+        'run_file_change_hooks',
+        'inspect_codebase_structure',
+      ]),
     )
     expect(base2.systemPrompt).toContain('Atomic edit recovery')
     expect(base2.systemPrompt).toContain(
@@ -278,11 +295,11 @@ describe('base-deep prompt naming and tool guidance', () => {
         'read_outline',
         'list_directory',
         'glob',
-        'git_status',
         'str_replace',
         'edit_transaction',
       ]),
     )
+    expect(baseDeep.programmaticToolNames).toContain('git_status')
   })
 })
 
@@ -296,14 +313,17 @@ describe('base-deep gate lifecycle parity with base2', () => {
     expect(baseDeep.handleSteps).toBeDefined()
     expect(typeof baseDeep.handleSteps).toBe('function')
 
-    // Gate tools required for the validation/reviewer lifecycle.
-    expect(baseDeep.toolNames).toEqual(
+    // Gate tools remain reachable to the trusted generator without bloating
+    // the model-visible tool schema set.
+    expect(baseDeep.programmaticToolNames).toEqual(
       expect.arrayContaining([
         'run_file_change_hooks',
         'git_status',
-        'create_plan',
-        'update_plan_status',
+        'get_change_review_bundle',
       ]),
+    )
+    expect(baseDeep.toolNames).toEqual(
+      expect.arrayContaining(['create_plan', 'update_plan_status']),
     )
 
     // editor is required for the gate repair loop (spawned on validation
@@ -352,6 +372,27 @@ describe('base-deep gate lifecycle parity with base2', () => {
       touchedFiles: ['src/a.ts'],
       pendingGateFiles: ['src/a.ts'],
     })
+  })
+})
+
+describe('base2 conversational fast path', () => {
+  test('answers a fresh greeting without injecting git status or running gates', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2' }
+    const generator = base2.handleSteps!({
+      agentState,
+      prompt: 'Hello.',
+      params: {},
+    } as any)
+
+    expect(generator.next().value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'context-pruner' },
+    })
+    expect(generator.next({ toolResult: [] } as any).value).toBe('STEP')
+    expect(
+      generator.next({ stepsComplete: true, toolResult: [] } as any).done,
+    ).toBe(true)
   })
 })
 

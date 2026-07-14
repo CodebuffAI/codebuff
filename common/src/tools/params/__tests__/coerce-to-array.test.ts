@@ -135,6 +135,33 @@ describe('normalizeSpawnAgentList', () => {
     ])
   })
 
+  it('does not move a top-level command for non-Basher agents', () => {
+    const entry = {
+      agent_type: 'release-manager',
+      command: 'git status',
+      params: {},
+    }
+    expect(normalizeSpawnAgentList([entry])).toEqual([entry])
+  })
+
+  it('repairs a stringified handoff object without decoding nested strings', () => {
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'editor',
+          handoff: JSON.stringify({
+            summary: '{"keep":"this as text"}',
+          }),
+        },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'editor',
+        handoff: { summary: '{"keep":"this as text"}' },
+      },
+    ])
+  })
+
   it('recovers an explicitly labelled specialist snapshot into params', () => {
     const snapshot = 'a'.repeat(64)
     expect(
@@ -152,6 +179,19 @@ describe('normalizeSpawnAgentList', () => {
         params: { timeout_seconds: 300, snapshot_id: snapshot },
       },
     ])
+  })
+
+  it('recovers short and dotted explicitly labelled snapshot fingerprints', () => {
+    for (const snapshot of ['v2', 'cap.v2.1.463.d6zLuTEuk7zcau68MhYD84qL']) {
+      const normalized = normalizeSpawnAgentList([
+        {
+          agent_type: 'compatibility-reviewer',
+          prompt: `Snapshot fingerprint (echo exactly): ${snapshot}`,
+          params: {},
+        },
+      ]) as Array<{ params: { snapshot_id: string } }>
+      expect(normalized[0].params.snapshot_id).toBe(snapshot)
+    }
   })
 
   it('does not invent snapshot params from unlabelled prose', () => {

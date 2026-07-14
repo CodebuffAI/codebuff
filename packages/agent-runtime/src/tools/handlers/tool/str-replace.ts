@@ -3,9 +3,12 @@ import {
   isWholeFileReadAuthorizationFresh,
   normalizeToolPath,
   postStreamProcessing,
-  revokeWholeFileReadAuthorization,
 } from './write-file'
 import { coordinateEditApplication } from './edit-application-coordinator'
+import {
+  markEditRequiresFreshRead,
+  strictEditAuthorizationError,
+} from './edit-read-state'
 import { processStrReplace } from '../../../process-str-replace'
 import {
   preflightValidateSyntax,
@@ -123,16 +126,21 @@ export const handleStrReplace = (async (
     !hasAnyReadCapability &&
     !structuralRecovery
   ) {
+    const authorizationError = strictEditAuthorizationError({
+      fileProcessingState,
+      path,
+      toolName: 'str_replace',
+      hasFreshWholeFileAuthorization: false,
+    })
     return {
       output: [
         {
           type: 'json',
           value: {
             file: path,
-            errorMessage: [
-              'Edit blocked: a previous str_replace failed for this file.',
-              'Next: re-read the exact current lines with read_files before attempting another str_replace on this path, or supply a fresh basedOnRead capability.',
-            ].join('\n'),
+            errorMessage:
+              authorizationError?.errorMessage ??
+              `str_replace blocked for ${path}: read_files must refresh the file before retrying.`,
             errorCode: 'fresh_read_required',
             recovery: {
               tool: 'read_files',
@@ -153,16 +161,21 @@ export const handleStrReplace = (async (
     !hasStoredWholeFileAuthorization &&
     !hasAnyReadCapability
   ) {
+    const authorizationError = strictEditAuthorizationError({
+      fileProcessingState,
+      path,
+      toolName: 'str_replace',
+      hasFreshWholeFileAuthorization: false,
+    })
     return {
       output: [
         {
           type: 'json',
           value: {
             file: path,
-            errorMessage: [
-              `Edit blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${path}.`,
-              `Next: call read_files with paths: ["${path}"] for whole-file authorization, or include a matching fresh basedOnRead capability on every replacement.`,
-            ].join('\n'),
+            errorMessage:
+              authorizationError?.errorMessage ??
+              `str_replace blocked for ${path}: read_files must authorize the file before editing.`,
             errorCode: 'fresh_read_required',
             recovery: {
               tool: 'read_files',
@@ -199,7 +212,12 @@ export const handleStrReplace = (async (
     isWholeFileReadAuthorizationFresh(fileProcessingState, path, latestContent)
 
   if (hasStoredWholeFileAuthorization && !hadFreshWholeFileAuthorization) {
-    revokeWholeFileReadAuthorization(fileProcessingState, path)
+    markEditRequiresFreshRead({
+      fileProcessingState,
+      path,
+      reason: 'stale_snapshot',
+      sourceTool: 'str_replace',
+    })
   }
 
   const requireFreshReadCapability =
@@ -207,18 +225,22 @@ export const handleStrReplace = (async (
     !hadFreshWholeFileAuthorization
 
   if (requireFreshReadCapability && !hasAnyReadCapability) {
+    const authorizationError = strictEditAuthorizationError({
+      fileProcessingState,
+      path,
+      toolName: 'str_replace',
+      hasFreshWholeFileAuthorization: false,
+      authorizationWasStale: hasStoredWholeFileAuthorization,
+    })
     return {
       output: [
         {
           type: 'json',
           value: {
             file: path,
-            errorMessage: [
-              hasStoredWholeFileAuthorization
-                ? `Edit blocked: ${path} changed after its last whole-file read, so the stored authorization was revoked.`
-                : `Edit blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${path}.`,
-              `Next: call read_files with paths: ["${path}"] for whole-file authorization, or include a matching fresh basedOnRead capability on every replacement.`,
-            ].join('\n'),
+            errorMessage:
+              authorizationError?.errorMessage ??
+              `str_replace blocked for ${path}: read_files must refresh the file before retrying.`,
             errorCode: 'fresh_read_required',
             recovery: {
               tool: 'read_files',
@@ -286,8 +308,14 @@ export const handleStrReplace = (async (
     // the agent only needs to fix the syntax, not re-read the file or switch
     // tools. (Fix C circuit breaker only counts real processing failures.)
     if (!strReplaceResult.preflightSyntaxError) {
-      fileProcessingState.failedEditRequiresReadByPath[path] = true
-      revokeWholeFileReadAuthorization(fileProcessingState, path)
+      if (!hadFreshWholeFileAuthorization) {
+        markEditRequiresFreshRead({
+          fileProcessingState,
+          path,
+          reason: 'preflight_failed',
+          sourceTool: 'str_replace',
+        })
+      }
       // Fix C: a hard error consumes the per-path failure budget.
       fileProcessingState.consecutiveStrReplaceFailuresByPath[path] =
         (fileProcessingState.consecutiveStrReplaceFailuresByPath[path] ?? 0) + 1
@@ -325,7 +353,11 @@ export const handleStrReplace = (async (
     toolName: 'str_replace',
     fileProcessingState,
     paths: [path],
-    rejectionRequiresRead: !strReplaceResult.preflightSyntaxError,
+    // Processing/preflight failures never reached the client. Preserve a
+    // verified whole-file authorization; scoped/stale paths were explicitly
+    // marked above. Client-side rejection after a prepared edit still requires
+    // a fresh read through the coordinator's default path.
+    rejectionRequiresRead: !('error' in strReplaceResult),
     wholeFileContentByPath:
       'content' in strReplaceResult
         ? new Map([[path, strReplaceResult.content]])

@@ -22,7 +22,15 @@ export const applyPatchResultSchema = z.union([
     ),
   }),
   z.object({
+    file: z.string().optional(),
     errorMessage: z.string(),
+    errorCode: z.string().optional(),
+    recovery: z
+      .object({
+        tool: z.literal('read_files'),
+        input: z.object({ paths: z.array(z.string().min(1)).min(1) }),
+      })
+      .optional(),
   }),
 ])
 

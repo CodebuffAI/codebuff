@@ -60,6 +60,36 @@ describe('direct agent tool repair', () => {
     })
   })
 
+  it('preserves background controls and nested JSON-looking string params', () => {
+    expect(
+      buildSpawnAgentsInputForDirectAgentCall({
+        agentType: 'basher',
+        input: {
+          prompt: 'Run the command',
+          background: true,
+          timeout_seconds: 90,
+          params: JSON.stringify({
+            command: '["literal-shell-token"]',
+            what_to_summarize: '{"keep":"as text"}',
+          }),
+        },
+      }),
+    ).toEqual({
+      agents: [
+        {
+          agent_type: 'basher',
+          prompt: 'Run the command',
+          background: true,
+          timeout_seconds: 90,
+          params: {
+            command: '["literal-shell-token"]',
+            what_to_summarize: '{"keep":"as text"}',
+          },
+        },
+      ],
+    })
+  })
+
   it('returns undefined for malformed or non-object input instead of fabricating empty params', () => {
     expect(
       buildSpawnAgentsInputForDirectAgentCall({

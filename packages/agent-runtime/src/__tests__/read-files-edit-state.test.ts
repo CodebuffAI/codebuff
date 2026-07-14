@@ -1150,12 +1150,16 @@ describe('read_files edit-state recovery', () => {
     } as any)
 
     const replaceOutput = strReplaceResult.output[0]
+    expect(fileProcessingState.editRereadRequirementsByPath?.[path]).toEqual({
+      reason: 'preflight_failed',
+      sourceTool: 'edit_transaction',
+    })
     expect(replaceOutput.type).toBe('json')
     if (replaceOutput.type === 'json') {
       expect(replaceOutput.value).toHaveProperty('errorMessage')
       expect(
         String((replaceOutput.value as { errorMessage?: string }).errorMessage),
-      ).toContain('previous str_replace failed for this file')
+      ).toContain('previous edit_transaction preflight failed')
     }
   })
 
@@ -1258,12 +1262,16 @@ describe('read_files edit-state recovery', () => {
     } as any)
 
     const replaceOutput = strReplaceResult.output[0]
+    expect(fileProcessingState.editRereadRequirementsByPath?.[path]).toEqual({
+      reason: 'application_rejected',
+      sourceTool: 'edit_transaction',
+    })
     expect(replaceOutput.type).toBe('json')
     if (replaceOutput.type === 'json') {
       expect(replaceOutput.value).toHaveProperty('errorMessage')
       expect(
         String((replaceOutput.value as { errorMessage?: string }).errorMessage),
-      ).toContain('previous str_replace failed for this file')
+      ).toContain('previous edit_transaction application was rejected')
     }
   })
 

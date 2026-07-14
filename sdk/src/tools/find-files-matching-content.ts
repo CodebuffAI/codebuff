@@ -764,7 +764,10 @@ function splitFlagTokens(
   if (quote) {
     return {
       ok: false,
-      errorMessage: 'Invalid ripgrep flags: unterminated quote.',
+      errorMessage:
+        `Invalid ripgrep flags: unterminated ${quote} quote. ` +
+        `Close quotes around individual values, or pass argv tokens such as ["-g", "*.ts"]. ` +
+        `Do not embed an extra quote pair around the entire flags expression.`,
     }
   }
   if (current) tokens.push(current)

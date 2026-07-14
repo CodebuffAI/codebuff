@@ -63,6 +63,11 @@ authorization for each touched path before accepting an edit:
 - Authorization write-back happens after all in-flight tools settle. A
   confirmed edit also refreshes whole-file authorization from its known
   post-edit content, including edits originally authorized by a scoped range.
+- Input-only and preflight failures that never reached the client preserve a
+  still-current whole-file authorization. Failures that make filesystem state
+  uncertain revoke it and persist a typed reread reason across turns; the next
+  blocked edit names the originating tool/reason, and a successful recovery
+  read clears that state.
 
 This policy is staged/strict-mode only; tools still apply unique-anchor
 `str_replace` edits without `basedOnRead` when ambiguity is not a risk.

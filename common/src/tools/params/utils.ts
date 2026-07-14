@@ -88,6 +88,20 @@ export function normalizeSpawnAgentList(value: unknown): unknown {
     }
 
     const record = parsedEntry as Record<string, unknown>
+    const repairedRecord = { ...record }
+    let repaired = false
+
+    const parsedHandoff = parseJsonBounded(record.handoff)
+    if (
+      typeof record.handoff === 'string' &&
+      parsedHandoff !== null &&
+      typeof parsedHandoff === 'object' &&
+      !Array.isArray(parsedHandoff)
+    ) {
+      repairedRecord.handoff = parsedHandoff
+      repaired = true
+    }
+
     const parsedParams = parseJsonBounded(record.params)
     const canMergeParams =
       parsedParams === undefined ||
@@ -99,18 +113,19 @@ export function normalizeSpawnAgentList(value: unknown): unknown {
       const paramsRecord = {
         ...((parsedParams ?? {}) as Record<string, unknown>),
       }
-      let repaired = typeof record.params === 'string'
+      let paramsRepaired = typeof record.params === 'string'
 
       // Direct agent calls accept legacy top-level params and convert them
       // into the nested `params` object. Apply the same narrowly-scoped repair
       // to spawn_agents for Basher's explicit command field. Never derive a
       // shell command from `prompt`: prose is not executable authority.
       if (
+        record.agent_type === 'basher' &&
         typeof record.command === 'string' &&
         paramsRecord.command === undefined
       ) {
         paramsRecord.command = record.command
-        repaired = true
+        paramsRepaired = true
       }
 
       // Snapshot-scoped specialists verify the supplied fingerprint against
@@ -124,24 +139,23 @@ export function normalizeSpawnAgentList(value: unknown): unknown {
       ) {
         const matches = [
           ...record.prompt.matchAll(
-            /\b(?:Snapshot ID(?:\s*\([^)]*\)|\s+to verify)?|snapshot_id)\s*:\s*([a-f0-9]{32,128})\b/gi,
+            /\b(?:Snapshot(?: ID| fingerprint)?(?:\s*\([^\n)]*\)|\s+to verify)?|snapshot_id)\s*:\s*`?([A-Za-z0-9][A-Za-z0-9._:-]{0,511})`?/gi,
           ),
         ]
         const explicitSnapshot = matches.at(-1)?.[1]
         if (explicitSnapshot) {
           paramsRecord.snapshot_id = explicitSnapshot
-          repaired = true
+          paramsRepaired = true
         }
       }
 
-      if (!repaired) return parsedEntry
-      return {
-        ...record,
-        params: paramsRecord,
+      if (paramsRepaired) {
+        repairedRecord.params = paramsRecord
+        repaired = true
       }
     }
 
-    return parsedEntry
+    return repaired ? repairedRecord : parsedEntry
   })
 }
 

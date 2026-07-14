@@ -123,8 +123,7 @@ export async function formatPrompt(
       formatLanguageProfilePromptForFileTree(fileContext.fileTree, {
         taskText: lastUserInput ?? intitialAgentPrompt ?? '',
         maxProfiles: 3,
-      }) +
-      formatEngineProfilePromptForFileTree(fileContext.fileTree),
+      }) + formatEngineProfilePromptForFileTree(fileContext.fileTree),
     [PLACEHOLDER.FILE_TREE_PROMPT]: () =>
       getProjectFileTreePrompt({
         fileContext,
@@ -299,8 +298,8 @@ export async function getAgentPrompt<T extends StringField>(
         addendum += `\n\n${spawnableAgentsSpec}`
       }
     } else if (spawnableAgents.length > 0) {
-      // For non-inherited tools, agents are already defined as tools with full schemas,
-      // so we add the spawnerPrompt for each agent
+      // Keep a compact capability catalog regardless of whether agents are
+      // exposed as direct native tools or routed through generic spawn_agents.
       const agentDescriptions = await Promise.all(
         spawnableAgents.map(async (agentType) => {
           const template = await getAgentTemplate({

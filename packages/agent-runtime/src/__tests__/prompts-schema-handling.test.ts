@@ -100,6 +100,37 @@ describe('Schema handling error recovery', () => {
       expect(toolSet['test-agent']).toBeUndefined()
     })
 
+    test('generic spawn mode omits redundant per-agent native tools', async () => {
+      const agentTemplate: AgentTemplate = {
+        id: 'test-agent',
+        displayName: 'Test Agent',
+        spawnerPrompt: 'Test spawner prompt',
+        model: 'gpt-4o-mini',
+        inputSchema: { prompt: z.string() },
+        outputMode: 'last_message',
+        includeMessageHistory: false,
+        inheritParentSystemPrompt: false,
+        mcpServers: {},
+        toolNames: [],
+        spawnableAgents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      }
+
+      const toolSet = await buildAgentToolSet({
+        spawnableAgents: ['test-agent'],
+        spawnableAgentToolMode: 'generic',
+        agentTemplates: { 'test-agent': agentTemplate },
+        logger: createMockLogger(),
+        apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+        databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+        fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+      })
+
+      expect(toolSet).toEqual({})
+    })
+
     test('buildAgentToolInputSchema handles valid schemas', () => {
       const agentTemplate: AgentTemplate = {
         id: 'valid-agent',

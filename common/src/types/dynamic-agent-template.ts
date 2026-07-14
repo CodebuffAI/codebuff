@@ -194,6 +194,7 @@ export const DynamicAgentDefinitionSchema = z.object({
     .optional()
     .default(() => []),
   programmaticToolNames: z.string().array().optional(),
+  spawnableAgentToolMode: z.enum(['direct', 'generic']).default('direct'),
   terminalPermissionProfile: z
     .enum([
       'read-only',

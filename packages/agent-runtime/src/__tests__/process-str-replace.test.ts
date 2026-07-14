@@ -398,6 +398,8 @@ describe('processStrReplace', () => {
           'Occurrence ranges for read_files.ranges recovery:',
         )
         expect(result.error).toContain('Occurrence 1: lines 1-1')
+        expect(result.error).toContain('path: "test.ts"')
+        expect(result.error).not.toContain('{ path,')
       }
     })
 

@@ -1,55 +1,39 @@
 type DirectAgentInput = Record<string, unknown>
 
-function deepParseJson(value: unknown, depth = 0): unknown {
-  if (depth >= 3) return value
-  if (typeof value === 'string') {
+function parseJsonBounded(value: unknown): unknown {
+  let parsed = value
+  for (let depth = 0; depth < 3 && typeof parsed === 'string'; depth++) {
     try {
-      return deepParseJson(JSON.parse(value), depth + 1)
+      parsed = JSON.parse(parsed)
     } catch {
-      return value
+      return parsed
     }
   }
-  if (Array.isArray(value)) {
-    return value.map((item) => deepParseJson(item, depth + 1))
-  }
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, entry]) => [
-        key,
-        deepParseJson(entry, depth + 1),
-      ]),
-    )
-  }
-  return value
+  return parsed
 }
 
 export function buildSpawnAgentsInputForDirectAgentCall(params: {
   agentType: string
   input: unknown
 }): { agents: DirectAgentInput[] } | undefined {
-  let parsed: unknown = params.input
-  if (typeof parsed === 'string') {
-    try {
-      parsed = JSON.parse(parsed)
-    } catch {
-      return undefined
-    }
-  }
-  parsed = deepParseJson(parsed)
+  const parsed = parseJsonBounded(params.input)
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return undefined
   }
 
   const input = parsed as DirectAgentInput
   const entry: DirectAgentInput = { agent_type: params.agentType }
-  for (const key of ['prompt', 'handoff', 'background', 'timeout_seconds']) {
+  for (const key of ['prompt', 'background', 'timeout_seconds']) {
     if (Object.prototype.hasOwnProperty.call(input, key)) {
       entry[key] = input[key]
     }
   }
+  if (Object.prototype.hasOwnProperty.call(input, 'handoff')) {
+    entry.handoff = parseJsonBounded(input.handoff)
+  }
 
   if (Object.prototype.hasOwnProperty.call(input, 'params')) {
-    entry.params = input.params
+    entry.params = parseJsonBounded(input.params)
   } else {
     const legacyParams = Object.fromEntries(
       Object.entries(input).filter(

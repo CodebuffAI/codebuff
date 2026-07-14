@@ -1,5 +1,9 @@
 import { coordinateEditApplication } from './edit-application-coordinator'
 import {
+  markEditRequiresFreshRead,
+  strictEditAuthorizationError,
+} from './edit-read-state'
+import {
   formatUnsafeToolPathError,
   isWholeFileReadAuthorizationFresh,
   normalizeToolPath,
@@ -43,21 +47,23 @@ export const handleApplyPatch = (async (params) => {
       operation.type === 'update_file' &&
       Array.isArray(operation.basedOnRead) &&
       operation.basedOnRead.length > 0
-    if (
-      fileProcessingState.strictReadBeforeEdit &&
-      !hasStoredAuthorization &&
-      !hasRangeCapabilities
-    ) {
-      return {
-        output: [
-          {
-            type: 'json' as const,
-            value: {
-              file: path,
-              errorMessage: `Edit blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${path}. Read the file first; update patches may instead provide fresh basedOnRead capabilities.`,
+    if (!hasStoredAuthorization) {
+      const authorizationError = strictEditAuthorizationError({
+        fileProcessingState,
+        path,
+        toolName: 'apply_patch',
+        hasFreshWholeFileAuthorization: false,
+        hasScopedCapability: hasRangeCapabilities,
+      })
+      if (authorizationError) {
+        return {
+          output: [
+            {
+              type: 'json' as const,
+              value: { file: path, ...authorizationError },
             },
-          },
-        ],
+          ],
+        }
       }
     }
     if (hasStoredAuthorization) {
@@ -65,23 +71,37 @@ export const handleApplyPatch = (async (params) => {
         ...params,
         filePath: path,
       })
-      if (
-        typeof currentContent !== 'string' ||
-        !isWholeFileReadAuthorizationFresh(
+      const hasFreshWholeFileAuthorization =
+        typeof currentContent === 'string' &&
+        isWholeFileReadAuthorizationFresh(
           fileProcessingState,
           path,
           currentContent,
         )
-      ) {
+      if (!hasFreshWholeFileAuthorization) {
         revokeWholeFileReadAuthorization(fileProcessingState, path)
+        markEditRequiresFreshRead({
+          fileProcessingState,
+          path,
+          reason: 'stale_snapshot',
+          sourceTool: 'apply_patch',
+          revokeReadAuthorization: false,
+        })
+      }
+      const authorizationError = strictEditAuthorizationError({
+        fileProcessingState,
+        path,
+        toolName: 'apply_patch',
+        hasFreshWholeFileAuthorization,
+        hasScopedCapability: hasRangeCapabilities,
+        authorizationWasStale: !hasFreshWholeFileAuthorization,
+      })
+      if (authorizationError) {
         return {
           output: [
             {
               type: 'json' as const,
-              value: {
-                file: path,
-                errorMessage: `Edit blocked: ${path} changed after its last whole-file read. Re-read it before applying the patch.`,
-              },
+              value: { file: path, ...authorizationError },
             },
           ],
         }

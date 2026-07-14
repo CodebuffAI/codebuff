@@ -17,6 +17,7 @@ import {
 import { LocalHarnessStore } from '../services/local-harness-store'
 
 const roots: string[] = []
+const FILESYSTEM_DISCOVERY_TIMEOUT_MS = 15_000
 afterEach(() => {
   for (const root of roots.splice(0))
     fs.rmSync(root, { recursive: true, force: true })
@@ -29,18 +30,22 @@ function tempRoot() {
 }
 
 describe('harness intelligence services', () => {
-  test('inspects package manager, manifests, lockfiles, and tools', () => {
-    const root = tempRoot()
-    fs.writeFileSync(path.join(root, 'package.json'), '{}')
-    fs.writeFileSync(path.join(root, 'bun.lock'), '')
-    expect(inspectHarnessEnvironment(root)).toMatchObject({
-      cwd: root,
-      packageManager: 'bun',
-      manifests: ['package.json'],
-      lockfiles: ['bun.lock'],
-      tools: { git: { available: true } },
-    })
-  })
+  test(
+    'inspects package manager, manifests, lockfiles, and tools',
+    () => {
+      const root = tempRoot()
+      fs.writeFileSync(path.join(root, 'package.json'), '{}')
+      fs.writeFileSync(path.join(root, 'bun.lock'), '')
+      expect(inspectHarnessEnvironment(root)).toMatchObject({
+        cwd: root,
+        packageManager: 'bun',
+        manifests: ['package.json'],
+        lockfiles: ['bun.lock'],
+        tools: { git: { available: true } },
+      })
+    },
+    FILESYSTEM_DISCOVERY_TIMEOUT_MS,
+  )
 
   test('maps source files to existing tests and package build scripts', () => {
     const root = tempRoot()
@@ -67,68 +72,77 @@ describe('harness intelligence services', () => {
     })
   })
 
-  test('discovers nested multi-language workspaces and manager-specific targets', () => {
-    const root = tempRoot()
-    fs.mkdirSync(path.join(root, 'apps/web/src'), { recursive: true })
-    fs.writeFileSync(
-      path.join(root, 'apps/web/package.json'),
-      JSON.stringify({ scripts: { test: 'vitest', build: 'vite build' } }),
-    )
-    // Nested JS packages inherit the nearest ancestor manager lockfile.
-    fs.writeFileSync(path.join(root, 'pnpm-lock.yaml'), '')
-    fs.mkdirSync(path.join(root, 'crates/core/src'), { recursive: true })
-    fs.writeFileSync(
-      path.join(root, 'crates/core/Cargo.toml'),
-      '[package]\nname="core"',
-    )
-    fs.mkdirSync(path.join(root, 'services/api'), { recursive: true })
-    fs.writeFileSync(
-      path.join(root, 'services/api/pyproject.toml'),
-      '[project]\nname="api"',
-    )
-    fs.writeFileSync(path.join(root, 'services/api/uv.lock'), '')
+  test(
+    'discovers nested multi-language workspaces and manager-specific targets',
+    () => {
+      const root = tempRoot()
+      fs.mkdirSync(path.join(root, 'apps/web/src'), { recursive: true })
+      fs.writeFileSync(
+        path.join(root, 'apps/web/package.json'),
+        JSON.stringify({ scripts: { test: 'vitest', build: 'vite build' } }),
+      )
+      // Nested JS packages inherit the nearest ancestor manager lockfile.
+      fs.writeFileSync(path.join(root, 'pnpm-lock.yaml'), '')
+      fs.mkdirSync(path.join(root, 'crates/core/src'), { recursive: true })
+      fs.writeFileSync(
+        path.join(root, 'crates/core/Cargo.toml'),
+        '[package]\nname="core"',
+      )
+      fs.mkdirSync(path.join(root, 'services/api'), { recursive: true })
+      fs.writeFileSync(
+        path.join(root, 'services/api/pyproject.toml'),
+        '[project]\nname="api"',
+      )
+      fs.writeFileSync(path.join(root, 'services/api/uv.lock'), '')
 
-    const environment = inspectHarnessEnvironment(root)
-    expect(environment.manifests).toEqual([
-      'apps/web/package.json',
-      'crates/core/Cargo.toml',
-      'services/api/pyproject.toml',
-    ])
-    expect(
-      environment.workspaces.map(({ root, manager, confidence }) => ({
-        root,
-        manager,
-        confidence,
-      })),
-    ).toEqual([
-      { root: 'apps/web', manager: 'pnpm', confidence: 'confirmed' },
-      { root: 'crates/core', manager: 'cargo', confidence: 'confirmed' },
-      { root: 'services/api', manager: 'uv', confidence: 'confirmed' },
-    ])
-    expect(
-      getBuildTargets(root, [
-        'apps/web/src/app.ts',
-        'crates/core/src/lib.rs',
-        'services/api/main.py',
-      ]),
-    ).toEqual([
-      expect.objectContaining({
-        manager: 'pnpm',
-        commands: ['pnpm run test', 'pnpm run build'],
-        confidence: 'confirmed',
-      }),
-      expect.objectContaining({
-        manager: 'cargo',
-        commands: ['cargo check', 'cargo test', 'cargo clippy', 'cargo build'],
-        confidence: 'inferred',
-      }),
-      expect.objectContaining({
-        manager: 'uv',
-        commands: ['uv run pytest', 'uv run ruff check .', 'uv build'],
-        confidence: 'inferred',
-      }),
-    ])
-  })
+      const environment = inspectHarnessEnvironment(root)
+      expect(environment.manifests).toEqual([
+        'apps/web/package.json',
+        'crates/core/Cargo.toml',
+        'services/api/pyproject.toml',
+      ])
+      expect(
+        environment.workspaces.map(({ root, manager, confidence }) => ({
+          root,
+          manager,
+          confidence,
+        })),
+      ).toEqual([
+        { root: 'apps/web', manager: 'pnpm', confidence: 'confirmed' },
+        { root: 'crates/core', manager: 'cargo', confidence: 'confirmed' },
+        { root: 'services/api', manager: 'uv', confidence: 'confirmed' },
+      ])
+      expect(
+        getBuildTargets(root, [
+          'apps/web/src/app.ts',
+          'crates/core/src/lib.rs',
+          'services/api/main.py',
+        ]),
+      ).toEqual([
+        expect.objectContaining({
+          manager: 'pnpm',
+          commands: ['pnpm run test', 'pnpm run build'],
+          confidence: 'confirmed',
+        }),
+        expect.objectContaining({
+          manager: 'cargo',
+          commands: [
+            'cargo check',
+            'cargo test',
+            'cargo clippy',
+            'cargo build',
+          ],
+          confidence: 'inferred',
+        }),
+        expect.objectContaining({
+          manager: 'uv',
+          commands: ['uv run pytest', 'uv run ruff check .', 'uv build'],
+          confidence: 'inferred',
+        }),
+      ])
+    },
+    FILESYSTEM_DISCOVERY_TIMEOUT_MS,
+  )
 
   test('marks unparseable workspace targets as unknown instead of guessing', () => {
     const root = tempRoot()

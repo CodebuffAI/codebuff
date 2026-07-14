@@ -159,6 +159,12 @@ export type AgentTemplate<
   toolNames: (ToolName | (string & {}))[]
   /** Hidden capabilities callable only from the trusted `handleSteps` generator. */
   programmaticToolNames?: (ToolName | (string & {}))[]
+  /**
+   * How spawnable agents are exposed to the model. `direct` creates one native
+   * tool schema per agent. `generic` keeps the compact agent catalog and routes
+   * all spawns through the single `spawn_agents` tool.
+   */
+  spawnableAgentToolMode?: 'direct' | 'generic'
   terminalPermissionProfile?:
     | 'read-only'
     | 'librarian-read-only'

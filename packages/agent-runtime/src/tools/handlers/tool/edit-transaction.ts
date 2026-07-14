@@ -301,12 +301,27 @@ export const handleEditTransaction = (async (
         }
 
   if ('error' in transactionResult) {
+    const failedPaths = new Set(
+      transactionResult.failures.length > 0
+        ? transactionResult.failures.map((failure) => failure.path)
+        : uniquePaths,
+    )
+    const preserveAuthorizedPaths = [...failedPaths].filter((path) =>
+      freshWholeFileAuthorizationPaths.has(path),
+    )
+    const requireFreshReadPaths = [...failedPaths].filter(
+      (path) => !freshWholeFileAuthorizationPaths.has(path),
+    )
     invalidatePreparedEditPaths({
       fileProcessingState,
-      paths:
-        transactionResult.failures.length > 0
-          ? transactionResult.failures.map((failure) => failure.path)
-          : uniquePaths,
+      paths: preserveAuthorizedPaths,
+      requiresFreshRead: false,
+    })
+    invalidatePreparedEditPaths({
+      fileProcessingState,
+      paths: requireFreshReadPaths,
+      reason: 'preflight_failed',
+      sourceTool: 'edit_transaction',
     })
 
     return {

@@ -204,7 +204,7 @@ const inputSchema = z
 const description = `
 Use this tool to spawn agents to help you complete the user request. Each agent has specific requirements for prompt and params based on their tools schema.
 
-The prompt field is a simple string, while params is a JSON object that gets validated against the agent's schema.
+The prompt field is a simple string, while params is a JSON object that gets validated against the agent's schema. Pass \`agents\` as an actual array of objects; do not JSON.stringify the array or its entries. The runtime repairs bounded complete JSON encodings, but malformed or truncated strings still fail closed.
 
 Each agent available is already defined as another tool, or, dynamically defined later in the conversation.
 

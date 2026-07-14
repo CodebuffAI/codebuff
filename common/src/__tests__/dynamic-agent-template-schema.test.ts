@@ -342,6 +342,24 @@ describe('DynamicAgentDefinitionSchema', () => {
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
       expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.spawnableAgentToolMode).toBe('direct')
+      }
+    })
+
+    it('should accept generic spawn mode while retaining spawn permissions', () => {
+      const template = {
+        ...validBaseTemplate,
+        spawnableAgents: ['researcher', 'file-picker'],
+        spawnableAgentToolMode: 'generic' as const,
+        toolNames: ['end_turn', 'spawn_agents'],
+      }
+
+      const result = DynamicAgentTemplateSchema.safeParse(template)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.spawnableAgentToolMode).toBe('generic')
+      }
     })
 
     it('should accept template with empty spawnableAgents and no spawn_agents tool', () => {

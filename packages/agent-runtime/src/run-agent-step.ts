@@ -1110,6 +1110,7 @@ export async function loopAgentSteps(
       : await buildAgentToolSet({
           ...params,
           spawnableAgents: agentTemplate.spawnableAgents,
+          spawnableAgentToolMode: agentTemplate.spawnableAgentToolMode,
           agentTemplates: localAgentTemplates,
         })
 

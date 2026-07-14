@@ -1299,6 +1299,7 @@ function getOccurrenceLineRanges(params: {
 }
 
 function formatOccurrenceDiagnostics(
+  path: string,
   occurrences: { startLine: number; endLine: number }[],
 ): string {
   if (occurrences.length === 0) return ''
@@ -1308,7 +1309,7 @@ function formatOccurrenceDiagnostics(
     occurrences
       .map(
         (occurrence, index) =>
-          `Occurrence ${index + 1}: lines ${occurrence.startLine}-${occurrence.endLine} (read_files ranges: [{ path, startLine: ${occurrence.startLine}, endLine: ${occurrence.endLine} }])`,
+          `Occurrence ${index + 1}: lines ${occurrence.startLine}-${occurrence.endLine} (read_files ranges: [{ path: ${JSON.stringify(path)}, startLine: ${occurrence.startLine}, endLine: ${occurrence.endLine} }])`,
       )
       .join('\n')
   )
@@ -1772,7 +1773,7 @@ const tryMatchOldStr = (params: {
       oldStr,
       limit: count,
     })
-    const occurrenceDiagnostics = formatOccurrenceDiagnostics(occurrences)
+    const occurrenceDiagnostics = formatOccurrenceDiagnostics(path, occurrences)
     return {
       success: false,
       error:
@@ -1795,7 +1796,7 @@ const tryMatchOldStr = (params: {
       oldStr,
       limit: count,
     })
-    const occurrenceDiagnostics = formatOccurrenceDiagnostics(occurrences)
+    const occurrenceDiagnostics = formatOccurrenceDiagnostics(path, occurrences)
     return {
       success: false,
       error:

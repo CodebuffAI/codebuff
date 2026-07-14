@@ -154,6 +154,12 @@ export interface AgentDefinition {
 
   /** Tools callable only from `handleSteps`; these are hidden from the model. */
   programmaticToolNames?: (ToolName | (string & {}))[]
+  /**
+   * Controls whether every spawnable agent is exposed as a separate native
+   * tool (`direct`) or only through the generic `spawn_agents` tool
+   * (`generic`). Defaults to `direct` for compatibility.
+   */
+  spawnableAgentToolMode?: 'direct' | 'generic'
 
   /** Enforced shell capability for this agent. Defaults to workspace-write. */
   terminalPermissionProfile?:

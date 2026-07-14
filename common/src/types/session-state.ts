@@ -23,6 +23,19 @@ export const subgoalSchema = z.object({
 })
 export type Subgoal = z.infer<typeof subgoalSchema>
 
+export type EditRereadReason =
+  | 'preflight_failed'
+  | 'stale_snapshot'
+  | 'stale_capability'
+  | 'application_rejected'
+  | 'application_unconfirmed'
+  | 'application_threw'
+
+export type EditRereadRequirement = {
+  reason: EditRereadReason
+  sourceTool?: string
+}
+
 export type AgentState = {
   /**
    * @deprecated agentId is replaced by runId
@@ -111,6 +124,8 @@ export type AgentState = {
    * content the agent read or most recently wrote successfully.
    */
   readAuthorizationHashesByPath?: Record<string, string>
+  /** Why a path must be read again after a failed edit, persisted across turns. */
+  editRereadRequirementsByPath?: Record<string, EditRereadRequirement>
   /** Typed current-attempt proposal records. Proposal state is not mutation state. */
   proposalLedger?: ProposalResultV1[]
   /** Runtime-owned orchestrator state that must survive message compaction. */
@@ -230,6 +245,7 @@ export function getInitialAgentState(): AgentState {
     contextWindowTokens: undefined,
     readAuthorizationsByPath: {},
     readAuthorizationHashesByPath: {},
+    editRereadRequirementsByPath: {},
   }
 }
 export function getInitialSessionState(

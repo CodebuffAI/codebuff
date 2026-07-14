@@ -80,7 +80,7 @@ describe('shared craftsmanship prompt sections', () => {
     expect(gitDisciplineSection).toContain('Never push')
     expect(gitDisciplineSection).toContain('Never alter git config')
     expect(gitDisciplineSection).toContain('secrets')
-    expect(gitDisciplineSection).toContain('git_status')
+    expect(gitDisciplineSection).toContain('runtime injects Git status')
     expect(gitDisciplineSection).toContain('git_branch')
   })
 

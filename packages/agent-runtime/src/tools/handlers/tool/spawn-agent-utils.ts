@@ -471,8 +471,21 @@ export function validateAgentInput(
   if (inputSchema.params) {
     const result = inputSchema.params.safeParse(params ?? {})
     if (!result.success) {
+      const issuePaths = new Set(
+        result.error.issues.map((issue) =>
+          issue.path.map((segment) => String(segment)).join('.'),
+        ),
+      )
+      const normalizedAgentType = normalizeAgentIdForLookup(agentType)
+      const recoveryHint =
+        normalizedAgentType === 'basher' && issuePaths.has('command')
+          ? '\n\nRecovery: spawn Basher with { "agent_type": "basher", "params": { "command": "<shell command>" } }. A command mentioned only in prompt prose is never executed.'
+          : normalizedAgentType === 'compatibility-reviewer' &&
+              issuePaths.has('snapshot_id')
+            ? '\n\nRecovery: set params.snapshot_id to the exact current snapshot fingerprint from get_change_review_bundle, for example { "agent_type": "compatibility-reviewer", "params": { "snapshot_id": "<current fingerprint>" } }. Do not invent or reuse a stale fingerprint.'
+            : ''
       throw new Error(
-        `Invalid params for agent ${agentType}: ${formatValidationIssues({ issues: result.error.issues })}\n\nOriginal params value:\n${formatValueForError(params ?? {})}`,
+        `Invalid params for agent ${agentType}: ${formatValidationIssues({ issues: result.error.issues })}${recoveryHint}\n\nOriginal params value:\n${formatValueForError(params ?? {})}`,
       )
     }
   }

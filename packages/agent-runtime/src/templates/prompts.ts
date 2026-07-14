@@ -69,7 +69,9 @@ export function buildAgentToolInputSchema(
   schemaFields.timeout_seconds = z
     .number()
     .optional()
-    .describe('Optional per-spawn wall-clock timeout in seconds; -1 disables it.')
+    .describe(
+      'Optional per-spawn wall-clock timeout in seconds; -1 disables it.',
+    )
 
   return z
     .object(schemaFields)
@@ -86,6 +88,7 @@ export function buildAgentToolInputSchema(
 export async function buildAgentToolSet(
   params: {
     spawnableAgents: AgentTemplateType[]
+    spawnableAgentToolMode?: AgentTemplate['spawnableAgentToolMode']
     agentTemplates: Record<string, AgentTemplate>
     logger: Logger
   } & ParamsExcluding<
@@ -93,7 +96,15 @@ export async function buildAgentToolSet(
     'agentId' | 'localAgentTemplates'
   >,
 ): Promise<ToolSet> {
-  const { spawnableAgents, agentTemplates } = params
+  const {
+    spawnableAgents,
+    spawnableAgentToolMode = 'direct',
+    agentTemplates,
+  } = params
+
+  if (spawnableAgentToolMode === 'generic') {
+    return {}
+  }
 
   const toolSet: ToolSet = {}
 

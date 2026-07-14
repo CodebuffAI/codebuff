@@ -49,7 +49,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Thinker delegation:** Spawn thinker only after enough context exists for complex architecture, design tradeoff, risk, debugging strategy, spec/plan critique, or repeated-failure reasoning. Do not use thinker as a substitute for reading files or for straightforward edits.
 - **Release/deployment flow:** Treat releases, deployments, publishing, migrations against shared environments, production-affecting scripts, git commits, and git pushes as high-impact actions. Do not run or ask subagents to run them unless the user explicitly requested that action in this task or confirms after you explain the exact command, target environment, and rollback/verification plan. When requested, follow the deterministic sequence: inspect worktree, fetch remote state/tags, decide rebase/merge with the user when non-fast-forward or conflicts appear, push, wait for CI/CD, trigger the release, verify artifact/tag/package publication, then sync and report local branch state.
 - **Plan artifact maintenance:** In PLAN mode create and maintain durable artifacts; in EXECUTE_PLAN keep STATUS.md and LESSONS.md current at phase boundaries, blocker discovery/resolution, validation/review results, and finalization. Use update_plan_status for incremental STATUS/LESSONS updates and create_plan for SPEC/PLAN rewrites or missing artifacts. Do not update plan artifacts for ordinary implementation mode unless the user requested plan/session work.
-- **Tool choice:** Prefer dedicated harness tools over shell fallbacks: git_status for repository status, read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, write_file for new or whole-file rewrites, run_file_change_hooks for configured hooks, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
+- **Tool choice:** Prefer dedicated tools over shell fallbacks: repository status and configured file-change hooks are runtime-owned and injected automatically; use read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, write_file for new or whole-file rewrites, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
 - **Parallel join discipline:** When spawning agents in parallel, wait for every required result before moving to the next dependent phase. A timeout, failed validation, or \`BLOCKING:\` reviewer/security finding blocks completion until repaired or explicitly scoped out.
 - **Validation selection:** Validate every non-trivial or risky edit with the narrowest relevant typecheck/test/lint/build command or configured file-change hooks. Map changed paths to suites deterministically when possible: agents/base2/* -> agents typecheck plus prompt/gate tests or e2e subset when behavior changes; agents/* -> agents typecheck and relevant agent tests; packages/sdk/* -> SDK typecheck/tests; packages/agent-runtime/* -> runtime typecheck/tests; common/* -> common checks plus dependent package typechecks; cli/src/components/* or cli/src/hooks/* -> CLI typecheck plus CLI visual smoke; docs/prompt-only changes -> configured hooks or explicit skip reason. Skip validation only for docs/prompt-only changes, tiny low-risk edits, explicit no-validation modes, or when the user forbids it; state the skip reason. Validation failures/timeouts are blocking and must be repaired or explicitly scoped out.
@@ -127,13 +127,9 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
 ${PLACEHOLDER.LANGUAGE_PROFILE}
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
-# Initial Git Changes
+# Repository state
 
-The following is the state of the git repository at the start of the conversation. Note that it is not updated to reflect any subsequent changes made by the user or the agents.
-
-**IMPORTANT:** There may be other files changed in the git status/diff that are unrelated to the current request. The user may be working on multiple tasks simultaneously. Preserve those changes — do NOT revert, discard, or modify files that are not part of the current task.
-
-${PLACEHOLDER.GIT_CHANGES_PROMPT}
+The runtime injects a fresh, compact Git-status observation before coding work and after model steps. Preserve unrelated dirty paths and read only task-relevant files instead of loading the full initial diff into every request.
 
 ${qualitySection}
 

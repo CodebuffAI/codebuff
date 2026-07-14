@@ -57,6 +57,7 @@ describe('handleSteps Parsing Tests', () => {
       outputMode: 'structured_output' as const,
       mcpServers: {},
       toolNames: ['set_output'],
+      spawnableAgentToolMode: 'direct',
       spawnableAgents: [],
       includeMessageHistory: true,
       includeReasoningInMessageHistory: false,

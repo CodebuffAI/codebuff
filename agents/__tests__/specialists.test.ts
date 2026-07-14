@@ -123,5 +123,12 @@ describe('specialist agents', () => {
     expect(dependencyReviewer.instructionsPrompt).toContain(
       'never JSON.stringify',
     )
+    expect(compatibilityReviewer.spawnerPrompt).toContain(
+      'Requires params.snapshot_id',
+    )
+    expect(
+      (compatibilityReviewer.inputSchema as any).params.properties.snapshot_id
+        .description,
+    ).toContain('get_change_review_bundle')
   })
 })

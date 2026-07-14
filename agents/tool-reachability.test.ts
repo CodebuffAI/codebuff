@@ -25,7 +25,9 @@ const HARNESS_STATE_TOOLS = ['git_status'] as const
 describe('agent tool reachability', () => {
   for (const mode of ['default', 'fast'] as const) {
     test(`base2 (${mode}) exposes structural read + edit tools`, () => {
-      const tools = createBase2(mode).toolNames ?? []
+      const definition = createBase2(mode)
+      const tools = definition.toolNames ?? []
+      const programmaticTools = definition.programmaticToolNames ?? []
       for (const tool of [...STRUCTURAL_READ_TOOLS, ...STRUCTURAL_EDIT_TOOLS]) {
         expect(tools).toContain(tool)
       }
@@ -43,9 +45,11 @@ describe('agent tool reachability', () => {
         'accept_proposal',
         'reject_proposal',
         'apply_proposal',
-        ...HARNESS_STATE_TOOLS,
       ] as const) {
         expect(tools).toContain(tool)
+      }
+      for (const tool of HARNESS_STATE_TOOLS) {
+        expect(programmaticTools).toContain(tool)
       }
     })
   }

@@ -14,6 +14,7 @@ import {
   grantWholeFileReadAuthorization,
   normalizeToolPath,
 } from './write-file'
+import { clearEditRereadRequirement } from './edit-read-state'
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { extractSlices } from '../../../structural-read'
 
@@ -154,7 +155,7 @@ export const handleReadFiles = (async (
   )
 
   for (const path of successfulReadPaths) {
-    delete fileProcessingState.failedEditRequiresReadByPath[path]
+    clearEditRereadRequirement(fileProcessingState, path)
     delete fileProcessingState.promisesByPath[path]
   }
 
@@ -248,7 +249,7 @@ export const handleReadFiles = (async (
     }
 
     successfulReadPaths.add(request.path)
-    delete fileProcessingState.failedEditRequiresReadByPath[request.path]
+    clearEditRereadRequirement(fileProcessingState, request.path)
     delete fileProcessingState.promisesByPath[request.path]
     const slicesTooLarge =
       slices.reduce((total, slice) => total + slice.content.length, 0) > 100_000

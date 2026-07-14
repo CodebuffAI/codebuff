@@ -357,6 +357,9 @@ export async function runProgrammaticStep(
     readAuthorizationHashesByPath: {
       ...(agentState.readAuthorizationHashesByPath ?? {}),
     },
+    editRereadRequirementsByPath: {
+      ...(agentState.editRereadRequirementsByPath ?? {}),
+    },
   }
   const agentContext = agentState.agentContext
 
@@ -576,6 +579,9 @@ export async function runProgrammaticStep(
     }
     agentState.readAuthorizationHashesByPath = {
       ...(fileProcessingState.readAuthorizationHashesByPath ?? {}),
+    }
+    agentState.editRereadRequirementsByPath = {
+      ...(fileProcessingState.editRereadRequirementsByPath ?? {}),
     }
 
     if (endTurn) {

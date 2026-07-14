@@ -1,5 +1,10 @@
 import { getContentHash } from '@codebuff/common/util/content-hash'
 
+import {
+  clearEditRereadRequirement,
+  markEditRequiresFreshRead,
+} from './edit-read-state'
+
 import type { FileProcessingState } from './write-file'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -117,15 +122,29 @@ export function invalidatePreparedEditPaths(params: {
   fileProcessingState: FileProcessingState
   paths: Iterable<string>
   revokeReadAuthorization?: boolean
+  requiresFreshRead?: boolean
+  reason?: Parameters<typeof markEditRequiresFreshRead>[0]['reason']
+  sourceTool?: string
 }): void {
-  const { fileProcessingState, paths, revokeReadAuthorization = true } = params
+  const {
+    fileProcessingState,
+    paths,
+    revokeReadAuthorization = true,
+    requiresFreshRead = true,
+    reason = 'application_rejected',
+    sourceTool,
+  } = params
   for (const path of new Set(paths)) {
     if (!path) continue
     delete fileProcessingState.promisesByPath[path]
-    fileProcessingState.failedEditRequiresReadByPath[path] = true
-    if (revokeReadAuthorization) {
-      delete fileProcessingState.readAuthorizationsByPath?.[path]
-      delete fileProcessingState.readAuthorizationHashesByPath?.[path]
+    if (requiresFreshRead) {
+      markEditRequiresFreshRead({
+        fileProcessingState,
+        path,
+        reason,
+        sourceTool,
+        revokeReadAuthorization,
+      })
     }
   }
 }
@@ -138,7 +157,7 @@ export function commitAppliedEditPaths(params: {
   const { fileProcessingState, paths, wholeFileContentByPath } = params
   for (const path of new Set(paths)) {
     if (!path) continue
-    delete fileProcessingState.failedEditRequiresReadByPath[path]
+    clearEditRereadRequirement(fileProcessingState, path)
     const wholeFileContent = wholeFileContentByPath?.get(path)
     if (
       typeof wholeFileContent === 'string' &&
@@ -170,6 +189,8 @@ export async function coordinateEditApplication<T extends ToolName>(params: {
     invalidatePreparedEditPaths({
       fileProcessingState: params.fileProcessingState,
       paths,
+      reason: 'application_threw',
+      sourceTool: params.toolName,
     })
     return { status: 'threw', error }
   }
@@ -178,6 +199,8 @@ export async function coordinateEditApplication<T extends ToolName>(params: {
     invalidatePreparedEditPaths({
       fileProcessingState: params.fileProcessingState,
       paths,
+      reason: 'application_unconfirmed',
+      sourceTool: params.toolName,
     })
     return {
       status: 'rejected',
@@ -190,6 +213,8 @@ export async function coordinateEditApplication<T extends ToolName>(params: {
       invalidatePreparedEditPaths({
         fileProcessingState: params.fileProcessingState,
         paths,
+        reason: 'application_rejected',
+        sourceTool: params.toolName,
       })
     } else {
       for (const path of paths) {
@@ -205,6 +230,8 @@ export async function coordinateEditApplication<T extends ToolName>(params: {
     invalidatePreparedEditPaths({
       fileProcessingState: params.fileProcessingState,
       paths,
+      reason: 'application_unconfirmed',
+      sourceTool: params.toolName,
     })
     return {
       status: 'rejected',

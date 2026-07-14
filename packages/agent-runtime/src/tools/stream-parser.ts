@@ -232,6 +232,9 @@ export async function processStream(
     readAuthorizationHashesByPath: {
       ...(agentState.readAuthorizationHashesByPath ?? {}),
     },
+    editRereadRequirementsByPath: {
+      ...(agentState.editRereadRequirementsByPath ?? {}),
+    },
   }
 
   // === RESPONSE HANDLER ===
@@ -597,6 +600,9 @@ export async function processStream(
     }
     agentState.readAuthorizationHashesByPath = {
       ...(fileProcessingState.readAuthorizationHashesByPath ?? {}),
+    }
+    agentState.editRereadRequirementsByPath = {
+      ...(fileProcessingState.editRereadRequirementsByPath ?? {}),
     }
 
     // This runs even when the stream throws (e.g., AbortError mid-iteration).

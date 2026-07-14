@@ -9,6 +9,7 @@ Agents in Openbuff can be either prompt-based or programmatic (utilizing `handle
 - Shipped agents reside in the `agents/` monorepo package.
 - Project-local or custom agents live in the `.agents/` folder of your project.
 - Programmatic agent generator functions execute in a secure sandbox. Calls yielded by `handleSteps` are restricted to declared `toolNames`, declared hidden `programmaticToolNames`, and a small runtime context-management allowlist; templates also define which subagents can be spawned.
+- `spawnableAgentToolMode` controls the provider-facing spawn surface. The compatibility default, `direct`, creates one native tool schema per spawnable agent. `generic` keeps the same spawn permissions and compact capability catalog but routes calls through the single `spawn_agents` tool, substantially reducing baseline context. The shipped base orchestrators use `generic`.
 - Local agent precedence is project `.agents` → parent `.agents` → home `~/.agents`. The loader preserves the winning source path for UI links, supports `.ts`, `.tsx`, `.js`, `.mjs`, and `.cjs`, and reports per-agent validation diagnostics instead of failing the entire registry.
 
 ### Orchestrator-spawnable vs. pattern-specific agents
@@ -73,6 +74,7 @@ original bounded stdout/stderr remains available for recovery.
 
 - Automated security/test/doc auxiliary agents have explicit lifecycle handling. Their done flags are written only after successful completion; crashes and blocking security verdicts persist as blockers. Test/doc writers run automatically only when the user request explicitly includes those deliverables, and mixed-package test targets are routed to package-specific commands.
 - Productive agent steps are unlimited by default. A repeated-step watchdog stops identical no-progress loops, while cancellation, subagent wall-clock timeouts, cost/token budgets, spawn-depth limits, and context compaction remain independent safeguards. Users may still configure a positive `maxAgentSteps` fixed cap; `-1` explicitly selects unlimited mode. Reviewer crashes retry once; repeated crashes require the explicit user phrase `bypass reviewer gate` before finalization can continue.
+- Root-orchestrator gate operations such as Git-status observation, file-change hooks, structural inventory, and snapshot-bound review bundles are model-hidden programmatic tools. Their results are injected when needed, so the harness remains active without paying for those schemas on every provider request. Fresh greetings and simple gratitude prompts take a narrow conversational fast path only when no pending work or reviewer blocker exists.
 
 **Pattern-specific agents** are intentionally **excluded** from `spawnableAgents` because they have a narrow contract that only makes sense within a specific workflow pattern. They are spawned by the pattern flow itself, not by the orchestrator:
 
@@ -711,6 +713,11 @@ hash }` object. The runtime verifies the embedded hash for large-file
   requests.
 - Cross-turn authorization is persisted only after all in-flight read/edit
   tools settle, so the next model step receives the post-tool content hash.
+- Preflight/input failures do not consume a valid whole-file read when no
+  client mutation was attempted. Rejected, thrown, stale, or unconfirmed
+  applications persist a typed reread reason across turns so follow-up errors
+  explain why the authorization was revoked instead of reporting only a
+  generic missing-read message.
 
 `str_replace` inputs:
 
@@ -901,7 +908,11 @@ Input fields:
 `spawn_agents.agents` also performs bounded repair for one- or
 double-stringified arrays and stringified object entries. Malformed or
 truncated JSON remains rejected; the runtime never fabricates an empty agent
-entry or silently drops required parameters.
+entry or silently drops required parameters. Stringified `params` and
+`handoff` objects are decoded at their envelope boundary only; legitimate
+nested string values such as shell commands remain strings. Basher requires
+`params.command`, and snapshot-scoped reviewers require the exact current
+`params.snapshot_id` from `get_change_review_bundle`.
 
 Example:
 

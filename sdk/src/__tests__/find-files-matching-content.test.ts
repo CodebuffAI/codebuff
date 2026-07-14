@@ -160,21 +160,22 @@ describe('findFilesMatchingContent', () => {
   })
 
   it('repairs one accidental outer quote layer around combined flags', async () => {
-    const searchPromise = findFilesMatchingContent({
-      projectPath,
-      pattern: 'needle',
-      flags: "'-t ts -g src/**'",
-    })
+    for (const flags of ["'-t ts -g src/**'", '"-t ts -g src/**"']) {
+      const searchPromise = findFilesMatchingContent({
+        projectPath,
+        pattern: 'needle',
+        flags,
+      })
 
-    mockProcess.stdout.emit('data', Buffer.from('src/a.ts\n'))
-    mockProcess.emit('close', 0)
+      mockProcess.stdout.emit('data', Buffer.from('src/a.ts\n'))
+      mockProcess.emit('close', 0)
 
-    await searchPromise
-    const args = mockSpawn.mock.calls[0][1] as string[]
-    expect(args).toContain('-t')
-    expect(args).toContain('ts')
-    expect(args).toContain('-g')
-    expect(args).toContain('src/**')
+      await searchPromise
+      const args = mockSpawn.mock.calls.at(-1)![1] as string[]
+      expect(args).toEqual(
+        expect.arrayContaining(['-t', 'ts', '-g', 'src/**']),
+      )
+    }
   })
 
   it('accepts structured argv flag tokens', async () => {
@@ -201,6 +202,47 @@ describe('findFilesMatchingContent', () => {
 
     const value = result[0].value as { errorMessage: string }
     expect(value.errorMessage).toContain('Unsupported ripgrep flag')
+    expect(mockSpawn).not.toHaveBeenCalled()
+  })
+
+  it('still rejects dangerous flags passed as structured argv tokens', async () => {
+    const result = await findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: ['--exec', 'rm', '-rf', '/'],
+    })
+
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toContain('Unsupported ripgrep flag')
+    expect(mockSpawn).not.toHaveBeenCalled()
+  })
+
+  it('preserves spaces inside a quoted glob value', async () => {
+    const searchPromise = findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: "-g 'src/legal docs/**'",
+    })
+
+    mockProcess.stdout.emit('data', Buffer.from('src/legal docs/a.ts\n'))
+    mockProcess.emit('close', 0)
+
+    await searchPromise
+    const args = mockSpawn.mock.calls[0][1] as string[]
+    expect(args).toContain('src/legal docs/**')
+  })
+
+  it('explains how to recover from malformed quoting', async () => {
+    const result = await findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: "-g '*.ts",
+    })
+
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toContain("unterminated ' quote")
+    expect(value.errorMessage).toContain('pass argv tokens')
+    expect(value.errorMessage).toContain('Do not embed an extra quote pair')
     expect(mockSpawn).not.toHaveBeenCalled()
   })
 

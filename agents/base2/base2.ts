@@ -91,7 +91,6 @@ export function createBase2(
       'accept_proposal',
       'reject_proposal',
       'apply_proposal',
-      'run_file_change_hooks',
       'suggest_followups',
       !noAskUser && 'ask_user',
       'skill',
@@ -100,19 +99,23 @@ export function createBase2(
       'check_job',
       'kill_job',
       'read_logs',
-      'git_status',
       'inspect_workspace',
       'get_task',
-      'get_change_review_bundle',
       'inspect_environment',
       'get_affected_tests',
       'get_build_targets',
       'run_targeted_validation',
-      'inspect_codebase_structure',
       'inspect_feature_completeness',
       'evaluate_audit_coverage',
     ),
-    programmaticToolNames: ['spawn_agent_inline'],
+    programmaticToolNames: [
+      'spawn_agent_inline',
+      'git_status',
+      'get_change_review_bundle',
+      'run_file_change_hooks',
+      'inspect_codebase_structure',
+    ],
+    spawnableAgentToolMode: 'generic',
     programmaticConfig: { hasNoValidation },
     spawnableAgents: buildArray(
       // handleSteps invokes this automatically through spawn_agent_inline on
@@ -180,7 +183,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Its absence from the root toolset is expected. Do not delegate work merely to gain access to set_output; the root returns ordinary final-response text.
 - **Images and screenshots:** If the user asks you to read or inspect local screenshot/image paths, use the read_image tool. Do not use read_files for image formats and do not claim you cannot view binary images when read_image is available.
 - **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.
-- **Prefer dedicated harness tools over shell fallbacks:** Use git_status for repository status/diffs instead of basher. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep/git status. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs.
+- **Prefer dedicated harness tools over shell fallbacks:** Repository status is injected automatically by the runtime; do not spawn basher merely to run git status. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs.
 
 # Code Editing Mandates
 
@@ -237,7 +240,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Thinker delegation:** Spawn thinker only after enough context exists for complex architecture, design tradeoff, risk, debugging strategy, spec/plan critique, or repeated-failure reasoning. Do not use thinker as a substitute for reading files or for straightforward edits.
 - **Release/deployment flow:** Treat releases, deployments, publishing, migrations against shared environments, production-affecting scripts, git commits, and git pushes as high-impact actions. Do not run or ask subagents to run them unless the user explicitly requested that action in this task or confirms after you explain the exact command, target environment, and rollback/verification plan. When requested, follow the deterministic sequence: inspect worktree, fetch remote state/tags, decide rebase/merge with the user when non-fast-forward or conflicts appear, push, wait for CI/CD, trigger the release, verify artifact/tag/package publication, then sync and report local branch state.
 - **Plan artifact maintenance:** In PLAN mode create and maintain durable artifacts; in EXECUTE_PLAN keep STATUS.md and LESSONS.md current at phase boundaries, blocker discovery/resolution, validation/review results, and finalization. Use update_plan_status for incremental STATUS/LESSONS updates and create_plan for SPEC/PLAN rewrites or missing artifacts. Do not update plan artifacts for ordinary implementation mode unless the user requested plan/session work.
-- **Tool choice:** Prefer dedicated harness tools over shell fallbacks: git_status for repository status, read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, write_file for new or whole-file rewrites, run_file_change_hooks for configured hooks, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
+- **Tool choice:** Prefer dedicated tools over shell fallbacks: repository status and configured file-change hooks are runtime-owned and injected automatically; use read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, write_file for new or whole-file rewrites, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
 - **Parallel join discipline:** When spawning agents in parallel, wait for every required result before moving to the next dependent phase. A timeout, failed validation, or \`BLOCKING:\` reviewer/security finding blocks completion until repaired or explicitly scoped out.
 - **Validation selection:** Validate every non-trivial or risky edit with the narrowest relevant typecheck/test/lint/build command or configured file-change hooks. Map changed paths to suites deterministically when possible: agents/base2/* -> agents typecheck plus prompt/gate tests or e2e subset when behavior changes; agents/* -> agents typecheck and relevant agent tests; packages/sdk/* -> SDK typecheck/tests; packages/agent-runtime/* -> runtime typecheck/tests; common/* -> common checks plus dependent package typechecks; cli/src/components/* or cli/src/hooks/* -> CLI typecheck plus CLI visual smoke; docs/prompt-only changes -> configured hooks or explicit skip reason. Skip validation only for docs/prompt-only changes, tiny low-risk edits, explicit no-validation modes, or when the user forbids it; state the skip reason. Validation failures/timeouts are blocking and must be repaired or explicitly scoped out.
@@ -346,11 +349,9 @@ ${PLACEHOLDER.PATTERNS_INDEX}
 ${PLACEHOLDER.LANGUAGE_PROFILE}
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
-# Initial Git Changes
+# Repository state
 
-The following is the state of the git repository at the start of the conversation. Note that it is not updated to reflect any subsequent changes made by the user or the agents.
-
-${PLACEHOLDER.GIT_CHANGES_PROMPT}
+The runtime injects a fresh, compact Git-status observation before coding work and after model steps. Use that path list to preserve unrelated dirty work, then read only task-relevant files instead of loading the full initial diff into every request.
 
 ${qualitySection}
 
@@ -390,6 +391,17 @@ ${specialistRoutingSection}
           }),
 
     handleSteps: function* ({ agentState, prompt, params, config }) {
+      function isConversationOnlyPrompt(value: unknown): boolean {
+        if (typeof value !== 'string') return false
+        const normalized = value
+          .trim()
+          .replace(/[.!?,]+$/g, '')
+          .trim()
+        return /^(?:hi|hello|hey|hiya|good morning|good afternoon|good evening|thanks|thank you|thanks a lot|thank you very much)$/i.test(
+          normalized,
+        )
+      }
+
       type Base2AgentState = NonNullable<typeof agentState> & {
         base2ActiveWork?: Base2ActiveWorkState
         canSuggestFollowups?: boolean
@@ -548,6 +560,26 @@ ${specialistRoutingSection}
         : 0
       let currentConversationMessages: unknown =
         mutableAgentState.messageHistory
+
+      const hasActiveWork =
+        activeWorkState.pendingGateFiles.length > 0 ||
+        activeWorkState.changedFiles.length > 0 ||
+        activeWorkState.openReviewerBlockers.length > 0 ||
+        activeWorkState.nextRequiredAction.trim().length > 0
+      if (isConversationOnlyPrompt(prompt) && !hasActiveWork) {
+        yield {
+          toolName: 'spawn_agent_inline',
+          input: {
+            agent_type: 'context-pruner',
+            params: params ?? {},
+          },
+          includeToolCall: false,
+        } as any
+        mutableAgentState.canSuggestFollowups = false
+        yield 'STEP'
+        return
+      }
+
       const retrievalDecision = classifyProactiveRetrieval(prompt)
       if (retrievalDecision) {
         if (retrievalDecision.scope === 'cross-subsystem') {
@@ -1009,7 +1041,11 @@ ${specialistRoutingSection}
               let expectedSnapshotId = bundle.snapshotId
               let specialistToolResult: unknown
               let staleAfterRetry = false
-              for (let snapshotAttempt = 0; snapshotAttempt < 2; snapshotAttempt++) {
+              for (
+                let snapshotAttempt = 0;
+                snapshotAttempt < 2;
+                snapshotAttempt++
+              ) {
                 const specialistResult = yield {
                   toolName: 'spawn_agent_inline',
                   input: {
@@ -4528,7 +4564,7 @@ function buildImplementationStepPrompt({
 }) {
   return buildArray(
     'Consider loading relevant skills with the skill tool if they might help with the current task. Do not reload skills that were already loaded earlier in this conversation.',
-    'Use dedicated tools before shell fallbacks: git_status for repo status, read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, deterministic edit tools for file changes, and basher only for commands without a dedicated tool.',
+    'Use dedicated tools before shell fallbacks: repository status and validation gates are runtime-owned; use read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, deterministic edit tools for file changes, and basher only for commands without a dedicated tool.',
     isDefault &&
       `For non-trivial edits, spawn the editor after context discovery with a compact implementation-only prompt containing all of these envelope fields: Requirements, Target files, Constraints/non-goals, Patterns, Risks. Use those exact field labels in the prompt so the editor can scan them as a checklist. The editor does not inherit parent conversation history, so the prompt must contain the implementation context it needs. If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not put validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, todos, or other parent-only orchestration tasks in the editor handoff. After the editor returns, the default runtime will independently detect changed files, run configured validation hooks, and spawn code-reviewer before finalization.`,
     isDefault &&

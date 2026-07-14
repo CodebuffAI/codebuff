@@ -2,6 +2,10 @@ import { AbortError } from '@codebuff/common/util/error'
 import { getContentHash } from '@codebuff/common/util/content-hash'
 
 import { coordinateEditApplication } from './edit-application-coordinator'
+import {
+  markEditRequiresFreshRead,
+  strictEditAuthorizationError,
+} from './edit-read-state'
 import { processFileBlock } from '../../../process-file-block'
 import {
   preflightValidateSyntax,
@@ -17,7 +21,10 @@ import type {
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { AgentState } from '@codebuff/common/types/session-state'
+import type {
+  AgentState,
+  EditRereadRequirement,
+} from '@codebuff/common/types/session-state'
 
 type FileProcessingTools =
   | 'write_file'
@@ -82,6 +89,7 @@ export type FileProcessingState = {
   // similar per-turn bounds.
   readAuthorizationsByPath?: Record<string, true>
   readAuthorizationHashesByPath?: Record<string, string>
+  editRereadRequirementsByPath?: Record<string, EditRereadRequirement>
 }
 
 export function hasWholeFileReadAuthorization(
@@ -190,6 +198,7 @@ export function getFileProcessingValues(
     strictReadBeforeEdit: true,
     readAuthorizationsByPath: {},
     readAuthorizationHashesByPath: {},
+    editRereadRequirementsByPath: {},
   }
   for (const [key, value] of Object.entries(state)) {
     const typedKey = key as keyof typeof fileProcessingValues
@@ -306,13 +315,19 @@ export const handleWriteFile = (async (
       initialContent !== null &&
       fileProcessingState.failedEditRequiresReadByPath[path]
     ) {
+      const authorizationError = strictEditAuthorizationError({
+        fileProcessingState,
+        path,
+        toolName: 'write_file',
+        hasFreshWholeFileAuthorization: false,
+        wholeFileRequired: true,
+      })
       return {
         tool: 'write_file' as const,
         path,
-        error: [
-          `write_file blocked for ${path}: a previous edit failed and the current whole-file content must be read again before overwriting it.`,
-          `Next: call read_files with paths: ["${path}"] before retrying write_file.`,
-        ].join('\n'),
+        error:
+          authorizationError?.errorMessage ??
+          `write_file blocked for ${path}: read_files must refresh the current whole-file content before retrying.`,
       }
     }
     if (
@@ -329,17 +344,30 @@ export const handleWriteFile = (async (
         fileProcessingState,
         path,
       )
-      revokeWholeFileReadAuthorization(fileProcessingState, path)
+      if (authorizationWasStale) {
+        markEditRequiresFreshRead({
+          fileProcessingState,
+          path,
+          reason: 'stale_snapshot',
+          sourceTool: 'write_file',
+        })
+      } else {
+        revokeWholeFileReadAuthorization(fileProcessingState, path)
+      }
+      const authorizationError = strictEditAuthorizationError({
+        fileProcessingState,
+        path,
+        toolName: 'write_file',
+        hasFreshWholeFileAuthorization: false,
+        authorizationWasStale,
+        wholeFileRequired: true,
+      })
       return {
         tool: 'write_file' as const,
         path,
-        error: [
-          authorizationWasStale
-            ? `write_file blocked: ${path} changed after its last whole-file read, so the stored authorization is stale.`
-            : `write_file blocked: strict read-before-edit is enabled and ${path} already exists, but no fresh whole-file read authorization exists for this path.`,
-          `Next: call read_files with paths: ["${path}"] before retrying write_file. A range capability cannot authorize a whole-file overwrite; neither can a prior range-anchored edit. A prior write_file is allowed because it supplied the complete current content.`,
-          'New-file creation is still allowed without a prior read when the target path does not exist.',
-        ].join('\n'),
+        error:
+          authorizationError?.errorMessage ??
+          `write_file blocked for ${path}: read_files must authorize the current whole-file content before overwriting it.`,
       }
     }
 
@@ -406,7 +434,7 @@ export const handleWriteFile = (async (
     toolName: 'write_file',
     fileProcessingState,
     paths: [path],
-    rejectionRequiresRead: !writeFileResult.preflightSyntaxError,
+    rejectionRequiresRead: !('error' in writeFileResult),
     wholeFileContentByPath:
       'content' in writeFileResult
         ? new Map([[path, writeFileResult.content]])

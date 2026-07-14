@@ -90,6 +90,7 @@ export default {
   instructionsPrompt: 'You are...', // Agent behavior instructions
   spawnerPrompt: 'Use this agent when...', // When others should spawn this
   spawnableAgents: ['helper-agent'], // Agents this can spawn
+  spawnableAgentToolMode: 'generic', // Route spawns through one compact tool
 
   // Optional: Programmatic control
   async *handleSteps() {
@@ -113,6 +114,7 @@ export default {
 - **`toolNames`**: Array of tools the agent can use (defaults to common tools)
 - **`spawnerPrompt`**: Instructions for when other agents should spawn this one
 - **`spawnableAgents`**: Array of agent names this agent can spawn
+- **`spawnableAgentToolMode`**: `direct` for one native schema per agent, or `generic` to use only `spawn_agents` while retaining the compact agent catalog
 - **`handleSteps`**: Generator function for programmatic control
 
 ## Available Tools
