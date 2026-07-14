@@ -54,7 +54,7 @@ jobs:
       - name: Check generated tool definitions are current
         run: |
           bun run generate-tool-definitions
-          git diff --exit-code -- agents/types/tools.ts common/src/templates/initial-agents-dir/types/tools.ts
+          git diff --exit-code -- agents/types/tools.ts common/src/templates/initial-agents-dir/types/tools.ts cli/src/data/initial-agent-type-sources.generated.ts
 
       - name: Memory drift + config sync
         run: |

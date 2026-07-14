@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { execSync } from 'child_process'
+import { execFileSync, execSync } from 'child_process'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
 
@@ -52,6 +52,14 @@ function main() {
       `npx prettier --write ${writtenPaths.map((path) => `"${path}"`).join(' ')}`,
       { stdio: 'inherit' },
     )
+
+    // The CLI embeds the starter type files so compiled binaries can run
+    // `openbuff init` without runtime text imports. Refresh that mirror in the
+    // same canonical command so schema changes cannot leave CI-only drift.
+    execFileSync('bun', ['cli/scripts/generate-init-type-sources.ts'], {
+      cwd: process.cwd(),
+      stdio: 'inherit',
+    })
 
     console.log('✅ Successfully generated tools.ts')
     for (const outputPath of writtenPaths) {

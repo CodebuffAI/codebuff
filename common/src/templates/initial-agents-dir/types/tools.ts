@@ -389,6 +389,8 @@ export interface EditTransactionParams {
         /** The file to edit. */
         path: string
         type: 'replace_range'
+        /** Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together. */
+        readCapability?: string
         startLine: number
         endLine: number
         expectedHash: string
@@ -712,6 +714,8 @@ export interface ProposeEditTransactionParams {
         /** The file to edit. */
         path: string
         type: 'replace_range'
+        /** Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together. */
+        readCapability?: string
         startLine: number
         endLine: number
         expectedHash: string
@@ -911,17 +915,19 @@ export interface ReadSubtreeParams {
 }
 
 /**
- * Replace a previously read line range only if its hash still matches.
+ * Parameters for replace_range tool
  */
 export interface ReplaceRangeParams {
   /** The path to the file to edit. */
   path: string
-  /** 1-indexed inclusive start line from a fresh read_files.ranges result. */
-  startLine: number
-  /** 1-indexed inclusive end line from a fresh read_files.ranges result. */
-  endLine: number
-  /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-  expectedHash: string
+  /** 1-indexed inclusive start line from a fresh read_files.ranges result. Omit when readCapability is supplied. */
+  startLine?: number
+  /** 1-indexed inclusive end line from a fresh read_files.ranges result. Omit when readCapability is supplied. */
+  endLine?: number
+  /** The sha256 rangeHash returned by read_files.ranges for this exact range. Omit when readCapability is supplied. */
+  expectedHash?: string
+  /** Preferred target anchor: copy the cap.* readCapability verbatim from a fresh read_files range header. It safely supplies startLine, endLine, and expectedHash as one value. */
+  readCapability?: string
   /** Complete replacement content for the selected line range. */
   newContent: string
 }
@@ -1129,7 +1135,7 @@ export interface StrReplaceParams {
     newString: string
     /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
-    /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Lets you disambiguate repeated text without a re-read or a longer oldString. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. If a fresh basedOnRead range is also given, occurrences are counted within that range. */
+    /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. Prefer combining it with a fresh basedOnRead range so occurrences are counted only inside a proven target window, never across unrelated file content. */
     occurrenceIndex?: number
     /** Optional range anchor from a fresh read_files call. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. Large-file str_replace and apply_patch validate the hash against current content; strict read-before-edit validates supplied str_replace anchors regardless of file size. Range capabilities do not authorize whole-file write_file overwrites. Only copy capabilities from a fresh read. */
     basedOnRead?:
