@@ -58,6 +58,12 @@ jobs:
             arch: x64
             legacy_macos: true
           - os: macos-14
+            target: darwin-arm64-legacy
+            bun_target: bun-darwin-arm64
+            platform: darwin
+            arch: arm64
+            legacy_macos: true
+          - os: macos-14
             target: darwin-arm64
             bun_target: bun-darwin-arm64
             platform: darwin
@@ -182,11 +188,20 @@ jobs:
           LEGACY_DIR="$RUNNER_TEMP/openbuff-macos11"
           mkdir -p "$LEGACY_DIR"
 
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            BUN_ARCH="aarch64"
+            ZIG_TARGET="aarch64-macos.11.0"
+          else
+            BUN_ARCH="x64"
+            ZIG_TARGET="x86_64-macos.11.0"
+          fi
+          BUN_DIR="bun-darwin-$BUN_ARCH"
+
           curl -L --fail --retry 3 \
             -o "$LEGACY_DIR/bun.zip" \
-            https://github.com/oven-sh/bun/releases/download/bun-v1.0.36/bun-darwin-x64.zip
+            "https://github.com/oven-sh/bun/releases/download/bun-v1.0.36/$BUN_DIR.zip"
           unzip -q "$LEGACY_DIR/bun.zip" -d "$LEGACY_DIR/bun"
-          chmod +x "$LEGACY_DIR/bun/bun-darwin-x64/bun"
+          chmod +x "$LEGACY_DIR/bun/$BUN_DIR/bun"
 
           curl -L --fail --retry 3 \
             -o "$LEGACY_DIR/opentui.tar.gz" \
@@ -195,7 +210,7 @@ jobs:
           tar -xzf "$LEGACY_DIR/opentui.tar.gz" \
             -C "$LEGACY_DIR/opentui" --strip-components=1
           pushd "$LEGACY_DIR/opentui/packages/core/src/zig"
-          zig build -Dtarget=x86_64-macos.11.0 -Doptimize=ReleaseFast
+          zig build -Dtarget="$ZIG_TARGET" -Doptimize=ReleaseFast
           popd
 
           curl -L --fail --retry 3 \
@@ -208,8 +223,8 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --locked
           popd
 
-          echo "OPENBUFF_COMPILER_BIN=$LEGACY_DIR/bun/bun-darwin-x64/bun" >> "$GITHUB_ENV"
-          echo "OPENBUFF_LEGACY_OPENTUI_LIB=$LEGACY_DIR/opentui/packages/core/src/zig/lib/x86_64-macos.11.0/libopentui.dylib" >> "$GITHUB_ENV"
+          echo "OPENBUFF_COMPILER_BIN=$LEGACY_DIR/bun/$BUN_DIR/bun" >> "$GITHUB_ENV"
+          echo "OPENBUFF_LEGACY_OPENTUI_LIB=$LEGACY_DIR/opentui/packages/core/src/zig/lib/$ZIG_TARGET/libopentui.dylib" >> "$GITHUB_ENV"
           echo "OPENBUFF_LEGACY_RIPGREP_BIN=$LEGACY_DIR/ripgrep/target/release/rg" >> "$GITHUB_ENV"
 
       - name: Rebuild Intel ripgrep for macOS 13

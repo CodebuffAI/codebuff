@@ -218,7 +218,7 @@ describe('release wrapper platform selection', () => {
     (wrapperName, wrapperPath) => {
       const result = runWrapperWithMockPlatform({
         arch: 'x64',
-        hardwareArch: 'x64',
+        hardwareArch: 'x86_64',
         macOSVersion: '11.7.10',
         platformKey: 'darwin-x64-legacy',
         wrapperName,
@@ -235,25 +235,64 @@ describe('release wrapper platform selection', () => {
   )
 
   test.each(wrappers)(
-    '%s rejects macOS 11 on Apple Silicon',
+    '%s normalizes aarch64 when selecting the legacy Apple Silicon binary',
     (wrapperName, wrapperPath) => {
       const result = runWrapperWithMockPlatform({
         arch: 'arm64',
-        hardwareArch: 'arm64',
-        macOSVersion: '11.7.10',
-        platformKey: 'darwin-arm64',
+        hardwareArch: 'aarch64',
+        macOSVersion: '12.7.6',
+        platformKey: 'darwin-arm64-legacy',
         wrapperName,
         wrapperPath,
       })
 
       expect(result.status).toBe(1)
+      expect(result.stderr).toContain('Hardware: arm64')
       expect(result.stderr).toContain(
-        'Openbuff on Apple Silicon requires macOS 13 or newer',
+        `Target:   darwin-arm64-legacy (${getWrapperBinaryName(wrapperName)}-darwin-arm64-legacy.tar.gz)`,
       )
+    },
+  )
+
+  test.each(wrappers)(
+    '%s selects the legacy Apple Silicon binary on macOS 11',
+    (wrapperName, wrapperPath) => {
+      const result = runWrapperWithMockPlatform({
+        arch: 'arm64',
+        hardwareArch: 'arm64',
+        macOSVersion: '11.7.10',
+        platformKey: 'darwin-arm64-legacy',
+        wrapperName,
+        wrapperPath,
+      })
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).not.toContain('requires macOS 13 or newer')
+      expect(result.stderr).toContain('macOS:    11.7.10')
       expect(result.stderr).toContain(
-        'compatibility build is currently available only for Intel Macs',
+        `Target:   darwin-arm64-legacy (${getWrapperBinaryName(wrapperName)}-darwin-arm64-legacy.tar.gz)`,
       )
-      expect(result.stderr).not.toContain('System info:')
+    },
+  )
+
+  test.each(wrappers)(
+    '%s selects the legacy Apple Silicon binary under Rosetta on macOS 12',
+    (wrapperName, wrapperPath) => {
+      const result = runWrapperWithMockPlatform({
+        arch: 'x64',
+        hardwareArch: 'arm64',
+        macOSVersion: '12.7.6',
+        platformKey: 'darwin-arm64-legacy',
+        wrapperName,
+        wrapperPath,
+      })
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).not.toContain('requires macOS 13 or newer')
+      expect(result.stderr).toContain('Hardware: arm64')
+      expect(result.stderr).toContain(
+        `Target:   darwin-arm64-legacy (${getWrapperBinaryName(wrapperName)}-darwin-arm64-legacy.tar.gz)`,
+      )
     },
   )
 

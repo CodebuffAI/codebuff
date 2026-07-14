@@ -268,28 +268,35 @@ const PLATFORM_TARGETS = {
   'linux-arm64': `${binaryName}-linux-arm64.tar.gz`,
   'darwin-x64': `${binaryName}-darwin-x64.tar.gz`,
   'darwin-x64-legacy': `${binaryName}-darwin-x64-legacy.tar.gz`,
+  'darwin-arm64-legacy': `${binaryName}-darwin-arm64-legacy.tar.gz`,
   'darwin-arm64': `${binaryName}-darwin-arm64.tar.gz`,
   'win32-x64': `${binaryName}-win32-x64.tar.gz`,
 }
 
+function normalizeHardwareArch(arch) {
+  if (arch === 'x86_64') return 'x64'
+  if (arch === 'aarch64') return 'arm64'
+  return arch
+}
+
 function getHardwareArch() {
   if (process.env.OPENBUFF_TEST_HARDWARE_ARCH) {
-    return process.env.OPENBUFF_TEST_HARDWARE_ARCH
+    return normalizeHardwareArch(process.env.OPENBUFF_TEST_HARDWARE_ARCH)
   }
 
   if (process.platform !== 'darwin') {
-    return process.arch
+    return normalizeHardwareArch(process.arch)
   }
 
   try {
-    return (
+    return normalizeHardwareArch(
       execFileSync('uname', ['-m'], {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
-      }).trim() || process.arch
+      }).trim() || process.arch,
     )
-  } catch (error) {
-    return process.arch
+  } catch {
+    return normalizeHardwareArch(process.arch)
   }
 }
 
@@ -321,13 +328,16 @@ function assertSupportedPlatform() {
     console.error('')
     process.exit(1)
   }
-  if (getHardwareArch() === 'x64' && process.arch === 'x64') return
+  const hardwareArch = getHardwareArch()
+  if (
+    (hardwareArch === 'x64' && process.arch === 'x64') ||
+    (hardwareArch === 'arm64' && ['x64', 'arm64'].includes(process.arch))
+  ) {
+    return
+  }
 
   console.error(
-    `❌ Openbuff on Apple Silicon requires macOS ${MIN_SUPPORTED_MACOS_MAJOR} or newer; this Mac is running macOS ${version}.`,
-  )
-  console.error(
-    'The macOS 11/12 compatibility build is currently available only for Intel Macs.',
+    `❌ Openbuff does not have a compatible macOS ${major} binary for architecture ${hardwareArch}/${process.arch}.`,
   )
   console.error('Upgrade macOS, then reinstall or run openbuff again.')
   console.error('')
@@ -340,11 +350,13 @@ function getPlatformKey() {
     if (
       Number.isFinite(major) &&
       major >= MIN_LEGACY_MACOS_MAJOR &&
-      major < MIN_SUPPORTED_MACOS_MAJOR &&
-      process.arch === 'x64' &&
-      getHardwareArch() === 'x64'
+      major < MIN_SUPPORTED_MACOS_MAJOR
     ) {
-      return 'darwin-x64-legacy'
+      const hardwareArch = getHardwareArch()
+      if (hardwareArch === 'arm64') return 'darwin-arm64-legacy'
+      if (process.arch === 'x64' && hardwareArch === 'x64') {
+        return 'darwin-x64-legacy'
+      }
     }
   }
 
@@ -826,7 +838,9 @@ async function ensureBinaryExists() {
       ? packagedVersion
       : null
   const requestedVersion =
-    pendingVersion || packagedUpdate || (assetProblems.length ? currentVersion : null)
+    pendingVersion ||
+    packagedUpdate ||
+    (assetProblems.length ? currentVersion : null)
 
   if (currentVersion !== null && !requestedVersion) {
     return

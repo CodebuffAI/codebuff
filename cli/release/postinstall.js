@@ -14,9 +14,13 @@ console.log('  $ openbuff')
 console.log('\n')
 console.log('Requirements:')
 console.log('  macOS Intel: version 11 or newer')
-console.log('  macOS Apple Silicon: version 13 or newer')
-console.log('  Windows: Git for Windows (Git Bash) or WSL is required for terminal tools')
-console.log('           Override with OPENBUFF_GIT_BASH_PATH when bash.exe is elsewhere')
+console.log('  macOS Apple Silicon: version 11 or newer')
+console.log(
+  '  Windows: Git for Windows (Git Bash) or WSL is required for terminal tools',
+)
+console.log(
+  '           Override with OPENBUFF_GIT_BASH_PATH when bash.exe is elsewhere',
+)
 console.log('\n')
 console.log('If your shell says "command not found":')
 console.log(

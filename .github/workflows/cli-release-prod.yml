@@ -184,6 +184,7 @@ jobs:
             - `openbuff-linux-arm64.tar.gz` - Linux ARM64
             - `openbuff-darwin-x64.tar.gz` - macOS 13+ Intel
             - `openbuff-darwin-x64-legacy.tar.gz` - macOS 11–12 Intel
+            - `openbuff-darwin-arm64-legacy.tar.gz` - macOS 11–12 Apple Silicon
             - `openbuff-darwin-arm64.tar.gz` - macOS 13+ Apple Silicon
             - `openbuff-win32-x64.tar.gz` - Windows x64
           files: |

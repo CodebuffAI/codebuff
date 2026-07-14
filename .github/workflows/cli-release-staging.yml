@@ -229,6 +229,7 @@ jobs:
             - `codecane-linux-arm64.tar.gz`
             - `codecane-darwin-x64.tar.gz` - macOS 13+ Intel
             - `codecane-darwin-x64-legacy.tar.gz` - macOS 11–12 Intel
+            - `codecane-darwin-arm64-legacy.tar.gz` - macOS 11–12 Apple Silicon
             - `codecane-darwin-arm64.tar.gz` - macOS 13+ Apple Silicon
             - `codecane-win32-x64.tar.gz`
 

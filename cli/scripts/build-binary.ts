@@ -185,7 +185,7 @@ async function main() {
     [
       'process.env.CODEBUFF_CLI_TARGET',
       IS_LEGACY_MACOS_BUILD
-        ? '"darwin-x64-legacy"'
+        ? `"darwin-${targetInfo.arch}-legacy"`
         : `"${targetInfo.platform}-${targetInfo.arch}"`,
     ],
     ...nextPublicEnvVars,
@@ -278,8 +278,13 @@ async function main() {
 }
 
 function assertLegacyMacOSBuildConfig(targetInfo: TargetInfo) {
-  if (targetInfo.platform !== 'darwin' || targetInfo.arch !== 'x64') {
-    throw new Error('The legacy macOS build is supported only for darwin-x64')
+  if (
+    targetInfo.platform !== 'darwin' ||
+    !['x64', 'arm64'].includes(targetInfo.arch)
+  ) {
+    throw new Error(
+      'The legacy macOS build is supported only for darwin-x64 and darwin-arm64',
+    )
   }
   if (!LEGACY_OPENTUI_LIB || !existsSync(LEGACY_OPENTUI_LIB)) {
     throw new Error(
