@@ -27,16 +27,32 @@ import type { CostMode } from './model-config'
 export const FREE_COST_MODE = 'free' as const
 
 /**
- * The single root agent Freebuff Desktop's hosted (codebuff) harness runs every
+ * The root agent family Freebuff Desktop's hosted (codebuff) harness runs every
  * thread turn under (see freebuff-desktop thread-agent.ts). Unlike the CLI — which
- * has one root id per model (`base2-free-<model>`) — the desktop uses ONE root id
- * for ALL its models, picking the model per tab. It's a first-party free-mode root
- * just like `base2-free*`, so it's listed in FREEBUFF_ROOT_AGENT_IDS below; its
- * allowed models are the full desktop picker set (see FREE_MODE_AGENT_MODELS). It
- * carries the "You are Buffy" CLI marker in its system prompt so it passes
- * requestHasFreebuffSystemMarker.
+ * has one root id per model (`base2-free-<model>`) — the desktop root ids support
+ * every picker model and vary only by execution mode. They are first-party
+ * free-mode roots just like `base2-free*`, so they are listed in
+ * FREEBUFF_ROOT_AGENT_IDS below and carry the "You are Buffy" CLI marker in their
+ * system prompts so they pass requestHasFreebuffSystemMarker.
  */
 export const FREEBUFF_DESKTOP_THREAD_AGENT_ID = 'freebuff-desktop-thread'
+
+export function getFreebuffDesktopThreadAgentId(
+  executionMode: 'local' | 'worktree',
+): string {
+  return `${FREEBUFF_DESKTOP_THREAD_AGENT_ID}-${executionMode}`
+}
+
+/**
+ * Desktop originally shipped with the unsuffixed root id. Local/worktree
+ * execution modes use distinct ids for trace and cache identity, while the
+ * unsuffixed id remains accepted for older Desktop clients.
+ */
+export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
+  FREEBUFF_DESKTOP_THREAD_AGENT_ID,
+  getFreebuffDesktopThreadAgentId('local'),
+  getFreebuffDesktopThreadAgentId('worktree'),
+] as const
 
 /**
  * Root-orchestrator agent IDs counted as "a freebuff session" for abuse
@@ -60,7 +76,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // (2026-07-09 incident: trial runs failed at spawn_agent_inline).
   'base2-free-hy3',
   'base2-free-hy3-atlas',
-  FREEBUFF_DESKTOP_THREAD_AGENT_ID,
+  ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
@@ -85,6 +101,16 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
 }
+
+const FREEBUFF_DESKTOP_MODELS = new Set([
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_ID,
+])
 
 export function getFreebuffRootAgentIdForModel(model: string): string {
   return FREEBUFF_ROOT_AGENT_ID_BY_MODEL[model] ?? 'base2-free'
@@ -118,21 +144,14 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
   'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_ATLAS_MODEL_ID]),
 
-  // Freebuff Desktop's single hosted root agent — one root id across all its
-  // models (the user picks the model per tab), so it allows the full desktop
-  // picker set. Concurrency is still bounded elsewhere: the free-session
-  // admission gate caps premium-bucket models (incl. MiniMax M3) to one active
+  // Every Freebuff Desktop hosted root variant allows the full desktop picker
+  // set (the user picks the model per tab). The free-session admission gate still
+  // caps premium-bucket models (incl. MiniMax M3) to one active
   // session per user (premium_slot_taken), so "one premium model at a time" in
   // full access holds regardless of this allowlist.
-  [FREEBUFF_DESKTOP_THREAD_AGENT_ID]: new Set([
-    FREEBUFF_MINIMAX_M3_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_KIMI_MODEL_ID,
-    FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    FREEBUFF_MIMO_V25_MODEL_ID,
-    FREEBUFF_GLM_V52_MODEL_ID,
-  ]),
+  [FREEBUFF_DESKTOP_THREAD_AGENT_ID]: FREEBUFF_DESKTOP_MODELS,
+  [getFreebuffDesktopThreadAgentId('local')]: FREEBUFF_DESKTOP_MODELS,
+  [getFreebuffDesktopThreadAgentId('worktree')]: FREEBUFF_DESKTOP_MODELS,
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
