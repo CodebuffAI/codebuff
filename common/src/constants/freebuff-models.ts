@@ -133,7 +133,7 @@ export const FREEBUFF_STREAK_REWARDS_ENABLED = true
  *  the perk be wound down independently of the premium/limited bonus (and of
  *  the separate referral-driven GLM program). */
 export const FREEBUFF_STREAK_GLM_BONUS_ENABLED = true
-/** Session-units granted per streak-reward grant, per pool. One whole session. */
+/** Session units added to an eligible streak-reward pool. One whole session. */
 export const FREEBUFF_STREAK_BONUS_SESSION_UNITS = 1
 
 /** Which session pool a streak bonus credit applies to. `premium` and `limited`
