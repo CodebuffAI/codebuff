@@ -93,6 +93,29 @@ function createQueryClient(): QueryClient {
 }
 
 async function main(): Promise<void> {
+  // CI/release gate: prove that the packaged OpenTUI native library can be
+  // resolved and can create a renderer without depending on terminal output.
+  // Full-screen rendering is not deterministic when stdout is a pipe (notably
+  // on legacy Intel macOS), so the release smoke test uses this explicit probe
+  // for the native FFI boundary and tests full TUI rendering separately where
+  // the platform supports it reliably.
+  if (process.argv.includes('--smoke-opentui')) {
+    try {
+      const renderer = await createCliRenderer({
+        exitSignals: [],
+        testing: true,
+        useThread: process.platform !== 'linux',
+      })
+      renderer.destroy()
+      // Marker consumed by cli/scripts/smoke-binary.ts. Keep exact text.
+      console.log('opentui smoke ok')
+      process.exit(0)
+    } catch (err) {
+      console.error('opentui smoke FAIL:', err)
+      process.exit(1)
+    }
+  }
+
   // CI gate: `<binary> --smoke-tree-sitter` proves the embedded wasm boots
   // through Parser.init end-to-end. Has to live BEFORE commander.parse() —
   // an earlier attempt put this in a pre-init module with top-level await,

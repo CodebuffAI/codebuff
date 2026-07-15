@@ -655,6 +655,14 @@ describe('release wrapper update safety', () => {
       path.join(repoRoot, 'cli/scripts/build-binary.ts'),
       'utf8',
     )
+    const cliEntry = readFileSync(
+      path.join(repoRoot, 'cli/src/index.tsx'),
+      'utf8',
+    )
+    const smokeScript = readFileSync(
+      path.join(repoRoot, 'cli/scripts/smoke-binary.ts'),
+      'utf8',
+    )
     const releaseWorkflow = readFileSync(
       path.join(repoRoot, '.github/workflows/cli-release-build.yml'),
       'utf8',
@@ -668,6 +676,11 @@ describe('release wrapper update safety', () => {
       'SMOKE_SCRIPT="$PWD/cli/scripts/smoke-binary.ts"',
     )
     expect(releaseWorkflow).toContain('bun "$SMOKE_SCRIPT" "$BIN"')
+    expect(releaseWorkflow).toContain('bun "$SMOKE_SCRIPT" "$BIN" --probe-only')
+    expect(cliEntry).toContain("process.argv.includes('--smoke-opentui')")
+    expect(cliEntry).toContain("console.log('opentui smoke ok')")
+    expect(smokeScript).toContain("'--smoke-opentui'")
+    expect(smokeScript).toContain('signal ${signal}')
   })
 
   test.each([

@@ -302,7 +302,14 @@ jobs:
           # Slow path: keep the binary alive long enough for *async* startup
           # failures (e.g. the Parser.init rejection that crashed the
           # post-OpenTUI-upgrade Windows build) to surface in stdout/stderr.
-          bun "$SMOKE_SCRIPT" "$BIN"
+          if [[ "${{ matrix.legacy_macos == true }}" == "true" ]]; then
+            # Piped full-screen output is not deterministic on legacy Intel
+            # macOS. The explicit probes still load and invoke both packaged
+            # tree-sitter and OpenTUI native dependencies.
+            bun "$SMOKE_SCRIPT" "$BIN" --probe-only
+          else
+            bun "$SMOKE_SCRIPT" "$BIN"
+          fi
 
       - name: Set up QEMU for Linux ARM64 smoke
         if: matrix.smoke_test == 'emulated'
