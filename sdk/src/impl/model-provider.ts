@@ -10,6 +10,7 @@ import path from 'path'
 
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { isFreeMode } from '@codebuff/common/constants/free-agents'
+import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
 import {
   CHATGPT_BACKEND_BASE_URL,
   CHATGPT_OAUTH_ENABLED,
@@ -82,6 +83,8 @@ export interface ModelRequestParams {
   apiKey: string
   /** Model ID (OpenRouter format, e.g., "anthropic/claude-sonnet-4") */
   model: string
+  /** End user represented by a trusted service-account request. */
+  userId?: string
   /** If true, skip ChatGPT OAuth and use Codebuff backend (for fallback after rate limit) */
   skipChatGptOAuth?: boolean
   /** Cost mode (e.g. 'free') — affects fallback behavior for OAuth routes */
@@ -117,7 +120,7 @@ type OpenRouterUsageAccounting = {
 export async function getModelForRequest(
   params: ModelRequestParams,
 ): Promise<ModelResult> {
-  const { apiKey, model, skipChatGptOAuth, costMode } = params
+  const { apiKey, model, userId, skipChatGptOAuth, costMode } = params
 
   // Check if we should use ChatGPT OAuth direct
   // Only attempt for allowlisted models; non-allowlisted models silently fall through to backend.
@@ -159,7 +162,7 @@ export async function getModelForRequest(
 
   // Default: use Codebuff backend
   return {
-    model: createCodebuffBackendModel(apiKey, model),
+    model: createCodebuffBackendModel(apiKey, model, userId),
     isChatGptOAuth: false,
   }
 }
@@ -235,6 +238,7 @@ function fetchWithRetryableNetworkErrors(
 function createCodebuffBackendModel(
   apiKey: string,
   model: string,
+  userId?: string,
 ): LanguageModel {
   const openrouterUsage: OpenRouterUsageAccounting = {
     cost: null,
@@ -252,6 +256,7 @@ function createCodebuffBackendModel(
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
+      ...(userId ? { [FREEBUFF_ACTING_USER_HEADER]: userId } : {}),
       ...(openrouterApiKey && { [BYOK_OPENROUTER_HEADER]: openrouterApiKey }),
     }),
     metadataExtractor: {

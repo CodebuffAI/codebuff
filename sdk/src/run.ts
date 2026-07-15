@@ -159,6 +159,9 @@ export type MessageContent = TextContent | ImageContent
 export type RunOptions = {
   agent: string | AgentDefinition
   prompt: string
+  /** End user represented by this run. Trusted service accounts may use this
+   *  to run on behalf of a signed-in user; ordinary API keys cannot delegate. */
+  userId?: string
   /** Content array for multimodal messages (text + images) */
   content?: MessageContent[]
   params?: Record<string, any>
@@ -297,6 +300,7 @@ async function runOnce({
 
   agent,
   prompt,
+  userId: requestedUserId,
   content,
   params,
   previousRun,
@@ -619,7 +623,8 @@ async function runOnce({
   if (!userInfo) {
     return getCancelledRunState('Invalid API key or user not found')
   }
-  const userId = userInfo.id
+  const authenticatedUserId = userInfo.id
+  const userId = requestedUserId ?? authenticatedUserId
 
   if (signal?.aborted) {
     return getCancelledRunState('Run cancelled by user.')

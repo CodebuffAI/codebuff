@@ -1,3 +1,4 @@
+import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
 import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { getErrorObject } from '@codebuff/common/util/error'
@@ -303,7 +304,7 @@ export async function fetchAgentFromDatabase(
 export async function startAgentRun(
   params: ParamsOf<StartAgentRunFn>,
 ): ReturnType<StartAgentRunFn> {
-  const { apiKey, agentId, ancestorRunIds, logger } = params
+  const { apiKey, userId, agentId, ancestorRunIds, logger } = params
 
   const url = new URL(`/api/v1/agent-runs`, getWebsiteUrl())
 
@@ -314,6 +315,7 @@ export async function startAgentRun(
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
+          ...(userId ? { [FREEBUFF_ACTING_USER_HEADER]: userId } : {}),
         },
         body: JSON.stringify({
           action: 'START',
@@ -351,6 +353,7 @@ export async function finishAgentRun(
 ): ReturnType<FinishAgentRunFn> {
   const {
     apiKey,
+    userId,
     runId,
     status,
     totalSteps,
@@ -369,6 +372,7 @@ export async function finishAgentRun(
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
+          ...(userId ? { [FREEBUFF_ACTING_USER_HEADER]: userId } : {}),
         },
         body: JSON.stringify({
           action: 'FINISH',
@@ -404,6 +408,7 @@ export async function addAgentStep(
 ): ReturnType<AddAgentStepFn> {
   const {
     apiKey,
+    userId,
     agentRunId,
     stepNumber,
     credits,
@@ -424,6 +429,7 @@ export async function addAgentStep(
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
+          ...(userId ? { [FREEBUFF_ACTING_USER_HEADER]: userId } : {}),
         },
         body: JSON.stringify({
           stepNumber,

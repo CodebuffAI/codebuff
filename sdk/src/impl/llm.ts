@@ -315,6 +315,7 @@ export async function* promptAiSdkStream(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
+    userId: params.userId,
     skipChatGptOAuth: params.skipChatGptOAuth,
     costMode: params.costMode,
   }
@@ -736,6 +737,7 @@ export async function promptAiSdk(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
+    userId: params.userId,
     skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)
@@ -803,6 +805,7 @@ export async function promptAiSdkStructured<T>(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
+    userId: params.userId,
     skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)

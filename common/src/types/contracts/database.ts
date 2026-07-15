@@ -33,6 +33,14 @@ export type GetUserInfoFromApiKeyFn = <T extends UserColumn>(
   params: GetUserInfoFromApiKeyInput<T>,
 ) => GetUserInfoFromApiKeyOutput<T>
 
+export type GetUserInfoByIdInput<T extends UserColumn> = {
+  userId: string
+  fields: readonly T[]
+}
+export type GetUserInfoByIdFn = <T extends UserColumn>(
+  params: GetUserInfoByIdInput<T>,
+) => GetUserInfoFromApiKeyOutput<T>
+
 type AgentRun = {
   agent_id: string
   ancestor_run_ids: string[]
