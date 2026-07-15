@@ -23,17 +23,6 @@ function makeEditBlock(
 }
 
 describe('computeCompletionSummary', () => {
-  test('[MUT-H04] proposal previews are never counted as edited files', () => {
-    const summary = computeCompletionSummary([
-      makeEditBlock({
-        toolName: 'propose_str_replace',
-        input: { path: '/a.ts' },
-        outputRaw: [{ type: 'json', value: { unifiedDiff: '@@\n-old\n+new' } }],
-      }),
-    ])
-    expect(summary?.filesEdited ?? 0).toBe(0)
-  })
-
   test('[MUT-M05] unconfirmed canonical mutations are called out in summaries', () => {
     const summary = computeCompletionSummary([
       makeEditBlock({

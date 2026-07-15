@@ -18,7 +18,6 @@ import { SuggestFollowupsComponent } from './suggest-followups'
 import { TaskCompleteComponent } from './task-completed'
 import { WriteFileComponent } from './write-file'
 import { WriteTodosComponent } from './write-todos'
-import { ProposalActionComponents } from './proposal-actions'
 import {
   CheckJobComponent,
   KillJobComponent,
@@ -63,15 +62,8 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [WriteFileComponent.toolName, WriteFileComponent],
   [TaskCompleteComponent.toolName, TaskCompleteComponent],
   ['replace_range', StrReplaceComponent],
-  // Propose tools reuse the same rendering as their base counterparts
-  ['propose_str_replace', StrReplaceComponent],
-  ['propose_write_file', WriteFileComponent],
-  ['propose_edit_transaction', EditTransactionComponent],
   [SkillComponent.toolName, SkillComponent],
   [SpawnAgentsComponent.toolName, SpawnAgentsComponent],
-  ...ProposalActionComponents.map(
-    (component) => [component.toolName, component] as [ToolName, ToolComponent],
-  ),
 ])
 
 /**

@@ -276,12 +276,23 @@ jobs:
         if: matrix.smoke_test != 'emulated'
         shell: bash
         run: |
-          cd cli/bin
+          set -euo pipefail
+          SMOKE_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SMOKE_DIR"' EXIT
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            BIN="./${{ inputs.binary-name }}.exe"
+            BINARY_FILE="${{ inputs.binary-name }}.exe"
           else
-            BIN="./${{ inputs.binary-name }}"
+            BINARY_FILE="${{ inputs.binary-name }}"
           fi
+          cp "cli/bin/$BINARY_FILE" "$SMOKE_DIR/$BINARY_FILE"
+          cp cli/bin/tree-sitter*.wasm "$SMOKE_DIR/"
+          cp cli/bin/tree-sitter-manifest.json "$SMOKE_DIR/"
+          if [[ "${{ matrix.legacy_macos == true }}" == "true" ]]; then
+            cp cli/bin/libopentui.dylib cli/bin/rg "$SMOKE_DIR/"
+          fi
+          SMOKE_SCRIPT="$PWD/cli/scripts/smoke-binary.ts"
+          cd "$SMOKE_DIR"
+          BIN="$SMOKE_DIR/$BINARY_FILE"
 
           # Fast path: --version exits synchronously through commander, so it
           # only catches early sync failures. Run it for parity with old CI.
@@ -291,7 +302,7 @@ jobs:
           # Slow path: keep the binary alive long enough for *async* startup
           # failures (e.g. the Parser.init rejection that crashed the
           # post-OpenTUI-upgrade Windows build) to surface in stdout/stderr.
-          bun ../scripts/smoke-binary.ts "$BIN"
+          bun "$SMOKE_SCRIPT" "$BIN"
 
       - name: Set up QEMU for Linux ARM64 smoke
         if: matrix.smoke_test == 'emulated'
@@ -455,8 +466,16 @@ jobs:
       - name: Smoke test binary
         shell: bash
         run: |
-          cd cli/bin
-          BIN="./${{ inputs.binary-name }}.exe"
+          set -euo pipefail
+          SMOKE_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SMOKE_DIR"' EXIT
+          BINARY_FILE="${{ inputs.binary-name }}.exe"
+          cp "cli/bin/$BINARY_FILE" "$SMOKE_DIR/$BINARY_FILE"
+          cp cli/bin/tree-sitter*.wasm "$SMOKE_DIR/"
+          cp cli/bin/tree-sitter-manifest.json "$SMOKE_DIR/"
+          SMOKE_SCRIPT="$PWD/cli/scripts/smoke-binary.ts"
+          cd "$SMOKE_DIR"
+          BIN="$SMOKE_DIR/$BINARY_FILE"
 
           # Sync check — exits via commander before async tasks fire.
           VERSION_OUTPUT=$("$BIN" --version | tail -n 1)
@@ -465,7 +484,7 @@ jobs:
           # Long-running check — gives async startup failures time to surface.
           # This is the step that would have caught the post-OpenTUI-upgrade
           # tree-sitter wasm crash on Windows.
-          bun ../scripts/smoke-binary.ts "$BIN"
+          bun "$SMOKE_SCRIPT" "$BIN"
 
       - name: Create tarball
         shell: bash

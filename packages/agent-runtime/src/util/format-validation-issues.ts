@@ -34,7 +34,7 @@ function summarizeToolSpecificValidationIssues(
   toolName: string,
   issues: ValidationIssue[],
 ): string | undefined {
-  if (toolName !== 'str_replace' && toolName !== 'propose_str_replace') {
+  if (toolName !== 'str_replace') {
     return undefined
   }
 

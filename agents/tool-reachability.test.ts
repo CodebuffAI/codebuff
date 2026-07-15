@@ -15,12 +15,30 @@ import { quarantinedToolNames } from '@codebuff/common/tools/constants'
  *
  * read_slices remains registered for compatibility but is not prompt-visible.
  *
- * Every orchestrator mode must expose structural reads. The default
- * orchestrator owns proposals and delegates non-trivial mutation, while fast
- * mode and the direct code editor retain the structural edit tools.
+ * Every orchestrator mode must expose structural reads. Every non-plan
+ * orchestrator also retains the authority-backed direct edit tools so prompt
+ * guidance can never recommend an unavailable recovery path. The obsolete
+ * proposal indirection is absent from every bundled orchestrator mode.
  */
 const STRUCTURAL_READ_TOOLS = ['read_outline'] as const
-const STRUCTURAL_EDIT_TOOLS = ['rewrite_symbol'] as const
+const DIRECT_EDIT_TOOLS = [
+  'str_replace',
+  'write_file',
+  'apply_patch',
+  'replace_range',
+  'rewrite_symbol',
+  'edit_transaction',
+] as const
+const PROPOSAL_TOOLS = [
+  'read_proposal_workspace',
+  'read_proposals',
+  'propose_str_replace',
+  'propose_write_file',
+  'propose_edit_transaction',
+  'accept_proposal',
+  'reject_proposal',
+  'apply_proposal',
+] as const
 const HARNESS_STATE_TOOLS = ['git_status'] as const
 
 describe('agent tool reachability', () => {
@@ -32,38 +50,12 @@ describe('agent tool reachability', () => {
       for (const tool of STRUCTURAL_READ_TOOLS) {
         expect(tools).toContain(tool)
       }
-      // Core reads and brokered proposal tools must remain reachable.
-      for (const tool of [
-        'read_files',
-        'read_proposal_workspace',
-        'read_proposals',
-        'propose_str_replace',
-        'propose_write_file',
-        'propose_edit_transaction',
-        'accept_proposal',
-        'reject_proposal',
-        'apply_proposal',
-      ] as const) {
+      expect(tools).toContain('read_files')
+      for (const tool of DIRECT_EDIT_TOOLS) {
         expect(tools).toContain(tool)
       }
-      if (mode === 'fast') {
-        for (const tool of [
-          ...STRUCTURAL_EDIT_TOOLS,
-          'str_replace',
-          'write_file',
-          'apply_patch',
-        ] as const) {
-          expect(tools).toContain(tool)
-        }
-      } else {
-        for (const tool of [
-          ...STRUCTURAL_EDIT_TOOLS,
-          'str_replace',
-          'write_file',
-          'apply_patch',
-        ] as const) {
-          expect(tools).not.toContain(tool)
-        }
+      for (const tool of PROPOSAL_TOOLS) {
+        expect(tools).not.toContain(tool)
       }
       for (const tool of HARNESS_STATE_TOOLS) {
         expect(programmaticTools).toContain(tool)
@@ -71,9 +63,26 @@ describe('agent tool reachability', () => {
     })
   }
 
+  test('execute-plan exposes direct execution without proposal indirection', () => {
+    const tools = createBase2('default', { executePlan: true }).toolNames ?? []
+    for (const tool of DIRECT_EDIT_TOOLS) expect(tools).toContain(tool)
+    expect(tools).toContain('run_terminal_command')
+    expect(tools).toContain('run_targeted_validation')
+    expect(tools).toContain('get_change_review_bundle')
+    for (const tool of PROPOSAL_TOOLS) expect(tools).not.toContain(tool)
+  })
+
+  test('plan-only excludes project execution and proposal actions', () => {
+    const tools = createBase2('default', { planOnly: true }).toolNames ?? []
+    for (const tool of DIRECT_EDIT_TOOLS) expect(tools).not.toContain(tool)
+    expect(tools).not.toContain('run_terminal_command')
+    expect(tools).not.toContain('run_targeted_validation')
+    for (const tool of PROPOSAL_TOOLS) expect(tools).not.toContain(tool)
+  })
+
   test('code editor exposes structural edit + read tools', () => {
     const tools = createCodeEditor({ model: 'opus' }).toolNames ?? []
-    for (const tool of [...STRUCTURAL_READ_TOOLS, ...STRUCTURAL_EDIT_TOOLS]) {
+    for (const tool of [...STRUCTURAL_READ_TOOLS, 'rewrite_symbol'] as const) {
       expect(tools).toContain(tool)
     }
   })

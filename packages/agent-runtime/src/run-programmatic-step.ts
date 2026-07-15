@@ -6,12 +6,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 
-import {
-  clearAllProposalLedgers,
-  clearProposalLedgerForRun,
-  getProposalLedger,
-} from './tools/handlers/tool/proposal-ledger-store'
-import { clearProposedContentForRun } from './tools/handlers/tool/proposed-content-store'
 import { executeToolCall } from './tools/tool-executor'
 import { parseTextWithToolCalls } from './util/parse-tool-calls-from-text'
 import { getEffectiveAgentToolNames } from './util/agent-tool-names'
@@ -116,20 +110,12 @@ const agentRunContextRegistry = new AgentRunContextRegistry()
 
 // Function to clear the generator cache for testing purposes
 export function clearAgentGeneratorCache(params: { logger: Logger }) {
-  // Drop every run's generator/latch/owner state. Proposed-content and
-  // proposal-ledger stores are self-clearing (they expose clearAllProposalLedgers
-  // and track their own run keys), so we do not need to iterate the registry's
-  // private keys here. Standalone runProgrammaticStep tests do not execute
-  // loopAgentSteps' outer finally, which owns proposal-ledger teardown after
-  // snapshotting; clearAllProposalLedgers here ensures those direct tests
-  // cannot leak run-scoped proposal state.
-  clearAllProposalLedgers()
   agentRunContextRegistry.clearAll()
 }
 
 /**
  * Clear all in-memory programmatic-step state for a single run: the cached
- * generator, the STEP_ALL latch, and any proposed file content.
+ * generator, STEP_ALL latch, and owner identity.
  *
  * `runProgrammaticStep` only tears down this state in its own `finally` when
  * the turn ends. But when a generator yields 'STEP'/'STEP_ALL' it is
@@ -142,8 +128,6 @@ export function clearAgentGeneratorCache(params: { logger: Logger }) {
  */
 export function clearAgentGeneratorForRun(runId: string): void {
   agentRunContextRegistry.clearRun(runId)
-  clearProposedContentForRun(runId)
-  clearProposalLedgerForRun(runId)
 }
 
 // Safety bound on how many tool calls a single handleSteps invocation may
@@ -646,16 +630,6 @@ export async function runProgrammaticStep(
 
     if (endTurn) {
       agentRunContextRegistry.clearRun(agentState.runId)
-      clearProposedContentForRun(agentState.runId)
-      // NOTE: Do NOT clear the proposal ledger here. This inner finally runs on
-      // the endTurn step *during* loopAgentSteps' loop, i.e. before that outer
-      // run snapshots the ledger for subagent proposal recovery. Clearing it
-      // here emptied the ledger before the snapshot, which is exactly the
-      // "diffs generated, then proposal shows no changes" bug: the child
-      // completed, the transient diff tool-result was shown, but the
-      // recoverable artifacts were already gone. loopAgentSteps' outer finally
-      // is the single owner of ledger teardown (via clearAgentGeneratorForRun)
-      // and snapshots it first, so the artifacts survive across the boundary.
     }
   }
 }
@@ -682,10 +656,6 @@ export const getPublicAgentState = (
     systemPrompt,
     toolDefinitions,
     contextTokenCount,
-    // Surface the deterministic proposal ledger so programmatic agents (the
-    // best-of-N implementor) finalize their bundle from recorded artifacts
-    // instead of scanning mutable message history.
-    proposalLedger: getProposalLedger(runId),
   }
 }
 

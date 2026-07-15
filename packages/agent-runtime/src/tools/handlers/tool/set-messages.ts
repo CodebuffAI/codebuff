@@ -1,5 +1,3 @@
-import { startNewProposalAttempt } from './proposal-ledger-store'
-import { clearProposedContentForRun } from './proposed-content-store'
 import { commitTaskMemory } from '../../../util/task-memory'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -31,22 +29,6 @@ export const handleSetMessages = (async (params: {
   const nextMessages = toolCall.input.messages
   agentState.messageHistory = nextMessages
   agentState.taskMemory = nextTaskMemory
-
-  // On a proposal retry, clear the proposed content cache so the model re-emits
-  // a clean bundle from disk, and start a new proposal-ledger attempt so the
-  // failed attempt's artifacts can never leak into the corrected one.
-  const lastMessage = nextMessages.at(-1)
-  if (
-    lastMessage &&
-    typeof lastMessage === 'object' &&
-    'tags' in lastMessage &&
-    Array.isArray(lastMessage.tags) &&
-    lastMessage.tags.includes('PROPOSAL_RETRY') &&
-    agentState.runId
-  ) {
-    clearProposedContentForRun(agentState.runId)
-    startNewProposalAttempt(agentState.runId)
-  }
 
   return { output: [{ type: 'json', value: { message: 'Messages set.' } }] }
 }) satisfies CodebuffToolHandlerFunction<'set_messages'>

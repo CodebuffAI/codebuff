@@ -860,12 +860,14 @@ describe('getFiles', () => {
         status: 'ok',
         startLine: 1,
         endLine: 1,
+        sourceContent: 'line 1',
       })
       expect(result.results[3]).toMatchObject({
         selector: 'range',
         status: 'ok',
         startLine: 3,
         endLine: 3,
+        sourceContent: 'line 3',
       })
     })
 

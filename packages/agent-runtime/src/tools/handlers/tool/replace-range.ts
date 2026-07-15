@@ -1,6 +1,7 @@
 import {
   formatUnsafeToolPathError,
   grantWholeFileReadAuthorization,
+  hasWholeFileReadAuthorization,
   isWholeFileReadAuthorizationFresh,
   normalizeToolPath,
   revokeWholeFileReadAuthorization,
@@ -80,9 +81,9 @@ export const handleReplaceRange = (async (params) => {
     typeof requestOptionalFile === 'function'
       ? await requestOptionalFile({ ...params, filePath: path })
       : null
-  const hadStoredWholeFileAuthorization = Boolean(
-    fileProcessingState.readAuthorizationsByPath?.[path] ||
-    fileProcessingState.readAuthorizationHashesByPath?.[path],
+  const hadStoredWholeFileAuthorization = hasWholeFileReadAuthorization(
+    fileProcessingState,
+    path,
   )
   const hadFreshWholeFileAuthorization =
     typeof currentContent === 'string' &&

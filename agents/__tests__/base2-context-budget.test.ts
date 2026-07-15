@@ -25,25 +25,31 @@ function buildRepresentativeSkills(count: number): SkillsMap {
 }
 
 describe('base2 provider-facing context budget', () => {
-  test('keeps the stable root tool surface below 25k estimated tokens', async () => {
-    const base2 = createBase2('default')
-    const tools = await getToolSet({
-      toolNames: base2.toolNames ?? [],
-      additionalToolDefinitions: async () => ({}),
-      agentTools: {},
-      skills: buildRepresentativeSkills(40),
-    })
-    const tokenShape = Object.entries(tools).map(([name, tool]) => {
-      const inputSchema = (tool as { inputSchema?: unknown }).inputSchema
-      return {
-        name,
-        ...(tool.description && { description: tool.description }),
-        ...(inputSchema ? { input_schema: inputSchema } : {}),
-      }
-    })
+  test.each([
+    ['default', {}],
+    ['execute-plan', { executePlan: true }],
+  ] as const)(
+    'keeps the %s root tool surface below 25k estimated tokens',
+    async (_name, options) => {
+      const base2 = createBase2('default', options)
+      const tools = await getToolSet({
+        toolNames: base2.toolNames ?? [],
+        additionalToolDefinitions: async () => ({}),
+        agentTools: {},
+        skills: buildRepresentativeSkills(40),
+      })
+      const tokenShape = Object.entries(tools).map(([name, tool]) => {
+        const inputSchema = (tool as { inputSchema?: unknown }).inputSchema
+        return {
+          name,
+          ...(tool.description && { description: tool.description }),
+          ...(inputSchema ? { input_schema: inputSchema } : {}),
+        }
+      })
 
-    expect(base2.spawnableAgentToolMode).toBe('generic')
-    expect(Object.keys(tools)).toHaveLength(base2.toolNames?.length ?? 0)
-    expect(countTokensJson(tokenShape)).toBeLessThan(25_000)
-  })
+      expect(base2.spawnableAgentToolMode).toBe('generic')
+      expect(Object.keys(tools)).toHaveLength(base2.toolNames?.length ?? 0)
+      expect(countTokensJson(tokenShape)).toBeLessThan(25_000)
+    },
+  )
 })

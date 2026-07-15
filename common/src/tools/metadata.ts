@@ -1,17 +1,8 @@
 import { quarantinedToolNames, toolNames, type ToolName } from './constants'
 
-export type ToolBehaviorKind =
-  | 'read'
-  | 'mutation'
-  | 'proposal'
-  | 'control'
-  | 'other'
+export type ToolBehaviorKind = 'read' | 'mutation' | 'control' | 'other'
 export type ToolSchedulingScope = 'read_only' | 'named_path' | 'global'
-export type ToolResultContract =
-  | 'legacy_v0'
-  | 'read_v1'
-  | 'mutation_v1'
-  | 'proposal_v1'
+export type ToolResultContract = 'legacy_v0' | 'read_v1' | 'mutation_v1'
 export type ToolRendererIntent = 'custom' | 'fallback' | 'hidden'
 export type ToolReachability = 'active' | 'quarantined' | 'internal'
 
@@ -68,20 +59,6 @@ const EFFECTFUL_VALIDATION_TOOLS = new Set<ToolName>([
   'run_file_change_hooks',
   'run_targeted_validation',
 ])
-const PROPOSAL_TOOLS = new Set<ToolName>([
-  'accept_proposal',
-  'apply_proposal',
-  'propose_edit_transaction',
-  'propose_str_replace',
-  'propose_write_file',
-  'read_proposal_workspace',
-  'read_proposals',
-  'reject_proposal',
-])
-const READ_ONLY_PROPOSAL_TOOLS = new Set<ToolName>([
-  'read_proposal_workspace',
-  'read_proposals',
-])
 const HIDDEN_TOOLS = new Set<ToolName>([
   'add_message',
   'add_subgoal',
@@ -99,10 +76,6 @@ const CUSTOM_RENDERERS = new Set<ToolName>([
   'query_index',
   'read_files',
   'read_subtree',
-  'read_proposals',
-  'accept_proposal',
-  'reject_proposal',
-  'apply_proposal',
   'run_file_change_hooks',
   'run_terminal_command',
   'skill',
@@ -125,12 +98,8 @@ const PATH_INPUTS: Partial<Record<ToolName, readonly string[]>> = {
   apply_smart_patch: ['path'],
   create_plan: ['path'],
   edit_transaction: ['edits[].path'],
-  propose_edit_transaction: ['edits[].path'],
-  propose_str_replace: ['path'],
-  propose_write_file: ['path'],
   read_files: ['paths[]', 'ranges[].path', 'symbols[].path'],
   read_outline: ['path'],
-  read_proposal_workspace: ['paths[]'],
   read_slices: ['path'],
   read_subtree: ['paths[]'],
   replace_range: ['path'],
@@ -150,11 +119,9 @@ function metadataFor(toolName: ToolName): ToolMetadata {
       ? 'other'
       : MUTATION_TOOLS.has(toolName)
         ? 'mutation'
-        : PROPOSAL_TOOLS.has(toolName)
-          ? 'proposal'
-          : HIDDEN_TOOLS.has(toolName)
-            ? 'control'
-            : 'other'
+        : HIDDEN_TOOLS.has(toolName)
+          ? 'control'
+          : 'other'
   const reachability: ToolReachability = quarantined.has(toolName)
     ? 'quarantined'
     : HIDDEN_TOOLS.has(toolName)
@@ -164,7 +131,7 @@ function metadataFor(toolName: ToolName): ToolMetadata {
   return {
     kind,
     scheduling:
-      kind === 'read' || READ_ONLY_PROPOSAL_TOOLS.has(toolName)
+      kind === 'read'
         ? 'read_only'
         : NAMED_PATH_TOOLS.has(toolName)
           ? 'named_path'
@@ -177,16 +144,13 @@ function metadataFor(toolName: ToolName): ToolMetadata {
           ? legacyMutationTools.has(toolName)
             ? 'legacy_v0'
             : 'mutation_v1'
-          : kind === 'proposal'
-            ? 'proposal_v1'
-            : 'legacy_v0',
+          : 'legacy_v0',
     renderer: HIDDEN_TOOLS.has(toolName)
       ? 'hidden'
       : CUSTOM_RENDERERS.has(toolName)
         ? 'custom'
         : 'fallback',
-    includeInMutationSummary:
-      kind === 'mutation' || toolName === 'apply_proposal',
+    includeInMutationSummary: kind === 'mutation',
     reachability,
     promptVisible: reachability === 'active',
     deprecated: toolName === 'read_slices',

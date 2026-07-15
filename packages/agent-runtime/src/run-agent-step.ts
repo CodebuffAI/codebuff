@@ -26,7 +26,6 @@ import {
   clearAgentGeneratorForRun,
   runProgrammaticStep,
 } from './run-programmatic-step'
-import { getProposalRecords } from './tools/handlers/tool/proposal-ledger-store'
 import {
   appendOrchestrationEvent,
   reconcileInterruptedLedgerSpawns,
@@ -71,6 +70,7 @@ import {
   getSemanticCompactionBudget,
   maybePruneContext,
 } from './util/context-pruning'
+import { revokeImplicitReadAuthorizationsAfterCompaction } from './util/read-authorization'
 import {
   commitTaskMemory,
   compileTaskMemoryContext,
@@ -152,7 +152,7 @@ function canReuseParentTools(params: {
   // Only reuse the parent's tool schemas when they exactly match the child
   // agent's declared tools. Reusing a superset is unsafe: the model sees tools
   // that the child is not allowed to execute, and `toolChoice: "required"` can
-  // force flaky subagents (notably editor proposals/selectors) onto the wrong
+  // force flaky subagents (notably editors/selectors) onto the wrong
   // tool. Exact-match reuse preserves prompt-cache stability where it is
   // actually valid without degrading scoped subagent tool contracts.
   return (
@@ -1494,6 +1494,7 @@ export async function loopAgentSteps(
           historyTokensAfterProgrammatic < historyTokensBeforeProgrammatic &&
           (exceededSemanticTrigger || hasExplicitMaxContextLength)
         ) {
+          revokeImplicitReadAuthorizationsAfterCompaction(currentAgentState)
           const categoriesAfterProgrammatic = getContextCategoryTelemetry(
             currentAgentState.messageHistory,
           )
@@ -1546,6 +1547,7 @@ export async function loopAgentSteps(
           logger,
         })
         if (pruningResult.pruned) {
+          revokeImplicitReadAuthorizationsAfterCompaction(currentAgentState)
           currentAgentState.messageHistory = pruningResult.messages
           messagesWithStepPrompt = buildArray(
             ...pruningResult.messages,
@@ -1827,25 +1829,12 @@ export async function loopAgentSteps(
       }
     }
   } finally {
-    // Snapshot the current proposal ledger before teardown. Subagent timeout /
-    // provider-error recovery runs after this function settles, so the live
-    // per-run ledger will already be cleared by clearAgentGeneratorForRun. The
-    // snapshot preserves the deterministic proposal artifacts without keeping
-    // global run-scoped state alive. We snapshot onto initialAgentState (the
-    // object the caller holds and that loopAgentSteps returns as agentState),
-    // which is the same reference currentAgentState tracks; this also keeps the
-    // snapshot in scope on every exit path, including a throw during setup
-    // before currentAgentState would be reassigned.
-    initialAgentState.proposalLedger = getProposalRecords(runId).filter(
-      (record) => record.kind === 'proposal_result',
-    )
-
     // Always tear down this run's in-memory programmatic-step state. When a
     // generator yields STEP/STEP_ALL it is intentionally retained across loop
     // iterations; if a later LLM step throws or the run is aborted, control
     // never returns to runProgrammaticStep's own cleanup. Clearing here on
     // every exit path (including a throw during prompt/tool setup) prevents
-    // leaking generators/latches/proposed-content and removes the window where
+    // leaking generators/latches and removes the window where
     // a recycled runId could resume a stale generator.
     clearAgentGeneratorForRun(runId)
   }

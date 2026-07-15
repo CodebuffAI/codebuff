@@ -68,6 +68,16 @@ authorization for each touched path before accepting an edit:
 - Authorization write-back happens after all in-flight tools settle. A
   confirmed edit also refreshes whole-file authorization from its known
   post-edit content, including edits originally authorized by a scoped range.
+- A read and edit emitted in one provider response still execute in safe order,
+  but the new implicit whole-file authorization is not usable until the next
+  model step. This prevents edit arguments authored before the model saw the
+  read result from borrowing authority from that unseen result. Explicit
+  authenticated capabilities from earlier visible context remain valid.
+- Semantic compaction and emergency mechanical trimming revoke implicit
+  whole-file authorizations because the exact read bodies were removed from
+  model-visible context. The runtime persists a `context_compacted` reread
+  reason; a fresh read clears it. Authenticated scoped capabilities retained in
+  operational memory are still verified against live content when used.
 - Input-only and preflight failures that never reached the client preserve a
   still-current whole-file authorization. Failures that make filesystem state
   uncertain revoke it and persist a typed reread reason across turns; the next

@@ -217,7 +217,7 @@ Thinking about the task...
 </think>
 
 <codebuff_tool_call>
-{"cb_tool_name": "propose_str_replace", "path": "test.ts"}
+{"cb_tool_name": "str_replace", "path": "test.ts"}
 </codebuff_tool_call>`
 
       // Stream in ~10 char chunks
@@ -233,7 +233,7 @@ Thinking about the task...
         '<think>\nThinking about the task...\n</think>\n\n',
       )
       expect(allToolCalls).toHaveLength(1)
-      expect(allToolCalls[0].toolName).toBe('propose_str_replace')
+      expect(allToolCalls[0].toolName).toBe('str_replace')
       expect(allToolCalls[0].input.path).toBe('test.ts')
     })
 

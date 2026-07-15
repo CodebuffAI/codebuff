@@ -234,6 +234,16 @@ export async function processStream(
     readAuthorizationHashesByPath: {
       ...(agentState.readAuthorizationHashesByPath ?? {}),
     },
+    // Only authorizations already present before this provider generation are
+    // epistemically usable by edit arguments authored in this response. A
+    // read_files call emitted earlier in the same response still executes
+    // before the write, but its bytes were not visible when the model chose the
+    // write arguments; its authorization becomes usable on the next step.
+    modelVisibleReadAuthorizationHashesByPath: Object.fromEntries(
+      Object.entries(agentState.readAuthorizationHashesByPath ?? {}).filter(
+        ([path]) => agentState.readAuthorizationsByPath?.[path] === true,
+      ),
+    ),
     editRereadRequirementsByPath: {
       ...(agentState.editRereadRequirementsByPath ?? {}),
     },

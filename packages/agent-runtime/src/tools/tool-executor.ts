@@ -481,7 +481,7 @@ function getFieldSpecificHint(
   // surface the exact expected shape so it can self-correct on the next attempt
   // instead of looping on a generic Zod message. This covers the three fields
   // most commonly emitted with the wrong type during edit-tool calls.
-  if (toolName !== 'str_replace' && toolName !== 'propose_str_replace') {
+  if (toolName !== 'str_replace') {
     return undefined
   }
 
@@ -530,14 +530,14 @@ function getToolValidationHint(
 ): string | undefined {
   const fieldHint = issues ? getFieldSpecificHint(toolName, issues) : undefined
 
-  if (toolName === 'str_replace' || toolName === 'propose_str_replace') {
+  if (toolName === 'str_replace') {
     const base = [
       'Expected shape: { "path": string, "replacements": [{ "oldString": string, "newString": string, "allowMultiple"?: boolean }] }.',
       'If a previous edit failed, stop retrying from memory: re-read the exact current lines with read_files before issuing another replacement.',
     ].join('\n')
     return fieldHint ? `${base}\n\n${fieldHint}` : base
   }
-  if (toolName === 'write_file' || toolName === 'propose_write_file') {
+  if (toolName === 'write_file') {
     const base =
       'Expected shape: { "path": string, "instructions": string, "content": string }. Quote string values and escape newlines/quotes inside content.'
     return fieldHint ? `${base}\n\n${fieldHint}` : base

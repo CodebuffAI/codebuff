@@ -2,10 +2,8 @@
  * Union type of all available tool names
  */
 export type ToolName =
-  | 'accept_proposal'
   | 'apply_patch'
   | 'apply_smart_patch'
-  | 'apply_proposal'
   | 'add_message'
   | 'ask_user'
   | 'check_background_agent'
@@ -30,23 +28,17 @@ export type ToolName =
   | 'kill_job'
   | 'list_directory'
   | 'lookup_agent_info'
-  | 'propose_edit_transaction'
-  | 'propose_str_replace'
-  | 'propose_write_file'
   | 'query_index'
   | 'read_docs'
   | 'read_files'
   | 'read_image'
   | 'read_logs'
   | 'read_outline'
-  | 'read_proposals'
   | 'read_slices'
-  | 'read_proposal_workspace'
   | 'read_subtree'
   | 'replace_range'
   | 'rewrite_symbol'
   | 'render_ui'
-  | 'reject_proposal'
   | 'run_file_change_hooks'
   | 'run_targeted_validation'
   | 'run_terminal_command'
@@ -67,10 +59,8 @@ export type ToolName =
  * Map of tool names to their parameter types
  */
 export interface ToolParamsMap {
-  accept_proposal: AcceptProposalParams
   apply_patch: ApplyPatchParams
   apply_smart_patch: ApplySmartPatchParams
-  apply_proposal: ApplyProposalParams
   add_message: AddMessageParams
   ask_user: AskUserParams
   check_background_agent: CheckBackgroundAgentParams
@@ -95,23 +85,17 @@ export interface ToolParamsMap {
   kill_job: KillJobParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
-  propose_edit_transaction: ProposeEditTransactionParams
-  propose_str_replace: ProposeStrReplaceParams
-  propose_write_file: ProposeWriteFileParams
   query_index: QueryIndexParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_image: ReadImageParams
   read_logs: ReadLogsParams
   read_outline: ReadOutlineParams
-  read_proposals: ReadProposalsParams
   read_slices: ReadSlicesParams
-  read_proposal_workspace: ReadProposalWorkspaceParams
   read_subtree: ReadSubtreeParams
   replace_range: ReplaceRangeParams
   rewrite_symbol: RewriteSymbolParams
   render_ui: RenderUiParams
-  reject_proposal: RejectProposalParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_targeted_validation: RunTargetedValidationParams
   run_terminal_command: RunTerminalCommandParams
@@ -127,15 +111,6 @@ export interface ToolParamsMap {
   web_search: WebSearchParams
   write_file: WriteFileParams
   write_todos: WriteTodosParams
-}
-
-/**
- * Parameters for accept_proposal tool
- */
-export interface AcceptProposalParams {
-  proposalId: string
-  expectedRevision: number
-  expectedBaseHash: string
 }
 
 /**
@@ -187,15 +162,6 @@ export interface ApplySmartPatchParams {
   preflightCompile?: boolean
   /** If true, apply a hunk at its line number when no unique fuzzy match is found. Defaults to false so smart patches fail closed instead of risking misplaced edits. */
   allowPositionalFallback?: boolean
-}
-
-/**
- * Parameters for apply_proposal tool
- */
-export interface ApplyProposalParams {
-  proposalId: string
-  expectedRevision: number
-  expectedBaseHash: string
 }
 
 /**
@@ -614,196 +580,10 @@ export interface LookupAgentInfoParams {
 }
 
 /**
- * Propose related edits across one or more files as one preflighted bundle without applying them, returning preview diffs for review.
- */
-export interface ProposeEditTransactionParams {
-  /** All edits that must preflight together. If any edit fails during preflight, no preview diffs are produced. */
-  edits:
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        /** The edit operation type. */
-        type: 'str_replace'
-        /** String replacements to apply to this file. */
-        replacements: {
-          /** The string to replace. This must match the current file content exactly unless the deterministic near-match guard can prove one safe target. */
-          oldString: string
-          /** The string to replace the corresponding oldString with. Can be empty to delete. */
-          newString: string
-          /** Whether to allow multiple replacements of oldString. */
-          allowMultiple?: boolean
-          /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
-          occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
-          basedOnRead?:
-            | string
-            | {
-                /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-                startLine: number
-                /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-                endLine: number
-                /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-                hash: string
-              }
-          /** For deletion replacements only (newString is empty): treat a missing oldString as an already-applied no-op. Use only for explicit idempotent cleanup retries, never for ordinary edits. */
-          skipIfMissing?: boolean
-        }[]
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        /** A structured edit dispatched by operation kind. */
-        type: 'structured'
-        /** Structured edit operation to apply to this file. */
-        operation:
-          | {
-              /** Deterministic text insertion. */
-              kind: 'insert_text'
-              /** 1-indexed insertion position. */
-              position: {
-                /** 1-indexed target line. */
-                line: number
-                /** 1-indexed target column. */
-                column: number
-              }
-              text: string
-            }
-          | {
-              /** Language-aware import insertion. */
-              kind: 'insert_import'
-              /** Complete language-native import statement to add, e.g. "import { foo } from 'bar'", "from app import value", or "use crate::value". */
-              importStatement: string
-            }
-          | {
-              /** Language-aware import removal. */
-              kind: 'remove_import'
-              /** Complete language-native import statement to remove. Required unless moduleSpecifier is provided. */
-              importStatement?: string
-              /** Module specifier to remove imports from, e.g. "react" or "./helper". */
-              moduleSpecifier?: string
-            }
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        type: 'create'
-        /** Exact bytes to write to the new file. */
-        content: string
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        type: 'delete'
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        type: 'move'
-        /** New project-relative path. The destination must be absent. */
-        destinationPath: string
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        type: 'replace_range'
-        /** Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together. */
-        readCapability?: string
-        startLine: number
-        endLine: number
-        expectedHash: string
-        newContent: string
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        type: 'rewrite_symbol'
-        symbol: string
-        content: string
-        occurrence?: number
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        type: 'patch'
-        diff: string
-      }
-    | {
-        /** Optional stable edit identifier echoed in diagnostics. */
-        id?: string
-        /** The file to edit. */
-        path: string
-        type: 'write_file'
-        content: string
-      }[]
-}
-
-/**
- * Propose string replacements in a file without actually applying them.
- */
-export interface ProposeStrReplaceParams {
-  /** The path to the file to edit. */
-  path: string
-  /** Apply all proposed replacements or leave the proposal overlay unchanged. */
-  atomic?: boolean
-  /** Array of replacements to make. */
-  replacements: {
-    /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
-    oldString: string
-    /** The string to replace the corresponding oldString with. Can be empty to delete. */
-    newString: string
-    /** Whether to allow multiple replacements of oldString. */
-    allowMultiple?: boolean
-    /** Target the exact 1-indexed occurrence. */
-    occurrenceIndex?: number
-    /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
-    basedOnRead?:
-      | string
-      | {
-          /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-          startLine: number
-          /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-          endLine: number
-          /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-          hash: string
-        }
-    /** For deletion proposals only, treat a missing target as already applied. */
-    skipIfMissing?: boolean
-  }[]
-}
-
-/**
- * Propose creating or editing a file without actually applying the changes.
- */
-export interface ProposeWriteFileParams {
-  /** Path to the file relative to the **project root** */
-  path: string
-  /** What the change is intended to do in only one sentence. */
-  instructions: string
-  /** Complete file content to write to the file. */
-  content: string
-}
-
-/**
  * Query the local codebase graph index to find relevant files ranked by symbol names, imports, headings, paths, doc concepts, and graph relationships. The index is built automatically on startup.
  */
 export interface QueryIndexParams {
-  /** Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. For example: "authentication", "database migrations", "editor proposal logic", "React components". */
+  /** Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. For example: "authentication", "database migrations", "editor mutation logic", "React components". */
   query?: string
   /** Maximum number of results to return. Defaults to 20. */
   limit?: number
@@ -886,13 +666,6 @@ export interface ReadOutlineParams {
 }
 
 /**
- * Parameters for read_proposals tool
- */
-export interface ReadProposalsParams {
-  proposalIds?: string[]
-}
-
-/**
  * Read only the specific implementation/code slices for specified symbol names in a file rather than the whole file.
  */
 export interface ReadSlicesParams {
@@ -900,14 +673,6 @@ export interface ReadSlicesParams {
   path: string
   /** Symbol names (functions, classes, interfaces, methods) to extract code slices for. */
   symbols: string[]
-}
-
-/**
- * Read files from your in-progress proposal workspace (your own proposed changes), not the real on-disk workspace.
- */
-export interface ReadProposalWorkspaceParams {
-  /** List of file paths to read from the proposal workspace. */
-  paths: string[]
 }
 
 /**
@@ -967,15 +732,6 @@ export interface RenderUiParams {
     /** Theme-aware color treatment. Use primary for the main action and secondary for lower-emphasis actions. */
     variant?: 'primary' | 'secondary'
   }
-}
-
-/**
- * Parameters for reject_proposal tool
- */
-export interface RejectProposalParams {
-  proposalId: string
-  expectedRevision: number
-  expectedBaseHash: string
 }
 
 /**

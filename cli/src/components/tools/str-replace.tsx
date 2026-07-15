@@ -11,7 +11,6 @@ import {
 } from '../../utils/implementor-helpers'
 import {
   getCanonicalMutationResult,
-  getCanonicalProposalResult,
   getStructuredErrorMessages,
 } from '../../utils/tool-result-normalizer'
 
@@ -30,7 +29,6 @@ type EditStatus =
   | 'applied'
   | 'failed'
   | 'cancelled'
-  | 'proposed'
   | 'unconfirmed'
 
 type DiffStats = {
@@ -44,7 +42,6 @@ const statusLabel: Record<EditStatus, string> = {
   applied: 'applied',
   failed: 'failed',
   cancelled: 'cancelled',
-  proposed: 'proposed (not applied)',
   unconfirmed: 'unconfirmed',
 }
 
@@ -186,15 +183,6 @@ function getEditStatus(toolBlock: Parameters<typeof extractDiff>[0]): {
   status: EditStatus
   message: string | null
 } {
-  const proposal = getCanonicalProposalResult(toolBlock.outputRaw)
-  if (proposal || String(toolBlock.toolName).startsWith('propose_')) {
-    return {
-      status: 'proposed',
-      message: proposal
-        ? `Proposal ${String(proposal.state)}; no disk change.`
-        : 'Proposal preview; no disk change.',
-    }
-  }
   const mutation = getCanonicalMutationResult(toolBlock.outputRaw)
   if (mutation) {
     if (mutation.outcome === 'applied') {
@@ -281,21 +269,12 @@ export const StrReplaceComponent = defineToolComponent({
     const isCreate = isCreateFile(toolBlock)
     const showDiff = shouldShowEditDiff(toolBlock)
     const { status, message } = getEditStatus(toolBlock)
-    const isProposal = status === 'proposed'
     const stats = countDiffStats(diff)
 
     return {
       content: (
         <EditBody
-          name={
-            isProposal
-              ? isCreate
-                ? 'Propose create'
-                : 'Propose edit'
-              : isCreate
-                ? 'Create'
-                : 'Edit'
-          }
+          name={isCreate ? 'Create' : 'Edit'}
           filePath={filePath}
           diffText={showDiff ? (diff ?? '') : ''}
           isCreate={isCreate}

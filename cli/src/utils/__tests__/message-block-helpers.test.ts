@@ -735,11 +735,11 @@ describe('extractSpawnAgentResultContent', () => {
   test('treats structuredOutput error fields as errors', () => {
     const result = extractSpawnAgentResultContent({
       type: 'structuredOutput',
-      value: { errorMessage: 'No usable proposal edits' },
+      value: { errorMessage: 'No usable edits' },
     })
 
     expect(result).toEqual({
-      content: 'No usable proposal edits',
+      content: 'No usable edits',
       hasError: true,
     })
   })

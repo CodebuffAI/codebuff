@@ -650,6 +650,26 @@ describe('release wrapper update safety', () => {
     expect(releaseWorkflow).toContain('bun_target: bun-linux-x64-baseline')
   })
 
+  test('release smoke tests run outside the repository dependency tree', () => {
+    const buildScript = readFileSync(
+      path.join(repoRoot, 'cli/scripts/build-binary.ts'),
+      'utf8',
+    )
+    const releaseWorkflow = readFileSync(
+      path.join(repoRoot, '.github/workflows/cli-release-build.yml'),
+      'utf8',
+    )
+
+    expect(buildScript).toContain('patchOpenTuiCoreNativeLoaderForLegacy()')
+    expect(buildScript).not.toContain('patchOpenTuiNativeEntryForLegacy')
+    expect(releaseWorkflow).toContain('SMOKE_DIR="$(mktemp -d)"')
+    expect(releaseWorkflow).toContain('cd "$SMOKE_DIR"')
+    expect(releaseWorkflow).toContain(
+      'SMOKE_SCRIPT="$PWD/cli/scripts/smoke-binary.ts"',
+    )
+    expect(releaseWorkflow).toContain('bun "$SMOKE_SCRIPT" "$BIN"')
+  })
+
   test.each([
     'cli/release/postinstall.js',
     'cli/release-staging/postinstall.js',

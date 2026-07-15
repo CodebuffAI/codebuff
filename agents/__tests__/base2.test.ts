@@ -81,8 +81,7 @@ function attestedReviewerResult(
 ) {
   const prompt = String(reviewCall?.input?.agents?.[0]?.prompt ?? '')
   const fingerprint =
-    prompt.match(/Snapshot fingerprint \(echo exactly\): ([^\n]+)/)?.[1] ??
-    ''
+    prompt.match(/Snapshot fingerprint \(echo exactly\): ([^\n]+)/)?.[1] ?? ''
   const files =
     prompt
       .match(/Pending changed files: ([^\n]+)/)?.[1]
@@ -386,10 +385,12 @@ describe('base-deep prompt naming and tool guidance', () => {
         'read_outline',
         'list_directory',
         'glob',
-        'propose_str_replace',
-        'propose_edit_transaction',
+        'str_replace',
+        'replace_range',
+        'edit_transaction',
       ]),
     )
+    expect(baseDeep.toolNames).not.toContain('propose_str_replace')
     expect(baseDeep.programmaticToolNames).toContain('git_status')
   })
 })
@@ -696,9 +697,7 @@ describe('base2 verification and reviewer gates', () => {
     expect((agentState as any).base2ActiveWork.lastValidationSummary).toBe(
       'REDUCED_ASSURANCE: Configured file-change hooks were skipped because none matched the changed files.',
     )
-    const gatePassed = gen.next(
-      attestedReviewerResult(afterHooks.value) as any,
-    )
+    const gatePassed = gen.next(attestedReviewerResult(afterHooks.value) as any)
     expect(gatePassed.value).toMatchObject({
       toolName: 'add_message',
       input: { role: 'user' },
@@ -871,9 +870,7 @@ describe('base2 verification and reviewer gates', () => {
       toolResult: [{ type: 'json', value: [] }],
     } as any).value
     expect(reviewCall).toMatchObject({ toolName: 'spawn_agents' })
-    const gatePassed = gen.next(
-      attestedReviewerResult(reviewCall) as any,
-    )
+    const gatePassed = gen.next(attestedReviewerResult(reviewCall) as any)
 
     expect(gatePassed.value).toMatchObject({
       toolName: 'add_message',
@@ -920,9 +917,7 @@ describe('base2 verification and reviewer gates', () => {
       toolResult: [{ type: 'json', value: [] }],
     } as any).value
     expect(reviewCall).toMatchObject({ toolName: 'spawn_agents' })
-    const gatePassed = gen.next(
-      attestedReviewerResult(reviewCall) as any,
-    )
+    const gatePassed = gen.next(attestedReviewerResult(reviewCall) as any)
 
     expect(gatePassed.value).toMatchObject({ toolName: 'add_message' })
     expect((gatePassed.value as any).input.content).toMatch(
@@ -1596,9 +1591,7 @@ describe('base2 verification and reviewer gates', () => {
       toolName: 'spawn_agents',
       input: { agents: [{ agent_type: 'code-reviewer' }] },
     })
-    const gatePassed = gen.next(
-      attestedReviewerResult(afterHooks.value) as any,
-    )
+    const gatePassed = gen.next(attestedReviewerResult(afterHooks.value) as any)
     expect(gatePassed.value).toMatchObject({
       toolName: 'add_message',
       input: { role: 'user' },
@@ -2369,9 +2362,9 @@ describe('base2 verification and reviewer gates', () => {
       toolName: 'spawn_agents',
       input: { agents: [{ agent_type: 'repair-editor' }] },
     })
-    const findingIds = (agentState as any).base2ActiveWork.openReviewerFindings.map(
-      (finding: any) => finding.id,
-    )
+    const findingIds = (
+      agentState as any
+    ).base2ActiveWork.openReviewerFindings.map((finding: any) => finding.id)
     expect(
       gen.next(completedRepairReceipt(findingIds, ['src/a.ts']) as any).value,
     ).toMatchObject({
@@ -2768,9 +2761,7 @@ describe('base2 verification and reviewer gates', () => {
       toolResult: [{ type: 'json', value: [] }],
     } as any).value
     expect(reviewCall).toMatchObject({ toolName: 'spawn_agents' })
-    const gatePassed = gen.next(
-      attestedReviewerResult(reviewCall) as any,
-    )
+    const gatePassed = gen.next(attestedReviewerResult(reviewCall) as any)
 
     expect(gatePassed.value).toMatchObject({ toolName: 'add_message' })
     expect((gatePassed.value as any).input.content.toLowerCase()).toContain(
@@ -3073,6 +3064,19 @@ describe('base2 verification and reviewer gates', () => {
     expect(base2.stepPrompt).not.toContain(
       'Read STATUS.md and PLAN.md before acting',
     )
+    for (const tool of [
+      'str_replace',
+      'write_file',
+      'apply_patch',
+      'replace_range',
+      'rewrite_symbol',
+      'edit_transaction',
+      'run_terminal_command',
+    ] as const) {
+      expect(base2.toolNames).toContain(tool)
+    }
+    expect(base2.toolNames).not.toContain('propose_str_replace')
+    expect(base2.toolNames).not.toContain('apply_proposal')
   })
 
   test('editor handoff guidance includes the standardized envelope fields', () => {
@@ -3303,7 +3307,9 @@ describe('base2 static-review-only concurrency (M3.1)', () => {
     expect((blocked.value as any).toolName).toBe('add_message')
     const text = (blocked.value as any).input.content as string
     expect(text).toContain('Verification gate')
-    expect((agentState as any).base2ActiveWork.staticReviewerJobId).toBeUndefined()
+    expect(
+      (agentState as any).base2ActiveWork.staticReviewerJobId,
+    ).toBeUndefined()
   })
 
   test('staticReviewOnly: validation pass joins the background reviewer via check_background_agent', () => {

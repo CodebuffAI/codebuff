@@ -27,6 +27,7 @@ export function markEditRequiresFreshRead(params: {
   if (revokeReadAuthorization) {
     delete fileProcessingState.readAuthorizationsByPath?.[path]
     delete fileProcessingState.readAuthorizationHashesByPath?.[path]
+    delete fileProcessingState.modelVisibleReadAuthorizationHashesByPath?.[path]
   }
 }
 
@@ -120,5 +121,7 @@ function formatReason(reason: EditRereadReason): string {
       return 'application could not be confirmed'
     case 'application_threw':
       return 'application threw'
+    case 'context_compacted':
+      return 'removed the exact read content from the active model context'
   }
 }

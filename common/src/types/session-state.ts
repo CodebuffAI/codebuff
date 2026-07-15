@@ -4,7 +4,6 @@ import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
 import type { Message } from './messages/codebuff-message'
 import type { ProjectFileContext } from '../util/file'
-import type { ProposalResultV1 } from '../tools/results/filesystem'
 import type { TaskMemoryV1 } from './task-memory'
 import type { OrchestrationLedgerV1 } from './orchestration-ledger'
 import type { DiscoveryCoverageV1 } from './discovery-coverage'
@@ -36,6 +35,7 @@ export type EditRereadReason =
   | 'application_rejected'
   | 'application_unconfirmed'
   | 'application_threw'
+  | 'context_compacted'
 
 export type EditRereadRequirement = {
   reason: EditRereadReason
@@ -132,20 +132,13 @@ export type AgentState = {
   readAuthorizationHashesByPath?: Record<string, string>
   /** Why a path must be read again after a failed edit, persisted across turns. */
   editRereadRequirementsByPath?: Record<string, EditRereadRequirement>
-  /** Typed current-attempt proposal records. Proposal state is not mutation state. */
-  proposalLedger?: ProposalResultV1[]
   /** Runtime-owned orchestrator state that must survive message compaction. */
   base2ActiveWork?: Record<string, unknown>
   /** Durable intents/terminal receipts for detached subagent work. */
   backgroundAgentJobs?: Array<{
     jobId: string
     agentType: string
-    status:
-      | 'running'
-      | 'completed'
-      | 'error'
-      | 'cancelled'
-      | 'interrupted'
+    status: 'running' | 'completed' | 'error' | 'cancelled' | 'interrupted'
     startedAt: number
     completedAt?: number
     error?: string

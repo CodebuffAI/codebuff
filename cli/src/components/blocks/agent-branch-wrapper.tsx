@@ -391,13 +391,10 @@ export const AgentBranchWrapper = memo(
               ? selectedCandidate.strategy
               : undefined
           const selectedByStrategy = selectedStrategy
-            ? implementors.find((implementor) => {
-                const proposalStrategy = implementor.params?.proposalStrategy
-                return (
-                  proposalStrategy === selectedStrategy ||
-                  getImplementorPromptPreview(implementor) === selectedStrategy
-                )
-              })
+            ? implementors.find(
+                (implementor) =>
+                  getImplementorPromptPreview(implementor) === selectedStrategy,
+              )
             : undefined
           const canUsePositionalFallback = !/^candidate-\d+$/i.test(
             implementationId,

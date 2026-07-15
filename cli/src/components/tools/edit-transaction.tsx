@@ -5,7 +5,6 @@ import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
 import {
   getCanonicalMutationResult,
-  getCanonicalProposalResult,
   getStructuredErrorMessages,
 } from '../../utils/tool-result-normalizer'
 
@@ -56,16 +55,6 @@ function getTransactionFiles(toolBlock: ToolBlock): TransactionFile[] {
       }
     })
   }
-  const proposal = getCanonicalProposalResult(toolBlock.outputRaw)
-  if (proposal && Array.isArray(proposal.operations)) {
-    return proposal.operations.map((raw) => {
-      const operation = raw as Record<string, unknown>
-      return {
-        path: String(operation.path),
-        diff: typeof operation.patch === 'string' ? operation.patch : null,
-      }
-    })
-  }
   const value = getTransactionValue(toolBlock)
   if (!value || !Array.isArray(value.files)) return []
 
@@ -91,13 +80,11 @@ function getTransactionFiles(toolBlock: ToolBlock): TransactionFile[] {
 }
 
 function getTransactionError(toolBlock: ToolBlock): string | null {
-  const errors = getStructuredErrorMessages(toolBlock.outputRaw)
-  if (errors.length > 0) return errors.join('\n')
   const value = getTransactionValue(toolBlock)
-  if (!value) return null
-  if (typeof value.errorMessage === 'string') return value.errorMessage
-  if (typeof value.error === 'string') return value.error
-  return null
+  if (value && typeof value.errorMessage === 'string') return value.errorMessage
+  if (value && typeof value.error === 'string') return value.error
+  const errors = getStructuredErrorMessages(toolBlock.outputRaw)
+  return errors.length > 0 ? errors.join('\n') : null
 }
 
 function getTransactionRows(toolBlock: ToolBlock): string[] {
@@ -118,7 +105,11 @@ function getTransactionRows(toolBlock: ToolBlock): string[] {
   if (!value || !Array.isArray(value.failures)) return []
   return value.failures.map((raw) => {
     const failure = raw as Record<string, unknown>
-    return `${String(failure.editIndex ?? '?')}. ${String(failure.path ?? failure.id ?? 'unknown')} • ${String(failure.errorMessage ?? failure.error ?? 'failed')}`
+    const editNumber =
+      typeof failure.editIndex === 'number' && failure.editIndex >= 0
+        ? failure.editIndex + 1
+        : '?'
+    return `${String(editNumber)}. ${String(failure.path ?? failure.id ?? 'unknown')} • ${String(failure.errorMessage ?? failure.error ?? 'failed')}`
   })
 }
 
@@ -149,11 +140,8 @@ export const EditTransactionComponent = defineToolComponent({
     const error = getTransactionError(toolBlock)
     const rows = getTransactionRows(toolBlock)
     const queued = isQueued(toolBlock)
-    const isProposed = String(toolBlock.toolName).startsWith('propose_')
-    const proposal = getCanonicalProposalResult(toolBlock.outputRaw)
     const mutation = getCanonicalMutationResult(toolBlock.outputRaw)
-    const title =
-      isProposed || proposal ? 'Proposal transaction' : 'Edit transaction'
+    const title = 'Edit transaction'
     const collapsedPreview = error
       ? error.split('\n')[0]
       : files.length > 0
@@ -167,7 +155,7 @@ export const EditTransactionComponent = defineToolComponent({
       content: (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
           <TransactionHeader
-            name={`${title}${toolBlock.lifecycle === 'cancelled' ? ' cancelled' : proposal ? ` ${String(proposal.state)}` : mutation ? ` ${String(mutation.outcome)}` : ''}`}
+            name={`${title}${toolBlock.lifecycle === 'cancelled' ? ' cancelled' : mutation ? ` ${String(mutation.outcome)}` : ''}`}
             queued={queued}
           />
           {error ? (

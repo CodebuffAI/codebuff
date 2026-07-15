@@ -344,11 +344,11 @@ function buildMechanicalRecoveryMessage(params: {
       [
         '<mechanical_context_recovery>',
         COMPACTED_CONTEXT_POINTER,
-        `Emergency mechanical trim retained ${params.afterMessageCount} of ${params.beforeMessageCount} messages.`,
-        `Removed or reduced categories: ${removed}.`,
+        `Mechanical trim kept ${params.afterMessageCount}/${params.beforeMessageCount} messages.`,
+        `Reduced: ${removed}.`,
         params.retainedKnowledgeMemory
-          ? 'A semantic <knowledge_memory> artifact remains in the retained history; use it as the recovery source.'
-          : 'No semantic <knowledge_memory> artifact was retained. Re-read exact files, constraints, and validation evidence before relying on older context.',
+          ? 'Use the retained <knowledge_memory> as the recovery source.'
+          : 'No <knowledge_memory> was retained; re-read exact files, constraints, and validation evidence.',
         '</mechanical_context_recovery>',
       ].join('\n'),
     ),
@@ -450,9 +450,32 @@ export function trimMessagesToFitTokenLimitWithReport(params: {
   const requiredTokens = countTokensJson(
     shortenedMessages.filter((m) => m.keepDuringTruncation),
   )
+  const shortenedTokens = countTokensJson(shortenedMessages)
+  const optionalTokens = Math.max(0, shortenedTokens - requiredTokens)
+  // Keep at most half of the optional-message budget so the next model step
+  // has useful headroom. If pinned messages alone exceed the limit, retain
+  // them but remove every optional message; the old negative threshold kept
+  // everything and reported a trim without actually compacting the history.
+  // Reserve room for the recovery envelope that replaces the first removed
+  // span; it is intentionally richer than the compact pointer used during the
+  // removal walk.
+  const recoveryEnvelopeReserve = countTokensJson(
+    buildMechanicalRecoveryMessage({
+      beforeMessageCount: messages.length,
+      afterMessageCount: 1,
+      removedCategories: Object.keys(
+        initialContextCategoryTelemetry,
+      ) as ContextCategory[],
+      retainedKnowledgeMemory: false,
+    }),
+  )
+  const targetMessageTokens = maxMessageTokens * shortenedMessageTokenFactor
+  const targetOptionalTokens = Math.max(
+    0,
+    targetMessageTokens - requiredTokens - recoveryEnvelopeReserve,
+  )
   let removedTokens = 0
-  const tokensToRemove =
-    (maxMessageTokens - requiredTokens) * (1 - shortenedMessageTokenFactor)
+  const tokensToRemove = Math.max(0, optionalTokens - targetOptionalTokens)
 
   const placeholder = 'deleted'
   const filteredMessages: (Message | typeof placeholder)[] = []

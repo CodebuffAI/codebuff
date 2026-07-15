@@ -805,6 +805,7 @@ function renderRangeItem(
     path: target.displayPath,
     status: complete ? 'ok' : 'partial',
     content: header + body,
+    ...(complete ? { sourceContent: slice } : {}),
     startLine: complete ? desiredStart : returnedStart,
     endLine: complete ? desiredEnd : returnedEnd,
     totalLines,

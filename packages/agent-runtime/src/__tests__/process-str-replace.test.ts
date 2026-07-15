@@ -209,7 +209,7 @@ describe('processStrReplace', () => {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain(
-        'The old string "const z = 3;" was not found',
+        'The old string "const z = 3;" is not an exact contiguous match',
       )
       expect(result.error).toContain(recoveryGuidance)
     }
@@ -325,9 +325,8 @@ describe('processStrReplace', () => {
         result.messages.some(
           (msg) =>
             msg.includes(
-              'The old string "const w = 4;" was not found in the file, skipping.',
-            ) &&
-            msg.includes('Please re-read the current file/range and try again'),
+              'The old string "const w = 4;" is not an exact contiguous match',
+            ) && msg.includes('Before attempting another str_replace'),
         ),
       ).toBe(true)
     }
@@ -830,7 +829,7 @@ function test3() {
       expect('error' in result).toBe(true)
       if ('error' in result) {
         expect(result.error).toContain(
-          'The old string "const z = 3;" was not found',
+          'The old string "const z = 3;" is not an exact contiguous match',
         )
       }
     })
@@ -981,7 +980,7 @@ function test3() {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('The old string')
-      expect(result.error).toContain('target block was already changed/removed')
+      expect(result.error).toContain('may refer to content that changed')
     }
   })
 
@@ -1075,7 +1074,7 @@ function test3() {
       expect(result.error).toContain('The old string')
       expect(
         result.error.includes('Closest candidate ranges') ||
-          result.error.includes('target block was already changed/removed'),
+          result.error.includes('may refer to content that changed'),
       ).toBe(true)
     }
   })
@@ -1220,9 +1219,9 @@ function test3() {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain(
-        'The old string "const completelyDifferentValue = 200;" was not found',
+        'The old string "const completelyDifferentValue = 200;" is not an exact contiguous match',
       )
-      expect(result.error).toContain('target block was already changed/removed')
+      expect(result.error).toContain('may refer to content that changed')
       expect(result.error).toContain('No useful candidate ranges found')
       expect(result.error).toContain('re-read the current file/range')
       expect(result.error).not.toContain('Candidate 1: lines')
@@ -1247,6 +1246,11 @@ function test3() {
           allowMultiple: false,
         },
       ],
+      readCapabilityScope: {
+        projectId: '/project',
+        path: 'large.ts',
+        runId: 'run-1',
+      },
       initialContentPromise: Promise.resolve(initialContent),
       logger,
     })
@@ -1259,6 +1263,11 @@ function test3() {
       expect(result.error).toContain('Candidate 1: lines')
       expect(result.error).toContain('Candidate 2: lines')
       expect(result.error).toContain('targetAlpha')
+      expect(result.error).toContain(
+        'Recovery capability for candidate 1: readCapability=cap.v3.',
+      )
+      expect(result.error).toContain('Preferred block retry: replace_range')
+      expect(result.error).toContain('no separate read is needed')
     }
   })
 
@@ -2144,7 +2153,7 @@ function test3() {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('was not found in the file')
+      expect(result.error).toContain('is not an exact contiguous match')
     }
   })
 

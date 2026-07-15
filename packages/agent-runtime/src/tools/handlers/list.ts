@@ -1,12 +1,6 @@
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
 import { handleApplyPatch } from './tool/apply-patch'
-import {
-  handleAcceptProposal,
-  handleApplyProposal,
-  handleReadProposals,
-  handleRejectProposal,
-} from './tool/proposal-actions'
 import { handleApplySmartPatch } from './tool/apply-smart-patch'
 import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
@@ -28,16 +22,12 @@ import { handleKillJob } from './tool/kill-job'
 import { handleReadLogs } from './tool/read-logs'
 import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
-import { handleProposeEditTransaction } from './tool/propose-edit-transaction'
-import { handleProposeStrReplace } from './tool/propose-str-replace'
-import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleQueryIndex } from './tool/query-index'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
 import { handleReadImage } from './tool/read-image'
 import { handleReadOutline } from './tool/read-outline'
 import { handleReadSlices } from './tool/read-slices'
-import { handleReadProposalWorkspace } from './tool/read-proposal-workspace'
 import { handleReadSubtree } from './tool/read-subtree'
 import { handleReplaceRange } from './tool/replace-range'
 import { handleRewriteSymbol } from './tool/rewrite-symbol'
@@ -81,11 +71,9 @@ import type { ToolName } from '@codebuff/common/tools/constants'
  * - Returns a promise that will be awaited
  */
 export const codebuffToolHandlers = {
-  accept_proposal: handleAcceptProposal,
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
   apply_patch: handleApplyPatch,
-  apply_proposal: handleApplyProposal,
   apply_smart_patch: handleApplySmartPatch,
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
@@ -107,22 +95,16 @@ export const codebuffToolHandlers = {
   read_logs: handleReadLogs,
   list_directory: handleListDirectory,
   lookup_agent_info: handleLookupAgentInfo,
-  propose_edit_transaction: handleProposeEditTransaction,
-  propose_str_replace: handleProposeStrReplace,
-  propose_write_file: handleProposeWriteFile,
   query_index: handleQueryIndex,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   read_image: handleReadImage,
   read_outline: handleReadOutline,
-  read_proposals: handleReadProposals,
   read_slices: handleReadSlices,
-  read_proposal_workspace: handleReadProposalWorkspace,
   read_subtree: handleReadSubtree,
   replace_range: handleReplaceRange,
   rewrite_symbol: handleRewriteSymbol,
   render_ui: handleRenderUI,
-  reject_proposal: handleRejectProposal,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_targeted_validation: handleRunTargetedValidation,
   inspect_environment: handleInspectEnvironment,

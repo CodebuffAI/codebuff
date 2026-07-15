@@ -42,6 +42,8 @@ export function createBase2(
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
+  const canDirectEdit = !planOnly
+  const canRunTerminal = !planOnly && executePlan
 
   const model = modelOverride ?? 'anthropic/claude-opus-4.7'
 
@@ -75,22 +77,16 @@ export function createBase2(
       'read_image',
       'read_subtree',
       'read_outline',
-      'read_proposal_workspace',
-      'read_proposals',
       !isFast && !planOnly && 'write_todos',
       'create_plan',
       'update_plan_status',
-      isFast && !planOnly && 'str_replace',
-      isFast && !planOnly && 'apply_patch',
-      isFast && !planOnly && 'rewrite_symbol',
-      isFast && !planOnly && 'edit_transaction',
-      isFast && !planOnly && 'write_file',
-      !planOnly && 'propose_str_replace',
-      !planOnly && 'propose_write_file',
-      !planOnly && 'propose_edit_transaction',
-      !planOnly && 'accept_proposal',
-      !planOnly && 'reject_proposal',
-      !planOnly && 'apply_proposal',
+      canDirectEdit && 'str_replace',
+      canDirectEdit && 'apply_patch',
+      canDirectEdit && 'replace_range',
+      canDirectEdit && 'rewrite_symbol',
+      canDirectEdit && 'edit_transaction',
+      canDirectEdit && 'write_file',
+      canRunTerminal && 'run_terminal_command',
       'suggest_followups',
       !noAskUser && 'ask_user',
       'skill',
@@ -203,7 +199,6 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
 - **Prefer rewrite_symbol for whole-symbol edits:** To replace an entire function, class, method, or type, use rewrite_symbol with the symbol name and its full new body — it locates the exact definition from the syntax tree, so you don't copy the old text and the edit can't drift. Use str_replace for partial/in-body edits or files rewrite_symbol can't parse (it falls back with guidance).
 - **Use edit_transaction for related edits:** When edits across multiple files, or multiple dependent edits in one file, must stay consistent, prefer edit_transaction so the runtime can preflight them together and apply them as an atomic client-side batch. For TypeScript import-only changes, use TypeScript-aware structured operations like insert_import/remove_import when available; use str_replace for simple one-file text changes.
-- **Proposal workflow is explicit:** Proposal tools only create typed previews; they never count as changed files. Use read_proposal_workspace to inspect the overlay, read_proposals to obtain the current revision/base hash, accept_proposal or reject_proposal with those CAS fields, and apply_proposal only after acceptance. A stale proposal must be rebuilt from fresh reads rather than treated as applied.
 - **Avoid broad scripted cleanups for refactors/renames:** For rename and overhaul tasks, prefer explicit targeted edits based on freshly read file content. Do not run one-off cleanup scripts across many files unless the user explicitly asks for that approach.
 
 # Harness-enforced recovery workflow

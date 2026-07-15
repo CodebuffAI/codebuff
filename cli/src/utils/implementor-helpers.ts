@@ -11,23 +11,13 @@ import {
 
 export const IMPLEMENTOR_AGENT_IDS = ['editor-implementor'] as const
 
-/** Transaction tool names that return a multi-file `{ files: [...] }` result. */
-const TRANSACTION_TOOL_NAMES = [
-  'edit_transaction',
-  'propose_edit_transaction',
-] as const
-
 const isTransactionToolName = (
   toolName: ToolContentBlock['toolName'],
-): boolean =>
-  TRANSACTION_TOOL_NAMES.includes(
-    getBaseToolName(toolName) as (typeof TRANSACTION_TOOL_NAMES)[number],
-  )
+): boolean => toolName === 'edit_transaction'
 
 /**
  * Extract per-file { path, diff } entries from a transaction tool block.
- * edit_transaction files carry { path, patch }; propose_edit_transaction files
- * carry { file, unifiedDiff }. A failed transaction result has no files array.
+ * A failed transaction result has no files array.
  */
 function extractTransactionFiles(
   toolBlock: ToolContentBlock,
@@ -65,294 +55,18 @@ function extractTransactionFiles(
     )
 }
 
-const isProposedToolName = (toolName: ToolContentBlock['toolName']): boolean =>
-  typeof toolName === 'string' && toolName.startsWith('propose_')
+const isEditToolName = (toolName: ToolContentBlock['toolName']): boolean =>
+  getToolMetadata(toolName).kind === 'mutation'
 
-const isEditOrProposalToolName = (
-  toolName: ToolContentBlock['toolName'],
-): boolean => {
-  const kind = getToolMetadata(toolName).kind
-  return kind === 'mutation' || kind === 'proposal'
-}
-
-/** Whether a content block is an edit tool block (direct or proposed). */
+/** Whether a content block is an edit tool block. */
 export function isEditToolBlock(block: ContentBlock): boolean {
   return (
     block.type === 'tool' && getToolMetadata(block.toolName).kind === 'mutation'
   )
 }
 
-export function isProposalToolBlock(block: ContentBlock): boolean {
-  return (
-    block.type === 'tool' && getToolMetadata(block.toolName).kind === 'proposal'
-  )
-}
-
-/**
- * Unwrap an editor proposal/implementor agent's structured set_output value to
- * the object that actually carries `toolCalls`.
- *
- * The spawn result can arrive wrapped in several layers depending on the
- * agent's output mode and runtime envelope, e.g.
- *   { toolCalls, ... }                                 // direct
- *   { value: { toolCalls, ... } }                      // one level deep
- *   { type: 'structuredOutput', value: { toolCalls } } // structuredOutput mode
- *   { type: 'structuredOutput', value: { value: {...} } }
- *   { data: { toolCalls, ... } }                       // set_output data shape
- * The live run showed proposal cards rendering "no changes" because the result
- * arrived structuredOutput-wrapped and the single-level unwrap missed the
- * nested toolCalls. Walk the common wrapper keys to a bounded depth so any of
- * these shapes resolves to the object holding toolCalls.
- */
-function unwrapStructuredProposalOutput(
-  resultValue: unknown,
-  depth = 0,
-): Record<string, unknown> | null {
-  if (depth > 4 || !resultValue || typeof resultValue !== 'object') return null
-  const obj = resultValue as Record<string, unknown>
-  if (Array.isArray(obj.toolCalls)) return obj
-
-  for (const key of ['value', 'data'] as const) {
-    if (obj[key] && typeof obj[key] === 'object') {
-      const nested = unwrapStructuredProposalOutput(obj[key], depth + 1)
-      if (nested) return nested
-    }
-  }
-  return null
-}
-
-/**
- * A normalized per-file proposal result extracted from the implementor's
- * structured output. `file` is the changed path; `value` is the json payload
- * that extractDiff/extractFilePath/extractTransactionFiles already understand.
- */
-type NormalizedProposalResult = {
-  file: string
-  value: Record<string, unknown>
-}
-
-/** Pull the file path out of a proposal tool call's input. */
-function proposalToolCallFile(input: Record<string, unknown>): string | null {
-  for (const key of ['path', 'file_path', 'file', '__proposalFile'] as const) {
-    const candidate = input[key]
-    if (typeof candidate === 'string' && candidate) return candidate
-  }
-  return null
-}
-
-/** Whether a normalized result actually carries a renderable diff. */
-function resultHasDiff(value: Record<string, unknown>): boolean {
-  return (
-    (typeof value.unifiedDiff === 'string' &&
-      value.unifiedDiff.trim() !== '') ||
-    (typeof value.patch === 'string' && value.patch.trim() !== '') ||
-    Array.isArray(value.files)
-  )
-}
-
-/**
- * Build a file -> diff-bearing-result map from the implementor's `toolResults`.
- *
- * The implementor's `toolCalls` (successful only) and `toolResults` (successful
- * PLUS genuine failures) are compiled from different filters, so pairing them
- * by array index silently mismatches a successful call with a diff-less failed
- * result and the card renders "no changes". Pairing by file path is
- * index-independent and only keeps results that carry a real diff.
- */
-function indexProposalResultsByFile(
-  toolResults: unknown[],
-): Map<string, Record<string, unknown>> {
-  const byFile = new Map<string, Record<string, unknown>>()
-  for (const rawResult of toolResults) {
-    const entry = Array.isArray(rawResult) ? rawResult[0] : rawResult
-    if (!entry || typeof entry !== 'object') continue
-    const value = entry as Record<string, unknown>
-    const file =
-      typeof value.file === 'string'
-        ? value.file
-        : typeof value.path === 'string'
-          ? value.path
-          : null
-    if (!file) continue
-    // Prefer a diff-bearing result; never let a later failed-only result for
-    // the same file overwrite a captured successful diff.
-    if (byFile.has(file) && !resultHasDiff(value)) continue
-    byFile.set(file, value)
-  }
-  return byFile
-}
-
-/**
- * Parse the implementor's `unifiedDiffs` string into per-file entries.
- *
- * `summarizeLedger` always concatenates successful proposal diffs as
- * `--- <path> ---\n<diff>` blocks joined by blank lines. This is the
- * authoritative, always-present signal for what changed, so it is the
- * reliable fallback when `toolCalls`/`toolResults` are missing or misaligned.
- */
-function parseUnifiedDiffsString(
-  unifiedDiffs: unknown,
-): NormalizedProposalResult[] {
-  if (typeof unifiedDiffs !== 'string' || unifiedDiffs.trim() === '') return []
-
-  const entries: NormalizedProposalResult[] = []
-  const headerRegex = /^--- (.+?) ---$/
-  let currentFile: string | null = null
-  let currentLines: string[] = []
-
-  const flush = () => {
-    if (currentFile && currentLines.length > 0) {
-      const diff = currentLines.join('\n').trim()
-      if (diff) {
-        entries.push({
-          file: currentFile,
-          value: { file: currentFile, unifiedDiff: diff },
-        })
-      }
-    }
-    currentLines = []
-  }
-
-  for (const line of unifiedDiffs.split('\n')) {
-    const headerMatch = line.match(headerRegex)
-    if (headerMatch) {
-      flush()
-      currentFile = headerMatch[1].trim()
-      continue
-    }
-    if (currentFile) currentLines.push(line)
-  }
-  flush()
-
-  return entries
-}
-
-/**
- * Synthesize edit tool blocks from a proposal/implementor agent's structured
- * output (`{ toolCalls, toolResults, unifiedDiffs }`).
- *
- * Proposal agents can finish without ever streaming live tool blocks, so the
- * card has nothing to render and falsely shows "no changes" even though the
- * structured output already knows which files changed. This makes the card
- * deterministic: if the structured result lists edits, the card shows them.
- *
- * Results are paired to calls by FILE PATH (not array index) because the
- * implementor compiles `toolCalls` and `toolResults` from different filters.
- * When no call has a diff-bearing result, the always-present `unifiedDiffs`
- * string is parsed as the authoritative fallback.
- */
-export function synthesizeProposalToolBlocks(
-  resultValue: unknown,
-): ToolContentBlock[] {
-  const value = unwrapStructuredProposalOutput(resultValue)
-  if (!value) return []
-
-  const toolCalls = Array.isArray(value.toolCalls) ? value.toolCalls : []
-  const toolResults = Array.isArray(value.toolResults) ? value.toolResults : []
-  const resultsByFile = indexProposalResultsByFile(toolResults)
-
-  const blocks: ToolContentBlock[] = []
-  const coveredFiles = new Set<string>()
-  let anyBlockHasDiff = false
-
-  toolCalls.forEach((toolCall, index) => {
-    if (!toolCall || typeof toolCall !== 'object') return
-    const toolName = (toolCall as Record<string, unknown>).toolName
-    if (typeof toolName !== 'string') return
-    const input =
-      ((toolCall as Record<string, unknown>).input as Record<
-        string,
-        unknown
-      >) ?? {}
-
-    // Pair by file path so a successful call is never matched to a diff-less
-    // failed result. Fall back to index pairing only when the call carries no
-    // discoverable file path (e.g. propose_edit_transaction with edits[]).
-    const file = proposalToolCallFile(input)
-    let matched = file ? resultsByFile.get(file) : undefined
-    if (!matched) {
-      const rawResult = toolResults[index]
-      const firstEntry = Array.isArray(rawResult) ? rawResult[0] : rawResult
-      if (firstEntry && typeof firstEntry === 'object') {
-        matched = firstEntry as Record<string, unknown>
-      }
-    }
-
-    const outputValue =
-      matched && isTransactionToolName(toolName as ToolContentBlock['toolName'])
-        ? normalizeTransactionResultForRendering(matched, file)
-        : matched
-    const outputRaw = outputValue
-      ? [{ type: 'json', value: outputValue }]
-      : undefined
-    if (file) coveredFiles.add(file)
-    if (matched && resultHasDiff(matched)) anyBlockHasDiff = true
-
-    blocks.push({
-      type: 'tool',
-      toolCallId: `synthetic-proposal-${index}`,
-      toolName: toolName as ToolContentBlock['toolName'],
-      input,
-      ...(outputRaw ? { outputRaw } : {}),
-    })
-  })
-
-  // Authoritative fallback: if the tool calls produced no diff-bearing blocks
-  // (empty/misaligned/diff-less), synthesize from the unifiedDiffs string so
-  // the card still shows the real changes instead of "no changes".
-  if (!anyBlockHasDiff) {
-    for (const entry of parseUnifiedDiffsString(value.unifiedDiffs)) {
-      if (coveredFiles.has(entry.file)) continue
-      coveredFiles.add(entry.file)
-      blocks.push({
-        type: 'tool',
-        toolCallId: `synthetic-proposal-diff-${blocks.length}`,
-        toolName: 'propose_str_replace',
-        input: { path: entry.file },
-        outputRaw: [{ type: 'json', value: entry.value }],
-      })
-    }
-  }
-
-  return blocks
-}
-
-function normalizeTransactionResultForRendering(
-  result: Record<string, unknown>,
-  fallbackFile: string | null,
-): Record<string, unknown> {
-  if (Array.isArray(result.files) || !resultHasDiff(result)) return result
-
-  const file =
-    typeof result.file === 'string'
-      ? result.file
-      : typeof result.path === 'string'
-        ? result.path
-        : fallbackFile
-  if (!file) return result
-
-  return {
-    message:
-      typeof result.message === 'string'
-        ? result.message
-        : `Proposed changes to ${file}`,
-    files: [
-      {
-        file,
-        ...(typeof result.unifiedDiff === 'string'
-          ? { unifiedDiff: result.unifiedDiff }
-          : {}),
-        ...(typeof result.patch === 'string' ? { patch: result.patch } : {}),
-        ...(typeof result.message === 'string'
-          ? { messages: [result.message] }
-          : {}),
-      },
-    ],
-  }
-}
-
 const getBaseToolName = (toolName: ToolContentBlock['toolName']): string =>
-  isProposedToolName(toolName) ? toolName.slice('propose_'.length) : toolName
+  toolName
 
 const SUCCESSFUL_EDIT_MESSAGES = [
   'String replace applied successfully',
@@ -361,19 +75,8 @@ const SUCCESSFUL_EDIT_MESSAGES = [
   'Overwrote file successfully',
   'Wrote file successfully',
   'Updated file',
-  'Proposed new file',
-  'Proposed changes',
-  'Proposed string replacement',
   'Replaced lines',
 ] as const
-
-const hasProposedTools = (blocks?: ContentBlock[]): boolean => {
-  if (!blocks || blocks.length === 0) return false
-
-  return blocks.some(
-    (block) => block.type === 'tool' && isProposedToolName(block.toolName),
-  )
-}
 
 /**
  * Check if an agent is an implementor agent.
@@ -382,10 +85,6 @@ const hasProposedTools = (blocks?: ContentBlock[]): boolean => {
 export const isImplementorAgent = (
   agentBlock: Pick<AgentContentBlock, 'agentType' | 'blocks'>,
 ): boolean => {
-  if (hasProposedTools(agentBlock.blocks)) {
-    return true
-  }
-
   return IMPLEMENTOR_AGENT_IDS.some((id) => agentBlock.agentType.includes(id))
 }
 
@@ -425,17 +124,11 @@ export function getImplementationIdIndex(
 
 /**
  * Get a compact prompt/strategy preview for implementor cards.
- * Proposal agents can receive large hidden context in params; never render that
- * raw context in the card subtitle.
+ * Never render large hidden agent context in the card subtitle.
  */
 export const getImplementorPromptPreview = (
   agentBlock: Pick<AgentContentBlock, 'initialPrompt' | 'params'>,
 ): string => {
-  const proposalStrategy = agentBlock.params?.proposalStrategy
-  if (typeof proposalStrategy === 'string' && proposalStrategy.trim()) {
-    return truncateWithEllipsis(proposalStrategy.trim(), 180)
-  }
-
   const initialPrompt = agentBlock.initialPrompt?.trim()
   if (!initialPrompt) return ''
 
@@ -622,7 +315,8 @@ export function extractFilePath(toolBlock: ToolContentBlock): string | null {
 /**
  * Extract unified diff from tool output, or construct from input.
  * For executed tools: use outputRaw/output with unifiedDiff.
- * For proposed tools (implementors): construct diff from input replacements.
+ * For streaming implementor cards, construct a preview from input replacements
+ * until an executed mutation result is available.
  */
 export function extractDiff(toolBlock: ToolContentBlock): string | null {
   let hasSuccessfulOutput = false
@@ -670,12 +364,9 @@ export function extractDiff(toolBlock: ToolContentBlock): string | null {
     return diffFromOutput
   }
 
-  // For proposed/pending edits, or confirmed successful executions, construct
-  // the preview from input when the result omits a diff.
-  const canUseInputFallback =
-    isProposedToolName(toolBlock.toolName) ||
-    outputStr === '' ||
-    hasSuccessfulOutput
+  // For pending or confirmed successful executions, construct the preview
+  // from input when the result omits a diff.
+  const canUseInputFallback = outputStr === '' || hasSuccessfulOutput
   if (!canUseInputFallback) {
     return null
   }
@@ -883,10 +574,7 @@ export function shouldShowEditDiff(toolBlock: ToolContentBlock): boolean {
     return false
   }
 
-  if (
-    !isProposedToolName(toolBlock.toolName) &&
-    !hasToolResultOutput(toolBlock)
-  ) {
+  if (!hasToolResultOutput(toolBlock)) {
     return false
   }
 
@@ -1002,7 +690,7 @@ export function getFileStatsFromBlocks(
   }
 
   for (const block of blocks) {
-    if (block.type === 'tool' && isEditOrProposalToolName(block.toolName)) {
+    if (block.type === 'tool' && isEditToolName(block.toolName)) {
       // Transaction tools change multiple files in one tool call; expand the
       // result's files array into per-file stats so the card shows real diffs
       // instead of "no changes". A failed/no-files transaction yields no
@@ -1030,7 +718,7 @@ export function getFileStatsFromBlocks(
 /**
  * Build an activity timeline from agent blocks.
  * Interleaves commentary (text blocks) and edits (tool calls).
- * Includes both executed tools (str_replace, write_file) and proposed tools.
+ * Includes executed editing tools such as str_replace and write_file.
  */
 export function buildActivityTimeline(
   blocks: ContentBlock[] | undefined,
@@ -1045,10 +733,7 @@ export function buildActivityTimeline(
       if (content) {
         timeline.push({ type: 'commentary', content })
       }
-    } else if (
-      block.type === 'tool' &&
-      isEditOrProposalToolName(block.toolName)
-    ) {
+    } else if (block.type === 'tool' && isEditToolName(block.toolName)) {
       // Transaction tools change multiple files in one call; emit one timeline
       // edit per changed file so each file's diff is viewable. Checked before
       // the single-file failed-edit heuristics for the same reason as in

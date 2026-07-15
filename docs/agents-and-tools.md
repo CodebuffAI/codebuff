@@ -918,24 +918,6 @@ Example:
 }
 ```
 
-### Proposal review and application
-
-Proposal tools maintain a per-run overlay and typed ledger without changing
-the real workspace. `propose_str_replace`, `propose_write_file`, and
-`propose_edit_transaction` return a `proposal_result` containing a stable id,
-revision, aggregate base hash, ordered operations, and state. Use
-`read_proposal_workspace` for the read-your-own-writes view and
-`read_proposals` to refresh proposal state.
-
-State changes use compare-and-swap fields: `proposalId`, `expectedRevision`,
-and `expectedBaseHash`. `accept_proposal` and `reject_proposal` do not write
-files. `apply_proposal` is valid only after acceptance; it revalidates every
-base path, sends one coordinated authority-backed transaction, verifies the
-post-commit state, and records a commit receipt. Repeated apply is idempotent.
-Base drift transitions the proposal to `stale`; proposal previews and rejected
-or stale records never count as applied mutations, changed files, or edit
-memory.
-
 ### Direct subagent tool calls
 
 Spawnable agents are also exposed to the model as direct tool aliases. The

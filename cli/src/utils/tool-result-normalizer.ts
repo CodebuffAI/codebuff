@@ -103,12 +103,6 @@ export function getCanonicalMutationPrimaryAction(
   return getCanonicalMutationActions(outputRaw)[0] ?? null
 }
 
-export function getCanonicalProposalResult(
-  outputRaw: unknown,
-): ToolResultRecord | null {
-  return findToolResultByKind(outputRaw, 'proposal_result')
-}
-
 export function isTerminalToolBlock(block: ToolContentBlock): boolean {
   return Boolean(
     block.lifecycle && TERMINAL_TOOL_LIFECYCLES.has(block.lifecycle as never),

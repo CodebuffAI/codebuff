@@ -287,6 +287,7 @@ async function processTransactionEdit(params: {
           path: edit.path,
           replacements: edit.replacements,
           atomic: true,
+          transactionContext: true,
           requireFreshReadCapability,
           readCapabilityScope: readCapabilityIssuer
             ? { ...readCapabilityIssuer, path: edit.path }
@@ -300,6 +301,7 @@ async function processTransactionEdit(params: {
         path: edit.path,
         replacements: edit.replacements,
         atomic: true,
+        transactionContext: true,
         requireFreshReadCapability,
         readCapabilityScope: readCapabilityIssuer
           ? { ...readCapabilityIssuer, path: edit.path }

@@ -3703,7 +3703,7 @@ describe('processStream cross-turn read-before-edit', () => {
     stepPrompt: 'Test step prompt',
   }
 
-  it('persists read auth across consecutive processStream invocations (cross-turn)', async () => {
+  it('defers same-response read auth until the next model step', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
     const targetPath = 'src/example.ts'
@@ -3746,10 +3746,19 @@ describe('processStream cross-turn read-before-edit', () => {
       },
     } as AgentRuntimeDeps & AgentRuntimeScopedDeps
 
-    // Turn 1: read_files should grant authorization on agentState.
+    // Turn 1: the edit arguments were authored before the model could observe
+    // the read result, so the same-response edit must not consume that newly
+    // minted implicit authorization.
     const stream1 = createMockStreamWithToolCalls([
       'Reading the file now.',
       { toolName: 'read_files', input: { paths: [targetPath] } },
+      {
+        toolName: 'str_replace',
+        input: {
+          path: targetPath,
+          replacements: [{ oldString: 'value = 1', newString: 'value = 2' }],
+        },
+      },
       { toolName: 'end_turn', input: {} },
     ])
 
@@ -3780,13 +3789,16 @@ describe('processStream cross-turn read-before-edit', () => {
       onResponseChunk: () => {},
     })
 
-    // After turn 1: agentState must carry the read authorization forward.
+    expect(appliedPatches).toHaveLength(0)
+
+    // After turn 1: the completed read becomes visible and usable on the next
+    // provider generation.
     expect(agentState.readAuthorizationsByPath?.[targetPath]).toBe(true)
     expect(agentState.readAuthorizationHashesByPath?.[targetPath]).toBe(
       getContentHash(diskContent),
     )
 
-    // Turn 2: str_replace on the same path must succeed without re-reading.
+    // Turn 2: str_replace on the same path succeeds without a redundant read.
     const stream2 = createMockStreamWithToolCalls([
       'Editing the file now.',
       {

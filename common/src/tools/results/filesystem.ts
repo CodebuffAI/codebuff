@@ -377,102 +377,6 @@ export const commitReceiptV1Schema = z
     }
   })
 
-export const proposalStateV1Schema = z.enum([
-  'proposed',
-  'accepted',
-  'rejected',
-  'stale',
-  'applied',
-])
-
-export const proposalOperationV1Schema = z
-  .object({
-    actionId: z.string().min(1),
-    index: z.number().int().nonnegative(),
-    action: fileActionKindV1Schema,
-    path: z.string().min(1),
-    destinationPath: z.string().min(1).optional(),
-    baseHash: z.string().min(1).nullable(),
-    baseCapability: fileCapabilityV1Schema.optional(),
-    finalContent: z.string().optional(),
-    patch: z.string().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if ((value.action === 'move') !== (value.destinationPath !== undefined)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'proposal move operations require destinationPath',
-      })
-    }
-    if (
-      (value.action === 'create' || value.action === 'update') &&
-      value.finalContent === undefined &&
-      value.patch === undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'proposal create/update operations require content or a patch',
-      })
-    }
-    if (
-      value.baseCapability &&
-      value.baseCapability.snapshot.contentHash !== value.baseHash
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'proposal base capability must match the operation base hash',
-      })
-    }
-  })
-
-export const proposalResultV1Schema = z
-  .object({
-    kind: z.literal('proposal_result'),
-    version: z.literal(1),
-    proposalId: z.string().min(1),
-    revision: z.number().int().positive(),
-    baseHash: z.string().min(1),
-    state: proposalStateV1Schema,
-    operations: proposalOperationV1Schema.array().min(1),
-    createdAt: z.string().min(1),
-    updatedAt: z.string().min(1),
-    errors: filesystemErrorSchema.array(),
-    commitReceipt: commitReceiptV1Schema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (
-      value.operations.some((operation, index) => operation.index !== index)
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'proposal operation indexes must be contiguous and ordered',
-      })
-    }
-    if ((value.state === 'applied') !== (value.commitReceipt !== undefined)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'only applied proposals require a commit receipt',
-      })
-    }
-    if (
-      value.commitReceipt &&
-      (value.commitReceipt.status !== 'committed' ||
-        value.commitReceipt.operationId === '')
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'applied proposals require a successful commit receipt',
-      })
-    }
-  })
-
-export const proposalActionErrorV1Schema = z.object({
-  kind: z.literal('proposal_action_error'),
-  version: z.literal(1),
-  proposalId: z.string().min(1).optional(),
-  error: filesystemErrorSchema,
-})
-
 export const readFilesSliceSchema = z.object({
   symbol: z.string(),
   kind: z.string().optional(),
@@ -528,6 +432,8 @@ const readFilesRangeItemSchema = z
     path: z.string(),
     status: z.enum(['ok', 'partial']),
     content: z.string().optional(),
+    /** Exact undecorated normalized source text for deterministic follow-up edits. */
+    sourceContent: z.string().optional(),
     contentOmittedForLength: z.literal(true).optional(),
     startLine: z.number().int().positive(),
     endLine: z.number().int().positive(),
@@ -668,11 +574,14 @@ export const readFilesResultV1Schema = z
       if (
         result.selector === 'range' &&
         result.status === 'partial' &&
-        (result.rangeHash !== undefined || result.readCapability !== undefined)
+        (result.rangeHash !== undefined ||
+          result.readCapability !== undefined ||
+          result.sourceContent !== undefined)
       ) {
         ctx.addIssue({
           code: 'custom',
-          message: 'partial range results cannot expose edit capabilities',
+          message:
+            'partial range results cannot expose exact source content or edit capabilities',
         })
       }
     }
@@ -701,10 +610,6 @@ export type FileMutationOutcomeV1 = z.infer<typeof fileMutationOutcomeV1Schema>
 export type FileMutationResultV1 = z.infer<typeof fileMutationResultV1Schema>
 export type CommitActionReceiptV1 = z.infer<typeof commitActionReceiptV1Schema>
 export type CommitReceiptV1 = z.infer<typeof commitReceiptV1Schema>
-export type ProposalStateV1 = z.infer<typeof proposalStateV1Schema>
-export type ProposalOperationV1 = z.infer<typeof proposalOperationV1Schema>
-export type ProposalResultV1 = z.infer<typeof proposalResultV1Schema>
-export type ProposalActionErrorV1 = z.infer<typeof proposalActionErrorV1Schema>
 export type ReadFilesItemV1 = z.infer<typeof readFilesItemV1Schema>
 export type ReadFilesResultV1 = z.infer<typeof readFilesResultV1Schema>
 
@@ -717,17 +622,6 @@ const TOOL_LIFECYCLE_TRANSITIONS: Record<
   succeeded: [],
   failed: [],
   cancelled: [],
-}
-
-const PROPOSAL_TRANSITIONS: Record<
-  ProposalStateV1,
-  readonly ProposalStateV1[]
-> = {
-  proposed: ['accepted', 'rejected', 'stale'],
-  accepted: ['applied', 'rejected', 'stale'],
-  rejected: [],
-  stale: [],
-  applied: [],
 }
 
 function contractError(
@@ -1029,126 +923,6 @@ export function reconcileFileMutationResultV1({
   }
 }
 
-export function compareProposalStateV1(
-  proposal: ProposalResultV1,
-  expected: { proposalId: string; revision: number; baseHash: string },
-): boolean {
-  return (
-    proposal.proposalId === expected.proposalId &&
-    proposal.revision === expected.revision &&
-    proposal.baseHash === expected.baseHash
-  )
-}
-
-export type BuildProposalResultV1Input = Omit<
-  ProposalResultV1,
-  | 'kind'
-  | 'version'
-  | 'revision'
-  | 'state'
-  | 'updatedAt'
-  | 'errors'
-  | 'commitReceipt'
-> & { errors?: FilesystemError[] }
-
-export function buildProposalResultV1(
-  input: BuildProposalResultV1Input,
-): ProposalResultV1 {
-  return proposalResultV1Schema.parse({
-    kind: 'proposal_result',
-    version: 1,
-    revision: 1,
-    state: 'proposed',
-    updatedAt: input.createdAt,
-    errors: [],
-    ...input,
-  })
-}
-
-export type ProposalTransitionV1 =
-  | { ok: true; proposal: ProposalResultV1; idempotent: boolean }
-  | { ok: false; error: FilesystemError }
-
-export function transitionProposalResultV1(
-  proposal: ProposalResultV1,
-  request: {
-    proposalId: string
-    expectedRevision: number
-    expectedBaseHash: string
-    state: Exclude<ProposalStateV1, 'proposed'>
-    updatedAt: string
-    commitReceipt?: CommitReceiptV1
-  },
-): ProposalTransitionV1 {
-  if (proposal.proposalId !== request.proposalId) {
-    return {
-      ok: false,
-      error: contractError('stale_state', 'proposal ID does not match', {
-        retryable: true,
-        requiresFreshRead: true,
-        recovery: 'read_again',
-      }),
-    }
-  }
-  if (proposal.state === request.state) {
-    return { ok: true, proposal, idempotent: true }
-  }
-  if (
-    !compareProposalStateV1(proposal, {
-      proposalId: request.proposalId,
-      revision: request.expectedRevision,
-      baseHash: request.expectedBaseHash,
-    })
-  ) {
-    return {
-      ok: false,
-      error: contractError(
-        'stale_state',
-        'proposal revision or base hash is stale',
-        {
-          retryable: true,
-          requiresFreshRead: true,
-          recovery: 'read_again',
-        },
-      ),
-    }
-  }
-  if (!PROPOSAL_TRANSITIONS[proposal.state].includes(request.state)) {
-    return {
-      ok: false,
-      error: contractError(
-        'illegal_transition',
-        `proposal cannot transition from ${proposal.state} to ${request.state}`,
-        { retryable: false },
-      ),
-    }
-  }
-  if (
-    request.state === 'applied' &&
-    (!request.commitReceipt || request.commitReceipt.status !== 'committed')
-  ) {
-    return {
-      ok: false,
-      error: contractError(
-        'application_rejected',
-        'proposal application requires a successful authority receipt',
-        { retryable: true, recovery: 'retry' },
-      ),
-    }
-  }
-
-  const next = proposalResultV1Schema.parse({
-    ...proposal,
-    state: request.state,
-    revision: proposal.revision + 1,
-    updatedAt: request.updatedAt,
-    ...(request.state === 'applied'
-      ? { commitReceipt: request.commitReceipt }
-      : {}),
-  })
-  return { ok: true, proposal: next, idempotent: false }
-}
-
 export function isToolLifecycleV1(value: unknown): value is ToolLifecycleV1 {
   return toolLifecycleV1Schema.safeParse(value).success
 }
@@ -1161,10 +935,6 @@ export function isFileMutationResultV1(
 
 export function isCommitReceiptV1(value: unknown): value is CommitReceiptV1 {
   return commitReceiptV1Schema.safeParse(value).success
-}
-
-export function isProposalResultV1(value: unknown): value is ProposalResultV1 {
-  return proposalResultV1Schema.safeParse(value).success
 }
 
 export function buildReadFilesResultV1(

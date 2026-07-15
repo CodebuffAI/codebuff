@@ -14,7 +14,7 @@ const inputSchema = z
       .optional()
       .default('')
       .describe(
-        `Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. For example: "authentication", "database migrations", "editor proposal logic", "React components".`,
+        `Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. For example: "authentication", "database migrations", "editor mutation logic", "React components".`,
       ),
     limit: z
       .number()
@@ -161,7 +161,7 @@ ${$getNativeToolCallExampleString({
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
-  input: { query: 'editor proposal best-of-n', limit: 10 },
+  input: { query: 'editor mutation workflow', limit: 10 },
   endsAgentStep,
 })}
 ${$getNativeToolCallExampleString({

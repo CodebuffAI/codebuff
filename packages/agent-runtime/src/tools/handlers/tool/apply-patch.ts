@@ -5,6 +5,7 @@ import {
 } from './edit-read-state'
 import {
   formatUnsafeToolPathError,
+  hasWholeFileReadAuthorization,
   isWholeFileReadAuthorizationFresh,
   normalizeToolPath,
   revokeWholeFileReadAuthorization,
@@ -120,13 +121,12 @@ export const handleApplyPatch = (async (params) => {
     }
   }
   if (operation.type !== 'create_file') {
-    const hasStoredAuthorization = Boolean(
-      fileProcessingState.readAuthorizationsByPath?.[path] ||
-      fileProcessingState.readAuthorizationHashesByPath?.[path],
+    const hasStoredAuthorization = hasWholeFileReadAuthorization(
+      fileProcessingState,
+      path,
     )
     const hasRangeCapabilities =
-      operation.type === 'update_file' &&
-      normalizedCapabilities.allBound
+      operation.type === 'update_file' && normalizedCapabilities.allBound
     if (!hasStoredAuthorization) {
       const authorizationError = strictEditAuthorizationError({
         fileProcessingState,

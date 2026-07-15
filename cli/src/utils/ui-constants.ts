@@ -44,8 +44,8 @@ export const IMAGE_CARD_BORDER_CHARS: BorderCharacters = {
   cross: '┼',
 }
 
-/** Dashed border with rounded corners for proposal cards */
-export const PROPOSAL_BORDER_CHARS: BorderCharacters = {
+/** Dashed border with rounded corners for implementor cards. */
+export const IMPLEMENTOR_BORDER_CHARS: BorderCharacters = {
   topLeft: '╭',
   topRight: '╮',
   bottomLeft: '╰',

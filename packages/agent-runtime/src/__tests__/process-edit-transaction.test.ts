@@ -119,6 +119,10 @@ describe('processEditTransaction', () => {
           path: 'src/helper.test.ts',
         }),
       ])
+      expect(result.failures[0]!.errorMessage).toContain(
+        'Partial success is unavailable inside edit_transaction.',
+      )
+      expect(result.failures[0]!.errorMessage).not.toContain('omit atomic')
       expect(result.error).not.toContain('+export const value = 2')
     }
   })

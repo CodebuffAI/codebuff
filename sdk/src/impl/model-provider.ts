@@ -284,15 +284,8 @@ export async function getModelForRequest(
       }
     }
 
-    const isProposalAgent = Boolean(
-      agentId && /^editor-implementor-proposal-\d+$/.test(agentId),
-    )
-
     return {
-      model: createConfiguredOpenAICompatibleModel({
-        ...configuredProviderModel,
-        isProposalAgent,
-      }),
+      model: createConfiguredOpenAICompatibleModel(configuredProviderModel),
       isChatGptOAuth: false,
       compatibility: configuredProviderModel.compatibility,
       reasoningEffort,
@@ -600,7 +593,7 @@ function resolveVisionModelIfNeeded(params: {
 }
 
 function createConfiguredOpenAICompatibleModel(
-  resolvedModel: ResolvedProviderModel & { isProposalAgent?: boolean },
+  resolvedModel: ResolvedProviderModel,
 ): LanguageModel {
   const { providerId, provider, providerModel, apiKey } = resolvedModel
   if (provider.type !== 'openai-compatible') {
@@ -702,23 +695,15 @@ function shouldDisableThinkingForProviderModel(providerModel: string): boolean {
 function shouldDowngradeRequiredToolChoiceForProviderModel(
   resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
     compatibility?: Partial<ProviderCompatibility>
-    isProposalAgent?: boolean
   },
 ): boolean {
   if (resolvedModel.compatibility?.supportsRequiredToolChoice === false) {
     return true
   }
 
-  // Never downgrade for proposal agents — they NEED tool_choice: required.
-  // Without it, they return empty proposals and break the whole pipeline.
-  if (resolvedModel.isProposalAgent) {
-    return false
-  }
-
   // Some OpenAI-compatible coding providers accept tool schemas but hang or
-  // reject when tool_choice is forced to "required". The proposal prompt still
-  // strongly asks for propose_* tool calls; omitting the forced choice lets
-  // these models complete normally.
+  // reject when tool_choice is forced to "required". Omitting the forced
+  // choice lets these models complete normally.
   return /(^|[-_/])(deepseek|glm)([-_/]|$)/i.test(resolvedModel.providerModel)
 }
 
@@ -733,7 +718,6 @@ function shouldStripStopSequencesForProviderModel(
 function shouldTransformRequestForProviderModel(
   resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
     compatibility?: Partial<ProviderCompatibility>
-    isProposalAgent?: boolean
   },
 ): boolean {
   return (
@@ -747,7 +731,6 @@ export function applyConfiguredProviderRequestCompatibility(
   body: Record<string, unknown>,
   resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
     compatibility?: Partial<ProviderCompatibility>
-    isProposalAgent?: boolean
   },
 ): Record<string, unknown> {
   if (!shouldTransformRequestForProviderModel(resolvedModel)) {
@@ -786,7 +769,7 @@ export function applyConfiguredProviderRequestCompatibility(
 }
 
 function createConfiguredProviderFetch(
-  resolvedModel: ResolvedProviderModel & { isProposalAgent?: boolean },
+  resolvedModel: ResolvedProviderModel,
 ): FetchFunction | undefined {
   if (!shouldTransformRequestForProviderModel(resolvedModel)) {
     return undefined

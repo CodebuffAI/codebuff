@@ -16,18 +16,6 @@ describe('tool metadata', () => {
     }
   })
 
-  test('keeps proposal previews out of mutation summaries', () => {
-    for (const toolName of [
-      'propose_edit_transaction',
-      'propose_str_replace',
-      'propose_write_file',
-      'read_proposal_workspace',
-    ] as const) {
-      expect(toolMetadata[toolName].kind).toBe('proposal')
-      expect(toolMetadata[toolName].includeInMutationSummary).toBe(false)
-    }
-  })
-
   test('records read_files as the first v1 filesystem result contract', () => {
     expect(toolMetadata.read_files).toMatchObject({
       kind: 'read',
@@ -36,7 +24,7 @@ describe('tool metadata', () => {
     })
   })
 
-  test('mutation and proposal tool schemas accept their canonical v1 envelopes', () => {
+  test('mutation tool schemas accept their canonical v1 envelopes', () => {
     const mutationOutput = [
       {
         type: 'json' as const,
@@ -75,42 +63,6 @@ describe('tool metadata', () => {
     ] as const) {
       expect(
         toolParams[toolName].outputSchema.safeParse(mutationOutput).success,
-      ).toBe(true)
-    }
-
-    const proposalOutput = [
-      {
-        type: 'json' as const,
-        value: {
-          kind: 'proposal_result' as const,
-          version: 1 as const,
-          proposalId: 'proposal-1',
-          revision: 1,
-          baseHash: 'sha256:base',
-          state: 'proposed' as const,
-          operations: [
-            {
-              actionId: 'action-1',
-              index: 0,
-              action: 'update' as const,
-              path: 'src/a.ts',
-              baseHash: 'sha256:before',
-              finalContent: 'next',
-            },
-          ],
-          createdAt: '2026-07-10T00:00:00.000Z',
-          updatedAt: '2026-07-10T00:00:00.000Z',
-          errors: [],
-        },
-      },
-    ]
-    for (const toolName of [
-      'propose_edit_transaction',
-      'propose_str_replace',
-      'propose_write_file',
-    ] as const) {
-      expect(
-        toolParams[toolName].outputSchema.safeParse(proposalOutput).success,
       ).toBe(true)
     }
   })

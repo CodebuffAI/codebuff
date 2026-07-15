@@ -1,8 +1,10 @@
 import {
   formatUnsafeToolPathError,
+  hasWholeFileReadAuthorization,
   isWholeFileReadAuthorizationFresh,
   normalizeToolPath,
   postStreamProcessing,
+  revokeWholeFileReadAuthorization,
 } from './write-file'
 import { coordinateEditApplication } from './edit-application-coordinator'
 import {
@@ -155,10 +157,19 @@ export const handleStrReplace = (async (
     }
   }
 
-  const hasStoredWholeFileAuthorization = Boolean(
-    fileProcessingState.readAuthorizationsByPath?.[path] ||
-    fileProcessingState.readAuthorizationHashesByPath?.[path],
+  const hasStoredWholeFileAuthorization = hasWholeFileReadAuthorization(
+    fileProcessingState,
+    path,
   )
+  if (
+    !hasStoredWholeFileAuthorization &&
+    fileProcessingState.modelVisibleReadAuthorizationHashesByPath ===
+      undefined &&
+    (fileProcessingState.readAuthorizationsByPath?.[path] === true ||
+      fileProcessingState.readAuthorizationHashesByPath?.[path] !== undefined)
+  ) {
+    revokeWholeFileReadAuthorization(fileProcessingState, path)
+  }
   if (
     fileProcessingState.strictReadBeforeEdit &&
     !hasStoredWholeFileAuthorization &&

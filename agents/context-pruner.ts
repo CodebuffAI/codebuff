@@ -266,14 +266,6 @@ const definition: AgentDefinition = {
           const path = input.path as string | undefined
           return path ? `edited file: ${path}` : 'edited a file'
         }
-        case 'propose_write_file': {
-          const path = input.path as string | undefined
-          return path ? `proposed writing: ${path}` : 'proposed a file write'
-        }
-        case 'propose_str_replace': {
-          const path = input.path as string | undefined
-          return path ? `proposed editing: ${path}` : 'proposed a file edit'
-        }
         case 'read_subtree': {
           const paths = input.paths as string[] | undefined
           if (paths && paths.length > 0) {
@@ -1944,7 +1936,10 @@ const definition: AgentDefinition = {
         [persistedTaskMemory.decisions, knowledgeMemory.decisions],
         [persistedTaskMemory.filesInspected, knowledgeMemory.filesInspected],
         [persistedTaskMemory.editsMade, knowledgeMemory.editsMade],
-        [persistedTaskMemory.validationResults, knowledgeMemory.validationResults],
+        [
+          persistedTaskMemory.validationResults,
+          knowledgeMemory.validationResults,
+        ],
         [persistedTaskMemory.reviewReceipts, knowledgeMemory.reviewReceipts],
         [persistedTaskMemory.blockers, knowledgeMemory.blockers],
       ] as Array<[unknown, string[]]>) {
@@ -2507,7 +2502,11 @@ ${SUMMARY_DISCLAIMER}`,
         .filter((entry: unknown) => entry && typeof entry === 'object')
         .map((entry: Record<string, unknown>) => String(entry.id ?? '')),
     )
-    const addMemoryEvidence = (kind: string, summary: string, path?: string) => {
+    const addMemoryEvidence = (
+      kind: string,
+      summary: string,
+      path?: string,
+    ) => {
       const normalized = summary.trim()
       if (!normalized) return
       let hash = 2166136261

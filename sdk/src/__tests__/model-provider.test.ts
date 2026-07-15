@@ -441,22 +441,6 @@ describe('model-provider', () => {
       expect(transformed.thinking).toBeUndefined()
     })
 
-    test('does not downgrade required tool choice for proposal agents', () => {
-      const transformed = applyConfiguredProviderRequestCompatibility(
-        {
-          model: 'deepseek-v4-pro',
-          messages: [{ role: 'user', content: 'hello' }],
-          tool_choice: 'required',
-        },
-        {
-          providerModel: 'deepseek-v4-pro',
-          isProposalAgent: true,
-        },
-      )
-
-      expect(transformed.tool_choice).toBe('required')
-    })
-
     test('downgrades required tool choice for providers that opt out', () => {
       const transformed = applyConfiguredProviderRequestCompatibility(
         {

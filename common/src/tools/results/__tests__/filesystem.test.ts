@@ -3,7 +3,6 @@ import { describe, expect, it } from 'bun:test'
 import {
   buildFileMutationResultFromReceiptV1,
   buildNativeToolResultErrorOutputV1,
-  buildProposalResultV1,
   buildReadFilesResultV1,
   canTransitionToolLifecycleV1,
   commitReceiptV1Schema,
@@ -12,11 +11,9 @@ import {
   filesystemErrorCodeSchema,
   getConfirmedAppliedActionsV1,
   isReadFilesResultV1,
-  proposalResultV1Schema,
   nativeToolResultErrorOutputV1Schema,
   readFilesResultV1Schema,
   reconcileFileMutationResultV1,
-  transitionProposalResultV1,
 } from '../filesystem'
 
 describe('structured filesystem results', () => {
@@ -546,110 +543,5 @@ describe('mutation receipts and reconciliation', () => {
     expect(rollbackIncomplete.outcome).toBe('rollback_incomplete')
     expect(getConfirmedAppliedActionsV1(rollbackIncomplete)).toHaveLength(1)
     expect(rollbackIncomplete.actions[0]?.rollback?.succeeded).toBe(false)
-  })
-})
-
-describe('proposal state machine', () => {
-  const proposal = buildProposalResultV1({
-    proposalId: 'proposal-1',
-    baseHash: 'sha256:workspace-base',
-    operations: [
-      {
-        actionId: 'action-1',
-        index: 0,
-        action: 'update',
-        path: 'src/a.ts',
-        baseHash: 'sha256:before',
-        patch: '@@ patch',
-      },
-    ],
-    createdAt: '2026-07-10T00:00:00.000Z',
-  })
-
-  it('uses revision/base-hash CAS and keeps accepted distinct from applied', () => {
-    const accepted = transitionProposalResultV1(proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 1,
-      expectedBaseHash: proposal.baseHash,
-      state: 'accepted',
-      updatedAt: '2026-07-10T00:01:00.000Z',
-    })
-    expect(accepted.ok).toBe(true)
-    if (!accepted.ok) return
-    expect(accepted.proposal.state).toBe('accepted')
-    expect(accepted.proposal.commitReceipt).toBeUndefined()
-
-    const staleRace = transitionProposalResultV1(accepted.proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 1,
-      expectedBaseHash: proposal.baseHash,
-      state: 'rejected',
-      updatedAt: '2026-07-10T00:02:00.000Z',
-    })
-    expect(staleRace.ok).toBe(false)
-    if (!staleRace.ok) expect(staleRace.error.code).toBe('stale_state')
-
-    const applied = transitionProposalResultV1(accepted.proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 2,
-      expectedBaseHash: proposal.baseHash,
-      state: 'applied',
-      updatedAt: '2026-07-10T00:03:00.000Z',
-      commitReceipt: portableReceipt,
-    })
-    expect(applied.ok).toBe(true)
-    if (!applied.ok) return
-    expect(applied.proposal.state).toBe('applied')
-
-    const repeated = transitionProposalResultV1(applied.proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 2,
-      expectedBaseHash: proposal.baseHash,
-      state: 'applied',
-      updatedAt: '2026-07-10T00:04:00.000Z',
-    })
-    expect(repeated).toEqual({
-      ok: true,
-      proposal: applied.proposal,
-      idempotent: true,
-    })
-  })
-
-  it('rejects conflicting terminal transitions and apply without a receipt', () => {
-    const accepted = transitionProposalResultV1(proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 1,
-      expectedBaseHash: proposal.baseHash,
-      state: 'accepted',
-      updatedAt: '2026-07-10T00:01:00.000Z',
-    })
-    if (!accepted.ok) throw new Error('expected proposal acceptance')
-
-    const noReceipt = transitionProposalResultV1(accepted.proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 2,
-      expectedBaseHash: proposal.baseHash,
-      state: 'applied',
-      updatedAt: '2026-07-10T00:02:00.000Z',
-    })
-    expect(noReceipt.ok).toBe(false)
-
-    const rejected = transitionProposalResultV1(proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 1,
-      expectedBaseHash: proposal.baseHash,
-      state: 'rejected',
-      updatedAt: '2026-07-10T00:02:00.000Z',
-    })
-    if (!rejected.ok) throw new Error('expected proposal rejection')
-    const conflict = transitionProposalResultV1(rejected.proposal, {
-      proposalId: proposal.proposalId,
-      expectedRevision: 2,
-      expectedBaseHash: proposal.baseHash,
-      state: 'accepted',
-      updatedAt: '2026-07-10T00:03:00.000Z',
-    })
-    expect(conflict.ok).toBe(false)
-    if (!conflict.ok) expect(conflict.error.code).toBe('illegal_transition')
   })
 })

@@ -8,7 +8,7 @@ const STATS_BAR_WIDTH = 5
 /** Minimum inner content width */
 const MIN_INNER_WIDTH = 10
 
-/** Labels for proposal cards when no file changes exist */
+/** Labels for implementor cards when no file changes exist. */
 const EMPTY_STATE_LABELS = {
   running: 'generating...',
   complete: 'no changes',
@@ -29,7 +29,7 @@ import {
   type FileStats,
 } from '../../utils/implementor-helpers'
 import { getRelativePath } from '../../utils/path-helpers'
-import { PROPOSAL_BORDER_CHARS } from '../../utils/ui-constants'
+import { IMPLEMENTOR_BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 import { CollapseButton } from '../collapse-button'
 import { DiffViewer } from '../tools/diff-viewer'
@@ -176,7 +176,7 @@ const ImplementorCard = memo(
       <box
         border
         borderStyle="single"
-        customBorderChars={PROPOSAL_BORDER_CHARS}
+        customBorderChars={IMPLEMENTOR_BORDER_CHARS}
         borderColor={isComplete ? theme.muted : theme.primary}
         style={{
           flexDirection: 'column',
@@ -214,7 +214,7 @@ const ImplementorCard = memo(
           </text>
         </box>
 
-        {/* Compact strategy preview; never render raw proposal context here. */}
+        {/* Compact strategy preview; never render raw hidden context here. */}
         {promptPreview && (
           <box style={{ marginTop: 1, width: '100%' }}>
             <text fg={theme.muted} attributes={TextAttributes.ITALIC}>

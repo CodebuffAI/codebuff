@@ -3,8 +3,8 @@ import z from 'zod/v4'
 /**
  * Shared `basedOnRead` capability schema.
  *
- * Used by `str_replace`, `write_file`, `propose_str_replace`, and
- * `edit_transaction` to satisfy strict read-before-edit without a prior
+ * Used by `str_replace`, `write_file`, and `edit_transaction` to satisfy
+ * strict read-before-edit without a prior
  * `read_files` call in the same turn, and by `apply_patch` to anchor each
  * touched hunk to a fresh read range.
  *
@@ -22,7 +22,7 @@ import z from 'zod/v4'
  *   small-file `str_replace` normally relies on exact oldString matching. In
  *   strict read-before-edit mode, supplied anchors are validated regardless of
  *   file size. Range capabilities do not authorize whole-file overwrites.
- * - For anchored `str_replace`/`propose_str_replace`/`edit_transaction`, a
+ * - For anchored `str_replace`/`edit_transaction`, a
  *   fresh anchor constrains matching to that range and clears stale failed-edit
  *   state. For `apply_patch`, one fresh anchor per touched hunk lets the
  *   runtime reject stale or out-of-range hunks before editing.
@@ -58,7 +58,7 @@ export const basedOnReadRangeSchema = z
 
 /**
  * Token-string OR object union accepted by str_replace/write_file/
- * propose_str_replace/edit_transaction. Authenticated cap.v3 tokens can satisfy
+ * edit_transaction. Authenticated cap.v3 tokens can satisfy
  * strict read-before-edit for their bound path; legacy forms cannot authorize
  * an otherwise unread path.
  */

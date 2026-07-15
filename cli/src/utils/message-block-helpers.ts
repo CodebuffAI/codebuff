@@ -1107,10 +1107,7 @@ const formatToolOutput = (
     return JSON.stringify(toolOutput, null, 2)
   }
 
-  if (
-    toolName === 'edit_transaction' ||
-    toolName === 'propose_edit_transaction'
-  ) {
+  if (toolName === 'edit_transaction') {
     return formatTransactionToolOutput(toolOutput)
   }
 

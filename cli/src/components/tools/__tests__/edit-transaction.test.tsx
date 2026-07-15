@@ -103,47 +103,36 @@ test('move actions render source and destination paths', () => {
   expect(markup).toContain('src/old.ts → src/new.ts')
 })
 
-describe('EditTransactionComponent proposal separation', () => {
-  test('[MUT-H04] proposal state is labeled without applied mutation copy', () => {
-    const block = {
-      type: 'tool',
-      toolName: 'propose_edit_transaction',
-      toolCallId: 'proposal-1',
-      input: { edits: [] },
-      outputRaw: [
-        {
-          type: 'json',
-          value: {
-            kind: 'proposal_result',
-            version: 1,
-            proposalId: 'p-1',
-            revision: 1,
-            baseHash: 'base',
-            state: 'proposed',
-            createdAt: 'now',
-            updatedAt: 'now',
-            errors: [],
-            operations: [
-              {
-                operationId: 'o-1',
-                index: 0,
-                action: 'update',
-                path: 'src/a.ts',
-                baseHash: 'base',
-                patch: '@@\n-old\n+new',
-              },
-            ],
-          },
+test('legacy transaction failures render one-based detail exactly once', () => {
+  const block = {
+    type: 'tool',
+    toolName: 'edit_transaction',
+    toolCallId: 'tx-preflight',
+    input: { edits: [] },
+    outputRaw: [
+      {
+        type: 'json',
+        value: {
+          errorMessage:
+            'edit_transaction aborted during preflight at edit 6 of 18.',
+          failures: [
+            {
+              editIndex: 5,
+              path: 'src/page.tsx',
+              errorMessage: 'oldString was not an exact match',
+            },
+          ],
         },
-      ],
-    } as ToolBlock
-    const rendered = renderToolComponent(block, chatThemes.dark, {
-      availableWidth: 80,
-      indentationOffset: 0,
-      labelWidth: 0,
-    })
-    const markup = renderToStaticMarkup(rendered?.content as React.ReactElement)
-    expect(markup).toContain('Proposal transaction proposed')
-    expect(markup).not.toContain('applied')
+      },
+    ],
+  } as ToolBlock
+  const rendered = renderToolComponent(block, chatThemes.dark, {
+    availableWidth: 80,
+    indentationOffset: 0,
+    labelWidth: 0,
   })
+  const markup = renderToStaticMarkup(rendered?.content as React.ReactElement)
+
+  expect(markup).toContain('6. src/page.tsx')
+  expect(markup.match(/oldString was not an exact match/g)).toHaveLength(1)
 })

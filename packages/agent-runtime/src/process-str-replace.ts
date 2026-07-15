@@ -94,8 +94,18 @@ const FAILED_EDIT_RECOVERY_GUIDANCE = [
   'Base the next edit on the fresh read, not on the failed oldString.',
 ].join('\n')
 
+const FAILED_EDIT_INLINE_RECOVERY_GUIDANCE = [
+  'Recovery snapshot available: the best current candidate and its authenticated capability are included above.',
+  'If that candidate is the intended target, copy its current text exactly for str_replace or use replace_range with the supplied readCapability; no separate read is needed.',
+  'Re-read only if another candidate is the real target or the workspace may have changed since this failure.',
+].join('\n')
+
 function addFailedEditRecoveryGuidance(error: string): string {
-  return `${error}\n\n${FAILED_EDIT_RECOVERY_GUIDANCE}`
+  return `${error}\n\n${
+    error.includes('Recovery capability for candidate 1:')
+      ? FAILED_EDIT_INLINE_RECOVERY_GUIDANCE
+      : FAILED_EDIT_RECOVERY_GUIDANCE
+  }`
 }
 
 export async function processStrReplace(params: {
@@ -113,6 +123,8 @@ export async function processStrReplace(params: {
    * partial edits. Large files are always atomic regardless of this flag.
    */
   atomic?: boolean
+  /** Use transaction-specific recovery wording when partial apply is impossible. */
+  transactionContext?: boolean
   /** Require every supplied basedOnRead capability to match current content. */
   requireFreshReadCapability?: boolean
   /** Expected project/path/run scope for authenticated cap.v3 tokens. */
@@ -134,6 +146,7 @@ export async function processStrReplace(params: {
     path,
     replacements,
     atomic = false,
+    transactionContext = false,
     requireFreshReadCapability = false,
     readCapabilityScope,
     initialContentPromise,
@@ -555,6 +568,7 @@ export async function processStrReplace(params: {
       oldStr: normalizedOldStr,
       newStr: normalizedNewStr,
       allowMultiple,
+      readCapabilityScope,
       logger,
     })
     let updatedOldStr: string | null
@@ -565,8 +579,11 @@ export async function processStrReplace(params: {
         messages.push(match.message)
       }
     } else {
-      messages.push(match.error)
-      recordFailure(match.error)
+      const failureMessage = useAtomicBatch
+        ? match.error
+        : addFailedEditRecoveryGuidance(match.error)
+      messages.push(failureMessage)
+      recordFailure(failureMessage)
       updatedOldStr = null
     }
 
@@ -629,7 +646,9 @@ export async function processStrReplace(params: {
           `Atomic str_replace batch aborted for ${path}: ${failures.length} of ${replacements.length} replacement(s) did not apply, so NO changes were made.`,
           isLargeFile
             ? 'Re-read the exact current ranges for the failed replacements, then resend the whole batch in one str_replace call (each replacement with its own basedOnRead).'
-            : 'Re-read the exact current file/range for the failed replacements, then retry the batch or omit atomic to allow partial success.',
+            : transactionContext
+              ? 'Use the recovery snapshot/capability when supplied; otherwise re-read the failed file/range, then retry the whole transaction. Partial success is unavailable inside edit_transaction.'
+              : 'Use the recovery snapshot/capability when supplied; otherwise re-read the failed file/range, then retry the batch or omit atomic to allow partial success.',
           ...failures,
         ].join('\n\n'),
       ),
@@ -1271,6 +1290,7 @@ function formatClosestMatchDiagnostics(
     endLine: number
     similarity: number
   }[],
+  readCapabilityScope?: ReadCapabilityScope,
 ): string {
   const usefulMatches = matches.filter(
     (match) => match.similarity >= MIN_USEFUL_DIAGNOSTIC_SIMILARITY,
@@ -1287,15 +1307,30 @@ function formatClosestMatchDiagnostics(
   }
 
   return usefulMatches
-    .map((match, index) =>
-      [
+    .map((match, index) => {
+      const recoveryCapability =
+        index === 0 && readCapabilityScope
+          ? encodeReadCapabilityToken({
+              startLine: match.startLine,
+              endLine: match.endLine,
+              hash: getContentHash(match.closestBlock),
+              scope: readCapabilityScope,
+            })
+          : undefined
+      return [
         `Candidate ${index + 1}: lines ${match.startLine}-${match.endLine} (similarity ${Math.round(match.similarity * 100)}%)`,
         `Recovery read: read_files ranges: [{ path: ${JSON.stringify(path)}, startLine: ${match.startLine}, endLine: ${match.endLine} }]`,
+        ...(recoveryCapability
+          ? [
+              `Recovery capability for candidate 1: readCapability=${recoveryCapability}`,
+              `Preferred block retry: replace_range { path: ${JSON.stringify(path)}, readCapability: ${JSON.stringify(recoveryCapability)}, newContent: "..." }`,
+            ]
+          : []),
         '```',
         match.closestBlock,
         '```',
-      ].join('\n'),
-    )
+      ].join('\n')
+    })
     .join('\n\n')
 }
 
@@ -1793,11 +1828,20 @@ const tryMatchOldStr = (params: {
   oldStr: string
   newStr: string
   allowMultiple: boolean
+  readCapabilityScope?: ReadCapabilityScope
   logger: Logger
 }):
   | { success: true; oldStr: string; message?: string }
   | { success: false; error: string } => {
-  const { path, initialContent, oldStr, newStr, allowMultiple, logger } = params
+  const {
+    path,
+    initialContent,
+    oldStr,
+    newStr,
+    allowMultiple,
+    readCapabilityScope,
+    logger,
+  } = params
   // count the number of occurrences of oldStr in initialContent
   const count = initialContent.split(oldStr).length - 1
   if (count > 1 && oldStr.trim().length < TINY_ANCHOR_MULTI_MATCH_MIN_LENGTH) {
@@ -1910,11 +1954,14 @@ const tryMatchOldStr = (params: {
 
   const closestMatches = findClosestMatches({ initialContent, oldStr })
   let errorMsg = [
-    `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping.`,
-    'This often means the target block was already changed/removed, or the oldString came from a stale read.',
-    'Please re-read the current file/range and try again with an oldString copied exactly from fresh read_files output.',
+    `The old string ${JSON.stringify(oldStr)} is not an exact contiguous match of the current file, so it was not applied.`,
+    'It may be incomplete, may omit punctuation from the middle of a line, or may refer to content that changed or was removed.',
   ].join(' ')
-  const diagnostics = formatClosestMatchDiagnostics(path, closestMatches)
+  const diagnostics = formatClosestMatchDiagnostics(
+    path,
+    closestMatches,
+    readCapabilityScope,
+  )
   if (diagnostics) {
     errorMsg += `\n\nClosest candidate ranges for read_files.ranges recovery:\n${diagnostics}`
   }

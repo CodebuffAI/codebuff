@@ -153,7 +153,7 @@ function reasoningEffortMenu(): string {
   return [
     'Reasoning effort?',
     '1. default (use the agent/provider default)',
-    '2. low (fast tool loops; recommended for editor proposals)',
+    '2. low (fast tool loops; recommended for editor tasks)',
     '3. medium (balanced)',
     '4. high (best for planning/review/selection)',
     '5. minimal (cheapest/fastest where supported)',

@@ -99,7 +99,7 @@ export const getAgentStreamFromTemplate = (params: {
     // Keep native tool schemas available. The XML parser remains a fallback for
     // models that print <codebuff_tool_call> blocks, but hiding native schemas
     // makes many OpenAI-compatible models answer in prose and produce no usable
-    // proposal at all.
+    // tool call at all.
     tools,
     userId,
     userInputId,

@@ -5,7 +5,6 @@ export const FILE_MUTATION_TOOL_TIMEOUT_MS = 120_000
 const FILE_MUTATION_TOOLS = new Set<ToolName>([
   'apply_patch',
   'apply_smart_patch',
-  'apply_proposal',
   'create_plan',
   'edit_transaction',
   'replace_range',

@@ -89,40 +89,65 @@ export type FileProcessingState = {
   // similar per-turn bounds.
   readAuthorizationsByPath?: Record<string, true>
   readAuthorizationHashesByPath?: Record<string, string>
+  /**
+   * Whole-file authorizations that were visible before the current model
+   * generation started. When present, strict edit checks use this snapshot
+   * instead of reads completed later in the same streamed response.
+   */
+  modelVisibleReadAuthorizationHashesByPath?: Record<string, string>
   editRereadRequirementsByPath?: Record<string, EditRereadRequirement>
+}
+
+function getUsableWholeFileAuthorizationHash(
+  state: Pick<
+    FileProcessingState,
+    | 'readAuthorizationsByPath'
+    | 'readAuthorizationHashesByPath'
+    | 'modelVisibleReadAuthorizationHashesByPath'
+  >,
+  path: string,
+): string | undefined {
+  if (state.modelVisibleReadAuthorizationHashesByPath !== undefined) {
+    return state.modelVisibleReadAuthorizationHashesByPath[path]
+  }
+  return state.readAuthorizationsByPath?.[path] === true
+    ? state.readAuthorizationHashesByPath?.[path]
+    : undefined
 }
 
 export function hasWholeFileReadAuthorization(
   state: Pick<
     FileProcessingState,
-    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+    | 'readAuthorizationsByPath'
+    | 'readAuthorizationHashesByPath'
+    | 'modelVisibleReadAuthorizationHashesByPath'
   >,
   path: string,
 ): boolean {
-  return (
-    state.readAuthorizationsByPath?.[path] === true &&
-    typeof state.readAuthorizationHashesByPath?.[path] === 'string'
-  )
+  return typeof getUsableWholeFileAuthorizationHash(state, path) === 'string'
 }
 
 export function isWholeFileReadAuthorizationFresh(
   state: Pick<
     FileProcessingState,
-    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+    | 'readAuthorizationsByPath'
+    | 'readAuthorizationHashesByPath'
+    | 'modelVisibleReadAuthorizationHashesByPath'
   >,
   path: string,
   content: string,
 ): boolean {
   return (
-    hasWholeFileReadAuthorization(state, path) &&
-    state.readAuthorizationHashesByPath?.[path] === getContentHash(content)
+    getUsableWholeFileAuthorizationHash(state, path) === getContentHash(content)
   )
 }
 
 export function grantWholeFileReadAuthorization(
   state: Pick<
     FileProcessingState,
-    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+    | 'readAuthorizationsByPath'
+    | 'readAuthorizationHashesByPath'
+    | 'modelVisibleReadAuthorizationHashesByPath'
   >,
   path: string,
   content: string,
@@ -136,12 +161,15 @@ export function grantWholeFileReadAuthorization(
 export function revokeWholeFileReadAuthorization(
   state: Pick<
     FileProcessingState,
-    'readAuthorizationsByPath' | 'readAuthorizationHashesByPath'
+    | 'readAuthorizationsByPath'
+    | 'readAuthorizationHashesByPath'
+    | 'modelVisibleReadAuthorizationHashesByPath'
   >,
   path: string,
 ): void {
   delete state.readAuthorizationsByPath?.[path]
   delete state.readAuthorizationHashesByPath?.[path]
+  delete state.modelVisibleReadAuthorizationHashesByPath?.[path]
 }
 
 export function normalizeToolPath(filePath: string): string {

@@ -10,6 +10,7 @@ import {
 import {
   formatUnsafeToolPathError,
   grantWholeFileReadAuthorization,
+  hasWholeFileReadAuthorization,
   isWholeFileReadAuthorizationFresh,
   normalizeToolPath,
   revokeWholeFileReadAuthorization,
@@ -228,9 +229,9 @@ export const handleEditTransaction = (async (
   const staleWholeFileAuthorizationPaths = new Set<string>()
   for (const path of uniquePaths) {
     const initialContent = initialContentByPath.get(path)
-    const hasStoredAuthorization = Boolean(
-      fileProcessingState.readAuthorizationsByPath?.[path] ||
-      fileProcessingState.readAuthorizationHashesByPath?.[path],
+    const hasStoredAuthorization = hasWholeFileReadAuthorization(
+      fileProcessingState,
+      path,
     )
     const isFresh =
       typeof initialContent === 'string' &&

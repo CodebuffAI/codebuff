@@ -21,6 +21,7 @@ import { fileURLToPath } from 'url'
 
 import { resolveGrammarWasmSource } from '../../packages/code-map/src/grammar-wasm-repair'
 import { LANGUAGE_WASM_FILES } from '../../packages/code-map/src/wasm-files'
+import { patchOpenTuiLegacyNativeLoaderSource } from './open-tui-legacy-patch'
 
 type TargetInfo = {
   bunTarget: string
@@ -163,7 +164,7 @@ async function main() {
   patchOpenTuiAssetPaths()
   if (IS_LEGACY_MACOS_BUILD) {
     assertLegacyMacOSBuildConfig(targetInfo)
-    patchOpenTuiNativeEntryForLegacy(targetInfo)
+    patchOpenTuiCoreNativeLoaderForLegacy()
   } else {
     await ensureOpenTuiNativeBundle(targetInfo)
   }
@@ -302,24 +303,42 @@ function assertLegacyMacOSBuildConfig(targetInfo: TargetInfo) {
   }
 }
 
-function patchOpenTuiNativeEntryForLegacy(targetInfo: TargetInfo) {
-  const packageFolder = `core-${targetInfo.platform}-${targetInfo.arch}`
-  const entryPaths = [
-    join(repoRoot, 'node_modules', '@opentui', packageFolder, 'index.ts'),
-    join(cliRoot, 'node_modules', '@opentui', packageFolder, 'index.ts'),
+function patchOpenTuiCoreNativeLoaderForLegacy() {
+  const coreDirs = [
+    join(repoRoot, 'node_modules', '@opentui', 'core'),
+    join(cliRoot, 'node_modules', '@opentui', 'core'),
   ]
-  const entrySource = `import { dirname, join } from 'path'\n\nexport default join(dirname(process.execPath), 'libopentui.dylib')\n`
+  const searchedFiles = new Set<string>()
+  let patchedPath: string | null = null
 
-  let patched = 0
-  for (const entryPath of entryPaths) {
-    if (!existsSync(entryPath)) continue
-    writeFileSync(entryPath, entrySource)
-    patched++
+  for (const coreDir of coreDirs) {
+    if (!existsSync(coreDir)) continue
+    for (const file of readdirSync(coreDir)) {
+      if (!file.startsWith('index') || !file.endsWith('.js')) continue
+      const bundlePath = join(coreDir, file)
+      if (searchedFiles.has(bundlePath)) continue
+      searchedFiles.add(bundlePath)
+
+      const source = readFileSync(bundlePath, 'utf8')
+      if (
+        !source.includes('@opentui/core-${process.platform}-${process.arch}')
+      ) {
+        continue
+      }
+      const patched = patchOpenTuiLegacyNativeLoaderSource(source)
+      writeFileSync(bundlePath, patched)
+      patchedPath = bundlePath
+    }
   }
-  if (patched === 0) {
-    throw new Error(`Could not find @opentui/${packageFolder}/index.ts`)
+
+  if (!patchedPath) {
+    throw new Error(
+      `Could not find OpenTUI's dynamic platform loader in:\n  - ${[
+        ...searchedFiles,
+      ].join('\n  - ')}`,
+    )
   }
-  logAlways(`Patched ${patched} OpenTUI native entries for legacy macOS`)
+  logAlways(`Patched OpenTUI legacy native loader: ${patchedPath}`)
 }
 
 main().catch((error: unknown) => {
