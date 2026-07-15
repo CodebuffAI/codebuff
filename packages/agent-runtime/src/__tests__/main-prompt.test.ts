@@ -66,9 +66,9 @@ describe('mainPrompt', () => {
         instructionsPrompt: '',
         stepPrompt: '',
       } satisfies AgentTemplate,
-      [AgentTemplateTypes.base_max]: {
-        id: AgentTemplateTypes.base_max,
-        displayName: 'Base Max Agent',
+      base2: {
+        id: 'base2',
+        displayName: 'Base2 Agent',
         outputMode: 'last_message',
         inputSchema: {},
         spawnerPrompt: '',
@@ -310,9 +310,9 @@ describe('mainPrompt', () => {
           instructionsPrompt: '',
           stepPrompt: '',
         },
-        [AgentTemplateTypes.base_max]: {
-          id: 'base-max',
-          displayName: 'Base Max Agent',
+        base2: {
+          id: 'base2',
+          displayName: 'Base2 Agent',
           outputMode: 'last_message',
           inputSchema: {},
           spawnerPrompt: '',

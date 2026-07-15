@@ -4,6 +4,7 @@ import {
   assertSafePublicWebUrl,
   fetchPublicWebUrl,
   isBlockedWebAddress,
+  parseDuckDuckGoHtml,
   readResponseTextWithLimit,
 } from '../web-search-utils'
 
@@ -75,5 +76,22 @@ describe('web search fetch security', () => {
     await expect(
       readResponseTextWithLimit({ response, maxBytes: 8 }),
     ).resolves.toEqual({ text: 'abcdefgh', truncated: true })
+  })
+
+  it('parses DuckDuckGo HTML results and unwraps redirect targets', () => {
+    const results = parseDuckDuckGoHtml(`
+      <div class="result">
+        <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fdocs">Example &amp; Docs</a>
+        <a class="result__snippet">A &lt;useful&gt; result.</a>
+      </div>
+    `)
+
+    expect(results).toEqual([
+      {
+        title: 'Example & Docs',
+        url: 'https://example.com/docs',
+        description: 'A result.',
+      },
+    ])
   })
 })

@@ -497,7 +497,7 @@ describe('file-picker agent', () => {
     })
 
     // M2.2: relevance scoring orders paths by prompt-keyword matches, and caps
-    // to the top 12 (matching the spawner prompt's advertised limit).
+    // to the top 8 (matching the spawner prompt's advertised limit).
     test('orders paths by prompt-keyword relevance', () => {
       const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
@@ -556,7 +556,7 @@ describe('file-picker agent', () => {
       expect(paths).toHaveLength(4)
     })
 
-    test('caps to top 12 paths when more candidates are returned', () => {
+    test('caps to top 8 paths when more candidates are returned', () => {
       const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
@@ -570,7 +570,7 @@ describe('file-picker agent', () => {
 
       generator.next()
 
-      // 15 candidate paths — should be capped to 12.
+      // 15 candidate paths — should be capped to 8.
       const fifteenPaths = Array.from(
         { length: 15 },
         (_, i) => `src/file${i}.ts`,
@@ -604,7 +604,7 @@ describe('file-picker agent', () => {
 
       const toolCall = result.value as ToolCall<'read_files'>
       expect(toolCall.toolName).toBe('read_files')
-      expect(toolCall.input.paths).toHaveLength(12)
+      expect(toolCall.input.paths).toHaveLength(8)
     })
   })
 
@@ -689,8 +689,8 @@ describe('file-picker agent', () => {
       expect(filePicker.spawnerPrompt).toContain('relevant files')
     })
 
-    test('mentions up to 12 file paths', () => {
-      expect(filePicker.spawnerPrompt).toContain('12')
+    test('mentions up to 8 file paths', () => {
+      expect(filePicker.spawnerPrompt).toContain('8')
     })
 
     test('mentions fuzzy search', () => {

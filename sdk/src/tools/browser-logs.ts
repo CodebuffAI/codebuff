@@ -46,6 +46,7 @@ type RecordingState = {
 }
 
 type BrowserSession = {
+  owner?: BrowserSessionOwner
   child: ChildProcess
   port: number
   userDataDir: string
@@ -80,17 +81,41 @@ const CRC_TABLE = makeCrcTable()
 const browserSessions = new Map<string, BrowserSession>()
 const DEFAULT_BROWSER_SESSION_KEY = 'default'
 
+export type BrowserSessionOwner = {
+  clientSessionId: string
+  rootRunId: string
+  parentRunId: string
+  parentAgentId: string
+}
+
+export function getBrowserSessionKey(owner: BrowserSessionOwner): string {
+  return [
+    owner.clientSessionId,
+    owner.rootRunId,
+    owner.parentRunId,
+    owner.parentAgentId,
+  ]
+    .map((value) => encodeURIComponent(value))
+    .join('::')
+}
+
 export async function browserLogs(
   action: BrowserAction,
-  sessionKey = DEFAULT_BROWSER_SESSION_KEY,
+  sessionOwnerOrKey: BrowserSessionOwner | string = DEFAULT_BROWSER_SESSION_KEY,
 ): Promise<CodebuffToolOutput<'browser_logs'>> {
+  const owner =
+    typeof sessionOwnerOrKey === 'string' ? undefined : sessionOwnerOrKey
+  const sessionKey =
+    typeof sessionOwnerOrKey === 'string'
+      ? sessionOwnerOrKey
+      : getBrowserSessionKey(sessionOwnerOrKey)
   try {
     if (action.type === 'stop') {
       await stopBrowserSession(sessionKey)
       return [jsonResult({ success: true, action: action.type, logs: [] })]
     }
 
-    const session = await ensureBrowserSession(sessionKey)
+    const session = await ensureBrowserSession(sessionKey, owner)
     const page = await getActivePage(session)
     await enablePageDomains(page)
 
@@ -496,6 +521,7 @@ export function buildPdfAttachmentMetadata(data: string) {
 
 async function ensureBrowserSession(
   sessionKey: string,
+  owner?: BrowserSessionOwner,
 ): Promise<BrowserSession> {
   const existingSession = browserSessions.get(sessionKey)
   if (existingSession && existingSession.child.exitCode === null) {
@@ -526,6 +552,7 @@ async function ensureBrowserSession(
 
   const target = await waitForPageTarget(port)
   const session: BrowserSession = {
+    ...(owner ? { owner } : {}),
     child,
     port,
     userDataDir,
@@ -647,6 +674,17 @@ export async function stopBrowserSessionsByPrefix(prefix: string) {
   const keys = [...browserSessions.keys()].filter((key) =>
     key.startsWith(prefix),
   )
+  await Promise.all(keys.map((key) => stopBrowserSession(key)))
+}
+
+export async function stopBrowserSessionsByOwner(
+  owner: Pick<BrowserSessionOwner, 'clientSessionId'>,
+) {
+  const keys = [...browserSessions.entries()]
+    .filter(
+      ([, session]) => session.owner?.clientSessionId === owner.clientSessionId,
+    )
+    .map(([key]) => key)
   await Promise.all(keys.map((key) => stopBrowserSession(key)))
 }
 

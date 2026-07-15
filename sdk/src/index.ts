@@ -183,8 +183,10 @@ export type {
 export {
   ChangeOwnershipService,
   HarnessApprovalService,
+  classifyTerminalHarnessAction,
   evaluateHarnessActionPolicy,
 } from './services/harness-enforcement'
+export type { ClassifiedHarnessAction } from './services/harness-enforcement'
 export {
   VerifiedKnowledgeService,
   WorkspaceLeaseService,

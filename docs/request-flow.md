@@ -92,7 +92,7 @@ through a hosted Openbuff/Codebuff service in this primary flow.
    and the shipped `agents/` package.
 2. Sends a `response-chunk` `start` event to the CLI.
 3. `mainPrompt()` selects the agent based on cost mode (`lite` → `base-free`,
-   `normal` → `base`, `ask` → `ask`, `max` → `base-max`, `experimental` →
+   `normal` → `base`, `ask` → `ask`, `max` → `base2`, `experimental` →
    `base2`, default → `base2`) or an explicit custom agent ID.
 4. Calls `loopAgentSteps()` with the agent template, prompt, and session
    state.

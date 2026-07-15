@@ -35,7 +35,10 @@ import { reconcileInterruptedPathLeases } from './util/workspace-path-leases'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { getBackgroundAgentJob } from './util/background-agent-jobs'
-import { buildAgentToolSet } from './templates/prompts'
+import {
+  buildAgentToolSet,
+  getModelVisibleSpawnableAgents,
+} from './templates/prompts'
 import { getAgentPrompt } from './templates/strings'
 import { getToolSet } from './tools/prompts'
 import { processStream } from './tools/stream-parser'
@@ -1080,7 +1083,8 @@ export async function loopAgentSteps(
         agentType: agentTemplate.id,
         model: agentTemplate.model,
         contextWindowTokens: resolvedModelContextWindow,
-        reason: 'Resolved from the configured agent/model route before the first programmatic step.',
+        reason:
+          'Resolved from the configured agent/model route before the first programmatic step.',
         workspaceRevision: initialAgentState.workspaceState?.revision,
         workspaceSnapshotId: initialAgentState.workspaceState?.snapshotId,
       },
@@ -1187,7 +1191,9 @@ export async function loopAgentSteps(
       ? {}
       : await buildAgentToolSet({
           ...params,
-          spawnableAgents: agentTemplate.spawnableAgents,
+          spawnableAgents: getModelVisibleSpawnableAgents(
+            agentTemplate.spawnableAgents,
+          ),
           spawnableAgentToolMode: agentTemplate.spawnableAgentToolMode,
           agentTemplates: localAgentTemplates,
         })

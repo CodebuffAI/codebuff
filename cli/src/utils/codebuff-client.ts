@@ -133,6 +133,7 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
         const result = await manager.queryBlended(input.query ?? '', {
           limit: input.limit,
           fileTypes: input.fileTypes,
+          pathPrefixes: input.pathPrefixes,
           mode: input.mode,
           from: input.from,
           to: input.to,

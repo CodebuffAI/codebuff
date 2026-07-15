@@ -191,6 +191,7 @@ export class IndexManager {
     options: {
       limit?: number
       fileTypes?: string[]
+      pathPrefixes?: string[]
       mode?: QueryIndexMode
       from?: string
       to?: string
@@ -262,6 +263,7 @@ export class IndexManager {
     options: {
       limit?: number
       fileTypes?: string[]
+      pathPrefixes?: string[]
       mode?: QueryIndexMode
       from?: string
       to?: string
@@ -289,7 +291,12 @@ export class IndexManager {
     }
 
     const limit = options.limit ?? 20
-    const semantic = await this.searchSemantic(query, limit, options.fileTypes)
+    const semantic = await this.searchSemantic(
+      query,
+      limit,
+      options.fileTypes,
+      options.pathPrefixes,
+    )
     if (semantic.length === 0) return lexical
 
     const lexByPath = new Map(lexical.results.map((r) => [r.path, r]))
@@ -513,14 +520,26 @@ export class IndexManager {
     query: string,
     limit = 20,
     fileTypes?: string[],
+    pathPrefixes?: string[],
   ): Promise<SemanticHit[]> {
     if (!this.isSemanticReady() || !this.embed) return []
     try {
-      const allowedVectors = fileTypes?.length
-        ? this.fileVectors.filter((entry) =>
-            matchesFileTypes(this.index?.files[entry.path]?.ext, fileTypes),
-          )
-        : this.fileVectors
+      const allowedVectors = this.fileVectors.filter((entry) => {
+        if (
+          fileTypes?.length &&
+          !matchesFileTypes(this.index?.files[entry.path]?.ext, fileTypes)
+        ) {
+          return false
+        }
+        if (!pathPrefixes?.length) return true
+        return pathPrefixes.some((rawPrefix) => {
+          const prefix = rawPrefix
+            .replace(/\\/g, '/')
+            .replace(/^\.\//, '')
+            .replace(/^\/+|\/+$/g, '')
+          return entry.path === prefix || entry.path.startsWith(`${prefix}/`)
+        })
+      })
       return await semanticSearch(query, allowedVectors, this.embed, limit)
     } catch (err) {
       console.debug('[indexer] semantic search failed:', err)

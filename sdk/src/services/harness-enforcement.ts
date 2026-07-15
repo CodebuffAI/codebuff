@@ -60,6 +60,8 @@ export class HarnessApprovalService {
 
   consume(params: {
     repositoryId: string
+    workspaceId: string
+    runId: string
     approvalId: string
     action: string
     target: string
@@ -78,6 +80,8 @@ export class HarnessApprovalService {
     if (
       existing.action !== params.action ||
       existing.target !== params.target ||
+      existing.workspaceId !== params.workspaceId ||
+      existing.runId !== params.runId ||
       existing.snapshotId !== params.snapshotId
     ) {
       throw new Error('Approval scope does not match the requested action.')
@@ -93,6 +97,98 @@ export class HarnessApprovalService {
       existing.revision,
     ) as ApprovalRecord
   }
+}
+
+export type ClassifiedHarnessAction = {
+  action:
+    | 'dependency-install'
+    | 'migration'
+    | 'push'
+    | 'pull-request'
+    | 'release'
+    | 'deploy'
+    | 'workspace-delete'
+  target: string
+  branch?: string
+}
+
+function normalizeCommand(command: string): string {
+  return command.trim().replace(/\s+/g, ' ')
+}
+
+/**
+ * Classifies command shapes that cross the local workspace trust boundary.
+ * This classifier never grants authority: the terminal permission profile is
+ * evaluated first, then a matching snapshot-scoped approval must be consumed.
+ */
+export function classifyTerminalHarnessAction(
+  rawCommand: string,
+): ClassifiedHarnessAction | undefined {
+  const command = normalizeCommand(rawCommand)
+  const push = command.match(/^git\s+push(?:\s+(.+))?$/i)
+  if (push) {
+    const args =
+      push[1]
+        ?.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)
+        ?.map((value) => value.replace(/^["']|["']$/g, '')) ?? []
+    const positional = args.filter((value) => !value.startsWith('-'))
+    const remote = positional[0]
+    const refspec = positional[1]
+    const remoteRef = refspec?.includes(':')
+      ? refspec.slice(refspec.lastIndexOf(':') + 1)
+      : refspec
+    const branch =
+      remoteRef && !/^(?:HEAD|@\{-?\d+\})$/i.test(remoteRef)
+        ? remoteRef.replace(/^\+/, '').replace(/^refs\/heads\//, '')
+        : undefined
+    const simplePush = args.every(
+      (value) =>
+        value === '-u' || value === '--set-upstream' || !value.startsWith('-'),
+    )
+    return {
+      action: 'push',
+      target: simplePush && remote && branch ? `${remote}/${branch}` : command,
+      ...(branch ? { branch } : {}),
+    }
+  }
+  if (
+    /^gh\s+pr\s+(?:create|merge|close|reopen|ready|review)\b/i.test(command)
+  ) {
+    return { action: 'pull-request', target: command }
+  }
+  if (
+    /^(?:(?:npm|pnpm|yarn|bun)\s+(?:install|add|remove|update)|pnpm\s+--filter\s+\S+\s+(?:install|add|remove|update)|yarn\s+workspace\s+\S+\s+(?:add|remove|upgrade)|bun\s+--filter\s+\S+\s+(?:install|add|remove|update)|(?:uv|poetry)\s+(?:add|remove|sync|install|update)|pip3?\s+(?:install|uninstall)|cargo\s+(?:add|rm|remove|fetch|update)|go\s+(?:get|mod\s+(?:tidy|download))|dotnet\s+(?:restore|(?:add|remove)\s+package)|(?:bundle|bundler)\s+(?:add|remove|install|update)|composer\s+(?:require|remove|install|update)|swift\s+package\s+(?:resolve|update)|(?:dart|flutter)\s+pub\s+(?:add|remove|get|upgrade)|mix\s+deps\.(?:get|update)|(?:mvn|mvnw|\.\/mvnw)\s+(?:dependency:resolve|dependency:go-offline)|(?:gradle|gradlew|\.\/gradlew)\s+(?:dependencies|buildEnvironment))\b/i.test(
+      command,
+    )
+  ) {
+    return { action: 'dependency-install', target: command }
+  }
+  if (
+    /\b(?:prisma\s+migrate|knex\s+migrate|sequelize\s+db:migrate|rails\s+db:migrate|alembic\s+upgrade|flyway\s+migrate|liquibase\s+update)\b/i.test(
+      command,
+    )
+  ) {
+    return { action: 'migration', target: command }
+  }
+  if (
+    /^(?:(?:npm|pnpm|yarn|bun)\s+publish|cargo\s+publish|gh\s+release\s+(?:create|delete|edit|upload)|git\s+tag\b)/i.test(
+      command,
+    )
+  ) {
+    return { action: 'release', target: command }
+  }
+  if (
+    /^(?:kubectl|helm|terraform|tofu|ansible|aws|gcloud|az|flyctl|vercel|heroku)\b/i.test(
+      command,
+    )
+  ) {
+    return { action: 'deploy', target: command }
+  }
+  const deletion = command.match(/^rm\s+-[^\n]*r[^\n]*\s+(.+)$/i)
+  if (deletion) {
+    return { action: 'workspace-delete', target: deletion[1].trim() }
+  }
+  return undefined
 }
 
 export class ChangeOwnershipService {

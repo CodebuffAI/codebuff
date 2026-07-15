@@ -1,5 +1,3 @@
-/// <reference path="../../../open-websearch.d.ts" />
-
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
 
@@ -186,44 +184,31 @@ export type WebSearchResult = {
   description: string
 }
 
-/**
- * Execute a web search using Open Websearch as a bundled library. Do not shell
- * out to `node node_modules/open-websearch/...`: packaged Openbuff binaries do
- * not have a stable node_modules path, which produced misleading install
- * prompts for users even though this package declares the dependency.
- *
- * Returns results array on success or an error string on failure.
- */
+/** Execute a bounded, abortable DuckDuckGo HTML search without a subprocess. */
 export const executeWebSearch = async (
   query: string,
   depth: 'standard' | 'deep' = 'standard',
+  signal: AbortSignal = AbortSignal.timeout(WEBSEARCH_TIMEOUT_MS),
 ): Promise<{ results: WebSearchResult[] } | { error: string }> => {
   const limit = depth === 'deep' ? 10 : 5
-  let timeout: ReturnType<typeof setTimeout> | undefined
 
   try {
-    process.env.OPEN_WEBSEARCH_QUIET_STARTUP ??= 'true'
-    const { searchDuckDuckGo } =
-      await import('open-websearch/build/engines/duckduckgo/index.js')
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeout = setTimeout(() => {
-        reject(new Error(`Search timed out after ${WEBSEARCH_TIMEOUT_MS}ms`))
-      }, WEBSEARCH_TIMEOUT_MS)
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+    const { response } = await fetchPublicWebUrl({
+      url: searchUrl,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (compatible; Openbuff/1.0; +https://openbuff.dev)',
+      },
+      signal,
     })
-
-    const rawResults = await Promise.race([
-      searchDuckDuckGo(query, limit),
-      timeoutPromise,
-    ])
-
-    const results = rawResults.slice(0, limit).map((result) => ({
-      title: result.title ?? '',
-      url: result.url ?? '',
-      description: result.description ?? '',
-    }))
-
-    return { results }
+    if (!response.ok) {
+      return {
+        error: `DuckDuckGo search failed: HTTP ${response.status} ${response.statusText}`,
+      }
+    }
+    const { text } = await readResponseTextWithLimit({ response })
+    return { results: parseDuckDuckGoHtml(text).slice(0, limit) }
   } catch (error) {
     return {
       error:
@@ -231,9 +216,53 @@ export const executeWebSearch = async (
           ? error.message
           : `Unknown web search error: ${String(error)}`,
     }
-  } finally {
-    if (timeout) clearTimeout(timeout)
   }
+}
+
+export function parseDuckDuckGoHtml(html: string): WebSearchResult[] {
+  const results: WebSearchResult[] = []
+  const anchor =
+    /<a\b[^>]*class=["'][^"']*result__a[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  let match: RegExpExecArray | null
+  while ((match = anchor.exec(html)) !== null) {
+    const rawHref = decodeHtmlEntities(match[1] ?? '')
+    const title = stripHtml(decodeHtmlEntities(match[2] ?? ''))
+    let url = rawHref
+    try {
+      const parsed = new URL(rawHref, 'https://html.duckduckgo.com')
+      url = parsed.searchParams.get('uddg') ?? parsed.href
+    } catch {
+      continue
+    }
+    if (!/^https?:\/\//i.test(url)) continue
+    const following = html.slice(anchor.lastIndex, anchor.lastIndex + 4_000)
+    const snippet = following.match(
+      /<(?:a|div)\b[^>]*class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|div)>/i,
+    )
+    results.push({
+      title,
+      url,
+      description: snippet
+        ? stripHtml(decodeHtmlEntities(snippet[1] ?? ''))
+        : '',
+    })
+  }
+  return results
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_match, code: string) =>
+      String.fromCodePoint(Number(code)),
+    )
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code: string) =>
+      String.fromCodePoint(Number.parseInt(code, 16)),
+    )
 }
 
 /**

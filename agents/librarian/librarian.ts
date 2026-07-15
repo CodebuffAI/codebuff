@@ -11,7 +11,7 @@ const librarian: AgentDefinition = {
   displayName: 'Librarian',
 
   spawnerPrompt:
-    'Spawn the librarian agent to shallow-clone a GitHub repository into /tmp and answer questions about its code, structure, or documentation. The agent returns structured output with `answer`, `relevantFiles` (absolute paths in the cloned repo), and `cloneDir`. You can use `run_terminal_command` with `cat` to read the returned `relevantFiles` paths. Clean up `cloneDir` with `rm -rf` when done.',
+    'Spawn the librarian agent to shallow-clone a GitHub repository into /tmp and answer questions about its code, structure, or documentation. The runtime deletes the owned clone after the answer by default. Set params.retainClone=true only when the caller explicitly needs to inspect returned files after completion; retained clones require caller cleanup.',
 
   inputSchema: {
     prompt: {
@@ -25,6 +25,11 @@ const librarian: AgentDefinition = {
           type: 'string',
           description:
             'GitHub repository URL to clone (e.g. https://github.com/owner/repo)',
+        },
+        retainClone: {
+          type: 'boolean',
+          description:
+            'Retain the owned /tmp clone after completion. Defaults to false. Set true only when the caller explicitly needs follow-up file access and will clean it up.',
         },
       },
       required: ['repoUrl'],
@@ -48,7 +53,12 @@ const librarian: AgentDefinition = {
       cloneDir: {
         type: 'string',
         description:
-          'The clone directory path so the caller can read files or clean up',
+          'The clone directory while retained, or an empty string after automatic cleanup',
+      },
+      cloneRetained: {
+        type: 'boolean',
+        description:
+          'Whether the clone still exists for caller inspection after completion',
       },
       status: {
         type: 'string',
@@ -56,7 +66,13 @@ const librarian: AgentDefinition = {
       },
       error: { type: 'string' },
     },
-    required: ['status', 'answer', 'relevantFiles', 'cloneDir'],
+    required: [
+      'status',
+      'answer',
+      'relevantFiles',
+      'cloneDir',
+      'cloneRetained',
+    ],
   },
   includeMessageHistory: false,
 
@@ -84,7 +100,7 @@ When exploring a repo:
 - Read the most relevant files with \`cat\`
 - Provide clear, well-structured answers with references to specific files
 
-When you are done, call set_output with status: "answered", your answer, all relevant file paths (absolute), and the cloneDir. Include every file you read or referenced in relevantFiles.`,
+When you are done, call set_output with status: "answered", your answer, all relevant file paths (absolute), cloneDir, and cloneRetained matching params.retainClone === true. Include every file you read or referenced in relevantFiles. The runtime, not the model, owns default clone cleanup.`,
 
   instructionsPrompt: `Answer the user's question about the cloned repository. Be thorough but concise. Reference specific files and code when relevant. When finished, call set_output with status, answer, relevantFiles, and cloneDir.`,
 
@@ -98,6 +114,7 @@ When you are done, call set_output with status: "answered", your answer, all rel
           answer: '',
           relevantFiles: [],
           cloneDir: '',
+          cloneRetained: false,
           error:
             'repoUrl is required. Provide a GitHub repository URL in params.',
         },
@@ -124,6 +141,7 @@ When you are done, call set_output with status: "answered", your answer, all rel
           answer: '',
           relevantFiles: [],
           cloneDir: '',
+          cloneRetained: false,
           error:
             'repoUrl must be a GitHub URL of the form https://github.com/<owner>/<repo>. Refusing to clone an untrusted URL.',
         },
@@ -176,6 +194,7 @@ When you are done, call set_output with status: "answered", your answer, all rel
             answer: '',
             relevantFiles: [],
             cloneDir: '',
+            cloneRetained: false,
             error: 'Failed to clone repository: ' + stderr,
           },
         }
@@ -196,7 +215,9 @@ When you are done, call set_output with status: "answered", your answer, all rel
           (prompt || 'Provide an overview of this repository.') +
           '\n\nWhen done, call set_output with status: "answered", your answer, relevantFiles (absolute paths), and cloneDir: "' +
           cloneDir +
-          '".',
+          '", and cloneRetained: ' +
+          String(params?.retainClone === true) +
+          '.',
       },
       includeToolCall: false,
     }

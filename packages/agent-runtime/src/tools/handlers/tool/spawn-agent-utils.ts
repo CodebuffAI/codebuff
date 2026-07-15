@@ -13,6 +13,7 @@ import {
   agentHandoffSchema,
   agentReceiptSchema,
 } from '@codebuff/common/types/agent-handoff'
+import { rm } from 'node:fs/promises'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
@@ -343,7 +344,10 @@ export function validateVersionedAgentHandoff(params: {
     }
     return
   }
-  if (record.schemaVersion === undefined && params.agentType !== 'repair-editor') {
+  if (
+    record.schemaVersion === undefined &&
+    params.agentType !== 'repair-editor'
+  ) {
     return
   }
   if (
@@ -565,12 +569,7 @@ function boundAgentOutputForParent(
   agentType?: string,
 ): unknown {
   const truncation = { omittedItems: 0, omittedChars: 0 }
-  const rawCompacted = compactAgentOutputValue(
-    value,
-    0,
-    undefined,
-    truncation,
-  )
+  const rawCompacted = compactAgentOutputValue(value, 0, undefined, truncation)
   const compacted =
     rawCompacted &&
     typeof rawCompacted === 'object' &&
@@ -595,6 +594,7 @@ function boundAgentOutputForParent(
       summary: 'Agent output was not serializable.',
     }
   }
+  if (serialized === undefined) return compacted
   if (serialized.length <= PARENT_AGENT_OUTPUT_MAX_CHARS) return compacted
   if (compacted && typeof compacted === 'object' && !Array.isArray(compacted)) {
     const record = compacted as Record<string, unknown>
@@ -683,6 +683,96 @@ export function normalizeSpawnedAgentOutput(
   return boundAgentOutputForParent(output, agentType)
 }
 
+/**
+ * Remove a Librarian clone once its answer has been captured unless the spawn
+ * contract explicitly requested retention. The deletion target is derived
+ * from both the validated repository URL and the child output, so model output
+ * alone cannot select an arbitrary /tmp path.
+ */
+export async function finalizeOwnedLibrarianClone(params: {
+  agentType: string
+  spawnParams?: Record<string, unknown>
+  messageHistory?: Message[]
+  output: unknown
+  logger: Logger
+}): Promise<unknown> {
+  if (normalizeAgentIdForLookup(params.agentType) !== 'librarian') {
+    return params.output
+  }
+
+  const wrapper =
+    params.output &&
+    typeof params.output === 'object' &&
+    !Array.isArray(params.output)
+      ? (params.output as Record<string, unknown>)
+      : undefined
+  const value =
+    wrapper?.type === 'structuredOutput' &&
+    wrapper.value &&
+    typeof wrapper.value === 'object' &&
+    !Array.isArray(wrapper.value)
+      ? (wrapper.value as Record<string, unknown>)
+      : wrapper
+  if (!value) return params.output
+
+  const trustedCloneDir = params.messageHistory
+    ?.flatMap((message) =>
+      Array.isArray(message.content)
+        ? message.content.flatMap((part) =>
+            part.type === 'text' && typeof part.text === 'string'
+              ? [part.text]
+              : [],
+          )
+        : [],
+    )
+    .map(
+      (text) =>
+        text.match(/The repository has been cloned to `([^`]+)`\./)?.[1],
+    )
+    .find((path): path is string => typeof path === 'string')
+  const retainClone = params.spawnParams?.retainClone === true
+  if (retainClone) {
+    const retainedValue = {
+      ...value,
+      ...(trustedCloneDir ? { cloneDir: trustedCloneDir } : {}),
+      cloneRetained: true,
+    }
+    return wrapper?.type === 'structuredOutput'
+      ? { ...wrapper, value: retainedValue }
+      : retainedValue
+  }
+
+  const repoUrl = params.spawnParams?.repoUrl
+  if (typeof repoUrl !== 'string' || !trustedCloneDir) {
+    return params.output
+  }
+  const cloneDir = trustedCloneDir
+  const repoName = repoUrl
+    .replace(/\/+$/, '')
+    .split('/')
+    .pop()
+    ?.replace(/\.git$/, '')
+  const expectedPrefix = repoName ? `/tmp/librarian-${repoName}-` : ''
+  const suffix = expectedPrefix ? cloneDir.slice(expectedPrefix.length) : ''
+  if (
+    !expectedPrefix ||
+    !cloneDir.startsWith(expectedPrefix) ||
+    !/^\d+$/.test(suffix)
+  ) {
+    params.logger.warn(
+      { cloneDir, repoUrl },
+      'Refusing Librarian clone cleanup for an unowned path',
+    )
+    return params.output
+  }
+
+  await rm(cloneDir, { recursive: true, force: true })
+  const cleanedValue = { ...value, cloneDir: '', cloneRetained: false }
+  return wrapper?.type === 'structuredOutput'
+    ? { ...wrapper, value: cleanedValue }
+    : cleanedValue
+}
+
 function inferAgentRole(agentType: string, handoff?: AgentHandoff): AgentRole {
   if (handoff) return handoff.role
   if (agentType === 'repair-editor') return 'repair-editor'
@@ -706,10 +796,7 @@ function inferAgentRole(agentType: string, handoff?: AgentHandoff): AgentRole {
   return 'specialist'
 }
 
-function extractReceiptStringArray(
-  output: unknown,
-  key: string,
-): string[] {
+function extractReceiptStringArray(output: unknown, key: string): string[] {
   const found: string[] = []
   const visit = (value: unknown, depth = 0): void => {
     if (!value || depth > 8) return
@@ -744,8 +831,15 @@ function extractMutationAttestations(value: unknown): Array<{
   workspaceRevision?: number
   workspaceSnapshotId?: string
 }> {
-  const byPath = new Map<string, ReturnType<typeof extractMutationAttestations>[number]>()
-  const visit = (item: unknown, inheritedReceiptId?: string, depth = 0): void => {
+  const byPath = new Map<
+    string,
+    ReturnType<typeof extractMutationAttestations>[number]
+  >()
+  const visit = (
+    item: unknown,
+    inheritedReceiptId?: string,
+    depth = 0,
+  ): void => {
     if (!item || depth > 12) return
     if (Array.isArray(item)) {
       for (const nested of item) visit(nested, inheritedReceiptId, depth + 1)
@@ -803,7 +897,9 @@ function extractMutationAttestations(value: unknown): Array<{
   return [...byPath.values()]
 }
 
-function findReceiptStatus(output: unknown): AgentReceipt['status'] | undefined {
+function findReceiptStatus(
+  output: unknown,
+): AgentReceipt['status'] | undefined {
   let status: AgentReceipt['status'] | undefined
   const visit = (value: unknown, depth = 0): void => {
     if (status || !value || depth > 8) return
@@ -883,7 +979,10 @@ function extractReceiptEvidence(params: {
     for (const nested of Object.values(record)) visit(nested, depth + 1)
   }
   visit(params.output)
-  for (const file of extractReceiptStringArray(params.output, 'reviewedFiles')) {
+  for (const file of extractReceiptStringArray(
+    params.output,
+    'reviewedFiles',
+  )) {
     add(`Reviewed ${file}`, file)
   }
   return evidence.slice(-128)
@@ -914,16 +1013,16 @@ export function buildRuntimeAgentReceipt(params: {
   )
   const errors = [
     ...(params.error
-    ? [
-        {
-          message:
-            params.error instanceof Error
-              ? params.error.message
-              : String(params.error),
-          retryable: false,
-        },
-      ]
-    : []),
+      ? [
+          {
+            message:
+              params.error instanceof Error
+                ? params.error.message
+                : String(params.error),
+            retryable: false,
+          },
+        ]
+      : []),
     ...(overclaimedPaths.length > 0
       ? [
           {
@@ -1008,10 +1107,7 @@ export function buildRuntimeAgentReceipt(params: {
     ),
     artifacts: extractReceiptStringArray(params.output, 'artifacts'),
     errors,
-    output: normalizeSpawnedAgentOutput(
-      params.output,
-      params.agentType,
-    ) as any,
+    output: normalizeSpawnedAgentOutput(params.output, params.agentType) as any,
   })
   return receipt
 }
@@ -1031,30 +1127,26 @@ export function reconcileAgentReceiptIntoParent(params: {
     state: params.parentAgentState,
     event: {
       type: 'receipt_reconciled',
-      runId:
-        params.parentAgentState.runId ?? params.parentAgentState.agentId,
+      runId: params.parentAgentState.runId ?? params.parentAgentState.agentId,
       receiptId: params.receipt.receiptId,
       taskId: params.receipt.taskId,
       agentType: params.agentType,
       status: params.receipt.status,
       workspaceRevision: params.parentAgentState.workspaceState?.revision,
-      workspaceSnapshotId:
-        params.parentAgentState.workspaceState?.snapshotId,
+      workspaceSnapshotId: params.parentAgentState.workspaceState?.snapshotId,
     },
   })
   appendOrchestrationEvent({
     state: params.parentAgentState,
     event: {
       type: 'spawn_finished',
-      runId:
-        params.parentAgentState.runId ?? params.parentAgentState.agentId,
+      runId: params.parentAgentState.runId ?? params.parentAgentState.agentId,
       spawnId: params.receipt.agentId,
       agentType: params.agentType,
       status: params.receipt.status,
       receiptId: params.receipt.receiptId,
       workspaceRevision: params.parentAgentState.workspaceState?.revision,
-      workspaceSnapshotId:
-        params.parentAgentState.workspaceState?.snapshotId,
+      workspaceSnapshotId: params.parentAgentState.workspaceState?.snapshotId,
     },
   })
 }
@@ -1386,8 +1478,8 @@ const DEFAULT_SUBAGENT_TIMEOUT_MS = 30 * 60 * 1000
 /**
  * Resolves the wall-clock timeout (ms) for a subagent execution, in precedence
  * order: explicit per-spawn override > agent template default > shared
- * DEFAULT_SUBAGENT_TIMEOUT_MS. A non-positive value (-1, 0) disables the
- * timeout entirely; that is the default (see DEFAULT_SUBAGENT_TIMEOUT_MS).
+ * DEFAULT_SUBAGENT_TIMEOUT_MS. A non-positive explicit or template value
+ * (-1, 0) disables the timeout entirely.
  */
 export function resolveSubagentTimeoutMs(
   agentTemplate: AgentTemplate,
@@ -1550,6 +1642,17 @@ export async function executeSubagent(
 
   if (result.agentState.runId) {
     parentAgentState.childRunIds.push(result.agentState.runId)
+  }
+
+  result = {
+    ...result,
+    output: await finalizeOwnedLibrarianClone({
+      agentType: agentTemplate.id,
+      spawnParams,
+      messageHistory: result.agentState.messageHistory,
+      output: result.output,
+      logger: withDefaults.logger,
+    }),
   }
 
   return result

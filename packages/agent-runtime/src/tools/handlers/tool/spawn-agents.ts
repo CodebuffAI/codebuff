@@ -150,9 +150,7 @@ export const handleSpawnAgents = (async (
       validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
       validateVersionedAgentHandoff({ agentType, handoff })
       const canonicalHandoff =
-        handoff &&
-        typeof handoff === 'object' &&
-        handoff.schemaVersion === 1
+        handoff && typeof handoff === 'object' && handoff.schemaVersion === 1
           ? (handoff as AgentHandoff)
           : undefined
       const effectiveAgentTemplate = deriveSpawnTemplateCapabilities({
@@ -161,24 +159,30 @@ export const handleSpawnAgents = (async (
         projectRoot: params.fileContext.projectRoot,
       })
       const serializedHandoff = handoff ? JSON.stringify(handoff) : ''
+      const contextWindowTokens = params.resolveModelContextWindow?.({
+        agentId: effectiveAgentTemplate.id,
+        model: effectiveAgentTemplate.model,
+      })
       const selection = selectAgentAttempt({
         candidates: [
           {
             template: effectiveAgentTemplate,
-            contextWindowTokens: params.resolveModelContextWindow?.({
-              agentId: effectiveAgentTemplate.id,
-              model: effectiveAgentTemplate.model,
-            }),
+            contextWindowTokens,
             explicitRoute: true,
           },
         ],
         requiredTools: canonicalHandoff?.permissions.allowedTools ?? [],
         requiredWritablePaths:
           canonicalHandoff?.permissions.writablePaths ?? [],
-        minimumContextTokens: Math.max(
-          2_048,
-          Math.ceil((serializedHandoff.length + (prompt?.length ?? 0)) / 2),
-        ),
+        minimumContextTokens:
+          contextWindowTokens === undefined
+            ? undefined
+            : Math.max(
+                2_048,
+                Math.ceil(
+                  (serializedHandoff.length + (prompt?.length ?? 0)) / 2,
+                ),
+              ),
         runningForRoot:
           parentAgentState.backgroundAgentJobs?.filter(
             (job) => job.status === 'running',
@@ -362,76 +366,79 @@ export const handleSpawnAgents = (async (
 
     attachBackgroundAgentPromise(
       job,
-      detachedPromise.then((result) => {
-        const receipt = buildRuntimeAgentReceipt({
-          agentType,
-          agentId: result.agentState.agentId,
-          handoff: validated.handoff,
-          output: result.output,
-          agentState: result.agentState,
+      detachedPromise
+        .then((result) => {
+          const receipt = buildRuntimeAgentReceipt({
+            agentType,
+            agentId: result.agentState.agentId,
+            handoff: validated.handoff,
+            output: result.output,
+            agentState: result.agentState,
+          })
+          reconcileAgentReceiptIntoParent({
+            parentAgentState,
+            receipt,
+            agentType,
+            objective: validated.handoff?.objective,
+          })
+          const intent = parentAgentState.backgroundAgentJobs?.find(
+            (entry) => entry.jobId === job.jobId,
+          )
+          if (intent) {
+            intent.status = 'completed'
+            intent.completedAt = Date.now()
+            intent.childRunId = result.agentState.runId
+            intent.receipt = receipt
+          }
+          releaseWorkspacePathLease(parentAgentState, validated.leaseId)
+          parentAgentState.discoveryCoverage = completeDiscoveryShard({
+            existing: parentAgentState.discoveryCoverage,
+            shardKey: validated.discoveryShardKey,
+            status: 'completed',
+          })
+          return {
+            agentId: result.agentState.agentId,
+            agentName: agentTemplate.displayName,
+            agentType,
+            output: normalizeSpawnedAgentOutput(result.output, agentType),
+            agentReceipt: receipt,
+            creditsUsed: result.agentState.creditsUsed || 0,
+          }
         })
-        reconcileAgentReceiptIntoParent({
-          parentAgentState,
-          receipt,
-          agentType,
-          objective: validated.handoff?.objective,
-        })
-        const intent = parentAgentState.backgroundAgentJobs?.find(
-          (entry) => entry.jobId === job.jobId,
-        )
-        if (intent) {
-          intent.status = 'completed'
-          intent.completedAt = Date.now()
-          intent.childRunId = result.agentState.runId
-          intent.receipt = receipt
-        }
-        releaseWorkspacePathLease(parentAgentState, validated.leaseId)
-        parentAgentState.discoveryCoverage = completeDiscoveryShard({
-          existing: parentAgentState.discoveryCoverage,
-          shardKey: validated.discoveryShardKey,
-          status: 'completed',
-        })
-        return {
-          agentId: result.agentState.agentId,
-          agentName: agentTemplate.displayName,
-          agentType,
-          output: normalizeSpawnedAgentOutput(result.output, agentType),
-          agentReceipt: receipt,
-          creditsUsed: result.agentState.creditsUsed || 0,
-        }
-      }).catch((error) => {
-        const receipt = buildRuntimeAgentReceipt({
-          agentType,
-          agentId: subAgentState.agentId,
-          handoff: validated.handoff,
-          output: undefined,
-          agentState: subAgentState,
-          status: 'failed',
-          error,
-        })
-        reconcileAgentReceiptIntoParent({
-          parentAgentState,
-          receipt,
-          agentType,
-          objective: validated.handoff?.objective,
-        })
-        const intent = parentAgentState.backgroundAgentJobs?.find(
-          (entry) => entry.jobId === job.jobId,
-        )
-        if (intent) {
-          intent.status = 'error'
-          intent.completedAt = Date.now()
-          intent.error = error instanceof Error ? error.message : String(error)
-          intent.receipt = receipt
-        }
-        releaseWorkspacePathLease(parentAgentState, validated.leaseId)
-        parentAgentState.discoveryCoverage = completeDiscoveryShard({
-          existing: parentAgentState.discoveryCoverage,
-          shardKey: validated.discoveryShardKey,
-          status: 'failed',
-        })
-        throw error
-      }),
+        .catch((error) => {
+          const receipt = buildRuntimeAgentReceipt({
+            agentType,
+            agentId: subAgentState.agentId,
+            handoff: validated.handoff,
+            output: undefined,
+            agentState: subAgentState,
+            status: 'failed',
+            error,
+          })
+          reconcileAgentReceiptIntoParent({
+            parentAgentState,
+            receipt,
+            agentType,
+            objective: validated.handoff?.objective,
+          })
+          const intent = parentAgentState.backgroundAgentJobs?.find(
+            (entry) => entry.jobId === job.jobId,
+          )
+          if (intent) {
+            intent.status = 'error'
+            intent.completedAt = Date.now()
+            intent.error =
+              error instanceof Error ? error.message : String(error)
+            intent.receipt = receipt
+          }
+          releaseWorkspacePathLease(parentAgentState, validated.leaseId)
+          parentAgentState.discoveryCoverage = completeDiscoveryShard({
+            existing: parentAgentState.discoveryCoverage,
+            shardKey: validated.discoveryShardKey,
+            status: 'failed',
+          })
+          throw error
+        }),
     )
 
     reports[spawnIndex] = {

@@ -157,7 +157,11 @@ export const handleWebSearch = (async (params: {
   }
 
   try {
-    const searchResult = await executeWebSearch(query, depth ?? 'standard')
+    const searchResult = await executeWebSearch(
+      query,
+      depth ?? 'standard',
+      AbortSignal.any([signal, AbortSignal.timeout(WEBSEARCH_TIMEOUT_MS)]),
+    )
 
     if ('error' in searchResult) {
       logger.warn(
@@ -166,7 +170,7 @@ export const handleWebSearch = (async (params: {
           error: searchResult.error,
           durationMs: Date.now() - startTime,
         },
-        'open-websearch returned error',
+        'Web search returned error',
       )
       return {
         output: jsonToolResult({ errorMessage: searchResult.error }),
@@ -177,7 +181,7 @@ export const handleWebSearch = (async (params: {
     if (searchResult.results.length === 0) {
       logger.warn(
         { ...logContext, durationMs: Date.now() - startTime },
-        'open-websearch returned no results',
+        'Web search returned no results',
       )
       return {
         output: jsonToolResult({
@@ -193,7 +197,7 @@ export const handleWebSearch = (async (params: {
         durationMs: Date.now() - startTime,
         resultCount: searchResult.results.length,
       },
-      'Search completed via open-websearch',
+      'Search completed',
     )
     return {
       output: jsonToolResult({

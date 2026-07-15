@@ -109,7 +109,9 @@ export async function mainPrompt(
           ask: AgentTemplateTypes.ask,
           lite: AgentTemplateTypes.base_free,
           normal: AgentTemplateTypes.base,
-          max: AgentTemplateTypes.base_max,
+          // The legacy best-of-N base-max agent was retired. Model strength is
+          // now selected by BYOK routing while the orchestrator stays base2.
+          max: 'base2',
           experimental: 'base2',
         } satisfies Record<CostMode, AgentTemplateType>
       )[costMode ?? 'normal'] ?? 'base2'

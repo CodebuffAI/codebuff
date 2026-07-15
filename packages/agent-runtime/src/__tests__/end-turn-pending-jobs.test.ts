@@ -16,7 +16,11 @@ afterEach(() => {
   __clearBackgroundAgentJobsForTest()
 })
 
-const runHandler = async () => {
+const runHandler = async (params?: {
+  clientSessionId: string
+  agentId: string
+  runId: string
+}) => {
   const result = await handleEndTurn({
     previousToolCallFinished: Promise.resolve(),
     toolCall: {
@@ -24,6 +28,16 @@ const runHandler = async () => {
       toolCallId: 'test-end-turn',
       input: {},
     },
+    ...(params
+      ? {
+          clientSessionId: params.clientSessionId,
+          agentState: {
+            agentId: params.agentId,
+            runId: params.runId,
+            ancestorRunIds: [],
+          },
+        }
+      : {}),
   } as Parameters<typeof handleEndTurn>[0])
   const [entry] = result.output as Array<{
     type: 'json'
@@ -75,6 +89,43 @@ describe('handleEndTurn', () => {
         agentType: 'researcher-web',
         agentName: 'Web researcher',
         startedAt: job.startedAt,
+      },
+    ])
+  })
+
+  test('only surfaces background agent jobs owned by this root run', async () => {
+    const owner = {
+      clientSessionId: 'session-1',
+      rootRunId: 'root-1',
+      parentRunId: 'parent-run-1',
+      parentAgentId: 'parent-agent-1',
+      userInputId: 'input-1',
+    }
+    const owned = allocateBackgroundAgentJob({
+      agentType: 'researcher',
+      agentName: 'Owned researcher',
+      owner,
+    })
+    allocateBackgroundAgentJob({
+      agentType: 'researcher',
+      agentName: 'Other researcher',
+      owner: {
+        ...owner,
+        rootRunId: 'root-2',
+      },
+    })
+
+    const value = await runHandler({
+      clientSessionId: owner.clientSessionId,
+      agentId: 'parent-agent-1',
+      runId: owner.rootRunId,
+    })
+    expect(value.pendingBackgroundAgentJobs).toEqual([
+      {
+        jobId: owned.jobId,
+        agentType: 'researcher',
+        agentName: 'Owned researcher',
+        startedAt: owned.startedAt,
       },
     ])
   })

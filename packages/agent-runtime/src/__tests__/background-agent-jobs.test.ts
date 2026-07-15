@@ -7,6 +7,8 @@ import {
   appendBackgroundAgentChunk,
   getBackgroundAgentJob,
   readNewBackgroundAgentChunks,
+  readBackgroundAgentChunks,
+  backgroundAgentJobOwnedBy,
   takeDroppedBackgroundAgentChunkCount,
   cancelBackgroundAgentJob,
   __clearBackgroundAgentJobsForTest,
@@ -194,6 +196,91 @@ describe('background-agent-jobs registry', () => {
     expect(polled.length).toBe(job.chunks.length)
     expect(takeDroppedBackgroundAgentChunkCount(job)).toBe(10)
     expect(takeDroppedBackgroundAgentChunkCount(job)).toBe(0)
+  })
+
+  test('bounds chunks by UTF-8 bytes rather than JavaScript character count', () => {
+    const job = allocateBackgroundAgentJob({
+      agentType: 'basher',
+      agentName: 'Basher',
+    })
+    appendBackgroundAgentChunk(job.jobId, {
+      type: 'text',
+      payload: '🙂'.repeat(20_000),
+      timestamp: 1,
+    })
+
+    expect(job.chunks[0]?.payload).toMatchObject({
+      truncated: true,
+      originalBytes: 80_002,
+    })
+    expect(
+      Buffer.byteLength(JSON.stringify(job.chunks[0]?.payload), 'utf8'),
+    ).toBeLessThanOrEqual(64 * 1024)
+  })
+
+  test('caps consumer cursor count and clamps oversized cursors', () => {
+    const job = allocateBackgroundAgentJob({
+      agentType: 'basher',
+      agentName: 'Basher',
+    })
+    appendBackgroundAgentChunk(job.jobId, {
+      type: 'text',
+      payload: 'first',
+      timestamp: 1,
+    })
+
+    for (let index = 0; index < 40; index++) {
+      readBackgroundAgentChunks({
+        job,
+        consumerId: `consumer-${index}`,
+        cursor: index === 39 ? Number.MAX_SAFE_INTEGER : undefined,
+      })
+    }
+    expect(job.consumerCursors.size).toBeLessThanOrEqual(32)
+
+    appendBackgroundAgentChunk(job.jobId, {
+      type: 'text',
+      payload: 'second',
+      timestamp: 2,
+    })
+    const next = readBackgroundAgentChunks({
+      job,
+      consumerId: 'consumer-39',
+    })
+    expect(next.chunks.map((chunk) => chunk.payload)).toEqual(['second'])
+    expect(next.nextCursor).toBe(2)
+  })
+
+  test('tracks ownership and enforces the per-root running quota', () => {
+    const owner = {
+      clientSessionId: 'session-1',
+      rootRunId: 'root-1',
+      parentRunId: 'parent-run',
+      parentAgentId: 'parent-agent',
+      userInputId: 'input-1',
+    }
+    const jobs = Array.from({ length: 8 }, (_, index) =>
+      allocateBackgroundAgentJob({
+        agentType: 'basher',
+        agentName: `Basher ${index}`,
+        owner,
+      }),
+    )
+
+    expect(backgroundAgentJobOwnedBy(jobs[0], owner)).toBe(true)
+    expect(
+      backgroundAgentJobOwnedBy(jobs[0], {
+        clientSessionId: owner.clientSessionId,
+        rootRunId: 'another-root',
+      }),
+    ).toBe(false)
+    expect(() =>
+      allocateBackgroundAgentJob({
+        agentType: 'basher',
+        agentName: 'One too many',
+        owner,
+      }),
+    ).toThrow('concurrency limit reached for this run (8)')
   })
 
   test('cancelBackgroundAgentJob aborts a running coroutine and preserves cancelled status', async () => {

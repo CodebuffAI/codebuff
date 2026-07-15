@@ -16,7 +16,7 @@ export const createFilePicker = (): Omit<SecretAgentDefinition, 'id'> => {
       exclude: false,
     },
     spawnerPrompt:
-      'Spawn to find relevant files in a codebase related to the prompt. Outputs up to 12 file paths with short summaries for each file. Cannot do string searches on the codebase, but does a fuzzy search. Unless you know which directories are relevant, omit the directories parameter. This agent is extremely effective at finding files in the codebase that could be relevant to the prompt.',
+      'Spawn to find relevant files in a codebase related to the prompt. Outputs up to 8 file paths with short summaries for each file. Cannot do string searches on the codebase, but does a fuzzy search. Unless you know which directories are relevant, omit the directories parameter.',
     inputSchema: {
       prompt: {
         type: 'string',
@@ -196,18 +196,26 @@ function processSpawnResults(spawnResults: any[]): {
 function normalizeFileListerLine(line: string): string | null {
   let value = line.trim()
   if (!value) return null
-  const inlineCode = value.match(/`([^`]+)`/)
-  if (inlineCode) value = inlineCode[1].trim()
   value = value
     .replace(/^[-*+]\s+/, '')
     .replace(/^\d+[.)]\s+/, '')
-    .replace(/^['"]|['"]$/g, '')
     .trim()
+  const quoted =
+    (/^`[^`]+`$/.test(value) || /^(['"])[\s\S]+\1$/.test(value)) &&
+    value.length >= 2
+  if (quoted) value = value.slice(1, -1).trim()
   if (
     !value ||
     /^(files?|paths?|here(?:'s| are)|result|relevant)\b/i.test(value) ||
     /^https?:\/\//i.test(value) ||
-    value.includes('\0')
+    value.includes('\0') ||
+    (!quoted && /\s/.test(value)) ||
+    /[<>|;{}]/.test(value) ||
+    /[.!?,:]$/.test(value) ||
+    !/^(?:\.?\.?\/)?[A-Za-z0-9_@.+()\[\] -]+(?:\/[A-Za-z0-9_@.+()\[\] -]+)*$/.test(
+      value,
+    ) ||
+    !value.split('/').pop()?.includes('.')
   ) {
     return null
   }
@@ -293,20 +301,28 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
           .map((line) => {
             let value = line.trim()
             if (!value) return null
-            const inlineCode = value.match(/`([^`]+)`/)
-            if (inlineCode) value = inlineCode[1].trim()
             value = value
               .replace(/^[-*+]\s+/, '')
               .replace(/^\d+[.)]\s+/, '')
-              .replace(/^['"]|['"]$/g, '')
               .trim()
+            const quoted =
+              (/^`[^`]+`$/.test(value) || /^(['"])[\s\S]+\1$/.test(value)) &&
+              value.length >= 2
+            if (quoted) value = value.slice(1, -1).trim()
             if (
               !value ||
               /^(files?|paths?|here(?:'s| are)|result|relevant)\b/i.test(
                 value,
               ) ||
               /^https?:\/\//i.test(value) ||
-              value.includes('\0')
+              value.includes('\0') ||
+              (!quoted && /\s/.test(value)) ||
+              /[<>|;{}]/.test(value) ||
+              /[.!?,:]$/.test(value) ||
+              !/^(?:\.?\.?\/)?[A-Za-z0-9_@.+()\[\] -]+(?:\/[A-Za-z0-9_@.+()\[\] -]+)*$/.test(
+                value,
+              ) ||
+              !value.split('/').pop()?.includes('.')
             ) {
               return null
             }
@@ -420,9 +436,9 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
 
   // M2.2: relevance scoring + ordered top-N. Score each candidate path by how
   // many prompt keywords appear in it (path-relative relevance), then cap at
-  // MAX_PICKER_FILES (12, matching the spawner prompt's advertised limit).
+  // MAX_PICKER_FILES (8, matching the normal discovery output ceiling).
   // Deterministic and serialization-safe (no module-level closure deps).
-  const MAX_PICKER_FILES = 12
+  const MAX_PICKER_FILES = 8
   const scorePathsByPromptRelevance = (
     candidatePaths: string[],
     query: string | undefined,

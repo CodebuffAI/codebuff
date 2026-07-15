@@ -105,27 +105,31 @@ export const handleSpawnAgentInline = (async (
     handoff,
     projectRoot: params.fileContext.projectRoot,
   })
+  const contextWindowTokens = params.resolveModelContextWindow?.({
+    agentId: effectiveAgentTemplate.id,
+    model: effectiveAgentTemplate.model,
+  })
   const selection = selectAgentAttempt({
     candidates: [
       {
         template: effectiveAgentTemplate,
-        contextWindowTokens: params.resolveModelContextWindow?.({
-          agentId: effectiveAgentTemplate.id,
-          model: effectiveAgentTemplate.model,
-        }),
+        contextWindowTokens,
         explicitRoute: true,
       },
     ],
     requiredTools: handoff?.permissions.allowedTools ?? [],
     requiredWritablePaths: handoff?.permissions.writablePaths ?? [],
-    minimumContextTokens: Math.max(
-      2_048,
-      Math.ceil(
-        ((handoff ? JSON.stringify(handoff).length : 0) +
-          (prompt?.length ?? 0)) /
-          2,
-      ),
-    ),
+    minimumContextTokens:
+      contextWindowTokens === undefined
+        ? undefined
+        : Math.max(
+            2_048,
+            Math.ceil(
+              ((handoff ? JSON.stringify(handoff).length : 0) +
+                (prompt?.length ?? 0)) /
+                2,
+            ),
+          ),
     runningForRoot:
       parentAgentState.backgroundAgentJobs?.filter(
         (job) => job.status === 'running',
@@ -198,79 +202,79 @@ export const handleSpawnAgentInline = (async (
   let result: Awaited<ReturnType<typeof executeSubagent>>
   try {
     result = await executeSubagent({
-    ...contextParams,
+      ...contextParams,
 
-    // Spawn-specific params
-    ancestorRunIds: parentAgentState.ancestorRunIds,
-    userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
-    prompt: prompt || '',
-    spawnParams: runtimeSpawnParams,
-    agentTemplate: inlineTemplate,
-    parentAgentState,
-    agentState: childAgentState,
-    fingerprintId,
-    spawnToolCallId: toolCall.toolCallId,
-    spawnIndex: 0,
-    parentSystemPrompt: system,
-    parentTools,
-    onResponseChunk: (chunk: string | PrintModeEvent) => {
-      // Inherits parent's onResponseChunk, except for context-pruner (TODO: add an option for it to be silent?)
-      if (agentType !== 'context-pruner') {
-        if (typeof chunk === 'string') {
-          writeToClient(chunk)
-          return
-        }
-
-        // Tag child text events with the child's agentId so prose attributes to
-        // the child block in the TUI (matches spawn_agents' text branch).
-        // Preserve a pre-existing agentId (set by run-programmatic-step for
-        // grandchild spawns) so deep inline nesting keeps correct text
-        // attribution; fall back to the child's agentId for direct inline children.
-        if (chunk.type === 'text') {
-          if (chunk.text) {
-            writeToClient({
-              type: 'text',
-              agentId: chunk.agentId ?? childAgentState.agentId,
-              text: chunk.text,
-            })
+      // Spawn-specific params
+      ancestorRunIds: parentAgentState.ancestorRunIds,
+      userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
+      prompt: prompt || '',
+      spawnParams: runtimeSpawnParams,
+      agentTemplate: inlineTemplate,
+      parentAgentState,
+      agentState: childAgentState,
+      fingerprintId,
+      spawnToolCallId: toolCall.toolCallId,
+      spawnIndex: 0,
+      parentSystemPrompt: system,
+      parentTools,
+      onResponseChunk: (chunk: string | PrintModeEvent) => {
+        // Inherits parent's onResponseChunk, except for context-pruner (TODO: add an option for it to be silent?)
+        if (agentType !== 'context-pruner') {
+          if (typeof chunk === 'string') {
+            writeToClient(chunk)
+            return
           }
-          return
-        }
 
-        // Add parentAgentId for proper nesting in UI
-        const ensureParentAgentId = (): string | undefined => {
+          // Tag child text events with the child's agentId so prose attributes to
+          // the child block in the TUI (matches spawn_agents' text branch).
+          // Preserve a pre-existing agentId (set by run-programmatic-step for
+          // grandchild spawns) so deep inline nesting keeps correct text
+          // attribution; fall back to the child's agentId for direct inline children.
+          if (chunk.type === 'text') {
+            if (chunk.text) {
+              writeToClient({
+                type: 'text',
+                agentId: chunk.agentId ?? childAgentState.agentId,
+                text: chunk.text,
+              })
+            }
+            return
+          }
+
+          // Add parentAgentId for proper nesting in UI
+          const ensureParentAgentId = (): string | undefined => {
+            if (
+              chunk.type === 'subagent_start' ||
+              chunk.type === 'subagent_finish'
+            ) {
+              return chunk.parentAgentId ?? parentAgentState.agentId
+            }
+            if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
+              // Tool events nest inside the child's own agent block. Preserve a
+              // pre-existing parentAgentId (set by run-programmatic-step for
+              // grandchild spawns) so deep inline nesting keeps correct lineage;
+              // fall back to the child's agentId for direct inline children.
+              return chunk.parentAgentId ?? childAgentState.agentId
+            }
+            return undefined
+          }
+
+          const parentAgentId = ensureParentAgentId()
           if (
-            chunk.type === 'subagent_start' ||
-            chunk.type === 'subagent_finish'
+            parentAgentId !== undefined &&
+            (chunk.type === 'subagent_start' ||
+              chunk.type === 'subagent_finish' ||
+              chunk.type === 'tool_call' ||
+              chunk.type === 'tool_result')
           ) {
-            return chunk.parentAgentId ?? parentAgentState.agentId
+            writeToClient({ ...chunk, parentAgentId })
+            return
           }
-          if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
-            // Tool events nest inside the child's own agent block. Preserve a
-            // pre-existing parentAgentId (set by run-programmatic-step for
-            // grandchild spawns) so deep inline nesting keeps correct lineage;
-            // fall back to the child's agentId for direct inline children.
-            return chunk.parentAgentId ?? childAgentState.agentId
-          }
-          return undefined
-        }
 
-        const parentAgentId = ensureParentAgentId()
-        if (
-          parentAgentId !== undefined &&
-          (chunk.type === 'subagent_start' ||
-            chunk.type === 'subagent_finish' ||
-            chunk.type === 'tool_call' ||
-            chunk.type === 'tool_result')
-        ) {
-          writeToClient({ ...chunk, parentAgentId })
-          return
+          writeToClient(chunk)
         }
-
-        writeToClient(chunk)
-      }
-    },
-    clearUserPromptMessagesAfterResponse: false,
+      },
+      clearUserPromptMessagesAfterResponse: false,
     })
   } catch (error) {
     releaseWorkspacePathLease(parentAgentState, leaseId)

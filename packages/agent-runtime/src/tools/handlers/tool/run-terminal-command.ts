@@ -53,8 +53,14 @@ export const handleRunTerminalCommand = (async ({
         parentRunId: agentState.runId ?? agentState.agentId,
         parentAgentId: agentState.agentId,
       },
+      approval_receipt_id:
+        typeof spawnParams?.approval_receipt_id === 'string'
+          ? spawnParams.approval_receipt_id
+          : typeof spawnParams?.approvalReceiptId === 'string'
+            ? spawnParams.approvalReceiptId
+            : undefined,
     },
-  }
+  } as ClientToolCall<ToolName>
   await previousToolCallFinished
   return { output: await requestClientToolCall(clientToolCall) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

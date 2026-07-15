@@ -131,6 +131,41 @@ describe('Schema handling error recovery', () => {
       expect(toolSet).toEqual({})
     })
 
+    test('keeps context-pruner internal while exposing ordinary child agents', async () => {
+      const makeTemplate = (id: string): AgentTemplate => ({
+        id,
+        displayName: id,
+        spawnerPrompt: `Spawn ${id}`,
+        inputSchema: { prompt: z.string().optional() },
+        outputMode: 'last_message',
+        includeMessageHistory: false,
+        inheritParentSystemPrompt: false,
+        mcpServers: {},
+        toolNames: [],
+        spawnableAgents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      })
+      const contextPruner = makeTemplate('context-pruner')
+      const reviewer = makeTemplate('code-reviewer')
+
+      const toolSet = await buildAgentToolSet({
+        spawnableAgents: ['context-pruner', 'code-reviewer'],
+        agentTemplates: {
+          'context-pruner': contextPruner,
+          'code-reviewer': reviewer,
+        },
+        logger: createMockLogger(),
+        apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+        databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+        fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+      })
+
+      expect(toolSet.context_pruner).toBeUndefined()
+      expect(toolSet.code_reviewer).toBeDefined()
+    })
+
     test('buildAgentToolInputSchema handles valid schemas', () => {
       const agentTemplate: AgentTemplate = {
         id: 'valid-agent',

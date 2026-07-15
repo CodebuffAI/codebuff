@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 
 import { getEffectiveAgentToolNames } from '../util/agent-tool-names'
+import { scopePatternMatches } from '../util/filesystem-scope'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 
@@ -42,13 +43,37 @@ export function selectAgentAttempt(params: {
     if (missingTools.length > 0) {
       rejectedReasons.push(`missing tools: ${missingTools.join(', ')}`)
     }
-    if (
-      params.requiredWritablePaths.length > 0 &&
-      (candidate.template.filesystemScope?.write ?? ['**/*']).length === 0
-    ) {
-      rejectedReasons.push('no writable filesystem capability')
+    if (params.requiredWritablePaths.length > 0) {
+      const writablePatterns = candidate.template.filesystemScope?.write
+      const declaredWritablePatterns = writablePatterns ?? []
+      const unsupportedPaths =
+        writablePatterns === undefined
+          ? []
+          : params.requiredWritablePaths.filter(
+              (requiredPath) =>
+                !declaredWritablePatterns.some((pattern) =>
+                  scopePatternMatches(
+                    requiredPath.replace(/\\/g, '/').replace(/^\.\//, ''),
+                    pattern,
+                  ),
+                ),
+            )
+      if (unsupportedPaths.length > 0) {
+        rejectedReasons.push(
+          declaredWritablePatterns.length === 0
+            ? 'no writable filesystem capability'
+            : `writable scope excludes: ${unsupportedPaths.join(', ')}`,
+        )
+      }
     }
     if (
+      params.minimumContextTokens !== undefined &&
+      candidate.contextWindowTokens === undefined
+    ) {
+      rejectedReasons.push(
+        `context window is unknown; required ${params.minimumContextTokens}`,
+      )
+    } else if (
       params.minimumContextTokens !== undefined &&
       candidate.contextWindowTokens !== undefined &&
       candidate.contextWindowTokens < params.minimumContextTokens
@@ -90,8 +115,12 @@ export function selectAgentAttempt(params: {
       JSON.stringify({
         agentId: candidate.template.id,
         tools: getEffectiveAgentToolNames(candidate.template).sort(),
-        read: [...(candidate.template.filesystemScope?.read ?? [])].sort(),
-        write: [...(candidate.template.filesystemScope?.write ?? [])].sort(),
+        read: [
+          ...(candidate.template.filesystemScope?.read ?? ['**/*']),
+        ].sort(),
+        write: [
+          ...(candidate.template.filesystemScope?.write ?? ['**/*']),
+        ].sort(),
       }),
     )
     .digest('hex')
@@ -106,8 +135,12 @@ export function selectAgentAttempt(params: {
         : 'Selected the highest-ranked eligible configured route.',
       `Required tools and writable scope are satisfied by capability ${capabilityId}.`,
       ...(candidate.contextWindowTokens
-        ? [`Failover-safe context budget: ${candidate.contextWindowTokens} tokens.`]
-        : ['Context budget is unknown; runtime request limits remain authoritative.']),
+        ? [
+            `Failover-safe context budget: ${candidate.contextWindowTokens} tokens.`,
+          ]
+        : [
+            'Context budget is unknown; runtime request limits remain authoritative.',
+          ]),
     ],
     alternatives,
   }

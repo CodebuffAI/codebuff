@@ -153,7 +153,7 @@ export function createBase2(
       'compatibility-reviewer',
       'dependency-reviewer',
       'incident-coordinator',
-      !planOnly && 'release-manager',
+      'release-manager',
       'docs-architect',
       'evaluator',
     ),
@@ -911,8 +911,7 @@ ${specialistRoutingSection}
             includeToolCall: false,
           } as any
           writerEnvironmentSummary = summarizeWriterEnvironment(
-            (environmentInspection as any)?.toolResult ??
-              environmentInspection,
+            (environmentInspection as any)?.toolResult ?? environmentInspection,
           )
           if (requestRequiresTests && !activeWorkState.testWriterGateDone) {
             const affectedTests = yield {
@@ -992,7 +991,9 @@ ${specialistRoutingSection}
                       confidence: 'confirmed' as const,
                     })),
                     invariants: ['Do not modify production source files.'],
-                    nonGoals: ['Unrelated test refactors or framework changes.'],
+                    nonGoals: [
+                      'Unrelated test refactors or framework changes.',
+                    ],
                     risks: ['Tests must match the live source snapshot.'],
                     unknowns: [],
                     findings: [],
@@ -1020,7 +1021,9 @@ ${specialistRoutingSection}
                     workspaceSnapshotId:
                       mutableAgentState.workspaceState?.snapshotId,
                     artifacts: [],
-                    successCriteria: ['Writer receipt reports changed test files.'],
+                    successCriteria: [
+                      'Writer receipt reports changed test files.',
+                    ],
                     constraints: ['Use the existing test framework.'],
                   },
                 },
@@ -1163,8 +1166,12 @@ ${specialistRoutingSection}
                     confidence: 'confirmed' as const,
                   })),
                   invariants: ['Do not modify production source files.'],
-                  nonGoals: ['Marketing copy or unrelated documentation cleanup.'],
-                  risks: ['Documentation must not invent unsupported behavior.'],
+                  nonGoals: [
+                    'Marketing copy or unrelated documentation cleanup.',
+                  ],
+                  risks: [
+                    'Documentation must not invent unsupported behavior.',
+                  ],
                   unknowns: [],
                   findings: [],
                   permissions: {
@@ -1186,7 +1193,9 @@ ${specialistRoutingSection}
                   workspaceSnapshotId:
                     mutableAgentState.workspaceState?.snapshotId,
                   artifacts: [],
-                  successCriteria: ['Writer receipt reports changed documentation files.'],
+                  successCriteria: [
+                    'Writer receipt reports changed documentation files.',
+                  ],
                   constraints: ['Match adjacent documentation style.'],
                 },
               },
@@ -1466,10 +1475,7 @@ ${specialistRoutingSection}
                 const retryToolResult =
                   (retryBatch as any)?.toolResult ?? retryBatch
                 for (const agentType of retrySpecialists) {
-                  specialistSnapshots.set(
-                    agentType,
-                    refreshedBundle.snapshotId,
-                  )
+                  specialistSnapshots.set(agentType, refreshedBundle.snapshotId)
                   specialistResults.set(
                     agentType,
                     extractSpawnedAgentResult(retryToolResult, agentType),
@@ -1506,53 +1512,54 @@ ${specialistRoutingSection}
                   specialistTerminalFailure = true
                   break
                 }
-              const crash = detectReviewerCrash(specialistToolResult)
-              const blockers = collectReviewerBlockers(specialistToolResult)
-              const verdict =
-                getReviewerFinalizationVerdict(specialistToolResult)
-              if (crash || blockers.length > 0 || !verdict) {
-                const normalizedBlockers =
-                  blockers.length > 0
-                    ? blockers
-                    : [
-                        crash
-                          ? `${agentType} crashed: ${crash}`
-                          : `${agentType} did not return a valid finalization verdict.`,
-                      ]
-                const records =
-                  collectReviewerFindingRecordsInline(specialistToolResult)
-                activeWorkState.currentPhase = 'blocked'
-                activeWorkState.openReviewerBlockers = normalizedBlockers
-                activeWorkState.openReviewerFindings = normalizedBlockers.map(
-                  (text: string, index: number) => ({
-                    id:
-                      records[index]?.id ?? buildReviewerFindingId(text, index),
-                    gateId: `${agentType}:${expectedSnapshotId}`,
-                    text: records[index]?.text ?? text,
-                    status: 'open' as const,
-                    files: currentPendingGateFiles,
-                    snapshotFingerprint: expectedSnapshotId,
-                    createdAt: new Date().toISOString(),
-                  }),
+                const crash = detectReviewerCrash(specialistToolResult)
+                const blockers = collectReviewerBlockers(specialistToolResult)
+                const verdict =
+                  getReviewerFinalizationVerdict(specialistToolResult)
+                if (crash || blockers.length > 0 || !verdict) {
+                  const normalizedBlockers =
+                    blockers.length > 0
+                      ? blockers
+                      : [
+                          crash
+                            ? `${agentType} crashed: ${crash}`
+                            : `${agentType} did not return a valid finalization verdict.`,
+                        ]
+                  const records =
+                    collectReviewerFindingRecordsInline(specialistToolResult)
+                  activeWorkState.currentPhase = 'blocked'
+                  activeWorkState.openReviewerBlockers = normalizedBlockers
+                  activeWorkState.openReviewerFindings = normalizedBlockers.map(
+                    (text: string, index: number) => ({
+                      id:
+                        records[index]?.id ??
+                        buildReviewerFindingId(text, index),
+                      gateId: `${agentType}:${expectedSnapshotId}`,
+                      text: records[index]?.text ?? text,
+                      status: 'open' as const,
+                      files: currentPendingGateFiles,
+                      snapshotFingerprint: expectedSnapshotId,
+                      createdAt: new Date().toISOString(),
+                    }),
+                  )
+                  activeWorkState.nextRequiredAction = `Resolve ${agentType} findings before validation and finalization.`
+                  activeWorkState.latestWorkSummary = `${agentType} blocked the current change snapshot.`
+                  markActiveWorkStateChanged()
+                  specialistBlocked = true
+                  break
+                }
+                activeWorkState.specialistReviewGatesDone = Array.from(
+                  new Set([
+                    ...(activeWorkState.specialistReviewGatesDone ?? []),
+                    agentType,
+                  ]),
                 )
-                activeWorkState.nextRequiredAction = `Resolve ${agentType} findings before validation and finalization.`
-                activeWorkState.latestWorkSummary = `${agentType} blocked the current change snapshot.`
-                markActiveWorkStateChanged()
-                specialistBlocked = true
-                break
-              }
-              activeWorkState.specialistReviewGatesDone = Array.from(
-                new Set([
-                  ...(activeWorkState.specialistReviewGatesDone ?? []),
+                recordSuccessfulReviewReceipt(
+                  specialistToolResult,
                   agentType,
-                ]),
-              )
-              recordSuccessfulReviewReceipt(
-                specialistToolResult,
-                agentType,
-                expectedSnapshotId,
-              )
-              markActiveWorkStateChanged()
+                  expectedSnapshotId,
+                )
+                markActiveWorkStateChanged()
               }
             }
             if (specialistBlocked) {
@@ -1769,8 +1776,7 @@ ${specialistRoutingSection}
             currentConversationMessages,
           )
           activeWorkState.currentPhase = 'blocked'
-          activeWorkState.nextRequiredAction =
-            `Reviewer protocol attestation failed twice. Fix reviewer configuration or explicitly reply "BYPASS REVIEWER ${challenge.id}"; the harness will not retry automatically.`
+          activeWorkState.nextRequiredAction = `Reviewer protocol attestation failed twice. Fix reviewer configuration or explicitly reply "BYPASS REVIEWER ${challenge.id}"; the harness will not retry automatically.`
           markActiveWorkStateChanged()
           yield {
             toolName: 'add_message',
@@ -1973,7 +1979,9 @@ ${specialistRoutingSection}
                           'Do not modify files outside the pending gate file set.',
                         ],
                         nonGoals: ['Unrelated refactors or cleanup.'],
-                        risks: ['Stale validation diagnostics or overlapping user edits.'],
+                        risks: [
+                          'Stale validation diagnostics or overlapping user edits.',
+                        ],
                         unknowns: [],
                         findings: failures.map(
                           (text: string, index: number) => ({
@@ -2001,7 +2009,8 @@ ${specialistRoutingSection}
                             'edit_transaction',
                           ],
                         },
-                        workspaceRevision: mutableAgentState.workspaceState?.revision,
+                        workspaceRevision:
+                          mutableAgentState.workspaceState?.revision,
                         workspaceSnapshotId:
                           mutableAgentState.workspaceState?.snapshotId,
                         artifacts: [],
@@ -2176,7 +2185,9 @@ ${specialistRoutingSection}
                             'Read each live target before editing.',
                             'Do not modify files outside the pending gate file set.',
                           ],
-                          nonGoals: ['Speculative refactors or unrelated cleanup.'],
+                          nonGoals: [
+                            'Speculative refactors or unrelated cleanup.',
+                          ],
                           risks: [
                             'Repeated surface-level fixes can hide the actual root cause.',
                           ],
@@ -2569,7 +2580,9 @@ ${specialistRoutingSection}
                         'Read every target from the live filesystem before editing.',
                         'Treat every finding ID as open until a fresh reviewer clears it.',
                       ],
-                      nonGoals: ['Unrelated diagnostics, refactors, or cleanup.'],
+                      nonGoals: [
+                        'Unrelated diagnostics, refactors, or cleanup.',
+                      ],
                       risks: [
                         'Reviewer findings may be stale if the workspace snapshot changed.',
                       ],
@@ -2635,8 +2648,7 @@ ${specialistRoutingSection}
               break
             }
             const reviewerRepairReceipt = extractAgentReceipt(
-              (reviewerRepairResult as any)?.toolResult ??
-                reviewerRepairResult,
+              (reviewerRepairResult as any)?.toolResult ?? reviewerRepairResult,
             )
             const openFindingIds = new Set(
               (activeWorkState.openReviewerFindings ?? []).map(
@@ -2647,8 +2659,7 @@ ${specialistRoutingSection}
               !reviewerRepairReceipt ||
               reviewerRepairReceipt.status !== 'completed' ||
               [...openFindingIds].some(
-                (id) =>
-                  !reviewerRepairReceipt.findingsAddressed.includes(id),
+                (id) => !reviewerRepairReceipt.findingsAddressed.includes(id),
               )
             ) {
               activeWorkState.currentPhase = 'blocked'
@@ -2862,11 +2873,11 @@ ${specialistRoutingSection}
             activeWorkState.staticReviewerJobId = undefined
             activeWorkState.preEditSecurityReviewDone = false
             activeWorkState.securityReviewGateDone = false
-              activeWorkState.reviewerCrashCount = 0
-              activeWorkState.reviewerProtocolRetryCount = 0
-              activeWorkState.reviewerRepairRoundCount = 0
-              activeWorkState.reviewerNoVerdictCount = 0
-              activeWorkState.reviewerBypassChallenge = undefined
+            activeWorkState.reviewerCrashCount = 0
+            activeWorkState.reviewerProtocolRetryCount = 0
+            activeWorkState.reviewerRepairRoundCount = 0
+            activeWorkState.reviewerNoVerdictCount = 0
+            activeWorkState.reviewerBypassChallenge = undefined
             activeWorkState.reviewerGateBypassReason = ''
             activeWorkState.testWriterGateDone = false
             activeWorkState.docWriterGateDone = false
@@ -3198,7 +3209,9 @@ ${specialistRoutingSection}
         const challenge = {
           id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
           fingerprint,
-          issuedAfterMessageIndex: Array.isArray(messages) ? messages.length : 0,
+          issuedAfterMessageIndex: Array.isArray(messages)
+            ? messages.length
+            : 0,
           consumed: false,
         }
         activeWorkState.reviewerBypassChallenge = challenge
@@ -3460,7 +3473,7 @@ ${specialistRoutingSection}
           const root =
             typeof affected?.packageRoot === 'string'
               ? affected.packageRoot
-              : '.'
+              : inferWorkspaceRootFromPath(source)
           const group = byRoot.get(root) ?? {
             targetFiles: [],
             candidateTests: [],
@@ -3479,18 +3492,15 @@ ${specialistRoutingSection}
           byRoot.set(root, group)
         }
         const groups = [...byRoot.entries()].flatMap(([root, group]) => {
-          const build = buildTargets.find(
-            (item) => item.packageRoot === root,
-          )
+          const build = buildTargets.find((item) => item.packageRoot === root)
           const commands = Array.isArray(build?.commands)
             ? build.commands.filter(
                 (item): item is string => typeof item === 'string',
               )
             : []
-          const selectedCommand =
-            commands.find((command) =>
-              /(?:^|\s)(?:test|pytest)(?:\s|$)/i.test(command),
-            ) ?? commands[0]
+          const selectedCommand = commands.find((command) =>
+            /(?:^|\s)(?:test|pytest)(?:\s|$)/i.test(command),
+          )
           const fallbackCommand = inferPackageTestCommand(group.targetFiles[0])
           const command = selectedCommand
             ? root === '.'
@@ -3536,9 +3546,7 @@ ${specialistRoutingSection}
       }
 
       function docWriterScopePatterns(sourceFiles: string[]): string[] {
-        const roots = [
-          ...new Set(sourceFiles.map(inferWorkspaceRootFromPath)),
-        ]
+        const roots = [...new Set(sourceFiles.map(inferWorkspaceRootFromPath))]
         return roots.flatMap((root) => {
           const prefix = root === '.' ? '' : `${root}/`
           return [
@@ -4874,7 +4882,9 @@ ${specialistRoutingSection}
         return visit(toolResult)
       }
 
-      function extractWriterOutcome(toolResult: unknown):
+      function extractWriterOutcome(
+        toolResult: unknown,
+      ):
         | { completionKind: 'changed' | 'noop'; evidence: string[] }
         | undefined {
         const visit = (value: unknown, depth = 0): any => {

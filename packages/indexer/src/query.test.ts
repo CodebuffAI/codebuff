@@ -169,6 +169,22 @@ describe('queryIndex', () => {
     )
   })
 
+  test('applies directory prefixes before ranking and related-file output', () => {
+    const results = queryIndex(index, 'authentication AuthProvider', {
+      limit: 5,
+      pathPrefixes: ['docs'],
+    })
+
+    expect(results.map((result) => result.path)).toEqual([
+      'docs/authentication.md',
+    ])
+    expect(
+      results
+        .flatMap((result) => result.relatedFiles ?? [])
+        .every((related) => related.path.startsWith('docs/')),
+    ).toBe(true)
+  })
+
   test('supports neighbors mode from an explicit file', () => {
     const results = queryIndex(index, '', {
       mode: 'neighbors',

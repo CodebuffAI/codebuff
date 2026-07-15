@@ -452,6 +452,34 @@ const formatBrowserUseStructuredOutput = (
   return lines.join('\n')
 }
 
+const formatExternalCliStructuredOutput = (
+  value: UnknownRecord,
+): string | undefined => {
+  if (value.outputKind !== 'external-cli') return undefined
+  const status = getStringField(value, 'overallStatus')
+  const summary = getStringField(value, 'summary')
+  const permissionProfile = getStringField(value, 'permissionProfile')
+  if (!status || !summary || !permissionProfile) return undefined
+
+  const lines = [
+    `External CLI ${status}: ${summary}`,
+    `Permission profile: ${permissionProfile}`,
+  ]
+  const results = Array.isArray(value.results) ? value.results : []
+  if (results.length > 0) {
+    lines.push('', 'Results:')
+    for (const item of results) {
+      if (!isRecordValue(item)) continue
+      const name = getStringField(item, 'name') ?? 'Unnamed step'
+      const details = getStringField(item, 'details')
+      lines.push(
+        `- ${item.passed === false ? '✗' : '✓'} ${name}${details ? ` — ${details}` : ''}`,
+      )
+    }
+  }
+  return lines.join('\n')
+}
+
 const formatResearcherWebStructuredOutput = (
   value: UnknownRecord,
 ): string | undefined => {
@@ -597,6 +625,10 @@ export const extractSpawnAgentResultContent = (
     const value = obj.value
     // Check for message field in structured output
     if (isRecordValue(value)) {
+      const externalCliSummary = formatExternalCliStructuredOutput(value)
+      if (externalCliSummary) {
+        return { content: externalCliSummary, hasError: false }
+      }
       const browserUseSummary = formatBrowserUseStructuredOutput(value)
       if (browserUseSummary) {
         return { content: browserUseSummary, hasError: false }

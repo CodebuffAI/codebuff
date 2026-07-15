@@ -58,14 +58,26 @@ export function planDiscoveryBatch(params: {
   workspaceRevision?: number
 }): DiscoveryCoverageV1 {
   const queryHash = hash(
-    params.query.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(),
+    params.query
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim(),
   )
   const extracted = extractCandidates(params.result)
-  const previousByPath = new Map(
-    (params.existing?.candidates ?? []).map((candidate) => [
-      candidate.path,
-      candidate,
-    ]),
+  const workspaceChanged =
+    params.existing !== undefined &&
+    params.workspaceRevision !== undefined &&
+    params.existing.workspaceRevision !== params.workspaceRevision
+  const previousByPath = new Map<
+    string,
+    DiscoveryCoverageV1['candidates'][number]
+  >(
+    (params.existing?.candidates ?? []).map((candidate) => {
+      return [
+        candidate.path,
+        workspaceChanged ? { ...candidate, stale: true } : candidate,
+      ] as const
+    }),
   )
   for (const [path, reasons] of extracted) {
     const previous = previousByPath.get(path)
@@ -74,10 +86,7 @@ export function planDiscoveryBatch(params: {
       symbols: previous?.symbols ?? [],
       reasons: [...new Set([...(previous?.reasons ?? []), ...reasons])],
       verified: previous?.verified ?? false,
-      stale:
-        previous?.workspaceRevision !== undefined &&
-        params.workspaceRevision !== undefined &&
-        previous.workspaceRevision !== params.workspaceRevision,
+      stale: false,
       workspaceRevision: params.workspaceRevision,
     })
   }

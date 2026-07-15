@@ -1,4 +1,5 @@
 import { globalStopSequence } from './constants'
+import { getModelVisibleSpawnableAgents } from './templates/prompts'
 
 import type { AgentTemplate } from './templates/types'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -93,7 +94,7 @@ export const getAgentStreamFromTemplate = (params: {
     model,
     runId,
     signal: params.signal,
-    spawnableAgents: template.spawnableAgents,
+    spawnableAgents: getModelVisibleSpawnableAgents(template.spawnableAgents),
     stopSequences: [globalStopSequence],
     // Keep native tool schemas available. The XML parser remains a fallback for
     // models that print <codebuff_tool_call> blocks, but hiding native schemas

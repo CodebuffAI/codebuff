@@ -33,10 +33,7 @@ mutations and makes guarded updates fail closed. Hosts that need the same
 brokered adapter outside `run()` can construct it explicitly:
 
 ```ts
-import {
-  createNodeFileSystem,
-  WorkspaceMutationBroker,
-} from '@openbuff/sdk'
+import { createNodeFileSystem, WorkspaceMutationBroker } from '@openbuff/sdk'
 
 const mutationBroker = await WorkspaceMutationBroker.create({
   cwd: process.cwd(),
@@ -62,6 +59,22 @@ Tools that require a host process, such as terminal commands and configured
 validation hooks, are separate from the filesystem adapter. Virtual or remote
 hosts should override or disable process-backed tools when the local process
 does not represent the same workspace.
+
+## High-impact action approvals
+
+Assistant-originated dependency mutation, pushes, releases, migrations,
+deployments, pull-request mutation, and recursive workspace deletion require a
+single-use approval receipt in addition to the agent's static terminal
+permission profile. Approval never widens that profile. Receipts are bound to
+the repository, workspace, root run, exact action target, and current workspace
+snapshot, then consumed atomically before execution.
+
+Hosts create receipts with the exported `WorkspaceJournalService`,
+`LocalHarnessStore`, and `HarnessApprovalService`, then pass their IDs through
+`approvalReceiptIds` on the resumed run. A receipt for a different command,
+run, workspace, or snapshot is rejected; direct default-branch pushes remain
+prohibited even with a receipt. This is intentionally a host-mediated flow—an
+agent cannot mint or broaden its own approval.
 
 ## Mutation events
 

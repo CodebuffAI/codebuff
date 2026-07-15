@@ -19,6 +19,10 @@ import {
   evaluateTerminalCommandPolicy,
   type TerminalPermissionProfile,
 } from './terminal-command-policy'
+import {
+  classifyTerminalHarnessAction,
+  type ClassifiedHarnessAction,
+} from '../services/harness-enforcement'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
@@ -175,6 +179,7 @@ export function runTerminalCommand({
   env,
   signal,
   owner,
+  authorizeHighImpactAction,
 }: {
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
@@ -195,6 +200,14 @@ export function runTerminalCommand({
     parentRunId: string
     parentAgentId: string
   }
+  authorizeHighImpactAction?: (action: ClassifiedHarnessAction) => Promise<
+    | { allowed: true; approvalReceiptId: string }
+    | {
+        allowed: false
+        reason: string
+        approvalRequired: boolean
+      }
+  >
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   // The contract for `cwd` is "project root or a subdirectory of it". A
   // caller-supplied absolute path like `/etc` or a traversal like
@@ -237,6 +250,72 @@ export function runTerminalCommand({
         },
       },
     ])
+  }
+
+  const highImpactAction =
+    mode === 'assistant' ? classifyTerminalHarnessAction(command) : undefined
+  if (highImpactAction) {
+    if (!authorizeHighImpactAction) {
+      return Promise.resolve([
+        {
+          type: 'json',
+          value: {
+            command,
+            errorMessage: `Command denied by harness approval policy: Action '${highImpactAction.action}' requires a snapshot-scoped user approval for '${highImpactAction.target}'.`,
+            permissionDenied: true,
+            approvalRequired: true,
+            harnessAction: highImpactAction.action,
+            harnessTarget: highImpactAction.target,
+            permissionProfile: permission_profile,
+          },
+        },
+      ])
+    }
+    return authorizeHighImpactAction(highImpactAction).then((decision) => {
+      if (!decision.allowed) {
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              command,
+              errorMessage: `Command denied by harness approval policy: ${decision.reason}`,
+              permissionDenied: true,
+              approvalRequired: decision.approvalRequired,
+              harnessAction: highImpactAction.action,
+              harnessTarget: highImpactAction.target,
+              permissionProfile: permission_profile,
+            },
+          },
+        ]
+      }
+      return runTerminalCommand({
+        command,
+        process_type,
+        detach,
+        mode: 'user',
+        permission_profile,
+        allowed_paths,
+        cwd,
+        projectRoot,
+        timeout_seconds,
+        env,
+        signal,
+        owner,
+      }).then((output) => {
+        const part = output[0]
+        return [
+          {
+            ...part,
+            value: {
+              ...part.value,
+              approvalReceiptId: decision.approvalReceiptId,
+              harnessAction: highImpactAction.action,
+              harnessTarget: highImpactAction.target,
+            },
+          },
+        ]
+      })
+    })
   }
 
   if (

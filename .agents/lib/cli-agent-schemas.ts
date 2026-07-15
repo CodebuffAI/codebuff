@@ -2,6 +2,17 @@
 export const outputSchema = {
   type: 'object' as const,
   properties: {
+    outputKind: {
+      type: 'string' as const,
+      enum: ['external-cli'],
+      description: 'Stable discriminator for external CLI agent results',
+    },
+    permissionProfile: {
+      type: 'string' as const,
+      enum: ['tmux-test'],
+      description:
+        'Runtime-enforced terminal permission profile used for this agent run',
+    },
     overallStatus: {
       type: 'string' as const,
       enum: ['success', 'failure', 'partial'],
@@ -127,6 +138,8 @@ export const outputSchema = {
     },
   },
   required: [
+    'outputKind',
+    'permissionProfile',
     'overallStatus',
     'summary',
     'sessionName',

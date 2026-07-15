@@ -23,6 +23,13 @@ import {
  */
 export type BackgroundJobStatus = 'running' | 'completed' | 'error' | 'lost'
 
+export interface BackgroundJobOwner {
+  clientSessionId: string
+  rootRunId: string
+  parentRunId: string
+  parentAgentId: string
+}
+
 export function isProcessTreeAlive(child: Pick<ChildProcess, 'pid'>): boolean {
   if (!child.pid) return false
   try {
@@ -67,12 +74,7 @@ export interface BackgroundJob {
   readOffset: number
   /** Preserves incomplete UTF-8 sequences across bounded incremental reads. */
   decoder?: StringDecoder
-  owner?: {
-    clientSessionId: string
-    rootRunId: string
-    parentRunId: string
-    parentAgentId: string
-  }
+  owner?: BackgroundJobOwner
 }
 
 const jobs = new Map<string, BackgroundJob>()
@@ -300,6 +302,7 @@ type BackgroundJobMetadata = {
   exitCode: number | null
   startedAt: number
   readOffset?: number
+  owner?: BackgroundJobOwner
 }
 
 function writeBackgroundJobMetadata(job: BackgroundJob): void {
@@ -312,6 +315,7 @@ function writeBackgroundJobMetadata(job: BackgroundJob): void {
     exitCode: job.exitCode,
     startedAt: job.startedAt,
     readOffset: job.readOffset,
+    owner: job.owner,
   }
   try {
     safeWriteJobMetadata(job.metadataFile, metadata)
@@ -469,6 +473,7 @@ export function getBackgroundJob(jobId: string): BackgroundJob | undefined {
         command: recovered.command,
         status: recovered.status,
         startedAt: recovered.startedAt,
+        owner: recovered.owner,
       })
     }
   }
@@ -505,6 +510,9 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
       Number.isFinite(metadata.readOffset)
         ? Math.min(Math.max(0, Math.floor(metadata.readOffset)), logSize)
         : 0
+    const owner = isBackgroundJobOwner(metadata.owner)
+      ? metadata.owner
+      : undefined
 
     metadataFilesCreatedByThisProcess.add(metadataFile)
 
@@ -519,10 +527,22 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
       startedAt: metadata.startedAt,
       readOffset,
       decoder: new StringDecoder('utf8'),
+      owner,
     }
   } catch {
     return undefined
   }
+}
+
+function isBackgroundJobOwner(value: unknown): value is BackgroundJobOwner {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<BackgroundJobOwner>
+  return (
+    typeof candidate.clientSessionId === 'string' &&
+    typeof candidate.rootRunId === 'string' &&
+    typeof candidate.parentRunId === 'string' &&
+    typeof candidate.parentAgentId === 'string'
+  )
 }
 
 function isProcessAlive(pid: number): boolean {

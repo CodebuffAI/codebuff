@@ -27,8 +27,29 @@ function finishStepWithToolResult(value: unknown) {
   } as any
 }
 
-function reviewerResult(snapshotFingerprint: string, reviewedFiles: string[]) {
+function writerNoopResult(receiptId: string) {
   return feedJson({
+    schemaVersion: 1,
+    receiptId,
+    status: 'completed',
+    changedFiles: [],
+    findingsAddressed: [],
+    requestedValidation: [],
+    completionKind: 'noop',
+    evidence: ['Existing coverage already satisfies the requested behavior.'],
+  })
+}
+
+function reviewerFingerprintFromSpawn(value: any): string {
+  const prompt = value?.input?.agents?.[0]?.prompt
+  expect(typeof prompt).toBe('string')
+  const match = prompt.match(/Snapshot fingerprint \(echo exactly\): ([^\n]+)/)
+  expect(match).not.toBeNull()
+  return match![1].trim()
+}
+
+function reviewerValue(snapshotFingerprint: string, reviewedFiles: string[]) {
+  return {
     schemaVersion: 1,
     family: 'reviewer',
     verdict: 'NON_BLOCKING',
@@ -38,32 +59,51 @@ function reviewerResult(snapshotFingerprint: string, reviewedFiles: string[]) {
     coverage: 'covered',
     dimensions: {},
     requirementCoverage: [],
-  })
+  }
 }
 
-function staleReviewerResult(
+function reviewerResult(snapshotFingerprint: string, reviewedFiles: string[]) {
+  return feedJson(reviewerValue(snapshotFingerprint, reviewedFiles))
+}
+
+function spawnedReviewerResult(
+  agentType: string,
   snapshotFingerprint: string,
   reviewedFiles: string[],
 ) {
   return feedJson({
-    schemaVersion: 1,
-    family: 'reviewer',
-    verdict: 'BLOCKING',
-    snapshotFingerprint,
-    reviewedFiles,
-    findings: [
-      {
-        id: 'reliability-reviewer:correctness:stale-snapshot',
-        severity: 'critical',
-        dimension: 'correctness',
-        summary: 'The supplied snapshot is stale and does not match.',
-        evidence: ['The current review bundle has a newer snapshot.'],
-        correction: 'Refresh the bundle and retry once.',
-      },
-    ],
-    coverage: 'missing',
-    dimensions: { correctness: 'block' },
-    requirementCoverage: [],
+    agentType,
+    value: reviewerValue(snapshotFingerprint, reviewedFiles),
+  })
+}
+
+function staleSpawnedReviewerResult(
+  agentType: string,
+  snapshotFingerprint: string,
+  reviewedFiles: string[],
+) {
+  return feedJson({
+    agentType,
+    value: {
+      schemaVersion: 1,
+      family: 'reviewer',
+      verdict: 'BLOCKING',
+      snapshotFingerprint,
+      reviewedFiles,
+      findings: [
+        {
+          id: 'reliability-reviewer:correctness:stale-snapshot',
+          severity: 'critical',
+          dimension: 'correctness',
+          summary: 'The supplied snapshot is stale and does not match.',
+          evidence: ['The current review bundle has a newer snapshot.'],
+          correction: 'Refresh the bundle and retry once.',
+        },
+      ],
+      coverage: 'missing',
+      dimensions: { correctness: 'block' },
+      requirementCoverage: [],
+    },
   })
 }
 
@@ -140,9 +180,37 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     ).toMatchObject({ toolName: 'git_status', input: {} })
 
     // 5) git_status reports the pending edit -> the aux block fires.
-    const testWriterYield = gen.next(
+    const environmentYield = gen.next(
       feedJson({ status: ` M ${AUX_TRIPLE_FILE}` }),
     )
+    expect(environmentYield.value).toMatchObject({
+      toolName: 'inspect_environment',
+      input: {},
+      includeToolCall: false,
+    })
+    const affectedTestsYield = gen.next(feedJson({ workspaces: [] }))
+    expect(affectedTestsYield.value).toMatchObject({
+      toolName: 'get_affected_tests',
+      input: { files: [AUX_TRIPLE_FILE] },
+      includeToolCall: false,
+    })
+    const buildTargetsYield = gen.next(
+      feedJson({
+        targets: [
+          {
+            source: AUX_TRIPLE_FILE,
+            candidates: [],
+            packageRoot: 'cli',
+          },
+        ],
+      }),
+    )
+    expect(buildTargetsYield.value).toMatchObject({
+      toolName: 'get_build_targets',
+      input: { files: [AUX_TRIPLE_FILE] },
+      includeToolCall: false,
+    })
+    const testWriterYield = gen.next(feedJson({ targets: [] }))
     // Invariant 1a: test-writer fires FIRST (before validation hooks and
     // code-reviewer), via spawn_agent_inline with includeToolCall:false.
     expect(testWriterYield.value).toMatchObject({
@@ -159,7 +227,22 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
 
     // Invariant 2a: the test-writer yield suspends; the doc-writer if-block
     // only runs AFTER we resume the generator.
-    const docWriterYield = gen.next(feedJson([]))
+    const testValidationYield = gen.next(writerNoopResult('test-writer-noop'))
+    expect(testValidationYield.value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'basher',
+            params: { command: AUX_TEST_COMMAND },
+          },
+        ],
+      },
+      includeToolCall: false,
+    })
+    const docWriterYield = gen.next(
+      feedJson([{ command: AUX_TEST_COMMAND, exitCode: 0, stdout: 'ok' }]),
+    )
     // Invariant 1b: doc-writer fires SECOND.
     expect(docWriterYield.value).toMatchObject({
       toolName: 'spawn_agent_inline',
@@ -174,7 +257,7 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
 
     // Invariant 2b: the doc-writer yield suspends; the security-reviewer
     // if-block only runs AFTER we resume the generator.
-    const securityReviewerYield = gen.next(feedJson([]))
+    const securityReviewerYield = gen.next(writerNoopResult('doc-writer-noop'))
     // Invariant 1c: security-reviewer fires THIRD.
     expect(securityReviewerYield.value).toMatchObject({
       toolName: 'spawn_agent_inline',
@@ -206,8 +289,10 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     // The auth/session file also routes through the deterministic reliability
     // specialist gate. It must review the same snapshot before the aux block
     // can re-enter the loop.
+    const securityFingerprint = (securityReviewerYield.value as any).input
+      .params.snapshot_fingerprint as string
     const specialistBundle = gen.next(
-      feedJson(['NON_BLOCKING: No security concerns found.']),
+      reviewerResult(securityFingerprint, [AUX_TRIPLE_FILE]),
     )
     expect(specialistBundle.value).toMatchObject({
       toolName: 'get_change_review_bundle',
@@ -218,8 +303,8 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       feedJson({ snapshotId: 'aux-ordering-snapshot' }),
     )
     expect(specialistSpawn.value).toMatchObject({
-      toolName: 'spawn_agent_inline',
-      input: { agent_type: 'reliability-reviewer' },
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'reliability-reviewer' }] },
       includeToolCall: false,
     })
 
@@ -227,7 +312,11 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     // iteration, before the root model gets another STEP and can manually
     // re-spawn the specialist from compacted prose.
     const refreshedBundle = gen.next(
-      staleReviewerResult('aux-ordering-snapshot', [AUX_TRIPLE_FILE]),
+      staleSpawnedReviewerResult(
+        'reliability-reviewer',
+        'aux-ordering-snapshot',
+        [AUX_TRIPLE_FILE],
+      ),
     )
     expect(refreshedBundle.value).toMatchObject({
       toolName: 'get_change_review_bundle',
@@ -238,10 +327,14 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       feedJson({ snapshotId: 'aux-ordering-snapshot-refreshed' }),
     )
     expect(refreshedSpecialistSpawn.value).toMatchObject({
-      toolName: 'spawn_agent_inline',
+      toolName: 'spawn_agents',
       input: {
-        agent_type: 'reliability-reviewer',
-        params: { snapshot_id: 'aux-ordering-snapshot-refreshed' },
+        agents: [
+          {
+            agent_type: 'reliability-reviewer',
+            params: { snapshot_id: 'aux-ordering-snapshot-refreshed' },
+          },
+        ],
       },
       includeToolCall: false,
     })
@@ -249,7 +342,11 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     // Invariant 3: after every routed aux gate passes,
     // auxGateFiredThisIteration re-enters the loop at context pruning.
     const reLoopContextPruner = gen.next(
-      reviewerResult('aux-ordering-snapshot-refreshed', [AUX_TRIPLE_FILE]),
+      spawnedReviewerResult(
+        'reliability-reviewer',
+        'aux-ordering-snapshot-refreshed',
+        [AUX_TRIPLE_FILE],
+      ),
     )
     expect(reLoopContextPruner.value).toMatchObject({
       toolName: 'spawn_agent_inline',
@@ -309,14 +406,19 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     })
 
     // 9) A LOOKS_GOOD reviewer verdict finalizes.
-    const gatePassed = gen.next(feedJson(['LOOKS_GOOD: All clear.']))
+    const finalReviewerFingerprint = reviewerFingerprintFromSpawn(
+      reviewerSpawn.value,
+    )
+    const gatePassed = gen.next(
+      reviewerResult(finalReviewerFingerprint, [AUX_TRIPLE_FILE]),
+    )
     expect(gatePassed.value).toMatchObject({
       toolName: 'add_message',
       input: { role: 'user' },
     })
     const passText = (gatePassed.value as any).input.content as string
     expect(passText).toContain(
-      'Automated validation and reviewer gate passed with LOOKS_GOOD',
+      'Automated validation and reviewer gate passed with NON_BLOCKING',
     )
     expect(parseGateStateBlock(passText)).toMatchObject({
       gate: 'validation/reviewer',
@@ -364,17 +466,57 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
     })
 
     // First iteration fires all three aux gates in order.
+    const environmentYield = gen.next(
+      feedJson({ status: ` M ${AUX_TRIPLE_FILE}` }),
+    )
+    expect(environmentYield.value).toMatchObject({
+      toolName: 'inspect_environment',
+      input: {},
+      includeToolCall: false,
+    })
+    expect(gen.next(feedJson({ workspaces: [] })).value).toMatchObject({
+      toolName: 'get_affected_tests',
+      input: { files: [AUX_TRIPLE_FILE] },
+      includeToolCall: false,
+    })
     expect(
-      gen.next(feedJson({ status: ` M ${AUX_TRIPLE_FILE}` })).value,
+      gen.next(
+        feedJson({
+          targets: [
+            {
+              source: AUX_TRIPLE_FILE,
+              candidates: [],
+              packageRoot: 'cli',
+            },
+          ],
+        }),
+      ).value,
     ).toMatchObject({
+      toolName: 'get_build_targets',
+      input: { files: [AUX_TRIPLE_FILE] },
+      includeToolCall: false,
+    })
+    expect(gen.next(feedJson({ targets: [] })).value).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'test-writer' },
     })
-    expect(gen.next(feedJson([])).value).toMatchObject({
+    expect(
+      gen.next(writerNoopResult('test-writer-noop-2')).value,
+    ).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'basher' }] },
+      includeToolCall: false,
+    })
+    expect(
+      gen.next(feedJson([{ exitCode: 0, stdout: 'ok' }])).value,
+    ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'doc-writer' },
     })
-    expect(gen.next(feedJson([])).value).toMatchObject({
+    const securityReviewerYield = gen.next(
+      writerNoopResult('doc-writer-noop-2'),
+    )
+    expect(securityReviewerYield.value).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'security-reviewer' },
     })
@@ -385,8 +527,10 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       preEditSecurityReviewDone: false,
     })
 
+    const securityFingerprint = (securityReviewerYield.value as any).input
+      .params.snapshot_fingerprint as string
     const specialistBundle = gen.next(
-      feedJson(['NON_BLOCKING: No security concerns found.']),
+      reviewerResult(securityFingerprint, [AUX_TRIPLE_FILE]),
     )
     expect(specialistBundle.value).toMatchObject({
       toolName: 'get_change_review_bundle',
@@ -397,15 +541,20 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       feedJson({ snapshotId: 'aux-idempotency-snapshot' }),
     )
     expect(specialistSpawn.value).toMatchObject({
-      toolName: 'spawn_agent_inline',
-      input: { agent_type: 'reliability-reviewer' },
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'reliability-reviewer' }] },
       includeToolCall: false,
     })
 
     // The aux block `continue`d; re-loop starts with context-pruner.
     expect(
-      gen.next(reviewerResult('aux-idempotency-snapshot', [AUX_TRIPLE_FILE]))
-        .value,
+      gen.next(
+        spawnedReviewerResult(
+          'reliability-reviewer',
+          'aux-idempotency-snapshot',
+          [AUX_TRIPLE_FILE],
+        ),
+      ).value,
     ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },

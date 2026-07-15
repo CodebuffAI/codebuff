@@ -155,6 +155,8 @@ const definition: AgentDefinition = {
       yield {
         toolName: 'set_output',
         input: {
+          outputKind: 'external-cli',
+          permissionProfile: 'tmux-test',
           overallStatus: 'failure',
           summary: 'Failed to start ' + CLI_NAME + ' tmux session. ' + errorMsg,
           sessionName: '',

@@ -14,6 +14,7 @@ import { getPostingCandidates, getPostingDocumentFrequency } from './query-data'
 export interface QueryOptions {
   limit?: number
   fileTypes?: string[]
+  pathPrefixes?: string[]
   mode?: QueryIndexMode
   from?: string
   to?: string
@@ -137,7 +138,7 @@ export function queryIndex(
   query: string,
   options: QueryOptions = {},
 ): QueryIndexResult[] {
-  const { limit = 20, fileTypes, mode = 'search' } = options
+  const { limit = 20, fileTypes, mode = 'search', pathPrefixes } = options
   const tokens = tokenizeQuery(query)
   const adjacency = getAdjacency(index)
   const commandIntent =
@@ -145,13 +146,22 @@ export function queryIndex(
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
 
   if (mode === 'neighbors') {
-    return queryNeighbors(index, adjacency, tokens, options).slice(0, limit)
+    return applyPathScope(
+      queryNeighbors(index, adjacency, tokens, options),
+      pathPrefixes,
+    ).slice(0, limit)
   }
   if (mode === 'path') {
-    return queryPath(index, adjacency, tokens, options).slice(0, limit)
+    return applyPathScope(
+      queryPath(index, adjacency, tokens, options),
+      pathPrefixes,
+    ).slice(0, limit)
   }
   if (mode === 'references') {
-    return queryReferences(index, adjacency, tokens, options).slice(0, limit)
+    return applyPathScope(
+      queryReferences(index, adjacency, tokens, options),
+      pathPrefixes,
+    ).slice(0, limit)
   }
   if (mode === 'explain') {
     return querySearch(
@@ -163,6 +173,7 @@ export function queryIndex(
       true,
       commandIntent,
       lexicalWeights,
+      pathPrefixes,
     )
   }
   return querySearch(
@@ -174,7 +185,40 @@ export function queryIndex(
     mode === 'commands',
     commandIntent,
     lexicalWeights,
+    pathPrefixes,
   )
+}
+
+function pathMatchesPrefixes(
+  filePath: string,
+  pathPrefixes: string[] | undefined,
+): boolean {
+  if (!pathPrefixes || pathPrefixes.length === 0) return true
+  const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '')
+  return pathPrefixes.some((rawPrefix) => {
+    const prefix = rawPrefix
+      .replace(/\\/g, '/')
+      .replace(/^\.\//, '')
+      .replace(/^\/+|\/+$/g, '')
+    return (
+      prefix.length > 0 &&
+      (normalized === prefix || normalized.startsWith(`${prefix}/`))
+    )
+  })
+}
+
+function applyPathScope(
+  results: QueryIndexResult[],
+  pathPrefixes: string[] | undefined,
+): QueryIndexResult[] {
+  return results
+    .filter((result) => pathMatchesPrefixes(result.path, pathPrefixes))
+    .map((result) => ({
+      ...result,
+      relatedFiles: result.relatedFiles?.filter((related) =>
+        pathMatchesPrefixes(related.path, pathPrefixes),
+      ),
+    }))
 }
 
 function querySearch(
@@ -186,10 +230,12 @@ function querySearch(
   explain: boolean,
   commandIntent: boolean,
   lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
+  pathPrefixes?: string[],
 ): QueryIndexResult[] {
   if (tokens.length === 0) {
     const results = Object.values(index.files)
       .filter((file) => matchesFileType(file, fileTypes))
+      .filter((file) => pathMatchesPrefixes(file.path, pathPrefixes))
       .filter((file) => !commandIntent || isCommandDiscoveryFile(file))
       .map((file) => ({
         path: file.path,
@@ -217,6 +263,7 @@ function querySearch(
 
   for (const file of filesToScore) {
     if (!matchesFileType(file, fileTypes)) continue
+    if (!pathMatchesPrefixes(file.path, pathPrefixes)) continue
 
     const result = scoreFile(file, tokens, idf, commandIntent, lexicalWeights)
     if (result.score > 0) {
@@ -228,6 +275,7 @@ function querySearch(
     const graphScores = scoreGraphNeighborhood(index, adjacency, directResults)
     for (const [path, related] of graphScores.entries()) {
       if (!matchesFileType(index.files[path], fileTypes)) continue
+      if (!pathMatchesPrefixes(path, pathPrefixes)) continue
       const existing = directResults.get(path)
       if (existing) {
         existing.score += related.score
@@ -252,7 +300,7 @@ function querySearch(
   const indexAgeMs = Date.now() - index.builtAt
   const stale = indexAgeMs > MAX_INDEX_AGE_MS
 
-  return Array.from(directResults.values())
+  return applyPathScope(Array.from(directResults.values()), pathPrefixes)
     .map((result) => ({
       ...result,
       score: roundScore(result.score),

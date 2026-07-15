@@ -341,6 +341,8 @@ ${supportedModes.includes('review') ? reviewModeInstructions : ''}
 ## Output (All Modes)
 
 **Report results using set_output** - You MUST call set_output with structured results:
+- \`outputKind\`: "external-cli"
+- \`permissionProfile\`: "tmux-test" (the runtime-enforced profile; never claim broader access)
 - \`overallStatus\`: "success", "failure", or "partial"
 - \`summary\`: Brief description of what was done
 - \`sessionName\`: The tmux session name (REQUIRED - from the session started for you)

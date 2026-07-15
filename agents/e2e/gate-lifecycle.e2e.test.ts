@@ -1,4 +1,7 @@
-import { describe, expect, test } from 'bun:test'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+
+import { afterEach, describe, expect, test } from 'bun:test'
 
 import { createBase2 } from '../base2/base2'
 
@@ -27,8 +30,49 @@ function finishStepWithToolResult(value: unknown) {
   } as any
 }
 
+const SCRATCH_ROOT = '.e2e-scratch/base2-gate-lifecycle'
+const LIFECYCLE_FILE = `${SCRATCH_ROOT}/lifecycle.ts`
+
+afterEach(() => {
+  rmSync(SCRATCH_ROOT, { recursive: true, force: true })
+})
+
+function reviewerFingerprintFromSpawn(value: any): string {
+  const prompt = value?.input?.agents?.[0]?.prompt
+  expect(typeof prompt).toBe('string')
+  const match = prompt.match(/Snapshot fingerprint \(echo exactly\): ([^\n]+)/)
+  expect(match).not.toBeNull()
+  return match![1].trim()
+}
+
+function reviewerResult(params: {
+  snapshotFingerprint: string
+  reviewedFiles: string[]
+  verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
+  findings?: string[]
+}) {
+  return feedJson({
+    schemaVersion: 1,
+    verdict: params.verdict,
+    snapshotFingerprint: params.snapshotFingerprint,
+    reviewedFiles: params.reviewedFiles,
+    findings: params.findings ?? [],
+    coverage: 'covered',
+    dimensions: {
+      correctness: 'pass',
+      security: 'pass',
+      tests: 'pass',
+      apiCompatibility: 'pass',
+      performance: 'pass',
+    },
+    requirementCoverage: [],
+  })
+}
+
 describe('base2 deterministic gate lifecycle e2e', () => {
   test('recovers across validation and reviewer blockers before allowing finalization', () => {
+    mkdirSync(path.dirname(LIFECYCLE_FILE), { recursive: true })
+    writeFileSync(LIFECYCLE_FILE, 'export const lifecycle = "before"\n')
     const base2 = createBase2('default')
     const agentState = { agentId: 'base2-custom' }
     const gen = base2.handleSteps!({
@@ -69,13 +113,13 @@ describe('base2 deterministic gate lifecycle e2e', () => {
 
     // Invariant 1: an edit detected after a model step opens the validation gate.
     expect(
-      gen.next(finishStepWithToolResult({ file: 'src/lifecycle.ts' })).value,
+      gen.next(finishStepWithToolResult({ file: LIFECYCLE_FILE })).value,
     ).toMatchObject({ toolName: 'git_status', input: {} })
     expect(
-      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+      gen.next(feedJson({ status: ` M ${LIFECYCLE_FILE}` })).value,
     ).toMatchObject({
       toolName: 'run_file_change_hooks',
-      input: { files: ['src/lifecycle.ts'] },
+      input: { files: [LIFECYCLE_FILE] },
     })
 
     // Invariant 2: a failing validation hook blocks finalization and reopens work.
@@ -104,7 +148,7 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     // Invariant 4: validation blocker state is durable across generator yields.
     expect((agentState as any).base2ActiveWork).toMatchObject({
       currentPhase: 'blocked',
-      pendingGateFiles: ['src/lifecycle.ts'],
+      pendingGateFiles: [LIFECYCLE_FILE],
       lastReviewerGateSkipReason: 'validation-hook-failures',
       nextRequiredAction:
         'Fix the blocking validation hook failures before doing anything else.',
@@ -129,27 +173,34 @@ describe('base2 deterministic gate lifecycle e2e', () => {
 
     // Invariant 5: the model can apply a validation fix in the recovery step.
     expect(
-      gen.next(finishStepWithToolResult({ file: 'src/lifecycle.ts' })).value,
+      gen.next(finishStepWithToolResult({ file: LIFECYCLE_FILE })).value,
     ).toMatchObject({ toolName: 'git_status' })
 
     // Invariant 6: passing validation advances to reviewer instead of finalizing.
     expect(
-      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+      gen.next(feedJson({ status: ` M ${LIFECYCLE_FILE}` })).value,
     ).toMatchObject({
       toolName: 'run_file_change_hooks',
-      input: { files: ['src/lifecycle.ts'] },
+      input: { files: [LIFECYCLE_FILE] },
     })
-    expect(
-      gen.next(feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]))
-        .value,
-    ).toMatchObject({
+    const blockingReviewerSpawn = gen.next(
+      feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]),
+    )
+    expect(blockingReviewerSpawn.value).toMatchObject({
       toolName: 'spawn_agents',
       input: { agents: [{ agent_type: 'code-reviewer' }] },
     })
 
     // Invariant 7: a BLOCKING reviewer verdict reopens the turn.
     const reviewerBlocked = gen.next(
-      feedJson(['BLOCKING: Handle lifecycle retry idempotently.']),
+      reviewerResult({
+        snapshotFingerprint: reviewerFingerprintFromSpawn(
+          blockingReviewerSpawn.value,
+        ),
+        reviewedFiles: [LIFECYCLE_FILE],
+        verdict: 'BLOCKING',
+        findings: ['Handle lifecycle retry idempotently.'],
+      }),
     )
     expect(reviewerBlocked.value).toMatchObject({
       toolName: 'add_message',
@@ -163,7 +214,7 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     // repair-editor with typed path/tool permissions.
     expect((agentState as any).base2ActiveWork).toMatchObject({
       currentPhase: 'blocked',
-      pendingGateFiles: ['src/lifecycle.ts'],
+      pendingGateFiles: [LIFECYCLE_FILE],
       openReviewerBlockers: ['BLOCKING: Handle lifecycle retry idempotently.'],
       nextRequiredAction:
         'Resolve the reviewer feedback below before any unrelated work, final response, or another review.',
@@ -179,27 +230,42 @@ describe('base2 deterministic gate lifecycle e2e', () => {
               schemaVersion: 1,
               findings: [
                 {
-                  files: ['src/lifecycle.ts'],
+                  files: [LIFECYCLE_FILE],
                   text: 'BLOCKING: Handle lifecycle retry idempotently.',
                 },
               ],
               permissions: {
-                readablePaths: ['src/lifecycle.ts'],
-                writablePaths: ['src/lifecycle.ts'],
+                readablePaths: [LIFECYCLE_FILE],
+                writablePaths: [LIFECYCLE_FILE],
               },
             },
           },
         ],
       },
     })
+    const findingIds = (
+      repairEditorSpawn.value as any
+    ).input.agents[0].handoff.findings.map(
+      (finding: { id: string }) => finding.id,
+    )
+    writeFileSync(LIFECYCLE_FILE, 'export const lifecycle = "after"\n')
     expect(
-      gen.next(feedJson([{ file: 'src/lifecycle.ts' }])).value,
+      gen.next(
+        feedJson({
+          schemaVersion: 1,
+          receiptId: 'reviewer-repair-receipt',
+          status: 'completed',
+          changedFiles: [{ path: LIFECYCLE_FILE }],
+          findingsAddressed: findingIds,
+          requestedValidation: [],
+        }),
+      ).value,
     ).toMatchObject({ toolName: 'git_status', input: {} })
 
     // The repair result re-enters the normal loop at context pruning, with
     // the blocker still pinned until validation and a fresh review clear it.
     expect(
-      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+      gen.next(feedJson({ status: ` M ${LIFECYCLE_FILE}` })).value,
     ).toMatchObject({
       toolName: 'spawn_agent_inline',
       input: { agent_type: 'context-pruner' },
@@ -222,22 +288,28 @@ describe('base2 deterministic gate lifecycle e2e', () => {
 
     // Invariant 10: validation passes after the reviewer fix.
     expect(
-      gen.next(feedJson({ status: ' M src/lifecycle.ts' })).value,
+      gen.next(feedJson({ status: ` M ${LIFECYCLE_FILE}` })).value,
     ).toMatchObject({
       toolName: 'run_file_change_hooks',
-      input: { files: ['src/lifecycle.ts'] },
+      input: { files: [LIFECYCLE_FILE] },
     })
-    expect(
-      gen.next(feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]))
-        .value,
-    ).toMatchObject({
+    const finalReviewerSpawn = gen.next(
+      feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]),
+    )
+    expect(finalReviewerSpawn.value).toMatchObject({
       toolName: 'spawn_agents',
       input: { agents: [{ agent_type: 'code-reviewer' }] },
     })
 
     // Invariant 11: a non-blocking reviewer verdict permits finalization.
     const gatePassed = gen.next(
-      feedJson(['NON_BLOCKING: Optional cleanup can wait.']),
+      reviewerResult({
+        snapshotFingerprint: reviewerFingerprintFromSpawn(
+          finalReviewerSpawn.value,
+        ),
+        reviewedFiles: [LIFECYCLE_FILE],
+        verdict: 'NON_BLOCKING',
+      }),
     )
     expect(gatePassed.value).toMatchObject({
       toolName: 'add_message',
@@ -258,7 +330,7 @@ describe('base2 deterministic gate lifecycle e2e', () => {
       pendingGateFiles: [],
       openReviewerBlockers: [],
       nextRequiredAction: '',
-      gatePassedPendingFiles: ['src/lifecycle.ts'],
+      gatePassedPendingFiles: [LIFECYCLE_FILE],
       gatePassedReviewerVerdict: 'NON_BLOCKING',
     })
     expect((agentState as any).canSuggestFollowups).toBe(true)

@@ -178,107 +178,141 @@ Do not use any tools! Only report the output of the command.`,
     const result = toolResult?.[0]
     const output = result?.type === 'json' ? result.value : null
 
-    const lines = [
+    const commandOutput =
+      output && typeof output === 'object'
+        ? (output as Record<string, unknown>)
+        : {}
+    const request = what_to_summarize.toLowerCase()
+    const stopWords = new Set([
+      'about',
+      'extract',
+      'from',
+      'information',
+      'list',
+      'output',
+      'show',
+      'summarize',
+      'summary',
+      'that',
+      'the',
+      'what',
+      'with',
+    ])
+    const focusWords = Array.from(
+      new Set(request.match(/[a-z0-9_]{3,}/g) ?? []),
+    ).filter((word) => !stopWords.has(word))
+    const combinedOutput = [
+      commandOutput.stdout,
+      commandOutput.stderr,
+      commandOutput.message,
+      commandOutput.errorMessage,
+    ]
+      .filter((value): value is string => typeof value === 'string')
+      .join('\n')
+    const sourceLines = combinedOutput
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .filter((line) => line.trim().length > 0)
+    const wantsFailures =
+      /\b(fail(?:ure|ures|ed)?|errors?|panic|broken)\b/.test(request)
+    const wantsFiles = /\b(files?|paths?|directories|artifacts?)\b/.test(
+      request,
+    )
+    const wantsStatus =
+      /\b(status|results?|tests?|passes?|counts?|summary|startup|health)\b/.test(
+        request,
+      )
+    const semanticPattern = wantsFailures
+      ? /\b(?:fail(?:ure|ures|ed)?|error|panic|expected|received|not ok|exception|unhandled)\b/i
+      : wantsStatus
+        ? /\b(?:pass(?:ed|es)?|fail(?:ed|ures?)?|error|test(?:s|ed)?|ok|ready|running|started|stopped|total|success)\b/i
+        : undefined
+    const pathPattern =
+      /^(?:[-*]\s+)?(?:\.?\.?\/)?[A-Za-z0-9_@.+-]+(?:\/[A-Za-z0-9_@.+() \[\]-]+)+(?:\.[A-Za-z0-9_-]+)?(?:\:\d+(?::\d+)?)?$/
+    const selectedLines = sourceLines.filter((line) => {
+      const lower = line.toLowerCase()
+      if (focusWords.some((word) => lower.includes(word))) return true
+      if (semanticPattern?.test(line)) return true
+      if (wantsFiles && pathPattern.test(line.trim())) return true
+      return false
+    })
+    const fallbackUsed = selectedLines.length === 0
+    const extractedLines = (
+      fallbackUsed ? sourceLines.slice(0, 12) : selectedLines
+    )
+      .slice(0, 80)
+      .map((line) => (line.length > 1_000 ? `${line.slice(0, 1_000)}…` : line))
+    const omittedLineCount = Math.max(
+      0,
+      sourceLines.length - extractedLines.length,
+    )
+    const exitCode =
+      typeof commandOutput.exitCode === 'number'
+        ? commandOutput.exitCode
+        : undefined
+    const backgroundStatus =
+      typeof commandOutput.backgroundProcessStatus === 'string'
+        ? commandOutput.backgroundProcessStatus
+        : undefined
+    const message = [
       `Command: ${command}`,
       `Requested summary: ${what_to_summarize}`,
+      fullLogPath && retain_full_log
+        ? `Full log retained: ${fullLogPath}`
+        : fullLogPath
+          ? 'Full log deleted after extracting relevant lines.'
+          : undefined,
+      commandOutput.startingCwd
+        ? `Starting CWD: ${String(commandOutput.startingCwd)}`
+        : undefined,
+      exitCode === undefined ? undefined : `Exit code: ${exitCode}`,
+      commandOutput.jobId
+        ? `Job ID: ${String(commandOutput.jobId)}`
+        : undefined,
+      backgroundStatus ? `Background status: ${backgroundStatus}` : undefined,
+      commandOutput.logFile
+        ? `Log file: ${String(commandOutput.logFile)}`
+        : undefined,
+      extractedLines.length > 0
+        ? `Extracted ${extractedLines.length} relevant line(s) for: ${what_to_summarize}`
+        : `No output lines matched: ${what_to_summarize}`,
+      ...extractedLines,
+      omittedLineCount > 0
+        ? `[omitted ${omittedLineCount} non-matching or excess line(s)]`
+        : undefined,
     ]
-    if (fullLogPath && retain_full_log) {
-      lines.push(`Full log retained: ${fullLogPath}`)
-      lines.push(`Failure pattern: ${failure_pattern}`)
-      lines.push(`Max failure lines: ${failureLineLimit}`)
-    } else if (fullLogPath) {
-      lines.push('Full log deleted after extracting relevant lines.')
-    }
-
-    const appendBounded = (label: string, value: unknown, maxChars: number) => {
-      if (value === undefined || value === null || value === '') return
-      const text =
-        typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-      if (!text) return
-      lines.push('')
-      lines.push(`${label}:`)
-      lines.push(
-        text.length > maxChars
-          ? `${text.slice(0, maxChars)}\n[truncated ${text.length - maxChars} chars]`
-          : text,
-      )
-    }
-
-    if (output && typeof output === 'object') {
-      const commandOutput = output as Record<string, unknown>
-      if (commandOutput.startingCwd) {
-        lines.push(`Starting CWD: ${String(commandOutput.startingCwd)}`)
-      }
-      if (commandOutput.exitCode !== undefined) {
-        lines.push(`Exit code: ${String(commandOutput.exitCode)}`)
-      }
-      if (commandOutput.jobId)
-        lines.push(`Job ID: ${String(commandOutput.jobId)}`)
-      if (commandOutput.backgroundProcessStatus)
-        lines.push(
-          `Background status: ${String(commandOutput.backgroundProcessStatus)}`,
-        )
-      if (commandOutput.logFile)
-        lines.push(`Log file: ${String(commandOutput.logFile)}`)
-      if (commandOutput.status)
-        lines.push(`Status: ${String(commandOutput.status)}`)
-      appendBounded('Message', commandOutput.message, 2_000)
-      appendBounded('Error', commandOutput.errorMessage, 2_000)
-      appendBounded('stdout', commandOutput.stdout, 8_000)
-      appendBounded('stderr', commandOutput.stderr, 4_000)
-      appendBounded(
-        'stdout omitted for length',
-        commandOutput.stdoutOmittedForLength,
-        1_000,
-      )
-
-      const hadStructuredOutput = [
-        'message',
-        'errorMessage',
-        'stdout',
-        'stderr',
-        'stdoutOmittedForLength',
-        'exitCode',
-        'jobId',
-        'backgroundProcessStatus',
-        'logFile',
-        'status',
-      ].some((key) => commandOutput[key] !== undefined)
-      if (!hadStructuredOutput)
-        appendBounded('Command output JSON', output, 8_000)
-    } else {
-      appendBounded('Command output JSON', output, 8_000)
-    }
-
-    const focusWords = (
-      what_to_summarize.toLowerCase().match(/[a-z0-9_]{4,}/g) ?? []
-    ).filter((word, index, words) => words.indexOf(word) === index)
-    const combinedOutput =
-      output && typeof output === 'object'
-        ? [
-            (output as Record<string, unknown>).stdout,
-            (output as Record<string, unknown>).stderr,
-            (output as Record<string, unknown>).message,
-            (output as Record<string, unknown>).errorMessage,
-          ]
-            .filter((value): value is string => typeof value === 'string')
-            .join('\n')
-        : ''
-    const focusedLines = combinedOutput
-      .split('\n')
-      .filter((line) =>
-        focusWords.some((word) => line.toLowerCase().includes(word)),
-      )
-      .slice(0, 80)
-    if (focusedLines.length > 0) {
-      lines.push('', 'Focused excerpts:', ...focusedLines)
-    }
+      .filter((line): line is string => typeof line === 'string')
+      .join('\n')
 
     yield {
       toolName: 'set_output',
       input: {
         data: {
-          message: lines.join('\n'),
+          command,
+          requestedSummary: what_to_summarize,
+          message,
+          extractedLines,
+          omittedLineCount,
+          fallbackUsed,
+          ...(exitCode !== undefined && { exitCode }),
+          ...(commandOutput.startingCwd
+            ? { startingCwd: String(commandOutput.startingCwd) }
+            : {}),
+          ...(commandOutput.jobId
+            ? { jobId: String(commandOutput.jobId) }
+            : {}),
+          ...(backgroundStatus
+            ? { backgroundProcessStatus: backgroundStatus }
+            : {}),
+          ...(commandOutput.logFile
+            ? { logFile: String(commandOutput.logFile) }
+            : {}),
+          ...(fullLogPath
+            ? {
+                fullLogRetained: retain_full_log === true,
+                ...(retain_full_log === true ? { fullLogPath } : {}),
+              }
+            : {}),
         },
       },
       includeToolCall: false,

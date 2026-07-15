@@ -84,42 +84,60 @@ function buildDepTree(
   return children
 }
 
-// Render dependency tree recursively
-const DepTree: React.FC<{
-  nodes: DepTreeNode[]
-  depth: number
-  theme: ReturnType<typeof useTheme>
-}> = ({ nodes, depth, theme }) => {
-  return (
-    <>
-      {nodes.map((node, idx) => {
-        const isLast = idx === nodes.length - 1
-        const prefix = isLast ? '└─' : '├─'
-        const displayText =
-          node.displayName !== node.id
-            ? `${node.displayName} (${node.id})`
-            : node.displayName
+export type VisibleAgentRow =
+  | { kind: 'agent'; key: string; agent: LocalAgentInfo }
+  | {
+      kind: 'dependency'
+      key: string
+      agentId: string
+      displayName: string
+      depth: number
+      isLast: boolean
+    }
 
-        return (
-          <React.Fragment key={node.id}>
-            <box
-              style={{
-                flexDirection: 'row',
-                gap: 1,
-                paddingLeft: depth * 3 + 3,
-              }}
-            >
-              <text style={{ fg: theme.muted }}>{prefix}</text>
-              <text style={{ fg: theme.muted }}>{displayText}</text>
-            </box>
-            {node.children.length > 0 && (
-              <DepTree nodes={node.children} depth={depth + 1} theme={theme} />
-            )}
-          </React.Fragment>
+function flattenDepTree(
+  nodes: DepTreeNode[],
+  parentKey: string,
+  depth = 0,
+): VisibleAgentRow[] {
+  return nodes.flatMap((node, index) => {
+    const key = `${parentKey}/${node.id}:${index}`
+    return [
+      {
+        kind: 'dependency' as const,
+        key,
+        agentId: node.id,
+        displayName: node.displayName,
+        depth,
+        isLast: index === nodes.length - 1,
+      },
+      ...flattenDepTree(node.children, key, depth + 1),
+    ]
+  })
+}
+
+export function buildVisibleAgentRows(params: {
+  allAgents: LocalAgentInfo[]
+  filteredAgents: LocalAgentInfo[]
+  agentDefinitions: Map<string, { spawnableAgents?: string[] }>
+  expandedAgentIds: Set<string>
+}): VisibleAgentRow[] {
+  const localAgentIds = new Set(params.allAgents.map((agent) => agent.id))
+  return params.filteredAgents.flatMap((agent): VisibleAgentRow[] => [
+    { kind: 'agent', key: agent.id, agent },
+    ...(params.expandedAgentIds.has(agent.id)
+      ? flattenDepTree(
+          buildDepTree(
+            agent.id,
+            params.allAgents,
+            params.agentDefinitions,
+            localAgentIds,
+            new Set(),
+          ),
+          agent.id,
         )
-      })}
-    </>
-  )
+      : []),
+  ])
 }
 
 interface AgentChecklistProps {
@@ -132,6 +150,7 @@ interface AgentChecklistProps {
   focusedIndex: number
   onToggleAgent: (agentId: string) => void
   onFocusChange: (index: number) => void
+  onVisibleRowsChange?: (agentIds: string[]) => void
   agentDefinitions: Map<string, { spawnableAgents?: string[] }>
   maxHeight?: number
 }
@@ -144,6 +163,7 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
   focusedIndex,
   onToggleAgent,
   onFocusChange,
+  onVisibleRowsChange,
   agentDefinitions,
   maxHeight = 8,
 }) => {
@@ -178,19 +198,27 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
     return counts
   }, [allAgents, agentDefinitions, localAgentIds])
 
-  const visibleRowCount = useMemo(
+  const visibleRows = useMemo(
     () =>
-      filteredAgents.reduce(
-        (total, agent) =>
-          total +
-          1 +
-          (expandedAgentIds.has(agent.id)
-            ? (dependencyCounts.get(agent.id) ?? 0)
-            : 0),
-        0,
-      ),
-    [dependencyCounts, expandedAgentIds, filteredAgents],
+      buildVisibleAgentRows({
+        allAgents,
+        filteredAgents,
+        agentDefinitions,
+        expandedAgentIds,
+      }),
+    [agentDefinitions, allAgents, expandedAgentIds, filteredAgents],
   )
+
+  useEffect(() => {
+    onVisibleRowsChange?.(
+      visibleRows.map((row) =>
+        row.kind === 'agent' ? row.agent.id : row.agentId,
+      ),
+    )
+    if (focusedIndex >= visibleRows.length) {
+      onFocusChange(Math.max(0, visibleRows.length - 1))
+    }
+  }, [focusedIndex, onFocusChange, onVisibleRowsChange, visibleRows])
 
   // Toggle expansion of an agent's dependencies
   const toggleExpanded = (agentId: string) => {
@@ -208,20 +236,10 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
   // Scroll focused item into view when focus changes via keyboard
   useEffect(() => {
     const scrollbox = scrollRef.current
-    if (!scrollbox || filteredAgents.length === 0) return
+    if (!scrollbox || visibleRows.length === 0) return
 
     const itemHeight = 1
-    const focusedTop = filteredAgents
-      .slice(0, focusedIndex)
-      .reduce(
-        (top, agent) =>
-          top +
-          itemHeight +
-          (expandedAgentIds.has(agent.id)
-            ? (dependencyCounts.get(agent.id) ?? 0) * itemHeight
-            : 0),
-        0,
-      )
+    const focusedTop = Math.max(0, focusedIndex) * itemHeight
     const focusedBottom = focusedTop + itemHeight
 
     const viewportHeight = scrollbox.viewport.height
@@ -235,7 +253,7 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
     else if (focusedBottom > currentScroll + viewportHeight) {
       scrollbox.scrollTop = focusedBottom - viewportHeight
     }
-  }, [dependencyCounts, expandedAgentIds, filteredAgents, focusedIndex])
+  }, [focusedIndex, visibleRows.length])
 
   if (filteredAgents.length === 0) {
     return (
@@ -247,7 +265,7 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
     )
   }
 
-  const needsScroll = visibleRowCount > maxHeight
+  const needsScroll = visibleRows.length > maxHeight
 
   return (
     <box style={{ flexDirection: 'column', gap: 0 }}>
@@ -277,7 +295,55 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
           },
         }}
       >
-        {filteredAgents.map((agent, idx) => {
+        {visibleRows.map((row, rowIndex) => {
+          if (row.kind === 'dependency') {
+            const isSelected = selectedIds.has(row.agentId)
+            const isFocused = rowIndex === focusedIndex
+            const symbol = isSelected
+              ? SYMBOLS.CHECKBOX_CHECKED
+              : SYMBOLS.CHECKBOX_UNCHECKED
+            const displayText =
+              row.displayName !== row.agentId
+                ? `${row.displayName} (${row.agentId})`
+                : row.displayName
+            return (
+              <Button
+                key={row.key}
+                onClick={() => {
+                  onFocusChange(rowIndex)
+                  onToggleAgent(row.agentId)
+                }}
+                style={{
+                  flexDirection: 'row',
+                  gap: 1,
+                  backgroundColor: isFocused ? theme.surface : 'transparent',
+                  paddingLeft: row.depth * 3 + 3,
+                  paddingRight: 1,
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                }}
+              >
+                <text style={{ fg: theme.muted }}>
+                  {row.isLast ? '└─' : '├─'}
+                </text>
+                <text
+                  style={{
+                    fg: isSelected
+                      ? theme.success
+                      : isFocused
+                        ? theme.foreground
+                        : theme.muted,
+                    attributes: isFocused ? TextAttributes.BOLD : undefined,
+                  }}
+                >
+                  {symbol} {displayText}
+                </text>
+              </Button>
+            )
+          }
+
+          const { agent } = row
+          const idx = rowIndex
           const isSelected = selectedIds.has(agent.id)
           const isFocused = idx === focusedIndex
           const isHovered = idx === hoveredIndex
@@ -297,7 +363,7 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
               : agent.displayName
 
           return (
-            <React.Fragment key={agent.id}>
+            <React.Fragment key={row.key}>
               <box
                 style={{
                   flexDirection: 'row',
@@ -384,21 +450,6 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
                   </Button>
                 )}
               </box>
-
-              {/* Expanded dependency tree */}
-              {isExpanded && depCount > 0 && (
-                <DepTree
-                  nodes={buildDepTree(
-                    agent.id,
-                    allAgents,
-                    agentDefinitions,
-                    localAgentIds,
-                    new Set(),
-                  )}
-                  depth={0}
-                  theme={theme}
-                />
-              )}
             </React.Fragment>
           )
         })}

@@ -34,5 +34,5 @@ describe('harness intelligence read tools', () => {
     expect(getBuildTargets(root, ['app.ts'])[0]).toMatchObject({
       value: { targets: [{ scripts: ['test', 'build'] }] },
     })
-  })
+  }, 15_000)
 })

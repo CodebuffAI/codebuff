@@ -265,8 +265,69 @@ describe('runFinalCheckCommands', () => {
 
     expect(result).toBeDefined()
     expect(result!.command).toContain('setTimeout')
-    expect(result!.exitCode).toBe(1)
+    expect(result!.exitCode).toBe(130)
+    expect(result!.outcome).toBe('cancelled')
     expect(typeof result!.stdout).toBe('string')
     expect(result!.stderr.toLowerCase()).toContain('abort')
+  })
+
+  test('runs independent object checks concurrently and preserves input order', async () => {
+    const startedAt = Date.now()
+    const results = await runFinalCheckCommands(
+      [
+        {
+          id: 'first',
+          command: 'node -e "setTimeout(() => {}, 250)"',
+        },
+        {
+          id: 'second',
+          command: 'node -e "setTimeout(() => {}, 250)"',
+        },
+      ],
+      process.cwd(),
+      undefined,
+      undefined,
+      { concurrency: 2 },
+    )
+
+    expect(Date.now() - startedAt).toBeLessThan(450)
+    expect(results.map((result) => result.checkId)).toEqual(['first', 'second'])
+    expect(results.every((result) => result.outcome === 'passed')).toBe(true)
+  })
+
+  test('skips dependent checks after a failed prerequisite', async () => {
+    const results = await runFinalCheckCommands(
+      [
+        { id: 'compile', command: 'node -e "process.exit(2)"' },
+        {
+          id: 'test',
+          command: 'node -e "process.exit(0)"',
+          dependsOn: ['compile'],
+        },
+      ],
+      process.cwd(),
+    )
+
+    expect(results[0]).toMatchObject({ outcome: 'failed', exitCode: 2 })
+    expect(results[1]).toMatchObject({ outcome: 'skipped', exitCode: 125 })
+  })
+
+  test('reports per-check timeouts distinctly', async () => {
+    const [result] = await runFinalCheckCommands(
+      [
+        {
+          id: 'slow',
+          command: 'node -e "setTimeout(() => {}, 10000)"',
+          timeoutMs: 20,
+        },
+      ],
+      process.cwd(),
+    )
+
+    expect(result).toMatchObject({
+      checkId: 'slow',
+      outcome: 'timed_out',
+      exitCode: 124,
+    })
   })
 })

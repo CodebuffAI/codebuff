@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import {
   ChangeOwnershipService,
   HarnessApprovalService,
+  classifyTerminalHarnessAction,
   evaluateHarnessActionPolicy,
 } from '../services/harness-enforcement'
 import { LocalHarnessStore } from '../services/local-harness-store'
@@ -40,6 +41,8 @@ describe('harness enforcement services', () => {
     expect(() =>
       service.consume({
         repositoryId: 'repo-1',
+        workspaceId: 'workspace-1',
+        runId: 'run-1',
         approvalId: grant.id,
         action: 'push',
         target: 'origin/other',
@@ -49,6 +52,8 @@ describe('harness enforcement services', () => {
     expect(
       service.consume({
         repositoryId: 'repo-1',
+        workspaceId: 'workspace-1',
+        runId: 'run-1',
         approvalId: grant.id,
         action: 'push',
         target: 'origin/feature',
@@ -58,6 +63,8 @@ describe('harness enforcement services', () => {
     expect(() =>
       service.consume({
         repositoryId: 'repo-1',
+        workspaceId: 'workspace-1',
+        runId: 'run-1',
         approvalId: grant.id,
         action: 'push',
         target: 'origin/feature',
@@ -96,5 +103,35 @@ describe('harness enforcement services', () => {
         hasMatchingApproval: true,
       }),
     ).toMatchObject({ allowed: false, approvalRequired: false })
+  })
+
+  test('classifies only recognized high-impact command shapes', () => {
+    expect(
+      classifyTerminalHarnessAction('git push -u origin feature/x'),
+    ).toEqual({
+      action: 'push',
+      target: 'origin/feature/x',
+      branch: 'feature/x',
+    })
+    expect(classifyTerminalHarnessAction('git push')).toEqual({
+      action: 'push',
+      target: 'git push',
+    })
+    expect(classifyTerminalHarnessAction('git push origin HEAD:main')).toEqual({
+      action: 'push',
+      target: 'origin/main',
+      branch: 'main',
+    })
+    expect(
+      classifyTerminalHarnessAction('git push --force origin main'),
+    ).toEqual({
+      action: 'push',
+      target: 'git push --force origin main',
+      branch: 'main',
+    })
+    expect(classifyTerminalHarnessAction('pnpm add zod')).toMatchObject({
+      action: 'dependency-install',
+    })
+    expect(classifyTerminalHarnessAction('bun test')).toBeUndefined()
   })
 })

@@ -127,7 +127,7 @@ export async function runTask(options: {
   localAgentDefinitions: any[]
   extractLessons: boolean
   printEvents: boolean
-  finalCheckCommands?: string[]
+  finalCheckCommands?: EvalDataV2['finalCheckCommands']
   cacheRecallEval?: EvalDataV2['cacheRecallEval']
   disableAnalysis?: boolean
   saveTraces?: boolean

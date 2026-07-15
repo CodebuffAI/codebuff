@@ -4,6 +4,9 @@ import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import nodeFs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import z from 'zod/v4'
 
 import { OpenbuffClient } from '../client'
@@ -16,8 +19,13 @@ import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
+  const harnessStateDirs: string[] = []
+
   afterEach(() => {
     mock.restore()
+    for (const stateDir of harnessStateDirs.splice(0)) {
+      nodeFs.rmSync(stateDir, { recursive: true, force: true })
+    }
   })
 
   it('handles create_plan tool calls by writing the plan artifact', async () => {
@@ -81,10 +89,15 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
       actions: Array<{ action: string; path: string }>
     }> = []
     let fallbackInvalidations = 0
+    const harnessStateDir = nodeFs.mkdtempSync(
+      path.join(os.tmpdir(), 'openbuff-run-event-'),
+    )
+    harnessStateDirs.push(harnessStateDir)
     const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/repo',
       fsSource: fs,
+      harnessStateDir,
       onFilesystemMutation: (event) => {
         mutationEvents.push(event)
       },

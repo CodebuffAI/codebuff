@@ -39,7 +39,16 @@ describe('pending-attachments', () => {
   })
 
   const waitForFileRead = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const hasProcessingFile = useChatStore
+        .getState()
+        .pendingAttachments.some(
+          (attachment) =>
+            attachment.kind === 'file' && attachment.status === 'processing',
+        )
+      if (!hasProcessingFile) return
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
   }
 
   describe('file attachment completeness', () => {

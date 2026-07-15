@@ -11,6 +11,12 @@ export const handleBrowserLogs = (async (params: {
   toolCall: CodebuffToolCall<'browser_logs'>
   agentTemplate: AgentTemplate
   spawnParams?: Record<string, any>
+  agentState?: {
+    agentId: string
+    runId?: string
+    ancestorRunIds?: string[]
+  }
+  clientSessionId?: string
   requestClientToolCall: (
     toolCall: ClientToolCall<'browser_logs'>,
   ) => Promise<CodebuffToolOutput<'browser_logs'>>
@@ -23,6 +29,8 @@ export const handleBrowserLogs = (async (params: {
     requestClientToolCall,
     agentTemplate,
     spawnParams,
+    agentState,
+    clientSessionId,
   } = params
 
   await previousToolCallFinished
@@ -73,5 +81,21 @@ export const handleBrowserLogs = (async (params: {
       ],
     }
   }
-  return { output: await requestClientToolCall(toolCall) }
+  const parentAgentId = agentState?.agentId ?? agentTemplate.id
+  const parentRunId = agentState?.runId ?? parentAgentId
+  const rootRunId = agentState?.ancestorRunIds?.[0] ?? parentRunId
+  return {
+    output: await requestClientToolCall({
+      ...toolCall,
+      input: {
+        ...toolCall.input,
+        _browserOwner: {
+          clientSessionId: clientSessionId ?? rootRunId,
+          rootRunId,
+          parentRunId,
+          parentAgentId,
+        },
+      },
+    } as ClientToolCall<'browser_logs'>),
+  }
 }) satisfies CodebuffToolHandlerFunction<'browser_logs'>

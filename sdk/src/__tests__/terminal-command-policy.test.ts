@@ -123,6 +123,7 @@ describe('terminal command permission policy', () => {
       'git diff --cached',
       'git fetch --prune origin',
       'git add src/a.ts',
+      'git add -- src/a.ts',
       'git commit -m "Fix issue"',
       'git push -u origin feature/safe-change',
     ]) {

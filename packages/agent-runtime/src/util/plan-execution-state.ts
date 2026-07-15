@@ -84,6 +84,18 @@ export function validatePlanTransition(params: {
     }
     if (task.status === 'done' && before?.status !== 'done') {
       completedTaskIds.push(task.id)
+      const incompleteDependencies = task.dependencies.filter((dependency) => {
+        const dependencyTask = nextById.get(dependency)
+        return (
+          dependencyTask?.status !== 'done' &&
+          dependencyTask?.status !== 'cancelled'
+        )
+      })
+      if (incompleteDependencies.length > 0) {
+        errors.push(
+          `Task ${task.id} cannot be completed until dependencies complete: ${incompleteDependencies.join(', ')}.`,
+        )
+      }
       const checkpoint =
         params.checkpoint?.taskId === task.id
           ? params.checkpoint
@@ -96,9 +108,8 @@ export function validatePlanTransition(params: {
         )
       }
       if (
-        params.checkpoint?.taskId === task.id &&
-        (!params.checkpoint.receiptIds ||
-          params.checkpoint.receiptIds.length === 0)
+        checkpoint?.passed &&
+        (!checkpoint.receiptIds || checkpoint.receiptIds.length === 0)
       ) {
         errors.push(
           `Task ${task.id} validation checkpoint must reference at least one receipt ID.`,

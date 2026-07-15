@@ -10,11 +10,27 @@ import {
 import {
   buildPdfAttachmentMetadata,
   frameSelectorOffsetScript,
+  getBrowserSessionKey,
   normalizeBrowserUrl,
   translateFramePoint,
 } from '../tools/browser-logs'
 
 describe('browser_logs', () => {
+  test('isolates session keys by root run and owning agent', () => {
+    const base = {
+      clientSessionId: 'session',
+      rootRunId: 'root',
+      parentRunId: 'parent',
+      parentAgentId: 'browser-a',
+    }
+    expect(getBrowserSessionKey(base)).not.toBe(
+      getBrowserSessionKey({ ...base, parentAgentId: 'browser-b' }),
+    )
+    expect(getBrowserSessionKey(base)).not.toBe(
+      getBrowserSessionKey({ ...base, rootRunId: 'other-root' }),
+    )
+  })
+
   test('normalizes bare live domains to HTTPS', () => {
     expect(normalizeBrowserUrl('infraformat.com')).toBe(
       'https://infraformat.com',

@@ -31,6 +31,13 @@ const inputSchema = z
       .describe(
         `Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only.`,
       ),
+    pathPrefixes: z
+      .array(z.string().min(1))
+      .max(20)
+      .optional()
+      .describe(
+        'Optional normalized project-relative directory prefixes. Results outside every prefix are excluded before ranking/limiting.',
+      ),
     mode: z
       .enum([
         'search',
@@ -57,6 +64,22 @@ const inputSchema = z
       .describe('Optional target file path for path mode.'),
   })
   .superRefine((input, ctx) => {
+    for (const [index, prefix] of (input.pathPrefixes ?? []).entries()) {
+      const normalized = prefix.replace(/\\/g, '/').replace(/^\.\//, '')
+      if (
+        normalized.startsWith('/') ||
+        /^[A-Za-z]:\//.test(normalized) ||
+        normalized.split('/').includes('..') ||
+        /[?*{}[\]]/.test(normalized)
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['pathPrefixes', index],
+          message:
+            'pathPrefixes must contain project-relative directory prefixes without traversal or glob syntax',
+        })
+      }
+    }
     const mode = input.mode ?? 'search'
     if (
       (mode === 'search' || mode === 'explain') &&

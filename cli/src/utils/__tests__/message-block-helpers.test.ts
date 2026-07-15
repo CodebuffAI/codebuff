@@ -835,6 +835,35 @@ describe('extractSpawnAgentResultContent', () => {
     expect(result.content).not.toContain('Browser test success')
   })
 
+  test('formats external CLI output with its enforced permission profile', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'structuredOutput',
+      value: {
+        outputKind: 'external-cli',
+        permissionProfile: 'tmux-test',
+        overallStatus: 'success',
+        summary: 'Reviewed the requested change.',
+        sessionName: 'cli-review-1',
+        results: [
+          { name: 'Review', passed: true, details: 'No blockers found.' },
+        ],
+        scriptIssues: [],
+        captures: [],
+      },
+    })
+
+    expect(result).toEqual({
+      content: [
+        'External CLI success: Reviewed the requested change.',
+        'Permission profile: tmux-test',
+        '',
+        'Results:',
+        '- ✓ Review — No blockers found.',
+      ].join('\n'),
+      hasError: false,
+    })
+  })
+
   test('formats web research structured output as readable findings and sources', () => {
     const result = extractSpawnAgentResultContent({
       type: 'structuredOutput',

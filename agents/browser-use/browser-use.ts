@@ -212,7 +212,7 @@ Use browser_logs with these actions:
 
 4. **Verify with snapshots and screenshots**: After key interactions, use snapshot for text/selector state and screenshot for visual layout, spacing, colors, and styling.
 
-5. **Media verification**: When the task asks for visual/browser smoke coverage, explicitly exercise screenshot, pdf, and recording unless the user says not to. Start recording before a short safe interaction, stop it afterward, and report whether screenshots/recordings returned media attachments and whether PDF generation metadata reported success.
+5. **Proportional media verification**: Use screenshots for visual layout checks. Generate a PDF only when printable/PDF behavior matters, and record only when a time-based interaction or explicit recording request needs that evidence. Do not generate all media types for routine browser smoke coverage.
 
 6. **Error recovery**: If an interaction fails, take a new snapshot — selectors may need adjustment after DOM updates. Use \`wait_for\` before retrying if the UI is loading asynchronously.
 
@@ -256,7 +256,7 @@ You are given a browser task to accomplish. Follow this workflow:
 2. **Snapshot or screenshot** the page using browser_logs \`snapshot\` or \`screenshot\` to understand the page structure, get selectors, or visually verify the page.
    If the task includes local screenshot/reference paths, read them with \`read_image\` before comparing.
 3. **Execute** the task step by step with browser_logs \`click\`, \`type\`, \`key\`, \`mouse\`, \`hover\`, \`drag\`, \`select\`, \`scroll\`, \`wait_for\`, \`upload\`, \`tab\`, \`viewport\`, \`network\`, \`cookie\`, \`storage\`, or \`evaluate\`. For forms, fill multiple fields in sequence without re-snapshotting/screenshotting between each. Re-snapshot/screenshot only after DOM-changing events (page navigation, form submission).
-4. **Exercise media actions when relevant**: for browser smoke/visual verification tasks, call screenshot, pdf, and recording start/stop. In the final report, include outputKind: "browser-use" and a result step for each media action with whether screenshots/recordings attached media and whether PDF generation metadata reported success (screenshotAttached, pdfAttached, recordingAttached).
+4. **Collect proportional media evidence**: for visual verification, normally use a screenshot. Use PDF only for print/PDF-specific checks and recording start/stop only for time-based interactions or when explicitly requested. In the final report, include outputKind: "browser-use" and attachment metadata only for media actions actually used (screenshotAttached, pdfAttached, recordingAttached).
 5. **Verify** the outcome with browser_logs \`snapshot\` or \`screenshot\`
 6. **Check console** errors in the logs returned by browser_logs
 

@@ -1,11 +1,14 @@
 import { publisher } from '../constants'
 import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 
+import type { StepText } from '../types/agent-definition'
+
+const MAX_LISTED_FILES = 8
+
 export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   displayName: 'Liszt the File Lister',
   publisher,
-  spawnerPrompt:
-    'Lists up to 12 files that are relevant to the prompt within the given directories. Unless you know which directories are relevant, omit the directories parameter. This agent is great for finding files that could be relevant to the prompt.',
+  spawnerPrompt: `Lists up to ${MAX_LISTED_FILES} files that are relevant to the prompt within the given project-relative directories. Unless you know which directories are relevant, omit the directories parameter.`,
   inputSchema: {
     prompt: {
       type: 'string',
@@ -18,7 +21,7 @@ export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
           type: 'array' as const,
           items: { type: 'string' as const },
           description:
-            'Optional list of paths to directories to look within. If omitted, the entire project tree is used.',
+            'Optional project-relative directories to search. Absolute paths, traversal, glob syntax, and more than 8 entries are rejected.',
         },
       },
       required: [],
@@ -31,7 +34,7 @@ export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
 
   systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out.`,
   instructionsPrompt: `Instructions:
-- List out the full paths of 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root. Don't forget to include all the subdirectories in the path -- sometimes you have forgotten to include 'src' in the path. Make sure that the file paths are exactly correct.
+- List at most ${MAX_LISTED_FILES} exact project-relative file paths that are relevant to the prompt, separated by newlines.
 - Prefer paths surfaced by the local codebase graph index when they are relevant. Treat relatedFiles as useful adjacent context, but also use the repository tree context to avoid missing obvious nearby files.
 - Do not write any introductory commentary.
 - Do not write any analysis or any English text at all.
@@ -57,7 +60,33 @@ Again: Do not call any tools or write anything else other than the chosen file p
 `.trim(),
 
   handleSteps: function* ({ prompt, params }) {
-    const directories = params?.directories ?? []
+    const rawDirectories = Array.isArray(params?.directories)
+      ? params.directories
+      : []
+    const directories = Array.from(
+      new Set(
+        rawDirectories
+          .filter((value): value is string => typeof value === 'string')
+          .map((value) => value.replace(/\\/g, '/').replace(/^\.\//, ''))
+          .map((value) => value.replace(/\/+$/, ''))
+          .filter(
+            (value) =>
+              value.length > 0 &&
+              value !== '.' &&
+              !value.startsWith('/') &&
+              !/^[A-Za-z]:\//.test(value) &&
+              !value.split('/').includes('..') &&
+              !/[?*{}[\]]/.test(value),
+          ),
+      ),
+    ).slice(0, 8)
+    if (rawDirectories.length > 0 && directories.length === 0) {
+      yield {
+        type: 'STEP_TEXT',
+        text: 'No valid project-relative directory scope was provided.',
+      } satisfies StepText
+      return
+    }
     const scopedPrompt =
       directories.length > 0
         ? `${prompt ?? ''}\nOnly return files within: ${directories.join(', ')}`
@@ -68,6 +97,7 @@ Again: Do not call any tools or write anything else other than the chosen file p
         input: {
           query: scopedPrompt,
           limit: 24,
+          ...(directories.length > 0 ? { pathPrefixes: directories } : {}),
         },
       }
     }
@@ -75,7 +105,7 @@ Again: Do not call any tools or write anything else other than the chosen file p
       toolName: 'read_subtree',
       input: {
         paths: directories,
-        maxTokens: 20_000,
+        maxTokens: 8_000,
       },
     }
 

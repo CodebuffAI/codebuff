@@ -36,6 +36,11 @@ import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { WorkspaceJournalService } from './services/workspace-journal'
 import { WorkspaceMutationBroker } from './services/workspace-mutation-broker'
+import { LocalHarnessStore } from './services/local-harness-store'
+import {
+  HarnessApprovalService,
+  evaluateHarnessActionPolicy,
+} from './services/harness-enforcement'
 import { changeFile, changeFiles } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
@@ -49,7 +54,11 @@ import {
   normalizeReadFilesOverrideResult,
 } from './tools/read-files'
 import { readImages } from './tools/read-image'
-import { browserLogs, stopBrowserSessionsByPrefix } from './tools/browser-logs'
+import {
+  browserLogs,
+  stopBrowserSessionsByOwner,
+  type BrowserSessionOwner,
+} from './tools/browser-logs'
 import { replaceRange } from './tools/replace-range'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { checkJob } from './tools/check-job'
@@ -171,6 +180,10 @@ export type OpenbuffClientOptions = {
   env?: Record<string, string>
   /** Harness control-plane state root. Defaults to the Openbuff config directory. */
   harnessStateDir?: string
+  /** Pre-created, exact-scope approval receipt IDs available to this run.
+   * Receipts are matched and consumed atomically only for the high-impact
+   * action, workspace, root run, and current snapshot they authorize. */
+  approvalReceiptIds?: string[]
 
   handleEvent?: (event: PrintModeEvent) => void | Promise<void>
   handleStreamChunk?: (
@@ -396,6 +409,7 @@ async function runOnce({
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
   harnessStateDir,
+  approvalReceiptIds = [],
   runTimeoutMs,
 
   handleEvent,
@@ -502,6 +516,9 @@ async function runOnce({
         cwd,
       }).catch(() => undefined)
     : undefined
+  const approvalService = new HarnessApprovalService(
+    new LocalHarnessStore(resolvedHarnessStateDir),
+  )
   if (workspaceJournal) {
     try {
       const persistedWorkspace = workspaceJournal.read()
@@ -710,6 +727,14 @@ async function runOnce({
           filesystemPolicy,
           env,
           harnessStateDir: resolvedHarnessStateDir,
+          approvalReceiptIds,
+          approvalService,
+          harnessWorkspaceIdentity: workspaceJournal
+            ? {
+                repositoryId: workspaceJournal.repositoryId,
+                workspaceId: workspaceJournal.workspaceId,
+              }
+            : undefined,
           getWorkspaceState: () => sessionState.mainAgentState.workspaceState,
           setWorkspaceState: (state) => {
             sessionState.mainAgentState.workspaceState = state
@@ -988,7 +1013,7 @@ async function runOnce({
   await callbackQueue
   callbacksEnabled = false
   if (timeoutHandle) clearTimeout(timeoutHandle)
-  await stopBrowserSessionsByPrefix(promptId)
+  await stopBrowserSessionsByOwner({ clientSessionId: promptId })
   const cleanupLibrarianClone = (cloneDir: string) => {
     try {
       rmSync(cloneDir, { recursive: true, force: true })
@@ -1088,6 +1113,9 @@ async function handleToolCall({
   filesystemPolicy,
   env,
   harnessStateDir,
+  approvalReceiptIds,
+  approvalService,
+  harnessWorkspaceIdentity,
   getWorkspaceState,
   setWorkspaceState,
   advanceWorkspaceJournal,
@@ -1105,6 +1133,12 @@ async function handleToolCall({
   filesystemPolicy?: FilesystemAuthorityPolicy
   env?: Record<string, string>
   harnessStateDir: string
+  approvalReceiptIds: string[]
+  approvalService: HarnessApprovalService
+  harnessWorkspaceIdentity?: {
+    repositoryId: string
+    workspaceId: string
+  }
   getWorkspaceState: () => WorkspaceStateV1 | undefined
   setWorkspaceState: (state: WorkspaceStateV1) => void
   advanceWorkspaceJournal?: (params: {
@@ -1326,13 +1360,97 @@ async function handleToolCall({
       })
     } else if (toolName === 'run_terminal_command') {
       const projectRoot = requireCwd(cwd, 'run_terminal_command')
-      const terminalInput = input as Parameters<typeof runTerminalCommand>[0]
+      const terminalInput = input as Parameters<
+        typeof runTerminalCommand
+      >[0] & {
+        approval_receipt_id?: string
+      }
       result = await runTerminalCommand({
         ...terminalInput,
         cwd: path.resolve(projectRoot, terminalInput.cwd ?? '.'),
         projectRoot,
         env,
         signal,
+        authorizeHighImpactAction: async (classified) => {
+          let branch: string | undefined
+          let defaultBranch: string | undefined
+          if (classified.action === 'push') {
+            const workspace = await inspectWorkspace({
+              cwd: projectRoot,
+              signal,
+            })
+            const value = workspace.find((part) => part.type === 'json')
+              ?.value as { branch?: string; defaultBranch?: string } | undefined
+            branch = classified.branch ?? value?.branch
+            defaultBranch = value?.defaultBranch
+          }
+          const staticDecision = evaluateHarnessActionPolicy({
+            ...classified,
+            branch,
+            defaultBranch,
+            hasMatchingApproval: false,
+          })
+          if (!staticDecision.allowed && !staticDecision.approvalRequired) {
+            return staticDecision
+          }
+          const candidateApprovalIds = [
+            terminalInput.approval_receipt_id,
+            ...approvalReceiptIds,
+          ].filter(
+            (value, index, values): value is string =>
+              typeof value === 'string' &&
+              value.length > 0 &&
+              values.indexOf(value) === index,
+          )
+          const snapshotId = getWorkspaceState()?.snapshotId
+          const rootRunId = terminalInput.owner?.rootRunId
+          if (
+            candidateApprovalIds.length === 0 ||
+            !snapshotId ||
+            !rootRunId ||
+            !harnessWorkspaceIdentity
+          ) {
+            return staticDecision.allowed
+              ? {
+                  allowed: false as const,
+                  approvalRequired: true,
+                  reason: `Action '${classified.action}' requires a matching approval receipt bound to the current repository, workspace, root run, and snapshot.`,
+                }
+              : staticDecision
+          }
+          let lastError: unknown
+          for (const approvalId of candidateApprovalIds) {
+            try {
+              const receipt = approvalService.consume({
+                ...harnessWorkspaceIdentity,
+                runId: rootRunId,
+                approvalId,
+                action: classified.action,
+                target: classified.target,
+                snapshotId,
+              })
+              const approvedDecision = evaluateHarnessActionPolicy({
+                ...classified,
+                branch,
+                defaultBranch,
+                hasMatchingApproval: true,
+              })
+              return approvedDecision.allowed
+                ? { allowed: true, approvalReceiptId: receipt.id }
+                : approvedDecision
+            } catch (error) {
+              lastError = error
+            }
+          }
+          return {
+            allowed: false,
+            approvalRequired: true,
+            reason:
+              lastError instanceof Error
+                ? lastError.message
+                : 'Approval receipt validation failed.',
+          }
+        },
       })
     } else if (toolName === 'read_image') {
       result = await readImages({
@@ -1342,9 +1460,18 @@ async function handleToolCall({
         signal,
       })
     } else if (toolName === 'browser_logs') {
+      const browserInput = input as Parameters<typeof browserLogs>[0] & {
+        _browserOwner?: BrowserSessionOwner
+      }
+      const { _browserOwner, ...browserAction } = browserInput
+      if (!_browserOwner) {
+        throw new Error(
+          'browser_logs requires runtime-owned client/run/agent session identity.',
+        )
+      }
       result = await browserLogs(
-        input as Parameters<typeof browserLogs>[0],
-        action.userInputId,
+        browserAction as Parameters<typeof browserLogs>[0],
+        _browserOwner,
       )
     } else if (toolName === 'code_search') {
       if (fs.hostProcessView === false) {

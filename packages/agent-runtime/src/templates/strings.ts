@@ -18,7 +18,10 @@ import { escapeString } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
-import { buildFullSpawnableAgentsSpec } from './prompts'
+import {
+  buildFullSpawnableAgentsSpec,
+  getModelVisibleSpawnableAgents,
+} from './prompts'
 import { PLACEHOLDER, placeholderValues } from './types'
 import {
   getGitChangesPrompt,
@@ -260,7 +263,10 @@ export async function getAgentPrompt<T extends StringField>(
     useParentTools,
   } = params
 
-  const { toolNames, spawnableAgents, outputSchema } = agentTemplate
+  const { toolNames, outputSchema } = agentTemplate
+  const spawnableAgents = getModelVisibleSpawnableAgents(
+    agentTemplate.spawnableAgents,
+  )
   const promptValue = agentTemplate[promptType.type]
 
   let prompt = await formatPrompt({

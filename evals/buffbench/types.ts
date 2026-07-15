@@ -42,7 +42,7 @@ export interface EvalCommitV2 {
   frameworks?: string[]
   taskType?: string
   difficulty?: 'easy' | 'medium' | 'hard' | 'expert'
-  finalCheckCommands?: string[]
+  finalCheckCommands?: FinalCheckCommand[]
 }
 
 export interface CapabilityMetricInput {
@@ -119,15 +119,40 @@ export interface EvalDataV2 {
   initCommand?: string
   binInstalls?: BinInstall[]
   env?: Record<string, string>
-  finalCheckCommands?: string[]
+  finalCheckCommands?: FinalCheckCommand[]
   cacheRecallEval?: CacheRecallEvalConfig
   evalCommits: EvalCommitV2[]
 }
 
-export interface FinalCheckOutput {
+export interface FinalCheckSpec {
+  /** Stable identifier used by dependsOn. Generated from the array index when omitted. */
+  id?: string
   command: string
+  /** Checks without dependencies may run concurrently in the bounded worker pool. */
+  dependsOn?: string[]
+  /** Per-check wall-clock timeout. Omit to inherit the runner default. */
+  timeoutMs?: number
+}
+
+/**
+ * Legacy strings remain sequential for compatibility. Object-form checks opt
+ * into dependency-aware scheduling; independent objects can run in parallel.
+ */
+export type FinalCheckCommand = string | FinalCheckSpec
+
+export interface FinalCheckOutput {
+  checkId?: string
+  command: string
+  dependsOn?: string[]
   exitCode: number
-  outcome?: 'passed' | 'failed' | 'cancelled' | 'timed_out'
+  outcome?:
+    | 'passed'
+    | 'failed'
+    | 'cancelled'
+    | 'timed_out'
+    | 'skipped'
+    | 'configuration_error'
+  durationMs?: number
   stdout: string
   stderr: string
 }

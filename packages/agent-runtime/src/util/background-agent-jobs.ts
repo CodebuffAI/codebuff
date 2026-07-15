@@ -262,11 +262,12 @@ export function appendBackgroundAgentChunk(
   let payload = chunk.payload
   try {
     const serialized = JSON.stringify(payload)
-    if (serialized.length > MAX_BUFFERED_CHUNK_BYTES) {
+    const serializedBytes = Buffer.from(serialized, 'utf8')
+    if (serializedBytes.byteLength > MAX_BUFFERED_CHUNK_BYTES) {
       payload = {
         truncated: true,
-        originalBytes: serialized.length,
-        preview: `${serialized.slice(0, 48_000)}...[truncated background chunk]...${serialized.slice(-8_000)}`,
+        originalBytes: serializedBytes.byteLength,
+        preview: `${serializedBytes.subarray(0, 48_000).toString('utf8')}...[truncated background chunk]...${serializedBytes.subarray(-8_000).toString('utf8')}`,
       }
     }
   } catch {
@@ -348,8 +349,16 @@ export function readBackgroundAgentChunks(params: {
   droppedChunks: number
 } {
   const { job, consumerId } = params
-  const cursor =
+  const requestedCursor =
     params.cursor ?? job.consumerCursors.get(consumerId) ?? 0
+  const latestSequence = job.chunks.at(-1)?.sequence ?? job.nextSequence - 1
+  const cursor = Math.max(
+    0,
+    Math.min(
+      Number.isFinite(requestedCursor) ? Math.floor(requestedCursor) : 0,
+      latestSequence,
+    ),
+  )
   const firstSequence = job.chunks[0]?.sequence ?? job.nextSequence
   const droppedChunks = Math.max(0, firstSequence - cursor - 1)
   const chunks = job.chunks.filter((chunk) => chunk.sequence > cursor)

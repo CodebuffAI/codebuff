@@ -27,6 +27,8 @@ describe('spawn_agents handoff schema', () => {
             taskId: 'T1',
             role: 'editor',
             objective: 'Update the runtime safely.',
+            requirements: [],
+            acceptanceCriteria: [],
             context: [
               {
                 path: 'src/runtime.ts',
@@ -36,6 +38,13 @@ describe('spawn_agents handoff schema', () => {
                 freshnessHash: 'sha256:abc',
               },
             ],
+            nonGoals: [],
+            findings: [],
+            permissions: {
+              readablePaths: ['src/runtime.ts'],
+              writablePaths: ['src/runtime.ts'],
+              allowedTools: ['read_files', 'str_replace'],
+            },
           },
         },
       ],

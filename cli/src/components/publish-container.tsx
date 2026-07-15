@@ -44,6 +44,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
   const [nextButtonHovered, setNextButtonHovered] = useState(false)
   const [backButtonHovered, setBackButtonHovered] = useState(false)
   const [publishButtonHovered, setPublishButtonHovered] = useState(false)
+  const [focusableAgentIds, setFocusableAgentIds] = useState<string[]>([])
   // Track the input cursor so paste inserts at the cursor (not always the end).
   const [searchCursor, setSearchCursor] = useState(0)
 
@@ -118,6 +119,10 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
   }, [agents, selectedAgentIds])
 
   const canProceed = selectedAgentIds.size > 0
+  const navigationAgentIds =
+    focusableAgentIds.length > 0
+      ? focusableAgentIds
+      : filteredAgents.map((agent) => agent.id)
 
   // Handle keyboard navigation in checklist
   const handleSearchKeyIntercept = useCallback(
@@ -144,14 +149,19 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
         return true
       }
       if (key.name === 'down') {
-        setFocusedIndex(Math.min(filteredAgents.length - 1, focusedIndex + 1))
+        setFocusedIndex(
+          Math.max(
+            0,
+            Math.min(navigationAgentIds.length - 1, focusedIndex + 1),
+          ),
+        )
         return true
       }
       if (isPlainEnterKey(key)) {
         // Enter: toggle selection
-        const agent = filteredAgents[focusedIndex]
-        if (agent) {
-          toggleAgentSelection(agent.id)
+        const agentId = navigationAgentIds[focusedIndex]
+        if (agentId) {
+          toggleAgentSelection(agentId)
         }
         return true
       }
@@ -167,6 +177,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
     [
       focusedIndex,
       filteredAgents,
+      navigationAgentIds,
       canProceed,
       searchQuery,
       setFocusedIndex,
@@ -427,6 +438,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
             focusedIndex={focusedIndex}
             onToggleAgent={toggleAgentSelection}
             onFocusChange={setFocusedIndex}
+            onVisibleRowsChange={setFocusableAgentIds}
             agentDefinitions={agentDefinitions}
           />
 

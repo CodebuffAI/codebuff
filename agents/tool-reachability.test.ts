@@ -15,8 +15,9 @@ import { quarantinedToolNames } from '@codebuff/common/tools/constants'
  *
  * read_slices remains registered for compatibility but is not prompt-visible.
  *
- * The orchestrator (base2, all modes) must expose the structural read/edit
- * tools, and the direct code editor must expose the structural edit tools.
+ * Every orchestrator mode must expose structural reads. The default
+ * orchestrator owns proposals and delegates non-trivial mutation, while fast
+ * mode and the direct code editor retain the structural edit tools.
  */
 const STRUCTURAL_READ_TOOLS = ['read_outline'] as const
 const STRUCTURAL_EDIT_TOOLS = ['rewrite_symbol'] as const
@@ -24,19 +25,16 @@ const HARNESS_STATE_TOOLS = ['git_status'] as const
 
 describe('agent tool reachability', () => {
   for (const mode of ['default', 'fast'] as const) {
-    test(`base2 (${mode}) exposes structural read + edit tools`, () => {
+    test(`base2 (${mode}) exposes its intended read/mutation surface`, () => {
       const definition = createBase2(mode)
       const tools = definition.toolNames ?? []
       const programmaticTools = definition.programmaticToolNames ?? []
-      for (const tool of [...STRUCTURAL_READ_TOOLS, ...STRUCTURAL_EDIT_TOOLS]) {
+      for (const tool of STRUCTURAL_READ_TOOLS) {
         expect(tools).toContain(tool)
       }
-      // Core read/edit tools must remain reachable too.
+      // Core reads and brokered proposal tools must remain reachable.
       for (const tool of [
         'read_files',
-        'str_replace',
-        'write_file',
-        'apply_patch',
         'read_proposal_workspace',
         'read_proposals',
         'propose_str_replace',
@@ -47,6 +45,25 @@ describe('agent tool reachability', () => {
         'apply_proposal',
       ] as const) {
         expect(tools).toContain(tool)
+      }
+      if (mode === 'fast') {
+        for (const tool of [
+          ...STRUCTURAL_EDIT_TOOLS,
+          'str_replace',
+          'write_file',
+          'apply_patch',
+        ] as const) {
+          expect(tools).toContain(tool)
+        }
+      } else {
+        for (const tool of [
+          ...STRUCTURAL_EDIT_TOOLS,
+          'str_replace',
+          'write_file',
+          'apply_patch',
+        ] as const) {
+          expect(tools).not.toContain(tool)
+        }
       }
       for (const tool of HARNESS_STATE_TOOLS) {
         expect(programmaticTools).toContain(tool)

@@ -28,11 +28,13 @@ function compactEvents(events: OrchestrationEventV1[]): OrchestrationEventV1[] {
       .map((event) => event.spawnId),
   )
   for (const event of events) {
-    if (event.type === 'spawn_finished') unresolvedSpawnIds.delete(event.spawnId)
+    if (event.type === 'spawn_finished')
+      unresolvedSpawnIds.delete(event.spawnId)
   }
   const protectedEvents = events.filter(
     (event) =>
-      (event.type === 'spawn_started' && unresolvedSpawnIds.has(event.spawnId)) ||
+      (event.type === 'spawn_started' &&
+        unresolvedSpawnIds.has(event.spawnId)) ||
       (event.type === 'interrupted' && event.subjectType === 'spawn'),
   )
   const protectedIds = new Set(protectedEvents.map((event) => event.eventId))
@@ -50,14 +52,6 @@ export function appendOrchestrationEvent(params: {
   expectedRevision?: number
 }): OrchestrationLedgerV1 {
   const current = params.state.orchestrationLedger
-  if (
-    params.expectedRevision !== undefined &&
-    params.expectedRevision !== (current?.revision ?? -1)
-  ) {
-    throw new Error(
-      `Orchestration ledger revision conflict: expected ${params.expectedRevision}, current ${current?.revision ?? -1}.`,
-    )
-  }
   const eventId = params.event.eventId ?? randomUUID()
   if (current?.events.some((event) => event.eventId === eventId)) return current
   const reconciledReceiptId =
@@ -73,6 +67,14 @@ export function appendOrchestrationEvent(params: {
     )
   ) {
     return current
+  }
+  if (
+    params.expectedRevision !== undefined &&
+    params.expectedRevision !== (current?.revision ?? -1)
+  ) {
+    throw new Error(
+      `Orchestration ledger revision conflict: expected ${params.expectedRevision}, current ${current?.revision ?? -1}.`,
+    )
   }
   const sequence = (current?.events.at(-1)?.sequence ?? -1) + 1
   const event = orchestrationEventV1Schema.parse({
@@ -113,7 +115,8 @@ export function reconcileInterruptedLedgerSpawns(state: AgentState): void {
       event.type !== 'spawn_started' ||
       finished.has(event.spawnId) ||
       alreadyInterrupted.has(event.spawnId)
-    ) continue
+    )
+      continue
     appendOrchestrationEvent({
       state,
       event: {

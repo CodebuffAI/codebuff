@@ -25,6 +25,34 @@ describe('Windows bash prerequisite', () => {
 })
 
 describe('runTerminalCommand cwd containment', () => {
+  it('requires approval authorization before a high-impact assistant command', async () => {
+    let classifiedAction: string | undefined
+    const result = await runTerminalCommand({
+      command: 'git push -u origin feature/safe',
+      process_type: 'SYNC',
+      mode: 'assistant',
+      permission_profile: 'git-commit',
+      cwd: process.cwd(),
+      projectRoot: process.cwd(),
+      timeout_seconds: 5,
+      authorizeHighImpactAction: async (action) => {
+        classifiedAction = action.action
+        return {
+          allowed: false,
+          approvalRequired: true,
+          reason: 'No matching receipt.',
+        }
+      },
+    })
+
+    expect(classifiedAction).toBe('push')
+    expect(result[0].value).toMatchObject({
+      permissionDenied: true,
+      approvalRequired: true,
+      harnessAction: 'push',
+    })
+  })
+
   it('returns a structured timeout result with partial output', async () => {
     const result = await runTerminalCommand({
       command: 'printf started; sleep 30',
@@ -46,6 +74,12 @@ describe('runTerminalCommand cwd containment', () => {
 
   it('cancels an owned background job when the request aborts', async () => {
     const controller = new AbortController()
+    const owner = {
+      clientSessionId: 'session-1',
+      rootRunId: 'root-1',
+      parentRunId: 'parent-1',
+      parentAgentId: 'agent-1',
+    }
     const result = await runTerminalCommand({
       command: 'sleep 30',
       process_type: 'BACKGROUND',
@@ -53,10 +87,17 @@ describe('runTerminalCommand cwd containment', () => {
       projectRoot: process.cwd(),
       timeout_seconds: 5,
       signal: controller.signal,
+      owner,
     })
     const value = result[0].value as { jobId?: string; detached?: boolean }
     expect(value.detached).toBe(false)
     expect(value.jobId).toBeDefined()
+
+    const runningJob = getBackgroundJob(value.jobId!)
+    expect(runningJob?.owner).toEqual(owner)
+    expect(
+      JSON.parse(fs.readFileSync(runningJob!.metadataFile, 'utf8')).owner,
+    ).toEqual(owner)
 
     controller.abort()
     await new Promise((resolve) => setTimeout(resolve, 20))

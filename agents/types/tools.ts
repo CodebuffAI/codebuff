@@ -809,6 +809,8 @@ export interface QueryIndexParams {
   limit?: number
   /** Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only. */
   fileTypes?: string[]
+  /** Optional normalized project-relative directory prefixes. Results outside every prefix are excluded before ranking/limiting. */
+  pathPrefixes?: string[]
   /** Query mode. search returns ranked files, explain includes ranking rationale, neighbors returns adjacent graph files, path returns a graph path between files, commands prioritizes package scripts, CI workflows, task runners, and validation docs, and references returns files that import or call into a seed file (blast-radius analysis before editing an exported symbol). */
   mode?: 'search' | 'neighbors' | 'path' | 'explain' | 'commands' | 'references'
   /** Optional source file path for neighbors, path, and references modes. */

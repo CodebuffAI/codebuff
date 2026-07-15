@@ -12,6 +12,7 @@ import {
   type BackgroundJob,
 } from '../tools/background-jobs'
 import { checkJob } from '../tools/check-job'
+import { getPendingBackgroundJob } from '@codebuff/common/util/pending-background-jobs'
 
 let counter = 0
 const tempFiles: string[] = []
@@ -344,6 +345,36 @@ describe('checkJob', () => {
       status: 'lost',
       newOutput: 'second\n',
     })
+  })
+
+  test('preserves owner metadata when recovering a running job', () => {
+    const jobId = `job-recovered-owner-${++counter}`
+    const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+    const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
+    const owner = {
+      clientSessionId: 'session-1',
+      rootRunId: 'root-1',
+      parentRunId: 'parent-1',
+      parentAgentId: 'agent-1',
+    }
+    fs.writeFileSync(logFile, '')
+    fs.writeFileSync(
+      metadataFile,
+      JSON.stringify({
+        jobId,
+        command: 'dev server',
+        processId: process.pid,
+        logFile,
+        status: 'running',
+        exitCode: null,
+        startedAt: 123,
+        owner,
+      }),
+    )
+    tempFiles.push(logFile, metadataFile)
+
+    expect(getBackgroundJob(jobId)?.owner).toEqual(owner)
+    expect(getPendingBackgroundJob(jobId)?.owner).toEqual(owner)
   })
 
   test('clamps recovered read offsets beyond the log size', async () => {

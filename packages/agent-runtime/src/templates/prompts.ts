@@ -40,6 +40,16 @@ export function getAgentToolName(agentType: AgentTemplateType): string {
   return getAgentShortName(agentType).replace(/-/g, '_')
 }
 
+/** Runtime-internal agents stay declared for programmatic permission checks,
+ * but must never be advertised as model-callable capabilities. */
+export function getModelVisibleSpawnableAgents(
+  spawnableAgents: AgentTemplateType[],
+): AgentTemplateType[] {
+  return spawnableAgents.filter(
+    (agentType) => getAgentShortName(agentType) !== 'context-pruner',
+  )
+}
+
 export function buildAgentToolInputSchema(
   agentTemplate: AgentTemplate,
 ): z.ZodType {
@@ -97,10 +107,13 @@ export async function buildAgentToolSet(
   >,
 ): Promise<ToolSet> {
   const {
-    spawnableAgents,
+    spawnableAgents: declaredSpawnableAgents,
     spawnableAgentToolMode = 'direct',
     agentTemplates,
   } = params
+  const spawnableAgents = getModelVisibleSpawnableAgents(
+    declaredSpawnableAgents,
+  )
 
   if (spawnableAgentToolMode === 'generic') {
     return {}
@@ -180,7 +193,10 @@ export async function buildFullSpawnableAgentsSpec(
     'agentId' | 'localAgentTemplates'
   >,
 ): Promise<string> {
-  const { spawnableAgents, agentTemplates } = params
+  const { spawnableAgents: declaredSpawnableAgents, agentTemplates } = params
+  const spawnableAgents = getModelVisibleSpawnableAgents(
+    declaredSpawnableAgents,
+  )
   if (spawnableAgents.length === 0) {
     return ''
   }

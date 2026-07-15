@@ -9,7 +9,26 @@ type GateAuxHelpers = {
   inferPackageTestCommand: (filePath: string) => string | null
   isNonTestSourceFile: (filePath: string) => boolean
   selectTestWriterTargets: (files: string[]) => {
-    groups: Array<{ targetFiles: string[]; testCommand: string }>
+    groups: Array<{
+      targetFiles: string[]
+      testCommand: string
+      candidateTests: string[]
+      manifest?: string
+      packageRoot: string
+    }>
+  }
+  selectProjectAwareTestWriterTargets: (
+    files: string[],
+    affectedTestResult: unknown,
+    buildTargetResult: unknown,
+  ) => {
+    groups: Array<{
+      targetFiles: string[]
+      testCommand: string
+      candidateTests: string[]
+      manifest?: string
+      packageRoot: string
+    }>
   }
   isPublicApiSourceFile: (filePath: string) => boolean
   selectDocWriterTargets: (files: string[]) => string[]
@@ -27,7 +46,10 @@ type GateAuxHelpers = {
   ) => void
 }
 
-type GateAuxFunctionName = keyof GateAuxHelpers
+type InlineFunctionName =
+  | keyof GateAuxHelpers
+  | 'findJsonRecordWithArray'
+  | 'inferWorkspaceRootFromPath'
 
 // Minimal structural stand-in for Base2ActiveWorkState fields the inline
 // functions touch. Constructed in tests via a local factory; never imported
@@ -44,13 +66,16 @@ type InlineHelperFactory = (processValue: typeof process) => GateAuxHelpers
 // Function declarations (extractable by the brace-balancing extractor) and the
 // two `const` arrays (extractable by the bracket-balancing extractor). Listed in
 // dependency order so each reference resolves at reconstruction time.
-const INLINE_FUNCTION_NAMES: GateAuxFunctionName[] = [
+const INLINE_FUNCTION_NAMES: InlineFunctionName[] = [
   'normalizeGateFilePath',
   'gateFileSetsEqual',
   'matchesSecuritySensitiveGlob',
   'inferPackageTestCommand',
   'isNonTestSourceFile',
+  'inferWorkspaceRootFromPath',
   'selectTestWriterTargets',
+  'findJsonRecordWithArray',
+  'selectProjectAwareTestWriterTargets',
   'isPublicApiSourceFile',
   'selectDocWriterTargets',
   'selectAuxRelevantFiles',
@@ -129,7 +154,7 @@ function loadInlineGateAuxHelpers(): GateAuxHelpers {
   ].join('\n\n')
   const buildHelpers = new Function(
     'process',
-    `"use strict";\n${helperSource}\nreturn { normalizeGateFilePath, gateFileSetsEqual, matchesSecuritySensitiveGlob, inferPackageTestCommand, isNonTestSourceFile, selectTestWriterTargets, isPublicApiSourceFile, selectDocWriterTargets, selectAuxRelevantFiles, detectPendingGateFileSetChange, resetAuxGateFlags }`,
+    `"use strict";\n${helperSource}\nreturn { normalizeGateFilePath, gateFileSetsEqual, matchesSecuritySensitiveGlob, inferPackageTestCommand, isNonTestSourceFile, selectTestWriterTargets, selectProjectAwareTestWriterTargets, isPublicApiSourceFile, selectDocWriterTargets, selectAuxRelevantFiles, detectPendingGateFileSetChange, resetAuxGateFlags }`,
   ) as InlineHelperFactory
 
   return buildHelpers(process)
@@ -215,6 +240,8 @@ describe('gate-aux-triggers', () => {
         {
           targetFiles: ['packages/sdk/src/run.ts'],
           testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'packages/sdk',
         },
       ])
     })
@@ -227,6 +254,8 @@ describe('gate-aux-triggers', () => {
         {
           targetFiles: ['agents/git-committer/git-committer.ts'],
           testCommand: 'cd agents && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'agents',
         },
       ])
     })
@@ -239,6 +268,8 @@ describe('gate-aux-triggers', () => {
         {
           targetFiles: ['common/src/tools/list.ts'],
           testCommand: 'cd common && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'common',
         },
       ])
     })
@@ -251,6 +282,8 @@ describe('gate-aux-triggers', () => {
         {
           targetFiles: ['cli/src/components/foo.tsx'],
           testCommand: 'cd cli && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'cli',
         },
       ])
     })
@@ -286,6 +319,8 @@ describe('gate-aux-triggers', () => {
         {
           targetFiles: ['packages/sdk/src/run.ts'],
           testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'packages/sdk',
         },
       ])
     })
@@ -306,10 +341,14 @@ describe('gate-aux-triggers', () => {
         {
           targetFiles: ['packages/sdk/src/run.ts'],
           testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'packages/sdk',
         },
         {
           targetFiles: ['cli/src/chat.tsx'],
           testCommand: 'cd cli && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'cli',
         },
       ])
     })
@@ -317,6 +356,57 @@ describe('gate-aux-triggers', () => {
     test('empty input yields no groups', () => {
       const result = helpers.selectTestWriterTargets([])
       expect(result).toEqual({ groups: [] })
+    })
+
+    test('project-aware routing preserves the nearest fallback workspace when affected-test evidence is incomplete', () => {
+      const result = helpers.selectProjectAwareTestWriterTargets(
+        ['packages/sdk/src/run.ts'],
+        { targets: [] },
+        { targets: [] },
+      )
+
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['packages/sdk/src/run.ts'],
+          testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+          candidateTests: [],
+          packageRoot: 'packages/sdk',
+        },
+      ])
+    })
+
+    test('project-aware routing falls back to a test command instead of treating a build-only command as test validation', () => {
+      const result = helpers.selectProjectAwareTestWriterTargets(
+        ['packages/sdk/src/run.ts'],
+        {
+          targets: [
+            {
+              source: 'packages/sdk/src/run.ts',
+              candidates: ['packages/sdk/src/__tests__/run.test.ts'],
+              packageRoot: 'packages/sdk',
+            },
+          ],
+        },
+        {
+          targets: [
+            {
+              packageRoot: 'packages/sdk',
+              manifest: 'packages/sdk/package.json',
+              commands: ['bun run typecheck', 'bun run build'],
+            },
+          ],
+        },
+      )
+
+      expect(result.groups).toEqual([
+        {
+          targetFiles: ['packages/sdk/src/run.ts'],
+          testCommand: 'cd packages/sdk && bun run typecheck && bun test',
+          candidateTests: ['packages/sdk/src/__tests__/run.test.ts'],
+          manifest: 'packages/sdk/package.json',
+          packageRoot: 'packages/sdk',
+        },
+      ])
     })
   })
 

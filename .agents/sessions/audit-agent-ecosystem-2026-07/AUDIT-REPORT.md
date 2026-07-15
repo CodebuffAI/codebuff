@@ -1,5 +1,10 @@
 # Openbuff agent ecosystem audit
 
+> **Implementation status:** All Top 10 and residual findings have been
+> implemented and validated. See
+> [IMPLEMENTATION-REPORT.md](./IMPLEMENTATION-REPORT.md) for source and test
+> evidence. The original findings below are retained as the audit baseline.
+
 ## Executive summary
 
 The audit found a capable agent system with strong final-review parsing, foreground spawn tests, filesystem containment, and broad gate/eval coverage. Its largest risks sit at trust and lifecycle boundaries: programmatic agents can bypass declared tools, terminal/browser/web actions rely heavily on prompt discipline, background work is not fully owned or cleaned up, and auxiliary quality agents are spawned without their results being interpreted.
