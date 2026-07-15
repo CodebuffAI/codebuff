@@ -37,7 +37,7 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux-x64
-            bun_target: bun-linux-x64
+            bun_target: bun-linux-x64-baseline
             platform: linux
             arch: x64
           - os: ubuntu-latest

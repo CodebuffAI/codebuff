@@ -88,7 +88,11 @@ function getTargetInfo(): TargetInfo {
   const arch = process.arch
 
   const mappings: Record<string, TargetInfo> = {
-    'linux-x64': { bunTarget: 'bun-linux-x64', platform: 'linux', arch: 'x64' },
+    'linux-x64': {
+      bunTarget: 'bun-linux-x64-baseline',
+      platform: 'linux',
+      arch: 'x64',
+    },
     'linux-arm64': {
       bunTarget: 'bun-linux-arm64',
       platform: 'linux',

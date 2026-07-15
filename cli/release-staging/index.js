@@ -310,6 +310,77 @@ function getMacOSVersion() {
   }
 }
 
+function parseLinuxCpuInfo(cpuInfo) {
+  if (typeof cpuInfo !== 'string') {
+    return { model: null, avx2: null }
+  }
+
+  const model = cpuInfo.match(/^model name\s*:\s*(.+)$/im)?.[1]?.trim() ?? null
+  const flagsText = cpuInfo.match(/^flags\s*:\s*(.+)$/im)?.[1]
+  if (!flagsText) {
+    return { model, avx2: null }
+  }
+
+  const flags = new Set(flagsText.toLowerCase().split(/\s+/).filter(Boolean))
+  return { model, avx2: flags.has('avx2') }
+}
+
+function getCpuCompatibilityInfo(platformKey = getPlatformKey()) {
+  const fallbackModel = os.cpus()?.[0]?.model?.trim() || null
+  const avx2Applicable = platformKey.split('-').includes('x64')
+  if (!avx2Applicable) {
+    return { model: fallbackModel, avx2: null, avx2Applicable: false }
+  }
+  if (process.platform !== 'linux' || process.arch !== 'x64') {
+    return { model: fallbackModel, avx2: null, avx2Applicable: true }
+  }
+
+  try {
+    const cpuInfo =
+      process.env.OPENBUFF_TEST_CPU_INFO !== undefined
+        ? process.env.OPENBUFF_TEST_CPU_INFO
+        : fs.readFileSync('/proc/cpuinfo', 'utf8')
+    const parsed = parseLinuxCpuInfo(cpuInfo)
+    return {
+      model: parsed.model ?? fallbackModel,
+      avx2: parsed.avx2,
+      avx2Applicable: true,
+    }
+  } catch {
+    return { model: fallbackModel, avx2: null, avx2Applicable: true }
+  }
+}
+
+function getIllegalInstructionGuidance({ avx2, avx2Applicable = true }) {
+  const lines = [
+    'The binary attempted to execute an instruction that the CPU or runtime rejected.',
+  ]
+
+  if (!avx2Applicable) {
+    lines.push(
+      'The selected release is not an x64 build, so AVX2 does not apply.',
+      'This may indicate a binary, native dependency, virtualization, or runtime compatibility defect.',
+    )
+  } else if (avx2 === true) {
+    lines.push(
+      'This CPU reports AVX2 support, so a missing AVX2 instruction set is not the likely cause.',
+      'This may indicate a binary, native dependency, virtualization, or runtime compatibility defect.',
+    )
+  } else if (avx2 === false) {
+    lines.push(
+      'This CPU does not report AVX2 support, so CPU instruction compatibility may be the cause.',
+      'The crash may also come from a native dependency or runtime compatibility defect.',
+    )
+  } else {
+    lines.push(
+      'Openbuff could not determine whether this CPU supports AVX2.',
+      'This may indicate an unsupported CPU instruction or a binary, native dependency, virtualization, or runtime defect.',
+    )
+  }
+
+  return lines
+}
+
 function assertSupportedPlatform() {
   if (process.platform !== 'darwin') return
   const version = getMacOSVersion()
@@ -907,18 +978,17 @@ function printCrashDiagnostics(code, signal) {
     return
 
   const exitInfo = signal ? `signal ${signal}` : `code ${code}`
+  const platformKey = getPlatformKey()
+  const target = PLATFORM_TARGETS[platformKey] || 'unsupported'
+  const cpuInfo = getCpuCompatibilityInfo(platformKey)
   console.error('')
   console.error(`❌ ${packageName} exited immediately (${exitInfo})`)
   console.error('')
 
   if (isIllegalInstruction) {
-    console.error(
-      'Your CPU may not support the required instruction set (AVX2).',
-    )
-    console.error('This typically affects CPUs from before 2013.')
-    console.error(
-      'Unfortunately, this binary is not compatible with your system.',
-    )
+    for (const line of getIllegalInstructionGuidance(cpuInfo)) {
+      console.error(line)
+    }
     console.error('')
   } else if (isAccessViolation) {
     console.error('The binary crashed with an access violation.')
@@ -932,16 +1002,19 @@ function printCrashDiagnostics(code, signal) {
     console.error('')
   }
 
-  const platformKey = getPlatformKey()
-  const target = PLATFORM_TARGETS[platformKey] || 'unsupported'
-
   console.error('System info:')
   console.error(`  Platform: ${process.platform} ${process.arch}`)
   console.error(`  Hardware: ${getHardwareArch()}`)
+  console.error(`  CPU:      ${cpuInfo.model ?? 'unknown'}`)
+  console.error(
+    `  AVX2:     ${!cpuInfo.avx2Applicable ? 'not applicable' : cpuInfo.avx2 === true ? 'supported' : cpuInfo.avx2 === false ? 'not reported' : 'unknown'}`,
+  )
   if (process.platform === 'darwin') {
     console.error(`  macOS:    ${getMacOSVersion() ?? 'unknown'}`)
   }
   console.error(`  Target:   ${platformKey} (${target})`)
+  console.error(`  Wrapper:  ${getWrapperVersion()}`)
+  console.error(`  Installed: ${getMetadataVersion() ?? 'unknown'}`)
   console.error(`  Node:     ${process.version}`)
   console.error(`  Binary:   ${CONFIG.binaryPath}`)
   console.error('')
@@ -1006,8 +1079,10 @@ if (require.main === module) {
 module.exports = {
   cleanupOldBinaryBackups,
   compareVersions,
+  getIllegalInstructionGuidance,
   getManagedSiblingNames,
   getTreeSitterAssetProblems,
   parseExpectedChecksum,
+  parseLinuxCpuInfo,
   resolveConfigDir,
 }

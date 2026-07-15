@@ -109,15 +109,19 @@ function writeValidTreeSitterAssets(configDir: string) {
 
 function runWrapperWithMockPlatform({
   arch,
+  cpuInfo,
   hardwareArch,
   macOSVersion,
+  platform = 'darwin',
   platformKey,
   wrapperName,
   wrapperPath,
 }: {
   arch: string
+  cpuInfo?: string
   hardwareArch: string
   macOSVersion?: string
+  platform?: NodeJS.Platform
   platformKey: string
   wrapperName: WrapperName
   wrapperPath: string
@@ -141,7 +145,7 @@ function runWrapperWithMockPlatform({
 
   writeFileSync(
     preloadPath,
-    `Object.defineProperty(process, 'platform', { value: 'darwin' })\n` +
+    `Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} })\n` +
       `Object.defineProperty(process, 'arch', { value: ${JSON.stringify(arch)} })\n`,
   )
 
@@ -158,6 +162,7 @@ function runWrapperWithMockPlatform({
           OPENBUFF_CONFIG_DIR: configDir,
           NODE_OPTIONS: '',
           OPENBUFF_TEST_HARDWARE_ARCH: hardwareArch,
+          ...(cpuInfo !== undefined ? { OPENBUFF_TEST_CPU_INFO: cpuInfo } : {}),
           ...(macOSVersion
             ? { OPENBUFF_TEST_MACOS_VERSION: macOSVersion }
             : {}),
@@ -334,6 +339,10 @@ describe('release wrapper platform selection', () => {
       expect(result.stderr).toContain(
         `Target:   darwin-arm64 (${getWrapperBinaryName(wrapperName)}-darwin-arm64.tar.gz)`,
       )
+      expect(result.stderr).toContain(
+        'The selected release is not an x64 build, so AVX2 does not apply.',
+      )
+      expect(result.stderr).toContain('AVX2:     not applicable')
     },
   )
 
@@ -374,6 +383,85 @@ describe('release wrapper platform selection', () => {
       expect(result.stderr).toContain(
         `Target:   darwin-arm64 (${getWrapperBinaryName(wrapperName)}-darwin-arm64.tar.gz)`,
       )
+    },
+  )
+})
+
+describe('release wrapper illegal-instruction diagnostics', () => {
+  test.each(wrappers)(
+    '%s does not blame AVX2 when the Linux CPU reports support',
+    (wrapperName, wrapperPath) => {
+      const result = runWrapperWithMockPlatform({
+        arch: 'x64',
+        cpuInfo:
+          'model name : Test Ryzen CPU\nflags : fpu sse sse2 avx avx2 bmi1 bmi2\n',
+        hardwareArch: 'x64',
+        platform: 'linux',
+        platformKey: 'linux-x64',
+        wrapperName,
+        wrapperPath,
+      })
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(
+        'This CPU reports AVX2 support, so a missing AVX2 instruction set is not the likely cause.',
+      )
+      expect(result.stderr).toContain('CPU:      Test Ryzen CPU')
+      expect(result.stderr).toContain('AVX2:     supported')
+      expect(result.stderr).toContain(
+        `Wrapper:  ${wrapperVersions[wrapperName]}`,
+      )
+      expect(result.stderr).toContain(
+        `Installed: ${wrapperVersions[wrapperName]}`,
+      )
+      expect(result.stderr).not.toContain(
+        'Unfortunately, this binary is not compatible with your system.',
+      )
+    },
+  )
+
+  test.each(wrappers)(
+    '%s reports missing AVX2 as one possible cause',
+    (wrapperName, wrapperPath) => {
+      const result = runWrapperWithMockPlatform({
+        arch: 'x64',
+        cpuInfo: 'model name : Baseline CPU\nflags : fpu sse sse2\n',
+        hardwareArch: 'x64',
+        platform: 'linux',
+        platformKey: 'linux-x64',
+        wrapperName,
+        wrapperPath,
+      })
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(
+        'This CPU does not report AVX2 support, so CPU instruction compatibility may be the cause.',
+      )
+      expect(result.stderr).toContain('AVX2:     not reported')
+      expect(result.stderr).toContain(
+        'The crash may also come from a native dependency or runtime compatibility defect.',
+      )
+    },
+  )
+
+  test.each(wrappers)(
+    '%s keeps the cause open when CPU feature detection is inconclusive',
+    (wrapperName, wrapperPath) => {
+      const result = runWrapperWithMockPlatform({
+        arch: 'x64',
+        cpuInfo: 'model name : Hidden Features CPU\n',
+        hardwareArch: 'x64',
+        platform: 'linux',
+        platformKey: 'linux-x64',
+        wrapperName,
+        wrapperPath,
+      })
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(
+        'Openbuff could not determine whether this CPU supports AVX2.',
+      )
+      expect(result.stderr).toContain('AVX2:     unknown')
     },
   )
 })
@@ -547,6 +635,20 @@ describe('release wrapper update safety', () => {
       expect(updateFunction).toContain('next launch')
     },
   )
+
+  test("Linux x64 release builds use Bun's baseline CPU target", () => {
+    const buildScript = readFileSync(
+      path.join(repoRoot, 'cli/scripts/build-binary.ts'),
+      'utf8',
+    )
+    const releaseWorkflow = readFileSync(
+      path.join(repoRoot, '.github/workflows/cli-release-build.yml'),
+      'utf8',
+    )
+
+    expect(buildScript).toContain("bunTarget: 'bun-linux-x64-baseline'")
+    expect(releaseWorkflow).toContain('bun_target: bun-linux-x64-baseline')
+  })
 
   test.each([
     'cli/release/postinstall.js',
