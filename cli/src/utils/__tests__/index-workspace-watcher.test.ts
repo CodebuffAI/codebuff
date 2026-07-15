@@ -3,9 +3,30 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { classifyIndexWatchPath } from '../index-workspace-watcher'
+import {
+  classifyIndexWatchPath,
+  supportsRecursiveIndexWorkspaceWatcher,
+} from '../index-workspace-watcher'
 
 describe('index workspace watcher classification', () => {
+  test('disables recursive watching for Bun on Linux to prevent descriptor exhaustion', () => {
+    expect(
+      supportsRecursiveIndexWorkspaceWatcher({
+        platform: 'linux',
+        bunVersion: '1.3.11',
+      }),
+    ).toBe(false)
+    expect(supportsRecursiveIndexWorkspaceWatcher({ platform: 'linux' })).toBe(
+      true,
+    )
+    expect(
+      supportsRecursiveIndexWorkspaceWatcher({
+        platform: 'darwin',
+        bunVersion: '1.3.11',
+      }),
+    ).toBe(true)
+  })
+
   test('classifies live files, deletions, ignored cache paths, and ambiguous directories', () => {
     const projectRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'openbuff-index-watch-'),

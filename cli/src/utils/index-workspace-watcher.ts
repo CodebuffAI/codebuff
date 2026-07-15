@@ -24,6 +24,18 @@ const IGNORED_TOP_LEVEL = new Set([
   'coverage',
 ])
 
+export function supportsRecursiveIndexWorkspaceWatcher(params: {
+  platform: NodeJS.Platform
+  bunVersion?: string
+}): boolean {
+  // Bun's recursive Linux watcher currently retains file descriptors for the
+  // full subtree before our callback can filter ignored paths. Large pnpm
+  // workspaces can therefore hit EMFILE and make Bun's HTTP client trap with
+  // SIGILL. Explicit SDK mutation deltas and the index manager's age-based
+  // integrity sweeps remain active when this optimization is disabled.
+  return !(params.platform === 'linux' && params.bunVersion)
+}
+
 export function classifyIndexWatchPath(params: {
   projectRoot: string
   fileName: string
@@ -68,6 +80,14 @@ export function ensureIndexWorkspaceWatcher(params: {
   manager: IndexManager
 }): void {
   if (params.config.enabled === false) return
+  if (
+    !supportsRecursiveIndexWorkspaceWatcher({
+      platform: process.platform,
+      bunVersion: process.versions.bun,
+    })
+  ) {
+    return
+  }
   const projectRoot = path.resolve(params.projectRoot)
   const existing = watchers.get(projectRoot)
   if (existing?.manager === params.manager) return
