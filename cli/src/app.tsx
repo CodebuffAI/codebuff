@@ -163,7 +163,7 @@ export const App = ({
       resetChatStore()
       setResumeChatId(chatId)
     },
-    [closeChatHistory, resetChatStore]
+    [closeChatHistory, resetChatStore],
   )
 
   const handleNewChat = useCallback(() => {
@@ -182,7 +182,9 @@ export const App = ({
 
   // Derive auth reachability + retrying state from authQuery error
   const authError = authQuery.error
-  const authErrorStatusCode = authError ? getErrorStatusCode(authError) : undefined
+  const authErrorStatusCode = authError
+    ? getErrorStatusCode(authError)
+    : undefined
 
   let authStatus: AuthStatus = 'ok'
   if (authQuery.isError && authErrorStatusCode !== undefined) {
@@ -259,7 +261,9 @@ interface AuthedSurfaceProps {
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean | null>>
-  setUser: React.Dispatch<React.SetStateAction<import('./utils/auth').User | null>>
+  setUser: React.Dispatch<
+    React.SetStateAction<import('./utils/auth').User | null>
+  >
   logoutMutation: ReturnType<typeof useAuthState>['logoutMutation']
   continueChat: boolean
   continueChatId: string | undefined
@@ -313,6 +317,7 @@ const AuthedSurface = ({
   //   'country_blocked' → terminal region-gate message
   //   'banned' → terminal account-banned message
   //   'rate_limited' → hit shared session quota; terminal for this run
+  //   'spend_limited' → daily provider-spend budget; return after reset
   //   'takeover_prompt' → another local CLI already holds this account
   //
   // 'ended' deliberately falls through to <Chat>: the agent may still be
@@ -325,6 +330,7 @@ const AuthedSurface = ({
       session.status === 'country_blocked' ||
       session.status === 'banned' ||
       session.status === 'rate_limited' ||
+      session.status === 'spend_limited' ||
       session.status === 'takeover_prompt')
   ) {
     return <FreebuffLandingScreen session={session} error={sessionError} />

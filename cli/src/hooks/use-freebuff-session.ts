@@ -134,16 +134,19 @@ async function callSession(
       return body
     }
   }
-  // 429 from POST is the shared session-quota reject (too many Freebuff
-  // sessions today). Terminal for the current poll — the CLI shows a screen
-  // explaining the limit and when the user can try again. The 429 status
+  // 429 from POST is a session-admission reject: either the session quota or
+  // the daily provider-spend budget. Terminal for the current poll — the CLI
+  // shows a screen explaining the limit and when the user can try again. The 429 status
   // (rather than 200) keeps older CLIs in their error path so they back off
   // instead of tight-polling an unrecognized 200 body.
   if (resp.status === 429 && method === 'POST') {
     const body = (await resp
       .json()
       .catch(() => null)) as FreebuffSessionServerResponse | null
-    if (body && body.status === 'rate_limited') {
+    if (
+      body &&
+      (body.status === 'rate_limited' || body.status === 'spend_limited')
+    ) {
       return body
     }
   }
@@ -179,6 +182,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'banned':
     case 'model_locked':
     case 'rate_limited':
+    case 'spend_limited':
     case 'model_unavailable':
     case 'premium_slot_taken':
       return null
@@ -666,7 +670,8 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                     landingSession.rateLimitsByModel,
                   // Carry the referral block so the "change model" picker shows
                   // the GLM banner too (the server only attaches it to `none`).
-                  referral: getReferralInfo(response) ?? landingSession.referral,
+                  referral:
+                    getReferralInfo(response) ?? landingSession.referral,
                   countryCode:
                     response.countryCode ?? landingSession.countryCode,
                   countryBlockReason:

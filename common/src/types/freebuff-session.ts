@@ -286,6 +286,16 @@ export type FreebuffSessionServerResponse =
       retryAfterMs: number
     }
   | {
+      /** The user has reached today's cross-model Freebuff provider-spend
+       *  budget. This only blocks a fresh session admission: sessions already
+       *  running, including a reconnect to the same live session, continue. */
+      status: 'spend_limited'
+      accessTier?: FreebuffAccessTier
+      message: string
+      resetAt: string
+      retryAfterMs: number
+    }
+  | {
       /** Freebuff Desktop multi-session only: the user already holds an active
        *  premium-bucket session and tried to admit a second one. Only one
        *  premium-bucket model (DeepSeek V4 Pro / MiMo 2.5 Pro / Kimi / MiniMax

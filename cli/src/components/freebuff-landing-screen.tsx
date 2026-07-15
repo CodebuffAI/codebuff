@@ -70,16 +70,16 @@ const formatRetryAfter = (ms: number): string => {
 }
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
-{
-  anonymous: 'anonymized network',
-  proxy: 'proxy',
-  relay: 'relay',
-  res_proxy: 'residential proxy',
-  tor: 'Tor',
-  vpn: 'VPN',
-  hosting: 'hosting network',
-  service: 'privacy service',
-}
+  {
+    anonymous: 'anonymized network',
+    proxy: 'proxy',
+    relay: 'relay',
+    res_proxy: 'residential proxy',
+    tor: 'Tor',
+    vpn: 'VPN',
+    hosting: 'hosting network',
+    service: 'privacy service',
+  }
 
 const formatPrivacySignalList = (
   signals: FreebuffIpPrivacySignal[] | undefined,
@@ -129,8 +129,8 @@ const getLimitedModeNotice = (
 
   const countryCode =
     'countryCode' in session &&
-      session.countryCode &&
-      session.countryCode !== 'UNKNOWN'
+    session.countryCode &&
+    session.countryCode !== 'UNKNOWN'
       ? session.countryCode
       : null
 
@@ -444,8 +444,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // need it when collapsed either — the collapsed recommended model is
   // unlimited, so a premium-session count there is irrelevant.
   const showSessionCounter = sharedSessionUsed > 0
-  const showBelowPickerCounter =
-    showSessionCounter && accessTier === 'limited'
+  const showBelowPickerCounter = showSessionCounter && accessTier === 'limited'
   const isSessionExhausted =
     sharedSessionUsed >=
     (accessTier === 'limited'
@@ -456,7 +455,8 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT
-  const sessionLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
+  const sessionLabel =
+    accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const formattedSharedSessionUsed = formatSessionUnits(sharedSessionUsed)
   const sessionResetAt = getFreebuffPremiumResetAt({
     rateLimitsByModel,
@@ -527,7 +527,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
 
     const delayMs = Math.max(0, sessionResetAtMs - Date.now() + 1_000)
     const timer = setTimeout(() => {
-      refreshFreebuffLandingMetadata().catch(() => { })
+      refreshFreebuffLandingMetadata().catch(() => {})
     }, delayMs)
 
     return () => clearTimeout(timer)
@@ -602,9 +602,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
         }}
       >
         {logoMode !== 'none' && (
-          <box style={{ marginBottom: 1, flexShrink: 0 }}>
-            {logoComponent}
-          </box>
+          <box style={{ marginBottom: 1, flexShrink: 0 }}>{logoComponent}</box>
         )}
 
         <box
@@ -669,8 +667,8 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   }}
                 >
                   <span fg={sessionUsedColor}>
-                    {formattedSharedSessionUsed} of {sessionLimit} {sessionLabel}{' '}
-                    used
+                    {formattedSharedSessionUsed} of {sessionLimit}{' '}
+                    {sessionLabel} used
                   </span>
                   <span fg={theme.muted}>
                     {', '}
@@ -771,12 +769,30 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                 <span fg={theme.foreground}>
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                sessions{' '}
-                today. Try again in{' '}
+                sessions today. Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
                 . Press Ctrl+C to exit.
+              </text>
+            </>
+          )}
+
+          {/* Daily provider-spend admission budget reached. Existing sessions
+              are never interrupted; this screen only follows a rejected fresh
+              admission and gives the user a friendly, concrete return time. */}
+          {session?.status === 'spend_limited' && (
+            <>
+              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
+                ☕ Daily Freebuff limit reached
+              </text>
+              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                {session.message} Come back in{' '}
+                <span fg={theme.foreground}>
+                  {formatRetryAfter(session.retryAfterMs)}
+                </span>
+                {' — '}your free usage resets automatically at midnight Pacific.
+                Press Ctrl+C to exit.
               </text>
             </>
           )}
@@ -802,9 +818,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
               onImpression={recordImpression}
             />
           ) : (
-            <text style={{ fg: theme.muted }}>
-              {'─'.repeat(terminalWidth)}
-            </text>
+            <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
           )}
         </box>
       )}
