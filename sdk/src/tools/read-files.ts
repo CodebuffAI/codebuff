@@ -18,13 +18,18 @@ export async function getFiles(params: {
   cwd: string
   fs: CodebuffFileSystem
   /**
+   * Apply the user-facing read_files output budget. Internal edit tools need
+   * the complete file so replacements below the display limit can still match.
+   */
+  limitContent?: boolean
+  /**
    * Filter to classify files before reading.
    * If provided, the caller takes full control of filtering (no gitignore check).
    * If not provided, the SDK applies gitignore checking automatically.
    */
   fileFilter?: FileFilter
 }) {
-  const { filePaths, cwd, fs, fileFilter } = params
+  const { filePaths, cwd, fs, fileFilter, limitContent = true } = params
   // If caller provides a filter, they own all filtering decisions
   // If not, SDK applies default gitignore checking
   const hasCustomFilter = fileFilter !== undefined
@@ -32,7 +37,7 @@ export async function getFiles(params: {
   const result = Object.create(null) as Record<string, string | null>
   const seenPaths = new Set<string>()
   const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB - skip reading entirely
-  const limiter = createFileReadLimiter({ countTokens })
+  const limiter = limitContent ? createFileReadLimiter({ countTokens }) : null
 
   for (const filePath of filePaths) {
     if (!filePath) {
@@ -83,10 +88,10 @@ export async function getFiles(params: {
 
       const content = await fs.readFile(fullPath, 'utf8')
 
-      const limitedContent = limiter.limit(content)
+      const returnedContent = limiter?.limit(content) ?? content
       result[relativePath] = isExampleFile
-        ? FILE_READ_STATUS.TEMPLATE + '\n' + limitedContent
-        : limitedContent
+        ? FILE_READ_STATUS.TEMPLATE + '\n' + returnedContent
+        : returnedContent
     } catch (error) {
       if (
         error &&

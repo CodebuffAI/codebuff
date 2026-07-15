@@ -551,6 +551,9 @@ async function runOnce({
         fileFilter,
         cwd,
         fs,
+        // str_replace/write_file use this path to compute edits. A truncated
+        // read makes exact matches later in large files impossible.
+        limitContent: false,
       })
       const lookupKeys = cwd
         ? getProjectPathLookupKeys(cwd, filePath)
@@ -746,6 +749,7 @@ async function readFiles({
   fileFilter,
   cwd,
   fs,
+  limitContent,
 }: {
   filePaths: string[]
   override?: NonNullable<
@@ -754,6 +758,7 @@ async function readFiles({
   fileFilter?: FileFilter
   cwd?: string
   fs: CodebuffFileSystem
+  limitContent?: boolean
 }) {
   if (override) {
     return await override({ filePaths })
@@ -763,6 +768,7 @@ async function readFiles({
     cwd: requireCwd(cwd, 'read_files'),
     fs,
     fileFilter,
+    limitContent,
   })
 }
 

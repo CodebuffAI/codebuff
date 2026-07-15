@@ -3,6 +3,7 @@ import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import * as projectFileTree from '@codebuff/common/project-file-tree'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
+import { MAX_READ_FILES_CHARS } from '@codebuff/common/util/file-read-limits'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
 import { CodebuffClient } from '../client'
@@ -312,7 +313,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     expect(optionalFileResult).toBeNull()
   })
 
-  it('should tolerate absolute requestOptionalFile paths inside cwd', async () => {
+  it('should read complete files through absolute requestOptionalFile paths inside cwd', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',
@@ -327,9 +328,10 @@ describe('CodebuffClientOptions fileFilter', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
     spyOn(projectFileTree, 'isFileIgnored').mockResolvedValue(false)
 
+    const largeContent = `${'x'.repeat(MAX_READ_FILES_CHARS + 1)}\nneedle-at-end`
     const mockFs = createMockFs({
       files: {
-        '/project/src/index.ts': { content: 'normal file content' },
+        '/project/src/index.ts': { content: largeContent },
       },
     })
 
@@ -378,7 +380,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(optionalFileResult.current).toBe('normal file content')
+    expect(optionalFileResult.current).toBe(largeContent)
   })
 
   it('should allow all files when no fileFilter is provided', async () => {
