@@ -2,6 +2,7 @@ import {
   FREEBUFF_GLM_V52_REFERRAL_ENABLED,
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_STREAK_GLM_BONUS_ENABLED,
+  FREEBUFF_STREAK_BONUS_SESSION_UNITS,
   FREEBUFF_STREAK_REWARD_INTERVAL_DAYS,
   FREEBUFF_STREAK_REWARDS_ENABLED,
 } from '../constants/freebuff-models'
@@ -92,12 +93,6 @@ export function calculateFreebuffStreak(params: {
   return { streak, todayUsed, lastUsageDate }
 }
 
-/** True when `streak` lands exactly on a streak-reward milestone (a positive
- *  multiple of the 7-day interval). */
-export function isFreebuffStreakMilestone(streak: number): boolean {
-  return streak > 0 && streak % FREEBUFF_STREAK_REWARD_INTERVAL_DAYS === 0
-}
-
 /**
  * Whether the full-access GLM 5.2 streak bonus is currently active. Requires all
  * three switches: streak rewards on, the GLM streak sub-switch on, AND the GLM
@@ -114,36 +109,35 @@ export function isFreebuffStreakGlmBonusActive(): boolean {
   )
 }
 
+/** Resolve the live GLM weekly bonus directly from usage dates. While the
+ * current streak remains at least seven days, the weekly pool gets +1 and
+ * therefore refills every Monday Pacific; once the streak breaks it gets 0. */
+export function getFreebuffStreakGlmBonusUnits(params: {
+  usageDates: readonly string[]
+  todayDateKey: string
+}): number {
+  const { streak } = calculateFreebuffStreak(params)
+  return streak >= FREEBUFF_STREAK_REWARD_INTERVAL_DAYS &&
+    isFreebuffStreakGlmBonusActive()
+    ? FREEBUFF_STREAK_BONUS_SESSION_UNITS
+    : 0
+}
+
 /**
- * The streak-reward pools to grant a bonus session in for today's usage, or `[]`
- * when nothing should be awarded. Two cadences:
- *
- *   - Daily pool (`premium` for full access, `limited` for limited access):
- *     granted **every day** the streak is at/above the 7-day milestone, so a
- *     sustained streak is worth +1 session on the primary daily pool every day
- *     it's kept up — not just on the exact 7/14/21 milestone days.
- *   - GLM (`glm`, full access only): a **weekly** perk, so it's granted only on
- *     the days the streak lands exactly on a 7-day multiple. Milestones are 7
- *     days apart and the GLM pool is a Pacific week, so this yields exactly one
- *     GLM session per week.
- *
- * Returns `[]` when rewards are disabled, today isn't used yet, or the streak is
- * below the milestone.
+ * The daily streak-reward pool to persist after today's first usage, or `null`
+ * when nothing should be awarded. Full-access users receive a premium bonus;
+ * limited-access users receive a limited-pool bonus. GLM is intentionally not
+ * returned: its weekly +1 is derived live from usage dates, so it refills with
+ * the weekly quota and shuts off with the streak instead of becoming a one-time
+ * ledger grant.
  */
-export function streakRewardPools(params: {
+export function getFreebuffDailyStreakRewardPool(params: {
   streak: number
   todayUsed: boolean
   accessTier: FreebuffAccessTier
-}): FreebuffStreakRewardPool[] {
-  if (!FREEBUFF_STREAK_REWARDS_ENABLED) return []
-  if (!params.todayUsed) return []
-  if (params.streak < FREEBUFF_STREAK_REWARD_INTERVAL_DAYS) return []
-  // Daily pool bonus: every day at streak >= 7.
-  if (params.accessTier === 'limited') return ['limited']
-  const pools: FreebuffStreakRewardPool[] = ['premium']
-  // GLM stays weekly: only on the exact milestone day (once per Pacific week).
-  if (isFreebuffStreakMilestone(params.streak) && isFreebuffStreakGlmBonusActive()) {
-    pools.push('glm')
-  }
-  return pools
+}): Exclude<FreebuffStreakRewardPool, 'glm'> | null {
+  if (!FREEBUFF_STREAK_REWARDS_ENABLED) return null
+  if (!params.todayUsed) return null
+  if (params.streak < FREEBUFF_STREAK_REWARD_INTERVAL_DAYS) return null
+  return params.accessTier === 'limited' ? 'limited' : 'premium'
 }

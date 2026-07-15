@@ -118,23 +118,20 @@ export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
  * (7)-day daily streak, they earn:
  *   - +1 session in their primary daily pool (premium for full-access users,
  *     limited for limited-access) **every day** the streak stays at 7+; and
- *   - for full-access users, +1 GLM 5.2 session **each week**, granted on the
- *     exact 7/14/21… milestone days, on top of any referral entitlement.
+ *   - for full-access users, +1 GLM 5.2 session in every Monday-to-Monday week
+ *     while the current streak remains at 7+ days, on top of referrals.
  *
- * The bonus is implemented by raising the relevant pool's effective session
- * limit for the period the reward lands in: the daily premium/limited bonus
- * raises today's cap (re-granted each day the streak holds), and the weekly GLM
- * bonus raises that Pacific week's cap. Milestones are 7 days apart and the GLM
- * pool is a Pacific week, so GLM stays exactly one bonus per week — matching the
- * "+1 GLM session per week" promise.
+ * The daily premium/limited bonus is persisted after today's first use. The
+ * GLM bonus is derived live from the current streak, so it refills at the weekly
+ * reset and shuts off as soon as the streak breaks.
  */
 export const FREEBUFF_STREAK_REWARD_INTERVAL_DAYS = 7
 /** Master kill-switch for streak rewards. When false, streaks grant nothing
  *  and effective limits fall back to the base pool limits. */
 export const FREEBUFF_STREAK_REWARDS_ENABLED = true
-/** Sub-switch for the full-access GLM 5.2 portion of the streak reward. Lets the
- *  GLM perk be wound down independently of the premium/limited bonus (and of the
- *  separate referral-driven GLM program). */
+/** Sub-switch for the recurring full-access GLM 5.2 streak entitlement. Lets
+ *  the perk be wound down independently of the premium/limited bonus (and of
+ *  the separate referral-driven GLM program). */
 export const FREEBUFF_STREAK_GLM_BONUS_ENABLED = true
 /** Session-units granted per streak-reward grant, per pool. One whole session. */
 export const FREEBUFF_STREAK_BONUS_SESSION_UNITS = 1

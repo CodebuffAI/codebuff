@@ -43,10 +43,10 @@ export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null
  * only appears once a full week has been earned.
  *
  * The daily-pool bonus (+1 session) recurs **every day** the streak stays at 7+,
- * so it's framed as "every day". The GLM 5.2 bonus is a **weekly** perk, granted
- * once per 7-day milestone. The exact remaining GLM count lives in the referral
- * banner; this line is the motivational why. GLM is full-access only, so limited
- * users get the daily session bonus alone.
+ * so it's framed as "every day". The GLM 5.2 bonus is a **weekly** perk that
+ * refills each Monday while the streak remains active. The exact remaining GLM
+ * count lives in the referral banner; this line is the motivational why. GLM is
+ * full-access only, so limited users get the daily session bonus alone.
  */
 export function getFreebuffStreakBonusNote(params: {
   streak: number
@@ -54,9 +54,8 @@ export function getFreebuffStreakBonusNote(params: {
 }): string | null {
   if (!FREEBUFF_STREAK_REWARDS_ENABLED) return null
   if (params.streak < FREEBUFF_STREAK_WEEK) return null
-  // Only advertise GLM when the full-access GLM bonus is actually active —
-  // mirrors what streakRewardPools grants, so the copy never promises a perk the
-  // gate won't honor.
+  // Only advertise GLM when the recurring full-access streak entitlement is
+  // active, so the copy never promises a perk the gate won't honor.
   const includesGlm =
     params.accessTier === 'full' && isFreebuffStreakGlmBonusActive()
   return includesGlm
