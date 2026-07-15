@@ -1,5 +1,6 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { getAdUserAgent } from '@codebuff/common/util/ad-user-agent'
 import { useEffect, useRef, useState } from 'react'
 
 import { useTerminalLayout } from './use-terminal-layout'
@@ -399,9 +400,8 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           device: getDeviceInfo(),
           ...(surface ? { surface } : {}),
           ...(params?.placementId ? { placementId: params.placementId } : {}),
-          // Carbon requires a real browser-ish useragent for targeting/fraud
-          // detection. Gravity ignores it. We source one centrally so every
-          // provider that needs it sees the same value.
+          // Native runtime UAs look bot-like to ad networks. Send the shared
+          // browser-like UA so every provider sees a usable targeting signal.
           userAgent: getAdUserAgent(),
         }),
       })
@@ -647,25 +647,6 @@ function getDeviceInfo(): DeviceInfo {
   const locale = Intl.DateTimeFormat().resolvedOptions().locale
 
   return { os, timezone, locale }
-}
-
-/**
- * Useragent string passed to ad providers. Carbon (BuySellAds) requires a
- * plausible browser useragent for targeting and fraud screening. We send a
- * stable desktop Chrome-on-{os} UA per platform so targeting is consistent
- * across users on the same platform without sharing anything identifying.
- *
- * Chrome version needs bumping periodically — stale UAs look bot-ish to ad
- * networks. Last bumped: 2026-04-21. Revisit roughly every 6 months.
- */
-const AD_CHROME_VERSION = '124.0.0.0'
-function getAdUserAgent(): string {
-  const osUA: Record<string, string> = {
-    darwin: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
-    win32: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
-    linux: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
-  }
-  return osUA[process.platform] ?? osUA.linux
 }
 
 function getCliAdRequestUserAgent(): string {
