@@ -10,6 +10,14 @@
  */
 export type HttpError = Error & { statusCode: number }
 
+export const PROVIDER_CONTENT_POLICY_ERROR_CODE = 'provider_content_policy'
+
+export type ProviderContentPolicyError = Error & {
+  code: typeof PROVIDER_CONTENT_POLICY_ERROR_CODE
+  finishReason?: 'content-filter'
+  statusCode?: number
+}
+
 /**
  * HTTP status codes that should trigger automatic retry
  */
@@ -29,6 +37,100 @@ export function createHttpError(
   const error = new Error(message) as HttpError
   error.statusCode = statusCode
   return error
+}
+
+export function createProviderContentPolicyError(
+  params: {
+    message?: string
+    finishReason?: 'content-filter'
+    statusCode?: number
+    cause?: unknown
+  } = {},
+): ProviderContentPolicyError {
+  const error = new Error(
+    params.message ?? 'Provider blocked this request under its content policy',
+    params.cause !== undefined ? { cause: params.cause } : undefined,
+  ) as ProviderContentPolicyError
+  error.name = 'ProviderContentPolicyError'
+  error.code = PROVIDER_CONTENT_POLICY_ERROR_CODE
+  if (params.finishReason !== undefined) {
+    error.finishReason = params.finishReason
+  }
+  if (params.statusCode !== undefined) {
+    error.statusCode = params.statusCode
+  }
+  return error
+}
+
+export function getProviderContentPolicyFinishError(params: {
+  finishReason: string | undefined
+  model: string
+  responseLabel?: string
+}): ProviderContentPolicyError | undefined {
+  if (params.finishReason !== 'content-filter') return undefined
+
+  return createProviderContentPolicyError({
+    finishReason: 'content-filter',
+    message: `Provider blocked the ${params.responseLabel ?? 'response'} for model '${params.model}' under its content policy`,
+  })
+}
+
+export function isProviderContentPolicyError(
+  error: unknown,
+): error is ProviderContentPolicyError {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: unknown }).code === PROVIDER_CONTENT_POLICY_ERROR_CODE
+  )
+}
+
+/**
+ * Detect explicit provider moderation/policy wording without classifying every
+ * client-side 400 as a content block. This is intentionally conservative.
+ */
+export function isProviderContentPolicyResponse(error: unknown): boolean {
+  if (isProviderContentPolicyError(error)) return true
+  if (!error || typeof error !== 'object') return false
+
+  const value = error as {
+    message?: unknown
+    responseBody?: unknown
+    data?: unknown
+  }
+  const text = [value.message, value.responseBody, value.data]
+    .filter((part): part is string => typeof part === 'string')
+    .join('\n')
+    .toLowerCase()
+
+  return [
+    'content_filter',
+    'content-filter',
+    'content policy',
+    'content_policy',
+    'content blocked',
+    'prompt blocked',
+    'safety filter',
+    'moderation blocked',
+  ].some((marker) => text.includes(marker))
+}
+
+export function normalizeProviderContentPolicyError(
+  error: unknown,
+): ProviderContentPolicyError | undefined {
+  if (!isProviderContentPolicyResponse(error)) return undefined
+  if (isProviderContentPolicyError(error)) return error
+
+  const statusCode = getErrorStatusCode(error)
+  return createProviderContentPolicyError({
+    statusCode,
+    cause: error,
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Provider blocked this request under its content policy',
+  })
 }
 
 /**

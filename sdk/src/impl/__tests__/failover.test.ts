@@ -3,7 +3,9 @@ import {
   createForbiddenError,
   createHttpError,
   createNetworkError,
+  createProviderContentPolicyError,
   createServerError,
+  normalizeProviderContentPolicyError,
 } from '../../error-utils'
 import {
   FAILOVER_ELIGIBLE_STATUS_CODES,
@@ -171,6 +173,25 @@ describe('isFailoverEligibleError', () => {
     expect(
       isFailoverEligibleError(createHttpError('gateway timeout', 504)),
     ).toBe(true)
+  })
+
+  it('returns true for an explicitly classified provider content-policy error', () => {
+    expect(
+      isFailoverEligibleError(
+        createProviderContentPolicyError({ statusCode: 400 }),
+      ),
+    ).toBe(true)
+  })
+
+  it('returns true after normalizing an explicit HTTP 400 content-policy response', () => {
+    const rawError = Object.assign(new Error('Bad Request'), {
+      status: 400,
+      responseBody: JSON.stringify({ error: 'content blocked by policy' }),
+    })
+    const normalized = normalizeProviderContentPolicyError(rawError)
+
+    expect(normalized).toBeDefined()
+    expect(isFailoverEligibleError(normalized)).toBe(true)
   })
 
   it('returns false for 408 request timeout — retry-only, not failover-eligible', () => {

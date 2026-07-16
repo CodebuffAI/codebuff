@@ -606,45 +606,28 @@ function createConfiguredOpenAICompatibleModel(
   return new OpenAICompatibleChatLanguageModel(providerModel, {
     provider: providerId,
     url: ({ path: endpoint }: { path: string }) => `${baseURL}${endpoint}`,
-    headers: () => {
-      const isAgentRouter = baseURL.includes('agentrouter.org')
-      if (isAgentRouter) {
-        const osMap: Record<string, string> = {
-          darwin: 'macOS',
-          linux: 'Linux',
-          win32: 'Windows',
-        }
-        const rawPlatform =
-          typeof process !== 'undefined' ? process.platform : 'linux'
-        const os =
-          osMap[rawPlatform] ||
-          rawPlatform.charAt(0).toUpperCase() + rawPlatform.slice(1)
-        const arch = typeof process !== 'undefined' ? process.arch : 'x64'
-        const runtimeVersion =
-          typeof process !== 'undefined' ? process.version : 'v24.3.0'
-
-        return {
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-          'user-agent': `factory-cli/0.130.0 (openbuff/${VERSION})`,
-          'x-stainless-arch': arch,
-          'x-stainless-lang': 'js',
-          'x-stainless-os': os,
-          'x-stainless-package-version': '6.25.0',
-          'x-stainless-retry-count': '0',
-          'x-stainless-runtime': 'node',
-          'x-stainless-runtime-version': runtimeVersion,
-        }
-      }
-      return {
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-        'user-agent': `ai-sdk/openai-compatible/${VERSION}/openbuff-custom-provider`,
-      }
-    },
+    headers: () => createOpenAICompatibleHeaders(apiKey),
     fetch: createConfiguredProviderFetch(resolvedModel),
     includeUsage: undefined,
     supportsStructuredOutputs: provider.supportsStructuredOutputs,
     stringifyTextContent: resolvedModel.compatibility.stringifyTextContent,
   })
+}
+
+/**
+ * Build the common headers for an OpenAI-compatible BYOK request.
+ *
+ * Authentication is provider-specific, while Content-Type/Accept and request
+ * serialization are owned by the AI SDK's HTTP helper. Do not impersonate a
+ * third-party client here: providers may use User-Agent for routing or policy.
+ */
+export function createOpenAICompatibleHeaders(
+  apiKey?: string,
+): Record<string, string> {
+  return {
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    'user-agent': `ai-sdk/openai-compatible/${VERSION}/openbuff-custom-provider`,
+  }
 }
 
 /**
