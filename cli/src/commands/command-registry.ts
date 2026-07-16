@@ -18,7 +18,7 @@ import { useThemeStore } from '../hooks/use-theme'
 import { WEBSITE_URL } from '../login/constants'
 import { startNewChat } from '../project-files'
 import { useChatStore } from '../state/chat-store'
-import { abortActiveRun } from '../utils/active-run'
+import { stopActiveRun } from '../utils/active-run'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
@@ -35,7 +35,6 @@ import type { AgentMode } from '../utils/constants'
 import type { UseMutationResult } from '@tanstack/react-query'
 
 export type RouterParams = {
-  abortControllerRef: React.MutableRefObject<AbortController | null>
   agentMode: AgentMode
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   inputValue: string
@@ -58,7 +57,6 @@ export type RouterParams = {
     value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
   ) => void
   setUser: (value: React.SetStateAction<User | null>) => void
-  stopStreaming: () => void
 }
 
 export type CommandResult = {
@@ -287,9 +285,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'logout',
     aliases: ['signout'],
     handler: (params) => {
-      params.abortControllerRef.current?.abort()
-      params.stopStreaming()
-      params.setCanProcessQueue(false)
+      stopActiveRun('logout')
 
       const { resetLoginState } = useLoginStore.getState()
       params.logoutMutation.mutate(undefined, {
@@ -301,6 +297,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
           ])
           clearInput(params)
           setTimeout(() => {
+            // The confirmation remains visible briefly; fence that window too
+            // before unmounting the authenticated runtime.
+            stopActiveRun('logout')
             params.setUser(null)
             params.setIsAuthenticated(false)
           }, 300)
@@ -325,7 +324,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       // id: an orphaned run would keep streaming after the switch and its
       // late checkpoints/final save would persist the old conversation's
       // state under the new chat (or vice versa).
-      abortActiveRun()
+      stopActiveRun('new-chat')
 
       // Clear the conversation and rotate to a fresh chat directory, so the
       // next message doesn't overwrite the previous conversation's history
@@ -334,8 +333,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
       startNewChat()
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
-      params.stopStreaming()
-
       // If user provided a message, send it as the first message in the new chat
       if (trimmedArgs) {
         // Re-enable queue processing so the message can be sent

@@ -79,7 +79,6 @@ describe('setupStreamingContext', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
-      const abortControllerRef = { current: null as AbortController | null }
       let streamStatus: StreamStatus = 'idle'
       let canProcessQueue = false
       let chainInProgress = true
@@ -92,7 +91,6 @@ describe('setupStreamingContext', () => {
           messages = fn(messages)
         },
         streamRefs,
-        abortControllerRef,
         setStreamStatus: (status: StreamStatus) => {
           streamStatus = status
         },
@@ -148,7 +146,6 @@ describe('setupStreamingContext', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
-      const abortControllerRef = { current: null as AbortController | null }
       const isQueuePausedRef = { current: true }
       let canProcessQueue = false
       let canProcessQueueCallCount = 0
@@ -160,7 +157,6 @@ describe('setupStreamingContext', () => {
           messages = fn(messages)
         },
         streamRefs,
-        abortControllerRef,
         setStreamStatus: () => {},
         setCanProcessQueue: (can: boolean) => {
           canProcessQueue = can
@@ -185,7 +181,6 @@ describe('setupStreamingContext', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
-      const abortControllerRef = { current: null as AbortController | null }
       const isProcessingQueueRef = { current: true }
 
       const { abortController } = setupStreamingContext({
@@ -195,7 +190,6 @@ describe('setupStreamingContext', () => {
           messages = fn(messages)
         },
         streamRefs,
-        abortControllerRef,
         setStreamStatus: () => {},
         setCanProcessQueue: () => {},
         isProcessingQueueRef,
@@ -218,7 +212,6 @@ describe('setupStreamingContext', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
-      const abortControllerRef = { current: null as AbortController | null }
       const isProcessingQueueRef = { current: true }
       const isQueuePausedRef = { current: true }
       let streamStatus = 'streaming' as StreamStatus
@@ -233,7 +226,6 @@ describe('setupStreamingContext', () => {
           messages = fn(messages)
         },
         streamRefs,
-        abortControllerRef,
         setStreamStatus: (status) => {
           streamStatus = status
         },
@@ -271,11 +263,11 @@ describe('setupStreamingContext', () => {
       expect(streamStatus).toBe('idle')
     })
 
-    test('abort handler stores abortController in ref', () => {
+    test('uses the run controller supplied by the owner', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
-      const abortControllerRef = { current: null as AbortController | null }
+      const ownedAbortController = new AbortController()
 
       const { abortController } = setupStreamingContext({
         aiMessageId: 'ai-1',
@@ -284,7 +276,7 @@ describe('setupStreamingContext', () => {
           messages = fn(messages)
         },
         streamRefs,
-        abortControllerRef,
+        abortController: ownedAbortController,
         setStreamStatus: () => {},
         setCanProcessQueue: () => {},
         updateChainInProgress: () => {},
@@ -292,8 +284,7 @@ describe('setupStreamingContext', () => {
         setStreamingAgents: () => {},
       })
 
-      // Verify abortController is stored in ref
-      expect(abortControllerRef.current).toBe(abortController)
+      expect(abortController).toBe(ownedAbortController)
     })
 
     test('setupStreamingContext resets streamRefs and starts timer', () => {
@@ -304,7 +295,6 @@ describe('setupStreamingContext', () => {
       streamRefs.state.rootStreamSeen = true
 
       const timerController = createMockTimerController()
-      const abortControllerRef = { current: null as AbortController | null }
 
       setupStreamingContext({
         aiMessageId: 'ai-1',
@@ -313,7 +303,6 @@ describe('setupStreamingContext', () => {
           messages = fn(messages)
         },
         streamRefs,
-        abortControllerRef,
         setStreamStatus: () => {},
         setCanProcessQueue: () => {},
         updateChainInProgress: () => {},
@@ -950,7 +939,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     let messagesA = createBaseMessages()
     const streamRefsA = createStreamController()
     const timerControllerA = createMockTimerController()
-    const abortControllerRefA = { current: null as AbortController | null }
 
     const { updater: updaterA, abortController: abortControllerA } =
       setupStreamingContext({
@@ -960,7 +948,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
           messagesA = fn(messagesA)
         },
         streamRefs: streamRefsA,
-        abortControllerRef: abortControllerRefA,
         setStreamStatus,
         setCanProcessQueue,
         isQueuePausedRef,
@@ -1074,7 +1061,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     let messagesA = createBaseMessages()
     const sharedStreamRefs = createStreamController()
     const timerA = createMockTimerController()
-    const abortRefA = { current: null as AbortController | null }
 
     const { abortController: abortA } = setupStreamingContext({
       aiMessageId: 'ai-run-a',
@@ -1083,7 +1069,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
         messagesA = fn(messagesA)
       },
       streamRefs: sharedStreamRefs,
-      abortControllerRef: abortRefA,
       setStreamStatus: (status: StreamStatus) => {
         streamStatus = status
       },
@@ -1249,7 +1234,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     // === RUN A ===
     let messagesA = createBaseMessages()
     const timerA = createMockTimerController()
-    const abortRefA = { current: null as AbortController | null }
 
     const { updater: updaterA, abortController: abortA } =
       setupStreamingContext({
@@ -1259,7 +1243,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
           messagesA = fn(messagesA)
         },
         streamRefs: sharedStreamRefs,
-        abortControllerRef: abortRefA,
         setStreamStatus,
         setCanProcessQueue,
         isQueuePausedRef,
@@ -1291,7 +1274,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
       },
     ]
     const timerB = createMockTimerController()
-    const abortRefB = { current: null as AbortController | null }
 
     // Run B's setupStreamingContext calls sharedStreamRefs.reset(),
     // which clears wasAbortedByUser. This is the key race condition.
@@ -1303,7 +1285,6 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
           messagesB = fn(messagesB)
         },
         streamRefs: sharedStreamRefs,
-        abortControllerRef: abortRefB,
         setStreamStatus,
         setCanProcessQueue,
         isQueuePausedRef,

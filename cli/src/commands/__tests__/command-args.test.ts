@@ -2,6 +2,11 @@ import { describe, test, expect, mock } from 'bun:test'
 
 import { useFeedbackStore } from '../../state/feedback-store'
 import {
+  registerActiveRun,
+  stopActiveRun,
+  type ActiveRunStopReason,
+} from '../../utils/active-run'
+import {
   COMMAND_REGISTRY,
   defineCommand,
   defineCommandWithArgs,
@@ -21,7 +26,6 @@ describe('command factory pattern', () => {
     overrides: Partial<RouterParams> = {},
   ): RouterParams =>
     ({
-      abortControllerRef: { current: null },
       agentMode: 'DEFAULT',
       inputRef: { current: null },
       inputValue: '/test',
@@ -40,7 +44,6 @@ describe('command factory pattern', () => {
       setIsAuthenticated: mock(() => {}),
       setMessages: mock(() => {}),
       setUser: mock(() => {}),
-      stopStreaming: mock(() => {}),
       ...overrides,
     }) as RouterParams
 
@@ -202,6 +205,33 @@ describe('command factory pattern', () => {
           cmd.acceptsArgs,
           `Mode command ${cmd.name} should accept args`,
         ).toBe(true)
+      }
+    })
+  })
+
+  describe('cancellation reasons', () => {
+    test('/logout stops the owned run before starting logout', () => {
+      const reasons: ActiveRunStopReason[] = []
+      registerActiveRun('logout-run', (reason) => reasons.push(reason))
+      const mutate = mock(() => {})
+      const logoutCmd = COMMAND_REGISTRY.find((command) =>
+        command.aliases.includes('signout'),
+      )
+
+      try {
+        logoutCmd?.handler(
+          createMockParams({
+            logoutMutation: {
+              mutate,
+            } as unknown as RouterParams['logoutMutation'],
+          }),
+          '',
+        )
+
+        expect(reasons).toEqual(['logout'])
+        expect(mutate).toHaveBeenCalledTimes(1)
+      } finally {
+        stopActiveRun('process-exit')
       }
     })
   })

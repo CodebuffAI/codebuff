@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from 'react'
 
@@ -23,6 +24,11 @@ import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
+import {
+  applyActiveRunQueuePolicy,
+  registerActiveRunStopHandler,
+  type ActiveRunQueueControls,
+} from '../utils/active-run'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { ElapsedTimeTracker } from '../hooks/use-elapsed-time'
@@ -42,9 +48,7 @@ export interface ChatRuntime {
   streamMessageIdRef: MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
   addToQueueFront: (message: QueuedMessage) => void
-  stopStreaming: () => void
   setCanProcessQueue: (value: boolean | ((prev: boolean) => boolean)) => void
-  pauseQueue: () => void
   resumeQueue: () => void
   clearQueue: () => QueuedMessage[]
   isQueuePausedRef: MutableRefObject<boolean>
@@ -52,7 +56,6 @@ export interface ChatRuntime {
   activeAgentStreamsRef: MutableRefObject<number>
   isChainInProgressRef: MutableRefObject<boolean>
   activeSubagentsRef: MutableRefObject<Set<string>>
-  abortControllerRef: MutableRefObject<AbortController | null>
   registerScrollToLatest: (callback: () => void) => () => void
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -86,7 +89,6 @@ export const ChatRuntimeProvider = ({
   const activeAgentStreamsRef = useRef(0)
   const isChainInProgressRef = useRef(isChainInProgress)
   const activeSubagentsRef = useRef(activeSubagents)
-  const abortControllerRef = useRef<AbortController | null>(null)
   const sendMessageRef = useRef<SendMessageFn | undefined>(undefined)
   const scrollToLatestRef = useRef<() => void>(() => {})
 
@@ -132,6 +134,25 @@ export const ChatRuntimeProvider = ({
     { sendBlocked },
   )
 
+  // The module-level stop entry point keeps this callback for the runtime's
+  // lifetime. Read controls through a ref so cancellation always uses the
+  // latest queue rather than the render that installed the handler.
+  const queueControls: ActiveRunQueueControls = {
+    pauseQueueIfPending: queue.pauseQueueIfPending,
+    discardQueue: queue.discardQueue,
+    setCanProcessQueue: queue.setCanProcessQueue,
+  }
+  const queueControlRef = useRef(queueControls)
+  queueControlRef.current = queueControls
+
+  useLayoutEffect(
+    () =>
+      registerActiveRunStopHandler((reason) => {
+        applyActiveRunQueuePolicy(reason, queueControlRef.current)
+      }),
+    [],
+  )
+
   const scrollToLatest = useCallback(() => {
     scrollToLatestRef.current()
   }, [])
@@ -155,7 +176,6 @@ export const ChatRuntimeProvider = ({
     isChainInProgressRef,
     setStreamStatus: queue.setStreamStatus,
     setCanProcessQueue: queue.setCanProcessQueue,
-    abortControllerRef,
     agentId,
     onBeforeMessageSend: validateAgents,
     mainAgentTimer,
@@ -184,9 +204,7 @@ export const ChatRuntimeProvider = ({
     streamMessageIdRef: queue.streamMessageIdRef,
     addToQueue: queue.addToQueue,
     addToQueueFront: queue.addToQueueFront,
-    stopStreaming: queue.stopStreaming,
     setCanProcessQueue: queue.setCanProcessQueue,
-    pauseQueue: queue.pauseQueue,
     resumeQueue: queue.resumeQueue,
     clearQueue: queue.clearQueue,
     isQueuePausedRef: queue.isQueuePausedRef,
@@ -194,7 +212,6 @@ export const ChatRuntimeProvider = ({
     activeAgentStreamsRef,
     isChainInProgressRef,
     activeSubagentsRef,
-    abortControllerRef,
     registerScrollToLatest,
     sendMessage,
     clearMessages,

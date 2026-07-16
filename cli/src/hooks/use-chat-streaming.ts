@@ -47,9 +47,7 @@ export interface UseChatStreamingReturn {
   queuePaused: boolean
   streamMessageIdRef: MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
-  stopStreaming: () => void
   setCanProcessQueue: (value: boolean | ((prev: boolean) => boolean)) => void
-  pauseQueue: () => void
   clearQueue: () => QueuedMessage[]
 
   // Queue UI
@@ -114,9 +112,7 @@ export function useChatStreaming({
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    stopStreaming,
     setCanProcessQueue,
-    pauseQueue,
     resumeQueue,
     clearQueue,
   } = runtime
@@ -169,9 +165,7 @@ export function useChatStreaming({
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    stopStreaming,
     setCanProcessQueue,
-    pauseQueue,
     clearQueue,
 
     // Queue UI

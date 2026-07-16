@@ -58,7 +58,7 @@ import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
 import { reportActivity } from './utils/activity-tracker'
-import { abortActiveRun } from './utils/active-run'
+import { stopActiveRun } from './utils/active-run'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
@@ -170,7 +170,6 @@ export const Chat = ({
   const { statusMessage } = useClipboard()
   const {
     isChainInProgressRef,
-    abortControllerRef,
     sendMessage,
     clearMessages,
     subscriptionData,
@@ -416,13 +415,10 @@ export const Chat = ({
     streamStatus,
     isWaitingForResponse,
     isStreaming,
-    queuedMessages,
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    stopStreaming,
     setCanProcessQueue,
-    pauseQueue,
     clearQueue,
     queuedCount,
     shouldShowQueuePreview,
@@ -512,7 +508,6 @@ export const Chat = ({
 
       try {
         const result = await routeUserPrompt({
-          abortControllerRef,
           agentMode: mode,
           inputRef,
           inputValue: content,
@@ -531,7 +526,6 @@ export const Chat = ({
           setIsAuthenticated,
           setMessages,
           setUser,
-          stopStreaming,
         })
 
         return result
@@ -1029,12 +1023,7 @@ export const Chat = ({
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false }),
       onBackspaceExitMode: () => setInputMode('default'),
       onInterruptStream: () => {
-        // The active-run registry survives temporary Chat unmounts; this
-        // component's local abort ref does not.
-        abortActiveRun()
-        if (queuedMessages.length > 0) {
-          pauseQueue()
-        }
+        stopActiveRun('user-interrupt')
       },
       onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
       onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
@@ -1239,8 +1228,6 @@ export const Chat = ({
       handleCloseFeedback,
       setFeedbackText,
       setInputValue,
-      queuedMessages.length,
-      pauseQueue,
       setSlashSelectedIndex,
       slashMatches,
       slashSelectedIndex,

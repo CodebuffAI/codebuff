@@ -41,7 +41,6 @@ describe('routeUserPrompt connect:chatgpt mode', () => {
     const { routeUserPrompt } = await import('../router')
 
     const params = {
-      abortControllerRef: { current: null },
       agentMode: 'DEFAULT',
       inputRef: { current: null },
       inputValue: 'auth-code-123',
@@ -60,7 +59,6 @@ describe('routeUserPrompt connect:chatgpt mode', () => {
       setIsAuthenticated: () => {},
       setMessages,
       setUser: () => {},
-      stopStreaming: () => {},
     } satisfies RouterParams
 
     await routeUserPrompt(params, handleChatGptAuthCode)

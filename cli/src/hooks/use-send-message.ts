@@ -16,7 +16,7 @@ import { createRunConfig } from '../utils/create-run-config'
 import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
-import { clearActiveRunAborter, setActiveRunAborter } from '../utils/active-run'
+import { clearActiveRun, registerActiveRun } from '../utils/active-run'
 import {
   clearLiveChatStateProvider,
   loadMostRecentChatState,
@@ -64,7 +64,6 @@ interface UseSendMessageOptions {
   isChainInProgressRef: React.MutableRefObject<boolean>
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
-  abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
   onBeforeMessageSend: () => Promise<{
     success: boolean
@@ -125,7 +124,6 @@ export const useSendMessage = ({
   isChainInProgressRef,
   setStreamStatus,
   setCanProcessQueue,
-  abortControllerRef,
   agentId,
   onBeforeMessageSend,
   mainAgentTimer,
@@ -228,6 +226,7 @@ export const useSendMessage = ({
       agentMode: AgentMode
       postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
       attachments?: PendingAttachment[]
+      signal?: AbortSignal
     }) => {
       // Access lastMessageMode fresh each call to get current value
       const { lastMessageMode } = useChatStore.getState()
@@ -290,6 +289,72 @@ export const useSendMessage = ({
       })
       setIsRetrying(false)
 
+      // Own cancellation before the first await. Previously an interrupt or
+      // context switch during attachment processing, validation, or client
+      // creation had no controller to stop.
+      const runOwnerId = randomUUID()
+      const abortController = new AbortController()
+      const runChatDir = resolveCurrentChatDir()
+      const runChatIsCurrent = () => resolveCurrentChatDir() === runChatDir
+      let latestRunStateSnapshot: RunState = previousRunStateRef.current ?? {
+        traceSessionId: randomUUID(),
+        output: {
+          type: 'error',
+          message: STATE_SNAPSHOT_INTERRUPTION_MESSAGE,
+        },
+      }
+      let streamingStarted = false
+
+      setLiveChatStateProvider(runOwnerId, () => ({
+        runState: latestRunStateSnapshot,
+        messages: useChatStore.getState().messages,
+      }))
+
+      const releaseRunOwnership = () => {
+        clearLiveChatStateProvider(runOwnerId)
+        clearActiveRun(runOwnerId)
+      }
+
+      registerActiveRun(runOwnerId, (reason) => {
+        if (abortController.signal.aborted) return
+
+        // Once streaming starts, setupStreamingContext's abort listener owns
+        // message/timer cleanup. Preflight cancellation still needs to drop
+        // the shared busy UI state synchronously.
+        abortController.abort(reason)
+        if (!streamingStarted) {
+          setIsRetrying(false)
+          setStreamStatus('idle')
+          setStreamingAgents(() => new Set())
+          updateChainInProgress(false)
+          if (isProcessingQueueRef) isProcessingQueueRef.current = false
+        }
+
+        // Capture the old chat's array now. Context-changing callers reset the
+        // store immediately after stopActiveRun returns.
+        scheduleCheckpointSave(
+          latestRunStateSnapshot,
+          useChatStore.getState().messages,
+          runChatDir,
+        )
+      })
+
+      const releaseIfStopped = (): boolean => {
+        if (!abortController.signal.aborted) return false
+        releaseRunOwnership()
+        return true
+      }
+
+      const finishPreflight = () => {
+        resetEarlyReturnState({
+          setCanProcessQueue,
+          updateChainInProgress,
+          isProcessingQueueRef,
+          isQueuePausedRef,
+        })
+        releaseRunOwnership()
+      }
+
       // Prepare user message (bash context, images, text attachments, mode divider)
       let userMessageId: string
       let messageContent: MessageContent[] | undefined
@@ -302,12 +367,14 @@ export const useSendMessage = ({
           agentMode,
           postUserMessage,
           attachments,
+          signal: abortController.signal,
         })
         userMessageId = prepared.userMessageId
         messageContent = prepared.messageContent
         bashContextForPrompt = prepared.bashContextForPrompt
         finalContent = prepared.finalContent
       } catch (error) {
+        if (releaseIfStopped()) return
         logger.error(
           { error },
           '[send-message] prepareUserMessage failed with exception',
@@ -318,18 +385,17 @@ export const useSendMessage = ({
             '⚠️ Failed to prepare message. Please try again.',
           ),
         ])
-        resetEarlyReturnState({
-          setCanProcessQueue,
-          updateChainInProgress,
-          isProcessingQueueRef,
-          isQueuePausedRef,
-        })
+        finishPreflight()
         return
       }
+
+      if (releaseIfStopped()) return
 
       // Validate before sending (e.g., agent config checks)
       try {
         const validationResult = await onBeforeMessageSend()
+
+        if (releaseIfStopped()) return
 
         if (!validationResult.success) {
           logger.warn(
@@ -359,15 +425,11 @@ export const useSendMessage = ({
               }
             }),
           )
-          resetEarlyReturnState({
-            setCanProcessQueue,
-            updateChainInProgress,
-            isProcessingQueueRef,
-            isQueuePausedRef,
-          })
+          finishPreflight()
           return
         }
       } catch (error) {
+        if (releaseIfStopped()) return
         logger.error(
           { error },
           '[send-message] Validation before message send failed with exception',
@@ -380,14 +442,10 @@ export const useSendMessage = ({
           ),
         ])
         await yieldToEventLoop()
+        if (releaseIfStopped()) return
         setTimeout(() => scrollToLatest(), 0)
 
-        resetEarlyReturnState({
-          setCanProcessQueue,
-          updateChainInProgress,
-          isProcessingQueueRef,
-          isQueuePausedRef,
-        })
+        finishPreflight()
         return
       }
 
@@ -397,7 +455,26 @@ export const useSendMessage = ({
       inputRef.current?.focus()
 
       // Get SDK client
-      const client = await getCodebuffClient()
+      let client: Awaited<ReturnType<typeof getCodebuffClient>>
+      try {
+        client = await getCodebuffClient()
+      } catch (error) {
+        if (releaseIfStopped()) return
+        logger.error(
+          { error },
+          '[send-message] Failed to create Codebuff client',
+        )
+        setMessages((prev) => [
+          ...prev,
+          createErrorChatMessage(
+            '⚠️ Unable to create the client. Please check your authentication and try again.',
+          ),
+        ])
+        finishPreflight()
+        return
+      }
+
+      if (releaseIfStopped()) return
 
       if (!client) {
         logger.error(
@@ -413,13 +490,9 @@ export const useSendMessage = ({
           ),
         ])
         await yieldToEventLoop()
+        if (releaseIfStopped()) return
         setTimeout(() => scrollToLatest(), 0)
-        resetEarlyReturnState({
-          setCanProcessQueue,
-          updateChainInProgress,
-          isProcessingQueueRef,
-          isQueuePausedRef,
-        })
+        finishPreflight()
         return
       }
 
@@ -427,21 +500,21 @@ export const useSendMessage = ({
       const aiMessageId = generateAiMessageId()
       const aiMessage = createAiMessageShell(aiMessageId)
 
-      const { updater, hasReceivedContentRef, abortController } =
-        setupStreamingContext({
-          aiMessageId,
-          timerController,
-          setMessages,
-          streamRefs,
-          abortControllerRef,
-          setStreamStatus,
-          setCanProcessQueue,
-          isQueuePausedRef,
-          isProcessingQueueRef,
-          updateChainInProgress,
-          setIsRetrying,
-          setStreamingAgents,
-        })
+      const { updater, hasReceivedContentRef } = setupStreamingContext({
+        aiMessageId,
+        timerController,
+        setMessages,
+        streamRefs,
+        abortController,
+        setStreamStatus,
+        setCanProcessQueue,
+        isQueuePausedRef,
+        isProcessingQueueRef,
+        updateChainInProgress,
+        setIsRetrying,
+        setStreamingAgents,
+      })
+      streamingStarted = true
       setStreamStatus('waiting')
       // Combine auto-collapse and AI message addition into single atomic update
       // to prevent flicker from intermediate render states
@@ -454,53 +527,10 @@ export const useSendMessage = ({
       // before any async work, so the router can correctly detect busy state.
       let actualCredits: number | undefined
 
-      // Capture this run's chat directory once, up front. Every save for this
-      // run targets this directory: the current chat id can rotate mid-run
-      // (/new, resuming from /history), and resolving the dir at write time
-      // would persist this run's state over a different chat's transcript.
-      // After a switch the store's messages belong to the new conversation,
-      // so persistence and state adoption below are gated on runChatIsCurrent.
-      const runChatDir = resolveCurrentChatDir()
-      const runChatIsCurrent = () => resolveCurrentChatDir() === runChatDir
-
       // Checkpoint the turn to disk immediately so that killing the process
       // (closed terminal, crash) can't lose the user's prompt, then keep the
       // checkpoint fresh from SDK run-state snapshots while the run streams.
       // The completion save below overwrites this with the final state.
-      let latestRunStateSnapshot: RunState = previousRunStateRef.current ?? {
-        traceSessionId: randomUUID(),
-        output: {
-          type: 'error',
-          message: STATE_SNAPSHOT_INTERRUPTION_MESSAGE,
-        },
-      }
-      setLiveChatStateProvider(aiMessageId, () => ({
-        runState: latestRunStateSnapshot,
-        messages: useChatStore.getState().messages,
-      }))
-
-      // Let chat switches abort this run so it can't keep streaming (and
-      // persisting) for a conversation the user has left.
-      setActiveRunAborter(aiMessageId, () => {
-        // Already aborted (e.g. Esc, or a second chat switch): don't schedule
-        // again — the store may hold the next conversation's messages by now.
-        if (abortController.signal.aborted) {
-          return
-        }
-        abortController.abort()
-        // The abort listener has synchronously finalized the streaming
-        // message (interruption notice + markComplete), and the caller is
-        // about to switch away from this chat. Queue one final checkpoint of
-        // that exact state: periodic checkpoints only cover up to ~5s ago,
-        // and the post-run save below won't fire once the chat has switched.
-        // scheduleCheckpointSave captures the messages array by reference, so
-        // the store reset that follows the switch can't affect the write.
-        scheduleCheckpointSave(
-          latestRunStateSnapshot,
-          useChatStore.getState().messages,
-          runChatDir,
-        )
-      })
       saveChatState(
         latestRunStateSnapshot,
         useChatStore.getState().messages,
@@ -521,6 +551,7 @@ export const useSendMessage = ({
         )
 
         const eventHandlerState = createEventHandlerState({
+          isActive: () => !abortController.signal.aborted && runChatIsCurrent(),
           streamRefs,
           setStreamingAgents,
           setStreamStatus,
@@ -680,15 +711,7 @@ export const useSendMessage = ({
         // Stop exit-flushing this run's checkpoint; the final state (or last
         // checkpoint, on error) has been saved above. Owner-guarded so an
         // aborted run resolving late can't clear a newer run's provider.
-        clearLiveChatStateProvider(aiMessageId)
-        clearActiveRunAborter(aiMessageId)
-        // Do not leave a completed controller reachable through command
-        // handlers. Aborting that stale controller later (for example on
-        // logout) would re-run its abort listener and mutate a completed turn.
-        // Identity guarding preserves a newer run that may already own the ref.
-        if (abortControllerRef.current === abortController) {
-          abortControllerRef.current = null
-        }
+        releaseRunOwnership()
         // If this run was aborted, the abort handler already released the chain lock
         // and queue processing state. Don't touch shared state here to avoid
         // interfering with any new run that may have started after the abort.

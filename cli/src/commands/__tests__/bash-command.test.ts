@@ -24,7 +24,6 @@ describe('bash command', () => {
     const createMockParams = (
       overrides: Partial<RouterParams> = {},
     ): RouterParams => ({
-      abortControllerRef: { current: null },
       agentMode: 'DEFAULT',
       inputRef: { current: null },
       inputValue: '/bash',
@@ -43,7 +42,6 @@ describe('bash command', () => {
       setIsAuthenticated: mock(() => {}),
       setMessages: mock(() => {}),
       setUser: mock(() => {}),
-      stopStreaming: mock(() => {}),
       ...overrides,
     })
 
@@ -292,7 +290,6 @@ describe('bash command', () => {
     const createMockParams = (
       overrides: Partial<RouterParams> = {},
     ): RouterParams => ({
-      abortControllerRef: { current: null },
       agentMode: 'DEFAULT',
       inputRef: { current: null },
       inputValue: '/bash',
@@ -311,7 +308,6 @@ describe('bash command', () => {
       setIsAuthenticated: mock(() => {}),
       setMessages: mock(() => {}),
       setUser: mock(() => {}),
-      stopStreaming: mock(() => {}),
       ...overrides,
     })
 

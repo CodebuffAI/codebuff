@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCurrentChatId } from '../project-files'
+import { stopActiveRun } from '../utils/active-run'
 import { flushAnalytics } from '../utils/analytics'
 import { IS_FREEBUFF } from '../utils/constants'
 import { exitFreebuffCleanly } from '../utils/freebuff-exit'
@@ -41,10 +42,14 @@ function setupExitMessageHandler() {
 
 function exitCli(): void {
   if (IS_FREEBUFF) {
+    // The shared Freebuff exit path stops the run before releasing its slot.
     void exitFreebuffCleanly()
     return
   }
 
+  // Stop before the async analytics flush. Renderer cleanup fences again at
+  // process.exit in case another run somehow starts during that window.
+  stopActiveRun('process-exit')
   withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).finally(
     () => {
       process.exit(0)

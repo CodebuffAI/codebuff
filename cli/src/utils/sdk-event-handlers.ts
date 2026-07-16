@@ -88,6 +88,8 @@ export type ModeState = {
 }
 
 export type EventHandlerState = {
+  /** Reject late SDK callbacks after this run loses chat ownership. */
+  isActive?: () => boolean
   streaming: StreamingState
   message: MessageState
   subagents: SubagentState
@@ -491,6 +493,7 @@ const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
 
 export const createStreamChunkHandler =
   (state: EventHandlerState) => (event: StreamChunkEvent) => {
+    if (state.isActive?.() === false) return
     const destination = destinationFromChunkEvent(event)
     let text: string | undefined
     if (typeof event === 'string') {
@@ -526,6 +529,13 @@ export const createStreamChunkHandler =
 
 export const createEventHandler =
   (state: EventHandlerState) => (event: SDKEvent) => {
+    // A cancelled run may still report its final billed cost. Keep that
+    // accounting event, but reject every callback that could mutate the chat
+    // or shared streaming UI after ownership has moved to another run.
+    if (state.isActive?.() === false) {
+      if (event.type === 'finish') handleFinish(state, event)
+      return
+    }
     return match(event)
       .with({ type: 'subagent_start' }, (e) => handleSubagentStart(state, e))
       .with({ type: 'subagent_finish' }, (e) => handleSubagentFinish(state, e))

@@ -1,4 +1,5 @@
 import { resetTerminalTitle } from './terminal-title'
+import { stopActiveRun } from './active-run'
 import { flushLiveChatState } from './run-state-storage'
 import { TERMINAL_RESET_SEQUENCES } from './terminal-reset-sequences'
 import { stopTerminalWatchdog } from './terminal-watchdog'
@@ -50,6 +51,11 @@ function cleanup(): void {
   // We're on the clean-shutdown path, so the watchdog must not fire — kill it
   // before anything else (synchronous, so no race with our own exit).
   stopTerminalWatchdog()
+
+  // Finalize the active message before reading the live provider. This makes
+  // the synchronous flush include the interruption UI and prevents a late
+  // SDK callback from continuing to own the chat while shutdown proceeds.
+  stopActiveRun('process-exit')
 
   // Persist any in-flight chat state first (synchronous, best-effort) so
   // closing the terminal or killing the process mid-run doesn't lose the turn.

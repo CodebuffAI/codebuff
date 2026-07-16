@@ -1,22 +1,131 @@
-// Registry for the in-flight agent run's abort hook. Chat switches (/new,
-// resuming from /history) must stop the active run: an orphaned run would keep
-// streaming invisibly and keep persisting checkpoints for a chat the user has
-// left. ownerId ties the registration to a specific run so a stale run
-// settling late can't clear a newer run's aborter.
+/** Why the active agent run is being stopped. */
+export type ActiveRunStopReason =
+  | 'user-interrupt'
+  | 'logout'
+  | 'new-chat'
+  | 'history-resume'
+  | 'session-transition'
+  | 'process-exit'
 
-let activeRun: { ownerId: string; abort: () => void } | null = null
+type ActiveRunQueuePolicy =
+  | 'pause-if-pending'
+  | 'clear-and-block'
+  | 'preserve-and-block'
 
-export function setActiveRunAborter(ownerId: string, abort: () => void): void {
-  activeRun = { ownerId, abort }
+/**
+ * Every reason aborts through the same run owner, which marks the message
+ * interrupted and checkpoints it. Process-exit callers additionally flush
+ * that checkpoint synchronously. Queue behavior is the only policy that
+ * varies here: context changes discard old prompts, a manual interrupt pauses
+ * them, and exit preserves them while blocking any new dequeue.
+ */
+export const ACTIVE_RUN_QUEUE_POLICIES = {
+  'user-interrupt': 'pause-if-pending',
+  logout: 'clear-and-block',
+  'new-chat': 'clear-and-block',
+  'history-resume': 'clear-and-block',
+  'session-transition': 'clear-and-block',
+  'process-exit': 'preserve-and-block',
+} satisfies Record<ActiveRunStopReason, ActiveRunQueuePolicy>
+
+export type ActiveRunQueueControls = {
+  pauseQueueIfPending: () => void
+  discardQueue: () => void
+  setCanProcessQueue: (canProcess: boolean) => void
 }
 
-export function clearActiveRunAborter(ownerId: string): void {
+/** Apply the reason matrix to the persistent runtime's latest queue state. */
+export function applyActiveRunQueuePolicy(
+  reason: ActiveRunStopReason,
+  controls: ActiveRunQueueControls,
+): void {
+  const policy = ACTIVE_RUN_QUEUE_POLICIES[reason]
+  if (policy === 'pause-if-pending') {
+    controls.pauseQueueIfPending()
+    return
+  }
+  if (policy === 'clear-and-block') {
+    controls.discardQueue()
+    return
+  }
+  if (policy === 'preserve-and-block') {
+    // Freebuff exit can spend up to a second releasing the session seat. Keep
+    // queued prompts in memory, but do not let abort cleanup dequeue a new run
+    // during that window.
+    controls.setCanProcessQueue(false)
+  }
+}
+
+type ActiveRun = {
+  ownerId: string
+  stop: (reason: ActiveRunStopReason) => void
+}
+
+let activeRun: ActiveRun | null = null
+let runtimeStopHandler: ((reason: ActiveRunStopReason) => void) | null = null
+
+/**
+ * Install cleanup owned by the persistent ChatRuntime. It runs even while no
+ * SDK run exists, which is important for clearing a paused queue on /logout,
+ * /new, or a session reset.
+ */
+export function registerActiveRunStopHandler(
+  handler: (reason: ActiveRunStopReason) => void,
+): () => void {
+  runtimeStopHandler = handler
+  return () => {
+    if (runtimeStopHandler === handler) runtimeStopHandler = null
+  }
+}
+
+/** Register the sole run that may currently mutate the active chat. */
+export function registerActiveRun(
+  ownerId: string,
+  stop: (reason: ActiveRunStopReason) => void,
+): void {
+  const previousRun = activeRun
+  activeRun = { ownerId, stop }
+  if (previousRun && previousRun.ownerId !== ownerId) {
+    // This should only happen if an unexpected path bypassed the chain lock.
+    // Stop the displaced owner after installing the new one so its late
+    // owner-guarded cleanup cannot unregister the replacement.
+    try {
+      previousRun.stop('user-interrupt')
+    } catch {
+      // The new owner is already installed; never orphan it because cleanup
+      // for the displaced run failed.
+    }
+  }
+}
+
+/** Owner-guarded so a stale run settling cannot release a newer run. */
+export function clearActiveRun(ownerId: string): void {
   if (activeRun?.ownerId === ownerId) {
     activeRun = null
   }
 }
 
-/** Abort the in-flight agent run, if any. Safe to call when idle. */
-export function abortActiveRun(): void {
-  activeRun?.abort()
+/**
+ * Stop the in-flight run, if any. Ownership is released before invoking the
+ * callback: repeated entry points are idempotent and the stopped run cannot
+ * consume a later reason intended for a newer run.
+ */
+export function stopActiveRun(reason: ActiveRunStopReason): boolean {
+  const run = activeRun
+  if (run) activeRun = null
+
+  try {
+    run?.stop(reason)
+  } catch {
+    // Cancellation is a best-effort boundary used during fatal process
+    // cleanup too; one broken run callback must not block queue/terminal
+    // cleanup.
+  }
+  try {
+    runtimeStopHandler?.(reason)
+  } catch {
+    // The run is already detached. Keep cancellation idempotent and allow the
+    // initiating transition or process cleanup to continue.
+  }
+  return run !== null
 }

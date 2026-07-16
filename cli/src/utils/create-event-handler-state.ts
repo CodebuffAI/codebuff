@@ -10,6 +10,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { MutableRefObject } from 'react'
 
 export type CreateEventHandlerStateParams = {
+  isActive?: () => boolean
   streamRefs: StreamController
   setStreamingAgents: SetStreamingAgentsFn
   setStreamStatus: SetStreamStatusFn
@@ -29,6 +30,7 @@ export const createEventHandlerState = (
   params: CreateEventHandlerStateParams,
 ): EventHandlerState => {
   const {
+    isActive,
     streamRefs,
     setStreamingAgents,
     setStreamStatus,
@@ -45,6 +47,7 @@ export const createEventHandlerState = (
   } = params
 
   return {
+    isActive,
     streaming: {
       streamRefs,
       setStreamingAgents,

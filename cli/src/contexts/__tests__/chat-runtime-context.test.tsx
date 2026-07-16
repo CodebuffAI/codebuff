@@ -9,6 +9,11 @@ import {
   useChatRuntime,
   type ChatRuntime,
 } from '../chat-runtime-context'
+import {
+  registerActiveRun,
+  stopActiveRun,
+  type ActiveRunStopReason,
+} from '../../utils/active-run'
 
 import type { StreamStatus } from '../../hooks/use-message-queue'
 
@@ -65,11 +70,13 @@ describe('ChatRuntimeProvider navigation', () => {
 
       try {
         expect(runtime).toBeDefined()
-        const abortController = new AbortController()
+        const stopReasons: ActiveRunStopReason[] = []
+        registerActiveRun('navigation-test', (reason) => {
+          stopReasons.push(reason)
+        })
 
         flushSync(() => {
           runtime!.isChainInProgressRef.current = true
-          runtime!.abortControllerRef.current = abortController
           runtime!.setStreamStatus(phase)
           runtime!.mainAgentTimer.start()
           runtime!.addToQueue('keep me queued')
@@ -77,7 +84,6 @@ describe('ChatRuntimeProvider navigation', () => {
         await setup.renderOnce()
 
         const timerStartTime = runtime!.timerStartTime
-        const abortControllerRef = runtime!.abortControllerRef
         const sendMessage = runtime!.sendMessage
         expect(timerStartTime).not.toBeNull()
         expect(setup.captureCharFrame()).toContain(`chat:${phase}:1`)
@@ -88,8 +94,6 @@ describe('ChatRuntimeProvider navigation', () => {
         expect(setup.captureCharFrame()).toContain(`history:${phase}:1`)
         expect(chatUnmounts).toBe(1)
         expect(runtime!.timerStartTime).toBe(timerStartTime)
-        expect(runtime!.abortControllerRef).toBe(abortControllerRef)
-        expect(runtime!.abortControllerRef.current).toBe(abortController)
         expect(runtime!.sendMessage).toBe(sendMessage)
 
         flushSync(() => setShowHistory!(false))
@@ -97,9 +101,45 @@ describe('ChatRuntimeProvider navigation', () => {
 
         expect(setup.captureCharFrame()).toContain(`chat:${phase}:1`)
         expect(runtime!.timerStartTime).toBe(timerStartTime)
-        expect(runtime!.abortControllerRef.current).toBe(abortController)
         expect(runtime!.sendMessage).toBe(sendMessage)
+        let stoppedRun = false
+        flushSync(() => {
+          stoppedRun = stopActiveRun('user-interrupt')
+        })
+        expect(stoppedRun).toBe(true)
+        expect(stopReasons).toEqual(['user-interrupt'])
+        await setup.renderOnce()
+        expect(runtime!.queuePaused).toBe(true)
+        expect(runtime!.queuedMessages).toHaveLength(1)
+
+        // A queue add and interrupt can occur before React renders again.
+        // The synchronous queue ref must still make the interrupt pause it.
+        flushSync(() => {
+          runtime!.clearQueue()
+          runtime!.resumeQueue()
+          registerActiveRun('same-tick-test', (reason) => {
+            stopReasons.push(reason)
+          })
+          runtime!.addToQueue('queued in the interrupt tick')
+          stoppedRun = stopActiveRun('user-interrupt')
+        })
+        expect(stoppedRun).toBe(true)
+        await setup.renderOnce()
+        expect(runtime!.queuePaused).toBe(true)
+        expect(runtime!.queuedMessages).toHaveLength(1)
+        expect(stopReasons).toEqual(['user-interrupt', 'user-interrupt'])
+
+        // Context changes still clean a paused queue after the run owner has
+        // already been released.
+        flushSync(() => {
+          stoppedRun = stopActiveRun('new-chat')
+        })
+        expect(stoppedRun).toBe(false)
+        await setup.renderOnce()
+        expect(runtime!.queuedMessages).toHaveLength(0)
+        expect(runtime!.queuePaused).toBe(false)
       } finally {
+        stopActiveRun('process-exit')
         flushSync(() => root.unmount())
         queryClient.clear()
         setup.renderer.destroy()

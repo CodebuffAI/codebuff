@@ -6,14 +6,10 @@ describe('/new command', () => {
       '../command-registry.ts',
       import.meta.url,
     ).href
-    const projectFilesUrl = new URL(
-      '../../project-files.ts',
-      import.meta.url,
-    ).href
-    const activeRunUrl = new URL(
-      '../../utils/active-run.ts',
-      import.meta.url,
-    ).href
+    const projectFilesUrl = new URL('../../project-files.ts', import.meta.url)
+      .href
+    const activeRunUrl = new URL('../../utils/active-run.ts', import.meta.url)
+      .href
 
     const result = Bun.spawnSync({
       cmd: [
@@ -22,15 +18,17 @@ describe('/new command', () => {
         `
           import { findCommand } from ${JSON.stringify(commandRegistryUrl)}
           import { getCurrentChatId, setCurrentChatId } from ${JSON.stringify(projectFilesUrl)}
-          import { setActiveRunAborter } from ${JSON.stringify(activeRunUrl)}
+          import { registerActiveRun } from ${JSON.stringify(activeRunUrl)}
 
           setCurrentChatId('previous-chat-id')
 
           // Simulate an in-flight run: record which chat was current when the
           // abort fired.
           let abortedAtChatId = null
-          setActiveRunAborter('run-1', () => {
+          let stopReason = null
+          registerActiveRun('run-1', (reason) => {
             abortedAtChatId = getCurrentChatId()
+            stopReason = reason
           })
 
           const newCommand = findCommand('new')
@@ -44,7 +42,6 @@ describe('/new command', () => {
               saveToHistory: noop,
               inputValue: '/new',
               setInputValue: noop,
-              stopStreaming: noop,
               setCanProcessQueue: noop,
             },
             '',
@@ -65,6 +62,9 @@ describe('/new command', () => {
             throw new Error(
               '/new aborted the run only after rotating the chat id — late writes could land in the new chat',
             )
+          }
+          if (stopReason !== 'new-chat') {
+            throw new Error('/new did not use the new-chat cancellation policy')
           }
         `,
       ],

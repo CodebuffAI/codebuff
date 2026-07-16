@@ -168,6 +168,32 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
 }
 
 describe('sdk-event-handlers', () => {
+  test('ignores callbacks after the run loses ownership', () => {
+    const { ctx, getMessages, getStreamStatus, streamRefs } =
+      createTestContext()
+    let totalCost: number | undefined
+    ctx.isActive = () => false
+    ctx.onTotalCost = (cost) => {
+      totalCost = cost
+    }
+
+    createStreamChunkHandler(ctx)('late text')
+    createEventHandler(ctx)({
+      type: 'tool_call',
+      toolCallId: 'late-tool',
+      toolName: 'read_files',
+      input: {},
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+    createEventHandler(ctx)({ type: 'finish', totalCost: 7 } as any)
+
+    expect(getMessages()[0].blocks).toEqual([])
+    expect(getStreamStatus()).toBeNull()
+    expect(streamRefs.state.rootStreamBuffer).toBe('')
+    expect(totalCost).toBe(7)
+  })
+
   test('extracts plan content from root stream', () => {
     const { ctx, getMessages, getHasPlanResponse } = createTestContext('PLAN')
     const handleChunk = createStreamChunkHandler(ctx)

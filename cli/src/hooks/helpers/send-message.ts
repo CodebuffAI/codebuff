@@ -122,6 +122,7 @@ export const prepareUserMessage = async (params: {
   agentMode: AgentMode
   postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
   attachments?: PendingAttachment[]
+  signal?: AbortSignal
   deps: PrepareUserMessageDeps
 }): Promise<{
   userMessageId: string
@@ -129,7 +130,8 @@ export const prepareUserMessage = async (params: {
   bashContextForPrompt: string
   finalContent: string
 }> => {
-  const { content, agentMode, postUserMessage, attachments, deps } = params
+  const { content, agentMode, postUserMessage, attachments, signal, deps } =
+    params
   const { setMessages, lastMessageMode, setLastMessageMode, scrollToLatest } =
     deps
 
@@ -196,6 +198,12 @@ export const prepareUserMessage = async (params: {
       projectRoot: getProjectRoot(),
     })
 
+  // A chat switch can happen while image processing is awaiting filesystem
+  // work. Do not append the old prompt after the destination chat has reset.
+  if (signal?.aborted) {
+    throw new Error('Message preparation aborted')
+  }
+
   const shouldInsertDivider =
     lastMessageMode === null || lastMessageMode !== agentMode
 
@@ -261,7 +269,7 @@ export const setupStreamingContext = (params: {
   timerController: SendMessageTimerController
   setMessages: (updater: (messages: ChatMessage[]) => ChatMessage[]) => void
   streamRefs: StreamController
-  abortControllerRef: MutableRefObject<AbortController | null>
+  abortController?: AbortController
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   isQueuePausedRef?: MutableRefObject<boolean>
@@ -274,7 +282,6 @@ export const setupStreamingContext = (params: {
     timerController,
     setMessages,
     streamRefs,
-    abortControllerRef,
     setStreamStatus,
     setCanProcessQueue,
     isQueuePausedRef,
@@ -291,8 +298,7 @@ export const setupStreamingContext = (params: {
   // Clear any previous UI-only error on this message when starting a new run
   updater.clearUserError()
   const hasReceivedContentRef = { current: false }
-  const abortController = new AbortController()
-  abortControllerRef.current = abortController
+  const abortController = params.abortController ?? new AbortController()
 
   abortController.signal.addEventListener('abort', () => {
     // Abort means the user stopped streaming; update UI with an interruption notice.

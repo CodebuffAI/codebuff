@@ -14,8 +14,10 @@ import {
   getSelectedFreebuffModel,
   useFreebuffModelStore,
 } from '../state/freebuff-model-store'
+import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { getAuthTokenDetails } from '../utils/auth'
+import { stopActiveRun } from '../utils/active-run'
 import { IS_FREEBUFF } from '../utils/constants'
 import {
   isFreebuffInstanceOwnedByDeadLocalProcess,
@@ -284,11 +286,6 @@ async function releaseFreebuffSlot(): Promise<void> {
   }
 }
 
-async function resetChatStore(): Promise<void> {
-  const { useChatStore } = await import('../state/chat-store')
-  useChatStore.getState().reset()
-}
-
 interface RestartOpts {
   resetChat?: boolean
   /** DELETE the held slot before restarting so the next POST starts clean. */
@@ -300,13 +297,18 @@ async function restartFreebuffSession(
   opts: RestartOpts = {},
 ): Promise<void> {
   if (!IS_FREEBUFF) return
+  // A reset changes chat ownership. Stop and checkpoint the old run before
+  // resetting its store so late deltas cannot land in the next session.
+  if (opts.resetChat) {
+    stopActiveRun('session-transition')
+    useChatStore.getState().reset()
+  }
   // Halt the running poll loop before we touch local stores or DELETE the
   // slot. Otherwise an in-flight GET could land mid-reset and overwrite
   // state, or the next scheduled tick could fire between DELETE and
   // restart() with stale assumptions. restart() re-aborts and re-arms
   // below; the extra abort here is cheap.
   controller?.abort()
-  if (opts.resetChat) await resetChatStore()
   if (opts.releaseSlot) await releaseFreebuffSlot()
   await controller?.restart(mode)
 }

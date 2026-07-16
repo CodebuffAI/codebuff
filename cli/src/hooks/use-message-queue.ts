@@ -38,6 +38,7 @@ export const useMessageQueue = (
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const streamMessageIdRef = useRef<string | null>(null)
   const isProcessingQueueRef = useRef<boolean>(false)
+  const queueProcessingOwnerRef = useRef<symbol | null>(null)
   // User-initiated pause state (separate from system-busy state)
   const isQueuePausedRef = useRef<boolean>(false)
   // Watchdog timer to recover from stuck queue processing lock
@@ -145,6 +146,8 @@ export const useMessageQueue = (
       '[message-queue] Processing next message from queue',
     )
 
+    const processingOwner = Symbol('queue-processing-owner')
+    queueProcessingOwnerRef.current = processingOwner
     isProcessingQueueRef.current = true
 
     // Start watchdog timer to recover from stuck processing lock
@@ -152,25 +155,25 @@ export const useMessageQueue = (
       clearTimeout(watchdogTimeoutRef.current)
     }
     watchdogTimeoutRef.current = setTimeout(() => {
+      if (queueProcessingOwnerRef.current !== processingOwner) return
       if (isProcessingQueueRef.current) {
         logger.warn(
           { stuckDurationMs: QUEUE_WATCHDOG_TIMEOUT_MS },
           '[message-queue] Watchdog: isProcessingQueueRef stuck for too long, forcing reset',
         )
-        isProcessingQueueRef.current = false
         // Also reset canProcessQueue to allow queue to resume (unless user-paused)
         setCanProcessQueue(!isQueuePausedRef.current)
       }
+      queueProcessingOwnerRef.current = null
+      isProcessingQueueRef.current = false
       watchdogTimeoutRef.current = null
     }, QUEUE_WATCHDOG_TIMEOUT_MS)
 
-    // Read the message to process from the ref BEFORE calling setState.
-    // We must NOT assign to outer variables inside functional setState callbacks
-    // because React can call those callbacks multiple times in concurrent mode,
-    // which would cause messages to be skipped.
+    // Read the message to process from the synchronous queue source.
     const messageToProcess = queuedMessagesRef.current[0]
 
     if (!messageToProcess) {
+      queueProcessingOwnerRef.current = null
       isProcessingQueueRef.current = false
       // Clear watchdog timer on early return
       if (watchdogTimeoutRef.current) {
@@ -180,15 +183,12 @@ export const useMessageQueue = (
       return
     }
 
-    // Now remove the message from the queue
-    setQueuedMessages((prev) => {
-      if (prev.length === 0) {
-        return prev
-      }
-      const remainingMessages = prev.slice(1)
-      queuedMessagesRef.current = remainingMessages
-      return remainingMessages
-    })
+    // Remove it from both sources synchronously. Cancellation decisions read
+    // the ref between renders, so deferring this update inside a React state
+    // updater can make an in-flight message look queued.
+    const remainingMessages = queuedMessagesRef.current.slice(1)
+    queuedMessagesRef.current = remainingMessages
+    setQueuedMessages(remainingMessages)
 
     sendMessage(messageToProcess)
       .catch((err: unknown) => {
@@ -198,6 +198,8 @@ export const useMessageQueue = (
         )
       })
       .finally(() => {
+        if (queueProcessingOwnerRef.current !== processingOwner) return
+        queueProcessingOwnerRef.current = null
         isProcessingQueueRef.current = false
         // Clear watchdog timer when processing completes normally
         if (watchdogTimeoutRef.current) {
@@ -217,17 +219,22 @@ export const useMessageQueue = (
 
   useEffect(() => {
     processNextMessage()
-  }, [canProcessQueue, streamStatus, queuedMessages.length, processNextMessage, isChainInProgressRef])
+  }, [
+    canProcessQueue,
+    streamStatus,
+    queuedMessages.length,
+    processNextMessage,
+    isChainInProgressRef,
+  ])
 
   const addToQueue = useCallback(
     (message: string, attachments: PendingAttachment[] = []) => {
       const queuedMessage = { content: message, attachments }
-      // Use functional setState to ensure atomic updates during rapid calls.
-      setQueuedMessages((prev) => {
-        const newQueue = [...prev, queuedMessage]
-        queuedMessagesRef.current = newQueue
-        return newQueue
-      })
+      // Update the ref before scheduling React state so cancellation in the
+      // same input tick observes the message.
+      const newQueue = [...queuedMessagesRef.current, queuedMessage]
+      queuedMessagesRef.current = newQueue
+      setQueuedMessages(newQueue)
     },
     [],
   )
@@ -237,11 +244,9 @@ export const useMessageQueue = (
    *  dequeue and run start) so the message keeps its place instead of being
    *  consumed. */
   const addToQueueFront = useCallback((message: QueuedMessage) => {
-    setQueuedMessages((prev) => {
-      const newQueue = [message, ...prev]
-      queuedMessagesRef.current = newQueue
-      return newQueue
-    })
+    const newQueue = [message, ...queuedMessagesRef.current]
+    queuedMessagesRef.current = newQueue
+    setQueuedMessages(newQueue)
   }, [])
 
   const pauseQueue = useCallback(() => {
@@ -249,6 +254,11 @@ export const useMessageQueue = (
     setQueuePausedState(true)
     setCanProcessQueue(false)
   }, [])
+
+  const pauseQueueIfPending = useCallback(() => {
+    if (queuedMessagesRef.current.length === 0) return
+    pauseQueue()
+  }, [pauseQueue])
 
   const resumeQueue = useCallback(() => {
     isQueuePausedRef.current = false
@@ -263,14 +273,26 @@ export const useMessageQueue = (
     return current
   }, [])
 
-  const startStreaming = useCallback(() => {
-    setStreamStatus('streaming')
+  /** Drop queue state when leaving its chat. Unlike clearQueue (the user's
+   * Ctrl-C action), this also removes paused/processing bookkeeping so a
+   * same-provider /new cannot inherit a phantom paused queue. */
+  const discardQueue = useCallback(() => {
+    queuedMessagesRef.current = []
+    setQueuedMessages([])
+    isQueuePausedRef.current = false
+    setQueuePausedState(false)
+    queueProcessingOwnerRef.current = null
+    isProcessingQueueRef.current = false
+    if (watchdogTimeoutRef.current) {
+      clearTimeout(watchdogTimeoutRef.current)
+      watchdogTimeoutRef.current = null
+    }
     setCanProcessQueue(false)
   }, [])
 
-  const stopStreaming = useCallback(() => {
-    setStreamStatus('idle')
-    setCanProcessQueue(!isQueuePausedRef.current)
+  const startStreaming = useCallback(() => {
+    setStreamStatus('streaming')
+    setCanProcessQueue(false)
   }, [])
 
   return {
@@ -282,13 +304,14 @@ export const useMessageQueue = (
     addToQueue,
     addToQueueFront,
     startStreaming,
-    stopStreaming,
     setStreamStatus,
     clearStreaming,
     setCanProcessQueue,
     pauseQueue,
+    pauseQueueIfPending,
     resumeQueue,
     clearQueue,
+    discardQueue,
     isQueuePausedRef,
     isProcessingQueueRef,
   }
