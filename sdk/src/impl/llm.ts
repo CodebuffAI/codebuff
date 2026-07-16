@@ -33,7 +33,12 @@ import {
   resolveConfiguredAgentModelConfig,
 } from '../provider-config'
 import { refreshChatGptOAuthToken } from '../credentials'
-import { getErrorStatusCode, isRetryableStatusCode } from '../error-utils'
+import {
+  getProviderContentPolicyFinishError,
+  getErrorStatusCode,
+  isRetryableStatusCode,
+  normalizeProviderContentPolicyError,
+} from '../error-utils'
 import {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
@@ -52,7 +57,7 @@ import type {
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
-import type { LanguageModel } from 'ai'
+import type { GenerateObjectResult, LanguageModel } from 'ai'
 import type z from 'zod/v4'
 import { trimMessagesToFitTokenLimit } from '@codebuff/agent-runtime/util/messages'
 import {
@@ -1214,6 +1219,13 @@ export async function* promptAiSdkStream(
             }
           }
 
+          const finishReason = await response.finishReason
+          const contentPolicyError = getProviderContentPolicyFinishError({
+            finishReason,
+            model: failoverModel,
+          })
+          if (contentPolicyError) throw contentPolicyError
+
           // Stream completed successfully — collect post-stream metadata
           const responseValue = await awaitOptionalPostStreamMetadata({
             promise: response.response,
@@ -1310,7 +1322,9 @@ export async function* promptAiSdkStream(
             emitProviderStatus({ status: 'recovered', model: failoverModel })
           }
           return promptSuccess(messageId)
-        } catch (error) {
+        } catch (caughtError) {
+          const error =
+            normalizeProviderContentPolicyError(caughtError) ?? caughtError
           lastError = error
 
           // Don't retry user-cancelled requests
@@ -1499,30 +1513,40 @@ export async function promptAiSdk(
         cacheDebugCorrelation: params.cacheDebugCorrelation,
       })
 
-  const response = await generateText({
-    ...params,
-    ...(compatibility.supportsTools === false
-      ? { tools: undefined, toolChoice: undefined }
-      : {}),
-    prompt: undefined,
-    model: aiSDKModel,
-    messages: convertCbToModelMessages({
+  let response: Awaited<ReturnType<typeof generateText>>
+  try {
+    response = await generateText({
       ...params,
-      messages: getMessagesForModelContext({
-        messages: params.messages,
-        contextWindowTokens,
-        logger,
-        trackEvent: params.trackEvent,
-        userId: params.userId,
-        userInputId: params.userInputId,
-        model: effectiveModelSdk,
+      ...(compatibility.supportsTools === false
+        ? { tools: undefined, toolChoice: undefined }
+        : {}),
+      prompt: undefined,
+      model: aiSDKModel,
+      messages: convertCbToModelMessages({
+        ...params,
+        messages: getMessagesForModelContext({
+          messages: params.messages,
+          contextWindowTokens,
+          logger,
+          trackEvent: params.trackEvent,
+          userId: params.userId,
+          userInputId: params.userInputId,
+          model: effectiveModelSdk,
+        }),
+        includeCacheControl: compatibility.stripCacheControl === false,
       }),
-      includeCacheControl: compatibility.stripCacheControl === false,
-    }),
-    ...(hasProviderOptions(requestProviderOptions)
-      ? { providerOptions: requestProviderOptions }
-      : {}),
+      ...(hasProviderOptions(requestProviderOptions)
+        ? { providerOptions: requestProviderOptions }
+        : {}),
+    })
+  } catch (error) {
+    throw normalizeProviderContentPolicyError(error) ?? error
+  }
+  const contentPolicyError = getProviderContentPolicyFinishError({
+    finishReason: response.finishReason,
+    model: effectiveModelSdk,
   })
+  if (contentPolicyError) throw contentPolicyError
   emitCacheDebugProviderRequest({
     callback: params.onCacheDebugProviderRequestBuilt,
     provider: getModelProvider(aiSDKModel),
@@ -1616,31 +1640,42 @@ export async function promptAiSdkStructured<T>(
         cacheDebugCorrelation: params.cacheDebugCorrelation,
       })
 
-  const response = await generateObject<z.ZodType<T>, 'object'>({
-    ...params,
-    ...(compatibility.supportsTools === false
-      ? { tools: undefined, toolChoice: undefined }
-      : {}),
-    prompt: undefined,
-    model: aiSDKModel,
-    output: 'object',
-    messages: convertCbToModelMessages({
+  let response: GenerateObjectResult<T>
+  try {
+    response = await generateObject<z.ZodType<T>, 'object'>({
       ...params,
-      messages: getMessagesForModelContext({
-        messages: params.messages,
-        contextWindowTokens,
-        logger,
-        trackEvent: params.trackEvent,
-        userId: params.userId,
-        userInputId: params.userInputId,
-        model: effectiveModelStructured,
+      ...(compatibility.supportsTools === false
+        ? { tools: undefined, toolChoice: undefined }
+        : {}),
+      prompt: undefined,
+      model: aiSDKModel,
+      output: 'object',
+      messages: convertCbToModelMessages({
+        ...params,
+        messages: getMessagesForModelContext({
+          messages: params.messages,
+          contextWindowTokens,
+          logger,
+          trackEvent: params.trackEvent,
+          userId: params.userId,
+          userInputId: params.userInputId,
+          model: effectiveModelStructured,
+        }),
+        includeCacheControl: compatibility.stripCacheControl === false,
       }),
-      includeCacheControl: compatibility.stripCacheControl === false,
-    }),
-    ...(hasProviderOptions(requestProviderOptions)
-      ? { providerOptions: requestProviderOptions }
-      : {}),
+      ...(hasProviderOptions(requestProviderOptions)
+        ? { providerOptions: requestProviderOptions }
+        : {}),
+    })
+  } catch (error) {
+    throw normalizeProviderContentPolicyError(error) ?? error
+  }
+  const contentPolicyError = getProviderContentPolicyFinishError({
+    finishReason: response.finishReason,
+    model: effectiveModelStructured,
+    responseLabel: 'structured response',
   })
+  if (contentPolicyError) throw contentPolicyError
 
   emitCacheDebugProviderRequest({
     callback: params.onCacheDebugProviderRequestBuilt,

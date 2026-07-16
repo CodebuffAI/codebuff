@@ -8,7 +8,10 @@
  * pure-helper precedent).
  */
 
-import { getErrorStatusCode } from '../error-utils'
+import {
+  getErrorStatusCode,
+  isProviderContentPolicyError,
+} from '../error-utils'
 
 import type { LoadedProviderConfig } from '../provider-config'
 
@@ -66,12 +69,13 @@ export function resolveModelsToTry(
  * Classify whether an error is eligible to trigger failover to the next
  * configured backup provider.
  *
- * Returns true when the error carries a failover-eligible HTTP status code
- * (401/403/500/502/503/504). Non-HTTP errors (network blips, aborts, etc.)
- * are not failover-eligible — they're handled by the inner retry loop's
- * transient-error path.
+ * Returns true for explicitly classified provider content-policy errors or
+ * errors carrying a failover-eligible HTTP status code
+ * (401/403/500/502/503/504). Other non-HTTP errors (network blips, aborts,
+ * etc.) are handled by the inner retry loop's transient-error path.
  */
 export function isFailoverEligibleError(error: unknown): boolean {
+  if (isProviderContentPolicyError(error)) return true
   const statusCode = getErrorStatusCode(error)
   if (statusCode === undefined) return false
   return FAILOVER_ELIGIBLE_STATUS_CODES.has(statusCode)

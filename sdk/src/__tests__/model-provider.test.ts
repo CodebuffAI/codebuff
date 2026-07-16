@@ -9,6 +9,7 @@ import {
   markChatGptOAuthRateLimited,
   resetChatGptOAuthRateLimit,
   getModelForRequest,
+  createOpenAICompatibleHeaders,
   applyConfiguredProviderRequestCompatibility,
   normalizeAnthropicBaseURL,
   resolveModelContextWindow,
@@ -55,6 +56,21 @@ function resetEnv() {
 }
 
 describe('model-provider', () => {
+  test('uses standard OpenAI-compatible headers for every configured provider', () => {
+    expect(createOpenAICompatibleHeaders('test-key')).toEqual({
+      Authorization: 'Bearer test-key',
+      'user-agent': expect.stringMatching(
+        /^ai-sdk\/openai-compatible\/.*\/openbuff-custom-provider$/,
+      ),
+    })
+
+    expect(createOpenAICompatibleHeaders()).toEqual({
+      'user-agent': expect.stringMatching(
+        /^ai-sdk\/openai-compatible\/.*\/openbuff-custom-provider$/,
+      ),
+    })
+  })
+
   test('adaptive reasoning varies effort by agent role without selecting a model', () => {
     expect(
       selectAdaptiveReasoningEffort({ agentId: 'thinker', supported: true }),
