@@ -313,6 +313,13 @@ export enum AnalyticsEvent {
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
   DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
   DESKTOP_INLINE_AD_POOL_REUSED = 'desktop.inline_ad_pool_reused',
+  // Shutdown/crash lifecycle of harness CLI children: turns aborted at quit so
+  // their CLIs terminate, orphans from a dead orchestrator reaped at launch,
+  // and interrupted turns auto-resumed by recovery. Together these answer "how
+  // often do users hit the orphaned-CLI zombie?" in the field.
+  DESKTOP_SHUTDOWN_TURNS_ABORTED = 'desktop.shutdown_turns_aborted',
+  DESKTOP_ORPHANS_REAPED = 'desktop.orphans_reaped',
+  DESKTOP_TURNS_RESURRECTED = 'desktop.turns_resurrected',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
