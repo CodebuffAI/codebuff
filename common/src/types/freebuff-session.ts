@@ -12,20 +12,32 @@ import type { FreebuffAccessTier } from '../constants/freebuff-models'
  * Usage counter surfaced to the CLI so the UI can render
  * "N of M sessions used" alongside active state. Present when the
  * joined model consumes Freebuff sessions. `recentCount` is the
- * rounded session units since the last midnight Pacific reset at the time
- * the response was produced — see also the standalone `rate_limited` status
- * for the reject path.
+ * rounded session units since the current quota period began at the time the
+ * response was produced — see also the standalone `rate_limited` status for
+ * the reject path.
  */
+export interface FreebuffSessionEntitlementBreakdown {
+  /** Sessions included without earning a referral or streak reward. */
+  base: number
+  /** Sessions earned from the referral program for this quota period. */
+  referral: number
+  /** Sessions earned from the active streak reward for this quota period. */
+  streak: number
+}
+
 export interface FreebuffSessionRateLimit {
   model: string
+  /** Additive detail for `limit`; omitted by older servers. New servers emit it
+   * for session quotas with `limit = base + referral + streak`. */
+  entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
   limit: number
   /** 'pacific_day' for the daily premium/limited pools; 'pacific_week' for the
    *  GLM 5.2 referral pool, which resets weekly. */
   period: 'pacific_day' | 'pacific_week'
   resetTimeZone: string
   resetAt: string
-  /** Deprecated wire field kept for older clients. Session usage now resets
-   *  at midnight Pacific time rather than using a rolling window. */
+  /** Deprecated wire field kept for older clients. Session usage now follows
+   * the explicit Pacific day/week period and `resetAt`. */
   windowHours: number
   recentCount: number
 }
@@ -266,10 +278,9 @@ export type FreebuffSessionServerResponse =
     }
   | {
       /** User has used up their shared free-session quota for the current
-       *  Pacific day. Returned from POST /session before a session is started.
-       *  `retryAfterMs` is the time until the next midnight Pacific
-       *  reset. Terminal for the CLI's current poll session; the user can exit
-       *  and come back later. */
+       * Pacific day or week. Returned from POST /session before a session is
+       * started. `retryAfterMs` is the time until that period resets. Terminal
+       * for the CLI's current poll session; the user can exit and return later. */
       status: 'rate_limited'
       /** Desktop multi-session only: set to 'concurrent_sessions' when the
        *  reject is the per-user concurrent-tab backstop rather than a
@@ -280,16 +291,19 @@ export type FreebuffSessionServerResponse =
       /** The freebuff model the user tried to join. */
       model: string
       /** Max session units permitted per period (e.g. 5/day premium, or the
-       *  user's weekly GLM referral entitlement). */
+       * user's weekly GLM referral plus streak entitlement). */
       limit: number
+      /** Additive detail for `limit`; absent on older servers and non-quota
+       *  `reason`-tagged rejections such as the concurrent-session backstop. */
+      entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
       period: 'pacific_day' | 'pacific_week'
       resetTimeZone: string
       resetAt: string
       /** Deprecated wire field kept for older clients. */
       windowHours: number
-      /** Session units since today's Pacific reset — will be ≥ limit. */
+      /** Session units since the current Pacific period began — will be ≥ limit. */
       recentCount: number
-      /** Milliseconds from now until the next Pacific midnight reset. */
+      /** Milliseconds from now until the next Pacific period reset. */
       retryAfterMs: number
     }
   | {

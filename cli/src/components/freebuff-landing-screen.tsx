@@ -757,8 +757,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           )}
 
           {/* Shared free-session quota exhausted. Terminal for this run —
-              the user can exit and come
-              back once the daily Pacific reset passes. */}
+              the user can exit and return after its daily or weekly reset. */}
           {session?.status === 'rate_limited' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
@@ -769,7 +768,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                 <span fg={theme.foreground}>
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                sessions today. Try again in{' '}
+                sessions{' '}
+                {session.period === 'pacific_week' ? 'this week' : 'today'}.
+                Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
