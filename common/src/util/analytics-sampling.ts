@@ -42,6 +42,7 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.DESKTOP_HARNESS_CHANGED,
   AnalyticsEvent.DESKTOP_MODEL_CHANGED,
   AnalyticsEvent.DESKTOP_SKILL_RUN,
+  AnalyticsEvent.DESKTOP_CODEX_RESOLUTION,
   AnalyticsEvent.TERMINAL_COMMAND_COMPLETED,
   AnalyticsEvent.UPDATE_CODEBUFF_FAILED,
   AnalyticsEvent.USER_INPUT,

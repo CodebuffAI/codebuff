@@ -302,6 +302,10 @@ export enum AnalyticsEvent {
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
   DESKTOP_SKILL_RUN = 'desktop.skill_run',
   DESKTOP_QUEUE_SEND_NOW = 'desktop.queue_send_now',
+  // One-shot per process: which codex CLI the Codex harness resolved (or why
+  // none). Answers "is the packaged app finding users' codex?" in the field,
+  // where the stdout breadcrumb is unavailable.
+  DESKTOP_CODEX_RESOLUTION = 'desktop.codex_resolution',
   // Sponsored ads interspersed into the transcript (server-side ads_* events
   // in web/api/v1/ads capture the fetch/impression/click ledger; these are the
   // desktop-surface funnels).
