@@ -7,10 +7,18 @@ import {
 import {
   atlasCloudModels,
   mimoModels,
-  minimaxModels,
   moonshotModels,
   openrouterModels,
 } from './model-config'
+import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
+} from './freebuff-model-ids'
+
+export {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
+} from './freebuff-model-ids'
 
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
@@ -53,7 +61,6 @@ export interface FreebuffModelOption {
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
 export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
-export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 /** DeepSeek V4 Flash served by Fireworks instead of DeepSeek's direct API.
  *  Used only by freebuff.com/chat, where Fireworks' faster inference is worth
  *  a slightly less capable serving stack. Not in SUPPORTED_FREEBUFF_MODELS or
@@ -67,7 +74,6 @@ export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3
 export const FREEBUFF_HY3_ATLAS_MODEL_ID = atlasCloudModels.tencentHy3
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
-export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
 /** GLM 5.2 (Z.ai), served by Fireworks serverless. Unlike the other picker
