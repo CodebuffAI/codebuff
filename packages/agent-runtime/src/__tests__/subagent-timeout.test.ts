@@ -46,9 +46,9 @@ describe('resolveSubagentTimeoutMs', () => {
     expect(resolveSubagentTimeoutMs(tpl, undefined)).toBe(5 * 60 * 1000)
   })
 
-  it('falls back to the shared bounded timeout when neither is set', () => {
+  it('has no wall-clock timeout when neither override nor template default is set', () => {
     const tpl = makeTemplate()
-    expect(resolveSubagentTimeoutMs(tpl, undefined)).toBe(30 * 60 * 1000)
+    expect(resolveSubagentTimeoutMs(tpl, undefined)).toBe(-1)
   })
 
   it('override takes precedence over template default even when default is -1', () => {

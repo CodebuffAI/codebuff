@@ -14,6 +14,194 @@ import type { WorkspaceStateV1 } from '@codebuff/common/types/workspace-state'
 
 const ROOT_CONTEXT_CHARS = 36_000
 const CHILD_CONTEXT_CHARS = 14_000
+const TASK_MEMORY_REVIEW_RECEIPT_MAX_CHARS = 4_000
+
+function boundText(value: string, maxChars: number): string {
+  const normalized = value.trim()
+  if (normalized.length <= maxChars) return normalized
+  if (maxChars <= 24) return normalized.slice(0, maxChars)
+  return `${normalized.slice(0, maxChars - 15)}...[truncated]`
+}
+
+function findStructuredReviewOutput(
+  value: unknown,
+  depth = 0,
+): Record<string, unknown> | undefined {
+  if (!value || depth > 8) return undefined
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      const found = findStructuredReviewOutput(value[index], depth + 1)
+      if (found) return found
+    }
+    return undefined
+  }
+  if (typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  if (typeof record.verdict === 'string') return record
+  for (const nested of Object.values(record)) {
+    const found = findStructuredReviewOutput(nested, depth + 1)
+    if (found) return found
+  }
+  return undefined
+}
+
+function boundedStringList(
+  values: unknown,
+  maxItems: number,
+  maxChars: number,
+): string[] {
+  if (!Array.isArray(values)) return []
+  return values
+    .flatMap((value) =>
+      typeof value === 'string' && value.trim()
+        ? [boundText(value, maxChars)]
+        : [],
+    )
+    .slice(0, maxItems)
+}
+
+function serializeReviewReceiptForTaskMemory(receipt: AgentReceipt): string {
+  const review = findStructuredReviewOutput(receipt.output)
+  const reviewedFiles = boundedStringList(review?.reviewedFiles, 4, 160)
+  const findings = Array.isArray(review?.findings) ? review.findings : []
+  const findingIds = findings
+    .flatMap((finding) => {
+      if (typeof finding === 'string') return []
+      if (!finding || typeof finding !== 'object' || Array.isArray(finding)) {
+        return []
+      }
+      const id = (finding as Record<string, unknown>).id
+      return typeof id === 'string' && id.trim() ? [boundText(id, 120)] : []
+    })
+    .slice(0, 4)
+  const requirementCoverage = Array.isArray(review?.requirementCoverage)
+    ? review.requirementCoverage
+    : []
+  const requirementStatuses = requirementCoverage.reduce(
+    (counts, entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        return counts
+      }
+      const status = (entry as Record<string, unknown>).status
+      if (status === 'satisfied') counts.satisfied += 1
+      else if (status === 'missing') counts.missing += 1
+      else if (status === 'uncertain') counts.uncertain += 1
+      return counts
+    },
+    { satisfied: 0, missing: 0, uncertain: 0 },
+  )
+
+  const summary = {
+    schemaVersion: 1,
+    receiptId: boundText(receipt.receiptId, 96),
+    taskId: boundText(receipt.taskId, 96),
+    role: receipt.role,
+    agentId: boundText(receipt.agentId, 96),
+    status: receipt.status,
+    ...(receipt.workspaceRevision !== undefined
+      ? { workspaceRevision: receipt.workspaceRevision }
+      : {}),
+    ...(receipt.workspaceSnapshotId
+      ? {
+          workspaceSnapshotId: boundText(receipt.workspaceSnapshotId, 160),
+        }
+      : {}),
+    review: review
+      ? {
+          verdict:
+            typeof review.verdict === 'string'
+              ? boundText(review.verdict, 32)
+              : undefined,
+          snapshotFingerprint:
+            typeof review.snapshotFingerprint === 'string'
+              ? boundText(review.snapshotFingerprint, 256)
+              : undefined,
+          coverage:
+            typeof review.coverage === 'string'
+              ? boundText(review.coverage, 32)
+              : undefined,
+          reviewedFiles,
+          reviewedFileCount: Array.isArray(review.reviewedFiles)
+            ? review.reviewedFiles.length
+            : 0,
+          findingIds,
+          findingCount: findings.length,
+          requirementCount: requirementCoverage.length,
+          requirementStatuses,
+        }
+      : undefined,
+    changedFiles: receipt.changedFiles
+      .map((file) => boundText(file.path, 160))
+      .slice(0, 4),
+    changedFileCount: receipt.changedFiles.length,
+    evidenceCount: receipt.evidence.length,
+    unresolved: receipt.unresolved
+      .map((value) => boundText(value, 160))
+      .slice(0, 2),
+    unresolvedCount: receipt.unresolved.length,
+    requestedValidation: receipt.requestedValidation
+      .map((value) => boundText(value, 160))
+      .slice(0, 2),
+    errorMessages: receipt.errors
+      .map((error) => boundText(error.message, 160))
+      .slice(0, 2),
+    errorCount: receipt.errors.length,
+    truncated:
+      reviewedFiles.length <
+        (Array.isArray(review?.reviewedFiles)
+          ? review.reviewedFiles.length
+          : 0) ||
+      findingIds.length < findings.length ||
+      receipt.changedFiles.length > 4 ||
+      receipt.unresolved.length > 2 ||
+      receipt.requestedValidation.length > 2 ||
+      receipt.errors.length > 2,
+  }
+  const serialized = JSON.stringify(summary)
+  if (serialized.length <= TASK_MEMORY_REVIEW_RECEIPT_MAX_CHARS) {
+    return serialized
+  }
+
+  return JSON.stringify({
+    schemaVersion: 1,
+    receiptId: boundText(receipt.receiptId, 64),
+    taskId: boundText(receipt.taskId, 64),
+    role: receipt.role,
+    agentId: boundText(receipt.agentId, 64),
+    status: receipt.status,
+    ...(receipt.workspaceRevision !== undefined
+      ? { workspaceRevision: receipt.workspaceRevision }
+      : {}),
+    review: review
+      ? {
+          verdict:
+            typeof review.verdict === 'string'
+              ? boundText(review.verdict, 32)
+              : undefined,
+          snapshotFingerprint:
+            typeof review.snapshotFingerprint === 'string'
+              ? boundText(review.snapshotFingerprint, 160)
+              : undefined,
+          coverage:
+            typeof review.coverage === 'string'
+              ? boundText(review.coverage, 32)
+              : undefined,
+          reviewedFileCount: Array.isArray(review.reviewedFiles)
+            ? review.reviewedFiles.length
+            : 0,
+          findingCount: findings.length,
+          requirementCount: requirementCoverage.length,
+          requirementStatuses,
+        }
+      : undefined,
+    changedFileCount: receipt.changedFiles.length,
+    evidenceCount: receipt.evidence.length,
+    unresolvedCount: receipt.unresolved.length,
+    requestedValidationCount: receipt.requestedValidation.length,
+    errorCount: receipt.errors.length,
+    truncated: true,
+  })
+}
 
 function stableHash(text: string): string {
   let hash = 2166136261
@@ -142,41 +330,58 @@ export function mergeAgentReceiptIntoTaskMemory(params: {
   objective?: string
 }): TaskMemoryV1 {
   const { current, receipt } = params
-  const evidence: TaskMemoryEvidenceV1[] = receipt.evidence.map((item) => ({
-    id: item.id,
-    kind: item.kind === 'artifact' ? 'handoff' : item.kind,
-    summary: item.summary,
-    source: item.source ?? `${receipt.role}:${receipt.agentId}`,
-    freshnessHash: item.freshnessHash,
-    workspaceRevision: item.workspaceRevision ?? receipt.workspaceRevision,
-    verifiedAt: Date.now(),
-  }))
+  const evidence: TaskMemoryEvidenceV1[] = receipt.evidence
+    .slice(-256)
+    .map((item) => ({
+      id: boundText(item.id, 160) || 'receipt-evidence',
+      kind: item.kind === 'artifact' ? 'handoff' : item.kind,
+      summary: boundText(item.summary, 2_000),
+      source: boundText(
+        item.source ?? `${receipt.role}:${receipt.agentId}`,
+        1_000,
+      ),
+      freshnessHash: item.freshnessHash
+        ? boundText(item.freshnessHash, 256)
+        : undefined,
+      workspaceRevision: item.workspaceRevision ?? receipt.workspaceRevision,
+      verifiedAt: Date.now(),
+    }))
+  const blockers =
+    receipt.status === 'blocked' || receipt.status === 'failed'
+      ? [
+          ...receipt.unresolved.map((value) => boundText(value, 2_000)),
+          ...receipt.errors.map((error) => boundText(error.message, 2_000)),
+        ]
+      : receipt.unresolved.map((value) => boundText(value, 2_000))
   const incoming = taskMemoryDraftV1Schema.parse({
     schemaVersion: 1,
-    goal: current?.goal ?? params.objective ?? '',
+    goal: current?.goal ?? boundText(params.objective ?? '', 8_000),
     requirements: current?.requirements ?? [],
     decisions: [],
     filesInspected: evidence
       .filter((item) => item.kind === 'read')
+      .slice(-128)
       .map((item) => item.summary),
-    editsMade: receipt.changedFiles.map((file) => file.path),
+    editsMade: receipt.changedFiles
+      .slice(-128)
+      .map((file) => boundText(file.path, 1_500)),
     // Requested commands are pending work, not completed validation evidence.
     validationResults: [],
     reviewReceipts:
       receipt.role === 'reviewer' || receipt.role === 'security-reviewer'
-        ? [JSON.stringify(receipt)]
+        ? [serializeReviewReceiptForTaskMemory(receipt)]
         : [],
-    blockers:
-      receipt.status === 'blocked' || receipt.status === 'failed'
-        ? [...receipt.unresolved, ...receipt.errors.map((error) => error.message)]
-        : receipt.unresolved,
-    nextActions: receipt.requestedValidation,
+    blockers: blockers.slice(-64),
+    nextActions: receipt.requestedValidation
+      .slice(-32)
+      .map((value) => boundText(value, 2_000)),
     historicalSummary: current?.historicalSummary ?? '',
     evidence,
-    workspaceRevision:
-      receipt.workspaceRevision ?? current?.workspaceRevision,
+    workspaceRevision: receipt.workspaceRevision ?? current?.workspaceRevision,
     workspaceSnapshotId:
-      receipt.workspaceSnapshotId ?? current?.workspaceSnapshotId,
+      receipt.workspaceSnapshotId !== undefined
+        ? boundText(receipt.workspaceSnapshotId, 256)
+        : current?.workspaceSnapshotId,
   })
   const merged = mergeTaskMemoryDraft(current, incoming)
   return commitTaskMemory({

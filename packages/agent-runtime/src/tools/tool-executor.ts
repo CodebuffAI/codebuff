@@ -142,7 +142,7 @@ export function buildSpawnAgentsHandlerFailureOutput(
       return {
         agentType,
         agentName: agentType,
-        value: { errorMessage: `Agent could not be started: ${errorMessage}` },
+        value: { errorMessage: `Agent spawn failed: ${errorMessage}` },
       }
     }),
   )

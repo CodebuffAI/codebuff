@@ -204,6 +204,12 @@ describe('base2 validation/reviewer coordination prompts', () => {
     expect(base2.systemPrompt).toContain(
       'validation failure/timeout blocks completion even if review looks good',
     )
+    expect(base2.systemPrompt).toContain(
+      'Omit top-level `timeout_seconds` for editor and other productive subagents',
+    )
+    expect(base2.systemPrompt).toContain(
+      'omitted and `-1` mean no wall-clock deadline',
+    )
     expect(base2.instructionsPrompt).toContain('compact implementation brief')
     expect(base2.instructionsPrompt).toContain('pass it as the editor prompt')
     expect(base2.instructionsPrompt).toContain(
@@ -3038,6 +3044,81 @@ describe('base2 verification and reviewer gates', () => {
         ],
       }),
     ])
+  })
+
+  test('bounds durable review receipts by total serialized size', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2-custom' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'run_file_change_hooks' })
+    const reviewCall = gen.next({
+      toolResult: [{ type: 'json', value: [] }],
+    } as any).value as any
+    const snapshotFingerprint = (reviewCall.input.agents[0].prompt as string)
+      .split('Snapshot fingerprint (echo exactly): ')[1]
+      .split('\n')[0]
+    const longText = 'receipt detail '.repeat(300)
+
+    const gatePassed = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: [
+            {
+              schemaVersion: 3,
+              verdict: 'NON_BLOCKING',
+              snapshotFingerprint,
+              reviewedFiles: ['src/a.ts'],
+              coverage: 'covered',
+              dimensions: { correctness: 'pass' },
+              findings: Array.from({ length: 20 }, (_, index) => ({
+                id: `code-reviewer:correctness:finding-${index}`,
+                summary: longText,
+                severity: 'low',
+                dimension: 'correctness',
+                evidence: Array.from({ length: 8 }, () => longText),
+                correction: longText,
+              })),
+              requirementCoverage: Array.from({ length: 100 }, (_, index) => ({
+                requirement: `Requirement ${index}: ${longText}`,
+                status: 'satisfied',
+                evidence: Array.from({ length: 8 }, () => longText),
+              })),
+            },
+          ],
+        },
+      ],
+    } as any)
+
+    expect(gatePassed.value).toMatchObject({ toolName: 'add_message' })
+    const receipt = (agentState as any).base2ActiveWork.reviewReceipts[0]
+    expect(JSON.stringify(receipt).length).toBeLessThanOrEqual(4_000)
+    expect(receipt).toMatchObject({
+      findingCount: 20,
+      requirementCoverageCount: 100,
+      receiptTruncated: true,
+    })
   })
 
   test('execute-plan prompts use injected artifacts without repeated unchanged reads', () => {

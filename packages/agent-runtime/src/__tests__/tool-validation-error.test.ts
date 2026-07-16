@@ -47,8 +47,7 @@ describe('tool validation error handling', () => {
           agentType: 'editor',
           agentName: 'editor',
           value: {
-            errorMessage:
-              'Agent could not be started: Editor brief is incomplete',
+            errorMessage: 'Agent spawn failed: Editor brief is incomplete',
           },
         },
       ],

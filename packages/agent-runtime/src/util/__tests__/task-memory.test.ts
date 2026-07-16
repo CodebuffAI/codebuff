@@ -4,6 +4,7 @@ import {
   commitTaskMemory,
   compileTaskMemoryContext,
   deriveTaskMemoryDraftFromMessages,
+  mergeAgentReceiptIntoTaskMemory,
   mergeTaskMemoryDraft,
 } from '../task-memory'
 
@@ -196,5 +197,70 @@ describe('task memory', () => {
       expect(compiled).toContain('Run the matching reviewer gate')
       expect(compiled).toContain('workspace-17')
     }
+  })
+
+  test('stores oversized reviewer receipts as bounded valid JSON', () => {
+    const longEvidence = 'evidence '.repeat(300)
+    const snapshotFingerprint =
+      '42e53a6db836535c0088089375e4601d23061e52d7b44f39fa85815fc225523a'
+    const memory = mergeAgentReceiptIntoTaskMemory({
+      objective: 'Review the routed change',
+      receipt: {
+        schemaVersion: 1,
+        receiptId: 'review-receipt-1',
+        taskId: 'review-task-1',
+        role: 'reviewer',
+        agentId: 'integration-reviewer-1',
+        status: 'completed',
+        changedFiles: [],
+        requirementsAddressed: [],
+        acceptanceCriteriaAddressed: [],
+        findingsAddressed: [],
+        evidence: [
+          {
+            id: 'review-evidence-1',
+            kind: 'review',
+            summary: longEvidence,
+          },
+        ],
+        assumptions: [],
+        unresolved: [],
+        requestedValidation: [],
+        artifacts: [],
+        errors: [],
+        output: {
+          schemaVersion: 1,
+          family: 'reviewer',
+          verdict: 'LOOKS_GOOD',
+          snapshotFingerprint,
+          reviewedFiles: [
+            'client/src/routes/_index/compare.lazy.tsx',
+            'client/src/routes/_index/blog/index.lazy.tsx',
+            'client/src/routes/_index/index.lazy.tsx',
+          ],
+          coverage: 'covered',
+          dimensions: { integration: 'pass' },
+          findings: [],
+          requirementCoverage: [
+            {
+              requirement:
+                'Continue after correcting the specialist protocol output',
+              status: 'satisfied',
+              evidence: [longEvidence],
+            },
+          ],
+        },
+      },
+    })
+
+    expect(memory.reviewReceipts).toHaveLength(1)
+    expect(memory.reviewReceipts[0]!.length).toBeLessThanOrEqual(4_000)
+    const stored = JSON.parse(memory.reviewReceipts[0]!)
+    expect(stored.review).toMatchObject({
+      verdict: 'LOOKS_GOOD',
+      snapshotFingerprint,
+      reviewedFileCount: 3,
+      requirementCount: 1,
+    })
   })
 })

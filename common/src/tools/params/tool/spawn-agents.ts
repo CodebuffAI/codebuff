@@ -60,7 +60,7 @@ const inputSchema = z
             .number()
             .optional()
             .describe(
-              "Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely for a deliberately long-running agent. Defaults to the agent template's defaultTimeoutMs, or 30 minutes if unset.",
+              'Optional per-spawn wall-clock deadline in seconds. Omit it or set -1 for no timeout. Positive deadlines are opt-in and should be used only when the caller deliberately wants to stop a long-running child. A configured agent template defaultTimeoutMs still applies when present.',
             ),
           params: z
             .preprocess(

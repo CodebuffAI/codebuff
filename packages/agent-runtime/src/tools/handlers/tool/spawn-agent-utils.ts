@@ -1469,11 +1469,10 @@ export function logAgentSpawn(params: {
 /**
  * Shared wall-clock default for a single subagent execution.
  *
- * The default prevents detached or confused children from consuming provider
- * and process resources indefinitely. Genuinely long-running tasks can opt out
- * explicitly with timeout_seconds: -1 or a template-specific timeout.
+ * Productive subagents are unlimited by default. Callers can opt into a
+ * deadline with timeout_seconds or a positive template-specific timeout.
  */
-const DEFAULT_SUBAGENT_TIMEOUT_MS = 30 * 60 * 1000
+const DEFAULT_SUBAGENT_TIMEOUT_MS = -1
 
 /**
  * Resolves the wall-clock timeout (ms) for a subagent execution, in precedence
