@@ -18,8 +18,10 @@ import { useQueueUi } from './use-queue-ui'
 import { useTimeout } from './use-timeout'
 import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { hasActiveRun } from '../utils/active-run'
 import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
+import { resolveStreamStatus } from '../utils/status-indicator-state'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { PendingAttachment } from '../types/store'
@@ -129,6 +131,7 @@ export function useChatStreaming({
 
   // Pause/resume timer when ask_user tool becomes active/inactive
   const askUserState = useChatStore((state) => state.askUserState)
+  const isChainInProgress = useChatStore((state) => state.isChainInProgress)
   useEffect(() => {
     if (askUserState !== null) {
       mainAgentTimer.pause()
@@ -214,9 +217,15 @@ export function useChatStreaming({
     baseHandleCtrlC,
   })
 
-  // Derived flags
-  const isWaitingForResponse = streamStatus === 'waiting'
-  const isStreaming = streamStatus !== 'idle'
+  // Derived flags. The store-backed chain flag preserves active-run state
+  // across temporary Chat unmounts; the hook-local stream status does not.
+  const effectiveStreamStatus = resolveStreamStatus(
+    streamStatus,
+    isChainInProgress,
+    hasActiveRun(),
+  )
+  const isWaitingForResponse = effectiveStreamStatus === 'waiting'
+  const isStreaming = effectiveStreamStatus !== 'idle'
 
   return {
     // Connection state
@@ -228,7 +237,7 @@ export function useChatStreaming({
     timerStartTime,
 
     // Stream status
-    streamStatus,
+    streamStatus: effectiveStreamStatus,
     isWaitingForResponse,
     isStreaming,
     setStreamStatus,

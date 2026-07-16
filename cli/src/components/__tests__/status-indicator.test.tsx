@@ -1,10 +1,29 @@
 import { describe, test, expect } from 'bun:test'
 
-import { getStatusIndicatorState } from '../../utils/status-indicator-state'
+import {
+  getStatusIndicatorState,
+  resolveStreamStatus,
+} from '../../utils/status-indicator-state'
 
 import type { StatusIndicatorStateArgs } from '../../utils/status-indicator-state'
 
 describe('StatusIndicator state logic', () => {
+  describe('resolveStreamStatus', () => {
+    test('restores working status when Chat remounts during an active run', () => {
+      expect(resolveStreamStatus('idle', true, true)).toBe('streaming')
+    })
+
+    test('does not report a cancellable stream during preflight or after completion', () => {
+      expect(resolveStreamStatus('idle', true, false)).toBe('idle')
+      expect(resolveStreamStatus('idle', false, true)).toBe('idle')
+    })
+
+    test('preserves normal stream phases', () => {
+      expect(resolveStreamStatus('waiting', true, false)).toBe('waiting')
+      expect(resolveStreamStatus('streaming', false, false)).toBe('streaming')
+    })
+  })
+
   describe('getStatusIndicatorState', () => {
     const baseArgs: StatusIndicatorStateArgs = {
       statusMessage: null,

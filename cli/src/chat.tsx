@@ -60,6 +60,7 @@ import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
 import { reportActivity } from './utils/activity-tracker'
+import { abortActiveRun } from './utils/active-run'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
@@ -1070,7 +1071,9 @@ export const Chat = ({
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false }),
       onBackspaceExitMode: () => setInputMode('default'),
       onInterruptStream: () => {
-        abortControllerRef.current?.abort()
+        // The active-run registry survives temporary Chat unmounts; this
+        // component's local abort ref does not.
+        abortActiveRun()
         if (queuedMessages.length > 0) {
           pauseQueue()
         }
@@ -1278,7 +1281,6 @@ export const Chat = ({
       handleCloseFeedback,
       setFeedbackText,
       setInputValue,
-      abortControllerRef,
       queuedMessages.length,
       pauseQueue,
       setSlashSelectedIndex,
