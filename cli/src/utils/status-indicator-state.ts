@@ -13,23 +13,6 @@ export type StatusIndicatorState =
 
 export type AuthStatus = 'ok' | 'retrying' | 'unreachable'
 
-/**
- * The queue's stream status is local to <Chat>, while the chain flag lives in
- * the chat store. If a session gate temporarily unmounts <Chat> during a run,
- * the local status comes back as idle even though the original run continues
- * updating the shared transcript. Keep the remounted UI in an active state
- * only when that run has also reached the abortable SDK phase. The latter
- * avoids advertising a working/cancellable stream during message preflight.
- */
-export const resolveStreamStatus = (
-  streamStatus: StreamStatus,
-  isChainInProgress: boolean,
-  hasActiveRun: boolean,
-): StreamStatus =>
-  streamStatus === 'idle' && isChainInProgress && hasActiveRun
-    ? 'streaming'
-    : streamStatus
-
 export type StatusIndicatorStateArgs = {
   statusMessage?: string | null
   streamStatus: StreamStatus

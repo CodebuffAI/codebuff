@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 import stringWidth from 'string-width'
 
 import { useChatStore } from '../state/chat-store'
@@ -12,7 +12,7 @@ interface UseChatInputOptions {
   agentMode: AgentMode
   setAgentMode: (mode: AgentMode) => void
   separatorWidth: number
-  initialPrompt: string | null
+  consumeInitialPrompt: () => string | null
   onSubmitPrompt: (content: string, mode: AgentMode) => void | Promise<unknown>
   isCompactHeight: boolean
   isNarrowWidth: boolean
@@ -25,20 +25,20 @@ export const useChatInput = ({
   agentMode,
   setAgentMode,
   separatorWidth,
-  initialPrompt,
+  consumeInitialPrompt,
   onSubmitPrompt,
   isCompactHeight,
   isNarrowWidth,
 }: UseChatInputOptions) => {
-  const hasAutoSubmittedRef = useRef(false)
   const inputMode = useChatStore((state) => state.inputMode)
 
   // Estimate the collapsed toggle width as rendered by AgentModeToggle.
   // In Freebuff, the toggle is always hidden, so never reserve width for it.
   // In non-Freebuff: hide in bash mode, compact height, or narrow width.
-  const estimatedToggleWidth = IS_FREEBUFF || inputMode !== 'default' || isCompactHeight || isNarrowWidth
-    ? 0
-    : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
+  const estimatedToggleWidth =
+    IS_FREEBUFF || inputMode !== 'default' || isCompactHeight || isNarrowWidth
+      ? 0
+      : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
 
   // The content box that wraps the input row has paddingLeft/paddingRight = 1
   // (see cli/src/chat.tsx). Subtract those columns so our MultilineInput width
@@ -87,15 +87,14 @@ export const useChatInput = ({
   }, [setAgentMode, setInputValue, onSubmitPrompt])
 
   useEffect(() => {
-    if (initialPrompt && !hasAutoSubmittedRef.current) {
-      hasAutoSubmittedRef.current = true
-
+    const initialPrompt = consumeInitialPrompt()
+    if (initialPrompt) {
       setTimeout(() => {
         onSubmitPrompt(initialPrompt, agentMode)
       }, 100)
     }
     return undefined
-  }, [initialPrompt, agentMode, onSubmitPrompt])
+  }, [consumeInitialPrompt, agentMode, onSubmitPrompt])
 
   return {
     inputWidth,

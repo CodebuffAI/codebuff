@@ -30,8 +30,8 @@ import {
   type SuggestedPromptSelection,
 } from './components/suggested-prompts'
 import { TopBanner } from './components/top-banner'
+import { useChatRuntime } from './contexts/chat-runtime-context'
 import { getSlashCommandsWithSkills } from './data/slash-commands'
-import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
 import { useChatInput } from './hooks/use-chat-input'
 import {
@@ -42,13 +42,11 @@ import { useChatMessages } from './hooks/use-chat-messages'
 import { useChatState } from './hooks/use-chat-state'
 import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
-import { useSubscriptionQuery } from './hooks/use-subscription-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
 import { useGravityAd } from './hooks/use-gravity-ad'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
-import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { WEBSITE_URL } from './login/constants'
@@ -106,30 +104,24 @@ import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
 
 export const Chat = ({
-  initialPrompt,
-  agentId,
+  consumeInitialPrompt,
   fileTree,
   inputRef,
   setIsAuthenticated,
   setUser,
   logoutMutation,
-  continueChat,
-  continueChatId,
   authStatus,
   initialMode,
   gitRoot,
   onSwitchToGitRoot,
   freebuffSession,
 }: {
-  initialPrompt: string | null
-  agentId?: string
+  consumeInitialPrompt: () => string | null
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
   setUser: Dispatch<SetStateAction<User | null>>
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
-  continueChat: boolean
-  continueChatId?: string
   authStatus: AuthStatus
   initialMode?: AgentMode
   gitRoot?: string | null
@@ -145,8 +137,6 @@ export const Chat = ({
   const [showSuggestedPrompts, setShowSuggestedPrompts] = useState(
     () => IS_FREEBUFF && !hasSubmittedFirstPrompt(),
   )
-
-  const { validate: validateAgents } = useAgentValidation()
 
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
@@ -175,21 +165,17 @@ export const Chat = ({
     toggleAgentMode,
     isRetrying,
     pendingBashMessages,
-    refs: {
-      activeAgentStreamsRef,
-      isChainInProgressRef,
-      activeSubagentsRef,
-      abortControllerRef,
-      sendMessageRef,
-    },
   } = useChatState()
 
   const { statusMessage } = useClipboard()
-
-  // Fetch subscription data early - needed for session credits tracking and ad gating
-  const { data: subscriptionData } = useSubscriptionQuery({
-    refetchInterval: 60 * 1000,
-  })
+  const {
+    isChainInProgressRef,
+    abortControllerRef,
+    sendMessage,
+    clearMessages,
+    subscriptionData,
+    registerScrollToLatest,
+  } = useChatRuntime()
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
   const {
@@ -252,6 +238,11 @@ export const Chat = ({
     theme,
     markdownPalette,
   } = useChatUI({ messages, isUserCollapsing })
+
+  useEffect(
+    () => registerScrollToLatest(scrollToLatest),
+    [registerScrollToLatest, scrollToLatest],
+  )
 
   const updateHeaderVisibility = useCallback(() => {
     const header = headerRef.current
@@ -421,24 +412,18 @@ export const Chat = ({
   const {
     isConnected,
     showReconnectionMessage,
-    mainAgentTimer,
     timerStartTime,
     streamStatus,
     isWaitingForResponse,
     isStreaming,
-    setStreamStatus,
     queuedMessages,
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    addToQueueFront,
     stopStreaming,
     setCanProcessQueue,
     pauseQueue,
-    resumeQueue,
     clearQueue,
-    isQueuePausedRef,
-    isProcessingQueueRef,
     queuedCount,
     shouldShowQueuePreview,
     queuePreviewTitle,
@@ -448,14 +433,10 @@ export const Chat = ({
     ensureQueueActiveBeforeSubmit,
     nextCtrlCWillExit,
   } = useChatStreaming({
-    agentMode,
     inputValue,
     setInputValue,
     terminalWidth,
     separatorWidth,
-    isChainInProgressRef,
-    activeAgentStreamsRef,
-    sendMessageRef,
   })
 
   // When streaming completes, flush any pending bash commands into history (ghost mode only)
@@ -496,29 +477,6 @@ export const Chat = ({
       }
     }
   }, [isStreaming, pendingBashMessages, setMessages])
-
-  const { sendMessage, clearMessages } = useSendMessage({
-    inputRef,
-    activeSubagentsRef,
-    isChainInProgressRef,
-    setStreamStatus,
-    setCanProcessQueue,
-    abortControllerRef,
-    agentId,
-    onBeforeMessageSend: validateAgents,
-    mainAgentTimer,
-    scrollToLatest,
-    onTimerEvent: () => {},
-    isQueuePausedRef,
-    isProcessingQueueRef,
-    resumeQueue,
-    requeueMessageAtFront: addToQueueFront,
-    continueChat,
-    continueChatId,
-    subscriptionData,
-  })
-
-  sendMessageRef.current = sendMessage
 
   const onSubmitPrompt = useEvent(
     async (
@@ -721,7 +679,7 @@ export const Chat = ({
       agentMode,
       setAgentMode,
       separatorWidth,
-      initialPrompt,
+      consumeInitialPrompt,
       onSubmitPrompt,
       isCompactHeight,
       isNarrowWidth,

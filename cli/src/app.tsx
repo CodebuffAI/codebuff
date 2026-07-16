@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
+import { ChatRuntimeProvider } from './contexts/chat-runtime-context'
 import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
@@ -51,6 +52,14 @@ export const App = ({
   onProjectChange,
 }: AppProps) => {
   const inputRef = useRef<MultilineInputHandle | null>(null)
+  const initialPromptConsumedRef = useRef(false)
+  const consumeInitialPrompt = useCallback(() => {
+    if (!initialPrompt || initialPromptConsumedRef.current) {
+      return null
+    }
+    initialPromptConsumedRef.current = true
+    return initialPrompt
+  }, [initialPrompt])
   const {
     setInputFocused,
     setIsFocusSupported,
@@ -58,6 +67,7 @@ export const App = ({
     activeTopBanner,
     setActiveTopBanner,
     closeTopBanner,
+    chatSessionId,
   } = useChatStore(
     useShallow((store) => ({
       setInputFocused: store.setInputFocused,
@@ -66,6 +76,7 @@ export const App = ({
       activeTopBanner: store.activeTopBanner,
       setActiveTopBanner: store.setActiveTopBanner,
       closeTopBanner: store.closeTopBanner,
+      chatSessionId: store.chatSessionId,
     })),
   )
 
@@ -227,13 +238,12 @@ export const App = ({
     )
   }
 
-  // Use key to force remount when resuming a different chat from history
-  const chatKey = resumeChatId ?? 'current'
-
+  // Reset the runtime only when the active chat identity changes. View-only
+  // routes such as history and session gates keep the same key.
   return (
     <AuthedSurface
-      chatKey={chatKey}
-      initialPrompt={initialPrompt}
+      runtimeKey={chatSessionId}
+      consumeInitialPrompt={consumeInitialPrompt}
       agentId={agentId}
       fileTree={fileTree}
       inputRef={inputRef}
@@ -255,8 +265,8 @@ export const App = ({
 }
 
 interface AuthedSurfaceProps {
-  chatKey: string
-  initialPrompt: string | null
+  runtimeKey: string
+  consumeInitialPrompt: () => string | null
   agentId?: string
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
@@ -282,17 +292,33 @@ interface AuthedSurfaceProps {
  * so `useFreebuffSession` runs exactly once per authed session (not before
  * we have a token).
  */
-const AuthedSurface = ({
-  chatKey,
-  initialPrompt,
-  agentId,
+const AuthedSurface = (props: AuthedSurfaceProps) => {
+  const { session, error: sessionError } = useFreebuffSession()
+
+  return (
+    <ChatRuntimeProvider
+      key={props.runtimeKey}
+      agentId={props.agentId}
+      inputRef={props.inputRef}
+      continueChat={props.continueChat}
+      continueChatId={props.continueChatId}
+    >
+      <AuthedSurfaceRoutes
+        {...props}
+        session={session}
+        sessionError={sessionError}
+      />
+    </ChatRuntimeProvider>
+  )
+}
+
+const AuthedSurfaceRoutes = ({
+  consumeInitialPrompt,
   fileTree,
   inputRef,
   setIsAuthenticated,
   setUser,
   logoutMutation,
-  continueChat,
-  continueChatId,
   authStatus,
   initialMode,
   gitRoot,
@@ -301,9 +327,12 @@ const AuthedSurface = ({
   onSelectChat,
   onCancelChatHistory,
   onNewChat,
-}: AuthedSurfaceProps) => {
-  const { session, error: sessionError } = useFreebuffSession()
-
+  session,
+  sessionError,
+}: AuthedSurfaceProps & {
+  session: ReturnType<typeof useFreebuffSession>['session']
+  sessionError: ReturnType<typeof useFreebuffSession>['error']
+}) => {
   // Terminal state: a 409 from the gate means another CLI rotated our
   // instance id. Show a dedicated screen and stop polling — don't fall back
   // into the pre-chat screen, which would look like normal startup progress.
@@ -352,16 +381,12 @@ const AuthedSurface = ({
 
   return (
     <Chat
-      key={chatKey}
-      initialPrompt={initialPrompt}
-      agentId={agentId}
+      consumeInitialPrompt={consumeInitialPrompt}
       fileTree={fileTree}
       inputRef={inputRef}
       setIsAuthenticated={setIsAuthenticated}
       setUser={setUser}
       logoutMutation={logoutMutation}
-      continueChat={continueChat}
-      continueChatId={continueChatId}
       authStatus={authStatus}
       initialMode={initialMode}
       gitRoot={gitRoot}

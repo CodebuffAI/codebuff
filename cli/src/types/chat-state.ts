@@ -4,10 +4,7 @@
  */
 
 // Re-export types from the extracted hooks
-export type {
-  ChatStateRefs,
-  UseChatStateReturn,
-} from '../hooks/use-chat-state'
+export type { UseChatStateReturn } from '../hooks/use-chat-state'
 
 export type {
   UseChatMessagesOptions,

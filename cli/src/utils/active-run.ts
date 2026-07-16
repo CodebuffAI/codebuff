@@ -16,11 +16,6 @@ export function clearActiveRunAborter(ownerId: string): void {
   }
 }
 
-/** Whether a run has reached the abortable SDK phase. */
-export function hasActiveRun(): boolean {
-  return activeRun !== null
-}
-
 /** Abort the in-flight agent run, if any. Safe to call when idle. */
 export function abortActiveRun(): void {
   activeRun?.abort()

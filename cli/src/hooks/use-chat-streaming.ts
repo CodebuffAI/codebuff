@@ -1,43 +1,32 @@
 /**
- * Chat streaming hook - connection status, timer, queue management, and exit handling.
+ * Chat view adapter for connection status, queue presentation, and exit handling.
  */
 
 import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState, useTransition } from 'react'
 
-
 import { authQueryKeys } from './use-auth-query'
 import { useConnectionStatus } from './use-connection-status'
-import { useElapsedTime } from './use-elapsed-time'
 import { useExitHandler } from './use-exit-handler'
-import { holdsLiveFreebuffSlot } from './use-freebuff-session'
-import { useMessageQueue, type QueuedMessage, type StreamStatus } from './use-message-queue'
 import { useQueueControls } from './use-queue-controls'
 import { useQueueUi } from './use-queue-ui'
 import { useTimeout } from './use-timeout'
-import { useChatStore } from '../state/chat-store'
-import { useFreebuffSessionStore } from '../state/freebuff-session-store'
-import { hasActiveRun } from '../utils/active-run'
-import { IS_FREEBUFF } from '../utils/constants'
-import { logger } from '../utils/logger'
-import { resolveStreamStatus } from '../utils/status-indicator-state'
+import { useChatRuntime } from '../contexts/chat-runtime-context'
 
-import type { ElapsedTimeTracker } from './use-elapsed-time'
+import type { QueuedMessage, StreamStatus } from './use-message-queue'
 import type { PendingAttachment } from '../types/store'
-import type { SendMessageFn } from '../types/contracts/send-message'
-import type { AgentMode } from '../utils/constants'
 import type { MutableRefObject } from 'react'
 
 export interface UseChatStreamingOptions {
-  agentMode: AgentMode
   inputValue: string
-  setInputValue: (value: { text: string; cursorPosition: number; lastEditDueToNav: boolean }) => void
+  setInputValue: (value: {
+    text: string
+    cursorPosition: number
+    lastEditDueToNav: boolean
+  }) => void
   terminalWidth: number
   separatorWidth: number
-  isChainInProgressRef: MutableRefObject<boolean>
-  activeAgentStreamsRef: MutableRefObject<number>
-  sendMessageRef: MutableRefObject<SendMessageFn | undefined>
 }
 
 export interface UseChatStreamingReturn {
@@ -46,28 +35,22 @@ export interface UseChatStreamingReturn {
   showReconnectionMessage: boolean
 
   // Timer
-  mainAgentTimer: ElapsedTimeTracker
   timerStartTime: number | null
 
   // Stream status
   streamStatus: StreamStatus
   isWaitingForResponse: boolean
   isStreaming: boolean
-  setStreamStatus: (status: StreamStatus) => void
 
   // Queue management
   queuedMessages: QueuedMessage[]
   queuePaused: boolean
   streamMessageIdRef: MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
-  addToQueueFront: (message: QueuedMessage) => void
   stopStreaming: () => void
   setCanProcessQueue: (value: boolean | ((prev: boolean) => boolean)) => void
   pauseQueue: () => void
-  resumeQueue: () => void
   clearQueue: () => QueuedMessage[]
-  isQueuePausedRef: MutableRefObject<boolean>
-  isProcessingQueueRef: MutableRefObject<boolean>
 
   // Queue UI
   queuedCount: number
@@ -83,17 +66,14 @@ export interface UseChatStreamingReturn {
 }
 
 export function useChatStreaming({
-  agentMode,
   inputValue,
   setInputValue,
   terminalWidth,
   separatorWidth,
-  isChainInProgressRef,
-  activeAgentStreamsRef,
-  sendMessageRef,
 }: UseChatStreamingOptions): UseChatStreamingReturn {
   const queryClient = useQueryClient()
   const [, startUiTransition] = useTransition()
+  const runtime = useChatRuntime()
 
   // Reconnection state
   const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
@@ -125,67 +105,21 @@ export function useChatStreaming({
   // Connection status
   const isConnected = useConnectionStatus(handleReconnection)
 
-  // Timer
-  const mainAgentTimer = useElapsedTime()
-  const timerStartTime = mainAgentTimer.startTime
-
-  // Pause/resume timer when ask_user tool becomes active/inactive
-  const askUserState = useChatStore((state) => state.askUserState)
-  const isChainInProgress = useChatStore((state) => state.isChainInProgress)
-  useEffect(() => {
-    if (askUserState !== null) {
-      mainAgentTimer.pause()
-    } else if (mainAgentTimer.isPaused) {
-      mainAgentTimer.resume()
-    }
-  }, [askUserState, mainAgentTimer])
-
-  // Freebuff: once the free session is fully over (no live slot — not even
-  // the post-expiry grace window), hold queued messages instead of firing
-  // them. Without this, pending tasks queued before the session ended keep
-  // dispatching after the hard cutoff and get rejected by the server's
-  // session gate one by one. The hold lifts automatically when the user
-  // rejoins (SessionEndedBanner → refreshFreebuffSession → status 'active'),
-  // so queued work resumes in the new session.
-  const freebuffSession = useFreebuffSessionStore((s) => s.session)
-  const sendBlocked = IS_FREEBUFF && !holdsLiveFreebuffSlot(freebuffSession)
-  // Log the transition once, not per render — the hold can last indefinitely.
-  useEffect(() => {
-    if (sendBlocked) {
-      logger.info(
-        {},
-        '[chat-streaming] Freebuff session over; holding queued messages until rejoin',
-      )
-    }
-  }, [sendBlocked])
-
-  // Message queue
   const {
+    timerStartTime,
     queuedMessages,
     streamStatus,
+    isWaitingForResponse,
+    isStreaming,
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    addToQueueFront,
     stopStreaming,
-    setStreamStatus,
     setCanProcessQueue,
     pauseQueue,
     resumeQueue,
     clearQueue,
-    isQueuePausedRef,
-    isProcessingQueueRef,
-  } = useMessageQueue(
-    (message: QueuedMessage) =>
-      sendMessageRef.current?.({
-        content: message.content,
-        agentMode,
-        attachments: message.attachments,
-      }) ?? Promise.resolve(),
-    isChainInProgressRef,
-    activeAgentStreamsRef,
-    { sendBlocked },
-  )
+  } = runtime
 
   // Queue UI
   const {
@@ -217,44 +151,28 @@ export function useChatStreaming({
     baseHandleCtrlC,
   })
 
-  // Derived flags. The store-backed chain flag preserves active-run state
-  // across temporary Chat unmounts; the hook-local stream status does not.
-  const effectiveStreamStatus = resolveStreamStatus(
-    streamStatus,
-    isChainInProgress,
-    hasActiveRun(),
-  )
-  const isWaitingForResponse = effectiveStreamStatus === 'waiting'
-  const isStreaming = effectiveStreamStatus !== 'idle'
-
   return {
     // Connection state
     isConnected,
     showReconnectionMessage,
 
     // Timer
-    mainAgentTimer,
     timerStartTime,
 
     // Stream status
-    streamStatus: effectiveStreamStatus,
+    streamStatus,
     isWaitingForResponse,
     isStreaming,
-    setStreamStatus,
 
     // Queue management
     queuedMessages,
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    addToQueueFront,
     stopStreaming,
     setCanProcessQueue,
     pauseQueue,
-    resumeQueue,
     clearQueue,
-    isQueuePausedRef,
-    isProcessingQueueRef,
 
     // Queue UI
     queuedCount,

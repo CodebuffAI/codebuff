@@ -16,10 +16,7 @@ import { createRunConfig } from '../utils/create-run-config'
 import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
-import {
-  clearActiveRunAborter,
-  setActiveRunAborter,
-} from '../utils/active-run'
+import { clearActiveRunAborter, setActiveRunAborter } from '../utils/active-run'
 import {
   clearLiveChatStateProvider,
   loadMostRecentChatState,
@@ -685,6 +682,13 @@ export const useSendMessage = ({
         // aborted run resolving late can't clear a newer run's provider.
         clearLiveChatStateProvider(aiMessageId)
         clearActiveRunAborter(aiMessageId)
+        // Do not leave a completed controller reachable through command
+        // handlers. Aborting that stale controller later (for example on
+        // logout) would re-run its abort listener and mutate a completed turn.
+        // Identity guarding preserves a newer run that may already own the ref.
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null
+        }
         // If this run was aborted, the abort handler already released the chain lock
         // and queue processing state. Don't touch shared state here to avoid
         // interfering with any new run that may have started after the abort.
