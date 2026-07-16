@@ -35,6 +35,13 @@ export type FreebuffSessionRateLimitByModel = Record<
   FreebuffSessionRateLimit
 >
 
+/** Timing needed by multi-session clients to show the active session window. */
+export interface FreebuffActiveSessionInfo {
+  model: string
+  admittedAt: string
+  expiresAt: string
+}
+
 /**
  * Referral status surfaced to the CLI model-selector so it can render an
  * "invite friends" banner. The reward depends on the session's access tier:
