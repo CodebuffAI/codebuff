@@ -198,7 +198,9 @@ const MIMO_V25_PRO_MODEL = {
   tagline: 'Smartest & Slow',
   availability: 'always',
   premium: true,
-  multimodal: true,
+  // The Pro endpoint is text-only. Sending image content makes the provider
+  // reject the request, unlike the non-Pro MiMo 2.5 endpoint.
+  multimodal: false,
 } as const satisfies FreebuffModelOption
 
 const KIMI_MODEL = {
@@ -394,16 +396,17 @@ export const FREEBUFF_MULTI_SESSION_HEADER = 'x-freebuff-multi-session'
 
 /** Models that accept image input. Used to decide whether uploaded images are
  *  forwarded to the model as real multimodal content. */
-export const FREEBUFF_MULTIMODAL_MODEL_IDS = [
-  FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
-] as const
+export const FREEBUFF_MULTIMODAL_MODEL_IDS = Object.freeze(
+  SUPPORTED_FREEBUFF_MODELS.filter((model) => model.multimodal).map(
+    (model) => model.id,
+  ),
+)
 
-export const FREEBUFF_WEB_MULTIMODAL_MODEL_IDS = [
-  ...FREEBUFF_MULTIMODAL_MODEL_IDS,
-] as const
+export const FREEBUFF_WEB_MULTIMODAL_MODEL_IDS = Object.freeze(
+  FREEBUFF_WEB_ALL_MODELS.filter((model) => model.multimodal).map(
+    (model) => model.id,
+  ),
+)
 
 /** Free-mode models whose chat-completion traces we store in our own dataset
  *  (chat_completion_traces). Derived from the picker's data-collection warning
@@ -715,6 +718,30 @@ export function isFreebuffMultimodalModelId(
 ): boolean {
   if (!id) return false
   return FREEBUFF_MULTIMODAL_MODEL_IDS.some((modelId) => modelId === id)
+}
+
+/**
+ * Return whether a model used by a Freebuff surface accepts image input.
+ * Unknown models return undefined so the provider backend does not strip
+ * images from newly added or paid models until their capability is known.
+ */
+export function getFreebuffModelImageSupport(
+  id: string | null | undefined,
+): boolean | undefined {
+  if (!id) return undefined
+
+  // Freebuff Web Chat serves this DeepSeek variant through Fireworks rather
+  // than the normal Freebuff picker, so it does not have a model option entry.
+  if (
+    freebuffModelIdMatches(id, FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID)
+  ) {
+    return false
+  }
+
+  const model = FREEBUFF_WEB_ALL_MODELS.find((option) =>
+    freebuffModelIdMatches(id, option.id),
+  )
+  return model?.multimodal
 }
 
 export function isFreebuffWebMultimodalModelId(

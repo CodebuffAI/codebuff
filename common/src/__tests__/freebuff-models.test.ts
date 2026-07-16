@@ -20,19 +20,23 @@ import {
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MODELS,
   FREEBUFF_WEB_GOD_ONLY_MODELS,
+  FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffModelImageSupport,
   getFreebuffWebModel,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
   isFreebuffDeploymentHours,
   isFreebuffTracedModelId,
   isFreebuffModelId,
+  isFreebuffMultimodalModelId,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
   isFreebuffWebGodOnlyModelId,
   isFreebuffWebModelId,
+  isFreebuffWebMultimodalModelId,
   isFreebuffWebPremiumModelId,
   isSupportedFreebuffModelId,
   resolveFreebuffWebModel,
@@ -130,6 +134,27 @@ describe('freebuff model availability', () => {
 
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(true)
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
+    expect(getFreebuffModelImageSupport(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(true)
+    expect(getFreebuffModelImageSupport(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
+      false,
+    )
+  })
+
+  test('reports image support only for known Freebuff models', () => {
+    expect(
+      getFreebuffModelImageSupport(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
+    ).toBe(false)
+    expect(getFreebuffModelImageSupport(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(
+      getFreebuffModelImageSupport('vendor/new-vision-model'),
+    ).toBeUndefined()
+
+    for (const model of SUPPORTED_FREEBUFF_MODELS) {
+      expect(isFreebuffMultimodalModelId(model.id)).toBe(model.multimodal)
+    }
+    for (const model of FREEBUFF_WEB_ALL_MODELS) {
+      expect(isFreebuffWebMultimodalModelId(model.id)).toBe(model.multimodal)
+    }
   })
 
   test('Kimi K2.7 Code is offered in pickers and server-supported for full mode', () => {
