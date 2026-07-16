@@ -1,5 +1,3 @@
-import { isExplicitlyDefinedModel } from '../util/model-utils'
-
 // Allowed model prefixes for validation
 export const ALLOWED_MODEL_PREFIXES = [
   'anthropic',
@@ -174,6 +172,13 @@ export const providerModelNames = {
 }
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
+
+const explicitlyDefinedModels = new Set<string>(Object.values(models))
+
+/** Whether `model` is one of the statically configured model IDs. */
+export function isExplicitlyDefinedModel(model: Model): boolean {
+  return explicitlyDefinedModels.has(model)
+}
 
 const nonCacheableModels = [
   models.openrouter_grok_4,

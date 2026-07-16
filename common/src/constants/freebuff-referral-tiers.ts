@@ -91,9 +91,7 @@ export const FREEBUFF_WEB_REFERRAL_LIMIT = 20
 /**
  * A referral can only be attributed within this many days of the referred
  * user's signup — stops a referrer from claiming long-pre-existing accounts.
- * (Lived in packages/billing's referral-program.ts as the legacy redeem gate;
- * hoisted here so the unified referral_v2 attribution path can enforce it too,
- * without a billing→billing import cycle.)
+ * Shared by the unified referral_v2 redemption path and its clients.
  */
 export const REFERRAL_SIGNUP_WINDOW_DAYS = 30
 

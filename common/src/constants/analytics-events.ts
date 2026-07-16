@@ -197,12 +197,7 @@ export enum AnalyticsEvent {
   FREEBUFF_REFERRER_ATTRIBUTED = 'freebuff.referrer_attributed',
 
   // Freebuff - Referral program server lifecycle (emitted from packages/billing
-  // via the server logger → Axiom `event` column). Funnel: redeemed → completed
-  // (both low-volume per-referral transitions). The "why is this still pending"
-  // breakdown (account_too_new / no_github_account / not_activated) is NOT a
-  // per-evaluation event — that would fire on every live trigger and dominate
-  // ingest; it rides on `sweep`, which aggregates outcomes across the whole
-  // pending population once per run (see ReferralSweepResult.outcomes).
+  // via the server logger → Axiom `event` column).
   FREEBUFF_REFERRAL_REDEEMED = 'freebuff.referral.redeemed',
   // A redemption attempt that hit one of the one-shot eligibility guards
   // (signup_too_old, user_banned, referrer_limit_reached, reverse_referral,
@@ -220,9 +215,6 @@ export enum AnalyticsEvent {
   // suspicious when corroborated by real farm signals (dormant GitHub, burst
   // velocity, no product use); the sweep + scripts do that weighing.
   FREEBUFF_REFERRAL_SOCK_SIGNAL = 'freebuff.referral.sock_signal',
-  FREEBUFF_REFERRAL_COMPLETED = 'freebuff.referral.completed',
-  FREEBUFF_REFERRAL_SWEEP = 'freebuff.referral.sweep',
-
   // Freebuff - Get Started Page (referral onboarding funnel, in order:
   //   viewed → sign_in_clicked → signed_in → eligibility_resolved →
   //   [connect_github_clicked] → install_command_copied | web_clicked).
