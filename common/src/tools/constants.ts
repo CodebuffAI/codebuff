@@ -18,6 +18,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'create_plan',
   'render_ui',
   'suggest_followups',
+  'suggest_prompts',
   'task_completed',
 ]
 

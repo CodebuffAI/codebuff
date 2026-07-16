@@ -286,6 +286,55 @@ describe('runAgentStep - set_output tool', () => {
     expect(result.agentState.output).toEqual({})
   })
 
+  it('ends the step after suggest_prompts without requiring a follow-up response', async () => {
+    const suggestAgent: AgentTemplate = {
+      ...testAgent,
+      toolNames: ['suggest_prompts', 'end_turn'],
+    }
+    const fileContextWithSuggest: ProjectFileContext = {
+      ...mockFileContext,
+      customToolDefinitions: {
+        suggest_prompts: {
+          inputSchema: {
+            type: 'object',
+            properties: {
+              response: { type: 'string' },
+              prompts: { type: 'array' },
+            },
+            required: ['response', 'prompts'],
+          },
+          description: 'Finish with the answer and suggest next prompts',
+          // This legacy flag is intentionally false: loop termination comes
+          // from TOOLS_WHICH_WONT_FORCE_NEXT_STEP, not the obsolete stop hint.
+          endsAgentStep: false,
+        },
+      },
+    }
+    const sessionState = getInitialSessionState(fileContextWithSuggest)
+    runAgentStepBaseParams.promptAiSdkStream = async function* () {
+      yield createToolCallChunk('suggest_prompts', {
+        response: 'Finished.',
+        prompts: [{ prompt: 'Add tests' }],
+      })
+      return promptSuccess('mock-message-id')
+    }
+    runAgentStepBaseParams.requestToolCall = async () => ({
+      output: [{ type: 'json', value: { ok: true } }],
+    })
+
+    const result = await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: suggestAgent.id,
+      localAgentTemplates: { [suggestAgent.id]: suggestAgent },
+      agentTemplate: suggestAgent,
+      agentState: sessionState.mainAgentState,
+      fileContext: fileContextWithSuggest,
+      prompt: 'Finish the task',
+    })
+
+    expect(result.shouldEndTurn).toBe(true)
+  })
+
   it('should handle handleSteps with one tool call and STEP_ALL', async () => {
     // Create a mock agent template with handleSteps
     const mockAgentTemplate: AgentTemplate = {
