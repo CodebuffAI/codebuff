@@ -242,7 +242,7 @@ export interface ReadDocsParams {
   libraryTitle: string
   /** Specific topic to focus on (e.g., "routing", "hooks", "authentication") */
   topic: string
-  /** Optional maximum number of tokens to return. Defaults to 20000. Values less than 10000 are automatically increased to 10000. */
+  /** Optional maximum number of tokens to return. Defaults to 10000. */
   max_tokens?: number
 }
 

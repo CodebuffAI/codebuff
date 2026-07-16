@@ -1,53 +1,88 @@
-import { withTimeout } from '@codebuff/common/util/promise'
-
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
 
-const CONTEXT7_API_BASE_URL = 'https://context7.com/api/v1'
+import { countTokens } from '../util/token-counter'
+
+const CONTEXT7_API_BASE_URL = 'https://context7.com/api/v2'
 const DEFAULT_TYPE = 'txt'
 const FETCH_TIMEOUT_MS = 10_000
 
-export interface SearchResponse {
-  results: Array<{
-    id: string
-    title: string
-    description: string
-    branch: string
-    lastUpdateDate: string
-    state: DocumentState
-    totalTokens: number
-    totalSnippets: number
-    totalPages: number
-    stars?: number
-    trustScore?: number
-  }>
-}
-
 type DocumentState = 'initial' | 'finalized' | 'error' | 'delete'
+
 export interface SearchResult {
   id: string
-  title: string
-  description: string
-  branch: string
-  lastUpdateDate: string
-  state: DocumentState
-  totalTokens: number
-  totalSnippets: number
-  totalPages: number
+  title?: string
+  description?: string
+  branch?: string
+  lastUpdateDate?: string
+  state?: DocumentState
+  totalTokens?: number
+  totalSnippets?: number
+  totalPages?: number
   stars?: number
   trustScore?: number
+}
+
+export interface SearchResponse {
+  results: SearchResult[]
+}
+
+type Context7RequestParams = {
+  query: string
+  topic?: string
+  logger: Logger
+  fetch: typeof globalThis.fetch
+}
+
+function isSearchResult(value: unknown): value is SearchResult {
+  if (!value || typeof value !== 'object') return false
+  const id = (value as { id?: unknown }).id
+  return typeof id === 'string' && id.startsWith('/') && id.length > 1
+}
+
+function getRequestHeaders(includeSource = false): Record<string, string> {
+  const headers: Record<string, string> = {}
+  const apiKey = process.env['CONTEXT7_API_KEY']
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+  if (includeSource) headers['X-Context7-Source'] = 'codebuff'
+  return headers
+}
+
+function truncateToTokenBudget(text: string, maxTokens?: number): string {
+  if (!maxTokens || countTokens(text) <= maxTokens) return text
+
+  let low = 0
+  let high = text.length
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2)
+    if (countTokens(text.slice(0, middle)) <= maxTokens) {
+      low = middle
+    } else {
+      high = middle - 1
+    }
+  }
+
+  // Avoid returning half of a UTF-16 surrogate pair.
+  if (
+    low > 0 &&
+    low < text.length &&
+    text.charCodeAt(low - 1) >= 0xd800 &&
+    text.charCodeAt(low - 1) <= 0xdbff
+  ) {
+    low--
+  }
+  return text.slice(0, low)
 }
 
 /**
  * Lists all available documentation projects from Context7
  * @returns Array of projects with their metadata, or null if the request fails
  */
-export async function searchLibraries(params: {
-  query: string
-  logger: Logger
-  fetch: typeof globalThis.fetch
-}): Promise<SearchResult[] | null> {
-  const { query, logger, fetch } = params
+export async function searchLibraries(
+  params: Context7RequestParams,
+): Promise<SearchResult[] | null> {
+  const { query, topic, logger, fetch } = params
+  const libraryName = query.trim()
+  const contextQuery = topic?.trim() || libraryName
 
   const searchStartTime = Date.now()
   const searchContext = {
@@ -55,19 +90,21 @@ export async function searchLibraries(params: {
     queryLength: query.length,
   }
 
+  if (!libraryName) {
+    logger.warn(searchContext, 'Library search requires a non-empty name')
+    return null
+  }
+
   try {
-    const url = new URL(`${CONTEXT7_API_BASE_URL}/search`)
-    url.searchParams.set('query', query)
+    const url = new URL(`${CONTEXT7_API_BASE_URL}/libs/search`)
+    url.searchParams.set('libraryName', libraryName)
+    url.searchParams.set('query', contextQuery)
 
     const fetchStartTime = Date.now()
-    const response = await withTimeout(
-      fetch(url, {
-        headers: {
-          Authorization: `Bearer ${process.env['CONTEXT7_API_KEY']}`,
-        },
-      }),
-      FETCH_TIMEOUT_MS,
-    )
+    const response = await fetch(url, {
+      headers: getRequestHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
     const fetchDuration = Date.now() - fetchStartTime
 
     if (!response.ok) {
@@ -86,9 +123,31 @@ export async function searchLibraries(params: {
 
     const parseStartTime = Date.now()
     const responseBody = await response.json()
-    const projects = responseBody as SearchResponse
     const parseDuration = Date.now() - parseStartTime
     const totalDuration = Date.now() - searchStartTime
+    const rawResults = (responseBody as Partial<SearchResponse>)?.results
+    if (!Array.isArray(rawResults)) {
+      logger.error(
+        {
+          ...searchContext,
+          fetchDuration,
+          parseDuration,
+          totalDuration,
+        },
+        'Library search returned an invalid response',
+      )
+      return null
+    }
+    const results = rawResults.filter(isSearchResult)
+    if (results.length !== rawResults.length) {
+      logger.warn(
+        {
+          ...searchContext,
+          invalidResultsCount: rawResults.length - results.length,
+        },
+        'Library search discarded invalid results',
+      )
+    }
 
     logger.debug(
       {
@@ -96,13 +155,13 @@ export async function searchLibraries(params: {
         fetchDuration,
         parseDuration,
         totalDuration,
-        resultsCount: projects.results?.length || 0,
+        resultsCount: results.length,
         success: true,
       },
       'Library search completed successfully',
     )
 
-    return projects.results
+    return results
   } catch (error) {
     const totalDuration = Date.now() - searchStartTime
     logger.error(
@@ -132,23 +191,17 @@ export async function searchLibraries(params: {
  * @returns The documentation text or null if the request fails
  */
 export async function fetchContext7LibraryDocumentation(
-  params: {
-    query: string
+  params: Context7RequestParams & {
     tokens?: number
-    topic?: string
-    folders?: string
-    logger: Logger
-    fetch: typeof globalThis.fetch
-  } & ParamsOf<typeof searchLibraries>,
+  },
 ): Promise<string | null> {
-  const { query, tokens, topic, folders, logger, fetch } = params
+  const { query, tokens, topic, logger, fetch } = params
 
   const apiStartTime = Date.now()
   const apiContext = {
     query,
     requestedTokens: tokens,
     topic,
-    folders,
   }
 
   const searchStartTime = Date.now()
@@ -187,25 +240,19 @@ export async function fetchContext7LibraryDocumentation(
   )
 
   try {
-    const url = new URL(`${CONTEXT7_API_BASE_URL}/${libraryId}`)
-    if (tokens) url.searchParams.set('tokens', tokens.toString())
-    if (topic) url.searchParams.set('topic', topic)
-    if (folders) url.searchParams.set('folders', folders)
+    const url = new URL(`${CONTEXT7_API_BASE_URL}/context`)
+    url.searchParams.set('libraryId', libraryId)
+    url.searchParams.set('query', topic?.trim() || query.trim())
     url.searchParams.set('type', DEFAULT_TYPE)
 
     const fetchStartTime = Date.now()
-    const response = await withTimeout(
-      fetch(url, {
-        headers: {
-          Authorization: `Bearer ${process.env['CONTEXT7_API_KEY']}`,
-          'X-Context7-Source': 'codebuff',
-        },
-      }),
-      FETCH_TIMEOUT_MS,
-    )
+    const response = await fetch(url, {
+      headers: getRequestHeaders(true),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
     const fetchDuration = Date.now() - fetchStartTime
 
-    if (!response.ok) {
+    if (!response.ok || response.status === 202) {
       logger.error(
         {
           ...apiContext,
@@ -226,10 +273,11 @@ export async function fetchContext7LibraryDocumentation(
     const parseDuration = Date.now() - parseStartTime
     const totalDuration = Date.now() - apiStartTime
 
+    const normalizedText = text.trim()
     if (
-      !text ||
-      text === 'No content available' ||
-      text === 'No context data available'
+      !normalizedText ||
+      normalizedText === 'No content available' ||
+      normalizedText === 'No context data available'
     ) {
       logger.warn(
         {
@@ -247,7 +295,8 @@ export async function fetchContext7LibraryDocumentation(
       return null
     }
 
-    const estimatedTokens = Math.ceil(text.length / 4) // Rough token estimate
+    const documentation = truncateToTokenBudget(text, tokens)
+    const estimatedTokens = countTokens(documentation)
     logger.info(
       {
         ...apiContext,
@@ -257,14 +306,14 @@ export async function fetchContext7LibraryDocumentation(
         fetchDuration,
         parseDuration,
         totalDuration,
-        responseLength: text.length,
+        responseLength: documentation.length,
         estimatedTokens,
         success: true,
       },
       'Documentation fetch completed successfully',
     )
 
-    return text
+    return documentation
   } catch (error) {
     const totalDuration = Date.now() - apiStartTime
     logger.error(
