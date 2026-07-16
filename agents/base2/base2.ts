@@ -236,6 +236,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Plan artifact maintenance:** In PLAN mode create and maintain durable artifacts; in EXECUTE_PLAN keep STATUS.md and LESSONS.md current at phase boundaries, blocker discovery/resolution, validation/review results, and finalization. Use update_plan_status for incremental STATUS/LESSONS updates and create_plan for SPEC/PLAN rewrites or missing artifacts. Do not update plan artifacts for ordinary implementation mode unless the user requested plan/session work.
 - **Tool choice:** Prefer dedicated tools over shell fallbacks: repository status and configured file-change hooks are runtime-owned and injected automatically; use read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, write_file for new or whole-file rewrites, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
+- **Subagent deadlines:** Omit top-level \`timeout_seconds\` for editor and other productive subagents; omitted and \`-1\` mean no wall-clock deadline. Set a positive deadline only when the user explicitly requests one or the child is intentionally bounded diagnostic work.
 - **Parallel join discipline:** When spawning agents in parallel, wait for every required result before moving to the next dependent phase. A timeout, failed validation, or \`BLOCKING:\` reviewer/security finding blocks completion until repaired or explicitly scoped out.
 - **Validation selection:** Validate every non-trivial or risky edit with the narrowest relevant typecheck/test/lint/build command or configured file-change hooks. Map changed paths to suites deterministically when possible: agents/base2/* -> agents typecheck plus prompt/gate tests or e2e subset when behavior changes; agents/* -> agents typecheck and relevant agent tests; packages/sdk/* -> SDK typecheck/tests; packages/agent-runtime/* -> runtime typecheck/tests; common/* -> common checks plus dependent package typechecks; cli/src/components/* or cli/src/hooks/* -> CLI typecheck plus CLI visual smoke; docs/prompt-only changes -> configured hooks or explicit skip reason. Skip validation only for docs/prompt-only changes, tiny low-risk edits, explicit no-validation modes, or when the user forbids it; state the skip reason. Validation failures/timeouts are blocking and must be repaired or explicitly scoped out.
 - **Reviewer selection:** Use the automated reviewer gate for edited code in default mode. Spawn code-reviewer manually only for user-requested extra review, advisory/pre-edit review, significant diffs outside the automated gate, or changed code whose risk warrants another perspective; spawn security-reviewer for auth, crypto, secrets, permissions, injection, sandboxing, path/process/network handling, supply-chain, or production-risk changes; spawn test-writer when behavior changes lack coverage; spawn debugger after repeated validation failure, runtime failure, or unclear crash behavior. Do not duplicate the same post-edit review manually.
@@ -3781,25 +3782,161 @@ ${specialistRoutingSection}
         ) {
           return
         }
+        const MAX_RECEIPT_TEXT_LENGTH = 240
+        const MAX_RECEIPT_EVIDENCE_ITEMS = 3
+        const MAX_RECEIPT_EVIDENCE_LENGTH = 240
+        const MAX_SERIALIZED_RECEIPT_LENGTH = 4_000
+
+        function compactReceiptString(
+          value: string,
+          maxLength: number,
+        ): string {
+          const normalized = value.replace(/\s+/g, ' ').trim()
+          return normalized.length > maxLength
+            ? `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`
+            : normalized
+        }
+
+        function compactReceiptEvidence(values: string[]): {
+          evidence: string[]
+          evidenceCount: number
+          evidenceTruncated?: boolean
+        } {
+          const evidenceCount = values.filter((value) => value.trim()).length
+          const evidence = values
+            .filter((value) => value.trim())
+            .slice(0, MAX_RECEIPT_EVIDENCE_ITEMS)
+            .map((value) =>
+              compactReceiptString(value, MAX_RECEIPT_EVIDENCE_LENGTH),
+            )
+          const evidenceTruncated =
+            evidenceCount > evidence.length ||
+            values.some(
+              (value) =>
+                value.replace(/\s+/g, ' ').trim().length >
+                MAX_RECEIPT_EVIDENCE_LENGTH,
+            )
+          return {
+            evidence,
+            evidenceCount,
+            ...(evidenceTruncated ? { evidenceTruncated: true } : {}),
+          }
+        }
+
+        function fitReceiptToStorageBound(
+          receipt: Base2ReviewReceipt,
+        ): Base2ReviewReceipt {
+          if (JSON.stringify(receipt).length <= MAX_SERIALIZED_RECEIPT_LENGTH) {
+            return receipt
+          }
+          const compacted: Base2ReviewReceipt = {
+            ...receipt,
+            reviewedFiles: receipt.reviewedFiles
+              .slice(0, 4)
+              .map((value) => compactReceiptString(value, 180)),
+            dimensions: {},
+            findings: receipt.findings.slice(0, 2).map((finding) => ({
+              ...finding,
+              id: compactReceiptString(finding.id, 160),
+              text: compactReceiptString(finding.text, 180),
+              evidence: finding.evidence
+                .slice(0, 1)
+                .map((value) => compactReceiptString(value, 180)),
+              evidenceTruncated:
+                finding.evidenceTruncated || finding.evidence.length > 1,
+              ...(finding.correction
+                ? {
+                    correction: compactReceiptString(finding.correction, 180),
+                  }
+                : {}),
+            })),
+            requirementCoverage: receipt.requirementCoverage
+              .slice(0, 2)
+              .map((coverage) => ({
+                ...coverage,
+                requirement: compactReceiptString(coverage.requirement, 180),
+                evidence: coverage.evidence
+                  .slice(0, 1)
+                  .map((value) => compactReceiptString(value, 180)),
+                evidenceTruncated:
+                  coverage.evidenceTruncated || coverage.evidence.length > 1,
+              })),
+            receiptTruncated: true,
+          }
+          if (
+            JSON.stringify(compacted).length <= MAX_SERIALIZED_RECEIPT_LENGTH
+          ) {
+            return compacted
+          }
+          return {
+            ...compacted,
+            reviewedFiles: [],
+            findings: [],
+            requirementCoverage: [],
+            dimensions: {},
+          }
+        }
+
         const gateId = `${reviewer}:${expectedFingerprint}`
+        const reviewedFiles = normalizeGateFileList(result.reviewedFiles ?? [])
         const receipt: Base2ReviewReceipt = {
           gateId,
           reviewer,
           verdict: result.verdict,
           snapshotFingerprint:
             result.snapshotFingerprint ?? expectedFingerprint,
-          reviewedFiles: normalizeGateFileList(result.reviewedFiles ?? []),
+          reviewedFiles: reviewedFiles.map((value) =>
+            compactReceiptString(value, MAX_RECEIPT_TEXT_LENGTH),
+          ),
+          reviewedFileCount: reviewedFiles.length,
           ...(result.coverage ? { coverage: result.coverage } : {}),
           dimensions: result.dimensions ?? {},
-          findings: result.findingRecords ?? [],
-          requirementCoverage: result.requirementCoverage ?? [],
+          findings: (result.findingRecords ?? []).map((finding) => {
+            const compactEvidence = compactReceiptEvidence(finding.evidence)
+            const correction =
+              typeof finding.correction === 'string'
+                ? compactReceiptString(
+                    finding.correction,
+                    MAX_RECEIPT_TEXT_LENGTH,
+                  )
+                : undefined
+            const correctionTruncated =
+              typeof finding.correction === 'string' &&
+              finding.correction.replace(/\s+/g, ' ').trim().length >
+                MAX_RECEIPT_TEXT_LENGTH
+            return {
+              id: compactReceiptString(finding.id, MAX_RECEIPT_TEXT_LENGTH),
+              text: compactReceiptString(finding.text, MAX_RECEIPT_TEXT_LENGTH),
+              ...(typeof finding.severity === 'string'
+                ? { severity: finding.severity }
+                : {}),
+              ...(typeof finding.dimension === 'string'
+                ? { dimension: finding.dimension }
+                : {}),
+              ...compactEvidence,
+              ...(correction ? { correction } : {}),
+              ...(correctionTruncated ? { correctionTruncated: true } : {}),
+            }
+          }),
+          findingCount: (result.findingRecords ?? []).length,
+          requirementCoverage: (result.requirementCoverage ?? []).map(
+            (coverage) => ({
+              requirement: compactReceiptString(
+                coverage.requirement,
+                MAX_RECEIPT_TEXT_LENGTH,
+              ),
+              status: coverage.status,
+              ...compactReceiptEvidence(coverage.evidence),
+            }),
+          ),
+          requirementCoverageCount: (result.requirementCoverage ?? []).length,
           recordedAt: new Date().toISOString(),
         }
         activeWorkState.reviewReceipts = [
           ...(activeWorkState.reviewReceipts ?? []).filter(
             (existing) => existing.gateId !== gateId,
           ),
-          receipt,
+          fitReceiptToStorageBound(receipt),
         ].slice(-24)
       }
 

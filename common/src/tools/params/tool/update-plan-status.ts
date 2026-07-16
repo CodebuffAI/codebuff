@@ -139,7 +139,10 @@ const inputSchema = z
         phase: z.enum(['validation', 'review']),
         passed: z.boolean(),
         summary: z.string().optional(),
-        receiptIds: z.array(z.string().min(1)).min(1).optional(),
+        receiptIds: z
+          .array(z.string().min(1))
+          .transform((ids) => (ids.length > 0 ? ids : undefined))
+          .optional(),
       })
       .optional()
       .describe(

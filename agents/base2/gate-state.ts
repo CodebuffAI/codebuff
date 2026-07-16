@@ -25,6 +25,7 @@ export type Base2ReviewReceipt = {
   verdict: 'LOOKS_GOOD' | 'NON_BLOCKING'
   snapshotFingerprint: string
   reviewedFiles: string[]
+  reviewedFileCount?: number
   coverage?: 'covered' | 'missing' | 'n/a'
   dimensions: Record<string, string>
   findings: Array<{
@@ -33,13 +34,21 @@ export type Base2ReviewReceipt = {
     severity?: string
     dimension?: string
     evidence: string[]
+    evidenceCount?: number
+    evidenceTruncated?: boolean
     correction?: string
+    correctionTruncated?: boolean
   }>
+  findingCount?: number
   requirementCoverage: Array<{
     requirement: string
     status: string
     evidence: string[]
+    evidenceCount?: number
+    evidenceTruncated?: boolean
   }>
+  requirementCoverageCount?: number
+  receiptTruncated?: boolean
   recordedAt: string
 }
 

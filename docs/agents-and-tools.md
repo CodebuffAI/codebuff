@@ -73,7 +73,7 @@ diagnostics (`file`, range, severity, code, message, command, source) while the
 original bounded stdout/stderr remains available for recovery.
 
 - Automated security/test/doc auxiliary agents have explicit lifecycle handling. Their done flags are written only after successful completion; crashes and blocking security verdicts persist as blockers. Test/doc writers run automatically only when the user request explicitly includes those deliverables, and mixed-package test targets are routed to package-specific commands.
-- Productive agent steps are unlimited by default. A repeated-step watchdog stops identical no-progress loops, while cancellation, subagent wall-clock timeouts, cost/token budgets, spawn-depth limits, and context compaction remain independent safeguards. Users may still configure a positive `maxAgentSteps` fixed cap; `-1` explicitly selects unlimited mode. Reviewer crashes retry once; repeated crashes require the explicit user phrase `bypass reviewer gate` before finalization can continue.
+- Productive agent steps and subagent wall-clock duration are unlimited by default. A repeated-step watchdog stops identical no-progress loops, while cancellation, explicitly configured subagent deadlines, cost/token budgets, spawn-depth limits, and context compaction remain independent safeguards. Users may still configure a positive `maxAgentSteps`, agent-template `defaultTimeoutMs`, or per-spawn `timeout_seconds` cap; `-1` explicitly selects unlimited mode. Reviewer crashes retry once; repeated crashes require the explicit user phrase `bypass reviewer gate` before finalization can continue.
 - Root-orchestrator mutating/control gate operations such as Git-status observation, file-change hooks, and structural inventory are model-hidden programmatic tools. Their results are injected when needed, so the harness remains active without paying for those schemas on every provider request. The read-only `get_change_review_bundle` tool remains model-visible so an orchestrator can refresh a stale reviewer snapshot after compaction. Fresh greetings and simple gratitude prompts take a narrow conversational fast path only when no pending work or reviewer blocker exists.
 
 **Pattern-specific agents** are intentionally **excluded** from `spawnableAgents` because they have a narrow contract that only makes sense within a specific workflow pattern. They are spawned by the pattern flow itself, not by the orchestrator:
@@ -937,8 +937,9 @@ Input fields:
 - `handoff` (object, optional) — structured handoff payload forwarded to
   the child spawn entry.
 - `background` (boolean, optional) — launches the child as a background job.
-- `timeout_seconds` (number, optional) — per-spawn wall-clock deadline; `-1`
-  disables the deadline.
+- `timeout_seconds` (number, optional) — opt-in per-spawn wall-clock deadline.
+  Omit it or pass `-1` for no deadline. A positive agent-template
+  `defaultTimeoutMs` remains an explicit configuration override.
 
 `spawn_agents.agents` also performs bounded repair for one- or
 double-stringified arrays and stringified object entries. Malformed or
