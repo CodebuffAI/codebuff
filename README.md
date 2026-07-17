@@ -244,3 +244,6 @@ Some ways you can help:
 **Community & Support**: [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues)
 
 **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
+
+**Some Free Credits For Testing**
+https://vsllm.com/register?aff=xTrg
