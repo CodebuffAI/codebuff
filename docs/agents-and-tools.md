@@ -56,7 +56,8 @@ The root orchestrator has a versioned, local control-plane surface for work that
 - `run_targeted_validation` executes only an explicitly selected target against an expected snapshot and rejects stale or mid-run-mutated snapshots.
 - `inspect_codebase_structure` creates the authoritative snapshot-bound audit inventory, including subsystems, entrypoints, routes, commands, public APIs, tests, generated sources, and a detected language/framework capability packet.
 - `inspect_feature_completeness` follows a claimed feature vertically across runtime wiring, consumers, tests, docs, and failure-state evidence.
-- `evaluate_audit_coverage` blocks a complete audit while structural receipts, feature evidence, or explicit out-of-scope decisions are missing.
+- `write_audit_findings` returns a snapshot-bound `structuralReceipt` when the shard supplies the exact snapshot and explicit domain coverage, and `inspect_feature_completeness` returns a `coverageReceipt`; pass those receipts directly to `evaluate_audit_coverage` instead of reconstructing them from prose or count summaries. Feature receipts remain heuristic until their cited files are verified with exact reads.
+- `evaluate_audit_coverage` blocks a complete audit while structural receipts, verified feature evidence, or explicit out-of-scope decisions are missing. It accepts legacy camelCase receipt fields and the old `api-abi` domain as compatibility inputs, normalizing them to the canonical contract.
 
 Cross-subsystem requests automatically invoke the structural inventory before the first model step. The legacy structural-map script is only a human-readable renderer over this inventory; normal CLI correctness does not depend on running it or writing into `.agents/`.
 

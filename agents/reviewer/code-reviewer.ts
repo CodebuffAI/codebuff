@@ -123,6 +123,8 @@ You must call \`set_output\` with one object that satisfies the declared output 
 
 Pass structured fields as native object values. Never call \`JSON.stringify\`, never put serialized JSON text inside \`data\`, and never wrap the result in a Markdown fence. Keep the receipt compact: deduplicate findings, use at most 12 findings, and use at most 2 concise evidence strings per requirement.
 
+Type check before calling \`set_output\`: \`schemaVersion\` is the number \`1\`; \`reviewedFiles\`, \`findings\`, and \`requirementCoverage\` are arrays; \`dimensions\` is an object. For example, use \`reviewedFiles: ["src/a.ts"]\`, never \`reviewedFiles: "[\\\"src/a.ts\\\"]"\`. A successful file read plus prose or stringified fields is not a completed review receipt.
+
 NOTE: You cannot make any changes directly! The only tool you may call is read_files (to gather review context). You can only suggest changes; you cannot apply them, run validation, or spawn agents.
 
 # Guidelines

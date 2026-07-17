@@ -31,20 +31,28 @@ export function inspectFeatureCompletenessTool(
       errorMessage:
         'The codebase snapshot is stale. Re-run inspect_codebase_structure.',
     })
-  return json(
-    inspectFeatureCompleteness(
-      cwd,
-      input.feature,
-      inventory,
-    ) as unknown as JSONObject,
-  )
+  const record = inspectFeatureCompleteness(cwd, input.feature, inventory)
+  const { failureStates, ...evidence } = record.evidence
+  return json({
+    ...record,
+    coverageReceipt: {
+      schema_version: 1,
+      snapshot_id: inventory.snapshotId,
+      feature: record.feature,
+      evidence_kind: record.evidenceKind,
+      evidence: {
+        ...evidence,
+        failure_states: failureStates,
+      },
+    },
+  } as unknown as JSONObject)
 }
 
 type FeatureReceiptInput = {
   schema_version: 1
   snapshot_id: string
   feature: string
-  evidence_kind: 'verified'
+  evidence_kind: 'heuristic' | 'verified'
   evidence: {
     entrypoints: string[]
     implementation: string[]

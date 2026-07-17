@@ -249,7 +249,7 @@ export interface EndTurnParams {}
  * Parameters for edit_transaction tool
  */
 export interface EditTransactionParams {
-  edits:
+  edits: (
     | {
         /** Optional stable edit identifier echoed in diagnostics. */
         id?: string
@@ -361,7 +361,8 @@ export interface EditTransactionParams {
         path: string
         type: 'write_file'
         content: string
-      }[]
+      }
+  )[]
 }
 
 /**
@@ -482,7 +483,7 @@ export interface EvaluateAuditCoverageParams {
     shard_id: string
     subsystem_ids: string[]
     files: string[]
-    domains:
+    domains: (
       | 'security'
       | 'correctness'
       | 'state-mutation'
@@ -490,13 +491,14 @@ export interface EvaluateAuditCoverageParams {
       | 'performance'
       | 'dependency-hygiene'
       | 'test-coverage'
-      | 'api-contract'[]
+      | 'api-contract'
+    )[]
   }[]
   features: {
     schema_version: 1
     snapshot_id: string
     feature: string
-    evidence_kind: 'verified'
+    evidence_kind: 'heuristic' | 'verified'
     evidence: {
       entrypoints: string[]
       implementation: string[]
@@ -1055,6 +1057,8 @@ export interface WriteAuditFindingsParams {
   sessionSlug: string
   /** Unique shard identifier used as the findings filename. */
   shardId: string
+  /** Exact snapshotId returned by inspect_codebase_structure. Required for a directly composable structuralReceipt; omitted only for legacy callers. */
+  snapshotId?: string
   findings: {
     severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
     domain:
@@ -1065,6 +1069,7 @@ export interface WriteAuditFindingsParams {
       | 'performance'
       | 'dependency-hygiene'
       | 'test-coverage'
+      | 'api-contract'
       | 'api-abi'
     path: string
     line?: number
@@ -1077,6 +1082,16 @@ export interface WriteAuditFindingsParams {
     subsystemIds: string[]
     featureIds: string[]
     files: string[]
+    domains?: (
+      | 'security'
+      | 'correctness'
+      | 'state-mutation'
+      | 'error-handling'
+      | 'performance'
+      | 'dependency-hygiene'
+      | 'test-coverage'
+      | 'api-contract'
+    )[]
   }
   noIssuesFound?: boolean
 }

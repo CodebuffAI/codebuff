@@ -9,7 +9,11 @@ import {
   inspectCodebaseStructure,
   inspectFeatureCompleteness,
 } from '../services/audit-intelligence'
-import { evaluateAuditCoverageParams } from '../../../common/src/tools/params/tool/audit-intelligence'
+import { inspectFeatureCompletenessTool } from '../tools/audit-intelligence'
+import {
+  auditCoverageDomains,
+  evaluateAuditCoverageParams,
+} from '../../../common/src/tools/params/tool/audit-intelligence'
 
 const roots: string[] = []
 afterEach(() => {
@@ -52,6 +56,28 @@ describe('native audit intelligence', () => {
     expect(inventory.subsystems.map((item) => item.id)).toContain('cli')
     expect(inventory.commands).toContain('cli/commands/resume-plan.ts')
     expect(inventory.capabilityPacket.languages).toContain('typescript')
+  })
+
+  test('keeps SDK and tool-schema audit domains aligned', () => {
+    expect(auditDomains).toEqual(auditCoverageDomains)
+  })
+
+  test('returns a snapshot-bound feature coverage receipt', () => {
+    const root = fixture()
+    const inventory = inspectCodebaseStructure(root)
+    const result = inspectFeatureCompletenessTool(root, {
+      feature: 'resume plan',
+      snapshot_id: inventory.snapshotId,
+    })
+    const value = result[0]?.type === 'json' ? result[0].value : undefined
+    expect(value).toMatchObject({
+      coverageReceipt: {
+        schema_version: 1,
+        snapshot_id: inventory.snapshotId,
+        feature: 'resume plan',
+        evidence_kind: 'heuristic',
+      },
+    })
   })
 
   test('evaluates vertical feature evidence and blocks uncovered structure', () => {
@@ -107,6 +133,85 @@ describe('native audit intelligence', () => {
         featureRecords: [],
       }).complete,
     ).toBe(false)
+  })
+
+  test('normalizes composable audit receipts and keeps heuristic evidence incomplete', () => {
+    const parsed = evaluateAuditCoverageParams.inputSchema.safeParse({
+      snapshotId: 'snapshot-1',
+      structuralReceipts: [
+        {
+          schemaVersion: 1,
+          snapshotId: 'snapshot-1',
+          shardId: 'server-shard',
+          subsystemIds: ['server'],
+          files: ['server/src/index.ts'],
+          domains: ['correctness', 'api-abi'],
+        },
+      ],
+      featureReceipts: [
+        {
+          schemaVersion: 1,
+          snapshotId: 'snapshot-1',
+          feature: 'review flow',
+          evidenceKind: 'heuristic',
+          evidence: {
+            entrypoints: ['server/src/index.ts'],
+            implementation: ['server/src/reviewer.ts'],
+            consumers: ['server/src/index.ts'],
+            tests: ['server/src/reviewer.test.ts'],
+            docs: ['README.md'],
+            failureStates: ['server/src/reviewer.ts'],
+          },
+        },
+      ],
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.data.structural_receipts[0]).toMatchObject({
+      schema_version: 1,
+      snapshot_id: 'snapshot-1',
+      shard_id: 'server-shard',
+      subsystem_ids: ['server'],
+      domains: ['correctness', 'api-contract'],
+    })
+    expect(parsed.data.features[0]).toMatchObject({
+      schema_version: 1,
+      snapshot_id: 'snapshot-1',
+      evidence_kind: 'heuristic',
+      evidence: { failure_states: ['server/src/reviewer.ts'] },
+    })
+  })
+
+  test('rejects receipts that do not carry their own snapshot identity', () => {
+    const parsed = evaluateAuditCoverageParams.inputSchema.safeParse({
+      snapshot_id: 'snapshot-1',
+      structural_receipts: [
+        {
+          schema_version: 1,
+          shard_id: 'server-shard',
+          subsystem_ids: ['server'],
+          files: ['server/src/index.ts'],
+          domains: ['correctness'],
+        },
+      ],
+      features: [
+        {
+          schema_version: 1,
+          feature: 'review flow',
+          evidence_kind: 'heuristic',
+          evidence: {
+            entrypoints: [],
+            implementation: [],
+            consumers: [],
+            tests: [],
+            docs: [],
+            failure_states: [],
+          },
+        },
+      ],
+    })
+
+    expect(parsed.success).toBe(false)
   })
 
   test('requires snapshot-bound files, all domains, and verified feature evidence', () => {
