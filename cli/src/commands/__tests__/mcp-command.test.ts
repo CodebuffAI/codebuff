@@ -9,6 +9,10 @@ import {
   formatMcpStatusForCli,
   handleMcpCommand,
 } from '../mcp-command'
+import {
+  sanitizeErrorForDisplay,
+  truncateError,
+} from '@codebuff/common/mcp/client'
 
 import type { RouterParams } from '../command-registry'
 import type { ChatMessage } from '../../types/chat'
@@ -313,5 +317,132 @@ describe('/mcp command does not break other commands', () => {
     const fb = findCommand('feedback')
     expect(fb).toBeDefined()
     expect(fb!.name).toBe('feedback')
+  })
+})
+
+// ============================================================================
+// Sanitization and truncation
+// ============================================================================
+
+describe('sanitizeErrorForDisplay', () => {
+  test('redacts OpenAI-style secret keys', () => {
+    const input = 'Error: Invalid API key sk-proj-abcdefghijklmnopqrstuvwxyZ1234567890abcd'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('sk-proj-abcdefghijklmnopqrstuvwxyZ1234567890abcd')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts Bearer tokens', () => {
+    const input = 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz1234567890abcdefghij'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('Bearer abcdefghijklmnopqrstuvwxyz1234567890abcdefghij')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts GitHub tokens', () => {
+    const input = 'Failed to clone: ghp_abcdefghijklmnopqrstuvwxyz1234567890abcdef'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz1234567890abcdef')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts api_key patterns', () => {
+    const input = 'Using api_key=abcdefghijklmnopqrstuvwxyz1234567890'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('api_key=')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts token= patterns', () => {
+    const input = 'Setting token=mysecrettokenvalue123456789'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('token=mysecrettokenvalue123456789')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts password= patterns', () => {
+    const input = 'password=hunter2!@#$%^&*'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('password=hunter2')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('passes through safe messages unchanged', () => {
+    const input = 'Process exited with code 1. Failed to start MCP server.'
+    expect(sanitizeErrorForDisplay(input)).toBe(input)
+  })
+
+  test('redacts multiple occurrences', () => {
+    const input = 'sk-abcdefghijklmnopqrstuvwxyz1 failed, then sk-abcdefghijklmnopqrstuvwxyz2 also failed'
+    const result = sanitizeErrorForDisplay(input)
+    expect(result).not.toContain('sk-abcdefghijklmnopqrstuvwxyz1')
+    expect(result).not.toContain('sk-abcdefghijklmnopqrstuvwxyz2')
+    // Both should be replaced with the placeholder
+    expect((result.match(/<REDACTED>/g) || []).length).toBe(2)
+  })
+})
+
+describe('truncateError', () => {
+  test('short messages pass through', () => {
+    const input = 'short error'
+    expect(truncateError(input, 2000)).toBe(input)
+  })
+
+  test('truncates long messages at newline boundary', () => {
+    const input = 'line one\nline two\nline three\nline four\nline five'
+    const result = truncateError(input, 20)
+    expect(result).toContain('… (truncated)')
+    // Should break at newline boundary
+    expect(result).toContain('line one')
+    expect(result).not.toContain('line five')
+  })
+
+  test('truncates at space boundary when no newline found', () => {
+    const input = 'word1 word2 word3 word4 word5 word6'
+    const result = truncateError(input, 15)
+    expect(result).toContain('… (truncated)')
+  })
+
+  test('truncates at hard limit when no boundary found', () => {
+    const veryLongWord = 'x'.repeat(5000)
+    const result = truncateError(veryLongWord, 100)
+    expect(result.length).toBeLessThan(5000)
+    expect(result).toContain('… (truncated)')
+  })
+})
+
+describe('formatMcpStatusForCli with error labels', () => {
+  test('shows failed server with error label', () => {
+    const output = formatMcpStatusForCli({
+      servers: [
+        {
+          name: 'broken',
+          transport: 'stdio',
+          connected: false,
+          toolCount: null,
+          configPath: '/project/.agents/mcp.json',
+          errorLabel: 'Connection refused: process exited before initialization',
+        },
+      ],
+      configPath: '/project/.agents/mcp.json',
+    })
+    expect(output).toContain('✗')
+    expect(output).toContain('broken')
+    expect(output).toContain('failed')
+    expect(output).toContain('Connection refused')
+  })
+
+  test('shows sanitized error when error contains credentials', () => {
+    // The buildMcpStatusReport already applies sanitizeErrorForDisplay
+    // through getMCPClientConnectionInfo. This test verifies the format
+    // layer handles sanitized content.
+    const output = formatMcpStatusForCli({
+      servers: [
+        {
+          name: 'leaky',
+          transport: 'http',
+          connected: false,
+          toolCount: null,
+          configPath: '/project/.agents/mcp.json',
+          errorLabel: 'Unauthorized: invalid <REDACTED>',
+        },
+      ],
+      configPath: '/project/.agents/mcp.json',
+    })
+    expect(output).toContain('<REDACTED>')
   })
 })

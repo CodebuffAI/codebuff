@@ -2,11 +2,15 @@ import { loadMCPConfigSync } from '@codebuff/sdk'
 import {
   getMCPClientConnectionInfo,
   hashMcpConfig,
+  sanitizeErrorForDisplay,
+  truncateError,
 } from '@codebuff/common/mcp/client'
 
 import { getSystemMessage } from '../utils/message-history'
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
+
+const MAX_ERROR_LENGTH = 2000
 
 // ============================================================================
 // Public API
@@ -42,10 +46,10 @@ export function buildMcpStatusReport(): {
       connected: info.connected,
       toolCount: info.toolCount,
       configPath: loaded._sourceFilePath,
-      errorLabel: null, // Runtime errors are logged server-side; the client
-                        // knows a failed connection only when the agent
-                        // attempted to use the server. We still show it as
-                        // connected=false with no error in that case.
+      errorLabel:
+        info.errorLabel !== null
+          ? truncateError(info.errorLabel, MAX_ERROR_LENGTH)
+          : null,
     })
   }
 
