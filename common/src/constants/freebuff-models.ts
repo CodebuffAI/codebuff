@@ -93,6 +93,10 @@ export const FREEBUFF_ENABLE_STREAK_IN_UI = true
 export const FREEBUFF_FORCE_LIMITED_MODE = false
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
 export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
+/** Full-access Web/Cloud models outside the premium/referral pools. The CLI
+ * keeps these models unlimited; browser surfaces cap fresh sessions to deter
+ * automated project/session churn. */
+export const FREEBUFF_WEB_STANDARD_SESSION_LIMIT = 6
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
 /** GLM 5.2 referral-reward session pool. Distinct from the premium daily pool:
@@ -118,6 +122,10 @@ export const FREEBUFF_GLM_V52_SESSION_LENGTH_MS = 60 * 60 * 1000
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
+export const FREEBUFF_WEB_STANDARD_SESSION_RESET_TIMEZONE =
+  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
+export const FREEBUFF_WEB_STANDARD_SESSION_PERIOD =
+  FREEBUFF_PREMIUM_SESSION_PERIOD
 
 /**
  * Streak rewards. Once a user reaches a `FREEBUFF_STREAK_REWARD_INTERVAL_DAYS`
@@ -335,6 +343,13 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
 ] as const
+
+/** Full-access Web/Cloud models sharing the browser-only standard daily pool. */
+export const FREEBUFF_WEB_STANDARD_MODEL_IDS = Object.freeze(
+  FREEBUFF_WEB_ALL_MODELS.filter((model) => !model.premium).map(
+    (model) => model.id,
+  ),
+)
 
 /** Models unlocked by referrals, metered by the weekly GLM session pool rather
  *  than the daily premium pool. Kept separate from FREEBUFF_PREMIUM_MODEL_IDS
