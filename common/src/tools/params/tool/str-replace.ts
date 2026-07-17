@@ -7,7 +7,7 @@ import {
   normalizeReplacementAliases,
   normalizeReplacementList,
 } from '../utils'
-import { basedOnReadSchema } from '../based-on-read'
+import { basedOnReadSchema, canonicalBasedOnReadSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
 
 import type { $ToolParams } from '../../constants'
@@ -128,6 +128,22 @@ const inputSchema = z
       .describe('Array of replacements to make.'),
   })
   .describe(`Replace strings in a file with new strings.`)
+const providerInputSchema = z.object({
+  path: z.string().min(1).describe('The file to edit.'),
+  atomic: z.boolean().optional().default(false),
+  replacements: z
+    .array(
+      z.object({
+        oldString: z.string().min(1),
+        newString: z.string(),
+        allowMultiple: z.boolean().optional().default(false),
+        occurrenceIndex: z.number().int().min(1).optional(),
+        basedOnRead: canonicalBasedOnReadSchema,
+        skipIfMissing: z.boolean().optional(),
+      }),
+    )
+    .min(1),
+})
 const description = `
 Use this tool to make edits within existing files.
 
@@ -184,5 +200,6 @@ export const strReplaceParams = {
   endsAgentStep,
   description,
   inputSchema,
+  providerInputSchema,
   outputSchema: jsonToolResultSchema(updateFileResultSchema),
 } satisfies $ToolParams

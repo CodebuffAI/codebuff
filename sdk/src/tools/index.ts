@@ -10,6 +10,7 @@ import { getFiles, getFilesStructured } from './read-files'
 import { replaceRange } from './replace-range'
 import { runFileChangeHooks } from './file-change-hooks'
 import { runTerminalCommand } from './run-terminal-command'
+import { writeAuditFindings } from './write-audit-findings'
 
 export {
   FilesystemAuthority,
@@ -66,4 +67,5 @@ export const ToolHelpers = {
   changeFiles,
   applyPatchTool,
   readImages,
+  writeAuditFindings,
 }

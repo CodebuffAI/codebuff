@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import { createBase2 } from './base2/base2'
 import { createCodeEditor } from './editor/editor'
+import { createGeneralAgent } from './general-agent/general-agent'
 import thinker from './thinker/thinker'
 import { quarantinedToolNames } from '@codebuff/common/tools/constants'
 
@@ -16,18 +17,17 @@ import { quarantinedToolNames } from '@codebuff/common/tools/constants'
  * read_slices remains registered for compatibility but is not prompt-visible.
  *
  * Every orchestrator mode must expose structural reads. Every non-plan
- * orchestrator also retains the authority-backed direct edit tools so prompt
- * guidance can never recommend an unavailable recovery path. The obsolete
- * proposal indirection is absent from every bundled orchestrator mode.
+ * orchestrator exposes one canonical transaction surface; compatibility edit
+ * tools stay registered at runtime without bloating model-visible tool lists.
+ * The obsolete proposal indirection is absent from every bundled mode.
  */
 const STRUCTURAL_READ_TOOLS = ['read_outline'] as const
-const DIRECT_EDIT_TOOLS = [
+const LEGACY_DIRECT_EDIT_TOOLS = [
   'str_replace',
   'write_file',
   'apply_patch',
   'replace_range',
   'rewrite_symbol',
-  'edit_transaction',
 ] as const
 const PROPOSAL_TOOLS = [
   'read_proposal_workspace',
@@ -51,9 +51,9 @@ describe('agent tool reachability', () => {
         expect(tools).toContain(tool)
       }
       expect(tools).toContain('read_files')
-      for (const tool of DIRECT_EDIT_TOOLS) {
-        expect(tools).toContain(tool)
-      }
+      expect(tools).toContain('edit_transaction')
+      for (const tool of LEGACY_DIRECT_EDIT_TOOLS)
+        expect(tools).not.toContain(tool)
       for (const tool of PROPOSAL_TOOLS) {
         expect(tools).not.toContain(tool)
       }
@@ -65,7 +65,9 @@ describe('agent tool reachability', () => {
 
   test('execute-plan exposes direct execution without proposal indirection', () => {
     const tools = createBase2('default', { executePlan: true }).toolNames ?? []
-    for (const tool of DIRECT_EDIT_TOOLS) expect(tools).toContain(tool)
+    expect(tools).toContain('edit_transaction')
+    for (const tool of LEGACY_DIRECT_EDIT_TOOLS)
+      expect(tools).not.toContain(tool)
     expect(tools).toContain('run_terminal_command')
     expect(tools).toContain('run_targeted_validation')
     expect(tools).toContain('get_change_review_bundle')
@@ -74,17 +76,36 @@ describe('agent tool reachability', () => {
 
   test('plan-only excludes project execution and proposal actions', () => {
     const tools = createBase2('default', { planOnly: true }).toolNames ?? []
-    for (const tool of DIRECT_EDIT_TOOLS) expect(tools).not.toContain(tool)
+    expect(tools).not.toContain('edit_transaction')
+    for (const tool of LEGACY_DIRECT_EDIT_TOOLS)
+      expect(tools).not.toContain(tool)
     expect(tools).not.toContain('run_terminal_command')
     expect(tools).not.toContain('run_targeted_validation')
+    expect(tools).toContain('check_background_agent')
     for (const tool of PROPOSAL_TOOLS) expect(tools).not.toContain(tool)
   })
 
   test('code editor exposes structural edit + read tools', () => {
     const tools = createCodeEditor({ model: 'opus' }).toolNames ?? []
-    for (const tool of [...STRUCTURAL_READ_TOOLS, 'rewrite_symbol'] as const) {
+    for (const tool of [
+      ...STRUCTURAL_READ_TOOLS,
+      'edit_transaction',
+    ] as const) {
       expect(tools).toContain(tool)
     }
+    for (const tool of LEGACY_DIRECT_EDIT_TOOLS)
+      expect(tools).not.toContain(tool)
+  })
+
+  test('audit shards receive only derived findings-artifact write authority', () => {
+    const definition = createGeneralAgent({ model: 'opus' })
+
+    expect(definition.toolNames).toContain('write_audit_findings')
+    expect(definition.toolNames).not.toContain('write_file')
+    expect(definition.toolNames).not.toContain('edit_transaction')
+    expect(definition.filesystemScope?.write).toEqual([
+      '.agents/sessions/*/findings/*.md',
+    ])
   })
 
   test('shipped primary agents do not expose quarantined compatibility tools', () => {

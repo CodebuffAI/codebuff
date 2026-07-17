@@ -89,7 +89,9 @@ bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md
 
 Do not require this script for CLI correctness. It renders the native
 inventory plus index detail and may be skipped when the output directory is
-unwritable.
+unwritable. In plan mode, skip the renderer entirely: the plan-only Basher is
+read-only and must not create `MAP.md`; use the native inventory plus
+`list_directory`, `glob`, and `query_index` instead.
 
 **Don't blindly rebuild if the map already exists.** The script has a
 non-destructive pre-flight that parses the existing map's `Built at:` timestamp
@@ -127,29 +129,26 @@ skipped — only apply it when the breadth check returns `broad-audit`.
 
 ### Step 3 — Spawn shard auditors in parallel
 
-For each shard, spawn a `general-agent` (or `code-reviewer` if the shard is
-small) with a prompt containing ONLY:
+For each shard, spawn a `general-agent` with unique `params.sessionSlug` and
+`params.shardId`, plus a prompt containing ONLY:
 
 - The shard's file list (paths).
 - The 8 domains above (copy them verbatim).
-- The output contract: "Write your findings to
-  `.agents/sessions/<slug>/findings/<shard-name>.md` using `write_file`.
-  Use this exact format per finding:
-  ```
-  ## [SEVERITY] domain — file:line — short title
-  - **Risk:** one-sentence concrete description of the problem.
-  - **Fix:** one-sentence suggested fix.
-  - **Evidence:** the exact code snippet or symbol that's wrong.
-  ```
-  Severity is one of CRITICAL / HIGH / MEDIUM / LOW. Do NOT return findings
-  in your message — write them to the file. An empty findings file (just a
-  header) means no issues found; that's a valid result."
+- The output contract: "Call `write_audit_findings` exactly once with every
+  structured finding and the complete subsystem/feature/file coverage receipt.
+  Then return only the tool's compact receipt: artifact path, counts, and hash.
+  Do not repeat findings in your response."
 - Instruction to `read_files` the shard's files, then analyze against all 8
-  domains, then `write_file` the findings.
+  domains, then persist the structured findings.
 
-Spawn all shards in ONE `spawn_agents` call so they run concurrently. Each
-writes to its own findings file — they never block each other, and the parent
-context never holds the raw file contents.
+Spawn shards in bounded `spawn_agents` waves of at most the tool's advertised
+batch limit. Run each wave concurrently, join it, record its findings, then
+launch another wave whenever the coverage check still has gaps. The batch
+limit is a concurrency bound, not a total-agent limit. Each shard can write
+only to `.agents/sessions/<slug>/findings/<shard-id>.md`; the runtime derives
+that path, validates the structured payload, and creates it exclusively. The
+parent receives only compact receipts, so raw findings never occupy its
+context.
 
 **Pair composition (M10.2):** Each shard pair MUST include both a
 `file-picker` (discovers the shard's files) and a `code-searcher` (finds
@@ -163,8 +162,8 @@ has 0 pairs and fails the rule.
 
 Before synthesizing, call `evaluate_audit_coverage` with the exact inventory
 snapshot, structural receipts, feature list, and explicit out-of-scope reasons.
-An incomplete result blocks synthesis. A Markdown matrix may still be written
-for the user, but it is only a rendering of the runtime result. Format:
+An incomplete result blocks synthesis. Render the matrix in the durable
+session `STATUS.md`; it is only a rendering of the runtime result. Format:
 
 ```
 # Coverage matrix
@@ -191,7 +190,7 @@ of the project root). For EACH top-level dir, confirm one of:
 - **out-of-scope** — explicitly marked with a one-line reason (e.g. "docs:
   out-of-scope (not code)", ".agents: out-of-scope (session artifacts)").
 
-Append a `## Subsystem enumeration` section to `COVERAGE-MATRIX.md` listing
+Append a `## Subsystem enumeration` section to `STATUS.md` listing
 every top-level dir with its disposition. If any dir is missing BOTH a shard
 AND an out-of-scope mark, the audit is incomplete — the planner must either
 shard it or mark it out-of-scope before synthesizing. This is the direct fix
@@ -200,13 +199,11 @@ for the user's "you didn't look at X" complaint.
 ### Step 4 — Synthesize (P1)
 
 After all shards complete, spawn the `synthesizer` agent with a prompt
-pointing at the findings directory:
+pointing at the findings directory and report path:
 
-- "Read every file in `.agents/sessions/<slug>/findings/` using `read_files`.
-  Also `read_files` `.agents/sessions/<slug>/COVERAGE-MATRIX.md` so you know
-  the full set of audited subsystems and any out-of-scope marks.
-  Produce a single cross-cutting audit report at
-  `.agents/sessions/<slug>/AUDIT-REPORT.md` using `write_file`. The report
+- "Read every Markdown file under
+  `.agents/sessions/<slug>/findings/` using `read_files`. Produce a single
+  cross-cutting report at `.agents/sessions/<slug>/AUDIT-REPORT.md`. The report
   must:
   1. De-duplicate findings reported by multiple shards for the same issue.
   2. Group by domain, then sort by severity within each domain.
@@ -214,19 +211,24 @@ pointing at the findings directory:
      shards (these are usually the highest-impact: they indicate a systemic
      pattern, not a one-off bug).
   4. Add a **Top 10** summary at the top with the highest-leverage fixes.
-  5. End with a **Coverage** section that references `COVERAGE-MATRIX.md`
+  5. End with a **Coverage** section that references the STATUS matrix
      and lists which shards/files were audited and which (if any) were
      skipped or marked out-of-scope, so the user knows the audit's scope."
 
-The synthesizer reads ONLY the small, focused finding files — never the raw
-source. This is what keeps the parent context from being the bottleneck.
+The synthesizer reads ONLY the durable finding files — never raw source. The
+parent receives only the synthesizer's compact report receipt, then folds the
+priorities into `SPEC.md` / `PLAN.md` and updates the resume checkpoint.
 
 ### Step 5 — Report to the user
 
-`read_files` the final `AUDIT-REPORT.md` and present the Top 10 + a pointer to
-the full report. Offer to fix specific findings as a follow-up.
+Present the synthesized Top 10 and point to the durable session artifacts.
+Offer to fix specific findings as a follow-up.
 
 ## Structural map lifecycle (auto-rebuild)
+
+This section applies only when a non-plan workflow explicitly opts into the
+legacy human-readable renderer. Plan mode uses the native snapshot and does
+not create or refresh `MAP.md` through Basher.
 
 The map is a timestamped snapshot, not a live view. The script embeds a
 `Built at: <ISO>` line at the top so staleness is machine-readable. The
@@ -265,11 +267,10 @@ reads). Only the parent orchestrator rebuilds; shards read the pinned map.
 
 - The session slug goes under `.agents/sessions/<slug>/`. Use a date-stamped
   slug like `audit-<repo>-YYYY-MM`.
-- Finding files are named `<shard-name>.md` (kebab-case) under `findings/`.
 - Severity ordering is CRITICAL > HIGH > MEDIUM > LOW. When in doubt, downgrade
   — false positives erode trust in the report.
-- A shard that finds nothing MUST still write a file with a header and
-  "No issues found across all 8 domains." so the synthesizer knows it ran.
+- A shard that finds nothing MUST still call `write_audit_findings` with
+  `noIssuesFound: true`, an empty findings array, and its full coverage receipt.
 
 ## Risks
 
@@ -280,9 +281,9 @@ reads). Only the parent orchestrator rebuilds; shards read the pinned map.
   the synthesizer drowns in tiny files. Aim for 5–15 files per shard.
 - **Skipping the map** — tempting for "quick" audits, but per-shard discovery
   reintroduces bottleneck #3. Always build the map first for large scopes.
-- **Findings in messages instead of files** — if a shard returns findings in
-  its `set_output` message instead of writing to the findings file, those
-  findings are lost to the pruner. The shard prompt must insist on `write_file`.
+- **Unpersisted findings** — a shard is incomplete until
+  `write_audit_findings` returns an artifact path and hash. Do not accept raw
+  prose findings as a substitute.
 - **Synthesizer reading source** — if the synthesizer starts reading raw
   source files, it re-introduces bottleneck #1. It must read ONLY finding
-  files. If a finding is unclear, it should flag it, not re-audit.
+  receipts. If a finding is unclear, it should flag it, not re-audit.

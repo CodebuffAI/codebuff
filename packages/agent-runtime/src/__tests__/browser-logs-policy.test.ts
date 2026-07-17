@@ -48,6 +48,33 @@ describe('browser-use interaction policy', () => {
     expect(requestClientToolCall).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps plan-only browser ancestry read-only despite an interaction request', async () => {
+    const requestClientToolCall = mock(async () => [])
+    const result = await handleBrowserLogs({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolName: 'browser_logs',
+        toolCallId: 'tool-plan-only',
+        input: { type: 'click', selector: '#submit' },
+      } as any,
+      agentTemplate: {
+        ...browserTemplate,
+        programmaticConfig: { planOnly: true },
+      },
+      spawnParams: { interactionPolicy: 'allow-interactions' },
+      requestClientToolCall,
+    } as any)
+
+    expect(requestClientToolCall).not.toHaveBeenCalled()
+    expect(result.output[0]).toMatchObject({
+      type: 'json',
+      value: {
+        success: false,
+        error: expect.stringContaining('plan-only ancestry'),
+      },
+    })
+  })
+
   it('blocks mutating actions nested inside diagnose steps', async () => {
     const requestClientToolCall = mock(async () => [])
     const result = await handleBrowserLogs({

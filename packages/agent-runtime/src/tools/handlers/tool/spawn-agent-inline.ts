@@ -102,6 +102,7 @@ export const handleSpawnAgentInline = (async (
   validateVersionedAgentHandoff({ agentType, handoff })
   const effectiveAgentTemplate = deriveSpawnTemplateCapabilities({
     agentTemplate,
+    parentAgentTemplate,
     handoff,
     projectRoot: params.fileContext.projectRoot,
   })
@@ -130,10 +131,8 @@ export const handleSpawnAgentInline = (async (
                 2,
             ),
           ),
-    runningForRoot:
-      parentAgentState.backgroundAgentJobs?.filter(
-        (job) => job.status === 'running',
-      ).length ?? 0,
+    // Inline work is foreground and does not consume a background-agent slot.
+    runningForRoot: 0,
     maxRunningForRoot: 8,
   })
   const runtimeSpawnParams = buildSpawnParamsWithHandoff({

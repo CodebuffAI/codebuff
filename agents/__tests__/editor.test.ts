@@ -65,13 +65,12 @@ describe('editor agent', () => {
     })
 
     test('documents structured implementation briefs', () => {
-      expect(editor.spawnerPrompt).toContain('compact implementation brief')
-      expect(editor.spawnerPrompt).toContain('Spawn this agent with a prompt')
       expect(editor.spawnerPrompt).toContain(
-        'Do not rely on inherited conversation history',
+        'compact, self-contained implementation brief',
       )
+      expect(editor.spawnerPrompt).toContain('requirements, target files')
       expect(editor.spawnerPrompt).toContain(
-        'do not include validation commands',
+        'Do not include validation commands',
       )
       expect(editor.spawnerPrompt).not.toContain(
         'expected validation, and risks',
@@ -94,7 +93,7 @@ describe('editor agent', () => {
       )
       expect(editor.instructionsPrompt).toContain('If edit_transaction aborts')
       expect(editor.instructionsPrompt).toContain(
-        'retry the whole related transaction',
+        'rebuild the whole related transaction',
       )
       expect(editor.instructionsPrompt).toContain(
         'Never use ultra-broad anchors',
@@ -111,17 +110,18 @@ describe('editor agent', () => {
     })
 
     test('has correct tool names', () => {
-      expect(editor.toolNames).toContain('read_files')
-      expect(editor.toolNames).toContain('read_outline')
-      expect(editor.toolNames).toContain('write_file')
-      expect(editor.toolNames).toContain('str_replace')
-      expect(editor.toolNames).toContain('replace_range')
-      expect(editor.toolNames).toContain('rewrite_symbol')
-      expect(editor.toolNames).toContain('edit_transaction')
+      expect(editor.toolNames).toEqual([
+        'read_files',
+        'read_outline',
+        'edit_transaction',
+      ])
       expect(editor.toolNames).not.toContain('set_output')
-      expect(editor.toolNames).toContain('apply_patch')
+      expect(editor.toolNames).not.toContain('write_file')
+      expect(editor.toolNames).not.toContain('str_replace')
+      expect(editor.toolNames).not.toContain('replace_range')
+      expect(editor.toolNames).not.toContain('rewrite_symbol')
+      expect(editor.toolNames).not.toContain('apply_patch')
       expect(editor.toolNames).not.toContain('read_slices')
-      expect(editor.toolNames).toHaveLength(8)
     })
   })
 
@@ -201,11 +201,13 @@ describe('editor agent', () => {
 
     test('contains replace_range guidance and format example', () => {
       expect(editor.instructionsPrompt).toContain('replace_range')
-      expect(editor.instructionsPrompt).toContain('read_files.ranges')
-      expect(editor.instructionsPrompt).toContain(
+      expect(editor.instructionsPrompt).toContain('editAnchor.readCapability')
+      expect(editor.instructionsPrompt).toContain('"type": "replace_range"')
+      expect(editor.instructionsPrompt).toContain('"readCapability"')
+      expect(editor.instructionsPrompt).not.toContain(
         '"cb_tool_name": "replace_range"',
       )
-      expect(editor.instructionsPrompt).toContain('"expectedHash"')
+      expect(editor.instructionsPrompt).not.toContain('"expectedHash"')
       expect(editor.instructionsPrompt).toContain('"newContent"')
     })
 
@@ -218,9 +220,7 @@ describe('editor agent', () => {
       expect(editor.instructionsPrompt).toContain(
         '"cb_tool_name": "edit_transaction"',
       )
-      expect(editor.instructionsPrompt).toContain(
-        'preflighted and applied atomically',
-      )
+      expect(editor.instructionsPrompt).toContain('preflight together')
       expect(editor.instructionsPrompt).toContain('"edits"')
       expect(editor.instructionsPrompt).toContain('"type": "str_replace"')
       expect(editor.instructionsPrompt).toContain('"type": "structured"')
@@ -258,10 +258,8 @@ describe('editor agent', () => {
     })
 
     test('requires an implementation-only spawn prompt', () => {
-      expect(editor.spawnerPrompt).toContain('Spawn this agent with a prompt')
-      expect(editor.spawnerPrompt).toContain(
-        'Do not rely on inherited conversation history',
-      )
+      expect(editor.spawnerPrompt).toContain('Spawn this agent with a compact')
+      expect(editor.includeMessageHistory).toBe(false)
       expect(editor.spawnerPrompt).not.toContain(
         'Do not specify an input prompt',
       )

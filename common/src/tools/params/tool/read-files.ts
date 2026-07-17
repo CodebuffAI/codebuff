@@ -160,7 +160,7 @@ const inputSchema = z
         )
         .optional()
         .describe(
-          'Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes its line range and a readCapability you can reuse as basedOnRead on a later edit.',
+          'Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes one editAnchor whose readCapability can anchor a later edit.',
         ),
     }),
   )
@@ -186,13 +186,12 @@ Read files from disk. For large files, prefer ranges or symbol slices over full-
 
 Important:
 - Full reads may be truncated for large files; the truncation marker includes the original character and line counts. Do not edit from truncated content.
-- Every complete read returns an authenticated cap.v3 readCapability bound to this project, path, and agent run. Copy it verbatim to basedOnRead; cross-path/cross-run replay is rejected, and the token cannot be reconstructed from content hashes.
-- Symbol slices: pass \`symbols: [{ path, names }]\` to pull just the named functions/classes/methods (each with its line range and a readCapability) instead of the whole file. Prefer this when you already know the symbol names — pair it with read_outline to discover names in a large file first (outline to see structure, then symbols to pull what you need). Use \`ranges\` when you're paging by line number instead.
-- Range reads return a single readCapability that embeds startLine, endLine, and rangeHash.
+- Every complete read returns one structured editAnchor containing startLine, endLine, contentHash, and an authenticated cap.v3 readCapability bound to this project, path, and agent run. Copy editAnchor.readCapability verbatim to basedOnRead/readCapability; use the other fields for diagnostics only and never mix them into the same edit call.
+- Symbol slices: pass \`symbols: [{ path, names }]\` to pull just the named functions/classes/methods instead of the whole file. Prefer this when you already know the symbol names — pair it with read_outline to discover names in a large file first (outline to see structure, then symbols to pull what you need). Use \`ranges\` when you're paging by line number instead.
+- Model-visible complete reads expose one editAnchor rather than duplicate top-level hash/capability fields.
 - Complete range results also return sourceContent containing the exact undecorated normalized range text used for the range hash. Use sourceContent—not the numbered display content—when an exact oldString is truly needed. Never splice a mid-line suffix together with following lines; that is not contiguous source text.
-- Use replace_range for medium/large or formatting-sensitive block edits, copying that readCapability directly instead of reconstructing oldString or three separate range fields.
-- For large-file str_replace, copy basedOnRead from a fresh range read or symbol slice: startLine, endLine, hash: rangeHash (or the slice's readCapability).
-- For large-file apply_patch, include basedOnRead capabilities for every touched hunk, copied from fresh range read headers.
+- For a medium/large or formatting-sensitive block, use an edit_transaction replace_range edit and copy editAnchor.readCapability directly instead of reconstructing oldString or separate range fields.
+- For a large-file str_replace edit inside edit_transaction, copy editAnchor.readCapability into basedOnRead.
 
 Example:
 ${$getNativeToolCallExampleString({

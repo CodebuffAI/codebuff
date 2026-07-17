@@ -47,6 +47,7 @@ import { updatePlanStatusParams } from './params/tool/update-plan-status'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
+import { writeAuditFindingsParams } from './params/tool/write-audit-findings'
 import { writeTodosParams } from './params/tool/write-todos'
 import { inspectWorkspaceParams } from './params/tool/inspect-workspace'
 import { runTargetedValidationParams } from './params/tool/run-targeted-validation'
@@ -122,6 +123,7 @@ export const toolParams = {
   update_subgoal: updateSubgoalParams,
   web_search: webSearchParams,
   write_file: writeFileParams,
+  write_audit_findings: writeAuditFindingsParams,
   write_todos: writeTodosParams,
 } satisfies {
   [K in ToolName]: $ToolParams<K>
@@ -289,6 +291,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('write_file'),
     input: FileChangeSchema,
+  }),
+  z.object({
+    toolName: z.literal('write_audit_findings'),
+    input: toolParams.write_audit_findings.inputSchema,
   }),
 ])
 export const clientToolNames = clientToolCallSchema.def.options.map(

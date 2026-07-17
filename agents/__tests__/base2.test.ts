@@ -275,9 +275,7 @@ describe('base2 validation/reviewer coordination prompts', () => {
       ]),
     )
     expect(base2.systemPrompt).toContain('Atomic edit recovery')
-    expect(base2.systemPrompt).toContain(
-      'do not peel off remembered replacements',
-    )
+    expect(base2.systemPrompt).toContain('do not peel off remembered edits')
     expect(base2.systemPrompt).toContain(
       'treat that exact finding as the controlling next action',
     )
@@ -337,6 +335,52 @@ describe('base2 validation/reviewer coordination prompts', () => {
     expect(planBase2.toolNames).toContain('update_plan_status')
   })
 
+  test('plan mode exposes broad read-only analysis agents without mutation agents', () => {
+    const planBase2 = createBase2('default', { planOnly: true })
+    const spawnable = planBase2.spawnableAgents ?? []
+
+    for (const agent of [
+      'basher',
+      'browser-use',
+      'debugger',
+      'general-agent',
+    ]) {
+      expect(spawnable).toContain(agent)
+    }
+    for (const agent of [
+      'dependency-manager',
+      'editor',
+      'repair-editor',
+      'git-committer',
+      'doc-writer',
+      'test-writer',
+      'tmux-cli',
+    ]) {
+      expect(spawnable).not.toContain(agent)
+    }
+    expect(planBase2.toolNames).toContain('check_background_agent')
+    expect(planBase2.programmaticConfig).toMatchObject({ planOnly: true })
+  })
+
+  test('plan mode allows repeated bounded analysis waves', () => {
+    const planBase2 = createBase2('default', { planOnly: true })
+
+    expect(planBase2.systemPrompt).toContain('no fixed total-agent limit')
+    expect(planBase2.instructionsPrompt).toContain(
+      'as many analysis subagents as the work requires',
+    )
+    expect(planBase2.stepPrompt).toContain(
+      'Use bounded waves of analysis subagents until coverage is complete',
+    )
+    expect(planBase2.systemPrompt).not.toContain('at most one bounded batch')
+    expect(planBase2.systemPrompt).toContain('Dependency planning')
+    expect(planBase2.systemPrompt).toContain('Live visual analysis')
+    expect(planBase2.systemPrompt).not.toContain(
+      'start any long-running dev server',
+    )
+    expect(planBase2.systemPrompt).not.toContain('spawn `dependency-manager`')
+  })
+
   test('plan mode prompts explain incremental update_plan_status semantics', () => {
     const base2 = createBase2('default', { planOnly: true })
 
@@ -374,14 +418,12 @@ describe('base-deep prompt naming and tool guidance', () => {
       'Prefer apply_patch for existing-file edits',
     )
     expect(baseDeep.systemPrompt).toContain(
-      'Prefer rewrite_symbol for whole-symbol edits',
+      'edit_transaction with the narrowest edit type',
     )
     expect(baseDeep.instructionsPrompt).not.toContain(
       'Prefer apply_patch for edits',
     )
-    expect(baseDeep.instructionsPrompt).toContain(
-      'Prefer rewrite_symbol for whole-symbol edits',
-    )
+    expect(baseDeep.instructionsPrompt).toContain('through edit_transaction')
     expect(baseDeep.instructionsPrompt).toContain(
       'user-visible completion summary',
     )
@@ -391,11 +433,13 @@ describe('base-deep prompt naming and tool guidance', () => {
         'read_outline',
         'list_directory',
         'glob',
-        'str_replace',
-        'replace_range',
         'edit_transaction',
       ]),
     )
+    expect(baseDeep.toolNames).not.toContain('str_replace')
+    expect(baseDeep.toolNames).not.toContain('replace_range')
+    expect(baseDeep.toolNames).not.toContain('rewrite_symbol')
+    expect(baseDeep.toolNames).not.toContain('write_file')
     expect(baseDeep.toolNames).not.toContain('propose_str_replace')
     expect(baseDeep.programmaticToolNames).toContain('git_status')
   })
@@ -3145,16 +3189,17 @@ describe('base2 verification and reviewer gates', () => {
     expect(base2.stepPrompt).not.toContain(
       'Read STATUS.md and PLAN.md before acting',
     )
+    for (const tool of ['edit_transaction', 'run_terminal_command'] as const) {
+      expect(base2.toolNames).toContain(tool)
+    }
     for (const tool of [
       'str_replace',
       'write_file',
       'apply_patch',
       'replace_range',
       'rewrite_symbol',
-      'edit_transaction',
-      'run_terminal_command',
     ] as const) {
-      expect(base2.toolNames).toContain(tool)
+      expect(base2.toolNames).not.toContain(tool)
     }
     expect(base2.toolNames).not.toContain('propose_str_replace')
     expect(base2.toolNames).not.toContain('apply_proposal')

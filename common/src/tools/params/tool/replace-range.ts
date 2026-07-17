@@ -102,17 +102,11 @@ const rawInputSchema = z
           path: ['readCapability'],
           message: decoded,
         })
-      } else if (
-        hasCompleteExplicitTarget &&
-        (input.startLine !== decoded.startLine ||
-          input.endLine !== decoded.endLine ||
-          input.expectedHash !== decoded.hash)
-      ) {
+      } else if (hasAnyExplicitTarget) {
         ctx.addIssue({
           code: 'custom',
           path: ['readCapability'],
-          message:
-            'readCapability conflicts with the explicit startLine/endLine/expectedHash tuple. Copy one fresh anchor and do not mix values from different reads.',
+          message: `Use one range target form only: provide readCapability by itself, or provide startLine/endLine/expectedHash without readCapability. The capability covers lines ${decoded.startLine}-${decoded.endLine}.`,
         })
       }
     }
@@ -147,6 +141,15 @@ const inputSchema = rawInputSchema.transform((input) => {
     endLine: decoded.endLine,
     expectedHash: decoded.hash,
   }
+})
+
+const providerInputSchema = z.object({
+  path: z.string().min(1).describe('The file to edit.'),
+  readCapability: z
+    .string()
+    .min(1)
+    .describe('Copy editAnchor.readCapability from the matching fresh range.'),
+  newContent: z.string().describe('Complete replacement content.'),
 })
 
 const description = `
@@ -188,5 +191,6 @@ export const replaceRangeParams = {
   endsAgentStep,
   description,
   inputSchema,
+  providerInputSchema,
   outputSchema: jsonToolResultSchema(updateFileResultSchema),
 } satisfies $ToolParams

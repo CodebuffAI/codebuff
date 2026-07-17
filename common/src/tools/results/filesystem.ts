@@ -377,14 +377,38 @@ export const commitReceiptV1Schema = z
     }
   })
 
-export const readFilesSliceSchema = z.object({
-  symbol: z.string(),
-  kind: z.string().optional(),
-  content: z.string(),
-  startLine: z.number(),
-  endLine: z.number(),
-  readCapability: z.string().optional(),
+export const readFilesEditAnchorSchema = z.object({
+  startLine: z.number().int().positive(),
+  endLine: z.number().int().positive(),
+  contentHash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  readCapability: z.string().min(1),
 })
+
+export const readFilesSliceSchema = z
+  .object({
+    symbol: z.string(),
+    kind: z.string().optional(),
+    content: z.string(),
+    startLine: z.number(),
+    endLine: z.number(),
+    readCapability: z.string().optional(),
+    editAnchor: readFilesEditAnchorSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.editAnchor &&
+      (value.editAnchor.startLine !== value.startLine ||
+        value.editAnchor.endLine !== value.endLine ||
+        (value.readCapability !== undefined &&
+          value.editAnchor.readCapability !== value.readCapability))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'symbol editAnchor must match the slice bounds and any legacy capability',
+      })
+    }
+  })
 
 const readFilesErrorItemSchema = z.object({
   selector: z.enum(['file', 'range', 'symbols']),
@@ -405,6 +429,7 @@ const readFilesFileItemSchema = z
     complete: z.boolean(),
     template: z.boolean(),
     readCapability: z.string().optional(),
+    editAnchor: readFilesEditAnchorSchema.optional(),
     referencedBy: z.record(z.string(), z.string().array()).optional(),
     truncation: z
       .object({
@@ -421,9 +446,23 @@ const readFilesFileItemSchema = z
     'read_files file results require exactly one content payload or omission marker',
   )
   .refine(
-    (value) => value.complete || value.readCapability === undefined,
+    (value) =>
+      value.complete ||
+      (value.readCapability === undefined && value.editAnchor === undefined),
     'partial file results cannot expose edit capabilities',
   )
+  .superRefine((value, ctx) => {
+    if (
+      value.editAnchor &&
+      value.readCapability !== undefined &&
+      value.editAnchor.readCapability !== value.readCapability
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'file editAnchor must match any legacy readCapability',
+      })
+    }
+  })
 
 const readFilesRangeItemSchema = z
   .object({
@@ -441,6 +480,7 @@ const readFilesRangeItemSchema = z
     complete: z.boolean(),
     rangeHash: z.string().optional(),
     readCapability: z.string().optional(),
+    editAnchor: readFilesEditAnchorSchema.optional(),
     truncation: z.object({ reason: z.literal('character_limit') }).optional(),
   })
   .refine(
@@ -449,6 +489,23 @@ const readFilesRangeItemSchema = z
       (value.contentOmittedForLength === true),
     'read_files range results require exactly one content payload or omission marker',
   )
+  .superRefine((value, ctx) => {
+    if (
+      value.editAnchor &&
+      (value.editAnchor.startLine !== value.startLine ||
+        value.editAnchor.endLine !== value.endLine ||
+        (value.rangeHash !== undefined &&
+          value.editAnchor.contentHash !== value.rangeHash) ||
+        (value.readCapability !== undefined &&
+          value.editAnchor.readCapability !== value.readCapability))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'range editAnchor must match the range bounds and any legacy hash/capability fields',
+      })
+    }
+  })
 
 const readFilesSymbolsItemSchema = z
   .object({
@@ -576,6 +633,7 @@ export const readFilesResultV1Schema = z
         result.status === 'partial' &&
         (result.rangeHash !== undefined ||
           result.readCapability !== undefined ||
+          result.editAnchor !== undefined ||
           result.sourceContent !== undefined)
       ) {
         ctx.addIssue({

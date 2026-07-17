@@ -8,7 +8,7 @@ import {
   normalizeReplacementList,
   normalizeTransactionEditList,
 } from '../utils'
-import { basedOnReadSchema } from '../based-on-read'
+import { basedOnReadSchema, canonicalBasedOnReadSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
 import { decodeReadCapabilityToken } from '../../../util/content-hash'
 import {
@@ -63,7 +63,7 @@ const replacementSchema = z.preprocess(
           code: 'custom',
           path: ['oldString'],
           message:
-            'oldString is an explicit placeholder, not file content. Copy exact current text from read_files or use replace_range with a fresh expectedHash.',
+            'oldString is an explicit placeholder, not file content. Copy exact current text from read_files or use a replace_range edit with a fresh readCapability.',
         })
       }
       if (isObviousEditPlaceholder(replacement.newString)) {
@@ -194,18 +194,61 @@ const replaceRangeEditSchema = editBaseSchema
       .describe(
         'Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together.',
       ),
-    startLine: z.number().int().min(1),
-    endLine: z.number().int().min(1),
-    expectedHash: z.string().min(1),
+    startLine: z.number().int().min(1).optional(),
+    endLine: z.number().int().min(1).optional(),
+    expectedHash: z.string().min(1).optional(),
     newContent: z.string().refine((value) => !isObviousEditPlaceholder(value), {
       message:
         'newContent is an explicit placeholder; provide the complete range replacement.',
     }),
   })
-  .refine((edit) => edit.startLine <= edit.endLine, {
-    message: 'startLine must be <= endLine',
-  })
   .superRefine((edit, ctx) => {
+    const explicitTarget = [edit.startLine, edit.endLine, edit.expectedHash]
+    const hasAnyExplicitTarget = explicitTarget.some(
+      (value) => value !== undefined,
+    )
+    const hasCompleteExplicitTarget = explicitTarget.every(
+      (value) => value !== undefined,
+    )
+    if (edit.readCapability && hasAnyExplicitTarget) {
+      const decoded = decodeReadCapabilityToken(edit.readCapability)
+      const capabilityRange =
+        typeof decoded === 'string'
+          ? ''
+          : ` The capability covers lines ${decoded.startLine}-${decoded.endLine}.`
+      ctx.addIssue({
+        code: 'custom',
+        path: ['readCapability'],
+        message: `Use one range target form only: provide readCapability by itself, or provide startLine/endLine/expectedHash without readCapability.${capabilityRange}`,
+      })
+      return
+    }
+    if (hasAnyExplicitTarget && !hasCompleteExplicitTarget) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'Provide startLine, endLine, and expectedHash together, or provide only readCapability.',
+      })
+      return
+    }
+    if (!edit.readCapability && !hasCompleteExplicitTarget) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'replace_range requires either readCapability or the complete startLine/endLine/expectedHash tuple from one fresh range read.',
+      })
+      return
+    }
+    if (
+      edit.startLine !== undefined &&
+      edit.endLine !== undefined &&
+      edit.startLine > edit.endLine
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'startLine must be <= endLine',
+      })
+    }
     if (!edit.readCapability) return
     const decoded = decodeReadCapabilityToken(edit.readCapability)
     if (typeof decoded === 'string') {
@@ -215,18 +258,6 @@ const replaceRangeEditSchema = editBaseSchema
         message: decoded,
       })
       return
-    }
-    if (
-      edit.startLine !== decoded.startLine ||
-      edit.endLine !== decoded.endLine ||
-      edit.expectedHash !== decoded.hash
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['readCapability'],
-        message:
-          'readCapability conflicts with the explicit range target. Copy one fresh anchor and do not mix values from different reads.',
-      })
     }
   })
 
@@ -264,6 +295,35 @@ export const transactionEditSchema = z.discriminatedUnion('type', [
   deleteFileEditSchema,
   moveFileEditSchema,
   replaceRangeEditSchema,
+  rewriteSymbolEditSchema,
+  patchEditSchema,
+  writeFileEditSchema,
+])
+
+const canonicalReplacementSchema = z.object({
+  oldString: z.string().min(1),
+  newString: z.string(),
+  allowMultiple: z.boolean().optional().default(false),
+  occurrenceIndex: z.number().int().min(1).optional(),
+  basedOnRead: canonicalBasedOnReadSchema,
+  skipIfMissing: z.boolean().optional(),
+})
+const canonicalStrReplaceEditSchema = editBaseSchema.extend({
+  type: z.literal('str_replace'),
+  replacements: z.array(canonicalReplacementSchema).min(1),
+})
+const canonicalReplaceRangeEditSchema = editBaseSchema.extend({
+  type: z.literal('replace_range'),
+  readCapability: z.string().min(1),
+  newContent: z.string(),
+})
+const providerTransactionEditSchema = z.discriminatedUnion('type', [
+  canonicalStrReplaceEditSchema,
+  structuredEditSchema,
+  createFileEditSchema,
+  deleteFileEditSchema,
+  moveFileEditSchema,
+  canonicalReplaceRangeEditSchema,
   rewriteSymbolEditSchema,
   patchEditSchema,
   writeFileEditSchema,
@@ -327,35 +387,35 @@ export const editTransactionResultSchema = z.union([
 
 const toolName = 'edit_transaction'
 const endsAgentStep = false
-const normalizeTransactionRangeCapabilities = (value: unknown): unknown => {
-  const normalized = normalizeTransactionEditList(value)
-  if (!Array.isArray(normalized)) return normalized
-  return normalized.map((entry) => {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry))
-      return entry
-    const edit = entry as Record<string, unknown>
-    if (
-      edit.type !== 'replace_range' ||
-      typeof edit.readCapability !== 'string'
-    ) {
-      return entry
-    }
-    const decoded = decodeReadCapabilityToken(edit.readCapability)
-    if (typeof decoded === 'string') return entry
-    return {
-      ...edit,
-      startLine: edit.startLine ?? decoded.startLine,
-      endLine: edit.endLine ?? decoded.endLine,
-      expectedHash: edit.expectedHash ?? decoded.hash,
-    }
-  })
-}
 const inputSchema = z
   .object({
     edits: z
       .preprocess(
-        normalizeTransactionRangeCapabilities,
+        normalizeTransactionEditList,
         boundedTransactionEditListSchema,
+      )
+      .transform((edits) =>
+        edits.map((edit) => {
+          if (edit.type !== 'replace_range') return edit
+          if (edit.readCapability) {
+            const decoded = decodeReadCapabilityToken(edit.readCapability)
+            if (typeof decoded === 'string') {
+              throw new Error(decoded)
+            }
+            return {
+              ...edit,
+              startLine: decoded.startLine,
+              endLine: decoded.endLine,
+              expectedHash: decoded.hash,
+            }
+          }
+          return {
+            ...edit,
+            startLine: edit.startLine!,
+            endLine: edit.endLine!,
+            expectedHash: edit.expectedHash!,
+          }
+        }),
       )
       .describe(
         'All edits that must preflight together. Pass an actual array of edit objects; do not JSON.stringify the array or its entries. The runtime defensively decodes complete legacy JSON encodings, but malformed or truncated strings fail closed. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed.',
@@ -364,6 +424,12 @@ const inputSchema = z
   .describe(
     'Preflight related edits together, then apply them in one coordinated client-side transaction with deterministic order and explicit rollback outcomes.',
   )
+const providerInputSchema = z.object({
+  edits: z
+    .array(providerTransactionEditSchema)
+    .min(1)
+    .max(MAX_FILE_CHANGES_PER_TRANSACTION),
+})
 
 const description = `
 Use this tool when related edits across one or more files should be preflighted together before applying, such as updating a utility and its tests together.
@@ -375,12 +441,12 @@ Important:
 - If ANY edit fails during preflight, NO files are changed.
 - Every per-file edit is atomic during preflight, including small files.
 - Structured edits are dispatched deterministically by operation kind; supported operations include insert_text, insert_import, and remove_import.
-- Transactions can also compose replace_range, rewrite_symbol, unified patch, and whole-file write_file operations with create/delete/move lifecycle actions.
+- Select an edit type per operation: str_replace, replace_range, rewrite_symbol, patch, structured, create, delete, move, or write_file.
 - For replace_range edits, prefer the single readCapability copied from a fresh read_files range header; the transaction normalizes it to verified line bounds and hash during validation.
-- Use insert_import/remove_import for TypeScript import-only changes; use str_replace for larger semantic changes.
-- Large-file str_replace edits use the same deterministic semantics as str_replace: unique oldString edits can apply without basedOnRead; ambiguous targets should use basedOnRead from fresh read_files.ranges output.
+- Use insert_import/remove_import for TypeScript import-only changes; use the str_replace edit type for larger semantic changes.
+- Large-file str_replace edits use deterministic exact-match semantics: unique oldString edits can apply without basedOnRead; ambiguous targets should use basedOnRead from fresh read_files.ranges output.
 - Patches are applied as one coordinated client-side transaction after preflight. Commit failures trigger best-effort rollback and report rolled-back or rollback-incomplete outcomes; do not assume external filesystem atomicity.
-- Use str_replace directly for simple one-file edits; use edit_transaction when cross-file consistency matters.
+- A transaction may contain one simple one-file edit or a coordinated multi-file change; this is the canonical model-facing mutation surface.
 
 Example:
 ${$getNativeToolCallExampleString({
@@ -421,5 +487,6 @@ export const editTransactionParams = {
   endsAgentStep,
   description,
   inputSchema,
+  providerInputSchema,
   outputSchema: jsonToolResultSchema(editTransactionResultSchema),
 } satisfies $ToolParams

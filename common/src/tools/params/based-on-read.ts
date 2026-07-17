@@ -76,3 +76,12 @@ export const basedOnReadSchema = z
   .describe(
     'Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read.',
   )
+
+/** Canonical model-facing anchor. Legacy object forms remain runtime-only. */
+export const canonicalBasedOnReadSchema = z
+  .string()
+  .min(1)
+  .optional()
+  .describe(
+    'Optional authenticated readCapability copied verbatim from the matching fresh read_files editAnchor.',
+  )

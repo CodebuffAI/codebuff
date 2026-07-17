@@ -56,6 +56,7 @@ import { handleUpdatePlanStatus } from './tool/update-plan-status'
 import { handleUpdateSubgoal } from './tool/update-subgoal'
 import { handleWebSearch } from './tool/web-search'
 import { handleWriteFile } from './tool/write-file'
+import { handleWriteAuditFindings } from './tool/write-audit-findings'
 import { handleWriteTodos } from './tool/write-todos'
 
 import type { CodebuffToolHandlerFunction } from './handler-function-type'
@@ -127,6 +128,7 @@ export const codebuffToolHandlers = {
   update_subgoal: handleUpdateSubgoal,
   web_search: handleWebSearch,
   write_file: handleWriteFile,
+  write_audit_findings: handleWriteAuditFindings,
   write_todos: handleWriteTodos,
 } satisfies {
   [K in ToolName]: CodebuffToolHandlerFunction<K>

@@ -42,6 +42,29 @@ describe('range capability edit inputs', () => {
     expect(parsed.success).toBe(false)
   })
 
+  it('rejects redundant explicit fields even when they match the capability', () => {
+    const parsed = editTransactionParams.inputSchema.safeParse({
+      edits: [
+        {
+          type: 'replace_range',
+          path: 'PLAN.md',
+          readCapability,
+          startLine: 18,
+          endLine: 18,
+          expectedHash: hash,
+          newContent: '- [ ] P6.3 new task',
+        },
+      ],
+    })
+
+    expect(parsed.success).toBe(false)
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]?.message).toContain(
+        'capability covers lines 18-18',
+      )
+    }
+  })
+
   it('normalizes capability-only replace_range edits inside transactions', () => {
     const parsed = editTransactionParams.inputSchema.parse({
       edits: [
@@ -59,5 +82,45 @@ describe('range capability edit inputs', () => {
       endLine: 18,
       expectedHash: hash,
     })
+  })
+
+  it('keeps explicit range tuples runtime-only', () => {
+    const legacyInput = {
+      edits: [
+        {
+          type: 'replace_range' as const,
+          path: 'PLAN.md',
+          startLine: 18,
+          endLine: 18,
+          expectedHash: hash,
+          newContent: '- [ ] P6.3 new task',
+        },
+      ],
+    }
+
+    expect(
+      editTransactionParams.inputSchema.safeParse(legacyInput).success,
+    ).toBe(true)
+    expect(
+      editTransactionParams.providerInputSchema?.safeParse(legacyInput).success,
+    ).toBe(false)
+  })
+
+  it('exposes capability-only range edits to providers', () => {
+    const canonicalInput = {
+      edits: [
+        {
+          type: 'replace_range' as const,
+          path: 'PLAN.md',
+          readCapability,
+          newContent: '- [ ] P6.3 new task',
+        },
+      ],
+    }
+
+    expect(
+      editTransactionParams.providerInputSchema?.safeParse(canonicalInput)
+        .success,
+    ).toBe(true)
   })
 })

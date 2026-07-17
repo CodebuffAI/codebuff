@@ -8,12 +8,21 @@ import {
 
 import type { $ToolParams } from '../../constants'
 
+const MAX_HEADER_LENGTH = 18
+
+function truncateHeader(value: string): string {
+  return Array.from(value).slice(0, MAX_HEADER_LENGTH).join('')
+}
+
 export const questionSchema = z.object({
   question: z.string().describe('The question to ask the user'),
-  header: z.string().max(18).optional().describe(
-    // Tell the llm 12 chars so that if it goes over slightly, it will still be under the max.
-    'Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"',
-  ),
+  header: z
+    .string()
+    .transform(truncateHeader)
+    .optional()
+    .describe(
+      'Optional short display label. Values longer than 18 Unicode code points are truncated instead of rejecting the question.',
+    ),
   options: z
     .preprocess(
       coerceToArray,

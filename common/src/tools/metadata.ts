@@ -54,6 +54,7 @@ const MUTATION_TOOLS = new Set<ToolName>([
   'str_replace',
   'update_plan_status',
   'write_file',
+  'write_audit_findings',
 ])
 const EFFECTFUL_VALIDATION_TOOLS = new Set<ToolName>([
   'run_file_change_hooks',
@@ -92,6 +93,7 @@ const NAMED_PATH_TOOLS = new Set<ToolName>([
   'str_replace',
   'update_plan_status',
   'write_file',
+  'write_audit_findings',
 ])
 const PATH_INPUTS: Partial<Record<ToolName, readonly string[]>> = {
   apply_patch: ['operation.path'],
@@ -107,10 +109,16 @@ const PATH_INPUTS: Partial<Record<ToolName, readonly string[]>> = {
   str_replace: ['path'],
   update_plan_status: ['path'],
   write_file: ['path'],
+  write_audit_findings: ['sessionSlug', 'shardId'],
 }
 
 const quarantined = new Set<ToolName>(quarantinedToolNames)
-const legacyMutationTools = new Set<ToolName>(['update_plan_status'])
+const nonCanonicalMutationResultTools = new Set<ToolName>([
+  'update_plan_status',
+  // Dedicated artifact sink returns its own compact receipt rather than a
+  // project-file mutation envelope.
+  'write_audit_findings',
+])
 
 function metadataFor(toolName: ToolName): ToolMetadata {
   const kind: ToolBehaviorKind = READ_TOOLS.has(toolName)
@@ -141,7 +149,7 @@ function metadataFor(toolName: ToolName): ToolMetadata {
       toolName === 'read_files'
         ? 'read_v1'
         : kind === 'mutation'
-          ? legacyMutationTools.has(toolName)
+          ? nonCanonicalMutationResultTools.has(toolName)
             ? 'legacy_v0'
             : 'mutation_v1'
           : 'legacy_v0',

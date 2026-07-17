@@ -79,6 +79,7 @@ export type ToolCallError = {
   toolName?: string
   input: unknown
   error: string
+  formattedInput?: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
 
 function makeAbortableBarrier(
@@ -555,6 +556,34 @@ function getToolValidationHint(
     ].join('\n')
   }
   if (toolName === 'edit_transaction') {
+    const fieldNames = new Set(
+      (issues ?? []).flatMap(
+        (issue) => issue.path?.map((segment) => String(segment)) ?? [],
+      ),
+    )
+    const targetedHints: string[] = []
+    if (fieldNames.has('readCapability')) {
+      targetedHints.push(
+        [
+          'For replace_range, choose one target form only.',
+          'Preferred: { "type": "replace_range", "path": "file.ts", "readCapability": "cap...", "newContent": "..." }.',
+          'If the capability covers a wider range than intended, re-read the exact target lines first; never narrow a capability with separate line/hash fields.',
+        ].join('\n'),
+      )
+    }
+    if (fieldNames.has('skipIfMissing')) {
+      targetedHints.push(
+        [
+          '`skipIfMissing` is deletion-only. Remove it when newString is non-empty.',
+          'For an idempotent deletion use { "oldString": "...", "newString": "", "skipIfMissing": true }.',
+        ].join('\n'),
+      )
+    }
+    if (targetedHints.length > 0) return targetedHints.join('\n\n')
+    const hasEditsContainerIssue = (issues ?? []).some(
+      (issue) => issue.path?.[0] === 'edits' && issue.path.length <= 1,
+    )
+    if (!hasEditsContainerIssue) return undefined
     return [
       'Expected shape: { "edits": [{ "id"?: string, "type": "str_replace" | "replace_range" | "structured" | "create" | "delete" | "move" | "rewrite_symbol" | "patch" | "write_file", "path": string, ... }] }.',
       'Pass `edits` as an actual array of objects. Do not JSON.stringify the array or its entries. Complete legacy JSON strings are decoded defensively, but malformed or truncated strings cannot be reconstructed without risking partial edits.',
@@ -562,6 +591,43 @@ function getToolValidationHint(
     ].join('\n')
   }
   return fieldHint
+}
+
+function valueAtPath(value: unknown, path: PropertyKey[]): unknown {
+  let current = value
+  for (const segment of path) {
+    if (current === null || typeof current !== 'object') return undefined
+    current = (current as Record<PropertyKey, unknown>)[segment]
+  }
+  return current
+}
+
+function formatInvalidInputExcerpts(
+  input: unknown,
+  issues: ValidationIssue[],
+): string {
+  const seen = new Set<string>()
+  const excerpts: string[] = []
+  for (const issue of issues) {
+    const path = issue.path ?? []
+    const excerptPath = path.length > 0 ? path.slice(0, -1) : path
+    const label = excerptPath.length
+      ? excerptPath
+          .map((segment, index) =>
+            typeof segment === 'number'
+              ? `[${segment}]`
+              : `${index > 0 ? '.' : ''}${String(segment)}`,
+          )
+          .join('')
+      : '<root>'
+    if (seen.has(label)) continue
+    seen.add(label)
+    excerpts.push(
+      `${label}:\n${formatValueForError(valueAtPath(input, excerptPath), 1_600)}`,
+    )
+    if (excerpts.join('\n\n').length >= 6_000) break
+  }
+  return excerpts.join('\n\n') || formatValueForError(input, 2_000)
 }
 
 function isFileChangingTool(toolName: string): boolean {
@@ -617,6 +683,15 @@ function getFilesystemToolPaths(
             ]
           : [],
       ),
+    }
+  }
+  if (toolName === 'write_audit_findings') {
+    const sessionSlug =
+      typeof input.sessionSlug === 'string' ? input.sessionSlug : ''
+    const shardId = typeof input.shardId === 'string' ? input.shardId : ''
+    return {
+      access: 'write',
+      paths: [`.agents/sessions/${sessionSlug}/findings/${shardId}.md`],
     }
   }
   if (isFileChangingTool(toolName)) {
@@ -689,6 +764,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
       toolCallId: rawToolCall.toolCallId,
       input: rawToolCall.input,
       error: `Invalid parameters for ${toolName}: ${summary}\n\nRaw validation issues:\n${validationDetails}${hint ? `\n\n${hint}` : ''}`,
+      formattedInput: formatInvalidInputExcerpts(repairedInput, issues),
     }
   }
 
@@ -810,10 +886,13 @@ export async function executeToolCall<T extends ToolName>(
   }
 
   if ('error' in toolCall) {
-    const formattedInput = formatValueForError(input)
+    const formattedInput = toolCall.formattedInput ?? formatValueForError(input)
+    const inputLabel = toolCall.formattedInput
+      ? 'Relevant invalid input excerpts'
+      : 'Original tool call input'
     onResponseChunk({
       type: 'error',
-      message: `${toolCall.error}\n\nOriginal tool call input:\n${formattedInput}`,
+      message: `${toolCall.error}\n\n${inputLabel}:\n${formattedInput}`,
     })
     logger.debug(
       { toolCall, error: toolCall.error },
@@ -1376,10 +1455,13 @@ export async function executeCustomToolCall(
   }
 
   if ('error' in toolCall) {
-    const formattedInput = formatValueForError(input)
+    const formattedInput = toolCall.formattedInput ?? formatValueForError(input)
+    const inputLabel = toolCall.formattedInput
+      ? 'Relevant invalid input excerpts'
+      : 'Original tool call input'
     onResponseChunk({
       type: 'error',
-      message: `${toolCall.error}\n\nOriginal tool call input:\n${formattedInput}`,
+      message: `${toolCall.error}\n\n${inputLabel}:\n${formattedInput}`,
     })
     logger.debug(
       { toolCall, error: toolCall.error },

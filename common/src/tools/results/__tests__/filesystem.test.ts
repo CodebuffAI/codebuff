@@ -167,6 +167,76 @@ describe('structured filesystem results', () => {
     ).toBe(false)
   })
 
+  it('keeps structured edit anchors coherent with legacy capability fields', () => {
+    const contentHash = `sha256:${'a'.repeat(64)}`
+    const valid = buildReadFilesResultV1([
+      {
+        selector: 'range',
+        requestIndex: 0,
+        path: 'src/a.ts',
+        status: 'ok',
+        content: '1\ta',
+        sourceContent: 'a',
+        startLine: 1,
+        endLine: 1,
+        totalLines: 1,
+        complete: true,
+        rangeHash: contentHash,
+        readCapability: 'cap.v3.example',
+        editAnchor: {
+          startLine: 1,
+          endLine: 1,
+          contentHash,
+          readCapability: 'cap.v3.example',
+        },
+      },
+    ])
+    expect(readFilesResultV1Schema.safeParse(valid).success).toBe(true)
+
+    const range = valid.results[0]
+    expect(range?.selector).toBe('range')
+    if (!range || range.selector !== 'range' || range.status === 'error') {
+      throw new Error('expected one successful range result')
+    }
+    expect(
+      readFilesResultV1Schema.safeParse({
+        ...valid,
+        results: [
+          {
+            ...range,
+            editAnchor: { ...range.editAnchor, startLine: 2 },
+          },
+        ],
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts model-visible edit anchors without legacy duplicate fields', () => {
+    const contentHash = `sha256:${'b'.repeat(64)}`
+    const result = buildReadFilesResultV1([
+      {
+        selector: 'range',
+        requestIndex: 0,
+        path: 'src/a.ts',
+        status: 'ok',
+        content: '1\ta',
+        sourceContent: 'a',
+        startLine: 1,
+        endLine: 1,
+        totalLines: 1,
+        complete: true,
+        editAnchor: {
+          startLine: 1,
+          endLine: 1,
+          contentHash,
+          readCapability: 'cap.v3.example',
+        },
+      },
+    ])
+
+    expect(readFilesResultV1Schema.safeParse(result).success).toBe(true)
+  })
+
   it('rejects aggregate status and request-index drift', () => {
     const result = buildReadFilesResultV1([
       {

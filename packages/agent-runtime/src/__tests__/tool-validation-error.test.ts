@@ -4,6 +4,10 @@ import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-run
 import { fileMutationResultV1Schema } from '@codebuff/common/tools/results/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
+import {
+  encodeReadCapabilityToken,
+  getContentHash,
+} from '@codebuff/common/util/content-hash'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
@@ -751,6 +755,78 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('gives capability-specific transaction recovery and preserves the failing edit excerpt', () => {
+    const hash = getContentHash('line')
+    const readCapability = encodeReadCapabilityToken({
+      startLine: 100,
+      endLine: 156,
+      hash,
+    })
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'edit_transaction',
+        toolCallId: 'mixed-range-target',
+        input: {
+          edits: [
+            {
+              type: 'replace_range',
+              path: 'agents/base2/base2.ts',
+              readCapability,
+              startLine: 105,
+              endLine: 105,
+              expectedHash: hash,
+              newContent: "      'run_targeted_validation',",
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('capability covers lines 100-156')
+      expect(result.error).toContain('choose one target form only')
+      expect(result.error).not.toContain(
+        'Pass `edits` as an actual array of objects',
+      )
+      expect(result.formattedInput).toContain('agents/base2/base2.ts')
+      expect(result.formattedInput).toContain('run_targeted_validation')
+    }
+  })
+
+  it('gives deletion-specific recovery for transaction skipIfMissing misuse', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'edit_transaction',
+        toolCallId: 'non-deletion-skip',
+        input: {
+          edits: [
+            {
+              type: 'str_replace',
+              path: 'src/a.ts',
+              replacements: [
+                {
+                  oldString: 'before',
+                  newString: 'after',
+                  skipIfMissing: true,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('deletion-only')
+      expect(result.error).not.toContain(
+        'Pass `edits` as an actual array of objects',
+      )
+      expect(result.formattedInput).toContain('"newString": "after"')
+    }
+  })
+
   it('should not infer ambiguous content-only edit_transaction types', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -1096,7 +1172,7 @@ describe('tool validation error handling', () => {
     expect(errorEvents[0].message).toContain(
       'Invalid parameters for spawn_agents',
     )
-    expect(errorEvents[0].message).toContain('Original tool call input:')
+    expect(errorEvents[0].message).toContain('Relevant invalid input excerpts:')
     expect(errorEvents[0].message).toContain(
       'this should be an array not a string',
     )

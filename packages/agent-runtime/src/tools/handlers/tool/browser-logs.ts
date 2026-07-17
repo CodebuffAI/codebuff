@@ -35,6 +35,7 @@ export const handleBrowserLogs = (async (params: {
 
   await previousToolCallFinished
   const actionType = toolCall.input.type
+  const isPlanOnlyLineage = agentTemplate.programmaticConfig?.planOnly === true
   const readOnlyBrowserActions = new Set([
     'start',
     'navigate',
@@ -63,7 +64,8 @@ export const handleBrowserLogs = (async (params: {
   }
   if (
     agentTemplate.id === 'browser-use' &&
-    spawnParams?.interactionPolicy !== 'allow-interactions' &&
+    (isPlanOnlyLineage ||
+      spawnParams?.interactionPolicy !== 'allow-interactions') &&
     !isReadOnlyAction(toolCall.input as Record<string, any>)
   ) {
     return {
@@ -73,8 +75,9 @@ export const handleBrowserLogs = (async (params: {
           value: {
             success: false,
             action: actionType,
-            error:
-              'Browser interaction denied by the read-only interactionPolicy. Spawn browser-use with params.interactionPolicy="allow-interactions" after user authorization.',
+            error: isPlanOnlyLineage
+              ? 'Browser interaction denied because plan-only ancestry enforces read-only browser inspection.'
+              : 'Browser interaction denied by the read-only interactionPolicy. Spawn browser-use with params.interactionPolicy="allow-interactions" after user authorization.',
             logs: [],
           },
         },

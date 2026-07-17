@@ -20,4 +20,27 @@ describe('compileToolDefinitions', () => {
       /"params"\?: \{[\s\S]*\[key: string\]: any[\s\S]*\}/,
     )
   })
+
+  test('advertises capability-only transaction range edits', () => {
+    const definitions = compileToolDefinitions()
+    const transaction = definitions.match(
+      /export interface EditTransactionParams[\s\S]*?(?=\n\/\*\*)/,
+    )?.[0]
+
+    expect(transaction).toContain('"type": "replace_range"')
+    expect(transaction).toContain('"readCapability": string')
+    expect(transaction).not.toContain('"startLine"')
+    expect(transaction).not.toContain('"endLine"')
+    expect(transaction).not.toContain('"expectedHash"')
+  })
+
+  test('does not generate legacy object-form read anchors', () => {
+    const definitions = compileToolDefinitions()
+    const strReplace = definitions.match(
+      /export interface StrReplaceParams[\s\S]*?(?=\n\/\*\*)/,
+    )?.[0]
+
+    expect(strReplace).toContain('"basedOnRead"?: string')
+    expect(strReplace).not.toContain('"hash": string')
+  })
 })

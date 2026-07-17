@@ -53,6 +53,7 @@ export type ToolName =
   | 'update_plan_status'
   | 'web_search'
   | 'write_file'
+  | 'write_audit_findings'
   | 'write_todos'
 
 /**
@@ -110,14 +111,14 @@ export interface ToolParamsMap {
   update_plan_status: UpdatePlanStatusParams
   web_search: WebSearchParams
   write_file: WriteFileParams
+  write_audit_findings: WriteAuditFindingsParams
   write_todos: WriteTodosParams
 }
 
 /**
- * Apply a file operation (create, update, or delete).
+ * Parameters for apply_patch tool
  */
 export interface ApplyPatchParams {
-  /** The file operation to perform. type is one of create_file, update_file, or delete_file. */
   operation:
     | {
         type: 'create_file'
@@ -128,17 +129,7 @@ export interface ApplyPatchParams {
         type: 'update_file'
         path: string
         diff: string
-        /** Required for large-file update patches. Prefer one authenticated cap.v3 token per touched hunk, copied from fresh read_files.ranges headers. Legacy range objects remain freshness checks but cannot authorize an otherwise unread path in strict mode. */
-        basedOnRead?:
-          | string
-          | {
-              /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-              startLine: number
-              /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-              endLine: number
-              /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-              hash: string
-            }[]
+        basedOnRead?: string[]
       }
     | {
         type: 'delete_file'
@@ -180,7 +171,7 @@ export interface AskUserParams {
   questions: {
     /** The question to ask the user */
     question: string
-    /** Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method" */
+    /** Optional short display label. Values longer than 18 Unicode code points are truncated instead of rejecting the question. */
     header?: string
     /** Array of answer options with label and optional description. */
     options: {
@@ -255,40 +246,23 @@ export interface CodeSearchParams {
 export interface EndTurnParams {}
 
 /**
- * Preflight related edits together, then apply them in one coordinated client-side transaction with deterministic order and explicit rollback outcomes.
+ * Parameters for edit_transaction tool
  */
 export interface EditTransactionParams {
-  /** All edits that must preflight together. Pass an actual array of edit objects; do not JSON.stringify the array or its entries. The runtime defensively decodes complete legacy JSON encodings, but malformed or truncated strings fail closed. An omitted type is inferred only when the payload shape identifies one unambiguous operation, such as replacements implying str_replace. If any edit fails during preflight, no files are changed. */
   edits:
     | {
         /** Optional stable edit identifier echoed in diagnostics. */
         id?: string
         /** The file to edit. */
         path: string
-        /** The edit operation type. */
         type: 'str_replace'
-        /** String replacements to apply to this file. */
         replacements: {
-          /** The string to replace. This must match the current file content exactly unless the deterministic near-match guard can prove one safe target. */
           oldString: string
-          /** The string to replace the corresponding oldString with. Can be empty to delete. */
           newString: string
-          /** Whether to allow multiple replacements of oldString. */
           allowMultiple?: boolean
-          /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
           occurrenceIndex?: number
-          /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
-          basedOnRead?:
-            | string
-            | {
-                /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-                startLine: number
-                /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-                endLine: number
-                /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-                hash: string
-              }
-          /** For deletion replacements only (newString is empty): treat a missing oldString as an already-applied no-op. Use only for explicit idempotent cleanup retries, never for ordinary edits. */
+          /** Optional authenticated readCapability copied verbatim from the matching fresh read_files editAnchor. */
+          basedOnRead?: string
           skipIfMissing?: boolean
         }[]
       }
@@ -359,11 +333,7 @@ export interface EditTransactionParams {
         /** The file to edit. */
         path: string
         type: 'replace_range'
-        /** Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together. */
-        readCapability?: string
-        startLine: number
-        endLine: number
-        expectedHash: string
+        readCapability: string
         newContent: string
       }
     | {
@@ -626,7 +596,7 @@ export interface ReadFilesParams {
     /** 1-indexed inclusive end line. Defaults to the last line. */
     endLine?: number
   }[]
-  /** Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes its line range and a readCapability you can reuse as basedOnRead on a later edit. */
+  /** Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes one editAnchor whose readCapability can anchor a later edit. */
   symbols?: {
     /** File path to extract symbol slices from, relative to the project root. */
     path: string
@@ -689,17 +659,11 @@ export interface ReadSubtreeParams {
  * Parameters for replace_range tool
  */
 export interface ReplaceRangeParams {
-  /** The path to the file to edit. */
+  /** The file to edit. */
   path: string
-  /** 1-indexed inclusive start line from a fresh read_files.ranges result. Omit when readCapability is supplied. */
-  startLine?: number
-  /** 1-indexed inclusive end line from a fresh read_files.ranges result. Omit when readCapability is supplied. */
-  endLine?: number
-  /** The sha256 rangeHash returned by read_files.ranges for this exact range. Omit when readCapability is supplied. */
-  expectedHash?: string
-  /** Preferred target anchor: copy the cap.* readCapability verbatim from a fresh read_files range header. It safely supplies startLine, endLine, and expectedHash as one value. */
-  readCapability?: string
-  /** Complete replacement content for the selected line range. */
+  /** Copy editAnchor.readCapability from the matching fresh range. */
+  readCapability: string
+  /** Complete replacement content. */
   newContent: string
 }
 
@@ -955,35 +919,19 @@ export interface SpawnAgentsParams {
 }
 
 /**
- * Replace strings in a file with new strings.
+ * Parameters for str_replace tool
  */
 export interface StrReplaceParams {
-  /** The path to the file to edit. */
+  /** The file to edit. */
   path: string
-  /** Whether to make the replacement batch all-or-nothing. If true, any failed replacement aborts the entire batch with no changes. Large-file edits are always atomic regardless of this setting. */
   atomic?: boolean
-  /** Array of replacements to make. */
   replacements: {
-    /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
     oldString: string
-    /** The string to replace the corresponding oldString with. Can be empty to delete. */
     newString: string
-    /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
-    /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. Prefer combining it with a fresh basedOnRead range so occurrences are counted only inside a proven target window, never across unrelated file content. */
     occurrenceIndex?: number
-    /** Optional range anchor from a fresh read_files call. Prefer the authenticated cap.v3 readCapability: it is bound to the current project, target path, and run. The legacy { startLine, endLine, hash } form remains a freshness assertion but cannot authorize an otherwise unread path in strict mode. Range capabilities never authorize whole-file overwrites. Only copy capabilities from a successful fresh read. */
-    basedOnRead?:
-      | string
-      | {
-          /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
-          startLine: number
-          /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
-          endLine: number
-          /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
-          hash: string
-        }
-    /** For deletion replacements only: treat an already-missing oldString as a successful idempotent no-op. */
+    /** Optional authenticated readCapability copied verbatim from the matching fresh read_files editAnchor. */
+    basedOnRead?: string
     skipIfMissing?: boolean
   }[]
 }
@@ -1097,6 +1045,40 @@ export interface WriteFileParams {
   instructions: string
   /** Complete file content to write to the file. */
   content: string
+}
+
+/**
+ * Parameters for write_audit_findings tool
+ */
+export interface WriteAuditFindingsParams {
+  /** Existing durable audit session slug under .agents/sessions/. */
+  sessionSlug: string
+  /** Unique shard identifier used as the findings filename. */
+  shardId: string
+  findings: {
+    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+    domain:
+      | 'security'
+      | 'correctness'
+      | 'state-mutation'
+      | 'error-handling'
+      | 'performance'
+      | 'dependency-hygiene'
+      | 'test-coverage'
+      | 'api-abi'
+    path: string
+    line?: number
+    title: string
+    risk: string
+    fix: string
+    evidence: string
+  }[]
+  coverage: {
+    subsystemIds: string[]
+    featureIds: string[]
+    files: string[]
+  }
+  noIssuesFound?: boolean
 }
 
 /**

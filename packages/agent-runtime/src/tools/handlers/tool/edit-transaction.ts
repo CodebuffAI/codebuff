@@ -276,12 +276,22 @@ export const handleEditTransaction = (async (
         requireFreshReadCapabilityForPaths.add(edit.path)
         return
       }
+      const hasRangeReadCapability =
+        edit.type === 'replace_range' && Boolean(edit.readCapability)
+      if (hasRangeReadCapability) {
+        requireFreshReadCapabilityForPaths.add(edit.path)
+        return
+      }
+      const rangeRecovery =
+        edit.type === 'replace_range'
+          ? ` Call read_files with ranges: [{ "path": "${edit.path}", "startLine": ${edit.startLine}, "endLine": ${edit.endLine} }] and retry with only its readCapability plus newContent.`
+          : ''
       failures.push({
         editIndex,
         path: edit.path,
         errorMessage: staleWholeFileAuthorizationPaths.has(edit.path)
-          ? `Edit blocked: ${edit.path} changed after its last whole-file read, so the stored authorization was revoked. Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`
-          : `Edit blocked: strict read-before-edit is enabled and no fresh whole-file read authorization exists for ${edit.path}. Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`,
+          ? `Edit blocked: ${edit.path} changed after its last whole-file read, so the stored authorization was revoked.${rangeRecovery || ` Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`}`
+          : `Edit blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${edit.path}.${rangeRecovery || ` Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`}`,
       })
     })
     if (failures.length > 0) {
@@ -292,7 +302,7 @@ export const handleEditTransaction = (async (
             value: {
               errorMessage: [
                 'edit_transaction blocked: strict read-before-edit is enabled and one or more paths have no read authorization.',
-                'Next: call read_files with paths for each blocked file before retrying, or include a matching fresh basedOnRead capability on every replacement of each blocked str_replace edit.',
+                "Follow each failure's exact recovery selector. For replace_range, re-read that range and use only its readCapability; for str_replace, use a whole-file read or matching basedOnRead on every replacement.",
               ].join('\n'),
               failures,
             },

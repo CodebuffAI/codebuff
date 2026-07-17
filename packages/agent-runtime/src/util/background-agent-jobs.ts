@@ -141,7 +141,6 @@ export function allocateBackgroundAgentJob(params: {
   agentName: string
   owner?: BackgroundAgentJob['owner']
 }): BackgroundAgentJob {
-  sweepBackgroundAgentJobs()
   const owner = params.owner ?? {
     clientSessionId: 'unknown-session',
     rootRunId: 'unknown-root',
@@ -149,22 +148,7 @@ export function allocateBackgroundAgentJob(params: {
     parentAgentId: 'unknown-parent-agent',
     userInputId: 'unknown-input',
   }
-  const running = [...jobs.values()].filter((job) => job.status === 'running')
-  if (running.length >= MAX_RUNNING_BACKGROUND_AGENT_JOBS) {
-    throw new Error(
-      `Background agent concurrency limit reached (${MAX_RUNNING_BACKGROUND_AGENT_JOBS}). Join or cancel an existing job before spawning another.`,
-    )
-  }
-  const runningForRoot = running.filter(
-    (job) =>
-      job.owner.clientSessionId === owner.clientSessionId &&
-      job.owner.rootRunId === owner.rootRunId,
-  )
-  if (runningForRoot.length >= MAX_RUNNING_BACKGROUND_AGENT_JOBS_PER_ROOT) {
-    throw new Error(
-      `Background agent concurrency limit reached for this run (${MAX_RUNNING_BACKGROUND_AGENT_JOBS_PER_ROOT}). Join or cancel an existing job before spawning another.`,
-    )
-  }
+  assertBackgroundAgentCapacity({ additional: 1, owner })
   const { agentType, agentName } = params
   const jobId = nextJobId()
   const job: BackgroundAgentJob = {
@@ -185,6 +169,35 @@ export function allocateBackgroundAgentJob(params: {
   }
   jobs.set(jobId, job)
   return job
+}
+
+/** Preflight a logical batch before the caller acquires leases or emits events. */
+export function assertBackgroundAgentCapacity(params: {
+  additional: number
+  owner: BackgroundAgentJob['owner']
+}): void {
+  sweepBackgroundAgentJobs()
+  if (params.additional <= 0) return
+  const { owner } = params
+  const running = [...jobs.values()].filter((job) => job.status === 'running')
+  if (running.length + params.additional > MAX_RUNNING_BACKGROUND_AGENT_JOBS) {
+    throw new Error(
+      `Background agent concurrency limit reached (${MAX_RUNNING_BACKGROUND_AGENT_JOBS}). Join or cancel an existing job before spawning another.`,
+    )
+  }
+  const runningForRoot = running.filter(
+    (job) =>
+      job.owner.clientSessionId === owner.clientSessionId &&
+      job.owner.rootRunId === owner.rootRunId,
+  )
+  if (
+    runningForRoot.length + params.additional >
+    MAX_RUNNING_BACKGROUND_AGENT_JOBS_PER_ROOT
+  ) {
+    throw new Error(
+      `Background agent concurrency limit reached for this run (${MAX_RUNNING_BACKGROUND_AGENT_JOBS_PER_ROOT}). Join or cancel an existing job before spawning another.`,
+    )
+  }
 }
 
 /**

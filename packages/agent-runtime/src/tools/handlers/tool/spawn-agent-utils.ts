@@ -388,46 +388,63 @@ export function validateVersionedAgentHandoff(params: {
 
 export function deriveSpawnTemplateCapabilities(params: {
   agentTemplate: AgentTemplate
+  parentAgentTemplate: AgentTemplate
   handoff: AgentHandoff | undefined
   projectRoot: string
 }): AgentTemplate {
-  const { agentTemplate, handoff, projectRoot } = params
-  if (!handoff) return agentTemplate
+  const { agentTemplate, parentAgentTemplate, handoff, projectRoot } = params
+  const inheritsPlanOnlyAuthority =
+    parentAgentTemplate.programmaticConfig?.planOnly === true
+  const inheritedTemplate: AgentTemplate = inheritsPlanOnlyAuthority
+    ? {
+        ...agentTemplate,
+        terminalPermissionProfile: getEffectiveAgentToolNames(
+          agentTemplate,
+        ).includes('run_terminal_command')
+          ? 'read-only'
+          : agentTemplate.terminalPermissionProfile,
+        programmaticConfig: {
+          ...agentTemplate.programmaticConfig,
+          planOnly: true,
+        },
+      }
+    : agentTemplate
+  if (!handoff) return inheritedTemplate
 
   const requestedTools = new Set(handoff.permissions.allowedTools)
-  const staticTools = getEffectiveAgentToolNames(agentTemplate)
+  const staticTools = getEffectiveAgentToolNames(inheritedTemplate)
   const disallowedTools = [...requestedTools].filter(
     (toolName) => !staticTools.includes(toolName),
   )
   if (disallowedTools.length > 0) {
     throw new Error(
-      `Handoff attempted to widen ${agentTemplate.id} tool authority with: ${disallowedTools.join(', ')}.`,
+      `Handoff attempted to widen ${inheritedTemplate.id} tool authority with: ${disallowedTools.join(', ')}.`,
     )
   }
 
   const read = narrowFilesystemPatterns({
     requested: handoff.permissions.readablePaths,
-    staticPatterns: agentTemplate.filesystemScope?.read,
+    staticPatterns: inheritedTemplate.filesystemScope?.read,
     projectRoot,
     access: 'read',
-    agentId: agentTemplate.id,
+    agentId: inheritedTemplate.id,
   })
   const write = narrowFilesystemPatterns({
     requested: handoff.permissions.writablePaths,
-    staticPatterns: agentTemplate.filesystemScope?.write,
+    staticPatterns: inheritedTemplate.filesystemScope?.write,
     projectRoot,
     access: 'write',
-    agentId: agentTemplate.id,
+    agentId: inheritedTemplate.id,
   })
 
   return {
-    ...agentTemplate,
-    toolNames: agentTemplate.toolNames.filter((toolName) =>
+    ...inheritedTemplate,
+    toolNames: inheritedTemplate.toolNames.filter((toolName) =>
       requestedTools.has(toolName),
     ),
-    programmaticToolNames: (agentTemplate.programmaticToolNames ?? []).filter(
-      (toolName) => requestedTools.has(toolName),
-    ),
+    programmaticToolNames: (
+      inheritedTemplate.programmaticToolNames ?? []
+    ).filter((toolName) => requestedTools.has(toolName)),
     spawnableAgents: [],
     filesystemScope: { read, write },
   }

@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach } from 'bun:test'
 
 import {
   allocateBackgroundAgentJob,
+  assertBackgroundAgentCapacity,
   attachBackgroundAgentPromise,
   registerBackgroundAgentJob,
   appendBackgroundAgentChunk,
@@ -42,6 +43,30 @@ describe('background-agent-jobs registry', () => {
       agentName: 'Code Searcher',
     })
     expect(a.jobId).not.toBe(b.jobId)
+  })
+
+  test('preflights a background batch atomically against the per-root limit', () => {
+    const owner = {
+      clientSessionId: 'session',
+      rootRunId: 'root',
+      parentRunId: 'parent',
+      parentAgentId: 'agent',
+      userInputId: 'input',
+    }
+    for (let index = 0; index < 7; index++) {
+      allocateBackgroundAgentJob({
+        agentType: 'researcher',
+        agentName: `Researcher ${index}`,
+        owner,
+      })
+    }
+
+    expect(() =>
+      assertBackgroundAgentCapacity({ additional: 2, owner }),
+    ).toThrow('concurrency limit reached for this run (8)')
+    expect(() =>
+      assertBackgroundAgentCapacity({ additional: 1, owner }),
+    ).not.toThrow()
   })
 
   test('getBackgroundAgentJob returns the job for a known id', () => {

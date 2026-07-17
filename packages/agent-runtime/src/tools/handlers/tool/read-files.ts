@@ -136,18 +136,22 @@ export const handleReadFiles = (async (
   })
   const fileResults = fileReadResult.results.map((result) => {
     if (result.status === 'error') return result
-    const completeReadCapability = (() => {
+    const completeEditAnchor = (() => {
       if (
         result.selector === 'file' &&
         result.complete &&
         typeof result.content === 'string'
       ) {
-        return encodeReadCapabilityToken({
-          startLine: 1,
-          endLine: normalizeLineEndings(result.content).split('\n').length,
-          hash: getContentHash(result.content),
+        const contentHash = getContentHash(result.content)
+        const startLine = 1
+        const endLine = normalizeLineEndings(result.content).split('\n').length
+        const readCapability = encodeReadCapabilityToken({
+          startLine,
+          endLine,
+          hash: contentHash,
           scope: { ...capabilityIssuer, path: result.path },
         })
+        return { startLine, endLine, contentHash, readCapability }
       }
       if (
         result.selector === 'range' &&
@@ -155,12 +159,18 @@ export const handleReadFiles = (async (
         result.rangeHash &&
         /^sha256:[a-f0-9]{64}$/.test(result.rangeHash)
       ) {
-        return encodeReadCapabilityToken({
+        const readCapability = encodeReadCapabilityToken({
           startLine: result.startLine,
           endLine: result.endLine,
           hash: result.rangeHash,
           scope: { ...capabilityIssuer, path: result.path },
         })
+        return {
+          startLine: result.startLine,
+          endLine: result.endLine,
+          contentHash: result.rangeHash,
+          readCapability,
+        }
       }
       return undefined
     })()
@@ -172,11 +182,15 @@ export const handleReadFiles = (async (
     if ('readCapability' in resultWithoutCapability) {
       delete resultWithoutCapability.readCapability
     }
+    if ('rangeHash' in resultWithoutCapability && completeEditAnchor) {
+      delete resultWithoutCapability.rangeHash
+    }
+    if ('editAnchor' in resultWithoutCapability) {
+      delete resultWithoutCapability.editAnchor
+    }
     return {
       ...resultWithoutCapability,
-      ...(completeReadCapability
-        ? { readCapability: completeReadCapability }
-        : {}),
+      ...(completeEditAnchor ? { editAnchor: completeEditAnchor } : {}),
       ...(refs && Object.keys(refs).length > 0 ? { referencedBy: refs } : {}),
     }
   })
@@ -210,18 +224,28 @@ export const handleReadFiles = (async (
   }
 
   const renderedFileResults = fileResults.map((result) => {
+    const modelContent =
+      result.status !== 'error' &&
+      result.selector === 'range' &&
+      typeof result.content === 'string'
+        ? result.content.replace(/^\[RANGE_BLOCK [^\n]*\]\n/, '')
+        : result.status !== 'error' && 'content' in result
+          ? result.content
+          : undefined
     if (
       result.status !== 'error' &&
       result.selector !== 'symbols' &&
-      typeof result.content === 'string' &&
+      typeof modelContent === 'string' &&
       editedSinceLastRead.has(result.path)
     ) {
       return {
         ...result,
-        content: `${CHANGED_SINCE_LAST_READ_MARKER}\n${result.content}`,
+        content: `${CHANGED_SINCE_LAST_READ_MARKER}\n${modelContent}`,
       }
     }
-    return result
+    return modelContent === undefined
+      ? result
+      : { ...result, content: modelContent }
   })
 
   const symbolResults: ReadFilesItemV1[] = []
@@ -262,19 +286,27 @@ export const handleReadFiles = (async (
 
     const slices = (
       await extractSlices(rawContent, request.path, request.names)
-    ).map((slice) =>
-      slice.readCapability
-        ? {
-            ...slice,
-            readCapability: encodeReadCapabilityToken({
-              startLine: slice.startLine,
-              endLine: slice.endLine,
-              hash: getContentHash(slice.content),
-              scope: { ...capabilityIssuer, path: request.path },
-            }),
-          }
-        : slice,
-    )
+    ).map((slice) => {
+      if (!slice.readCapability) return slice
+      const contentHash = getContentHash(slice.content)
+      const readCapability = encodeReadCapabilityToken({
+        startLine: slice.startLine,
+        endLine: slice.endLine,
+        hash: contentHash,
+        scope: { ...capabilityIssuer, path: request.path },
+      })
+      const sliceWithoutCapability = { ...slice }
+      delete sliceWithoutCapability.readCapability
+      return {
+        ...sliceWithoutCapability,
+        editAnchor: {
+          startLine: slice.startLine,
+          endLine: slice.endLine,
+          contentHash,
+          readCapability,
+        },
+      }
+    })
     const foundSymbols = new Set(slices.map((slice) => slice.symbol))
     const missingSymbols = request.names.filter(
       (name) => !foundSymbols.has(name),

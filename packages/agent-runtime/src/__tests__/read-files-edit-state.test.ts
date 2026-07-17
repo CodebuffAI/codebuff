@@ -197,6 +197,19 @@ describe('read_files edit-state recovery', () => {
       // The file content carries the M4 "changed since last read" prefix
       // because there was a stale promisesByPath entry simulating a prior edit.
       expect(value.results[0]).toMatchObject({ path, selector: 'file' })
+      expect(value.results[0].editAnchor).toMatchObject({
+        startLine: 1,
+        contentHash: getContentHash(diskContent),
+        readCapability: expect.stringMatching(/^cap\.v3\./),
+      })
+      expect(value.results[0].readCapability).toBeUndefined()
+      const duplicated = {
+        ...value.results[0],
+        readCapability: value.results[0].editAnchor.readCapability,
+      }
+      expect(JSON.stringify(value.results[0]).length).toBeLessThan(
+        JSON.stringify(duplicated).length,
+      )
       expect(value.results[0].referencedBy).toBeUndefined()
       expect(value.results[0].content).toContain('changed since last read')
       expect(value.results[0].content).toContain(diskContent)
@@ -317,6 +330,11 @@ describe('read_files edit-state recovery', () => {
     } as any)
 
     expect(result.output[0]?.type).toBe('json')
+    if (result.output[0]?.type === 'json') {
+      const slice = (result.output[0].value as any).results[0].slices[0]
+      expect(slice.editAnchor.readCapability).toMatch(/^cap\.v3\./)
+      expect(slice.readCapability).toBeUndefined()
+    }
     expect(
       fileProcessingState.failedEditRequiresReadByPath[path],
     ).toBeUndefined()
@@ -479,10 +497,12 @@ describe('read_files edit-state recovery', () => {
 
   it('does not turn a range-only read into whole-file authorization', async () => {
     const path = 'src/ranged.ts'
+    const sourceContent = 'line 1\nline 2'
+    const rangeHash = getContentHash(sourceContent)
     const fileProcessingState = createFileProcessingState()
     fileProcessingState.strictReadBeforeEdit = true
 
-    await handleReadFiles({
+    const result = await handleReadFiles({
       previousToolCallFinished: Promise.resolve(),
       toolCall: {
         toolCallId: 'read-range-only',
@@ -492,13 +512,25 @@ describe('read_files edit-state recovery', () => {
       fileContext: mockFileContext,
       fileProcessingState,
       requestFiles: async () => ({
-        [path]:
-          '[RANGE_BLOCK lines 1-2 of 2 in src/ranged.ts; rangeHash=sha256:test; readCapability=cap.test]\n1\tline 1\n2\tline 2',
+        [path]: `[RANGE_BLOCK lines 1-2 of 2 in src/ranged.ts; rangeHash=${rangeHash}; readCapability=cap.test]\n1\tline 1\n2\tline 2`,
       }),
       logger,
     } as any)
 
     expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBeUndefined()
+    expect(result.output[0]?.type).toBe('json')
+    if (result.output[0]?.type === 'json') {
+      const value = result.output[0].value as any
+      expect(value.results[0].content).not.toContain('[RANGE_BLOCK')
+      expect(value.results[0].editAnchor).toMatchObject({
+        startLine: 1,
+        endLine: 2,
+        contentHash: rangeHash,
+        readCapability: expect.stringMatching(/^cap\.v3\./),
+      })
+      expect(value.results[0].rangeHash).toBeUndefined()
+      expect(value.results[0].readCapability).toBeUndefined()
+    }
   })
 
   it('rejects str_replace when the client returns no application result', async () => {
@@ -1900,7 +1932,7 @@ describe('read_files edit-state recovery', () => {
       const readOutput = readResult.output[0]
       expect(readOutput.type).toBe('json')
       if (readOutput.type !== 'json') return
-      const readCapability = (readOutput.value as any).results[0]
+      const readCapability = (readOutput.value as any).results[0].editAnchor
         .readCapability as string
       expect(readCapability).toMatch(/^cap\.v3\./)
 
@@ -2603,6 +2635,60 @@ describe('read_files edit-state recovery', () => {
       expect(output.type).toBe('json')
       if (output.type === 'json') {
         expect(output.value).not.toHaveProperty('errorMessage')
+      }
+    })
+
+    it('strict edit_transaction accepts a scoped replace_range capability without whole-file authorization', async () => {
+      const path = 'src/range.ts'
+      const diskContent = 'export const value = 1\n'
+      const rangeContent = 'export const value = 1'
+      const runId = 'strict-transaction-range-run'
+      const expectedHash = getContentHash(rangeContent)
+      const readCapability = encodeReadCapabilityToken({
+        startLine: 1,
+        endLine: 1,
+        hash: expectedHash,
+        scope: { projectId: mockFileContext.projectRoot, path, runId },
+      })
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      let applied = false
+      const result = await handleEditTransaction({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-transaction-range-anchored',
+          toolName: 'edit_transaction',
+          input: {
+            edits: [
+              {
+                type: 'replace_range',
+                path,
+                startLine: 1,
+                endLine: 1,
+                expectedHash,
+                readCapability,
+                newContent: 'export const value = 2',
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        fileContext: mockFileContext,
+        runId,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return confirmedMutationOutput(toolCall)
+        },
+      } as any)
+
+      expect(applied).toBe(true)
+      expect(result.output[0]).toMatchObject({ type: 'json' })
+      if (result.output[0]?.type === 'json') {
+        expect(result.output[0].value).not.toHaveProperty('errorMessage')
       }
     })
 
