@@ -38,6 +38,16 @@ export const createGeneralAgent = (options: {
             description:
               'A list of relevant file paths to read before thinking. Try to provide ALL the files that could be relevant to your request.',
           },
+          sessionSlug: {
+            type: 'string',
+            description:
+              'Durable audit session slug. When present with shardId, persist findings with write_audit_findings.',
+          },
+          shardId: {
+            type: 'string',
+            description:
+              'Unique audit shard id used for the findings artifact filename.',
+          },
         },
       },
     },
@@ -54,14 +64,20 @@ export const createGeneralAgent = (options: {
       'query_index',
       'read_files',
       'read_subtree',
+      'write_audit_findings',
     ],
+    filesystemScope: {
+      read: ['**/*'],
+      write: ['.agents/sessions/*/findings/*.md'],
+    },
     programmaticToolNames: ['spawn_agent_inline'],
 
     instructionsPrompt: buildArray(
       `Use the spawn_agents tool to spawn agents to help you complete the user request.`,
       `For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use query_index mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Do not rely on query_index alone for correctness.`,
       !isGpt5 &&
-        `If indexed evidence leaves explicit coverage gaps, spawn one bounded parallel batch of non-overlapping file-picker/code-searcher/researcher tasks. Do not restart the same discovery through multiple agent layers.`,
+        `If indexed evidence leaves explicit coverage gaps, spawn bounded parallel waves of non-overlapping file-picker/code-searcher/researcher tasks. Join each wave before deciding whether more coverage is needed; do not restart the same discovery through multiple agent layers.`,
+      `When params.sessionSlug and params.shardId are provided, this is a durable audit shard. Analyze the assigned files, call write_audit_findings exactly once with structured findings and coverage, then return only its compact artifact receipt (path, counts, and hash). Do not repeat findings in your final response.`,
     ).join('\n'),
 
     handleSteps: function* ({ prompt, params }) {

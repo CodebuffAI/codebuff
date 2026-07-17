@@ -2,6 +2,7 @@ import z from 'zod/v4'
 
 import { publishedTools } from './constants'
 import { toolParams } from './list'
+import type { $ToolParams } from './constants'
 
 /**
  * Compiles all tool definitions into a single TypeScript definition file content.
@@ -14,7 +15,9 @@ export function compileToolDefinitions(): string {
 
   const toolInterfaces = toolEntries
     .map(([toolName, toolDef]) => {
-      const parameterSchema = toolDef.inputSchema
+      const typedToolDef = toolDef as $ToolParams
+      const parameterSchema = (typedToolDef.providerInputSchema ??
+        typedToolDef.inputSchema) as z.ZodType
 
       // Convert Zod schema to TypeScript interface using JSON schema
       let typeDefinition: string

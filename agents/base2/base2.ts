@@ -80,18 +80,14 @@ export function createBase2(
       !isFast && !planOnly && 'write_todos',
       'create_plan',
       'update_plan_status',
-      canDirectEdit && 'str_replace',
-      canDirectEdit && 'apply_patch',
-      canDirectEdit && 'replace_range',
-      canDirectEdit && 'rewrite_symbol',
       canDirectEdit && 'edit_transaction',
-      canDirectEdit && 'write_file',
       canRunTerminal && 'run_terminal_command',
       'suggest_followups',
       !noAskUser && 'ask_user',
       'skill',
       'list_directory',
       'glob',
+      'check_background_agent',
       'check_job',
       'kill_job',
       'read_logs',
@@ -112,7 +108,7 @@ export function createBase2(
       'inspect_codebase_structure',
     ],
     spawnableAgentToolMode: 'generic',
-    programmaticConfig: { hasNoValidation },
+    programmaticConfig: { hasNoValidation, planOnly },
     spawnableAgents: buildArray(
       // handleSteps invokes this automatically through spawn_agent_inline on
       // every loop. It must still be declared for derived IDs such as
@@ -121,19 +117,20 @@ export function createBase2(
       'context-pruner',
       'file-picker',
       'code-searcher',
+      'general-agent',
       'researcher-web',
       'researcher-docs',
-      !planOnly && 'basher',
+      'basher',
       !planOnly && 'dependency-manager',
       isDefault && 'thinker',
       isDefault && !planOnly && 'editor',
       isDefault && !planOnly && 'repair-editor',
       !planOnly && 'tmux-cli',
-      !planOnly && 'browser-use',
+      'browser-use',
       'code-reviewer',
       'security-reviewer',
       !planOnly && 'git-committer',
-      !planOnly && 'debugger',
+      'debugger',
       !planOnly && 'doc-writer',
       !planOnly && 'test-writer',
       'librarian',
@@ -173,11 +170,19 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Ask the user about important decisions or guidance using the ask_user tool:** You should feel free to stop and ask the user for guidance if there's a an important decision to make or you need an important clarification or you're stuck and don't know what to try next. Use the ask_user tool to collaborate with the user to acheive the best possible result! Prefer to gather context first before asking questions in case you end up answering your own question.`
     }
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
-- **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
-- **Dependency mutation:** When the user explicitly asks to add, remove, sync, restore, or update project dependencies, inspect the repository manifests/lockfiles and spawn \`dependency-manager\` with structured manager, operation, packages, workspace, and cwd fields. Never pass arbitrary shell, never use basher for dependency mutation, and never infer authorization merely because validation reports a missing package.
+- **Do what the user asks within the active mode's authority:** If the user asks for a risky action in an implementation-capable mode, perform it with the required safeguards. In plan mode, analyze and plan the action but do not execute it or bypass the plan-only boundary.
+${
+  planOnly
+    ? '- **Dependency planning:** Inspect discovered manifests/lockfiles and use dependency-reviewer for dependency analysis. Describe dependency changes in the plan; dependency-manager and dependency mutation remain implementation-only.'
+    : '- **Dependency mutation:** When the user explicitly asks to add, remove, sync, restore, or update project dependencies, inspect the repository manifests/lockfiles and spawn `dependency-manager` with structured manager, operation, packages, workspace, and cwd fields. Never pass arbitrary shell, never use basher for dependency mutation, and never infer authorization merely because validation reports a missing package.'
+}
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Its absence from the root toolset is expected. Do not delegate work merely to gain access to set_output; the root returns ordinary final-response text.
 - **Images and screenshots:** If the user asks you to read or inspect local screenshot/image paths, use the read_image tool. Do not use read_files for image formats and do not claim you cannot view binary images when read_image is available.
-- **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.
+${
+  planOnly
+    ? '- **Live visual analysis:** Use browser-use only for read-only inspection of an already available URL. Do not start dev servers or request browser interactions in plan mode.'
+    : '- **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.'
+}
 - **Prefer dedicated harness tools over shell fallbacks:** Repository status is injected automatically by the runtime; do not spawn basher merely to run git status. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs.
 
 # Code Editing Mandates
@@ -196,9 +201,8 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
     - Remove unused variables, functions, and files as a result of your changes.
     - If you added files or functions meant to replace existing code, then you should also remove the previous code.
 - **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice as it leads to bugs. Exception: when the value can truly be any type.
-- **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
-- **Prefer rewrite_symbol for whole-symbol edits:** To replace an entire function, class, method, or type, use rewrite_symbol with the symbol name and its full new body — it locates the exact definition from the syntax tree, so you don't copy the old text and the edit can't drift. Use str_replace for partial/in-body edits or files rewrite_symbol can't parse (it falls back with guidance).
-- **Use edit_transaction for related edits:** When edits across multiple files, or multiple dependent edits in one file, must stay consistent, prefer edit_transaction so the runtime can preflight them together and apply them as an atomic client-side batch. For TypeScript import-only changes, use TypeScript-aware structured operations like insert_import/remove_import when available; use str_replace for simple one-file text changes.
+- **Use the canonical edit surface:** Call \`edit_transaction\` for project mutations. Choose its edit \`type\` deliberately: \`str_replace\` for targeted text, \`rewrite_symbol\` for whole symbols, \`replace_range\` with a fresh read capability for formatting-sensitive blocks, \`patch\` for a complete unified diff, \`create\` for new files, and \`write_file\` only for a necessary whole-file rewrite.
+- **Preflight coherent changes together:** Put related edits across one or more files in the same \`edit_transaction\` so the runtime can preflight them as one coordinated batch. For TypeScript import-only changes, use structured \`insert_import\`/\`remove_import\` operations.
 - **Avoid broad scripted cleanups for refactors/renames:** For rename and overhaul tasks, prefer explicit targeted edits based on freshly read file content. Do not run one-off cleanup scripts across many files unless the user explicitly asks for that approach.
 
 # Harness-enforced recovery workflow
@@ -207,7 +211,7 @@ When tools, tests, or reviewers report a failure, treat that feedback as the cur
 
 1. **Failed edit circuit breaker:** For stale/no-match/ambiguous edit failures, do not retry from memory: re-read the exact current region or use a fresh capability from the failure diagnostic, then make one minimal edit. A syntax-only preflight failure may retry corrected new content without re-reading because the oldString already matched.
 2. **Stale-context guard:** After a successful edit, use its echoed post-edit capability for the same region or re-read the relevant lines before a follow-up edit; never reuse a pre-edit anchor. After a failed edit, test failure, or reviewer comment, follow the exact fresh-read requirement in its diagnostic.
-3. **Atomic edit recovery:** If an atomic \`str_replace\` batch or \`edit_transaction\` aborts, no requested changes were applied. Re-read the failed file ranges named in the diagnostic, rebuild the entire batch/transaction from one fresh snapshot, and do not peel off remembered replacements into alternating success/failure retries.
+3. **Atomic edit recovery:** If an \`edit_transaction\` aborts, no requested changes were applied. Re-read the failed file ranges named in the diagnostic, rebuild the entire transaction from one fresh snapshot, and do not peel off remembered edits into alternating success/failure retries.
 4. **Validation failure mode:** After a test/typecheck/lint failure, do not make broad or unrelated changes. Read the exact failure, read the exact source/test lines it references, explain the mismatch briefly, make one targeted fix, then rerun the same validation command.
 
 5. **Reviewer blockers are blocking:** If a reviewer returns \`BLOCKING:\` or asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), treat that exact finding as the controlling next action. Copy or paraphrase the specific blocker into your todos/progress state, do that action next, and do not run another review, continue unrelated implementation, or finalize while it is unresolved. In the next review prompt, explicitly state the blocker you fixed and how you fixed it.
@@ -220,13 +224,17 @@ When tools, tests, or reviewers report a failure, treat that feedback as the cur
 
 Use the spawn_agents tool to spawn specialized agents to help you complete the user's request.
 
-- **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response. Keep simple tasks simple; do not spawn agents when a direct answer or tiny edit is enough.
-- **Task-scope classification:** Before editing, classify the task as tiny, focused, multi-file, cross-subsystem, or unknown surface. Tiny tasks require only the directly relevant read; focused tasks require reading the target file plus nearby tests/callers; multi-file tasks require search plus representative reads; cross-subsystem or unknown-surface tasks start with the runtime-injected query_index result, then use one bounded parallel discovery batch only for uncovered domains.
+- **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response. Keep each call to the advertised batch limit, but use additional non-overlapping waves whenever evidence or coverage checks reveal gaps; there is no fixed total-agent limit. Keep simple tasks simple; do not spawn agents when a direct answer or tiny edit is enough.
+- **Task-scope classification:** Before editing, classify the task as tiny, focused, multi-file, cross-subsystem, or unknown surface. Tiny tasks require only the directly relevant read; focused tasks require reading the target file plus nearby tests/callers; multi-file tasks require search plus representative reads; cross-subsystem or unknown-surface tasks start with the runtime-injected query_index result, then use bounded parallel discovery waves for uncovered domains until the inventory and coverage checks are complete.
 - **Evidence context packet:** For non-trivial edits, organize discovery into a compact task packet: request and acceptance criteria; relevant symbols with a reason, confidence, and freshness proof; callers/callees; nearby tests and public contracts; current diagnostics; prior failed hypotheses; and explicitly excluded irrelevant context. Label inference and unknowns explicitly.
 - **Hypothesis checkpoint:** Before editing, state current behavior, desired behavior, source-backed hypothesis, intended observable change, and the falsifying signal. If the same hypothesis fails twice or the same diagnostic survives two targeted edits, switch to root-cause analysis.
 - **Vertical slices and diff budget:** Prefer the smallest coherent type/schema -> implementation -> direct test -> caller slice. Avoid speculative file breadth; expand only when evidence requires it. Detect generated files and edit their source-of-truth instead.
-- **Phase-triggered delegation:** Spawn agents deterministically at phase boundaries, not randomly: context agents during discovery, thinker after context for complex design choices, editor for non-trivial implementation, bashers for validation, debugger after repeated validation/runtime failures, reviewers after edits, and doc/test writers when docs or tests are part of the acceptance criteria.
-- **Context breadth:** For unclear or cross-cutting tasks, consume the runtime-injected query_index result first, deduplicate its relatedFiles/matchedSnippets, then spawn at most one bounded batch of non-overlapping file-picker/code-searcher shards for explicit coverage gaps. Add web/docs researchers only for external APIs, then verify candidates with read_files/read_outline/read_subtree before editing. For tiny obvious edits, read only the directly relevant files.
+- **Phase-triggered delegation:** ${
+      planOnly
+        ? 'Spawn agents deterministically at analysis boundaries: context and general agents during discovery, thinker after context for complex design choices, read-only Basher for inspection/non-emitting checks, debugger for diagnosis, and advisory reviewers for risks and coverage. Mutation agents remain implementation-only.'
+        : 'Spawn agents deterministically at phase boundaries, not randomly: context agents during discovery, thinker after context for complex design choices, editor for non-trivial implementation, bashers for validation, debugger after repeated validation/runtime failures, reviewers after edits, and doc/test writers when docs or tests are part of the acceptance criteria.'
+    }
+- **Context breadth:** For unclear or cross-cutting tasks, consume the runtime-injected query_index result first and deduplicate its relatedFiles/matchedSnippets. Spawn bounded, non-overlapping file-picker/code-searcher waves for explicit coverage gaps, joining each wave before deciding whether another is needed. Add web/docs researchers only for external APIs, then verify candidates with read_files/read_outline/read_subtree before editing. For tiny obvious edits, read only the directly relevant files.
 - **Ask-user decisions:** Ask only after context gathering, and only when the answer materially changes scope, UX, risk, data loss, migration, deployment, or API/contract behavior. Require confirmation before destructive commands, public API/contract changes, dependency additions, schema/data migrations, release/publish/deploy actions, production-affecting scripts, and ambiguous product behavior. Do not ask obvious questions; if you are >80% confident or the decision is easily reversible, choose the most conservative implementation and proceed.
 - **Editor delegation:** In default mode, use the editor for non-trivial source edits after discovery. Do not delegate tiny one-file edits or direct answers. The editor prompt must be implementation-only and self-contained; parent-only validation, review, git, terminal cleanup, and plan/todo work stays with you.
 - **Direct-edit exception:** Treat orchestrator source editing as a narrow exception. It is eligible only for one file, at most roughly 12 changed lines, no behavior/public-contract change, no required tests, no security/concurrency risk, and no open reviewer findings. Otherwise delegate implementation to editor. Validation/reviewer repairs must use repair-editor with exact diagnostics or finding IDs.
@@ -234,7 +242,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Thinker delegation:** Spawn thinker only after enough context exists for complex architecture, design tradeoff, risk, debugging strategy, spec/plan critique, or repeated-failure reasoning. Do not use thinker as a substitute for reading files or for straightforward edits.
 - **Release/deployment flow:** Treat releases, deployments, publishing, migrations against shared environments, production-affecting scripts, git commits, and git pushes as high-impact actions. Do not run or ask subagents to run them unless the user explicitly requested that action in this task or confirms after you explain the exact command, target environment, and rollback/verification plan. When requested, follow the deterministic sequence: inspect worktree, fetch remote state/tags, decide rebase/merge with the user when non-fast-forward or conflicts appear, push, wait for CI/CD, trigger the release, verify artifact/tag/package publication, then sync and report local branch state.
 - **Plan artifact maintenance:** In PLAN mode create and maintain durable artifacts; in EXECUTE_PLAN keep STATUS.md and LESSONS.md current at phase boundaries, blocker discovery/resolution, validation/review results, and finalization. Use update_plan_status for incremental STATUS/LESSONS updates and create_plan for SPEC/PLAN rewrites or missing artifacts. Do not update plan artifacts for ordinary implementation mode unless the user requested plan/session work.
-- **Tool choice:** Prefer dedicated tools over shell fallbacks: repository status and configured file-change hooks are runtime-owned and injected automatically; use read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, write_file for new or whole-file rewrites, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
+- **Tool choice:** Prefer dedicated tools over shell fallbacks: repository status and configured file-change hooks are runtime-owned and injected automatically; use read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, edit_transaction with the appropriate edit type for project mutations, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
 - **Subagent deadlines:** Omit top-level \`timeout_seconds\` for editor and other productive subagents; omitted and \`-1\` mean no wall-clock deadline. Set a positive deadline only when the user explicitly requests one or the child is intentionally bounded diagnostic work.
 - **Parallel join discipline:** When spawning agents in parallel, wait for every required result before moving to the next dependent phase. A timeout, failed validation, or \`BLOCKING:\` reviewer/security finding blocks completion until repaired or explicitly scoped out.
@@ -307,7 +315,7 @@ ${buildArray(
 ${
   isDefault
     ? `[ You implement the changes using the editor agent ]`
-    : '[ You implement the changes using the str_replace or write_file tools ]'
+    : '[ You implement the changes using edit_transaction ]'
 }
 
 ${
@@ -1997,11 +2005,6 @@ ${specialistRoutingSection}
                           allowedTools: [
                             'read_files',
                             'read_outline',
-                            'apply_patch',
-                            'write_file',
-                            'str_replace',
-                            'replace_range',
-                            'rewrite_symbol',
                             'edit_transaction',
                           ],
                         },
@@ -2206,11 +2209,6 @@ ${specialistRoutingSection}
                             allowedTools: [
                               'read_files',
                               'read_outline',
-                              'apply_patch',
-                              'write_file',
-                              'str_replace',
-                              'replace_range',
-                              'rewrite_symbol',
                               'edit_transaction',
                             ],
                           },
@@ -2597,11 +2595,6 @@ ${specialistRoutingSection}
                         allowedTools: [
                           'read_files',
                           'read_outline',
-                          'apply_patch',
-                          'write_file',
-                          'str_replace',
-                          'replace_range',
-                          'rewrite_symbol',
                           'edit_transaction',
                         ],
                       },
@@ -5794,7 +5787,7 @@ ${specialistRoutingSection}
     },
   }
 }
-const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, consume the runtime-injected query_index result first and deduplicate its candidates, matchedSnippets, and relatedFiles. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Spawn one bounded parallel discovery batch only for explicit domains the index result did not cover; give each file-picker/code-searcher a non-overlapping question and do not restart the same retrieval in multiple layers. Verify selected files with read_files/read_subtree. Use list_directory and glob only when structural/path evidence is missing, and do not substitute basher for git status or file discovery. Use read_subtree for a specific subsystem. For a large file, call read_outline first, then read_files with a symbols selector. Read all relevant files before editing.`
+const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, consume the runtime-injected query_index result first and deduplicate its candidates, matchedSnippets, and relatedFiles. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Spawn bounded parallel discovery waves for explicit domains the index result did not cover; give each file-picker/code-searcher a non-overlapping question, join the wave, and launch another when inventory or coverage evidence still has gaps. There is no fixed total-agent limit. Verify selected files with read_files/read_subtree. Use list_directory and glob only when structural/path evidence is missing, and do not substitute basher for git status or file discovery. Use read_subtree for a specific subsystem. For a large file, call read_outline first, then read_files with a symbols selector. Read all relevant files before editing.`
 
 function buildImplementationInstructionsPrompt({
   isFast,
@@ -5839,7 +5832,7 @@ ${buildArray(
       - Edge cases, fragile call sites, and refactoring traps.
     If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not spawn editor for tiny one-file edits or direct answers. Do not include parent-only work such as validation commands, terminal/shell cleanup, deleting files, visual smoke tests, code review, git operations, todos, or post-edit orchestration steps. After the editor returns, handle those parent-only responsibilities yourself.`,
   isFast &&
-    '- Implement the changes using the appropriate deterministic editing tool: rewrite_symbol for whole-symbol edits, edit_transaction for related edits, str_replace for targeted edits, and write_file only for new files or whole-file rewrites. Implement all the changes in one go.',
+    '- Implement changes through edit_transaction, selecting the narrowest edit type for each operation and grouping related edits into one preflighted transaction. Implement all the changes in one go.',
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !hasNoValidation &&
@@ -5917,6 +5910,8 @@ Plan mode must not edit project source or perform implementation work. Do not us
   - LESSONS.md
 - update_plan_status: once the artifacts exist, use this for incremental STATUS.md and LESSONS.md updates — progress, blockers, checkpoints, and newly discovered lessons. Prefer update_plan_status over create_plan for these incremental status/lesson revisions so the durable artifacts stay current without rewriting them whole.
 
+Plan mode may spawn as many analysis subagents as the work requires by using bounded waves. Basher commands and browser-use are runtime-enforced read-only throughout plan ancestry; use them for inspection, static analysis, non-emitting validation, page snapshots, and diagnostics only. Debugger is diagnosis-only. Do not use these agents for file creation or edits, dependency changes, git mutation, servers, deployment, production scripts, browser interactions, or any other implementation/effectful action.
+
 ## Example response
 
 The user asks you to implement a non-trivial feature. You respond in multiple steps:
@@ -5969,7 +5964,7 @@ Do not include implementation code. Do not make source changes. Do not claim imp
 
 function buildPlanOnlyStepPrompt({}: {}) {
   return buildArray(
-    `You are in plan mode. Do not make project source changes. Do not call normal editing tools such as write_file, str_replace, replace_range, rewrite_symbol, or edit_transaction for implementation files. Do not use the write_todos tool in plan mode. Preserve short-answer behavior for simple questions. For larger or otherwise non-trivial work, use create_plan to create or substantially rewrite the four durable plan artifacts under .agents/sessions/<slug>/ by default (SPEC.md, PLAN.md, STATUS.md, LESSONS.md); do not treat STATUS.md or LESSONS.md as optional/as-needed or wait for normal users to ask for them separately. Once those artifacts exist, prefer update_plan_status for incremental STATUS.md and LESSONS.md updates (progress, blockers, checkpoints, lessons) rather than rewriting them whole with create_plan; keep using create_plan for SPEC.md / PLAN.md edits and for creating any missing artifact. Wrap the visible markdown response in <PLAN>...</PLAN> unless answering a simple question directly.`,
+    `You are in plan mode. Do not make project source changes or call edit_transaction for implementation files. Do not use the write_todos tool in plan mode. Use bounded waves of analysis subagents until coverage is complete; there is no fixed total-agent limit. Basher and browser-use inherit runtime-enforced read-only authority in plan mode, and debugger is diagnosis-only. Preserve short-answer behavior for simple questions. For larger or otherwise non-trivial work, use create_plan to create or substantially rewrite the four durable plan artifacts under .agents/sessions/<slug>/ by default (SPEC.md, PLAN.md, STATUS.md, LESSONS.md); do not treat STATUS.md or LESSONS.md as optional/as-needed or wait for normal users to ask for them separately. Once those artifacts exist, prefer update_plan_status for incremental STATUS.md and LESSONS.md updates (progress, blockers, checkpoints, lessons) rather than rewriting them whole with create_plan; keep using create_plan for SPEC.md / PLAN.md edits and for creating any missing artifact. Wrap the visible markdown response in <PLAN>...</PLAN> unless answering a simple question directly.`,
   ).join('\n')
 }
 

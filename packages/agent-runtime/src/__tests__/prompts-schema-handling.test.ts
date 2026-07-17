@@ -16,6 +16,7 @@ import {
   buildToolDescription,
   getToolsInstructions,
   getToolSet,
+  toolDescriptions,
 } from '../tools/prompts'
 
 import type { AgentTemplate } from '../templates/types'
@@ -602,6 +603,15 @@ describe('Schema handling error recovery', () => {
           edits: expect.any(Object),
         },
       })
+    })
+
+    test('builtin descriptions advertise canonical transaction range anchors', () => {
+      const description = toolDescriptions.edit_transaction
+
+      expect(description).toContain('readCapability')
+      expect(description).not.toContain('expectedHash')
+      expect(description).not.toContain('startLine')
+      expect(description).not.toContain('endLine')
     })
 
     test('ensureZodSchema converts JSON Schema to Zod schema', () => {

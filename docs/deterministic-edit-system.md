@@ -29,29 +29,37 @@ no-ops, while output-changing or effectful flags remain rejected.
 
 ## Staged read-before-edit enforcement
 
-Active edit tools (`str_replace`, `write_file`, `replace_range`,
-`rewrite_symbol`, `edit_transaction`, and `apply_patch`) participate in a
-staged read-before-edit policy. `apply_smart_patch` remains registered for
-persisted/external compatibility but is quarantined from shipped agents so new
-workflows use the single authority-backed `apply_patch` surface.
+Shipped root/editor agents use `edit_transaction` as their single
+model-visible project mutation surface. Its edit variants cover targeted text,
+ranges, symbols, patches, structured operations, and file lifecycle changes.
+Standalone edit handlers remain registered for persisted/external
+compatibility; `apply_smart_patch` remains quarantined. All active mutation
+paths participate in the same staged read-before-edit policy.
 Under strict-mode edit flows, the runtime requires a recent `read_files`
 authorization for each touched path before accepting an edit:
 
 - A successful complete whole-file `read_files.paths` call mints a per-path
-  authorization for follow-up exact-match edits and returns a short
-  `readCapability` that can be copied directly when explicit proof is needed.
+  authorization for follow-up exact-match edits and returns a structured
+  `editAnchor` containing the exact bounds, canonical content hash, and a short
+  `readCapability`. Copy only `editAnchor.readCapability` when explicit proof is
+  needed; the adjacent bounds and hash are diagnostic metadata.
   Truncated reads expose no capability. Range and symbol reads stay scoped:
-  follow-up edits must carry their `readCapability`/`rangeHash` rather than
-  receiving whole-file authorization.
+  follow-up edits must carry `editAnchor.readCapability` rather than receiving
+  whole-file authorization. SDK v1 wire results retain legacy duplicate fields,
+  but the runtime removes them before provider context construction.
 - `basedOnRead` (the read capability returned from a `read_files` range
   header, or the freshly echoed capability on a successful large-file
   edit) is the explicit authorization path. The runtime verifies the
   embedded hash and rejects stale or mismatched anchors before any file
   is changed.
-- `replace_range` accepts that same `readCapability` directly and decodes the
+- The `replace_range` transaction edit accepts that same `readCapability` and decodes the
   line bounds plus hash as one atomic target. Prefer this form for Markdown,
   checklists, and formatting-sensitive blocks instead of copying a rendered
   range into a large `oldString` or manually pairing three range fields.
+- The provider schema exposes only `{ readCapability, newContent }`; the runtime
+  compatibility parser also accepts the legacy
+  `{ startLine, endLine, expectedHash, newContent }` form, but callers cannot
+  combine it with `readCapability`. Capability-only edits normalize internally.
 - A successful edit keeps the path-level authorization during the editing
   flow, and exact-match edits chain from the latest prepared content. This
   authorization is not a content-freshness proof; carry forward the echoed
@@ -106,6 +114,12 @@ payloads (`replacements`, `operation`, `destinationPath`, `diff`, a complete
 range payload, or `symbol` plus `content`). Content-only edits remain rejected
 because the intent could be `create` or `write_file`. Conflicting payload shapes
 and invalid decoded edit objects remain rejected.
+
+Schema-validation errors include bounded excerpts for each failing issue path
+instead of only the first 500 characters of a large call. Recovery hints are
+field-specific: range-capability conflicts show the capability's actual bounds,
+and `skipIfMissing` errors identify its deletion-only contract without appending
+unrelated array/stringification instructions.
 
 ## Explicit elision markers
 

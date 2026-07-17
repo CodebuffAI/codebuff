@@ -861,6 +861,12 @@ describe('getFiles', () => {
         startLine: 1,
         endLine: 1,
         sourceContent: 'line 1',
+        editAnchor: {
+          startLine: 1,
+          endLine: 1,
+          contentHash: getContentHash('line 1'),
+          readCapability: expect.stringMatching(/^cap\./),
+        },
       })
       expect(result.results[3]).toMatchObject({
         selector: 'range',
@@ -893,6 +899,12 @@ describe('getFiles', () => {
         status: 'ok',
         template: true,
         content: 'A=example',
+        editAnchor: {
+          startLine: 1,
+          endLine: 1,
+          contentHash: getContentHash('A=example'),
+          readCapability: expect.stringMatching(/^cap\./),
+        },
       })
       const completeFile = result.results[0]
       expect(

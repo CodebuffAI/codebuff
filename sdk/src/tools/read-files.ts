@@ -667,6 +667,22 @@ function renderWholeFileItem(
       }
     }
   }
+  const contentHash = !partial ? getContentHash(content) : undefined
+  const readCapability = contentHash
+    ? encodeReadCapabilityToken({
+        startLine: 1,
+        endLine: normalizeLineEndings(content).split('\n').length,
+        hash: contentHash,
+        ...(capabilityIssuer
+          ? {
+              scope: {
+                ...capabilityIssuer,
+                path: target.displayPath,
+              },
+            }
+          : {}),
+      })
+    : undefined
   return {
     selector: 'file',
     requestIndex: selector.requestIndex,
@@ -675,21 +691,15 @@ function renderWholeFileItem(
     content: renderedContent,
     complete: !partial,
     template: target.isExampleFile,
-    ...(!partial
+    ...(contentHash && readCapability
       ? {
-          readCapability: encodeReadCapabilityToken({
+          readCapability,
+          editAnchor: {
             startLine: 1,
             endLine: normalizeLineEndings(content).split('\n').length,
-            hash: getContentHash(content),
-            ...(capabilityIssuer
-              ? {
-                  scope: {
-                    ...capabilityIssuer,
-                    path: target.displayPath,
-                  },
-                }
-              : {}),
-          }),
+            contentHash,
+            readCapability,
+          },
         }
       : {}),
     ...(truncation ? { truncation } : {}),
@@ -810,7 +820,18 @@ function renderRangeItem(
     endLine: complete ? desiredEnd : returnedEnd,
     totalLines,
     complete,
-    ...(rangeHash ? { rangeHash, readCapability } : {}),
+    ...(rangeHash && readCapability
+      ? {
+          rangeHash,
+          readCapability,
+          editAnchor: {
+            startLine: desiredStart,
+            endLine: desiredEnd,
+            contentHash: rangeHash,
+            readCapability,
+          },
+        }
+      : {}),
     ...(!complete
       ? { truncation: { reason: 'character_limit' as const } }
       : {}),

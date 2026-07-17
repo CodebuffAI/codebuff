@@ -21,7 +21,7 @@ Not every shipped agent is directly spawnable by the orchestrator (`base2` / `ba
 Common phase triggers and routing policies:
 
 - `file-picker`, `code-searcher`, `researcher-web`, `researcher-docs` — discovery phase when files, APIs, docs, or commands are not already obvious. Scope first as `tiny`, `focused`, `multi-file`, `cross-subsystem`, or `unknown surface`; scale reads/searches and parallel shards accordingly. For large-repo planning, do not use file-pickers as the only shards: they are discovery-focused and should be paired with code-searchers plus reasoning-capable shards when analysis is required.
-- `general-agent` — focused reasoning/audit shards after discovery for larger repositories or complex domains. Give each shard explicit files or a narrow subsystem, and when compaction could lose results, instruct it to write findings to `.agents/sessions/<slug>/findings/*.md` instead of returning everything in chat.
+- `general-agent` — focused reasoning/audit shards after discovery for larger repositories or complex domains. Give each shard explicit files or a narrow subsystem. Audit shards persist their own structured results with `write_audit_findings` and return only a compact artifact receipt, so the parent context carries paths/counts/hashes instead of every finding body.
 - `thinker` — reasoning phase after context gathering for complex design, architecture, tradeoff, risk, spec/plan critique, or debugging strategy choices. Use it to synthesize discovered evidence when no file writes are needed; skip it for straightforward edits and never use it as a replacement for reading files.
 - `editor` — implementation phase for non-trivial source changes, with a self-contained implementation brief because it does not rely on parent context. The five brief fields accept either colon labels (`Requirements:`) or normal Markdown headings (`## Requirements`). Skip it for tiny one-file edits and direct answers.
 - `basher` — validation phase for tests, typechecks, lints, builds, or command discovery that lacks a dedicated harness tool. Prefer configured hooks and deterministic path-to-suite routing first, such as agents/base2 prompt/gate checks, SDK checks for `packages/sdk/*`, runtime checks for `packages/agent-runtime/*`, common/dependent checks for `common/*`, and CLI typecheck plus visual smoke for `cli/src/components/*` or `cli/src/hooks/*`.
@@ -38,6 +38,7 @@ Cross-cutting orchestration policy:
 - Ask the user before destructive commands, public API/contract changes, dependency additions, schema/data migrations, release/publish/deploy actions, production-affecting scripts, or ambiguous product behavior.
 - Terminal execution is enforced by runtime permission profiles, not prompt text alone: `read-only`, the clone-scoped `librarian-read-only`, `workspace-write`, and explicit `full-access`. Background commands are request-owned unless `detach` is explicitly requested.
 - Browser-use defaults to `params.interactionPolicy: "read-only"`. Clicks, typing, uploads, evaluation, and other browser-state mutations require `allow-interactions`; each run receives an isolated browser session that is closed with the owning SDK run.
+- `base2-plan` can spawn `basher`, `browser-use`, `debugger`, and `general-agent` for deep analysis. Plan-only authority propagates through descendants: terminal-capable children are clamped to the read-only terminal profile and browser interactions remain denied even if a child requests `allow-interactions`. Mutation agents and direct edit/terminal tools remain unavailable. The eight-agent batch limit is a concurrency bound; planners may launch additional joined waves until coverage is complete and can poll/cancel detached analysis with `check_background_agent`.
 - Prefer dedicated tools over shell fallbacks: `git_status` for repo state, file/read/search tools for inspection, `read_image` for images, deterministic edit tools for edits, configured hooks for validation, and browser/CLI visual agents for smoke checks.
 - Maintain durable plan artifacts in EXECUTE_PLAN at phase boundaries, blockers, validation/review results, and finalization.
 - Parallelism is allowed for independent discovery shards, independent validation commands, and static review that does not depend on validation output. Dependent edits, fragile debug loops, and validation-repair cycles stay sequential.
@@ -685,6 +686,30 @@ Gotchas:
 - `fileID` refs are always `resolvedPath: null` — they are local references
   within a single serialized file and do not create cross-file edges.
 
+### `read_files`
+
+Tool definitions may provide two input schemas. `inputSchema` is the runtime
+compatibility parser and continues accepting complete legacy call shapes from
+persisted sessions and external clients. `providerInputSchema`, when present,
+is the smaller canonical schema sent to model providers and used to generate
+agent TypeScript types. Compatibility aliases therefore do not inflate new
+prompts or teach models overlapping call forms.
+
+Every complete whole-file, range, or symbol-slice result exposes one structured
+`editAnchor` with `startLine`, `endLine`, `contentHash`, and
+`readCapability`. `editAnchor.readCapability` is the copy-ready edit authority;
+the bounds and hash are diagnostic metadata and must not be mixed into the same
+edit call. The SDK v1 wire result retains legacy top-level `rangeHash` and
+`readCapability` fields for external compatibility. Before the next provider
+step, the runtime removes those duplicates and exposes only `editAnchor` to the
+model. Partial or truncated file/range items expose neither hashes nor edit
+capabilities; successful slices in a partially satisfied symbol request retain
+their own anchors.
+
+Model-facing range content omits the transport-only `[RANGE_BLOCK ...]`
+metadata header. Exact undecorated bytes remain available as `sourceContent`,
+while the structured anchor carries freshness metadata without prose parsing.
+
 ### `read_subtree`
 
 `read_subtree` uses the runtime's injected filesystem view for live discovery;
@@ -722,11 +747,16 @@ Example:
 }
 ```
 
-### `str_replace` and `edit_transaction`
+### `edit_transaction` and compatibility edit handlers
 
-`str_replace` and `edit_transaction` are the primary deterministic edit
-tools. Under strict-mode edit flows they participate in staged
-read-before-edit enforcement:
+Shipped root and editor agents receive `edit_transaction` as their single
+model-visible project mutation tool. Its discriminated edit variants cover
+targeted `str_replace`, `replace_range`, `rewrite_symbol`, unified `patch`,
+structured imports/insertion, create/delete/move, and whole-file `write_file`
+operations. The corresponding standalone handlers remain registered for
+persisted/external compatibility, but their overlapping schemas are not added
+to root/editor provider prompts. Under strict-mode edit flows all variants
+participate in staged read-before-edit enforcement:
 
 - A recent complete whole-file `read_files.paths` call authorizes subsequent
   exact-match edits to that path and returns an authenticated opaque `cap.v3`
@@ -739,6 +769,12 @@ read-before-edit enforcement:
   binding, bounds, and current content hash. Legacy `cap.v2` tokens and
   explicit `{ startLine, endLine, hash }` objects remain freshness anchors for
   compatible non-strict flows, but cannot authorize an otherwise unread path.
+- Model-facing `replace_range` transaction edits use
+  `{ readCapability, newContent }`. The runtime compatibility parser also
+  accepts the legacy
+  `{ startLine, endLine, expectedHash, newContent }` tuple. Supplying both is
+  rejected even when the values agree, preventing stale fields from being
+  carried into retries.
 - A successful edit keeps path-level authorization during the editing flow,
   while exact-match follow-up edits chain from the latest prepared content.
   For large or ambiguous follow-up edits, carry the echoed post-edit
@@ -760,7 +796,8 @@ read-before-edit enforcement:
   explain why the authorization was revoked instead of reporting only a
   generic missing-read message.
 
-`str_replace` inputs:
+The runtime-compatible standalone `str_replace` input and the transaction's
+`str_replace` edit variant share these fields:
 
 - `path` (string, required) — target file path.
 - `replacements` (array, required) — each entry includes `oldString`,
@@ -854,6 +891,18 @@ Transactions are bounded by edit, path, file-byte, prepared-state,
 and rollback-state limits; split larger work into related groups. See
 [Deterministic Edit System](./deterministic-edit-system.md) for the full
 policy and gate semantics.
+
+### `write_audit_findings`
+
+`write_audit_findings` is a dedicated artifact sink for broad-audit shards.
+It accepts validated `sessionSlug`, `shardId`, structured findings, and a
+coverage receipt. The caller cannot provide a filesystem path: the runtime and
+SDK independently derive
+`.agents/sessions/<sessionSlug>/findings/<shardId>.md`. General-agent write
+scope is limited to that pattern, and the SDK uses exclusive creation so two
+shards cannot silently overwrite one artifact. The result contains only the
+artifact path, finding/severity/coverage counts, and content hash; the
+synthesizer reads the Markdown artifacts directly.
 
 ### `create_plan` and `update_plan_status`
 

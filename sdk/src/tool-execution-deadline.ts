@@ -12,6 +12,7 @@ const FILE_MUTATION_TOOLS = new Set<ToolName>([
   'str_replace',
   'update_plan_status',
   'write_file',
+  'write_audit_findings',
 ])
 
 export function getDefaultToolExecutionTimeoutMs(

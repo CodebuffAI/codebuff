@@ -20,7 +20,7 @@ See [Local Mode](./local-mode.md) for provider configuration and
      │                                  ▲
      │                                  │
      └── local tool execution ──────────┘
-         (read_files, str_replace, run_terminal_command, …)
+         (read_files, edit_transaction, run_terminal_command, …)
 ```
 
 Everything in the diagram runs on the user's machine. Provider HTTP calls go
@@ -61,9 +61,14 @@ through a hosted Openbuff/Codebuff service in this primary flow.
    read. Openbuff does not consult a hosted model registry.
 5. **Local tool handlers** are registered. These execute on the user's
    machine, never on a server:
-   - `write_file`, `str_replace`, `edit_transaction`, `apply_patch` → active
-     file edits (`apply_smart_patch` remains registered only as a quarantined
-     compatibility surface until its authority migration is complete)
+   - `edit_transaction` → canonical root/editor file mutation surface;
+     standalone `write_file`, `str_replace`, `replace_range`,
+     `rewrite_symbol`, and `apply_patch` handlers remain registered for
+     persisted/external compatibility (`apply_smart_patch` remains
+     quarantined)
+   - `write_audit_findings` → exclusively creates one derived
+     `.agents/sessions/<session>/findings/<shard>.md` artifact and returns a
+     compact receipt
    - `run_terminal_command` → shell commands
    - `code_search`, `find_files_matching_content`, `glob`, `list_directory`
      → file search
@@ -186,8 +191,8 @@ LLM Response (tool_call)          Agent Runtime processes stream
 
 ### Staged read-before-edit enforcement
 
-Edit-oriented tools (`str_replace`, `edit_transaction`, and patch
-applicators) participate in a staged read-before-edit policy. Under
+Edit-oriented transaction variants and compatibility handlers participate in a
+staged read-before-edit policy. Under
 strict-mode edit flows, the runtime requires a recent `read_files`
 authorization for each path before an edit is accepted:
 
@@ -195,6 +200,11 @@ authorization for each path before an edit is accepted:
   authorization that allows subsequent exact-match edits to that file. Range
   and symbol reads do not grant whole-file authorization; follow-up edits must
   carry their scoped `readCapability`.
+- Every complete read result groups its canonical content hash, exact bounds,
+  and copy-ready capability under `editAnchor`. SDK v1 results retain legacy
+  duplicate fields for compatibility; the runtime strips them from the
+  model-visible result. Edit callers copy only `editAnchor.readCapability`;
+  truncated results expose no anchor.
 - `basedOnRead` (the read capability returned from a fresh `read_files`
   range) is an authenticated opaque `cap.v3` token bound to the canonical
   project identity, normalized target path, issuing run, line range, and
@@ -211,6 +221,9 @@ authorization for each path before an edit is accepted:
   re-reading the exact target range and retrying with the new
   `basedOnRead`, not by guessing from memory. Failure responses never mint a
   replacement capability; only a successful fresh read can issue authority.
+- Recovery results use exact `read_files.ranges` selectors whenever the failed
+  edit already identifies its line bounds, avoiding wasteful whole-file reads
+  and truncation loops on large files.
 
 This policy keeps deterministic edits aligned with the on-disk content the
 agent actually inspected, even when multiple agents or generator-driven

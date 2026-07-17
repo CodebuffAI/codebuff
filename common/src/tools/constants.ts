@@ -76,6 +76,7 @@ export const toolNames = [
   'update_subgoal',
   'web_search',
   'write_file',
+  'write_audit_findings',
   'write_todos',
 ] as const
 
@@ -131,6 +132,7 @@ export const publishedTools = [
   'update_plan_status',
   'web_search',
   'write_file',
+  'write_audit_findings',
   'write_todos',
   // 'spawn_agent_inline',
 ] as const
@@ -158,4 +160,6 @@ export type $ToolParams<T extends ToolName = ToolName> = Required<
 > & {
   toolName: T
   endsAgentStep: boolean
+  /** Canonical model/type schema; inputSchema remains the compatibility parser. */
+  providerInputSchema?: Tool<any, ToolResultOutput[]>['inputSchema']
 }

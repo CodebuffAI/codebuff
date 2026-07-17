@@ -79,6 +79,7 @@ import {
 } from './tools/audit-intelligence'
 import { gitBranch } from './tools/git-branch'
 import { runFileChangeHooks } from './tools/file-change-hooks'
+import { writeAuditFindings } from './tools/write-audit-findings'
 import { createNodeFileSystem } from './tools/node-filesystem'
 import {
   createToolExecutionDeadline,
@@ -1314,6 +1315,16 @@ async function handleToolCall({
                 },
         },
       ]
+    } else if (toolName === 'write_audit_findings') {
+      result = await writeAuditFindings({
+        parameters: input,
+        cwd: requireCwd(cwd, toolName),
+        fs,
+        signal,
+        fileFilter,
+        filesystemPolicy,
+        callId: action.requestId,
+      })
     } else if (
       toolName === 'write_file' ||
       toolName === 'str_replace' ||

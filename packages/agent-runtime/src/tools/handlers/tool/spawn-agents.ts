@@ -4,6 +4,7 @@ import { MAX_SPAWN_BATCH_SIZE } from '@codebuff/common/constants/agents'
 import {
   allocateBackgroundAgentJob,
   appendBackgroundAgentChunk,
+  assertBackgroundAgentCapacity,
   attachBackgroundAgentPromise,
 } from '../../../util/background-agent-jobs'
 
@@ -155,6 +156,7 @@ export const handleSpawnAgents = (async (
           : undefined
       const effectiveAgentTemplate = deriveSpawnTemplateCapabilities({
         agentTemplate,
+        parentAgentTemplate,
         handoff: canonicalHandoff,
         projectRoot: params.fileContext.projectRoot,
       })
@@ -183,10 +185,11 @@ export const handleSpawnAgents = (async (
                   (serializedHandoff.length + (prompt?.length ?? 0)) / 2,
                 ),
               ),
-        runningForRoot:
-          parentAgentState.backgroundAgentJobs?.filter(
-            (job) => job.status === 'running',
-          ).length ?? 0,
+        runningForRoot: input.background
+          ? (parentAgentState.backgroundAgentJobs?.filter(
+              (job) => job.status === 'running',
+            ).length ?? 0)
+          : 0,
         maxRunningForRoot: 8,
       })
       const runtimeSpawnParams = buildSpawnParamsWithHandoff({
@@ -221,6 +224,24 @@ export const handleSpawnAgents = (async (
   const reports: Array<SpawnAgentReport | undefined> = new Array(
     validatedAgents.length,
   )
+  const backgroundAgentCount = validatedAgents.filter(
+    (validated) => validated.input.background,
+  ).length
+  if (backgroundAgentCount > 0) {
+    assertBackgroundAgentCapacity({
+      additional: backgroundAgentCount,
+      owner: {
+        clientSessionId: params.clientSessionId,
+        rootRunId:
+          parentAgentState.ancestorRunIds[0] ??
+          parentAgentState.runId ??
+          parentAgentState.agentId,
+        parentRunId: parentAgentState.runId ?? parentAgentState.agentId,
+        parentAgentId: parentAgentState.agentId,
+        userInputId,
+      },
+    })
+  }
   for (const validated of validatedAgents) {
     if (
       validated.agentType === 'file-picker' ||

@@ -68,7 +68,16 @@ export const handleReplaceRange = (async (params) => {
               errorCode: 'fresh_read_required',
               recovery: {
                 tool: 'read_files',
-                input: { paths: [path] },
+                input: {
+                  paths: [],
+                  ranges: [
+                    {
+                      path,
+                      startLine: toolCall.input.startLine,
+                      endLine: toolCall.input.endLine,
+                    },
+                  ],
+                },
               },
             },
           },
@@ -107,8 +116,22 @@ export const handleReplaceRange = (async (params) => {
           value: {
             file: path,
             errorMessage: hadStoredWholeFileAuthorization
-              ? `replace_range blocked: ${path} changed after its last whole-file read, so the stored authorization was revoked. Call read_files for this exact path before retrying and copy its cap.v3 readCapability.`
-              : `replace_range blocked: strict read-before-edit is enabled and no fresh path-bound read authorization exists for ${path}. Call read_files for this exact range and copy its cap.v3 readCapability. Legacy startLine/endLine/expectedHash tuples remain freshness checks only and cannot authorize an unread path.`,
+              ? `replace_range blocked: ${path} changed after its last whole-file read, so the stored authorization was revoked. Call read_files with ranges: [{ "path": "${path}", "startLine": ${toolCall.input.startLine}, "endLine": ${toolCall.input.endLine} }] and retry with only its cap.v3 readCapability plus newContent.`
+              : `replace_range blocked: strict read-before-edit is enabled and no fresh path-bound read authorization exists for ${path}. Call read_files with ranges: [{ "path": "${path}", "startLine": ${toolCall.input.startLine}, "endLine": ${toolCall.input.endLine} }] and retry with only its cap.v3 readCapability plus newContent. Legacy startLine/endLine/expectedHash tuples remain freshness checks only and cannot authorize an unread path.`,
+            errorCode: 'fresh_read_required',
+            recovery: {
+              tool: 'read_files',
+              input: {
+                paths: [],
+                ranges: [
+                  {
+                    path,
+                    startLine: toolCall.input.startLine,
+                    endLine: toolCall.input.endLine,
+                  },
+                ],
+              },
+            },
           },
         },
       ],

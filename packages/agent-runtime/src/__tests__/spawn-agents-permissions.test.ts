@@ -19,6 +19,7 @@ import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inlin
 import {
   BASE_AGENT_IDS,
   buildSpawnParamsWithHandoff,
+  deriveSpawnTemplateCapabilities,
   getMatchingSpawn,
   isBaseAgent,
   normalizeSpawnAgentType,
@@ -147,6 +148,71 @@ describe('Spawn Agents Permissions', () => {
       agentTemplate: parentAgent,
       localAgentTemplates: { thinker: childAgent },
       toolCall,
+    })
+
+    expect(JSON.stringify(output)).toContain('Mock agent response')
+  })
+
+  it('attenuates terminal authority throughout plan-only spawn ancestry', () => {
+    const parentAgent = createMockAgent('base2-plan', ['basher'])
+    parentAgent.programmaticConfig = { planOnly: true }
+    const childAgent = createMockAgent('basher')
+    childAgent.toolNames = ['run_terminal_command']
+    childAgent.terminalPermissionProfile = 'workspace-write'
+
+    const derived = deriveSpawnTemplateCapabilities({
+      agentTemplate: childAgent,
+      parentAgentTemplate: parentAgent,
+      handoff: undefined,
+      projectRoot: mockFileContext.projectRoot,
+    })
+
+    expect(derived.terminalPermissionProfile).toBe('read-only')
+    expect(derived.programmaticConfig?.planOnly).toBe(true)
+    expect(childAgent.terminalPermissionProfile).toBe('workspace-write')
+  })
+
+  it('preserves normal child terminal authority outside plan-only ancestry', () => {
+    const parentAgent = createMockAgent('base2', ['basher'])
+    const childAgent = createMockAgent('basher')
+    childAgent.toolNames = ['run_terminal_command']
+    childAgent.terminalPermissionProfile = 'workspace-write'
+
+    const derived = deriveSpawnTemplateCapabilities({
+      agentTemplate: childAgent,
+      parentAgentTemplate: parentAgent,
+      handoff: undefined,
+      projectRoot: mockFileContext.projectRoot,
+    })
+
+    expect(derived).toBe(childAgent)
+    expect(derived.terminalPermissionProfile).toBe('workspace-write')
+  })
+
+  it('does not let running background jobs block foreground analysis', async () => {
+    const parentAgent = createMockAgent('parent', ['thinker'])
+    const childAgent = createMockAgent('thinker')
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.backgroundAgentJobs = Array.from(
+      { length: 8 },
+      (_, index) => ({
+        jobId: `job-${index}`,
+        agentType: 'researcher',
+        status: 'running' as const,
+        startedAt: index,
+      }),
+    )
+
+    const { output } = await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { thinker: childAgent },
+      toolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-foreground-with-background-full',
+        input: { agents: [{ agent_type: 'thinker', prompt: 'Think' }] },
+      },
     })
 
     expect(JSON.stringify(output)).toContain('Mock agent response')

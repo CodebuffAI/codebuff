@@ -1,7 +1,9 @@
 import { applyPatch, createPatch } from 'diff'
 import {
+  decodeReadCapabilityToken,
   getContentHash,
   normalizeLineEndings,
+  readCapabilityMatchesScope,
 } from '@codebuff/common/util/content-hash'
 
 import { processStrReplace } from './process-str-replace'
@@ -39,6 +41,7 @@ type TransactionEdit =
       startLine: number
       endLine: number
       expectedHash: string
+      readCapability?: string
       newContent: string
     }
   | {
@@ -324,6 +327,34 @@ async function processTransactionEdit(params: {
       if (initialContent === null) {
         return { error: `Cannot replace a range in missing file ${edit.path}.` }
       }
+      if (requireFreshReadCapability && !edit.readCapability) {
+        return {
+          error: `replace_range for ${edit.path} requires the readCapability from a fresh read_files range result. Re-read lines ${edit.startLine}-${edit.endLine} and retry with only that capability plus newContent.`,
+        }
+      }
+      if (edit.readCapability) {
+        const decoded = decodeReadCapabilityToken(edit.readCapability)
+        if (typeof decoded === 'string') {
+          return { error: decoded }
+        }
+        const scope = readCapabilityIssuer
+          ? { ...readCapabilityIssuer, path: edit.path }
+          : undefined
+        if (scope && !readCapabilityMatchesScope(decoded, scope)) {
+          return {
+            error: `replace_range blocked for ${edit.path}: the readCapability belongs to a different project, path, or agent run. Re-read lines ${edit.startLine}-${edit.endLine} in this run and copy the new capability.`,
+          }
+        }
+        if (
+          decoded.startLine !== edit.startLine ||
+          decoded.endLine !== edit.endLine ||
+          decoded.hash !== edit.expectedHash
+        ) {
+          return {
+            error: `replace_range blocked for ${edit.path}: the normalized target does not match its readCapability. Re-read lines ${edit.startLine}-${edit.endLine} and use only the newly returned capability.`,
+          }
+        }
+      }
       const normalized = normalizeLineEndings(initialContent)
       const lines = normalized.split('\n')
       const visibleLineCount =
@@ -346,7 +377,7 @@ async function processTransactionEdit(params: {
         .join('\n')
       if (getContentHash(currentRange) !== edit.expectedHash) {
         return {
-          error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read the exact range.`,
+          error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read lines ${edit.startLine}-${edit.endLine} and use only the new readCapability plus newContent.`,
         }
       }
       const replacementLines = normalizeLineEndings(edit.newContent).split('\n')

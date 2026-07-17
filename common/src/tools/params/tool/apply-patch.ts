@@ -95,6 +95,25 @@ const inputSchema = z
   })
   .describe('Apply a file operation (create, update, or delete).')
 
+const providerOperationSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('create_file'),
+    path: z.string().min(1),
+    diff: patchTextSchema,
+  }),
+  z.object({
+    type: z.literal('update_file'),
+    path: z.string().min(1),
+    diff: patchTextSchema,
+    basedOnRead: z.array(scopedReadCapabilityTokenSchema).optional(),
+  }),
+  z.object({
+    type: z.literal('delete_file'),
+    path: z.string().min(1),
+  }),
+])
+const providerInputSchema = z.object({ operation: providerOperationSchema })
+
 const description = `
 Use this tool to apply file operations using Codex-style apply_patch format.
 
@@ -165,5 +184,6 @@ export const applyPatchParams = {
   endsAgentStep,
   description,
   inputSchema,
+  providerInputSchema,
   outputSchema: jsonToolResultSchema(applyPatchResultSchema),
 } satisfies $ToolParams

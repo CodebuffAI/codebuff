@@ -11,7 +11,7 @@ import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
-import type { ToolName } from '@codebuff/common/tools/constants'
+import type { $ToolParams, ToolName } from '@codebuff/common/tools/constants'
 import type { SkillsMap } from '@codebuff/common/types/skill'
 import type {
   CustomToolDefinitions,
@@ -202,12 +202,16 @@ export function buildToolDescription(params: {
   ]).join('\n\n')
 }
 
+function providerInputSchemaFor(config: $ToolParams): z.ZodType {
+  return (config.providerInputSchema ?? config.inputSchema) as z.ZodType
+}
+
 export const toolDescriptions = Object.fromEntries(
   Object.entries(toolParams).map(([name, config]) => [
     name,
     buildToolDescription({
       toolName: name,
-      schema: config.inputSchema,
+      schema: providerInputSchemaFor(config),
       description: config.description,
       endsAgentStep: config.endsAgentStep,
     }),
@@ -399,7 +403,7 @@ export const getShortToolInstructions = (
       const tool = toolParams[name]
       return buildShortToolDescription({
         toolName: name,
-        schema: tool.inputSchema,
+        schema: providerInputSchemaFor(tool),
         endsAgentStep: tool.endsAgentStep,
       })
     }),
@@ -447,6 +451,10 @@ export async function getToolSet(params: {
   for (const toolName of toolNames) {
     if (toolName in toolParams) {
       const toolDef = toolParams[toolName as ToolName]
+      const providerToolDef = {
+        ...toolDef,
+        inputSchema: providerInputSchemaFor(toolDef),
+      }
 
       // For the skill tool, replace the placeholder with actual available skills
       if (toolName === 'skill' && availableSkillsXml) {
@@ -456,7 +464,7 @@ export async function getToolSet(params: {
           availableSkillsXml,
         )
         toolSet[toolName] = {
-          ...toolDef,
+          ...providerToolDef,
           description,
         }
         toolSet[toolName] = compactToolDefinitionForProvider(toolSet[toolName])
@@ -468,12 +476,12 @@ export async function getToolSet(params: {
           'There are no skills available. Do not use this tool because there are no skills to load.',
         )
         toolSet[toolName] = {
-          ...toolDef,
+          ...providerToolDef,
           description,
         }
         toolSet[toolName] = compactToolDefinitionForProvider(toolSet[toolName])
       } else {
-        toolSet[toolName] = compactToolDefinitionForProvider(toolDef)
+        toolSet[toolName] = compactToolDefinitionForProvider(providerToolDef)
       }
     }
   }
