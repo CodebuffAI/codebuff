@@ -72,6 +72,7 @@ const TEST_SERVER_ENV_DEFAULTS: Record<string, string> = {
   ANTHROPIC_API_KEY: 'test',
   SERPER_API_KEY: 'test',
   GRAVITY_API_KEY: 'test',
+  GRAVITY_CAPI_KEY: 'test',
   PORT: '4242',
   DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
   CODEBUFF_GITHUB_ID: 'test-id',
