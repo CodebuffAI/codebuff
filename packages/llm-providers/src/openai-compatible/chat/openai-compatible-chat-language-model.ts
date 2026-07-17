@@ -22,7 +22,6 @@ import type { OpenAICompatibleChatModelId } from './openai-compatible-chat-optio
 import type { ProviderErrorStructure } from '../openai-compatible-error'
 import type { MetadataExtractor } from './openai-compatible-metadata-extractor'
 import type {
-  APICallError,
   LanguageModelV2,
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
@@ -33,7 +32,6 @@ import type {
 import type {
   FetchFunction,
   ParseResult,
-  ResponseHandler,
 } from '@ai-sdk/provider-utils'
 
 export type OpenAICompatibleChatConfig = {
@@ -63,7 +61,9 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
   readonly modelId: OpenAICompatibleChatModelId
   private readonly config: OpenAICompatibleChatConfig
-  private readonly failedResponseHandler: ResponseHandler<APICallError>
+  private readonly failedResponseHandler: ReturnType<
+    typeof createJsonErrorResponseHandler
+  >
   private readonly chunkSchema // type inferred via constructor
 
   constructor(

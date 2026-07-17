@@ -17,7 +17,6 @@ import { openaiCompatibleCompletionProviderOptions } from './openai-compatible-c
 import type { OpenAICompatibleCompletionModelId } from './openai-compatible-completion-options'
 import type { ProviderErrorStructure } from '../openai-compatible-error'
 import type {
-  APICallError,
   LanguageModelV2,
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
@@ -28,7 +27,6 @@ import type {
 import type {
   FetchFunction,
   ParseResult,
-  ResponseHandler,
 } from '@ai-sdk/provider-utils'
 
 type OpenAICompatibleCompletionConfig = {
@@ -50,7 +48,9 @@ export class OpenAICompatibleCompletionLanguageModel implements LanguageModelV2 
 
   readonly modelId: OpenAICompatibleCompletionModelId
   private readonly config: OpenAICompatibleCompletionConfig
-  private readonly failedResponseHandler: ResponseHandler<APICallError>
+  private readonly failedResponseHandler: ReturnType<
+    typeof createJsonErrorResponseHandler
+  >
   private readonly chunkSchema // type inferred via constructor
 
   constructor(
