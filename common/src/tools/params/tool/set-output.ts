@@ -6,6 +6,12 @@ import type { $ToolParams } from '../../constants'
 
 const toolName = 'set_output'
 const endsAgentStep = false
+const structuredContainerFields = new Set([
+  'reviewedFiles',
+  'findings',
+  'dimensions',
+  'requirementCoverage',
+])
 export const decodeJsonObjectString = (value: unknown): unknown => {
   let decoded = value
   for (let depth = 0; depth < 3 && typeof decoded === 'string'; depth++) {
@@ -26,6 +32,50 @@ export const decodeJsonObjectString = (value: unknown): unknown => {
     !Array.isArray(decoded)
     ? decoded
     : value
+}
+
+export const normalizeStructuredOutputValue = (
+  value: unknown,
+  fieldName?: string,
+  depth = 0,
+): unknown => {
+  if (depth > 8) return value
+  if (typeof value === 'string') {
+    const candidate = value.trim()
+    if (fieldName === 'schemaVersion' && /^\d+$/.test(candidate)) {
+      return Number(candidate)
+    }
+    const canDecodeContainer =
+      fieldName !== undefined && structuredContainerFields.has(fieldName)
+    if (
+      canDecodeContainer &&
+      ((candidate.startsWith('{') && candidate.endsWith('}')) ||
+        (candidate.startsWith('[') && candidate.endsWith(']')))
+    ) {
+      try {
+        return normalizeStructuredOutputValue(
+          JSON.parse(candidate) as unknown,
+          fieldName,
+          depth + 1,
+        )
+      } catch {
+        return value
+      }
+    }
+    return value
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      normalizeStructuredOutputValue(item, undefined, depth + 1),
+    )
+  }
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+      key,
+      normalizeStructuredOutputValue(item, key, depth + 1),
+    ]),
+  )
 }
 
 // WHY `data` EXISTS IN THE INPUT SCHEMA:

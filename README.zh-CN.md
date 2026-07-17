@@ -254,3 +254,6 @@ sudo apt-get install tmux
 ## Star 历史
 
 [![Star History Chart](https://api.star-history.com/svg?repos=AnzoBenjamin/openbuff&type=Date)](https://www.star-history.com/#AnzoBenjamin/openbuff&Date)
+
+**Some Free Credits For Testing**
+https://vsllm.com/register?aff=xTrg

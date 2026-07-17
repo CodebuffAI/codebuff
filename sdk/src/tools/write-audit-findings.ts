@@ -120,6 +120,18 @@ export async function writeAuditFindings(params: {
           featureCount: input.coverage.featureIds.length,
           fileCount: input.coverage.files.length,
         },
+        ...(input.snapshotId && input.coverage.domains
+          ? {
+              structuralReceipt: {
+                schema_version: 1 as const,
+                snapshot_id: input.snapshotId,
+                shard_id: input.shardId,
+                subsystem_ids: input.coverage.subsystemIds,
+                files: input.coverage.files,
+                domains: input.coverage.domains,
+              },
+            }
+          : {}),
         contentHash: getContentHash(content),
       },
     },

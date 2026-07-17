@@ -142,7 +142,9 @@ function getTypeFromJsonSchema(prop: any): string {
   if (prop.type === 'boolean') return 'boolean'
   if (prop.type === 'array') {
     const itemType = prop.items ? getTypeFromJsonSchema(prop.items) : 'any'
-    return `${itemType}[]`
+    const needsParentheses =
+      prop.items?.anyOf || prop.items?.oneOf || itemType.includes(' | ')
+    return `${needsParentheses ? `(${itemType})` : itemType}[]`
   }
   if (prop.type === 'object') {
     if (prop.properties) {

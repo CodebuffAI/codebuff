@@ -1,5 +1,8 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
-import { decodeJsonObjectString } from '@codebuff/common/tools/params/tool/set-output'
+import {
+  decodeJsonObjectString,
+  normalizeStructuredOutputValue,
+} from '@codebuff/common/tools/params/tool/set-output'
 
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValueForError } from '../../../util/format-value'
@@ -41,11 +44,20 @@ export const handleSetOutput = (async (params: {
       }),
     }
   }
-  const output =
+  const decodedOutput =
     decodedData === rawOutput?.data
       ? rawOutput
       : { ...rawOutput, data: decodedData }
-  const { data } = output
+  const decodedDataRecord =
+    decodedOutput.data &&
+    typeof decodedOutput.data === 'object' &&
+    !Array.isArray(decodedOutput.data)
+      ? (decodedOutput.data as Record<string, unknown>)
+      : undefined
+  const shouldNormalizeReviewerOutput =
+    agentState.agentType?.toLowerCase().includes('reviewer') === true ||
+    decodedOutput.family === 'reviewer' ||
+    decodedDataRecord?.family === 'reviewer'
 
   let agentTemplate = null
   if (agentState.agentType) {
@@ -57,49 +69,72 @@ export const handleSetOutput = (async (params: {
 
   let finalOutput: unknown
   if (agentTemplate?.outputSchema) {
-    // When outputSchema is defined, validate against it
-    try {
-      agentTemplate.outputSchema.parse(output)
-      finalOutput = output
-    } catch (error) {
-      try {
-        // Fallback to the 'data' field if the whole output object is not valid
-        agentTemplate.outputSchema.parse(data)
-        finalOutput = data
-      } catch (error2) {
-        // Show whichever error has fewer issues — that represents the "closer" parse
-        // attempt and gives the agent more actionable feedback for retrying.
-        const issues1 = getZodIssueCount(error)
-        const issues2 = getZodIssueCount(error2)
-        const usedData = issues2 < issues1
-        const bestError = usedData ? error2 : error
-        const prefix = usedData
-          ? 'Output validation error: Your output was found inside the `data` field but still failed validation. Please fix the issues and try again without wrapping in `data`. Issues: '
-          : 'Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: '
-        const errorMessage = `${prefix}${bestError}\n\nOriginal output value:\n${formatValueForError(output)}`
-        logger.error(
-          {
-            outputShape: {
-              keys: Object.keys(output),
-              dataType: Array.isArray(data) ? 'array' : typeof data,
-            },
-            agentType: agentState.agentType,
-            agentId: agentState.agentId,
-            topLevelError: error,
-            dataFieldError: error2,
-            usedDataFieldError: usedData,
-          },
-          'set_output validation error',
-        )
-        return { output: jsonToolResult({ message: errorMessage }) }
+    const candidates: Array<{
+      source: 'output' | 'normalized-output' | 'data' | 'normalized-data'
+      value: unknown
+    }> = [{ source: 'output', value: decodedOutput }]
+    if (shouldNormalizeReviewerOutput) {
+      candidates.push({
+        source: 'normalized-output',
+        value: normalizeStructuredOutputValue(decodedOutput),
+      })
+    }
+    if (decodedDataRecord) {
+      candidates.push({ source: 'data', value: decodedDataRecord })
+      if (shouldNormalizeReviewerOutput) {
+        candidates.push({
+          source: 'normalized-data',
+          value: normalizeStructuredOutputValue(decodedDataRecord),
+        })
       }
+    }
+    const failures: Array<{
+      source: (typeof candidates)[number]['source']
+      error: unknown
+    }> = []
+    for (const candidate of candidates) {
+      try {
+        finalOutput = agentTemplate.outputSchema.parse(candidate.value)
+        failures.length = 0
+        break
+      } catch (error) {
+        failures.push({ source: candidate.source, error })
+      }
+    }
+    if (failures.length > 0) {
+      const bestFailure = failures.reduce((best, failure) =>
+        getZodIssueCount(failure.error) < getZodIssueCount(best.error)
+          ? failure
+          : best,
+      )
+      const usedData = bestFailure.source.endsWith('data')
+      const prefix = usedData
+        ? 'Output validation error: Your output was found inside the `data` field but still failed validation. Please fix the reported fields and retry with native object/array values. Issues: '
+        : 'Output validation error: Output failed to match the output schema and was ignored. Please fix the reported fields and retry with native object/array values. Issues: '
+      const errorMessage = `${prefix}${bestFailure.error}\n\nOriginal output value:\n${formatValueForError(decodedOutput)}`
+      logger.error(
+        {
+          outputShape: {
+            keys: Object.keys(decodedOutput),
+            dataType: Array.isArray(decodedOutput.data)
+              ? 'array'
+              : typeof decodedOutput.data,
+          },
+          agentType: agentState.agentType,
+          agentId: agentState.agentId,
+          validationFailures: failures,
+          selectedFailureSource: bestFailure.source,
+        },
+        'set_output validation error',
+      )
+      return { output: jsonToolResult({ message: errorMessage }) }
     }
   } else {
     // When no outputSchema, use the data field if it is the only field
     // otherwise use the entire output object
-    const keys = Object.keys(output)
+    const keys = Object.keys(decodedOutput)
     const hasOnlyDataField = keys.length === 1 && keys[0] === 'data'
-    finalOutput = hasOnlyDataField ? data : output
+    finalOutput = hasOnlyDataField ? decodedOutput.data : decodedOutput
   }
 
   // Set the output (completely replaces previous output)

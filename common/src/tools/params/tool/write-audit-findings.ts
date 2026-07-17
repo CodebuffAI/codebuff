@@ -1,6 +1,7 @@
 import z from 'zod/v4'
 
 import { jsonToolResultSchema } from '../utils'
+import { auditCoverageDomainSchema } from './audit-intelligence'
 
 import type { $ToolParams } from '../../constants'
 
@@ -11,16 +12,11 @@ export const auditFindingSeveritySchema = z.enum([
   'LOW',
 ])
 
-export const auditFindingDomainSchema = z.enum([
-  'security',
-  'correctness',
-  'state-mutation',
-  'error-handling',
-  'performance',
-  'dependency-hygiene',
-  'test-coverage',
-  'api-abi',
-])
+export const auditFindingDomainSchema = z
+  .union([auditCoverageDomainSchema, z.literal('api-abi')])
+  .transform((value) =>
+    value === 'api-abi' ? ('api-contract' as const) : value,
+  )
 
 export const auditFindingSchema = z.object({
   severity: auditFindingSeveritySchema,
@@ -53,11 +49,19 @@ const inputSchema = z
     shardId: slugSchema.describe(
       'Unique shard identifier used as the findings filename.',
     ),
+    snapshotId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Exact snapshotId returned by inspect_codebase_structure. Required for a directly composable structuralReceipt; omitted only for legacy callers.',
+      ),
     findings: z.array(auditFindingSchema).max(100),
     coverage: z.object({
       subsystemIds: z.array(z.string().min(1).max(200)).max(100),
       featureIds: z.array(z.string().min(1).max(200)).max(100),
       files: z.array(z.string().min(1).max(500)).max(500),
+      domains: z.array(auditCoverageDomainSchema).min(1).optional(),
     }),
     noIssuesFound: z.boolean().default(false),
   })
@@ -85,6 +89,16 @@ export const auditFindingsReceiptSchema = z.object({
     featureCount: z.number().int().nonnegative(),
     fileCount: z.number().int().nonnegative(),
   }),
+  structuralReceipt: z
+    .object({
+      schema_version: z.literal(1),
+      snapshot_id: z.string(),
+      shard_id: z.string(),
+      subsystem_ids: z.array(z.string()),
+      files: z.array(z.string()),
+      domains: z.array(auditCoverageDomainSchema),
+    })
+    .optional(),
   contentHash: z.string(),
 })
 
@@ -98,7 +112,7 @@ const toolName = 'write_audit_findings'
 export const writeAuditFindingsParams = {
   toolName,
   endsAgentStep: false,
-  description: `Persist one audit shard's structured findings to a runtime-owned Markdown artifact. The path is derived as .agents/sessions/<sessionSlug>/findings/<shardId>.md; callers cannot choose another path. Return only the compact receipt after writing—do not repeat findings in prose.`,
+  description: `Persist one audit shard's structured findings to a runtime-owned Markdown artifact. The path is derived as .agents/sessions/<sessionSlug>/findings/<shardId>.md; callers cannot choose another path. New audit flows must copy the exact inspect_codebase_structure snapshotId into snapshotId and explicitly list every evaluated coverage domain; the result then includes structuralReceipt for direct use with evaluate_audit_coverage. Legacy calls without both fields remain accepted but do not receive that attestation. Return only the compact receipt after writing—do not repeat findings in prose.`,
   inputSchema,
   outputSchema: jsonToolResultSchema(
     z.union([auditFindingsReceiptSchema, auditFindingsErrorSchema]),

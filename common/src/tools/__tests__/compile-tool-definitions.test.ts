@@ -43,4 +43,12 @@ describe('compileToolDefinitions', () => {
     expect(strReplace).toContain('"basedOnRead"?: string')
     expect(strReplace).not.toContain('"hash": string')
   })
+
+  test('parenthesizes union array item types', () => {
+    const definitions = compileToolDefinitions()
+
+    expect(definitions).toContain(
+      '"domains"?: ("security" | "correctness" | "state-mutation" | "error-handling" | "performance" | "dependency-hygiene" | "test-coverage" | "api-contract")[]',
+    )
+  })
 })

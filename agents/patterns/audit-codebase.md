@@ -130,14 +130,16 @@ skipped — only apply it when the breadth check returns `broad-audit`.
 ### Step 3 — Spawn shard auditors in parallel
 
 For each shard, spawn a `general-agent` with unique `params.sessionSlug` and
-`params.shardId`, plus a prompt containing ONLY:
+`params.shardId` plus `params.snapshotId` copied exactly from
+`inspect_codebase_structure`, and a prompt containing ONLY:
 
 - The shard's file list (paths).
 - The 8 domains above (copy them verbatim).
-- The output contract: "Call `write_audit_findings` exactly once with every
-  structured finding and the complete subsystem/feature/file coverage receipt.
-  Then return only the tool's compact receipt: artifact path, counts, and hash.
-  Do not repeat findings in your response."
+- The output contract: "Call `write_audit_findings` exactly once with the exact
+  snapshotId, every structured finding, and the complete
+  subsystem/feature/file/domain coverage receipt. Then return only the tool's
+  compact receipt, including structuralReceipt. Do not repeat findings in your
+  response."
 - Instruction to `read_files` the shard's files, then analyze against all 8
   domains, then persist the structured findings.
 
@@ -161,7 +163,11 @@ has 0 pairs and fails the rule.
 ### Step 3.5 — Machine-check the coverage matrix
 
 Before synthesizing, call `evaluate_audit_coverage` with the exact inventory
-snapshot, structural receipts, feature list, and explicit out-of-scope reasons.
+snapshot, every shard's returned `structuralReceipt`, every feature tool's
+returned `coverageReceipt`, and explicit out-of-scope reasons. Heuristic feature
+receipts are valid input but intentionally keep the result incomplete; verify
+the cited evidence with exact file reads and change only `evidence_kind` to
+`verified` before retrying. Do not reconstruct receipts from prose or counts.
 An incomplete result blocks synthesis. Render the matrix in the durable
 session `STATUS.md`; it is only a rendering of the runtime result. Format:
 

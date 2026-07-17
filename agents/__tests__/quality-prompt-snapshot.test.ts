@@ -69,6 +69,9 @@ describe('shared craftsmanship prompt sections', () => {
     expect(broadAuditSection).toContain('language/framework capability packet')
     expect(broadAuditSection).toContain('inspect_feature_completeness')
     expect(broadAuditSection).toContain('evaluate_audit_coverage')
+    expect(broadAuditSection).toContain('structuralReceipt')
+    expect(broadAuditSection).toContain('coverageReceipt')
+    expect(broadAuditSection).toContain('evidence_kind')
     expect(broadAuditSection).toContain('block a complete audit')
   })
 
