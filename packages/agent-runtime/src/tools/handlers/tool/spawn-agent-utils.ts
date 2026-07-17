@@ -557,7 +557,10 @@ function compactAgentOutputValue(
     return compacted
   }
   if (value === null || typeof value !== 'object') return value
-  if (depth >= 7) return '[truncated nested agent output]'
+  if (depth >= 7) {
+    truncation.omittedItems += 1
+    return summarizeNestedAgentOutput(value)
+  }
   if (Array.isArray(value)) {
     const preserveAll = fieldName
       ? CONTROL_PLANE_ARRAY_FIELDS.has(fieldName)
@@ -579,6 +582,59 @@ function compactAgentOutputValue(
       ]),
   )
   return compacted
+}
+
+function summarizeNestedAgentOutput(value: unknown): unknown {
+  const strings = new Map<string, string>()
+  const artifacts = new Set<string>()
+  const interestingStringFields = new Set([
+    'agentType',
+    'agentName',
+    'status',
+    'message',
+    'digest',
+    'summary',
+    'errorMessage',
+    'artifactPath',
+  ])
+  const visit = (item: unknown, depth = 0): void => {
+    if (!item || depth > 6) return
+    if (Array.isArray(item)) {
+      for (const nested of item.slice(0, 12)) visit(nested, depth + 1)
+      return
+    }
+    if (typeof item !== 'object') return
+    const record = item as Record<string, unknown>
+    for (const [key, nested] of Object.entries(record)) {
+      if (
+        interestingStringFields.has(key) &&
+        typeof nested === 'string' &&
+        nested.trim() &&
+        !strings.has(key)
+      ) {
+        const compacted = truncateReviewerText(nested, 1_000)
+        strings.set(
+          key,
+          typeof compacted === 'string' ? compacted : nested.slice(0, 1_000),
+        )
+      }
+      if (key === 'artifacts' && Array.isArray(nested)) {
+        for (const artifact of nested) {
+          if (typeof artifact === 'string' && artifact.trim()) {
+            artifacts.add(artifact.trim())
+          }
+        }
+      }
+      visit(nested, depth + 1)
+    }
+  }
+  visit(value)
+  return {
+    type: 'truncatedNestedAgentOutput',
+    truncated: true,
+    ...Object.fromEntries(strings),
+    ...(artifacts.size > 0 ? { artifacts: [...artifacts].slice(0, 16) } : {}),
+  }
 }
 
 function boundAgentOutputForParent(
@@ -942,6 +998,56 @@ function findReceiptStatus(
   return status
 }
 
+function containsToolCall(value: unknown, toolName: string): boolean {
+  let found = false
+  const visit = (item: unknown, depth = 0): void => {
+    if (found || !item || depth > 12) return
+    if (Array.isArray(item)) {
+      for (const nested of item) visit(nested, depth + 1)
+      return
+    }
+    if (typeof item !== 'object') return
+    const record = item as Record<string, unknown>
+    if (record.toolName === toolName) {
+      found = true
+      return
+    }
+    for (const nested of Object.values(record)) visit(nested, depth + 1)
+  }
+  visit(value)
+  return found
+}
+
+function containsStructuralAuditReceipt(
+  value: unknown,
+  expectedSnapshotId?: string,
+): boolean {
+  let found = false
+  const visit = (item: unknown, depth = 0): void => {
+    if (found || !item || depth > 12) return
+    if (Array.isArray(item)) {
+      for (const nested of item) visit(nested, depth + 1)
+      return
+    }
+    if (typeof item !== 'object') return
+    const record = item as Record<string, unknown>
+    const receipt = record.structuralReceipt
+    if (receipt && typeof receipt === 'object' && !Array.isArray(receipt)) {
+      const snapshotId = (receipt as Record<string, unknown>).snapshot_id
+      if (
+        typeof snapshotId === 'string' &&
+        (!expectedSnapshotId || snapshotId === expectedSnapshotId)
+      ) {
+        found = true
+        return
+      }
+    }
+    for (const nested of Object.values(record)) visit(nested, depth + 1)
+  }
+  visit(value)
+  return found
+}
+
 function extractReceiptEvidence(params: {
   output: unknown
   agentType: string
@@ -1009,11 +1115,36 @@ export function buildRuntimeAgentReceipt(params: {
   agentType: string
   agentId: string
   handoff?: AgentHandoff
+  spawnParams?: Record<string, unknown>
   output: unknown
   agentState?: AgentState
   status?: AgentReceipt['status']
   error?: unknown
 }): AgentReceipt {
+  const receiptSources = [params.output, params.agentState?.messageHistory]
+  const isGeneralAgent =
+    normalizeAgentIdForLookup(params.agentType) === 'general-agent'
+  const sessionSlug = params.spawnParams?.sessionSlug
+  const shardId = params.spawnParams?.shardId
+  const snapshotId = params.spawnParams?.snapshotId
+  const auditRequested =
+    isGeneralAgent &&
+    typeof sessionSlug === 'string' &&
+    sessionSlug.trim().length > 0 &&
+    typeof shardId === 'string' &&
+    shardId.trim().length > 0
+  const missingExplicitCompletion =
+    isGeneralAgent && !containsToolCall(receiptSources, 'task_completed')
+  const missingAuditReceipt =
+    auditRequested &&
+    !containsStructuralAuditReceipt(
+      receiptSources,
+      typeof snapshotId === 'string' && snapshotId.trim()
+        ? snapshotId.trim()
+        : undefined,
+    )
+  const completionContractFailed =
+    missingExplicitCompletion || missingAuditReceipt
   const mutationAttestations = extractMutationAttestations([
     params.output,
     params.agentState?.messageHistory,
@@ -1045,6 +1176,24 @@ export function buildRuntimeAgentReceipt(params: {
           {
             message: `Child output claimed changed files without mutation receipts: ${overclaimedPaths.join(', ')}.`,
             retryable: false,
+          },
+        ]
+      : []),
+    ...(missingExplicitCompletion
+      ? [
+          {
+            message:
+              'General agent ended without calling task_completed after producing its requested final answer.',
+            retryable: true,
+          },
+        ]
+      : []),
+    ...(missingAuditReceipt
+      ? [
+          {
+            message:
+              'General audit agent ended without a successful write_audit_findings structuralReceipt bound to the requested snapshot.',
+            retryable: true,
           },
         ]
       : []),
@@ -1089,7 +1238,11 @@ export function buildRuntimeAgentReceipt(params: {
     agentId: params.agentId,
     status:
       params.status ??
-      (errors.length > 0 ? 'failed' : findReceiptStatus(params.output)) ??
+      (completionContractFailed
+        ? 'partial'
+        : errors.length > 0
+          ? 'failed'
+          : findReceiptStatus(params.output)) ??
       (mutationAgent ? 'blocked' : 'completed'),
     workspaceRevision:
       latestMutation?.workspaceRevision ??
@@ -1122,7 +1275,7 @@ export function buildRuntimeAgentReceipt(params: {
       params.output,
       'requestedValidation',
     ),
-    artifacts: extractReceiptStringArray(params.output, 'artifacts'),
+    artifacts: extractReceiptStringArray(receiptSources, 'artifacts'),
     errors,
     output: normalizeSpawnedAgentOutput(params.output, params.agentType) as any,
   })

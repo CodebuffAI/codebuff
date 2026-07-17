@@ -1,12 +1,46 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  buildDiscoveryQuestion,
   claimDiscoveryShard,
   completeDiscoveryShard,
   planDiscoveryBatch,
 } from '../discovery-coordinator'
 
 describe('discovery coordinator', () => {
+  test('derives a stable non-empty question for params-only discovery agents', () => {
+    const first = buildDiscoveryQuestion({
+      agentType: 'code-searcher',
+      spawnParams: {
+        searchQueries: [
+          { cwd: 'server/src', flags: '-g *.test.ts', pattern: 'worker' },
+        ],
+      },
+    })
+    const reordered = buildDiscoveryQuestion({
+      agentType: 'code-searcher',
+      spawnParams: {
+        searchQueries: [
+          { pattern: 'worker', flags: '-g *.test.ts', cwd: 'server/src' },
+        ],
+      },
+    })
+
+    expect(first).toBe(reordered)
+    expect(first).toContain('worker')
+    expect(first.length).toBeGreaterThan(0)
+  })
+
+  test('never records an empty shard question', () => {
+    const claimed = claimDiscoveryShard({
+      agentType: 'code-searcher',
+      question: '   ',
+      workspaceRevision: 1,
+    })
+
+    expect(claimed.state.shards[0].question).toBe('code-searcher discovery')
+  })
+
   test('deduplicates candidates and merges evidence reasons', () => {
     const state = planDiscoveryBatch({
       query: 'find parser files',
@@ -22,10 +56,7 @@ describe('discovery coordinator', () => {
       'src/parser.ts',
       'src/token.ts',
     ])
-    expect(state.candidates[0].reasons).toEqual([
-      'relatedFiles',
-      'path',
-    ])
+    expect(state.candidates[0].reasons).toEqual(['relatedFiles', 'path'])
     expect(state.unresolvedGaps).toEqual(['src/parser.ts', 'src/token.ts'])
   })
 
@@ -47,11 +78,15 @@ describe('discovery coordinator', () => {
       result: ['src/parser.ts'],
     })
 
-    expect(refreshed.candidates.find((item) => item.path === 'src/parser.ts')).toMatchObject({
+    expect(
+      refreshed.candidates.find((item) => item.path === 'src/parser.ts'),
+    ).toMatchObject({
       stale: false,
       workspaceRevision: 2,
     })
-    expect(refreshed.candidates.find((item) => item.path === 'src/token.ts')).toMatchObject({
+    expect(
+      refreshed.candidates.find((item) => item.path === 'src/token.ts'),
+    ).toMatchObject({
       stale: true,
       workspaceRevision: 1,
     })

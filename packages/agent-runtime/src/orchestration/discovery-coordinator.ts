@@ -8,6 +8,42 @@ function hash(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 24)
 }
 
+function canonicalizeDiscoveryInput(value: unknown, depth = 0): unknown {
+  if (value === undefined) return undefined
+  if (value === null || typeof value !== 'object') return value
+  if (depth >= 8) return '[nested input omitted]'
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalizeDiscoveryInput(item, depth + 1))
+  }
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, canonicalizeDiscoveryInput(item, depth + 1)]),
+  )
+}
+
+export function buildDiscoveryQuestion(params: {
+  agentType: string
+  prompt?: string
+  objective?: string
+  spawnParams?: Record<string, unknown>
+}): string {
+  const explicitQuestion = [params.prompt, params.objective]
+    .find((value) => typeof value === 'string' && value.trim().length > 0)
+    ?.trim()
+  if (explicitQuestion) return explicitQuestion
+
+  const canonicalParams = canonicalizeDiscoveryInput(params.spawnParams)
+  const serializedParams = canonicalParams
+    ? JSON.stringify(canonicalParams)
+    : ''
+  if (serializedParams && serializedParams !== '{}') {
+    return `${params.agentType} parameters: ${serializedParams.slice(0, 4_000)}`
+  }
+  return `${params.agentType} discovery`
+}
+
 function normalizePath(value: string): string {
   return value.replace(/\\/g, '/').replace(/^\.\//, '').trim()
 }
@@ -136,15 +172,18 @@ export function claimDiscoveryShard(params: {
   question: string
   workspaceRevision?: number
 }): { state: DiscoveryCoverageV1; shardKey: string } {
+  const question =
+    params.question.trim() ||
+    `${params.agentType.trim() || 'unknown-agent'} discovery`
   const existing =
     params.existing ??
     planDiscoveryBatch({
-      query: params.question,
+      query: question,
       result: [],
       workspaceRevision: params.workspaceRevision,
     })
   const shardKey = hash(
-    `${params.agentType}:${normalizeQuestion(params.question)}:${params.workspaceRevision ?? 'unknown'}`,
+    `${params.agentType}:${normalizeQuestion(question)}:${params.workspaceRevision ?? 'unknown'}`,
   )
   const duplicate = existing.shards.find(
     (shard) =>
@@ -164,7 +203,7 @@ export function claimDiscoveryShard(params: {
       {
         key: shardKey,
         agentType: params.agentType,
-        question: params.question,
+        question,
         status: 'active',
         assignedAt: Date.now(),
       },

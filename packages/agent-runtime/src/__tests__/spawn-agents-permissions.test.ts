@@ -153,6 +153,84 @@ describe('Spawn Agents Permissions', () => {
     expect(JSON.stringify(output)).toContain('Mock agent response')
   })
 
+  it('derives a discovery question for params-only code-searcher spawns', async () => {
+    const parentAgent = createMockAgent('parent', ['code-searcher'])
+    const childAgent = createMockAgent('code-searcher')
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+      toolName: 'spawn_agents',
+      toolCallId: 'spawn-code-searcher-without-prompt',
+      input: {
+        agents: [
+          {
+            agent_type: 'code-searcher',
+            params: {
+              searchQueries: [
+                {
+                  pattern: 'worker|queue|analysis',
+                  cwd: 'server/src/__tests__',
+                  flags: '-g *.test.ts',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    }
+
+    const { output } = await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'code-searcher': childAgent },
+      toolCall,
+    })
+
+    expect(JSON.stringify(output)).toContain('Mock agent response')
+    expect(sessionState.mainAgentState.discoveryCoverage?.shards).toHaveLength(
+      1,
+    )
+    expect(
+      sessionState.mainAgentState.discoveryCoverage?.shards[0],
+    ).toMatchObject({
+      agentType: 'code-searcher',
+      status: 'completed',
+    })
+    expect(
+      sessionState.mainAgentState.discoveryCoverage?.shards[0].question,
+    ).toContain('worker|queue|analysis')
+  })
+
+  it('does not retain partial discovery claims when a batch has duplicates', async () => {
+    const parentAgent = createMockAgent('parent', ['code-searcher'])
+    const childAgent = createMockAgent('code-searcher')
+    const sessionState = getInitialSessionState(mockFileContext)
+    const duplicate = {
+      agent_type: 'code-searcher' as const,
+      params: {
+        searchQueries: [{ pattern: 'worker', cwd: 'server/src/__tests__' }],
+      },
+    }
+
+    await expect(
+      handleSpawnAgents({
+        ...handleSpawnAgentsBaseParams,
+        agentState: sessionState.mainAgentState,
+        agentTemplate: parentAgent,
+        localAgentTemplates: { 'code-searcher': childAgent },
+        toolCall: {
+          toolName: 'spawn_agents',
+          toolCallId: 'spawn-duplicate-code-searchers',
+          input: { agents: [duplicate, duplicate] },
+        },
+      }),
+    ).rejects.toThrow('Duplicate discovery shard')
+
+    expect(
+      sessionState.mainAgentState.discoveryCoverage?.shards ?? [],
+    ).toHaveLength(0)
+  })
+
   it('attenuates terminal authority throughout plan-only spawn ancestry', () => {
     const parentAgent = createMockAgent('base2-plan', ['basher'])
     parentAgent.programmaticConfig = { planOnly: true }

@@ -909,6 +909,8 @@ export interface SpawnAgentsParams {
       }[]
       /** Relevant file paths to read (general-agent) */
       filePaths?: string[]
+      /** Relevant directory paths to inventory (general-agent) */
+      directoryPaths?: string[]
       /** Directories to search within (file-picker) */
       directories?: string[]
       /** Starting URL to navigate to (browser-use) */

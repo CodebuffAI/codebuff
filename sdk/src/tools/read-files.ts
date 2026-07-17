@@ -15,6 +15,7 @@ import {
   normalizeLineEndings,
 } from '@codebuff/common/util/content-hash'
 import {
+  isAgentSessionArtifactPath,
   isEnvTemplatePath,
   isMandatorySensitiveReadPath,
 } from '@codebuff/common/util/sensitive-paths'
@@ -216,7 +217,8 @@ async function authorizeReadTarget(params: {
   const isExampleFile =
     aliases.every(isEnvTemplatePath) &&
     filterResults.some((result) => result.status === 'allow-example')
-  if (!isExampleFile) {
+  const isAgentSessionArtifact = aliases.every(isAgentSessionArtifactPath)
+  if (!isExampleFile && !isAgentSessionArtifact) {
     for (const alias of aliases) {
       if (
         await isFileIgnored({

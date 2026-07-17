@@ -29,6 +29,7 @@ import {
   releaseWorkspacePathLease,
 } from '../../../util/workspace-path-leases'
 import {
+  buildDiscoveryQuestion,
   claimDiscoveryShard,
   completeDiscoveryShard,
 } from '../../../orchestration/discovery-coordinator'
@@ -242,6 +243,7 @@ export const handleSpawnAgents = (async (
       },
     })
   }
+  let nextDiscoveryCoverage = parentAgentState.discoveryCoverage
   for (const validated of validatedAgents) {
     if (
       validated.agentType === 'file-picker' ||
@@ -249,15 +251,24 @@ export const handleSpawnAgents = (async (
       validated.agentType === 'file-lister'
     ) {
       const claimed = claimDiscoveryShard({
-        existing: parentAgentState.discoveryCoverage,
+        existing: nextDiscoveryCoverage,
         agentType: validated.agentType,
-        question: validated.input.prompt ?? validated.handoff?.objective ?? '',
+        question: buildDiscoveryQuestion({
+          agentType: validated.agentType,
+          prompt: validated.input.prompt,
+          objective: validated.handoff?.objective,
+          spawnParams: validated.runtimeSpawnParams,
+        }),
         workspaceRevision: parentAgentState.workspaceState?.revision,
       })
-      parentAgentState.discoveryCoverage = claimed.state
+      nextDiscoveryCoverage = claimed.state
       validated.discoveryShardKey = claimed.shardKey
     }
   }
+  // Commit the whole batch of claims at once. If any claim is rejected, the
+  // parent state remains unchanged instead of retaining an active shard for an
+  // agent that was never launched.
+  parentAgentState.discoveryCoverage = nextDiscoveryCoverage
   try {
     for (const validated of validatedAgents) {
       validated.leaseId = acquireWorkspacePathLease({
@@ -271,6 +282,11 @@ export const handleSpawnAgents = (async (
   } catch (error) {
     for (const validated of validatedAgents) {
       releaseWorkspacePathLease(parentAgentState, validated.leaseId)
+      parentAgentState.discoveryCoverage = completeDiscoveryShard({
+        existing: parentAgentState.discoveryCoverage,
+        shardKey: validated.discoveryShardKey,
+        status: 'interrupted',
+      })
     }
     throw error
   }
@@ -393,6 +409,7 @@ export const handleSpawnAgents = (async (
             agentType,
             agentId: result.agentState.agentId,
             handoff: validated.handoff,
+            spawnParams: validated.runtimeSpawnParams,
             output: result.output,
             agentState: result.agentState,
           })
@@ -431,6 +448,7 @@ export const handleSpawnAgents = (async (
             agentType,
             agentId: subAgentState.agentId,
             handoff: validated.handoff,
+            spawnParams: validated.runtimeSpawnParams,
             output: undefined,
             agentState: subAgentState,
             status: 'failed',
@@ -591,6 +609,7 @@ export const handleSpawnAgents = (async (
           agentType,
           agentId: agentState.agentId,
           handoff,
+          spawnParams: foregroundAgents[index].runtimeSpawnParams,
           output,
           agentState,
         })
@@ -614,6 +633,7 @@ export const handleSpawnAgents = (async (
           agentType: agentTypeStr,
           agentId: foregroundAgents[index].subAgentState.agentId,
           handoff,
+          spawnParams: foregroundAgents[index].runtimeSpawnParams,
           output: undefined,
           agentState: foregroundAgents[index].subAgentState,
           status: 'failed',

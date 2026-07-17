@@ -406,6 +406,43 @@ describe('getFiles', () => {
       expect(result['node_modules/pkg/index.js']).toBe(FILE_READ_STATUS.IGNORED)
       expect(isFileIgnoredSpy).toHaveBeenCalled()
     })
+
+    test('allows canonical agent session artifacts through gitignore policy', async () => {
+      isFileIgnoredSpy.mockResolvedValue(true)
+      const artifactPath = '.agents/sessions/readiness/PLAN.md'
+      const mockFs = createMockFs({
+        files: {
+          [`/project/${artifactPath}`]: { content: '# Plan' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: [artifactPath],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result[artifactPath]).toBe('# Plan')
+      expect(isFileIgnoredSpy).not.toHaveBeenCalled()
+    })
+
+    test('does not bypass ignore policy for unrelated .agents files', async () => {
+      isFileIgnoredSpy.mockResolvedValue(true)
+      const privatePath = '.agents/mcp.json'
+      const mockFs = createMockFs({
+        files: {
+          [`/project/${privatePath}`]: { content: '{"secret":"value"}' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: [privatePath],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result[privatePath]).toBe(FILE_READ_STATUS.IGNORED)
+    })
   })
 
   describe('ranged reads', () => {

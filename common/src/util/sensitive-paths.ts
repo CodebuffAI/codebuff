@@ -23,6 +23,14 @@ const SENSITIVE_BASENAMES = new Set([
   '.terraformrc',
 ])
 const ENV_TEMPLATE_SUFFIXES = ['.env.example', '.env.sample', '.env.template']
+const AGENT_SESSION_ARTIFACT_BASENAMES = new Set([
+  'spec.md',
+  'plan.md',
+  'status.md',
+  'lessons.md',
+  'state.json',
+  'audit-report.md',
+])
 
 function toPortablePath(value: string): string {
   return value.split(path.sep).join('/').replace(/^\.\//, '')
@@ -51,4 +59,31 @@ export function isMandatorySensitiveReadPath(filePath: string): boolean {
     basename.includes('kubeconfig') ||
     basename.includes('.tfstate')
   )
+}
+
+/**
+ * Runtime-owned plan/audit artifacts remain readable even when a repository
+ * intentionally gitignores `.agents/`. Mandatory sensitive-file policy and
+ * an explicit host fileFilter still take precedence over this exception.
+ */
+export function isAgentSessionArtifactPath(filePath: string): boolean {
+  const portable = toPortablePath(filePath).toLowerCase().replace(/\/+$/, '')
+  const segments = portable.split('/').filter(Boolean)
+  if (segments[0] !== '.agents' || segments[1] !== 'sessions') return false
+
+  // Permit traversal to the sessions root and a concrete session directory;
+  // every child is still checked independently before it is exposed.
+  if (segments.length === 2 || segments.length === 3) return true
+  if (segments.length < 4) return false
+
+  const remainder = segments.slice(3)
+  if (
+    remainder.length === 1 &&
+    AGENT_SESSION_ARTIFACT_BASENAMES.has(remainder[0])
+  ) {
+    return true
+  }
+  if (remainder[0] !== 'findings') return false
+  if (remainder.length === 1) return true
+  return remainder.length === 2 && remainder[1].endsWith('.md')
 }

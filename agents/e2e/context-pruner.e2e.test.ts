@@ -84,19 +84,15 @@ describe('Context Pruner Agent Integration', () => {
   it(
     'should prune large message history and maintain tool-call/tool-result pairs',
     async () => {
-      // Create a test agent that spawns context-pruner and then does one more step
+      // Create a test agent that spawns context-pruner and reports completion
+      // without making a provider call. The mutation performed by the spawned
+      // agent is the behavior under test here.
       const testAgent: AgentDefinition = {
         id: 'context-pruner-test-agent',
         displayName: 'Context Pruner Test Agent',
-        model: 'anthropic/claude-haiku-4.5',
         includeMessageHistory: true,
         toolNames: ['spawn_agents'],
         spawnableAgents: ['context-pruner'],
-        instructionsPrompt: `You are a test agent. Your job is to:
-1. First, spawn the context-pruner agent to prune the message history
-2. After context-pruner completes, respond with "PRUNING_COMPLETE" followed by a count of how many messages remain in the conversation
-
-Do not do anything else. Just spawn context-pruner and then report the result.`,
         handleSteps: function* () {
           // Spawn context-pruner with a lower token limit to force pruning
           yield {
@@ -112,8 +108,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
               ],
             },
           }
-          // Let the model respond after pruning
-          yield 'STEP'
+          yield { type: 'STEP_TEXT', text: 'PRUNING_COMPLETE' }
         },
       }
 
@@ -220,11 +215,9 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       const testAgent: AgentDefinition = {
         id: 'aggressive-prune-test-agent',
         displayName: 'Aggressive Prune Test Agent',
-        model: 'anthropic/claude-haiku-4.5',
         includeMessageHistory: true,
         toolNames: ['spawn_agents'],
         spawnableAgents: ['context-pruner'],
-        instructionsPrompt: `Spawn context-pruner and then say "DONE".`,
         handleSteps: function* () {
           yield {
             toolName: 'spawn_agents',
@@ -239,7 +232,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
               ],
             },
           }
-          yield 'STEP'
+          yield { type: 'STEP_TEXT', text: 'DONE' }
         },
       }
 

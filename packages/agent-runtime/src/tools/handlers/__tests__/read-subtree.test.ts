@@ -79,6 +79,47 @@ function buildMockFileContext() {
 }
 
 describe('handleReadSubtree', () => {
+  it('allows canonical agent session artifacts through an ignored .agents directory', async () => {
+    const tmpRoot = nodeFs.mkdtempSync(
+      nodePath.join(nodeOs.tmpdir(), 'openbuff-agent-session-subtree-'),
+    )
+    try {
+      const sessionDir = nodePath.join(
+        tmpRoot,
+        '.agents',
+        'sessions',
+        'readiness',
+      )
+      nodeFs.mkdirSync(sessionDir, { recursive: true })
+      nodeFs.writeFileSync(nodePath.join(tmpRoot, '.gitignore'), '.agents/\n')
+      nodeFs.writeFileSync(nodePath.join(sessionDir, 'PLAN.md'), '# Plan\n')
+      nodeFs.writeFileSync(nodePath.join(sessionDir, 'secrets.txt'), 'hidden')
+
+      const fileContext = buildMockFileContext()
+      fileContext.projectRoot = tmpRoot
+      const { output } = await handleReadSubtree({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolName: 'read_subtree',
+          toolCallId: 'tc-agent-session-artifact',
+          input: {
+            paths: ['.agents/sessions/readiness'],
+            maxTokens: 50_000,
+          },
+        },
+        fileContext,
+        logger: createLogger(),
+        fileSystem: nodeFs.promises,
+      })
+
+      const value = output[0].value as ReadSubtreeResultEntry[]
+      expect(value[0].printedTree).toContain('PLAN.md')
+      expect(value[0].printedTree).not.toContain('secrets.txt')
+    } finally {
+      nodeFs.rmSync(tmpRoot, { recursive: true, force: true })
+    }
+  })
+
   it('returns a directory subtree blob with tokens for a directory path', async () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
@@ -201,6 +242,39 @@ describe('handleReadSubtree', () => {
     } finally {
       nodeFs.rmSync(tmpRoot, { recursive: true, force: true })
     }
+  })
+
+  it('uses cached subtrees for authoritative virtual project files', async () => {
+    const fileContext = buildMockFileContext()
+    fileContext.projectRoot = '/virtual/project'
+    fileContext.fileTreeSource = 'virtual'
+    let realpathCalls = 0
+    const fileSystem = {
+      realpath: async () => {
+        realpathCalls += 1
+        throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+      },
+    } as unknown as CodebuffFileSystem
+
+    const { output } = await handleReadSubtree({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolName: 'read_subtree',
+        toolCallId: 'tc-virtual-subtree',
+        input: { paths: ['src'], maxTokens: 50_000 },
+      },
+      fileContext,
+      logger: createLogger(),
+      fileSystem,
+    })
+
+    expect(realpathCalls).toBe(0)
+    expect((output[0].value as ReadSubtreeResultEntry[])[0]).toMatchObject({
+      path: 'src',
+      type: 'directory',
+      provenance: 'cached',
+      stale: true,
+    })
   })
 
   it('preserves typed live filesystem errors', async () => {

@@ -132,6 +132,12 @@ const inputSchema = z
                     .array(z.string())
                     .optional()
                     .describe('Relevant file paths to read (general-agent)'),
+                  directoryPaths: z
+                    .array(z.string())
+                    .optional()
+                    .describe(
+                      'Relevant directory paths to inventory (general-agent)',
+                    ),
                   directories: z
                     .array(z.string())
                     .optional()

@@ -59,6 +59,7 @@ export type CustomToolDefinitions = NonNullable<
 export const ProjectFileContextSchema = z.object({
   projectRoot: z.string(),
   cwd: z.string(),
+  fileTreeSource: z.enum(['live', 'virtual']).optional(),
   fileTree: z.array(z.custom<FileTreeNode>()),
   fileTokenScores: z.record(z.string(), z.record(z.string(), z.number())),
   tokenCallers: z
@@ -91,6 +92,8 @@ export const ProjectFileContextSchema = z.object({
 export type ProjectFileContext = {
   projectRoot: string
   cwd: string
+  /** Whether fileTree came from the filesystem or explicit in-memory files. */
+  fileTreeSource?: 'live' | 'virtual'
   fileTree: FileTreeNode[]
   fileTokenScores: Record<string, Record<string, number>>
   tokenCallers?: Record<string, Record<string, string[]>>

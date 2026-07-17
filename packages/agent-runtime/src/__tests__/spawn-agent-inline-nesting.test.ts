@@ -14,7 +14,10 @@ import {
 import * as runAgentStep from '../run-agent-step'
 import { mockFileContext } from './test-utils'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
-import { normalizeSpawnedAgentOutput } from '../tools/handlers/tool/spawn-agent-utils'
+import {
+  buildRuntimeAgentReceipt,
+  normalizeSpawnedAgentOutput,
+} from '../tools/handlers/tool/spawn-agent-utils'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
@@ -592,5 +595,115 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
     const serialized = JSON.stringify(normalized)
     expect(serialized.length).toBeLessThan(10_000)
     expect(serialized).toContain('truncated')
+  })
+
+  it('preserves compact diagnostics from deeply nested child output', () => {
+    const normalized = normalizeSpawnedAgentOutput(
+      {
+        type: 'lastMessage',
+        value: [
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-result',
+                value: {
+                  result: {
+                    value: {
+                      nested: {
+                        output: {
+                          digest: '42 matches across 8 service files',
+                          artifacts: [
+                            '.agents/sessions/a/findings/services.md',
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+      'general-agent',
+    )
+    const serialized = JSON.stringify(normalized)
+
+    expect(serialized).toContain('truncatedNestedAgentOutput')
+    expect(serialized).toContain('42 matches across 8 service files')
+    expect(serialized).toContain('.agents/sessions/a/findings/services.md')
+  })
+
+  it('marks a general agent partial when it omits explicit completion', () => {
+    const receipt = buildRuntimeAgentReceipt({
+      agentType: 'general-agent',
+      agentId: 'general-1',
+      output: {
+        type: 'lastMessage',
+        value: [
+          { role: 'assistant', content: [{ type: 'text', text: 'Working' }] },
+        ],
+      },
+    })
+
+    expect(receipt.status).toBe('partial')
+    expect(receipt.errors[0]?.message).toContain('task_completed')
+  })
+
+  it('requires and preserves a structural receipt for general audit agents', () => {
+    const artifactPath = '.agents/sessions/readiness/findings/services.md'
+    const receipt = buildRuntimeAgentReceipt({
+      agentType: 'general-agent',
+      agentId: 'general-2',
+      spawnParams: {
+        sessionSlug: 'readiness',
+        shardId: 'services',
+        snapshotId: 'snapshot-1',
+      },
+      output: {
+        type: 'lastMessage',
+        value: [
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolName: 'task_completed',
+                input: {},
+              },
+            ],
+          },
+        ],
+      },
+      agentState: {
+        messageHistory: [
+          {
+            role: 'tool',
+            toolName: 'write_audit_findings',
+            content: [
+              {
+                type: 'json',
+                value: {
+                  artifacts: [artifactPath],
+                  structuralReceipt: {
+                    schema_version: 1,
+                    snapshot_id: 'snapshot-1',
+                    shard_id: 'services',
+                    subsystem_ids: ['server'],
+                    files: ['server/src/worker.ts'],
+                    domains: ['correctness'],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      } as any,
+    })
+
+    expect(receipt.status).toBe('completed')
+    expect(receipt.artifacts).toEqual([artifactPath])
+    expect(receipt.errors).toEqual([])
   })
 })

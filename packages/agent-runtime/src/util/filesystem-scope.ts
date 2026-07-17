@@ -5,12 +5,31 @@ export function scopePatternMatches(
   pattern: string,
 ): boolean {
   const normalizedPattern = pattern.replace(/\\/g, '/').replace(/^\.\//, '')
+
+  // A recursive directory scope authorizes the directory entry as well as its
+  // descendants. This matters for tools such as read_subtree, which validate
+  // the requested directory before traversing its children.
+  if (
+    normalizedPattern.endsWith('/**') &&
+    scopePatternMatches(filePath, normalizedPattern.slice(0, -3))
+  ) {
+    return true
+  }
+
   let source = '^'
   for (let index = 0; index < normalizedPattern.length; index++) {
     const char = normalizedPattern[index]
     if (char === '*' && normalizedPattern[index + 1] === '*') {
-      source += '.*'
-      index++
+      if (normalizedPattern[index + 2] === '/') {
+        // Globstar directory prefixes may match zero directories. Without the
+        // optional group, **/* incorrectly requires a slash and rejects every
+        // root-level file or directory.
+        source += '(?:.*/)?'
+        index += 2
+      } else {
+        source += '.*'
+        index++
+      }
     } else if (char === '*') {
       source += '[^/]*'
     } else if (char === '?') {

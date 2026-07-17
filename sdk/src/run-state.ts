@@ -589,6 +589,7 @@ export async function initialSessionState(
   const initialState = getInitialSessionState({
     projectRoot: cwd ?? process.cwd(),
     cwd: cwd ?? process.cwd(),
+    fileTreeSource: projectFiles !== undefined ? 'virtual' : 'live',
     fileTree,
     fileTokenScores,
     tokenCallers,
@@ -738,6 +739,8 @@ export async function applyOverridesToSessionState(
     if (projectIndex) {
       const { fileTree, fileTokenScores, tokenCallers } =
         await computeProjectIndex(projectIndex)
+      sessionState.fileContext.fileTreeSource =
+        overrides.projectFiles !== undefined ? 'virtual' : 'live'
       sessionState.fileContext.fileTree = fileTree
       sessionState.fileContext.fileTokenScores = fileTokenScores
       sessionState.fileContext.tokenCallers = tokenCallers
@@ -757,6 +760,7 @@ export async function applyOverridesToSessionState(
     }
   } else if (overrides.projectFiles !== undefined) {
     // Explicit virtual files without a cwd cannot be scored safely.
+    sessionState.fileContext.fileTreeSource = 'virtual'
     sessionState.fileContext.fileTree = []
     sessionState.fileContext.fileTokenScores = {}
     sessionState.fileContext.tokenCallers = {}

@@ -289,6 +289,7 @@ export const handleSpawnAgentInline = (async (
     agentType,
     agentId: result.agentState.agentId,
     handoff,
+    spawnParams: runtimeSpawnParams,
     output: result.output,
     agentState: result.agentState,
   })

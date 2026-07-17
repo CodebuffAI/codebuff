@@ -5,7 +5,10 @@ import {
   isFileIgnored,
 } from '@codebuff/common/project-file-tree'
 import { jsonToolResult } from '@codebuff/common/util/messages'
-import { isMandatorySensitiveReadPath } from '@codebuff/common/util/sensitive-paths'
+import {
+  isAgentSessionArtifactPath,
+  isMandatorySensitiveReadPath,
+} from '@codebuff/common/util/sensitive-paths'
 
 import { truncateFileTreeBasedOnTokenBudget } from '../../../system-prompt/truncate-file-tree'
 
@@ -97,7 +100,12 @@ export const handleReadSubtree = (async (params: {
 }> => {
   const { previousToolCallFinished, toolCall, fileContext, logger } = params
   const signal = params.signal ?? new AbortController().signal
-  const fs = params.fileSystem
+  // Explicit SDK projectFiles form an authoritative virtual snapshot. Do not
+  // probe the host filesystem for those paths: the supplied cwd may not exist,
+  // and a host lookup would incorrectly turn valid virtual directories into
+  // not_found errors.
+  const fs =
+    fileContext.fileTreeSource === 'virtual' ? undefined : params.fileSystem
   const { paths, maxTokens } = toolCall.input
   const tokenBudget = maxTokens
   const allFiles = new Set(getAllFilePaths(fileContext.fileTree))
@@ -168,9 +176,7 @@ export const handleReadSubtree = (async (params: {
                 ? ('partial' as const)
                 : ('complete' as const),
             provenance: 'live' as const,
-            ...(liveScan.errors.length > 0
-              ? { errors: liveScan.errors }
-              : {}),
+            ...(liveScan.errors.length > 0 ? { errors: liveScan.errors } : {}),
             ...(liveScan.truncated
               ? {
                   recovery:
@@ -265,6 +271,7 @@ export const handleReadSubtree = (async (params: {
       }
       if (
         normalizedRelativePath &&
+        !isAgentSessionArtifactPath(normalizedRelativePath) &&
         (await isFileIgnored({
           filePath: normalizedRelativePath,
           projectRoot,
@@ -294,8 +301,8 @@ export const handleReadSubtree = (async (params: {
           ok: false,
           path: normalizedRelativePath,
           error: subtreeError(
-          'outside_project',
-          `Path not found in the authorized filesystem view: ${normalizedRelativePath || '.'}.`,
+            'outside_project',
+            `Path not found in the authorized filesystem view: ${normalizedRelativePath || '.'}.`,
             false,
           ),
         }
@@ -322,10 +329,7 @@ export const handleReadSubtree = (async (params: {
       } catch (error) {
         scan.errors.push({
           path: normalizedRelativePath || '.',
-          error: classifyLiveReadError(
-            normalizedRelativePath || '.',
-            error,
-          ),
+          error: classifyLiveReadError(normalizedRelativePath || '.', error),
         })
         entries = []
       }
