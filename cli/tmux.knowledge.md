@@ -4,6 +4,7 @@
 
 - When exercising a long agent run, distinguish a resumable `Agent step limit reached` or `No-progress watchdog` checkpoint from a crash. The checkpoint should remain visible in the final capture and must not be rendered as `No response from agent`.
 - Completion-summary captures should report recovered nested tool attempts only inside the expanded agent card, not inflate the terminal `errors` count after the agent ultimately succeeds.
+- Changes limited to generated agent/tool type sources are non-visual; validate generator idempotence and CLI typechecking instead of requiring a tmux interaction capture.
 
 ## tmux Harness Behavior
 

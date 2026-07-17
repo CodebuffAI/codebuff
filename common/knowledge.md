@@ -8,6 +8,8 @@ This package contains code shared across the Openbuff monorepo, especially the l
 - Provider credential helpers in `src/api-keys` and MCP cache-key helpers must keep raw secrets out of logs, cache keys, and serialized diagnostics while still producing stable non-secret endpoint identities.
 - `AgentState.stepsRemaining === -1` is the unlimited default. Optional positive fixed caps remain supported, while repeated-step signatures and counts are persisted separately so the runtime can stop identical no-progress loops without truncating productive work.
 - Agent templates may set `spawnableAgentToolMode: 'generic'` to retain spawn permissions and the compact agent catalog while omitting one provider-facing schema per child. Keep trusted harness-only capabilities in `programmaticToolNames`; do not expose them merely for generator reachability.
+- `ProjectFileContext.fileTreeSource` distinguishes live filesystem trees from authoritative virtual `projectFiles` snapshots so read tools do not probe unrelated host paths for in-memory projects.
+- Canonical `.agents/sessions/<slug>/` planning artifacts may be read through the shared sensitive-path policy, while unrelated files under ignored `.agents` directories remain protected.
 
 ## Key Areas
 

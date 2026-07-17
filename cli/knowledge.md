@@ -6,6 +6,7 @@
 - The runtime stops repeated no-progress patterns separately, and the CLI renders the resulting resumable checkpoint instead of treating it as a missing agent response.
 - Completion summaries count final file outcomes, terminal top-level failures, and auxiliary-agent failures without duplicating recovered nested tool errors.
 - Regenerate bundled agents and starter type sources with `bun run prebuild:agents` after changing shipped agents or public tool schemas.
+- Public agent/tool type changes must also run the repository-root generator (`bun scripts/generate-tool-definitions.ts`); CI verifies `cli/src/data/initial-agent-type-sources.generated.ts` is committed.
 
 ## Slash Commands and Plan Mode
 
