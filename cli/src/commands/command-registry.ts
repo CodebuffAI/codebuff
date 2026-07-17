@@ -224,11 +224,11 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  defineCommand({
+  defineCommandWithArgs({
     name: 'mcp',
     aliases: ['mcp-servers'],
-    handler: (params) => {
-      const { postUserMessage } = handleMcpCommand()
+    handler: (params, args) => {
+      const { postUserMessage } = handleMcpCommand(args)
       params.setMessages((prev) => postUserMessage(prev))
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)

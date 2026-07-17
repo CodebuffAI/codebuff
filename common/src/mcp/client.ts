@@ -99,15 +99,26 @@ function hashConfig(config: MCPConfig): string {
 //
 // This is intentionally conservative — patterns known to be safe are
 // excluded; everything else that looks like a credential is replaced.
+// URL regex for sanitizing user:password@host patterns
+const URL_CREDENTIALS_PATTERN = /https?:\/\/[A-Za-z0-9_.~-]+:[A-Za-z0-9_.~!@#$%^&*()_+\-={}[\]\\|;:',.<>/?]+@/g
+
 const SENSITIVE_PATTERNS = [
   /sk-[A-Za-z0-9_-]{20,}/g, // OpenAI-style secret keys (sk-proj-xxx, sk-user-xxx)
   /ghp_[A-Za-z0-9]{36,}/g, // GitHub personal access tokens
   /gho_[A-Za-z0-9]{36,}/g, // GitHub OAuth tokens
+  /github_pat_[A-Za-z0-9]{50,}/g, // GitHub fine-grained PATs
   /Bearer\s+[A-Za-z0-9._~+/=-]{8,}/g, // Bearer tokens in headers
+  /(^|\n)\s*Authorization['"]?\s*[:=]\s*.+/gi, // Authorization header lines
+  /Basic\s+[A-Za-z0-9+/=]{8,}/g, // Basic auth tokens
   /api[_-]?key['"]?\s*[:=]\s*['"]?[A-Za-z0-9_/-]{16,}/gi, // api_key=... patterns
+  /access_token['"]?\s*[:=]\s*['"]?[A-Za-z0-9_./-]{8,}/gi, // access_token patterns
+  /refresh_token['"]?\s*[:=]\s*['"]?[A-Za-z0-9_./-]{8,}/gi, // refresh_token patterns
+  /client_secret['"]?\s*[:=]\s*['"]?[A-Za-z0-9_./-]{8,}/gi, // client_secret patterns
   /token['"]?\s*[:=]\s*['"]?[A-Za-z0-9_./-]{8,}/gi, // token=... patterns
   /secret['"]?\s*[:=]\s*['"]?[A-Za-z0-9_./-]{8,}/gi, // secret=... patterns
   /password['"]?\s*[:=]\s*['"]?[A-Za-z0-9_@!$%&*+-]{4,}/gi, // password=... patterns
+  /passwd['"]?\s*[:=]\s*['"]?[A-Za-z0-9_@!$%&*+-]{4,}/gi, // passwd=... patterns
+  URL_CREDENTIALS_PATTERN, // https://user:pass@host URLs
 ]
 
 export const REDACTED_PLACEHOLDER = '<REDACTED>'
@@ -313,26 +324,31 @@ export async function callMCPTool(
 // Public status API — used by the /mcp CLI command
 // ---------------------------------------------------------------------------
 
+/**
+ * Runtime status snapshot for a single MCP server config.
+ *
+ * All fields are derived from module-level state that was already populated
+ * by normal agent operation — no new connections are initiated.
+ */
 export type McpClientConnectionInfo = {
+  /** Whether the client is currently connected */
   connected: boolean
-  /** Number of tools discovered, or null if not yet resolved */
+  /** Number of discovered tools, or null if the tool list hasn't resolved yet */
   toolCount: number | null
-  /** Sanitized error message from the last connection attempt, or null */
+  /** Sanitized error message from the last failed connection, or null */
   errorLabel: string | null
 }
 
 /**
- * Returns the client-id key for a given MCP config, so callers can match
- * configured servers against the running-clients map.
- */
-export function hashMcpConfig(config: MCPConfig): string {
-  return hashConfig(config)
-}
-
-/**
- * Returns connection info for an MCP server config without initiating any
- * new connection. The tool count is populated synchronously only when
- * listMCPTools has already resolved for this server.
+ * Returns a readonly snapshot of the connection status for a single MCP
+ * server configuration, without initiating any new connection.
+ *
+ * - `connected` — checked against the live `runningClients` map
+ * - `toolCount` — populated lazily from the resolved `listTools` cache
+ * - `errorLabel` — populated from the last failed `getMCPClient` attempt
+ *
+ * The returned object is a plain value type. Callers cannot mutate internal
+ * module state through it.
  */
 export function getMCPClientConnectionInfo(config: MCPConfig): McpClientConnectionInfo {
   const key = hashConfig(config)
@@ -340,11 +356,4 @@ export function getMCPClientConnectionInfo(config: MCPConfig): McpClientConnecti
   const toolCount = key in resolvedToolCounts ? resolvedToolCounts[key] : null
   const errorLabel = connected ? null : (key in connectionErrors ? connectionErrors[key] : null)
   return { connected, toolCount, errorLabel }
-}
-
-/**
- * Returns all client-ids that are currently connected.
- */
-export function getConnectedMCPClientKeys(): string[] {
-  return Object.keys(runningClients)
 }

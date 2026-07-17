@@ -1,10 +1,12 @@
 import { loadMCPConfigSync } from '@codebuff/sdk'
 import {
   getMCPClientConnectionInfo,
-  hashMcpConfig,
   sanitizeErrorForDisplay,
   truncateError,
 } from '@codebuff/common/mcp/client'
+
+import os from 'os'
+import path from 'path'
 
 import { getSystemMessage } from '../utils/message-history'
 
@@ -38,7 +40,6 @@ export function buildMcpStatusReport(): {
 
   for (const [name, config] of Object.entries(loaded.mcpServers)) {
     const info = getMCPClientConnectionInfo(config)
-    const hash = hashMcpConfig(config)
 
     servers.push({
       name,
@@ -122,8 +123,39 @@ export function formatMcpStatusForCli(report: {
 
 /**
  * The /mcp command handler — builds a system message and returns it.
+ *
+ * Accepts an optional `args` string from the parser:
+ * - `''` or `'list'` → show status report
+ * - anything else → show brief help with accepted subcommands
  */
-export function handleMcpCommand(): { postUserMessage: (prev: any[]) => any[] } {
+export function handleMcpCommand(args?: string): { postUserMessage: (prev: any[]) => any[] } {
+  // '/mcp unknown' or other unknown subcommand → show help
+  if (args && args.trim() && args.trim() !== 'list') {
+    const helpText = [
+      '### /mcp — MCP server status',
+      '',
+      '**Usage:**',
+      '',
+      '  `/mcp`         Show configured MCP servers and connection status',
+      '  `/mcp list`    Show the same status report',
+      '',
+      '**About:**',
+      '',
+      'This command reads from `.agents/mcp.json` in your project, parent,',
+      'or home directory. It shows which servers are configured, their',
+      'transport, connection state, and discovered tools.',
+      '',
+      'This is a read-only command. No connections are initiated just to',
+      'render the status.',
+    ].join('\n')
+
+    const postUserMessage = (prev: any[]): any[] => [
+      ...prev,
+      getSystemMessage(helpText),
+    ]
+    return { postUserMessage }
+  }
+
   const report = buildMcpStatusReport()
   const formatted = formatMcpStatusForCli(report)
 
@@ -150,12 +182,36 @@ function describeTransport(config: MCPConfig): string {
 }
 
 /**
- * Sanitize a file-system path for display, redacting user-home segments on
- * platforms where that isn't already handled by the resolved path.
+ * Sanitize a file-system path for display by replacing the user's home
+ * directory with `~` on any platform (Linux, macOS, Windows).
+ *
+ * Examples:
+ *   /home/alice/project/.agents/mcp.json → ~/project/.agents/mcp.json
+ *   /Users/alice/project/.agents/mcp.json → ~/project/.agents/mcp.json
+ *   C:\Users\Alice\project\.agents\mcp.json → ~\project\.agents\mcp.json
  */
 function sanitizePath(filePath: string): string {
   if (!filePath) return ''
-  // On Unix, the resolved path already uses the actual home dir value, so
-  // it's safe to display as-is (no $HOME leak). Just return the path.
-  return filePath
+
+  const homeDir = os.homedir()
+
+  if (!homeDir) return filePath
+
+  // Normalize the file path first so separators match
+  const normalizedPath = path.normalize(filePath)
+  const normalizedHome = path.normalize(homeDir)
+
+  if (normalizedPath === normalizedHome) return '~'
+
+  // Check if the path starts with the home directory
+  const prefixHome = normalizedHome.endsWith(path.sep)
+    ? normalizedHome
+    : normalizedHome + path.sep
+
+  if (normalizedPath.startsWith(prefixHome)) {
+    const relativePart = normalizedPath.slice(prefixHome.length)
+    return '~' + path.sep + relativePart
+  }
+
+  return normalizedPath
 }

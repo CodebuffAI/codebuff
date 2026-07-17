@@ -1,7 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
-import fs from 'fs'
 import os from 'os'
-import path from 'path'
 
 import { findCommand } from '../command-registry'
 import {
@@ -47,9 +45,9 @@ describe('/mcp command registration', () => {
     expect(command!.name).toBe('mcp')
   })
 
-  test('command is defined with defineCommand (no args)', () => {
+  test('command is defined with defineCommandWithArgs (accepts args)', () => {
     const command = findCommand('mcp')
-    expect(command!.acceptsArgs).toBe(false)
+    expect(command!.acceptsArgs).toBe(true)
   })
 
   test('command handler renders a system message via handleMcpCommand', () => {
@@ -62,6 +60,67 @@ describe('/mcp command registration', () => {
     const systemMsg = result[1]
     expect(systemMsg.variant).toBe('ai')
     expect(systemMsg.content).toContain('MCP')
+  })
+})
+
+describe('/mcp parser integration', () => {
+  test('/mcp triggers handler via parseCommandInput', () => {
+    const { parseCommandInput } = require('../router-utils')
+    const result = parseCommandInput('/mcp')
+    expect(result).not.toBeNull()
+    expect(result!.command).toBe('mcp')
+    expect(result!.args).toBe('')
+  })
+
+  test('/mcp list triggers handler with args="list"', () => {
+    const { parseCommandInput } = require('../router-utils')
+    const result = parseCommandInput('/mcp list')
+    expect(result).not.toBeNull()
+    expect(result!.command).toBe('mcp')
+    expect(result!.args).toBe('list')
+  })
+
+  test('/mcp unknown triggers handler with args="unknown"', () => {
+    const { parseCommandInput } = require('../router-utils')
+    const result = parseCommandInput('/mcp unknown')
+    expect(result).not.toBeNull()
+    expect(result!.command).toBe('mcp')
+    expect(result!.args).toBe('unknown')
+  })
+
+  test('/mcp list shows same report as /mcp', () => {
+    mockMcpConfig = {
+      mcpServers: {
+        github: {
+          type: 'stdio',
+          command: 'npx',
+          args: ['-y', '@modelcontextprotocol/server-github'],
+          env: {},
+        },
+      },
+      _sourceFilePath: '/home/user/project/.agents/mcp.json',
+    }
+
+    const noArgs = handleMcpCommand()
+    const withList = handleMcpCommand('list')
+
+    const prev: any[] = [{ id: '1', variant: 'user', content: '/mcp', timestamp: '' }]
+    const resultNoArgs = noArgs.postUserMessage([...prev])
+    const resultWithList = withList.postUserMessage([...prev])
+
+    // Both should contain the server info, not help text
+    expect(resultNoArgs[1].content).toContain('github')
+    expect(resultWithList[1].content).toContain('github')
+  })
+
+  test('/mcp unknown shows help text', () => {
+    const { postUserMessage } = handleMcpCommand('unknown')
+    const prev: any[] = [{ id: '1', variant: 'user', content: '/mcp unknown', timestamp: '' }]
+    const result = postUserMessage([...prev])
+
+    expect(result[1].content).toContain('Usage:')
+    expect(result[1].content).toContain('/mcp')
+    expect(result[1].content).toContain('read-only')
   })
 })
 
@@ -374,6 +433,42 @@ describe('sanitizeErrorForDisplay', () => {
     // Both should be replaced with the placeholder
     expect((result.match(/<REDACTED>/g) || []).length).toBe(2)
   })
+
+  test('redacts GitHub fine-grained PATs (github_pat_)', () => {
+    const input = 'Error: token github_pat_abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1 is invalid'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('github_pat_')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts Basic auth tokens', () => {
+    const input = 'Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=='
+    expect(sanitizeErrorForDisplay(input)).not.toContain('Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts access_token patterns', () => {
+    const input = 'Using access_token=gho_abcdefghijklmnopqrstuvwxyz1234567890abcdef'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('access_token=gho_abcdefghijklmnopqrstuvwxyz1234567890abcdef')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts refresh_token patterns', () => {
+    const input = 'refresh_token=rt_abcdefghijklmnopqrstuvwxyz1234567890abcdef'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('refresh_token=rt_abcdefghijklmnopqrstuvwxyz1234567890abcdef')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts client_secret patterns', () => {
+    const input = 'client_secret=cs_abcdefghijklmnopqrstuvwxyz1234567890abcdef'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('client_secret=cs_abcdefghijklmnopqrstuvwxyz1234567890abcdef')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
+
+  test('redacts URL credentials (user:password@host)', () => {
+    const input = 'Error connecting to https://admin:supersecret@mysql.example.com:3306/db'
+    expect(sanitizeErrorForDisplay(input)).not.toContain('admin:supersecret@')
+    expect(sanitizeErrorForDisplay(input)).toContain('<REDACTED>')
+  })
 })
 
 describe('truncateError', () => {
@@ -444,5 +539,91 @@ describe('formatMcpStatusForCli with error labels', () => {
       configPath: '/project/.agents/mcp.json',
     })
     expect(output).toContain('<REDACTED>')
+  })
+})
+
+// ============================================================================
+// Path sanitization
+// ============================================================================
+
+describe('sanitizePath (cross-platform home dir redaction)', () => {
+  // sanitizePath is private; we test it indirectly via formatMcpStatusForCli
+  // by verifying the config path is redacted when it contains the home dir.
+
+  const originalHomedir = os.homedir()
+
+  test('config path is redacted via formatMcpStatusForCli', () => {
+    const output = formatMcpStatusForCli({
+      servers: [
+        {
+          name: 'test',
+          transport: 'stdio',
+          connected: false,
+          toolCount: null,
+          configPath: originalHomedir + '/project/.agents/mcp.json',
+          errorLabel: null,
+        },
+      ],
+      configPath: originalHomedir + '/project/.agents/mcp.json',
+    })
+    expect(output).toContain('~/project/.agents/mcp.json')
+    expect(output).not.toContain(originalHomedir)
+  })
+
+  test('non-home paths appear as-is', () => {
+    const output = formatMcpStatusForCli({
+      servers: [],
+      configPath: '/etc/project/mcp.json',
+    })
+    expect(output).toContain('/etc/project/mcp.json')
+  })
+})
+
+// ============================================================================
+// Connection lifecycle (connection/disconnection error tracking)
+// ============================================================================
+
+describe('MCP connection lifecycle error tracking', () => {
+  const { getMCPClientConnectionInfo } = require('@codebuff/common/mcp/client')
+
+  test('getMCPClientConnectionInfo returns status for a server', () => {
+    const info = getMCPClientConnectionInfo({
+      type: 'stdio' as const,
+      command: 'echo',
+      args: ['hello'],
+      env: {},
+    })
+
+    // Returns a single info object (not an array)
+    expect(info).toHaveProperty('connected')
+    expect(info).toHaveProperty('toolCount')
+    expect(info).toHaveProperty('errorLabel')
+  })
+
+  test('getMCPClientConnectionInfo handles disconnected server', () => {
+    const info = getMCPClientConnectionInfo({
+      type: 'stdio' as const,
+      command: 'never-connects',
+      args: [],
+      env: {},
+    })
+
+    expect(info.connected).toBe(false)
+    // toolCount should be null since it was never resolved
+    expect(info.toolCount).toBeNull()
+  })
+
+  test('error labels are null for unknown servers', () => {
+    // A server that was never tried to connect should have no error
+    const info = getMCPClientConnectionInfo({
+      type: 'stdio' as const,
+      command: 'unknown-command',
+      args: [],
+      env: {},
+    })
+
+    // A server that was never attempted will have errorLabel as null
+    // (it's keyed by hashConfig, so if never connected, no error entry)
+    expect(info.errorLabel).toBeNull()
   })
 })
