@@ -25,6 +25,13 @@ const listToolsCache: Record<
 > = {}
 
 /**
+ * Synchronously populated map from client ID to tool count, updated when
+ * listMCPTools resolves. Used by the status API to avoid awaiting a promise
+ * that may already be cached.
+ */
+const resolvedToolCounts: Record<string, number> = {}
+
+/**
  * Substitutes environment variable references ($VAR_NAME) in a string with their values.
  * Supports both simple replacement ("$VAR_NAME") and interpolation ("Bearer $VAR_NAME").
  */
@@ -168,7 +175,11 @@ export function listMCPTools(
     throw new Error(`listTools: client not found with id: ${clientId}`)
   }
   if (!listToolsCache[clientId]) {
-    listToolsCache[clientId] = client.listTools(...args)
+    const promise = client.listTools(...args)
+    listToolsCache[clientId] = promise.then((result) => {
+      resolvedToolCounts[clientId] = result.tools.length
+      return result
+    })
   }
   return listToolsCache[clientId]
 }
@@ -230,4 +241,41 @@ export async function callMCPTool(
       value: fallbackValue,
     } satisfies ToolResultOutput
   })
+}
+
+// ---------------------------------------------------------------------------
+// Public status API — used by the /mcp CLI command
+// ---------------------------------------------------------------------------
+
+export type McpClientConnectionInfo = {
+  connected: boolean
+  /** Number of tools discovered, or null if not yet resolved */
+  toolCount: number | null
+}
+
+/**
+ * Returns the client-id key for a given MCP config, so callers can match
+ * configured servers against the running-clients map.
+ */
+export function hashMcpConfig(config: MCPConfig): string {
+  return hashConfig(config)
+}
+
+/**
+ * Returns connection info for an MCP server config without initiating any
+ * new connection. The tool count is populated synchronously only when
+ * listMCPTools has already resolved for this server.
+ */
+export function getMCPClientConnectionInfo(config: MCPConfig): McpClientConnectionInfo {
+  const key = hashConfig(config)
+  const connected = key in runningClients
+  const toolCount = key in resolvedToolCounts ? resolvedToolCounts[key] : null
+  return { connected, toolCount }
+}
+
+/**
+ * Returns all client-ids that are currently connected.
+ */
+export function getConnectedMCPClientKeys(): string[] {
+  return Object.keys(runningClients)
 }
