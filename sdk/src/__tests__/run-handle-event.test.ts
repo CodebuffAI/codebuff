@@ -4,6 +4,7 @@ import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { execFileSync } from 'node:child_process'
 import nodeFs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -143,6 +144,105 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
       }),
     ])
     expect(fallbackInvalidations).toBe(0)
+  })
+
+  it('requests approval and resumes a strict-mode terminal command', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const projectRoot = nodeFs.mkdtempSync(
+      path.join(os.tmpdir(), 'openbuff-approval-project-'),
+    )
+    harnessStateDirs.push(projectRoot)
+    execFileSync('git', ['init', '--quiet'], { cwd: projectRoot })
+
+    let terminalResult: ToolResultOutput[] | undefined
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
+
+        terminalResult = (
+          await requestToolCall({
+            userInputId: promptId,
+            toolName: 'run_terminal_command',
+            input: {
+              command: 'git commit --dry-run --allow-empty -m approval-test',
+              mode: 'assistant',
+              permission_profile: 'git-commit',
+              process_type: 'SYNC',
+              owner: {
+                clientSessionId: promptId,
+                rootRunId: 'root-run',
+                parentRunId: 'root-run',
+                parentAgentId: 'main-agent',
+              },
+            },
+          })
+        ).output
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: { type: 'lastMessage', value: [] },
+          },
+        })
+        return {
+          sessionState,
+          output: { type: 'lastMessage' as const, value: [] },
+        }
+      },
+    )
+
+    const approvalRequests: Array<
+      Parameters<NonNullable<OpenbuffClientOptions['requestApproval']>>[0]
+    > = []
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      cwd: projectRoot,
+      harnessStateDir: nodeFs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-approval-state-'),
+      ),
+      approvalMode: 'strict',
+      requestApproval: async (request) => {
+        approvalRequests.push(request)
+        return true
+      },
+    })
+    harnessStateDirs.push(client.options.harnessStateDir!)
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'dry-run a commit',
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(approvalRequests).toEqual([
+      expect.objectContaining({
+        action: 'commit',
+        risk: 'routine',
+      }),
+    ])
+    expect(
+      terminalResult?.[0]?.type === 'json'
+        ? terminalResult[0].value
+        : undefined,
+    ).toMatchObject({
+      harnessAction: 'commit',
+      approvalReceiptId: expect.any(String),
+    })
   })
 
   it('validates overridden native client tool inputs before calling the override', async () => {
@@ -607,6 +707,66 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
 
     expect(result.output.type).toBe('lastMessage')
     expect(observedSignal).toBe(controller.signal)
+  })
+
+  it('repairs malformed string input at direct SDK tool dispatch', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let observedInput: unknown
+    const customTool = getCustomToolDefinition({
+      toolName: 'inspect_input',
+      inputSchema: z.object({ query: z.string(), note: z.string() }),
+      description: 'Inspects normalized input',
+      execute: async (input) => {
+        observedInput = input
+        return [{ type: 'json', value: { ok: true } }]
+      },
+    })
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
+
+        await requestToolCall({
+          userInputId: promptId,
+          toolName: 'inspect_input',
+          input: '{"query":"garden",,"note":"a,,b"}' as any,
+        })
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: { type: 'lastMessage', value: [] },
+          },
+        })
+
+        return {
+          sessionState,
+          output: { type: 'lastMessage' as const, value: [] },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      customToolDefinitions: [customTool],
+    })
+    await client.run({ agent: 'base2', prompt: 'use custom tool' })
+
+    expect(observedInput).toEqual({ query: 'garden', note: 'a,,b' })
   })
 
   it('passes the run abort signal to MCP tool execution options', async () => {

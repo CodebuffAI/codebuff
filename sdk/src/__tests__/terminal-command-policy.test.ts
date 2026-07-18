@@ -11,6 +11,9 @@ describe('terminal command permission policy', () => {
       'git status --short',
       'bun test',
       'bun run typecheck',
+      'bun run --cwd sdk typecheck',
+      "rg -n 'foo|bar' src",
+      'rg TODO src | tee /tmp/diagnostics.log | tail -20',
     ]) {
       expect(
         evaluateTerminalCommandPolicy({
@@ -44,13 +47,28 @@ describe('terminal command permission policy', () => {
     }
   })
 
-  it('denies remote, dependency, git-history, and outside-project effects in workspace mode', () => {
+  it('allows routine workspace effects but preserves hard containment', () => {
     for (const command of [
+      'git push origin feature/work',
       'git push origin main',
       'bun add left-pad',
-      'curl https://example.com',
+      'curl https://example.com/asset.glb',
       'kubectl apply -f deploy.yaml',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'workspace-write',
+          projectRoot,
+        }).allowed,
+      ).toBe(true)
+    }
+    for (const command of [
+      'git push --force origin feature/work',
       'cat /etc/passwd',
+      'cat ~/.config/openbuff/config',
+      'printenv',
       'cat /tmp/../../etc/passwd',
       'bash -c "cat /etc/passwd"',
       'eval "git push origin main"',
@@ -67,7 +85,7 @@ describe('terminal command permission policy', () => {
     }
   })
 
-  it('explains that workspace validation cannot approve dependency mutation inline', () => {
+  it('allows routine dependency mutation inline', () => {
     const decision = evaluateTerminalCommandPolicy({
       command: 'bun install && bun run typecheck',
       mode: 'assistant',
@@ -75,11 +93,7 @@ describe('terminal command permission policy', () => {
       projectRoot,
     })
 
-    expect(decision).toEqual({
-      allowed: false,
-      reason:
-        'dependency or package mutation is unavailable in workspace-write; use the dependency-manager workflow after separate explicit user authorization (there is no inline approval retry)',
-    })
+    expect(decision).toEqual({ allowed: true })
   })
 
   it('allows only isolated package mutations in dependency-mutation mode', () => {
@@ -154,7 +168,6 @@ describe('terminal command permission policy', () => {
     }
     for (const command of [
       'git commit --amend -m x',
-      'git push origin main',
       'git push --force origin feature/safe-change',
       'git push origin feature/safe-change:main',
       'git add . && git commit -m x',

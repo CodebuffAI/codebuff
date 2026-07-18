@@ -12,6 +12,13 @@ export interface IndexedFile {
   contentSample?: string
   /** Asset references extracted from game-engine text files (Unity .meta/.prefab/.unity, Godot .tscn/.tres, Unreal .uproject, Bevy). Undefined for files with no asset refs. */
   assetRefs?: import('./asset-refs').AssetRef[]
+  /** Metadata-only description for binary 3D assets. */
+  asset?: {
+    kind: '3d'
+    format: string
+    sizeBytes: number
+    derivedMetadataPath?: string
+  }
 }
 
 export type IndexNodeType = 'file' | 'symbol' | 'import' | 'heading' | 'concept'

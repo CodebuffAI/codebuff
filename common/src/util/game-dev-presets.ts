@@ -287,7 +287,7 @@ const ENGINE_PRESETS: Record<SupportedEngineId, GameDevPreset[]> = {
       label: 'blender:build',
       description: 'Render or export the Blender scene',
       insertText:
-        'Render or export the Blender scene. Check the .blend file for the active scene and camera. For rendering an image, use `blender -b <file>.blend -f 1 --render-output /tmp/render-` (single frame). For glTF/GLB export, use `blender -b <file>.blend --python-expr "import bpy; bpy.ops.export_scene.gltf(filepath=\'/tmp/output.glb\')"`. Use a synchronous terminal command for short renders, or a BACKGROUND job with check_job for long renders. Wait for the "Saved:" readiness pattern to confirm output. After rendering, call read_image on the output PNG to visually inspect the result before deciding next steps.',
+        'Inspect the .blend scene with inspect_3d_asset, then call render_3d_preview for the required material/clay/wireframe views. Keep generated evidence under .openbuff/artifacts/3d and use the returned source-bound artifact receipts and attached images to verify the exact scene revision.',
     },
     {
       id: 'blender:run',
@@ -301,7 +301,7 @@ const ENGINE_PRESETS: Record<SupportedEngineId, GameDevPreset[]> = {
       label: 'blender:test',
       description: 'Validate Blender scene integrity via bpy',
       insertText:
-        'Validate the Blender scene. Use `blender -b <file>.blend --python-expr "import bpy; print(len(bpy.data.objects))"` to inspect scene contents (object count, mesh count, material count, missing textures, broken library links). Check for missing external references with `bpy.path` utilities. Use a synchronous terminal command and report any missing links or broken references.',
+        'Validate the Blender scene with inspect_3d_asset. Report object and mesh counts, materials, cameras, lights, animation ranges, render settings, and missing external image dependencies. For changes, pass the inspection source hash to edit_3d_asset so the edit is rejected if the scene changed concurrently.',
     },
     {
       id: 'blender:watch',

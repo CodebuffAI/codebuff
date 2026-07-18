@@ -4,7 +4,7 @@ import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
 import { DEFAULT_IGNORED_PATHS } from './constants/paths'
-import { fileExists, isValidProjectRoot } from './util/file'
+import { fileExists, get3dAssetFormat, isValidProjectRoot } from './util/file'
 
 import type { CodebuffFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
@@ -57,6 +57,14 @@ const BINARY_EXTENSIONS = new Set([
   '.dae',
   '.3ds',
   '.blend',
+  '.glb',
+  '.gltf',
+  '.stl',
+  '.ply',
+  '.usd',
+  '.usda',
+  '.usdc',
+  '.usdz',
   '.anim',
   '.controller',
   '.mat',
@@ -139,6 +147,14 @@ const BINARY_EXTENSIONS = new Set([
 
 export const DEFAULT_MAX_FILES = 10_000
 
+function isRuntimeArtifactPath(relativePath: string): boolean {
+  const normalized = relativePath.replace(/\\/g, '/')
+  return (
+    normalized === '.openbuff/artifacts' ||
+    normalized.startsWith('.openbuff/artifacts/')
+  )
+}
+
 export async function getProjectFileTree(params: {
   projectRoot: string
   maxFiles?: number
@@ -195,6 +211,7 @@ export async function getProjectFileTree(params: {
         const filePath = path.join(fullPath, file)
         const relativeFilePath = path.relative(projectRoot, filePath)
 
+        if (isRuntimeArtifactPath(relativeFilePath)) continue
         if (mergedIgnore.ignores(relativeFilePath)) continue
 
         try {
@@ -213,11 +230,11 @@ export async function getProjectFileTree(params: {
               ignore: mergedIgnore,
             })
           } else {
-            // Skip binary files — they cannot be read as text and would
-            // crowd the file tree with non-source files, especially in
-            // game engine repos with thousands of binary assets.
             const ext = path.extname(file).toLowerCase()
-            if (BINARY_EXTENSIONS.has(ext)) continue
+            const assetFormat = get3dAssetFormat(file)
+            // Keep 3D assets discoverable, but attach metadata only. They are
+            // intentionally excluded from token scoring and text reads.
+            if (BINARY_EXTENSIONS.has(ext) && !assetFormat) continue
 
             const lastReadTime = stats.atimeMs
             node.children.push({
@@ -225,6 +242,15 @@ export async function getProjectFileTree(params: {
               type: 'file',
               lastReadTime,
               filePath: relativeFilePath,
+              ...(assetFormat
+                ? {
+                    asset: {
+                      kind: '3d' as const,
+                      format: assetFormat,
+                      sizeBytes: stats.size,
+                    },
+                  }
+                : {}),
             })
             totalFiles++
           }

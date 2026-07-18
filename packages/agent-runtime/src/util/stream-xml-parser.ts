@@ -6,6 +6,7 @@
  */
 
 import { toolNameParam, toolXmlName } from '@codebuff/common/tools/constants'
+import { parseJsonStringWithRepair } from '@codebuff/common/tools/params/utils'
 
 // Use flexible tag matching without requiring specific newlines
 const startToolTag = `<${toolXmlName}>`
@@ -202,13 +203,7 @@ function parseToolCallContent(content: string): {
 }
 
 function parseToolCallJson(normalized: string): unknown {
-  try {
-    return JSON.parse(normalized)
-  } catch {
-    // Be tolerant of common LLM JSON mistakes copied from examples, but only
-    // after strict parsing fails so valid string content is not rewritten.
-    return JSON.parse(normalized.replace(/,\s*([}\]])/g, '$1'))
-  }
+  return parseJsonStringWithRepair(normalized)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

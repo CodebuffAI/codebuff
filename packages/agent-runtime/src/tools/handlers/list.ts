@@ -26,6 +26,11 @@ import { handleQueryIndex } from './tool/query-index'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
 import { handleReadImage } from './tool/read-image'
+import {
+  handleEdit3dAsset,
+  handleInspect3dAsset,
+  handleRender3dPreview,
+} from './tool/3d-assets'
 import { handleReadOutline } from './tool/read-outline'
 import { handleReadSlices } from './tool/read-slices'
 import { handleReadSubtree } from './tool/read-subtree'
@@ -83,6 +88,7 @@ export const codebuffToolHandlers = {
   code_search: handleCodeSearch,
   create_plan: handleCreatePlan,
   edit_transaction: handleEditTransaction,
+  edit_3d_asset: handleEdit3dAsset,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
   find_files_matching_content: handleFindFilesMatchingContent,
@@ -100,6 +106,7 @@ export const codebuffToolHandlers = {
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   read_image: handleReadImage,
+  render_3d_preview: handleRender3dPreview,
   read_outline: handleReadOutline,
   read_slices: handleReadSlices,
   read_subtree: handleReadSubtree,
@@ -109,6 +116,7 @@ export const codebuffToolHandlers = {
   run_file_change_hooks: handleRunFileChangeHooks,
   run_targeted_validation: handleRunTargetedValidation,
   inspect_environment: handleInspectEnvironment,
+  inspect_3d_asset: handleInspect3dAsset,
   get_affected_tests: handleGetAffectedTests,
   get_build_targets: handleGetBuildTargets,
   inspect_codebase_structure: handleInspectCodebaseStructure,

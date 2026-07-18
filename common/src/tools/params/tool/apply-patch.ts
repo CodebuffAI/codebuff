@@ -2,6 +2,7 @@ import z from 'zod/v4'
 
 import {
   $getNativeToolCallExampleString,
+  coerceToArray,
   isObviousEditPlaceholder,
   jsonToolResultSchema,
 } from '../utils'
@@ -73,7 +74,12 @@ const operationSchema = z.discriminatedUnion('type', [
     path: z.string().min(1, 'Path cannot be empty'),
     diff: patchTextSchema,
     basedOnRead: z
-      .array(z.union([scopedReadCapabilityTokenSchema, basedOnReadRangeSchema]))
+      .preprocess(
+        coerceToArray,
+        z.array(
+          z.union([scopedReadCapabilityTokenSchema, basedOnReadRangeSchema]),
+        ),
+      )
       .optional()
       .describe(
         'Required for large-file update patches. Prefer one authenticated cap.v3 token per touched hunk, copied from fresh read_files.ranges headers. Legacy range objects remain freshness checks but cannot authorize an otherwise unread path in strict mode.',

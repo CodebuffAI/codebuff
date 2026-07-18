@@ -26,12 +26,8 @@ export function coerceToArray(val: unknown): unknown {
     return repairCommaSplitFragments(val)
   }
   if (typeof val === 'string') {
-    try {
-      const parsed = JSON.parse(val)
-      if (Array.isArray(parsed)) return parsed
-    } catch {
-      // Not valid JSON — fall through to wrap
-    }
+    const parsed = parseJsonBounded(val)
+    if (Array.isArray(parsed)) return parsed
   }
   if (val != null) return [val]
   return val
@@ -46,27 +42,93 @@ export function coerceToObject(val: unknown): unknown {
     return val
   }
 
-  try {
-    const parsed = JSON.parse(val)
-    if (
-      parsed != null &&
-      typeof parsed === 'object' &&
-      !Array.isArray(parsed)
-    ) {
-      return parsed
-    }
-  } catch {
-    // Leave the original value untouched so schema validation can reject it.
+  const parsed = parseJsonBounded(val)
+  if (parsed != null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    return parsed
   }
 
   return val
 }
 
-function parseJsonBounded(value: unknown, maxDepth = 3): unknown {
+const MAX_REPAIRABLE_JSON_LENGTH = 256_000
+
+/**
+ * Repairs redundant or trailing JSON separators outside quoted strings. Only
+ * complete, bounded object/array payloads are eligible; callers still parse
+ * the result and validate it against the destination schema.
+ */
+export function repairMalformedJsonSeparators(
+  input: string,
+): string | undefined {
+  const trimmed = input.trim()
+  if (
+    trimmed.length === 0 ||
+    trimmed.length > MAX_REPAIRABLE_JSON_LENGTH ||
+    !(
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    )
+  ) {
+    return undefined
+  }
+
+  let output = ''
+  let inString = false
+  let escaped = false
+  let repaired = false
+  for (let index = 0; index < input.length; index++) {
+    const char = input[index]
+    if (inString) {
+      output += char
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+    if (char === '"') {
+      inString = true
+      output += char
+      continue
+    }
+    if (char === ',') {
+      let next = index + 1
+      while (next < input.length && /\s/.test(input[next])) next++
+      if (input[next] === ',' || input[next] === '}' || input[next] === ']') {
+        repaired = true
+        continue
+      }
+    }
+    output += char
+  }
+  return repaired ? output : undefined
+}
+
+/** Parse one JSON encoding, applying only the bounded separator repair. */
+export function parseJsonStringWithRepair(input: string): unknown {
+  try {
+    return JSON.parse(input)
+  } catch (error) {
+    const repaired = repairMalformedJsonSeparators(input)
+    if (repaired !== undefined) {
+      try {
+        return JSON.parse(repaired)
+      } catch {
+        // Preserve the original parse error when repair cannot produce JSON.
+      }
+    }
+    throw error
+  }
+}
+
+export function parseJsonBounded(value: unknown, maxDepth = 3): unknown {
   let parsed = value
   for (let depth = 0; depth < maxDepth && typeof parsed === 'string'; depth++) {
     try {
-      parsed = JSON.parse(parsed)
+      parsed = parseJsonStringWithRepair(parsed)
     } catch {
       return parsed
     }

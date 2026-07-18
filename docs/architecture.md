@@ -165,6 +165,13 @@ Openbuff operates on a strict BYOK architecture. There is absolutely no backend 
 
 All tool execution (such as reading/writing files, searching files, and running terminal commands) occurs locally on the developer's computer. The SDK accepts these tool call requests from the agent runtime, verifies permissions, and executes them natively.
 
+Binary 3D assets are represented in project discovery and the metadata index by
+path, format, size, hash, and derived concepts rather than UTF-8 content. The
+SDK owns structured inspection, deterministic Blender preview rendering, and
+hash-guarded declarative `.blend` mutation. Generated evidence is project
+scoped under `.openbuff/artifacts/3d/`; preview receipts bind artifact hashes
+and dimensions to the exact source hash used for rendering.
+
 ### ErrorOr Pattern
 
 To maintain robust and deterministic execution without unexpected crashes, the codebase avoids traditional exceptions in favor of the `ErrorOr<T>` pattern (`success(value)` or `failure(error)`), defined in `common/src/util/error.ts`.

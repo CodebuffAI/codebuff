@@ -99,6 +99,36 @@ describe('XML tool result ordering', () => {
     }
   })
 
+  it('repairs malformed separators before executing XML tool calls', async () => {
+    const calls: Array<{ toolName: string; input: Record<string, unknown> }> =
+      []
+    const stream = createMockStream([
+      textChunk(`<codebuff_tool_call>
+{"cb_tool_name":"read_files","paths":["a.ts"],,"note":"a,,b",}
+</codebuff_tool_call>`),
+    ])
+
+    for await (const _chunk of processStreamWithTools({
+      ...agentRuntimeImpl,
+      stream,
+      processors: {},
+      defaultProcessor: () => ({ onTagStart: () => {}, onTagEnd: () => {} }),
+      onResponseChunk: () => {},
+      executeXmlToolCall: async ({ toolName, input }) => {
+        calls.push({ toolName, input })
+      },
+    })) {
+      // Consume the stream.
+    }
+
+    expect(calls).toEqual([
+      {
+        toolName: 'read_files',
+        input: { paths: ['a.ts'], note: 'a,,b' },
+      },
+    ])
+  })
+
   it('should track tool_call and tool_result events in correct order', async () => {
     // This test simulates what happens in the full processStream flow
     // where we capture both tool_call and tool_result events

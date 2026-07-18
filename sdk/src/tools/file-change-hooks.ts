@@ -147,7 +147,7 @@ function inferHooksFromSnapshot(snapshot: ManifestSnapshot): FileChangeHook[] {
     hooks.push(
       {
         name: 'gofmt',
-        command: 'test -z "$(gofmt -l .)"',
+        command: `gofmt -l . | awk 'NF { found=1 } END { exit found ? 1 : 0 }'`,
         filePattern: '**/*.go',
       },
       { name: 'go vet', command: 'go vet ./...', filePattern: '**/*.go' },
@@ -707,10 +707,9 @@ export async function runFileChangeHooks(params: {
     params.hooks ??
     (await (async () => {
       const config = loadProviderConfigSync().config
-      // Repository manifests, compiler plugins, build scripts, and test
-      // runners are executable project input. Never infer or execute them
-      // unless the user explicitly trusts the project with this opt-in.
-      if (config.autoFileChangeHooks !== true) return config.fileChangeHooks
+      // Inference uses fixed validation commands selected from manifests; it
+      // never executes repository package scripts unless explicitly configured.
+      if (config.autoFileChangeHooks === false) return config.fileChangeHooks
       return mergeFileChangeHooks(
         params.fileSystem
           ? await inferFileChangeHooksFromFileSystem(cwd, params.fileSystem)

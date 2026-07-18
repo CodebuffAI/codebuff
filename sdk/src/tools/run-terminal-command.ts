@@ -201,7 +201,7 @@ export function runTerminalCommand({
     parentAgentId: string
   }
   authorizeHighImpactAction?: (action: ClassifiedHarnessAction) => Promise<
-    | { allowed: true; approvalReceiptId: string }
+    | { allowed: true; approvalReceiptId?: string }
     | {
         allowed: false
         reason: string
@@ -308,7 +308,9 @@ export function runTerminalCommand({
             ...part,
             value: {
               ...part.value,
-              approvalReceiptId: decision.approvalReceiptId,
+              ...(decision.approvalReceiptId
+                ? { approvalReceiptId: decision.approvalReceiptId }
+                : {}),
               harnessAction: highImpactAction.action,
               harnessTarget: highImpactAction.target,
             },

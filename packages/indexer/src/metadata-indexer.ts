@@ -149,10 +149,12 @@ export async function buildMetadataIndex(
   for (const file of files) {
     const indexed = await indexWalkedFile({
       absolutePath: file.absolutePath,
+      projectRoot,
       relativePath: file.relativePath,
       mtime: file.mtime,
       size: file.size,
       ext: file.ext,
+      asset: file.asset,
       tokenScores: tokenScores[file.relativePath] ?? {},
     })
     if (indexed) indexedFiles[file.relativePath] = indexed
@@ -219,14 +221,33 @@ export async function updateMetadataIndex(
     }
     let hash: string | undefined
     try {
-      hash = await hashFile(file.absolutePath)
+      hash = file.asset
+        ? await hashBinaryFile(file.absolutePath)
+        : await hashFile(file.absolutePath)
     } catch {
       hashReadFailedPaths.add(file.relativePath)
       changedFiles.push(file)
       continue
     }
     hashByPath.set(file.relativePath, hash)
-    if (!indexed || indexed.hash !== hash) {
+    const derivedMetadataPath = file.asset
+      ? `.openbuff/artifacts/3d/metadata/${hash}.json`
+      : undefined
+    let hasNewDerivedMetadata = false
+    if (
+      derivedMetadataPath &&
+      indexed?.asset?.derivedMetadataPath !== derivedMetadataPath
+    ) {
+      try {
+        await fs.promises.stat(
+          path.join(projectRoot, ...derivedMetadataPath.split('/')),
+        )
+        hasNewDerivedMetadata = true
+      } catch {
+        // No derived inspection cache is available yet.
+      }
+    }
+    if (!indexed || indexed.hash !== hash || hasNewDerivedMetadata) {
       changedFiles.push(file)
     } else if (indexed.mtime !== file.mtime || indexed.size !== file.size) {
       updatedFiles[file.relativePath] = {
@@ -331,10 +352,12 @@ export async function updateMetadataIndex(
   for (const file of changedFiles) {
     const indexed = await indexWalkedFile({
       absolutePath: file.absolutePath,
+      projectRoot,
       relativePath: file.relativePath,
       mtime: file.mtime,
       size: file.size,
       ext: file.ext,
+      asset: file.asset,
       hash: hashByPath.get(file.relativePath),
       tokenScores: tokenScores[file.relativePath] ?? {},
     })
@@ -368,11 +391,13 @@ export async function updateMetadataIndex(
 }
 
 async function indexWalkedFile(params: {
+  projectRoot: string
   absolutePath: string
   relativePath: string
   mtime: number
   size: number
   ext: string
+  asset?: { kind: '3d'; format: string }
   hash?: string
   tokenScores: Record<string, number>
 }): Promise<IndexedFile | null> {
@@ -380,6 +405,56 @@ async function indexWalkedFile(params: {
   // reading them would corrupt the index with garbage imports/symbols.
   // The file-walker already skips these, but this is a defense-in-depth
   // guard in case files are added through a different path.
+  if (params.asset) {
+    let hash: string
+    try {
+      hash = params.hash ?? (await hashBinaryFile(params.absolutePath))
+    } catch {
+      return null
+    }
+    const formatConcept = `3d ${params.asset.format}`
+    let concepts = [formatConcept, '3d asset']
+    let derivedMetadataPath: string | undefined
+    const metadataRelativePath = `.openbuff/artifacts/3d/metadata/${hash}.json`
+    try {
+      const metadata = JSON.parse(
+        await fs.promises.readFile(
+          path.join(params.projectRoot, ...metadataRelativePath.split('/')),
+          'utf8',
+        ),
+      ) as { sourceHash?: string; concepts?: unknown }
+      if (metadata.sourceHash === hash && Array.isArray(metadata.concepts)) {
+        concepts = [
+          ...concepts,
+          ...metadata.concepts.filter(
+            (concept): concept is string =>
+              typeof concept === 'string' && concept.length <= 160,
+          ),
+        ].slice(0, 202)
+        derivedMetadataPath = metadataRelativePath
+      }
+    } catch {
+      // Derived metadata is optional; the path/format index remains valid.
+    }
+    return {
+      path: params.relativePath,
+      mtime: params.mtime,
+      size: params.size,
+      hash,
+      ext: params.ext,
+      symbols: [],
+      imports: [],
+      headings: [],
+      concepts,
+      contentSample: `${params.asset.format} 3D asset (${params.size} bytes)`,
+      asset: {
+        kind: '3d',
+        format: params.asset.format,
+        sizeBytes: params.size,
+        ...(derivedMetadataPath ? { derivedMetadataPath } : {}),
+      },
+    }
+  }
   if (BINARY_EXTENSIONS.has(params.ext)) {
     return null
   }
@@ -1048,6 +1123,17 @@ function normalizeConcept(text: string): string {
 
 async function hashFile(filePath: string): Promise<string> {
   return hashContent(await fs.promises.readFile(filePath, 'utf8'))
+}
+
+async function hashBinaryFile(filePath: string): Promise<string> {
+  // Hash raw bytes so binary 3D assets have a stable source identity. UTF-8
+  // decoding before hashing changes invalid byte sequences and breaks the
+  // hash-bound derived metadata cache.
+  const hash = crypto.createHash('sha256')
+  for await (const chunk of fs.createReadStream(filePath)) {
+    hash.update(chunk)
+  }
+  return hash.digest('hex')
 }
 
 function hashContent(content: string): string {

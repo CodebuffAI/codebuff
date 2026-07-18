@@ -33,7 +33,11 @@ export function messagesWithSystem(params: {
   system: System
 }): Message[] {
   const { messages, system } = params
-  return [systemMessage(system), ...messages]
+  const hasSystemContent =
+    typeof system === 'string'
+      ? system.trim().length > 0
+      : system.some((block) => block.text.trim().length > 0)
+  return hasSystemContent ? [systemMessage(system), ...messages] : messages
 }
 
 export function asUserMessage(str: string): string {

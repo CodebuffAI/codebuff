@@ -64,6 +64,7 @@ export function narrowFilesystemPatterns(params: {
   )
   const invalid = normalized.filter(
     (requested) =>
+      requested === '..' ||
       requested.startsWith('../') ||
       path.isAbsolute(requested) ||
       (params.staticPatterns !== undefined &&

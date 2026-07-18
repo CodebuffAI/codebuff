@@ -1,6 +1,7 @@
 import { z } from 'zod/v4'
 
 import { jsonValueSchema } from './types/json'
+import { coerceToArray } from './tools/params/utils'
 
 // Default values for browser actions
 export const BROWSER_DEFAULTS = {
@@ -401,7 +402,9 @@ export const BrowserUploadActionSchema = z
   .object({
     type: z.literal('upload'),
     selector: z.string().min(1),
-    paths: z.array(z.string().min(1)).min(1),
+    paths: z
+      .preprocess(coerceToArray, z.array(z.string().min(1)).min(1))
+      .describe('Project-relative files to upload.'),
   })
   .merge(OptionalBrowserConfigSchema)
   .merge(FrameTargetSchema)

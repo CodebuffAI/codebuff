@@ -38,6 +38,15 @@ export function convertToOpenRouterChatMessages(
   for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
+        if (
+          (typeof content === 'string' && content.trim().length === 0) ||
+          (Array.isArray(content) &&
+            content.every(
+              (part) => part.type === 'text' && part.text.trim().length === 0,
+            ))
+        ) {
+          break
+        }
         messages.push({
           role: 'system',
           content,

@@ -18,6 +18,7 @@ describe('code-reviewer prompt isolation', () => {
     // control tools are granted.
     expect(reviewer.toolNames).toEqual(['read_files', 'set_output'])
     expect(reviewer.spawnableAgents).toEqual([])
+    expect(reviewer.handleSteps).toBeUndefined()
   })
 
   test('instructs reviewer to read exact final files instead of diff fragments', () => {

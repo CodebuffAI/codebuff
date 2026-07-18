@@ -11,6 +11,7 @@ export type ToolName =
   | 'code_search'
   | 'end_turn'
   | 'edit_transaction'
+  | 'edit_3d_asset'
   | 'find_files'
   | 'find_files_matching_content'
   | 'git_status'
@@ -19,6 +20,7 @@ export type ToolName =
   | 'get_change_review_bundle'
   | 'inspect_workspace'
   | 'inspect_environment'
+  | 'inspect_3d_asset'
   | 'get_affected_tests'
   | 'get_build_targets'
   | 'inspect_codebase_structure'
@@ -32,6 +34,7 @@ export type ToolName =
   | 'read_docs'
   | 'read_files'
   | 'read_image'
+  | 'render_3d_preview'
   | 'read_logs'
   | 'read_outline'
   | 'read_slices'
@@ -69,6 +72,7 @@ export interface ToolParamsMap {
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   edit_transaction: EditTransactionParams
+  edit_3d_asset: Edit3dAssetParams
   find_files: FindFilesParams
   find_files_matching_content: FindFilesMatchingContentParams
   git_status: GitStatusParams
@@ -77,6 +81,7 @@ export interface ToolParamsMap {
   get_change_review_bundle: GetChangeReviewBundleParams
   inspect_workspace: InspectWorkspaceParams
   inspect_environment: InspectEnvironmentParams
+  inspect_3d_asset: Inspect3dAssetParams
   get_affected_tests: GetAffectedTestsParams
   get_build_targets: GetBuildTargetsParams
   inspect_codebase_structure: InspectCodebaseStructureParams
@@ -90,6 +95,7 @@ export interface ToolParamsMap {
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_image: ReadImageParams
+  render_3d_preview: Render3dPreviewParams
   read_logs: ReadLogsParams
   read_outline: ReadOutlineParams
   read_slices: ReadSlicesParams
@@ -366,6 +372,41 @@ export interface EditTransactionParams {
 }
 
 /**
+ * Parameters for edit_3d_asset tool
+ */
+export interface Edit3dAssetParams {
+  /** Project-relative .blend path. */
+  path: string
+  /** Exact source hash returned by inspect_3d_asset. */
+  source_hash: string
+  operations: (
+    | {
+        type: 'rename_object'
+        object: string
+        new_name: string
+      }
+    | {
+        type: 'set_object_transform'
+        object: string
+        location?: any[]
+        rotation_degrees?: any[]
+        scale?: any[]
+      }
+    | {
+        type: 'set_render_resolution'
+        width: number
+        height: number
+        percentage?: number
+      }
+    | {
+        type: 'set_frame_range'
+        start: number
+        end: number
+      }
+  )[]
+}
+
+/**
  * Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
  */
 export interface FindFilesParams {
@@ -441,6 +482,14 @@ export interface InspectWorkspaceParams {}
  * Parameters for inspect_environment tool
  */
 export interface InspectEnvironmentParams {}
+
+/**
+ * Parameters for inspect_3d_asset tool
+ */
+export interface Inspect3dAssetParams {
+  /** Project-relative 3D asset path. */
+  path: string
+}
 
 /**
  * Parameters for get_affected_tests tool
@@ -613,6 +662,18 @@ export interface ReadFilesParams {
 export interface ReadImageParams {
   /** List of image file paths to read. */
   paths: string[]
+}
+
+/**
+ * Parameters for render_3d_preview tool
+ */
+export interface Render3dPreviewParams {
+  /** Project-relative 3D asset path. */
+  path: string
+  views?: ('camera' | 'perspective' | 'front' | 'side' | 'top')[]
+  mode?: 'material' | 'clay' | 'wireframe'
+  width?: number
+  height?: number
 }
 
 /**

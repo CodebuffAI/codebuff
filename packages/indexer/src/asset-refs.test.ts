@@ -662,7 +662,7 @@ var scene = preload("res://scenes/level.tscn")
 // ---------------------------------------------------------------------------
 
 describe('asset-refs: binary file skip', () => {
-  test('binary asset files (.png, .fbx, .uasset) are NOT in the index', async () => {
+  test('3D assets are metadata-only while other binary files stay excluded', async () => {
     const root = await makeTempProject({
       'Assets/Textures/player.png': '\x89PNG\r\n\x1a\n' + 'x'.repeat(100),
       'Assets/Models/character.fbx': 'Kaydara FBX Binary\x00' + 'x'.repeat(100),
@@ -671,9 +671,14 @@ describe('asset-refs: binary file skip', () => {
     })
 
     const index = await buildMetadataIndex(root)
-    // Binary files should NOT be indexed at all (file-walker skips them).
+    // Non-3D binary files stay excluded. 3D files are metadata-only nodes.
     expect(index.files['Assets/Textures/player.png']).toBeUndefined()
-    expect(index.files['Assets/Models/character.fbx']).toBeUndefined()
+    expect(index.files['Assets/Models/character.fbx']?.asset).toEqual({
+      kind: '3d',
+      format: 'fbx',
+      sizeBytes: expect.any(Number),
+    })
+    expect(index.files['Assets/Models/character.fbx']?.imports).toEqual([])
     expect(index.files['Content/Meshes/world.uasset']).toBeUndefined()
     // Text files ARE indexed.
     expect(index.files['Assets/Scripts/Player.cs']).toBeDefined()

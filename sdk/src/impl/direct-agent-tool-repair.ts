@@ -1,16 +1,6 @@
-type DirectAgentInput = Record<string, unknown>
+import { parseJsonBounded } from '@codebuff/common/tools/params/utils'
 
-function parseJsonBounded(value: unknown): unknown {
-  let parsed = value
-  for (let depth = 0; depth < 3 && typeof parsed === 'string'; depth++) {
-    try {
-      parsed = JSON.parse(parsed)
-    } catch {
-      return parsed
-    }
-  }
-  return parsed
-}
+type DirectAgentInput = Record<string, unknown>
 
 export function buildSpawnAgentsInputForDirectAgentCall(params: {
   agentType: string

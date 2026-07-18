@@ -7,12 +7,13 @@ import {
   isSupportedImageExtension,
 } from '@codebuff/common/constants/images'
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
-import { isFileIgnored } from '@codebuff/common/project-file-tree'
 
 import { resolveFilePathForFileSystemOperation } from './path-utils'
+import { isReadPathBlocked } from './read-policy'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { FileFilter } from './read-files'
 
 const READ_IMAGE_MAX_TOTAL_BYTES = 25 * 1024 * 1024
 
@@ -29,8 +30,9 @@ export async function readImages(params: {
   cwd: string
   fs: CodebuffFileSystem
   signal?: AbortSignal
+  fileFilter?: FileFilter
 }): Promise<CodebuffToolOutput<'read_image'>> {
-  const { paths, cwd, fs, signal } = params
+  const { paths, cwd, fs, signal, fileFilter } = params
   const images: Array<{
     path: string
     status: 'attached' | 'error'
@@ -112,12 +114,7 @@ export async function readImages(params: {
       }
     }
 
-    const ignored = await isFileIgnored({
-      filePath: relativePath,
-      projectRoot: cwd,
-      fs,
-    })
-    if (ignored) {
+    if (isReadPathBlocked(relativePath, fileFilter)) {
       return {
         kind: 'error',
         entry: {

@@ -3,10 +3,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { getBundledRgPath } from '../native/ripgrep'
-import { isMandatorySensitiveReadPath } from '../../../common/src/util/sensitive-paths'
+import { isReadPathBlocked } from './read-policy'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { FileFilter } from './read-files'
 
 // Hidden directories that are included in the search by default (mirrors
 // code-search to keep behavior consistent across the two tools).
@@ -51,6 +52,7 @@ export function findFilesMatchingContent({
   timeoutSeconds = 15,
   logger,
   signal,
+  fileFilter,
 }: {
   projectPath: string
   pattern: string
@@ -64,6 +66,7 @@ export function findFilesMatchingContent({
    *  and the promise resolves with the same `{ errorMessage }` shape used for
    *  other find_files_matching_content errors. */
   signal?: AbortSignal
+  fileFilter?: FileFilter
 }): Promise<CodebuffToolOutput<'find_files_matching_content'>> {
   return new Promise((resolve) => {
     let isResolved = false
@@ -345,7 +348,7 @@ export function findFilesMatchingContent({
             searchCwd,
             file,
           )
-          if (isMandatorySensitiveReadPath(projectRelativeFile)) continue
+          if (isReadPathBlocked(projectRelativeFile, fileFilter)) continue
           if (seenFilesWithoutGroups.has(projectRelativeFile)) continue
           seenFilesWithoutGroups.add(projectRelativeFile)
           filesWithoutGroups.push(projectRelativeFile)
@@ -386,7 +389,7 @@ export function findFilesMatchingContent({
         const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
         const lineNumber = evt.data.line_number ?? 0
         if (!filePath || !lineNumber) continue
-        if (isMandatorySensitiveReadPath(filePath)) continue
+        if (isReadPathBlocked(filePath, fileFilter)) continue
 
         let fileMatches = matchesByFile.get(filePath)
         if (!fileMatches) {
@@ -470,7 +473,7 @@ export function findFilesMatchingContent({
               const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
               const lineNumber = evt.data.line_number ?? 0
               if (!filePath || !lineNumber) continue
-              if (isMandatorySensitiveReadPath(filePath)) continue
+              if (isReadPathBlocked(filePath, fileFilter)) continue
               let fileMatches = matchesByFile.get(filePath)
               if (!fileMatches) {
                 if (matchesByFile.size >= maxFiles) {
@@ -495,7 +498,7 @@ export function findFilesMatchingContent({
               file,
             )
             if (
-              !isMandatorySensitiveReadPath(projectRelativeFile) &&
+              !isReadPathBlocked(projectRelativeFile, fileFilter) &&
               !seenFilesWithoutGroups.has(projectRelativeFile)
             ) {
               seenFilesWithoutGroups.add(projectRelativeFile)

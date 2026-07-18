@@ -1395,6 +1395,82 @@ describe('doStream', () => {
     ])
   })
 
+  it('preserves malformed complete tool arguments for downstream repair', async () => {
+    const malformedArguments = '{"value":"Sparkle Day",,"note":"a,,b"}'
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: ${JSON.stringify({
+          id: 'chatcmpl-malformed-tool',
+          object: 'chat.completion.chunk',
+          created: 1711357598,
+          model: 'gpt-3.5-turbo-0125',
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: 'assistant',
+                content: null,
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: 'call-malformed-tool',
+                    type: 'function',
+                    function: {
+                      name: 'test-tool',
+                      arguments: malformedArguments,
+                    },
+                  },
+                ],
+              },
+              logprobs: null,
+              finish_reason: null,
+            },
+          ],
+        })}\n\n`,
+        `data: ${JSON.stringify({
+          id: 'chatcmpl-malformed-tool',
+          object: 'chat.completion.chunk',
+          created: 1711357598,
+          model: 'gpt-3.5-turbo-0125',
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              logprobs: null,
+              finish_reason: 'tool_calls',
+            },
+          ],
+        })}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    }
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    })
+
+    const elements = await convertReadableStreamToArray(stream)
+    expect(elements).toContainEqual({
+      type: 'tool-call',
+      toolCallId: 'call-malformed-tool',
+      toolName: 'test-tool',
+      input: malformedArguments,
+    })
+  })
+
   it('should handle error stream parts', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',

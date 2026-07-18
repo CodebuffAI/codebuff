@@ -27,6 +27,7 @@ Common phase triggers and routing policies:
 - `basher` — validation phase for tests, typechecks, lints, builds, or command discovery that lacks a dedicated harness tool. Prefer configured hooks and deterministic path-to-suite routing first, such as agents/base2 prompt/gate checks, SDK checks for `packages/sdk/*`, runtime checks for `packages/agent-runtime/*`, common/dependent checks for `common/*`, and CLI typecheck plus visual smoke for `cli/src/components/*` or `cli/src/hooks/*`.
   Basher requires `params.command`. For compatibility, `spawn_agents` repairs an explicit string-valued top-level `command` into `params.command` and decodes the bounded provider serialization `command</arg_key><arg_value>...` when it occurs directly in Basher params, but it never treats prompt prose as executable input. A spawn whose required params are genuinely absent is published with a structured failure result so the parent can inspect the validation error and retry safely.
 - `set_output` expects native object fields. Complete stringified JSON objects and exact JSON code-fence/comment wrappers are decoded for compatibility. Malformed or incomplete string data is never accepted as agent output; the call receives a recoverable tool result so the agent can retry without losing the structured-output contract.
+- Native tool inputs use canonical provider schemas, while the shared compatibility parser repairs a bounded set of unambiguous model-generated shapes before validation. This includes singular/plural selectors (`path`/`paths`, `file`/`files`, `edit`/`edits`, `agent`/`agents`), single items for declared collection fields, and explicit camelCase/snake_case equivalents. Canonical fields win when both forms are present; truncated JSON, unknown aliases, and ambiguous shapes still fail validation.
 - `dependency-manager` — explicit dependency-mutation phase only. It receives structured manager/operation/package/workspace inputs, constructs one bounded ecosystem-native command, and supports npm/pnpm/Yarn/Bun, uv/Poetry/pip, Cargo, Go modules, .NET, Bundler, Composer, SwiftPM, Dart/Flutter Pub, Mix, Maven dependency resolution, and Gradle dependency inspection. It cannot run arbitrary shell or global installs, and a missing-package diagnostic alone is not authorization to spawn it.
 - `debugger` — repair phase after repeated validation failures, runtime failures, or unclear crash behavior.
 - `code-reviewer`, `security-reviewer` — review phase after meaningful edits or security-sensitive changes; blocking findings prevent completion. Security review is required for auth, crypto, secrets, permissions, injection, sandboxing, path/process/network handling, supply-chain, or production-risk changes.
@@ -87,6 +88,32 @@ The distinction matters because adding a pattern-specific agent to `spawnableAge
 ### Model Routing and Configuration
 
 Because Openbuff does not rely on a hosted model registry or credit-balance router, all agent routing is configured directly in your local configuration (`openbuff.json`, the only config file read; no `codebuff.json` fallback). Under [Local BYOK Mode](./local-mode.md), you map individual agents (e.g., `thinker`, `code-reviewer`, or custom agents) to specific providers and models.
+
+### 3D asset workflow
+
+The harness keeps supported 3D files visible in the live project tree as
+metadata-only nodes. This means `glob`, engine detection, and index search can
+find `.blend`, `.glb`, `.gltf`, `.fbx`, `.obj`, `.dae`, `.3ds`, `.stl`, `.ply`,
+and USD-family files without decoding binary payloads as source text.
+
+- `inspect_3d_asset` returns a source hash plus structured scene metadata.
+  glTF, GLB, and OBJ have built-in parsers; formats requiring Blender use a
+  fixed headless inspection script with blend-file auto-execution disabled and
+  never accept model-provided Python. A
+  hash-keyed derived summary is cached under `.openbuff/artifacts/3d/metadata/`;
+  later index refreshes fold its object/material/camera concepts into the
+  source asset's graph node.
+- `render_3d_preview` renders deterministic material, clay, or wireframe views
+  under `.openbuff/artifacts/3d/`, attaches the PNGs directly, and returns
+  receipts binding every artifact hash to its source hash.
+- `edit_3d_asset` accepts only bounded declarative operations. It requires the
+  inspection source hash, edits a project-scoped working copy, reopens the
+  result for validation, and conditionally commits only if the original bytes
+  are unchanged. The first supported mutation format is `.blend`.
+
+`inspect_environment` reports whether the local Blender CLI is available.
+Blender-backed operations fail closed when it is absent. The built-in glTF,
+GLB, and OBJ inspectors do not require Blender.
 
 ### Shared Prompt Sections
 

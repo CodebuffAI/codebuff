@@ -6,17 +6,20 @@ import micromatch from 'micromatch'
 import path from 'path'
 
 import { resolveFilePathWithinProject } from './path-utils'
+import { isReadPathBlocked } from './read-policy'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { FileFilter } from './read-files'
 
 export async function glob(params: {
   pattern: string
   projectPath: string
   cwd?: string
   fs: CodebuffFileSystem
+  fileFilter?: FileFilter
 }): Promise<CodebuffToolOutput<'glob'>> {
-  const { pattern, projectPath, cwd, fs } = params
+  const { pattern, projectPath, cwd, fs, fileFilter } = params
 
   try {
     const fileTree = await getProjectFileTree({ projectRoot: projectPath, fs })
@@ -24,6 +27,7 @@ export async function glob(params: {
     let allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
       .map((node) => node.filePath)
+      .filter((filePath) => !isReadPathBlocked(filePath, fileFilter))
 
     let matchingFiles: string[]
     let normalizedCwd = normalizeCwd(cwd)

@@ -2,6 +2,10 @@ import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
 import { decodeJsonObjectString } from '@codebuff/common/tools/params/tool/set-output'
 import {
+  parseJsonBounded,
+  parseJsonStringWithRepair,
+} from '@codebuff/common/tools/params/utils'
+import {
   buildNativeToolResultErrorOutputV1,
   buildReadFilesResultV1,
   fileMutationResultV1Schema,
@@ -14,6 +18,7 @@ import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import * as path from 'path'
+import { existsSync, realpathSync } from 'node:fs'
 
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
@@ -419,12 +424,12 @@ function parseStringifiedToolInput(
   for (let i = 0; i < 3 && typeof parsed === 'string'; i++) {
     const stringInput = parsed
     try {
-      parsed = JSON.parse(stringInput)
+      parsed = parseJsonStringWithRepair(stringInput)
       parseError = undefined
     } catch (error) {
-      const repaired = repairBareStringFieldObject(stringInput, toolName)
-      if (repaired !== undefined) {
-        parsed = repaired
+      const repairedField = repairBareStringFieldObject(stringInput, toolName)
+      if (repairedField !== undefined) {
+        parsed = repairedField
         parseError = undefined
       } else {
         parseError = error instanceof Error ? error.message : String(error)
@@ -638,7 +643,8 @@ function isFileChangingTool(toolName: string): boolean {
     toolName === 'replace_range' ||
     toolName === 'rewrite_symbol' ||
     toolName === 'str_replace' ||
-    toolName === 'write_file'
+    toolName === 'write_file' ||
+    toolName === 'edit_3d_asset'
   )
 }
 
@@ -652,10 +658,38 @@ function getFilesystemToolPaths(
       : typeof value === 'string'
         ? [value]
         : []
-  if (toolName === 'read_files' || toolName === 'read_subtree') {
-    return { access: 'read', paths: strings(input.paths) }
+  const objectPaths = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.flatMap((item) =>
+          item && typeof item === 'object'
+            ? strings((item as Record<string, unknown>).path)
+            : [],
+        )
+      : []
+  if (toolName === 'read_files') {
+    return {
+      access: 'read',
+      paths: [
+        ...strings(input.paths),
+        ...objectPaths(input.ranges),
+        ...objectPaths(input.symbols),
+      ],
+    }
   }
-  if (toolName === 'read_outline' || toolName === 'list_directory') {
+  if (toolName === 'read_subtree' || toolName === 'read_image') {
+    const paths = strings(input.paths)
+    return {
+      access: 'read',
+      paths: toolName === 'read_subtree' && paths.length === 0 ? ['.'] : paths,
+    }
+  }
+  if (
+    toolName === 'read_outline' ||
+    toolName === 'read_slices' ||
+    toolName === 'list_directory' ||
+    toolName === 'inspect_3d_asset' ||
+    toolName === 'render_3d_preview'
+  ) {
     return { access: 'read', paths: strings(input.path) }
   }
   if (toolName === 'glob' || toolName === 'code_search') {
@@ -698,6 +732,28 @@ function getFilesystemToolPaths(
     return { access: 'write', paths: strings(input.path) }
   }
   return undefined
+}
+
+function canonicalScopedToolPath(
+  normalizedPath: string,
+  projectRoot: string,
+): string {
+  const root = realpathSync(projectRoot)
+  const target = path.resolve(projectRoot, normalizedPath)
+  const suffix: string[] = []
+  let existing = target
+  while (!existsSync(existing)) {
+    const parent = path.dirname(existing)
+    if (parent === existing) break
+    suffix.unshift(path.basename(existing))
+    existing = parent
+  }
+  const canonicalExisting = realpathSync(existing)
+  return (
+    path
+      .relative(root, path.join(canonicalExisting, ...suffix))
+      .replace(/\\/g, '/') || '.'
+  )
 }
 
 export function parseRawToolCall<T extends ToolName = ToolName>(params: {
@@ -910,19 +966,37 @@ export async function executeToolCall<T extends ToolName>(
     : undefined
   if (filesystemAccess && allowedPatterns) {
     const deniedPaths = filesystemAccess.paths
-      .map((rawPath) => ({
-        rawPath,
-        normalized: normalizeScopedToolPath(
+      .map((rawPath) => {
+        const normalized = normalizeScopedToolPath(
           rawPath,
           params.fileContext.projectRoot,
-        ),
-      }))
+        )
+        let canonical = normalized
+        if (params.fileContext.fileTreeSource !== 'virtual') {
+          try {
+            canonical = canonicalScopedToolPath(
+              normalized,
+              params.fileContext.projectRoot,
+            )
+          } catch {
+            // SDK handlers remain the authoritative containment layer. Keep
+            // lexical scope for missing paths so create operations still work.
+          }
+        }
+        return { rawPath, normalized, canonical }
+      })
       .filter(
-        ({ normalized }) =>
+        ({ normalized, canonical }) =>
+          normalized === '..' ||
           normalized.startsWith('../') ||
           path.isAbsolute(normalized) ||
-          !allowedPatterns.some((pattern) =>
-            scopePatternMatches(normalized, pattern),
+          canonical === '..' ||
+          canonical.startsWith('../') ||
+          path.isAbsolute(canonical) ||
+          !allowedPatterns.some(
+            (pattern) =>
+              scopePatternMatches(normalized, pattern) &&
+              scopePatternMatches(canonical, pattern),
           ),
       )
     if (deniedPaths.length > 0) {
@@ -1579,10 +1653,10 @@ export async function executeCustomToolCall(
 
 export function tryTransformAgentToolCall(params: {
   toolName: string
-  input: Record<string, unknown>
+  input: unknown
   spawnableAgents: AgentTemplateType[]
 }): { toolName: 'spawn_agents'; input: Record<string, unknown> } | null {
-  const { toolName, input, spawnableAgents } = params
+  const { toolName, spawnableAgents } = params
 
   const matchesAgentToolName = (agentType: AgentTemplateType) =>
     getAgentToolName(agentType) === toolName ||
@@ -1594,6 +1668,26 @@ export function tryTransformAgentToolCall(params: {
     return null
   }
 
+  const parsedInput = parseJsonBounded(params.input)
+  if (
+    parsedInput === null ||
+    typeof parsedInput !== 'object' ||
+    Array.isArray(parsedInput)
+  ) {
+    return null
+  }
+  const input = parsedInput as Record<string, unknown>
+
+  const repairMalformedNestedValue = (value: unknown): unknown => {
+    if (typeof value !== 'string') return value
+    try {
+      JSON.parse(value)
+      return value
+    } catch {
+      return parseJsonBounded(value)
+    }
+  }
+
   // Convert to spawn_agents call - input already has prompt and params as top-level fields
   // (consistent with spawn_agents schema)
   const agentEntry: Record<string, unknown> = {
@@ -1603,10 +1697,10 @@ export function tryTransformAgentToolCall(params: {
     agentEntry.prompt = input.prompt
   }
   if (Object.hasOwn(input, 'params')) {
-    agentEntry.params = input.params
+    agentEntry.params = repairMalformedNestedValue(input.params)
   }
   if (Object.hasOwn(input, 'handoff')) {
-    agentEntry.handoff = input.handoff
+    agentEntry.handoff = repairMalformedNestedValue(input.handoff)
   }
   if (Object.hasOwn(input, 'background')) {
     agentEntry.background = input.background

@@ -179,6 +179,8 @@ export type Base2ActiveWorkState = Base2GateState & {
   }
   /** Assurance level from configured validation evidence. */
   validationAssurance?: 'full' | 'reduced' | 'none'
+  /** Snapshot whose validation failed for infrastructure/policy reasons rather than source diagnostics. */
+  validationInfrastructureBypassFingerprint?: string
   /**
    * M3 (R1b) — true after the automated post-edit test-writer gate has fired
    * for the current pending gate file set. Reset on pending-file-set change.

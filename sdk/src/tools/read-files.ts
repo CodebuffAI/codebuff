@@ -1,7 +1,6 @@
 import path from 'node:path'
 
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
-import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import {
   buildReadFilesResultV1,
   isReadFilesResultV1,
@@ -15,7 +14,6 @@ import {
   normalizeLineEndings,
 } from '@codebuff/common/util/content-hash'
 import {
-  isAgentSessionArtifactPath,
   isEnvTemplatePath,
   isMandatorySensitiveReadPath,
 } from '@codebuff/common/util/sensitive-paths'
@@ -212,31 +210,12 @@ async function authorizeReadTarget(params: {
     }
   }
 
-  // allow-example is a narrow exception for recognized environment templates;
-  // it cannot make arbitrary ignored or sensitive files readable.
+  // Ignore files are a discovery preference, not an authorization boundary.
+  // Explicit project-contained reads remain available; mandatory sensitive
+  // paths and host filters above continue to fail closed.
   const isExampleFile =
     aliases.every(isEnvTemplatePath) &&
     filterResults.some((result) => result.status === 'allow-example')
-  const isAgentSessionArtifact = aliases.every(isAgentSessionArtifactPath)
-  if (!isExampleFile && !isAgentSessionArtifact) {
-    for (const alias of aliases) {
-      if (
-        await isFileIgnored({
-          filePath: alias,
-          projectRoot: cwd,
-          fs,
-        })
-      ) {
-        return {
-          ok: false,
-          displayPath: resolved.relativePath,
-          error: filesystemError('blocked', FILE_READ_STATUS.IGNORED, {
-            retryable: false,
-          }),
-        }
-      }
-    }
-  }
 
   return {
     ok: true,

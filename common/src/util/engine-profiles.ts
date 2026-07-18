@@ -60,9 +60,8 @@ const ENGINE_PROFILES: Record<SupportedEngineId, EngineProfile> = {
     displayName: 'Blender',
     guidance:
       'Blender .blend files are binary scene databases (geometry, materials, lights, cameras, animations). ' +
-      'Do not read .blend files as text. Use `blender --background <file>.blend --python-expr "..."` or bpy scripts to inspect/modify scenes programmatically. ' +
-      'For rendering, use `blender -b <file>.blend -f 1` (single frame) or `-a` (animation). Export to glTF/GLB via bpy `export_gltf` operator. ' +
-      'Rendered output images are the primary way to visually verify scene changes — use read_image on rendered PNGs.',
+      'Do not read .blend files as text. Use inspect_3d_asset for structured scene data, render_3d_preview for project-scoped visual evidence, and edit_3d_asset for hash-guarded declarative changes. ' +
+      'Prefer these bounded tools over arbitrary Python expressions. Rendered previews and their source-bound receipts are the primary visual verification path.',
   },
 }
 

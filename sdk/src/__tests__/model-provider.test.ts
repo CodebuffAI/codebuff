@@ -109,6 +109,18 @@ describe('model-provider', () => {
   })
 
   describe('custom provider config', () => {
+    test('accepts explicit harness approval modes', () => {
+      for (const approvalMode of ['balanced', 'strict', 'allow-all'] as const) {
+        expect(
+          providerConfigFileSchema.parse({ approvalMode }).approvalMode,
+        ).toBe(approvalMode)
+      }
+      expect(
+        providerConfigFileSchema.safeParse({ approvalMode: 'sometimes' })
+          .success,
+      ).toBe(false)
+    })
+
     test('accepts explicit unlimited maxAgentSteps mode', () => {
       const result = providerConfigFileSchema.safeParse({
         maxAgentSteps: -1,

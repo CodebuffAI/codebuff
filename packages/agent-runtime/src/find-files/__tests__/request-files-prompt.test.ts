@@ -81,6 +81,32 @@ describe('requestRelevantFiles', () => {
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalled()
   })
 
+  it('omits an empty system message from auxiliary model requests', async () => {
+    await requestRelevantFiles({
+      ...agentRuntimeImpl,
+      messages: mockMessages,
+      system: '   ',
+      fileContext: mockFileContext,
+      assistantPrompt: mockAssistantPrompt,
+      agentStepId: mockAgentStepId,
+      clientSessionId: mockClientSessionId,
+      fingerprintId: mockFingerprintId,
+      userInputId: mockUserInputId,
+      userId: mockUserId,
+      repoId: mockRepoId,
+      runId: mockRunId,
+      signal: new AbortController().signal,
+    })
+
+    expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.not.arrayContaining([
+          expect.objectContaining({ role: 'system' }),
+        ]),
+      }),
+    )
+  })
+
   it('should use custom file counts from config', async () => {
     const _customConfig = {
       modelName: 'ft_filepicker_005',

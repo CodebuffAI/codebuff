@@ -302,8 +302,8 @@ describe('getFiles', () => {
     })
   })
 
-  describe('gitignore blocking', () => {
-    test('should return IGNORED for gitignored files', async () => {
+  describe('explicit ignored-file reads', () => {
+    test('reads a project-contained file even when discovery ignores it', async () => {
       isFileIgnoredSpy.mockResolvedValue(true)
 
       const mockFs = createMockFs({
@@ -318,12 +318,10 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      expect(result['node_modules/package/index.js']).toBe(
-        FILE_READ_STATUS.IGNORED,
-      )
+      expect(result['node_modules/package/index.js']).toBe('module code')
     })
 
-    test('should call isFileIgnored with correct parameters', async () => {
+    test('does not consult gitignore for explicit reads', async () => {
       const mockFs = createMockFs({
         files: {
           '/project/src/index.ts': { content: 'content' },
@@ -336,15 +334,10 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      expect(isFileIgnoredSpy).toHaveBeenCalledWith({
-        filePath: 'src/index.ts',
-        projectRoot: '/project',
-        fs: mockFs,
-      })
+      expect(isFileIgnoredSpy).not.toHaveBeenCalled()
     })
 
-    test('should handle mix of ignored and non-ignored files', async () => {
-      // First call returns false (not ignored), second returns true (ignored)
+    test('reads a mix of explicitly requested ignored and ordinary files', async () => {
       isFileIgnoredSpy.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
 
       const mockFs = createMockFs({
@@ -361,12 +354,12 @@ describe('getFiles', () => {
       })
 
       expect(result['src/index.ts']).toBe('main code')
-      expect(result['node_modules/pkg/index.js']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['node_modules/pkg/index.js']).toBe('dependency')
     })
   })
 
-  describe('default gitignore behavior', () => {
-    test('should block gitignored files when no fileFilter is provided', async () => {
+  describe('explicit read policy', () => {
+    test('does not turn gitignore into authorization when no fileFilter is provided', async () => {
       isFileIgnoredSpy.mockResolvedValue(true)
 
       const mockFs = createMockFs({
@@ -382,11 +375,11 @@ describe('getFiles', () => {
         // No fileFilter provided - SDK applies default gitignore checking
       })
 
-      expect(result['node_modules/pkg/index.js']).toBe(FILE_READ_STATUS.IGNORED)
-      expect(isFileIgnoredSpy).toHaveBeenCalled()
+      expect(result['node_modules/pkg/index.js']).toBe('module code')
+      expect(isFileIgnoredSpy).not.toHaveBeenCalled()
     })
 
-    test('[SEC-H01] composes a custom allow filter with mandatory ignore policy', async () => {
+    test('[SEC-H01] permits an ignored path when the host filter allows it', async () => {
       // File would normally be ignored by gitignore
       isFileIgnoredSpy.mockResolvedValue(true)
 
@@ -404,8 +397,8 @@ describe('getFiles', () => {
         fileFilter: () => ({ status: 'allow' }),
       })
 
-      expect(result['node_modules/pkg/index.js']).toBe(FILE_READ_STATUS.IGNORED)
-      expect(isFileIgnoredSpy).toHaveBeenCalled()
+      expect(result['node_modules/pkg/index.js']).toBe('module code')
+      expect(isFileIgnoredSpy).not.toHaveBeenCalled()
     })
 
     test('allows canonical agent session artifacts through gitignore policy', async () => {
@@ -427,7 +420,7 @@ describe('getFiles', () => {
       expect(isFileIgnoredSpy).not.toHaveBeenCalled()
     })
 
-    test('does not bypass ignore policy for unrelated .agents files', async () => {
+    test('allows explicitly requested project agent files despite gitignore', async () => {
       isFileIgnoredSpy.mockResolvedValue(true)
       const privatePath = '.agents/mcp.json'
       const mockFs = createMockFs({
@@ -442,7 +435,7 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      expect(result[privatePath]).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result[privatePath]).toBe('{"secret":"value"}')
     })
   })
 

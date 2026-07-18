@@ -4,6 +4,7 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { afterEach, describe, expect, it, mock } from 'bun:test'
+import z from 'zod/v4'
 
 import contextPruner from '../../../../agents/context-pruner'
 import { loopAgentSteps } from '../run-agent-step'
@@ -130,6 +131,35 @@ describe('loopAgentSteps', () => {
     })
 
     expect(llmCallCount).toBe(1)
+  })
+
+  it('retries a prompt-only structured agent that ends without set_output', async () => {
+    setup()
+    let llmCallCount = 0
+    agentTemplate.handleSteps = undefined
+    agentTemplate.toolNames = ['read_files']
+    agentTemplate.outputSchema = z.object({ result: z.string() })
+    runtimeParams.promptAiSdkStream = mock(async function* () {
+      llmCallCount++
+      if (llmCallCount === 1) {
+        yield { type: 'text' as const, text: 'I finished the review.' }
+      } else {
+        yield createToolCallChunk('set_output', { result: 'reviewed' })
+      }
+      return promptSuccess(`mock-message-${llmCallCount}`)
+    })
+
+    const result = await loopAgentSteps({
+      ...baseParams,
+      promptAiSdkStream: runtimeParams.promptAiSdkStream,
+      localAgentTemplates: { 'test-agent': agentTemplate },
+    })
+
+    expect(llmCallCount).toBe(2)
+    expect(result.output).toEqual({
+      type: 'structuredOutput',
+      value: { result: 'reviewed' },
+    })
   })
 
   it('reports the resolved BYOK model context window before the LLM request', async () => {

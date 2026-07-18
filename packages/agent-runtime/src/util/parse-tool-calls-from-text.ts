@@ -3,6 +3,7 @@ import {
   endToolTag,
   toolNameParam,
 } from '@codebuff/common/tools/constants'
+import { parseJsonStringWithRepair } from '@codebuff/common/tools/params/utils'
 
 export type ParsedToolCallFromText = {
   type: 'tool_call'
@@ -67,7 +68,7 @@ export function parseTextWithToolCalls(text: string): ParsedSegment[] {
     const jsonContent = match[1].trim()
 
     try {
-      const parsed = JSON.parse(jsonContent)
+      const parsed = parseJsonStringWithRepair(jsonContent)
 
       if (!isRecord(parsed)) {
         segments.push({

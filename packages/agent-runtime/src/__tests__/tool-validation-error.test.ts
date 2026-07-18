@@ -16,6 +16,7 @@ import { processStream } from '../tools/stream-parser'
 import {
   buildSpawnAgentsHandlerFailureOutput,
   normalizeNativeToolOutput,
+  parseRawCustomToolCall,
   parseRawToolCall,
 } from '../tools/tool-executor'
 
@@ -265,6 +266,98 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('repairs duplicate JSON separators in stringified read_files input', () => {
+    const input = {
+      paths: ['src/components/garden/GardenCanvas.tsx'],
+      ranges: [
+        {
+          path: 'src/components/garden/GardenCanvas.tsx',
+          startLine: 250,
+          endLine: 348,
+        },
+      ],
+    }
+    const malformed = JSON.stringify(input).replace(
+      '],"ranges"',
+      '],, "ranges"',
+    )
+
+    for (const encoded of [malformed, JSON.stringify(malformed)]) {
+      const result = parseRawToolCall({
+        rawToolCall: {
+          toolName: 'read_files',
+          toolCallId: 'duplicate-json-separator-tool-call-id',
+          input: encoded,
+        },
+      })
+
+      expect('error' in result).toBe(false)
+      if (!('error' in result)) {
+        expect(result.input).toEqual(input)
+      }
+    }
+  })
+
+  it('repairs duplicate separators for custom and MCP tool inputs', () => {
+    for (const toolName of ['custom_search', 'server__search']) {
+      const result = parseRawCustomToolCall({
+        customToolDefs: {
+          [toolName]: {
+            description: 'Search',
+            endsAgentStep: false,
+            inputSchema: z.object({
+              query: z.string(),
+              note: z.string(),
+            }),
+          },
+        },
+        rawToolCall: {
+          toolName,
+          toolCallId: `${toolName}-duplicate-separator`,
+          input: '{"query":"garden",,"note":"keep,,literal"}',
+        },
+      })
+
+      expect('error' in result).toBe(false)
+      if (!('error' in result)) {
+        expect(result.input).toEqual({
+          query: 'garden',
+          note: 'keep,,literal',
+        })
+      }
+    }
+  })
+
+  it('does not alter duplicate commas inside JSON string values', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'code_search',
+        toolCallId: 'literal-duplicate-comma-tool-call-id',
+        input: '{"pattern":"alpha,,beta"}',
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input).toEqual({ pattern: 'alpha,,beta', maxResults: 15 })
+    }
+  })
+
+  it('still rejects truncated JSON containing duplicate separators', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'read_files',
+        toolCallId: 'truncated-duplicate-separator-tool-call-id',
+        input: '{"paths":["src/a.ts"],, "ranges":[',
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Parsing as JSON failed:')
+    }
+  })
+
   it('should preserve provider options from parsed native tool calls', () => {
     const providerOptions = {
       openaiCompatible: {
@@ -335,6 +428,23 @@ describe('tool validation error handling', () => {
     expect('error' in result).toBe(false)
     if (!('error' in result)) {
       expect(result.input).toEqual({ paths: ['sdk/src/client.ts'] })
+    }
+  })
+
+  it('should repair a singular path alias for read_files object input', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'read_files',
+        toolCallId: 'singular-path-alias-tool-call-id',
+        input: { path: 'src/components/garden/scenes/LivingOrganism.tsx' },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input).toEqual({
+        paths: ['src/components/garden/scenes/LivingOrganism.tsx'],
+      })
     }
   })
 
@@ -1605,11 +1715,11 @@ describe('tool validation error handling', () => {
     })
   })
 
-  it('should parse input JSON string from AI SDK before validation', async () => {
+  it('should repair malformed JSON string input from AI SDK before validation', async () => {
     // The AI SDK can emit tool-call chunks with `input` as a raw JSON string
     // when upstream schema validation fails and the repair function returns
-    // the original tool call unchanged. The stream parser should parse the
-    // string into an object before handing it to the tool executor.
+    // the original tool call unchanged. The stream parser preserves malformed
+    // strings so the shared executor can repair them before validation.
     const agentWithReadFiles: AgentTemplate = {
       ...testAgentTemplate,
       toolNames: ['read_files', 'end_turn'],
@@ -1619,7 +1729,7 @@ describe('tool validation error handling', () => {
       type: 'tool-call' as const,
       toolName: 'read_files',
       toolCallId: 'string-input-tool-call-id',
-      input: JSON.stringify({ paths: ['test.ts'] }) as any,
+      input: '{"paths":["test.ts"],,}' as any,
     }
 
     async function* mockStream() {

@@ -267,6 +267,38 @@ describe('Schema handling error recovery', () => {
       })
     })
 
+    test('repairs malformed direct-agent alias input before transformation', () => {
+      expect(
+        tryTransformAgentToolCall({
+          toolName: 'basher',
+          input:
+            '{"prompt":"Run tests",,"params":"{\\"command\\":\\"bun test\\",,\\"timeout_seconds\\":30}"}',
+          spawnableAgents: ['basher'],
+        }),
+      ).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'basher',
+              prompt: 'Run tests',
+              params: { command: 'bun test', timeout_seconds: 30 },
+            },
+          ],
+        },
+      })
+    })
+
+    test('does not fabricate a direct-agent call from truncated input', () => {
+      expect(
+        tryTransformAgentToolCall({
+          toolName: 'basher',
+          input: '{"params":{"command":"bun test"}',
+          spawnableAgents: ['basher'],
+        }),
+      ).toBeNull()
+    })
+
     test('parses stringified params for direct agent tool schemas', () => {
       const agentTemplate: AgentTemplate = {
         id: 'basher-like-agent',

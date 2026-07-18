@@ -353,7 +353,7 @@ describe('inferFileChangeHooks', () => {
       expect(inferFileChangeHooks(dir)).toEqual([
         {
           name: 'gofmt',
-          command: 'test -z "$(gofmt -l .)"',
+          command: `gofmt -l . | awk 'NF { found=1 } END { exit found ? 1 : 0 }'`,
           filePattern: '**/*.go',
         },
         { name: 'go vet', command: 'go vet ./...', filePattern: '**/*.go' },
@@ -381,7 +381,7 @@ describe('inferFileChangeHooks', () => {
       expect(inferFileChangeHooks(dir)).toEqual([
         {
           name: 'gofmt',
-          command: 'test -z "$(gofmt -l .)"',
+          command: `gofmt -l . | awk 'NF { found=1 } END { exit found ? 1 : 0 }'`,
           filePattern: '**/*.go',
         },
         { name: 'go vet', command: 'go vet ./...', filePattern: '**/*.go' },

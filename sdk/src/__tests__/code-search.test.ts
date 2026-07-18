@@ -138,6 +138,30 @@ describe('codeSearch', () => {
       expect(value.stdout).not.toContain('.env:')
       expect(value.stdout).toContain('src/config.ts:')
     })
+
+    it('applies the host file filter to search results', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'token',
+        fileFilter: (filePath) => ({
+          status: filePath === 'blocked.ts' ? 'blocked' : 'allow',
+        }),
+      })
+      mockProcess.stdout.emit(
+        'data',
+        Buffer.from(
+          [
+            createRgJsonMatch('blocked.ts', 1, 'secret token'),
+            createRgJsonMatch('allowed.ts', 1, 'public token'),
+          ].join('\n'),
+        ),
+      )
+      mockProcess.emit('close', 0)
+
+      const value = asCodeSearchResult((await searchPromise)[0])
+      expect(value.stdout).not.toContain('blocked.ts')
+      expect(value.stdout).toContain('allowed.ts')
+    })
   })
 
   describe('context flags handling', () => {

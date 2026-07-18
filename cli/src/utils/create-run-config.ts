@@ -1,6 +1,7 @@
 import path from 'path'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { IndexManager } from '@codebuff/indexer'
 import { loadProviderConfigSync } from '@openbuff/sdk'
 
@@ -155,6 +156,9 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     // Best-effort; age-based index integrity sweeps remain available.
   }
 
+  const approvalMode =
+    loadProviderConfigSync().config.approvalMode ?? 'balanced'
+
   return {
     logger,
     agent,
@@ -170,6 +174,29 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     extraCodebuffMetadata,
     onCheckpoint,
     resumeInterruptedTurn,
+    approvalMode,
+    requestApproval: async (request: {
+      action: string
+      target: string
+      reason: string
+      risk: 'routine' | 'high'
+    }) => {
+      const response = (await AskUserBridge.request('harness-approval', [
+        {
+          header: request.risk === 'high' ? 'Risky action' : 'Approval',
+          question: `Allow ${request.action}: ${request.target}?`,
+          options: [
+            { label: 'Allow once', description: request.reason },
+            { label: 'Deny', description: 'Do not run this command.' },
+          ],
+          multiSelect: false,
+        },
+      ])) as {
+        answers?: Array<{ selectedOption?: string }>
+        skipped?: boolean
+      }
+      return response.answers?.[0]?.selectedOption === 'Allow once'
+    },
     onFilesystemMutation: (event: FilesystemMutationEvent) => {
       try {
         const indexingConfig = loadProviderConfigSync().config.indexing

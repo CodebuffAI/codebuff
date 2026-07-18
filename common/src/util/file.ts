@@ -11,7 +11,36 @@ export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
   type: z.enum(['file', 'directory']),
   children: z.lazy(() => z.array(FileTreeNodeSchema).optional()),
   filePath: z.string(),
+  asset: z
+    .object({
+      kind: z.literal('3d'),
+      format: z.string(),
+      sizeBytes: z.number().nonnegative(),
+    })
+    .optional(),
 })
+
+/** 3D formats are surfaced as metadata-only files throughout the harness. */
+export const THREE_D_ASSET_EXTENSIONS = new Set([
+  '.blend',
+  '.glb',
+  '.gltf',
+  '.fbx',
+  '.obj',
+  '.dae',
+  '.3ds',
+  '.stl',
+  '.ply',
+  '.usd',
+  '.usda',
+  '.usdc',
+  '.usdz',
+])
+
+export function get3dAssetFormat(fileName: string): string | null {
+  const extension = path.extname(fileName).toLowerCase()
+  return THREE_D_ASSET_EXTENSIONS.has(extension) ? extension.slice(1) : null
+}
 
 export interface FileTreeNode {
   name: string
@@ -19,6 +48,12 @@ export interface FileTreeNode {
   filePath: string
   lastReadTime?: number
   children?: FileTreeNode[]
+  /** Metadata for binary 3D assets; the payload is never treated as source text. */
+  asset?: {
+    kind: '3d'
+    format: string
+    sizeBytes: number
+  }
 }
 
 export interface DirectoryNode extends FileTreeNode {

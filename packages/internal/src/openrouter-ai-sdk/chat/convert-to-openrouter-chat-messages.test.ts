@@ -3,6 +3,15 @@ import { describe, expect, it } from 'bun:test'
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages'
 
 describe('user messages', () => {
+  it('omits empty system messages', () => {
+    expect(
+      convertToOpenRouterChatMessages([
+        { role: 'system', content: '' },
+        { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
+      ]),
+    ).toEqual([{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }])
+  })
+
   it('should convert image Uint8Array', async () => {
     const result = convertToOpenRouterChatMessages([
       {

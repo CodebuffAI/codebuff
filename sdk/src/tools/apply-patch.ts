@@ -15,7 +15,6 @@ import {
   fileMutationResultV1Schema,
   type CommitReceiptV1,
 } from '@codebuff/common/tools/results/filesystem'
-import { isFileIgnored } from '@codebuff/common/project-file-tree'
 import { isMandatorySensitiveReadPath } from '@codebuff/common/util/sensitive-paths'
 import type { FileFilter } from './read-files'
 
@@ -86,17 +85,6 @@ export function getDefaultFilesystemAuthority(
         aliases.some((alias) => fileFilter(alias).status === 'blocked')
       ) {
         return { allowed: false, code: 'custom_filter' }
-      }
-      for (const alias of aliases) {
-        if (
-          await isFileIgnored({
-            filePath: alias,
-            projectRoot: normalizedRoot,
-            fs,
-          })
-        ) {
-          return { allowed: false, code: 'ignored_path' }
-        }
       }
       return { allowed: true }
     },

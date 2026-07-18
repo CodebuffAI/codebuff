@@ -808,10 +808,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     type: 'tool-call',
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
-                    // Coerce invalid arguments to an empty JSON object
-                    input: isParsableJson(toolCall.function.arguments)
-                      ? toolCall.function.arguments
-                      : '{}',
+                    // Preserve malformed arguments so the shared runtime
+                    // decoder can repair bounded complete JSON or return a
+                    // useful validation error. Replacing them with `{}` loses
+                    // the model's intended fields and can execute the wrong
+                    // default behavior.
+                    input: toolCall.function.arguments,
                   })
                   toolCall.sent = true
                 }

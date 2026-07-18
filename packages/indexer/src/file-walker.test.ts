@@ -199,6 +199,7 @@ describe('file-walker walkProject', () => {
       '.agents/sessions/a/findings.md': 'stale audit\n',
       '.agents/custom-agent.ts': 'export default {}\n',
       '.omx/plans/plan.md': 'generated plan\n',
+      '.openbuff/artifacts/3d/metadata/hash.json': '{}\n',
       'evals/buffbench/task-base2-lite-error-ab12.json': '{}\n',
       'src/main.ts': 'export const main = true\n',
     })
@@ -240,7 +241,7 @@ describe('file-walker walkProject', () => {
     ])
     expect(result.skippedPrefixes).toEqual(['a'])
   })
-  test('skips binary files during walk', async () => {
+  test('keeps 3D assets as metadata-only candidates and skips other binaries', async () => {
     const root = await makeTempProject({
       'src/main.ts': 'export const x = 1\n',
       'assets/player.png': '\x89PNG fake binary\n',
@@ -252,7 +253,13 @@ describe('file-walker walkProject', () => {
     const relPaths = files.map((f) => f.relativePath)
     expect(relPaths).toContain('src/main.ts')
     expect(relPaths).not.toContain('assets/player.png')
-    expect(relPaths).not.toContain('assets/model.fbx')
+    expect(relPaths).toContain('assets/model.fbx')
+    expect(
+      files.find((file) => file.relativePath === 'assets/model.fbx')?.asset,
+    ).toEqual({
+      kind: '3d',
+      format: 'fbx',
+    })
     expect(relPaths).not.toContain('assets/scene.uasset')
   })
 

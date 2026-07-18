@@ -2,17 +2,9 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-import * as projectFileTree from '@codebuff/common/project-file-tree'
+import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { createNodeError } from '@codebuff/common/testing/errors'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
 import { readImages } from '../tools/read-image'
 
@@ -54,14 +46,6 @@ function createMockFs(files: Record<string, Buffer>): CodebuffFileSystem {
 }
 
 describe('readImages', () => {
-  beforeEach(() => {
-    spyOn(projectFileTree, 'isFileIgnored').mockResolvedValue(false)
-  })
-
-  afterEach(() => {
-    mock.restore()
-  })
-
   test('returns metadata and media for supported images', async () => {
     const image = Buffer.from('fake-png-bytes')
     const output = await readImages({
@@ -90,6 +74,31 @@ describe('readImages', () => {
       type: 'media',
       data: image.toString('base64'),
       mediaType: 'image/png',
+    })
+  })
+
+  test('applies the host file filter before attaching media', async () => {
+    const output = await readImages({
+      paths: ['screens/private.png'],
+      cwd: '/project',
+      fs: createMockFs({
+        '/project/screens/private.png': Buffer.from('private-image'),
+      }),
+      fileFilter: () => ({ status: 'blocked' }),
+    })
+
+    expect(output).toHaveLength(1)
+    expect(output[0]).toMatchObject({
+      type: 'json',
+      value: {
+        images: [
+          {
+            path: 'screens/private.png',
+            status: 'error',
+            message: FILE_READ_STATUS.IGNORED,
+          },
+        ],
+      },
     })
   })
 

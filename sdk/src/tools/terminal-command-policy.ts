@@ -18,49 +18,74 @@ const READ_ONLY_COMMANDS = [
   /^(?:pwd|ls|dir|find|fd|rg|grep|sed|head|tail|cat|stat|wc|tree|which|where|type)\b/i,
   /^git\s+(?:status|diff|log|show|rev-parse|ls-files|branch\s+--show-current)\b/i,
   /^(?:bun|npm|pnpm|yarn)\s+(?:test|run\s+(?:test|typecheck|lint|check|build)|x\s+tsc\s+--noEmit)\b/i,
+  /^(?:bun|npm|pnpm|yarn)\s+(?:(?:--cwd|--filter)\s+\S+\s+)*(?:test|run\s+(?:(?:--cwd|--filter)\s+\S+\s+)*(?:\S*:)?(?:test|typecheck|lint|check|build))\b/i,
   /^(?:cargo\s+(?:test|check|clippy)|go\s+test|pytest|python\s+-m\s+pytest|make\s+(?:test|check|lint))\b/i,
+  /^(?:gofmt\s+-l|go\s+vet|ruff\s+check|rubocop|dotnet\s+(?:test|build|format\s+--verify-no-changes)|swift-format\s+lint|cargo\s+fmt\s+--check)\b/i,
   /^(?:tsc|eslint|prettier)\b/i,
 ]
 
 const WORKSPACE_DENY_PATTERNS: Array<[RegExp, string]> = [
-  [/\b(?:sudo|su)\b/i, 'privilege escalation is not allowed'],
+  [/^(?:sudo|su)\b/i, 'privilege escalation is not allowed'],
   [
-    /\bgit\s+(?:push|commit|rebase|reset|clean|tag|am|cherry-pick)\b/i,
-    'git history or remote mutation requires an explicit full-access workflow',
-  ],
-  [
-    /\b(?:npm|pnpm|yarn|bun)\s+(?:install|add|remove|update|publish|link)\b/i,
-    'dependency or package mutation is unavailable in workspace-write; use the dependency-manager workflow after separate explicit user authorization (there is no inline approval retry)',
-  ],
-  [
-    /\b(?:pip|pip3|uv)\s+(?:install|uninstall|sync)\b/i,
-    'environment or dependency mutation is unavailable in workspace-write; use the dependency-manager workflow after separate explicit user authorization (there is no inline approval retry)',
-  ],
-  [
-    /\b(?:apt|apt-get|dnf|yum|pacman|brew|choco|winget)\b/i,
+    /^(?:apt|apt-get|dnf|yum|pacman|brew|choco|winget)\b/i,
     'system package management is not allowed',
   ],
-  [
-    /\b(?:curl|wget|ssh|scp|sftp|ftp|telnet|nc|ncat)\b/i,
-    'arbitrary network commands require explicit approval',
-  ],
-  [
-    /\b(?:kubectl|helm|terraform|tofu|ansible|aws|gcloud|az|flyctl|vercel|heroku)\b/i,
-    'infrastructure or production commands require explicit approval',
-  ],
-  [
-    /\b(?:docker|podman)\s+(?:push|login|run|compose\s+up|system\s+prune)\b/i,
-    'container side effects require explicit approval',
-  ],
-  [
-    /\bgh\s+(?:api|pr|release|repo|workflow)\b/i,
-    'remote GitHub mutation requires explicit approval',
-  ],
   [/\brm\s+-[^\n]*r[^\n]*\s+\/(?:\s|$)/i, 'root deletion is forbidden'],
+  [
+    /^(?:env|printenv|set|export)(?:\s|$)/i,
+    'dumping the inherited process environment is not allowed',
+  ],
+  [
+    /^git\s+push\b[\s\S]*(?:--force(?:-with-lease)?|-f\b|--delete\b)/i,
+    'force and delete pushes are not allowed',
+  ],
 ]
 
 function normalizeCommand(command: string): string {
   return command.trim().replace(/\s+/g, ' ')
+}
+
+/** Detect shell operators only when they are active syntax, not quoted data. */
+function hasUnquotedShellSyntax(command: string): boolean {
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      continue
+    }
+    if (
+      char === ';' ||
+      char === '|' ||
+      char === '&' ||
+      char === '`' ||
+      char === '<' ||
+      char === '>'
+    ) {
+      return true
+    }
+    if (char === '$' && command[index + 1] === '(') return true
+  }
+  return false
+}
+
+function hasShellInterpreterEscape(command: string): boolean {
+  return /^(?:(?:env\s+)?(?:command\s+)?(?:bash|sh|zsh|dash|fish)\s+-c|eval\b|source\b|\.\s+)/i.test(
+    command.trim(),
+  )
 }
 
 function findTraversalPath(command: string): string | undefined {
@@ -70,6 +95,58 @@ function findTraversalPath(command: string): string | undefined {
     if (token.split(/[=\\/]+/).includes('..')) return rawToken
   }
   return undefined
+}
+
+function splitUnquotedPipelines(command: string): string[] | undefined {
+  const segments: string[] = []
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  let start = 0
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      continue
+    }
+    if (char === '|' && command[index + 1] !== '|') {
+      segments.push(command.slice(start, index).trim())
+      start = index + 1
+    } else if (
+      char === ';' ||
+      char === '`' ||
+      char === '<' ||
+      char === '>' ||
+      (char === '&' && command[index + 1] === '&') ||
+      (char === '$' && command[index + 1] === '(')
+    ) {
+      return undefined
+    }
+  }
+  segments.push(command.slice(start).trim())
+  return segments.every(Boolean) ? segments : undefined
+}
+
+function isReadOnlyPipelineSegment(segment: string): boolean {
+  if (findReadOnlyMutation(segment)) return false
+  if (READ_ONLY_COMMANDS.some((pattern) => pattern.test(segment))) return true
+  if (/^tee\s+(?:-a\s+)?(?:\/tmp\/[^\s]+|\/dev\/null)$/i.test(segment)) {
+    return true
+  }
+  return /^(?:awk|cut|sort|uniq|tr|jq|xargs\s+(?:rg|grep|cat|stat|wc)\b)\b/i.test(
+    segment,
+  )
 }
 
 function findReadOnlyMutation(command: string): string | undefined {
@@ -99,6 +176,18 @@ function findOutsideAbsolutePath(
   projectRoot: string,
 ): string | undefined {
   const root = path.resolve(projectRoot)
+  const shellTokens = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? []
+  const outsideShellToken = shellTokens.find((rawToken) => {
+    const token = rawToken.replace(/^["']|["',);]+$/g, '')
+    return (
+      token === '~' ||
+      token.startsWith('~/') ||
+      token === '$HOME' ||
+      token.startsWith('$HOME/') ||
+      token.startsWith('${HOME}/')
+    )
+  })
+  if (outsideShellToken) return outsideShellToken
   const tokens = [
     ...command.matchAll(
       /(?:^|[\s"'=(])((?:[A-Za-z]:\\|\/(?!\/))[^\s"'|;&)]*)/g,
@@ -163,7 +252,7 @@ export function evaluateTerminalCommandPolicy(params: {
   }
 
   if (params.permissionProfile === 'git-commit') {
-    if (/[;&|]{1,2}|\$\(|`/.test(command)) {
+    if (hasUnquotedShellSyntax(command) || hasShellInterpreterEscape(command)) {
       return {
         allowed: false,
         reason:
@@ -225,7 +314,7 @@ export function evaluateTerminalCommandPolicy(params: {
       ) ||
       (!/(?:^|\s)--amend\b/i.test(command) &&
         /^git\s+commit\s+(?=.*-m(?:\s|$)).+/i.test(command)) ||
-      /^git\s+push\s+(?!.*(?:--force|-f\b|--delete\b|:))(?:-u\s+|--set-upstream\s+)?[A-Za-z0-9._/-]+\s+(?!main$|master$)[A-Za-z0-9._/-]+$/i.test(
+      /^git\s+push\s+(?!.*(?:--force|-f\b|--delete\b|:))(?:-u\s+|--set-upstream\s+)?[A-Za-z0-9._/-]+\s+[A-Za-z0-9._/-]+$/i.test(
         command,
       )
     if (!isAllowedGitCommand) {
@@ -246,7 +335,11 @@ export function evaluateTerminalCommandPolicy(params: {
   }
 
   if (params.permissionProfile === 'dependency-mutation') {
-    if (/[;&|]{1,2}|\$\(|`|\r|\n/.test(command)) {
+    if (
+      hasUnquotedShellSyntax(command) ||
+      hasShellInterpreterEscape(command) ||
+      /\r|\n/.test(command)
+    ) {
       return {
         allowed: false,
         reason:
@@ -303,24 +396,27 @@ export function evaluateTerminalCommandPolicy(params: {
     params.permissionProfile === 'librarian-read-only' ||
     params.permissionProfile === 'validation-diagnosis'
   ) {
-    if (/[;&|]{1,2}|\$\(|`/.test(command)) {
+    isLibrarianClone =
+      params.permissionProfile === 'librarian-read-only' &&
+      /^git clone --depth 1 'https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+(?:\.git)?\/?' '\/tmp\/librarian-[A-Za-z0-9._-]+-[0-9]+'$/.test(
+        command,
+      )
+    if (isLibrarianClone) return { allowed: true }
+    const pipeline = splitUnquotedPipelines(command)
+    if (
+      hasShellInterpreterEscape(command) ||
+      !pipeline ||
+      !pipeline.every(isReadOnlyPipelineSegment)
+    ) {
       return {
         allowed: false,
         reason:
           'read-only commands cannot use shell composition or substitution',
       }
     }
-    const readOnlyMutation = findReadOnlyMutation(command)
-    if (readOnlyMutation) {
-      return { allowed: false, reason: readOnlyMutation }
-    }
-    isLibrarianClone =
-      params.permissionProfile === 'librarian-read-only' &&
-      /^git clone --depth 1 'https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+(?:\.git)?\/?' '\/tmp\/librarian-[A-Za-z0-9._-]+-[0-9]+'$/.test(
-        command,
-      )
     if (
       !isLibrarianClone &&
+      pipeline.length === 1 &&
       !READ_ONLY_COMMANDS.some((pattern) => pattern.test(command))
     ) {
       return {
@@ -329,7 +425,6 @@ export function evaluateTerminalCommandPolicy(params: {
           'command is not in the read-only validation/inspection allowlist',
       }
     }
-    if (isLibrarianClone) return { allowed: true }
   }
 
   if (

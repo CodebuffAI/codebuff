@@ -469,6 +469,8 @@ export const providerConfigFileSchema = z
       .default([]),
     /** Explicit trust boundary for manifest-inferred commands. These may execute repository-controlled build scripts/plugins. Default is disabled; set true only for trusted projects. */
     autoFileChangeHooks: z.boolean().optional(),
+    /** Approval UX for classified terminal effects. */
+    approvalMode: z.enum(['balanced', 'strict', 'allow-all']).optional(),
     /**
      * Optional fixed agent-step cap. Unset or -1 means unlimited productive
      * steps; a repeated-step watchdog still stops identical no-progress loops.
@@ -550,6 +552,9 @@ export const providerConfigFileSchema = z
       ...(config.autoFileChangeHooks !== undefined && {
         autoFileChangeHooks: config.autoFileChangeHooks,
       }),
+      ...(config.approvalMode !== undefined && {
+        approvalMode: config.approvalMode,
+      }),
       // Optional in the resolved config: omitted unless explicitly set, so
       // callers use the unlimited default plus the no-progress watchdog.
       ...(config.maxAgentSteps !== undefined && {
@@ -629,6 +634,7 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
   },
   fileChangeHooks: [],
   autoFileChangeHooks: undefined,
+  approvalMode: 'balanced',
   failoverModels: undefined,
   maxAgentSteps: undefined,
 })
@@ -929,6 +935,7 @@ function mergeProviderConfigs(
     ),
     autoFileChangeHooks:
       override.autoFileChangeHooks ?? base.autoFileChangeHooks,
+    approvalMode: override.approvalMode ?? base.approvalMode,
     failoverModels: override.failoverModels ?? base.failoverModels,
     maxAgentSteps: override.maxAgentSteps ?? base.maxAgentSteps,
   }

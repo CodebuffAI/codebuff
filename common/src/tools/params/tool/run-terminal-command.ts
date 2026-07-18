@@ -88,22 +88,22 @@ const inputSchema = z
       .describe(
         `The working directory to run the command in. Default is the project root.`,
       ),
-      timeout_seconds: z
+    timeout_seconds: z
       .number()
       .default(30)
       .optional()
       .describe(
         `Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30`,
-        ),
-      owner: z
-        .object({
-          clientSessionId: z.string(),
-          rootRunId: z.string(),
-          parentRunId: z.string(),
-          parentAgentId: z.string(),
-        })
-        .optional()
-        .describe('Runtime-managed background job owner; agents must omit.'),
+      ),
+    owner: z
+      .object({
+        clientSessionId: z.string(),
+        rootRunId: z.string(),
+        parentRunId: z.string(),
+        parentAgentId: z.string(),
+      })
+      .optional()
+      .describe('Runtime-managed background job owner; agents must omit.'),
   })
   .describe(
     `Execute a CLI command from the **project root** (different from the user's cwd).`,
@@ -114,7 +114,7 @@ Stick to these use cases:
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
 3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
 
-This tool has no interactive privilege-escalation path. Do not ask the user to approve a denied basher command and then retry it: approval text cannot change the runtime permission profile. Keep validation and inspection commands within the read-only allowlist. Use dedicated, explicitly authorized agents/workflows for git mutation, dependency installation, releases, deployment, or other high-impact operations; otherwise ask the user to run the command themselves outside the agent.
+The harness supports three host-controlled approval modes. Balanced mode allows routine project-local dependency changes, validation, and feature-branch work while pausing genuinely risky effects for an exact one-time approval. Strict mode asks for every classified package, Git, remote, or destructive effect. Allow-all suppresses prompts without disabling non-negotiable containment and secret safeguards. A static agent profile can still deny commands outside that agent's role; use the dedicated dependency or Git workflow when applicable.
 
 DO NOT do any of the following:
 1. Run commands that can modify files outside of the project directory, install packages globally, install virtual environments, or have significant side effects outside of the project directory, unless you have explicit permission from the user. Treat anything outside of the project directory as read-only.

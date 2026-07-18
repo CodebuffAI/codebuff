@@ -75,12 +75,15 @@ export function createBase2(
       'query_index',
       'read_files',
       'read_image',
+      'inspect_3d_asset',
+      'render_3d_preview',
       'read_subtree',
       'read_outline',
       !isFast && !planOnly && 'write_todos',
       'create_plan',
       'update_plan_status',
       canDirectEdit && 'edit_transaction',
+      canDirectEdit && 'edit_3d_asset',
       canRunTerminal && 'run_terminal_command',
       'suggest_followups',
       !noAskUser && 'ask_user',
@@ -169,7 +172,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
         : `
 - **Ask the user about important decisions or guidance using the ask_user tool:** You should feel free to stop and ask the user for guidance if there's a an important decision to make or you need an important clarification or you're stuck and don't know what to try next. Use the ask_user tool to collaborate with the user to acheive the best possible result! Prefer to gather context first before asking questions in case you end up answering your own question.`
     }
-- **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
+- **Be careful about terminal commands:** Routine project-local dependency changes, validation, builds, and feature-branch Git work may proceed when they are directly requested or necessary to complete an implementation. Destructive workspace/history changes, default-branch pushes, arbitrary code evaluation, uploads/remote shells, releases, migrations, and production/infrastructure effects are risky and must follow the harness approval mode. Global/system installs remain prohibited.
 - **Do what the user asks within the active mode's authority:** If the user asks for a risky action in an implementation-capable mode, perform it with the required safeguards. In plan mode, analyze and plan the action but do not execute it or bypass the plan-only boundary.
 ${
   planOnly
@@ -243,7 +246,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Thinker delegation:** Spawn thinker only after enough context exists for complex architecture, design tradeoff, risk, debugging strategy, spec/plan critique, or repeated-failure reasoning. Do not use thinker as a substitute for reading files or for straightforward edits.
 - **Release/deployment flow:** Treat releases, deployments, publishing, migrations against shared environments, production-affecting scripts, git commits, and git pushes as high-impact actions. Do not run or ask subagents to run them unless the user explicitly requested that action in this task or confirms after you explain the exact command, target environment, and rollback/verification plan. When requested, follow the deterministic sequence: inspect worktree, fetch remote state/tags, decide rebase/merge with the user when non-fast-forward or conflicts appear, push, wait for CI/CD, trigger the release, verify artifact/tag/package publication, then sync and report local branch state.
 - **Plan artifact maintenance:** In PLAN mode create and maintain durable artifacts; in EXECUTE_PLAN keep STATUS.md and LESSONS.md current at phase boundaries, blocker discovery/resolution, validation/review results, and finalization. Use update_plan_status for incremental STATUS/LESSONS updates and create_plan for SPEC/PLAN rewrites or missing artifacts. Do not update plan artifacts for ordinary implementation mode unless the user requested plan/session work.
-- **Tool choice:** Prefer dedicated tools over shell fallbacks: repository status and configured file-change hooks are runtime-owned and injected automatically; use read_files/read_outline/read_subtree/glob/list_directory/query_index for inspection, read_image for screenshots/images, edit_transaction with the appropriate edit type for project mutations, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
+- **Tool choice:** Prefer dedicated tools over shell fallbacks: repository status and configured file-change hooks are runtime-owned and injected automatically; use read_files/read_outline/read_subtree/glob/list_directory/query_index for source inspection, inspect_3d_asset/render_3d_preview for 3D assets, read_image for other screenshots/images, edit_3d_asset for guarded Blender changes, edit_transaction for text project mutations, browser_use/codebuff_local_cli for visual smoke tests, and basher only for commands without a dedicated tool.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
 - **Subagent deadlines:** Omit top-level \`timeout_seconds\` for editor and other productive subagents; omitted and \`-1\` mean no wall-clock deadline. Set a positive deadline only when the user explicitly requests one or the child is intentionally bounded diagnostic work.
 - **Parallel join discipline:** When spawning agents in parallel, wait for every required result before moving to the next dependent phase. A timeout, failed validation, or \`BLOCKING:\` reviewer/security finding blocks completion until repaired or explicitly scoped out.
@@ -1306,22 +1309,13 @@ ${specialistRoutingSection}
           )
           const securityVerdict =
             getReviewerFinalizationVerdict(securityToolResult)
-          if (
+          const securityProtocolFailure =
             securityCrash ||
-            securityBlockers.length > 0 ||
             securityAttestationIssues.length > 0 ||
             !securityVerdict
-          ) {
+          if (securityBlockers.length > 0) {
             activeWorkState.currentPhase = 'blocked'
-            activeWorkState.openReviewerBlockers =
-              securityBlockers.length > 0 ||
-              securityAttestationIssues.length > 0
-                ? [...securityBlockers, ...securityAttestationIssues]
-                : [
-                    securityCrash
-                      ? `Security reviewer crashed: ${securityCrash}`
-                      : 'Security reviewer did not return a valid blocking/non-blocking verdict.',
-                  ]
+            activeWorkState.openReviewerBlockers = securityBlockers
             activeWorkState.nextRequiredAction =
               'Resolve the security review failure or blocking findings before validation and finalization.'
             activeWorkState.latestWorkSummary =
@@ -1337,11 +1331,17 @@ ${specialistRoutingSection}
             })
             continue
           }
-          recordSuccessfulReviewReceipt(
-            securityToolResult,
-            'security-reviewer',
-            securitySnapshotFingerprint,
-          )
+          if (securityProtocolFailure) {
+            activeWorkState.validationAssurance = 'reduced'
+            activeWorkState.latestWorkSummary =
+              'Security reviewer infrastructure failed without reporting a concrete finding; continuing with reduced assurance.'
+          } else {
+            recordSuccessfulReviewReceipt(
+              securityToolResult,
+              'security-reviewer',
+              securitySnapshotFingerprint,
+            )
+          }
           activeWorkState.securityReviewGateDone = true
           activeWorkState.preEditSecurityReviewDone = true
           markActiveWorkStateChanged()
@@ -1521,7 +1521,7 @@ ${specialistRoutingSection}
                 const blockers = collectReviewerBlockers(specialistToolResult)
                 const verdict =
                   getReviewerFinalizationVerdict(specialistToolResult)
-                if (crash || blockers.length > 0 || !verdict) {
+                if (blockers.length > 0) {
                   const normalizedBlockers =
                     blockers.length > 0
                       ? blockers
@@ -1553,16 +1553,21 @@ ${specialistRoutingSection}
                   specialistBlocked = true
                   break
                 }
+                if (crash || !verdict) {
+                  activeWorkState.validationAssurance = 'reduced'
+                  activeWorkState.latestWorkSummary = `${agentType} infrastructure failed without reporting a concrete finding; continuing with reduced assurance.`
+                } else {
+                  recordSuccessfulReviewReceipt(
+                    specialistToolResult,
+                    agentType,
+                    expectedSnapshotId,
+                  )
+                }
                 activeWorkState.specialistReviewGatesDone = Array.from(
                   new Set([
                     ...(activeWorkState.specialistReviewGatesDone ?? []),
                     agentType,
                   ]),
-                )
-                recordSuccessfulReviewReceipt(
-                  specialistToolResult,
-                  agentType,
-                  expectedSnapshotId,
                 )
                 markActiveWorkStateChanged()
               }
@@ -1852,7 +1857,14 @@ ${specialistRoutingSection}
         }
         let validationSummary =
           'No file changes were detected, so no validation hooks ran.'
-        if (editsHappened && runValidationGate) {
+        const validationInfrastructureBypassed =
+          activeWorkState.validationInfrastructureBypassFingerprint ===
+          reviewSnapshotFingerprint
+        if (
+          editsHappened &&
+          runValidationGate &&
+          !validationInfrastructureBypassed
+        ) {
           const verify = yield {
             toolName: 'run_file_change_hooks',
             input: { files: Array.from(pendingGateFiles) },
@@ -1901,6 +1913,11 @@ ${specialistRoutingSection}
             const repairRound = activeWorkState.repairRoundCount ?? 0
             const parsed = parseValidationFailures(failures)
             const hasParseableFailures = parsed.some((p) => p.file.length > 0)
+            const hasInfrastructureFailures = failures.every((failure) =>
+              /(?:command denied|permission denied|not found|enoent|could not find|failed to spawn|spawn .* failed|timed out|timeout|missing executable|is not recognized as an internal or external command)/i.test(
+                failure,
+              ),
+            )
             const canRepair =
               repairRound < MAX_REPAIR_ROUNDS && hasParseableFailures
             if (canRepair) {
@@ -2005,7 +2022,12 @@ ${specialistRoutingSection}
                             ...pendingGateFiles,
                             ...parsed.map((p: { file: string }) => p.file),
                           ]),
-                          writablePaths: Array.from(pendingGateFiles),
+                          writablePaths: Array.from(
+                            new Set([
+                              ...pendingGateFiles,
+                              ...parsed.map((p: { file: string }) => p.file),
+                            ]),
+                          ),
                           allowedTools: [
                             'read_files',
                             'read_outline',
@@ -2212,7 +2234,12 @@ ${specialistRoutingSection}
                               ...pendingGateFiles,
                               ...parsed.map((p: { file: string }) => p.file),
                             ]),
-                            writablePaths: Array.from(pendingGateFiles),
+                            writablePaths: Array.from(
+                              new Set([
+                                ...pendingGateFiles,
+                                ...parsed.map((p: { file: string }) => p.file),
+                              ]),
+                            ),
                             allowedTools: [
                               'read_files',
                               'read_outline',
@@ -2304,6 +2331,26 @@ ${specialistRoutingSection}
                 }
                 failures = escalateFailures
               }
+              if (!hasParseableFailures && hasInfrastructureFailures) {
+                validationSummary = `REDUCED_ASSURANCE: Validation infrastructure could not produce source diagnostics: ${failures.join(' | ')}`
+                activeWorkState.validationInfrastructureBypassFingerprint =
+                  reviewSnapshotFingerprint
+                activeWorkState.lastValidationSummary = validationSummary
+                activeWorkState.validationAssurance = 'reduced'
+                activeWorkState.currentPhase = 'awaiting_review'
+                activeWorkState.nextRequiredAction = ''
+                markActiveWorkStateChanged()
+                emitGateTelemetry({
+                  currentPhase: 'awaiting_review',
+                  pendingFileCount: pendingGateFiles.size,
+                  pendingFiles: Array.from(pendingGateFiles),
+                  validationStatus: 'skipped',
+                  skipReason: 'validation-infrastructure-failure',
+                  blockerCount: failures.length,
+                  repairRound,
+                })
+                continue
+              }
               activeWorkState.nextRequiredAction =
                 'Fix the blocking validation hook failures before doing anything else.'
               activeWorkState.lastReviewerGateSkipReason =
@@ -2347,6 +2394,12 @@ ${specialistRoutingSection}
               continue
             }
           }
+        } else if (validationInfrastructureBypassed) {
+          validationSummary =
+            activeWorkState.lastValidationSummary ||
+            'REDUCED_ASSURANCE: Validation infrastructure was unavailable for this snapshot.'
+          activeWorkState.validationAssurance = 'reduced'
+          activeWorkState.currentPhase = 'awaiting_review'
         }
 
         let reviewerFinalizationVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' =
@@ -2604,7 +2657,15 @@ ${specialistRoutingSection}
                               finding.files ?? [],
                           ),
                         ]),
-                        writablePaths: Array.from(pendingGateFiles),
+                        writablePaths: Array.from(
+                          new Set([
+                            ...pendingGateFiles,
+                            ...activeWorkState.openReviewerFindings.flatMap(
+                              (finding: { files?: string[] }) =>
+                                finding.files ?? [],
+                            ),
+                          ]),
+                        ),
                         allowedTools: [
                           'read_files',
                           'read_outline',
@@ -2872,6 +2933,8 @@ ${specialistRoutingSection}
             activeWorkState.repairRoundCount = 0
             activeWorkState.repairSessionId = undefined
             activeWorkState.repairEscalationDone = undefined
+            activeWorkState.validationInfrastructureBypassFingerprint =
+              undefined
             activeWorkState.staticReviewerJobId = undefined
             activeWorkState.preEditSecurityReviewDone = false
             activeWorkState.securityReviewGateDone = false
@@ -3561,16 +3624,11 @@ ${specialistRoutingSection}
         })
       }
 
-      function repairEditorReadablePaths(paths: string[]): string[] {
-        const exactPaths = paths
-          .map(normalizeGateFilePath)
-          .filter((file): file is string => Boolean(file))
-        const adjacentDirectoryPatterns = exactPaths.flatMap((file) => {
-          const separatorIndex = file.lastIndexOf('/')
-          if (separatorIndex <= 0) return []
-          return [`${file.slice(0, separatorIndex)}/**`]
-        })
-        return [...new Set([...exactPaths, ...adjacentDirectoryPatterns])]
+      function repairEditorReadablePaths(_paths: string[]): string[] {
+        // Repair agents need project-wide diagnostic visibility to follow
+        // imports, generated sources, shared config, and fixtures. Mutation
+        // authority remains restricted separately to finding-scoped files.
+        return ['*', '**/*']
       }
 
       function isPublicApiSourceFile(filePath: string): boolean {
@@ -3967,6 +4025,7 @@ ${specialistRoutingSection}
         activeWorkState.testWriterGateDone = false
         activeWorkState.docWriterGateDone = false
         activeWorkState.specialistReviewGatesDone = []
+        activeWorkState.validationInfrastructureBypassFingerprint = undefined
         activeWorkState.auxGatesLastPendingFiles = currentFiles
       }
 

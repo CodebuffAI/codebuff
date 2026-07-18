@@ -104,4 +104,22 @@ describe('direct agent tool repair', () => {
       }),
     ).toBeUndefined()
   })
+
+  it('repairs malformed outer and nested separators', () => {
+    expect(
+      buildSpawnAgentsInputForDirectAgentCall({
+        agentType: 'basher',
+        input:
+          '{"prompt":"Run tests",,"params":"{\\"command\\":\\"bun test\\",,\\"timeout_seconds\\":30}"}',
+      }),
+    ).toEqual({
+      agents: [
+        {
+          agent_type: 'basher',
+          prompt: 'Run tests',
+          params: { command: 'bun test', timeout_seconds: 30 },
+        },
+      ],
+    })
+  })
 })

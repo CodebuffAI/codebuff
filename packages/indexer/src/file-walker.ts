@@ -3,6 +3,7 @@ import * as path from 'node:path'
 
 import ignore from 'ignore'
 import { isMandatorySensitiveReadPath } from '@codebuff/common/util/sensitive-paths'
+import { THREE_D_ASSET_EXTENSIONS } from '@codebuff/common/util/file'
 
 const DEFAULT_EXCLUDE_DIRS = new Set([
   'node_modules',
@@ -23,13 +24,15 @@ const DEFAULT_EXCLUDE_DIRS = new Set([
   'out',
 ])
 
-const MAX_FILE_SIZE = 500_000 // 500KB
+const MAX_FILE_SIZE = 500_000 // 500KB for text parsing
 const DEFAULT_MAX_FILES = 20_000
 
 function isGeneratedOperationalArtifact(relativePath: string): boolean {
   return (
     relativePath === '.agents/sessions' ||
     relativePath.startsWith('.agents/sessions/') ||
+    relativePath === '.openbuff/artifacts' ||
+    relativePath.startsWith('.openbuff/artifacts/') ||
     /^evals\/buffbench\/[^/]+-base2-lite-error-[^/]+\.json$/i.test(relativePath)
   )
 }
@@ -69,6 +72,14 @@ export const BINARY_EXTENSIONS = new Set([
   '.dae',
   '.3ds',
   '.blend',
+  '.glb',
+  '.gltf',
+  '.stl',
+  '.ply',
+  '.usd',
+  '.usda',
+  '.usdc',
+  '.usdz',
 
   // Image / texture formats
   '.png',
@@ -157,6 +168,7 @@ export interface WalkedFile {
   ext: string
   mtime: number
   size: number
+  asset?: { kind: '3d'; format: string }
 }
 
 export async function walkProject(
@@ -226,9 +238,10 @@ export async function walkProjectDetailed(
         } catch {
           continue
         }
-        if (stat.size > MAX_FILE_SIZE) continue
         const ext = path.extname(entry.name).toLowerCase()
-        if (BINARY_EXTENSIONS.has(ext)) continue
+        const is3dAsset = THREE_D_ASSET_EXTENSIONS.has(ext)
+        if (stat.size > MAX_FILE_SIZE && !is3dAsset) continue
+        if (BINARY_EXTENSIONS.has(ext) && !is3dAsset) continue
         const prefix = rel.includes('/') ? (rel.split('/')[0] ?? rel) : '<root>'
         eligibleCountsByPrefix.set(
           prefix,
@@ -242,6 +255,9 @@ export async function walkProjectDetailed(
           ext,
           mtime: stat.mtimeMs,
           size: stat.size,
+          ...(is3dAsset
+            ? { asset: { kind: '3d' as const, format: ext.slice(1) } }
+            : {}),
         })
         candidatesByPrefix.set(prefix, prefixCandidates)
       }

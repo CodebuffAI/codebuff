@@ -3,12 +3,13 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
-import { isMandatorySensitiveReadPath } from '../../../common/src/util/sensitive-paths'
 import { getBundledRgPath } from '../native/ripgrep'
 import { resolveFilePathForOperation } from './path-utils'
 import { parseSafeRipgrepFlags } from './find-files-matching-content'
+import { isReadPathBlocked } from './read-policy'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import type { FileFilter } from './read-files'
 import { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Hidden directories to include in code search by default.
@@ -46,6 +47,7 @@ export function codeSearch({
   timeoutSeconds = 10,
   logger,
   signal,
+  fileFilter,
 }: {
   projectPath: string
   pattern: string
@@ -63,6 +65,7 @@ export function codeSearch({
    *  signal is already aborted when called, the function short-circuits
    *  without spawning a child. */
   signal?: AbortSignal
+  fileFilter?: FileFilter
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let isResolved = false
@@ -353,7 +356,9 @@ export function codeSearch({
         if (evt.type === 'match' || evt.type === 'context') {
           // Handle both text and bytes for non-UTF8 paths
           const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
-          if (isMandatorySensitiveReadPath(filePath)) continue
+          if (isReadPathBlocked(filePath, fileFilter)) {
+            continue
+          }
           const lineNumber = evt.data.line_number ?? 0
           // Strip trailing newlines to prevent blank lines in output
           const rawText = evt.data.lines?.text ?? ''

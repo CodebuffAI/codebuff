@@ -7,7 +7,7 @@ import {
 } from '@codebuff/common/old-constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 import { isAbortError, unwrapPromptResult } from '@codebuff/common/util/error'
-import { systemMessage, userMessage } from '@codebuff/common/util/messages'
+import { userMessage } from '@codebuff/common/util/messages'
 import { range, shuffle, uniq } from 'lodash'
 
 import { promptFlashWithFallbacks } from '../llm-api/gemini-with-fallbacks'
@@ -204,7 +204,10 @@ async function getRelevantFiles(
     logger,
   })
   const start = performance.now()
-  let codebuffMessages = [systemMessage(system), ...messagesWithPrompt]
+  let codebuffMessages = messagesWithSystem({
+    messages: messagesWithPrompt,
+    system,
+  })
 
   // Converts assistant messages to user messages for finetuned model
   codebuffMessages = codebuffMessages

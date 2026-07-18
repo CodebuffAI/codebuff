@@ -397,6 +397,26 @@ Example:
 
 Merged result (in order): `[prettier (project version), typecheck-sdk]`.
 
+## Harness approval mode
+
+`approvalMode` controls when terminal effects pause for confirmation:
+
+```jsonc
+{
+  "approvalMode": "balanced", // balanced | strict | allow-all
+}
+```
+
+- `balanced` is the default. Dependency changes, commits, feature-branch
+  pushes, pull requests, and ordinary downloads proceed without prompts.
+  Destructive operations, default-branch pushes, releases, deployments,
+  migrations, uploads/remote shells, and arbitrary code evaluation ask once.
+- `strict` asks for every classified package, Git, remote, or destructive
+  effect.
+- `allow-all` suppresses approval prompts but does not disable project-root
+  containment, mandatory secret filtering, global/system install blocks,
+  owned-path staging, or force/delete-push protection.
+
 ## File-change hooks (verification gate)
 
 `fileChangeHooks` are the commands Openbuff runs automatically after an agent
@@ -413,7 +433,7 @@ Inferred hooks currently include:
 | Manifest                               | Inferred hooks                                                                                                                                                                                         |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `package.json`                         | `bunx eslint .` when `eslint` is listed in `dependencies` or `devDependencies`; `bunx tsc --noEmit` when `typescript` is listed. Openbuff does not infer or execute `package.json` scripts by default. |
-| `go.mod`                               | `test -z "$(gofmt -l .)"`, `go vet ./...`                                                                                                                                                              |
+| `go.mod`                               | `gofmt -l .` checked through a non-mutating pipeline, `go vet ./...`, `go test ./...`                                                                                                                  |
 | `Cargo.toml`                           | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`                                                                                                                        |
 | `pyproject.toml` or `requirements.txt` | `ruff check .`                                                                                                                                                                                         |
 | `Gemfile`                              | `rubocop`                                                                                                                                                                                              |

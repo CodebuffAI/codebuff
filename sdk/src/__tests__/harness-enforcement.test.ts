@@ -86,7 +86,7 @@ describe('harness enforcement services', () => {
     ).toThrow('Invalid ownership path')
   })
 
-  test('policy requires approvals and always denies default-branch push', () => {
+  test('policy supports balanced, strict, and allow-all approval modes', () => {
     expect(
       evaluateHarnessActionPolicy({
         action: 'release',
@@ -96,13 +96,36 @@ describe('harness enforcement services', () => {
     ).toMatchObject({ allowed: false, approvalRequired: true })
     expect(
       evaluateHarnessActionPolicy({
+        action: 'dependency-install',
+        target: 'bun install',
+        hasMatchingApproval: false,
+      }),
+    ).toEqual({ allowed: true, approvalRequired: false })
+    expect(
+      evaluateHarnessActionPolicy({
+        action: 'dependency-install',
+        target: 'bun install',
+        hasMatchingApproval: false,
+        approvalMode: 'strict',
+      }),
+    ).toMatchObject({ allowed: false, approvalRequired: true })
+    expect(
+      evaluateHarnessActionPolicy({
+        action: 'deploy',
+        target: 'kubectl apply -f deploy.yaml',
+        hasMatchingApproval: false,
+        approvalMode: 'allow-all',
+      }),
+    ).toEqual({ allowed: true, approvalRequired: false })
+    expect(
+      evaluateHarnessActionPolicy({
         action: 'push',
         target: 'origin/main',
         branch: 'main',
         defaultBranch: 'main',
-        hasMatchingApproval: true,
+        hasMatchingApproval: false,
       }),
-    ).toMatchObject({ allowed: false, approvalRequired: false })
+    ).toMatchObject({ allowed: false, approvalRequired: true })
   })
 
   test('classifies only recognized high-impact command shapes', () => {
@@ -132,6 +155,17 @@ describe('harness enforcement services', () => {
     expect(classifyTerminalHarnessAction('pnpm add zod')).toMatchObject({
       action: 'dependency-install',
     })
+    expect(classifyTerminalHarnessAction('git commit -m test')).toMatchObject({
+      action: 'commit',
+    })
+    expect(classifyTerminalHarnessAction('find src -delete')).toMatchObject({
+      action: 'workspace-delete',
+    })
+    expect(classifyTerminalHarnessAction('node -e "fetch(url)"')).toMatchObject(
+      {
+        action: 'arbitrary-code',
+      },
+    )
     expect(classifyTerminalHarnessAction('bun test')).toBeUndefined()
   })
 })

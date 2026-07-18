@@ -23,6 +23,7 @@ import {
   clientToolCallSchema,
   clientToolNames,
 } from '@codebuff/common/tools/list'
+import { parseJsonBounded } from '@codebuff/common/tools/params/utils'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { advanceWorkspaceState } from '@codebuff/common/types/workspace-state'
 import type { WorkspaceStateV1 } from '@codebuff/common/types/workspace-state'
@@ -41,6 +42,10 @@ import {
   HarnessApprovalService,
   evaluateHarnessActionPolicy,
 } from './services/harness-enforcement'
+import type {
+  HarnessApprovalMode,
+  HarnessApprovalRequest,
+} from './services/harness-enforcement'
 import { changeFile, changeFiles } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
@@ -54,6 +59,7 @@ import {
   normalizeReadFilesOverrideResult,
 } from './tools/read-files'
 import { readImages } from './tools/read-image'
+import { edit3dAsset, inspect3dAsset, render3dPreview } from './tools/3d-assets'
 import {
   browserLogs,
   stopBrowserSessionsByOwner,
@@ -185,6 +191,10 @@ export type OpenbuffClientOptions = {
    * Receipts are matched and consumed atomically only for the high-impact
    * action, workspace, root run, and current snapshot they authorize. */
   approvalReceiptIds?: string[]
+  /** Approval behavior for classified terminal effects. Defaults to balanced. */
+  approvalMode?: HarnessApprovalMode
+  /** Host callback used to pause the current run for an exact approval. */
+  requestApproval?: (request: HarnessApprovalRequest) => Promise<boolean>
 
   handleEvent?: (event: PrintModeEvent) => void | Promise<void>
   handleStreamChunk?: (
@@ -411,6 +421,8 @@ async function runOnce({
   env,
   harnessStateDir,
   approvalReceiptIds = [],
+  approvalMode = 'balanced',
+  requestApproval,
   runTimeoutMs,
 
   handleEvent,
@@ -729,6 +741,8 @@ async function runOnce({
           env,
           harnessStateDir: resolvedHarnessStateDir,
           approvalReceiptIds,
+          approvalMode,
+          requestApproval,
           approvalService,
           harnessWorkspaceIdentity: workspaceJournal
             ? {
@@ -1115,6 +1129,8 @@ async function handleToolCall({
   env,
   harnessStateDir,
   approvalReceiptIds,
+  approvalMode,
+  requestApproval,
   approvalService,
   harnessWorkspaceIdentity,
   getWorkspaceState,
@@ -1135,6 +1151,8 @@ async function handleToolCall({
   env?: Record<string, string>
   harnessStateDir: string
   approvalReceiptIds: string[]
+  approvalMode: HarnessApprovalMode
+  requestApproval?: OpenbuffClientOptions['requestApproval']
   approvalService: HarnessApprovalService
   harnessWorkspaceIdentity?: {
     repositoryId: string
@@ -1154,7 +1172,12 @@ async function handleToolCall({
   signal?: AbortSignal
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
-  const input = action.input
+  const input =
+    typeof action.input === 'string'
+      ? parseJsonBounded(action.input)
+      : action.input
+  const normalizedAction =
+    input === action.input ? action : { ...action, input }
 
   if (signal?.aborted) {
     throw createAbortError(signal)
@@ -1201,10 +1224,10 @@ async function handleToolCall({
     return {
       output: signal
         ? await raceAgainstAbort(
-            customToolHandler.execute(action.input, { signal }),
+            customToolHandler.execute(input, { signal }),
             signal,
           )
-        : await customToolHandler.execute(action.input, { signal }),
+        : await customToolHandler.execute(input, { signal }),
     }
   }
 
@@ -1229,7 +1252,7 @@ async function handleToolCall({
       )
     }
     if (isClientTool) {
-      clientToolCallSchema.parse(action)
+      clientToolCallSchema.parse(normalizedAction)
     }
 
     if (override) {
@@ -1400,9 +1423,13 @@ async function handleToolCall({
             branch,
             defaultBranch,
             hasMatchingApproval: false,
+            approvalMode,
           })
           if (!staticDecision.allowed && !staticDecision.approvalRequired) {
             return staticDecision
+          }
+          if (staticDecision.allowed) {
+            return { allowed: true as const }
           }
           const candidateApprovalIds = [
             terminalInput.approval_receipt_id,
@@ -1415,19 +1442,12 @@ async function handleToolCall({
           )
           const snapshotId = getWorkspaceState()?.snapshotId
           const rootRunId = terminalInput.owner?.rootRunId
-          if (
-            candidateApprovalIds.length === 0 ||
-            !snapshotId ||
-            !rootRunId ||
-            !harnessWorkspaceIdentity
-          ) {
-            return staticDecision.allowed
-              ? {
-                  allowed: false as const,
-                  approvalRequired: true,
-                  reason: `Action '${classified.action}' requires a matching approval receipt bound to the current repository, workspace, root run, and snapshot.`,
-                }
-              : staticDecision
+          if (!snapshotId || !rootRunId || !harnessWorkspaceIdentity) {
+            return {
+              allowed: false as const,
+              approvalRequired: true,
+              reason: `Action '${classified.action}' requires an approval context bound to the current repository, workspace, root run, and snapshot.`,
+            }
           }
           let lastError: unknown
           for (const approvalId of candidateApprovalIds) {
@@ -1445,12 +1465,59 @@ async function handleToolCall({
                 branch,
                 defaultBranch,
                 hasMatchingApproval: true,
+                approvalMode,
               })
               return approvedDecision.allowed
                 ? { allowed: true, approvalReceiptId: receipt.id }
                 : approvedDecision
             } catch (error) {
               lastError = error
+            }
+          }
+          if (requestApproval) {
+            const approved = await requestApproval({
+              ...classified,
+              risk:
+                classified.action === 'dependency-install' ||
+                classified.action === 'commit' ||
+                classified.action === 'push' ||
+                classified.action === 'pull-request'
+                  ? 'routine'
+                  : 'high',
+              reason: staticDecision.reason,
+            })
+            if (approved) {
+              const grant = approvalService.grant(
+                {
+                  ...harnessWorkspaceIdentity,
+                  runId: rootRunId,
+                  snapshotId,
+                },
+                { action: classified.action, target: classified.target },
+              )
+              const receipt = approvalService.consume({
+                ...harnessWorkspaceIdentity,
+                runId: rootRunId,
+                snapshotId,
+                approvalId: grant.id,
+                action: classified.action,
+                target: classified.target,
+              })
+              const approvedDecision = evaluateHarnessActionPolicy({
+                ...classified,
+                branch,
+                defaultBranch,
+                hasMatchingApproval: true,
+                approvalMode,
+              })
+              return approvedDecision.allowed
+                ? { allowed: true as const, approvalReceiptId: receipt.id }
+                : approvedDecision
+            }
+            return {
+              allowed: false as const,
+              approvalRequired: true,
+              reason: 'The user declined this operation.',
             }
           }
           return {
@@ -1469,6 +1536,61 @@ async function handleToolCall({
         cwd: requireCwd(cwd, 'read_image'),
         fs,
         signal,
+        fileFilter,
+      })
+    } else if (toolName === 'inspect_3d_asset') {
+      if (fs.hostProcessView === false) {
+        throw new Error(
+          'inspect_3d_asset is unsupported because this filesystem adapter declares a different host process view.',
+        )
+      }
+      result = await inspect3dAsset({
+        path: (input as { path: string }).path,
+        cwd: requireCwd(cwd, 'inspect_3d_asset'),
+        fs,
+        signal,
+        fileFilter,
+      })
+    } else if (toolName === 'render_3d_preview') {
+      if (fs.hostProcessView === false) {
+        throw new Error(
+          'render_3d_preview is unsupported because this filesystem adapter declares a different host process view.',
+        )
+      }
+      const previewInput = input as {
+        path: string
+        views: Array<'camera' | 'perspective' | 'front' | 'side' | 'top'>
+        mode: 'material' | 'clay' | 'wireframe'
+        width: number
+        height: number
+      }
+      result = await render3dPreview({
+        ...previewInput,
+        cwd: requireCwd(cwd, 'render_3d_preview'),
+        fs,
+        signal,
+        fileFilter,
+      })
+    } else if (toolName === 'edit_3d_asset') {
+      if (fs.hostProcessView === false) {
+        throw new Error(
+          'edit_3d_asset is unsupported because this filesystem adapter declares a different host process view.',
+        )
+      }
+      const editInput = input as {
+        path: string
+        source_hash: string
+        operations: Record<string, unknown>[]
+      }
+      result = await edit3dAsset({
+        path: editInput.path,
+        sourceHash: editInput.source_hash,
+        operations: editInput.operations,
+        cwd: requireCwd(cwd, 'edit_3d_asset'),
+        fs,
+        operationId: action.requestId,
+        signal,
+        fileFilter,
       })
     } else if (toolName === 'browser_logs') {
       const browserInput = input as Parameters<typeof browserLogs>[0] & {
@@ -1498,6 +1620,7 @@ async function handleToolCall({
         ...codeSearchInput,
         projectPath: requireCwd(cwd, 'code_search'),
         signal,
+        fileFilter,
       })
     } else if (toolName === 'find_files_matching_content') {
       if (fs.hostProcessView === false) {
@@ -1513,12 +1636,14 @@ async function handleToolCall({
         ...findFilesInput,
         projectPath: requireCwd(cwd, 'find_files_matching_content'),
         signal,
+        fileFilter,
       })
     } else if (toolName === 'list_directory') {
       result = await listDirectory({
         directoryPath: (input as { path: string }).path,
         projectPath: requireCwd(cwd, 'list_directory'),
         fs,
+        fileFilter,
       })
     } else if (toolName === 'glob') {
       result = await glob({
@@ -1526,6 +1651,7 @@ async function handleToolCall({
         projectPath: requireCwd(cwd, 'glob'),
         cwd: (input as { pattern: string; cwd?: string }).cwd,
         fs,
+        fileFilter,
       })
     } else if (toolName === 'run_file_change_hooks') {
       if (fs.hostProcessView === false) {

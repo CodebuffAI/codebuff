@@ -9,6 +9,7 @@ import {
   normalizeReplacementAliases,
   normalizeReplacementList,
   normalizeTransactionEditList,
+  parseJsonStringWithRepair,
 } from '../utils'
 
 describe('coerceToArray', () => {
@@ -36,6 +37,13 @@ describe('coerceToArray', () => {
 
   it('parses a stringified JSON array', () => {
     expect(coerceToArray('["file1.ts", "file2.ts"]')).toEqual([
+      'file1.ts',
+      'file2.ts',
+    ])
+  })
+
+  it('repairs malformed separators in a stringified JSON array', () => {
+    expect(coerceToArray('["file1.ts",, "file2.ts",]')).toEqual([
       'file1.ts',
       'file2.ts',
     ])
@@ -97,6 +105,13 @@ describe('coerceToObject', () => {
     expect(coerceToObject('{"key": "value"}')).toEqual({ key: 'value' })
   })
 
+  it('repairs malformed separators without changing string content', () => {
+    expect(coerceToObject('{"key":"a,,b",,"enabled":true,}')).toEqual({
+      key: 'a,,b',
+      enabled: true,
+    })
+  })
+
   it('leaves non-JSON strings untouched', () => {
     expect(coerceToObject('not-json')).toBe('not-json')
   })
@@ -121,6 +136,24 @@ describe('normalizeSpawnAgentList', () => {
     expect(normalizeSpawnAgentList([JSON.stringify(entry)])).toEqual([entry])
     expect(normalizeSpawnAgentList('[{"agent_type":')).toEqual([
       '[{"agent_type":',
+    ])
+  })
+
+  it('repairs malformed nested params and handoff objects', () => {
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'basher',
+          params: '{"command":"bun test",,"timeout_seconds":30}',
+          handoff: '{"schemaVersion":1,,"taskId":"validate"}',
+        },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'basher',
+        params: { command: 'bun test', timeout_seconds: 30 },
+        handoff: { schemaVersion: 1, taskId: 'validate' },
+      },
     ])
   })
 
@@ -396,6 +429,18 @@ describe('normalizeSpawnAgentList', () => {
     const result = coerceToArray(twoFragments)
     // The rejoined string is > 64KB so repairCommaSplitFragments fails fast.
     expect(result).toBe(twoFragments)
+  })
+})
+
+describe('parseJsonStringWithRepair', () => {
+  it('repairs only separators outside strings', () => {
+    expect(
+      parseJsonStringWithRepair('{"value":"a,,b,}",,"items":[1,,2,]}'),
+    ).toEqual({ value: 'a,,b,}', items: [1, 2] })
+  })
+
+  it('rejects truncated JSON without guessing', () => {
+    expect(() => parseJsonStringWithRepair('{"items":[1,,2')).toThrow()
   })
 })
 

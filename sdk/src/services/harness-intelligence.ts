@@ -282,6 +282,7 @@ export function inspectHarnessEnvironment(cwd: string): EnvironmentInspection {
       maven: toolVersion('mvn'),
       gradle: toolVersion('gradle'),
       dotnet: toolVersion('dotnet'),
+      blender: toolVersion('blender'),
     },
   }
 }

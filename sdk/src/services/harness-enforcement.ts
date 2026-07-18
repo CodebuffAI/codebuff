@@ -11,6 +11,8 @@ type RecordScope = {
   snapshotId: string
 }
 
+export type HarnessApprovalMode = 'balanced' | 'strict' | 'allow-all'
+
 export type ApprovalRecord = LocalHarnessRecord & {
   action: string
   target: string
@@ -102,14 +104,22 @@ export class HarnessApprovalService {
 export type ClassifiedHarnessAction = {
   action:
     | 'dependency-install'
+    | 'commit'
     | 'migration'
     | 'push'
     | 'pull-request'
     | 'release'
     | 'deploy'
+    | 'external-network'
+    | 'arbitrary-code'
     | 'workspace-delete'
   target: string
   branch?: string
+}
+
+export type HarnessApprovalRequest = ClassifiedHarnessAction & {
+  reason: string
+  risk: 'routine' | 'high'
 }
 
 function normalizeCommand(command: string): string {
@@ -151,6 +161,16 @@ export function classifyTerminalHarnessAction(
       ...(branch ? { branch } : {}),
     }
   }
+  if (/^git\s+commit\b/i.test(command)) {
+    return { action: 'commit', target: command }
+  }
+  if (
+    /^git\s+(?:reset\s+--hard|clean\b[\s\S]*-[^\s]*[fd]|checkout\s+--|restore\b)/i.test(
+      command,
+    )
+  ) {
+    return { action: 'workspace-delete', target: command }
+  }
   if (
     /^gh\s+pr\s+(?:create|merge|close|reopen|ready|review)\b/i.test(command)
   ) {
@@ -180,13 +200,43 @@ export function classifyTerminalHarnessAction(
   if (
     /^(?:kubectl|helm|terraform|tofu|ansible|aws|gcloud|az|flyctl|vercel|heroku)\b/i.test(
       command,
+    ) ||
+    /^(?:docker|podman)\s+(?:push|login|run|compose\s+up|system\s+prune)\b/i.test(
+      command,
+    ) ||
+    /^gh\s+(?:workflow\s+run|repo\s+(?:create|delete)|api\b[\s\S]*(?:-X|--method)\s+(?:POST|PUT|PATCH|DELETE))\b/i.test(
+      command,
     )
   ) {
     return { action: 'deploy', target: command }
   }
-  const deletion = command.match(/^rm\s+-[^\n]*r[^\n]*\s+(.+)$/i)
+  if (
+    /^(?:ssh|scp|sftp|ftp|telnet|nc|ncat)\b/i.test(command) ||
+    /^(?:curl|wget)\b[\s\S]*(?:--data(?:-binary)?|-d\b|--form|-F\b|--upload-file|-T\b|--post-data)\b/i.test(
+      command,
+    )
+  ) {
+    return { action: 'external-network', target: command }
+  }
+  if (
+    /^(?:(?:node|bun|deno)\s+(?:-e|--eval)|python(?:3)?\s+-c|ruby\s+-e|perl\s+-e)\b/i.test(
+      command,
+    ) ||
+    /^(?:nohup|setsid)\b/i.test(command) ||
+    /(?:\$\(|`|&\s*$)/.test(command)
+  ) {
+    return { action: 'arbitrary-code', target: command }
+  }
+  const deletion = command.match(
+    /^(?:(?:command|exec)\s+)?rm\s+-[^\n]*r[^\n]*\s+(.+)$/i,
+  )
   if (deletion) {
     return { action: 'workspace-delete', target: deletion[1].trim() }
+  }
+  if (
+    /^find\b[\s\S]*(?:-delete\b|-exec(?:dir)?\b|-ok(?:dir)?\b)/i.test(command)
+  ) {
+    return { action: 'workspace-delete', target: command }
   }
   return undefined
 }
@@ -240,14 +290,15 @@ export function evaluateHarnessActionPolicy(params: {
   defaultBranch?: string
   branch?: string
   hasMatchingApproval: boolean
+  approvalMode?: HarnessApprovalMode
 }): HarnessPolicyDecision {
+  const approvalMode = params.approvalMode ?? 'balanced'
   const highImpact = new Set([
-    'dependency-install',
     'migration',
-    'push',
-    'pull-request',
     'release',
     'deploy',
+    'external-network',
+    'arbitrary-code',
     'workspace-delete',
   ])
   if (
@@ -255,13 +306,18 @@ export function evaluateHarnessActionPolicy(params: {
     params.branch &&
     params.defaultBranch === params.branch
   ) {
-    return {
-      allowed: false,
-      approvalRequired: false,
-      reason: 'Direct default-branch pushes are prohibited by harness policy.',
+    if (approvalMode !== 'allow-all' && !params.hasMatchingApproval) {
+      return {
+        allowed: false,
+        approvalRequired: true,
+        reason: 'Direct default-branch pushes require explicit user approval.',
+      }
     }
   }
-  if (highImpact.has(params.action) && !params.hasMatchingApproval) {
+  const requiresApproval =
+    approvalMode === 'strict' ||
+    (approvalMode === 'balanced' && highImpact.has(params.action))
+  if (requiresApproval && !params.hasMatchingApproval) {
     return {
       allowed: false,
       approvalRequired: true,

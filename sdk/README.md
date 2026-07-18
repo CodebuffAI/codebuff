@@ -62,19 +62,29 @@ does not represent the same workspace.
 
 ## High-impact action approvals
 
-Assistant-originated dependency mutation, pushes, releases, migrations,
-deployments, pull-request mutation, and recursive workspace deletion require a
-single-use approval receipt in addition to the agent's static terminal
-permission profile. Approval never widens that profile. Receipts are bound to
-the repository, workspace, root run, exact action target, and current workspace
-snapshot, then consumed atomically before execution.
+Approval behavior is controlled by `approvalMode`:
 
-Hosts create receipts with the exported `WorkspaceJournalService`,
-`LocalHarnessStore`, and `HarnessApprovalService`, then pass their IDs through
-`approvalReceiptIds` on the resumed run. A receipt for a different command,
-run, workspace, or snapshot is rejected; direct default-branch pushes remain
-prohibited even with a receipt. This is intentionally a host-mediated flow—an
-agent cannot mint or broaden its own approval.
+- `balanced` (default) allows routine dependency changes, commits, feature
+  branch pushes, pull requests, and ordinary downloads without prompting. It
+  asks only for destructive workspace/history changes, default-branch pushes,
+  deployments, releases, migrations, uploads/remote shells, and arbitrary code
+  evaluation.
+- `strict` asks for every classified package, Git, remote, or destructive
+  effect.
+- `allow-all` auto-approves classified effects while retaining non-negotiable
+  project containment, secret filtering, no global/system installs, staged
+  path ownership, and no force/delete pushes.
+
+When approval is required, hosts can provide `requestApproval`; the callback
+pauses the same tool call and returns a decision. Approved actions receive a
+single-use receipt bound to the repository, workspace, root run, exact action
+target, and current workspace snapshot, then continue immediately.
+
+The CLI wires `requestApproval` to its existing in-run question UI. SDK hosts
+may instead pre-create receipts with `HarnessApprovalService` and pass their IDs
+through `approvalReceiptIds`. A receipt for a different command, run,
+workspace, or snapshot is rejected; an agent cannot mint or broaden its own
+approval.
 
 ## Mutation events
 

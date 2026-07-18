@@ -26,7 +26,10 @@ describe('harness intelligence read tools', () => {
 
     expect(inspectEnvironment(root)[0]).toMatchObject({
       type: 'json',
-      value: { manifests: ['package.json'] },
+      value: {
+        manifests: ['package.json'],
+        tools: { blender: { available: expect.any(Boolean) } },
+      },
     })
     expect(getAffectedTests(root, ['app.ts'])[0]).toMatchObject({
       value: { targets: [{ candidates: ['app.test.ts'] }] },

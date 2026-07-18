@@ -3,13 +3,16 @@ import * as path from 'path'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import { resolveFilePathForFileSystemOperation } from './path-utils'
+import { isReadPathBlocked } from './read-policy'
+import type { FileFilter } from './read-files'
 
 export async function listDirectory(params: {
   directoryPath: string
   projectPath: string
   fs: CodebuffFileSystem
+  fileFilter?: FileFilter
 }): Promise<CodebuffToolOutput<'list_directory'>> {
-  const { directoryPath, projectPath, fs } = params
+  const { directoryPath, projectPath, fs, fileFilter } = params
 
   try {
     // Reuse the shared containment helper so list_directory gets the same
@@ -42,6 +45,11 @@ export async function listDirectory(params: {
     const directories: string[] = []
 
     for (const entry of entries) {
+      const relativeEntryPath = path.posix.join(
+        resolved.relativePath.replace(/\\/g, '/'),
+        entry.name,
+      )
+      if (isReadPathBlocked(relativeEntryPath, fileFilter)) continue
       if (entry.isDirectory()) {
         directories.push(entry.name)
       } else if (entry.isFile()) {

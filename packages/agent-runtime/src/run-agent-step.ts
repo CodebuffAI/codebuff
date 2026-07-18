@@ -9,11 +9,7 @@ import {
   isAbortError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
-import {
-  assistantMessage,
-  systemMessage,
-  userMessage,
-} from '@codebuff/common/util/messages'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 
@@ -62,6 +58,7 @@ import {
   expireMessages,
   extractPinnedContextBlocks,
   getContextCategoryTelemetry,
+  messagesWithSystem,
 } from './util/messages'
 import { countTokensJson } from './util/token-counter'
 import {
@@ -435,7 +432,10 @@ export const runAgentStep = async (
               ]),
             )
           : {},
-        messages: [systemMessage(system), ...agentState.messageHistory],
+        messages: messagesWithSystem({
+          system,
+          messages: agentState.messageHistory,
+        }),
         logger,
         projectRoot: fileContext.projectRoot,
         runId: agentState.runId,
@@ -610,7 +610,10 @@ export const runAgentStep = async (
     // string here is informational only. Passing '' when model is undefined
     // (deferred to openbuff.json) is safe for the same reason.
     includeCacheControl: supportsCacheControl(agentTemplate.model ?? ''),
-    messages: [systemMessage(system), ...agentState.messageHistory],
+    messages: messagesWithSystem({
+      system,
+      messages: agentState.messageHistory,
+    }),
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,
     onModelContextResolved,

@@ -93,6 +93,18 @@ describe('messagesWithSystem', () => {
     // Use the original message objects to avoid flaky sentAt timestamp comparisons
     expect(result).toEqual([systemMessage('Be helpful'), ...messages])
   })
+
+  it('omits an empty system message for provider compatibility', () => {
+    const messages = [userMessage('hello')] as Message[]
+
+    expect(messagesWithSystem({ messages, system: '' })).toEqual(messages)
+    expect(
+      messagesWithSystem({
+        messages,
+        system: [{ type: 'text', text: '   ' }],
+      }),
+    ).toEqual(messages)
+  })
 })
 
 describe('expireMessages', () => {

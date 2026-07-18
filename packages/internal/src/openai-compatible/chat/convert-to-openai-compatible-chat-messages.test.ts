@@ -3,6 +3,15 @@ import { describe, it, expect } from 'bun:test'
 import { convertToOpenAICompatibleChatMessages } from './convert-to-openai-compatible-chat-messages'
 
 describe('user messages', () => {
+  it('omits empty system messages', () => {
+    expect(
+      convertToOpenAICompatibleChatMessages([
+        { role: 'system', content: '' },
+        { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
+      ]),
+    ).toEqual([{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }])
+  })
+
   it('should keep messages with only a text part by default', async () => {
     const result = convertToOpenAICompatibleChatMessages([
       {

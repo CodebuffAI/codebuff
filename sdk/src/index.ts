@@ -12,6 +12,7 @@ export { changeFile, changeFiles } from './tools/change-file'
 export { applyPatchTool } from './tools/apply-patch'
 export { replaceRange } from './tools/replace-range'
 export { readImages } from './tools/read-image'
+export { edit3dAsset, inspect3dAsset, render3dPreview } from './tools/3d-assets'
 export { createNodeFileSystem } from './tools/node-filesystem'
 export type { NodeFileSystemOptions } from './tools/node-filesystem'
 export {
@@ -186,7 +187,11 @@ export {
   classifyTerminalHarnessAction,
   evaluateHarnessActionPolicy,
 } from './services/harness-enforcement'
-export type { ClassifiedHarnessAction } from './services/harness-enforcement'
+export type {
+  ClassifiedHarnessAction,
+  HarnessApprovalMode,
+  HarnessApprovalRequest,
+} from './services/harness-enforcement'
 export {
   VerifiedKnowledgeService,
   WorkspaceLeaseService,

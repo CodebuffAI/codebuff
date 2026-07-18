@@ -3771,7 +3771,7 @@ describe('base2 repair-loop gate-state telemetry (M6.4)', () => {
     expect(repairSpawn).toMatchObject({ toolName: 'spawn_agents' })
     expect(
       repairSpawn.input.agents[0].handoff.permissions.readablePaths,
-    ).toEqual(['src/a.ts', 'src/**'])
+    ).toEqual(['*', '**/*'])
     expect(
       repairSpawn.input.agents[0].handoff.permissions.writablePaths,
     ).toEqual(['src/a.ts'])

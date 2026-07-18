@@ -61,12 +61,18 @@ import {
 } from './params/tool/audit-intelligence'
 import { getTaskParams } from './params/tool/get-task'
 import { getChangeReviewBundleParams } from './params/tool/get-change-review-bundle'
+import {
+  edit3dAssetParams,
+  inspect3dAssetParams,
+  render3dPreviewParams,
+} from './params/tool/3d-assets'
+import { applyToolInputAliases } from './params/input-aliases'
 
 import type { $ToolParams, PublishedToolName, ToolName } from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
 import type { ToolCallPart } from '../types/messages/content-part'
 
-export const toolParams = {
+const canonicalToolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
   apply_patch: applyPatchParams,
@@ -82,6 +88,7 @@ export const toolParams = {
   get_change_review_bundle: getChangeReviewBundleParams,
   inspect_workspace: inspectWorkspaceParams,
   inspect_environment: inspectEnvironmentParams,
+  inspect_3d_asset: inspect3dAssetParams,
   get_affected_tests: getAffectedTestsParams,
   get_build_targets: getBuildTargetsParams,
   inspect_codebase_structure: inspectCodebaseStructureParams,
@@ -91,6 +98,7 @@ export const toolParams = {
   read_logs: readLogsParams,
   create_plan: createPlanParams,
   edit_transaction: editTransactionParams,
+  edit_3d_asset: edit3dAssetParams,
   end_turn: endTurnParams,
   find_files: findFilesParams,
   find_files_matching_content: findFilesMatchingContentParams,
@@ -101,6 +109,7 @@ export const toolParams = {
   read_docs: readDocsParams,
   read_files: readFilesParams,
   read_image: readImageParams,
+  render_3d_preview: render3dPreviewParams,
   read_outline: readOutlineParams,
   read_slices: readSlicesParams,
   read_subtree: readSubtreeParams,
@@ -128,6 +137,8 @@ export const toolParams = {
 } satisfies {
   [K in ToolName]: $ToolParams<K>
 }
+
+export const toolParams = applyToolInputAliases(canonicalToolParams)
 
 // Tool call from LLM after parsing
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
@@ -214,6 +225,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     input: toolParams.inspect_environment.inputSchema,
   }),
   z.object({
+    toolName: z.literal('inspect_3d_asset'),
+    input: toolParams.inspect_3d_asset.inputSchema,
+  }),
+  z.object({
     toolName: z.literal('get_affected_tests'),
     input: toolParams.get_affected_tests.inputSchema,
   }),
@@ -240,6 +255,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('edit_transaction'),
     input: CHANGES,
+  }),
+  z.object({
+    toolName: z.literal('edit_3d_asset'),
+    input: toolParams.edit_3d_asset.inputSchema,
   }),
   z.object({
     toolName: z.literal('glob'),
@@ -287,6 +306,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('read_image'),
     input: toolParams.read_image.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('render_3d_preview'),
+    input: toolParams.render_3d_preview.inputSchema,
   }),
   z.object({
     toolName: z.literal('write_file'),

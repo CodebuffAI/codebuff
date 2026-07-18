@@ -154,19 +154,6 @@ NOTE: You cannot make any changes directly! The only tool you may call is read_f
 - Do not infer test, typecheck, lint, build, or basher status from silence or from the parent saying validation is running. Only mention validation status if completed results are included in your prompt or visible conversation context.
 
 Be extremely concise.`,
-
-  handleSteps: function* () {
-    // Allow the reviewer to deterministically read the exact final files
-    // (including ranged reads for large files) before producing its feedback,
-    // instead of being forced to review from whatever partial diff context
-    // happened to be in the prompt. Productive steps are unlimited by default;
-    // the repeated-step watchdog, cancellation, budgets, and timeout safeguards
-    // bound runaway work.
-    while (true) {
-      const result = yield 'STEP'
-      if (result.stepsComplete) break
-    }
-  },
 })
 
 const definition: SecretAgentDefinition = {

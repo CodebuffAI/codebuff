@@ -1184,6 +1184,53 @@ describe('runProgrammaticStep', () => {
       )
     })
 
+    it('enforces filesystem scope for read selectors and 3D mutations', async () => {
+      const scopedTemplate = {
+        ...mockTemplate,
+        filesystemScope: {
+          read: ['docs/**'],
+          write: ['assets/approved/**'],
+        },
+        toolNames: ['read_files', 'edit_3d_asset', 'end_turn'],
+      }
+      scopedTemplate.handleSteps = function* () {
+        yield {
+          toolName: 'read_files',
+          input: {
+            ranges: [{ path: 'src/private.ts', startLine: 1, endLine: 2 }],
+          },
+        }
+        yield {
+          toolName: 'edit_3d_asset',
+          input: {
+            path: 'assets/private.blend',
+            source_hash: `sha256:${'a'.repeat(64)}`,
+            operations: [{ type: 'rename_object', object: 'A', new_name: 'B' }],
+          },
+        }
+        yield { toolName: 'end_turn', input: {} }
+      }
+
+      executeToolCallSpy.mockRestore()
+      const responseChunks: Array<{ type?: string; message?: string }> = []
+      mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk as any)
+
+      await runProgrammaticStep({
+        ...mockParams,
+        template: scopedTemplate as AgentTemplate,
+        localAgentTemplates: {
+          'test-agent': scopedTemplate as AgentTemplate,
+        },
+      })
+
+      expect(responseChunks.map((chunk) => chunk.message).join('\n')).toContain(
+        'filesystem read scope. Disallowed path(s): src/private.ts',
+      )
+      expect(responseChunks.map((chunk) => chunk.message).join('\n')).toContain(
+        'filesystem write scope. Disallowed path(s): assets/private.blend',
+      )
+    })
+
     it('should work with outputMode structured_output but no outputSchema defined', async () => {
       const schemaWithoutSchemaTemplate = {
         ...mockTemplate,
@@ -1783,6 +1830,28 @@ describe('runProgrammaticStep', () => {
         type: 'error',
         message: expect.stringContaining('JSON parsing failed'),
       })
+    })
+
+    it('should repair separators in STEP_TEXT tool calls before execution', async () => {
+      const mockGenerator = (function* () {
+        yield {
+          type: 'STEP_TEXT',
+          text: `<codebuff_tool_call>
+{"cb_tool_name":"read_files","paths":["test.txt"],,"note":"a,,b",}
+</codebuff_tool_call>`,
+        }
+        yield { toolName: 'end_turn', input: {} }
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      await runProgrammaticStep(mockParams)
+
+      expect(executeToolCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolName: 'read_files',
+          input: { paths: ['test.txt'], note: 'a,,b' },
+        }),
+      )
     })
 
     it('should accept valid GENERATE_N object', async () => {
