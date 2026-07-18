@@ -175,6 +175,46 @@ describe('normalizeSpawnAgentList', () => {
     ])
   })
 
+  it('repairs a Basher command serialized with provider argument tags', () => {
+    const command =
+      'ls -la /tmp/garden-rose-evidence/ 2>/dev/null; echo "---"; ls -la assets/garden/'
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'basher',
+          params: `command</arg_key><arg_value>${command}`,
+        },
+      ]),
+    ).toEqual([{ agent_type: 'basher', params: { command } }])
+  })
+
+  it('repairs balanced provider argument tags around a Basher command', () => {
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'basher',
+          params: '<arg_key>command</arg_key><arg_value>bun test</arg_value>',
+        },
+      ]),
+    ).toEqual([{ agent_type: 'basher', params: { command: 'bun test' } }])
+  })
+
+  it('rejects tagged params for other agents and multi-field fragments', () => {
+    const nonBasher = {
+      agent_type: 'editor',
+      params: 'command</arg_key><arg_value>bun test',
+    }
+    const multiField = {
+      agent_type: 'basher',
+      params:
+        'command</arg_key><arg_value>bun test</arg_value><arg_key>timeout_seconds</arg_key><arg_value>30',
+    }
+    expect(normalizeSpawnAgentList([nonBasher, multiField])).toEqual([
+      nonBasher,
+      multiField,
+    ])
+  })
+
   it('does not derive a Basher command from prompt prose', () => {
     expect(
       normalizeSpawnAgentList([

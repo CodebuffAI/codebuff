@@ -91,4 +91,22 @@ describe('spawn_agents handoff schema', () => {
       ])
     }
   })
+
+  it('repairs a provider-tagged Basher command into params.command', () => {
+    const command =
+      'ls -la /tmp/garden-rose-evidence/ 2>/dev/null; echo "---"; ls -la assets/garden/'
+    const result = spawnAgentsParams.inputSchema.safeParse({
+      agents: [
+        {
+          agent_type: 'basher',
+          params: `command</arg_key><arg_value>${command}`,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.agents[0]?.params).toEqual({ command })
+    }
+  })
 })

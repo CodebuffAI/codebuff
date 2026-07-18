@@ -440,6 +440,30 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('should repair provider-tagged Basher params before validation', () => {
+    const command =
+      'ls -la /tmp/garden-rose-evidence/ 2>/dev/null; echo "---"; ls -la assets/garden/ 2>/dev/null; echo "---"; ls -la public/models/ 2>/dev/null'
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-tagged-basher-params-tool-call-id',
+        input: {
+          agents: [
+            {
+              agent_type: 'basher',
+              params: `command</arg_key><arg_value>${command}`,
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.agents[0].params).toEqual({ command })
+    }
+  })
+
   it('should move an explicit top-level Basher command into params', () => {
     const result = parseRawToolCall({
       rawToolCall: {

@@ -165,6 +165,44 @@ const ARRAY_PARAM_KEYS = [
   'queries',
 ]
 
+const MAX_TAGGED_PARAM_LENGTH = 65_536
+const ARG_TAG_PATTERN = /<\/?arg_(?:key|value)>/i
+
+/**
+ * Repairs a provider serialization that places a Basher command inside the
+ * params string as `command</arg_key><arg_value>...`. The opening arg_key and
+ * closing arg_value tags may already have been consumed by the provider's tool
+ * parser. Keep this Basher-only: interpreting arbitrary agent params strings
+ * as tagged data would make malformed custom-agent inputs ambiguous.
+ */
+function repairBasherTaggedParams(agentType: unknown, value: unknown): unknown {
+  if (
+    agentType !== 'basher' ||
+    typeof value !== 'string' ||
+    value.length > MAX_TAGGED_PARAM_LENGTH
+  ) {
+    return value
+  }
+
+  const prefix = value.match(
+    /^\s*(?:<arg_key>)?command<\/arg_key>\s*<arg_value>/i,
+  )
+  if (!prefix) return value
+
+  let command = value.slice(prefix[0].length)
+  const closingTag = command.match(/<\/arg_value>\s*$/i)
+  if (closingTag?.index !== undefined) {
+    command = command.slice(0, closingTag.index)
+  }
+
+  // Additional tag markers indicate a multi-field or truncated serialization.
+  // Leave it untouched so normal schema validation rejects it instead of
+  // accidentally treating wrapper syntax as part of a shell command.
+  if (!command.trim() || ARG_TAG_PATTERN.test(command)) return value
+
+  return { command }
+}
+
 /**
  * Repairs the common spawn_agents encodings produced by tool-calling models:
  * a stringified array, a double-stringified array, or stringified object
@@ -219,7 +257,11 @@ export function normalizeSpawnAgentList(value: unknown, depth = 0): unknown {
       repaired = true
     }
 
-    const parsedParams = parseJsonBounded(record.params)
+    const taggedParams = repairBasherTaggedParams(
+      record.agent_type,
+      record.params,
+    )
+    const parsedParams = parseJsonBounded(taggedParams)
     const canMergeParams =
       parsedParams === undefined ||
       (parsedParams !== null &&
@@ -230,7 +272,8 @@ export function normalizeSpawnAgentList(value: unknown, depth = 0): unknown {
       const paramsRecord = {
         ...((parsedParams ?? {}) as Record<string, unknown>),
       }
-      let paramsRepaired = typeof record.params === 'string'
+      let paramsRepaired =
+        taggedParams !== record.params || typeof record.params === 'string'
 
       // Provider tool-call serializers sometimes preserve an agent-specific
       // array as a JSON string inside an otherwise valid params object (for
