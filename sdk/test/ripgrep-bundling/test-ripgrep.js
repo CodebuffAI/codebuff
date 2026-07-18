@@ -228,10 +228,9 @@ try {
   console.log('\n10. Testing environment variable override...')
   const originalPath = process.env.CODEBUFF_RG_PATH
 
-  // Set environment variable to override — use a path that is guaranteed
-  // to exist (the test file itself) so getBundledRgPath's existsSync check
-  // passes and the override is respected.
-  const overrideTarget = __filename
+  // Use the active Node executable so the override satisfies the production
+  // resolver's executable-file check on every supported platform.
+  const overrideTarget = process.execPath
   process.env.CODEBUFF_RG_PATH = overrideTarget
 
   try {

@@ -1,6 +1,7 @@
 import { applyPatch, createPatch } from 'diff'
 import {
   decodeReadCapabilityToken,
+  encodeReadCapabilityToken,
   getContentHash,
   normalizeLineEndings,
   readCapabilityMatchesScope,
@@ -40,7 +41,20 @@ type TransactionEdit =
       path: string
       startLine: number
       endLine: number
-      expectedHash: string
+      /**
+       * Optional on the runtime-facing inputSchema: undefined when the caller
+       * combined a whole-file readCapability with narrower startLine/endLine
+       * (the runtime derives the sub-range hash at apply time, after verifying
+       * the whole-file capability hash).
+       */
+      expectedHash?: string
+      /**
+       * Carried from the transformed replace-range inputSchema when the caller
+       * combined a whole-file capability with a strict sub-range request. The
+       * runtime preflight verifies this equals the whole-file hash of current
+       * content; when present, edit.expectedHash is intentionally undefined.
+       */
+      wholeFileCapabilityHash?: string
       readCapability?: string
       newContent: string
     }
@@ -332,6 +346,29 @@ async function processTransactionEdit(params: {
           error: `replace_range for ${edit.path} requires the readCapability from a fresh read_files range result. Re-read lines ${edit.startLine}-${edit.endLine} and retry with only that capability plus newContent.`,
         }
       }
+      // Compute the normalized current content and whole-file hash up front: the
+      // whole-file-capability + sub-range path needs the whole-file hash to
+      // verify the model observed the full current file. We hash the full
+      // normalized string (NOT the trailing-newline-popped visible slice) and use
+      // endLine = split('\n').length, EXACTLY matching how read_files'
+      // renderWholeFileItem mints a whole-file readCapability, so a whole-file
+      // token minted by a read_files.paths call verifies identically here.
+      const normalized = normalizeLineEndings(initialContent)
+      const lines = normalized.split('\n')
+      // visibleLineCount excludes a trailing-empty line so the requested
+      // sub-range bounds check never permits a phantom line beyond the last
+      // real line (preserves the original bounds behavior).
+      const visibleLineCount =
+        normalized.length === 0
+          ? 0
+          : lines.at(-1) === ''
+            ? lines.length - 1
+            : lines.length
+      // wholeFileEndLine / wholeFileHash use the raw split('\n').length and the
+      // full normalized hash — matching read_files' renderWholeFileItem so a
+      // whole-file token minted by a read_files.paths call verifies here.
+      const wholeFileEndLine = normalized.split('\n').length
+      const wholeFileHash = getContentHash(normalized)
       if (edit.readCapability) {
         const decoded = decodeReadCapabilityToken(edit.readCapability)
         if (typeof decoded === 'string') {
@@ -345,24 +382,68 @@ async function processTransactionEdit(params: {
             error: `replace_range blocked for ${edit.path}: the readCapability belongs to a different project, path, or agent run. Re-read lines ${edit.startLine}-${edit.endLine} in this run and copy the new capability.`,
           }
         }
-        if (
-          decoded.startLine !== edit.startLine ||
-          decoded.endLine !== edit.endLine ||
-          decoded.hash !== edit.expectedHash
-        ) {
+        // Exact-range-match path: the capability's bounds equal the requested
+        // range. Keep the existing strict check (bounds + hash against
+        // edit.expectedHash).
+        const exactRangeMatch =
+          decoded.startLine === edit.startLine &&
+          decoded.endLine === edit.endLine
+        // Whole-file-capability + sub-range path: the decoded capability spans
+        // the whole current file (startLine === 1, endLine === visibleLineCount)
+        // AND the caller requested a narrower sub-range. edit.expectedHash is
+        // intentionally undefined in this form; the whole-file hash attests the
+        // model saw the current content, and the requested sub-range is just
+        // intent.
+        const wholeFileCapabilitySubRange =
+          !exactRangeMatch &&
+          (edit.wholeFileCapabilityHash !== undefined ||
+            (decoded.startLine === 1 && decoded.endLine === wholeFileEndLine))
+        if (exactRangeMatch) {
+          if (decoded.hash !== edit.expectedHash) {
+            return {
+              error: `replace_range blocked for ${edit.path}: the normalized target does not match its readCapability. Re-read lines ${edit.startLine}-${edit.endLine} and use only the newly returned capability.`,
+            }
+          }
+        } else if (wholeFileCapabilitySubRange) {
+          // SECURITY INVARIANT: the request must still include a fresh token
+          // minted over the FULL current file content. Verify decoded.hash
+          // matches the whole-file hash computed from current content. The
+          // capability's decoded.hash is the source of truth, not edit.expectedHash.
+          if (decoded.startLine !== 1 || decoded.endLine !== wholeFileEndLine) {
+            return {
+              error: `replace_range blocked for ${edit.path}: the readCapability is not a whole-file capability (it covers lines ${decoded.startLine}-${decoded.endLine} of ${wholeFileEndLine}) and cannot authorize a separate sub-range. Re-read lines ${edit.startLine}-${edit.endLine} and use only the newly returned capability.`,
+            }
+          }
+          if (decoded.hash !== wholeFileHash) {
+            // Inline recovery (Change 4): mint a fresh whole-file capability so
+            // the model can retry without a separate read_files round-trip. We
+            // just re-read initialContent inside this process, so the
+            // observation requirement is satisfied. Do NOT mint when there is no
+            // signing scope (readCapabilityIssuer undefined).
+            if (!readCapabilityIssuer) {
+              return {
+                error: `replace_range rejected for ${edit.path}: the whole-file readCapability is stale (its hash no longer matches the current full-file content). Re-read the file (read_files.paths) and copy the fresh whole-file readCapability, then retry the sub-range replace_range.`,
+              }
+            }
+            const recoveryWholeFileToken = encodeReadCapabilityToken({
+              startLine: 1,
+              endLine: wholeFileEndLine,
+              hash: wholeFileHash,
+              scope: { ...readCapabilityIssuer, path: edit.path },
+            })
+            return {
+              error: `replace_range rejected for ${edit.path}: the whole-file readCapability is stale (its hash no longer matches the current full-file content). Re-read the file (read_files.paths) and copy the fresh whole-file readCapability, then retry the sub-range replace_range.\n\nRecovery capability for the whole file: readCapability="${recoveryWholeFileToken}" — you may retry replace_range DIRECTLY with this readCapability and the same newContent (selecting your sub-range startLine/endLine), no extra read_files round-trip required.`,
+            }
+          }
+          // Whole-file capability is fresh. The requested sub-range is accepted
+          // WITHOUT an expectedHash match because the model demonstrated it saw
+          // the complete current file. Fall through to bounds + apply.
+        } else {
           return {
             error: `replace_range blocked for ${edit.path}: the normalized target does not match its readCapability. Re-read lines ${edit.startLine}-${edit.endLine} and use only the newly returned capability.`,
           }
         }
       }
-      const normalized = normalizeLineEndings(initialContent)
-      const lines = normalized.split('\n')
-      const visibleLineCount =
-        normalized.length === 0
-          ? 0
-          : lines.at(-1) === ''
-            ? lines.length - 1
-            : lines.length
       if (
         edit.startLine < 1 ||
         edit.endLine < edit.startLine ||
@@ -375,11 +456,38 @@ async function processTransactionEdit(params: {
       const currentRange = lines
         .slice(edit.startLine - 1, edit.endLine)
         .join('\n')
-      if (getContentHash(currentRange) !== edit.expectedHash) {
-        return {
-          error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read lines ${edit.startLine}-${edit.endLine} and use only the new readCapability plus newContent.`,
+      const currentRangeHash = getContentHash(currentRange)
+      // The whole-file-capability + sub-range path skips the expectedHash match
+      // (expectedHash is undefined; the whole-file hash already attested
+      // freshness above). All other paths require expectedHash to match the
+      // current sub-range hash.
+      const usingWholeFileCapabilitySubRange =
+        edit.readCapability !== undefined && edit.expectedHash === undefined
+      if (!usingWholeFileCapabilitySubRange) {
+        if (currentRangeHash !== edit.expectedHash) {
+          // Inline recovery (Change 4): mint a fresh capability for the exact
+          // requested range over the current content we just re-read inside
+          // this process, so the model can retry without a separate read_files
+          // round-trip. Do NOT mint when there is no signing scope.
+          if (!readCapabilityIssuer) {
+            return {
+              error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read lines ${edit.startLine}-${edit.endLine} and use only the new readCapability plus newContent.`,
+            }
+          }
+          const recoveryRangeToken = encodeReadCapabilityToken({
+            startLine: edit.startLine,
+            endLine: edit.endLine,
+            hash: currentRangeHash,
+            scope: { ...readCapabilityIssuer, path: edit.path },
+          })
+          return {
+            error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read lines ${edit.startLine}-${edit.endLine} and use only the new readCapability plus newContent.\n\nRecovery capability for the exact requested range: readCapability="${recoveryRangeToken}" — you may retry replace_range DIRECTLY with this readCapability and the same newContent, no extra read_files round-trip required.`,
+          }
         }
       }
+      const wholeFileSubRangePrefix = usingWholeFileCapabilitySubRange
+        ? ' using a whole-file readCapability'
+        : ''
       const replacementLines = normalizeLineEndings(edit.newContent).split('\n')
       lines.splice(
         edit.startLine - 1,
@@ -389,7 +497,7 @@ async function processTransactionEdit(params: {
       return {
         content: lines.join('\n'),
         messages: [
-          `Replaced lines ${edit.startLine}-${edit.endLine} in ${edit.path}.`,
+          `Replaced lines ${edit.startLine}-${edit.endLine} in ${edit.path}${wholeFileSubRangePrefix}.`,
         ],
       }
     }

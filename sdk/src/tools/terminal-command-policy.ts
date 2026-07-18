@@ -30,11 +30,11 @@ const WORKSPACE_DENY_PATTERNS: Array<[RegExp, string]> = [
   ],
   [
     /\b(?:npm|pnpm|yarn|bun)\s+(?:install|add|remove|update|publish|link)\b/i,
-    'dependency or package mutation requires explicit approval',
+    'dependency or package mutation is unavailable in workspace-write; use the dependency-manager workflow after separate explicit user authorization (there is no inline approval retry)',
   ],
   [
     /\b(?:pip|pip3|uv)\s+(?:install|uninstall|sync)\b/i,
-    'environment or dependency mutation requires explicit approval',
+    'environment or dependency mutation is unavailable in workspace-write; use the dependency-manager workflow after separate explicit user authorization (there is no inline approval retry)',
   ],
   [
     /\b(?:apt|apt-get|dnf|yum|pacman|brew|choco|winget)\b/i,
@@ -177,9 +177,7 @@ export function evaluateTerminalCommandPolicy(params: {
           .replace(/^git\s+add\s+/i, '')
           .match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? []
       const stagedPaths = rawPaths
-        .map((value) =>
-          value.replace(/^["']|["']$/g, '').replace(/^\.\//, ''),
-        )
+        .map((value) => value.replace(/^["']|["']$/g, '').replace(/^\.\//, ''))
         .filter((value) => value !== '--')
       if (
         stagedPaths.length === 0 ||
@@ -205,7 +203,9 @@ export function evaluateTerminalCommandPolicy(params: {
       )
       if (
         allowedPaths.size === 0 ||
-        stagedPaths.some((value) => !allowedPaths.has(value.replace(/\\/g, '/')))
+        stagedPaths.some(
+          (value) => !allowedPaths.has(value.replace(/\\/g, '/')),
+        )
       ) {
         return {
           allowed: false,

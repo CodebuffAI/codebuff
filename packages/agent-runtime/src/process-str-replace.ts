@@ -502,10 +502,36 @@ export async function processStrReplace(params: {
 
     if (enforceReadCapability && !hasFreshBasedOnRead) {
       if (requireFreshReadCapability) {
+        // Improvement #3: before forcing a re-read, check whether a fresh
+        // capability minted from an EARLIER successful replacement in this
+        // same call covers a surrounding region of the requested range. Such a
+        // capability exists precisely when the staling was caused by this
+        // agent's own just-applied edit to a different range of the same file.
+        // Only suggest signed (cap.v3, path-bound) capabilities.
+        const requestedStartLine =
+          basedOnRead && typeof basedOnRead === 'object'
+            ? basedOnRead.startLine
+            : 1
+        const requestedEndLine =
+          basedOnRead && typeof basedOnRead === 'object'
+            ? basedOnRead.endLine
+            : 0
+        const freshPointer = findFreshCapabilityForPath({
+          validatedReadRanges,
+          content: normalizedCurrentContent,
+          startLine: requestedStartLine,
+          endLine: requestedEndLine,
+          scope: readCapabilityScope,
+        })
         const strictCapabilityFailure = [
           `Strict read-before-edit blocked replacement ${replacementIndex + 1}/${normalizedReplacements.length} for ${path}: basedOnRead did not match the current file content.`,
           ...readCapabilityWarnings,
           'Re-read the exact target range and retry with the fresh readCapability token.',
+          ...(freshPointer
+            ? [
+                `\nA fresh capability exists for a surrounding region of ${path}: readCapability="${freshPointer.readCapability}". Reuse it as basedOnRead for this replacement; no re-read required.`,
+              ]
+            : []),
         ].join('\n')
         messages.push(strictCapabilityFailure)
         recordFailure(strictCapabilityFailure)
@@ -733,6 +759,9 @@ export async function processStrReplace(params: {
         })
       : undefined
 
+  // Echo fresh post-edit read anchors on EVERY successful str_replace
+  // (regardless of file size) so the next edit to the edited region needs no
+  // re-read. The anchors/regionAnchor above are computed unconditionally.
   if (isLargeFile) {
     const newLineCount = normalizedFinalContent.split('\n').length
     messages.push(
@@ -751,6 +780,25 @@ export async function processStrReplace(params: {
             : 'To make several edits to this file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead).',
       ].join('\n'),
     )
+  } else {
+    // Concise one-line form for small files so multi-edit flows don't re-read
+    // between each edit. Only emit when a signed readCapability is available
+    // (readCapabilityScope is set); otherwise skip to avoid an unauthenticated
+    // pointer.
+    if (readCapabilityScope && regionAnchor) {
+      messages.push(
+        `Note: fresh readCapability for the just-edited region (lines ${regionAnchor.startLine}-${regionAnchor.endLine}) of ${path} — pass as basedOnRead on your next edit to this region, no re-read needed: readCapability=${regionAnchor.readCapability}`,
+      )
+    } else if (readCapabilityScope && anchors.length > 0) {
+      messages.push(
+        `Note: fresh readCapability(s) for the just-edited region(s) of ${path} — pass as basedOnRead for follow-up edits to the same line(s), no re-read needed:\n${anchors
+          .map(
+            (anchor) =>
+              `lines ${anchor.startLine}-${anchor.endLine}: readCapability=${anchor.readCapability}`,
+          )
+          .join('\n')}`,
+      )
+    }
   }
 
   if (autoStrippedBogusAnchor) {
@@ -1437,6 +1485,70 @@ function mintAnchorForRange(params: {
       scope: params.scope,
     }),
   }
+}
+
+/**
+ * Scans the validated read ranges for a signed (cap.v3, path-bound) capability
+ * that still covers a SUPERSET of the requested [startLine, endLine] range in
+ * the CURRENT content, and returns a freshly minted token over that covering
+ * range. This is the improvement-#3 fast path: when a replacement's own
+ * basedOnRead went stale because an EARLIER replacement in the same str_replace
+ * call edited a different range of the same file, an earlier-validated range
+ * (kept current by updateValidatedRangesAfterEdit) may still cover the intended
+ * region, letting the model retry without a re-read.
+ *
+ * SECURITY: only signed cap.v3 tokens are minted. When `scope` is undefined
+ * there is no path-bound scope to sign under, so this returns null (the caller
+ * falls through to its existing re-read instruction). The returned token is
+ * hashed over the covering range's current content slice, so it is fresh only
+ * until the next edit touches that range — exactly the read_files invariant.
+ */
+export function findFreshCapabilityForPath(params: {
+  validatedReadRanges: Map<string, ValidatedReadRange>
+  /** Current full-file content (LF-normalized by the caller is fine). */
+  content: string
+  startLine: number
+  endLine: number
+  scope?: ReadCapabilityScope
+}): { readCapability: string; rangeHash: string } | null {
+  const { validatedReadRanges, content, startLine, endLine, scope } = params
+  if (!scope) return null
+  if (startLine < 1 || endLine < startLine) return null
+  let best: {
+    range: ValidatedReadRange
+    span: number
+  } | null = null
+  for (const range of validatedReadRanges.values()) {
+    // The covering range must be a superset of the requested range.
+    if (
+      range.startLine <= startLine &&
+      range.endLine >= endLine &&
+      range.endLine >= range.startLine
+    ) {
+      const span = range.endLine - range.startLine
+      if (!best || span < best.span) {
+        best = { range, span }
+      }
+    }
+  }
+  if (!best) return null
+  // Re-derive the covering range's current content slice from `content` (the
+  // single source of truth) and mint a fresh signed token over it. This matches
+  // how read_files mints tokens, so the resulting capability validates
+  // identically to a read-minted one.
+  const lines = normalizeLineEndings(content).split('\n')
+  if (best.range.endLine > lines.length) return null
+  const slice = lines
+    .slice(best.range.startLine - 1, best.range.endLine)
+    .join('\n')
+  const rangeHash = getContentHash(slice)
+  const readCapability = encodeReadCapabilityToken({
+    startLine: best.range.startLine,
+    endLine: best.range.endLine,
+    hash: rangeHash,
+    scope,
+  })
+  return { readCapability, rangeHash }
 }
 
 // Returns the character index of the Nth (1-indexed) exact occurrence of oldStr

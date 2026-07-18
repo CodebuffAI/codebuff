@@ -529,6 +529,61 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('recovers a comma-split fragment array for spawn_agents', () => {
+    const agents = [
+      {
+        agent_type: 'basher',
+        prompt: 'Run tests',
+        params: { command: 'bun test' },
+      },
+      { agent_type: 'thinker', prompt: 'Think about architecture' },
+    ]
+    // Simulate a transport that stringified the array then split on commas.
+    const fragments = JSON.stringify(agents).split(',')
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-comma-split-recovery-tool-call-id',
+        input: { agents: fragments },
+      },
+    })
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.agents).toEqual(agents)
+    }
+  })
+
+  it('produces a single field-level error for unrecoverable comma-split fragments', () => {
+    // 130+ comma-split fragments of a truncated stringified array.
+    const fragments = JSON.stringify([
+      {
+        agent_type: 'file-picker',
+        prompt:
+          'Find files about authentication, sessions, tokens, cookies, JWT, OAuth, security, middleware, hashing, encryption, passwords, secrets, keys, vaults, crypto',
+      },
+    ])
+      .slice(0, -2)
+      .split(',')
+    expect(fragments.length).toBeGreaterThan(10) // sanity: enough to be noisy
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-comma-split-unrecoverable-tool-call-id',
+        input: { agents: fragments },
+      },
+    })
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      // Must contain the actionable hint, not 130+ per-element issues.
+      expect(result.error).toContain('Pass agents as an array of objects')
+      // Must NOT contain per-element diagnostics (the whole point of the fix).
+      expect(result.error).not.toContain('agents[0]')
+      expect(result.error).not.toContain('agents[1]')
+      expect(result.error).not.toContain('agents[10]')
+      expect(result.error).not.toContain('expected object, received string')
+    }
+  })
+
   it('should parse stringified params for spawn_agent_inline', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -691,6 +746,34 @@ describe('tool validation error handling', () => {
         toolName: 'edit_transaction',
         toolCallId: 'stringified-transaction-edits-tool-call-id',
         input: { edits: JSON.stringify(edits) },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.edits).toMatchObject(edits)
+    }
+  })
+
+  it('recovers a comma-split serialized edit_transaction array', () => {
+    const edits = [
+      {
+        id: 'update-helper',
+        path: 'src/helper.ts',
+        type: 'str_replace',
+        replacements: [
+          {
+            oldString: 'const value = 1',
+            newString: 'const value = 2',
+          },
+        ],
+      },
+    ]
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'edit_transaction',
+        toolCallId: 'comma-split-transaction-edits-tool-call-id',
+        input: { edits: JSON.stringify(edits).split(',') },
       },
     })
 

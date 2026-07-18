@@ -816,7 +816,7 @@ export const runAgentStep = async (
 
   if (repeatedStepLoop.shouldStop) {
     const message = [
-      `No-progress watchdog stopped the turn after ${REPEATED_STEP_LOOP_LIMIT} identical step patterns.`,
+      `No-progress watchdog stopped the turn after ${REPEATED_STEP_LOOP_LIMIT} repeated step patterns.`,
       'Current work and run state were preserved.',
       'Resume after changing the approach or inputs; productive runs are not limited by a fixed step count.',
     ].join(' ')

@@ -235,7 +235,7 @@ describe('base2 deterministic gate lifecycle e2e', () => {
                 },
               ],
               permissions: {
-                readablePaths: [LIFECYCLE_FILE],
+                readablePaths: [LIFECYCLE_FILE, `${SCRATCH_ROOT}/**`],
                 writablePaths: [LIFECYCLE_FILE],
               },
             },

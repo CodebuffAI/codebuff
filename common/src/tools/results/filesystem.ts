@@ -480,6 +480,16 @@ const readFilesRangeItemSchema = z
     complete: z.boolean(),
     rangeHash: z.string().optional(),
     readCapability: z.string().optional(),
+    wholeFileReadCapability: z
+      .string()
+      .optional()
+      .describe(
+        'Optional cap.v3 token spanning the entire current file when the requested range was read from a full-file snapshot. Use it to authorize replace_range edits to other sub-ranges of the same file without a re-read.',
+      )
+      .refine(
+        (value) => value === undefined || value.startsWith('cap.'),
+        'wholeFileReadCapability must be a cap.* token',
+      ),
     editAnchor: readFilesEditAnchorSchema.optional(),
     truncation: z.object({ reason: z.literal('character_limit') }).optional(),
   })
@@ -503,6 +513,22 @@ const readFilesRangeItemSchema = z
         code: 'custom',
         message:
           'range editAnchor must match the range bounds and any legacy hash/capability fields',
+      })
+    }
+    // wholeFileReadCapability is a hash-bearing token over the entire file;
+    // it must never be present on a partial/incomplete range result, since
+    // the model has only seen a fragment and a whole-file hash would be a
+    // lie. The runtime only sets it under `complete`, but this schema-level
+    // guard also rejects malformed override results.
+    if (
+      (value.status === 'partial' || value.complete === false) &&
+      value.wholeFileReadCapability !== undefined
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['wholeFileReadCapability'],
+        message:
+          'wholeFileReadCapability must be absent on partial or incomplete range results',
       })
     }
   })

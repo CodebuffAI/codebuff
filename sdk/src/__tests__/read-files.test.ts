@@ -24,6 +24,7 @@ import {
   getFilesStructured,
   getFilesStructuredFromOverride,
 } from '../tools/read-files'
+import { editTransactionParams } from '@codebuff/common/tools/params/tool/edit-transaction'
 
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { PathLike } from 'node:fs'
@@ -1293,6 +1294,127 @@ describe('getFiles', () => {
       }
     })
 
+    test('mints wholeFileReadCapability on a proper-subset range from a full-file snapshot when an issuer is supplied', async () => {
+      const capabilityIssuer = { projectId: '/project', runId: 'run-range-1' }
+      const content = 'line 1\nline 2\nline 3\nline 4\nline 5'
+      const mockFs = createMockFs({
+        files: { '/project/src/multi.ts': { content } },
+      })
+
+      const result = await getFilesStructured({
+        filePaths: [],
+        ranges: [{ path: 'src/multi.ts', startLine: 2, endLine: 3 }],
+        cwd: '/project',
+        fs: mockFs,
+        capabilityIssuer,
+      })
+
+      const item = result.results[0]
+      expect(item?.status).toBe('ok')
+      if (item?.status !== 'error' && item.selector === 'range') {
+        expect(item.wholeFileReadCapability).toMatch(/^cap\.v3\./)
+        const decoded = decodeReadCapabilityToken(item.wholeFileReadCapability!)
+        expect(typeof decoded).toBe('object')
+        if (typeof decoded !== 'string') {
+          expect(decoded.startLine).toBe(1)
+          expect(decoded.endLine).toBe(5)
+          expect(decoded.hash).toBe(getContentHash(content))
+          expect(
+            readCapabilityMatchesScope(decoded, {
+              ...capabilityIssuer,
+              path: 'src/multi.ts',
+            }),
+          ).toBe(true)
+        }
+      }
+    })
+
+    test('does not mint wholeFileReadCapability when no capabilityIssuer is supplied', async () => {
+      const content = 'line 1\nline 2\nline 3\nline 4\nline 5'
+      const mockFs = createMockFs({
+        files: { '/project/src/multi.ts': { content } },
+      })
+
+      const result = await getFilesStructured({
+        filePaths: [],
+        ranges: [{ path: 'src/multi.ts', startLine: 2, endLine: 3 }],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      const item = result.results[0]
+      expect(item?.status).toBe('ok')
+      if (item?.status !== 'error' && item.selector === 'range') {
+        expect(item.wholeFileReadCapability).toBeUndefined()
+      }
+    })
+
+    test('does not mint wholeFileReadCapability when the range equals the whole file (requestedProperSubset false)', async () => {
+      const capabilityIssuer = { projectId: '/project', runId: 'run-range-2' }
+      const content = 'line 1\nline 2\nline 3\nline 4\nline 5'
+      const mockFs = createMockFs({
+        files: { '/project/src/multi.ts': { content } },
+      })
+
+      const result = await getFilesStructured({
+        filePaths: [],
+        ranges: [{ path: 'src/multi.ts' }],
+        cwd: '/project',
+        fs: mockFs,
+        capabilityIssuer,
+      })
+
+      const item = result.results[0]
+      expect(item?.status).toBe('ok')
+      if (item?.status !== 'error' && item.selector === 'range') {
+        expect(item.wholeFileReadCapability).toBeUndefined()
+        // The range capability itself is still minted (its own cap.v3 token spans lines 1-5).
+        expect(item.readCapability).toMatch(/^cap\.v3\./)
+      }
+    })
+
+    test('never mints wholeFileReadCapability for an oversized (large snapshot) range-window read', async () => {
+      const capabilityIssuer = { projectId: '/project', runId: 'run-range-3' }
+      const mockFs = createMockFs({
+        files: {
+          '/project/huge.ts': { content: '', size: 20 * 1024 * 1024 },
+        },
+        capabilities: {
+          readTextRange: async () => ({
+            data: Buffer.from('line 20\nline 21'),
+            startLine: 20,
+            endLine: 21,
+            totalLines: 50_000,
+            complete: true,
+          }),
+        },
+      })
+      mockFs.readFile = (async () => {
+        throw new Error('whole-file read must not run for oversized range read')
+      }) as CodebuffFileSystem['readFile']
+
+      const result = await getFilesStructured({
+        filePaths: [],
+        ranges: [{ path: 'huge.ts', startLine: 20, endLine: 21 }],
+        cwd: '/project',
+        fs: mockFs,
+        capabilityIssuer,
+      })
+
+      const item = result.results[0]
+      expect(item?.status).toBe('ok')
+      if (item?.status !== 'error' && item.selector === 'range') {
+        // Security invariant: whole-file capability is only minted from a full
+        // file snapshot the model has fully observed. Oversized window reads
+        // must NEVER carry one — a future refactor that drops the
+        // `snapshot.state === 'full'` guard would let the model authorize edits
+        // over content it never saw.
+        expect(item.wholeFileReadCapability).toBeUndefined()
+        // The bounded range capability itself (cap.v3 over lines 20-21) is still minted.
+        expect(item.readCapability).toMatch(/^cap\.v3\./)
+      }
+    })
+
     test('[ERR-M04] returns typed unsupported without retrying when range capability is absent', async () => {
       let wholeReads = 0
       const mockFs = createMockFs({
@@ -1454,5 +1576,203 @@ describe('getFiles', () => {
           : null,
       ),
     ).toEqual([2, 10])
+  })
+
+  describe('wholeFileReadCapability end-to-end with edit_transaction replace_range', () => {
+    // Regression coverage for the reviewer findings about the new
+    // whole-file-capability + sub-range replace_range path:
+    //   RF-3/12 (read-side end-to-end: read_files range over a trailing-
+    //           newline file mints a cap.v3 wholeFileReadCapability whose
+    //           endLine is N+1 while visible totalLines is N, and that same
+    //           token round-trips through the edit_transaction replace_range
+    //           inputSchema transform).
+    //   RF-2/11 (schema-level transform coverage: a whole-file cap.v3 paired
+    //           with narrower caller startLine/endLine must emit
+    //           expectedHash=undefined + wholeFileCapabilityHash=decoded.hash;
+    //           a whole-file cap.v3 alone must emit expectedHash=decoded.hash
+    //           + bounds from the capability + wholeFileCapabilityHash=undefined).
+    //   RF-9/18, RF-8/17 (test coverage for the transform that produces the
+    //           wholeFileCapabilityHash field consumed by the runtime
+    //           wholeFileCapabilitySubRange preflight branch).
+    test('mints a cap.v3 wholeFileReadCapability whose endLine counts the trailing-newline segment, then round-trips through replace_range transform with caller sub-range bounds', async () => {
+      const capabilityIssuer = {
+        projectId: '/project',
+        runId: 'run-e2e-trailing',
+      }
+      // N=3 visible lines, single trailing newline. splitVisibleLines pops
+      // the trailing empty segment so totalLines=3, but the minted
+      // wholeFileReadCapability uses the un-popped split and therefore
+      // spans lines 1-4 with endLine=N+1=4.
+      const content = 'line 1\nline 2\nline 3\n'
+      const mockFs = createMockFs({
+        files: { '/project/src/trailing.ts': { content } },
+      })
+
+      const readResult = await getFilesStructured({
+        filePaths: [],
+        ranges: [{ path: 'src/trailing.ts', startLine: 2, endLine: 2 }],
+        cwd: '/project',
+        fs: mockFs,
+        capabilityIssuer,
+      })
+
+      const rangeItem = readResult.results[0]
+      if (rangeItem?.status === 'error' || rangeItem?.selector !== 'range') {
+        throw new Error('expected a successful range result')
+      }
+      expect(rangeItem.status).toBe('ok')
+
+      // The range read only exposed one visible line, but the whole-file
+      // snapshot saw all of it (totalLines=3 visible lines). The wholeFile-
+      // ReadCapability is the only field that carries the trailing-newline
+      // off-by-one (endLine=N+1=4).
+      expect(rangeItem.totalLines).toBe(3)
+      expect(rangeItem.wholeFileReadCapability).toMatch(/^cap\.v3\./)
+
+      const wholeFileCap = rangeItem.wholeFileReadCapability!
+      const decoded = decodeReadCapabilityToken(wholeFileCap)
+      expect(typeof decoded).toBe('object')
+      if (typeof decoded === 'string')
+        throw new Error('decoded whole-file cap was an error string')
+      expect(decoded.startLine).toBe(1)
+      // The subtle off-by-one flagged in RF-3/12: whole-file endLine is N+1
+      // (4) because it counts the trailing-newline empty segment, while the
+      // visible totalLines used by the read-side proper-subset guard is N (3).
+      expect(decoded.endLine).toBe(4)
+      expect(decoded.hash).toBe(getContentHash(content))
+      expect(
+        readCapabilityMatchesScope(decoded, {
+          ...capabilityIssuer,
+          path: 'src/trailing.ts',
+        }),
+      ).toBe(true)
+
+      // RF-2/11 case 1 + RF-3/12 end-to-end: feed the whole-file capability
+      // back through the edit_transaction replace_range inputSchema `.transform`
+      // with NARROWER caller bounds. The transform must emit
+      // expectedHash=undefined and carry decoded.hash as wholeFileCapabilityHash
+      // (the security-critical relaxation consumed by the runtime
+      // wholeFileCapabilitySubRange preflight branch), while keeping the
+      // caller's narrower startLine/endLine.
+      const narrower = editTransactionParams.inputSchema.parse({
+        edits: [
+          {
+            type: 'replace_range',
+            path: 'src/trailing.ts',
+            readCapability: wholeFileCap,
+            startLine: 2,
+            endLine: 4,
+            newContent: 'line 2\nline 3\nline 3b',
+          },
+        ],
+      })
+      const narrowerEdit = (narrower.edits as unknown[])[0] as Record<
+        string,
+        unknown
+      >
+      expect(narrowerEdit).toMatchObject({
+        type: 'replace_range',
+        path: 'src/trailing.ts',
+        startLine: 2,
+        endLine: 4,
+        expectedHash: undefined,
+        wholeFileCapabilityHash: decoded.hash,
+      })
+
+      // RF-3/12 end-to-end token-verifies-through-transform path: supplying the
+      // capability's OWN bounds (1..N+1=4) — matching the minted token — must
+      // resolve to a direct (non sub-range) replace_range: expectedHash gets
+      // decoded.hash and wholeFileCapabilityHash stays undefined.
+      const matchingBounds = editTransactionParams.inputSchema.parse({
+        edits: [
+          {
+            type: 'replace_range',
+            path: 'src/trailing.ts',
+            readCapability: wholeFileCap,
+            startLine: 1,
+            endLine: 4,
+            newContent: 'line 1\nline 2\nline 3\nline 3b\n',
+          },
+        ],
+      })
+      const matchingEdit = (matchingBounds.edits as unknown[])[0] as Record<
+        string,
+        unknown
+      >
+      expect(matchingEdit).toMatchObject({
+        type: 'replace_range',
+        path: 'src/trailing.ts',
+        startLine: 1,
+        endLine: 4,
+        expectedHash: decoded.hash,
+        wholeFileCapabilityHash: undefined,
+      })
+    })
+
+    test('RF-2/11 case 2: a whole-file cap.v3 alone yields expectedHash=decoded.hash, bounds from the capability, and wholeFileCapabilityHash undefined', async () => {
+      const capabilityIssuer = {
+        projectId: '/project',
+        runId: 'run-e2e-cap-only',
+      }
+      // 4 visible lines, single trailing newline -> whole-file endLine = 5.
+      const content = 'line 1\nline 2\nline 3\nline 4\n'
+      const mockFs = createMockFs({
+        files: { '/project/src/multi-trail.ts': { content } },
+      })
+
+      const readResult = await getFilesStructured({
+        filePaths: [],
+        ranges: [{ path: 'src/multi-trail.ts', startLine: 2, endLine: 3 }],
+        cwd: '/project',
+        fs: mockFs,
+        capabilityIssuer,
+      })
+
+      const rangeItem = readResult.results[0]
+      if (
+        rangeItem?.status !== 'ok' ||
+        rangeItem.selector !== 'range' ||
+        !rangeItem.wholeFileReadCapability
+      ) {
+        throw new Error(
+          'expected a complete range result with a wholeFileReadCapability',
+        )
+      }
+      const decoded = decodeReadCapabilityToken(
+        rangeItem.wholeFileReadCapability,
+      )
+      if (typeof decoded === 'string') {
+        throw new Error('decoded whole-file cap was an error string')
+      }
+      expect(decoded.startLine).toBe(1)
+      expect(decoded.endLine).toBe(5)
+
+      // No caller bounds: transform MUST NOT relax into the sub-range path.
+      // It derives bounds from the capability and sets expectedHash=decoded.hash
+      // (the ordinary range-replace attestation), leaving wholeFileCapabilityHash
+      // undefined so the runtime uses the exact-match preflight branch.
+      const parsed = editTransactionParams.inputSchema.parse({
+        edits: [
+          {
+            type: 'replace_range',
+            path: 'src/multi-trail.ts',
+            readCapability: rangeItem.wholeFileReadCapability,
+            newContent: 'line 1\nline 2\nline 3\nline four\n',
+          },
+        ],
+      })
+      const transformed = (parsed.edits as unknown[])[0] as Record<
+        string,
+        unknown
+      >
+      expect(transformed).toMatchObject({
+        type: 'replace_range',
+        path: 'src/multi-trail.ts',
+        startLine: decoded.startLine,
+        endLine: decoded.endLine,
+        expectedHash: decoded.hash,
+        wholeFileCapabilityHash: undefined,
+      })
+    })
   })
 })

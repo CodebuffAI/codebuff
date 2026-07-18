@@ -193,6 +193,28 @@ describe('engine profile detection — Bevy', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Blender detection
+// ---------------------------------------------------------------------------
+
+describe('engine profile detection — Blender', () => {
+  test('detects Blender via .blend file extension', () => {
+    const tree: FileTreeNode[] = [
+      file('Scene.blend'),
+      directory('textures', [file('diffuse.png', 'textures/diffuse.png')]),
+    ]
+    expect(detectEngineProfiles(tree).map((p) => p.id)).toEqual(['blender'])
+  })
+
+  test('does not detect Blender from non-.blend files alone', () => {
+    const tree: FileTreeNode[] = [
+      file('readme.md'),
+      directory('images', [file('render.png', 'images/render.png')]),
+    ]
+    expect(detectEngineProfiles(tree)).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Multi-engine and mixed repos
 // ---------------------------------------------------------------------------
 
@@ -268,8 +290,8 @@ describe('engine profile detection — mixed repos', () => {
     expect(detectEngineProfiles([])).toEqual([])
   })
 
-  test('preserves stable engine order (unity, godot, unreal, bevy)', () => {
-    // Create a repo with all four engines detected
+  test('preserves stable engine order (unity, godot, unreal, bevy, blender)', () => {
+    // Create a repo with all five engines detected
     const tree: FileTreeNode[] = [
       // Unity
       directory('ProjectSettings', [
@@ -282,9 +304,11 @@ describe('engine profile detection — mixed repos', () => {
       // Bevy
       file('Cargo.toml'),
       directory('assets', [file('texture.png', 'assets/texture.png')]),
+      // Blender
+      file('Scene.blend'),
     ]
     const result = detectEngineProfiles(tree).map((p) => p.id)
-    expect(result).toEqual(['unity', 'godot', 'unreal', 'bevy'])
+    expect(result).toEqual(['unity', 'godot', 'unreal', 'bevy', 'blender'])
   })
 })
 

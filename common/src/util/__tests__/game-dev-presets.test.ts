@@ -61,6 +61,17 @@ describe('game-dev presets — getGameDevPresets', () => {
     ])
   })
 
+  test('returns presets for a single engine (Blender)', () => {
+    const presets = getGameDevPresets(['blender'])
+    expect(presets.length).toBe(4)
+    expect(presets.map((p) => p.id)).toEqual([
+      'blender:build',
+      'blender:run',
+      'blender:test',
+      'blender:watch',
+    ])
+  })
+
   test('returns presets in stable engine order for multi-engine project', () => {
     // Input is out of order but output should follow the preset iteration order
     const presets = getGameDevPresets(['bevy', 'unity', 'godot'])
@@ -88,10 +99,16 @@ describe('game-dev presets — getGameDevPresets', () => {
     ])
   })
 
-  test('returns all 16 presets for all 4 engines', () => {
-    const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+  test('returns all 20 presets for all 5 engines', () => {
+    const allEngines: SupportedEngineId[] = [
+      'unity',
+      'godot',
+      'unreal',
+      'bevy',
+      'blender',
+    ]
     const presets = getGameDevPresets(allEngines)
-    expect(presets.length).toBe(16)
+    expect(presets.length).toBe(20)
   })
 
   test('deduplicates when same engine appears twice', () => {
@@ -111,7 +128,13 @@ describe('game-dev presets — getGameDevPresets', () => {
 
 describe('game-dev presets — preset fields', () => {
   test('every preset has a non-empty id', () => {
-    const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+    const allEngines: SupportedEngineId[] = [
+      'unity',
+      'godot',
+      'unreal',
+      'bevy',
+      'blender',
+    ]
     const presets = getGameDevPresets(allEngines)
     for (const preset of presets) {
       expect(preset.id.length).toBeGreaterThan(0)
@@ -120,7 +143,13 @@ describe('game-dev presets — preset fields', () => {
   })
 
   test('every preset has a label matching its id', () => {
-    const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+    const allEngines: SupportedEngineId[] = [
+      'unity',
+      'godot',
+      'unreal',
+      'bevy',
+      'blender',
+    ]
     const presets = getGameDevPresets(allEngines)
     for (const preset of presets) {
       expect(preset.label).toBe(preset.id)
@@ -128,7 +157,13 @@ describe('game-dev presets — preset fields', () => {
   })
 
   test('every preset description is under 50 characters (palette limit)', () => {
-    const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+    const allEngines: SupportedEngineId[] = [
+      'unity',
+      'godot',
+      'unreal',
+      'bevy',
+      'blender',
+    ]
     const presets = getGameDevPresets(allEngines)
     for (const preset of presets) {
       // The CLI truncates at 50, so keeping descriptions under 50
@@ -138,7 +173,13 @@ describe('game-dev presets — preset fields', () => {
   })
 
   test('every preset has non-empty insertText', () => {
-    const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+    const allEngines: SupportedEngineId[] = [
+      'unity',
+      'godot',
+      'unreal',
+      'bevy',
+      'blender',
+    ]
     const presets = getGameDevPresets(allEngines)
     for (const preset of presets) {
       expect(preset.insertText.length).toBeGreaterThan(20)
@@ -146,7 +187,13 @@ describe('game-dev presets — preset fields', () => {
   })
 
   test('insertText is a prompt, not a direct command', () => {
-    const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+    const allEngines: SupportedEngineId[] = [
+      'unity',
+      'godot',
+      'unreal',
+      'bevy',
+      'blender',
+    ]
     const presets = getGameDevPresets(allEngines)
     for (const preset of presets) {
       // Presets should be natural-language prompts the agent interprets,
@@ -198,13 +245,19 @@ describe('game-dev presets — getGameDevSlashCommands', () => {
   })
 
   test('handles all engines simultaneously', () => {
-    const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+    const allEngines: SupportedEngineId[] = [
+      'unity',
+      'godot',
+      'unreal',
+      'bevy',
+      'blender',
+    ]
     const commands = getGameDevSlashCommands(allEngines)
-    expect(commands.length).toBe(16)
+    expect(commands.length).toBe(20)
 
     // Check all ids are unique
     const ids = new Set(commands.map((c) => c.id))
-    expect(ids.size).toBe(16)
+    expect(ids.size).toBe(20)
   })
 })
 
@@ -265,6 +318,28 @@ describe('game-dev presets — content per engine', () => {
         watchPreset.insertText.includes('bacon'),
     ).toBe(true)
   })
+
+  test('Blender build preset references render or export', () => {
+    const presets = getGameDevPresets(['blender'])
+    const buildPreset = presets.find((p) => p.id === 'blender:build')!
+    expect(
+      buildPreset.insertText.toLowerCase().includes('render') ||
+        buildPreset.insertText.toLowerCase().includes('export'),
+    ).toBe(true)
+  })
+
+  test('Blender watch preset references error patterns', () => {
+    const presets = getGameDevPresets(['blender'])
+    const watchPreset = presets.find((p) => p.id === 'blender:watch')!
+    expect(watchPreset.insertText).toContain('Error:')
+    expect(watchPreset.insertText).toContain('Traceback')
+  })
+
+  test('Blender run preset references SIGTERM', () => {
+    const presets = getGameDevPresets(['blender'])
+    const runPreset = presets.find((p) => p.id === 'blender:run')!
+    expect(runPreset.insertText).toContain('SIGTERM')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -283,14 +358,21 @@ describe('game-dev presets — getGameDevJobGuidance', () => {
     expect(guidance[0].displayName).toBe('Unity')
   })
 
-  test('returns guidance for all 4 engines in stable order', () => {
-    const guidance = getGameDevJobGuidance(['bevy', 'unreal', 'godot', 'unity'])
-    expect(guidance.length).toBe(4)
+  test('returns guidance for all 5 engines in stable order', () => {
+    const guidance = getGameDevJobGuidance([
+      'bevy',
+      'unreal',
+      'godot',
+      'unity',
+      'blender',
+    ])
+    expect(guidance.length).toBe(5)
     expect(guidance.map((g) => g.engineId)).toEqual([
       'bevy',
       'unreal',
       'godot',
       'unity',
+      'blender',
     ])
   })
 
@@ -306,7 +388,13 @@ describe('game-dev presets — getGameDevJobGuidance', () => {
 // ---------------------------------------------------------------------------
 
 describe('game-dev presets — job guidance fields', () => {
-  const allEngines: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+  const allEngines: SupportedEngineId[] = [
+    'unity',
+    'godot',
+    'unreal',
+    'bevy',
+    'blender',
+  ]
 
   test('every engine has non-empty readiness patterns', () => {
     for (const guidance of getGameDevJobGuidance(allEngines)) {
@@ -386,6 +474,15 @@ describe('game-dev presets — per-engine job guidance content', () => {
     expect(guidance.readinessPatterns).toContain('winit::window')
     expect(guidance.errorPatterns).toContain('panicked at')
     expect(guidance.stopInstructions).toContain('cargo watch')
+  })
+
+  test('Blender guidance has Saved readiness and Traceback error pattern', () => {
+    const guidance = getGameDevJobGuidance(['blender'])[0]
+    expect(guidance.readinessPatterns).toContain('Saved:')
+    expect(guidance.errorPatterns).toContain(
+      'Traceback (most recent call last):',
+    )
+    expect(guidance.stopInstructions).toContain('SIGTERM')
   })
 })
 

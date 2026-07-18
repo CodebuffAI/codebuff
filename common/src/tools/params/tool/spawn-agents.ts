@@ -40,7 +40,7 @@ const endsAgentStep = true
 const inputSchema = z
   .object({
     agents: z.preprocess(
-      normalizeSpawnAgentList,
+      (value) => normalizeSpawnAgentList(value),
       z
         .object({
           agent_type: z.string().describe('Agent to spawn'),

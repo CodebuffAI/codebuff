@@ -7,6 +7,7 @@ import {
   isObviousEditPlaceholder,
   normalizeSpawnAgentList,
   normalizeReplacementAliases,
+  normalizeReplacementList,
   normalizeTransactionEditList,
 } from '../utils'
 
@@ -55,6 +56,36 @@ describe('coerceToArray', () => {
   it('passes through undefined', () => {
     expect(coerceToArray(undefined)).toBeUndefined()
   })
+
+  it('recovers a comma-split fragment array by rejoining and re-parsing', () => {
+    const array = '[{"a":1},{"b":2}]'
+    const fragments = array.split(',')
+    expect(fragments.length).toBeGreaterThan(1)
+    expect(coerceToArray(fragments)).toEqual([{ a: 1 }, { b: 2 }])
+  })
+
+  it('collapses an unrecoverable comma-split fragment array to a single string', () => {
+    const truncated = '[{"a":1},{"b":2'
+    const fragments = truncated.split(',')
+    expect(fragments.length).toBeGreaterThan(1)
+    const result = coerceToArray(fragments)
+    expect(typeof result).toBe('string')
+    expect(result).toBe(truncated)
+  })
+
+  it('does not collapse a legitimate string array', () => {
+    expect(coerceToArray(['file1.ts', 'file2.ts'])).toEqual([
+      'file1.ts',
+      'file2.ts',
+    ])
+  })
+
+  it('passes through arrays of objects unchanged', () => {
+    expect(coerceToArray([{ old: 'x' }, { old: 'y' }])).toEqual([
+      { old: 'x' },
+      { old: 'y' },
+    ])
+  })
 })
 
 describe('coerceToObject', () => {
@@ -91,6 +122,43 @@ describe('normalizeSpawnAgentList', () => {
     expect(normalizeSpawnAgentList('[{"agent_type":')).toEqual([
       '[{"agent_type":',
     ])
+  })
+
+  it('recovers a comma-split fragment array by rejoining and re-parsing', () => {
+    const agents = [
+      {
+        agent_type: 'basher',
+        prompt: 'Run tests',
+        params: { command: 'bun test' },
+      },
+      { agent_type: 'thinker', prompt: 'Think about architecture' },
+    ]
+    // Simulate a transport that stringified the array then split on commas.
+    const stringified = JSON.stringify(agents)
+    const fragments = stringified.split(',')
+    expect(fragments.length).toBeGreaterThan(2) // sanity: it was actually split
+    expect(normalizeSpawnAgentList(fragments)).toEqual(agents)
+  })
+
+  it('collapses an unrecoverable comma-split fragment array to a single string', () => {
+    // Fragments of a truncated JSON array with commas — none parse as
+    // standalone objects, and rejoining doesn't produce valid JSON either.
+    const truncated = '[{"agent_type":"basher","prompt":"test"'
+    const fragments = truncated.split(',')
+    expect(fragments.length).toBeGreaterThan(1) // sanity: actually split
+    const result = normalizeSpawnAgentList(fragments)
+    expect(typeof result).toBe('string')
+    expect(result).toBe(truncated)
+  })
+
+  it('does not treat an array of standalone stringified entries as comma-split', () => {
+    const entry1 = { agent_type: 'basher', prompt: 'Run tests' }
+    const entry2 = { agent_type: 'thinker', prompt: 'Think' }
+    // Each element is a complete stringified object — should be repaired
+    // per-entry, not rejoined.
+    expect(
+      normalizeSpawnAgentList([JSON.stringify(entry1), JSON.stringify(entry2)]),
+    ).toEqual([entry1, entry2])
   })
 
   it('moves an explicit top-level Basher command into params', () => {
@@ -200,6 +268,94 @@ describe('normalizeSpawnAgentList', () => {
       params: { timeout_seconds: 300 },
     }
     expect(normalizeSpawnAgentList([entry])).toEqual([entry])
+  })
+
+  it('decodes stringified-array values for known array param keys', () => {
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'code-search',
+          prompt: 'Search the codebase',
+          params: { searchQueries: '["q1","q2"]' },
+        },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'code-search',
+        prompt: 'Search the codebase',
+        params: { searchQueries: ['q1', 'q2'] },
+      },
+    ])
+  })
+
+  it('decodes stringified-array values inside a stringified params object', () => {
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'file-picker',
+          prompt: 'Find files',
+          params: JSON.stringify({ filePaths: '["a.ts","b.ts"]' }),
+        },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'file-picker',
+        prompt: 'Find files',
+        params: { filePaths: ['a.ts', 'b.ts'] },
+      },
+    ])
+  })
+
+  it('leaves non-array values and unknown keys untouched', () => {
+    expect(
+      normalizeSpawnAgentList([
+        {
+          agent_type: 'editor',
+          prompt: 'Edit',
+          params: { searchQueries: 'not-an-array', custom: '["x"]' },
+        },
+      ]),
+    ).toEqual([
+      {
+        agent_type: 'editor',
+        prompt: 'Edit',
+        params: { searchQueries: 'not-an-array', custom: '["x"]' },
+      },
+    ])
+  })
+
+  it('terminates on a triple-stringified comma-split array without stack overflow (depth guard)', () => {
+    const agents = [{ agent_type: 'editor', prompt: 'Edit' }]
+    const tripleStringified = JSON.stringify(
+      JSON.stringify(JSON.stringify(agents)),
+    )
+    // The comma-split path splits on every comma; a triple-stringified
+    // payload re-parses on each recursion. The depth guard must bound this.
+    const fragments = tripleStringified.split(',')
+    expect(fragments.length).toBeGreaterThan(1)
+    const result = normalizeSpawnAgentList(fragments)
+    // Must return an array (repaired) without throwing or looping.
+    expect(Array.isArray(result)).toBe(true)
+  })
+
+  it('does not do unbounded CPU work on an implausibly large fragment array', () => {
+    // 300 fragments (above MAX_FRAGMENT_COUNT=256) of a malformed string.
+    // repairCommaSplitFragments must fail fast and return the array unchanged.
+    const largeFragmentArray = Array.from({ length: 300 }, (_, i) => `frag${i}`)
+    const result = normalizeSpawnAgentList(largeFragmentArray)
+    // Should return the same fragment strings unchanged — Zod will emit
+    // per-element errors. Use toEqual (deep equality) because
+    // normalizeSpawnAgentList maps over the array, producing a new array.
+    expect(result).toEqual(largeFragmentArray)
+  })
+
+  it('does not do unbounded CPU work on an implausibly long rejoined string', () => {
+    // A 2-fragment array where the rejoined string exceeds 64KB.
+    // repairCommaSplitFragments must fail fast and return the array unchanged.
+    const twoFragments = ['[' + 'x'.repeat(40_000), 'y'.repeat(40_000) + ']']
+    const result = coerceToArray(twoFragments)
+    // The rejoined string is > 64KB so repairCommaSplitFragments fails fast.
+    expect(result).toBe(twoFragments)
   })
 })
 
@@ -351,6 +507,58 @@ describe('normalizeReplacementAliases', () => {
   })
 })
 
+describe('normalizeReplacementList', () => {
+  it('drops a trailing empty placeholder but keeps real replacements', () => {
+    expect(
+      normalizeReplacementList([
+        { oldString: 'before', newString: 'after' },
+        {},
+      ]),
+    ).toEqual([{ oldString: 'before', newString: 'after' }])
+  })
+
+  it('drops a placeholder with only allowMultiple', () => {
+    expect(
+      normalizeReplacementList([
+        { oldString: 'a', newString: 'b' },
+        { allowMultiple: false },
+      ]),
+    ).toEqual([{ oldString: 'a', newString: 'b' }])
+  })
+
+  it('preserves an entry with an unknown key for normal validation', () => {
+    const entry = { oldString: 'a', newString: 'b', unknownKey: 'value' }
+    expect(normalizeReplacementList([entry])).toEqual([entry])
+  })
+
+  it('keeps a placeholder that carries a payload alias', () => {
+    expect(
+      normalizeReplacementList([
+        { old_str: 'before', new_str: 'after' },
+        { allowMultiple: true },
+      ]),
+    ).toEqual([{ old_str: 'before', new_str: 'after' }])
+  })
+
+  it('coerces a single replacement object into an array before filtering', () => {
+    expect(
+      normalizeReplacementList({ oldString: 'a', newString: 'b' }),
+    ).toEqual([{ oldString: 'a', newString: 'b' }])
+  })
+
+  it('passes through null without wrapping', () => {
+    expect(normalizeReplacementList(null)).toBeNull()
+  })
+
+  it('recovers a comma-split fragment array via coerceToArray', () => {
+    const replacements = [{ oldString: 'a', newString: 'b' }]
+    const stringified = JSON.stringify(replacements)
+    const fragments = stringified.split(',')
+    expect(fragments.length).toBeGreaterThan(1)
+    expect(normalizeReplacementList(fragments)).toEqual(replacements)
+  })
+})
+
 describe('normalizeTransactionEditList', () => {
   it('infers omitted discriminators for unambiguous transaction edits', () => {
     expect(
@@ -419,5 +627,21 @@ describe('normalizeTransactionEditList', () => {
   it('leaves malformed serialized transaction arrays at the field boundary', () => {
     const malformed = '[{"path":"a.ts","replacements":['
     expect(normalizeTransactionEditList(malformed)).toBe(malformed)
+  })
+
+  it('recovers a comma-split fragment array via coerceToArray', () => {
+    const edits = [
+      { path: 'a.ts', replacements: [{ oldString: 'a', newString: 'b' }] },
+    ]
+    const stringified = JSON.stringify(edits)
+    const fragments = stringified.split(',')
+    expect(fragments.length).toBeGreaterThan(1)
+    expect(normalizeTransactionEditList(fragments)).toEqual([
+      {
+        path: 'a.ts',
+        replacements: [{ oldString: 'a', newString: 'b' }],
+        type: 'str_replace',
+      },
+    ])
   })
 })

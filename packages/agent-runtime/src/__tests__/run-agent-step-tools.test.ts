@@ -33,6 +33,7 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import { REPEATED_STEP_LOOP_LIMIT } from '../util/step-loop-guard'
 
 type WriteTodosOutput = {
   message: string
@@ -1067,5 +1068,111 @@ describe('runAgentStep - set_output tool', () => {
           m.content[0].text === 'Can you help me?',
       ),
     ).toBe(true)
+  })
+
+  it('stops the turn via the no-progress watchdog after REPEATED_STEP_LOOP_LIMIT repeated check_job polling steps', async () => {
+    // An agent that polls a single background job with check_job. It has no
+    // programmatic handleSteps, does not require task_completed, and uses
+    // end_turn only as a fallback tool — the stream never emits end_turn, so
+    // the turn must NOT end naturally. The repeated-step-loop guard is the
+    // only thing that can stop the turn.
+    const pollingAgent: AgentTemplate = {
+      id: 'test-polling-agent',
+      displayName: 'Test Polling Agent',
+      spawnerPrompt: 'Polls a background job until the watchdog stops it',
+      model: 'claude-3-5-sonnet-20241022',
+      inputSchema: {},
+      outputMode: 'last_message' as const,
+      includeMessageHistory: true,
+      inheritParentSystemPrompt: false,
+      mcpServers: {},
+      toolNames: ['check_job', 'end_turn'],
+      spawnableAgents: [],
+      systemPrompt: 'Test system prompt',
+      instructionsPrompt: 'Test instructions prompt',
+      stepPrompt: 'Poll the render job for completion',
+    }
+
+    const localAgentTemplates: Record<string, AgentTemplate> = {
+      'test-polling-agent': pollingAgent,
+    }
+
+    // Each step's check_job call polls the same jobId but varies wait_for,
+    // timeout_seconds, and cursor so the raw payloads diverge. The guard's
+    // polling normalization collapses these to an identical (toolName, jobId)
+    // signature, so the repeat counter ticks once per step.
+    let stepIndex = 0
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      promptAiSdkStream: async function* () {
+        yield createToolCallChunk('check_job', {
+          jobId: 'stuck-render',
+          wait_for: stepIndex % 2 === 0 ? 'complete' : 'ready',
+          timeout_seconds: 5 + (stepIndex % 3),
+          cursor: `cursor-${stepIndex}`,
+        })
+        yield { type: 'text' as const, text: `Polling step ${stepIndex + 1}` }
+        return promptSuccess('mock-message-id')
+      },
+      requestToolCall: async () => ({
+        output: [
+          {
+            type: 'json',
+            value: {
+              toolName: 'check_job',
+              jobId: 'stuck-render',
+              status: 'running',
+              chunk: `poll-output-${stepIndex}`,
+            },
+          },
+        ],
+      }),
+    }
+
+    let sessionState = getInitialSessionState(mockFileContext)
+    let agentState = sessionState.mainAgentState
+    let resultShouldEndTurn = false
+    let resultAgentState = agentState
+
+    for (stepIndex = 0; stepIndex < REPEATED_STEP_LOOP_LIMIT; stepIndex++) {
+      const result = await runAgentStep({
+        ...runAgentStepBaseParams,
+        agentType: 'test-polling-agent',
+        localAgentTemplates,
+        agentTemplate: pollingAgent,
+        agentState,
+        prompt: 'Poll the render job for completion',
+      })
+
+      resultShouldEndTurn = result.shouldEndTurn
+      resultAgentState = result.agentState
+      // Thread the returned agentState into the next step so the guard's
+      // lastStepProgressSignature / repeatedStepProgressCount accumulate.
+      agentState = result.agentState
+    }
+
+    expect(stepIndex).toBe(REPEATED_STEP_LOOP_LIMIT)
+
+    // (a) The guard, not a natural turn end, stopped the turn.
+    expect(resultShouldEndTurn).toBe(true)
+
+    // (b) A NO_PROGRESS_LOOP_GUARD assistant message was recorded.
+    expect(
+      resultAgentState.messageHistory.some(
+        (m) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.tags) &&
+          m.tags.includes('NO_PROGRESS_LOOP_GUARD'),
+      ),
+    ).toBe(true)
+
+    // (c) The last step's progress signature is a defined string.
+    expect(typeof resultAgentState.lastStepProgressSignature).toBe('string')
+    expect(resultAgentState.lastStepProgressSignature).toBeTruthy()
+
+    // (d) The repeat count equals the limit.
+    expect(resultAgentState.repeatedStepProgressCount).toBe(
+      REPEATED_STEP_LOOP_LIMIT,
+    )
   })
 })

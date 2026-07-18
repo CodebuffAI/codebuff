@@ -67,6 +67,21 @@ describe('terminal command permission policy', () => {
     }
   })
 
+  it('explains that workspace validation cannot approve dependency mutation inline', () => {
+    const decision = evaluateTerminalCommandPolicy({
+      command: 'bun install && bun run typecheck',
+      mode: 'assistant',
+      permissionProfile: 'workspace-write',
+      projectRoot,
+    })
+
+    expect(decision).toEqual({
+      allowed: false,
+      reason:
+        'dependency or package mutation is unavailable in workspace-write; use the dependency-manager workflow after separate explicit user authorization (there is no inline approval retry)',
+    })
+  })
+
   it('allows only isolated package mutations in dependency-mutation mode', () => {
     for (const command of [
       'npm install -w server',

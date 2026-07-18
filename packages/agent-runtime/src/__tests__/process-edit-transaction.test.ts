@@ -2,7 +2,10 @@ import { describe, expect, it } from 'bun:test'
 import { applyPatch } from 'diff'
 
 import { processEditTransaction } from '../process-edit-transaction'
-import { getContentHash } from '@codebuff/common/util/content-hash'
+import {
+  encodeReadCapabilityToken,
+  getContentHash,
+} from '@codebuff/common/util/content-hash'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -1315,6 +1318,118 @@ describe('processEditTransaction', () => {
       expect(result.files[0].content).toContain('/** New documentation. */')
       expect(result.files[0].content).not.toContain('Old documentation')
       expect(result.files[0].content).toContain('return 2')
+    }
+  })
+
+  it('applies a whole-file readCapability + narrower sub-range replace_range without an expectedHash match', async () => {
+    // RF-1/RF-10: the wholeFileCapabilitySubRange preflight branch verifies
+    // decoded.hash against the whole-file hash and applies the caller's
+    // narrower sub-range WITHOUT an expectedHash match (the security-critical
+    // relaxation). Mint a fresh whole-file cap.v3 matching exactly what
+    // read_files.renderWholeFileItem would mint over lines 1-N of a file
+    // ending in a trailing newline (endLine = split('\n').length, hash over
+    // the full normalized content).
+    const initial = 'export const value = 1\nexport const other = 2\n'
+    const issuer = { projectId: '/project', runId: 'run-wholefile-subrange' }
+    const wholeFileCap = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: initial.split('\n').length,
+      hash: getContentHash(initial),
+      scope: { ...issuer, path: 'src/helper.ts' },
+    })
+
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/helper.ts', initial]]),
+      logger,
+      readCapabilityIssuer: issuer,
+      edits: [
+        {
+          id: 'whole-file-cap-subrange',
+          type: 'replace_range',
+          path: 'src/helper.ts',
+          readCapability: wholeFileCap,
+          startLine: 2,
+          endLine: 2,
+          // edit.expectedHash is intentionally omitted: the transform emits
+          // { expectedHash: undefined, wholeFileCapabilityHash: decoded.hash },
+          // and the runtime preflight verifies decoded.hash against the
+          // current whole-file hash instead of a per-range hash match.
+          newContent: 'export const other = 22',
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files).toHaveLength(1)
+      expect(result.files[0].content).toBe(
+        'export const value = 1\nexport const other = 22\n',
+      )
+      expect(result.files[0].messages).toContain(
+        'Replaced lines 2-2 in src/helper.ts using a whole-file readCapability.',
+      )
+      expect(applyPatch(initial, result.files[0].patch)).toBe(
+        'export const value = 1\nexport const other = 22\n',
+      )
+    }
+  })
+
+  it('rejects a whole-file readCapability sub-range edit when the current file hash is stale, minting a recovery capability', async () => {
+    // RF-1/RF-10 stale-hash case: the whole-file capability attests an older
+    // file hash. The runtime must reject and return a recovery capability for
+    // the current whole-file content so the model can retry without a
+    // separate read_files round-trip.
+    const staleInitial = 'export const value = 1\nexport const other = 2\n'
+    const currentInitial = 'export const value = 99\nexport const other = 2\n'
+    const issuer = { projectId: '/project', runId: 'run-wholefile-stale' }
+    const staleWholeFileCap = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: staleInitial.split('\n').length,
+      hash: getContentHash(staleInitial),
+      scope: { ...issuer, path: 'src/helper.ts' },
+    })
+
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/helper.ts', currentInitial]]),
+      logger,
+      readCapabilityIssuer: issuer,
+      edits: [
+        {
+          id: 'whole-file-cap-subrange-stale',
+          type: 'replace_range',
+          path: 'src/helper.ts',
+          readCapability: staleWholeFileCap,
+          startLine: 2,
+          endLine: 2,
+          newContent: 'export const other = 22',
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('edit_transaction aborted')
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          editIndex: 0,
+          id: 'whole-file-cap-subrange-stale',
+          path: 'src/helper.ts',
+        }),
+      ])
+      const message = result.failures[0]!.errorMessage
+      expect(message).toContain(
+        'the whole-file readCapability is stale (its hash no longer matches the current full-file content)',
+      )
+      // The inline recovery path mints a fresh whole-file capability over the
+      // CURRENT file content and returns it in the error message.
+      const expectedRecovery = encodeReadCapabilityToken({
+        startLine: 1,
+        endLine: currentInitial.split('\n').length,
+        hash: getContentHash(currentInitial),
+        scope: { ...issuer, path: 'src/helper.ts' },
+      })
+      expect(message).toContain(`readCapability="${expectedRecovery}"`)
+      expect(message).toContain('no extra read_files round-trip required')
     }
   })
 })

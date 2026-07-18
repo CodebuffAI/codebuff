@@ -176,12 +176,13 @@ ${
     ? '- **Dependency planning:** Inspect discovered manifests/lockfiles and use dependency-reviewer for dependency analysis. Describe dependency changes in the plan; dependency-manager and dependency mutation remain implementation-only.'
     : '- **Dependency mutation:** When the user explicitly asks to add, remove, sync, restore, or update project dependencies, inspect the repository manifests/lockfiles and spawn `dependency-manager` with structured manager, operation, packages, workspace, and cwd fields. Never pass arbitrary shell, never use basher for dependency mutation, and never infer authorization merely because validation reports a missing package.'
 }
+- **Validation is dependency-neutral:** A test, typecheck, lint, or build request authorizes only that validation command. Never prepend or append install/add/remove/update/sync/restore commands. If validation cannot start because dependencies are missing, report that exact blocker; use dependency-manager only after separate explicit user authorization.
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Its absence from the root toolset is expected. Do not delegate work merely to gain access to set_output; the root returns ordinary final-response text.
 - **Images and screenshots:** If the user asks you to read or inspect local screenshot/image paths, use the read_image tool. Do not use read_files for image formats and do not claim you cannot view binary images when read_image is available.
 ${
   planOnly
     ? '- **Live visual analysis:** Use browser-use only for read-only inspection of an already available URL. Do not start dev servers or request browser interactions in plan mode.'
-    : '- **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.'
+    : '- **Live visual verification:** Visual verification extends beyond web apps. Image artifacts from 3D renders (e.g. Blender frames), image/video exports, generated diagrams, and charts must be inspected with read_image, not inferred from text logs alone. The workflow is: render/export -> poll the background job to completion -> read_image the emitted artifacts -> assess the result -> make a targeted edit -> re-render. Polling (check_job/check_background_agent/read_logs) is only the bridge to artifact inspection; do not re-poll a finished or unchanging job indefinitely. After 2-3 unmatched polls that produce no new actionable artifact or progress, proceed with independent work, cancel/retry with a targeted edit, or ask the user. For web app visual checks specifically, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.'
 }
 - **Prefer dedicated harness tools over shell fallbacks:** Repository status is injected automatically by the runtime; do not spawn basher merely to run git status. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs.
 
@@ -224,7 +225,7 @@ When tools, tests, or reviewers report a failure, treat that feedback as the cur
 
 Use the spawn_agents tool to spawn specialized agents to help you complete the user's request.
 
-- **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response. Keep each call to the advertised batch limit, but use additional non-overlapping waves whenever evidence or coverage checks reveal gaps; there is no fixed total-agent limit. Keep simple tasks simple; do not spawn agents when a direct answer or tiny edit is enough.
+- **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response. Each spawn_agents call accepts at most **8** agents — count before you call. If you need more, split into multiple bounded waves of ≤8, joining each wave before launching the next. Keep simple tasks simple; do not spawn agents when a direct answer or tiny edit is enough.
 - **Task-scope classification:** Before editing, classify the task as tiny, focused, multi-file, cross-subsystem, or unknown surface. Tiny tasks require only the directly relevant read; focused tasks require reading the target file plus nearby tests/callers; multi-file tasks require search plus representative reads; cross-subsystem or unknown-surface tasks start with the runtime-injected query_index result, then use bounded parallel discovery waves for uncovered domains until the inventory and coverage checks are complete.
 - **Evidence context packet:** For non-trivial edits, organize discovery into a compact task packet: request and acceptance criteria; relevant symbols with a reason, confidence, and freshness proof; callers/callees; nearby tests and public contracts; current diagnostics; prior failed hypotheses; and explicitly excluded irrelevant context. Label inference and unknowns explicitly.
 - **Hypothesis checkpoint:** Before editing, state current behavior, desired behavior, source-backed hypothesis, intended observable change, and the falsifying signal. If the same hypothesis fails twice or the same diagnostic survives two targeted edits, switch to root-cause analysis.
@@ -261,7 +262,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- Spawn code-reviewer/security-reviewer after meaningful edits when user scope or risk calls for review. Spawn doc-writer/test-writer when documentation or test coverage is required or directly implied by acceptance criteria.',
     '- Spawn bashers sequentially if the second command depends on the the first.',
     '- For a long-running or never-exiting process (dev server, build watcher, log tail), spawn a basher with params.process_type set to BACKGROUND: it returns a jobId immediately instead of blocking. Then call the check_job tool to poll new output and status, or to follow it (pass wait_for to block until a readiness/error pattern appears, with a timeout_seconds bound). Use kill_job when a background job is no longer needed. To watch an existing log file, start a BACKGROUND `tail -f <file>` and check_job it.',
-    '- For local screenshots or other image files, call read_image with the image paths. Do not call read_files on image formats.',
+    '- For local screenshots or other image files, call read_image with the image paths. Do not call read_files on image formats. Treat image artifacts emitted by 3D/render/export jobs (Blender frames, exported PNG/frames, generated diagrams, charts) as read_image inputs as well: finishing a background job is not visual verification until you have inspected its emitted image output with read_image.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
@@ -2000,7 +2001,10 @@ ${specialistRoutingSection}
                           }),
                         ),
                         permissions: {
-                          readablePaths: Array.from(pendingGateFiles),
+                          readablePaths: repairEditorReadablePaths([
+                            ...pendingGateFiles,
+                            ...parsed.map((p: { file: string }) => p.file),
+                          ]),
                           writablePaths: Array.from(pendingGateFiles),
                           allowedTools: [
                             'read_files',
@@ -2204,7 +2208,10 @@ ${specialistRoutingSection}
                             }),
                           ),
                           permissions: {
-                            readablePaths: Array.from(pendingGateFiles),
+                            readablePaths: repairEditorReadablePaths([
+                              ...pendingGateFiles,
+                              ...parsed.map((p: { file: string }) => p.file),
+                            ]),
                             writablePaths: Array.from(pendingGateFiles),
                             allowedTools: [
                               'read_files',
@@ -2590,7 +2597,13 @@ ${specialistRoutingSection}
                         }),
                       ),
                       permissions: {
-                        readablePaths: Array.from(pendingGateFiles),
+                        readablePaths: repairEditorReadablePaths([
+                          ...pendingGateFiles,
+                          ...activeWorkState.openReviewerFindings.flatMap(
+                            (finding: { files?: string[] }) =>
+                              finding.files ?? [],
+                          ),
+                        ]),
                         writablePaths: Array.from(pendingGateFiles),
                         allowedTools: [
                           'read_files',
@@ -3548,6 +3561,18 @@ ${specialistRoutingSection}
         })
       }
 
+      function repairEditorReadablePaths(paths: string[]): string[] {
+        const exactPaths = paths
+          .map(normalizeGateFilePath)
+          .filter((file): file is string => Boolean(file))
+        const adjacentDirectoryPatterns = exactPaths.flatMap((file) => {
+          const separatorIndex = file.lastIndexOf('/')
+          if (separatorIndex <= 0) return []
+          return [`${file.slice(0, separatorIndex)}/**`]
+        })
+        return [...new Set([...exactPaths, ...adjacentDirectoryPatterns])]
+      }
+
       function isPublicApiSourceFile(filePath: string): boolean {
         if (/__tests__\//.test(filePath)) return false
         if (/\.(test|spec)\.tsx?$/.test(filePath)) return false
@@ -4140,6 +4165,11 @@ ${specialistRoutingSection}
         if (!hasUnresolvedGateWork && !hasIncompleteWorkflowTodos) return ''
 
         const sections: string[] = [`Current phase: ${state.currentPhase}`]
+        if (hasUnresolvedGateWork) {
+          sections.push(
+            'suggest_followups: BLOCKED — the validation/reviewer gate has not passed yet. Do not call it until this line disappears.',
+          )
+        }
         if (state.openReviewerBlockers.length > 0) {
           sections.push(
             [

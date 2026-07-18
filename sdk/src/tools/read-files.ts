@@ -808,6 +808,40 @@ function renderRangeItem(
           : {}),
       })
     : undefined
+  // When the range was read from a full-file snapshot (NOT an oversized
+  // range-window read) AND the requested range is a proper subset of the file,
+  // also mint a whole-file capability so the model can authorize further
+  // sub-range edits without a re-read. The token is signed cap.v3 over the
+  // ENTIRE current file content, minted under the same capabilityIssuer scope
+  // as the range capability. SECURITY: never mint when capabilityIssuer is
+  // undefined, and never mint for 'large' (oversized) snapshots — the model
+  // has only seen a fragment, so a whole-file hash would be a lie.
+  const isFullFileSnapshot = snapshot.state === 'full'
+  const requestedProperSubset = desiredStart > 1 || desiredEnd < totalLines
+  const wholeFileReadCapability =
+    complete &&
+    isFullFileSnapshot &&
+    requestedProperSubset &&
+    fullContent !== undefined &&
+    capabilityIssuer
+      ? (() => {
+          const wholeFileNormalized = normalizeLineEndings(fullContent)
+          return encodeReadCapabilityToken({
+            startLine: 1,
+            endLine: wholeFileNormalized.split('\n').length,
+            hash: getContentHash(wholeFileNormalized),
+            scope: {
+              ...capabilityIssuer,
+              path: target.displayPath,
+            },
+          })
+        })()
+      : undefined
+  // Range header: keep rangeHash and readCapability on the same logical line
+  // (separated by '; ') so normalizeReadFilesOverrideResult's regex still
+  // matches (lines N-M of X ... rangeHash=...; readCapability=...). Make the
+  // line range + readCapability visually dominant with a prominent >> EDIT
+  // ANCHOR line above the token line.
   const header = complete
     ? `${RANGE_BLOCK_MARKER}lines ${desiredStart}-${desiredEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=${rangeHash}; readCapability=${readCapability}; preferred block edit: replace_range { readCapability: "${readCapability}", newContent: "..." }; scoped str_replace: basedOnRead="${readCapability}"]\n`
     : `${RANGE_BLOCK_MARKER}lines ${returnedStart}-${returnedEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=omitted; readCapability=omitted; request a smaller range before editing]\n`
@@ -834,6 +868,7 @@ function renderRangeItem(
           },
         }
       : {}),
+    ...(wholeFileReadCapability ? { wholeFileReadCapability } : {}),
     ...(!complete
       ? { truncation: { reason: 'character_limit' as const } }
       : {}),
@@ -1199,8 +1234,13 @@ export function normalizeReadFilesOverrideResult(params: {
       continue
     }
 
+    // The range header may now be multi-line: `[RANGE_BLOCK lines N-M of X in path]\n>> EDIT ANCHOR ...\nrangeHash=...; readCapability=......`.
+    // Use the dotall flag so `.*?` can span those newlines, and exclude \n
+    // from the rangeHash/readCapability capture groups so they stop at the end
+    // of their logical line and do not over-capture into the preferred-edit
+    // guidance lines. This still matches the legacy single-line header form.
     const header = content.match(
-      /^\[RANGE_BLOCK lines (\d+)-(\d+) of ([\d,]+).*?rangeHash=([^;\]]+); readCapability=([^;\]]+)/,
+      /^\[RANGE_BLOCK lines (\d+)-(\d+) of ([\d,]+).*?rangeHash=([^;\]\n]+); readCapability=([^;\]\n]+)/s,
     )
     if (!header) {
       results.push(

@@ -243,6 +243,7 @@ describe('base2 validation/reviewer coordination prompts', () => {
       'Manual code-reviewer use is for pre-edit/advisory review',
     )
     expect(base2.systemPrompt).toContain('Prefer dedicated harness tools')
+    expect(base2.systemPrompt).toContain('Validation is dependency-neutral')
     expect(base2.systemPrompt).toContain(
       'Its absence from the root toolset is expected',
     )
@@ -365,7 +366,10 @@ describe('base2 validation/reviewer coordination prompts', () => {
   test('plan mode allows repeated bounded analysis waves', () => {
     const planBase2 = createBase2('default', { planOnly: true })
 
-    expect(planBase2.systemPrompt).toContain('no fixed total-agent limit')
+    expect(planBase2.systemPrompt).toContain('at most **8** agents')
+    expect(planBase2.systemPrompt).toContain(
+      'split into multiple bounded waves',
+    )
     expect(planBase2.instructionsPrompt).toContain(
       'as many analysis subagents as the work requires',
     )
@@ -3761,9 +3765,16 @@ describe('base2 repair-loop gate-state telemetry (M6.4)', () => {
         },
       ],
     }
+    const repairSpawn = gen.next({
+      toolResult: [typecheckFailure],
+    } as any).value as any
+    expect(repairSpawn).toMatchObject({ toolName: 'spawn_agents' })
     expect(
-      gen.next({ toolResult: [typecheckFailure] } as any).value,
-    ).toMatchObject({ toolName: 'spawn_agents' })
+      repairSpawn.input.agents[0].handoff.permissions.readablePaths,
+    ).toEqual(['src/a.ts', 'src/**'])
+    expect(
+      repairSpawn.input.agents[0].handoff.permissions.writablePaths,
+    ).toEqual(['src/a.ts'])
     // Repair editor ran; git_status after the repair editor.
     expect(
       gen.next(completedRepairReceipt(['VF-1'], ['src/a.ts']) as any).value,

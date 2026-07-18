@@ -4,7 +4,12 @@ import type { FileTreeNode } from './file'
 // Types
 // ---------------------------------------------------------------------------
 
-export type SupportedEngineId = 'unity' | 'godot' | 'unreal' | 'bevy'
+export type SupportedEngineId =
+  | 'unity'
+  | 'godot'
+  | 'unreal'
+  | 'bevy'
+  | 'blender'
 
 export type EngineProfile = {
   id: SupportedEngineId
@@ -50,9 +55,24 @@ const ENGINE_PROFILES: Record<SupportedEngineId, EngineProfile> = {
       'Assets/ directory holds game resources; .rs files use Bevy ECS patterns (Systems, Components, Resources, Plugins). ' +
       'Respect Rust ownership/borrowing and Bevy schedule conventions.',
   },
+  blender: {
+    id: 'blender',
+    displayName: 'Blender',
+    guidance:
+      'Blender .blend files are binary scene databases (geometry, materials, lights, cameras, animations). ' +
+      'Do not read .blend files as text. Use `blender --background <file>.blend --python-expr "..."` or bpy scripts to inspect/modify scenes programmatically. ' +
+      'For rendering, use `blender -b <file>.blend -f 1` (single frame) or `-a` (animation). Export to glTF/GLB via bpy `export_gltf` operator. ' +
+      'Rendered output images are the primary way to visually verify scene changes — use read_image on rendered PNGs.',
+  },
 }
 
-const ENGINE_ORDER: SupportedEngineId[] = ['unity', 'godot', 'unreal', 'bevy']
+const ENGINE_ORDER: SupportedEngineId[] = [
+  'unity',
+  'godot',
+  'unreal',
+  'bevy',
+  'blender',
+]
 
 // Manifest files/paths that uniquely identify each engine.
 // These are checked by exact path match (for specific files like
@@ -64,6 +84,8 @@ const ENGINE_MANIFEST_PATHS: Record<SupportedEngineId, string[]> = {
   unreal: [], // .uproject is an extension, handled in ENGINE_EXTENSIONS
   // Bevy has no single manifest file; detected via Cargo.toml + bevy dep + assets/
   bevy: [],
+  // Blender has no manifest; detected via .blend file extension
+  blender: [],
 }
 
 const ENGINE_EXTENSIONS: Record<SupportedEngineId, string[]> = {
@@ -72,6 +94,8 @@ const ENGINE_EXTENSIONS: Record<SupportedEngineId, string[]> = {
   unreal: ['.uproject', '.uasset', '.umap'],
   // Bevy shares .rs with general Rust; detection needs Cargo.toml bevy dep
   bevy: [],
+  // .blend is a strong, unique Blender signal
+  blender: ['.blend'],
 }
 
 // Directory patterns that signal engine presence (checked as path prefixes)
@@ -80,6 +104,8 @@ const ENGINE_DIRECTORY_PATTERNS: Record<SupportedEngineId, string[]> = {
   godot: ['addons/'],
   unreal: ['Content/', 'Config/'],
   bevy: ['assets/'],
+  // Blender has no unique directory patterns; detected via .blend extension
+  blender: [],
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +179,7 @@ function detectBevyHeuristic(filePaths: string[]): boolean {
  * - Unreal: .uproject manifest, .uasset/.umap files, Content/ or Config/
  *   directories
  * - Bevy: Cargo.toml + assets/ directory heuristic (no unique manifest)
+ * - Blender: .blend file extension (strong, unique signal — no manifest)
  *
  * .meta and .csproj files are Unity signals but also matched by the C#
  * language profile; they are secondary signals for Unity and only count
@@ -182,7 +209,7 @@ export function detectEngineProfiles(
 
     if (detected.has(engineId)) continue
 
-    // Check file extensions (strong signals for Unity/Godot/Unreal)
+    // Check file extensions (strong signals for Unity/Godot/Unreal/Blender)
     if (extensions.length > 0) {
       const hasExtension = filePaths.some((p) => {
         const ext = getFileExtension(p)
@@ -201,6 +228,11 @@ export function detectEngineProfiles(
         }
         // For Unreal, .uasset/.umap are strong enough
         if (engineId === 'unreal') {
+          detected.add(engineId)
+          continue
+        }
+        // For Blender, .blend is a strong, unique signal
+        if (engineId === 'blender') {
           detected.add(engineId)
           continue
         }

@@ -19,7 +19,12 @@ import type { ToolResultOutput } from '../../types/messages/content-part'
  * - null/undefined → passes through (let Zod handle it)
  */
 export function coerceToArray(val: unknown): unknown {
-  if (Array.isArray(val)) return val
+  if (Array.isArray(val)) {
+    // Recover comma-split fragment arrays (transports that tokenize a
+    // stringified JSON array on every comma). Returns the array unchanged
+    // for legitimate string arrays and arrays of objects.
+    return repairCommaSplitFragments(val)
+  }
   if (typeof val === 'string') {
     try {
       const parsed = JSON.parse(val)
@@ -70,12 +75,124 @@ function parseJsonBounded(value: unknown, maxDepth = 3): unknown {
 }
 
 /**
+ * Repairs a comma-split fragment array: some transports tokenize a
+ * stringified JSON array on every comma, producing an array of string
+ * fragments that individually cannot parse as objects. Without this
+ * recovery, Zod emits one "expected object, received string" error per
+ * fragment — potentially 100+ — drowning out the actionable hint.
+ *
+ * Returns the recovered array when the rejoined fragments parse back into
+ * an array. When the array is unrecoverable (no fragment parses as a
+ * standalone object AND the rejoined string looks like JSON), returns the
+ * joined string so Zod emits a single field-level error. Otherwise returns
+ * the original value unchanged so legitimate string arrays survive.
+ */
+function repairCommaSplitFragments(value: unknown): unknown {
+  if (
+    !Array.isArray(value) ||
+    value.length <= 1 ||
+    !value.every((entry) => typeof entry === 'string')
+  ) {
+    return value
+  }
+
+  // Fail fast on implausibly large fragment arrays — these are almost
+  // certainly genuinely malformed payloads, not comma-split transport
+  // artifacts. Zod will emit per-element errors for them.
+  if (value.length > MAX_FRAGMENT_COUNT) {
+    return value
+  }
+
+  const rejoined = value.join(',')
+  if (rejoined.length > MAX_REJOINED_LENGTH) {
+    return value
+  }
+  const reparsed = parseJsonBounded(rejoined)
+  if (Array.isArray(reparsed)) {
+    return reparsed
+  }
+
+  // Only collapse to a single string when the rejoined fragments look like
+  // they could be a (possibly malformed) stringified JSON array/object.
+  // Legitimate string arrays like ['file1.ts', 'file2.ts'] rejoin to
+  // 'file1.ts,file2.ts' which does not start with '[' or '{', so they are
+  // returned unchanged.
+  const firstChar = rejoined.trim()[0]
+  if (firstChar !== '[' && firstChar !== '{') {
+    return value
+  }
+
+  // If every individual fragment also fails to parse as a standalone
+  // object, the array is unrecoverable. Return the joined string so Zod
+  // emits a single field-level error rather than one per-element error.
+  const hasStandaloneObject = value.some((entry) => {
+    const parsed = parseJsonBounded(entry)
+    return (
+      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    )
+  })
+  if (!hasStandaloneObject) {
+    return rejoined
+  }
+
+  // At least one fragment parses as a standalone object — return the
+  // original array so the caller can apply per-entry repairs.
+  return value
+}
+
+/**
+ * Upper bounds for repairCommaSplitFragments. Beyond these ceilings the input
+ * is almost certainly a genuinely malformed payload rather than a comma-split
+ * transport artifact, so we fail fast and let Zod emit per-element errors
+ * instead of doing unbounded CPU work rejoining and re-parsing every fragment.
+ */
+const MAX_FRAGMENT_COUNT = 256
+const MAX_REJOINED_LENGTH = 65_536
+
+/**
+ * Known array-shaped spawn_agents params fields whose stringified-array values
+ * should be decoded back into real arrays. Module-scoped (alongside
+ * REPLACEMENT_PLACEHOLDER_KEYS) so it is not recreated for every entry.
+ */
+const ARRAY_PARAM_KEYS = [
+  'searchQueries',
+  'filePaths',
+  'directories',
+  'prompts',
+  'changed_files',
+  'paths',
+  'patterns',
+  'queries',
+]
+
+/**
  * Repairs the common spawn_agents encodings produced by tool-calling models:
  * a stringified array, a double-stringified array, or stringified object
  * entries. Malformed/truncated values remain untouched so Zod fails closed.
  */
-export function normalizeSpawnAgentList(value: unknown): unknown {
+export function normalizeSpawnAgentList(value: unknown, depth = 0): unknown {
   const decoded = parseJsonBounded(value)
+
+  // Detect and repair a comma-split fragment array: some transports
+  // tokenize a stringified JSON array on every comma, producing an array
+  // of string fragments that individually cannot parse as objects.
+  const repaired = repairCommaSplitFragments(decoded)
+  if (Array.isArray(decoded) && typeof repaired === 'string') {
+    // Unrecoverable fragments collapsed to a single string — return it so
+    // Zod emits one field-level error rather than one per fragment.
+    return repaired
+  }
+  if (Array.isArray(repaired) && repaired !== decoded) {
+    // Successfully recovered the original array — recurse to apply
+    // per-entry repairs (stringified params, handoffs, etc.). Bound the
+    // recursion at depth 2: parseJsonBounded maxDepth=3 means at most two
+    // re-parse layers can produce a NEW array that differs from the
+    // previous one; a third pass is a guaranteed no-op. This makes
+    // termination explicit without relying on the maxDepth cap alone.
+    if (depth >= 2) return repaired
+    return normalizeSpawnAgentList(repaired, depth + 1)
+  }
+
   const entries = Array.isArray(decoded) ? decoded : [decoded]
   return entries.map((entry) => {
     const parsedEntry = parseJsonBounded(entry)
@@ -120,17 +237,7 @@ export function normalizeSpawnAgentList(value: unknown): unknown {
       // example, `searchQueries: "[...]"`). Decode only known array-shaped
       // handoff fields; leave commands, prompts, and arbitrary custom values
       // untouched so intentional strings are never reinterpreted as data.
-      const arrayParamKeys = [
-        'searchQueries',
-        'filePaths',
-        'directories',
-        'prompts',
-        'changed_files',
-        'paths',
-        'patterns',
-        'queries',
-      ]
-      for (const key of arrayParamKeys) {
+      for (const key of ARRAY_PARAM_KEYS) {
         const value = paramsRecord[key]
         const parsedValue = parseJsonBounded(value)
         if (typeof value !== 'string' || !Array.isArray(parsedValue)) {

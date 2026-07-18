@@ -129,6 +129,21 @@ const ENGINE_JOB_GUIDANCE: Record<SupportedEngineId, GameDevJobGuidance> = {
     stopInstructions:
       'Send SIGTERM to the cargo run or cargo watch process. Rust processes exit cleanly on SIGTERM. If cargo watch is running, kill it with kill_job before rebuilding to avoid stale recompile loops.',
   },
+  blender: {
+    engineId: 'blender',
+    displayName: 'Blender',
+    readinessPatterns: ['Saved:', 'Fra:', 'Time:', 'Blender quit'],
+    errorPatterns: [
+      'Error:',
+      'Traceback (most recent call last):',
+      'CUDA error',
+      'CUDA_DEVICE_NOT_FOUND',
+      'Read prefs:',
+    ],
+    logPaths: ['render.log'],
+    stopInstructions:
+      'Send SIGTERM to the Blender process. Blender exits cleanly on SIGTERM. For GPU rendering, the process may take a few seconds to release CUDA/OptiX contexts — only escalate to SIGKILL after 10 seconds.',
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +279,36 @@ const ENGINE_PRESETS: Record<SupportedEngineId, GameDevPreset[]> = {
       description: 'Watch cargo build output or Bevy tracing logs',
       insertText:
         'Watch for Bevy build and runtime changes. Run `cargo watch` (if cargo-watch is installed) or `bacon` as a BACKGROUND job to get live recompilation on file changes. Use check_job with a wait_for pattern for "error[E" or "FAILED" to catch compilation errors. To stop the watcher, use kill_job with SIGTERM. Kill cargo watch before rebuilding to avoid stale recompile loops.',
+    },
+  ],
+  blender: [
+    {
+      id: 'blender:build',
+      label: 'blender:build',
+      description: 'Render or export the Blender scene',
+      insertText:
+        'Render or export the Blender scene. Check the .blend file for the active scene and camera. For rendering an image, use `blender -b <file>.blend -f 1 --render-output /tmp/render-` (single frame). For glTF/GLB export, use `blender -b <file>.blend --python-expr "import bpy; bpy.ops.export_scene.gltf(filepath=\'/tmp/output.glb\')"`. Use a synchronous terminal command for short renders, or a BACKGROUND job with check_job for long renders. Wait for the "Saved:" readiness pattern to confirm output. After rendering, call read_image on the output PNG to visually inspect the result before deciding next steps.',
+    },
+    {
+      id: 'blender:run',
+      label: 'blender:run',
+      description: 'Open the .blend file in Blender editor',
+      insertText:
+        'Open this Blender project in the editor. Suggest `blender <file>.blend` to launch the GUI editor. If Blender is already running as a BACKGROUND job, use check_job to poll it — wait for "Blender quit" or error patterns. To stop a running Blender process, send SIGTERM via kill_job — Blender exits cleanly on SIGTERM. For GPU rendering, allow a few seconds for CUDA/OptiX context cleanup before escalating to SIGKILL.',
+    },
+    {
+      id: 'blender:test',
+      label: 'blender:test',
+      description: 'Validate Blender scene integrity via bpy',
+      insertText:
+        'Validate the Blender scene. Use `blender -b <file>.blend --python-expr "import bpy; print(len(bpy.data.objects))"` to inspect scene contents (object count, mesh count, material count, missing textures, broken library links). Check for missing external references with `bpy.path` utilities. Use a synchronous terminal command and report any missing links or broken references.',
+    },
+    {
+      id: 'blender:watch',
+      label: 'blender:watch',
+      description: 'Watch Blender render output for errors',
+      insertText:
+        'Watch Blender render output for errors. Start the render as a BACKGROUND job and use check_job with a wait_for pattern for "Error:|Traceback|CUDA error|Saved:" to catch render errors or completion. To stop a render, use kill_job with SIGTERM. For animation renders (many frames), poll periodically rather than blocking — check for the "Saved:" pattern on each frame and the final "Blender quit" on completion. After the render completes, call read_image on the output PNGs to visually inspect the results.',
     },
   ],
 }
