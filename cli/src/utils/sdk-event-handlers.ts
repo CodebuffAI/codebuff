@@ -265,7 +265,14 @@ const handleSpawnAgentsToolCall = (
 ) => {
   const agents = Array.isArray(event.input?.agents) ? event.input?.agents : []
 
-  agents.forEach((agent: any, index: number) => {
+  // Hidden agents get no block, so give them no spawn info or streaming id
+  // either — an id with no block would linger until the tool result clears it.
+  // Indices stay the original array positions so results still line up.
+  const visibleAgents = agents
+    .map((agent: any, index: number) => ({ agent, index }))
+    .filter(({ agent }: any) => !shouldHideAgent(agent?.agent_type || ''))
+
+  visibleAgents.forEach(({ agent, index }: any) => {
     const tempAgentId = `${event.toolCallId}-${index}`
     state.streaming.streamRefs.setters.setSpawnAgentInfo(tempAgentId, {
       index,
@@ -279,25 +286,23 @@ const handleSpawnAgentsToolCall = (
       ? findAgentTypeById(blocks, event.agentId)
       : undefined
 
-    const newAgentBlocks: ContentBlock[] = agents
-      .map((agent: any, originalIndex: number) => ({ agent, originalIndex }))
-      .filter(({ agent }) => !shouldHideAgent(agent.agent_type || ''))
-      .map(({ agent, originalIndex }) =>
+    const newAgentBlocks: ContentBlock[] = visibleAgents.map(
+      ({ agent, index }: any) =>
         createAgentBlock({
-          agentId: `${event.toolCallId}-${originalIndex}`,
+          agentId: `${event.toolCallId}-${index}`,
           agentType: agent.agent_type || '',
           prompt: agent.prompt,
           params: agent.params,
           spawnToolCallId: event.toolCallId,
-          spawnIndex: originalIndex,
+          spawnIndex: index,
           parentAgentType,
         }),
-      )
+    )
 
     return [...blocks, ...newAgentBlocks]
   })
 
-  agents.forEach((_: any, index: number) => {
+  visibleAgents.forEach(({ index }: any) => {
     updateStreamingAgents(state, { add: `${event.toolCallId}-${index}` })
   })
 }

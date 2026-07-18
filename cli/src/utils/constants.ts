@@ -12,8 +12,10 @@ export const IS_FREEBUFF = getCliEnv().FREEBUFF_MODE === 'true'
 export const END_SESSION_MESSAGE =
   'Ending session and returning to the model picker…'
 
-// Agent IDs that should not be rendered in the CLI UI
-export const HIDDEN_AGENT_IDS = ['codebuff/context-pruner'] as const
+// Agent IDs that should not be rendered in the CLI UI. Matched as substrings
+// so both bundled ids ('context-pruner') and publisher-qualified ids
+// ('codebuff/context-pruner@1.0.0') are covered.
+export const HIDDEN_AGENT_IDS = ['context-pruner'] as const
 
 // Tool names that should be collapsed by default when rendered
 // Uses ToolName type to ensure only valid tool names are added

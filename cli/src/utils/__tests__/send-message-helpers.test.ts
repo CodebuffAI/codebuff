@@ -354,7 +354,9 @@ describe('autoCollapsePreviousMessages', () => {
     ]
 
     const result = autoCollapsePreviousMessages(messages, 'ai-123')
-    expect((result[0].blocks![0] as AgentContentBlock).isCollapsed).toBeUndefined()
+    expect(
+      (result[0].blocks![0] as AgentContentBlock).isCollapsed,
+    ).toBeUndefined()
   })
 
   test('collapses previous messages', () => {
@@ -443,7 +445,9 @@ describe('appendTextToRootStream', () => {
 
     expect(result).toHaveLength(2)
     expect((result[1] as TextContentBlock).textType).toBe('reasoning')
-    expect((result[1] as TextContentBlock).thinkingCollapseState).toBe('preview')
+    expect((result[1] as TextContentBlock).thinkingCollapseState).toBe(
+      'preview',
+    )
   })
 
   test('returns original blocks for empty text', () => {
@@ -485,7 +489,9 @@ describe('appendTextToRootStream', () => {
     })
 
     expect(result).toHaveLength(1)
-    expect((result[0] as TextContentBlock).content).toBe('initial thoughts more thoughts')
+    expect((result[0] as TextContentBlock).content).toBe(
+      'initial thoughts more thoughts',
+    )
     expect((result[0] as TextContentBlock).textType).toBe('reasoning')
   })
 
@@ -506,7 +512,9 @@ describe('appendTextToRootStream', () => {
     })
 
     expect(result).toHaveLength(2)
-    expect((result[0] as TextContentBlock).content).toBe('initial thoughts final')
+    expect((result[0] as TextContentBlock).content).toBe(
+      'initial thoughts final',
+    )
     expect((result[0] as TextContentBlock).textType).toBe('reasoning')
     expect((result[0] as TextContentBlock).thinkingOpen).toBe(false)
     expect((result[1] as TextContentBlock).content).toBe(' regular text')
@@ -520,7 +528,9 @@ describe('appendTextToRootStream', () => {
     })
 
     expect(result).toHaveLength(1)
-    expect((result[0] as TextContentBlock).content).toBe('Just regular text without tags')
+    expect((result[0] as TextContentBlock).content).toBe(
+      'Just regular text without tags',
+    )
     expect((result[0] as TextContentBlock).textType).toBe('text')
   })
 
@@ -592,7 +602,9 @@ describe('appendTextToRootStream', () => {
 
     expect(afterSecondChunk).toHaveLength(2)
     expect((afterSecondChunk[0] as TextContentBlock).textType).toBe('reasoning')
-    expect((afterSecondChunk[0] as TextContentBlock).content).toBe('My thoughts')
+    expect((afterSecondChunk[0] as TextContentBlock).content).toBe(
+      'My thoughts',
+    )
     expect((afterSecondChunk[0] as TextContentBlock).thinkingOpen).toBe(false)
     expect((afterSecondChunk[1] as TextContentBlock).textType).toBe('text')
     expect((afterSecondChunk[1] as TextContentBlock).content).toBe(' after')
@@ -643,7 +655,9 @@ describe('appendTextToRootStream', () => {
     })
 
     expect(result).toHaveLength(1)
-    expect((result[0] as TextContentBlock).content).toBe('First thought second thought')
+    expect((result[0] as TextContentBlock).content).toBe(
+      'First thought second thought',
+    )
     expect((result[0] as TextContentBlock).textType).toBe('reasoning')
   })
 })
@@ -884,9 +898,7 @@ describe('closeNativeReasoningInAgent', () => {
   })
 
   test('returns original blocks if agent not found', () => {
-    const blocks: ContentBlock[] = [
-      { type: 'text', content: 'Hello' },
-    ]
+    const blocks: ContentBlock[] = [{ type: 'text', content: 'Hello' }]
 
     const result = closeNativeReasoningInAgent(blocks, 'nonexistent')
 
@@ -908,15 +920,28 @@ describe('appendTextToAgentBlock with native reasoning', () => {
       },
     ]
 
-    const result = appendTextToAgentBlock(blocks, 'agent-1', 'Thinking...', 'reasoning')
+    const result = appendTextToAgentBlock(
+      blocks,
+      'agent-1',
+      'Thinking...',
+      'reasoning',
+    )
 
     const agentBlock = result[0] as AgentContentBlock
     expect(agentBlock.blocks).toHaveLength(1)
-    expect((agentBlock.blocks![0] as TextContentBlock).textType).toBe('reasoning')
-    expect((agentBlock.blocks![0] as TextContentBlock).content).toBe('Thinking...')
-    expect((agentBlock.blocks![0] as TextContentBlock).thinkingCollapseState).toBe('preview')
+    expect((agentBlock.blocks![0] as TextContentBlock).textType).toBe(
+      'reasoning',
+    )
+    expect((agentBlock.blocks![0] as TextContentBlock).content).toBe(
+      'Thinking...',
+    )
+    expect(
+      (agentBlock.blocks![0] as TextContentBlock).thinkingCollapseState,
+    ).toBe('preview')
     // Native reasoning has thinkingOpen undefined
-    expect((agentBlock.blocks![0] as TextContentBlock).thinkingOpen).toBeUndefined()
+    expect(
+      (agentBlock.blocks![0] as TextContentBlock).thinkingOpen,
+    ).toBeUndefined()
   })
 
   test('appends to existing open native reasoning block', () => {
@@ -940,11 +965,18 @@ describe('appendTextToAgentBlock with native reasoning', () => {
       },
     ]
 
-    const result = appendTextToAgentBlock(blocks, 'agent-1', ' second', 'reasoning')
+    const result = appendTextToAgentBlock(
+      blocks,
+      'agent-1',
+      ' second',
+      'reasoning',
+    )
 
     const agentBlock = result[0] as AgentContentBlock
     expect(agentBlock.blocks).toHaveLength(1)
-    expect((agentBlock.blocks![0] as TextContentBlock).content).toBe('First second')
+    expect((agentBlock.blocks![0] as TextContentBlock).content).toBe(
+      'First second',
+    )
   })
 
   test('does NOT append to closed native reasoning block', () => {
@@ -969,13 +1001,20 @@ describe('appendTextToAgentBlock with native reasoning', () => {
       },
     ]
 
-    const result = appendTextToAgentBlock(blocks, 'agent-1', 'New thought', 'reasoning')
+    const result = appendTextToAgentBlock(
+      blocks,
+      'agent-1',
+      'New thought',
+      'reasoning',
+    )
 
     const agentBlock = result[0] as AgentContentBlock
     // Should create a NEW reasoning block, not append to closed one
     expect(agentBlock.blocks).toHaveLength(2)
     expect((agentBlock.blocks![0] as TextContentBlock).content).toBe('Closed')
-    expect((agentBlock.blocks![1] as TextContentBlock).content).toBe('New thought')
+    expect((agentBlock.blocks![1] as TextContentBlock).content).toBe(
+      'New thought',
+    )
   })
 
   test('does NOT append to <think> tag block', () => {
@@ -1000,13 +1039,20 @@ describe('appendTextToAgentBlock with native reasoning', () => {
       },
     ]
 
-    const result = appendTextToAgentBlock(blocks, 'agent-1', 'Native thought', 'reasoning')
+    const result = appendTextToAgentBlock(
+      blocks,
+      'agent-1',
+      'Native thought',
+      'reasoning',
+    )
 
     const agentBlock = result[0] as AgentContentBlock
     // Should create a NEW native reasoning block, not append to <think> block
     expect(agentBlock.blocks).toHaveLength(2)
     expect((agentBlock.blocks![0] as TextContentBlock).thinkingOpen).toBe(true)
-    expect((agentBlock.blocks![1] as TextContentBlock).thinkingOpen).toBeUndefined()
+    expect(
+      (agentBlock.blocks![1] as TextContentBlock).thinkingOpen,
+    ).toBeUndefined()
   })
 
   test('closes native reasoning when regular text arrives', () => {
@@ -1030,14 +1076,21 @@ describe('appendTextToAgentBlock with native reasoning', () => {
       },
     ]
 
-    const result = appendTextToAgentBlock(blocks, 'agent-1', 'Regular text', 'text')
+    const result = appendTextToAgentBlock(
+      blocks,
+      'agent-1',
+      'Regular text',
+      'text',
+    )
 
     const agentBlock = result[0] as AgentContentBlock
     expect(agentBlock.blocks).toHaveLength(2)
     // Native reasoning should be closed
     expect((agentBlock.blocks![0] as TextContentBlock).thinkingOpen).toBe(false)
     // New text block added
-    expect((agentBlock.blocks![1] as TextContentBlock).content).toBe('Regular text')
+    expect((agentBlock.blocks![1] as TextContentBlock).content).toBe(
+      'Regular text',
+    )
     expect((agentBlock.blocks![1] as TextContentBlock).textType).toBe('text')
   })
 })
@@ -1176,7 +1229,7 @@ describe('markRunningAgentsAsCancelled closes native reasoning', () => {
 
     const parentBlock = result[0] as AgentContentBlock
     const childBlock = parentBlock.blocks![0] as AgentContentBlock
-    
+
     expect(parentBlock.status).toBe('cancelled')
     expect(childBlock.status).toBe('cancelled')
     expect((childBlock.blocks![0] as TextContentBlock).thinkingOpen).toBe(false)
@@ -1217,7 +1270,7 @@ describe('markRunningAgentsAsCancelled closes native reasoning', () => {
 
     const parentBlock = result[0] as AgentContentBlock
     const childBlock = parentBlock.blocks![0] as AgentContentBlock
-    
+
     // Parent stays complete
     expect(parentBlock.status).toBe('complete')
     // Child is cancelled
@@ -1235,9 +1288,7 @@ describe('markRunningAgentsAsCancelled closes native reasoning', () => {
         agentType: 'test',
         content: 'Hello',
         status: 'running',
-        blocks: [
-          { type: 'text', content: 'Hello', textType: 'text' },
-        ],
+        blocks: [{ type: 'text', content: 'Hello', textType: 'text' }],
       },
     ]
 
@@ -1246,7 +1297,9 @@ describe('markRunningAgentsAsCancelled closes native reasoning', () => {
     const agentBlock = result[0] as AgentContentBlock
     expect(agentBlock.status).toBe('cancelled')
     // Text block should be unchanged
-    expect((agentBlock.blocks![0] as TextContentBlock).thinkingOpen).toBeUndefined()
+    expect(
+      (agentBlock.blocks![0] as TextContentBlock).thinkingOpen,
+    ).toBeUndefined()
   })
 })
 
@@ -1438,7 +1491,9 @@ describe('transformAskUserBlocks', () => {
     })
 
     expect(result[0].type).toBe('ask-user')
-    expect((result[0] as AskUserContentBlock).answers).toEqual([{ questionIndex: 0, selectedOption: 'A' }])
+    expect((result[0] as AskUserContentBlock).answers).toEqual([
+      { questionIndex: 0, selectedOption: 'A' },
+    ])
   })
 
   test('keeps tool block if no answers or skipped', () => {
@@ -1502,7 +1557,9 @@ describe('appendInterruptionNotice', () => {
     const result = appendInterruptionNotice(blocks)
 
     expect(result).toHaveLength(1)
-    expect((result[0] as TextContentBlock).content).toBe('[response interrupted]')
+    expect((result[0] as TextContentBlock).content).toBe(
+      '[response interrupted]',
+    )
   })
 
   test('creates new block if last block is not text', () => {
@@ -1544,13 +1601,14 @@ describe('createSpawnAgentBlocks', () => {
   test('filters out hidden agents', () => {
     const agents = [
       { agent_type: 'file-picker' },
-      { agent_type: 'codebuff/context-pruner' }, // This should be hidden
+      { agent_type: 'context-pruner' }, // bundled id — hidden
+      { agent_type: 'codebuff/context-pruner' }, // publisher-qualified — hidden
     ]
 
     const result = createSpawnAgentBlocks('tool-1', agents)
 
-    // context-pruner is in the hidden agents list
-    expect(result.length).toBeLessThanOrEqual(2)
+    expect(result).toHaveLength(1)
+    expect((result[0] as AgentContentBlock).agentType).toBe('file-picker')
   })
 })
 
@@ -1707,7 +1765,9 @@ describe('setMessageError', () => {
 // ============================================================================
 
 describe('sanitizeRestoredMessages', () => {
-  const streamedShell = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+  const streamedShell = (
+    overrides: Partial<ChatMessage> = {},
+  ): ChatMessage => ({
     id: 'ai-1750000000000-abc123',
     variant: 'ai',
     content: '',
@@ -1774,6 +1834,28 @@ describe('sanitizeRestoredMessages', () => {
     ])
 
     expect(result.metadata).toEqual({ userOpened: true })
+  })
+
+  test('drops persisted hidden agent blocks (context-pruner)', () => {
+    const [result] = sanitizeRestoredMessages([
+      streamedShell({
+        isComplete: true,
+        blocks: [
+          {
+            type: 'agent',
+            agentId: 'agent-1',
+            agentName: 'context-pruner',
+            agentType: 'context-pruner',
+            content: '',
+            status: 'complete',
+          },
+          { type: 'text', content: 'answer' },
+        ],
+      }),
+    ])
+
+    expect(result.blocks).toHaveLength(1)
+    expect(result.blocks![0].type).toBe('text')
   })
 
   test('leaves mode dividers, system messages, and user messages untouched', () => {

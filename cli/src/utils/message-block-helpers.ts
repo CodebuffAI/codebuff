@@ -1,7 +1,11 @@
 import { isEqual } from 'lodash'
 
 import { formatToolOutput } from './codebuff-client'
-import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
+import {
+  shouldCollapseByDefault,
+  shouldCollapseForParent,
+  shouldHideAgent,
+} from './constants'
 
 import type {
   ContentBlock,
@@ -73,6 +77,45 @@ export const insertPlanBlock = (
 }
 
 /**
+ * Recursively removes agent blocks that should never be rendered (e.g.
+ * context-pruner). Live streams filter these at the event handlers;
+ * sanitizeRestoredMessages uses this to clean transcripts persisted before
+ * that filter matched the bundled agent ids. Returns the same array when
+ * nothing needs stripping. Operates on persisted data, so corrupted shapes
+ * (non-array input, null entries, missing fields) pass through untouched
+ * rather than throwing.
+ */
+export const stripHiddenAgentBlocks = (
+  blocks: ContentBlock[],
+): ContentBlock[] => {
+  if (!Array.isArray(blocks)) {
+    return blocks
+  }
+  let changed = false
+  const result: ContentBlock[] = []
+  for (const block of blocks) {
+    if (block?.type !== 'agent') {
+      result.push(block)
+      continue
+    }
+    if (shouldHideAgent(block.agentType ?? '')) {
+      changed = true
+      continue
+    }
+    const strippedChildren = Array.isArray(block.blocks)
+      ? stripHiddenAgentBlocks(block.blocks)
+      : undefined
+    if (strippedChildren && strippedChildren !== block.blocks) {
+      changed = true
+      result.push({ ...block, blocks: strippedChildren })
+    } else {
+      result.push(block)
+    }
+  }
+  return changed ? result : blocks
+}
+
+/**
  * Recursively collapses blocks that weren't manually opened by the user.
  * Preserves user intent by keeping blocks open if userOpened is true.
  */
@@ -80,7 +123,9 @@ export const autoCollapseBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
   return blocks.map((block) => {
     // Handle thinking blocks (grouped text blocks)
     if (block.type === 'text' && block.thinkingId) {
-      return block.userOpened ? block : { ...block, thinkingCollapseState: 'hidden' as const }
+      return block.userOpened
+        ? block
+        : { ...block, thinkingCollapseState: 'hidden' as const }
     }
 
     // Handle agent blocks
@@ -130,7 +175,9 @@ const extractTextFromMessageContent = (content: unknown): string => {
     return ''
   }
   return content
-    .filter((part: any) => part?.type === 'text' && typeof part?.text === 'string')
+    .filter(
+      (part: any) => part?.type === 'text' && typeof part?.text === 'string',
+    )
     .map((part: any) => part.text)
     .join('')
 }
@@ -173,7 +220,10 @@ export const extractSpawnAgentResultContent = (
 
   // Handle lastMessage and allMessages output modes: { type: "lastMessage"|"allMessages", value: [Message array] }
   // This is common for agents like researcher-web
-  if ((obj.type === 'lastMessage' || obj.type === 'allMessages') && Array.isArray(obj.value)) {
+  if (
+    (obj.type === 'lastMessage' || obj.type === 'allMessages') &&
+    Array.isArray(obj.value)
+  ) {
     const messages = obj.value as Array<{ role?: string; content?: unknown }>
     const textContent = messages
       .filter((msg) => msg?.role === 'assistant')
@@ -297,7 +347,15 @@ export interface CreateAgentBlockOptions {
 export const createAgentBlock = (
   options: CreateAgentBlockOptions,
 ): AgentContentBlock => {
-  const { agentId, agentType, prompt, params, spawnToolCallId, spawnIndex, parentAgentType } = options
+  const {
+    agentId,
+    agentType,
+    prompt,
+    params,
+    spawnToolCallId,
+    spawnIndex,
+    parentAgentType,
+  } = options
   const shouldCollapse =
     shouldCollapseByDefault(agentType || '') ||
     shouldCollapseForParent(agentType || '', parentAgentType)
@@ -497,7 +555,11 @@ export const moveSpawnAgentBlock = (
   // If there's a parentId, we need to move the block under the parent.
   // First check if the block is already under the correct parent.
   if (parentId) {
-    const isAlreadyUnderParent = checkBlockIsUnderParent(blocks, tempId, parentId)
+    const isAlreadyUnderParent = checkBlockIsUnderParent(
+      blocks,
+      tempId,
+      parentId,
+    )
     if (isAlreadyUnderParent) {
       // Block is already under the correct parent, just update it in place
       return updateBlocksRecursively(blocks, tempId, updateAgentBlock)

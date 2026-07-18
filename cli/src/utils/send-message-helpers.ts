@@ -14,19 +14,19 @@ import {
   appendInterruptionNotice,
   autoCollapseBlocks,
   createAgentBlock,
+  stripHiddenAgentBlocks,
 } from './message-block-helpers'
 
 import type { AgentMode } from './constants'
-import type {
-  ChatMessage,
-  ContentBlock,
-} from '../types/chat'
+import type { ChatMessage, ContentBlock } from '../types/chat'
 
 // -----------------------------------------------------------------------------
 // Message Creation Helpers
 // -----------------------------------------------------------------------------
 
-export const createModeDividerMessage = (agentMode: AgentMode): ChatMessage => ({
+export const createModeDividerMessage = (
+  agentMode: AgentMode,
+): ChatMessage => ({
   id: `divider-${Date.now()}`,
   variant: 'ai',
   content: '',
@@ -67,6 +67,9 @@ export { AI_MESSAGE_ID_PREFIX, generateAiMessageId }
  * Only touches streamed response shells (ids from generateAiMessageId) —
  * other 'ai'-variant messages (mode dividers, system notices, bash results)
  * are never marked complete by design.
+ *
+ * Also drops hidden agent blocks (e.g. context-pruner) that were persisted
+ * before live streams filtered them.
  */
 export const sanitizeRestoredMessages = (
   messages: ChatMessage[],
@@ -76,6 +79,13 @@ export const sanitizeRestoredMessages = (
     if (message.metadata?.allowInlineAds) {
       const { allowInlineAds: _, ...metadata } = message.metadata
       restoredMessage = { ...message, metadata }
+    }
+
+    if (restoredMessage.blocks) {
+      const blocks = stripHiddenAgentBlocks(restoredMessage.blocks)
+      if (blocks !== restoredMessage.blocks) {
+        restoredMessage = { ...restoredMessage, blocks }
+      }
     }
 
     if (
@@ -181,7 +191,9 @@ export const markMessageComplete = (
   return {
     ...message,
     isComplete: true,
-    ...(options?.completionTime ? { completionTime: options.completionTime } : {}),
+    ...(options?.completionTime
+      ? { completionTime: options.completionTime }
+      : {}),
     ...(options?.credits !== undefined ? { credits: options.credits } : {}),
     metadata,
   }

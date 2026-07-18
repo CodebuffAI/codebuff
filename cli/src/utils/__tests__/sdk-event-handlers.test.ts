@@ -238,6 +238,58 @@ describe('sdk-event-handlers', () => {
     expect(getStreamingAgents().has('tool-1-0')).toBe(false)
   })
 
+  test('never renders hidden agents (context-pruner)', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    // Spawned via a visible spawn_agents call: no block, no streaming id
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          { agent_type: 'context-pruner' },
+          { agent_type: 'file-picker', prompt: 'Find files' },
+        ],
+      },
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as AgentContentBlock).agentType).toBe('file-picker')
+    expect(getStreamingAgents().has('tool-1-0')).toBe(false)
+    expect(getStreamingAgents().has('tool-1-1')).toBe(true)
+
+    // Lifecycle events for the pruner itself: ignored end to end
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'pruner-1',
+      agentType: 'context-pruner',
+      displayName: 'Context Pruner',
+      onlyChild: false,
+      parentAgentId: undefined,
+      params: undefined,
+      prompt: undefined,
+    })
+    handleEvent({
+      type: 'subagent_finish',
+      agentId: 'pruner-1',
+      agentType: 'context-pruner',
+      displayName: 'Context Pruner',
+      onlyChild: false,
+      parentAgentId: undefined,
+      params: undefined,
+      prompt: undefined,
+    })
+
+    const blocksAfter = getMessages()[0].blocks ?? []
+    expect(blocksAfter).toHaveLength(1)
+    expect(getStreamingAgents().has('pruner-1')).toBe(false)
+  })
+
   test('matches underscore direct-tool aliases to hyphenated agent ids', () => {
     const { ctx, getMessages, getStreamingAgents } = createTestContext()
     const handleEvent = createEventHandler(ctx)
