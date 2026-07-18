@@ -22,6 +22,7 @@ import type { FileProcessingState } from './handlers/tool/write-file'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { StreamRecoverySource } from '@codebuff/common/types/contracts/llm'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
   Message,
@@ -30,6 +31,66 @@ import type {
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+
+/** History tags for the notes appended when a step's stream ends without a
+ *  usable response and the loop auto-retries (see
+ *  sdk/src/impl/stream-interruption.ts for detection): the connection was cut
+ *  mid-response, or the model burned its output budget on reasoning. */
+export const STREAM_INTERRUPTED_TAG = 'STREAM_INTERRUPTED'
+export const OUTPUT_LIMIT_TAG = 'OUTPUT_LIMIT'
+
+/** How many back-to-back recovery retries (nothing but the model's partial
+ *  output between them, interruption and output-limit combined) run before
+ *  the turn fails loudly. One covers the deploy/network blip or one-off
+ *  thinking overrun this retry exists for; a run of them means every attempt
+ *  is failing the same way. */
+export const MAX_CONSECUTIVE_STREAM_RECOVERIES = 3
+
+export const REPEATED_STREAM_INTERRUPTIONS_MESSAGE =
+  'The connection kept dropping mid-response after several retries. Please check your network connection and try again.'
+
+export const REPEATED_OUTPUT_LIMIT_MESSAGE =
+  'The model kept hitting its output token limit while reasoning, without producing a response. Try a simpler request or a different model.'
+
+const RECOVERY_BY_SOURCE: Record<
+  StreamRecoverySource,
+  { tag: string; giveUpMessage: string }
+> = {
+  'stream-interrupted': {
+    tag: STREAM_INTERRUPTED_TAG,
+    giveUpMessage: REPEATED_STREAM_INTERRUPTIONS_MESSAGE,
+  },
+  'output-limit': {
+    tag: OUTPUT_LIMIT_TAG,
+    giveUpMessage: REPEATED_OUTPUT_LIMIT_MESSAGE,
+  },
+}
+
+const RECOVERY_TAGS: readonly string[] = Object.values(RECOVERY_BY_SOURCE).map(
+  (recovery) => recovery.tag,
+)
+
+/**
+ * Count the streak of recovery notes (either kind) at the tail of the
+ * conversation. Assistant/system content between notes is the retries'
+ * partial output, and STEP_PROMPT messages are per-step scaffolding
+ * (run-agent-step appends one to the history before every step) — neither
+ * breaks the streak. A completed tool exchange or any other user message (a
+ * real prompt, a tool-error note) means a step fully succeeded or failed
+ * differently in between, so the streak resets.
+ */
+export function countTrailingStreamRecoveryNotes(messages: Message[]): number {
+  let count = 0
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]!
+    if (message.role === 'tool') break
+    if (message.role !== 'user') continue
+    if (message.tags?.includes('STEP_PROMPT')) continue
+    if (!message.tags?.some((tag) => RECOVERY_TAGS.includes(tag))) break
+    count++
+  }
+  return count
+}
 
 export async function processStream(
   params: {
@@ -77,6 +138,7 @@ export async function processStream(
     ancestorRunIds,
     fileContext,
     fullResponse,
+    logger,
     onCostCalculated,
     onResponseChunk,
     runId,
@@ -92,6 +154,7 @@ export async function processStream(
   const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] = []
   const assistantMessages: Message[] = []
   let hadToolCallError = false
+  let sawStreamRecovery = false
   const errorMessages: Message[] = []
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
@@ -304,20 +367,83 @@ export async function processStream(
         fullResponseChunks.push(chunk.text)
       } else if (chunk.type === 'error') {
         onResponseChunk(chunk)
-        hadToolCallError = true
-        errorMessages.push(
-          userMessage({
-            content: withSystemTags(
-              `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
-            ),
-            tags: ['TOOL_CALL_ERROR'],
-          }),
-        )
+        if (chunk.source) {
+          const recovery = RECOVERY_BY_SOURCE[chunk.source]
+          sawStreamRecovery = true
+          const priorRecoveries = countTrailingStreamRecoveryNotes(
+            agentState.messageHistory,
+          )
+          // Every attempt is failing the same way (not the one-off
+          // deploy/network blip or thinking overrun this retry exists for).
+          // Fail the turn with a clear message instead of burning up to
+          // maxAgentSteps (200) requests.
+          if (priorRecoveries >= MAX_CONSECUTIVE_STREAM_RECOVERIES) {
+            logger.error(
+              {
+                metric: 'stream_recovery_gave_up',
+                source: chunk.source,
+                model: agentTemplate.model,
+                agentId: agentTemplate.id,
+                userId,
+                runId,
+                consecutive: priorRecoveries + 1,
+              },
+              'Giving up after repeated stream recoveries',
+            )
+            throw new Error(recovery.giveUpMessage)
+          }
+          // Setting hadToolCallError makes run-agent-step force another step
+          // instead of ending the turn — that next step IS the retry: the
+          // model sees its partial output plus this note and continues. (No
+          // per-retry telemetry: detection in promptAiSdkStream already logs
+          // one stream_recovery_detected per occurrence.)
+          hadToolCallError = true
+          errorMessages.push(
+            userMessage({
+              content: withSystemTags(chunk.message),
+              tags: [recovery.tag],
+            }),
+          )
+        } else {
+          hadToolCallError = true
+          errorMessages.push(
+            userMessage({
+              content: withSystemTags(
+                `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
+              ),
+              tags: ['TOOL_CALL_ERROR'],
+            }),
+          )
+        }
       } else if (chunk.type === 'tool-call') {
       } else {
         chunk satisfies never
         throw new Error(
           `Unhandled chunk type: ${(chunk as { type: unknown }).type}`,
+        )
+      }
+    }
+
+    // Retry-outcome signal: this step streamed to completion (no new
+    // recovery, no user abort) while the history tail still carries a
+    // recovery streak — meaning the forced-step retry rescued the turn.
+    // Checked before finalization appends this step's messages, so the count
+    // is the streak being recovered from.
+    if (!sawStreamRecovery && !signal.aborted) {
+      const recoveredFrom = countTrailingStreamRecoveryNotes(
+        agentState.messageHistory,
+      )
+      if (recoveredFrom > 0) {
+        logger.info(
+          {
+            metric: 'stream_recovery_rescued',
+            model: agentTemplate.model,
+            agentId: agentTemplate.id,
+            userId,
+            runId,
+            consecutive: recoveredFrom,
+          },
+          'Stream-interruption retry succeeded; turn continued normally',
         )
       }
     }

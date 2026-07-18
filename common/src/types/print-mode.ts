@@ -12,6 +12,11 @@ export type PrintModeStart = z.infer<typeof printModeStartSchema>
 export const printModeErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
+  /** Auto-recovered stream endings ('stream-interrupted': connection cut
+   *  mid-response; 'output-limit': output budget burned on reasoning with no
+   *  answer). The agent loop is automatically taking another step; UIs show a
+   *  transient retrying indicator rather than a failure. */
+  source: z.enum(['stream-interrupted', 'output-limit']).optional(),
 })
 export type PrintModeError = z.infer<typeof printModeErrorSchema>
 

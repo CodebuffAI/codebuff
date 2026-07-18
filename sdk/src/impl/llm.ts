@@ -26,9 +26,14 @@ import {
   getModelForRequest,
   markChatGptOAuthRateLimited,
 } from './model-provider'
+import {
+  classifyStreamEndRecovery,
+  streamFinishInfoOf,
+} from './stream-interruption'
 import { refreshChatGptOAuthToken } from '../credentials'
 import { getErrorStatusCode } from '../error-utils'
 
+import type { StreamFinishInfo } from './stream-interruption'
 import type { ModelRequestParams } from './model-provider'
 import type {
   OpenRouterProviderOptions,
@@ -467,8 +472,19 @@ export async function* promptAiSdkStream(
 
   // Track if we've yielded any content - if so, we can't safely fall back
   let hasYieldedContent = false
+  // Tool calls tracked separately: a step that produced tool calls is
+  // actionable even with no text, so it is never a silent stop.
+  let hasYieldedToolCall = false
+
+  // A healthy stream always delivers a finish part with a real finishReason
+  // (and usage) before ending; its absence after the loop means the
+  // connection was cut mid-response. See stream-interruption.ts.
+  let finishInfo: StreamFinishInfo | undefined
 
   for await (const chunkValue of response.fullStream) {
+    if (chunkValue.type === 'finish') {
+      finishInfo = streamFinishInfoOf(chunkValue)
+    }
     if (chunkValue.type !== 'text-delta') {
       const flushed = stopSequenceHandler.flush()
       if (flushed) {
@@ -662,6 +678,7 @@ export async function* promptAiSdkStream(
       }
     }
     if (chunkValue.type === 'tool-call') {
+      hasYieldedToolCall = true
       yield chunkValue
     }
   }
@@ -671,6 +688,40 @@ export async function* promptAiSdkStream(
       type: 'text',
       text: flushed,
       ...(agentChunkMetadata ?? {}),
+    }
+  }
+
+  const recovery = classifyStreamEndRecovery({
+    aborted: params.signal.aborted,
+    finish: finishInfo,
+    yieldedText: hasYieldedContent,
+    yieldedToolCall: hasYieldedToolCall,
+  })
+  if (recovery) {
+    // The stream ended in a recoverable silent stop (connection cut, or
+    // output budget burned on reasoning). Yield an error chunk instead of
+    // ending like a normal completion: the agent loop appends the note to
+    // the conversation and forces another step (with a consecutive cap), so
+    // the model continues rather than the turn silently stopping.
+    logger.warn(
+      {
+        // Queryable via scripts/logs/stream-interruptions.ts — one event per
+        // detection. Outcomes (rescued/gave_up) are emitted by the agent
+        // loop, which knows the consecutive streak.
+        metric: 'stream_recovery_detected',
+        source: recovery.source,
+        model: params.model,
+        userId: params.userId,
+        userInputId: params.userInputId,
+        finishReason: finishInfo?.finishReason,
+        hasYieldedContent,
+      },
+      'Completion stream ended without a usable response; forcing a retry step',
+    )
+    yield {
+      type: 'error',
+      source: recovery.source,
+      message: recovery.message,
     }
   }
 

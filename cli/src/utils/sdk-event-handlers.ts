@@ -34,6 +34,7 @@ import type { StreamStatus } from '../hooks/use-message-queue'
 import type { ContentBlock, ToolContentBlock } from '../types/chat'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
+  PrintModeError,
   PrintModeEvent as SDKEvent,
   PrintModeFinish,
   PrintModeSubagentFinish,
@@ -116,7 +117,6 @@ const ensureStreaming = (state: EventHandlerState) => {
   if (!state.message.hasReceivedContentRef.current) {
     state.message.hasReceivedContentRef.current = true
     state.streaming.setStreamStatus('streaming')
-    state.setIsRetrying(false)
   }
 }
 
@@ -491,6 +491,20 @@ const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
   }
 }
 
+const handleStreamError = (state: EventHandlerState, event: PrintModeError) => {
+  if (!event.source) {
+    // Sourceless error chunks already surface to the model as inline
+    // tool-error messages; the UI intentionally stays quiet about them.
+    return
+  }
+  // A `source` means an auto-recovered stream ending (connection cut, or
+  // output budget burned on reasoning): the agent loop is taking another
+  // step to continue. Show the transient retrying status; the next content
+  // chunk (or run completion) clears it.
+  state.logger.warn({ event }, 'Stream recovery; agent loop is retrying')
+  state.setIsRetrying(true)
+}
+
 export const createStreamChunkHandler =
   (state: EventHandlerState) => (event: StreamChunkEvent) => {
     if (state.isActive?.() === false) return
@@ -512,6 +526,11 @@ export const createStreamChunkHandler =
     }
 
     ensureStreaming(state)
+    // Content is flowing (again) — clear any stream-interrupted retry status.
+    // Terminal paths (run completion, error, abort) already reset it in
+    // use-send-message/send-message, so the indicator can't outlive its run.
+    // (No-op when already false: the immer store returns the same state.)
+    state.setIsRetrying(false)
 
     if (destination.type === 'root') {
       if (destination.textType === 'text') {
@@ -542,5 +561,6 @@ export const createEventHandler =
       .with({ type: 'tool_call' }, (e) => handleToolCall(state, e))
       .with({ type: 'tool_result' }, (e) => handleToolResult(state, e))
       .with({ type: 'finish' }, (e) => handleFinish(state, e))
+      .with({ type: 'error' }, (e) => handleStreamError(state, e))
       .otherwise(() => undefined)
   }

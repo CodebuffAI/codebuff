@@ -9,6 +9,14 @@ import type { PromptResult } from '../../util/error'
 import type { generateText, streamText, ToolCallPart } from 'ai'
 import type z from 'zod/v4'
 
+/** Auto-recovered stream endings (see sdk/src/impl/stream-interruption.ts):
+ *  - 'stream-interrupted': the stream ended without a finish marker
+ *    (connection cut mid-response — a server deploy or network drop).
+ *  - 'output-limit': the stream finished with reason 'length' having produced
+ *    only reasoning — the model burned its output budget thinking and never
+ *    answered. */
+export type StreamRecoverySource = 'stream-interrupted' | 'output-limit'
+
 export type StreamChunk =
   | {
       type: 'text'
@@ -23,7 +31,15 @@ export type StreamChunk =
       ToolCallPart,
       'type' | 'toolCallId' | 'toolName' | 'input' | 'providerOptions'
     >
-  | { type: 'error'; message: string }
+  | {
+      type: 'error'
+      message: string
+      /** When set, this is an auto-recovered stream ending rather than a
+       *  failure: consumers force another agent step so the model can
+       *  continue, instead of wrapping the message as a tool-call failure and
+       *  instead of the turn silently ending. */
+      source?: StreamRecoverySource
+    }
 
 export type CacheDebugUsageData = {
   inputTokens: number

@@ -25,6 +25,13 @@ import { z } from 'zod/v4'
 
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
+import {
+  MAX_CONSECUTIVE_STREAM_RECOVERIES,
+  OUTPUT_LIMIT_TAG,
+  REPEATED_OUTPUT_LIMIT_MESSAGE,
+  REPEATED_STREAM_INTERRUPTIONS_MESSAGE,
+  STREAM_INTERRUPTED_TAG,
+} from '../tools/stream-parser'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
@@ -1214,6 +1221,116 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       // No steer → the agent ends the turn after its single step, as usual.
       expect(llmCallCount).toBe(1)
       expect(result.agentState).toBeDefined()
+    })
+  })
+
+  describe('stream interruptions', () => {
+    it('retries after a stream interruption and completes the turn', async () => {
+      let callCount = 0
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        callCount++
+        if (callCount === 1) {
+          // A stream cut mid-response: partial text, then the interruption
+          // chunk promptAiSdkStream yields when no finish marker arrived.
+          yield { type: 'text' as const, text: 'partial answer that got cut ' }
+          yield {
+            type: 'error' as const,
+            source: 'stream-interrupted' as const,
+            message: 'The connection dropped while the response was streaming.',
+          }
+          return promptSuccess('interrupted-message-id')
+        }
+        yield { type: 'text' as const, text: 'complete answer' }
+        yield createToolCallChunk('end_turn', {})
+        return promptSuccess('complete-message-id')
+      }
+
+      const result = await loopAgentSteps(loopAgentStepsBaseParams)
+
+      // The interruption forced a second step (the retry), which completed.
+      expect(callCount).toBe(2)
+      expect(result.output?.type).not.toBe('error')
+
+      const notes = result.agentState.messageHistory.filter(
+        (m) => m.role === 'user' && m.tags?.includes(STREAM_INTERRUPTED_TAG),
+      )
+      expect(notes).toHaveLength(1)
+    })
+
+    it('gives up with a clear error when every attempt is interrupted', async () => {
+      let callCount = 0
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        callCount++
+        yield {
+          type: 'error' as const,
+          source: 'stream-interrupted' as const,
+          message: 'The connection dropped while the response was streaming.',
+        }
+        return promptSuccess(`interrupted-${callCount}`)
+      }
+
+      const result = await loopAgentSteps(loopAgentStepsBaseParams)
+
+      expect(result.output?.type).toBe('error')
+      expect((result.output as { message?: string }).message).toContain(
+        REPEATED_STREAM_INTERRUPTIONS_MESSAGE,
+      )
+      // The retried interruptions, plus the final attempt that trips the cap
+      // instead of retrying forever (well under maxAgentSteps).
+      expect(callCount).toBe(MAX_CONSECUTIVE_STREAM_RECOVERIES + 1)
+    })
+
+    it('retries after an output-limit thinking overrun and completes the turn', async () => {
+      let callCount = 0
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        callCount++
+        if (callCount === 1) {
+          // The model burned its output budget on reasoning: only reasoning
+          // chunks, then the output-limit chunk promptAiSdkStream yields for
+          // a 'length' finish with no content or tool calls.
+          yield { type: 'reasoning' as const, text: 'thinking forever ' }
+          yield {
+            type: 'error' as const,
+            source: 'output-limit' as const,
+            message: 'The response hit its output token limit while reasoning.',
+          }
+          return promptSuccess('limited-message-id')
+        }
+        yield { type: 'text' as const, text: 'concise answer' }
+        yield createToolCallChunk('end_turn', {})
+        return promptSuccess('complete-message-id')
+      }
+
+      const result = await loopAgentSteps(loopAgentStepsBaseParams)
+
+      expect(callCount).toBe(2)
+      expect(result.output?.type).not.toBe('error')
+
+      const notes = result.agentState.messageHistory.filter(
+        (m) => m.role === 'user' && m.tags?.includes(OUTPUT_LIMIT_TAG),
+      )
+      expect(notes).toHaveLength(1)
+    })
+
+    it('gives up with the output-limit message when every attempt overruns', async () => {
+      let callCount = 0
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        callCount++
+        yield {
+          type: 'error' as const,
+          source: 'output-limit' as const,
+          message: 'The response hit its output token limit while reasoning.',
+        }
+        return promptSuccess(`limited-${callCount}`)
+      }
+
+      const result = await loopAgentSteps(loopAgentStepsBaseParams)
+
+      expect(result.output?.type).toBe('error')
+      expect((result.output as { message?: string }).message).toContain(
+        REPEATED_OUTPUT_LIMIT_MESSAGE,
+      )
+      expect(callCount).toBe(MAX_CONSECUTIVE_STREAM_RECOVERIES + 1)
     })
   })
 })
