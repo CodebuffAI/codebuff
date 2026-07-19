@@ -291,7 +291,7 @@ export const handleEditTransaction = (async (
         path: edit.path,
         errorMessage: staleWholeFileAuthorizationPaths.has(edit.path)
           ? `Edit blocked: ${edit.path} changed after its last whole-file read, so the stored authorization was revoked.${rangeRecovery || ` Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`}`
-          : `Edit blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${edit.path}.${rangeRecovery || ` Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`}`,
+          : `Edit blocked: strict read-before-edit is enabled and no fresh read authorization exists for ${edit.path}.${rangeRecovery || ` Call read_files with paths: ["${edit.path}"] before retrying, or include a matching fresh basedOnRead capability on every replacement.`} Only a complete whole-file read registers reusable authorization for ${edit.path}; a range read only yields a scoped capability that must be passed explicitly as basedOnRead/readCapability on the edit.`,
       })
     })
     if (failures.length > 0) {

@@ -38,6 +38,22 @@ paths participate in the same staged read-before-edit policy.
 Under strict-mode edit flows, the runtime requires a recent `read_files`
 authorization for each touched path before accepting an edit:
 
+There are three tiers of read authorization, and confusing them is the most
+common cause of "I already read this file, why is my edit blocked?":
+
+1. **Whole-file authorization (reusable).** A *complete* whole-file read mints
+   a per-path authorization the runtime remembers, so later exact-match edits
+   on that path proceed without a capability. Only complete whole-file reads
+   register this.
+2. **Scoped capability (per-edit).** A *range* or *symbol* read mints a
+   `readCapability` bound to the exact project, path, line bounds, content
+   hash, and run. It authorizes only edits inside those bounds and must be
+   passed explicitly on the edit (`basedOnRead` / `readCapability`); it does
+   **not** grant whole-file authorization for the path.
+3. **No capability (truncated/partial).** A truncated or oversized read mints
+   nothing. The result says so explicitly (`NO edit capability ... was minted`),
+   so re-read a fully-covered bounded range before editing.
+
 - A successful complete whole-file `read_files.paths` call mints a per-path
   authorization for follow-up exact-match edits and returns a structured
   `editAnchor` containing the exact bounds, canonical content hash, and a short
@@ -60,6 +76,9 @@ authorization for each touched path before accepting an edit:
   compatibility parser also accepts the legacy
   `{ startLine, endLine, expectedHash, newContent }` form, but callers cannot
   combine it with `readCapability`. Capability-only edits normalize internally.
+  The one sanctioned mixed form — a whole-file capability paired with narrower
+  caller bounds — is described under "Capability minting and the default
+  replace_range flow" below.
 - A successful edit keeps the path-level authorization during the editing
   flow, and exact-match edits chain from the latest prepared content. This
   authorization is not a content-freshness proof; carry forward the echoed
@@ -95,6 +114,33 @@ authorization for each touched path before accepting an edit:
 This policy is staged/strict-mode only; tools still apply unique-anchor
 `str_replace` edits without `basedOnRead` when ambiguity is not a risk.
 
+Structured v1 `read_files` responses are correlated back to their requested
+selectors before any authorization is derived from them. A response whose
+items do not line up with the requested selector index, kind, and path fails
+closed: no content or capability from that batch is allowed to mint whole-file
+or scoped read authorization. The failure is reported per selector — each
+requested selector keeps its own genuine per-item diagnostic (for example a
+real `not_found`/`blocked` error for that path) instead of being collapsed
+into a single blanket mismatch error, while any selector the response did not
+correctly return is reported as a fail-closed `invalid_request` error.
+
+Legacy path-keyed results (`Record<string, string | null>`, where paths are
+used as object keys) are adversarial inputs and are normalized defensively:
+
+- **Prototype-chain collisions fail closed.** Key lookups are
+  own-enumerable-only, so a requested path that collides with an
+  `Object.prototype` member name (for example `constructor`, `toString`,
+  `hasOwnProperty`, or `__proto__`) is never read as inherited content; the
+  selector resolves to `not_found` instead of minting garbage content or an
+  authorization.
+- **Ambiguous same-path batches fail closed.** A path-keyed map stores one
+  value per path, so a batch that requests a whole file AND one or more
+  ranges for the same path cannot correlate its selectors safely. Every
+  selector on that path is rejected with a fail-closed `invalid_request`
+  error rather than letting a range block leak into a whole-file item or
+  whole-file content leak into a range item. Request the file and its ranges
+  in separate batches (or return structured-v1 results from overrides).
+
 Replacement batches discard only operation-less placeholder entries such as
 `{}` or `{ allowMultiple: false }`, which some providers append after valid
 replacements. One-sided entries, misspelled payload keys, and batches containing
@@ -120,6 +166,74 @@ instead of only the first 500 characters of a large call. Recovery hints are
 field-specific: range-capability conflicts show the capability's actual bounds,
 and `skipIfMissing` errors identify its deletion-only contract without appending
 unrelated array/stringification instructions.
+
+### Capability minting and the default replace_range flow
+
+The default flow is read -> capability -> edit. In the common case an agent
+follows one of three paths:
+
+1. **Whole-file read.** A complete `read_files.paths` read returns an
+   `editAnchor` and mints a reusable per-path authorization. Later
+   exact-match edits on that path proceed without passing a capability;
+   copy `editAnchor.readCapability` only when explicit proof is required.
+2. **Range read.** A complete `read_files.ranges` read returns a scoped
+   `editAnchor.readCapability` (cap.v3) bound to those exact lines. Pass it
+   verbatim as the edit capability: `edit_transaction` `replace_range`
+   `{ readCapability, newContent }` (preferred for a block) or scoped
+   `str_replace` with `basedOnRead`. With no caller `startLine`/`endLine`,
+   the runtime derives the bounds and hash from the token.
+3. **Truncated read.** A truncated or render-clamped read mints nothing and
+   says so (`NO edit capability ... was minted`). Re-read a smaller,
+   fully-covered range to obtain a fresh `readCapability` before editing.
+
+The rest of this section is the reference detail behind that flow.
+
+A complete range read mints a `readCapability` bound to exactly the
+requested line bounds and the hash of the returned slice. When the runtime
+supplies a capability issuer the token is scope-signed (cap.v3 binds the
+project, path, line bounds, content hash, and run); without an issuer it
+stays an unsigned bounds+hash token. Truncated or render-clamped reads mint
+nothing, so a partial observation can never be reused as edit
+authorization.
+
+A proper-subset range read served from a full-file snapshot also mints a
+`wholeFileReadCapability`: a cap.v3 token over lines 1-N of the entire
+normalized file. Its `endLine` counts the trailing-newline segment, so a
+file whose content ends in a newline yields N+1 while the visible
+`totalLines` stays N. The token travels as a separate structured field on
+the range result; the range header keeps advertising the scoped range
+capability. It is minted only when every one of these gates holds:
+
+- an issuer was supplied;
+- the snapshot covered the whole file (never for oversized range-window
+  reads);
+- the requested range is a proper subset of the file;
+- the rendered range was complete, not clamped at the render limit; and
+- the whole file itself fits within the render limit.
+
+The security invariant behind those gates is that whole-file edit authority
+is never derived from content the model only partially observed.
+
+On the edit side, `edit_transaction` resolves a `replace_range` capability
+during input-schema validation, before preflight:
+
+- **Default flow (capability only).** With no caller `startLine`/`endLine`,
+  the transform derives the bounds and `expectedHash` from the decoded
+  token and leaves `wholeFileCapabilityHash` undefined, so the runtime
+  preflight uses the ordinary exact-match branch. Caller bounds that
+  exactly match the token resolve the same way.
+- **Whole-file sub-range flow.** A whole-file capability (its bounds start
+  at line 1) may be paired with narrower caller `startLine`/`endLine`. The
+  transform keeps the caller's bounds, clears `expectedHash`, and carries
+  the token hash as `wholeFileCapabilityHash`; the runtime's
+  wholeFileCapabilitySubRange preflight branch verifies the whole-file hash
+  against current content and accepts the requested sub-range without a
+  re-read.
+- **Rejections.** `expectedHash` is never accepted alongside a capability —
+  the token's hash attests the capability's own bounds, not a caller
+  sub-range. A strict sub-range capability cannot be combined with
+  different bounds, and passing only one of `startLine`/`endLine` alongside
+  a capability is ambiguous and rejected.
 
 ## Explicit elision markers
 

@@ -14,16 +14,6 @@ export type TerminalPolicyDecision =
   | { allowed: true }
   | { allowed: false; reason: string }
 
-const READ_ONLY_COMMANDS = [
-  /^(?:pwd|ls|dir|find|fd|rg|grep|sed|head|tail|cat|stat|wc|tree|which|where|type)\b/i,
-  /^git\s+(?:status|diff|log|show|rev-parse|ls-files|branch\s+--show-current)\b/i,
-  /^(?:bun|npm|pnpm|yarn)\s+(?:test|run\s+(?:test|typecheck|lint|check|build)|x\s+tsc\s+--noEmit)\b/i,
-  /^(?:bun|npm|pnpm|yarn)\s+(?:(?:--cwd|--filter)\s+\S+\s+)*(?:test|run\s+(?:(?:--cwd|--filter)\s+\S+\s+)*(?:\S*:)?(?:test|typecheck|lint|check|build))\b/i,
-  /^(?:cargo\s+(?:test|check|clippy)|go\s+test|pytest|python\s+-m\s+pytest|make\s+(?:test|check|lint))\b/i,
-  /^(?:gofmt\s+-l|go\s+vet|ruff\s+check|rubocop|dotnet\s+(?:test|build|format\s+--verify-no-changes)|swift-format\s+lint|cargo\s+fmt\s+--check)\b/i,
-  /^(?:tsc|eslint|prettier)\b/i,
-]
-
 const WORKSPACE_DENY_PATTERNS: Array<[RegExp, string]> = [
   [/^(?:sudo|su)\b/i, 'privilege escalation is not allowed'],
   [
@@ -39,6 +29,26 @@ const WORKSPACE_DENY_PATTERNS: Array<[RegExp, string]> = [
     /^git\s+push\b[\s\S]*(?:--force(?:-with-lease)?|-f\b|--delete\b)/i,
     'force and delete pushes are not allowed',
   ],
+]
+
+const DEPENDENCY_MUTATION_COMMANDS = [
+  /^(?:npm|pnpm|yarn|bun)\s+(?:install|add|remove|update)(?:\s|$)/i,
+  /^pnpm\s+--filter\s+(?:'[^']+'|"[^"]+"|\S+)\s+(?:install|add|remove|update)(?:\s|$)/i,
+  /^yarn\s+workspace\s+(?:'[^']+'|"[^"]+"|\S+)\s+(?:add|remove|upgrade)(?:\s|$)/i,
+  /^bun\s+--filter\s+(?:'[^']+'|"[^"]+"|\S+)\s+(?:install|add|remove|update)(?:\s|$)/i,
+  /^(?:uv|poetry)\s+(?:add|remove|sync|install|update)(?:\s|$)/i,
+  /^pip(?:3)?\s+(?:install|uninstall)(?:\s|$)/i,
+  /^cargo\s+(?:add|rm|remove|fetch|update)(?:\s|$)/i,
+  /^go\s+(?:get|mod\s+(?:tidy|download))(?:\s|$)/i,
+  /^dotnet\s+(?:add|remove)\s+package(?:\s|$)/i,
+  /^dotnet\s+restore(?:\s|$)/i,
+  /^(?:bundle|bundler)\s+(?:add|remove|install|update)(?:\s|$)/i,
+  /^composer\s+(?:require|remove|install|update)(?:\s|$)/i,
+  /^swift\s+package\s+(?:resolve|update)(?:\s|$)/i,
+  /^(?:dart|flutter)\s+pub\s+(?:add|remove|get|upgrade)(?:\s|$)/i,
+  /^mix\s+deps\.(?:get|update)(?:\s|$)/i,
+  /^(?:mvn|mvnw|\.\/mvnw)\s+(?:dependency:resolve|dependency:go-offline)(?:\s|$)/i,
+  /^(?:gradle|gradlew|\.\/gradlew)\s+(?:dependencies|buildEnvironment)(?:\s|$)/i,
 ]
 
 function normalizeCommand(command: string): string {
@@ -97,7 +107,7 @@ function findTraversalPath(command: string): string | undefined {
   return undefined
 }
 
-function splitUnquotedPipelines(command: string): string[] | undefined {
+function splitReadOnlyShellSegments(command: string): string[] | undefined {
   const segments: string[] = []
   let quote: "'" | '"' | null = null
   let escaped = false
@@ -120,33 +130,195 @@ function splitUnquotedPipelines(command: string): string[] | undefined {
       quote = char
       continue
     }
-    if (char === '|' && command[index + 1] !== '|') {
-      segments.push(command.slice(start, index).trim())
-      start = index + 1
-    } else if (
-      char === ';' ||
-      char === '`' ||
-      char === '<' ||
-      char === '>' ||
-      (char === '&' && command[index + 1] === '&') ||
-      (char === '$' && command[index + 1] === '(')
-    ) {
+    if (char === '`' || (char === '$' && command[index + 1] === '(')) {
       return undefined
+    }
+    if (
+      char === '&' &&
+      command[index - 1] === '>' &&
+      /[012]/.test(command[index + 1] ?? '')
+    ) {
+      continue
+    }
+    if (char === '&' && command[index + 1] !== '&') {
+      return undefined
+    }
+    if (char === '|' || char === ';' || char === '&') {
+      segments.push(command.slice(start, index).trim())
+      if (command[index + 1] === char) index += 1
+      start = index + 1
     }
   }
   segments.push(command.slice(start).trim())
   return segments.every(Boolean) ? segments : undefined
 }
 
-function isReadOnlyPipelineSegment(segment: string): boolean {
-  if (findReadOnlyMutation(segment)) return false
-  if (READ_ONLY_COMMANDS.some((pattern) => pattern.test(segment))) return true
-  if (/^tee\s+(?:-a\s+)?(?:\/tmp\/[^\s]+|\/dev\/null)$/i.test(segment)) {
-    return true
-  }
-  return /^(?:awk|cut|sort|uniq|tr|jq|xargs\s+(?:rg|grep|cat|stat|wc)\b)\b/i.test(
-    segment,
+function stripSafeReadOnlyRedirections(segment: string): string | undefined {
+  const withoutNullRedirects = segment.replace(
+    /(?:^|\s)[012]?>\s*\/dev\/null(?=\s|$)/g,
+    ' ',
   )
+  const withoutDescriptorRedirects = withoutNullRedirects.replace(
+    /(?:^|\s)[012]?>&[012](?=\s|$)/g,
+    ' ',
+  )
+  if (/[<>]/.test(withoutDescriptorRedirects)) return undefined
+  return normalizeCommand(withoutDescriptorRedirects)
+}
+
+/**
+ * Traversal guard for the validation-diagnosis profile: rejects only `..`
+ * tokens whose path resolves outside the project root, so diagnostic repros
+ * may reference in-project siblings such as `../src/languages` from a package
+ * subdirectory. Absolute tokens are resolved directly; relative tokens are
+ * resolved against the project root, which is conservative for in-project
+ * working directories (a false rejection is possible for `../..` from a
+ * deeply nested cwd that still lands inside the root). Absolute paths that
+ * escape the project are also rejected by findOutsideAbsolutePath.
+ */
+function findEscapingTraversalPath(
+  command: string,
+  projectRoot: string,
+): string | undefined {
+  const root = path.resolve(projectRoot)
+  const tokens = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? []
+  for (const rawToken of tokens) {
+    const token = rawToken.replace(/^["']|["',);]+$/g, '')
+    if (!token.split(/[=\\/]+/).includes('..')) continue
+    const resolved = path.isAbsolute(token)
+      ? path.resolve(token)
+      : path.resolve(root, token)
+    const relative = path.relative(root, resolved)
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      return rawToken
+    }
+  }
+  return undefined
+}
+
+/**
+ * Write-target guard for the validation-diagnosis profile: only plain,
+ * unquoted, expansion-free paths that resolve inside the project root are
+ * allowed (e.g. `cat > repro/fixture.log <<'EOF'`). Absolute targets must
+ * stay inside the project, and targets with `..` segments must not resolve
+ * outside it; anything else (tilde/variable/backtick expansion, escapes like
+ * `../outside` or `/etc/x`) is unsafe and keeps the command blocked.
+ */
+function isDiagnosticWriteTargetSafe(
+  target: string,
+  projectRoot: string,
+): boolean {
+  if (target.length === 0 || /["'`~$]/.test(target)) return false
+  const root = path.resolve(projectRoot)
+  const resolved = path.isAbsolute(target)
+    ? path.resolve(target)
+    : path.resolve(root, target)
+  const relative = path.relative(root, resolved)
+  return !relative.startsWith('..') && !path.isAbsolute(relative)
+}
+
+/**
+ * validation-diagnosis variant of stripSafeReadOnlyRedirections: on top of
+ * the base /dev/null and descriptor redirects, it also strips heredoc
+ * operators and `>`/`>>` writes whose targets are safe project-relative (or
+ * in-project absolute) paths. Any other `<`/`>` — input redirections,
+ * process substitution, or writes outside the project — still returns
+ * undefined so the command is rejected as an unsafe shell redirection.
+ */
+function stripDiagnosticRedirections(
+  segment: string,
+  projectRoot: string,
+): string | undefined {
+  const withoutHeredocs = segment.replace(/<<-?\s*(?:'[^']*'|"[^"]*"|\\?\S+)/g, ' ')
+  let safe = true
+  const withoutWrites = withoutHeredocs.replace(
+    /(^|\s)[012]?>>?(?![&0-9])\s*([^\s<>|;&]*)/g,
+    (match, leading: string, rawTarget: string) => {
+      if (!isDiagnosticWriteTargetSafe(rawTarget, projectRoot)) {
+        safe = false
+        return match
+      }
+      return leading
+    },
+  )
+  if (!safe) return undefined
+  return stripSafeReadOnlyRedirections(withoutWrites)
+}
+
+function findReadOnlyDanger(command: string): string | undefined {
+  const mutation = findReadOnlyMutation(command)
+  if (mutation) return mutation
+
+  if (
+    /^tee\b/i.test(command) &&
+    !/^tee(?:\s+(?:-a\s+)?(?:\/tmp\/[^\s]+|\/dev\/null))?$/i.test(command)
+  ) {
+    return 'tee may only write diagnostic output under /tmp in read-only mode'
+  }
+  if (DEPENDENCY_MUTATION_COMMANDS.some((pattern) => pattern.test(command))) {
+    return 'dependency mutation is not allowed in read-only mode'
+  }
+
+  const dangerousCommands: Array<[RegExp, string]> = [
+    [
+      /^(?:(?:env\s+)?(?:command\s+)?(?:bash|sh|zsh|dash|fish)|eval|source)\b/i,
+      'shell indirection requires an explicit full-access workflow',
+    ],
+    [/^(?:sudo|su)\b/i, 'privilege escalation is not allowed'],
+    [
+      /^(?:env|printenv|set|export)(?:\s|$)/i,
+      'dumping or mutating the process environment is not allowed',
+    ],
+    [
+      /^(?:perl|awk|sed|ruby)\b[\s\S]*?(?:--in-place(?:=|\s|$)|\s-[a-zA-Z]*i(?:\.[^\s]*)?(?=\s|$))/i,
+      'in-place file edits are not allowed in read-only mode',
+    ],
+    [
+      /^(?:python(?:3)?|node|bun|deno|ruby|perl)\s+(?:--?(?:eval|print)\b|-[a-zA-Z]*[cep][a-zA-Z]*)[\s\S]*(?:process\s*\.\s*env|os\s*\.\s*environ|\bENV\b|\bgetenv\b)/i,
+      'interpreter one-liners that read the process environment are not allowed in read-only mode',
+    ],
+    [
+      /^(?:rm|mv|cp|mkdir|rmdir|touch|truncate|install|ln|chmod|chown|chgrp|dd|shred)\b/i,
+      'filesystem mutation is not allowed in read-only mode',
+    ],
+    [
+      /^git\s+(?:add|commit|push|reset|clean|checkout|switch|merge|rebase|restore|stash|cherry-pick|tag|branch\s+-(?:d|D))\b/i,
+      'Git mutation is not allowed in read-only mode',
+    ],
+    [
+      /^(?:git\s+clone|curl\b[\s\S]*(?:\s-X\s*(?:POST|PUT|PATCH|DELETE)\b|\s(?:-d|--data(?:-raw)?|-T|--upload-file)\b)|wget\b[\s\S]*(?:\s-O\b|\s--output-document\b))/i,
+      'network mutation is not allowed in read-only mode',
+    ],
+    [
+      /^(?:apt|apt-get|dnf|yum|pacman|brew|choco|winget|make\s+install)\b/i,
+      'package or system mutation is not allowed in read-only mode',
+    ],
+    [
+      /^(?:kubectl|terraform|helm|docker|podman)\s+(?:apply|create|delete|destroy|exec|run|push|build)\b/i,
+      'deployment or container mutation is not allowed in read-only mode',
+    ],
+    [
+      /^(?:kubectl)\s+(?:patch|replace|scale|rollout\s+restart|set|label|annotate)\b/i,
+      'deployment mutation is not allowed in read-only mode',
+    ],
+    [
+      /^gh\s+(?:pr\s+(?:create|merge|close|reopen|ready|review)|release\s+(?:create|delete|edit|upload)|workflow\s+run|repo\s+(?:create|delete))\b/i,
+      'GitHub mutation is not allowed in read-only mode',
+    ],
+    [
+      /^(?:xargs|find)\b[\s\S]*\b(?:rm|mv|cp|mkdir|touch|chmod|chown|install|bash|sh|python|node)\b/i,
+      'indirect command execution or filesystem mutation is not allowed in read-only mode',
+    ],
+    [
+      /^(?:kill|pkill|killall|shutdown|reboot|poweroff|mount|umount)\b/i,
+      'process or system mutation is not allowed in read-only mode',
+    ],
+    [
+      /^(?:(?:python(?:3)?|node|bun|deno|ruby|perl)\s+(?:-c|-e)|blender\b[\s\S]*--python(?:-expr)?\b)[\s\S]*(?:open\s*\(|write\s*\(|unlink\s*\(|rmdir\s*\(|mkdir\s*\(|subprocess|child_process|exec\s*\(|system\s*\(|remove\s*\()/i,
+      'embedded script writes or executes subprocesses in read-only mode',
+    ],
+  ]
+  return dangerousCommands.find(([pattern]) => pattern.test(command))?.[1]
 }
 
 function findReadOnlyMutation(command: string): string | undefined {
@@ -225,7 +397,16 @@ export function evaluateTerminalCommandPolicy(params: {
   let isLibrarianClone = false
 
   if (params.permissionProfile !== 'full-access') {
-    const traversalPath = findTraversalPath(command)
+    // validation-diagnosis (the debugger profile) may reference paths with
+    // `..` segments that still resolve inside the project (e.g. a repro
+    // pointing at `../src/languages` from a package subdirectory). It still
+    // rejects segments that escape the project root, and absolute paths
+    // outside the project stay blocked by findOutsideAbsolutePath below.
+    // Base read-only and librarian-read-only keep the blanket `..` ban.
+    const traversalPath =
+      params.permissionProfile === 'validation-diagnosis'
+        ? findEscapingTraversalPath(command, params.projectRoot)
+        : findTraversalPath(command)
     if (traversalPath) {
       return {
         allowed: false,
@@ -352,26 +533,7 @@ export function evaluateTerminalCommandPolicy(params: {
         reason: 'global or user-level dependency mutation is not allowed',
       }
     }
-    const dependencyCommands = [
-      /^(?:npm|pnpm|yarn|bun)\s+(?:install|add|remove|update)(?:\s|$)/i,
-      /^pnpm\s+--filter\s+(?:'[^']+'|"[^"]+"|\S+)\s+(?:install|add|remove|update)(?:\s|$)/i,
-      /^yarn\s+workspace\s+(?:'[^']+'|"[^"]+"|\S+)\s+(?:add|remove|upgrade)(?:\s|$)/i,
-      /^bun\s+--filter\s+(?:'[^']+'|"[^"]+"|\S+)\s+(?:install|add|remove|update)(?:\s|$)/i,
-      /^(?:uv|poetry)\s+(?:add|remove|sync|install|update)(?:\s|$)/i,
-      /^pip(?:3)?\s+(?:install|uninstall)(?:\s|$)/i,
-      /^cargo\s+(?:add|rm|remove|fetch|update)(?:\s|$)/i,
-      /^go\s+(?:get|mod\s+(?:tidy|download))(?:\s|$)/i,
-      /^dotnet\s+(?:add|remove)\s+package(?:\s|$)/i,
-      /^dotnet\s+restore(?:\s|$)/i,
-      /^(?:bundle|bundler)\s+(?:add|remove|install|update)(?:\s|$)/i,
-      /^composer\s+(?:require|remove|install|update)(?:\s|$)/i,
-      /^swift\s+package\s+(?:resolve|update)(?:\s|$)/i,
-      /^(?:dart|flutter)\s+pub\s+(?:add|remove|get|upgrade)(?:\s|$)/i,
-      /^mix\s+deps\.(?:get|update)(?:\s|$)/i,
-      /^(?:mvn|mvnw|\.\/mvnw)\s+(?:dependency:resolve|dependency:go-offline)(?:\s|$)/i,
-      /^(?:gradle|gradlew|\.\/gradlew)\s+(?:dependencies|buildEnvironment)(?:\s|$)/i,
-    ]
-    const isDependencyCommand = dependencyCommands.some((pattern) =>
+    const isDependencyCommand = DEPENDENCY_MUTATION_COMMANDS.some((pattern) =>
       pattern.test(command),
     )
     if (!isDependencyCommand) {
@@ -391,6 +553,11 @@ export function evaluateTerminalCommandPolicy(params: {
     return { allowed: true }
   }
 
+  // Base read-only and librarian-read-only stay fully strict. The
+  // validation-diagnosis profile (debugger agent) additionally tolerates
+  // in-project `..` references (handled by the traversal gate above) and
+  // `>`/`>>`/heredoc writes to project-relative paths, so diagnostic repro
+  // fixtures can be captured without opening workspace-write authority.
   if (
     params.permissionProfile === 'read-only' ||
     params.permissionProfile === 'librarian-read-only' ||
@@ -402,43 +569,48 @@ export function evaluateTerminalCommandPolicy(params: {
         command,
       )
     if (isLibrarianClone) return { allowed: true }
-    const pipeline = splitUnquotedPipelines(command)
-    if (
-      hasShellInterpreterEscape(command) ||
-      !pipeline ||
-      !pipeline.every(isReadOnlyPipelineSegment)
-    ) {
+    const pipeline = splitReadOnlyShellSegments(command)
+    if (hasShellInterpreterEscape(command) || !pipeline) {
       return {
         allowed: false,
         reason:
-          'read-only commands cannot use shell composition or substitution',
+          'read-only commands cannot use shell interpreter escapes or malformed shell composition',
       }
     }
-    if (
-      !isLibrarianClone &&
-      pipeline.length === 1 &&
-      !READ_ONLY_COMMANDS.some((pattern) => pattern.test(command))
-    ) {
-      return {
-        allowed: false,
-        reason:
-          'command is not in the read-only validation/inspection allowlist',
+    for (const segment of pipeline) {
+      const normalizedSegment =
+        params.permissionProfile === 'validation-diagnosis'
+          ? stripDiagnosticRedirections(segment, params.projectRoot)
+          : stripSafeReadOnlyRedirections(segment)
+      if (!normalizedSegment) {
+        return {
+          allowed: false,
+          reason:
+            params.permissionProfile === 'validation-diagnosis'
+              ? 'validation-diagnosis commands may only redirect writes to project-relative paths inside the project'
+              : 'read-only commands cannot use unsafe shell redirection',
+        }
       }
+      const danger = findReadOnlyDanger(normalizedSegment)
+      if (danger) return { allowed: false, reason: danger }
     }
   }
 
-  if (
-    params.permissionProfile !== 'full-access' &&
-    params.permissionProfile !== 'tmux-test'
-  ) {
-    if (/\b(?:eval|source)\b|\b(?:bash|sh|zsh|fish)\s+-c\b/i.test(command)) {
-      return {
-        allowed: false,
-        reason: 'shell indirection requires an explicit full-access workflow',
+  if (params.permissionProfile !== 'full-access') {
+    // tmux-test keeps its own workspace-write guard above and skips the
+    // shell-indirection and workspace deny patterns so it can drive tmux
+    // fixtures, but outside-absolute-path containment applies to it too, so
+    // reads like `cat /etc/passwd` or `cat ~/.ssh/id_rsa` stay blocked.
+    if (params.permissionProfile !== 'tmux-test') {
+      if (/\b(?:eval|source)\b|\b(?:bash|sh|zsh|fish)\s+-c\b/i.test(command)) {
+        return {
+          allowed: false,
+          reason: 'shell indirection requires an explicit full-access workflow',
+        }
       }
-    }
-    for (const [pattern, reason] of WORKSPACE_DENY_PATTERNS) {
-      if (pattern.test(command)) return { allowed: false, reason }
+      for (const [pattern, reason] of WORKSPACE_DENY_PATTERNS) {
+        if (pattern.test(command)) return { allowed: false, reason }
+      }
     }
     const outsidePath = findOutsideAbsolutePath(command, params.projectRoot)
     if (outsidePath) {

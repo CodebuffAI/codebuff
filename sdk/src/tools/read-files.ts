@@ -793,15 +793,22 @@ function renderRangeItem(
   // sub-range edits without a re-read. The token is signed cap.v3 over the
   // ENTIRE current file content, minted under the same capabilityIssuer scope
   // as the range capability. SECURITY: never mint when capabilityIssuer is
-  // undefined, and never mint for 'large' (oversized) snapshots — the model
-  // has only seen a fragment, so a whole-file hash would be a lie.
+  // undefined, never mint for 'large' (oversized) snapshots, and never mint
+  // when the model could not have observed the whole file — i.e. when the
+  // returned range body was clamped at the render limit (exceedsRenderLimit,
+  // re-checked explicitly so a future refactor of `complete` cannot reopen
+  // the hole) or when the full file itself exceeds the render limit. In each
+  // of those cases the model has only seen a fragment, so a whole-file hash
+  // would be a lie.
   const isFullFileSnapshot = snapshot.state === 'full'
   const requestedProperSubset = desiredStart > 1 || desiredEnd < totalLines
   const wholeFileReadCapability =
     complete &&
+    !exceedsRenderLimit &&
     isFullFileSnapshot &&
     requestedProperSubset &&
     fullContent !== undefined &&
+    fullContent.length <= MAX_RENDER_CHARS &&
     capabilityIssuer
       ? (() => {
           const wholeFileNormalized = normalizeLineEndings(fullContent)
@@ -823,7 +830,7 @@ function renderRangeItem(
   // ANCHOR line above the token line.
   const header = complete
     ? `${RANGE_BLOCK_MARKER}lines ${desiredStart}-${desiredEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=${rangeHash}; readCapability=${readCapability}; preferred block edit: replace_range { readCapability: "${readCapability}", newContent: "..." }; scoped str_replace: basedOnRead="${readCapability}"]\n`
-    : `${RANGE_BLOCK_MARKER}lines ${returnedStart}-${returnedEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=omitted; readCapability=omitted; request a smaller range before editing]\n`
+    : `${RANGE_BLOCK_MARKER}lines ${returnedStart}-${returnedEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=omitted; readCapability=omitted; NO edit capability or read authorization was minted by this truncated read — request a smaller, fully-covered range before editing to obtain a fresh basedOnRead capability]\n`
   return {
     selector: 'range',
     requestIndex: selector.requestIndex,
@@ -1065,6 +1072,23 @@ type ExpectedOverrideSelector =
   | { selector: 'file'; path: string }
   | { selector: 'range'; path: string; range: FileLineRange }
 
+// Adversarial-input guard for legacy path-keyed overrides: the override
+// result is an untrusted plain object whose keys are attacker-influenced file
+// paths. Only own-enumerable properties may satisfy a lookup — a bare index
+// would resolve through the prototype chain, so a requested path colliding
+// with a prototype member name (e.g. "constructor", "toString",
+// "hasOwnProperty", "__proto__") would read an inherited function/object as
+// file content. Non-string values are equally untrusted and are normalized
+// to null so legacyReadError fails closed to not_found.
+function legacyOverrideValueForPath(
+  raw: Record<string, string | null>,
+  path: string,
+): string | null {
+  if (!Object.prototype.hasOwnProperty.call(raw, path)) return null
+  const value = raw[path]
+  return typeof value === 'string' ? value : null
+}
+
 function overrideRangeMatchesRequest(
   item: ReadFilesItemV1,
   range: FileLineRange,
@@ -1131,7 +1155,8 @@ export function normalizeReadFilesOverrideResult(params: {
         item.selector !== selector.selector ||
         item.path !== selector.path ||
         (selector.selector === 'range' &&
-          !overrideRangeMatchesRequest(item, selector.range)) ||
+          !overrideRangeMatchesRequest(item, selector.range) &&
+          !(item.status === 'error')) ||
         used.has(sourceIndex)
       ) {
         sourceIndex = raw.results.findIndex(
@@ -1140,7 +1165,8 @@ export function normalizeReadFilesOverrideResult(params: {
             candidate.selector === selector.selector &&
             candidate.path === selector.path &&
             (selector.selector !== 'range' ||
-              overrideRangeMatchesRequest(candidate, selector.range)),
+              overrideRangeMatchesRequest(candidate, selector.range) ||
+              candidate.status === 'error'),
         )
         item = sourceIndex >= 0 ? raw.results[sourceIndex] : undefined
       }
@@ -1169,7 +1195,26 @@ export function normalizeReadFilesOverrideResult(params: {
       )
       continue
     }
-    const value = raw[selector.path]
+    // A legacy path-keyed map stores one value per path, so it cannot
+    // safely correlate a batch that requests a whole file AND a range for
+    // the same path: the range selector would consume whole-file content (or
+    // vice versa) under the wrong selector shape. (A range block in a
+    // whole-file selector is already rejected by isRenderedRangeResult.)
+    // Fail closed instead of guessing.
+    if (
+      selector.selector === 'range' &&
+      filePaths.includes(selector.path)
+    ) {
+      results.push(
+        missingOverrideItem(
+          selector,
+          requestIndex,
+          'Legacy path-keyed read_files overrides cannot safely correlate a whole-file read and range reads for the same path. Return structured-v1 results instead.',
+        ),
+      )
+      continue
+    }
+    const value = legacyOverrideValueForPath(raw, selector.path)
     const error = legacyReadError(value)
     if (error) {
       results.push({
@@ -1285,3 +1330,5 @@ export function isRenderedRangeResult(
 ): boolean {
   return typeof value === 'string' && value.startsWith(RANGE_BLOCK_MARKER)
 }
+
+export { legacyOverrideValueForPath }

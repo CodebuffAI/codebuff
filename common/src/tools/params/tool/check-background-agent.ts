@@ -33,7 +33,7 @@ const inputSchema = z
       .number()
       .int()
       .min(0)
-      .max(120)
+      .max(600)
       .default(0)
       .optional()
       .describe(

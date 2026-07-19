@@ -44,7 +44,7 @@ const inputSchema = z
       .number()
       .int()
       .positive()
-      .max(120)
+      .max(600)
       .optional()
       .default(15)
       .describe(

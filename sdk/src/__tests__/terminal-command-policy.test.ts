@@ -14,6 +14,10 @@ describe('terminal command permission policy', () => {
       'bun run --cwd sdk typecheck',
       "rg -n 'foo|bar' src",
       'rg TODO src | tee /tmp/diagnostics.log | tail -20',
+      "which blender && blender --version 2>/dev/null | head -3; echo '---'; ls -la public/models/ 2>/dev/null; echo '---'; du -h public/models/living-organism.glb 2>/dev/null",
+      'rg TODO src || true',
+      'blender --version 2>&1 | head -3',
+      'pwd; git status --short',
     ]) {
       expect(
         evaluateTerminalCommandPolicy({
@@ -26,15 +30,47 @@ describe('terminal command permission policy', () => {
     }
   })
 
-  it('denies shell composition and mutation in read-only mode', () => {
+  it('allows unfamiliar inspection commands and denies dangerous operations in read-only mode', () => {
+    for (const command of [
+      'python -m json.tool package.json',
+      'command -v blender && blender --background --version 2>/dev/null',
+      'some-project-diagnostic --report-format json src',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'read-only',
+          projectRoot,
+        }),
+      ).toEqual({ allowed: true })
+    }
+
     for (const command of [
       'rg TODO src | sh',
       'rm src/file.ts',
       'git commit -m x',
+      'bun install',
+      "bun --filter 'server' add left-pad",
+      "pnpm --filter 'server' install",
+      'kubectl apply -f deploy.yaml',
+      'curl -X POST https://example.com',
+      'rg TODO src | tee diagnostics.log',
+      'pwd; sudo rm src/file.ts',
+      'pwd; command sh -c "rm src/file.ts"',
+      'find src -print0 | xargs -0 rm',
+      'gh pr create --title test',
       'cat package.json > copied.json',
       'find . -delete',
       "find . -exec touch marker ';'",
       "sed -n 'w copied.txt' package.json",
+      'rg TODO src; rm src/file.ts',
+      'rg TODO src & rm src/file.ts',
+      'echo $(rm src/file.ts)',
+      // Regression guard: base read-only keeps denying the diagnostic repro
+      // shapes that validation-diagnosis intentionally relaxes below.
+      "cat > repro/fixture.log <<'EOF'",
+      'rg TODO packages/../src',
     ]) {
       expect(
         evaluateTerminalCommandPolicy({
@@ -44,6 +80,60 @@ describe('terminal command permission policy', () => {
           projectRoot,
         }).allowed,
       ).toBe(false)
+    }
+  })
+
+  it('denies in-place edits, env-reading one-liners, and destructive deletion in read-only mode', () => {
+    for (const command of [
+      // In-place file edit flags (sed -i was already covered by
+      // findReadOnlyMutation; perl/awk forms are the hardened gap).
+      "perl -pi -e 's/x/y/' file.txt",
+      "perl -i -pe 's/x/y/' file.txt",
+      "awk -i inplace '{print $1}' file.txt",
+      "sed -i 's/x/y/' file.txt",
+      // Interpreter one-liners that read the inherited process environment
+      // (children see the full process.env, including API keys).
+      "node -p 'process.env'",
+      "node -e 'console.log(process.env.API_KEY)'",
+      "ruby -e 'puts ENV.to_h'",
+      "python -c 'import os; print(os.environ)'",
+      "python3 -c 'import os; print(os.getenv(\"HOME\"))'",
+      "perl -e 'print $ENV{HOME}'",
+      // Recursive/force deletion and destructive git verbs (already covered
+      // by the filesystem/git tuples; locked in as regression guards).
+      'rm -rf src',
+      'git clean -fdx',
+      'git checkout -- src/file.ts',
+      'git restore src/file.ts',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'read-only',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
+  it('keeps allowing inspection commands that merely mention environment text', () => {
+    for (const command of [
+      'rg API_KEY src',
+      'rg process.env src',
+      'node script.js',
+      'python -m json.tool package.json',
+      "python -c 'import os; print(os.getcwd())'",
+      "perl -ne 'print' file.txt",
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'read-only',
+          projectRoot,
+        }),
+      ).toEqual({ allowed: true })
     }
   })
 
@@ -201,6 +291,87 @@ describe('terminal command permission policy', () => {
         projectRoot,
       }).allowed,
     ).toBe(true)
+  })
+
+  it('applies outside-absolute-path containment to tmux-test mode', () => {
+    for (const command of ['cat /etc/passwd', 'cat ~/.ssh/id_rsa']) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+    // Explicit /tmp fixtures stay allowed for tmux-test.
+    expect(
+      evaluateTerminalCommandPolicy({
+        command: 'touch /tmp/tmux-fixture.txt',
+        mode: 'assistant',
+        permissionProfile: 'tmux-test',
+        projectRoot,
+      }).allowed,
+    ).toBe(true)
+  })
+
+  it('allows diagnostic repro writes and in-project traversal for validation-diagnosis', () => {
+    for (const command of [
+      // Heredoc/write redirection into project-relative diagnostic files.
+      "cat > repro/fixture.log <<'EOF'",
+      'cat > repro/fixture.log',
+      'cat >> repro/fixture.log',
+      'cat > /workspace/project/repro/fixture.log',
+      // `..` segments that still resolve inside the project (repro referencing
+      // a sibling tree from a package subdirectory).
+      'rg TODO packages/../src',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'validation-diagnosis',
+          projectRoot,
+        }),
+      ).toEqual({ allowed: true })
+    }
+  })
+
+  it('keeps validation-diagnosis writes and traversal inside the project', () => {
+    for (const command of [
+      "cat > ../escape.log <<'EOF'",
+      'cat > ../escape.log',
+      "cat > /etc/x <<'EOF'",
+      'cat > /etc/x',
+      'cat packages/../../escape.log',
+      'cat > repro/fixture.log | sh',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'validation-diagnosis',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
+  it('denies env-reading one-liners and in-place edits under validation-diagnosis too', () => {
+    for (const command of [
+      "node -p 'process.env'",
+      "python -c 'import os; print(os.environ)'",
+      "perl -pi -e 's/x/y/' repro/fixture.log",
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'validation-diagnosis',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
   })
 
   it('allows explicit full-access or user-originated commands', () => {

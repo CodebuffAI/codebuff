@@ -1408,6 +1408,93 @@ describe('getFiles', () => {
       }
     })
 
+    test('never mints wholeFileReadCapability for a range read of a full snapshot whose content exceeds the render limit', async () => {
+      const capabilityIssuer = { projectId: '/project', runId: 'run-range-4' }
+      // Full-file snapshot (far under the 10MB oversized threshold, so the
+      // 'full' snapshot path runs) whose content exceeds MAX_RENDER_CHARS: a
+      // whole-file render of this file would be byte-clamped, so the model
+      // can only ever observe a fragment of the content a whole-file
+      // capability would cover.
+      const largeContent = Array.from(
+        { length: 30_000 },
+        (_, index) => `line ${index + 1}`,
+      ).join('\n')
+      const mockFs = createMockFs({
+        files: {
+          '/project/src/large.ts': {
+            content: largeContent,
+            size: largeContent.length,
+          },
+        },
+      })
+
+      const result = await getFilesStructured({
+        filePaths: [],
+        ranges: [
+          { path: 'src/large.ts', startLine: 20_000, endLine: 20_002 },
+        ],
+        cwd: '/project',
+        fs: mockFs,
+        capabilityIssuer,
+      })
+
+      const item = result.results[0]
+      expect(item?.status).toBe('ok')
+      if (item?.status !== 'error' && item.selector === 'range') {
+        // The requested range itself was fully covered and rendered.
+        expect(item.complete).toBe(true)
+        // Security invariant: the whole-file capability may only be minted
+        // when the model has genuinely observed the full file content the
+        // capability covers. This file exceeds the render limit, so the model
+        // saw a 3-line fragment — minting a cap over all 30,000 lines would
+        // grant whole-file edit authority from a partial observation.
+        expect(item.wholeFileReadCapability).toBeUndefined()
+        // The bounded range capability itself (cap.v3 over lines 20000-20002)
+        // is still minted.
+        expect(item.readCapability).toMatch(/^cap\.v3\./)
+      }
+    })
+
+    test('never mints wholeFileReadCapability for a byte-clamped full-snapshot range read whose rendered body exceeds the render limit', async () => {
+      const capabilityIssuer = { projectId: '/project', runId: 'run-range-5' }
+      // The requested range is a proper subset fully covered by a full-file
+      // snapshot, but its rendered body exceeds MAX_RENDER_CHARS, so the
+      // response is clamped and the model never sees the omitted lines.
+      const clampedContent = Array.from(
+        { length: 2_001 },
+        (_, index) => `${index + 1}:${'x'.repeat(80)}`,
+      ).join('\n')
+      const mockFs = createMockFs({
+        files: {
+          '/project/src/clamped.ts': {
+            content: clampedContent,
+            size: clampedContent.length,
+          },
+        },
+      })
+
+      const result = await getFilesStructured({
+        filePaths: [],
+        ranges: [{ path: 'src/clamped.ts', startLine: 1, endLine: 2_000 }],
+        cwd: '/project',
+        fs: mockFs,
+        capabilityIssuer,
+      })
+
+      const item = result.results[0]
+      expect(item?.status).toBe('partial')
+      if (item?.status !== 'error' && item.selector === 'range') {
+        expect(item.complete).toBe(false)
+        // Security invariant: a clamped render means the model only observed
+        // a fragment, so no whole-file capability may be minted — even though
+        // the snapshot held the full file and an issuer was supplied.
+        expect(item.wholeFileReadCapability).toBeUndefined()
+        // The pre-existing `complete` gate also withholds the scoped range
+        // capability for a clamped render ('rangeHash=omitted').
+        expect(item.readCapability).toBeUndefined()
+      }
+    })
+
     test('[ERR-M04] returns typed unsupported without retrying when range capability is absent', async () => {
       let wholeReads = 0
       const mockFs = createMockFs({
@@ -1527,6 +1614,60 @@ describe('getFiles', () => {
       path: 'b.ts',
       error: { code: 'invalid_request' },
     })
+  })
+
+  test('fails closed when a legacy path-keyed override mixes a whole file and a range for the same path', async () => {
+    const result = await getFilesStructuredFromOverride({
+      filePaths: ['mixed.ts'],
+      ranges: [{ path: 'mixed.ts', startLine: 1, endLine: 2 }],
+      override: async () => ({
+        'mixed.ts': 'whole file content that must not leak into the range',
+      }),
+    })
+
+    expect(result.results).toHaveLength(2)
+    // The file selector keeps its own value (a range block value is rejected
+    // separately by the isRenderedRangeResult guard); the range selector must
+    // fail closed rather than consuming the whole-file content.
+    expect(result.results[0]).toMatchObject({
+      selector: 'file',
+      requestIndex: 0,
+      path: 'mixed.ts',
+      status: 'ok',
+      content: 'whole file content that must not leak into the range',
+    })
+    expect(result.results[1]).toMatchObject({
+      selector: 'range',
+      requestIndex: 1,
+      path: 'mixed.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(result.results[1]).not.toHaveProperty('readCapability')
+  })
+
+  test('fails closed when an adversarial legacy override key collides with a prototype member name', async () => {
+    // Object.prototype members must never be read as file content: the
+    // override lookup must be own-enumerable-only. A path named
+    // "constructor" or "toString" is not a real key and must yield not_found.
+    const result = await getFilesStructuredFromOverride({
+      filePaths: ['constructor', 'toString'],
+      override: async () => ({
+        'a.ts': 'A',
+      }),
+    })
+
+    expect(result.results).toHaveLength(2)
+    for (const [index, path] of ['constructor', 'toString'].entries()) {
+      expect(result.results[index]).toMatchObject({
+        selector: 'file',
+        requestIndex: index,
+        path,
+        status: 'error',
+        error: { code: 'not_found' },
+      })
+      expect(result.results[index]).not.toHaveProperty('content')
+    }
   })
 
   test('correlates reordered same-path range overrides by coordinates', async () => {

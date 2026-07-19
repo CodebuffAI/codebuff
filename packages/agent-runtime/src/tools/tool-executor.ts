@@ -18,7 +18,7 @@ import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import * as path from 'path'
-import { existsSync, realpathSync } from 'node:fs'
+import { realpathSync } from 'node:fs'
 
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
@@ -441,18 +441,32 @@ function parseStringifiedToolInput(
   return { input: parsed, parseError }
 }
 
+function detectHeredocPayload(rawInput: unknown): string | undefined {
+  if (typeof rawInput !== 'string') return undefined
+  if (/<<(['"]?)EOF\1/i.test(rawInput)) {
+    return 'Payload was truncated in transport. If you embedded a file body or heredoc inside a basher command, split the work: create the file with write_file/edit_transaction, then run it via a short basher command.'
+  }
+  return undefined
+}
+
 function stringInputError(
   toolName: string,
   toolCallId: string,
   parseError?: string,
+  rawInput?: unknown,
 ): ToolCallError {
   const parseDetails = parseError
     ? ` Parsing as JSON failed: ${parseError}. The arguments may be malformed or incomplete.`
     : ' Parsing succeeded, but the parsed value was still a string.'
+  const heredocHint =
+    toolName === 'spawn_agents' || toolName === 'basher'
+      ? detectHeredocPayload(rawInput)
+      : undefined
   const retryHint =
-    toolName === 'set_output'
+    heredocHint ??
+    (toolName === 'set_output'
       ? ' Pass the result as an object directly, for example { "data": { "schemaVersion": 1, ... } }. Do not JSON.stringify the object. Keep findings and evidence compact enough to complete one tool call.'
-      : ' Re-issue the tool call with the full arguments object and properly escaped string values.'
+      : ' Re-issue the tool call with the full arguments object and properly escaped string values.')
   return {
     toolName,
     toolCallId,
@@ -648,7 +662,15 @@ function isFileChangingTool(toolName: string): boolean {
   )
 }
 
-function getFilesystemToolPaths(
+export function sanitizePathSegment(segment: string): string {
+  // Strip path separators (forward/back slash, null byte) and parent-directory
+  // traversal (..) so an agent-supplied identifier (e.g. write_audit_findings
+  // sessionSlug/shardId) cannot escape the intended findings directory via
+  // ../../.. when no filesystemScope is configured.
+  return segment.replace(/[\\/\u0000]/g, '').replace(/\.\./g, '')
+}
+
+export function getFilesystemToolPaths(
   toolName: string,
   input: Record<string, unknown>,
 ): { access: 'read' | 'write'; paths: string[] } | undefined {
@@ -720,9 +742,12 @@ function getFilesystemToolPaths(
     }
   }
   if (toolName === 'write_audit_findings') {
-    const sessionSlug =
-      typeof input.sessionSlug === 'string' ? input.sessionSlug : ''
-    const shardId = typeof input.shardId === 'string' ? input.shardId : ''
+    const sessionSlug = sanitizePathSegment(
+      typeof input.sessionSlug === 'string' ? input.sessionSlug : '',
+    )
+    const shardId = sanitizePathSegment(
+      typeof input.shardId === 'string' ? input.shardId : '',
+    )
     return {
       access: 'write',
       paths: [`.agents/sessions/${sessionSlug}/findings/${shardId}.md`],
@@ -734,7 +759,7 @@ function getFilesystemToolPaths(
   return undefined
 }
 
-function canonicalScopedToolPath(
+export function canonicalScopedToolPath(
   normalizedPath: string,
   projectRoot: string,
 ): string {
@@ -742,13 +767,29 @@ function canonicalScopedToolPath(
   const target = path.resolve(projectRoot, normalizedPath)
   const suffix: string[] = []
   let existing = target
-  while (!existsSync(existing)) {
-    const parent = path.dirname(existing)
-    if (parent === existing) break
-    suffix.unshift(path.basename(existing))
-    existing = parent
+  let canonicalExisting: string | undefined
+  // Walk up to the nearest existing ancestor. Use a single realpathSync
+  // call per iteration (instead of existsSync + realpathSync) to close the
+  // TOCTOU window where a symlink could be swapped between the existence
+  // check and the canonical resolution. If the path does not exist,
+  // realpathSync throws and we defer that segment to lexical reattachment.
+  // SDK handlers remain the authoritative containment layer; this is a
+  // defense-in-depth symlink mitigation.
+  while (canonicalExisting === undefined) {
+    try {
+      canonicalExisting = realpathSync(existing)
+    } catch {
+      const parent = path.dirname(existing)
+      if (parent === existing) break
+      suffix.unshift(path.basename(existing))
+      existing = parent
+    }
   }
-  const canonicalExisting = realpathSync(existing)
+  if (canonicalExisting === undefined) {
+    // No existing ancestor resolved (e.g. projectRoot missing); fall back to
+    // the lexical path so create operations are not falsely denied.
+    return normalizedPath.replace(/\\/g, '/') || '.'
+  }
   return (
     path
       .relative(root, path.join(canonicalExisting, ...suffix))
@@ -778,6 +819,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
       toolName,
       rawToolCall.toolCallId,
       processedParameters.parseError,
+      rawToolCall.input,
     )
   }
 
@@ -1054,6 +1096,31 @@ export async function executeToolCall<T extends ToolName>(
   if (toolName === 'spawn_agents') {
     const agents = effectiveInput.agents
     if (Array.isArray(agents)) {
+      // Pre-flight size warning: a single agent entry whose serialized form
+      // exceeds 4KB is likely carrying a large file body or heredoc inside
+      // params.command — the canonical truncation anti-pattern. Surface a
+      // non-blocking logger.warn so the signal is observable without
+      // disrupting the call. The prompt guard (Fix A) is the primary
+      // prevention; this is the safety net.
+      const MAX_SINGLE_AGENT_PAYLOAD_CHARS = 4_000
+      for (const agent of agents) {
+        let serialized: string
+        try {
+          serialized = JSON.stringify(agent)
+        } catch {
+          continue
+        }
+        if (serialized.length > MAX_SINGLE_AGENT_PAYLOAD_CHARS) {
+          const agentType =
+            agent && typeof agent === 'object' && typeof (agent as Record<string, unknown>).agent_type === 'string'
+              ? String((agent as Record<string, unknown>).agent_type)
+              : 'unknown'
+          logger.warn(
+            { agentType, serializedLength: serialized.length, limit: MAX_SINGLE_AGENT_PAYLOAD_CHARS },
+            'spawn_agents entry exceeds the soft payload size limit; the transport may truncate it. Consider authoring large file bodies with write_file/edit_transaction and running them via a short basher command.',
+          )
+        }
+      }
       const isParentBaseAgent = isBaseAgent(agentTemplate.id)
 
       const validationResults = await Promise.allSettled(

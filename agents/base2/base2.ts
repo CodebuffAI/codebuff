@@ -187,7 +187,7 @@ ${
     ? '- **Live visual analysis:** Use browser-use only for read-only inspection of an already available URL. Do not start dev servers or request browser interactions in plan mode.'
     : '- **Live visual verification:** Visual verification extends beyond web apps. Image artifacts from 3D renders (e.g. Blender frames), image/video exports, generated diagrams, and charts must be inspected with read_image, not inferred from text logs alone. The workflow is: render/export -> poll the background job to completion -> read_image the emitted artifacts -> assess the result -> make a targeted edit -> re-render. Polling (check_job/check_background_agent/read_logs) is only the bridge to artifact inspection; do not re-poll a finished or unchanging job indefinitely. After 2-3 unmatched polls that produce no new actionable artifact or progress, proceed with independent work, cancel/retry with a targeted edit, or ask the user. For web app visual checks specifically, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.'
 }
-- **Prefer dedicated harness tools over shell fallbacks:** Repository status is injected automatically by the runtime; do not spawn basher merely to run git status. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs.
+- **Prefer dedicated harness tools over shell fallbacks:** Repository status is injected automatically by the runtime; do not spawn basher merely to run git status. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs. Never embed a multi-KB file body or heredoc (\`<<'EOF' ... EOF\`) inside \`basher.params.command\`; the transport truncates large payloads and the JSON normalizer intentionally fails closed on truncated input. Author files with \`write_file\`/\`edit_transaction\` and run them via a short basher command instead.
 
 # Code Editing Mandates
 
@@ -1842,7 +1842,7 @@ ${specialistRoutingSection}
                     reviewSnapshotDetails,
                     'Validation gate summary: Reviewer running concurrently with validation (static-review-only mode).',
                     '',
-                    'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, map every user requirement to evidence, and use coverage: missing when changed behavior lacks a mapped test.',
+                    'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, and map every user requirement to evidence. Test-coverage requirements are satisfied (not uncertain) when the changed *.test.ts file in this same reviewed snapshot covers the changed behavior — cite that test file and the covering test name(s) as the requirement evidence. Use coverage: missing only when no mapped test exists anywhere, and requirement status uncertain only when you could not inspect the changed test file at all.',
                   ].join('\n'),
                 },
               ],
@@ -2466,7 +2466,7 @@ ${specialistRoutingSection}
                       reviewSnapshotDetails,
                       `Validation gate summary: ${validationSummary}`,
                       '',
-                      'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, map every user requirement to evidence, and use coverage: missing when changed behavior lacks a mapped test.',
+                      'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, and map every user requirement to evidence. Test-coverage requirements are satisfied (not uncertain) when the changed *.test.ts file in this same reviewed snapshot covers the changed behavior — cite that test file and the covering test name(s) as the requirement evidence. Use coverage: missing only when no mapped test exists anywhere, and requirement status uncertain only when you could not inspect the changed test file at all.',
                     ].join('\n'),
                   },
                 ],
@@ -2762,11 +2762,68 @@ ${specialistRoutingSection}
               markActiveWorkStateChanged()
               break
             }
-            activeWorkState.currentPhase = 'awaiting_validation'
-            activeWorkState.latestWorkSummary =
-              'Repair-editor addressed reviewer findings; targeted validation and a fresh reviewer pass are required.'
-            markActiveWorkStateChanged()
-            continue
+            const reVerify = yield {
+              toolName: 'run_file_change_hooks',
+              input: { files: Array.from(pendingGateFiles) },
+            } as any
+            const reFailures = collectHookFailures(
+              (reVerify as any) && (reVerify as any).toolResult,
+            )
+            if (reFailures.length === 0) {
+              validationSummary = summarizeHookResults(
+                (reVerify as any) && (reVerify as any).toolResult,
+              )
+              activeWorkState.lastValidationSummary = validationSummary
+              activeWorkState.currentPhase = 'awaiting_review'
+              activeWorkState.nextRequiredAction = ''
+              activeWorkState.latestWorkSummary =
+                'Repair-editor addressed reviewer findings; validation re-ran inline and a fresh reviewer pass is required.'
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'awaiting_review',
+                pendingFileCount: pendingGateFiles.size,
+                pendingFiles: Array.from(pendingGateFiles),
+                validationStatus: 'passed',
+                reuseReason: 'reviewer-repair-succeeded',
+              })
+              continue
+            } else {
+              activeWorkState.nextRequiredAction =
+                'Fix the remaining validation hook failures before doing anything else.'
+              activeWorkState.lastReviewerGateSkipReason =
+                'validation-hook-failures'
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.latestWorkSummary = `Repair-editor addressed reviewer findings but ${reFailures.length} validation failure(s) remain.`
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'blocked',
+                pendingFileCount: pendingGateFiles.size,
+                pendingFiles: Array.from(pendingGateFiles),
+                validationStatus: 'failed',
+                blockerCount: reFailures.length,
+                skipReason: 'reviewer-repair-validation-failed',
+              })
+              yield {
+                toolName: 'add_message',
+                input: {
+                  role: 'user',
+                  content: [
+                    `Repair-editor addressed the reviewer findings but ${reFailures.length} validation failure(s) remain. Fix these before ending your turn:`,
+                    '',
+                    ...reFailures,
+                    '',
+                    'Read the exact failing locations, make minimal targeted fixes, then finish (the hooks will re-run).',
+                    formatGateStateBlock(
+                      'validation',
+                      'failed',
+                      `reviewer-repair-validation-failed: ${reFailures.length} failure(s) remain for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                    ),
+                  ].join('\n'),
+                },
+                includeToolCall: false,
+              } as any
+              continue
+            }
           }
           reviewerFinalizationVerdict =
             getReviewerFinalizationVerdict(reviewerToolResult)
@@ -4892,7 +4949,11 @@ ${specialistRoutingSection}
         const pathPart = trimmed.slice(2).trim()
         if (!pathPart) return ''
         const renameTarget = pathPart.split(' -> ').at(-1)
-        return renameTarget?.trim() ?? ''
+        const resolved = renameTarget?.trim() ?? ''
+        // Untracked-directory git status entries are the only ones whose path
+        // ends with `/`; they must not become gate files.
+        if (resolved.endsWith('/')) return ''
+        return resolved
       }
 
       // Inline mirror of agents/base2/gate-reviewer.ts helpers. Keep these
