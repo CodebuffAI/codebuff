@@ -290,8 +290,9 @@ export type FreebuffSessionServerResponse =
       accessTier?: FreebuffAccessTier
       /** The freebuff model the user tried to join. */
       model: string
-      /** Max session units permitted per period (e.g. 5/day premium, or the
-       * user's weekly GLM referral plus streak entitlement). */
+      /** Max session units permitted per period (e.g. the configured daily
+       * premium allowance, or the user's weekly GLM referral plus streak
+       * entitlement). */
       limit: number
       /** Additive detail for `limit`; absent on older servers and non-quota
        *  `reason`-tagged rejections such as the concurrent-session backstop. */

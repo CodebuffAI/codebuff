@@ -68,7 +68,7 @@ Then tell Freebuff what you want — it finds the right files, makes the changes
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 
-**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 5 one-hour sessions per day.
+**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 6 one-hour sessions per day.
 
 **Are you training on my data?** No. We don't share your data with third parties that would train on it or use it for another purpose, unless you choose a model clearly labeled as "Collects data for training."
 

@@ -429,7 +429,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     ? Object.values(rateLimitsByModel)[0]
     : undefined
   const sharedSessionUsed = sessionRateLimit?.recentCount ?? 0
-  // Hide the "0 of 5 … used" line entirely for a fresh user — a zeroed counter
+  // Hide the "0 of N … used" line entirely for a fresh user — a zeroed counter
   // is noise on the landing screen. It appears once any session is consumed.
   //
   // For the regular tiers the PREMIUM section header inside the expanded

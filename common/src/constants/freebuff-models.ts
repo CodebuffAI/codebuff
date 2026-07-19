@@ -91,8 +91,8 @@ export const FREEBUFF_ENABLE_STREAK_IN_UI = true
  *  limited access so the limited Freebuff UX can be exercised without an env
  *  var. */
 export const FREEBUFF_FORCE_LIMITED_MODE = false
-export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
-export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
+export const FREEBUFF_PREMIUM_SESSION_LIMIT = 6
+export const FREEBUFF_LIMITED_SESSION_LIMIT = 6
 /** Full-access Web/Cloud models outside the premium/referral pools. The CLI
  * keeps these models unlimited; browser surfaces cap fresh sessions to deter
  * automated project/session churn. */
@@ -354,7 +354,7 @@ export const FREEBUFF_WEB_STANDARD_MODEL_IDS = Object.freeze(
 
 /** Models unlocked by referrals, metered by the weekly GLM session pool rather
  *  than the daily premium pool. Kept separate from FREEBUFF_PREMIUM_MODEL_IDS
- *  so GLM never falls into the shared 5/day premium quota. */
+ *  so GLM never falls into the shared daily premium quota. */
 export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 
 /** Models that occupy the single per-user "premium-bucket" CONCURRENCY slot in
@@ -444,7 +444,7 @@ export type FreebuffWebPremiumModelId =
 
 /** What new freebuff users see selected in the picker. MiniMax M3 is the
  *  strongest model (smartest & multimodal), so new users start with the best
- *  quality. It draws from the shared 5/day premium pool; pickers should call
+ *  quality. It draws from the shared daily premium pool; pickers should call
  *  getRecommendedFreebuffModelId with the live quota state so the hero flips
  *  to the unlimited flash model once the pool runs out.
  *  Callers that need a guaranteed-available id for resolution /
@@ -529,8 +529,8 @@ export function getFreebuffModelsForAccessTier(
 
 /** The model the picker highlights as the "recommended" hero so a new user can
  *  start with one Enter press without scanning the full list. Full access →
- *  MiniMax M3 (the smartest, multimodal default — a premium model on the
- *  shared 5/day pool); limited → the always-available flash model. Pass
+ *  MiniMax M3 (the smartest, multimodal default — a premium model in the
+ *  shared daily pool); limited → the always-available flash model. Pass
  *  `premiumExhausted` from the live quota snapshot so the hero flips to the
  *  unlimited DeepSeek Flash once the premium pool runs out — the recommended
  *  pick must always be joinable. */

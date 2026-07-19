@@ -30,7 +30,7 @@ export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL = 4
 /**
  * Freebuff CLI limited-tier perk: each qualified referral whose referred user
  * activated at the *limited* access tier grants +1 daily free-mode session,
- * capped here (e.g. 5 base + 3 = 8/day). Full-access referrals instead grant
+ * capped here (e.g. 6 base + 3 = 9/day). Full-access referrals instead grant
  * GLM sessions (see FREEBUFF_GLM_V52_REFERRAL_CAP).
  */
 export const REFERRAL_CLI_DAILY_SESSION_BONUS_CAP = 3
