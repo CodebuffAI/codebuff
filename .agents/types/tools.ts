@@ -11,6 +11,7 @@ export type ToolName =
   | 'code_search'
   | 'end_turn'
   | 'edit_transaction'
+  | 'edit_3d_asset'
   | 'find_files'
   | 'find_files_matching_content'
   | 'git_status'
@@ -19,6 +20,7 @@ export type ToolName =
   | 'get_change_review_bundle'
   | 'inspect_workspace'
   | 'inspect_environment'
+  | 'inspect_3d_asset'
   | 'get_affected_tests'
   | 'get_build_targets'
   | 'inspect_codebase_structure'
@@ -32,6 +34,7 @@ export type ToolName =
   | 'read_docs'
   | 'read_files'
   | 'read_image'
+  | 'render_3d_preview'
   | 'read_logs'
   | 'read_outline'
   | 'read_slices'
@@ -69,6 +72,7 @@ export interface ToolParamsMap {
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   edit_transaction: EditTransactionParams
+  edit_3d_asset: Edit3dAssetParams
   find_files: FindFilesParams
   find_files_matching_content: FindFilesMatchingContentParams
   git_status: GitStatusParams
@@ -77,6 +81,7 @@ export interface ToolParamsMap {
   get_change_review_bundle: GetChangeReviewBundleParams
   inspect_workspace: InspectWorkspaceParams
   inspect_environment: InspectEnvironmentParams
+  inspect_3d_asset: Inspect3dAssetParams
   get_affected_tests: GetAffectedTestsParams
   get_build_targets: GetBuildTargetsParams
   inspect_codebase_structure: InspectCodebaseStructureParams
@@ -90,6 +95,7 @@ export interface ToolParamsMap {
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_image: ReadImageParams
+  render_3d_preview: Render3dPreviewParams
   read_logs: ReadLogsParams
   read_outline: ReadOutlineParams
   read_slices: ReadSlicesParams
@@ -249,7 +255,7 @@ export interface EndTurnParams {}
  * Parameters for edit_transaction tool
  */
 export interface EditTransactionParams {
-  edits:
+  edits: (
     | {
         /** Optional stable edit identifier echoed in diagnostics. */
         id?: string
@@ -361,7 +367,43 @@ export interface EditTransactionParams {
         path: string
         type: 'write_file'
         content: string
-      }[]
+      }
+  )[]
+}
+
+/**
+ * Parameters for edit_3d_asset tool
+ */
+export interface Edit3dAssetParams {
+  /** Project-relative .blend path. */
+  path: string
+  /** Exact source hash returned by inspect_3d_asset. */
+  source_hash: string
+  operations: (
+    | {
+        type: 'rename_object'
+        object: string
+        new_name: string
+      }
+    | {
+        type: 'set_object_transform'
+        object: string
+        location?: any[]
+        rotation_degrees?: any[]
+        scale?: any[]
+      }
+    | {
+        type: 'set_render_resolution'
+        width: number
+        height: number
+        percentage?: number
+      }
+    | {
+        type: 'set_frame_range'
+        start: number
+        end: number
+      }
+  )[]
 }
 
 /**
@@ -442,6 +484,14 @@ export interface InspectWorkspaceParams {}
 export interface InspectEnvironmentParams {}
 
 /**
+ * Parameters for inspect_3d_asset tool
+ */
+export interface Inspect3dAssetParams {
+  /** Project-relative 3D asset path. */
+  path: string
+}
+
+/**
  * Parameters for get_affected_tests tool
  */
 export interface GetAffectedTestsParams {
@@ -482,7 +532,7 @@ export interface EvaluateAuditCoverageParams {
     shard_id: string
     subsystem_ids: string[]
     files: string[]
-    domains:
+    domains: (
       | 'security'
       | 'correctness'
       | 'state-mutation'
@@ -490,13 +540,14 @@ export interface EvaluateAuditCoverageParams {
       | 'performance'
       | 'dependency-hygiene'
       | 'test-coverage'
-      | 'api-contract'[]
+      | 'api-contract'
+    )[]
   }[]
   features: {
     schema_version: 1
     snapshot_id: string
     feature: string
-    evidence_kind: 'verified'
+    evidence_kind: 'heuristic' | 'verified'
     evidence: {
       entrypoints: string[]
       implementation: string[]
@@ -611,6 +662,18 @@ export interface ReadFilesParams {
 export interface ReadImageParams {
   /** List of image file paths to read. */
   paths: string[]
+}
+
+/**
+ * Parameters for render_3d_preview tool
+ */
+export interface Render3dPreviewParams {
+  /** Project-relative 3D asset path. */
+  path: string
+  views?: ('camera' | 'perspective' | 'front' | 'side' | 'top')[]
+  mode?: 'material' | 'clay' | 'wireframe'
+  width?: number
+  height?: number
 }
 
 /**
@@ -907,6 +970,8 @@ export interface SpawnAgentsParams {
       }[]
       /** Relevant file paths to read (general-agent) */
       filePaths?: string[]
+      /** Relevant directory paths to inventory (general-agent) */
+      directoryPaths?: string[]
       /** Directories to search within (file-picker) */
       directories?: string[]
       /** Starting URL to navigate to (browser-use) */
@@ -1055,6 +1120,8 @@ export interface WriteAuditFindingsParams {
   sessionSlug: string
   /** Unique shard identifier used as the findings filename. */
   shardId: string
+  /** Exact snapshotId returned by inspect_codebase_structure. Required for a directly composable structuralReceipt; omitted only for legacy callers. */
+  snapshotId?: string
   findings: {
     severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
     domain:
@@ -1065,6 +1132,7 @@ export interface WriteAuditFindingsParams {
       | 'performance'
       | 'dependency-hygiene'
       | 'test-coverage'
+      | 'api-contract'
       | 'api-abi'
     path: string
     line?: number
@@ -1077,6 +1145,16 @@ export interface WriteAuditFindingsParams {
     subsystemIds: string[]
     featureIds: string[]
     files: string[]
+    domains?: (
+      | 'security'
+      | 'correctness'
+      | 'state-mutation'
+      | 'error-handling'
+      | 'performance'
+      | 'dependency-hygiene'
+      | 'test-coverage'
+      | 'api-contract'
+    )[]
   }
   noIssuesFound?: boolean
 }
