@@ -20,6 +20,8 @@ import {
 } from '../types/secret-agent-definition'
 
 const ENABLE_COMPOSIO_TOOLS = false
+const THINKER_SPAWN_LIMIT =
+  'Spawn at most one thinker agent per user request. Once a thinker has been spawned for the current request, do not spawn any thinker again.'
 
 export function createBase2(
   mode: 'default' | 'free' | 'lite' | 'max' | 'fast',
@@ -178,6 +180,7 @@ ${
 
 Use the spawn_agents tool to spawn specialized agents to help you complete the user's request.
 
+- **Limit thinker spawns:** ${THINKER_SPAWN_LIMIT}
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
@@ -464,6 +467,7 @@ ${buildArray(
     'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.',
   (isDefault || isMax || isFree) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast || noReview ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
+  `- ${THINKER_SPAWN_LIMIT}`,
   hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
   (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
@@ -510,6 +514,7 @@ function buildImplementationStepPrompt({
   freeCodeReviewerAgentId: string
 }) {
   return buildArray(
+    THINKER_SPAWN_LIMIT,
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
