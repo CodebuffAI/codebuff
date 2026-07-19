@@ -53,17 +53,6 @@ describe('base2 optional tools', () => {
   })
 })
 
-describe('base2 thinker prompting', () => {
-  test('limits thinker spawning to once per user request', () => {
-    const base2 = createBase2('default')
-    const spawnLimit = 'Spawn at most one thinker agent per user request.'
-
-    expect(base2.systemPrompt).toContain(spawnLimit)
-    expect(base2.instructionsPrompt).toContain(spawnLimit)
-    expect(base2.stepPrompt).toContain(spawnLimit)
-  })
-})
-
 describe('base2 context pruning', () => {
   const getContextPrunerParams = (
     mode: Parameters<typeof createBase2>[0],

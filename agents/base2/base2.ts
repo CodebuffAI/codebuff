@@ -180,7 +180,6 @@ ${
 
 Use the spawn_agents tool to spawn specialized agents to help you complete the user's request.
 
-- **Limit thinker spawns:** ${THINKER_SPAWN_LIMIT}
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
@@ -204,6 +203,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
       '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
+- **Limit thinker spawns:** ${THINKER_SPAWN_LIMIT}
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
 
 # ${isFree ? 'Freebuff' : 'Codebuff'} Meta-information
@@ -514,7 +514,6 @@ function buildImplementationStepPrompt({
   freeCodeReviewerAgentId: string
 }) {
   return buildArray(
-    THINKER_SPAWN_LIMIT,
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
