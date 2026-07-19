@@ -3,6 +3,7 @@ import { isFreebuffStreakGlmBonusActive } from '@codebuff/common/util/freebuff-s
 
 /** Days in a streak "week" — the milestone the progress dots fill toward. */
 export const FREEBUFF_STREAK_WEEK = 7
+const FREEBUFF_STREAK_BONUS_MIN_HEIGHT = 52
 
 export interface FreebuffStreakLine {
   /** Count label, e.g. "2 day streak". */
@@ -59,6 +60,22 @@ export function getFreebuffStreakBonusNote(params: {
   const includesGlm =
     params.accessTier === 'full' && isFreebuffStreakGlmBonusActive()
   return includesGlm
-    ? '🎁 Streak perk: +1 bonus session every day + 1 GLM 5.2 session each week you keep it up'
-    : '🎁 Streak perk: +1 bonus session every day you keep it up'
+    ? '🎁 Streak perk: +1 bonus session every day + 1 GLM 5.2 session each week'
+    : '🎁 Streak perk: +1 bonus session every day'
+}
+
+/** Returns the perk note only when the landing layout can show it without
+ * crowding the picker or wrapping onto additional rows. */
+export function getFreebuffStreakBonusNoteForLayout(params: {
+  streak: number
+  accessTier: 'full' | 'limited'
+  terminalHeight: number
+  availableWidth: number
+}): string | null {
+  if (params.terminalHeight < FREEBUFF_STREAK_BONUS_MIN_HEIGHT) return null
+
+  const note = getFreebuffStreakBonusNote(params)
+  if (!note || note.length > params.availableWidth) return null
+
+  return note
 }

@@ -159,6 +159,10 @@ describe('freebuff model availability', () => {
 
   test('Kimi K2.7 Code is offered in pickers and server-supported for full mode', () => {
     expect(FREEBUFF_KIMI_MODEL_ID).toBe('moonshotai/kimi-k2.7-code')
+    expect(
+      FREEBUFF_MODELS.find((model) => model.id === FREEBUFF_KIMI_MODEL_ID)
+        ?.tagline,
+    ).toBe('Best for coding & Slow')
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )

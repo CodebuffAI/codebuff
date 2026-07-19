@@ -25,7 +25,7 @@ import {
 } from '../utils/freebuff-premium-reset'
 import {
   FREEBUFF_STREAK_WEEK,
-  getFreebuffStreakBonusNote,
+  getFreebuffStreakBonusNoteForLayout,
   getFreebuffStreakLine,
 } from '../utils/freebuff-streak-line'
 import { formatSessionUnits } from '../utils/format-session-units'
@@ -56,6 +56,8 @@ interface FreebuffLandingScreenProps {
  *  picker's height-budget math (wrappedRows), so it lives in one place to keep
  *  the two from drifting. */
 const LANDING_HEADING = 'Start coding for free'
+const COLLAPSED_LOGO_MIN_HEIGHT = 26
+const STREAK_INLINE_MIN_WIDTH = 50
 
 /** "in ~3h 20m" / "in ~45 min" / "in under a minute". Used on the
  *  rate-limited screen so users know when they can try again. */
@@ -313,43 +315,34 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // Progressive disclosure as the terminal gets shorter. The picker is the
   // only thing the user must be able to reach, so chrome is shed first:
   //   tall   (>=40): full 6-line ASCII logo + roomy spacing, content anchored low
-  //   medium (>=20): one-line text wordmark — keeps branding for ~1 row so the
-  //                  model list (esp. expanded) gets ~6 rows back vs the big logo
-  //   short  (<20) : no logo at all
+  //   shorter      : no logo — the heading already identifies the experience
   //   tiny   (<18) : also drop the ad banner
   // The big logo is reserved for genuinely tall windows; at the common ~30-row
-  // height we show the compact wordmark so more models fit without scrolling.
+  // height we hide the branding so more models fit without scrolling.
   // Section headers always show — the picker scrolls within whatever rows
   // remain (see selectorMaxHeight below), so there's no need to hide them.
   //
   // Exception: when the picker is collapsed it shrinks to ~5 rows, freeing the
   // ~6 rows the big logo needs. So on a mid-height window with a collapsed,
-  // referral-free picker we promote the wordmark back to the full ASCII logo —
-  // it fills what would otherwise be dead space above the card. A referral card
-  // or expanded list keeps the compact wordmark and gives those rows back to
-  // the scrollable menu. 26 is the smallest window where the logo block,
+  // referral-free picker we still show the full ASCII logo — it fills what
+  // would otherwise be dead space above the card. A referral card or expanded
+  // list gives those rows back to the scrollable menu. 26 is the smallest
+  // window where the logo block,
   // heading, collapsed picker, streak, and ad all coexist without scrolling.
   //
   // The picker (rendered below) owns this and reports it via onExpandedChange;
   // we default to collapsed so the first paint reserves logo space correctly.
   const [selectorExpanded, setSelectorExpanded] = useState(false)
-  const COLLAPSED_LOGO_MIN_HEIGHT = 26
   const hasReferralMenu =
     session?.status === 'none' && Boolean(getReferralInfo(session))
-  const fullLogoFits =
+  const logoHeightFits =
     terminalHeight >= 40 ||
     (!selectorExpanded &&
       !hasReferralMenu &&
       terminalHeight >= COLLAPSED_LOGO_MIN_HEIGHT)
-  const logoMode: 'full' | 'text' | 'none' = fullLogoFits
-    ? 'full'
-    : terminalHeight >= 20
-      ? 'text'
-      : 'none'
   const compact = terminalHeight < 22
   const showAds = terminalHeight >= 18
   const textMarginBottom = 1
-  const logoLines = logoMode === 'full' ? 6 : logoMode === 'text' ? 1 : 0
 
   const [sheenPosition, setSheenPosition] = useState(0)
   const blockColor = getLogoBlockColor(theme.name)
@@ -362,14 +355,15 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     sheenPosition,
     setSheenPosition,
   })
-  const { component: logoComponent } = useLogo({
+  const { component: logoComponent, textBlock: logoTextBlock } = useLogo({
     availableWidth: contentMaxWidth,
     accentColor,
     blockColor,
     applySheenToChar,
-    // 'text' forces the one-line variant; 'none' is handled by not rendering.
-    maxHeight: logoMode === 'full' ? undefined : 1,
   })
+  // useLogo falls back to a one-line brand label when the ASCII variants do
+  // not fit horizontally. This landing screen intentionally hides that label.
+  const showFullLogo = logoHeightFits && logoTextBlock.length > 0
 
   // Always enable ads on the landing screen — this is where monetization lives.
   // forceStart bypasses the "wait for first user message" gate inside the hook,
@@ -402,26 +396,26 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     enabled: FREEBUFF_ENABLE_STREAK_IN_UI && isLanding,
   })
   const streak = streakQuery.data?.streak ?? 0
-  // Reserve the streak row whenever the feature could appear so the picker
-  // doesn't jump when the query resolves or the user crosses from 0 → 1.
-  // The component itself renders blank space when streak === 0.
-  const reserveStreakSlot =
-    FREEBUFF_ENABLE_STREAK_IN_UI && isLanding && !compact
+  // The indicator normally shares the heading row, so keep its slot even in
+  // compact-height terminals. It renders blank space until a streak is active.
+  const showStreakIndicator = FREEBUFF_ENABLE_STREAK_IN_UI && isLanding
   // Once a full week is earned, explain the recurring perk under the picker so
-  // the streak reads as worth keeping. Accuracy lives in getFreebuffStreakBonusNote
-  // (daily session bonus, weekly GLM, GLM only for full access).
-  const streakBonusNote = reserveStreakSlot
-    ? getFreebuffStreakBonusNote({
+  // the streak reads as worth keeping. Unlike the compact indicator, this
+  // sentence consumes dedicated rows, so only show it on generous layouts
+  // where it fits on one line.
+  const streakBonusNote = showStreakIndicator
+    ? getFreebuffStreakBonusNoteForLayout({
         streak,
         accessTier: accessTier === 'limited' ? 'limited' : 'full',
+        terminalHeight,
+        availableWidth: contentMaxWidth,
       })
     : null
   // On the landing screen the streak rides on the heading row, right-aligned.
   // Below ~50 cols the heading + dots get squashed together, so drop the streak
   // to its own line under the heading instead.
-  const STREAK_INLINE_MIN_WIDTH = 50
   const streakOnHeadingRow =
-    reserveStreakSlot && isLanding && contentMaxWidth >= STREAK_INLINE_MIN_WIDTH
+    showStreakIndicator && contentMaxWidth >= STREAK_INLINE_MIN_WIDTH
   // On the landing picker we tick once a minute so the session reset countdown
   // stays fresh.
   const now = useNow(60_000, isLanding)
@@ -474,7 +468,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // space with no dead band below it:
   //   - top bar: paddingTop 1 + the ✕ row = 2
   //   - ad banner: AD_CARD_HEIGHT, only when shown
-  //   - main box: its paddingTop (text-logo tier only) + paddingBottom 1
+  //   - main box: paddingBottom 1
   //   - logo block: lines + marginBottom 1 (always, when shown) + gap (full)
   //   - the prompt/counter (landing)
   // Line wrapping is derived from the actual strings vs contentMaxWidth, so
@@ -484,11 +478,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   const counterText =
     `${formattedSharedSessionUsed} of ${sessionLimit} ${sessionLabel} used, ` +
     `resets in ${sessionResetCountdown}`
-  const logoBlockRows =
-    logoMode === 'none'
-      ? 0
-      : logoLines + 1 /* marginBottom */ + (logoMode === 'full' ? 1 : 0)
-  const mainPaddingRows = (logoMode === 'text' ? 1 : 0) + 1
+  const logoBlockRows = showFullLogo
+    ? 8 /* 6 logo lines + marginBottom + gap */
+    : 0
   const adRows = showAds ? AD_CARD_HEIGHT : 0
   // Status lines render below the picker, each with marginTop 1: the session
   // counter (landing only), then the limited-mode notice, then the streak.
@@ -497,7 +489,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // the heading row (0 extra rows, already counted in landingTextRows); on a
   // narrow landing screen it drops to its own line under the heading (1 row,
   // no top margin).
-  const streakRows = !reserveStreakSlot ? 0 : streakOnHeadingRow ? 0 : 1
+  const streakRows = !showStreakIndicator ? 0 : streakOnHeadingRow ? 0 : 1
   const noticeRows = limitedModeNotice
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
@@ -511,7 +503,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   const counterRows = showBelowPickerCounter
     ? 1 /* marginTop */ + wrappedRows(counterText)
     : 0
-  const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
+  const reservedChrome = 2 + adRows + 1 /* main paddingBottom */ + logoBlockRows
   const landingTextRows =
     wrappedRows(LANDING_HEADING) +
     textMarginBottom +
@@ -580,28 +572,16 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           flexDirection: 'column',
           alignItems: 'center',
           // Full logo: anchor the clump low (flex-end), matching how chat pins
-          // its header/messages to the input bar. Text wordmark: center the
-          // clump so a short (collapsed) picker reads as a balanced card instead
-          // of leaving a void above the ad. No logo (tiny terminals): hug the
-          // top, since the content nearly fills the height anyway and centering
-          // would just shave rows off the top.
-          justifyContent:
-            logoMode === 'full'
-              ? 'flex-end'
-              : logoMode === 'text'
-                ? 'center'
-                : 'flex-start',
+          // its header/messages to the input bar. Without a logo, hug the top
+          // so the freed rows remain available to the picker.
+          justifyContent: showFullLogo ? 'flex-end' : 'flex-start',
           paddingLeft: 2,
           paddingRight: 2,
-          // A row of breathing room under the top bar for the text logo; the
-          // full logo brings its own spacing and the tiniest (no-logo) screens
-          // can't spare the row.
-          paddingTop: logoMode === 'text' ? 1 : 0,
           paddingBottom: 1,
-          gap: logoMode === 'full' ? 1 : 0,
+          gap: showFullLogo ? 1 : 0,
         }}
       >
-        {logoMode !== 'none' && (
+        {showFullLogo && (
           <box style={{ marginBottom: 1, flexShrink: 0 }}>{logoComponent}</box>
         )}
 
@@ -651,7 +631,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   <StreakInlineLine streak={streak} marginTop={0} />
                 )}
               </box>
-              {reserveStreakSlot && !streakOnHeadingRow && (
+              {showStreakIndicator && !streakOnHeadingRow && (
                 <StreakInlineLine streak={streak} marginTop={0} />
               )}
               <FreebuffModelSelector

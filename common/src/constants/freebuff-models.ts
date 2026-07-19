@@ -214,7 +214,7 @@ const MIMO_V25_PRO_MODEL = {
 const KIMI_MODEL = {
   id: FREEBUFF_KIMI_MODEL_ID,
   displayName: 'Kimi K2.7 Code',
-  tagline: 'Best for coding',
+  tagline: 'Best for coding & Slow',
   availability: 'always',
   premium: true,
   multimodal: true,
