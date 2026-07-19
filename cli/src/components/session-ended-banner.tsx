@@ -1,3 +1,9 @@
+import {
+  FALLBACK_FREEBUFF_MODEL_ID,
+  isFreebuffPremiumModelId,
+  SUPPORTED_FREEBUFF_MODELS,
+  type FreebuffModelOption,
+} from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
@@ -9,6 +15,7 @@ import {
   returnToFreebuffLanding,
 } from '../hooks/use-freebuff-session'
 import { useTheme } from '../hooks/use-theme'
+import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
@@ -55,6 +62,25 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const landingButtonLabel = 'Change model'
   const landingPendingLabel = 'Opening model selection…'
 
+  // With the shared premium pool spent, rejoining on the still-selected
+  // premium model would be rejected server-side and dead-end on the terminal
+  // rate-limited screen. Continue on the unlimited fallback (DeepSeek V4
+  // Flash) instead — the same flip the landing picker's recommendation makes.
+  // Limited tier is excluded: its models all share the one exhausted pool, so
+  // there is nothing to flip to.
+  const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
+  const continueOnFallback =
+    isQuotaExhausted &&
+    accessTier !== 'limited' &&
+    isFreebuffPremiumModelId(selectedModel)
+  const fallbackModel: FreebuffModelOption | undefined =
+    SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === FALLBACK_FREEBUFF_MODEL_ID)
+  const fallbackModelName = fallbackModel?.displayName ?? 'DeepSeek V4 Flash'
+  // Remind the user of the fallback's data-collection policy before they
+  // continue on it — the landing picker shows this caveat on the model row,
+  // but this banner is a one-keypress continue, so surface it here too.
+  const fallbackWarning = fallbackModel?.warning
+
   // While a request is still streaming, restart is disabled: it would
   // unmount <Chat> and abort the in-flight agent run. The promise is "we
   // let the agent finish" — honoring that means Enter does nothing until
@@ -76,10 +102,18 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const startSameChatSession = useCallback(() => {
     if (!canRestart) return
     setPendingAction('same-chat')
+    if (continueOnFallback) {
+      // In-memory flip only (like the server-driven model flips): today's
+      // exhausted pool must not overwrite the user's saved preference. The
+      // rejoin POST reads the store at tick time, so it picks this up.
+      useFreebuffModelStore
+        .getState()
+        .setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
+    }
     // Re-POST with the currently selected model and keep the chat/run state
     // intact so the next prompt continues the same conversation.
     refreshFreebuffSession().catch(() => setPendingAction(null))
-  }, [canRestart])
+  }, [canRestart, continueOnFallback])
 
   useKeyboard(
     useCallback(
@@ -144,7 +178,9 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             >
               {pendingAction === 'same-chat'
                 ? 'Starting…'
-                : 'Press Enter to continue in a new session'}
+                : continueOnFallback
+                  ? `Press Enter to continue with ${fallbackModelName}`
+                  : 'Press Enter to continue in a new session'}
             </text>
           </Button>
           <box style={{ flexGrow: 1 }} />
@@ -179,6 +215,11 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             </text>
           </Button>
         </box>
+      )}
+      {!isStreaming && continueOnFallback && fallbackWarning && (
+        <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
+          {`${fallbackModelName} ${fallbackWarning.toLowerCase()}.`}
+        </text>
       )}
     </box>
   )

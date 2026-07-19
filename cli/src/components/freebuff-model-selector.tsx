@@ -61,9 +61,11 @@ import type {
 // "Premium"/"Unlimited" chip. The PREMIUM header carries the shared quota
 // inline — "N of M used · resets in …" — once any session is spent (turning
 // amber when exhausted, the moment its rows grey out). When collapsed there's
-// no PREMIUM header, but the recommended hero is unlimited, so the premium
-// count is irrelevant and simply doesn't show; only the limited tier (no
-// premium section) keeps a parent-rendered below-picker counter. UNLIMITED
+// no PREMIUM header — but the recommended hero is premium (MiniMax M3) while
+// the pool has sessions left, so the parent keeps a below-picker counter for
+// the collapsed state (and for the limited tier, which has no premium
+// section). Once the pool is exhausted the recommendation flips to the
+// unlimited DeepSeek Flash so the hero stays joinable. UNLIMITED
 // needs no annotation. Empty sections are filtered so a model set with no
 // premium (or no unlimited) entries doesn't render an orphan header.
 //
@@ -153,10 +155,41 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       ),
     [accessTier],
   )
+  // No queued state any more: there's never a model the user is "already in"
+  // the queue for, so re-picking is always meaningful.
+  const committedModelId: string | null = null
+  const rateLimitsByModel = getRateLimitsByModel(session)
+  const referral = getReferralInfo(session)
+
+  // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
+  // · resets in …". All premium models share one pool; the server replicates
+  // the same snapshot under every model id, so any entry has the right count.
+  // The count shows from the start — even at "0 of M" — so full-access users
+  // can see the daily pool and reset cadence before they spend anything. The
+  // limit is the server-sent one (base + streak bonus, falling back to the
+  // static base before any snapshot arrives) so the label, the amber
+  // exhausted cue, and isJoinable below can never disagree. Exhaustion is
+  // also the moment the recommended hero flips from MiniMax M3 to the
+  // unlimited fallback — the hero must always be joinable. (The PREMIUM
+  // section only renders for the full-access tier, so this is scoped to it.)
+  const sharedRateLimit = rateLimitsByModel
+    ? Object.values(rateLimitsByModel)[0]
+    : undefined
+  const premiumUsed = sharedRateLimit?.recentCount ?? 0
+  const premiumLimit = sharedRateLimit?.limit ?? FREEBUFF_PREMIUM_SESSION_LIMIT
+  const premiumExhausted = premiumUsed >= premiumLimit
+  // The pool resets daily on a Pacific-day boundary regardless of usage, so the
+  // countdown is meaningful even at zero used — getFreebuffPremiumResetAt falls
+  // back to the next day boundary when the server hasn't sent a resetAt yet.
+  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
+    getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
+    now,
+  )
+
   const recommendedModel = useMemo(() => {
-    const id = getRecommendedFreebuffModelId(accessTier)
+    const id = getRecommendedFreebuffModelId(accessTier, { premiumExhausted })
     return availableModels.find((m) => m.id === id) ?? availableModels[0]!
-  }, [accessTier, availableModels])
+  }, [accessTier, availableModels, premiumExhausted])
   const otherModels = useMemo(
     () => availableModels.filter((m) => m.id !== recommendedModel.id),
     [availableModels, recommendedModel],
@@ -278,33 +311,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       setSelectedModel(renderedModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
     }
   }, [renderedModelIds, now, selectedModel, session, setSelectedModel])
-
-  // No queued state any more: there's never a model the user is "already in"
-  // the queue for, so re-picking is always meaningful.
-  const committedModelId: string | null = null
-  const rateLimitsByModel = getRateLimitsByModel(session)
-  const referral = getReferralInfo(session)
-
-  // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
-  // · resets in …". All premium models share one pool; the server replicates
-  // the same snapshot under every model id, so any entry has the right count.
-  // The count shows from the start — even at "0 of M" — so full-access users
-  // can see the daily pool and reset cadence before they spend anything; it
-  // turns amber when the pool is exhausted — the same moment the premium rows
-  // grey out — so the header explains why they're disabled. (The PREMIUM
-  // section only renders for the full-access tier, so this is scoped to it.)
-  const sharedRateLimit = rateLimitsByModel
-    ? Object.values(rateLimitsByModel)[0]
-    : undefined
-  const premiumUsed = sharedRateLimit?.recentCount ?? 0
-  const premiumExhausted = premiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
-  // The pool resets daily on a Pacific-day boundary regardless of usage, so the
-  // countdown is meaningful even at zero used — getFreebuffPremiumResetAt falls
-  // back to the next day boundary when the server hasn't sent a resetAt yet.
-  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
-    getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
-    now,
-  )
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
@@ -704,8 +710,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           {section.key === 'premium' && (
             <span fg={premiumExhausted ? theme.secondary : theme.muted}>
               {' '}
-              · {formatSessionUnits(premiumUsed)} of{' '}
-              {FREEBUFF_PREMIUM_SESSION_LIMIT} used
+              · {formatSessionUnits(premiumUsed)} of {premiumLimit} used
             </span>
           )}
           {section.key === 'premium' && premiumResetCountdown && (

@@ -280,7 +280,7 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiniMax M3 is a selectable unlimited model, last in the unlimited section', () => {
+  test('MiniMax M3 is a selectable premium model on the standard daily pool', () => {
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       MINIMAX_M3_MODEL_ID,
     )
@@ -292,7 +292,8 @@ describe('freebuff model availability', () => {
     )
     expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isFreebuffWebPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(true)
@@ -339,13 +340,20 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
-  test('recommends an unlimited, in-tier model for the picker hero', () => {
-    // Full access → MiniMax M3 (the unlimited default), so the one-Enter
-    // start never burns a premium session.
+  test('recommends a joinable, in-tier model for the picker hero', () => {
+    // Full access → MiniMax M3 (the smartest default, drawn from the shared
+    // premium pool) while the pool has sessions left.
     expect(getRecommendedFreebuffModelId('full')).toBe(MINIMAX_M3_MODEL_ID)
     expect(getRecommendedFreebuffModelId(undefined)).toBe(MINIMAX_M3_MODEL_ID)
+    // Once the premium pool is exhausted the hero flips to the unlimited
+    // DeepSeek V4 Flash so the one-Enter start is always joinable.
     expect(
-      isFreebuffPremiumModelId(getRecommendedFreebuffModelId('full')),
+      getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
+    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(
+      isFreebuffPremiumModelId(
+        getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
+      ),
     ).toBe(false)
     // Limited access → DeepSeek V4 Flash, which is in the limited model set.
     expect(getRecommendedFreebuffModelId('limited')).toBe(

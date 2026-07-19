@@ -432,23 +432,25 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // Hide the "0 of 5 … used" line entirely for a fresh user — a zeroed counter
   // is noise on the landing screen. It appears once any session is consumed.
   //
-  // For the regular tiers the PREMIUM section header inside the picker now
-  // carries this quota inline, so the below-picker line only survives for the
-  // limited tier (which has no premium section to host it). Regular tiers don't
-  // need it when collapsed either — the collapsed recommended model is
-  // unlimited, so a premium-session count there is irrelevant.
+  // For the regular tiers the PREMIUM section header inside the expanded
+  // picker carries this quota inline, so the below-picker line survives for
+  // the limited tier (which has no premium section to host it) and for the
+  // collapsed picker — the collapsed recommended hero is premium (MiniMax M3)
+  // while the pool has sessions left, so the count is exactly what Enter is
+  // about to spend.
   const showSessionCounter = sharedSessionUsed > 0
-  const showBelowPickerCounter = showSessionCounter && accessTier === 'limited'
-  const isSessionExhausted =
-    sharedSessionUsed >=
+  const showBelowPickerCounter =
+    showSessionCounter && (accessTier === 'limited' || !selectorExpanded)
+  // Prefer the server-sent limit (base + streak/referral bonuses) so the
+  // counter and its amber exhausted cue match what admission will enforce;
+  // the static constants only cover the pre-snapshot fallback.
+  const sessionLimit =
+    sessionRateLimit?.limit ??
     (accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT)
+  const isSessionExhausted = sharedSessionUsed >= sessionLimit
   const sessionUsedColor = isSessionExhausted ? theme.secondary : theme.muted
-  const sessionLimit =
-    accessTier === 'limited'
-      ? FREEBUFF_LIMITED_SESSION_LIMIT
-      : FREEBUFF_PREMIUM_SESSION_LIMIT
   const sessionLabel =
     accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const formattedSharedSessionUsed = formatSessionUnits(sharedSessionUsed)

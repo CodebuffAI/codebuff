@@ -267,7 +267,7 @@ const MINIMAX_M3_MODEL = {
   // No data-collection warning: M3 is served by Fireworks (no provider-side
   // training). Omitting the warning also keeps it out of FREEBUFF_TRACED_MODEL_IDS,
   // so we don't store its traces either.
-  premium: false,
+  premium: true,
   multimodal: true,
 } as const satisfies FreebuffModelOption
 
@@ -311,6 +311,7 @@ export const FREEBUFF_MODELS = [
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
@@ -365,14 +366,13 @@ export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
  *  `requestDesktopSession`.)
  *
  *  This is strictly a CONCURRENCY bucket, NOT a quota bucket. It is intentionally
- *  a SUPERSET of FREEBUFF_PREMIUM_MODEL_IDS: it also includes MiniMax M3 and GLM
- *  5.2, which are unlimited / weekly for QUOTA purposes but expensive enough that
- *  we cap them to one concurrent desktop session. Do NOT use this for the daily
- *  premium quota — that stays on isFreebuffPremiumModelId so M3/GLM never start
- *  burning the 5/day premium pool. */
+ *  a SUPERSET of FREEBUFF_PREMIUM_MODEL_IDS: it also includes GLM 5.2, which is
+ *  metered weekly for QUOTA purposes but expensive enough that we cap it to one
+ *  concurrent desktop session. Do NOT use this for the daily premium quota —
+ *  that stays on isFreebuffPremiumModelId so GLM never starts burning the
+ *  5/day premium pool. */
 export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
 ] as const
 
@@ -443,8 +443,10 @@ export type FreebuffWebPremiumModelId =
   (typeof FREEBUFF_WEB_PREMIUM_MODEL_IDS)[number]
 
 /** What new freebuff users see selected in the picker. MiniMax M3 is the
- *  strongest unlimited model (smartest & multimodal), so new users get good
- *  quality without burning the 5/day premium quota on routine messages.
+ *  strongest model (smartest & multimodal), so new users start with the best
+ *  quality. It draws from the shared 5/day premium pool; pickers should call
+ *  getRecommendedFreebuffModelId with the live quota state so the hero flips
+ *  to the unlimited flash model once the pool runs out.
  *  Callers that need a guaranteed-available id for resolution /
  *  auto-fallbacks should use FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
@@ -527,15 +529,18 @@ export function getFreebuffModelsForAccessTier(
 
 /** The model the picker highlights as the "recommended" hero so a new user can
  *  start with one Enter press without scanning the full list. Full access →
- *  MiniMax M3 (the smart, unlimited, multimodal default); limited → the
- *  always-available flash model. Both are unlimited, so the recommended pick
- *  never burns the daily premium quota. */
+ *  MiniMax M3 (the smartest, multimodal default — a premium model on the
+ *  shared 5/day pool); limited → the always-available flash model. Pass
+ *  `premiumExhausted` from the live quota snapshot so the hero flips to the
+ *  unlimited DeepSeek Flash once the premium pool runs out — the recommended
+ *  pick must always be joinable. */
 export function getRecommendedFreebuffModelId(
   accessTier: FreebuffAccessTier | null | undefined,
+  options: { premiumExhausted?: boolean } = {},
 ): SupportedFreebuffModelId {
-  return accessTier === 'limited'
-    ? LIMITED_FREEBUFF_MODEL_ID
-    : DEFAULT_FREEBUFF_MODEL_ID
+  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODEL_ID
+  if (options.premiumExhausted) return FALLBACK_FREEBUFF_MODEL_ID
+  return DEFAULT_FREEBUFF_MODEL_ID
 }
 
 export function isFreebuffModelAllowedForAccessTier(
@@ -703,10 +708,10 @@ export function isFreebuffSessionPremiumModelId(
 }
 
 /** Whether `model` occupies the one-per-user Freebuff Desktop premium
- *  CONCURRENCY slot (premium models + MiniMax M3 + GLM 5.2). Suffix-tolerant
+ *  CONCURRENCY slot (premium models + GLM 5.2). Suffix-tolerant
  *  (dated snapshots) like the other model predicates so a dated variant can't
  *  dodge the cap. Distinct from isFreebuffPremiumModelId, which gates the daily
- *  premium QUOTA and must NOT include M3/GLM. */
+ *  premium QUOTA and must NOT include GLM. */
 export function isFreebuffDesktopPremiumBucketModelId(
   id: string | null | undefined,
 ): boolean {
