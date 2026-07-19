@@ -79,21 +79,21 @@ describe('getFreebuffStreakBonusNoteForLayout', () => {
   }
   const note = getFreebuffStreakBonusNote(params)!
 
-  test('hides the note below 52 rows', () => {
+  test('hides the note below 30 rows', () => {
     expect(
       getFreebuffStreakBonusNoteForLayout({
         ...params,
-        terminalHeight: 51,
+        terminalHeight: 29,
         availableWidth: note.length,
       }),
     ).toBeNull()
   })
 
-  test('shows the note at 52 rows when it fits on one line', () => {
+  test('shows the note at 30 rows when it fits on one line', () => {
     expect(
       getFreebuffStreakBonusNoteForLayout({
         ...params,
-        terminalHeight: 52,
+        terminalHeight: 30,
         availableWidth: note.length,
       }),
     ).toBe(note)
@@ -103,7 +103,7 @@ describe('getFreebuffStreakBonusNoteForLayout', () => {
     expect(
       getFreebuffStreakBonusNoteForLayout({
         ...params,
-        terminalHeight: 52,
+        terminalHeight: 30,
         availableWidth: note.length - 1,
       }),
     ).toBeNull()

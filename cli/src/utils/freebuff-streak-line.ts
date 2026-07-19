@@ -3,7 +3,7 @@ import { isFreebuffStreakGlmBonusActive } from '@codebuff/common/util/freebuff-s
 
 /** Days in a streak "week" — the milestone the progress dots fill toward. */
 export const FREEBUFF_STREAK_WEEK = 7
-const FREEBUFF_STREAK_BONUS_MIN_HEIGHT = 52
+const FREEBUFF_STREAK_BONUS_MIN_HEIGHT = 30
 
 export interface FreebuffStreakLine {
   /** Count label, e.g. "2 day streak". */
