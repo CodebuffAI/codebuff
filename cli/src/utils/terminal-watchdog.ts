@@ -18,9 +18,9 @@
  *   It must NOT open /dev/tty: being in its own session it has no controlling
  *   terminal, so that open fails with ENXIO. Writing to an inherited tty fd
  *   needs no controlling terminal.
- * - On clean shutdown we SIGKILL the watchdog first (process.kill is
- *   synchronous), so it never fires and the normal cleanup path owns the
- *   terminal writes.
+ * - On clean shutdown the CLI first writes reset bytes synchronously to the
+ *   controlling terminal, then SIGKILLs the watchdog. If that direct write
+ *   fails, the watchdog remains armed and repairs the terminal after exit.
  *
  * Windows (closes the codebuff#843 after-exit gap, where the hosting
  * terminal keeps sending mouse/focus VT input that the shell echoes as
@@ -37,8 +37,8 @@
  *   the reset sequences to its console stdout (ConPTY forwards the disable
  *   sequences to the hosting terminal).
  * - We hold no handle to the grandchild, so clean shutdown can't kill it.
- *   Instead stopTerminalWatchdog() synchronously drops a disarm file; the
- *   watchdog checks it after Wait-Process and exits silently when present.
+ *   After a confirmed synchronous reset, stopTerminalWatchdog() drops a disarm
+ *   file; the watchdog checks it after Wait-Process and exits silently.
  * - Windows PowerShell 5.1 always exists and is invoked by absolute path.
  *   Scripts are passed as plain -Command text so the command lines stay
  *   human-readable in process listings (encoded PowerShell spawned by a CLI
@@ -218,9 +218,9 @@ export function startTerminalWatchdog(options?: { ttyPath?: string }): void {
 }
 
 /**
- * Disarm the watchdog before it can fire. Called from the clean-shutdown path
- * (and safe to call multiple times). Synchronous, so it completes even inside
- * a process 'exit' handler.
+ * Disarm the watchdog after the clean-shutdown path has synchronously restored
+ * the terminal. Safe to call multiple times and synchronous, so it also works
+ * inside a process 'exit' handler.
  */
 export function stopTerminalWatchdog(): void {
   const child = watchdog

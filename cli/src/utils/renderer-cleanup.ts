@@ -1,34 +1,26 @@
 import { resetTerminalTitle } from './terminal-title'
 import { stopActiveRun } from './active-run'
+import { exitCliCleanly, registerExitCleanup } from './exit-cleanly'
 import { flushLiveChatState } from './run-state-storage'
+import { writeTerminalControlSync } from './terminal-io'
 import { TERMINAL_RESET_SEQUENCES } from './terminal-reset-sequences'
 import { stopTerminalWatchdog } from './terminal-watchdog'
 
 import type { CliRenderer } from '@opentui/core'
 
-
 let renderer: CliRenderer | null = null
 let handlersInstalled = false
-let terminalStateReset = false
+let cleanupStarted = false
 
 /**
- * Reset terminal state by writing escape sequences directly to stdout.
- * This is called BEFORE renderer.destroy() to ensure sequences are sent
- * even if the renderer is in a bad state.
+ * Reset terminal state by writing escape sequences to the controlling terminal.
+ * This is called after renderer.destroy() so buffered renderer output cannot
+ * land on the restored main screen after the reset.
  *
  * This is especially important on Windows where signals like SIGTERM and SIGHUP
  * don't work, so we rely on the 'exit' event which is guaranteed to run.
- *
- * After writing the reset sequences, we attempt to flush stdout to ensure the
- * data reaches the terminal before the process exits. Without this flush, a
- * sudden process.exit() can leave terminal escape sequences buffered and never
- * sent, causing garbled output and ASCII/UTF-8 decoding errors on the next
- * terminal prompt.
  */
-function resetTerminalState(): void {
-  if (terminalStateReset) return
-  terminalStateReset = true
-
+function resetTerminalState(): boolean {
   try {
     if (process.stdin.isTTY && process.stdin.setRawMode) {
       process.stdin.setRawMode(false)
@@ -39,17 +31,51 @@ function resetTerminalState(): void {
   try {
     // Reset terminal title to default
     resetTerminalTitle()
-    // Write directly to stdout - this is synchronous and will complete
-    // before the process exits, ensuring the terminal is reset
-    if (process.stdout.isTTY) {
+    if (!process.stdout.isTTY) return true
+
+    const resetCompletedSynchronously = writeTerminalControlSync(
+      TERMINAL_RESET_SEQUENCES,
+    )
+    if (!resetCompletedSynchronously) {
+      // Best-effort immediate reset. Keep the watchdog armed below so it can
+      // retry after this process exits if the buffered write is lost.
       process.stdout.write(TERMINAL_RESET_SEQUENCES)
-      // NOTE: do NOT call destroy() here — that discards buffered data.
-      // TTY writes are synchronous (write() syscall goes directly to the
-      // PTY), so the data reaches the kernel buffer before the call returns.
-      // process.exit() then terminates cleanly and the kernel flushes fd 1.
     }
+    return resetCompletedSynchronously
   } catch {
     // Ignore errors - stdout may already be closed
+    return false
+  }
+}
+
+/**
+ * Destroy OpenTUI before resetting the terminal. destroy() can finalize
+ * synchronously or defer until an active frame finishes; in the deferred case,
+ * schedule the reset after the destroy event's remaining synchronous work.
+ */
+function destroyRendererAndResetTerminal(): boolean {
+  const activeRenderer = renderer
+  renderer = null
+  if (!activeRenderer || activeRenderer.isDestroyed) {
+    return resetTerminalState()
+  }
+
+  let destroyReturned = false
+  let destroyFinalized = false
+  activeRenderer.once('destroy', () => {
+    destroyFinalized = true
+    if (destroyReturned) {
+      queueMicrotask(resetTerminalState)
+    }
+  })
+
+  try {
+    activeRenderer.destroy()
+    destroyReturned = true
+    return destroyFinalized ? resetTerminalState() : false
+  } catch {
+    // A direct reset is still safe if renderer teardown itself failed.
+    return resetTerminalState()
   }
 }
 
@@ -57,33 +83,32 @@ function resetTerminalState(): void {
  * Clean up the renderer by calling destroy().
  * This resets terminal state to prevent garbled output after exit.
  */
-function cleanup(): void {
-  // We're on the clean-shutdown path, so the watchdog must not fire — kill it
-  // before anything else (synchronous, so no race with our own exit).
-  stopTerminalWatchdog()
+function cleanup(): boolean {
+  if (cleanupStarted) {
+    // The process 'exit' handler deliberately reaches this branch to make the
+    // terminal reset the final write, even if destroy was deferred above.
+    return resetTerminalState()
+  }
+  cleanupStarted = true
 
   // Finalize the active message before reading the live provider. This makes
   // the synchronous flush include the interruption UI and prevents a late
   // SDK callback from continuing to own the chat while shutdown proceeds.
-  stopActiveRun('process-exit')
+  try {
+    stopActiveRun('process-exit')
+  } catch {
+    // Continue restoring the terminal even if run finalization fails.
+  }
 
   // Persist any in-flight chat state first (synchronous, best-effort) so
   // closing the terminal or killing the process mid-run doesn't lose the turn.
-  flushLiveChatState()
-
-  // Reset terminal state by writing escape sequences directly to stdout.
-  // This ensures mouse mode, focus reporting, etc. are disabled even if
-  // renderer.destroy() fails or doesn't fully clean up.
-  resetTerminalState()
-
-  if (renderer && !renderer.isDestroyed) {
-    try {
-      renderer.destroy()
-    } catch {
-      // Ignore errors during cleanup - we're exiting anyway
-    }
-    renderer = null
+  try {
+    flushLiveChatState()
+  } catch {
+    // Persistence is best-effort during process teardown.
   }
+
+  return destroyRendererAndResetTerminal()
 }
 
 /**
@@ -103,34 +128,20 @@ export function installProcessCleanupHandlers(cliRenderer: CliRenderer): void {
   if (handlersInstalled) return
   handlersInstalled = true
   renderer = cliRenderer
+  registerExitCleanup(cleanup)
 
-  const cleanupAndExit = (exitCode: number) => {
-    cleanup()
-    // Ensure stdout and stderr are drained before exit. Without this, pending
-    // writes (e.g. terminal reset sequences from cleanup()) may be buffered
-    // and lost, leaving the terminal in a garbled state.
-    try {
-      process.stdout._handle?.setBlocking?.(true)
-    } catch {
-      // _handle may not exist in Bun or on some platforms
-    }
-    process.exit(exitCode)
+  const handleSignal = () => {
+    void exitCliCleanly()
   }
 
   // SIGTERM - Default kill signal (e.g., `kill <pid>`)
-  process.on('SIGTERM', () => {
-    cleanupAndExit(0)
-  })
+  process.on('SIGTERM', handleSignal)
 
   // SIGHUP - Terminal hangup (e.g., closing the terminal window)
-  process.on('SIGHUP', () => {
-    cleanupAndExit(0)
-  })
+  process.on('SIGHUP', handleSignal)
 
   // SIGINT - Ctrl+C
-  process.on('SIGINT', () => {
-    cleanupAndExit(0)
-  })
+  process.on('SIGINT', handleSignal)
 
   // beforeExit - Called when the event loop is empty and about to exit
   process.on('beforeExit', () => {
@@ -139,33 +150,31 @@ export function installProcessCleanupHandlers(cliRenderer: CliRenderer): void {
 
   // exit - Last chance to run synchronous cleanup code
   process.on('exit', () => {
-    // Guard: prevent double-cleanup if this is called from cleanupAndExit
-    // (which calls cleanup() before process.exit(), which triggers this
-    // 'exit' event handler and calls cleanup() again).
-    if (!handlersInstalled) return
-    handlersInstalled = false
-    cleanup()
+    // Only silence the external fallback after the final reset bytes were
+    // synchronously accepted. If direct terminal access failed, leave it armed
+    // to repair the terminal after this process disappears.
+    if (cleanup()) {
+      stopTerminalWatchdog()
+    }
   })
 
-  // uncaughtException - Safety net for unhandled errors
-  process.on('uncaughtException', (error) => {
+  const handleFatalError = (label: string, error: unknown) => {
     cleanup() // Exit alt screen FIRST so error output is visible on the main screen
     try {
-      console.error('Uncaught exception:', error)
+      console.error(`${label}:`, error)
     } catch {
       // Ignore logging errors
     }
     process.exit(1)
+  }
+
+  // uncaughtException - Safety net for unhandled errors
+  process.on('uncaughtException', (error) => {
+    handleFatalError('Uncaught exception', error)
   })
 
   // unhandledRejection - Safety net for unhandled promise rejections
   process.on('unhandledRejection', (reason) => {
-    cleanup() // Exit alt screen FIRST so error output is visible on the main screen
-    try {
-      console.error('Unhandled rejection:', reason)
-    } catch {
-      // Ignore logging errors
-    }
-    process.exit(1)
+    handleFatalError('Unhandled rejection', reason)
   })
 }

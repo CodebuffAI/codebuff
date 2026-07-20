@@ -42,6 +42,7 @@ import { saveRecentProject } from './utils/recent-projects'
 import { startEngagementTracking } from './utils/engagement'
 import { installProcessCleanupHandlers } from './utils/renderer-cleanup'
 import { TERMINAL_RESET_SEQUENCES } from './utils/terminal-reset-sequences'
+import { writeTerminalControlSync } from './utils/terminal-io'
 import { startTerminalWatchdog, stopTerminalWatchdog } from './utils/terminal-watchdog'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
@@ -347,7 +348,6 @@ async function main(): Promise<void> {
   // If the renderer crashes during init, these ensure the error is visible
   // by exiting the alternate screen buffer before printing the error.
   const earlyFatalHandler = (error: unknown) => {
-    stopTerminalWatchdog() // we reset the terminal ourselves below
     try {
       if (process.stdin.isTTY && process.stdin.setRawMode) {
         process.stdin.setRawMode(false)
@@ -357,7 +357,15 @@ async function main(): Promise<void> {
     }
     try {
       if (process.stdout.isTTY) {
-        process.stdout.write(TERMINAL_RESET_SEQUENCES)
+        const resetCompletedSynchronously = writeTerminalControlSync(
+          TERMINAL_RESET_SEQUENCES,
+        )
+        if (resetCompletedSynchronously) {
+          stopTerminalWatchdog()
+        } else {
+          // The watchdog remains armed as the reliable post-exit fallback.
+          process.stdout.write(TERMINAL_RESET_SEQUENCES)
+        }
       }
     } catch {
       // stdout may be closed
@@ -393,7 +401,7 @@ async function main(): Promise<void> {
   // Start the engaged-time heartbeat only once the interactive TUI is actually
   // live — reaching renderer creation means this is a real session (the
   // login/publish/smoke-test commands all exit earlier). Freebuff-only, matching
-  // the MESSAGE_SENT DAU signal. Stopped in exitFreebuffCleanly().
+  // the MESSAGE_SENT DAU signal. Stopped in exitCliCleanly().
   if (IS_FREEBUFF) {
     startEngagementTracking()
   }

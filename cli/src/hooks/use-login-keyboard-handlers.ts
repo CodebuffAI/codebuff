@@ -1,6 +1,7 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
+import { exitCliCleanly } from '../utils/exit-cleanly'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type { KeyEvent } from '@opentui/core'
@@ -41,7 +42,7 @@ export function useLoginKeyboardHandlers({
           ) {
             key.preventDefault()
           }
-          process.exit(0)
+          void exitCliCleanly()
         }
 
         if (isEnter && !hasOpenedBrowser && !loading) {
