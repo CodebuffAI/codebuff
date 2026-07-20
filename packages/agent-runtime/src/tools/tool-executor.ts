@@ -1157,16 +1157,22 @@ export async function executeToolCall<T extends ToolName>(
       const PAYLOAD_PRESCREEN_CHARS = Math.floor(
         MAX_SINGLE_AGENT_PAYLOAD_CHARS / 2,
       )
+      // Depth cap guards against pathological/cyclic object graphs if this
+      // walk is ever reused on untrusted (non-JSON) input. Parsed JSON is
+      // acyclic and agent payloads are shallow, so the cap is never hit in
+      // practice; beyond it we stop descending (treated as not-oversized).
+      const MAX_PAYLOAD_WALK_DEPTH = 64
       const couldExceedPayloadLimit = (value: unknown): boolean => {
         let total = 0
-        const walk = (node: unknown): boolean => {
+        const walk = (node: unknown, depth: number): boolean => {
+          if (depth > MAX_PAYLOAD_WALK_DEPTH) return false
           if (typeof node === 'string') {
             total += node.length
             return total >= PAYLOAD_PRESCREEN_CHARS
           }
           if (Array.isArray(node)) {
             for (const item of node) {
-              if (walk(item)) return true
+              if (walk(item, depth + 1)) return true
             }
             return false
           }
@@ -1174,12 +1180,12 @@ export async function executeToolCall<T extends ToolName>(
             for (const [key, val] of Object.entries(node)) {
               total += key.length
               if (total >= PAYLOAD_PRESCREEN_CHARS) return true
-              if (walk(val)) return true
+              if (walk(val, depth + 1)) return true
             }
           }
           return false
         }
-        return walk(value)
+        return walk(value, 0)
       }
       for (const agent of agents) {
         if (!couldExceedPayloadLimit(agent)) continue

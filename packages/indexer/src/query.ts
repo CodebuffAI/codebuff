@@ -530,7 +530,7 @@ function computeIdfForTokens(
  * case; the reverse (symbol inside the token) is only allowed for substantial
  * symbols (>= 4 chars) — otherwise a 1-2 char symbol matches almost every token.
  */
-function symbolMatchesToken(symLower: string, token: string): boolean {
+export function symbolMatchesToken(symLower: string, token: string): boolean {
   return (
     symLower.includes(token) ||
     (symLower.length >= 4 && token.includes(symLower))

@@ -5,6 +5,7 @@ import {
   evaluateQueryIndexQuality,
   queryIndex,
   resolveLexicalWeights,
+  symbolMatchesToken,
 } from './query'
 
 import type { MetadataIndex } from './types'
@@ -585,3 +586,23 @@ function makeCommandIndex(): MetadataIndex {
     graph: { nodes: {}, edges: [] },
   }
 }
+
+describe('symbolMatchesToken', () => {
+  test('matches when the token is a substring of the symbol (forward)', () => {
+    expect(symbolMatchesToken('authprovider', 'auth')).toBe(true)
+  })
+
+  test('matches a substantial symbol (>= 4 chars) inside the token (reverse)', () => {
+    expect(symbolMatchesToken('user', 'getuser')).toBe(true)
+  })
+
+  test('does not reverse-match a short symbol (< 4 chars) inside the token', () => {
+    // 'db' is only 2 chars, so it must not match a token that merely contains
+    // it; the reverse-substring rule only applies to symbols >= 4 chars.
+    expect(symbolMatchesToken('db', 'somedbthing')).toBe(false)
+  })
+
+  test('does not match unrelated symbol and token', () => {
+    expect(symbolMatchesToken('login', 'auth')).toBe(false)
+  })
+})

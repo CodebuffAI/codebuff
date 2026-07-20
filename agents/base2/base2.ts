@@ -5044,6 +5044,15 @@ ${specialistRoutingSection}
             cache?: Map<string, string>
           }
           if (!cacheSlot.cache) cacheSlot.cache = new Map<string, string>()
+          // Bound the cache so a long-lived serialized generator touching many
+          // files cannot grow it without limit. Map preserves insertion order,
+          // so evict the oldest entry once the cap is reached. A cache miss only
+          // costs a re-read+hash, so eviction is safe.
+          const MAX_MARKER_CACHE_ENTRIES = 1000
+          if (cacheSlot.cache.size >= MAX_MARKER_CACHE_ENTRIES) {
+            const oldestKey = cacheSlot.cache.keys().next().value
+            if (oldestKey !== undefined) cacheSlot.cache.delete(oldestKey)
+          }
           cacheSlot.cache.set(cacheKey, marker)
           return marker
         } catch (err) {
