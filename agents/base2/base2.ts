@@ -1299,11 +1299,37 @@ ${specialistRoutingSection}
             securityAttestationIssues.length > 0 ||
             !securityVerdict
           if (securityBlockers.length > 0) {
-            activeWorkState.securityReviewGateDone = true
-            activeWorkState.preEditSecurityReviewDone = true
             activeWorkState.validationAssurance = 'reduced'
             activeWorkState.latestWorkSummary =
-              'Security review did not produce a clean finalization verdict; continuing with reduced assurance.'
+              'Security review reported blocking findings; continuing with reduced assurance.'
+            markActiveWorkStateChanged()
+            emitGateTelemetry({
+              currentPhase: 'awaiting_validation',
+              pendingFileCount: currentPendingGateFiles.length,
+              pendingFiles: currentPendingGateFiles,
+              reviewerStatus: 'passed',
+              validationStatus: 'passed',
+              reuseReason: 'aux-gate:security-reviewer',
+            })
+          } else if (securityProtocolFailure) {
+            activeWorkState.validationAssurance = 'reduced'
+            activeWorkState.latestWorkSummary =
+              'Security reviewer infrastructure failed without reporting a concrete finding; continuing with reduced assurance.'
+            markActiveWorkStateChanged()
+            emitGateTelemetry({
+              currentPhase: 'awaiting_validation',
+              pendingFileCount: currentPendingGateFiles.length,
+              pendingFiles: currentPendingGateFiles,
+              reviewerStatus: 'passed',
+              validationStatus: 'passed',
+              reuseReason: 'aux-gate:security-reviewer',
+            })
+          } else {
+            recordSuccessfulReviewReceipt(
+              securityToolResult,
+              'security-reviewer',
+              securitySnapshotFingerprint,
+            )
             markActiveWorkStateChanged()
             emitGateTelemetry({
               currentPhase: 'awaiting_validation',
@@ -1314,28 +1340,9 @@ ${specialistRoutingSection}
               reuseReason: 'aux-gate:security-reviewer',
             })
           }
-          if (securityProtocolFailure) {
-            activeWorkState.validationAssurance = 'reduced'
-            activeWorkState.latestWorkSummary =
-              'Security reviewer infrastructure failed without reporting a concrete finding; continuing with reduced assurance.'
-          } else {
-            recordSuccessfulReviewReceipt(
-              securityToolResult,
-              'security-reviewer',
-              securitySnapshotFingerprint,
-            )
-          }
           activeWorkState.securityReviewGateDone = true
           activeWorkState.preEditSecurityReviewDone = true
           markActiveWorkStateChanged()
-          emitGateTelemetry({
-            currentPhase: 'awaiting_validation',
-            pendingFileCount: currentPendingGateFiles.length,
-            pendingFiles: currentPendingGateFiles,
-            reviewerStatus: 'passed',
-            validationStatus: 'passed',
-            reuseReason: 'aux-gate:security-reviewer',
-          })
         }
         // 4) deterministic reviewer-family specialist gates. Advisory
         // specialists never participate in this blocking post-edit path.
@@ -1533,12 +1540,11 @@ ${specialistRoutingSection}
                   const verdict =
                     getReviewerFinalizationVerdict(specialistToolResult)
                   if (blockers.length > 0) {
-                    const normalizedBlockers = blockers
                     const records =
                       collectReviewerFindingRecordsInline(specialistToolResult)
                     activeWorkState.currentPhase = 'blocked'
-                    activeWorkState.openReviewerBlockers = normalizedBlockers
-                    activeWorkState.openReviewerFindings = normalizedBlockers.map(
+                    activeWorkState.openReviewerBlockers = blockers
+                    activeWorkState.openReviewerFindings = blockers.map(
                       (text: string, index: number) => ({
                         id:
                           records[index]?.id ??
@@ -1578,18 +1584,23 @@ ${specialistRoutingSection}
               }
               if (specialistBlocked) {
                 if (specialistTerminalFailure) {
-                  // Terminal specialist protocol failure: instead of breaking
-                  // out of the loop (which silently kills the session while
-                  // still "blocking"), record a skip reason and fall through
-                  // toward finalization. The routed specialists were already
-                  // marked done above, so this path cannot re-enter.
+                  // Terminal specialist protocol failure: record a skip reason
+                  // and fall through toward finalization. Clear both the durable
+                  // and local pending-file state so git-status re-detection does
+                  // not re-enter the specialist gate on the next iteration.
                   if (!activeWorkState.lastReviewerGateSkipReason) {
                     activeWorkState.lastReviewerGateSkipReason =
                       'specialist-terminal-failure'
                   }
+                  for (const file of pendingGateFiles) gatePassedFiles.add(file)
+                  activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
                   activeWorkState.currentPhase = 'final_response_allowed'
                   activeWorkState.pendingGateFiles = []
+                  pendingGateFiles.clear()
                   activeWorkState.openReviewerBlockers = []
+                  editsHappened = false
+                  finalResponseGateOpen = true
+                  mutableAgentState.canSuggestFollowups = true
                   markActiveWorkStateChanged()
                   continue
                 }
