@@ -175,6 +175,54 @@ describe('terminal command permission policy', () => {
     }
   })
 
+  it('allows in-project traversal but rejects escaping traversal in workspace-write', () => {
+    // `..` segments that still resolve inside the project (referencing a
+    // sibling tree from a package subdirectory) are allowed.
+    expect(
+      evaluateTerminalCommandPolicy({
+        command: 'rg TODO packages/../src',
+        mode: 'assistant',
+        permissionProfile: 'workspace-write',
+        projectRoot,
+      }),
+    ).toEqual({ allowed: true })
+    // `..` segments that escape the project root stay blocked.
+    expect(
+      evaluateTerminalCommandPolicy({
+        command: 'cat packages/../../etc/passwd',
+        mode: 'assistant',
+        permissionProfile: 'workspace-write',
+        projectRoot,
+      }).allowed,
+    ).toBe(false)
+  })
+
+  it('allows the word source inside quoted arguments but blocks real shell indirection in workspace-write', () => {
+    // "source" appearing only inside a quoted argument is not indirection.
+    expect(
+      evaluateTerminalCommandPolicy({
+        command: "grep 'maps source files' foo.txt",
+        mode: 'assistant',
+        permissionProfile: 'workspace-write',
+        projectRoot,
+      }),
+    ).toEqual({ allowed: true })
+    // Commands that actually start with source/eval stay blocked.
+    for (const command of [
+      'source ./script.sh',
+      'eval "git push origin main"',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'workspace-write',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
   it('allows routine dependency mutation inline', () => {
     const decision = evaluateTerminalCommandPolicy({
       command: 'bun install && bun run typecheck',

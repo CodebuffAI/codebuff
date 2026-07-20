@@ -397,14 +397,15 @@ export function evaluateTerminalCommandPolicy(params: {
   let isLibrarianClone = false
 
   if (params.permissionProfile !== 'full-access') {
-    // validation-diagnosis (the debugger profile) may reference paths with
-    // `..` segments that still resolve inside the project (e.g. a repro
-    // pointing at `../src/languages` from a package subdirectory). It still
-    // rejects segments that escape the project root, and absolute paths
-    // outside the project stay blocked by findOutsideAbsolutePath below.
+    // validation-diagnosis (the debugger profile) and workspace-write may
+    // reference paths with `..` segments that still resolve inside the project
+    // (e.g. a repro pointing at `../src/languages` from a package subdirectory).
+    // They still reject segments that escape the project root, and absolute
+    // paths outside the project stay blocked by findOutsideAbsolutePath below.
     // Base read-only and librarian-read-only keep the blanket `..` ban.
     const traversalPath =
-      params.permissionProfile === 'validation-diagnosis'
+      params.permissionProfile === 'validation-diagnosis' ||
+      params.permissionProfile === 'workspace-write'
         ? findEscapingTraversalPath(command, params.projectRoot)
         : findTraversalPath(command)
     if (traversalPath) {
@@ -602,7 +603,7 @@ export function evaluateTerminalCommandPolicy(params: {
     // fixtures, but outside-absolute-path containment applies to it too, so
     // reads like `cat /etc/passwd` or `cat ~/.ssh/id_rsa` stay blocked.
     if (params.permissionProfile !== 'tmux-test') {
-      if (/\b(?:eval|source)\b|\b(?:bash|sh|zsh|fish)\s+-c\b/i.test(command)) {
+      if (/(?:^|[;&|(\n]\s*)(?:eval|source)\b|\b(?:bash|sh|zsh|fish)\s+-c\b/i.test(command)) {
         return {
           allowed: false,
           reason: 'shell indirection requires an explicit full-access workflow',

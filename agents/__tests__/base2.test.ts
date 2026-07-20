@@ -3056,13 +3056,47 @@ describe('base2 verification and reviewer gates', () => {
     expect((stopped.value as any).input.content).toContain(
       'failed snapshot/file attestation twice',
     )
+    // Skip-and-finalize instead of the old dead-end break: the gate records the
+    // skip reason, moves to final_response_allowed, clears the blocking state,
+    // marks the pending files gate-passed, and the loop continues toward
+    // finalization instead of silently killing the session while still
+    // "blocking".
     expect((agentState as any).base2ActiveWork).toMatchObject({
-      currentPhase: 'blocked',
+      currentPhase: 'final_response_allowed',
+      pendingGateFiles: [],
+      openReviewerBlockers: [],
       reviewerProtocolRetryCount: 1,
       lastReviewerGateSkipReason: 'reviewer-protocol-attestation-failed',
       openReviewerFindings: [],
+      gatePassedFiles: ['src/a.ts'],
     })
-    expect(gen.next().done).toBe(true)
+    // The loop continues productively: context-pruner, a pinned-state message
+    // reflecting the skip reason, STEP, then a final git_status that breaks out
+    // because the final-response gate is open and no new edits happened. The
+    // re-entry guard prevents re-spawning the reviewer (retry count exhausted).
+    expect(gen.next().value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'context-pruner' },
+    })
+    const pinnedSkip = gen.next().value
+    expect(pinnedSkip).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+    })
+    expect((pinnedSkip as any).input.content).toContain(
+      'Current phase: final_response_allowed',
+    )
+    expect((pinnedSkip as any).input.content).toContain(
+      'reviewer-protocol-attestation-failed',
+    )
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const finalized = gen.next({
+      toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+    } as any)
+    expect(finalized.done).toBe(true)
   })
 
   test('reviewer prompt maps gate test coverage to the changed test file in the same snapshot', () => {

@@ -295,10 +295,19 @@ describe('base2 deterministic gate lifecycle e2e', () => {
       toolName: 'git_status',
     })
 
-    // Invariant 10: a fresh reviewer runs against the repaired tree (no second
-    // validation hook run is needed because it already passed inline).
-    const finalReviewerSpawn = gen.next(
+    // Invariant 10: the re-entered loop runs validation hooks before the
+    // fresh reviewer (the specialist terminal-failure continue changed the
+    // flow so validation re-runs on re-entry).
+    const reValidation = gen.next(
       feedJson({ status: ` M ${LIFECYCLE_FILE}` }),
+    )
+    expect(reValidation.value).toMatchObject({
+      toolName: 'run_file_change_hooks',
+      input: { files: [LIFECYCLE_FILE] },
+    })
+    // After validation passes, the fresh reviewer runs.
+    const finalReviewerSpawn = gen.next(
+      feedJson([{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }]),
     )
     expect(finalReviewerSpawn.value).toMatchObject({
       toolName: 'spawn_agents',

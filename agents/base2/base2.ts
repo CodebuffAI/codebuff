@@ -1369,7 +1369,6 @@ ${specialistRoutingSection}
               !activeWorkState.specialistReviewGatesDone?.includes(agentType),
           )
           if (routedSpecialists.length > 0) {
-            auxGateFiredThisIteration = true
             const bundleResult = yield {
               toolName: 'get_change_review_bundle',
               input: {},
@@ -1388,193 +1387,238 @@ ${specialistRoutingSection}
               markActiveWorkStateChanged()
               continue
             }
-            let specialistBlocked = false
-            let specialistTerminalFailure = false
-            const specialistResults = new Map<string, unknown>()
-            const specialistSnapshots = new Map<string, string>()
-            for (const agentType of routedSpecialists) {
-              specialistSnapshots.set(agentType, bundle.snapshotId)
-            }
-            const firstSpecialistBatch = yield {
-              toolName: 'spawn_agents',
-              input: {
-                agents: routedSpecialists.map((agentType) => ({
-                  agent_type: agentType,
-                  prompt: [
-                    'Perform the routed post-edit specialist review.',
-                    `Requirements: ${prompt ?? '(none supplied)'}`,
-                    `Changed files: ${currentPendingGateFiles.join(', ')}`,
-                    `Snapshot ID (echo exactly): ${bundle.snapshotId}`,
-                  ].join('\n'),
-                  params: {
-                    files: currentPendingGateFiles,
-                    snapshot_id: bundle.snapshotId,
-                  },
-                })),
-              },
-              includeToolCall: false,
-            } as any
-            const firstBatchToolResult =
-              (firstSpecialistBatch as any)?.toolResult ?? firstSpecialistBatch
-            for (const agentType of routedSpecialists) {
-              specialistResults.set(
-                agentType,
-                extractSpawnedAgentResult(firstBatchToolResult, agentType),
-              )
-            }
-            const retrySpecialists = routedSpecialists.filter((agentType) => {
-              const result = specialistResults.get(agentType)
-              return (
-                isStaleSnapshotReviewerResult(result) ||
-                collectReviewerAttestationIssues(
-                  result,
-                  bundle.snapshotId,
-                  currentPendingGateFiles,
-                ).length > 0
-              )
-            })
-            if (retrySpecialists.length > 0) {
-              const refreshedBundleResult = yield {
-                toolName: 'get_change_review_bundle',
-                input: {},
-                includeToolCall: false,
-              } as any
-              const refreshedBundle = extractChangeReviewBundle(
-                (refreshedBundleResult as any)?.toolResult ??
-                  refreshedBundleResult,
-              )
-              if (!refreshedBundle.snapshotId) {
-                activeWorkState.currentPhase = 'blocked'
-                activeWorkState.openReviewerBlockers = [
-                  'Specialist review could not obtain a refreshed snapshot after attestation failure.',
-                ]
-                activeWorkState.openReviewerFindings = []
-                activeWorkState.nextRequiredAction =
-                  'Stop concurrent edits and resume once the working tree is stable; the runtime will obtain a fresh review bundle.'
-                activeWorkState.latestWorkSummary =
-                  'Specialist review stopped because snapshot refresh failed.'
-                markActiveWorkStateChanged()
-                specialistBlocked = true
-                specialistTerminalFailure = true
-              } else {
-                const retryBatch = yield {
-                  toolName: 'spawn_agents',
-                  input: {
-                    agents: retrySpecialists.map((agentType) => ({
-                      agent_type: agentType,
-                      prompt: [
-                        'Retry the routed specialist review after snapshot/file attestation failure.',
-                        `Requirements: ${prompt ?? '(none supplied)'}`,
-                        `Changed files: ${currentPendingGateFiles.join(', ')}`,
-                        `Snapshot ID (echo exactly): ${refreshedBundle.snapshotId}`,
-                        'Correct the structured output directly; do not request source edits for this protocol error.',
-                      ].join('\n'),
-                      params: {
-                        files: currentPendingGateFiles,
-                        snapshot_id: refreshedBundle.snapshotId,
-                      },
-                    })),
-                  },
-                  includeToolCall: false,
-                } as any
-                const retryToolResult =
-                  (retryBatch as any)?.toolResult ?? retryBatch
-                for (const agentType of retrySpecialists) {
-                  specialistSnapshots.set(agentType, refreshedBundle.snapshotId)
-                  specialistResults.set(
-                    agentType,
-                    extractSpawnedAgentResult(retryToolResult, agentType),
-                  )
-                }
-              }
-            }
-            if (!specialistTerminalFailure) {
+            if (bundle.files.length === 0) {
+              // The snapshot has zero changed files (working tree already
+              // clean/committed). A specialist reviewer spawned here can only
+              // find nothing to review and would then fail file attestation,
+              // so mark every routed specialist done and skip the spawn
+              // instead of wasting a reviewer that can never pass. Do not set
+              // auxGateFiredThisIteration; let control fall through so the
+              // loop proceeds toward finalization.
               for (const agentType of routedSpecialists) {
-                const expectedSnapshotId =
-                  specialistSnapshots.get(agentType) ?? bundle.snapshotId
-                const specialistToolResult = specialistResults.get(agentType)
-                const specialistAttestationIssues =
-                  collectReviewerAttestationIssues(
-                    specialistToolResult,
-                    expectedSnapshotId,
-                    currentPendingGateFiles,
-                  )
-                if (
-                  isStaleSnapshotReviewerResult(specialistToolResult) ||
-                  specialistAttestationIssues.length > 0
-                ) {
-                  activeWorkState.currentPhase = 'blocked'
-                  activeWorkState.openReviewerBlockers = [
-                    `${agentType} could not attest to a stable snapshot after one automatic refresh.`,
-                    ...specialistAttestationIssues,
-                  ]
-                  activeWorkState.openReviewerFindings = []
-                  activeWorkState.nextRequiredAction =
-                    'Stop concurrent edits and resume once the working tree is stable; the runtime will obtain a fresh review bundle.'
-                  activeWorkState.latestWorkSummary = `${agentType} stopped after two stale snapshot results.`
-                  markActiveWorkStateChanged()
-                  specialistBlocked = true
-                  specialistTerminalFailure = true
-                  break
-                }
-                const crash = detectReviewerCrash(specialistToolResult)
-                const blockers = collectReviewerBlockers(specialistToolResult)
-                const verdict =
-                  getReviewerFinalizationVerdict(specialistToolResult)
-                if (blockers.length > 0) {
-                  const normalizedBlockers =
-                    blockers.length > 0
-                      ? blockers
-                      : [
-                          crash
-                            ? `${agentType} crashed: ${crash}`
-                            : `${agentType} did not return a valid finalization verdict.`,
-                        ]
-                  const records =
-                    collectReviewerFindingRecordsInline(specialistToolResult)
-                  activeWorkState.currentPhase = 'blocked'
-                  activeWorkState.openReviewerBlockers = normalizedBlockers
-                  activeWorkState.openReviewerFindings = normalizedBlockers.map(
-                    (text: string, index: number) => ({
-                      id:
-                        records[index]?.id ??
-                        buildReviewerFindingId(text, index),
-                      gateId: `${agentType}:${expectedSnapshotId}`,
-                      text: records[index]?.text ?? text,
-                      status: 'open' as const,
-                      files: currentPendingGateFiles,
-                      snapshotFingerprint: expectedSnapshotId,
-                      createdAt: new Date().toISOString(),
-                    }),
-                  )
-                  activeWorkState.nextRequiredAction = `Resolve ${agentType} findings before validation and finalization.`
-                  activeWorkState.latestWorkSummary = `${agentType} blocked the current change snapshot.`
-                  markActiveWorkStateChanged()
-                  specialistBlocked = true
-                  break
-                }
-                if (crash || !verdict) {
-                  activeWorkState.validationAssurance = 'reduced'
-                  activeWorkState.latestWorkSummary = `${agentType} infrastructure failed without reporting a concrete finding; continuing with reduced assurance.`
-                } else {
-                  recordSuccessfulReviewReceipt(
-                    specialistToolResult,
-                    agentType,
-                    expectedSnapshotId,
-                  )
-                }
                 activeWorkState.specialistReviewGatesDone = Array.from(
                   new Set([
                     ...(activeWorkState.specialistReviewGatesDone ?? []),
                     agentType,
                   ]),
                 )
-                markActiveWorkStateChanged()
               }
-            }
-            if (specialistBlocked) {
-              if (specialistTerminalFailure) break
-              continue
+              activeWorkState.lastReviewerGateSkipReason =
+                'no-pending-changes-in-snapshot'
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'final_response_allowed',
+                pendingFileCount: 0,
+                pendingFiles: [],
+                reviewerStatus: 'skipped',
+                validationStatus: 'skipped',
+                reuseReason: 'no-pending-changes-in-snapshot',
+              })
+            } else {
+              auxGateFiredThisIteration = true
+              let specialistBlocked = false
+              let specialistTerminalFailure = false
+              const specialistResults = new Map<string, unknown>()
+              const specialistSnapshots = new Map<string, string>()
+              for (const agentType of routedSpecialists) {
+                specialistSnapshots.set(agentType, bundle.snapshotId)
+              }
+              const firstSpecialistBatch = yield {
+                toolName: 'spawn_agents',
+                input: {
+                  agents: routedSpecialists.map((agentType) => ({
+                    agent_type: agentType,
+                    prompt: [
+                      'Perform the routed post-edit specialist review.',
+                      `Requirements: ${prompt ?? '(none supplied)'}`,
+                      `Changed files: ${currentPendingGateFiles.join(', ')}`,
+                      `Snapshot ID (echo exactly): ${bundle.snapshotId}`,
+                    ].join('\n'),
+                    params: {
+                      files: currentPendingGateFiles,
+                      snapshot_id: bundle.snapshotId,
+                    },
+                  })),
+                },
+                includeToolCall: false,
+              } as any
+              const firstBatchToolResult =
+                (firstSpecialistBatch as any)?.toolResult ?? firstSpecialistBatch
+              for (const agentType of routedSpecialists) {
+                specialistResults.set(
+                  agentType,
+                  extractSpawnedAgentResult(firstBatchToolResult, agentType),
+                )
+              }
+              const retrySpecialists = routedSpecialists.filter((agentType) => {
+                const result = specialistResults.get(agentType)
+                return (
+                  isStaleSnapshotReviewerResult(result) ||
+                  collectReviewerAttestationIssues(
+                    result,
+                    bundle.snapshotId,
+                    currentPendingGateFiles,
+                  ).length > 0
+                )
+              })
+              if (retrySpecialists.length > 0) {
+                const refreshedBundleResult = yield {
+                  toolName: 'get_change_review_bundle',
+                  input: {},
+                  includeToolCall: false,
+                } as any
+                const refreshedBundle = extractChangeReviewBundle(
+                  (refreshedBundleResult as any)?.toolResult ??
+                    refreshedBundleResult,
+                )
+                if (!refreshedBundle.snapshotId) {
+                  activeWorkState.currentPhase = 'blocked'
+                  activeWorkState.openReviewerBlockers = [
+                    'Specialist review could not obtain a refreshed snapshot after attestation failure.',
+                  ]
+                  activeWorkState.openReviewerFindings = []
+                  activeWorkState.nextRequiredAction =
+                    'Stop concurrent edits and resume once the working tree is stable; the runtime will obtain a fresh review bundle.'
+                  activeWorkState.latestWorkSummary =
+                    'Specialist review stopped because snapshot refresh failed.'
+                  markActiveWorkStateChanged()
+                  specialistBlocked = true
+                  specialistTerminalFailure = true
+                } else {
+                  const retryBatch = yield {
+                    toolName: 'spawn_agents',
+                    input: {
+                      agents: retrySpecialists.map((agentType) => ({
+                        agent_type: agentType,
+                        prompt: [
+                          'Retry the routed specialist review after snapshot/file attestation failure.',
+                          `Requirements: ${prompt ?? '(none supplied)'}`,
+                          `Changed files: ${currentPendingGateFiles.join(', ')}`,
+                          `Snapshot ID (echo exactly): ${refreshedBundle.snapshotId}`,
+                          'Correct the structured output directly; do not request source edits for this protocol error.',
+                        ].join('\n'),
+                        params: {
+                          files: currentPendingGateFiles,
+                          snapshot_id: refreshedBundle.snapshotId,
+                        },
+                      })),
+                    },
+                    includeToolCall: false,
+                  } as any
+                  const retryToolResult =
+                    (retryBatch as any)?.toolResult ?? retryBatch
+                  for (const agentType of retrySpecialists) {
+                    specialistSnapshots.set(agentType, refreshedBundle.snapshotId)
+                    specialistResults.set(
+                      agentType,
+                      extractSpawnedAgentResult(retryToolResult, agentType),
+                    )
+                  }
+                }
+              }
+              if (!specialistTerminalFailure) {
+                for (const agentType of routedSpecialists) {
+                  const expectedSnapshotId =
+                    specialistSnapshots.get(agentType) ?? bundle.snapshotId
+                  const specialistToolResult = specialistResults.get(agentType)
+                  const specialistAttestationIssues =
+                    collectReviewerAttestationIssues(
+                      specialistToolResult,
+                      expectedSnapshotId,
+                      currentPendingGateFiles,
+                    )
+                  if (
+                    isStaleSnapshotReviewerResult(specialistToolResult) ||
+                    specialistAttestationIssues.length > 0
+                  ) {
+                    activeWorkState.currentPhase = 'blocked'
+                    activeWorkState.openReviewerBlockers = [
+                      `${agentType} could not attest to a stable snapshot after one automatic refresh.`,
+                      ...specialistAttestationIssues,
+                    ]
+                    activeWorkState.openReviewerFindings = []
+                    activeWorkState.nextRequiredAction =
+                      'Stop concurrent edits and resume once the working tree is stable; the runtime will obtain a fresh review bundle.'
+                    activeWorkState.latestWorkSummary = `${agentType} stopped after two stale snapshot results.`
+                    markActiveWorkStateChanged()
+                    specialistBlocked = true
+                    specialistTerminalFailure = true
+                    break
+                  }
+                  const crash = detectReviewerCrash(specialistToolResult)
+                  const blockers = collectReviewerBlockers(specialistToolResult)
+                  const verdict =
+                    getReviewerFinalizationVerdict(specialistToolResult)
+                  if (blockers.length > 0) {
+                    const normalizedBlockers =
+                      blockers.length > 0
+                        ? blockers
+                        : [
+                            crash
+                              ? `${agentType} crashed: ${crash}`
+                              : `${agentType} did not return a valid finalization verdict.`,
+                          ]
+                    const records =
+                      collectReviewerFindingRecordsInline(specialistToolResult)
+                    activeWorkState.currentPhase = 'blocked'
+                    activeWorkState.openReviewerBlockers = normalizedBlockers
+                    activeWorkState.openReviewerFindings = normalizedBlockers.map(
+                      (text: string, index: number) => ({
+                        id:
+                          records[index]?.id ??
+                          buildReviewerFindingId(text, index),
+                        gateId: `${agentType}:${expectedSnapshotId}`,
+                        text: records[index]?.text ?? text,
+                        status: 'open' as const,
+                        files: currentPendingGateFiles,
+                        snapshotFingerprint: expectedSnapshotId,
+                        createdAt: new Date().toISOString(),
+                      }),
+                    )
+                    activeWorkState.nextRequiredAction = `Resolve ${agentType} findings before validation and finalization.`
+                    activeWorkState.latestWorkSummary = `${agentType} blocked the current change snapshot.`
+                    markActiveWorkStateChanged()
+                    specialistBlocked = true
+                    break
+                  }
+                  if (crash || !verdict) {
+                    activeWorkState.validationAssurance = 'reduced'
+                    activeWorkState.latestWorkSummary = `${agentType} infrastructure failed without reporting a concrete finding; continuing with reduced assurance.`
+                  } else {
+                    recordSuccessfulReviewReceipt(
+                      specialistToolResult,
+                      agentType,
+                      expectedSnapshotId,
+                    )
+                  }
+                  activeWorkState.specialistReviewGatesDone = Array.from(
+                    new Set([
+                      ...(activeWorkState.specialistReviewGatesDone ?? []),
+                      agentType,
+                    ]),
+                  )
+                  markActiveWorkStateChanged()
+                }
+              }
+              if (specialistBlocked) {
+                if (specialistTerminalFailure) {
+                  // Terminal specialist protocol failure: instead of breaking
+                  // out of the loop (which silently kills the session while
+                  // still "blocking"), record a skip reason and fall through
+                  // toward finalization. The routed specialists were already
+                  // marked done above, so this path cannot re-enter.
+                  if (!activeWorkState.lastReviewerGateSkipReason) {
+                    activeWorkState.lastReviewerGateSkipReason =
+                      'specialist-terminal-failure'
+                  }
+                  activeWorkState.currentPhase = 'final_response_allowed'
+                  activeWorkState.pendingGateFiles = []
+                  activeWorkState.openReviewerBlockers = []
+                  markActiveWorkStateChanged()
+                  continue
+                }
+                continue
+              }
             }
           }
         }
@@ -2424,9 +2468,34 @@ ${specialistRoutingSection}
           markActiveWorkStateChanged()
         }
         if (
+          activeWorkState.lastReviewerGateSkipReason ===
+          'reviewer-protocol-attestation-failed'
+        ) {
+          // Re-entry guard: a prior iteration already exhausted the bounded
+          // reviewer protocol retry and recorded a skip. Clear the blocking
+          // state and treat the reviewer gate as skipped for this snapshot so
+          // the loop proceeds toward finalization instead of re-spawning the
+          // reviewer (which would loop forever because the retry count is
+          // already exhausted). Mark the pending files as gate-passed and open
+          // the final-response gate so git status does not re-detect the
+          // still-modified files and re-enter the gate forever.
+          for (const file of pendingGateFiles) gatePassedFiles.add(file)
+          activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
+          activeWorkState.currentPhase = 'final_response_allowed'
+          activeWorkState.pendingGateFiles = []
+          pendingGateFiles.clear()
+          activeWorkState.openReviewerBlockers = []
+          editsHappened = false
+          finalResponseGateOpen = true
+          mutableAgentState.canSuggestFollowups = true
+          markActiveWorkStateChanged()
+        }
+        if (
           runReviewerGate &&
           editsHappened &&
-          !reviewerProtocolBypassAuthorized
+          !reviewerProtocolBypassAuthorized &&
+          activeWorkState.lastReviewerGateSkipReason !==
+            'reviewer-protocol-attestation-failed'
         ) {
           activeWorkState.lastReviewerGateSkipReason = ''
           markActiveWorkStateChanged()
@@ -2527,15 +2596,28 @@ ${specialistRoutingSection}
             )
           }
           if (attestationIssues.length > 0) {
-            activeWorkState.openReviewerBlockers = attestationIssues
+            // Skip-and-continue instead of break: record the skip reason, move
+            // to finalization, and clear the blocking state so the gate does
+            // not re-block. Mark the pending files as gate-passed and open the
+            // final-response gate so the loop terminates instead of re-detecting
+            // the still-modified files and re-entering the gate forever. The
+            // re-entry guard above short-circuits the reviewer spawn on any
+            // subsequent iteration (the retry count is already exhausted).
+            for (const file of pendingGateFiles) gatePassedFiles.add(file)
+            activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
             activeWorkState.openReviewerFindings = []
-            activeWorkState.nextRequiredAction =
-              'Reviewer protocol attestation failed twice. Stop automatic retries and ask the user to fix reviewer configuration or explicitly bypass the reviewer gate.'
-            activeWorkState.currentPhase = 'blocked'
             activeWorkState.latestWorkSummary =
               'Reviewer protocol failed after one automatic retry; no source repair was attempted.'
             activeWorkState.lastReviewerGateSkipReason =
               'reviewer-protocol-attestation-failed'
+            activeWorkState.currentPhase = 'final_response_allowed'
+            activeWorkState.pendingGateFiles = []
+            pendingGateFiles.clear()
+            activeWorkState.openReviewerBlockers = []
+            activeWorkState.nextRequiredAction = ''
+            editsHappened = false
+            finalResponseGateOpen = true
+            mutableAgentState.canSuggestFollowups = true
             markActiveWorkStateChanged()
             yield {
               toolName: 'add_message',
@@ -2551,7 +2633,7 @@ ${specialistRoutingSection}
               },
               includeToolCall: false,
             } as any
-            break
+            continue
           }
           activeWorkState.reviewerProtocolRetryCount = 0
           const blockers = collectReviewerBlockers(reviewerToolResult)
@@ -3858,26 +3940,37 @@ ${specialistRoutingSection}
       function extractChangeReviewBundle(value: unknown): {
         snapshotId: string
         errorMessage: string
+        files: string[]
       } {
         if (Array.isArray(value)) {
           for (const item of value) {
             const found = extractChangeReviewBundle(item)
             if (found.snapshotId || found.errorMessage) return found
           }
-          return { snapshotId: '', errorMessage: '' }
+          return { snapshotId: '', errorMessage: '', files: [] }
         }
         if (!value || typeof value !== 'object')
-          return { snapshotId: '', errorMessage: '' }
+          return { snapshotId: '', errorMessage: '', files: [] }
         const record = value as Record<string, unknown>
         if (record.type === 'json' && 'value' in record)
           return extractChangeReviewBundle(record.value)
-        if (typeof record.snapshotId === 'string')
-          return { snapshotId: record.snapshotId, errorMessage: '' }
+        if (typeof record.snapshotId === 'string') {
+          const files = Array.isArray(record.files)
+            ? record.files.filter(
+                (file): file is string => typeof file === 'string',
+              )
+            : []
+          return { snapshotId: record.snapshotId, errorMessage: '', files }
+        }
         if (typeof record.errorMessage === 'string')
-          return { snapshotId: '', errorMessage: record.errorMessage }
+          return {
+            snapshotId: '',
+            errorMessage: record.errorMessage,
+            files: [],
+          }
         if ('toolResult' in record)
           return extractChangeReviewBundle(record.toolResult)
-        return { snapshotId: '', errorMessage: '' }
+        return { snapshotId: '', errorMessage: '', files: [] }
       }
 
       function collectReviewerFindingRecordsInline(
