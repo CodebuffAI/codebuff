@@ -455,7 +455,6 @@ ${specialistRoutingSection}
       const runReviewerGate = runValidationGate
       const reviewerAgentType = 'code-reviewer'
       const MAX_REPAIR_ROUNDS = 3
-      const MAX_REVIEWER_REPAIR_ROUNDS = 2
       const MAX_REVIEWER_NO_VERDICT_RETRIES = 1
       // static-review-only concurrency (M3.1): when the reviewer is configured
       // for static-only review, it can run concurrently with the blocking
@@ -2637,19 +2636,9 @@ ${specialistRoutingSection}
           activeWorkState.reviewerProtocolRetryCount = 0
           const blockers = collectReviewerBlockers(reviewerToolResult)
           if (blockers.length > 0) {
-            const reviewerRepairRound: number = Number(
+            activeWorkState.reviewerRepairRoundCount = Number(
               activeWorkState.reviewerRepairRoundCount ?? 0,
-            )
-            if (reviewerRepairRound >= MAX_REVIEWER_REPAIR_ROUNDS) {
-              activeWorkState.openReviewerBlockers = blockers
-              activeWorkState.currentPhase = 'blocked'
-              activeWorkState.nextRequiredAction =
-                'Reviewer repair budget exhausted. Resolve the remaining findings manually or change the reviewer configuration before retrying.'
-              activeWorkState.latestWorkSummary = `Reviewer findings persisted after ${MAX_REVIEWER_REPAIR_ROUNDS} bounded repair round(s).`
-              markActiveWorkStateChanged()
-              break
-            }
-            activeWorkState.reviewerRepairRoundCount = reviewerRepairRound + 1
+            ) + 1
             activeWorkState.openReviewerBlockers = blockers
             activeWorkState.openReviewerFindings = blockers.map(
               (text: string, index: number) => ({
