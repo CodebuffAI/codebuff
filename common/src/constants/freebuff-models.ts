@@ -82,6 +82,10 @@ export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
  *  FREEBUFF_GLM_V52_REFERRAL_CAP). Gated by a per-user weekly session pool whose
  *  limit equals the caller's GLM referral score (see the free-session quota). */
 export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
+/** God-mode-only GLM 5.2 route used to test CrofAI independently from the
+ *  referral model's Fireworks route. This is an internal wire ID; CrofAI
+ *  receives its native `glm-5.2` model ID. */
+export const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
@@ -284,6 +288,16 @@ const GLM_V52_MODEL = {
   multimodal: false,
 } as const satisfies FreebuffModelOption
 
+const CROF_GLM_V52_MODEL = {
+  id: FREEBUFF_CROF_GLM_V52_MODEL_ID,
+  displayName: 'GLM 5.2 (Crof)',
+  tagline: 'Direct via CrofAI',
+  availability: 'always',
+  premium: true,
+  multimodal: false,
+  experimental: true,
+} as const satisfies FreebuffModelOption
+
 export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MIMO_V25_PRO_MODEL,
@@ -328,6 +342,7 @@ export const FREEBUFF_WEB_MODELS = [
 
 export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
   HY3_ATLAS_MODEL,
+  CROF_GLM_V52_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_ALL_MODELS = [
@@ -337,12 +352,14 @@ export const FREEBUFF_WEB_ALL_MODELS = [
 
 export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
   FREEBUFF_HY3_ATLAS_MODEL_ID,
+  FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const
 
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
+  FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const
 
 /** Full-access Web/Cloud models sharing the browser-only standard daily pool. */

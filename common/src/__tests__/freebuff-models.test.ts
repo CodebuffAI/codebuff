@@ -4,6 +4,7 @@ import {
   canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DATA_COLLECTION_WARNING,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -247,6 +248,30 @@ describe('freebuff model availability', () => {
     expect(getFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID).displayName).toBe(
       'HY3 Atlas',
     )
+  })
+
+  test('CrofAI GLM 5.2 is a god-only Freebuff Web test model', () => {
+    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_CROF_GLM_V52_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_CROF_GLM_V52_MODEL_ID,
+    )
+    expect(isFreebuffWebModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(true)
+    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      true,
+    )
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      true,
+    )
+    expect(
+      getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).displayName,
+    ).toBe('GLM 5.2 (Crof)')
   })
 
   test('KAT Coder Pro V2 is fully retired from Freebuff Web and Cloud', () => {

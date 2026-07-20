@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '../constants/gemini'
 
 import {
+  FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
@@ -45,6 +46,9 @@ describe('free mode agent model allowlist', () => {
     )
     expect(getFreebuffRootAgentIdForModel(MINIMAX_M3_MODEL_ID)).toBe(
       'base2-free-minimax-m3',
+    )
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      'base2-free-glm-crof',
     )
   })
 
@@ -110,6 +114,18 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'base2-free-minimax-m3',
         LEGACY_MINIMAX_M2_7_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-glm-crof',
+        FREEBUFF_CROF_GLM_V52_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-glm-crof',
+        FREEBUFF_GLM_V52_MODEL_ID,
       ),
     ).toBe(false)
   })
