@@ -237,4 +237,51 @@ describe('getChangeReviewBundle', () => {
     expect(reviewed!.validation.map((record) => record.id)).toEqual(['valid'])
     expect(reviewed!.findings.map((record) => record.id)).toEqual(['open'])
   })
+
+  test('falls back to the last commit diff when the worktree is clean', async () => {
+    const cwd = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'openbuff-review-committed-'),
+    )
+    temporaryRoots.push(cwd)
+    const git = (...args: string[]) =>
+      spawnSync('git', args, { cwd, encoding: 'utf8' })
+    expect(git('init').status).toBe(0)
+    expect(git('config', 'user.email', 'test@example.com').status).toBe(0)
+    expect(git('config', 'user.name', 'Openbuff Test').status).toBe(0)
+    fs.writeFileSync(path.join(cwd, 'file.txt'), 'initial\n')
+    expect(git('add', '.').status).toBe(0)
+    expect(git('commit', '-m', 'initial').status).toBe(0)
+    fs.writeFileSync(path.join(cwd, 'file.txt'), 'changed\n')
+    expect(git('add', '.').status).toBe(0)
+    expect(git('commit', '-m', 'second').status).toBe(0)
+
+    const result = await getChangeReviewBundle({ cwd })
+    const value = result[0]?.type === 'json' ? result[0].value : undefined
+    expect(value).not.toHaveProperty('errorMessage')
+    const bundle = value as { files: string[]; diff: string }
+    expect(bundle.files).toEqual(['file.txt'])
+    expect(bundle.diff.length).toBeGreaterThan(0)
+  })
+
+  test('returns empty files when the worktree is clean and there is no parent commit', async () => {
+    const cwd = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'openbuff-review-single-'),
+    )
+    temporaryRoots.push(cwd)
+    const git = (...args: string[]) =>
+      spawnSync('git', args, { cwd, encoding: 'utf8' })
+    expect(git('init').status).toBe(0)
+    expect(git('config', 'user.email', 'test@example.com').status).toBe(0)
+    expect(git('config', 'user.name', 'Openbuff Test').status).toBe(0)
+    fs.writeFileSync(path.join(cwd, 'file.txt'), 'initial\n')
+    expect(git('add', '.').status).toBe(0)
+    expect(git('commit', '-m', 'initial').status).toBe(0)
+
+    const result = await getChangeReviewBundle({ cwd })
+    const value = result[0]?.type === 'json' ? result[0].value : undefined
+    expect(value).not.toHaveProperty('errorMessage')
+    const bundle = value as { files: string[]; diff: string }
+    expect(bundle.files).toEqual([])
+    expect(bundle.diff).toBe('')
+  })
 })

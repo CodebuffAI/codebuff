@@ -267,6 +267,115 @@ describe('Spawn Agents Permissions', () => {
     expect(derived.terminalPermissionProfile).toBe('workspace-write')
   })
 
+  const createVersionedHandoff = (
+    allowedTools: string[],
+  ): Parameters<typeof deriveSpawnTemplateCapabilities>[0]['handoff'] => ({
+    schemaVersion: 1,
+    taskId: 'T1',
+    role: 'repair-editor',
+    objective: 'Repair the finding.',
+    requirements: [{ id: 'R1', text: 'Fix finding RF-1', required: true }],
+    acceptanceCriteria: [
+      {
+        id: 'A1',
+        behavior: 'RF-1 is repaired.',
+        verification: 'Targeted validation passes.',
+      },
+    ],
+    context: [],
+    invariants: [],
+    nonGoals: [],
+    risks: [],
+    unknowns: [],
+    findings: [
+      {
+        id: 'RF-1',
+        text: 'Fix the bug.',
+        files: ['src/a.ts'],
+        snapshotFingerprint: 'v3:test',
+      },
+    ],
+    permissions: {
+      readablePaths: [],
+      writablePaths: [],
+      allowedTools,
+    },
+    artifacts: [],
+    successCriteria: [],
+    constraints: [],
+  })
+
+  it('grants a read-only discovery tool not in the child static set', () => {
+    const parentAgent = createMockAgent('orchestrator', ['repair-editor'])
+    const childAgent = createMockAgent('repair-editor')
+    childAgent.toolNames = ['edit_transaction']
+
+    const derived = deriveSpawnTemplateCapabilities({
+      agentTemplate: childAgent,
+      parentAgentTemplate: parentAgent,
+      handoff: createVersionedHandoff(['edit_transaction', 'code_search', 'glob']),
+      projectRoot: mockFileContext.projectRoot,
+    })
+
+    // code_search and glob are read-only discovery tools: they are grantable
+    // even though they are absent from the child's static tool set, and they
+    // are surfaced into the child effective tools so it can actually call them.
+    expect(derived.toolNames).toContain('code_search')
+    expect(derived.toolNames).toContain('glob')
+    expect(derived.toolNames).toContain('edit_transaction')
+    // The shared template must not be mutated by the grant.
+    expect(childAgent.toolNames).toEqual(['edit_transaction'])
+  })
+
+  it('still throws the widen error for a mutation tool outside the child static set', () => {
+    const parentAgent = createMockAgent('orchestrator', ['repair-editor'])
+    const childAgent = createMockAgent('repair-editor')
+    childAgent.toolNames = ['code_search']
+
+    expect(() =>
+      deriveSpawnTemplateCapabilities({
+        agentTemplate: childAgent,
+        parentAgentTemplate: parentAgent,
+        handoff: createVersionedHandoff(['code_search', 'write_file']),
+        projectRoot: mockFileContext.projectRoot,
+      }),
+    ).toThrow(
+      'Handoff attempted to widen repair-editor tool authority with: write_file.',
+    )
+  })
+
+  it('does not grant read_files through the discovery carve-out', () => {
+    const parentAgent = createMockAgent('orchestrator', ['repair-editor'])
+    const childAgent = createMockAgent('repair-editor')
+    childAgent.toolNames = ['code_search']
+
+    expect(() =>
+      deriveSpawnTemplateCapabilities({
+        agentTemplate: childAgent,
+        parentAgentTemplate: parentAgent,
+        handoff: createVersionedHandoff(['code_search', 'read_files']),
+        projectRoot: mockFileContext.projectRoot,
+      }),
+    ).toThrow(
+      'Handoff attempted to widen repair-editor tool authority with: read_files.',
+    )
+  })
+
+  it('passes through a tool already in the child static set unchanged', () => {
+    const parentAgent = createMockAgent('orchestrator', ['repair-editor'])
+    const childAgent = createMockAgent('repair-editor')
+    childAgent.toolNames = ['code_search']
+
+    const derived = deriveSpawnTemplateCapabilities({
+      agentTemplate: childAgent,
+      parentAgentTemplate: parentAgent,
+      handoff: createVersionedHandoff(['code_search']),
+      projectRoot: mockFileContext.projectRoot,
+    })
+
+    expect(derived.toolNames).toEqual(['code_search'])
+  })
+
   it('does not let running background jobs block foreground analysis', async () => {
     const parentAgent = createMockAgent('parent', ['thinker'])
     const childAgent = createMockAgent('thinker')
@@ -347,6 +456,28 @@ describe('Spawn Agents Permissions', () => {
     ).rejects.toThrow('is not allowed to spawn child agent type reviewer')
   })
 
+  it('lists the parent spawnable agents when a tool name is passed as agent_type', async () => {
+    const parentAgent = createMockAgent('parent', ['thinker', 'reviewer'])
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall: CodebuffToolCall<'spawn_agent_inline'> = {
+      toolName: 'spawn_agent_inline',
+      toolCallId: 'spawn-tool-inline',
+      input: { agent_type: 'read_files', prompt: 'Read a file' },
+    }
+
+    await expect(
+      handleSpawnAgentInline({
+        ...handleSpawnAgentInlineBaseParams,
+        agentState: sessionState.mainAgentState,
+        agentTemplate: parentAgent,
+        localAgentTemplates: {},
+        toolCall,
+      }),
+    ).rejects.toThrow(
+      '"read_files" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents. Available agents to spawn: thinker, reviewer.',
+    )
+  })
+
   it('rejects spawn batches above the sibling fan-out limit', async () => {
     const parentAgent = createMockAgent('parent', ['thinker'])
     const childAgent = createMockAgent('thinker')
@@ -419,6 +550,18 @@ describe('base-agent spawn helpers', () => {
       `"" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
     )
     expect(toolNotAgentError('weird name!')).toContain('"weird name!"')
+  })
+
+  it('toolNotAgentError appends available spawnable agents when provided', () => {
+    expect(toolNotAgentError('read_files', ['thinker', 'reviewer'])).toBe(
+      `"read_files" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents. Available agents to spawn: thinker, reviewer.`,
+    )
+  })
+
+  it('toolNotAgentError keeps the prefix-only message for an empty agent list', () => {
+    expect(toolNotAgentError('read_files', [])).toBe(
+      `"read_files" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+    )
   })
 })
 

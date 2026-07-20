@@ -634,6 +634,30 @@ export function parseSafeRipgrepFlags(
     : splitFlagTokens(flags)
   if (!initialTokens.ok) return { errorMessage: initialTokens.errorMessage }
 
+  // Recover a stringified argv array, e.g. a model that JSON.stringify'd its
+  // flag list and passed the string "[--type-not, ts]" instead of the array
+  // ["--type-not", "ts"]. The plain string tokenizer splits on whitespace only,
+  // which yields garbage tokens like "[--type-not," and "ts]" that fail the
+  // allowlist even though every underlying flag is safe. Detect the bracket
+  // pattern across the token list (first token starts with '[', last ends with
+  // ']'), strip the brackets, and re-tokenize on commas and whitespace so the
+  // individual flags reach the normal allowlist validation.
+  if (
+    initialTokens.tokens.length > 0 &&
+    initialTokens.tokens[0].startsWith('[') &&
+    initialTokens.tokens[initialTokens.tokens.length - 1].endsWith(']')
+  ) {
+    const joined = initialTokens.tokens.join(' ')
+    const inner = joined.slice(1, -1)
+    const recovered = inner
+      .split(/[\s,]+/)
+      .map((token) => token.replace(/^["']|["']$/g, '').trim())
+      .filter((token) => token.length > 0)
+    if (recovered.length > 0) {
+      initialTokens.tokens = recovered
+    }
+  }
+
   // Tolerate one accidental quote layer around the whole expression, e.g.
   // flags: "'-t ts -g src/**'". Re-tokenize only when the first pass produced
   // one switch-looking token containing whitespace; normal quoted glob values

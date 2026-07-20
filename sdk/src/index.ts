@@ -135,6 +135,11 @@ export {
 export type { FileTokenData, TokenCallerMap } from '@codebuff/code-map'
 
 export { runTerminalCommand } from './tools/run-terminal-command'
+export { evaluateTerminalCommandPolicy } from './tools/terminal-command-policy'
+export type {
+  TerminalPermissionProfile,
+  TerminalPolicyDecision,
+} from './tools/terminal-command-policy'
 export { inspectWorkspace } from './tools/inspect-workspace'
 export { getTask } from './tools/get-task'
 export { getChangeReviewBundle } from './tools/get-change-review-bundle'

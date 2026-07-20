@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
+import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
+
 import { getFileReadingUpdates } from '../get-file-reading-updates'
 
 describe('getFileReadingUpdates', () => {
@@ -59,5 +61,353 @@ describe('getFileReadingUpdates', () => {
       expect(item.content).not.toContain(capability)
       expect(item).not.toHaveProperty('readCapability')
     }
+  })
+
+  it('accepts clamped, partial, and open-ended ranges that match the request', async () => {
+    const result = await getFileReadingUpdates({
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'range',
+            requestIndex: 0,
+            path: 'clamped.ts',
+            status: 'ok',
+            content: '[RANGE_BLOCK lines 1-30 of 30 in clamped.ts]',
+            startLine: 1,
+            endLine: 30,
+            totalLines: 30,
+            complete: true,
+          },
+          {
+            selector: 'range',
+            requestIndex: 1,
+            path: 'partial.ts',
+            status: 'partial',
+            content: '[RANGE_BLOCK lines 10-60 of 200 in partial.ts]',
+            startLine: 10,
+            endLine: 60,
+            totalLines: 200,
+            complete: false,
+            truncation: { reason: 'character_limit' as const },
+          },
+          {
+            selector: 'range',
+            requestIndex: 2,
+            path: 'open-ended.ts',
+            status: 'ok',
+            content: '[RANGE_BLOCK lines 7-120 of 120 in open-ended.ts]',
+            startLine: 7,
+            endLine: 120,
+            totalLines: 120,
+            complete: true,
+          },
+        ]),
+      requestedFiles: [],
+      ranges: [
+        { path: 'clamped.ts', startLine: 1, endLine: 50 },
+        { path: 'partial.ts', startLine: 10, endLine: 90 },
+        { path: 'open-ended.ts', startLine: 7 },
+      ],
+    })
+
+    expect(result.results).toHaveLength(3)
+    expect(result.results[0]).toMatchObject({
+      selector: 'range',
+      requestIndex: 0,
+      path: 'clamped.ts',
+      status: 'ok',
+      startLine: 1,
+      endLine: 30,
+      complete: true,
+    })
+    expect(result.results[1]).toMatchObject({
+      selector: 'range',
+      requestIndex: 1,
+      path: 'partial.ts',
+      status: 'partial',
+      startLine: 10,
+      endLine: 60,
+      complete: false,
+    })
+    expect(result.results[2]).toMatchObject({
+      selector: 'range',
+      requestIndex: 2,
+      path: 'open-ended.ts',
+      status: 'ok',
+      startLine: 7,
+      endLine: 120,
+      complete: true,
+    })
+  })
+
+  it('fails closed when a returned range does not match the requested window', async () => {
+    const result = await getFileReadingUpdates({
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'range',
+            requestIndex: 0,
+            path: 'wrong-start.ts',
+            status: 'ok',
+            content: '[RANGE_BLOCK lines 6-50 of 100 in wrong-start.ts]',
+            startLine: 6,
+            endLine: 50,
+            totalLines: 100,
+            complete: true,
+          },
+          {
+            selector: 'range',
+            requestIndex: 1,
+            path: 'over-end.ts',
+            status: 'ok',
+            content: '[RANGE_BLOCK lines 1-60 of 100 in over-end.ts]',
+            startLine: 1,
+            endLine: 60,
+            totalLines: 100,
+            complete: true,
+          },
+        ]),
+      requestedFiles: [],
+      ranges: [
+        { path: 'wrong-start.ts', startLine: 5, endLine: 50 },
+        { path: 'over-end.ts', startLine: 1, endLine: 40 },
+      ],
+    })
+
+    expect(result.results).toHaveLength(2)
+    expect(result.results[0]).toMatchObject({
+      selector: 'range',
+      requestIndex: 0,
+      path: 'wrong-start.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(result.results[1]).toMatchObject({
+      selector: 'range',
+      requestIndex: 1,
+      path: 'over-end.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+  })
+
+  it('fails closed when a whole-file request returns a mismatched selector', async () => {
+    const capability = 'cap.v3.forged'
+    const result = await getFileReadingUpdates({
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'range',
+            requestIndex: 0,
+            path: 'whole.ts',
+            status: 'ok',
+            content: '[RANGE_BLOCK lines 1-2 of 2 in whole.ts]',
+            startLine: 1,
+            endLine: 2,
+            totalLines: 2,
+            complete: true,
+            readCapability: capability,
+          },
+        ]),
+      requestedFiles: ['whole.ts'],
+      ranges: [],
+    })
+
+    expect(result.results).toHaveLength(1)
+    expect(result.results[0]).toMatchObject({
+      selector: 'file',
+      requestIndex: 0,
+      path: 'whole.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(result.results[0]).not.toHaveProperty('content')
+    expect(result.results[0]).not.toHaveProperty('readCapability')
+  })
+
+  it('fails closed when the returned batch length does not match the request', async () => {
+    const shortResult = await getFileReadingUpdates({
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'file',
+            requestIndex: 0,
+            path: 'whole.ts',
+            status: 'ok',
+            content: 'export const whole = true\n',
+            complete: true,
+            template: false,
+          },
+        ]),
+      requestedFiles: ['whole.ts'],
+      ranges: [{ path: 'range.ts', startLine: 1, endLine: 5 }],
+    })
+
+    expect(shortResult.results).toHaveLength(2)
+    expect(shortResult.results[0]).toMatchObject({
+      selector: 'file',
+      requestIndex: 0,
+      path: 'whole.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(shortResult.results[0]).not.toHaveProperty('content')
+    expect(shortResult.results[1]).toMatchObject({
+      selector: 'range',
+      requestIndex: 1,
+      path: 'range.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(shortResult.results[1]).not.toHaveProperty('content')
+
+    const longResult = await getFileReadingUpdates({
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'file',
+            requestIndex: 0,
+            path: 'whole.ts',
+            status: 'ok',
+            content: 'export const whole = true\n',
+            complete: true,
+            template: false,
+          },
+          {
+            selector: 'file',
+            requestIndex: 1,
+            path: 'unexpected.ts',
+            status: 'ok',
+            content: 'export const unexpected = true\n',
+            complete: true,
+            template: false,
+          },
+        ]),
+      requestedFiles: ['whole.ts'],
+      ranges: [],
+    })
+
+    expect(longResult.results).toHaveLength(1)
+    expect(longResult.results[0]).toMatchObject({
+      selector: 'file',
+      requestIndex: 0,
+      path: 'whole.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(longResult.results[0]).not.toHaveProperty('content')
+  })
+
+  it('fails closed when a legacy path-keyed batch mixes a whole file and a range for the same path', async () => {
+    const result = await getFileReadingUpdates({
+      requestFiles: async () => ({
+        'mixed.ts':
+          '[RANGE_BLOCK lines 1-2 of 10 in mixed.ts; rangeHash=sha256:abc; readCapability=cap.forged]\n1\tone\n2\ttwo',
+      }),
+      requestedFiles: ['mixed.ts'],
+      ranges: [{ path: 'mixed.ts', startLine: 1, endLine: 2 }],
+    })
+
+    // One value per path cannot serve both selector shapes; whichever one
+    // read second would silently consume content minted for the other. Both
+    // selectors must fail closed with invalid_request.
+    expect(result.results).toHaveLength(2)
+    expect(result.results[0]).toMatchObject({
+      selector: 'file',
+      requestIndex: 0,
+      path: 'mixed.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(result.results[0]).not.toHaveProperty('content')
+    expect(result.results[1]).toMatchObject({
+      selector: 'range',
+      requestIndex: 1,
+      path: 'mixed.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
+    expect(result.results[1]).not.toHaveProperty('readCapability')
+  })
+
+  it('fails closed when an adversarial legacy map key collides with a prototype member name', async () => {
+    // Object.prototype members must never be read as file content: the
+    // lookup must be own-enumerable-only. A path named "constructor" or
+    // "toString" is not a real key in the result and must yield not_found.
+    const result = await getFileReadingUpdates({
+      requestFiles: async () => ({
+        'whole.ts': 'export const whole = true\n',
+      }),
+      requestedFiles: ['constructor', 'toString', 'hasOwnProperty'],
+      ranges: [],
+    })
+
+    expect(result.results).toHaveLength(3)
+    for (const [index, path] of [
+      'constructor',
+      'toString',
+      'hasOwnProperty',
+    ].entries()) {
+      expect(result.results[index]).toMatchObject({
+        selector: 'file',
+        requestIndex: index,
+        path,
+        status: 'error',
+        error: { code: 'not_found' },
+      })
+      expect(result.results[index]).not.toHaveProperty('content')
+    }
+  })
+
+  it('preserves a genuine per-item range error in an untrusted batch', async () => {
+    const result = await getFileReadingUpdates({
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'range',
+            requestIndex: 0,
+            path: 'missing.ts',
+            status: 'error',
+            error: {
+              code: 'not_found',
+              message: '[FILE_DOES_NOT_EXIST]',
+              retryable: true,
+              recovery: 'discover_path',
+            },
+          },
+          {
+            selector: 'range',
+            requestIndex: 1,
+            path: 'wrong-start.ts',
+            status: 'ok',
+            content: '[RANGE_BLOCK lines 6-50 of 100 in wrong-start.ts]',
+            startLine: 6,
+            endLine: 50,
+            totalLines: 100,
+            complete: true,
+          },
+        ]),
+      requestedFiles: [],
+      ranges: [
+        { path: 'missing.ts', startLine: 1, endLine: 50 },
+        { path: 'wrong-start.ts', startLine: 5, endLine: 50 },
+      ],
+    })
+
+    expect(result.results).toHaveLength(2)
+    expect(result.results[0]).toMatchObject({
+      selector: 'range',
+      requestIndex: 0,
+      path: 'missing.ts',
+      status: 'error',
+      error: { code: 'not_found' },
+    })
+    expect(result.results[1]).toMatchObject({
+      selector: 'range',
+      requestIndex: 1,
+      path: 'wrong-start.ts',
+      status: 'error',
+      error: { code: 'invalid_request' },
+    })
   })
 })

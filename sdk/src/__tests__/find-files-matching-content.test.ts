@@ -238,6 +238,34 @@ describe('findFilesMatchingContent', () => {
     expect(mockSpawn).not.toHaveBeenCalled()
   })
 
+  it('recovers a stringified argv array of safe flags', async () => {
+    const searchPromise = findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: '[--type-not, ts]',
+    })
+
+    mockProcess.stdout.emit('data', Buffer.from('src/a.py\n'))
+    mockProcess.emit('close', 0)
+
+    await searchPromise
+    const args = mockSpawn.mock.calls[0][1] as string[]
+    expect(args).toEqual(expect.arrayContaining(['--type-not', 'ts']))
+    expect(args).not.toContain('[--type-not,')
+  })
+
+  it('still rejects dangerous flags inside a stringified argv array', async () => {
+    const result = await findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      flags: '[--exec, rm, -rf, /]',
+    })
+
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toContain('Unsupported ripgrep flag')
+    expect(mockSpawn).not.toHaveBeenCalled()
+  })
+
   it('preserves spaces inside a quoted glob value', async () => {
     const searchPromise = findFilesMatchingContent({
       projectPath,

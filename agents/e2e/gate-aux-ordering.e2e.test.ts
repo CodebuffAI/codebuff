@@ -300,7 +300,7 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       includeToolCall: false,
     })
     const specialistSpawn = gen.next(
-      feedJson({ snapshotId: 'aux-ordering-snapshot' }),
+      feedJson({ snapshotId: 'aux-ordering-snapshot', files: [AUX_TRIPLE_FILE] }),
     )
     expect(specialistSpawn.value).toMatchObject({
       toolName: 'spawn_agents',
@@ -538,7 +538,7 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       includeToolCall: false,
     })
     const specialistSpawn = gen.next(
-      feedJson({ snapshotId: 'aux-idempotency-snapshot' }),
+      feedJson({ snapshotId: 'aux-idempotency-snapshot', files: [AUX_TRIPLE_FILE] }),
     )
     expect(specialistSpawn.value).toMatchObject({
       toolName: 'spawn_agents',

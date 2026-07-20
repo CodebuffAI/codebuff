@@ -231,9 +231,19 @@ export function isBaseAgent(agentId: string): boolean {
  * Canonical error message when a requested spawn target is a tool rather than
  * an agent. Centralized so wording stays consistent across every callsite that
  * rejects a tool-name being passed to `spawn_agents` / `spawn_agent_inline`.
+ * When the caller's spawnable agents are known, pass them so the message can
+ * list valid recovery targets; omitting the list (or passing an empty one)
+ * keeps the legacy prefix-only message byte-identical.
  */
-export function toolNotAgentError(agentTypeStr: string): string {
-  return `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`
+export function toolNotAgentError(
+  agentTypeStr: string,
+  availableAgents?: readonly string[],
+): string {
+  const message = `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`
+  if (!availableAgents || availableAgents.length === 0) {
+    return message
+  }
+  return `${message} Available agents to spawn: ${availableAgents.join(', ')}.`
 }
 
 /**
@@ -256,7 +266,12 @@ export async function validateAndGetAgentTemplate(
 
   if (!agentType) {
     if (toolNames.includes(agentTypeStr as any)) {
-      throw new Error(toolNotAgentError(agentTypeStr))
+      throw new Error(
+        toolNotAgentError(
+          agentTypeStr,
+          parentAgentTemplate.spawnableAgents ?? [],
+        ),
+      )
     }
     throw new Error(
       `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentTypeStr}.`,
@@ -270,7 +285,12 @@ export async function validateAndGetAgentTemplate(
 
   if (!agentTemplate) {
     if (toolNames.includes(agentTypeStr as any)) {
-      throw new Error(toolNotAgentError(agentTypeStr))
+      throw new Error(
+        toolNotAgentError(
+          agentTypeStr,
+          parentAgentTemplate.spawnableAgents ?? [],
+        ),
+      )
     }
     throw new Error(`Agent type ${agentTypeStr} not found.`)
   }
@@ -386,6 +406,28 @@ export function validateVersionedAgentHandoff(params: {
   }
 }
 
+/**
+ * Read-only discovery tools a handoff may grant to a child agent even when the
+ * child's static template does not already expose them. These add no mutation,
+ * process, network, delegation, or filesystem-write authority, so widening to
+ * include them is safe for a repair/read-only child.
+ *
+ * Keep this list closed and explicit — never derive it from a broad category
+ * check that could later admit a mutation tool. In particular, do NOT add
+ * `read_files` here: it issues read authorizations that edit tools can consume,
+ * which is outside the discovery carve-out.
+ */
+const HANDOFF_GRANTABLE_READ_ONLY_TOOLS: readonly string[] = [
+  'code_search',
+  'glob',
+  'read_outline',
+  'read_subtree',
+  'list_directory',
+  'query_index',
+  'find_files',
+  'find_files_matching_content',
+]
+
 export function deriveSpawnTemplateCapabilities(params: {
   agentTemplate: AgentTemplate
   parentAgentTemplate: AgentTemplate
@@ -413,8 +455,14 @@ export function deriveSpawnTemplateCapabilities(params: {
 
   const requestedTools = new Set(handoff.permissions.allowedTools)
   const staticTools = getEffectiveAgentToolNames(inheritedTemplate)
+  const grantableReadOnlyTools = new Set(HANDOFF_GRANTABLE_READ_ONLY_TOOLS)
+  // A handoff may grant the closed allowlist of read-only discovery tools even
+  // when they are absent from the child's static tool set. Any other requested
+  // tool outside the static set is a genuine authority widening and still
+  // throws (mutation/network/process/delegation tools are never grantable).
   const disallowedTools = [...requestedTools].filter(
-    (toolName) => !staticTools.includes(toolName),
+    (toolName) =>
+      !staticTools.includes(toolName) && !grantableReadOnlyTools.has(toolName),
   )
   if (disallowedTools.length > 0) {
     throw new Error(
@@ -437,11 +485,25 @@ export function deriveSpawnTemplateCapabilities(params: {
     agentId: inheritedTemplate.id,
   })
 
+  // The downstream requiredTools check (selectAgentAttempt) only *requires*
+  // each granted tool to be present; it never adds one. The toolNames filter
+  // below keeps only tools already on the template, so surface the granted
+  // read-only discovery tools explicitly to make them callable by the child.
+  // Build a fresh array rather than mutating the shared template's toolNames.
+  const grantedReadOnlyTools = handoff.permissions.allowedTools.filter(
+    (toolName) =>
+      grantableReadOnlyTools.has(toolName) &&
+      !inheritedTemplate.toolNames.includes(toolName),
+  )
+
   return {
     ...inheritedTemplate,
-    toolNames: inheritedTemplate.toolNames.filter((toolName) =>
-      requestedTools.has(toolName),
-    ),
+    toolNames: [
+      ...inheritedTemplate.toolNames.filter((toolName) =>
+        requestedTools.has(toolName),
+      ),
+      ...grantedReadOnlyTools,
+    ],
     programmaticToolNames: (
       inheritedTemplate.programmaticToolNames ?? []
     ).filter((toolName) => requestedTools.has(toolName)),
