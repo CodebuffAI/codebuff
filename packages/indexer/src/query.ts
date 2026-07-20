@@ -435,14 +435,7 @@ function scoreFile(
     }
 
     for (const sym of file.symbols) {
-      const symLower = sym.toLowerCase()
-      // Forward substring (token inside a longer symbol) is the common case.
-      // The reverse (symbol inside the token) is only allowed for substantial
-      // symbols — otherwise a 1-2 char symbol matches almost every token.
-      if (
-        symLower.includes(token) ||
-        (symLower.length >= 4 && token.includes(symLower))
-      ) {
+      if (symbolMatchesToken(sym.toLowerCase(), token)) {
         score += lexicalWeights.symbol * weight
         matchedOn.add('symbol')
         break
@@ -530,16 +523,24 @@ function computeIdfForTokens(
   return idf
 }
 
+/**
+ * Shared symbol/token match predicate used by both scoreFile (ranking) and
+ * fileContainsToken (IDF document-frequency fallback), so the two can never
+ * diverge. Forward substring (token inside a longer symbol) is the common
+ * case; the reverse (symbol inside the token) is only allowed for substantial
+ * symbols (>= 4 chars) — otherwise a 1-2 char symbol matches almost every token.
+ */
+function symbolMatchesToken(symLower: string, token: string): boolean {
+  return (
+    symLower.includes(token) ||
+    (symLower.length >= 4 && token.includes(symLower))
+  )
+}
+
 function fileContainsToken(file: IndexedFile, token: string): boolean {
   if (file.path.toLowerCase().replace(/\\/g, '/').includes(token)) return true
   for (const sym of file.symbols) {
-    const symLower = sym.toLowerCase()
-    // Mirror scoreFile's symbol predicate (including the reverse-substring
-    // rule for substantial symbols) so the IDF document-frequency fallback
-    // counts the same files that scoreFile will actually credit.
-    if (symLower.includes(token) || (symLower.length >= 4 && token.includes(symLower))) {
-      return true
-    }
+    if (symbolMatchesToken(sym.toLowerCase(), token)) return true
   }
   for (const h of file.headings) {
     if (h.toLowerCase().includes(token)) return true
@@ -663,9 +664,11 @@ function shortestFilePath(
   const queue: string[][] = [[fileNodeId(from)]]
   const seen = new Set<string>([fileNodeId(from)])
 
-  while (queue.length > 0) {
-    const currentPath = queue.shift()
-    if (!currentPath) break
+  // Use an index cursor instead of queue.shift() to avoid O(V^2) array
+  // re-indexing on large graphs (shift re-indexes every remaining element).
+  let head = 0
+  while (head < queue.length) {
+    const currentPath = queue[head++]
     const current = currentPath[currentPath.length - 1]
     if (current === fileNodeId(to)) {
       return currentPath

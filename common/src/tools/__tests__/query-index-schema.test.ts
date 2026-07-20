@@ -20,6 +20,59 @@ describe('query_index result contract', () => {
     }
   })
 
+  test('enforces per-mode required-input rules', () => {
+    // search/explain require a non-empty query
+    expect(
+      queryIndexParams.inputSchema.safeParse({ mode: 'search', query: '' })
+        .success,
+    ).toBe(false)
+    expect(
+      queryIndexParams.inputSchema.safeParse({ mode: 'explain', query: '  ' })
+        .success,
+    ).toBe(false)
+    expect(
+      queryIndexParams.inputSchema.safeParse({ mode: 'search', query: 'auth' })
+        .success,
+    ).toBe(true)
+
+    // neighbors requires from or query
+    expect(
+      queryIndexParams.inputSchema.safeParse({ mode: 'neighbors' }).success,
+    ).toBe(false)
+    expect(
+      queryIndexParams.inputSchema.safeParse({
+        mode: 'neighbors',
+        from: 'src/a.ts',
+      }).success,
+    ).toBe(true)
+
+    // path requires both from and to, or a query
+    expect(
+      queryIndexParams.inputSchema.safeParse({
+        mode: 'path',
+        from: 'src/a.ts',
+      }).success,
+    ).toBe(false)
+    expect(
+      queryIndexParams.inputSchema.safeParse({
+        mode: 'path',
+        from: 'src/a.ts',
+        to: 'src/b.ts',
+      }).success,
+    ).toBe(true)
+
+    // references requires from, to, or query
+    expect(
+      queryIndexParams.inputSchema.safeParse({ mode: 'references' }).success,
+    ).toBe(false)
+    expect(
+      queryIndexParams.inputSchema.safeParse({
+        mode: 'references',
+        to: 'src/db.ts',
+      }).success,
+    ).toBe(true)
+  })
+
   test('accepts the canonical versioned snapshot and per-result provenance', () => {
     const parsed = queryIndexParams.outputSchema.safeParse([
       {

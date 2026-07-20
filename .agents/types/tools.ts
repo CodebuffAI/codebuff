@@ -616,7 +616,7 @@ export interface QueryIndexParams {
   mode?: 'search' | 'neighbors' | 'path' | 'explain' | 'commands' | 'references'
   /** Optional source file path for neighbors, path, and references modes. */
   from?: string
-  /** Optional target file path for path mode. */
+  /** Optional target file path for path mode. Also used as the seed file for references mode when from is omitted or not indexed. */
   to?: string
 }
 

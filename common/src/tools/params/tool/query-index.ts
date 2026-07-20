@@ -61,7 +61,9 @@ const inputSchema = z
     to: z
       .string()
       .optional()
-      .describe('Optional target file path for path mode.'),
+      .describe(
+        'Optional target file path for path mode. Also used as the seed file for references mode when from is omitted or not indexed.',
+      ),
   })
   .superRefine((input, ctx) => {
     for (const [index, prefix] of (input.pathPrefixes ?? []).entries()) {

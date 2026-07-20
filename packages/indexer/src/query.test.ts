@@ -219,6 +219,7 @@ describe('queryIndex', () => {
     })
 
     expect(results[0]?.explanation).toContain('Matched on')
+    expect(results[0]?.explanation).toContain('Index age:')
   })
 
   test('penalizes explicit vendor/cache noise even when paths are shallow', () => {
