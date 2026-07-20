@@ -2,6 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { STREAM_RECOVERY_EVENT } from '@codebuff/common/util/axiom-only-log'
 import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
 import {
   getErrorObject,
@@ -705,9 +706,15 @@ export async function* promptAiSdkStream(
     // the model continues rather than the turn silently stopping.
     logger.warn(
       {
+        // axiomEvent bypasses the CLI's default redaction of non-error log
+        // payloads (see common/src/util/axiom-only-log.ts) — without it,
+        // `source`/`model`/etc. below would ship to Axiom as a
+        // {kind, keyCount, keys} shape summary instead of real values,
+        // since only error/fatal-level CLI logs ship raw data otherwise.
         // Queryable via scripts/logs/stream-interruptions.ts — one event per
         // detection. Outcomes (rescued/gave_up) are emitted by the agent
         // loop, which knows the consecutive streak.
+        axiomEvent: STREAM_RECOVERY_EVENT,
         metric: 'stream_recovery_detected',
         source: recovery.source,
         model: params.model,

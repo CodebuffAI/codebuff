@@ -1,5 +1,6 @@
 import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { STREAM_RECOVERY_EVENT } from '@codebuff/common/util/axiom-only-log'
 import { AbortError } from '@codebuff/common/util/error'
 import {
   assistantMessage,
@@ -66,30 +67,51 @@ const RECOVERY_BY_SOURCE: Record<
   },
 }
 
-const RECOVERY_TAGS: readonly string[] = Object.values(RECOVERY_BY_SOURCE).map(
-  (recovery) => recovery.tag,
-)
+// Map (not a plain object) so an arbitrary message tag like 'constructor'
+// can't match via the prototype chain.
+const SOURCE_BY_RECOVERY_TAG: ReadonlyMap<string, StreamRecoverySource> =
+  new Map(
+    Object.entries(RECOVERY_BY_SOURCE).map(([source, recovery]) => [
+      recovery.tag,
+      source as StreamRecoverySource,
+    ]),
+  )
+
+export interface TrailingStreamRecoveryStreak {
+  /** How many recovery notes (either kind) are stacked at the tail. */
+  count: number
+  /** The kind of the most recent one, or undefined if count is 0. A streak
+   *  can mix both kinds; this is the one immediately preceding wherever the
+   *  caller is looking from — e.g. the step that's about to give up, or the
+   *  step that just succeeded. */
+  lastSource: StreamRecoverySource | undefined
+}
 
 /**
- * Count the streak of recovery notes (either kind) at the tail of the
- * conversation. Assistant/system content between notes is the retries'
- * partial output, and STEP_PROMPT messages are per-step scaffolding
- * (run-agent-step appends one to the history before every step) — neither
- * breaks the streak. A completed tool exchange or any other user message (a
- * real prompt, a tool-error note) means a step fully succeeded or failed
- * differently in between, so the streak resets.
+ * Walk the tail of the conversation and measure the current recovery streak.
+ * Assistant/system content between notes is the retries' partial output, and
+ * STEP_PROMPT messages are per-step scaffolding (run-agent-step appends one
+ * to the history before every step) — neither breaks the streak. A completed
+ * tool exchange or any other user message (a real prompt, a tool-error note)
+ * means a step fully succeeded or failed differently in between, so the
+ * streak resets there.
  */
-export function countTrailingStreamRecoveryNotes(messages: Message[]): number {
+export function trailingStreamRecoveryStreak(
+  messages: Message[],
+): TrailingStreamRecoveryStreak {
   let count = 0
+  let lastSource: StreamRecoverySource | undefined
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i]!
     if (message.role === 'tool') break
     if (message.role !== 'user') continue
     if (message.tags?.includes('STEP_PROMPT')) continue
-    if (!message.tags?.some((tag) => RECOVERY_TAGS.includes(tag))) break
+    const tag = message.tags?.find((t) => SOURCE_BY_RECOVERY_TAG.has(t))
+    if (!tag) break
+    if (count === 0) lastSource = SOURCE_BY_RECOVERY_TAG.get(tag)
     count++
   }
-  return count
+  return { count, lastSource }
 }
 
 export async function processStream(
@@ -370,7 +392,7 @@ export async function processStream(
         if (chunk.source) {
           const recovery = RECOVERY_BY_SOURCE[chunk.source]
           sawStreamRecovery = true
-          const priorRecoveries = countTrailingStreamRecoveryNotes(
+          const { count: priorRecoveries } = trailingStreamRecoveryStreak(
             agentState.messageHistory,
           )
           // Every attempt is failing the same way (not the one-off
@@ -430,13 +452,21 @@ export async function processStream(
     // Checked before finalization appends this step's messages, so the count
     // is the streak being recovered from.
     if (!sawStreamRecovery && !signal.aborted) {
-      const recoveredFrom = countTrailingStreamRecoveryNotes(
+      const { count: recoveredFrom, lastSource } = trailingStreamRecoveryStreak(
         agentState.messageHistory,
       )
       if (recoveredFrom > 0) {
         logger.info(
           {
+            // See common/src/util/axiom-only-log.ts: without axiomEvent,
+            // info-level fields below ship to Axiom as a shape summary, not
+            // real values.
+            axiomEvent: STREAM_RECOVERY_EVENT,
             metric: 'stream_recovery_rescued',
+            // The kind resolved by this step specifically; a streak can mix
+            // both kinds, so this is the last note before the success, not
+            // necessarily every note in the streak.
+            source: lastSource,
             model: agentTemplate.model,
             agentId: agentTemplate.id,
             userId,

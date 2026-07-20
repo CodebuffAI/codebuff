@@ -6,13 +6,13 @@ import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 
 import { mockFileContext } from './test-utils'
 import {
-  countTrailingStreamRecoveryNotes,
   MAX_CONSECUTIVE_STREAM_RECOVERIES,
   OUTPUT_LIMIT_TAG,
   processStream,
   REPEATED_OUTPUT_LIMIT_MESSAGE,
   REPEATED_STREAM_INTERRUPTIONS_MESSAGE,
   STREAM_INTERRUPTED_TAG,
+  trailingStreamRecoveryStreak,
 } from '../tools/stream-parser'
 
 import type { AgentTemplate } from '../templates/types'
@@ -204,7 +204,7 @@ describe('stream parser interrupted streams', () => {
     )
   })
 
-  it('counts only back-to-back recovery notes of either kind', () => {
+  it('walks only back-to-back recovery notes of either kind, tracking count and last source', () => {
     const note = () =>
       userMessage({ content: 'interrupted', tags: [STREAM_INTERRUPTED_TAG] })
     const limitNote = () =>
@@ -216,20 +216,84 @@ describe('stream parser interrupted streams', () => {
     } as unknown as Message
     const plainUser = userMessage({ content: 'a real prompt' })
 
-    expect(countTrailingStreamRecoveryNotes([])).toBe(0)
-    expect(countTrailingStreamRecoveryNotes([plainUser, note()])).toBe(1)
-    // Both note kinds count toward the same streak.
-    expect(countTrailingStreamRecoveryNotes([note(), limitNote()])).toBe(2)
-    // Partial assistant output between notes does not break the streak.
+    expect(trailingStreamRecoveryStreak([])).toEqual({
+      count: 0,
+      lastSource: undefined,
+    })
+    expect(trailingStreamRecoveryStreak([plainUser])).toEqual({
+      count: 0,
+      lastSource: undefined,
+    })
+    expect(trailingStreamRecoveryStreak([plainUser, note()])).toEqual({
+      count: 1,
+      lastSource: 'stream-interrupted',
+    })
+    expect(trailingStreamRecoveryStreak([limitNote()])).toEqual({
+      count: 1,
+      lastSource: 'output-limit',
+    })
+    // Both note kinds count toward the same streak; lastSource is the kind
+    // immediately before the success, not the streak's first note.
+    expect(trailingStreamRecoveryStreak([note(), limitNote()])).toEqual({
+      count: 2,
+      lastSource: 'output-limit',
+    })
+    // Partial assistant output between notes does not break the streak or
+    // change the answer.
     expect(
-      countTrailingStreamRecoveryNotes([note(), assistant, note()]),
-    ).toBe(2)
+      trailingStreamRecoveryStreak([limitNote(), assistant, note()]),
+    ).toEqual({ count: 2, lastSource: 'stream-interrupted' })
     // A completed tool exchange means a step succeeded — streak resets.
     expect(
-      countTrailingStreamRecoveryNotes([note(), toolResult, limitNote()]),
-    ).toBe(1)
+      trailingStreamRecoveryStreak([note(), toolResult, limitNote()]),
+    ).toEqual({ count: 1, lastSource: 'output-limit' })
     // A newer real user message resets the streak entirely.
-    expect(countTrailingStreamRecoveryNotes([note(), plainUser])).toBe(0)
+    expect(trailingStreamRecoveryStreak([note(), plainUser])).toEqual({
+      count: 0,
+      lastSource: undefined,
+    })
+  })
+
+  it('does not misclassify a tag equal to an Object.prototype property name', () => {
+    // set_messages takes arbitrary messages (inputSchema `messages: z.any()`),
+    // so a message's tags are not guaranteed to be our own constants — model
+    // output could set one to e.g. 'constructor'. A naive `tag in someObject`
+    // lookup would misclassify this as a recovery note ('constructor' in {}
+    // is true via the prototype chain); it must not match.
+    const prototypeTag = userMessage({
+      content: 'not a recovery note',
+      tags: ['constructor'],
+    })
+    expect(trailingStreamRecoveryStreak([prototypeTag])).toEqual({
+      count: 0,
+      lastSource: undefined,
+    })
+
+    for (const poisonTag of [
+      'toString',
+      'hasOwnProperty',
+      'valueOf',
+      '__proto__',
+    ]) {
+      expect(
+        trailingStreamRecoveryStreak([
+          userMessage({ content: 'x', tags: [poisonTag] }),
+        ]),
+      ).toEqual({ count: 0, lastSource: undefined })
+    }
+
+    // A real recovery note immediately after a prototype-name-tagged message
+    // still counts correctly — the poisoned tag doesn't corrupt state, it's
+    // just not itself a match, and (being a real user message, not a
+    // recovery note) still ends the streak per the normal break rule.
+    const note = userMessage({
+      content: 'interrupted',
+      tags: [STREAM_INTERRUPTED_TAG],
+    })
+    expect(trailingStreamRecoveryStreak([prototypeTag, note])).toEqual({
+      count: 1,
+      lastSource: 'stream-interrupted',
+    })
   })
 
   it('keeps wrapping ordinary error chunks as tool-call failures', async () => {

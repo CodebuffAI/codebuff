@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
+  STREAM_RECOVERY_EVENT,
 } from '../axiom-only-log'
 
 describe('getAxiomOnlyLogEvent', () => {
@@ -38,6 +39,32 @@ describe('getAxiomOnlyLogEvent', () => {
     ).toBeNull()
   })
 
+  test('does not treat an Object.prototype property name as a registered event', () => {
+    // The event name is caller-supplied (any logger.*(data, msg) call sets
+    // `data.axiomEvent`). Guards against ever matching it with a lookup keyed
+    // on that name (e.g. a plain-object registry), where 'constructor' would
+    // resolve through the prototype chain and get treated as registered —
+    // shipping `{}` in place of the log's real payload. Must be rejected like
+    // any other unknown event, via both the data-field and event-param path.
+    for (const poisonEvent of [
+      'constructor',
+      'toString',
+      'hasOwnProperty',
+      'valueOf',
+      '__proto__',
+    ]) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: poisonEvent,
+          prompt: 'must not be silently dropped',
+        }),
+      ).toBeNull()
+      expect(
+        getAxiomOnlyLogEvent({ prompt: 'must not be silently dropped' }, poisonEvent),
+      ).toBeNull()
+    }
+  })
+
   test('sanitizes the client wire format identified by its top-level event', () => {
     expect(
       getAxiomOnlyLogEvent(
@@ -60,5 +87,54 @@ describe('getAxiomOnlyLogEvent', () => {
         data: {},
       },
     )
+  })
+
+  test('sanitizes stream-recovery metadata', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: STREAM_RECOVERY_EVENT,
+        metric: 'stream_recovery_detected',
+        source: 'stream-interrupted',
+        model: 'openrouter/anthropic/claude-sonnet-4.5',
+        agentId: 'base2',
+        runId: 'run-123',
+        userInputId: 'input-456',
+        finishReason: 'unknown',
+        hasYieldedContent: true,
+        consecutive: 2,
+        // Not in the allowlist: must not leak through.
+        userId: 'user-789',
+        message: 'must not leave the client',
+        messageHistory: [{ role: 'user', content: 'secret' }],
+      }),
+    ).toEqual({
+      event: STREAM_RECOVERY_EVENT,
+      data: {
+        metric: 'stream_recovery_detected',
+        source: 'stream-interrupted',
+        model: 'openrouter/anthropic/claude-sonnet-4.5',
+        agentId: 'base2',
+        runId: 'run-123',
+        userInputId: 'input-456',
+        finishReason: 'unknown',
+        hasYieldedContent: true,
+        consecutive: 2,
+      },
+    })
+  })
+
+  test('drops a stream-recovery field with the wrong value type', () => {
+    // consecutive must be a number; a string value for it (or any other
+    // type mismatch) is dropped rather than coerced.
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: STREAM_RECOVERY_EVENT,
+        metric: 'stream_recovery_rescued',
+        consecutive: '2',
+      }),
+    ).toEqual({
+      event: STREAM_RECOVERY_EVENT,
+      data: { metric: 'stream_recovery_rescued' },
+    })
   })
 })

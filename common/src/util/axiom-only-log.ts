@@ -3,12 +3,24 @@
  *
  * CLI logs normally redact structured info payloads before shipping and also
  * mirror a sampled `cli_log` event to PostHog. This allowlist lets a small set
- * of content-free operational events retain useful numeric metadata in Axiom
- * without becoming product events or providing a general redaction bypass.
+ * of content-free operational events retain useful numeric/string/boolean
+ * metadata in Axiom without becoming product events or providing a general
+ * redaction bypass — each event declares an explicit field allowlist, and
+ * unknown keys or unexpected value types are always discarded.
  */
 
 export const CONTEXT_PRUNING_COMPLETED_EVENT =
   'context_pruning.completed' as const
+
+/** Stream-cut / output-limit recovery (sdk/src/impl/stream-interruption.ts,
+ *  packages/agent-runtime/src/tools/stream-parser.ts). `metric` distinguishes
+ *  the log sites (stream_recovery_detected / _rescued) that share this one
+ *  allowlisted event — `_gave_up` logs at error level, which already ships
+ *  raw and doesn't need the allowlist. */
+export const STREAM_RECOVERY_EVENT = 'stream_recovery' as const
+
+type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
+type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
 
 const CONTEXT_PRUNING_FIELDS = {
   agent_run_id: 'string',
@@ -32,34 +44,35 @@ const CONTEXT_PRUNING_FIELDS = {
   live_user_prompt_found: 'boolean',
   live_user_prompt_text_preserved: 'boolean',
   newest_entry_forced: 'boolean',
-} as const satisfies Record<string, 'string' | 'number' | 'boolean'>
+} as const satisfies AxiomOnlyFieldSchema
+
+const STREAM_RECOVERY_FIELDS = {
+  metric: 'string',
+  source: 'string',
+  model: 'string',
+  agentId: 'string',
+  runId: 'string',
+  userInputId: 'string',
+  finishReason: 'string',
+  hasYieldedContent: 'boolean',
+  consecutive: 'number',
+} as const satisfies AxiomOnlyFieldSchema
 
 export type AxiomOnlyLogEvent = {
-  event: typeof CONTEXT_PRUNING_COMPLETED_EVENT
+  event:
+    | typeof CONTEXT_PRUNING_COMPLETED_EVENT
+    | typeof STREAM_RECOVERY_EVENT
   data: Record<string, string | number | boolean>
 }
 
-/**
- * Return a sanitized Axiom-only event, or null for ordinary logger payloads.
- * Unknown keys and unexpected value types are deliberately discarded.
- */
-export function getAxiomOnlyLogEvent(
-  data: unknown,
-  event?: string | null,
-): AxiomOnlyLogEvent | null {
-  const record =
-    data != null && typeof data === 'object' && !Array.isArray(data)
-      ? (data as Record<string, unknown>)
-      : {}
-  if (
-    record.axiomEvent !== CONTEXT_PRUNING_COMPLETED_EVENT &&
-    event !== CONTEXT_PRUNING_COMPLETED_EVENT
-  ) {
-    return null
-  }
-
-  const sanitized: Record<string, string | number | boolean> = {}
-  for (const [key, expectedType] of Object.entries(CONTEXT_PRUNING_FIELDS)) {
+/** Keep only the allowlisted keys whose value matches the declared type
+ *  (strings truncated); everything else is dropped. */
+function sanitizeAllowlistedFields(
+  record: Record<string, unknown>,
+  fields: AxiomOnlyFieldSchema,
+): AxiomOnlyLogEvent['data'] {
+  const sanitized: AxiomOnlyLogEvent['data'] = {}
+  for (const [key, expectedType] of Object.entries(fields)) {
     const value = record[key]
     if (typeof value !== expectedType) continue
     if (typeof value === 'string') {
@@ -70,9 +83,42 @@ export function getAxiomOnlyLogEvent(
       sanitized[key] = value
     }
   }
+  return sanitized
+}
 
-  return {
-    event: CONTEXT_PRUNING_COMPLETED_EVENT,
-    data: sanitized,
+/**
+ * Return a sanitized Axiom-only event, or null for ordinary logger payloads.
+ * The event name comes from `data.axiomEvent` (the in-process marker set at
+ * the log call site) or the `event` param (the wire-format field a caller
+ * already extracted, e.g. the server-side sink re-checking a persisted
+ * `LogRow`). Unknown keys and unexpected value types are deliberately
+ * discarded.
+ *
+ * Matched by exact equality (not a lookup keyed on the caller-supplied name)
+ * so a value like 'constructor' can't resolve through an object's prototype.
+ */
+export function getAxiomOnlyLogEvent(
+  data: unknown,
+  event?: string | null,
+): AxiomOnlyLogEvent | null {
+  const record =
+    data != null && typeof data === 'object' && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : {}
+  const eventName =
+    typeof record.axiomEvent === 'string' ? record.axiomEvent : event
+
+  if (eventName === CONTEXT_PRUNING_COMPLETED_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, CONTEXT_PRUNING_FIELDS),
+    }
   }
+  if (eventName === STREAM_RECOVERY_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, STREAM_RECOVERY_FIELDS),
+    }
+  }
+  return null
 }
