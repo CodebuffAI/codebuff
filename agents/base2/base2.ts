@@ -4926,16 +4926,20 @@ ${specialistRoutingSection}
 
       function buildGateSnapshotDetails(
         files: string[],
-        statusLines: Map<string, string>,
+        _statusLines: Map<string, string>,
         validationSummary: string,
       ): string {
+        // Content-only fingerprint: the volatile git status line (e.g. ` M file`)
+        // is intentionally excluded. A commit clears the status line but leaves
+        // file bytes identical; including it would invalidate the fingerprint on
+        // every commit and force a redundant reviewer re-run on unchanged content.
+        // The content marker (sha256 of file bytes) is the stable identity signal.
         const sorted = [...files].sort()
         const parts = sorted.map((file) => {
-          const statusLine = statusLines.get(file) ?? ''
           const contentMarker = readGateFileContentMarker(file)
-          return `${file}\t${statusLine}\t${contentMarker}`
+          return `${file}\t${contentMarker}`
         })
-        return `files-v3\n${parts.join('\n')}\n--\n${validationSummary}`
+        return `files-v4\n${parts.join('\n')}\n--\n${validationSummary}`
       }
 
       function hashGateSnapshotDetails(details: string): string {

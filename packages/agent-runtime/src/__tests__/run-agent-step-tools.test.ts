@@ -468,6 +468,151 @@ describe('runAgentStep - set_output tool', () => {
     )
   })
 
+  it('blocks git-committer spawn when the validation/reviewer gate has not passed', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('spawn_agents', {
+        agents: [
+          {
+            agent_type: 'git-committer',
+            prompt: 'Commit the changes',
+            params: { owned_paths: ['src/a.ts'] },
+          },
+        ],
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
+    // canSuggestFollowups === false means the gate is not green.
+    agentState.canSuggestFollowups = false
+    const committerAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['git-committer'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: { 'test-committer-agent': committerAgent },
+      agentTemplate: committerAgent,
+      agentState,
+      prompt: 'Commit before the gate passes',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'Spawning `git-committer` is not available yet',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'spawn_agents',
+      }),
+    )
+  })
+
+  it('filters git-committer from a mixed spawn_agents batch while proceeding with other agents', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    const helperAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-helper-agent',
+      toolNames: ['end_turn'],
+      spawnableAgents: [],
+    }
+    // The parent yields the mixed spawn_agents batch once; the spawned helper
+    // agent re-invokes this same stream, so subsequent calls must end_turn to
+    // avoid infinite spawn recursion.
+    let streamCallCount = 0
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      streamCallCount += 1
+      if (streamCallCount === 1) {
+        yield createToolCallChunk('spawn_agents', {
+          agents: [
+            {
+              agent_type: 'git-committer',
+              prompt: 'Commit the changes',
+              params: { owned_paths: ['src/a.ts'] },
+            },
+            {
+              agent_type: 'test-helper-agent',
+              prompt: 'Do something else',
+            },
+          ],
+        })
+      } else {
+        yield createToolCallChunk('end_turn', {})
+      }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+      }
+    // canSuggestFollowups === false means the gate is not green.
+    agentState.canSuggestFollowups = false
+    const committerAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['git-committer', 'test-helper-agent'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: {
+        'test-committer-agent': committerAgent,
+        'test-helper-agent': helperAgent,
+      },
+      agentTemplate: committerAgent,
+      agentState,
+      prompt: 'Commit and do other work before the gate passes',
+    })
+
+    // The git-committer entry is blocked with an error chunk.
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'Spawning `git-committer` is not available yet',
+        ),
+      }),
+    )
+    // The spawn_agents tool_call proceeds with only the helper agent.
+    const spawnCall = chunks.find(
+      (chunk) =>
+        chunk &&
+        typeof chunk === 'object' &&
+        (chunk as Record<string, unknown>).type === 'tool_call' &&
+        (chunk as Record<string, unknown>).toolName === 'spawn_agents',
+    ) as Record<string, unknown> | undefined
+    expect(spawnCall).toBeDefined()
+    const spawnInput = spawnCall?.input as { agents: Array<{ agent_type: string }> }
+    expect(spawnInput.agents).toHaveLength(1)
+    expect(spawnInput.agents[0]?.agent_type).toBe('test-helper-agent')
+  })
+
   it('blocks suggest_followups after same-step file edits even when the gate started open', async () => {
     const chunks: unknown[] = []
     runAgentStepBaseParams = {

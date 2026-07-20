@@ -702,6 +702,8 @@ function findSeedPaths(
   tokens: string[],
   explicitPath?: string,
   fileTypes?: string[],
+  // Default required by TS1016: this required param follows optional params
+  // (explicitPath?, fileTypes?). All callers pass it explicitly.
   lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
   fallbackPath?: string,
 ): string[] {
@@ -757,6 +759,9 @@ function queryReferences(
     options.to,
   )
   const results = new Map<string, QueryIndexResult>()
+  // Track which seed paths have already been appended to each importer's
+  // explanation, using exact-segment matching instead of substring checks.
+  const explainedSeeds = new Map<string, Set<string>>()
 
   for (const seedPath of seedPaths) {
     const seedId = fileNodeId(seedPath)
@@ -784,11 +789,16 @@ function queryReferences(
         existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [
           { path: seedPath, score: edge.weight, reason, via: edge.label },
         ])
-        if (
-          existing.explanation &&
-          !existing.explanation.includes(`also references ${seedPath}`)
-        ) {
-          existing.explanation += `; also references ${seedPath}`
+        if (existing.explanation) {
+          let seeds = explainedSeeds.get(importerNode.path)
+          if (!seeds) {
+            seeds = new Set<string>()
+            explainedSeeds.set(importerNode.path, seeds)
+          }
+          if (!seeds.has(seedPath)) {
+            seeds.add(seedPath)
+            existing.explanation += `; also references ${seedPath}`
+          }
         }
       } else {
         results.set(importerNode.path, {

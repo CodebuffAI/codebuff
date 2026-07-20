@@ -1085,7 +1085,14 @@ export async function executeToolCall<T extends ToolName>(
   // post-step edits-detected block re-evaluates the gate), bypassing the
   // validation/reviewer gate. The same-batch case is already covered by the
   // toolCalls.some(isFileChangingTool) check above; this covers cross-batch.
-  if (isFileChangingTool(toolName) && canSuggestFollowups !== false) {
+  // Only retract when the gate system is active (canSuggestFollowups is
+  // defined); non-base2/custom agents that never opted into the gate are
+  // unaffected.
+  if (
+    isFileChangingTool(toolName) &&
+    canSuggestFollowups !== undefined &&
+    canSuggestFollowups !== false
+  ) {
     ;(agentState as { canSuggestFollowups?: boolean }).canSuggestFollowups =
       false
   }
@@ -1093,6 +1100,39 @@ export async function executeToolCall<T extends ToolName>(
   // TODO: Allow tools to provide a validation function, and move this logic into the spawn_agents validation function.
   // Pre-validate spawn_agents to filter out non-existent agents before streaming
   let effectiveInput = toolCall.input as Record<string, unknown>
+
+  // Deterministically block git-committer spawns until the validation/reviewer
+  // gate has passed. canSuggestFollowups is false precisely when the gate is
+  // not green (edits pending review). This mirrors the suggest_followups guard
+  // above and enforces the harness ordering: commit only after review is green.
+  // When canSuggestFollowups is undefined (gate system not active, e.g. non-base2
+  // agents), the check is skipped so custom agents are unaffected.
+  // Only the git-committer entry is filtered; co-batched legitimate agents
+  // proceed normally, consistent with the spawn_agents pre-validation pattern.
+  if (toolName === 'spawn_agents' && canSuggestFollowups === false) {
+    const agents = effectiveInput.agents
+    if (Array.isArray(agents)) {
+      const filteredAgents = agents.filter(
+        (agent) =>
+          !(
+            agent &&
+            typeof agent === 'object' &&
+            (agent as Record<string, unknown>).agent_type === 'git-committer'
+          ),
+      )
+      if (filteredAgents.length < agents.length) {
+        onResponseChunk({
+          type: 'error',
+          message:
+            'Spawning `git-committer` is not available yet. The validation/reviewer gate must pass before committing. Wait for the automated gate to complete, then commit.',
+        })
+        if (filteredAgents.length === 0) {
+          return abortablePreviousToolCallFinished
+        }
+        effectiveInput = { ...effectiveInput, agents: filteredAgents }
+      }
+    }
+  }
   if (toolName === 'spawn_agents') {
     const agents = effectiveInput.agents
     if (Array.isArray(agents)) {

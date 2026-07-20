@@ -58,9 +58,11 @@ function parseGateStateBlock(text: string):
 }
 
 function buildFingerprint(
-  entries: Array<{ file: string; statusLine: string; contentMarker: string }>,
+  entries: Array<{ file: string; statusLine?: string; contentMarker: string }>,
   validationSummary: string,
 ): string {
+  // Mirror the runtime's content-only fingerprint (files-v4). The volatile
+  // git status line is intentionally excluded so commits don't invalidate it.
   const sorted = entries
     .map((entry) => ({
       ...entry,
@@ -68,9 +70,9 @@ function buildFingerprint(
     }))
     .sort((a, b) => a.file.localeCompare(b.file))
   const parts = sorted.map(
-    (entry) => `${entry.file}\t${entry.statusLine}\t${entry.contentMarker}`,
+    (entry) => `${entry.file}\t${entry.contentMarker}`,
   )
-  const details = `files-v3\n${parts.join('\n')}\n--\n${validationSummary}`
+  const details = `files-v4\n${parts.join('\n')}\n--\n${validationSummary}`
   return `v3:${createHash('sha256').update(details).digest('hex')}`
 }
 
@@ -1298,6 +1300,87 @@ describe('base2 verification and reviewer gates', () => {
       toolName: 'run_file_change_hooks',
       input: { files: [gateFile] },
     })
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  test('reuses prior gate pass after a commit clears the status line (content unchanged)', () => {
+    // Regression: the gate fingerprint must be content-only (files-v4), not
+    // include the volatile git status line. A commit clears the status line
+    // but leaves file bytes identical; the fingerprint must still match so
+    // the reviewer is NOT re-run on unchanged content.
+    const base2 = createBase2('default')
+    const tmpDir = makeProjectTempDir('base2-commit-reuse-')
+    const tmpFile = join(tmpDir, 'a.ts')
+    const gateFile = normalizeGateFilePath(tmpFile)
+    writeFileSync(tmpFile, 'export const value = 1\n')
+    const validationSummary = 'Configured file-change hooks passed: typecheck.'
+    // Fingerprint built with the content marker only (status line excluded).
+    const fingerprint = buildFingerprint(
+      [{ file: gateFile, contentMarker: buildContentMarker(tmpFile) }],
+      validationSummary,
+    )
+    const passedGateState = `<gate-state>{"gate":"validation/reviewer","status":"passed","details":"reviewer verdict LOOKS_GOOD; validation hooks ran; pending files: ${tmpFile}; completed"}</gate-state>`
+    const agentState = {
+      agentId: 'base2-custom',
+      messageHistory: [{ role: 'user', content: passedGateState }],
+      base2ActiveWork: {
+        changedFiles: [gateFile],
+        touchedFiles: [gateFile],
+        pendingGateFiles: [gateFile],
+        currentPhase: 'awaiting_validation',
+        latestWorkSummary: 'Pending gate previously passed.',
+        openReviewerBlockers: [],
+        lastValidationSummary: validationSummary,
+        nextRequiredAction: '',
+        lastPinnedStateMessage: '',
+        gatePassedPendingFiles: [gateFile],
+        gatePassedReviewerVerdict: 'LOOKS_GOOD',
+        gatePassedValidationSummary: validationSummary,
+        gatePassedFingerprint: fingerprint,
+      },
+    }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Finish the previous response.',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({
+        toolResult: [
+          { type: 'json', value: { status: ` M ${tmpFile}` } },
+        ],
+      } as any).value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    const maybePinnedState = gen.next().value
+    if (maybePinnedState !== 'STEP') {
+      expect(maybePinnedState).toMatchObject({ toolName: 'add_message' })
+      expect(gen.next().value).toBe('STEP')
+    }
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [], agentState } as any)
+        .value,
+    ).toMatchObject({ toolName: 'git_status' })
+    // Simulate a commit: git status is now clean (empty), but file content is
+    // unchanged. The content-only fingerprint must still match.
+    const reused = gen.next({
+      toolResult: [{ type: 'json', value: { status: '' } }],
+    } as any)
+
+    expect(reused.value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+    })
+    const content = (reused.value as any).input.content as string
+    expect(content).toContain(
+      'Previous validation and reviewer gate already passed',
+    )
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      pendingGateFiles: [],
+      currentPhase: 'final_response_allowed',
+    })
+    expect((agentState as any).canSuggestFollowups).toBe(true)
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
