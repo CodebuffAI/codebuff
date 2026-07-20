@@ -613,6 +613,73 @@ describe('runAgentStep - set_output tool', () => {
     expect(spawnInput.agents[0]?.agent_type).toBe('test-helper-agent')
   })
 
+  it('warns when a spawn_agents entry exceeds the soft payload size limit', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    // Spy on the logger threaded into executeToolCall so we can assert the
+    // soft payload-size warning fires for the oversized entry only.
+    const baseLogger = (runAgentStepBaseParams as unknown as {
+      logger: { warn: (...args: unknown[]) => void }
+    }).logger
+    const warnSpy = spyOn(baseLogger, 'warn').mockImplementation(() => {})
+
+    const helperAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-helper-agent',
+      toolNames: ['end_turn'],
+      spawnableAgents: [],
+    }
+    // One oversized entry (>4KB serialized) and one small entry. The parent
+    // yields the batch once; the spawned helper re-invokes this stream, so
+    // subsequent calls end_turn to avoid infinite spawn recursion.
+    const largeBody = 'x'.repeat(5000)
+    let streamCallCount = 0
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      streamCallCount += 1
+      if (streamCallCount === 1) {
+        yield createToolCallChunk('spawn_agents', {
+          agents: [
+            { agent_type: 'test-helper-agent', prompt: largeBody },
+            { agent_type: 'test-helper-agent', prompt: 'small' },
+          ],
+        })
+      } else {
+        yield createToolCallChunk('end_turn', {})
+      }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+    const committerAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['test-helper-agent'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: {
+        'test-committer-agent': committerAgent,
+        'test-helper-agent': helperAgent,
+      },
+      agentTemplate: committerAgent,
+      agentState,
+      prompt: 'Spawn with a large payload',
+    })
+
+    // Exactly the oversized entry triggers the soft payload-size warning.
+    const payloadWarnings = warnSpy.mock.calls.filter((call) =>
+      String(call[1] ?? '').includes('exceeds the soft payload size limit'),
+    )
+    expect(payloadWarnings).toHaveLength(1)
+  })
+
   it('blocks suggest_followups after same-step file edits even when the gate started open', async () => {
     const chunks: unknown[] = []
     runAgentStepBaseParams = {
