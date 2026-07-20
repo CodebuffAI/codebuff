@@ -5,6 +5,7 @@ export type ToolName =
   | 'add_message'
   | 'apply_patch'
   | 'ask_user'
+  | 'cloud_plan_ready'
   | 'code_search'
   | 'end_turn'
   | 'find_files'
@@ -40,6 +41,7 @@ export interface ToolParamsMap {
   add_message: AddMessageParams
   apply_patch: ApplyPatchParams
   ask_user: AskUserParams
+  cloud_plan_ready: CloudPlanReadyParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   find_files: FindFilesParams
@@ -123,6 +125,12 @@ export interface AskUserParams {
       patternError?: string
     }
   }[]
+}
+
+export interface CloudPlanReadyParams {
+  summary: string
+  stack: string[]
+  build_prompt: string
 }
 
 /**

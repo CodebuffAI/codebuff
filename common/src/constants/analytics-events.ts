@@ -250,6 +250,7 @@ export enum AnalyticsEvent {
   // distinguishes hero vs the migration/lovable section vs the final CTA. Best
   // proxy for cloud sign-up intent (utm_* ride along as super-properties).
   FREEBUFF_CLOUD_CONNECT_REPO_CLICKED = 'freebuff.cloud_connect_repo_clicked',
+  FREEBUFF_CLOUD_BLANK_PROJECT_CLICKED = 'freebuff.cloud_blank_project_clicked',
 
   // Freebuff - Home Page
   FREEBUFF_HOME_INSTALL_COMMAND_COPIED = 'freebuff.home_install_command_copied',

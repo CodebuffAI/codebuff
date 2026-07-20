@@ -7,6 +7,7 @@ import { applyPatchParams } from './params/tool/apply-patch'
 import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
+import { cloudPlanReadyParams } from './params/tool/cloud-plan-ready'
 import { composioMetaToolParams } from './params/tool/composio'
 import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
@@ -49,6 +50,7 @@ export const toolParams = {
   ask_user: askUserParams,
   browser_logs: browserLogsParams,
   code_search: codeSearchParams,
+  cloud_plan_ready: cloudPlanReadyParams,
   create_plan: createPlanParams,
   end_turn: endTurnParams,
   find_files: findFilesParams,
