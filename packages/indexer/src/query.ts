@@ -230,7 +230,7 @@ function querySearch(
   limit: number,
   explain: boolean,
   commandIntent: boolean,
-  lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
+  lexicalWeights: Required<LexicalWeights>,
   pathPrefixes?: string[],
 ): QueryIndexResult[] {
   if (tokens.length === 0) {
@@ -409,9 +409,9 @@ function queryPath(
 function scoreFile(
   file: IndexedFile,
   tokens: string[],
-  idf?: Map<string, number>,
-  commandIntent = false,
-  lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
+  idf: Map<string, number> | undefined,
+  commandIntent: boolean,
+  lexicalWeights: Required<LexicalWeights>,
 ): QueryIndexResult {
   let score = 0
   const matchedOn = new Set<QueryIndexResult['matchedOn'][number]>()
@@ -786,7 +786,7 @@ function queryReferences(
         ])
         if (
           existing.explanation &&
-          !existing.explanation.includes(seedPath)
+          !existing.explanation.includes(`also references ${seedPath}`)
         ) {
           existing.explanation += `; also references ${seedPath}`
         }
