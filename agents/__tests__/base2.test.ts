@@ -4303,21 +4303,23 @@ describe('base2 test-writer aux-gate completion path', () => {
       input: { agent_type: 'test-writer' },
     })
     // Invalid receipt: empty object with no schemaVersion/receiptId/status/
-    // changedFiles/completionKind. The gate must set testWriterCrash and
-    // block, not re-spawn the test-writer.
-    const blocked = gen.next({
+    // changedFiles/completionKind. The gate must mark testWriterGateDone with
+    // reduced assurance and proceed, NOT re-spawn the test-writer forever.
+    const afterInvalid = gen.next({
       toolResult: [{ type: 'json', value: {} }],
     } as any)
     expect(
       (agentState as any).base2ActiveWork.testWriterGateDone,
-    ).not.toBe(true)
-    expect((agentState as any).base2ActiveWork.currentPhase).toBe('blocked')
+    ).toBe(true)
     expect(
-      (agentState as any).base2ActiveWork.nextRequiredAction,
-    ).toContain('test-writer')
-    // The blocked path sets currentPhase='blocked' and continues the loop.
-    // Since testWriterGateDone is still false, the loop re-enters the
-    // test-writer gate and yields another spawn_agent_inline.
-    expect((blocked.value as any).toolName).toBe('spawn_agent_inline')
+      (agentState as any).base2ActiveWork.validationAssurance,
+    ).toBe('reduced')
+    // The gate must not re-spawn the test-writer; it proceeds past the aux
+    // gate. The next yield may be another aux gate (e.g. doc-writer) but must
+    // not be a test-writer re-spawn.
+    const nextYield = afterInvalid.value as any
+    if (nextYield?.toolName === 'spawn_agent_inline') {
+      expect(nextYield.input.agent_type).not.toBe('test-writer')
+    }
   })
 })
