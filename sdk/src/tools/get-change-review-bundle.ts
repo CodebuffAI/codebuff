@@ -84,11 +84,37 @@ export async function getChangeReviewBundle(params: {
   }
   const headCommit = head.stdout.trim()
   const status = value.status
-  const diff = value.diff ?? ''
-  const files = status
+  let diff = value.diff ?? ''
+  let files = status
     .split('\n')
     .map((line) => line.slice(3).split(' -> ').at(-1)?.trim() ?? '')
     .filter(Boolean)
+  // Fallback: when the worktree is clean (changes already committed), review
+  // the last commit's diff so committed changes still get reviewed instead of
+  // producing an empty bundle that reviewers cannot attest to.
+  if (files.length === 0 && diff.trim() === '') {
+    const parentCheck = await runGit(
+      ['rev-parse', 'HEAD~1'],
+      params.cwd,
+      params.signal,
+    )
+    if (parentCheck.exitCode === 0) {
+      const committedDiff = await runGit(
+        ['diff', '--no-color', 'HEAD~1', 'HEAD', '--'],
+        params.cwd,
+        params.signal,
+      )
+      if (committedDiff.exitCode === 0 || committedDiff.exitCode === 1) {
+        diff = committedDiff.stdout
+        const committedFiles = new Set<string>()
+        for (const line of diff.split('\n')) {
+          const match = line.match(/^diff --git a\/.+ b\/(.+)$/)
+          if (match) committedFiles.add(match[1])
+        }
+        files = [...committedFiles]
+      }
+    }
+  }
   let snapshotId: string
   try {
     snapshotId = await buildSnapshotId({
