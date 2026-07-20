@@ -142,24 +142,24 @@ export function queryIndex(
   const tokens = tokenizeQuery(query)
   const adjacency = getAdjacency(index)
   const commandIntent =
-    mode === 'commands' || isCommandDiscoveryQuery(query, tokens)
+    mode === 'commands' || isCommandDiscoveryQuery(query)
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
 
   if (mode === 'neighbors') {
     return applyPathScope(
-      queryNeighbors(index, adjacency, tokens, options),
+      queryNeighbors(index, adjacency, tokens, options, lexicalWeights),
       pathPrefixes,
     ).slice(0, limit)
   }
   if (mode === 'path') {
     return applyPathScope(
-      queryPath(index, adjacency, tokens, options),
+      queryPath(index, adjacency, tokens, options, lexicalWeights),
       pathPrefixes,
     ).slice(0, limit)
   }
   if (mode === 'references') {
     return applyPathScope(
-      queryReferences(index, adjacency, tokens, options),
+      queryReferences(index, adjacency, tokens, options, lexicalWeights),
       pathPrefixes,
     ).slice(0, limit)
   }
@@ -211,6 +211,7 @@ function applyPathScope(
   results: QueryIndexResult[],
   pathPrefixes: string[] | undefined,
 ): QueryIndexResult[] {
+  if (!pathPrefixes || pathPrefixes.length === 0) return results
   return results
     .filter((result) => pathMatchesPrefixes(result.path, pathPrefixes))
     .map((result) => ({
@@ -323,8 +324,8 @@ function queryNeighbors(
   adjacency: GraphAdjacency,
   tokens: string[],
   options: QueryOptions,
+  lexicalWeights: Required<LexicalWeights>,
 ): QueryIndexResult[] {
-  const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
   const seedPaths = findSeedPaths(
     index,
     tokens,
@@ -371,8 +372,8 @@ function queryPath(
   adjacency: GraphAdjacency,
   tokens: string[],
   options: QueryOptions,
+  lexicalWeights: Required<LexicalWeights>,
 ): QueryIndexResult[] {
-  const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
   // Compute the seed list once and derive both endpoints from it to avoid
   // duplicate IDF + scoring work when neither from nor to is explicit.
   const seedPaths =
@@ -631,7 +632,7 @@ function getRelatedFiles(
       const secondNeighborId =
         secondEdge.from === neighborNodeId ? secondEdge.to : secondEdge.from
       if (secondNeighborId === fileId) continue
-      const secondNeighbor = index.graph.nodes[secondNeighborId]
+      const secondNeighbor = index.graph?.nodes[secondNeighborId]
       if (
         secondNeighbor?.type !== 'file' ||
         !secondNeighbor.path ||
@@ -742,8 +743,8 @@ function queryReferences(
   adjacency: GraphAdjacency,
   tokens: string[],
   options: QueryOptions,
+  lexicalWeights: Required<LexicalWeights>,
 ): QueryIndexResult[] {
-  const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
   const seedPaths = findSeedPaths(
     index,
     tokens,
@@ -844,15 +845,22 @@ function buildAdjacency(
   return adjacency
 }
 
+// Cache the normalized Set per fileTypes array reference to avoid
+// O(files x fileTypes) allocations when called inside scoring loops.
+const fileTypeSetCache = new WeakMap<string[], Set<string>>()
+
 function matchesFileType(
   file: IndexedFile | undefined,
   fileTypes: string[] | undefined,
 ): boolean {
   if (!file) return false
   if (!fileTypes || fileTypes.length === 0) return true
-  const ext = normalizeFileType(file.ext)
-  const normalizedFileTypes = new Set(fileTypes.map(normalizeFileType))
-  return normalizedFileTypes.has(ext)
+  let normalizedFileTypes = fileTypeSetCache.get(fileTypes)
+  if (!normalizedFileTypes) {
+    normalizedFileTypes = new Set(fileTypes.map(normalizeFileType))
+    fileTypeSetCache.set(fileTypes, normalizedFileTypes)
+  }
+  return normalizedFileTypes.has(normalizeFileType(file.ext))
 }
 
 function normalizeFileType(fileType: string): string {
@@ -984,7 +992,7 @@ function commandMatchedSnippets(file: IndexedFile, tokens: string[]): string[] {
   return snippets.slice(0, 5)
 }
 
-function isCommandDiscoveryQuery(query: string, _tokens: string[]): boolean {
+function isCommandDiscoveryQuery(query: string): boolean {
   const normalized = query.toLowerCase()
   return COMMAND_DISCOVERY_PHRASES.some((phrase) => normalized.includes(phrase))
 }
