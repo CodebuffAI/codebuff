@@ -1010,7 +1010,6 @@ ${specialistRoutingSection}
                         ...group.candidateTests,
                         ...(group.manifest ? [group.manifest] : []),
                         ...testWriterScopePatterns(group.packageRoot),
-                        ...group.candidateTests,
                       ],
                       writablePaths: [
                         ...testWriterScopePatterns(group.packageRoot),
@@ -1093,6 +1092,9 @@ ${specialistRoutingSection}
               activeWorkState.validationAssurance = 'reduced'
               activeWorkState.latestWorkSummary = `Test-writer failed: ${testWriterCrash}; continuing with reduced assurance.`
               markActiveWorkStateChanged()
+            } else {
+              activeWorkState.testWriterGateDone = true
+              markActiveWorkStateChanged()
               emitGateTelemetry({
                 currentPhase: 'awaiting_validation',
                 pendingFileCount: currentPendingGateFiles.length,
@@ -1102,16 +1104,6 @@ ${specialistRoutingSection}
                 reuseReason: 'aux-gate:test-writer',
               })
             }
-            activeWorkState.testWriterGateDone = true
-            markActiveWorkStateChanged()
-            emitGateTelemetry({
-              currentPhase: 'awaiting_validation',
-              pendingFileCount: currentPendingGateFiles.length,
-              pendingFiles: currentPendingGateFiles,
-              validationStatus: 'passed',
-              reviewerStatus: 'passed',
-              reuseReason: 'aux-gate:test-writer',
-            })
           } else {
             activeWorkState.testWriterGateDone = true
             markActiveWorkStateChanged()
@@ -1240,6 +1232,9 @@ ${specialistRoutingSection}
               activeWorkState.validationAssurance = 'reduced'
               activeWorkState.latestWorkSummary = `Doc-writer failed: ${docWriterFailure}; continuing with reduced assurance.`
               markActiveWorkStateChanged()
+            } else {
+              activeWorkState.docWriterGateDone = true
+              markActiveWorkStateChanged()
               emitGateTelemetry({
                 currentPhase: 'awaiting_validation',
                 pendingFileCount: currentPendingGateFiles.length,
@@ -1249,16 +1244,6 @@ ${specialistRoutingSection}
                 reuseReason: 'aux-gate:doc-writer',
               })
             }
-            activeWorkState.docWriterGateDone = true
-            markActiveWorkStateChanged()
-            emitGateTelemetry({
-              currentPhase: 'awaiting_validation',
-              pendingFileCount: currentPendingGateFiles.length,
-              pendingFiles: currentPendingGateFiles,
-              validationStatus: 'passed',
-              reviewerStatus: 'passed',
-              reuseReason: 'aux-gate:doc-writer',
-            })
           } else {
             activeWorkState.docWriterGateDone = true
             markActiveWorkStateChanged()
@@ -1548,14 +1533,7 @@ ${specialistRoutingSection}
                   const verdict =
                     getReviewerFinalizationVerdict(specialistToolResult)
                   if (blockers.length > 0) {
-                    const normalizedBlockers =
-                      blockers.length > 0
-                        ? blockers
-                        : [
-                            crash
-                              ? `${agentType} crashed: ${crash}`
-                              : `${agentType} did not return a valid finalization verdict.`,
-                          ]
+                    const normalizedBlockers = blockers
                     const records =
                       collectReviewerFindingRecordsInline(specialistToolResult)
                     activeWorkState.currentPhase = 'blocked'
@@ -2979,6 +2957,7 @@ ${specialistRoutingSection}
                   },
                   includeToolCall: false,
                 } as any
+                activeWorkState.staticReviewerJobId = undefined
                 continue
               }
             } else {
@@ -3011,7 +2990,10 @@ ${specialistRoutingSection}
                 includeToolCall: false,
               } as any
             }
-            if (!reviewerFinalizationVerdict) continue
+            if (!reviewerFinalizationVerdict) {
+              activeWorkState.staticReviewerJobId = undefined
+              continue
+            }
           }
         }
 
