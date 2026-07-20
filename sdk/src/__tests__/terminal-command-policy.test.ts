@@ -322,6 +322,41 @@ describe('terminal command permission policy', () => {
     }
   })
 
+  it('allows multiline git commit messages containing path-like tokens', () => {
+    for (const command of [
+      'git commit -m "subject" -m "body with / slashes and (from ?? to) code"',
+      'git commit -m "Improve gating\n\nbase2 ran query_index / inspect_codebase_structure discovery"',
+      "git commit -m 'message with /tmp/path and ~/home references'",
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'git-commit',
+          projectRoot,
+          allowedPaths: ['src/a.ts'],
+        }).allowed,
+      ).toBe(true)
+    }
+  })
+
+  it('rejects shell composition inside double-quoted commit messages', () => {
+    for (const command of [
+      'git commit -m "$(rm -rf /)"',
+      'git commit -m "`whoami`"',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'git-commit',
+          projectRoot,
+          allowedPaths: ['src/a.ts'],
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
   it('blocks tmux agents from direct workspace mutation', () => {
     expect(
       evaluateTerminalCommandPolicy({

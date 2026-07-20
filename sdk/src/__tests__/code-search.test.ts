@@ -1041,21 +1041,37 @@ describe('codeSearch', () => {
       fs.rmSync(projectPath, { recursive: true, force: true })
     })
 
-    it('should reject cwd outside project directory', async () => {
-      const searchPromise = codeSearch({
-        projectPath: '/test/project',
-        pattern: 'test',
-        cwd: '../outside',
-      })
+    it('allows cwd outside the project directory', async () => {
+      const projectPath = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'code-search-cwd-'),
+      )
+      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-'))
+      try {
+        const searchPromise = codeSearch({
+          projectPath,
+          pattern: 'test',
+          cwd: outsideDir,
+        })
 
-      const result = await searchPromise
-      const value = asCodeSearchResult(result[0])
+        const output = createRgJsonMatch('file.ts', 1, 'test content')
+        mockProcess.stdout.emit('data', Buffer.from(output))
+        mockProcess.emit('close', 0)
 
-      expect(value.errorMessage).toContain('outside the project directory')
+        const result = await searchPromise
+        const value = asCodeSearchResult(result[0])
+
+        expect(value.errorMessage).toBeUndefined()
+        expect(mockSpawn).toHaveBeenCalled()
+        const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
+        expect(spawnOptions.cwd).toBe(fs.realpathSync.native(outsideDir))
+      } finally {
+        fs.rmSync(projectPath, { recursive: true, force: true })
+        fs.rmSync(outsideDir, { recursive: true, force: true })
+      }
     })
   })
 
-  describe('cwd symlink containment', () => {
+  describe('cwd symlink resolution', () => {
     let tmpDir: string
     let outsideDir: string
 
@@ -1074,14 +1090,22 @@ describe('codeSearch', () => {
       fs.rmSync(outsideDir, { recursive: true, force: true })
     })
 
-    it('rejects a cwd symlink that points outside the project', async () => {
-      const result = await codeSearch({
+    it('follows a cwd symlink that points outside the project', async () => {
+      const searchPromise = codeSearch({
         projectPath: tmpDir,
         pattern: 'test',
         cwd: 'evil',
       })
+      const output = createRgJsonMatch('file.ts', 1, 'test content')
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
       const value = asCodeSearchResult(result[0])
-      expect(value.errorMessage).toContain('outside the project directory')
+      expect(value.errorMessage).toBeUndefined()
+      expect(mockSpawn).toHaveBeenCalled()
+      const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
+      expect(spawnOptions.cwd).toBe(fs.realpathSync.native(outsideDir))
     })
 
     it('rejects a file passed as cwd before spawning ripgrep', async () => {
@@ -1151,5 +1175,19 @@ describe('codeSearch', () => {
       expect(value.errorMessage).toBe('The operation was aborted.')
       expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
     })
+  })
+
+  it('returns an error result when spawning ripgrep throws synchronously', async () => {
+    mockSpawn.mockImplementation(() => {
+      throw new Error('spawn ripgrep ENOENT')
+    })
+
+    const result = await codeSearch({
+      projectPath: '/test/project',
+      pattern: 'test',
+    })
+
+    const value = asCodeSearchResult(result[0])
+    expect(value.errorMessage).toContain('spawn ripgrep ENOENT')
   })
 })

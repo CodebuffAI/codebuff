@@ -4,7 +4,6 @@ import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
-import { resolveFilePathForOperation } from './path-utils'
 import { parseSafeRipgrepFlags } from './find-files-matching-content'
 import { isReadPathBlocked } from './read-policy'
 
@@ -70,37 +69,15 @@ export function codeSearch({
   return new Promise((resolve) => {
     let isResolved = false
 
-    // Guard paths robustly. Use the shared realpath-aware containment helper
-    // so an in-project symlink that points outside the project root is also
-    // rejected (lexical `startsWith` alone would let it through). The helper
-    // returns null for the project root itself (empty relative path), so
-    // accept that case explicitly before delegating.
     const projectRoot = path.resolve(projectPath)
-    const searchCwd = (() => {
-      const requested = cwd ?? '.'
-      const resolvedFull = path.isAbsolute(requested)
+    let searchCwd = projectRoot
+    if (cwd !== undefined) {
+      const requested = cwd
+      const resolvedCwd = path.isAbsolute(requested)
         ? path.resolve(requested)
         : path.resolve(projectRoot, requested)
-      // Fast allow: cwd is the project root itself.
-      if (resolvedFull === projectRoot) {
-        return projectRoot
-      }
-      const resolved = resolveFilePathForOperation(projectRoot, requested)
-      return resolved?.operationPath ?? null
-    })()
-    if (searchCwd === null) {
-      return resolve([
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Invalid cwd: Path '${cwd ?? '.'}' is outside the project directory.`,
-          },
-        },
-      ])
-    }
-
-    if (cwd !== undefined) {
       try {
+        searchCwd = fs.realpathSync.native(resolvedCwd)
         if (!fs.statSync(searchCwd).isDirectory()) {
           return resolve([
             {
@@ -203,10 +180,24 @@ export function codeSearch({
       ])
     }
 
-    const childProcess = spawn(rgPath, args, {
-      cwd: searchCwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    let removeAbortListener = () => {}
+    let childProcess: ReturnType<typeof spawn>
+    try {
+      childProcess = spawn(rgPath, args, {
+        cwd: searchCwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (error) {
+      return resolve([
+        {
+          type: 'json',
+          value: {
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+          },
+        },
+      ])
+    }
 
     // Honor an external AbortSignal: SIGTERM ripgrep on abort so the run
     // can cancel long-running searches. The promise rejects with the
@@ -215,28 +206,16 @@ export function codeSearch({
     if (signal) {
       const onAbort = () => {
         if (isResolved) return
-        isResolved = true
-        childProcess.kill('SIGTERM')
         const reason = signal.reason
-        if (reason instanceof Error) {
-          resolve([
-            {
-              type: 'json',
-              value: { errorMessage: reason.message },
-            },
-          ])
-        } else {
-          resolve([
-            {
-              type: 'json',
-              value: { errorMessage: 'Aborted' },
-            },
-          ])
-        }
+        settle({
+          errorMessage: reason instanceof Error ? reason.message : 'Aborted',
+        })
+        hardKill()
       }
       signal.addEventListener('abort', onAbort, { once: true })
+      removeAbortListener = () => signal.removeEventListener('abort', onAbort)
       childProcess.once('close', () => {
-        signal.removeEventListener('abort', onAbort)
+        removeAbortListener()
       })
     }
 
@@ -258,9 +237,11 @@ export function codeSearch({
       if (isResolved) return
       isResolved = true
 
+      removeAbortListener()
+
       // Clean up listeners immediately to prevent further events
-      childProcess.stdout.removeAllListeners()
-      childProcess.stderr.removeAllListeners()
+      childProcess.stdout?.removeAllListeners()
+      childProcess.stderr?.removeAllListeners()
       childProcess.removeAllListeners()
 
       // Clear both the main timeout and the kill timeout to prevent late callbacks
@@ -277,6 +258,10 @@ export function codeSearch({
       try {
         childProcess.kill('SIGTERM')
       } catch {}
+      // Only schedule one SIGKILL fallback. If a timer is already pending (or
+      // settle() already ran and cleared it), don't create a new one that can
+      // never be cleared.
+      if (killTimeoutId) return
       // Store timeout reference so it can be cleared if process closes normally
       killTimeoutId = setTimeout(() => {
         try {
@@ -288,6 +273,16 @@ export function codeSearch({
         }
         killTimeoutId = null
       }, 1000)
+      // Don't keep the event loop alive solely for this fallback: an aborted
+      // or timed-out search should not delay process exit for up to 1s.
+      if (
+        killTimeoutId &&
+        typeof killTimeoutId === 'object' &&
+        'unref' in killTimeoutId &&
+        typeof killTimeoutId.unref === 'function'
+      ) {
+        killTimeoutId.unref()
+      }
     }
 
     const formatCollectedOutput = (rawOutput: string) =>
@@ -307,7 +302,6 @@ export function codeSearch({
 
     const timeoutId = setTimeout(() => {
       if (isResolved) return
-      hardKill()
 
       // Build output from collected matches
       const collectedLines: string[] = []
@@ -325,15 +319,19 @@ export function codeSearch({
           ? stderrBuf.substring(0, 1000) + '\n\n[Error output truncated]'
           : stderrBuf
 
+      // settle() first (clears any pre-existing timer), then hardKill() arms
+      // the SIGKILL-escalation fallback so a child that ignores SIGTERM is
+      // still killed after 1s.
       settle({
         errorMessage: `Code search timed out after ${timeoutSeconds} seconds. The search may be too broad or the pattern too complex. Try narrowing your search with more specific flags or a more specific pattern.`,
         stdout: truncatedStdout,
         stderr: truncatedStderr,
       })
+      hardKill()
     }, timeoutSeconds * 1000)
 
     // Parse ripgrep JSON for early stopping
-    childProcess.stdout.on('data', (chunk: Buffer | string) => {
+    childProcess.stdout?.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
       const chunkStr =
         typeof chunk === 'string' ? chunk : chunk.toString('utf8')
@@ -402,7 +400,6 @@ export function codeSearch({
                 estimatedOutputLen >= maxOutputStringLength
               ) {
                 killedForLimit = true
-                hardKill()
 
                 // Build final output from collected matches
                 const limitedLines: string[] = []
@@ -420,10 +417,14 @@ export function codeSearch({
                     ? `[Global limit of ${globalMaxResults} results reached.]`
                     : '[Output size limit reached.]'
 
-                return settle({
+                // settle() first, then hardKill() so the SIGKILL-escalation
+                // fallback survives (settle clears timers; hardKill re-arms).
+                settle({
                   stdout: finalOutput + '\n\n' + limitReason,
                   message: `Stopped early after ${matchesGlobal} match(es).`,
                 })
+                hardKill()
+                return
               }
             }
           }
@@ -431,7 +432,7 @@ export function codeSearch({
       }
     })
 
-    childProcess.stderr.on('data', (chunk: Buffer | string) => {
+    childProcess.stderr?.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
       const chunkStr =
         typeof chunk === 'string' ? chunk : chunk.toString('utf8')

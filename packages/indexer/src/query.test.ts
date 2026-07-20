@@ -339,6 +339,15 @@ describe('queryIndex', () => {
     expect(resolved.path).toBe(DEFAULT_LEXICAL_WEIGHTS.path)
   })
 
+  test('resolveLexicalWeights ignores negative values', () => {
+    const resolved = resolveLexicalWeights({
+      symbol: -3,
+      path: -0.5,
+    })
+    expect(resolved.symbol).toBe(DEFAULT_LEXICAL_WEIGHTS.symbol)
+    expect(resolved.path).toBe(DEFAULT_LEXICAL_WEIGHTS.path)
+  })
+
   test('zeroing the lexical symbol weight down-ranks a symbol-heavy match', () => {
     const defaultResults = queryIndex(index, 'AuthProvider', { limit: 5 })
     const zeroedResults = queryIndex(index, 'AuthProvider', {
@@ -409,6 +418,40 @@ describe('queryIndex', () => {
 
     expect(results.length).toBe(1)
     expect(results[0]?.path).toBe('src/auth.ts')
+  })
+
+  test('references mode resolves the seed from to when from is omitted', () => {
+    // Without `from`, the seed falls back to `to`. Seeding via `to: 'src/db.ts'`
+    // (no `from`, no `query`) should return its importers, same as seeding via
+    // `from`.
+    const results = queryIndex(index, '', {
+      mode: 'references',
+      to: 'src/db.ts',
+      limit: 10,
+    })
+
+    expect(results.length).toBe(1)
+    expect(results[0]?.path).toBe('src/auth.ts')
+    expect(results[0]?.matchedOn).toContain('graph')
+    expect(results[0]?.explanation).toContain('imports this file')
+    expect(results[0]?.explanation).toContain('./db')
+    expect(results[0]?.relatedFiles?.[0]?.path).toBe('src/db.ts')
+    expect(results[0]?.relatedFiles?.[0]?.reason).toContain('imports this file')
+  })
+
+  test('references mode falls back to `to` when `from` is not in the index', () => {
+    // When `from` names a path that is not indexed but `to` is, the seed must
+    // resolve from `to` rather than silently degrading to token scoring.
+    const results = queryIndex(index, '', {
+      mode: 'references',
+      from: 'src/does-not-exist.ts',
+      to: 'src/db.ts',
+      limit: 10,
+    })
+
+    expect(results.length).toBe(1)
+    expect(results[0]?.path).toBe('src/auth.ts')
+    expect(results[0]?.relatedFiles?.[0]?.path).toBe('src/db.ts')
   })
 
   test('references mode labels statically resolved calls as requiring verification', () => {

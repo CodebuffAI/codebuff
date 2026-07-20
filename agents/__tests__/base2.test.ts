@@ -336,7 +336,7 @@ describe('base2 validation/reviewer coordination prompts', () => {
     expect(base2.toolNames).not.toContain('git_status')
     expect(base2.toolNames).toContain('get_change_review_bundle')
     expect(base2.toolNames).not.toContain('run_file_change_hooks')
-    expect(base2.toolNames).not.toContain('inspect_codebase_structure')
+    expect(base2.toolNames).toContain('inspect_codebase_structure')
     expect(base2.programmaticToolNames).toEqual(
       expect.arrayContaining([
         'git_status',
@@ -429,6 +429,10 @@ describe('base2 validation/reviewer coordination prompts', () => {
       expect(spawnable).not.toContain(agent)
     }
     expect(planBase2.toolNames).toContain('check_background_agent')
+    expect(planBase2.toolNames).toContain('inspect_codebase_structure')
+    expect(planBase2.toolNames).not.toContain('edit_transaction')
+    expect(planBase2.toolNames).not.toContain('run_file_change_hooks')
+    expect(planBase2.toolNames).not.toContain('git_status')
     expect(planBase2.programmaticConfig).toMatchObject({ planOnly: true })
   })
 
@@ -679,6 +683,17 @@ describe('base2 proactive index lookup', () => {
       toolName: 'git_status',
       input: {},
     })
+  })
+
+  test('does not run proactive discovery when the prompt names explicit file paths', () => {
+    const base2 = createBase2('default')
+    const generator = base2.handleSteps!({
+      prompt:
+        'Fix the abort handler in sdk/src/tools/code-search.ts and update its test',
+      params: {},
+    } as any)
+
+    expect(generator.next().value).toMatchObject({ toolName: 'git_status' })
   })
 })
 

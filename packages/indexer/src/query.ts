@@ -47,7 +47,7 @@ export function resolveLexicalWeights(
       DEFAULT_LEXICAL_WEIGHTS,
     ) as (keyof LexicalWeights)[]) {
       const value = weights[key]
-      if (typeof value === 'number' && Number.isFinite(value)) {
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
         resolved[key] = value
       }
     }
@@ -300,11 +300,15 @@ function querySearch(
   const indexAgeMs = Date.now() - index.builtAt
   const stale = indexAgeMs > MAX_INDEX_AGE_MS
 
-  return applyPathScope(Array.from(directResults.values()), pathPrefixes)
+  // Top-level results are already prefix-filtered during scoring; only
+  // relatedFiles need the prefix filter here.
+  return Array.from(directResults.values())
     .map((result) => ({
       ...result,
       score: roundScore(result.score),
-      relatedFiles: result.relatedFiles?.slice(0, MAX_RELATED_FILES_PER_RESULT),
+      relatedFiles: result.relatedFiles
+        ?.filter((related) => pathMatchesPrefixes(related.path, pathPrefixes))
+        .slice(0, MAX_RELATED_FILES_PER_RESULT),
       matchedSnippets: result.matchedSnippets?.slice(0, 5),
       explanation: explain
         ? explainResult(result, { ageMs: indexAgeMs, stale })
@@ -369,24 +373,14 @@ function queryPath(
   options: QueryOptions,
 ): QueryIndexResult[] {
   const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
-  const from =
-    options.from ??
-    findSeedPaths(
-      index,
-      tokens,
-      undefined,
-      options.fileTypes,
-      lexicalWeights,
-    )[0]
-  const to =
-    options.to ??
-    findSeedPaths(
-      index,
-      tokens,
-      undefined,
-      options.fileTypes,
-      lexicalWeights,
-    ).find((path) => path !== from)
+  // Compute the seed list once and derive both endpoints from it to avoid
+  // duplicate IDF + scoring work when neither from nor to is explicit.
+  const seedPaths =
+    options.from && options.to
+      ? []
+      : findSeedPaths(index, tokens, undefined, options.fileTypes, lexicalWeights)
+  const from = options.from ?? seedPaths[0]
+  const to = options.to ?? seedPaths.find((path) => path !== from)
   if (!from || !to) return []
 
   const path = shortestFilePath(index, adjacency, from, to)
@@ -528,8 +522,8 @@ function computeIdfForTokens(
         if (fileContainsToken(file, token)) df++
       }
     }
-    // log((N+1)/(df+1)) + 1 — always >= ~0.005, rare tokens ~log(N), and a
-    // +1 floor keeps every match contributing at least its base weight.
+    // log((N+1)/(df+1)) + 1 — always >= 1 (the +1 floor keeps every match
+    // contributing at least its base weight); rare tokens approach log(N)+1.
     idf.set(token, Math.log((total + 1) / (df + 1)) + 1)
   }
   return idf
@@ -538,7 +532,13 @@ function computeIdfForTokens(
 function fileContainsToken(file: IndexedFile, token: string): boolean {
   if (file.path.toLowerCase().replace(/\\/g, '/').includes(token)) return true
   for (const sym of file.symbols) {
-    if (sym.toLowerCase().includes(token)) return true
+    const symLower = sym.toLowerCase()
+    // Mirror scoreFile's symbol predicate (including the reverse-substring
+    // rule for substantial symbols) so the IDF document-frequency fallback
+    // counts the same files that scoreFile will actually credit.
+    if (symLower.includes(token) || (symLower.length >= 4 && token.includes(symLower))) {
+      return true
+    }
   }
   for (const h of file.headings) {
     if (h.toLowerCase().includes(token)) return true
@@ -699,8 +699,10 @@ function findSeedPaths(
   explicitPath?: string,
   fileTypes?: string[],
   lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
+  fallbackPath?: string,
 ): string[] {
   if (explicitPath && index.files[explicitPath]) return [explicitPath]
+  if (fallbackPath && index.files[fallbackPath]) return [fallbackPath]
   const idf = computeIdfForTokens(index, tokens)
   const candidates = getPostingCandidates(index, tokens)
   const files = candidates
@@ -729,8 +731,9 @@ function findSeedPaths(
  *   ownership. They remain a secondary signal because static call resolution
  *   is conservative and cannot model every language's dynamic dispatch.
  *
- * The seed file path is taken from `options.from`. If omitted, `findSeedPaths`
- * resolves it from `query` tokens (same path-seed resolution as `neighbors`).
+ * The seed file path is taken from `options.from`, falling back to
+ * `options.to`. If both are omitted, `findSeedPaths` resolves it from `query`
+ * tokens (same path-seed resolution as `neighbors`).
  * Results are directional — only files that reference the seed are returned,
  * not files the seed references.
  */
@@ -747,6 +750,7 @@ function queryReferences(
     options.from,
     options.fileTypes,
     lexicalWeights,
+    options.to,
   )
   const results = new Map<string, QueryIndexResult>()
 
@@ -773,10 +777,14 @@ function queryReferences(
       if (existing) {
         existing.score += edge.weight
         existing.matchedOn = addMatchedOn(existing.matchedOn, 'graph')
-        if (existing.relatedFiles) {
-          existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [
-            { path: seedPath, score: edge.weight, reason, via: edge.label },
-          ])
+        existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [
+          { path: seedPath, score: edge.weight, reason, via: edge.label },
+        ])
+        if (
+          existing.explanation &&
+          !existing.explanation.includes(seedPath)
+        ) {
+          existing.explanation += `; also references ${seedPath}`
         }
       } else {
         results.set(importerNode.path, {

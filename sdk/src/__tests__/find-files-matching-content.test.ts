@@ -91,17 +91,28 @@ describe('findFilesMatchingContent', () => {
     expect(getValue(await searchPromise).files).toEqual(['src/config.ts'])
   })
 
-  it('rejects cwd values outside the project root', async () => {
-    const result = await findFilesMatchingContent({
-      projectPath,
-      pattern: 'needle',
-      cwd: '../outside',
-    })
+  it('allows cwd values outside the project root', async () => {
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ffc-outside-'))
+    try {
+      const searchPromise = findFilesMatchingContent({
+        projectPath,
+        pattern: 'needle',
+        cwd: outsideDir,
+      })
 
-    expect(result[0].type).toBe('json')
-    const value = result[0].value as { errorMessage: string }
-    expect(value.errorMessage).toContain('outside the project directory')
-    expect(mockSpawn).not.toHaveBeenCalled()
+      mockProcess.stdout.emit('data', Buffer.from('src/config.ts\n'))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      expect(result[0].type).toBe('json')
+      const value = result[0].value as { errorMessage?: string }
+      expect(value.errorMessage).toBeUndefined()
+      expect(mockSpawn).toHaveBeenCalled()
+      const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
+      expect(spawnOptions.cwd).toBe(fs.realpathSync.native(outsideDir))
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true })
+    }
   })
 
   it('rejects a file passed as cwd before spawning ripgrep', async () => {
@@ -119,20 +130,26 @@ describe('findFilesMatchingContent', () => {
     expect(mockSpawn).not.toHaveBeenCalled()
   })
 
-  it('rejects cwd symlinks that escape the project root', async () => {
+  it('follows cwd symlinks that escape the project root', async () => {
     const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ffc-outside-'))
     try {
       fs.symlinkSync(outsideDir, path.join(projectPath, 'outside-link'), 'dir')
 
-      const result = await findFilesMatchingContent({
+      const searchPromise = findFilesMatchingContent({
         projectPath,
         pattern: 'needle',
         cwd: 'outside-link',
       })
 
-      const value = result[0].value as { errorMessage: string }
-      expect(value.errorMessage).toContain('outside the project directory')
-      expect(mockSpawn).not.toHaveBeenCalled()
+      mockProcess.stdout.emit('data', Buffer.from('src/config.ts\n'))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = result[0].value as { errorMessage?: string }
+      expect(value.errorMessage).toBeUndefined()
+      expect(mockSpawn).toHaveBeenCalled()
+      const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
+      expect(spawnOptions.cwd).toBe(fs.realpathSync.native(outsideDir))
     } finally {
       fs.rmSync(outsideDir, { recursive: true, force: true })
     }

@@ -70,7 +70,13 @@ function hasUnquotedShellSyntax(command: string): boolean {
       continue
     }
     if (quote) {
-      if (char === quote) quote = null
+      if (char === quote) {
+        quote = null
+      } else if (quote === '"') {
+        // Inside double quotes, $( and backtick are still active shell syntax.
+        if (char === '`') return true
+        if (char === '$' && command[index + 1] === '(') return true
+      }
       continue
     }
     if (char === "'" || char === '"') {
@@ -343,6 +349,21 @@ function findReadOnlyMutation(command: string): string | undefined {
   return undefined
 }
 
+/**
+ * Remove -m/--message arguments from a git commit command so the message
+ * body (inert data to git) is not scanned for absolute paths. Handles
+ * double-quoted, single-quoted, and bare-word message values, including
+ * multiline quoted strings.
+ */
+function stripCommitMessageArgs(command: string): string {
+  return command
+    .replace(
+      /(?:^|\s)(?:-m|--message)(?:=(?:"[^"]*"|'[^']*'|[^\s"']+)|\s+(?:"[^"]*"|'[^']*'|[^\s"']+))/g,
+      ' ',
+    )
+    .trim()
+}
+
 function findOutsideAbsolutePath(
   command: string,
   projectRoot: string,
@@ -506,7 +527,10 @@ export function evaluateTerminalCommandPolicy(params: {
           'git-commit agents may only inspect/fetch git state, stage paths, create a non-amend commit, and perform an explicit non-force branch push',
       }
     }
-    const outsidePath = findOutsideAbsolutePath(command, params.projectRoot)
+    const outsidePath = findOutsideAbsolutePath(
+      stripCommitMessageArgs(command),
+      params.projectRoot,
+    )
     if (outsidePath) {
       return {
         allowed: false,

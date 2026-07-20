@@ -116,12 +116,13 @@ const inputSchema = z
     if (
       mode === 'references' &&
       !input.from &&
+      !input.to &&
       input.query.trim().length === 0
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['from'],
-        message: 'from or query is required for references mode',
+        message: 'from, to, or query is required for references mode',
       })
     }
   })

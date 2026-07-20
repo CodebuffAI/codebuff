@@ -72,42 +72,19 @@ export function findFilesMatchingContent({
     let isResolved = false
 
     const projectRoot = path.resolve(projectPath)
-    const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
-
-    if (!isPathInside(searchCwd, projectRoot)) {
-      return resolve([
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
-          },
-        },
-      ])
-    }
-
-    let projectRootReal: string
-    let searchCwdReal: string
+    const requestedCwd = cwd ?? '.'
+    const resolvedCwd = path.isAbsolute(requestedCwd)
+      ? path.resolve(requestedCwd)
+      : path.resolve(projectRoot, requestedCwd)
+    let searchCwd: string
     try {
-      projectRootReal = fs.realpathSync.native(projectRoot)
-      searchCwdReal = fs.realpathSync.native(searchCwd)
-    } catch {
-      return resolve([
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Invalid cwd: Path '${cwd ?? '.'}' does not exist or cannot be read.`,
-          },
-        },
-      ])
-    }
-
-    try {
-      if (!fs.statSync(searchCwdReal).isDirectory()) {
+      searchCwd = fs.realpathSync.native(resolvedCwd)
+      if (!fs.statSync(searchCwd).isDirectory()) {
         return resolve([
           {
             type: 'json',
             value: {
-              errorMessage: `Invalid cwd: Path '${cwd ?? '.'}' is a file, but find_files_matching_content requires a directory. Use flags such as -g to restrict the search to a file.`,
+              errorMessage: `Invalid cwd: Path '${requestedCwd}' is a file, but find_files_matching_content requires a directory. Use flags such as -g to restrict the search to a file.`,
             },
           },
         ])
@@ -117,18 +94,7 @@ export function findFilesMatchingContent({
         {
           type: 'json',
           value: {
-            errorMessage: `Invalid cwd: Path '${cwd ?? '.'}' does not exist or cannot be read. find_files_matching_content requires an existing directory.`,
-          },
-        },
-      ])
-    }
-
-    if (!isPathInside(searchCwdReal, projectRootReal)) {
-      return resolve([
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
+            errorMessage: `Invalid cwd: Path '${requestedCwd}' does not exist or cannot be read. find_files_matching_content requires an existing directory.`,
           },
         },
       ])
@@ -608,14 +574,6 @@ function toProjectRelativeFile(
     .relative(projectRoot, path.resolve(searchCwd, file))
     .split(path.sep)
     .join('/')
-}
-
-function isPathInside(candidate: string, root: string): boolean {
-  const relative = path.relative(root, candidate)
-  return (
-    relative === '' ||
-    (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
-  )
 }
 
 export function parseSafeRipgrepFlags(

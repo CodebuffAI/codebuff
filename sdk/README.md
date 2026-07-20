@@ -155,6 +155,20 @@ deny patterns because it is governed by its own stricter `/tmp`-only write
 guard described above. When a command is denied, `reason` names the specific
 rule that blocked it.
 
+## Search tool working directory
+
+`code_search` and `find_files_matching_content` accept a `cwd` that sets the
+search root. The `cwd` is resolved with `realpath` and is not required to stay
+inside the project root, so a search can target a parent, sibling, or other
+external directory. Two cases still return an error result:
+
+- a `cwd` that resolves to a file rather than a directory, and
+- a `cwd` that does not exist or cannot be read.
+
+This relaxation applies only to the two content-search tools. Path containment
+for `run_terminal_command` and the other read/exec tools is unchanged (see the
+permission profiles above).
+
 ## Mutation events
 
 Use `onFilesystemMutation` for precise, awaited cache/index synchronization.

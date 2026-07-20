@@ -79,6 +79,7 @@ export function createBase2(
       'render_3d_preview',
       'read_subtree',
       'read_outline',
+      'inspect_codebase_structure',
       !isFast && !planOnly && 'write_todos',
       'create_plan',
       'update_plan_status',
@@ -255,6 +256,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Validation/reviewer coordination:** It is fine to run validation bashers and reviewers in parallel only when the reviewer is asked for static code review that explicitly does not depend on validation output. Always wait for both. Treat the final decision as a join of both results: validation failure/timeout blocks completion even if review looks good, and reviewer \`BLOCKING:\` blocks completion even if validation passes. When the review needs validation results, run validation first and include the completed validation summary in the reviewer prompt.
   ${buildArray(
     "- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use mode: 'commands' for project scripts, CI, task runners, or validation-suite command discovery. Do not rely on query_index alone for correctness.",
+    "- For blast-radius analysis before editing an exported symbol, use mode: 'references' with from or to set to the seed file path — it returns files that import or call into that seed.",
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits when the relevant files, APIs, or commands are not already obvious. Use query_index, list_directory, and glob directly for searching and exploring the codebase.',
     isDefault &&
       '- Spawn the editor agent after discovery for non-trivial source changes. Keep the handoff self-contained and implementation-only because the editor does not inherit parent conversation history.',
@@ -680,6 +682,10 @@ ${specialistRoutingSection}
         activeWorkState.openReviewerBlockers.length === 0 &&
         activeWorkState.nextRequiredAction.trim().length === 0
       const gatePassedFiles = new Set<string>(activeWorkState.gatePassedFiles)
+      // Track files previously observed dirty in git status so we can safely
+      // prune them from the pending set when they disappear (committed).
+      const gitStatusObservedFiles = new Set<string>()
+      let gitStatusObservedDirty = false
       if (
         activeWorkState.gatePassedPendingFiles.length > 0 &&
         activeWorkState.gatePassedFingerprint &&
@@ -816,6 +822,35 @@ ${specialistRoutingSection}
         const currentGitStatusLineMap = extractGitStatusLineMap(
           (currentGitStatus as any)?.toolResult,
         )
+        // Prune pending gate files that were previously observed as dirty in
+        // git status but are no longer present (i.e., they were committed).
+        // Without this, committed files stay in the pending set forever,
+        // blocking suggest_followups and keeping the gate in
+        // 'awaiting_validation' even though the working tree is clean.
+        // Only prune when the git_status result is a real response (has a
+        // `status` field) and we have previously confirmed files dirty, to
+        // avoid false pruning from mock/empty results in tests.
+        const isRealGitStatusResult =
+          (currentGitStatus as any)?.toolResult?.[0]?.value?.status !==
+          undefined
+        if (
+          isRealGitStatusResult &&
+          gitStatusObservedDirty &&
+          gitStatusFiles.length === 0
+        ) {
+          for (const pendingFile of Array.from(pendingGateFiles)) {
+            if (gitStatusObservedFiles.has(pendingFile)) {
+              pendingGateFiles.delete(pendingFile)
+              gatePassedFiles.add(pendingFile)
+            }
+          }
+        }
+        for (const file of gitStatusFiles) {
+          gitStatusObservedFiles.add(file)
+        }
+        if (isRealGitStatusResult && gitStatusFiles.length > 0) {
+          gitStatusObservedDirty = true
+        }
         for (const file of gitStatusFiles) {
           if (
             !initialGitStatusFiles.includes(file) &&
@@ -5949,6 +5984,18 @@ ${specialistRoutingSection}
         if (/^(continue|go on|proceed|keep going|resume)\b/i.test(text)) {
           return undefined
         }
+        // Skip proactive discovery when the prompt already names concrete
+        // file paths (e.g. "sdk/src/tools/code-search.ts", "./foo/bar.py",
+        // or a bare filename like "code-search.ts"). The relevant files are
+        // already identified, so an automatic query_index (and
+        // inspect_codebase_structure for broad prompts) is premature.
+        if (
+          /(?:^|[\s'"`(,=])\.?\.?\/?(?:[\w.-]+\/)*[\w.-]+\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|swift|c|cpp|h|hpp|cs|php|sh|json|ya?ml|toml|md|mdx|css|scss|html|vue|svelte)\b/i.test(
+            text,
+          )
+        ) {
+          return undefined
+        }
 
         const codeIntent =
           /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor|audit|review|investigate|architecture|flow|index|context)\b/i.test(
@@ -6011,7 +6058,7 @@ ${specialistRoutingSection}
     },
   }
 }
-const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, consume the runtime-injected query_index result first and deduplicate its candidates, matchedSnippets, and relatedFiles. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Spawn bounded parallel discovery waves for explicit domains the index result did not cover; give each file-picker/code-searcher a non-overlapping question, join the wave, and launch another when inventory or coverage evidence still has gaps. There is no fixed total-agent limit. Verify selected files with read_files/read_subtree. Use list_directory and glob only when structural/path evidence is missing, and do not substitute basher for git status or file discovery. Use read_subtree for a specific subsystem. For a large file, call read_outline first, then read_files with a symbols selector. Read all relevant files before editing.`
+const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, consume the runtime-injected query_index result first and deduplicate its candidates, matchedSnippets, and relatedFiles. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, mode: 'references' for blast-radius analysis (files that import or call into a seed file, using from or to), and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Spawn bounded parallel discovery waves for explicit domains the index result did not cover; give each file-picker/code-searcher a non-overlapping question, join the wave, and launch another when inventory or coverage evidence still has gaps. There is no fixed total-agent limit. Verify selected files with read_files/read_subtree. Use list_directory and glob only when structural/path evidence is missing, and do not substitute basher for git status or file discovery. Use read_subtree for a specific subsystem. For a large file, call read_outline first, then read_files with a symbols selector. Read all relevant files before editing.`
 
 function buildImplementationInstructionsPrompt({
   isFast,
