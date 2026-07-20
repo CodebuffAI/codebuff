@@ -9,10 +9,9 @@
  * similar to how clipboard.ts handles OSC52 sequences.
  */
 
-import { closeSync, constants, openSync, writeSync } from 'fs'
-
 import { IS_FREEBUFF } from './constants'
 import { getCliEnv } from './env'
+import { writeTerminalControlSync } from './terminal-io'
 
 const MAX_TITLE_LENGTH = 60
 const TITLE_PREFIX = IS_FREEBUFF ? 'Freebuff: ' : 'Codebuff: '
@@ -49,31 +48,6 @@ function buildTitleSequence(title: string, env: ReturnType<typeof getCliEnv>): s
 }
 
 /**
- * Write an escape sequence directly to the controlling terminal.
- * This bypasses OpenTUI's stdout capture by writing to /dev/tty directly.
- */
-function writeToTty(sequence: string): boolean {
-  const ttyPath = process.platform === 'win32' ? 'CON' : '/dev/tty'
-
-  let fd: number | null = null
-  try {
-    fd = openSync(ttyPath, constants.O_WRONLY)
-    writeSync(fd, sequence)
-    return true
-  } catch {
-    return false
-  } finally {
-    if (fd !== null) {
-      try {
-        closeSync(fd)
-      } catch {
-        // Ignore close errors
-      }
-    }
-  }
-}
-
-/**
  * Set the terminal window title.
  * Works on most modern terminal emulators, including through tmux and screen.
  *
@@ -95,7 +69,7 @@ export function setTerminalTitle(title: string): void {
   const env = getCliEnv()
   const sequence = buildTitleSequence(fullTitle, env)
 
-  writeToTty(sequence)
+  writeTerminalControlSync(sequence)
 }
 
 /**
@@ -106,5 +80,5 @@ export function resetTerminalTitle(): void {
   // Empty title resets to terminal's default behavior
   const env = getCliEnv()
   const sequence = buildTitleSequence('', env)
-  writeToTty(sequence)
+  writeTerminalControlSync(sequence)
 }

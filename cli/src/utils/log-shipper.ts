@@ -21,8 +21,8 @@ const MAX_BUFFER = 1_000
 
 let buffer: LogRecordInput[] = []
 let timer: ReturnType<typeof setInterval> | null = null
-let flushing = false
-let shutdownRegistered = false
+let activeFlush: Promise<void> | null = null
+let naturalExitFlushRegistered = false
 
 function enabled(): boolean {
   const flag = getCliEnv().CODEBUFF_SHIP_LOGS
@@ -39,15 +39,13 @@ function ensureTimer(): void {
   ;(timer as { unref?: () => void }).unref?.()
 }
 
-function registerShutdown(): void {
-  if (shutdownRegistered) return
-  shutdownRegistered = true
+function registerNaturalExitFlush(): void {
+  if (naturalExitFlushRegistered) return
+  naturalExitFlushRegistered = true
   const onExit = () => {
-    void flushClientLogs()
+    void drainClientLogs()
   }
   process.once('beforeExit', onExit)
-  process.once('SIGTERM', onExit)
-  process.once('SIGINT', onExit)
 }
 
 /** Buffer one record for shipping. Cheap, synchronous, never throws. */
@@ -58,36 +56,47 @@ export function enqueueClientLog(record: LogRecordInput): void {
   }
   buffer.push(record)
   ensureTimer()
-  registerShutdown()
+  registerNaturalExitFlush()
   if (buffer.length >= MAX_BATCH) {
     void flushClientLogs()
   }
 }
 
-/** Flush a batch to /api/logs. Requeues if not yet authenticated. */
-export async function flushClientLogs(): Promise<void> {
-  if (flushing || buffer.length === 0) return
-  flushing = true
+/** Flush one batch to /api/logs. Concurrent callers share the active request. */
+export function flushClientLogs(): Promise<void> {
+  if (activeFlush) return activeFlush
+  if (buffer.length === 0) return Promise.resolve()
+
   const batch = buffer.splice(0, MAX_BATCH)
-  try {
-    const client = getApiClient()
-    // Ship whether or not we're logged in. With a token the server stamps the
-    // authenticated user_id; without one it accepts the batch anonymously
-    // (rate-limited, user_id=null) so pre-auth events like app_launched still
-    // reach Axiom. Records carry client_session_id for correlation. See
-    // /api/logs and docs/logging.md.
-    await client.post(
-      '/api/logs',
-      { records: batch },
-      {
-        includeAuth: Boolean(client.authToken),
-        retry: false,
-        timeoutMs: 5_000,
-      },
-    )
-  } catch {
-    // Best-effort: drop on error rather than risk unbounded growth.
-  } finally {
-    flushing = false
+  activeFlush = (async () => {
+    try {
+      const client = getApiClient()
+      // Ship whether or not we're logged in. With a token the server stamps the
+      // authenticated user_id; without one it accepts the batch anonymously
+      // (rate-limited, user_id=null) so pre-auth events like app_launched still
+      // reach Axiom. Records carry client_session_id for correlation. See
+      // /api/logs and docs/logging.md.
+      await client.post(
+        '/api/logs',
+        { records: batch },
+        {
+          includeAuth: Boolean(client.authToken),
+          retry: false,
+          timeoutMs: 5_000,
+        },
+      )
+    } catch {
+      // Best-effort: drop on error rather than risk unbounded growth.
+    }
+  })().finally(() => {
+    activeFlush = null
+  })
+  return activeFlush
+}
+
+/** Wait for any active request, then flush every batch buffered before exit. */
+export async function drainClientLogs(): Promise<void> {
+  while (activeFlush || buffer.length > 0) {
+    await (activeFlush ?? flushClientLogs())
   }
 }

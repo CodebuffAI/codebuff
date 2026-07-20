@@ -18,7 +18,7 @@ import { useNow } from '../hooks/use-now'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { exitFreebuffCleanly } from '../utils/freebuff-exit'
+import { exitCliCleanly } from '../utils/exit-cleanly'
 import {
   formatFreebuffPremiumResetCountdown,
   getFreebuffPremiumResetAt,
@@ -180,7 +180,7 @@ const TakeoverPrompt: React.FC = () => {
 
         if (isExit) {
           key.preventDefault?.()
-          exitFreebuffCleanly()
+          void exitCliCleanly()
           return
         }
 
@@ -189,7 +189,7 @@ const TakeoverPrompt: React.FC = () => {
           if (focusedIndex === 0) {
             handleTakeover()
           } else {
-            exitFreebuffCleanly()
+            void exitCliCleanly()
           }
           return
         }
@@ -252,7 +252,7 @@ const TakeoverPrompt: React.FC = () => {
           </text>
         </Button>
         <Button
-          onClick={exitFreebuffCleanly}
+          onClick={() => exitCliCleanly()}
           onMouseOver={() => setFocusedIndex(1)}
           style={{ paddingLeft: 1, paddingRight: 1 }}
           border={['top', 'bottom', 'left', 'right']}
@@ -554,7 +554,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
             keep the ✕ pushed to the right. */}
         <box />
         <Button
-          onClick={exitFreebuffCleanly}
+          onClick={() => exitCliCleanly()}
           onMouseOver={() => setExitHover(true)}
           onMouseOut={() => setExitHover(false)}
           style={{ paddingLeft: 1, paddingRight: 1 }}
