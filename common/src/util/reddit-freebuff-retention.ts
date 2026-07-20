@@ -28,7 +28,7 @@ export function isFirstFreebuffPrompt(params: {
   return params.newUsageDayRecorded && params.previousUsageDays.length === 0
 }
 
-/** Milestones that newly cross on this usage day (each fires at most once). */
+/** Exact calendar-day milestones reached by this newly recorded usage day. */
 export function getFreebuffRetentionMilestonesToFire(params: {
   previousUsageDays: readonly string[]
   todayDateKey: string
@@ -42,19 +42,9 @@ export function getFreebuffRetentionMilestonesToFire(params: {
     (min, dateKey) => (dateKey < min ? dateKey : min),
   )
   const daysSinceFirstToday = daysBetween(firstDay, params.todayDateKey)
-  const maxPreviousDaysSinceFirst =
-    params.previousUsageDays.length === 0
-      ? -1
-      : Math.max(
-          ...params.previousUsageDays.map((dateKey) =>
-            daysBetween(firstDay, dateKey),
-          ),
-        )
 
   return FREEBUFF_REDDIT_RETENTION_MILESTONE_DAYS.filter(
-    (milestone) =>
-      daysSinceFirstToday >= milestone &&
-      maxPreviousDaysSinceFirst < milestone,
+    (milestone) => daysSinceFirstToday === milestone,
   )
 }
 

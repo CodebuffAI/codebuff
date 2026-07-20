@@ -86,14 +86,24 @@ describe('getFreebuffRetentionMilestonesToFire', () => {
     ).toEqual([7])
   })
 
-  test('fires 1d, 7d, and 24d when user returns after a long gap', () => {
+  test('does not backfill missed milestones after a long gap', () => {
     expect(
       getFreebuffRetentionMilestonesToFire({
         previousUsageDays: ['2026-06-01'],
         todayDateKey: '2026-07-01',
         newUsageDayRecorded: true,
       }),
-    ).toEqual([1, 7, 24])
+    ).toEqual([])
+  })
+
+  test('fires 24d retention only on exact day 24', () => {
+    expect(
+      getFreebuffRetentionMilestonesToFire({
+        previousUsageDays: ['2026-06-01', '2026-06-02'],
+        todayDateKey: '2026-06-25',
+        newUsageDayRecorded: true,
+      }),
+    ).toEqual([24])
   })
 })
 

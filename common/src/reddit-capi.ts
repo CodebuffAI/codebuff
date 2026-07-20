@@ -3,12 +3,9 @@ import { createHash } from 'node:crypto'
 import { IS_PROD } from '@codebuff/common/env'
 import { extractClientIp } from '@codebuff/common/util/rate-limit'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type {
-  RedditFirstPromptCapiEventName,
-  RedditRetentionCapiEventName,
-} from '@codebuff/common/util/reddit-capi-events'
+import type { RedditCapiEventName } from '@codebuff/common/util/reddit-capi-events'
 
-export type { RedditFirstPromptCapiEventName, RedditRetentionCapiEventName }
+export type { RedditCapiEventName }
 
 /** Reddit Ads pixel ID (public, also used for CAPI endpoint). */
 export const REDDIT_PIXEL_ID = 'a2_j6o59svbxzzn'
@@ -26,19 +23,22 @@ export type RedditCapiUser = {
   uuid?: string | null
 }
 
-export type RedditCapiCustomEvent =
-  | RedditFirstPromptCapiEventName
-  | RedditRetentionCapiEventName
-
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
 }
 
 function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
+  const normalized = email.trim().toLowerCase()
+  const atIndex = normalized.lastIndexOf('@')
+  if (atIndex <= 0 || atIndex === normalized.length - 1) {
+    return normalized
+  }
+  const local = normalized.slice(0, atIndex)
+  const domain = normalized.slice(atIndex + 1)
+  return `${local.split('+')[0]?.replaceAll('.', '')}@${domain}`
 }
 
-function buildUserPayload(user: RedditCapiUser) {
+export function buildRedditCapiUserPayload(user: RedditCapiUser) {
   const payload: Record<string, string> = {}
 
   if (user.email) {
@@ -53,9 +53,6 @@ function buildUserPayload(user: RedditCapiUser) {
   if (user.userAgent) {
     payload.user_agent = user.userAgent
   }
-  if (user.clickId) {
-    payload.click_id = user.clickId
-  }
   if (user.uuid) {
     payload.uuid = user.uuid
   }
@@ -66,36 +63,73 @@ function buildUserPayload(user: RedditCapiUser) {
 export type SendRedditCustomConversionParams = {
   /** Conversion access token from Reddit Events Manager (env-provided; no-op when unset). */
   accessToken: string | undefined
-  customEventName: RedditCapiCustomEvent
+  customEventName: RedditCapiEventName
   conversionId: string
   actionSource: RedditActionSource
+  eventAt?: number
   eventSourceUrl?: string
+  testId?: string
   user: RedditCapiUser
   fetchImpl?: typeof fetch
   logger?: Logger
+  enabled?: boolean
+  sleepImpl?: (ms: number) => Promise<void>
 }
 
-/** Fire-and-forget Reddit Conversions API custom event. Never throws. */
-export async function sendRedditCustomConversion(
-  params: SendRedditCustomConversionParams,
-): Promise<void> {
-  if (!IS_PROD || !params.accessToken) {
-    return
+export type RedditCapiDeliveryResult = 'sent' | 'disabled'
+
+export class RedditCapiDeliveryError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message)
+    this.name = 'RedditCapiDeliveryError'
   }
+}
 
-  const fetchImpl = params.fetchImpl ?? fetch
-  const eventAt = Date.now()
-  const user = buildUserPayload(params.user)
+function eventSourceUrlWithClickId(
+  eventSourceUrl: string | undefined,
+  clickId: string | null | undefined,
+): string | undefined {
+  if (!eventSourceUrl || !clickId) return eventSourceUrl
+  try {
+    const url = new URL(eventSourceUrl)
+    if (!url.searchParams.has('rdt_cid')) {
+      url.searchParams.set('rdt_cid', clickId)
+    }
+    return url.toString()
+  } catch {
+    return eventSourceUrl
+  }
+}
 
-  const body = {
+export function buildRedditCustomConversionBody(
+  params: Pick<
+    SendRedditCustomConversionParams,
+    | 'customEventName'
+    | 'conversionId'
+    | 'actionSource'
+    | 'eventAt'
+    | 'eventSourceUrl'
+    | 'testId'
+    | 'user'
+  >,
+) {
+  const user = buildRedditCapiUserPayload(params.user)
+  const eventSourceUrl = eventSourceUrlWithClickId(
+    params.eventSourceUrl,
+    params.user.clickId,
+  )
+
+  return {
     data: {
+      ...(params.testId ? { test_id: params.testId } : {}),
       events: [
         {
-          event_at: eventAt,
+          event_at: params.eventAt ?? Date.now(),
           action_source: params.actionSource,
-          ...(params.eventSourceUrl
-            ? { event_source_url: params.eventSourceUrl }
-            : {}),
+          ...(eventSourceUrl ? { event_source_url: eventSourceUrl } : {}),
           type: {
             tracking_type: 'CUSTOM',
             custom_event_name: params.customEventName,
@@ -107,52 +141,97 @@ export async function sendRedditCustomConversion(
           ...(user ? { user } : {}),
         },
       ],
-      partner: 'FREEBUFF',
-      partner_version: '1.0.0',
     },
-  }
-
-  try {
-    const response = await fetchImpl(REDDIT_CAPI_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${params.accessToken}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'freebuff/1.0 (reddit-capi)',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(3_000),
-    })
-    if (!response.ok) {
-      params.logger?.warn(
-        {
-          status: response.status,
-          responseBody: (await response.text().catch(() => '')).slice(0, 500),
-          customEventName: params.customEventName,
-          conversionId: params.conversionId,
-        },
-        'Reddit CAPI rejected conversion event',
-      )
-    }
-  } catch (error) {
-    // Best-effort ad attribution; never block product flows.
-    params.logger?.warn(
-      {
-        error,
-        customEventName: params.customEventName,
-        conversionId: params.conversionId,
-      },
-      'Reddit CAPI conversion request failed',
-    )
   }
 }
 
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500
+}
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/** Deliver one custom event, retrying one transient failure. */
+export async function sendRedditCustomConversion(
+  params: SendRedditCustomConversionParams,
+): Promise<RedditCapiDeliveryResult> {
+  if (!(params.enabled ?? IS_PROD) || !params.accessToken) {
+    return 'disabled'
+  }
+
+  const fetchImpl = params.fetchImpl ?? fetch
+  const body = buildRedditCustomConversionBody(params)
+  const sleepImpl = params.sleepImpl ?? sleep
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetchImpl(REDDIT_CAPI_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${params.accessToken}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'freebuff/1.0 (reddit-capi)',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(3_000),
+      })
+      if (response.ok) {
+        params.logger?.info(
+          {
+            customEventName: params.customEventName,
+            conversionId: params.conversionId,
+            attempt,
+          },
+          'Reddit CAPI conversion delivered',
+        )
+        return 'sent'
+      }
+
+      const responseBody = (await response.text().catch(() => '')).slice(0, 500)
+      if (attempt === 1 && isRetryableStatus(response.status)) {
+        await sleepImpl(100)
+        continue
+      }
+      throw new RedditCapiDeliveryError(
+        `Reddit CAPI rejected ${params.customEventName} (${response.status}): ${responseBody}`,
+        response.status,
+      )
+    } catch (error) {
+      if (
+        attempt === 1 &&
+        (!(error instanceof RedditCapiDeliveryError) ||
+          (error.status !== undefined && isRetryableStatus(error.status)))
+      ) {
+        await sleepImpl(100)
+        continue
+      }
+      params.logger?.warn(
+        {
+          error,
+          customEventName: params.customEventName,
+          conversionId: params.conversionId,
+          attempt,
+        },
+        'Reddit CAPI conversion request failed',
+      )
+      if (error instanceof RedditCapiDeliveryError) throw error
+      throw new RedditCapiDeliveryError(
+        `Reddit CAPI request failed for ${params.customEventName}`,
+      )
+    }
+  }
+
+  throw new RedditCapiDeliveryError(
+    `Reddit CAPI request failed for ${params.customEventName}`,
+  )
+}
+
 export function redditConversionId(
-  event: RedditCapiCustomEvent,
+  event: RedditCapiEventName,
   userId: string,
-  suffix?: string,
 ): string {
-  return [event.toLowerCase(), userId, suffix ?? String(Date.now())].join('_')
+  return sha256(`${event}:${userId}`)
 }
 
 /**
