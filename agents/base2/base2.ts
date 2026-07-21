@@ -1295,7 +1295,6 @@ ${specialistRoutingSection}
           auxGateFiredThisIteration = true
           const securitySnapshotDetails = buildGateSnapshotDetails(
             currentPendingGateFiles,
-            currentGitStatusLineMap,
             '',
           )
           const securitySnapshotFingerprint = hashGateSnapshotDetails(
@@ -1729,7 +1728,6 @@ ${specialistRoutingSection}
             conversationValidationSummary
           activeWorkState.gatePassedFingerprint = buildGateFingerprint(
             currentPendingGateFiles,
-            currentGitStatusLineMap,
             conversationValidationSummary,
           )
           pendingGateFiles.clear()
@@ -1838,17 +1836,11 @@ ${specialistRoutingSection}
           hasReviewerBypassAuthorization(
             currentConversationMessages,
             activeWorkState.reviewerBypassChallenge,
-            reviewChallengeFingerprint(
-              currentPendingGateFiles,
-              currentGitStatusLineMap,
-            ),
+            reviewChallengeFingerprint(currentPendingGateFiles),
           )
         if (reviewerProtocolBlocked && !reviewerProtocolBypassAuthorized) {
           const challenge = ensureReviewerBypassChallenge(
-            reviewChallengeFingerprint(
-              currentPendingGateFiles,
-              currentGitStatusLineMap,
-            ),
+            reviewChallengeFingerprint(currentPendingGateFiles),
             currentConversationMessages,
           )
           activeWorkState.currentPhase = 'blocked'
@@ -1885,7 +1877,6 @@ ${specialistRoutingSection}
           runReviewerGate && editsHappened && staticReviewOnlyEnabled
         const reviewSnapshotDetails = buildGateSnapshotDetails(
           Array.from(pendingGateFiles),
-          currentGitStatusLineMap,
           '',
         )
         const reviewSnapshotFingerprint = hashGateSnapshotDetails(
@@ -1954,7 +1945,6 @@ ${specialistRoutingSection}
                 files: Array.from(pendingGateFiles),
                 snapshotFingerprint: buildGateFingerprint(
                   Array.from(pendingGateFiles),
-                  currentGitStatusLineMap,
                   validationSummary,
                 ),
                 summary: validationSummary,
@@ -2078,7 +2068,6 @@ ${specialistRoutingSection}
                             files: Array.from(pendingGateFiles),
                             snapshotFingerprint: buildGateFingerprint(
                               Array.from(pendingGateFiles),
-                              currentGitStatusLineMap,
                               validationSummary,
                             ),
                           }),
@@ -2290,7 +2279,6 @@ ${specialistRoutingSection}
                               files: Array.from(pendingGateFiles),
                               snapshotFingerprint: buildGateFingerprint(
                                 Array.from(pendingGateFiles),
-                                currentGitStatusLineMap,
                                 validationSummary,
                               ),
                             }),
@@ -2837,13 +2825,9 @@ ${specialistRoutingSection}
             if (reviewerRepairFiles.length > 0) {
               recordChangedFiles(reviewerRepairFiles, { fromRepair: true })
             }
-            const repairedStatusLineMap = extractGitStatusLineMap(
-              (reviewerRepairStatus as any)?.toolResult,
-            )
             const repairedSnapshotFingerprint = hashGateSnapshotDetails(
               buildGateSnapshotDetails(
                 Array.from(pendingGateFiles),
-                repairedStatusLineMap,
                 validationSummary,
               ),
             )
@@ -3049,7 +3033,6 @@ ${specialistRoutingSection}
             const finalReviewedFingerprint = hashGateSnapshotDetails(
               buildGateSnapshotDetails(
                 passedPendingFiles,
-                currentGitStatusLineMap,
                 '',
               ),
             )
@@ -3081,7 +3064,6 @@ ${specialistRoutingSection}
             activeWorkState.gatePassedValidationSummary = validationSummary
             activeWorkState.gatePassedFingerprint = buildGateFingerprint(
               passedPendingFiles,
-              currentGitStatusLineMap,
               validationSummary,
             )
             activeWorkState.lastReviewerGateSkipReason = ''
@@ -3400,13 +3382,8 @@ ${specialistRoutingSection}
         return normalizedFiles
       }
 
-      function reviewChallengeFingerprint(
-        files: string[],
-        statusLineMap: Map<string, string>,
-      ): string {
-        return hashGateSnapshotDetails(
-          buildGateSnapshotDetails(files, statusLineMap, ''),
-        )
+      function reviewChallengeFingerprint(files: string[]): string {
+        return hashGateSnapshotDetails(buildGateSnapshotDetails(files, ''))
       }
 
       function ensureReviewerBypassChallenge(
@@ -4339,7 +4316,6 @@ ${specialistRoutingSection}
         if (!recorded) return false
         const currentFingerprint = buildGateFingerprint(
           files,
-          currentStatusLines,
           validationSummary,
         )
         return recorded === currentFingerprint
@@ -4916,17 +4892,15 @@ ${specialistRoutingSection}
        */
       function buildGateFingerprint(
         files: string[],
-        statusLines: Map<string, string>,
         validationSummary: string,
       ): string {
         return hashGateSnapshotDetails(
-          buildGateSnapshotDetails(files, statusLines, validationSummary),
+          buildGateSnapshotDetails(files, validationSummary),
         )
       }
 
       function buildGateSnapshotDetails(
         files: string[],
-        _statusLines: Map<string, string>,
         validationSummary: string,
       ): string {
         // Content-only fingerprint: the volatile git status line (e.g. ` M file`)
