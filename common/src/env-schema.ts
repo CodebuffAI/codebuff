@@ -6,7 +6,18 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_CB_ENVIRONMENT: z.enum(['dev', 'test', 'prod']),
   NEXT_PUBLIC_CODEBUFF_APP_URL: z.url().min(1),
   NEXT_PUBLIC_FREEBUFF_APP_URL: z.url().optional(),
-  NEXT_PUBLIC_WEBCONTAINER_RUNTIME_ORIGIN: z.url().optional(),
+  // Comma-separated list of runtime origins (first entry canonical); each
+  // entry must be a valid URL.
+  NEXT_PUBLIC_WEBCONTAINER_RUNTIME_ORIGIN: z
+    .string()
+    .refine(
+      (value) =>
+        value
+          .split(',')
+          .every((origin) => z.url().safeParse(origin.trim()).success),
+      { message: 'must be a comma-separated list of origin URLs' },
+    )
+    .optional(),
   NEXT_PUBLIC_SUPPORT_EMAIL: z.email().min(1),
   NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
   NEXT_PUBLIC_POSTHOG_HOST_URL: z.url().min(1),
