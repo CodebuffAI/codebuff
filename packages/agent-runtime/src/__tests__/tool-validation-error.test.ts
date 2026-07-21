@@ -648,6 +648,59 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('gives actionable recovery for a validation issue at agents.0.handoff', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-incomplete-handoff-tool-call-id',
+        input: {
+          agents: [
+            {
+              agent_type: 'repair-editor',
+              handoff: {
+                schemaVersion: 1,
+                truncatedEvidence: 'authority-bearing-secret-fragment',
+              },
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('agents[0].handoff')
+      expect(result.error).toContain('"handoff"?: object')
+      expect(result.error).toContain(
+        'one complete compact canonical `AgentHandoff` object',
+      )
+      for (const field of [
+        'schemaVersion',
+        'taskId',
+        'objective',
+        'role',
+        'requirements',
+        'acceptanceCriteria',
+        'context',
+        'nonGoals',
+        'findings',
+        'permissions',
+      ]) {
+        expect(result.error).toContain(`\`${field}\``)
+      }
+      expect(result.error).toContain(
+        'Truncated handoffs cannot be repaired safely',
+      )
+      expect(result.error).toContain('Keep evidence compact')
+      expect(result.formattedInput).toContain(
+        'invalid handoff payload omitted',
+      )
+      expect(result.formattedInput).not.toContain(
+        'authority-bearing-secret-fragment',
+      )
+    }
+  })
+
   it('gives spawn-specific recovery for truncated agent JSON', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -660,6 +713,8 @@ describe('tool validation error handling', () => {
     if ('error' in result) {
       expect(result.error).toContain('Pass agents as an array of objects')
       expect(result.error).toContain('truncated JSON')
+      expect(result.error).toContain('"handoff"?: object')
+      expect(result.error).not.toContain('canonical `AgentHandoff`')
     }
   })
 
@@ -1457,6 +1512,70 @@ describe('tool validation error handling', () => {
     expect(() =>
       validateAgentInput(agentTemplate, 'basher', undefined, {}),
     ).toThrow('Missing required: command')
+  })
+
+  it('includes the exact declared params contract for a generic child', async () => {
+    const { validateAgentInput } =
+      await import('../tools/handlers/tool/spawn-agent-utils')
+    const agentTemplate = {
+      ...testAgentTemplate,
+      id: 'generic-child',
+      inputSchema: {
+        params: z.object({
+          source_path: z.string(),
+          retry_count: z.number().int().optional(),
+        }),
+      },
+    }
+
+    let message = ''
+    try {
+      validateAgentInput(agentTemplate, 'generic-child', undefined, {})
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
+
+    expect(message).toContain('Exact params contract (from the child agent schema)')
+    expect(message).toContain('"required":["source_path"]')
+    expect(message).toContain('"source_path":{"type":"string"}')
+    expect(message).toContain('"retry_count":{"type":"integer"')
+    expect(message).toContain('Preserve params field names exactly.')
+  })
+
+  it('rejects security-reviewer snapshot_id with canonical params recovery', async () => {
+    const { validateAgentInput } =
+      await import('../tools/handlers/tool/spawn-agent-utils')
+    const securityReviewer = {
+      ...testAgentTemplate,
+      id: 'security-reviewer',
+      inputSchema: {
+        params: z
+          .object({
+            changed_files: z.array(z.string()),
+            snapshot_fingerprint: z.string(),
+          })
+          .strict(),
+      },
+    }
+
+    let message = ''
+    try {
+      validateAgentInput(securityReviewer, 'security-reviewer', undefined, {
+        changed_files: ['src/auth.ts'],
+        snapshot_id: 'wrong-alias',
+      })
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
+
+    expect(message).toContain('snapshot_fingerprint')
+    expect(message).toContain(
+      '"required":["changed_files","snapshot_fingerprint"]',
+    )
+    expect(message).toContain('Exact params contract (from the child agent schema)')
+    expect(message).toContain('replace params.snapshot_id with params.snapshot_fingerprint')
+    expect(message).toContain('Retain params.changed_files')
+    expect(message).toContain('Preserve params field names exactly.')
   })
 
   it('publishes a structured failure result when Basher is missing command', async () => {

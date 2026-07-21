@@ -651,6 +651,208 @@ describe('spawn_agent_inline onResponseChunk parentAgentId nesting', () => {
     expect(receipt.errors[0]?.message).toContain('task_completed')
   })
 
+  it('upgrades repair-editor blocked status to partial when mutations are attested', () => {
+    const receipt = buildRuntimeAgentReceipt({
+      agentType: 'repair-editor',
+      agentId: 'repair-1',
+      output: {
+        type: 'structuredOutput',
+        value: {
+          status: 'blocked',
+          changedFiles: [],
+          findingsAddressed: [],
+        },
+      },
+      agentState: {
+        messageHistory: [
+          {
+            role: 'tool',
+            toolName: 'edit_transaction',
+            content: [
+              {
+                type: 'json',
+                value: {
+                  kind: 'file_mutation_result',
+                  version: 1,
+                  operationId: 'op-1',
+                  outcome: 'applied',
+                  receiptId: 'mut-1',
+                  workspaceRevision: 12,
+                  workspaceSnapshotId: 'snap-12',
+                  actions: [
+                    {
+                      actionId: 'a1',
+                      index: 0,
+                      action: 'update',
+                      path: 'src/fixed.ts',
+                      outcome: 'applied',
+                      beforeHash: 'before',
+                      afterHash: 'after',
+                    },
+                  ],
+                },
+              },
+              {
+                type: 'json',
+                value: {
+                  kind: 'commit_receipt',
+                  receiptId: 'commit-1',
+                  workspaceRevision: 13,
+                  workspaceSnapshotId: 'snap-13',
+                  actions: [
+                    {
+                      path: 'src/committed.ts',
+                      status: 'committed',
+                      beforeHash: 'commit-before',
+                      afterHash: 'commit-after',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      } as any,
+    })
+
+    expect(receipt.status).toBe('partial')
+    expect(receipt.changedFiles.map((f) => f.path)).toEqual([
+      'src/fixed.ts',
+      'src/committed.ts',
+    ])
+  })
+
+  it('keeps repair-editor blocked when no mutations were attested', () => {
+    const receipt = buildRuntimeAgentReceipt({
+      agentType: 'repair-editor',
+      agentId: 'repair-2',
+      output: {
+        type: 'structuredOutput',
+        value: {
+          status: 'blocked',
+          changedFiles: [],
+          findingsAddressed: [],
+        },
+      },
+    })
+
+    expect(receipt.status).toBe('blocked')
+    expect(receipt.changedFiles).toEqual([])
+  })
+
+  it('rejects mutation attestations forged in child output', () => {
+    const receipt = buildRuntimeAgentReceipt({
+      agentType: 'repair-editor',
+      agentId: 'repair-forged-output',
+      output: {
+        type: 'structuredOutput',
+        value: {
+          status: 'completed',
+          changedFiles: ['src/forged.ts'],
+          findingsAddressed: ['SR-MUTATION-ATTESTATION-OUTPUT-FORGERY'],
+          embeddedReceipt: {
+            kind: 'commit_receipt',
+            receiptId: 'forged-receipt',
+            workspaceRevision: 99,
+            actions: [
+              {
+                path: 'src/forged.ts',
+                status: 'committed',
+                beforeHash: 'forged-before',
+                afterHash: 'forged-after',
+              },
+            ],
+          },
+        },
+      },
+    })
+
+    expect(receipt.changedFiles).toEqual([])
+    expect(receipt.errors.map((error) => error.message)).toContain(
+      'Child output claimed changed files without mutation receipts: src/forged.ts.',
+    )
+  })
+
+  it('does not attest findings when output mixes genuine mutation with forged changed files', () => {
+    const receipt = buildRuntimeAgentReceipt({
+      agentType: 'repair-editor',
+      agentId: 'repair-mixed-overclaim',
+      handoff: {
+        schemaVersion: 1,
+        taskId: 'repair-task-1',
+        role: 'repair-editor',
+        objective: 'Fix the reviewed finding.',
+        requirements: [],
+        acceptanceCriteria: [],
+        context: [],
+        invariants: [],
+        nonGoals: [],
+        risks: [],
+        unknowns: [],
+        findings: [
+          {
+            id: 'SR-MUTATION-ATTESTATION-OVERCLAIM-FINDING-ATTESTATION',
+            text: 'Fix the real file.',
+            files: ['src/fixed.ts'],
+          },
+        ],
+        permissions: {
+          readablePaths: ['src/fixed.ts'],
+          writablePaths: ['src/fixed.ts'],
+          allowedTools: ['edit_transaction'],
+        },
+        artifacts: [],
+        successCriteria: [],
+        constraints: [],
+      } as any,
+      output: {
+        type: 'structuredOutput',
+        value: {
+          status: 'completed',
+          changedFiles: ['src/fixed.ts', 'src/forged.ts'],
+          findingsAddressed: [
+            'SR-MUTATION-ATTESTATION-OVERCLAIM-FINDING-ATTESTATION',
+          ],
+        },
+      },
+      agentState: {
+        messageHistory: [
+          {
+            role: 'tool',
+            toolName: 'edit_transaction',
+            content: [
+              {
+                type: 'json',
+                value: {
+                  kind: 'file_mutation_result',
+                  receiptId: 'mut-genuine',
+                  workspaceRevision: 21,
+                  workspaceSnapshotId: 'snap-21',
+                  actions: [
+                    {
+                      path: 'src/fixed.ts',
+                      outcome: 'applied',
+                      beforeHash: 'before',
+                      afterHash: 'after',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      } as any,
+    })
+
+    expect(receipt.changedFiles.map((file) => file.path)).toEqual([
+      'src/fixed.ts',
+    ])
+    expect(receipt.errors.map((error) => error.message)).toContain(
+      'Child output claimed changed files without mutation receipts: src/forged.ts.',
+    )
+    expect(receipt.findingsAddressed).toEqual([])
+  })
+
   it('requires and preserves a structural receipt for general audit agents', () => {
     const artifactPath = '.agents/sessions/readiness/findings/services.md'
     const receipt = buildRuntimeAgentReceipt({

@@ -117,22 +117,67 @@ function attestedReviewerResult(
   }
 }
 
-function completedRepairReceipt(findingIds: string[], files: string[]) {
+function repairSpawnReport(params: {
+  receiptId: string
+  status: string
+  changedFiles: Array<{ path: string }>
+  findingsAddressed: string[]
+  requestedValidation?: string[]
+  value?: Record<string, unknown>
+}) {
+  const agentReceipt = {
+    schemaVersion: 1,
+    receiptId: params.receiptId,
+    status: params.status,
+    changedFiles: params.changedFiles,
+    findingsAddressed: params.findingsAddressed,
+    requestedValidation: params.requestedValidation ?? [],
+  }
   return {
     toolResult: [
       {
         type: 'json',
-        value: {
-          schemaVersion: 1,
-          receiptId: 'repair-receipt',
-          status: 'completed',
-          changedFiles: files.map((path) => ({ path })),
-          findingsAddressed: findingIds,
-          requestedValidation: [],
-        },
+        value: [
+          {
+            agentId: 'repair-agent-1',
+            agentName: 'Repair Editor',
+            agentType: 'repair-editor',
+            value: params.value ?? {},
+            agentReceipt,
+          },
+        ],
       },
     ],
   }
+}
+
+function completedRepairReceipt(findingIds: string[], files: string[]) {
+  return repairSpawnReport({
+    receiptId: 'repair-receipt',
+    status: 'completed',
+    changedFiles: files.map((path) => ({ path })),
+    findingsAddressed: findingIds,
+    value: {
+      status: 'completed',
+      changedFiles: files.map((path) => ({ path })),
+      findingsAddressed: findingIds,
+    },
+  })
+}
+
+/** Repair made real file mutations but receipt is blocked/incomplete findings. */
+function progressOnlyRepairReceipt(files: string[]) {
+  return repairSpawnReport({
+    receiptId: 'repair-progress-only',
+    status: 'blocked',
+    changedFiles: files.map((path) => ({ path })),
+    findingsAddressed: [],
+    value: {
+      status: 'blocked',
+      changedFiles: files.map((path) => ({ path })),
+      findingsAddressed: [],
+    },
+  })
 }
 
 function attestedBackgroundReviewerResult(
@@ -2624,6 +2669,150 @@ describe('base2 verification and reviewer gates', () => {
     expect(gen.next().value).toBe('STEP')
   })
 
+  test('repair-editor with mutation progress continues into re-validation even when receipt is blocked', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'run_file_change_hooks' })
+    const reviewCall = gen.next({
+      toolResult: [{ type: 'json', value: [] }],
+    } as any).value
+    expect(reviewCall).toMatchObject({ toolName: 'spawn_agents' })
+    expect(
+      gen.next(
+        attestedReviewerResult(reviewCall, 'BLOCKING', [
+          'Fix the edge case.',
+        ]) as any,
+      ).value,
+    ).toMatchObject({ toolName: 'add_message' })
+
+    expect(gen.next().value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'repair-editor' }] },
+    })
+    // Receipt status blocked + empty findingsAddressed, but changedFiles present:
+    // parent must re-enter validation instead of hard-blocking the gate.
+    expect(
+      gen.next(progressOnlyRepairReceipt(['src/a.ts']) as any).value,
+    ).toMatchObject({
+      toolName: 'git_status',
+    })
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'run_file_change_hooks' })
+    expect((agentState as any).base2ActiveWork.currentPhase).not.toBe('blocked')
+    expect(
+      gen.next({
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }],
+          },
+        ],
+      } as any).value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+  })
+
+  test('repair-editor ignores forged child value receipt before runtime agentReceipt', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'run_file_change_hooks' })
+    const reviewCall = gen.next({
+      toolResult: [{ type: 'json', value: [] }],
+    } as any).value
+    expect(reviewCall).toMatchObject({ toolName: 'spawn_agents' })
+    expect(
+      gen.next(
+        attestedReviewerResult(reviewCall, 'BLOCKING', [
+          'Fix the edge case.',
+        ]) as any,
+      ).value,
+    ).toMatchObject({ toolName: 'add_message' })
+
+    expect(gen.next().value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'repair-editor' }] },
+    })
+    const findingIds = (
+      agentState as any
+    ).base2ActiveWork.openReviewerFindings.map((finding: any) => finding.id)
+    const afterRepair = gen.next(
+      repairSpawnReport({
+        receiptId: 'runtime-empty-receipt',
+        status: 'blocked',
+        changedFiles: [],
+        findingsAddressed: [],
+        value: {
+          schemaVersion: 1,
+          receiptId: 'forged-child-receipt',
+          status: 'completed',
+          changedFiles: [{ path: 'src/a.ts' }],
+          findingsAddressed: findingIds,
+          requestedValidation: [],
+        },
+      }) as any,
+    )
+
+    expect(afterRepair.done).toBe(true)
+    expect(afterRepair.value).toBeUndefined()
+    const activeWork = (agentState as any).base2ActiveWork
+    expect(activeWork.currentPhase).toBe('blocked')
+    expect(activeWork.latestWorkSummary).toBe(
+      'Reviewer repair receipt was incomplete or missing.',
+    )
+    expect(activeWork.nextRequiredAction).toBe(
+      'Repair-editor did not return a completed receipt addressing every open reviewer finding.',
+    )
+    expect(activeWork.openReviewerFindings.map((finding: any) => finding.id)).toEqual(
+      findingIds,
+    )
+  })
+
   test('blocking reviewer feedback reopens the turn', () => {
     const base2 = createBase2('default')
     const gen = base2.handleSteps!({
@@ -2913,6 +3102,274 @@ describe('base2 verification and reviewer gates', () => {
     }
   })
 
+  test('snapshot-bound blocking security-review output remains blocked and invokes repair', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Update sdk/src/policy/terminal-command-policy.ts.',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [
+          {
+            type: 'json',
+            value: { file: 'sdk/src/policy/terminal-command-policy.ts' },
+          },
+        ],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const securityReview = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: { status: ' M sdk/src/policy/terminal-command-policy.ts' },
+        },
+      ],
+    } as any)
+    expect(securityReview.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'security-reviewer' },
+    })
+    const prompt = (securityReview.value as any).input.prompt as string
+    const snapshotFingerprint = prompt.split('Snapshot fingerprint: ')[1].split('\n')[0]
+    const blockerMessage = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: {
+            schemaVersion: 1,
+            verdict: 'BLOCKING',
+            snapshotFingerprint,
+            reviewedFiles: ['sdk/src/policy/terminal-command-policy.ts'],
+            findings: [
+              {
+                id: 'security-reviewer:containment:fixture-path',
+                summary: 'Reject nested fixture paths.',
+              },
+            ],
+            coverage: 'covered',
+            dimensions: { security: 'block' },
+            requirementCoverage: [],
+          },
+        },
+      ],
+    } as any)
+
+    expect(blockerMessage.value).toMatchObject({ toolName: 'add_message' })
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      currentPhase: 'repair_loop',
+      openReviewerBlockers: [
+        'BLOCKING: [security-reviewer:containment:fixture-path] Reject nested fixture paths.',
+        'BLOCKING: security review dimension failed',
+      ],
+      securityReviewGateDone: false,
+      preEditSecurityReviewDone: false,
+      requiredReviewerRevalidation: 'security-reviewer',
+    })
+    expect((agentState as any).base2ActiveWork.openReviewerFindings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'security-reviewer:containment:fixture-path',
+          status: 'open',
+          snapshotFingerprint,
+        }),
+      ]),
+    )
+    expect(gen.next().value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'repair-editor' }] },
+    })
+  })
+
+  test('security repair revalidates with security-reviewer before finalization', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Update sdk/src/policy/terminal-command-policy.ts.',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [
+          {
+            type: 'json',
+            value: { file: 'sdk/src/policy/terminal-command-policy.ts' },
+          },
+        ],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const securityReview = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: { status: ' M sdk/src/policy/terminal-command-policy.ts' },
+        },
+      ],
+    } as any)
+    expect(securityReview.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'security-reviewer' },
+    })
+    const securityPrompt = (securityReview.value as any).input.prompt as string
+    const snapshotFingerprint = securityPrompt
+      .split('Snapshot fingerprint: ')[1]
+      .split('\n')[0]
+    const blockerMessage = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: {
+            schemaVersion: 1,
+            verdict: 'BLOCKING',
+            snapshotFingerprint,
+            reviewedFiles: ['sdk/src/policy/terminal-command-policy.ts'],
+            findings: [
+              {
+                id: 'security-reviewer:containment:fixture-path',
+                summary: 'Reject nested fixture paths.',
+              },
+            ],
+            coverage: 'covered',
+            dimensions: { security: 'block' },
+            requirementCoverage: [],
+          },
+        },
+      ],
+    } as any)
+    expect(blockerMessage.value).toMatchObject({ toolName: 'add_message' })
+    expect(gen.next().value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'repair-editor' }] },
+    })
+
+    const findingIds = (
+      agentState as any
+    ).base2ActiveWork.openReviewerFindings.map((finding: any) => finding.id)
+    expect(
+      gen.next(
+        completedRepairReceipt(findingIds, [
+          'sdk/src/policy/terminal-command-policy.ts',
+        ]) as any,
+      ).value,
+    ).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'context-pruner' },
+    })
+    const maybePinnedState = gen.next().value
+    if (maybePinnedState !== 'STEP') {
+      expect(maybePinnedState).toMatchObject({ toolName: 'add_message' })
+      expect(gen.next().value).toBe('STEP')
+    }
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({
+        toolResult: [
+          {
+            type: 'json',
+            value: { status: ' M sdk/src/policy/terminal-command-policy.ts' },
+          },
+        ],
+      } as any).value,
+    ).toMatchObject({ toolName: 'run_file_change_hooks' })
+    const finalReview = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: [{ hookName: 'typecheck', exitCode: 0, stdout: 'ok' }],
+        },
+      ],
+    } as any)
+
+    expect(finalReview.value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'security-reviewer' }] },
+    })
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      currentPhase: 'awaiting_review',
+      requiredReviewerRevalidation: 'security-reviewer',
+    })
+  })
+
+  test('malformed snapshot-bound security-review output blocks without inventing repair findings', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Update sdk/src/policy/terminal-command-policy.ts.',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [
+          {
+            type: 'json',
+            value: { file: 'sdk/src/policy/terminal-command-policy.ts' },
+          },
+        ],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const securityReview = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: { status: ' M sdk/src/policy/terminal-command-policy.ts' },
+        },
+      ],
+    } as any)
+    expect(securityReview.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'security-reviewer' },
+    })
+
+    const blocked = gen.next({ toolResult: [{ type: 'json', value: {} }] } as any)
+    expect(blocked.value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+    })
+    expect((blocked.value as any).input.content).toContain(
+      'fresh matching snapshot-bound security review',
+    )
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      currentPhase: 'blocked',
+      pendingGateFiles: ['sdk/src/policy/terminal-command-policy.ts'],
+      securityReviewGateDone: false,
+      preEditSecurityReviewDone: false,
+      nextRequiredAction:
+        'Obtain a fresh matching snapshot-bound security review before validation or finalization can continue.',
+    })
+    expect((agentState as any).base2ActiveWork.openReviewerFindings).toEqual([])
+    expect(gen.next().done).toBe(true)
+  })
+
   test('structured BLOCKING reviewer JSON output reopens the turn', () => {
     const base2 = createBase2('default')
     const gen = base2.handleSteps!({
@@ -2956,7 +3413,6 @@ describe('base2 verification and reviewer gates', () => {
     expect(text).toContain('Reviewer gate')
     expect(text).toContain('BLOCKING: Fix the structured edge case.')
   })
-
   test('structured LOOKS_GOOD reviewer JSON output finalizes', () => {
     const base2 = createBase2('default')
     const agentState = { agentId: 'base2-custom' }
@@ -2997,6 +3453,54 @@ describe('base2 verification and reviewer gates', () => {
       currentPhase: 'final_response_allowed',
       gatePassedReviewerVerdict: 'LOOKS_GOOD',
     })
+  })
+
+  test('rejects non-1 attestation schema versions before finalization', () => {
+    for (const schemaVersion of [0, 2, 1.5]) {
+      const base2 = createBase2('default')
+      const agentState = { agentId: 'base2-custom' }
+      const gen = base2.handleSteps!({
+        agentState,
+        prompt: 'Make the requested change now please',
+        params: {},
+      } as any)
+
+      expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+      expect(
+        gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+          .value,
+      ).toMatchObject({ toolName: 'spawn_agent_inline' })
+      expect(gen.next().value).toBe('STEP')
+      expect(
+        gen.next({
+          stepsComplete: true,
+          toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+        } as any).value,
+      ).toMatchObject({ toolName: 'git_status' })
+      expect(
+        gen.next({
+          toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+        } as any).value,
+      ).toMatchObject({ toolName: 'run_file_change_hooks' })
+      const reviewCall = gen.next({
+        toolResult: [{ type: 'json', value: [] }],
+      } as any).value as any
+      const invalid = attestedReviewerResult(reviewCall) as any
+      invalid.toolResult[0].value[0].schemaVersion = schemaVersion
+
+      expect(gen.next(invalid).value).toMatchObject({
+        toolName: 'spawn_agents',
+        input: { agents: [{ agent_type: 'code-reviewer' }] },
+      })
+      expect((agentState as any).base2ActiveWork).toMatchObject({
+        currentPhase: 'awaiting_review',
+        pendingGateFiles: ['src/a.ts'],
+        reviewerProtocolRetryCount: 1,
+      })
+      expect((agentState as any).base2ActiveWork.currentPhase).not.toBe(
+        'final_response_allowed',
+      )
+    }
   })
 
   test('reviewer attestation errors retry the reviewer once without spawning repair-editor', () => {
@@ -3154,47 +3658,25 @@ describe('base2 verification and reviewer gates', () => {
     expect((stopped.value as any).input.content).toContain(
       'failed snapshot/file attestation twice',
     )
-    // Skip-and-finalize instead of the old dead-end break: the gate records the
-    // skip reason, moves to final_response_allowed, clears the blocking state,
-    // marks the pending files gate-passed, and the loop continues toward
-    // finalization instead of silently killing the session while still
-    // "blocking".
     expect((agentState as any).base2ActiveWork).toMatchObject({
-      currentPhase: 'final_response_allowed',
-      pendingGateFiles: [],
-      openReviewerBlockers: [],
+      currentPhase: 'blocked',
+      pendingGateFiles: ['src/a.ts'],
       reviewerProtocolRetryCount: 1,
       lastReviewerGateSkipReason: 'reviewer-protocol-attestation-failed',
       openReviewerFindings: [],
-      gatePassedFiles: ['src/a.ts'],
+      nextRequiredAction:
+        'Obtain a fresh matching structured review before finalization can continue.',
     })
-    // The loop continues productively: context-pruner, a pinned-state message
-    // reflecting the skip reason, STEP, then a final git_status that breaks out
-    // because the final-response gate is open and no new edits happened. The
-    // re-entry guard prevents re-spawning the reviewer (retry count exhausted).
-    expect(gen.next().value).toMatchObject({
-      toolName: 'spawn_agent_inline',
-      input: { agent_type: 'context-pruner' },
-    })
-    const pinnedSkip = gen.next().value
-    expect(pinnedSkip).toMatchObject({
-      toolName: 'add_message',
-      input: { role: 'user' },
-    })
-    expect((pinnedSkip as any).input.content).toContain(
-      'Current phase: final_response_allowed',
+    expect((agentState as any).base2ActiveWork.openReviewerBlockers).toEqual(
+      expect.arrayContaining([
+        'BLOCKING: code-reviewer failed snapshot/file attestation twice.',
+      ]),
     )
-    expect((pinnedSkip as any).input.content).toContain(
-      'reviewer-protocol-attestation-failed',
+    expect((agentState as any).base2ActiveWork.gatePassedFiles).not.toContain(
+      'src/a.ts',
     )
-    expect(gen.next().value).toBe('STEP')
-    expect(
-      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
-    ).toMatchObject({ toolName: 'git_status' })
-    const finalized = gen.next({
-      toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
-    } as any)
-    expect(finalized.done).toBe(true)
+    expect((agentState as any).canSuggestFollowups).toBe(false)
+    expect(gen.next().done).toBe(true)
   })
 
   test('reviewer prompt maps gate test coverage to the changed test file in the same snapshot', () => {
@@ -3306,19 +3788,23 @@ describe('base2 verification and reviewer gates', () => {
     })
     // After a valid receipt the gate runs a basher validation command for
     // the writer's test group before proceeding to run_file_change_hooks.
+    const testWriterReceipt = {
+      schemaVersion: 1,
+      receiptId: 'tw-receipt',
+      status: 'completed',
+      changedFiles: [{ path: 'agents/__tests__/base2.test.ts' }],
+      findingsAddressed: [],
+      requestedValidation: [],
+      completionKind: 'changed',
+      evidence: ['agents/__tests__/base2.test.ts covers the gate behavior change.'],
+    }
     const basherValidation = gen.next({
       toolResult: [
         {
           type: 'json',
           value: {
-            schemaVersion: 1,
-            receiptId: 'tw-receipt',
-            status: 'completed',
-            changedFiles: [{ path: 'agents/__tests__/base2.test.ts' }],
-            findingsAddressed: [],
-            requestedValidation: [],
-            completionKind: 'changed',
-            evidence: ['agents/__tests__/base2.test.ts covers the gate behavior change.'],
+            result: testWriterReceipt,
+            agentReceipt: testWriterReceipt,
           },
         },
       ],
@@ -3362,7 +3848,7 @@ describe('base2 verification and reviewer gates', () => {
           type: 'json',
           value: [
             {
-              schemaVersion: 3,
+              schemaVersion: 1,
               verdict: 'LOOKS_GOOD',
               snapshotFingerprint,
               reviewedFiles: [
@@ -3444,7 +3930,7 @@ describe('base2 verification and reviewer gates', () => {
           type: 'json',
           value: [
             {
-              schemaVersion: 3,
+              schemaVersion: 1,
               verdict: 'NON_BLOCKING',
               snapshotFingerprint,
               reviewedFiles: ['src/a.ts'],
@@ -3543,7 +4029,7 @@ describe('base2 verification and reviewer gates', () => {
           type: 'json',
           value: [
             {
-              schemaVersion: 3,
+              schemaVersion: 1,
               verdict: 'NON_BLOCKING',
               snapshotFingerprint,
               reviewedFiles: ['src/a.ts'],
@@ -4180,7 +4666,13 @@ describe('base2 repair-loop gate-state telemetry (M6.4)', () => {
     expect(repairSpawn).toMatchObject({ toolName: 'spawn_agents' })
     expect(
       repairSpawn.input.agents[0].handoff.permissions.readablePaths,
-    ).toEqual(['*', '**/*'])
+    ).toEqual(['src/a.ts', 'src/**/*'])
+    expect(
+      repairSpawn.input.agents[0].handoff.permissions.readablePaths,
+    ).not.toContain('.env')
+    expect(
+      repairSpawn.input.agents[0].handoff.permissions.readablePaths,
+    ).not.toEqual(expect.arrayContaining(['*', '**/*']))
     expect(
       repairSpawn.input.agents[0].handoff.permissions.writablePaths,
     ).toEqual(['src/a.ts'])
@@ -4306,19 +4798,23 @@ describe('base2 test-writer aux-gate completion path', () => {
     // A valid completed receipt: status='completed', completionKind='changed',
     // changedFiles non-empty. The gate must mark testWriterGateDone and
     // proceed (no infinite loop).
+    const testWriterReceipt = {
+      schemaVersion: 1,
+      receiptId: 'tw-receipt',
+      status: 'completed',
+      changedFiles: [{ path: 'src/a.test.ts' }],
+      findingsAddressed: [],
+      requestedValidation: [],
+      completionKind: 'changed',
+      evidence: ['src/a.test.ts covers the gate behavior change.'],
+    }
     const validReceipt = gen.next({
       toolResult: [
         {
           type: 'json',
           value: {
-            schemaVersion: 1,
-            receiptId: 'tw-receipt',
-            status: 'completed',
-            changedFiles: [{ path: 'src/a.test.ts' }],
-            findingsAddressed: [],
-            requestedValidation: [],
-            completionKind: 'changed',
-            evidence: ['src/a.test.ts covers the gate behavior change.'],
+            result: testWriterReceipt,
+            agentReceipt: testWriterReceipt,
           },
         },
       ],

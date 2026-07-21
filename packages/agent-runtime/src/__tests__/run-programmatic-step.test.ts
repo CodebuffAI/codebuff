@@ -1184,6 +1184,50 @@ describe('runProgrammaticStep', () => {
       )
     })
 
+    it('keeps repair-editor scoped reads denied with synthetic-fixture recovery', async () => {
+      const repairEditorTemplate = {
+        ...mockTemplate,
+        id: 'repair-editor',
+        filesystemScope: { read: ['src/a.ts', 'src/**/*'] },
+        toolNames: ['read_files', 'end_turn'],
+      }
+      repairEditorTemplate.handleSteps = function* () {
+        yield {
+          toolName: 'read_files',
+          input: { paths: ['fixtures/synthetic-user.ts', '.env'] },
+        }
+        yield { toolName: 'end_turn', input: {} }
+      }
+
+      executeToolCallSpy.mockRestore()
+      let requestedFiles = false
+      const responseChunks: Array<{ type?: string; message?: string }> = []
+
+      await runProgrammaticStep({
+        ...mockParams,
+        template: repairEditorTemplate as AgentTemplate,
+        localAgentTemplates: {
+          'repair-editor': repairEditorTemplate as AgentTemplate,
+        },
+        requestFiles: async () => {
+          requestedFiles = true
+          return {}
+        },
+        onResponseChunk: (chunk) => responseChunks.push(chunk as any),
+      })
+
+      const messages = responseChunks.map((chunk) => chunk.message).join('\n')
+      expect(messages).toContain(
+        'filesystem read scope. Disallowed path(s): fixtures/synthetic-user.ts, .env',
+      )
+      expect(messages).toContain('Allowed patterns: src/a.ts, src/**/*')
+      expect(messages).toContain('do not retry this read or request broader scope')
+      expect(messages).toContain('synthetic fixture literal')
+      expect(messages).toContain('inspect the authorized test file')
+      expect(messages).toContain('report the missing read permission to the parent')
+      expect(requestedFiles).toBe(false)
+    })
+
     it('enforces filesystem scope for read selectors and 3D mutations', async () => {
       const scopedTemplate = {
         ...mockTemplate,

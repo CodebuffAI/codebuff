@@ -83,8 +83,16 @@ export type Base2ActiveWorkState = Base2GateState & {
     taskId?: string
     files: string[]
     snapshotFingerprint: string
+    /** Reviewer family that produced this blocking finding. */
+    reviewer?: 'code-reviewer' | 'security-reviewer'
     createdAt: string
   }>
+  /**
+   * Reviewer family that must re-attest after a runtime-attested repair changes
+   * the workspace and validation passes. Missing legacy provenance fails closed
+   * into the code-reviewer path rather than permitting finalization.
+   */
+  requiredReviewerRevalidation?: 'code-reviewer' | 'security-reviewer'
   validationEvidence?: Array<{
     gateId: string
     files: string[]

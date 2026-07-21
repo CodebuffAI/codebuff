@@ -53,6 +53,7 @@ import type {
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolSet } from 'ai'
+import { z } from 'zod/v4'
 
 /**
  * Common context params needed for spawning subagents.
@@ -958,6 +959,17 @@ function extractReceiptStringArray(output: unknown, key: string): string[] {
   return [...new Set(found)]
 }
 
+function extractRuntimeMutationToolMessages(
+  messageHistory: unknown,
+): unknown[] {
+  if (!Array.isArray(messageHistory)) return []
+  return messageHistory.filter((message) => {
+    if (!message || typeof message !== 'object') return false
+    const record = message as Record<string, unknown>
+    return record.role === 'tool' && record.toolName === 'edit_transaction'
+  })
+}
+
 function extractMutationAttestations(value: unknown): Array<{
   path: string
   beforeHash?: string
@@ -1207,10 +1219,9 @@ export function buildRuntimeAgentReceipt(params: {
     )
   const completionContractFailed =
     missingExplicitCompletion || missingAuditReceipt
-  const mutationAttestations = extractMutationAttestations([
-    params.output,
-    params.agentState?.messageHistory,
-  ])
+  const mutationAttestations = extractMutationAttestations(
+    extractRuntimeMutationToolMessages(params.agentState?.messageHistory),
+  )
   const claimedChangedFiles = extractReceiptStringArray(
     params.output,
     'changedFiles',
@@ -1286,26 +1297,44 @@ export function buildRuntimeAgentReceipt(params: {
     params.output,
     'findingsAddressed',
   )
-  const attestedFindingIds = params.handoff
-    ? claimedFindingIds.filter((id) => {
-        const finding = params.handoff?.findings.find((item) => item.id === id)
-        return !!finding?.files.some((path) => actualChangedPaths.has(path))
-      })
-    : claimedFindingIds
+  const attestedFindingIds =
+    overclaimedPaths.length > 0
+      ? []
+      : params.handoff
+        ? claimedFindingIds.filter((id) => {
+            const finding = params.handoff?.findings.find((item) => item.id === id)
+            return !!finding?.files.some((path) => actualChangedPaths.has(path))
+          })
+        : claimedFindingIds
+  // Mutation agents that actually applied edits must not default to `blocked`
+  // solely because set_output omitted a completion status or reported blocked
+  // before runtime mutation attestation ran. Real mutations → at least partial
+  // so parent gates can continue into validation/review.
+  const hasMutationProgress = mutationAttestations.length > 0
+  const foundOutputStatus = findReceiptStatus(params.output)
+  const resolvedStatus =
+    params.status ??
+    (completionContractFailed
+      ? 'partial'
+      : errors.length > 0
+        ? 'failed'
+        : mutationAgent &&
+            hasMutationProgress &&
+            (foundOutputStatus === undefined || foundOutputStatus === 'blocked')
+          ? 'partial'
+          : foundOutputStatus) ??
+    (mutationAgent
+      ? hasMutationProgress
+        ? 'partial'
+        : 'blocked'
+      : 'completed')
   const receipt = agentReceiptSchema.parse({
     schemaVersion: 1,
     receiptId: generateCompactId(),
     taskId: params.handoff?.taskId ?? `spawn-${params.agentId}`,
     role: inferredRole,
     agentId: params.agentId,
-    status:
-      params.status ??
-      (completionContractFailed
-        ? 'partial'
-        : errors.length > 0
-          ? 'failed'
-          : findReceiptStatus(params.output)) ??
-      (mutationAgent ? 'blocked' : 'completed'),
+    status: resolvedStatus,
     workspaceRevision:
       latestMutation?.workspaceRevision ??
       params.agentState?.workspaceState?.revision ??
@@ -1442,6 +1471,54 @@ function findMissingEditorBriefFields(prompt: string): string[] {
   return REQUIRED_EDITOR_BRIEF_FIELDS.filter((label) => !valueFor(label))
 }
 
+const AGENT_PARAMS_CONTRACT_MAX_CHARS = 2_400
+
+function formatAgentParamsContract(schema: unknown): string {
+  try {
+    const rendered = z.toJSONSchema(schema as z.ZodType, { io: 'input' }) as Record<
+      string,
+      unknown
+    >
+    const compact = (value: unknown, depth = 0): unknown => {
+      if (depth > 8 || value === null || typeof value !== 'object') return value
+      if (Array.isArray(value)) {
+        return value.slice(0, 64).map((entry) => compact(entry, depth + 1))
+      }
+      const omittedMetadata = new Set([
+        '$schema',
+        'description',
+        'examples',
+        'title',
+      ])
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+          .filter(([key]) => !omittedMetadata.has(key))
+          .slice(0, 64)
+          .map(([key, entry]) => [key, compact(entry, depth + 1)]),
+      )
+    }
+    const serialized = JSON.stringify(compact(rendered))
+    if (serialized.length <= AGENT_PARAMS_CONTRACT_MAX_CHARS) return serialized
+
+    const properties = rendered.properties
+    const propertyNames =
+      properties && typeof properties === 'object' && !Array.isArray(properties)
+        ? Object.keys(properties).slice(0, 64)
+        : []
+    const required = Array.isArray(rendered.required)
+      ? rendered.required.filter((key): key is string => typeof key === 'string')
+      : []
+    return JSON.stringify({
+      type: rendered.type ?? 'object',
+      required,
+      properties: propertyNames,
+      truncated: true,
+    })
+  } catch {
+    return '{"schema":"unavailable"}'
+  }
+}
+
 /**
  * Validates prompt and params against agent schema
  */
@@ -1523,15 +1600,24 @@ export function validateAgentInput(
         ),
       )
       const normalizedAgentType = normalizeAgentIdForLookup(agentType)
+      const paramsRecord =
+        params && typeof params === 'object' && !Array.isArray(params)
+          ? (params as Record<string, unknown>)
+          : undefined
       const recoveryHint =
         normalizedAgentType === 'basher' && issuePaths.has('command')
           ? '\n\nRecovery: spawn Basher with { "agent_type": "basher", "params": { "command": "<shell command>" } }. A command mentioned only in prompt prose is never executed.'
           : normalizedAgentType === 'compatibility-reviewer' &&
               issuePaths.has('snapshot_id')
             ? '\n\nRecovery: set params.snapshot_id to the exact current snapshot fingerprint from get_change_review_bundle, for example { "agent_type": "compatibility-reviewer", "params": { "snapshot_id": "<current fingerprint>" } }. Do not invent or reuse a stale fingerprint.'
-            : ''
+            : normalizedAgentType === 'security-reviewer' &&
+                (issuePaths.has('snapshot_fingerprint') ||
+                  Object.hasOwn(paramsRecord ?? {}, 'snapshot_id'))
+              ? '\n\nRecovery: replace params.snapshot_id with params.snapshot_fingerprint, or add params.snapshot_fingerprint when it is missing. Retain params.changed_files and preserve both canonical field names exactly.'
+              : ''
+      const paramsContract = formatAgentParamsContract(inputSchema.params)
       throw new Error(
-        `Invalid params for agent ${agentType}: ${formatValidationIssues({ issues: result.error.issues })}${recoveryHint}\n\nOriginal params value:\n${formatValueForError(params ?? {})}`,
+        `Invalid params for agent ${agentType}: ${formatValidationIssues({ issues: result.error.issues })}\n\nExact params contract (from the child agent schema): ${paramsContract}\nPreserve params field names exactly.${recoveryHint}\n\nOriginal params value:\n${formatValueForError(params ?? {})}`,
       )
     }
   }

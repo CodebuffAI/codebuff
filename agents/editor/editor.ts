@@ -252,6 +252,26 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
           : unresolved.length > 0
             ? 'partial'
             : 'completed'
+      const changedFileSet = new Set(changedFiles.map(normalizeFilePath))
+      // Attest handoff findings whenever mutations landed and every listed
+      // finding file is covered. Do not require status === 'completed' alone:
+      // partial multi-target repairs still address the findings they touched.
+      const findingsAddressed =
+        changedFiles.length > 0 && Array.isArray(handoff?.findings)
+          ? handoff.findings
+              .filter((item: any) => {
+                if (!Array.isArray(item?.files) || item.files.length === 0) {
+                  return false
+                }
+                return item.files.every((file: unknown) =>
+                  typeof file === 'string'
+                    ? changedFileSet.has(normalizeFilePath(file))
+                    : false,
+                )
+              })
+              .map((item: any) => item.id)
+              .filter((id: unknown): id is string => typeof id === 'string')
+          : []
 
       yield {
         toolName: 'set_output',
@@ -263,31 +283,7 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
             ...(targetFileProgress ? { targetFileProgress } : {}),
             requirementsAddressed: [],
             acceptanceCriteriaAddressed: [],
-            findingsAddressed:
-              status === 'completed' && Array.isArray(handoff?.findings)
-                ? handoff.findings
-                    .filter((item: any) => {
-                      if (
-                        !Array.isArray(item?.files) ||
-                        item.files.length === 0
-                      ) {
-                        return false
-                      }
-                      return item.files.every((file: unknown) =>
-                        typeof file === 'string'
-                          ? changedFiles.some(
-                              (changedFile) =>
-                                normalizeFilePath(changedFile) ===
-                                normalizeFilePath(file),
-                            )
-                          : false,
-                      )
-                    })
-                    .map((item: any) => item.id)
-                    .filter(
-                      (id: unknown): id is string => typeof id === 'string',
-                    )
-                : [],
+            findingsAddressed,
             unresolved,
             requestedValidation: [],
           },
@@ -319,54 +315,35 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         )
       }
 
-      function hasEditArtifact(record: Record<string, unknown>): boolean {
+      function hasAppliedMutationAction(action: unknown): boolean {
+        if (!action || typeof action !== 'object') return false
+        const record = action as Record<string, unknown>
+        if (typeof record.path !== 'string' || record.path.length === 0) {
+          return false
+        }
         return (
-          record.kind === 'file_mutation_result' &&
+          record.outcome === 'applied' ||
+          record.status === 'committed' ||
+          record.outcome === 'committed'
+        )
+      }
+
+      // Accept both file_mutation_result and commit_receipt shapes. Runtime
+      // attestation walks both; the editor must not under-report changedFiles
+      // when only a commit_receipt is present in tool history.
+      function hasEditArtifact(record: Record<string, unknown>): boolean {
+        if (!Array.isArray(record.actions)) return false
+        if (!record.actions.some(hasAppliedMutationAction)) return false
+        if (record.kind === 'commit_receipt') return true
+        if (record.kind !== 'file_mutation_result') return false
+        return (
           record.version === 1 &&
           typeof record.operationId === 'string' &&
           record.operationId.length > 0 &&
-          (record.authorityTier === 'portable_path' ||
-            record.authorityTier === 'conditional_commit') &&
           (record.outcome === 'applied' ||
             record.outcome === 'partial' ||
-            record.outcome === 'rollback_incomplete') &&
-          Array.isArray(record.actions) &&
-          record.authorityReceipt !== null &&
-          typeof record.authorityReceipt === 'object' &&
-          !Array.isArray(record.authorityReceipt) &&
-          (record.authorityReceipt as Record<string, unknown>).operationId ===
-            record.operationId &&
-          (record.authorityReceipt as Record<string, unknown>).receiptId ===
-            record.receiptId &&
-          Array.isArray(
-            (record.authorityReceipt as Record<string, unknown>).actions,
-          ) &&
-          (
-            (record.authorityReceipt as Record<string, unknown>)
-              .actions as unknown[]
-          ).length === record.actions.length &&
-          record.actions.every(
-            (action, index) =>
-              action !== null &&
-              typeof action === 'object' &&
-              (action as Record<string, unknown>).index === index &&
-              typeof (action as Record<string, unknown>).actionId ===
-                'string' &&
-              typeof (action as Record<string, unknown>).path === 'string' &&
-              (
-                (record.authorityReceipt as Record<string, unknown>)
-                  .actions as Array<Record<string, unknown>>
-              )[index]?.actionId ===
-                (action as Record<string, unknown>).actionId,
-          ) &&
-          Array.isArray(record.errors) &&
-          Array.isArray(record.freshCapabilities) &&
-          record.actions.some(
-            (action) =>
-              action !== null &&
-              typeof action === 'object' &&
-              (action as Record<string, unknown>).outcome === 'applied',
-          )
+            record.outcome === 'rollback_incomplete' ||
+            record.outcome === 'committed')
         )
       }
 
@@ -412,7 +389,7 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
           for (const action of record.actions as Array<
             Record<string, unknown>
           >) {
-            if (action.outcome !== 'applied') continue
+            if (!hasAppliedMutationAction(action)) continue
             if (typeof action.path === 'string') out.add(action.path)
             if (
               action.action === 'move' &&

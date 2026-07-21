@@ -234,15 +234,18 @@ describe('base2 deterministic gate lifecycle e2e', () => {
         }),
       ]),
     )
-    // Repair handoffs grant a wildcard read scope plus the lifecycle file as
-    // the writable target. Assert the required entries are present rather
-    // than exact-array equality so added discovery-tool grants don't break it.
-    expect(repairAgent.handoff.permissions.readablePaths).toEqual(
+    // Repair handoffs grant least-privilege access to the implicated file and
+    // its containing directory, never a project-wide wildcard scope.
+    expect(repairAgent.handoff.permissions.readablePaths).toEqual([
+      LIFECYCLE_FILE,
+      `${SCRATCH_ROOT}/**/*`,
+    ])
+    expect(repairAgent.handoff.permissions.readablePaths).not.toEqual(
       expect.arrayContaining(['*', '**/*']),
     )
-    expect(repairAgent.handoff.permissions.writablePaths).toEqual(
-      expect.arrayContaining([LIFECYCLE_FILE]),
-    )
+    expect(repairAgent.handoff.permissions.writablePaths).toEqual([
+      LIFECYCLE_FILE,
+    ])
     const findingIds = (
       repairEditorSpawn.value as any
     ).input.agents[0].handoff.findings.map(
@@ -252,12 +255,18 @@ describe('base2 deterministic gate lifecycle e2e', () => {
     expect(
       gen.next(
         feedJson({
-          schemaVersion: 1,
-          receiptId: 'reviewer-repair-receipt',
-          status: 'completed',
-          changedFiles: [{ path: LIFECYCLE_FILE }],
-          findingsAddressed: findingIds,
-          requestedValidation: [],
+          agentId: 'repair-editor-1',
+          agentName: 'Repair Editor',
+          agentType: 'repair-editor',
+          value: {},
+          agentReceipt: {
+            schemaVersion: 1,
+            receiptId: 'reviewer-repair-receipt',
+            status: 'completed',
+            changedFiles: [{ path: LIFECYCLE_FILE }],
+            findingsAddressed: findingIds,
+            requestedValidation: [],
+          },
         }),
       ).value,
     ).toMatchObject({ toolName: 'git_status', input: {} })
@@ -313,6 +322,11 @@ describe('base2 deterministic gate lifecycle e2e', () => {
       toolName: 'spawn_agents',
       input: { agents: [{ agent_type: 'code-reviewer' }] },
     })
+    // The repair loop persists the BLOCKING reviewer's family and explicitly
+    // re-dispatches it after validation; this is not dependent on aux-gate order.
+    expect((agentState as any).base2ActiveWork.requiredReviewerRevalidation).toBe(
+      'code-reviewer',
+    )
 
     // Invariant 11: a non-blocking reviewer verdict permits finalization.
     const gatePassed = gen.next(

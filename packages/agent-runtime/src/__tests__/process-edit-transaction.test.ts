@@ -1208,6 +1208,82 @@ describe('processEditTransaction', () => {
     }
   })
 
+  it('shifts a later non-overlapping replace_range from the original snapshot', async () => {
+    const initial = 'one\ntwo\nthree\n'
+    const issuer = { projectId: '/project', runId: 'range-shift' }
+    const rangeCapability = (startLine: number, endLine: number, content: string) =>
+      encodeReadCapabilityToken({
+        startLine,
+        endLine,
+        hash: getContentHash(content),
+        scope: { ...issuer, path: 'src/file.ts' },
+      })
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/file.ts', initial]]),
+      logger,
+      readCapabilityIssuer: issuer,
+      edits: [
+        {
+          type: 'replace_range',
+          path: 'src/file.ts',
+          startLine: 1,
+          endLine: 1,
+          expectedHash: getContentHash('one'),
+          readCapability: rangeCapability(1, 1, 'one'),
+          newContent: 'ONE\nINSERTED',
+        },
+        {
+          type: 'replace_range',
+          path: 'src/file.ts',
+          startLine: 3,
+          endLine: 3,
+          expectedHash: getContentHash('three'),
+          readCapability: rangeCapability(3, 3, 'three'),
+          newContent: 'THREE',
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files[0].content).toBe('ONE\nINSERTED\ntwo\nTHREE\n')
+    }
+  })
+
+  it('rejects overlapping sequential replace_ranges from the original snapshot', async () => {
+    const initial = 'one\ntwo\nthree\n'
+    const result = await processEditTransaction({
+      initialContentByPath: new Map([['src/file.ts', initial]]),
+      logger,
+      edits: [
+        {
+          type: 'replace_range',
+          path: 'src/file.ts',
+          startLine: 1,
+          endLine: 2,
+          expectedHash: getContentHash('one\ntwo'),
+          newContent: 'ONE\nTWO\nINSERTED',
+        },
+        {
+          type: 'replace_range',
+          path: 'src/file.ts',
+          startLine: 2,
+          endLine: 3,
+          expectedHash: getContentHash('two\nthree'),
+          newContent: 'TWO\nTHREE',
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.failures[0]).toEqual(
+        expect.objectContaining({ editIndex: 1, path: 'src/file.ts' }),
+      )
+      expect(result.failures[0]?.errorMessage).toContain('overlap a prior replace_range')
+    }
+  })
+
   it('composes range, patch, and whole-file transaction primitives', async () => {
     const initial = 'one\ntwo\nthree\n'
     const result = await processEditTransaction({
@@ -1374,11 +1450,7 @@ describe('processEditTransaction', () => {
     }
   })
 
-  it('rejects a whole-file readCapability sub-range edit when the current file hash is stale, minting a recovery capability', async () => {
-    // RF-1/RF-10 stale-hash case: the whole-file capability attests an older
-    // file hash. The runtime must reject and return a recovery capability for
-    // the current whole-file content so the model can retry without a
-    // separate read_files round-trip.
+  it('rejects a stale whole-file capability without granting retry authority', async () => {
     const staleInitial = 'export const value = 1\nexport const other = 2\n'
     const currentInitial = 'export const value = 99\nexport const other = 2\n'
     const issuer = { projectId: '/project', runId: 'run-wholefile-stale' }
@@ -1388,15 +1460,14 @@ describe('processEditTransaction', () => {
       hash: getContentHash(staleInitial),
       scope: { ...issuer, path: 'src/helper.ts' },
     })
-
-    const result = await processEditTransaction({
+    const request = {
       initialContentByPath: new Map([['src/helper.ts', currentInitial]]),
       logger,
       readCapabilityIssuer: issuer,
       edits: [
         {
           id: 'whole-file-cap-subrange-stale',
-          type: 'replace_range',
+          type: 'replace_range' as const,
           path: 'src/helper.ts',
           readCapability: staleWholeFileCap,
           startLine: 2,
@@ -1404,32 +1475,83 @@ describe('processEditTransaction', () => {
           newContent: 'export const other = 22',
         },
       ],
-    })
+    }
+
+    const result = await processEditTransaction(request)
 
     expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('edit_transaction aborted')
-      expect(result.failures).toEqual([
-        expect.objectContaining({
-          editIndex: 0,
-          id: 'whole-file-cap-subrange-stale',
+    if (!('error' in result)) return
+    expect(result.error).toContain('edit_transaction aborted')
+    expect(result.failures).toEqual([
+      expect.objectContaining({
+        editIndex: 0,
+        id: 'whole-file-cap-subrange-stale',
+        path: 'src/helper.ts',
+      }),
+    ])
+    const message = result.failures[0]!.errorMessage
+    expect(message).toContain(
+      'the whole-file readCapability is stale (its hash no longer matches the current full-file content)',
+    )
+    expect(message).toContain('Re-read the file (read_files.paths)')
+    expect(message).not.toContain('Recovery capability')
+    expect(message).not.toContain('readCapability="')
+    expect(message).not.toContain('retry replace_range DIRECTLY')
+    expect(message).not.toContain('no extra read_files round-trip required')
+    expect(message).not.toContain('cap.v3.')
+
+    const retry = await processEditTransaction(request)
+    expect('error' in retry).toBe(true)
+    if ('error' in retry) {
+      expect(retry.failures[0]!.errorMessage).toBe(message)
+    }
+  })
+
+  it('rejects a stale exact-range capability without granting retry authority', async () => {
+    const staleRange = 'export const value = 1'
+    const currentInitial = 'export const value = 99\nexport const other = 2\n'
+    const issuer = { projectId: '/project', runId: 'run-range-stale' }
+    const staleRangeCap = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 1,
+      hash: getContentHash(staleRange),
+      scope: { ...issuer, path: 'src/helper.ts' },
+    })
+    const request = {
+      initialContentByPath: new Map([['src/helper.ts', currentInitial]]),
+      logger,
+      readCapabilityIssuer: issuer,
+      edits: [
+        {
+          id: 'exact-range-cap-stale',
+          type: 'replace_range' as const,
           path: 'src/helper.ts',
-        }),
-      ])
-      const message = result.failures[0]!.errorMessage
-      expect(message).toContain(
-        'the whole-file readCapability is stale (its hash no longer matches the current full-file content)',
-      )
-      // The inline recovery path mints a fresh whole-file capability over the
-      // CURRENT file content and returns it in the error message.
-      const expectedRecovery = encodeReadCapabilityToken({
-        startLine: 1,
-        endLine: currentInitial.split('\n').length,
-        hash: getContentHash(currentInitial),
-        scope: { ...issuer, path: 'src/helper.ts' },
-      })
-      expect(message).toContain(`readCapability="${expectedRecovery}"`)
-      expect(message).toContain('no extra read_files round-trip required')
+          readCapability: staleRangeCap,
+          startLine: 1,
+          endLine: 1,
+          expectedHash: getContentHash(staleRange),
+          newContent: 'export const value = 2',
+        },
+      ],
+    }
+
+    const result = await processEditTransaction(request)
+
+    expect('error' in result).toBe(true)
+    if (!('error' in result)) return
+    const message = result.failures[0]!.errorMessage
+    expect(message).toContain('expectedHash is stale')
+    expect(message).toContain('Re-read lines 1-1')
+    expect(message).not.toContain('Recovery capability')
+    expect(message).not.toContain('readCapability="')
+    expect(message).not.toContain('retry replace_range DIRECTLY')
+    expect(message).not.toContain('no extra read_files round-trip required')
+    expect(message).not.toContain('cap.v3.')
+
+    const retry = await processEditTransaction(request)
+    expect('error' in retry).toBe(true)
+    if ('error' in retry) {
+      expect(retry.failures[0]!.errorMessage).toBe(message)
     }
   })
 })

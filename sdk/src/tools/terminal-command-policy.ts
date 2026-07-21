@@ -98,10 +98,334 @@ function hasUnquotedShellSyntax(command: string): boolean {
   return false
 }
 
-function hasShellInterpreterEscape(command: string): boolean {
-  return /^(?:(?:env\s+)?(?:command\s+)?(?:bash|sh|zsh|dash|fish)\s+-c|eval\b|source\b|\.\s+)/i.test(
-    command.trim(),
+/**
+ * Raw-string active-syntax guard for the git-commit profile. Deliberately
+ * NOT quote-aware: `runTerminalCommand` executes via `bash -c`, which expands
+ * substitution and redirection even inside quotes, and git-commit read-only
+ * commands never need redirection or substitution. Rejects the command if
+ * `$(`, a backtick, `<`, or `>` appears anywhere in the raw string.
+ */
+function hasActiveShellSyntaxAnywhere(command: string): boolean {
+  return /\$\(|`|<|>/.test(command)
+}
+
+/** Detect command substitution/backticks that execute outside single quotes. */
+function hasActiveCommandSubstitution(command: string): boolean {
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = null
+      else if (quote === '"' && (char === '`' || (char === '$' && command[index + 1] === '('))) return true
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      continue
+    }
+    if (char === '`' || (char === '$' && command[index + 1] === '(')) return true
+  }
+  return false
+}
+
+/** Detect active parameter expansion outside single-quoted literal data. */
+function hasActiveParameterExpansion(command: string): boolean {
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = null
+      else if (quote === '"' && char === '$') {
+        return true
+      }
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      continue
+    }
+    if (char === '$') return true
+  }
+  return false
+}
+
+/** Detect active shell compound/control syntax outside quoted literal data. */
+function hasActiveTmuxCompoundShellSyntax(command: string): boolean {
+  const keywords = new Set([
+    'if',
+    'then',
+    'fi',
+    'for',
+    'while',
+    'until',
+    'case',
+    'esac',
+    'do',
+    'done',
+  ])
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  let token = ''
+
+  const flushToken = (): boolean => {
+    if (keywords.has(token)) return true
+    token = ''
+    return false
+  }
+
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === "'" || char === '"') {
+      if (flushToken()) return true
+      quote = char
+      continue
+    }
+    if (char === '{' || char === '}' || char === '(' || char === ')') {
+      return true
+    }
+    if (/[A-Za-z0-9_]/.test(char)) {
+      token += char
+      continue
+    }
+    if (flushToken()) return true
+  }
+  return flushToken()
+}
+
+const TMUX_UNSAFE_EXECUTABLES = new Set([
+  // Execution wrappers can conceal a prohibited command behind option parsing
+  // and must fail closed after env/command resolver normalization.
+  'nice',
+  'nohup',
+  'stdbuf',
+  'timeout',
+  'time',
+  'setsid',
+  'chrt',
+  'ionice',
+  'flock',
+  'unshare',
+  // Direct writers and archive extractors can mutate arbitrary workspace paths.
+  // Deny them by normalized executable so quoted flags and wrapper forms cannot evade it.
+  'sed',
+  'tar',
+  'unzip',
+  'patch',
+  'rsync',
+  'cpio',
+  '7z',
+  'unrar',
+  'awk',
+  'bash',
+  'busybox',
+  'bun',
+  'chgrp',
+  'chmod',
+  'chown',
+  'dash',
+  'dd',
+  'deno',
+  'eval',
+  'find',
+  'fish',
+  'ln',
+  'lua',
+  'make',
+  'node',
+  'nodejs',
+  'perl',
+  'php',
+  'python',
+  'python3',
+  'ruby',
+  'sh',
+  'shred',
+  'source',
+  'tee',
+  'xargs',
+  'zsh',
+  '__unsafe-tmux-wrapper__',
+])
+
+type TmuxCommand = {
+  executable: string
+  arguments: string[]
+}
+
+type TmuxShellWord = {
+  raw: string
+  value: string
+}
+
+/** Tokenize shell words while applying quote removal and executable escapes. */
+function tokenizeTmuxShellWords(segment: string): TmuxShellWord[] | undefined {
+  const tokens: TmuxShellWord[] = []
+  let raw = ''
+  let value = ''
+  let quote: "'" | '"' | null = null
+  let hasWord = false
+
+  const flushWord = (): void => {
+    if (!hasWord) return
+    tokens.push({ raw, value })
+    raw = ''
+    value = ''
+    hasWord = false
+  }
+
+  for (let index = 0; index < segment.length; index += 1) {
+    const char = segment[index]
+    if (!quote && /\s/.test(char)) {
+      flushWord()
+      continue
+    }
+    hasWord = true
+    raw += char
+    if (char === "'" && quote !== '"') {
+      quote = quote === "'" ? null : "'"
+      continue
+    }
+    if (char === '"' && quote !== "'") {
+      quote = quote === '"' ? null : '"'
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      const escaped = segment[index + 1]
+      if (escaped === undefined) return undefined
+      if (!quote || /[$`"\\\n]/.test(escaped)) {
+        raw += escaped
+        value += escaped
+        index += 1
+        continue
+      }
+    }
+    value += char
+  }
+
+  if (quote) return undefined
+  flushWord()
+  return tokens
+}
+
+/**
+ * Resolves the executable at the start of a shell segment after consuming
+ * leading POSIX assignment words and unwrapping `env` assignments/options and
+ * `command` options. Shell quote removal and backslash escaping are applied
+ * only to resolver-controlled words; arguments retain their raw quoting as
+ * inert data. Unsupported, unresolved, or malformed executables fail closed.
+ */
+function resolveTmuxCommand(segment: string): TmuxCommand | undefined {
+  const tokens = tokenizeTmuxShellWords(segment)
+  if (!tokens) return { executable: '__unsafe-tmux-wrapper__', arguments: [] }
+  let index = 0
+
+  while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[index]?.value ?? '')) {
+    index += 1
+  }
+
+  while (index < tokens.length) {
+    const token = tokens[index]
+    const executable = token.value
+      .split('/')
+      .filter(Boolean)
+      .at(-1)
+      ?.toLowerCase()
+    if (!executable || !/^[a-z0-9._+-]+$/.test(executable)) {
+      return { executable: '__unsafe-tmux-wrapper__', arguments: [] }
+    }
+
+    if (executable === 'env') {
+      index += 1
+      let optionsEnded = false
+      while (index < tokens.length) {
+        const argument = tokens[index].value
+        if (!optionsEnded && argument === '--') {
+          optionsEnded = true
+          index += 1
+        } else if (!optionsEnded && (argument === '-i' || argument === '--ignore-environment')) {
+          index += 1
+        } else if (!optionsEnded && (argument === '-u' || argument === '--unset')) {
+          if (!tokens[index + 1]) {
+            return { executable: '__unsafe-tmux-wrapper__', arguments: [] }
+          }
+          index += 2
+        } else if (!optionsEnded && argument.startsWith('--unset=')) {
+          index += 1
+        } else if (!optionsEnded && argument.startsWith('-')) {
+          return { executable: '__unsafe-tmux-wrapper__', arguments: [] }
+        } else if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(argument)) {
+          index += 1
+        } else {
+          break
+        }
+      }
+      continue
+    }
+    if (executable === 'command') {
+      index += 1
+      if (tokens[index]?.value === '--') index += 1
+      else if ((tokens[index]?.value ?? '').startsWith('-')) {
+        return { executable: '__unsafe-tmux-wrapper__', arguments: [] }
+      }
+      continue
+    }
+    return {
+      executable,
+      arguments: tokens.slice(index + 1).map((argument) => argument.raw),
+    }
+  }
+  return { executable: '__unsafe-tmux-wrapper__', arguments: [] }
+}
+
+function getTmuxExecutable(segment: string): string | undefined {
+  return resolveTmuxCommand(segment)?.executable
+}
+
+function hasUnsafeTmuxExecutable(command: string): boolean {
+  const segments = splitReadOnlyShellSegments(command)
+  return (
+    segments?.some((segment) => {
+      const executable = getTmuxExecutable(segment)
+      return (
+        executable === '__unsafe-tmux-wrapper__' ||
+        (executable !== undefined && TMUX_UNSAFE_EXECUTABLES.has(executable))
+      )
+    }) ?? false
   )
+}
+
+function hasShellInterpreterEscape(command: string): boolean {
+  return /^(?:eval\b|source\b|\.\s+)/i.test(command.trim())
 }
 
 function findTraversalPath(command: string): string | undefined {
@@ -173,6 +497,92 @@ function stripSafeReadOnlyRedirections(segment: string): string | undefined {
 }
 
 /**
+ * tmux-test commands execute through a shell, so a policy-time path check
+ * cannot safely authorize a later filesystem open. Only output discarded to
+ * /dev/null is permitted; fixture writes require a dedicated executor that
+ * owns an atomically-created private directory.
+ */
+function hasUnsafeTmuxWriteRedirection(command: string): boolean {
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      continue
+    }
+    if (char !== '>') continue
+
+    let targetStart = index + 1
+    if (command[targetStart] === '>' || command[targetStart] === '|') targetStart += 1
+    while (/\s/.test(command[targetStart] ?? '')) targetStart += 1
+    if (
+      command[targetStart] === '&' &&
+      /[012]/.test(command[targetStart + 1] ?? '')
+    ) {
+      continue
+    }
+    const target = command.slice(targetStart).match(/^\S+/)?.[0] ?? ''
+    if (target !== '/dev/null') return true
+  }
+  return false
+}
+
+function hasUnsafeTmuxSedInPlace(command: string): boolean {
+  const segments = splitReadOnlyShellSegments(command)
+  return (
+    segments?.some((segment) => {
+      const resolved = resolveTmuxCommand(segment)
+      return (
+        resolved?.executable === 'sed' &&
+        resolved.arguments.some(
+          (argument) =>
+            argument === '--in-place' ||
+            argument.startsWith('--in-place=') ||
+            /^-[A-Za-z]*i[A-Za-z]*(?:\..*)?$/.test(argument),
+        )
+      )
+    }) ?? false
+  )
+}
+
+/**
+ * A shell command can replace a checked /tmp path before opening it. Deny all
+ * file mutation commands until fixture creation is owned by a no-follow,
+ * directory-FD-relative terminal executor.
+ */
+function hasUnsafeTmuxFileMutation(command: string): boolean {
+  const mutationExecutables = new Set([
+    'rm',
+    'mv',
+    'cp',
+    'mkdir',
+    'touch',
+    'truncate',
+    'install',
+  ])
+  const segments = splitReadOnlyShellSegments(command)
+  return (
+    segments?.some((segment) => {
+      const resolved = resolveTmuxCommand(segment)
+      return Boolean(resolved && mutationExecutables.has(resolved.executable))
+    }) ?? false
+  )
+}
+
+/**
  * Traversal guard for the validation-diagnosis profile: rejects only `..`
  * tokens whose path resolves outside the project root, so diagnostic repros
  * may reference in-project siblings such as `../src/languages` from a package
@@ -207,14 +617,16 @@ function findEscapingTraversalPath(
  * unquoted, expansion-free paths that resolve inside the project root are
  * allowed (e.g. `cat > repro/fixture.log <<'EOF'`). Absolute targets must
  * stay inside the project, and targets with `..` segments must not resolve
- * outside it; anything else (tilde/variable/backtick expansion, escapes like
- * `../outside` or `/etc/x`) is unsafe and keeps the command blocked.
+ * outside it; anything else (tilde/variable/backtick expansion or shell
+ * escaping) is unsafe and keeps the command blocked.
  */
 function isDiagnosticWriteTargetSafe(
   target: string,
   projectRoot: string,
 ): boolean {
-  if (target.length === 0 || /["'`~$]/.test(target)) return false
+  // The shell removes backslashes before resolving a redirect target. Reject
+  // them before containment checks so `\../outside` cannot escape projectRoot.
+  if (target.length === 0 || /[\\"'`~$]/.test(target)) return false
   const root = path.resolve(projectRoot)
   const resolved = path.isAbsolute(target)
     ? path.resolve(target)
@@ -249,6 +661,28 @@ function stripDiagnosticRedirections(
   )
   if (!safe) return undefined
   return stripSafeReadOnlyRedirections(withoutWrites)
+}
+
+/**
+ * Accept one bounded, literal heredoc only for the diagnostic `cat > file`
+ * shape. Its quoted delimiter makes the body inert shell data; stripping it
+ * before general normalization prevents body text from being treated as shell
+ * syntax or a second command. The full-string match rejects a missing or
+ * trailing command after the terminator.
+ */
+function stripBoundedDiagnosticHeredoc(command: string): string | undefined {
+  const match = command.match(
+    /^\s*cat\s+>\s*([^\s<>|;&]+)\s*<<\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\r?\n([\s\S]*)\r?\n\2\s*$/,
+  )
+  if (
+    !match ||
+    match[3].length > 65_536 ||
+    match[3].includes('\0') ||
+    match[3].split(/\r?\n/).includes(match[2])
+  ) {
+    return undefined
+  }
+  return `cat > ${match[1]}`
 }
 
 function findReadOnlyDanger(command: string): string | undefined {
@@ -364,6 +798,77 @@ function stripCommitMessageArgs(command: string): string {
     .trim()
 }
 
+function hasUnsafeReadOnlyGitOption(command: string): boolean {
+  return /(?:^|\s)--(?:output|exec-path)(?:=|\s|$)/i.test(command) ||
+    /(?:^|\s)--(?:ext-diff|textconv)(?:\s|$)/i.test(command) ||
+    /(?:^|\s)-o(?:\s|$)/i.test(command)
+}
+
+/**
+ * Read-only git inspection commands for the git-commit profile: the
+ * ancestry/branch/remote inspectors unioned with the existing inspect verbs.
+ * These are the only git commands allowed as segments of shell composition
+ * (`|`/`;`/`&&`); add/commit/push stay single-command-only. A segment with
+ * active shell syntax (a redirection, or substitution hidden inside quotes)
+ * never counts as read-only.
+ */
+function isReadOnlyGitCommand(command: string): boolean {
+  if (hasActiveShellSyntaxAnywhere(command)) return false
+  if (hasUnquotedShellSyntax(command)) return false
+  if (hasUnsafeReadOnlyGitOption(command)) return false
+  // `\b` after `show` treats `show-ref` as `show` + `-ref` (`-` is a word
+  // boundary), which let `git show-ref --delete refs/heads/x` pass as a bare
+  // `show`. Require whitespace (or end) after the verb so `show` cannot match
+  // `show-ref` and `branch` cannot match `branch-...`; args still allowed.
+  return (
+    /^git\s+(?:status|diff|log|show|rev-parse|rev-list|ls-files)(?:\s|$)/i.test(
+      command,
+    ) ||
+    /^git\s+fetch(?:\s+--prune)?(?:\s+[A-Za-z0-9._/-]+)?$/i.test(command) ||
+    /^git\s+branch\s+--show-current(?:\s|$)/i.test(command) ||
+    /^git\s+merge-base(?:\s+--(?:is-ancestor|all|octopus|independent|fork-point))?(?:\s+[A-Za-z0-9._/^-]+)*\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+ls-remote(?:\s+--(?:heads|tags|refs|exit-code|get-url|symref|sort=\S+))?(?:\s+[A-Za-z0-9._/^*-]+)*\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+branch(?:\s+-[rva]+|\s+--list)+(?:\s+[A-Za-z0-9._/^*-]+)*\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+remote\s+(?:-v|show\s+[A-Za-z0-9._/-]+|get-url\s+[A-Za-z0-9._/-]+)\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+show-ref(?:\s+--(?:heads|tags|head|hash(?:=\d+)?|abbrev(?:=\d+)?))+\s*$|^git\s+show-ref\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+describe(?:\s+--(?:tags|all|long|always|dirty|abbrev=\d+|match=\S+))?(?:\s+[A-Za-z0-9._/^-]+)*\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+name-rev(?:\s+--(?:name-only|tags|always|no-undefined))?(?:\s+[A-Za-z0-9._/^-]+)*\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+config\s+--get(?:-regexp)?\s+[A-Za-z0-9._/-]+\s*$/i.test(
+      command,
+    ) ||
+    /^git\s+cat-file\s+-(?:t|s|p|e)\s+[A-Za-z0-9._/^-]+\s*$/i.test(command)
+  )
+}
+
+/** tmux-test permits non-fetch Git commands only through the inspection allowlist. */
+function hasUnsafeTmuxGitCommand(command: string): boolean {
+  const segments = splitReadOnlyShellSegments(command)
+  return (
+    segments?.some((segment) => {
+      const resolved = resolveTmuxCommand(segment)
+      return (
+        resolved?.executable === 'git' &&
+        (resolved.arguments[0]?.toLowerCase() === 'fetch' ||
+          !isReadOnlyGitCommand(`git ${resolved.arguments.join(' ')}`))
+      )
+    }) ?? false
+  )
+}
+
 function findOutsideAbsolutePath(
   command: string,
   projectRoot: string,
@@ -414,7 +919,22 @@ export function evaluateTerminalCommandPolicy(params: {
   allowedPaths?: string[]
 }): TerminalPolicyDecision {
   if (params.mode === 'user') return { allowed: true }
-  const command = normalizeCommand(params.command)
+  const hasRawNewline = /\r|\n/.test(params.command)
+  const heredocCommand =
+    params.permissionProfile === 'validation-diagnosis' && hasRawNewline
+      ? stripBoundedDiagnosticHeredoc(params.command)
+      : undefined
+  if (
+    params.permissionProfile !== 'full-access' &&
+    hasRawNewline &&
+    !heredocCommand
+  ) {
+    return {
+      allowed: false,
+      reason: 'terminal commands cannot contain raw newlines',
+    }
+  }
+  const command = normalizeCommand(heredocCommand ?? params.command)
   let isLibrarianClone = false
 
   if (params.permissionProfile !== 'full-access') {
@@ -439,92 +959,127 @@ export function evaluateTerminalCommandPolicy(params: {
 
   if (params.permissionProfile === 'tmux-test') {
     const workspaceWriteSyntax = [
-      /(?:^|[;&|]\s*)\b(?:rm|mv|cp|mkdir|touch|truncate|install)\b(?![^\n]*\/tmp\/)/i,
-      /\bsed\s+-i\b/i,
+      // Command substitution remains active outside single quotes, including
+      // inside double quotes, and can mutate the workspace before tmux starts.
+      hasActiveCommandSubstitution(command),
+      hasActiveParameterExpansion(command),
+      hasActiveTmuxCompoundShellSyntax(command),
+      hasUnsafeTmuxFileMutation(command),
+      hasUnsafeTmuxSedInPlace(command),
+      hasUnsafeTmuxExecutable(command),
+      hasUnsafeTmuxGitCommand(command),
       /\b(?:npm|pnpm|yarn|bun)\s+(?:install|add|remove|update|publish)\b/i,
       /\bgit\s+(?:commit|push|reset|clean|checkout|switch|merge|rebase)\b/i,
-      /(?:^|\s)(?:>|>>)\s*(?!\/tmp\/|\/dev\/null|&\d)/,
+      hasUnsafeTmuxWriteRedirection(command),
+      hasShellInterpreterEscape(command),
     ]
-    if (workspaceWriteSyntax.some((pattern) => pattern.test(command))) {
+    if (
+      workspaceWriteSyntax.some(
+        (pattern) => pattern === true || (pattern instanceof RegExp && pattern.test(command)),
+      )
+    ) {
       return {
         allowed: false,
         reason:
-          'tmux-test agents may write only explicit /tmp fixtures and captures, not workspace files',
+          'tmux-test commands cannot write fixtures through the shell; use a dedicated terminal executor with private fixture creation',
       }
     }
   }
 
   if (params.permissionProfile === 'git-commit') {
-    if (hasUnquotedShellSyntax(command) || hasShellInterpreterEscape(command)) {
+    if (hasShellInterpreterEscape(command)) {
       return {
         allowed: false,
         reason:
           'git-commit commands cannot use shell composition or substitution',
       }
     }
-    const isGitAdd = /^git\s+add\b/i.test(command)
-    if (isGitAdd) {
-      const rawPaths =
-        command
-          .replace(/^git\s+add\s+/i, '')
-          .match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? []
-      const stagedPaths = rawPaths
-        .map((value) => value.replace(/^["']|["']$/g, '').replace(/^\.\//, ''))
-        .filter((value) => value !== '--')
-      if (
-        stagedPaths.length === 0 ||
-        stagedPaths.some(
-          (value) =>
-            value === '.' ||
-            value === '-A' ||
-            value === '--all' ||
-            value.startsWith('-') ||
-            /[*?\[\]{}]/.test(value),
-        )
-      ) {
-        return {
-          allowed: false,
-          reason:
-            'git-commit staging requires explicit owned file paths; broad flags, dot staging, options, and globs are forbidden',
-        }
-      }
-      const allowedPaths = new Set(
-        (params.allowedPaths ?? []).map((value) =>
-          value.replace(/\\/g, '/').replace(/^\.\//, ''),
-        ),
-      )
-      if (
-        allowedPaths.size === 0 ||
-        stagedPaths.some(
-          (value) => !allowedPaths.has(value.replace(/\\/g, '/')),
-        )
-      ) {
-        return {
-          allowed: false,
-          reason:
-            'git add paths must be an exact subset of the spawn-bound owned_paths allowlist',
-        }
-      }
-    }
-    const isAllowedGitCommand =
-      /^git\s+(?:status|diff|log|show|rev-parse|rev-list|ls-files)\b/i.test(
-        command,
-      ) ||
-      /^git\s+fetch(?:\s+--prune)?(?:\s+[A-Za-z0-9._/-]+)?$/i.test(command) ||
-      /^git\s+branch\s+--show-current\b/i.test(command) ||
-      /^git\s+add\s+(?!.*(?:^|\s)--(?:intent-to-add|chmod)\b).+/i.test(
-        command,
-      ) ||
-      (!/(?:^|\s)--amend\b/i.test(command) &&
-        /^git\s+commit\s+(?=.*-m(?:\s|$)).+/i.test(command)) ||
-      /^git\s+push\s+(?!.*(?:--force|-f\b|--delete\b|:))(?:-u\s+|--set-upstream\s+)?[A-Za-z0-9._/-]+\s+[A-Za-z0-9._/-]+$/i.test(
-        command,
-      )
-    if (!isAllowedGitCommand) {
+    // Fail-closed raw guard: `bash -c` expands substitution and redirection
+    // even inside quotes, so reject `$(`, backtick, `<`, and `>` anywhere in
+    // the command before any single-command or composed-segment validation.
+    if (hasActiveShellSyntaxAnywhere(command)) {
       return {
         allowed: false,
         reason:
-          'git-commit agents may only inspect/fetch git state, stage paths, create a non-amend commit, and perform an explicit non-force branch push',
+          'git-commit commands cannot use shell composition or substitution',
+      }
+    }
+    if (hasUnquotedShellSyntax(command)) {
+      // Shell composition is allowed only between allowlisted read-only git
+      // commands; staging, committing, and pushing stay single-command-only.
+      // Substitution, background `&`, and malformed input make the splitter
+      // bail out, and any mutating or non-git segment fails the predicate.
+      const segments = splitReadOnlyShellSegments(command)
+      if (!segments || !segments.every(isReadOnlyGitCommand)) {
+        return {
+          allowed: false,
+          reason:
+            'git-commit commands cannot use shell composition or substitution',
+        }
+      }
+    } else {
+      const isGitAdd = /^git\s+add\b/i.test(command)
+      if (isGitAdd) {
+        const rawPaths =
+          command
+            .replace(/^git\s+add\s+/i, '')
+            .match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? []
+        const stagedPaths = rawPaths
+          .map((value) =>
+            value.replace(/^["']|["']$/g, '').replace(/^\.\//, ''),
+          )
+          .filter((value) => value !== '--')
+        if (
+          stagedPaths.length === 0 ||
+          stagedPaths.some(
+            (value) =>
+              value === '.' ||
+              value === '-A' ||
+              value === '--all' ||
+              value.startsWith('-') ||
+              /[*?\[\]{}]/.test(value),
+          )
+        ) {
+          return {
+            allowed: false,
+            reason:
+              'git-commit staging requires explicit owned file paths; broad flags, dot staging, options, and globs are forbidden',
+          }
+        }
+        const allowedPaths = new Set(
+          (params.allowedPaths ?? []).map((value) =>
+            value.replace(/\\/g, '/').replace(/^\.\//, ''),
+          ),
+        )
+        if (
+          allowedPaths.size === 0 ||
+          stagedPaths.some(
+            (value) => !allowedPaths.has(value.replace(/\\/g, '/')),
+          )
+        ) {
+          return {
+            allowed: false,
+            reason:
+              'git add paths must be an exact subset of the spawn-bound owned_paths allowlist',
+          }
+        }
+      }
+      const isAllowedGitCommand =
+        isReadOnlyGitCommand(command) ||
+        /^git\s+add\s+(?!.*(?:^|\s)--(?:intent-to-add|chmod)\b).+/i.test(
+          command,
+        ) ||
+        (!/(?:^|\s)--amend\b/i.test(command) &&
+          /^git\s+commit\s+(?=.*-m(?:\s|$)).+/i.test(command)) ||
+        /^git\s+push\s+(?!.*(?:--force|-f\b|--delete\b|:))(?:-u\s+|--set-upstream\s+)?[A-Za-z0-9._/-]+\s+[A-Za-z0-9._/-]+$/i.test(
+          command,
+        )
+      if (!isAllowedGitCommand) {
+        return {
+          allowed: false,
+          reason:
+            'git-commit agents may only inspect/fetch git state, stage paths, create a non-amend commit, and perform an explicit non-force branch push',
+        }
       }
     }
     const outsidePath = findOutsideAbsolutePath(

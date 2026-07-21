@@ -273,22 +273,23 @@ describe('gate-reviewer helpers', () => {
     ).toEqual([])
   })
 
-  test('newer structured review schemas cannot bypass snapshot attestation', () => {
-    expect(
-      collectReviewerAttestationIssues(
-        {
-          schemaVersion: 3,
-          verdict: 'NON_BLOCKING',
-          snapshotFingerprint: 'stale',
-          reviewedFiles: ['src/a.ts'],
-        },
-        'current',
-        ['src/a.ts', 'src/b.ts'],
-      ),
-    ).toEqual([
-      'BLOCKING: reviewer snapshot fingerprint did not match the reviewed working tree',
-      'BLOCKING: reviewer did not attest to every pending file: src/b.ts',
-    ])
+  test('rejects every non-1 attestation schema version', () => {
+    for (const schemaVersion of [0, 2, 1.5]) {
+      expect(
+        collectReviewerAttestationIssues(
+          {
+            schemaVersion,
+            verdict: 'NON_BLOCKING',
+            snapshotFingerprint: 'current',
+            reviewedFiles: ['src/a.ts'],
+          },
+          'current',
+          ['src/a.ts'],
+        ),
+      ).toEqual([
+        'BLOCKING: reviewer returned an invalid attestation schemaVersion',
+      ])
+    }
   })
 
   test('normalizes reviewed file paths before attestation comparison', () => {

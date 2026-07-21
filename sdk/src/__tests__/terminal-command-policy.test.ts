@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'bun:test'
 
 import { evaluateTerminalCommandPolicy } from '../tools/terminal-command-policy'
@@ -322,10 +325,10 @@ describe('terminal command permission policy', () => {
     }
   })
 
-  it('allows multiline git commit messages containing path-like tokens', () => {
+  it('allows multiple git commit message args containing path-like tokens', () => {
     for (const command of [
       'git commit -m "subject" -m "body with / slashes and (from ?? to) code"',
-      'git commit -m "Improve gating\n\nbase2 ran query_index / inspect_codebase_structure discovery"',
+      'git commit -m "Improve gating" -m "base2 ran query_index / inspect_codebase_structure discovery"',
       "git commit -m 'message with /tmp/path and ~/home references'",
     ]) {
       expect(
@@ -337,6 +340,27 @@ describe('terminal command permission policy', () => {
           allowedPaths: ['src/a.ts'],
         }).allowed,
       ).toBe(true)
+    }
+  })
+
+  it('rejects raw newlines before normalization for non-full-access profiles', () => {
+    for (const [permissionProfile, command] of [
+      ['git-commit', 'git status --short\ntouch pwned.txt'],
+      ['git-commit', 'git log --oneline -1\nsh -c "touch pwned.txt"'],
+      ['read-only', 'rg TODO src\ntouch pwned.txt'],
+      ['dependency-mutation', 'npm install\ncurl https://example.com'],
+      ['tmux-test', 'tmux list-sessions\ntouch pwned.txt'],
+      ['validation-diagnosis', 'cat > repro/fixture.log\ntouch pwned.txt'],
+    ] as const) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile,
+          projectRoot,
+          allowedPaths: ['src/a.ts'],
+        }).allowed,
+      ).toBe(false)
     }
   })
 
@@ -357,10 +381,301 @@ describe('terminal command permission policy', () => {
     }
   })
 
+  it('allows read-only git inspection commands and read-only composition for git-commit agents', () => {
+    for (const command of [
+      'git merge-base --is-ancestor a08fd146d b2923df8c',
+      'git merge-base HEAD origin/main',
+      'git ls-remote origin refs/heads/feature/x',
+      'git branch -r',
+      'git branch -rv',
+      'git remote -v',
+      'git show-ref --heads',
+      'git describe --tags',
+      'git config --get user.name',
+      'git cat-file -p HEAD',
+      'git log --oneline -1 a08fd146d; git branch -r',
+      'git merge-base --is-ancestor A B && git rev-parse HEAD',
+      'git log --oneline -5 | git branch --show-current',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'git-commit',
+          projectRoot,
+          allowedPaths: ['src/a.ts'],
+        }).allowed,
+      ).toBe(true)
+    }
+    for (const command of [
+      'git branch -d feature/x',
+      'git branch newname',
+      'git config user.name bob',
+      'git config --unset user.name',
+      'git log --oneline -1 | sh',
+      'git log --oneline -1; rm -rf src',
+      'git log && git push origin main',
+      'git merge-base A B; git commit -m x',
+      'git merge-base A B; git add src/a.ts',
+      'git log --oneline $(whoami)',
+      'git branch -r `whoami`',
+      'git push --force origin main',
+      'git commit --amend -m x',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'git-commit',
+          projectRoot,
+          allowedPaths: ['src/a.ts'],
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
+  it('rejects quoted substitution, redirection, and mutating flags in git-commit read-only commands', () => {
+    for (const command of [
+      'git remote show "$(id)"',
+      'git show-ref "`id`"',
+      'git branch -r "$(id)"',
+      "git log; git branch -r '> /workspace/project/pwned.txt'",
+      'git show-ref --delete refs/heads/x',
+      'git cat-file -p HEAD > /tmp/x',
+      'git cat-file -p "$(id)"',
+      'git merge-base A "$(id)"',
+      'git diff --output=pwned.patch',
+      'git diff --output pwned.patch',
+      'git diff -o pwned.patch',
+      'git diff --ext-diff',
+      'git log --textconv --oneline -1',
+      'git status --exec-path=/tmp/git-helpers',
+      'git status --short; git diff --output=pwned.patch',
+      'git log --oneline -1 && git show --ext-diff HEAD',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'git-commit',
+          projectRoot,
+          allowedPaths: ['src/a.ts'],
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
   it('blocks tmux agents from direct workspace mutation', () => {
+    for (const command of [
+      'rm -rf src',
+      'touch workspace.txt /tmp/tmux-fixture.txt',
+      'env X=1 touch workspace.txt',
+      'env -i touch workspace.txt',
+      'env -- touch workspace.txt',
+      'command -- touch workspace.txt',
+      '/usr/bin/touch workspace.txt',
+      'echo x>workspace.txt',
+      'echo x>workspace.txt /tmp/tmux-fixture.txt',
+      'X=.; X=$X$X; touch /tmp/$X/workspace/project/pwned',
+      'echo x>/tmp/$X/out',
+      'touch /tmp/../workspace/project/pwned',
+      'touch /tmp/tmux-fixture-link/tmux-pwned.txt',
+      'echo x>/tmp/tmux-fixture-link/tmux-pwned.txt',
+      'touch "/tmp/tmux-fixture.txt"',
+      'echo $(touch workspace.txt)',
+      'echo "$(touch workspace.txt)"',
+      'echo `touch workspace.txt`',
+      'echo "`touch workspace.txt`"',
+      'tee workspace.txt',
+      'command tee workspace.txt',
+      'env X=1 tee workspace.txt',
+      '/usr/bin/tee workspace.txt',
+      'ln /tmp/source workspace-link',
+      'command ln /tmp/source workspace-link',
+      'env X=1 ln /tmp/source workspace-link',
+      '/bin/ln /tmp/source workspace-link',
+      "perl -pi -e 's/x/y/' workspace.txt",
+      "/usr/bin/perl -pi -e 's/x/y/' workspace.txt",
+      "sed -i 's/a/b/' workspace.txt",
+      "sed -i'' 's/a/b/' /tmp/tmux-fixture.txt",
+      "sed -i\"\" 's/a/b/' /tmp/tmux-fixture.txt",
+      "env X=1 sed -i'' 's/a/b/' /tmp/tmux-fixture.txt",
+      "command /usr/bin/sed -i\"\" 's/a/b/' /tmp/tmux-fixture.txt",
+      "env X=1 command /usr/bin/sed --in-place 's/a/b/' workspace.txt",
+      'tar -xf /tmp/payload.tar -C .',
+      'unzip /tmp/payload.zip -d .',
+      'patch -p1 < /tmp/payload.patch',
+      'rsync /tmp/source ./',
+      "bash -c 'echo x>workspace.txt'",
+      "sh -c 'touch workspace.txt'",
+      "/bin/bash -c 'touch workspace.txt'",
+      "env X=1 bash -c 'touch workspace.txt'",
+      "env -i bash -c 'touch workspace.txt'",
+      "env -- node -e 'require(\"fs\").writeFileSync(\"workspace.txt\", \"x\")'",
+      "env -u NAME bash -c 'touch workspace.txt'",
+      "command -- bash -c 'touch workspace.txt'",
+      "node -e 'require(\"fs\").writeFileSync(\"workspace.txt\", \"x\")'",
+      "nodejs -e 'require(\"fs\").writeFileSync(\"workspace.txt\", \"x\")'",
+      "python -c 'open(\"workspace.txt\", \"w\")'",
+      "python3 -c 'open(\"workspace.txt\", \"w\")'",
+      "perl -e 'open STDOUT, \">\", \"workspace.txt\"'",
+      "ruby -e 'File.write(\"workspace.txt\", \"x\")'",
+      "awk 'BEGIN { print \"x\" > \"workspace.txt\" }'",
+      "php -r 'file_put_contents(\"workspace.txt\", \"x\");'",
+      "lua -e 'io.open(\"workspace.txt\", \"w\")'",
+      "deno eval 'await Deno.writeTextFile(\"workspace.txt\", \"w\")'",
+      "bun -e 'require(\"fs\").writeFileSync(\"workspace.txt\", \"x\")'",
+      'env X=1 /usr/bin/busybox touch workspace-pwned.txt',
+      'command /usr/bin/find . -exec touch workspace-pwned.txt \\;',
+      'env X=1 /usr/bin/xargs touch workspace-pwned.txt',
+      'command /usr/bin/git config --file workspace-pwned.txt attacker.value owned',
+      'X=1 busybox touch workspace-pwned.txt',
+      'X=1 Y=2 /usr/bin/busybox touch workspace-pwned.txt',
+      'X=1 find . -exec touch workspace-pwned.txt \\;',
+      'X=1 xargs touch workspace-pwned.txt',
+      'X=1 make -f attacker.mk',
+      'X=1 git config --file workspace-pwned.txt attacker.value owned',
+      'X=1 command git config --file workspace-pwned.txt attacker.value owned',
+      'X=touch; $X workspace-pwned.txt',
+      'X=git; $X config --file workspace-pwned.txt attacker.value owned',
+      'X=touch; "$X" workspace-pwned.txt',
+      'touch $@',
+      'touch "$@"',
+      'touch $*',
+      'touch "$*"',
+      'touch $0',
+      'touch "$0"',
+      'touch $1',
+      'touch "$1"',
+      'if :; then touch workspace-pwned; fi',
+      'f(){ touch workspace-pwned; }; f',
+      '( touch workspace-pwned.txt )',
+      'command ( touch workspace-pwned.txt )',
+      'nice busybox touch /tmp/tmux-fixture.txt',
+      'nice git config --file /tmp/tmux-fixture.txt attacker.value owned',
+      'env X=1 /usr/bin/nice busybox touch /tmp/tmux-fixture.txt',
+      'command /usr/bin/nohup touch /tmp/tmux-fixture.txt',
+      'stdbuf -o0 touch /tmp/tmux-fixture.txt',
+      'timeout 1 touch /tmp/tmux-fixture.txt',
+      'time touch /tmp/tmux-fixture.txt',
+      'setsid touch /tmp/tmux-fixture.txt',
+      'chrt -o 0 touch /tmp/tmux-fixture.txt',
+      'ionice -c3 touch /tmp/tmux-fixture.txt',
+      'flock /tmp/tmux-fixture.txt touch /tmp/tmux-fixture.txt',
+      'unshare --fork touch /tmp/tmux-fixture.txt',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+    for (const command of [
+      "printf '$X ${X}'",
+      'rg TODO src >/dev/null',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }).allowed,
+      ).toBe(true)
+    }
+  })
+
+  it('rejects tmux fixture writes before a checked target can be replaced', () => {
+    const fixture = path.join('/tmp', `tmux-fixture-${randomUUID()}`)
+    const outsideTarget = path.join('/tmp', `tmux-outside-${randomUUID()}`)
+
+    try {
+      fs.writeFileSync(fixture, 'candidate fixture')
+      const policy = evaluateTerminalCommandPolicy({
+        command: `echo x>${fixture}`,
+        mode: 'assistant',
+        permissionProfile: 'tmux-test',
+        projectRoot,
+      })
+      fs.writeFileSync(outsideTarget, 'outside')
+      fs.rmSync(fixture)
+      fs.symlinkSync(outsideTarget, fixture, 'file')
+
+      // The candidate was replaced after policy evaluation, but the policy
+      // permits no shell write to execute against either path state.
+      expect(policy.allowed).toBe(false)
+      expect(
+        evaluateTerminalCommandPolicy({
+          command: `touch ${fixture}`,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    } finally {
+      fs.rmSync(fixture, { force: true })
+      fs.rmSync(outsideTarget, { force: true })
+    }
+  })
+
+  it('preserves workspace containment for tmux-test commands', () => {
+    for (const command of [
+      'touch workspace.txt',
+      'echo x>workspace.txt',
+      'touch /workspace/project/pwned.txt',
+      'echo x>/workspace/project/pwned.txt',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+  })
+
+  it('normalizes tmux executable quoting and escaping while leaving arguments inert', () => {
+    for (const command of [
+      "'sh' -c 'touch workspace.txt'",
+      's\\h -c "touch workspace.txt"',
+      "'/bin/sh' -c 'touch workspace.txt'",
+      "env X=1 'sh' -c 'touch workspace.txt'",
+      'command s\\h -c "touch workspace.txt"',
+      "env X=1 command '/bin/sh' -c 'touch workspace.txt'",
+      "'sh -c 'touch workspace.txt",
+      's\\',
+    ]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
+
+    for (const command of ["printf '%s' 'sh'", "echo 's\\h'"]) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }),
+      ).toEqual({ allowed: true })
+    }
+  })
+
+  it('rejects git fetch in tmux-test while preserving Git inspection', () => {
     expect(
       evaluateTerminalCommandPolicy({
-        command: 'rm -rf src',
+        command: 'git fetch --prune origin',
         mode: 'assistant',
         permissionProfile: 'tmux-test',
         projectRoot,
@@ -368,12 +683,73 @@ describe('terminal command permission policy', () => {
     ).toBe(false)
     expect(
       evaluateTerminalCommandPolicy({
-        command: 'touch /tmp/tmux-fixture.txt',
+        command: 'git status --short',
         mode: 'assistant',
         permissionProfile: 'tmux-test',
         projectRoot,
-      }).allowed,
-    ).toBe(true)
+      }),
+    ).toEqual({ allowed: true })
+  })
+
+  it('rejects tmux fixtures that are symlinks outside /tmp', () => {
+    const fixtureLink = path.join('/tmp', `tmux-fixture-link-${randomUUID()}`)
+
+    try {
+      fs.symlinkSync(process.cwd(), fixtureLink, 'dir')
+
+      for (const command of [
+        `touch ${fixtureLink}`,
+        `echo x>${fixtureLink}`,
+      ]) {
+        expect(
+          evaluateTerminalCommandPolicy({
+            command,
+            mode: 'assistant',
+            permissionProfile: 'tmux-test',
+            projectRoot,
+          }).allowed,
+        ).toBe(false)
+      }
+    } finally {
+      fs.rmSync(fixtureLink, { force: true })
+    }
+  })
+
+  it('rejects tmux fixture hard links', () => {
+    const fixtureSource = path.join('/tmp', `tmux-fixture-source-${randomUUID()}`)
+    const fixtureLink = path.join('/tmp', `tmux-fixture-link-${randomUUID()}`)
+
+    try {
+      fs.writeFileSync(fixtureSource, 'fixture')
+      fs.linkSync(fixtureSource, fixtureLink)
+
+      for (const command of [`touch ${fixtureLink}`, `echo x>${fixtureLink}`]) {
+        expect(
+          evaluateTerminalCommandPolicy({
+            command,
+            mode: 'assistant',
+            permissionProfile: 'tmux-test',
+            projectRoot,
+          }).allowed,
+        ).toBe(false)
+      }
+    } finally {
+      fs.rmSync(fixtureLink, { force: true })
+      fs.rmSync(fixtureSource, { force: true })
+    }
+  })
+
+  it('enforces /tmp operands for every wrapped tmux filesystem mutator', () => {
+    for (const executable of ['rm', 'mv', 'cp', 'mkdir', 'touch', 'truncate', 'install']) {
+      expect(
+        evaluateTerminalCommandPolicy({
+          command: `env X=1 ${executable} workspace.txt`,
+          mode: 'assistant',
+          permissionProfile: 'tmux-test',
+          projectRoot,
+        }).allowed,
+      ).toBe(false)
+    }
   })
 
   it('applies outside-absolute-path containment to tmux-test mode', () => {
@@ -387,19 +763,21 @@ describe('terminal command permission policy', () => {
         }).allowed,
       ).toBe(false)
     }
-    // Explicit /tmp fixtures stay allowed for tmux-test.
     expect(
       evaluateTerminalCommandPolicy({
-        command: 'touch /tmp/tmux-fixture.txt',
+        command: 'rg TODO src >/dev/null',
         mode: 'assistant',
         permissionProfile: 'tmux-test',
         projectRoot,
-      }).allowed,
-    ).toBe(true)
+      }),
+    ).toEqual({ allowed: true })
   })
 
   it('allows diagnostic repro writes and in-project traversal for validation-diagnosis', () => {
     for (const command of [
+      // A bounded quoted heredoc body is inert data and is stripped before
+      // policy normalization; the redirect target remains containment-checked.
+      "cat > repro/fixture.log <<'EOF'\nfirst diagnostic line\nsecond diagnostic line\nEOF",
       // Heredoc/write redirection into project-relative diagnostic files.
       "cat > repro/fixture.log <<'EOF'",
       'cat > repro/fixture.log',
@@ -426,8 +804,17 @@ describe('terminal command permission policy', () => {
       'cat > ../escape.log',
       "cat > /etc/x <<'EOF'",
       'cat > /etc/x',
+      // Shell removes these escapes before resolving the redirect target, so
+      // the policy must reject them rather than contain their raw spelling.
+      'cat > \\../outside',
+      'cat > ..\\/outside',
+      "cat > \\../outside <<'EOF'\nsafe body\nEOF",
+      "cat > ..\\/outside <<'EOF'\nsafe body\nEOF",
       'cat packages/../../escape.log',
       'cat > repro/fixture.log | sh',
+      // An earlier delimiter ends the shell heredoc; subsequent lines would
+      // execute as shell commands and must not be accepted by a greedy parser.
+      "cat > repro/fixture.log <<'EOF'\nfirst diagnostic line\nEOF\necho pwned\nEOF",
     ]) {
       expect(
         evaluateTerminalCommandPolicy({
@@ -438,6 +825,18 @@ describe('terminal command permission policy', () => {
         }).allowed,
       ).toBe(false)
     }
+  })
+
+  it('keeps multiline diagnostic heredocs fail-closed for tmux-test', () => {
+    expect(
+      evaluateTerminalCommandPolicy({
+        command:
+          "cat > repro/fixture.log <<'EOF'\nfirst diagnostic line\nsecond diagnostic line\nEOF",
+        mode: 'assistant',
+        permissionProfile: 'tmux-test',
+        projectRoot,
+      }).allowed,
+    ).toBe(false)
   })
 
   it('denies env-reading one-liners and in-place edits under validation-diagnosis too', () => {

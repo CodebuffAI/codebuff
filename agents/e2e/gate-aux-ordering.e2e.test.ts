@@ -28,7 +28,7 @@ function finishStepWithToolResult(value: unknown) {
 }
 
 function writerNoopResult(receiptId: string) {
-  return feedJson({
+  const agentReceipt = {
     schemaVersion: 1,
     receiptId,
     status: 'completed',
@@ -37,6 +37,13 @@ function writerNoopResult(receiptId: string) {
     requestedValidation: [],
     completionKind: 'noop',
     evidence: ['Existing coverage already satisfies the requested behavior.'],
+  }
+  return feedJson({
+    agentId: 'aux-writer-1',
+    agentName: 'Auxiliary Writer',
+    agentType: 'test-writer',
+    value: {},
+    agentReceipt,
   })
 }
 
@@ -103,6 +110,23 @@ function staleSpawnedReviewerResult(
       coverage: 'missing',
       dimensions: { correctness: 'block' },
       requirementCoverage: [],
+    },
+  })
+}
+
+function crashedSpawnedReviewerResult(
+  agentType: string,
+  snapshotFingerprint: string,
+  reviewedFiles: string[],
+) {
+  return feedJson({
+    agentType,
+    value: {
+      ...reviewerValue(snapshotFingerprint, reviewedFiles),
+      verdict: 'LOOKS_GOOD',
+      runtime: {
+        errorMessage: 'Specialist process crashed after emitting its verdict.',
+      },
     },
   })
 }
@@ -435,6 +459,196 @@ describe('base2 pre-reviewer aux gate ordering e2e', () => {
       preEditSecurityReviewDone: false,
       pendingGateFiles: [],
     })
+  })
+
+  test('blocks without finalization when a routed specialist returns stale attestations twice', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2-custom' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Implement the auth session lifecycle change.',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'query_index' })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'add_message',
+      includeToolCall: false,
+    })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'git_status',
+    })
+    expect(gen.next(feedJson({ status: '' })).value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'context-pruner' },
+    })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next(finishStepWithToolResult({ file: AUX_TRIPLE_FILE })).value,
+    ).toMatchObject({ toolName: 'git_status' })
+
+    const securityReviewerYield = gen.next(
+      feedJson({ status: ` M ${AUX_TRIPLE_FILE}` }),
+    )
+    expect(securityReviewerYield.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'security-reviewer' },
+    })
+    const securityFingerprint = (securityReviewerYield.value as any).input
+      .params.snapshot_fingerprint as string
+    expect(
+      gen.next(reviewerResult(securityFingerprint, [AUX_TRIPLE_FILE])).value,
+    ).toMatchObject({ toolName: 'get_change_review_bundle' })
+    expect(
+      gen.next(
+        feedJson({
+          snapshotId: 'specialist-protocol-snapshot',
+          files: [AUX_TRIPLE_FILE],
+        }),
+      ).value,
+    ).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'reliability-reviewer' }] },
+    })
+
+    // The first stale attestation uses the one bounded bundle refresh/retry.
+    expect(
+      gen.next(
+        staleSpawnedReviewerResult(
+          'reliability-reviewer',
+          'specialist-protocol-snapshot',
+          [AUX_TRIPLE_FILE],
+        ),
+      ).value,
+    ).toMatchObject({ toolName: 'get_change_review_bundle' })
+    const retrySpawn = gen.next(
+      feedJson({ snapshotId: 'specialist-protocol-snapshot-refreshed' }),
+    )
+    expect(retrySpawn.value).toMatchObject({
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'reliability-reviewer',
+            params: { snapshot_id: 'specialist-protocol-snapshot-refreshed' },
+          },
+        ],
+      },
+    })
+
+    // The retry is also stale: fail closed rather than clearing the gate or
+    // spawning repair-editor for a reviewer-protocol failure.
+    const blocked = gen.next(
+      staleSpawnedReviewerResult(
+        'reliability-reviewer',
+        'specialist-protocol-snapshot-refreshed',
+        [AUX_TRIPLE_FILE],
+      ),
+    )
+    expect(blocked.value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+      includeToolCall: false,
+    })
+    expect((blocked.value as any).input.content).toContain(
+      'did not spawn repair-editor or finalize',
+    )
+    expect(gen.next().done).toBe(true)
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      currentPhase: 'blocked',
+      pendingGateFiles: [AUX_TRIPLE_FILE],
+      gatePassedFiles: [],
+      lastReviewerGateSkipReason: 'specialist-terminal-failure',
+      nextRequiredAction: expect.stringContaining(
+        'fresh matching specialist review',
+      ),
+    })
+    expect((agentState as any).base2ActiveWork.openReviewerBlockers).not.toEqual(
+      [],
+    )
+    expect((agentState as any).canSuggestFollowups).toBe(false)
+  })
+
+  test('fails closed when a routed specialist crashes alongside a valid LOOKS_GOOD attestation', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2-custom' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Implement the auth session lifecycle change.',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'query_index' })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'add_message',
+      includeToolCall: false,
+    })
+    expect(gen.next(feedJson([])).value).toMatchObject({
+      toolName: 'git_status',
+    })
+    expect(gen.next(feedJson({ status: '' })).value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'context-pruner' },
+    })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next(finishStepWithToolResult({ file: AUX_TRIPLE_FILE })).value,
+    ).toMatchObject({ toolName: 'git_status' })
+
+    const securityReviewerYield = gen.next(
+      feedJson({ status: ` M ${AUX_TRIPLE_FILE}` }),
+    )
+    expect(securityReviewerYield.value).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'security-reviewer' },
+    })
+    const securityFingerprint = (securityReviewerYield.value as any).input
+      .params.snapshot_fingerprint as string
+    expect(
+      gen.next(reviewerResult(securityFingerprint, [AUX_TRIPLE_FILE])).value,
+    ).toMatchObject({ toolName: 'get_change_review_bundle' })
+    expect(
+      gen.next(
+        feedJson({
+          snapshotId: 'specialist-crash-snapshot',
+          files: [AUX_TRIPLE_FILE],
+        }),
+      ).value,
+    ).toMatchObject({
+      toolName: 'spawn_agents',
+      input: { agents: [{ agent_type: 'reliability-reviewer' }] },
+    })
+
+    const blocked = gen.next(
+      crashedSpawnedReviewerResult(
+        'reliability-reviewer',
+        'specialist-crash-snapshot',
+        [AUX_TRIPLE_FILE],
+      ),
+    )
+    expect(blocked.value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+      includeToolCall: false,
+    })
+    expect((blocked.value as any).input.content).toContain(
+      'did not spawn repair-editor or finalize',
+    )
+    expect(gen.next().done).toBe(true)
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      currentPhase: 'blocked',
+      pendingGateFiles: [AUX_TRIPLE_FILE],
+      gatePassedFiles: [],
+      specialistReviewGatesDone: [],
+      lastReviewerGateSkipReason: 'specialist-terminal-failure',
+      nextRequiredAction: expect.stringContaining(
+        'fresh matching specialist review',
+      ),
+    })
+    expect((agentState as any).base2ActiveWork.openReviewerBlockers).toEqual([
+      expect.stringContaining('crashed during specialist review'),
+    ])
+    expect((agentState as any).canSuggestFollowups).toBe(false)
   })
 
   test('does not re-spawn any aux gate on a second iteration with the same aux-relevant pending file set', () => {

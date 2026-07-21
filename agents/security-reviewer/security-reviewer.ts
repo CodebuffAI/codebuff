@@ -7,7 +7,7 @@ const definition: SecretAgentDefinition = {
   publisher,
   displayName: 'Sam',
   spawnerPrompt:
-    'Adversarial security review of file/path/process/auth/crypto changes. Spawn after security-sensitive edits to catch injection, traversal, secret leakage, and auth bypass risks.',
+    'Adversarial security review of file/path/process/auth/crypto changes. Spawn after security-sensitive edits to catch injection, traversal, secret leakage, and auth bypass risks. Required params keys are exactly `changed_files` and `snapshot_fingerprint`; `snapshot_id` is not accepted.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -36,7 +36,7 @@ const definition: SecretAgentDefinition = {
   outputSchema: {
     type: 'object',
     properties: {
-      schemaVersion: { type: 'number' },
+      schemaVersion: { type: 'number', enum: [1] },
       snapshotFingerprint: { type: 'string' },
       reviewedFiles: { type: 'array', items: { type: 'string' } },
       verdict: {

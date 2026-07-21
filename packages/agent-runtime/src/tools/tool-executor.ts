@@ -544,6 +544,15 @@ function getFieldSpecificHint(
   return undefined
 }
 
+function isSpawnAgentHandoffIssue(issue: ValidationIssue): boolean {
+  const path = issue.path ?? []
+  return (
+    path[0] === 'agents' &&
+    (typeof path[1] === 'number' || /^\d+$/.test(String(path[1]))) &&
+    path[2] === 'handoff'
+  )
+}
+
 function getToolValidationHint(
   toolName: string,
   issues?: ValidationIssue[],
@@ -569,10 +578,17 @@ function getToolValidationHint(
     ].join('\n')
   }
   if (toolName === 'spawn_agents') {
-    return [
-      'Expected shape: { "agents": [{ "agent_type": string, "prompt"?: string, "params"?: object }] }.',
+    const base = [
+      'Expected shape: { "agents": [{ "agent_type": string, "prompt"?: string, "params"?: object, "handoff"?: object }] }.',
       'Pass agents as an array of objects. Valid stringified or double-stringified JSON is repaired automatically, but truncated JSON and non-object entries are rejected. Do not stringify each agent entry.',
     ].join('\n')
+    const hasHandoffIssue = (issues ?? []).some(isSpawnAgentHandoffIssue)
+    if (!hasHandoffIssue) return base
+    return [
+      base,
+      'A versioned handoff must be resent as one complete compact canonical `AgentHandoff` object with all required top-level fields: `schemaVersion`, `taskId`, `objective`, `role`, `requirements`, `acceptanceCriteria`, `context`, `nonGoals`, `findings`, and `permissions`.',
+      'Truncated handoffs cannot be repaired safely. Keep evidence compact enough to resend the complete object; do not silently truncate authority-bearing arrays or objects.',
+    ].join('\n\n')
   }
   if (toolName === 'edit_transaction') {
     const fieldNames = new Set(
@@ -625,6 +641,19 @@ function formatInvalidInputExcerpts(
   input: unknown,
   issues: ValidationIssue[],
 ): string {
+  const handoffIssues = issues.filter(isSpawnAgentHandoffIssue)
+  if (handoffIssues.length > 0) {
+    const labels = new Set(
+      handoffIssues.map((issue) => `agents[${String(issue.path?.[1])}].handoff`),
+    )
+    return [...labels]
+      .map(
+        (label) =>
+          `${label}:\n[invalid handoff payload omitted; resend one complete canonical AgentHandoff object]`,
+      )
+      .join('\n\n')
+  }
+
   const seen = new Set<string>()
   const excerpts: string[] = []
   for (const issue of issues) {
@@ -1042,9 +1071,13 @@ export async function executeToolCall<T extends ToolName>(
           ),
       )
     if (deniedPaths.length > 0) {
+      const repairEditorReadRecovery =
+        agentTemplate.id === 'repair-editor' && filesystemAccess.access === 'read'
+          ? ' Recovery: do not retry this read or request broader scope. If the path is a synthetic fixture literal, inspect the authorized test file that owns the literal instead; otherwise report the missing read permission to the parent.'
+          : ''
       onResponseChunk({
         type: 'error',
-        message: `Tool \`${toolName}\` was blocked by the ${agentTemplate.id} filesystem ${filesystemAccess.access} scope. Disallowed path(s): ${deniedPaths.map(({ rawPath }) => rawPath).join(', ')}. Allowed patterns: ${allowedPatterns.join(', ')}.`,
+        message: `Tool \`${toolName}\` was blocked by the ${agentTemplate.id} filesystem ${filesystemAccess.access} scope. Disallowed path(s): ${deniedPaths.map(({ rawPath }) => rawPath).join(', ')}. Allowed patterns: ${allowedPatterns.join(', ')}.${repairEditorReadRecovery}`,
       })
       return abortablePreviousToolCallFinished
     }

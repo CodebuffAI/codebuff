@@ -543,6 +543,70 @@ describe('editor agent', () => {
       ])
     })
 
+    test('reports changed files from a standalone commit_receipt artifact', () => {
+      const mockAgentState = createMockAgentState([])
+      const mockLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+
+      const generator = editor.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger as any,
+        params: {},
+      })
+
+      generator.next()
+
+      const updatedState = createMockAgentState([
+        {
+          role: 'tool',
+          toolName: 'edit_transaction',
+          content: [
+            {
+              type: 'json',
+              value: {
+                kind: 'commit_receipt',
+                version: 1,
+                receiptId: 'standalone-commit',
+                operationId: 'op-standalone',
+                callId: 'call-standalone',
+                authorityTier: 'conditional_commit',
+                status: 'committed',
+                actions: [
+                  {
+                    actionId: 'a1',
+                    index: 0,
+                    action: 'update',
+                    path: 'src/from-commit-receipt.ts',
+                    status: 'committed',
+                    beforeHash: 'before',
+                    afterHash: 'after',
+                  },
+                ],
+                finalHashes: {
+                  'src/from-commit-receipt.ts': 'after',
+                },
+              },
+            },
+          ],
+        },
+      ])
+
+      const result = generator.next({
+        agentState: updatedState,
+        toolResult: undefined,
+        stepsComplete: true,
+      })
+
+      expect((result.value as any).input.output.changedFiles).toEqual([
+        'src/from-commit-receipt.ts',
+      ])
+      expect((result.value as any).input.output.status).toBe('completed')
+    })
+
     test('works with empty initial message history', () => {
       const mockAgentState = createMockAgentState([])
       const mockLogger = {

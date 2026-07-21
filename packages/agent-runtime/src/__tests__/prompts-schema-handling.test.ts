@@ -20,6 +20,7 @@ import {
 } from '../tools/prompts'
 
 import type { AgentTemplate } from '../templates/types'
+import securityReviewer from '../../../../agents/security-reviewer/security-reviewer'
 
 /** Create a mock logger using bun:test mock() for better test consistency */
 const createMockLogger = () => ({
@@ -30,6 +31,15 @@ const createMockLogger = () => ({
 })
 
 describe('Schema handling error recovery', () => {
+  test('security-reviewer exposes its canonical required params before spawn', () => {
+    expect(securityReviewer.spawnerPrompt).toContain('`changed_files`')
+    expect(securityReviewer.spawnerPrompt).toContain('`snapshot_fingerprint`')
+    expect(securityReviewer.spawnerPrompt).toContain('`snapshot_id` is not accepted')
+    expect(securityReviewer.inputSchema?.params).toMatchObject({
+      required: ['changed_files', 'snapshot_fingerprint'],
+    })
+  })
+
   describe('mutation tool instructions', () => {
     test('adds self-contained edit guidance only for mutation-capable agents', () => {
       const mutationPrompt = getToolsInstructions(['str_replace'], {})

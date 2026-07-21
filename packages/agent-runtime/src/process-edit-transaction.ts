@@ -1,7 +1,6 @@
 import { applyPatch, createPatch } from 'diff'
 import {
   decodeReadCapabilityToken,
-  encodeReadCapabilityToken,
   getContentHash,
   normalizeLineEndings,
   readCapabilityMatchesScope,
@@ -57,6 +56,8 @@ type TransactionEdit =
       wholeFileCapabilityHash?: string
       readCapability?: string
       newContent: string
+      /** Internal original-snapshot bounds retained when prior range edits shift this edit. */
+      originalRange?: { startLine: number; endLine: number }
     }
   | {
       id?: string
@@ -110,6 +111,10 @@ export async function processEditTransaction(params: {
   } = params
   const workingContentByPath = new Map(initialContentByPath)
   const messagesByPath = new Map<string, string[]>()
+  const successfulReplaceRangesByPath = new Map<
+    string,
+    { startLine: number; endLine: number; lineDelta: number }[]
+  >()
   const failures: TransactionFailure[] = []
   for (let editIndex = 0; editIndex < edits.length; editIndex++) {
     const edit = edits[editIndex]
@@ -128,10 +133,27 @@ export async function processEditTransaction(params: {
       break
     }
 
+    const rangeAdjustment = getEffectiveReplaceRangeEdit(
+      effectiveEdit,
+      successfulReplaceRangesByPath.get(effectiveEdit.path) ?? [],
+    )
+    if ('error' in rangeAdjustment) {
+      failures.push({
+        editIndex,
+        ...(effectiveEdit.id && { id: effectiveEdit.id }),
+        path: effectiveEdit.path,
+        errorMessage: rangeAdjustment.error,
+      })
+      break
+    }
+
     const currentContent = workingContentByPath.get(effectiveEdit.path)
     const result = await processTransactionEdit({
-      edit: effectiveEdit,
+      edit: rangeAdjustment.edit,
       initialContentPromise: Promise.resolve(currentContent ?? null),
+      originalContentPromise: Promise.resolve(
+        initialContentByPath.get(effectiveEdit.path) ?? null,
+      ),
       logger,
       requireFreshReadCapability: requireFreshReadCapabilityForPaths.has(
         effectiveEdit.path,
@@ -156,6 +178,22 @@ export async function processEditTransaction(params: {
     }
 
     workingContentByPath.set(effectiveEdit.path, result.content)
+    if (rangeAdjustment.edit.type === 'replace_range') {
+      const originalRange = rangeAdjustment.edit.originalRange ?? {
+        startLine: rangeAdjustment.edit.startLine,
+        endLine: rangeAdjustment.edit.endLine,
+      }
+      successfulReplaceRangesByPath.set(effectiveEdit.path, [
+        ...(successfulReplaceRangesByPath.get(effectiveEdit.path) ?? []),
+        {
+          ...originalRange,
+          lineDelta:
+            normalizeLineEndings(rangeAdjustment.edit.newContent).split('\n')
+              .length -
+            (originalRange.endLine - originalRange.startLine + 1),
+        },
+      ])
+    }
     messagesByPath.set(effectiveEdit.path, [
       ...(messagesByPath.get(effectiveEdit.path) ?? []),
       ...result.messages,
@@ -274,9 +312,38 @@ function resolveFailedEdit(
   }
 }
 
+function getEffectiveReplaceRangeEdit(
+  edit: TransactionEdit,
+  priorRanges: { startLine: number; endLine: number; lineDelta: number }[],
+): { edit: TransactionEdit } | { error: string } {
+  if (edit.type !== 'replace_range') return { edit }
+
+  let lineShift = 0
+  for (const priorRange of priorRanges) {
+    if (priorRange.endLine < edit.startLine) {
+      lineShift += priorRange.lineDelta
+    } else if (priorRange.startLine <= edit.endLine) {
+      return {
+        error: `replace_range blocked for ${edit.path}: lines ${edit.startLine}-${edit.endLine} overlap a prior replace_range in this transaction and cannot be applied from the original snapshot.`,
+      }
+    }
+  }
+  if (lineShift === 0) return { edit }
+
+  return {
+    edit: {
+      ...edit,
+      startLine: edit.startLine + lineShift,
+      endLine: edit.endLine + lineShift,
+      originalRange: { startLine: edit.startLine, endLine: edit.endLine },
+    },
+  }
+}
+
 async function processTransactionEdit(params: {
   edit: TransactionEdit
   initialContentPromise: Promise<string | null>
+  originalContentPromise: Promise<string | null>
   logger: Logger
   requireFreshReadCapability: boolean
   readCapabilityIssuer?: ReadCapabilityIssuer
@@ -292,6 +359,7 @@ async function processTransactionEdit(params: {
   const {
     edit,
     initialContentPromise,
+    originalContentPromise,
     logger,
     requireFreshReadCapability,
     readCapabilityIssuer,
@@ -382,12 +450,18 @@ async function processTransactionEdit(params: {
             error: `replace_range blocked for ${edit.path}: the readCapability belongs to a different project, path, or agent run. Re-read lines ${edit.startLine}-${edit.endLine} in this run and copy the new capability.`,
           }
         }
-        // Exact-range-match path: the capability's bounds equal the requested
-        // range. Keep the existing strict check (bounds + hash against
-        // edit.expectedHash).
+        // Exact-range-match path: normally the capability's bounds equal the
+        // requested range. When a prior non-overlapping replace_range expanded
+        // or contracted this file, retain the original bounds solely to verify
+        // the authenticated original-snapshot capability before applying to its
+        // shifted working-content range.
+        const capabilityRange = edit.originalRange ?? {
+          startLine: edit.startLine,
+          endLine: edit.endLine,
+        }
         const exactRangeMatch =
-          decoded.startLine === edit.startLine &&
-          decoded.endLine === edit.endLine
+          decoded.startLine === capabilityRange.startLine &&
+          decoded.endLine === capabilityRange.endLine
         // Whole-file-capability + sub-range path: the decoded capability spans
         // the whole current file (startLine === 1, endLine === visibleLineCount)
         // AND the caller requested a narrower sub-range. edit.expectedHash is
@@ -404,6 +478,21 @@ async function processTransactionEdit(params: {
               error: `replace_range blocked for ${edit.path}: the normalized target does not match its readCapability. Re-read lines ${edit.startLine}-${edit.endLine} and use only the newly returned capability.`,
             }
           }
+          if (edit.originalRange) {
+            const originalContent = await originalContentPromise
+            const originalRange = normalizeLineEndings(originalContent ?? '')
+              .split('\n')
+              .slice(
+                edit.originalRange.startLine - 1,
+                edit.originalRange.endLine,
+              )
+              .join('\n')
+            if (getContentHash(originalRange) !== decoded.hash) {
+              return {
+                error: `replace_range blocked for ${edit.path}: the readCapability does not match the original transaction snapshot range. Re-read lines ${edit.originalRange.startLine}-${edit.originalRange.endLine} and retry the whole transaction.`,
+              }
+            }
+          }
         } else if (wholeFileCapabilitySubRange) {
           // SECURITY INVARIANT: the request must still include a fresh token
           // minted over the FULL current file content. Verify decoded.hash
@@ -415,24 +504,8 @@ async function processTransactionEdit(params: {
             }
           }
           if (decoded.hash !== wholeFileHash) {
-            // Inline recovery (Change 4): mint a fresh whole-file capability so
-            // the model can retry without a separate read_files round-trip. We
-            // just re-read initialContent inside this process, so the
-            // observation requirement is satisfied. Do NOT mint when there is no
-            // signing scope (readCapabilityIssuer undefined).
-            if (!readCapabilityIssuer) {
-              return {
-                error: `replace_range rejected for ${edit.path}: the whole-file readCapability is stale (its hash no longer matches the current full-file content). Re-read the file (read_files.paths) and copy the fresh whole-file readCapability, then retry the sub-range replace_range.`,
-              }
-            }
-            const recoveryWholeFileToken = encodeReadCapabilityToken({
-              startLine: 1,
-              endLine: wholeFileEndLine,
-              hash: wholeFileHash,
-              scope: { ...readCapabilityIssuer, path: edit.path },
-            })
             return {
-              error: `replace_range rejected for ${edit.path}: the whole-file readCapability is stale (its hash no longer matches the current full-file content). Re-read the file (read_files.paths) and copy the fresh whole-file readCapability, then retry the sub-range replace_range.\n\nRecovery capability for the whole file: readCapability="${recoveryWholeFileToken}" — you may retry replace_range DIRECTLY with this readCapability and the same newContent (selecting your sub-range startLine/endLine), no extra read_files round-trip required.`,
+              error: `replace_range rejected for ${edit.path}: the whole-file readCapability is stale (its hash no longer matches the current full-file content). Re-read the file (read_files.paths) and copy the fresh whole-file readCapability, then retry the sub-range replace_range.`,
             }
           }
           // Whole-file capability is fresh. The requested sub-range is accepted
@@ -465,23 +538,8 @@ async function processTransactionEdit(params: {
         edit.readCapability !== undefined && edit.expectedHash === undefined
       if (!usingWholeFileCapabilitySubRange) {
         if (currentRangeHash !== edit.expectedHash) {
-          // Inline recovery (Change 4): mint a fresh capability for the exact
-          // requested range over the current content we just re-read inside
-          // this process, so the model can retry without a separate read_files
-          // round-trip. Do NOT mint when there is no signing scope.
-          if (!readCapabilityIssuer) {
-            return {
-              error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read lines ${edit.startLine}-${edit.endLine} and use only the new readCapability plus newContent.`,
-            }
-          }
-          const recoveryRangeToken = encodeReadCapabilityToken({
-            startLine: edit.startLine,
-            endLine: edit.endLine,
-            hash: currentRangeHash,
-            scope: { ...readCapabilityIssuer, path: edit.path },
-          })
           return {
-            error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read lines ${edit.startLine}-${edit.endLine} and use only the new readCapability plus newContent.\n\nRecovery capability for the exact requested range: readCapability="${recoveryRangeToken}" — you may retry replace_range DIRECTLY with this readCapability and the same newContent, no extra read_files round-trip required.`,
+            error: `replace_range rejected for ${edit.path}: expectedHash is stale. Re-read lines ${edit.startLine}-${edit.endLine} and use only the new readCapability plus newContent.`,
           }
         }
       }
