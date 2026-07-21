@@ -315,25 +315,31 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
         )
       }
 
-      function hasAppliedMutationAction(action: unknown): boolean {
-        if (!action || typeof action !== 'object') return false
-        const record = action as Record<string, unknown>
-        if (typeof record.path !== 'string' || record.path.length === 0) {
-          return false
-        }
-        return (
-          record.outcome === 'applied' ||
-          record.status === 'committed' ||
-          record.outcome === 'committed'
-        )
-      }
-
       // Accept both file_mutation_result and commit_receipt shapes. Runtime
       // attestation walks both; the editor must not under-report changedFiles
       // when only a commit_receipt is present in tool history.
+      //
+      // NOTE: the applied-action predicate is inlined in both hasEditArtifact
+      // and visit (rather than a shared sibling helper) because the gate-files
+      // parity test extracts each of these functions in isolation via
+      // `new Function`, so any sibling reference would be undefined at
+      // reconstruction time. Keep in sync with the parallel inline copies in
+      // agents/base2/base2.ts and the canonical agents/base2/gate-files.ts.
       function hasEditArtifact(record: Record<string, unknown>): boolean {
         if (!Array.isArray(record.actions)) return false
-        if (!record.actions.some(hasAppliedMutationAction)) return false
+        const hasAppliedAction = record.actions.some((action) => {
+          if (!action || typeof action !== 'object') return false
+          const entry = action as Record<string, unknown>
+          if (typeof entry.path !== 'string' || entry.path.length === 0) {
+            return false
+          }
+          return (
+            entry.outcome === 'applied' ||
+            entry.status === 'committed' ||
+            entry.outcome === 'committed'
+          )
+        })
+        if (!hasAppliedAction) return false
         if (record.kind === 'commit_receipt') return true
         if (record.kind !== 'file_mutation_result') return false
         return (
@@ -389,7 +395,15 @@ ${PLACEHOLDER.FRONTEND_SECTION}`,
           for (const action of record.actions as Array<
             Record<string, unknown>
           >) {
-            if (!hasAppliedMutationAction(action)) continue
+            const applied =
+              !!action &&
+              typeof action === 'object' &&
+              typeof action.path === 'string' &&
+              action.path.length > 0 &&
+              (action.outcome === 'applied' ||
+                action.status === 'committed' ||
+                action.outcome === 'committed')
+            if (!applied) continue
             if (typeof action.path === 'string') out.add(action.path)
             if (
               action.action === 'move' &&

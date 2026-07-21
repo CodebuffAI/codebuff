@@ -493,6 +493,70 @@ function repairSetOutputData(toolName: string, input: unknown): unknown {
   return { ...record, data: parsed }
 }
 
+function levenshteinDistanceForToolSuggestion(a: string, b: string): number {
+  const rows = a.length + 1
+  const cols = b.length + 1
+  const dist = Array.from({ length: rows }, () => new Array<number>(cols).fill(0))
+  for (let i = 0; i < rows; i += 1) dist[i][0] = i
+  for (let j = 0; j < cols; j += 1) dist[0][j] = j
+  for (let i = 1; i < rows; i += 1) {
+    for (let j = 1; j < cols; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      dist[i][j] = Math.min(
+        dist[i - 1][j] + 1,
+        dist[i][j - 1] + 1,
+        dist[i - 1][j - 1] + cost,
+      )
+    }
+  }
+  return dist[rows - 1][cols - 1]
+}
+
+function suggestClosestToolName(
+  attempted: string,
+  available: string[],
+): string | undefined {
+  let best: string | undefined
+  let bestDistance = Infinity
+  for (const candidate of available) {
+    const distance = levenshteinDistanceForToolSuggestion(attempted, candidate)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      best = candidate
+    }
+  }
+  if (best === undefined) return undefined
+  // Only suggest a genuinely close match; scale with the longer name so short
+  // names need a tight match and longer names tolerate a couple edits.
+  const threshold = Math.max(2, Math.floor(Math.max(attempted.length, best.length) / 3))
+  return bestDistance <= threshold ? best : undefined
+}
+
+export function buildUnavailableToolMessage(params: {
+  toolName: string
+  agentId: string
+  availableTools: string[]
+}): string {
+  const { toolName, agentId, availableTools } = params
+  const availableList =
+    availableTools.length > 0
+      ? availableTools.map((name) => `\`${name}\``).join(', ')
+      : '(none)'
+  const base = `Tool \`${toolName}\` is not available for agent \`${agentId}\`. Available tools: ${availableList}. Use one of those tools or continue without a tool; do not retry the unavailable name.`
+  // Case 1: the name is a real registered tool this agent was simply not
+  // granted. Point the model at the granted tools / spawnable agents instead
+  // of letting it guess another unavailable name.
+  if ((toolNames as readonly string[]).includes(toolName)) {
+    return `${base} \`${toolName}\` is a registered tool but is not granted to this agent; use one of the available tools above, or spawn an agent that provides that capability.`
+  }
+  // Case 2: likely a typo/near-miss of a granted tool.
+  const suggestion = suggestClosestToolName(toolName, availableTools)
+  if (suggestion) {
+    return `${base} Did you mean \`${suggestion}\`?`
+  }
+  return base
+}
+
 function getFieldSpecificHint(
   toolName: string,
   issues: ValidationIssue[],
@@ -611,6 +675,21 @@ function getToolValidationHint(
         [
           '`skipIfMissing` is deletion-only. Remove it when newString is non-empty.',
           'For an idempotent deletion use { "oldString": "...", "newString": "", "skipIfMissing": true }.',
+        ].join('\n'),
+      )
+    }
+    const hasTypeDiscriminatorIssue = (issues ?? []).some(
+      (issue) =>
+        issue.path?.[0] === 'edits' &&
+        (issue.code === 'invalid_union' ||
+          String(issue.path?.[issue.path.length - 1]) === 'type'),
+    )
+    if (hasTypeDiscriminatorIssue) {
+      targetedHints.push(
+        [
+          'Each edit needs an explicit `type` discriminator. Valid types: "str_replace", "replace_range", "structured", "create", "delete", "move", "rewrite_symbol", "patch", "write_file".',
+          'Example: { "type": "str_replace", "path": "file.ts", "replacements": [{ "oldString": "a", "newString": "b" }] }.',
+          'The type is inferred only when the payload shape is unambiguous (for example, `replacements` implies str_replace). A bare { path, content } is ambiguous between create and write_file, so set `type` explicitly.',
         ].join('\n'),
       )
     }
@@ -1007,7 +1086,11 @@ export async function executeToolCall<T extends ToolName>(
     // The stream parser will convert this to a user message for proper API compliance
     onResponseChunk({
       type: 'error',
-      message: `Tool \`${toolName}\` is not available for agent \`${agentTemplate.id}\`. Available tools: ${availableTools.length > 0 ? availableTools.map((name) => `\`${name}\``).join(', ') : '(none)'}. Use one of those tools or continue without a tool; do not retry the unavailable name.`,
+      message: buildUnavailableToolMessage({
+        toolName,
+        agentId: agentTemplate.id,
+        availableTools,
+      }),
     })
     return abortablePreviousToolCallFinished
   }
@@ -1708,7 +1791,11 @@ export async function executeCustomToolCall(
     // The stream parser will convert this to a user message for proper API compliance
     onResponseChunk({
       type: 'error',
-      message: `Tool \`${toolName}\` is not available for agent \`${agentTemplate.id}\`. Available tools: ${availableTools.length > 0 ? availableTools.map((name) => `\`${name}\``).join(', ') : '(none)'}. Use one of those tools or continue without a tool; do not retry the unavailable name.`,
+      message: buildUnavailableToolMessage({
+        toolName,
+        agentId: agentTemplate.id,
+        availableTools,
+      }),
     })
     return abortablePreviousToolCallFinished
   }

@@ -524,6 +524,27 @@ Tools represent the capabilities given to agents to interact with your system.
 - Tool executions are handled securely by the SDK on your local machine (reading/writing files, executing commands, searching codebase).
 - Since Openbuff has no hosted proxy backend, tool execution is extremely low-latency, and all outputs are processed directly by your locally configured models.
 
+### Tool availability and unavailable-tool errors
+
+Each agent is granted a subset of the global tool registry, not the whole
+registry. Calling a tool the agent was not granted is rejected: the runtime
+fails closed, changes nothing, and returns a diagnostic instead of executing
+the tool.
+
+Codebase search for orchestrator/base agents (`base2` / `base-deep`) is done
+with `query_index` (the local graph index) or by spawning the `code-searcher`
+agent. `code_search` is a registered tool in the global registry but is not
+granted to those agents, so calling it directly from an orchestrator is
+rejected.
+
+The rejection message names the tools the agent actually has available. When
+the attempted name is a real-but-ungranted registry tool, the message says so;
+for a likely typo it also suggests a near lexical match ("Did you mean ...").
+When you hit this error, pick a tool from the listed available tools, or spawn
+an agent that provides the capability (for example, spawn `code-searcher` for
+codebase search). Do not retry the same unavailable name — the result will not
+change.
+
 ### `query_index`
 
 `query_index` queries the local codebase graph index. It is intended for retrieval-led context gathering before reading or editing files.
@@ -786,6 +807,13 @@ persisted/external compatibility, but their overlapping schemas are not added
 to root/editor provider prompts. Under strict-mode edit flows all variants
 participate in staged read-before-edit enforcement:
 
+- Every edit requires an explicit `type` discriminator. Valid values are
+  `str_replace`, `replace_range`, `structured`, `create`, `delete`, `move`,
+  `rewrite_symbol`, `patch`, and `write_file`. The runtime infers `type` only
+  when the payload shape is unambiguous (for example, `replacements` implies
+  `str_replace`), but an ambiguous `{ path, content }` edit is rejected with a
+  `No matching discriminator` error because it could be either `create` or
+  `write_file`. Set `type` explicitly to avoid this.
 - A recent complete whole-file `read_files.paths` call authorizes subsequent
   exact-match edits to that path and returns an authenticated opaque `cap.v3`
   `readCapability` bound to the project, normalized path, and current run.

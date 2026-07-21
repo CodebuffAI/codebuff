@@ -15,6 +15,7 @@ import { mockFileContext } from './test-utils'
 import { processStream } from '../tools/stream-parser'
 import {
   buildSpawnAgentsHandlerFailureOutput,
+  buildUnavailableToolMessage,
   normalizeNativeToolOutput,
   parseRawCustomToolCall,
   parseRawToolCall,
@@ -1114,6 +1115,8 @@ describe('tool validation error handling', () => {
     if ('error' in result) {
       expect(result.error).toContain('edits[0].type')
       expect(result.error).toContain('No matching discriminator')
+      expect(result.error).toContain('Valid types:')
+      expect(result.error).toContain('set `type` explicitly')
     }
   })
 
@@ -2114,5 +2117,39 @@ describe('tool validation error handling', () => {
         !assistantToolCallIds.has(message.toolCallId),
     )
     expect(orphanToolResults.length).toBe(0)
+  })
+})
+
+describe('buildUnavailableToolMessage', () => {
+  it('explains a known-but-ungranted tool without suggesting a near match', () => {
+    const message = buildUnavailableToolMessage({
+      toolName: 'code_search',
+      agentId: 'base2',
+      availableTools: ['query_index', 'read_files', 'glob'],
+    })
+
+    expect(message).toContain('is a registered tool but is not granted')
+    expect(message).toContain('is not available for agent `base2`')
+  })
+
+  it('suggests the closest granted tool for a likely typo', () => {
+    const message = buildUnavailableToolMessage({
+      toolName: 'read_file',
+      agentId: 'base2',
+      availableTools: ['read_files', 'query_index'],
+    })
+
+    expect(message).toContain('Did you mean `read_files`?')
+  })
+
+  it('omits suggestions for an unknown tool with no near match', () => {
+    const message = buildUnavailableToolMessage({
+      toolName: 'zzzzzzzzzz',
+      agentId: 'base2',
+      availableTools: ['query_index'],
+    })
+
+    expect(message).not.toContain('Did you mean')
+    expect(message).not.toContain('is a registered tool')
   })
 })
