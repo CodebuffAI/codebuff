@@ -16,6 +16,7 @@ import {
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
 } from './freebuff-models'
 import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from './gemini'
 
@@ -71,6 +72,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-minimax-m3',
   'base2-free-glm',
   'base2-free-glm-crof',
+  'base2-free-laguna-s-2-1',
   // Freebuff Web trial orchestrators (freebuff_bundled_agents.ts). Every root
   // id in FREE_MODE_AGENT_MODELS that can spawn subagents MUST also be listed
   // here, or the chat-completions hierarchy gate 403s the subagents with
@@ -93,6 +95,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
   [FREEBUFF_CROF_GLM_V52_MODEL_ID]: 'base2-free-glm-crof',
+  [FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]: 'base2-free-laguna-s-2-1',
 }
 
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
@@ -145,6 +148,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'base2-free-glm-crof': new Set([FREEBUFF_CROF_GLM_V52_MODEL_ID]),
+  'base2-free-laguna-s-2-1': new Set([FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]),
   'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
   'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_ATLAS_MODEL_ID]),
 
