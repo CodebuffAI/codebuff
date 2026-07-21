@@ -261,6 +261,8 @@ export enum AnalyticsEvent {
   // Freebuff - acquisition attribution (UTM / ad-click params captured as
   // super-properties; filter by utm_source, reddit_click_id, is_reddit_traffic)
   FREEBUFF_ATTRIBUTED = 'freebuff.attributed',
+  FREEBUFF_AFFILIATE_SIGNUP = 'freebuff.affiliate.signup',
+  FREEBUFF_AFFILIATE_ACTIVATION = 'freebuff.affiliate.activation',
   // Freebuff - Reddit ad funnel (filter in PostHog by reddit_click_id / utm_source)
   FREEBUFF_REDDIT_FUNNEL_CLI_INSTALLED = 'freebuff.reddit_funnel.cli_installed',
   FREEBUFF_REDDIT_FUNNEL_LOGIN = 'freebuff.reddit_funnel.login',
