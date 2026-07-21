@@ -12,6 +12,7 @@ import {
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
+  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
 } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
@@ -54,6 +55,11 @@ describe('free mode agent model allowlist', () => {
     expect(
       getFreebuffRootAgentIdForModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID),
     ).toBe('base2-free-laguna-s-2-1')
+    expect(
+      getFreebuffRootAgentIdForModel(
+        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+      ),
+    ).toBe('base2-free-laguna-s-2-1-openrouter')
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
@@ -138,6 +144,18 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-laguna-s-2-1-openrouter',
+        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-laguna-s-2-1',
+        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+      ),
+    ).toBe(false)
   })
 
   test('allows each freebuff reviewer agent only with its configured model', () => {

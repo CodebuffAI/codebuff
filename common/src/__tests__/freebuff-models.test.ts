@@ -21,6 +21,7 @@ import {
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MODELS,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
+  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_WEB_GOD_ONLY_MODELS,
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
@@ -275,18 +276,32 @@ describe('freebuff model availability', () => {
     ).toBe('GLM 5.2 (Crof)')
   })
 
-  test('Poolside Laguna S 2.1 is a god-only Freebuff Web test model', () => {
+  test('Poolside Laguna S 2.1 routes are god-only Freebuff Web test models', () => {
     expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
     )
+    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+    )
     expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
     )
     expect(isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID)).toBe(
       false,
     )
     expect(
+      isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID),
+    ).toBe(false)
+    expect(
       isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(true)
+    expect(
+      isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID, {
         includeGodOnly: true,
       }),
     ).toBe(true)
@@ -294,11 +309,25 @@ describe('freebuff model availability', () => {
       isFreebuffWebGodOnlyModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID),
     ).toBe(true)
     expect(
+      isFreebuffWebGodOnlyModelId(
+        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
       isFreebuffWebPremiumModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID),
     ).toBe(true)
     expect(
+      isFreebuffWebPremiumModelId(
+        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
       getFreebuffWebModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID).displayName,
-    ).toBe('Laguna S 2.1')
+    ).toBe('Laguna S 2.1 (Poolside)')
+    expect(
+      getFreebuffWebModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID)
+        .displayName,
+    ).toBe('Laguna S 2.1 (OpenRouter)')
   })
 
   test('KAT Coder Pro V2 is fully retired from Freebuff Web and Cloud', () => {

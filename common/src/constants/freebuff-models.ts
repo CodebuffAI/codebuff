@@ -89,6 +89,10 @@ export const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
 /** God-mode-only Laguna S 2.1 route used to test Poolside's direct
  *  OpenAI-compatible API before wider rollout. */
 export const FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID = 'poolside/laguna-s-2.1'
+/** God-mode-only alias for testing the paid OpenRouter route independently
+ *  from Poolside's direct API. OpenRouter receives `poolside/laguna-s-2.1`. */
+export const FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID =
+  'openrouter/poolside/laguna-s-2.1'
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
@@ -303,8 +307,18 @@ const CROF_GLM_V52_MODEL = {
 
 const POOLSIDE_LAGUNA_S_21_MODEL = {
   id: FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-  displayName: 'Laguna S 2.1',
-  tagline: 'Direct via Poolside',
+  displayName: 'Laguna S 2.1 (Poolside)',
+  tagline: 'Direct Poolside API',
+  availability: 'always',
+  premium: true,
+  multimodal: false,
+  experimental: true,
+} as const satisfies FreebuffModelOption
+
+const POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL = {
+  id: FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+  displayName: 'Laguna S 2.1 (OpenRouter)',
+  tagline: 'Paid via OpenRouter',
   availability: 'always',
   premium: true,
   multimodal: false,
@@ -355,6 +369,7 @@ export const FREEBUFF_WEB_MODELS = [
 
 export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
   POOLSIDE_LAGUNA_S_21_MODEL,
+  POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL,
   HY3_ATLAS_MODEL,
   CROF_GLM_V52_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
@@ -366,6 +381,7 @@ export const FREEBUFF_WEB_ALL_MODELS = [
 
 export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
+  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const
@@ -374,6 +390,7 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
+  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const
