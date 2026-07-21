@@ -17,7 +17,6 @@ type GateFilesHelpers = {
 }
 
 type GateFilesFunctionName = keyof GateFilesHelpers
-type InlineHelperFactory = () => GateFilesHelpers
 
 // editor.ts renames `visitToolValue` to `visit`; alias it so the same battery
 // of inputs exercises both copies through a common interface.
@@ -97,6 +96,71 @@ function loadInlineHelpers(
   }
 }
 
+// Static guard: the inline gate-files copies may only reference each other
+// (the reconstructed set). A reference to any OTHER callable sibling declared
+// in the same source file — a `function foo(` declaration or a function-valued
+// `const foo = (...) =>` / `= function` binding — would be `undefined` once
+// handleSteps is serialized and rebuilt with `new Function(...)`, which drops
+// the module/closure scope. That failure otherwise only surfaces in the parity
+// test when a specific input happens to execute the offending branch, so
+// assert it statically here. Non-callable module bindings (data const/let,
+// class, imports) are out of scope for this lexical check; the runtime parity
+// assertions below still catch them when an input reaches that branch.
+function assertNoSiblingHelperReferences(
+  sourcePath: string,
+  nameMap: Record<GateFilesFunctionName, string>,
+): void {
+  const source = readFileSync(new URL(sourcePath, import.meta.url), 'utf8')
+  const transpiler = new Bun.Transpiler({ loader: 'ts' })
+  const javaScript = transpiler.transformSync(source)
+
+  const collectCallableNames = (text: string): string[] => {
+    const names: string[] = []
+    const patterns = [
+      // classic declaration: function foo(...)
+      /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(/g,
+      // function-valued binding: const/let/var foo = (...) => / = function / = async
+      /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/g,
+    ]
+    for (const pattern of patterns) {
+      for (const match of text.matchAll(pattern)) names.push(match[1])
+    }
+    return names
+  }
+
+  const reconstructedNames = new Set(Object.values(nameMap))
+  const helperBodies = INLINE_HELPER_NAMES.map((functionName) =>
+    extractInlineFunctionSource(javaScript, nameMap[functionName]),
+  )
+  // Callable helpers declared locally inside a reconstructed body are in scope
+  // after reconstruction, so exclude them; only names declared elsewhere are
+  // dangerous siblings.
+  const declaredInsideHelpers = new Set(
+    helperBodies.flatMap(collectCallableNames),
+  )
+  const siblingNames = [...new Set(collectCallableNames(javaScript))].filter(
+    (name) => !reconstructedNames.has(name) && !declaredInsideHelpers.has(name),
+  )
+
+  for (let index = 0; index < INLINE_HELPER_NAMES.length; index += 1) {
+    const functionName = INLINE_HELPER_NAMES[index]
+    const body = helperBodies[index]
+    const referencedSiblings = siblingNames.filter((sibling) => {
+      const escaped = sibling.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      return new RegExp(`\\b${escaped}\\b`).test(body)
+    })
+    // A non-empty list means an inline copy references a callable sibling that
+    // will not be in scope after new Function reconstruction — fail fast with
+    // the names. NOTE: this lexical check can false-positive if a sibling name
+    // appears only inside a string literal or comment in a helper body; keep
+    // helper bodies free of such incidental mentions.
+    expect({ functionName, referencedSiblings }).toEqual({
+      functionName,
+      referencedSiblings: [],
+    })
+  }
+}
+
 describe('gate-files helpers — inline copies match canonical exports', () => {
   test('base2 inline copies match canonical gate-files.ts exports', () => {
     const inline = loadInlineHelpers(
@@ -112,6 +176,24 @@ describe('gate-files helpers — inline copies match canonical exports', () => {
   test('editor inline copies match canonical gate-files.ts exports', () => {
     const inline = loadInlineHelpers('../editor/editor.ts', EDITOR_NAME_ALIASES)
     assertParity(inline)
+  })
+
+  // Fail fast on the specific regression class where an inline gate-files copy
+  // calls a sibling helper (e.g. a factored-out `hasAppliedMutationAction`)
+  // that is not part of the reconstructed set. Without this guard the missing
+  // reference only throws in the parity test when an input reaches that branch.
+  test('base2 inline gate-files copies reference no non-reconstructed siblings', () => {
+    assertNoSiblingHelperReferences(
+      '../base2/base2.ts',
+      INLINE_HELPER_NAMES.reduce(
+        (acc, name) => ({ ...acc, [name]: name }),
+        {} as Record<GateFilesFunctionName, string>,
+      ),
+    )
+  })
+
+  test('editor inline gate-files copies reference no non-reconstructed siblings', () => {
+    assertNoSiblingHelperReferences('../editor/editor.ts', EDITOR_NAME_ALIASES)
   })
 
   function assertParity(inline: GateFilesHelpers): void {
