@@ -21,7 +21,10 @@ import { fileURLToPath } from 'url'
 
 import { resolveGrammarWasmSource } from '../../packages/code-map/src/grammar-wasm-repair'
 import { LANGUAGE_WASM_FILES } from '../../packages/code-map/src/wasm-files'
-import { patchOpenTuiLegacyNativeLoaderSource } from './open-tui-legacy-patch'
+import {
+  patchOpenTuiLegacyNativeLoaderSource,
+  restoreOpenTuiNativeLoaderSource,
+} from './open-tui-legacy-patch'
 
 type TargetInfo = {
   bunTarget: string
@@ -162,6 +165,7 @@ async function main() {
   })
 
   patchOpenTuiAssetPaths()
+  restoreOpenTuiCoreNativeLoader()
   if (IS_LEGACY_MACOS_BUILD) {
     assertLegacyMacOSBuildConfig(targetInfo)
     patchOpenTuiCoreNativeLoaderForLegacy()
@@ -300,6 +304,33 @@ function assertLegacyMacOSBuildConfig(targetInfo: TargetInfo) {
     throw new Error(
       'OPENBUFF_LEGACY_RIPGREP_BIN must point to a macOS 11-compatible rg binary',
     )
+  }
+}
+
+function restoreOpenTuiCoreNativeLoader() {
+  const coreDirs = [
+    join(repoRoot, 'node_modules', '@opentui', 'core'),
+    join(cliRoot, 'node_modules', '@opentui', 'core'),
+  ]
+  const searchedFiles = new Set<string>()
+
+  for (const coreDir of coreDirs) {
+    if (!existsSync(coreDir)) continue
+    for (const file of readdirSync(coreDir)) {
+      if (!file.startsWith('index') || !file.endsWith('.js')) continue
+      const bundlePath = join(coreDir, file)
+      if (searchedFiles.has(bundlePath)) continue
+      searchedFiles.add(bundlePath)
+
+      const source = readFileSync(bundlePath, 'utf8')
+      const restored = restoreOpenTuiNativeLoaderSource(source)
+      if (restored !== source) {
+        writeFileSync(bundlePath, restored)
+        logAlways(
+          `Restored OpenTUI native loader (reverted stale legacy patch): ${bundlePath}`,
+        )
+      }
+    }
   }
 }
 

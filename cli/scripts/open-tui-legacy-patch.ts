@@ -19,3 +19,16 @@ export function patchOpenTuiLegacyNativeLoaderSource(source: string): string {
 
   return source.replace(OPEN_TUI_PLATFORM_IMPORT, LEGACY_NATIVE_LOADER)
 }
+
+const CANONICAL_NATIVE_LOADER =
+  'var module = await import(`@opentui/core-${process.platform}-${process.arch}/index.ts`);\n' +
+  'var targetLibPath = module.default;'
+
+/**
+ * Reverts a stale legacy patch left in a shared/cached node_modules so the
+ * non-legacy build compiles OpenTUI's canonical platform loader.
+ */
+export function restoreOpenTuiNativeLoaderSource(source: string): string {
+  if (!source.includes(LEGACY_NATIVE_LOADER)) return source
+  return source.replace(LEGACY_NATIVE_LOADER, CANONICAL_NATIVE_LOADER)
+}

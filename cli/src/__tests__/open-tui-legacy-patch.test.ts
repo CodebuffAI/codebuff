@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { patchOpenTuiLegacyNativeLoaderSource } from '../../scripts/open-tui-legacy-patch'
+import {
+  patchOpenTuiLegacyNativeLoaderSource,
+  restoreOpenTuiNativeLoaderSource,
+} from '../../scripts/open-tui-legacy-patch'
 
 const PLATFORM_LOADER = `
 // src/zig.ts
@@ -32,5 +35,26 @@ describe('legacy OpenTUI bundle patch', () => {
         `${PLATFORM_LOADER}\n${PLATFORM_LOADER}`,
       ),
     ).toThrow('Expected exactly one OpenTUI platform loader, found 2')
+  })
+
+  test('restores the canonical loader after a legacy patch (round-trip)', () => {
+    const patched = patchOpenTuiLegacyNativeLoaderSource(PLATFORM_LOADER)
+    const restored = restoreOpenTuiNativeLoaderSource(patched)
+
+    expect(restored).toContain('@opentui/core-')
+    expect(restored).toContain('await import')
+    expect(restored).not.toContain('process.execPath.lastIndexOf')
+  })
+
+  test('is a no-op on an unpatched (canonical) bundle', () => {
+    expect(restoreOpenTuiNativeLoaderSource(PLATFORM_LOADER)).toBe(
+      PLATFORM_LOADER,
+    )
+  })
+
+  test('does not throw when the legacy loader is absent', () => {
+    expect(() =>
+      restoreOpenTuiNativeLoaderSource('var unrelated = 1'),
+    ).not.toThrow()
   })
 })
