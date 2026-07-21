@@ -318,6 +318,11 @@ export enum AnalyticsEvent {
   DESKTOP_SHUTDOWN_TURNS_ABORTED = 'desktop.shutdown_turns_aborted',
   DESKTOP_ORPHANS_REAPED = 'desktop.orphans_reaped',
   DESKTOP_TURNS_RESURRECTED = 'desktop.turns_resurrected',
+  // Passive stall detector: a turn produced no harness stream activity for the
+  // configured window. Telemetry ONLY — the turn is not aborted. Join to
+  // desktop.turn_completed to tell a recovered long-silent tool call from a
+  // real hang, i.e. whether an *acting* watchdog is worth building.
+  DESKTOP_TURN_STALLED = 'desktop.turn_stalled',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',

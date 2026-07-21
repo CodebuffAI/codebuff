@@ -39,6 +39,8 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.DESKTOP_THREAD_CREATED,
   AnalyticsEvent.DESKTOP_PROJECT_OPENED,
   AnalyticsEvent.DESKTOP_TURN_COMPLETED,
+  // Rare reliability signal — every stalled turn must be counted, never sampled.
+  AnalyticsEvent.DESKTOP_TURN_STALLED,
   AnalyticsEvent.DESKTOP_HARNESS_CHANGED,
   AnalyticsEvent.DESKTOP_MODEL_CHANGED,
   AnalyticsEvent.DESKTOP_SKILL_RUN,
