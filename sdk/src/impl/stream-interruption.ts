@@ -27,6 +27,7 @@
  */
 
 import type { StreamRecoverySource } from '@codebuff/common/types/contracts/llm'
+import { isTransientNetworkError } from '@codebuff/common/util/error'
 
 export interface StreamFinishInfo {
   finishReason: string
@@ -98,4 +99,19 @@ export function classifyStreamEndRecovery(params: {
   if (reasoningOnlyLength) return OUTPUT_LIMIT_RECOVERY
 
   return null
+}
+
+/**
+ * Classify an exception thrown while consuming a completion stream. Some
+ * runtimes surface a severed response body as an exception (for example Bun's
+ * `ConnectionClosed` / `ECONNRESET`) instead of the graceful-but-incomplete
+ * stream ending handled by {@link classifyStreamEndRecovery}. Both represent
+ * the same recoverable condition to the agent loop.
+ */
+export function classifyThrownStreamRecovery(params: {
+  aborted: boolean
+  error: unknown
+}): StreamEndRecovery | null {
+  if (params.aborted || !isTransientNetworkError(params.error)) return null
+  return STREAM_INTERRUPTED_RECOVERY
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import {
   classifyStreamEndRecovery,
+  classifyThrownStreamRecovery,
   streamFinishInfoOf,
 } from '../impl/stream-interruption'
 
@@ -114,5 +115,44 @@ describe('streamFinishInfoOf', () => {
         totalUsage: { totalTokens: NaN },
       }),
     ).toEqual({ finishReason: 'unknown', hasUsage: false })
+  })
+})
+
+describe('classifyThrownStreamRecovery', () => {
+  it('classifies Bun socket-close exceptions as interrupted streams', () => {
+    const error = new Error(
+      'The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()',
+    ) as Error & { code: string }
+    error.code = 'ECONNRESET'
+
+    expect(
+      classifyThrownStreamRecovery({ aborted: false, error })?.source,
+    ).toBe('stream-interrupted')
+  })
+
+  it('walks wrapped transport errors', () => {
+    const cause = Object.assign(new Error('read failed'), {
+      code: 'ConnectionClosed',
+    })
+    const error = new Error('Failed after 4 attempts', { cause })
+
+    expect(
+      classifyThrownStreamRecovery({ aborted: false, error })?.source,
+    ).toBe('stream-interrupted')
+  })
+
+  it('does not recover cancellation or unrelated exceptions', () => {
+    const networkError = Object.assign(new Error('read ECONNRESET'), {
+      code: 'ECONNRESET',
+    })
+    expect(
+      classifyThrownStreamRecovery({ aborted: true, error: networkError }),
+    ).toBeNull()
+    expect(
+      classifyThrownStreamRecovery({
+        aborted: false,
+        error: new TypeError('Headers must be an object'),
+      }),
+    ).toBeNull()
   })
 })

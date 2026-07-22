@@ -29,12 +29,14 @@ import {
 } from './model-provider'
 import {
   classifyStreamEndRecovery,
+  classifyThrownStreamRecovery,
   streamFinishInfoOf,
+  type StreamEndRecovery,
+  type StreamFinishInfo,
 } from './stream-interruption'
 import { refreshChatGptOAuthToken } from '../credentials'
 import { getErrorStatusCode } from '../error-utils'
 
-import type { StreamFinishInfo } from './stream-interruption'
 import type { ModelRequestParams } from './model-provider'
 import type {
   OpenRouterProviderOptions,
@@ -481,8 +483,41 @@ export async function* promptAiSdkStream(
   // (and usage) before ending; its absence after the loop means the
   // connection was cut mid-response. See stream-interruption.ts.
   let finishInfo: StreamFinishInfo | undefined
+  // Bun/undici can throw when a response body is severed instead of ending the
+  // iterator cleanly. Feed that through the same capped continuation path as a
+  // clean end without a finish marker.
+  let thrownStreamRecovery: StreamEndRecovery | undefined
+  const streamIterator = response.fullStream[Symbol.asyncIterator]()
+  const recoverThrownStream = (error: unknown): StreamEndRecovery | null => {
+    const recovery = classifyThrownStreamRecovery({
+      aborted: params.signal.aborted,
+      error,
+    })
+    if (!recovery) return null
+    // These final-result promises can reject with the same transport error.
+    // Observe them now so the recovery yield below cannot leave an unhandled
+    // rejection while the consumer starts the continuation step.
+    void Promise.allSettled([
+      response.response,
+      response.request,
+      response.usage,
+      response.providerMetadata,
+    ])
+    return recovery
+  }
 
-  for await (const chunkValue of response.fullStream) {
+  while (true) {
+    let iteration: Awaited<ReturnType<typeof streamIterator.next>>
+    try {
+      iteration = await streamIterator.next()
+    } catch (error) {
+      const recovery = recoverThrownStream(error)
+      if (!recovery) throw error
+      thrownStreamRecovery = recovery
+      break
+    }
+    if (iteration.done) break
+    const chunkValue = iteration.value
     if (chunkValue.type === 'finish') {
       finishInfo = streamFinishInfoOf(chunkValue)
     }
@@ -498,8 +533,9 @@ export async function* promptAiSdkStream(
       }
     }
     if (chunkValue.type === 'error') {
-      // Error chunks from fullStream are non-network errors (tool failures, model issues, rate limits, etc.)
-      // Network errors which cannot be recovered from are thrown, not yielded as chunks.
+      // Error chunks are usually model/tool/API failures. Some runtimes surface
+      // a response-body transport drop here instead of rejecting iterator.next;
+      // the final branch below recognizes that one recoverable exception.
 
       const errorBody = APICallError.isInstance(chunkValue.error)
         ? chunkValue.error.responseBody
@@ -630,6 +666,14 @@ export async function* promptAiSdkStream(
         return fallbackResult
       }
 
+      // A transport error can also arrive as an AI SDK error chunk instead of
+      // making iterator.next() reject. Recover both runtime shapes identically.
+      const recovery = recoverThrownStream(chunkValue.error)
+      if (recovery) {
+        thrownStreamRecovery = recovery
+        break
+      }
+
       logger.error(
         {
           chunk: { ...chunkValue, error: undefined },
@@ -685,6 +729,7 @@ export async function* promptAiSdkStream(
   }
   const flushed = stopSequenceHandler.flush()
   if (flushed) {
+    hasYieldedContent = true
     yield {
       type: 'text',
       text: flushed,
@@ -692,12 +737,17 @@ export async function* promptAiSdkStream(
     }
   }
 
-  const recovery = classifyStreamEndRecovery({
-    aborted: params.signal.aborted,
-    finish: finishInfo,
-    yieldedText: hasYieldedContent,
-    yieldedToolCall: hasYieldedToolCall,
-  })
+  if (thrownStreamRecovery && params.signal.aborted) {
+    return promptAborted('User cancelled input')
+  }
+  const recovery =
+    thrownStreamRecovery ??
+    classifyStreamEndRecovery({
+      aborted: params.signal.aborted,
+      finish: finishInfo,
+      yieldedText: hasYieldedContent,
+      yieldedToolCall: hasYieldedToolCall,
+    })
   if (recovery) {
     // The stream ended in a recoverable silent stop (connection cut, or
     // output budget burned on reasoning). Yield an error chunk instead of
@@ -731,6 +781,11 @@ export async function* promptAiSdkStream(
       message: recovery.message,
     }
   }
+
+  // A thrown response body has no reliable final metadata to collect. The
+  // recovery chunk above preserves partial output and forces a fresh agent
+  // step, which continues from that saved context.
+  if (thrownStreamRecovery) return promptSuccess(null)
 
   const responseValue = await response.response
   const messageId = responseValue.id
