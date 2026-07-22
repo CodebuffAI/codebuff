@@ -53,6 +53,71 @@ describe('formatValidationIssues', () => {
     )
   })
 
+  test('summarizes exclusively missing str_replace oldString with deletion guidance', () => {
+    const summary = formatValidationIssues({
+      toolName: 'str_replace',
+      issues: [
+        {
+          code: 'invalid_type',
+          expected: 'string',
+          path: ['replacements', 0, 'oldString'],
+          message: 'Invalid input: expected string, received undefined',
+        },
+      ],
+    })
+    expect(summary).toContain('Missing required replacement fields:')
+    expect(summary).toContain('- replacements[0].oldString')
+    expect(summary).toContain(
+      'If the intent is deletion, set "newString": "" explicitly.',
+    )
+  })
+
+  test('lists both missing str_replace replacement fields', () => {
+    const summary = formatValidationIssues({
+      toolName: 'str_replace',
+      issues: [
+        {
+          code: 'invalid_type',
+          expected: 'string',
+          path: ['replacements', 0, 'oldString'],
+          message: 'Invalid input: expected string, received undefined',
+        },
+        {
+          code: 'invalid_type',
+          expected: 'string',
+          path: ['replacements', 0, 'newString'],
+          message: 'Invalid input: expected string, received undefined',
+        },
+      ],
+    })
+    expect(summary).toContain('Missing required replacement fields:')
+    expect(summary).toContain('- replacements[0].oldString')
+    expect(summary).toContain('- replacements[0].newString')
+  })
+
+  test('falls back to the generic formatter for mixed str_replace issues', () => {
+    const summary = formatValidationIssues({
+      toolName: 'str_replace',
+      issues: [
+        {
+          code: 'invalid_type',
+          expected: 'string',
+          path: ['replacements', 0, 'newString'],
+          message: 'Invalid input: expected string, received undefined',
+        },
+        {
+          code: 'too_small',
+          path: ['replacements', 0, 'occurrenceIndex'],
+          message: 'Value must be greater than 0',
+        },
+      ],
+    })
+    expect(summary).not.toContain('Missing required replacement fields:')
+    expect(summary).toContain(
+      'replacements[0].occurrenceIndex: Value must be greater than 0',
+    )
+  })
+
   test('falls back to detailed messages for non-missing issues', () => {
     expect(
       formatValidationIssues({

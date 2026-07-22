@@ -5,7 +5,7 @@ Execute milestones in order. Each milestone has a validation gate; do not mark d
 
 ## M1 — Unify authorization on content-correctness (the core)
 - [x] M1.1 Make cap.v3 the single authority: validation re-hashes the current targeted content and compares to the capability hash; remove whole-file-vs-range authority branching in `process-str-replace.ts` / `process-edit-transaction.ts`. (Claiming: make cap.v3 the single authority; validation re-hashes current targeted content vs capability hash; remove whole-file-vs-range authority branching. Design fork resolved: keep observed-bytes floor (partial range read cannot mint whole-file authority).) (Validated: agent-runtime typecheck + 178 targeted tests passed; implementation is existing scope+content-hash behavior plus clarifying docs.)
-  - Acceptance: AC1 — a range cap authorizes a matching range edit; a whole-file cap authorizes a matching sub-range or whole-file edit; authority is content-hash equality only.
+  - Acceptance: AC1 — a range cap authorizes a matching edit within its observed range; it cannot authorize a whole-file overwrite unless it covers the whole current file. A whole-file cap authorizes a matching sub-range or whole-file edit; authority is content-hash equality within the observed-bytes floor.
   - Validate: `cd packages/agent-runtime && bun run typecheck` + `bun test src/__tests__/process-str-replace.test.ts src/__tests__/process-edit-transaction.test.ts src/__tests__/read-files-edit-state.test.ts`
 - [x] M1.2 Keep the anti-footgun: a whole-file overwrite still requires a hash covering the whole current file (range caps continue to also mint a whole-file-scoped cap when the full file was observed, per the existing `wholeFileReadCapability` gates). Fold both into one uniform cap emission so the model carries one token. (Claimed after M1.1 validation; preserve observed-bytes floor while unifying model-facing capability emission.) (Validated: one capability per successful selector; common/SDK typechecks and 60 read-files tests passed.)
   - Acceptance: whole-file overwrite from a partial-only observation is still refused; from a full observation it succeeds.
@@ -36,7 +36,7 @@ Execute milestones in order. Each milestone has a validation gate; do not mark d
   - Validate: `bun run typecheck` (root) + the union of suites above.
 
 ## Open decision (needs user before M1)
-- ODA: Confirm the security-preserving interpretation of "unify … regardless of either as long as content is correct" (whole-file overwrite still needs a whole-file-covering hash; range edits need a matching range hash; both are one uniform cap.v3). Alternative the user might mean: let ANY fresh range cap authorize a whole-file overwrite (drops the partial-observation guard).
+- ODA: Resolved in favor of the security-preserving interpretation: whole-file overwrite requires a whole-file-covering hash; range edits require a matching hash for the observed range; both use one uniform cap.v3 validation path. A partial range capability never authorizes rewriting unobserved bytes.
 
 <!-- update_plan_status:appended -->
 ## M1.1 validation — 2026-07-22T08:45:45.926Z

@@ -1,7 +1,7 @@
 # STATUS — Read/Edit Authorization Unification
 
 ## Current state
-- **Phase:** Complete. M1-M5 are implemented and validated; no current task is active.
+- **Phase:** Session claims M1-M5 complete, but completion is not treated as verified evidence in this reviewed snapshot; the implementation and direct test artifacts must be included in the review scope before those claims are accepted. No current task is active.
 - **Confirmed design decision (user, 2026-07):** Unify whole-file and range read
   authorization so an edit applies regardless of which produced the authority,
   **as long as the supplied content matches current bytes** — BUT keep the
@@ -25,18 +25,22 @@
    path-keyed override normalization in favor of one uniform cap.v3 + structured
    implementation; update every dependent call site + test.
 
-## Completed
-- M1 authorization unification validated.
-- M2 post-edit content and fresh capability results validated.
-- M3 editor receipt reconciliation and authoritative `changedFiles` behavior validated.
-- M4 cap.v3-only authorization, structured read results, and dead-tool removal validated.
-- M5 documentation and full validation gates completed.
+## Session-reported completion claims
+The following are session history claims, not independently verified evidence for the current reviewed snapshot:
+- M1 authorization unification.
+- M2 post-edit content and fresh capability results.
+- M3 editor receipt reconciliation and authoritative `changedFiles` behavior.
+- M4 cap.v3-only authorization, structured read results, and dead-tool removal.
+- M5 documentation and validation gates.
+
+Review acceptance requires the corresponding implementation and direct test files to be present in the reviewed snapshot.
 
 ## Pending
-- None.
+- Include or review the implementation and direct test artifacts for AC1-AC5 before treating the session completion claims as verified.
+- Add direct formatter coverage for missing `str_replace` replacement fields and mixed validation issues.
 
 ## Blocked / needs user decision
-- None currently; the one blocking design fork is resolved (observed-bytes floor kept).
+- None; the authorization design fork is resolved with the observed-bytes floor kept.
 
 ## Next checkpoint
 - None; the session is complete.
@@ -65,5 +69,5 @@ M4.2 validated. `read_slices` and `apply_smart_patch` fully removed: common para
 <!-- update_plan_status:appended -->
 ## Session complete — 2026-07-22 — 2026-07-22T14:38:19.432Z
 
-All milestones M1–M5 validated. M4.2 removed the quarantined dead tools (`read_slices`, `apply_smart_patch`) and their schemas/handlers/registrations/type surface, migrating every residual source, generated-type, test, and doc reference to the unified cap.v3 model. Final gates: full monorepo `bun run typecheck` clean; 231 agent-runtime + 57 SDK + 42 common read/edit/auth tests green; tool-metadata, tool-reachability, and structural-read suites green.
+Session history reports all milestones M1–M5 validated, including M4.2 removal of the quarantined dead tools (`read_slices`, `apply_smart_patch`) and their schemas/handlers/registrations/type surface. These historical validation statements are not independent evidence for the current reviewed snapshot; the referenced implementation and test files must be included in the review scope.
 
