@@ -201,8 +201,10 @@ describe('getFiles', () => {
   })
 
   describe('file too large', () => {
-    test('should truncate files over 100k chars to first 100k chars with message', async () => {
-      const largeContent = 'x'.repeat(100_001) + 'y'.repeat(1000) // over limit
+    test('reads files well over 100k chars but under 10MB fully without a FILE_TOO_LARGE marker', async () => {
+      // The 10MB byte gate is now the single read ceiling, so a file far over
+      // the old 100k char cap but under 10MB renders fully.
+      const largeContent = 'x'.repeat(300_000)
       const mockFs = createMockFs({
         files: {
           '/project/large.bin': {
@@ -218,23 +220,9 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      // Should contain first 100k chars
-      expect(result['large.bin']).toContain('x'.repeat(100_000))
-      // Should NOT contain content beyond the limit
-      expect(result['large.bin']).not.toContain('y')
-      // Should contain truncation message
-      expect(result['large.bin']).toContain('FILE_TOO_LARGE')
-      expect(result['large.bin']).toContain('101,001 chars')
-      expect(result['large.bin']).toContain('1 lines')
-      expect(result['large.bin']).toContain(
-        'Do not edit from this truncated content',
-      )
-      expect(result['large.bin']).toContain(
-        'Large-file edits require basedOnRead',
-      )
-      expect(result['large.bin']).toContain(
-        'ranges: [{ path: "large.bin", startLine, endLine }]',
-      )
+      // Read fully, with no character-limit truncation marker.
+      expect(result['large.bin']).toBe(largeContent)
+      expect(result['large.bin']).not.toContain('FILE_TOO_LARGE')
     })
 
     test('should read files at exactly 100k chars', async () => {
@@ -646,7 +634,7 @@ describe('getFiles', () => {
       )
     })
 
-    test('should apply the 100k cap to a large ranged slice', async () => {
+    test('renders a previously-capped large ranged slice fully under the 10MB read ceiling', async () => {
       const hugeLine = 'x'.repeat(100_050)
       const mockFs = createMockFs({
         files: { '/project/src/huge.ts': { content: hugeLine } },
@@ -659,13 +647,15 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/huge.ts', startLine: 1, endLine: 1 }],
       })
 
+      // A ~100k-char single-line slice is now under the 10MB read ceiling, so
+      // it renders fully with a valid rangeHash/readCapability instead of
+      // being capped.
       expect(result['src/huge.ts']).toContain(
-        'rangeHash=omitted; readCapability=omitted',
+        '[RANGE_BLOCK lines 1-1 of 1 in src/huge.ts; rangeHash=sha256:',
       )
-      expect(result['src/huge.ts']).toContain('FILE_TOO_LARGE')
-      expect(result['src/huge.ts']).toContain(
-        'do not edit from this truncated range',
-      )
+      expect(result['src/huge.ts']).not.toContain('rangeHash=omitted')
+      expect(result['src/huge.ts']).not.toContain('FILE_TOO_LARGE')
+      expect(result['src/huge.ts']).toContain(`1\t${hugeLine}`)
     })
 
     test('regression: plain reads are unaffected when no ranges given', async () => {
@@ -908,11 +898,12 @@ describe('getFiles', () => {
       })
     })
 
-    test('keeps template and truncation state out of content markers', async () => {
+    test('keeps template state out of content markers and reads large files fully', async () => {
+      const largeContent = 'x'.repeat(100_001)
       const mockFs = createMockFs({
         files: {
           '/project/.env.example': { content: 'A=example' },
-          '/project/src/large.ts': { content: 'x'.repeat(100_001) },
+          '/project/src/large.ts': { content: largeContent },
         },
       })
 
@@ -947,21 +938,23 @@ describe('getFiles', () => {
         endLine: 1,
         hash: getContentHash('A=example'),
       })
+      // A ~100k-char file is now under the 10MB read ceiling, so it renders
+      // fully as a complete (non-truncated) result rather than a partial.
       expect(result.results[1]).toMatchObject({
         selector: 'file',
-        status: 'partial',
-        complete: false,
-        truncation: { reason: 'character_limit' },
+        status: 'ok',
+        complete: true,
+        content: largeContent,
       })
-      const partialFile = result.results[1]
+      const largeFile = result.results[1]
       expect(
-        partialFile && 'readCapability' in partialFile
-          ? partialFile.readCapability
+        largeFile && 'truncation' in largeFile
+          ? largeFile.truncation
           : undefined,
       ).toBeUndefined()
     })
 
-    test('does not expose an edit capability for a truncated range', async () => {
+    test('exposes an edit capability for a large ranged slice under the 10MB read ceiling', async () => {
       const mockFs = createMockFs({
         files: {
           '/project/src/large.ts': {
@@ -981,20 +974,19 @@ describe('getFiles', () => {
       })
       const item = result.results[0]
 
+      // The render cap is now the 10MB byte gate, so a ~166k-char ranged slice
+      // renders completely with a valid rangeHash and readCapability.
       expect(item).toMatchObject({
         selector: 'range',
-        status: 'partial',
-        complete: false,
+        status: 'ok',
+        complete: true,
       })
       expect(
         item && 'rangeHash' in item ? item.rangeHash : undefined,
-      ).toBeUndefined()
+      ).toMatch(/^sha256:/)
       expect(
         item && 'readCapability' in item ? item.readCapability : undefined,
-      ).toBeUndefined()
-      expect(item && 'content' in item ? item.content : '').not.toContain(
-        'basedOnRead: "',
-      )
+      ).toMatch(/^cap\./)
     })
 
     test('does not mistake ordinary marker-like source text for status', async () => {
@@ -1408,13 +1400,11 @@ describe('getFiles', () => {
       }
     })
 
-    test('never mints wholeFileReadCapability for a range read of a full snapshot whose content exceeds the render limit', async () => {
+    test('mints wholeFileReadCapability for a small range of a large full snapshot under the 10MB read ceiling', async () => {
       const capabilityIssuer = { projectId: '/project', runId: 'run-range-4' }
-      // Full-file snapshot (far under the 10MB oversized threshold, so the
-      // 'full' snapshot path runs) whose content exceeds MAX_RENDER_CHARS: a
-      // whole-file render of this file would be byte-clamped, so the model
-      // can only ever observe a fragment of the content a whole-file
-      // capability would cover.
+      // Full-file snapshot far under the 10MB byte gate. Now that the render
+      // cap is the 10MB byte gate, the whole file is fully renderable, so the
+      // whole-file capability is minted for a proper-subset range read.
       const largeContent = Array.from(
         { length: 30_000 },
         (_, index) => `line ${index + 1}`,
@@ -1441,34 +1431,30 @@ describe('getFiles', () => {
       const item = result.results[0]
       expect(item?.status).toBe('ok')
       if (item?.status !== 'error' && item.selector === 'range') {
-        // The requested range itself was fully covered and rendered.
+        // The requested range was fully covered and rendered.
         expect(item.complete).toBe(true)
-        // Security invariant: the whole-file capability may only be minted
-        // when the model has genuinely observed the full file content the
-        // capability covers. This file exceeds the render limit, so the model
-        // saw a 3-line fragment — minting a cap over all 30,000 lines would
-        // grant whole-file edit authority from a partial observation.
-        expect(item.wholeFileReadCapability).toBeUndefined()
-        // The bounded range capability itself (cap.v3 over lines 20000-20002)
-        // is still minted.
+        // The whole file (~300k chars) is under the 10MB read ceiling, so the
+        // full snapshot renders completely and the whole-file capability is
+        // minted alongside the bounded range capability.
+        expect(item.wholeFileReadCapability).toMatch(/^cap\.v3\./)
         expect(item.readCapability).toMatch(/^cap\.v3\./)
       }
     })
 
-    test('never mints wholeFileReadCapability for a byte-clamped full-snapshot range read whose rendered body exceeds the render limit', async () => {
+    test('mints wholeFileReadCapability for a large full-snapshot range read under the 10MB read ceiling', async () => {
       const capabilityIssuer = { projectId: '/project', runId: 'run-range-5' }
-      // The requested range is a proper subset fully covered by a full-file
-      // snapshot, but its rendered body exceeds MAX_RENDER_CHARS, so the
-      // response is clamped and the model never sees the omitted lines.
-      const clampedContent = Array.from(
+      // Proper-subset range fully covered by a full-file snapshot whose
+      // rendered body far exceeds the old 100k char cap but is under the 10MB
+      // byte gate, so it now renders completely.
+      const largeContent = Array.from(
         { length: 2_001 },
         (_, index) => `${index + 1}:${'x'.repeat(80)}`,
       ).join('\n')
       const mockFs = createMockFs({
         files: {
           '/project/src/clamped.ts': {
-            content: clampedContent,
-            size: clampedContent.length,
+            content: largeContent,
+            size: largeContent.length,
           },
         },
       })
@@ -1482,16 +1468,14 @@ describe('getFiles', () => {
       })
 
       const item = result.results[0]
-      expect(item?.status).toBe('partial')
+      expect(item?.status).toBe('ok')
       if (item?.status !== 'error' && item.selector === 'range') {
-        expect(item.complete).toBe(false)
-        // Security invariant: a clamped render means the model only observed
-        // a fragment, so no whole-file capability may be minted — even though
-        // the snapshot held the full file and an issuer was supplied.
-        expect(item.wholeFileReadCapability).toBeUndefined()
-        // The pre-existing `complete` gate also withholds the scoped range
-        // capability for a clamped render ('rangeHash=omitted').
-        expect(item.readCapability).toBeUndefined()
+        // The ~170k-char rendered range is under the 10MB read ceiling, so it
+        // renders completely and both the range and whole-file capabilities
+        // are minted.
+        expect(item.complete).toBe(true)
+        expect(item.wholeFileReadCapability).toMatch(/^cap\.v3\./)
+        expect(item.readCapability).toMatch(/^cap\.v3\./)
       }
     })
 

@@ -39,7 +39,13 @@ export const READ_SNAPSHOT_CONCURRENCY = 8
 export const MAX_RANGE_READ_BYTES = 1_048_576
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024
-const MAX_RENDER_CHARS = 100_000
+// The 10MB byte gate (MAX_FILE_BYTES) is now the single read ceiling: any file
+// that passes it renders fully (whole-file and range reads) so reviewers and
+// agents can read and attest to large source files. content.length is a
+// UTF-16 code-unit count that is always <= the file's byte size, so equating
+// the char render cap to the byte gate means "never truncate on characters
+// below the 10MB byte ceiling."
+const MAX_RENDER_CHARS = MAX_FILE_BYTES
 const numFmt = new Intl.NumberFormat('en-US')
 
 /** Stable marker for rendered range reads. */
@@ -548,6 +554,9 @@ function splitVisibleLines(content: string): string[] {
   return lines
 }
 
+// Defensive/retained helper: only feeds the whole-file truncation branch
+// above, which is unreachable while MAX_RENDER_CHARS === MAX_FILE_BYTES. Kept
+// so it auto re-activates if MAX_RENDER_CHARS is ever lowered below the byte gate.
 function pickHeadTailLines(
   lines: string[],
   maxChars: number,
@@ -631,6 +640,11 @@ function renderWholeFileItem(
       }
     | undefined
   if (partial) {
+    // Defensive/retained code: unreachable while MAX_RENDER_CHARS ===
+    // MAX_FILE_BYTES, because content.length (UTF-16 code units) is always <=
+    // the file's byte size, so a sub-10MB full snapshot never has
+    // content.length > MAX_RENDER_CHARS. Kept intentionally so it auto
+    // re-activates if MAX_RENDER_CHARS is ever lowered below the byte gate.
     const lines = splitVisibleLines(content)
     const totalLines = lines.length
     const { headEnd, tailStart } = pickHeadTailLines(lines, MAX_RENDER_CHARS)
@@ -823,11 +837,11 @@ function renderRangeItem(
           })
         })()
       : undefined
-  // Range header: keep rangeHash and readCapability on the same logical line
-  // (separated by '; ') so normalizeReadFilesOverrideResult's regex still
-  // matches (lines N-M of X ... rangeHash=...; readCapability=...). Make the
-  // line range + readCapability visually dominant with a prominent >> EDIT
-  // ANCHOR line above the token line.
+  // Range header: emitted as a single line so normalizeReadFilesOverrideResult's
+  // regex still matches (lines N-M of X ... rangeHash=...; readCapability=...).
+  // rangeHash and readCapability stay on that same line (separated by '; '),
+  // followed by inline `preferred block edit:` and `scoped str_replace:`
+  // guidance that repeats the readCapability for quick copy/paste.
   const header = complete
     ? `${RANGE_BLOCK_MARKER}lines ${desiredStart}-${desiredEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=${rangeHash}; readCapability=${readCapability}; preferred block edit: replace_range { readCapability: "${readCapability}", newContent: "..." }; scoped str_replace: basedOnRead="${readCapability}"]\n`
     : `${RANGE_BLOCK_MARKER}lines ${returnedStart}-${returnedEnd} of ${numFmt.format(totalLines)} in ${target.displayPath}; rangeHash=omitted; readCapability=omitted; NO edit capability or read authorization was minted by this truncated read — request a smaller, fully-covered range before editing to obtain a fresh basedOnRead capability]\n`
@@ -1258,11 +1272,11 @@ export function normalizeReadFilesOverrideResult(params: {
       continue
     }
 
-    // The range header may now be multi-line: `[RANGE_BLOCK lines N-M of X in path]\n>> EDIT ANCHOR ...\nrangeHash=...; readCapability=......`.
-    // Use the dotall flag so `.*?` can span those newlines, and exclude \n
-    // from the rangeHash/readCapability capture groups so they stop at the end
-    // of their logical line and do not over-capture into the preferred-edit
-    // guidance lines. This still matches the legacy single-line header form.
+    // The range header is a single line:
+    // `[RANGE_BLOCK lines N-M of X in path; rangeHash=...; readCapability=...; preferred block edit: ...; scoped str_replace: ...]`.
+    // `.*?` (dotall) skips ahead to the rangeHash/readCapability tokens, and
+    // excluding \n from those capture groups keeps them from over-capturing
+    // into the trailing guidance or the rendered body below the header.
     const header = content.match(
       /^\[RANGE_BLOCK lines (\d+)-(\d+) of ([\d,]+).*?rangeHash=([^;\]\n]+); readCapability=([^;\]\n]+)/s,
     )

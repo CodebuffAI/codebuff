@@ -808,6 +808,92 @@ describe('tool validation error handling', () => {
     }
   })
 
+  describe('run_terminal_command scalar coercion', () => {
+    it('coerces string "false"/"60" to boolean/number before validation', () => {
+      const result = parseRawToolCall({
+        rawToolCall: {
+          toolName: 'run_terminal_command',
+          toolCallId: 'terminal-coerce-scalars-tool-call-id',
+          input: {
+            command: 'echo hi',
+            detach: 'false',
+            timeout_seconds: '60',
+            process_type: 'SYNC',
+          },
+        },
+      })
+
+      expect('error' in result).toBe(false)
+      if (!('error' in result)) {
+        expect(result.input.detach).toBe(false)
+        expect(result.input.timeout_seconds).toBe(60)
+      }
+    })
+
+    it('coerces string "true" detach to boolean true', () => {
+      const result = parseRawToolCall({
+        rawToolCall: {
+          toolName: 'run_terminal_command',
+          toolCallId: 'terminal-coerce-detach-true-tool-call-id',
+          input: { command: 'echo hi', detach: 'true' },
+        },
+      })
+
+      expect('error' in result).toBe(false)
+      if (!('error' in result)) {
+        expect(result.input.detach).toBe(true)
+      }
+    })
+
+    it('leaves already-correct scalar types untouched', () => {
+      const result = parseRawToolCall({
+        rawToolCall: {
+          toolName: 'run_terminal_command',
+          toolCallId: 'terminal-correct-types-tool-call-id',
+          input: { command: 'echo hi', detach: true, timeout_seconds: -1 },
+        },
+      })
+
+      expect('error' in result).toBe(false)
+      if (!('error' in result)) {
+        expect(result.input.detach).toBe(true)
+        expect(result.input.timeout_seconds).toBe(-1)
+      }
+    })
+
+    it('fails closed and hints when timeout_seconds cannot be coerced', () => {
+      const result = parseRawToolCall({
+        rawToolCall: {
+          toolName: 'run_terminal_command',
+          toolCallId: 'terminal-uncoercible-timeout-tool-call-id',
+          input: { command: 'echo hi', timeout_seconds: 'soon' },
+        },
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('timeout_seconds')
+        // The ambiguous string is never silently turned into a number.
+        expect(result.error).not.toContain('timeout_seconds": 0')
+      }
+    })
+
+    it('fails closed for an ambiguous detach string', () => {
+      const result = parseRawToolCall({
+        rawToolCall: {
+          toolName: 'run_terminal_command',
+          toolCallId: 'terminal-ambiguous-detach-tool-call-id',
+          input: { command: 'echo hi', detach: 'yes' },
+        },
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('detach')
+      }
+    })
+  })
+
   it('should accept old_str/new_str aliases for str_replace replacements', () => {
     const result = parseRawToolCall({
       rawToolCall: {

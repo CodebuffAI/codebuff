@@ -1,3 +1,18 @@
+/**
+ * ADVISORY / TELEMETRY-ONLY workflow state machine.
+ *
+ * This module is NOT the authoritative orchestration gate. The controlling
+ * turn lifecycle (validation hooks, aux gates, and the code-reviewer
+ * finalization verdict) lives in `createBase2`'s serialized `handleSteps`
+ * generator in `agents/base2/base2.ts`. `transitionWorkflow` and the
+ * `WorkflowStateV1` records it produces are bookkeeping/telemetry: they record
+ * declarative subflow state (persisted on `AgentState.workflowStates`) for
+ * resumability and observability, but they do not decide whether a turn may
+ * finalize. Do not reroute the base2 gate through this engine or treat its
+ * state as a completion authority; keep it as advisory metadata unless a future
+ * change deliberately promotes it (which would require moving the gate
+ * decision here and updating the base2 handleSteps contract).
+ */
 export type WorkflowTransitionV1 = {
   event: string
   from: string[]

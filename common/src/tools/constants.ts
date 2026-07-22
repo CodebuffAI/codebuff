@@ -155,6 +155,13 @@ export type PublishedToolName = (typeof publishedTools)[number]
 export const quarantinedToolNames: readonly ToolName[] = [
   'apply_smart_patch',
   'read_slices',
+  // Registered for compatibility (persisted histories / external callers) but
+  // granted to no shipped agent. Quarantined so they are not
+  // prompt-visible-yet-unreachable dead tools. Grant to an agent to reactivate.
+  'find_files',
+  'find_files_matching_content',
+  'lookup_agent_info',
+  'render_ui',
 ]
 
 /** Only used for validating tool definitions */

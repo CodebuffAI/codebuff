@@ -1,17 +1,15 @@
-import type { AgentTemplateTypes } from '../types/session-state'
-
 // Define agent personas with their shared characteristics
 export const AGENT_PERSONAS = {
-  // Base agents - all use Buffy persona
-  base: {
-    displayName: 'Buffy the Base Agent',
-    purpose: 'Base agent that orchestrates the full response.',
+  // Root orchestrators
+  base2: {
+    displayName: 'Buffy the Orchestrator',
+    purpose:
+      'Root orchestrator that plans, edits, and reviews complex coding tasks.',
   } as const,
-
-  // Ask mode
-  ask: {
-    displayName: 'Ask Mode Agent',
-    purpose: 'Base ask-mode agent that orchestrates the full response.',
+  'base-deep': {
+    displayName: 'Buffy the GPT Orchestrator',
+    purpose:
+      'Root orchestrator that plans, edits, and reviews complex coding tasks.',
   } as const,
 
   // Specialized agents
@@ -20,32 +18,80 @@ export const AGENT_PERSONAS = {
     purpose:
       'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',
   } as const,
-  'file-explorer': {
-    displayName: 'Dora The File Explorer',
-    purpose: 'Expert at exploring a codebase and finding relevant files.',
-  } as const,
   'file-picker': {
     displayName: 'Fletcher the File Fetcher',
     purpose: 'Expert at finding relevant files in a codebase.',
   } as const,
-  researcher: {
-    displayName: 'Reid Searcher the Researcher',
-    purpose: 'Expert at researching topics using web search and documentation.',
+  // Editors
+  editor: {
+    displayName: 'Code Editor',
+    purpose: 'Implements code changes for a self-contained task.',
   } as const,
-  planner: {
-    displayName: 'Peter Plan',
-    purpose: 'Agent that formulates a comprehensive plan to a prompt.',
-    hidden: true,
-  } as const,
-  reviewer: {
-    displayName: 'Nit Pick Nick the Reviewer',
+  'repair-editor': {
+    displayName: 'Repair Editor',
     purpose:
-      'Reviews file changes and responds with critical feedback. Use this after making any significant change to the codebase; otherwise, no need to use this agent for minor changes since it takes a second.',
+      'Applies targeted fixes for validation failures and reviewer findings.',
   } as const,
-  'agent-builder': {
-    displayName: 'Bob the Agent Builder',
-    purpose: 'Creates new agent templates for the codebuff multi-agent system',
-    hidden: false,
+
+  // Reviewers and discovery
+  'code-reviewer': {
+    displayName: 'Nit Pick Nick',
+    purpose: 'Reviews file changes and responds with critical feedback.',
+  } as const,
+  'code-searcher': {
+    displayName: 'Code Searcher',
+    purpose: 'Expert at searching the codebase for relevant code.',
+  } as const,
+  'file-lister': {
+    displayName: 'Liszt the File Lister',
+    purpose: 'Lists files relevant to a task.',
+  } as const,
+  'directory-lister': {
+    displayName: 'Directory Lister',
+    purpose: 'Lists the contents of a directory.',
+  } as const,
+  'glob-matcher': {
+    displayName: 'Glob Matcher',
+    purpose: 'Matches files by glob pattern.',
+  } as const,
+  'researcher-web': {
+    displayName: 'Weeb',
+    purpose: 'Researches topics using web search.',
+  } as const,
+  'researcher-docs': {
+    displayName: 'Doc',
+    purpose: 'Researches topics using library documentation.',
+  } as const,
+
+  // Tool-runner support agents
+  basher: {
+    displayName: 'Basher',
+    purpose: 'Runs a single terminal command and reports its output.',
+  } as const,
+  'browser-use': {
+    displayName: 'Browser Use Agent',
+    purpose: 'Automates browser interactions via Chrome DevTools.',
+  } as const,
+  librarian: {
+    displayName: 'Librarian',
+    purpose: 'Clones a GitHub repository and answers questions about its code.',
+  } as const,
+  'tmux-cli': {
+    displayName: 'Tmux CLI Agent',
+    purpose: 'Interacts with and tests CLI applications via tmux.',
+  } as const,
+  'general-agent': {
+    displayName: 'General Agent',
+    purpose: 'General-purpose agent for a wide range of problems.',
+  } as const,
+  synthesizer: {
+    displayName: 'Sam the Synthesizer',
+    purpose: 'Synthesizes audit finding files into a cross-cutting report.',
+  } as const,
+  'context-pruner': {
+    displayName: 'Context Pruner',
+    purpose: 'Prunes and summarizes conversation context between steps.',
+    hidden: true,
   } as const,
   'test-writer': {
     displayName: 'Tess the Test Writer',
@@ -140,11 +186,9 @@ export const AGENT_PERSONAS = {
     displayName: 'Independent Evaluator',
     purpose: 'Scores outputs independently against requirements and evidence.',
   } as const,
-} as const satisfies Partial<
-  Record<
-    (typeof AgentTemplateTypes)[keyof typeof AgentTemplateTypes],
-    { displayName: string; purpose: string; hidden?: boolean }
-  >
+} as const satisfies Record<
+  string,
+  { displayName: string; purpose: string; hidden?: boolean }
 >
 
 // Agent IDs list from AGENT_PERSONAS keys

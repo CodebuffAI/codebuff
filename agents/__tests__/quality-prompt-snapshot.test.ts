@@ -4,10 +4,11 @@ import { PLACEHOLDER } from '@codebuff/agent-runtime/templates/types'
 
 import { createBaseDeep } from '../base2/base-deep'
 import { createBase2 } from '../base2/base2'
+import { frontendSection } from '@codebuff/common/constants/prompt-sections'
+
 import { createCodeEditor } from '../editor/editor'
 import {
   buildBroadAuditSection,
-  frontendSection,
   gateAwarenessSection,
   gitDisciplineSection,
   qualitySection,

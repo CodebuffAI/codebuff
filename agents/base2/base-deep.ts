@@ -346,43 +346,13 @@ export function createBaseDeep(options?: {
 4. Implement — fully build the spec using file editing tools
 5. Validate — run tests + typechecks, add new tests, do E2E verification
 6. Final review — defer to the automated final validation + code-reviewer gate; fix any BLOCKING findings, revalidate, and let it re-run${noLearning ? '' : `\n7. Lessons — write LESSONS.md, update/create skills, iterative thinker brainstorm loop`}`,
-    // editor is required for the gate repair loop (spawned on validation
-    // failure to fix the offending files). Mechanical directory/glob work is
-    // exposed directly as tools rather than model-backed wrapper agents.
-    spawnableAgents: buildArray(
-      'file-picker',
-      'code-searcher',
-      'researcher-web',
-      'researcher-docs',
-      'basher',
-      'dependency-manager',
-      'thinker',
-      'code-reviewer',
-      'security-reviewer',
-      'general-agent',
-      'editor',
-      'repair-editor',
-      'git-committer',
-      'debugger',
-      'doc-writer',
-      'test-writer',
-      'librarian',
-      'synthesizer',
-      'architect',
-      'product-reviewer',
-      'integration-agent',
-      'performance-specialist',
-      'reliability-reviewer',
-      'migration-reviewer',
-      'accessibility-reviewer',
-      'ux-visual-reviewer',
-      'compatibility-reviewer',
-      'dependency-reviewer',
-      'incident-coordinator',
-      'release-manager',
-      'docs-architect',
-      'evaluator',
-    ),
+    // spawnableAgents is intentionally inherited from base2 (via the spread
+    // above) rather than re-declared here, so base-deep and base2 cannot
+    // drift. This keeps base-deep on the SAME computed default-mode roster as
+    // base2, including context-pruner (required for derived ids because the
+    // shared handleSteps invokes it through spawn_agent_inline), tmux-cli, and
+    // browser-use. Mechanical directory/glob work stays exposed as direct
+    // tools rather than model-backed wrapper agents, matching base2.
   }
 }
 

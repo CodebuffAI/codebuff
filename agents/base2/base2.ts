@@ -113,6 +113,24 @@ export function createBase2(
     ],
     spawnableAgentToolMode: 'generic',
     programmaticConfig: { hasNoValidation, planOnly },
+    // Spawnable roster with documented, intentional per-mode deltas (M3.2).
+    // The deltas are ONLY the coded gates below; everything else is shared
+    // across default/fast/plan/execute-plan. Asserted by
+    // agents/__tests__/roster-drift.test.ts ("intentional per-mode
+    // spawnable deltas").
+    //   - Unconditional in EVERY mode (incl. fast and plan): browser-use,
+    //     code-reviewer, security-reviewer, debugger, and the read-only
+    //     analysis/reviewer specialists. browser-use is deliberately NOT
+    //     gated by mode — fast still needs live visual verification and
+    //     plan mode uses it read-only — so base2-fast is aligned with the
+    //     other modes on browser-use.
+    //   - Default-only (dropped in fast): thinker, editor, repair-editor.
+    //     Fast mode implements inline via edit_transaction instead of
+    //     delegating to the editor family, and skips the thinker for speed.
+    //   - Implementation-only (dropped in plan, `!planOnly`):
+    //     dependency-manager, tmux-cli, git-committer, doc-writer,
+    //     test-writer, and the default-only editor/repair-editor. Plan mode
+    //     is read-only, so mutation agents are withheld.
     spawnableAgents: buildArray(
       // handleSteps invokes this automatically through spawn_agent_inline on
       // every loop. It must still be declared for derived IDs such as
@@ -130,6 +148,8 @@ export function createBase2(
       isDefault && !planOnly && 'editor',
       isDefault && !planOnly && 'repair-editor',
       !planOnly && 'tmux-cli',
+      // browser-use is intentionally unconditional across all modes (default,
+      // fast, plan, execute-plan). See the per-mode delta note above (M3.2).
       'browser-use',
       'code-reviewer',
       'security-reviewer',
@@ -6423,6 +6443,11 @@ function buildImplementationStepPrompt({
 
 function buildExecutePlanStepPrompt({}: {}) {
   return buildArray(
+    // EXECUTE_PLAN is always default-mode, non-fast, so it carries the same
+    // editor-handoff / phase-trigger / "don't manually spawn code-reviewer"
+    // guidance as the DEFAULT step prompt. Compose it from the shared builder
+    // instead of reimplementing so the two step prompts cannot drift.
+    buildImplementationStepPrompt({ isDefault: true, isFast: false }),
     'You are in EXECUTE_PLAN mode. Execute or resume durable plan artifacts, using the project source editing tools when implementation work is required. Unlike PLAN mode, you may edit project source files to complete planned tasks.',
     'Treat SPEC.md, PLAN.md, STATUS.md, and LESSONS.md under the durable plan session as authoritative. Use any artifact contents already present in the conversation as the initial source of truth, confirm the next incomplete or blocked item from that context, and read artifacts directly only when contents are missing, truncated, stale, or have changed. Do not repeatedly re-read unchanged artifacts or source files after confirming the next item; continue from it unless the artifacts say completed work must be revisited.',
     'Honor the deterministic preflight included with resumed artifacts. Do not edit source when preflight reports errors. Use stable task IDs for updates, keep at most one task in_progress, respect dependencies, and do not mark a task done until its Validate gate passes and the checkpoint is recorded.',

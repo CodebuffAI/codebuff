@@ -10,7 +10,6 @@
     "default": "high"
   },
   "agents": {
-    "base": "agentrouter/gpt-5.5",
     "base2": "agentrouter/gpt-5.5",
     "base2-fast": "agentrouter/gpt-5.5",
     "base2-fast-no-validation": "agentrouter/gpt-5.5",
@@ -25,7 +24,6 @@
     "code-reviewer": "agentrouter/gpt-5.5",
     "file-picker": "agentrouter/gpt-5.5",
     "file-lister": "agentrouter/gpt-5.5",
-    "file-explorer": "agentrouter/gpt-5.5",
     "code-searcher": "agentrouter/gpt-5.5",
     "directory-lister": "agentrouter/gpt-5.5",
     "glob-matcher": "agentrouter/gpt-5.5",
@@ -33,7 +31,6 @@
     "basher": "agentrouter/gpt-5.5",
     "dependency-manager": "agentrouter/gpt-5.5",
     "browser-use": "agentrouter/gpt-5.5",
-    "researcher": "agentrouter/gpt-5.5",
     "researcher-web": "agentrouter/gpt-5.5",
     "researcher-docs": "agentrouter/gpt-5.5",
     "librarian": "agentrouter/gpt-5.5",

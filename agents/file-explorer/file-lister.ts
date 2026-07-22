@@ -9,7 +9,11 @@ const MAX_LISTED_FILES = 8
 export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   displayName: 'Liszt the File Lister',
   publisher,
-  spawnerPrompt: `Lists up to ${MAX_LISTED_FILES} files that are relevant to the prompt within the given project-relative directories. Unless you know which directories are relevant, omit the directories parameter.`,
+  // file-lister is the internal worker of `file-picker` (its sole spawner via
+  // file-picker's `spawnableAgents`). It is intentionally NOT in any
+  // orchestrator's spawnable list — the orchestrator spawns `file-picker`,
+  // which fans out to file-lister internally. Keep this contract narrow.
+  spawnerPrompt: `Internal worker for the file-picker agent. Lists up to ${MAX_LISTED_FILES} files that are relevant to the prompt within the given project-relative directories. Unless you know which directories are relevant, omit the directories parameter.`,
   inputSchema: {
     prompt: {
       type: 'string',

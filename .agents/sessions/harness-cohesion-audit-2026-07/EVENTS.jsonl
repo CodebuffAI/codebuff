@@ -1,0 +1,51 @@
+{"ts":"2026-07-21T20:48:18.666Z","kind":"append_lesson","summary":"Appended entry \"Confirmed Decisions (2026-07)\" to STATUS.md","payload":{"heading":"Confirmed Decisions (2026-07)","artifact":"STATUS.md"}}
+{"ts":"2026-07-21T20:48:18.666Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-21T20:50:21.223Z","kind":"append_lesson","summary":"Appended entry \"M1.1 Roster Inventory Matrix\" to STATUS.md","payload":{"heading":"M1.1 Roster Inventory Matrix","artifact":"STATUS.md"}}
+{"ts":"2026-07-21T20:53:10.549Z","kind":"task_update","summary":"Updated 1 task line(s): M1.1","payload":{"matched":["M1.1"]}}
+{"ts":"2026-07-21T20:53:20.550Z","kind":"task_update","summary":"Updated 1 task line(s): M1.2","payload":{"matched":["M1.2"]}}
+{"ts":"2026-07-21T20:53:20.550Z","kind":"current_task","summary":"Current task -> \"M1.2\"","payload":{"currentTask":"M1.2"}}
+{"ts":"2026-07-21T20:59:42.088Z","kind":"task_update","summary":"Updated 2 task line(s): M1.2, M1.3","payload":{"matched":["M1.2","M1.3"]}}
+{"ts":"2026-07-21T20:59:42.088Z","kind":"current_task","summary":"Current task -> \"M1.3\"","payload":{"currentTask":"M1.3"}}
+{"ts":"2026-07-21T21:02:17.853Z","kind":"task_update","summary":"Updated 2 task line(s): M1.3, M1.4","payload":{"matched":["M1.3","M1.4"]}}
+{"ts":"2026-07-21T21:02:17.853Z","kind":"current_task","summary":"Current task -> \"M1.4\"","payload":{"currentTask":"M1.4"}}
+{"ts":"2026-07-21T21:05:19.252Z","kind":"task_update","summary":"Updated 2 task line(s): M1.4, M1.5","payload":{"matched":["M1.4","M1.5"]}}
+{"ts":"2026-07-21T21:05:19.252Z","kind":"current_task","summary":"Current task -> \"M1.5\"","payload":{"currentTask":"M1.5"}}
+{"ts":"2026-07-21T21:06:15.318Z","kind":"task_update","summary":"Updated 2 task line(s): M1.5, M2.1","payload":{"matched":["M1.5","M2.1"]}}
+{"ts":"2026-07-21T21:06:15.318Z","kind":"current_task","summary":"Current task -> \"M2.1\"","payload":{"currentTask":"M2.1"}}
+{"ts":"2026-07-21T21:06:44.764Z","kind":"append_lesson","summary":"Appended entry \"M1 Complete (2026-07)\" to STATUS.md","payload":{"heading":"M1 Complete (2026-07)","artifact":"STATUS.md"}}
+{"ts":"2026-07-21T21:09:19.791Z","kind":"task_update","summary":"Updated 2 task line(s): M2.1, M2.2","payload":{"matched":["M2.1","M2.2"]}}
+{"ts":"2026-07-21T21:09:19.791Z","kind":"current_task","summary":"Current task -> \"M2.2\"","payload":{"currentTask":"M2.2"}}
+{"ts":"2026-07-21T21:10:12.840Z","kind":"task_update","summary":"Updated 2 task line(s): M2.2, M2.3","payload":{"matched":["M2.2","M2.3"]}}
+{"ts":"2026-07-21T21:10:12.840Z","kind":"current_task","summary":"Current task -> \"M2.3\"","payload":{"currentTask":"M2.3"}}
+{"ts":"2026-07-21T21:12:14.767Z","kind":"task_update","summary":"Updated 2 task line(s): M2.3, M3.1","payload":{"matched":["M2.3","M3.1"]}}
+{"ts":"2026-07-21T21:12:14.767Z","kind":"current_task","summary":"Current task -> \"M3.1\"","payload":{"currentTask":"M3.1"}}
+{"ts":"2026-07-21T21:14:12.501Z","kind":"task_update","summary":"Updated 2 task line(s): M3.1, M3.3","payload":{"matched":["M3.1","M3.3"]}}
+{"ts":"2026-07-21T21:14:12.501Z","kind":"current_task","summary":"Current task -> \"M3.3\"","payload":{"currentTask":"M3.3"}}
+{"ts":"2026-07-21T21:16:17.295Z","kind":"task_update","summary":"Updated 3 task line(s): M3.3, M3.2, M3.4","payload":{"matched":["M3.3","M3.2","M3.4"]}}
+{"ts":"2026-07-21T21:16:17.295Z","kind":"current_task","summary":"Current task -> \"M3.4\"","payload":{"currentTask":"M3.4"}}
+{"ts":"2026-07-21T21:17:10.256Z","kind":"append_lesson","summary":"Appended entry \"M3.4 Decision: gateAwarenessSection gating rule\" to LESSONS.md","payload":{"heading":"M3.4 Decision: gateAwarenessSection gating rule","artifact":"LESSONS.md"}}
+{"ts":"2026-07-21T21:17:57.842Z","kind":"task_update","summary":"Updated 2 task line(s): M3.4, M4.1","payload":{"matched":["M3.4","M4.1"]}}
+{"ts":"2026-07-21T21:17:57.842Z","kind":"current_task","summary":"Current task -> \"M4.1\"","payload":{"currentTask":"M4.1"}}
+{"ts":"2026-07-21T21:20:06.175Z","kind":"task_update","summary":"Updated 2 task line(s): M4.1, M4.2","payload":{"matched":["M4.1","M4.2"]}}
+{"ts":"2026-07-21T21:20:06.175Z","kind":"current_task","summary":"Current task -> \"M4.2\"","payload":{"currentTask":"M4.2"}}
+{"ts":"2026-07-21T21:22:54.380Z","kind":"task_update","summary":"Updated 2 task line(s): M4.2, M5.1","payload":{"matched":["M4.2","M5.1"]}}
+{"ts":"2026-07-21T21:22:54.380Z","kind":"current_task","summary":"Current task -> \"M5.1\"","payload":{"currentTask":"M5.1"}}
+{"ts":"2026-07-21T21:24:57.924Z","kind":"task_update","summary":"Updated 2 task line(s): M5.1, M5.2","payload":{"matched":["M5.1","M5.2"]}}
+{"ts":"2026-07-21T21:24:57.924Z","kind":"current_task","summary":"Current task -> \"M5.2\"","payload":{"currentTask":"M5.2"}}
+{"ts":"2026-07-21T21:26:26.377Z","kind":"append_lesson","summary":"Appended entry \"M5.2 BLOCKED — conflict with compatibility invariants\" to STATUS.md","payload":{"heading":"M5.2 BLOCKED — conflict with compatibility invariants","artifact":"STATUS.md"}}
+{"ts":"2026-07-21T21:26:44.622Z","kind":"task_update","summary":"Updated 2 task line(s): M5.2, M5.3","payload":{"matched":["M5.2","M5.3"]}}
+{"ts":"2026-07-21T21:26:44.622Z","kind":"current_task","summary":"Current task -> \"M5.3\"","payload":{"currentTask":"M5.3"}}
+{"ts":"2026-07-21T21:31:15.966Z","kind":"task_update","summary":"Updated 2 task line(s): M5.3, M6.1","payload":{"matched":["M5.3","M6.1"]}}
+{"ts":"2026-07-21T21:31:15.966Z","kind":"current_task","summary":"Current task -> \"M6.1\"","payload":{"currentTask":"M6.1"}}
+{"ts":"2026-07-21T21:34:04.802Z","kind":"task_update","summary":"Updated 2 task line(s): M6.1, M6.2","payload":{"matched":["M6.1","M6.2"]}}
+{"ts":"2026-07-21T21:34:04.802Z","kind":"current_task","summary":"Current task -> \"M6.2\"","payload":{"currentTask":"M6.2"}}
+{"ts":"2026-07-21T21:35:09.654Z","kind":"task_update","summary":"Updated 2 task line(s): M6.2, M7.1","payload":{"matched":["M6.2","M7.1"]}}
+{"ts":"2026-07-21T21:35:09.654Z","kind":"current_task","summary":"Current task -> \"M7.1\"","payload":{"currentTask":"M7.1"}}
+{"ts":"2026-07-21T21:37:38.329Z","kind":"task_update","summary":"Updated 2 task line(s): M7.1, M5.2","payload":{"matched":["M7.1","M5.2"]}}
+{"ts":"2026-07-21T21:37:38.329Z","kind":"current_task","summary":"Current task pointer cleared","payload":{"currentTask":null}}
+{"ts":"2026-07-21T21:38:02.119Z","kind":"append_lesson","summary":"Appended entry \"Execution Complete (2026-07)\" to STATUS.md","payload":{"heading":"Execution Complete (2026-07)","artifact":"STATUS.md"}}
+{"ts":"2026-07-21T21:38:02.119Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-21T21:49:12.918Z","kind":"task_update","summary":"Updated 1 task line(s): M3.2","payload":{"matched":["M3.2"]}}
+{"ts":"2026-07-21T21:49:48.771Z","kind":"append_lesson","summary":"Appended entry \"M3.2 Blocker Resolved + Non-Blocking Cleanup (2026-07)\" to STATUS.md","payload":{"heading":"M3.2 Blocker Resolved + Non-Blocking Cleanup (2026-07)","artifact":"STATUS.md"}}
+{"ts":"2026-07-22T03:57:28.377Z","kind":"append_lesson","summary":"Appended entry \"Reviewer read-budget fix (2026-07)\" to LESSONS.md","payload":{"heading":"Reviewer read-budget fix (2026-07)","artifact":"LESSONS.md"}}
+{"ts":"2026-07-22T03:58:01.891Z","kind":"append_lesson","summary":"Appended entry \"Reviewer Read-Budget Fix Complete (2026-07)\" to STATUS.md","payload":{"heading":"Reviewer Read-Budget Fix Complete (2026-07)","artifact":"STATUS.md"}}

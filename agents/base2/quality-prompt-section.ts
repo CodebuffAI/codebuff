@@ -1,5 +1,3 @@
-import { frontendSection } from '@codebuff/common/constants/prompt-sections'
-
 /**
  * Shared craftsmanship prompt sections.
  *
@@ -11,8 +9,10 @@ import { frontendSection } from '@codebuff/common/constants/prompt-sections'
  * (`agents/__tests__/quality-prompt-snapshot.test.ts`) asserts byte-equality
  * so accidental drift across the three consumers is caught at test time.
  *
- * `frontendSection` is intentionally NOT byte-frozen — it is the one section
- * allowed to evolve as frontend best practices change (see SPEC AC7).
+ * The frontend guidance lives in the canonical
+ * `@codebuff/common/constants/prompt-sections` module and reaches prompts via
+ * the `{CODEBUFF_FRONTEND_SECTION}` placeholder; it is intentionally not
+ * exported here.
  */
 
 /**
@@ -46,7 +46,7 @@ export const qualitySection = `# Code Craftsmanship
  * and plan-only prompts). Interpolated by both orchestrator prompt paths so
  * the scope-then-shard guidance stays consistent.
  *
- * M3.3 makes this section *adaptive* — instead of a static "3–6 / 8–12
+ * M2.1 makes this section *adaptive* — instead of a static "3–6 / 8–12
  * subagents" heuristic, the breadth rubric is keyed to the number of distinct
  * subsystems / domains the request spans, using the same vocabulary the M10
  * breadth classifier (`classifyPrompt` in `evals/buffbench/plan-sharding-signals.ts`)
@@ -66,15 +66,13 @@ For broad, open-ended, or audit-style requests (for example: "check this codebas
    - **breadth 1–2 (focused):** one shard pair per subsystem (one file-picker + one code-searcher), plus a docs researcher if a major external library is involved.
    - **breadth 3–5 (multi-subsystem audit):** at least one complete file-picker/code-searcher pair per subsystem. Dispatch the pairs in bounded waves when they exceed the per-call limit.
    - **breadth 6+ (whole-codebase audit):** at least one complete file-picker/code-searcher pair per subsystem, plus one researcher-docs per major external library involved, dispatched in bounded waves.
-   The wider the surface, the more shards. Each call must respect the advertised batch limit, but there is no fixed total-agent limit: join a wave, evaluate coverage, and launch another until the inventory is covered. Never default to a single codesearch for an audit-style request.
+   The \`file-picker\` and \`code-searcher\` shards named above are DISCOVERY-ONLY: they return prose and file paths, not receipts, and cannot emit a \`structuralReceipt\`. Their output feeds the reasoning/audit shards (step 3), it is not passed to \`evaluate_audit_coverage\` directly. The wider the surface, the more shards. Each call must respect the advertised batch limit, but there is no fixed total-agent limit: join a wave, evaluate coverage, and launch another until the inventory is covered. Never default to a single codesearch for an audit-style request.
 2. **Check frontend presence and coverage.** If top-level dirs, routes, pages, app/, src/, components/, or framework config indicate a frontend exists, the audit must cover UI page wiring, routes, navigation, API integration, auth/error/loading states, accessibility, and responsiveness. If no frontend is present, explicitly mark frontend/UI coverage out-of-scope rather than silently omitting it.
-3. **Shard by feature slices and structure.** Make vertical feature slices (entrypoint or UI/command → orchestrator/runtime → service/storage/provider → tests/docs/failure states) the primary reasoning shards. Add structural package shards and cross-cutting domain shards for security, compatibility, performance, accessibility, migration, and reliability. Attach the inventory's language/framework capability packet instead of selecting a language-specific agent. Each shard must return the subsystem IDs and feature IDs it actually covered.
-4. **Machine-check completeness before synthesis.** Run \`inspect_feature_completeness\` for every claimed or discovered user-visible feature, then \`evaluate_audit_coverage\` with the exact inventory snapshot, each audit shard's returned \`structuralReceipt\`, each feature inspection's returned \`coverageReceipt\`, and explicit out-of-scope reasons. Never reconstruct receipts from prose or count-only summaries. Feature receipts start as \`heuristic\`; verify their cited files with exact reads before changing \`evidence_kind\` to \`verified\`. Uncovered subsystems, unreachable implementations, documented-but-unimplemented behavior, tests without runtime wiring, or runtime paths without failure-state coverage block a complete audit. Only after the coverage result is complete should you synthesize and ${finalizeClause}.
+3. **Shard by feature slices and structure.** Make vertical feature slices (entrypoint or UI/command → orchestrator/runtime → service/storage/provider → tests/docs/failure states) the primary reasoning shards. Add structural package shards and cross-cutting domain shards for security, compatibility, performance, accessibility, migration, and reliability. Attach the inventory's language/framework capability packet instead of selecting a language-specific agent. These reasoning/audit shards are \`general-agent\` shards invoked with the \`write_audit_findings\` tool (passing the \`sessionSlug\`, \`shardId\`, and \`snapshotId\`) — that tool is what emits each shard's \`structuralReceipt\`, and these are the receipts that feed \`evaluate_audit_coverage\`. The \`file-picker\`/\`code-searcher\` discovery shards from steps 1–2 are inputs to these audit shards: they hand over prose and paths, they do not produce receipts. Each shard must return the subsystem IDs and feature IDs it actually covered.
+4. **Machine-check completeness before synthesis.** Run \`inspect_feature_completeness\` for every claimed or discovered user-visible feature, then \`evaluate_audit_coverage\` with the exact inventory snapshot, each audit shard's returned \`structuralReceipt\` (these come only from the \`general-agent\` + \`write_audit_findings\` audit shards of step 3, never from the discovery-only \`file-picker\`/\`code-searcher\` shards), each feature inspection's returned \`coverageReceipt\`, and explicit out-of-scope reasons. Never reconstruct receipts from prose or count-only summaries. Feature receipts start as \`heuristic\`; verify their cited files with exact reads before changing \`evidence_kind\` to \`verified\`. Uncovered subsystems, unreachable implementations, documented-but-unimplemented behavior, tests without runtime wiring, or runtime paths without failure-state coverage block a complete audit. Only after the coverage result is complete should you synthesize and ${finalizeClause}.
 
 Never make the user ask explicitly for "use multiple agents" — the scope assessment and breadth measurement above are your job, and the default for audit-style requests is parallel sharding, not a single codesearch.`
 }
-
-export { frontendSection }
 
 /**
  * Gate-awareness section: tells the orchestrator not to manually spawn

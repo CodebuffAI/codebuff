@@ -493,6 +493,51 @@ function repairSetOutputData(toolName: string, input: unknown): unknown {
   return { ...record, data: parsed }
 }
 
+// Narrow, fail-closed coercion for run_terminal_command scalar args that some
+// providers emit as strings (e.g. { "detach": "false", "timeout_seconds": "60" }).
+// Only unambiguous string scalars are coerced; anything else is left untouched
+// so the strict schema still rejects it and the validation hint fires. Mirrors
+// repairSetOutputData's narrow, tool-scoped, early-return style.
+function repairTerminalCommandScalars(
+  toolName: string,
+  input: unknown,
+): unknown {
+  if (
+    toolName !== 'run_terminal_command' ||
+    input === null ||
+    typeof input !== 'object' ||
+    Array.isArray(input)
+  ) {
+    return input
+  }
+  const record = input as Record<string, unknown>
+  let copy: Record<string, unknown> | undefined
+
+  // detach: only the exact strings "true"/"false" coerce; "yes"/"1"/"" fail closed.
+  if (record.detach === 'true') {
+    copy = { ...record }
+    copy.detach = true
+  } else if (record.detach === 'false') {
+    copy = { ...record }
+    copy.detach = false
+  }
+
+  // timeout_seconds: only a strict finite integer/decimal string coerces;
+  // "soon"/""/"NaN"/"Infinity"/"6e2" fail closed.
+  if (typeof record.timeout_seconds === 'string') {
+    const trimmed = record.timeout_seconds.trim()
+    if (
+      /^-?\d+(?:\.\d+)?$/.test(trimmed) &&
+      Number.isFinite(Number(trimmed))
+    ) {
+      copy = copy ?? { ...record }
+      copy.timeout_seconds = Number(trimmed)
+    }
+  }
+
+  return copy ?? input
+}
+
 function levenshteinDistanceForToolSuggestion(a: string, b: string): number {
   const rows = a.length + 1
   const cols = b.length + 1
@@ -639,6 +684,12 @@ function getToolValidationHint(
     return [
       'Expected shape: { "data": { ...structured fields... } } (or the structured fields directly at top level).',
       'Pass a real object to set_output. Do not JSON.stringify it or place serialized JSON inside data. Keep findings and evidence concise enough to finish the tool call.',
+    ].join('\n')
+  }
+  if (toolName === 'run_terminal_command') {
+    return [
+      'Expected shape: { "command": string, "process_type"?: "SYNC" | "BACKGROUND", "detach"?: boolean, "timeout_seconds"?: number, "cwd"?: string }.',
+      '`detach` must be a boolean (true/false) and `timeout_seconds` a number (e.g. 60, or -1 for no timeout) — do not quote them as strings. `process_type` must be the bare enum SYNC or BACKGROUND.',
     ].join('\n')
   }
   if (toolName === 'spawn_agents') {
@@ -931,7 +982,10 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     )
   }
 
-  const repairedInput = repairSetOutputData(toolName, processedParameters.input)
+  const repairedInput = repairTerminalCommandScalars(
+    toolName,
+    repairSetOutputData(toolName, processedParameters.input),
+  )
   const result = paramsSchema.safeParse(repairedInput)
 
   if (!result.success) {

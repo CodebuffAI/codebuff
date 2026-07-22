@@ -73,6 +73,11 @@ const basher: AgentDefinition = {
   includeMessageHistory: false,
   toolNames: ['run_terminal_command'],
   programmaticToolNames: ['set_output'],
+  // Explicit profile (the AgentDefinition default when unset). Basher is the
+  // general-purpose command runner used for builds/tests/validation, which
+  // need workspace write access, so it is intentionally broader than the
+  // read-only/diagnosis profiles used by debugger, git-committer, etc.
+  terminalPermissionProfile: 'workspace-write',
   systemPrompt: `You are an expert at reading the output of a terminal command.
 
 Your job is to:
