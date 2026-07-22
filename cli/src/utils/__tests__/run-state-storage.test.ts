@@ -1,11 +1,4 @@
-import {
-  describe,
-  test,
-  expect,
-  beforeEach,
-  afterEach,
-  mock,
-} from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -29,7 +22,11 @@ import type { RunState } from '@codebuff/sdk'
 
 // Mock the project-files module
 const mockProjectDataDir = path.join(os.tmpdir(), 'codebuff-test-project')
-const mockCurrentChatDir = path.join(mockProjectDataDir, 'chats', 'test-chat-123')
+const mockCurrentChatDir = path.join(
+  mockProjectDataDir,
+  'chats',
+  'test-chat-123',
+)
 
 // Mock the module before importing
 const originalGetProjectDataDir = () => mockProjectDataDir
@@ -60,7 +57,15 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'agent', agentId: 'agent-1', agentName: 'TestAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
+            {
+              type: 'agent',
+              agentId: 'agent-1',
+              agentName: 'TestAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
           ],
         },
       ]
@@ -78,7 +83,13 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'tool', toolCallId: 'tool-1', toolName: 'glob', input: {}, output: '' },
+            {
+              type: 'tool',
+              toolCallId: 'tool-1',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
           ],
         },
       ]
@@ -104,7 +115,13 @@ describe('run-state-storage', () => {
               content: '',
               status: 'complete',
               blocks: [
-                { type: 'tool', toolCallId: 'nested-tool', toolName: 'glob', input: {}, output: '' },
+                {
+                  type: 'tool',
+                  toolCallId: 'nested-tool',
+                  toolName: 'glob',
+                  input: {},
+                  output: '',
+                },
                 {
                   type: 'agent',
                   agentId: 'child-agent',
@@ -113,7 +130,13 @@ describe('run-state-storage', () => {
                   content: '',
                   status: 'complete',
                   blocks: [
-                    { type: 'tool', toolCallId: 'deep-tool', toolName: 'glob', input: {}, output: '' },
+                    {
+                      type: 'tool',
+                      toolCallId: 'deep-tool',
+                      toolName: 'glob',
+                      input: {},
+                      output: '',
+                    },
                   ],
                 },
               ],
@@ -160,8 +183,22 @@ describe('run-state-storage', () => {
           timestamp: new Date().toISOString(),
           blocks: [
             { type: 'text', content: 'Some text' },
-            { type: 'agent', agentId: 'agent-1', agentName: 'TestAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
-            { type: 'tool', toolCallId: 'tool-1', toolName: 'glob', input: {}, output: '' },
+            {
+              type: 'agent',
+              agentId: 'agent-1',
+              agentName: 'TestAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
+            {
+              type: 'tool',
+              toolCallId: 'tool-1',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
           ],
         },
       ]
@@ -181,7 +218,15 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'agent', agentId: 'shared-id', agentName: 'TestAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
+            {
+              type: 'agent',
+              agentId: 'shared-id',
+              agentName: 'TestAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
           ],
         },
         {
@@ -190,7 +235,13 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'tool', toolCallId: 'shared-id', toolName: 'glob', input: {}, output: '' },
+            {
+              type: 'tool',
+              toolCallId: 'shared-id',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
           ],
         },
       ]
@@ -198,7 +249,7 @@ describe('run-state-storage', () => {
       const ids = getAllToggleIdsFromMessages(messages)
 
       // Current implementation returns all occurrences without deduplication
-      expect(ids.filter(id => id === 'shared-id')).toHaveLength(2)
+      expect(ids.filter((id) => id === 'shared-id')).toHaveLength(2)
     })
   })
 
@@ -271,7 +322,13 @@ describe('run-state-storage', () => {
               status: 'complete',
               blocks: [
                 { type: 'text', content: 'Nested content' },
-                { type: 'tool', toolCallId: 'tool-xyz', toolName: 'glob', input: {}, output: '' },
+                {
+                  type: 'tool',
+                  toolCallId: 'tool-xyz',
+                  toolName: 'glob',
+                  input: {},
+                  output: '',
+                },
               ],
             },
           ],
@@ -328,7 +385,13 @@ describe('run-state-storage', () => {
                 content: '',
                 status: 'complete',
                 blocks: [
-                  { type: 'tool', toolCallId: 'deep-tool', toolName: 'glob', input: {}, output: '' },
+                  {
+                    type: 'tool',
+                    toolCallId: 'deep-tool',
+                    toolName: 'glob',
+                    input: {},
+                    output: '',
+                  },
                 ],
               },
             ],
@@ -362,9 +425,31 @@ describe('run-state-storage', () => {
           content: '',
           timestamp: new Date().toISOString(),
           blocks: [
-            { type: 'agent', agentId: 'first', agentName: 'FirstAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
-            { type: 'tool', toolCallId: 'second', toolName: 'glob', input: {}, output: '' },
-            { type: 'agent', agentId: 'third', agentName: 'ThirdAgent', agentType: 'inline', content: '', status: 'complete', blocks: [] },
+            {
+              type: 'agent',
+              agentId: 'first',
+              agentName: 'FirstAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
+            {
+              type: 'tool',
+              toolCallId: 'second',
+              toolName: 'glob',
+              input: {},
+              output: '',
+            },
+            {
+              type: 'agent',
+              agentId: 'third',
+              agentName: 'ThirdAgent',
+              agentType: 'inline',
+              content: '',
+              status: 'complete',
+              blocks: [],
+            },
           ],
         },
       ]
@@ -743,5 +828,80 @@ describe('chat switches while saves are pending', () => {
       fs.readFileSync(messagesFileIn(chatDirA), 'utf8'),
     ) as ChatMessage[]
     expect(saved[0].content).toBe('in-flight prompt')
+  })
+})
+
+describe('poisoned payload persistence', () => {
+  const chatDir = path.join(os.tmpdir(), 'codebuff-test-poisoned-chatdir')
+
+  const messages: ChatMessage[] = [
+    {
+      id: 'msg-1',
+      variant: 'user',
+      content: 'the prompt',
+      timestamp: new Date().toISOString(),
+    },
+  ]
+
+  beforeEach(() => {
+    fs.rmSync(chatDir, { recursive: true, force: true })
+    fs.mkdirSync(chatDir, { recursive: true })
+    setChatDirOverrideForTesting(chatDir)
+  })
+
+  afterEach(() => {
+    setChatDirOverrideForTesting(undefined)
+    fs.rmSync(chatDir, { recursive: true, force: true })
+  })
+
+  test('cyclic run state still persists (cycles broken) alongside messages', () => {
+    const cyclicRunState: any = { output: { type: 'error', message: 'x' } }
+    cyclicRunState.self = cyclicRunState
+
+    saveChatState(cyclicRunState as RunState, messages)
+
+    const savedRunState = JSON.parse(
+      fs.readFileSync(path.join(chatDir, 'run-state.json'), 'utf8'),
+    )
+    expect(savedRunState.self).toBe('[Circular]')
+    expect(savedRunState.output.message).toBe('x')
+
+    const savedMessages = JSON.parse(
+      fs.readFileSync(path.join(chatDir, 'chat-messages.json'), 'utf8'),
+    ) as ChatMessage[]
+    expect(savedMessages[0].content).toBe('the prompt')
+  })
+
+  test('cyclic tool output in messages does not block the transcript save', () => {
+    const cyclicOutput: any = { status: 'ok' }
+    cyclicOutput.self = cyclicOutput
+    const poisonedMessages: ChatMessage[] = [
+      {
+        id: 'msg-1',
+        variant: 'agent',
+        content: '',
+        timestamp: new Date().toISOString(),
+        blocks: [
+          {
+            type: 'tool',
+            toolCallId: 'tc-1',
+            toolName: 'run_terminal_command' as any,
+            input: {},
+            outputRaw: cyclicOutput,
+          },
+        ],
+      },
+    ]
+
+    saveChatState(
+      { output: { type: 'error', message: 'x' } } as RunState,
+      poisonedMessages,
+    )
+
+    const savedMessages = JSON.parse(
+      fs.readFileSync(path.join(chatDir, 'chat-messages.json'), 'utf8'),
+    ) as ChatMessage[]
+    const block = savedMessages[0].blocks?.[0] as any
+    expect(block.outputRaw.self).toBe('[Circular]')
   })
 })

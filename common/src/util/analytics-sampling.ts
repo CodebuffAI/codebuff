@@ -140,6 +140,18 @@ function getEventSampleRate(
   return SAMPLED_EVENT_RATES[event] ?? 1
 }
 
+/**
+ * Deterministic sampling for high-volume logs/events: hashes a stable key
+ * (typically a userId) so the same key is always in or out of the sample and
+ * per-key funnels stay coherent. Callers should record the rate on sampled
+ * rows (e.g. `sampleRate: 0.02`) so counts can be re-inflated in queries.
+ */
+export function shouldSampleByKey(key: string, rate: number): boolean {
+  if (rate >= 1) return true
+  if (rate <= 0) return false
+  return hashString(key) / 0xffffffff < rate
+}
+
 function hashString(input: string): number {
   let hash = 2166136261
   for (let i = 0; i < input.length; i++) {

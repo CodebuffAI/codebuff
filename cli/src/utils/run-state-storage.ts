@@ -13,6 +13,7 @@ import {
   writeChatMeta,
 } from './chat-meta'
 import { logger } from './logger'
+import { classifyStringifyError, serializeForPersistence } from './safe-json'
 import { writeFileAtomic, writeFileAtomicAsync } from './write-file-atomic'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
@@ -171,6 +172,152 @@ export function getChatMessagesPath(): string {
   return path.join(chatDir, CHAT_MESSAGES_FILENAME)
 }
 
+// Chat-state saves fail in prod for reasons that are chronic, not transient:
+// a transcript with a cyclic or over-string-limit payload fails identically on
+// every 5s checkpoint, and a full disk stays full. Logging each attempt at
+// error level made this a top-3 error by volume (~19k/day). Instead, each
+// distinct issue per chat dir is logged at most once per interval, and
+// environment/payload failures log as warnings — only genuinely unexpected
+// errors keep the error level.
+const SAVE_LOG_INTERVAL_MS = 5 * 60 * 1000
+const saveIssueLastLoggedAt = new Map<string, number>()
+
+function shouldLogSaveIssue(key: string): boolean {
+  const now = Date.now()
+  const last = saveIssueLastLoggedAt.get(key)
+  if (last !== undefined && now - last < SAVE_LOG_INTERVAL_MS) {
+    return false
+  }
+  saveIssueLastLoggedAt.set(key, now)
+  return true
+}
+
+/**
+ * Logging must never break persistence: these paths run inside checkpoint
+ * drains and exit flushes, where a throwing logger (e.g. analytics transport
+ * not initialized) would otherwise lose the save or reject the drain.
+ */
+function bestEffortLog(
+  level: 'warn' | 'error',
+  payload: Record<string, unknown>,
+  message: string,
+): void {
+  try {
+    logger[level](payload, message)
+  } catch {
+    // Best-effort only.
+  }
+}
+
+type SaveErrorClass = 'cyclic' | 'oom' | 'disk' | 'other'
+
+function classifySaveError(error: unknown): SaveErrorClass {
+  const fromStringify = classifyStringifyError(error)
+  if (fromStringify) return fromStringify
+  const msg = error instanceof Error ? error.message : String(error)
+  // Environmental filesystem failures: retrying won't help and there is
+  // nothing to fix server-side (full disk, AV holding a rename lock, etc.).
+  if (/ENOSPC|EDQUOT|EROFS|EPERM|EACCES|EBUSY|EMFILE|ENFILE/.test(msg)) {
+    return 'disk'
+  }
+  return 'other'
+}
+
+/** Cheap shape summary so a failure log says what the payload looked like. */
+function chatShapeSummary(runState: RunState, messages: ChatMessage[]) {
+  let blockCount = 0
+  for (const message of messages) {
+    blockCount += message.blocks?.length ?? 0
+  }
+  return {
+    messageCount: messages.length,
+    blockCount,
+    runStateKeys:
+      runState && typeof runState === 'object'
+        ? Object.keys(runState as object).slice(0, 20)
+        : [],
+  }
+}
+
+type SerializedChatState = {
+  runStateJson?: string
+  messagesJson?: string
+}
+
+/**
+ * Serialize the two chat-state files independently, so a poisoned run state
+ * cannot block persisting the transcript (and vice versa). Cyclic and
+ * over-limit payloads are rescued by serializeForPersistence's fallback pass;
+ * the fallback diagnostics (cycle paths, truncation counts) are logged so the
+ * source of a bad payload can be found from prod logs.
+ */
+function serializeChatState(
+  runState: RunState,
+  messages: ChatMessage[],
+  chatDir: string,
+): SerializedChatState {
+  const result: SerializedChatState = {}
+  for (const part of ['runState', 'messages'] as const) {
+    const value = part === 'runState' ? runState : messages
+    try {
+      const { json, fallback } = serializeForPersistence(value)
+      if (part === 'runState') {
+        result.runStateJson = json
+      } else {
+        result.messagesJson = json
+      }
+      if (fallback && shouldLogSaveIssue(`${chatDir}|fallback|${part}`)) {
+        bestEffortLog(
+          'warn',
+          {
+            part,
+            reason: fallback.reason,
+            cyclePaths: fallback.cyclePaths,
+            truncatedStrings: fallback.truncatedStrings,
+            jsonBytes: json.length,
+            ...chatShapeSummary(runState, messages),
+          },
+          'Chat state serialized via fallback (broke cycles or truncated oversized strings)',
+        )
+      }
+    } catch (error) {
+      const errorClass = classifySaveError(error)
+      if (shouldLogSaveIssue(`${chatDir}|serialize|${part}|${errorClass}`)) {
+        bestEffortLog(
+          errorClass === 'other' ? 'error' : 'warn',
+          {
+            part,
+            errorClass,
+            error: error instanceof Error ? error.message : String(error),
+            ...chatShapeSummary(runState, messages),
+          },
+          'Failed to serialize chat state',
+        )
+      }
+    }
+  }
+  return result
+}
+
+function logSaveWriteFailure(
+  error: unknown,
+  chatDir: string,
+  message: string,
+): void {
+  const errorClass = classifySaveError(error)
+  if (!shouldLogSaveIssue(`${chatDir}|write|${errorClass}`)) {
+    return
+  }
+  bestEffortLog(
+    errorClass === 'other' ? 'error' : 'warn',
+    {
+      errorClass,
+      error: error instanceof Error ? error.message : String(error),
+    },
+    message,
+  )
+}
+
 /**
  * Save both the RunState and ChatMessage[] to disk.
  *
@@ -183,28 +330,34 @@ export function saveChatState(
   messages: ChatMessage[],
   chatDir: string = resolveCurrentChatDir(),
 ): void {
+  // Compact JSON: these files are rewritten on every checkpoint and grow to
+  // multiple MB; pretty-printing roughly doubles the write.
+  const serialized = serializeChatState(runState, messages, chatDir)
+  if (!serialized.runStateJson && !serialized.messagesJson) {
+    return
+  }
   try {
-    const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
-    const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
-
     // The dir existed when the save was captured, but may have been removed
     // since (e.g. the chat deleted from /history mid-run).
     fs.mkdirSync(chatDir, { recursive: true })
-    // Compact JSON: these files are rewritten on every checkpoint and grow to
-    // multiple MB; pretty-printing roughly doubles the write.
-    writeFileAtomic(runStatePath, JSON.stringify(runState))
-    writeFileAtomic(messagesPath, JSON.stringify(messages))
-    // Sidecar summary so /history can list this chat without parsing the
-    // (unbounded) chat-messages.json. Must be written after the messages
-    // file: it records the file's size/mtime to detect staleness.
-    writeChatMeta(chatDir, messages)
+    if (serialized.runStateJson) {
+      writeFileAtomic(
+        path.join(chatDir, RUN_STATE_FILENAME),
+        serialized.runStateJson,
+      )
+    }
+    if (serialized.messagesJson) {
+      writeFileAtomic(
+        path.join(chatDir, CHAT_MESSAGES_FILENAME),
+        serialized.messagesJson,
+      )
+      // Sidecar summary so /history can list this chat without parsing the
+      // (unbounded) chat-messages.json. Must be written after the messages
+      // file: it records the file's size/mtime to detect staleness.
+      writeChatMeta(chatDir, messages)
+    }
   } catch (error) {
-    logger.error(
-      {
-        error: error instanceof Error ? error.message : String(error),
-      },
-      'Failed to save chat state',
-    )
+    logSaveWriteFailure(error, chatDir, 'Failed to save chat state')
   }
 }
 
@@ -217,25 +370,31 @@ async function saveChatStateAsync(
   messages: ChatMessage[],
   chatDir: string,
 ): Promise<void> {
+  const serialized = serializeChatState(runState, messages, chatDir)
+  if (!serialized.runStateJson && !serialized.messagesJson) {
+    return
+  }
   try {
-    const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
-    const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
-
     await fs.promises.mkdir(chatDir, { recursive: true })
-    await writeFileAtomicAsync(runStatePath, JSON.stringify(runState))
-    await writeFileAtomicAsync(messagesPath, JSON.stringify(messages))
-    // Sidecar summary so /history can list this chat without parsing the
-    // (unbounded) chat-messages.json. Written after the messages file: it
-    // records that file's size/mtime to detect staleness. The meta write is
-    // tiny, so keeping it synchronous here is fine.
-    writeChatMeta(chatDir, messages)
+    if (serialized.runStateJson) {
+      await writeFileAtomicAsync(
+        path.join(chatDir, RUN_STATE_FILENAME),
+        serialized.runStateJson,
+      )
+    }
+    if (serialized.messagesJson) {
+      await writeFileAtomicAsync(
+        path.join(chatDir, CHAT_MESSAGES_FILENAME),
+        serialized.messagesJson,
+      )
+      // Sidecar summary so /history can list this chat without parsing the
+      // (unbounded) chat-messages.json. Written after the messages file: it
+      // records that file's size/mtime to detect staleness. The meta write is
+      // tiny, so keeping it synchronous here is fine.
+      writeChatMeta(chatDir, messages)
+    }
   } catch (error) {
-    logger.error(
-      {
-        error: error instanceof Error ? error.message : String(error),
-      },
-      'Failed to save chat state (async)',
-    )
+    logSaveWriteFailure(error, chatDir, 'Failed to save chat state (async)')
   }
 }
 
@@ -349,9 +508,7 @@ export function loadMostRecentChatState(
     // readable and fall back for the rest.
     let runState: RunState | null = null
     try {
-      runState = JSON.parse(
-        fs.readFileSync(runStatePath, 'utf8'),
-      ) as RunState
+      runState = JSON.parse(fs.readFileSync(runStatePath, 'utf8')) as RunState
     } catch (error) {
       logger.warn(
         {
