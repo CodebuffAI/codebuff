@@ -47,14 +47,16 @@ import type {
   HarnessApprovalRequest,
 } from './services/harness-enforcement'
 import { changeFile, changeFiles } from './tools/change-file'
-import { applyPatchTool } from './tools/apply-patch'
+import {
+  applyPatchTool,
+  getDefaultFilesystemAuthority,
+} from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { findFilesMatchingContent } from './tools/find-files-matching-content'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import {
   getFileForEditResult,
-  getFiles,
   getFilesStructured,
   normalizeReadFilesOverrideResult,
 } from './tools/read-files'
@@ -96,11 +98,8 @@ import type { FilesystemAuthorityPolicy } from './tools/filesystem-authority'
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
 import type { FileFilter } from './tools/read-files'
-import type {
-  FileLineRange,
-  LegacyReadFilesMap,
-  RequestFilesResult,
-} from '@codebuff/common/types/contracts/client'
+import type { FileLineRange } from '@codebuff/common/types/contracts/client'
+import type { ReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type {
@@ -166,11 +165,9 @@ export type ClientToolOverrides = {
     ToolResultOutput[]
   >
 } & {
-  /** A function is the legacy v0 ABI. Descriptor form negotiates v0/v1. */
   read_files?: OverrideDescriptor<
     { filePaths: string[]; ranges?: FileLineRange[] },
-    LegacyReadFilesMap,
-    RequestFilesResult
+    ReadFilesResultV1
   >
 }
 
@@ -219,9 +216,6 @@ export type OpenbuffClientOptions = {
 
   /** Operation- and phase-aware policy composed after mandatory safeguards. */
   filesystemPolicy?: FilesystemAuthorityPolicy
-
-  /** Result envelope used by the native read_files implementation. */
-  filesystemResultFormat?: 'legacy-v0' | 'structured-v1'
 
   overrideTools?: ClientToolOverrides
   customToolDefinitions?: CustomToolDefinition[]
@@ -430,7 +424,6 @@ async function runOnce({
 
   fileFilter,
   filesystemPolicy,
-  filesystemResultFormat = 'structured-v1',
   overrideTools,
   customToolDefinitions,
   onFilesChanged,
@@ -738,6 +731,14 @@ async function runOnce({
           fs,
           fileFilter,
           filesystemPolicy,
+          capabilityIssuer: cwd
+            ? {
+                projectId: cwd,
+                runId:
+                  sessionState.mainAgentState.runId ??
+                  sessionState.mainAgentState.agentId,
+              }
+            : undefined,
           env,
           harnessStateDir: resolvedHarnessStateDir,
           approvalReceiptIds,
@@ -816,7 +817,6 @@ async function runOnce({
         ranges,
         override: overrideTools?.read_files,
         fileFilter,
-        resultFormat: filesystemResultFormat,
         cwd,
         fs,
         signal: runSignal,
@@ -1072,7 +1072,6 @@ async function readFiles({
   ranges,
   override,
   fileFilter,
-  resultFormat,
   cwd,
   fs,
   signal,
@@ -1084,7 +1083,6 @@ async function readFiles({
     Required<OpenbuffClientOptions>['overrideTools']['read_files']
   >
   fileFilter?: FileFilter
-  resultFormat: 'legacy-v0' | 'structured-v1'
   cwd?: string
   fs: CodebuffFileSystem
   signal: AbortSignal
@@ -1096,18 +1094,13 @@ async function readFiles({
       input: { filePaths, ranges },
       signal,
     })
-    if (resultFormat === 'structured-v1') {
-      return normalizeReadFilesOverrideResult({
-        filePaths,
-        ranges,
-        raw: output,
-      })
-    }
-    return output
+    return normalizeReadFilesOverrideResult({
+      filePaths,
+      ranges,
+      raw: output,
+    })
   }
-  const nativeRead =
-    resultFormat === 'structured-v1' ? getFilesStructured : getFiles
-  return nativeRead({
+  return getFilesStructured({
     filePaths,
     ranges,
     cwd: requireCwd(cwd, 'read_files'),
@@ -1126,6 +1119,7 @@ async function handleToolCall({
   fs,
   fileFilter,
   filesystemPolicy,
+  capabilityIssuer,
   env,
   harnessStateDir,
   approvalReceiptIds,
@@ -1148,6 +1142,7 @@ async function handleToolCall({
   fs: CodebuffFileSystem
   fileFilter?: FileFilter
   filesystemPolicy?: FilesystemAuthorityPolicy
+  capabilityIssuer?: import('@codebuff/common/util/content-hash').ReadCapabilityIssuer
   env?: Record<string, string>
   harnessStateDir: string
   approvalReceiptIds: string[]
@@ -1213,6 +1208,7 @@ async function handleToolCall({
   }
 
   let result: ToolResultOutput[]
+  let canonicalReceipt: import('@codebuff/common/tools/results/filesystem').CommitReceiptV1 | undefined
   if (!toolNames.includes(toolName as ToolName)) {
     const customToolHandler = customToolDefinitions[toolName]
 
@@ -1286,6 +1282,11 @@ async function handleToolCall({
                 result: parsed.data,
               }))
             ) {
+              if (
+                parsed.data.authorityReceipt?.callId === action.requestId
+              ) {
+                canonicalReceipt = parsed.data.authorityReceipt
+              }
               return part
             }
             return {
@@ -1390,6 +1391,11 @@ async function handleToolCall({
         signal,
         fileFilter,
         filesystemPolicy,
+        capabilityIssuer:
+          capabilityIssuer ??
+          (() => {
+            throw new Error('replace_range requires a scoped capability issuer')
+          })(),
         callId: action.requestId,
       })
     } else if (toolName === 'run_terminal_command') {
@@ -1904,8 +1910,17 @@ async function handleToolCall({
       console.warn('[openbuff] unknown-mutation observer failed', error)
     }
   }
+  if (!canonicalReceipt && mutationValue && cwd) {
+    canonicalReceipt = getDefaultFilesystemAuthority(
+      cwd,
+      fs,
+      fileFilter,
+      filesystemPolicy,
+    ).getCanonicalReceipt(mutationValue.operationId, action.requestId)
+  }
   return {
     output: result,
+    ...(canonicalReceipt ? { canonicalReceipt } : {}),
   }
 }
 

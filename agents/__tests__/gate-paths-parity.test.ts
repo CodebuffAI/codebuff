@@ -4,14 +4,18 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   gateFileSetsEqual,
+  isReviewableGateFile,
   normalizeGateFilePath,
   normalizeGateFileList,
+  selectReviewableGateFiles,
 } from '../base2/gate-paths'
 
 type GatePathHelpers = {
   normalizeGateFilePath: (file: string) => string
   normalizeGateFileList: (files: string[]) => string[]
   gateFileSetsEqual: (left: string[], right: string[]) => boolean
+  isReviewableGateFile: (filePath: string) => boolean
+  selectReviewableGateFiles: (files: string[]) => string[]
 }
 
 type GatePathFunctionName = keyof GatePathHelpers
@@ -21,6 +25,8 @@ const INLINE_HELPER_NAMES: GatePathFunctionName[] = [
   'normalizeGateFilePath',
   'normalizeGateFileList',
   'gateFileSetsEqual',
+  'isReviewableGateFile',
+  'selectReviewableGateFiles',
 ]
 
 function extractInlineFunctionSource(
@@ -61,7 +67,7 @@ function loadInlineGatePathHelpers(): GatePathHelpers {
     extractInlineFunctionSource(base2JavaScript, functionName),
   ).join('\n\n')
   const buildHelpers = new Function(
-    `"use strict";\n${helperSource}\nreturn { normalizeGateFilePath, normalizeGateFileList, gateFileSetsEqual }`,
+    `"use strict";\n${helperSource}\nreturn { normalizeGateFilePath, normalizeGateFileList, gateFileSetsEqual, isReviewableGateFile, selectReviewableGateFiles }`,
   ) as InlineHelperFactory
 
   return buildHelpers()
@@ -155,6 +161,76 @@ describe('gate-path helpers — inline copies match canonical exports', () => {
     for (const [left, right] of setPairs) {
       expect(inlineHelpers.gateFileSetsEqual(left, right)).toBe(
         gateFileSetsEqual(left, right),
+      )
+    }
+  })
+
+  test('isReviewableGateFile parity across reviewable and bookkeeping paths', () => {
+    const inlineHelpers = loadInlineGatePathHelpers()
+
+    // isReviewableGateFile operates on an ALREADY-NORMALIZED path (the caller
+    // normalizes), so pass project-relative strings directly.
+    const pathInputs: string[] = [
+      // reviewable source (expect true)
+      'src/foo.ts',
+      // __tests__/ path (false)
+      'src/__tests__/foo.ts',
+      // .test.ts path (false)
+      'src/foo.test.ts',
+      // .generated.ts path (false)
+      'src/foo.generated.ts',
+      // docs/data/config extensions (false each)
+      'notes/readme.md',
+      'config/data.json',
+      'logs/events.jsonl',
+      'config/app.yaml',
+      'config/app.toml',
+      // .env / .env.local (false)
+      '.env',
+      '.env.local',
+      // docs/ directory (false)
+      'docs/guide.ts',
+      // evals/ directory (false)
+      'evals/case.ts',
+      // .agents/sessions bookkeeping incl. STATE.json / EVENTS.jsonl (false)
+      '.agents/sessions/slug/STATE.json',
+      '.agents/sessions/slug/EVENTS.jsonl',
+      // non-source extension (false)
+      'assets/logo.png',
+    ]
+
+    for (const input of pathInputs) {
+      expect(inlineHelpers.isReviewableGateFile(input)).toBe(
+        isReviewableGateFile(input),
+      )
+    }
+  })
+
+  test('selectReviewableGateFiles parity across mixed, all-bookkeeping, and empty lists', () => {
+    const inlineHelpers = loadInlineGatePathHelpers()
+
+    // selectReviewableGateFiles normalizes + filters + dedupes internally, so
+    // pass raw path lists.
+    const listInputs: string[][] = [
+      // mixed source + bookkeeping: only source survives, normalized + deduped
+      [
+        'src/foo.ts',
+        './src/foo.ts',
+        'src\\bar.ts',
+        'notes/readme.md',
+        'src/__tests__/foo.ts',
+        'docs/guide.ts',
+        '.agents/sessions/slug/STATE.json',
+      ],
+      // all bookkeeping -> []
+      ['notes/readme.md', '.env', 'docs/guide.ts', 'evals/case.ts', 'x.jsonl'],
+      // empty -> []
+      [],
+    ]
+
+    for (const input of listInputs) {
+      expect(inlineHelpers.selectReviewableGateFiles(input)).toEqual(
+        selectReviewableGateFiles(input),
       )
     }
   })

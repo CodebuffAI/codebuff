@@ -25,19 +25,13 @@ export {
   type ReplacementReadCapability,
 } from '@codebuff/common/util/content-hash'
 
-/**
- * Normalizes a supplied basedOnRead into a concrete capability object. Accepts
- * either the opaque token string minted by read_files or the explicit
- * { startLine, endLine, hash } object (backward compatible). Returns a string
- * when the token is malformed so callers can surface a recoverable error.
- */
+/** Decode the single model-facing cap.v3 token into its internal range proof. */
 function normalizeBasedOnRead(
-  basedOnRead: ReplacementReadCapability | string | undefined,
+  basedOnRead: string | undefined,
 ): ReplacementReadCapability | string | undefined {
-  if (basedOnRead === undefined) return undefined
-  if (typeof basedOnRead === 'string')
-    return decodeReadCapabilityToken(basedOnRead)
-  return basedOnRead
+  return basedOnRead === undefined
+    ? undefined
+    : decodeReadCapabilityToken(basedOnRead)
 }
 
 // Obvious placeholder/stub anchors that should never be accepted, even on small
@@ -66,7 +60,7 @@ const BOGUS_READ_CAPABILITY_VALUES = new Set([
  * never silently ignored.
  */
 function describeBogusReadCapability(
-  basedOnRead: ReplacementReadCapability | string | undefined,
+  basedOnRead: string | undefined,
   decoded: ReplacementReadCapability | string | undefined,
 ): string | null {
   if (typeof basedOnRead !== 'string') return null
@@ -115,7 +109,7 @@ export async function processStrReplace(params: {
     newString: string
     allowMultiple: boolean
     occurrenceIndex?: number
-    basedOnRead?: ReplacementReadCapability | string
+    basedOnRead?: string
     skipIfMissing?: boolean
   }[]
   /**
@@ -843,26 +837,37 @@ type ValidatedReadRange = {
 }
 
 function getReadCapabilityKey(basedOnRead: ReplacementReadCapability): string {
-  return `${basedOnRead.startLine}:${basedOnRead.endLine}:${basedOnRead.hash}:${basedOnRead.scopeFingerprint ?? 'legacy'}`
+  return `${basedOnRead.startLine}:${basedOnRead.endLine}:${basedOnRead.hash}:${basedOnRead.scopeFingerprint}`
 }
 
+/**
+ * AUTHENTICITY gate for a basedOnRead capability. This is the ONLY place that
+ * inspects a capability's provenance (token version + project/path/run scope):
+ * for cap.v3 it requires a runtime scope and a matching scope fingerprint, and
+ * it must never weaken. It deliberately does NOT consider whether the
+ * capability was minted from a whole-file read or a narrower range read — there
+ * is no such flag on a decoded capability, and adding one here would wrongly
+ * reject content-correct in-range edits.
+ *
+ * Whether an in-range edit may actually proceed is decided SOLELY by
+ * validateReadCapability's content re-hash (see that function). Keeping the
+ * authenticity check separate from the content-correctness check is what makes
+ * cap.v3 authorization uniform: once scope matches, an in-range edit is
+ * authorized identically for whole-file and range capabilities. The
+ * whole-file-overwrite floor is enforced separately in the replace_range path
+ * (process-edit-transaction.ts), not here.
+ */
 function validateReadCapabilityAuthority(params: {
   capability: ReplacementReadCapability
   expectedScope?: ReadCapabilityScope
   requireBoundCapability: boolean
 }): string | null {
   const { capability, expectedScope, requireBoundCapability } = params
-  if (capability.tokenVersion === 'v3') {
-    if (!expectedScope) {
-      return 'The authenticated capability cannot be verified because this edit has no runtime project/path/run scope. Re-read the target through the active runtime.'
-    }
-    if (!readCapabilityMatchesScope(capability, expectedScope)) {
-      return 'The read capability belongs to a different project, path, or agent run. Cross-path and cross-run capability replay is not allowed; re-read this exact target in the current run.'
-    }
-    return null
+  if (!expectedScope) {
+    return 'The authenticated capability cannot be verified because this edit has no runtime project/path/run scope. Re-read the target through the active runtime.'
   }
-  if (requireBoundCapability) {
-    return 'Legacy pathless basedOnRead values cannot satisfy strict read-before-edit. Re-read this exact target in the current run and copy its cap.v3 readCapability.'
+  if (!readCapabilityMatchesScope(capability, expectedScope)) {
+    return 'The read capability belongs to a different project, path, or agent run. Cross-path and cross-run capability replay is not allowed; re-read this exact target in the current run.'
   }
   return null
 }
@@ -905,6 +910,22 @@ function validateReadCapabilityObject(
   return null
 }
 
+/**
+ * CONTENT-CORRECTNESS gate and the SINGLE authority decision for whether an
+ * in-range edit may proceed. It re-hashes the current [startLine, endLine]
+ * slice of the file and compares it to the capability's embedded hash, failing
+ * closed on any mismatch or out-of-range start.
+ *
+ * Once the authenticity gate (validateReadCapabilityAuthority) and this content
+ * hash both pass, an edit whose target lies inside the returned range is
+ * authorized regardless of whether the capability was minted from a whole-file
+ * read or a range read — the covered region and its hash are the only inputs,
+ * so there is intentionally no separate whole-file-vs-range branch. (The
+ * whole-file-overwrite floor — a full-file overwrite still requires a
+ * whole-file-hash capability — is enforced separately in the replace_range
+ * path in process-edit-transaction.ts, since str_replace only ever edits
+ * WITHIN this validated range slice.)
+ */
 function validateReadCapability(params: {
   content: string
   path: string
@@ -1466,7 +1487,7 @@ function mintAnchorForRange(params: {
 }): {
   startLine: number
   endLine: number
-  readCapability: string
+  readCapability?: string
   rangeHash: string
 } {
   const lines = normalizeLineEndings(params.content).split('\n')
@@ -1478,12 +1499,16 @@ function mintAnchorForRange(params: {
     startLine,
     endLine,
     rangeHash,
-    readCapability: encodeReadCapabilityToken({
-      startLine,
-      endLine,
-      hash: rangeHash,
-      scope: params.scope,
-    }),
+    ...(params.scope
+      ? {
+          readCapability: encodeReadCapabilityToken({
+            startLine,
+            endLine,
+            hash: rangeHash,
+            scope: params.scope,
+          }),
+        }
+      : {}),
   }
 }
 

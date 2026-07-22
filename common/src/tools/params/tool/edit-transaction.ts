@@ -57,6 +57,7 @@ const replacementSchema = z.preprocess(
           'For deletion replacements only (newString is empty): treat a missing oldString as an already-applied no-op. Use only for explicit idempotent cleanup retries, never for ordinary edits.',
         ),
     })
+    .strict()
     .superRefine((replacement, ctx) => {
       if (isObviousEditPlaceholder(replacement.oldString)) {
         ctx.addIssue({
@@ -190,111 +191,49 @@ const replaceRangeEditSchema = editBaseSchema
     readCapability: z
       .string()
       .min(1)
-      .optional()
       .describe(
-        'Preferred target anchor copied verbatim from a fresh read_files range header. It supplies the range bounds and expected hash together.',
+        'Target anchor copied verbatim from a fresh read_files editAnchor. It supplies the observed bounds and content hash.',
       ),
     startLine: z.number().int().min(1).optional(),
     endLine: z.number().int().min(1).optional(),
-    expectedHash: z.string().min(1).optional(),
     newContent: z.string().refine((value) => !isObviousEditPlaceholder(value), {
       message:
         'newContent is an explicit placeholder; provide the complete range replacement.',
     }),
   })
+  .strict()
   .superRefine((edit, ctx) => {
-    const explicitTarget = [edit.startLine, edit.endLine, edit.expectedHash]
-    const hasAnyExplicitTarget = explicitTarget.some(
-      (value) => value !== undefined,
-    )
-    const hasCompleteExplicitTarget = explicitTarget.every(
-      (value) => value !== undefined,
-    )
-    if (!edit.readCapability) {
-      if (hasAnyExplicitTarget && !hasCompleteExplicitTarget) {
-        ctx.addIssue({
-          code: 'custom',
-          message:
-            'Provide startLine, endLine, and expectedHash together, or provide only readCapability.',
-        })
-        return
-      }
-      if (!hasCompleteExplicitTarget) {
-        ctx.addIssue({
-          code: 'custom',
-          message:
-            'replace_range requires either readCapability or the complete startLine/endLine/expectedHash tuple from one fresh range read.',
-        })
-        return
-      }
-      if (
-        edit.startLine !== undefined &&
-        edit.endLine !== undefined &&
-        edit.startLine > edit.endLine
-      ) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'startLine must be <= endLine',
-        })
-      }
-      return
-    }
-    // readCapability is present. Decode once to decide whether it may be
-    // combined with explicit targets.
     const decoded = decodeReadCapabilityToken(edit.readCapability)
-    if (typeof decoded === 'string') {
+    if (typeof decoded === 'string' || decoded.tokenVersion !== 'v3') {
       ctx.addIssue({
         code: 'custom',
         path: ['readCapability'],
-        message: decoded,
-      })
-      return
-    }
-    // expectedHash is never accepted alongside a capability: its hash attests
-    // the capability's own bounds, not the caller's sub-range. Surface the
-    // capability bounds in the message so callers can correlate the rejection
-    // with the specific capability they supplied.
-    if (edit.expectedHash !== undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['readCapability'],
-        message: `Use one range target form only: provide readCapability by itself, or provide startLine/endLine/expectedHash without readCapability. The capability covers lines ${decoded.startLine}-${decoded.endLine}; do not also pass expectedHash — the runtime derives the hash from the capability.`,
-      })
-      return
-    }
-    const capabilityIsStrictSubRange = decoded.startLine !== 1
-    const hasCallerBounds =
-      edit.startLine !== undefined && edit.endLine !== undefined
-    // A whole-file capability (startLine === 1) may be combined with narrower
-    // caller-selected startLine/endLine (but NOT expectedHash); a strict
-    // sub-range capability combined with a different target is rejected.
-    if (capabilityIsStrictSubRange && hasAnyExplicitTarget) {
-      if (
-        hasCallerBounds &&
-        (decoded.startLine !== edit.startLine ||
-          decoded.endLine !== edit.endLine)
-      ) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['readCapability'],
-          message: `readCapability covers lines ${decoded.startLine}-${decoded.endLine} which is a strict sub-range; it cannot be combined with a different startLine/endLine. Pass a whole-file capability (lines 1-N) to target a narrower sub-range.`,
-        })
-      } else {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['readCapability'],
-          message: `Use one range target form only: provide readCapability by itself, or provide startLine/endLine/expectedHash without readCapability. The capability covers lines ${decoded.startLine}-${decoded.endLine}.`,
-        })
-      }
-      return
-    }
-    // Partial explicit target (only one of startLine/endLine) alongside a
-    // capability is ambiguous and rejected.
-    if ((edit.startLine !== undefined) !== (edit.endLine !== undefined)) {
-      ctx.addIssue({
-        code: 'custom',
         message:
-          'Provide startLine and endLine together when selecting a sub-range with readCapability, or omit both.',
+          typeof decoded === 'string'
+            ? decoded
+            : 'readCapability requires an authenticated project/path/run-bound cap.v3 token.',
+      })
+      return
+    }
+    const hasStart = edit.startLine !== undefined
+    const hasEnd = edit.endLine !== undefined
+    if (hasStart !== hasEnd) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Provide startLine and endLine together, or omit both.',
+      })
+      return
+    }
+    if (
+      hasStart &&
+      hasEnd &&
+      (edit.startLine! < decoded.startLine ||
+        edit.endLine! > decoded.endLine ||
+        edit.startLine! > edit.endLine!)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Target lines must be contained within the readCapability range ${decoded.startLine}-${decoded.endLine}.`,
       })
     }
   })
@@ -338,14 +277,16 @@ export const transactionEditSchema = z.discriminatedUnion('type', [
   writeFileEditSchema,
 ])
 
-const canonicalReplacementSchema = z.object({
-  oldString: z.string().min(1),
-  newString: z.string(),
-  allowMultiple: z.boolean().optional().default(false),
-  occurrenceIndex: z.number().int().min(1).optional(),
-  basedOnRead: canonicalBasedOnReadSchema,
-  skipIfMissing: z.boolean().optional(),
-})
+const canonicalReplacementSchema = z
+  .object({
+    oldString: z.string().min(1),
+    newString: z.string(),
+    allowMultiple: z.boolean().optional().default(false),
+    occurrenceIndex: z.number().int().min(1).optional(),
+    basedOnRead: canonicalBasedOnReadSchema,
+    skipIfMissing: z.boolean().optional(),
+  })
+  .strict()
 const canonicalStrReplaceEditSchema = editBaseSchema.extend({
   type: z.literal('str_replace'),
   replacements: z.array(canonicalReplacementSchema).min(1),
@@ -353,6 +294,8 @@ const canonicalStrReplaceEditSchema = editBaseSchema.extend({
 const canonicalReplaceRangeEditSchema = editBaseSchema.extend({
   type: z.literal('replace_range'),
   readCapability: z.string().min(1),
+  startLine: z.number().int().min(1).optional(),
+  endLine: z.number().int().min(1).optional(),
   newContent: z.string(),
 })
 const providerTransactionEditSchema = z.discriminatedUnion('type', [
@@ -435,45 +378,21 @@ const inputSchema = z
       .transform((edits) =>
         edits.map((edit) => {
           if (edit.type !== 'replace_range') return edit
-          if (edit.readCapability) {
-            const decoded = decodeReadCapabilityToken(edit.readCapability)
-            if (typeof decoded === 'string') {
-              throw new Error(decoded)
-            }
-            // When the caller supplied their own startLine/endLine alongside
-            // a whole-file capability, KEEP the caller's bounds and leave
-            // expectedHash undefined so the runtime preflight verifies the
-            // whole-file hash against current content and accepts the
-            // requested sub-range. Carry decoded.hash as wholeFileCapabilityHash.
-            const callerSuppliedBounds =
-              edit.startLine !== undefined && edit.endLine !== undefined
-            const callerBoundsEqualCapability =
-              callerSuppliedBounds &&
-              edit.startLine === decoded.startLine &&
-              edit.endLine === decoded.endLine
-            if (callerSuppliedBounds && !callerBoundsEqualCapability) {
-              return {
-                ...edit,
-                startLine: edit.startLine!,
-                endLine: edit.endLine!,
-                expectedHash: undefined,
-                wholeFileCapabilityHash: decoded.hash,
-              }
-            }
-            return {
-              ...edit,
-              startLine: decoded.startLine,
-              endLine: decoded.endLine,
-              expectedHash: decoded.hash,
-              wholeFileCapabilityHash: undefined,
-            }
+          const decoded = decodeReadCapabilityToken(edit.readCapability)
+          if (typeof decoded === 'string' || decoded.tokenVersion !== 'v3') {
+            throw new Error(
+              typeof decoded === 'string'
+                ? decoded
+                : 'readCapability requires an authenticated project/path/run-bound cap.v3 token.',
+            )
           }
           return {
             ...edit,
-            startLine: edit.startLine!,
-            endLine: edit.endLine!,
-            expectedHash: edit.expectedHash!,
-            wholeFileCapabilityHash: undefined,
+            startLine: edit.startLine ?? decoded.startLine,
+            endLine: edit.endLine ?? decoded.endLine,
+            capabilityStartLine: decoded.startLine,
+            capabilityEndLine: decoded.endLine,
+            capabilityHash: decoded.hash,
           }
         }),
       )
@@ -502,7 +421,7 @@ Important:
 - Every per-file edit is atomic during preflight, including small files.
 - Structured edits are dispatched deterministically by operation kind; supported operations include insert_text, insert_import, and remove_import.
 - Select an edit type per operation: str_replace, replace_range, rewrite_symbol, patch, structured, create, delete, move, or write_file.
-- For replace_range edits, prefer the single readCapability copied from a fresh read_files range header; the transaction normalizes it to verified line bounds and hash during validation.
+- Every replace_range edit uses one readCapability copied from a fresh read_files editAnchor. Omit startLine/endLine to replace the full observed range, or provide both to target a contained sub-range. Never pass expectedHash.
 - Use insert_import/remove_import for TypeScript import-only changes; use the str_replace edit type for larger semantic changes.
 - Large-file str_replace edits use deterministic exact-match semantics: unique oldString edits can apply without basedOnRead; ambiguous targets should use basedOnRead from fresh read_files.ranges output.
 - Patches are applied as one coordinated client-side transaction after preflight. Commit failures trigger best-effort rollback and report rolled-back or rollback-incomplete outcomes; do not assume external filesystem atomicity.

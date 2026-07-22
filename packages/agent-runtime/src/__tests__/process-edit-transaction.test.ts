@@ -16,6 +16,48 @@ const logger: Logger = {
   error: () => {},
 }
 
+const defaultReadCapabilityIssuer = {
+  projectId: '/project',
+  runId: 'runtime-auth-tests',
+}
+
+function readAuthorization(params: {
+  path: string
+  startLine: number
+  endLine: number
+  content: string
+  issuer?: { projectId: string; runId: string }
+}) {
+  const {
+    path,
+    startLine,
+    endLine,
+    content,
+    issuer = defaultReadCapabilityIssuer,
+  } = params
+  const capabilityHash = getContentHash(content)
+  return {
+    capabilityStartLine: startLine,
+    capabilityEndLine: endLine,
+    capabilityHash,
+    readCapability: encodeReadCapabilityToken({
+      startLine,
+      endLine,
+      hash: capabilityHash,
+      scope: { ...issuer, path },
+    }),
+  }
+}
+
+function basedOnRead(params: {
+  path: string
+  startLine: number
+  endLine: number
+  content: string
+}): string {
+  return readAuthorization(params).readCapability
+}
+
 describe('processEditTransaction', () => {
   it('preflights and returns patches for multiple files when every edit succeeds', async () => {
     const initialContentByPath = new Map<string, string | null>([
@@ -882,6 +924,7 @@ describe('processEditTransaction', () => {
     const result = await processEditTransaction({
       initialContentByPath: new Map([['src/helper.ts', initialContent]]),
       logger,
+      readCapabilityIssuer: defaultReadCapabilityIssuer,
       edits: [
         {
           type: 'str_replace',
@@ -891,11 +934,12 @@ describe('processEditTransaction', () => {
               oldString: 'const a = 1',
               newString: 'const a = 1\nconst inserted = true',
               allowMultiple: false,
-              basedOnRead: {
+              basedOnRead: basedOnRead({
+                path: 'src/helper.ts',
                 startLine: 1,
                 endLine: 1,
-                hash: getContentHash('const a = 1'),
-              },
+                content: 'const a = 1',
+              }),
             },
           ],
         },
@@ -907,11 +951,12 @@ describe('processEditTransaction', () => {
               oldString: 'const b = 1',
               newString: 'const b = 2',
               allowMultiple: false,
-              basedOnRead: {
+              basedOnRead: basedOnRead({
+                path: 'src/helper.ts',
                 startLine: 2,
                 endLine: 2,
-                hash: getContentHash('const b = 1'),
-              },
+                content: 'const b = 1',
+              }),
             },
           ],
         },
@@ -932,6 +977,7 @@ describe('processEditTransaction', () => {
     const result = await processEditTransaction({
       initialContentByPath: new Map([['src/helper.ts', initialContent]]),
       logger,
+      readCapabilityIssuer: defaultReadCapabilityIssuer,
       edits: [
         {
           id: 'insert-before-second-anchor',
@@ -942,11 +988,12 @@ describe('processEditTransaction', () => {
               oldString: 'const a = 1',
               newString: 'const a = 1\nconst inserted = true',
               allowMultiple: false,
-              basedOnRead: {
+              basedOnRead: basedOnRead({
+                path: 'src/helper.ts',
                 startLine: 1,
                 endLine: 1,
-                hash: getContentHash('const a = 1'),
-              },
+                content: 'const a = 1',
+              }),
             },
           ],
         },
@@ -959,11 +1006,12 @@ describe('processEditTransaction', () => {
               oldString: 'const b = 1',
               newString: 'const b = 2',
               allowMultiple: false,
-              basedOnRead: {
+              basedOnRead: basedOnRead({
+                path: 'src/helper.ts',
                 startLine: 2,
                 endLine: 2,
-                hash: getContentHash('const b = 1'),
-              },
+                content: 'const b = 1',
+              }),
             },
           ],
         },
@@ -1076,6 +1124,7 @@ describe('processEditTransaction', () => {
     const result = await processEditTransaction({
       initialContentByPath: new Map([['src/helper.ts', initialContent]]),
       logger,
+      readCapabilityIssuer: defaultReadCapabilityIssuer,
       edits: [
         {
           type: 'str_replace',
@@ -1085,11 +1134,12 @@ describe('processEditTransaction', () => {
               oldString: 'const a = 1',
               newString: 'const a = 1\nconst inserted = true',
               allowMultiple: false,
-              basedOnRead: {
+              basedOnRead: basedOnRead({
+                path: 'src/helper.ts',
                 startLine: 1,
                 endLine: 1,
-                hash: getContentHash('const a = 1'),
-              },
+                content: 'const a = 1',
+              }),
             },
           ],
         },
@@ -1098,7 +1148,12 @@ describe('processEditTransaction', () => {
           path: 'src/helper.ts',
           startLine: 3,
           endLine: 3,
-          expectedHash: getContentHash('const b = 1'),
+          ...readAuthorization({
+            path: 'src/helper.ts',
+            startLine: 2,
+            endLine: 3,
+            content: 'const b = 1\nconst c = 1',
+          }),
           newContent: 'const b = 2',
         },
         {
@@ -1109,11 +1164,12 @@ describe('processEditTransaction', () => {
               oldString: 'const c = 1',
               newString: 'const c = 2',
               allowMultiple: false,
-              basedOnRead: {
+              basedOnRead: basedOnRead({
+                path: 'src/helper.ts',
                 startLine: 3,
                 endLine: 3,
-                hash: getContentHash('const c = 1'),
-              },
+                content: 'const c = 1',
+              }),
             },
           ],
         },
@@ -1211,13 +1267,6 @@ describe('processEditTransaction', () => {
   it('shifts a later non-overlapping replace_range from the original snapshot', async () => {
     const initial = 'one\ntwo\nthree\n'
     const issuer = { projectId: '/project', runId: 'range-shift' }
-    const rangeCapability = (startLine: number, endLine: number, content: string) =>
-      encodeReadCapabilityToken({
-        startLine,
-        endLine,
-        hash: getContentHash(content),
-        scope: { ...issuer, path: 'src/file.ts' },
-      })
     const result = await processEditTransaction({
       initialContentByPath: new Map([['src/file.ts', initial]]),
       logger,
@@ -1228,8 +1277,13 @@ describe('processEditTransaction', () => {
           path: 'src/file.ts',
           startLine: 1,
           endLine: 1,
-          expectedHash: getContentHash('one'),
-          readCapability: rangeCapability(1, 1, 'one'),
+          ...readAuthorization({
+            path: 'src/file.ts',
+            startLine: 1,
+            endLine: 1,
+            content: 'one',
+            issuer,
+          }),
           newContent: 'ONE\nINSERTED',
         },
         {
@@ -1237,8 +1291,13 @@ describe('processEditTransaction', () => {
           path: 'src/file.ts',
           startLine: 3,
           endLine: 3,
-          expectedHash: getContentHash('three'),
-          readCapability: rangeCapability(3, 3, 'three'),
+          ...readAuthorization({
+            path: 'src/file.ts',
+            startLine: 3,
+            endLine: 3,
+            content: 'three',
+            issuer,
+          }),
           newContent: 'THREE',
         },
       ],
@@ -1255,13 +1314,19 @@ describe('processEditTransaction', () => {
     const result = await processEditTransaction({
       initialContentByPath: new Map([['src/file.ts', initial]]),
       logger,
+      readCapabilityIssuer: defaultReadCapabilityIssuer,
       edits: [
         {
           type: 'replace_range',
           path: 'src/file.ts',
           startLine: 1,
           endLine: 2,
-          expectedHash: getContentHash('one\ntwo'),
+          ...readAuthorization({
+            path: 'src/file.ts',
+            startLine: 1,
+            endLine: 2,
+            content: 'one\ntwo',
+          }),
           newContent: 'ONE\nTWO\nINSERTED',
         },
         {
@@ -1269,7 +1334,12 @@ describe('processEditTransaction', () => {
           path: 'src/file.ts',
           startLine: 2,
           endLine: 3,
-          expectedHash: getContentHash('two\nthree'),
+          ...readAuthorization({
+            path: 'src/file.ts',
+            startLine: 2,
+            endLine: 3,
+            content: 'two\nthree',
+          }),
           newContent: 'TWO\nTHREE',
         },
       ],
@@ -1289,13 +1359,19 @@ describe('processEditTransaction', () => {
     const result = await processEditTransaction({
       initialContentByPath: new Map([['src/file.ts', initial]]),
       logger,
+      readCapabilityIssuer: defaultReadCapabilityIssuer,
       edits: [
         {
           type: 'replace_range',
           path: 'src/file.ts',
           startLine: 2,
           endLine: 2,
-          expectedHash: getContentHash('two'),
+          ...readAuthorization({
+            path: 'src/file.ts',
+            startLine: 2,
+            endLine: 2,
+            content: 'two',
+          }),
           newContent: 'TWO',
         },
         {
@@ -1319,13 +1395,19 @@ describe('processEditTransaction', () => {
     const result = await processEditTransaction({
       initialContentByPath: new Map([['src/file.ts', initial]]),
       logger,
+      readCapabilityIssuer: defaultReadCapabilityIssuer,
       edits: [
         {
           type: 'replace_range',
           path: 'src/file.ts',
           startLine: 3,
           endLine: 2,
-          expectedHash: getContentHash(''),
+          ...readAuthorization({
+            path: 'src/file.ts',
+            startLine: 3,
+            endLine: 3,
+            content: 'three',
+          }),
           newContent: 'inserted',
         },
       ],
@@ -1397,21 +1479,17 @@ describe('processEditTransaction', () => {
     }
   })
 
-  it('applies a whole-file readCapability + narrower sub-range replace_range without an expectedHash match', async () => {
-    // RF-1/RF-10: the wholeFileCapabilitySubRange preflight branch verifies
-    // decoded.hash against the whole-file hash and applies the caller's
-    // narrower sub-range WITHOUT an expectedHash match (the security-critical
-    // relaxation). Mint a fresh whole-file cap.v3 matching exactly what
-    // read_files.renderWholeFileItem would mint over lines 1-N of a file
-    // ending in a trailing newline (endLine = split('\n').length, hash over
-    // the full normalized content).
+  it('applies a whole-file readCapability to a contained sub-range', async () => {
+    // A whole-file cap.v3 authorizes a narrower target while its authenticated
+    // bounds and hash remain the authorization metadata for preflight.
     const initial = 'export const value = 1\nexport const other = 2\n'
     const issuer = { projectId: '/project', runId: 'run-wholefile-subrange' }
-    const wholeFileCap = encodeReadCapabilityToken({
+    const wholeFileAuthorization = readAuthorization({
+      path: 'src/helper.ts',
       startLine: 1,
       endLine: initial.split('\n').length,
-      hash: getContentHash(initial),
-      scope: { ...issuer, path: 'src/helper.ts' },
+      content: initial,
+      issuer,
     })
 
     const result = await processEditTransaction({
@@ -1423,13 +1501,9 @@ describe('processEditTransaction', () => {
           id: 'whole-file-cap-subrange',
           type: 'replace_range',
           path: 'src/helper.ts',
-          readCapability: wholeFileCap,
+          ...wholeFileAuthorization,
           startLine: 2,
           endLine: 2,
-          // edit.expectedHash is intentionally omitted: the transform emits
-          // { expectedHash: undefined, wholeFileCapabilityHash: decoded.hash },
-          // and the runtime preflight verifies decoded.hash against the
-          // current whole-file hash instead of a per-range hash match.
           newContent: 'export const other = 22',
         },
       ],
@@ -1442,7 +1516,7 @@ describe('processEditTransaction', () => {
         'export const value = 1\nexport const other = 22\n',
       )
       expect(result.files[0].messages).toContain(
-        'Replaced lines 2-2 in src/helper.ts using a whole-file readCapability.',
+        'Replaced lines 2-2 in src/helper.ts within the readCapability-covered range.',
       )
       expect(applyPatch(initial, result.files[0].patch)).toBe(
         'export const value = 1\nexport const other = 22\n',
@@ -1454,11 +1528,12 @@ describe('processEditTransaction', () => {
     const staleInitial = 'export const value = 1\nexport const other = 2\n'
     const currentInitial = 'export const value = 99\nexport const other = 2\n'
     const issuer = { projectId: '/project', runId: 'run-wholefile-stale' }
-    const staleWholeFileCap = encodeReadCapabilityToken({
+    const staleWholeFileAuthorization = readAuthorization({
+      path: 'src/helper.ts',
       startLine: 1,
       endLine: staleInitial.split('\n').length,
-      hash: getContentHash(staleInitial),
-      scope: { ...issuer, path: 'src/helper.ts' },
+      content: staleInitial,
+      issuer,
     })
     const request = {
       initialContentByPath: new Map([['src/helper.ts', currentInitial]]),
@@ -1469,7 +1544,7 @@ describe('processEditTransaction', () => {
           id: 'whole-file-cap-subrange-stale',
           type: 'replace_range' as const,
           path: 'src/helper.ts',
-          readCapability: staleWholeFileCap,
+          ...staleWholeFileAuthorization,
           startLine: 2,
           endLine: 2,
           newContent: 'export const other = 22',
@@ -1491,9 +1566,9 @@ describe('processEditTransaction', () => {
     ])
     const message = result.failures[0]!.errorMessage
     expect(message).toContain(
-      'the whole-file readCapability is stale (its hash no longer matches the current full-file content)',
+      'the readCapability-covered content is stale',
     )
-    expect(message).toContain('Re-read the file (read_files.paths)')
+    expect(message).toContain('Re-read lines 1-3')
     expect(message).not.toContain('Recovery capability')
     expect(message).not.toContain('readCapability="')
     expect(message).not.toContain('retry replace_range DIRECTLY')
@@ -1511,11 +1586,12 @@ describe('processEditTransaction', () => {
     const staleRange = 'export const value = 1'
     const currentInitial = 'export const value = 99\nexport const other = 2\n'
     const issuer = { projectId: '/project', runId: 'run-range-stale' }
-    const staleRangeCap = encodeReadCapabilityToken({
+    const staleRangeAuthorization = readAuthorization({
+      path: 'src/helper.ts',
       startLine: 1,
       endLine: 1,
-      hash: getContentHash(staleRange),
-      scope: { ...issuer, path: 'src/helper.ts' },
+      content: staleRange,
+      issuer,
     })
     const request = {
       initialContentByPath: new Map([['src/helper.ts', currentInitial]]),
@@ -1526,10 +1602,9 @@ describe('processEditTransaction', () => {
           id: 'exact-range-cap-stale',
           type: 'replace_range' as const,
           path: 'src/helper.ts',
-          readCapability: staleRangeCap,
+          ...staleRangeAuthorization,
           startLine: 1,
           endLine: 1,
-          expectedHash: getContentHash(staleRange),
           newContent: 'export const value = 2',
         },
       ],
@@ -1540,7 +1615,7 @@ describe('processEditTransaction', () => {
     expect('error' in result).toBe(true)
     if (!('error' in result)) return
     const message = result.failures[0]!.errorMessage
-    expect(message).toContain('expectedHash is stale')
+    expect(message).toContain('the readCapability-covered content is stale')
     expect(message).toContain('Re-read lines 1-1')
     expect(message).not.toContain('Recovery capability')
     expect(message).not.toContain('readCapability="')

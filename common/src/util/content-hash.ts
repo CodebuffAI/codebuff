@@ -13,14 +13,19 @@ export function normalizeLineEndings(content: string): string {
   return content.replace(/\r\n/g, '\n')
 }
 
+/** Byte-exact sha256 used by filesystem mutation receipts and snapshots. */
+export function getExactContentHash(content: string): string {
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`
+}
+
 /**
  * Canonical sha256 content hash used by `read_files`, `apply_patch`,
  * `replace_range`, and `str_replace` for stale-edit / capability-token
  * validation. The hash is computed over the normalized (LF) content and
- * prefixed with `sha256:` so callers can distinguish it from legacy hashes.
+ * prefixed with `sha256:`.
  */
 export function getContentHash(content: string): string {
-  return `sha256:${createHash('sha256').update(normalizeLineEndings(content)).digest('hex')}`
+  return getExactContentHash(normalizeLineEndings(content))
 }
 
 // ---------------------------------------------------------------------------
@@ -28,17 +33,16 @@ export function getContentHash(content: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * A decoded read capability: a 1-indexed inclusive line range plus the sha256
- * hash of its LF-normalized content. Authenticated cap.v3 values also carry an
- * opaque project/path/run scope fingerprint; legacy values do not.
+ * A successfully decoded authenticated read capability: a 1-indexed inclusive
+ * line range, the canonical sha256 hash of its LF-normalized content, and its
+ * opaque project/path/run scope fingerprint.
  */
 export type ReplacementReadCapability = {
   startLine: number
   endLine: number
   hash: string
-  /** Present only for authenticated, project/path/run-bound cap.v3 tokens. */
-  scopeFingerprint?: string
-  tokenVersion?: 'v3'
+  scopeFingerprint: string
+  tokenVersion: 'v3'
 }
 
 export type ReadCapabilityScope = {
@@ -56,8 +60,7 @@ export type ReadCapabilityIssuer = Pick<
 >
 
 export const READ_CAPABILITY_TOKEN_PREFIX = 'cap.'
-const READ_CAPABILITY_TOKEN_VERSION = 'v2'
-const SCOPED_READ_CAPABILITY_TOKEN_VERSION = 'v3'
+const READ_CAPABILITY_TOKEN_VERSION = 'v3'
 const SHA256_HEX_PATTERN = /^sha256:([a-f0-9]{64})$/
 const BASE64URL_SHA256_PATTERN = /^[A-Za-z0-9_-]{43}$/
 // cap.v3 is an in-process runtime capability, not a reconstructable content
@@ -87,159 +90,93 @@ export function readCapabilityMatchesScope(
   scope: ReadCapabilityScope,
 ): boolean {
   return (
-    capability.tokenVersion === SCOPED_READ_CAPABILITY_TOKEN_VERSION &&
+    capability.tokenVersion === READ_CAPABILITY_TOKEN_VERSION &&
     capability.scopeFingerprint === getReadCapabilityScopeFingerprint(scope)
   )
 }
 
 /**
- * Encodes a read capability as a single self-contained opaque token. The token
- * embeds {startLine, endLine, rangeHash} so the model only ever copies ONE
- * value from a read_files header instead of three coupled fields it could
- * mispair. read_files mints these tokens; str_replace decodes and re-validates
- * them statelessly against the current file (the hash is still the authority).
- *
- * Authorization format:
+ * Encodes an authenticated, scoped read capability as
  * `cap.v3.<start>.<end>.<contentDigest>.<scopeDigest>.<hmac>`.
- * The authenticated scope binds project, normalized path, and issuing run.
- * The decoder continues to accept cap.v2/base64 legacy freshness tokens for
- * compatible non-strict flows, but callers decide whether those are safe.
+ * The scope binds the capability to its project, normalized path, and issuing
+ * run; the canonical sha256 hash binds it to the content returned by the read.
  */
 export function encodeReadCapabilityToken(params: {
   startLine: number
   endLine: number
   hash: string
-  scope?: ReadCapabilityScope
+  scope: ReadCapabilityScope
 }): string {
   const { startLine, endLine, hash, scope } = params
   const sha256Match = hash.match(SHA256_HEX_PATTERN)
-  if (sha256Match) {
-    const digest = Buffer.from(sha256Match[1]!, 'hex').toString('base64url')
-    if (scope) {
-      const scopeFingerprint = getReadCapabilityScopeFingerprint(scope)
-      const signedPayload = `${SCOPED_READ_CAPABILITY_TOKEN_VERSION}.${startLine}.${endLine}.${digest}.${scopeFingerprint}`
-      const signature = createHmac('sha256', READ_CAPABILITY_SIGNING_KEY)
-        .update(signedPayload)
-        .digest('base64url')
-      return `${READ_CAPABILITY_TOKEN_PREFIX}${signedPayload}.${signature}`
-    }
-    return `${READ_CAPABILITY_TOKEN_PREFIX}${READ_CAPABILITY_TOKEN_VERSION}.${startLine}.${endLine}.${digest}`
-  }
-
-  if (scope) {
+  if (!sha256Match) {
     throw new Error(
-      'Scoped read capabilities require a canonical sha256 content hash.',
+      'Read capabilities require a canonical sha256 content hash.',
     )
   }
 
-  // Preserve support for callers using a non-canonical hash during a gradual
-  // migration. Production call sites use getContentHash() and therefore emit
-  // the shorter v2 form above.
-  return (
-    READ_CAPABILITY_TOKEN_PREFIX +
-    Buffer.from(`${startLine}:${endLine}:${hash}`).toString('base64url')
-  )
+  const digest = Buffer.from(sha256Match[1]!, 'hex').toString('base64url')
+  const scopeFingerprint = getReadCapabilityScopeFingerprint(scope)
+  const signedPayload = `${READ_CAPABILITY_TOKEN_VERSION}.${startLine}.${endLine}.${digest}.${scopeFingerprint}`
+  const signature = createHmac('sha256', READ_CAPABILITY_SIGNING_KEY)
+    .update(signedPayload)
+    .digest('base64url')
+  return `${READ_CAPABILITY_TOKEN_PREFIX}${signedPayload}.${signature}`
 }
 
 /**
- * Decodes an opaque read capability token back into its concrete
- * { startLine, endLine, hash } object. Returns a human-readable error string
- * (recoverable) when the token is malformed, so callers can surface it to the
- * model without throwing.
+ * Decodes an authenticated cap.v3 read capability. Returns a human-readable,
+ * recoverable re-read error when the supplied value is malformed, unauthenticated,
+ * or from any retired capability format.
  */
 export function decodeReadCapabilityToken(
   token: string,
 ): ReplacementReadCapability | string {
   token = normalizeCopiedReadCapabilityToken(token)
   if (token.startsWith('whole.')) {
-    return `Invalid basedOnRead: ${JSON.stringify(token)} is a legacy mutation capability, not read authorization. New mutation results expose reusable cap.* tokens; for this legacy result, re-read the target with read_files and copy its readCapability.`
+    return `Invalid basedOnRead: ${JSON.stringify(token)} is a legacy mutation capability, not cap.v3 read authorization. Re-read the target with read_files and copy its readCapability from the fresh editAnchor.`
   }
-  if (!token.startsWith(READ_CAPABILITY_TOKEN_PREFIX)) {
-    return `Invalid basedOnRead: expected a read capability token ("${READ_CAPABILITY_TOKEN_PREFIX}...") or a { startLine, endLine, hash } object, but received ${JSON.stringify(token)}.`
+
+  const v3Prefix = `${READ_CAPABILITY_TOKEN_PREFIX}${READ_CAPABILITY_TOKEN_VERSION}.`
+  if (!token.startsWith(v3Prefix)) {
+    return `Invalid basedOnRead: expected an authenticated scoped cap.v3 readCapability, but received ${JSON.stringify(token)}. Re-read the target with read_files and copy its readCapability from the fresh editAnchor.`
   }
-  const v2Prefix = `${READ_CAPABILITY_TOKEN_PREFIX}${READ_CAPABILITY_TOKEN_VERSION}.`
-  const v3Prefix = `${READ_CAPABILITY_TOKEN_PREFIX}${SCOPED_READ_CAPABILITY_TOKEN_VERSION}.`
-  if (token.startsWith(v3Prefix)) {
-    const match = token.match(
-      /^cap\.v3\.(\d+)\.(\d+)\.([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})$/,
-    )
-    if (!match) {
-      return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-    }
-    const startLine = Number(match[1])
-    const endLine = Number(match[2])
-    const digest = Buffer.from(match[3]!, 'base64url')
-    const scopeFingerprint = match[4]!
-    const signature = Buffer.from(match[5]!, 'base64url')
-    const signedPayload = `${SCOPED_READ_CAPABILITY_TOKEN_VERSION}.${match[1]}.${match[2]}.${match[3]}.${scopeFingerprint}`
-    const expectedSignature = createHmac(
-      'sha256',
-      READ_CAPABILITY_SIGNING_KEY,
-    )
-      .update(signedPayload)
-      .digest()
-    if (
-      !Number.isInteger(startLine) ||
-      !Number.isInteger(endLine) ||
-      digest.length !== 32 ||
-      digest.toString('base64url') !== match[3] ||
-      !BASE64URL_SHA256_PATTERN.test(scopeFingerprint) ||
-      signature.length !== expectedSignature.length ||
-      !timingSafeEqual(signature, expectedSignature)
-    ) {
-      return `Invalid basedOnRead capability token: authentication failed. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-    }
-    return {
-      startLine,
-      endLine,
-      hash: `sha256:${digest.toString('hex')}`,
-      scopeFingerprint,
-      tokenVersion: 'v3',
-    }
+
+  const match = token.match(
+    /^cap\.v3\.(\d+)\.(\d+)\.([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})$/,
+  )
+  if (!match) {
+    return `Invalid basedOnRead capability token: malformed cap.v3 payload. Re-read the target range with read_files and copy the readCapability from the fresh editAnchor.`
   }
-  if (token.startsWith(v2Prefix)) {
-    const match = token.match(/^cap\.v2\.(\d+)\.(\d+)\.([A-Za-z0-9_-]{43})$/)
-    if (!match) {
-      return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-    }
-    const startLine = Number(match[1])
-    const endLine = Number(match[2])
-    const digest = Buffer.from(match[3]!, 'base64url')
-    if (
-      !Number.isInteger(startLine) ||
-      !Number.isInteger(endLine) ||
-      digest.length !== 32 ||
-      digest.toString('base64url') !== match[3]
-    ) {
-      return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-    }
-    return {
-      startLine,
-      endLine,
-      hash: `sha256:${digest.toString('hex')}`,
-    }
+
+  const startLine = Number(match[1])
+  const endLine = Number(match[2])
+  const digest = Buffer.from(match[3]!, 'base64url')
+  const scopeFingerprint = match[4]!
+  const signature = Buffer.from(match[5]!, 'base64url')
+  const signedPayload = `${READ_CAPABILITY_TOKEN_VERSION}.${match[1]}.${match[2]}.${match[3]}.${scopeFingerprint}`
+  const expectedSignature = createHmac('sha256', READ_CAPABILITY_SIGNING_KEY)
+    .update(signedPayload)
+    .digest()
+  if (
+    !Number.isInteger(startLine) ||
+    !Number.isInteger(endLine) ||
+    digest.length !== 32 ||
+    digest.toString('base64url') !== match[3] ||
+    !BASE64URL_SHA256_PATTERN.test(scopeFingerprint) ||
+    signature.length !== expectedSignature.length ||
+    !timingSafeEqual(signature, expectedSignature)
+  ) {
+    return `Invalid basedOnRead capability token: authentication failed. Re-read the target range with read_files and copy the readCapability from the fresh editAnchor.`
   }
-  let decoded: string
-  try {
-    decoded = Buffer.from(
-      token.slice(READ_CAPABILITY_TOKEN_PREFIX.length),
-      'base64url',
-    ).toString('utf8')
-  } catch {
-    return `Invalid basedOnRead capability token: could not decode ${JSON.stringify(token)}. Re-read the target range with read_files and copy the readCapability from the fresh header.`
+
+  return {
+    startLine,
+    endLine,
+    hash: `sha256:${digest.toString('hex')}`,
+    scopeFingerprint,
+    tokenVersion: 'v3',
   }
-  const firstSep = decoded.indexOf(':')
-  const secondSep = decoded.indexOf(':', firstSep + 1)
-  if (firstSep === -1 || secondSep === -1) {
-    return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-  }
-  const startLine = Number(decoded.slice(0, firstSep))
-  const endLine = Number(decoded.slice(firstSep + 1, secondSep))
-  const hash = decoded.slice(secondSep + 1)
-  if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || !hash) {
-    return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-  }
-  return { startLine, endLine, hash }
 }
 
 function normalizeCopiedReadCapabilityToken(token: string): string {

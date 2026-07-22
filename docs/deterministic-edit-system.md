@@ -33,7 +33,7 @@ Shipped root/editor agents use `edit_transaction` as their single
 model-visible project mutation surface. Its edit variants cover targeted text,
 ranges, symbols, patches, structured operations, and file lifecycle changes.
 Standalone edit handlers remain registered for persisted/external
-compatibility; `apply_smart_patch` remains quarantined. All active mutation
+compatibility. All active mutation
 paths participate in the same staged read-before-edit policy.
 Under strict-mode edit flows, the runtime requires a recent `read_files`
 authorization for each touched path before accepting an edit:

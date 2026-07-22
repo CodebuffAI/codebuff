@@ -118,7 +118,7 @@ export const handleStrReplace = (async (
             errorMessage: [
               `str_replace circuit breaker: ${consecutiveFailures} failed or auto-corrected attempts on \`${path}\` in this turn.`,
               'Continuing to retry str_replace on this path is likely to corrupt the file.',
-              'Next: use rewrite_symbol for an entire function/method/type, replace_range with a fresh expectedHash for a known block, or write_file to reconstruct the whole file. Raw str_replace remains blocked for this path until the next turn.',
+              'Next: use rewrite_symbol for an entire function/method/type, replace_range with a fresh readCapability for a known block, or write_file to reconstruct the whole file. Raw str_replace remains blocked for this path until the next turn.',
             ].join('\n'),
           },
         },
@@ -345,7 +345,7 @@ export const handleStrReplace = (async (
         strReplaceResult.error = [
           strReplaceResult.error,
           `str_replace retry limit reached for \`${path}\` after ${fileProcessingState.consecutiveStrReplaceFailuresByPath[path]} failed or auto-corrected attempts in this turn.`,
-          'Do not retry another remembered str_replace batch. Switch to rewrite_symbol for a whole symbol, replace_range with a fresh expectedHash for a known block, or write_file when reconstructing the whole file is safer.',
+          'Do not retry another remembered str_replace batch. Switch to rewrite_symbol for a whole symbol, replace_range with a fresh readCapability for a known block, or write_file when reconstructing the whole file is safer.',
         ].join('\n\n')
       }
     }

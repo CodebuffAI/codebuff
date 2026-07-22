@@ -5,12 +5,34 @@ import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesyste
 import { getFileReadingUpdates } from '../get-file-reading-updates'
 
 describe('getFileReadingUpdates', () => {
-  it('[COR-M06][ABI-M04] preserves every selector in one legacy batch call', async () => {
+  it('[COR-M06][ABI-M04] preserves every selector in one structured batch call', async () => {
     const calls: unknown[] = []
     const result = await getFileReadingUpdates({
       requestFiles: async (input) => {
         calls.push(input)
-        return { 'whole.ts': 'export const whole = true\n' }
+        return buildReadFilesResultV1([
+          {
+            selector: 'file',
+            requestIndex: 0,
+            path: 'whole.ts',
+            status: 'ok',
+            content: 'export const whole = true\n',
+            complete: true,
+            template: false,
+          },
+          {
+            selector: 'range',
+            requestIndex: 1,
+            path: 'range.ts',
+            status: 'error',
+            error: {
+              code: 'not_found',
+              message: '[FILE_DOES_NOT_EXIST]',
+              retryable: true,
+              recovery: 'discover_path',
+            },
+          },
+        ])
       },
       requestedFiles: ['whole.ts'],
       ranges: [{ path: 'range.ts', startLine: 2, endLine: 3 }],
@@ -39,13 +61,28 @@ describe('getFileReadingUpdates', () => {
   })
 
   it('removes capability metadata from truncated ranges using the current header shape', async () => {
-    const capability = 'cap.v2.1.2.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    const legacyCapability =
+      'cap.v2.1.2.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    const currentCapability =
+      'cap.v3.1.2.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC.DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
     const result = await getFileReadingUpdates({
-      requestFiles: async () => ({
-        'range.ts':
-          `[RANGE_BLOCK lines 1-2 of 20 in range.ts; rangeHash=sha256:abc; readCapability=${capability}; preferred block edit: replace_range { readCapability: "${capability}", newContent: "..." }; scoped str_replace: basedOnRead="${capability}"]\n` +
-          '1\tline one\n2\tline two\n[FILE_TOO_LARGE: truncated]',
-      }),
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'range',
+            requestIndex: 0,
+            path: 'range.ts',
+            status: 'partial',
+            content:
+              `[RANGE_BLOCK lines 1-2 of 20 in range.ts; rangeHash=sha256:abc; readCapability=${currentCapability}; preferred block edit: replace_range { readCapability: "${currentCapability}", newContent: "..." }; scoped str_replace: basedOnRead="${legacyCapability}"]\n` +
+              '1\tline one\n2\tline two\n[FILE_TOO_LARGE: truncated]',
+            startLine: 1,
+            endLine: 2,
+            totalLines: 20,
+            complete: false,
+            truncation: { reason: 'character_limit' },
+          },
+        ]),
       requestedFiles: [],
       ranges: [{ path: 'range.ts', startLine: 1, endLine: 20 }],
     })
@@ -57,8 +94,15 @@ describe('getFileReadingUpdates', () => {
     })
     const item = result.results[0]
     if (item?.status === 'partial' && 'content' in item) {
-      expect(item.content).toContain('rangeHash=omitted')
-      expect(item.content).not.toContain(capability)
+      expect(item.content).toBe(
+        '[RANGE_BLOCK lines 1-2 of 20 in range.ts; rangeHash=omitted]\n' +
+          '1\tline one\n2\tline two\n[FILE_TOO_LARGE: truncated]',
+      )
+      expect(item.content).not.toContain(legacyCapability)
+      expect(item.content).not.toContain(currentCapability)
+      expect(item.content).not.toContain('preferred block edit')
+      expect(item.content).not.toContain('basedOnRead')
+      expect(item).not.toHaveProperty('editAnchor')
       expect(item).not.toHaveProperty('readCapability')
     }
   })
@@ -192,7 +236,6 @@ describe('getFileReadingUpdates', () => {
   })
 
   it('fails closed when a whole-file request returns a mismatched selector', async () => {
-    const capability = 'cap.v3.forged'
     const result = await getFileReadingUpdates({
       requestFiles: async () =>
         buildReadFilesResultV1([
@@ -206,7 +249,6 @@ describe('getFileReadingUpdates', () => {
             endLine: 2,
             totalLines: 2,
             complete: true,
-            readCapability: capability,
           },
         ]),
       requestedFiles: ['whole.ts'],
@@ -298,56 +340,77 @@ describe('getFileReadingUpdates', () => {
     expect(longResult.results[0]).not.toHaveProperty('content')
   })
 
-  it('fails closed when a legacy path-keyed batch mixes a whole file and a range for the same path', async () => {
+  it('preserves distinct structured selectors for the same path', async () => {
     const result = await getFileReadingUpdates({
-      requestFiles: async () => ({
-        'mixed.ts':
-          '[RANGE_BLOCK lines 1-2 of 10 in mixed.ts; rangeHash=sha256:abc; readCapability=cap.forged]\n1\tone\n2\ttwo',
-      }),
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'file',
+            requestIndex: 0,
+            path: 'mixed.ts',
+            status: 'ok',
+            content: 'one\ntwo\n',
+            complete: true,
+            template: false,
+          },
+          {
+            selector: 'range',
+            requestIndex: 1,
+            path: 'mixed.ts',
+            status: 'ok',
+            content: '1\tone\n2\ttwo',
+            sourceContent: 'one\ntwo',
+            startLine: 1,
+            endLine: 2,
+            totalLines: 2,
+            complete: true,
+          },
+        ]),
       requestedFiles: ['mixed.ts'],
       ranges: [{ path: 'mixed.ts', startLine: 1, endLine: 2 }],
     })
 
-    // One value per path cannot serve both selector shapes; whichever one
-    // read second would silently consume content minted for the other. Both
-    // selectors must fail closed with invalid_request.
     expect(result.results).toHaveLength(2)
     expect(result.results[0]).toMatchObject({
       selector: 'file',
       requestIndex: 0,
       path: 'mixed.ts',
-      status: 'error',
-      error: { code: 'invalid_request' },
+      status: 'ok',
+      content: 'one\ntwo\n',
     })
-    expect(result.results[0]).not.toHaveProperty('content')
     expect(result.results[1]).toMatchObject({
       selector: 'range',
       requestIndex: 1,
       path: 'mixed.ts',
-      status: 'error',
-      error: { code: 'invalid_request' },
+      status: 'ok',
+      sourceContent: 'one\ntwo',
     })
-    expect(result.results[1]).not.toHaveProperty('readCapability')
   })
 
-  it('fails closed when an adversarial legacy map key collides with a prototype member name', async () => {
-    // Object.prototype members must never be read as file content: the
-    // lookup must be own-enumerable-only. A path named "constructor" or
-    // "toString" is not a real key in the result and must yield not_found.
+  it('preserves structured errors for paths matching prototype member names', async () => {
+    const paths = ['constructor', 'toString', 'hasOwnProperty']
     const result = await getFileReadingUpdates({
-      requestFiles: async () => ({
-        'whole.ts': 'export const whole = true\n',
-      }),
-      requestedFiles: ['constructor', 'toString', 'hasOwnProperty'],
+      requestFiles: async () =>
+        buildReadFilesResultV1(
+          paths.map((path, requestIndex) => ({
+            selector: 'file' as const,
+            requestIndex,
+            path,
+            status: 'error' as const,
+            error: {
+              code: 'not_found' as const,
+              message: '[FILE_DOES_NOT_EXIST]',
+              retryable: true,
+              recovery: 'discover_path' as const,
+            },
+          })),
+        ),
+      requestedFiles: paths,
       ranges: [],
     })
 
     expect(result.results).toHaveLength(3)
-    for (const [index, path] of [
-      'constructor',
-      'toString',
-      'hasOwnProperty',
-    ].entries()) {
+    for (const [index, path] of paths.entries()) {
       expect(result.results[index]).toMatchObject({
         selector: 'file',
         requestIndex: index,

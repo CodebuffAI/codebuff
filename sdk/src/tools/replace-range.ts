@@ -1,55 +1,18 @@
-import { getContentHash as computeContentHash } from '@codebuff/common/util/content-hash'
-import { normalizeLineEndings } from '@codebuff/common/util/content-hash'
+import { replaceRangeParams } from '@codebuff/common/tools/params/tool/replace-range'
+import {
+  decodeReadCapabilityToken,
+  getContentHash,
+  normalizeLineEndings,
+  readCapabilityMatchesScope,
+} from '@codebuff/common/util/content-hash'
 import { resolveFilePathForFileSystemOperation } from './path-utils'
 import { changeFile } from './change-file'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { ReadCapabilityIssuer } from '@codebuff/common/util/content-hash'
 import type { FileFilter } from './read-files'
 import type { FilesystemAuthorityPolicy } from './filesystem-authority'
-
-type ReplaceRangeParams = {
-  path: string
-  startLine: number
-  endLine: number
-  expectedHash: string
-  newContent: string
-}
-
-// normalizeLineEndings + content-hash now imported from @codebuff/common/util/content-hash.
-// Thin re-export preserves the public name expected by callers/tests.
-export function getRangeContentHash(content: string): string {
-  return computeContentHash(content)
-}
-
-function parseReplaceRangeParams(
-  parameters: unknown,
-): ReplaceRangeParams | null {
-  if (typeof parameters !== 'object' || parameters === null) {
-    return null
-  }
-
-  const input = parameters as Record<string, unknown>
-  if (
-    typeof input.path !== 'string' ||
-    typeof input.startLine !== 'number' ||
-    !Number.isInteger(input.startLine) ||
-    typeof input.endLine !== 'number' ||
-    !Number.isInteger(input.endLine) ||
-    typeof input.expectedHash !== 'string' ||
-    typeof input.newContent !== 'string'
-  ) {
-    return null
-  }
-
-  return {
-    path: input.path,
-    startLine: input.startLine,
-    endLine: input.endLine,
-    expectedHash: input.expectedHash,
-    newContent: input.newContent,
-  }
-}
 
 function errorResult(
   file: string,
@@ -62,63 +25,25 @@ function getDisplayLineCount(
   lines: string[],
   normalizedContent: string,
 ): number {
-  // split('\n') includes a trailing empty segment for files ending in a newline;
-  // read_files renders the human-visible line count without that phantom line.
-  if (normalizedContent.length === 0) {
-    return 0
-  }
-
+  if (normalizedContent.length === 0) return 0
   return lines.at(-1) === '' ? lines.length - 1 : lines.length
-}
-
-function buildStaleRangeError(params: {
-  relativePath: string
-  requestedStartLine: number
-  requestedEndLine: number
-  checkedEndLine: number
-  fileLength: number
-  expectedHash: string
-  currentHash: string
-}): string {
-  const lines = [
-    'replace_range rejected: the target range is stale; expectedHash does not match the current file contents.',
-    `Requested lines: ${params.requestedStartLine}-${params.requestedEndLine}.`,
-  ]
-
-  const reReadEndLine = Math.min(params.requestedEndLine, params.fileLength)
-  if (params.checkedEndLine !== params.requestedEndLine) {
-    lines.push(
-      `Checked current lines: ${params.requestedStartLine}-${params.checkedEndLine} because the requested endLine is beyond the current file length.`,
-      `Use endLine <= ${params.fileLength} when re-reading; do not include a trailing phantom line beyond the visible file length.`,
-    )
-  }
-
-  lines.push(
-    `Current file length: ${params.fileLength} lines.`,
-    `Expected hash from caller: ${params.expectedHash}.`,
-    `Current hash for requested range: ${params.currentHash}.`,
-    'Recovery: discard any old expectedHash/rangeHash and re-read this path with a visible line span first.',
-    `Re-read with read_files ranges: [{ path: "${params.relativePath}", startLine: ${params.requestedStartLine}, endLine: ${reReadEndLine} }] and use the new rangeHash as expectedHash.`,
-    'Retry replace_range only if the fresh read shows the selected range still contains the intended target.',
-    'If the fresh read shows the target moved, re-read a wider nearby range or use str_replace/rewrite_symbol with fresh context.',
-  )
-
-  return lines.join('\n')
 }
 
 export async function replaceRange(params: {
   parameters: unknown
   cwd: string
   fs: CodebuffFileSystem
+  capabilityIssuer: ReadCapabilityIssuer
   signal?: AbortSignal
   fileFilter?: FileFilter
   callId?: string
   filesystemPolicy?: FilesystemAuthorityPolicy
 }): Promise<CodebuffToolOutput<'replace_range'>> {
-  const input = parseReplaceRangeParams(params.parameters)
-  if (!input) {
+  const parsed = replaceRangeParams.inputSchema.safeParse(params.parameters)
+  if (!parsed.success) {
     return errorResult('', 'Missing or invalid replace_range parameters.')
   }
+  const input = parsed.data
 
   const resolvedPath = await resolveFilePathForFileSystemOperation(
     params.cwd,
@@ -130,8 +55,20 @@ export async function replaceRange(params: {
   }
 
   const { operationPath: fullPath, relativePath } = resolvedPath
-  if (input.startLine < 1 || input.endLine < input.startLine) {
-    return errorResult(relativePath, 'startLine must be >= 1 and <= endLine')
+  const decoded = decodeReadCapabilityToken(input.readCapability)
+  if (
+    typeof decoded === 'string' ||
+    !readCapabilityMatchesScope(decoded, {
+      ...params.capabilityIssuer,
+      path: relativePath,
+    })
+  ) {
+    return errorResult(
+      relativePath,
+      typeof decoded === 'string'
+        ? decoded
+        : `replace_range blocked: the readCapability belongs to a different project, path, or agent run. Re-read ${relativePath} in this run and copy its cap.v3 token.`,
+    )
   }
 
   let oldContent: string
@@ -143,7 +80,6 @@ export async function replaceRange(params: {
       typeof error === 'object' && error !== null && 'code' in error
         ? String(error.code)
         : null
-
     return errorResult(
       relativePath,
       code ? `replace_range failed with ${code}: ${message}` : message,
@@ -155,31 +91,34 @@ export async function replaceRange(params: {
   const lines = normalizedOldContent.split('\n')
   const displayLineCount = getDisplayLineCount(lines, normalizedOldContent)
 
-  if (input.startLine > displayLineCount) {
+  if (
+    input.capabilityStartLine > lines.length ||
+    input.capabilityEndLine > lines.length
+  ) {
     return errorResult(
       relativePath,
-      `replace_range rejected: startLine ${input.startLine} is beyond the current file length (${displayLineCount} lines). Re-read the target range before editing.`,
+      `replace_range rejected: the capability-covered range ${input.capabilityStartLine}-${input.capabilityEndLine} is beyond the current file length (${displayLineCount} lines). Re-read the target range before editing.`,
     )
   }
 
-  const endLine = Math.min(input.endLine, displayLineCount)
-  const currentRange = lines.slice(input.startLine - 1, endLine).join('\n')
-  const currentHash = getRangeContentHash(currentRange)
-  if (currentHash !== input.expectedHash) {
+  if (input.startLine > lines.length || input.endLine > lines.length) {
     return errorResult(
       relativePath,
-      buildStaleRangeError({
-        relativePath,
-        requestedStartLine: input.startLine,
-        requestedEndLine: input.endLine,
-        checkedEndLine: endLine,
-        fileLength: displayLineCount,
-        expectedHash: input.expectedHash,
-        currentHash,
-      }),
+      `replace_range rejected: the target range ${input.startLine}-${input.endLine} is beyond the current file length (${displayLineCount} lines). Re-read the target range before editing.`,
     )
   }
 
+  const capabilityContent = lines
+    .slice(input.capabilityStartLine - 1, input.capabilityEndLine)
+    .join('\n')
+  if (getContentHash(capabilityContent) !== input.capabilityHash) {
+    return errorResult(
+      relativePath,
+      `replace_range rejected: ${relativePath} changed after the readCapability was issued. Re-read the exact target in this run and retry with the fresh cap.v3 token.`,
+    )
+  }
+
+  const currentRange = lines.slice(input.startLine - 1, input.endLine).join('\n')
   const normalizedNewContent = normalizeLineEndings(input.newContent)
   if (currentRange === normalizedNewContent) {
     return errorResult(
@@ -191,7 +130,7 @@ export async function replaceRange(params: {
   const updatedLines = [
     ...lines.slice(0, input.startLine - 1),
     ...normalizedNewContent.split('\n'),
-    ...lines.slice(endLine),
+    ...lines.slice(input.endLine),
   ]
   const updatedContent = updatedLines.join('\n').replaceAll('\n', lineEnding)
   return changeFile({
@@ -199,7 +138,7 @@ export async function replaceRange(params: {
       type: 'file',
       path: relativePath,
       content: updatedContent,
-      expectedHash: computeContentHash(oldContent),
+      expectedHash: getContentHash(oldContent),
     },
     cwd: params.cwd,
     fs: params.fs,
@@ -207,5 +146,6 @@ export async function replaceRange(params: {
     fileFilter: params.fileFilter,
     callId: params.callId,
     filesystemPolicy: params.filesystemPolicy,
+    capabilityIssuer: params.capabilityIssuer,
   }) as Promise<CodebuffToolOutput<'replace_range'>>
 }

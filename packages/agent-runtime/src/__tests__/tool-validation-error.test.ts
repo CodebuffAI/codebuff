@@ -1,7 +1,10 @@
 import z from 'zod/v4'
 
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { fileMutationResultV1Schema } from '@codebuff/common/tools/results/filesystem'
+import {
+  buildReadFilesResultV1,
+  fileMutationResultV1Schema,
+} from '@codebuff/common/tools/results/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
 import {
@@ -140,41 +143,56 @@ describe('tool validation error handling', () => {
     expect(JSON.stringify(malformed.output)).not.toContain('secret/path.ts')
     expect(JSON.stringify(malformed.output)).not.toContain('must not leak')
 
+    const canonicalReceipt = {
+      kind: 'commit_receipt' as const,
+      version: 1 as const,
+      receiptId: 'receipt-id',
+      operationId: 'receipt-operation',
+      callId: 'call-receipt',
+      authorityTier: 'portable_path' as const,
+      status: 'committed' as const,
+      actions: [
+        {
+          actionId: 'receipt-operation:0',
+          index: 0,
+          action: 'update' as const,
+          path: 'src/recovered.ts',
+          status: 'committed' as const,
+          beforeHash: 'before',
+          afterHash: 'after',
+        },
+      ],
+      finalHashes: { 'src/recovered.ts': 'after' },
+    }
+    const malformedReceiptOutput = jsonToolResult({
+      kind: 'file_mutation_result',
+      version: 2,
+      operationId: 'receipt-operation',
+      outcome: 'applied',
+      actions: 'malformed',
+      authorityTier: 'portable_path',
+      receiptId: 'receipt-id',
+      errors: [],
+      freshCapabilities: [],
+      authorityReceipt: canonicalReceipt,
+    }) as never
+
+    const forgedOnly = normalizeNativeToolOutput({
+      toolName: 'write_file',
+      toolCallId: 'call-receipt',
+      output: malformedReceiptOutput,
+    })
+    expect(forgedOnly.valid).toBe(false)
+    expect(forgedOnly.output[0]).toMatchObject({
+      type: 'json',
+      value: { kind: 'native_tool_result_error' },
+    })
+
     const recovered = normalizeNativeToolOutput({
       toolName: 'write_file',
       toolCallId: 'call-receipt',
-      output: jsonToolResult({
-        kind: 'file_mutation_result',
-        version: 2,
-        operationId: 'receipt-operation',
-        outcome: 'applied',
-        actions: 'malformed',
-        authorityTier: 'portable_path',
-        receiptId: 'receipt-id',
-        errors: [],
-        freshCapabilities: [],
-        authorityReceipt: {
-          kind: 'commit_receipt',
-          version: 1,
-          receiptId: 'receipt-id',
-          operationId: 'receipt-operation',
-          callId: 'call-receipt',
-          authorityTier: 'portable_path',
-          status: 'committed',
-          actions: [
-            {
-              actionId: 'receipt-operation:0',
-              index: 0,
-              action: 'update',
-              path: 'src/recovered.ts',
-              status: 'committed',
-              beforeHash: 'before',
-              afterHash: 'after',
-            },
-          ],
-          finalHashes: { 'src/recovered.ts': 'after' },
-        },
-      }) as never,
+      output: malformedReceiptOutput,
+      canonicalReceipt,
     })
     expect(recovered.valid).toBe(false)
     expect(recovered.output[0]).toMatchObject({
@@ -238,6 +256,20 @@ describe('tool validation error handling', () => {
           freshCapabilities: [],
         }),
       ),
+      canonicalReceipt: {
+        ...canonicalReceipt,
+        receiptId: 'other-receipt',
+        operationId: 'other-operation',
+        callId: 'different-call',
+        actions: [
+          {
+            ...canonicalReceipt.actions[0],
+            actionId: 'other-operation:0',
+            path: 'src/other.ts',
+          },
+        ],
+        finalHashes: { 'src/other.ts': 'after' },
+      },
     })
     expect(mismatchedCall.valid).toBe(false)
     expect(mismatchedCall.output[0]).toMatchObject({
@@ -476,7 +508,7 @@ describe('tool validation error handling', () => {
     }
   })
 
-  it('should hint that basedOnRead must be a token/object when str_replace receives a wrong shape (Fix D)', () => {
+  it('should hint that basedOnRead must be a cap.v3 token when str_replace receives a wrong shape (Fix D)', () => {
     const result = parseRawToolCall({
       rawToolCall: {
         toolName: 'str_replace',
@@ -488,8 +520,7 @@ describe('tool validation error handling', () => {
               oldString: 'a',
               newString: 'b',
               allowMultiple: false,
-              // Wrapped-object shape that is not the accepted { startLine,
-              // endLine, hash } form.
+              // Object forms are rejected; callers must copy the cap.v3 token.
               basedOnRead: { $text: 'cap.something' },
             },
           ],
@@ -499,7 +530,9 @@ describe('tool validation error handling', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('`basedOnRead` must be')
+      expect(result.error).toContain('authenticated cap.v3 readCapability')
+      expect(result.error).toContain('Object-form anchors')
+      expect(result.error).not.toContain('OR an object')
     }
   })
 
@@ -1120,6 +1153,11 @@ describe('tool validation error handling', () => {
       startLine: 100,
       endLine: 156,
       hash,
+      scope: {
+        projectId: mockFileContext.projectRoot,
+        path: 'agents/base2/base2.ts',
+        runId: 'test-run-id',
+      },
     })
     const result = parseRawToolCall({
       rawToolCall: {
@@ -1143,8 +1181,12 @@ describe('tool validation error handling', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('capability covers lines 100-156')
-      expect(result.error).toContain('choose one target form only')
+      expect(result.error).toContain('Unrecognized key: "expectedHash"')
+      expect(result.error).toContain(
+        'provide both to target a contained sub-range',
+      )
+      expect(result.error).toContain('Never pass expectedHash')
+      expect(result.error).not.toContain('re-read the exact target lines first')
       expect(result.error).not.toContain(
         'Pass `edits` as an actual array of objects',
       )
@@ -1785,9 +1827,18 @@ describe('tool validation error handling', () => {
     const agentState = sessionState.mainAgentState
 
     // Mock requestFiles to return a file
-    agentRuntimeImpl.requestFiles = async () => ({
-      'test.ts': 'console.log("test")',
-    })
+    agentRuntimeImpl.requestFiles = async () =>
+      buildReadFilesResultV1([
+        {
+          selector: 'file',
+          requestIndex: 0,
+          path: 'test.ts',
+          status: 'ok',
+          content: 'console.log("test")',
+          complete: true,
+          template: false,
+        },
+      ])
 
     const responseChunks: (string | PrintModeEvent)[] = []
 
@@ -1948,9 +1999,18 @@ describe('tool validation error handling', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
 
-    agentRuntimeImpl.requestFiles = async () => ({
-      'test.ts': 'console.log("test")',
-    })
+    agentRuntimeImpl.requestFiles = async () =>
+      buildReadFilesResultV1([
+        {
+          selector: 'file',
+          requestIndex: 0,
+          path: 'test.ts',
+          status: 'ok',
+          content: 'console.log("test")',
+          complete: true,
+          template: false,
+        },
+      ])
 
     const responseChunks: (string | PrintModeEvent)[] = []
 

@@ -1,7 +1,10 @@
 import type { ServerAction } from '../../actions'
 import type { MCPConfig } from '../mcp'
 import type { ToolResultOutput } from '../messages/content-part'
-import type { ReadFilesResultV1 } from '../../tools/results/filesystem'
+import type {
+  CommitReceiptV1,
+  ReadFilesResultV1,
+} from '../../tools/results/filesystem'
 import type { ReadCapabilityIssuer } from '../../util/content-hash'
 
 export type RequestToolCallFn = (params: {
@@ -13,6 +16,7 @@ export type RequestToolCallFn = (params: {
   signal?: AbortSignal
 }) => Promise<{
   output: ToolResultOutput[]
+  canonicalReceipt?: CommitReceiptV1
 }>
 
 export type RequestMcpToolDataFn = (params: {
@@ -32,15 +36,12 @@ export type FileLineRange = {
   endLine?: number
 }
 
-export type LegacyReadFilesMap = Record<string, string | null>
-export type RequestFilesResult = ReadFilesResultV1 | LegacyReadFilesMap
-
 export type RequestFilesFn = (params: {
   filePaths: string[]
   ranges?: FileLineRange[]
   /** Runtime-only issuer scope used to mint non-replayable cap.v3 tokens. */
   capabilityIssuer?: ReadCapabilityIssuer
-}) => Promise<RequestFilesResult>
+}) => Promise<ReadFilesResultV1>
 
 export type RequestOptionalFileFn = (params: {
   filePath: string

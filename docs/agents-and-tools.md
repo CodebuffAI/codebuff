@@ -746,14 +746,12 @@ prompts or teach models overlapping call forms.
 
 Every complete whole-file, range, or symbol-slice result exposes one structured
 `editAnchor` with `startLine`, `endLine`, `contentHash`, and
-`readCapability`. `editAnchor.readCapability` is the copy-ready edit authority;
-the bounds and hash are diagnostic metadata and must not be mixed into the same
-edit call. The SDK v1 wire result retains legacy top-level `rangeHash` and
-`readCapability` fields for external compatibility. Before the next provider
-step, the runtime removes those duplicates and exposes only `editAnchor` to the
-model. Partial or truncated file/range items expose neither hashes nor edit
-capabilities; successful slices in a partially satisfied symbol request retain
-their own anchors.
+`readCapability`. `editAnchor.readCapability` is the copy-ready cap.v3 edit
+authority; the bounds and hash are diagnostic metadata and must not be mixed
+into the same edit call. Structured results expose no duplicate top-level
+`rangeHash` or `readCapability` fields. Partial or truncated file/range items
+expose neither hashes nor edit capabilities; successful slices in a partially
+satisfied symbol request retain their own anchors.
 
 Model-facing range content omits the transport-only `[RANGE_BLOCK ...]`
 metadata header. Exact undecorated bytes remain available as `sourceContent`,
@@ -778,21 +776,6 @@ Example:
 ```json
 {
   "path": "sdk/src/provider-config.ts"
-}
-```
-
-### `read_slices` (deprecated compatibility alias)
-
-`read_slices` remains registered but is not prompt-visible for compatibility
-after its shared path-policy and read-only scheduling migration. Prefer `read_files`
-with `symbols: [{ path, names }]` for new targeted-read workflows.
-
-Example:
-
-```json
-{
-  "path": "sdk/src/provider-config.ts",
-  "symbols": ["resolveConfigFragmentPath", "loadProviderConfigSync"]
 }
 ```
 
@@ -826,11 +809,9 @@ participate in staged read-before-edit enforcement:
   explicit `{ startLine, endLine, hash }` objects remain freshness anchors for
   compatible non-strict flows, but cannot authorize an otherwise unread path.
 - Model-facing `replace_range` transaction edits use
-  `{ readCapability, newContent }`. The runtime compatibility parser also
-  accepts the legacy
-  `{ startLine, endLine, expectedHash, newContent }` tuple. Supplying both is
-  rejected even when the values agree, preventing stale fields from being
-  carried into retries.
+  `{ readCapability, newContent }` or add both `startLine` and `endLine` to
+  target a contained sub-range. The authenticated cap.v3 token remains the
+  sole freshness authority; legacy `expectedHash` tuples are rejected.
 - A successful edit keeps path-level authorization during the editing flow,
   while exact-match follow-up edits chain from the latest prepared content.
   For large or ambiguous follow-up edits, carry the echoed post-edit
@@ -999,29 +980,6 @@ Example:
 ```
 
 On success the result carries `branch`, `created: true`, `switched`, and (when switching) `previousBranch`. On failure it carries an `errorMessage` (invalid name, dirty tree, or non-zero git exit). `git_branch` is registered as an orchestrator tool and is available to `git-committer` (which yields a `git_branch` step before its `git status --short` step when `branch_name` is supplied via its input schema).
-
-### `apply_smart_patch`
-
-`apply_smart_patch` applies a range-scoped unified diff with bounded local
-alignment. It routes the final whole-file content through the shared filesystem
-authority with an expected-content hash, never performs global syntax healing,
-and fails closed when a hunk has no unique match unless positional fallback is
-explicitly enabled. Validation reports `passed | failed | skipped` plus the
-validator identity; unsupported file types are reported as skipped rather than
-as compiler-validated.
-
-Example:
-
-```json
-{
-  "path": "sdk/src/provider-config.ts",
-  "patch": "@@ -120,6 +120,7 @@\\n-  const lineEnding = \"\\\\n\"\\n+  const lineEnding = currentContent.includes(\"\\\\r\\\\n\") ? \"\\\\r\\\\n\" : \"\\\\n\"\\n   const initialContentLineCount = 100\\n",
-  "fuzzFactor": 3,
-  "autoHeal": false,
-  "preflightCompile": true,
-  "allowPositionalFallback": false
-}
-```
 
 ### Direct subagent tool calls
 

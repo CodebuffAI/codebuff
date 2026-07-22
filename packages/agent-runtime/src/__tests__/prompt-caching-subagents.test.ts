@@ -12,6 +12,7 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { TextPart } from '@codebuff/common/types/messages/content-part'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 
 const mockFileContext: ProjectFileContext = {
   projectRoot: '/test',
@@ -112,13 +113,21 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
         return promptSuccess('mock-message-id')
       },
       // Mock file operations
-      requestFiles: async ({ filePaths }) => {
-        const results: Record<string, string | null> = {}
-        filePaths.forEach((path) => {
-          results[path] = null
-        })
-        return results
-      },
+      requestFiles: async ({ filePaths }) =>
+        buildReadFilesResultV1(
+          filePaths.map((path, requestIndex) => ({
+            selector: 'file',
+            requestIndex,
+            path,
+            status: 'error',
+            error: {
+              code: 'not_found',
+              message: '[FILE_DOES_NOT_EXIST]',
+              retryable: true,
+              recovery: 'discover_path',
+            },
+          })),
+        ),
       requestToolCall: async () => ({
         output: [
           {

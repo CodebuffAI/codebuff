@@ -4,7 +4,6 @@ const READ_TOOLS = new Set([
   'read_files',
   'read_outline',
   'read_subtree',
-  'read_slices',
 ])
 
 const EDIT_TOOLS = new Set([

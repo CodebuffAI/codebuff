@@ -1,5 +1,6 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { FILE_READ_STATUS } from '@codebuff/common/constants/paths'
+import { editTransactionParams } from '@codebuff/common/tools/params/tool/edit-transaction'
+import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { describe, expect, it } from 'bun:test'
 
@@ -40,6 +41,39 @@ function createFileProcessingState(): FileProcessingState {
     failedEditRequiresReadByPath: {},
     consecutiveStrReplaceFailuresByPath: {},
   }
+}
+
+function buildWholeFileReadResultV1(
+  filePaths: string[],
+  getContent: (path: string) => string | null,
+) {
+  return buildReadFilesResultV1(
+    filePaths.map((path, requestIndex) => {
+      const content = getContent(path)
+      return content === null
+        ? {
+            selector: 'file' as const,
+            requestIndex,
+            path,
+            status: 'error' as const,
+            error: {
+              code: 'not_found' as const,
+              message: '[FILE_DOES_NOT_EXIST]',
+              retryable: true,
+              recovery: 'discover_path' as const,
+            },
+          }
+        : {
+            selector: 'file' as const,
+            requestIndex,
+            path,
+            status: 'ok' as const,
+            content,
+            complete: true,
+            template: false,
+          }
+    }),
+  )
 }
 
 function confirmedMutationOutput(toolCall: any) {
@@ -169,11 +203,8 @@ describe('read_files edit-state recovery', () => {
       fileContext: mockFileContext,
       fileProcessingState,
       requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-        Object.fromEntries(
-          filePaths.map((filePath) => [
-            filePath,
-            filePath === path ? diskContent : null,
-          ]),
+        buildWholeFileReadResultV1(filePaths, (filePath) =>
+          filePath === path ? diskContent : null,
         ),
       logger,
     } as any)
@@ -240,7 +271,7 @@ describe('read_files edit-state recovery', () => {
       fileContext: mockFileContext,
       fileProcessingState,
       requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-        Object.fromEntries(filePaths.map((filePath) => [filePath, null])),
+        buildWholeFileReadResultV1(filePaths, () => null),
       logger,
     } as any)
 
@@ -273,7 +304,20 @@ describe('read_files edit-state recovery', () => {
       },
       fileContext: mockFileContext,
       fileProcessingState,
-      requestFiles: async () => ({ [path]: FILE_READ_STATUS.IGNORED }),
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'file',
+            requestIndex: 0,
+            path,
+            status: 'error',
+            error: {
+              code: 'blocked',
+              message: '[FILE_IGNORED]',
+              retryable: false,
+            },
+          },
+        ]),
       logger,
     } as any)
 
@@ -323,7 +367,7 @@ describe('read_files edit-state recovery', () => {
       fileContext: mockFileContext,
       fileProcessingState,
       requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-        Object.fromEntries(filePaths.map((filePath) => [filePath, null])),
+        buildWholeFileReadResultV1(filePaths, () => null),
       requestOptionalFile: async ({ filePath }: { filePath: string }) =>
         filePath === path ? diskContent : null,
       logger,
@@ -331,9 +375,9 @@ describe('read_files edit-state recovery', () => {
 
     expect(result.output[0]?.type).toBe('json')
     if (result.output[0]?.type === 'json') {
-      const slice = (result.output[0].value as any).results[0].slices[0]
-      expect(slice.editAnchor.readCapability).toMatch(/^cap\.v3\./)
-      expect(slice.readCapability).toBeUndefined()
+      expect(result.output[0].value).toMatchObject({
+        results: [expect.objectContaining({ selector: 'symbols', path })],
+      })
     }
     expect(
       fileProcessingState.failedEditRequiresReadByPath[path],
@@ -358,7 +402,7 @@ describe('read_files edit-state recovery', () => {
       },
       fileContext: mockFileContext,
       fileProcessingState,
-      requestFiles: async () => ({}),
+      requestFiles: async () => buildReadFilesResultV1([]),
       requestOptionalFile: async () => diskContent,
       logger,
     } as any)
@@ -405,30 +449,19 @@ describe('read_files edit-state recovery', () => {
       },
       fileContext: mockFileContext,
       fileProcessingState,
-      requestFiles: async () => ({
-        kind: 'read_files_result' as const,
-        version: 1 as const,
-        status: 'partial' as const,
-        summary: {
-          requested: 1,
-          ok: 0,
-          partial: 1,
-          failed: 0,
-          uniquePaths: 1,
-        },
-        results: [
+      requestFiles: async () =>
+        buildReadFilesResultV1([
           {
-            selector: 'file' as const,
+            selector: 'file',
             requestIndex: 0,
             path,
-            status: 'partial' as const,
+            status: 'partial',
             content: 'visible excerpt',
             complete: false,
             template: false,
-            truncation: { reason: 'character_limit' as const },
+            truncation: { reason: 'character_limit' },
           },
-        ],
-      }),
+        ]),
       logger,
     } as any)
 
@@ -453,29 +486,18 @@ describe('read_files edit-state recovery', () => {
       },
       fileContext: mockFileContext,
       fileProcessingState,
-      requestFiles: async () => ({
-        kind: 'read_files_result' as const,
-        version: 1 as const,
-        status: 'ok' as const,
-        summary: {
-          requested: 1,
-          ok: 1,
-          partial: 0,
-          failed: 0,
-          uniquePaths: 1,
-        },
-        results: [
+      requestFiles: async () =>
+        buildReadFilesResultV1([
           {
-            selector: 'file' as const,
+            selector: 'file',
             requestIndex: 0,
             path: 'src/unrequested.ts',
-            status: 'ok' as const,
+            status: 'ok',
             content: 'secret',
             complete: true,
             template: false,
           },
-        ],
-      }),
+        ]),
       logger,
     } as any)
 
@@ -511,9 +533,27 @@ describe('read_files edit-state recovery', () => {
       },
       fileContext: mockFileContext,
       fileProcessingState,
-      requestFiles: async () => ({
-        [path]: `[RANGE_BLOCK lines 1-2 of 2 in src/ranged.ts; rangeHash=${rangeHash}; readCapability=cap.test]\n1\tline 1\n2\tline 2`,
-      }),
+      requestFiles: async () =>
+        buildReadFilesResultV1([
+          {
+            selector: 'range',
+            requestIndex: 0,
+            path,
+            status: 'ok',
+            content: '1\tline 1\n2\tline 2',
+            sourceContent,
+            startLine: 1,
+            endLine: 2,
+            totalLines: 2,
+            complete: true,
+            editAnchor: {
+              startLine: 1,
+              endLine: 2,
+              contentHash: rangeHash,
+              readCapability: 'cap.v3.test',
+            },
+          },
+        ]),
       logger,
     } as any)
 
@@ -1515,6 +1555,11 @@ describe('read_files edit-state recovery', () => {
       startLine: 3_360,
       endLine: 3_360,
       hash: getContentHash(rangeContent),
+      scope: {
+        projectId: mockFileContext.projectRoot,
+        path,
+        runId: 'test-run-id',
+      },
     })
 
     const fileProcessingState = createFileProcessingState()
@@ -1549,6 +1594,8 @@ describe('read_files edit-state recovery', () => {
         },
       },
       fileProcessingState,
+      fileContext: mockFileContext,
+      runId: 'test-run-id',
       logger,
       requestOptionalFile: async ({ filePath }: { filePath: string }) => {
         if (filePath !== path) return null
@@ -1591,6 +1638,11 @@ describe('read_files edit-state recovery', () => {
       startLine: 1_201,
       endLine: 1_201,
       hash: getContentHash(rangeContent),
+      scope: {
+        projectId: mockFileContext.projectRoot,
+        path,
+        runId: 'test-run-id',
+      },
     })
 
     const fileProcessingState = createFileProcessingState()
@@ -1609,33 +1661,27 @@ describe('read_files edit-state recovery', () => {
     let appliedPatchContent = ''
     const requestOptionalFile = async ({ filePath }: { filePath: string }) =>
       filePath === path ? diskContent : null
-    const requestFiles = async () => ({
-      kind: 'read_files_result' as const,
-      version: 1 as const,
-      status: 'ok' as const,
-      summary: {
-        requested: 1,
-        ok: 1,
-        partial: 0,
-        failed: 0,
-        uniquePaths: 1,
-      },
-      results: [
+    const requestFiles = async () =>
+      buildReadFilesResultV1([
         {
-          selector: 'range' as const,
+          selector: 'range',
           requestIndex: 0,
           path,
-          status: 'ok' as const,
+          status: 'ok',
           content: rangeContent,
+          sourceContent: rangeContent,
           startLine: 1_201,
           endLine: 1_201,
           totalLines: 1_501,
           complete: true,
-          rangeHash: getContentHash(rangeContent),
-          readCapability,
+          editAnchor: {
+            startLine: 1_201,
+            endLine: 1_201,
+            contentHash: getContentHash(rangeContent),
+            readCapability,
+          },
         },
-      ],
-    })
+      ])
 
     await handleReadFiles({
       previousToolCallFinished: Promise.resolve(),
@@ -1676,6 +1722,8 @@ describe('read_files edit-state recovery', () => {
         },
       },
       fileProcessingState,
+      fileContext: mockFileContext,
+      runId: 'test-run-id',
       logger,
       requestOptionalFile,
       requestClientToolCall: async (toolCall: any) => {
@@ -1718,6 +1766,11 @@ describe('read_files edit-state recovery', () => {
       startLine: 1_201,
       endLine: 1_201,
       hash: getContentHash(rangeContent),
+      scope: {
+        projectId: mockFileContext.projectRoot,
+        path,
+        runId: 'test-run-id',
+      },
     })
 
     const fileProcessingState = createFileProcessingState()
@@ -1751,14 +1804,28 @@ describe('read_files edit-state recovery', () => {
       },
       fileContext: mockFileContext,
       fileProcessingState,
-      requestFiles: async ({ filePaths }: { filePaths: string[] }) => {
+      requestFiles: async () => {
         await readFinished
-        return Object.fromEntries(
-          filePaths.map((filePath) => [
-            filePath,
-            filePath === path ? diskContent : null,
-          ]),
-        )
+        return buildReadFilesResultV1([
+          {
+            selector: 'range',
+            requestIndex: 0,
+            path,
+            status: 'ok',
+            content: rangeContent,
+            sourceContent: rangeContent,
+            startLine: 1_201,
+            endLine: 1_201,
+            totalLines: 1_501,
+            complete: true,
+            editAnchor: {
+              startLine: 1_201,
+              endLine: 1_201,
+              contentHash: getContentHash(rangeContent),
+              readCapability,
+            },
+          },
+        ])
       },
       logger,
     } as any)
@@ -1781,6 +1848,8 @@ describe('read_files edit-state recovery', () => {
         },
       },
       fileProcessingState,
+      fileContext: mockFileContext,
+      runId: 'test-run-id',
       logger,
       requestOptionalFile: async ({ filePath }: { filePath: string }) =>
         filePath === path ? diskContent : null,
@@ -1925,7 +1994,8 @@ describe('read_files edit-state recovery', () => {
         },
         fileContext: mockFileContext,
         fileProcessingState,
-        requestFiles: async () => ({ [path]: diskContent }),
+        requestFiles: async () =>
+          buildWholeFileReadResultV1([path], () => diskContent),
         logger,
         runId,
       } as any)
@@ -2150,11 +2220,8 @@ describe('read_files edit-state recovery', () => {
         fileContext: mockFileContext,
         fileProcessingState,
         requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [
-              filePath,
-              filePath === path ? diskContent : null,
-            ]),
+          buildWholeFileReadResultV1(filePaths, (filePath) =>
+            filePath === path ? diskContent : null,
           ),
         logger,
       } as any)
@@ -2269,11 +2336,8 @@ describe('read_files edit-state recovery', () => {
         fileContext: mockFileContext,
         fileProcessingState,
         requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [
-              filePath,
-              filePath === path ? diskContent : null,
-            ]),
+          buildWholeFileReadResultV1(filePaths, (filePath) =>
+            filePath === path ? diskContent : null,
           ),
         logger,
       } as any)
@@ -2355,11 +2419,8 @@ describe('read_files edit-state recovery', () => {
         fileContext: mockFileContext,
         fileProcessingState,
         requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [
-              filePath,
-              filePath === path ? diskContent : null,
-            ]),
+          buildWholeFileReadResultV1(filePaths, (filePath) =>
+            filePath === path ? diskContent : null,
           ),
         logger,
       } as any)
@@ -2434,11 +2495,9 @@ describe('read_files edit-state recovery', () => {
         fileContext: mockFileContext,
         fileProcessingState,
         requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [
-              filePath,
-              diskContentByPath[filePath] ?? null,
-            ]),
+          buildWholeFileReadResultV1(
+            filePaths,
+            (filePath) => diskContentByPath[filePath] ?? null,
           ),
         logger,
       } as any)
@@ -2643,15 +2702,24 @@ describe('read_files edit-state recovery', () => {
       const diskContent = 'export const value = 1\n'
       const rangeContent = 'export const value = 1'
       const runId = 'strict-transaction-range-run'
-      const expectedHash = getContentHash(rangeContent)
       const readCapability = encodeReadCapabilityToken({
         startLine: 1,
         endLine: 1,
-        hash: expectedHash,
+        hash: getContentHash(rangeContent),
         scope: { projectId: mockFileContext.projectRoot, path, runId },
       })
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
+      const input = editTransactionParams.inputSchema.parse({
+        edits: [
+          {
+            type: 'replace_range',
+            path,
+            readCapability,
+            newContent: 'export const value = 2',
+          },
+        ],
+      })
 
       let applied = false
       const result = await handleEditTransaction({
@@ -2659,19 +2727,7 @@ describe('read_files edit-state recovery', () => {
         toolCall: {
           toolCallId: 'strict-transaction-range-anchored',
           toolName: 'edit_transaction',
-          input: {
-            edits: [
-              {
-                type: 'replace_range',
-                path,
-                startLine: 1,
-                endLine: 1,
-                expectedHash,
-                readCapability,
-                newContent: 'export const value = 2',
-              },
-            ],
-          },
+          input,
         },
         fileProcessingState,
         fileContext: mockFileContext,
@@ -3252,11 +3308,8 @@ describe('read_files edit-state recovery', () => {
         fileContext: mockFileContext,
         fileProcessingState,
         requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [
-              filePath,
-              filePath === path ? diskContent : null,
-            ]),
+          buildWholeFileReadResultV1(filePaths, (filePath) =>
+            filePath === path ? diskContent : null,
           ),
         logger,
       } as any)
@@ -3440,7 +3493,10 @@ describe('read_files edit-state recovery', () => {
       expect(output.type).toBe('json')
       if (output.type === 'json') {
         expect(String((output.value as any).errorMessage)).toContain(
-          'Legacy startLine/endLine/expectedHash tuples',
+          'no fresh path-bound read authorization exists',
+        )
+        expect(String((output.value as any).errorMessage)).toContain(
+          'cap.v3 readCapability plus newContent',
         )
       }
     })
@@ -3531,8 +3587,19 @@ describe('read_files edit-state recovery', () => {
     it('does not let a range basedOnRead capability authorize a whole-file overwrite', async () => {
       const path = 'src/helper.ts'
       const diskContent = 'export const value = 1\n'
+      const runId = 'range-write-floor-run'
       const fileProcessingState = createFileProcessingState()
       fileProcessingState.strictReadBeforeEdit = true
+      const rangeCapability = encodeReadCapabilityToken({
+        startLine: 1,
+        endLine: 1,
+        hash: getContentHash(diskContent.trimEnd()),
+        scope: {
+          projectId: mockFileContext.projectRoot,
+          path,
+          runId,
+        },
+      })
 
       // A range capability is not sufficient proof for replacing the whole
       // file. Strict mode requires a successful whole-file read authorization.
@@ -3545,15 +3612,13 @@ describe('read_files edit-state recovery', () => {
             path,
             instructions: 'Update helper value',
             content: 'export const value = 2\n',
-            basedOnRead: {
-              startLine: 1,
-              endLine: 1,
-              hash: 'sha256:prior-fresh',
-            },
+            basedOnRead: rangeCapability,
           },
         },
         agentState: { messageHistory: [] },
         clientSessionId: 'test-session',
+        fileContext: mockFileContext,
+        runId,
         fileProcessingState,
         fingerprintId: 'test-fingerprint',
         logger,
@@ -3582,10 +3647,6 @@ describe('read_files edit-state recovery', () => {
     })
 
     it('strict read_files auth survives across separate fileProcessingState instances (cross-turn state isolation)', async () => {
-      // Regression: read_files populates fileProcessingState.readAuthorizationsByPath,
-      // but the runtime recreates a fresh fileProcessingState on every
-      // processStream/runProgrammaticStep invocation. A model that reads in
-      // turn N and edits in turn N+1 must still have the per-path authorization
       // available, otherwise the strict gate blocks the edit on the first
       // attempt and forces a redundant read round-trip.
       //
@@ -3612,11 +3673,8 @@ describe('read_files edit-state recovery', () => {
         fileContext: mockFileContext,
         fileProcessingState: stateA,
         requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [
-              filePath,
-              filePath === path ? diskContent : null,
-            ]),
+          buildWholeFileReadResultV1(filePaths, (filePath) =>
+            filePath === path ? diskContent : null,
           ),
         logger,
       } as any)
@@ -3700,11 +3758,8 @@ describe('read_files edit-state recovery', () => {
         fileContext: mockFileContext,
         fileProcessingState: stateA,
         requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [
-              filePath,
-              filePath === path ? diskContent : null,
-            ]),
+          buildWholeFileReadResultV1(filePaths, (filePath) =>
+            filePath === path ? diskContent : null,
           ),
         logger,
       } as any)
@@ -3802,7 +3857,7 @@ describe('processStream cross-turn read-before-edit', () => {
       sendAction: () => {},
       requestFiles: async () => {
         await new Promise((resolve) => setTimeout(resolve, 10))
-        return { [targetPath]: diskContent }
+        return buildWholeFileReadResultV1([targetPath], () => diskContent)
       },
       requestOptionalFile: async ({ filePath }: { filePath: string }) =>
         filePath === targetPath ? diskContent : null,
@@ -3953,7 +4008,8 @@ describe('processStream cross-turn read-before-edit', () => {
     const agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
       sendAction: () => {},
-      requestFiles: async () => ({ [targetPath]: diskContent }),
+      requestFiles: async () =>
+        buildWholeFileReadResultV1([targetPath], () => diskContent),
       requestOptionalFile: async ({ filePath }: { filePath: string }) =>
         filePath === targetPath ? diskContent : null,
       requestToolCall: async () => {

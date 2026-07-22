@@ -307,6 +307,26 @@ describe('gate-reviewer helpers', () => {
     ).toEqual([])
   })
 
+  // An empty reviewable subset short-circuits: there is nothing to attest, so
+  // NO attestation issues are surfaced even when the reviewer output is
+  // missing/empty.
+  test('empty reviewable subset yields no attestation issues even with missing reviewer output', () => {
+    expect(collectReviewerAttestationIssues(null, 'current', [])).toEqual([])
+    expect(
+      collectReviewerAttestationIssues({ type: 'json', value: [] }, 'current', []),
+    ).toEqual([])
+  })
+
+  // Guard against over-broadening the short-circuit: a NON-empty pending list
+  // with missing structured output must STILL block.
+  test('non-empty pending list with missing structured output still blocks', () => {
+    expect(
+      collectReviewerAttestationIssues(null, 'current', ['src/a.ts']),
+    ).toEqual([
+      'BLOCKING: reviewer did not return the required structured snapshot attestation',
+    ])
+  })
+
   test('getReviewerFinalizationVerdict blocks finalization when coverage is missing', () => {
     expect(
       getReviewerFinalizationVerdict({

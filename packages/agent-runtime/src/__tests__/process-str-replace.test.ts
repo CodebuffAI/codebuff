@@ -19,6 +19,25 @@ const logger: Logger = {
 const recoveryGuidance =
   'Before attempting another str_replace on this file, re-read the exact current lines with read_files'
 
+const readScope = (path: string) => ({
+  projectId: '/project',
+  path,
+  runId: 'runtime-auth-tests',
+})
+
+const readCapability = (params: {
+  path: string
+  startLine: number
+  endLine: number
+  content: string
+}) =>
+  encodeReadCapabilityToken({
+    startLine: params.startLine,
+    endLine: params.endLine,
+    hash: getContentHash(params.content),
+    scope: readScope(params.path),
+  })
+
 describe('processStrReplace', () => {
   it('should replace exact string matches', async () => {
     const initialContent = 'const x = 1;\nconst y = 2;\n'
@@ -1239,6 +1258,7 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const targetAlpha = makeValue(3);',
@@ -1246,11 +1266,7 @@ function test3() {
           allowMultiple: false,
         },
       ],
-      readCapabilityScope: {
-        projectId: '/project',
-        path: 'large.ts',
-        runId: 'run-1',
-      },
+
       initialContentPromise: Promise.resolve(initialContent),
       logger,
     })
@@ -1279,6 +1295,7 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
@@ -1311,6 +1328,7 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
@@ -1335,14 +1353,16 @@ function test3() {
     )
     const initialContent = lines.join('\n')
     const rangeContent = lines.slice(500, 501).join('\n')
-    const token = encodeReadCapabilityToken({
+    const token = readCapability({
+      path: 'large.ts',
       startLine: 501,
       endLine: 501,
-      hash: getContentHash(rangeContent),
+      content: rangeContent,
     })
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
@@ -1430,53 +1450,21 @@ function test3() {
     }
   })
 
-  it('does not allow legacy pathless tokens to authorize strict edits', async () => {
-    const legacyToken = encodeReadCapabilityToken({
-      startLine: 1,
-      endLine: 1,
-      hash: getContentHash('const target = 1;'),
-    })
-    const result = await processStrReplace({
-      path: 'src/target.ts',
-      replacements: [
-        {
-          oldString: 'const target = 1;',
-          newString: 'const target = 2;',
-          allowMultiple: false,
-          basedOnRead: legacyToken,
-        },
-      ],
-      requireFreshReadCapability: true,
-      readCapabilityScope: {
-        projectId: '/project',
-        path: 'src/target.ts',
-        runId: 'run-1',
-      },
-      initialContentPromise: Promise.resolve('const target = 1;\n'),
-      logger,
-    })
-
-    expect(result).toHaveProperty('error')
-    if ('error' in result) {
-      expect(result.error).toContain(
-        'Legacy pathless basedOnRead values cannot satisfy strict',
-      )
-    }
-  })
-
   it('rejects a stale readCapability token on large files even when oldString is unique', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
     )
     const initialContent = lines.join('\n')
-    const staleToken = encodeReadCapabilityToken({
+    const staleToken = readCapability({
+      path: 'large.ts',
       startLine: 501,
       endLine: 501,
-      hash: getContentHash('const target = 0;'),
+      content: 'const target = 0;',
     })
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
@@ -1505,14 +1493,16 @@ function test3() {
         : `const filler${index} = ${index};`,
     )
     const initialContent = lines.join('\n')
-    const staleToken = encodeReadCapabilityToken({
+    const staleToken = readCapability({
+      path: 'large.ts',
       startLine: 301,
       endLine: 301,
-      hash: getContentHash('const target = 0;'),
+      content: 'const target = 0;',
     })
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
@@ -1542,14 +1532,16 @@ function test3() {
         : `const filler${index} = ${index};`,
     )
     const initialContent = lines.join('\n')
-    const staleToken = encodeReadCapabilityToken({
+    const staleToken = readCapability({
+      path: 'large.ts',
       startLine: 301,
       endLine: 301,
-      hash: getContentHash('const target = 0;'),
+      content: 'const target = 0;',
     })
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
@@ -1572,35 +1564,6 @@ function test3() {
     }
   })
 
-  it('should reject a malformed readCapability token on large files when oldString is ambiguous', async () => {
-    // oldString appears twice, so the malformed anchor cannot be auto-stripped
-    // (the loop-breaker only strips when oldString is uniquely matchable).
-    const initialContent = Array.from({ length: 1_001 }, (_, index) =>
-      index === 300 || index === 700
-        ? 'const target = 1;'
-        : `const filler${index} = ${index};`,
-    ).join('\n')
-
-    const result = await processStrReplace({
-      path: 'large.ts',
-      replacements: [
-        {
-          oldString: 'const target = 1;',
-          newString: 'const target = 2;',
-          allowMultiple: false,
-          basedOnRead: 'not-a-valid-token',
-        },
-      ],
-      initialContentPromise: Promise.resolve(initialContent),
-      logger,
-    })
-
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('Invalid basedOnRead')
-    }
-  })
-
   it('should allow large-file str_replace when basedOnRead hash matches', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
@@ -1610,16 +1573,18 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
           newString: 'const target = 2;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 501,
-            hash: getContentHash(rangeContent),
-          },
+            content: rangeContent,
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -1644,16 +1609,18 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
           newString: 'const target = 2;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 501,
-            hash: getContentHash(rangeContent),
-          },
+            content: rangeContent,
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -1675,14 +1642,16 @@ function test3() {
     )
     const initialContent = lines.join('\n')
     const rangeContent = lines.slice(500, 501).join('\n')
-    const basedOnRead = {
+    const basedOnRead = readCapability({
+      path: 'large.ts',
       startLine: 501,
       endLine: 502,
-      hash: getContentHash(rangeContent),
-    }
+      content: rangeContent,
+    })
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const first = 1;',
@@ -1715,14 +1684,16 @@ function test3() {
     )
     const initialContent = lines.join('\n')
     const rangeContent = lines.slice(500, 501).join('\n')
-    const basedOnRead = {
+    const basedOnRead = readCapability({
+      path: 'large.ts',
       startLine: 501,
       endLine: 502,
-      hash: getContentHash(rangeContent),
-    }
+      content: rangeContent,
+    })
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const first = 1;',
@@ -1747,9 +1718,9 @@ function test3() {
       expect(result.error).toContain('NO changes were made')
       expect(result.error).toContain('Replacement 2/2 failed:')
       expect(result.error).toContain('const missing = 1;')
-      expect(result.error).toContain('already changed/removed')
+      expect(result.error).toContain('Re-read the exact current ranges')
       expect(result.error).toContain(
-        'use replace_range with its readCapability',
+        'use replace_range with the supplied readCapability',
       )
       expect(result.error).not.toContain('+const first = 2;')
     }
@@ -1766,17 +1737,19 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const first = 1;\nconst second = 1;',
           newString:
             'const first = 2;\nconst inserted = true;\nconst second = 2;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 502,
-            hash: getContentHash(rangeContent),
-          },
+            content: rangeContent,
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -1805,26 +1778,29 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const first = 1;',
           newString: 'const first = 2;\nconst inserted = true;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 101,
             endLine: 101,
-            hash: getContentHash(firstRange),
-          },
+            content: firstRange,
+          }),
         },
         {
           oldString: 'const second = 1;',
           newString: 'const second = 2;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 501,
-            hash: getContentHash(secondRange),
-          },
+            content: secondRange,
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -1848,14 +1824,16 @@ function test3() {
     )
     const initialContent = lines.join('\n')
     const rangeContent = lines.slice(500, 501).join('\n')
-    const basedOnRead = {
+    const basedOnRead = readCapability({
+      path: 'large.ts',
       startLine: 501,
       endLine: 503,
-      hash: getContentHash(rangeContent),
-    }
+      content: rangeContent,
+    })
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const first = 1;',
@@ -1898,26 +1876,29 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const repeated = 1;',
           newString: 'const repeated = 2;\nconst inserted = true;',
           allowMultiple: true,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 101,
             endLine: 501,
-            hash: getContentHash(repeatedRange),
-          },
+            content: repeatedRange,
+          }),
         },
         {
           oldString: 'const target = 1;',
           newString: 'const target = 2;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 301,
             endLine: 301,
-            hash: getContentHash(targetRange),
-          },
+            content: targetRange,
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -1948,27 +1929,30 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'console.log("debug")',
           newString: '',
           allowMultiple: false,
           skipIfMissing: true,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 501,
-            hash: getContentHash(targetRange),
-          },
+            content: targetRange,
+          }),
         },
         {
           oldString: 'const target = 1;',
           newString: 'const target = 2;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 501,
-            hash: getContentHash(targetRange),
-          },
+            content: targetRange,
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -1995,16 +1979,18 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;\r\nconst neighbor = 1;',
           newString: 'const target = 2;\r\nconst neighbor = 1;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 502,
-            hash: getContentHash(rangeContent),
-          },
+            content: rangeContent,
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -2017,32 +2003,6 @@ function test3() {
         'const target = 2;\r\nconst neighbor = 1;',
       )
       expect(result.content).toContain('\r\n')
-    }
-  })
-
-  it('validates object-form basedOnRead even on small files', async () => {
-    const result = await processStrReplace({
-      path: 'small.ts',
-      replacements: [
-        {
-          oldString: 'const x = 1;',
-          newString: 'const x = 2;',
-          allowMultiple: false,
-          basedOnRead: {
-            startLine: 0,
-            endLine: 1,
-            hash: getContentHash('const x = 1;'),
-          },
-        },
-      ],
-      initialContentPromise: Promise.resolve('const x = 1;\n'),
-      logger,
-    })
-
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('Invalid basedOnRead')
-      expect(result.error).toContain('positive finite integer')
     }
   })
 
@@ -2076,16 +2036,18 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'large.ts',
+      readCapabilityScope: readScope('large.ts'),
       replacements: [
         {
           oldString: 'const target = 1;',
           newString: 'const target = 2;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'large.ts',
             startLine: 501,
             endLine: 501,
-            hash: getContentHash('const target = 0;'),
-          },
+            content: 'const target = 0;',
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -2105,16 +2067,18 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'small.ts',
+      readCapabilityScope: readScope('small.ts'),
       replacements: [
         {
           oldString: 'const y = 2;',
           newString: 'const y = 3;',
           allowMultiple: false,
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'small.ts',
             startLine: 1,
             endLine: 1,
-            hash: getContentHash('totally stale content'),
-          },
+            content: 'totally stale content',
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -2134,17 +2098,19 @@ function test3() {
 
     const result = await processStrReplace({
       path: 'small.ts',
+      readCapabilityScope: readScope('small.ts'),
       replacements: [
         {
           oldString: 'gamma',
           newString: 'delta',
           allowMultiple: false,
           // Bounds point at a different region than where the match lives.
-          basedOnRead: {
+          basedOnRead: readCapability({
+            path: 'small.ts',
             startLine: 1,
             endLine: 1,
-            hash: getContentHash('alpha'),
-          },
+            content: 'alpha',
+          }),
         },
       ],
       initialContentPromise: Promise.resolve(initialContent),
@@ -2157,236 +2123,6 @@ function test3() {
     }
   })
 
-  describe('bogus basedOnRead rejection', () => {
-    // Anchored on an AMBIGUOUS oldString (two identical occurrences) so the
-    // bogus anchor cannot be auto-stripped: this is the case that must still
-    // hard-fail. When oldString is unique, the anchor is auto-stripped instead
-    // (covered by the 'bogus basedOnRead auto-strip' suite below).
-    const ambiguousContent = 'const y = 2;\nconst y = 2;\n'
-
-    it('rejects a placeholder "dummy" anchor when oldString is ambiguous', async () => {
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [
-          {
-            oldString: 'const y = 2;',
-            newString: 'const y = 3;',
-            allowMultiple: false,
-            basedOnRead: 'dummy' as any,
-          },
-        ],
-        initialContentPromise: Promise.resolve(ambiguousContent),
-        logger,
-      })
-
-      expect('error' in result).toBe(true)
-      if ('error' in result) {
-        expect(result.error).toContain('placeholder')
-        expect(result.error).toContain(recoveryGuidance)
-      }
-    })
-
-    it('rejects other stub anchors regardless of case when oldString is ambiguous', async () => {
-      for (const stub of ['TODO', 'cap.DUMMY', 'placeholder', 'undefined']) {
-        const result = await processStrReplace({
-          path: 'test.ts',
-          replacements: [
-            {
-              oldString: 'const y = 2;',
-              newString: 'const y = 3;',
-              allowMultiple: false,
-              basedOnRead: stub as any,
-            },
-          ],
-          initialContentPromise: Promise.resolve(ambiguousContent),
-          logger,
-        })
-        expect('error' in result).toBe(true)
-      }
-    })
-
-    it('rejects a malformed (non-cap) string anchor when oldString is ambiguous', async () => {
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [
-          {
-            oldString: 'const y = 2;',
-            newString: 'const y = 3;',
-            allowMultiple: false,
-            basedOnRead: 'not-a-real-token' as any,
-          },
-        ],
-        initialContentPromise: Promise.resolve(ambiguousContent),
-        logger,
-      })
-
-      expect('error' in result).toBe(true)
-      if ('error' in result) {
-        expect(result.error).toContain('basedOnRead')
-        expect(result.error).toContain(
-          'Do NOT resubmit the same basedOnRead literal',
-        )
-      }
-    })
-
-    it('still accepts a valid cap token anchor on small files', async () => {
-      const initialContent = 'const x = 1;\nconst y = 2;\n'
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [
-          {
-            oldString: 'const y = 2;',
-            newString: 'const y = 3;',
-            allowMultiple: false,
-            basedOnRead: encodeReadCapabilityToken({
-              startLine: 1,
-              endLine: 2,
-              hash: getContentHash('const x = 1;\nconst y = 2;'),
-            }),
-          },
-        ],
-        initialContentPromise: Promise.resolve(initialContent),
-        logger,
-      })
-
-      expect('content' in result).toBe(true)
-      if ('content' in result) {
-        expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
-      }
-    })
-  })
-
-  describe('bogus basedOnRead auto-strip (loop-breaker)', () => {
-    // Regression: a model that loops by re-reading then resubmitting the SAME
-    // invalid anchor (e.g. basedOnRead: "/placeholder") must not be stuck. When
-    // the oldString is uniquely matchable the anchor is unnecessary, so it is
-    // auto-stripped and the edit applies as a naked edit with a warning.
-    it('auto-strips a path-like invalid anchor when oldString is unique (small file)', async () => {
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [
-          {
-            oldString: 'const y = 2;',
-            newString: 'const y = 3;',
-            allowMultiple: false,
-            basedOnRead: '/placeholder' as any,
-          },
-        ],
-        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
-        logger,
-      })
-
-      expect('content' in result).toBe(true)
-      if ('content' in result) {
-        expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
-        expect(
-          result.messages.some((msg) =>
-            msg.includes('an invalid basedOnRead anchor was ignored'),
-          ),
-        ).toBe(true)
-      }
-    })
-
-    it('auto-strips a stub anchor when oldString is unique', async () => {
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [
-          {
-            oldString: 'const y = 2;',
-            newString: 'const y = 3;',
-            allowMultiple: false,
-            basedOnRead: 'dummy' as any,
-          },
-        ],
-        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
-        logger,
-      })
-
-      expect('content' in result).toBe(true)
-      if ('content' in result) {
-        expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
-      }
-    })
-
-    it('uses strict-specific guidance when a unique oldString has an invalid required capability', async () => {
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [
-          {
-            oldString: 'const y = 2;',
-            newString: 'const y = 3;',
-            allowMultiple: false,
-            basedOnRead: 'dummy' as any,
-          },
-        ],
-        requireFreshReadCapability: true,
-        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
-        logger,
-      })
-
-      expect('error' in result).toBe(true)
-      if ('error' in result) {
-        expect(result.error).toContain(
-          'Strict read-before-edit requires a valid fresh basedOnRead capability',
-        )
-        expect(result.error).not.toContain(
-          'oldString is not uniquely matchable',
-        )
-      }
-    })
-
-    it('auto-strips an invalid anchor on a large file when oldString is unique', async () => {
-      const lines = Array.from({ length: 1_001 }, (_, index) =>
-        index === 500
-          ? 'const target = 1;'
-          : `const filler${index} = ${index};`,
-      )
-      const result = await processStrReplace({
-        path: 'large.ts',
-        replacements: [
-          {
-            oldString: 'const target = 1;',
-            newString: 'const target = 2;',
-            allowMultiple: false,
-            basedOnRead: '/placeholder' as any,
-          },
-        ],
-        initialContentPromise: Promise.resolve(lines.join('\n')),
-        logger,
-      })
-
-      expect('content' in result).toBe(true)
-      if ('content' in result) {
-        expect(result.content).toContain('const target = 2;')
-        expect(result.content).not.toContain('const target = 1;')
-      }
-    })
-
-    it('does NOT auto-strip when oldString is ambiguous and gives loop-stopping guidance', async () => {
-      const result = await processStrReplace({
-        path: 'test.ts',
-        replacements: [
-          {
-            oldString: 'const y = 2;',
-            newString: 'const y = 3;',
-            allowMultiple: false,
-            basedOnRead: '/placeholder' as any,
-          },
-        ],
-        initialContentPromise: Promise.resolve('const y = 2;\nconst y = 2;\n'),
-        logger,
-      })
-
-      expect('error' in result).toBe(true)
-      if ('error' in result) {
-        expect(result.error).toContain(
-          'Do NOT resubmit the same basedOnRead literal',
-        )
-        expect(result.error).toContain(recoveryGuidance)
-      }
-    })
-  })
-
   describe('echoed fresh anchors on write (large files)', () => {
     it('echoes a reusable regionAnchor readCapability after a large-file edit', async () => {
       const lines = Array.from({ length: 1_001 }, (_, index) =>
@@ -2395,6 +2131,7 @@ function test3() {
           : `const filler${index} = ${index};`,
       )
       const initialContent = lines.join('\n')
+      const scope = readScope('large.ts')
 
       const result = await processStrReplace({
         path: 'large.ts',
@@ -2406,6 +2143,7 @@ function test3() {
           },
         ],
         initialContentPromise: Promise.resolve(initialContent),
+        readCapabilityScope: scope,
         logger,
       })
 
@@ -2436,6 +2174,7 @@ function test3() {
           },
         ],
         initialContentPromise: Promise.resolve(result.content),
+        readCapabilityScope: scope,
         logger,
       })
 
@@ -2584,13 +2323,15 @@ function test3() {
       // The capability was minted before an unrelated later line changed. The
       // target range itself is still fresh, so the scoped edit remains safe.
       const initialContent = 'same\nkeep\nsame\nunrelated post-read edit\n'
-      const capability = encodeReadCapabilityToken({
+      const capability = readCapability({
+        path: 'PLAN.md',
         startLine: 3,
         endLine: 3,
-        hash: getContentHash('same'),
+        content: 'same',
       })
       const result = await processStrReplace({
         path: 'PLAN.md',
+        readCapabilityScope: readScope('PLAN.md'),
         replacements: [
           {
             oldString: 'same',
@@ -2614,13 +2355,15 @@ function test3() {
 
     it('rejects a stale supplied range instead of guessing across the file', async () => {
       const initialContent = 'same\nkeep\nsame changed formatting\n'
-      const staleCapability = encodeReadCapabilityToken({
+      const staleCapability = readCapability({
+        path: 'PLAN.md',
         startLine: 3,
         endLine: 3,
-        hash: getContentHash('same'),
+        content: 'same',
       })
       const result = await processStrReplace({
         path: 'PLAN.md',
+        readCapabilityScope: readScope('PLAN.md'),
         replacements: [
           {
             oldString: 'same',

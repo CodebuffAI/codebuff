@@ -7,11 +7,9 @@ import {
   getContentHash,
 } from '../../../util/content-hash'
 
-// RF-2/RF-11: the editTransactionParams inputSchema `.transform` is the sole
-// producer of the `wholeFileCapabilityHash` field consumed by the runtime. A
-// regression here (e.g. emitting expectedHash instead of
-// wholeFileCapabilityHash, or dropping the caller's narrower bounds) would
-// silently let edits through with the wrong freshness check.
+// RF-3/RF-8/RF-12/RF-17: replace_range accepts one cap.v3 token. Optional
+// target bounds may narrow its covered range; removed legacy hash fields are
+// rejected at model-facing transaction boundaries.
 
 describe('editTransactionParams inputSchema transform — whole-file readCapability', () => {
   const issuer = { projectId: '/project', runId: 'run-schema-transform' }
@@ -23,14 +21,15 @@ describe('editTransactionParams inputSchema transform — whole-file readCapabil
   const wholeFileCap = encodeReadCapabilityToken({
     startLine: 1,
     endLine: 4,
-    hash: wholeFileContent,
+    hash: getContentHash(wholeFileContent),
+    scope: { ...issuer, path },
   })
   const decodedWholeFile = decodeReadCapabilityToken(wholeFileCap)
   expect(typeof decodedWholeFile).toBe('object')
   const wholeFileHash =
     typeof decodedWholeFile === 'string' ? '' : decodedWholeFile.hash
 
-  it('emits { expectedHash: undefined, wholeFileCapabilityHash: decoded.hash, startLine, endLine } when a whole-file readCapability is combined with narrower caller bounds', () => {
+  it('accepts contained caller bounds alongside a whole-file readCapability', () => {
     const parsed = editTransactionParams.inputSchema.safeParse({
       edits: [
         {
@@ -38,7 +37,7 @@ describe('editTransactionParams inputSchema transform — whole-file readCapabil
           path,
           readCapability: wholeFileCap,
           startLine: 2,
-          endLine: 4,
+          endLine: 3,
           newContent: 'replacement',
         },
       ],
@@ -46,22 +45,17 @@ describe('editTransactionParams inputSchema transform — whole-file readCapabil
 
     expect(parsed.success).toBe(true)
     if (!parsed.success) return
-    const edit = parsed.data.edits[0]!
-    expect(edit.type).toBe('replace_range')
-    if (edit.type !== 'replace_range') return
-    // The caller's narrower bounds are preserved verbatim.
-    expect(edit.startLine).toBe(2)
-    expect(edit.endLine).toBe(4)
-    // expectedHash MUST be undefined — the runtime preflight verifies the
-    // whole-file hash against current content, not a per-range hash match.
-    expect(edit.expectedHash).toBeUndefined()
-    // wholeFileCapabilityHash carries decoded.hash so the runtime can confirm
-    // the caller supplied a whole-file capability attesting the file they saw.
-    expect(edit.wholeFileCapabilityHash).toBe(wholeFileHash)
-    expect(edit.wholeFileCapabilityHash).not.toBeUndefined()
+    expect(parsed.data.edits[0]).toMatchObject({
+      type: 'replace_range',
+      startLine: 2,
+      endLine: 3,
+      capabilityStartLine: 1,
+      capabilityEndLine: 4,
+      capabilityHash: wholeFileHash,
+    })
   })
 
-  it('emits { expectedHash: decoded.hash, startLine/endLine from the capability, wholeFileCapabilityHash: undefined } when a whole-file readCapability is supplied alone', () => {
+  it('derives complete bounds and capabilityHash when bounds are omitted', () => {
     const parsed = editTransactionParams.inputSchema.safeParse({
       edits: [
         {
@@ -75,20 +69,158 @@ describe('editTransactionParams inputSchema transform — whole-file readCapabil
 
     expect(parsed.success).toBe(true)
     if (!parsed.success) return
-    const edit = parsed.data.edits[0]!
-    expect(edit.type).toBe('replace_range')
-    if (edit.type !== 'replace_range') return
-    // Without caller-supplied bounds, the transform derives startLine/endLine
-    // from the decoded capability itself.
-    expect(edit.startLine).toBe(1)
-    expect(edit.endLine).toBe(4)
-    // expectedHash carries decoded.hash; the runtime verifies it against the
-    // current sub-range hash (the original strict path).
-    expect(edit.expectedHash).toBe(wholeFileHash)
-    // No wholeFileCapabilityHash is emitted — the capability's bounds equal
-    // the requested range, so the whole-file-sub-range relaxation does NOT
-    // apply.
-    expect(edit.wholeFileCapabilityHash).toBeUndefined()
+    expect(parsed.data.edits[0]).toMatchObject({
+      type: 'replace_range',
+      startLine: 1,
+      endLine: 4,
+      capabilityStartLine: 1,
+      capabilityEndLine: 4,
+      capabilityHash: wholeFileHash,
+    })
+  })
+
+  it('rejects out-of-range bounds and removed hash fields', () => {
+    const edit = {
+      type: 'replace_range' as const,
+      path,
+      readCapability: wholeFileCap,
+      newContent: 'replacement',
+    }
+
+    expect(
+      editTransactionParams.inputSchema.safeParse({
+        edits: [{ ...edit, startLine: 2, endLine: 5 }],
+      }).success,
+    ).toBe(false)
+    expect(
+      editTransactionParams.inputSchema.safeParse({
+        edits: [{ ...edit, expectedHash: wholeFileHash }],
+      }).success,
+    ).toBe(false)
+    expect(
+      editTransactionParams.inputSchema.safeParse({
+        edits: [{ ...edit, wholeFileCapabilityHash: wholeFileHash }],
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts scoped cap.v3 and rejects cap.v2 or object basedOnRead anchors', () => {
+    const replacement = (basedOnRead: unknown) => ({
+      edits: [
+        {
+          type: 'str_replace' as const,
+          path,
+          replacements: [
+            {
+              oldString: 'line 1',
+              newString: 'updated line 1',
+              basedOnRead,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(
+      editTransactionParams.inputSchema.safeParse(replacement(wholeFileCap))
+        .success,
+    ).toBe(true)
+    expect(
+      editTransactionParams.inputSchema.safeParse(
+        replacement(
+          'cap.v2.1.4.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        ),
+      ).success,
+    ).toBe(false)
+    expect(
+      editTransactionParams.inputSchema.safeParse(
+        replacement({ startLine: 1, endLine: 4, hash: wholeFileHash }),
+      ).success,
+    ).toBe(false)
+  })
+
+  it('accepts documented replacement aliases only at the model-facing boundary', () => {
+    for (const [oldKey, newKey] of [
+      ['old', 'new'],
+      ['old_str', 'new_str'],
+      ['old_string', 'new_string'],
+    ] as const) {
+      const input = {
+        edits: [
+          {
+            type: 'str_replace' as const,
+            path,
+            replacements: [
+              { [oldKey]: 'line 1', [newKey]: 'updated line 1' },
+            ],
+          },
+        ],
+      }
+
+      const parsed = editTransactionParams.inputSchema.safeParse(input)
+      expect(parsed.success).toBe(true)
+      if (parsed.success && parsed.data.edits[0].type === 'str_replace') {
+        expect(parsed.data.edits[0].replacements).toEqual([
+          {
+            oldString: 'line 1',
+            newString: 'updated line 1',
+            allowMultiple: false,
+          },
+        ])
+      }
+      expect(editTransactionParams.providerInputSchema.safeParse(input).success).toBe(
+        false,
+      )
+    }
+  })
+
+  it('rejects conflicting replacement aliases at the model-facing boundary', () => {
+    const input = {
+      edits: [
+        {
+          type: 'str_replace' as const,
+          path,
+          replacements: [
+            {
+              oldString: 'line 1',
+              old_str: 'different line',
+              new: 'updated line 1',
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(editTransactionParams.inputSchema.safeParse(input).success).toBe(false)
+  })
+
+  it('rejects redundant authority fields on str_replace replacements at both schema boundaries', () => {
+    const replacement = {
+      oldString: 'line 1',
+      newString: 'updated line 1',
+    }
+    const input = (extra: Record<string, unknown>) => ({
+      edits: [
+        {
+          type: 'str_replace' as const,
+          path,
+          replacements: [{ ...replacement, ...extra }],
+        },
+      ],
+    })
+
+    for (const extra of [
+      { expectedHash: wholeFileHash },
+      { readCapability: wholeFileCap },
+      { wholeFileCapabilityHash: wholeFileHash },
+    ]) {
+      expect(editTransactionParams.inputSchema.safeParse(input(extra)).success).toBe(
+        false,
+      )
+      expect(
+        editTransactionParams.providerInputSchema.safeParse(input(extra)).success,
+      ).toBe(false)
+    }
   })
 
   it('signs a whole-file cap.v3 under the capabilityIssuer scope so readCapabilityMatchesScope holds at runtime preflight', () => {

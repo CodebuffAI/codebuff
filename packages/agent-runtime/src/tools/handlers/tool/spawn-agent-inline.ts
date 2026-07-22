@@ -9,7 +9,6 @@ import {
   buildSpawnParamsWithHandoff,
   deriveSpawnTemplateCapabilities,
   validateVersionedAgentHandoff,
-  normalizeSpawnedAgentOutput,
   buildRuntimeAgentReceipt,
   reconcileAgentReceiptIntoParent,
 } from './spawn-agent-utils'
@@ -306,7 +305,7 @@ export const handleSpawnAgentInline = (async (
       {
         type: 'json',
         value: {
-          result: normalizeSpawnedAgentOutput(result.output, agentType) ?? {
+          result: receipt.output ?? {
             message: 'Agent completed without structured output.',
           },
           agentReceipt: receipt,

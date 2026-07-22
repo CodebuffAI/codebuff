@@ -34,6 +34,7 @@ import type {
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import { REPEATED_STEP_LOOP_LIMIT } from '../util/step-loop-guard'
+import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 
 type WriteTodosOutput = {
   message: string
@@ -137,19 +138,39 @@ describe('runAgentStep - set_output tool', () => {
     // Mock analytics
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
 
-    agentRuntimeImpl.requestFiles = async ({ filePaths }) => {
-      const results: Record<string, string | null> = {}
-      filePaths.forEach((p) => {
-        if (p === 'src/auth.ts') {
-          results[p] = 'export function authenticate() { return true; }'
-        } else if (p === 'src/user.ts') {
-          results[p] = 'export interface User { id: string; name: string; }'
-        } else {
-          results[p] = null
-        }
-      })
-      return results
-    }
+    agentRuntimeImpl.requestFiles = async ({ filePaths }) =>
+      buildReadFilesResultV1(
+        filePaths.map((path, requestIndex) => {
+          const content =
+            path === 'src/auth.ts'
+              ? 'export function authenticate() { return true; }'
+              : path === 'src/user.ts'
+                ? 'export interface User { id: string; name: string; }'
+                : undefined
+          return content === undefined
+            ? {
+                selector: 'file' as const,
+                requestIndex,
+                path,
+                status: 'error' as const,
+                error: {
+                  code: 'not_found' as const,
+                  message: '[FILE_DOES_NOT_EXIST]',
+                  retryable: true,
+                  recovery: 'discover_path' as const,
+                },
+              }
+            : {
+                selector: 'file' as const,
+                requestIndex,
+                path,
+                status: 'ok' as const,
+                content,
+                complete: true,
+                template: false,
+              }
+        }),
+      )
     agentRuntimeImpl.requestOptionalFile = async ({ filePath }) => {
       if (filePath === 'src/auth.ts') {
         return 'export function authenticate() { return true; }'
@@ -1033,17 +1054,33 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock requestFiles to return test file content
-    runAgentStepBaseParams.requestFiles = async ({ filePaths }) => {
-      const results: Record<string, string | null> = {}
-      filePaths.forEach((p) => {
-        if (p === 'src/test.ts') {
-          results[p] = 'export function testFunction() { return "test"; }'
-        } else {
-          results[p] = null
-        }
-      })
-      return results
-    }
+    runAgentStepBaseParams.requestFiles = async ({ filePaths }) =>
+      buildReadFilesResultV1(
+        filePaths.map((path, requestIndex) =>
+          path === 'src/test.ts'
+            ? {
+                selector: 'file',
+                requestIndex,
+                path,
+                status: 'ok',
+                content: 'export function testFunction() { return "test"; }',
+                complete: true,
+                template: false,
+              }
+            : {
+                selector: 'file',
+                requestIndex,
+                path,
+                status: 'error',
+                error: {
+                  code: 'not_found',
+                  message: '[FILE_DOES_NOT_EXIST]',
+                  retryable: true,
+                  recovery: 'discover_path',
+                },
+              },
+        ),
+      )
 
     // Mock the LLM stream to return a response that doesn't end the turn
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {

@@ -128,7 +128,7 @@ export function mintSliceCapability(params: {
   startLine: number
   endLine: number
   scope?: ReadCapabilityScope
-}): { readCapability: string; rangeHash: string; sliceContent: string } {
+}): { readCapability?: string; rangeHash: string; sliceContent: string } {
   const { content, startLine, endLine } = params
   const lines = content.replace(/\r\n/g, '\n').split('\n')
   const start = Math.max(1, startLine)
@@ -136,12 +136,16 @@ export function mintSliceCapability(params: {
   const sliceContent = lines.slice(start - 1, end).join('\n')
   const rangeHash = getContentHash(sliceContent)
   return {
-    readCapability: encodeReadCapabilityToken({
-      startLine: start,
-      endLine: end,
-      hash: rangeHash,
-      scope: params.scope,
-    }),
+    ...(params.scope
+      ? {
+          readCapability: encodeReadCapabilityToken({
+            startLine: start,
+            endLine: end,
+            hash: rangeHash,
+            scope: params.scope,
+          }),
+        }
+      : {}),
     rangeHash,
     sliceContent,
   }

@@ -514,6 +514,7 @@ ${specialistRoutingSection}
         gatePassedReviewerVerdict: '',
         gatePassedValidationSummary: '',
         gatePassedFingerprint: '',
+        reviewedReviewableFingerprint: '',
         lastReviewerGateSkipReason: '',
         preEditSecurityReviewDone: false,
         securityReviewGateDone: false,
@@ -539,6 +540,7 @@ ${specialistRoutingSection}
       activeWorkState.gatePassedReviewerVerdict ??= ''
       activeWorkState.gatePassedValidationSummary ??= ''
       activeWorkState.gatePassedFingerprint ??= ''
+      activeWorkState.reviewedReviewableFingerprint ??= ''
       activeWorkState.lastReviewerGateSkipReason ??= ''
       activeWorkState.openReviewerBlockers ??= []
       activeWorkState.openReviewerFindings ??= []
@@ -2121,12 +2123,30 @@ ${specialistRoutingSection}
           editsHappened &&
           staticReviewOnlyEnabled &&
           requiredReviewerAgentType === reviewerAgentType
-        const reviewSnapshotDetails = buildGateSnapshotDetails(
+        // Fix 1/2/3 (reviewer-gate scoping): the final code-reviewer must only
+        // ever be asked to attest to reviewable *source* files, never
+        // bookkeeping/docs/plan artifacts (e.g. .agents/sessions/**
+        // STATE.json/EVENTS.jsonl/STATUS.md/LESSONS.md). Drive the reviewer's
+        // snapshot details and pending-file attestation off the reviewable
+        // subset so the fingerprint the reviewer echoes matches what
+        // attestation checks. Validation-hook behavior is unchanged; only the
+        // reviewer spawn/attestation scoping uses this subset.
+        const reviewablePendingFiles = selectReviewableGateFiles(
           Array.from(pendingGateFiles),
+        )
+        const reviewSnapshotDetails = buildGateSnapshotDetails(
+          reviewablePendingFiles,
           '',
         )
         const reviewSnapshotFingerprint = hashGateSnapshotDetails(
           reviewSnapshotDetails,
+        )
+        // Fingerprint of the reviewable subset for the R5 skip-re-review
+        // short-circuit. Equal to reviewSnapshotFingerprint today, but kept
+        // as its own binding so the intent (reviewable-set identity) is clear
+        // and stable if the review snapshot inputs ever change.
+        const reviewableFingerprint = hashGateSnapshotDetails(
+          buildGateSnapshotDetails(reviewablePendingFiles, ''),
         )
         if (staticReviewConcurrency && !activeWorkState.staticReviewerJobId) {
           const bgReview = yield {
@@ -2139,7 +2159,7 @@ ${specialistRoutingSection}
                   prompt: [
                     'Review the completed default-flow code changes before finalization.',
                     '',
-                    `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                    `Pending changed files: ${reviewablePendingFiles.join(', ') || '(unknown)'}`,
                     `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                     'Snapshot details (read for file membership; do not echo):',
                     reviewSnapshotDetails,
@@ -2742,10 +2762,75 @@ ${specialistRoutingSection}
             'user-authorized-reviewer-protocol-bypass'
           markActiveWorkStateChanged()
         }
+        // Fix 1/3 (R3) + Fix 3b (R5): decide whether the final code-reviewer
+        // spawn can be skipped entirely and the gate treated as green. Two
+        // cases short-circuit to the same success state the gate sets on a
+        // LOOKS_GOOD/NON_BLOCKING verdict:
+        //   - no reviewable source files in the pending set (only
+        //     bookkeeping/docs/plan artifacts like .agents/sessions/**
+        //     STATE.json/EVENTS.jsonl/STATUS.md/LESSONS.md changed), or
+        //   - the reviewable subset is unchanged from the last reviewed pass
+        //     (a git-action turn with no new source edits).
+        // Validation-hook behavior is unchanged; only the reviewer spawn is
+        // skipped. The subsequent runValidationGate success block performs the
+        // actual state clearing, fingerprint recording, and aux-flag reset.
+        const reviewableSetAlreadyReviewed =
+          reviewablePendingFiles.length > 0 &&
+          !!activeWorkState.reviewedReviewableFingerprint &&
+          activeWorkState.reviewedReviewableFingerprint ===
+            reviewableFingerprint
+        const skipReviewerForReviewableScope =
+          runReviewerGate &&
+          editsHappened &&
+          !reviewerProtocolBypassAuthorized &&
+          activeWorkState.lastReviewerGateSkipReason !==
+            'reviewer-protocol-attestation-failed' &&
+          (reviewablePendingFiles.length === 0 || reviewableSetAlreadyReviewed)
+        if (skipReviewerForReviewableScope) {
+          reviewerFinalizationVerdict = 'NON_BLOCKING'
+          activeWorkState.currentPhase = 'awaiting_review'
+          activeWorkState.nextRequiredAction = ''
+          activeWorkState.staticReviewerJobId = undefined
+          const reviewerSkipReason =
+            reviewablePendingFiles.length === 0
+              ? 'reviewer skip: no reviewable source files'
+              : 'reviewer skip: reviewable source set unchanged since last review'
+          markActiveWorkStateChanged()
+          emitGateTelemetry({
+            currentPhase: 'awaiting_review',
+            pendingFileCount: pendingGateFiles.size,
+            pendingFiles: Array.from(pendingGateFiles),
+            reviewerStatus: 'skipped',
+            validationStatus: 'passed',
+            reviewerVerdict: reviewerFinalizationVerdict,
+            skipReason:
+              reviewablePendingFiles.length === 0
+                ? 'reviewer-skip-no-reviewable-source-files'
+                : 'reviewer-skip-reviewable-set-unchanged',
+          })
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: [
+                `Reviewer gate skipped (${reviewerSkipReason}); treating the gate as passed.`,
+                formatGateStateBlock(
+                  'reviewer',
+                  'skipped',
+                  reviewablePendingFiles.length === 0
+                    ? `reviewer-skip-no-reviewable-source-files: pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`
+                    : `reviewer-skip-reviewable-set-unchanged: reviewable files: ${reviewablePendingFiles.join(', ') || '(none)'}`,
+                ),
+              ].join('\n'),
+            },
+            includeToolCall: false,
+          } as any
+        }
         if (
           runReviewerGate &&
           editsHappened &&
           !reviewerProtocolBypassAuthorized &&
+          !skipReviewerForReviewableScope &&
           activeWorkState.lastReviewerGateSkipReason !==
             'reviewer-protocol-attestation-failed'
         ) {
@@ -2781,7 +2866,7 @@ ${specialistRoutingSection}
                     prompt: [
                       `Review the completed ${requiredReviewerAgentType} changes before finalization.`,
                       '',
-                      `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                      `Pending changed files: ${reviewablePendingFiles.join(', ') || '(unknown)'}`,
                       `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                       'Snapshot details (read for file membership; do not echo):',
                       reviewSnapshotDetails,
@@ -2802,7 +2887,7 @@ ${specialistRoutingSection}
             : collectReviewerAttestationIssues(
                 reviewerToolResult,
                 reviewSnapshotFingerprint,
-                Array.from(pendingGateFiles),
+                reviewablePendingFiles,
               )
           if (
             attestationIssues.length > 0 &&
@@ -2824,7 +2909,7 @@ ${specialistRoutingSection}
                     prompt: [
                       `Retry the completed ${requiredReviewerAgentType} review because the prior response failed the reviewer protocol contract.`,
                       '',
-                      `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                      `Pending changed files: ${reviewablePendingFiles.join(', ') || '(unknown)'}`,
                       `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                       'Snapshot details (read for file membership; do not echo):',
                       reviewSnapshotDetails,
@@ -2844,7 +2929,7 @@ ${specialistRoutingSection}
             attestationIssues = collectReviewerAttestationIssues(
               reviewerToolResult,
               reviewSnapshotFingerprint,
-              Array.from(pendingGateFiles),
+              reviewablePendingFiles,
             )
           }
           if (attestationIssues.length > 0) {
@@ -3279,9 +3364,13 @@ ${specialistRoutingSection}
         if (runValidationGate) {
           const passedPendingFiles = Array.from(pendingGateFiles)
           if (passedPendingFiles.length > 0 && reviewerFinalizationVerdict) {
+            // Compare the reviewable subset (not the raw pending set) so this
+            // drift guard stays consistent with reviewSnapshotFingerprint,
+            // which is now scoped to reviewablePendingFiles. Bookkeeping-only
+            // churn must not falsely reopen validation/review.
             const finalReviewedFingerprint = hashGateSnapshotDetails(
               buildGateSnapshotDetails(
-                passedPendingFiles,
+                selectReviewableGateFiles(passedPendingFiles),
                 '',
               ),
             )
@@ -3316,6 +3405,10 @@ ${specialistRoutingSection}
               passedPendingFiles,
               validationSummary,
             )
+            // R5: record the reviewable subset's fingerprint so a later
+            // git-action turn (no new source edits) that reopens the gate on
+            // an unchanged reviewable set can skip re-review.
+            activeWorkState.reviewedReviewableFingerprint = reviewableFingerprint
             activeWorkState.lastReviewerGateSkipReason = ''
             activeWorkState.repairRoundCount = 0
             activeWorkState.repairSessionId = undefined
@@ -4048,6 +4141,42 @@ ${specialistRoutingSection}
 
       function selectDocWriterTargets(files: string[]): string[] {
         return files.filter(isPublicApiSourceFile)
+      }
+
+      // Inline mirror of isReviewableGateFile in agents/base2/gate-paths.ts.
+      // Kept byte-identical (minus the export keyword) because handleSteps is
+      // serialized via .toString() + new Function(...) and cannot reference
+      // module-scope imports; a parity test asserts behavioral equality.
+      // Returns true only for reviewable source files; excludes tests,
+      // generated code, docs, config/data (.jsonl bookkeeping like
+      // EVENTS.jsonl), .env files, and docs/ / evals/ / .agents/ paths.
+      function isReviewableGateFile(filePath: string): boolean {
+        if (/__tests__\//.test(filePath)) return false
+        if (/\.(test|spec)\.tsx?$/.test(filePath)) return false
+        if (/\.generated\.tsx?$/.test(filePath)) return false
+        if (/\.(md|mdx|json|jsonl|yml|yaml|toml)$/.test(filePath)) return false
+        if (/(^|\/)\.env($|\.)/.test(filePath)) return false
+        if (filePath.startsWith('docs/')) return false
+        if (filePath.startsWith('evals/') || filePath.startsWith('.agents/')) {
+          return false
+        }
+        return /\.(?:tsx?|jsx?|mjs|cjs|py|go|rs|java|kt|kts|cs|fs|vb)$/.test(
+          filePath,
+        )
+      }
+
+      // Inline mirror of selectReviewableGateFiles in gate-paths.ts.
+      function selectReviewableGateFiles(files: string[]): string[] {
+        const reviewableFiles: string[] = []
+        const seen = new Set<string>()
+        for (const file of files) {
+          const normalized = normalizeGateFilePath(file)
+          if (!normalized || seen.has(normalized)) continue
+          if (!isReviewableGateFile(normalized)) continue
+          seen.add(normalized)
+          reviewableFiles.push(normalized)
+        }
+        return reviewableFiles
       }
 
       // Return the subset of `files` that at least one aux gate predicate
@@ -5421,6 +5550,11 @@ ${specialistRoutingSection}
         expectedFingerprint: string,
         pendingFiles: string[],
       ): string[] {
+        // The caller passes the reviewable subset; when it is empty there is
+        // nothing to attest, so surface no attestation issues.
+        if (pendingFiles.length === 0) {
+          return []
+        }
         const structured = collectStructuredReviewerOutputs(toolResult)
         if (structured.length === 0) {
           return [

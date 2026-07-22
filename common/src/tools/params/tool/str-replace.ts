@@ -97,7 +97,7 @@ const inputSchema = z
                         code: 'custom',
                         path: ['oldString'],
                         message:
-                          'oldString is an explicit placeholder, not file content. Copy the exact current text from read_files or use replace_range with a fresh expectedHash.',
+                          'oldString is an explicit placeholder, not file content. Copy the exact current text from read_files or use replace_range with a fresh readCapability.',
                       })
                     }
                     if (isObviousEditPlaceholder(replacement.newString)) {

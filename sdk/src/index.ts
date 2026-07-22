@@ -7,7 +7,7 @@ export type {
   ImagePart,
 } from '@codebuff/common/types/messages/content-part'
 export { run } from './run'
-export { getFiles, getFilesStructured } from './tools/read-files'
+export { getFilesStructured } from './tools/read-files'
 export { changeFile, changeFiles } from './tools/change-file'
 export { applyPatchTool } from './tools/apply-patch'
 export { replaceRange } from './tools/replace-range'
@@ -41,10 +41,6 @@ export type {
   ReadFilesItemV1,
   ReadFilesResultV1,
 } from '@codebuff/common/tools/results/filesystem'
-export type {
-  LegacyReadFilesMap,
-  RequestFilesResult,
-} from '@codebuff/common/types/contracts/client'
 export type {
   OpenbuffClientOptions,
   CodebuffClientOptions,

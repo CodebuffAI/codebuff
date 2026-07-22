@@ -14,6 +14,7 @@ import type {
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 import type { AssistantMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { PromptResult } from '@codebuff/common/util/error'
+import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 
 describe('stream parser abort handling', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
@@ -133,9 +134,18 @@ describe('stream parser abort handling', () => {
       throw new AbortError()
     }
 
-    agentRuntimeImpl.requestFiles = async () => ({
-      'test.ts': 'console.log("test")',
-    })
+    agentRuntimeImpl.requestFiles = async () =>
+      buildReadFilesResultV1([
+        {
+          selector: 'file',
+          requestIndex: 0,
+          path: 'test.ts',
+          status: 'ok',
+          content: 'console.log("test")',
+          complete: true,
+          template: false,
+        },
+      ])
 
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState

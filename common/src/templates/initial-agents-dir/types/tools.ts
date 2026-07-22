@@ -3,7 +3,6 @@
  */
 export type ToolName =
   | 'apply_patch'
-  | 'apply_smart_patch'
   | 'add_message'
   | 'ask_user'
   | 'check_background_agent'
@@ -37,7 +36,6 @@ export type ToolName =
   | 'render_3d_preview'
   | 'read_logs'
   | 'read_outline'
-  | 'read_slices'
   | 'read_subtree'
   | 'replace_range'
   | 'rewrite_symbol'
@@ -64,7 +62,6 @@ export type ToolName =
  */
 export interface ToolParamsMap {
   apply_patch: ApplyPatchParams
-  apply_smart_patch: ApplySmartPatchParams
   add_message: AddMessageParams
   ask_user: AskUserParams
   check_background_agent: CheckBackgroundAgentParams
@@ -98,7 +95,6 @@ export interface ToolParamsMap {
   render_3d_preview: Render3dPreviewParams
   read_logs: ReadLogsParams
   read_outline: ReadOutlineParams
-  read_slices: ReadSlicesParams
   read_subtree: ReadSubtreeParams
   replace_range: ReplaceRangeParams
   rewrite_symbol: RewriteSymbolParams
@@ -141,24 +137,6 @@ export interface ApplyPatchParams {
         type: 'delete_file'
         path: string
       }
-}
-
-/**
- * Apply a range-scoped unified diff patch with bounded fuzzy line alignment and preflight syntax validation.
- */
-export interface ApplySmartPatchParams {
-  /** File path to apply the smart patch to, relative to the project root. */
-  path: string
-  /** The unified diff patch hunk(s) containing the changes. Lines prefixed with - are deleted, lines with + are inserted, and lines with space are context. */
-  patch: string
-  /** Max lines of surrounding context displacement to allow when matching target patch region (Layer B). */
-  fuzzFactor?: number
-  /** Deprecated compatibility flag. Smart patch never performs global syntax healing; candidate syntax is validated without unrelated mutations. */
-  autoHeal?: boolean
-  /** If true, run virtual preflight syntax/compile checks before writing changes to disk. */
-  preflightCompile?: boolean
-  /** If true, apply a hunk at its line number when no unique fuzzy match is found. Defaults to false so smart patches fail closed instead of risking misplaced edits. */
-  allowPositionalFallback?: boolean
 }
 
 /**
@@ -340,6 +318,8 @@ export interface EditTransactionParams {
         path: string
         type: 'replace_range'
         readCapability: string
+        startLine?: number
+        endLine?: number
         newContent: string
       }
     | {
@@ -699,16 +679,6 @@ export interface ReadOutlineParams {
 }
 
 /**
- * Read only the specific implementation/code slices for specified symbol names in a file rather than the whole file.
- */
-export interface ReadSlicesParams {
-  /** File path to extract slices from, relative to the project root. */
-  path: string
-  /** Symbol names (functions, classes, interfaces, methods) to extract code slices for. */
-  symbols: string[]
-}
-
-/**
  * Read one or more directory subtrees (as a blob including subdirectories, file names, and parsed variables within each source file) or return parsed variable names for files. If no paths are provided, returns the entire project tree.
  */
 export interface ReadSubtreeParams {
@@ -726,6 +696,10 @@ export interface ReplaceRangeParams {
   path: string
   /** Copy editAnchor.readCapability from the matching fresh range. */
   readCapability: string
+  /** Optional 1-indexed target start within the capability-covered range. */
+  startLine?: number
+  /** Optional 1-indexed target end within the capability-covered range. */
+  endLine?: number
   /** Complete replacement content. */
   newContent: string
 }

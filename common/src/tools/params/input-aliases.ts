@@ -164,7 +164,6 @@ const TOOL_INPUT_ALIAS_RULES: Partial<
     { canonical: 'jobId', aliases: ['job_id'] },
     { canonical: 'max_chars', aliases: ['maxChars'] },
   ],
-  read_slices: [{ canonical: 'symbols', aliases: ['symbol'], coerce: 'array' }],
   read_subtree: [
     { canonical: 'paths', aliases: ['path'], coerce: 'array' },
     { canonical: 'maxTokens', aliases: ['max_tokens'] },

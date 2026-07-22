@@ -2,8 +2,11 @@ import path from 'path'
 
 import { applyPatchParams } from '@codebuff/common/tools/params/tool/apply-patch'
 import {
+  decodeReadCapabilityToken,
   getContentHash as computeContentHash,
   normalizeLineEndings,
+  readCapabilityMatchesScope,
+  type ReadCapabilityIssuer,
 } from '@codebuff/common/util/content-hash'
 import {
   composeFilesystemPolicies,
@@ -814,6 +817,7 @@ function successResult(params: {
   afterHash: string | null
   finalContent?: string
   canonicalPath?: string
+  capabilityIssuer?: ReadCapabilityIssuer
 }): ApplyPatchJson {
   const action =
     params.action === 'add'
@@ -844,13 +848,17 @@ function successResult(params: {
       authorityReceipt: params.receipt,
       errors: [],
       freshCapabilities:
-        action === 'delete' || params.finalContent === undefined
+        action === 'delete' ||
+        params.finalContent === undefined ||
+        !params.capabilityIssuer
           ? []
           : [
-              buildFreshWholeFileCapability(
-                params.canonicalPath ?? params.file,
-                params.finalContent,
-              ),
+              buildFreshWholeFileCapability({
+                canonicalPath: params.canonicalPath ?? params.file,
+                path: params.file,
+                content: params.finalContent,
+                capabilityIssuer: params.capabilityIssuer,
+              }),
             ],
     }),
   }
@@ -949,6 +957,7 @@ export async function applyPatchTool(params: {
   callId?: string
   signal?: AbortSignal
   filesystemPolicy?: FilesystemAuthorityPolicy
+  capabilityIssuer?: ReadCapabilityIssuer
 }): Promise<ApplyPatchResult> {
   const { parameters, cwd, fs } = params
   const authority =
@@ -1059,6 +1068,7 @@ export async function applyPatchTool(params: {
           afterHash: computeContentHash(content),
           finalContent: content,
           canonicalPath: authorizedPath.canonicalPath,
+          capabilityIssuer: params.capabilityIssuer,
         }),
       ]
     }
@@ -1176,18 +1186,26 @@ export async function applyPatchTool(params: {
         }
 
         const serializedCapabilities = operation.basedOnRead ?? []
-        if (
-          serializedCapabilities.some(
-            (capability) => typeof capability === 'string',
-          )
-        ) {
-          return `apply_patch rejected for ${operation.path}: opaque cap.v3 tokens must be authenticated and unwrapped by the agent runtime before reaching the filesystem adapter. Re-read the target range and retry through the active runtime.`
+        const decodedCapabilities: ReadCapability[] = []
+        for (const token of serializedCapabilities) {
+          const decoded = decodeReadCapabilityToken(token)
+          if (typeof decoded === 'string') return decoded
+          if (
+            !params.capabilityIssuer ||
+            !readCapabilityMatchesScope(decoded, {
+              ...params.capabilityIssuer,
+              path: operation.path,
+            })
+          ) {
+            return `apply_patch rejected for ${operation.path}: basedOnRead does not match the active project, path, and run scope. Re-read the target range through the active runtime and retry with its fresh readCapability.`
+          }
+          decodedCapabilities.push(decoded)
         }
-        const requiredRanges = serializedCapabilities.length
+        const requiredRanges = decodedCapabilities.length
           ? validateReadCapabilities({
               path: operation.path,
               content: oldContent,
-              capabilities: serializedCapabilities as ReadCapability[],
+              capabilities: decodedCapabilities,
             })
           : []
         if (typeof requiredRanges === 'string') return requiredRanges

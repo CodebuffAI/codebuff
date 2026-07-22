@@ -156,19 +156,19 @@ export const handleReadFiles = (async (
       if (
         result.selector === 'range' &&
         result.complete &&
-        result.rangeHash &&
-        /^sha256:[a-f0-9]{64}$/.test(result.rangeHash)
+        result.editAnchor &&
+        /^sha256:[a-f0-9]{64}$/.test(result.editAnchor.contentHash)
       ) {
         const readCapability = encodeReadCapabilityToken({
           startLine: result.startLine,
           endLine: result.endLine,
-          hash: result.rangeHash,
+          hash: result.editAnchor.contentHash,
           scope: { ...capabilityIssuer, path: result.path },
         })
         return {
           startLine: result.startLine,
           endLine: result.endLine,
-          contentHash: result.rangeHash,
+          contentHash: result.editAnchor.contentHash,
           readCapability,
         }
       }
@@ -179,12 +179,6 @@ export const handleReadFiles = (async (
         ? fileContext.tokenCallers?.[result.path]
         : undefined
     const resultWithoutCapability = { ...result }
-    if ('readCapability' in resultWithoutCapability) {
-      delete resultWithoutCapability.readCapability
-    }
-    if ('rangeHash' in resultWithoutCapability && completeEditAnchor) {
-      delete resultWithoutCapability.rangeHash
-    }
     if ('editAnchor' in resultWithoutCapability) {
       delete resultWithoutCapability.editAnchor
     }

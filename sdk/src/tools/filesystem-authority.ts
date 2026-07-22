@@ -355,9 +355,11 @@ export class FilesystemAuthority {
         ...action,
         status: 'committed' as const,
         afterHash:
-          action.action === 'delete' || action.action === 'move'
+          action.action === 'delete'
             ? null
-            : (finalHashes[action.path] ?? null),
+            : action.action === 'move'
+              ? (finalHashes[action.destinationPath ?? action.path] ?? null)
+              : (finalHashes[action.path] ?? null),
       })),
       finalHashes,
     })
@@ -440,9 +442,13 @@ export class FilesystemAuthority {
     return receipt
   }
 
-  getCanonicalReceipt(operationId: string): CommitReceiptV1 | undefined {
+  getCanonicalReceipt(
+    operationId: string,
+    callId: string,
+  ): CommitReceiptV1 | undefined {
     return this.canonicalReceipts.findLast(
-      (receipt) => receipt.operationId === operationId,
+      (receipt) =>
+        receipt.operationId === operationId && receipt.callId === callId,
     )
   }
 

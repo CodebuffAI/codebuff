@@ -44,7 +44,8 @@ import { quarantinedToolNames } from '@codebuff/common/tools/constants'
  * `toolNames`, so no agent can ever call it. (This is exactly what happened to
  * read_outline / read_slices / rewrite_symbol on first add.)
  *
- * read_slices remains registered for compatibility but is not prompt-visible.
+ * read_slices and apply_smart_patch were fully removed (schemas, handlers,
+ * and registrations); they are no longer registered or prompt-visible.
  *
  * Every orchestrator mode must expose structural reads. Every non-plan
  * orchestrator exposes one canonical transaction surface; compatibility edit
@@ -170,8 +171,10 @@ describe('agent prompt/tool availability alignment', () => {
 
     expect(runtimePrompts).not.toContain('Prefer \\`read_slices\\`')
     expect(runtimePrompts).not.toContain('Prefer \\`apply_smart_patch\\`')
-    expect(toolsDoc).toContain('`read_slices` (deprecated compatibility alias)')
-    expect(toolsDoc).toContain('### `apply_smart_patch`')
+    expect(toolsDoc).not.toContain(
+      '`read_slices` (deprecated compatibility alias)',
+    )
+    expect(toolsDoc).not.toContain('### `apply_smart_patch`')
   })
 
   test('structured-output agents without set_output do not prompt the model to call it', () => {

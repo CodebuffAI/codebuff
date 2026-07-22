@@ -1,6 +1,7 @@
 export type ValidationIssue = {
   expected?: unknown
   code?: string
+  keys?: string[]
   path?: PropertyKey[]
   message?: string
 }

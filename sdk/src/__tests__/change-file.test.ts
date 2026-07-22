@@ -33,6 +33,7 @@ describe('changeFile', () => {
           action: 'update',
           path: 'src/file.ts',
           outcome: 'applied',
+          afterContent: 'const value = 2\n',
         }),
       ],
     })
@@ -84,7 +85,12 @@ describe('changeFile', () => {
     expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
       kind: 'file_mutation_result',
       outcome: 'applied',
-      actions: [expect.objectContaining({ action: 'create' })],
+      actions: [
+        expect.objectContaining({
+          action: 'create',
+          afterContent: 'const value = 1\n',
+        }),
+      ],
     })
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'const value = 1\n',
@@ -152,7 +158,12 @@ describe('changeFile', () => {
     expect(result[0]?.type === 'json' ? result[0].value : null).toMatchObject({
       kind: 'file_mutation_result',
       outcome: 'applied',
-      actions: [expect.objectContaining({ action: 'update' })],
+      actions: [
+        expect.objectContaining({
+          action: 'update',
+          afterContent: 'const value = 2\n',
+        }),
+      ],
     })
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'const value = 2\n',
@@ -248,8 +259,16 @@ describe('changeFile', () => {
       kind: 'file_mutation_result',
       outcome: 'applied',
       actions: [
-        expect.objectContaining({ path: 'src/one.ts', outcome: 'applied' }),
-        expect.objectContaining({ path: 'src/two.ts', outcome: 'applied' }),
+        expect.objectContaining({
+          path: 'src/one.ts',
+          outcome: 'applied',
+          afterContent: 'const one = 2\n',
+        }),
+        expect.objectContaining({
+          path: 'src/two.ts',
+          outcome: 'applied',
+          afterContent: 'const two = 2\n',
+        }),
       ],
     })
     expect(await fs.readFile('/repo/src/one.ts', 'utf-8')).toBe(
@@ -287,11 +306,22 @@ describe('changeFile', () => {
 
     const output = result[0]
     expect(output.type).toBe('json')
-    if (output.type === 'json') {
+    if (
+      output.type === 'json' &&
+      output.value !== null &&
+      typeof output.value === 'object' &&
+      'kind' in output.value &&
+      output.value.kind === 'file_mutation_result'
+    ) {
       expect(output.value).toMatchObject({
         kind: 'file_mutation_result',
         outcome: 'not_applied',
       })
+      expect(
+        output.value.actions.every(
+          (action) => action.afterContent === undefined,
+        ),
+      ).toBe(true)
     }
     expect(await fs.readFile('/repo/src/one.ts', 'utf-8')).toBe(
       'const one = 1\n',
@@ -499,12 +529,21 @@ describe('changeFile', () => {
       kind: 'file_mutation_result',
       outcome: 'applied',
       actions: [
-        expect.objectContaining({ action: 'create', path: 'created.txt' }),
-        expect.objectContaining({ action: 'delete', path: 'delete.txt' }),
+        expect.objectContaining({
+          action: 'create',
+          path: 'created.txt',
+          afterContent: 'created',
+        }),
+        expect.not.objectContaining({
+          action: 'delete',
+          path: 'delete.txt',
+          afterContent: expect.anything(),
+        }),
         expect.objectContaining({
           action: 'move',
           path: 'source.txt',
           destinationPath: 'moved.txt',
+          afterContent: 'move me',
         }),
       ],
     })

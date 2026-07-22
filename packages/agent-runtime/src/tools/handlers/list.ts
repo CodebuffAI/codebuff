@@ -1,7 +1,6 @@
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
 import { handleApplyPatch } from './tool/apply-patch'
-import { handleApplySmartPatch } from './tool/apply-smart-patch'
 import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCheckBackgroundAgent } from './tool/check-background-agent'
@@ -32,7 +31,6 @@ import {
   handleRender3dPreview,
 } from './tool/3d-assets'
 import { handleReadOutline } from './tool/read-outline'
-import { handleReadSlices } from './tool/read-slices'
 import { handleReadSubtree } from './tool/read-subtree'
 import { handleReplaceRange } from './tool/replace-range'
 import { handleRewriteSymbol } from './tool/rewrite-symbol'
@@ -80,7 +78,6 @@ export const codebuffToolHandlers = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
   apply_patch: handleApplyPatch,
-  apply_smart_patch: handleApplySmartPatch,
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
   check_background_agent: handleCheckBackgroundAgent,
@@ -108,7 +105,6 @@ export const codebuffToolHandlers = {
   read_image: handleReadImage,
   render_3d_preview: handleRender3dPreview,
   read_outline: handleReadOutline,
-  read_slices: handleReadSlices,
   read_subtree: handleReadSubtree,
   replace_range: handleReplaceRange,
   rewrite_symbol: handleRewriteSymbol,

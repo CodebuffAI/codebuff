@@ -21,7 +21,6 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
 // List of all available tools
 export const toolNames = [
   'apply_patch',
-  'apply_smart_patch',
   'add_subgoal',
   'add_message',
   'ask_user',
@@ -58,7 +57,6 @@ export const toolNames = [
   'render_3d_preview',
   'read_logs',
   'read_outline',
-  'read_slices',
   'read_subtree',
   'replace_range',
   'rewrite_symbol',
@@ -85,7 +83,6 @@ export const toolNames = [
 
 export const publishedTools = [
   'apply_patch',
-  'apply_smart_patch',
   'add_message',
   'ask_user',
   'check_background_agent',
@@ -119,7 +116,6 @@ export const publishedTools = [
   'render_3d_preview',
   'read_logs',
   'read_outline',
-  'read_slices',
   'read_subtree',
   'replace_range',
   'rewrite_symbol',
@@ -153,8 +149,6 @@ export type PublishedToolName = (typeof publishedTools)[number]
  * receive an explicit compatibility response instead of an unknown-tool error.
  */
 export const quarantinedToolNames: readonly ToolName[] = [
-  'apply_smart_patch',
-  'read_slices',
   // Registered for compatibility (persisted histories / external callers) but
   // granted to no shipped agent. Quarantined so they are not
   // prompt-visible-yet-unreachable dead tools. Grant to an agent to reactivate.

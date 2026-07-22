@@ -66,6 +66,14 @@ export type Base2GateState = {
   gatePassedReviewerVerdict: string
   gatePassedValidationSummary: string
   gatePassedFingerprint: string
+  /**
+   * Content fingerprint of the reviewable-source subset the last time the
+   * final code-reviewer gate passed. Used to skip re-review when a
+   * subsequent turn (e.g. a git-action turn with no new source edits)
+   * reopens the gate on an unchanged reviewable set. Backward-compatible:
+   * older serialized state lacks this field (treated as unset).
+   */
+  reviewedReviewableFingerprint?: string
   lastReviewerGateSkipReason: string
 }
 

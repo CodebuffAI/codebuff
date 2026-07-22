@@ -663,21 +663,18 @@ function renderWholeFileItem(
     }
   }
   const contentHash = !partial ? getContentHash(content) : undefined
-  const readCapability = contentHash
-    ? encodeReadCapabilityToken({
-        startLine: 1,
-        endLine: normalizeLineEndings(content).split('\n').length,
-        hash: contentHash,
-        ...(capabilityIssuer
-          ? {
-              scope: {
-                ...capabilityIssuer,
-                path: target.displayPath,
-              },
-            }
-          : {}),
-      })
-    : undefined
+  const readCapability =
+    contentHash && capabilityIssuer
+      ? encodeReadCapabilityToken({
+          startLine: 1,
+          endLine: normalizeLineEndings(content).split('\n').length,
+          hash: contentHash,
+          scope: {
+            ...capabilityIssuer,
+            path: target.displayPath,
+          },
+        })
+      : undefined
   return {
     selector: 'file',
     requestIndex: selector.requestIndex,
@@ -688,7 +685,6 @@ function renderWholeFileItem(
     template: target.isExampleFile,
     ...(contentHash && readCapability
       ? {
-          readCapability,
           editAnchor: {
             startLine: 1,
             endLine: normalizeLineEndings(content).split('\n').length,
@@ -786,56 +782,17 @@ function renderRangeItem(
     body = `${body.slice(0, MAX_RENDER_CHARS)}\n\n[FILE_TOO_LARGE: This range exceeded a bounded read or render limit. Request a smaller line range before editing; do not edit from this truncated range.]`
   }
   const rangeHash = complete ? getContentHash(slice) : undefined
-  const readCapability = rangeHash
-    ? encodeReadCapabilityToken({
-        startLine: desiredStart,
-        endLine: desiredEnd,
-        hash: rangeHash,
-        ...(capabilityIssuer
-          ? {
-              scope: {
-                ...capabilityIssuer,
-                path: target.displayPath,
-              },
-            }
-          : {}),
-      })
-    : undefined
-  // When the range was read from a full-file snapshot (NOT an oversized
-  // range-window read) AND the requested range is a proper subset of the file,
-  // also mint a whole-file capability so the model can authorize further
-  // sub-range edits without a re-read. The token is signed cap.v3 over the
-  // ENTIRE current file content, minted under the same capabilityIssuer scope
-  // as the range capability. SECURITY: never mint when capabilityIssuer is
-  // undefined, never mint for 'large' (oversized) snapshots, and never mint
-  // when the model could not have observed the whole file — i.e. when the
-  // returned range body was clamped at the render limit (exceedsRenderLimit,
-  // re-checked explicitly so a future refactor of `complete` cannot reopen
-  // the hole) or when the full file itself exceeds the render limit. In each
-  // of those cases the model has only seen a fragment, so a whole-file hash
-  // would be a lie.
-  const isFullFileSnapshot = snapshot.state === 'full'
-  const requestedProperSubset = desiredStart > 1 || desiredEnd < totalLines
-  const wholeFileReadCapability =
-    complete &&
-    !exceedsRenderLimit &&
-    isFullFileSnapshot &&
-    requestedProperSubset &&
-    fullContent !== undefined &&
-    fullContent.length <= MAX_RENDER_CHARS &&
-    capabilityIssuer
-      ? (() => {
-          const wholeFileNormalized = normalizeLineEndings(fullContent)
-          return encodeReadCapabilityToken({
-            startLine: 1,
-            endLine: wholeFileNormalized.split('\n').length,
-            hash: getContentHash(wholeFileNormalized),
-            scope: {
-              ...capabilityIssuer,
-              path: target.displayPath,
-            },
-          })
-        })()
+  const readCapability =
+    rangeHash && capabilityIssuer
+      ? encodeReadCapabilityToken({
+          startLine: desiredStart,
+          endLine: desiredEnd,
+          hash: rangeHash,
+          scope: {
+            ...capabilityIssuer,
+            path: target.displayPath,
+          },
+        })
       : undefined
   // Range header: emitted as a single line so normalizeReadFilesOverrideResult's
   // regex still matches (lines N-M of X ... rangeHash=...; readCapability=...).
@@ -858,8 +815,6 @@ function renderRangeItem(
     complete,
     ...(rangeHash && readCapability
       ? {
-          rangeHash,
-          readCapability,
           editAnchor: {
             startLine: desiredStart,
             endLine: desiredEnd,
@@ -868,7 +823,6 @@ function renderRangeItem(
           },
         }
       : {}),
-    ...(wholeFileReadCapability ? { wholeFileReadCapability } : {}),
     ...(!complete
       ? { truncation: { reason: 'character_limit' as const } }
       : {}),
@@ -925,59 +879,6 @@ function throwIfAborted(signal?: AbortSignal): void {
     : new DOMException('Operation aborted', 'AbortError')
 }
 
-function legacyErrorValue(error: FilesystemError): string {
-  switch (error.code) {
-    case 'not_found':
-      return FILE_READ_STATUS.DOES_NOT_EXIST
-    case 'blocked':
-      return FILE_READ_STATUS.IGNORED
-    case 'outside_project':
-      return FILE_READ_STATUS.OUTSIDE_PROJECT
-    case 'too_large':
-    case 'unsupported':
-      return `${FILE_READ_STATUS.TOO_LARGE} ${error.message}`
-    default:
-      return error.message === FILE_READ_STATUS.ERROR
-        ? FILE_READ_STATUS.ERROR
-        : `${FILE_READ_STATUS.ERROR} ${error.message}`
-  }
-}
-
-export async function getFiles(
-  params: Parameters<typeof getFilesStructured>[0],
-): Promise<Record<string, string | null>> {
-  const structured = await getFilesStructured({
-    ...params,
-    filePaths: params.filePaths.filter(Boolean),
-    ranges: params.ranges?.filter((range) => Boolean(range.path)),
-  })
-  const result: Record<string, string | null> = {}
-  const wholePaths = new Set<string>()
-  for (const item of structured.results) {
-    if (item.selector !== 'file') continue
-    wholePaths.add(item.path)
-    result[item.path] =
-      item.status === 'error'
-        ? legacyErrorValue(item.error)
-        : item.template
-          ? `${FILE_READ_STATUS.TEMPLATE}\n${item.content ?? ''}`
-          : (item.content ?? '')
-  }
-  for (const item of structured.results) {
-    if (item.selector !== 'range') continue
-    const value =
-      item.status === 'error'
-        ? legacyErrorValue(item.error)
-        : (item.content ?? '')
-    const existing = result[item.path]
-    const replaceWhole =
-      wholePaths.has(item.path) && !isRenderedRangeResult(existing)
-    result[item.path] =
-      existing && !replaceWhole ? `${existing}\n\n${value}` : value
-  }
-  return result
-}
-
 export async function getFileForEditResult(params: {
   filePath: string
   cwd: string
@@ -1026,82 +927,9 @@ export async function getFileForEditResult(params: {
   }
 }
 
-/** Legacy optional-file adapter. Prefer getFileForEditResult for typed state. */
-export async function getFileForEdit(
-  params: Parameters<typeof getFileForEditResult>[0],
-): Promise<string | null> {
-  const result = await getFileForEditResult(params)
-  return result.status === 'found'
-    ? result.content
-    : legacyErrorValue(result.error)
-}
-
-function legacyReadError(
-  value: string | null | undefined,
-): FilesystemError | null {
-  if (value === null || value === undefined) {
-    return filesystemError('not_found', FILE_READ_STATUS.DOES_NOT_EXIST, {
-      retryable: true,
-      recovery: 'discover_path',
-    })
-  }
-  const trimmed = value.trim()
-  if (trimmed.startsWith(FILE_READ_STATUS.DOES_NOT_EXIST)) {
-    return filesystemError('not_found', value, {
-      retryable: true,
-      recovery: 'discover_path',
-    })
-  }
-  if (trimmed.startsWith(FILE_READ_STATUS.IGNORED)) {
-    return filesystemError('blocked', value, { retryable: false })
-  }
-  if (trimmed.startsWith(FILE_READ_STATUS.OUTSIDE_PROJECT)) {
-    return filesystemError('outside_project', value, { retryable: false })
-  }
-  if (trimmed.startsWith(FILE_READ_STATUS.TOO_LARGE)) {
-    return filesystemError('too_large', value, {
-      retryable: true,
-      recovery: 'read_smaller_range',
-    })
-  }
-  if (trimmed.startsWith(BINARY_MARKER)) {
-    return filesystemError('binary', value, { retryable: false })
-  }
-  if (trimmed.startsWith(UNSUPPORTED_ENCODING_MARKER)) {
-    return filesystemError('unsupported_encoding', value, {
-      retryable: false,
-      recovery: 'use_supported_encoding',
-    })
-  }
-  if (trimmed.startsWith(FILE_READ_STATUS.ERROR)) {
-    return filesystemError('io_error', value, {
-      retryable: true,
-      recovery: 'read_again',
-    })
-  }
-  return null
-}
-
 type ExpectedOverrideSelector =
   | { selector: 'file'; path: string }
   | { selector: 'range'; path: string; range: FileLineRange }
-
-// Adversarial-input guard for legacy path-keyed overrides: the override
-// result is an untrusted plain object whose keys are attacker-influenced file
-// paths. Only own-enumerable properties may satisfy a lookup — a bare index
-// would resolve through the prototype chain, so a requested path colliding
-// with a prototype member name (e.g. "constructor", "toString",
-// "hasOwnProperty", "__proto__") would read an inherited function/object as
-// file content. Non-string values are equally untrusted and are normalized
-// to null so legacyReadError fails closed to not_found.
-function legacyOverrideValueForPath(
-  raw: Record<string, string | null>,
-  path: string,
-): string | null {
-  if (!Object.prototype.hasOwnProperty.call(raw, path)) return null
-  const value = raw[path]
-  return typeof value === 'string' ? value : null
-}
 
 function overrideRangeMatchesRequest(
   item: ReadFilesItemV1,
@@ -1138,7 +966,7 @@ function missingOverrideItem(
 export function normalizeReadFilesOverrideResult(params: {
   filePaths: string[]
   ranges?: FileLineRange[]
-  raw: ReadFilesResultV1 | Record<string, string | null>
+  raw: unknown
 }): ReadFilesResultV1 {
   const { filePaths, ranges = [], raw } = params
   const selectors: ExpectedOverrideSelector[] = [
@@ -1152,197 +980,64 @@ export function normalizeReadFilesOverrideResult(params: {
       range,
     })),
   ]
-  const results: ReadFilesItemV1[] = []
-
-  if (isReadFilesResultV1(raw)) {
-    const used = new Set<number>()
-    for (
-      let requestIndex = 0;
-      requestIndex < selectors.length;
-      requestIndex++
-    ) {
-      const selector = selectors[requestIndex]!
-      let sourceIndex = requestIndex
-      let item: ReadFilesItemV1 | undefined = raw.results[sourceIndex]
-      if (
-        !item ||
-        item.selector !== selector.selector ||
-        item.path !== selector.path ||
-        (selector.selector === 'range' &&
-          !overrideRangeMatchesRequest(item, selector.range) &&
-          !(item.status === 'error')) ||
-        used.has(sourceIndex)
-      ) {
-        sourceIndex = raw.results.findIndex(
-          (candidate, index) =>
-            !used.has(index) &&
-            candidate.selector === selector.selector &&
-            candidate.path === selector.path &&
-            (selector.selector !== 'range' ||
-              overrideRangeMatchesRequest(candidate, selector.range) ||
-              candidate.status === 'error'),
-        )
-        item = sourceIndex >= 0 ? raw.results[sourceIndex] : undefined
-      }
-      if (!item) {
-        results.push(missingOverrideItem(selector, requestIndex))
-        continue
-      }
-      used.add(sourceIndex)
-      results.push({ ...item, requestIndex })
-    }
-    return buildReadFilesResultV1(results)
+  if (!isReadFilesResultV1(raw)) {
+    return buildReadFilesResultV1(
+      selectors.map((selector, requestIndex) =>
+        missingOverrideItem(
+          selector,
+          requestIndex,
+          'The read_files override returned a malformed structured result. No read authorization was granted.',
+        ),
+      ),
+    )
   }
-
+  const results: ReadFilesItemV1[] = []
+  const used = new Set<number>()
   for (let requestIndex = 0; requestIndex < selectors.length; requestIndex++) {
     const selector = selectors[requestIndex]!
+    let sourceIndex = requestIndex
+    let item: ReadFilesItemV1 | undefined = raw.results[sourceIndex]
     if (
-      selector.selector === 'range' &&
-      ranges.filter((range) => range.path === selector.path).length > 1
+      !item ||
+      item.selector !== selector.selector ||
+      item.path !== selector.path ||
+      (selector.selector === 'range' &&
+        !overrideRangeMatchesRequest(item, selector.range) &&
+        item.status !== 'error') ||
+      used.has(sourceIndex)
     ) {
-      results.push(
-        missingOverrideItem(
-          selector,
-          requestIndex,
-          'Legacy path-keyed read_files overrides cannot safely correlate multiple ranges for the same path. Return structured-v1 results instead.',
-        ),
+      sourceIndex = raw.results.findIndex(
+        (candidate, index) =>
+          !used.has(index) &&
+          candidate.selector === selector.selector &&
+          candidate.path === selector.path &&
+          (selector.selector !== 'range' ||
+            overrideRangeMatchesRequest(candidate, selector.range) ||
+            candidate.status === 'error'),
       )
+      item = sourceIndex >= 0 ? raw.results[sourceIndex] : undefined
+    }
+    if (!item) {
+      results.push(missingOverrideItem(selector, requestIndex))
       continue
     }
-    // A legacy path-keyed map stores one value per path, so it cannot
-    // safely correlate a batch that requests a whole file AND a range for
-    // the same path: the range selector would consume whole-file content (or
-    // vice versa) under the wrong selector shape. (A range block in a
-    // whole-file selector is already rejected by isRenderedRangeResult.)
-    // Fail closed instead of guessing.
-    if (
-      selector.selector === 'range' &&
-      filePaths.includes(selector.path)
-    ) {
-      results.push(
-        missingOverrideItem(
-          selector,
-          requestIndex,
-          'Legacy path-keyed read_files overrides cannot safely correlate a whole-file read and range reads for the same path. Return structured-v1 results instead.',
-        ),
-      )
-      continue
-    }
-    const value = legacyOverrideValueForPath(raw, selector.path)
-    const error = legacyReadError(value)
-    if (error) {
-      results.push({
-        selector: selector.selector,
-        requestIndex,
-        path: selector.path,
-        status: 'error',
-        error,
-      })
-      continue
-    }
-    const content = value ?? ''
-    if (selector.selector === 'file') {
-      if (isRenderedRangeResult(content)) {
-        results.push(
-          missingOverrideItem(
-            selector,
-            requestIndex,
-            'The legacy path-keyed override returned a range block for a whole-file selector.',
-          ),
-        )
-        continue
-      }
-      const template = content.startsWith(FILE_READ_STATUS.TEMPLATE)
-      const renderedContent = template
-        ? content.slice(FILE_READ_STATUS.TEMPLATE.length).replace(/^\n/, '')
-        : content
-      const partial = renderedContent.includes('[FILE_TOO_LARGE:')
-      results.push({
-        selector: 'file',
-        requestIndex,
-        path: selector.path,
-        status: partial ? 'partial' : 'ok',
-        content: renderedContent,
-        complete: !partial,
-        template,
-        ...(partial
-          ? { truncation: { reason: 'character_limit' as const } }
-          : {}),
-      })
-      continue
-    }
-
-    // The range header is a single line:
-    // `[RANGE_BLOCK lines N-M of X in path; rangeHash=...; readCapability=...; preferred block edit: ...; scoped str_replace: ...]`.
-    // `.*?` (dotall) skips ahead to the rangeHash/readCapability tokens, and
-    // excluding \n from those capture groups keeps them from over-capturing
-    // into the trailing guidance or the rendered body below the header.
-    const header = content.match(
-      /^\[RANGE_BLOCK lines (\d+)-(\d+) of ([\d,]+).*?rangeHash=([^;\]\n]+); readCapability=([^;\]\n]+)/s,
-    )
-    if (!header) {
-      results.push(
-        missingOverrideItem(
-          selector,
-          requestIndex,
-          'The legacy read_files override did not return a valid range block for the requested range.',
-        ),
-      )
-      continue
-    }
-    const partial =
-      content.includes('[FILE_TOO_LARGE:') || header[4] === 'omitted'
-    const startLine = Number(header[1])
-    const endLine = Number(header[2])
-    const requestedStart = Math.max(1, selector.range.startLine ?? 1)
-    const requestedEnd = selector.range.endLine ?? Number.MAX_SAFE_INTEGER
-    if (startLine !== requestedStart || endLine > requestedEnd) {
-      results.push(
-        missingOverrideItem(
-          selector,
-          requestIndex,
-          'The legacy read_files override returned coordinates that do not match the requested range.',
-        ),
-      )
-      continue
-    }
-    results.push({
-      selector: 'range',
-      requestIndex,
-      path: selector.path,
-      status: partial ? 'partial' : 'ok',
-      content,
-      startLine,
-      endLine,
-      totalLines: Number(header[3]!.replaceAll(',', '')),
-      complete: !partial,
-      ...(!partial ? { rangeHash: header[4], readCapability: header[5] } : {}),
-      ...(partial
-        ? { truncation: { reason: 'character_limit' as const } }
-        : {}),
-    })
+    used.add(sourceIndex)
+    results.push({ ...item, requestIndex })
   }
   return buildReadFilesResultV1(results)
 }
 
-/** v0 and v1 overrides keep one logical batch call and ordered adaptation. */
+/** Structured overrides keep one logical batch call and ordered adaptation. */
 export async function getFilesStructuredFromOverride(params: {
   filePaths: string[]
   ranges?: FileLineRange[]
   override: (input: {
     filePaths: string[]
     ranges?: FileLineRange[]
-  }) => Promise<ReadFilesResultV1 | Record<string, string | null>>
+  }) => Promise<ReadFilesResultV1>
 }): Promise<ReadFilesResultV1> {
   const { filePaths, ranges = [], override } = params
   const raw = await override({ filePaths, ranges })
   return normalizeReadFilesOverrideResult({ filePaths, ranges, raw })
 }
 
-export function isRenderedRangeResult(
-  value: string | null | undefined,
-): boolean {
-  return typeof value === 'string' && value.startsWith(RANGE_BLOCK_MARKER)
-}
-
-export { legacyOverrideValueForPath }

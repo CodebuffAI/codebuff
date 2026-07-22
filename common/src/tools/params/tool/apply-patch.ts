@@ -6,7 +6,6 @@ import {
   isObviousEditPlaceholder,
   jsonToolResultSchema,
 } from '../utils'
-import { basedOnReadRangeSchema } from '../based-on-read'
 import { fileMutationResultV1Schema } from '../../results/filesystem'
 import {
   decodeReadCapabilityToken,
@@ -76,13 +75,11 @@ const operationSchema = z.discriminatedUnion('type', [
     basedOnRead: z
       .preprocess(
         coerceToArray,
-        z.array(
-          z.union([scopedReadCapabilityTokenSchema, basedOnReadRangeSchema]),
-        ),
+        z.array(scopedReadCapabilityTokenSchema),
       )
       .optional()
       .describe(
-        'Required for large-file update patches. Prefer one authenticated cap.v3 token per touched hunk, copied from fresh read_files.ranges headers. Legacy range objects remain freshness checks but cannot authorize an otherwise unread path in strict mode.',
+        'Required for large-file update patches. Supply one authenticated cap.v3 token per touched hunk, copied from fresh read_files.ranges headers.',
       ),
   }),
   z.object({

@@ -1,27 +1,53 @@
 import { describe, expect, test } from 'bun:test'
 
 import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
+import {
+  encodeReadCapabilityToken,
+  getContentHash,
+} from '@codebuff/common/util/content-hash'
 
-import { getRangeContentHash, replaceRange } from '../tools/replace-range'
+import { replaceRange } from '../tools/replace-range'
+
+const capabilityIssuer = { projectId: '/repo', runId: 'replace-range-test' }
+
+function capability(params: {
+  path?: string
+  startLine: number
+  endLine: number
+  content: string
+  runId?: string
+}): string {
+  return encodeReadCapabilityToken({
+    startLine: params.startLine,
+    endLine: params.endLine,
+    hash: getContentHash(params.content),
+    scope: {
+      projectId: '/repo',
+      path: params.path ?? 'src/file.ts',
+      runId: params.runId ?? capabilityIssuer.runId,
+    },
+  })
+}
 
 describe('replaceRange', () => {
-  test('replaces a hash-verified line range', async () => {
+  test('replaces a cap.v3-verified line range', async () => {
     const fs = createMockFs({
-      files: {
-        '/repo/src/file.ts': 'line 1\nline 2\nline 3\n',
-      },
+      files: { '/repo/src/file.ts': 'line 1\nline 2\nline 3\n' },
     })
 
     const result = await replaceRange({
       parameters: {
         path: 'src/file.ts',
-        startLine: 2,
-        endLine: 2,
-        expectedHash: getRangeContentHash('line 2'),
+        readCapability: capability({
+          startLine: 2,
+          endLine: 2,
+          content: 'line 2',
+        }),
         newContent: 'updated line 2',
       },
       cwd: '/repo',
       fs,
+      capabilityIssuer,
     })
 
     expect(result[0].type).toBe('json')
@@ -43,157 +69,230 @@ describe('replaceRange', () => {
     )
   })
 
-  test('rejects stale ranges before editing', async () => {
+  test('returns a fresh capability that authorizes an immediate follow-up edit', async () => {
     const fs = createMockFs({
-      files: {
-        '/repo/src/file.ts': 'line 1\nline 2\nline 3\n',
-      },
+      files: { '/repo/src/file.ts': 'line 1\nline 2\nline 3\n' },
     })
 
-    const result = await replaceRange({
+    const first = await replaceRange({
       parameters: {
         path: 'src/file.ts',
-        startLine: 2,
-        endLine: 2,
-        expectedHash: getRangeContentHash('old line 2'),
+        readCapability: capability({
+          startLine: 2,
+          endLine: 2,
+          content: 'line 2',
+        }),
         newContent: 'updated line 2',
       },
       cwd: '/repo',
       fs,
+      capabilityIssuer,
+    })
+    const firstValue = first[0]?.type === 'json' ? first[0].value : undefined
+    if (
+      !firstValue ||
+      typeof firstValue !== 'object' ||
+      !('freshCapabilities' in firstValue) ||
+      !Array.isArray(firstValue.freshCapabilities)
+    ) {
+      throw new Error('expected a fresh post-edit capability')
+    }
+    const freshCapability = firstValue.freshCapabilities[0]
+    if (
+      !freshCapability ||
+      typeof freshCapability !== 'object' ||
+      !('token' in freshCapability) ||
+      typeof freshCapability.token !== 'string'
+    ) {
+      throw new Error('expected a fresh post-edit capability token')
+    }
+
+    const second = await replaceRange({
+      parameters: {
+        path: 'src/file.ts',
+        readCapability: freshCapability.token,
+        startLine: 3,
+        endLine: 3,
+        newContent: 'updated line 3',
+      },
+      cwd: '/repo',
+      fs,
+      capabilityIssuer,
     })
 
-    const currentHash = getRangeContentHash('line 2')
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: 'src/file.ts',
-          errorMessage: expect.stringContaining('target range is stale'),
-        },
-      },
-    ])
-    expect(result[0].type).toBe('json')
-    if (result[0].type === 'json') {
-      expect(result[0].value).toHaveProperty('errorMessage')
-      if (!('errorMessage' in result[0].value)) {
-        throw new Error('Expected replace_range error result')
-      }
-      const errorMessage = result[0].value.errorMessage
-      expect(errorMessage).not.toContain('Checked current lines: 2-2.')
-      expect(errorMessage).toContain('Current file length: 3 lines.')
-      expect(errorMessage).toContain(
-        `Current hash for requested range: ${currentHash}.`,
-      )
-      expect(errorMessage).toContain('discard any old expectedHash/rangeHash')
-      expect(errorMessage).toContain(
-        're-read this path with a visible line span first',
-      )
-      expect(errorMessage).toContain(
-        'Re-read with read_files ranges: [{ path: "src/file.ts", startLine: 2, endLine: 2 }]',
-      )
-      expect(errorMessage).toContain('use the new rangeHash as expectedHash')
-      expect(errorMessage).toContain(
-        'Retry replace_range only if the fresh read shows the selected range still contains the intended target.',
-      )
-      expect(errorMessage).toContain('If the fresh read shows the target moved')
-      expect(errorMessage).toContain(
-        'str_replace/rewrite_symbol with fresh context',
-      )
-    }
+    expect(second[0]).toMatchObject({
+      type: 'json',
+      value: { kind: 'file_mutation_result', outcome: 'applied' },
+    })
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
-      'line 1\nline 2\nline 3\n',
+      'line 1\nupdated line 2\nupdated line 3\n',
     )
   })
 
-  test('notes when a stale range check is truncated by current file length', async () => {
+  test('uses a whole-file capability to authorize a contained target', async () => {
     const fs = createMockFs({
-      files: {
-        '/repo/src/file.ts': 'line 1\nline 2\nline 3\n',
-      },
-    })
-
-    const result = await replaceRange({
-      parameters: {
-        path: 'src/file.ts',
-        startLine: 2,
-        endLine: 8,
-        expectedHash: getRangeContentHash('old line 2'),
-        newContent: 'updated line 2',
-      },
-      cwd: '/repo',
-      fs,
-    })
-
-    expect(result[0].type).toBe('json')
-    if (result[0].type === 'json') {
-      expect(result[0].value).toHaveProperty('errorMessage')
-      if (!('errorMessage' in result[0].value)) {
-        throw new Error('Expected replace_range error result')
-      }
-      const errorMessage = result[0].value.errorMessage
-      expect(errorMessage).toContain('Requested lines: 2-8.')
-      expect(errorMessage).toContain(
-        'Checked current lines: 2-3 because the requested endLine is beyond the current file length.',
-      )
-      expect(errorMessage).toContain(
-        'Use endLine <= 3 when re-reading; do not include a trailing phantom line beyond the visible file length.',
-      )
-      expect(errorMessage).toContain(
-        'Re-read with read_files ranges: [{ path: "src/file.ts", startLine: 2, endLine: 3 }]',
-      )
-      expect(errorMessage).toContain('Current file length: 3 lines.')
-    }
-  })
-
-  test('rejects no-op range replacements', async () => {
-    const fs = createMockFs({
-      files: {
-        '/repo/src/file.ts': 'line 1\nline 2\n',
-      },
-    })
-
-    const result = await replaceRange({
-      parameters: {
-        path: 'src/file.ts',
-        startLine: 1,
-        endLine: 1,
-        expectedHash: getRangeContentHash('line 1'),
-        newContent: 'line 1',
-      },
-      cwd: '/repo',
-      fs,
-    })
-
-    expect(result).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: 'src/file.ts',
-          errorMessage: expect.stringContaining(
-            'identical to the current range',
-          ),
-        },
-      },
-    ])
-  })
-
-  test('preserves CRLF line endings', async () => {
-    const fs = createMockFs({
-      files: {
-        '/repo/src/file.ts': 'line 1\r\nline 2\r\nline 3\r\n',
-      },
+      files: { '/repo/src/file.ts': 'line 1\nline 2\nline 3\n' },
     })
 
     await replaceRange({
       parameters: {
         path: 'src/file.ts',
+        readCapability: capability({
+          startLine: 1,
+          endLine: 3,
+          content: 'line 1\nline 2\nline 3',
+        }),
         startLine: 2,
         endLine: 2,
-        expectedHash: getRangeContentHash('line 2'),
         newContent: 'updated line 2',
       },
       cwd: '/repo',
       fs,
+      capabilityIssuer,
+    })
+
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
+      'line 1\nupdated line 2\nline 3\n',
+    )
+  })
+
+  test('rejects stale capability-covered content before editing', async () => {
+    const fs = createMockFs({
+      files: { '/repo/src/file.ts': 'line 1\nline 2\nline 3\n' },
+    })
+
+    const result = await replaceRange({
+      parameters: {
+        path: 'src/file.ts',
+        readCapability: capability({
+          startLine: 2,
+          endLine: 2,
+          content: 'old line 2',
+        }),
+        newContent: 'updated line 2',
+      },
+      cwd: '/repo',
+      fs,
+      capabilityIssuer,
+    })
+
+    expect(result[0]).toMatchObject({
+      type: 'json',
+      value: { errorMessage: expect.stringContaining('changed after') },
+    })
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
+      'line 1\nline 2\nline 3\n',
+    )
+  })
+
+  test('rejects a capability from another run', async () => {
+    const fs = createMockFs({
+      files: { '/repo/src/file.ts': 'line 1\nline 2\n' },
+    })
+
+    const result = await replaceRange({
+      parameters: {
+        path: 'src/file.ts',
+        readCapability: capability({
+          startLine: 1,
+          endLine: 1,
+          content: 'line 1',
+          runId: 'other-run',
+        }),
+        newContent: 'updated line 1',
+      },
+      cwd: '/repo',
+      fs,
+      capabilityIssuer,
+    })
+
+    expect(result[0]).toMatchObject({
+      type: 'json',
+      value: {
+        errorMessage: expect.stringContaining(
+          'different project, path, or agent run',
+        ),
+      },
+    })
+  })
+
+  test('rejects no-op range replacements', async () => {
+    const fs = createMockFs({
+      files: { '/repo/src/file.ts': 'line 1\nline 2\n' },
+    })
+
+    const result = await replaceRange({
+      parameters: {
+        path: 'src/file.ts',
+        readCapability: capability({
+          startLine: 1,
+          endLine: 1,
+          content: 'line 1',
+        }),
+        newContent: 'line 1',
+      },
+      cwd: '/repo',
+      fs,
+      capabilityIssuer,
+    })
+
+    expect(result[0]).toMatchObject({
+      type: 'json',
+      value: {
+        errorMessage: expect.stringContaining('identical to the current range'),
+      },
+    })
+  })
+
+  test('supports direct whole-file cap-only replacement with a trailing newline', async () => {
+    const fs = createMockFs({
+      files: { '/repo/src/file.ts': 'old content\n' },
+    })
+
+    const result = await replaceRange({
+      parameters: {
+        path: 'src/file.ts',
+        readCapability: capability({
+          startLine: 1,
+          endLine: 2,
+          content: 'old content\n',
+        }),
+        startLine: 1,
+        endLine: 2,
+        newContent: 'new content\n',
+      },
+      cwd: '/repo',
+      fs,
+      capabilityIssuer,
+    })
+
+    expect(result[0]).toMatchObject({
+      type: 'json',
+      value: { kind: 'file_mutation_result', outcome: 'applied' },
+    })
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
+      'new content\n',
+    )
+  })
+
+  test('preserves CRLF line endings', async () => {
+    const fs = createMockFs({
+      files: { '/repo/src/file.ts': 'line 1\r\nline 2\r\nline 3\r\n' },
+    })
+
+    await replaceRange({
+      parameters: {
+        path: 'src/file.ts',
+        readCapability: capability({
+          startLine: 2,
+          endLine: 2,
+          content: 'line 2',
+        }),
+        newContent: 'updated line 2',
+      },
+      cwd: '/repo',
+      fs,
+      capabilityIssuer,
     })
 
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(

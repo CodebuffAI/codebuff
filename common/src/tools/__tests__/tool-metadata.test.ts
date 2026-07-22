@@ -52,7 +52,6 @@ describe('tool metadata', () => {
     ]
     for (const toolName of [
       'apply_patch',
-      'apply_smart_patch',
       'create_plan',
       'edit_transaction',
       'replace_range',

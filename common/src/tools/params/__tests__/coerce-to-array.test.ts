@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 import z from 'zod/v4'
 
+import { applyPatchParams } from '../tool/apply-patch'
+import {
+  encodeReadCapabilityToken,
+  getContentHash,
+} from '../../../util/content-hash'
 import {
   coerceToArray,
   coerceToObject,
@@ -527,6 +532,55 @@ describe('coerceToArray with Zod schemas', () => {
   })
 })
 
+describe('apply_patch basedOnRead coercion', () => {
+  const readCapability = encodeReadCapabilityToken({
+    startLine: 1,
+    endLine: 2,
+    hash: getContentHash('fresh range'),
+    scope: {
+      projectId: '/project',
+      path: 'src/file.ts',
+      runId: 'run-123',
+    },
+  })
+
+  it('coerces one scoped cap.v3 token to an array', () => {
+    const parsed = applyPatchParams.inputSchema.safeParse({
+      operation: {
+        type: 'update_file',
+        path: 'src/file.ts',
+        diff: '@@\n-old\n+new\n',
+        basedOnRead: readCapability,
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success && parsed.data.operation.type === 'update_file') {
+      expect(parsed.data.operation.basedOnRead).toEqual([readCapability])
+    }
+  })
+
+  it('rejects cap.v2 and object anchors after coercion', () => {
+    const legacyValues = [
+      'cap.v2.1.2.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      { startLine: 1, endLine: 2, hash: getContentHash('fresh range') },
+    ]
+
+    for (const basedOnRead of legacyValues) {
+      expect(
+        applyPatchParams.inputSchema.safeParse({
+          operation: {
+            type: 'update_file',
+            path: 'src/file.ts',
+            diff: '@@\n-old\n+new\n',
+            basedOnRead,
+          },
+        }).success,
+      ).toBe(false)
+    }
+  })
+})
+
 describe('coerceToObject with Zod schemas', () => {
   it('produces identical JSON schema with or without preprocess', () => {
     const plain = z.object({
@@ -545,49 +599,74 @@ describe('coerceToObject with Zod schemas', () => {
 })
 
 describe('normalizeReplacementAliases', () => {
-  it('maps old_str and new_str onto the documented replacement keys', () => {
-    expect(
-      normalizeReplacementAliases({
-        old_str: 'before',
-        new_str: 'after',
+  it('consumes documented aliases after canonicalization', () => {
+    for (const [oldKey, newKey] of [
+      ['old', 'new'],
+      ['old_str', 'new_str'],
+      ['old_string', 'new_string'],
+    ] as const) {
+      const input = {
+        [oldKey]: 'before',
+        [newKey]: 'after',
         allowMultiple: true,
-      }),
-    ).toEqual({
-      old_str: 'before',
-      new_str: 'after',
-      oldString: 'before',
-      newString: 'after',
-      allowMultiple: true,
-    })
+      }
+
+      expect(normalizeReplacementAliases(input)).toEqual({
+        oldString: 'before',
+        newString: 'after',
+        allowMultiple: true,
+      })
+      expect(input).toEqual({
+        [oldKey]: 'before',
+        [newKey]: 'after',
+        allowMultiple: true,
+      })
+    }
   })
 
-  it('maps old_string and new_string onto the documented replacement keys', () => {
-    expect(
-      normalizeReplacementAliases({
-        old_string: 'before',
-        new_string: 'after',
-      }),
-    ).toEqual({
-      old_string: 'before',
-      new_string: 'after',
-      oldString: 'before',
-      newString: 'after',
-    })
-  })
-
-  it('does not overwrite documented replacement keys', () => {
+  it('consumes equivalent canonical and alias values', () => {
     expect(
       normalizeReplacementAliases({
         oldString: 'before',
+        old: 'before',
+        old_str: 'before',
         newString: 'after',
-        old_str: 'ignored',
-        new_str: 'ignored',
+        new_string: 'after',
+      }),
+    ).toEqual({ oldString: 'before', newString: 'after' })
+  })
+
+  it('preserves aliases that conflict with canonical values', () => {
+    expect(
+      normalizeReplacementAliases({
+        oldString: 'before',
+        old_str: 'different before',
+        newString: 'after',
+        new_str: 'different after',
       }),
     ).toEqual({
       oldString: 'before',
+      old_str: 'different before',
       newString: 'after',
-      old_str: 'ignored',
-      new_str: 'ignored',
+      new_str: 'different after',
+    })
+  })
+
+  it('preserves conflicting aliases while consuming equivalent duplicates', () => {
+    expect(
+      normalizeReplacementAliases({
+        old: 'before',
+        old_str: 'before',
+        old_string: 'different before',
+        new: 'after',
+        new_str: 'different after',
+        new_string: 'after',
+      }),
+    ).toEqual({
+      oldString: 'before',
+      old_string: 'different before',
+      newString: 'after',
+      new_str: 'different after',
     })
   })
 })

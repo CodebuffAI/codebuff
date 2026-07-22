@@ -7,7 +7,7 @@ import { codeSearch } from './code-search'
 import { findFilesMatchingContent } from './find-files-matching-content'
 import { glob } from './glob'
 import { listDirectory } from './list-directory'
-import { getFiles, getFilesStructured } from './read-files'
+import { getFilesStructured } from './read-files'
 import { replaceRange } from './replace-range'
 import { runFileChangeHooks } from './file-change-hooks'
 import { runTerminalCommand } from './run-terminal-command'
@@ -60,7 +60,6 @@ export const ToolHelpers = {
   findFilesMatchingContent,
   glob,
   listDirectory,
-  getFiles,
   getFilesStructured,
   replaceRange,
   runFileChangeHooks,

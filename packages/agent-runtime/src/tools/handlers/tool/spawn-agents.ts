@@ -17,7 +17,6 @@ import {
   buildSpawnParamsWithHandoff,
   deriveSpawnTemplateCapabilities,
   validateVersionedAgentHandoff,
-  normalizeSpawnedAgentOutput,
   buildRuntimeAgentReceipt,
   reconcileAgentReceiptIntoParent,
   createCombinedAbortSignal,
@@ -438,7 +437,7 @@ export const handleSpawnAgents = (async (
             agentId: result.agentState.agentId,
             agentName: agentTemplate.displayName,
             agentType,
-            output: normalizeSpawnedAgentOutput(result.output, agentType),
+            output: receipt.output,
             agentReceipt: receipt,
             creditsUsed: result.agentState.creditsUsed || 0,
           }
@@ -623,7 +622,7 @@ export const handleSpawnAgents = (async (
           agentId: agentState.agentId,
           agentName,
           agentType,
-          value: normalizeSpawnedAgentOutput(output, agentType) as JSONValue,
+          value: receipt.output as JSONValue,
           agentReceipt: receipt as unknown as JSONValue,
         }
       } else {

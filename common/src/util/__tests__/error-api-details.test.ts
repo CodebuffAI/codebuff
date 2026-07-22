@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { extractApiErrorDetails } from '../error'
+import { extractApiErrorDetails, getErrorObject } from '../error'
 
 describe('extractApiErrorDetails', () => {
   it('extracts structured details from nested retry errors', () => {
@@ -65,5 +65,30 @@ describe('extractApiErrorDetails', () => {
       message:
         'Request had invalid authentication credentials. Expected OAuth 2 access token. (ACCESS_TOKEN_TYPE_UNSUPPORTED)',
     })
+  })
+})
+
+describe('getErrorObject non-Error serialization', () => {
+  it('serializes a plain object throw into legible JSON instead of [object Object]', () => {
+    const result = getErrorObject({
+      errorMessage: 'Upstream service temporarily unavailable',
+    })
+    expect(result.name).toBe('Error')
+    expect(result.message).not.toBe('[object Object]')
+    expect(result.message).toContain('Upstream service temporarily unavailable')
+  })
+
+  it('preserves the Error branch message unchanged', () => {
+    const result = getErrorObject(new Error('boom'))
+    expect(result.name).toBe('Error')
+    expect(result.message).toBe('boom')
+  })
+
+  it('renders primitive and null/undefined throws via string coercion', () => {
+    expect(getErrorObject('plain string error').message).toBe(
+      'plain string error',
+    )
+    expect(getErrorObject(null).message).toBe('null')
+    expect(getErrorObject(undefined).message).toBe('undefined')
   })
 })

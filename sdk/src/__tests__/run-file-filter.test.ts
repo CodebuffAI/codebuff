@@ -1,5 +1,8 @@
 import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
-import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
+import {
+  buildReadFilesResultV1,
+  type ReadFilesResultV1,
+} from '@codebuff/common/tools/results/filesystem'
 import * as projectFileTree from '@codebuff/common/project-file-tree'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
@@ -88,7 +91,7 @@ describe('OpenbuffClientOptions fileFilter', () => {
       },
     })
 
-    let requestedFiles: Record<string, string | null> = {}
+    let requestedFiles: ReadFilesResultV1 = buildReadFilesResultV1([])
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
@@ -96,9 +99,9 @@ describe('OpenbuffClientOptions fileFilter', () => {
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         // Simulate agent requesting files
-        requestedFiles = (await requestFiles({
+        requestedFiles = await requestFiles({
           filePaths: ['.env', 'src/index.ts'],
-        })) as Record<string, string | null>
+        })
 
         await sendAction({
           action: {
@@ -136,7 +139,6 @@ describe('OpenbuffClientOptions fileFilter', () => {
       cwd: '/project',
       fsSource: mockFs,
       fileFilter,
-      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -147,8 +149,20 @@ describe('OpenbuffClientOptions fileFilter', () => {
     expect(result.output.type).toBe('lastMessage')
     expect(filterCalls).not.toContain('.env')
     expect(filterCalls).toContain('src/index.ts')
-    expect(requestedFiles['.env']).toBe(FILE_READ_STATUS.IGNORED)
-    expect(requestedFiles['src/index.ts']).toBe('console.log("hello")')
+    expect(requestedFiles.results).toContainEqual(
+      expect.objectContaining({
+        path: '.env',
+        status: 'error',
+        error: expect.objectContaining({ code: 'blocked' }),
+      }),
+    )
+    expect(requestedFiles.results).toContainEqual(
+      expect.objectContaining({
+        path: 'src/index.ts',
+        status: 'ok',
+        content: 'console.log("hello")',
+      }),
+    )
   })
 
   it('should mark files as templates when filter returns allow-example', async () => {
@@ -173,16 +187,16 @@ describe('OpenbuffClientOptions fileFilter', () => {
       },
     })
 
-    let requestedFiles: Record<string, string | null> = {}
+    let requestedFiles: ReadFilesResultV1 = buildReadFilesResultV1([])
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
-        requestedFiles = (await requestFiles({
+        requestedFiles = await requestFiles({
           filePaths: ['.env.example'],
-        })) as Record<string, string | null>
+        })
 
         await sendAction({
           action: {
@@ -218,7 +232,6 @@ describe('OpenbuffClientOptions fileFilter', () => {
       cwd: '/project',
       fsSource: mockFs,
       fileFilter,
-      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -227,9 +240,13 @@ describe('OpenbuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    // Template files should have TEMPLATE prefix
-    expect(requestedFiles['.env.example']).toBe(
-      FILE_READ_STATUS.TEMPLATE + '\n' + 'API_KEY=your_key_here',
+    expect(requestedFiles.results).toContainEqual(
+      expect.objectContaining({
+        path: '.env.example',
+        status: 'ok',
+        template: true,
+        content: 'API_KEY=your_key_here',
+      }),
     )
   })
 
@@ -304,7 +321,6 @@ describe('OpenbuffClientOptions fileFilter', () => {
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
-      filesystemResultFormat: 'legacy-v0',
       fileFilter,
     })
 
@@ -379,7 +395,6 @@ describe('OpenbuffClientOptions fileFilter', () => {
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
-      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -412,16 +427,16 @@ describe('OpenbuffClientOptions fileFilter', () => {
       },
     })
 
-    let requestedFiles: Record<string, string | null> = {}
+    let requestedFiles: ReadFilesResultV1 = buildReadFilesResultV1([])
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
-        requestedFiles = (await requestFiles({
+        requestedFiles = await requestFiles({
           filePaths: ['src/index.ts'],
-        })) as Record<string, string | null>
+        })
 
         await sendAction({
           action: {
@@ -445,13 +460,10 @@ describe('OpenbuffClientOptions fileFilter', () => {
       },
     )
 
-    // No fileFilter provided. This assertion exercises explicit legacy
-    // compatibility; structured-v1 is the SDK default.
     const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
-      filesystemResultFormat: 'legacy-v0',
     })
 
     const result = await client.run({
@@ -460,7 +472,13 @@ describe('OpenbuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(requestedFiles['src/index.ts']).toBe('normal file content')
+    expect(requestedFiles.results).toContainEqual(
+      expect.objectContaining({
+        path: 'src/index.ts',
+        status: 'ok',
+        content: 'normal file content',
+      }),
+    )
   })
 
   it('returns structured read results by default', async () => {
@@ -513,8 +531,16 @@ describe('OpenbuffClientOptions fileFilter', () => {
       fsSource: mockFs,
       overrideTools: {
         read_files: async ({ filePaths }) =>
-          Object.fromEntries(
-            filePaths.map((filePath) => [filePath, 'normal file content']),
+          buildReadFilesResultV1(
+            filePaths.map((filePath, requestIndex) => ({
+              selector: 'file' as const,
+              requestIndex,
+              path: filePath,
+              status: 'ok' as const,
+              content: 'normal file content',
+              complete: true,
+              template: false,
+            })),
           ),
       },
     })

@@ -10,7 +10,10 @@ import {
   type FileContentChange,
 } from '@codebuff/common/actions'
 import { fileExists } from '@codebuff/common/util/file'
-import { getContentHash } from '@codebuff/common/util/content-hash'
+import {
+  getContentHash,
+  type ReadCapabilityIssuer,
+} from '@codebuff/common/util/content-hash'
 import {
   buildFileMutationResultFromReceiptV1,
   fileMutationResultV1Schema,
@@ -61,9 +64,18 @@ export async function changeFile(params: {
   fileFilter?: FileFilter
   callId?: string
   filesystemPolicy?: FilesystemAuthorityPolicy
+  capabilityIssuer?: ReadCapabilityIssuer
 }): Promise<CodebuffToolOutput<'str_replace'>> {
-  const { parameters, cwd, fs, signal, fileFilter, callId, filesystemPolicy } =
-    params
+  const {
+    parameters,
+    cwd,
+    fs,
+    signal,
+    fileFilter,
+    callId,
+    filesystemPolicy,
+    capabilityIssuer,
+  } = params
 
   const fileChange = FileContentChangeSchema.parse(parameters)
   const resolvedPath = await resolveFilePathForFileSystemOperation(
@@ -105,6 +117,7 @@ export async function changeFile(params: {
               outcome: 'applied',
               beforeHash: result.beforeHash,
               afterHash: result.afterHash,
+              afterContent: result.finalContent,
               ...(fileChange.type === 'patch'
                 ? { patch: fileChange.content }
                 : {}),
@@ -114,12 +127,16 @@ export async function changeFile(params: {
           receiptId: result.authorityReceipt.receiptId,
           authorityReceipt: result.authorityReceipt,
           errors: [],
-          freshCapabilities: [
-            buildFreshWholeFileCapability(
-              result.canonicalPath,
-              result.finalContent,
-            ),
-          ],
+          freshCapabilities: capabilityIssuer
+            ? [
+                buildFreshWholeFileCapability({
+                  canonicalPath: result.canonicalPath,
+                  path: result.file,
+                  content: result.finalContent,
+                  capabilityIssuer,
+                }),
+              ]
+            : [],
         }),
       },
     ]
@@ -167,9 +184,18 @@ export async function changeFiles(params: {
   fileFilter?: FileFilter
   callId?: string
   filesystemPolicy?: FilesystemAuthorityPolicy
+  capabilityIssuer?: ReadCapabilityIssuer
 }): Promise<CodebuffToolOutput<'edit_transaction'>> {
-  const { parameters, cwd, fs, signal, fileFilter, callId, filesystemPolicy } =
-    params
+  const {
+    parameters,
+    cwd,
+    fs,
+    signal,
+    fileFilter,
+    callId,
+    filesystemPolicy,
+    capabilityIssuer,
+  } = params
   const parsedChanges = CHANGES.safeParse(parameters)
   if (!parsedChanges.success) {
     const resourceIssue = parsedChanges.error.issues.find((issue) =>
@@ -508,15 +534,25 @@ export async function changeFiles(params: {
             receipt,
             [],
             prepared.flatMap((change) => {
-              if (change.afterContent === null) return []
+              if (change.afterContent === null || !capabilityIssuer) return []
               return [
-                buildFreshWholeFileCapability(
-                  change.destination?.canonicalPath ??
+                buildFreshWholeFileCapability({
+                  canonicalPath:
+                    change.destination?.canonicalPath ??
                     change.source.canonicalPath,
-                  change.afterContent,
-                ),
+                  path: change.destinationPath ?? change.path,
+                  content: change.afterContent,
+                  capabilityIssuer,
+                }),
               ]
             }),
+            new Map<number | string, string>(
+              prepared.flatMap((change) =>
+                change.afterContent === null
+                  ? []
+                  : [[change.index, change.afterContent] as const],
+              ),
+            ),
           ),
         },
       ]

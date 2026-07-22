@@ -135,6 +135,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       startLine: 1,
       endLine: 2,
       hash: getContentHash(fileContent),
+      scope: { projectId: '', path, runId: '' },
     })
     const result = await handleStrReplace({
       previousToolCallFinished: Promise.resolve(),
@@ -190,6 +191,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       startLine: 1,
       endLine: 2,
       hash: getContentHash(fileContent),
+      scope: { projectId: '', path, runId: '' },
     })
     // An oldString that does NOT exist in the file forces processStrReplace to
     // return a hard error, which increments the counter. The basedOnRead is
@@ -238,6 +240,7 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       startLine: 1,
       endLine: 2,
       hash: getContentHash(fileContent),
+      scope: { projectId: '', path, runId: '' },
     })
     const result2 = await handleStrReplace({
       previousToolCallFinished: Promise.resolve(),

@@ -13,6 +13,7 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 import type { PromptResult } from '@codebuff/common/util/error'
+import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 
 /**
  * P0-4 — Tool-level parallelism tests.
@@ -140,7 +141,7 @@ describe('stream parser tool parallelism (P0-4)', () => {
       requestFiles: async () => {
         await delay(READ_DELAY_MS)
         // Return empty content; we only care about timing here.
-        return {}
+        return buildReadFilesResultV1([])
       },
       requestToolCall: async () => ({ output: [] }),
     }
@@ -171,7 +172,7 @@ describe('stream parser tool parallelism (P0-4)', () => {
     const agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps = {
       ...TEST_AGENT_RUNTIME_IMPL,
       sendAction: () => {},
-      requestFiles: async () => ({}),
+      requestFiles: async () => buildReadFilesResultV1([]),
       requestOptionalFile: async ({ filePath }: { filePath: string }) => {
         if (filePath === path) {
           diskReadCount += 1
@@ -240,7 +241,7 @@ describe('stream parser tool parallelism (P0-4)', () => {
     const agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps = {
       ...TEST_AGENT_RUNTIME_IMPL,
       sendAction: () => {},
-      requestFiles: async () => ({}),
+      requestFiles: async () => buildReadFilesResultV1([]),
       requestOptionalFile: async () => null,
       requestToolCall: async (params: any) => {
         if (params.toolName === 'write_file') {
@@ -304,7 +305,7 @@ describe('stream parser tool parallelism (P0-4)', () => {
       sendAction: () => {},
       requestFiles: async () => {
         events.push('read-start')
-        return {}
+        return buildReadFilesResultV1([])
       },
       requestOptionalFile: async () => null,
       requestToolCall: async (params: any) => {
@@ -362,7 +363,7 @@ describe('stream parser tool parallelism (P0-4)', () => {
       sendAction: () => {},
       requestFiles: async () => {
         await delay(READ_DELAY_MS)
-        return {}
+        return buildReadFilesResultV1([])
       },
       requestOptionalFile: async () => 'original',
       requestToolCall: async () => {
@@ -424,7 +425,7 @@ describe('stream parser tool parallelism (P0-4)', () => {
     const agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps = {
       ...TEST_AGENT_RUNTIME_IMPL,
       sendAction: () => {},
-      requestFiles: async () => ({}),
+      requestFiles: async () => buildReadFilesResultV1([]),
       requestOptionalFile: async () => null,
       requestToolCall: async (params: any) => {
         if (params.toolName === 'run_terminal_command') {

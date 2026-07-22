@@ -514,6 +514,9 @@ export function getErrorObject(
 
   return {
     name: 'Error',
-    message: `${error}`,
+    message:
+      typeof error === 'object' && error !== null
+        ? (safeStringify(error) ?? String(error))
+        : `${error}`,
   }
 }

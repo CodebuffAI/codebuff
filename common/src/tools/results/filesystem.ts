@@ -1,5 +1,12 @@
 import z from 'zod/v4'
 
+import {
+  decodeReadCapabilityToken,
+  getExactContentHash,
+  readCapabilityMatchesScope,
+  type ReadCapabilityScope,
+} from '../../util/content-hash'
+
 export const filesystemErrorCodeSchema = z.enum([
   'not_found',
   'blocked',
@@ -155,6 +162,7 @@ export const fileMutationActionV1Schema = z
     outcome: mutationActionOutcomeV1Schema,
     beforeHash: z.string().min(1).nullable(),
     afterHash: z.string().min(1).nullable(),
+    afterContent: z.string().optional(),
     patch: z.string().optional(),
     error: filesystemErrorSchema.optional(),
     rollback: z
@@ -176,6 +184,21 @@ export const fileMutationActionV1Schema = z
       ctx.addIssue({
         code: 'custom',
         message: 'only move actions may include destinationPath',
+      })
+    }
+    if (value.afterHash === null && value.afterContent !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'actions without an afterHash cannot include afterContent',
+      })
+    }
+    if (
+      value.afterContent !== undefined &&
+      getExactContentHash(value.afterContent) !== value.afterHash
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'action afterContent must match afterHash',
       })
     }
   })
@@ -391,21 +414,18 @@ export const readFilesSliceSchema = z
     content: z.string(),
     startLine: z.number(),
     endLine: z.number(),
-    readCapability: z.string().optional(),
     editAnchor: readFilesEditAnchorSchema.optional(),
   })
+  .strict()
   .superRefine((value, ctx) => {
     if (
       value.editAnchor &&
       (value.editAnchor.startLine !== value.startLine ||
-        value.editAnchor.endLine !== value.endLine ||
-        (value.readCapability !== undefined &&
-          value.editAnchor.readCapability !== value.readCapability))
+        value.editAnchor.endLine !== value.endLine)
     ) {
       ctx.addIssue({
         code: 'custom',
-        message:
-          'symbol editAnchor must match the slice bounds and any legacy capability',
+        message: 'symbol editAnchor must match the slice bounds',
       })
     }
   })
@@ -428,7 +448,6 @@ const readFilesFileItemSchema = z
     contentOmittedForLength: z.literal(true).optional(),
     complete: z.boolean(),
     template: z.boolean(),
-    readCapability: z.string().optional(),
     editAnchor: readFilesEditAnchorSchema.optional(),
     referencedBy: z.record(z.string(), z.string().array()).optional(),
     truncation: z
@@ -439,6 +458,7 @@ const readFilesFileItemSchema = z
       })
       .optional(),
   })
+  .strict()
   .refine(
     (value) =>
       (typeof value.content === 'string') !==
@@ -446,23 +466,9 @@ const readFilesFileItemSchema = z
     'read_files file results require exactly one content payload or omission marker',
   )
   .refine(
-    (value) =>
-      value.complete ||
-      (value.readCapability === undefined && value.editAnchor === undefined),
+    (value) => value.complete || value.editAnchor === undefined,
     'partial file results cannot expose edit capabilities',
   )
-  .superRefine((value, ctx) => {
-    if (
-      value.editAnchor &&
-      value.readCapability !== undefined &&
-      value.editAnchor.readCapability !== value.readCapability
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'file editAnchor must match any legacy readCapability',
-      })
-    }
-  })
 
 const readFilesRangeItemSchema = z
   .object({
@@ -478,21 +484,10 @@ const readFilesRangeItemSchema = z
     endLine: z.number().int().positive(),
     totalLines: z.number().int().nonnegative(),
     complete: z.boolean(),
-    rangeHash: z.string().optional(),
-    readCapability: z.string().optional(),
-    wholeFileReadCapability: z
-      .string()
-      .optional()
-      .describe(
-        'Optional cap.v3 token spanning the entire current file when the requested range was read from a full-file snapshot. Use it to authorize replace_range edits to other sub-ranges of the same file without a re-read.',
-      )
-      .refine(
-        (value) => value === undefined || value.startsWith('cap.'),
-        'wholeFileReadCapability must be a cap.* token',
-      ),
     editAnchor: readFilesEditAnchorSchema.optional(),
     truncation: z.object({ reason: z.literal('character_limit') }).optional(),
   })
+  .strict()
   .refine(
     (value) =>
       (typeof value.content === 'string') !==
@@ -503,32 +498,11 @@ const readFilesRangeItemSchema = z
     if (
       value.editAnchor &&
       (value.editAnchor.startLine !== value.startLine ||
-        value.editAnchor.endLine !== value.endLine ||
-        (value.rangeHash !== undefined &&
-          value.editAnchor.contentHash !== value.rangeHash) ||
-        (value.readCapability !== undefined &&
-          value.editAnchor.readCapability !== value.readCapability))
+        value.editAnchor.endLine !== value.endLine)
     ) {
       ctx.addIssue({
         code: 'custom',
-        message:
-          'range editAnchor must match the range bounds and any legacy hash/capability fields',
-      })
-    }
-    // wholeFileReadCapability is a hash-bearing token over the entire file;
-    // it must never be present on a partial/incomplete range result, since
-    // the model has only seen a fragment and a whole-file hash would be a
-    // lie. The runtime only sets it under `complete`, but this schema-level
-    // guard also rejects malformed override results.
-    if (
-      (value.status === 'partial' || value.complete === false) &&
-      value.wholeFileReadCapability !== undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['wholeFileReadCapability'],
-        message:
-          'wholeFileReadCapability must be absent on partial or incomplete range results',
+        message: 'range editAnchor must match the range bounds',
       })
     }
   })
@@ -657,10 +631,7 @@ export const readFilesResultV1Schema = z
       if (
         result.selector === 'range' &&
         result.status === 'partial' &&
-        (result.rangeHash !== undefined ||
-          result.readCapability !== undefined ||
-          result.editAnchor !== undefined ||
-          result.sourceContent !== undefined)
+        (result.editAnchor !== undefined || result.sourceContent !== undefined)
       ) {
         ctx.addIssue({
           code: 'custom',
@@ -858,6 +829,7 @@ export function getConfirmedAppliedActionsV1(
 function mutationActionFromReceipt(
   action: CommitActionReceiptV1,
   receiptStatus: CommitReceiptV1['status'],
+  afterContent?: string,
 ): FileMutationActionV1 {
   let outcome: FileMutationActionV1['outcome']
   if (action.status === 'committed') {
@@ -883,6 +855,11 @@ function mutationActionFromReceipt(
     outcome,
     beforeHash: action.beforeHash,
     afterHash: action.afterHash,
+    ...(receiptStatus === 'committed' &&
+    action.status === 'committed' &&
+    typeof afterContent === 'string'
+      ? { afterContent }
+      : {}),
     ...(action.error ? { error: action.error } : {}),
     ...(action.status === 'rolled_back' || action.status === 'rollback_failed'
       ? {
@@ -896,14 +873,24 @@ function mutationActionFromReceipt(
   }
 }
 
+export type FileMutationActionContentsV1 = ReadonlyMap<
+  number | string,
+  string
+>
+
 export function buildFileMutationResultFromReceiptV1(
   receipt: CommitReceiptV1,
   additionalErrors: FilesystemError[] = [],
   freshCapabilities: FileCapabilityV1[] = [],
+  actionContents?: FileMutationActionContentsV1,
 ): FileMutationResultV1 {
   const validatedReceipt = commitReceiptV1Schema.parse(receipt)
   const actions = validatedReceipt.actions.map((action) =>
-    mutationActionFromReceipt(action, validatedReceipt.status),
+    mutationActionFromReceipt(
+      action,
+      validatedReceipt.status,
+      actionContents?.get(action.index) ?? actionContents?.get(action.actionId),
+    ),
   )
   const outcome: FileMutationOutcomeV1 =
     validatedReceipt.status === 'committed'
@@ -948,11 +935,13 @@ export function reconcileFileMutationResultV1({
   operationId,
   handlerResult,
   receipt,
+  capabilityScope,
 }: {
   lifecycle: ToolLifecycleV1
   operationId: string
   handlerResult: unknown
   receipt?: unknown
+  capabilityScope?: Omit<ReadCapabilityScope, 'path'>
 }): ReconciledFileMutationV1 {
   const parsedHandlerResult =
     fileMutationResultV1Schema.safeParse(handlerResult)
@@ -972,11 +961,61 @@ export function reconcileFileMutationResultV1({
   )
 
   if (matchingReceipt) {
+    const correlatedActions = new Map<number | string, string>()
+    const committedTargets = matchingReceipt.actions.flatMap((action) =>
+      action.status === 'committed' && action.afterHash
+        ? [
+            {
+              path: action.destinationPath ?? action.path,
+              afterHash: action.afterHash,
+            },
+          ]
+        : [],
+    )
+    if (parsedHandlerResult.success) {
+      for (const receiptAction of matchingReceipt.actions) {
+        const handlerAction = parsedHandlerResult.data.actions.find(
+          (action) =>
+            action.index === receiptAction.index &&
+            action.actionId === receiptAction.actionId &&
+            action.action === receiptAction.action &&
+            action.path === receiptAction.path &&
+            action.destinationPath === receiptAction.destinationPath &&
+            action.afterHash === receiptAction.afterHash,
+        )
+        if (
+          handlerAction?.afterContent !== undefined &&
+          receiptAction.afterHash ===
+            getExactContentHash(handlerAction.afterContent)
+        ) {
+          correlatedActions.set(receiptAction.index, handlerAction.afterContent)
+        }
+      }
+    }
+    const freshCapabilities = parsedHandlerResult.success
+      ? parsedHandlerResult.data.freshCapabilities.filter((capability) => {
+          const decoded = decodeReadCapabilityToken(capability.token)
+          if (typeof decoded === 'string') return false
+          return committedTargets.some(
+            (target) =>
+              capabilityScope !== undefined &&
+              readCapabilityMatchesScope(decoded, {
+                ...capabilityScope,
+                path: target.path,
+              }) &&
+              decoded.hash === target.afterHash &&
+              target.afterHash === capability.snapshot.contentHash,
+          )
+        })
+      : []
+
     return {
       lifecycle,
       mutation: buildFileMutationResultFromReceiptV1(
         matchingReceipt,
         parsedHandlerResult.success ? [] : [malformedError],
+        freshCapabilities,
+        correlatedActions,
       ),
       handlerResultValid: parsedHandlerResult.success,
     }
@@ -997,6 +1036,7 @@ export function reconcileFileMutationResultV1({
         outcome: 'unconfirmed',
         beforeHash: null,
         afterHash: null,
+        afterContent: undefined,
         rollback: undefined,
       })),
       authorityTier: null,

@@ -158,6 +158,8 @@ export function normalizeNativeToolOutput<T extends ToolName>(params: {
   toolName: T
   toolCallId: string
   output: CodebuffToolOutput<T>
+  canonicalReceipt?: unknown
+  capabilityScope?: { projectId: string; runId: string }
 }):
   | { valid: true; output: CodebuffToolOutput<T>; issues: [] }
   | {
@@ -188,14 +190,53 @@ export function normalizeNativeToolOutput<T extends ToolName>(params: {
   )
   if (parsed.success) {
     if (getToolMetadata(params.toolName).resultContract === 'mutation_v1') {
+      const mutationPart = params.output.find(
+        (part) =>
+          part.type === 'json' &&
+          fileMutationResultV1Schema.safeParse(part.value).success,
+      )
+      if (mutationPart?.type === 'json') {
+        const mutation = fileMutationResultV1Schema.parse(mutationPart.value)
+        const reconciled = reconcileFileMutationResultV1({
+          lifecycle: {
+            kind: 'tool_lifecycle',
+            version: 1,
+            callId: params.toolCallId,
+            sequence: 0,
+            state: 'succeeded',
+          },
+          operationId: mutation.operationId,
+          handlerResult: mutation,
+          receipt: params.canonicalReceipt,
+          capabilityScope: params.capabilityScope,
+        })
+        if (
+          mutation.outcome !== 'unconfirmed' &&
+          reconciled.mutation.outcome === 'unconfirmed'
+        ) {
+          return {
+            valid: false,
+            output: jsonToolResult(reconciled.mutation) as CodebuffToolOutput<T>,
+            issues: [
+              {
+                message:
+                  'mutation result lacked canonical receipt evidence for the active tool call',
+              },
+            ],
+          }
+        }
+        if (reconciled.mutation.outcome !== 'unconfirmed') {
+          return {
+            valid: true,
+            output: jsonToolResult(reconciled.mutation) as CodebuffToolOutput<T>,
+            issues: [],
+          }
+        }
+      }
       const canonical = params.output.some((part) => {
         if (part.type !== 'json') return false
         const mutation = fileMutationResultV1Schema.safeParse(part.value)
-        return (
-          mutation.success &&
-          (mutation.data.outcome === 'unconfirmed' ||
-            mutation.data.authorityReceipt?.callId === params.toolCallId)
-        )
+        return mutation.success && mutation.data.outcome === 'unconfirmed'
       })
       if (!canonical) {
         const mismatchedCanonical = params.output.some(
@@ -321,17 +362,10 @@ export function normalizeNativeToolOutput<T extends ToolName>(params: {
     const raw = first?.type === 'json' ? first.value : undefined
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       const record = raw as Record<string, unknown>
-      const receipt = record.authorityReceipt
       const operationId =
         typeof record.operationId === 'string'
           ? record.operationId
-          : receipt &&
-              typeof receipt === 'object' &&
-              !Array.isArray(receipt) &&
-              typeof (receipt as Record<string, unknown>).operationId ===
-                'string'
-            ? ((receipt as Record<string, unknown>).operationId as string)
-            : undefined
+          : undefined
       if (operationId) {
         const reconciled = reconcileFileMutationResultV1({
           lifecycle: {
@@ -343,7 +377,8 @@ export function normalizeNativeToolOutput<T extends ToolName>(params: {
           },
           operationId,
           handlerResult: raw,
-          receipt,
+          receipt: params.canonicalReceipt,
+          capabilityScope: params.capabilityScope,
         })
         if (reconciled.mutation.outcome !== 'unconfirmed') {
           return {
@@ -639,8 +674,8 @@ function getFieldSpecificHint(
 
   if (paths.has('basedOnRead') || fieldNames.has('basedOnRead')) {
     return [
-      'Hint: `basedOnRead` must be a read-capability token string returned by read_files (e.g. "cap.<base64>") OR an object { startLine, endLine, hash }. A wrapped object like { "$text": "..." } is not accepted.',
-      'Copy the `readCapability` value verbatim from the read_files range header output.',
+      'Hint: `basedOnRead` must be an authenticated cap.v3 readCapability token string returned by read_files. Object-form anchors and wrapped objects like { "$text": "..." } are not accepted.',
+      'Copy the `editAnchor.readCapability` value verbatim from the matching fresh read_files result.'
     ].join('\n')
   }
 
@@ -712,12 +747,17 @@ function getToolValidationHint(
       ),
     )
     const targetedHints: string[] = []
-    if (fieldNames.has('readCapability')) {
+    const hasRemovedExpectedHash = (issues ?? []).some(
+      (issue) =>
+        issue.code === 'unrecognized_keys' &&
+        issue.keys?.includes('expectedHash'),
+    )
+    if (fieldNames.has('readCapability') || hasRemovedExpectedHash) {
       targetedHints.push(
         [
-          'For replace_range, choose one target form only.',
-          'Preferred: { "type": "replace_range", "path": "file.ts", "readCapability": "cap...", "newContent": "..." }.',
-          'If the capability covers a wider range than intended, re-read the exact target lines first; never narrow a capability with separate line/hash fields.',
+          'For replace_range, pass one authenticated cap.v3 readCapability copied from a fresh read_files editAnchor.',
+          'Omit startLine/endLine to replace the full observed range, or provide both to target a contained sub-range within that capability.',
+          'Never pass expectedHash or other separate hash fields.'
         ].join('\n'),
       )
     }
@@ -1554,6 +1594,7 @@ export async function executeToolCall<T extends ToolName>(
     toolCallsToAddToMessageHistory.push(finalToolCall)
   }
 
+  let canonicalReceipt: unknown
   const toolResultPromise = Promise.resolve().then(() =>
     handler({
       ...params,
@@ -1574,6 +1615,7 @@ export async function executeToolCall<T extends ToolName>(
           input: clientToolCall.input,
           signal: params.signal,
         })
+        canonicalReceipt = clientToolResult.canonicalReceipt
         return clientToolResult.output as CodebuffToolOutput<T>
       }) as any,
     }),
@@ -1661,6 +1703,11 @@ export async function executeToolCall<T extends ToolName>(
         toolName,
         toolCallId: toolCall.toolCallId,
         output,
+        canonicalReceipt,
+        capabilityScope: {
+          projectId: params.fileContext.projectRoot,
+          runId: params.runId,
+        },
       })
       if (!normalized.valid) {
         logger.error(

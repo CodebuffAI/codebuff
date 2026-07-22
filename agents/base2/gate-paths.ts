@@ -65,3 +65,38 @@ export function gateFileSetsEqual(left: string[], right: string[]): boolean {
   const rightFiles = new Set(right)
   return left.every((file) => rightFiles.has(file))
 }
+
+// Returns true only for reviewable source files. Everything else — tests,
+// generated code, docs, config/data files (including .jsonl bookkeeping like
+// EVENTS.jsonl), .env files, and anything under docs/, evals/, or .agents/ —
+// is excluded so the final code-reviewer gate never fires on
+// bookkeeping/docs/plan artifacts. Mirrors the exclusion style of
+// isPublicApiSourceFile in base2.ts but ALSO drops `.jsonl` and `.env`
+// basenames. Operates on an already-normalized path (caller normalizes).
+export function isReviewableGateFile(filePath: string): boolean {
+  if (/__tests__\//.test(filePath)) return false
+  if (/\.(test|spec)\.tsx?$/.test(filePath)) return false
+  if (/\.generated\.tsx?$/.test(filePath)) return false
+  if (/\.(md|mdx|json|jsonl|yml|yaml|toml)$/.test(filePath)) return false
+  if (/(^|\/)\.env($|\.)/.test(filePath)) return false
+  if (filePath.startsWith('docs/')) return false
+  if (filePath.startsWith('evals/') || filePath.startsWith('.agents/')) {
+    return false
+  }
+  return /\.(?:tsx?|jsx?|mjs|cjs|py|go|rs|java|kt|kts|cs|fs|vb)$/.test(
+    filePath,
+  )
+}
+
+export function selectReviewableGateFiles(files: string[]): string[] {
+  const reviewableFiles: string[] = []
+  const seen = new Set<string>()
+  for (const file of files) {
+    const normalized = normalizeGateFilePath(file)
+    if (!normalized || seen.has(normalized)) continue
+    if (!isReviewableGateFile(normalized)) continue
+    seen.add(normalized)
+    reviewableFiles.push(normalized)
+  }
+  return reviewableFiles
+}

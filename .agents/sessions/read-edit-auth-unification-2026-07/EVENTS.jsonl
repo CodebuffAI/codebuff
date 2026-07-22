@@ -1,0 +1,42 @@
+{"ts":"2026-07-22T07:20:12.216Z","kind":"task_update","summary":"Updated 1 task line(s): M1.1","payload":{"matched":["M1.1"]}}
+{"ts":"2026-07-22T07:20:12.216Z","kind":"current_task","summary":"Current task -> \"M1.1\"","payload":{"currentTask":"M1.1"}}
+{"ts":"2026-07-22T07:36:28.623Z","kind":"append_lesson","summary":"Appended entry \"M1.1 Finding — str_replace path already unifies (2026-07)\" to STATUS.md","payload":{"heading":"M1.1 Finding — str_replace path already unifies (2026-07)","artifact":"STATUS.md"}}
+{"ts":"2026-07-22T08:45:45.930Z","kind":"task_update","summary":"Updated 2 task line(s): M1.1, M1.2","payload":{"matched":["M1.1","M1.2"]}}
+{"ts":"2026-07-22T08:45:45.930Z","kind":"append_lesson","summary":"Appended entry \"M1.1 validation\" to PLAN.md","payload":{"heading":"M1.1 validation","artifact":"PLAN.md"}}
+{"ts":"2026-07-22T08:45:45.930Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-22T08:45:45.930Z","kind":"current_task","summary":"Current task -> \"M1.2\"","payload":{"currentTask":"M1.2"}}
+{"ts":"2026-07-22T09:07:51.632Z","kind":"task_update","summary":"Updated 2 task line(s): M1.2, M2.1","payload":{"matched":["M1.2","M2.1"]}}
+{"ts":"2026-07-22T09:07:51.633Z","kind":"append_lesson","summary":"Appended entry \"M1.2 validation\" to PLAN.md","payload":{"heading":"M1.2 validation","artifact":"PLAN.md"}}
+{"ts":"2026-07-22T09:07:51.633Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-22T09:07:51.633Z","kind":"current_task","summary":"Current task -> \"M2.1\"","payload":{"currentTask":"M2.1"}}
+{"ts":"2026-07-22T09:27:19.405Z","kind":"task_update","summary":"Updated 2 task line(s): M2.1, M3.1","payload":{"matched":["M2.1","M3.1"]}}
+{"ts":"2026-07-22T09:27:19.405Z","kind":"append_lesson","summary":"Appended entry \"M2.1 validation\" to PLAN.md","payload":{"heading":"M2.1 validation","artifact":"PLAN.md"}}
+{"ts":"2026-07-22T09:27:19.405Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-22T09:27:19.405Z","kind":"current_task","summary":"Current task -> \"M3.1\"","payload":{"currentTask":"M3.1"}}
+{"ts":"2026-07-22T10:12:24.826Z","kind":"task_update","summary":"Updated 2 task line(s): M4.1, M3.1","payload":{"matched":["M4.1","M3.1"]}}
+{"ts":"2026-07-22T10:12:24.826Z","kind":"append_lesson","summary":"Appended entry \"Repair scope and caller boundary lesson\" to PLAN.md","payload":{"heading":"Repair scope and caller boundary lesson","artifact":"PLAN.md"}}
+{"ts":"2026-07-22T10:12:24.826Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-22T10:12:24.826Z","kind":"current_task","summary":"Current task -> \"M3.1\"","payload":{"currentTask":"M3.1"}}
+{"ts":"2026-07-22T10:15:36.521Z","kind":"append_lesson","summary":"Appended entry \"AC2 reconciliation validation\" to STATUS.md","payload":{"heading":"AC2 reconciliation validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-22T10:15:36.521Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-22T10:22:14.677Z","kind":"task_update","summary":"Updated 2 task line(s): M3.1, M4.1","payload":{"matched":["M3.1","M4.1"]}}
+{"ts":"2026-07-22T10:22:14.677Z","kind":"append_lesson","summary":"Appended entry \"M3.1 completion evidence\" to PLAN.md","payload":{"heading":"M3.1 completion evidence","artifact":"PLAN.md"}}
+{"ts":"2026-07-22T10:22:14.677Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-22T10:22:14.677Z","kind":"current_task","summary":"Current task -> \"M4.1\"","payload":{"currentTask":"M4.1"}}
+{"ts":"2026-07-22T13:43:35.102Z","kind":"task_update","summary":"Updated 2 task line(s): M4.1, M4.2","payload":{"matched":["M4.1","M4.2"]}}
+{"ts":"2026-07-22T13:43:35.103Z","kind":"append_lesson","summary":"Appended entry \"M4.1 completion\" to PLAN.md","payload":{"heading":"M4.1 completion","artifact":"PLAN.md"}}
+{"ts":"2026-07-22T13:43:35.103Z","kind":"session_status","summary":"Session status -> executing","payload":{"status":"executing"}}
+{"ts":"2026-07-22T13:43:35.103Z","kind":"current_task","summary":"Current task -> \"M4.2\"","payload":{"currentTask":"M4.2"}}
+{"ts":"2026-07-22T14:30:21.276Z","kind":"current_task","summary":"Current task -> \"M4.2\"","payload":{"currentTask":"M4.2"}}
+{"ts":"2026-07-22T14:31:08.397Z","kind":"task_update","summary":"Updated 2 task line(s): M4.2, M5.1","payload":{"matched":["M4.2","M5.1"]}}
+{"ts":"2026-07-22T14:31:08.397Z","kind":"current_task","summary":"Current task -> \"M5.1\"","payload":{"currentTask":"M5.1"}}
+{"ts":"2026-07-22T14:31:56.376Z","kind":"append_lesson","summary":"Appended entry \"M4.2 completion — dead-tool removal\" to STATUS.md","payload":{"heading":"M4.2 completion — dead-tool removal","artifact":"STATUS.md"}}
+{"ts":"2026-07-22T14:34:15.160Z","kind":"current_task","summary":"Current task -> \"M5.1\"","payload":{"currentTask":"M5.1"}}
+{"ts":"2026-07-22T14:34:27.452Z","kind":"task_update","summary":"Updated 2 task line(s): M5.1, M5.2","payload":{"matched":["M5.1","M5.2"]}}
+{"ts":"2026-07-22T14:34:27.452Z","kind":"current_task","summary":"Current task -> \"M5.2\"","payload":{"currentTask":"M5.2"}}
+{"ts":"2026-07-22T14:35:33.475Z","kind":"current_task","summary":"Current task -> \"M5.2\"","payload":{"currentTask":"M5.2"}}
+{"ts":"2026-07-22T14:36:28.088Z","kind":"current_task","summary":"Current task -> \"M5.2\"","payload":{"currentTask":"M5.2"}}
+{"ts":"2026-07-22T14:38:02.848Z","kind":"task_update","summary":"Updated 1 task line(s): M5.2","payload":{"matched":["M5.2"]}}
+{"ts":"2026-07-22T14:38:02.848Z","kind":"current_task","summary":"Current task pointer cleared","payload":{"currentTask":null}}
+{"ts":"2026-07-22T14:38:19.432Z","kind":"append_lesson","summary":"Appended entry \"Session complete — 2026-07-22\" to STATUS.md","payload":{"heading":"Session complete — 2026-07-22","artifact":"STATUS.md"}}
+{"ts":"2026-07-22T14:38:19.432Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}

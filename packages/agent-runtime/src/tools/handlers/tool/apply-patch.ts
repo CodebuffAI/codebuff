@@ -18,33 +18,20 @@ import {
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
 function normalizePatchReadCapabilities(params: {
-  values: Array<string | { startLine: number; endLine: number; hash: string }>
+  values: string[]
   projectId: string
   path: string
   runId: string
 }):
   | {
       ok: true
-      capabilities: Array<{
-        startLine: number
-        endLine: number
-        hash: string
-      }>
+      capabilities: string[]
       allBound: boolean
     }
   | { ok: false; errorMessage: string } {
-  const capabilities: Array<{
-    startLine: number
-    endLine: number
-    hash: string
-  }> = []
-  let allBound = params.values.length > 0
+  const capabilities: string[] = []
+  const allBound = params.values.length > 0
   for (const value of params.values) {
-    if (typeof value !== 'string') {
-      allBound = false
-      capabilities.push(value)
-      continue
-    }
     const decoded = decodeReadCapabilityToken(value)
     if (typeof decoded === 'string') {
       return { ok: false, errorMessage: decoded }
@@ -61,11 +48,7 @@ function normalizePatchReadCapabilities(params: {
         errorMessage: `apply_patch blocked: a readCapability belongs to a different project, path, or agent run. Re-read ${params.path} in this run and copy its cap.v3 token.`,
       }
     }
-    capabilities.push({
-      startLine: decoded.startLine,
-      endLine: decoded.endLine,
-      hash: decoded.hash,
-    })
+    capabilities.push(value)
   }
   return { ok: true, capabilities, allBound }
 }

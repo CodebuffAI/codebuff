@@ -69,7 +69,6 @@ export async function getCodebuffClient(): Promise<OpenbuffClient> {
   clientInstance = new OpenbuffClient({
     cwd: getProjectRoot(),
     logger,
-    filesystemResultFormat: 'structured-v1',
     overrideTools: {
       ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
         const askUserResponse = await AskUserBridge.request(

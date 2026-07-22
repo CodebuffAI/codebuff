@@ -1788,7 +1788,7 @@ export async function loopAgentSteps(
       const apiErrorDetails = extractApiErrorDetails(error)
       const hasServerMessage = apiErrorDetails.message !== undefined
       const fallbackMessage =
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : getErrorObject(error).message
       const errorMessage = apiErrorDetails.message ?? fallbackMessage
       const statusCode = apiErrorDetails.statusCode
 

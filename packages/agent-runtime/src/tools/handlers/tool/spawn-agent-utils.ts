@@ -54,6 +54,11 @@ import type {
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolSet } from 'ai'
 import { z } from 'zod/v4'
+import {
+  commitReceiptV1Schema,
+  fileMutationResultV1Schema,
+  getConfirmedAppliedActionsV1,
+} from '@codebuff/common/tools/results/filesystem'
 
 /**
  * Common context params needed for spawning subagents.
@@ -982,65 +987,90 @@ function extractMutationAttestations(value: unknown): Array<{
     string,
     ReturnType<typeof extractMutationAttestations>[number]
   >()
-  const visit = (
-    item: unknown,
-    inheritedReceiptId?: string,
-    depth = 0,
-  ): void => {
-    if (!item || depth > 12) return
-    if (Array.isArray(item)) {
-      for (const nested of item) visit(nested, inheritedReceiptId, depth + 1)
-      return
-    }
-    if (typeof item !== 'object') return
-    const record = item as Record<string, unknown>
-    const receiptId =
-      typeof record.receiptId === 'string'
-        ? record.receiptId
-        : inheritedReceiptId
-    if (
-      (record.kind === 'file_mutation_result' ||
-        record.kind === 'commit_receipt') &&
-      Array.isArray(record.actions)
-    ) {
-      for (const action of record.actions) {
-        if (!action || typeof action !== 'object') continue
-        const actionRecord = action as Record<string, unknown>
-        const applied =
-          actionRecord.outcome === 'applied' ||
-          actionRecord.status === 'committed'
-        if (!applied || typeof actionRecord.path !== 'string') continue
-        const paths = [
-          actionRecord.path,
-          ...(typeof actionRecord.destinationPath === 'string'
-            ? [actionRecord.destinationPath]
-            : []),
-        ]
-        for (const path of paths) {
-          byPath.set(path, {
-            path,
-            ...(typeof actionRecord.beforeHash === 'string'
-              ? { beforeHash: actionRecord.beforeHash }
-              : {}),
-            ...(typeof actionRecord.afterHash === 'string'
-              ? { afterHash: actionRecord.afterHash }
-              : {}),
-            ...(receiptId ? { mutationReceiptId: receiptId } : {}),
-            ...(typeof record.workspaceRevision === 'number'
-              ? { workspaceRevision: record.workspaceRevision }
-              : {}),
-            ...(typeof record.workspaceSnapshotId === 'string'
-              ? { workspaceSnapshotId: record.workspaceSnapshotId }
-              : {}),
-          })
-        }
-      }
-    }
-    for (const nested of Object.values(record)) {
-      visit(nested, receiptId, depth + 1)
+  if (!Array.isArray(value)) return []
+
+  const attest = (params: {
+    path: string
+    destinationPath?: string
+    beforeHash: string | null
+    afterHash: string | null
+    receiptId: string
+    workspaceRevision?: number
+    workspaceSnapshotId?: string
+  }): void => {
+    const paths = [
+      params.path,
+      ...(params.destinationPath ? [params.destinationPath] : []),
+    ]
+    for (const path of paths) {
+      byPath.set(path, {
+        path,
+        ...(params.beforeHash ? { beforeHash: params.beforeHash } : {}),
+        ...(params.afterHash ? { afterHash: params.afterHash } : {}),
+        mutationReceiptId: params.receiptId,
+        ...(params.workspaceRevision !== undefined
+          ? { workspaceRevision: params.workspaceRevision }
+          : {}),
+        ...(params.workspaceSnapshotId
+          ? { workspaceSnapshotId: params.workspaceSnapshotId }
+          : {}),
+      })
     }
   }
-  visit(value)
+
+  for (const message of value) {
+    if (!message || typeof message !== 'object') continue
+    const messageRecord = message as Record<string, unknown>
+    const content = messageRecord.content
+    if (!Array.isArray(content)) continue
+    for (const part of content) {
+      if (!part || typeof part !== 'object') continue
+      const partRecord = part as Record<string, unknown>
+      if (partRecord.type !== 'json') continue
+
+      const parsedResult = fileMutationResultV1Schema.safeParse(partRecord.value)
+      if (
+        parsedResult.success &&
+        parsedResult.data.authorityReceipt &&
+        parsedResult.data.authorityReceipt.callId === messageRecord.toolCallId
+      ) {
+        for (const action of getConfirmedAppliedActionsV1(parsedResult.data)) {
+          attest({
+            path: action.path,
+            destinationPath: action.destinationPath,
+            beforeHash: action.beforeHash,
+            afterHash: action.afterHash,
+            receiptId: parsedResult.data.authorityReceipt.receiptId,
+            workspaceRevision: parsedResult.data.workspaceRevision,
+            workspaceSnapshotId: parsedResult.data.workspaceSnapshotId,
+          })
+        }
+        continue
+      }
+
+      const parsedReceipt = commitReceiptV1Schema.safeParse(partRecord.value)
+      if (
+        !parsedReceipt.success ||
+        typeof messageRecord.toolCallId !== 'string' ||
+        parsedReceipt.data.callId !== messageRecord.toolCallId ||
+        parsedReceipt.data.status !== 'committed'
+      ) {
+        continue
+      }
+      for (const action of parsedReceipt.data.actions) {
+        if (action.status !== 'committed') continue
+        attest({
+          path: action.path,
+          destinationPath: action.destinationPath,
+          beforeHash: action.beforeHash,
+          afterHash: action.afterHash,
+          receiptId: parsedReceipt.data.receiptId,
+          workspaceRevision: parsedReceipt.data.workspaceRevision,
+          workspaceSnapshotId: parsedReceipt.data.workspaceSnapshotId,
+        })
+      }
+    }
+  }
   return [...byPath.values()]
 }
 
@@ -1306,28 +1336,49 @@ export function buildRuntimeAgentReceipt(params: {
             return !!finding?.files.some((path) => actualChangedPaths.has(path))
           })
         : claimedFindingIds
-  // Mutation agents that actually applied edits must not default to `blocked`
-  // solely because set_output omitted a completion status or reported blocked
-  // before runtime mutation attestation ran. Real mutations → at least partial
-  // so parent gates can continue into validation/review.
+  // RF-2/RF-7/RF-11/RF-16: runtime-attested mutations are the completion
+  // authority for editor-family agents. A stale blocked/null child output must
+  // not hide applied work from the parent gate, while receipt errors still
+  // fail closed.
   const hasMutationProgress = mutationAttestations.length > 0
   const foundOutputStatus = findReceiptStatus(params.output)
-  const resolvedStatus =
-    params.status ??
-    (completionContractFailed
-      ? 'partial'
-      : errors.length > 0
-        ? 'failed'
-        : mutationAgent &&
-            hasMutationProgress &&
-            (foundOutputStatus === undefined || foundOutputStatus === 'blocked')
-          ? 'partial'
-          : foundOutputStatus) ??
-    (mutationAgent
-      ? hasMutationProgress
-        ? 'partial'
-        : 'blocked'
-      : 'completed')
+  const mutationsComplete =
+    mutationAgent && hasMutationProgress && errors.length === 0
+  const resolvedStatus = completionContractFailed
+    ? 'partial'
+    : errors.length > 0
+      ? 'failed'
+      : mutationsComplete
+        ? 'completed'
+        : (params.status ?? foundOutputStatus ?? (mutationAgent ? 'blocked' : 'completed'))
+  const normalizedOutput = normalizeSpawnedAgentOutput(
+    params.output,
+    params.agentType,
+  )
+  const reconciledOutput = mutationsComplete
+    ? normalizedOutput &&
+      typeof normalizedOutput === 'object' &&
+      !Array.isArray(normalizedOutput) &&
+      normalizedOutput.type === 'structuredOutput' &&
+      normalizedOutput.value &&
+      typeof normalizedOutput.value === 'object' &&
+      !Array.isArray(normalizedOutput.value)
+      ? {
+          ...normalizedOutput,
+          value: {
+            ...normalizedOutput.value,
+            status: 'completed',
+            changedFiles: changedFiles.map((file) => file.path),
+          },
+        }
+      : {
+          type: 'structuredOutput',
+          value: {
+            status: 'completed',
+            changedFiles: changedFiles.map((file) => file.path),
+          },
+        }
+    : normalizedOutput
   const receipt = agentReceiptSchema.parse({
     schemaVersion: 1,
     receiptId: generateCompactId(),
@@ -1368,7 +1419,7 @@ export function buildRuntimeAgentReceipt(params: {
     ),
     artifacts: extractReceiptStringArray(receiptSources, 'artifacts'),
     errors,
-    output: normalizeSpawnedAgentOutput(params.output, params.agentType) as any,
+    output: reconciledOutput as any,
   })
   return receipt
 }

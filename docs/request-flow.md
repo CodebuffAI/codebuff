@@ -64,8 +64,7 @@ through a hosted Openbuff/Codebuff service in this primary flow.
    - `edit_transaction` → canonical root/editor file mutation surface;
      standalone `write_file`, `str_replace`, `replace_range`,
      `rewrite_symbol`, and `apply_patch` handlers remain registered for
-     persisted/external compatibility (`apply_smart_patch` remains
-     quarantined)
+     persisted/external compatibility
    - `write_audit_findings` → exclusively creates one derived
      `.agents/sessions/<session>/findings/<shard>.md` artifact and returns a
      compact receipt
@@ -73,8 +72,6 @@ through a hosted Openbuff/Codebuff service in this primary flow.
    - `code_search`, `find_files_matching_content`, `glob`, `list_directory`
      → file search
    - `read_files`, `read_outline`, `read_subtree` → active file reading
-     (`read_slices` remains registered only as a quarantined compatibility
-     alias for persisted/external calls; new prompts use `read_files.symbols`)
    - `create_plan`, `update_plan_status` → plan artifact authoring
    - `inspect_workspace`, `get_task`, `get_change_review_bundle` → snapshot-bound workspace/task/review evidence
    - `inspect_environment`, `get_affected_tests`, `get_build_targets` → read-only toolchain and validation-target intelligence

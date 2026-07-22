@@ -43,12 +43,10 @@ const READ_TOOLS = new Set<ToolName>([
   'render_3d_preview',
   'read_logs',
   'read_outline',
-  'read_slices',
   'read_subtree',
 ])
 const MUTATION_TOOLS = new Set<ToolName>([
   'apply_patch',
-  'apply_smart_patch',
   'create_plan',
   'edit_transaction',
   'edit_3d_asset',
@@ -89,7 +87,6 @@ const CUSTOM_RENDERERS = new Set<ToolName>([
 ])
 const NAMED_PATH_TOOLS = new Set<ToolName>([
   'apply_patch',
-  'apply_smart_patch',
   'create_plan',
   'replace_range',
   'rewrite_symbol',
@@ -102,7 +99,6 @@ const NAMED_PATH_TOOLS = new Set<ToolName>([
 ])
 const PATH_INPUTS: Partial<Record<ToolName, readonly string[]>> = {
   apply_patch: ['operation.path'],
-  apply_smart_patch: ['path'],
   create_plan: ['path'],
   edit_transaction: ['edits[].path'],
   edit_3d_asset: ['path'],
@@ -110,7 +106,6 @@ const PATH_INPUTS: Partial<Record<ToolName, readonly string[]>> = {
   render_3d_preview: ['path'],
   read_files: ['paths[]', 'ranges[].path', 'symbols[].path'],
   read_outline: ['path'],
-  read_slices: ['path'],
   read_subtree: ['paths[]'],
   replace_range: ['path'],
   rewrite_symbol: ['path'],
@@ -169,7 +164,7 @@ function metadataFor(toolName: ToolName): ToolMetadata {
     includeInMutationSummary: kind === 'mutation',
     reachability,
     promptVisible: reachability === 'active',
-    deprecated: toolName === 'read_slices',
+    deprecated: false,
   }
 }
 

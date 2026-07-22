@@ -54,6 +54,11 @@ export function collectReviewerAttestationIssues(
   expectedFingerprint: string,
   pendingFiles: string[],
 ): string[] {
+  // The caller passes the reviewable subset; when it is empty there is
+  // nothing to attest, so surface no attestation issues.
+  if (pendingFiles.length === 0) {
+    return []
+  }
   const structured = collectStructuredReviewerOutputs(toolResult)
   if (structured.length === 0) {
     return [

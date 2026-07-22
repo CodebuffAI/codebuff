@@ -406,7 +406,8 @@ export function isObviousEditPlaceholder(value: string): boolean {
 
 /**
  * Handles common replacement-key aliases emitted by some models while keeping
- * the documented schema stable.
+ * the documented schema stable. Equivalent aliases are consumed; conflicting
+ * aliases remain so the strict replacement schema rejects ambiguous intent.
  */
 export function normalizeReplacementAliases(val: unknown): unknown {
   if (val === null || typeof val !== 'object' || Array.isArray(val)) {
@@ -418,12 +419,17 @@ export function normalizeReplacementAliases(val: unknown): unknown {
     ['oldString', ['old', 'old_str', 'old_string']],
     ['newString', ['new', 'new_str', 'new_string']],
   ] as const) {
-    if (replacement[target] !== undefined) {
-      continue
+    const stringAliases = aliases.filter(
+      (key) => typeof replacement[key] === 'string',
+    )
+    if (replacement[target] === undefined && stringAliases.length > 0) {
+      replacement[target] = replacement[stringAliases[0]]
     }
-    const alias = aliases.find((key) => typeof replacement[key] === 'string')
-    if (alias) {
-      replacement[target] = replacement[alias]
+
+    for (const alias of stringAliases) {
+      if (replacement[alias] === replacement[target]) {
+        delete replacement[alias]
+      }
     }
   }
   return replacement

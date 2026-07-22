@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
 import { handleReadOutline } from '../tools/handlers/tool/read-outline'
-import { handleReadSlices } from '../tools/handlers/tool/read-slices'
 import { processStrReplace } from '../process-str-replace'
 import {
   extractSlices,
@@ -158,112 +157,7 @@ describe('read_outline handler (AST-backed)', () => {
   })
 })
 
-describe('read_slices handler (AST-backed + capability tokens)', () => {
-  test('slices a function by exact span and mints a usable capability token', async () => {
-    const result = await handleReadSlices({
-      previousToolCallFinished: Promise.resolve(),
-      toolCall: { input: { path: 'svc.ts', symbols: ['greet'] } },
-      requestOptionalFile: fileResponder(TS_SRC),
-    } as any)
-    const { slices } = outputJson(result)
-
-    expect(slices).toHaveLength(1)
-    const slice = slices[0]
-    expect(slice).toMatchObject({ symbol: 'greet', startLine: 3, endLine: 6 })
-    // The brace inside the string did NOT truncate the slice (old bug).
-    expect(slice.content).toContain('return msg + name')
-    expect(slice.readCapability).toMatch(/^cap\./)
-
-    // The minted token must validate against a real large-file str_replace.
-    // Pad the file beyond the large-file threshold so basedOnRead is enforced.
-    const padded = TS_SRC + '\n' + Array(1100).fill('// pad').join('\n')
-    const edit = await processStrReplace({
-      path: 'svc.ts',
-      replacements: [
-        {
-          oldString: 'return msg + name',
-          newString: 'return name + msg',
-          allowMultiple: false,
-          basedOnRead: slice.readCapability,
-        },
-      ],
-      initialContentPromise: Promise.resolve(padded),
-      logger: noopLogger,
-    })
-    expect('error' in edit ? edit.error : '').not.toContain('stale')
-    expect('content' in edit ? edit.content : '').toContain('return name + msg')
-  })
-
-  test('slices non-TS functions and methods with exact parser-backed ranges', async () => {
-    const python = await handleReadSlices({
-      previousToolCallFinished: Promise.resolve(),
-      toolCall: { input: { path: 'service.py', symbols: ['greet', 'helper'] } },
-      requestOptionalFile: fileResponder(PY_SRC),
-    } as any)
-    const pySlices = outputJson(python).slices
-    expect(pySlices).toHaveLength(2)
-    expect(pySlices.find((s: any) => s.symbol === 'greet')).toMatchObject({
-      kind: 'method',
-      startLine: 4,
-      endLine: 5,
-    })
-    expect(pySlices.find((s: any) => s.symbol === 'helper')).toMatchObject({
-      kind: 'function',
-      startLine: 7,
-      endLine: 8,
-    })
-
-    const rust = await handleReadSlices({
-      previousToolCallFinished: Promise.resolve(),
-      toolCall: { input: { path: 'counter.rs', symbols: ['new', 'main'] } },
-      requestOptionalFile: fileResponder(RUST_SRC),
-    } as any)
-    const rustSlices = outputJson(rust).slices
-    expect(rustSlices).toHaveLength(2)
-    expect(rustSlices.find((s: any) => s.symbol === 'new')).toMatchObject({
-      kind: 'method',
-      startLine: 8,
-      endLine: 10,
-    })
-    expect(rustSlices.find((s: any) => s.symbol === 'main')).toMatchObject({
-      kind: 'function',
-      startLine: 13,
-      endLine: 15,
-    })
-
-    const go = await handleReadSlices({
-      previousToolCallFinished: Promise.resolve(),
-      toolCall: { input: { path: 'server.go', symbols: ['New', 'Run'] } },
-      requestOptionalFile: fileResponder(GO_SRC),
-    } as any)
-    const goSlices = outputJson(go).slices
-    expect(goSlices).toHaveLength(2)
-    expect(goSlices.find((s: any) => s.symbol === 'New')).toMatchObject({
-      kind: 'function',
-      startLine: 7,
-      endLine: 9,
-    })
-    expect(goSlices.find((s: any) => s.symbol === 'Run')).toMatchObject({
-      kind: 'method',
-      startLine: 11,
-      endLine: 13,
-    })
-    expect(
-      goSlices.find((s: any) => s.symbol === 'Run')?.readCapability,
-    ).toMatch(/^cap\./)
-  })
-
-  test('returns empty slices array for a missing file', async () => {
-    const result = await handleReadSlices({
-      previousToolCallFinished: Promise.resolve(),
-      toolCall: { input: { path: 'nope.ts', symbols: ['greet'] } },
-      requestOptionalFile: async () => null,
-    } as any)
-    expect(outputJson(result).slices).toEqual([])
-  })
-})
-
-describe('extractSlices (shared core for read_files symbols + read_slices)', () => {
+describe('extractSlices (shared core for read_files symbols)', () => {
   test('extracts symbol spans with reusable capability tokens', async () => {
     const slices = await extractSlices(TS_SRC, 'svc.ts', ['greet', 'Service'])
     expect(slices).toHaveLength(2)
@@ -271,7 +165,9 @@ describe('extractSlices (shared core for read_files symbols + read_slices)', () 
     const greet = slices.find((s) => s.symbol === 'greet')!
     expect(greet).toMatchObject({ symbol: 'greet', startLine: 3, endLine: 6 })
     expect(greet.content).toContain('return msg + name')
-    expect(greet.readCapability).toMatch(/^cap\./)
+    // extractSlices no longer mints a capability without a caller-supplied
+    // scope; the read_files handler mints the scoped cap.v3 token instead.
+    expect(greet.readCapability).toBeUndefined()
 
     const service = slices.find((s) => s.symbol === 'Service')!
     expect(service).toMatchObject({
@@ -300,7 +196,7 @@ describe('extractSlices (shared core for read_files symbols + read_slices)', () 
       endLine: 13,
     })
     expect(run.content).toContain('\treturn nil')
-    expect(run.readCapability).toMatch(/^cap\./)
+    expect(run.readCapability).toBeUndefined()
   })
 
   test('omits symbols that are not found', async () => {

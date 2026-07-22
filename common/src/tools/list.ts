@@ -4,7 +4,6 @@ import { CHANGES, FileChangeSchema } from '../actions'
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
 import { applyPatchParams } from './params/tool/apply-patch'
-import { applySmartPatchParams } from './params/tool/apply-smart-patch'
 import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { checkBackgroundAgentParams } from './params/tool/check-background-agent'
@@ -27,7 +26,6 @@ import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
 import { readImageParams } from './params/tool/read-image'
 import { readOutlineParams } from './params/tool/read-outline'
-import { readSlicesParams } from './params/tool/read-slices'
 import { readSubtreeParams } from './params/tool/read-subtree'
 import { replaceRangeParams } from './params/tool/replace-range'
 import { rewriteSymbolParams } from './params/tool/rewrite-symbol'
@@ -76,7 +74,6 @@ const canonicalToolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
   apply_patch: applyPatchParams,
-  apply_smart_patch: applySmartPatchParams,
   ask_user: askUserParams,
   browser_logs: browserLogsParams,
   check_background_agent: checkBackgroundAgentParams,
@@ -111,7 +108,6 @@ const canonicalToolParams = {
   read_image: readImageParams,
   render_3d_preview: render3dPreviewParams,
   read_outline: readOutlineParams,
-  read_slices: readSlicesParams,
   read_subtree: readSubtreeParams,
   replace_range: replaceRangeParams,
   rewrite_symbol: rewriteSymbolParams,
@@ -163,10 +159,6 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('apply_patch'),
     input: toolParams.apply_patch.inputSchema,
-  }),
-  z.object({
-    toolName: z.literal('apply_smart_patch'),
-    input: toolParams.apply_smart_patch.inputSchema,
   }),
   z.object({
     toolName: z.literal('ask_user'),

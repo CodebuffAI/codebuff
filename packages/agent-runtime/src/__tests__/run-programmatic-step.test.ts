@@ -38,6 +38,7 @@ import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { AgentState } from '@codebuff/common/types/session-state'
+import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
 
 const logger: Logger = {
   debug: () => {},
@@ -1211,7 +1212,7 @@ describe('runProgrammaticStep', () => {
         },
         requestFiles: async () => {
           requestedFiles = true
-          return {}
+          return buildReadFilesResultV1([])
         },
         onResponseChunk: (chunk) => responseChunks.push(chunk as any),
       })

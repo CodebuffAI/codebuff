@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "slug": "read-edit-auth-unification-2026-07",
+  "status": "completed",
+  "currentTask": null,
+  "revision": 17,
+  "checkpoint": {
+    "taskId": "M5.2",
+    "phase": "validation",
+    "passed": true,
+    "summary": "Full monorepo typecheck clean; 231 agent-runtime + 57 SDK + 42 common read/edit/auth tests green.",
+    "receiptIds": [
+      "61f91818-45a7-4f47-b99a-791ca8753c55"
+    ],
+    "recordedAt": "2026-07-22T14:36:28.088Z"
+  },
+  "createdAt": "2026-07-22T07:20:12.216Z",
+  "updatedAt": "2026-07-22T14:38:19.432Z"
+}
