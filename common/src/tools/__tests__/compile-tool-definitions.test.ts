@@ -29,8 +29,8 @@ describe('compileToolDefinitions', () => {
 
     expect(transaction).toContain('"type": "replace_range"')
     expect(transaction).toContain('"readCapability": string')
-    expect(transaction).not.toContain('"startLine"')
-    expect(transaction).not.toContain('"endLine"')
+    expect(transaction).toContain('"startLine"?: number')
+    expect(transaction).toContain('"endLine"?: number')
     expect(transaction).not.toContain('"expectedHash"')
   })
 

@@ -651,9 +651,9 @@ describe('Schema handling error recovery', () => {
       const description = toolDescriptions.edit_transaction
 
       expect(description).toContain('readCapability')
-      expect(description).not.toContain('expectedHash')
-      expect(description).not.toContain('startLine')
-      expect(description).not.toContain('endLine')
+      expect(description).toContain('expectedHash')
+      expect(description).toContain('startLine')
+      expect(description).toContain('endLine')
     })
 
     test('ensureZodSchema converts JSON Schema to Zod schema', () => {

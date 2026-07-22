@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 
 import { applyPatchTool, getPatchRangeContentHash } from '../tools/apply-patch'
+import { encodeReadCapabilityToken } from '@codebuff/common/util/content-hash'
 
 function expectAppliedAction(
   value: unknown,
@@ -715,21 +716,32 @@ describe('applyPatchTool', () => {
             '',
           ].join('\n'),
           basedOnRead: [
-            {
+            encodeReadCapabilityToken({
               startLine: 100,
               endLine: 102,
               hash: getPatchRangeContentHash(lines.slice(99, 102).join('\n')),
-            },
-            {
+              scope: {
+                projectId: '/repo',
+                path: 'src/large.ts',
+                runId: 'test-run',
+              },
+            }),
+            encodeReadCapabilityToken({
               startLine: 900,
               endLine: 902,
               hash: getPatchRangeContentHash(lines.slice(899, 902).join('\n')),
-            },
+              scope: {
+                projectId: '/repo',
+                path: 'src/large.ts',
+                runId: 'test-run',
+              },
+            }),
           ],
         },
       },
       cwd: '/repo',
       fs,
+      capabilityIssuer: { projectId: '/repo', runId: 'test-run' },
     })
 
     expect(result[0]?.type).toBe('json')
@@ -763,16 +775,22 @@ describe('applyPatchTool', () => {
           path: 'src/large.ts',
           diff: '@@\n-const target = 1;\n+const target = 2;\n',
           basedOnRead: [
-            {
+            encodeReadCapabilityToken({
               startLine: 501,
               endLine: 501,
               hash: getPatchRangeContentHash('const target = 0;'),
-            },
+              scope: {
+                projectId: '/repo',
+                path: 'src/large.ts',
+                runId: 'test-run',
+              },
+            }),
           ],
         },
       },
       cwd: '/repo',
       fs,
+      capabilityIssuer: { projectId: '/repo', runId: 'test-run' },
     })
 
     expect(result[0]?.type).toBe('json')
@@ -820,16 +838,22 @@ describe('applyPatchTool', () => {
             '',
           ].join('\n'),
           basedOnRead: [
-            {
+            encodeReadCapabilityToken({
               startLine: 100,
               endLine: 102,
               hash: getPatchRangeContentHash(lines.slice(99, 102).join('\n')),
-            },
+              scope: {
+                projectId: '/repo',
+                path: 'src/large.ts',
+                runId: 'test-run',
+              },
+            }),
           ],
         },
       },
       cwd: '/repo',
       fs,
+      capabilityIssuer: { projectId: '/repo', runId: 'test-run' },
     })
 
     expect(result[0]?.type).toBe('json')

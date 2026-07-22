@@ -294,6 +294,12 @@ describe('runtime tool path hardening', () => {
 
   it('does not let legacy pathless apply_patch ranges authorize an unread path', async () => {
     let clientCalls = 0
+    const token = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 1,
+      hash: getContentHash('old'),
+      scope: { projectId: '/project', path: 'src/other.ts', runId: 'run' },
+    })
     const result = await handleApplyPatch({
       previousToolCallFinished: Promise.resolve(),
       toolCall: {
@@ -304,12 +310,12 @@ describe('runtime tool path hardening', () => {
             type: 'update_file',
             path: 'src/a.ts',
             diff: '@@\n-old\n+new\n',
-            basedOnRead: [
-              { startLine: 1, endLine: 1, hash: getContentHash('old') },
-            ],
+            basedOnRead: [token],
           },
         },
       },
+      fileContext: { projectRoot: '/project' },
+      runId: 'run',
       fileProcessingState: getFileProcessingValues({
         strictReadBeforeEdit: true,
       }),
@@ -321,7 +327,7 @@ describe('runtime tool path hardening', () => {
 
     expect(clientCalls).toBe(0)
     expect(String((result.output[0]?.value as any).errorMessage)).toContain(
-      'strict read-before-edit',
+      'belongs to a different project, path, or agent run',
     )
   })
 
@@ -367,9 +373,7 @@ describe('runtime tool path hardening', () => {
       },
     } as any)
 
-    expect(forwardedOperation.basedOnRead).toEqual([
-      { startLine: 1, endLine: 1, hash },
-    ])
+    expect(forwardedOperation.basedOnRead).toEqual([token])
     expect(result.output[0]?.value).not.toHaveProperty('errorMessage')
   })
 
