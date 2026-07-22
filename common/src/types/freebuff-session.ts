@@ -282,11 +282,6 @@ export type FreebuffSessionServerResponse =
        * started. `retryAfterMs` is the time until that period resets. Terminal
        * for the CLI's current poll session; the user can exit and return later. */
       status: 'rate_limited'
-      /** Desktop multi-session only: set to 'concurrent_sessions' when the
-       *  reject is the per-user concurrent-tab backstop rather than a
-       *  daily/weekly session pool — clients should say "close a tab", not
-       *  "daily limit". Absent on quota rejects. */
-      reason?: 'concurrent_sessions'
       accessTier?: FreebuffAccessTier
       /** The freebuff model the user tried to join. */
       model: string
@@ -294,8 +289,7 @@ export type FreebuffSessionServerResponse =
        * premium allowance, or the user's weekly GLM referral plus streak
        * entitlement). */
       limit: number
-      /** Additive detail for `limit`; absent on older servers and non-quota
-       *  `reason`-tagged rejections such as the concurrent-session backstop. */
+      /** Additive detail for `limit`; absent on older servers. */
       entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
       period: 'pacific_day' | 'pacific_week'
       resetTimeZone: string
