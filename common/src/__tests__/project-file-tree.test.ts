@@ -6,6 +6,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   getAllPathsWithDirectories,
   getProjectFileTree,
+  isFileIgnored,
 } from '../project-file-tree'
 import { createMockFs } from '../testing/mocks/filesystem'
 
@@ -70,5 +71,18 @@ describe('getProjectFileTree', () => {
     const paths = getAllPathsWithDirectories(tree).map((p) => p.path)
 
     expect(paths).toContain(path.join('a', 'b', 'c', 'd', 'e.txt'))
+  })
+})
+
+describe('isFileIgnored', () => {
+  it('reads ignore rules at the filesystem root without looping', async () => {
+    const root = path.parse(process.cwd()).root
+    const fs = createMockFs({
+      files: { [path.join(root, '.gitignore')]: 'readme.txt\n' },
+    })
+
+    expect(
+      await isFileIgnored({ filePath: 'readme.txt', projectRoot: root, fs }),
+    ).toBe(true)
   })
 })

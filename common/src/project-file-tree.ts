@@ -5,6 +5,7 @@ import { sortBy } from 'lodash'
 
 import { DEFAULT_IGNORED_PATHS } from './constants/paths'
 import { fileExists, isValidProjectRoot } from './util/file'
+import { isPathInside } from './util/path'
 
 import type { CodebuffFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
@@ -321,25 +322,33 @@ export async function isFileIgnored(params: {
 }): Promise<boolean> {
   const { filePath, projectRoot, fs } = params
 
+  const resolvedProjectRoot = path.resolve(projectRoot)
+  const fullFilePath = path.resolve(resolvedProjectRoot, filePath)
+  if (!isPathInside(resolvedProjectRoot, fullFilePath)) return false
+
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)
   }
 
-  const relativeFilePath = path.relative(
-    projectRoot,
-    path.join(projectRoot, filePath),
-  )
-  const dirPath = path.dirname(path.join(projectRoot, filePath))
+  const relativeFilePath = path.relative(resolvedProjectRoot, fullFilePath)
 
   // Get ignore patterns from the directory containing the file and all parent directories
   const mergedIgnore = ignore.default().add(defaultIgnore)
-  let currentDir = dirPath
-  while (currentDir.startsWith(projectRoot)) {
+  let currentDir = path.dirname(fullFilePath)
+  while (true) {
     mergedIgnore.add(
-      await parseGitignore({ fullDirPath: currentDir, projectRoot, fs }),
+      await parseGitignore({
+        fullDirPath: currentDir,
+        projectRoot: resolvedProjectRoot,
+        fs,
+      }),
     )
-    currentDir = path.dirname(currentDir)
+    if (path.relative(resolvedProjectRoot, currentDir) === '') break
+
+    const parentDir = path.dirname(currentDir)
+    if (parentDir === currentDir) break
+    currentDir = parentDir
   }
 
   return mergedIgnore.ignores(relativeFilePath)
