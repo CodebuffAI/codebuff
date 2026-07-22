@@ -13,6 +13,7 @@ import { useSearchableList } from '../hooks/use-searchable-list'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
+import { exitCliCleanly } from '../utils/exit-cleanly'
 import { formatCwd } from '../utils/path-helpers'
 import { loadRecentProjects } from '../utils/recent-projects'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
@@ -273,7 +274,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
       }
       // Ctrl+C always quits
       if (key.name === 'c' && key.ctrl) {
-        process.exit(0)
+        void exitCliCleanly()
         return true
       }
       // All other single-character keys should go to the input for typing

@@ -22,6 +22,7 @@ import { stopActiveRun } from '../utils/active-run'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
+import { exitCliCleanly } from '../utils/exit-cleanly'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { getSkillByName } from '../utils/skill-registry'
@@ -311,7 +312,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'exit',
     aliases: ['quit', 'q'],
     handler: () => {
-      process.kill(process.pid, 'SIGINT')
+      void exitCliCleanly()
     },
   }),
   defineCommandWithArgs({

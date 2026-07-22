@@ -135,6 +135,19 @@ describe('shared release launcher safety', () => {
     expect(installIndex).toBeGreaterThan(stopIndex)
   })
 
+  test('gives the binary its launcher pid', () => {
+    const source = readFileSync(launcherPath, 'utf8')
+    const spawnFunction = source.slice(
+      source.indexOf('function spawnInstalledBinary'),
+      source.indexOf('async function tryFallbackToBaseline'),
+    )
+
+    expect(spawnFunction).toContain(
+      'CODEBUFF_LAUNCHER_PID: String(process.pid)',
+    )
+    expect(spawnFunction).toContain("stdio: 'inherit'")
+  })
+
   test('cleans up process-stop listeners and timers', async () => {
     const { stopRunningProcess } = createLauncher({
       packageName: 'test',

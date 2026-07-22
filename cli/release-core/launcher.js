@@ -1110,9 +1110,15 @@ function createLauncher(productConfig) {
     // exe or the download is corrupt — is thrown synchronously.
     let child
     try {
+      const { env: optionEnv, ...spawnOptions } = options
       child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
         stdio: 'inherit',
-        ...options,
+        ...spawnOptions,
+        env: {
+          ...process.env,
+          ...optionEnv,
+          CODEBUFF_LAUNCHER_PID: String(process.pid),
+        },
       })
     } catch (err) {
       exitOnSpawnFailure(err)

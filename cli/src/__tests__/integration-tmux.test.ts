@@ -14,10 +14,14 @@ import {
 
 const CLI_PATH = path.join(__dirname, '../index.tsx')
 const TIMEOUT_MS = 15000
+
+// Establish the test environment before deciding whether tmux tests should
+// run. Otherwise file-loading order can make the full suite run these tests
+// locally even though the same suite normally marks itself as CI.
+ensureCliTestEnv()
+
 const tmuxAvailable = isTmuxAvailable()
 const sdkBuilt = isSDKBuilt()
-
-ensureCliTestEnv()
 
 // Utility to run tmux commands
 function tmux(args: string[]): Promise<string> {
