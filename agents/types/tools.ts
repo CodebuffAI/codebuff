@@ -245,7 +245,7 @@ export interface EditTransactionParams {
           newString: string
           allowMultiple?: boolean
           occurrenceIndex?: number
-          /** Optional authenticated readCapability copied verbatim from the matching fresh read_files editAnchor. */
+          /** Optional authenticated cap.v3 readCapability copied verbatim from the matching fresh read_files editAnchor. */
           basedOnRead?: string
           skipIfMissing?: boolean
         }[]
@@ -689,18 +689,18 @@ export interface ReadSubtreeParams {
 }
 
 /**
- * Parameters for replace_range tool
+ * Replace all or a contained sub-range of content observed through one fresh cap.v3 read capability.
  */
 export interface ReplaceRangeParams {
-  /** The file to edit. */
+  /** The path to the file to edit. */
   path: string
-  /** Copy editAnchor.readCapability from the matching fresh range. */
+  /** Copy the cap.v3 readCapability verbatim from the matching fresh read_files editAnchor. The token supplies the observed line bounds and content hash. */
   readCapability: string
-  /** Optional 1-indexed target start within the capability-covered range. */
+  /** Optional 1-indexed target start within the capability-covered range. Omit with endLine to replace the complete observed range. */
   startLine?: number
-  /** Optional 1-indexed target end within the capability-covered range. */
+  /** Optional 1-indexed target end within the capability-covered range. Omit with startLine to replace the complete observed range. */
   endLine?: number
-  /** Complete replacement content. */
+  /** Complete replacement content for the selected line range. */
   newContent: string
 }
 
@@ -969,7 +969,7 @@ export interface StrReplaceParams {
     newString: string
     allowMultiple?: boolean
     occurrenceIndex?: number
-    /** Optional authenticated readCapability copied verbatim from the matching fresh read_files editAnchor. */
+    /** Optional authenticated cap.v3 readCapability copied verbatim from the matching fresh read_files editAnchor. */
     basedOnRead?: string
     skipIfMissing?: boolean
   }[]
