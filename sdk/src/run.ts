@@ -11,6 +11,7 @@ import {
   getMCPClient,
   listMCPTools,
   callMCPTool,
+  closeMCPClient,
 } from '@codebuff/common/mcp/client'
 import {
   COMPOSIO_META_TOOL_NAMES,
@@ -809,8 +810,9 @@ async function handleToolCall({
 
   // Handle MCP tool calls when mcpConfig is present
   if (action.mcpConfig) {
+    let mcpClientId: string | undefined
     try {
-      const mcpClientId = await getMCPClient(action.mcpConfig)
+      mcpClientId = await getMCPClient(action.mcpConfig)
       const result = await callMCPTool(
         mcpClientId,
         {
@@ -822,6 +824,11 @@ async function handleToolCall({
       )
       return { output: result }
     } catch (error) {
+      // Clean up the dead client so the next call reconnects with a fresh
+      // transport rather than hitting the same broken connection.
+      if (mcpClientId) {
+        closeMCPClient(mcpClientId).catch(() => {})
+      }
       return {
         output: [
           {
