@@ -16,6 +16,8 @@ export const feedbackRequestSchema = z.object({
   type: z.enum(['message', 'general']),
   clientFeedbackId: z.string().uuid().optional(),
   source: z.enum(FEEDBACK_SOURCES).optional(),
+  appVersion: z.string().max(100).optional(),
+  platform: z.string().max(100).optional(),
   messageId: z.string().min(1).max(200).optional(),
   messageVariant: z.enum(MESSAGE_VARIANTS).optional(),
   completionTime: z.string().max(50).optional(),
