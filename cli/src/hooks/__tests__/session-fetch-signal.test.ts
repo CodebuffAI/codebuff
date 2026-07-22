@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 
-import { sessionFetchSignal } from '../use-freebuff-session'
+import { sessionFetchSignal } from '../../utils/freebuff-session-api'
 
 // Every session API call gets this combined signal. The load-bearing cases:
 // the timeout must fire even when no caller signal is passed (DELETE paths),

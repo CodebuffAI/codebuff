@@ -140,6 +140,16 @@ function cleanup(): boolean {
   return destroyRendererAndResetTerminal()
 }
 
+/** Restore the terminal, report a fatal error synchronously, and exit. */
+export function exitCliWithFatalError(label: string, error: unknown): never {
+  const resetCompletedSynchronously = cleanup() || resetTerminalState()
+  if (resetCompletedSynchronously) {
+    stopTerminalWatchdog()
+  }
+  reportFatalErrorSync(label, error)
+  process.exit(1)
+}
+
 /**
  * Install process-level signal handlers to ensure terminal cleanup on all exit scenarios.
  * Call this once after creating the renderer in index.tsx.
@@ -211,23 +221,13 @@ export function installProcessCleanupHandlers(cliRenderer: CliRenderer): void {
     }
   })
 
-  const handleFatalError = (label: string, error: unknown) => {
-    cleanup()
-    // destroy() may be waiting for an active frame. Restore synchronously
-    // before logging so the diagnostic lands on the main screen rather than
-    // disappearing with the alternate screen during process.exit().
-    resetTerminalState()
-    reportFatalErrorSync(label, error)
-    process.exit(1)
-  }
-
   // uncaughtException - Safety net for unhandled errors
   process.on('uncaughtException', (error) => {
-    handleFatalError('Uncaught exception', error)
+    exitCliWithFatalError('Uncaught exception', error)
   })
 
   // unhandledRejection - Safety net for unhandled promise rejections
   process.on('unhandledRejection', (reason) => {
-    handleFatalError('Unhandled rejection', reason)
+    exitCliWithFatalError('Unhandled rejection', reason)
   })
 }

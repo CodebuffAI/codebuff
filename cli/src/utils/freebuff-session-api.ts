@@ -1,0 +1,128 @@
+import { env } from '@codebuff/common/env'
+
+import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { getAuthTokenDetails } from './auth'
+import { IS_FREEBUFF } from './constants'
+
+import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
+
+const SESSION_FETCH_TIMEOUT_MS = 20_000
+const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
+const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
+
+/** Combine the caller's abort signal with a per-request timeout. */
+export function sessionFetchSignal(
+  signal: AbortSignal | undefined,
+  timeoutMs: number = SESSION_FETCH_TIMEOUT_MS,
+): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
+}
+
+function sessionEndpoint(): string {
+  const base = (
+    env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+  ).replace(/\/$/, '')
+  return `${base}/api/v1/freebuff/session`
+}
+
+export async function callFreebuffSession(
+  method: 'POST' | 'GET' | 'DELETE',
+  token: string,
+  opts: { instanceId?: string; model?: string; signal?: AbortSignal } = {},
+): Promise<FreebuffSessionServerResponse> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+  if (method === 'GET' && opts.instanceId) {
+    headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
+  }
+  if (method === 'POST' && opts.model) {
+    headers[FREEBUFF_MODEL_HEADER] = opts.model
+  }
+
+  const response = await fetch(sessionEndpoint(), {
+    method,
+    headers,
+    signal: sessionFetchSignal(opts.signal),
+  })
+
+  if (response.status === 404) {
+    return { status: 'none' }
+  }
+
+  if (response.status === 403) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as FreebuffSessionServerResponse | null
+    if (
+      body &&
+      (body.status === 'country_blocked' || body.status === 'banned')
+    ) {
+      return body
+    }
+  }
+
+  if (response.status === 409 && method === 'POST') {
+    const body = (await response
+      .json()
+      .catch(() => null)) as FreebuffSessionServerResponse | null
+    if (
+      body &&
+      (body.status === 'model_locked' || body.status === 'model_unavailable')
+    ) {
+      return body
+    }
+  }
+
+  if (response.status === 429 && method === 'POST') {
+    const body = (await response
+      .json()
+      .catch(() => null)) as FreebuffSessionServerResponse | null
+    if (
+      body &&
+      (body.status === 'rate_limited' || body.status === 'spend_limited')
+    ) {
+      return body
+    }
+  }
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(
+      `freebuff session ${method} failed: ${response.status} ${text.slice(0, 200)}`,
+    )
+  }
+
+  return (await response.json()) as FreebuffSessionServerResponse
+}
+
+export function holdsLiveFreebuffSlot(
+  current: FreebuffSessionResponse | null,
+): boolean {
+  if (!current) return false
+  return (
+    current.status === 'active' ||
+    (current.status === 'ended' && Boolean(current.instanceId))
+  )
+}
+
+/** Best-effort DELETE of the caller's session row when it holds a live slot. */
+export async function releaseFreebuffSlot(): Promise<void> {
+  const current = useFreebuffSessionStore.getState().session
+  if (!holdsLiveFreebuffSlot(current)) return
+
+  const { token } = getAuthTokenDetails()
+  if (!token) return
+
+  try {
+    await callFreebuffSession('DELETE', token)
+  } catch {
+    // The server-side sweep is the backstop.
+  }
+}
+
+/** Release the Freebuff slot on exit paths that skip React unmount. */
+export async function endFreebuffSessionBestEffort(): Promise<void> {
+  if (!IS_FREEBUFF) return
+  await releaseFreebuffSlot()
+}

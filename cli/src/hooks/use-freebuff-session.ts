@@ -1,4 +1,3 @@
-import { env } from '@codebuff/common/env'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -28,41 +27,21 @@ import {
   getCachedReferral,
   rememberReferral,
 } from '../utils/freebuff-referral-cache'
+import {
+  callFreebuffSession,
+  holdsLiveFreebuffSlot,
+  releaseFreebuffSlot,
+} from '../utils/freebuff-session-api'
 import { saveFreebuffModelPreference } from '../utils/settings'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
-  FreebuffSessionServerResponse,
 } from '@codebuff/common/types/freebuff-session'
 
 const POLL_INTERVAL_ACTIVE_MS = 30_000
 const POLL_INTERVAL_ERROR_MS = 10_000
-
-/** Cap on any single session API call. Without it the only abort is the
- *  poll-loop restart controller, so a hung request (overloaded server, dead
- *  LB connection) pins the landing screen's "Starting…" spinner until Bun's
- *  ~300s idle fetch timeout. On timeout the tick loop's catch sees a
- *  non-restart abort, logs, and reschedules on POLL_INTERVAL_ERROR_MS. */
-const SESSION_FETCH_TIMEOUT_MS = 20_000
-
-/** Combine the caller's abort signal (poll-loop restart / unmount) with the
- *  per-request timeout. Exported for tests. */
-export function sessionFetchSignal(
-  signal: AbortSignal | undefined,
-  timeoutMs: number = SESSION_FETCH_TIMEOUT_MS,
-): AbortSignal {
-  const timeout = AbortSignal.timeout(timeoutMs)
-  return signal ? AbortSignal.any([signal, timeout]) : timeout
-}
-
-/** Header sent on GET so the server can detect when another CLI on the same
- *  account has rotated the id and respond with `{ status: 'superseded' }`. */
-const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
-
-/** Header sent on POST telling the server which model to use. */
-const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
 
 /** Play the terminal bell so users get an audible notification on admission. */
 const playAdmissionSound = () => {
@@ -71,94 +50,6 @@ const playAdmissionSound = () => {
   } catch {
     // Silent fallback — some terminals/pipes disallow writing to stdout.
   }
-}
-
-const sessionEndpoint = (): string => {
-  const base = (
-    env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
-  ).replace(/\/$/, '')
-  return `${base}/api/v1/freebuff/session`
-}
-
-async function callSession(
-  method: 'POST' | 'GET' | 'DELETE',
-  token: string,
-  opts: { instanceId?: string; model?: string; signal?: AbortSignal } = {},
-): Promise<FreebuffSessionServerResponse> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
-  if (method === 'GET' && opts.instanceId) {
-    headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
-  }
-  if (method === 'POST' && opts.model) {
-    headers[FREEBUFF_MODEL_HEADER] = opts.model
-  }
-  const resp = await fetch(sessionEndpoint(), {
-    method,
-    headers,
-    signal: sessionFetchSignal(opts.signal),
-  })
-  // 404 = endpoint not deployed on this server (older web build). Treat as
-  // "no session" so a newer CLI against an older server drops to the model
-  // picker rather than stranding the user, rather than erroring out.
-  if (resp.status === 404) {
-    return { status: 'none' }
-  }
-  // 403 with a country_blocked or banned body is a terminal signal, not an
-  // error — the server rejects non-allowlist countries and banned accounts up
-  // front (see session _handlers.ts) so they don't wait through the queue only
-  // to be rejected at chat time. The 403 status (rather than 200) is
-  // deliberate: older CLIs that don't know these statuses treat them as a
-  // generic error and back off on the 10s error-retry cadence instead of
-  // tight-polling an unrecognized 200 body.
-  if (resp.status === 403) {
-    const body = (await resp
-      .json()
-      .catch(() => null)) as FreebuffSessionServerResponse | null
-    if (
-      body &&
-      (body.status === 'country_blocked' || body.status === 'banned')
-    ) {
-      return body
-    }
-  }
-  // 409 from POST means the selected model cannot be joined right now, either
-  // because an active session is locked to another model or because a
-  // Surface model-switch conflicts and temporary model availability closures
-  // as non-throw states.
-  if (resp.status === 409 && method === 'POST') {
-    const body = (await resp
-      .json()
-      .catch(() => null)) as FreebuffSessionServerResponse | null
-    if (
-      body &&
-      (body.status === 'model_locked' || body.status === 'model_unavailable')
-    ) {
-      return body
-    }
-  }
-  // 429 from POST is a session-admission reject: either the session quota or
-  // the daily provider-spend budget. Terminal for the current poll — the CLI
-  // shows a screen explaining the limit and when the user can try again. The 429 status
-  // (rather than 200) keeps older CLIs in their error path so they back off
-  // instead of tight-polling an unrecognized 200 body.
-  if (resp.status === 429 && method === 'POST') {
-    const body = (await resp
-      .json()
-      .catch(() => null)) as FreebuffSessionServerResponse | null
-    if (
-      body &&
-      (body.status === 'rate_limited' || body.status === 'spend_limited')
-    ) {
-      return body
-    }
-  }
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '')
-    throw new Error(
-      `freebuff session ${method} failed: ${resp.status} ${text.slice(0, 200)}`,
-    )
-  }
-  return (await resp.json()) as FreebuffSessionServerResponse
 }
 
 /** Picks the poll delay after a successful tick. Returns null when the state
@@ -231,16 +122,6 @@ export function getFreebuffInstanceId(): string | undefined {
  *  server rejects the request — so the message queue gates on this before
  *  firing queued work. Same predicate gates DELETE on exit: outside these
  *  states there is no server row to release. */
-export function holdsLiveFreebuffSlot(
-  current: FreebuffSessionResponse | null,
-): boolean {
-  if (!current) return false
-  return (
-    current.status === 'active' ||
-    (current.status === 'ended' && Boolean(current.instanceId))
-  )
-}
-
 function toLandingSession(
   current: FreebuffSessionResponse | null,
 ): Extract<FreebuffSessionResponse, { status: 'none' }> {
@@ -267,22 +148,6 @@ function toLandingSession(
     ...(countryCode ? { countryCode } : {}),
     ...(countryBlockReason ? { countryBlockReason } : {}),
     ...(ipPrivacySignals ? { ipPrivacySignals } : {}),
-  }
-}
-
-/** Best-effort DELETE of the caller's session row, gated on actually holding
- *  one. Used both by exit paths and any flow that wants the next POST to
- *  start clean (rejoin, return-to-landing). Always swallows errors — the
- *  server-side sweep is the backstop. */
-async function releaseFreebuffSlot(): Promise<void> {
-  const current = useFreebuffSessionStore.getState().session
-  if (!holdsLiveFreebuffSlot(current)) return
-  const { token } = getAuthTokenDetails()
-  if (!token) return
-  try {
-    await callSession('DELETE', token)
-  } catch {
-    // swallow
   }
 }
 
@@ -379,16 +244,6 @@ export function takeOverFreebuffSession(): Promise<void> {
   if (current?.status !== 'takeover_prompt') return Promise.resolve()
   useFreebuffModelStore.getState().setSelectedModel(current.model)
   return restartFreebuffSession('rejoin')
-}
-
-/**
- * Best-effort DELETE of the caller's session row. Used by exit paths that
- * skip React unmount (process.exit on Ctrl+C) so the seat frees up quickly
- * instead of waiting for the server-side expiry sweep.
- */
-export async function endFreebuffSessionBestEffort(): Promise<void> {
-  if (!IS_FREEBUFF) return
-  await releaseFreebuffSlot()
 }
 
 export function markFreebuffSessionSuperseded(): void {
@@ -520,7 +375,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       const instanceId = getFreebuffInstanceId()
       const model = getSelectedFreebuffModel()
       try {
-        const next = await callSession(method, token, {
+        const next = await callFreebuffSession(method, token, {
           signal: abortController.signal,
           instanceId,
           model,
@@ -654,7 +509,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           )
           apply(landingSession)
           const fetchController = abortController
-          callSession('GET', token, { signal: fetchController.signal })
+          callFreebuffSession('GET', token, {
+            signal: fetchController.signal,
+          })
             .then((response) => {
               if (
                 cancelled ||
@@ -712,7 +569,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       // Fire-and-forget DELETE. Only release if we actually held a slot so
       // we don't generate spurious DELETEs (e.g. HMR before POST completes).
       if (holdsLiveFreebuffSlot(current)) {
-        callSession('DELETE', token).catch(() => {})
+        callFreebuffSession('DELETE', token).catch(() => {})
       }
       setSession(null)
       setError(null)

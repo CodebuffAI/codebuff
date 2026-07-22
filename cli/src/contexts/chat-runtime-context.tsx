@@ -9,7 +9,7 @@ import {
 
 import { useAgentValidation } from '../hooks/use-agent-validation'
 import { useElapsedTime } from '../hooks/use-elapsed-time'
-import { holdsLiveFreebuffSlot } from '../hooks/use-freebuff-session'
+import { holdsLiveFreebuffSlot } from '../utils/freebuff-session-api'
 import {
   useMessageQueue,
   type QueuedMessage,

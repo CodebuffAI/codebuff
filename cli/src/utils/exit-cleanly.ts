@@ -1,8 +1,7 @@
-import { endFreebuffSessionBestEffort } from '../hooks/use-freebuff-session'
-
 import { flushAnalytics } from './analytics'
 import { IS_FREEBUFF } from './constants'
 import { stopEngagementTracking } from './engagement'
+import { endFreebuffSessionBestEffort } from './freebuff-session-api'
 import { drainClientLogs } from './log-shipper'
 import { withTimeout } from './terminal-color-detection'
 

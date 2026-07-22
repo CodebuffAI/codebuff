@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 
-import { holdsLiveFreebuffSlot } from '../use-freebuff-session'
+import { holdsLiveFreebuffSlot } from '../../utils/freebuff-session-api'
 
 import type { FreebuffSessionResponse } from '../../types/freebuff-session'
 

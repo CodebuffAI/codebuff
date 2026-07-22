@@ -40,16 +40,11 @@ import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
 import { startEngagementTracking } from './utils/engagement'
-import { installProcessCleanupHandlers } from './utils/renderer-cleanup'
-import { TERMINAL_RESET_SEQUENCES } from './utils/terminal-reset-sequences'
 import {
-  reportFatalErrorSync,
-  writeTerminalControlSync,
-} from './utils/terminal-io'
-import {
-  startTerminalWatchdog,
-  stopTerminalWatchdog,
-} from './utils/terminal-watchdog'
+  exitCliWithFatalError,
+  installProcessCleanupHandlers,
+} from './utils/renderer-cleanup'
+import { startTerminalWatchdog } from './utils/terminal-watchdog'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
@@ -353,32 +348,8 @@ async function main(): Promise<void> {
   // Install early error handlers BEFORE renderer creation.
   // If the renderer crashes during init, these ensure the error is visible
   // by exiting the alternate screen buffer before printing the error.
-  const earlyFatalHandler = (error: unknown) => {
-    try {
-      if (process.stdin.isTTY && process.stdin.setRawMode) {
-        process.stdin.setRawMode(false)
-      }
-    } catch {
-      // stdin may be closed
-    }
-    try {
-      if (process.stdout.isTTY) {
-        const resetCompletedSynchronously = writeTerminalControlSync(
-          TERMINAL_RESET_SEQUENCES,
-        )
-        if (resetCompletedSynchronously) {
-          stopTerminalWatchdog()
-        } else {
-          // The watchdog remains armed as the reliable post-exit fallback.
-          process.stdout.write(TERMINAL_RESET_SEQUENCES)
-        }
-      }
-    } catch {
-      // stdout may be closed
-    }
-    reportFatalErrorSync('Fatal error during startup', error)
-    process.exit(1)
-  }
+  const earlyFatalHandler = (error: unknown) =>
+    exitCliWithFatalError('Fatal error during startup', error)
   process.on('uncaughtException', earlyFatalHandler)
   process.on('unhandledRejection', earlyFatalHandler)
 
