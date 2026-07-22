@@ -22,7 +22,6 @@ Primary files reviewed:
 - `packages/agent-runtime/src/process-str-replace.ts`
 - `packages/agent-runtime/src/tools/handlers/tool/read-files.ts`
 - `packages/agent-runtime/src/tools/handlers/tool/read-outline.ts`
-- `packages/agent-runtime/src/tools/handlers/tool/read-slices.ts`
 - `packages/agent-runtime/src/tools/handlers/tool/read-subtree.ts`
 - `packages/agent-runtime/src/tools/handlers/tool/edit-read-state.ts`
 - `packages/agent-runtime/src/tools/handlers/tool/write-file.ts`
