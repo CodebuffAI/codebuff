@@ -10,8 +10,8 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
-  FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
+  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -157,7 +157,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   ]),
   'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
-  'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_ATLAS_MODEL_ID]),
+  'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID]),
 
   // Every Freebuff Desktop hosted root variant allows the full desktop picker
   // set (the user picks the model per tab). The free-session admission gate still

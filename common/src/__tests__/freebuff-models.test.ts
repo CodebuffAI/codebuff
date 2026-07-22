@@ -197,6 +197,7 @@ describe('freebuff model availability', () => {
 
   test('HY3 OpenRouter trial is available only as a Freebuff Web premium model for now', () => {
     expect(FREEBUFF_HY3_MODEL_ID).toBe(FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID)
+    // The old Atlas id remains a wire-compatible alias for saved selections.
     expect(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).toBe(
       FREEBUFF_HY3_ATLAS_MODEL_ID,
     )
@@ -224,32 +225,41 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('HY3 Atlas is a god-only Freebuff Web premium model', () => {
+  test('HY3 paid OpenRouter is a god-only Freebuff Web premium model', () => {
     expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_HY3_ATLAS_MODEL_ID,
+      FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
     )
     expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_HY3_ATLAS_MODEL_ID,
+      FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
     )
-    expect(isFreebuffWebModelId(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(false)
+    expect(isFreebuffWebModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID)).toBe(
+      false,
+    )
     expect(
-      isFreebuffWebModelId(FREEBUFF_HY3_ATLAS_MODEL_ID, {
+      isFreebuffWebModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID, {
         includeGodOnly: true,
       }),
     ).toBe(true)
-    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(true)
-    expect(isFreebuffWebPremiumModelId(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(true)
-    expect(resolveFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID)).toBe(
-      FALLBACK_FREEBUFF_MODEL_ID,
-    )
     expect(
-      resolveFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID, {
+      isFreebuffWebGodOnlyModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreebuffWebPremiumModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID),
+    ).toBe(true)
+    expect(
+      resolveFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID),
+    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(
+      resolveFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID, {
         includeGodOnly: true,
       }),
-    ).toBe(FREEBUFF_HY3_ATLAS_MODEL_ID)
-    expect(getFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID).displayName).toBe(
-      'HY3 Atlas',
-    )
+    ).toBe(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID)
+    expect(
+      getFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).displayName,
+    ).toBe('HY3 (OpenRouter)')
+    expect(
+      getFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).tagline,
+    ).toBe('Paid via OpenRouter')
   })
 
   test('CrofAI GLM 5.2 is a god-only Freebuff Web test model', () => {

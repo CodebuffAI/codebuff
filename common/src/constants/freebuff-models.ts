@@ -5,7 +5,6 @@ import {
   type ZonedDateParts,
 } from '../util/zoned-time'
 import {
-  atlasCloudModels,
   mimoModels,
   moonshotModels,
   openrouterModels,
@@ -72,7 +71,10 @@ export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3_free
 export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3
-export const FREEBUFF_HY3_ATLAS_MODEL_ID = atlasCloudModels.tencentHy3
+/** Legacy alias retained for the direct Atlas fallback implementation. New
+ * paid HY3 selections route through OpenRouter. */
+export const FREEBUFF_HY3_ATLAS_MODEL_ID =
+  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
@@ -241,10 +243,10 @@ const HY3_MODEL = {
   experimental: true,
 } as const satisfies FreebuffModelOption
 
-const HY3_ATLAS_MODEL = {
-  id: FREEBUFF_HY3_ATLAS_MODEL_ID,
-  displayName: 'HY3 Atlas',
-  tagline: 'Direct via Atlas Cloud',
+const HY3_OPENROUTER_PAID_MODEL = {
+  id: FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
+  displayName: 'HY3 (OpenRouter)',
+  tagline: 'Paid via OpenRouter',
   availability: 'always',
   premium: true,
   multimodal: false,
@@ -370,7 +372,7 @@ export const FREEBUFF_WEB_MODELS = [
 export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
   POOLSIDE_LAGUNA_S_21_MODEL,
   POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL,
-  HY3_ATLAS_MODEL,
+  HY3_OPENROUTER_PAID_MODEL,
   CROF_GLM_V52_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -382,7 +384,7 @@ export const FREEBUFF_WEB_ALL_MODELS = [
 export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  FREEBUFF_HY3_ATLAS_MODEL_ID,
+  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const
 
@@ -391,7 +393,7 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  FREEBUFF_HY3_ATLAS_MODEL_ID,
+  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const
 
