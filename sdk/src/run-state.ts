@@ -148,6 +148,14 @@ type ProjectIndexInput = {
 
 const MAX_DISCOVERED_PROJECT_READ_BYTES = 1_000_000
 
+/** Per-stream cap on collected subprocess output. A working-tree diff can be
+ *  multiple GB (huge tracked files), which used to accumulate unbounded until
+ *  the string hit the runtime's ~2GB ceiling and threw RangeError: Out of
+ *  memory. Downstream prompt building keeps only the first ~30KB, so anything
+ *  past this cap is discarded work; the child is killed once it's reached. */
+const MAX_SUBPROCESS_OUTPUT_CHARS = 10_000_000
+const SUBPROCESS_TRUNCATION_MARKER = '\n[output truncated]'
+
 async function computeProjectIndex(params: ProjectIndexInput): Promise<{
   fileTree: FileTreeNode[]
   fileTokenScores: Record<string, any>
@@ -239,22 +247,35 @@ function getFileSize(stats: Awaited<ReturnType<CodebuffFileSystem['stat']>>) {
  */
 function childProcessToPromise(
   proc: ReturnType<CodebuffSpawn>,
-): Promise<{ stdout: string; stderr: string }> {
+  maxOutputChars: number = MAX_SUBPROCESS_OUTPUT_CHARS,
+): Promise<{ stdout: string; stderr: string; truncated: boolean }> {
   return new Promise((resolve, reject) => {
     let stdout = ''
     let stderr = ''
+    let truncated = false
+
+    const collect = (existing: string, data: Buffer): string => {
+      if (truncated) return existing
+      const next = existing + data.toString()
+      if (next.length <= maxOutputChars) return next
+      truncated = true
+      proc.kill()
+      return next.slice(0, maxOutputChars) + SUBPROCESS_TRUNCATION_MARKER
+    }
 
     proc.stdout?.on('data', (data: Buffer) => {
-      stdout += data.toString()
+      stdout = collect(stdout, data)
     })
 
     proc.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString()
+      stderr = collect(stderr, data)
     })
 
     proc.on('close', (code: number | null) => {
-      if (code === 0) {
-        resolve({ stdout, stderr })
+      // A kill we issued at the cap exits nonzero; that must not reject, or
+      // the callers' catch-to-empty would discard the collected prefix.
+      if (code === 0 || truncated) {
+        resolve({ stdout, stderr, truncated })
       } else {
         reject(new Error(`Command exited with code ${code}`))
       }
@@ -265,9 +286,11 @@ function childProcessToPromise(
 }
 
 /**
- * Retrieves git changes for the project using the provided spawn function
+ * Retrieves git changes for the project using the provided spawn function.
+ * Output is capped per command (see MAX_SUBPROCESS_OUTPUT_CHARS).
+ * @internal Exported for testing
  */
-async function getGitChanges(params: {
+export async function getGitChanges(params: {
   cwd: string
   spawn: CodebuffSpawn
   logger: Logger
@@ -279,15 +302,27 @@ async function getGitChanges(params: {
 }> {
   const { cwd, spawn, logger } = params
 
+  const stdoutOf =
+    (command: string) =>
+    ({ stdout, truncated }: { stdout: string; truncated: boolean }) => {
+      if (truncated) {
+        logger.info?.(
+          { command, chars: stdout.length },
+          'Git command output truncated at cap',
+        )
+      }
+      return stdout
+    }
+
   const status = childProcessToPromise(spawn('git', ['status'], { cwd }))
-    .then(({ stdout }) => stdout)
+    .then(stdoutOf('git status'))
     .catch((error) => {
       logger.debug?.({ error }, 'Failed to get git status')
       return ''
     })
 
   const diff = childProcessToPromise(spawn('git', ['diff'], { cwd }))
-    .then(({ stdout }) => stdout)
+    .then(stdoutOf('git diff'))
     .catch((error) => {
       logger.debug?.({ error }, 'Failed to get git diff')
       return ''
@@ -296,7 +331,7 @@ async function getGitChanges(params: {
   const diffCached = childProcessToPromise(
     spawn('git', ['diff', '--cached'], { cwd }),
   )
-    .then(({ stdout }) => stdout)
+    .then(stdoutOf('git diff --cached'))
     .catch((error) => {
       logger.debug?.({ error }, 'Failed to get git diff --cached')
       return ''
