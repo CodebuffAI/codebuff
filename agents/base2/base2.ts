@@ -434,6 +434,7 @@ ${specialistRoutingSection}
       type Base2AgentState = NonNullable<typeof agentState> & {
         base2ActiveWork?: Base2ActiveWorkState
         canSuggestFollowups?: boolean
+        uncommittedUnvalidatedFiles?: string[]
         workspaceState?: {
           revision: number
           snapshotId: string
@@ -698,6 +699,11 @@ ${specialistRoutingSection}
       const initialGitStatusFiles = extractGitStatusFiles(
         (initialGitStatus as any)?.toolResult,
       ).filter((file) => !activeWorkState.gatePassedFiles.includes(file))
+      // Raw working-tree dirty set at turn start (not filtered by gate-passed).
+      // Used to publish the unvalidated-dirty set for the git-committer commit guard.
+      const initialGitStatusDirtyFiles = extractGitStatusFiles(
+        (initialGitStatus as any)?.toolResult,
+      )
       const initialGitStatusLineMap = extractGitStatusLineMap(
         (initialGitStatus as any)?.toolResult,
       )
@@ -758,8 +764,34 @@ ${specialistRoutingSection}
           includeToolCall: false,
         } as any
 
+        // Allow suggest_followups on a pure analysis turn: no edits happened,
+        // nothing is pending validation/review, the working tree was clean at
+        // turn start (initialGitStatusFiles excludes already-gate-passed
+        // files), and no gate phase is mid-flight. Without this the gate would
+        // pointlessly block follow-up suggestions on read-only/question turns
+        // that have nothing to validate or commit. The retract-on-edit paths
+        // below (and the tool-executor same-batch/cross-batch guards) still
+        // flip this back to false the moment any edit is detected this turn.
+        const hasNoPendingGateWork =
+          !editsHappened &&
+          pendingGateFiles.size === 0 &&
+          initialGitStatusFiles.length === 0 &&
+          activeWorkState.openReviewerBlockers.length === 0 &&
+          activeWorkState.nextRequiredAction.trim().length === 0 &&
+          activeWorkState.currentPhase !== 'blocked' &&
+          activeWorkState.currentPhase !== 'awaiting_validation' &&
+          activeWorkState.currentPhase !== 'awaiting_review'
         mutableAgentState.canSuggestFollowups =
-          !runValidationGate || finalResponseGateOpen
+          !runValidationGate || finalResponseGateOpen || hasNoPendingGateWork
+
+        // Publish the set of working-tree files that are dirty but NOT covered by a
+        // green gate pass, so the git-committer spawn guard in the tool executor can
+        // refuse to stage never-validated changes even when the finalization gate is
+        // otherwise open (a turn can end green on file A while an unrelated file B was
+        // never validated). Recomputed every iteration against the current
+        // gatePassedFiles so files validated this turn drop out of the set.
+        mutableAgentState.uncommittedUnvalidatedFiles =
+          initialGitStatusDirtyFiles.filter((file) => !gatePassedFiles.has(file))
 
         const pinnedStateMessage = buildPinnedActiveWorkMessage(activeWorkState)
         if (
@@ -2148,6 +2180,19 @@ ${specialistRoutingSection}
         const reviewableFingerprint = hashGateSnapshotDetails(
           buildGateSnapshotDetails(reviewablePendingFiles, ''),
         )
+        // Co-changed test files are excluded from the reviewable fingerprint
+        // set (isReviewableGateFile drops tests), which historically made it
+        // impossible for the reviewer to confirm coverage — it could never see
+        // the changed test file, so it always reported coverage missing/
+        // uncertain and the gate looped. Surface them as readable, additive
+        // "coverage evidence" context. This does NOT enter reviewSnapshot
+        // Fingerprint or attestation (those stay scoped to reviewable source).
+        const coverageEvidenceFiles = selectCoverageEvidenceFiles(
+          Array.from(pendingGateFiles),
+        )
+        const coverageEvidenceDetails = coverageEvidenceFiles.length
+          ? buildGateSnapshotDetails(coverageEvidenceFiles, '')
+          : '(no co-changed test files)'
         if (staticReviewConcurrency && !activeWorkState.staticReviewerJobId) {
           const bgReview = yield {
             toolName: 'spawn_agents',
@@ -2163,9 +2208,11 @@ ${specialistRoutingSection}
                     `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                     'Snapshot details (read for file membership; do not echo):',
                     reviewSnapshotDetails,
+                    'Coverage evidence (co-changed tests; readable and citable, not part of the reviewed fingerprint):',
+                    coverageEvidenceDetails,
                     'Validation gate summary: Reviewer running concurrently with validation (static-review-only mode).',
                     '',
-                    'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, and map every user requirement to evidence. Test-coverage requirements are satisfied (not uncertain) when the changed *.test.ts file in this same reviewed snapshot covers the changed behavior — cite that test file and the covering test name(s) as the requirement evidence. Use coverage: missing only when no mapped test exists anywhere, and requirement status uncertain only when you could not inspect the changed test file at all.',
+                    'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, and map every user requirement to evidence. Co-changed test files are listed under "Coverage evidence" below; they are readable and citable even though they are not part of the reviewed fingerprint. Test-coverage requirements are satisfied (not uncertain) when a Coverage evidence test file covers the changed behavior — cite that test file and the covering test name(s) as the requirement evidence. Use coverage: missing only when no covering test exists in the Coverage evidence list or anywhere in the repo, and requirement status uncertain only when you could not inspect a listed Coverage evidence test file at all.',
                   ].join('\n'),
                 },
               ],
@@ -2870,9 +2917,11 @@ ${specialistRoutingSection}
                       `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                       'Snapshot details (read for file membership; do not echo):',
                       reviewSnapshotDetails,
+                      'Coverage evidence (co-changed tests; readable and citable, not part of the reviewed fingerprint):',
+                      coverageEvidenceDetails,
                       `Validation gate summary: ${validationSummary}`,
                       '',
-                      'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, and map every user requirement to evidence. Test-coverage requirements are satisfied (not uncertain) when the changed *.test.ts file in this same reviewed snapshot covers the changed behavior — cite that test file and the covering test name(s) as the requirement evidence. Use coverage: missing only when no mapped test exists anywhere, and requirement status uncertain only when you could not inspect the changed test file at all.',
+                      'Return the required structured review object. Echo snapshotFingerprint exactly, list every reviewed file, evaluate all review dimensions, and map every user requirement to evidence. Co-changed test files are listed under "Coverage evidence" below; they are readable and citable even though they are not part of the reviewed fingerprint. Test-coverage requirements are satisfied (not uncertain) when a Coverage evidence test file covers the changed behavior — cite that test file and the covering test name(s) as the requirement evidence. Use coverage: missing only when no covering test exists in the Coverage evidence list or anywhere in the repo, and requirement status uncertain only when you could not inspect a listed Coverage evidence test file at all.',
                     ].join('\n'),
                   },
                 ],
@@ -2913,6 +2962,8 @@ ${specialistRoutingSection}
                       `Snapshot fingerprint (echo exactly): ${reviewSnapshotFingerprint}`,
                       'Snapshot details (read for file membership; do not echo):',
                       reviewSnapshotDetails,
+                      'Coverage evidence (co-changed tests; readable and citable, not part of the reviewed fingerprint):',
+                      coverageEvidenceDetails,
                       `Validation gate summary: ${validationSummary}`,
                       '',
                       'Protocol errors from the prior response:',
@@ -4177,6 +4228,27 @@ ${specialistRoutingSection}
           reviewableFiles.push(normalized)
         }
         return reviewableFiles
+      }
+
+      // Inline mirror of isCoverageEvidenceFile in gate-paths.ts.
+      function isCoverageEvidenceFile(filePath: string): boolean {
+        if (/__tests__\//.test(filePath)) return true
+        if (/\.(test|spec)\.tsx?$/.test(filePath)) return true
+        return false
+      }
+
+      // Inline mirror of selectCoverageEvidenceFiles in gate-paths.ts.
+      function selectCoverageEvidenceFiles(files: string[]): string[] {
+        const evidenceFiles: string[] = []
+        const seen = new Set<string>()
+        for (const file of files) {
+          const normalized = normalizeGateFilePath(file)
+          if (!normalized || seen.has(normalized)) continue
+          if (!isCoverageEvidenceFile(normalized)) continue
+          seen.add(normalized)
+          evidenceFiles.push(normalized)
+        }
+        return evidenceFiles
       }
 
       // Return the subset of `files` that at least one aux gate predicate

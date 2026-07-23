@@ -356,6 +356,13 @@ async function withCacheLock<T>(
           await fs.promises.rm(lockPath, { force: true })
           continue
         }
+        // Reclaim immediately when the process that created the lock is no
+        // longer alive, so a crashed indexer does not block every build for
+        // the full STALE_LOCK_MS window.
+        if (await isLockOwnerDead(lockPath)) {
+          await fs.promises.rm(lockPath, { force: true })
+          continue
+        }
       } catch (statError) {
         if ((statError as NodeJS.ErrnoException).code === 'ENOENT') continue
         throw statError
@@ -365,6 +372,38 @@ async function withCacheLock<T>(
       }
       await new Promise((resolve) => setTimeout(resolve, 25))
     }
+  }
+}
+
+/**
+ * Determines whether the process that wrote the lock file is no longer alive.
+ * The lock's first line is `${pid}:${uuid}` (see withCacheLock). A dead owner
+ * lets a crashed indexer's lock be reclaimed immediately instead of waiting
+ * out STALE_LOCK_MS. Conservative: any ambiguity (unreadable/empty lock,
+ * unparseable pid, our own pid, or a live/foreign process) returns false so a
+ * genuinely held lock is never stolen.
+ */
+async function isLockOwnerDead(lockPath: string): Promise<boolean> {
+  let content: string
+  try {
+    content = await fs.promises.readFile(lockPath, 'utf8')
+  } catch {
+    return false
+  }
+  const firstLine = content.split('\n', 1)[0] ?? ''
+  const pidText = firstLine.split(':', 1)[0] ?? ''
+  const pid = Number.parseInt(pidText, 10)
+  if (!Number.isInteger(pid) || pid <= 0) return false
+  // Never reclaim our own lock; that would corrupt an in-progress operation.
+  if (pid === process.pid) return false
+  try {
+    // Signal 0 runs existence/permission checks without delivering a signal.
+    // ESRCH means the process no longer exists (dead owner). EPERM means it
+    // exists but is owned by another user (alive) — do not reclaim.
+    process.kill(pid, 0)
+    return false
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ESRCH'
   }
 }
 

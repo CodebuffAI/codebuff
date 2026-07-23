@@ -75,7 +75,7 @@ export function gateFileSetsEqual(left: string[], right: string[]): boolean {
 // basenames. Operates on an already-normalized path (caller normalizes).
 export function isReviewableGateFile(filePath: string): boolean {
   if (/__tests__\//.test(filePath)) return false
-  if (/\.(test|spec)\.tsx?$/.test(filePath)) return false
+  if (/\.(test|spec)\.(?:tsx?|jsx?|mjs|cjs)$/.test(filePath)) return false
   if (/\.generated\.tsx?$/.test(filePath)) return false
   if (/\.(md|mdx|json|jsonl|yml|yaml|toml)$/.test(filePath)) return false
   if (/(^|\/)\.env($|\.)/.test(filePath)) return false
@@ -99,4 +99,28 @@ export function selectReviewableGateFiles(files: string[]): string[] {
     reviewableFiles.push(normalized)
   }
   return reviewableFiles
+}
+
+// Co-changed test files (the complement of isReviewableGateFile's test
+// exclusion). These are surfaced to the final reviewer as readable
+// "coverage evidence" so it can confirm the changed behavior is tested,
+// WITHOUT adding tests to the reviewed-for-defects fingerprint set.
+// Operates on an already-normalized path (caller normalizes).
+export function isCoverageEvidenceFile(filePath: string): boolean {
+  if (/__tests__\//.test(filePath)) return true
+  if (/\.(test|spec)\.(?:tsx?|jsx?|mjs|cjs)$/.test(filePath)) return true
+  return false
+}
+
+export function selectCoverageEvidenceFiles(files: string[]): string[] {
+  const evidenceFiles: string[] = []
+  const seen = new Set<string>()
+  for (const file of files) {
+    const normalized = normalizeGateFilePath(file)
+    if (!normalized || seen.has(normalized)) continue
+    if (!isCoverageEvidenceFile(normalized)) continue
+    seen.add(normalized)
+    evidenceFiles.push(normalized)
+  }
+  return evidenceFiles
 }

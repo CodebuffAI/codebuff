@@ -1213,50 +1213,91 @@ export async function executeToolCall<T extends ToolName>(
     ? agentTemplate.filesystemScope?.[filesystemAccess.access]
     : undefined
   if (filesystemAccess && allowedPatterns) {
-    const deniedPaths = filesystemAccess.paths
-      .map((rawPath) => {
-        const normalized = normalizeScopedToolPath(
-          rawPath,
-          params.fileContext.projectRoot,
-        )
-        let canonical = normalized
-        if (params.fileContext.fileTreeSource !== 'virtual') {
-          try {
-            canonical = canonicalScopedToolPath(
-              normalized,
-              params.fileContext.projectRoot,
-            )
-          } catch {
-            // SDK handlers remain the authoritative containment layer. Keep
-            // lexical scope for missing paths so create operations still work.
-          }
-        }
-        return { rawPath, normalized, canonical }
-      })
-      .filter(
-        ({ normalized, canonical }) =>
-          normalized === '..' ||
-          normalized.startsWith('../') ||
-          path.isAbsolute(normalized) ||
-          canonical === '..' ||
-          canonical.startsWith('../') ||
-          path.isAbsolute(canonical) ||
-          !allowedPatterns.some(
-            (pattern) =>
-              scopePatternMatches(normalized, pattern) &&
-              scopePatternMatches(canonical, pattern),
-          ),
+    const evaluatedPaths = filesystemAccess.paths.map((rawPath) => {
+      const normalized = normalizeScopedToolPath(
+        rawPath,
+        params.fileContext.projectRoot,
       )
-    if (deniedPaths.length > 0) {
+      let canonical = normalized
+      if (params.fileContext.fileTreeSource !== 'virtual') {
+        try {
+          canonical = canonicalScopedToolPath(
+            normalized,
+            params.fileContext.projectRoot,
+          )
+        } catch {
+          // SDK handlers remain the authoritative containment layer. Keep
+          // lexical scope for missing paths so create operations still work.
+        }
+      }
+      // A path "escapes" the project when it traverses above the root or is
+      // absolute (either lexically or after canonicalization). Escapes are the
+      // real containment boundary: an agent must never read or write outside
+      // the project, so these are always hard-blocked regardless of access.
+      const escapesProject =
+        normalized === '..' ||
+        normalized.startsWith('../') ||
+        path.isAbsolute(normalized) ||
+        canonical === '..' ||
+        canonical.startsWith('../') ||
+        path.isAbsolute(canonical)
+      // An in-project path is a scope mismatch when it stays inside the project
+      // but does not match the agent's declared filesystemScope patterns.
+      const scopeMismatch =
+        !escapesProject &&
+        !allowedPatterns.some(
+          (pattern) =>
+            scopePatternMatches(normalized, pattern) &&
+            scopePatternMatches(canonical, pattern),
+        )
+      return { rawPath, normalized, canonical, escapesProject, scopeMismatch }
+    })
+    const escapedPaths = evaluatedPaths.filter(
+      ({ escapesProject }) => escapesProject,
+    )
+    const scopeMismatchPaths = evaluatedPaths.filter(
+      ({ scopeMismatch }) => scopeMismatch,
+    )
+    // Hard-block policy differs by access:
+    //   - Escapes above the project root are always blocked (read and write).
+    //   - read: an in-project scope mismatch is still blocked, because reads
+    //     guard secret/fixture exposure (e.g. .env, synthetic fixtures) and
+    //     have deliberate recovery semantics.
+    //   - write: an in-project scope mismatch is NOT hard-blocked; it is
+    //     softened to a non-blocking warning below so a legitimate in-project
+    //     edit is not stopped merely because the path was not pre-declared in
+    //     the agent's writable scope.
+    const hardBlockedPaths =
+      filesystemAccess.access === 'write'
+        ? escapedPaths
+        : [...escapedPaths, ...scopeMismatchPaths]
+    if (hardBlockedPaths.length > 0) {
       const repairEditorReadRecovery =
         agentTemplate.id === 'repair-editor' && filesystemAccess.access === 'read'
           ? ' Recovery: do not retry this read or request broader scope. If the path is a synthetic fixture literal, inspect the authorized test file that owns the literal instead; otherwise report the missing read permission to the parent.'
           : ''
       onResponseChunk({
         type: 'error',
-        message: `Tool \`${toolName}\` was blocked by the ${agentTemplate.id} filesystem ${filesystemAccess.access} scope. Disallowed path(s): ${deniedPaths.map(({ rawPath }) => rawPath).join(', ')}. Allowed patterns: ${allowedPatterns.join(', ')}.${repairEditorReadRecovery}`,
+        message: `Tool \`${toolName}\` was blocked by the ${agentTemplate.id} filesystem ${filesystemAccess.access} scope. Disallowed path(s): ${hardBlockedPaths.map(({ rawPath }) => rawPath).join(', ')}. Allowed patterns: ${allowedPatterns.join(', ')}.${repairEditorReadRecovery}`,
       })
       return abortablePreviousToolCallFinished
+    }
+    // Softened write policy: an in-project write outside the declared scope
+    // proceeds, but is surfaced as a non-blocking warning so the boundary stays
+    // observable for diagnostics without hard-stopping legitimate edits.
+    if (
+      filesystemAccess.access === 'write' &&
+      scopeMismatchPaths.length > 0
+    ) {
+      logger.warn(
+        {
+          toolName,
+          agentId: agentTemplate.id,
+          outOfScopePaths: scopeMismatchPaths.map(({ rawPath }) => rawPath),
+          allowedPatterns,
+        },
+        `Tool \`${toolName}\` wrote outside the ${agentTemplate.id} declared filesystem write scope; proceeding with a warning.`,
+      )
     }
   }
 
@@ -1340,6 +1381,167 @@ export async function executeToolCall<T extends ToolName>(
           type: 'error',
           message:
             'Spawning `git-committer` is not available yet. The validation/reviewer gate must pass before committing. Wait for the automated gate to complete, then commit.',
+        })
+        if (filteredAgents.length === 0) {
+          return abortablePreviousToolCallFinished
+        }
+        effectiveInput = { ...effectiveInput, agents: filteredAgents }
+      }
+    }
+  }
+
+  // Independent of the canSuggestFollowups === false block above: even when the
+  // finalization gate is otherwise open (canSuggestFollowups !== false), a turn
+  // can end green on file A (validated + reviewed) while an unrelated dirty file
+  // B was never validated. base2 publishes uncommittedUnvalidatedFiles (dirty
+  // working-tree files not covered by a green gate pass); refuse to stage any of
+  // them via git-committer. Only applies when the gate system is active
+  // (canSuggestFollowups !== undefined); non-base2/custom agents leave it
+  // undefined and are unaffected.
+  if (toolName === 'spawn_agents' && canSuggestFollowups !== undefined) {
+    const hasUncommittedUnvalidatedFiles = Object.hasOwn(
+      agentState,
+      'uncommittedUnvalidatedFiles',
+    )
+    const uncommittedUnvalidatedFiles = (
+      agentState as { uncommittedUnvalidatedFiles?: unknown }
+    ).uncommittedUnvalidatedFiles
+    const metadataMalformed =
+      hasUncommittedUnvalidatedFiles &&
+      !Array.isArray(uncommittedUnvalidatedFiles)
+    const agents = effectiveInput.agents
+    if (
+      (metadataMalformed ||
+        (Array.isArray(uncommittedUnvalidatedFiles) &&
+          uncommittedUnvalidatedFiles.length > 0)) &&
+      Array.isArray(agents)
+    ) {
+      // Canonicalize both sides before comparison. The base steps mirror
+      // agents/base2/gate-paths.ts normalizeGateFilePath (which base2 uses to
+      // build the published dirty set): trim + backslashes -> '/', reject any
+      // '..' segment (uncanonicalizable), strip a leading 'file://', strip a
+      // leading-slash drive prefix ('/C:/'), collapse an in-cwd absolute path
+      // to its repo-relative form (and reject absolute paths outside cwd),
+      // strip ALL leading './', strip trailing '/'. This copy then ALSO
+      // collapses interior '/./' and '//' segments, which
+      // normalizeGateFilePath and the base2 handleSteps inline copy do NOT do.
+      // That extra collapse is safe here because this function normalizes BOTH
+      // the dirty set and the owned_paths, so both sides get the same canonical
+      // form; it only makes the coverage matcher robust to interior-segment
+      // aliases. Replicated inline (no cross-package import) so an absolute or
+      // non-canonical owned_path can't evade the relative dirty entries.
+      const normalizeCoveragePath = (value: string): string => {
+        let normalized = String(value).trim().replace(/\\/g, '/')
+        if (!normalized) return ''
+        if (normalized.split('/').includes('..')) return ''
+        if (normalized.startsWith('file://')) {
+          normalized = normalized.slice('file://'.length)
+        }
+        if (/^\/[A-Za-z]:\//.test(normalized)) {
+          normalized = normalized.slice(1)
+        }
+        const cwd =
+          typeof process === 'object' &&
+          process !== null &&
+          typeof process.cwd === 'function'
+            ? process.cwd().replace(/\\/g, '/').replace(/\/+$/, '')
+            : ''
+        const isAbsolute =
+          normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)
+        if (
+          isAbsolute &&
+          (!cwd || (normalized !== cwd && !normalized.startsWith(`${cwd}/`)))
+        ) {
+          return ''
+        }
+        if (cwd && (normalized === cwd || normalized.startsWith(`${cwd}/`))) {
+          normalized = normalized.slice(cwd.length).replace(/^\/+/, '')
+        }
+        while (normalized.startsWith('./')) {
+          normalized = normalized.slice(2)
+        }
+        normalized = normalized.replace(/\/+$/, '')
+        // Collapse into git-pathspec-canonical form: git resolves interior
+        // '/./' and '//' and a bare '.'/'./' the same as the collapsed path,
+        // so drop every empty and '.' segment. This makes '.' and './' collapse
+        // to '' (fail closed via ownedPathCoversDirtyFile's `if (!p) return
+        // true`), canonicalizes 'src/./b.ts' and 'src//b.ts' to 'src/b.ts', and
+        // leaves normal paths like 'src/b.ts' unchanged.
+        normalized = normalized
+          .split('/')
+          .filter((segment) => segment !== '' && segment !== '.')
+          .join('/')
+        return normalized.trim()
+      }
+      const publishedDirtyFiles = Array.isArray(uncommittedUnvalidatedFiles)
+        ? uncommittedUnvalidatedFiles
+        : undefined
+      const dirtyFiles = (publishedDirtyFiles ?? [])
+        .filter((file): file is string => typeof file === 'string')
+        .map(normalizeCoveragePath)
+        .filter((file) => file.length > 0)
+      // Fail-closed guard (RF-3): malformed metadata is inherently uncertain;
+      // otherwise the outer `length > 0` check ran on the RAW published list,
+      // but entries can drop out during canonicalization
+      // (non-string, empty, '..' traversal, or absolute-outside-cwd all map to
+      // ''). If the surviving clean dirty set is smaller than the raw published
+      // list, there is at least one dirty file we cannot reason about, so we
+      // cannot prove any owned_path misses it. Treat the dirty set as covering
+      // everything so git-committer is blocked rather than silently allowed to
+      // stage an unvalidated change.
+      const dirtySetUncertain =
+        metadataMalformed ||
+        (publishedDirtyFiles !== undefined &&
+          dirtyFiles.length < publishedDirtyFiles.length)
+      // Coverage rule: owned_path `p` covers dirty file `f` iff f === p OR f
+      // starts with `p + '/'` (segment-boundary directory prefix). A bare
+      // startsWith is deliberately avoided so `src` does not match `src2/x.ts`.
+      // Fail closed: an uncertain dirty set (see above) blocks every
+      // git-committer, and an owned_path that cannot be canonicalized to a
+      // clean repo-relative path (absolute-outside-cwd, '..' traversal, etc.)
+      // is treated as covering a dirty file so it can't evade the gate.
+      const ownedPathCoversDirtyFile = (ownedPath: string): boolean => {
+        if (dirtySetUncertain) return true
+        const p = normalizeCoveragePath(ownedPath)
+        if (!p) return true
+        return dirtyFiles.some((f) => f === p || f.startsWith(`${p}/`))
+      }
+      const filteredAgents = agents.filter((agent) => {
+        if (
+          !(
+            agent &&
+            typeof agent === 'object' &&
+            typeof (agent as Record<string, unknown>).agent_type === 'string' &&
+            normalizeSpawnAgentType(
+              String((agent as Record<string, unknown>).agent_type),
+            ) === 'git-committer'
+          )
+        ) {
+          return true
+        }
+        const agentParams = (agent as Record<string, unknown>).params
+        const ownedPaths =
+          agentParams && typeof agentParams === 'object'
+            ? (agentParams as Record<string, unknown>).owned_paths
+            : undefined
+        // Missing/empty/non-array owned_paths covers nothing here; the existing
+        // gate-state guard and git-committer's own required owned_paths schema
+        // handle that path. Do not block on it.
+        if (!Array.isArray(ownedPaths)) {
+          return true
+        }
+        const coversDirty = ownedPaths.some(
+          (ownedPath) =>
+            typeof ownedPath === 'string' &&
+            ownedPathCoversDirtyFile(ownedPath),
+        )
+        return !coversDirty
+      })
+      if (filteredAgents.length < agents.length) {
+        onResponseChunk({
+          type: 'error',
+          message:
+            'Spawning `git-committer` is not available yet. The requested commit would stage changes that have not passed the validation/reviewer gate. Validate the working-tree changes first, then commit.',
         })
         if (filteredAgents.length === 0) {
           return abortablePreviousToolCallFinished

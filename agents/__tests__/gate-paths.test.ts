@@ -4,8 +4,12 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   gateFileSetsEqual,
+  isCoverageEvidenceFile,
+  isReviewableGateFile,
   normalizeGateFileList,
   normalizeGateFilePath,
+  selectCoverageEvidenceFiles,
+  selectReviewableGateFiles,
 } from '../base2/gate-paths'
 
 type NormalizeGateFilePath = (file: string) => string
@@ -128,6 +132,113 @@ describe('gate-paths helpers', () => {
     expect(gateFileSetsEqual(['a', 'b'], ['b', 'a'])).toBe(true)
     expect(gateFileSetsEqual(['a'], ['a', 'b'])).toBe(false)
     expect(gateFileSetsEqual(['a', 'b'], ['a', 'c'])).toBe(false)
+  })
+
+  test('isReviewableGateFile includes real source and excludes tests/generated/docs/data/bookkeeping', () => {
+    // Reviewable source extensions (expect true).
+    for (const reviewable of [
+      'src/a.ts',
+      'src/nested/b.tsx',
+      'lib/util.js',
+      'lib/util.mjs',
+      'lib/util.cjs',
+      'app/component.jsx',
+      'pkg/mod.py',
+      'crates/lib.rs',
+      'cmd/main.go',
+      'svc/App.java',
+      'app/Main.kt',
+    ]) {
+      expect(isReviewableGateFile(reviewable)).toBe(true)
+    }
+
+    // Tests, generated code, docs, data/config, env, and bookkeeping dirs
+    // (expect false).
+    for (const excluded of [
+      'src/__tests__/a.ts',
+      'src/a.test.ts',
+      'src/a.spec.tsx',
+      'src/a.test.mjs',
+      'src/a.spec.cjs',
+      'src/a.test.jsx',
+      'src/a.generated.ts',
+      'src/a.generated.tsx',
+      'README.md',
+      'notes/guide.mdx',
+      'config/data.json',
+      'log/events.jsonl',
+      'ci/pipeline.yml',
+      'ci/pipeline.yaml',
+      'cfg/app.toml',
+      '.env',
+      '.env.local',
+      'nested/.env.production',
+      'docs/architecture.ts',
+      'evals/run.ts',
+      '.agents/sessions/x/STATE.json',
+      'assets/logo.png',
+      'Makefile',
+    ]) {
+      expect(isReviewableGateFile(excluded)).toBe(false)
+    }
+  })
+
+  test('isCoverageEvidenceFile returns true only for test files', () => {
+    for (const test of [
+      'src/__tests__/a.ts',
+      'src/a.test.ts',
+      'src/a.spec.tsx',
+      'src/a.test.mjs',
+      'src/a.spec.cjs',
+      'src/a.test.jsx',
+    ]) {
+      expect(isCoverageEvidenceFile(test)).toBe(true)
+    }
+    for (const notTest of [
+      'src/a.ts',
+      'lib/util.js',
+      'README.md',
+      'config/data.json',
+      '.env',
+      'src/a.generated.ts',
+    ]) {
+      expect(isCoverageEvidenceFile(notTest)).toBe(false)
+    }
+  })
+
+  test('selectReviewableGateFiles normalizes, dedupes, drops empties, keeps only reviewable source', () => {
+    const cwd = process.cwd().replace(/\\/g, '/').replace(/\/+$/, '')
+    const result = selectReviewableGateFiles([
+      'src/a.ts',
+      './src/a.ts', // dedupes with src/a.ts after normalization
+      `${cwd}/src/a.ts`, // in-cwd absolute -> src/a.ts (dedupe)
+      'src\\b.ts', // backslashes -> src/b.ts
+      'src/a.test.ts', // test file excluded
+      'src/a.generated.ts', // generated excluded
+      'README.md', // doc excluded
+      'docs/guide.ts', // docs/ excluded
+      '/etc/passwd', // absolute-outside-cwd -> '' dropped
+      '', // empty dropped
+      '   ', // whitespace dropped
+    ])
+    expect(result).toEqual(['src/a.ts', 'src/b.ts'])
+  })
+
+  test('selectCoverageEvidenceFiles normalizes, dedupes, and keeps only test files', () => {
+    const result = selectCoverageEvidenceFiles([
+      'src/a.test.ts',
+      './src/a.test.ts', // dedupes after normalization
+      'src/__tests__/b.ts',
+      'src\\__tests__\\c.ts', // backslashes -> src/__tests__/c.ts
+      'src/a.ts', // non-test excluded
+      'README.md', // non-test excluded
+      '', // dropped
+    ])
+    expect(result).toEqual([
+      'src/a.test.ts',
+      'src/__tests__/b.ts',
+      'src/__tests__/c.ts',
+    ])
   })
 
   test('exported helpers match inline base2 mirror behavior', () => {

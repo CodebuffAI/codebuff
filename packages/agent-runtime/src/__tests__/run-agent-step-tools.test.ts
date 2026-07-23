@@ -10,6 +10,10 @@ import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 
 import { handleWriteTodos } from '../tools/handlers/tool/write-todos'
 import {
+  canonicalScopedToolPath,
+  parseRawToolCall,
+} from '../tools/tool-executor'
+import {
   afterAll,
   afterEach,
   beforeEach,
@@ -35,6 +39,74 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import { REPEATED_STEP_LOOP_LIMIT } from '../util/step-loop-guard'
 import { buildReadFilesResultV1 } from '@codebuff/common/tools/results/filesystem'
+
+describe('tool executor input and scope helpers', () => {
+  it('canonicalizes symlinks outside the project so scope checks can deny them', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tool-scope-test-'))
+    const projectRoot = path.join(tempDir, 'project')
+    const outsideRoot = path.join(tempDir, 'outside')
+    fs.mkdirSync(projectRoot)
+    fs.mkdirSync(outsideRoot)
+    fs.symlinkSync(outsideRoot, path.join(projectRoot, 'linked-outside'), 'dir')
+
+    try {
+      expect(
+        canonicalScopedToolPath('linked-outside/secret.ts', projectRoot),
+      ).toBe('../outside/secret.ts')
+      expect(canonicalScopedToolPath('src/new.ts', projectRoot)).toBe(
+        'src/new.ts',
+      )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('repairs stringified and allowlisted bare-string tool inputs', () => {
+    expect(
+      parseRawToolCall({
+        rawToolCall: {
+          toolName: 'read_files',
+          toolCallId: 'stringified-read',
+          input: '{"paths":["src/a.ts"],"ranges":[],"symbols":[]}',
+        },
+      }),
+    ).toMatchObject({
+      toolName: 'read_files',
+      input: { paths: ['src/a.ts'], ranges: [], symbols: [] },
+    })
+
+    expect(
+      parseRawToolCall({
+        rawToolCall: {
+          toolName: 'list_directory',
+          toolCallId: 'bare-path',
+          input: '{"path": src/a}',
+        },
+      }),
+    ).toMatchObject({
+      toolName: 'list_directory',
+      input: { path: 'src/a' },
+    })
+  })
+
+  it('returns a validation error for malformed string tool input', () => {
+    expect(
+      parseRawToolCall({
+        rawToolCall: {
+          toolName: 'read_files',
+          toolCallId: 'malformed-read',
+          input: '{"paths": [',
+        },
+      }),
+    ).toMatchObject({
+      toolName: 'read_files',
+      toolCallId: 'malformed-read',
+      error: expect.stringContaining(
+        'Invalid parameters for read_files: expected the tool arguments to be an object, but received a string',
+      ),
+    })
+  })
+})
 
 type WriteTodosOutput = {
   message: string
@@ -634,6 +706,539 @@ describe('runAgentStep - set_output tool', () => {
     expect(spawnInput.agents[0]?.agent_type).toBe('test-helper-agent')
   })
 
+  it('filters only the overlapping git-committer from a green mixed spawn_agents batch', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    const helperAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-helper-agent',
+      toolNames: ['end_turn'],
+      spawnableAgents: [],
+    }
+    let streamCallCount = 0
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      streamCallCount += 1
+      if (streamCallCount === 1) {
+        yield createToolCallChunk('spawn_agents', {
+          agents: [
+            {
+              agent_type: 'git-committer',
+              prompt: 'Commit the dirty changes',
+              params: { owned_paths: ['src/'] },
+            },
+            {
+              agent_type: 'test-helper-agent',
+              prompt: 'Do helper work',
+            },
+          ],
+        })
+      } else {
+        yield createToolCallChunk('end_turn', {})
+      }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+        uncommittedUnvalidatedFiles?: unknown
+      }
+    agentState.canSuggestFollowups = true
+    agentState.uncommittedUnvalidatedFiles = ['src/b.ts']
+    const parentAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['git-committer', 'test-helper-agent'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: {
+        'test-committer-agent': parentAgent,
+        'test-helper-agent': helperAgent,
+      },
+      agentTemplate: parentAgent,
+      agentState,
+      prompt: 'Commit only validated paths and run the helper',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'would stage changes that have not passed the validation/reviewer gate',
+        ),
+      }),
+    )
+    const spawnCall = chunks.find(
+      (chunk) =>
+        chunk &&
+        typeof chunk === 'object' &&
+        (chunk as Record<string, unknown>).type === 'tool_call' &&
+        (chunk as Record<string, unknown>).toolName === 'spawn_agents',
+    ) as Record<string, unknown> | undefined
+    expect(spawnCall).toBeDefined()
+    expect(
+      (spawnCall?.input as { agents: Array<{ agent_type: string; prompt: string }> }).agents,
+    ).toEqual([{ agent_type: 'test-helper-agent', prompt: 'Do helper work' }])
+  })
+
+  it('blocks git-committer for malformed dirty metadata while retaining helpers', async () => {
+    const malformedMetadata: unknown[] = ['unexpected', { files: [] }, null]
+    for (const metadata of malformedMetadata) {
+      const chunks: unknown[] = []
+      runAgentStepBaseParams = {
+        ...runAgentStepBaseParams,
+        onResponseChunk: (chunk) => chunks.push(chunk),
+      }
+      const helperAgent: AgentTemplate = {
+        ...testAgent,
+        id: 'test-helper-agent',
+        toolNames: ['end_turn'],
+        spawnableAgents: [],
+      }
+      let streamCallCount = 0
+      runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+        streamCallCount += 1
+        if (streamCallCount === 1) {
+          yield createToolCallChunk('spawn_agents', {
+            agents: [
+              {
+                agent_type: 'git-committer',
+                prompt: 'Commit with malformed metadata',
+                params: { owned_paths: ['src/unrelated.ts'] },
+              },
+              { agent_type: 'test-helper-agent', prompt: 'Keep helping' },
+            ],
+          })
+        } else {
+          yield createToolCallChunk('end_turn', {})
+        }
+        return promptSuccess('mock-message-id')
+      }
+
+      const sessionState = getInitialSessionState(mockFileContext)
+      const agentState =
+        sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+          canSuggestFollowups?: boolean
+          uncommittedUnvalidatedFiles?: unknown
+        }
+      agentState.canSuggestFollowups = true
+      agentState.uncommittedUnvalidatedFiles = metadata
+      const parentAgent: AgentTemplate = {
+        ...testAgent,
+        id: 'test-committer-agent',
+        toolNames: ['spawn_agents', 'end_turn'],
+        spawnableAgents: ['git-committer', 'test-helper-agent'],
+      }
+
+      await runAgentStep({
+        ...runAgentStepBaseParams,
+        agentType: 'test-committer-agent',
+        localAgentTemplates: {
+          'test-committer-agent': parentAgent,
+          'test-helper-agent': helperAgent,
+        },
+        agentTemplate: parentAgent,
+        agentState,
+        prompt: 'Keep the helper available despite malformed metadata',
+      })
+
+      expect(chunks).toContainEqual(
+        expect.objectContaining({
+          type: 'error',
+          message: expect.stringContaining(
+            'would stage changes that have not passed the validation/reviewer gate',
+          ),
+        }),
+      )
+      const spawnCall = chunks.find(
+        (chunk) =>
+          chunk &&
+          typeof chunk === 'object' &&
+          (chunk as Record<string, unknown>).type === 'tool_call' &&
+          (chunk as Record<string, unknown>).toolName === 'spawn_agents',
+      ) as Record<string, unknown> | undefined
+      expect(spawnCall).toBeDefined()
+      expect(
+        (spawnCall?.input as { agents: Array<{ agent_type: string; prompt: string }> }).agents,
+      ).toEqual([{ agent_type: 'test-helper-agent', prompt: 'Keep helping' }])
+    }
+  })
+
+  it('blocks git-committer when owned_paths cover an uncommitted-unvalidated file even though the gate is green', async () => {
+    // Edge: a turn can end green (canSuggestFollowups === true) on file A while
+    // an unrelated dirty file B was never validated. base2 publishes B in
+    // uncommittedUnvalidatedFiles; committing an owned_path that covers B must
+    // still be refused independently of the canSuggestFollowups signal.
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('spawn_agents', {
+        agents: [
+          {
+            agent_type: 'git-committer',
+            prompt: 'Commit the changes',
+            params: { owned_paths: ['src/b.ts'] },
+          },
+        ],
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+        uncommittedUnvalidatedFiles?: string[]
+      }
+    // Gate is green for the turn's validated work...
+    agentState.canSuggestFollowups = true
+    // ...but src/b.ts is dirty and was never validated.
+    agentState.uncommittedUnvalidatedFiles = ['src/b.ts']
+    const committerAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['git-committer'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: { 'test-committer-agent': committerAgent },
+      agentTemplate: committerAgent,
+      agentState,
+      prompt: 'Commit src/b.ts even though it was never validated',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'would stage changes that have not passed the validation/reviewer gate',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'spawn_agents',
+      }),
+    )
+  })
+
+  it('allows git-committer when owned_paths do not cover any uncommitted-unvalidated file', async () => {
+    // The gate is green and the committer only claims src/a.ts, which is not in
+    // the unvalidated-dirty set (only src/b.ts is). The commit guard must not
+    // block a commit scoped to validated paths.
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    // The spawned git-committer re-invokes this stream; end_turn on recursion
+    // to avoid infinite spawn recursion (mirrors the mixed-batch test).
+    let streamCallCount = 0
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      streamCallCount += 1
+      if (streamCallCount === 1) {
+        yield createToolCallChunk('spawn_agents', {
+          agents: [
+            {
+              agent_type: 'git-committer',
+              prompt: 'Commit the validated changes',
+              params: { owned_paths: ['src/a.ts'] },
+            },
+          ],
+        })
+      } else {
+        yield createToolCallChunk('end_turn', {})
+      }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+        uncommittedUnvalidatedFiles?: string[]
+      }
+    agentState.canSuggestFollowups = true
+    // src/b.ts is dirty+unvalidated, but the commit is scoped to src/a.ts.
+    agentState.uncommittedUnvalidatedFiles = ['src/b.ts']
+    const committerAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['git-committer'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: { 'test-committer-agent': committerAgent },
+      agentTemplate: committerAgent,
+      agentState,
+      prompt: 'Commit the validated src/a.ts changes',
+    })
+
+    // No commit-guard error, and the spawn_agents call proceeds with the
+    // git-committer entry intact.
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'would stage changes that have not passed the validation/reviewer gate',
+        ),
+      }),
+    )
+    const spawnCall = chunks.find(
+      (chunk) =>
+        chunk &&
+        typeof chunk === 'object' &&
+        (chunk as Record<string, unknown>).type === 'tool_call' &&
+        (chunk as Record<string, unknown>).toolName === 'spawn_agents',
+    ) as Record<string, unknown> | undefined
+    expect(spawnCall).toBeDefined()
+    const spawnInput = spawnCall?.input as {
+      agents: Array<{ agent_type: string }>
+    }
+    expect(spawnInput.agents).toHaveLength(1)
+    expect(spawnInput.agents[0]?.agent_type).toBe('git-committer')
+  })
+
+  it('allows git-committer when an owned path only shares a non-segment prefix with a dirty file', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    let streamCallCount = 0
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      streamCallCount += 1
+      if (streamCallCount === 1) {
+        yield createToolCallChunk('spawn_agents', {
+          agents: [
+            {
+              agent_type: 'git-committer',
+              prompt: 'Commit only src',
+              params: { owned_paths: ['src'] },
+            },
+          ],
+        })
+      } else {
+        yield createToolCallChunk('end_turn', {})
+      }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+        uncommittedUnvalidatedFiles?: string[]
+      }
+    agentState.canSuggestFollowups = true
+    agentState.uncommittedUnvalidatedFiles = ['src2/unvalidated.ts']
+    const committerAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['git-committer'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: { 'test-committer-agent': committerAgent },
+      agentTemplate: committerAgent,
+      agentState,
+      prompt: 'Commit src without staging src2',
+    })
+
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'would stage changes that have not passed the validation/reviewer gate',
+        ),
+      }),
+    )
+    const spawnCall = chunks.find(
+      (chunk) =>
+        chunk &&
+        typeof chunk === 'object' &&
+        (chunk as Record<string, unknown>).type === 'tool_call' &&
+        (chunk as Record<string, unknown>).toolName === 'spawn_agents',
+    ) as Record<string, unknown> | undefined
+    expect(spawnCall).toBeDefined()
+    expect(
+      (spawnCall?.input as { agents: Array<{ agent_type: string }> }).agents,
+    ).toEqual([
+      expect.objectContaining({ agent_type: 'git-committer' }),
+    ])
+  })
+
+  it('blocks git-committer when an alias-form owned_path resolves to an uncommitted-unvalidated file', async () => {
+    // Regression for the path-normalization bypass (COV-1/COV-2): the published
+    // dirty set is canonical repo-relative ('src/b.ts'), but a git-add of an
+    // absolute path, a '..'-traversal alias, or a repeated './' alias all
+    // resolve to the same never-validated file. The coverage matcher must
+    // canonicalize owned_paths the same way base2 canonicalizes the dirty set
+    // (and fail closed on uncanonicalizable paths) so none of these evade it.
+    const cwd = process.cwd().replace(/\\/g, '/')
+    const aliasForms = [
+      `${cwd}/src/b.ts`, // absolute in-cwd -> collapses to src/b.ts
+      'src/../src/b.ts', // '..' traversal -> uncanonicalizable, fails closed
+      '/etc/passwd', // absolute-outside-cwd -> normalizes to '' -> fails closed
+      '././src/b.ts', // repeated leading './' -> collapses to src/b.ts
+      // COV-3/COV-4: repo-root and interior '.'/'' segments git still resolves.
+      '.', // repo root -> collapses to '' -> fails closed (git add . stages b)
+      'src/./b.ts', // interior '/./' -> collapses to src/b.ts
+      'src//b.ts', // interior '//' (empty segment) -> collapses to src/b.ts
+    ]
+    for (const ownedPath of aliasForms) {
+      const chunks: unknown[] = []
+      runAgentStepBaseParams = {
+        ...runAgentStepBaseParams,
+        onResponseChunk: (chunk) => chunks.push(chunk),
+      }
+      runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+        yield createToolCallChunk('spawn_agents', {
+          agents: [
+            {
+              agent_type: 'git-committer',
+              prompt: 'Commit the changes',
+              params: { owned_paths: [ownedPath] },
+            },
+          ],
+        })
+        return promptSuccess('mock-message-id')
+      }
+
+      const sessionState = getInitialSessionState(mockFileContext)
+      const agentState =
+        sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+          canSuggestFollowups?: boolean
+          uncommittedUnvalidatedFiles?: string[]
+        }
+      agentState.canSuggestFollowups = true
+      agentState.uncommittedUnvalidatedFiles = ['src/b.ts']
+      const committerAgent: AgentTemplate = {
+        ...testAgent,
+        id: 'test-committer-agent',
+        toolNames: ['spawn_agents', 'end_turn'],
+        spawnableAgents: ['git-committer'],
+      }
+
+      await runAgentStep({
+        ...runAgentStepBaseParams,
+        agentType: 'test-committer-agent',
+        localAgentTemplates: { 'test-committer-agent': committerAgent },
+        agentTemplate: committerAgent,
+        agentState,
+        prompt: `Commit ${ownedPath} even though it was never validated`,
+      })
+
+      expect(chunks).toContainEqual(
+        expect.objectContaining({
+          type: 'error',
+          message: expect.stringContaining(
+            'would stage changes that have not passed the validation/reviewer gate',
+          ),
+        }),
+      )
+      expect(chunks).not.toContainEqual(
+        expect.objectContaining({
+          type: 'tool_call',
+          toolName: 'spawn_agents',
+        }),
+      )
+    }
+  })
+
+  it('fails closed and blocks git-committer when every published dirty entry canonicalizes away', async () => {
+    // RF-3 regression: the outer guard tests the RAW published list length, but
+    // dirtyFiles is the post-canonicalization set. If every published entry
+    // drops out during normalization ('..' traversal, absolute-outside-cwd,
+    // non-string), dirtyFiles becomes empty. Without the dirtySetUncertain
+    // guard the coverage matcher would then miss every owned_path and silently
+    // allow the commit. A non-empty raw list that canonicalizes to empty must
+    // fail closed and block git-committer regardless of its owned_paths.
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('spawn_agents', {
+        agents: [
+          {
+            agent_type: 'git-committer',
+            prompt: 'Commit the changes',
+            // owned_path that does NOT cover the (unknowable) dirty file; the
+            // fail-closed guard must still block because the dirty set is
+            // uncertain.
+            params: { owned_paths: ['src/unrelated.ts'] },
+          },
+        ],
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState =
+      sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+        canSuggestFollowups?: boolean
+        uncommittedUnvalidatedFiles?: string[]
+      }
+    agentState.canSuggestFollowups = true
+    // Non-empty raw list, but every entry is uncanonicalizable and drops out:
+    // a '..'-traversal alias and an absolute-outside-cwd path both normalize
+    // to '' -> dirtyFiles is empty while the raw list length is 2.
+    agentState.uncommittedUnvalidatedFiles = ['src/../../escape.ts', '/etc/passwd']
+    const committerAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-committer-agent',
+      toolNames: ['spawn_agents', 'end_turn'],
+      spawnableAgents: ['git-committer'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-committer-agent',
+      localAgentTemplates: { 'test-committer-agent': committerAgent },
+      agentTemplate: committerAgent,
+      agentState,
+      prompt: 'Commit even though the dirty set is uncertain',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'would stage changes that have not passed the validation/reviewer gate',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'spawn_agents',
+      }),
+    )
+  })
+
   it('warns when a spawn_agents entry exceeds the soft payload size limit', async () => {
     const chunks: unknown[] = []
     runAgentStepBaseParams = {
@@ -827,6 +1432,138 @@ describe('runAgentStep - set_output tool', () => {
     // The write_file execution must have retracted canSuggestFollowups on the
     // agentState object, even though end_turn ended the turn.
     expect(agentState.canSuggestFollowups).toBe(false)
+  })
+
+  it('emits a repair-editor recovery hint when a read is blocked by the filesystem read scope', async () => {
+    // Covers the repair-editor read-scope recovery branch in
+    // executeToolCall: a repair-editor read outside its filesystem read
+    // scope is blocked (never executed) and the error message carries the
+    // recovery guidance so the agent inspects the authorized test file that
+    // owns a synthetic fixture literal instead of retrying/widening scope.
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('read_files', {
+        paths: ['secret/out-of-scope.ts'],
+      })
+      yield createToolCallChunk('end_turn', {})
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+    const repairEditorAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'repair-editor',
+      toolNames: ['read_files', 'end_turn'],
+      filesystemScope: { read: ['packages/**'] },
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'repair-editor',
+      localAgentTemplates: { 'repair-editor': repairEditorAgent },
+      agentTemplate: repairEditorAgent,
+      agentState,
+      prompt: 'Read a file outside the repair-editor read scope',
+    })
+
+    // The blocked read surfaces the scope error with the repair-editor
+    // recovery guidance appended.
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'was blocked by the repair-editor filesystem read scope',
+        ),
+      }),
+    )
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'inspect the authorized test file that owns the literal instead',
+        ),
+      }),
+    )
+    // The blocked read is never published as a tool call.
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'read_files',
+      }),
+    )
+  })
+
+  it('omits the repair-editor read-recovery hint when a write escapes the project via the filesystem write scope', async () => {
+    // Complements the read-scope recovery test: the recovery guidance in
+    // executeToolCall is read-only (it is appended only when
+    // filesystemAccess.access === 'read'). The write path here escapes the
+    // project (../secret/out-of-scope.ts), which is still hard-blocked for
+    // writes with the scope error, but must NOT carry the read-only recovery
+    // guidance — telling the agent to inspect a fixture-owning test file makes
+    // no sense for a blocked write.
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('write_file', {
+        path: '../secret/out-of-scope.ts',
+        instructions: 'Write that escapes the project',
+        content: 'export const blocked = true\n',
+      })
+      yield createToolCallChunk('end_turn', {})
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+    const repairEditorAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'repair-editor',
+      toolNames: ['write_file', 'end_turn'],
+      filesystemScope: { write: ['packages/**'] },
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'repair-editor',
+      localAgentTemplates: { 'repair-editor': repairEditorAgent },
+      agentTemplate: repairEditorAgent,
+      agentState,
+      prompt: 'Write a file outside the repair-editor write scope',
+    })
+
+    // The blocked write surfaces the write-scope error...
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'was blocked by the repair-editor filesystem write scope',
+        ),
+      }),
+    )
+    // ...but must NOT append the read-only recovery guidance.
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'inspect the authorized test file that owns the literal instead',
+        ),
+      }),
+    )
+    // The blocked write is never published as a tool call.
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({
+        type: 'tool_call',
+        toolName: 'write_file',
+      }),
+    )
   })
 
   it('blocks suggest_followups after same-step rewrite_symbol edits when the gate started open', async () => {

@@ -1553,6 +1553,109 @@ describe('base2 verification and reviewer gates', () => {
     expect((agentState as any).canSuggestFollowups).toBe(false)
   })
 
+  test('allows suggest_followups on a clean analysis turn with no edits or pending gate work', () => {
+    // Regression: a pure analysis/question turn (no edits this turn, empty
+    // pending gate set, clean working tree, idle phase) must not be blocked
+    // from calling suggest_followups. There is nothing to validate or commit,
+    // so the gate should treat the turn as open.
+    const base2 = createBase2('default')
+    const agentState: Record<string, unknown> = { agentId: 'base2' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Can you confirm whether those earlier reports still hold',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    // Clean working tree at turn start.
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: '' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    // Idle, clean turn produces no pinned-state message, so the next yield is
+    // STEP and suggest_followups is already permitted.
+    expect(gen.next().value).toBe('STEP')
+    expect((agentState as any).canSuggestFollowups).toBe(true)
+  })
+
+  test('still blocks suggest_followups when the working tree is dirty at turn start', () => {
+    // Guard for the analysis-turn allowance: a turn that makes no edits *this
+    // turn* but starts with an unvalidated dirty working tree must not be
+    // treated as clean analysis. initialGitStatusFiles being non-empty keeps
+    // the gate closed so pre-existing changes still require validation/review.
+    const base2 = createBase2('default')
+    const agentState: Record<string, unknown> = { agentId: 'base2' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Can you confirm whether those earlier reports still hold',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: ' M src/foo.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    const maybePinnedState = gen.next().value
+    if (maybePinnedState !== 'STEP') {
+      expect(maybePinnedState).toMatchObject({ toolName: 'add_message' })
+      expect(gen.next().value).toBe('STEP')
+    }
+    expect((agentState as any).canSuggestFollowups).toBe(false)
+  })
+
+  test('publishes uncommittedUnvalidatedFiles: turn-start dirty files not covered by a gate pass', () => {
+    // The git-committer commit guard in the tool executor relies on base2
+    // publishing the set of working-tree files that are dirty but NOT covered
+    // by a green gate pass. A turn can start with an already-gate-passed file A
+    // plus an unrelated never-validated dirty file B; only B must appear in the
+    // published set so the executor can refuse to stage B while allowing A.
+    const base2 = createBase2('default')
+    const agentState: Record<string, unknown> = {
+      agentId: 'base2',
+      base2ActiveWork: {
+        changedFiles: ['src/a.ts'],
+        touchedFiles: ['src/a.ts'],
+        pendingGateFiles: [],
+        currentPhase: 'final_response_allowed',
+        latestWorkSummary: '',
+        openReviewerBlockers: [],
+        lastValidationSummary: 'Configured file-change hooks passed: typecheck.',
+        nextRequiredAction: '',
+        lastPinnedStateMessage: '',
+        gatePassedFiles: ['src/a.ts'],
+      },
+    }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Finish the previous response.',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    // Working tree is dirty on both the gate-passed file A and the unrelated
+    // never-validated file B.
+    expect(
+      gen.next({
+        toolResult: [
+          { type: 'json', value: { status: ' M src/a.ts\n M src/b.ts' } },
+        ],
+      } as any).value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    const maybePinnedState = gen.next().value
+    if (maybePinnedState !== 'STEP') {
+      expect(maybePinnedState).toMatchObject({ toolName: 'add_message' })
+      expect(gen.next().value).toBe('STEP')
+    }
+
+    // Only the never-validated dirty file B is published; the gate-passed file
+    // A is excluded.
+    expect((agentState as any).uncommittedUnvalidatedFiles).toEqual(['src/b.ts'])
+  })
+
+
   test('historical changed files alone do not trigger stale validation or review', () => {
     const base2 = createBase2('default')
     const agentState = {
@@ -3717,12 +3820,21 @@ describe('base2 verification and reviewer gates', () => {
     } as any).value as any
     expect(reviewCall).toMatchObject({ toolName: 'spawn_agents' })
     const reviewPrompt = reviewCall.input.agents[0].prompt as string
+    // Co-changed test files are surfaced as readable "Coverage evidence" so
+    // the reviewer can confirm coverage; without this the reviewer could never
+    // see the changed test file and always reported coverage missing/uncertain.
     expect(reviewPrompt).toContain(
-      'changed *.test.ts file in this same reviewed snapshot',
+      'Coverage evidence (co-changed tests; readable and citable, not part of the reviewed fingerprint):',
+    )
+    expect(reviewPrompt).toContain(
+      'Co-changed test files are listed under "Coverage evidence"',
     )
     expect(reviewPrompt).toContain('satisfied (not uncertain)')
     expect(reviewPrompt).toContain(
-      'Use coverage: missing only when no mapped test exists anywhere',
+      'when a Coverage evidence test file covers the changed behavior',
+    )
+    expect(reviewPrompt).toContain(
+      'Use coverage: missing only when no covering test exists in the Coverage evidence list or anywhere in the repo',
     )
   })
 

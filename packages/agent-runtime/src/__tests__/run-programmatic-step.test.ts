@@ -1145,7 +1145,11 @@ describe('runProgrammaticStep', () => {
       })
     })
 
-    it('enforces the agent filesystem write scope before dispatching a tool', async () => {
+    it('lets an in-project write outside the declared scope proceed instead of blocking it', async () => {
+      // src/escaped.ts stays inside the project but is not covered by the
+      // declared write scope. Under the softened write policy this is a
+      // non-blocking scope mismatch: the runtime warns but the write proceeds,
+      // so no write-scope error is emitted and the write tool_call IS published.
       const scopedTemplate = {
         ...mockTemplate,
         filesystemScope: { write: ['docs/**', 'README.md'] },
@@ -1156,7 +1160,7 @@ describe('runProgrammaticStep', () => {
           toolName: 'write_file',
           input: {
             path: 'src/escaped.ts',
-            instructions: 'Must be blocked by the runtime scope.',
+            instructions: 'In-project write outside the declared scope.',
             content: 'export const escaped = true\n',
           },
         }
@@ -1164,7 +1168,66 @@ describe('runProgrammaticStep', () => {
       }
 
       executeToolCallSpy.mockRestore()
-      const responseChunks: Array<{ type?: string; message?: string }> = []
+      const responseChunks: Array<{
+        type?: string
+        message?: string
+        toolName?: string
+      }> = []
+      mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk as any)
+
+      await runProgrammaticStep({
+        ...mockParams,
+        template: scopedTemplate as AgentTemplate,
+        localAgentTemplates: {
+          'test-agent': scopedTemplate as AgentTemplate,
+        },
+      })
+
+      // The in-project scope mismatch must NOT surface a write-scope error.
+      expect(responseChunks).not.toContainEqual(
+        expect.objectContaining({
+          type: 'error',
+          message: expect.stringContaining(
+            'filesystem write scope. Disallowed path(s): src/escaped.ts',
+          ),
+        }),
+      )
+      // The write proceeds, so its tool_call chunk is published.
+      expect(responseChunks).toContainEqual(
+        expect.objectContaining({
+          type: 'tool_call',
+          toolName: 'write_file',
+        }),
+      )
+    })
+
+    it('still hard-blocks a write whose path escapes the project', async () => {
+      // A traversal path (../escaped.ts) escapes the project root. Escapes are
+      // the real containment boundary and remain hard-blocked for writes: the
+      // write-scope error is emitted and no write tool_call is published.
+      const scopedTemplate = {
+        ...mockTemplate,
+        filesystemScope: { write: ['docs/**', 'README.md'] },
+        toolNames: ['write_file', 'end_turn'],
+      }
+      scopedTemplate.handleSteps = function* () {
+        yield {
+          toolName: 'write_file',
+          input: {
+            path: '../escaped.ts',
+            instructions: 'Must be blocked because it escapes the project.',
+            content: 'export const escaped = true\n',
+          },
+        }
+        yield { toolName: 'end_turn', input: {} }
+      }
+
+      executeToolCallSpy.mockRestore()
+      const responseChunks: Array<{
+        type?: string
+        message?: string
+        toolName?: string
+      }> = []
       mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk as any)
 
       await runProgrammaticStep({
@@ -1179,8 +1242,15 @@ describe('runProgrammaticStep', () => {
         expect.objectContaining({
           type: 'error',
           message: expect.stringContaining(
-            'filesystem write scope. Disallowed path(s): src/escaped.ts',
+            'filesystem write scope. Disallowed path(s): ../escaped.ts',
           ),
+        }),
+      )
+      // The blocked write is never published as a tool call.
+      expect(responseChunks).not.toContainEqual(
+        expect.objectContaining({
+          type: 'tool_call',
+          toolName: 'write_file',
         }),
       )
     })
@@ -1268,10 +1338,17 @@ describe('runProgrammaticStep', () => {
         },
       })
 
+      // The read stays inside the project but is outside the declared read
+      // scope, so it remains hard-blocked.
       expect(responseChunks.map((chunk) => chunk.message).join('\n')).toContain(
         'filesystem read scope. Disallowed path(s): src/private.ts',
       )
-      expect(responseChunks.map((chunk) => chunk.message).join('\n')).toContain(
+      // assets/private.blend is an in-project write-scope mismatch, so under
+      // the softened write policy it proceeds instead of being blocked; no
+      // write-scope error is emitted for it.
+      expect(
+        responseChunks.map((chunk) => chunk.message).join('\n'),
+      ).not.toContain(
         'filesystem write scope. Disallowed path(s): assets/private.blend',
       )
     })

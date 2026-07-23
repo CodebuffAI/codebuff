@@ -200,6 +200,90 @@ describe('index cache ownership', () => {
     expect(loaded?.queryData?.postings.alpha).toEqual(['src/a.ts'])
   })
 
+  test('reclaims a lock held by a dead process without waiting out the stale window', async () => {
+    const root = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), 'openbuff-lock-dead-owner-'),
+    )
+    const dir = getIndexDir(root)
+    await fs.promises.mkdir(dir, { recursive: true })
+    // Find a PID that does not exist so isLockOwnerDead sees ESRCH. Start high
+    // and walk down until process.kill(pid, 0) throws ESRCH.
+    let deadPid = 0
+    for (let candidate = 0x7fffffff; candidate > 1; candidate -= 111_113) {
+      try {
+        process.kill(candidate, 0)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
+          deadPid = candidate
+          break
+        }
+      }
+    }
+    expect(deadPid).toBeGreaterThan(1)
+    // Mark the cache dir as owned so assertCacheOwnership does not reject the
+    // now-non-empty directory (the lock file below makes it non-empty).
+    await fs.promises.writeFile(
+      path.join(dir, '.openbuff-index-owner'),
+      'openbuff-index\n',
+    )
+    // Write a lock file with a fresh mtime (not stale by time) but owned by the
+    // dead PID, so only the liveness check can reclaim it.
+    const lockPath = path.join(dir, '.openbuff-index.lock')
+    await fs.promises.writeFile(
+      lockPath,
+      `${deadPid}:00000000-0000-0000-0000-000000000000\n${Date.now()}\n`,
+      'utf8',
+    )
+
+    const base = {
+      version: '2' as const,
+      projectRoot: root,
+      fileCount: 0,
+      files: {},
+      graph: { nodes: {}, edges: [] },
+    }
+    const started = Date.now()
+    expect(await saveIndex({ ...base, builtAt: 300 }, root)).toBe(true)
+    // The reclaim must happen well inside the 10s lock-acquire timeout; a dead
+    // owner should be detected immediately rather than after STALE_LOCK_MS.
+    expect(Date.now() - started).toBeLessThan(5_000)
+    expect((await loadIndex(root))?.builtAt).toBe(300)
+  })
+
+  test('does not reclaim a lock owned by the current live process', async () => {
+    const root = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), 'openbuff-lock-live-owner-'),
+    )
+    const dir = getIndexDir(root)
+    await fs.promises.mkdir(dir, { recursive: true })
+    // Mark the cache dir as owned so assertCacheOwnership does not reject the
+    // now-non-empty directory (the lock file below makes it non-empty).
+    await fs.promises.writeFile(
+      path.join(dir, '.openbuff-index-owner'),
+      'openbuff-index\n',
+    )
+    // A lock naming the current (live) PID must NOT be reclaimed by the
+    // liveness check; saveIndex should block on it and time out rather than
+    // steal an in-progress operation. Keep the mtime fresh so the stale-time
+    // path also does not apply.
+    const lockPath = path.join(dir, '.openbuff-index.lock')
+    await fs.promises.writeFile(
+      lockPath,
+      `${process.pid}:00000000-0000-0000-0000-000000000000\n${Date.now()}\n`,
+      'utf8',
+    )
+    const base = {
+      version: '2' as const,
+      projectRoot: root,
+      fileCount: 0,
+      files: {},
+      graph: { nodes: {}, edges: [] },
+    }
+    await expect(
+      saveIndex({ ...base, builtAt: 400 }, root),
+    ).rejects.toThrow('Timed out waiting for index cache lock')
+  }, 15_000)
+
   test('merges concurrent semantic fingerprint writes under the cache lock', async () => {
     const root = await fs.promises.mkdtemp(
       path.join(os.tmpdir(), 'openbuff-vector-lock-'),
