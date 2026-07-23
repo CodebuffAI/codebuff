@@ -22,6 +22,19 @@ const inputSchema = z.object({
     .describe(
       'A complete implementation brief for the coding agent that will build the project.',
     ),
+  required_integrations: z
+    .array(
+      z.object({
+        slug: z
+          .string()
+          .min(1)
+          .describe('The exact Gravity recommendation slug.'),
+        name: z.string().min(1).describe('The user-facing service name.'),
+      }),
+    )
+    .describe(
+      'Every selected Gravity service whose recommendation returned required API keys or environment variables. Use [] only when the plan needs no credential-bearing external service.',
+    ),
 })
 
 const outputSchema = z.object({ message: z.string() })
@@ -45,6 +58,7 @@ ${$getNativeToolCallExampleString({
     stack: ['React', 'Vite', 'Supabase', 'Resend'],
     build_prompt:
       'Build the agreed booking app with teacher availability, student booking, authentication, and transactional email.',
+    required_integrations: [{ slug: 'resend', name: 'Resend' }],
   },
   endsAgentStep,
 })}
