@@ -351,7 +351,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
 
     // The cue lives only on the recommended hero, so only its line needs to fit
     // the "Press Enter ↵" gutter. Folding that into the max means longer rows
-    // (e.g. DeepSeek Pro's data-collection warning) keep their natural width —
+    // (e.g. DeepSeek Pro's AI-training warning) keep their natural width —
     // the buttons widen only if the recommended row + cue is the longest line.
     // Returned so the render path can right-align the cue against the same
     // length the gutter was reserved for — one formula, no reserve/consume drift.

@@ -4,15 +4,15 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
-import {
-  mimoModels,
-  moonshotModels,
-  openrouterModels,
-} from './model-config'
+import { mimoModels, moonshotModels, openrouterModels } from './model-config'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from './freebuff-model-ids'
+import {
+  FREEBUFF_AI_TRAINING_NOTICE,
+  type FreebuffModelDataUse,
+} from './freebuff-data-use'
 
 export {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -36,10 +36,13 @@ export interface FreebuffModelOption {
   tagline: string
   /** Availability policy for the selector and server-side admission. */
   availability: 'always' | 'deployment_hours'
-  /** Optional caveat shown in the picker (e.g. data-collection warning).
+  /** Optional caveat shown in the picker (e.g. AI-training warning).
    *  Rendered in the warning/secondary color so users spot it before
    *  picking the model. */
   warning?: string
+  /** Machine-readable data-use policy. Never infer storage or training
+   *  behavior from the human-readable warning text. */
+  dataUse: FreebuffModelDataUse
   /** Premium models carry a per-day usage limit
    *  (FREEBUFF_PREMIUM_SESSION_LIMIT). Surfaced in the UI as a "Premium"
    *  badge with the limit. Derived from FREEBUFF_PREMIUM_MODEL_IDS so the two
@@ -73,8 +76,7 @@ export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3
 /** Legacy alias retained for the direct Atlas fallback implementation. New
  * paid HY3 selections route through OpenRouter. */
-export const FREEBUFF_HY3_ATLAS_MODEL_ID =
-  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID
+export const FREEBUFF_HY3_ATLAS_MODEL_ID = FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
@@ -197,18 +199,13 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
   return FREEBUFF_GEMINI_THINKER_PARENT_MODELS.has(modelId)
 }
 
-/** Single source of truth for "this model collects data for training". A model
- *  that carries this exact `warning` is both shown the caveat in the picker AND
- *  has its chat-completion traces stored in free mode (see
- *  FREEBUFF_TRACED_MODEL_IDS, which is derived from it) — the two can't drift. */
-export const FREEBUFF_DATA_COLLECTION_WARNING = 'Collects data for training'
-
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   displayName: 'DeepSeek V4 Pro',
   tagline: 'Smartest',
   availability: 'always',
-  warning: FREEBUFF_DATA_COLLECTION_WARNING,
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
   premium: true,
   multimodal: false,
 } as const satisfies FreebuffModelOption
@@ -218,6 +215,7 @@ const MIMO_V25_PRO_MODEL = {
   displayName: 'MiMo 2.5 Pro',
   tagline: 'Smartest & Slow',
   availability: 'always',
+  dataUse: 'service',
   premium: true,
   // The Pro endpoint is text-only. Sending image content makes the provider
   // reject the request, unlike the non-Pro MiMo 2.5 endpoint.
@@ -229,6 +227,7 @@ const KIMI_MODEL = {
   displayName: 'Kimi K2.7 Code',
   tagline: 'Best for coding & Slow',
   availability: 'always',
+  dataUse: 'service',
   premium: true,
   multimodal: true,
 } as const satisfies FreebuffModelOption
@@ -238,6 +237,7 @@ const HY3_MODEL = {
   displayName: 'HY3',
   tagline: 'Trialing its performance',
   availability: 'always',
+  dataUse: 'service',
   premium: true,
   multimodal: false,
   experimental: true,
@@ -248,6 +248,7 @@ const HY3_OPENROUTER_PAID_MODEL = {
   displayName: 'HY3 (OpenRouter)',
   tagline: 'Paid via OpenRouter',
   availability: 'always',
+  dataUse: 'service',
   premium: true,
   multimodal: false,
   experimental: true,
@@ -258,6 +259,7 @@ const MIMO_V25_MODEL = {
   displayName: 'MiMo 2.5',
   tagline: 'Multimodal',
   availability: 'always',
+  dataUse: 'service',
   premium: false,
   multimodal: true,
 } as const satisfies FreebuffModelOption
@@ -267,7 +269,8 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   displayName: 'DeepSeek V4 Flash',
   tagline: 'Smart & Fast',
   availability: 'always',
-  warning: FREEBUFF_DATA_COLLECTION_WARNING,
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
   premium: false,
   multimodal: false,
 } as const satisfies FreebuffModelOption
@@ -277,9 +280,9 @@ const MINIMAX_M3_MODEL = {
   displayName: 'MiniMax M3',
   tagline: 'Smartest & Fastest',
   availability: 'always',
-  // No data-collection warning: M3 is served by Fireworks (no provider-side
-  // training). Omitting the warning also keeps it out of FREEBUFF_TRACED_MODEL_IDS,
-  // so we don't store its traces either.
+  dataUse: 'service',
+  // M3 is served by Fireworks without provider-side training. Its `service`
+  // data-use classification keeps it out of FREEBUFF_TRACED_MODEL_IDS.
   premium: true,
   multimodal: true,
 } as const satisfies FreebuffModelOption
@@ -289,8 +292,9 @@ const GLM_V52_MODEL = {
   displayName: 'GLM 5.2',
   tagline: 'Unlock by referring friends',
   availability: 'always',
-  // No data-collection warning: served by Fireworks (no provider-side
-  // training), and omitting it keeps GLM out of FREEBUFF_TRACED_MODEL_IDS.
+  dataUse: 'service',
+  // Served by Fireworks without provider-side training; its `service`
+  // data-use classification keeps GLM out of FREEBUFF_TRACED_MODEL_IDS.
   // `premium` drives the "Premium" badge styling in the picker; GLM's real
   // gate is its weekly referral-session pool, not the daily premium pool.
   premium: true,
@@ -302,6 +306,7 @@ const CROF_GLM_V52_MODEL = {
   displayName: 'GLM 5.2 (Crof)',
   tagline: 'Direct via CrofAI',
   availability: 'always',
+  dataUse: 'service',
   premium: true,
   multimodal: false,
   experimental: true,
@@ -312,6 +317,7 @@ const POOLSIDE_LAGUNA_S_21_MODEL = {
   displayName: 'Laguna S 2.1 (Poolside)',
   tagline: 'Direct Poolside API',
   availability: 'always',
+  dataUse: 'service',
   premium: true,
   multimodal: false,
   experimental: true,
@@ -322,6 +328,7 @@ const POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL = {
   displayName: 'Laguna S 2.1 (OpenRouter)',
   tagline: 'Paid via OpenRouter',
   availability: 'always',
+  dataUse: 'service',
   premium: true,
   multimodal: false,
   experimental: true,
@@ -476,14 +483,10 @@ export const FREEBUFF_WEB_MULTIMODAL_MODEL_IDS = Object.freeze(
 )
 
 /** Free-mode models whose chat-completion traces we store in our own dataset
- *  (chat_completion_traces). Derived from the picker's data-collection warning
- *  so the disclosure and the storage are one fact: a model is traced in free
- *  mode iff it shows the "Collects data for training" caveat. Every other free
- *  model (incl. MiniMax M3 on Fireworks) is NOT stored; paid, non-free-mode
- *  requests are unaffected and traced as usual. */
+ *  (chat_completion_traces). Derived from machine-readable data-use metadata;
+ *  UI wording can change without changing retention behavior. */
 export const FREEBUFF_TRACED_MODEL_IDS = SUPPORTED_FREEBUFF_MODELS.filter(
-  (model: FreebuffModelOption) =>
-    model.warning === FREEBUFF_DATA_COLLECTION_WARNING,
+  (model: FreebuffModelOption) => model.dataUse === 'training',
 ).map((model) => model.id)
 
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']

@@ -35,9 +35,15 @@ freebuff
 
 **What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 6 one-hour sessions per day.
 
-**Are you training on my data?** No. We don't share your data with third parties that would train on it or use it for another purpose, unless you choose a model clearly labeled as "Collects data for training."
+<!-- BEGIN GENERATED FREEBUFF DATA USE -->
 
-**What data do you store?** We don't store your codebase. We only collect minimal logs for debugging purposes.
+**Is my data used to train AI?** Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products.
+
+**How is my data used and stored?** We use prompts, messages, code, files, and repository data to provide the service. We may analyze prompts and messages—including pasted content—to personalize ads, using Freebuff systems and service providers acting on our behalf. Separate uploads and connected repositories are not provided to advertising providers. Where required by law, we provide advertising choices and honor recognized opt-out signals; elsewhere, this processing may be required to use the free service. See the Privacy Policy for retention and details.
+
+See the [Privacy Policy](https://freebuff.com/privacy-policy) for complete details.
+
+<!-- END GENERATED FREEBUFF DATA USE -->
 
 ## Links
 

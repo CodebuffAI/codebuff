@@ -6,7 +6,6 @@ import {
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DATA_COLLECTION_WARNING,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_GLM_V52_MODEL_ID,
@@ -56,28 +55,28 @@ describe('freebuff model availability', () => {
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
-  test('DeepSeek Pro carries the data-collection warning so users see it before picking', () => {
+  test('DeepSeek Pro carries the AI-training warning before selection', () => {
     const deepseek = FREEBUFF_MODELS.find(
       (m) => m.id === FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
     expect((deepseek as { warning?: string } | undefined)?.warning).toBe(
-      'Collects data for training',
+      'May use data for AI training',
     )
   })
 
-  test('DeepSeek Flash carries the data-collection warning so users see it before picking', () => {
+  test('DeepSeek Flash carries the AI-training warning before selection', () => {
     const deepseek = FREEBUFF_MODELS.find(
       (m) => m.id === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect((deepseek as { warning?: string } | undefined)?.warning).toBe(
-      'Collects data for training',
+      'May use data for AI training',
     )
   })
 
   test('only the DeepSeek family is trace-stored in free mode; M3 has no warning', () => {
     const m3 = FREEBUFF_MODELS.find((m) => m.id === MINIMAX_M3_MODEL_ID)
     expect((m3 as { warning?: string } | undefined)?.warning).toBeUndefined()
-    // The DeepSeek family discloses data collection and IS stored.
+    // The DeepSeek family discloses AI training and IS stored.
     expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
       true,
     )
@@ -91,13 +90,13 @@ describe('freebuff model availability', () => {
     expect(isFreebuffTracedModelId(null)).toBe(false)
   })
 
-  test('trace storage is one source of truth with the data-collection warning', () => {
-    // A model is traced in free mode iff it shows the data-collection caveat.
+  test('trace storage follows machine-readable data-use metadata', () => {
     const models: readonly FreebuffModelOption[] = SUPPORTED_FREEBUFF_MODELS
     for (const model of models) {
       expect(isFreebuffTracedModelId(model.id)).toBe(
-        model.warning === FREEBUFF_DATA_COLLECTION_WARNING,
+        model.dataUse === 'training',
       )
+      expect(model.warning !== undefined).toBe(model.dataUse === 'training')
     }
   })
 
