@@ -7,8 +7,36 @@ import { join } from 'path'
 import {
   BoundedOutputBuffer,
   getActiveTerminalCommandProcesses,
+  rewriteWindowsNulRedirects,
   runTerminalCommand,
 } from '../tools/run-terminal-command'
+
+describe('rewriteWindowsNulRedirects', () => {
+  test('rewrites cmd-style nul redirects to /dev/null', () => {
+    expect(rewriteWindowsNulRedirects('tsc --noEmit > nul 2>&1')).toBe(
+      'tsc --noEmit > /dev/null 2>&1',
+    )
+    expect(rewriteWindowsNulRedirects('npm test >nul 2>nul')).toBe(
+      'npm test >/dev/null 2>/dev/null',
+    )
+    expect(rewriteWindowsNulRedirects('some-tool >> NUL')).toBe(
+      'some-tool >> /dev/null',
+    )
+    expect(rewriteWindowsNulRedirects('ssh host cmd < nul')).toBe(
+      'ssh host cmd < /dev/null',
+    )
+  })
+
+  test('leaves nul-like filenames and non-redirect uses alone', () => {
+    expect(rewriteWindowsNulRedirects('cat nul.txt > out.log')).toBe(
+      'cat nul.txt > out.log',
+    )
+    expect(rewriteWindowsNulRedirects('echo nul')).toBe('echo nul')
+    expect(rewriteWindowsNulRedirects('grep foo > nullable.ts')).toBe(
+      'grep foo > nullable.ts',
+    )
+  })
+})
 
 describe('BoundedOutputBuffer', () => {
   test('preserves output below the limit and strips terminal colors', () => {

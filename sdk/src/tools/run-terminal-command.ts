@@ -275,6 +275,17 @@ To fix this, you have several options:
   )
 }
 
+/**
+ * Commands run under Git Bash on Windows, where `nul` is not the null device:
+ * redirecting to it creates a literal file named "nul" (via an NT path that
+ * bypasses the reserved-name check) that Windows tools then refuse to delete.
+ * Models frequently emit cmd-style `> nul 2>&1`, so rewrite `nul` redirection
+ * targets to /dev/null.
+ */
+export function rewriteWindowsNulRedirects(command: string): string {
+  return command.replace(/([<>]\s*)nul(?![\w.])/gi, '$1/dev/null')
+}
+
 export function runTerminalCommand({
   command,
   process_type,
@@ -325,6 +336,7 @@ export function runTerminalCommand({
     let shellArgs: string[]
 
     if (isWindows) {
+      command = rewriteWindowsNulRedirects(command)
       const bashPath = findWindowsBash(processEnv)
       if (!bashPath) {
         reject(createWindowsBashNotFoundError())

@@ -62,9 +62,7 @@ When the user requests a new git commit, please follow these steps closely:
    Generated with Codebuff 🤖
    Co-Authored-By: Codebuff <noreply@codebuff.com>
    \`\`\`
-   To maintain proper formatting, use cross-platform compatible commit messages:
-   
-   **For Unix/bash shells:**
+   Commands run in bash on every OS (Git Bash on Windows), so always use HEREDOC syntax to format the message:
    \`\`\`
    git commit -m "$(cat <<'EOF'
    Your commit message here.
@@ -74,16 +72,6 @@ When the user requests a new git commit, please follow these steps closely:
    EOF
    )"
    \`\`\`
-   
-   **For Windows Command Prompt:**
-   \`\`\`
-   git commit -m "Your commit message here.
-
-   🤖 Generated with Codebuff
-   Co-Authored-By: Codebuff <noreply@codebuff.com>"
-   \`\`\`
-   
-   Always detect the platform and use the appropriate syntax. HEREDOC syntax (\`<<'EOF'\`) only works in bash/Unix shells and will fail on Windows Command Prompt.
 
 **Important details**
 
@@ -103,7 +91,9 @@ const inputSchema = z
     command: z
       .string()
       .min(1, 'Command cannot be empty')
-      .describe(`CLI command valid for user's OS.`),
+      .describe(
+        `CLI command. Always executed with bash (Git Bash on Windows), so use POSIX syntax on every OS: \`mv\`/\`rm\`, \`/dev/null\`, heredocs. Never use cmd.exe syntax like \`del\`, \`move\`, or \`> nul\` — on Windows \`> nul\` creates a literal file named "nul" that is very hard to delete.`,
+      ),
     process_type: z
       .enum(['SYNC', 'BACKGROUND'])
       .default('SYNC')
@@ -131,7 +121,7 @@ const description = `
 Stick to these use cases:
 1. Typechecking the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
-3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
+3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use \`mv\` or \`rm\` (commands run in bash on every OS, including Windows — do not use \`move\`/\`del\`).
 
 Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags and *do not* use the tool call format, e.g.:
 \`\`\`bash
