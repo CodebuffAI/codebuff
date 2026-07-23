@@ -297,6 +297,7 @@ export enum AnalyticsEvent {
   DESKTOP_THREAD_CREATED = 'desktop.thread_created',
   DESKTOP_THREAD_TITLED = 'desktop.thread_titled',
   DESKTOP_PROJECT_OPENED = 'desktop.project_opened',
+  DESKTOP_PROJECT_REMOVED = 'desktop.project_removed',
   DESKTOP_TURN_COMPLETED = 'desktop.turn_completed',
   DESKTOP_HARNESS_CHANGED = 'desktop.harness_changed',
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
