@@ -44,16 +44,28 @@ describe('getFreebuffStreakLine', () => {
 })
 
 describe('getFreebuffStreakBonusNote', () => {
-  test('hidden below the 7-day milestone', () => {
+  test('hidden with no streak at all', () => {
     expect(
       getFreebuffStreakBonusNote({ streak: 0, accessTier: 'full' }),
     ).toBeNull()
     expect(
-      getFreebuffStreakBonusNote({ streak: 6, accessTier: 'full' }),
+      getFreebuffStreakBonusNote({ streak: -1, accessTier: 'limited' }),
     ).toBeNull()
+  })
+
+  test('teases the unlock countdown below the 7-day milestone', () => {
+    expect(getFreebuffStreakBonusNote({ streak: 3, accessTier: 'full' })).toBe(
+      '🎁 4 more days to unlock +1 bonus session every day + 1 GLM 5.2 session each week',
+    )
+    expect(
+      getFreebuffStreakBonusNote({ streak: 3, accessTier: 'limited' }),
+    ).toBe('🎁 4 more days to unlock +1 bonus session every day')
+  })
+
+  test('"day" goes singular on the eve of the milestone', () => {
     expect(
       getFreebuffStreakBonusNote({ streak: 6, accessTier: 'limited' }),
-    ).toBeNull()
+    ).toBe('🎁 1 more day to unlock +1 bonus session every day')
   })
 
   test('full access advertises the daily session + weekly GLM perk at 7+', () => {
