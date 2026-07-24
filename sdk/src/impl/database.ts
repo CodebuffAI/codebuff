@@ -327,7 +327,18 @@ export async function startAgentRun(
     )
 
     if (!response.ok) {
+      const bodyText = await response.text().catch(() => '<unreadable body>')
       logger.error({ response }, 'startAgentRun request failed')
+      // The passed-in `logger` may silently drop unallowlisted error events
+      // (see freebuff/web/src/server/agent-runner/logger.ts), which turns a
+      // real failure here into an opaque "Failed to start agent run" with no
+      // way to diagnose it. Always surface the raw HTTP status/body too.
+      console.error('[startAgentRun] request failed', {
+        url: url.toString(),
+        status: response.status,
+        statusText: response.statusText,
+        body: bodyText.slice(0, 2000),
+      })
       return null
     }
 
@@ -337,6 +348,10 @@ export async function startAgentRun(
         { responseBody },
         'no runId found from startAgentRun request',
       )
+      console.error('[startAgentRun] no runId in response body', {
+        url: url.toString(),
+        responseBody,
+      })
     }
     return responseBody?.runId ?? null
   } catch (error) {
@@ -344,6 +359,10 @@ export async function startAgentRun(
       { error: getErrorObject(error), agentId },
       'startAgentRun error',
     )
+    console.error('[startAgentRun] threw', {
+      url: url.toString(),
+      error: getErrorObject(error),
+    })
     return null
   }
 }
