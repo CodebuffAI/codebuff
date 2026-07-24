@@ -29,9 +29,14 @@ import {
 } from '../utils/freebuff-referral-cache'
 import {
   callFreebuffSession,
+  FreebuffSessionRequestError,
   holdsLiveFreebuffSlot,
   releaseFreebuffSlot,
 } from '../utils/freebuff-session-api'
+import {
+  failedPollDelayMs,
+  jitterPollIntervalMs,
+} from '../utils/polling-backoff'
 import { saveFreebuffModelPreference } from '../utils/settings'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
@@ -41,7 +46,6 @@ import type {
 } from '@codebuff/common/types/freebuff-session'
 
 const POLL_INTERVAL_ACTIVE_MS = 30_000
-const POLL_INTERVAL_ERROR_MS = 10_000
 
 /** Play the terminal bell so users get an audible notification on admission. */
 const playAdmissionSound = () => {
@@ -55,6 +59,9 @@ const playAdmissionSound = () => {
 /** Picks the poll delay after a successful tick. Returns null when the state
  *  is terminal (no further polling). */
 function nextDelayMs(next: FreebuffSessionResponse): number | null {
+  const activeCadenceMs = jitterPollIntervalMs({
+    intervalMs: POLL_INTERVAL_ACTIVE_MS,
+  })
   switch (next.status) {
     case 'active':
       // Poll at the normal cadence, but ensure we land just after
@@ -62,12 +69,12 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
       // the countdown stuck at 0 for up to a full interval.
       return Math.max(
         1_000,
-        Math.min(POLL_INTERVAL_ACTIVE_MS, next.remainingMs + 1_000),
+        Math.min(activeCadenceMs, next.remainingMs + 1_000),
       )
     case 'ended':
       // Inside the grace window we keep checking so the post-grace transition
       // (server returns `none`, we synthesize ended-no-instanceId) is prompt.
-      return next.instanceId ? POLL_INTERVAL_ACTIVE_MS : null
+      return next.instanceId ? activeCadenceMs : null
     case 'none':
     case 'superseded':
     case 'takeover_prompt':
@@ -335,6 +342,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     let timer: ReturnType<typeof setTimeout> | null = null
     let previousStatus: FreebuffSessionResponse['status'] | null = null
     let restartGeneration = 0
+    let consecutiveFailures = 0
     // Method for the NEXT tick. GET is read-only; POST claims/rotates a seat.
     // Startup is GET (probe before committing). After any POST completes we
     // flip back to GET. refresh() sets it to 'POST' for explicit join/rejoin;
@@ -374,13 +382,22 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       const method = nextMethod
       const instanceId = getFreebuffInstanceId()
       const model = getSelectedFreebuffModel()
+      const fetchController = abortController
+      const generation = restartGeneration
       try {
         const next = await callFreebuffSession(method, token, {
-          signal: abortController.signal,
+          signal: fetchController.signal,
           instanceId,
           model,
         })
-        if (cancelled) return
+        if (
+          cancelled ||
+          fetchController.signal.aborted ||
+          generation !== restartGeneration
+        ) {
+          return
+        }
+        consecutiveFailures = 0
         // After any successful call, default back to GET polling. The
         // takeover and model_locked branches below override this when they
         // need another POST.
@@ -475,11 +492,29 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         const delay = nextDelayMs(next)
         if (delay !== null) schedule(delay)
       } catch (err) {
-        if (cancelled || abortController.signal.aborted) return
+        if (
+          cancelled ||
+          fetchController.signal.aborted ||
+          generation !== restartGeneration
+        ) {
+          return
+        }
         const msg = err instanceof Error ? err.message : String(err)
-        logger.warn({ error: msg }, '[freebuff-session] fetch failed')
+        consecutiveFailures++
+        const retryAfterMs =
+          err instanceof FreebuffSessionRequestError
+            ? err.retryAfterMs
+            : undefined
+        const delayMs = failedPollDelayMs({
+          consecutiveFailures,
+          retryAfterMs,
+        })
+        logger.warn(
+          { error: msg, consecutiveFailures, delayMs },
+          '[freebuff-session] fetch failed; backing off',
+        )
         setError(msg)
-        schedule(POLL_INTERVAL_ERROR_MS)
+        schedule(delayMs)
       }
     }
 
@@ -494,6 +529,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // a forced restart, and so the active|ended → none synthesis below
         // doesn't bounce a 'landing' restart straight back to 'ended'.
         previousStatus = null
+        consecutiveFailures = 0
         if (mode === 'landing') {
           nextMethod = 'GET'
           // Land on the picker immediately. We can't go through the normal

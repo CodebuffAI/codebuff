@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
+import {
+  failedPollDelayMs,
+  jitterPollIntervalMs,
+} from '../utils/polling-backoff'
 
 // Adaptive health check interval configuration
 // Progressively increases polling interval based on consecutive successful checks
-export const HEALTH_CHECK_CONFIG = {
-  // Initial interval after startup or failure (ms)
+const HEALTH_CHECK_CONFIG = {
+  // Healthy startup cadence (ms).
   INITIAL_INTERVAL: 10_000, // 10 seconds
   // Interval thresholds based on consecutive successful checks
   INTERVALS: [
@@ -35,7 +39,8 @@ export function getNextInterval(consecutiveSuccesses: number): number {
 
 /**
  * Hook to monitor connection status to the Codebuff backend.
- * Uses adaptive exponential backoff to reduce polling frequency when connection is stable.
+ * Jitters the adaptive healthy cadence and exponentially backs off failures so
+ * a shared outage cannot synchronize every CLI into a fixed retry wave.
  *
  * When the connection transitions from disconnected to connected, the optional
  * onReconnect callback is invoked with a boolean indicating whether this was
@@ -52,31 +57,41 @@ export const useConnectionStatus = (
     let isMounted = true
     let timeoutId: NodeJS.Timeout | null = null
     let consecutiveSuccesses = 0
-    let currentInterval: number = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
+    let consecutiveFailures = 0
 
     const scheduleNextCheck = (interval: number) => {
       if (!isMounted) return
       timeoutId = setTimeout(() => checkConnection(), interval)
     }
 
-    const checkConnection = async () => {
-      const client = await getCodebuffClient()
-      if (!client) {
-        if (isMounted) {
-          setIsConnected(false)
-          previousConnectedRef.current = false
-          consecutiveSuccesses = 0
-          currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
-          logger.debug(
-            { interval: currentInterval },
-            'Health check: No client, reset to initial interval',
-          )
-          scheduleNextCheck(currentInterval)
-        }
-        return
-      }
+    const scheduleFailedCheck = (message: string, error?: unknown): void => {
+      if (!isMounted) return
+      setIsConnected(false)
+      previousConnectedRef.current = false
+      consecutiveSuccesses = 0
+      consecutiveFailures++
+      const delayMs = failedPollDelayMs({
+        consecutiveFailures,
+      })
+      logger.debug(
+        {
+          ...(error === undefined ? {} : { error }),
+          delayMs,
+          consecutiveFailures,
+        },
+        message,
+      )
+      scheduleNextCheck(delayMs)
+    }
 
+    const checkConnection = async () => {
       try {
+        const client = await getCodebuffClient()
+        if (!client) {
+          scheduleFailedCheck('Health check: No client, backing off')
+          return
+        }
+
         const connected = await client.checkConnection()
         if (!isMounted) return
 
@@ -85,6 +100,7 @@ export const useConnectionStatus = (
         previousConnectedRef.current = connected
 
         if (connected) {
+          consecutiveFailures = 0
           // Determine if this is the initial connection (null) or a reconnection (false)
           const isInitialConnection = prevConnected === null
           const shouldFireReconnectCallback =
@@ -98,33 +114,16 @@ export const useConnectionStatus = (
             onReconnect(isInitialConnection)
           }
           consecutiveSuccesses++
-          const newInterval = getNextInterval(consecutiveSuccesses)
-
-          if (newInterval !== currentInterval) {
-            currentInterval = newInterval
-          }
-
-          scheduleNextCheck(currentInterval)
-        } else {
-          // Reset to fast polling on connection failure
-          previousConnectedRef.current = false
-          consecutiveSuccesses = 0
-          currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
-          logger.debug(
-            { interval: currentInterval },
-            'Health check failed, reset to initial interval',
+          scheduleNextCheck(
+            jitterPollIntervalMs({
+              intervalMs: getNextInterval(consecutiveSuccesses),
+            }),
           )
-          scheduleNextCheck(currentInterval)
+        } else {
+          scheduleFailedCheck('Health check failed, backing off')
         }
       } catch (error) {
-        logger.debug({ error }, 'Connection check failed')
-        if (isMounted) {
-          setIsConnected(false)
-          previousConnectedRef.current = false
-          consecutiveSuccesses = 0
-          currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
-          scheduleNextCheck(currentInterval)
-        }
+        scheduleFailedCheck('Connection check failed; backing off', error)
       }
     }
 

@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'bun:test'
 
-import { sessionFetchSignal } from '../../utils/freebuff-session-api'
+import {
+  parseRetryAfterMs,
+  sessionFetchSignal,
+} from '../../utils/freebuff-session-api'
 
 // Every session API call gets this combined signal. The load-bearing cases:
 // the timeout must fire even when no caller signal is passed (DELETE paths),
@@ -41,5 +44,20 @@ describe('sessionFetchSignal', () => {
     caller.abort()
     const signal = sessionFetchSignal(caller.signal, 60_000)
     expect(signal.aborted).toBe(true)
+  })
+})
+
+describe('parseRetryAfterMs', () => {
+  test('parses delta seconds and HTTP dates', () => {
+    expect(parseRetryAfterMs('10', 0)).toBe(10_000)
+    expect(parseRetryAfterMs('Thu, 01 Jan 1970 00:00:10 GMT', 2_000)).toBe(
+      8_000,
+    )
+  })
+
+  test('rejects invalid values and clamps past dates', () => {
+    expect(parseRetryAfterMs('invalid', 0)).toBeUndefined()
+    expect(parseRetryAfterMs('1e308', 0)).toBeUndefined()
+    expect(parseRetryAfterMs('Thu, 01 Jan 1970 00:00:01 GMT', 2_000)).toBe(0)
   })
 })

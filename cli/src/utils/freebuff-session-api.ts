@@ -11,6 +11,31 @@ const SESSION_FETCH_TIMEOUT_MS = 20_000
 const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
 const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
 
+export class FreebuffSessionRequestError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number,
+    readonly retryAfterMs?: number,
+  ) {
+    super(message)
+    this.name = 'FreebuffSessionRequestError'
+  }
+}
+
+export function parseRetryAfterMs(
+  value: string | null,
+  nowMs = Date.now(),
+): number | undefined {
+  if (!value) return undefined
+  const seconds = Number(value)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    const milliseconds = seconds * 1_000
+    return Number.isFinite(milliseconds) ? Math.ceil(milliseconds) : undefined
+  }
+  const dateMs = Date.parse(value)
+  return Number.isFinite(dateMs) ? Math.max(0, dateMs - nowMs) : undefined
+}
+
 /** Combine the caller's abort signal with a per-request timeout. */
 export function sessionFetchSignal(
   signal: AbortSignal | undefined,
@@ -88,8 +113,10 @@ export async function callFreebuffSession(
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    throw new Error(
+    throw new FreebuffSessionRequestError(
       `freebuff session ${method} failed: ${response.status} ${text.slice(0, 200)}`,
+      response.status,
+      parseRetryAfterMs(response.headers.get('retry-after')),
     )
   }
 
