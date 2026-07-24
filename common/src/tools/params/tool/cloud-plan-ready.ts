@@ -25,11 +25,18 @@ const inputSchema = z.object({
   required_integrations: z
     .array(
       z.object({
+        search_id: z
+          .string()
+          .trim()
+          .min(1)
+          .describe(
+            'The exact search_id from the Gravity search that recommended this service.',
+          ),
         slug: z
           .string()
+          .trim()
           .min(1)
           .describe('The exact Gravity recommendation slug.'),
-        name: z.string().min(1).describe('The user-facing service name.'),
       }),
     )
     .describe(
@@ -58,7 +65,12 @@ ${$getNativeToolCallExampleString({
     stack: ['React', 'Vite', 'Supabase', 'Resend'],
     build_prompt:
       'Build the agreed booking app with teacher availability, student booking, authentication, and transactional email.',
-    required_integrations: [{ slug: 'resend', name: 'Resend' }],
+    required_integrations: [
+      {
+        search_id: 'search_id_from_gravity_index',
+        slug: 'resend',
+      },
+    ],
   },
   endsAgentStep,
 })}

@@ -78,22 +78,40 @@ const buttonWidgetSchema = buttonWidgetBaseSchema.extend({
 
 export type RenderUIButtonWidget = z.infer<typeof resolvedButtonWidgetSchema>
 
+/**
+ * Validates the resolved widget shape consumed by UI surfaces. Keeping this
+ * beside the tool schema gives CLI, Chat, Web, and Cloud one runtime contract.
+ */
+export function parseRenderUIButtonWidget(
+  widget: unknown,
+): RenderUIButtonWidget | null {
+  const rawLink =
+    widget && typeof widget === 'object' && !Array.isArray(widget)
+      ? (widget as { link?: unknown }).link
+      : undefined
+  if (typeof rawLink !== 'string') return null
+
+  const result = resolvedButtonWidgetSchema.safeParse(widget)
+  if (!result.success || result.data.link !== rawLink) return null
+
+  const text = result.data.text.trim()
+  return text ? { ...result.data, text } : null
+}
+
 const widgetSchema = z.discriminatedUnion('type', [buttonWidgetSchema])
 
 const inputSchema = z
   .object({
     widget: widgetSchema.describe('The UI widget to render.'),
   })
-  .describe(
-    'Render a small interactive UI widget in the Codebuff CLI. Currently supports a button that opens a link.',
-  )
+  .describe('Render a small interactive UI widget for the user.')
 
 const outputSchema = z.object({
   message: z.string(),
 })
 
 const description = `
-Render a small interactive UI widget in the Codebuff CLI.
+Render a small interactive UI widget for the user.
 
 Currently supported widgets:
 - button: renders a clickable button with text and an http(s) link.

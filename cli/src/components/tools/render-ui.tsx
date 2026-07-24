@@ -1,5 +1,9 @@
 import { TextAttributes } from '@opentui/core'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  parseRenderUIButtonWidget,
+  type RenderUIButtonWidget,
+} from '@codebuff/common/tools/params/tool/render-ui'
 
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
@@ -7,29 +11,8 @@ import { safeOpen } from '../../utils/open-url'
 import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
-import type { RenderUIButtonWidget } from '@codebuff/common/tools/params/tool/render-ui'
 
 type RenderUIButtonVariant = NonNullable<RenderUIButtonWidget['variant']>
-
-const isRenderUIButtonWidget = (
-  widget: unknown,
-): widget is RenderUIButtonWidget => {
-  if (widget === null || typeof widget !== 'object') {
-    return false
-  }
-
-  const candidate = widget as Partial<RenderUIButtonWidget>
-  return (
-    candidate.type === 'button' &&
-    typeof candidate.text === 'string' &&
-    candidate.text.trim().length > 0 &&
-    typeof candidate.link === 'string' &&
-    candidate.link.trim().length > 0 &&
-    (candidate.variant === undefined ||
-      candidate.variant === 'primary' ||
-      candidate.variant === 'secondary')
-  )
-}
 
 /**
  * The button is an accent-colored outline with a matching label. It stays
@@ -125,9 +108,9 @@ export const RenderUIComponent = defineToolComponent({
   toolName: 'render_ui',
 
   render(toolBlock): ToolRenderConfig {
-    const widget = toolBlock.input?.widget
+    const widget = parseRenderUIButtonWidget(toolBlock.input?.widget)
 
-    if (!isRenderUIButtonWidget(widget)) {
+    if (!widget) {
       return { content: null }
     }
 
