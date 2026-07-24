@@ -148,13 +148,18 @@ export const FREEBUFF_WEB_STANDARD_SESSION_PERIOD =
  *   - +1 session in their primary daily pool (premium for full-access users,
  *     limited for limited-access) **every day** the streak stays at 7+; and
  *   - for full-access users, +1 GLM 5.2 session in every Monday-to-Monday week
- *     while the current streak remains at 7+ days, on top of referrals.
+ *     per completed 7 days of the current streak (7 days → 1/week, 14 → 2/week),
+ *     capped at `FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER` (28-day streak), on
+ *     top of referrals.
  *
  * The daily premium/limited bonus is persisted after today's first use. The
  * GLM bonus is derived live from the current streak, so it refills at the weekly
  * reset and shuts off as soon as the streak breaks.
  */
 export const FREEBUFF_STREAK_REWARD_INTERVAL_DAYS = 7
+/** Cap on the weekly GLM streak bonus: at most this many 7-day tiers count, so
+ *  a 28-day (or longer) streak earns 4 GLM sessions per week. */
+export const FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER = 4
 /** Master kill-switch for streak rewards. When false, streaks grant nothing
  *  and effective limits fall back to the base pool limits. */
 export const FREEBUFF_STREAK_REWARDS_ENABLED = true

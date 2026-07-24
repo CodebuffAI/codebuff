@@ -71,14 +71,23 @@ describe('freebuff streak helpers', () => {
 })
 
 describe('freebuff streak rewards', () => {
-  test('keeps the recurring GLM entitlement active for every 7+ day streak', () => {
-    for (const streak of [7, 8, 14]) {
+  test('grants one weekly GLM session per completed 7 days, capped at 4', () => {
+    const expected: Array<[streak: number, units: number]> = [
+      [7, 1],
+      [8, 1],
+      [13, 1],
+      [14, 2],
+      [21, 3],
+      [28, 4],
+      [42, 4],
+    ]
+    for (const [streak, units] of expected) {
       expect(
         getFreebuffStreakGlmBonusUnits({
           todayDateKey: addDaysToDateKey('2026-07-01', streak - 1),
           usageDates: usageDatesFrom('2026-07-01', streak),
         }),
-      ).toBe(1)
+      ).toBe(units)
     }
   })
 
@@ -95,6 +104,18 @@ describe('freebuff streak rewards', () => {
         usageDates: usageDatesFrom('2026-07-07', 6),
       }),
     ).toBe(0)
+  })
+
+  test('a yesterday-anchored 28-day streak earns the max through the bounded window', () => {
+    // Mirrors the web quota query, which fetches only 28 days back from today:
+    // the oldest still-active max-tier streak (today unused) must be fully
+    // visible inside that window.
+    expect(
+      getFreebuffStreakGlmBonusUnits({
+        todayDateKey: addDaysToDateKey('2026-07-01', 28),
+        usageDates: usageDatesFrom('2026-07-01', 28),
+      }),
+    ).toBe(4)
   })
 
   test('refills GLM before the first use of a new week while the streak is alive', () => {

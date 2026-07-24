@@ -75,6 +75,15 @@ describe('getFreebuffStreakBonusNote', () => {
     )
   })
 
+  test('the weekly GLM count grows per completed 7 days, capped at 4', () => {
+    expect(getFreebuffStreakBonusNote({ streak: 14, accessTier: 'full' })).toBe(
+      '🎁 Streak perk: +1 bonus session every day + 2 GLM 5.2 sessions each week',
+    )
+    expect(getFreebuffStreakBonusNote({ streak: 35, accessTier: 'full' })).toBe(
+      '🎁 Streak perk: +1 bonus session every day + 4 GLM 5.2 sessions each week',
+    )
+  })
+
   test('limited access advertises only the daily session perk', () => {
     const note = getFreebuffStreakBonusNote({
       streak: 14,
