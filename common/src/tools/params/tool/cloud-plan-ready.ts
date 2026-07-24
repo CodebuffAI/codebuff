@@ -11,7 +11,9 @@ const inputSchema = z.object({
   summary: z
     .string()
     .min(1)
-    .describe('A concise user-facing summary of the agreed product plan.'),
+    .describe(
+      'One short user-facing sentence describing the agreed product. Put implementation detail in build_prompt.',
+    ),
   stack: z
     .array(z.string().min(1))
     .min(1)
