@@ -5,10 +5,10 @@ export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30 days
 export const SESSION_TIME_WINDOW_MS = 30 * 60 * 1000 // 30 minutes - used for matching sessions created around fingerprint creation
-// New Codebuff accounts receive a one-time free credit grant on signup.
-export const SIGNUP_FREE_CREDITS_GRANT = 500
-// Signup credits are limited to GitHub-first users whose account is older than
-// this many calendar months. Google-first signups receive no signup credits.
+// Signup credits are disabled. Re-enabling requires restoring the Codebuff
+// GitHub-link hook and pricing copy in addition to changing this amount.
+export const SIGNUP_FREE_CREDITS_GRANT = 0
+// If re-enabled, signup credits require a GitHub account at least this old.
 export const SIGNUP_CREDIT_MIN_GITHUB_ACCOUNT_AGE_MONTHS = 4
 
 // New accounts do not receive monthly free credits; grandfathered monthly grants
