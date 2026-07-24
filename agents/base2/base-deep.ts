@@ -320,13 +320,17 @@ export function createBaseDeep(options?: {
 7. Lessons — write LESSONS.md, update/create skills, iterative thinker-gpt brainstorm loop`}`,
     handleSteps: function* ({ params }) {
       while (true) {
-        // Run context-pruner before each step.
+        // Run context-pruner before each step. cacheExpiryMs is baked to 30
+        // minutes: the 5-minute default forces a full lossy re-summarization
+        // after any short idle even when the context is nowhere near its limit.
         yield {
           toolName: 'spawn_agent_inline',
           input: {
             agent_type: 'context-pruner',
-            params: params ?? {
+            params: {
               maxContextLength: 400_000,
+              ...(params ?? {}),
+              cacheExpiryMs: 30 * 60 * 1000,
             },
           },
           includeToolCall: false,

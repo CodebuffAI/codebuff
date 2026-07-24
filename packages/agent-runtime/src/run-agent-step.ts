@@ -1,9 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
-  isFreeMode,
-  shouldUseLocalTokenCountForFreebuffDeepseekFlash,
-} from '@codebuff/common/constants/free-agents'
-import {
   supportsAssistantPrefill,
   supportsCacheControl,
 } from '@codebuff/common/old-constants'
@@ -26,7 +22,6 @@ import { cloneDeep, mapValues } from 'lodash'
 import z from 'zod/v4'
 
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
-import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { isThinkOnlyResponse } from './util/think-tags'
@@ -158,6 +153,10 @@ async function additionalToolDefinitions(
     writeTo: defs,
   })
 }
+
+/** Run-id prefix for runs that skip the run-tracking ledger (context-pruner).
+ *  These ids exist only in-process and must never be sent to the web API. */
+export const UNTRACKED_RUN_ID_PREFIX = 'untracked-'
 
 export const runAgentStep = async (
   params: {
@@ -738,6 +737,33 @@ export async function loopAgentSteps(
   agentState: AgentState
   output: AgentOutput
 }> {
+  let agentTemplate = params.agentTemplate
+  if (!agentTemplate) {
+    agentTemplate =
+      (await getAgentTemplate({
+        ...params,
+        agentId: params.agentType,
+      })) ?? undefined
+  }
+  if (!agentTemplate) {
+    throw new Error(`Agent template not found for type: ${params.agentType}`)
+  }
+
+  // The context pruner is a programmatic no-model-call agent spawned before
+  // every main-agent step. Recording its runs in the ledger cost three awaited
+  // web-API round trips (start/step/finish) per main-agent step, so it mints a
+  // local run id and skips run tracking entirely. Matches bundled and
+  // publisher-qualified ids ('context-pruner', 'codebuff/context-pruner@1.0.0').
+  if (agentTemplate.id.includes('context-pruner')) {
+    params = {
+      ...params,
+      startAgentRun: async () =>
+        `${UNTRACKED_RUN_ID_PREFIX}${crypto.randomUUID()}`,
+      addAgentStep: async () => null,
+      finishAgentRun: async () => {},
+    }
+  }
+
   const {
     addAgentStep,
     agentState: initialAgentState,
@@ -760,18 +786,6 @@ export async function loopAgentSteps(
     clientEnv,
     ciEnv,
   } = params
-
-  let agentTemplate = params.agentTemplate
-  if (!agentTemplate) {
-    agentTemplate =
-      (await getAgentTemplate({
-        ...params,
-        agentId: agentType,
-      })) ?? undefined
-  }
-  if (!agentTemplate) {
-    throw new Error(`Agent template not found for type: ${agentType}`)
-  }
 
   if (signal.aborted) {
     return {
@@ -990,46 +1004,12 @@ export async function loopAgentSteps(
         countTokens(system) +
         countTokensJson(toolsForTokenCount)
 
-      // Free (freebuff) runs never call the token-count web API: the awaited
-      // per-step round-trip (full history + tools shipped to the server, which
-      // relays to Anthropic) adds seconds of serial overhead to every step and
-      // ~1M+ requests/day of web-service load, and free-mode context limits
-      // don't need Anthropic-exact counts. Paid Codebuff runs keep the
-      // accurate API count.
-      if (
-        isFreeMode(params.costMode) ||
-        shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-          agentId: agentTemplate.id,
-          model: agentTemplate.model,
-        })
-      ) {
-        currentAgentState.contextTokenCount = estimateContextTokensLocally()
-      } else {
-        // Check context token count via the web API. Pass the run's apiKey
-        // explicitly: interactive CLI users don't have CODEBUFF_API_KEY set in
-        // their environment, so relying on the ciEnv fallback made this call
-        // fail every step ('Missing Codebuff base URL or API key') and forced
-        // the less accurate local estimate.
-        const tokenCountResult = await callTokenCountAPI({
-          messages: messagesWithStepPrompt,
-          system,
-          model: agentTemplate.model,
-          tools: toolsForTokenCount,
-          fetch,
-          logger,
-          env: { clientEnv, ciEnv },
-          apiKey: params.apiKey,
-        })
-        if (tokenCountResult.inputTokens !== undefined) {
-          currentAgentState.contextTokenCount = tokenCountResult.inputTokens
-        } else if (tokenCountResult.error) {
-          logger.warn(
-            { error: tokenCountResult.error },
-            'Failed to get token count from web API',
-          )
-          currentAgentState.contextTokenCount = estimateContextTokensLocally()
-        }
-      }
+      // Always count locally. The token-count web API round-trip (full
+      // history + tools shipped to the server, which relays to Anthropic)
+      // added seconds of serial overhead to every step; there is no paid mode
+      // anymore that needs Anthropic-exact counts, and context-limit checks
+      // only need an estimate.
+      currentAgentState.contextTokenCount = estimateContextTokensLocally()
 
       // 1. Run programmatic step first if it exists
       let n: number | undefined = undefined

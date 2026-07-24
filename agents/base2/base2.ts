@@ -401,6 +401,7 @@ const handleSteps250k: Base2HandleSteps = function* ({ params }) {
         params: {
           maxContextLength: 250_000,
           ...(params ?? {}),
+          cacheExpiryMs: 30 * 60 * 1000,
         },
       },
       includeToolCall: false,
@@ -420,6 +421,7 @@ const handleSteps400k: Base2HandleSteps = function* ({ params }) {
         params: {
           maxContextLength: 400_000,
           ...(params ?? {}),
+          cacheExpiryMs: 30 * 60 * 1000,
         },
       },
       includeToolCall: false,

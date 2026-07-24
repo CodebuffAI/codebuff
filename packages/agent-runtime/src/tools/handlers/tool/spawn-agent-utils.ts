@@ -6,7 +6,10 @@ import {
 } from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
-import { loopAgentSteps } from '../../../run-agent-step'
+import {
+  UNTRACKED_RUN_ID_PREFIX,
+  loopAgentSteps,
+} from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValueForError } from '../../../util/format-value'
 import {
@@ -397,7 +400,12 @@ export async function executeSubagent(
     params: spawnParams,
   })
 
-  if (result.agentState.runId) {
+  // Untracked runs (context-pruner) have no ledger row, so their ids must not
+  // be reported as children on the parent's tracked steps.
+  if (
+    result.agentState.runId &&
+    !result.agentState.runId.startsWith(UNTRACKED_RUN_ID_PREFIX)
+  ) {
     parentAgentState.childRunIds.push(result.agentState.runId)
   }
 

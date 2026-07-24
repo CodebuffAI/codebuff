@@ -135,10 +135,11 @@ describe('base2 context pruning', () => {
   })
 
   test.each(['default', 'lite', 'max', 'fast'] as const)(
-    '%s mode defaults context pruning to 400k tokens without a cache expiry override',
+    '%s mode defaults context pruning to 400k tokens with a 30-minute cache expiry',
     (mode) => {
       expect(getContextPrunerParams(mode)).toEqual({
         maxContextLength: 400_000,
+        cacheExpiryMs: 30 * 60 * 1000,
       })
     },
   )
@@ -151,6 +152,7 @@ describe('base2 context pruning', () => {
     (model, maxContextLength) => {
       expect(getContextPrunerParams('default', { model })).toEqual({
         maxContextLength,
+        cacheExpiryMs: 30 * 60 * 1000,
       })
     },
   )
@@ -184,6 +186,7 @@ describe('base2 context pruning', () => {
     ).toEqual({
       maxContextLength: 123_000,
       assistantToolBudget: 10_000,
+      cacheExpiryMs: 30 * 60 * 1000,
     })
   })
 })
