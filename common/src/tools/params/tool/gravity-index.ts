@@ -20,9 +20,10 @@ Choose the action:
 - \`report_integration\`: Use after you have actually completed and verified an integration from a previous search. Pass the original \`search_id\` and the service slug as \`integrated_slug\`.
 
 Important setup-link behavior:
-- Search results may include \`credential_request.setup_url\` and/or top-level \`click_url\`, the tracked setup link the user should visit to create an account and get API credentials.
-- Always show the tracked setup link prominently as "Get your {service.name} API key" when credentials are needed.
-- If the user is at the step of integrating a new service and credentials are the next required action, use \`render_ui\` when available to show a primary button labeled "Get your {service.name} API key" with \`credential_request.setup_url\` or \`click_url\` as the link.
+- Search results may include \`credential_request.setup_url\`, \`recommendation.click_url\`, and/or top-level \`click_url\`, the tracked setup link the user should visit to create an account and get API credentials.
+- A search can contain a recommendation and several options, and you may search more than once. Decide which single service you are actually recommending before rendering a CTA.
+- When \`render_ui\` is available, call it once for the selected service. Use a gravity_index link reference with the exact \`search_id\` and selected \`service_slug\`; never transcribe the opaque URL. The runtime verifies the selection and substitutes the exact stored click URL.
+- When \`render_ui\` is unavailable, preserve and present the exact returned tracked URL in a normal markdown link.
 - Do not replace the tracked setup link with the vendor homepage and do not auto-follow it.
 - Ask the user to paste the required env vars from \`credential_request.required_env_vars\` back so you can finish setup.
 

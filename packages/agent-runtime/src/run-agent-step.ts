@@ -590,11 +590,13 @@ export const runAgentStep = async (
     // For models requiring explicit completion, only end turn when:
     // - task_completed is called, OR
     // - end_turn is called (backward compatibility)
-    shouldEndTurn = hasTaskCompleted
+    shouldEndTurn = !hadToolCallError && hasTaskCompleted
   } else {
     // For other models, also end turn when there are no tool calls
     // Exception: if the response is only <think> tags, continue the turn
-    shouldEndTurn = hasTaskCompleted || (hasNoToolResults && !isThinkOnly)
+    shouldEndTurn =
+      !hadToolCallError &&
+      (hasTaskCompleted || (hasNoToolResults && !isThinkOnly))
   }
 
   agentState = {

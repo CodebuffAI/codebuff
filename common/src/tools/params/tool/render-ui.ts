@@ -22,7 +22,29 @@ const buttonLinkSchema = z
     { message: 'Button links must use http:// or https://' },
   )
 
-const buttonWidgetSchema = z.object({
+const gravityIndexButtonLinkSchema = z
+  .object({
+    source: z.literal('gravity_index'),
+    search_id: z
+      .string()
+      .min(1)
+      .describe('The exact search_id returned by gravity_index.'),
+    service_slug: z
+      .string()
+      .min(1)
+      .describe(
+        'The exact slug of the recommendation or option selected from that search.',
+      ),
+  })
+  .describe(
+    'A reference to a tracked click URL in a prior gravity_index search result. The runtime substitutes the exact stored URL.',
+  )
+
+export type RenderUIGravityIndexLink = z.infer<
+  typeof gravityIndexButtonLinkSchema
+>
+
+const buttonWidgetBaseSchema = z.object({
   type: z
     .literal('button')
     .describe('Widget type. Currently, the only supported widget is button.'),
@@ -31,9 +53,6 @@ const buttonWidgetSchema = z.object({
     .min(1)
     .max(80)
     .describe('Short button label shown to the user.'),
-  link: buttonLinkSchema.describe(
-    'The http:// or https:// URL to open when the user clicks the button.',
-  ),
   variant: z
     .enum(['primary', 'secondary'])
     .optional()
@@ -43,7 +62,21 @@ const buttonWidgetSchema = z.object({
     ),
 })
 
-export type RenderUIButtonWidget = z.infer<typeof buttonWidgetSchema>
+const resolvedButtonWidgetSchema = buttonWidgetBaseSchema.extend({
+  link: buttonLinkSchema.describe(
+    'The http:// or https:// URL to open when the user clicks the button.',
+  ),
+})
+
+const buttonWidgetSchema = buttonWidgetBaseSchema.extend({
+  link: z
+    .union([buttonLinkSchema, gravityIndexButtonLinkSchema])
+    .describe(
+      'Either an http(s) URL or a gravity_index reference that the runtime resolves to the exact tracked click URL.',
+    ),
+})
+
+export type RenderUIButtonWidget = z.infer<typeof resolvedButtonWidgetSchema>
 
 const widgetSchema = z.discriminatedUnion('type', [buttonWidgetSchema])
 
@@ -67,6 +100,8 @@ Currently supported widgets:
 
 Use this when the user should click a clear action, such as opening a generated report, documentation page, checkout page, deployment URL, preview, or dashboard.
 
+For a service selected from a gravity_index search, do not copy its opaque URL. Set \`link\` to a gravity_index reference containing the exact \`search_id\` and selected \`service_slug\`. The runtime verifies the selection against prior tool results and substitutes the exact stored click URL. Call render_ui only after deciding which service to recommend.
+
 Color variants:
 - primary: the main action
 - secondary: a lower-emphasis action
@@ -81,6 +116,24 @@ ${$getNativeToolCallExampleString({
       type: 'button',
       text: 'Open preview',
       link: 'https://example.com/preview',
+      variant: 'primary',
+    },
+  },
+  endsAgentStep,
+})}
+
+${$getNativeToolCallExampleString({
+  toolName,
+  inputSchema,
+  input: {
+    widget: {
+      type: 'button',
+      text: 'Get your Resend API key',
+      link: {
+        source: 'gravity_index',
+        search_id: 'search_id_from_gravity_index',
+        service_slug: 'resend',
+      },
       variant: 'primary',
     },
   },

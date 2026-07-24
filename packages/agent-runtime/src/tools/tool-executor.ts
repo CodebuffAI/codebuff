@@ -10,6 +10,7 @@ import { formatValueForError } from '../util/format-value'
 import { codebuffToolHandlers } from './handlers/list'
 import { getMatchingSpawn } from './handlers/tool/spawn-agent-utils'
 import { getAgentTemplate } from '../templates/agent-registry'
+import { resolveGravityIndexLink } from './gravity-index-cta'
 import { ensureZodSchema } from './prompts'
 
 import type { AgentTemplate } from '../templates/types'
@@ -453,6 +454,35 @@ export async function executeToolCall<T extends ToolName>(
     }
   }
 
+  // render_ui is consumed from the streamed tool-call input, so trusted
+  // references must be resolved before any client sees or stores the call.
+  if (toolName === 'render_ui') {
+    const renderUIInput =
+      effectiveInput as CodebuffToolCall<'render_ui'>['input']
+    const link = renderUIInput.widget.link
+
+    if (typeof link !== 'string') {
+      const resolved = resolveGravityIndexLink({
+        reference: link,
+        messages: agentState.messageHistory,
+      })
+      if (!resolved.success) {
+        const errorMessage = `Invalid Gravity button reference: ${resolved.error.message}`
+        onResponseChunk({ type: 'error', message: errorMessage })
+        logger.debug(
+          { toolName, reference: link, error: resolved.error.message },
+          'Failed to resolve render_ui link reference',
+        )
+        return previousToolCallFinished
+      }
+
+      effectiveInput = {
+        ...renderUIInput,
+        widget: { ...renderUIInput.widget, link: resolved.value },
+      }
+    }
+  }
+
   // Only emit tool_call event after permission check passes
   onResponseChunk({
     type: 'tool_call',
@@ -469,11 +499,11 @@ export async function executeToolCall<T extends ToolName>(
     toolName
   ] as unknown as CodebuffToolHandlerFunction<T>
 
-  // Use effective input for spawn_agents so the handler receives the correct agent types
+  // Use normalized input for tools whose calls are prepared before dispatch.
   const finalToolCall =
-    toolName === 'spawn_agents'
-      ? { ...toolCall, input: effectiveInput }
-      : toolCall
+    effectiveInput === toolCall.input
+      ? toolCall
+      : ({ ...toolCall, input: effectiveInput } as CodebuffToolCall<T>)
 
   toolCalls.push(finalToolCall)
   if (!excludeToolFromMessageHistory) {

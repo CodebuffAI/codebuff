@@ -23,6 +23,7 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 let runAgentStepBaseParams: ParamsExcluding<
@@ -43,7 +44,7 @@ const gravityTestAgent = {
   id: 'gravity-test-agent',
   displayName: 'Gravity Test Agent',
   model: 'openai/gpt-4o-mini',
-  toolNames: ['gravity_index', 'end_turn'],
+  toolNames: ['gravity_index', 'render_ui', 'end_turn'],
   systemPrompt: 'Use Gravity Index when choosing developer services.',
 }
 
@@ -264,7 +265,7 @@ describe('gravity_index tool', () => {
     )
   })
 
-  test('stores recommendation and setup URL in tool output', async () => {
+  test('stores results without rendering until the agent selects a service', async () => {
     spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: {
         search_id: 'search-1',
@@ -272,6 +273,7 @@ describe('gravity_index tool', () => {
           name: 'SendGrid',
           slug: 'sendgrid',
           category: 'Email',
+          click_url: 'https://index.trygravity.ai/go/recommendation-fallback',
         },
         reasoning: 'Good transactional email fit.',
         credential_request: {
@@ -317,6 +319,145 @@ describe('gravity_index tool', () => {
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
     expect(last).toContain('SendGrid')
     expect(last).toContain('https://index.trygravity.ai/go/test')
+
+    expect(
+      newAgentState.messageHistory
+        .filter((message) => message.role === 'assistant')
+        .flatMap((message) => message.content)
+        .some(
+          (part) => part.type === 'tool-call' && part.toolName === 'render_ui',
+        ),
+    ).toBe(false)
+
+    mockAgentStream([
+      createToolCallChunk('render_ui', {
+        widget: {
+          type: 'button',
+          text: 'Get your SendGrid API key',
+          link: {
+            source: 'gravity_index',
+            search_id: 'search-1',
+            service_slug: 'sendgrid',
+          },
+          variant: 'primary',
+        },
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
+    const responseChunks: (string | PrintModeEvent)[] = []
+
+    const { agentState: renderedAgentState } = await runAgentStep({
+      ...runAgentStepBaseParams,
+      localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['gravity-test-agent'],
+      agentState: newAgentState,
+      prompt: undefined,
+      onResponseChunk: (chunk) => responseChunks.push(chunk),
+    })
+
+    const streamedRenderUICall = responseChunks.find(
+      (chunk) =>
+        typeof chunk !== 'string' &&
+        chunk.type === 'tool_call' &&
+        chunk.toolName === 'render_ui',
+    )
+    expect(streamedRenderUICall).toMatchObject({
+      input: {
+        widget: {
+          link: 'https://index.trygravity.ai/go/recommendation-fallback',
+        },
+      },
+    })
+
+    const renderUICall = renderedAgentState.messageHistory
+      .filter((message) => message.role === 'assistant')
+      .flatMap((message) => message.content)
+      .find(
+        (part) => part.type === 'tool-call' && part.toolName === 'render_ui',
+      )
+    expect(renderUICall).toMatchObject({
+      type: 'tool-call',
+      toolName: 'render_ui',
+      input: {
+        widget: {
+          type: 'button',
+          text: 'Get your SendGrid API key',
+          link: 'https://index.trygravity.ai/go/recommendation-fallback',
+          variant: 'primary',
+        },
+      },
+    })
+
+    const renderUIResult = renderedAgentState.messageHistory.find(
+      (message) => message.role === 'tool' && message.toolName === 'render_ui',
+    )
+    expect(renderUIResult).toMatchObject({
+      content: [
+        {
+          type: 'json',
+          value: {
+            message: 'UI rendered.',
+          },
+        },
+      ],
+    })
+  })
+
+  test('fails closed before streaming an invalid Gravity button reference', async () => {
+    mockAgentStream([
+      createToolCallChunk('render_ui', {
+        widget: {
+          type: 'button',
+          text: 'Open missing service',
+          link: {
+            source: 'gravity_index',
+            search_id: 'missing-search',
+            service_slug: 'missing-service',
+          },
+        },
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
+
+    const sessionState = getInitialSessionState(
+      runAgentStepBaseParams.fileContext,
+    )
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gravity-test-agent',
+    }
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      ...agentRuntimeImpl,
+      fileContext: runAgentStepBaseParams.fileContext,
+    })
+    const responseChunks: (string | PrintModeEvent)[] = []
+
+    const result = await runAgentStep({
+      ...runAgentStepBaseParams,
+      localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['gravity-test-agent'],
+      agentState,
+      prompt: 'Render an invalid service',
+      onResponseChunk: (chunk) => responseChunks.push(chunk),
+    })
+
+    expect(result.shouldEndTurn).toBe(false)
+    expect(
+      responseChunks.some(
+        (chunk) =>
+          typeof chunk !== 'string' &&
+          chunk.type === 'error' &&
+          chunk.message.includes('Invalid Gravity button reference'),
+      ),
+    ).toBe(true)
+    expect(
+      responseChunks.some(
+        (chunk) =>
+          typeof chunk !== 'string' &&
+          (chunk.type === 'tool_call' || chunk.type === 'tool_result') &&
+          chunk.toolName === 'render_ui',
+      ),
+    ).toBe(false)
   })
 
   test('surfaces API errors in tool output', async () => {

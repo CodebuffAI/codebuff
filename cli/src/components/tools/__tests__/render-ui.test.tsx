@@ -47,6 +47,30 @@ describe('RenderUIComponent', () => {
     )
   })
 
+  test('does not render an unresolved Gravity reference', () => {
+    const result = RenderUIComponent.render(
+      createToolBlock({
+        widget: {
+          type: 'button',
+          text: 'Get your Resend API key',
+          link: {
+            source: 'gravity_index',
+            search_id: 'search-1',
+            service_slug: 'resend',
+          },
+        },
+      }),
+      chatThemes.light,
+      {
+        availableWidth: 80,
+        indentationOffset: 0,
+        labelWidth: 10,
+      },
+    )
+
+    expect(result.content).toBeNull()
+  })
+
   test('returns no content for unsupported widgets', () => {
     const result = RenderUIComponent.render(
       createToolBlock({
