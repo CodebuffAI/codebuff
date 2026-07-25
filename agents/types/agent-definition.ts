@@ -306,6 +306,17 @@ export interface AgentStepContext {
   agentState: AgentState
   prompt?: string
   params?: Record<string, any>
+  /**
+   * The model this step is running on, after any per-request override of the
+   * definition's `model`. `handleSteps` is serialized with `toString()`, so a
+   * generator cannot close over request-time state — read the model here
+   * instead (e.g. to size a context budget to the model's window).
+   *
+   * Supplied by the runtime; optional so a generator invoked directly (tests)
+   * or run on an older runtime degrades rather than throwing. Treat
+   * `undefined` as "unknown model" and pick a safe default.
+   */
+  model?: string
   logger: Logger
 }
 

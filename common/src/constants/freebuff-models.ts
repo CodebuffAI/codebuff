@@ -204,6 +204,38 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
   return FREEBUFF_GEMINI_THINKER_PARENT_MODELS.has(modelId)
 }
 
+/**
+ * Hard context windows (in tokens) of the freebuff models, keyed by the backend
+ * model id sent to the completions endpoint.
+ *
+ * Every number was read off a real provider rejection in prod rather than a
+ * spec sheet, so it is the limit the provider actually enforces:
+ *   minimax-m3            "model maximum context length: 524287"
+ *   deepseek-v4-flash     "model maximum context length: 1048575"
+ *   kimi-k2.7-code        "Range of input length should be [1, 262144]"
+ *
+ * The consumer is agents/base-chat.ts, which prunes a chat thread's replayed
+ * history to a fraction of the selected model's window. Its `handleSteps` is
+ * serialized with toString() and so cannot import — it inlines a copy of this
+ * table, and agents/__tests__/base-chat.test.ts fails if the two drift. This
+ * is the reference copy: add a model here (with the rejection text that proves
+ * the number) and the test will tell you to mirror it.
+ *
+ * Models absent from the map fall back to FREEBUFF_DEFAULT_CONTEXT_WINDOW. The
+ * risk is asymmetric — guessing too high silently wedges a thread forever,
+ * guessing too low only prunes earlier than strictly needed — so a model is
+ * added only once its real limit has been observed.
+ */
+export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 524_288,
+  [FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID]: 1_048_576,
+  [FREEBUFF_KIMI_MODEL_ID]: 262_144,
+}
+
+/** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
+ *  Smaller than every window we have measured. */
+export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
+
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   displayName: 'DeepSeek V4 Pro',

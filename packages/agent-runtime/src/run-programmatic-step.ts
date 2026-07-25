@@ -190,6 +190,7 @@ export async function runProgrammaticStep(
       agentState,
       prompt,
       params: toolCallParams,
+      model: template.model,
       logger: streamingLogger,
     })
     runIdToGenerator[agentState.runId] = generator

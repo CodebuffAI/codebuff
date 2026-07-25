@@ -195,6 +195,16 @@ export type StepHandler<
   agentState: AgentState
   prompt: P
   params: T
+  /**
+   * The model this agent step is running on, after any per-request override of
+   * the template's `model`. Needed because `handleSteps` is serialized with
+   * `toString()` (no closures survive), so a caller that swaps the model at
+   * request time has no other way to tell the generator which model it got.
+   *
+   * Supplied by the runtime; optional so generators invoked directly in tests
+   * keep compiling. Treat `undefined` as "unknown model".
+   */
+  model?: string
   logger: Logger
 }) => StepGenerator
 
