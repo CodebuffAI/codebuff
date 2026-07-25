@@ -309,11 +309,13 @@ export enum AnalyticsEvent {
   DESKTOP_CODEX_RESOLUTION = 'desktop.codex_resolution',
   // Sponsored ads interspersed into the transcript (server-side ads_* events
   // in web/api/v1/ads capture the fetch/impression/click ledger; these are the
-  // desktop-surface funnels).
+  // desktop-surface funnels). `desktop.inline_ad_pool_reused` was retired
+  // along with the head-pool model (ads are now inline parts capped at
+  // MAX_MESSAGE_AD_COUNT); historical rows exist but nothing emits it. The
+  // CLI's `cli.inline_ad_pool_reused` sibling still fires.
   DESKTOP_AD_SHOWN = 'desktop.ad_shown',
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
   DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
-  DESKTOP_INLINE_AD_POOL_REUSED = 'desktop.inline_ad_pool_reused',
   // Shutdown/crash lifecycle of harness CLI children: turns aborted at quit so
   // their CLIs terminate, orphans from a dead orchestrator reaped at launch,
   // and interrupted turns auto-resumed by recovery. Together these answer "how
