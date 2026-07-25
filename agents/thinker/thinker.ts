@@ -1,11 +1,11 @@
-import { publisher } from '../constants'
+import { OPUS_MODEL, publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'thinker',
   publisher,
-  model: 'anthropic/claude-opus-4.8',
+  model: OPUS_MODEL,
   providerOptions: {
     only: ['amazon-bedrock'],
   },

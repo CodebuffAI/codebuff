@@ -1,12 +1,12 @@
 import { createReviewer } from './code-reviewer'
-import { publisher } from '../constants'
+import { OPUS_MODEL, publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'code-reviewer-opus',
   publisher,
-  ...createReviewer('anthropic/claude-opus-4.8'),
+  ...createReviewer(OPUS_MODEL),
   providerOptions: {
     only: ['amazon-bedrock'],
   },

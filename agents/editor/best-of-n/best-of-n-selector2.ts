@@ -1,4 +1,4 @@
-import { publisher } from '../../constants'
+import { OPUS_MODEL, publisher } from '../../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
@@ -16,7 +16,7 @@ export const createBestOfNSelector2 = (options: {
     model: isSonnet
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
-        ? 'anthropic/claude-opus-4.8'
+        ? OPUS_MODEL
         : 'openai/gpt-5.4',
     ...(isGpt5 && {
       reasoningOptions: {

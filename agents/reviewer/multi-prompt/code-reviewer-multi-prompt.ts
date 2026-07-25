@@ -1,4 +1,4 @@
-import { publisher } from '../../constants'
+import { OPUS_MODEL, publisher } from '../../constants'
 
 import type { AgentStepContext, ToolCall } from '../../types/agent-definition'
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
@@ -14,7 +14,7 @@ export function createCodeReviewerMultiPrompt(): Omit<
 > {
   return {
     publisher,
-    model: 'anthropic/claude-opus-4.8',
+    model: OPUS_MODEL,
     providerOptions: {
       only: ['amazon-bedrock'],
     },

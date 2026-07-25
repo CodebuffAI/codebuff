@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 
+import { OPUS_MODEL } from '../constants'
 import thinker from '../thinker/thinker'
 
 import type { AgentState } from '../types/agent-definition'
@@ -29,7 +30,7 @@ describe('thinker agent', () => {
     })
 
     test('uses opus model', () => {
-      expect(thinker.model).toBe('anthropic/claude-opus-4.8')
+      expect(thinker.model).toBe(OPUS_MODEL)
     })
 
     test('has output mode set to structured_output', () => {

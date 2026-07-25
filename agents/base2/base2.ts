@@ -13,7 +13,7 @@ import {
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
-import { publisher } from '../constants'
+import { OPUS_MODEL, publisher } from '../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
@@ -56,7 +56,7 @@ export function createBase2(
     modelOverride ??
     (mode === 'lite' || mode === 'free'
       ? FREEBUFF_MINIMAX_M3_MODEL_ID
-      : 'anthropic/claude-opus-4.8')
+      : OPUS_MODEL)
   // Smart freebuff model variants (Kimi, DeepSeek) can offload deeper
   // reasoning.
   const hasFreeGeminiThinker =

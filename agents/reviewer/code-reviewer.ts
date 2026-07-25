@@ -1,4 +1,4 @@
-import { publisher } from '../constants'
+import { OPUS_MODEL, publisher } from '../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
@@ -64,7 +64,7 @@ Be extremely concise.`,
 const definition: SecretAgentDefinition = {
   id: 'code-reviewer',
   publisher,
-  ...createReviewer('anthropic/claude-opus-4.8'),
+  ...createReviewer(OPUS_MODEL),
   providerOptions: {
     only: ['amazon-bedrock'],
   },

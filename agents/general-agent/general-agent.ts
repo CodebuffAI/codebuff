@@ -1,6 +1,6 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../constants'
+import { OPUS_MODEL, publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
@@ -12,7 +12,7 @@ export const createGeneralAgent = (options: {
 
   return {
     publisher,
-    model: isGpt5 ? 'openai/gpt-5.4' : 'anthropic/claude-opus-4.8',
+    model: isGpt5 ? 'openai/gpt-5.4' : OPUS_MODEL,
     ...(!isGpt5 && {
       providerOptions: {
         only: ['amazon-bedrock'],
