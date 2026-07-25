@@ -46,6 +46,7 @@ import {
   withSystemTags as withSystemTags,
   buildUserMessageContent,
   expireMessages,
+  filterUnfinishedToolCalls,
 } from './util/messages'
 import {
   countTokens,
@@ -302,8 +303,17 @@ export const runAgentStep = async (
     additionalToolDefinitions,
   })
 
+  // An interrupted turn can leave a tool call with no result behind, which
+  // strict providers (DeepSeek) reject with a 400. Since history is persisted
+  // and replayed, that one orphan would fail every later turn, so drop it here
+  // — the single point every step's request is built — and assign the cleaned
+  // history back so the checkpointed state is valid too.
+  const history = filterUnfinishedToolCalls(
+    expireMessages(agentState.messageHistory, 'agentStep'),
+  )
+
   const agentMessagesUntruncated = buildArray<Message>(
-    ...expireMessages(agentState.messageHistory, 'agentStep'),
+    ...history,
 
     stepPrompt &&
       userMessage({

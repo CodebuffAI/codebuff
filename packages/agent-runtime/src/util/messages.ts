@@ -333,7 +333,9 @@ export function filterUnfinishedToolCalls(messages: Message[]): Message[] {
   // Filter messages, removing unfinished tool calls from assistant messages
   const filteredMessages: Message[] = []
   for (const message of messages) {
-    if (message.role !== 'assistant') {
+    // Session state arrives from clients, so don't assume the documented shape:
+    // a non-array content would throw below and turn a bad history into a 500.
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) {
       filteredMessages.push(message)
       continue
     }
