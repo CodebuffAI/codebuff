@@ -117,8 +117,10 @@ const service = new OrderService(mockDb, mockEmail)
 
 ## Quick Reference
 
+> **Note:** The examples below use `describe`/`test`/`expect` which work with Vitest, Jest, and Bun's built-in test runner (`bun:test`).
+
 ```typescript
-// Unit test example
+// Unit test example (Bun/Vitest compatible)
 test('validateEmail rejects invalid emails', () => {
   expect(validateEmail('not-an-email')).toBe(false)
   expect(validateEmail('user@example.com')).toBe(true)
@@ -133,6 +135,12 @@ test('getUser throws on not found', async () => {
   ).rejects.toThrow('User not found')
 })
 ```
+
+## Quick Reference Commands
+
+- `run_terminal_command` — Run tests with `bun test`, `npm test`, or `npx vitest run`
+- `read_files` — Read test files and source files
+- `code_search` — Find related test patterns or coverage gaps
 
 ## Notes
 

@@ -99,6 +99,21 @@ GET    /v1/users/:id/orders   // List user's orders (nested resource)
 }
 ```
 
+## Output Format
+
+Summarize findings as:
+
+- 🔴 **Breaking**: Incompatible change or security issue
+- 🟡 **Warning**: Should address before shipping
+- 🟢 **Suggestion**: Best practice improvement
+- ✅ **Praise**: Something done well
+
+## Quick Reference Commands
+
+- `read_files` — Read the API spec or endpoint files
+- `code_search` — Find related endpoints or usage patterns
+- `web_search` — Research API design standards or conventions
+
 ## Notes
 
 - Design for your consumers, not your data model
