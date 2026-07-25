@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '../constants/gemini'
+import {
+  GEMINI_3_1_FLASH_LITE_MODEL_ID,
+  GEMINI_3_5_FLASH_LITE_MODEL_ID,
+} from '../constants/gemini'
 
 import {
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
@@ -281,6 +284,8 @@ describe('free mode agent model allowlist', () => {
       'browser-use',
       'basher',
     ]) {
+      // Every one of these still accepts 3.1: released CLI/Desktop builds ship
+      // pinned agent definitions and keep requesting it until users upgrade.
       expect(
         isFreeModeAllowedAgentModel(agentId, GEMINI_3_1_FLASH_LITE_MODEL_ID),
       ).toBe(true)
@@ -293,6 +298,21 @@ describe('free mode agent model allowlist', () => {
           'google/gemini-3.1-flash-lite-preview',
         ),
       ).toBe(false)
+    }
+  })
+
+  test('allows the migrated helper agents on 3.5 flash-lite too', () => {
+    for (const agentId of [
+      'file-picker-max',
+      'file-lister',
+      'researcher-web',
+      'researcher-docs',
+      'browser-use',
+      'basher',
+    ]) {
+      expect(
+        isFreeModeAllowedAgentModel(agentId, GEMINI_3_5_FLASH_LITE_MODEL_ID),
+      ).toBe(true)
     }
   })
 

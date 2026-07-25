@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+import { GEMINI_3_5_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
 
 import commander from '../basher'
 
@@ -29,7 +29,7 @@ describe('commander agent', () => {
     })
 
     test('uses flash-lite model', () => {
-      expect(commander.model).toBe(GEMINI_3_1_FLASH_LITE_MODEL_ID)
+      expect(commander.model).toBe(GEMINI_3_5_FLASH_LITE_MODEL_ID)
     })
 
     test('has output mode set to last_message', () => {

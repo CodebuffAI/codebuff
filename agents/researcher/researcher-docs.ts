@@ -1,4 +1,4 @@
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+import { GEMINI_3_5_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
 
 import { publisher } from '../constants'
 
@@ -7,7 +7,7 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'researcher-docs',
   publisher,
-  model: GEMINI_3_1_FLASH_LITE_MODEL_ID,
+  model: GEMINI_3_5_FLASH_LITE_MODEL_ID,
   displayName: 'Doc',
   spawnerPrompt: `Expert at reading technical documentation of major public libraries and frameworks to find relevant information. (e.g. React, MongoDB, Postgres, etc.)`,
   inputSchema: {

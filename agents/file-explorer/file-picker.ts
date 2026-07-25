@@ -1,4 +1,4 @@
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+import { GEMINI_3_5_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
 
 import { publisher } from '../constants'
 import {
@@ -15,7 +15,7 @@ export const createFilePicker = (
 ): Omit<SecretAgentDefinition, 'id'> => {
   const isMax = mode === 'max'
   const model = isMax
-    ? GEMINI_3_1_FLASH_LITE_MODEL_ID
+    ? GEMINI_3_5_FLASH_LITE_MODEL_ID
     : 'google/gemini-2.5-flash-lite'
 
   return {

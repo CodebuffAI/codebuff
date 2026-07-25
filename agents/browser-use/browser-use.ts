@@ -1,11 +1,11 @@
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+import { GEMINI_3_5_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
 
 import type { AgentDefinition } from '../types/agent-definition'
 
 const definition: AgentDefinition = {
   id: 'browser-use',
   displayName: 'Browser Use Agent',
-  model: GEMINI_3_1_FLASH_LITE_MODEL_ID,
+  model: GEMINI_3_5_FLASH_LITE_MODEL_ID,
   providerOptions: {
     data_collection: 'deny',
   },

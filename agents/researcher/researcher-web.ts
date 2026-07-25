@@ -1,4 +1,4 @@
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+import { GEMINI_3_5_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
 
 import { publisher } from '../constants'
 
@@ -7,7 +7,7 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'researcher-web',
   publisher,
-  model: GEMINI_3_1_FLASH_LITE_MODEL_ID,
+  model: GEMINI_3_5_FLASH_LITE_MODEL_ID,
   displayName: 'Web Researcher',
   spawnerPrompt: `Browses the web to find relevant information.`,
   inputSchema: {

@@ -19,7 +19,10 @@ import {
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
 } from './freebuff-models'
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from './gemini'
+import {
+  GEMINI_3_1_FLASH_LITE_MODEL_ID,
+  GEMINI_3_5_FLASH_LITE_MODEL_ID,
+} from './gemini'
 
 import type { CostMode } from './model-config'
 
@@ -122,6 +125,19 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_GLM_V52_MODEL_ID,
 ])
 
+/**
+ * Accepted models for the Gemini helper subagents, which moved from 3.1 to 3.5
+ * flash-lite in 2026-07. Both are listed because released CLI/Desktop builds
+ * ship their own bundled agent definitions: an installed client keeps
+ * requesting the old model until the user upgrades, and dropping it here 403s
+ * those clients mid-session ("free_mode_invalid_agent_model"). Drop 3.1 once
+ * the pinned versions are out of circulation.
+ */
+const GEMINI_HELPER_MODELS = new Set([
+  GEMINI_3_5_FLASH_LITE_MODEL_ID,
+  GEMINI_3_1_FLASH_LITE_MODEL_ID,
+])
+
 export function getFreebuffRootAgentIdForModel(model: string): string {
   return FREEBUFF_ROOT_AGENT_ID_BY_MODEL[model] ?? 'base2-free'
 }
@@ -170,18 +186,18 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
-  'file-picker-max': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
-  'file-lister': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
+  'file-picker-max': GEMINI_HELPER_MODELS,
+  'file-lister': GEMINI_HELPER_MODELS,
 
   // Research agents
-  'researcher-web': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
-  'researcher-docs': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
+  'researcher-web': GEMINI_HELPER_MODELS,
+  'researcher-docs': GEMINI_HELPER_MODELS,
 
   // Browser automation
-  'browser-use': new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
+  'browser-use': GEMINI_HELPER_MODELS,
 
   // Command execution
-  basher: new Set([GEMINI_3_1_FLASH_LITE_MODEL_ID]),
+  basher: GEMINI_HELPER_MODELS,
   'tmux-cli': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
 
   // Code reviewer for free mode

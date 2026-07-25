@@ -1,4 +1,4 @@
-import { GEMINI_3_1_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+import { GEMINI_3_5_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
 
 import { publisher } from './constants'
 
@@ -10,7 +10,7 @@ import type {
 const basher: AgentDefinition = {
   id: 'basher',
   publisher,
-  model: GEMINI_3_1_FLASH_LITE_MODEL_ID,
+  model: GEMINI_3_5_FLASH_LITE_MODEL_ID,
   displayName: 'Basher',
   spawnerPrompt:
     'Runs a single terminal command and (recommended) describes its output using an LLM using the what_to_summarize field. A lightweight shell command executor. Every basher spawn MUST include params: { command: "<shell>" }.',
