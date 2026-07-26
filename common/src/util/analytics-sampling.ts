@@ -41,6 +41,9 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.DESKTOP_TURN_COMPLETED,
   // Rare reliability signal — every stalled turn must be counted, never sampled.
   AnalyticsEvent.DESKTOP_TURN_STALLED,
+  // Its counterpart (an explained silence). Same reasoning: rare, and only
+  // useful if every one is counted.
+  AnalyticsEvent.DESKTOP_TURN_BACKGROUND_WAIT,
   // Feature adoption is measured as UNIQUE USERS per feature. At desktop's
   // ~1-2k DAU a 1% sample would leave a feature used by 2% of users with
   // roughly zero sampled users — the number is unrecoverable from a sample, so

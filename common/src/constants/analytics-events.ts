@@ -342,6 +342,14 @@ export enum AnalyticsEvent {
   // desktop.turn_completed to tell a recovered long-silent tool call from a
   // real hang, i.e. whether an *acting* watchdog is worth building.
   DESKTOP_TURN_STALLED = 'desktop.turn_stalled',
+  // A turn that went quiet because it is PARKED on a background command, not
+  // because anything is wrong. Verified against the real Claude Code CLI: a
+  // background Bash wait emits no stream messages whatsoever for its entire
+  // duration, so the stall detector cannot tell it apart from a hang by
+  // listening. This event is what the detector reports instead, so a long wait
+  // is still counted — and stays out of desktop.turn_stalled, which is meant to
+  // mean "unexplained silence".
+  DESKTOP_TURN_BACKGROUND_WAIT = 'desktop.turn_background_wait',
   // Saturation of the orchestrator's single event loop, one line per minute per
   // running app. That process serves the renderer bundle, every SSE stream, all
   // git work, agent turns, terminals and preview drives, so a stall anywhere
