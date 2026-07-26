@@ -27,6 +27,12 @@ CI does not run `bun test` directly — it goes through `scripts/ci/test-with-gu
 
 Growth never fails the build, so adding tests needs no baseline change; the guard just notes the baseline is stale. Deleting tests on purpose means re-recording: re-run the job's command with `--update`.
 
+**Refresh the baselines periodically, and act on the "stale" line.** Because growth never fails, a baseline nobody touches quietly becomes a floor far below reality — which is a guard that no longer guards. When this rot was first measured, `freebuff-desktop` was recorded at 971 tests while actually running 1278, so **307 tests could have stopped running and CI would have stayed green** (393 across all suites). Re-record from a real CI run, not locally.
+
+Expect to do it more than once. Desktop moved 1278 → 1282 → 1339 over the two days it took to land that refresh, so on an active package the floor starts sliding immediately. That is fine — a floor 50 tests low still catches the failure this exists for, which is a suite losing *hundreds* at once. It is a floor 300 low that is worthless. Treat the "stale" line as a nudge, not an emergency.
+
+A suite that selects **no files and has no baseline** is not a failure — it can legitimately have no tests yet — but it now emits a `Suite ran no tests` warning annotation rather than passing in silence. Three jobs sit in that state today (`test:.agents`, `test-integration:common`, `test-integration:packages/agent-runtime`), each spending ~55s of setup to verify nothing; `.agents` even declares `"test": "bun test __tests__"` against a directory that does not exist. Either give them tests or drop them from `ci.yml` — but decide, rather than letting them read as green.
+
 **A skipped suite and a running suite do not report the same total.** Skipped tests are counted, so it is tempting to assume a baseline recorded locally transfers to CI — it does not when a whole `describe` is skipped. Measured on the billing DB suites: each skipped file reported exactly **two more** than it did when it ran (47 vs 41 across three files), and the guard duly failed a healthy CI run. So a baseline for a suite that skips locally but runs in CI — anything DB-backed — must be taken from a real CI run. Read the observed counts out of the job log and write them into `.github/test-baselines.json`.
 
 Re-record in a CI-equivalent state, which means running `cd sdk && bun run build` first. A few cli tests register a placeholder test *only when* `sdk/dist` is missing, so a baseline seeded without it is inflated and the guard then fails a perfectly healthy CI run. (The guard caught exactly this while being built.)
@@ -113,6 +119,12 @@ silently failed once (`Boundary result-checkpointed was not reached`, 69.55s)
 and passed on attempt 2 (48.78s), and `nick-fields/retry` reported success. Read
 bun's own `Ran N tests across M files [Xs]` line, not the step duration, and
 grep the log for `Attempt N failed` before trusting any per-job figure.
+
+Every test job now ends with a `Flag retried tests` step that turns a
+pass-on-retry into a **`Flaky suite` warning annotation** on the run, so this
+stops being something you only discover by hand-reading logs. It is deliberately
+not a failure — retrying is still the right default; doing it silently is not.
+If you see that annotation, the suite named in it has a real flake.
 
 ### `sdk/dist` is cached, not rebuilt per job
 
