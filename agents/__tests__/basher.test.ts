@@ -188,33 +188,95 @@ describe('commander agent', () => {
       expect(final.done).toBe(true)
     })
 
-    test('yields STEP for model analysis when what_to_summarize is provided', () => {
-      const mockAgentState = createMockAgentState()
-      const mockLogger = {
-        debug: () => {},
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-      }
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
 
+    /** Runs the generator through the command step and returns the second yield. */
+    const stepAfterCommand = (
+      params: Record<string, unknown>,
+      value: unknown,
+    ) => {
       const generator = commander.handleSteps!({
-        agentState: mockAgentState,
+        agentState: createMockAgentState(),
         logger: mockLogger as any,
-        params: { command: 'ls -la', what_to_summarize: 'list of files' },
+        params,
       })
-
-      // First yield is the command
       generator.next()
+      return generator.next({
+        agentState: createMockAgentState(),
+        toolResult: [{ type: 'json' as const, value }] as ToolResultOutput[],
+        stepsComplete: true,
+      })
+    }
 
-      // Second yield should be STEP for model analysis
-      const mockToolResult = {
+    test('yields STEP for model analysis when output is long enough to be worth summarizing', () => {
+      const result = stepAfterCommand(
+        { command: 'bun test', what_to_summarize: 'did the tests pass' },
+        { stdout: 'x'.repeat(5000) },
+      )
+
+      expect(result.value).toBe('STEP')
+    })
+
+    test('returns raw output without an LLM step when the output is small', () => {
+      // The whole point of the short-circuit: a summary of two file names costs
+      // a model round-trip to compress nothing.
+      const result = stepAfterCommand(
+        { command: 'ls -la', what_to_summarize: 'list of files' },
+        { stdout: 'file1.txt\nfile2.txt' },
+      )
+
+      const toolCall = result.value as {
+        toolName: string
+        input: { output: { stdout: string } }
+        includeToolCall?: boolean
+      }
+      expect(toolCall.toolName).toBe('set_output')
+      expect(toolCall.input.output).toEqual({ stdout: 'file1.txt\nfile2.txt' })
+      expect(toolCall.includeToolCall).toBe(false)
+    })
+
+    test('counts stderr and message toward the passthrough threshold', () => {
+      const result = stepAfterCommand(
+        { command: 'bun run build', what_to_summarize: 'what failed' },
+        { stdout: 'x'.repeat(1000), stderr: 'y'.repeat(1500) },
+      )
+
+      expect(result.value).toBe('STEP')
+    })
+
+    test('short-circuit survives handleSteps serialization', () => {
+      // The runtime stringifies handleSteps and re-evaluates it standalone, so
+      // a threshold read from module scope would throw ReferenceError in prod
+      // while passing every in-process test above. Assert on behavior from the
+      // serialized form, not on its source (the build minifies it).
+      const fn = eval(`(${commander.handleSteps!.toString()})`) as typeof commander.handleSteps
+      const generator = fn!({
+        agentState: createMockAgentState(),
+        logger: mockLogger as any,
+        params: { command: 'ls', what_to_summarize: 'files' },
+      })
+      generator.next()
+      const result = generator.next({
         agentState: createMockAgentState(),
         toolResult: [
-          { type: 'json' as const, value: { stdout: 'file1.txt\nfile2.txt' } },
-        ],
+          { type: 'json' as const, value: { stdout: 'a.txt' } },
+        ] as ToolResultOutput[],
         stepsComplete: true,
-      }
-      const result = generator.next(mockToolResult)
+      })
+
+      expect((result.value as { toolName: string }).toolName).toBe('set_output')
+    })
+
+    test('summarizes when stdout was omitted for length, however short the rest is', () => {
+      const result = stepAfterCommand(
+        { command: 'bun test', what_to_summarize: 'did the tests pass' },
+        { stdout: 'tail', stdoutOmittedForLength: true as const },
+      )
 
       expect(result.value).toBe('STEP')
     })

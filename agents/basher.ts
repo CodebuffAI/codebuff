@@ -13,7 +13,7 @@ const basher: AgentDefinition = {
   model: GEMINI_3_5_FLASH_LITE_MODEL_ID,
   displayName: 'Basher',
   spawnerPrompt:
-    'Runs a single terminal command and (recommended) describes its output using an LLM using the what_to_summarize field. A lightweight shell command executor. Every basher spawn MUST include params: { command: "<shell>" }.',
+    'Runs a single terminal command and returns its output. A lightweight shell command executor. Every basher spawn MUST include params: { command: "<shell>" }. Add what_to_summarize only when you expect long or noisy output (full test suites, builds, large logs) and want an LLM to pull out the relevant part; for ordinary commands leave it off and read the output yourself. Short output is returned raw either way.',
 
   inputSchema: {
     params: {
@@ -26,7 +26,7 @@ const basher: AgentDefinition = {
         what_to_summarize: {
           type: 'string',
           description:
-            'What information from the command output is desired. Be specific about what to look for or extract. This is optional, and if not provided, the basher will return the full command output without summarization.',
+            'Optional. What information from the command output is desired -- be specific about what to look for or extract. Only worth setting when you expect long or noisy output (a full test suite, a build, a large log); omit it for ordinary commands and read the output yourself. Output that is already short is returned raw either way, so setting this never hides anything from you.',
         },
         timeout_seconds: {
           type: 'number',
@@ -81,17 +81,57 @@ Do not use any tools! Only analyze the output of the command.`,
       },
     }
 
+    // Only object values are real command-output objects, not plain strings.
+    const result = toolResult?.[0]
+    const output =
+      result?.type === 'json' && typeof result.value === 'object'
+        ? result.value
+        : ''
+
     if (!what_to_summarize) {
       // Return the raw command output without summarization
-      const result = toolResult?.[0]
-      // Only return object values (command output objects), not plain strings
-      const output = result?.type === 'json' && typeof result.value === 'object' ? result.value : ''
       yield {
         toolName: 'set_output',
         input: { output },
         includeToolCall: false,
       }
       return
+    }
+
+    // Short-circuit: summarizing output the parent could just read is pure
+    // waste — it spends an LLM round-trip (and its latency, on the critical
+    // path of every typecheck/test spawn) to compress almost nothing, and the
+    // typical summary is ~150 tokens anyway. Below the cutoff we hand back the
+    // raw output, which is strictly more information than a summary of it.
+    // Inlined rather than imported: this generator is serialized with
+    // toString() and re-evaluated standalone, so it cannot close over module
+    // scope. ~2000 chars is roughly 500 tokens.
+    const RAW_OUTPUT_PASSTHROUGH_CHARS = 2000
+    if (output && typeof output === 'object') {
+      const o = output as {
+        stdout?: string
+        stderr?: string
+        message?: string
+        stdoutOmittedForLength?: true
+      }
+      const rawChars =
+        (o.stdout ?? '').length +
+        (o.stderr ?? '').length +
+        (o.message ?? '').length
+      // Defensive: stdoutOmittedForLength marks a result whose stdout was
+      // dropped wholesale (simplify-tool-results.ts, applied by
+      // trimMessagesToFitTokenLimit during context compaction). A fresh result
+      // straight from the tool shouldn't carry it, but if one ever does, its
+      // stdout is gone rather than small — passing it through would hand the
+      // parent nothing, so summarize instead.
+      if (!o.stdoutOmittedForLength && rawChars <= RAW_OUTPUT_PASSTHROUGH_CHARS) {
+        yield {
+          toolName: 'set_output',
+          input: { output },
+          includeToolCall: false,
+        }
+        return
+      }
     }
 
     // Let the model analyze and describe the output
