@@ -328,6 +328,15 @@ export enum AnalyticsEvent {
   // desktop.turn_completed to tell a recovered long-silent tool call from a
   // real hang, i.e. whether an *acting* watchdog is worth building.
   DESKTOP_TURN_STALLED = 'desktop.turn_stalled',
+  // Saturation of the orchestrator's single event loop, one line per minute per
+  // running app. That process serves the renderer bundle, every SSE stream, all
+  // git work, agent turns, terminals and preview drives, so a stall anywhere
+  // reads to the user as the whole app hanging. The same numbers ride on
+  // `desktop.turn_completed`, which is what separates "the backend queued my
+  // turn" from "my own orchestrator was pinned" — the question the 2026-07
+  // "opening a new tab is incredibly slow" report could not be answered from
+  // server-side timings alone.
+  DESKTOP_EVENT_LOOP_HEALTH = 'desktop.event_loop_health',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
