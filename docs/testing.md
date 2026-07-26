@@ -35,6 +35,128 @@ This exists because every check bun gives you is blind to the failure mode that 
 
 **`[test].exclude` in `bunfig.toml` does nothing on bun 1.3.14.** Verified by pointing it at an ordinary test file, which still ran. That is why the repo-root `exclude` does not keep `*.integration.test.*` out of a root run, and why CI filters them with `find ... ! -name '*.integration.test.ts'`. Gate on a runtime condition instead of trusting the key.
 
+## What CI actually spends its time on
+
+`ci.yml` is one flat fan-out: `typecheck`, `build-web`, and three test matrices,
+with **no `needs:` edges between them**. Before that, every test job waited on a
+combined `build-and-check` gate, and measuring a run showed how badly that
+misread the cost:
+
+| | before | after |
+|---|---|---|
+| **Total run** | **10m40s** | **5m29s** |
+| the gate / its replacements | `build-and-check` **441s** | `typecheck` 326s ‖ `build-web` 194s |
+| web build's own compile | 330s (`in 5.5min`) | **73s** |
+| all test jobs' `bun test` steps, added together | 184s | **110s** |
+| `test-common`'s actual test run | **1s** (after 55s of setup) | 1s |
+
+The gate was ~70% of the run, and the thing it gated took under two minutes of
+real work. Nothing a test imports is produced by the typecheck or the Next
+build, so the edges bought nothing.
+
+Splitting typecheck from the web build was worth more than un-gating: the Next
+compile went 330s → 73s purely by not sharing two cores with tsc. Note what did
+**not** change — Next still logs `using 1 worker` for page-data collection and
+static generation, before and after. On a 2-vCPU runner it always will. The win
+came from the webpack compile phase, not from more workers; don't chase the
+worker count.
+
+The corollary for anyone optimizing this: **individual tests are not the
+problem, and deleting them will not help.** Per-job setup (dependency-cache
+restore, SDK build) costs far more than the tests in almost every job.
+
+### Typecheck runs in lanes
+
+`bun --filter='*' run typecheck` scheduled `@codebuff/freebuff-web` last: it did
+not start until 114s into a 227s step, then ran ~113s alone while all 17 other
+packages had finished and the runner idled on one tsc. So the typecheck job is a
+matrix over *lanes* — `freebuff-web` gets its own runner, `rest` takes the other
+17 — defined in `scripts/ci/typecheck-lanes.ts`.
+
+Membership lives in that script rather than in `ci.yml` because both obvious
+ways to write it in YAML fail silently:
+
+- **`--filter='*' --filter='!@codebuff/freebuff-web'` does not exclude
+  anything.** bun 1.3.14 ignores the negation and runs all 18 packages
+  (verified), so the `rest` lane would re-run the package it exists to hand off
+  and the split would buy nothing while looking correct.
+- **Listing the other 17 by hand** means a newly added package matches no lane
+  and is typechecked by nobody — a green build with a hole in it.
+
+So lanes are derived from the workspace at runtime and the derivation is
+checked: every package with a `typecheck` script must land in exactly one lane
+or the script exits 1. Adding a package needs no change; only moving one
+between lanes does.
+
+Everything else in that script exists to make the remaining ways it can quietly
+check nothing loud. Each of these **exits 0** on its own:
+
+- **A lane declared in the script but missing from `ci.yml`'s matrix.** Its
+  packages leave `rest` and are then run by nobody, while every lane that *does*
+  run still passes. This is why the step passes `--expect-lanes`: the two lists
+  must match or the build fails. Keep them in sync when adding a lane.
+- **A filter that matches nothing, next to filters that do.** Measured on bun
+  1.3.14: `--filter=@codebuff/common --filter=@codebuff/nope` runs `common`,
+  ignores the bad one and **exits 0**. A lone non-matching filter exits 1, so
+  only the multi-package case is silent — which is exactly what `rest` is. The
+  script therefore asserts every lane member actually reported a result.
+  (Relatedly, write `--filter=NAME`; as separate argv entries the value does not
+  bind and bun matches nothing at all.)
+- **A lane naming a package** that was renamed or lost its `typecheck` script.
+- **`Bun.Glob` skipping dot-directories.** Without `dot: true` the workspace
+  scan finds 20 manifests instead of 21 and `.agents` silently leaves every
+  lane.
+
+**Beware retry-inflated numbers when you profile this.** The first pass at the
+table above recorded `freebuff-desktop` at 130s, which was wrong: the job had
+silently failed once (`Boundary result-checkpointed was not reached`, 69.55s)
+and passed on attempt 2 (48.78s), and `nick-fields/retry` reported success. Read
+bun's own `Ran N tests across M files [Xs]` line, not the step duration, and
+grep the log for `Attempt N failed` before trusting any per-job figure.
+
+### `sdk/dist` is cached, not rebuilt per job
+
+`./.github/actions/build-sdk` restores `sdk/dist` from a cache keyed on every
+input the bundler reads (sdk sources/scripts/vendor, the workspace packages it
+inlines via tsconfig `paths`, and `bun.lock`). It has **no `restore-keys`** on
+purpose: a prefix match would hand back a dist built from different sources and
+every downstream test would silently run against a stale SDK. A miss just costs
+the ~18s build.
+
+`freebuff/web`'s `prepare:workspace` shells out to that same SDK build, and it
+was the tail of the typecheck job — freebuff/web finishes last, and spent its
+first ~65s rebuilding what the job had already restored. It now honours
+`SDK_ALREADY_BUILT`, which **only** CI's typecheck job sets, immediately after
+`build-sdk` has run. Unset everywhere else, so local runs and Render deploys
+still build normally. If you add a job that runs `freebuff/web`'s typecheck or
+build, either let it rebuild or set the flag *after* `build-sdk` — never before.
+
+### Known remaining cost
+
+`freebuff-desktop` is the heaviest suite — ~54s on CI, about half of all test
+execution in the repo — and `src/app/thread-engine.test.ts` is most of it (244
+of its tests). There is no hot spot to fix: the time is spread evenly (the
+slowest single test is 1.6s) and about a quarter of it is the `gitEngine`
+fixture spawning a real `git init` + commit per test (~125ms each, measured).
+That is genuine coverage of worktree lifecycle behaviour, not slop — the lever
+is sharding, not deleting cases. Sharding needs its own baseline key per shard
+in `.github/test-baselines.json`, recorded from a real CI run (see above), and
+is only worth doing once it is actually on the critical path. It is not today:
+the whole job finishes in 130s against `typecheck`'s 326s.
+
+Measure it on CI, not locally. That same file takes ~101s on an M-series Mac
+against ~54s for the entire desktop suite on a runner, so local timings will
+send you after the wrong thing.
+
+### The dependency cache is now the per-job floor
+
+Un-gating means 19 jobs restore the same ~1 GB `node_modules` cache at t=0
+instead of one job then seventeen. The median restore is unchanged (37s), but
+the tail got worse (73s → 100s) and total runner-seconds spent on setup rose
+702 → 888. It is a fair trade for halving wall clock, but it does mean the
+floor for *every* job is now ~40s of cache restore to produce an install that
+then takes about a second.
+
 ## CLI tmux Testing
 
 For testing CLI behavior via tmux, use the helper scripts in `scripts/tmux/`. These handle bracketed paste mode and session logging automatically. Session data is saved to `debug/tmux-sessions/` in YAML format and can be viewed with `bun scripts/tmux/tmux-viewer/index.tsx`. See `scripts/tmux/README.md` for details.
