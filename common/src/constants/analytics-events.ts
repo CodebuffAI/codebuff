@@ -303,6 +303,18 @@ export enum AnalyticsEvent {
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
   DESKTOP_SKILL_RUN = 'desktop.skill_run',
   DESKTOP_QUEUE_SEND_NOW = 'desktop.queue_send_now',
+  // Feature-adoption catch-all. ONE event for the long tail of desktop
+  // features (panels, worktrees, diffs, skills, terminal, preview, …), keyed
+  // by a bounded `feature` property from
+  // `freebuff-desktop/src/core/features.ts`. A single PostHog insight
+  // ("desktop.feature_used, broken down by feature", unique users) answers
+  // "what do people actually use?" for the whole app, and adding a feature
+  // never means adding an event to this enum or to the sampling lists.
+  //
+  // Reserved for user-INTENT actions only — never render/effect churn. The
+  // first-class desktop.* events above stay separate because they anchor
+  // funnels (login, DAU, turns) or reliability alerts.
+  DESKTOP_FEATURE_USED = 'desktop.feature_used',
   DESKTOP_AUTORUN_TOGGLED = 'desktop.autorun_toggled',
   DESKTOP_AUTORUN_SCOPE_SET = 'desktop.autorun_scope_set',
   // One-shot per process: which codex CLI the Codex harness resolved (or why
