@@ -130,6 +130,16 @@ A fourth pattern worth naming: a test that races two real timers against each
 other (a 20ms cadence against a 40ms window) has a 2x margin that starvation
 erases. Inject the clock and advance it explicitly rather than sleeping.
 
+The first monorepo-wide sweep found the shared-state pattern twice more, both
+in `cli` and both fixed the same way — give the run its own `mkdtemp` directory
+instead of a name every run shares. One wrote to a fixed path *inside the
+working tree* (`__dirname/temp-test-images`, deleted in `afterEach`, not
+gitignored); the other to seven fixed `os.tmpdir()/codebuff-test-*` paths whose
+`beforeEach` deleted them recursively. Overlapped they failed 6/10 and 4/10
+runs; solo they always passed. Note the asymmetry that hid them: CI gives each
+package's suite its own runner, so nothing there ever runs two copies at once —
+these bit developers and this harness, not the pipeline.
+
 Prefer these fixes over longer timeouts. A longer timeout makes the symptom
 rarer without making the test deterministic, and it slows every honest run to
 buy that. The one legitimate use is converting an *iteration count* into a

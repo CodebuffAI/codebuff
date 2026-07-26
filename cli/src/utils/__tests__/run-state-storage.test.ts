@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, test, expect, afterAll, beforeEach, afterEach, mock } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -20,8 +20,20 @@ import {
 import type { ChatMessage, ContentBlock } from '../../types/chat'
 import type { RunState } from '@codebuff/sdk'
 
+/** Every directory below hangs off a root this run owns. They were fixed
+ *  `os.tmpdir()/codebuff-test-*` paths that `beforeEach` deletes recursively,
+ *  so an overlapping run wiped the chat state this one was still writing (4 of
+ *  10 overlapped runs failed; solo always passed). Only the parent is unique —
+ *  the names below stay stable, which is what the assertions read. See
+ *  docs/testing.md. */
+const TEST_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-run-state-'))
+
+afterAll(() => {
+  fs.rmSync(TEST_ROOT, { recursive: true, force: true })
+})
+
 // Mock the project-files module
-const mockProjectDataDir = path.join(os.tmpdir(), 'codebuff-test-project')
+const mockProjectDataDir = path.join(TEST_ROOT, 'codebuff-test-project')
 const mockCurrentChatDir = path.join(
   mockProjectDataDir,
   'chats',
@@ -467,7 +479,7 @@ describe('live chat state provider', () => {
   // Point persistence at a temp dir via the explicit test override — module
   // seams (mock.module, HOME, spyOn on auth) are unreliable across bun test
   // files and platforms.
-  const chatDir = path.join(os.tmpdir(), 'codebuff-test-live-chatdir')
+  const chatDir = path.join(TEST_ROOT, 'codebuff-test-live-chatdir')
 
   const testRunState = (marker: string): RunState =>
     ({
@@ -556,7 +568,7 @@ describe('live chat state provider', () => {
 })
 
 describe('atomic save and resilient load', () => {
-  const chatDir = path.join(os.tmpdir(), 'codebuff-test-resilient-chatdir')
+  const chatDir = path.join(TEST_ROOT, 'codebuff-test-resilient-chatdir')
 
   const runState = { output: { type: 'error', message: 'x' } } as RunState
   const messages: ChatMessage[] = [
@@ -627,7 +639,7 @@ describe('atomic save and resilient load', () => {
 })
 
 describe('scheduleCheckpointSave (async, coalescing)', () => {
-  const chatDir = path.join(os.tmpdir(), 'codebuff-test-checkpoint-chatdir')
+  const chatDir = path.join(TEST_ROOT, 'codebuff-test-checkpoint-chatdir')
 
   const runState = (marker: string) =>
     ({ output: { type: 'error', message: marker } }) as unknown as RunState
@@ -707,8 +719,8 @@ describe('chat switches while saves are pending', () => {
   // be resolved at write time from the mutable current chat id, so a pending
   // write from chat A could land in chat B's directory after a /new or
   // /history resume rotated the id in between.
-  const chatDirA = path.join(os.tmpdir(), 'codebuff-test-switch-chat-a')
-  const chatDirB = path.join(os.tmpdir(), 'codebuff-test-switch-chat-b')
+  const chatDirA = path.join(TEST_ROOT, 'codebuff-test-switch-chat-a')
+  const chatDirB = path.join(TEST_ROOT, 'codebuff-test-switch-chat-b')
 
   const runState = (marker: string) =>
     ({ output: { type: 'error', message: marker } }) as unknown as RunState
@@ -832,7 +844,7 @@ describe('chat switches while saves are pending', () => {
 })
 
 describe('poisoned payload persistence', () => {
-  const chatDir = path.join(os.tmpdir(), 'codebuff-test-poisoned-chatdir')
+  const chatDir = path.join(TEST_ROOT, 'codebuff-test-poisoned-chatdir')
 
   const messages: ChatMessage[] = [
     {

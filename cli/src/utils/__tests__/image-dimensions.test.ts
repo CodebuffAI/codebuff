@@ -1,4 +1,5 @@
-import { mkdirSync, rmSync } from 'fs'
+import { mkdirSync, mkdtempSync, rmSync } from 'fs'
+import os from 'os'
 import path from 'path'
 
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
@@ -19,10 +20,15 @@ mock.module('../logger', () => ({
   },
 }))
 
-const TEST_DIR = path.join(__dirname, 'temp-test-images')
+/** A directory this run owns. It was a fixed `__dirname/temp-test-images`,
+ *  which `afterEach` deletes recursively — so a second, overlapping run wiped
+ *  the images this one was still reading (6 of 10 overlapped runs failed; solo
+ *  always passed), and a crashed run left debris in the working tree. See
+ *  docs/testing.md. */
+let TEST_DIR: string
 
 beforeEach(async () => {
-  mkdirSync(TEST_DIR, { recursive: true })
+  TEST_DIR = mkdtempSync(path.join(os.tmpdir(), 'cli-image-dimensions-'))
   // Create debug directory for logger
   mkdirSync(path.join(TEST_DIR, 'debug'), { recursive: true })
 
