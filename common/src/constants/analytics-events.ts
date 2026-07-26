@@ -303,6 +303,8 @@ export enum AnalyticsEvent {
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
   DESKTOP_SKILL_RUN = 'desktop.skill_run',
   DESKTOP_QUEUE_SEND_NOW = 'desktop.queue_send_now',
+  DESKTOP_AUTORUN_TOGGLED = 'desktop.autorun_toggled',
+  DESKTOP_AUTORUN_SCOPE_SET = 'desktop.autorun_scope_set',
   // One-shot per process: which codex CLI the Codex harness resolved (or why
   // none). Answers "is the packaged app finding users' codex?" in the field,
   // where the stdout breadcrumb is unavailable.
