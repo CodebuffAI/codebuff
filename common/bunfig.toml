@@ -1,0 +1,5 @@
+[test]
+# bun reads bunfig.toml and .env from the CWD only, so a package-local `bun test`
+# needs its own env fixture or every file importing env.ts dies at import.
+# Why that is invisible rather than red: docs/testing.md.
+preload = ["../sdk/test/setup-env.ts"]

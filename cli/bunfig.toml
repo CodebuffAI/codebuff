@@ -1,0 +1,18 @@
+[test]
+# bun reads bunfig.toml and .env from the CWD only, so this package needs all
+# three preloads of its own:
+#  - setup-env.ts, or a file reaching @codebuff/common/env through a module that
+#    doesn't import src/__tests__/test-utils.ts dies at import.
+#  - setup-scm-loader.ts, for the .scm queries @codebuff/code-map loads via the
+#    @codebuff/sdk barrel.
+#  - setup-agents-artifact.ts, which builds the gitignored bundled-agents module
+#    that CI produces with `bun run prebuild:agents`.
+# Why an import-time throw is invisible rather than red: docs/testing.md.
+#
+# *.integration.test.* is not excluded here: bun 1.3.14 ignores [test].exclude,
+# which is why CI filters those with `find ... ! -name` instead.
+preload = [
+  "../sdk/test/setup-env.ts",
+  "../test/setup-scm-loader.ts",
+  "./test/setup-agents-artifact.ts",
+]

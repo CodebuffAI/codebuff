@@ -6,6 +6,35 @@
 
 CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer integration tests via components for hook behavior.
 
+## Test env must come from a fixture, not the developer's `.env`
+
+`@codebuff/common`'s `env.ts` validates the `NEXT_PUBLIC_*` vars at **import** time and throws, and Bun loads `.env` files from the process cwd — so a package-local `bun test` sees none of the repo-root env even when the root run is green. A whole test file then dies with `Invalid environment configuration` before a single test runs, which bun reports as an unhandled error rather than a failure, so the suite silently stops covering that file.
+
+Every package must therefore have a `bunfig.toml` preloading `sdk/test/setup-env.ts` — the one shared fixture, which supplies placeholder values for every var the schemas require. This is not just a local-dev nicety: CI runs `cd <package> && bun test`, i.e. exactly the package-local mode. Placeholders only — tests must never need real credentials, so `bun test` means the same thing in a fresh worktree and in a provisioned checkout.
+
+The same rule covers generated inputs. `cli/src/agents/bundled-agents.generated.ts` is gitignored, and importing it at module scope wiped 17 files (~371 tests) in a fresh worktree; `cli/test/setup-agents-artifact.ts` now builds it on demand instead of relying on everyone knowing to run `bun run prebuild:agents`.
+
+Tests that need a **service** rather than a variable should skip cleanly and say why, but never in CI. `@codebuff/internal/testing/test-db` probes Postgres once, skips the DB suites locally with the docker command to fix it, and throws when `CODEBUFF_GITHUB_ACTIONS=true` — otherwise a broken CI service container would read as a pass. Gate on **reachability**, never on `!process.env.DATABASE_URL`: the fixtures supply a placeholder URL, so presence stopped meaning availability.
+
+Tests that spawn a server child should race readiness against `proc.exited` and report the child's captured output (see `freebuff-desktop/src/app/server.test.ts`). Polling a dead port surfaces only as "a hook timed out", which names neither the cause nor the process that failed.
+
+### The CI guard against disappearing tests
+
+CI does not run `bun test` directly — it goes through `scripts/ci/test-with-guard.ts`, which fails the build on any of:
+
+1. any error outside a test body — an `Unhandled error between tests` marker (a file that crashed at import) or a non-zero `N errors` in bun's summary,
+2. a test or file count **below** the baseline in `.github/test-baselines.json`, including the degenerate case where the caller's glob selects **no files at all** (a renamed directory would otherwise print "no tests found" and pass).
+
+Growth never fails the build, so adding tests needs no baseline change; the guard just notes the baseline is stale. Deleting tests on purpose means re-recording: re-run the job's command with `--update`.
+
+**A skipped suite and a running suite do not report the same total.** Skipped tests are counted, so it is tempting to assume a baseline recorded locally transfers to CI — it does not when a whole `describe` is skipped. Measured on the billing DB suites: each skipped file reported exactly **two more** than it did when it ran (47 vs 41 across three files), and the guard duly failed a healthy CI run. So a baseline for a suite that skips locally but runs in CI — anything DB-backed — must be taken from a real CI run. Read the observed counts out of the job log and write them into `.github/test-baselines.json`.
+
+Re-record in a CI-equivalent state, which means running `cd sdk && bun run build` first. A few cli tests register a placeholder test *only when* `sdk/dist` is missing, so a baseline seeded without it is inflated and the guard then fails a perfectly healthy CI run. (The guard caught exactly this while being built.)
+
+This exists because every check bun gives you is blind to the failure mode that actually happened here three times: a file stops contributing tests and the summary still reads as mostly-green.
+
+**`[test].exclude` in `bunfig.toml` does nothing on bun 1.3.14.** Verified by pointing it at an ordinary test file, which still ran. That is why the repo-root `exclude` does not keep `*.integration.test.*` out of a root run, and why CI filters them with `find ... ! -name '*.integration.test.ts'`. Gate on a runtime condition instead of trusting the key.
+
 ## CLI tmux Testing
 
 For testing CLI behavior via tmux, use the helper scripts in `scripts/tmux/`. These handle bracketed paste mode and session logging automatically. Session data is saved to `debug/tmux-sessions/` in YAML format and can be viewed with `bun scripts/tmux/tmux-viewer/index.tsx`. See `scripts/tmux/README.md` for details.

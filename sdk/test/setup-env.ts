@@ -52,3 +52,9 @@ if (process.env.CI !== 'true' && process.env.CI !== '1') {
 // Hint to downstream code that this is a test runtime
 process.env.NODE_ENV ||= 'test'
 process.env.BUN_ENV ||= 'test'
+
+// No test anywhere ships telemetry to the production Axiom dataset, even if the
+// caller's environment claims NEXT_PUBLIC_CB_ENVIRONMENT is prod. Desktop server
+// children are spawned with { ...process.env }, so they inherit this too.
+// An explicit override still wins (freebuff-desktop's log-shipper.test.ts opts in).
+process.env.FREEBUFF_SHIP_LOGS ??= 'false'
