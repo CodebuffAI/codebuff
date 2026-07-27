@@ -14,6 +14,7 @@ import {
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
@@ -61,6 +62,47 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
 ] as const
 
 /**
+ * The Freebuff Cloud custom-stack planner roots, and the models they are pinned
+ * to. There is one variant per model because a bundled agent's model comes from
+ * its definition, not from the request.
+ *
+ * Full access plans on MiniMax M3. Limited regions may only use
+ * LIMITED_FREEBUFF_MODEL_IDS, so they get their own variant rather than being
+ * shut out of the feature.
+ *
+ * Exported so the agent definitions, the planner UI's forced model, and the
+ * "Start building" hand-off all read one set of values. They must agree: the
+ * planner admits a free session bound to its model, and a build turn resolved
+ * to a different model is rejected with session_model_mismatch.
+ */
+export const CLOUD_PLANNER_AGENT_ID = 'base2-free-cloud-planner'
+export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_MINIMAX_M3_MODEL_ID
+export const CLOUD_PLANNER_LIMITED_AGENT_ID =
+  'base2-free-cloud-planner-limited'
+export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
+
+/** The planner model a given access tier is permitted to run. */
+export function cloudPlannerModelForAccessTier(
+  accessTier: string | null | undefined,
+): string {
+  return accessTier === 'limited'
+    ? CLOUD_PLANNER_LIMITED_MODEL_ID
+    : CLOUD_PLANNER_MODEL_ID
+}
+
+/**
+ * The planner variant that runs a given model. Falls back to the full-access
+ * variant so an unknown selection still resolves to a registered root.
+ */
+export function cloudPlannerAgentIdForModel(
+  model: string | null | undefined,
+): string {
+  return model === CLOUD_PLANNER_LIMITED_MODEL_ID
+    ? CLOUD_PLANNER_LIMITED_AGENT_ID
+    : CLOUD_PLANNER_AGENT_ID
+}
+
+/**
  * Root-orchestrator agent IDs counted as "a freebuff session" for abuse
  * detection and usage auditing. Subagents (file-picker, basher, etc.) are
  * excluded — they're spawned by the root, so counting them would inflate
@@ -85,6 +127,13 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // (2026-07-09 incident: trial runs failed at spawn_agent_inline).
   'base2-free-hy3',
   'base2-free-hy3-atlas',
+  // Freebuff Cloud custom-stack planner variants. They spawn context-pruner, so
+  // omitting them here 403s that subagent with
+  // free_mode_invalid_agent_hierarchy — the same failure the hy3 roots above
+  // hit. Their shared system prompt carries the "You are Buffy" marker so they
+  // also pass requestHasFreebuffSystemMarker.
+  'base2-free-cloud-planner',
+  'base2-free-cloud-planner-limited',
   ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
@@ -174,6 +223,10 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   ]),
   'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
   'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID]),
+  // Freebuff Cloud custom-stack planner (freebuff_bundled_agents.ts). One
+  // variant per model, each allowed exactly the model its definition pins.
+  'base2-free-cloud-planner': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
+  'base2-free-cloud-planner-limited': new Set([LIMITED_FREEBUFF_MODEL_ID]),
 
   // Every Freebuff Desktop hosted root variant allows the full desktop picker
   // set (the user picks the model per tab). The free-session admission gate still

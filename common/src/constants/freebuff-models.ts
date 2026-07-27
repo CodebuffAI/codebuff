@@ -573,6 +573,12 @@ export type FreebuffWebAccessTier = FreebuffAccessTier | 'blocked'
  *  Pacific time. */
 export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 3
 
+/** Per-day cap on blank ("plan a custom stack") Cloud projects, which unlike
+ *  connect-repo need no GitHub App install and each boot a full-size VM. The
+ *  shared burst bucket alone would permit roughly ten in a row. Resets at
+ *  midnight Pacific time. */
+export const FREEBUFF_CLOUD_BLANK_PROJECT_DAILY_LIMIT = 5
+
 /** Models available to limited-region Freebuff Web users. They share the
  * limited-region session pool; every other model remains geo-gated. */
 export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
