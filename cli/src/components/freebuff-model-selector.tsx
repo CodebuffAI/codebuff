@@ -61,7 +61,7 @@ import type {
 // "Premium"/"Unlimited" chip. The PREMIUM header carries the shared quota
 // inline — "N of M used · resets in …" — once any session is spent (turning
 // amber when exhausted, the moment its rows grey out). When collapsed there's
-// no PREMIUM header — but the recommended hero is premium (MiniMax M3) while
+// no PREMIUM header — but the recommended hero is premium (DeepSeek V4 Pro) while
 // the pool has sessions left, so the parent keeps a below-picker counter for
 // the collapsed state (and for the limited tier, which has no premium
 // section). Once the pool is exhausted the recommendation flips to the
@@ -84,7 +84,7 @@ const TOGGLE_ID = '__freebuff_toggle__'
 
 // Right-aligned CTA shown on the focused, joinable row so the highlighted card
 // reads as a button ("you can press Enter here") instead of just a selection.
-// Its width is reserved in the one-line width budget below so the cue never
+// Its width is reserved in the line-1 width budget below so the cue never
 // overflows or wraps the row (a wrap would desync the focused-row scroll math).
 const FOCUS_CUE = 'Press Enter ↵'
 const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
@@ -103,8 +103,10 @@ const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
  * bright border. When expanded, the remaining rows are grouped into PREMIUM /
  * UNLIMITED sections so the tier is visible without a per-row chip; the shared
  * premium-session quota rides the PREMIUM header. Names align in a column
- * so taglines line up across rows. On narrow terminals the secondary details
- * (warning / deployment hours) drop onto an indented second line under the row.
+ * so taglines line up across rows, and the secondary details (warning /
+ * deployment hours) always sit on their own indented line under the name —
+ * keeping a row with a warning from stretching into one very long line. On
+ * terminals too narrow for the name column, line 1 compacts to "name · tagline".
  *
  * On short terminals the parent passes `maxHeight`: the model rows and the
  * referral/GLM controls live in one scrollbox capped at that many rows. A
@@ -169,7 +171,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // limit is the server-sent one (base + streak bonus, falling back to the
   // static base before any snapshot arrives) so the label, the amber
   // exhausted cue, and isJoinable below can never disagree. Exhaustion is
-  // also the moment the recommended hero flips from MiniMax M3 to the
+  // also the moment the recommended hero flips from DeepSeek V4 Pro to the
   // unlimited fallback — the hero must always be joinable. (The PREMIUM
   // section only renders for the full-access tier, so this is scoped to it.)
   const sharedRateLimit = rateLimitsByModel
@@ -315,24 +317,34 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
 
-  // Two-column layout: a fixed name column (padded to the longest displayName
-  // across all rows) followed by a details column (tagline · warning ·
-  // deployment-hours/closed). Falls back to single-column mode on narrow
-  // terminals where the secondary details spill to an indented second line.
-  // Computed across ALL models (not just the expanded ones) so the recommended
-  // hero and the revealed rows share one width and nothing reflows on toggle.
+  // Rows are two lines: line 1 is the identity (name + tagline), line 2 carries
+  // the secondary details (AI-training warning · deployment hours). The warning
+  // ALWAYS gets its own line rather than being appended to line 1 — the
+  // recommended hero carries the training notice, and inlining it made that row
+  // one very long line that dominated the landing screen.
+  //
+  // Line 1 is normally two columns: a fixed name column (padded to the longest
+  // displayName across all rows) followed by the tagline, so taglines align
+  // down the list. On terminals too narrow for that it falls back to a compact
+  // "name · tagline". Computed across ALL models (not just the expanded ones)
+  // so the recommended hero and the revealed rows share one width and nothing
+  // reflows on toggle.
   const {
-    wrapDetails,
+    compactNames,
     buttonOuterWidth,
     nameColumnWidth,
-    recommendedOneLineLen,
+    detailsIndent,
+    recommendedLabelLen,
   } = useMemo(() => {
-    const nameLen = (m: FreebuffModelOption) => m.displayName.length
-    const maxNameLen = Math.max(...availableModels.map(nameLen))
+    const maxNameLen = Math.max(
+      ...availableModels.map((m) => m.displayName.length),
+    )
+
+    const joinedLen = (parts: number[]): number =>
+      parts.reduce((a, b) => a + b, 0) + Math.max(0, parts.length - 1) * 3 // " · "
 
     const detailsParts = (model: FreebuffModelOption): number[] => {
       const parts: number[] = []
-      parts.push(model.tagline.length)
       if (model.warning) parts.push(model.warning.length)
       if (model.availability === 'deployment_hours') {
         parts.push(deploymentAvailabilityLabel.length)
@@ -340,62 +352,60 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       return parts
     }
 
-    const joinedLen = (parts: number[]): number =>
-      parts.reduce((a, b) => a + b, 0) + Math.max(0, parts.length - 1) * 3 // " · "
+    // Line 1, in each mode.
+    const columnLabelLen = (m: FreebuffModelOption) =>
+      2 /* indicator + space */ + maxNameLen + NAME_GAP + m.tagline.length
+    const compactLabelLen = (m: FreebuffModelOption) =>
+      2 + m.displayName.length + 3 /* " · " */ + m.tagline.length
 
-    const oneLineLen = (model: FreebuffModelOption): number =>
-      2 /* indicator + space */ +
-      maxNameLen +
-      NAME_GAP +
-      joinedLen(detailsParts(model))
+    // Line 2, or 0 for a row with neither warning nor hours. Indented to sit
+    // under line 1's details column.
+    const detailsLineLen = (m: FreebuffModelOption, indent: number) => {
+      const parts = detailsParts(m)
+      return parts.length === 0 ? 0 : indent + joinedLen(parts)
+    }
 
     // The cue lives only on the recommended hero, so only its line needs to fit
     // the "Press Enter ↵" gutter. Folding that into the max means longer rows
-    // (e.g. DeepSeek Pro's AI-training warning) keep their natural width —
-    // the buttons widen only if the recommended row + cue is the longest line.
-    // Returned so the render path can right-align the cue against the same
-    // length the gutter was reserved for — one formula, no reserve/consume drift.
-    const recommendedOneLineLen = oneLineLen(recommendedModel)
-    const maxOneLineOuter =
+    // keep their natural width — the buttons widen only if the recommended
+    // row + cue is the longest line.
+    const innerWidth = (
+      labelLen: (m: FreebuffModelOption) => number,
+      indent: number,
+    ) =>
       Math.max(
-        ...availableModels.map(oneLineLen),
-        recommendedOneLineLen + CUE_GAP + FOCUS_CUE.length,
-      ) + BUTTON_CHROME
-    if (maxOneLineOuter <= contentMaxWidth) {
+        ...availableModels.map((m) =>
+          Math.max(labelLen(m), detailsLineLen(m, indent)),
+        ),
+        labelLen(recommendedModel) + CUE_GAP + FOCUS_CUE.length,
+      )
+
+    const columnIndent = 2 + maxNameLen + NAME_GAP
+    const columnOuter = innerWidth(columnLabelLen, columnIndent) + BUTTON_CHROME
+    if (columnOuter <= contentMaxWidth) {
       return {
-        wrapDetails: false,
-        buttonOuterWidth: maxOneLineOuter,
+        compactNames: false,
+        buttonOuterWidth: columnOuter,
         nameColumnWidth: maxNameLen,
-        recommendedOneLineLen,
+        detailsIndent: columnIndent,
+        // Returned so the render path can right-align the cue against the same
+        // length the gutter was reserved for — no reserve/consume drift.
+        recommendedLabelLen: columnLabelLen(recommendedModel),
       }
     }
 
-    // Narrow: line 1 = "indicator name · tagline", line 2 (if any) =
-    // "  warning · hours". Compute the max of both so all buttons stay the
-    // same width.
-    const labelLineLen = (m: FreebuffModelOption) =>
-      2 + m.displayName.length + 3 + m.tagline.length
-    const detailsLineLen = (m: FreebuffModelOption) => {
-      const parts: number[] = []
-      if (m.warning) parts.push(m.warning.length)
-      if (m.availability === 'deployment_hours') {
-        parts.push(deploymentAvailabilityLabel.length)
-      }
-      return parts.length === 0 ? 0 : 2 /* indent */ + joinedLen(parts)
-    }
-    const maxTwoLineInner = Math.max(
-      ...availableModels.map((m) =>
-        Math.max(labelLineLen(m), detailsLineLen(m)),
-      ),
-    )
+    // Narrow: drop the name padding so line 1 reads "name · tagline", and pull
+    // the details line back to a plain indent.
+    const compactIndent = 2
     return {
-      wrapDetails: true,
+      compactNames: true,
       buttonOuterWidth: Math.min(
-        maxTwoLineInner + BUTTON_CHROME,
+        innerWidth(compactLabelLen, compactIndent) + BUTTON_CHROME,
         contentMaxWidth,
       ),
       nameColumnWidth: maxNameLen,
-      recommendedOneLineLen,
+      detailsIndent: compactIndent,
+      recommendedLabelLen: compactLabelLen(recommendedModel),
     }
   }, [
     availableModels,
@@ -404,10 +414,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     recommendedModel,
   ])
 
-  const rowWraps = useCallback(
+  // A row spends a second line whenever it has details to put there — no longer
+  // conditional on the terminal width, since the warning never inlines.
+  const rowHasDetailsLine = useCallback(
     (m: FreebuffModelOption) =>
-      wrapDetails && (!!m.warning || m.availability === 'deployment_hours'),
-    [wrapDetails],
+      !!m.warning || m.availability === 'deployment_hours',
+    [],
   )
 
   // Initial model-only height estimate. The content wrapper below reports its
@@ -419,13 +431,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const TOGGLE_MARGIN = 1
   const estimatedModelHeight = useMemo(() => {
     let y = 0
-    const heroHeight = 2 + (rowWraps(recommendedModel) ? 2 : 1)
+    const heroHeight = 2 + (rowHasDetailsLine(recommendedModel) ? 2 : 1)
     y += heroHeight
     sections.forEach((section) => {
       y += SECTION_GAP // every section sits below the hero (or prior one) with a gap
       if (section.label) y += 1
       section.models.forEach((m) => {
-        y += 2 + (rowWraps(m) ? 2 : 1)
+        y += 2 + (rowHasDetailsLine(m) ? 2 : 1)
       })
     })
     if (canCollapse) {
@@ -433,7 +445,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       y += 1
     }
     return y
-  }, [sections, rowWraps, recommendedModel, canCollapse])
+  }, [sections, rowHasDetailsLine, recommendedModel, canCollapse])
 
   // When a referral exists, start at the parent's full allowance until the
   // wrapper reports its intrinsic height. This is conservative for the first
@@ -612,22 +624,16 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       nameColumnWidth - model.displayName.length + NAME_GAP,
     )
 
-    // Right-aligned "Press Enter ↵" cue on the focused recommended row only.
-    // Right-align against recommendedOneLineLen — the exact length the gutter was
-    // reserved against above — so reserve and consume can't drift. The reservation
-    // guarantees cuePad >= CUE_GAP in one-line mode; the guard keeps it safe in
-    // wrap mode (no gutter reserved there) and against any contentMaxWidth clamp.
+    // Right-aligned "Press Enter ↵" cue on the focused recommended row only,
+    // sharing line 1 with the name and tagline. Right-align against
+    // recommendedLabelLen — the exact length the gutter was reserved against
+    // above — so reserve and consume can't drift. The reservation guarantees
+    // cuePad >= CUE_GAP; the guard keeps it safe against the contentMaxWidth
+    // clamp on a terminal too narrow to seat the cue at all.
     const cuePad =
-      buttonOuterWidth -
-      BUTTON_CHROME -
-      recommendedOneLineLen -
-      FOCUS_CUE.length
+      buttonOuterWidth - BUTTON_CHROME - recommendedLabelLen - FOCUS_CUE.length
     const showCue =
-      recommended &&
-      isFocused &&
-      interactable &&
-      !wrapDetails &&
-      cuePad >= CUE_GAP
+      recommended && isFocused && interactable && cuePad >= CUE_GAP
 
     return (
       <Button
@@ -660,26 +666,20 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           >
             {model.displayName}
           </span>
-          {wrapDetails ? (
+          {compactNames ? (
             <span fg={mutedColor}> · {model.tagline}</span>
           ) : (
-            <>
-              <span fg={mutedColor}>{namePadding + model.tagline}</span>
-              {hasWarning && <span fg={warningColor}> · {model.warning}</span>}
-              {hasHours && (
-                <span fg={mutedColor}> · {deploymentAvailabilityLabel}</span>
-              )}
-              {showCue && (
-                <span fg={theme.primary} attributes={TextAttributes.BOLD}>
-                  {' '.repeat(cuePad) + FOCUS_CUE}
-                </span>
-              )}
-            </>
+            <span fg={mutedColor}>{namePadding + model.tagline}</span>
+          )}
+          {showCue && (
+            <span fg={theme.primary} attributes={TextAttributes.BOLD}>
+              {' '.repeat(cuePad) + FOCUS_CUE}
+            </span>
           )}
         </text>
-        {wrapDetails && (hasWarning || hasHours) && (
+        {(hasWarning || hasHours) && (
           <text>
-            <span> </span>
+            <span>{' '.repeat(detailsIndent)}</span>
             {hasWarning && <span fg={warningColor}>{model.warning}</span>}
             {hasWarning && hasHours && <span fg={mutedColor}> · </span>}
             {hasHours && (

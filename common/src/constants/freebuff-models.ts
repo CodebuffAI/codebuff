@@ -7,6 +7,7 @@ import {
 import { mimoModels, moonshotModels, openrouterModels } from './model-config'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from './freebuff-model-ids'
 import {
@@ -16,6 +17,7 @@ import {
 
 export {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from './freebuff-model-ids'
 
@@ -62,7 +64,6 @@ export interface FreebuffModelOption {
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
-export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 /** DeepSeek V4 Flash served by Fireworks instead of DeepSeek's direct API.
  *  Used only by freebuff.com/chat, where Fireworks' faster inference is worth
  *  a slightly less capable serving stack. Not in SUPPORTED_FREEBUFF_MODELS or
@@ -409,8 +410,8 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // got Kimi hidden were provider-side; K2.7 Code is served via Infron pinned to
 // Alibaba us/eu (~3s warm-cache TTFT benchmarked).
 export const FREEBUFF_MODELS = [
-  MINIMAX_M3_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
+  MINIMAX_M3_MODEL,
   KIMI_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   DEEPSEEK_V4_FLASH_MODEL,
@@ -557,15 +558,17 @@ export type FreebuffWebModelId = (typeof FREEBUFF_WEB_ALL_MODELS)[number]['id']
 export type FreebuffWebPremiumModelId =
   (typeof FREEBUFF_WEB_PREMIUM_MODEL_IDS)[number]
 
-/** What new freebuff users see selected in the picker. MiniMax M3 is the
- *  strongest model (smartest & multimodal), so new users start with the best
- *  quality. It draws from the shared daily premium pool; pickers should call
+/** What new freebuff users see selected in the picker. DeepSeek V4 Pro is the
+ *  strongest model, so new users start with the best quality. It draws from the
+ *  shared daily premium pool; pickers should call
  *  getRecommendedFreebuffModelId with the live quota state so the hero flips
- *  to the unlimited flash model once the pool runs out.
+ *  to the unlimited flash model once the pool runs out. Note it carries the
+ *  AI-training notice (dataUse 'training'), which the picker renders as the
+ *  row's warning — so the default is a training-data model.
  *  Callers that need a guaranteed-available id for resolution /
  *  auto-fallbacks should use FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_MINIMAX_M3_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
  *  the model a new Cloud thread starts on. DeepSeek V4 Pro is a fraction of the
@@ -573,8 +576,10 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  browser surfaces — where a single build burns far more tokens than a CLI
  *  turn — steer to it by default.
  *
- *  Deliberately separate from DEFAULT_FREEBUFF_MODEL_ID (CLI/Desktop), which
- *  stays on MiniMax M3.
+ *  Kept as its own constant from DEFAULT_FREEBUFF_MODEL_ID (CLI/Desktop) so the
+ *  browser surfaces can steer on cost independently. The two currently resolve
+ *  to the same model — CLI/Desktop moved to DeepSeek V4 Pro as well — but a
+ *  change to one is not automatically a change to the other.
  *
  *  NOTE: unlike M3, DeepSeek V4 Pro carries FREEBUFF_AI_TRAINING_NOTICE
  *  (`dataUse: 'training'`), so any picker using this default MUST render the
@@ -701,7 +706,7 @@ export function getFreebuffModelsForAccessTier(
 
 /** The model the picker highlights as the "recommended" hero so a new user can
  *  start with one Enter press without scanning the full list. Full access →
- *  MiniMax M3 (the smartest, multimodal default — a premium model in the
+ *  DeepSeek V4 Pro (the smartest default — a premium model in the
  *  shared daily pool); limited → the always-available flash model. Pass
  *  `premiumExhausted` from the live quota snapshot so the hero flips to the
  *  unlimited DeepSeek Flash once the premium pool runs out — the recommended

@@ -56,8 +56,8 @@ import { minimaxModels } from '../constants/model-config'
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('freebuff model availability', () => {
-  test('defaults to MiniMax M3, falls back to DeepSeek V4 Flash for new clients', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(MINIMAX_M3_MODEL_ID)
+  test('defaults to DeepSeek V4 Pro, falls back to DeepSeek V4 Flash for new clients', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
@@ -449,8 +449,10 @@ describe('freebuff model availability', () => {
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(true)
-    // MiniMax M3 is the recommended default, so it leads the picker list.
-    expect(FREEBUFF_MODELS[0]!.id).toBe(MINIMAX_M3_MODEL_ID)
+    // DeepSeek V4 Pro is the recommended default, so it leads the picker list
+    // and M3 sits directly behind it.
+    expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(FREEBUFF_MODELS[1]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
@@ -493,10 +495,14 @@ describe('freebuff model availability', () => {
   })
 
   test('recommends a joinable, in-tier model for the picker hero', () => {
-    // Full access → MiniMax M3 (the smartest default, drawn from the shared
-    // premium pool) while the pool has sessions left.
-    expect(getRecommendedFreebuffModelId('full')).toBe(MINIMAX_M3_MODEL_ID)
-    expect(getRecommendedFreebuffModelId(undefined)).toBe(MINIMAX_M3_MODEL_ID)
+    // Full access → DeepSeek V4 Pro (the smartest default, drawn from the
+    // shared premium pool) while the pool has sessions left.
+    expect(getRecommendedFreebuffModelId('full')).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+    expect(getRecommendedFreebuffModelId(undefined)).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
     // Once the premium pool is exhausted the hero flips to the unlimited
     // DeepSeek V4 Flash so the one-Enter start is always joinable.
     expect(
@@ -518,7 +524,7 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('web/cloud recommend the cheaper DeepSeek V4 Pro, CLI stays on M3', () => {
+  test('web/cloud recommend the cheaper DeepSeek V4 Pro, like CLI/Desktop', () => {
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
@@ -528,8 +534,9 @@ describe('freebuff model availability', () => {
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
-    // The CLI/Desktop default is deliberately untouched by the web change.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(MINIMAX_M3_MODEL_ID)
+    // The two defaults stay separate constants, but CLI/Desktop has since
+    // moved to the same model, so they resolve alike.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     // Limited tier and an exhausted premium pool still resolve to a joinable
     // model, exactly like the CLI helper.
     expect(getRecommendedFreebuffWebModelId('limited')).toBe(

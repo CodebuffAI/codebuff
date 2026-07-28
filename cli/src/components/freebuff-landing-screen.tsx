@@ -435,7 +435,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // For the regular tiers the PREMIUM section header inside the expanded
   // picker carries this quota inline, so the below-picker line survives for
   // the limited tier (which has no premium section to host it) and for the
-  // collapsed picker — the collapsed recommended hero is premium (MiniMax M3)
+  // collapsed picker — the collapsed recommended hero is premium (DeepSeek V4 Pro)
   // while the pool has sessions left, so the count is exactly what Enter is
   // about to spend.
   const showSessionCounter = sharedSessionUsed > 0
@@ -511,8 +511,15 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     textMarginBottom +
     counterRows +
     belowPickerRows
+  // Floor = one whole recommended card: 2 border rows + its 2 text lines (name
+  // + tagline, then the AI-training warning on its own line). Rows grew from
+  // one text line to two when the warning stopped inlining, so the old floor of
+  // 3 left the card's bottom border clipped on a very short terminal. (The
+  // warning itself stays visible either way — scrollTop starts at 0, so it is
+  // the last row that gets cut, not the first.)
+  const MIN_SELECTOR_ROWS = 4
   const selectorMaxHeight = Math.max(
-    3,
+    MIN_SELECTOR_ROWS,
     terminalHeight - reservedChrome - landingTextRows,
   )
 
