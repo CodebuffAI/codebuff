@@ -5,6 +5,7 @@ import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
 } from './freebuff-gemini-thinker'
 import {
+  FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -67,19 +68,36 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
  * to. There is one variant per model because a bundled agent's model comes from
  * its definition, not from the request.
  *
- * Full access plans on DeepSeek V4 Pro. Limited regions may only use
- * LIMITED_FREEBUFF_MODEL_IDS, so they get their own variant rather than being
- * shut out of the feature.
+ * Full access plans on MiniMax M3. Planning is a short, reasoning-heavy
+ * conversation where model quality decides whether the plan is any good, and it
+ * burns a tiny fraction of the tokens a build does — so the surface's usual
+ * cost argument for DeepSeek does not apply here.
+ *
+ * Limited regions may only use LIMITED_FREEBUFF_MODEL_IDS, so they get their
+ * own variant rather than being shut out of the feature.
  *
  * Exported so the agent definitions, the planner UI's forced model, and the
  * "Start building" hand-off all read one set of values. They must agree: the
- * planner admits a free session bound to its model, and a build turn resolved
- * to a different model is rejected with session_model_mismatch.
+ * planner admits a free session bound to its model, and a turn resolved to a
+ * different model is rejected with session_model_mismatch.
  */
 export const CLOUD_PLANNER_AGENT_ID = 'base2-free-cloud-planner'
-export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_MINIMAX_M3_MODEL_ID
 export const CLOUD_PLANNER_LIMITED_AGENT_ID = 'base2-free-cloud-planner-limited'
 export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
+
+/**
+ * The model the build runs on after "Start building", deliberately separate
+ * from the planner's.
+ *
+ * The build is where the tokens are — one build outweighs its whole planning
+ * conversation by orders of magnitude — so it stays on DeepSeek V4 Pro for the
+ * same reason DEFAULT_FREEBUFF_WEB_MODEL_ID does. Splitting the two means the
+ * hand-off must admit a *new* free session bound to this model: a session is
+ * model-locked, and reusing the planner's would fail session_model_mismatch on
+ * the build's first request.
+ */
+export const CLOUD_BUILD_MODEL_ID = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /** The planner model a given access tier is permitted to run. */
 export function cloudPlannerModelForAccessTier(
@@ -88,6 +106,42 @@ export function cloudPlannerModelForAccessTier(
   return accessTier === 'limited'
     ? CLOUD_PLANNER_LIMITED_MODEL_ID
     : CLOUD_PLANNER_MODEL_ID
+}
+
+/** The build model a given access tier is permitted to run. Limited regions
+ *  build on the same model they plan on — it is the only one they may use. */
+export function cloudBuildModelForAccessTier(
+  accessTier: string | null | undefined,
+): string {
+  return accessTier === 'limited'
+    ? CLOUD_PLANNER_LIMITED_MODEL_ID
+    : CLOUD_BUILD_MODEL_ID
+}
+
+/**
+ * Models "Start building" may run on.
+ *
+ * The client picks which of these the build session is admitted on, because
+ * only the client learns that the premium pool is spent — so the id arrives
+ * from the browser and must be validated rather than trusted. Exactly two are
+ * allowed: the recommended build model, and the always-available unlimited
+ * fallback the user may choose when the premium pool is exhausted. Anything
+ * else falls back to CLOUD_BUILD_MODEL_ID, so a forged request cannot steer a
+ * free build onto an arbitrary model.
+ */
+export function isCloudBuildModelId(model: string | null | undefined): boolean {
+  return model === CLOUD_BUILD_MODEL_ID || model === FALLBACK_FREEBUFF_MODEL_ID
+}
+
+/** The build model to run for a request, after validating the client's choice.
+ *  Limited tiers need no special case here: runTriggerGates coerces whatever
+ *  this returns down to the one model that tier permits. */
+export function resolveCloudBuildModel(
+  requested: string | null | undefined,
+): string {
+  return isCloudBuildModelId(requested)
+    ? (requested as string)
+    : CLOUD_BUILD_MODEL_ID
 }
 
 /**

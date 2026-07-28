@@ -41,8 +41,13 @@ const inputSchema = z.object({
           .describe('The exact Gravity recommendation slug.'),
       }),
     )
+    // Defaulted rather than required: a planner that cannot cite a search_id
+    // must still be able to finalize. An incomplete credential list only costs
+    // the user a manual env var later, while a blocked call costs them the
+    // Start building button entirely.
+    .default([])
     .describe(
-      'Every selected Gravity service whose recommendation returned required API keys or environment variables. Use [] only when the plan needs no credential-bearing external service.',
+      'Every selected Gravity service whose recommendation returned required API keys or environment variables. Pass [] when the plan needs no credential-bearing external service, or when you have no exact search_id to cite.',
     ),
 })
 
@@ -51,13 +56,15 @@ const outputSchema = z.object({ message: z.string() })
 const description = `
 Mark a blank Freebuff Cloud project plan as ready for the user to approve.
 
-Call this only after:
-- You understand the product, users, core flows, and important constraints.
-- You have used gravity_index for every third-party service recommendation.
-- You have explained the proposed stack and answered the user's questions.
+Call this once you know what the product does and which technologies it uses:
+- You understand the product, its users, and its core flows.
+- You chose every technology in the stack with gravity_index.
+- You presented the stack and answered the user's questions about it.
 
 This does not start implementation. It makes a "Start building" button appear
-for the user. Do not call it while important requirements are unresolved.
+for the user, and that button is how the user approves the plan — do not ask
+them to confirm the plan before calling this, and never end a turn saying you
+are ready to finalize instead of calling it.
 
 ${$getNativeToolCallExampleString({
   toolName,

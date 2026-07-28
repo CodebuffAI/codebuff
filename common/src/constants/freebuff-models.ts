@@ -637,6 +637,22 @@ export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 3
  *  midnight Pacific time. */
 export const FREEBUFF_CLOUD_BLANK_PROJECT_DAILY_LIMIT = 5
 
+/** Per-project ceiling on custom-stack planner turns.
+ *
+ * The planner is a free premium-model chat that never touches a sandbox, so
+ * without a ceiling one blank project is an unbounded free MiniMax M3
+ * conversation — the cheapest abuse route into the premium pool, since it skips
+ * the VM work every other free surface pays for.
+ *
+ * Sized well above honest use: the prompt caps discovery at two question
+ * rounds, so a real conversation is a seed turn, two answers, and a few stack
+ * revisions. Hitting this means the plan is not converging.
+ *
+ * Only planning turns count. "Start building" is a separate mutation, so a user
+ * who exhausts the cap with a finished plan can still build — they just cannot
+ * keep chatting. */
+export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
+
 /** Models available to limited-region Freebuff Web users. They share the
  * limited-region session pool; every other model remains geo-gated. */
 export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
