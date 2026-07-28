@@ -3,7 +3,9 @@ import { describe, expect, test } from 'bun:test'
 import {
   canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
+  DEFAULT_FREEBUFF_WEB_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -31,6 +33,8 @@ import {
   getFreebuffWebModel,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
+  getRecommendedFreebuffWebModelId,
+  isFreebuffWebDeemphasizedModelId,
   isFreebuffDeploymentHours,
   isFreebuffTracedModelId,
   isFreebuffModelId,
@@ -512,6 +516,52 @@ describe('freebuff model availability', () => {
         (m) => m.id === getRecommendedFreebuffModelId('limited'),
       ),
     ).toBe(true)
+  })
+
+  test('web/cloud recommend the cheaper DeepSeek V4 Pro, CLI stays on M3', () => {
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+    expect(getRecommendedFreebuffWebModelId('full')).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+    expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+    // The CLI/Desktop default is deliberately untouched by the web change.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(MINIMAX_M3_MODEL_ID)
+    // Limited tier and an exhausted premium pool still resolve to a joinable
+    // model, exactly like the CLI helper.
+    expect(getRecommendedFreebuffWebModelId('limited')).toBe(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    expect(
+      getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
+    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    // The web default must be a real, selectable web model.
+    expect(isFreebuffWebModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(true)
+  })
+
+  test('de-emphasizes exactly the costly premium models, and never the default', () => {
+    expect(isFreebuffWebDeemphasizedModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isFreebuffWebDeemphasizedModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    // Suffix-tolerant like the other predicates, so a dated snapshot of a
+    // costly model can't slip back into the emphasized slot.
+    expect(
+      isFreebuffWebDeemphasizedModelId(`${FREEBUFF_KIMI_MODEL_ID}-20260301`),
+    ).toBe(true)
+    expect(
+      isFreebuffWebDeemphasizedModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID),
+    ).toBe(false)
+    expect(
+      isFreebuffWebDeemphasizedModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+    ).toBe(false)
+    expect(isFreebuffWebDeemphasizedModelId(null)).toBe(false)
+    // De-emphasis is presentation only: both models stay fully selectable.
+    for (const id of FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS) {
+      expect(isFreebuffWebModelId(id)).toBe(true)
+      expect(isFreebuffModelAllowedForAccessTier(id, 'full')).toBe(true)
+    }
   })
 
   test('full-access freebuff models can spawn the gemini-thinker subagent', () => {

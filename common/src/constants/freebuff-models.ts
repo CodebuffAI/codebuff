@@ -567,6 +567,41 @@ export type FreebuffWebPremiumModelId =
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_MINIMAX_M3_MODEL_ID
 
+/** What new Freebuff Web/Cloud users see selected in the browser pickers, and
+ *  the model a new Cloud thread starts on. DeepSeek V4 Pro is a fraction of the
+ *  per-token cost of MiniMax M3 / Kimi K2.7 at comparable quality, so the
+ *  browser surfaces — where a single build burns far more tokens than a CLI
+ *  turn — steer to it by default.
+ *
+ *  Deliberately separate from DEFAULT_FREEBUFF_MODEL_ID (CLI/Desktop), which
+ *  stays on MiniMax M3.
+ *
+ *  NOTE: unlike M3, DeepSeek V4 Pro carries FREEBUFF_AI_TRAINING_NOTICE
+ *  (`dataUse: 'training'`), so any picker using this default MUST render the
+ *  model's `warning` — a user must never land on a training-data model without
+ *  seeing that. */
+export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+
+/** Premium models the Web/Cloud picker renders small and muted: they are
+ *  materially more expensive per token than the recommended default without
+ *  being materially better for the browser surfaces' workloads. They stay
+ *  fully selectable — this only controls emphasis and ordering (they sort last
+ *  within the Premium group). */
+export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS = [
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
+] as const
+
+export function isFreebuffWebDeemphasizedModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
+}
+
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
  *  DEFAULT_FREEBUFF_MODEL_ID so a new user's "preferred default" can be the
@@ -662,6 +697,19 @@ export function getRecommendedFreebuffModelId(
   if (accessTier === 'limited') return LIMITED_FREEBUFF_MODEL_ID
   if (options.premiumExhausted) return FALLBACK_FREEBUFF_MODEL_ID
   return DEFAULT_FREEBUFF_MODEL_ID
+}
+
+/** The Web/Cloud counterpart of getRecommendedFreebuffModelId: full access →
+ *  DeepSeek V4 Pro (the cost-efficient browser default); limited → the
+ *  always-available flash model. `premiumExhausted` flips the hero to the
+ *  unlimited flash model so the recommended pick is always joinable. */
+export function getRecommendedFreebuffWebModelId(
+  accessTier: FreebuffAccessTier | null | undefined,
+  options: { premiumExhausted?: boolean } = {},
+): FreebuffWebModelId {
+  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODEL_ID
+  if (options.premiumExhausted) return FALLBACK_FREEBUFF_MODEL_ID
+  return DEFAULT_FREEBUFF_WEB_MODEL_ID
 }
 
 export function isFreebuffModelAllowedForAccessTier(
