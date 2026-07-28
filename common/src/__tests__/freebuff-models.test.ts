@@ -24,9 +24,11 @@ import {
   FREEBUFF_MODELS,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+  FREEBUFF_CROF_GLM_V52_SESSION_LIMIT,
   FREEBUFF_WEB_GOD_ONLY_MODELS,
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
+  FREEBUFF_WEB_STANDARD_MODEL_IDS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelImageSupport,
@@ -35,8 +37,12 @@ import {
   getRecommendedFreebuffModelId,
   getRecommendedFreebuffWebModelId,
   isFreebuffWebDeemphasizedModelId,
+  isFreebuffCrofGlmV52ModelId,
   isFreebuffDeploymentHours,
+  isFreebuffGlmV52ModelId,
+  isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffTracedModelId,
+  isFreebuffWebGeoExemptModelId,
   isFreebuffModelId,
   isFreebuffMultimodalModelId,
   isFreebuffModelAllowedForAccessTier,
@@ -48,6 +54,7 @@ import {
   isFreebuffWebPremiumModelId,
   isSupportedFreebuffModelId,
   resolveFreebuffWebModel,
+  resolveFreebuffWebModelForLimitedTier,
   resolveFreebuffModelForAccessTier,
 } from '../constants/freebuff-models'
 import type { FreebuffModelOption } from '../constants/freebuff-models'
@@ -267,28 +274,89 @@ describe('freebuff model availability', () => {
     ).toBe('Paid via OpenRouter')
   })
 
-  test('CrofAI GLM 5.2 is a god-only Freebuff Web test model', () => {
-    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
+  test('CrofAI GLM 5.2 is a selectable Freebuff Web model, not god-only', () => {
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
-    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
-    expect(isFreebuffWebModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(false)
-    expect(
-      isFreebuffWebModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID, {
-        includeGodOnly: true,
-      }),
-    ).toBe(true)
+    expect(isFreebuffWebModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(true)
     expect(isFreebuffWebGodOnlyModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      true,
+      false,
     )
-    expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      true,
+    // Non-god users must resolve to the model itself now that it is un-gated.
+    expect(resolveFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
     expect(
       getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).displayName,
-    ).toBe('GLM 5.2 (Crof)')
+    ).toBe('GLM 5.2')
+  })
+
+  test('CrofAI GLM 5.2 is metered by its own pool, not the premium pool', () => {
+    // It renders as a premium model but must NEVER draw from the shared daily
+    // premium pool — that is what keeps its one-a-day cap independent.
+    expect(getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).premium).toBe(
+      true,
+    )
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      false,
+    )
+    expect(isFreebuffCrofGlmV52ModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      true,
+    )
+    // ...nor from the weekly referral GLM pool, nor the standard browser pool.
+    expect(isFreebuffGlmV52ModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(false)
+    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+      FREEBUFF_CROF_GLM_V52_MODEL_ID,
+    )
+    expect(FREEBUFF_CROF_GLM_V52_SESSION_LIMIT).toBe(1)
+  })
+
+  test('every Web picker model falls into exactly one quota group', () => {
+    // The Web/Cloud picker groups rows by these three predicates (referral GLM,
+    // CrofAI GLM, premium) and treats the remainder as Standard. Each group is
+    // metered by a different pool, so a model matching two — or a premium model
+    // matching none and silently landing in the free Standard group — is a quota
+    // bug, not a cosmetic one.
+    for (const model of FREEBUFF_WEB_MODELS) {
+      const groups = [
+        isFreebuffGlmV52ModelId(model.id),
+        isFreebuffCrofGlmV52ModelId(model.id),
+        isFreebuffWebPremiumModelId(model.id),
+      ].filter(Boolean)
+      expect({ id: model.id, groups: groups.length }).toEqual({
+        id: model.id,
+        // Zero groups means the Standard pool, which is only correct for a
+        // model that is not marked premium.
+        groups: model.premium ? 1 : 0,
+      })
+    }
+  })
+
+  test('CrofAI GLM 5.2 is unavailable to limited-region users', () => {
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_CROF_GLM_V52_MODEL_ID),
+    ).toBe(false)
+    expect(isFreebuffWebGeoExemptModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      false,
+    )
+    expect(
+      resolveFreebuffWebModelForLimitedTier(FREEBUFF_CROF_GLM_V52_MODEL_ID),
+    ).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    expect(
+      isFreebuffSessionModelAllowedForAccessTier(
+        FREEBUFF_CROF_GLM_V52_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(false)
+    expect(
+      isFreebuffSessionModelAllowedForAccessTier(
+        FREEBUFF_CROF_GLM_V52_MODEL_ID,
+        'full',
+      ),
+    ).toBe(true)
   })
 
   test('Poolside Laguna S 2.1 routes are god-only Freebuff Web test models', () => {
