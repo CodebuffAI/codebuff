@@ -259,6 +259,15 @@ describe('free mode agent model allowlist', () => {
     ).toBe(true)
   })
 
+  test("never allows Codebuff lite's paid model on the legacy reviewer id", () => {
+    // code-reviewer-lite belongs to Codebuff's paid lite mode now. The legacy
+    // entry exists for released freebuff clients that pin a free model to that
+    // id — a free session must never reach the paid one.
+    expect(
+      isFreeModeAllowedAgentModel('code-reviewer-lite', 'openai/gpt-5.6-luna'),
+    ).toBe(false)
+  })
+
   test('allows every Freebuff Desktop root variant with every desktop model', () => {
     const desktopModels = [
       MINIMAX_M3_MODEL_ID,

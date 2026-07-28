@@ -13,8 +13,17 @@ import { createBase2 } from '../base2/base2'
 import codeReviewerLite from '../reviewer/code-reviewer-lite'
 
 describe('base2 reviewer selection', () => {
-  test('Codebuff lite uses MiniMax M3 and its matching reviewer', () => {
+  test('Codebuff lite uses GPT-5.6 Luna and the lite reviewer', () => {
     const base2 = createBase2('lite')
+
+    expect(base2.model).toBe('openai/gpt-5.6-luna')
+    expect(base2.spawnableAgents).toContain('code-reviewer-lite')
+    expect(base2.instructionsPrompt).toContain('Spawn a code-reviewer-lite')
+    expect(base2.stepPrompt).toContain('spawn a code-reviewer-lite')
+  })
+
+  test('free mode still uses MiniMax M3 and its matching reviewer', () => {
+    const base2 = createBase2('free')
 
     expect(base2.model).toBe(FREEBUFF_MINIMAX_M3_MODEL_ID)
     expect(base2.spawnableAgents).toContain('code-reviewer-minimax-m3')
@@ -24,8 +33,33 @@ describe('base2 reviewer selection', () => {
     expect(base2.stepPrompt).toContain('spawn a code-reviewer-minimax-m3')
   })
 
-  test('legacy lite reviewer definition uses DeepSeek V4 Flash', () => {
-    expect(codeReviewerLite.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  test('the lite reviewer runs the same model as lite mode', () => {
+    expect(codeReviewerLite.model).toBe('openai/gpt-5.6-luna')
+  })
+
+  test('a free model without a matching reviewer falls back to DeepSeek Flash', () => {
+    // Never code-reviewer-lite: that one runs Codebuff's paid lite model now,
+    // which free mode is not allowed to spend on.
+    const base2 = createBase2('free', { model: 'some/unmapped-free-model' })
+
+    expect(base2.spawnableAgents).toContain('code-reviewer-deepseek-flash')
+    expect(base2.spawnableAgents).not.toContain('code-reviewer-lite')
+    expect(base2.instructionsPrompt).toContain(
+      'Spawn a code-reviewer-deepseek-flash',
+    )
+  })
+
+  test('free mode cannot reach the paid reviewer even on lite’s own model', () => {
+    // Reviewer lookup is per product. Sharing one model-keyed table between
+    // them let a freebuff agent pointed at lite's model resolve to the paid
+    // code-reviewer-lite, which a free session is not allowed to spend on.
+    const base2 = createBase2('free', { model: 'openai/gpt-5.6-luna' })
+
+    expect(base2.spawnableAgents).not.toContain('code-reviewer-lite')
+    expect(base2.spawnableAgents).toContain('code-reviewer-deepseek-flash')
+    expect(base2.systemPrompt).not.toContain('code-reviewer-lite')
+    expect(base2.instructionsPrompt).not.toContain('code-reviewer-lite')
+    expect(base2.stepPrompt).not.toContain('code-reviewer-lite')
   })
 
   test.each([
@@ -41,6 +75,200 @@ describe('base2 reviewer selection', () => {
     expect(base2.spawnableAgents).toContain(expectedReviewer)
     expect(base2.instructionsPrompt).toContain(`Spawn a ${expectedReviewer}`)
     expect(base2.stepPrompt).toContain(`spawn a ${expectedReviewer}`)
+  })
+
+  test('the reviewer follows the model, not the mode', () => {
+    // Overriding lite's model moves the reviewer with it, the same way the
+    // context-pruner budget and provider routing follow the model.
+    const base2 = createBase2('lite', { model: FREEBUFF_KIMI_MODEL_ID })
+
+    expect(base2.spawnableAgents).toContain('code-reviewer-kimi')
+    expect(base2.spawnableAgents).not.toContain('code-reviewer-lite')
+  })
+})
+
+describe('base2 gemini thinker', () => {
+  const GEMINI_THINKER = 'thinker-with-files-gemini'
+
+  test('lite gets the same gemini thinker as free mode', () => {
+    const lite = createBase2('lite')
+
+    expect(lite.spawnableAgents).toContain(GEMINI_THINKER)
+    expect(lite.systemPrompt).toContain(GEMINI_THINKER)
+    expect(lite.instructionsPrompt).toContain(GEMINI_THINKER)
+    expect(lite.stepPrompt).toContain(GEMINI_THINKER)
+  })
+
+  test('lite keeps it regardless of model, unlike free mode', () => {
+    // The parent-model set gates free-session admission to Gemini Pro on an
+    // unbilled path. Lite is billed, so the completions gate exempts it.
+    expect(
+      createBase2('lite', { model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID })
+        .spawnableAgents,
+    ).toContain(GEMINI_THINKER)
+    expect(
+      createBase2('free', { model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID })
+        .spawnableAgents,
+    ).not.toContain(GEMINI_THINKER)
+    expect(createBase2('free').spawnableAgents).toContain(GEMINI_THINKER)
+  })
+
+  test.each(['default', 'max'] as const)('%s mode does not get it', (mode) => {
+    expect(createBase2(mode).spawnableAgents).not.toContain(GEMINI_THINKER)
+  })
+})
+
+describe('base2 escalation guidance', () => {
+  test('lite names one escalation path and prices it honestly', () => {
+    // Per million tokens: lite ~$0.25/$1.50, gemini-3.1-pro $1.00/$6.00,
+    // gpt-5.4 $1.25/$7.50. The two thinkers sit in the same band, so lite
+    // cannot claim one is cheap and the other extravagant.
+    const systemPrompt = createBase2('lite').systemPrompt!
+
+    expect(systemPrompt).toContain(
+      "thinker-with-files-gemini agent is lite mode's one escalation path",
+    )
+    expect(systemPrompt).toContain(
+      'several times more expensive per token than lite itself',
+    )
+    expect(systemPrompt).toContain(
+      'Do not spawn thinker-gpt unless the user asks for it',
+    )
+    expect(systemPrompt).toContain('costs about the same per token')
+    expect(systemPrompt).toContain('DEFAULT or MAX mode')
+    // The rationale must be Codebuff's cost story, not Freebuff's.
+    expect(systemPrompt).not.toContain('ChatGPT subscription')
+  })
+
+  test('lite never argues against its own escalation path', () => {
+    // The incoherence this replaces: lite was told thinker-gpt was too
+    // expensive while being encouraged toward a thinker costing about as much.
+    const systemPrompt = createBase2('lite').systemPrompt!
+
+    expect(systemPrompt).toContain('Spawn the thinker-with-files-gemini agent')
+    expect(systemPrompt).not.toMatch(/Do not spawn[^.]*thinker-with-files/)
+  })
+
+  test('both thinkers stay spawnable so an explicit request still works', () => {
+    const lite = createBase2('lite')
+
+    expect(lite.spawnableAgents).toContain('thinker-gpt')
+    expect(lite.spawnableAgents).toContain('thinker-with-files-gemini')
+  })
+
+  test('free mode keeps its own Freebuff-worded restriction', () => {
+    const free = createBase2('free').systemPrompt!
+
+    expect(free).toContain(
+      'Do not spawn the thinker-gpt agent, unless the user asks',
+    )
+    expect(free).toContain('ChatGPT subscription to Freebuff')
+    expect(free).not.toContain('escalation path')
+  })
+
+  test.each(['default', 'max'] as const)(
+    '%s mode is left unrestricted',
+    (mode) => {
+      // The full-price modes are meant to reach for deeper reasoning.
+      const systemPrompt = createBase2(mode).systemPrompt!
+
+      expect(systemPrompt).not.toContain('Do not spawn thinker-gpt')
+      expect(systemPrompt).not.toContain('Do not spawn the thinker-gpt agent')
+      expect(systemPrompt).not.toContain('escalation path')
+    },
+  )
+})
+
+describe('base2 product branding', () => {
+  const CREDITS_LINE =
+    "Every prompt sent consumes the user's credits, which is calculated based on the API cost of the models used."
+
+  test('lite is branded as paid Codebuff, not as Freebuff', () => {
+    // Lite charges credits. It used to inherit free mode's branding and tell
+    // paying users they were coding with AI for free.
+    const systemPrompt = createBase2('lite').systemPrompt
+
+    expect(systemPrompt).toContain('the product, Codebuff')
+    expect(systemPrompt).toContain('# Codebuff Meta-information')
+    expect(systemPrompt).not.toContain('Freebuff')
+    expect(systemPrompt).not.toContain('for free')
+    expect(systemPrompt).not.toContain('freebuff.com')
+  })
+
+  test('lite gets the paid meta-information block every other paid mode gets', () => {
+    const lite = createBase2('lite').systemPrompt
+
+    expect(lite).toContain(CREDITS_LINE)
+    expect(lite).toContain('"/usage"')
+    expect(lite).toContain('codebuff.com/docs')
+    // The mode list the block recites should name lite as well.
+    expect(lite).toContain('DEFAULT, LITE, MAX, or PLAN')
+    // And lite introduces itself exactly as the other paid modes do.
+    expect(lite!.split('\n')[0]).toBe(
+      createBase2('default').systemPrompt!.split('\n')[0],
+    )
+  })
+
+  test('free mode keeps its Freebuff branding', () => {
+    const free = createBase2('free').systemPrompt
+
+    expect(free).toContain('the product, Freebuff')
+    expect(free).toContain('to code with AI for free')
+    expect(free).toContain('# Freebuff Meta-information')
+    expect(free).toContain('freebuff.com')
+    expect(free).not.toContain(CREDITS_LINE)
+    expect(free).not.toContain('"/usage"')
+  })
+
+  test('rebranding lite left its lean orchestration shape untouched', () => {
+    const lite = createBase2('lite')
+    const free = createBase2('free')
+    const paid = createBase2('default')
+
+    // Lean modes edit directly instead of proposing edits.
+    expect(lite.toolNames).not.toContain('propose_str_replace')
+    expect(lite.toolNames).not.toContain('propose_write_file')
+    expect(free.toolNames).not.toContain('propose_str_replace')
+    expect(paid.toolNames).toContain('propose_str_replace')
+
+    // And they review with the cheap reviewer rather than spawning an editor.
+    expect(lite.spawnableAgents).toContain('code-reviewer-lite')
+    expect(lite.spawnableAgents).not.toContain('editor')
+  })
+})
+
+describe('base2 provider routing', () => {
+  test('every mode refuses providers that may keep the data', () => {
+    // The privacy policy's no-training promise is made to every user, so paid
+    // modes must assert this too, not just the free tier. Verified against
+    // OpenRouter: deny still serves luna, gemini-pro, minimax-m3 and opus.
+    for (const mode of ['default', 'free', 'lite', 'max', 'fast'] as const) {
+      expect(createBase2(mode).providerOptions).toMatchObject({
+        data_collection: 'deny',
+      })
+    }
+  })
+
+  test('Claude additionally comes from Bedrock', () => {
+    expect(createBase2('default').providerOptions).toEqual({
+      only: ['amazon-bedrock'],
+      data_collection: 'deny',
+    })
+    // Bedrock serves no OpenAI or MiMo endpoint, so non-Claude models get the
+    // deny without a provider pin.
+    expect(createBase2('lite').providerOptions).toEqual({
+      data_collection: 'deny',
+    })
+    expect(
+      createBase2('default', { model: FREEBUFF_MIMO_V25_PRO_MODEL_ID })
+        .providerOptions,
+    ).toEqual({ data_collection: 'deny' })
+  })
+
+  test('an explicit providerOptions override wins', () => {
+    expect(
+      createBase2('free', { providerOptions: {} }).providerOptions,
+    ).toEqual({})
   })
 })
 

@@ -32,6 +32,20 @@ export const JudgingResultSchema = z.object({
 
 export type JudgingResult = z.infer<typeof JudgingResultSchema>
 
+/** One judge's own verdict, kept alongside the panel average. */
+export interface JudgeScore {
+  judgeId: string
+  overallScore?: number
+  completionScore?: number
+  codeQualityScore?: number
+  failed?: boolean
+}
+
+/** The panel's aggregate, plus what each judge said before averaging. */
+export type PanelJudgingResult = JudgingResult & {
+  judgeScores?: JudgeScore[]
+}
+
 const judgeAgentBase: Omit<AgentDefinition, 'id' | 'model'> = {
   displayName: 'Judge',
   toolNames: ['set_output'],
@@ -132,11 +146,22 @@ const judgeAgents: Record<string, AgentDefinition> = {
     ...judgeAgentBase,
   },
   'judge-sonnet': {
-    id: 'judge-claude',
+    id: 'judge-sonnet',
     model: 'anthropic/claude-sonnet-4.6',
     ...judgeAgentBase,
   },
 }
+
+/**
+ * The judges that actually score a run.
+ *
+ * Not judge-gemini: Gemini Pro is gated to the gemini-thinker subagent
+ * server-side, so that judge 403s with free_mode_gemini_thinker_required on
+ * every task. It failed silently for a long time — failures are dropped and the
+ * remaining judge still reports a confident number — which meant scores billed
+ * as a median were really one model's opinion.
+ */
+const ACTIVE_JUDGE_IDS = ['judge-gpt', 'judge-sonnet'] as const
 
 interface JudgeCommitResultInput {
   client: CodebuffClient
@@ -213,7 +238,7 @@ async function runSingleJudge(
 
 export async function judgeCommitResult(
   input: JudgeCommitResultInput,
-): Promise<JudgingResult> {
+): Promise<PanelJudgingResult> {
   const { commit, contextFiles, agentDiff, error, finalCheckOutputs } = input
 
   const { prompt, fileDiffs } = commit
@@ -246,16 +271,24 @@ ${agentDiff || '(No changes made)'}
 ${error ? `\n## Error Encountered\n${error}` : ''}
 ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` : ''}`
 
-  // Run 2 judges in parallel
-  const judgePromises = [
-    runSingleJudge(input, judgePrompt, 'judge-gpt'),
-    runSingleJudge(input, judgePrompt, 'judge-gemini'),
-  ]
-
-  const judgeResults = await Promise.all(judgePromises)
+  const judgeResults = await Promise.all(
+    ACTIVE_JUDGE_IDS.map((judgeAgentId) =>
+      runSingleJudge(input, judgePrompt, judgeAgentId),
+    ),
+  )
   const validResults = judgeResults.filter(
     (result): result is JudgingResult => result !== null,
   )
+
+  // A dead judge used to vanish into a console.warn, leaving a "median" that
+  // was really a single model's score. Say so loudly instead.
+  const failedJudges = ACTIVE_JUDGE_IDS.filter((_, i) => !judgeResults[i])
+  if (failedJudges.length > 0 && validResults.length > 0) {
+    console.warn(
+      `⚠️  Judge panel degraded for ${commit.id}: ${failedJudges.join(', ')} failed. ` +
+        `Scoring from ${validResults.length}/${ACTIVE_JUDGE_IDS.length} judges.`,
+    )
+  }
 
   if (validResults.length === 0) {
     console.error('All judges failed to provide results')
@@ -268,6 +301,20 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
       overallScore: 0,
     }
   }
+
+  // Keep what each judge said on its own. The averages hide disagreement, and
+  // a panel that splits 8 vs 4 on the same diff is worth knowing about.
+  const judgeScores = ACTIVE_JUDGE_IDS.map((judgeId, i) => {
+    const result = judgeResults[i]
+    return result
+      ? {
+          judgeId,
+          overallScore: result.overallScore,
+          completionScore: result.completionScore,
+          codeQualityScore: result.codeQualityScore,
+        }
+      : { judgeId, failed: true }
+  })
 
   // Sort judges by overall score and select the median for analysis
   const sortedResults = validResults.sort(
@@ -299,5 +346,6 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
     completionScore: averageCompletionScore,
     codeQualityScore: averageCodeQualityScore,
     overallScore: averageOverallScore,
+    judgeScores,
   }
 }

@@ -34,7 +34,7 @@ BuffBench evaluates coding agents by having them reconstruct actual git commits 
 
 3. **Judging System** (`judge.ts`)
    - Uses AI (GPT-5) to score implementations
-   - Runs 3 parallel judges and takes median for robustness
+   - Runs 2 parallel judges (GPT and Sonnet), averaging their scores and keeping the median judge's analysis; warns loudly if one fails, since a silently-dropped judge turns the panel into a single opinion
    - Compares agent output against ground truth git diffs
    - Provides detailed analysis with strengths and weaknesses
    - Scores on three dimensions: completion, code quality, and overall

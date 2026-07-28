@@ -266,8 +266,15 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
   'code-reviewer-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
-  // Legacy freebuff clients spawned code-reviewer-lite under provider-specific
-  // free roots before those reviewer IDs existed.
+  // Wire compatibility only — NOT a freebuff agent. `code-reviewer-lite` now
+  // belongs to Codebuff's paid lite mode and is spawned by no freebuff root and
+  // shipped in no freebuff bundle. Released clients from before the
+  // provider-specific reviewer IDs existed still spawn the id with one of the
+  // free models below pinned in their own definitions, and this entry is what
+  // keeps those sessions working.
+  //
+  // Never add lite's model here: it is a paid OpenAI model, and a free session
+  // must not be able to reach it.
   'code-reviewer-lite': new Set([
     FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
