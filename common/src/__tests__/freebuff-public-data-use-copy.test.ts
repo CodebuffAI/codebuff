@@ -55,7 +55,7 @@ describe('public Freebuff data-use copy', () => {
         title:
           'We’ve updated our Terms and Privacy Policy, effective July 23, 2026.',
         summary:
-          'We may use prompts to personalize ads, and AI training applies only to labeled models or features. Updated usage restrictions cover account limits, automated use, direct endpoint access, and location spoofing.',
+          'Prompts may be used to personalize ads, AI training applies only to labeled models or features, and usage restrictions were updated.',
       },
     })
   })
