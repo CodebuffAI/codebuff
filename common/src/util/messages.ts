@@ -123,44 +123,66 @@ function assistantToCodebuffMessage(
   return cloneDeep({ ...message, content: [message.content] })
 }
 
+/** A tool message answering `message`'s call, carrying `output`. */
+function toolResultMessage(
+  message: ToolMessage,
+  output: Extract<ToolResultOutput, { type: 'json' }>,
+): ModelMessageWithAuxiliaryData {
+  return cloneDeep<ToolModelMessage>({
+    ...message,
+    role: 'tool',
+    content: [{ ...message, output, type: 'tool-result' }],
+  })
+}
+
+const EMPTY_TOOL_OUTPUT = { type: 'json', value: '' } as const
+
 function convertToolResultMessage(
   message: ToolMessage,
 ): ModelMessageWithAuxiliaryData[] {
   if (message.content.length === 0) {
-    return [
-      cloneDeep<ToolModelMessage>({
-        ...message,
-        role: 'tool',
-        content: [
-          {
-            ...message,
-            output: { type: 'json', value: '' },
-            type: 'tool-result',
-          },
-        ],
-      }),
-    ]
+    return [toolResultMessage(message, EMPTY_TOOL_OUTPUT)]
   }
-  return message.content.map((c) => {
+  // A `media` part becomes a *user* message, because providers do not accept
+  // images inside a tool message. Emit every tool message first regardless of
+  // the part order, so the results still immediately follow the assistant's
+  // tool_calls — otherwise a tool that returns [media, json] (which is the
+  // order preview_screenshot uses, so the model sees pixels before the note)
+  // puts a user message between the call and its result. Providers reject that
+  // outright ("tool call result does not follow tool call"), and the server's
+  // repair drops the call and the result as an unpaired pair.
+  const toolMessages: ModelMessageWithAuxiliaryData[] = []
+  const mediaMessages: ModelMessageWithAuxiliaryData[] = []
+  for (const c of message.content) {
     if (c.type === 'json') {
-      return cloneDeep<ToolModelMessage>({
-        ...message,
-        role: 'tool',
-        content: [{ ...message, output: c, type: 'tool-result' }],
-      })
+      toolMessages.push(toolResultMessage(message, c))
+      continue
     }
     if (c.type === 'media') {
-      return cloneDeep<UserMessage>({
-        ...message,
-        role: 'user',
-        content: [{ type: 'file', data: c.data, mediaType: c.mediaType }],
-      })
+      mediaMessages.push(
+        cloneDeep<UserMessage>({
+          ...message,
+          role: 'user',
+          content: [{ type: 'file', data: c.data, mediaType: c.mediaType }],
+        }),
+      )
+      continue
     }
     c satisfies never
     throw new Error(
       `Invalid tool output type: ${(c as { type: unknown }).type}`,
     )
-  })
+  }
+
+  // Media-only output (see `mediaToolResult`) would otherwise emit a user
+  // message and no tool message at all, leaving the call permanently
+  // unanswered — the same unpaired-tool-call failure, just reached a different
+  // way. Answer it with the empty result the no-content branch already uses.
+  if (toolMessages.length === 0) {
+    toolMessages.push(toolResultMessage(message, EMPTY_TOOL_OUTPUT))
+  }
+
+  return [...toolMessages, ...mediaMessages]
 }
 
 function convertToolMessage(message: Message): ModelMessageWithAuxiliaryData[] {

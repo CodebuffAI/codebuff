@@ -302,7 +302,19 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: false,
       })
 
+      // The image rides a user message (providers reject images inside a tool
+      // message), but the call still has to be answered or it is an unpaired
+      // tool call — which providers reject and the server's repair then strips.
       expect(result).toEqual([
+        expect.objectContaining({
+          role: 'tool',
+          content: [
+            expect.objectContaining({
+              toolCallId: 'call_123',
+              type: 'tool-result',
+            }),
+          ],
+        }),
         expect.objectContaining({
           role: 'user',
           content: [
