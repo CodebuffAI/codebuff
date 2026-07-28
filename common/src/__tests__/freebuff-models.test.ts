@@ -14,6 +14,7 @@ import {
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_LING_3_FLASH_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -37,6 +38,7 @@ import {
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
   isFreebuffWebGodOnlyModelId,
+  isFreebuffWebModelAllowedForLimitedTier,
   isFreebuffWebModelId,
   isFreebuffWebMultimodalModelId,
   isFreebuffWebPremiumModelId,
@@ -245,9 +247,9 @@ describe('freebuff model availability', () => {
     expect(
       isFreebuffWebPremiumModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID),
     ).toBe(true)
-    expect(
-      resolveFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID),
-    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(resolveFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID)).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
     expect(
       resolveFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID, {
         includeGodOnly: true,
@@ -337,6 +339,62 @@ describe('freebuff model availability', () => {
       getFreebuffWebModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID)
         .displayName,
     ).toBe('Laguna S 2.1 (OpenRouter)')
+  })
+
+  test('Ling 3.0 Flash is a god-only Freebuff Web/Cloud test model', () => {
+    // The wire id must stay OpenRouter's own slug: getChatCompletionsProvider
+    // has no Ling-specific branch, so it only reaches OpenRouter by falling
+    // through to the default route with the slug intact.
+    expect(FREEBUFF_LING_3_FLASH_MODEL_ID).toBe(
+      'inclusionai/ling-3.0-flash:free',
+    )
+
+    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_LING_3_FLASH_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_LING_3_FLASH_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_LING_3_FLASH_MODEL_ID,
+    )
+
+    expect(isFreebuffWebModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelId(FREEBUFF_LING_3_FLASH_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(true)
+    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+      true,
+    )
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+      true,
+    )
+    // Never reachable from the CLI/Desktop picker or a limited-tier browser.
+    expect(isFreebuffPremiumModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(false)
+    expect(isFreebuffModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_LING_3_FLASH_MODEL_ID),
+    ).toBe(false)
+
+    expect(resolveFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
+    expect(
+      resolveFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(FREEBUFF_LING_3_FLASH_MODEL_ID)
+
+    const model = getFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID)
+    expect(model.displayName).toBe('Ling 3.0 Flash')
+    expect(model.tagline).toBe('Free via OpenRouter')
+    expect(model.experimental).toBe(true)
+    expect(model.multimodal).toBe(false)
+    expect(getFreebuffModelImageSupport(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+      false,
+    )
   })
 
   test('KAT Coder Pro V2 is fully retired from Freebuff Web and Cloud', () => {

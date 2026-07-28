@@ -97,6 +97,12 @@ export const FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID = 'poolside/laguna-s-2.1'
  *  from Poolside's direct API. OpenRouter receives `poolside/laguna-s-2.1`. */
 export const FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID =
   'openrouter/poolside/laguna-s-2.1'
+/** God-mode-only Ling 3.0 Flash (inclusionAI), a 124B MoE served free by
+ *  OpenRouter. The id is OpenRouter's own slug, so it falls through to the
+ *  default OpenRouter route with no provider-specific handler. Free endpoints
+ *  are metered by OpenRouter per-account, so keep this god-only until its
+ *  throughput under real turns is known. */
+export const FREEBUFF_LING_3_FLASH_MODEL_ID = 'inclusionai/ling-3.0-flash:free'
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
@@ -371,6 +377,20 @@ const POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL = {
   experimental: true,
 } as const satisfies FreebuffModelOption
 
+const LING_3_FLASH_MODEL = {
+  id: FREEBUFF_LING_3_FLASH_MODEL_ID,
+  displayName: 'Ling 3.0 Flash',
+  tagline: 'Free via OpenRouter',
+  availability: 'always',
+  // OpenRouter's free endpoints route to providers that may retain and train
+  // on prompts, and the bundled agent opts into data_collection.
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
+  premium: true,
+  multimodal: false,
+  experimental: true,
+} as const satisfies FreebuffModelOption
+
 export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MIMO_V25_PRO_MODEL,
@@ -414,6 +434,7 @@ export const FREEBUFF_WEB_MODELS = [
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
+  LING_3_FLASH_MODEL,
   POOLSIDE_LAGUNA_S_21_MODEL,
   POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL,
   HY3_OPENROUTER_PAID_MODEL,
@@ -426,6 +447,7 @@ export const FREEBUFF_WEB_ALL_MODELS = [
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
+  FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
@@ -439,6 +461,7 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
+  FREEBUFF_LING_3_FLASH_MODEL_ID,
 ] as const
 
 /** Full-access Web/Cloud models sharing the browser-only standard daily pool. */

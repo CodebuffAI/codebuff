@@ -12,6 +12,7 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
@@ -63,6 +64,12 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
       ),
     ).toBe('base2-free-laguna-s-2-1-openrouter')
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+      'base2-free-ling-3-flash',
+    )
+    // Root ids must also be registered, or the chat-completions hierarchy gate
+    // 403s the subagents this root spawns.
+    expect(isFreebuffRootAgent('base2-free-ling-3-flash')).toBe(true)
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
@@ -158,6 +165,15 @@ describe('free mode agent model allowlist', () => {
         'base2-free-laguna-s-2-1',
         FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
       ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-ling-3-flash',
+        FREEBUFF_LING_3_FLASH_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_LING_3_FLASH_MODEL_ID),
     ).toBe(false)
   })
 

@@ -13,6 +13,7 @@ import {
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -66,7 +67,7 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
  * to. There is one variant per model because a bundled agent's model comes from
  * its definition, not from the request.
  *
- * Full access plans on MiniMax M3. Limited regions may only use
+ * Full access plans on DeepSeek V4 Pro. Limited regions may only use
  * LIMITED_FREEBUFF_MODEL_IDS, so they get their own variant rather than being
  * shut out of the feature.
  *
@@ -76,9 +77,8 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
  * to a different model is rejected with session_model_mismatch.
  */
 export const CLOUD_PLANNER_AGENT_ID = 'base2-free-cloud-planner'
-export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_MINIMAX_M3_MODEL_ID
-export const CLOUD_PLANNER_LIMITED_AGENT_ID =
-  'base2-free-cloud-planner-limited'
+export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+export const CLOUD_PLANNER_LIMITED_AGENT_ID = 'base2-free-cloud-planner-limited'
 export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
 
 /** The planner model a given access tier is permitted to run. */
@@ -120,6 +120,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-glm-crof',
   'base2-free-laguna-s-2-1',
   'base2-free-laguna-s-2-1-openrouter',
+  'base2-free-ling-3-flash',
   // Freebuff Web trial orchestrators (freebuff_bundled_agents.ts). Every root
   // id in FREE_MODE_AGENT_MODELS that can spawn subagents MUST also be listed
   // here, or the chat-completions hierarchy gate 403s the subagents with
@@ -152,6 +153,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]: 'base2-free-laguna-s-2-1',
   [FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID]:
     'base2-free-laguna-s-2-1-openrouter',
+  [FREEBUFF_LING_3_FLASH_MODEL_ID]: 'base2-free-ling-3-flash',
 }
 
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
@@ -221,11 +223,12 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-laguna-s-2-1-openrouter': new Set([
     FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   ]),
+  'base2-free-ling-3-flash': new Set([FREEBUFF_LING_3_FLASH_MODEL_ID]),
   'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
   'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID]),
   // Freebuff Cloud custom-stack planner (freebuff_bundled_agents.ts). One
   // variant per model, each allowed exactly the model its definition pins.
-  'base2-free-cloud-planner': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
+  'base2-free-cloud-planner': new Set([CLOUD_PLANNER_MODEL_ID]),
   'base2-free-cloud-planner-limited': new Set([LIMITED_FREEBUFF_MODEL_ID]),
 
   // Every Freebuff Desktop hosted root variant allows the full desktop picker
