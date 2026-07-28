@@ -7,7 +7,6 @@ import {
   assembleLocalAgentTemplates,
   getAgentTemplate,
 } from './templates/agent-registry'
-import { dedupeClientToolResults } from './util/messages'
 
 import type { AgentTemplate } from './templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
@@ -186,42 +185,11 @@ export async function callMainPrompt(
   action.sessionState.mainAgentState.directCreditsUsed = 0
 
   // Add any extra tool results (e.g. from user-executed terminal commands) to message history
-  // This allows the AI to see context from commands run between prompts.
-  //
-  // Skip ids that already carry a result. These arrive from public SDK input
-  // (`run({ extraToolResults })`), and a caller retrying after a failed run has
-  // no way to know whether its results were recorded before the failure — the
-  // returned RunState is replayable, so the safe thing for it to do is resend.
-  // A repeated tool_call_id then makes providers reject the whole history
-  // ("Duplicate value for 'tool_call_id' of X in message[N]"), which wedges
-  // every later turn in that conversation, not just this one.
-  //
-  // Matching on existing *results* rather than on every id keeps the legitimate
-  // case working: answering a tool call that is still pending in history.
+  // This allows the AI to see context from commands run between prompts
   if (action.toolResults && action.toolResults.length > 0) {
-    const { messageHistory } = action.sessionState.mainAgentState
-    const { fresh, duplicates } = dedupeClientToolResults({
-      messageHistory,
-      toolResults: action.toolResults,
-    })
-
-    if (duplicates.length > 0) {
-      logger.warn(
-        {
-          userId: (params as { userId?: string }).userId,
-          promptId,
-          duplicateCount: duplicates.length,
-          acceptedCount: fresh.length,
-          toolNames: [...new Set(duplicates.map((r) => r.toolName))],
-          messageCount: messageHistory.length,
-        },
-        'Skipped client tool results for already-answered tool calls',
-      )
-    }
-
-    if (fresh.length > 0) {
-      messageHistory.push(...fresh)
-    }
+    action.sessionState.mainAgentState.messageHistory.push(
+      ...action.toolResults,
+    )
   }
 
   // Assemble local agent templates from fileContext

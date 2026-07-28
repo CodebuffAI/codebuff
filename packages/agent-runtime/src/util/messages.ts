@@ -15,10 +15,7 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type {
-  Message,
-  ToolMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   TextPart,
   ImagePart,
@@ -361,53 +358,6 @@ export function filterUnfinishedToolCalls(messages: Message[]): Message[] {
   }
 
   return filteredMessages
-}
-
-/**
- * Splits client-supplied tool results into those the history has room for and
- * those that would repeat a `tool_call_id` already answered.
- *
- * These arrive from public SDK input (`run({ extraToolResults })`). A caller
- * retrying after a failed run cannot tell whether its results were recorded
- * before the failure — the returned RunState is replayable — so resending them
- * is the reasonable thing for it to do. Appending blindly would put the same
- * `tool_call_id` in the history twice, which providers reject outright
- * ("Duplicate value for 'tool_call_id' of X in message[N]") and which then
- * fails every later turn in that conversation, not just this one.
- *
- * Matching on ids that already have a *result* rather than on every id in the
- * history is what keeps the legitimate case working: a result may answer a tool
- * call that is still pending. Duplicates within `toolResults` itself are caught
- * too, since each accepted id is claimed as it goes.
- *
- * Pure by design (no logger dependency): callers log `duplicates` with their own
- * request context.
- */
-export function dedupeClientToolResults(params: {
-  messageHistory: Message[]
-  toolResults: ToolMessage[]
-}): { fresh: ToolMessage[]; duplicates: ToolMessage[] } {
-  const { messageHistory, toolResults } = params
-
-  const answeredToolCallIds = new Set<string>()
-  for (const message of messageHistory) {
-    if (message.role === 'tool') {
-      answeredToolCallIds.add(message.toolCallId)
-    }
-  }
-
-  const fresh: ToolMessage[] = []
-  const duplicates: ToolMessage[] = []
-  for (const toolResult of toolResults) {
-    if (answeredToolCallIds.has(toolResult.toolCallId)) {
-      duplicates.push(toolResult)
-      continue
-    }
-    answeredToolCallIds.add(toolResult.toolCallId)
-    fresh.push(toolResult)
-  }
-
-  return { fresh, duplicates }
 }
 
 export function getEditedFiles(params: {

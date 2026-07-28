@@ -19,16 +19,12 @@ import {
   messagesWithSystem,
   getPreviouslyReadFiles,
   filterUnfinishedToolCalls,
-  dedupeClientToolResults,
   buildUserMessageContent,
 } from '../../util/messages'
 import * as tokenCounter from '../token-counter'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
-import type {
-  Message,
-  ToolMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   TextPart,
   ToolCallPart,
@@ -986,101 +982,5 @@ describe('getPreviouslyReadFiles', () => {
 
     const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([])
-  })
-})
-
-describe('dedupeClientToolResults', () => {
-  const toolResult = (
-    toolCallId: string,
-    toolName = 'run_terminal_command',
-  ): ToolMessage => ({
-    role: 'tool',
-    toolName,
-    toolCallId,
-    content: jsonToolResult({ stdout: 'ok' }),
-  })
-
-  const pendingCall = (toolCallId: string) =>
-    assistantMessage({
-      type: 'tool-call',
-      toolCallId,
-      toolName: 'run_terminal_command',
-      input: { command: 'ls' },
-    })
-
-  it('accepts results for calls that have no answer yet', () => {
-    const { fresh, duplicates } = dedupeClientToolResults({
-      messageHistory: [userMessage('go'), pendingCall('a')],
-      toolResults: [toolResult('a')],
-    })
-
-    expect(fresh).toHaveLength(1)
-    expect(duplicates).toEqual([])
-  })
-
-  it('accepts a result whose id is nowhere in the history', () => {
-    // The documented use: context from a command the user ran between prompts,
-    // which never had a matching tool call.
-    const { fresh, duplicates } = dedupeClientToolResults({
-      messageHistory: [userMessage('go')],
-      toolResults: [toolResult('freestanding')],
-    })
-
-    expect(fresh).toHaveLength(1)
-    expect(duplicates).toEqual([])
-  })
-
-  it('skips a result whose call was already answered', () => {
-    // The retry case: the run failed after the result was recorded, so the
-    // caller resends it against the replayable state it got back.
-    const { fresh, duplicates } = dedupeClientToolResults({
-      messageHistory: [userMessage('go'), pendingCall('a'), toolResult('a')],
-      toolResults: [toolResult('a')],
-    })
-
-    expect(fresh).toEqual([])
-    expect(duplicates).toHaveLength(1)
-    expect(duplicates[0].toolCallId).toBe('a')
-  })
-
-  it('keeps the fresh results when only some are duplicates', () => {
-    const { fresh, duplicates } = dedupeClientToolResults({
-      messageHistory: [toolResult('a')],
-      toolResults: [toolResult('a'), toolResult('b')],
-    })
-
-    expect(fresh.map((r) => r.toolCallId)).toEqual(['b'])
-    expect(duplicates.map((r) => r.toolCallId)).toEqual(['a'])
-  })
-
-  it('catches duplicates inside the incoming batch', () => {
-    const { fresh, duplicates } = dedupeClientToolResults({
-      messageHistory: [],
-      toolResults: [toolResult('a'), toolResult('a')],
-    })
-
-    expect(fresh).toHaveLength(1)
-    expect(duplicates).toHaveLength(1)
-  })
-
-  it('does not mutate its inputs', () => {
-    const messageHistory: Message[] = [toolResult('a')]
-    const toolResults = [toolResult('a'), toolResult('b')]
-    const historyBefore = JSON.stringify(messageHistory)
-    const resultsBefore = JSON.stringify(toolResults)
-
-    dedupeClientToolResults({ messageHistory, toolResults })
-
-    expect(JSON.stringify(messageHistory)).toBe(historyBefore)
-    expect(JSON.stringify(toolResults)).toBe(resultsBefore)
-  })
-
-  it('handles an empty batch', () => {
-    expect(
-      dedupeClientToolResults({
-        messageHistory: [toolResult('a')],
-        toolResults: [],
-      }),
-    ).toEqual({ fresh: [], duplicates: [] })
   })
 })
