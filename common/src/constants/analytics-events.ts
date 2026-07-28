@@ -336,6 +336,7 @@ export enum AnalyticsEvent {
   // often do users hit the orphaned-CLI zombie?" in the field.
   DESKTOP_SHUTDOWN_TURNS_ABORTED = 'desktop.shutdown_turns_aborted',
   DESKTOP_ORPHANS_REAPED = 'desktop.orphans_reaped',
+  DESKTOP_WORKTREES_RECLAIMED = 'desktop.worktrees_reclaimed',
   DESKTOP_TURNS_RESURRECTED = 'desktop.turns_resurrected',
   // Passive stall detector: a turn produced no harness stream activity for the
   // configured window. Telemetry ONLY — the turn is not aborted. Join to
