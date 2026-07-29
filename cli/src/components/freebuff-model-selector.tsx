@@ -87,7 +87,10 @@ const TOGGLE_ID = '__freebuff_toggle__'
 // Its width is reserved in the line-1 width budget below so the cue never
 // overflows or wraps the row (a wrap would desync the focused-row scroll math).
 const FOCUS_CUE = 'Press Enter ↵'
-const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
+// Min gap between a row's tagline and the focused-row cue. Now that the
+// centered details line no longer stretches the card, this gap is what sets
+// the hero's breathing room — 2 left the cue jammed against the tagline.
+const CUE_GAP = 4
 
 /**
  * Pre-chat model picker (session 'none'): user hasn't started a session yet.
@@ -104,7 +107,7 @@ const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
  * UNLIMITED sections so the tier is visible without a per-row chip; the shared
  * premium-session quota rides the PREMIUM header. Names align in a column
  * so taglines line up across rows, and the secondary details (warning /
- * deployment hours) always sit on their own indented line under the name —
+ * deployment hours) always sit on their own centered line under the name —
  * keeping a row with a warning from stretching into one very long line. On
  * terminals too narrow for the name column, line 1 compacts to "name · tagline".
  *
@@ -122,11 +125,18 @@ interface FreebuffModelSelectorProps {
    *  screen uses it to promote the wordmark to the full ASCII logo while the
    *  picker is collapsed (the freed rows make room). */
   onExpandedChange?: (expanded: boolean) => void
+  /** Rendered between the expand/collapse toggle and the referral banner. The
+   *  landing screen passes its session counter here so the quota sits with the
+   *  models it describes, leaving the referral pitch and its copy control
+   *  adjacent as one unit. Lives inside the scrollbox, so it scrolls with the
+   *  rest of the content rather than being pinned below it. */
+  belowToggle?: React.ReactNode
 }
 
 export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   maxHeight,
   onExpandedChange,
+  belowToggle,
 }) => {
   const theme = useTheme()
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
@@ -318,10 +328,10 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const NAME_GAP = 2 // spaces between name column and details column
 
   // Rows are two lines: line 1 is the identity (name + tagline), line 2 carries
-  // the secondary details (AI-training warning · deployment hours). The warning
-  // ALWAYS gets its own line rather than being appended to line 1 — the
-  // recommended hero carries the training notice, and inlining it made that row
-  // one very long line that dominated the landing screen.
+  // the secondary details (AI-training warning · deployment hours), centered.
+  // The warning ALWAYS gets its own line rather than being appended to line 1 —
+  // the recommended hero carries the training notice, and inlining it made that
+  // row one very long line that dominated the landing screen.
   //
   // Line 1 is normally two columns: a fixed name column (padded to the longest
   // displayName across all rows) followed by the tagline, so taglines align
@@ -332,8 +342,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const {
     compactNames,
     buttonOuterWidth,
+    buttonInnerWidth,
     nameColumnWidth,
-    detailsIndent,
     recommendedLabelLen,
   } = useMemo(() => {
     const maxNameLen = Math.max(
@@ -358,53 +368,48 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     const compactLabelLen = (m: FreebuffModelOption) =>
       2 + m.displayName.length + 3 /* " · " */ + m.tagline.length
 
-    // Line 2, or 0 for a row with neither warning nor hours. Indented to sit
-    // under line 1's details column.
-    const detailsLineLen = (m: FreebuffModelOption, indent: number) => {
-      const parts = detailsParts(m)
-      return parts.length === 0 ? 0 : indent + joinedLen(parts)
-    }
+    // Line 2, or 0 for a row with neither warning nor hours. Centered in the
+    // card rather than indented under line 1's details column — the notice is
+    // a footnote about the row as a whole, and right-flushing it against the
+    // border (which the old indent did on the widest row) read as ragged.
+    // Centering means it only needs its own length to fit, so it no longer
+    // stretches the card.
+    const detailsLineLen = (m: FreebuffModelOption) => joinedLen(detailsParts(m))
 
     // The cue lives only on the recommended hero, so only its line needs to fit
     // the "Press Enter ↵" gutter. Folding that into the max means longer rows
     // keep their natural width — the buttons widen only if the recommended
     // row + cue is the longest line.
-    const innerWidth = (
-      labelLen: (m: FreebuffModelOption) => number,
-      indent: number,
-    ) =>
+    const innerWidth = (labelLen: (m: FreebuffModelOption) => number) =>
       Math.max(
-        ...availableModels.map((m) =>
-          Math.max(labelLen(m), detailsLineLen(m, indent)),
-        ),
+        ...availableModels.map((m) => Math.max(labelLen(m), detailsLineLen(m))),
         labelLen(recommendedModel) + CUE_GAP + FOCUS_CUE.length,
       )
 
-    const columnIndent = 2 + maxNameLen + NAME_GAP
-    const columnOuter = innerWidth(columnLabelLen, columnIndent) + BUTTON_CHROME
+    const columnInner = innerWidth(columnLabelLen)
+    const columnOuter = columnInner + BUTTON_CHROME
     if (columnOuter <= contentMaxWidth) {
       return {
         compactNames: false,
         buttonOuterWidth: columnOuter,
+        buttonInnerWidth: columnInner,
         nameColumnWidth: maxNameLen,
-        detailsIndent: columnIndent,
         // Returned so the render path can right-align the cue against the same
         // length the gutter was reserved for — no reserve/consume drift.
         recommendedLabelLen: columnLabelLen(recommendedModel),
       }
     }
 
-    // Narrow: drop the name padding so line 1 reads "name · tagline", and pull
-    // the details line back to a plain indent.
-    const compactIndent = 2
+    // Narrow: drop the name padding so line 1 reads "name · tagline".
+    const compactOuter = Math.min(
+      innerWidth(compactLabelLen) + BUTTON_CHROME,
+      contentMaxWidth,
+    )
     return {
       compactNames: true,
-      buttonOuterWidth: Math.min(
-        innerWidth(compactLabelLen, compactIndent) + BUTTON_CHROME,
-        contentMaxWidth,
-      ),
+      buttonOuterWidth: compactOuter,
+      buttonInnerWidth: compactOuter - BUTTON_CHROME,
       nameColumnWidth: maxNameLen,
-      detailsIndent: compactIndent,
       recommendedLabelLen: compactLabelLen(recommendedModel),
     }
   }, [
@@ -616,6 +621,19 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     const hasHours = model.availability === 'deployment_hours'
     const hasWarning = !!model.warning
 
+    // Line 2 (warning · hours) is centered in the card. Spaces render verbatim,
+    // so center by hand-padding the left. Clamped at 0 for the narrow mode,
+    // where buttonInnerWidth is capped by contentMaxWidth and the line may be
+    // wider than the card.
+    const detailsLen =
+      (hasWarning ? model.warning!.length : 0) +
+      (hasWarning && hasHours ? 3 : 0) +
+      (hasHours ? deploymentAvailabilityLabel.length : 0)
+    const detailsPad = Math.max(
+      0,
+      Math.floor((buttonInnerWidth - detailsLen) / 2),
+    )
+
     // Spaces inside <span>s render verbatim, so we hand-pad the name to align
     // taglines into a column. nameColumnWidth is the longest name across all
     // rows, so the diff is >= 0; +NAME_GAP guarantees breathing room even on
@@ -679,7 +697,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         </text>
         {(hasWarning || hasHours) && (
           <text>
-            <span>{' '.repeat(detailsIndent)}</span>
+            <span>{' '.repeat(detailsPad)}</span>
             {hasWarning && <span fg={warningColor}>{model.warning}</span>}
             {hasWarning && hasHours && <span fg={mutedColor}> · </span>}
             {hasHours && (
@@ -727,11 +745,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // single-card view.
   const toggleFocused = focusedId === TOGGLE_ID
   const toggleHovered = hoveredId === TOGGLE_ID
-  const toggleColor = toggleFocused
-    ? theme.primary
-    : toggleHovered
-      ? theme.foreground
-      : theme.muted
+  // Same treatment as the referral banner's inline copy control, the other
+  // borderless action on this screen: white at rest so it reads as a control
+  // rather than body copy, accent green once focused or hovered.
+  const toggleColor =
+    toggleFocused || toggleHovered ? theme.primary : theme.foreground
   const toggleLabel = expanded
     ? '↑  Show fewer'
     : `↓  See all ${availableModels.length} models`
@@ -807,6 +825,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         {renderModelButton(recommendedModel, { recommended: true })}
         {sectionsContent}
         {toggleContent}
+        {belowToggle}
         {referral && (
           <FreebuffReferralBanner
             width={buttonOuterWidth}

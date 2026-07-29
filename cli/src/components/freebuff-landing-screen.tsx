@@ -477,17 +477,15 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // a wrapped counter is accounted for precisely instead of guessed at.
   const wrappedRows = (text: string) =>
     Math.max(1, Math.ceil(text.length / contentMaxWidth))
-  const counterText =
-    `${formattedSharedSessionUsed} of ${sessionLimit} ${sessionLabel} used, ` +
-    `resets in ${sessionResetCountdown}`
   const logoBlockRows = showFullLogo
     ? 8 /* 6 logo lines + marginBottom + gap */
     : 0
   const adRows = showAds ? AD_CARD_HEIGHT : 0
-  // Status lines render below the picker, each with marginTop 1: the session
-  // counter (landing only), then the limited-mode notice, then the streak.
-  // They still eat into the picker's height budget regardless of being above
-  // or below it. Placement varies: on a wide landing screen the streak shares
+  // Status lines render below the picker, each with marginTop 1: the
+  // limited-mode notice, then the streak. They still eat into the picker's
+  // height budget regardless of being above or below it. (The session counter
+  // used to sit here too; it now rides inside the selector — see below.)
+  // Placement varies: on a wide landing screen the streak shares
   // the heading row (0 extra rows, already counted in landingTextRows); on a
   // narrow landing screen it drops to its own line under the heading (1 row,
   // no top margin).
@@ -499,18 +497,16 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   const streakBonusRows = streakBonusNote
     ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
     : 0
-  // The referral/GLM card now lives inside the model selector's scrollbox, so
-  // only genuinely fixed status lines below the selector reduce its viewport.
+  // The referral/GLM card and the session counter both live inside the model
+  // selector's scrollbox now (the counter rides `belowToggle`, between the
+  // expand toggle and the referral pitch), so only genuinely fixed status
+  // lines below the selector reduce its viewport. Anything inside the
+  // scrollbox is measured by the selector itself and must NOT be reserved
+  // here as well, or the viewport shrinks while the content grows.
   const belowPickerRows = streakRows + noticeRows + streakBonusRows
-  const counterRows = showBelowPickerCounter
-    ? 1 /* marginTop */ + wrappedRows(counterText)
-    : 0
   const reservedChrome = 2 + adRows + 1 /* main paddingBottom */ + logoBlockRows
   const landingTextRows =
-    wrappedRows(LANDING_HEADING) +
-    textMarginBottom +
-    counterRows +
-    belowPickerRows
+    wrappedRows(LANDING_HEADING) + textMarginBottom + belowPickerRows
   // Floor = one whole recommended card: 2 border rows + its 2 text lines (name
   // + tagline, then the AI-training warning on its own line). Rows grew from
   // one text line to two when the warning stopped inlining, so the old floor of
@@ -646,25 +642,27 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
               <FreebuffModelSelector
                 maxHeight={selectorMaxHeight}
                 onExpandedChange={setSelectorExpanded}
+                belowToggle={
+                  showBelowPickerCounter ? (
+                    <text
+                      style={{
+                        fg: theme.muted,
+                        marginTop: 1,
+                        wrapMode: 'word',
+                      }}
+                    >
+                      <span fg={sessionUsedColor}>
+                        {formattedSharedSessionUsed} of {sessionLimit}{' '}
+                        {sessionLabel} used
+                      </span>
+                      <span fg={theme.muted}>
+                        {', '}
+                        resets in {sessionResetCountdown}
+                      </span>
+                    </text>
+                  ) : null
+                }
               />
-              {showBelowPickerCounter && (
-                <text
-                  style={{
-                    fg: theme.muted,
-                    marginTop: 1,
-                    wrapMode: 'word',
-                  }}
-                >
-                  <span fg={sessionUsedColor}>
-                    {formattedSharedSessionUsed} of {sessionLimit}{' '}
-                    {sessionLabel} used
-                  </span>
-                  <span fg={theme.muted}>
-                    {', '}
-                    resets in {sessionResetCountdown}
-                  </span>
-                </text>
-              )}
               {limitedModeNotice && (
                 <text
                   style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}

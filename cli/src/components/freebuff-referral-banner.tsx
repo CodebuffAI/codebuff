@@ -52,17 +52,29 @@ const shouldStackFreebuffReferralActions = (width: number): boolean =>
 const firstLabelThatFits = (
   availableWidth: number,
   labels: readonly string[],
+  chrome: number = BUTTON_HORIZONTAL_CHROME,
 ): string =>
-  labels.find(
-    (label) => label.length + BUTTON_HORIZONTAL_CHROME <= availableWidth,
-  ) ?? labels.at(-1)!
+  labels.find((label) => label.length + chrome <= availableWidth) ??
+  labels.at(-1)!
 
 /**
- * A bordered, button-styled "copy invite link" control. Reads as clickable
- * (rounded border + hover/keyboard-focus highlight) and flips to an accent
- * "✔ Copied!" confirmation for a couple seconds after a successful copy.
- * Presentational: the copy action and copied flag are owned by the banner so
- * the same action can be fired by keyboard navigation from the model picker.
+ * A "copy invite link" control, in one of two weights. Flips to an accent
+ * "✔ Copied!" confirmation for a couple seconds after a successful copy in
+ * both. Presentational: the copy action and copied flag are owned by the
+ * banner so the same action can be fired by keyboard navigation from the
+ * model picker.
+ *
+ *   - 'bordered' — a rounded box that reads as a button. Used inside the
+ *     unlocked GLM card, where it sits beside the "Use GLM 5.2 ↵" button and
+ *     has to match it.
+ *   - 'inline' — no box; focus/hover shown by color alone, exactly like the
+ *     picker's "See all N models" toggle. Used in the two LOCKED states,
+ *     which render on the landing screen directly under the recommended card:
+ *     a second bordered box there competes with the hero for the eye, and the
+ *     hero is what Enter actually does. Sits one row down (like the toggle) so
+ *     whitespace, not a border, separates it from the pitch above — and rests
+ *     at `foreground` rather than `muted`, since unlike the toggle it is
+ *     adjacent to muted body copy it must not blend into.
  */
 const CopyInviteLinkButton: React.FC<{
   isCopied: boolean
@@ -70,17 +82,52 @@ const CopyInviteLinkButton: React.FC<{
   onCopy: () => void
   availableWidth: number
   labels?: readonly string[]
+  variant?: 'bordered' | 'inline'
 }> = ({
   isCopied,
   focused,
   onCopy,
   availableWidth,
   labels = ['⎘ Copy invite link', '⎘ Copy link', '⎘ Copy'],
+  variant = 'bordered',
 }) => {
   const theme = useTheme()
   const [isHovered, setIsHovered] = useState(false)
-  const label = firstLabelThatFits(availableWidth, labels)
-  const copiedLabel = firstLabelThatFits(availableWidth, ['✔ Copied!', '✔'])
+  const inline = variant === 'inline'
+  // Borderless labels spend no columns on chrome, so they fit at widths the
+  // boxed variant would have had to abbreviate at.
+  const chrome = inline ? 0 : BUTTON_HORIZONTAL_CHROME
+  const label = firstLabelThatFits(availableWidth, labels, chrome)
+  const copiedLabel = firstLabelThatFits(
+    availableWidth,
+    ['✔ Copied!', '✔'],
+    chrome,
+  )
+  const highlighted = isCopied || focused || isHovered
+
+  if (inline) {
+    return (
+      <Button
+        id={COPY_FOCUS_ID}
+        onClick={onCopy}
+        onMouseOver={() => setIsHovered(true)}
+        onMouseOut={() => setIsHovered(false)}
+        style={{ marginTop: 1, flexShrink: 0 }}
+      >
+        <text style={{ wrapMode: 'none' }}>
+          <span
+            fg={highlighted ? theme.primary : theme.foreground}
+            attributes={
+              isCopied || focused ? TextAttributes.BOLD : TextAttributes.NONE
+            }
+          >
+            {isCopied ? copiedLabel : label}
+          </span>
+        </text>
+      </Button>
+    )
+  }
+
   // Keyboard focus and mouse hover share the highlighted look; a keyboard-
   // focused row gets the brighter accent border so it matches the picker's
   // focused-row treatment above it.
@@ -128,13 +175,26 @@ const CopyInviteLinkButton: React.FC<{
  * reward — and the presentation — depends on the session's access tier:
  *
  *   - LIMITED tier: referrals earn a daily free-session bonus (not GLM). One
- *     quiet muted line ("refer friends → more sessions per day") + the copy
- *     button, so it advertises the perk without crowding the picker.
+ *     quiet muted line ("refer friends → more sessions per day") + the inline
+ *     copy control, so it advertises the perk without crowding the picker.
  *   - FULL tier, UNLOCKED (you have weekly GLM sessions): a flashy accent-
  *     bordered card with your remaining sessions and a prominent "Use GLM 5.2 ↵"
  *     launch button, so the reward feels earned and inviting.
  *   - FULL tier, LOCKED (no GLM sessions yet): a single quiet muted line
  *     inviting referrals.
+ *
+ * Both LOCKED states render on the landing screen under the recommended model
+ * card, so their copy control is borderless — the hero card stays the only
+ * bordered element there. The UNLOCKED card is a screen of its own making: the
+ * reward is earned, so it gets a box and boxed buttons.
+ *
+ * Every locked-state pitch is sized to fit its tier's card width on ONE line
+ * (the banner wraps at `buttonOuterWidth`, not the terminal width) and ends
+ * in a colon that hands off to the inline copy control below it. Now that the
+ * control is borderless it no longer announces itself as a button, so the
+ * colon is what carries the eye down to it. The one exception is the
+ * limited-tier at-cap line: referring more earns nothing there, so it ends
+ * flat rather than pointing at an action that would not pay off.
  *
  * Renders nothing unless the server attached a `referral` block, so
  * pre-referral-code users never see it.
@@ -209,7 +269,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           gap: 0,
           marginTop: 1,
           // Never let a height-starved landing column squash the banner — that
-          // would draw the bordered copy button on top of the line above it.
+          // would draw the copy control on top of the pitch line above it.
           flexShrink: 0,
         }}
       >
@@ -225,7 +285,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
                 from referrals
                 {atCap
                   ? ''
-                  : ` — refer more (${qualifiedCount}/${REFERRAL_CLI_DAILY_SESSION_BONUS_CAP}):`}
+                  : ` · refer more (${qualifiedCount}/${REFERRAL_CLI_DAILY_SESSION_BONUS_CAP}):`}
               </span>
             </>
           ) : (
@@ -239,6 +299,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           focused={copyFocused}
           onCopy={copy}
           availableWidth={width}
+          variant="inline"
         />
       </box>
     )
@@ -267,7 +328,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           gap: 0,
           marginTop: 1,
           // Never let a height-starved landing column squash the banner — that
-          // would draw the bordered copy button on top of the line above it.
+          // would draw the copy control on top of the pitch line above it.
           flexShrink: 0,
         }}
       >
@@ -278,17 +339,15 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
               <span fg={theme.foreground}>GLM 5.2</span>
               <span fg={theme.muted}>
                 {' '}
-                — weekly sessions used, resets in {resetsIn}. Refer more (
-                {qualifiedCount}/{FREEBUFF_GLM_V52_REFERRAL_CAP}):
+                refills in {resetsIn} · refer more ({qualifiedCount}/
+                {FREEBUFF_GLM_V52_REFERRAL_CAP}):
               </span>
             </>
           ) : (
             <>
-              <span fg={theme.muted}>Refer friends to access </span>
+              <span fg={theme.muted}>Refer friends → </span>
               <span fg={theme.foreground}>GLM 5.2</span>
-              <span fg={theme.muted}>
-                , the most powerful open-source model:
-              </span>
+              <span fg={theme.muted}>, top open-source model:</span>
             </>
           )}
         </text>
@@ -297,6 +356,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           focused={copyFocused}
           onCopy={copy}
           availableWidth={width}
+          variant="inline"
         />
       </box>
     )
