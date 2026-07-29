@@ -362,11 +362,23 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       return parts
     }
 
+    // Append a compact image indicator (" · Images", 9 chars) to the
+    // tagline on line 1 so it never occupies its own line.
+    const multimodalSuffixLen = 9
+
     // Line 1, in each mode.
     const columnLabelLen = (m: FreebuffModelOption) =>
-      2 /* indicator + space */ + maxNameLen + NAME_GAP + m.tagline.length
+      2 /* indicator + space */ +
+      maxNameLen +
+      NAME_GAP +
+      m.tagline.length +
+      (m.multimodal ? multimodalSuffixLen : 0)
     const compactLabelLen = (m: FreebuffModelOption) =>
-      2 + m.displayName.length + 3 /* " · " */ + m.tagline.length
+      2 +
+      m.displayName.length +
+      3 /* " · " */ +
+      m.tagline.length +
+      (m.multimodal ? multimodalSuffixLen : 0)
 
     // Line 2, or 0 for a row with neither warning nor hours. Centered in the
     // card rather than indented under line 1's details column — the notice is
@@ -685,9 +697,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             {model.displayName}
           </span>
           {compactNames ? (
-            <span fg={mutedColor}> · {model.tagline}</span>
+            <span fg={mutedColor}>
+              {' · ' + model.tagline + (model.multimodal ? ' · Images' : '')}
+            </span>
           ) : (
-            <span fg={mutedColor}>{namePadding + model.tagline}</span>
+            <span fg={mutedColor}>
+              {namePadding + model.tagline + (model.multimodal ? ' · Images' : '')}
+            </span>
           )}
           {showCue && (
             <span fg={theme.primary} attributes={TextAttributes.BOLD}>
