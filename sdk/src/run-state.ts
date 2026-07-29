@@ -64,11 +64,27 @@ export type RunState = {
   traceSessionId: string
 }
 
+/** Result of indexing `projectFiles`: the file tree plus tree-sitter token
+ *  scores. Deterministic for a given file set, so hosts that run many
+ *  sessions over the same files (e.g. the Freebuff web runner, one process
+ *  serving consecutive turns of a thread) can compute it once with
+ *  `computeProjectIndexFromFiles` and pass it back via the `projectIndex`
+ *  option instead of paying the tree-sitter parse (CPU + wasm memory) on
+ *  every run. */
+export type ComputedProjectIndex = {
+  fileTree: FileTreeNode[]
+  fileTokenScores: Record<string, any>
+  tokenCallers: Record<string, any>
+}
+
 export type InitialSessionStateOptions = {
   cwd?: string
   /** Optional directory path to load skills from. When provided, skills are loaded from this directory instead of the default locations. */
   skillsDir?: string
   projectFiles?: Record<string, string>
+  /** Precomputed index for exactly these `projectFiles` (see
+   *  ComputedProjectIndex). Ignored when `projectFiles` is absent. */
+  projectIndex?: ComputedProjectIndex
   knowledgeFiles?: Record<string, string>
   /** User-provided knowledge files that will be merged with home directory files */
   userKnowledgeFiles?: Record<string, string>
@@ -178,6 +194,25 @@ async function computeProjectIndex(params: ProjectIndexInput): Promise<{
   }
 
   return { fileTree, fileTokenScores, tokenCallers }
+}
+
+/**
+ * Standalone version of the index build `run()` performs internally when
+ * given `projectFiles`. Hosts can call this once per distinct file set and
+ * feed the result to subsequent runs via the `projectIndex` option.
+ */
+export async function computeProjectIndexFromFiles(params: {
+  cwd: string
+  projectFiles: Record<string, string>
+}): Promise<ComputedProjectIndex> {
+  const input = getProjectIndexInput({
+    cwd: params.cwd,
+    projectFiles: params.projectFiles,
+  })
+  if (!input) {
+    return { fileTree: [], fileTokenScores: {}, tokenCallers: {} }
+  }
+  return computeProjectIndex(input)
 }
 
 function getProjectIndexInput(params: {
@@ -591,14 +626,28 @@ export async function initialSessionState(
   let fileTokenScores: Record<string, any> = {}
   let tokenCallers: Record<string, any> = {}
 
-  const projectIndex = cwd
-    ? getProjectIndexInput({ cwd, fs, logger, projectFiles, discoveredProject })
-    : undefined
-  if (projectIndex) {
-    const result = await computeProjectIndex(projectIndex)
-    fileTree = result.fileTree
-    fileTokenScores = result.fileTokenScores
-    tokenCallers = result.tokenCallers
+  if (params.projectIndex && projectFiles !== undefined) {
+    // Host supplied the index for these exact projectFiles — skip the
+    // tree-sitter parse entirely.
+    fileTree = params.projectIndex.fileTree
+    fileTokenScores = params.projectIndex.fileTokenScores
+    tokenCallers = params.projectIndex.tokenCallers
+  } else {
+    const projectIndex = cwd
+      ? getProjectIndexInput({
+          cwd,
+          fs,
+          logger,
+          projectFiles,
+          discoveredProject,
+        })
+      : undefined
+    if (projectIndex) {
+      const result = await computeProjectIndex(projectIndex)
+      fileTree = result.fileTree
+      fileTokenScores = result.fileTokenScores
+      tokenCallers = result.tokenCallers
+    }
   }
 
   // Gather git changes if cwd is available
@@ -732,6 +781,9 @@ export async function applyOverridesToSessionState(
   baseSessionState: SessionState,
   overrides: {
     projectFiles?: Record<string, string>
+    /** Precomputed index for exactly these `projectFiles` (see
+     *  ComputedProjectIndex). Ignored when `projectFiles` is absent. */
+    projectIndex?: ComputedProjectIndex
     knowledgeFiles?: Record<string, string>
     agentDefinitions?: AgentDefinition[]
     customToolDefinitions?: CustomToolDefinition[]
@@ -750,7 +802,15 @@ export async function applyOverridesToSessionState(
 
   // Apply projectFiles override (recomputes file tree and token scores)
   if (overrides.projectFiles !== undefined) {
-    if (cwd) {
+    if (overrides.projectIndex) {
+      // Host supplied the index for these exact projectFiles — skip the
+      // tree-sitter parse entirely.
+      sessionState.fileContext.fileTree = overrides.projectIndex.fileTree
+      sessionState.fileContext.fileTokenScores =
+        overrides.projectIndex.fileTokenScores
+      sessionState.fileContext.tokenCallers =
+        overrides.projectIndex.tokenCallers
+    } else if (cwd) {
       const projectIndex = getProjectIndexInput({
         cwd,
         projectFiles: overrides.projectFiles,

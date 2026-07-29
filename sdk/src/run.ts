@@ -33,6 +33,7 @@ import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
+import type { ComputedProjectIndex } from './run-state'
 import { changeFile } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
@@ -105,6 +106,10 @@ export type CodebuffClientOptions = {
   /** Optional directory path to load skills from. Skills found here will be available to the `skill` tool. */
   skillsDir?: string
   projectFiles?: Record<string, string>
+  /** Precomputed index for exactly these `projectFiles` (build it with
+   *  `computeProjectIndexFromFiles`). Skips the per-run tree-sitter parse;
+   *  ignored when `projectFiles` is absent. */
+  projectIndex?: ComputedProjectIndex
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
@@ -281,6 +286,7 @@ async function runOnce({
   cwd,
   skillsDir,
   projectFiles,
+  projectIndex,
   knowledgeFiles,
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
@@ -343,6 +349,7 @@ async function runOnce({
         agentDefinitions,
         customToolDefinitions,
         projectFiles,
+        projectIndex,
         maxAgentSteps,
       },
     )
@@ -355,6 +362,7 @@ async function runOnce({
       agentDefinitions,
       customToolDefinitions,
       projectFiles,
+      projectIndex,
       maxAgentSteps,
       fs,
       spawn,
