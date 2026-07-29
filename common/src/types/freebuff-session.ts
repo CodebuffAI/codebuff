@@ -54,6 +54,17 @@ export interface FreebuffActiveSessionInfo {
   expiresAt: string
 }
 
+/** Live per-user Freebuff Desktop sessions, counted server-side across every
+ * Desktop process. Holder identities stay client-local; these totals make the
+ * picker honest when another project or device is using capacity. */
+export interface FreebuffDesktopSessionCounts {
+  premium: number
+  unlimited: number
+  /** Earliest capacity-release time. Premium rows include their drain grace;
+   * unlimited rows release at normal expiry. */
+  nextExpiryAt?: string
+}
+
 /**
  * Referral status surfaced to the CLI model-selector so it can render an
  * "invite friends" banner. The reward depends on the session's access tier:
@@ -176,7 +187,7 @@ export interface FreebuffLimitedModeReason {
   ipPrivacySignals?: FreebuffIpPrivacySignal[] | null
 }
 
-export type FreebuffSessionServerResponse =
+export type FreebuffSessionServerResponse = (
   | ({
       /** User has no session row. CLI must POST to start a session. Also
        *  returned when `getSessionState` notices the user has been swept past
@@ -315,11 +326,12 @@ export type FreebuffSessionServerResponse =
       /** Freebuff Desktop multi-session only: the user already holds an active
        *  premium-bucket session and tried to admit a second one. Only one
        *  premium-bucket model (DeepSeek V4 Pro / MiMo 2.5 Pro / Kimi / MiniMax
-       *  M3 / GLM 5.2) may run at a time per user; on the full tier unlimited
-       *  models (DeepSeek V4 Flash, MiMo 2.5) have no such cap. On the LIMITED
-       *  tier every model occupies the slot — one freebuff tab at a time. The
-       *  desktop client surfaces this and steers the tab to an unlimited model
-       *  (or closes the holding tab). Never returned to CLI/web, which run one
+       *  M3 / GLM 5.2) may run at a time per user; on the full tier up to three
+       *  unlimited-model sessions (DeepSeek V4 Flash, MiMo 2.5) may run. On
+       *  the LIMITED tier every model occupies the slot — one freebuff tab at
+       *  a time. The desktop client surfaces this and steers the tab to an
+       *  unlimited model (or closes the holding tab). Never returned to
+       *  CLI/web, which run one
        *  session per user. */
       status: 'premium_slot_taken'
       accessTier?: FreebuffAccessTier
@@ -331,3 +343,8 @@ export type FreebuffSessionServerResponse =
        *  offer "switch to / close that one". */
       currentInstanceId: string
     }
+) & {
+  /** Multi-session Desktop responses only. Counts live, unexpired rows across
+   * all Desktop processes for this user. */
+  desktopSessionCounts?: FreebuffDesktopSessionCounts
+}

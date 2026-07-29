@@ -9,6 +9,7 @@ import {
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_DESKTOP_SESSION_LIMITS,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
@@ -30,6 +31,7 @@ import {
   FREEBUFF_WEB_STANDARD_MODEL_IDS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffDesktopSessionBucket,
   getFreebuffModelImageSupport,
   getFreebuffWebModel,
   getFreebuffModelsForAccessTier,
@@ -67,6 +69,31 @@ describe('freebuff model availability', () => {
   test('defaults to DeepSeek V4 Pro, falls back to DeepSeek V4 Flash for new clients', () => {
     expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  })
+
+  test('desktop concurrency splits full access into 1 premium and 3 unlimited sessions', () => {
+    expect(
+      getFreebuffDesktopSessionBucket(
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        'full',
+      ),
+    ).toBe('premium')
+    expect(
+      getFreebuffDesktopSessionBucket(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        'full',
+      ),
+    ).toBe('unlimited')
+    expect(FREEBUFF_DESKTOP_SESSION_LIMITS).toEqual({
+      premium: 1,
+      unlimited: 3,
+    })
+    expect(
+      getFreebuffDesktopSessionBucket(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        'limited',
+      ),
+    ).toBe('premium')
   })
 
   test('DeepSeek Pro carries the AI-training warning before selection', () => {

@@ -505,7 +505,7 @@ export const FREEBUFF_CROF_GLM_V52_MODEL_IDS = [
 /** Models that occupy the single per-user "premium-bucket" CONCURRENCY slot in
  *  Freebuff Desktop's multi-session mode: at most one of these may have an
  *  active session per user at a time, while unlimited-bucket models (DeepSeek V4
- *  Flash, MiMo 2.5) may run in any number of concurrent tabs. (On the LIMITED
+ *  Flash, MiMo 2.5) may run in up to three concurrent tabs. (On the LIMITED
  *  access tier the admission path puts EVERY model in the slot regardless of
  *  this list — limited users get one freebuff tab at a time; see
  *  `requestDesktopSession`.)
@@ -521,6 +521,16 @@ export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   FREEBUFF_GLM_V52_MODEL_ID,
 ] as const
 
+/** Concurrent Freebuff Desktop sessions per model bucket. Premium is also
+ * enforced by the database's partial unique index; unlimited is enforced by
+ * the desktop soft gate and the chat-completions session gate. */
+export const FREEBUFF_DESKTOP_SESSION_LIMITS = {
+  premium: 1,
+  unlimited: 3,
+} as const
+export type FreebuffDesktopSessionBucket =
+  keyof typeof FREEBUFF_DESKTOP_SESSION_LIMITS
+
 /** True when a desktop tab running `model` under `accessTier` occupies the
  *  single per-user concurrency slot. On the full tier that's the premium
  *  bucket; on the LIMITED tier EVERY model occupies it — limited users get one
@@ -534,6 +544,15 @@ export function occupiesFreebuffDesktopSlot(
   return (
     accessTier === 'limited' || isFreebuffDesktopPremiumBucketModelId(model)
   )
+}
+
+export function getFreebuffDesktopSessionBucket(
+  model: string,
+  accessTier: FreebuffAccessTier | null | undefined,
+): FreebuffDesktopSessionBucket {
+  return occupiesFreebuffDesktopSlot(model, accessTier)
+    ? 'premium'
+    : 'unlimited'
 }
 
 /** Wire headers for the free-mode session endpoints
