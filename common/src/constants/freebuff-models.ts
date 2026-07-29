@@ -268,7 +268,7 @@ const DEEPSEEK_V4_PRO_MODEL = {
 const MIMO_V25_PRO_MODEL = {
   id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   displayName: 'MiMo 2.5 Pro',
-  tagline: 'Smartest & Slow',
+  tagline: 'Smart & Slow',
   availability: 'always',
   dataUse: 'service',
   premium: true,
@@ -312,7 +312,7 @@ const HY3_OPENROUTER_PAID_MODEL = {
 const MIMO_V25_MODEL = {
   id: FREEBUFF_MIMO_V25_MODEL_ID,
   displayName: 'MiMo 2.5',
-  tagline: 'Multimodal',
+  tagline: 'Balanced',
   availability: 'always',
   dataUse: 'service',
   premium: false,
@@ -333,7 +333,7 @@ const DEEPSEEK_V4_FLASH_MODEL = {
 const MINIMAX_M3_MODEL = {
   id: FREEBUFF_MINIMAX_M3_MODEL_ID,
   displayName: 'MiniMax M3',
-  tagline: 'Smartest & Fastest',
+  tagline: 'Fastest',
   availability: 'always',
   dataUse: 'service',
   // M3 is served by Fireworks without provider-side training. Its `service`
