@@ -88,13 +88,16 @@ export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
  *  limit equals the caller's GLM referral score (see the free-session quota). */
 export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
 /** GLM 5.2 served by CrofAI's direct OpenAI-compatible API, offered to
- *  full-access Freebuff Web/Cloud users as a premium pick.
+ *  full-access Freebuff Web/Cloud users as an ordinary premium pick.
  *
- *  It is deliberately NOT in FREEBUFF_WEB_PREMIUM_MODEL_IDS: CrofAI GLM has its
- *  own daily pool of FREEBUFF_CROF_GLM_V52_SESSION_LIMIT session(s) so it can be
- *  capped far tighter than the shared premium pool, exactly as the referral GLM
- *  route is kept on its own weekly pool. It is also absent from
- *  FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS, so limited regions can never select it.
+ *  It used to carry its own one-a-day pool. That cap made GLM 5.2 nearly
+ *  impossible to exercise, so the route now sits in
+ *  FREEBUFF_WEB_PREMIUM_MODEL_IDS and draws from the shared daily premium pool
+ *  like MiniMax M3 or Kimi. The separate weekly REFERRAL GLM route
+ *  (FREEBUFF_GLM_V52_MODEL_ID) still has its own pool and is unaffected.
+ *
+ *  It remains absent from FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS, so limited regions
+ *  can never select it.
  *
  *  This is an internal wire ID; CrofAI receives its native `glm-5.2` model ID. */
 export const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
@@ -192,20 +195,6 @@ export type FreebuffStreakRewardPool = 'premium' | 'limited' | 'glm'
  *  Pacific time rather than using a rolling hourly window. */
 export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24
 export const FREEBUFF_LIMITED_SESSION_WINDOW_HOURS =
-  FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
-
-/** CrofAI GLM 5.2's own daily session pool. Kept entirely separate from the
- *  shared premium pool (FREEBUFF_PREMIUM_SESSION_LIMIT) so GLM can be handed out
- *  one session a day without either pool eating into the other: a user gets
- *  their normal premium allowance AND exactly one GLM session per Pacific day.
- *  Full access only — limited regions never reach this pool because they cannot
- *  select the model at all. */
-export const FREEBUFF_CROF_GLM_V52_SESSION_LIMIT = 1
-export const FREEBUFF_CROF_GLM_V52_SESSION_PERIOD =
-  FREEBUFF_PREMIUM_SESSION_PERIOD
-export const FREEBUFF_CROF_GLM_V52_SESSION_RESET_TIMEZONE =
-  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
-export const FREEBUFF_CROF_GLM_V52_SESSION_WINDOW_HOURS =
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
 
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
@@ -370,15 +359,14 @@ const GLM_V52_MODEL = {
 const CROF_GLM_V52_MODEL = {
   id: FREEBUFF_CROF_GLM_V52_MODEL_ID,
   displayName: 'GLM 5.2',
-  tagline: '1 session/day',
+  tagline: 'Strong all-rounder',
   availability: 'always',
   // Served by CrofAI without provider-side training, like the Fireworks GLM
   // route; its `service` classification keeps it out of
   // FREEBUFF_TRACED_MODEL_IDS.
   dataUse: 'service',
-  // Drives the premium badge/grouping in the picker. Its QUOTA is the separate
-  // one-a-day pool, not the shared premium pool — see
-  // FREEBUFF_CROF_GLM_V52_MODEL_IDS.
+  // Both the picker badge AND the quota: this route is metered by the shared
+  // daily premium pool (FREEBUFF_WEB_PREMIUM_MODEL_IDS).
   premium: true,
   multimodal: false,
 } as const satisfies FreebuffModelOption
@@ -481,13 +469,12 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
 ] as const
 
-/** Models metered by the SHARED daily premium pool. CrofAI GLM 5.2 is
- *  deliberately absent even though it renders as a premium model: it has its own
- *  one-a-day pool (FREEBUFF_CROF_GLM_V52_MODEL_IDS), exactly as the referral GLM
- *  route has its own weekly pool. Adding it here would silently merge the two
- *  quotas. */
+/** Models metered by the SHARED daily premium pool. Includes the CrofAI GLM 5.2
+ *  route; only the REFERRAL GLM route (FREEBUFF_GLM_V52_MODEL_IDS) is held out,
+ *  because its entitlement is earned weekly rather than granted daily. */
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
+  FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
@@ -507,11 +494,10 @@ export const FREEBUFF_WEB_STANDARD_MODEL_IDS = Object.freeze(
  *  so GLM never falls into the shared daily premium quota. */
 export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 
-/** Models metered by the dedicated CrofAI GLM 5.2 daily pool
- *  (FREEBUFF_CROF_GLM_V52_SESSION_LIMIT per Pacific day). Kept separate from
- *  both FREEBUFF_WEB_PREMIUM_MODEL_IDS and FREEBUFF_GLM_V52_MODEL_IDS so this
- *  route never draws from — or is capped by — the shared premium pool or the
- *  weekly referral pool. */
+/** The CrofAI GLM 5.2 route. This is an IDENTITY list, not a quota bucket —
+ *  the route is metered by the shared premium pool (it is in
+ *  FREEBUFF_WEB_PREMIUM_MODEL_IDS). Callers use it to tell the two same-named
+ *  GLM 5.2 routes apart, e.g. for the never-remember rule. */
 export const FREEBUFF_CROF_GLM_V52_MODEL_IDS = [
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const
@@ -962,17 +948,53 @@ export function isFreebuffGlmV52ModelId(
   )
 }
 
-/** Whether the requested model is the CrofAI GLM 5.2 route, which is metered by
- *  its own one-a-day pool rather than the shared daily premium pool. Callers
- *  branch on this BEFORE the premium check, the same way they do for the weekly
- *  referral GLM route. Suffix-tolerant like the other predicates so a dated
- *  variant can't dodge the cap. */
+/** Whether the requested model is the CrofAI GLM 5.2 route. Identity only — the
+ *  route draws from the shared daily premium pool, so this must NOT be used to
+ *  pick a quota bucket. Suffix-tolerant like the other predicates. */
 export function isFreebuffCrofGlmV52ModelId(
   id: string | null | undefined,
 ): boolean {
   return FREEBUFF_CROF_GLM_V52_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
+}
+
+/**
+ * Whether a Web/Cloud selection may be REMEMBERED as the user's default model.
+ *
+ * Both GLM 5.2 routes are excluded. GLM is a scarce, hand-metered pick that a
+ * user runs out of far sooner than the rest of the picker, so pinning it as the
+ * remembered default strands them on a model they cannot start: the next new
+ * thread, a different app, or a plain page reload would open on GLM and fail
+ * admission. Picking GLM applies to the surface in front of you; anything that
+ * starts fresh falls back to DEFAULT_FREEBUFF_WEB_MODEL_ID.
+ *
+ * Every localStorage read AND write of the remembered model must go through
+ * this (via resolveRememberedFreebuffWebModel), so a value saved before this
+ * rule existed self-heals on the next load instead of persisting forever.
+ */
+export function isFreebuffWebRememberableModelId(
+  id: string | null | undefined,
+): boolean {
+  return !isFreebuffGlmV52ModelId(id) && !isFreebuffCrofGlmV52ModelId(id)
+}
+
+/**
+ * The model a surface should START on, given a remembered (localStorage)
+ * selection: the saved model when it is still valid and rememberable, else the
+ * Web/Cloud default (DeepSeek V4 Pro).
+ *
+ * Distinct from resolveFreebuffWebModel, which resolves a LIVE selection and
+ * must leave a just-picked GLM alone.
+ */
+export function resolveRememberedFreebuffWebModel(
+  id: string | null | undefined,
+  options: { includeGodOnly?: boolean } = {},
+): FreebuffWebModelId {
+  const resolved = resolveFreebuffWebModel(id, options)
+  return isFreebuffWebRememberableModelId(resolved)
+    ? resolved
+    : DEFAULT_FREEBUFF_WEB_MODEL_ID
 }
 
 export function isFreebuffMultimodalModelId(

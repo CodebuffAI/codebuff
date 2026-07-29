@@ -24,7 +24,6 @@ import {
   FREEBUFF_MODELS,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  FREEBUFF_CROF_GLM_V52_SESSION_LIMIT,
   FREEBUFF_WEB_GOD_ONLY_MODELS,
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
@@ -48,10 +47,12 @@ import {
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
   isFreebuffWebGodOnlyModelId,
+  isFreebuffWebRememberableModelId,
   isFreebuffWebModelAllowedForLimitedTier,
   isFreebuffWebModelId,
   isFreebuffWebMultimodalModelId,
   isFreebuffWebPremiumModelId,
+  resolveRememberedFreebuffWebModel,
   isSupportedFreebuffModelId,
   resolveFreebuffWebModel,
   resolveFreebuffWebModelForLimitedTier,
@@ -294,36 +295,67 @@ describe('freebuff model availability', () => {
     ).toBe('GLM 5.2')
   })
 
-  test('CrofAI GLM 5.2 is metered by its own pool, not the premium pool', () => {
-    // It renders as a premium model but must NEVER draw from the shared daily
-    // premium pool — that is what keeps its one-a-day cap independent.
+  test('CrofAI GLM 5.2 is metered by the shared premium pool', () => {
+    // The one-a-day pool it used to have made GLM 5.2 impossible to exercise.
+    // It is now an ordinary premium model: same badge, same daily pool.
     expect(getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).premium).toBe(
       true,
     )
     expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      false,
+      true,
     )
     expect(isFreebuffCrofGlmV52ModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
       true,
     )
-    // ...nor from the weekly referral GLM pool, nor the standard browser pool.
+    // Only the REFERRAL GLM route keeps a pool of its own, and neither GLM
+    // route may fall into the free standard browser pool.
     expect(isFreebuffGlmV52ModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(false)
     expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
-    expect(FREEBUFF_CROF_GLM_V52_SESSION_LIMIT).toBe(1)
+  })
+
+  test('neither GLM 5.2 route is ever remembered as the default model', () => {
+    // GLM runs out long before the rest of the picker, so remembering it would
+    // strand a new thread / app / page load on a model that fails admission.
+    for (const glmId of [
+      FREEBUFF_GLM_V52_MODEL_ID,
+      FREEBUFF_CROF_GLM_V52_MODEL_ID,
+    ]) {
+      expect(isFreebuffWebRememberableModelId(glmId)).toBe(false)
+      expect(resolveRememberedFreebuffWebModel(glmId)).toBe(
+        DEFAULT_FREEBUFF_WEB_MODEL_ID,
+      )
+    }
+    // Everything else is remembered as-is, including god-only models when the
+    // caller opts in.
+    expect(
+      resolveRememberedFreebuffWebModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
+    ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(resolveRememberedFreebuffWebModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
+      FREEBUFF_KIMI_MODEL_ID,
+    )
+    expect(
+      resolveRememberedFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(FREEBUFF_LING_3_FLASH_MODEL_ID)
+    // A retired/unknown saved id keeps the pre-existing resolution: the
+    // always-available fallback, not the premium default.
+    expect(resolveRememberedFreebuffWebModel('some/retired-model')).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
   })
 
   test('every Web picker model falls into exactly one quota group', () => {
-    // The Web/Cloud picker groups rows by these three predicates (referral GLM,
-    // CrofAI GLM, premium) and treats the remainder as Standard. Each group is
-    // metered by a different pool, so a model matching two — or a premium model
-    // matching none and silently landing in the free Standard group — is a quota
-    // bug, not a cosmetic one.
+    // The Web/Cloud picker groups rows by these two predicates (referral GLM,
+    // premium) and treats the remainder as Standard. Each group is metered by a
+    // different pool, so a model matching both — or a premium model matching
+    // neither and silently landing in the free Standard group — is a quota bug,
+    // not a cosmetic one.
     for (const model of FREEBUFF_WEB_MODELS) {
       const groups = [
         isFreebuffGlmV52ModelId(model.id),
-        isFreebuffCrofGlmV52ModelId(model.id),
         isFreebuffWebPremiumModelId(model.id),
       ].filter(Boolean)
       expect({ id: model.id, groups: groups.length }).toEqual({
