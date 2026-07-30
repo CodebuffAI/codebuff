@@ -1,13 +1,21 @@
 /**
- * Freebuff Web referral tiers.
+ * Freebuff referral program constants.
  *
- * Each *qualified* referral (referred user's GitHub account is at least
- * MIN_GITHUB_ACCOUNT_AGE_MONTHS old at signup) raises the referrer's tier.
- * Tiers scale the daily model usage limits and unlock perks (deploy
- * watermark removal). In full/allowed regions both standard and premium
- * limits apply; in limited regions, users can still unlock tiers but only the
- * standard/free-model limit applies because premium models remain geo-gated.
- * All tunable numbers live in this file.
+ * The referral REWARD is consolidated (2026-07-30) to exactly two things,
+ * both session-shaped and both defined next to the pools they feed:
+ *
+ *   - FULL access tier: +1 daily GLM 5.2 session per qualified referral,
+ *     uncapped (glmWeeklySessionsFromStats in packages/billing).
+ *   - LIMITED access tier: +1 daily free session per qualified referral,
+ *     capped at REFERRAL_CLI_DAILY_SESSION_BONUS_CAP (GLM is geo-gated).
+ *
+ * The old web tier ladder (tiered daily message limits + deploy-watermark
+ * removal) is GONE: the limits were never enforced anywhere — real limits are
+ * the session pools in freebuff-models.ts — and the "Powered by Freebuff"
+ * deploy watermark is globally disabled (prod_branding_injection_enabled =
+ * false), so both perks were marketing for things users didn't get. What
+ * remains in this file is the qualification machinery: GitHub account-age
+ * bars, attribution windows, and anti-farming ceilings.
  */
 
 /** Referred users must have a GitHub account at least this old for the
@@ -35,56 +43,11 @@ export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL = 4
  */
 export const REFERRAL_CLI_DAILY_SESSION_BONUS_CAP = 3
 
-export interface FreebuffReferralTier {
-  /** Tier index (0-based, in ascending order of referralsRequired). */
-  tier: number
-  /** Qualified referrals needed to reach this tier. */
-  referralsRequired: number
-  /** Daily message cap for standard (non-premium) models. */
-  standardModelDailyLimit: number
-  /** Daily message cap for premium models. */
-  premiumModelDailyLimit: number
-  /** Whether the "Powered by Freebuff" watermark is removed from deploys. */
-  removesWatermark: boolean
-}
-
-/** Tier ladder: 1 referral, then +2 (3 total), then +4 (7 total). */
-export const FREEBUFF_REFERRAL_TIERS: readonly FreebuffReferralTier[] = [
-  {
-    tier: 0,
-    referralsRequired: 0,
-    standardModelDailyLimit: 24,
-    premiumModelDailyLimit: 4,
-    removesWatermark: false,
-  },
-  {
-    tier: 1,
-    referralsRequired: 1,
-    standardModelDailyLimit: 40,
-    premiumModelDailyLimit: 6,
-    removesWatermark: true,
-  },
-  {
-    tier: 2,
-    referralsRequired: 3,
-    standardModelDailyLimit: 70,
-    premiumModelDailyLimit: 10,
-    removesWatermark: true,
-  },
-  {
-    tier: 3,
-    referralsRequired: 7,
-    standardModelDailyLimit: 110,
-    premiumModelDailyLimit: 15,
-    removesWatermark: true,
-  },
-] as const
-
 /**
  * Max attributed web signups (pending + completed) per referrer. The shared
  * `user.referral_limit` column (default 5) governs the CLI program; the web
- * ladder tops out at 7 qualified referrals, so it needs its own headroom —
- * generous enough for unqualified signups, small enough to bound farming.
+ * program needs its own headroom — generous enough for unqualified signups,
+ * small enough to bound farming.
  */
 export const FREEBUFF_WEB_REFERRAL_LIMIT = 20
 
@@ -104,51 +67,6 @@ export const REFERRAL_SIGNUP_WINDOW_DAYS = 30
  * REFERRAL_CLI_DAILY_SESSION_BONUS_CAP), so for those it stays a formality.
  */
 export const FREEBUFF_REFERRAL_SIGNUP_LIMIT = 100
-
-export const MAX_FREEBUFF_REFERRAL_TIER =
-  FREEBUFF_REFERRAL_TIERS[FREEBUFF_REFERRAL_TIERS.length - 1].tier
-
-/** Lowest tier whose perks include watermark removal. */
-export const FREEBUFF_WATERMARK_REMOVAL_TIER = FREEBUFF_REFERRAL_TIERS.find(
-  (tier) => tier.removesWatermark,
-)!.tier
-
-/** Qualified referrals needed before deploys drop the watermark. */
-export const FREEBUFF_WATERMARK_REMOVAL_REFERRALS =
-  FREEBUFF_REFERRAL_TIERS.find(
-    (tier) => tier.removesWatermark,
-  )!.referralsRequired
-
-/** Highest tier unlocked by the given qualified referral count. */
-export function getReferralTier(
-  qualifiedReferralCount: number | null | undefined,
-): FreebuffReferralTier {
-  const count = Math.max(0, qualifiedReferralCount ?? 0)
-  let unlocked = FREEBUFF_REFERRAL_TIERS[0]
-  for (const tier of FREEBUFF_REFERRAL_TIERS) {
-    if (count >= tier.referralsRequired) {
-      unlocked = tier
-    }
-  }
-  return unlocked
-}
-
-/** Tier limits by tier index (clamped into range). */
-export function getTierLimits(tier: number): FreebuffReferralTier {
-  const clamped = Math.min(Math.max(0, tier), MAX_FREEBUFF_REFERRAL_TIER)
-  return FREEBUFF_REFERRAL_TIERS.find((t) => t.tier === clamped)!
-}
-
-/** Next tier above the given qualified referral count, or null if maxed. */
-export function getNextReferralTier(
-  qualifiedReferralCount: number | null | undefined,
-): FreebuffReferralTier | null {
-  const current = getReferralTier(qualifiedReferralCount)
-  return (
-    FREEBUFF_REFERRAL_TIERS.find((tier) => tier.tier === current.tier + 1) ??
-    null
-  )
-}
 
 /** Whether a GitHub account created at `githubCreatedAtMs` satisfies the
  *  referral age requirement at time `nowMs`. Months are computed on the
