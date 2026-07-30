@@ -237,9 +237,9 @@ export function refreshFreebuffLandingMetadata(): Promise<void> {
  *     screen. The server admits them on the new model right away.
  *
  * If the server has already admitted them on a different model, it responds
- * with `model_locked`; the tick loop silently reverts the local selection to
- * the locked model so the active session stays intact. Users who really want
- * to switch can /end-session deliberately.
+ * with `model_locked`; because this is a deliberate pick, the tick loop ends
+ * that session and re-claims on the requested model (see the model_locked
+ * branch). Background rejoins hitting the same lock revert silently instead.
  */
 export function startFreebuffSession(model: string): Promise<void> {
   if (!IS_FREEBUFF) return Promise.resolve()
@@ -423,23 +423,59 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         pendingExplicitPickModel = null
 
         // The session is model-locked server-side: an active session on
-        // another model rejects the switch. Revert the local selection so the
-        // active session stays intact — and when the rejected request was a
-        // DELIBERATE pick (not a background rejoin racing an admission), say
-        // so in chat. The silent revert made "I clicked GLM 5.2 and it
-        // switched to DeepSeek V4 Flash" a recurring bug report (2026-07-30):
-        // sessions live 1h even when idle, so users constantly pick a model
-        // while a row is still active, and nothing told them what happened.
+        // another model rejects the switch. Two cases:
+        //   - DELIBERATE pick (the explicit-pick marker was set): honor the
+        //     click — end the locked session (usually a stale row from a
+        //     crashed CLI; DELETE is keyed on user, not instance) and
+        //     re-claim on the requested model. The marker is consume-once,
+        //     so if the retried POST races another instance back into
+        //     model_locked we take the revert branch instead of looping.
+        //   - Background rejoin racing an admission: revert the local
+        //     selection so the active session stays intact. Reverting a
+        //     deliberate pick silently made "I clicked GLM 5.2 and it
+        //     switched to DeepSeek V4 Flash" a recurring bug report
+        //     (2026-07-30): sessions live 1h even when idle, so users
+        //     constantly pick a model while a row is still active.
         if (next.status === 'model_locked') {
           if (explicitPickModel && explicitPickModel !== next.currentModel) {
             const current = getFreebuffModel(next.currentModel).displayName
             const requested = getFreebuffModel(explicitPickModel).displayName
+            let released = false
+            try {
+              await callFreebuffSession('DELETE', token, {
+                signal: fetchController.signal,
+              })
+              released = true
+            } catch {
+              // DELETE failed — fall through to the revert-with-explanation
+              // path below rather than stranding the user mid-switch.
+            }
+            if (
+              cancelled ||
+              fetchController.signal.aborted ||
+              generation !== restartGeneration
+            ) {
+              return
+            }
+            if (released) {
+              useChatStore
+                .getState()
+                .setMessages((prev) => [
+                  ...prev,
+                  getSystemMessage(
+                    `Ended your previous session on ${current} and switched to ${requested}.`,
+                  ),
+                ])
+              nextMethod = 'POST'
+              schedule(0)
+              return
+            }
             useChatStore
               .getState()
               .setMessages((prev) => [
                 ...prev,
                 getSystemMessage(
-                  `You're already in an active session on ${current}, so the switch to ${requested} was not applied. Run /end-session first, then pick ${requested}. (Sessions end on their own after 1 hour.)`,
+                  `You're already in an active session on ${current}, and ending it failed, so the switch to ${requested} was not applied. Run /end-session, then pick ${requested}. (Sessions end on their own after 1 hour.)`,
                 ),
               ])
           }
