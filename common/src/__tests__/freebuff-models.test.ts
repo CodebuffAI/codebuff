@@ -12,6 +12,10 @@ import {
   FREEBUFF_DESKTOP_SESSION_LIMITS,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE,
+  FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
@@ -42,6 +46,7 @@ import {
   isFreebuffCrofGlmV52ModelId,
   isFreebuffDeploymentHours,
   isFreebuffGlmV52ModelId,
+  isFreebuffGpt56LunaModelId,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffSessionModelAvailable,
   isFreebuffTracedModelId,
@@ -620,6 +625,91 @@ describe('freebuff model availability', () => {
     expect(FREEBUFF_MODELS[1]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
+  test('GPT-5.6 Luna is a premium model on every full-access surface', () => {
+    // The wire id must stay OpenRouter's own slug: getChatCompletionsProvider
+    // has no Luna branch, so it only reaches OpenRouter by falling through to
+    // the default route with the slug intact.
+    expect(FREEBUFF_GPT_5_6_LUNA_MODEL_ID).toBe('openai/gpt-5.6-luna')
+
+    // CLI/Desktop picker, Web/Cloud picker, and the session/chat layers.
+    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    )
+    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    )
+    // Everyone on the tier can pick it — it is not god-only and not retired.
+    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
+      false,
+    )
+    expect(isFreebuffWebSelectableModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
+      true,
+    )
+
+    // Metered by the SHARED daily premium pool on every surface, not a pool of
+    // its own and never the free standard browser pool.
+    expect(isFreebuffPremiumModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(true)
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
+      true,
+    )
+    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    )
+    expect(isFreebuffGlmV52ModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(false)
+    // Dated snapshots can't dodge the premium quota or the pinned routing.
+    expect(
+      isFreebuffPremiumModelId(`${FREEBUFF_GPT_5_6_LUNA_MODEL_ID}-20260709`),
+    ).toBe(true)
+    expect(
+      isFreebuffGpt56LunaModelId(`${FREEBUFF_GPT_5_6_LUNA_MODEL_ID}-20260709`),
+    ).toBe(true)
+    expect(isFreebuffGpt56LunaModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
+
+    const model = getFreebuffWebModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(model.displayName).toBe('GPT-5.6 Luna')
+    // OpenAI's API does not train on request data, so no warning and no
+    // trace storage — and it accepts images.
+    expect(model.dataUse).toBe('service')
+    expect(model.warning).toBeUndefined()
+    expect(isFreebuffTracedModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(false)
+    expect(getFreebuffModelImageSupport(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
+      true,
+    )
+    // Cheap per token, so it is not one of the muted "costly premium" rows.
+    expect(
+      isFreebuffWebDeemphasizedModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID),
+    ).toBe(false)
+
+    // Limited regions stay geo-gated to the two limited-tier models.
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_GPT_5_6_LUNA_MODEL_ID),
+    ).toBe(false)
+    expect(
+      isFreebuffModelAllowedForAccessTier(
+        FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(false)
+  })
+
+  test('GPT-5.6 Luna carries its pinned OpenAI route, price ceiling, and effort', () => {
+    // These three constants are the contract web/src/llm-api/openrouter.ts
+    // enforces on every Luna request; the price ceiling is OpenAI's list price
+    // ($0.10/$0.60 per M), well under Azure/Bedrock's $1.00/$6.00.
+    expect(FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE).toBe('openai')
+    expect(FREEBUFF_GPT_5_6_LUNA_MAX_PRICE).toEqual({
+      prompt: 0.1,
+      completion: 0.6,
+    })
+    expect(FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT).toBe('high')
+  })
+
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
@@ -745,6 +835,9 @@ describe('freebuff model availability', () => {
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_MIMO_V25_PRO_MODEL_ID),
     ).toBe(true)
     expect(canFreebuffModelSpawnGeminiThinker(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(
+      canFreebuffModelSpawnGeminiThinker(FREEBUFF_GPT_5_6_LUNA_MODEL_ID),
+    ).toBe(true)
 
     // Limited-tier models (DeepSeek V4 Flash, MiMo 2.5) skip it.
     expect(

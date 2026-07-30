@@ -11,6 +11,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
@@ -170,6 +171,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-mimo-pro',
   'base2-free-mimo',
   'base2-free-minimax-m3',
+  'base2-free-luna',
   'base2-free-glm',
   'base2-free-glm-crof',
   'base2-free-laguna-s-2-1',
@@ -199,6 +201,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
+  [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base2-free-luna',
   [FREEBUFF_KIMI_MODEL_ID]: 'base2-free-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
@@ -214,6 +217,7 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
+  [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'code-reviewer-luna',
   [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
@@ -222,6 +226,7 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
 
 const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
@@ -259,6 +264,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
   'base2-free': new Set([
     FREEBUFF_MINIMAX_M3_MODEL_ID,
+    FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     FREEBUFF_KIMI_MODEL_ID,
@@ -271,6 +277,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
   'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
+  'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'base2-free-glm-crof': new Set([FREEBUFF_CROF_GLM_V52_MODEL_ID]),
   'base2-free-laguna-s-2-1': new Set([FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]),
@@ -312,6 +319,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Code reviewer for free mode
   'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
+  'code-reviewer-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'code-reviewer-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'code-reviewer-deepseek-flash': new Set([
@@ -327,8 +335,11 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // free models below pinned in their own definitions, and this entry is what
   // keeps those sessions working.
   //
-  // Never add lite's model here: it is a paid OpenAI model, and a free session
-  // must not be able to reach it.
+  // Never add lite's model (GPT-5.6 Luna) here. Freebuff now offers that model
+  // too, but it reaches it through its OWN agents — base2-free-luna and
+  // code-reviewer-luna — which carry Freebuff's pinned OpenAI routing and
+  // effort. This entry exists only for pre-provider-reviewer clients; widening
+  // it would let a free session run the PAID product's reviewer.
   'code-reviewer-lite': new Set([
     FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,

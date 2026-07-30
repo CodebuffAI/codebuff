@@ -53,10 +53,12 @@ describe('base2 reviewer selection', () => {
     // Reviewer lookup is per product. Sharing one model-keyed table between
     // them let a freebuff agent pointed at lite's model resolve to the paid
     // code-reviewer-lite, which a free session is not allowed to spend on.
+    // Freebuff now offers GPT-5.6 Luna too, so free mode on this model gets its
+    // own free reviewer — still never lite's.
     const base2 = createBase2('free', { model: 'openai/gpt-5.6-luna' })
 
     expect(base2.spawnableAgents).not.toContain('code-reviewer-lite')
-    expect(base2.spawnableAgents).toContain('code-reviewer-deepseek-flash')
+    expect(base2.spawnableAgents).toContain('code-reviewer-luna')
     expect(base2.systemPrompt).not.toContain('code-reviewer-lite')
     expect(base2.instructionsPrompt).not.toContain('code-reviewer-lite')
     expect(base2.stepPrompt).not.toContain('code-reviewer-lite')

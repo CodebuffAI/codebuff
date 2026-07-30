@@ -11,6 +11,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -53,6 +54,9 @@ describe('free mode agent model allowlist', () => {
     expect(getFreebuffRootAgentIdForModel(MINIMAX_M3_MODEL_ID)).toBe(
       'base2-free-minimax-m3',
     )
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
+      'base2-free-luna',
+    )
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
       'base2-free-glm-crof',
     )
@@ -70,6 +74,7 @@ describe('free mode agent model allowlist', () => {
     // Root ids must also be registered, or the chat-completions hierarchy gate
     // 403s the subagents this root spawns.
     expect(isFreebuffRootAgent('base2-free-ling-3-flash')).toBe(true)
+    expect(isFreebuffRootAgent('base2-free-luna')).toBe(true)
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
@@ -175,6 +180,19 @@ describe('free mode agent model allowlist', () => {
     expect(
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_LING_3_FLASH_MODEL_ID),
     ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-luna',
+        FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('base2-free-luna', MINIMAX_M3_MODEL_ID),
+    ).toBe(false)
+    // Luna is a picker model, so the legacy unqualified root may run it too.
+    expect(
+      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_GPT_5_6_LUNA_MODEL_ID),
+    ).toBe(true)
   })
 
   test('allows each freebuff reviewer agent only with its configured model', () => {
@@ -230,6 +248,15 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_GLM_V52_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-luna',
+        FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('code-reviewer-luna', MINIMAX_M3_MODEL_ID),
+    ).toBe(false)
   })
 
   test('allows legacy code-reviewer-lite with freebuff reviewer models', () => {

@@ -113,6 +113,38 @@ export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
  *
  *  This is an internal wire ID; CrofAI receives its native `glm-5.2` model ID. */
 export const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
+/** GPT-5.6 Luna (OpenAI), served through OpenRouter. The id is OpenRouter's own
+ *  slug, so it falls through to the default OpenRouter route with no
+ *  provider-specific handler (same as Ling 3.0 Flash).
+ *
+ *  Two things about this model are enforced server-side rather than left to the
+ *  agent definitions, so they hold for every Freebuff surface, every subagent,
+ *  and BYOK callers alike (see applyOpenRouterProviderRouting and
+ *  applyOpenRouterReasoningDefaults in web/src/llm-api/openrouter.ts):
+ *
+ *   - Routing is PINNED to OpenAI's own endpoint. OpenRouter also lists Azure
+ *     and Amazon Bedrock for this model at $1.00/$6.00 per M — 10x OpenAI's
+ *     $0.10/$0.60 — so unpinned routing is a silent 10x bill (cf. the
+ *     Kimi/Infron unit-price doubling, 2026-07-29).
+ *   - Reasoning effort is `high`. Luna is cheap enough per token that the
+ *     quality is worth more than the reasoning tokens.
+ *
+ *  Both are scoped to FREEBUFF traffic on purpose: `LITE_MODEL`
+ *  (agents/constants.ts) is this same model id, so keying either off the model
+ *  alone would change Codebuff's paid lite mode as a side effect. */
+export const FREEBUFF_GPT_5_6_LUNA_MODEL_ID = 'openai/gpt-5.6-luna'
+/** OpenRouter provider slug Luna is pinned to. */
+export const FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE = 'openai'
+/** Price ceiling for Luna, USD per million tokens — OpenAI's list price. Sent
+ *  as OpenRouter's `provider.max_price`, which REFUSES a request rather than
+ *  serving it above this, so a provider re-pricing surfaces as an error instead
+ *  of a 10x invoice. */
+export const FREEBUFF_GPT_5_6_LUNA_MAX_PRICE = {
+  prompt: 0.1,
+  completion: 0.6,
+} as const
+/** Reasoning effort every Luna turn runs at. */
+export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
 /** God-mode-only Laguna S 2.1 route used to test Poolside's direct
  *  OpenAI-compatible API before wider rollout. */
 export const FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID = 'poolside/laguna-s-2.1'
@@ -234,6 +266,7 @@ export const FREEBUFF_GEMINI_THINKER_PARENT_MODELS = new Set<string>([
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
 ])
 
 export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
@@ -360,6 +393,20 @@ const MINIMAX_M3_MODEL = {
   multimodal: true,
 } as const satisfies FreebuffModelOption
 
+const GPT_5_6_LUNA_MODEL = {
+  id: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  displayName: 'GPT-5.6 Luna',
+  tagline: 'Thinks hard & Fast',
+  availability: 'always',
+  // OpenAI's API does not train on request data, and the route carries
+  // data_collection: 'deny', so no AI-training notice and no trace storage
+  // (FREEBUFF_TRACED_MODEL_IDS keys off this).
+  dataUse: 'service',
+  premium: true,
+  // OpenRouter reports input modalities text + image + file for this model.
+  multimodal: true,
+} as const satisfies FreebuffModelOption
+
 const GLM_V52_MODEL = {
   id: FREEBUFF_GLM_V52_MODEL_ID,
   displayName: 'GLM 5.2',
@@ -433,6 +480,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   MIMO_V25_PRO_MODEL,
   KIMI_MODEL,
   MINIMAX_M3_MODEL,
+  GPT_5_6_LUNA_MODEL,
   GLM_V52_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   MIMO_V25_MODEL,
@@ -451,6 +499,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MINIMAX_M3_MODEL,
+  GPT_5_6_LUNA_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
@@ -461,6 +510,7 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
 ] as const
 
 /** Freebuff Web-only picker/support set. HY3 is intentionally excluded from
@@ -1020,6 +1070,15 @@ export function isFreebuffGlmV52ModelId(
   return FREEBUFF_GLM_V52_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
+}
+
+/** Whether the requested model is GPT-5.6 Luna, tolerating the dated snapshot
+ *  suffix. Used by the OpenRouter layer to apply Luna's pinned routing and
+ *  reasoning effort, so a dated variant can't dodge either. */
+export function isFreebuffGpt56LunaModelId(
+  id: string | null | undefined,
+): boolean {
+  return freebuffModelIdMatches(id, FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
 }
 
 /** Whether the requested model is the CrofAI GLM 5.2 route. Identity only — the
