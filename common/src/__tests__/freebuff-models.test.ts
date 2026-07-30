@@ -43,6 +43,7 @@ import {
   isFreebuffDeploymentHours,
   isFreebuffGlmV52ModelId,
   isFreebuffSessionModelAllowedForAccessTier,
+  isFreebuffSessionModelAvailable,
   isFreebuffTracedModelId,
   isFreebuffWebGeoExemptModelId,
   isFreebuffWebSelectableModelId,
@@ -61,6 +62,7 @@ import {
   resolveFreebuffWebModel,
   resolveFreebuffWebModelForLimitedTier,
   resolveFreebuffModelForAccessTier,
+  resolveFreebuffSessionModelForAccessTier,
 } from '../constants/freebuff-models'
 import type { FreebuffModelOption } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
@@ -202,29 +204,41 @@ describe('freebuff model availability', () => {
     }
   })
 
-  test('Kimi K2.7 Code is offered in pickers and server-supported for full mode', () => {
+  test('Kimi K2.7 Code is retired from clients but remains server-supported during rollout', () => {
     expect(FREEBUFF_KIMI_MODEL_ID).toBe('moonshotai/kimi-k2.7-code')
-    expect(
-      FREEBUFF_MODELS.find((model) => model.id === FREEBUFF_KIMI_MODEL_ID)
-        ?.tagline,
-    ).toBe('Best for coding & Slow')
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )
-    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
-      FREEBUFF_KIMI_MODEL_ID,
-    )
-    expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(
+      getFreebuffModelsForAccessTier('full').map((m) => m.id),
+    ).not.toContain(FREEBUFF_KIMI_MODEL_ID)
+    expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(false)
     expect(isSupportedFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(getFreebuffModelImageSupport(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(isFreebuffSessionModelAvailable(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(getFreebuffWebModel(FREEBUFF_KIMI_MODEL_ID).id).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
     expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
     expect(
       isFreebuffModelAllowedForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
+    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(
+      isFreebuffSessionModelAllowedForAccessTier(
+        FREEBUFF_KIMI_MODEL_ID,
+        'full',
+      ),
+    ).toBe(true)
+    expect(
+      resolveFreebuffSessionModelForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full', {
+        includeGodOnly: false,
+      }),
     ).toBe(FREEBUFF_KIMI_MODEL_ID)
     // Retired K2.6 is no longer a freebuff model; stale saved selections must
     // fall back rather than be admitted.
@@ -296,6 +310,13 @@ describe('freebuff model availability', () => {
         includeGodOnly: true,
       }),
     ).toBe(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID)
+    expect(
+      resolveFreebuffSessionModelForAccessTier(
+        FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
+        'full',
+        { includeGodOnly: false },
+      ),
+    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     expect(
       getFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).displayName,
     ).toBe('HY3 (OpenRouter)')
@@ -371,13 +392,13 @@ describe('freebuff model availability', () => {
         DEFAULT_FREEBUFF_WEB_MODEL_ID,
       )
     }
-    // Everything else is remembered as-is, including god-only models when the
-    // caller opts in.
+    // Retired picker models self-heal to the always-available fallback, while
+    // god-only models remain rememberable when the caller opts in.
     expect(
       resolveRememberedFreebuffWebModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(resolveRememberedFreebuffWebModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
-      FREEBUFF_KIMI_MODEL_ID,
+      FALLBACK_FREEBUFF_MODEL_ID,
     )
     expect(
       resolveRememberedFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID, {
@@ -693,14 +714,11 @@ describe('freebuff model availability', () => {
     expect(isFreebuffWebModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(true)
   })
 
-  test('de-emphasizes exactly the costly premium models, and never the default', () => {
+  test('de-emphasizes the remaining costly premium model, and never the default', () => {
     expect(isFreebuffWebDeemphasizedModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isFreebuffWebDeemphasizedModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
-    // Suffix-tolerant like the other predicates, so a dated snapshot of a
-    // costly model can't slip back into the emphasized slot.
     expect(
       isFreebuffWebDeemphasizedModelId(`${FREEBUFF_KIMI_MODEL_ID}-20260301`),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isFreebuffWebDeemphasizedModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID),
     ).toBe(false)

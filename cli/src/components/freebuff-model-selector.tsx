@@ -314,7 +314,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // unavailable (e.g. deployment hours close while the picker is open),
     // swap to the always-available fallback so Enter doesn't POST a model
     // the server will immediately reject. In-memory only — the user's saved
-    // preference (e.g. Kimi or DeepSeek) is preserved for the next launch.
+    // preference (e.g. MiniMax or DeepSeek) is preserved for the next launch.
     if (
       (session?.status === 'none' || !session) &&
       (!renderedModelIds.includes(selectedModel) ||

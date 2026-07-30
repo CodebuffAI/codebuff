@@ -442,13 +442,15 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // grid model, it's a referral reward surfaced by the separate referral banner.
 // It stays in SUPPORTED_FREEBUFF_MODELS so the session/chat layers accept it as
 // a valid model id once the user's weekly entitlement admits them.
-// Kimi returned to the picker as K2.7 Code: the K2.6 first-token stalls that
-// got Kimi hidden were provider-side; K2.7 Code is served via Infron pinned to
-// Alibaba us/eu (~3s warm-cache TTFT benchmarked).
+//
+// Kimi K2.7 Code is also intentionally absent from the client catalog because
+// it is too expensive to offer as a free model. Keep it in
+// SUPPORTED_FREEBUFF_MODELS, the free-mode allowlists, and provider routing
+// until released clients have migrated away from it; that server compatibility
+// can be removed in a later rollout.
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MINIMAX_M3_MODEL,
-  KIMI_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
@@ -673,7 +675,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
  *  the model a new Cloud thread starts on. DeepSeek V4 Pro is a fraction of the
- *  per-token cost of MiniMax M3 / Kimi K2.7 at comparable quality, so the
+ *  per-token cost of MiniMax M3 at comparable quality, so the
  *  browser surfaces — where a single build burns far more tokens than a CLI
  *  turn — steer to it by default.
  *
@@ -696,7 +698,6 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  within the Premium group). */
 export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS = [
   FREEBUFF_MINIMAX_M3_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
 ] as const
 
 export function isFreebuffWebDeemphasizedModelId(
@@ -839,15 +840,13 @@ export function isFreebuffModelAllowedForAccessTier(
   accessTier: FreebuffAccessTier | null | undefined,
 ): boolean {
   if (!model) return false
-  if (accessTier !== 'limited') return isSupportedFreebuffModelId(model)
+  if (accessTier !== 'limited') return isFreebuffModelId(model)
   return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
 }
 
-/** Session admission is shared by CLI/Desktop/Web/Cloud. The CLI picker only
- *  uses SUPPORTED_FREEBUFF_MODELS, while Web/Cloud have a small set of
- *  trial/god-only model ids. Those Web-only ids still draw from the same
- *  session pools, so the admission layer accepts the union here without
- *  changing the CLI picker. */
+/** Session admission is shared by CLI/Desktop/Web/Cloud. Client pickers use
+ *  FREEBUFF_MODELS or FREEBUFF_WEB_MODELS, while the server accepts their union
+ *  with temporarily retired models from SUPPORTED_FREEBUFF_MODELS. */
 export function isFreebuffSessionModelId(
   id: string | null | undefined,
 ): id is SupportedFreebuffModelId | FreebuffWebModelId {
@@ -911,30 +910,29 @@ export function resolveFreebuffWebModel(
 export function resolveFreebuffModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
-): SupportedFreebuffModelId {
+): FreebuffModelId {
   if (accessTier === 'limited') {
     return isFreebuffModelAllowedForAccessTier(id, accessTier)
-      ? (id as SupportedFreebuffModelId)
+      ? (id as FreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
-  const resolved = resolveSupportedFreebuffModel(id)
-  return isFreebuffModelAllowedForAccessTier(resolved, accessTier)
-    ? resolved
-    : FALLBACK_FREEBUFF_MODEL_ID
+  return resolveFreebuffModel(id)
 }
 
 export function resolveFreebuffSessionModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
+  options: { includeGodOnly?: boolean } = {},
 ): SupportedFreebuffModelId | FreebuffWebModelId {
   if (accessTier === 'limited') {
     return isFreebuffSessionModelAllowedForAccessTier(id, accessTier)
       ? (id as SupportedFreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
-  return isFreebuffSessionModelId(id)
-    ? id
-    : (FALLBACK_FREEBUFF_MODEL_ID as SupportedFreebuffModelId)
+  if (isSupportedFreebuffModelId(id)) return id
+  return resolveFreebuffWebModel(id, {
+    includeGodOnly: options.includeGodOnly ?? true,
+  })
 }
 
 export function isSupportedFreebuffModelId(
@@ -1098,9 +1096,13 @@ export function getFreebuffModelImageSupport(
     return false
   }
 
-  const model = FREEBUFF_WEB_ALL_MODELS.find((option) =>
-    freebuffModelIdMatches(id, option.id),
-  )
+  const model =
+    SUPPORTED_FREEBUFF_MODELS.find((option) =>
+      freebuffModelIdMatches(id, option.id),
+    ) ??
+    FREEBUFF_WEB_ALL_MODELS.find((option) =>
+      freebuffModelIdMatches(id, option.id),
+    )
   return model?.multimodal
 }
 
@@ -1222,7 +1224,9 @@ export function isFreebuffSessionModelAvailable(
   id: string,
   now: Date = new Date(),
 ): boolean {
-  const model = getFreebuffWebModel(id)
+  const model =
+    SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
+    getFreebuffWebModel(id)
   return model.availability === 'always' || isFreebuffDeploymentHours(now)
 }
 

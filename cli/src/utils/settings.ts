@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
+import { isFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
 
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
@@ -106,12 +106,12 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.adsEnabled = obj.adsEnabled
   }
 
-  // Validate freebuffModel — drop unknown ids so a removed model doesn't
-  // strand the user on a non-existent queue. Hidden-but-supported models are
-  // kept; access-tier resolution decides whether they are selectable.
+  // Validate freebuffModel against the current picker catalog. Server support
+  // may intentionally outlive client visibility during a staged model
+  // retirement, but an updated client must not restore a retired selection.
   if (
     typeof obj.freebuffModel === 'string' &&
-    isSupportedFreebuffModelId(obj.freebuffModel)
+    isFreebuffModelId(obj.freebuffModel)
   ) {
     settings.freebuffModel = obj.freebuffModel
   }

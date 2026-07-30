@@ -19,7 +19,7 @@ freebuff
 
 ## Why Freebuff?
 
-**Best open-source models** — Powered by the strongest open-source models available, like DeepSeek, Kimi, and MiniMax — no proprietary lock-in.
+**Best open-source models** — Powered by the strongest open-source models available, like DeepSeek, MiMo, and MiniMax — no proprietary lock-in.
 
 **Fast** — 5–10× speed up. 3–5× tokens per second compared to Claude, plus context gathering in seconds.
 
@@ -29,7 +29,7 @@ freebuff
 
 **How can it be free?** Freebuff is supported by text ads.
 
-**What models do you use?** The best open-source models available. In full mode you can choose from DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.7 Code, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. Limited mode uses DeepSeek V4 Flash and MiMo 2.5. Gemini 3.1 Flash Lite handles file finding and research.
+**What models do you use?** The best open-source models available. In full mode you can choose from DeepSeek V4 Pro, MiMo 2.5 Pro, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. Limited mode uses DeepSeek V4 Flash and MiMo 2.5. Gemini 3.1 Flash Lite handles file finding and research.
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 
