@@ -135,13 +135,29 @@ export const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
 export const FREEBUFF_GPT_5_6_LUNA_MODEL_ID = 'openai/gpt-5.6-luna'
 /** OpenRouter provider slug Luna is pinned to. */
 export const FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE = 'openai'
-/** Price ceiling for Luna, USD per million tokens — OpenAI's list price. Sent
- *  as OpenRouter's `provider.max_price`, which REFUSES a request rather than
- *  serving it above this, so a provider re-pricing surfaces as an error instead
- *  of a 10x invoice. */
+/** Price ceiling for Luna, USD per million tokens. Sent as OpenRouter's
+ *  `provider.max_price`, which REFUSES the request rather than serving above
+ *  it, so a provider re-pricing surfaces as a loud error instead of a 10x
+ *  invoice.
+ *
+ *  This is a COST FENCE, not an assertion of the list price, and the gap is
+ *  deliberate on both sides:
+ *
+ *   - It must sit ABOVE list. OpenRouter compares strictly: shipping the exact
+ *     list price (0.1 / 0.6) made every Luna request 404 with "No endpoints
+ *     found that satisfy the max price for this request" — verified against the
+ *     live API on 2026-07-30, where 0.11/0.61 passed and 0.1/0.6 did not. A
+ *     ceiling equal to list is an outage waiting on a rounding change.
+ *   - It must sit WELL BELOW $1.00/$6.00, which is what Azure, Azure EU
+ *     ($1.10/$6.60) and Amazon Bedrock charge for this model. Blocking those is
+ *     the whole point.
+ *
+ *  Half of Azure's price leaves room for OpenAI's own tiers (list $0.10/$0.60,
+ *  priority $0.20/$1.20) and for ordinary price drift, while still failing
+ *  closed long before a 10x endpoint could serve a request. */
 export const FREEBUFF_GPT_5_6_LUNA_MAX_PRICE = {
-  prompt: 0.1,
-  completion: 0.6,
+  prompt: 0.5,
+  completion: 3.0,
 } as const
 /** Reasoning effort every Luna turn runs at. */
 export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const

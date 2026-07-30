@@ -700,14 +700,21 @@ describe('freebuff model availability', () => {
 
   test('GPT-5.6 Luna carries its pinned OpenAI route, price ceiling, and effort', () => {
     // These three constants are the contract web/src/llm-api/openrouter.ts
-    // enforces on every Luna request; the price ceiling is OpenAI's list price
-    // ($0.10/$0.60 per M), well under Azure/Bedrock's $1.00/$6.00.
+    // enforces on every Luna request.
     expect(FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE).toBe('openai')
-    expect(FREEBUFF_GPT_5_6_LUNA_MAX_PRICE).toEqual({
-      prompt: 0.1,
-      completion: 0.6,
-    })
     expect(FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT).toBe('high')
+
+    // The ceiling is a cost fence, and both bounds are load-bearing. OpenRouter
+    // compares strictly, so a ceiling AT OpenAI's $0.10/$0.60 list price 404s
+    // every request ("No endpoints found that satisfy the max price") — that
+    // shipped on 2026-07-30 and took Luna down until it was raised. It must
+    // also stay well under the $1.00/$6.00 Azure/Bedrock charge, which is the
+    // 10x route the fence exists to block.
+    const { prompt, completion } = FREEBUFF_GPT_5_6_LUNA_MAX_PRICE
+    expect(prompt).toBeGreaterThan(0.1)
+    expect(completion).toBeGreaterThan(0.6)
+    expect(prompt).toBeLessThan(1.0)
+    expect(completion).toBeLessThan(6.0)
   })
 
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
