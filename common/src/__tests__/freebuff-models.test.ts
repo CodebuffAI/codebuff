@@ -28,6 +28,7 @@ import {
   FREEBUFF_WEB_GOD_ONLY_MODELS,
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
+  FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS,
   FREEBUFF_WEB_STANDARD_MODEL_IDS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
@@ -44,6 +45,7 @@ import {
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffTracedModelId,
   isFreebuffWebGeoExemptModelId,
+  isFreebuffWebSelectableModelId,
   isFreebuffModelId,
   isFreebuffMultimodalModelId,
   isFreebuffModelAllowedForAccessTier,
@@ -302,7 +304,27 @@ describe('freebuff model availability', () => {
     ).toBe('Paid via OpenRouter')
   })
 
-  test('CrofAI GLM 5.2 is a selectable Freebuff Web model, not god-only', () => {
+  test('GLM 5.2 is referral-only: the premium CrofAI route is unselectable', () => {
+    // The whole point of retiring it (2026-07-30): no Web/Cloud user can pick
+    // GLM 5.2 as a premium model, so the referral route is the only way in.
+    expect(isFreebuffWebSelectableModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      false,
+    )
+    expect(FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS).toContain(
+      FREEBUFF_CROF_GLM_V52_MODEL_ID,
+    )
+    // ...while the REFERRAL route stays selectable — retiring one GLM route
+    // must never take the earned one down with it.
+    expect(isFreebuffWebSelectableModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(true)
+    // Every other web model is unaffected.
+    expect(isFreebuffWebSelectableModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID))
+      .toBe(true)
+  })
+
+  test('the retired CrofAI GLM 5.2 route still admits and meters live sessions', () => {
+    // Retirement is picker-only. Dropping the id from the catalog would fail
+    // admission mid-session; dropping it from the premium pool would leave
+    // those sessions metered by no pool at all (= unlimited paid GLM).
     expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
@@ -313,18 +335,13 @@ describe('freebuff model availability', () => {
     expect(isFreebuffWebGodOnlyModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
       false,
     )
-    // Non-god users must resolve to the model itself now that it is un-gated.
+    // A live session's model must resolve to itself, not silently downgrade.
     expect(resolveFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
     expect(
       getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).displayName,
     ).toBe('GLM 5.2')
-  })
-
-  test('CrofAI GLM 5.2 is metered by the shared premium pool', () => {
-    // The one-a-day pool it used to have made GLM 5.2 impossible to exercise.
-    // It is now an ordinary premium model: same badge, same daily pool.
     expect(getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).premium).toBe(
       true,
     )

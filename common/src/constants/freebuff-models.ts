@@ -85,21 +85,31 @@ export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
  *  2026-07-29 — CrofAI is the same upstream as the crof/ route below at ~4x
  *  less than Fireworks' list price). Unlike the other picker models it is NOT
  *  freely available — it is unlocked by referring friends. Each qualified
- *  referral grants one 1-hour GLM session per day (capped at
- *  FREEBUFF_GLM_V52_REFERRAL_CAP). Gated by a per-user daily session pool whose
- *  limit equals the caller's GLM referral score (see the free-session quota). */
+ *  referral grants one 1-hour GLM session per day, uncapped since 2026-07-30.
+ *  Gated by a per-user daily session pool whose limit equals the caller's GLM
+ *  referral score (see the free-session quota). */
 export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
-/** GLM 5.2 served by CrofAI's direct OpenAI-compatible API, offered to
- *  full-access Freebuff Web/Cloud users as an ordinary premium pick.
+/** LEGACY GLM 5.2 route served by CrofAI's direct OpenAI-compatible API. It was
+ *  the premium-pool copy of GLM 5.2 for full-access Freebuff Web/Cloud users.
  *
- *  It used to carry its own one-a-day pool. That cap made GLM 5.2 nearly
- *  impossible to exercise, so the route now sits in
- *  FREEBUFF_WEB_PREMIUM_MODEL_IDS and draws from the shared daily premium pool
- *  like MiniMax M3 or Kimi. The separate weekly REFERRAL GLM route
- *  (FREEBUFF_GLM_V52_MODEL_ID) still has its own pool and is unaffected.
+ *  RETIRED FROM THE PICKER 2026-07-30: GLM 5.2 is a referral-earned reward
+ *  only, so this route is filtered out of the Web/Cloud selector and the
+ *  REFERRAL route (FREEBUFF_GLM_V52_MODEL_ID, metered by the daily GLM pool)
+ *  is the sole way to reach the model. Nothing can newly select it —
+ *  `resolveRememberedFreebuffWebModel` never persisted it either — so the
+ *  remaining traffic is sessions that were already live at the cutover.
+ *
+ *  Deliberately still a valid session model and still in
+ *  FREEBUFF_WEB_PREMIUM_MODEL_IDS: removing it from the model catalog would
+ *  fail admission mid-session, and removing it from the premium pool alone
+ *  would leave those sessions metered by NO pool (quotaConfigForModel returns
+ *  undefined => unlimited). Both routes serve from the same CrofAI upstream at
+ *  the same price, so the only thing this id still decides is which quota pool
+ *  a pre-existing session draws from. Safe to delete once no live sessions
+ *  reference it.
  *
  *  It remains absent from FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS, so limited regions
- *  can never select it.
+ *  could never select it.
  *
  *  This is an internal wire ID; CrofAI receives its native `glm-5.2` model ID. */
 export const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
@@ -135,16 +145,19 @@ export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
 /** GLM 5.2 referral-reward session pool. Distinct from the shared premium
  *  daily pool: GLM sessions reset daily (Pacific; weekly until 2026-07-29) and
- *  the per-user limit is the caller's GLM referral score, capped at
- *  FREEBUFF_GLM_V52_REFERRAL_CAP. Note the streak GLM bonus is a live
- *  entitlement on this same pool, so it refills at this cadence too. */
+ *  the per-user limit is the caller's GLM referral score, uncapped since
+ *  2026-07-30. Note the streak GLM bonus is a live entitlement on this same
+ *  pool, so it refills at this cadence too. */
 export const FREEBUFF_GLM_V52_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
 export const FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24
-/** Max number of qualified referrals that count toward GLM sessions, i.e. the
- *  most 1-hour GLM sessions a user can earn per day. */
-export const FREEBUFF_GLM_V52_REFERRAL_CAP = 10
+// The GLM referral reward is UNCAPPED as of 2026-07-30 (it was
+// FREEBUFF_GLM_V52_REFERRAL_CAP = 10): every qualified full-access referral
+// grants one 1-hour GLM session per day, with no read-time ceiling. The only
+// remaining bound is FREEBUFF_REFERRAL_SIGNUP_LIMIT (100 attributed rows per
+// referrer, enforced at attribution), which is now the effective maximum
+// rather than the anti-spam backstop it used to be.
 /** Master kill-switch for the GLM 5.2 referral program. While true, qualified
  *  referrals grant daily GLM sessions and the CLI advertises the perk. Flip to
  *  false to wind the program down: entitlement drops to 0 for everyone and the
@@ -361,17 +374,20 @@ const GLM_V52_MODEL = {
   multimodal: false,
 } as const satisfies FreebuffModelOption
 
+// Legacy premium-pool GLM 5.2 (see FREEBUFF_CROF_GLM_V52_MODEL_ID). Retired
+// from the picker 2026-07-30 but kept in FREEBUFF_WEB_MODELS so sessions that
+// were live at the cutover still resolve to a real model option.
 const CROF_GLM_V52_MODEL = {
   id: FREEBUFF_CROF_GLM_V52_MODEL_ID,
   displayName: 'GLM 5.2',
   tagline: 'Strong all-rounder',
   availability: 'always',
-  // Served by CrofAI without provider-side training, like the Fireworks GLM
+  // Served by CrofAI without provider-side training, like the referral GLM
   // route; its `service` classification keeps it out of
   // FREEBUFF_TRACED_MODEL_IDS.
   dataUse: 'service',
-  // Both the picker badge AND the quota: this route is metered by the shared
-  // daily premium pool (FREEBUFF_WEB_PREMIUM_MODEL_IDS).
+  // The quota that still matters for live sessions: this route is metered by
+  // the shared daily premium pool (FREEBUFF_WEB_PREMIUM_MODEL_IDS).
   premium: true,
   multimodal: false,
 } as const satisfies FreebuffModelOption
@@ -474,9 +490,43 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
 ] as const
 
-/** Models metered by the SHARED daily premium pool. Includes the CrofAI GLM 5.2
- *  route; only the REFERRAL GLM route (FREEBUFF_GLM_V52_MODEL_IDS) is held out,
- *  because its entitlement is earned weekly rather than granted daily. */
+/**
+ * Web/Cloud models the picker no longer offers, while the backend keeps
+ * honoring them so a session already running on one finishes normally.
+ *
+ * They stay in FREEBUFF_WEB_MODELS (and in whichever quota list meters them)
+ * on purpose: dropping a live session's model from the catalog fails
+ * admission mid-run, and dropping it from its quota list alone would leave it
+ * metered by NO pool at all. Retiring is therefore picker-only; deleting the
+ * id outright is a separate cleanup once no live session references it.
+ *
+ *   - HY3 — withdrawn during the initial web rollout.
+ *   - CrofAI GLM 5.2 (2026-07-30) — GLM 5.2 became a referral-only reward, so
+ *     the premium-pool copy is gone and FREEBUFF_GLM_V52_MODEL_ID (the daily
+ *     referral pool) is the only way to reach the model on any surface.
+ */
+export const FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS = [
+  FREEBUFF_HY3_MODEL_ID,
+  FREEBUFF_CROF_GLM_V52_MODEL_ID,
+] as const
+
+/** Whether the Web/Cloud picker should offer `id` as a new selection. False
+ *  for retired routes (see FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS), which the
+ *  backend still serves for sessions already on them. */
+export function isFreebuffWebSelectableModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return !FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS.some(
+    (modelId) => modelId === id,
+  )
+}
+
+/** Models metered by the SHARED daily premium pool. Still includes the retired
+ *  CrofAI GLM 5.2 route so sessions live at its 2026-07-30 cutover stay
+ *  metered (see FREEBUFF_CROF_GLM_V52_MODEL_ID); no new session can select it.
+ *  The REFERRAL GLM route (FREEBUFF_GLM_V52_MODEL_IDS) is held out because its
+ *  entitlement is earned rather than granted daily. */
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
@@ -494,15 +544,17 @@ export const FREEBUFF_WEB_STANDARD_MODEL_IDS = Object.freeze(
   ),
 )
 
-/** Models unlocked by referrals, metered by the weekly GLM session pool rather
+/** Models unlocked by referrals, metered by the daily GLM session pool rather
  *  than the daily premium pool. Kept separate from FREEBUFF_PREMIUM_MODEL_IDS
- *  so GLM never falls into the shared daily premium quota. */
+ *  so GLM never falls into the shared daily premium quota. Since 2026-07-30
+ *  this is the ONLY way to reach GLM 5.2 on any surface. */
 export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 
-/** The CrofAI GLM 5.2 route. This is an IDENTITY list, not a quota bucket —
- *  the route is metered by the shared premium pool (it is in
+/** The retired CrofAI GLM 5.2 route. This is an IDENTITY list, not a quota
+ *  bucket — the route is metered by the shared premium pool (it is in
  *  FREEBUFF_WEB_PREMIUM_MODEL_IDS). Callers use it to tell the two same-named
- *  GLM 5.2 routes apart, e.g. for the never-remember rule. */
+ *  GLM 5.2 routes apart, e.g. for the never-remember rule and the picker's
+ *  retired-model filter. */
 export const FREEBUFF_CROF_GLM_V52_MODEL_IDS = [
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
 ] as const

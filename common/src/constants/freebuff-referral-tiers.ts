@@ -31,7 +31,7 @@ export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL = 4
  * Freebuff CLI limited-tier perk: each qualified referral whose referred user
  * activated at the *limited* access tier grants +1 daily free-mode session,
  * capped here (e.g. 6 base + 3 = 9/day). Full-access referrals instead grant
- * GLM sessions (see FREEBUFF_GLM_V52_REFERRAL_CAP).
+ * GLM sessions, which are uncapped.
  */
 export const REFERRAL_CLI_DAILY_SESSION_BONUS_CAP = 3
 
@@ -97,10 +97,11 @@ export const REFERRAL_SIGNUP_WINDOW_DAYS = 30
 
 /**
  * Max attributed referrals (referral_v2 rows) a single referrer may accumulate.
- * A generous anti-spam ceiling only — every actual reward is already capped at
- * read time (GLM at FREEBUFF_GLM_V52_REFERRAL_CAP, the web tier ladder, the CLI
- * bonus at REFERRAL_CLI_DAILY_SESSION_BONUS_CAP), so this never throttles a
- * legitimate referrer; it just bounds pathological row creation.
+ * Since the GLM reward was uncapped (2026-07-30) this is no longer a pure
+ * anti-spam ceiling: GLM entitlement now scales 1:1 with qualified referrals,
+ * so this limit IS the effective maximum (100 GLM sessions/day). The other
+ * rewards are still capped at read time (the web tier ladder, the CLI bonus at
+ * REFERRAL_CLI_DAILY_SESSION_BONUS_CAP), so for those it stays a formality.
  */
 export const FREEBUFF_REFERRAL_SIGNUP_LIMIT = 100
 
