@@ -1,5 +1,6 @@
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  getFreebuffModel,
   LIMITED_FREEBUFF_MODEL_ID,
   resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
@@ -23,6 +24,7 @@ import {
   recordFreebuffInstanceOwner,
 } from '../utils/freebuff-instance-owner'
 import { logger } from '../utils/logger'
+import { getSystemMessage } from '../utils/message-history'
 import {
   getCachedReferral,
   rememberReferral,
@@ -111,6 +113,15 @@ interface PollController {
 }
 
 let controller: PollController | null = null
+
+/**
+ * The model of the most recent EXPLICIT user pick (startFreebuffSession),
+ * consumed by the first server response that follows it. Lets the
+ * `model_locked` branch tell a deliberate pick apart from a background
+ * rejoin/race: only the former deserves a visible explanation. Cleared on
+ * every response so a stale pick can never annotate a later, unrelated lock.
+ */
+let pendingExplicitPickModel: string | null = null
 
 /** Read the current instance id for outgoing chat requests. Defined via
  *  `holdsLiveFreebuffSlot` so the two can't drift: an id exists exactly while
@@ -240,6 +251,9 @@ export function startFreebuffSession(model: string): Promise<void> {
   const accessTier =
     current && 'accessTier' in current ? current.accessTier : 'full'
   const resolved = resolveFreebuffModelForAccessTier(model, accessTier)
+  // Remember that the next POST is a deliberate pick, so a `model_locked`
+  // rejection explains itself in chat instead of reverting silently.
+  pendingExplicitPickModel = resolved
   useFreebuffModelStore.getState().setSelectedModel(resolved)
   saveFreebuffModelPreference(resolved)
   return restartFreebuffSession('rejoin')
@@ -403,12 +417,32 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // need another POST.
         nextMethod = 'GET'
 
-        // Race recovery: user picked a different model on the landing screen at
-        // the exact moment the server admitted them with the original model.
-        // Silently revert the local selection and re-tick so the next call
-        // (a GET) lands the actual active session. Users who really want to
-        // switch can /end-session deliberately.
+        // Consume the explicit-pick marker: it annotates exactly the first
+        // response after a user pick, whatever that response turns out to be.
+        const explicitPickModel = pendingExplicitPickModel
+        pendingExplicitPickModel = null
+
+        // The session is model-locked server-side: an active session on
+        // another model rejects the switch. Revert the local selection so the
+        // active session stays intact — and when the rejected request was a
+        // DELIBERATE pick (not a background rejoin racing an admission), say
+        // so in chat. The silent revert made "I clicked GLM 5.2 and it
+        // switched to DeepSeek V4 Flash" a recurring bug report (2026-07-30):
+        // sessions live 1h even when idle, so users constantly pick a model
+        // while a row is still active, and nothing told them what happened.
         if (next.status === 'model_locked') {
+          if (explicitPickModel && explicitPickModel !== next.currentModel) {
+            const current = getFreebuffModel(next.currentModel).displayName
+            const requested = getFreebuffModel(explicitPickModel).displayName
+            useChatStore
+              .getState()
+              .setMessages((prev) => [
+                ...prev,
+                getSystemMessage(
+                  `You're already in an active session on ${current}, so the switch to ${requested} was not applied. Run /end-session first, then pick ${requested}. (Sessions end on their own after 1 hour.)`,
+                ),
+              ])
+          }
           useFreebuffModelStore.getState().setSelectedModel(next.currentModel)
           schedule(0)
           return
