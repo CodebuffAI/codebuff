@@ -55,7 +55,7 @@ describe('getFreebuffStreakBonusNote', () => {
 
   test('teases the unlock countdown below the 7-day milestone', () => {
     expect(getFreebuffStreakBonusNote({ streak: 3, accessTier: 'full' })).toBe(
-      '🎁 4 more days to unlock +1 bonus session every day + 1 GLM 5.2 session each week',
+      '🎁 4 more days to unlock +1 bonus session every day + 1 GLM 5.2 session each day',
     )
     expect(
       getFreebuffStreakBonusNote({ streak: 3, accessTier: 'limited' }),
@@ -68,19 +68,19 @@ describe('getFreebuffStreakBonusNote', () => {
     ).toBe('🎁 1 more day to unlock +1 bonus session every day')
   })
 
-  test('full access advertises the daily session + weekly GLM perk at 7+', () => {
+  test('full access advertises the daily session + daily GLM perk at 7+', () => {
     const note = getFreebuffStreakBonusNote({ streak: 7, accessTier: 'full' })
     expect(note).toBe(
-      '🎁 Streak perk: +1 bonus session every day + 1 GLM 5.2 session each week',
+      '🎁 Streak perk: +1 bonus session every day + 1 GLM 5.2 session each day',
     )
   })
 
-  test('the weekly GLM count grows per completed 7 days, capped at 4', () => {
+  test('the GLM streak count grows per completed 7 days, capped at 4', () => {
     expect(getFreebuffStreakBonusNote({ streak: 14, accessTier: 'full' })).toBe(
-      '🎁 Streak perk: +1 bonus session every day + 2 GLM 5.2 sessions each week',
+      '🎁 Streak perk: +1 bonus session every day + 2 GLM 5.2 sessions each day',
     )
     expect(getFreebuffStreakBonusNote({ streak: 35, accessTier: 'full' })).toBe(
-      '🎁 Streak perk: +1 bonus session every day + 4 GLM 5.2 sessions each week',
+      '🎁 Streak perk: +1 bonus session every day + 4 GLM 5.2 sessions each day',
     )
   })
 

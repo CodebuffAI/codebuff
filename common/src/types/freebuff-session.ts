@@ -31,8 +31,9 @@ export interface FreebuffSessionRateLimit {
    * for session quotas with `limit = base + referral + streak`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
   limit: number
-  /** 'pacific_day' for the daily premium/limited pools; 'pacific_week' for the
-   *  GLM 5.2 referral pool, which resets weekly. */
+  /** 'pacific_day' for the daily pools (premium/limited, and the GLM 5.2
+   *  referral pool since 2026-07-29). 'pacific_week' is kept for wire compat
+   *  with servers from when the GLM pool reset weekly. */
   period: 'pacific_day' | 'pacific_week'
   resetTimeZone: string
   resetAt: string
@@ -69,8 +70,9 @@ export interface FreebuffDesktopSessionCounts {
  * Referral status surfaced to the CLI model-selector so it can render an
  * "invite friends" banner. The reward depends on the session's access tier:
  *
- *   - full tier    → unlock weekly GLM 5.2 sessions (`weeklySessionsRemaining`
- *     and `resetAt` carry the live balance / next reset).
+ *   - full tier    → unlock daily GLM 5.2 sessions (`weeklySessionsRemaining`
+ *     and `resetAt` carry the live balance / next reset; the field name
+ *     predates the weekly→daily cadence change and is kept for wire compat).
  *   - limited tier → earn a daily free-session bonus (+1/day per qualified
  *     referral, capped); the GLM-only fields are omitted, and `qualifiedCount`
  *     carries the bonus sessions/day already earned (capped).
@@ -87,15 +89,17 @@ export interface FreebuffReferralInfo {
    *  landing page ("X invited you to try Freebuff!"). Null when the user has no
    *  name set. */
   referrerName: string | null
-  /** Capped qualified-referral count for the tier's reward: full tier = weekly
-   *  GLM session entitlement; limited tier = daily-session bonus earned. The
-   *  CLI knows the relevant cap constant locally. */
+  /** Capped qualified-referral count for the tier's reward: full tier = GLM
+   *  sessions per day; limited tier = daily-session bonus earned. The CLI
+   *  knows the relevant cap constant locally. */
   qualifiedCount: number
-  /** GLM sessions still available this week (entitlement − used, ≥ 0). Full
-   *  tier only; omitted for the limited-tier daily-bonus variant. */
+  /** GLM sessions still available in the current reset window (entitlement −
+   *  used, ≥ 0). Daily since 2026-07-29; the "weekly" name is kept for wire
+   *  compat. Full tier only; omitted for the limited-tier daily-bonus
+   *  variant. */
   weeklySessionsRemaining?: number
-  /** ISO timestamp of the next weekly reset. Full tier only; omitted for the
-   *  limited-tier daily-bonus variant. */
+  /** ISO timestamp of the next GLM pool reset. Full tier only; omitted for
+   *  the limited-tier daily-bonus variant. */
   resetAt?: string
   /** Whether the current user has a GitHub account linked. Referrals only
    *  qualify with a connected, sufficiently-old GitHub, so the CLI prompts

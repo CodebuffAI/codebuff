@@ -28,7 +28,7 @@ export function getFreebuffPremiumResetAt(params: {
 
 /**
  * Human "resets in …" countdown. Daily pools stop at hours (`withDays` off);
- * the weekly GLM pool sets `withDays` so a multi-day window reads as "2d 5h"
+ * a multi-day window (e.g. a lapsed reset) sets `withDays` so it reads as "2d 5h"
  * instead of a 100-hour figure.
  */
 export function formatFreebuffPremiumResetCountdown(

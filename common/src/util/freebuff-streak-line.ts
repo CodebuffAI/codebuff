@@ -49,12 +49,12 @@ export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null
  * too — a lapsed user needs a first day, not a countdown from seven).
  *
  * The daily-pool bonus (+1 session) recurs **every day** the streak stays at 7+,
- * so it's framed as "every day". The GLM 5.2 bonus is a **weekly** perk that
- * refills each Monday while the streak remains active and grows with the streak
- * (one weekly session per completed 7 days, max 4), so the earned line shows
- * the current tier's count. The exact remaining GLM count lives in the referral
- * banner; this line is the motivational why. GLM is full-access only, so
- * limited users get the daily session bonus alone.
+ * so it's framed as "every day". The GLM 5.2 bonus refills with the GLM pool —
+ * daily since 2026-07-29 (weekly before) — while the streak remains active and
+ * grows with the streak (one session per completed 7 days, max 4), so the
+ * earned line shows the current tier's count. The exact remaining GLM count
+ * lives in the referral banner; this line is the motivational why. GLM is
+ * full-access only, so limited users get the daily session bonus alone.
  */
 export function getFreebuffStreakBonusNote(params: {
   streak: number
@@ -66,11 +66,11 @@ export function getFreebuffStreakBonusNote(params: {
   // active, so the copy never promises a perk the gate won't honor.
   const includesGlm =
     params.accessTier === 'full' && isFreebuffStreakGlmBonusActive()
-  // Below the milestone this is the first tier being unlocked (1/week); at 7+
-  // it's whatever tier the current streak has earned (up to 4/week).
-  const glmWeekly = Math.max(1, getFreebuffStreakGlmWeeklyUnits(params.streak))
+  // Below the milestone this is the first tier being unlocked (1/day); at 7+
+  // it's whatever tier the current streak has earned (up to 4/day).
+  const glmDaily = Math.max(1, getFreebuffStreakGlmWeeklyUnits(params.streak))
   const perk = includesGlm
-    ? `+1 bonus session every day + ${glmWeekly} GLM 5.2 ${glmWeekly === 1 ? 'session' : 'sessions'} each week`
+    ? `+1 bonus session every day + ${glmDaily} GLM 5.2 ${glmDaily === 1 ? 'session' : 'sessions'} each day`
     : '+1 bonus session every day'
 
   if (params.streak < FREEBUFF_STREAK_WEEK) {

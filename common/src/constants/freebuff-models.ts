@@ -81,10 +81,12 @@ export const FREEBUFF_HY3_ATLAS_MODEL_ID = FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
-/** GLM 5.2 (Z.ai), served by Fireworks serverless. Unlike the other picker
- *  models it is NOT freely available — it is unlocked by referring friends.
- *  Each qualified referral grants one 1-hour GLM session per week (capped at
- *  FREEBUFF_GLM_V52_REFERRAL_CAP). Gated by a per-user weekly session pool whose
+/** GLM 5.2 (Z.ai), served by CrofAI (moved off Fireworks serverless
+ *  2026-07-29 — CrofAI is the same upstream as the crof/ route below at ~4x
+ *  less than Fireworks' list price). Unlike the other picker models it is NOT
+ *  freely available — it is unlocked by referring friends. Each qualified
+ *  referral grants one 1-hour GLM session per day (capped at
+ *  FREEBUFF_GLM_V52_REFERRAL_CAP). Gated by a per-user daily session pool whose
  *  limit equals the caller's GLM referral score (see the free-session quota). */
 export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
 /** GLM 5.2 served by CrofAI's direct OpenAI-compatible API, offered to
@@ -131,24 +133,26 @@ export const FREEBUFF_LIMITED_SESSION_LIMIT = 6
 export const FREEBUFF_WEB_STANDARD_SESSION_LIMIT = 6
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
-/** GLM 5.2 referral-reward session pool. Distinct from the premium daily pool:
- *  GLM sessions reset weekly (Pacific) and the per-user limit is the caller's
- *  GLM referral score, capped at FREEBUFF_GLM_V52_REFERRAL_CAP. */
-export const FREEBUFF_WEEKLY_SESSION_PERIOD = 'pacific_week'
+/** GLM 5.2 referral-reward session pool. Distinct from the shared premium
+ *  daily pool: GLM sessions reset daily (Pacific; weekly until 2026-07-29) and
+ *  the per-user limit is the caller's GLM referral score, capped at
+ *  FREEBUFF_GLM_V52_REFERRAL_CAP. Note the streak GLM bonus is a live
+ *  entitlement on this same pool, so it refills at this cadence too. */
+export const FREEBUFF_GLM_V52_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
 export const FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
-export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24 * 7
+export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24
 /** Max number of qualified referrals that count toward GLM sessions, i.e. the
- *  most 1-hour GLM sessions a user can earn per week. */
+ *  most 1-hour GLM sessions a user can earn per day. */
 export const FREEBUFF_GLM_V52_REFERRAL_CAP = 10
 /** Master kill-switch for the GLM 5.2 referral program. While true, qualified
- *  referrals grant weekly GLM sessions and the CLI advertises the perk. Flip to
+ *  referrals grant daily GLM sessions and the CLI advertises the perk. Flip to
  *  false to wind the program down: entitlement drops to 0 for everyone and the
  *  CLI stops showing the banner. The perk is intentionally framed as
  *  limited-time in the UI so turning this off isn't a surprise. */
 export const FREEBUFF_GLM_V52_REFERRAL_ENABLED = true
 /** GLM sessions are exactly one hour of wall-clock time, regardless of the
- *  global free-session length, so the "1 hour per referral per week" promise is
+ *  global free-session length, so the "1 hour per referral per day" promise is
  *  exact. */
 export const FREEBUFF_GLM_V52_SESSION_LENGTH_MS = 60 * 60 * 1000
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
@@ -164,18 +168,19 @@ export const FREEBUFF_WEB_STANDARD_SESSION_PERIOD =
  * (7)-day daily streak, they earn:
  *   - +1 session in their primary daily pool (premium for full-access users,
  *     limited for limited-access) **every day** the streak stays at 7+; and
- *   - for full-access users, +1 GLM 5.2 session in every Monday-to-Monday week
- *     per completed 7 days of the current streak (7 days → 1/week, 14 → 2/week),
- *     capped at `FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER` (28-day streak), on
- *     top of referrals.
+ *   - for full-access users, +1 GLM 5.2 session per GLM-pool window per
+ *     completed 7 days of the current streak (7 days → 1, 14 → 2), capped at
+ *     `FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER` (28-day streak), on top of
+ *     referrals. The GLM pool resets daily (Pacific) since 2026-07-29, weekly
+ *     before.
  *
  * The daily premium/limited bonus is persisted after today's first use. The
- * GLM bonus is derived live from the current streak, so it refills at the weekly
- * reset and shuts off as soon as the streak breaks.
+ * GLM bonus is derived live from the current streak, so it refills at the GLM
+ * pool reset and shuts off as soon as the streak breaks.
  */
 export const FREEBUFF_STREAK_REWARD_INTERVAL_DAYS = 7
-/** Cap on the weekly GLM streak bonus: at most this many 7-day tiers count, so
- *  a 28-day (or longer) streak earns 4 GLM sessions per week. */
+/** Cap on the GLM streak bonus: at most this many 7-day tiers count, so a
+ *  28-day (or longer) streak earns 4 GLM sessions per pool window. */
 export const FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER = 4
 /** Master kill-switch for streak rewards. When false, streaks grant nothing
  *  and effective limits fall back to the base pool limits. */

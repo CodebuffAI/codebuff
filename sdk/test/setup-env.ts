@@ -19,6 +19,11 @@ const serverDefaults: Record<string, string> = {
   OPEN_ROUTER_API_KEY: 'test',
   OPENAI_API_KEY: 'test',
   SERPER_API_KEY: 'test',
+  // Direct-provider handlers throw before fetch when their key is unset, so
+  // give the mocked-fetch tests a dummy — without these, whether the CrofAI/
+  // MiMo routing tests pass depends on the developer's shell env.
+  CROF_AI_API_KEY: 'test',
+  MIMO_API_KEY: 'test',
   PORT: '4242',
   DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
   CODEBUFF_GITHUB_ID: 'test-id',

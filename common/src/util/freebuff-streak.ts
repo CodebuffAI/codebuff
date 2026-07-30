@@ -110,9 +110,11 @@ export function isFreebuffStreakGlmBonusActive(): boolean {
   )
 }
 
-/** Weekly GLM sessions earned by a streak of `streak` days, ignoring the
- * feature gates: one per completed 7-day interval, capped at
- * `FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER` (a 28-day streak earns the max). */
+/** GLM sessions per pool window earned by a streak of `streak` days, ignoring
+ * the feature gates: one per completed 7-day interval, capped at
+ * `FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER` (a 28-day streak earns the max).
+ * The GLM pool resets daily since 2026-07-29 (weekly before), so these units
+ * refill at that cadence. The name keeps its historical "Weekly". */
 export function getFreebuffStreakGlmWeeklyUnits(streak: number): number {
   const tiers = Math.min(
     Math.floor(streak / FREEBUFF_STREAK_REWARD_INTERVAL_DAYS),
@@ -121,10 +123,10 @@ export function getFreebuffStreakGlmWeeklyUnits(streak: number): number {
   return tiers * FREEBUFF_STREAK_BONUS_SESSION_UNITS
 }
 
-/** Resolve the live GLM weekly bonus directly from usage dates. The weekly pool
- * gets +1 per completed 7 days of the current streak (7 → 1/week, 14 → 2/week,
- * capped at 4 for 28+) and therefore refills every Monday Pacific; once the
- * streak breaks it gets 0. */
+/** Resolve the live GLM bonus directly from usage dates. The GLM pool gets +1
+ * per completed 7 days of the current streak (7 → 1, 14 → 2, capped at 4 for
+ * 28+) and refills at the pool reset (daily Pacific since 2026-07-29); once
+ * the streak breaks it gets 0. */
 export function getFreebuffStreakGlmBonusUnits(params: {
   usageDates: readonly string[]
   todayDateKey: string

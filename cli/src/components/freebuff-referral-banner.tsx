@@ -177,7 +177,7 @@ const CopyInviteLinkButton: React.FC<{
  *   - LIMITED tier: referrals earn a daily free-session bonus (not GLM). One
  *     quiet muted line ("refer friends → more sessions per day") + the inline
  *     copy control, so it advertises the perk without crowding the picker.
- *   - FULL tier, UNLOCKED (you have weekly GLM sessions): a flashy accent-
+ *   - FULL tier, UNLOCKED (you have GLM sessions today): a flashy accent-
  *     bordered card with your remaining sessions and a prominent "Use GLM 5.2 ↵"
  *     launch button, so the reward feels earned and inviting.
  *   - FULL tier, LOCKED (no GLM sessions yet): a single quiet muted line
@@ -318,7 +318,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
 
   // NOT USABLE: keep it quiet — one line that advertises the reward, with the
   // share link as a clearly-clickable button below it. Message adapts to *why*
-  // it's locked — no referrals yet vs. this week's sessions already spent.
+  // it's locked — no referrals yet vs. today's sessions already spent.
   if (weeklySessionsRemaining <= 0) {
     return (
       <box
@@ -381,8 +381,8 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           '✔ Invite',
         ]
       : [
-          `⎘ Invite for +1/wk (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`,
-          '⎘ Invite +1/wk',
+          `⎘ Invite for +1/day (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`,
+          '⎘ Invite +1/day',
           '⎘ Invite',
         ]
   const githubLabel =
@@ -415,7 +415,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {pluralize(sessionsLeft, 'session')}
         </span>
-        <span fg={theme.foreground}> available this week</span>
+        <span fg={theme.foreground}> available today</span>
         <span fg={theme.muted}> · resets in {resetsIn}</span>
       </text>
 
