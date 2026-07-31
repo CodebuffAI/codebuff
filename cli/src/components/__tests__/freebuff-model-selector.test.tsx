@@ -6,7 +6,10 @@ import React from 'react'
 import { FreebuffModelSelector } from '../freebuff-model-selector'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   isFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -31,6 +34,18 @@ afterEach(() => {
   useFreebuffModelStore.getState().setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
 })
 
+const renderSelector = async (maxHeight = 40) => {
+  const setup = await createTestRenderer({ width: 100, height: 40 })
+  const root = createRoot(setup.renderer)
+  cleanupRenderer = () => {
+    flushSync(() => root.unmount())
+    setup.renderer.destroy()
+  }
+  flushSync(() => root.render(<FreebuffModelSelector maxHeight={maxHeight} />))
+  await setup.renderOnce()
+  return setup
+}
+
 const renderSelectorWithGlmRemaining = async (remaining?: number) => {
   useFreebuffSessionStore.getState().setSession({
     status: 'none',
@@ -48,13 +63,7 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
   })
   useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_GLM_V52_MODEL_ID)
 
-  const nextSetup = await createTestRenderer({ width: 100, height: 40 })
-  const nextRoot = createRoot(nextSetup.renderer)
-  cleanupRenderer = () => {
-    flushSync(() => nextRoot.unmount())
-    nextSetup.renderer.destroy()
-  }
-  flushSync(() => nextRoot.render(<FreebuffModelSelector maxHeight={30} />))
+  const nextSetup = await renderSelector(30)
   await nextSetup.renderOnce()
   await Promise.resolve()
   await nextSetup.renderOnce()
@@ -74,5 +83,130 @@ describe('FreebuffModelSelector referral selection', () => {
   test('treats an omitted GLM balance as locked', async () => {
     await renderSelectorWithGlmRemaining()
     expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
+  })
+})
+
+describe('FreebuffModelSelector tier layout', () => {
+  test('keeps focus on the recommended premium model when expanded beneath PREMIUM', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+
+    const setup = await renderSelector()
+    expect(setup.captureCharFrame()).not.toContain('PREMIUM')
+
+    flushSync(() => setup.mockInput.pressArrow('down'))
+    await setup.renderOnce()
+    flushSync(() => setup.mockInput.pressEnter())
+    await Promise.resolve()
+    await setup.renderOnce()
+    await setup.renderOnce()
+
+    const frame = setup.captureCharFrame()
+    const premiumHeaderIndex = frame.indexOf('PREMIUM')
+    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Pro')
+    const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
+
+    expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
+    expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
+    expect(unlimitedHeaderIndex).toBeGreaterThan(recommendedModelIndex)
+    expect(frame).toContain('› DeepSeek V4 Pro')
+    expect(frame).not.toContain('› MiniMax M3')
+  })
+
+  test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
+    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      rateLimitsByModel: {
+        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
+          model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+          limit: 6,
+          period: 'pacific_day',
+          resetTimeZone: 'America/Los_Angeles',
+          resetAt,
+          windowHours: 24,
+          recentCount: 6,
+        },
+      },
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+
+    const setup = await renderSelector()
+    const frame = setup.captureCharFrame()
+    const premiumHeaderIndex = frame.indexOf('PREMIUM')
+    const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
+    const recommendedLabelIndex = frame.indexOf('RECOMMENDED')
+    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Flash')
+
+    expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
+    expect(recommendedLabelIndex).toBeGreaterThan(unlimitedHeaderIndex)
+    expect(recommendedModelIndex).toBeGreaterThan(recommendedLabelIndex)
+  })
+
+  test('repairs an invalid selection to the unlimited recommendation when premium is exhausted', async () => {
+    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      rateLimitsByModel: {
+        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
+          model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+          limit: 6,
+          period: 'pacific_day',
+          resetTimeZone: 'America/Los_Angeles',
+          resetAt,
+          windowHours: 24,
+          recentCount: 6,
+        },
+      },
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GLM_V52_MODEL_ID)
+
+    const setup = await renderSelector()
+    await Promise.resolve()
+    await setup.renderOnce()
+    await setup.renderOnce()
+
+    expect(getSelectedFreebuffModel()).toBe(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    expect(setup.captureCharFrame()).toContain('› DeepSeek V4 Flash')
+  })
+
+  test('shows every limited-tier model when the access tier arrives after mount', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    const setup = await renderSelector()
+
+    flushSync(() => {
+      useFreebuffSessionStore.getState().setSession({
+        status: 'none',
+        accessTier: 'limited',
+      })
+    })
+    await Promise.resolve()
+    await setup.renderOnce()
+    await setup.renderOnce()
+
+    const frame = setup.captureCharFrame()
+    expect(frame).toContain('DeepSeek V4 Flash')
+    expect(frame).toContain('MiMo 2.5')
+    expect(frame).not.toContain('PREMIUM')
+    expect(frame).not.toContain('UNLIMITED')
   })
 })

@@ -12,7 +12,6 @@ import React, {
 import { Button } from './button'
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
-  FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelsForAccessTier,
@@ -55,9 +54,10 @@ import type {
 // start with one Enter press without reading six boxes. The "see all models"
 // toggle reveals the rest, grouped into the same product/availability tiers.
 //
-// Section grouping (expanded view): model rows keep their tiers, but the
-// premium models share one daily session quota while the unlimited ones have
-// none. Putting the tier on a section header lets each row drop its redundant
+// Section grouping (expanded view): every model row, including the recommended
+// one, keeps its tier so it is obvious which quota it consumes. The premium
+// models share one daily session quota while the unlimited ones have none.
+// Putting the tier on a section header lets each row drop its redundant
 // "Premium"/"Unlimited" chip. The PREMIUM header carries the shared quota
 // inline — "N of M used · resets in …" — once any session is spent (turning
 // amber when exhausted, the moment its rows grey out). When collapsed there's
@@ -102,9 +102,9 @@ const CUE_GAP = 4
  * Space) commits the focused row — or, on the toggle, expands/collapses the
  * list. Mouse click commits in one step.
  *
- * Layout: the recommended model renders as a titled "RECOMMENDED" card with a
- * bright border. When expanded, the remaining rows are grouped into PREMIUM /
- * UNLIMITED sections so the tier is visible without a per-row chip; the shared
+ * Layout: the recommended model renders as a titled "RECOMMENDED" card. When
+ * expanded, every full-access row is grouped into PREMIUM / UNLIMITED sections
+ * so the recommended row's tier is explicit without a per-row chip; the shared
  * premium-session quota rides the PREMIUM header. Names align in a column
  * so taglines line up across rows, and the secondary details (warning /
  * deployment hours) always sit on their own centered line under the name —
@@ -218,12 +218,26 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const [expanded, setExpanded] = useState(
     () => !canCollapse || !isLanding || selectedModel !== recommendedModel.id,
   )
-  // Mirror the expanded state up to the landing screen (collapsed → it
-  // promotes the wordmark to the full ASCII logo). useLayoutEffect so the
-  // parent's logo decision settles before paint, both on mount and on toggle.
+  // Limited mode has no labeled tier section, so moving its recommendation
+  // inside that section would only move the existing inter-card spacing above
+  // the entire list. Keep its original standalone recommendation; full-access
+  // expanded views put every row beneath a quota-bearing section header.
+  const showStandaloneRecommended = !expanded || accessTier === 'limited'
+  // The session snapshot arrives asynchronously. If it changes the picker
+  // from full access (collapsible) to limited access (only two rows), force
+  // the list open before notifying the parent; otherwise the toggle disappears
+  // while the second limited model remains hidden.
+  //
+  // Mirror the settled state up to the landing screen (collapsed → it promotes
+  // the wordmark to the full ASCII logo). useLayoutEffect keeps both corrections
+  // ahead of paint.
   useLayoutEffect(() => {
+    if (!canCollapse && !expanded) {
+      setExpanded(true)
+      return
+    }
     onExpandedChange?.(expanded)
-  }, [expanded, onExpandedChange])
+  }, [canCollapse, expanded, onExpandedChange])
 
   // Keyboard cursor — separate from the actually-selected model so that
   // Tab/arrow navigation can preview without committing. Starts on the user's
@@ -264,25 +278,27 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         {
           key: 'premium',
           label: 'PREMIUM',
-          models: otherModels.filter((m) => isFreebuffPremiumModelId(m.id)),
+          models: availableModels.filter((m) => isFreebuffPremiumModelId(m.id)),
         },
         {
           key: 'unlimited',
           label: 'UNLIMITED',
-          models: otherModels.filter((m) => !isFreebuffPremiumModelId(m.id)),
+          models: availableModels.filter(
+            (m) => !isFreebuffPremiumModelId(m.id),
+          ),
         },
       ] satisfies readonly Section[]
     ).filter((section) => section.models.length > 0)
-  }, [expanded, accessTier, otherModels])
+  }, [expanded, accessTier, availableModels, otherModels])
 
-  // Model rows in render order: the recommended hero first, then (when
-  // expanded) the grouped rest.
+  // Model rows in render order: a standalone recommendation in collapsed and
+  // limited views, followed by all models belonging to rendered sections.
   const renderedModelIds = useMemo(
     () => [
-      recommendedModel.id,
+      ...(showStandaloneRecommended ? [recommendedModel.id] : []),
       ...sections.flatMap((section) => section.models.map((m) => m.id)),
     ],
-    [recommendedModel, sections],
+    [recommendedModel, sections, showStandaloneRecommended],
   )
   // Keyboard-navigable ids: the model rows, then the toggle, then any focus
   // targets the referral banner registered (so arrowing down past "see all
@@ -305,9 +321,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         ? curr
         : navIds.includes(selectedModel)
           ? selectedModel
-          : navIds[0]!,
+          : recommendedModel.id,
     )
-  }, [navIds, selectedModel])
+  }, [navIds, recommendedModel.id, selectedModel])
 
   useEffect(() => {
     // Landing-screen safety net: if the in-memory selection becomes
@@ -328,7 +344,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       (!selectionIsValid ||
         !isFreebuffModelAvailable(selectedModel, new Date(now)))
     ) {
-      setSelectedModel(renderedModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
+      setSelectedModel(recommendedModel.id)
     }
   }, [
     accessTier,
@@ -336,6 +352,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     renderedModelIds,
     isLanding,
     now,
+    recommendedModel.id,
     selectedModel,
     setSelectedModel,
   ])
@@ -402,7 +419,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // border (which the old indent did on the widest row) read as ragged.
     // Centering means it only needs its own length to fit, so it no longer
     // stretches the card.
-    const detailsLineLen = (m: FreebuffModelOption) => joinedLen(detailsParts(m))
+    const detailsLineLen = (m: FreebuffModelOption) =>
+      joinedLen(detailsParts(m))
 
     // The cue lives only on the recommended hero, so only its line needs to fit
     // the "Press Enter ↵" gutter. Folding that into the max means longer rows
@@ -464,10 +482,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const TOGGLE_MARGIN = 1
   const estimatedModelHeight = useMemo(() => {
     let y = 0
-    const heroHeight = 2 + (rowHasDetailsLine(recommendedModel) ? 2 : 1)
-    y += heroHeight
+    if (showStandaloneRecommended) {
+      y += 2 + (rowHasDetailsLine(recommendedModel) ? 2 : 1)
+    }
     sections.forEach((section) => {
-      y += SECTION_GAP // every section sits below the hero (or prior one) with a gap
+      y += SECTION_GAP
       if (section.label) y += 1
       section.models.forEach((m) => {
         y += 2 + (rowHasDetailsLine(m) ? 2 : 1)
@@ -478,13 +497,23 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       y += 1
     }
     return y
-  }, [sections, rowHasDetailsLine, recommendedModel, canCollapse])
+  }, [
+    sections,
+    rowHasDetailsLine,
+    recommendedModel,
+    canCollapse,
+    showStandaloneRecommended,
+  ])
 
   // When a referral exists, start at the parent's full allowance until the
-  // wrapper reports its intrinsic height. This is conservative for the first
-  // layout pass and cannot clip wrapped copy on a narrow terminal.
-  const contentHeight =
-    measuredContentHeight ?? (referral ? maxHeight : estimatedModelHeight)
+  // wrapper reports its intrinsic height. The model estimate remains a lower
+  // bound after measurement: expansion and an asynchronously arriving access
+  // tier can grow the list before OpenTUI reports the wrapper's new height, and
+  // reusing the smaller collapsed measurement would clip the newly added rows.
+  const contentHeight = Math.max(
+    estimatedModelHeight,
+    measuredContentHeight ?? (referral ? maxHeight : 0),
+  )
 
   const needsScroll = contentHeight > maxHeight
   const scrollViewportHeight = Math.max(1, Math.min(contentHeight, maxHeight))
@@ -531,19 +560,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   )
 
   const toggleExpanded = useCallback(() => {
-    setExpanded((prev) => {
-      const next = !prev
-      // After revealing the list, drop focus onto the first newly-shown row so
-      // the next arrow press walks into it; after collapsing, return to the
-      // hero so Enter starts.
-      setFocusedId(
-        next
-          ? (otherModels[0]?.id ?? recommendedModel.id)
-          : recommendedModel.id,
-      )
-      return next
-    })
-  }, [otherModels, recommendedModel])
+    // Expanding is informational: keep Enter bound to the recommendation
+    // instead of silently moving focus to a different model. Collapsing
+    // returns to the same recommendation.
+    setFocusedId(recommendedModel.id)
+    setExpanded((prev) => !prev)
+  }, [recommendedModel.id])
 
   // Tab / Shift+Tab and arrow keys move the focus highlight only; Enter or
   // Space commits the focused row (or fires the toggle). Two-step navigation
@@ -718,7 +740,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             </span>
           ) : (
             <span fg={mutedColor}>
-              {namePadding + model.tagline + (model.multimodal ? ' · Images' : '')}
+              {namePadding +
+                model.tagline +
+                (model.multimodal ? ' · Images' : '')}
             </span>
           )}
           {showCue && (
@@ -768,7 +792,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           )}
         </text>
       )}
-      {section.models.map((m) => renderModelButton(m))}
+      {section.models.map((m) =>
+        renderModelButton(m, { recommended: m.id === recommendedModel.id }),
+      )}
     </box>
   ))
 
@@ -854,7 +880,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           flexShrink: 0,
         }}
       >
-        {renderModelButton(recommendedModel, { recommended: true })}
+        {showStandaloneRecommended &&
+          renderModelButton(recommendedModel, { recommended: true })}
         {sectionsContent}
         {toggleContent}
         {belowToggle}
