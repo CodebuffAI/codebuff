@@ -12,7 +12,6 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -30,15 +29,14 @@ import {
   shouldUseLocalTokenCountForFreebuffDeepseekFlash,
 } from '../constants/free-agents'
 
+const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
+
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 // Removed model: support was dropped entirely (client + server).
 const LEGACY_MINIMAX_M2_7_MODEL_ID = 'minimax/minimax-m2.7'
 
 describe('free mode agent model allowlist', () => {
   test('maps supported freebuff models to concrete root agents', () => {
-    expect(getFreebuffRootAgentIdForModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
-      'base2-free-kimi',
-    )
     expect(
       getFreebuffRootAgentIdForModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe('base2-free-deepseek')
@@ -90,12 +88,18 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       ),
     ).toBe(true)
+    // Kimi K2.7 Code was removed from free mode (see free-agents.ts). Both the
+    // model and its dedicated root are rejected now.
     expect(
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_KIMI_MODEL_ID),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel('base2-free-kimi', FREEBUFF_KIMI_MODEL_ID),
-    ).toBe(true)
+    ).toBe(false)
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
+      'base2-free',
+    )
+    expect(isFreebuffRootAgent('base2-free-kimi')).toBe(false)
     expect(
       isFreeModeAllowedAgentModel(
         'base2-free-deepseek',
@@ -215,9 +219,10 @@ describe('free mode agent model allowlist', () => {
         LEGACY_MINIMAX_M2_7_MODEL_ID,
       ),
     ).toBe(false)
+    // Kimi K2.7 Code was removed from free mode (see free-agents.ts).
     expect(
       isFreeModeAllowedAgentModel('code-reviewer-kimi', FREEBUFF_KIMI_MODEL_ID),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel(
         'code-reviewer-deepseek',
@@ -269,9 +274,10 @@ describe('free mode agent model allowlist', () => {
     expect(
       isFreeModeAllowedAgentModel('code-reviewer-lite', MINIMAX_M3_MODEL_ID),
     ).toBe(false)
+    // Kimi K2.7 Code was removed from free mode (see free-agents.ts).
     expect(
       isFreeModeAllowedAgentModel('code-reviewer-lite', FREEBUFF_KIMI_MODEL_ID),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel(
         'code-reviewer-lite',
@@ -300,7 +306,6 @@ describe('free mode agent model allowlist', () => {
       MINIMAX_M3_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      FREEBUFF_KIMI_MODEL_ID,
       FREEBUFF_MIMO_V25_PRO_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
       FREEBUFF_GLM_V52_MODEL_ID,
@@ -313,6 +318,10 @@ describe('free mode agent model allowlist', () => {
       // Each variant is a recognized free-mode root, so its subagents pass the
       // hierarchy gate and the "You are Buffy" marker gate applies to it.
       expect(isFreebuffRootAgent(agentId)).toBe(true)
+      // Kimi K2.7 Code was removed from free mode (see free-agents.ts).
+      expect(
+        isFreeModeAllowedAgentModel(agentId, FREEBUFF_KIMI_MODEL_ID),
+      ).toBe(false)
       // A non-free premium model (e.g. raw Claude) stays disallowed even for it.
       expect(
         isFreeModeAllowedAgentModel(agentId, 'anthropic/claude-sonnet-4.5'),

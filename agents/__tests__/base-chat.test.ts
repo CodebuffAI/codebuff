@@ -126,12 +126,12 @@ describe('base-chat per-model context budget', () => {
     }
   })
 
-  test('scales the budget with the window: kimi (256k) < m3 (512k) < flash (1M)', () => {
-    const kimi = budgetFor('moonshotai/kimi-k2.7-code')
+  test('scales the budget with the window: unmapped (128k) < m3 (512k) < flash (1M)', () => {
+    const unmapped = budgetFor('some/model-we-have-never-shipped')
     const m3 = budgetFor('minimax/minimax-m3')
     const flash = budgetFor('fireworks/deepseek-v4-flash')
 
-    expect(kimi).toBeLessThan(m3)
+    expect(unmapped).toBeLessThan(m3)
     expect(m3).toBeLessThan(flash)
   })
 
@@ -218,32 +218,36 @@ describe('base-chat budget vs. the thread that actually wedged', () => {
 })
 
 describe('base-chat model switch mid-thread', () => {
-  // The reported wedge: a thread grown on minimax-m3 (512k) that the user then
-  // switches to kimi-k2.7-code (256k). Every observed kimi failure in prod was
-  // this shape ("Range of input length should be [1, 262144]").
+  // The reported wedge: a thread grown on a big-window model that the user then
+  // switches to a smaller-window one. It was first seen switching minimax-m3
+  // (512k) to kimi-k2.7-code (256k) — "Range of input length should be
+  // [1, 262144]". Kimi was removed from Freebuff on 2026-07-31, so the case is
+  // now reproduced with an unmapped model, which takes the deliberately small
+  // DEFAULT_CONTEXT_WINDOW (128k) and is therefore an even sharper drop.
   const M3 = 'minimax/minimax-m3'
-  const KIMI = 'moonshotai/kimi-k2.7-code'
+  const SMALL = 'some/model-we-have-never-shipped'
 
   test('the budget follows the selected model, not the thread', () => {
     const m3Budget = budgetFor(M3)
-    const kimiBudget = budgetFor(KIMI)
-    const kimiWindow = FREEBUFF_MODEL_CONTEXT_WINDOWS[KIMI]
+    const smallBudget = budgetFor(SMALL)
+    const smallWindow = FREEBUFF_DEFAULT_CONTEXT_WINDOW
 
     // Precondition for the bug. Budgets are in *estimated* tokens, and the
     // estimate can run ~2x under what the provider charges, so a thread filling
-    // the m3 budget can genuinely exceed kimi's window once kimi counts it.
-    expect(m3Budget * 2).toBeGreaterThan(kimiWindow)
+    // the m3 budget can genuinely exceed the smaller window once it counts it.
+    expect(m3Budget * 2).toBeGreaterThan(smallWindow)
     // Same thread, same accumulated context — but the budget drops with the
     // switch, because the pruner runs BEFORE the step and is sized to the
     // model that step will actually use.
-    expect(kimiBudget).toBeLessThan(m3Budget)
-    expect(kimiBudget).toBeLessThan(kimiWindow)
+    expect(smallBudget).toBeLessThan(m3Budget)
+    expect(smallBudget).toBeLessThan(smallWindow)
   })
 
   test('the pruner prunes when context exceeds the switched-to budget', () => {
-    // End-to-end through the real pruner: an m3-sized thread arriving on kimi
-    // must actually trigger pruning, not just report a smaller number.
-    const kimiBudget = budgetFor(KIMI)
+    // End-to-end through the real pruner: an m3-sized thread arriving on the
+    // smaller model must actually trigger pruning, not just report a smaller
+    // number.
+    const kimiBudget = budgetFor(SMALL)
     const overKimiUnderM3 = kimiBudget + 50_000
 
     expect(overKimiUnderM3).toBeLessThan(budgetFor(M3))

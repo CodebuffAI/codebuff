@@ -57,6 +57,16 @@ export interface FreebuffModelOption {
    *  in the picker as a "TEST" badge with a tooltip so users know it is not
    *  yet production-grade. */
   experimental?: boolean
+  /** Set when another model has overtaken this one and users should generally
+   *  move. Pickers render `notice` on the row and offer a one-click switch to
+   *  `modelId`. Kept structured rather than folded into `warning` so the button
+   *  has a real target, and so this stays distinct from the data-use caveat —
+   *  a row can carry both. */
+  supersededBy?: {
+    modelId: string
+    notice: string
+    actionLabel: string
+  }
 }
 
 /** Server-facing fallback copy for APIs and provider errors that can't know
@@ -70,7 +80,6 @@ export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
  *  the free-mode allowlists — the CLI and web builder keep DeepSeek direct. */
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
-export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK27Code
 export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3_free
 export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
@@ -278,7 +287,6 @@ interface LocalTimeFormatOptions {
  *  by the server to admit gemini-thinker child requests against a parent
  *  session bound to one of these models. */
 export const FREEBUFF_GEMINI_THINKER_PARENT_MODELS = new Set<string>([
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
@@ -314,7 +322,6 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
 export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 524_288,
   [FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID]: 1_048_576,
-  [FREEBUFF_KIMI_MODEL_ID]: 262_144,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
@@ -324,12 +331,21 @@ export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   displayName: 'DeepSeek V4 Pro',
-  tagline: 'Smartest',
+  tagline: 'Deep reasoning',
   availability: 'always',
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   premium: true,
   multimodal: false,
+  // DeepSeek's V4-Flash-0731 GA build (2026-07-31) was re-post-trained for
+  // agent work and now beats V4 Pro on coding and tool-use benchmarks, while
+  // being cheaper and outside the premium pool. Pro stays selectable for people
+  // who want its longer deliberation, but the picker says so plainly.
+  supersededBy: {
+    modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    notice: 'DeepSeek V4 Flash is now better for most coding tasks — and free.',
+    actionLabel: 'Switch to V4 Flash',
+  },
 } as const satisfies FreebuffModelOption
 
 const MIMO_V25_PRO_MODEL = {
@@ -342,16 +358,6 @@ const MIMO_V25_PRO_MODEL = {
   // The Pro endpoint is text-only. Sending image content makes the provider
   // reject the request, unlike the non-Pro MiMo 2.5 endpoint.
   multimodal: false,
-} as const satisfies FreebuffModelOption
-
-const KIMI_MODEL = {
-  id: FREEBUFF_KIMI_MODEL_ID,
-  displayName: 'Kimi K2.7 Code',
-  tagline: 'Best for coding & Slow',
-  availability: 'always',
-  dataUse: 'service',
-  premium: true,
-  multimodal: true,
 } as const satisfies FreebuffModelOption
 
 const HY3_MODEL = {
@@ -389,7 +395,7 @@ const MIMO_V25_MODEL = {
 const DEEPSEEK_V4_FLASH_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   displayName: 'DeepSeek V4 Flash',
-  tagline: 'Smart & Fast',
+  tagline: 'Smartest & Fastest',
   availability: 'always',
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
@@ -494,7 +500,6 @@ const LING_3_FLASH_MODEL = {
 export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MIMO_V25_PRO_MODEL,
-  KIMI_MODEL,
   MINIMAX_M3_MODEL,
   GPT_5_6_LUNA_MODEL,
   GLM_V52_MODEL,
@@ -507,17 +512,17 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // It stays in SUPPORTED_FREEBUFF_MODELS so the session/chat layers accept it as
 // a valid model id once the user's weekly entitlement admits them.
 //
-// Kimi K2.7 Code is also intentionally absent from the client catalog because
-// it is too expensive to offer as a free model. Keep it in
-// SUPPORTED_FREEBUFF_MODELS, the free-mode allowlists, and provider routing
-// until released clients have migrated away from it; that server compatibility
-// can be removed in a later rollout.
+// MiMo 2.5 Pro is RETIRED FROM THE CLIENT PICKERS (2026-07-31) but still in
+// SUPPORTED_FREEBUFF_MODELS, the free-mode allowlists and provider routing, so
+// already-released clients and live sessions keep resolving. This is the same
+// staged shape Kimi K2.7 Code went through — note that Kimi's server half was
+// since removed entirely, so treat that as the template for finishing this one
+// once old clients are out of circulation. The non-Pro MiMo 2.5 is unaffected.
 export const FREEBUFF_MODELS = [
+  DEEPSEEK_V4_FLASH_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
   MINIMAX_M3_MODEL,
   GPT_5_6_LUNA_MODEL,
-  ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
-  DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -525,7 +530,6 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
 ] as const
 
@@ -727,35 +731,31 @@ export type FreebuffWebModelId = (typeof FREEBUFF_WEB_ALL_MODELS)[number]['id']
 export type FreebuffWebPremiumModelId =
   (typeof FREEBUFF_WEB_PREMIUM_MODEL_IDS)[number]
 
-/** What new freebuff users see selected in the picker. DeepSeek V4 Pro is the
- *  strongest model, so new users start with the best quality. It draws from the
- *  shared daily premium pool; pickers should call
- *  getRecommendedFreebuffModelId with the live quota state so the hero flips
- *  to the unlimited flash model once the pool runs out. Note it carries the
- *  AI-training notice (dataUse 'training'), which the picker renders as the
- *  row's warning — so the default is a training-data model.
+/** What new freebuff users see selected in the picker. DeepSeek V4 Flash as of
+ *  2026-07-31: the V4-Flash-0731 GA build re-post-trained for agent work now
+ *  beats V4 Pro on the coding/tool-use benchmarks that matter here, at a
+ *  fraction of the per-token cost — so the strongest pick and the cheapest pick
+ *  are the same model. It is also always-available and outside the premium
+ *  pool, which means the recommended default no longer has to flip when the
+ *  pool runs out. (It does still carry the AI-training notice, so pickers using
+ *  this default must render the model's `warning`.)
  *  Callers that need a guaranteed-available id for resolution /
- *  auto-fallbacks should use FALLBACK_FREEBUFF_MODEL_ID instead. */
+ *  auto-fallbacks should use FALLBACK_FREEBUFF_MODEL_ID instead (same model
+ *  today, but the two are separate decisions). */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
- *  the model a new Cloud thread starts on. DeepSeek V4 Pro is a fraction of the
- *  per-token cost of MiniMax M3 at comparable quality, so the
- *  browser surfaces — where a single build burns far more tokens than a CLI
- *  turn — steer to it by default.
+ *  the model a new Cloud thread starts on. Same reasoning as
+ *  DEFAULT_FREEBUFF_MODEL_ID above, and it lands even harder here: a browser
+ *  build burns far more tokens than a CLI turn, so steering to Flash is both
+ *  the quality and the cost choice.
  *
  *  Kept as its own constant from DEFAULT_FREEBUFF_MODEL_ID (CLI/Desktop) so the
- *  browser surfaces can steer on cost independently. The two currently resolve
- *  to the same model — CLI/Desktop moved to DeepSeek V4 Pro as well — but a
- *  change to one is not automatically a change to the other.
- *
- *  NOTE: unlike M3, DeepSeek V4 Pro carries FREEBUFF_AI_TRAINING_NOTICE
- *  (`dataUse: 'training'`), so any picker using this default MUST render the
- *  model's `warning` — a user must never land on a training-data model without
- *  seeing that. */
+ *  browser surfaces can steer independently. The two currently resolve to the
+ *  same model, but a change to one is not automatically a change to the other. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without
@@ -1219,6 +1219,26 @@ export function getFreebuffWebModel(id: string): FreebuffModelOption {
     FREEBUFF_WEB_ALL_MODELS.find((m) => m.id === id) ??
     FREEBUFF_WEB_ALL_MODELS.find((m) => m.id === FALLBACK_FREEBUFF_MODEL_ID)!
   )
+}
+
+/** The "a better model exists" notice for `id`, or undefined when the model is
+ *  current. Returns nothing when the replacement is not itself selectable on
+ *  this surface, so a picker never offers a switch to a model it cannot show. */
+export function getFreebuffModelSupersededBy(
+  id: string | null | undefined,
+  selectableModelIds: readonly string[],
+): FreebuffModelOption['supersededBy'] | undefined {
+  if (!id) return undefined
+  const catalog: readonly FreebuffModelOption[] = [
+    ...SUPPORTED_FREEBUFF_MODELS,
+    ...FREEBUFF_WEB_ALL_MODELS,
+  ]
+  const supersededBy = catalog.find((candidate) => candidate.id === id)
+    ?.supersededBy
+  if (!supersededBy) return undefined
+  return selectableModelIds.includes(supersededBy.modelId)
+    ? supersededBy
+    : undefined
 }
 
 function getNextFreebuffDeploymentStart(now: Date): Date {

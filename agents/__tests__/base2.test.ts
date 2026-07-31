@@ -3,7 +3,6 @@ import { describe, expect, test } from 'bun:test'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -11,6 +10,8 @@ import {
 
 import { createBase2 } from '../base2/base2'
 import codeReviewerLite from '../reviewer/code-reviewer-lite'
+
+const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
 
 describe('base2 reviewer selection', () => {
   test('Codebuff lite uses GPT-5.6 Luna and the lite reviewer', () => {
@@ -66,7 +67,6 @@ describe('base2 reviewer selection', () => {
 
   test.each([
     [FREEBUFF_MINIMAX_M3_MODEL_ID, 'code-reviewer-minimax-m3'],
-    [FREEBUFF_KIMI_MODEL_ID, 'code-reviewer-kimi'],
     [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'code-reviewer-deepseek'],
     [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'code-reviewer-deepseek-flash'],
     [FREEBUFF_MIMO_V25_PRO_MODEL_ID, 'code-reviewer-mimo-pro'],
@@ -82,10 +82,21 @@ describe('base2 reviewer selection', () => {
   test('the reviewer follows the model, not the mode', () => {
     // Overriding lite's model moves the reviewer with it, the same way the
     // context-pruner budget and provider routing follow the model.
-    const base2 = createBase2('lite', { model: FREEBUFF_KIMI_MODEL_ID })
+    const base2 = createBase2('lite', { model: FREEBUFF_MIMO_V25_PRO_MODEL_ID })
 
-    expect(base2.spawnableAgents).toContain('code-reviewer-kimi')
+    expect(base2.spawnableAgents).toContain('code-reviewer-mimo-pro')
     expect(base2.spawnableAgents).not.toContain('code-reviewer-lite')
+  })
+
+  test('an unmapped model falls back to the cheap reviewer', () => {
+    // Kimi was removed from Freebuff on 2026-07-31 along with its reviewer, so
+    // it is now just an unmapped model: no Kimi reviewer is resolvable in any
+    // mode, and the lean fallback takes over.
+    for (const mode of ['free', 'lite'] as const) {
+      const base2 = createBase2(mode, { model: FREEBUFF_KIMI_MODEL_ID })
+      expect(base2.spawnableAgents).not.toContain('code-reviewer-kimi')
+      expect(base2.spawnableAgents).toContain('code-reviewer-deepseek-flash')
+    }
   })
 })
 

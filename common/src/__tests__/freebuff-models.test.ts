@@ -20,7 +20,6 @@ import {
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
@@ -68,15 +67,21 @@ import {
   resolveFreebuffWebModelForLimitedTier,
   resolveFreebuffModelForAccessTier,
   resolveFreebuffSessionModelForAccessTier,
+  getFreebuffModelSupersededBy,
 } from '../constants/freebuff-models'
 import type { FreebuffModelOption } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
 
+const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
+
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('freebuff model availability', () => {
-  test('defaults to DeepSeek V4 Pro, falls back to DeepSeek V4 Flash for new clients', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+  test('defaults and falls back to DeepSeek V4 Flash for new clients', () => {
+    // Since the V4-Flash-0731 GA build (2026-07-31) the default and the
+    // always-available fallback are the same model. They stay separate
+    // constants because they answer different questions.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
@@ -168,17 +173,16 @@ describe('freebuff model availability', () => {
       FREEBUFF_MIMO_V25_MODEL_ID,
     )
 
+    // MiMo 2.5 Pro was retired from the client pickers on 2026-07-31 and is no
+    // longer gated by the rollout flag — only the non-Pro model is.
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    )
     if (FREEBUFF_ENABLE_MIMO_MODELS_IN_UI) {
-      expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
-        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-      )
       expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
         FREEBUFF_MIMO_V25_MODEL_ID,
       )
     } else {
-      expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-      )
       expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
         FREEBUFF_MIMO_V25_MODEL_ID,
       )
@@ -209,9 +213,12 @@ describe('freebuff model availability', () => {
     }
   })
 
-  test('Kimi K2.7 Code is retired from clients but remains server-supported during rollout', () => {
-    expect(FREEBUFF_KIMI_MODEL_ID).toBe('moonshotai/kimi-k2.7-code')
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+  test('Kimi K2.7 Code is fully removed from Freebuff', () => {
+    // Removed 2026-07-31 (client pickers went first, on 2026-07-30). The server
+    // half is gone too, so a stale client selection is no longer admitted —
+    // that tail was still spending ~$[redacted]/day. Paid/BYOK Kimi is unaffected;
+    // it never resolves through these helpers.
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )
     expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
@@ -221,30 +228,30 @@ describe('freebuff model availability', () => {
       getFreebuffModelsForAccessTier('full').map((m) => m.id),
     ).not.toContain(FREEBUFF_KIMI_MODEL_ID)
     expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(false)
-    expect(isSupportedFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
-    expect(getFreebuffModelImageSupport(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
-    expect(isFreebuffSessionModelAvailable(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(isSupportedFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(false)
     expect(getFreebuffWebModel(FREEBUFF_KIMI_MODEL_ID).id).toBe(
       FALLBACK_FREEBUFF_MODEL_ID,
     )
-    expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
     ).toBe(false)
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
     ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    // Session admission no longer accepts it either, so live stale sessions
+    // resolve to the fallback instead of continuing on Kimi.
     expect(
       isFreebuffSessionModelAllowedForAccessTier(
         FREEBUFF_KIMI_MODEL_ID,
         'full',
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       resolveFreebuffSessionModelForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full', {
         includeGodOnly: false,
       }),
-    ).toBe(FREEBUFF_KIMI_MODEL_ID)
+    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     // Retired K2.6 is no longer a freebuff model; stale saved selections must
     // fall back rather than be admitted.
     expect(isSupportedFreebuffModelId('moonshotai/kimi-k2.6')).toBe(false)
@@ -628,10 +635,11 @@ describe('freebuff model availability', () => {
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(true)
-    // DeepSeek V4 Pro is the recommended default, so it leads the picker list
-    // and M3 sits directly behind it.
-    expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(FREEBUFF_MODELS[1]!.id).toBe(MINIMAX_M3_MODEL_ID)
+    // DeepSeek V4 Flash is the recommended default (2026-07-31), so it leads the
+    // picker list, with V4 Pro behind it and M3 next.
+    expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(FREEBUFF_MODELS[2]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
   test('GPT-5.6 Luna is a premium model on every full-access surface', () => {
@@ -766,16 +774,15 @@ describe('freebuff model availability', () => {
   })
 
   test('recommends a joinable, in-tier model for the picker hero', () => {
-    // Full access → DeepSeek V4 Pro (the smartest default, drawn from the
-    // shared premium pool) while the pool has sessions left.
+    // Full access → DeepSeek V4 Flash (the recommended default since the
+    // 0731 GA build). It is outside the premium pool, so unlike the old V4 Pro
+    // default the hero no longer has to flip when that pool runs dry.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
-    // Once the premium pool is exhausted the hero flips to the unlimited
-    // DeepSeek V4 Flash so the one-Enter start is always joinable.
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
@@ -795,19 +802,19 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('web/cloud recommend the cheaper DeepSeek V4 Pro, like CLI/Desktop', () => {
+  test('web/cloud recommend DeepSeek V4 Flash, like CLI/Desktop', () => {
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
-    // The two defaults stay separate constants, but CLI/Desktop has since
-    // moved to the same model, so they resolve alike.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    // The two defaults stay separate constants, but both surfaces moved to the
+    // same model, so they resolve alike.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     // Limited tier and an exhausted premium pool still resolve to a joinable
     // model, exactly like the CLI helper.
     expect(getRecommendedFreebuffWebModelId('limited')).toBe(
@@ -839,10 +846,42 @@ describe('freebuff model availability', () => {
     }
   })
 
+  test('points users off DeepSeek V4 Pro to V4 Flash', () => {
+    // V4-Flash-0731 overtook V4 Pro on 2026-07-31, so Pro carries a notice and
+    // a switch target rather than being removed — it is still selectable.
+    const all = FREEBUFF_MODELS.map((model) => model.id)
+    const superseded = getFreebuffModelSupersededBy(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      all,
+    )
+    expect(superseded?.modelId).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(superseded!.notice.length).toBeGreaterThan(0)
+    expect(superseded!.actionLabel.length).toBeGreaterThan(0)
+    // Pro remains a real, selectable model — this is a nudge, not a retirement.
+    expect(all).toContain(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    // The recommended default is never itself marked superseded.
+    expect(
+      getFreebuffModelSupersededBy(DEFAULT_FREEBUFF_MODEL_ID, all),
+    ).toBeUndefined()
+  })
+
+  test('never offers a switch to a model the surface cannot select', () => {
+    // A picker that lacks the replacement must show no switch at all, rather
+    // than a button that resolves to nothing.
+    expect(
+      getFreebuffModelSupersededBy(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, [
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      ]),
+    ).toBeUndefined()
+    expect(getFreebuffModelSupersededBy(undefined, [])).toBeUndefined()
+    expect(getFreebuffModelSupersededBy('vendor/unknown', [])).toBeUndefined()
+  })
+
   test('full-access freebuff models can spawn the gemini-thinker subagent', () => {
-    // Full-access models (non-limited, non-fastest) get the thinker.
+    // Full-access models (non-limited, non-fastest) get the thinker. Kimi is
+    // gone from Freebuff entirely, so it no longer qualifies.
     expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_KIMI_MODEL_ID)).toBe(
-      true,
+      false,
     )
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),

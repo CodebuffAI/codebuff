@@ -14,7 +14,6 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -165,7 +164,6 @@ export function cloudPlannerAgentIdForModel(
  */
 export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free',
-  'base2-free-kimi',
   'base2-free-deepseek',
   'base2-free-deepseek-flash',
   'base2-free-mimo-pro',
@@ -202,7 +200,6 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base2-free-luna',
-  [FREEBUFF_KIMI_MODEL_ID]: 'base2-free-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
@@ -218,7 +215,6 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'code-reviewer-luna',
-  [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
@@ -229,7 +225,6 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
@@ -267,11 +262,19 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     FREEBUFF_MIMO_V25_MODEL_ID,
   ]),
-  'base2-free-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
+  // Kimi K2.7 Code was removed from free mode entirely on 2026-07-31. It had
+  // been hidden from every client picker in 75fb0ade6 (2026-07-30) while
+  // deliberately staying valid here and in session admission, so released
+  // clients weren't broken mid-session. That tail kept costing real spend
+  // (~$[redacted]/day, [redacted]% of free-mode cost) because CLI builds older than 75fb0ade6
+  // never drop a saved Kimi preference, and nothing forces those users to
+  // upgrade. Every remaining free-mode Kimi request now 403s with
+  // 'free_mode_invalid_agent_model'. Paid/BYOK Kimi is unaffected: the
+  // base2-kimi-2-7-code agent and llm-api provider routing never consult this
+  // gate.
   'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'base2-free-deepseek-flash': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
   'base2-free-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
@@ -320,7 +323,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Code reviewer for free mode
   'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'code-reviewer-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
-  'code-reviewer-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'code-reviewer-deepseek-flash': new Set([
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -341,7 +343,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // effort. This entry exists only for pre-provider-reviewer clients; widening
   // it would let a free session run the PAID product's reviewer.
   'code-reviewer-lite': new Set([
-    FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     FREEBUFF_MIMO_V25_PRO_MODEL_ID,

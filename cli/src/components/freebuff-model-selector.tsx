@@ -14,6 +14,7 @@ import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
   isFreebuffGlmV52ModelId,
@@ -61,13 +62,13 @@ import type {
 // "Premium"/"Unlimited" chip. The PREMIUM header carries the shared quota
 // inline — "N of M used · resets in …" — once any session is spent (turning
 // amber when exhausted, the moment its rows grey out). When collapsed there's
-// no PREMIUM header — but the recommended hero is premium (DeepSeek V4 Pro) while
-// the pool has sessions left, so the parent keeps a below-picker counter for
-// the collapsed state (and for the limited tier, which has no premium
-// section). Once the pool is exhausted the recommendation flips to the
-// unlimited DeepSeek Flash so the hero stays joinable. UNLIMITED
-// needs no annotation. Empty sections are filtered so a model set with no
-// premium (or no unlimited) entries doesn't render an orphan header.
+// no PREMIUM header, so the parent keeps a below-picker counter for the
+// collapsed state (and for the limited tier, which has no premium section).
+// Since 2026-07-31 the recommended hero is the unlimited DeepSeek V4 Flash on
+// both tiers, so it is always joinable and no longer flips when the premium
+// pool empties. UNLIMITED needs no annotation. Empty sections are filtered so a
+// model set with no premium (or no unlimited) entries doesn't render an orphan
+// header.
 //
 // `label` may be empty: limited-tier users only see the constrained model set,
 // so the "LIMITED" header would just leak the internal tier name without
@@ -202,6 +203,20 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     const id = getRecommendedFreebuffModelId(accessTier, { premiumExhausted })
     return availableModels.find((m) => m.id === id) ?? availableModels[0]!
   }, [accessTier, availableModels, premiumExhausted])
+
+  // "A better model exists" footnote for a row. The CLI has no in-row button to
+  // switch with, so it shows the notice only — the replacement is always
+  // reachable as a row in this same picker (and is usually the RECOMMENDED hero
+  // one Enter away), which is what getFreebuffModelSupersededBy guarantees by
+  // resolving against the models actually on screen.
+  const supersededNoticeFor = useCallback(
+    (model: FreebuffModelOption): string | undefined =>
+      getFreebuffModelSupersededBy(
+        model.id,
+        availableModels.map((m) => m.id),
+      )?.notice,
+    [availableModels],
+  )
   const otherModels = useMemo(
     () => availableModels.filter((m) => m.id !== recommendedModel.id),
     [availableModels, recommendedModel],
@@ -395,6 +410,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       return parts
     }
 
+    // Line 3, when a better model exists. Its own line: the notice is a full
+    // sentence, so appending it to line 2 would stretch the card past any
+    // reasonable terminal width.
+    const noticeLineLen = (m: FreebuffModelOption) =>
+      supersededNoticeFor(m)?.length ?? 0
+
     // Append a compact image indicator (" · Images", 9 chars) to the
     // tagline on line 1 so it never occupies its own line.
     const multimodalSuffixLen = 9
@@ -428,7 +449,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // row + cue is the longest line.
     const innerWidth = (labelLen: (m: FreebuffModelOption) => number) =>
       Math.max(
-        ...availableModels.map((m) => Math.max(labelLen(m), detailsLineLen(m))),
+        ...availableModels.map((m) =>
+          Math.max(labelLen(m), detailsLineLen(m), noticeLineLen(m)),
+        ),
         labelLen(recommendedModel) + CUE_GAP + FOCUS_CUE.length,
       )
 
@@ -463,6 +486,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     contentMaxWidth,
     deploymentAvailabilityLabel,
     recommendedModel,
+    supersededNoticeFor,
   ])
 
   // A row spends a second line whenever it has details to put there — no longer
@@ -482,14 +506,18 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const TOGGLE_MARGIN = 1
   const estimatedModelHeight = useMemo(() => {
     let y = 0
+    const rowHeight = (m: FreebuffModelOption) =>
+      2 +
+      (rowHasDetailsLine(m) ? 2 : 1) +
+      (supersededNoticeFor(m) ? 1 : 0)
     if (showStandaloneRecommended) {
-      y += 2 + (rowHasDetailsLine(recommendedModel) ? 2 : 1)
+      y += rowHeight(recommendedModel)
     }
     sections.forEach((section) => {
       y += SECTION_GAP
       if (section.label) y += 1
       section.models.forEach((m) => {
-        y += 2 + (rowHasDetailsLine(m) ? 2 : 1)
+        y += rowHeight(m)
       })
     })
     if (canCollapse) {
@@ -503,6 +531,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     recommendedModel,
     canCollapse,
     showStandaloneRecommended,
+    supersededNoticeFor,
   ])
 
   // When a referral exists, start at the parent's full allowance until the
@@ -684,6 +713,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       Math.floor((buttonInnerWidth - detailsLen) / 2),
     )
 
+    const supersededNotice = supersededNoticeFor(model)
+    const supersededPad = Math.max(
+      0,
+      Math.floor((buttonInnerWidth - (supersededNotice?.length ?? 0)) / 2),
+    )
+
     // Spaces inside <span>s render verbatim, so we hand-pad the name to align
     // taglines into a column. nameColumnWidth is the longest name across all
     // rows, so the diff is >= 0; +NAME_GAP guarantees breathing room even on
@@ -759,6 +794,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             {hasHours && (
               <span fg={mutedColor}>{deploymentAvailabilityLabel}</span>
             )}
+          </text>
+        )}
+        {supersededNotice && (
+          <text>
+            <span>{' '.repeat(supersededPad)}</span>
+            <span fg={mutedColor}>{supersededNotice}</span>
           </text>
         )}
       </Button>

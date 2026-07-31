@@ -58,7 +58,6 @@ End every response by calling the suggest_followups tool with exactly 3 followup
     const CONTEXT_WINDOWS: Record<string, number> = {
       'minimax/minimax-m3': 524_288,
       'fireworks/deepseek-v4-flash': 1_048_576,
-      'moonshotai/kimi-k2.7-code': 262_144,
     }
 
     /** For any model not listed above. Assuming a window is smaller than it is

@@ -9,9 +9,9 @@ import {
 import { FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL } from '@codebuff/common/constants/free-agents'
 import {
   canFreebuffModelSpawnGeminiThinker,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
+import { moonshotModels } from '@codebuff/common/constants/model-config'
 
 import { LITE_MODEL, OPUS_MODEL, publisher } from '../constants'
 import {
@@ -396,7 +396,7 @@ function getBase2ProviderOptions(
 function getBase2ContextPrunerMaxContextLength(
   model: SecretAgentDefinition['model'],
 ): 250_000 | 400_000 {
-  if (model === FREEBUFF_KIMI_MODEL_ID) return 250_000
+  if (model === moonshotModels.kimiK27Code) return 250_000
   return 400_000
 }
 
