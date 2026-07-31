@@ -173,84 +173,51 @@ function installExitSweep() {
   })
 }
 
-// Common locations where Git Bash might be installed on Windows
+// Machine-wide Git for Windows layouts. A per-user install (no admin rights)
+// lands under %LOCALAPPDATA% instead, and is found via git.exe below.
 const GIT_BASH_COMMON_PATHS = [
   'C:\\Program Files\\Git\\bin\\bash.exe',
   'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
   'C:\\Git\\bin\\bash.exe',
 ]
 
-// WSL bash paths that are often unreliable (VM may not be running, quote escaping issues)
-// These are checked last as a fallback only
+// The WSL launcher ships at C:\Windows\System32\bash.exe whether or not a
+// distro is installed, so it must never be mistaken for a usable bash.
 const WSL_BASH_PATH_PATTERNS = ['system32', 'windowsapps']
 
 /**
- * Find bash executable on Windows.
- * Priority:
- * 1. CODEBUFF_GIT_BASH_PATH environment variable (user override)
- * 2. Common Git Bash installation locations (most reliable)
- * 3. Non-WSL bash in PATH (e.g., Git Bash added to PATH)
- * 4. WSL bash in PATH (last resort - System32, WindowsApps)
+ * Find bash executable on Windows: the CODEBUFF_GIT_BASH_PATH override, then a
+ * standard install, then bash on PATH, then bash beside a git.exe on PATH —
+ * the installer's default option adds only `…\Git\cmd`, which holds git.exe and
+ * no bash.exe, so that last one is what finds a per-user or relocated install.
  *
- * WSL bash is deprioritized because it can fail with cryptic errors when:
- * - The WSL VM is not running
- * - Quote/argument escaping issues between Windows and Linux
- * - UTF-16 encoding mismatches
+ * WSL bash is never used: it fails with cryptic errors when the VM is not
+ * running, on argument quoting and on UTF-16 mismatches, and with no distro
+ * installed every command returns "Windows Subsystem for Linux has no installed
+ * distributions."
  */
 function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
-  // Check for user-specified path via environment variable
-  const customPath = env.CODEBUFF_GIT_BASH_PATH
-  if (customPath && fs.existsSync(customPath)) {
-    return customPath
-  }
-
-  // Check common Git Bash installation locations first (most reliable)
-  for (const commonPath of GIT_BASH_COMMON_PATHS) {
-    if (fs.existsSync(commonPath)) {
-      return commonPath
-    }
-  }
-
-  // Fall back to bash.exe in PATH, but skip WSL paths initially
-  const pathEnv = env.PATH || env.Path || ''
-  const pathDirs = pathEnv.split(path.delimiter)
-  const wslFallbackPaths: string[] = []
-
-  for (const dir of pathDirs) {
-    const dirLower = dir.toLowerCase()
-    const isWslPath = WSL_BASH_PATH_PATTERNS.some((pattern) =>
-      dirLower.includes(pattern),
+  const pathDirs = (env.PATH || env.Path || '')
+    .split(path.delimiter)
+    .filter(
+      (dir) =>
+        !WSL_BASH_PATH_PATTERNS.some((pattern) =>
+          dir.toLowerCase().includes(pattern),
+        ),
     )
 
-    const bashPath = path.join(dir, 'bash.exe')
-    if (fs.existsSync(bashPath)) {
-      if (isWslPath) {
-        // Save WSL paths for last resort
-        wslFallbackPaths.push(bashPath)
-      } else {
-        // Non-WSL bash in PATH (e.g., Git Bash added to PATH)
-        return bashPath
-      }
-    }
-
-    // Also check for just 'bash' (without .exe)
-    const bashPathNoExt = path.join(dir, 'bash')
-    if (fs.existsSync(bashPathNoExt)) {
-      if (isWslPath) {
-        wslFallbackPaths.push(bashPathNoExt)
-      } else {
-        return bashPathNoExt
-      }
-    }
-  }
-
-  // Last resort: use WSL bash if nothing else is available
-  // WSL can be unreliable (VM not running, quote escaping issues, UTF-16 encoding)
-  if (wslFallbackPaths.length > 0) {
-    return wslFallbackPaths[0]
-  }
-
-  return null
+  return (
+    [
+      env.CODEBUFF_GIT_BASH_PATH,
+      ...GIT_BASH_COMMON_PATHS,
+      ...pathDirs.flatMap((dir) =>
+        ['bash.exe', 'bash'].map((name) => path.join(dir, name)),
+      ),
+      ...pathDirs
+        .filter((dir) => fs.existsSync(path.join(dir, 'git.exe')))
+        .map((dir) => path.join(path.dirname(dir), 'bin', 'bash.exe')),
+    ].find((candidate) => candidate && fs.existsSync(candidate)) ?? null
+  )
 }
 
 /**
@@ -260,17 +227,13 @@ function createWindowsBashNotFoundError(): Error {
   return new Error(
     `Bash is required but was not found on this Windows system.
 
-To fix this, you have several options:
+To fix this, you have two options:
 
 1. Install Git for Windows (includes bash.exe):
    Download from: https://git-scm.com/download/win
 
-2. Use WSL (Windows Subsystem for Linux):
-   Run in PowerShell (Admin): wsl --install
-   Then run Codebuff inside WSL.
-
-3. Set a custom bash path:
-   Set the CODEBUFF_GIT_BASH_PATH environment variable to your bash.exe location.
+2. Point at an existing bash.exe:
+   Set the CODEBUFF_GIT_BASH_PATH environment variable to its location.
    Example: set CODEBUFF_GIT_BASH_PATH=C:\\path\\to\\bash.exe`,
   )
 }
