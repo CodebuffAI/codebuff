@@ -315,14 +315,30 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // swap to the always-available fallback so Enter doesn't POST a model
     // the server will immediately reject. In-memory only — the user's saved
     // preference (e.g. MiniMax or DeepSeek) is preserved for the next launch.
+    //
+    // Referral GLM is selectable outside `renderedModelIds`. Treat it as valid
+    // while unlocked so a transient POST retry still reads GLM from the store.
+    const selectionIsValid =
+      renderedModelIds.includes(selectedModel) ||
+      (accessTier === 'full' &&
+        isFreebuffGlmV52ModelId(selectedModel) &&
+        (referral?.weeklySessionsRemaining ?? 0) > 0)
     if (
-      (session?.status === 'none' || !session) &&
-      (!renderedModelIds.includes(selectedModel) ||
+      isLanding &&
+      (!selectionIsValid ||
         !isFreebuffModelAvailable(selectedModel, new Date(now)))
     ) {
       setSelectedModel(renderedModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
     }
-  }, [renderedModelIds, now, selectedModel, session, setSelectedModel])
+  }, [
+    accessTier,
+    referral?.weeklySessionsRemaining,
+    renderedModelIds,
+    isLanding,
+    now,
+    selectedModel,
+    setSelectedModel,
+  ])
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column

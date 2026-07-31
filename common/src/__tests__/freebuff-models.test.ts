@@ -347,6 +347,15 @@ describe('freebuff model availability', () => {
       .toBe(true)
   })
 
+  test('CLI access-tier resolver preserves referral GLM only for full access', () => {
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_GLM_V52_MODEL_ID, 'full'),
+    ).toBe(FREEBUFF_GLM_V52_MODEL_ID)
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_GLM_V52_MODEL_ID, 'limited'),
+    ).toBe(LIMITED_FREEBUFF_MODEL_ID)
+  })
+
   test('the retired CrofAI GLM 5.2 route still admits and meters live sessions', () => {
     // Retirement is picker-only. Dropping the id from the catalog would fail
     // admission mid-session; dropping it from the premium pool would leave

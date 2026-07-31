@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
-  __resetReferralCacheForTest,
+  clearReferralCache,
   getCachedReferral,
   rememberReferral,
 } from '../freebuff-referral-cache'
@@ -22,27 +22,30 @@ const landingWithReferral = {
   status: 'none',
   accessTier: 'full',
   referral,
-} as unknown as FreebuffSessionResponse
+} satisfies FreebuffSessionResponse
 
 const activeWithoutReferral = {
   status: 'active',
   accessTier: 'full',
   model: 'minimax/minimax-m3',
   instanceId: 'i-1',
-} as unknown as FreebuffSessionResponse
+  admittedAt: '2026-07-01T00:00:00.000Z',
+  expiresAt: '2026-07-01T01:00:00.000Z',
+  remainingMs: 3_600_000,
+} satisfies FreebuffSessionResponse
 
 describe('freebuff referral cache', () => {
   beforeEach(() => {
-    __resetReferralCacheForTest()
+    clearReferralCache()
   })
 
   test('starts empty', () => {
-    expect(getCachedReferral()).toBeUndefined()
+    expect(getCachedReferral('full')).toBeUndefined()
   })
 
   test('remembers a referral block from a landing response', () => {
     rememberReferral(landingWithReferral)
-    expect(getCachedReferral()).toEqual(referral)
+    expect(getCachedReferral('full')).toEqual(referral)
   })
 
   test('keeps the last referral across a join → active round-trip', () => {
@@ -51,17 +54,63 @@ describe('freebuff referral cache', () => {
     // returning to the picker can still render the GLM banner.
     rememberReferral(landingWithReferral)
     rememberReferral(activeWithoutReferral)
-    expect(getCachedReferral()).toEqual(referral)
+    expect(getCachedReferral('full')).toEqual(referral)
   })
 
   test('ignores responses without a referral block', () => {
     rememberReferral(activeWithoutReferral)
-    expect(getCachedReferral()).toBeUndefined()
+    expect(getCachedReferral('full')).toBeUndefined()
+  })
+
+  test('an authoritative landing response clears stale referral metadata', () => {
+    rememberReferral(landingWithReferral)
+    rememberReferral({
+      status: 'none',
+      accessTier: 'full',
+    })
+    expect(getCachedReferral('full')).toBeUndefined()
   })
 
   test('ignores null sessions', () => {
     rememberReferral(landingWithReferral)
     rememberReferral(null)
-    expect(getCachedReferral()).toEqual(referral)
+    expect(getCachedReferral('full')).toEqual(referral)
+  })
+
+  test('does not reuse referral metadata across access tiers', () => {
+    rememberReferral(landingWithReferral)
+    expect(getCachedReferral('limited')).toBeUndefined()
+  })
+
+  test('retains independent referral metadata for both tiers', () => {
+    const limitedReferral: FreebuffReferralInfo = {
+      code: referral.code,
+      referrerName: referral.referrerName,
+      qualifiedCount: 3,
+      githubLinked: referral.githubLinked,
+    }
+    rememberReferral(landingWithReferral)
+    rememberReferral({
+      status: 'none',
+      accessTier: 'limited',
+      referral: limitedReferral,
+    })
+
+    expect(getCachedReferral('full')).toEqual(referral)
+    expect(getCachedReferral('limited')).toEqual(limitedReferral)
+  })
+
+  test('does not cache referral metadata without an access tier', () => {
+    rememberReferral({
+      status: 'none',
+      referral,
+    })
+    expect(getCachedReferral('full')).toBeUndefined()
+  })
+
+  test('clears all account-scoped metadata on session-owner unmount', () => {
+    rememberReferral(landingWithReferral)
+    clearReferralCache()
+    expect(getCachedReferral('full')).toBeUndefined()
   })
 })

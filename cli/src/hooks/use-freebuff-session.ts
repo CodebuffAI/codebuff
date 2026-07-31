@@ -26,6 +26,7 @@ import {
 import { logger } from '../utils/logger'
 import { getSystemMessage } from '../utils/message-history'
 import {
+  clearReferralCache,
   getCachedReferral,
   rememberReferral,
 } from '../utils/freebuff-referral-cache'
@@ -146,7 +147,9 @@ function toLandingSession(
   const accessTier =
     current && 'accessTier' in current ? current.accessTier : undefined
   const rateLimitsByModel = getRateLimitsByModel(current)
-  const referral = getReferralInfo(current) ?? getCachedReferral()
+  const referral = accessTier
+    ? (getReferralInfo(current) ?? getCachedReferral(accessTier))
+    : undefined
   const countryCode =
     current && 'countryCode' in current ? current.countryCode : undefined
   const countryBlockReason =
@@ -627,24 +630,21 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                 return
               }
               if (response.status === 'none') {
+                // Preserve cached quota/location fields only when the tier is
+                // unchanged (or an older response omitted it). Fresh response
+                // fields win through the following object spread.
+                const canReuseLandingMetadata =
+                  response.accessTier === undefined ||
+                  response.accessTier === landingSession.accessTier
                 apply({
+                  ...(canReuseLandingMetadata ? landingSession : {}),
+                  ...response,
                   status: 'none',
                   accessTier: response.accessTier ?? landingSession.accessTier,
-                  rateLimitsByModel:
-                    response.rateLimitsByModel ??
-                    landingSession.rateLimitsByModel,
-                  // Carry the referral block so the "change model" picker shows
-                  // the GLM banner too (the server only attaches it to `none`).
-                  referral:
-                    getReferralInfo(response) ?? landingSession.referral,
-                  countryCode:
-                    response.countryCode ?? landingSession.countryCode,
-                  countryBlockReason:
-                    response.countryBlockReason ??
-                    landingSession.countryBlockReason,
-                  ipPrivacySignals:
-                    response.ipPrivacySignals ??
-                    landingSession.ipPrivacySignals,
+                  // A clean `none` response is authoritative for referral
+                  // state. Do not retain the cached landing value when the
+                  // server omits it (program disabled / identity removed).
+                  referral: response.referral,
                 })
               }
             })
@@ -671,6 +671,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       clearTimer()
       const current = useFreebuffSessionStore.getState().session
       controller = null
+      clearReferralCache()
 
       // Fire-and-forget DELETE. Only release if we actually held a slot so
       // we don't generate spurious DELETEs (e.g. HMR before POST completes).

@@ -973,15 +973,19 @@ export function resolveFreebuffWebModel(
     : (FALLBACK_FREEBUFF_MODEL_ID as FreebuffWebModelId)
 }
 
+/** Resolve an explicit CLI selection for an access tier. The ordinary picker
+ * uses `FREEBUFF_MODELS`; full-access users can also select referral-only GLM
+ * through its separate banner action. */
 export function resolveFreebuffModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
-): FreebuffModelId {
+): FreebuffModelId | typeof FREEBUFF_GLM_V52_MODEL_ID {
   if (accessTier === 'limited') {
     return isFreebuffModelAllowedForAccessTier(id, accessTier)
       ? (id as FreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
+  if (id === FREEBUFF_GLM_V52_MODEL_ID) return id
   return resolveFreebuffModel(id)
 }
 

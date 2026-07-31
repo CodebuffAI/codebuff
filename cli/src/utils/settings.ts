@@ -183,10 +183,13 @@ export const loadFreebuffModelPreference = (): string | undefined => {
 }
 
 /**
- * Save the freebuff model preference. Called whenever the user picks a model
- * on the landing screen so the next launch defaults to it.
+ * Save an ordinary freebuff picker preference so the next launch defaults to
+ * it. Referral-only and retired session models are deliberately not
+ * rememberable: they may be valid for the current session without being
+ * selectable on the next landing screen.
  */
 export const saveFreebuffModelPreference = (model: string): void => {
+  if (!isFreebuffModelId(model)) return
   saveSettings({ freebuffModel: model })
 }
 

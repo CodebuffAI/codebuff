@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { useCopyToClipboard } from './copy-button'
@@ -214,17 +214,18 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   const theme = useTheme()
   const now = useNow(60_000)
   const [joining, setJoining] = useState(false)
+  const joiningRef = useRef(false)
   const [glmHovered, setGlmHovered] = useState(false)
   const copyFocused = focusedId === COPY_FOCUS_ID
   const glmFocused = focusedId === GLM_FOCUS_ID
 
   const useGlm = useCallback(() => {
-    setJoining((wasJoining) => {
-      if (wasJoining) return wasJoining
-      startFreebuffSession(FREEBUFF_GLM_V52_MODEL_ID).finally(() =>
-        setJoining(false),
-      )
-      return true
+    if (joiningRef.current) return
+    joiningRef.current = true
+    setJoining(true)
+    startFreebuffSession(FREEBUFF_GLM_V52_MODEL_ID).finally(() => {
+      joiningRef.current = false
+      setJoining(false)
     })
   }, [])
 
