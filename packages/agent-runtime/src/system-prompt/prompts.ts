@@ -159,8 +159,8 @@ ${truncationNote}
 }
 
 const windowsNote = `
-Note: many commands in the terminal are different on Windows.
-For example, the mkdir command is \`mkdir\` instead of \`mkdir -p\`. Instead of grep, use \`findstr\`. Instead of \`ls\` use \`dir\` to list files. Instead of \`mv\` use \`move\`. Instead of \`rm\` use \`del\`. Instead of \`cp\` use \`copy\`. Unless the user is in Powershell, in which case you should use the Powershell commands instead.
+Note: terminal commands run in bash on Windows too, not cmd.exe or PowerShell.
+Use POSIX syntax — \`ls\`, \`mv\`, \`rm\`, \`cp\`, \`grep\` — and never \`dir\`, \`move\`, \`del\`, \`copy\`, \`findstr\` or PowerShell cmdlets. Write paths with forward slashes: bash treats \`\\\` as an escape, so \`C:\\Users\\me\` becomes \`C:Usersme\`.
 `.trim()
 
 export const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
