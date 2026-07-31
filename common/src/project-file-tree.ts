@@ -41,6 +41,18 @@ function logFileTreeError(
 
 export const DEFAULT_MAX_FILES = 10_000
 
+/**
+ * Everything downstream of the file tree is POSIX-only: `ignore` matches
+ * nothing but forward slashes, and glob patterns come from the model in that
+ * form too. `path.relative` returns backslashes on Windows, and `ignore`
+ * answers `false` for them instead of throwing — so nested rules like `build/`
+ * or `node_modules` silently stop pruning and the crawl burns its file budget
+ * on build output before it ever reaches the source tree.
+ */
+function toPosixPath(p: string): string {
+  return p.replace(/\\/g, '/')
+}
+
 // When the project root is the home directory (or an ancestor), a full scan
 // could crawl the user's entire disk. Instead of disabling the file tree
 // entirely, do a shallow capped scan so @ mentions still surface
@@ -121,7 +133,7 @@ export async function getProjectFileTree(params: {
         if (totalFiles >= maxFiles) break
 
         const filePath = path.join(fullPath, file)
-        const relativeFilePath = path.relative(projectRoot, filePath)
+        const relativeFilePath = toPosixPath(path.relative(projectRoot, filePath))
 
         if (mergedIgnore.ignores(relativeFilePath)) continue
 
@@ -189,7 +201,7 @@ function rebaseGitignorePattern(
   const hasSlash = coreNoLead.includes('/')
 
   // Build the base (where this .gitignore lives relative to projectRoot)
-  const base = relativeDirPath.replace(/\\/g, '/') // normalize
+  const base = toPosixPath(relativeDirPath)
 
   let rebased: string
   if (anchored) {
@@ -212,8 +224,7 @@ function rebaseGitignorePattern(
     rebased += '/'
   }
 
-  // Normalize to forward slashes
-  rebased = rebased.replace(/\\/g, '/')
+  rebased = toPosixPath(rebased)
 
   return isNegated ? `!${rebased}` : rebased
 }
@@ -331,7 +342,9 @@ export async function isFileIgnored(params: {
     defaultIgnore.add(pattern)
   }
 
-  const relativeFilePath = path.relative(resolvedProjectRoot, fullFilePath)
+  const relativeFilePath = toPosixPath(
+    path.relative(resolvedProjectRoot, fullFilePath),
+  )
 
   // Get ignore patterns from the directory containing the file and all parent directories
   const mergedIgnore = ignore.default().add(defaultIgnore)

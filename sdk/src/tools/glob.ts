@@ -1,4 +1,5 @@
 import {
+  DEFAULT_MAX_FILES,
   flattenTree,
   getProjectFileTree,
 } from '@codebuff/common/project-file-tree'
@@ -34,13 +35,23 @@ export async function glob(params: {
 
     const matchingFiles = micromatch(allFilePaths, pattern)
 
+    // The scan behind this stops silently at DEFAULT_MAX_FILES, breadth-first,
+    // so on a large project the deepest directories are never visited and every
+    // pattern below the cut-off answers "0 files". Say the scan was partial
+    // instead of letting the agent read that as proof the files don't exist.
+    const truncated = flattenedNodes.length >= DEFAULT_MAX_FILES
+
     return [
       {
         type: 'json',
         value: {
           files: matchingFiles,
           count: matchingFiles.length,
-          message: `Found ${matchingFiles.length} file(s) matching pattern "${pattern}"${cwd ? ` in directory "${cwd}"` : ''}`,
+          message:
+            `Found ${matchingFiles.length} file(s) matching pattern "${pattern}"${cwd ? ` in directory "${cwd}"` : ''}` +
+            (truncated
+              ? `. Warning: the project scan hit its ${DEFAULT_MAX_FILES}-file limit, so the deepest directories were not searched and this result may be incomplete. Narrow the search with cwd, or use run_terminal_command (find/dir) to check.`
+              : ''),
         },
       },
     ]

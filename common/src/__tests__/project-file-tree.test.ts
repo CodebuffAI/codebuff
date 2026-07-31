@@ -4,6 +4,7 @@ import path from 'path'
 import { describe, expect, it } from 'bun:test'
 
 import {
+  flattenTree,
   getAllPathsWithDirectories,
   getProjectFileTree,
   isFileIgnored,
@@ -71,6 +72,38 @@ describe('getProjectFileTree', () => {
     const paths = getAllPathsWithDirectories(tree).map((p) => p.path)
 
     expect(paths).toContain(path.join('a', 'b', 'c', 'd', 'e.txt'))
+  })
+
+  it('records file paths with forward slashes', async () => {
+    // `ignore` and the glob patterns the model writes are both POSIX-only, and
+    // `ignore` answers false for a backslash path rather than throwing. Storing
+    // anything but forward slashes here makes nested rules stop pruning on
+    // Windows, which is how build output ends up eating the maxFiles budget.
+    const root = '/repo'
+    const fs = createFsWithFiles(root, ['app/src/main/Inventory.kt'])
+
+    const tree = await getProjectFileTree({ projectRoot: root, fs })
+
+    const filePaths = flattenTree(tree).map((node) => node.filePath)
+    expect(filePaths).toEqual(['app/src/main/Inventory.kt'])
+  })
+
+  it('prunes directories ignored by a rule in a nested .gitignore', async () => {
+    const root = '/repo'
+    const fs = createFsWithFiles(root, [
+      'app/.gitignore',
+      'app/build/output.class',
+      'app/src/Inventory.kt',
+    ])
+    ;(fs.readFile as any).mockImplementation(async (filePath: string) =>
+      String(filePath).endsWith('.gitignore') ? 'build/\n' : '',
+    )
+
+    const tree = await getProjectFileTree({ projectRoot: root, fs })
+
+    const filePaths = flattenTree(tree).map((node) => node.filePath)
+    expect(filePaths).toContain('app/src/Inventory.kt')
+    expect(filePaths).not.toContain('app/build/output.class')
   })
 })
 
