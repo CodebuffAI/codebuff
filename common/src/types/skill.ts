@@ -8,8 +8,13 @@ import {
 
 /**
  * Zod schema for skill frontmatter metadata.
+ *
+ * Values are unconstrained on purpose: `metadata` is a free-form bag that
+ * publishers and registries nest their own structures into (skills.sh writes a
+ * `hermes:` block into every skill it serves). Requiring flat strings here
+ * rejected the whole skill over a field nothing reads.
  */
-export const SkillMetadataSchema = z.record(z.string(), z.string())
+export const SkillMetadataSchema = z.record(z.string(), z.unknown())
 
 /**
  * Zod schema for skill frontmatter (parsed from YAML).
@@ -23,7 +28,12 @@ export const SkillFrontmatterSchema = z.object({
       SKILL_NAME_REGEX,
       'Name must be lowercase alphanumeric with single hyphen separators',
     ),
-  description: z.string().min(1).max(SKILL_DESCRIPTION_MAX_LENGTH),
+  // clamped rather than rejected: an over-long description is a reason to show
+  // less of it, never a reason to make the skill unusable
+  description: z
+    .string()
+    .min(1)
+    .transform((d) => d.slice(0, SKILL_DESCRIPTION_MAX_LENGTH)),
   license: z.string().optional(),
   metadata: SkillMetadataSchema.optional(),
 })

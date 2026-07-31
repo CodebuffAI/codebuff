@@ -4,6 +4,7 @@ import os from 'os'
 import path from 'path'
 
 import {
+  SKILL_DESCRIPTION_MAX_LENGTH,
   SKILL_FILE_NAME,
   SKILL_NAME_MAX_LENGTH,
 } from '@codebuff/common/constants/skills'
@@ -292,5 +293,55 @@ describe('parseSkillFileContent', () => {
         filePath: '/skills/deploy/SKILL.md',
       }),
     ).toBeNull()
+  })
+
+  // registries nest their own bookkeeping under `metadata` (skills.sh stamps a
+  // `hermes:` block onto every skill it serves); rejecting those made popular
+  // skills impossible to install AND invisible when placed on disk by hand
+  test('accepts nested metadata a publisher or registry added', () => {
+    const content = [
+      '---',
+      'name: i-have-adhd',
+      'description: Shape output for a reader with ADHD',
+      'metadata:',
+      '  hermes:',
+      '    tags: [ADHD, Productivity]',
+      '    category: productivity',
+      '  freebuff-builtin: review',
+      '---',
+      '',
+      '# i-have-adhd',
+    ].join('\n')
+
+    const parsed = parseSkillFileContent(content, {
+      directoryName: 'i-have-adhd',
+      filePath: '/skills/i-have-adhd/SKILL.md',
+    })
+
+    expect(parsed).toMatchObject({ name: 'i-have-adhd' })
+    // flat entries stay readable — that is how a Freebuff-authored skill is tagged
+    expect(parsed?.metadata?.['freebuff-builtin']).toBe('review')
+    expect(parsed?.metadata?.hermes).toMatchObject({ category: 'productivity' })
+  })
+
+  test('clamps an over-long description instead of rejecting the skill', () => {
+    const description = 'x'.repeat(SKILL_DESCRIPTION_MAX_LENGTH + 44)
+    const content = [
+      '---',
+      'name: claude-api',
+      `description: ${description}`,
+      '---',
+      '',
+      '# claude-api',
+    ].join('\n')
+
+    const parsed = parseSkillFileContent(content, {
+      directoryName: 'claude-api',
+      filePath: '/skills/claude-api/SKILL.md',
+    })
+
+    expect(parsed?.description).toHaveLength(SKILL_DESCRIPTION_MAX_LENGTH)
+    // the body is untouched; only the discovery blurb is shortened
+    expect(parsed?.content).toBe(content)
   })
 })
