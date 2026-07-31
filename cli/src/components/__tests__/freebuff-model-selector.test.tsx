@@ -113,6 +113,39 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).not.toContain('› MiniMax M3')
   })
 
+  test('shows the switch-to-Flash nudge only on the row the user is on', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    // On a superseded model: the nudge appears, once, on that model's card.
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    const onSuperseded = (await renderSelector()).captureCharFrame()
+    expect(onSuperseded).toContain('DeepSeek V4 Flash is now better')
+    // The new build is badged so a returning user notices it changed.
+    expect(onSuperseded).toContain('NEW')
+
+    // Both Pro and M3 are superseded and both are on screen here, but only the
+    // selected one nags — otherwise the list would repeat the same notice on
+    // every row it applies to.
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+    const onOtherSuperseded = (await renderSelector()).captureCharFrame()
+    expect(onOtherSuperseded).toContain('DeepSeek V4 Pro')
+    expect(onOtherSuperseded.match(/is now better/g)).toHaveLength(1)
+
+    // On the replacement itself: no nudge at all. (Picking the recommended
+    // model also collapses the picker to its hero card.)
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    const onCurrent = (await renderSelector()).captureCharFrame()
+    expect(onCurrent).not.toContain('is now better')
+  })
+
   test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
     const resetAt = new Date(Date.now() + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
