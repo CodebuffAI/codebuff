@@ -100,7 +100,18 @@ describe('getFreebuffStreakBonusNoteForLayout', () => {
   }
   const note = getFreebuffStreakBonusNote(params)!
 
-  test('hides the note below 30 rows', () => {
+  test('hides the unlock countdown before the bonus is earned', () => {
+    expect(
+      getFreebuffStreakBonusNoteForLayout({
+        ...params,
+        streak: 6,
+        terminalHeight: 30,
+        availableWidth: 200,
+      }),
+    ).toBeNull()
+  })
+
+  test('hides the earned note below 30 rows', () => {
     expect(
       getFreebuffStreakBonusNoteForLayout({
         ...params,
@@ -110,7 +121,7 @@ describe('getFreebuffStreakBonusNoteForLayout', () => {
     ).toBeNull()
   })
 
-  test('shows the note at 30 rows when it fits on one line', () => {
+  test('shows the earned note at 30 rows when it fits on one line', () => {
     expect(
       getFreebuffStreakBonusNoteForLayout({
         ...params,
@@ -120,7 +131,7 @@ describe('getFreebuffStreakBonusNoteForLayout', () => {
     ).toBe(note)
   })
 
-  test('hides the note when it would wrap', () => {
+  test('hides the earned note when it would wrap', () => {
     expect(
       getFreebuffStreakBonusNoteForLayout({
         ...params,

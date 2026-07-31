@@ -87,7 +87,7 @@ describe('FreebuffModelSelector referral selection', () => {
 })
 
 describe('FreebuffModelSelector tier layout', () => {
-  test('keeps focus on the recommended premium model when expanded beneath PREMIUM', async () => {
+  test('orders Luna above MiniMax while keeping the saved premium model focused', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -97,23 +97,18 @@ describe('FreebuffModelSelector tier layout', () => {
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
 
     const setup = await renderSelector()
-    expect(setup.captureCharFrame()).not.toContain('PREMIUM')
-
-    flushSync(() => setup.mockInput.pressArrow('down'))
-    await setup.renderOnce()
-    flushSync(() => setup.mockInput.pressEnter())
-    await Promise.resolve()
-    await setup.renderOnce()
-    await setup.renderOnce()
-
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Pro')
+    const selectedModelIndex = frame.indexOf('DeepSeek V4 Pro')
+    const lunaModelIndex = frame.indexOf('GPT-5.6 Luna')
+    const minimaxModelIndex = frame.indexOf('MiniMax M3')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
-    expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(unlimitedHeaderIndex).toBeGreaterThan(recommendedModelIndex)
+    expect(selectedModelIndex).toBeGreaterThan(premiumHeaderIndex)
+    expect(lunaModelIndex).toBeGreaterThan(selectedModelIndex)
+    expect(minimaxModelIndex).toBeGreaterThan(lunaModelIndex)
+    expect(unlimitedHeaderIndex).toBeGreaterThan(minimaxModelIndex)
     expect(frame).toContain('› DeepSeek V4 Pro')
     expect(frame).not.toContain('› MiniMax M3')
   })
@@ -144,7 +139,10 @@ describe('FreebuffModelSelector tier layout', () => {
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
     const recommendedLabelIndex = frame.indexOf('RECOMMENDED')
-    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Flash')
+    const recommendedModelIndex = frame.indexOf(
+      'DeepSeek V4 Flash',
+      recommendedLabelIndex,
+    )
 
     expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
     expect(recommendedLabelIndex).toBeGreaterThan(unlimitedHeaderIndex)

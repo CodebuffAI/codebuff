@@ -521,8 +521,8 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_FLASH_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
-  MINIMAX_M3_MODEL,
   GPT_5_6_LUNA_MODEL,
+  MINIMAX_M3_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
 ] as const satisfies readonly FreebuffModelOption[]
 

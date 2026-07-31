@@ -8,18 +8,22 @@ export {
 } from '@codebuff/common/util/freebuff-streak-line'
 export type { FreebuffStreakLine } from '@codebuff/common/util/freebuff-streak-line'
 
-import { getFreebuffStreakBonusNote } from '@codebuff/common/util/freebuff-streak-line'
+import {
+  FREEBUFF_STREAK_WEEK,
+  getFreebuffStreakBonusNote,
+} from '@codebuff/common/util/freebuff-streak-line'
 
 const FREEBUFF_STREAK_BONUS_MIN_HEIGHT = 30
 
-/** Returns the perk note only when the landing layout can show it without
- * crowding the picker or wrapping onto additional rows. */
+/** Returns the earned perk note only when the landing layout can show it
+ * without crowding the picker or wrapping onto additional rows. */
 export function getFreebuffStreakBonusNoteForLayout(params: {
   streak: number
   accessTier: 'full' | 'limited'
   terminalHeight: number
   availableWidth: number
 }): string | null {
+  if (params.streak < FREEBUFF_STREAK_WEEK) return null
   if (params.terminalHeight < FREEBUFF_STREAK_BONUS_MIN_HEIGHT) return null
 
   const note = getFreebuffStreakBonusNote(params)

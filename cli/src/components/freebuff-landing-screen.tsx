@@ -400,9 +400,8 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // compact-height terminals. It renders blank space until a streak is active.
   const showStreakIndicator = FREEBUFF_ENABLE_STREAK_IN_UI && isLanding
   // Once a full week is earned, explain the recurring perk under the picker so
-  // the streak reads as worth keeping. Unlike the compact indicator, this
-  // sentence consumes dedicated rows, so only show it on generous layouts
-  // where it fits on one line.
+  // the streak reads as worth keeping. Pre-milestone countdown copy stays
+  // hidden; this dedicated row is only for a bonus the user has already earned.
   const streakBonusNote = showStreakIndicator
     ? getFreebuffStreakBonusNoteForLayout({
         streak,
@@ -493,7 +492,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   const noticeRows = limitedModeNotice
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
-  // Streak perk note (landing, streak >= 7): one marginTop row + wrap.
+  // Earned streak perk note: one marginTop row + wrap.
   const streakBonusRows = streakBonusNote
     ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
     : 0

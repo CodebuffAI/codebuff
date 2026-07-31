@@ -636,10 +636,12 @@ describe('freebuff model availability', () => {
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(true)
     // DeepSeek V4 Flash is the recommended default (2026-07-31), so it leads the
-    // picker list, with V4 Pro behind it and M3 next.
+    // picker list, with V4 Pro behind it and the more strongly recommended Luna
+    // ahead of M3.
     expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(FREEBUFF_MODELS[2]!.id).toBe(MINIMAX_M3_MODEL_ID)
+    expect(FREEBUFF_MODELS[2]!.id).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(FREEBUFF_MODELS[3]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
   test('GPT-5.6 Luna is a premium model on every full-access surface', () => {
