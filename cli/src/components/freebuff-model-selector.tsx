@@ -423,7 +423,10 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       supersededNoticeFor(m)?.length ?? 0
 
     // Append a compact image indicator (" · Images", 9 chars) to the
-    // tagline on line 1 so it never occupies its own line.
+    // tagline on line 1 so it never occupies its own line. Every model carries
+    // it: text-only ones read an image as a vision-model description
+    // substituted server-side (web/src/llm-api/describe-images.ts), so the row
+    // would otherwise read as "can't paste a screenshot" when it can.
     const multimodalSuffixLen = 9
     // Same treatment for the " · NEW" badge (6 chars).
     const newSuffixLen = 6
@@ -434,14 +437,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       maxNameLen +
       NAME_GAP +
       m.tagline.length +
-      (m.multimodal ? multimodalSuffixLen : 0) +
+      multimodalSuffixLen +
       (m.isNew ? newSuffixLen : 0)
     const compactLabelLen = (m: FreebuffModelOption) =>
       2 +
       m.displayName.length +
       3 /* " · " */ +
       m.tagline.length +
-      (m.multimodal ? multimodalSuffixLen : 0) +
+      multimodalSuffixLen +
       (m.isNew ? newSuffixLen : 0)
 
     // Line 2, or 0 for a row with neither warning nor hours. Centered in the
@@ -781,13 +784,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           </span>
           {compactNames ? (
             <span fg={mutedColor}>
-              {' · ' + model.tagline + (model.multimodal ? ' · Images' : '')}
+              {' · ' + model.tagline + ' · Images'}
             </span>
           ) : (
             <span fg={mutedColor}>
-              {namePadding +
-                model.tagline +
-                (model.multimodal ? ' · Images' : '')}
+              {namePadding + model.tagline + ' · Images'}
             </span>
           )}
           {model.isNew && (
