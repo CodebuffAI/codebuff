@@ -1,7 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 
-import { isFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID,
+  FREEBUFF_MODELS,
+  isFreebuffModelId,
+  migrateSupersededFreebuffModelPreference,
+} from '@codebuff/common/constants/freebuff-models'
 
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
@@ -34,6 +39,10 @@ export interface Settings {
    *  first-time onboarding suggested prompts so they only show to brand-new
    *  users and quietly retire afterwards. */
   hasSubmittedFirstPrompt?: boolean
+  /** Which one-time model-preference migration has already been applied (see
+   *  FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID). Stored so a user who
+   *  deliberately re-picks a superseded model afterwards keeps it. */
+  freebuffModelMigration?: string
 }
 
 /**
@@ -114,6 +123,27 @@ const validateSettings = (parsed: unknown): Settings => {
     isFreebuffModelId(obj.freebuffModel)
   ) {
     settings.freebuffModel = obj.freebuffModel
+  }
+
+  if (typeof obj.freebuffModelMigration === 'string') {
+    settings.freebuffModelMigration = obj.freebuffModelMigration
+  }
+
+  // One-time move off a model that has since been superseded (DeepSeek V4 Pro,
+  // MiniMax M3 → V4 Flash), so a returning user's next session starts on the
+  // better model instead of the pick they made before it existed. Runs once per
+  // migration id: after that, re-picking a superseded model sticks, because the
+  // picker still offers those models and a nudge must not become a lock-in.
+  // The marker reaches disk on the user's next saveSettings (which merges over
+  // loadSettings) — and re-picking a model IS such a save, so the one write
+  // that could undo the migration is the same one that records it.
+  if (settings.freebuffModelMigration !== FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID) {
+    const replacement = migrateSupersededFreebuffModelPreference(
+      settings.freebuffModel,
+      FREEBUFF_MODELS.map((model) => model.id),
+    )
+    if (replacement) settings.freebuffModel = replacement
+    settings.freebuffModelMigration = FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID
   }
 
   // Validate alwaysUseALaCarte (legacy)

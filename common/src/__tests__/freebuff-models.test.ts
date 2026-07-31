@@ -68,6 +68,7 @@ import {
   resolveFreebuffModelForAccessTier,
   resolveFreebuffSessionModelForAccessTier,
   getFreebuffModelSupersededBy,
+  migrateSupersededFreebuffModelPreference,
 } from '../constants/freebuff-models'
 import type { FreebuffModelOption } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
@@ -865,6 +866,60 @@ describe('freebuff model availability', () => {
     expect(
       getFreebuffModelSupersededBy(DEFAULT_FREEBUFF_MODEL_ID, all),
     ).toBeUndefined()
+  })
+
+  test('marks the new Flash build as NEW and dates its name', () => {
+    // The wire id is undated and auto-updates, so the display has to carry the
+    // signal that this is a different model than the one users already judged.
+    const flash = FREEBUFF_MODELS.find(
+      (model) => model.id === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )!
+    expect(flash.isNew).toBe(true)
+    expect(flash.displayName).toContain('07/31')
+    // Nothing else claims to be new, or the badge stops meaning anything.
+    const catalog: readonly FreebuffModelOption[] = FREEBUFF_MODELS
+    expect(catalog.filter((model) => model.isNew)).toHaveLength(1)
+  })
+
+  test('migrates saved picks off every superseded model, once', () => {
+    const all = FREEBUFF_MODELS.map((model) => model.id)
+    // Both models Flash overtook migrate to it...
+    for (const superseded of [
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      MINIMAX_M3_MODEL_ID,
+    ]) {
+      expect(migrateSupersededFreebuffModelPreference(superseded, all)).toBe(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      )
+    }
+    // ...and a current pick is left alone (null = keep it).
+    expect(
+      migrateSupersededFreebuffModelPreference(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        all,
+      ),
+    ).toBeNull()
+    expect(migrateSupersededFreebuffModelPreference(undefined, all)).toBeNull()
+    // Never migrates onto a model this surface cannot select.
+    expect(
+      migrateSupersededFreebuffModelPreference(
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
+      ),
+    ).toBeNull()
+  })
+
+  test('the deemphasized set is exactly the superseded set', () => {
+    // Muting + sorting-last is how the picker steers to the replacement, so a
+    // model marked superseded must also be de-emphasized and vice versa —
+    // otherwise the nudge and the ordering disagree.
+    const all = FREEBUFF_MODELS.map((model) => model.id)
+    for (const model of FREEBUFF_MODELS) {
+      const superseded = Boolean(
+        getFreebuffModelSupersededBy(model.id, all),
+      )
+      expect(isFreebuffWebDeemphasizedModelId(model.id)).toBe(superseded)
+    }
   })
 
   test('never offers a switch to a model the surface cannot select', () => {

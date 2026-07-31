@@ -211,11 +211,17 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // resolving against the models actually on screen.
   const supersededNoticeFor = useCallback(
     (model: FreebuffModelOption): string | undefined =>
-      getFreebuffModelSupersededBy(
-        model.id,
-        availableModels.map((m) => m.id),
-      )?.notice,
-    [availableModels],
+      // Only on the row the user is actually on — the nudge is about THEIR
+      // pick, and the list ordering already steers everyone else to the
+      // replacement. Gated here rather than at the render so the width math and
+      // the height estimate below stay in agreement with what is drawn.
+      model.id === selectedModel
+        ? getFreebuffModelSupersededBy(
+            model.id,
+            availableModels.map((m) => m.id),
+          )?.notice
+        : undefined,
+    [availableModels, selectedModel],
   )
   const otherModels = useMemo(
     () => availableModels.filter((m) => m.id !== recommendedModel.id),
@@ -419,6 +425,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // Append a compact image indicator (" · Images", 9 chars) to the
     // tagline on line 1 so it never occupies its own line.
     const multimodalSuffixLen = 9
+    // Same treatment for the " · NEW" badge (6 chars).
+    const newSuffixLen = 6
 
     // Line 1, in each mode.
     const columnLabelLen = (m: FreebuffModelOption) =>
@@ -426,13 +434,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       maxNameLen +
       NAME_GAP +
       m.tagline.length +
-      (m.multimodal ? multimodalSuffixLen : 0)
+      (m.multimodal ? multimodalSuffixLen : 0) +
+      (m.isNew ? newSuffixLen : 0)
     const compactLabelLen = (m: FreebuffModelOption) =>
       2 +
       m.displayName.length +
       3 /* " · " */ +
       m.tagline.length +
-      (m.multimodal ? multimodalSuffixLen : 0)
+      (m.multimodal ? multimodalSuffixLen : 0) +
+      (m.isNew ? newSuffixLen : 0)
 
     // Line 2, or 0 for a row with neither warning nor hours. Centered in the
     // card rather than indented under line 1's details column — the notice is
@@ -778,6 +788,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
               {namePadding +
                 model.tagline +
                 (model.multimodal ? ' · Images' : '')}
+            </span>
+          )}
+          {model.isNew && (
+            <span fg={theme.primary} attributes={TextAttributes.BOLD}>
+              {' · NEW'}
             </span>
           )}
           {showCue && (

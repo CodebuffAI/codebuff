@@ -57,6 +57,11 @@ export interface FreebuffModelOption {
    *  in the picker as a "TEST" badge with a tooltip so users know it is not
    *  yet production-grade. */
   experimental?: boolean
+  /** Freshly released or freshly re-trained. Surfaced as a "NEW" badge so a
+   *  returning user notices the model changed rather than assuming it is the
+   *  same one they already formed an opinion about. Clear it once the model
+   *  stops being news. */
+  isNew?: boolean
   /** Set when another model has overtaken this one and users should generally
    *  move. Pickers render `notice` on the row and offer a one-click switch to
    *  `modelId`. Kept structured rather than folded into `warning` so the button
@@ -394,13 +399,17 @@ const MIMO_V25_MODEL = {
 
 const DEEPSEEK_V4_FLASH_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  displayName: 'DeepSeek V4 Flash',
+  // Dated on purpose: the wire id is undated and auto-updates, so without the
+  // date a returning user sees the same name and assumes the same model. The
+  // 0731 GA build is a different, re-post-trained model.
+  displayName: 'DeepSeek V4 Flash 07/31',
   tagline: 'Smartest & Fastest',
   availability: 'always',
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   premium: false,
   multimodal: false,
+  isNew: true,
 } as const satisfies FreebuffModelOption
 
 const MINIMAX_M3_MODEL = {
@@ -413,6 +422,14 @@ const MINIMAX_M3_MODEL = {
   // data-use classification keeps it out of FREEBUFF_TRACED_MODEL_IDS.
   premium: true,
   multimodal: true,
+  // Flash overtook M3 on quality and is free rather than premium-pooled. M3
+  // stays selectable — it is still the no-AI-training pick and natively
+  // multimodal — but the picker says Flash is the better default.
+  supersededBy: {
+    modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    notice: 'DeepSeek V4 Flash is now better for most coding tasks — and free.',
+    actionLabel: 'Switch to V4 Flash',
+  },
 } as const satisfies FreebuffModelOption
 
 const GPT_5_6_LUNA_MODEL = {
@@ -761,9 +778,14 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  materially more expensive per token than the recommended default without
  *  being materially better for the browser surfaces' workloads. They stay
  *  fully selectable — this only controls emphasis and ordering (they sort last
- *  within the Premium group). */
+ *  within the Premium group).
+ *
+ *  Since 2026-07-31 this is exactly the set of models Flash superseded: both
+ *  cost more per token AND lost the quality argument, so muting them and
+ *  sorting them last is what steers new picks to Flash. */
 export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS = [
   FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 ] as const
 
 export function isFreebuffWebDeemphasizedModelId(
@@ -1239,6 +1261,32 @@ export function getFreebuffModelSupersededBy(
   return selectableModelIds.includes(supersededBy.modelId)
     ? supersededBy
     : undefined
+}
+
+/**
+ * Identifies the current one-time migration of SAVED model preferences.
+ *
+ * Bump this (and nothing else) when a later supersession should re-migrate
+ * everyone: each surface stores the id it last applied and runs the migration
+ * only when the stored id differs, so the migration fires exactly once per
+ * user per bump. That "once" is the whole point — running it on every read
+ * would silently undo a user who deliberately re-picks a superseded model,
+ * which is the difference between a nudge and a lock-in.
+ */
+export const FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID = '2026-07-31-v4-flash'
+
+/**
+ * The model a saved preference should be migrated to, or null to keep it.
+ *
+ * Derived from the catalog's own `supersededBy` pointers, so a model marked
+ * superseded automatically gets BOTH the picker nudge and this migration —
+ * they can never disagree about which models are stale.
+ */
+export function migrateSupersededFreebuffModelPreference(
+  id: string | null | undefined,
+  selectableModelIds: readonly string[],
+): string | null {
+  return getFreebuffModelSupersededBy(id, selectableModelIds)?.modelId ?? null
 }
 
 function getNextFreebuffDeploymentStart(now: Date): Date {
