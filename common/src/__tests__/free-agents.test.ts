@@ -383,17 +383,29 @@ describe('free mode agent model allowlist', () => {
   })
 
   test('allows the tmux-cli subagent with its bundled model', () => {
+    // Moved off MiniMax M3 on 2026-08-01: a free session driving a terminal
+    // now bills the same model its root runs on. The allowlist must follow the
+    // agent definition or every tmux-cli spawn 403s.
+    expect(
+      isFreeModeAllowedAgentModel(
+        'tmux-cli',
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(true)
     expect(isFreeModeAllowedAgentModel('tmux-cli', MINIMAX_M3_MODEL_ID)).toBe(
-      true,
+      false,
     )
     expect(
       isFreeModeAllowedAgentModel(
         'codebuff/tmux-cli@0.0.1',
-        MINIMAX_M3_MODEL_ID,
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       ),
     ).toBe(true)
     expect(
-      isFreeModeAllowedAgentModel('other/tmux-cli@0.0.1', MINIMAX_M3_MODEL_ID),
+      isFreeModeAllowedAgentModel(
+        'other/tmux-cli@0.0.1',
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
     ).toBe(false)
   })
 

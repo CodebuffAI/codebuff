@@ -91,17 +91,21 @@ export const CLOUD_PLANNER_LIMITED_AGENT_ID = 'base2-free-cloud-planner-limited'
 export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
 
 /**
- * The model the build runs on after "Start building", deliberately separate
- * from the planner's.
+ * The model the build runs on after "Start building".
  *
- * The build is where the tokens are — one build outweighs its whole planning
- * conversation by orders of magnitude — so it stays on DeepSeek V4 Pro for the
- * same reason DEFAULT_FREEBUFF_WEB_MODEL_ID does. Splitting the two means the
- * hand-off must admit a *new* free session bound to this model: a session is
- * model-locked, and reusing the planner's would fail session_model_mismatch on
- * the build's first request.
+ * DeepSeek V4 Flash since 2026-08-01 (was V4 Pro), for the same reason
+ * DEFAULT_FREEBUFF_WEB_MODEL_ID is: the V4-Flash-0731 GA build is the strongest
+ * coding model we serve and the cheapest. The build is where the tokens are —
+ * one build outweighs its whole planning conversation by orders of magnitude —
+ * so this is the single biggest place that choice pays off, and it takes builds
+ * out of the premium session pool entirely.
+ *
+ * Now the same model as the planner. That does NOT let the hand-off reuse the
+ * planner's session: "Start building" still admits its own
+ * (BlankCloudPlanControls.beginBuild), which is what a model-locked session
+ * requires and remains correct whether or not the two models agree.
  */
-export const CLOUD_BUILD_MODEL_ID = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+export const CLOUD_BUILD_MODEL_ID = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** The planner model a given access tier is permitted to run. */
 export function cloudPlannerModelForAccessTier(
@@ -326,7 +330,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Command execution
   basher: GEMINI_HELPER_MODELS,
-  'tmux-cli': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
+  'tmux-cli': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
 
   // Code reviewer for free mode
   'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),

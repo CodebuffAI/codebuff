@@ -1,3 +1,5 @@
+import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+
 import type { AgentDefinition } from './types/agent-definition'
 
 const outputSchema = {
@@ -71,9 +73,15 @@ const outputSchema = {
 const definition: AgentDefinition = {
   id: 'tmux-cli',
   displayName: 'Tmux CLI Agent',
-  model: 'minimax/minimax-m3',
-  // Provider options are tightly coupled to the model choice above.
-  // If you change the model, update these accordingly.
+  model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  // Moved off MiniMax M3 on 2026-08-01 so a free session driving a terminal
+  // bills the same model its root runs on instead of silently spending on M3.
+  //
+  // Provider options are tightly coupled to the model choice above; update
+  // them alongside it. `data_collection: 'deny'` is an OpenRouter-style option
+  // and is inert on this model's primary route (the DeepSeek direct request
+  // builder strips `provider` entirely), but is kept so it still applies if the
+  // model is ever pointed back at a gateway-routed one.
   providerOptions: {
     data_collection: 'deny',
   },
