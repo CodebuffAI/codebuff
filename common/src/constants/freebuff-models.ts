@@ -333,6 +333,20 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
  *  Smaller than every window we have measured. */
 export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
 
+/** The "a better model exists" copy every superseded model points at, shared so
+ *  three rows can't drift into three different sentences.
+ *
+ *  Names the DATED build. The wire id is undated and auto-updates, so the row a
+ *  user is being steered TO is labelled "DeepSeek V4 Flash 07/31" in every
+ *  picker (see DEEPSEEK_V4_FLASH_MODEL.displayName) — matching it exactly is
+ *  what makes the notice point at something visible on screen rather than at a
+ *  name nothing in the list carries.
+ *
+ *  Kept short on purpose: pickers render it as its own line, and in the CLI it
+ *  is the longest line in the menu, so it sets the width of every card. */
+const FLASH_SUPERSEDES_NOTICE =
+  'DeepSeek V4 Flash 07/31 performs better for most tasks.'
+
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   displayName: 'DeepSeek V4 Pro',
@@ -348,7 +362,7 @@ const DEEPSEEK_V4_PRO_MODEL = {
   // who want its longer deliberation, but the picker says so plainly.
   supersededBy: {
     modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    notice: 'DeepSeek V4 Flash is now better for most coding tasks — and free.',
+    notice: FLASH_SUPERSEDES_NOTICE,
     actionLabel: 'Switch to V4 Flash',
   },
 } as const satisfies FreebuffModelOption
@@ -402,7 +416,7 @@ const MIMO_V25_MODEL = {
   // (server/images/describe.ts, server/chat/image-context.ts).
   supersededBy: {
     modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    notice: 'DeepSeek V4 Flash is now better for most coding tasks — and free.',
+    notice: FLASH_SUPERSEDES_NOTICE,
     actionLabel: 'Switch to V4 Flash',
   },
 } as const satisfies FreebuffModelOption
@@ -437,7 +451,7 @@ const MINIMAX_M3_MODEL = {
   // multimodal — but the picker says Flash is the better default.
   supersededBy: {
     modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    notice: 'DeepSeek V4 Flash is now better for most coding tasks — and free.',
+    notice: FLASH_SUPERSEDES_NOTICE,
     actionLabel: 'Switch to V4 Flash',
   },
 } as const satisfies FreebuffModelOption

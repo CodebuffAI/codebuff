@@ -83,15 +83,10 @@ type Section = {
 // keyboard-navigation list as the model rows (Tab/arrow to it, Enter to fire).
 const TOGGLE_ID = '__freebuff_toggle__'
 
-// Right-aligned CTA shown on the focused, joinable row so the highlighted card
-// reads as a button ("you can press Enter here") instead of just a selection.
-// Its width is reserved in the line-1 width budget below so the cue never
-// overflows or wraps the row (a wrap would desync the focused-row scroll math).
-const FOCUS_CUE = 'Press Enter ↵'
-// Min gap between a row's tagline and the focused-row cue. Now that the
-// centered details line no longer stretches the card, this gap is what sets
-// the hero's breathing room — 2 left the cue jammed against the tagline.
-const CUE_GAP = 4
+// There used to be a right-aligned "Press Enter ↵" cue on the focused row, with
+// its width reserved in the line-1 budget below. Both are gone: the cue was
+// redundant next to the green focus border, and its reserved gutter widened
+// every card by ~17 columns of dead space.
 
 /**
  * Pre-chat model picker (session 'none'): user hasn't started a session yet.
@@ -393,114 +388,103 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // "name · tagline". Computed across ALL models (not just the expanded ones)
   // so the recommended hero and the revealed rows share one width and nothing
   // reflows on toggle.
-  const {
-    compactNames,
-    buttonOuterWidth,
-    buttonInnerWidth,
-    nameColumnWidth,
-    recommendedLabelLen,
-  } = useMemo(() => {
-    const maxNameLen = Math.max(
-      ...availableModels.map((m) => m.displayName.length),
-    )
-
-    const joinedLen = (parts: number[]): number =>
-      parts.reduce((a, b) => a + b, 0) + Math.max(0, parts.length - 1) * 3 // " · "
-
-    const detailsParts = (model: FreebuffModelOption): number[] => {
-      const parts: number[] = []
-      if (model.warning) parts.push(model.warning.length)
-      if (model.availability === 'deployment_hours') {
-        parts.push(deploymentAvailabilityLabel.length)
-      }
-      return parts
-    }
-
-    // Line 3, when a better model exists. Its own line: the notice is a full
-    // sentence, so appending it to line 2 would stretch the card past any
-    // reasonable terminal width.
-    const noticeLineLen = (m: FreebuffModelOption) =>
-      supersededNoticeFor(m)?.length ?? 0
-
-    // Append a compact image indicator (" · Images", 9 chars) to the
-    // tagline on line 1 so it never occupies its own line. Every model carries
-    // it: text-only ones read an image as a vision-model description
-    // substituted server-side (web/src/llm-api/describe-images.ts), so the row
-    // would otherwise read as "can't paste a screenshot" when it can.
-    const multimodalSuffixLen = 9
-    // Same treatment for the " · NEW" badge (6 chars).
-    const newSuffixLen = 6
-
-    // Line 1, in each mode.
-    const columnLabelLen = (m: FreebuffModelOption) =>
-      2 /* indicator + space */ +
-      maxNameLen +
-      NAME_GAP +
-      m.tagline.length +
-      multimodalSuffixLen +
-      (m.isNew ? newSuffixLen : 0)
-    const compactLabelLen = (m: FreebuffModelOption) =>
-      2 +
-      m.displayName.length +
-      3 /* " · " */ +
-      m.tagline.length +
-      multimodalSuffixLen +
-      (m.isNew ? newSuffixLen : 0)
-
-    // Line 2, or 0 for a row with neither warning nor hours. Centered in the
-    // card rather than indented under line 1's details column — the notice is
-    // a footnote about the row as a whole, and right-flushing it against the
-    // border (which the old indent did on the widest row) read as ragged.
-    // Centering means it only needs its own length to fit, so it no longer
-    // stretches the card.
-    const detailsLineLen = (m: FreebuffModelOption) =>
-      joinedLen(detailsParts(m))
-
-    // The cue lives only on the recommended hero, so only its line needs to fit
-    // the "Press Enter ↵" gutter. Folding that into the max means longer rows
-    // keep their natural width — the buttons widen only if the recommended
-    // row + cue is the longest line.
-    const innerWidth = (labelLen: (m: FreebuffModelOption) => number) =>
-      Math.max(
-        ...availableModels.map((m) =>
-          Math.max(labelLen(m), detailsLineLen(m), noticeLineLen(m)),
-        ),
-        labelLen(recommendedModel) + CUE_GAP + FOCUS_CUE.length,
+  const { compactNames, buttonOuterWidth, buttonInnerWidth, nameColumnWidth } =
+    useMemo(() => {
+      const maxNameLen = Math.max(
+        ...availableModels.map((m) => m.displayName.length),
       )
 
-    const columnInner = innerWidth(columnLabelLen)
-    const columnOuter = columnInner + BUTTON_CHROME
-    if (columnOuter <= contentMaxWidth) {
-      return {
-        compactNames: false,
-        buttonOuterWidth: columnOuter,
-        buttonInnerWidth: columnInner,
-        nameColumnWidth: maxNameLen,
-        // Returned so the render path can right-align the cue against the same
-        // length the gutter was reserved for — no reserve/consume drift.
-        recommendedLabelLen: columnLabelLen(recommendedModel),
-      }
-    }
+      const joinedLen = (parts: number[]): number =>
+        parts.reduce((a, b) => a + b, 0) + Math.max(0, parts.length - 1) * 3 // " · "
 
-    // Narrow: drop the name padding so line 1 reads "name · tagline".
-    const compactOuter = Math.min(
-      innerWidth(compactLabelLen) + BUTTON_CHROME,
+      const detailsParts = (model: FreebuffModelOption): number[] => {
+        const parts: number[] = []
+        if (model.warning) parts.push(model.warning.length)
+        if (model.availability === 'deployment_hours') {
+          parts.push(deploymentAvailabilityLabel.length)
+        }
+        return parts
+      }
+
+      // Line 3, when a better model exists. Its own line: the notice is a full
+      // sentence, so appending it to line 2 would stretch the card past any
+      // reasonable terminal width.
+      const noticeLineLen = (m: FreebuffModelOption) =>
+        supersededNoticeFor(m)?.length ?? 0
+
+      // Compact image indicator (" · Images", 9 chars) appended to the tagline on
+      // line 1 so it never occupies its own line. Only NATIVELY multimodal models
+      // carry it — text-only ones read an image as a vision-model description
+      // substituted server-side, which is a real fallback but not a capability
+      // worth advertising as a per-row badge.
+      const multimodalSuffixLen = (m: FreebuffModelOption) =>
+        m.multimodal ? 9 : 0
+      // Same treatment for the " · NEW" badge (6 chars).
+      const newSuffixLen = 6
+
+      // Line 1, in each mode.
+      const columnLabelLen = (m: FreebuffModelOption) =>
+        2 /* indicator + space */ +
+        maxNameLen +
+        NAME_GAP +
+        m.tagline.length +
+        multimodalSuffixLen(m) +
+        (m.isNew ? newSuffixLen : 0)
+      const compactLabelLen = (m: FreebuffModelOption) =>
+        2 +
+        m.displayName.length +
+        3 /* " · " */ +
+        m.tagline.length +
+        multimodalSuffixLen(m) +
+        (m.isNew ? newSuffixLen : 0)
+
+      // Line 2, or 0 for a row with neither warning nor hours. Centered in the
+      // card rather than indented under line 1's details column — the notice is
+      // a footnote about the row as a whole, and right-flushing it against the
+      // border (which the old indent did on the widest row) read as ragged.
+      // Centering means it only needs its own length to fit, so it no longer
+      // stretches the card.
+      const detailsLineLen = (m: FreebuffModelOption) =>
+        joinedLen(detailsParts(m))
+
+      // Cards are exactly as wide as their widest line. Nothing is reserved
+      // beyond that — the removed "Press Enter ↵" gutter used to pad every card
+      // out to the hero's line plus 17 columns of empty space.
+      const innerWidth = (labelLen: (m: FreebuffModelOption) => number) =>
+        Math.max(
+          ...availableModels.map((m) =>
+            Math.max(labelLen(m), detailsLineLen(m), noticeLineLen(m)),
+          ),
+        )
+
+      const columnInner = innerWidth(columnLabelLen)
+      const columnOuter = columnInner + BUTTON_CHROME
+      if (columnOuter <= contentMaxWidth) {
+        return {
+          compactNames: false,
+          buttonOuterWidth: columnOuter,
+          buttonInnerWidth: columnInner,
+          nameColumnWidth: maxNameLen,
+        }
+      }
+
+      // Narrow: drop the name padding so line 1 reads "name · tagline".
+      const compactOuter = Math.min(
+        innerWidth(compactLabelLen) + BUTTON_CHROME,
+        contentMaxWidth,
+      )
+      return {
+        compactNames: true,
+        buttonOuterWidth: compactOuter,
+        buttonInnerWidth: compactOuter - BUTTON_CHROME,
+        nameColumnWidth: maxNameLen,
+      }
+    }, [
+      availableModels,
       contentMaxWidth,
-    )
-    return {
-      compactNames: true,
-      buttonOuterWidth: compactOuter,
-      buttonInnerWidth: compactOuter - BUTTON_CHROME,
-      nameColumnWidth: maxNameLen,
-      recommendedLabelLen: compactLabelLen(recommendedModel),
-    }
-  }, [
-    availableModels,
-    contentMaxWidth,
-    deploymentAvailabilityLabel,
-    recommendedModel,
-    supersededNoticeFor,
-  ])
+      deploymentAvailabilityLabel,
+      supersededNoticeFor,
+    ])
 
   // A row spends a second line whenever it has details to put there — no longer
   // conditional on the terminal width, since the warning never inlines.
@@ -520,9 +504,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const estimatedModelHeight = useMemo(() => {
     let y = 0
     const rowHeight = (m: FreebuffModelOption) =>
-      2 +
-      (rowHasDetailsLine(m) ? 2 : 1) +
-      (supersededNoticeFor(m) ? 1 : 0)
+      2 + (rowHasDetailsLine(m) ? 2 : 1) + (supersededNoticeFor(m) ? 1 : 0)
     if (showStandaloneRecommended) {
       y += rowHeight(recommendedModel)
     }
@@ -740,16 +722,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       nameColumnWidth - model.displayName.length + NAME_GAP,
     )
 
-    // Right-aligned "Press Enter ↵" cue on the focused recommended row only,
-    // sharing line 1 with the name and tagline. Right-align against
-    // recommendedLabelLen — the exact length the gutter was reserved against
-    // above — so reserve and consume can't drift. The reservation guarantees
-    // cuePad >= CUE_GAP; the guard keeps it safe against the contentMaxWidth
-    // clamp on a terminal too narrow to seat the cue at all.
-    const cuePad =
-      buttonOuterWidth - BUTTON_CHROME - recommendedLabelLen - FOCUS_CUE.length
-    const showCue =
-      recommended && isFocused && interactable && cuePad >= CUE_GAP
+    // Only natively multimodal models advertise image input. Text-only models
+    // still accept a pasted image (it is substituted server-side as a
+    // vision-model description), but badging every row "Images" made the label
+    // meaningless — and it is what stretched line 1 on rows that can't actually
+    // see pixels.
+    const imagesSuffix = model.multimodal ? ' · Images' : ''
 
     return (
       <Button
@@ -783,22 +761,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             {model.displayName}
           </span>
           {compactNames ? (
-            <span fg={mutedColor}>
-              {' · ' + model.tagline + ' · Images'}
-            </span>
+            <span fg={mutedColor}>{' · ' + model.tagline + imagesSuffix}</span>
           ) : (
             <span fg={mutedColor}>
-              {namePadding + model.tagline + ' · Images'}
+              {namePadding + model.tagline + imagesSuffix}
             </span>
           )}
           {model.isNew && (
             <span fg={theme.primary} attributes={TextAttributes.BOLD}>
               {' · NEW'}
-            </span>
-          )}
-          {showCue && (
-            <span fg={theme.primary} attributes={TextAttributes.BOLD}>
-              {' '.repeat(cuePad) + FOCUS_CUE}
             </span>
           )}
         </text>

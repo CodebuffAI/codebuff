@@ -10,6 +10,8 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_MODELS,
+  getFreebuffModelSupersededBy,
   isFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -118,12 +120,23 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
     })
+    // Assert against the real copy rather than a hardcoded fragment, so
+    // rewording the notice doesn't fail this test for the wrong reason. It must
+    // still render on ONE line — the width math reserves exactly its length.
+    const notice = getFreebuffModelSupersededBy(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_MODELS.map((m) => m.id),
+    )!.notice
+    const occurrences = (frame: string) => frame.split(notice).length - 1
+
     // On a superseded model: the nudge appears, once, on that model's card.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     const onSuperseded = (await renderSelector()).captureCharFrame()
-    expect(onSuperseded).toContain('DeepSeek V4 Flash is now better')
+    expect(occurrences(onSuperseded)).toBe(1)
+    // It names the dated build, which is what the row it steers to is labelled.
+    expect(notice).toContain('DeepSeek V4 Flash 07/31')
     // The new build is badged so a returning user notices it changed.
     expect(onSuperseded).toContain('NEW')
 
@@ -135,7 +148,7 @@ describe('FreebuffModelSelector tier layout', () => {
       .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
     const onOtherSuperseded = (await renderSelector()).captureCharFrame()
     expect(onOtherSuperseded).toContain('DeepSeek V4 Pro')
-    expect(onOtherSuperseded.match(/is now better/g)).toHaveLength(1)
+    expect(occurrences(onOtherSuperseded)).toBe(1)
 
     // On the replacement itself: no nudge at all. (Picking the recommended
     // model also collapses the picker to its hero card.)
@@ -143,7 +156,7 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     const onCurrent = (await renderSelector()).captureCharFrame()
-    expect(onCurrent).not.toContain('is now better')
+    expect(occurrences(onCurrent)).toBe(0)
   })
 
   test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
@@ -199,18 +212,14 @@ describe('FreebuffModelSelector tier layout', () => {
         },
       },
     })
-    useFreebuffModelStore
-      .getState()
-      .setSelectedModel(FREEBUFF_GLM_V52_MODEL_ID)
+    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_GLM_V52_MODEL_ID)
 
     const setup = await renderSelector()
     await Promise.resolve()
     await setup.renderOnce()
     await setup.renderOnce()
 
-    expect(getSelectedFreebuffModel()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(setup.captureCharFrame()).toContain('› DeepSeek V4 Flash')
   })
 
@@ -239,5 +248,57 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).toContain('MiMo 2.5')
     expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('UNLIMITED')
+  })
+
+  test('badges only natively multimodal rows with Images', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    // Expanded (a saved non-recommended pick) so every row is on screen.
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+
+    const rowOf = (frame: string, name: string) =>
+      frame.split('\n').find((line) => line.includes(name)) ?? ''
+    const frame = (await renderSelector()).captureCharFrame()
+
+    // Natively multimodal: the badge is a real capability claim.
+    expect(rowOf(frame, 'MiniMax M3')).toContain('Images')
+    expect(rowOf(frame, 'GPT-5.6 Luna')).toContain('Images')
+    expect(rowOf(frame, 'MiMo 2.5')).toContain('Images')
+    // Text-only. They still accept a pasted image (read server-side as a
+    // description), but badging them made the label mean nothing — and the
+    // badge is what widened the hero card.
+    expect(rowOf(frame, 'DeepSeek V4 Flash')).not.toContain('Images')
+    expect(rowOf(frame, 'DeepSeek V4 Pro')).not.toContain('Images')
+  })
+
+  test('sizes the hero card to its content, with no Press-Enter gutter', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+
+    const frame = (await renderSelector()).captureCharFrame()
+    // trimEnd drops the terminal's blank columns to the right of the card, so
+    // what's left ends at the card's own right border.
+    const heroRow = (
+      frame.split('\n').find((line) => line.includes('› DeepSeek V4 Flash')) ??
+      ''
+    ).trimEnd()
+
+    expect(frame).not.toContain('Press Enter')
+    // The reserved cue gutter used to sit between the last badge and the right
+    // border, padding the card out by ~17 columns of empty space. What remains
+    // is ordinary slack from the widest row in the set.
+    const gapToBorder =
+      heroRow.length - 1 - (heroRow.indexOf('NEW') + 'NEW'.length)
+    expect(heroRow.endsWith('│')).toBe(true)
+    expect(gapToBorder).toBeLessThan(10)
   })
 })
