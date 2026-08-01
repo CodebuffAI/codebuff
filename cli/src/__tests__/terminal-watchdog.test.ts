@@ -17,9 +17,14 @@ afterAll(() => {
   rmSync(tempDir, { recursive: true, force: true })
 })
 
-function spawnFixture(mode: 'hang' | 'clean', ttyPath: string): ChildProcess {
+function spawnFixture(
+  mode: 'hang' | 'clean',
+  ttyPath: string,
+  env?: Record<string, string>,
+): ChildProcess {
   return spawn(process.execPath, [FIXTURE, mode, ttyPath], {
     stdio: ['ignore', 'pipe', 'inherit'],
+    env: { ...process.env, ...env },
   })
 }
 
@@ -84,6 +89,45 @@ describe('terminal watchdog', () => {
     await waitForExit(child)
 
     // Wait-Process wakeup + write can take a few seconds under CI load.
+    const written = await pollForContent(ttyPath, 15_000)
+    expect(written).toBe(TERMINAL_RESET_SEQUENCES)
+  }, 60_000)
+
+  // The Windows arm path spawns a PowerShell bootstrap that Start-Process's a
+  // second, longer-lived PowerShell — a shape EDR/AV scores as malicious. The
+  // opt-out lets an affected user keep running the CLI at the cost of the
+  // after-exit terminal repair, so "no watchdog at all" has to actually hold.
+  test.each(['1', 'true', 'TRUE'])(
+    'never arms when CODEBUFF_NO_TERMINAL_WATCHDOG=%s',
+    async (value) => {
+      const ttyPath = join(tempDir, `optout-${value}.out`)
+      const child = spawnFixture('hang', ttyPath, {
+        CODEBUFF_NO_TERMINAL_WATCHDOG: value,
+      })
+      await waitForReady(child)
+
+      child.kill('SIGKILL')
+      await waitForExit(child)
+
+      // Generous wait: a watchdog that DID arm would have written by now, so a
+      // short sleep here would make this pass for the wrong reason.
+      await new Promise((r) => setTimeout(r, 3_000))
+      expect(readTty(ttyPath)).toBe('')
+      expect(findDisarmFiles(child.pid)).toEqual([])
+    },
+    60_000,
+  )
+
+  test('still arms when the opt-out is set to an unrelated value', async () => {
+    const ttyPath = join(tempDir, 'optout-noise.out')
+    const child = spawnFixture('hang', ttyPath, {
+      CODEBUFF_NO_TERMINAL_WATCHDOG: '0',
+    })
+    await waitForReady(child)
+
+    child.kill('SIGKILL')
+    await waitForExit(child)
+
     const written = await pollForContent(ttyPath, 15_000)
     expect(written).toBe(TERMINAL_RESET_SEQUENCES)
   }, 60_000)

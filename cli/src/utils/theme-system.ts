@@ -777,53 +777,6 @@ const runSystemCommand = (command: string[]): string | null => {
   }
 }
 
-/**
- * Detect Windows PowerShell background color theme
- * Uses PowerShell's (Get-Host).UI.RawUI.BackgroundColor command
- */
-function detectWindowsPowerShellTheme(): ThemeName | null {
-  if (process.platform !== 'win32') return null
-
-  const bgColor = runSystemCommand([
-    'powershell',
-    '-NoProfile',
-    '-Command',
-    '(Get-Host).UI.RawUI.BackgroundColor',
-  ])
-
-  if (!bgColor) return null
-
-  const colorLower = bgColor.toLowerCase()
-
-  // Dark background colors in PowerShell
-  const darkColors = [
-    'black',
-    'darkblue',
-    'darkgreen',
-    'darkcyan',
-    'darkred',
-    'darkmagenta',
-    'darkyellow',
-    'darkgray',
-  ]
-  // Light background colors in PowerShell
-  const lightColors = [
-    'gray',
-    'blue',
-    'green',
-    'cyan',
-    'red',
-    'magenta',
-    'yellow',
-    'white',
-  ]
-
-  if (darkColors.includes(colorLower)) return 'dark'
-  if (lightColors.includes(colorLower)) return 'light'
-
-  return null
-}
-
 export const detectTerminalOverrides = (): ThemeName | null => {
   return null
 }
@@ -841,21 +794,24 @@ export function detectPlatformTheme(): ThemeName {
       return 'light'
     }
 
-    if (process.platform === 'win32') {
-      // Try PowerShell background color detection first
-      const powershellTheme = detectWindowsPowerShellTheme()
-      if (powershellTheme) return powershellTheme
-
-      // Fallback to Windows system theme
-      const value = runSystemCommand([
-        'powershell',
-        '-NoProfile',
-        '-Command',
-        '(Get-ItemProperty -Path HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize).AppsUseLightTheme',
-      ])
-      if (value === '0') return 'dark'
-      if (value === '1') return 'light'
-    }
+    // No win32 branch on purpose: it ran two PowerShell commands that Defender
+    // flagged on real user machines, so Windows falls through to 'dark'.
+    //
+    // Be clear about what that costs. OSC 11 does NOT cover Windows today —
+    // index.tsx skips detectTerminalTheme() when platform === 'win32' — so
+    // outside VS Code and JetBrains (which resolve earlier from their own
+    // settings/env) a Windows user now always gets 'dark'. The signal actually
+    // lost is the HKCU AppsUseLightTheme read. The (Get-Host).UI.RawUI probe in
+    // front of it was reading a *separate* powershell.exe spawned with piped
+    // stdout, so it reported that child host's background rather than the
+    // user's terminal — whatever it returned, it was not measuring the thing
+    // the name suggests.
+    //
+    // The fix is to enable OSC on Windows, not to bring the subprocesses back:
+    // sendOscQuery already targets 'CON' for win32 and is timeout-bounded. It
+    // stays off here only because a legacy conhost without VT processing would
+    // echo the query bytes as visible garbage, and that needs verifying on a
+    // real Windows box first. See theme-platform-detection.test.ts.
 
     if (process.platform === 'linux') {
       const value = runSystemCommand([

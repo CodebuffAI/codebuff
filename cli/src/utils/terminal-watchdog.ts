@@ -161,10 +161,22 @@ function spawnWindowsWatchdog(options: {
   )
 }
 
+/** Truthy values for CODEBUFF_NO_TERMINAL_WATCHDOG. */
+const isOptedOut = (value: string | undefined): boolean =>
+  value === '1' || value?.toLowerCase() === 'true'
+
 /**
  * Start the watchdog. Call once, before the TUI renderer starts enabling
  * terminal modes. No-op when stdout isn't a TTY (unless an explicit ttyPath
  * is injected, e.g. in tests), or if already started.
+ *
+ * Also a no-op when CODEBUFF_NO_TERMINAL_WATCHDOG is set. On Windows the only
+ * way to outlive our own job object is a PowerShell bootstrap that
+ * Start-Process's a second PowerShell (see the header), and a parent spawning a
+ * hidden shell that outlives it is a shape EDR/AV products score as malicious —
+ * this one shows up in Defender traces as a "Suspicious PowerShell command
+ * line". Opting out costs only the after-exit terminal repair for hard kills,
+ * which is strictly better than the CLI being quarantined on launch.
  *
  * @param options.ttyPath - Override the reset target (POSIX: the watchdog's
  *   stdout is pointed at this file; Windows: the watchdog writes the payload
@@ -173,6 +185,7 @@ function spawnWindowsWatchdog(options: {
  */
 export function startTerminalWatchdog(options?: { ttyPath?: string }): void {
   if (watchdog) return
+  if (isOptedOut(getCliEnv().CODEBUFF_NO_TERMINAL_WATCHDOG)) return
   if (!options?.ttyPath && !process.stdout.isTTY) return
 
   let overrideFd: number | null = null

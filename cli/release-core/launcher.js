@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { spawn, execFileSync } = require('child_process')
+const { spawn } = require('child_process')
 const fs = require('fs')
 const http = require('http')
 const https = require('https')
@@ -21,6 +21,9 @@ function createLauncher(productConfig) {
     telemetryEvent = 'cli.update_codebuff_failed',
     telemetryProperties = {},
     tempDownloadDirName = `.${packageName}-download-temp`,
+    // Tests only. os.homedir() ignores $HOME under `bun test`, so pointing HOME
+    // at a temp dir is not enough to keep a test off the real ~/.config.
+    configDir: configDirOverride = null,
   } = productConfig
 
   /**
@@ -96,7 +99,8 @@ function createLauncher(productConfig) {
 
   function createConfig(packageName) {
     const homeDir = os.homedir()
-    const configDir = path.join(homeDir, '.config', 'manicode')
+    const configDir =
+      configDirOverride || path.join(homeDir, '.config', 'manicode')
     const binaryName =
       process.platform === 'win32' ? `${packageName}.exe` : packageName
 
@@ -245,35 +249,6 @@ function createLauncher(productConfig) {
     }
   }
 
-  // Returns true (AVX2 present), false (absent), or null (couldn't determine).
-  // Ask the OS directly via IsProcessorFeaturePresent (kernel32), which is
-  // backed by CPUID — far more reliable than matching CPU model names, and it
-  // works on the stock Windows PowerShell that ships with every supported
-  // Windows version. Feature 40 = PF_AVX2_INSTRUCTIONS_AVAILABLE.
-  function probeWindowsAvx2() {
-    const script =
-      '$f = Add-Type -MemberDefinition \'[DllImport("kernel32.dll")] ' +
-      "public static extern bool IsProcessorFeaturePresent(uint feature);' " +
-      '-Name Cpu -Namespace Win32 -PassThru; $f::IsProcessorFeaturePresent(40)'
-    try {
-      const out = execFileSync(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-Command', script],
-        {
-          encoding: 'utf8',
-          timeout: 5000,
-          stdio: ['ignore', 'pipe', 'ignore'],
-        },
-      ).trim()
-      if (out === 'True') return true
-      if (out === 'False') return false
-      return null
-    } catch {
-      // No PowerShell, locked-down policy, timeout, etc. — inconclusive.
-      return null
-    }
-  }
-
   let _hasAvx2Cache
 
   function machineHasAvx2() {
@@ -288,31 +263,41 @@ function createLauncher(productConfig) {
       return true
     }
 
-    // Linux detection is a cheap file read, so we don't bother persisting it.
+    // A recorded illegal-instruction crash outranks everything below it: the
+    // binary actually failed on this machine, which beats any inference we
+    // could make about the CPU.
+    const recorded = readCachedAvx2()
+    if (recorded !== null) {
+      return recorded
+    }
+
+    // Linux can just ask, and a file read is cheap enough not to cache.
     if (process.platform === 'linux') {
       return linuxCpuHasAvx2()
     }
 
-    if (process.platform !== 'win32') {
-      return true
-    }
+    // Everything else assumes AVX2 — true of every x64 CPU since ~2013.
+    //
+    // Windows is the case that matters, since it's the only other platform with
+    // a baseline build. It has no /proc/cpuinfo equivalent we can read without
+    // spawning something, and the probe that used to fill the gap asked
+    // PowerShell to compile a C# stub and P/Invoke
+    // kernel32!IsProcessorFeaturePresent — accurate, but a textbook malware
+    // shape that Windows Defender flagged as a "Suspicious PowerShell command
+    // line" on real user machines. The illegal-instruction handler corrects us
+    // instead: tryFallbackToBaseline() calls recordMachineLacksAvx2(), so a
+    // machine without AVX2 pays exactly one failed launch and is answered by
+    // the cache read above from then on.
+    return true
+  }
 
-    // Windows detection shells out to PowerShell. getDefaultTargetKey runs on
-    // every launch (via the version check), so cache the result on disk to keep
-    // startup fast after the first probe.
-    const cached = readCachedAvx2()
-    if (cached !== null) {
-      return cached
-    }
-    const detected = probeWindowsAvx2()
-    if (detected === null) {
-      // Inconclusive probe: assume AVX2 for this launch and rely on the SIGILL
-      // fallback, but don't persist it — a transient failure must not lock in a
-      // wrong answer for the lifetime of the install. We'll re-probe next launch.
-      return true
-    }
-    writeCachedAvx2(detected)
-    return detected
+  // Called from the illegal-instruction fallback. Persisting here is what keeps
+  // the optimistic assumption above from costing more than a single crash — and
+  // it is deliberately separate from the metadata target, so a lost or rewritten
+  // metadata file can't resurrect the AVX2 build on a CPU that can't run it.
+  function recordMachineLacksAvx2() {
+    _hasAvx2Cache = false
+    writeCachedAvx2(false)
   }
 
   function getCpuFeatureCachePath() {
@@ -349,11 +334,12 @@ function createLauncher(productConfig) {
     }
 
     const platformKey = getPlatformKey()
-    // Select the binary up front from explicit CPU feature detection rather than
-    // optimistically launching the AVX2 build and waiting for it to crash with
-    // an illegal instruction. The crash isn't always a clean immediate failure —
-    // it can surface later from a deeper code path — so older CPUs (e.g. an
-    // Intel Xeon with AVX but no AVX2) are safer on baseline from the start.
+    // Linux still detects up front (reading /proc/cpuinfo is free). Windows
+    // cannot without spawning a process, and the PowerShell probe that used to
+    // do it tripped Defender, so Windows is optimistic-then-corrected: see
+    // detectMachineHasAvx2() and tryFallbackToBaseline(). Once a machine has
+    // failed once, readCachedAvx2() answers here and baseline is chosen up front
+    // exactly as it used to be.
     //
     // This assumes every baseline target is gated on AVX2 specifically, which
     // holds today (only linux-x64 and win32-x64 have baseline builds, both
@@ -1145,6 +1131,11 @@ function createLauncher(productConfig) {
       return false
     }
 
+    // The optimized build just died on an illegal instruction, so this machine
+    // cannot run it. Persist that before downloading, so even if the download
+    // or the relaunch fails we never optimistically pick the AVX2 build again.
+    recordMachineLacksAvx2()
+
     const version = metadata?.version || (await getLatestVersion())
     if (!version) {
       return false
@@ -1211,6 +1202,20 @@ function createLauncher(productConfig) {
     config: productConfig,
     main,
     stopRunningProcess,
+    // Internals exposed for tests only. The AVX2 path is optimistic-then-
+    // corrected (see detectMachineHasAvx2), so the correction has to be
+    // exercised directly — there is no way to make a CI runner lack AVX2.
+    __testing: {
+      detectMachineHasAvx2,
+      recordMachineLacksAvx2,
+      readCachedAvx2,
+      isIllegalInstructionExit,
+      getDefaultTargetKey,
+      getCpuFeatureCachePath,
+      getCurrentVersion,
+      isTargetAllowedForThisMachine,
+      CONFIG,
+    },
   }
 }
 
