@@ -548,10 +548,10 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   MIMO_V25_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
-// GLM 5.2 is intentionally NOT in FREEBUFF_MODELS: it isn't a freely-pickable
-// grid model, it's a referral reward surfaced by the separate referral banner.
-// It stays in SUPPORTED_FREEBUFF_MODELS so the session/chat layers accept it as
-// a valid model id once the user's weekly entitlement admits them.
+// GLM 5.2 was previously a referral-only model surfaced by the separate referral
+// banner. Now added to FREEBUFF_MODELS so it appears as a freely-pickable model
+// in the grid selector when unlocked via the referral reward system.
+// It stays in SUPPORTED_FREEBUFF_MODELS for session/chat validation.
 //
 // MiMo 2.5 Pro is RETIRED FROM THE CLIENT PICKERS (2026-07-31) but still in
 // SUPPORTED_FREEBUFF_MODELS, the free-mode allowlists and provider routing, so
@@ -564,6 +564,7 @@ export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   GPT_5_6_LUNA_MODEL,
   MINIMAX_M3_MODEL,
+  GLM_V52_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
 ] as const satisfies readonly FreebuffModelOption[]
 
