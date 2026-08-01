@@ -12,6 +12,7 @@ import React, {
 import { Button } from './button'
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
+  FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelSupersededBy,
@@ -43,7 +44,10 @@ import {
 } from '../utils/freebuff-premium-reset'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
-import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
+import type {
+  FreebuffAccessTier,
+  FreebuffModelOption,
+} from '@codebuff/common/constants/freebuff-models'
 import type { FreebuffReferralFocusTarget } from './freebuff-referral-banner'
 import type {
   BoxRenderable,
@@ -129,6 +133,26 @@ interface FreebuffModelSelectorProps {
   belowToggle?: React.ReactNode
 }
 
+/** The rows the grid shows a tier. GLM 5.2 is a referral reward, not a freely-pickable
+ *  model, so it reaches the user through FreebuffReferralBanner instead. */
+function gridModels(
+  accessTier: FreebuffAccessTier,
+): readonly FreebuffModelOption[] {
+  return getFreebuffModelsForAccessTier(accessTier).filter(
+    (m) => !isFreebuffGlmV52ModelId(m.id),
+  )
+}
+
+/** Every model id this screen can offer a tier: the grid, plus the referral banner's
+ *  earned GLM action on full access. Exported so the offer→gate invariant test reads
+ *  the real set rather than a copy of it. */
+export function freebuffCliOfferedModelIds(
+  accessTier: FreebuffAccessTier,
+): readonly string[] {
+  const grid = gridModels(accessTier).map((m) => m.id)
+  return accessTier === 'full' ? [...grid, FREEBUFF_GLM_V52_MODEL_ID] : grid
+}
+
 export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   maxHeight,
   onExpandedChange,
@@ -154,15 +178,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const [pending, setPending] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
-  const availableModels = useMemo(
-    // GLM 5.2 is a referral reward, not a freely-pickable model, so it's
-    // surfaced by the separate FreebuffReferralBanner rather than this grid.
-    () =>
-      getFreebuffModelsForAccessTier(accessTier).filter(
-        (m) => !isFreebuffGlmV52ModelId(m.id),
-      ),
-    [accessTier],
-  )
+  const availableModels = useMemo(() => gridModels(accessTier), [accessTier])
   // No queued state any more: there's never a model the user is "already in"
   // the queue for, so re-picking is always meaningful.
   const committedModelId: string | null = null
