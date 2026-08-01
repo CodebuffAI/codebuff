@@ -68,13 +68,17 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
  * to. There is one variant per model because a bundled agent's model comes from
  * its definition, not from the request.
  *
- * Full access plans on MiniMax M3. Planning is a short, reasoning-heavy
- * conversation where model quality decides whether the plan is any good, and it
- * burns a tiny fraction of the tokens a build does — so the surface's usual
- * cost argument for DeepSeek does not apply here.
+ * BOTH tiers now plan on DeepSeek V4 Flash (2026-08-01, was MiniMax M3 for full
+ * access). The old split existed because planning is short and quality-
+ * sensitive, so it was worth a pricier model than the build; the V4-Flash-0731
+ * GA build removed that tradeoff by being the strongest coding/tool-use model
+ * we serve as well as the cheapest. Planning on it is now both better and free
+ * of the premium pool, which the planner was the cheapest route into.
  *
- * Limited regions may only use LIMITED_FREEBUFF_MODEL_IDS, so they get their
- * own variant rather than being shut out of the feature.
+ * A consequence: the two variants are pinned to the same model, so the model no
+ * longer distinguishes them — see cloudPlannerAgentIdForModel. The limited
+ * variant is kept registered (not deleted) so planner sessions already dispatched
+ * under its id keep resolving; it is safe to remove once none are in flight.
  *
  * Exported so the agent definitions, the planner UI's forced model, and the
  * "Start building" hand-off all read one set of values. They must agree: the
@@ -82,7 +86,7 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
  * different model is rejected with session_model_mismatch.
  */
 export const CLOUD_PLANNER_AGENT_ID = 'base2-free-cloud-planner'
-export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_MINIMAX_M3_MODEL_ID
+export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 export const CLOUD_PLANNER_LIMITED_AGENT_ID = 'base2-free-cloud-planner-limited'
 export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
 
@@ -145,15 +149,19 @@ export function resolveCloudBuildModel(
 }
 
 /**
- * The planner variant that runs a given model. Falls back to the full-access
- * variant so an unknown selection still resolves to a registered root.
+ * The planner variant to run. Always the primary one now: both variants pin the
+ * same model, so the model cannot pick between them, and keying off it would
+ * route EVERY caller — full access included — to the agent labelled
+ * "(limited)". Limited tiers are served correctly by the primary variant
+ * because Flash is a model their tier permits.
+ *
+ * Kept as a function taking the model so callers need not change, and so the
+ * choice has one place to live again if the tiers ever diverge on model.
  */
 export function cloudPlannerAgentIdForModel(
-  model: string | null | undefined,
+  _model: string | null | undefined,
 ): string {
-  return model === CLOUD_PLANNER_LIMITED_MODEL_ID
-    ? CLOUD_PLANNER_LIMITED_AGENT_ID
-    : CLOUD_PLANNER_AGENT_ID
+  return CLOUD_PLANNER_AGENT_ID
 }
 
 /**
