@@ -1,10 +1,12 @@
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   getFreebuffModel,
+  isFreebuffLimitedOfferModelId,
   LIMITED_FREEBUFF_MODEL_ID,
   resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
 import {
+  getLimitedModelOffers,
   getRateLimitsByModel,
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
@@ -161,12 +163,18 @@ function toLandingSession(
     current && 'ipPrivacySignals' in current
       ? current.ipPrivacySignals
       : undefined
+  // Carried over so the picker doesn't lose the limited-offer row for the one
+  // frame between synthesizing this state and the GET that refreshes it. The
+  // GET is authoritative: if the wave has since been spent, the next response
+  // simply omits the offer and the row disappears.
+  const limitedModelOffers = getLimitedModelOffers(current)
 
   return {
     status: 'none',
     ...(accessTier ? { accessTier } : {}),
     ...(rateLimitsByModel ? { rateLimitsByModel } : {}),
     ...(referral ? { referral } : {}),
+    ...(limitedModelOffers.length > 0 ? { limitedModelOffers } : {}),
     ...(countryCode ? { countryCode } : {}),
     ...(countryBlockReason ? { countryBlockReason } : {}),
     ...(ipPrivacySignals ? { ipPrivacySignals } : {}),
@@ -492,6 +500,26 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           // to the always-available fallback for this run. In-memory only —
           // `setSelectedModel` doesn't persist, so the user's saved preference
           // is preserved for their next launch.
+          //
+          // A limited-offer model gets a sentence about it. Silence is fine for
+          // deployment hours (the picker row says when they open), but here the
+          // user pressed Enter on a row that was on screen a second ago and
+          // would otherwise land on a different model with no explanation —
+          // they lost a race for the wave's last slot.
+          if (isFreebuffLimitedOfferModelId(next.requestedModel)) {
+            const requested = getFreebuffModel(next.requestedModel).displayName
+            const fallback = getFreebuffModel(
+              FALLBACK_FREEBUFF_MODEL_ID,
+            ).displayName
+            useChatStore
+              .getState()
+              .setMessages((prev) => [
+                ...prev,
+                getSystemMessage(
+                  `${requested}'s trial sessions just ran out, so this session started on ${fallback} instead. Check back later — we release more in batches.`,
+                ),
+              ])
+          }
           useFreebuffModelStore
             .getState()
             .setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)

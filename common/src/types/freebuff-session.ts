@@ -131,6 +131,53 @@ export const getRateLimitsByModel = (
         .rateLimitsByModel
     : undefined
 
+/**
+ * A capacity-limited model the server is offering RIGHT NOW, beyond whatever
+ * the client's own catalog contains.
+ *
+ * The server is the only thing that knows whether the wave's shared pool still
+ * has sessions in it, so it — not the client — decides whether the row exists
+ * at all. The field is optional and clients must render nothing when it is
+ * absent or empty: that is what makes an exhausted, disabled or not-yet-shipped
+ * offer invisible instead of a broken-looking greyed-out row.
+ *
+ * `remaining`/`total` describe the GLOBAL pool shared by every user, while
+ * `userRemaining` describes the caller's own daily ceiling. A row is joinable
+ * only while both are non-zero, and the client must treat `userRemaining === 0`
+ * as "not now" rather than hiding the row — the user has already had their
+ * session and the reset time explains when they get another.
+ *
+ * The ceiling itself is not on the wire: it is fixed by construction
+ * (FREEBUFF_LIMITED_OFFER_SESSION_LIMIT, which no streak or referral can
+ * raise), so a client that ever needs "N of M used" reads the shared constant
+ * rather than a field the server has to keep consistent.
+ */
+export interface FreebuffLimitedModelOffer {
+  /** Model id; always a member of SUPPORTED_FREEBUFF_MODELS, so the client can
+   *  resolve its display name from the shared catalog. */
+  model: string
+  /** Sessions left in the shared global pool for the current wave. Always > 0
+   *  — an exhausted offer is omitted rather than sent as zero. */
+  remaining: number
+  /** Pool size for the current wave, for "N of M left" copy. */
+  total: number
+  /** Sessions this user may still start today. May be 0. */
+  userRemaining: number
+  /** ISO timestamp at which `userRemaining` refills. */
+  userResetAt: string
+}
+
+/** Pull the limited-model offers off whichever session status carries them.
+ *  Loose parameter type for the same reason as `getRateLimitsByModel`. Always
+ *  returns an array so callers can map without a presence check. */
+export const getLimitedModelOffers = (
+  session: { status: string } | null | undefined,
+): FreebuffLimitedModelOffer[] =>
+  session && 'limitedModelOffers' in session
+    ? ((session as { limitedModelOffers?: FreebuffLimitedModelOffer[] })
+        .limitedModelOffers ?? [])
+    : []
+
 export type FreebuffCountryBlockReason =
   | 'country_not_allowed'
   | 'anonymized_or_unknown_country'
@@ -207,6 +254,11 @@ export type FreebuffSessionServerResponse = (
       /** Referral status for the "invite friends" banner. Full tier advertises
        *  GLM 5.2; limited tier advertises a daily free-session bonus. */
       referral?: FreebuffReferralInfo
+      /** Capacity-limited models the picker may additionally offer right now.
+       *  Only sent on the pre-join response, which is the only state that
+       *  renders a picker. Absent whenever the pool is spent or the offer is
+       *  off — see FreebuffLimitedModelOffer. */
+      limitedModelOffers?: FreebuffLimitedModelOffer[]
     } & FreebuffLimitedModeReason)
   | ({
       status: 'active'

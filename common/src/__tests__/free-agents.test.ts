@@ -324,9 +324,9 @@ describe('free mode agent model allowlist', () => {
       // hierarchy gate and the "You are Buffy" marker gate applies to it.
       expect(isFreebuffRootAgent(agentId)).toBe(true)
       // Kimi K2.7 Code was removed from free mode (see free-agents.ts).
-      expect(
-        isFreeModeAllowedAgentModel(agentId, FREEBUFF_KIMI_MODEL_ID),
-      ).toBe(false)
+      expect(isFreeModeAllowedAgentModel(agentId, FREEBUFF_KIMI_MODEL_ID)).toBe(
+        false,
+      )
       // A non-free premium model (e.g. raw Claude) stays disallowed even for it.
       expect(
         isFreeModeAllowedAgentModel(agentId, 'anthropic/claude-sonnet-4.5'),
@@ -523,10 +523,14 @@ describe('hasFreebuffRootSystemPromptOpening', () => {
 
   test('rejects near-miss punctuation and casing', () => {
     expect(
-      hasFreebuffRootSystemPromptOpening('You are Buffy. the strategic coding assistant.'),
+      hasFreebuffRootSystemPromptOpening(
+        'You are Buffy. the strategic coding assistant.',
+      ),
     ).toBe(false)
     expect(
-      hasFreebuffRootSystemPromptOpening('you are buffy, the strategic coding assistant.'),
+      hasFreebuffRootSystemPromptOpening(
+        'you are buffy, the strategic coding assistant.',
+      ),
     ).toBe(false)
     expect(hasFreebuffRootSystemPromptOpening('You are Buffy')).toBe(false)
     expect(hasFreebuffRootSystemPromptOpening('')).toBe(false)
@@ -556,7 +560,8 @@ describe('hasFreebuffRootSystemPromptOpening', () => {
  */
 describe('every freebuff root agent declares a prompt opening', () => {
   const BASE2 = 'You are Buffy, the strategic coding assistant.'
-  const WEB_TRIAL = 'You are Buffy, a coding agent inside a Freebuff Web project.'
+  const WEB_TRIAL =
+    'You are Buffy, a coding agent inside a Freebuff Web project.'
   const CLOUD_PLANNER = 'You are Buffy, the Freebuff Cloud project planner.'
 
   /** Root agent id → the opening its system prompt starts with. */
@@ -573,6 +578,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-laguna-s-2-1': BASE2,
     'base2-free-laguna-s-2-1-openrouter': BASE2,
     'base2-free-ling-3-flash': BASE2,
+    // Limited-offer trial root; createBase2('free', …) like its siblings.
+    'base2-free-fable': BASE2,
     'base2-free-hy3': WEB_TRIAL,
     'base2-free-hy3-atlas': WEB_TRIAL,
     'base2-free-cloud-planner': CLOUD_PLANNER,
@@ -592,7 +599,9 @@ describe('every freebuff root agent declares a prompt opening', () => {
 
   test('no stale entries linger after a root agent is removed', () => {
     const roots = new Set<string>(FREEBUFF_ROOT_AGENT_IDS)
-    expect(Object.keys(PROMPT_FAMILY).filter((id) => !roots.has(id))).toEqual([])
+    expect(Object.keys(PROMPT_FAMILY).filter((id) => !roots.has(id))).toEqual(
+      [],
+    )
   })
 
   test('every declared opening is one the gate accepts', () => {
@@ -606,7 +615,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
 
 describe('canonical root prompt openings match their source definitions', () => {
   const repoRoot = join(import.meta.dir, '..', '..', '..')
-  const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), 'utf8')
+  const read = (...parts: string[]) =>
+    readFileSync(join(repoRoot, ...parts), 'utf8')
 
   test('base2 createBase2 free-mode prompt (base2-free-* + desktop roots)', () => {
     const source = read('agents', 'base2', 'base2.ts')
@@ -621,7 +631,11 @@ describe('canonical root prompt openings match their source definitions', () => 
 
   test('freebuff web trial + cloud planner prompts (hy3, planner roots)', () => {
     const source = read(
-      'freebuff', 'web', 'convex', 'coding_agent', 'cli_agent',
+      'freebuff',
+      'web',
+      'convex',
+      'coding_agent',
+      'cli_agent',
       'freebuff_bundled_agents.ts',
     )
     for (const opening of [
@@ -636,7 +650,11 @@ describe('canonical root prompt openings match their source definitions', () => 
 
   test('desktop thread agent composes onto the base2 prompt head', () => {
     const source = read(
-      'freebuff-desktop', 'src', 'server', 'harness', 'thread-agent.ts',
+      'freebuff-desktop',
+      'src',
+      'server',
+      'harness',
+      'thread-agent.ts',
     )
     // Position 0 of the desktop prompt must stay the base2 prompt, or the
     // desktop roots stop matching any canonical opening.

@@ -8,6 +8,7 @@ import {
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MODELS,
@@ -300,5 +301,116 @@ describe('FreebuffModelSelector tier layout', () => {
       heroRow.length - 1 - (heroRow.indexOf('NEW') + 'NEW'.length)
     expect(heroRow.endsWith('│')).toBe(true)
     expect(gapToBorder).toBeLessThan(10)
+  })
+})
+
+describe('FreebuffModelSelector limited-model offer', () => {
+  const offerSession = (
+    offer: Partial<{
+      remaining: number
+      total: number
+      userRemaining: number
+      userResetAt: string
+    }> = {},
+  ) => ({
+    status: 'none' as const,
+    accessTier: 'full' as const,
+    limitedModelOffers: [
+      {
+        model: FREEBUFF_FABLE_5_MODEL_ID,
+        remaining: 38,
+        total: 50,
+        userRemaining: 1,
+        userResetAt: new Date(Date.now() + 5 * 60 * 60_000).toISOString(),
+        ...offer,
+      },
+    ],
+  })
+
+  test('renders nothing when the server sends no offer', async () => {
+    // The regression that matters most: a user who is not in the wave must see
+    // the picker exactly as it was before the offer existed.
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).not.toContain('LIMITED TRIAL')
+    expect(frame).not.toContain('Fable')
+  })
+
+  test('renders the offered model with its scarcity and data-use label', async () => {
+    useFreebuffSessionStore.getState().setSession(offerSession())
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('LIMITED TRIAL')
+    expect(frame).toContain('38 of 50 sessions left')
+    expect(frame).toContain('Claude Fable 5')
+    // The disclosure that makes collecting the traces legitimate travels on the
+    // row itself, not in a footnote somewhere else.
+    expect(frame).toContain('May use data for AI training')
+  })
+
+  test('stays visible while collapsed, unlike the ordinary tiers', async () => {
+    // The picker opens collapsed for a user already on the recommended model.
+    // A wave nobody sees is a wave nobody joins.
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    useFreebuffSessionStore.getState().setSession(offerSession())
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('See all')
+    expect(frame).toContain('Claude Fable 5')
+    expect(frame).not.toContain('PREMIUM')
+  })
+
+  test('explains a spent personal allowance instead of hiding the row', async () => {
+    useFreebuffSessionStore
+      .getState()
+      .setSession(offerSession({ userRemaining: 0 }))
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('Claude Fable 5')
+    expect(frame).toContain("you've used yours")
+    expect(frame).toContain('resets in')
+  })
+
+  test('drops an offer this build has no catalog entry for', async () => {
+    // A server rolling out a model older clients don't know must be a no-op,
+    // not a row with a blank name and no data-use warning.
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      limitedModelOffers: [
+        {
+          model: 'someone/unreleased-model-9',
+          remaining: 5,
+          total: 50,
+          userRemaining: 1,
+          userResetAt: new Date(Date.now() + 60_000).toISOString(),
+        },
+      ],
+    })
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).not.toContain('LIMITED TRIAL')
+    expect(frame).not.toContain('unreleased-model-9')
+  })
+
+  test('keeps an offered selection instead of repairing it away', async () => {
+    // The offer model is not in FREEBUFF_MODELS, so the picker's
+    // invalid-selection repair would otherwise bounce the user off the row they
+    // just picked.
+    useFreebuffSessionStore.getState().setSession(offerSession())
+    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_FABLE_5_MODEL_ID)
+    await renderSelector()
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_FABLE_5_MODEL_ID)
+  })
+
+  test('repairs the selection once the wave ends', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_FABLE_5_MODEL_ID)
+    await renderSelector()
+    expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
   })
 })

@@ -188,6 +188,18 @@ export const FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID =
  *  are metered by OpenRouter per-account, so keep this god-only until its
  *  throughput under real turns is known. */
 export const FREEBUFF_LING_3_FLASH_MODEL_ID = 'inclusionai/ling-3.0-flash:free'
+
+/**
+ * Claude Fable 5 — Anthropic's frontier model, offered to free CLI users as a
+ * capacity-limited trial rather than as a standing picker model.
+ *
+ * It is deliberately NOT in FREEBUFF_MODELS: no client may render it from its
+ * own catalog. The server decides, per request, whether the shared pool still
+ * has sessions left and says so in the session response
+ * (`limitedModelOffers`); a client that receives nothing renders exactly what
+ * it rendered before the offer existed. See FREEBUFF_LIMITED_OFFER_MODEL_IDS.
+ */
+export const FREEBUFF_FABLE_5_MODEL_ID = 'anthropic/claude-fable-5'
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
@@ -524,6 +536,28 @@ const POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL = {
   experimental: true,
 } as const satisfies FreebuffModelOption
 
+const FABLE_5_MODEL = {
+  id: FREEBUFF_FABLE_5_MODEL_ID,
+  displayName: 'Claude Fable 5',
+  tagline: "Anthropic's most intelligent model",
+  availability: 'always',
+  // Load-bearing, not decoration: `dataUse: 'training'` is what puts this model
+  // in FREEBUFF_TRACED_MODEL_IDS, which is the entire point of the trial — we
+  // are buying hour-long agent traces with the pool. The warning is the
+  // disclosure that makes that legitimate, and the catalog invariant test
+  // requires the two to agree.
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
+  // Not in FREEBUFF_PREMIUM_MODEL_IDS: the daily premium pool is shared across
+  // its models and Fable is metered by its OWN global pool instead (see
+  // FREEBUFF_LIMITED_OFFER_MODEL_IDS). The flag only marks it as scarce for the
+  // pickers' styling and for FREEBUFF_WEB_STANDARD_MODEL_IDS, which must not
+  // absorb it.
+  premium: true,
+  multimodal: true,
+  isNew: true,
+} as const satisfies FreebuffModelOption
+
 const LING_3_FLASH_MODEL = {
   id: FREEBUFF_LING_3_FLASH_MODEL_ID,
   displayName: 'Ling 3.0 Flash',
@@ -546,6 +580,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   GLM_V52_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   MIMO_V25_MODEL,
+  FABLE_5_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 // GLM 5.2 is intentionally NOT in FREEBUFF_MODELS: it isn't a freely-pickable
@@ -573,6 +608,61 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
 ] as const
+
+// ---------------------------------------------------------------------------
+// Limited-offer models
+//
+// A model here is NOT in any client's picker catalog. The server counts how
+// many sessions the current wave has left out of one GLOBAL pool and, only
+// while the pool has capacity, tells the client about it in the session
+// response (`limitedModelOffers`). Clients render the extra row from that
+// payload and nothing else — so when the pool is spent, the offer disappears
+// with no client release, and a client that never learned about the offer is
+// byte-identical to what it is today.
+//
+// This exists because these are frontier models we cannot afford to leave
+// standing open, and because the point of running them at all is the traces:
+// they are `dataUse: 'training'`, so every hour-long session lands in
+// chat_completion_traces (FREEBUFF_TRACED_MODEL_IDS).
+// ---------------------------------------------------------------------------
+
+/** Models offered only while their shared global pool has sessions left. */
+export const FREEBUFF_LIMITED_OFFER_MODEL_IDS = [
+  FREEBUFF_FABLE_5_MODEL_ID,
+] as const
+
+export type FreebuffLimitedOfferModelId =
+  (typeof FREEBUFF_LIMITED_OFFER_MODEL_IDS)[number]
+
+/** Suffix-tolerant like the other model predicates, so a dated provider
+ *  snapshot can't dodge the pool accounting. */
+export function isFreebuffLimitedOfferModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_LIMITED_OFFER_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
+}
+
+/**
+ * Per-user daily ceiling on limited-offer sessions, on top of the global pool.
+ *
+ * One. A 50-session pool spent by five people is five traces of five people's
+ * habits; spent by fifty people it is the distribution we actually want to
+ * learn from. It also bounds what one account can cost us on a frontier model
+ * whose sessions run a full hour.
+ */
+export const FREEBUFF_LIMITED_OFFER_SESSION_LIMIT = 1
+
+/** Reset cadence for the per-user ceiling above — same Pacific-day boundary as
+ *  every other freebuff pool, so a user sees one reset time, not two. */
+export const FREEBUFF_LIMITED_OFFER_SESSION_PERIOD =
+  FREEBUFF_PREMIUM_SESSION_PERIOD
+export const FREEBUFF_LIMITED_OFFER_SESSION_RESET_TIMEZONE =
+  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
+export const FREEBUFF_LIMITED_OFFER_SESSION_WINDOW_HOURS =
+  FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
 
 /** Freebuff Web-only picker/support set. HY3 is intentionally excluded from
  *  FREEBUFF_MODELS and SUPPORTED_FREEBUFF_MODELS so CLI/Desktop freebuff
@@ -1021,17 +1111,27 @@ export function resolveFreebuffWebModel(
 
 /** Resolve an explicit CLI selection for an access tier. The ordinary picker
  * uses `FREEBUFF_MODELS`; full-access users can also select referral-only GLM
- * through its separate banner action. */
+ * through its separate banner action, or a limited-offer model the server told
+ * them about this launch. Both live outside `FREEBUFF_MODELS`, so without these
+ * passes an explicit pick of either would be silently rewritten to the fallback
+ * model — the user would press Enter on Fable and land on DeepSeek. */
 export function resolveFreebuffModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
-): FreebuffModelId | typeof FREEBUFF_GLM_V52_MODEL_ID {
+):
+  | FreebuffModelId
+  | typeof FREEBUFF_GLM_V52_MODEL_ID
+  | FreebuffLimitedOfferModelId {
   if (accessTier === 'limited') {
     return isFreebuffModelAllowedForAccessTier(id, accessTier)
       ? (id as FreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
   if (id === FREEBUFF_GLM_V52_MODEL_ID) return id
+  const limitedOffer = FREEBUFF_LIMITED_OFFER_MODEL_IDS.find(
+    (modelId) => modelId === id,
+  )
+  if (limitedOffer) return limitedOffer
   return resolveFreebuffModel(id)
 }
 
@@ -1279,8 +1379,9 @@ export function getFreebuffModelSupersededBy(
     ...SUPPORTED_FREEBUFF_MODELS,
     ...FREEBUFF_WEB_ALL_MODELS,
   ]
-  const supersededBy = catalog.find((candidate) => candidate.id === id)
-    ?.supersededBy
+  const supersededBy = catalog.find(
+    (candidate) => candidate.id === id,
+  )?.supersededBy
   if (!supersededBy) return undefined
   return selectableModelIds.includes(supersededBy.modelId)
     ? supersededBy

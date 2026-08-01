@@ -15,14 +15,17 @@ import {
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffModel,
   getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
   isFreebuffGlmV52ModelId,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
+  isSupportedFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 import {
+  getLimitedModelOffers,
   getRateLimitsByModel,
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
@@ -78,7 +81,7 @@ import type {
 // so the "LIMITED" header would just leak the internal tier name without
 // organizing anything. Renderer treats an empty label as "no header row".
 type Section = {
-  key: 'premium' | 'unlimited' | 'limited'
+  key: 'premium' | 'unlimited' | 'limited' | 'offer'
   label: string
   models: readonly FreebuffModelOption[]
 }
@@ -179,6 +182,31 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const availableModels = useMemo(() => gridModels(accessTier), [accessTier])
+  // Capacity-limited models the SERVER decided to offer on this response. The
+  // client has no catalog of its own for these on purpose: when the wave's pool
+  // empties (or the offer is switched off) the payload stops arriving and every
+  // derived value below collapses to empty, so the picker renders exactly what
+  // it rendered before the offer existed — no stale row, no greyed-out tease.
+  //
+  // An unknown model id is dropped rather than rendered from the wire payload:
+  // display name and data-use warning must come from the shared catalog, so a
+  // server that advertises a model this build has never heard of is a no-op
+  // instead of a half-labelled row.
+  const offers = useMemo(
+    () =>
+      getLimitedModelOffers(session).filter((offer) =>
+        isSupportedFreebuffModelId(offer.model),
+      ),
+    [session],
+  )
+  const offerModels = useMemo(
+    () => offers.map((offer) => getFreebuffModel(offer.model)),
+    [offers],
+  )
+  const offerByModelId = useMemo(
+    () => new Map(offers.map((offer) => [offer.model, offer])),
+    [offers],
+  )
   // No queued state any more: there's never a model the user is "already in"
   // the queue for, so re-picking is always meaningful.
   const committedModelId: string | null = null
@@ -298,7 +326,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       current === nextHeight ? current : nextHeight,
     )
   }, [])
-  const sections = useMemo(() => {
+  // The standing catalog's tier sections. Expanded-only; the offer section
+  // below is added on top and is visible in both states.
+  const catalogSections = useMemo(() => {
     if (!expanded) return [] as readonly Section[]
     if (accessTier === 'limited') {
       return [
@@ -323,14 +353,41 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     ).filter((section) => section.models.length > 0)
   }, [expanded, accessTier, availableModels, otherModels])
 
+  // Every section that gets drawn, in draw order. THE single source for the
+  // render, the navigation order and the height estimate — those three must
+  // agree on which sections exist or the focused-row auto-scroll desyncs, so
+  // they all read this rather than each rebuilding the list.
+  //
+  // The offer section leads and is drawn in BOTH the collapsed and expanded
+  // views, unlike every other section. A time-boxed frontier model that only a
+  // few dozen people get is the one row worth spending a collapsed-view line
+  // on — hiding it behind "see all models" would mean most users never learn
+  // the offer happened. It still sits after the recommended hero (drawn
+  // separately, above), so the collapsed view reads "recommended first, special
+  // second".
+  const renderedSections = useMemo(
+    () =>
+      offerModels.length > 0
+        ? [
+            {
+              key: 'offer' as const,
+              label: 'LIMITED TRIAL',
+              models: offerModels,
+            },
+            ...catalogSections,
+          ]
+        : catalogSections,
+    [offerModels, catalogSections],
+  )
+
   // Model rows in render order: a standalone recommendation in collapsed and
   // limited views, followed by all models belonging to rendered sections.
   const renderedModelIds = useMemo(
     () => [
       ...(showStandaloneRecommended ? [recommendedModel.id] : []),
-      ...sections.flatMap((section) => section.models.map((m) => m.id)),
+      ...renderedSections.flatMap((section) => section.models.map((m) => m.id)),
     ],
-    [recommendedModel, sections, showStandaloneRecommended],
+    [recommendedModel, renderedSections, showStandaloneRecommended],
   )
   // Keyboard-navigable ids: the model rows, then the toggle, then any focus
   // targets the referral banner registered (so arrowing down past "see all
@@ -406,8 +463,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // reflows on toggle.
   const { compactNames, buttonOuterWidth, buttonInnerWidth, nameColumnWidth } =
     useMemo(() => {
+      // Every row that can appear, offer rows included: their row is visible
+      // while collapsed, so leaving them out would let the card jump width the
+      // moment an offer arrives. The offer's own counts ride its section header
+      // (like PREMIUM's quota), so only name and tagline enter the column math.
+      const widthModels = [...availableModels, ...offerModels]
       const maxNameLen = Math.max(
-        ...availableModels.map((m) => m.displayName.length),
+        ...widthModels.map((m) => m.displayName.length),
       )
 
       const joinedLen = (parts: number[]): number =>
@@ -468,7 +530,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // out to the hero's line plus 17 columns of empty space.
       const innerWidth = (labelLen: (m: FreebuffModelOption) => number) =>
         Math.max(
-          ...availableModels.map((m) =>
+          ...widthModels.map((m) =>
             Math.max(labelLen(m), detailsLineLen(m), noticeLineLen(m)),
           ),
         )
@@ -497,6 +559,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       }
     }, [
       availableModels,
+      offerModels,
       contentMaxWidth,
       deploymentAvailabilityLabel,
       supersededNoticeFor,
@@ -524,7 +587,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     if (showStandaloneRecommended) {
       y += rowHeight(recommendedModel)
     }
-    sections.forEach((section) => {
+    renderedSections.forEach((section) => {
       y += SECTION_GAP
       if (section.label) y += 1
       section.models.forEach((m) => {
@@ -537,7 +600,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     }
     return y
   }, [
-    sections,
+    renderedSections,
     rowHasDetailsLine,
     recommendedModel,
     canCollapse,
@@ -582,10 +645,17 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const isJoinable = useCallback(
     (modelId: string) => {
       if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
+      // An offer row is on screen only while the shared pool has capacity, so
+      // what's left to check is the caller's own daily ceiling. It travels on
+      // the offer payload rather than in `rateLimitsByModel`, which the server
+      // deliberately keeps free of these models so the 30s poll doesn't pay for
+      // a quota nobody is using.
+      const offer = offerByModelId.get(modelId)
+      if (offer) return offer.userRemaining > 0
       const rateLimit = rateLimitsByModel?.[modelId]
       return !rateLimit || rateLimit.recentCount < rateLimit.limit
     },
-    [now, rateLimitsByModel],
+    [now, offerByModelId, rateLimitsByModel],
   )
 
   const pick = useCallback(
@@ -809,7 +879,23 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     )
   }
 
-  const sectionsContent = sections.map((section) => (
+  // Scarcity, on the LIMITED TRIAL header rather than on the row — same
+  // treatment the shared premium quota gets, so counts live in one predictable
+  // place and the rows stay narrow. Two facts, in the order they matter: how
+  // much of the wave is left for everyone, and (only once the user has spent
+  // theirs) when they personally get another. `offers` is homogeneous — one
+  // pool, one per-user ceiling — so the first entry speaks for all of them.
+  const offerSummary = offers[0]
+  const offerUserExhausted = !!offerSummary && offerSummary.userRemaining <= 0
+  const offerUserResetAt = offerSummary
+    ? new Date(offerSummary.userResetAt)
+    : null
+  const offerUserResetCountdown =
+    offerUserResetAt && Number.isFinite(offerUserResetAt.getTime())
+      ? formatFreebuffPremiumResetCountdown(offerUserResetAt, now)
+      : null
+
+  const sectionsContent = renderedSections.map((section) => (
     <box
       key={section.key}
       style={{
@@ -833,6 +919,21 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           )}
           {section.key === 'premium' && premiumResetCountdown && (
             <span fg={theme.muted}> · resets in {premiumResetCountdown}</span>
+          )}
+          {section.key === 'offer' && offerSummary && (
+            <span fg={theme.primary}>
+              {' '}
+              · {offerSummary.remaining} of {offerSummary.total} sessions left
+            </span>
+          )}
+          {section.key === 'offer' && offerUserExhausted && (
+            <span fg={theme.secondary}>
+              {' '}
+              · you've used yours
+              {offerUserResetCountdown
+                ? `, resets in ${offerUserResetCountdown}`
+                : ''}
+            </span>
           )}
         </text>
       )}

@@ -10,6 +10,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DESKTOP_SESSION_LIMITS,
+  FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
@@ -36,6 +37,7 @@ import {
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffDesktopSessionBucket,
+  getFreebuffModel,
   getFreebuffModelImageSupport,
   getFreebuffWebModel,
   getFreebuffModelsForAccessTier,
@@ -46,6 +48,7 @@ import {
   isFreebuffDeploymentHours,
   isFreebuffGlmV52ModelId,
   isFreebuffGpt56LunaModelId,
+  isFreebuffLimitedOfferModelId,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffSessionModelAvailable,
   isFreebuffTracedModelId,
@@ -351,8 +354,9 @@ describe('freebuff model availability', () => {
     // must never take the earned one down with it.
     expect(isFreebuffWebSelectableModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(true)
     // Every other web model is unaffected.
-    expect(isFreebuffWebSelectableModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID))
-      .toBe(true)
+    expect(
+      isFreebuffWebSelectableModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
+    ).toBe(true)
   })
 
   test('CLI access-tier resolver preserves referral GLM only for full access', () => {
@@ -1035,5 +1039,96 @@ describe('freebuff model availability', () => {
     expect(isFreebuffDeploymentHours(new Date('2026-01-10T20:00:00Z'))).toBe(
       true,
     )
+  })
+})
+
+describe('limited-offer models (Claude Fable 5)', () => {
+  test('is deliberately absent from every client picker catalog', () => {
+    // The whole mechanism rests on this: no client may render Fable from its
+    // own catalog, because only the server knows whether the wave still has
+    // sessions. A client that has never been told about the offer must look
+    // exactly like it does today.
+    expect(FREEBUFF_MODELS.map((m) => m.id)).not.toContain(
+      FREEBUFF_FABLE_5_MODEL_ID,
+    )
+    expect(isFreebuffModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(false)
+    expect(FREEBUFF_WEB_ALL_MODELS.map((m) => m.id)).not.toContain(
+      FREEBUFF_FABLE_5_MODEL_ID,
+    )
+    expect(
+      getFreebuffModelsForAccessTier('full').map((m) => m.id),
+    ).not.toContain(FREEBUFF_FABLE_5_MODEL_ID)
+  })
+
+  test('is still a model the session and chat layers accept', () => {
+    // Same shape as referral GLM: out of the picker catalog, in the supported
+    // catalog, so admission, the chat gate and the display-name lookup all
+    // resolve it.
+    expect(isSupportedFreebuffModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(true)
+    expect(
+      isFreebuffSessionModelAllowedForAccessTier(
+        FREEBUFF_FABLE_5_MODEL_ID,
+        'full',
+      ),
+    ).toBe(true)
+    expect(getFreebuffModel(FREEBUFF_FABLE_5_MODEL_ID).displayName).toBe(
+      'Claude Fable 5',
+    )
+  })
+
+  test('an explicit pick survives resolution instead of silently downgrading', () => {
+    // resolveFreebuffModelForAccessTier runs on every explicit CLI pick. Before
+    // the offer models were passed through, pressing Enter on the Fable row
+    // would have started a DeepSeek session with no explanation.
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_FABLE_5_MODEL_ID, 'full'),
+    ).toBe(FREEBUFF_FABLE_5_MODEL_ID)
+  })
+
+  test('limited-region users cannot reach it', () => {
+    expect(
+      isFreebuffSessionModelAllowedForAccessTier(
+        FREEBUFF_FABLE_5_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(false)
+    expect(
+      resolveFreebuffSessionModelForAccessTier(
+        FREEBUFF_FABLE_5_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(LIMITED_FREEBUFF_MODEL_ID)
+  })
+
+  test('traces are collected, which is the point of running the wave at all', () => {
+    expect(isFreebuffTracedModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(true)
+    const fable = SUPPORTED_FREEBUFF_MODELS.find(
+      (m) => m.id === FREEBUFF_FABLE_5_MODEL_ID,
+    )
+    expect((fable as { warning?: string } | undefined)?.warning).toBe(
+      'May use data for AI training',
+    )
+  })
+
+  test('is metered by its own pool, never the shared daily premium one', () => {
+    // It is marked `premium: true` for styling and to keep it out of the free
+    // Standard pool, but joining FREEBUFF_PREMIUM_MODEL_IDS would put trial
+    // sessions on the quota M3 and DeepSeek Pro share.
+    expect(isFreebuffPremiumModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(false)
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(false)
+    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+      FREEBUFF_FABLE_5_MODEL_ID,
+    )
+    expect(isFreebuffLimitedOfferModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(true)
+  })
+
+  test('the offer predicate tolerates dated provider snapshots', () => {
+    expect(
+      isFreebuffLimitedOfferModelId(`${FREEBUFF_FABLE_5_MODEL_ID}-20260815`),
+    ).toBe(true)
+    expect(
+      isFreebuffLimitedOfferModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+    ).toBe(false)
+    expect(isFreebuffLimitedOfferModelId(null)).toBe(false)
   })
 })
