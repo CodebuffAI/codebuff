@@ -395,6 +395,16 @@ const MIMO_V25_MODEL = {
   dataUse: 'service',
   premium: false,
   multimodal: true,
+  // Same price as Flash and outclassed by it, so there is no cost argument to
+  // weigh — just a better model. Note this is the limited tier's other pick and
+  // its only natively-multimodal one; steering off it is only reasonable
+  // because Flash reads images through the describe pipeline on every surface
+  // (server/images/describe.ts, server/chat/image-context.ts).
+  supersededBy: {
+    modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    notice: 'DeepSeek V4 Flash is now better for most coding tasks — and free.',
+    actionLabel: 'Switch to V4 Flash',
+  },
 } as const satisfies FreebuffModelOption
 
 const DEEPSEEK_V4_FLASH_MODEL = {
@@ -1264,22 +1274,21 @@ export function getFreebuffModelSupersededBy(
 }
 
 /**
- * Identifies the current one-time migration of SAVED model preferences.
+ * The model a saved preference should be steered to, or null to keep it.
  *
- * Bump this (and nothing else) when a later supersession should re-migrate
- * everyone: each surface stores the id it last applied and runs the migration
- * only when the stored id differs, so the migration fires exactly once per
- * user per bump. That "once" is the whole point — running it on every read
- * would silently undo a user who deliberately re-picks a superseded model,
- * which is the difference between a nudge and a lock-in.
- */
-export const FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID = '2026-07-31-v4-flash'
-
-/**
- * The model a saved preference should be migrated to, or null to keep it.
+ * Applied EVERY time a surface reads its remembered pick, so each new
+ * thread/session/launch starts on the replacement. A superseded model stays
+ * fully selectable — picking one mid-thread works and sticks for that thread —
+ * but it never becomes the model a fresh surface opens on again.
+ *
+ * This is deliberately aggressive: a saved preference outranks a changed
+ * default forever otherwise, which is exactly how users kept landing back on
+ * models we no longer recommend. The cost is that a user who wants a
+ * superseded model as their standing default cannot have one; the picker's
+ * per-row notice is what makes that visible rather than mysterious.
  *
  * Derived from the catalog's own `supersededBy` pointers, so a model marked
- * superseded automatically gets BOTH the picker nudge and this migration —
+ * superseded automatically gets BOTH the picker nudge and this steering —
  * they can never disagree about which models are stale.
  */
 export function migrateSupersededFreebuffModelPreference(

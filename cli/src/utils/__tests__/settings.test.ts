@@ -8,6 +8,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
 import * as auth from '../auth'
@@ -41,7 +42,7 @@ describe('freebuff model preference', () => {
     expect(loadFreebuffModelPreference()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
-  test('migrates a saved superseded pick to its replacement exactly once', () => {
+  test('steers a saved superseded pick to its replacement on every load', () => {
     testConfigDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'freebuff-settings-test-'),
     )
@@ -57,11 +58,18 @@ describe('freebuff model preference', () => {
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
 
-    // Re-picking Pro deliberately must STICK: the migration is a one-time
-    // nudge, not a lock-in. (The save is what persists the marker.)
+    // Re-picking Pro does NOT make it the standing default again: the next
+    // session steers back to Flash. Selecting it still works for the session
+    // the user is in — this only governs what a fresh launch opens on.
     saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+
+    // Same for the limited tier's other pick, MiMo 2.5.
+    saveFreebuffModelPreference(FREEBUFF_MIMO_V25_MODEL_ID)
+    expect(loadFreebuffModelPreference()).toBe(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
   })
 })

@@ -2,7 +2,6 @@ import fs from 'fs'
 import path from 'path'
 
 import {
-  FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID,
   FREEBUFF_MODELS,
   isFreebuffModelId,
   migrateSupersededFreebuffModelPreference,
@@ -39,10 +38,6 @@ export interface Settings {
    *  first-time onboarding suggested prompts so they only show to brand-new
    *  users and quietly retire afterwards. */
   hasSubmittedFirstPrompt?: boolean
-  /** Which one-time model-preference migration has already been applied (see
-   *  FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID). Stored so a user who
-   *  deliberately re-picks a superseded model afterwards keeps it. */
-  freebuffModelMigration?: string
 }
 
 /**
@@ -125,26 +120,16 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.freebuffModel = obj.freebuffModel
   }
 
-  if (typeof obj.freebuffModelMigration === 'string') {
-    settings.freebuffModelMigration = obj.freebuffModelMigration
-  }
-
-  // One-time move off a model that has since been superseded (DeepSeek V4 Pro,
-  // MiniMax M3 → V4 Flash), so a returning user's next session starts on the
-  // better model instead of the pick they made before it existed. Runs once per
-  // migration id: after that, re-picking a superseded model sticks, because the
-  // picker still offers those models and a nudge must not become a lock-in.
-  // The marker reaches disk on the user's next saveSettings (which merges over
-  // loadSettings) — and re-picking a model IS such a save, so the one write
-  // that could undo the migration is the same one that records it.
-  if (settings.freebuffModelMigration !== FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID) {
-    const replacement = migrateSupersededFreebuffModelPreference(
-      settings.freebuffModel,
-      FREEBUFF_MODELS.map((model) => model.id),
-    )
-    if (replacement) settings.freebuffModel = replacement
-    settings.freebuffModelMigration = FREEBUFF_MODEL_PREFERENCE_MIGRATION_ID
-  }
+  // Steer off a model that has since been superseded (DeepSeek V4 Pro, MiniMax
+  // M3, MiMo 2.5 → V4 Flash) on EVERY load, so each new freebuff session starts
+  // on the better model instead of a pick made before it existed. Picking a
+  // superseded model still works for the session you are in; it just stops
+  // being what the next launch opens on.
+  const replacement = migrateSupersededFreebuffModelPreference(
+    settings.freebuffModel,
+    FREEBUFF_MODELS.map((model) => model.id),
+  )
+  if (replacement) settings.freebuffModel = replacement
 
   // Validate alwaysUseALaCarte (legacy)
   if (typeof obj.alwaysUseALaCarte === 'boolean') {

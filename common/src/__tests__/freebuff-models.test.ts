@@ -881,12 +881,13 @@ describe('freebuff model availability', () => {
     expect(catalog.filter((model) => model.isNew)).toHaveLength(1)
   })
 
-  test('migrates saved picks off every superseded model, once', () => {
+  test('steers saved picks off every superseded model', () => {
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    // Both models Flash overtook migrate to it...
+    // Every model Flash overtook migrates to it...
     for (const superseded of [
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       MINIMAX_M3_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
     ]) {
       expect(migrateSupersededFreebuffModelPreference(superseded, all)).toBe(
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -909,17 +910,25 @@ describe('freebuff model availability', () => {
     ).toBeNull()
   })
 
-  test('the deemphasized set is exactly the superseded set', () => {
-    // Muting + sorting-last is how the picker steers to the replacement, so a
-    // model marked superseded must also be de-emphasized and vice versa —
-    // otherwise the nudge and the ordering disagree.
+  test('never de-emphasizes a model we still recommend', () => {
+    // Muting + sorting-last is how the Premium group steers to the
+    // replacement, so anything muted must be superseded. NOT the converse:
+    // MiMo 2.5 is superseded on quality but costs the same as Flash, and
+    // de-emphasis is defined as a cost signal — muting it would make the list
+    // say something untrue about its price.
     const all = FREEBUFF_MODELS.map((model) => model.id)
     for (const model of FREEBUFF_MODELS) {
-      const superseded = Boolean(
-        getFreebuffModelSupersededBy(model.id, all),
-      )
-      expect(isFreebuffWebDeemphasizedModelId(model.id)).toBe(superseded)
+      if (isFreebuffWebDeemphasizedModelId(model.id)) {
+        expect(getFreebuffModelSupersededBy(model.id, all)).toBeDefined()
+      }
     }
+    // The recommended default is never muted or superseded.
+    expect(isFreebuffWebDeemphasizedModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(
+      false,
+    )
+    expect(
+      getFreebuffModelSupersededBy(DEFAULT_FREEBUFF_MODEL_ID, all),
+    ).toBeUndefined()
   })
 
   test('never offers a switch to a model the surface cannot select', () => {
