@@ -105,7 +105,9 @@ export async function callFreebuffSession(
       .catch(() => null)) as FreebuffSessionServerResponse | null
     if (
       body &&
-      (body.status === 'rate_limited' || body.status === 'spend_limited')
+      (body.status === 'rate_limited' ||
+        body.status === 'spend_limited' ||
+        body.status === 'ip_capped')
     ) {
       return body
     }

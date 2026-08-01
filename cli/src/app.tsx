@@ -347,6 +347,7 @@ const AuthedSurfaceRoutes = ({
   //   'banned' → terminal account-banned message
   //   'rate_limited' → hit shared session quota; terminal for this run
   //   'spend_limited' → daily provider-spend budget; return after reset
+  //   'ip_capped' → too many distinct users active on this egress IP
   //   'takeover_prompt' → another local CLI already holds this account
   //
   // 'ended' deliberately falls through to <Chat>: the agent may still be
@@ -360,6 +361,7 @@ const AuthedSurfaceRoutes = ({
       session.status === 'banned' ||
       session.status === 'rate_limited' ||
       session.status === 'spend_limited' ||
+      session.status === 'ip_capped' ||
       session.status === 'takeover_prompt')
   ) {
     return <FreebuffLandingScreen session={session} error={sessionError} />

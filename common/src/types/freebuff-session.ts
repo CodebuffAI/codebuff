@@ -293,6 +293,22 @@ export type FreebuffSessionServerResponse = (
       status: 'banned'
     }
   | {
+      /** Too many DISTINCT users already hold an active free session on this
+       *  egress IP. Admission-only: existing sessions on the IP keep running,
+       *  and the request succeeds once one of them ends, so unlike
+       *  `rate_limited` this is not tied to a quota reset. Sent as 429 so
+       *  older CLIs that don't know the status still back off rather than
+       *  tight-poll a 200 they can't parse. */
+      status: 'ip_capped'
+      accessTier?: FreebuffAccessTier
+      model: string
+      /** Distinct users currently active on the IP (excluding the caller). */
+      activeUsersForIp: number
+      /** The configured ceiling (FREEBUFF_IP_USER_CAP). */
+      limit: number
+      retryAfterMs: number
+    }
+  | {
       /** User has used up their shared free-session quota for the current
        * Pacific day or week. Returned from POST /session before a session is
        * started. `retryAfterMs` is the time until that period resets. Terminal

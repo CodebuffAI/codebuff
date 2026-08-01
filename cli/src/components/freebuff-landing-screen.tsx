@@ -783,6 +783,28 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
               </text>
             </>
           )}
+
+          {/* Too many distinct users hold a free session on this egress IP.
+              Unlike the quota screens above there is no reset time — a slot
+              frees as soon as any session on the IP ends — so this offers a
+              short retry rather than a "come back tomorrow". */}
+          {session?.status === 'ip_capped' && (
+            <>
+              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
+                🚦 Too many Freebuff sessions on this network
+              </text>
+              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                {session.activeUsersForIp} other people are already using
+                Freebuff from your network, which is the most we allow at once.
+                Try again in{' '}
+                <span fg={theme.foreground}>
+                  {formatRetryAfter(session.retryAfterMs)}
+                </span>
+                {' — '}a slot opens as soon as one of them finishes. Press
+                Ctrl+C to exit.
+              </text>
+            </>
+          )}
         </box>
       </box>
 
