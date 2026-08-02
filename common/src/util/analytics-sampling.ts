@@ -36,6 +36,9 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.DESKTOP_THREAD_CREATED,
   AnalyticsEvent.DESKTOP_PROJECT_OPENED,
   AnalyticsEvent.DESKTOP_TURN_COMPLETED,
+  // Low-volume recovery funnel. Sampling any stage independently would make
+  // creation-to-success and repeated-failure rates impossible to measure.
+  AnalyticsEvent.DESKTOP_FAILED_TURN_RECOVERY,
   // Rare reliability signal — every stalled turn must be counted, never sampled.
   AnalyticsEvent.DESKTOP_TURN_STALLED,
   // Its counterpart (an explained silence). Same reasoning: rare, and only
