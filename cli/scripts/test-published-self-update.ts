@@ -42,6 +42,10 @@ const metadataPath = join(configDir, 'freebuff-metadata.json')
 const archivePath = join(testRoot, `freebuff-${fromVersion}.tar.gz`)
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 const nodeCommand = process.platform === 'win32' ? 'node.exe' : 'node'
+const tarCommand =
+  process.platform === 'win32'
+    ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')
+    : 'tar'
 const testEnv = {
   ...process.env,
   HOME: homeDir,
@@ -123,7 +127,9 @@ async function main() {
     )
   }
   await Bun.write(archivePath, await response.arrayBuffer())
-  run('tar', ['-xzf', archivePath, '-C', configDir])
+  // Git Bash puts its GNU tar first on PATH and interprets `C:\...` as an
+  // obsolete remote-tape address. Use Windows' native bsdtar explicitly.
+  run(tarCommand, ['-xzf', archivePath, '-C', configDir])
   if (!existsSync(binaryPath)) {
     throw new Error(`Old release archive did not contain ${binaryName}`)
   }
