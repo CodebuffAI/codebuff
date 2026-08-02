@@ -230,6 +230,20 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
 }
 
+/**
+ * The reviewer each freebuff root spawns, keyed by the root's model.
+ *
+ * EVERY entry must name a reviewer that runs THE SAME model as its key, and
+ * that is load-bearing rather than stylistic. The chat-completions session gate
+ * rejects any request whose model differs from the one the session was admitted
+ * on (`session_model_mismatch`), so a cross-model reviewer 403s mid-session.
+ *
+ * Omitting a model is the same trap: base2 falls back to a DeepSeek Flash
+ * reviewer, which is itself a freebuff session model, so the fallback 403s for
+ * every root that is not DeepSeek Flash. Fable shipped without an entry and
+ * silently lost code review in every session until it got one. Two tests in
+ * free-agents.test.ts enforce both halves.
+ */
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
@@ -238,6 +252,7 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
+  [FREEBUFF_FABLE_5_MODEL_ID]: 'code-reviewer-fable',
 }
 
 const FREEBUFF_DESKTOP_MODELS = new Set([
@@ -354,6 +369,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
   'code-reviewer-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
+  'code-reviewer-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
   // Wire compatibility only — NOT a freebuff agent. `code-reviewer-lite` now
   // belongs to Codebuff's paid lite mode and is spawned by no freebuff root and
   // shipped in no freebuff bundle. Released clients from before the

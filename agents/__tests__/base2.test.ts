@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
@@ -447,5 +448,44 @@ describe('base2 context pruning', () => {
       assistantToolBudget: 10_000,
       cacheExpiryMs: 30 * 60 * 1000,
     })
+  })
+})
+
+describe('Claude Fable 5 root', () => {
+  const fable = createBase2('free', {
+    model: FREEBUFF_FABLE_5_MODEL_ID,
+    noThinkerGpt: true,
+  })
+
+  test('reviews with a Fable reviewer, not the cross-model fallback', () => {
+    // The session gate rejects any subagent whose model differs from the one the
+    // session was admitted on, so the reviewer must run Fable itself. The
+    // fallback (code-reviewer-deepseek-flash) 403s with session_model_mismatch.
+    expect(fable.spawnableAgents).toContain('code-reviewer-fable')
+    expect(fable.spawnableAgents).not.toContain('code-reviewer-deepseek-flash')
+  })
+
+  test('does not offer thinker-gpt, in the list or the prompt', () => {
+    // A frontier root has nothing to gain from handing "think harder" to
+    // openai/gpt-5.4. Naming it in the prompt would reintroduce an agent the
+    // root cannot spawn, so both have to go.
+    expect(fable.spawnableAgents).not.toContain('thinker-gpt')
+    const prompts = [
+      fable.systemPrompt,
+      fable.instructionsPrompt,
+      fable.stepPrompt,
+    ].join('\n')
+    expect(prompts).not.toContain('thinker-gpt')
+  })
+
+  test('leaves the option off for every other free root', () => {
+    // Scoped deliberately. thinker-gpt is a real escalation for the other roots:
+    // a user who has run /connect-chatgpt reaches it through their own
+    // subscription, so removing it there would delete a working feature rather
+    // than dead weight.
+    const flash = createBase2('free', {
+      model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    })
+    expect(flash.spawnableAgents).toContain('thinker-gpt')
   })
 })

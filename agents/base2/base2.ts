@@ -58,6 +58,10 @@ export function createBase2(
     noAskUser?: boolean
     noReview?: boolean
     noGravityIndex?: boolean
+    /** Drop the thinker-gpt escalation, from the spawnable list AND the prompt.
+     *  Set for roots whose own model is strong enough that handing "think
+     *  harder" to openai/gpt-5.4 buys nothing. */
+    noThinkerGpt?: boolean
     model?: SecretAgentDefinition['model']
     providerOptions?: SecretAgentDefinition['providerOptions']
   },
@@ -68,6 +72,7 @@ export function createBase2(
     noAskUser = false,
     noReview = false,
     noGravityIndex = false,
+    noThinkerGpt = false,
     model: modelOverride,
     providerOptions,
   } = options ?? {}
@@ -163,7 +168,7 @@ export function createBase2(
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
       hasGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
-      'thinker-gpt',
+      !noThinkerGpt && 'thinker-gpt',
       'context-pruner',
     ),
 
@@ -215,6 +220,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use the list_directory and glob tools directly for searching and exploring the codebase.',
     isFreebuff &&
+      !noThinkerGpt &&
       'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Freebuff to allow for it.',
     hasGeminiThinker && FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
     isLite &&

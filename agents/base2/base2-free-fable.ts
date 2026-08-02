@@ -21,6 +21,16 @@ import { createBase2 } from './base2'
 const definition = {
   ...createBase2('free', {
     model: FREEBUFF_FABLE_5_MODEL_ID,
+    // No thinker-gpt: escalating "think harder" to openai/gpt-5.4 buys nothing
+    // when the root is already a frontier model. Live wave sessions spent three
+    // spawn attempts on it in a single turn before this was removed.
+    //
+    // Note it is NOT dead weight generally — a user who has run /connect-chatgpt
+    // reaches it directly through their own subscription (see
+    // createOpenAIOAuthModel), bypassing the backend entirely. Unconnected free
+    // users are the ones who get a 403, which is why the other free roots keep
+    // offering it and only Fable drops it.
+    noThinkerGpt: true,
   }),
   id: 'base2-free-fable',
   displayName: 'Buffy the Claude Fable 5 Free Orchestrator',

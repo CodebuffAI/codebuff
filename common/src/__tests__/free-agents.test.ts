@@ -11,6 +11,7 @@ import {
   FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  SUPPORTED_FREEBUFF_MODELS,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
@@ -24,6 +25,8 @@ import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
 import {
   FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
+  FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
+  FREE_MODE_AGENT_MODELS,
   FREEBUFF_ROOT_AGENT_IDS,
   FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS,
   getFreebuffRootAgentIdForModel,
@@ -659,5 +662,52 @@ describe('canonical root prompt openings match their source definitions', () => 
     // Position 0 of the desktop prompt must stay the base2 prompt, or the
     // desktop roots stop matching any canonical opening.
     expect(source).toContain('systemPrompt: `${base2.systemPrompt}')
+  })
+})
+
+describe('every selectable model reviews with its own model', () => {
+  /**
+   * The chat-completions session gate rejects any request whose model differs
+   * from the one the session was admitted on. base2 falls back to a DeepSeek
+   * Flash reviewer for a model missing from FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
+   * and that fallback is itself a freebuff session model — so for any root that
+   * is not DeepSeek Flash, the fallback reviewer 403s with
+   * `session_model_mismatch` and the session silently loses code review.
+   *
+   * Claude Fable 5 shipped without a reviewer entry and every one of its
+   * sessions hit exactly that. These two tests are what would have caught it.
+   */
+  const FALLBACK_REVIEWER_MODEL = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+
+  test('a reviewer is allowed to run the model it reviews for', () => {
+    for (const [model, reviewerId] of Object.entries(
+      FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
+    )) {
+      const allowed = FREE_MODE_AGENT_MODELS[reviewerId]
+      expect({ model, reviewerId, registered: !!allowed }).toEqual({
+        model,
+        reviewerId,
+        registered: true,
+      })
+      // Same model, or the gate rejects the subagent mid-session.
+      expect({ model, reviewerId, canRun: allowed!.has(model) }).toEqual({
+        model,
+        reviewerId,
+        canRun: true,
+      })
+    }
+  })
+
+  test('every CLI-selectable model has its own reviewer, not the fallback', () => {
+    for (const model of SUPPORTED_FREEBUFF_MODELS.map((m) => m.id)) {
+      if (model === FALLBACK_REVIEWER_MODEL) continue
+      const reviewerId = FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL[model]
+      // Missing entry === base2 falls back to the DeepSeek Flash reviewer,
+      // which this model's session is not allowed to run.
+      expect({ model, hasOwnReviewer: !!reviewerId }).toEqual({
+        model,
+        hasOwnReviewer: true,
+      })
+    }
   })
 })
