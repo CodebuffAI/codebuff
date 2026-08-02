@@ -215,6 +215,44 @@ export function supportsAssistantPrefill(model: Model): boolean {
 }
 
 /**
+ * Token budget a model's conversation may reach before context-pruner
+ * summarizes it, compared against `agentState.contextTokenCount`.
+ *
+ * 400k by default: every model we serve has roughly a 1M window, which leaves
+ * ample headroom — including for the estimator being a GPT-4o count applied to
+ * models with their own tokenizers, so it can run under the provider's real
+ * number.
+ *
+ * The exceptions are the 262,144-token models below, verified against
+ * OpenRouter's models API on 2026-08-02 (Kimi's is additionally confirmed by a
+ * provider rejection quoted in freebuff-models.ts). They get 250k, the value
+ * Kimi has been running on in prod. That margin is thin for exactly the
+ * estimator reason above, so it is the number to revisit if these models start
+ * hitting context rejections.
+ *
+ * MiniMax M3 is deliberately NOT an exception: its real enforced limit is
+ * 524,288, not the 1,048,576 OpenRouter advertises (Fireworks rejects with
+ * "model maximum context length: 524287"), but 400k is still under it.
+ *
+ * The return type is the two budgets rather than `number` on purpose — base2
+ * pre-serializes one handleSteps variant per budget, so a third value has to be
+ * a compile error there rather than silently falling through to 400k.
+ */
+const SMALL_CONTEXT_MODELS: ReadonlySet<string> = new Set([
+  moonshotModels.kimiK27Code,
+  openrouterModels.openrouter_tencent_hy3,
+  openrouterModels.openrouter_tencent_hy3_free,
+  'tencent/hy3-preview',
+  // FREEBUFF_LING_3_FLASH_MODEL_ID lives in freebuff-models.ts, which imports
+  // from this file, so referencing it here would be circular.
+  'inclusionai/ling-3.0-flash:free',
+])
+
+export function contextPrunerBudgetForModel(model: Model): 250_000 | 400_000 {
+  return SMALL_CONTEXT_MODELS.has(model) ? 250_000 : 400_000
+}
+
+/**
  * Whether a trailing message that we delete on the next step destroys this
  * model's prompt cache.
  *

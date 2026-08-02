@@ -11,7 +11,7 @@ import {
   canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
-import { moonshotModels } from '@codebuff/common/constants/model-config'
+import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 
 import { LITE_MODEL, OPUS_MODEL, publisher } from '../constants'
 import {
@@ -99,8 +99,7 @@ export function createBase2(
     (isFreebuff
       ? FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL
       : CODEBUFF_REVIEWER_BY_MODEL)[model] ?? FALLBACK_REVIEWER_AGENT_ID
-  const contextPrunerMaxContextLength =
-    getBase2ContextPrunerMaxContextLength(model)
+  const contextPrunerMaxContextLength = contextPrunerBudgetForModel(model)
   const defaultProviderOptions = getBase2ProviderOptions(model)
 
   return {
@@ -391,13 +390,6 @@ function getBase2ProviderOptions(
   return model.startsWith('anthropic/')
     ? { only: ['amazon-bedrock'], data_collection: 'deny' }
     : { data_collection: 'deny' }
-}
-
-function getBase2ContextPrunerMaxContextLength(
-  model: SecretAgentDefinition['model'],
-): 250_000 | 400_000 {
-  if (model === moonshotModels.kimiK27Code) return 250_000
-  return 400_000
 }
 
 function getBase2HandleSteps({

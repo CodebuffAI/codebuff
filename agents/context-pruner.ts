@@ -335,7 +335,10 @@ const definition: AgentDefinition = {
     // =============================================================================
 
     const messages = agentState.messageHistory
-    const maxContextLength: number = params?.maxContextLength ?? 200_000
+    // 400k: every model we serve has a ~1M window. Callers that know their
+    // model pass an explicit budget (see contextPrunerBudgetForModel), which is
+    // how the 262,144-token models get a smaller one.
+    const maxContextLength: number = params?.maxContextLength ?? 400_000
 
     // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
     // (these are inserted for the context-pruner subagent itself)
