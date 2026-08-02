@@ -12,6 +12,35 @@ import {
   runTerminalCommand,
 } from '../tools/run-terminal-command'
 
+function isProcessRunning(pid: number): boolean {
+  if (process.platform === 'linux') {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+      const commandEnd = stat.lastIndexOf(')')
+      if (commandEnd !== -1 && stat[commandEnd + 2] === 'Z') return false
+    } catch {
+      // The process may have disappeared between checks.
+    }
+  }
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+async function waitFor(
+  condition: () => boolean,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (!condition() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  return condition()
+}
+
 describe('rewriteWindowsNulRedirects', () => {
   test('rewrites cmd-style nul redirects to /dev/null', () => {
     expect(rewriteWindowsNulRedirects('tsc --noEmit > nul 2>&1')).toBe(
@@ -145,6 +174,111 @@ describe('terminal command process diagnostics', () => {
     expect('stdout' in value ? value.stdout : '').toBe('brokered')
     expect('exitCode' in value ? value.exitCode : null).toBe(0)
   })
+
+  test('bounds direct cleanup while reaping a stubborn background descendant', async () => {
+    if (process.platform === 'win32') return
+
+    const tempDir = mkdtempSync(join(tmpdir(), 'codebuff-direct-cleanup-'))
+    const pidFile = join(tempDir, 'descendant.pid')
+    const readyFile = join(tempDir, 'descendant.ready')
+    const fixture = join(
+      import.meta.dir,
+      'fixtures',
+      'posix-stubborn-descendant.ts',
+    )
+    let descendantPid: number | undefined
+    try {
+      const completed = runTerminalCommand({
+        command: `${JSON.stringify(process.execPath)} ${JSON.stringify(fixture)} ${JSON.stringify(pidFile)} ${JSON.stringify(readyFile)} >/dev/null 2>&1 & while [ ! -f ${JSON.stringify(readyFile)} ]; do sleep 0.01; done`,
+        process_type: 'SYNC',
+        cwd: process.cwd(),
+        timeout_seconds: -1,
+      })
+      let deadline: ReturnType<typeof setTimeout> | undefined
+      const result = await Promise.race([
+        completed,
+        new Promise<never>((_, reject) => {
+          deadline = setTimeout(
+            () =>
+              reject(new Error('direct process-group cleanup was unbounded')),
+            5_000,
+          )
+        }),
+      ]).finally(() => clearTimeout(deadline))
+
+      descendantPid = Number(readFileSync(pidFile, 'utf8').trim())
+      expect(Number.isInteger(descendantPid)).toBe(true)
+      expect(result[0].value).toMatchObject({ exitCode: 0 })
+      expect(
+        await waitFor(() => !isProcessRunning(descendantPid!), 3_000),
+      ).toBe(true)
+    } finally {
+      if (descendantPid && isProcessRunning(descendantPid)) {
+        try {
+          process.kill(descendantPid, 'SIGKILL')
+        } catch {}
+      }
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  }, 10_000)
+
+  test('stops tracking a cancelled process after bounded forced cleanup', async () => {
+    const stdout = new PassThrough()
+    const stderr = new PassThrough()
+    const controller = new AbortController()
+    const pid = 987_654_321
+    const signals: NodeJS.Signals[] = []
+    const run = runTerminalCommand({
+      command: `printf 'never exits'`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: -1,
+      signal: controller.signal,
+      terminalCommandBroker: {
+        start: () => ({
+          pid,
+          stdout,
+          stderr,
+          completion: new Promise(() => {}),
+          kill: (signal) => signals.push(signal),
+          isAlive: () => true,
+        }),
+      },
+    })
+
+    controller.abort()
+    await run
+    expect(
+      getActiveTerminalCommandProcesses().some((child) => child.pid === pid),
+    ).toBe(true)
+    expect(
+      await waitFor(
+        () =>
+          !getActiveTerminalCommandProcesses().some(
+            (child) => child.pid === pid,
+          ),
+        4_000,
+      ),
+    ).toBe(true)
+    expect(signals).toEqual(['SIGTERM', 'SIGKILL'])
+  }, 6_000)
+
+  test('cancelled-process observation does not keep the host alive', () => {
+    const fixture = join(
+      import.meta.dir,
+      'fixtures',
+      'cancelled-command-does-not-keep-alive.ts',
+    )
+    const child = spawnSync(process.execPath, [fixture], {
+      encoding: 'utf8',
+      timeout: 5_000,
+    })
+
+    expect(child.status).toBe(0)
+    const observationStartedAt = Number(child.stdout.trim())
+    expect(Number.isFinite(observationStartedAt)).toBe(true)
+    expect(Date.now() - observationStartedAt).toBeLessThan(2_400)
+  }, 6_000)
 
   test('tracks a command until its process exits', async () => {
     const existingPids = new Set(

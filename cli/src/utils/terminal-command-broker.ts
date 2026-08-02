@@ -18,6 +18,8 @@ const TERMINAL_COMMAND_BROKER_ENV = 'CODEBUFF_TERMINAL_COMMAND_BROKER'
 
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024
 const MAX_PROTOCOL_BYTES = 64 * 1024
+const TERMINAL_COMMAND_BROKER_RECOVERY =
+  'Restart Freebuff and try again. On Windows, use Windows Terminal or the VS Code terminal.'
 
 type BrokerProtocol =
   | { ok: true; exitCode: number | null }
@@ -25,6 +27,15 @@ type BrokerProtocol =
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function brokerFailure(error: unknown): Error {
+  const message = errorMessage(error)
+  return new Error(
+    message.includes(TERMINAL_COMMAND_BROKER_RECOVERY)
+      ? message
+      : `${message}\n\n${TERMINAL_COMMAND_BROKER_RECOVERY}`,
+  )
 }
 
 export function isTerminalCommandBrokerInvocation(
@@ -59,8 +70,8 @@ function isSpawnRequest(value: unknown): value is TerminalCommandSpawnRequest {
 
 function writeProtocol(message: BrokerProtocol): void {
   writeSync(3, `${JSON.stringify(message)}\n`)
-  // Signal completion before this process exits so the parent can sweep the
-  // still-owned group, including descendants the shell backgrounded.
+  // Signal completion before this process reaps its own group so the parent
+  // receives the result even when the shell left background descendants.
   closeSync(3)
 }
 
@@ -180,9 +191,9 @@ export async function serveTerminalCommandBroker(): Promise<void> {
     await reapOwnProcessGroup()
   }
 
-  // The parent sweeps our complete process group after reading the protocol.
-  // Keep the group root alive until that happens.
-  await parentDisconnected
+  // Normal cleanup belongs to this detached process. In particular, Windows
+  // taskkill must not block the parent CLI's renderer thread after every
+  // successful command.
   await reapOwnProcessGroup()
 }
 
@@ -243,40 +254,46 @@ function isProcessGroupAlive(child: ChildProcess): boolean {
   }
 }
 
-function defaultBrokerInvocation(): { executable: string; args: string[] } {
-  if (getCliEnv().CODEBUFF_IS_BINARY === 'true') {
-    return {
-      executable: process.execPath,
-      args: [TERMINAL_COMMAND_BROKER_FLAG],
-    }
-  }
-  const entrypoint = process.argv[1]
-  if (!entrypoint) {
-    throw new Error('could not locate the Freebuff CLI entrypoint')
-  }
+function defaultBrokerInvocation(): {
+  executable: string
+  args: string[]
+} {
   return {
     executable: process.execPath,
-    args: [path.resolve(entrypoint), TERMINAL_COMMAND_BROKER_FLAG],
+    args:
+      getCliEnv().CODEBUFF_IS_BINARY === 'true'
+        ? [TERMINAL_COMMAND_BROKER_FLAG]
+        : [
+            path.join(import.meta.dir, '..', 'entry.ts'),
+            TERMINAL_COMMAND_BROKER_FLAG,
+          ],
   }
 }
 
 export function createTerminalCommandBroker({
   invocation = defaultBrokerInvocation,
+  terminate = terminateProcessGroup,
 }: {
   invocation?: () => { executable: string; args: string[] }
+  terminate?: typeof terminateProcessGroup
 } = {}): TerminalCommandBroker {
   return {
     start(request): TerminalCommandProcess {
-      const broker = invocation()
-      const child = spawn(broker.executable, broker.args, {
-        env: {
-          ...getSystemProcessEnv(),
-          [TERMINAL_COMMAND_BROKER_ENV]: '1',
-        },
-        stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
-        detached: true,
-        windowsHide: true,
-      })
+      let child: ChildProcess
+      try {
+        const { executable, args } = invocation()
+        child = spawn(executable, args, {
+          env: {
+            ...getSystemProcessEnv(),
+            [TERMINAL_COMMAND_BROKER_ENV]: '1',
+          },
+          stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
+          detached: true,
+          windowsHide: true,
+        })
+      } catch (error) {
+        throw brokerFailure(error)
+      }
       // Bun can return a child with null pipes for ENOENT, then emit the spawn
       // error asynchronously. Always observe it, including the synchronous
       // validation-failure path below, so a missing helper cannot crash the CLI.
@@ -290,8 +307,8 @@ export function createTerminalCommandBroker({
         !protocol ||
         !parentControl
       ) {
-        terminateProcessGroup(child, 'SIGKILL')
-        throw new Error('could not open terminal command broker pipes')
+        terminate(child, 'SIGKILL')
+        throw brokerFailure('could not open terminal command broker pipes')
       }
 
       // Cancellation can close the broker while this small request is still
@@ -328,25 +345,21 @@ export function createTerminalCommandBroker({
         child.once('error', reject)
         child.once('close', () => resolve())
       })
-      const completedProtocol = protocolResult.then((message) => {
-        // A successful shell can leave redirected background descendants.
-        // Sweep the group while its broker root is still identifiable.
-        terminateProcessGroup(child, 'SIGKILL')
-        return message
-      })
-      const completion = Promise.all([completedProtocol, closed]).then(
-        ([message]) => {
+      const completion = Promise.all([protocolResult, closed])
+        .catch((error) => {
+          throw brokerFailure(error)
+        })
+        .then(([message]) => {
           if (!message.ok) throw new Error(message.error)
           return message.exitCode
-        },
-      )
+        })
 
       return {
         pid: child.pid,
         stdout: child.stdout,
         stderr: child.stderr,
         completion,
-        kill: (signal) => terminateProcessGroup(child, signal),
+        kill: (signal) => terminate(child, signal),
         isAlive: () => isProcessGroupAlive(child),
       }
     },

@@ -5,7 +5,10 @@ import path from 'path'
 
 import { installProcessCleanupHandlers } from '../utils/renderer-cleanup'
 import { startTerminalWatchdog } from '../utils/terminal-watchdog'
-import { terminalCommandBroker } from '../utils/terminal-command-broker'
+import {
+  createTerminalCommandBroker,
+  terminalCommandBroker,
+} from '../utils/terminal-command-broker'
 import { installTerminalProtocolController } from '../utils/terminal-protocol-controller'
 import { writeTerminalControlSync } from '../utils/terminal-io'
 
@@ -317,31 +320,33 @@ export async function runPackagedTerminalBrokerSmoke({
         process_type: 'SYNC',
         cwd: process.cwd(),
         timeout_seconds: 10,
-        terminalCommandBroker: {
-          start: () => {
-            throw new Error(
-              'isolated helper unavailable; restart Freebuff and try again',
-            )
-          },
-        },
+        terminalCommandBroker: createTerminalCommandBroker({
+          invocation: () => ({
+            executable: path.join(
+              exchangeDir,
+              `missing-terminal-broker-${crypto.randomUUID()}.exe`,
+            ),
+            args: [],
+          }),
+        }),
       })
       throw new Error('command unexpectedly started without its broker')
     } catch (error) {
       failureMessage = error instanceof Error ? error.message : String(error)
     }
+    result.brokerFailure = {
+      message: failureMessage,
+      commandStarted: existsSync(forbiddenSpawnPath),
+    }
     assertSmoke(
       failureMessage.includes('Failed to start terminal command broker') &&
-        failureMessage.includes('restart Freebuff'),
+        failureMessage.includes('Restart Freebuff'),
       'broker failure did not include actionable recovery guidance',
     )
     assertSmoke(
       !existsSync(forbiddenSpawnPath),
       'command spawned after broker startup failed',
     )
-    result.brokerFailure = {
-      message: failureMessage,
-      commandStarted: existsSync(forbiddenSpawnPath),
-    }
 
     unsubscribeFocus()
     controller.dispose()

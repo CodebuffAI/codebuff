@@ -169,6 +169,21 @@ function isProcessGroupAlive(child: ChildProcess): boolean {
   }
 }
 
+async function waitForProcessExit(
+  isAlive: () => boolean,
+  timeoutMs: number,
+  { unref = false }: { unref?: boolean } = {},
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (isAlive() && Date.now() < deadline) {
+    await new Promise<void>((resolve) => {
+      const pollTimer = setTimeout(resolve, PROCESS_EXIT_POLL_MS)
+      if (unref) pollTimer.unref?.()
+    })
+  }
+  return !isAlive()
+}
+
 // Children are spawned detached on POSIX (own process group) so that abort and
 // timeout can kill the whole tree. That also detaches them from this process's
 // lifetime, so sweep any still-running children when this process exits.
@@ -312,15 +327,22 @@ function spawnDirectTerminalCommand(
     }
 
     // SYNC commands do not transfer ownership of background descendants. Reap
-    // anything the shell detached after it reported successful completion.
+    // anything the shell detached after it reported successful completion,
+    // without making an infinite-timeout terminal tool wait forever.
     killProcessGroup(child, 'SIGTERM')
-    const escalationAt = Date.now() + KILL_ESCALATION_MS
-    while (isProcessGroupAlive(child)) {
-      if (Date.now() >= escalationAt) {
-        killProcessGroup(child, 'SIGKILL')
-      }
-      await new Promise((resolve) => setTimeout(resolve, PROCESS_EXIT_POLL_MS))
-    }
+    if (
+      await waitForProcessExit(
+        () => isProcessGroupAlive(child),
+        KILL_ESCALATION_MS,
+      )
+    )
+      return exitCode
+
+    killProcessGroup(child, 'SIGKILL')
+    await waitForProcessExit(
+      () => isProcessGroupAlive(child),
+      KILL_ESCALATION_MS,
+    )
     return exitCode
   })
 
@@ -442,35 +464,26 @@ export function runTerminalCommand({
     let sigkillTimer: NodeJS.Timeout | null = null
     let processFinished = false
 
-    const finishWhenProcessGroupExits = () => {
-      if (!childProcess.isAlive()) {
-        sigkillTimer = null
-        finishTrackingChild()
-        return
-      }
-
-      // Signal delivery does not imply that every process has exited yet. Keep
-      // the command registered until the complete process group is gone.
-      sigkillTimer = setTimeout(
-        finishWhenProcessGroupExits,
-        PROCESS_EXIT_POLL_MS,
-      )
-      sigkillTimer.unref?.()
-    }
-
     const killChildProcess = () => {
       try {
         childProcess.kill('SIGTERM')
       } catch {}
       // Escalate in case the command traps or ignores SIGTERM.
-      sigkillTimer = setTimeout(() => {
-        sigkillTimer = null
+      sigkillTimer = setTimeout(async () => {
         if (childProcess.isAlive()) {
           try {
             childProcess.kill('SIGKILL')
           } catch {}
         }
-        finishWhenProcessGroupExits()
+        // A zombie-visible group or faulty broker can remain "alive" forever.
+        // Stop retaining it after a bounded post-kill observation window.
+        await waitForProcessExit(
+          () => childProcess.isAlive(),
+          KILL_ESCALATION_MS,
+          { unref: true },
+        )
+        sigkillTimer = null
+        finishTrackingChild()
       }, KILL_ESCALATION_MS)
       sigkillTimer.unref?.()
     }
@@ -535,8 +548,8 @@ export function runTerminalCommand({
     childProcess.completion
       .then((exitCode) => {
         if (sigkillTimer) {
-          // A process can exit while a descendant ignores SIGTERM. Keep both
-          // the registry entry and escalation timer until the owned tree dies.
+          // A process can exit while a descendant ignores SIGTERM. Preserve
+          // bounded escalation and tracking while cleanup is still active.
           if (!childProcess.isAlive()) {
             clearTimeout(sigkillTimer)
             sigkillTimer = null

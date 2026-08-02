@@ -30,7 +30,16 @@ const brokerChildFixture = path.join(
   'terminal-command-broker-child.ts',
 )
 
-function isProcessAlive(pid: number): boolean {
+function isProcessRunning(pid: number): boolean {
+  if (process.platform === 'linux') {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+      const commandEnd = stat.lastIndexOf(')')
+      if (commandEnd !== -1 && stat[commandEnd + 2] === 'Z') return false
+    } catch {
+      // The process may have disappeared between checks.
+    }
+  }
   try {
     process.kill(pid, 0)
     return true
@@ -107,6 +116,18 @@ describe('terminal command broker', () => {
     expect('exitCode' in value ? value.exitCode : null).toBe(7)
   })
 
+  test('runs commands through the production development entrypoint', async () => {
+    const result = await runTerminalCommand({
+      command: `printf 'DEFAULT_ENTRYPOINT_OK'`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 10,
+      terminalCommandBroker: createTerminalCommandBroker(),
+    })
+
+    expect(stdoutOf(result)).toBe('DEFAULT_ENTRYPOINT_OK')
+  })
+
   test('isolates overlapping commands so one cancellation does not affect the other', async () => {
     const existing = new Set(
       getActiveTerminalCommandProcesses().map(({ pid }) => pid),
@@ -159,7 +180,7 @@ describe('terminal command broker', () => {
         terminalCommandBroker: broker,
       }),
     ).rejects.toThrow(
-      'Failed to start terminal command broker: helper executable is unavailable',
+      'Failed to start terminal command broker: helper executable is unavailable\n\nRestart Freebuff and try again.',
     )
   })
 
@@ -182,10 +203,82 @@ describe('terminal command broker', () => {
         timeout_seconds: 10,
         terminalCommandBroker: broker,
       }),
-    ).rejects.toThrow('Failed to start terminal command broker')
+    ).rejects.toThrow(
+      'Failed to start terminal command broker: could not open terminal command broker pipes\n\nRestart Freebuff and try again.',
+    )
 
     // Bun emits ENOENT after spawn() returns a child with null pipes.
     await Bun.sleep(0)
+  })
+
+  test('adds recovery guidance when spawning the helper throws', async () => {
+    const broker = createTerminalCommandBroker({
+      invocation: () => ({ executable: '\0', args: [] }),
+    })
+
+    await expect(
+      runTerminalCommand({
+        command: `printf 'must not run'`,
+        process_type: 'SYNC',
+        cwd: process.cwd(),
+        timeout_seconds: 10,
+        terminalCommandBroker: broker,
+      }),
+    ).rejects.toThrow('Restart Freebuff and try again.')
+  })
+
+  test('adds recovery guidance when the helper exits before responding', async () => {
+    const broker = createTerminalCommandBroker({
+      invocation: () => ({
+        executable: process.execPath,
+        args: [
+          path.join(
+            tmpdir(),
+            `missing-freebuff-entry-${crypto.randomUUID()}.ts`,
+          ),
+        ],
+      }),
+    })
+
+    let failureMessage = ''
+    try {
+      await runTerminalCommand({
+        command: `printf 'must not run'`,
+        process_type: 'SYNC',
+        cwd: process.cwd(),
+        timeout_seconds: 10,
+        terminalCommandBroker: broker,
+      })
+    } catch (error) {
+      failureMessage = error instanceof Error ? error.message : String(error)
+    }
+
+    expect(failureMessage).toContain('Terminal command broker failed:')
+    expect(failureMessage).toContain('Restart Freebuff and try again.')
+  })
+
+  test('does not add broker recovery guidance to a command spawn failure', async () => {
+    const missingCwd = path.join(
+      tmpdir(),
+      `missing-freebuff-cwd-${crypto.randomUUID()}`,
+    )
+
+    let failureMessage = ''
+    try {
+      await runTerminalCommand({
+        command: `printf 'must not run'`,
+        process_type: 'SYNC',
+        cwd: missingCwd,
+        timeout_seconds: 10,
+        terminalCommandBroker: createTestBroker(),
+      })
+    } catch (error) {
+      failureMessage = error instanceof Error ? error.message : String(error)
+    }
+
+    expect(failureMessage).toContain('ENOENT')
+    expect(failureMessage).not.toContain('Restart Freebuff and try again.')
+    expect(failureMessage).not.toContain('use Windows Terminal')
   })
 
   test('kills the broker process group after a timeout', async () => {
@@ -223,7 +316,7 @@ describe('terminal command broker', () => {
     expect(() => process.kill(-tracked!.pid, 0)).toThrow()
   })
 
-  test('sweeps background descendants before successful completion', async () => {
+  test('leaves no live background descendants after successful completion', async () => {
     if (process.platform === 'win32') return
     const tempDir = mkdtempSync(path.join(tmpdir(), 'codebuff-broker-child-'))
     const pidFile = path.join(tempDir, 'child.pid')
@@ -238,10 +331,35 @@ describe('terminal command broker', () => {
 
       const childPid = Number(readFileSync(pidFile, 'utf8').trim())
       expect(Number.isInteger(childPid)).toBe(true)
-      expect(() => process.kill(childPid, 0)).toThrow()
+      expect(await waitFor(() => !isProcessRunning(childPid), 3_000)).toBe(true)
     } finally {
       rmSync(tempDir, { recursive: true, force: true })
     }
+  })
+
+  test('normal completion does not terminate the broker from the parent process', async () => {
+    let parentTerminations = 0
+    const broker = createTerminalCommandBroker({
+      invocation: () => ({
+        executable: process.execPath,
+        args: [brokerFixture],
+      }),
+      terminate: (child, signal) => {
+        parentTerminations++
+        child.kill(signal)
+      },
+    })
+
+    const result = await runTerminalCommand({
+      command: `printf 'self-reaped'`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 10,
+      terminalCommandBroker: broker,
+    })
+
+    expect(stdoutOf(result)).toBe('self-reaped')
+    expect(parentTerminations).toBe(0)
   })
 
   test('reaps its command when the owning CLI process disappears', async () => {
@@ -274,15 +392,15 @@ describe('terminal command broker', () => {
       ).toBe(true)
       brokerPid = Number(readFileSync(brokerPidPath, 'utf8'))
       commandPid = Number(readFileSync(commandPidPath, 'utf8'))
-      expect(isProcessAlive(brokerPid)).toBe(true)
-      expect(isProcessAlive(commandPid)).toBe(true)
+      expect(isProcessRunning(brokerPid)).toBe(true)
+      expect(isProcessRunning(commandPid)).toBe(true)
 
       owner.kill('SIGKILL')
       await ownerClosed
 
       expect(
         await waitFor(
-          () => !isProcessAlive(brokerPid!) && !isProcessAlive(commandPid!),
+          () => !isProcessRunning(brokerPid!) && !isProcessRunning(commandPid!),
           4_000,
         ),
       ).toBe(true)
@@ -290,7 +408,7 @@ describe('terminal command broker', () => {
       try {
         owner.kill('SIGKILL')
       } catch {}
-      if (brokerPid && isProcessAlive(brokerPid)) {
+      if (brokerPid && isProcessRunning(brokerPid)) {
         if (process.platform === 'win32') {
           spawnSync('taskkill.exe', ['/pid', String(brokerPid), '/t', '/f'], {
             stdio: 'ignore',
@@ -302,7 +420,7 @@ describe('terminal command broker', () => {
           } catch {}
         }
       }
-      if (commandPid && isProcessAlive(commandPid)) {
+      if (commandPid && isProcessRunning(commandPid)) {
         try {
           process.kill(commandPid, 'SIGKILL')
         } catch {}
