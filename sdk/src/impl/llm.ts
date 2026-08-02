@@ -216,6 +216,7 @@ export async function* promptAiSdkStream(
 
   const response = streamText({
     ...streamParams,
+    abortSignal: params.signal,
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
