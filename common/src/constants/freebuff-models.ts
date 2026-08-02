@@ -845,6 +845,16 @@ export const FREEBUFF_INCLUDE_UNUSED_RATE_LIMITS_HEADER =
 /** Set to '1' by Freebuff Desktop to opt into multi-session mode (concurrent
  *  per-tab sessions); absent for CLI/web, which keep one session per user. */
 export const FREEBUFF_MULTI_SESSION_HEADER = 'x-freebuff-multi-session'
+/** Set to '1' on a per-instance GET /session to mark it as a liveness beat: the
+ *  client is telling the server this tab is still there. Only a beat writes the
+ *  row's `last_seen_at`, and only a row with a `last_seen_at` can give up its
+ *  concurrency slot for going quiet — so a client that never beats keeps the
+ *  `expires_at`-only rule and is never dropped mid-window. */
+export const FREEBUFF_HEARTBEAT_HEADER = 'x-freebuff-heartbeat'
+/** How often a beating client re-beats. The server's liveness TTL is a multiple
+ *  of this (several missed beats), so a brief network blip never costs a live
+ *  tab its slot. */
+export const FREEBUFF_SESSION_HEARTBEAT_INTERVAL_MS = 45_000
 
 /** Models that accept image input. Used to decide whether uploaded images are
  *  forwarded to the model as real multimodal content. */
