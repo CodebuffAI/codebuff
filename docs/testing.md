@@ -120,11 +120,18 @@ and passed on attempt 2 (48.78s), and `nick-fields/retry` reported success. Read
 bun's own `Ran N tests across M files [Xs]` line, not the step duration, and
 grep the log for `Attempt N failed` before trusting any per-job figure.
 
-Every test job now ends with a `Flag retried tests` step that turns a
-pass-on-retry into a **`Flaky suite` warning annotation** on the run, so this
-stops being something you only discover by hand-reading logs. It is deliberately
-not a failure — retrying is still the right default; doing it silently is not.
-If you see that annotation, the suite named in it has a real flake.
+Every test job ends with a step that reacts to a pass-on-retry, so this stops
+being something you only discover by hand-reading logs. **Unit suites fail**;
+integration suites get a `Flaky suite` warning.
+
+The split is measured, not assumed. Across 100 CI runs / 2000 test-job instances
+(2026-07-31 → 08-02) the retry rescued a unit suite **zero** times; both real
+rescues were `test-integration-packages/internal`, i.e. a Postgres service
+container. Retrying infrastructure is what a retry is for; retrying test logic
+just moves the bill to whoever hits it next, so a retried unit suite is now a
+flake by measurement and fails on the PR that introduced it. `max_attempts`
+stays 3 there on purpose — attempt 2 passing is what separates "flaky" from
+"broken", and a genuinely broken suite already runs three times either way.
 
 ### `sdk/dist` is cached, not rebuilt per job
 
@@ -209,9 +216,13 @@ When verifying UI output, prefer checking the saved capture file for concrete st
 
 ## Confirming a suspected flake
 
-CI retries a failing test job up to three times (`nick-fields/retry` in
-`ci.yml`), so a test that fails once and passes on retry leaves almost no
-trace. When a suite fails on a busy machine and passes on a quiet one, the
+CI runs a failing test job up to three times (`nick-fields/retry` in `ci.yml`).
+A unit suite that only passes on a later attempt now fails the build; an
+integration one still passes with a warning. Either way the interesting question
+is the same one, and CI cannot answer it: **CI never applies contention.** Each
+package's suite gets its own runner, so the shared-state flakes live below its
+resolution entirely. When a suite fails on a busy machine and passes on a quiet
+one, the
 temptation is to call it the machine's fault. Don't: **load is not a cause, it
 is a magnifier.** What it magnifies are real defects that a single run on an
 idle laptop cannot show.
