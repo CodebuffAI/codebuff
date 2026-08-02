@@ -12,11 +12,8 @@ import { createBase2 } from './base2'
  * orchestrators use — so a provider outage cannot silently reroute a free
  * frontier model onto a differently-priced endpoint.
  *
- * No dedicated reviewer: unmapped models fall back to code-reviewer-deepseek-flash,
- * which is deliberate here. The trace we are buying with the pool is the ROOT's
- * hour of agentic work, and putting the reviewer on Fable too would roughly
- * double the cost of every session for a subagent whose output we already
- * collect on a cheaper model.
+ * Its reviewer also runs Fable: the session gate rejects cross-model subagents,
+ * so the usual DeepSeek Flash fallback cannot review a Fable-bound session.
  */
 const definition = {
   ...createBase2('free', {
