@@ -1,4 +1,3 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
 
 import type { SkillsMap } from '@codebuff/common/types/skill'
@@ -43,7 +42,6 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
 ])
 
 const FREEBUFF_ONLY_COMMAND_IDS = new Set([
-  'connect',
   'plan',
   'end-session',
 ])
@@ -62,17 +60,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description: 'Show local CLI resource usage and terminal tool process IDs',
     aliases: ['diag', 'processes'],
   },
-  ...(CHATGPT_OAUTH_ENABLED
-    ? [
-        {
-          id: 'connect',
-          label: 'connect',
-          description: 'Connect your ChatGPT account',
-          aliases: ['connect:chatgpt', 'chatgpt'],
-        },
-      ]
-    : []),
-
   {
     id: 'ads:enable',
     label: 'ads:enable',

@@ -138,12 +138,25 @@ export interface AuthValidationResult {
   hasInvalidCredentials: boolean
 }
 
-/** Read existing credentials file, returns empty object if missing/invalid */
+/**
+ * Read existing credentials file, returns empty object if missing/invalid.
+ *
+ * Drops `chatgptOAuth`, which the removed ChatGPT integration wrote. Both
+ * callers spread this result straight back over the file, so the dead key —
+ * an OAuth access and refresh token for the user's ChatGPT account — is
+ * cleaned up the next time we write for any reason. Doing it here rather than
+ * in a startup pass means no extra write and no new race with login/logout;
+ * nothing reads the key anymore, and with /connect gone the user has no way
+ * to clear it themselves.
+ */
 const readCredentialsFile = (): Record<string, unknown> => {
   const credentialsPath = getCredentialsPath()
   if (!fs.existsSync(credentialsPath)) return {}
   try {
-    return JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
+    const { chatgptOAuth: _removedIntegration, ...rest } = JSON.parse(
+      fs.readFileSync(credentialsPath, 'utf8'),
+    )
+    return rest
   } catch {
     return {}
   }

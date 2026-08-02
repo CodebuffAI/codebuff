@@ -4,7 +4,6 @@ const DEFAULT_SAMPLED_RATE = 0.01
 
 const SAMPLED_EVENT_RATES: Partial<Record<AnalyticsEvent, number>> = {
   [AnalyticsEvent.AGENT_STEP]: DEFAULT_SAMPLED_RATE,
-  [AnalyticsEvent.CHATGPT_OAUTH_REQUEST]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.CLI_LOG]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.FEEDBACK_BUTTON_HOVERED]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.FOLLOWUP_CLICKED]: DEFAULT_SAMPLED_RATE,
@@ -21,8 +20,6 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.PRODUCT_ACTIVE_MINUTE,
   AnalyticsEvent.APP_LAUNCHED,
   AnalyticsEvent.CHANGE_DIRECTORY,
-  AnalyticsEvent.CHATGPT_OAUTH_AUTH_ERROR,
-  AnalyticsEvent.CHATGPT_OAUTH_RATE_LIMITED,
   AnalyticsEvent.FINGERPRINT_GENERATED,
   AnalyticsEvent.INVALID_COMMAND,
   AnalyticsEvent.KNOWLEDGE_FILE_UPDATED,

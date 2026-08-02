@@ -188,11 +188,6 @@ export enum AnalyticsEvent {
   TOKEN_COUNT_VALIDATION_ERROR = 'api.token_count_validation_error',
   TOKEN_COUNT_ERROR = 'api.token_count_error',
 
-  // ChatGPT OAuth
-  CHATGPT_OAUTH_REQUEST = 'sdk.chatgpt_oauth_request',
-  CHATGPT_OAUTH_RATE_LIMITED = 'sdk.chatgpt_oauth_rate_limited',
-  CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
-
   // Freebuff - Creator Attribution
   FREEBUFF_REFERRER_ATTRIBUTED = 'freebuff.referrer_attributed',
 

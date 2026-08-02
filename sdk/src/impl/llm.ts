@@ -1,5 +1,3 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { STREAM_RECOVERY_EVENT } from '@codebuff/common/util/axiom-only-log'
@@ -23,10 +21,7 @@ import {
   TypeValidationError,
 } from 'ai'
 
-import {
-  getModelForRequest,
-  markChatGptOAuthRateLimited,
-} from './model-provider'
+import { getModelForRequest } from './model-provider'
 import {
   classifyStreamEndRecovery,
   classifyThrownStreamRecovery,
@@ -34,10 +29,7 @@ import {
   type StreamEndRecovery,
   type StreamFinishInfo,
 } from './stream-interruption'
-import { refreshChatGptOAuthToken } from '../credentials'
-import { getErrorStatusCode } from '../error-utils'
 
-import type { ModelRequestParams } from './model-provider'
 import type {
   OpenRouterProviderOptions,
   OpenRouterProviderRoutingOptions,
@@ -144,72 +136,6 @@ type OpenRouterUsageAccounting = {
   }
 }
 
-/**
- * Check if an error is an OAuth rate limit error that should trigger fallback.
- */
-function isOAuthRateLimitError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-
-  // Check status code (handles both 'status' from AI SDK and 'statusCode' from our errors)
-  const statusCode = getErrorStatusCode(error)
-  if (statusCode === 429) return true
-
-  // Check error message for rate limit indicators
-  const err = error as {
-    message?: string
-    responseBody?: string
-  }
-  const message = (err.message || '').toLowerCase()
-  const responseBody = (err.responseBody || '').toLowerCase()
-
-  if (message.includes('rate_limit') || message.includes('rate limit'))
-    return true
-  if (
-    responseBody.includes('rate_limit') ||
-    responseBody.includes('rate limit')
-  )
-    return true
-
-  return false
-}
-
-/**
- * Check if an error is an OAuth authentication error (expired/invalid token).
- * This indicates we should try refreshing the token.
- */
-function isOAuthAuthError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-
-  // Check status code (handles both 'status' from AI SDK and 'statusCode' from our errors)
-  const statusCode = getErrorStatusCode(error)
-  if (statusCode === 401 || statusCode === 403) return true
-
-  // Check error message for auth indicators
-  const err = error as {
-    message?: string
-    responseBody?: string
-  }
-  const message = (err.message || '').toLowerCase()
-  const responseBody = (err.responseBody || '').toLowerCase()
-
-  if (message.includes('unauthorized') || message.includes('invalid_token'))
-    return true
-  if (message.includes('authentication') || message.includes('expired'))
-    return true
-  if (
-    responseBody.includes('unauthorized') ||
-    responseBody.includes('invalid_token')
-  )
-    return true
-  if (
-    responseBody.includes('authentication') ||
-    responseBody.includes('expired')
-  )
-    return true
-
-  return false
-}
-
 function getModelProvider(model: LanguageModel): string {
   if (typeof model === 'string') return model
   return model.provider
@@ -262,50 +188,12 @@ function emitCacheDebugUsage(params: {
   })
 }
 
-export type ChatGptOAuthStreamErrorPolicy =
-  | 'fallback-rate-limit'
-  | 'fail-auth-reconnect'
-  | 'fail-fast'
-  | 'ignore'
-
-export function classifyChatGptOAuthStreamError(params: {
-  isChatGptOAuth: boolean
-  skipChatGptOAuth?: boolean
-  hasYieldedContent: boolean
-  error: unknown
-}): ChatGptOAuthStreamErrorPolicy {
-  const { isChatGptOAuth, skipChatGptOAuth, hasYieldedContent, error } = params
-
-  if (!isChatGptOAuth || skipChatGptOAuth || hasYieldedContent) {
-    return 'ignore'
-  }
-
-  if (isOAuthRateLimitError(error)) {
-    return 'fallback-rate-limit'
-  }
-
-  if (isOAuthAuthError(error)) {
-    return 'fail-auth-reconnect'
-  }
-
-  return 'fail-fast'
-}
-
 export async function* promptAiSdkStream(
-  params: ParamsOf<PromptAiSdkStreamFn> & {
-    skipChatGptOAuth?: boolean
-    chatGptOAuthRetried?: boolean
-  },
+  params: ParamsOf<PromptAiSdkStreamFn>,
 ): ReturnType<PromptAiSdkStreamFn> {
   const { providerOptions: originalProviderOptions, ...streamParams } = params
 
-  const {
-    logger,
-    trackEvent,
-    userId,
-    userInputId,
-    model: requestedModel,
-  } = params
+  const { logger } = params
   const agentChunkMetadata =
     params.agentId != null ? { agentId: params.agentId } : undefined
 
@@ -320,44 +208,22 @@ export async function* promptAiSdkStream(
     return promptAborted('User cancelled input')
   }
 
-  const modelParams: ModelRequestParams = {
+  const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
     userId: params.userId,
-    skipChatGptOAuth: params.skipChatGptOAuth,
-    costMode: params.costMode,
-  }
-  const { model: aiSDKModel, isChatGptOAuth } =
-    await getModelForRequest(modelParams)
-
-  if (isChatGptOAuth) {
-    trackEvent({
-      event: AnalyticsEvent.CHATGPT_OAUTH_REQUEST,
-      userId: userId ?? '',
-      properties: {
-        model: requestedModel,
-        userInputId,
-      },
-      logger,
-    })
-  }
+  })
 
   const response = streamText({
     ...streamParams,
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    ...(isChatGptOAuth && { maxRetries: 0 }),
-    // For ChatGPT OAuth direct, don't send codebuff metadata/provider options to OpenAI
-    ...(isChatGptOAuth
-      ? {}
-      : {
-          providerOptions: getProviderOptions({
-            ...params,
-            providerOptions: originalProviderOptions,
-            agentProviderOptions: params.agentProviderOptions,
-          }),
-        }),
+    providerOptions: getProviderOptions({
+      ...params,
+      providerOptions: originalProviderOptions,
+      agentProviderOptions: params.agentProviderOptions,
+    }),
     // Handle tool call errors gracefully by passing them through to our validation layer
     // instead of throwing (which would halt the agent). The only special case is when
     // the tool name matches a spawnable agent - transform those to spawn_agents calls.
@@ -571,101 +437,6 @@ export async function* promptAiSdkStream(
         continue
       }
 
-      const chatGptErrorPolicy = classifyChatGptOAuthStreamError({
-        isChatGptOAuth,
-        skipChatGptOAuth: params.skipChatGptOAuth,
-        hasYieldedContent,
-        error: chunkValue.error,
-      })
-
-      if (chatGptErrorPolicy === 'fallback-rate-limit') {
-        const rateLimitErrorDetails =
-          chunkValue.error instanceof Error
-            ? chunkValue.error.message
-            : String(chunkValue.error)
-        logger.warn(
-          { error: getErrorObject(chunkValue.error) },
-          'ChatGPT OAuth rate limited during stream',
-        )
-
-        trackEvent({
-          event: AnalyticsEvent.CHATGPT_OAUTH_RATE_LIMITED,
-          userId: userId ?? '',
-          properties: {
-            model: requestedModel,
-            userInputId,
-          },
-          logger,
-        })
-
-        markChatGptOAuthRateLimited()
-
-        // In free mode, don't fall back to Codebuff backend — fail instead
-        if (isFreeMode(params.costMode)) {
-          throw new Error(
-            `ChatGPT rate limit reached. Please wait a few minutes and try again. (${rateLimitErrorDetails})`,
-          )
-        }
-
-        const fallbackResult = yield* promptAiSdkStream({
-          ...params,
-          skipChatGptOAuth: true,
-        })
-        return fallbackResult
-      }
-
-      if (chatGptErrorPolicy === 'fail-auth-reconnect') {
-        logger.info(
-          { error: getErrorObject(chunkValue.error) },
-          'ChatGPT OAuth auth error during stream, attempting token refresh',
-        )
-
-        trackEvent({
-          event: AnalyticsEvent.CHATGPT_OAUTH_AUTH_ERROR,
-          userId: userId ?? '',
-          properties: {
-            model: requestedModel,
-            userInputId,
-          },
-          logger,
-        })
-
-        // Try refreshing the token and retrying once before failing/falling back
-        if (!params.chatGptOAuthRetried) {
-          const refreshed = await refreshChatGptOAuthToken()
-          if (refreshed) {
-            logger.info(
-              { model: requestedModel },
-              'ChatGPT OAuth token refreshed, retrying request',
-            )
-            const retryResult = yield* promptAiSdkStream({
-              ...params,
-              chatGptOAuthRetried: true,
-            })
-            return retryResult
-          }
-          logger.warn(
-            { model: requestedModel },
-            'ChatGPT OAuth token refresh failed, unable to recover',
-          )
-        }
-
-        // Refresh failed or already retried
-        // In free mode, don't fall back to Codebuff backend — fail instead
-        if (isFreeMode(params.costMode)) {
-          throw new Error(
-            'ChatGPT OAuth authentication failed. Please reconnect with /connect:chatgpt and try again.',
-          )
-        }
-
-        // Fall back to Codebuff backend
-        const fallbackResult = yield* promptAiSdkStream({
-          ...params,
-          skipChatGptOAuth: true,
-        })
-        return fallbackResult
-      }
-
       // A transport error can also arrive as an AI SDK error chunk instead of
       // making iterator.next() reject. Recover both runtime shapes identically.
       const recovery = recoverThrownStream(chunkValue.error)
@@ -803,29 +574,20 @@ export async function* promptAiSdkStream(
     usage: usageResult,
   })
 
-  // Skip cost tracking for ChatGPT OAuth (user is on their own subscription)
-  if (!isChatGptOAuth) {
-    const providerMetadataResult = await response.providerMetadata
-    const providerMetadata = providerMetadataResult ?? {}
+  const providerMetadata = (await response.providerMetadata) ?? {}
+  const openrouterUsage = providerMetadata.codebuff?.usage as
+    | OpenRouterUsageAccounting
+    | undefined
+  const costOverrideDollars = openrouterUsage
+    ? (openrouterUsage.cost ?? 0) +
+      (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+    : undefined
 
-    let costOverrideDollars: number | undefined
-    if (providerMetadata.codebuff) {
-      if (providerMetadata.codebuff.usage) {
-        const openrouterUsage = providerMetadata.codebuff
-          .usage as OpenRouterUsageAccounting
-
-        costOverrideDollars =
-          (openrouterUsage.cost ?? 0) +
-          (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
-      }
-    }
-
-    // Call the cost callback if provided
-    if (params.onCostCalculated && costOverrideDollars) {
-      await params.onCostCalculated(
-        calculateUsedCredits({ costDollars: costOverrideDollars }),
-      )
-    }
+  // Call the cost callback if provided
+  if (params.onCostCalculated && costOverrideDollars) {
+    await params.onCostCalculated(
+      calculateUsedCredits({ costDollars: costOverrideDollars }),
+    )
   }
 
   return promptSuccess(messageId)
@@ -847,13 +609,11 @@ export async function promptAiSdk(
     return promptAborted('User cancelled input')
   }
 
-  const modelParams: ModelRequestParams = {
+  const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
     userId: params.userId,
-    skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
-  }
-  const { model: aiSDKModel } = await getModelForRequest(modelParams)
+  })
 
   const response = await generateText({
     ...params,
@@ -915,13 +675,11 @@ export async function promptAiSdkStructured<T>(
     )
     return promptAborted('User cancelled input')
   }
-  const modelParams: ModelRequestParams = {
+  const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
     userId: params.userId,
-    skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
-  }
-  const { model: aiSDKModel } = await getModelForRequest(modelParams)
+  })
 
   const response = await generateObject<z.ZodType<T>, 'object'>({
     ...params,

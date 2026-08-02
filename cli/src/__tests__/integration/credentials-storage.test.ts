@@ -222,6 +222,35 @@ describe('Credentials Storage Integration', () => {
       expect(loadedCredentials!.fingerprintId).toBe(TEST_USER.fingerprintId)
       expect(loadedCredentials!.fingerprintHash).toBe(TEST_USER.fingerprintHash)
     })
+
+    test('drops the removed ChatGPT integration token on the next write', () => {
+      // Anyone who ran /connect-chatgpt still has an OAuth access + refresh
+      // token for their own ChatGPT account sitting in this file. Nothing reads
+      // it now and the command that managed it is gone, so it must not survive
+      // a rewrite — otherwise it is orphaned on disk with no way to clear it.
+      const credentialsPath = path.join(tempConfigDir, 'credentials.json')
+      fs.writeFileSync(
+        credentialsPath,
+        JSON.stringify({
+          default: { ...TEST_USER, authToken: 'stale' },
+          chatgptOAuth: {
+            accessToken: 'a',
+            refreshToken: 'r',
+            expiresAt: 1,
+            connectedAt: 1,
+          },
+          someOtherKey: 'kept',
+        }),
+      )
+
+      saveUserCredentials(TEST_USER)
+
+      const parsed = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
+      expect(parsed.chatgptOAuth).toBeUndefined()
+      // Only that one key goes: unrelated entries and the login still stand.
+      expect(parsed.someOtherKey).toBe('kept')
+      expect(parsed.default.authToken).toBe(TEST_USER.authToken)
+    })
   })
 
   describe('P0: Credential Format Validation', () => {

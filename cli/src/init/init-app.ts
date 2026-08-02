@@ -1,8 +1,3 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import {
-  getChatGptOAuthCredentials,
-  getValidChatGptOAuthCredentials,
-} from '@codebuff/sdk'
 import { enableMapSet } from 'immer'
 
 import { initializeThemeStore } from '../hooks/use-theme'
@@ -39,14 +34,4 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
   // Compute the hardware-based fingerprint in the background so it's ready
   // by the time the user finishes reading the login prompt.
   void getFingerprintId()
-
-  // Refresh ChatGPT OAuth credentials in the background if they exist
-  if (CHATGPT_OAUTH_ENABLED) {
-    const chatGptCredentials = getChatGptOAuthCredentials()
-    if (chatGptCredentials) {
-      getValidChatGptOAuthCredentials().catch(() => {
-        // Best-effort background refresh.
-      })
-    }
-  }
 }

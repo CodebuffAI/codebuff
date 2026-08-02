@@ -1,23 +1,12 @@
 /**
- * Model provider abstraction for routing requests to the appropriate LLM provider.
- *
- * This module handles:
- * - ChatGPT OAuth: Direct requests to OpenAI API using user's OAuth token
- * - Default: Requests through Codebuff backend (which routes to OpenRouter)
+ * Builds the language model every request runs on: the Codebuff backend,
+ * which forwards to OpenRouter.
  */
 
 import path from 'path'
 
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
-import {
-  CHATGPT_BACKEND_BASE_URL,
-  CHATGPT_OAUTH_ENABLED,
-  isChatGptOAuthModelAllowed,
-  isOpenAIProviderModel,
-  toOpenAIModelId,
-} from '@codebuff/common/constants/chatgpt-oauth'
 import { isTransientNetworkError } from '@codebuff/common/util/error'
 import {
   OpenAICompatibleChatLanguageModel,
@@ -26,54 +15,9 @@ import {
 import { APICallError } from 'ai'
 
 import { getWebsiteUrl } from '../constants'
-import { getValidChatGptOAuthCredentials } from '../credentials'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
-import {
-  createChatGptBackendFetch,
-  extractChatGptAccountId,
-} from './chatgpt-backend-fetch'
 
 import type { LanguageModel } from 'ai'
-
-// ============================================================================
-// ChatGPT OAuth Rate Limit Cache
-// ============================================================================
-
-/** Timestamp (ms) when ChatGPT OAuth rate limit expires, or null if not rate-limited */
-let chatGptOAuthRateLimitedUntil: number | null = null
-
-/**
- * Mark ChatGPT OAuth as rate-limited. Subsequent requests will skip direct ChatGPT OAuth
- * and use Codebuff backend until the reset time.
- */
-export function markChatGptOAuthRateLimited(resetAt?: Date): void {
-  const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
-  chatGptOAuthRateLimitedUntil = resetAt
-    ? resetAt.getTime()
-    : fiveMinutesFromNow
-}
-
-/**
- * Check if ChatGPT OAuth is currently rate-limited.
- */
-export function isChatGptOAuthRateLimited(): boolean {
-  if (chatGptOAuthRateLimitedUntil === null) {
-    return false
-  }
-  if (Date.now() >= chatGptOAuthRateLimitedUntil) {
-    chatGptOAuthRateLimitedUntil = null
-    return false
-  }
-  return true
-}
-
-/**
- * Reset the ChatGPT OAuth rate-limit cache.
- * Call this when user reconnects their ChatGPT subscription.
- */
-export function resetChatGptOAuthRateLimit(): void {
-  chatGptOAuthRateLimitedUntil = null
-}
 
 /**
  * Parameters for requesting a model.
@@ -85,20 +29,6 @@ export interface ModelRequestParams {
   model: string
   /** End user represented by a trusted service-account request. */
   userId?: string
-  /** If true, skip ChatGPT OAuth and use Codebuff backend (for fallback after rate limit) */
-  skipChatGptOAuth?: boolean
-  /** Cost mode (e.g. 'free') — affects fallback behavior for OAuth routes */
-  costMode?: string
-}
-
-/**
- * Result from getModelForRequest.
- */
-export interface ModelResult {
-  /** The language model to use for requests */
-  model: LanguageModel
-  /** Whether this model uses ChatGPT OAuth direct (affects cost tracking) */
-  isChatGptOAuth: boolean
 }
 
 // Usage accounting type for OpenRouter/Codebuff backend responses
@@ -107,93 +37,6 @@ type OpenRouterUsageAccounting = {
   costDetails: {
     upstreamInferenceCost: number | null
   }
-}
-
-/**
- * Get the appropriate model for a request.
- *
- * If ChatGPT OAuth credentials are available and the model is an OpenAI model,
- * returns an OpenAI direct model. Otherwise, returns the Codebuff backend model.
- *
- * This function is async because it may need to refresh the OAuth token.
- */
-export async function getModelForRequest(
-  params: ModelRequestParams,
-): Promise<ModelResult> {
-  const { apiKey, model, userId, skipChatGptOAuth, costMode } = params
-
-  // Check if we should use ChatGPT OAuth direct
-  // Only attempt for allowlisted models; non-allowlisted models silently fall through to backend.
-  if (
-    CHATGPT_OAUTH_ENABLED &&
-    !skipChatGptOAuth &&
-    isOpenAIProviderModel(model) &&
-    isChatGptOAuthModelAllowed(model)
-  ) {
-    // In free mode, rate-limited ChatGPT OAuth must not silently fall through to
-    // the Codebuff backend — freebuff should only use the direct OpenAI route or fail.
-    if (isChatGptOAuthRateLimited()) {
-      if (isFreeMode(costMode)) {
-        throw new Error(
-          'ChatGPT rate limit reached. Please wait a few minutes and try again.',
-        )
-      }
-    } else {
-      const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
-
-      if (chatGptOAuthCredentials) {
-        return {
-          model: createOpenAIOAuthModel(
-            model,
-            chatGptOAuthCredentials.accessToken,
-          ),
-          isChatGptOAuth: true,
-        }
-      }
-
-      // In free mode, if credentials are unavailable, don't fall through to backend.
-      if (isFreeMode(costMode)) {
-        throw new Error(
-          'ChatGPT OAuth credentials unavailable. Please reconnect with /connect:chatgpt.',
-        )
-      }
-    }
-  }
-
-  // Default: use Codebuff backend
-  return {
-    model: createCodebuffBackendModel(apiKey, model, userId),
-    isChatGptOAuth: false,
-  }
-}
-
-/**
- * Create an OpenAI model that routes through the ChatGPT backend API (Codex endpoint).
- * Uses a custom fetch that transforms between Chat Completions and Responses API formats.
- */
-function createOpenAIOAuthModel(
-  model: string,
-  oauthToken: string,
-): LanguageModel {
-  const openAIModelId = toOpenAIModelId(model)
-  const accountId = extractChatGptAccountId(oauthToken)
-
-  return new OpenAICompatibleChatLanguageModel(openAIModelId, {
-    provider: 'openai',
-    url: () => `${CHATGPT_BACKEND_BASE_URL}/codex/responses`,
-    headers: () => ({
-      Authorization: `Bearer ${oauthToken}`,
-      'Content-Type': 'application/json',
-      'OpenAI-Beta': 'responses=experimental',
-      originator: 'codex_cli_rs',
-      accept: 'text/event-stream',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-chatgpt-oauth`,
-      ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
-    }),
-    fetch: createChatGptBackendFetch(),
-    supportsStructuredOutputs: true,
-    includeUsage: undefined,
-  })
 }
 
 /**
@@ -232,14 +75,14 @@ function fetchWithRetryableNetworkErrors(
 }
 
 /**
- * Create a model that routes through the Codebuff backend.
- * This is the existing behavior - requests go to Codebuff backend which forwards to OpenRouter.
+ * Get the model for a request: one that routes through the Codebuff backend,
+ * which forwards to OpenRouter.
  */
-function createCodebuffBackendModel(
-  apiKey: string,
-  model: string,
-  userId?: string,
-): LanguageModel {
+export function getModelForRequest({
+  apiKey,
+  model,
+  userId,
+}: ModelRequestParams): LanguageModel {
   const openrouterUsage: OpenRouterUsageAccounting = {
     cost: null,
     costDetails: {

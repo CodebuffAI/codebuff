@@ -1,8 +1,6 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import React from 'react'
 import { IS_FREEBUFF } from '../utils/constants'
 
-import { ChatGptConnectBanner } from './chatgpt-connect-banner'
 import { HelpBanner } from './help-banner'
 import { PendingAttachmentsBanner } from './pending-attachments-banner'
 import { SubscriptionLimitBanner } from './subscription-limit-banner'
@@ -27,9 +25,6 @@ const BANNER_REGISTRY: Record<
   ...(IS_FREEBUFF ? {} : { usage: ({ showTime }: { showTime: number }) => <UsageBanner showTime={showTime} /> }),
   help: () => <HelpBanner />,
   ...(IS_FREEBUFF ? {} : { subscriptionLimit: () => <SubscriptionLimitBanner /> }),
-  ...(CHATGPT_OAUTH_ENABLED
-    ? { 'connect:chatgpt': () => <ChatGptConnectBanner /> }
-    : {}),
 }
 
 /**

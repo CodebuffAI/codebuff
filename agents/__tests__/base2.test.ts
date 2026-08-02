@@ -188,14 +188,25 @@ describe('base2 escalation guidance', () => {
     expect(lite.spawnableAgents).toContain('thinker-with-files-gemini')
   })
 
-  test('free mode keeps its own Freebuff-worded restriction', () => {
-    const free = createBase2('free').systemPrompt!
+  test.each([
+    ['default free root', undefined],
+    ['Fable', FREEBUFF_FABLE_5_MODEL_ID],
+    ['DeepSeek Flash', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
+  ] as const)('%s has no thinker-gpt to restrict', (_label, model) => {
+    // Freebuff reached thinker-gpt only through /connect-chatgpt, on the user's
+    // own subscription. With that integration gone the agent 403s for every
+    // free session, so it is off the list — and the prompt must not name it
+    // either, which would just invite a spawn that cannot succeed.
+    const free = createBase2('free', model ? { model } : undefined)
+    const prompts = [
+      free.systemPrompt,
+      free.instructionsPrompt,
+      free.stepPrompt,
+    ].join('\n')
 
-    expect(free).toContain(
-      'Do not spawn the thinker-gpt agent, unless the user asks',
-    )
-    expect(free).toContain('ChatGPT subscription to Freebuff')
-    expect(free).not.toContain('escalation path')
+    expect(free.spawnableAgents).not.toContain('thinker-gpt')
+    expect(prompts).not.toContain('thinker-gpt')
+    expect(prompts).not.toContain('ChatGPT')
   })
 
   test.each(['default', 'max'] as const)(
@@ -205,7 +216,6 @@ describe('base2 escalation guidance', () => {
       const systemPrompt = createBase2(mode).systemPrompt!
 
       expect(systemPrompt).not.toContain('Do not spawn thinker-gpt')
-      expect(systemPrompt).not.toContain('Do not spawn the thinker-gpt agent')
       expect(systemPrompt).not.toContain('escalation path')
     },
   )
@@ -454,7 +464,6 @@ describe('base2 context pruning', () => {
 describe('Claude Fable 5 root', () => {
   const fable = createBase2('free', {
     model: FREEBUFF_FABLE_5_MODEL_ID,
-    noThinkerGpt: true,
   })
 
   test('reviews with a Fable reviewer, not the cross-model fallback', () => {
@@ -463,29 +472,5 @@ describe('Claude Fable 5 root', () => {
     // fallback (code-reviewer-deepseek-flash) 403s with session_model_mismatch.
     expect(fable.spawnableAgents).toContain('code-reviewer-fable')
     expect(fable.spawnableAgents).not.toContain('code-reviewer-deepseek-flash')
-  })
-
-  test('does not offer thinker-gpt, in the list or the prompt', () => {
-    // A frontier root has nothing to gain from handing "think harder" to
-    // openai/gpt-5.4. Naming it in the prompt would reintroduce an agent the
-    // root cannot spawn, so both have to go.
-    expect(fable.spawnableAgents).not.toContain('thinker-gpt')
-    const prompts = [
-      fable.systemPrompt,
-      fable.instructionsPrompt,
-      fable.stepPrompt,
-    ].join('\n')
-    expect(prompts).not.toContain('thinker-gpt')
-  })
-
-  test('leaves the option off for every other free root', () => {
-    // Scoped deliberately. thinker-gpt is a real escalation for the other roots:
-    // a user who has run /connect-chatgpt reaches it through their own
-    // subscription, so removing it there would delete a working feature rather
-    // than dead weight.
-    const flash = createBase2('free', {
-      model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    })
-    expect(flash.spawnableAgents).toContain('thinker-gpt')
   })
 })

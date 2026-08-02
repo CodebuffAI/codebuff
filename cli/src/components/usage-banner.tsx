@@ -1,6 +1,4 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { IS_FREEBUFF } from '../utils/constants'
-import { isChatGptOAuthValid } from '@codebuff/sdk'
 import { TextAttributes } from '@opentui/core'
 import { safeOpen } from '../utils/open-url'
 import React, { useEffect, useMemo } from 'react'
@@ -49,9 +47,6 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
 
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
-
-  // Check if ChatGPT OAuth is connected
-  const isChatGptConnected = CHATGPT_OAUTH_ENABLED && isChatGptOAuthValid()
 
   // Fetch subscription data
   const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionQuery({
@@ -154,15 +149,6 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
             <text style={{ fg: theme.muted }}>See more on {WEBSITE_URL} ↗</text>
           </box>
         </Button>
-
-        {isChatGptConnected && (
-          <box style={{ flexDirection: 'column', marginTop: 1 }}>
-            <text style={{ fg: theme.muted }}>ChatGPT subscription</text>
-            <text style={{ fg: theme.muted }}>
-              Connected for supported OpenAI streaming models
-            </text>
-          </box>
-        )}
       </box>
     </BottomBanner>
   )

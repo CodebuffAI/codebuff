@@ -286,16 +286,13 @@ describe('command-registry', () => {
       }
     })
 
-    test('connect command is not available in codebuff (freebuff-only)', () => {
-      const hasConnectSlashCommand = SLASH_COMMANDS.some(
-        (cmd) => cmd.id === 'connect',
-      )
-      expect(hasConnectSlashCommand).toBe(false)
-    })
-
-    test('connect:chatgpt command is not available in codebuff (freebuff-only)', () => {
-      const command = findCommand('connect:chatgpt')
-      expect(command).toBeUndefined()
+    test('the ChatGPT connect command is gone from both products', () => {
+      // It was freebuff-only while it existed; the integration has since been
+      // removed, so neither the slash menu nor the router knows the name.
+      expect(SLASH_COMMANDS.some((cmd) => cmd.id === 'connect')).toBe(false)
+      expect(findCommand('connect')).toBeUndefined()
+      expect(findCommand('connect:chatgpt')).toBeUndefined()
+      expect(findCommand('chatgpt')).toBeUndefined()
     })
   })
 })

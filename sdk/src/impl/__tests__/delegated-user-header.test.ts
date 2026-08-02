@@ -21,11 +21,10 @@ afterEach(() => {
 
 describe('SDK delegated user headers', () => {
   test('sends userId on model requests', async () => {
-    const { model } = await getModelForRequest({
+    const model = getModelForRequest({
       apiKey: 'service-key',
       model: 'test/model',
       userId: 'end-user',
-      skipChatGptOAuth: true,
     })
 
     expect((model as any).config.headers()).toMatchObject({

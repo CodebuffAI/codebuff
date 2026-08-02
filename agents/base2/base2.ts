@@ -58,10 +58,6 @@ export function createBase2(
     noAskUser?: boolean
     noReview?: boolean
     noGravityIndex?: boolean
-    /** Drop the thinker-gpt escalation, from the spawnable list AND the prompt.
-     *  Set for roots whose own model is strong enough that handing "think
-     *  harder" to openai/gpt-5.4 buys nothing. */
-    noThinkerGpt?: boolean
     model?: SecretAgentDefinition['model']
     providerOptions?: SecretAgentDefinition['providerOptions']
   },
@@ -72,7 +68,6 @@ export function createBase2(
     noAskUser = false,
     noReview = false,
     noGravityIndex = false,
-    noThinkerGpt = false,
     model: modelOverride,
     providerOptions,
   } = options ?? {}
@@ -168,7 +163,7 @@ export function createBase2(
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
       hasGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
-      !noThinkerGpt && 'thinker-gpt',
+      !isFreebuff && 'thinker-gpt',
       'context-pruner',
     ),
 
@@ -219,9 +214,6 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use the list_directory and glob tools directly for searching and exploring the codebase.',
-    isFreebuff &&
-      !noThinkerGpt &&
-      'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Freebuff to allow for it.',
     hasGeminiThinker && FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
     isLite &&
       "- The thinker-with-files-gemini agent is lite mode's one escalation path. It runs a model several times more expensive per token than lite itself and the user is billed for every spawn, so escalate when a problem genuinely needs it rather than routinely. Do not spawn thinker-gpt unless the user asks for it: it costs about the same per token and adds nothing over the gemini thinker here. If the work needs sustained deep reasoning rather than one hard question, say so and suggest the user switch to DEFAULT or MAX mode.",

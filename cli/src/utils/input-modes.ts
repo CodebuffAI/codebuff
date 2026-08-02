@@ -15,7 +15,6 @@ export type InputMode =
   | 'usage'
   | 'image'
   | 'help'
-  | 'connect:chatgpt'
   | 'outOfCredits'
   | 'subscriptionLimit'
 
@@ -139,16 +138,6 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
-    blockKeyboardExit: false,
-  },
-  'connect:chatgpt': {
-    icon: '🔐',
-    label: null,
-    color: 'info',
-    placeholder: 'authorizing in browser... press Escape to cancel',
-    widthAdjustment: 3,
-    showAgentModeToggle: false,
-    disableSlashSuggestions: true,
     blockKeyboardExit: false,
   },
   outOfCredits: {

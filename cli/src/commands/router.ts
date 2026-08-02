@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { runTerminalCommand } from '@codebuff/sdk'
 
 
@@ -12,7 +11,6 @@ import {
   isSlashCommand,
   parseCommandInput,
 } from './router-utils'
-import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
@@ -249,7 +247,6 @@ export function addBashMessageToHistory(params: {
 
 export async function routeUserPrompt(
   params: RouterParams,
-  exchangeChatGptAuthCode: typeof handleChatGptAuthCode = handleChatGptAuthCode,
 ): Promise<CommandResult> {
   const {
     agentMode,
@@ -405,29 +402,6 @@ export async function routeUserPrompt(
     }
 
     // Note: No system message added here - the PendingImagesBanner shows attached images
-    saveToHistory(trimmed)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    setInputMode('default')
-    return
-  }
-
-  // Handle connect:chatgpt mode input (authorization code)
-  if (inputMode === 'connect:chatgpt') {
-    if (!CHATGPT_OAUTH_ENABLED) {
-      setInputMode('default')
-      return
-    }
-
-    const code = trimmed
-    if (code) {
-      const result = await exchangeChatGptAuthCode(code)
-      setMessages((prev) => [
-        ...prev,
-        getUserMessage(trimmed),
-        getSystemMessage(result.message),
-      ])
-    }
-
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')

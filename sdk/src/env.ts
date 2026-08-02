@@ -6,7 +6,6 @@
  */
 
 import { BYOK_OPENROUTER_ENV_VAR } from '@codebuff/common/constants/byok'
-import { CHATGPT_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/chatgpt-oauth'
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 import { getBaseEnv } from '@codebuff/common/env-process'
 
@@ -53,11 +52,4 @@ export const getSystemProcessEnv = (): NodeJS.ProcessEnv => {
 
 export const getByokOpenrouterApiKeyFromEnv = (): string | undefined => {
   return process.env[BYOK_OPENROUTER_ENV_VAR]
-}
-
-/**
- * Get ChatGPT OAuth token from environment variable.
- */
-export const getChatGptOAuthTokenFromEnv = (): string | undefined => {
-  return process.env[CHATGPT_OAUTH_TOKEN_ENV_VAR]
 }

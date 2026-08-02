@@ -1,4 +1,3 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
@@ -180,7 +179,6 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
 ])
 
 const FREEBUFF_ONLY_COMMANDS = new Set([
-  'connect',
   'plan',
   'end-session',
 ])
@@ -482,19 +480,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
       // Don't save to history - this is just a UI shortcut
     },
   }),
-  ...(CHATGPT_OAUTH_ENABLED
-    ? [
-        defineCommand({
-          name: 'connect',
-          aliases: ['connect:chatgpt', 'chatgpt'],
-          handler: (params) => {
-            useChatStore.getState().setInputMode('connect:chatgpt')
-            params.saveToHistory(params.inputValue.trim())
-            clearInput(params)
-          },
-        }),
-      ]
-    : []),
   defineCommand({
     name: 'history',
     aliases: ['chats'],
@@ -531,8 +516,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
   defineCommandWithArgs({
     name: 'plan',
     handler: (params, args) => {
-      // /plan runs on the selected model by default, or delegates to GPT when a
-      // ChatGPT account is connected (handled in buildPlanPrompt). No gate.
+      // /plan runs on the selected model. No gate.
       const trimmedArgs = args.trim()
 
       params.saveToHistory(params.inputValue.trim())
@@ -557,8 +541,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
   defineCommandWithArgs({
     name: 'review',
     handler: (params, args) => {
-      // /review runs on the selected model by default, or delegates to GPT when
-      // a ChatGPT account is connected (handled in buildReviewPrompt). No gate.
+      // /review runs on the selected model. No gate.
       const trimmedArgs = args.trim()
 
       params.saveToHistory(params.inputValue.trim())

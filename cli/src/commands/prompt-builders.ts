@@ -1,61 +1,26 @@
 /**
  * Centralized prompt builders for /plan and /review commands.
- * This ensures consistent behavior regardless of entry path.
- *
- * By default /plan and /review run on the user's currently selected model. If
- * the user has connected a ChatGPT account (via /connect), we delegate the
- * deep-thinking step to the GPT model through the @thinker-gpt agent instead.
+ * This ensures consistent behavior regardless of entry path. Both run on the
+ * user's currently selected model.
  */
 
-import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
-
-// Pick the GPT-delegating variant when a ChatGPT account is connected;
-// otherwise the user's selected model does the work directly.
-function gptOrSelectedModelPrompt(
-  gptVariant: string,
-  selectedModelVariant: string,
-  isChatGptConnected: () => boolean = () => getChatGptOAuthStatus().connected,
-): string {
-  return isChatGptConnected() ? gptVariant : selectedModelVariant
-}
-
-// Base prompt for plan command - always gathers context first.
-export function buildPlanBasePrompt(
-  isChatGptConnected?: () => boolean,
-): string {
-  return gptOrSelectedModelPrompt(
-    'Gather all the relevant context and then spawn @thinker-gpt Think about how to implement the following:',
-    'Gather all the relevant context and then think carefully about how to implement the following:',
-    isChatGptConnected,
-  )
-}
-
-// Base prompt for review command - always gathers context first.
-export function buildReviewBasePrompt(
-  isChatGptConnected?: () => boolean,
-): string {
-  return gptOrSelectedModelPrompt(
-    'Please gather all relevant context and then spawn @thinker-gpt to review:',
-    'Please gather all relevant context and then carefully review:',
-    isChatGptConnected,
-  )
-}
+// Base prompts - both always gather context first.
+const PLAN_BASE_PROMPT =
+  'Gather all the relevant context and then think carefully about how to implement the following:'
+const REVIEW_BASE_PROMPT =
+  'Please gather all relevant context and then carefully review:'
 
 /**
  * Build a plan prompt from user input.
  * @param input - The user's plan request (e.g., "add OAuth login")
  * @returns The full prompt to send to the agent
  */
-export function buildPlanPrompt(
-  input: string,
-  isChatGptConnected?: () => boolean,
-): string {
-  const basePrompt = buildPlanBasePrompt(isChatGptConnected)
+export function buildPlanPrompt(input: string): string {
   const trimmedInput = input.trim()
   if (!trimmedInput) {
-    return basePrompt
+    return PLAN_BASE_PROMPT
   }
-  return `${basePrompt}\n\n${trimmedInput}`
+  return `${PLAN_BASE_PROMPT}\n\n${trimmedInput}`
 }
 
 // Base prompt for interview command - asks clarifying questions before acting
@@ -104,23 +69,21 @@ function getReviewScopeText(scope: ReviewScope): string {
 export function buildReviewPrompt(
   scope: ReviewScope,
   customInput?: string,
-  isChatGptConnected?: () => boolean,
 ): string {
-  const basePrompt = buildReviewBasePrompt(isChatGptConnected)
   const scopeText = getReviewScopeText(scope)
 
   // For custom input, append the user's specific focus
   if (scope === 'custom' && customInput?.trim()) {
-    return `${basePrompt} ${customInput.trim()}`
+    return `${REVIEW_BASE_PROMPT} ${customInput.trim()}`
   }
 
   // For preset scopes, use the scope text
   if (scopeText) {
-    return `${basePrompt} ${scopeText}`
+    return `${REVIEW_BASE_PROMPT} ${scopeText}`
   }
 
   // Fallback for custom with no input
-  return basePrompt
+  return REVIEW_BASE_PROMPT
 }
 
 /**
@@ -129,12 +92,9 @@ export function buildReviewPrompt(
  * @param input - The user's review request
  * @returns The full prompt to send to the agent
  */
-export function buildReviewPromptFromArgs(
-  input: string,
-  isChatGptConnected?: () => boolean,
-): string {
+export function buildReviewPromptFromArgs(input: string): string {
   const trimmedInput = input.trim()
   // Use the same format as preset scopes for consistency
-  return `${buildReviewBasePrompt(isChatGptConnected)} ${trimmedInput}`
+  return `${REVIEW_BASE_PROMPT} ${trimmedInput}`
 }
 
