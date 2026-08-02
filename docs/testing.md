@@ -264,6 +264,45 @@ A fourth pattern worth naming: a test that races two real timers against each
 other (a 20ms cadence against a 40ms window) has a 2x margin that starvation
 erases. Inject the clock and advance it explicitly rather than sleeping.
 
+One shape worth calling out separately, because no amount of isolating the test
+fixes it: **a test whose subject is machine-global.** `orphan-reaper` kills any
+process on the box stamped with a dead orchestrator — that is the feature — so
+two copies of its real-process test reap each other's children, and the victim
+fails on `Received: []` with its orphan already dead, for the module doing
+exactly its job. Its temp dirs and pids were already unique; the shared state was
+the process table itself. An atomic `mkdir` lock around the one section that
+spawns stamped children serialises those runs against each other and costs
+concurrency nowhere else.
+
+**A fifth, and the reason some of these reports are unreadable rather than
+merely red: a polling helper whose deadline is not shorter than the budget of
+the test that called it.** Bun's default is 5s per test. A `waitFor` that gives
+up after 10s (or exactly 5s) never gets to report anything — bun fails the test
+at its own deadline first, moves on, and the helper's rejection surfaces later
+with no test to attribute it to. It is printed as `unhandled error outside any
+test` and counted *separately* from the failure that caused it, so one slow
+shell shows up as two entries naming a file rather than one naming a case. Five
+files had this inverted or equal (`terminal`, `loop-health`, `login`,
+`orphan-reaper`, `smoke`). Rather than repeat the rule as a comment in each,
+`test/support/budgets.ts` hands back the pair and refuses an inverted one at
+import, so getting it wrong fails the file loudly instead of only when something
+is slow enough for the difference to show:
+
+```ts
+const { slowTest, waitMs } = budgets(30_000, 15_000)
+// slowTest declares tests carrying the 30s budget; every polling helper in the
+// file gives up at waitMs, which is checked to be under it
+```
+
+Raising a test's budget is the right move *only* once you know what the test
+actually spends it on. Every case above drives a real process — a pty, a bun
+child, a `--version` probe — whose latency scales with machine load, so 5s was a
+guess about machine speed rather than a statement about correctness. Where the
+work was avoidable instead, it was removed: one claude-code test spawned four
+stub binaries where one would do, paying a memoized-away `--version` per extra
+binary, which made it the file's most expensive test by 2.5x and its first
+casualty under load.
+
 The first monorepo-wide sweep found the shared-state pattern twice more, both
 in `cli` and both fixed the same way — give the run its own `mkdtemp` directory
 instead of a name every run shares. One wrote to a fixed path *inside the
