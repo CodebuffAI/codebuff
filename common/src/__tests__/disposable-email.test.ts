@@ -26,6 +26,24 @@ describe('classifyEmailDomain', () => {
     expect(classifyEmailDomain('x@inbox.mailinator.com')).toBe('disposable')
   })
 
+  it('flags the 2026-08-01 free-mode compute ring domains and their subdomains', () => {
+    // Real addresses from the ring; the deceptive subdomains are the point.
+    expect(classifyEmailDomain('tbcy8kvy77z2@l0veyou.com')).toBe('disposable')
+    expect(classifyEmailDomain('xtikhozbrw3z@gmail.l0veyou.com')).toBe('disposable')
+    expect(classifyEmailDomain('kznc3jb31lsz@edu.l0veyou.com')).toBe('disposable')
+    expect(classifyEmailDomain('ht07lgr96jsg@my.l0veyou.com')).toBe('disposable')
+    expect(classifyEmailDomain('8cuoyn573zae@test123.l0veyou.com')).toBe('disposable')
+    expect(classifyEmailDomain('4j4fyacbke76@pumpkinai.space')).toBe('disposable')
+    expect(classifyEmailDomain('uhm9e3za1qft@gmail.pumpkinai.space')).toBe('disposable')
+    expect(classifyEmailDomain('7yahsqv1o8lc@pumpkinai.it.com')).toBe('disposable')
+  })
+
+  it('does not flag lookalikes of the ring domains', () => {
+    expect(classifyEmailDomain('x@loveyou.com')).toBeNull()
+    expect(classifyEmailDomain('x@notl0veyou.com')).toBeNull()
+    expect(classifyEmailDomain('x@pumpkinai.com')).toBeNull()
+  })
+
   it('treats ordinary providers as unflagged', () => {
     expect(classifyEmailDomain('person@gmail.com')).toBeNull()
     expect(classifyEmailDomain('dev@company.io')).toBeNull()

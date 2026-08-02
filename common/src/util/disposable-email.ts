@@ -54,6 +54,15 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'animatimg.com',
   'biscoito.email',
   'oldtranslator.com',
+  // Observed 2026-08-01: a 48-account free-mode compute ring, all minted on
+  // 12-character random local parts and admitted from one egress IP (peak 30
+  // concurrent, four admissions inside two seconds). These are catch-all
+  // domains whose subdomains are chosen to read as legitimate at a glance —
+  // gmail.l0veyou.com, edu.l0veyou.com, my.l0veyou.com, test123.l0veyou.com,
+  // gmail.pumpkinai.space — which subdomain matching above already covers.
+  'l0veyou.com',
+  'pumpkinai.space',
+  'pumpkinai.it.com',
 ] as const
 
 const PRIVACY_RELAY_EMAIL_DOMAINS = [
