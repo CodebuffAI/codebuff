@@ -1,4 +1,4 @@
-import { FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 
 import { publisher } from './constants'
 
@@ -8,13 +8,12 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
  * Conversational agent behind freebuff.com/chat. Runs with no filesystem, but
  * can spawn researcher-web to look things up on the live internet and call
  * gravity_index to recommend third-party developer services. The chat server
- * may override `model` per request (DeepSeek Flash vs Pro for full-access
- * users).
+ * overrides `model` with the user's resolved chat selection on every request.
  */
 const definition: SecretAgentDefinition = {
   id: 'base-chat',
   publisher,
-  model: FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID,
+  model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   displayName: 'Freebuff Chat',
   spawnerPrompt: 'General-purpose chat assistant for freebuff.com/chat.',
   inputSchema: {
@@ -57,7 +56,7 @@ End every response by calling the suggest_followups tool with exactly 3 followup
     /** Hard context window (tokens) per backend model id. */
     const CONTEXT_WINDOWS: Record<string, number> = {
       'minimax/minimax-m3': 524_288,
-      'fireworks/deepseek-v4-flash': 1_048_576,
+      'deepseek/deepseek-v4-flash': 1_048_576,
       // 1_050_000 per OpenRouter's endpoints API; entered low, so the 0.4
       // budget below lands on exactly 400k. Without this Luna took
       // DEFAULT_CONTEXT_WINDOW and got a 52k budget on a million-token model.

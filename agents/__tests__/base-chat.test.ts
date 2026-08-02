@@ -1,5 +1,6 @@
 import {
   FREEBUFF_DEFAULT_CONTEXT_WINDOW,
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MODEL_CONTEXT_WINDOWS,
 } from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect } from 'bun:test'
@@ -64,6 +65,10 @@ function budgetFor(model?: string): number {
 }
 
 describe('base-chat context pruning', () => {
+  test('defaults to the direct DeepSeek Flash model', () => {
+    expect(baseChat.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  })
+
   test('spawns context-pruner before the first step', () => {
     const spawn = firstPrunerSpawn('minimax/minimax-m3')
 
@@ -129,7 +134,7 @@ describe('base-chat per-model context budget', () => {
   test('scales the budget with the window: unmapped (128k) < m3 (512k) < flash (1M)', () => {
     const unmapped = budgetFor('some/model-we-have-never-shipped')
     const m3 = budgetFor('minimax/minimax-m3')
-    const flash = budgetFor('fireworks/deepseek-v4-flash')
+    const flash = budgetFor('deepseek/deepseek-v4-flash')
 
     expect(unmapped).toBeLessThan(m3)
     expect(m3).toBeLessThan(flash)

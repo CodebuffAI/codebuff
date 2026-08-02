@@ -79,10 +79,9 @@ export interface FreebuffModelOption {
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
-/** DeepSeek V4 Flash served by Fireworks instead of DeepSeek's direct API.
- *  Used only by freebuff.com/chat, where Fireworks' faster inference is worth
- *  a slightly less capable serving stack. Not in SUPPORTED_FREEBUFF_MODELS or
- *  the free-mode allowlists — the CLI and web builder keep DeepSeek direct. */
+/** Legacy wire id emitted by older freebuff.com/chat deployments. The shared
+ *  completions API keeps accepting it, but routes it to DeepSeek direct. New
+ *  chat code must use FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID instead. */
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
 export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
@@ -338,7 +337,7 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
  */
 export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 524_288,
-  [FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID]: 1_048_576,
+  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 1_048_576,
   // Luna is the one entry not read off a provider rejection. Every Luna
   // endpoint OpenRouter lists (OpenAI, its flex/priority tiers, Azure, Bedrock)
   // declares context_length 1_050_000, verified against the live endpoints API
@@ -1336,8 +1335,8 @@ export function getFreebuffModelImageSupport(
 ): boolean | undefined {
   if (!id) return undefined
 
-  // Freebuff Web Chat serves this DeepSeek variant through Fireworks rather
-  // than the normal Freebuff picker, so it does not have a model option entry.
+  // Keep the retired chat wire id text-only during a staggered deployment.
+  // It now routes to DeepSeek direct, but has no catalog option of its own.
   if (
     freebuffModelIdMatches(id, FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID)
   ) {
