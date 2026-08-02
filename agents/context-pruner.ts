@@ -155,15 +155,11 @@ const definition: AgentDefinition = {
         }
         case 'propose_write_file': {
           const path = input.path as string | undefined
-          return path
-            ? `proposed writing: ${path}`
-            : 'proposed a file write'
+          return path ? `proposed writing: ${path}` : 'proposed a file write'
         }
         case 'propose_str_replace': {
           const path = input.path as string | undefined
-          return path
-            ? `proposed editing: ${path}`
-            : 'proposed a file edit'
+          return path ? `proposed editing: ${path}` : 'proposed a file edit'
         }
         case 'read_subtree': {
           const paths = input.paths as string[] | undefined
@@ -178,21 +174,15 @@ const definition: AgentDefinition = {
           if (pattern && flags) {
             return `code search for "${pattern}" (${flags})`
           }
-          return pattern
-            ? `code search for "${pattern}"`
-            : 'code search'
+          return pattern ? `code search for "${pattern}"` : 'code search'
         }
         case 'glob': {
           const pattern = input.pattern as string | undefined
-          return pattern
-            ? `glob search for ${pattern}`
-            : 'glob search'
+          return pattern ? `glob search for ${pattern}` : 'glob search'
         }
         case 'list_directory': {
           const path = input.path as string | undefined
-          return path
-            ? `listed directory: ${path}`
-            : 'listed a directory'
+          return path ? `listed directory: ${path}` : 'listed a directory'
         }
         case 'find_files': {
           const prompt = input.prompt as string | undefined
@@ -307,9 +297,7 @@ const definition: AgentDefinition = {
           return 'Suggested followups'
         case 'web_search': {
           const query = input.query as string | undefined
-          return query
-            ? `web search for "${query}"`
-            : 'web search'
+          return query ? `web search for "${query}"` : 'web search'
         }
         case 'read_url': {
           const url = input.url as string | undefined
@@ -321,9 +309,7 @@ const definition: AgentDefinition = {
           if (query) {
             return `Gravity Index ${action ?? 'search'} for "${query}"`
           }
-          return action
-            ? `Gravity Index ${action}`
-            : 'Gravity Index use'
+          return action ? `Gravity Index ${action}` : 'Gravity Index use'
         }
         case 'read_docs': {
           const libraryTitle = input.libraryTitle as string | undefined
@@ -430,6 +416,22 @@ const definition: AgentDefinition = {
       instructionsPromptMessage =
         currentMessages[lastRemainingInstructionsIndex]
       currentMessages.splice(lastRemainingInstructionsIndex, 1)
+    }
+
+    // Same for a RESIDENT STEP_PROMPT. Models that keep one (GPT-5.6) are sent
+    // it ONCE per turn, so summarizing it away would leave the rest of the turn
+    // with no step instructions at all. The ephemeral form carries
+    // timeToLive:'agentStep' and is re-added every step, so it is deliberately
+    // left to be summarized as before — this must not change other models.
+    let stepPromptMessage: Message | null = null
+    const lastRemainingStepPromptIndex = currentMessages.findLastIndex(
+      (message) =>
+        message.tags?.includes('STEP_PROMPT') &&
+        message.timeToLive === undefined,
+    )
+    if (lastRemainingStepPromptIndex !== -1) {
+      stepPromptMessage = currentMessages[lastRemainingStepPromptIndex]
+      currentMessages.splice(lastRemainingStepPromptIndex, 1)
     }
 
     // === SUMMARIZATION STRATEGY ===
@@ -876,6 +878,9 @@ ${SUMMARY_DISCLAIMER}`,
     if (instructionsPromptMessage) {
       // Update sentAt to current time so future cache miss checks use fresh timestamps
       finalMessages.push({ ...instructionsPromptMessage, sentAt: now })
+    }
+    if (stepPromptMessage) {
+      finalMessages.push({ ...stepPromptMessage, sentAt: now })
     }
     if (isMidTurnPrune) {
       finalMessages.push(continuationMessage)

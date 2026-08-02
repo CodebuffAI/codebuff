@@ -1,5 +1,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
+  ephemeralTrailingMessageBreaksCache,
   supportsAssistantPrefill,
   supportsCacheControl,
 } from '@codebuff/common/old-constants'
@@ -47,6 +48,7 @@ import {
   buildUserMessageContent,
   expireMessages,
   filterUnfinishedToolCalls,
+  stepPromptMessage,
 } from './util/messages'
 import {
   countTokens,
@@ -292,16 +294,20 @@ export const runAgentStep = async (
     }
   }
 
-  const stepPrompt = await getAgentPrompt({
-    ...params,
-    agentTemplate,
-    promptType: { type: 'stepPrompt' },
-    fileContext,
-    agentState,
-    agentTemplates: localAgentTemplates,
-    logger,
-    additionalToolDefinitions,
-  })
+  // A resident step prompt was already placed once for this turn by
+  // loopAgentSteps, so this step must not add another.
+  const stepPrompt = ephemeralTrailingMessageBreaksCache(agentTemplate.model)
+    ? undefined
+    : await getAgentPrompt({
+        ...params,
+        agentTemplate,
+        promptType: { type: 'stepPrompt' },
+        fileContext,
+        agentState,
+        agentTemplates: localAgentTemplates,
+        logger,
+        additionalToolDefinitions,
+      })
 
   // An interrupted turn can leave a tool call with no result behind, which
   // strict providers (DeepSeek) reject with a 400. Since history is persisted
@@ -312,23 +318,14 @@ export const runAgentStep = async (
     expireMessages(agentState.messageHistory, 'agentStep'),
   )
 
+  const { model } = agentTemplate
+
   const agentMessagesUntruncated = buildArray<Message>(
     ...history,
-
-    stepPrompt &&
-      userMessage({
-        content: stepPrompt,
-        tags: ['STEP_PROMPT'],
-
-        // James: Deprecate the below, only use tags, which are not prescriptive.
-        timeToLive: 'agentStep' as const,
-        keepDuringTruncation: true,
-      }),
+    stepPrompt && stepPromptMessage({ stepPrompt, resident: false }),
   )
 
   agentState.messageHistory = agentMessagesUntruncated
-
-  const { model } = agentTemplate
 
   // A step can start with the history ending on an assistant message — e.g. a
   // continuation after a think-only response for an agent with no stepPrompt.
@@ -896,6 +893,31 @@ export async function loopAgentSteps(
     (content && content.length > 0),
   )
 
+  // A model whose cache breaks on an ephemeral trailing message gets its step
+  // prompt HERE instead of per-step: placed once, beside INSTRUCTIONS_PROMPT,
+  // where a turn begins. Placement is structural rather than inferred, so
+  // "has this turn already sent one?" cannot be answered wrong by a history
+  // that pruning rewrote or that a subagent inherited from its parent.
+  const residentStepPrompt = ephemeralTrailingMessageBreaksCache(
+    agentTemplate.model,
+  )
+    ? await getAgentPrompt({
+        ...params,
+        agentTemplate,
+        promptType: { type: 'stepPrompt' },
+        agentTemplates: localAgentTemplates,
+        additionalToolDefinitions: async () => {
+          if (!cachedAdditionalToolDefinitions) {
+            cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+              ...params,
+              agentTemplate,
+            })
+          }
+          return cachedAdditionalToolDefinitions
+        },
+      })
+    : undefined
+
   const initialMessages = buildArray<Message>(
     ...initialAgentState.messageHistory,
 
@@ -930,6 +952,9 @@ export async function loopAgentSteps(
         // James: Deprecate the below, only use tags, which are not prescriptive.
         keepLastTags: ['INSTRUCTIONS_PROMPT'],
       }),
+
+    residentStepPrompt &&
+      stepPromptMessage({ stepPrompt: residentStepPrompt, resident: true }),
   )
 
   // Convert tools to a serializable format for context-pruner token counting
@@ -988,16 +1013,23 @@ export async function loopAgentSteps(
 
       const startTime = new Date()
 
-      const stepPrompt = await getAgentPrompt({
-        ...params,
-        agentTemplate,
-        promptType: { type: 'stepPrompt' },
-        fileContext,
-        agentState: currentAgentState,
-        agentTemplates: localAgentTemplates,
-        logger,
-        additionalToolDefinitions: additionalToolDefinitionsWithCache,
-      })
+      // A resident step prompt is already IN messageHistory, so re-adding it
+      // here would double-count it — and computing it would be wasted work on
+      // every step. Only the ephemeral form is appended per step.
+      const stepPrompt = ephemeralTrailingMessageBreaksCache(
+        agentTemplate.model,
+      )
+        ? undefined
+        : await getAgentPrompt({
+            ...params,
+            agentTemplate,
+            promptType: { type: 'stepPrompt' },
+            fileContext,
+            agentState: currentAgentState,
+            agentTemplates: localAgentTemplates,
+            logger,
+            additionalToolDefinitions: additionalToolDefinitionsWithCache,
+          })
       const messagesWithStepPrompt = buildArray(
         ...currentAgentState.messageHistory,
         stepPrompt &&

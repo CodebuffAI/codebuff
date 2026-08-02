@@ -1,5 +1,6 @@
 import { AssertionError } from 'assert'
 
+import { ephemeralTrailingMessageBreaksCache } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
@@ -14,6 +15,7 @@ import type {
   CodebuffToolMessage,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Model } from '@codebuff/common/old-constants'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
@@ -293,6 +295,37 @@ export function getMessagesSubset(params: {
   }
 
   return messagesSubset
+}
+
+/**
+ * The STEP_PROMPT message, in whichever form this model needs.
+ *
+ * EPHEMERAL (the default) carries `timeToLive: 'agentStep'`, so run-agent-step
+ * re-appends it every step and it expires at the start of the next one, keeping
+ * it at maximum recency.
+ *
+ * RESIDENT carries no timeToLive, so it survives every
+ * `expireMessages('agentStep')`. It is placed ONCE per turn by loopAgentSteps,
+ * right after INSTRUCTIONS_PROMPT, which is what keeps the replayed history
+ * append-only for models that need that (see
+ * `ephemeralTrailingMessageBreaksCache`).
+ *
+ * This builder deliberately makes no decision about WHETHER to send one: each
+ * form has exactly one placement site, so "is a step prompt already current?"
+ * is answered by where the code runs rather than by inspecting history.
+ */
+export function stepPromptMessage(params: {
+  stepPrompt: string
+  resident: boolean
+}): Message {
+  return userMessage({
+    content: params.stepPrompt,
+    tags: ['STEP_PROMPT'],
+
+    // James: Deprecate the below, only use tags, which are not prescriptive.
+    ...(params.resident ? {} : { timeToLive: 'agentStep' as const }),
+    keepDuringTruncation: true,
+  })
 }
 
 export function expireMessages(

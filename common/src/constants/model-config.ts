@@ -214,6 +214,36 @@ export function supportsAssistantPrefill(model: Model): boolean {
   return version < 4.6
 }
 
+/**
+ * Whether a trailing message that we delete on the next step destroys this
+ * model's prompt cache.
+ *
+ * GPT-5.6 changed how caching works. Per OpenAI's prompt-caching guide it puts
+ * "an implicit breakpoint at the latest user or tool message" and, unlike
+ * earlier models, does "not automatically fall back to the longest matching
+ * unmarked prefix before that breakpoint." So a message that is last in one
+ * request and gone from the next takes the cache with it: every later request
+ * diverges exactly where it was, and nothing earlier is reused.
+ *
+ * Measured on the live API 2026-08-01, cached tokens as a share of the true
+ * longest common prefix over consecutive steps of one run:
+ *
+ *   ephemeral trailing message   100%   65%   48%   38%   <- frozen at the system prompt
+ *   append-only history          100%  100%  100%  100%
+ *
+ * Identical through OpenRouter and against api.openai.com direct, so this is
+ * the model's behaviour, not a router artifact. Providers that do longest-
+ * prefix matching (DeepSeek, Xiaomi, MiniMax) are unaffected, which is why
+ * they hold ~96% in prod on the same harness while Luna sits at ~63%.
+ *
+ * Explicit `prompt_cache_breakpoint` markers are NOT a way out: they are only
+ * honored on user-role content blocks, and the last message that persists
+ * through an agent step is the tool result.
+ */
+export function ephemeralTrailingMessageBreaksCache(model: Model): boolean {
+  return /gpt-5\.6/.test(model)
+}
+
 export function getModelFromShortName(
   modelName: string | undefined,
 ): Model | undefined {
