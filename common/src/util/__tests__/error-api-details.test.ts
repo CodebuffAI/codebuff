@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import {
   extractApiErrorDetails,
+  FETCH_IDLE_TIMEOUT_USER_MESSAGE,
   isFetchIdleTimeoutError,
   isTransientNetworkError,
 } from '../error'
@@ -127,6 +128,21 @@ describe('isFetchIdleTimeoutError', () => {
     )
     expect(isFetchIdleTimeoutError(undefined)).toBe(false)
     expect(isFetchIdleTimeoutError('The operation timed out.')).toBe(false)
+  })
+})
+
+describe('FETCH_IDLE_TIMEOUT_USER_MESSAGE', () => {
+  it('states the symptom without pinning the blame on the user', () => {
+    expect(FETCH_IDLE_TIMEOUT_USER_MESSAGE).toContain(
+      'no data was received from the server for 5 minutes',
+    )
+    expect(FETCH_IDLE_TIMEOUT_USER_MESSAGE).toContain('slow model start')
+    // A slow model start produces this error with nothing wrong on the user's
+    // end, so the copy must not assert a cause it cannot know.
+    expect(FETCH_IDLE_TIMEOUT_USER_MESSAGE).not.toContain('usually means')
+    expect(FETCH_IDLE_TIMEOUT_USER_MESSAGE).not.toContain(
+      'rather than a server outage',
+    )
   })
 })
 
