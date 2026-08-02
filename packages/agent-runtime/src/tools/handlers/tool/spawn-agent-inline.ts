@@ -16,6 +16,7 @@ import type {
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -30,6 +31,7 @@ export const handleSpawnAgentInline = (async (
     agentState: AgentState
     agentTemplate: AgentTemplate
     clientSessionId: string
+    currentAssistantMessages?: readonly Message[]
     fileContext: ProjectFileContext
     fingerprintId: string
     localAgentTemplates: Record<string, AgentTemplate>
@@ -60,6 +62,7 @@ export const handleSpawnAgentInline = (async (
 
     agentState: parentAgentState,
     agentTemplate: parentAgentTemplate,
+    currentAssistantMessages = [],
     fingerprintId,
     system,
     tools: parentTools,
@@ -102,6 +105,10 @@ export const handleSpawnAgentInline = (async (
       inlineTemplate,
       parentAgentState,
       parentAgentState.agentContext,
+      {
+        toolCallId: toolCall.toolCallId,
+        currentAssistantMessages,
+      },
     ),
     systemPrompt: system,
     toolDefinitions: mapValues(parentTools, (tool) => ({

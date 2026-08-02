@@ -28,7 +28,10 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
@@ -258,6 +261,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   ancestorRunIds: string[]
   agentTemplate: AgentTemplate
   clientSessionId: string
+  currentAssistantMessages?: readonly Message[]
   fileContext: ProjectFileContext
   fileProcessingState: FileProcessingState
   fingerprintId: string

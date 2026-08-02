@@ -13,6 +13,7 @@ import { INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
 import {
   executeCustomToolCall,
   executeToolCall,
+  parseRawToolCall,
   tryTransformAgentToolCall,
 } from './tool-executor'
 import { withSystemTags } from '../util/messages'
@@ -133,6 +134,7 @@ export async function processStream(
     onResponseChunk: (chunk: string | PrintModeEvent) => void
   } & Omit<
     ExecuteToolCallParams<any>,
+    | 'currentAssistantMessages'
     | 'fileProcessingState'
     | 'fromHandleSteps'
     | 'fullResponse'
@@ -175,6 +177,10 @@ export async function processStream(
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
   const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] = []
   const assistantMessages: Message[] = []
+  // Inline agents replace the parent's history with their result. Track which
+  // current-step messages they inherited so finalization does not append them
+  // a second time. Object identity is local to this stream and never serialized.
+  const claimedByInlineAgent = new Set<Message>()
   let hadToolCallError = false
   let sawStreamRecovery = false
   const errorMessages: Message[] = []
@@ -233,6 +239,31 @@ export async function processStream(
             spawnableAgents: agentTemplate.spawnableAgents,
           })
           : null
+        const isSpawnCall =
+          Boolean(transformed) ||
+          toolName === 'spawn_agents' ||
+          toolName === 'spawn_agent_inline'
+        const currentAssistantMessages = isSpawnCall
+          ? assistantMessages.filter(
+              (message) => !claimedByInlineAgent.has(message),
+            )
+          : []
+        const parsedInlineCall =
+          toolName === 'spawn_agent_inline'
+            ? parseRawToolCall({
+                rawToolCall: { toolName, toolCallId, input },
+              })
+            : null
+        const inlineWillConsumeHistory = Boolean(
+          parsedInlineCall &&
+          !('error' in parsedInlineCall) &&
+          agentTemplate.toolNames.includes('spawn_agent_inline'),
+        )
+        if (inlineWillConsumeHistory) {
+          currentAssistantMessages.forEach((message) =>
+            claimedByInlineAgent.add(message),
+          )
+        }
 
         // Read previousToolCallFinished at execution time to ensure proper sequential chaining.
         // For XML mode, if this is the first tool call (still pointing to streamDonePromise),
@@ -255,6 +286,9 @@ export async function processStream(
             fromHandleSteps: false,
 
             fileProcessingState,
+            currentAssistantMessages: isSpawnCall
+              ? structuredClone(currentAssistantMessages)
+              : undefined,
             fullResponse: fullResponseChunks.join(''),
             previousToolCallFinished: previousPromise,
             toolCallId,
@@ -283,6 +317,15 @@ export async function processStream(
             toolResultsToAddToMessageHistory,
             excludeToolFromMessageHistory: false,
             onResponseChunk: responseHandler,
+          })
+        }
+
+        if (inlineWillConsumeHistory) {
+          toolPromise = toolPromise.catch((error) => {
+            currentAssistantMessages.forEach((message) =>
+              claimedByInlineAgent.delete(message),
+            )
+            throw error
           })
         }
 
@@ -369,7 +412,11 @@ export async function processStream(
             last?.role === 'assistant' && Array.isArray(last.content)
               ? last.content[last.content.length - 1]
               : undefined
-          if (lastPart && lastPart.type === 'reasoning') {
+          if (
+            lastPart &&
+            lastPart.type === 'reasoning' &&
+            !claimedByInlineAgent.has(last)
+          ) {
             lastPart.text += chunk.text
           } else {
             assistantMessages.push(
@@ -518,7 +565,9 @@ export async function processStream(
 
     agentState.messageHistory = buildArray<Message>([
       ...agentState.messageHistory,
-      ...assistantMessages,
+      ...assistantMessages.filter(
+        (message) => !claimedByInlineAgent.has(message),
+      ),
       ...filteredToolCalls.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
       ...toolResultsToAddToMessageHistory,
       ...errorMessages,

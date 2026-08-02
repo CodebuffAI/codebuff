@@ -16,6 +16,7 @@ import type {
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ToolSet } from 'ai'
@@ -37,6 +38,7 @@ export const handleSpawnAgents = (async (
 
     agentState: AgentState
     agentTemplate: AgentTemplate
+    currentAssistantMessages?: readonly Message[]
     fingerprintId: string
     localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
@@ -71,6 +73,7 @@ export const handleSpawnAgents = (async (
 
     agentState: parentAgentState,
     agentTemplate: parentAgentTemplate,
+    currentAssistantMessages = [],
     fingerprintId,
     system: parentSystemPrompt,
     tools: parentTools = {},
@@ -99,6 +102,10 @@ export const handleSpawnAgents = (async (
           agentTemplate,
           parentAgentState,
           {},
+          {
+            toolCallId: toolCall.toolCallId,
+            currentAssistantMessages,
+          },
         )
 
         // Extract common context params to avoid bugs from spreading all params

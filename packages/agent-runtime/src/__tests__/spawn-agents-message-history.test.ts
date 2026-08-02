@@ -28,6 +28,7 @@ describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
   let mockLoopAgentSteps: any
   let capturedSubAgentState: any
+  let capturedSubAgentPrompt: string | undefined
 
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
@@ -44,6 +45,7 @@ describe('Spawn Agents Message History', () => {
       'loopAgentSteps',
     ).mockImplementation(async (options) => {
       capturedSubAgentState = options.agentState
+      capturedSubAgentPrompt = options.prompt
       return {
         agentState: {
           ...options.agentState,
@@ -52,7 +54,10 @@ describe('Spawn Agents Message History', () => {
             assistantMessage('Mock agent response'),
           ],
         },
-        output: { type: 'lastMessage', value: [assistantMessage('Mock agent response')] },
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('Mock agent response')],
+        },
       }
     })
 
@@ -78,6 +83,7 @@ describe('Spawn Agents Message History', () => {
   afterEach(() => {
     mock.restore()
     capturedSubAgentState = undefined
+    capturedSubAgentPrompt = undefined
   })
 
   const createMockAgent = (
@@ -140,11 +146,9 @@ describe('Spawn Agents Message History', () => {
     // Verify that the spawned agent was called
     expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
 
-    // Verify that the subagent's message history contains the filtered messages
-    // expireMessages filters based on timeToLive property, not role
-    // Since the system message doesn't have timeToLive, it will be included
-    // System + user + assistant messages + spawn message
-    expect(capturedSubAgentState.messageHistory).toHaveLength(5)
+    // The streamed spawn path has not added its tool call to parent history yet,
+    // so the complete existing transcript is inherited unchanged.
+    expect(capturedSubAgentState.messageHistory).toHaveLength(4)
 
     // Verify system message is included (because it has no timeToLive property)
     const systemMessages = capturedSubAgentState.messageHistory.filter(
@@ -175,13 +179,14 @@ describe('Spawn Agents Message History', () => {
       ),
     ).toBeTruthy()
 
-    // Verify the subagent spawn message is included with proper structure
-    const spawnMessage = capturedSubAgentState.messageHistory.find(
-      (msg: any) => msg.tags?.includes('SUBAGENT_SPAWN'),
-    )
-    expect(spawnMessage).toBeTruthy()
-    expect(spawnMessage.role).toBe('user')
-    expect(spawnMessage.content[0]?.text).toContain('Subagent child-agent has been spawned')
+    // The spawn prompt is handed to loopAgentSteps, which appends it as a
+    // normal USER_PROMPT message. No synthetic spawn announcement is inherited.
+    expect(capturedSubAgentPrompt).toBe('test prompt')
+    expect(
+      capturedSubAgentState.messageHistory.some((msg: any) =>
+        msg.tags?.includes('SUBAGENT_SPAWN'),
+      ),
+    ).toBe(false)
   })
 
   it('should not include conversation history when includeMessageHistory is false', async () => {
@@ -224,15 +229,8 @@ describe('Spawn Agents Message History', () => {
       toolCall,
     })
 
-    // Verify that the subagent's message history contains only the spawn message
-    // when includeMessageHistory is true (even with empty parent history)
-    expect(capturedSubAgentState.messageHistory).toHaveLength(1)
-
-    // Verify the spawn message structure
-    const spawnMessage = capturedSubAgentState.messageHistory[0]
-    expect(spawnMessage.role).toBe('user')
-    expect(spawnMessage.tags).toContain('SUBAGENT_SPAWN')
-    expect(spawnMessage.content[0]?.text).toContain('Subagent child-agent has been spawned')
+    expect(capturedSubAgentState.messageHistory).toHaveLength(0)
+    expect(capturedSubAgentPrompt).toBe('test prompt')
   })
 
   it('should handle message history with only system messages', async () => {
@@ -254,19 +252,117 @@ describe('Spawn Agents Message History', () => {
       toolCall,
     })
 
-    // Verify that system messages without timeToLive are included
-    // expireMessages only filters messages with timeToLive='userPrompt'
-    // Plus 1 for the subagent spawn message
-    expect(capturedSubAgentState.messageHistory).toHaveLength(3)
+    expect(capturedSubAgentState.messageHistory).toHaveLength(2)
     const systemMessages = capturedSubAgentState.messageHistory.filter(
       (msg: any) => msg.role === 'system',
     )
     expect(systemMessages).toHaveLength(2)
+  })
 
-    // Verify spawn message is present
-    const spawnMessage = capturedSubAgentState.messageHistory.find(
-      (msg: any) => msg.tags?.includes('SUBAGENT_SPAWN'),
-    )
-    expect(spawnMessage).toBeTruthy()
+  it('includes the streamed assistant snapshot immediately before the spawn', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = createMockAgent('child-agent', true)
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall = createSpawnToolCall('child-agent', 'Review the changes')
+    const currentAssistantMessages = [
+      assistantMessage({
+        type: 'reasoning',
+        text: 'I checked the edge cases.',
+      }),
+      assistantMessage('The implementation is ready for review.'),
+    ]
+
+    sessionState.mainAgentState.messageHistory = [
+      userMessage('Implement the feature'),
+    ]
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      currentAssistantMessages,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    expect(capturedSubAgentState.messageHistory).toEqual([
+      ...sessionState.mainAgentState.messageHistory,
+      ...currentAssistantMessages,
+    ])
+    expect(capturedSubAgentPrompt).toBe('Review the changes')
+  })
+
+  it('does not propagate synthetic spawn messages from legacy sessions', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = createMockAgent('child-agent', true)
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall = createSpawnToolCall('child-agent')
+    const userRequest = userMessage('Continue the existing task')
+
+    sessionState.mainAgentState.messageHistory = [
+      userRequest,
+      userMessage({
+        content: '<system>Subagent old-agent has been spawned.</system>',
+        tags: ['SUBAGENT_SPAWN'],
+      }),
+    ]
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    expect(capturedSubAgentState.messageHistory).toEqual([userRequest])
+  })
+
+  it('should cut programmatic agent history immediately before the matching spawn call', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = createMockAgent('child-agent', true)
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall = createSpawnToolCall('child-agent', 'Review the changes')
+    const userRequest = userMessage('Implement the feature')
+    const parentResponse = assistantMessage('I updated the implementation.')
+    const interruptedToolCall = assistantMessage({
+      type: 'tool-call',
+      toolCallId: 'unfinished-tool-call',
+      toolName: 'read_files',
+      input: { paths: ['src/feature.ts'] },
+    })
+    const spawnMessage = assistantMessage([
+      { type: 'text', text: 'The implementation is ready for review.' },
+      {
+        type: 'tool-call',
+        toolCallId: toolCall.toolCallId,
+        toolName: toolCall.toolName,
+        input: toolCall.input,
+      },
+      { type: 'text', text: 'This content follows the spawn call.' },
+    ])
+
+    sessionState.mainAgentState.messageHistory = [
+      userRequest,
+      parentResponse,
+      interruptedToolCall,
+      spawnMessage,
+      assistantMessage('This message must not leak past the spawn boundary.'),
+    ]
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    expect(capturedSubAgentState.messageHistory).toEqual([
+      userRequest,
+      parentResponse,
+      { ...spawnMessage, content: spawnMessage.content.slice(0, 1) },
+    ])
+    expect(capturedSubAgentPrompt).toBe('Review the changes')
   })
 })

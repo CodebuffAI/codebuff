@@ -340,8 +340,8 @@ const definition: AgentDefinition = {
     // how the 262,144-token models get a smaller one.
     const maxContextLength: number = params?.maxContextLength ?? 400_000
 
-    // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
-    // (these are inserted for the context-pruner subagent itself)
+    // STEP 0: Remove the last INSTRUCTIONS_PROMPT and any legacy
+    // SUBAGENT_SPAWN announcement.
     let currentMessages = [...messages]
     const lastInstructionsPromptIndex = currentMessages.findLastIndex(
       (message) => message.tags?.includes('INSTRUCTIONS_PROMPT'),

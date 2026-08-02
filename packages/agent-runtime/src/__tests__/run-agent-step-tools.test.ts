@@ -31,6 +31,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 describe('runAgentStep - set_output tool', () => {
@@ -159,6 +160,20 @@ describe('runAgentStep - set_output tool', () => {
     agentTemplates: {},
     customToolDefinitions: {},
   }
+
+  const createAgent = (
+    id: string,
+    overrides: Partial<AgentTemplate> = {},
+  ): AgentTemplate => ({
+    ...testAgent,
+    id,
+    displayName: id,
+    outputMode: 'last_message',
+    toolNames: [],
+    spawnableAgents: [],
+    stepPrompt: '',
+    ...overrides,
+  })
 
   it('should set output with simple key-value pair', async () => {
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
@@ -482,6 +497,187 @@ describe('runAgentStep - set_output tool', () => {
 
     expect(result.shouldEndTurn).toBe(false)
     expect(result.fullResponse).toBe('</think> ')
+  })
+
+  it('gives a streamed child only assistant content before its spawn call', async () => {
+    let childHistory: Message[] = []
+    const childAgent = createAgent('history-child', {
+      handleSteps: function* ({ agentState }) {
+        childHistory = structuredClone(agentState.messageHistory as Message[])
+      },
+    })
+    const parentAgent = createAgent('history-parent', {
+      toolNames: ['spawn_agents'],
+      spawnableAgents: ['history-child'],
+    })
+
+    runAgentStepBaseParams.promptAiSdkStream = async function* () {
+      yield { type: 'reasoning' as const, text: 'Reasoning before spawn.' }
+      yield { type: 'text' as const, text: 'Visible before spawn.' }
+      yield createToolCallChunk('spawn_agents', {
+        agents: [
+          { agent_type: 'history-child', prompt: 'Review the conclusion.' },
+        ],
+      })
+      yield { type: 'text' as const, text: 'Visible after spawn.' }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.messageHistory = [
+      userMessage('Work through the problem, then ask for a review.'),
+    ]
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: parentAgent.id,
+      localAgentTemplates: {
+        [parentAgent.id]: parentAgent,
+        [childAgent.id]: childAgent,
+      },
+      agentTemplate: parentAgent,
+      agentState: sessionState.mainAgentState,
+      prompt: 'Work through the problem, then ask for a review.',
+    })
+
+    const inheritedAssistantParts = childHistory
+      .filter((message) => message.role === 'assistant')
+      .flatMap((message) => message.content)
+    expect(inheritedAssistantParts).toContainEqual({
+      type: 'reasoning',
+      text: 'Reasoning before spawn.',
+    })
+    expect(inheritedAssistantParts).toContainEqual({
+      type: 'text',
+      text: 'Visible before spawn.',
+    })
+    expect(inheritedAssistantParts).not.toContainEqual({
+      type: 'text',
+      text: 'Visible after spawn.',
+    })
+    expect(
+      inheritedAssistantParts.some((part) => part.type === 'tool-call'),
+    ).toBe(false)
+  })
+
+  it('does not duplicate streamed history consumed by an inline child', async () => {
+    let childHistory: Message[] = []
+    const childAgent = createAgent('inline-history-child', {
+      inheritParentSystemPrompt: true,
+      handleSteps: function* ({ agentState }) {
+        childHistory = structuredClone(agentState.messageHistory as Message[])
+      },
+    })
+    const parentAgent = createAgent('inline-history-parent', {
+      toolNames: ['spawn_agent_inline'],
+      spawnableAgents: ['inline-history-child'],
+    })
+
+    runAgentStepBaseParams.promptAiSdkStream = async function* () {
+      yield { type: 'reasoning' as const, text: 'Reasoning before inline.' }
+      yield { type: 'text' as const, text: 'Visible before inline spawn.' }
+      yield createToolCallChunk('spawn_agent_inline', {
+        agent_type: 'inline-history-child',
+        prompt: 'Inspect the current transcript.',
+      })
+      yield { type: 'reasoning' as const, text: 'Reasoning between inline.' }
+      yield { type: 'text' as const, text: 'Visible between inline spawns.' }
+      yield createToolCallChunk('spawn_agent_inline', {
+        agent_type: 'inline-history-child',
+        prompt: 'Inspect the updated transcript.',
+      })
+      yield { type: 'text' as const, text: 'Visible after inline spawn.' }
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    sessionState.mainAgentState.messageHistory = [
+      userMessage('Inspect inline history handling.'),
+    ]
+
+    const result = await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: parentAgent.id,
+      localAgentTemplates: {
+        [parentAgent.id]: parentAgent,
+        [childAgent.id]: childAgent,
+      },
+      agentTemplate: parentAgent,
+      agentState: sessionState.mainAgentState,
+      prompt: 'Inspect inline history handling.',
+    })
+
+    const childText = childHistory
+      .filter((message) => message.role === 'assistant')
+      .flatMap((message) => message.content)
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+    expect(childText).toContain('Visible before inline spawn.')
+    expect(childText).toContain('Visible between inline spawns.')
+    expect(childText).not.toContain('Visible after inline spawn.')
+
+    const childReasoning = childHistory
+      .filter((message) => message.role === 'assistant')
+      .flatMap((message) => message.content)
+      .filter((part) => part.type === 'reasoning')
+      .map((part) => part.text)
+    expect(childReasoning).toContain('Reasoning before inline.')
+    expect(childReasoning).toContain('Reasoning between inline.')
+
+    const parentText = result.agentState.messageHistory
+      .filter((message) => message.role === 'assistant')
+      .flatMap((message) => message.content)
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+    expect(
+      parentText.filter((text) => text === 'Visible before inline spawn.'),
+    ).toHaveLength(1)
+    expect(
+      parentText.filter((text) => text === 'Visible between inline spawns.'),
+    ).toHaveLength(1)
+    expect(
+      parentText.filter((text) => text === 'Visible after inline spawn.'),
+    ).toHaveLength(1)
+    const parentReasoning = result.agentState.messageHistory
+      .filter((message) => message.role === 'assistant')
+      .flatMap((message) => message.content)
+      .filter((part) => part.type === 'reasoning')
+      .map((part) => part.text)
+    expect(parentReasoning).toEqual([
+      'Reasoning before inline.',
+      'Reasoning between inline.',
+    ])
+  })
+
+  it('does not drop pre-call text when an inline call is invalid', async () => {
+    const parentAgent = createAgent('invalid-inline-parent', {
+      toolNames: ['spawn_agent_inline'],
+    })
+
+    runAgentStepBaseParams.promptAiSdkStream = async function* () {
+      yield { type: 'text' as const, text: 'Keep this text.' }
+      yield createToolCallChunk('spawn_agent_inline', {})
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const result = await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: parentAgent.id,
+      localAgentTemplates: { [parentAgent.id]: parentAgent },
+      agentTemplate: parentAgent,
+      agentState: sessionState.mainAgentState,
+      prompt: 'Attempt an invalid inline spawn.',
+    })
+
+    const parentText = result.agentState.messageHistory
+      .filter((message) => message.role === 'assistant')
+      .flatMap((message) => message.content)
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+    expect(
+      parentText.filter((text) => text === 'Keep this text.'),
+    ).toHaveLength(1)
   })
 
   it('should spawn agent inline that deletes last two assistant messages', async () => {
