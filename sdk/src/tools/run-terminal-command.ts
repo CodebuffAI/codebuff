@@ -7,6 +7,7 @@ import type {
   ChildProcess,
   ChildProcessWithoutNullStreams,
 } from 'child_process'
+import type { Readable } from 'stream'
 
 import { stripColors } from '../../../common/src/util/string'
 import { getSystemProcessEnv } from '../env'
@@ -22,17 +23,33 @@ const INCOMPLETE_COLOR_SEQUENCE_REGEX = /\x1B\[[0-9;]*$/
 const KILL_ESCALATION_MS = 1500
 const PROCESS_EXIT_POLL_MS = 25
 
+export type TerminalCommandSpawnRequest = {
+  executable: string
+  args: string[]
+  cwd: string
+  env: NodeJS.ProcessEnv
+}
+
+/** A command process whose complete descendant tree has one owner. */
+export interface TerminalCommandProcess {
+  pid?: number
+  stdout: Readable
+  stderr: Readable
+  /** Settles after stdout/stderr drain; brokers also finish tree cleanup. */
+  completion: Promise<number | null>
+  kill(signal: NodeJS.Signals): void
+  isAlive(): boolean
+}
+
 /**
- * A host-provided boundary that isolates its interactive terminal from a
- * command before the child process exists. The returned lease is released only
- * after the command's complete process group has exited.
+ * Host-provided process boundary for interactive applications.
  *
- * Interactive hosts should fail closed: if `acquire()` cannot establish the
- * isolation it should throw, and the command will not be spawned. Headless SDK
- * consumers can omit this option entirely.
+ * A broker must start the requested executable without attaching it to the
+ * host's console and return a handle that owns the complete process tree.
+ * Headless SDK consumers can omit this and use the direct process runner.
  */
-export interface TerminalCommandIsolation {
-  acquire(): () => void
+export interface TerminalCommandBroker {
+  start(request: TerminalCommandSpawnRequest): TerminalCommandProcess
 }
 
 /**
@@ -155,7 +172,7 @@ function isProcessGroupAlive(child: ChildProcess): boolean {
 // Children are spawned detached on POSIX (own process group) so that abort and
 // timeout can kill the whole tree. That also detaches them from this process's
 // lifetime, so sweep any still-running children when this process exits.
-const liveChildren = new Set<ChildProcess>()
+const liveChildren = new Set<TerminalCommandProcess>()
 let exitSweepInstalled = false
 
 export type ActiveTerminalCommandProcess = {
@@ -186,7 +203,9 @@ function installExitSweep() {
   exitSweepInstalled = true
   process.on('exit', () => {
     for (const child of liveChildren) {
-      killProcessGroup(child, 'SIGKILL')
+      try {
+        child.kill('SIGKILL')
+      } catch {}
     }
   })
 }
@@ -267,6 +286,54 @@ export function rewriteWindowsNulRedirects(command: string): string {
   return command.replace(/([<>]\s*)nul(?![\w.])/gi, '$1/dev/null')
 }
 
+function spawnDirectTerminalCommand(
+  request: TerminalCommandSpawnRequest,
+): TerminalCommandProcess {
+  const child: ChildProcessWithoutNullStreams = spawn(
+    request.executable,
+    request.args,
+    {
+      cwd: request.cwd,
+      env: request.env,
+      stdio: 'pipe',
+      // The direct SDK runner owns a process group. Interactive hosts should
+      // provide a broker instead, so the shell never shares their console.
+      detached: true,
+      windowsHide: true,
+    },
+  )
+  const closed = new Promise<number | null>((resolve, reject) => {
+    child.once('error', reject)
+    child.once('close', resolve)
+  })
+  const completion = closed.then(async (exitCode) => {
+    if (os.platform() === 'win32' || !isProcessGroupAlive(child)) {
+      return exitCode
+    }
+
+    // SYNC commands do not transfer ownership of background descendants. Reap
+    // anything the shell detached after it reported successful completion.
+    killProcessGroup(child, 'SIGTERM')
+    const escalationAt = Date.now() + KILL_ESCALATION_MS
+    while (isProcessGroupAlive(child)) {
+      if (Date.now() >= escalationAt) {
+        killProcessGroup(child, 'SIGKILL')
+      }
+      await new Promise((resolve) => setTimeout(resolve, PROCESS_EXIT_POLL_MS))
+    }
+    return exitCode
+  })
+
+  return {
+    pid: child.pid,
+    stdout: child.stdout,
+    stderr: child.stderr,
+    completion,
+    kill: (signal) => killProcessGroup(child, signal),
+    isAlive: () => isProcessGroupAlive(child),
+  }
+}
+
 export function runTerminalCommand({
   command,
   process_type,
@@ -274,7 +341,7 @@ export function runTerminalCommand({
   timeout_seconds,
   env,
   signal,
-  terminalCommandIsolation,
+  terminalCommandBroker,
 }: {
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
@@ -282,7 +349,7 @@ export function runTerminalCommand({
   timeout_seconds: number
   env?: NodeJS.ProcessEnv
   signal?: AbortSignal
-  terminalCommandIsolation?: TerminalCommandIsolation
+  terminalCommandBroker?: TerminalCommandBroker
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
     throw new Error('BACKGROUND process_type not implemented')
@@ -339,62 +406,21 @@ export function runTerminalCommand({
     // Resolve cwd to absolute path
     const resolvedCwd = path.resolve(cwd)
 
-    // Acquire isolation synchronously before spawn. Some Windows descendants
-    // open CONIN$/CONOUT$ directly and bypass stdio pipes, so an interactive
-    // host must disable terminal-generated protocols before the child exists.
-    let releaseTerminalIsolation = () => {}
+    let childProcess: TerminalCommandProcess
     try {
-      releaseTerminalIsolation =
-        terminalCommandIsolation?.acquire() ?? (() => {})
-    } catch (error) {
-      reject(
-        new Error(
-          `Failed to isolate terminal command: ${error instanceof Error ? error.message : String(error)}`,
-        ),
-      )
-      return
-    }
-
-    let terminalIsolationReleased = false
-    const finishTerminalIsolation = () => {
-      if (terminalIsolationReleased) return
-      terminalIsolationReleased = true
-      try {
-        releaseTerminalIsolation()
-      } catch {
-        // Isolation teardown must not strand an otherwise completed command.
-        // Interactive hosts own diagnostics for their terminal transitions.
-      }
-    }
-
-    if (signal?.aborted) {
-      finishTerminalIsolation()
-      resolveAbortedBeforeSpawn()
-      return
-    }
-    let childProcess: ChildProcessWithoutNullStreams
-    try {
-      childProcess = spawn(shell, [...shellArgs, command], {
+      const request: TerminalCommandSpawnRequest = {
+        executable: shell,
+        args: [...shellArgs, command],
         cwd: resolvedCwd,
         env: processEnv,
-        stdio: 'pipe',
-        // Give the command its own process group so that killing it (timeout or
-        // user abort) also kills any grandchild processes. On POSIX this uses a
-        // negative pid kill against the process group. On Windows `detached: true`
-        // maps to DETACHED_PROCESS, which combined with CREATE_NO_WINDOW (from
-        // windowsHide) fully detaches the child from the parent's console.
-        // Without DETACHED_PROCESS, console-attached descendants can open
-        // CONIN$/CONOUT$ directly even when stdio is piped, stealing the VT input
-        // that ConPTY generates for the TUI's mouse/focus tracking and echoing it
-        // as gibberish like `^[[I^[[<35;12;7M` painted over the UI.
-        detached: true,
-        windowsHide: true,
-      })
+      }
+      childProcess = terminalCommandBroker
+        ? terminalCommandBroker.start(request)
+        : spawnDirectTerminalCommand(request)
     } catch (error) {
-      finishTerminalIsolation()
       reject(
         new Error(
-          `Failed to spawn command: ${error instanceof Error ? error.message : String(error)}`,
+          `${terminalCommandBroker ? 'Failed to start terminal command broker' : 'Failed to spawn command'}: ${error instanceof Error ? error.message : String(error)}`,
         ),
       )
       return
@@ -408,7 +434,6 @@ export function runTerminalCommand({
       if (childLifecycleFinished) return
       childLifecycleFinished = true
       liveChildren.delete(childProcess)
-      finishTerminalIsolation()
     }
 
     const stdout = new BoundedOutputBuffer(COMMAND_OUTPUT_LIMIT)
@@ -418,14 +443,14 @@ export function runTerminalCommand({
     let processFinished = false
 
     const finishWhenProcessGroupExits = () => {
-      if (!isProcessGroupAlive(childProcess)) {
+      if (!childProcess.isAlive()) {
         sigkillTimer = null
         finishTrackingChild()
         return
       }
 
       // Signal delivery does not imply that every process has exited yet. Keep
-      // terminal protocols disabled until the process group is actually gone.
+      // the command registered until the complete process group is gone.
       sigkillTimer = setTimeout(
         finishWhenProcessGroupExits,
         PROCESS_EXIT_POLL_MS,
@@ -434,12 +459,16 @@ export function runTerminalCommand({
     }
 
     const killChildProcess = () => {
-      killProcessGroup(childProcess, 'SIGTERM')
+      try {
+        childProcess.kill('SIGTERM')
+      } catch {}
       // Escalate in case the command traps or ignores SIGTERM.
       sigkillTimer = setTimeout(() => {
         sigkillTimer = null
-        if (isProcessGroupAlive(childProcess)) {
-          killProcessGroup(childProcess, 'SIGKILL')
+        if (childProcess.isAlive()) {
+          try {
+            childProcess.kill('SIGKILL')
+          } catch {}
         }
         finishWhenProcessGroupExits()
       }, KILL_ESCALATION_MS)
@@ -474,9 +503,12 @@ export function runTerminalCommand({
       childProcess.stderr.destroy()
     }
     signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      onAbort()
+    }
 
     // Set up timeout if timeout_seconds >= 0 (infinite timeout when < 0)
-    if (timeout_seconds >= 0) {
+    if (timeout_seconds >= 0 && !processFinished) {
       timer = setTimeout(() => {
         if (!processFinished) {
           processFinished = true
@@ -500,68 +532,62 @@ export function runTerminalCommand({
     })
 
     // Handle process completion
-    childProcess.on('close', (exitCode) => {
-      if (sigkillTimer) {
-        // The shell can exit while a grandchild ignores SIGTERM. Keep both the
-        // registry entry and escalation timer in that case so the process
-        // group is still visible to diagnostics and receives SIGKILL.
-        if (!isProcessGroupAlive(childProcess)) {
-          clearTimeout(sigkillTimer)
-          sigkillTimer = null
+    childProcess.completion
+      .then((exitCode) => {
+        if (sigkillTimer) {
+          // A process can exit while a descendant ignores SIGTERM. Keep both
+          // the registry entry and escalation timer until the owned tree dies.
+          if (!childProcess.isAlive()) {
+            clearTimeout(sigkillTimer)
+            sigkillTimer = null
+            finishTrackingChild()
+          }
+        } else {
           finishTrackingChild()
         }
-      } else {
-        finishTrackingChild()
-      }
 
-      if (processFinished) return
-      processFinished = true
+        if (processFinished) return
+        processFinished = true
 
-      if (timer) {
-        clearTimeout(timer)
-      }
-      signal?.removeEventListener('abort', onAbort)
+        if (timer) {
+          clearTimeout(timer)
+        }
+        signal?.removeEventListener('abort', onAbort)
 
-      // Truncate stdout to prevent excessive output
-      const truncatedStdout = stdout.format()
-      const truncatedStderr = stderr.format()
+        const truncatedStdout = stdout.format()
+        const truncatedStderr = stderr.format()
 
-      // Include stderr in stdout for compatibility with existing behavior
-      const combinedOutput = {
-        command,
-        stdout: truncatedStdout,
-        ...(truncatedStderr ? { stderr: truncatedStderr } : {}),
-        ...(exitCode !== null ? { exitCode } : {}),
-      }
+        const combinedOutput = {
+          command,
+          stdout: truncatedStdout,
+          ...(truncatedStderr ? { stderr: truncatedStderr } : {}),
+          ...(exitCode !== null ? { exitCode } : {}),
+        }
 
-      resolve([{ type: 'json', value: combinedOutput }])
-    })
+        resolve([{ type: 'json', value: combinedOutput }])
+      })
+      .catch((error: unknown) => {
+        const wasFinished = processFinished
+        processFinished = true
 
-    // `error` can mean either spawn failure or a later failure to signal the
-    // process. Never drop tracking for the latter while the process is alive.
-    childProcess.on('error', (error) => {
-      const wasFinished = processFinished
-      processFinished = true
+        if (timer) {
+          clearTimeout(timer)
+        }
+        signal?.removeEventListener('abort', onAbort)
 
-      if (timer) {
-        clearTimeout(timer)
-      }
-      signal?.removeEventListener('abort', onAbort)
+        if (childProcess.isAlive()) {
+          if (!sigkillTimer) killChildProcess()
+        } else {
+          finishTrackingChild()
+        }
 
-      const childStillAlive = isProcessGroupAlive(childProcess)
-      if (childStillAlive) {
-        if (!sigkillTimer) killChildProcess()
-      } else {
-        finishTrackingChild()
-      }
+        if (wasFinished) return
 
-      if (wasFinished) return
-
-      reject(
-        new Error(
-          `${childProcess.pid ? 'Terminal command process failed' : 'Failed to spawn command'}: ${error.message}`,
-        ),
-      )
-    })
+        reject(
+          new Error(
+            `${terminalCommandBroker ? 'Terminal command broker failed' : childProcess.pid ? 'Terminal command process failed' : 'Failed to spawn command'}: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        )
+      })
   })
 }

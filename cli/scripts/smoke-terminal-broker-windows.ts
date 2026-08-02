@@ -90,7 +90,7 @@ function terminateProcessTree(child: ChildProcess): void {
 
 async function main(): Promise<void> {
   if (process.platform !== 'win32') {
-    throw new Error('packaged terminal isolation smoke must run on Windows')
+    throw new Error('packaged command broker smoke must run on Windows')
   }
 
   const binary = path.resolve(process.argv[2] ?? '')
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
 
   const outputRoot = path.resolve(
     process.env.CODEBUFF_TERMINAL_SMOKE_OUTPUT_DIR ??
-      path.join(process.cwd(), 'debug', 'windows-terminal-isolation-smoke'),
+      path.join(process.cwd(), 'debug', 'windows-terminal-broker-smoke'),
   )
   const runDir = path.join(
     outputRoot,
@@ -110,15 +110,15 @@ async function main(): Promise<void> {
   )
   mkdirSync(runDir, { recursive: true })
   const resultPath = path.join(runDir, 'result.json')
-  const readyPath = path.join(runDir, 'isolation-ready')
+  const readyPath = path.join(runDir, 'broker-ready')
   const reportsSentPath = path.join(runDir, 'reports-sent')
   const transcriptPath = path.join(runDir, 'transcript.bin')
   const visibleTranscriptPath = path.join(runDir, 'transcript.txt')
 
   const winpty = findWinpty()
-  console.log(`terminal-isolation-smoke: binary=${binary}`)
-  console.log(`terminal-isolation-smoke: winpty=${winpty}`)
-  console.log(`terminal-isolation-smoke: artifacts=${runDir}`)
+  console.log(`terminal-broker-smoke: binary=${binary}`)
+  console.log(`terminal-broker-smoke: winpty=${winpty}`)
+  console.log(`terminal-broker-smoke: artifacts=${runDir}`)
 
   const child = spawn(
     winpty,
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
       '-Xallow-non-tty',
       '--',
       binary,
-      '--smoke-terminal-isolation',
+      '--smoke-terminal-broker',
       resultPath,
       runDir,
     ],
@@ -164,7 +164,7 @@ async function main(): Promise<void> {
       waitFor(
         () => existsSync(readyPath),
         20_000,
-        'packaged CLI never reached active command isolation',
+        'packaged CLI never reached an active brokered command',
       ),
       closed.then((code) => {
         throw new Error(`packaged CLI exited before report injection (${code})`)
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
     }
     if (result.ok !== true) {
       throw new Error(
-        `packaged CLI isolation smoke failed (exit code ${exitCode}): ${result.error ?? 'unknown failure'}`,
+        `packaged CLI command broker smoke failed (exit code ${exitCode}): ${result.error ?? 'unknown failure'}`,
       )
     }
 
@@ -233,12 +233,12 @@ async function main(): Promise<void> {
         throw new Error(`winpty exited unexpectedly with code ${exitCode}`)
       }
       console.warn(
-        'terminal-isolation-smoke: ignoring winpty zero-size teardown assertion after the packaged CLI passed',
+        'terminal-broker-smoke: ignoring winpty zero-size teardown assertion after the packaged CLI passed',
       )
     }
 
     console.log(
-      'terminal-isolation-smoke: OK — commands ran, queued reports stayed isolated, overlap/cancellation restored protocols, and acquisition failure was actionable.',
+      'terminal-broker-smoke: OK — brokered commands had no console, terminal protocols stayed live, overlap/cancellation were independent, and startup failure was actionable.',
     )
   } catch (error) {
     terminateProcessTree(child)
@@ -246,10 +246,10 @@ async function main(): Promise<void> {
     const transcript = Buffer.concat(chunks)
     writeFileSync(transcriptPath, transcript)
     writeFileSync(visibleTranscriptPath, visibleTranscript(transcript))
-    console.error(`terminal-isolation-smoke: FAIL: ${error}`)
-    console.error(`terminal-isolation-smoke: result=${resultPath}`)
+    console.error(`terminal-broker-smoke: FAIL: ${error}`)
+    console.error(`terminal-broker-smoke: result=${resultPath}`)
     console.error(
-      `terminal-isolation-smoke: transcript=${visibleTranscriptPath}`,
+      `terminal-broker-smoke: transcript=${visibleTranscriptPath}`,
     )
     if (existsSync(resultPath)) {
       console.error(readFileSync(resultPath, 'utf8'))
@@ -265,6 +265,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  console.error(`terminal-isolation-smoke: FAIL: ${error}`)
+  console.error(`terminal-broker-smoke: FAIL: ${error}`)
   process.exit(1)
 })

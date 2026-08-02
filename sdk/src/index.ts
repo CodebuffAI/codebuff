@@ -94,8 +94,12 @@ export {
   getActiveTerminalCommandProcesses,
   runTerminalCommand,
 } from './tools/run-terminal-command'
-export type { ActiveTerminalCommandProcess } from './tools/run-terminal-command'
-export type { TerminalCommandIsolation } from './tools/run-terminal-command'
+export type {
+  ActiveTerminalCommandProcess,
+  TerminalCommandBroker,
+  TerminalCommandProcess,
+  TerminalCommandSpawnRequest,
+} from './tools/run-terminal-command'
 export {
   promptAiSdk,
   promptAiSdkStream,

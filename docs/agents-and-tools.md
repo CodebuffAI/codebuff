@@ -19,24 +19,27 @@ base-lite "fix this bug"
 
 - Tool definitions live in `common/src/tools` and are executed via the SDK helpers + agent-runtime.
 
-### Terminal command isolation
+### Console-free terminal command broker
 
-`run_terminal_command` deliberately separates process ownership from terminal
-UI ownership:
+`run_terminal_command` separates process ownership from terminal UI ownership:
 
-- `sdk/src/tools/run-terminal-command.ts` owns the child process group, output,
-  cancellation, escalation, and diagnostics. It does not know about OpenTUI.
-- Interactive hosts can provide `terminalCommandIsolation` in
-  `CodebuffClientOptions` (or directly to `runTerminalCommand`). Its `acquire()`
-  method runs synchronously before `spawn` and returns an idempotent release
-  lease. An acquisition failure prevents the command from starting.
-- The CLI's `TerminalProtocolController` implements that capability. On Windows
-  it suspends mouse and focus reports while any command lease is active, keeps
-  keyboard input and rendering live, and restores the protocols only after the
-  final command process tree exits. It also owns focus-event parsing so OpenTUI
-  cannot independently restore terminal modes during isolation.
+- `sdk/src/tools/run-terminal-command.ts` owns output buffering, timeouts,
+  cancellation escalation, results, and process diagnostics. Headless SDK
+  consumers use its direct process-group runner.
+- Interactive hosts provide `terminalCommandBroker` in `CodebuffClientOptions`
+  (or directly to `runTerminalCommand`). Each call synchronously starts an
+  isolated helper and returns a handle for its complete process tree. A startup
+  failure prevents the shell from running; there is no direct-console fallback.
+- The CLI's tiny `src/entry.ts` handles private broker mode before importing
+  React or OpenTUI. The detached, hidden helper receives one spawn request over
+  stdin, starts the shell without a console or interactive stdin, relays only
+  stdout/stderr pipes, and reports completion on a private pipe. It remains the
+  process-group root until the parent sweeps the tree, and self-reaps if the
+  parent disappears first.
+- Mouse and focus protocols stay enabled while commands run. The
+  `TerminalProtocolController` only parses focus events; it has no command
+  lifecycle state to synchronize or restore.
 
-Do not add a process-global “command active” listener or write focus/mouse
-escape sequences from another CLI hook. Those patterns recreate an ordering gap
-between protocol suspension and process creation. Thread the isolation
-capability explicitly through any new terminal-command entry point instead.
+Thread the broker capability through every interactive command entry point.
+Do not bypass it with a direct `spawn`, add command-active terminal state, or
+fall back to the TUI process when broker startup fails.

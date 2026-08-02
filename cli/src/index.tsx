@@ -160,29 +160,28 @@ async function main(): Promise<void> {
 
   // Native-Windows release gate. The external harness starts the packaged
   // binary inside winpty so this exercises a real console, OpenTUI renderer,
-  // terminal protocol controller, Git Bash child, and SDK process lifecycle.
+  // console-free broker, Git Bash child, and SDK process lifecycle.
   // Keep this before commander.parse(), which intentionally knows nothing
   // about internal smoke-only flags.
-  const terminalIsolationSmokeIndex = process.argv.indexOf(
-    '--smoke-terminal-isolation',
+  const terminalBrokerSmokeIndex = process.argv.indexOf(
+    '--smoke-terminal-broker',
   )
   const endOfOptionsIndex = process.argv.indexOf('--')
-  const isTerminalIsolationSmoke =
-    terminalIsolationSmokeIndex !== -1 &&
-    (endOfOptionsIndex === -1 ||
-      terminalIsolationSmokeIndex < endOfOptionsIndex)
-  if (isTerminalIsolationSmoke) {
-    const resultPath = process.argv[terminalIsolationSmokeIndex + 1]
-    const exchangeDir = process.argv[terminalIsolationSmokeIndex + 2]
+  const isTerminalBrokerSmoke =
+    terminalBrokerSmokeIndex !== -1 &&
+    (endOfOptionsIndex === -1 || terminalBrokerSmokeIndex < endOfOptionsIndex)
+  if (isTerminalBrokerSmoke) {
+    const resultPath = process.argv[terminalBrokerSmokeIndex + 1]
+    const exchangeDir = process.argv[terminalBrokerSmokeIndex + 2]
     if (!resultPath || !exchangeDir) {
       console.error(
-        'terminal isolation smoke requires <result-path> <exchange-dir>',
+        'terminal broker smoke requires <result-path> <exchange-dir>',
       )
       process.exit(2)
     }
-    const { runPackagedTerminalIsolationSmoke } =
-      await import('./smoke/terminal-command-isolation')
-    const exitCode = await runPackagedTerminalIsolationSmoke({
+    const { runPackagedTerminalBrokerSmoke } =
+      await import('./smoke/terminal-command-broker')
+    const exitCode = await runPackagedTerminalBrokerSmoke({
       resultPath,
       exchangeDir,
     })

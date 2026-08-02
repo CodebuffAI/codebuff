@@ -84,7 +84,7 @@ async function testCLIWithTmux() {
       '30', // height
       'bun',
       'run',
-      'src/index.tsx',
+      'src/entry.ts',
       '--help',
     ])
     console.log('✅ Session created')

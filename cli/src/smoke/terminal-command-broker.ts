@@ -5,17 +5,13 @@ import path from 'path'
 
 import { installProcessCleanupHandlers } from '../utils/renderer-cleanup'
 import { startTerminalWatchdog } from '../utils/terminal-watchdog'
-import {
-  installTerminalProtocolController,
-  terminalCommandIsolation,
-} from '../utils/terminal-protocol-controller'
+import { terminalCommandBroker } from '../utils/terminal-command-broker'
+import { installTerminalProtocolController } from '../utils/terminal-protocol-controller'
 import { writeTerminalControlSync } from '../utils/terminal-io'
 
 import type { CliRenderer } from '@opentui/core'
 import type { CodebuffToolOutput } from '@codebuff/sdk'
 
-const ENABLE_FOCUS_REPORTING = '\x1b[?1004h'
-const DISABLE_FOCUS_REPORTING = '\x1b[?1004l'
 const WAIT_INTERVAL_MS = 25
 
 type TerminalResult =
@@ -30,14 +26,14 @@ type SmokeResult = {
   overlap?: {
     focusStates: boolean[]
     controlWrites: string[]
-    mouseDisabledDuringOverlap: boolean
-    mouseDisabledAfterFirstCancellation: boolean
-    mouseRestoredAfterFinalCommand: boolean
+    mouseStayedEnabledDuringOverlap: boolean
+    mouseStayedEnabledAfterCancellation: boolean
+    mouseStayedEnabledAfterCompletion: boolean
     firstCancellationMessage: string
     secondStdout: string
     consoleReaderStdout: string
   }
-  isolationFailure?: { message: string; commandStarted: boolean }
+  brokerFailure?: { message: string; commandStarted: boolean }
   error?: string
   stack?: string
 }
@@ -110,11 +106,9 @@ async function destroyRenderer(renderer: CliRenderer): Promise<void> {
     }
     const timeout = setTimeout(() => {
       renderer.removeListener('destroy', onDestroy)
-      if (renderer.isDestroyed) {
-        resolve()
-        return
-      }
-      reject(new Error('OpenTUI renderer did not finish destroying'))
+      renderer.isDestroyed
+        ? resolve()
+        : reject(new Error('OpenTUI renderer did not finish destroying'))
     }, 2_000)
     renderer.once('destroy', onDestroy)
     renderer.destroy()
@@ -141,7 +135,7 @@ function createConsoleReaderScript(markerPath: string): string {
   ].join('\r\n')
 }
 
-export async function runPackagedTerminalIsolationSmoke({
+export async function runPackagedTerminalBrokerSmoke({
   resultPath,
   exchangeDir,
 }: {
@@ -157,27 +151,21 @@ export async function runPackagedTerminalIsolationSmoke({
   let renderer: CliRenderer | null = null
 
   try {
-    assertSmoke(
-      process.platform === 'win32',
-      'terminal isolation acceptance smoke only runs on Windows',
-    )
+    assertSmoke(process.platform === 'win32', 'broker smoke requires Windows')
     assertSmoke(
       process.stdin.isTTY && process.stdout.isTTY,
-      'terminal isolation smoke requires a native Windows console',
+      'broker smoke requires a native Windows console',
     )
 
     mkdirSync(exchangeDir, { recursive: true })
-    const harnessReadyPath = path.join(exchangeDir, 'isolation-ready')
+    const harnessReadyPath = path.join(exchangeDir, 'broker-ready')
     const reportsSentPath = path.join(exchangeDir, 'reports-sent')
     const consoleReaderReadyPath = path.join(
       exchangeDir,
       'console-reader-ready',
     )
     const consoleReaderScriptPath = path.join(exchangeDir, 'console-reader.ps1')
-    const forbiddenSpawnPath = path.join(
-      exchangeDir,
-      'isolation-failure-spawned',
-    )
+    const forbiddenSpawnPath = path.join(exchangeDir, 'broker-failure-spawned')
     writeFileSync(
       consoleReaderScriptPath,
       createConsoleReaderScript(consoleReaderReadyPath),
@@ -199,7 +187,6 @@ export async function runPackagedTerminalIsolationSmoke({
       },
     })
     renderer.once('destroy', () => controller.dispose())
-
     const focusStates: boolean[] = []
     const unsubscribeFocus = controller.subscribeToFocus({
       onFocusChange: (focused) => focusStates.push(focused),
@@ -211,7 +198,7 @@ export async function runPackagedTerminalIsolationSmoke({
         process_type: 'SYNC',
         cwd: process.cwd(),
         timeout_seconds: 10,
-        terminalCommandIsolation,
+        terminalCommandBroker,
       }),
     )
     const simpleStdout = readString(simple, 'stdout')
@@ -243,27 +230,25 @@ export async function runPackagedTerminalIsolationSmoke({
       cwd: process.cwd(),
       timeout_seconds: 30,
       signal: firstAbort.signal,
-      terminalCommandIsolation,
+      terminalCommandBroker,
     })
     const secondRun = runTerminalCommand({
       command: `sleep 5; printf 'SECOND_DONE'`,
       process_type: 'SYNC',
       cwd: process.cwd(),
       timeout_seconds: 15,
-      terminalCommandIsolation,
+      terminalCommandBroker,
     })
 
-    const mouseDisabledDuringOverlap = renderer.useMouse === false
+    const mouseStayedEnabledDuringOverlap = renderer.useMouse === true
     assertSmoke(
-      mouseDisabledDuringOverlap,
-      'mouse reporting remained enabled during overlapping commands',
+      mouseStayedEnabledDuringOverlap,
+      'brokers changed mouse reporting',
     )
     assertSmoke(
-      controlWrites.slice(overlapWriteStart).join('') ===
-        DISABLE_FOCUS_REPORTING,
-      'overlapping commands did not share one focus-isolation transition',
+      controlWrites.length === overlapWriteStart,
+      'brokers changed focus reporting',
     )
-
     await waitFor(
       () => existsSync(consoleReaderReadyPath),
       10_000,
@@ -278,7 +263,7 @@ export async function runPackagedTerminalIsolationSmoke({
     await waitFor(
       () => focusStates.includes(false) && focusStates.includes(true),
       5_000,
-      'OpenTUI did not deliver injected focus activity to the controller',
+      'OpenTUI did not receive focus activity while commands ran',
     )
     await Bun.sleep(250)
 
@@ -289,53 +274,42 @@ export async function runPackagedTerminalIsolationSmoke({
       firstCancellationMessage.includes('aborted by the user'),
       'first overlapping command did not report cancellation',
     )
-    const mouseDisabledAfterFirstCancellation = renderer.useMouse === false
+    const mouseStayedEnabledAfterCancellation = renderer.useMouse === true
     assertSmoke(
-      mouseDisabledAfterFirstCancellation,
-      'canceling one overlapping command restored mouse reporting too early',
+      mouseStayedEnabledAfterCancellation,
+      'broker cancellation changed mouse reporting',
     )
 
     const second = asTerminalResult(await secondRun)
     const secondStdout = readString(second, 'stdout')
-    assertSmoke(
-      secondStdout === 'SECOND_DONE',
-      'the remaining overlapping command did not finish normally',
-    )
-    await waitFor(
-      () => renderer!.useMouse === true,
-      5_000,
-      'mouse reporting was not restored after the final process tree exited',
-    )
-    const mouseRestoredAfterFinalCommand = renderer.useMouse === true
+    assertSmoke(secondStdout === 'SECOND_DONE', 'overlapping command was lost')
+    const mouseStayedEnabledAfterCompletion = renderer.useMouse === true
     const overlapWrites = controlWrites.slice(overlapWriteStart)
     assertSmoke(
-      overlapWrites.join('') ===
-        DISABLE_FOCUS_REPORTING + ENABLE_FOCUS_REPORTING,
-      'focus reporting did not restore exactly once after the final command',
+      overlapWrites.length === 0,
+      'completion changed focus reporting',
     )
 
     const consoleReaderStdout = readString(first, 'stdout')
     assertSmoke(
       !consoleReaderStdout.includes('CONSOLE_LEAK_HEX:'),
-      'a command descendant read queued terminal reports from CONIN$',
+      'a command descendant read terminal reports from CONIN$',
+    )
+    assertSmoke(
+      consoleReaderStdout.includes('CONSOLE_UNAVAILABLE'),
+      'the command descendant still had a Windows console',
     )
     result.overlap = {
       focusStates,
       controlWrites: overlapWrites,
-      mouseDisabledDuringOverlap,
-      mouseDisabledAfterFirstCancellation,
-      mouseRestoredAfterFinalCommand,
+      mouseStayedEnabledDuringOverlap,
+      mouseStayedEnabledAfterCancellation,
+      mouseStayedEnabledAfterCompletion,
       firstCancellationMessage,
       secondStdout,
       consoleReaderStdout,
     }
 
-    unsubscribeFocus()
-    controller.dispose()
-    const failingController = installTerminalProtocolController(renderer, {
-      platform: 'win32',
-      writeControl: () => false,
-    })
     let failureMessage = ''
     try {
       await runTerminalCommand({
@@ -343,48 +317,53 @@ export async function runPackagedTerminalIsolationSmoke({
         process_type: 'SYNC',
         cwd: process.cwd(),
         timeout_seconds: 10,
-        terminalCommandIsolation,
+        terminalCommandBroker: {
+          start: () => {
+            throw new Error(
+              'isolated helper unavailable; restart Freebuff and try again',
+            )
+          },
+        },
       })
-      throw new Error('command unexpectedly started without terminal isolation')
+      throw new Error('command unexpectedly started without its broker')
     } catch (error) {
       failureMessage = error instanceof Error ? error.message : String(error)
-    } finally {
-      failingController.dispose()
     }
     assertSmoke(
-      failureMessage.includes('Restart Freebuff') &&
-        failureMessage.includes('Windows Terminal'),
-      'terminal isolation failure did not include actionable recovery guidance',
+      failureMessage.includes('Failed to start terminal command broker') &&
+        failureMessage.includes('restart Freebuff'),
+      'broker failure did not include actionable recovery guidance',
     )
     assertSmoke(
       !existsSync(forbiddenSpawnPath),
-      'terminal command spawned after isolation acquisition failed',
+      'command spawned after broker startup failed',
     )
-    assertSmoke(
-      renderer.useMouse === true,
-      'failed isolation acquisition did not roll back mouse state',
-    )
-    result.isolationFailure = {
+    result.brokerFailure = {
       message: failureMessage,
       commandStarted: existsSync(forbiddenSpawnPath),
     }
 
+    unsubscribeFocus()
+    controller.dispose()
     await destroyRenderer(renderer)
     result.ok = true
     writeResult(resultPath, result)
     return 0
   } catch (error) {
-    result.ok = false
     result.error = error instanceof Error ? error.message : String(error)
     if (error instanceof Error && error.stack) result.stack = error.stack
     if (renderer && !renderer.isDestroyed) {
       try {
         await destroyRenderer(renderer)
       } catch (cleanupError) {
-        result.error += `; cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
+        result.error += `; cleanup failed: ${errorMessage(cleanupError)}`
       }
     }
     writeResult(resultPath, result)
     return 1
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }

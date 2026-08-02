@@ -177,7 +177,7 @@ async function main() {
 
   const buildArgs = [
     'build',
-    'src/index.tsx',
+    'src/entry.ts',
     '--compile',
     '--production', // Required so compiled binaries use the production JSX runtime (avoids jsxDEV crashes).
     '--no-compile-autoload-bunfig', // User project bunfig.toml must not affect the standalone CLI.

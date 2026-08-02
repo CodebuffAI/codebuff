@@ -10,8 +10,8 @@ export interface UseTerminalFocusOptions {
 
 /**
  * Subscribe to the terminal protocol controller's parsed focus state. OpenTUI
- * owns protocol setup; the controller keeps detection live even when it must
- * suppress OpenTUI's mode restoration during a command.
+ * owns normal terminal input, while the controller enables focus reports for
+ * the lifetime of the active subscribers.
  */
 export function useTerminalFocus({
   onFocusChange,

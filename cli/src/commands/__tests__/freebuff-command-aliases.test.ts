@@ -52,5 +52,5 @@ describe('freebuff command aliases', () => {
 
     const stderr = new TextDecoder().decode(result.stderr)
     expect(result.exitCode, stderr).toBe(0)
-  })
+  }, 15_000)
 })

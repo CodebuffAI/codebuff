@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { spawnSync } from 'child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { basename, join } from 'path'
+import { PassThrough } from 'stream'
 
 import {
   BoundedOutputBuffer,
@@ -82,8 +83,8 @@ describe('BoundedOutputBuffer', () => {
 })
 
 describe('terminal command process diagnostics', () => {
-  test('does not spawn when terminal isolation cannot be acquired', async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), 'codebuff-isolation-failure-'))
+  test('does not run when the terminal command broker cannot start', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'codebuff-broker-failure-'))
     const marker = join(tempDir, 'spawned')
 
     try {
@@ -93,14 +94,14 @@ describe('terminal command process diagnostics', () => {
           process_type: 'SYNC',
           cwd: process.cwd(),
           timeout_seconds: 5,
-          terminalCommandIsolation: {
-            acquire: () => {
-              throw new Error('terminal unavailable')
+          terminalCommandBroker: {
+            start: () => {
+              throw new Error('broker unavailable')
             },
           },
         }),
       ).rejects.toThrow(
-        'Failed to isolate terminal command: terminal unavailable',
+        'Failed to start terminal command broker: broker unavailable',
       )
 
       expect(existsSync(marker)).toBe(false)
@@ -109,89 +110,43 @@ describe('terminal command process diagnostics', () => {
     }
   })
 
-  test('releases terminal isolation when process creation fails', async () => {
-    const lifecycle: string[] = []
-    const missingCwd = join(
-      tmpdir(),
-      `codebuff-missing-cwd-${crypto.randomUUID()}`,
-    )
-
-    await expect(
-      runTerminalCommand({
-        command: 'printf unreachable',
-        process_type: 'SYNC',
-        cwd: missingCwd,
-        timeout_seconds: 5,
-        terminalCommandIsolation: {
-          acquire: () => {
-            lifecycle.push('acquire')
-            return () => {
-              lifecycle.push('release')
-              throw new Error('release failed')
-            }
-          },
+  test('uses broker output and completion without spawning directly', async () => {
+    const stdout = new PassThrough()
+    const stderr = new PassThrough()
+    let requestedExecutable = ''
+    const resultPromise = runTerminalCommand({
+      command: `printf 'brokered'`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 5,
+      terminalCommandBroker: {
+        start: (request) => {
+          requestedExecutable = request.executable
+          queueMicrotask(() => {
+            stdout.end('brokered')
+            stderr.end()
+          })
+          return {
+            pid: 999_999,
+            stdout,
+            stderr,
+            completion: Promise.resolve(0),
+            kill: () => {},
+            isAlive: () => false,
+          }
         },
-      }),
-    ).rejects.toThrow('Failed to spawn command')
-    expect(lifecycle).toEqual(['acquire', 'release'])
-  })
-
-  test('holds a distinct isolation lease for each overlapping command', async () => {
-    let activeLeases = 0
-    let maxActiveLeases = 0
-    const terminalCommandIsolation = {
-      acquire: () => {
-        activeLeases++
-        maxActiveLeases = Math.max(maxActiveLeases, activeLeases)
-        return () => activeLeases--
       },
-    }
-    const firstController = new AbortController()
-    const secondController = new AbortController()
-
-    const firstRun = runTerminalCommand({
-      command: `bun -e "setInterval(() => {}, 1000)"`,
-      process_type: 'SYNC',
-      cwd: process.cwd(),
-      timeout_seconds: 30,
-      signal: firstController.signal,
-      terminalCommandIsolation,
-    })
-    const secondRun = runTerminalCommand({
-      command: `bun -e "setInterval(() => {}, 1000)"`,
-      process_type: 'SYNC',
-      cwd: process.cwd(),
-      timeout_seconds: 30,
-      signal: secondController.signal,
-      terminalCommandIsolation,
     })
 
-    try {
-      expect(activeLeases).toBe(2)
-      expect(maxActiveLeases).toBe(2)
-
-      firstController.abort()
-      await firstRun
-      for (let i = 0; i < 80 && activeLeases === 2; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 25))
-      }
-      expect(activeLeases).toBe(1)
-
-      secondController.abort()
-      await secondRun
-      for (let i = 0; i < 80 && activeLeases !== 0; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 25))
-      }
-      expect(activeLeases).toBe(0)
-    } finally {
-      firstController.abort()
-      secondController.abort()
-      await Promise.allSettled([firstRun, secondRun])
-    }
+    const [{ value }] = await resultPromise
+    expect(['bash', 'bash.exe']).toContain(
+      basename(requestedExecutable).toLowerCase(),
+    )
+    expect('stdout' in value ? value.stdout : '').toBe('brokered')
+    expect('exitCode' in value ? value.exitCode : null).toBe(0)
   })
 
   test('tracks a command until its process exits', async () => {
-    let isolationActive = false
     const existingPids = new Set(
       getActiveTerminalCommandProcesses().map((child) => child.pid),
     )
@@ -202,16 +157,7 @@ describe('terminal command process diagnostics', () => {
       cwd: process.cwd(),
       timeout_seconds: 30,
       signal: controller.signal,
-      terminalCommandIsolation: {
-        acquire: () => {
-          isolationActive = true
-          return () => {
-            isolationActive = false
-          }
-        },
-      },
     })
-    expect(isolationActive).toBe(true)
 
     const active = getActiveTerminalCommandProcesses()
     const tracked = active.find((child) => !existingPids.has(child.pid))
@@ -234,15 +180,11 @@ describe('terminal command process diagnostics', () => {
     expect(
       getActiveTerminalCommandProcesses().some((child) => child.pid === pid),
     ).toBe(false)
-    expect(isolationActive).toBe(false)
   })
 
   test('escalates when a grandchild ignores SIGTERM', async () => {
     if (process.platform === 'win32') return
 
-    let isolationActive = false
-    let processGroupAliveWhenReleased: boolean | undefined
-    let trackedPid: number | undefined
     const existingPids = new Set(
       getActiveTerminalCommandProcesses().map((child) => child.pid),
     )
@@ -253,29 +195,11 @@ describe('terminal command process diagnostics', () => {
       cwd: process.cwd(),
       timeout_seconds: 30,
       signal: controller.signal,
-      terminalCommandIsolation: {
-        acquire: () => {
-          isolationActive = true
-          return () => {
-            isolationActive = false
-            if (trackedPid !== undefined) {
-              try {
-                process.kill(-trackedPid, 0)
-                processGroupAliveWhenReleased = true
-              } catch {
-                processGroupAliveWhenReleased = false
-              }
-            }
-          }
-        },
-      },
     })
     const tracked = getActiveTerminalCommandProcesses().find(
       (child) => !existingPids.has(child.pid),
     )
     expect(tracked).toBeDefined()
-    trackedPid = tracked!.pid
-
     await new Promise((resolve) => setTimeout(resolve, 100))
     controller.abort()
     await run
@@ -284,7 +208,6 @@ describe('terminal command process diagnostics', () => {
         (child) => child.pid === tracked!.pid,
       ),
     ).toBe(true)
-    expect(isolationActive).toBe(true)
 
     const processGroupIsAlive = () => {
       try {
@@ -310,8 +233,6 @@ describe('terminal command process diagnostics', () => {
       ),
     ).toBe(false)
     expect(processGroupIsAlive()).toBe(false)
-    expect(isolationActive).toBe(false)
-    expect(processGroupAliveWhenReleased).toBe(false)
   })
 
   test('cancels a detached Windows grandchild with its terminal-tool tree', async () => {

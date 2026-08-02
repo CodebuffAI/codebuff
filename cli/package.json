@@ -8,14 +8,14 @@
   },
   "exports": {
     ".": {
-      "bun": "./src/index.tsx",
+      "bun": "./src/entry.ts",
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
   "scripts": {
-    "dev": "bun run prebuild:agents && bun run src/index.tsx --cwd ..",
+    "dev": "bun run prebuild:agents && bun run src/entry.ts --cwd ..",
     "prebuild:agents": "bun run scripts/prebuild-agents.ts",
     "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
     "release": "bun run scripts/release.ts",
