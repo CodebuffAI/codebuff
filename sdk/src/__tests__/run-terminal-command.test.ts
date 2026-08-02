@@ -9,6 +9,7 @@ import {
   getActiveTerminalCommandProcesses,
   rewriteWindowsNulRedirects,
   runTerminalCommand,
+  subscribeToTerminalCommandState,
 } from '../tools/run-terminal-command'
 
 describe('rewriteWindowsNulRedirects', () => {
@@ -82,7 +83,108 @@ describe('BoundedOutputBuffer', () => {
 })
 
 describe('terminal command process diagnostics', () => {
+  test('does not spawn when a state listener aborts before spawn', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'codebuff-reentrant-abort-'))
+    const marker = join(tempDir, 'spawned')
+    const controller = new AbortController()
+    const activityStates: boolean[] = []
+    const unsubscribe = subscribeToTerminalCommandState((active) => {
+      activityStates.push(active)
+      if (active) controller.abort()
+    })
+
+    try {
+      const [{ value }] = await runTerminalCommand({
+        command: `printf spawned > ${JSON.stringify(marker)}`,
+        process_type: 'SYNC',
+        cwd: process.cwd(),
+        timeout_seconds: 5,
+        signal: controller.signal,
+      })
+
+      expect(existsSync(marker)).toBe(false)
+      expect('message' in value ? value.message : '').toContain('cancelled')
+      expect(activityStates).toEqual([false, true, false])
+    } finally {
+      unsubscribe()
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  test('returns to inactive when process creation fails', async () => {
+    const activityStates: boolean[] = []
+    const unsubscribe = subscribeToTerminalCommandState((active) => {
+      activityStates.push(active)
+    })
+    const missingCwd = join(
+      tmpdir(),
+      `codebuff-missing-cwd-${crypto.randomUUID()}`,
+    )
+
+    try {
+      await expect(
+        runTerminalCommand({
+          command: 'printf unreachable',
+          process_type: 'SYNC',
+          cwd: missingCwd,
+          timeout_seconds: 5,
+        }),
+      ).rejects.toThrow('Failed to spawn command')
+      expect(activityStates).toEqual([false, true, false])
+    } finally {
+      unsubscribe()
+    }
+  })
+
+  test('reports only active/inactive edges for overlapping commands', async () => {
+    const activityStates: boolean[] = []
+    const unsubscribe = subscribeToTerminalCommandState((active) => {
+      activityStates.push(active)
+    })
+    const firstController = new AbortController()
+    const secondController = new AbortController()
+
+    const firstRun = runTerminalCommand({
+      command: `bun -e "setInterval(() => {}, 1000)"`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 30,
+      signal: firstController.signal,
+    })
+    const secondRun = runTerminalCommand({
+      command: `bun -e "setInterval(() => {}, 1000)"`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 30,
+      signal: secondController.signal,
+    })
+
+    try {
+      expect(activityStates).toEqual([false, true])
+
+      firstController.abort()
+      await firstRun
+      expect(activityStates).toEqual([false, true])
+
+      secondController.abort()
+      await secondRun
+      for (let i = 0; i < 80 && activityStates.at(-1) !== false; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 25))
+      }
+      expect(activityStates).toEqual([false, true, false])
+    } finally {
+      firstController.abort()
+      secondController.abort()
+      await Promise.allSettled([firstRun, secondRun])
+      unsubscribe()
+    }
+  })
+
   test('tracks a command until its process exits', async () => {
+    const activityStates: boolean[] = []
+    const unsubscribe = subscribeToTerminalCommandState((active) => {
+      activityStates.push(active)
+    })
     const existingPids = new Set(
       getActiveTerminalCommandProcesses().map((child) => child.pid),
     )
@@ -94,6 +196,7 @@ describe('terminal command process diagnostics', () => {
       timeout_seconds: 30,
       signal: controller.signal,
     })
+    expect(activityStates).toEqual([false, true])
 
     const active = getActiveTerminalCommandProcesses()
     const tracked = active.find((child) => !existingPids.has(child.pid))
@@ -116,11 +219,27 @@ describe('terminal command process diagnostics', () => {
     expect(
       getActiveTerminalCommandProcesses().some((child) => child.pid === pid),
     ).toBe(false)
+    expect(activityStates).toEqual([false, true, false])
+    unsubscribe()
   })
 
   test('escalates when a grandchild ignores SIGTERM', async () => {
     if (process.platform === 'win32') return
 
+    const activityStates: boolean[] = []
+    let processGroupAliveWhenReportedInactive: boolean | undefined
+    let trackedPid: number | undefined
+    const unsubscribe = subscribeToTerminalCommandState((active) => {
+      activityStates.push(active)
+      if (!active && trackedPid !== undefined) {
+        try {
+          process.kill(-trackedPid, 0)
+          processGroupAliveWhenReportedInactive = true
+        } catch {
+          processGroupAliveWhenReportedInactive = false
+        }
+      }
+    })
     const existingPids = new Set(
       getActiveTerminalCommandProcesses().map((child) => child.pid),
     )
@@ -136,6 +255,7 @@ describe('terminal command process diagnostics', () => {
       (child) => !existingPids.has(child.pid),
     )
     expect(tracked).toBeDefined()
+    trackedPid = tracked!.pid
 
     await new Promise((resolve) => setTimeout(resolve, 100))
     controller.abort()
@@ -145,6 +265,7 @@ describe('terminal command process diagnostics', () => {
         (child) => child.pid === tracked!.pid,
       ),
     ).toBe(true)
+    expect(activityStates.at(-1)).toBe(true)
 
     const processGroupIsAlive = () => {
       try {
@@ -170,6 +291,9 @@ describe('terminal command process diagnostics', () => {
       ),
     ).toBe(false)
     expect(processGroupIsAlive()).toBe(false)
+    expect(activityStates.at(-1)).toBe(false)
+    expect(processGroupAliveWhenReportedInactive).toBe(false)
+    unsubscribe()
   })
 
   test('cancels a detached Windows grandchild with its terminal-tool tree', async () => {

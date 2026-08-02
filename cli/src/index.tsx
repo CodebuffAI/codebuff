@@ -45,6 +45,7 @@ import {
   installProcessCleanupHandlers,
 } from './utils/renderer-cleanup'
 import { startTerminalWatchdog } from './utils/terminal-watchdog'
+import { installWindowsTerminalCommandGuard } from './utils/windows-terminal-command-guard'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
@@ -369,6 +370,9 @@ async function main(): Promise<void> {
   // Install the renderer-aware handlers before removing the startup safety net
   // so an installation failure still restores the terminal and reports itself.
   installProcessCleanupHandlers(renderer)
+  const removeWindowsTerminalCommandGuard =
+    installWindowsTerminalCommandGuard(renderer)
+  renderer.once('destroy', removeWindowsTerminalCommandGuard)
   process.removeListener('uncaughtException', earlyFatalHandler)
   process.removeListener('unhandledRejection', earlyFatalHandler)
 
