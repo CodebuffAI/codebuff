@@ -16,6 +16,7 @@ function createLauncher(productConfig) {
   const {
     packageName,
     displayName,
+    wrapperVersion = null,
     includeTreeSitterWasm = true,
     startupBanner = [],
     telemetryEvent = 'cli.update_codebuff_failed',
@@ -425,10 +426,16 @@ function createLauncher(productConfig) {
       if (!isTargetAllowedForThisMachine(metadataTarget)) {
         return null
       }
-      return metadata.version || null
+      return getMetadataVersion(metadata)
     } catch (error) {
       return null
     }
+  }
+
+  function getMetadataVersion(metadata) {
+    return typeof metadata?.version === 'string' && metadata.version
+      ? metadata.version
+      : null
   }
 
   function getCurrentMetadata() {
@@ -442,68 +449,63 @@ function createLauncher(productConfig) {
     }
   }
 
+  function parseVersion(version) {
+    if (typeof version !== 'string') return null
+
+    const match = version.match(
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/,
+    )
+    if (!match) return null
+
+    const prerelease = match[4]?.split('.') ?? []
+    if (prerelease.some((part) => /^0\d+$/.test(part))) return null
+
+    return {
+      main: match.slice(1, 4).map(BigInt),
+      prerelease,
+    }
+  }
+
   function compareVersions(v1, v2) {
-    if (!v1 || !v2) return 0
-
-    // Always update if the current version is not a valid semver
-    // e.g. 1.0.420-beta.1
-    if (!v1.match(/^\d+(\.\d+)*$/)) {
-      return -1
-    }
-
-    const parseVersion = (version) => {
-      const parts = version.split('-')
-      const mainParts = parts[0].split('.').map(Number)
-      const prereleaseParts = parts[1] ? parts[1].split('.') : []
-      return { main: mainParts, prerelease: prereleaseParts }
-    }
-
     const p1 = parseVersion(v1)
     const p2 = parseVersion(v2)
 
-    for (let i = 0; i < Math.max(p1.main.length, p2.main.length); i++) {
-      const n1 = p1.main[i] || 0
-      const n2 = p2.main[i] || 0
+    // Published package versions are valid semver. Treat malformed cached
+    // metadata as stale so the wrapper repairs it instead of trusting it.
+    if (!p1) return -1
+    if (!p2) return 1
 
-      if (n1 < n2) return -1
-      if (n1 > n2) return 1
+    for (let i = 0; i < p1.main.length; i++) {
+      if (p1.main[i] < p2.main[i]) return -1
+      if (p1.main[i] > p2.main[i]) return 1
     }
 
-    if (p1.prerelease.length === 0 && p2.prerelease.length === 0) {
-      return 0
-    } else if (p1.prerelease.length === 0) {
-      return 1
-    } else if (p2.prerelease.length === 0) {
-      return -1
-    } else {
-      for (
-        let i = 0;
-        i < Math.max(p1.prerelease.length, p2.prerelease.length);
-        i++
-      ) {
-        const pr1 = p1.prerelease[i] || ''
-        const pr2 = p2.prerelease[i] || ''
+    if (p1.prerelease.length === 0) {
+      return p2.prerelease.length === 0 ? 0 : 1
+    }
+    if (p2.prerelease.length === 0) return -1
 
-        const isNum1 = !isNaN(parseInt(pr1))
-        const isNum2 = !isNaN(parseInt(pr2))
+    for (
+      let i = 0;
+      i < Math.max(p1.prerelease.length, p2.prerelease.length);
+      i++
+    ) {
+      const identifier1 = p1.prerelease[i]
+      const identifier2 = p2.prerelease[i]
+      if (identifier1 === undefined) return -1
+      if (identifier2 === undefined) return 1
+      if (identifier1 === identifier2) continue
 
-        if (isNum1 && isNum2) {
-          const num1 = parseInt(pr1)
-          const num2 = parseInt(pr2)
-          if (num1 < num2) return -1
-          if (num1 > num2) return 1
-        } else if (isNum1 && !isNum2) {
-          return 1
-        } else if (!isNum1 && isNum2) {
-          return -1
-        } else if (pr1 < pr2) {
-          return -1
-        } else if (pr1 > pr2) {
-          return 1
-        }
+      const numeric1 = /^\d+$/.test(identifier1)
+      const numeric2 = /^\d+$/.test(identifier2)
+      if (numeric1 && numeric2) {
+        return BigInt(identifier1) < BigInt(identifier2) ? -1 : 1
       }
-      return 0
+      if (numeric1 !== numeric2) return numeric1 ? -1 : 1
+      return identifier1 < identifier2 ? -1 : 1
     }
+
+    return 0
   }
 
   function formatBytes(bytes) {
@@ -846,13 +848,31 @@ function createLauncher(productConfig) {
     installStagedBinary(stagedBinary)
   }
 
-  async function ensureBinaryExists() {
+  function getRequiredWrapperVersion(currentVersion) {
+    if (
+      !wrapperVersion ||
+      (currentVersion !== null &&
+        compareVersions(currentVersion, wrapperVersion) >= 0)
+    ) {
+      return null
+    }
+    return wrapperVersion
+  }
+
+  async function ensureBinaryReady() {
     const currentVersion = getCurrentVersion()
-    if (currentVersion !== null) {
+    const requiredWrapperVersion = getRequiredWrapperVersion(currentVersion)
+
+    if (currentVersion !== null && requiredWrapperVersion === null) {
       return
     }
 
-    const version = await getLatestVersion()
+    // npm installs update this JavaScript wrapper but intentionally preserve the
+    // downloaded binary. If that binary exits before the background update
+    // check starts, it can otherwise remain stuck forever. The wrapper and its
+    // release binary share a version, so repair that stale cache synchronously
+    // without adding a registry lookup to healthy launches.
+    const version = requiredWrapperVersion ?? (await getLatestVersion())
     if (!version) {
       console.error('❌ Failed to determine latest version')
       console.error('Please check your internet connection and try again')
@@ -864,6 +884,12 @@ function createLauncher(productConfig) {
     } catch (error) {
       term.clearLine()
       printDownloadFailure(error)
+      if (currentVersion !== null) {
+        console.error(
+          `Continuing with cached ${packageName} ${currentVersion}.`,
+        )
+        return
+      }
       process.exit(1)
     }
   }
@@ -1188,7 +1214,7 @@ function createLauncher(productConfig) {
     }
     if (startupBanner.length > 0) console.log('')
 
-    await ensureBinaryExists()
+    await ensureBinaryReady()
 
     const child = spawnInstalledBinary()
     const exitListener = attachExitHandler(child)
@@ -1213,6 +1239,9 @@ function createLauncher(productConfig) {
       getDefaultTargetKey,
       getCpuFeatureCachePath,
       getCurrentVersion,
+      getMetadataVersion,
+      getRequiredWrapperVersion,
+      ensureBinaryReady,
       isTargetAllowedForThisMachine,
       CONFIG,
     },

@@ -24,6 +24,7 @@ const { createLauncher } = require(
 const launcher = createLauncher({
   packageName: 'freebuff',
   displayName: 'Freebuff',
+  wrapperVersion: require('./package.json').version,
   telemetryEvent: 'cli.update_freebuff_failed',
 })
 

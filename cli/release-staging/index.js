@@ -21,6 +21,7 @@ const { createLauncher } = require(
 const launcher = createLauncher({
   packageName: 'codecane',
   displayName: 'Codecane',
+  wrapperVersion: require('./package.json').version,
   includeTreeSitterWasm: false,
   startupBanner: [
     '\x1b[1m\x1b[91m' + '='.repeat(60) + '\x1b[0m',

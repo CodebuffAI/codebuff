@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { EventEmitter } from 'node:events'
+import { createServer } from 'node:http'
 import {
   copyFileSync,
   mkdirSync,
@@ -9,12 +10,54 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { createRequire } from 'node:module'
+import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 const require = createRequire(import.meta.url)
+
+async function withLocalReleaseServer(
+  response: {
+    statusCode: number
+    body: string | Buffer
+    headers?: Record<string, string | number>
+  },
+  run: (requestedPaths: string[]) => Promise<void>,
+) {
+  const requestedPaths: string[] = []
+  const server = createServer((request, serverResponse) => {
+    requestedPaths.push(request.url ?? '')
+    serverResponse.writeHead(response.statusCode, response.headers)
+    serverResponse.end(response.body)
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+
+  const previousAppUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const previousNoProxy = process.env.NO_PROXY
+  const address = server.address() as AddressInfo
+  process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = `http://127.0.0.1:${address.port}`
+  process.env.NO_PROXY = '127.0.0.1'
+
+  try {
+    await run(requestedPaths)
+  } finally {
+    if (previousAppUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+    } else {
+      process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = previousAppUrl
+    }
+    if (previousNoProxy === undefined) {
+      delete process.env.NO_PROXY
+    } else {
+      process.env.NO_PROXY = previousNoProxy
+    }
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    )
+  }
+}
 
 const wrappers = [
   {
@@ -55,6 +98,10 @@ for (const wrapper of wrappers) {
         join(repoRoot, wrapper.directory, 'index.js'),
       )
       expect(wrapperModule.config).toMatchObject(wrapper.expectedConfig)
+      const packageJson = JSON.parse(
+        readFileSync(join(repoRoot, wrapper.directory, 'package.json'), 'utf8'),
+      )
+      expect(wrapperModule.config.wrapperVersion).toBe(packageJson.version)
     })
 
     test('has package-only lifecycle scripts', () => {
@@ -84,6 +131,10 @@ for (const wrapper of wrappers) {
         copyFileSync(
           join(repoRoot, wrapper.directory, 'index.js'),
           join(fixtureWrapperDir, 'index.js'),
+        )
+        copyFileSync(
+          join(repoRoot, wrapper.directory, 'package.json'),
+          join(fixtureWrapperDir, 'package.json'),
         )
 
         const fakeLauncher = (origin: string) => `
@@ -133,6 +184,164 @@ describe('shared release launcher safety', () => {
     expect(stageIndex).toBeGreaterThan(-1)
     expect(stopIndex).toBeGreaterThan(stageIndex)
     expect(installIndex).toBeGreaterThan(stopIndex)
+  })
+
+  test('requires the wrapper release only for missing or older binaries', () => {
+    const cases: Array<{
+      wrapperVersion: string
+      expectations: Array<[current: string | null, required: string | null]>
+    }> = [
+      {
+        wrapperVersion: '2.0.0',
+        expectations: [
+          [null, '2.0.0'],
+          ['1.9.9', '2.0.0'],
+          ['2.0.0-beta.7', '2.0.0'],
+          ['2.0.0', null],
+          ['2.1.0', null],
+          ['02.0.0', '2.0.0'],
+          ['2.0.0+cached', null],
+        ],
+      },
+      {
+        wrapperVersion: '2.0.0-beta.7',
+        expectations: [
+          ['2.0.0-beta.6', '2.0.0-beta.7'],
+          ['2.0.0-beta.7', null],
+          ['2.0.0-beta.8', null],
+          ['2.0.0', null],
+          ['2.0.0-beta.007', '2.0.0-beta.7'],
+        ],
+      },
+      {
+        wrapperVersion: '2.0.0-beta.9007199254740993',
+        expectations: [
+          ['2.0.0-beta.9007199254740992', '2.0.0-beta.9007199254740993'],
+          ['2.0.0-beta.9007199254740994', null],
+        ],
+      },
+    ]
+
+    for (const { wrapperVersion, expectations } of cases) {
+      const launcher = createLauncher({
+        packageName: 'test',
+        displayName: 'Test',
+        wrapperVersion,
+      })
+      for (const [currentVersion, requiredVersion] of expectations) {
+        expect(
+          launcher.__testing.getRequiredWrapperVersion(currentVersion),
+        ).toBe(requiredVersion)
+      }
+    }
+  })
+
+  test('repairs an older cached binary from the wrapper release', async () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'launcher-repair-'))
+    const configDir = join(fixtureRoot, 'config')
+    const archiveDir = join(fixtureRoot, 'archive')
+    const archivePath = join(fixtureRoot, 'release.tar.gz')
+    mkdirSync(configDir, { recursive: true })
+    mkdirSync(archiveDir, { recursive: true })
+
+    const launcher = createLauncher({
+      packageName: 'repair-test',
+      displayName: 'Repair Test',
+      wrapperVersion: '2.0.0',
+      includeTreeSitterWasm: false,
+      configDir,
+    })
+    const { CONFIG } = launcher.__testing
+    writeFileSync(CONFIG.binaryPath, 'stale binary')
+    writeFileSync(
+      CONFIG.metadataPath,
+      JSON.stringify({
+        version: '1.0.0',
+        target: process.platform + '-' + process.arch,
+      }),
+    )
+    writeFileSync(join(archiveDir, CONFIG.binaryName), 'replacement binary')
+
+    const tar = require('tar') as typeof import('tar')
+    await tar.c({ cwd: archiveDir, file: archivePath, gzip: true }, [
+      CONFIG.binaryName,
+    ])
+    const archive = readFileSync(archivePath)
+    try {
+      await withLocalReleaseServer(
+        {
+          statusCode: 200,
+          body: archive,
+          headers: {
+            'content-length': archive.byteLength,
+            'content-type': 'application/gzip',
+          },
+        },
+        async (requestedPaths) => {
+          await launcher.__testing.ensureBinaryReady()
+
+          expect(readFileSync(CONFIG.binaryPath, 'utf8')).toBe(
+            'replacement binary',
+          )
+          expect(
+            JSON.parse(readFileSync(CONFIG.metadataPath, 'utf8')),
+          ).toMatchObject({ version: '2.0.0' })
+          expect(requestedPaths[0]).toContain('/api/releases/download/2.0.0/')
+
+          await launcher.__testing.ensureBinaryReady()
+          expect(requestedPaths).toHaveLength(1)
+        },
+      )
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true })
+    }
+  })
+
+  test('accepts only non-empty string metadata versions', () => {
+    const launcher = createLauncher({
+      packageName: 'test',
+      displayName: 'Test',
+      wrapperVersion: '2.0.0',
+    })
+
+    expect(launcher.__testing.getMetadataVersion({ version: 1 })).toBeNull()
+    expect(launcher.__testing.getMetadataVersion({ version: '' })).toBeNull()
+    expect(launcher.__testing.getMetadataVersion(null)).toBeNull()
+  })
+
+  test('keeps a runnable cached binary when repair is unavailable', async () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'launcher-offline-'))
+    const launcher = createLauncher({
+      packageName: 'offline-test',
+      displayName: 'Offline Test',
+      wrapperVersion: '2.0.0',
+      includeTreeSitterWasm: false,
+      configDir: fixtureRoot,
+    })
+    const { CONFIG } = launcher.__testing
+    writeFileSync(CONFIG.binaryPath, 'cached binary')
+    writeFileSync(
+      CONFIG.metadataPath,
+      JSON.stringify({
+        version: '1.0.0',
+        target: process.platform + '-' + process.arch,
+      }),
+    )
+
+    try {
+      await withLocalReleaseServer(
+        { statusCode: 404, body: 'missing' },
+        async () => {
+          await launcher.__testing.ensureBinaryReady()
+          expect(readFileSync(CONFIG.binaryPath, 'utf8')).toBe('cached binary')
+          expect(
+            JSON.parse(readFileSync(CONFIG.metadataPath, 'utf8')),
+          ).toMatchObject({ version: '1.0.0' })
+        },
+      )
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true })
+    }
   })
 
   test('gives the binary its launcher pid', () => {
