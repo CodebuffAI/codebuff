@@ -12,9 +12,8 @@ import type z from 'zod/v4'
 /** Auto-recovered stream endings (see sdk/src/impl/stream-interruption.ts):
  *  - 'stream-interrupted': the stream ended without a finish marker
  *    (connection cut mid-response — a server deploy or network drop).
- *  - 'output-limit': the stream finished with reason 'length' having produced
- *    only reasoning — the model burned its output budget thinking and never
- *    answered. */
+ *  - 'output-limit': the stream produced only reasoning and no usable answer,
+ *    either by reaching its output limit or by reporting a normal stop. */
 export type StreamRecoverySource = 'stream-interrupted' | 'output-limit'
 
 export type StreamChunk =

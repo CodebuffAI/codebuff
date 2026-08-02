@@ -342,6 +342,9 @@ export async function* promptAiSdkStream(
 
   // Track if we've yielded any content - if so, we can't safely fall back
   let hasYieldedContent = false
+  // Native reasoning is not visible answer content, but it distinguishes a
+  // silent model stop from a legitimate empty completion.
+  let hasReceivedReasoning = false
   // Tool calls tracked separately: a step that produced tool calls is
   // actionable even with no text, so it is never a silent stop.
   let hasYieldedToolCall = false
@@ -459,6 +462,9 @@ export async function* promptAiSdkStream(
       throw chunkValue.error
     }
     if (chunkValue.type === 'reasoning-delta') {
+      if (chunkValue.text) {
+        hasReceivedReasoning = true
+      }
       const reasoningExcluded = (['openrouter', 'codebuff'] as const).some(
         (p) =>
           (params.providerOptions?.[p] as OpenRouterProviderOptions | undefined)
@@ -517,12 +523,13 @@ export async function* promptAiSdkStream(
     classifyStreamEndRecovery({
       aborted: params.signal.aborted,
       finish: finishInfo,
+      receivedReasoning: hasReceivedReasoning,
       yieldedText: hasYieldedContent,
       yieldedToolCall: hasYieldedToolCall,
     })
   if (recovery) {
     // The stream ended in a recoverable silent stop (connection cut, or
-    // output budget burned on reasoning). Yield an error chunk instead of
+    // reasoning ended without an answer). Yield an error chunk instead of
     // ending like a normal completion: the agent loop appends the note to
     // the conversation and forces another step (with a consecutive cap), so
     // the model continues rather than the turn silently stopping.
@@ -544,6 +551,7 @@ export async function* promptAiSdkStream(
         userInputId: params.userInputId,
         finishReason: finishInfo?.finishReason,
         hasYieldedContent,
+        hasReceivedReasoning,
       },
       'Completion stream ended without a usable response; forcing a retry step',
     )

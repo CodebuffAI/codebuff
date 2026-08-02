@@ -37,12 +37,12 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 /** History tags for the notes appended when a step's stream ends without a
  *  usable response and the loop auto-retries (see
  *  sdk/src/impl/stream-interruption.ts for detection): the connection was cut
- *  mid-response, or the model burned its output budget on reasoning. */
+ *  mid-response, or the model ended after reasoning without an answer. */
 export const STREAM_INTERRUPTED_TAG = 'STREAM_INTERRUPTED'
 export const OUTPUT_LIMIT_TAG = 'OUTPUT_LIMIT'
 
 /** How many back-to-back recovery retries (nothing but the model's partial
- *  output between them, interruption and output-limit combined) run before
+ *  output between them, interruption and reasoning-only combined) run before
  *  the turn fails loudly. One covers the deploy/network blip or one-off
  *  thinking overrun this retry exists for; a run of them means every attempt
  *  is failing the same way. */
@@ -52,7 +52,7 @@ export const REPEATED_STREAM_INTERRUPTIONS_MESSAGE =
   'The connection kept dropping mid-response after several retries. Please check your network connection and try again.'
 
 export const REPEATED_OUTPUT_LIMIT_MESSAGE =
-  'The model kept hitting its output token limit while reasoning, without producing a response. Try a simpler request or a different model.'
+  'The model kept ending after reasoning without producing a response. Try a simpler request or a different model.'
 
 const RECOVERY_BY_SOURCE: Record<
   StreamRecoverySource,

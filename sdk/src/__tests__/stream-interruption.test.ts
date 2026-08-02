@@ -6,7 +6,11 @@ import {
   streamFinishInfoOf,
 } from '../impl/stream-interruption'
 
-const noYields = { yieldedText: false, yieldedToolCall: false }
+const noYields = {
+  receivedReasoning: false,
+  yieldedText: false,
+  yieldedToolCall: false,
+}
 
 describe('classifyStreamEndRecovery', () => {
   it('classifies a stream that ended without any finish part as interrupted', () => {
@@ -23,6 +27,7 @@ describe('classifyStreamEndRecovery', () => {
       classifyStreamEndRecovery({
         aborted: false,
         finish: { finishReason: 'unknown', hasUsage: false },
+        receivedReasoning: false,
         yieldedText: true,
         yieldedToolCall: false,
       })?.source,
@@ -39,11 +44,33 @@ describe('classifyStreamEndRecovery', () => {
     expect(recovery?.message).toContain('output token limit')
   })
 
+  it('classifies a normal finish with reasoning but no text or tool calls', () => {
+    const recovery = classifyStreamEndRecovery({
+      aborted: false,
+      finish: { finishReason: 'stop', hasUsage: true },
+      receivedReasoning: true,
+      yieldedText: false,
+      yieldedToolCall: false,
+    })
+    expect(recovery?.source).toBe('output-limit')
+    expect(recovery?.message).toContain(
+      'ended after reasoning without producing an answer or tool call',
+    )
+  })
+
   it('leaves a length stop after real output alone', () => {
     // The answer ran long — retrying would duplicate output.
     for (const yields of [
-      { yieldedText: true, yieldedToolCall: false },
-      { yieldedText: false, yieldedToolCall: true },
+      {
+        receivedReasoning: true,
+        yieldedText: true,
+        yieldedToolCall: false,
+      },
+      {
+        receivedReasoning: true,
+        yieldedText: false,
+        yieldedToolCall: true,
+      },
     ]) {
       expect(
         classifyStreamEndRecovery({

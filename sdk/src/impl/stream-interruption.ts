@@ -15,12 +15,12 @@
  * complete stream, while `'unknown'` *without* usage means the tail was never
  * received. A missing finish part altogether is always an interruption.
  *
- * **'output-limit'** — the model spent its entire output budget on reasoning:
- * the stream finished with reason 'length' having produced no text and no
- * tool calls. A complete, well-formed stream, but the turn would end with
- * nothing visible, exactly like a cut. Only reasoning-only completions
- * qualify: a 'length' stop after real output is the answer running long,
- * which is not silently recoverable (retrying would duplicate output).
+ * **'output-limit'** — the model produced no text or tool calls because it
+ * either spent its output budget on reasoning (`length`) or reported a normal
+ * stop after emitting only native reasoning. Both are complete, well-formed
+ * streams whose turns would otherwise end with nothing visible. A `length`
+ * stop after real output is the answer running long, which is not silently
+ * recoverable (retrying would duplicate output).
  *
  * Before this existed, both classes read as the agent "randomly stopping"
  * mid-thinking with no error anywhere (2026-07-17 incident).
@@ -73,6 +73,14 @@ const OUTPUT_LIMIT_RECOVERY: StreamEndRecovery = {
     'The response hit its output token limit while still reasoning, so no answer was produced. Redo this step thinking much more briefly, and get to the response or tool calls quickly.',
 }
 
+const REASONING_ONLY_RECOVERY: StreamEndRecovery = {
+  // Keep the existing source so this follows the same bounded retry path,
+  // while the message stays truthful for a normal stop.
+  source: 'output-limit',
+  message:
+    'The response ended after reasoning without producing an answer or tool call. Continue this step, think more briefly, and get to the response or tool calls quickly.',
+}
+
 /**
  * Decide whether a completed fullStream ended in a recoverable silent stop.
  * Returns the recovery to yield as an error chunk, or null for normal
@@ -83,10 +91,12 @@ export function classifyStreamEndRecovery(params: {
   aborted: boolean
   /** Info from the stream's `finish` part, or undefined if none arrived. */
   finish: StreamFinishInfo | undefined
+  receivedReasoning: boolean
   yieldedText: boolean
   yieldedToolCall: boolean
 }): StreamEndRecovery | null {
-  const { aborted, finish, yieldedText, yieldedToolCall } = params
+  const { aborted, finish, receivedReasoning, yieldedText, yieldedToolCall } =
+    params
   if (aborted) return null
 
   const interrupted =
@@ -94,9 +104,13 @@ export function classifyStreamEndRecovery(params: {
     (finish.finishReason === 'unknown' && !finish.hasUsage)
   if (interrupted) return STREAM_INTERRUPTED_RECOVERY
 
-  const reasoningOnlyLength =
-    finish.finishReason === 'length' && !yieldedText && !yieldedToolCall
-  if (reasoningOnlyLength) return OUTPUT_LIMIT_RECOVERY
+  if (yieldedText || yieldedToolCall) return null
+
+  if (finish.finishReason === 'length') return OUTPUT_LIMIT_RECOVERY
+
+  const reasoningOnlyStop =
+    finish.finishReason === 'stop' && receivedReasoning
+  if (reasoningOnlyStop) return REASONING_ONLY_RECOVERY
 
   return null
 }

@@ -13,8 +13,8 @@ export const printModeErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
   /** Auto-recovered stream endings ('stream-interrupted': connection cut
-   *  mid-response; 'output-limit': output budget burned on reasoning with no
-   *  answer). The agent loop is automatically taking another step; UIs show a
+   *  mid-response; 'output-limit': reasoning ended with no usable answer).
+   *  The agent loop is automatically taking another step; UIs show a
    *  transient retrying indicator rather than a failure. */
   source: z.enum(['stream-interrupted', 'output-limit']).optional(),
 })
