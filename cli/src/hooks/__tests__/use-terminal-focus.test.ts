@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 
-import { parseFocusState } from '../use-terminal-focus'
+import { parseFocusState } from '../../utils/terminal-protocol-controller'
 
 const FOCUS_IN = '\x1b[I'
 const FOCUS_OUT = '\x1b[O'

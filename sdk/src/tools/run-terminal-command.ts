@@ -22,54 +22,17 @@ const INCOMPLETE_COLOR_SEQUENCE_REGEX = /\x1B\[[0-9;]*$/
 const KILL_ESCALATION_MS = 1500
 const PROCESS_EXIT_POLL_MS = 25
 
-const terminalCommandStateListeners = new Set<(active: boolean) => void>()
-let activeTerminalCommandCount = 0
-
-function notifyTerminalCommandState(active: boolean): void {
-  for (const listener of terminalCommandStateListeners) {
-    try {
-      listener(active)
-    } catch {
-      // Terminal safety hooks must never prevent a command from starting or
-      // completing. Consumers own any logging for their listener failures.
-    }
-  }
-}
-
-function beginTerminalCommandTracking(): () => void {
-  activeTerminalCommandCount++
-  if (activeTerminalCommandCount === 1) {
-    notifyTerminalCommandState(true)
-  }
-
-  let finished = false
-  return () => {
-    if (finished) return
-    finished = true
-    activeTerminalCommandCount--
-    if (activeTerminalCommandCount === 0) {
-      notifyTerminalCommandState(false)
-    }
-  }
-}
-
 /**
- * Subscribe to whether any terminal command process tree is still active. The
- * current state is delivered immediately so late subscribers cannot
- * miss an already-running command.
+ * A host-provided boundary that isolates its interactive terminal from a
+ * command before the child process exists. The returned lease is released only
+ * after the command's complete process group has exited.
+ *
+ * Interactive hosts should fail closed: if `acquire()` cannot establish the
+ * isolation it should throw, and the command will not be spawned. Headless SDK
+ * consumers can omit this option entirely.
  */
-export function subscribeToTerminalCommandState(
-  listener: (active: boolean) => void,
-): () => void {
-  terminalCommandStateListeners.add(listener)
-  try {
-    listener(activeTerminalCommandCount > 0)
-  } catch {
-    // Match notification behavior: a UI safety hook cannot break the SDK.
-  }
-  return () => {
-    terminalCommandStateListeners.delete(listener)
-  }
+export interface TerminalCommandIsolation {
+  acquire(): () => void
 }
 
 /**
@@ -311,6 +274,7 @@ export function runTerminalCommand({
   timeout_seconds,
   env,
   signal,
+  terminalCommandIsolation,
 }: {
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
@@ -318,6 +282,7 @@ export function runTerminalCommand({
   timeout_seconds: number
   env?: NodeJS.ProcessEnv
   signal?: AbortSignal
+  terminalCommandIsolation?: TerminalCommandIsolation
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
     throw new Error('BACKGROUND process_type not implemented')
@@ -374,15 +339,36 @@ export function runTerminalCommand({
     // Resolve cwd to absolute path
     const resolvedCwd = path.resolve(cwd)
 
-    // Notify terminal UIs before spawn. Some Windows descendants open CONIN$/
-    // CONOUT$ directly, bypassing stdio pipes, so callers need a chance to
-    // disable terminal-generated mouse/focus protocols before the child exists.
-    const finishTerminalCommandTracking = beginTerminalCommandTracking()
-    // State listeners run synchronously to guarantee terminal modes are off
-    // before spawn. A listener may also abort this run, so close that re-entrant
-    // gap before creating a child that would miss the abort event.
+    // Acquire isolation synchronously before spawn. Some Windows descendants
+    // open CONIN$/CONOUT$ directly and bypass stdio pipes, so an interactive
+    // host must disable terminal-generated protocols before the child exists.
+    let releaseTerminalIsolation = () => {}
+    try {
+      releaseTerminalIsolation =
+        terminalCommandIsolation?.acquire() ?? (() => {})
+    } catch (error) {
+      reject(
+        new Error(
+          `Failed to isolate terminal command: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      )
+      return
+    }
+
+    let terminalIsolationReleased = false
+    const finishTerminalIsolation = () => {
+      if (terminalIsolationReleased) return
+      terminalIsolationReleased = true
+      try {
+        releaseTerminalIsolation()
+      } catch {
+        // Isolation teardown must not strand an otherwise completed command.
+        // Interactive hosts own diagnostics for their terminal transitions.
+      }
+    }
+
     if (signal?.aborted) {
-      finishTerminalCommandTracking()
+      finishTerminalIsolation()
       resolveAbortedBeforeSpawn()
       return
     }
@@ -405,7 +391,7 @@ export function runTerminalCommand({
         windowsHide: true,
       })
     } catch (error) {
-      finishTerminalCommandTracking()
+      finishTerminalIsolation()
       reject(
         new Error(
           `Failed to spawn command: ${error instanceof Error ? error.message : String(error)}`,
@@ -417,9 +403,12 @@ export function runTerminalCommand({
     liveChildren.add(childProcess)
     installExitSweep()
 
+    let childLifecycleFinished = false
     const finishTrackingChild = () => {
+      if (childLifecycleFinished) return
+      childLifecycleFinished = true
       liveChildren.delete(childProcess)
-      finishTerminalCommandTracking()
+      finishTerminalIsolation()
     }
 
     const stdout = new BoundedOutputBuffer(COMMAND_OUTPUT_LIMIT)
@@ -576,9 +565,3 @@ export function runTerminalCommand({
     })
   })
 }
-
-// Keep the lifecycle hook attached to the existing public terminal runner.
-// The SDK's ESM bundler can drop new bare re-exports while resolving its
-// generated aliases; a function property cannot drift out of sync with the
-// runner instance whose commands it observes.
-runTerminalCommand.subscribeToState = subscribeToTerminalCommandState

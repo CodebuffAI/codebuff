@@ -43,6 +43,7 @@ import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
 import { readUrl } from './tools/read-url'
 import { runTerminalCommand } from './tools/run-terminal-command'
+import type { TerminalCommandIsolation } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
@@ -114,6 +115,9 @@ export type CodebuffClientOptions = {
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
   env?: Record<string, string>
+  /** Optional host boundary that isolates an interactive terminal before each
+   * terminal tool process is spawned. Headless consumers should omit it. */
+  terminalCommandIsolation?: TerminalCommandIsolation
 
   handleEvent?: (event: PrintModeEvent) => void | Promise<void>
   handleStreamChunk?: (
@@ -291,6 +295,7 @@ async function runOnce({
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
+  terminalCommandIsolation,
 
   handleEvent,
   handleStreamChunk,
@@ -522,6 +527,7 @@ async function runOnce({
         cwd,
         fs,
         env,
+        terminalCommandIsolation,
         apiKey,
         signal,
       })
@@ -787,6 +793,7 @@ async function handleToolCall({
   cwd,
   fs,
   env,
+  terminalCommandIsolation,
   apiKey,
   signal,
 }: {
@@ -796,6 +803,7 @@ async function handleToolCall({
   cwd?: string
   fs: CodebuffFileSystem
   env?: Record<string, string>
+  terminalCommandIsolation?: TerminalCommandIsolation
   apiKey: string
   signal?: AbortSignal
 }): Promise<{ output: ToolResultOutput[] }> {
@@ -896,6 +904,7 @@ async function handleToolCall({
         cwd: path.resolve(resolvedCwd, input.cwd ?? '.'),
         env,
         signal,
+        terminalCommandIsolation,
       } as Parameters<typeof runTerminalCommand>[0])
     } else if (toolName === 'read_url') {
       result = await readUrl({

@@ -7,6 +7,7 @@ import { getCliEnv, getSystemProcessEnv } from './env'
 import { loadAgentDefinitions } from './local-agent-registry'
 import { logger } from './logger'
 import { createTraceWriter } from './trace-writer'
+import { terminalCommandIsolation } from './terminal-protocol-controller'
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
 
@@ -79,6 +80,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
         agentDefinitions,
         logger,
         traceWriter: createTraceWriter(),
+        terminalCommandIsolation,
         overrideTools: {
           ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
             const askUserResponse = await AskUserBridge.request(

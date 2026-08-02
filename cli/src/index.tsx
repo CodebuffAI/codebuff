@@ -45,7 +45,7 @@ import {
   installProcessCleanupHandlers,
 } from './utils/renderer-cleanup'
 import { startTerminalWatchdog } from './utils/terminal-watchdog'
-import { installWindowsTerminalCommandGuard } from './utils/windows-terminal-command-guard'
+import { installTerminalProtocolController } from './utils/terminal-protocol-controller'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
@@ -57,7 +57,7 @@ import type { FileTreeNode } from '@codebuff/common/util/file'
 // Without this, refetchInterval won't work because TanStack Query thinks the app is "unfocused"
 focusManager.setEventListener(() => {
   // No-op: no event listeners in CLI environment (no window focus/visibility events)
-  return () => { }
+  return () => {}
 })
 focusManager.setFocused(true)
 
@@ -104,7 +104,9 @@ async function main(): Promise<void> {
     try {
       dirListing = fs.readdirSync(execDir)
     } catch (err) {
-      dirListing = [`<readdir failed: ${err instanceof Error ? err.message : err}>`]
+      dirListing = [
+        `<readdir failed: ${err instanceof Error ? err.message : err}>`,
+      ]
     }
     console.error(
       `[smoke diag] execPath=${process.execPath}\n` +
@@ -154,6 +156,37 @@ async function main(): Promise<void> {
       console.error('tree-sitter smoke FAIL:', err)
       process.exit(1)
     }
+  }
+
+  // Native-Windows release gate. The external harness starts the packaged
+  // binary inside winpty so this exercises a real console, OpenTUI renderer,
+  // terminal protocol controller, Git Bash child, and SDK process lifecycle.
+  // Keep this before commander.parse(), which intentionally knows nothing
+  // about internal smoke-only flags.
+  const terminalIsolationSmokeIndex = process.argv.indexOf(
+    '--smoke-terminal-isolation',
+  )
+  const endOfOptionsIndex = process.argv.indexOf('--')
+  const isTerminalIsolationSmoke =
+    terminalIsolationSmokeIndex !== -1 &&
+    (endOfOptionsIndex === -1 ||
+      terminalIsolationSmokeIndex < endOfOptionsIndex)
+  if (isTerminalIsolationSmoke) {
+    const resultPath = process.argv[terminalIsolationSmokeIndex + 1]
+    const exchangeDir = process.argv[terminalIsolationSmokeIndex + 2]
+    if (!resultPath || !exchangeDir) {
+      console.error(
+        'terminal isolation smoke requires <result-path> <exchange-dir>',
+      )
+      process.exit(2)
+    }
+    const { runPackagedTerminalIsolationSmoke } =
+      await import('./smoke/terminal-command-isolation')
+    const exitCode = await runPackagedTerminalIsolationSmoke({
+      resultPath,
+      exchangeDir,
+    })
+    process.exit(exitCode)
   }
 
   // Run OSC theme detection BEFORE anything else.
@@ -370,9 +403,11 @@ async function main(): Promise<void> {
   // Install the renderer-aware handlers before removing the startup safety net
   // so an installation failure still restores the terminal and reports itself.
   installProcessCleanupHandlers(renderer)
-  const removeWindowsTerminalCommandGuard =
-    installWindowsTerminalCommandGuard(renderer)
-  renderer.once('destroy', removeWindowsTerminalCommandGuard)
+  const terminalProtocols = installTerminalProtocolController(renderer, {
+    onError: (error) =>
+      logger.debug(error, 'Terminal protocol transition failed'),
+  })
+  renderer.once('destroy', () => terminalProtocols.dispose())
   process.removeListener('uncaughtException', earlyFatalHandler)
   process.removeListener('unhandledRejection', earlyFatalHandler)
 

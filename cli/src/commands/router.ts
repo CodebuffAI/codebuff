@@ -23,6 +23,7 @@ import {
 import { showClipboardMessage } from '../utils/clipboard'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getSystemProcessEnv } from '../utils/env'
+import { terminalCommandIsolation } from '../utils/terminal-protocol-controller'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import {
   capturePendingAttachments,
@@ -78,6 +79,7 @@ export function runBashCommand(command: string) {
     cwd: commandCwd,
     timeout_seconds: -1,
     env: getSystemProcessEnv(),
+    terminalCommandIsolation,
   })
     .then(([{ value }]) => {
       const stdout = 'stdout' in value ? value.stdout || '' : ''
