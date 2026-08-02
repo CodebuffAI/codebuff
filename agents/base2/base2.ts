@@ -3,7 +3,6 @@ import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
   FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-  FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
   FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
 } from '@codebuff/common/constants/freebuff-gemini-thinker'
 import { FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL } from '@codebuff/common/constants/free-agents'
@@ -341,20 +340,6 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           noReview,
           leanCodeReviewerAgentId,
         }),
-    stepPrompt: planOnly
-      ? buildPlanOnlyStepPrompt({})
-      : buildImplementationStepPrompt({
-          isDefault,
-          isFast,
-          isMax,
-          hasNoValidation,
-          isLean,
-          hasGeminiThinker,
-          noAskUser,
-          noReview,
-          leanCodeReviewerAgentId,
-        }),
-
     // handleSteps is serialized via .toString() and re-eval'd, so closure
     // variables like `isFreebuff` are not in scope at runtime. Pick the right
     // literal-baked function here instead.
@@ -549,47 +534,10 @@ ${buildArray(
 ).join('\n')}`
 }
 
-function buildImplementationStepPrompt({
-  isDefault,
-  isFast,
-  isMax,
-  hasNoValidation,
-  isLean,
-  hasGeminiThinker,
-  noAskUser,
-  noReview,
-  leanCodeReviewerAgentId,
-}: {
-  isDefault: boolean
-  isFast: boolean
-  isMax: boolean
-  hasNoValidation: boolean
-  isLean: boolean
-  hasGeminiThinker: boolean
-  noAskUser: boolean
-  noReview: boolean
-  leanCodeReviewerAgentId: string
-}) {
-  return buildArray(
-    isMax &&
-      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
-    hasGeminiThinker && FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
-    isMax &&
-      `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
-    (isDefault || isMax) &&
-      `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review any code changes after you have implemented the changes and in parallel with typechecking or testing.`,
-    isLean &&
-      !noReview &&
-      `You must spawn a ${leanCodeReviewerAgentId} to review any code changes after you have implemented the changes and in parallel with typechecking or testing.`,
-    !noAskUser &&
-      `At the end of your turn, you must use the suggest_followups tool to suggest around 3 next steps the user might want to take even if the user just asks a question.`,
-  ).join('\n')
-}
-
 function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
- You are in plan mode, so you should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
+ You are in plan mode. Do not make file changes, call write_file or str_replace, or use the write_todos tool. You should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
     
 ## Example response
 
@@ -627,12 +575,6 @@ It should not include:
 This is more like an extremely short PRD which describes the end result of what the user wants. Think of it like fleshing out the user's prompt to make it more precise, although it should be as short as possible.
 `,
 ).join('\n')}`
-}
-
-function buildPlanOnlyStepPrompt({}: {}) {
-  return buildArray(
-    `You are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not use the write_todos tool.`,
-  ).join('\n')
 }
 
 const definition = { ...createBase2('default'), id: 'base2' }

@@ -306,18 +306,6 @@ export function createBaseDeep(options?: {
     ],
     systemPrompt: buildDeepSystemPrompt(noAskUser, noLearning),
     instructionsPrompt: buildDeepInstructionsPrompt(noAskUser, noLearning),
-    stepPrompt: `Workflow phases reminder (${noLearning ? 6 : 7} phases):
-
-**Planning todos** (write at start): Phase 1 → Phase 2 → Phase 3
-1. Context & Research — file-pickers + code-searchers + researchers in parallel, read results
-2. Spec — draft SPEC.md, ${noAskUser ? '' : 'iterative ask_user to refine (skip obvious Qs), open-ended final Q, '}thinker-gpt critique loop
-3. Plan — write PLAN.md, thinker-gpt critique loop
-
-**Implementation todos** (write after Plan): one todo per plan step + phases 5-${noLearning ? '6' : '7'}
-4. Implement — fully build the spec using file editing tools
-5. Review Loop — code-reviewer-gpt → fix → re-review until clean
-6. Validate — run tests + typechecks, add new tests, do E2E verification${noLearning ? '' : `
-7. Lessons — write LESSONS.md, update/create skills, iterative thinker-gpt brainstorm loop`}`,
     handleSteps: function* ({ params }) {
       while (true) {
         // Run context-pruner before each step. cacheExpiryMs is baked to 30

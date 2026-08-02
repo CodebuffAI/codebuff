@@ -9,6 +9,7 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 
 import { createBase2 } from '../base2/base2'
+import { createBaseDeep } from '../base2/base-deep'
 import codeReviewerLite from '../reviewer/code-reviewer-lite'
 
 const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
@@ -20,7 +21,6 @@ describe('base2 reviewer selection', () => {
     expect(base2.model).toBe('openai/gpt-5.6-luna')
     expect(base2.spawnableAgents).toContain('code-reviewer-lite')
     expect(base2.instructionsPrompt).toContain('Spawn a code-reviewer-lite')
-    expect(base2.stepPrompt).toContain('spawn a code-reviewer-lite')
   })
 
   test('free mode still uses MiniMax M3 and its matching reviewer', () => {
@@ -31,7 +31,6 @@ describe('base2 reviewer selection', () => {
     expect(base2.instructionsPrompt).toContain(
       'Spawn a code-reviewer-minimax-m3',
     )
-    expect(base2.stepPrompt).toContain('spawn a code-reviewer-minimax-m3')
   })
 
   test('the lite reviewer runs the same model as lite mode', () => {
@@ -62,7 +61,6 @@ describe('base2 reviewer selection', () => {
     expect(base2.spawnableAgents).toContain('code-reviewer-luna')
     expect(base2.systemPrompt).not.toContain('code-reviewer-lite')
     expect(base2.instructionsPrompt).not.toContain('code-reviewer-lite')
-    expect(base2.stepPrompt).not.toContain('code-reviewer-lite')
   })
 
   test.each([
@@ -76,7 +74,6 @@ describe('base2 reviewer selection', () => {
 
     expect(base2.spawnableAgents).toContain(expectedReviewer)
     expect(base2.instructionsPrompt).toContain(`Spawn a ${expectedReviewer}`)
-    expect(base2.stepPrompt).toContain(`spawn a ${expectedReviewer}`)
   })
 
   test('the reviewer follows the model, not the mode', () => {
@@ -109,7 +106,6 @@ describe('base2 gemini thinker', () => {
     expect(lite.spawnableAgents).toContain(GEMINI_THINKER)
     expect(lite.systemPrompt).toContain(GEMINI_THINKER)
     expect(lite.instructionsPrompt).toContain(GEMINI_THINKER)
-    expect(lite.stepPrompt).toContain(GEMINI_THINKER)
   })
 
   test('lite keeps it regardless of model, unlike free mode', () => {
@@ -128,6 +124,28 @@ describe('base2 gemini thinker', () => {
 
   test.each(['default', 'max'] as const)('%s mode does not get it', (mode) => {
     expect(createBase2(mode).spawnableAgents).not.toContain(GEMINI_THINKER)
+  })
+})
+
+describe('production agent step prompts', () => {
+  test('base2 and base-deep rely on their non-repeating prompts', () => {
+    const agents = [
+      ...(['default', 'free', 'lite', 'max', 'fast'] as const).map((mode) =>
+        createBase2(mode),
+      ),
+      createBase2('default', { planOnly: true }),
+      createBaseDeep(),
+    ]
+
+    for (const agent of agents) {
+      expect('stepPrompt' in agent).toBe(false)
+    }
+  })
+
+  test('plan-only keeps its no-edit constraint in the instructions', () => {
+    const agent = createBase2('default', { planOnly: true })
+
+    expect(agent.instructionsPrompt).toContain('Do not make file changes')
   })
 })
 

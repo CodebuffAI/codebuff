@@ -421,22 +421,6 @@ const definition: AgentDefinition = {
       currentMessages.splice(lastRemainingInstructionsIndex, 1)
     }
 
-    // Same for a RESIDENT STEP_PROMPT. Models that keep one (GPT-5.6) are sent
-    // it ONCE per turn, so summarizing it away would leave the rest of the turn
-    // with no step instructions at all. The ephemeral form carries
-    // timeToLive:'agentStep' and is re-added every step, so it is deliberately
-    // left to be summarized as before — this must not change other models.
-    let stepPromptMessage: Message | null = null
-    const lastRemainingStepPromptIndex = currentMessages.findLastIndex(
-      (message) =>
-        message.tags?.includes('STEP_PROMPT') &&
-        message.timeToLive === undefined,
-    )
-    if (lastRemainingStepPromptIndex !== -1) {
-      stepPromptMessage = currentMessages[lastRemainingStepPromptIndex]
-      currentMessages.splice(lastRemainingStepPromptIndex, 1)
-    }
-
     // === SUMMARIZATION STRATEGY ===
     // 1. Summarize ALL messages (apply transformations: truncation, tool summaries, etc.)
     // 2. Walk backwards through summarized parts to apply token budgets
@@ -881,9 +865,6 @@ ${SUMMARY_DISCLAIMER}`,
     if (instructionsPromptMessage) {
       // Update sentAt to current time so future cache miss checks use fresh timestamps
       finalMessages.push({ ...instructionsPromptMessage, sentAt: now })
-    }
-    if (stepPromptMessage) {
-      finalMessages.push({ ...stepPromptMessage, sentAt: now })
     }
     if (isMidTurnPrune) {
       finalMessages.push(continuationMessage)

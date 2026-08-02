@@ -2254,12 +2254,8 @@ describe('context-pruner dual-budget behavior', () => {
       userBudget: 200,
     })
 
-    // Summary, then the resident STEP_PROMPT preserved verbatim: a model that
-    // is sent one ONCE per turn would otherwise lose its step instructions for
-    // the rest of the turn.
     const resultMessages = results[0].input.messages
-    expect(resultMessages).toHaveLength(2)
-    expect(resultMessages[1].tags).toEqual(['STEP_PROMPT'])
+    expect(resultMessages).toHaveLength(1)
 
     const content = (resultMessages[0].content[0] as { text: string }).text
     // Both real messages should be in the summary
@@ -2267,7 +2263,7 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('Assistant response')
     expect(content).toContain('Recent question')
     expect(content).toContain('Recent answer')
-    // STEP_PROMPT content should NOT be summarized into it
+    // STEP_PROMPT content should NOT be in the summary
     expect(content).not.toContain(largeStepPrompt)
   })
 

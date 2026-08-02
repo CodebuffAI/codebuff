@@ -20,8 +20,6 @@ import {
   getPreviouslyReadFiles,
   filterUnfinishedToolCalls,
   buildUserMessageContent,
-  expireMessages,
-  stepPromptMessage,
 } from '../../util/messages'
 import * as tokenCounter from '../token-counter'
 
@@ -984,33 +982,5 @@ describe('getPreviouslyReadFiles', () => {
 
     const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([])
-  })
-})
-
-describe('stepPromptMessage', () => {
-  const build = (resident: boolean) =>
-    stepPromptMessage({ stepPrompt: 'do the step', resident })
-
-  it('expires each step in the ephemeral form', () => {
-    // Longest-prefix providers are unharmed by it expiring, and it keeps the
-    // prompt at maximum recency, so nothing changes for them.
-    const built = build(false)
-    expect(built.timeToLive).toBe('agentStep')
-    expect(built.tags).toEqual(['STEP_PROMPT'])
-  })
-
-  it('omits timeToLive when resident, so expireMessages leaves it', () => {
-    // The whole mechanism: a resident step prompt must survive the
-    // expireMessages('agentStep') that every later step runs, or the replayed
-    // history stops being append-only and GPT-5.6 stops extending its cache.
-    const built = build(true)
-    expect(built.timeToLive).toBeUndefined()
-    expect(expireMessages([built], 'agentStep')).toEqual([built])
-    expect(expireMessages([build(false)], 'agentStep')).toEqual([])
-  })
-
-  it('survives truncation in both forms', () => {
-    expect(build(true).keepDuringTruncation).toBe(true)
-    expect(build(false).keepDuringTruncation).toBe(true)
   })
 })
