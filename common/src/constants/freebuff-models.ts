@@ -339,6 +339,19 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
 export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 524_288,
   [FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID]: 1_048_576,
+  // Luna is the one entry not read off a provider rejection. Every Luna
+  // endpoint OpenRouter lists (OpenAI, its flex/priority tiers, Azure, Bedrock)
+  // declares context_length 1_050_000, verified against the live endpoints API
+  // on 2026-08-01; 1_000_000 is deliberately entered instead, which stays on
+  // the safe side of the asymmetry above AND makes base-chat's 0.4 budget come
+  // out at exactly 400k.
+  //
+  // Absent, Luna fell to FREEBUFF_DEFAULT_CONTEXT_WINDOW and base-chat budgeted
+  // it 131_072 * 0.4 = 52_428 — a 20x under-estimate of a million-token model,
+  // which summarizes a chat thread that had plenty of room left. Every
+  // summarize rewrites history from the front and throws away the prompt cache
+  // with it.
+  [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 1_000_000,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.

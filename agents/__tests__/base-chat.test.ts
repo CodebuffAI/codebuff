@@ -178,6 +178,18 @@ describe('base-chat per-model context budget', () => {
         FREEBUFF_DEFAULT_CONTEXT_WINDOW,
     ).toBeCloseTo(budgetFraction, 4)
   })
+
+  test('budgets Luna 400k, not the 52k it got while missing from the table', () => {
+    // Luna's real window is ~1.05M (every OpenRouter endpoint reports it), so
+    // falling through to FREEBUFF_DEFAULT_CONTEXT_WINDOW budgeted a
+    // million-token model 131_072 * 0.4 = 52_428. Each summarize rewrites the
+    // thread from the front and discards the prompt cache with it, so an
+    // under-budget model pays for it in cache misses as well as lost context.
+    expect(budgetFor('openai/gpt-5.6-luna')).toBe(400_000)
+    expect(budgetFor('openai/gpt-5.6-luna')).toBeGreaterThan(
+      budgetFor('some/model-we-have-never-shipped'),
+    )
+  })
 })
 
 describe('base-chat budget vs. the thread that actually wedged', () => {
