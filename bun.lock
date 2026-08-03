@@ -429,7 +429,7 @@
 
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
 
-    "@posthog/core": ["@posthog/core@1.46.2", "", { "dependencies": { "@posthog/types": "^1.399.0" } }, "sha512-OP7QLH9xFouWS3/2BLPH2RE9FAJwBTxZfAqDJeVcXUugq/b/RQyvj1+jmHqCqSOX1vh/AKSxYheGntwHCUnrKw=="],
+    "@posthog/core": ["@posthog/core@1.46.3", "", { "dependencies": { "@posthog/types": "^1.400.0" } }, "sha512-RV5MBx6y9CV/6lIKH/8m9d4fyYfE3D66J2HMAWq/xitZi4r6IZ61B4yMUOfCy/DsQz21LJH/v+jZw681v83hXA=="],
 
     "@posthog/types": ["@posthog/types@1.400.0", "", {}, "sha512-0VVOXFrkh0TEAfmptoUqFGbhEzygQyWYQZYPlw0v0QYJfXTYlnlhr/QMMF3NAGKakFwOAn9ZZnlpEFeaLhZ/Cg=="],
 
@@ -1313,7 +1313,7 @@
 
     "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
-    "posthog-node": ["posthog-node@5.47.4", "", { "dependencies": { "@posthog/core": "^1.46.2" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-uaq4VtUbjznASxFeNhYq+kCed88pc0bFgWa+JwoUUmESYttWGtzxJGKzPmqof7lm5jGkQdwh+KhDfeWNKZ9/ew=="],
+    "posthog-node": ["posthog-node@5.47.5", "", { "dependencies": { "@posthog/core": "^1.46.3" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-dQSVu63Fa8XZhjDyas4jSpvM9V9PXhX5arfVb2HLxdrQAZ+4DKfKISlb4XPgyFoyrabKSAry8cU/FgPXVqiBAg=="],
 
     "preact": ["preact@10.29.8", "", { "peerDependencies": { "preact-render-to-string": ">=5" }, "optionalPeers": ["preact-render-to-string"] }, "sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q=="],
 
