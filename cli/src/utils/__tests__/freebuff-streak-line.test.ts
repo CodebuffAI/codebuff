@@ -1,11 +1,17 @@
 import { describe, test, expect } from 'bun:test'
 
 import {
+  FREEBUFF_STREAK_INLINE_GAP,
+  fitsFreebuffStreakOnHeadingRow,
   getFreebuffStreakBonusNote,
   getFreebuffStreakBonusNoteForLayout,
+  getFreebuffStreakInlineWidth,
   getFreebuffStreakLine,
 } from '../freebuff-streak-line'
 
+// The CLI draws with bullets: the shared ● is missing from plenty of terminal
+// fonts and lands as a tofu box, while • and · are about as universal as
+// glyphs get.
 describe('getFreebuffStreakLine', () => {
   test('hides the row for new / lapsed users (streak <= 0)', () => {
     expect(getFreebuffStreakLine(0)).toBeNull()
@@ -15,7 +21,7 @@ describe('getFreebuffStreakLine', () => {
   test('labels and fills dots for an active streak', () => {
     expect(getFreebuffStreakLine(2)).toEqual({
       label: '2 day streak',
-      dots: '●●○○○○○',
+      dots: '••·····',
     })
   })
 
@@ -27,19 +33,81 @@ describe('getFreebuffStreakLine', () => {
   test('fills the whole week on a 7-day milestone', () => {
     expect(getFreebuffStreakLine(7)).toEqual({
       label: '7 day streak',
-      dots: '●●●●●●●',
+      dots: '•••••••',
     })
   })
 
   test('stays full and gains a "+" once the streak passes the week', () => {
     expect(getFreebuffStreakLine(9)).toEqual({
       label: '9 day streak',
-      dots: '●●●●●●●+',
+      dots: '•••••••+',
     })
     expect(getFreebuffStreakLine(19)).toEqual({
       label: '19 day streak',
-      dots: '●●●●●●●+',
+      dots: '•••••••+',
     })
+  })
+})
+
+describe('fitsFreebuffStreakOnHeadingRow', () => {
+  const headingWidth = 'Start coding for free'.length
+  const line = getFreebuffStreakLine(18)!
+  // "18 day streak" + 2 + "•••••••+"
+  const inlineWidth = getFreebuffStreakInlineWidth(line)
+  const exact = headingWidth + FREEBUFF_STREAK_INLINE_GAP + inlineWidth
+
+  test('measures the label and dots together', () => {
+    expect(inlineWidth).toBe(23)
+  })
+
+  test('shares the row only when the gap is fully clear', () => {
+    expect(
+      fitsFreebuffStreakOnHeadingRow({
+        line,
+        headingWidth,
+        availableWidth: exact,
+      }),
+    ).toBe(true)
+    expect(
+      fitsFreebuffStreakOnHeadingRow({
+        line,
+        headingWidth,
+        availableWidth: exact - 1,
+      }),
+    ).toBe(false)
+  })
+
+  test('measures an empty slot as the day-one streak it will become', () => {
+    const dayOne = getFreebuffStreakLine(1)!
+    const width = headingWidth + FREEBUFF_STREAK_INLINE_GAP
+    expect(
+      fitsFreebuffStreakOnHeadingRow({
+        line: null,
+        headingWidth,
+        availableWidth: width + getFreebuffStreakInlineWidth(dayOne),
+      }),
+    ).toBe(true)
+    expect(
+      fitsFreebuffStreakOnHeadingRow({
+        line: null,
+        headingWidth,
+        availableWidth: width + getFreebuffStreakInlineWidth(dayOne) - 1,
+      }),
+    ).toBe(false)
+  })
+
+  // A three-digit streak widens its own label, so the cutoff has to follow the
+  // rendered strings rather than a fixed column count.
+  test('accounts for the label growing with the day count', () => {
+    const long = getFreebuffStreakLine(365)!
+    expect(getFreebuffStreakInlineWidth(long)).toBeGreaterThan(inlineWidth)
+    expect(
+      fitsFreebuffStreakOnHeadingRow({
+        line: long,
+        headingWidth,
+        availableWidth: exact,
+      }),
+    ).toBe(false)
   })
 })
 

@@ -24,7 +24,9 @@ import {
   getFreebuffPremiumResetAt,
 } from '../utils/freebuff-premium-reset'
 import {
-  FREEBUFF_STREAK_WEEK,
+  FREEBUFF_STREAK_INLINE_GAP,
+  FREEBUFF_STREAK_LABEL_GAP,
+  fitsFreebuffStreakOnHeadingRow,
   getFreebuffStreakBonusNoteForLayout,
   getFreebuffStreakLine,
 } from '../utils/freebuff-streak-line'
@@ -43,6 +45,7 @@ import {
 } from '@codebuff/common/types/freebuff-session'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
+import type { FreebuffStreakLine } from '../utils/freebuff-streak-line'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
 import type { KeyEvent } from '@opentui/core'
@@ -57,7 +60,6 @@ interface FreebuffLandingScreenProps {
  *  the two from drifting. */
 const LANDING_HEADING = 'Start coding for free'
 const COLLAPSED_LOGO_MIN_HEIGHT = 26
-const STREAK_INLINE_MIN_WIDTH = 50
 
 /** "in ~3h 20m" / "in ~45 min" / "in under a minute". Used on the
  *  rate-limited screen so users know when they can try again. */
@@ -273,32 +275,68 @@ const TakeoverPrompt: React.FC = () => {
   )
 }
 
-/** Inline streak indicator rendered as the line immediately after the
- *  sessions-used/title row. Shows "N day streak" with a week of filled/empty
- *  progress dots; for streak === 0 the row is rendered blank so new / lapsed
+/** "N day streak" then its progress dots, as spans so both placements (beside
+ *  the heading, or its own line under it) draw the streak identically. */
+const streakSpans = (
+  line: FreebuffStreakLine,
+  theme: ReturnType<typeof useTheme>,
+) => [
+  <span key="label" fg={theme.foreground}>
+    {line.label}
+  </span>,
+  <span key="dots" fg={theme.primary}>
+    {`${' '.repeat(FREEBUFF_STREAK_LABEL_GAP)}${line.dots}`}
+  </span>,
+]
+
+/** Streak on its own line under the heading, for terminals too narrow to
+ *  share the row. For streak === 0 the line is rendered blank so new / lapsed
  *  users are nudged to start using the product rather than shown an empty
  *  streak (and so the picker doesn't jump once they earn their first day). */
 const StreakInlineLine: React.FC<{
-  streak: number
-  marginTop: number
-}> = ({ streak, marginTop }) => {
+  line: FreebuffStreakLine | null
+}> = ({ line }) => {
   const theme = useTheme()
-  const line = getFreebuffStreakLine(streak)
 
   if (!line) {
-    return <text style={{ marginTop, flexShrink: 0 }}> </text>
+    return <text style={{ flexShrink: 0 }}> </text>
   }
 
   return (
-    <text
-      style={{
-        marginTop,
-        flexShrink: 0,
-        wrapMode: 'none',
-      }}
-    >
-      <span fg={theme.foreground}>{line.label}</span>
-      <span fg={theme.primary}>{`  ${line.dots}`}</span>
+    <text style={{ flexShrink: 0, wrapMode: 'none' }}>
+      {streakSpans(line, theme)}
+    </text>
+  )
+}
+
+/** Heading row: the title, with the streak beside it when the caller passes
+ *  one (only when it fits — see fitsFreebuffStreakOnHeadingRow).
+ *
+ *  Deliberately ONE text rather than a space-between flex row. The row this
+ *  replaces put the two in a stretched row inside a shrink-to-fit column,
+ *  which had two problems: with nothing wider on screen there was no free
+ *  space to distribute, so the two rendered flush ("Start coding for
+ *  free18 day streak"), and a space-between row whose content overflows its
+ *  container segfaults the renderer — reachable by dragging the terminal
+ *  narrower, since the native layout runs against the old tree before React
+ *  re-renders. A single text just wraps, and the gap is explicit.
+ *
+ *  Exported for the layout test. */
+export const LandingHeadingRow: React.FC<{
+  streakLine: FreebuffStreakLine | null
+  marginBottom: number
+}> = ({ streakLine, marginBottom }) => {
+  const theme = useTheme()
+
+  return (
+    <text style={{ marginBottom, wrapMode: 'word' }}>
+      <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+        {LANDING_HEADING}
+      </span>
+      {streakLine && [
+        <span key="gap">{' '.repeat(FREEBUFF_STREAK_INLINE_GAP)}</span>,
+        ...streakSpans(streakLine, theme),
+      ]}
     </text>
   )
 }
@@ -410,11 +448,20 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
         availableWidth: contentMaxWidth,
       })
     : null
-  // On the landing screen the streak rides on the heading row, right-aligned.
-  // Below ~50 cols the heading + dots get squashed together, so drop the streak
-  // to its own line under the heading instead.
+  // On the landing screen the streak rides on the heading row, a fixed gap
+  // after the title. Measured against the real strings (the label grows with
+  // the day count), so
+  // a streak that can't clear the inline gap drops to its own line under the
+  // heading instead of colliding with it. With no streak yet, the day-one line
+  // stands in, reserving the slot where the streak will land.
+  const streakLine = showStreakIndicator ? getFreebuffStreakLine(streak) : null
   const streakOnHeadingRow =
-    showStreakIndicator && contentMaxWidth >= STREAK_INLINE_MIN_WIDTH
+    showStreakIndicator &&
+    fitsFreebuffStreakOnHeadingRow({
+      line: streakLine,
+      headingWidth: LANDING_HEADING.length,
+      availableWidth: contentMaxWidth,
+    })
   // On the landing picker we tick once a minute so the session reset countdown
   // stays fresh.
   const now = useNow(60_000, isLanding)
@@ -617,26 +664,12 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                 gap: 0,
               }}
             >
-              <box
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  alignSelf: 'stretch',
-                  marginBottom: textMarginBottom,
-                }}
-              >
-                <text style={{ wrapMode: 'word' }}>
-                  <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-                    {LANDING_HEADING}
-                  </span>
-                </text>
-                {streakOnHeadingRow && (
-                  <StreakInlineLine streak={streak} marginTop={0} />
-                )}
-              </box>
+              <LandingHeadingRow
+                streakLine={streakOnHeadingRow ? streakLine : null}
+                marginBottom={textMarginBottom}
+              />
               {showStreakIndicator && !streakOnHeadingRow && (
-                <StreakInlineLine streak={streak} marginTop={0} />
+                <StreakInlineLine line={streakLine} />
               )}
               <FreebuffModelSelector
                 maxHeight={selectorMaxHeight}

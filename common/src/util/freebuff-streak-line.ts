@@ -17,14 +17,26 @@ export interface FreebuffStreakLine {
   dots: string
 }
 
+/** Glyph pair used to draw the progress dots. */
+export interface FreebuffStreakDotChars {
+  filled: string
+  empty: string
+}
+
 /**
  * Pure presentation logic for the streak line shown on the CLI landing screen
  * and the desktop account popover: a plain count plus a week of filled/empty
  * progress dots. Returns null for streak <= 0 so the caller hides the row
  * entirely — new / lapsed users should be nudged to start using the product,
  * not shown an empty streak.
+ *
+ * The glyphs default to ●/○, which is what a real UI font renders best; a
+ * surface whose font can't be trusted with those passes its own pair.
  */
-export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null {
+export function getFreebuffStreakLine(
+  streak: number,
+  chars: FreebuffStreakDotChars = { filled: '●', empty: '○' },
+): FreebuffStreakLine | null {
   if (streak <= 0) return null
 
   // Fill toward the 7-day milestone, then stay full — a 19-day streak should
@@ -32,8 +44,8 @@ export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null
   // the week, a trailing "+" marks that the streak has run beyond the row.
   const filled = Math.min(streak, FREEBUFF_STREAK_WEEK)
   const dots =
-    '●'.repeat(filled) +
-    '○'.repeat(FREEBUFF_STREAK_WEEK - filled) +
+    chars.filled.repeat(filled) +
+    chars.empty.repeat(FREEBUFF_STREAK_WEEK - filled) +
     (streak > FREEBUFF_STREAK_WEEK ? '+' : '')
 
   // "day" stays singular — it's a compound modifier ("7 day streak"), not a
