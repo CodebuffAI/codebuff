@@ -63,6 +63,52 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'l0veyou.com',
   'pumpkinai.space',
   'pumpkinai.it.com',
+  // Compiled 2026-08-03 from prod, not from a public blocklist: every domain
+  // below has >=20 Freebuff accounts and >=75% of them already banned. That
+  // covers 7,129 accounts of which 6,699 were banned before this list existed.
+  // The threshold is what keeps real providers out — Gmail sits at 0.8%
+  // banned, Outlook 11%, Proton 4%, duck.com 30%, and the two school domains
+  // that appeared in the raw data (dmpschool.ac.th 12%, sman1pace.sch.id, 5
+  // accounts) fail the volume or rate bar. Many are deliberate Gmail
+  // lookalikes (gmaiko, gmbel, ggmul, gkmaill, gmito, gmiliu, gmisol) and
+  // several were minted in a single day — gmito.my.id put 288 accounts on one
+  // date, which no real mailbox provider does.
+  'azahram.com',
+  'barcondi.my.id',
+  'bukitsakura.com',
+  'cilisung.com',
+  'cindohub.com',
+  'duccky.com',
+  'fomolu.com',
+  'gamlo.my.id',
+  'gamontok.com',
+  'gehil.my.id',
+  'geusil.com',
+  'geusil.my.id',
+  'ggmul.com',
+  'ghyuil.my.id',
+  'gkmaill.com',
+  'gmaiko.com',
+  'gmbel.com',
+  'gmiliu.my.id',
+  'gmisol.my.id',
+  'gmito.my.id',
+  'gmole.xyz',
+  'gmosel.com',
+  'gsuel.my.id',
+  'gumel.store',
+  'guzeil.com',
+  'gwemol.my.id',
+  'hayate.us',
+  'jokowi.store',
+  'jujusa.my.id',
+  'mikontol.online',
+  'monetsssky1.com',
+  'satukataku.com',
+  'simosel.site',
+  'wdrvk.dpdns.org',
+  'wdrvks.eu.org',
+  'xabree.com',
 ] as const
 
 const PRIVACY_RELAY_EMAIL_DOMAINS = [
