@@ -854,6 +854,18 @@ export const FREEBUFF_HEARTBEAT_HEADER = 'x-freebuff-heartbeat'
  *  of this (several missed beats), so a brief network blip never costs a live
  *  tab its slot. */
 export const FREEBUFF_SESSION_HEARTBEAT_INTERVAL_MS = 45_000
+/** Set on POST /session to the instance id of the single-slot holder the caller
+ *  was just told about, meaning "end that tab's session and give me the slot"
+ *  (Desktop's "Use it here"). Liveness covers a holder that stopped beating, but
+ *  it cannot help when the holder is genuinely alive somewhere the user cannot
+ *  reach — another machine, or a window they have no way to close — so this is
+ *  the escape hatch that does not depend on us having modelled liveness right.
+ *
+ *  It names a holder rather than saying "take whatever is there": the server
+ *  only honors it when it still matches the holder the rejection identified, so
+ *  a click on a stale card can never end a tab the user was never shown. */
+export const FREEBUFF_TAKEOVER_INSTANCE_HEADER =
+  'x-freebuff-takeover-instance-id'
 
 /** Models that accept image input. Used to decide whether uploaded images are
  *  forwarded to the model as real multimodal content. */
