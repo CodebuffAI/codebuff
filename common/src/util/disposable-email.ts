@@ -109,6 +109,27 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'wdrvk.dpdns.org',
   'wdrvks.eu.org',
   'xabree.com',
+  // Added 2026-08-03 on behavioural rather than statistical evidence — these
+  // are below the >=20-account bar the block above uses, so they qualify on
+  // what their accounts DO instead.
+  //
+  // proxyvpn.cn: 5 accounts named github, github-1/-2/-3 and master-github,
+  // on a proxy-service domain. All five were silent-endpoint callers (free-mode
+  // messages with zero client telemetry) running 372-1,435 messages each in
+  // 7 days; all five are now banned.
+  //
+  // The .qd.je pair: 14 accounts each, every one registered on a SINGLE day
+  // (impact 2026-07-10, fincy 2026-07-13), and 13 of the 28 surfaced in the
+  // silent-endpoint scan. A same-day mint of 14 accounts is not a mailbox
+  // provider signing up users.
+  //
+  // Deliberately NOT added: dns-proxy.com (1 account, no activity, no
+  // evidence) and proximus.lu (Belgium's largest telecom — a real ISP whose
+  // one user has 791 legitimate messages). A substring rule on "proxy" would
+  // have caught both.
+  'proxyvpn.cn',
+  'impact.qd.je',
+  'fincy.qd.je',
 ] as const
 
 const PRIVACY_RELAY_EMAIL_DOMAINS = [

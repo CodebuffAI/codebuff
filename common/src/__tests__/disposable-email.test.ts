@@ -38,6 +38,21 @@ describe('classifyEmailDomain', () => {
     expect(classifyEmailDomain('7yahsqv1o8lc@pumpkinai.it.com')).toBe('disposable')
   })
 
+  it('flags the proxy-service and single-day-mint domains', () => {
+    expect(classifyEmailDomain('github-1@proxyvpn.cn')).toBe('disposable')
+    expect(classifyEmailDomain('yazen@impact.qd.je')).toBe('disposable')
+    expect(classifyEmailDomain('x@fincy.qd.je')).toBe('disposable')
+  })
+
+  it('does not flag real providers a "proxy" substring rule would catch', () => {
+    // Proximus is Belgium's largest telecom; its one user has 791 legitimate
+    // messages. dns-proxy.com has a single account and no activity, so there
+    // is no evidence to act on.
+    expect(classifyEmailDomain('leopold.delage@proximus.lu')).toBeNull()
+    expect(classifyEmailDomain('alizy@dns-proxy.com')).toBeNull()
+    expect(classifyEmailDomain('someone@proxyclick.com')).toBeNull()
+  })
+
   it('does not flag lookalikes of the ring domains', () => {
     expect(classifyEmailDomain('x@loveyou.com')).toBeNull()
     expect(classifyEmailDomain('x@notl0veyou.com')).toBeNull()
