@@ -240,6 +240,13 @@ export enum AnalyticsEvent {
   // separate identity space with no key back to the web landing.
   FREEBUFF_CLI_INSTALL_COMMAND_COPIED = 'freebuff.cli_install_command_copied',
 
+  // Freebuff - Desktop download CTAs (home hero, products row, /desktop).
+  // Fired on every click of a download button; `location` distinguishes the
+  // CTA, `platform` the build, and `repeat: true` marks a click we swallowed
+  // because the same download had just started (the "did that work?" double
+  // click) — a direct read on whether the click feedback is landing.
+  FREEBUFF_DESKTOP_DOWNLOAD_CLICKED = 'freebuff.desktop_download_clicked',
+
   // Freebuff - Cloud landing page (/cloud). Fired when a logged-out visitor
   // clicks a "Continue with GitHub" / "Connect your repo" CTA; `location`
   // distinguishes hero vs the migration/lovable section vs the final CTA. Best
