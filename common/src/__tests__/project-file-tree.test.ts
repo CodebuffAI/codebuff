@@ -105,6 +105,91 @@ describe('getProjectFileTree', () => {
     expect(filePaths).toContain('app/src/Inventory.kt')
     expect(filePaths).not.toContain('app/build/output.class')
   })
+
+  it('keeps nested rules scoped to their own directory even when its name contains glob syntax', async () => {
+    const root = '/repo'
+    const fs = createFsWithFiles(root, [
+      '[4K- HDR]/.gitignore',
+      '[4K- HDR]/x/logs',
+      '[4K- HDR]/keep.ts',
+      'a/x/logs',
+    ])
+    ;(fs.readFile as any).mockImplementation(async (filePath: string) =>
+      String(filePath).endsWith('.gitignore') ? 'logs\n' : '',
+    )
+
+    const filePaths = flattenTree(
+      await getProjectFileTree({ projectRoot: root, fs }),
+    ).map((node) => node.filePath)
+
+    expect(filePaths).toContain('[4K- HDR]/keep.ts')
+    expect(filePaths).not.toContain('[4K- HDR]/x/logs')
+    expect(filePaths).toContain('a/x/logs')
+  })
+
+  it('keeps anchored rules in a nested .gitignore anchored to that directory', async () => {
+    const root = '/repo'
+    const fs = createFsWithFiles(root, [
+      'pkg/.gitignore',
+      'pkg/dist/a.js',
+      'pkg/sub/dist/b.js',
+    ])
+    ;(fs.readFile as any).mockImplementation(async (filePath: string) =>
+      String(filePath) === path.join(root, 'pkg', '.gitignore')
+        ? '/dist\n'
+        : '',
+    )
+
+    const filePaths = flattenTree(
+      await getProjectFileTree({ projectRoot: root, fs }),
+    ).map((node) => node.filePath)
+
+    expect(filePaths).not.toContain('pkg/dist/a.js')
+    expect(filePaths).toContain('pkg/sub/dist/b.js')
+  })
+
+  it('does not let a nested negation re-include a file under a directory excluded by an ancestor', async () => {
+    const root = '/repo'
+    const fs = createFsWithFiles(root, [
+      '.gitignore',
+      'pkg/.gitignore',
+      'pkg/dist/index.css',
+      'pkg/src/a.ts',
+    ])
+    ;(fs.readFile as any).mockImplementation(async (filePath: string) => {
+      const p = String(filePath)
+      if (p === path.join(root, '.gitignore')) return 'dist/\n'
+      if (p === path.join(root, 'pkg', '.gitignore'))
+        return '!dist/index.css\n'
+      return ''
+    })
+
+    const filePaths = flattenTree(
+      await getProjectFileTree({ projectRoot: root, fs }),
+    ).map((node) => node.filePath)
+
+    expect(filePaths).toContain('pkg/src/a.ts')
+    expect(filePaths).not.toContain('pkg/dist/index.css')
+  })
+
+  it('skips ignore rules that cannot be compiled without dropping the rest of the file', async () => {
+    const root = '/repo'
+    const fs = createFsWithFiles(root, [
+      '.gitignore',
+      'build/out.js',
+      'src/main.ts',
+    ])
+    ;(fs.readFile as any).mockImplementation(async (filePath: string) =>
+      String(filePath).endsWith('.gitignore') ? '[~-a]\nbuild/\n' : '',
+    )
+
+    const filePaths = flattenTree(
+      await getProjectFileTree({ projectRoot: root, fs }),
+    ).map((node) => node.filePath)
+
+    expect(filePaths).toContain('src/main.ts')
+    expect(filePaths).not.toContain('build/out.js')
+  })
 })
 
 describe('isFileIgnored', () => {
@@ -116,6 +201,25 @@ describe('isFileIgnored', () => {
 
     expect(
       await isFileIgnored({ filePath: 'readme.txt', projectRoot: root, fs }),
+    ).toBe(true)
+  })
+
+  it('keeps default-ignored directories excluded despite a root negation', async () => {
+    const root = '/repo'
+    const fs = createFsWithFiles(root, [
+      '.gitignore',
+      'node_modules/pkg/README.md',
+    ])
+    ;(fs.readFile as any).mockImplementation(async (filePath: string) =>
+      String(filePath) === path.join(root, '.gitignore') ? '!*.md\n' : '',
+    )
+
+    expect(
+      await isFileIgnored({
+        filePath: 'node_modules/pkg/README.md',
+        projectRoot: root,
+        fs,
+      }),
     ).toBe(true)
   })
 })

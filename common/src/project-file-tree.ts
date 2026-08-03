@@ -53,6 +53,29 @@ function toPosixPath(p: string): string {
   return p.replace(/\\/g, '/')
 }
 
+type DirIgnore = { base: string; ig: ignore.Ignore }
+
+function testChain(chain: DirIgnore[], candidate: string): boolean {
+  let ignored = false
+  for (const { base, ig } of chain) {
+    if (base && !candidate.startsWith(`${base}/`)) continue
+    const scoped = base ? candidate.slice(base.length + 1) : candidate
+    if (!scoped) continue
+    const result = ig.test(scoped)
+    if (result.ignored) ignored = true
+    else if (result.unignored) ignored = false
+  }
+  return ignored
+}
+
+function isIgnored(chain: DirIgnore[], relativeFilePath: string): boolean {
+  const segments = relativeFilePath.split('/')
+  for (let i = 0; i < segments.length - 1; i++) {
+    if (testChain(chain, `${segments.slice(0, i + 1).join('/')}/`)) return true
+  }
+  return testChain(chain, relativeFilePath)
+}
+
 // When the project root is the home directory (or an ancestor), a full scan
 // could crawl the user's entire disk. Instead of disabling the file tree
 // entirely, do a shallow capped scan so @ mentions still surface
@@ -101,13 +124,13 @@ export async function getProjectFileTree(params: {
   const queue: {
     node: DirectoryNode
     fullPath: string
-    ignore: ignore.Ignore
+    ignores: DirIgnore[]
     depth: number
   }[] = [
     {
       node: root,
       fullPath: projectRoot,
-      ignore: defaultIgnore,
+      ignores: [{ base: '', ig: defaultIgnore }],
       depth: 0,
     },
   ]
@@ -115,17 +138,15 @@ export async function getProjectFileTree(params: {
   let dirsScanned = 0
 
   while (queue.length > 0 && totalFiles < maxFiles && dirsScanned < maxDirs) {
-    const { node, fullPath, ignore: currentIgnore, depth } = queue.shift()!
+    const { node, fullPath, ignores, depth } = queue.shift()!
     dirsScanned++
-    const parsedIgnore = await parseGitignore({
-      fullDirPath: fullPath,
-      projectRoot,
-      fs,
-    })
-    const mergedIgnore = ignore
-      .default()
-      .add(currentIgnore)
-      .add(parsedIgnore)
+    const dirIgnores = [
+      ...ignores,
+      {
+        base: toPosixPath(path.relative(projectRoot, fullPath)),
+        ig: await parseGitignore({ fullDirPath: fullPath, fs }),
+      },
+    ]
 
     try {
       const files = await fs.readdir(fullPath)
@@ -135,7 +156,7 @@ export async function getProjectFileTree(params: {
         const filePath = path.join(fullPath, file)
         const relativeFilePath = toPosixPath(path.relative(projectRoot, filePath))
 
-        if (mergedIgnore.ignores(relativeFilePath)) continue
+        if (isIgnored(dirIgnores, relativeFilePath)) continue
 
         try {
           const stats = await fs.stat(filePath)
@@ -153,7 +174,7 @@ export async function getProjectFileTree(params: {
               queue.push({
                 node: childNode,
                 fullPath: filePath,
-                ignore: mergedIgnore,
+                ignores: dirIgnores,
                 depth: depth + 1,
               })
             }
@@ -182,62 +203,13 @@ export async function getProjectFileTree(params: {
   return root.children
 }
 
-function rebaseGitignorePattern(
-  rawPattern: string,
-  relativeDirPath: string,
-): string {
-  // Preserve negation and directory-only flags
-  const isNegated = rawPattern.startsWith('!')
-  let pattern = isNegated ? rawPattern.slice(1) : rawPattern
-
-  const dirOnly = pattern.endsWith('/')
-  // Strip the trailing slash for slash-detection only
-  const core = dirOnly ? pattern.slice(0, -1) : pattern
-
-  const anchored = core.startsWith('/') // anchored to .gitignore dir
-  // Detect if the "meaningful" part (minus optional leading '/' and trailing '/')
-  // contains a slash. If not, git treats it as recursive.
-  const coreNoLead = anchored ? core.slice(1) : core
-  const hasSlash = coreNoLead.includes('/')
-
-  // Build the base (where this .gitignore lives relative to projectRoot)
-  const base = toPosixPath(relativeDirPath)
-
-  let rebased: string
-  if (anchored) {
-    // "/foo" from evals/.gitignore -> "evals/foo"
-    rebased = base ? `${base}/${coreNoLead}` : coreNoLead
-  } else if (!hasSlash) {
-    // "logs" or "logs/" should recurse from evals/: "evals/**/logs[/]"
-    if (base) {
-      rebased = `${base}/**/${coreNoLead}`
-    } else {
-      // At project root already; "logs" stays "logs" to keep recursive semantics
-      rebased = coreNoLead
-    }
-  } else {
-    // "foo/bar" relative to evals/: "evals/foo/bar"
-    rebased = base ? `${base}/${coreNoLead}` : coreNoLead
-  }
-
-  if (dirOnly && !rebased.endsWith('/')) {
-    rebased += '/'
-  }
-
-  rebased = toPosixPath(rebased)
-
-  return isNegated ? `!${rebased}` : rebased
-}
-
 export async function parseGitignore(params: {
   fullDirPath: string
-  projectRoot: string
   fs: CodebuffFileSystem
 }): Promise<ignore.Ignore> {
-  const { fullDirPath, projectRoot, fs } = params
+  const { fullDirPath, fs } = params
 
   const ig = ignore.default()
-  const relativeDirPath = path.relative(projectRoot, fullDirPath)
   const ignoreFiles = [
     path.join(fullDirPath, '.gitignore'),
     path.join(fullDirPath, '.codebuffignore'),
@@ -262,9 +234,11 @@ export async function parseGitignore(params: {
       line = line.trim()
       if (line === '' || line.startsWith('#')) continue
 
-      const finalPattern = rebaseGitignorePattern(line, relativeDirPath)
-
-      ig.add(finalPattern)
+      try {
+        ig.add(line)
+      } catch (error: unknown) {
+        logFileTreeError('ignore.add (pattern)', line, error)
+      }
     }
   }
 
@@ -347,16 +321,13 @@ export async function isFileIgnored(params: {
   )
 
   // Get ignore patterns from the directory containing the file and all parent directories
-  const mergedIgnore = ignore.default().add(defaultIgnore)
+  const dirIgnores: DirIgnore[] = []
   let currentDir = path.dirname(fullFilePath)
   while (true) {
-    mergedIgnore.add(
-      await parseGitignore({
-        fullDirPath: currentDir,
-        projectRoot: resolvedProjectRoot,
-        fs,
-      }),
-    )
+    dirIgnores.push({
+      base: toPosixPath(path.relative(resolvedProjectRoot, currentDir)),
+      ig: await parseGitignore({ fullDirPath: currentDir, fs }),
+    })
     if (path.relative(resolvedProjectRoot, currentDir) === '') break
 
     const parentDir = path.dirname(currentDir)
@@ -364,5 +335,8 @@ export async function isFileIgnored(params: {
     currentDir = parentDir
   }
 
-  return mergedIgnore.ignores(relativeFilePath)
+  return isIgnored(
+    [{ base: '', ig: defaultIgnore }, ...dirIgnores.reverse()],
+    relativeFilePath,
+  )
 }
