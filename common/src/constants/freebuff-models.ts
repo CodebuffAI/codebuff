@@ -866,6 +866,12 @@ export const FREEBUFF_SESSION_HEARTBEAT_INTERVAL_MS = 45_000
  *  a click on a stale card can never end a tab the user was never shown. */
 export const FREEBUFF_TAKEOVER_INSTANCE_HEADER =
   'x-freebuff-takeover-instance-id'
+/** Drain window after a session's `expires_at`: the gate still serves an
+ *  in-flight agent run, but no new prompt should start. Shared because the
+ *  client has to know it too — a tab keeps beating until its row is past this,
+ *  which is what lets the server tell a run that is finishing from a tab that
+ *  died. Server-side accessor: `getSessionGraceMs()`. */
+export const FREEBUFF_SESSION_GRACE_MS = 30 * 60 * 1000
 
 /** Models that accept image input. Used to decide whether uploaded images are
  *  forwarded to the model as real multimodal content. */
