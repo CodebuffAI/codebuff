@@ -131,6 +131,14 @@ export const StatusBar = ({
       case 'retrying':
         return <ShimmerText text="retrying..." primaryColor={theme.warning} />
 
+      case 'capacityWait':
+        return (
+          <ShimmerText
+            text="high demand — in line, starting soon..."
+            primaryColor={theme.warning}
+          />
+        )
+
       case 'connecting':
         return <ShimmerText text="connecting..." />
 

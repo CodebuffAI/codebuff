@@ -6,6 +6,7 @@ export type StatusIndicatorState =
   | { kind: 'ctrlC' }
   | { kind: 'connecting' }
   | { kind: 'retrying' }
+  | { kind: 'capacityWait' }
   | { kind: 'waiting' }
   | { kind: 'streaming' }
   | { kind: 'reconnected' }
@@ -20,6 +21,11 @@ export type StatusIndicatorStateArgs = {
   isConnected: boolean
   authStatus?: AuthStatus
   isRetrying?: boolean
+  /**
+   * Whether the current retry wait is a server capacity deferral (free-mode
+   * shed during peak demand). Only meaningful while isRetrying is true.
+   */
+  isCapacityWait?: boolean
   /**
    * Whether to show a transient "Reconnected" status message.
    * This should only be true for a short period after a reconnection event.
@@ -53,6 +59,7 @@ export const getStatusIndicatorState = ({
   isConnected,
   authStatus = 'ok',
   isRetrying = false,
+  isCapacityWait = false,
   showReconnectionMessage = false,
   isAskUserActive = false,
 }: StatusIndicatorStateArgs): StatusIndicatorState => {
@@ -75,7 +82,7 @@ export const getStatusIndicatorState = ({
     return { kind: 'retrying' }
   }
   if (isRetrying) {
-    return { kind: 'retrying' }
+    return isCapacityWait ? { kind: 'capacityWait' } : { kind: 'retrying' }
   }
 
   // Show connecting if service is disconnected OR auth service is unreachable

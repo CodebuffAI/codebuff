@@ -73,6 +73,11 @@ export type ChatStoreState = {
   activeTopBanner: TopBannerType
   inputMode: InputMode
   isRetrying: boolean
+  /** True while the current retry wait is a server capacity deferral (free
+   *  mode shed under high demand) rather than a stream recovery — the status
+   *  bar says "high demand" instead of a generic "retrying". Cleared with
+   *  isRetrying. */
+  isCapacityWait: boolean
   askUserState: AskUserState
   pendingAttachments: PendingAttachment[]
   pendingBashMessages: PendingBashMessage[]
@@ -141,6 +146,9 @@ type ChatStoreActions = {
   closeTopBanner: () => void
   setInputMode: (mode: InputMode) => void
   setIsRetrying: (retrying: boolean) => void
+  /** Mark the current wait as a free-mode capacity deferral (implies
+   *  isRetrying). Cleared by setIsRetrying(false). */
+  noteCapacityDeferral: () => void
   setAskUserState: (state: AskUserState) => void
   updateAskUserAnswer: (questionIndex: number, optionIndex: number) => void
   updateAskUserOtherText: (questionIndex: number, text: string) => void
@@ -193,6 +201,7 @@ const initialState: ChatStoreState = {
   activeTopBanner: null,
   inputMode: 'default' as InputMode,
   isRetrying: false,
+  isCapacityWait: false,
   askUserState: null,
   pendingAttachments: [],
   pendingBashMessages: [],
@@ -324,6 +333,15 @@ export const useChatStore = create<ChatStore>()(
     setIsRetrying: (retrying) =>
       set((state) => {
         state.isRetrying = retrying
+        // Any transition (fresh generic retry, or the wait ending) supersedes
+        // a capacity flavor; only noteCapacityDeferral re-establishes it.
+        state.isCapacityWait = false
+      }),
+
+    noteCapacityDeferral: () =>
+      set((state) => {
+        state.isRetrying = true
+        state.isCapacityWait = true
       }),
 
     setAskUserState: (askUserState) =>
@@ -511,6 +529,7 @@ export const useChatStore = create<ChatStore>()(
         state.activeTopBanner = initialState.activeTopBanner
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying
+        state.isCapacityWait = initialState.isCapacityWait
         state.askUserState = initialState.askUserState
         state.pendingAttachments = []
         state.pendingBashMessages = []

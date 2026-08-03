@@ -40,6 +40,49 @@ type OpenRouterUsageAccounting = {
 }
 
 /**
+ * Notification hook for free-mode capacity deferrals. When the backend sheds
+ * a free-mode completion under saturation (HTTP 429 with
+ * `error: 'free_mode_capacity_deferred'` — see the server's
+ * free-mode-priority.ts), the AI SDK's retry loop absorbs the wait silently.
+ * Hosts (the CLI) can register here to surface a "high demand" indicator
+ * instead of an unexplained pause.
+ */
+export type FreeModeCapacityDeferral = { retryAfterSeconds: number }
+
+let freeModeCapacityDeferralListener:
+  | ((deferral: FreeModeCapacityDeferral) => void)
+  | null = null
+
+export function setFreeModeCapacityDeferralListener(
+  listener: ((deferral: FreeModeCapacityDeferral) => void) | null,
+): void {
+  freeModeCapacityDeferralListener = listener
+}
+
+function notifyCapacityDeferralFromResponse(response: Response): void {
+  if (response.status !== 429 || !freeModeCapacityDeferralListener) return
+  // Clone so the AI SDK still reads the original body for its own error
+  // handling/retry. Both the parse and the listener are best-effort: a
+  // malformed body or throwing listener must never break the request path.
+  void response
+    .clone()
+    .json()
+    .then((body: unknown) => {
+      const error =
+        body && typeof body === 'object' ? (body as any).error : undefined
+      if (error !== 'free_mode_capacity_deferred') return
+      const retryAfterHeader = Number(response.headers.get('retry-after'))
+      freeModeCapacityDeferralListener?.({
+        retryAfterSeconds:
+          Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+            ? retryAfterHeader
+            : 10,
+      })
+    })
+    .catch(() => {})
+}
+
+/**
  * Wrap global fetch so transient connection failures (socket closed/reset,
  * connection refused) are rethrown as retryable APICallErrors.
  *
@@ -53,25 +96,31 @@ type OpenRouterUsageAccounting = {
 function fetchWithRetryableNetworkErrors(
   ...args: Parameters<typeof globalThis.fetch>
 ): ReturnType<typeof globalThis.fetch> {
-  return globalThis.fetch(...args).catch((error: unknown) => {
-    if (isTransientNetworkError(error)) {
-      const input = args[0]
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url
-      throw new APICallError({
-        message: error instanceof Error ? error.message : String(error),
-        cause: error,
-        url,
-        requestBodyValues: {},
-        isRetryable: true,
-      })
-    }
-    throw error
-  })
+  return globalThis
+    .fetch(...args)
+    .then((response) => {
+      notifyCapacityDeferralFromResponse(response)
+      return response
+    })
+    .catch((error: unknown) => {
+      if (isTransientNetworkError(error)) {
+        const input = args[0]
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url
+        throw new APICallError({
+          message: error instanceof Error ? error.message : String(error),
+          cause: error,
+          url,
+          requestBodyValues: {},
+          isRetryable: true,
+        })
+      }
+      throw error
+    })
 }
 
 /**

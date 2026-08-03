@@ -1,5 +1,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+import { setFreeModeCapacityDeferralListener } from '@codebuff/sdk'
 import { safeOpen } from './utils/open-url'
 import {
   useCallback,
@@ -164,6 +165,7 @@ export const Chat = ({
     setAgentMode,
     toggleAgentMode,
     isRetrying,
+    isCapacityWait,
     pendingBashMessages,
   } = useChatState()
 
@@ -272,6 +274,18 @@ export const Chat = ({
     const timeoutId = setTimeout(updateHeaderVisibility, 0)
     return () => clearTimeout(timeoutId)
   }, [messages, terminalHeight, terminalWidth, updateHeaderVisibility])
+
+  // Surface server capacity deferrals (free-mode tier shedding under peak
+  // demand): the SDK's retry loop absorbs the 429s silently, so without this
+  // the user just sees a longer unexplained "thinking". The stream-chunk
+  // handlers clear the flag (via setIsRetrying(false)) as soon as real
+  // output resumes.
+  useEffect(() => {
+    setFreeModeCapacityDeferralListener(() => {
+      useChatStore.getState().noteCapacityDeferral()
+    })
+    return () => setFreeModeCapacityDeferralListener(null)
+  }, [])
 
   const localAgents = useMemo(() => loadLocalAgents(agentMode), [agentMode])
   const inputMode = useChatStore((state) => state.inputMode)
@@ -1394,6 +1408,7 @@ export const Chat = ({
     authStatus,
     showReconnectionMessage,
     isRetrying,
+    isCapacityWait,
     isAskUserActive: askUserState !== null,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
