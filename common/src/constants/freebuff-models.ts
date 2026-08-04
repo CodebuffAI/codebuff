@@ -175,6 +175,17 @@ export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
 /** God-mode-only Laguna S 2.1 route used to test Poolside's direct
  *  OpenAI-compatible API before wider rollout. */
 export const FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID = 'poolside/laguna-s-2.1'
+
+/**
+ * Greg 2, served by CrofAI. God-only on Freebuff Web.
+ *
+ * The `crof/` prefix names the only place these exist — unlike the retired
+ * `crof/glm-5.2`, which was a SECOND id for a model already offered under
+ * `z-ai/glm-5.2` and became a quota-bypass route. There is no other id for
+ * these, so the prefix creates no such door.
+ */
+export const FREEBUFF_GREG_2_ULTRA_MODEL_ID = 'crof/greg-2-ultra'
+export const FREEBUFF_GREG_2_SUPER_MODEL_ID = 'crof/greg-2-super'
 /** God-mode-only alias for testing the paid OpenRouter route independently
  *  from Poolside's direct API. OpenRouter receives `poolside/laguna-s-2.1`. */
 export const FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID =
@@ -471,6 +482,47 @@ const GLM_V52_MODEL = {
   multimodal: false,
 } as const satisfies FreebuffModelOption
 
+/**
+ * Greg 2 Ultra / Super, CrofAI. Both god-only, and the cost is why.
+ *
+ * List price per M (CrofAI catalog, 2026-08-04):
+ *
+ *   greg-2-ultra   $3.00 in   $0.50 cache   $10.00 out
+ *   greg-2-super   $1.50 in   $0.25 cache   $ 5.00 out
+ *
+ * Against DeepSeek V4 Flash's $0.14/$0.28 that is ~21x input and ~36x output
+ * on Ultra. Worse, both carry a ~17,000-token hidden preamble upstream:
+ * measured live, a bare "hi" billed 17,538 prompt tokens and $[redacted] on Ultra
+ * against $[redacted] for deepseek-v4-flash-0731 on the same request — roughly
+ * 3,000x for the same user input. There is no request cheap enough to be
+ * casual with, which is the whole argument for keeping these off the public
+ * picker rather than merely marking them premium.
+ *
+ * Both are int4-quantized with a 229,376-token context, and both were verified
+ * live to stream and to emit tool calls.
+ */
+const GREG_2_ULTRA_MODEL = {
+  id: FREEBUFF_GREG_2_ULTRA_MODEL_ID,
+  displayName: 'Greg 2 Ultra',
+  tagline: 'Via CrofAI',
+  availability: 'always',
+  dataUse: 'service',
+  premium: true,
+  multimodal: false,
+  experimental: true,
+} as const satisfies FreebuffModelOption
+
+const GREG_2_SUPER_MODEL = {
+  id: FREEBUFF_GREG_2_SUPER_MODEL_ID,
+  displayName: 'Greg 2 Super',
+  tagline: 'Via CrofAI',
+  availability: 'always',
+  dataUse: 'service',
+  premium: true,
+  multimodal: false,
+  experimental: true,
+} as const satisfies FreebuffModelOption
+
 const POOLSIDE_LAGUNA_S_21_MODEL = {
   id: FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   displayName: 'Laguna S 2.1 (Poolside)',
@@ -630,6 +682,8 @@ export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
   LING_3_FLASH_MODEL,
   POOLSIDE_LAGUNA_S_21_MODEL,
   POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL,
+  GREG_2_ULTRA_MODEL,
+  GREG_2_SUPER_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_ALL_MODELS = [
@@ -641,6 +695,8 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
+  FREEBUFF_GREG_2_ULTRA_MODEL_ID,
+  FREEBUFF_GREG_2_SUPER_MODEL_ID,
 ] as const
 
 /**
@@ -687,6 +743,12 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
+  // Metered by the web premium pool like every other god-only row. Being in
+  // SOME pool is the point: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by
+  // filtering `!premium`, so a premium model left out of here would be metered
+  // by no pool at all rather than by a stricter one.
+  FREEBUFF_GREG_2_ULTRA_MODEL_ID,
+  FREEBUFF_GREG_2_SUPER_MODEL_ID,
 ] as const
 
 /** Full-access Web/Cloud models sharing the browser-only standard daily pool. */
