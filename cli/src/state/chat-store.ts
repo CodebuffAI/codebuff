@@ -1,4 +1,4 @@
-import { castDraft } from 'immer'
+import { castDraft, enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
@@ -48,6 +48,10 @@ export type {
   SuggestedFollowupsState,
   ClickedFollowupsMap,
 }
+
+// Drafts Sets (streamingAgents, activeSubagents) through immer; see
+// message-block-store for why the store enables the plugin itself.
+enableMapSet()
 
 export type ChatStoreState = {
   /** Unique ID for this chat session, regenerated on /new */

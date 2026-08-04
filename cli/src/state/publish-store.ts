@@ -1,5 +1,10 @@
+import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+
+// Drafts a Set (selectedAgentIds) through immer; see message-block-store for
+// why the store enables the plugin itself.
+enableMapSet()
 
 export type PublishStep = 'selection' | 'confirmation' | 'success' | 'error'
 

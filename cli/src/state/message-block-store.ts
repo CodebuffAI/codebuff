@@ -1,3 +1,4 @@
+import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
@@ -7,6 +8,16 @@ import type { AdResponse } from '../hooks/use-gravity-ad'
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
 import type { MarkdownPalette } from '../utils/markdown-renderer'
+
+// Every store that drafts a Map or Set through immer enables the plugin itself.
+// immer's Map/Set support is opt-in and lives on a PROCESS-GLOBAL registry, so
+// enabling it from one place far away (this used to happen in init-app) made a
+// store correct only once the app had booted: importing it directly threw
+// "[Immer] minified error nr: 0", and its tests passed only when some other file
+// happened to run first and enable the plugin. Doing it per store makes each one
+// correct on its own import, and makes a store that forgets fail the same way
+// everywhere instead of only outside the app. enableMapSet() is idempotent.
+enableMapSet()
 
 /**
  * Context values that are updated by the Chat component and consumed by

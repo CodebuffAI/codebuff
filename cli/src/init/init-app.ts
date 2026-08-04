@@ -1,5 +1,3 @@
-import { enableMapSet } from 'immer'
-
 import { initializeThemeStore } from '../hooks/use-theme'
 import { setProjectRoot } from '../project-files'
 import { initTimestampFormatter } from '../utils/helpers'
@@ -26,7 +24,6 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
   // Initialize direnv environment before anything else
   initializeDirenv()
 
-  enableMapSet()
   initializeThemeStore()
   enableManualThemeRefresh()
   initTimestampFormatter()
