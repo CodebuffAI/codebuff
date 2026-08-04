@@ -590,6 +590,9 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-laguna-s-2-1': BASE2,
     'base2-free-laguna-s-2-1-openrouter': BASE2,
     'base2-free-ling-3-flash': BASE2,
+    // God-only Greg 2 roots; createBase2('free', …) like their siblings.
+    'base2-free-greg-2-ultra': BASE2,
+    'base2-free-greg-2-super': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
     'base2-free-fable': BASE2,
     'base2-free-cloud-planner': CLOUD_PLANNER,

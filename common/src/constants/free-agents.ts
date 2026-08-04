@@ -12,6 +12,8 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_GREG_2_SUPER_MODEL_ID,
+  FREEBUFF_GREG_2_ULTRA_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -182,6 +184,8 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-laguna-s-2-1',
   'base2-free-laguna-s-2-1-openrouter',
   'base2-free-ling-3-flash',
+  'base2-free-greg-2-ultra',
+  'base2-free-greg-2-super',
   // Capacity-limited trial orchestrator (Claude Fable 5). Reachable only while
   // the server is still advertising the offer, but it must be listed here
   // unconditionally: a session admitted while the pool was open runs its full
@@ -213,6 +217,8 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID]:
     'base2-free-laguna-s-2-1-openrouter',
   [FREEBUFF_LING_3_FLASH_MODEL_ID]: 'base2-free-ling-3-flash',
+  [FREEBUFF_GREG_2_ULTRA_MODEL_ID]: 'base2-free-greg-2-ultra',
+  [FREEBUFF_GREG_2_SUPER_MODEL_ID]: 'base2-free-greg-2-super',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
 }
 
@@ -322,6 +328,8 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   ]),
   'base2-free-ling-3-flash': new Set([FREEBUFF_LING_3_FLASH_MODEL_ID]),
+  'base2-free-greg-2-ultra': new Set([FREEBUFF_GREG_2_ULTRA_MODEL_ID]),
+  'base2-free-greg-2-super': new Set([FREEBUFF_GREG_2_SUPER_MODEL_ID]),
   // Limited-offer trial root. Only this agent may run Fable for free, and only
   // on Fable — the pool accounting keys off the model, so a root that could
   // also run something else would let a session escape it.
