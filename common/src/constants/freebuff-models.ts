@@ -1077,13 +1077,39 @@ export function getRecommendedFreebuffWebModelId(
   return DEFAULT_FREEBUFF_WEB_MODEL_ID
 }
 
+/**
+ * GLM 5.2 is reachable from limited access, but only against a bounty-earned
+ * grant.
+ *
+ * The tier gate used to live here, in the model allowlist: a limited-tier
+ * (VPN / unsupported-country) user could not name GLM at all. Bounties pay a
+ * GLM session that is meant to be worth the same in every region, so the gate
+ * moved DOWN into the quota pool — at limited tier the GLM pool counts only
+ * grants minted `redeemable_at_limited_tier` (bounty payouts), and nothing
+ * else. Referral GLM entitlement still counts for nothing there, which is the
+ * anti-farming stance docs/referrals.md describes.
+ *
+ * The practical effect of allowing it here is that a limited user with no
+ * bounty grant gets `rate_limited` (limit 0) instead of `session_model_
+ * mismatch`. Clients only surface GLM to them once the server reports a
+ * balance, so that path is not a normal one to hit.
+ */
+export function isGlmRedeemableAtLimitedTier(
+  model: string | null | undefined,
+): boolean {
+  return FREEBUFF_GLM_V52_MODEL_IDS.some((modelId) => modelId === model)
+}
+
 export function isFreebuffModelAllowedForAccessTier(
   model: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
 ): boolean {
   if (!model) return false
   if (accessTier !== 'limited') return isFreebuffModelId(model)
-  return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+  return (
+    isGlmRedeemableAtLimitedTier(model) ||
+    LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+  )
 }
 
 /** Session admission is shared by CLI/Desktop/Web/Cloud. Client pickers use
@@ -1106,7 +1132,12 @@ export function isFreebuffSessionModelAllowedForAccessTier(
 ): boolean {
   if (!model) return false
   if (accessTier !== 'limited') return isFreebuffSessionModelId(model)
-  return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+  // See isGlmRedeemableAtLimitedTier: GLM's limited-tier gate is the quota
+  // pool (bounty grants only), not this allowlist.
+  return (
+    isGlmRedeemableAtLimitedTier(model) ||
+    LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+  )
 }
 
 export function isFreebuffModelId(
@@ -1163,6 +1194,9 @@ export function resolveFreebuffModelForAccessTier(
   | typeof FREEBUFF_GLM_V52_MODEL_ID
   | FreebuffLimitedOfferModelId {
   if (accessTier === 'limited') {
+    // GLM survives the coercion at limited tier so a bounty-earned session is
+    // launchable from any region; the pool decides whether it is joinable.
+    if (id === FREEBUFF_GLM_V52_MODEL_ID) return id
     return isFreebuffModelAllowedForAccessTier(id, accessTier)
       ? (id as FreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID

@@ -359,12 +359,22 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('CLI access-tier resolver preserves referral GLM only for full access', () => {
+  test('CLI access-tier resolver preserves GLM at every tier', () => {
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_GLM_V52_MODEL_ID, 'full'),
     ).toBe(FREEBUFF_GLM_V52_MODEL_ID)
+    // Since bounties (2026-08-03), GLM survives the limited-tier coercion: a
+    // bounty-earned session is redeemable in every region. The entitlement
+    // gate moved DOWN into the GLM quota pool, which at limited tier counts
+    // ONLY grants minted redeemable_at_limited_tier — referral GLM still buys
+    // a limited-tier user nothing. Coercing here instead would rewrite a
+    // deliberate pick to DeepSeek and strand the session they earned.
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_GLM_V52_MODEL_ID, 'limited'),
+    ).toBe(FREEBUFF_GLM_V52_MODEL_ID)
+    // Everything else still collapses to the limited model.
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'limited'),
     ).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 

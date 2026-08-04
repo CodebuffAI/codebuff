@@ -237,8 +237,10 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // wraps back up). The limited variant and the full-tier locked state show
   // just the copy button; the full-tier unlocked card leads with "Use GLM 5.2"
   // then the invite button.
-  const isLocked =
-    accessTier === 'limited' || (referral.weeklySessionsRemaining ?? 0) <= 0
+  // A limited-tier user can now hold GLM sessions too — bounty grants are
+  // redeemable in every region — so the unlocked card is keyed on the balance
+  // alone rather than on the tier.
+  const isLocked = (referral.weeklySessionsRemaining ?? 0) <= 0
   useEffect(() => {
     onFocusTargetsChange(
       isLocked
@@ -257,7 +259,9 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // quiet — one line advertising the perk + the share button below it, with the
   // earned bonus (capped) shown as progress. `qualifiedCount` is the capped
   // bonus sessions/day already earned.
-  if (accessTier === 'limited') {
+  // ...unless they hold bounty-earned GLM sessions, which fall through to the
+  // shared unlocked card below.
+  if (accessTier === 'limited' && isLocked) {
     const atCap = qualifiedCount >= REFERRAL_CLI_DAILY_SESSION_BONUS_CAP
     return (
       <box
