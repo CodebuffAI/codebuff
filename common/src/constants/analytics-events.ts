@@ -247,6 +247,30 @@ export enum AnalyticsEvent {
   // click) — a direct read on whether the click feedback is landing.
   FREEBUFF_DESKTOP_DOWNLOAD_CLICKED = 'freebuff.desktop_download_clicked',
 
+  // Freebuff Web creation gate: the user's idea was screened as something Web
+  // cannot build, and they clicked through to the surface we suggested.
+  // `surface` is desktop | cli | unsupported. Pairs with the Convex
+  // web_gate_decision row (which carries the same click) — PostHog answers
+  // "did the redirect land?" across the funnel, Convex answers "for which
+  // ideas?". Both exist because the Convex row cannot see what the user does
+  // after leaving /web.
+  FREEBUFF_WEB_GATE_REDIRECT_CLICKED = 'freebuff.web_gate_redirect_clicked',
+
+  // Freebuff Web first-session onboarding. The details sequence runs in the
+  // chat pane while the first build streams; its answers are composed into the
+  // user's SECOND prompt, which is the drop-off metric this exists to move
+  // (51% of Web projects never get one). `_STEP` fires per question with
+  // whether it was answered or skipped, so the funnel shows which question
+  // people bail on. `_FINISHED` carries `answered` (0-4) and `sent`.
+  FREEBUFF_WEB_ONBOARDING_STEP = 'freebuff.web_onboarding_step',
+  FREEBUFF_WEB_ONBOARDING_FINISHED = 'freebuff.web_onboarding_finished',
+
+  // The workspace spotlight tour that follows the first build. `_STEP` fires
+  // per pane shown (preview/database/logs/publish/chat); `_FINISHED` records
+  // completed vs skipped and where they stopped.
+  FREEBUFF_WEB_TOUR_STEP = 'freebuff.web_tour_step',
+  FREEBUFF_WEB_TOUR_FINISHED = 'freebuff.web_tour_finished',
+
   // Freebuff - Cloud landing page (/cloud). Fired when a logged-out visitor
   // clicks a "Continue with GitHub" / "Connect your repo" CTA; `location`
   // distinguishes hero vs the migration/lovable section vs the final CTA. Best
