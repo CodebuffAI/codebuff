@@ -1,13 +1,18 @@
 /**
- * Test script for the browser-use agent.
+ * Manual run script for the browser-use agent. NOT a test.
  *
  * Runs the agent on browser tasks one at a time, writing full event traces
  * to files for analysis. Each task produces a trace file in debug/browser-agent-traces/.
  *
  * Usage:
- *   bun agents/browser-use/browser-use.test.ts [taskIndex]
+ *   bun agents/browser-use/run-browser-use.ts [taskIndex]
  *
  * If taskIndex is provided, runs only that task (0-based). Otherwise runs all tasks.
+ *
+ * It used to be named browser-use.test.ts, which made every `bun test` that
+ * reached it — including the root suite — die without a summary: it declares no
+ * test, needs a real CODEBUFF_API_KEY, and calls process.exit(1) at module scope
+ * when the agent is missing. Keep run-* in the name so no test glob picks it up.
  */
 
 import * as fs from 'fs'

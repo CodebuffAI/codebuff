@@ -1,13 +1,18 @@
 /**
- * E2E test script for the librarian agent.
+ * Manual run script for the librarian agent. NOT a test.
  *
  * Runs the agent on repo-analysis tasks one at a time, writing full event traces
  * to files for analysis. Each task produces a trace file in debug/librarian-traces/.
  *
  * Usage:
- *   bun agents/librarian/librarian.test.ts [taskIndex]
+ *   bun agents/librarian/run-librarian.ts [taskIndex]
  *
  * If taskIndex is provided, runs only that task (0-based). Otherwise runs all tasks.
+ *
+ * It used to be named librarian.test.ts, which made every `bun test` that reached
+ * it — including the root suite — die without a summary: it declares no test,
+ * needs a real CODEBUFF_API_KEY, and calls process.exit(1) at module scope when
+ * the agent is missing. Keep run-* in the name so no test glob picks it up.
  */
 
 import * as fs from 'fs'
