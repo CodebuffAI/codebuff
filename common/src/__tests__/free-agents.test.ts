@@ -576,8 +576,6 @@ describe('hasFreebuffRootSystemPromptOpening', () => {
  */
 describe('every freebuff root agent declares a prompt opening', () => {
   const BASE2 = 'You are Buffy, the strategic coding assistant.'
-  const WEB_TRIAL =
-    'You are Buffy, a coding agent inside a Freebuff Web project.'
   const CLOUD_PLANNER = 'You are Buffy, the Freebuff Cloud project planner.'
 
   /** Root agent id → the opening its system prompt starts with. */
@@ -594,8 +592,6 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-ling-3-flash': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
     'base2-free-fable': BASE2,
-    'base2-free-hy3': WEB_TRIAL,
-    'base2-free-hy3-atlas': WEB_TRIAL,
     'base2-free-cloud-planner': CLOUD_PLANNER,
     'base2-free-cloud-planner-limited': CLOUD_PLANNER,
     // Desktop threads compose their prompt onto base2's, so position 0 matches.
@@ -643,7 +639,7 @@ describe('canonical root prompt openings match their source definitions', () => 
     )
   })
 
-  test('freebuff web trial + cloud planner prompts (hy3, planner roots)', () => {
+  test('freebuff cloud planner prompt (planner roots)', () => {
     const source = read(
       'freebuff',
       'web',
@@ -652,14 +648,20 @@ describe('canonical root prompt openings match their source definitions', () => 
       'cli_agent',
       'freebuff_bundled_agents.ts',
     )
-    for (const opening of [
+    const opening = 'You are Buffy, the Freebuff Cloud project planner.'
+    // The literal opens with a newline that `.trim()` strips at build time.
+    expect(source).toContain(`\`\n${opening}`)
+    expect(FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS).toContain(opening)
+
+    // The lean Web-trial prompt ('You are Buffy, a coding agent inside a
+    // Freebuff Web project.') was deleted with the HY3 roots on 2026-08-04, its
+    // only users. It must not linger in the gate's allowlist: that list decides
+    // which prompts a free-mode ROOT request may open with, so an entry nothing
+    // sends is just a wider accepted surface.
+    expect(source).not.toContain('a coding agent inside a Freebuff Web project')
+    expect(FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS).not.toContain(
       'You are Buffy, a coding agent inside a Freebuff Web project.',
-      'You are Buffy, the Freebuff Cloud project planner.',
-    ]) {
-      // Both literals open with a newline that `.trim()` strips at build time.
-      expect(source).toContain(`\`\n${opening}`)
-      expect(FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS).toContain(opening)
-    }
+    )
   })
 
   test('desktop thread agent composes onto the base2 prompt head', () => {

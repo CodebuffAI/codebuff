@@ -283,78 +283,66 @@ describe('freebuff model availability', () => {
     ).not.toBe('moonshotai/kimi-k2.6')
   })
 
-  test('HY3 OpenRouter trial is available only as a Freebuff Web premium model for now', () => {
+  test('both HY3 routes are fully removed from Freebuff', () => {
+    // HY3 was withdrawn from the Web picker during the initial rollout and left
+    // in FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS, which is a client-side filter
+    // and therefore not a gate at all — the same mistake that let the CrofAI
+    // GLM route be farmed. Removed outright 2026-08-04, along with the
+    // god-only paid OpenRouter route.
+    //
+    // The wire-id CONSTANTS survive because web/src/llm-api/hy3-fallback.ts
+    // still routes `tencent/hy3` for paid/BYOK callers, exactly as paid Kimi
+    // outlived its Freebuff removal. What must not survive is catalog or quota
+    // membership, which is what these assert.
     expect(FREEBUFF_HY3_MODEL_ID).toBe(FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID)
-    // The old Atlas id remains a wire-compatible alias for saved selections.
     expect(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).toBe(
       FREEBUFF_HY3_ATLAS_MODEL_ID,
     )
-    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_HY3_MODEL_ID,
-    )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_HY3_MODEL_ID,
-    )
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_HY3_MODEL_ID,
-    )
 
-    expect(isFreebuffWebModelId(FREEBUFF_HY3_MODEL_ID)).toBe(true)
-    expect(isFreebuffWebPremiumModelId(FREEBUFF_HY3_MODEL_ID)).toBe(true)
-    expect(isFreebuffPremiumModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
-    expect(isFreebuffModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
-    expect(isSupportedFreebuffModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
-    expect(resolveFreebuffWebModel(FREEBUFF_HY3_MODEL_ID)).toBe(
+    for (const hy3Id of [
       FREEBUFF_HY3_MODEL_ID,
-    )
-    expect(getFreebuffWebModel(FREEBUFF_HY3_MODEL_ID).displayName).toBe('HY3')
-    expect(getFreebuffWebModel(FREEBUFF_HY3_MODEL_ID).tagline).toBe(
-      'Trialing its performance',
-    )
+      FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
+    ]) {
+      expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(hy3Id)
+      expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+        hy3Id,
+      )
+      expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(hy3Id)
+      expect(
+        FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id),
+      ).not.toContain(hy3Id)
+      expect(FREEBUFF_WEB_ALL_MODELS.map((model) => model.id)).not.toContain(
+        hy3Id,
+      )
+
+      expect(isFreebuffModelId(hy3Id)).toBe(false)
+      expect(isSupportedFreebuffModelId(hy3Id)).toBe(false)
+      expect(isFreebuffWebModelId(hy3Id, { includeGodOnly: true })).toBe(false)
+      expect(isFreebuffWebGodOnlyModelId(hy3Id)).toBe(false)
+      expect(isFreebuffSessionModelId(hy3Id)).toBe(false)
+      // No pool may meter it, in either direction: premium would hand it out
+      // free, and standard would leave it unlimited.
+      expect(isFreebuffWebPremiumModelId(hy3Id)).toBe(false)
+      expect(isFreebuffPremiumModelId(hy3Id)).toBe(false)
+      expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(hy3Id)
+      // A stale saved selection downgrades rather than resolving to itself.
+      expect(
+        resolveFreebuffWebModel(hy3Id, { includeGodOnly: true }),
+      ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+      expect(getFreebuffWebModel(hy3Id).id).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    }
   })
 
-  test('HY3 paid OpenRouter is a god-only Freebuff Web premium model', () => {
-    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-    )
-    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-    )
-    expect(isFreebuffWebModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID)).toBe(
-      false,
-    )
-    expect(
-      isFreebuffWebModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID, {
-        includeGodOnly: true,
-      }),
-    ).toBe(true)
-    expect(
-      isFreebuffWebGodOnlyModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID),
-    ).toBe(true)
-    expect(
-      isFreebuffWebPremiumModelId(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID),
-    ).toBe(true)
-    expect(resolveFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID)).toBe(
-      FALLBACK_FREEBUFF_MODEL_ID,
-    )
-    expect(
-      resolveFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID, {
-        includeGodOnly: true,
-      }),
-    ).toBe(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID)
-    expect(
-      resolveFreebuffSessionModelForAccessTier(
-        FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-        'full',
-        { includeGodOnly: false },
-      ),
-    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
-    expect(
-      getFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).displayName,
-    ).toBe('HY3 (OpenRouter)')
-    expect(
-      getFreebuffWebModel(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).tagline,
-    ).toBe('Paid via OpenRouter')
+  test('the picker-retirement list is empty, and that is deliberate', () => {
+    // Both former occupants (HY3, CrofAI GLM 5.2) were farmed or left publicly
+    // advertised precisely because a picker-only retirement is a UI change, not
+    // a gate. If this fails, something was parked here instead of removed —
+    // check that the id being reachable by a direct API caller is actually
+    // harmless before accepting it.
+    expect(FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS).toEqual([])
+    for (const model of FREEBUFF_WEB_ALL_MODELS) {
+      expect(isFreebuffWebSelectableModelId(model.id)).toBe(true)
+    }
   })
 
   test('GLM 5.2 is referral-only and reachable by exactly one model id', () => {

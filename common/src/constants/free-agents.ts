@@ -12,8 +12,6 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_HY3_MODEL_ID,
-  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -190,18 +188,12 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // hour after the pool empties, and dropping the root would 403 its subagents
   // mid-run.
   'base2-free-fable',
-  // Freebuff Web trial orchestrators (freebuff_bundled_agents.ts). Every root
-  // id in FREE_MODE_AGENT_MODELS that can spawn subagents MUST also be listed
-  // here, or the chat-completions hierarchy gate 403s the subagents with
-  // "Free mode subagents must run under an active freebuff session root"
-  // (2026-07-09 incident: trial runs failed at spawn_agent_inline).
-  'base2-free-hy3',
-  'base2-free-hy3-atlas',
   // Freebuff Cloud custom-stack planner variants. They spawn context-pruner, so
   // omitting them here 403s that subagent with
-  // free_mode_invalid_agent_hierarchy — the same failure the hy3 roots above
-  // hit. Their shared system prompt carries the "You are Buffy" marker so they
-  // also pass requestHasFreebuffSystemMarker.
+  // free_mode_invalid_agent_hierarchy (2026-07-09 incident: trial runs failed
+  // at spawn_agent_inline). EVERY root in FREE_MODE_AGENT_MODELS that can spawn
+  // subagents MUST also be listed here. Their shared system prompt carries the
+  // "You are Buffy" marker so they also pass requestHasFreebuffSystemMarker.
   'base2-free-cloud-planner',
   'base2-free-cloud-planner-limited',
   ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
@@ -307,6 +299,11 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // the tail from ~170 to ~33 daily users. Paid/BYOK MiMo Pro and its llm-api
   // routing are untouched.
   //
+  // HY3 ('base2-free-hy3', 'base2-free-hy3-atlas') went on 2026-08-04 as well.
+  // It had been picker-retired since the initial web rollout, which stopped
+  // nothing that talks to the API directly. Paid/BYOK `tencent/hy3` routing in
+  // web/src/llm-api/hy3-fallback.ts is untouched.
+  //
   // The CrofAI GLM 5.2 route ('base2-free-glm-crof') was removed on 2026-08-04
   // for a different reason: it was never a decaying tail. It reached the same
   // CrofAI upstream as 'base2-free-glm' but its model id sat in the daily
@@ -329,8 +326,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // on Fable — the pool accounting keys off the model, so a root that could
   // also run something else would let a session escape it.
   'base2-free-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
-  'base2-free-hy3': new Set([FREEBUFF_HY3_MODEL_ID]),
-  'base2-free-hy3-atlas': new Set([FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID]),
   // Freebuff Cloud custom-stack planner (freebuff_bundled_agents.ts). One
   // variant per model, each allowed exactly the model its definition pins.
   'base2-free-cloud-planner': new Set([CLOUD_PLANNER_MODEL_ID]),
@@ -448,8 +443,6 @@ export const FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS = [
   // agents/base2/base2.ts createBase2('free', …) — every `base2-free-*` CLI
   // root, and the desktop thread agents that compose their prompt onto it.
   'You are Buffy, the strategic coding assistant.',
-  // freebuff_bundled_agents.ts LEAN_FREEBUFF_WEB_TRIAL_SYSTEM_PROMPT — hy3.
-  'You are Buffy, a coding agent inside a Freebuff Web project.',
   // freebuff_bundled_agents.ts CLOUD_PLANNER_SYSTEM_PROMPT — planner roots.
   'You are Buffy, the Freebuff Cloud project planner.',
   // LEGACY — base2's opening before 92371caa8 (2026-07-07). The prompt is

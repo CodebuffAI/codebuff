@@ -84,12 +84,23 @@ export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
  *  chat code must use FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID instead. */
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
+/**
+ * HY3 wire ids. REMOVED FROM FREEBUFF on 2026-08-04 — they are in no catalog,
+ * no quota pool and no free-mode allowlist, so a free session can no longer be
+ * admitted on either and the bundled roots are gone.
+ *
+ * The constants survive because `web/src/llm-api/hy3-fallback.ts` still routes
+ * these slugs for paid/BYOK callers, exactly as paid Kimi outlived its Freebuff
+ * removal. Nothing here should reach a Freebuff gate again: HY3 was withdrawn
+ * during the initial web rollout and then sat in
+ * FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS, which turned out not to be a gate at
+ * all (see FREEBUFF_GLM_V52_MODEL_ID for what that cost).
+ */
 export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3_free
 export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3
-/** Legacy alias retained for the direct Atlas fallback implementation. New
- * paid HY3 selections route through OpenRouter. */
+/** Legacy alias retained for the direct Atlas fallback implementation. */
 export const FREEBUFF_HY3_ATLAS_MODEL_ID = FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
@@ -377,28 +388,6 @@ const DEEPSEEK_V4_PRO_MODEL = {
   },
 } as const satisfies FreebuffModelOption
 
-const HY3_MODEL = {
-  id: FREEBUFF_HY3_MODEL_ID,
-  displayName: 'HY3',
-  tagline: 'Trialing its performance',
-  availability: 'always',
-  dataUse: 'service',
-  premium: true,
-  multimodal: false,
-  experimental: true,
-} as const satisfies FreebuffModelOption
-
-const HY3_OPENROUTER_PAID_MODEL = {
-  id: FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-  displayName: 'HY3 (OpenRouter)',
-  tagline: 'Paid via OpenRouter',
-  availability: 'always',
-  dataUse: 'service',
-  premium: true,
-  multimodal: false,
-  experimental: true,
-} as const satisfies FreebuffModelOption
-
 const MIMO_V25_MODEL = {
   id: FREEBUFF_MIMO_V25_MODEL_ID,
   displayName: 'MiMo 2.5',
@@ -630,11 +619,9 @@ export const FREEBUFF_LIMITED_OFFER_SESSION_RESET_TIMEZONE =
 export const FREEBUFF_LIMITED_OFFER_SESSION_WINDOW_HOURS =
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
 
-/** Freebuff Web-only picker/support set. HY3 is intentionally excluded from
- *  FREEBUFF_MODELS and SUPPORTED_FREEBUFF_MODELS so CLI/Desktop freebuff
- *  surfaces do not pick it up during the initial web rollout. */
+/** Freebuff Web-only picker/support set: the CLI/Desktop catalog plus the
+ *  earned GLM 5.2 row. */
 export const FREEBUFF_WEB_MODELS = [
-  HY3_MODEL,
   GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
@@ -643,7 +630,6 @@ export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
   LING_3_FLASH_MODEL,
   POOLSIDE_LAGUNA_S_21_MODEL,
   POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL,
-  HY3_OPENROUTER_PAID_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_ALL_MODELS = [
@@ -655,30 +641,30 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
 ] as const
 
 /**
  * Web/Cloud models the picker no longer offers, while the backend keeps
- * honoring them so a session already running on one finishes normally.
+ * honoring them so a session already running on one finishes normally: the id
+ * stays in FREEBUFF_WEB_MODELS and in whichever quota list meters it, because
+ * dropping a live session's model from the catalog fails admission mid-run and
+ * dropping it from its quota list alone would leave it metered by NO pool.
  *
- * They stay in FREEBUFF_WEB_MODELS (and in whichever quota list meters them)
- * on purpose: dropping a live session's model from the catalog fails
- * admission mid-run, and dropping it from its quota list alone would leave it
- * metered by NO pool at all. Retiring is therefore picker-only; deleting the
- * id outright is a separate cleanup once no live session references it.
+ * DELIBERATELY EMPTY, and the bar for adding to it is high.
  *
- * A picker-only retirement leaves the id reachable by anything that talks to
- * the API directly, so it is NOT a gate. The CrofAI GLM 5.2 route sat here from
- * 2026-07-30 and hand-written callers kept admitting free premium-pool sessions
- * on it for five days; it was deleted outright on 2026-08-04. Only park a model
- * here when the id being reachable is harmless.
+ * A picker-only retirement is a UI change, not a gate: the filter runs
+ * client-side, so anything talking to the API directly still reaches the id.
+ * Both former occupants proved it. The CrofAI GLM 5.2 route sat here from
+ * 2026-07-30 and hand-written callers kept admitting free premium-pool GLM
+ * sessions on it for five days. HY3 sat here since the initial web rollout.
+ * Both were deleted outright on 2026-08-04.
  *
- *   - HY3 — withdrawn during the initial web rollout.
+ * Park a model here ONLY to let genuinely live sessions drain, and only when
+ * the id being reachable in the meantime is harmless — never as the gate
+ * itself, and never for a model that costs real money or is entitlement-earned.
+ * Then finish the removal.
  */
-export const FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS = [
-  FREEBUFF_HY3_MODEL_ID,
-] as const
+export const FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS = [] as const
 
 /** Whether the Web/Cloud picker should offer `id` as a new selection. False
  *  for retired routes (see FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS), which the
@@ -698,10 +684,8 @@ export function isFreebuffWebSelectableModelId(
  *  any GLM route in this list hands the model out for nothing. */
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
-  FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
 ] as const
 
