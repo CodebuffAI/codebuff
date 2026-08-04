@@ -6,7 +6,6 @@ import {
 } from './freebuff-gemini-thinker'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_FABLE_5_MODEL_ID,
@@ -19,7 +18,6 @@ import {
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
 } from './freebuff-models'
@@ -179,12 +177,10 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free',
   'base2-free-deepseek',
   'base2-free-deepseek-flash',
-  'base2-free-mimo-pro',
   'base2-free-mimo',
   'base2-free-minimax-m3',
   'base2-free-luna',
   'base2-free-glm',
-  'base2-free-glm-crof',
   'base2-free-laguna-s-2-1',
   'base2-free-laguna-s-2-1-openrouter',
   'base2-free-ling-3-flash',
@@ -215,14 +211,12 @@ const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
 )
 
 export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
-  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base2-free-luna',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
-  [FREEBUFF_CROF_GLM_V52_MODEL_ID]: 'base2-free-glm-crof',
   [FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]: 'base2-free-laguna-s-2-1',
   [FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID]:
     'base2-free-laguna-s-2-1-openrouter',
@@ -245,7 +239,6 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
  * free-agents.test.ts enforce both halves.
  */
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
-  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'code-reviewer-luna',
@@ -260,7 +253,6 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
 ])
@@ -297,7 +289,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     FREEBUFF_MIMO_V25_MODEL_ID,
   ]),
   // Kimi K2.7 Code was removed from free mode entirely on 2026-07-31. It had
@@ -310,14 +301,25 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // 'free_mode_invalid_agent_model'. Paid/BYOK Kimi is unaffected: the
   // base2-kimi-2-7-code agent and llm-api provider routing never consult this
   // gate.
+  //
+  // MiMo 2.5 Pro ('base2-free-mimo-pro', 'code-reviewer-mimo-pro') was removed
+  // the same way on 2026-08-04, after its 2026-07-31 picker retirement decayed
+  // the tail from ~170 to ~33 daily users. Paid/BYOK MiMo Pro and its llm-api
+  // routing are untouched.
+  //
+  // The CrofAI GLM 5.2 route ('base2-free-glm-crof') was removed on 2026-08-04
+  // for a different reason: it was never a decaying tail. It reached the same
+  // CrofAI upstream as 'base2-free-glm' but its model id sat in the daily
+  // PREMIUM pool instead of the earned GLM pool, so anyone posting the agent id
+  // by hand got the referral reward for free. No shipped client ever bundled it,
+  // so every request it saw was hand-written. Keep GLM to exactly one agent and
+  // one model id.
   'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'base2-free-deepseek-flash': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
-  'base2-free-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
   'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
-  'base2-free-glm-crof': new Set([FREEBUFF_CROF_GLM_V52_MODEL_ID]),
   'base2-free-laguna-s-2-1': new Set([FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]),
   'base2-free-laguna-s-2-1-openrouter': new Set([
     FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
@@ -366,7 +368,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-deepseek-flash': new Set([
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   ]),
-  'code-reviewer-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
   'code-reviewer-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'code-reviewer-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
@@ -385,7 +386,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-lite': new Set([
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     FREEBUFF_MIMO_V25_MODEL_ID,
   ]),
 

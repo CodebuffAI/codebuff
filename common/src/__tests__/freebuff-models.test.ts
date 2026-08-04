@@ -6,7 +6,6 @@ import {
   DEFAULT_FREEBUFF_WEB_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS,
-  FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DESKTOP_SESSION_LIMITS,
@@ -25,7 +24,6 @@ import {
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MODELS,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
@@ -44,7 +42,6 @@ import {
   getRecommendedFreebuffModelId,
   getRecommendedFreebuffWebModelId,
   isFreebuffWebDeemphasizedModelId,
-  isFreebuffCrofGlmV52ModelId,
   isFreebuffDeploymentHours,
   isFreebuffGlmV52ModelId,
   isFreebuffGpt56LunaModelId,
@@ -66,6 +63,7 @@ import {
   isFreebuffWebPremiumModelId,
   resolveRememberedFreebuffWebModel,
   isSupportedFreebuffModelId,
+  isFreebuffSessionModelId,
   resolveFreebuffWebModel,
   resolveFreebuffWebModelForLimitedTier,
   resolveFreebuffModelForAccessTier,
@@ -77,6 +75,11 @@ import type { FreebuffModelOption } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
 
 const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
+// Both removed 2026-08-04. Held as literals, not imported constants, so these
+// guards keep asserting on the WIRE ids even if a constant of the same name is
+// ever reintroduced.
+const FREEBUFF_MIMO_V25_PRO_MODEL_ID = 'mimo/mimo-v2.5-pro'
+const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
 
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
@@ -169,19 +172,11 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiMo models remain supported and follow the UI rollout flag', () => {
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    )
+  test('MiMo 2.5 remains supported and follows the UI rollout flag', () => {
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_MIMO_V25_MODEL_ID,
     )
 
-    // MiMo 2.5 Pro was retired from the client pickers on 2026-07-31 and is no
-    // longer gated by the rollout flag — only the non-Pro model is.
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    )
     if (FREEBUFF_ENABLE_MIMO_MODELS_IN_UI) {
       expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
         FREEBUFF_MIMO_V25_MODEL_ID,
@@ -192,12 +187,33 @@ describe('freebuff model availability', () => {
       )
     }
 
-    expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(true)
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
     expect(getFreebuffModelImageSupport(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(true)
-    expect(getFreebuffModelImageSupport(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
+  })
+
+  test('MiMo 2.5 Pro is fully removed from Freebuff', () => {
+    // Retired from the client pickers 2026-07-31, server half removed
+    // 2026-08-04 once the tail had decayed from ~170 to ~33 daily users. Same
+    // two-stage shape Kimi K2.7 Code went through. Paid/BYOK MiMo Pro is
+    // unaffected; it never resolves through these helpers.
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    )
+    expect(isFreebuffModelId(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(false)
+    expect(isSupportedFreebuffModelId(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
       false,
     )
+    expect(isFreebuffSessionModelId(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(false)
+    expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(false)
+    // The non-Pro model must not be caught by the removal: the ids share a
+    // prefix, and freebuffModelIdMatches only tolerates dated suffixes.
+    expect(isFreebuffSessionModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(true)
   })
 
   test('reports image support only for known Freebuff models', () => {
@@ -341,17 +357,9 @@ describe('freebuff model availability', () => {
     ).toBe('Paid via OpenRouter')
   })
 
-  test('GLM 5.2 is referral-only: the premium CrofAI route is unselectable', () => {
-    // The whole point of retiring it (2026-07-30): no Web/Cloud user can pick
-    // GLM 5.2 as a premium model, so the referral route is the only way in.
-    expect(isFreebuffWebSelectableModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      false,
-    )
-    expect(FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS).toContain(
-      FREEBUFF_CROF_GLM_V52_MODEL_ID,
-    )
-    // ...while the REFERRAL route stays selectable — retiring one GLM route
-    // must never take the earned one down with it.
+  test('GLM 5.2 is referral-only and reachable by exactly one model id', () => {
+    // The earned route stays selectable — removing the other GLM route must
+    // never take this one down with it.
     expect(isFreebuffWebSelectableModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(true)
     // Every other web model is unaffected.
     expect(
@@ -378,56 +386,50 @@ describe('freebuff model availability', () => {
     ).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 
-  test('the retired CrofAI GLM 5.2 route still admits and meters live sessions', () => {
-    // Retirement is picker-only. Dropping the id from the catalog would fail
-    // admission mid-session; dropping it from the premium pool would leave
-    // those sessions metered by no pool at all (= unlimited paid GLM).
-    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
+  test('the CrofAI GLM 5.2 wire id is fully removed', () => {
+    // Retired from the pickers 2026-07-30 and deleted 2026-08-04. The picker
+    // retirement was client-side only, so hand-written API callers kept
+    // admitting sessions on this id and drawing GLM 5.2 from the free daily
+    // PREMIUM pool instead of the earned GLM pool — 12-49 distinct accounts a
+    // day, five days after it was supposedly unreachable. No shipped client
+    // ever bundled it, so deleting it breaks nothing.
+    //
+    // The invariant this guards: GLM 5.2 must have exactly ONE wire id. The
+    // quota pool is chosen by model id, so a second id is a second entitlement.
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
-    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).not.toContain(
+    expect(FREEBUFF_WEB_ALL_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
-    expect(isFreebuffWebModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(true)
-    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+    expect(isFreebuffWebModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(false)
+    expect(isFreebuffSessionModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(false)
+    // Critically: it must not be metered by the free daily premium pool, which
+    // is the door this whole removal closes.
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
       false,
     )
-    // A live session's model must resolve to itself, not silently downgrade.
-    expect(resolveFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      FREEBUFF_CROF_GLM_V52_MODEL_ID,
-    )
-    expect(
-      getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).displayName,
-    ).toBe('GLM 5.2')
-    expect(getFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID).premium).toBe(
-      true,
-    )
-    expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      true,
-    )
-    expect(isFreebuffCrofGlmV52ModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      true,
-    )
-    // Only the REFERRAL GLM route keeps a pool of its own, and neither GLM
-    // route may fall into the free standard browser pool.
-    expect(isFreebuffGlmV52ModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(false)
     expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
+    // A stale saved selection downgrades to the always-available fallback.
+    expect(resolveFreebuffWebModel(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
+    // The earned route is untouched.
+    expect(isFreebuffGlmV52ModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(true)
+    expect(isFreebuffSessionModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(true)
   })
 
-  test('neither GLM 5.2 route is ever remembered as the default model', () => {
+  test('GLM 5.2 is never remembered as the default model', () => {
     // GLM runs out long before the rest of the picker, so remembering it would
     // strand a new thread / app / page load on a model that fails admission.
-    for (const glmId of [
-      FREEBUFF_GLM_V52_MODEL_ID,
-      FREEBUFF_CROF_GLM_V52_MODEL_ID,
-    ]) {
-      expect(isFreebuffWebRememberableModelId(glmId)).toBe(false)
-      expect(resolveRememberedFreebuffWebModel(glmId)).toBe(
-        DEFAULT_FREEBUFF_WEB_MODEL_ID,
-      )
-    }
+    expect(isFreebuffWebRememberableModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(
+      false,
+    )
+    expect(
+      resolveRememberedFreebuffWebModel(FREEBUFF_GLM_V52_MODEL_ID),
+    ).toBe(DEFAULT_FREEBUFF_WEB_MODEL_ID)
     // Retired picker models self-heal to the always-available fallback, while
     // god-only models remain rememberable when the caller opts in.
     expect(
@@ -468,7 +470,15 @@ describe('freebuff model availability', () => {
     }
   })
 
-  test('CrofAI GLM 5.2 is unavailable to limited-region users', () => {
+  test('the removed CrofAI GLM 5.2 id is admitted at no access tier', () => {
+    for (const tier of ['limited', 'full'] as const) {
+      expect(
+        isFreebuffSessionModelAllowedForAccessTier(
+          FREEBUFF_CROF_GLM_V52_MODEL_ID,
+          tier,
+        ),
+      ).toBe(false)
+    }
     expect(
       isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_CROF_GLM_V52_MODEL_ID),
     ).toBe(false)
@@ -478,18 +488,6 @@ describe('freebuff model availability', () => {
     expect(
       resolveFreebuffWebModelForLimitedTier(FREEBUFF_CROF_GLM_V52_MODEL_ID),
     ).toBe(LIMITED_FREEBUFF_MODEL_ID)
-    expect(
-      isFreebuffSessionModelAllowedForAccessTier(
-        FREEBUFF_CROF_GLM_V52_MODEL_ID,
-        'limited',
-      ),
-    ).toBe(false)
-    expect(
-      isFreebuffSessionModelAllowedForAccessTier(
-        FREEBUFF_CROF_GLM_V52_MODEL_ID,
-        'full',
-      ),
-    ).toBe(true)
   })
 
   test('Poolside Laguna S 2.1 routes are god-only Freebuff Web test models', () => {
@@ -966,9 +964,10 @@ describe('freebuff model availability', () => {
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe(true)
+    // MiMo 2.5 Pro is gone from Freebuff, so it no longer qualifies either.
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_MIMO_V25_PRO_MODEL_ID),
-    ).toBe(true)
+    ).toBe(false)
     expect(canFreebuffModelSpawnGeminiThinker(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_GPT_5_6_LUNA_MODEL_ID),

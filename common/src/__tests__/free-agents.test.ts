@@ -8,7 +8,6 @@ import {
 } from '../constants/gemini'
 
 import {
-  FREEBUFF_CROF_GLM_V52_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   SUPPORTED_FREEBUFF_MODELS,
@@ -17,7 +16,6 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
 } from '../constants/freebuff-models'
@@ -43,6 +41,11 @@ const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 // Removed model: support was dropped entirely (client + server).
 const LEGACY_MINIMAX_M2_7_MODEL_ID = 'minimax/minimax-m2.7'
 
+// Removed from Freebuff on 2026-08-04. Literals, not imported constants, so
+// these guards keep asserting on the WIRE ids and agent ids.
+const FREEBUFF_MIMO_V25_PRO_MODEL_ID = 'mimo/mimo-v2.5-pro'
+const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
+
 describe('free mode agent model allowlist', () => {
   test('maps supported freebuff models to concrete root agents', () => {
     expect(
@@ -51,9 +54,6 @@ describe('free mode agent model allowlist', () => {
     expect(
       getFreebuffRootAgentIdForModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe('base2-free-deepseek-flash')
-    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
-      'base2-free-mimo-pro',
-    )
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(
       'base2-free-mimo',
     )
@@ -62,9 +62,6 @@ describe('free mode agent model allowlist', () => {
     )
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
       'base2-free-luna',
-    )
-    expect(getFreebuffRootAgentIdForModel(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
-      'base2-free-glm-crof',
     )
     expect(
       getFreebuffRootAgentIdForModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID),
@@ -108,6 +105,47 @@ describe('free mode agent model allowlist', () => {
       'base2-free',
     )
     expect(isFreebuffRootAgent('base2-free-kimi')).toBe(false)
+    // MiMo 2.5 Pro was removed the same way on 2026-08-04, after its
+    // 2026-07-31 picker retirement decayed the tail.
+    expect(
+      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_MIMO_V25_PRO_MODEL_ID),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo-pro',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-mimo-pro',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(isFreebuffRootAgent('base2-free-mimo-pro')).toBe(false)
+    // The CrofAI GLM 5.2 route went on 2026-08-04 too, but because it was a
+    // live bypass rather than a decaying tail: it reached the same upstream as
+    // base2-free-glm while its model id drew from the free daily premium pool
+    // instead of the earned GLM pool. No shipped client ever bundled it, so
+    // every request it saw was hand-written. GLM keeps exactly one root and one
+    // model id.
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-glm-crof',
+        FREEBUFF_CROF_GLM_V52_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-glm',
+        FREEBUFF_CROF_GLM_V52_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(isFreebuffRootAgent('base2-free-glm-crof')).toBe(false)
+    // The earned route is untouched.
+    expect(
+      isFreeModeAllowedAgentModel('base2-free-glm', FREEBUFF_GLM_V52_MODEL_ID),
+    ).toBe(true)
     expect(
       isFreeModeAllowedAgentModel(
         'base2-free-deepseek',
@@ -118,12 +156,6 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'base2-free-deepseek-flash',
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      isFreeModeAllowedAgentModel(
-        'base2-free-mimo-pro',
-        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
       ),
     ).toBe(true)
     expect(
@@ -151,18 +183,6 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'base2-free-minimax-m3',
         LEGACY_MINIMAX_M2_7_MODEL_ID,
-      ),
-    ).toBe(false)
-    expect(
-      isFreeModeAllowedAgentModel(
-        'base2-free-glm-crof',
-        FREEBUFF_CROF_GLM_V52_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      isFreeModeAllowedAgentModel(
-        'base2-free-glm-crof',
-        FREEBUFF_GLM_V52_MODEL_ID,
       ),
     ).toBe(false)
     expect(
@@ -245,12 +265,6 @@ describe('free mode agent model allowlist', () => {
     ).toBe(true)
     expect(
       isFreeModeAllowedAgentModel(
-        'code-reviewer-mimo-pro',
-        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      isFreeModeAllowedAgentModel(
         'code-reviewer-mimo',
         FREEBUFF_MIMO_V25_MODEL_ID,
       ),
@@ -314,7 +328,6 @@ describe('free mode agent model allowlist', () => {
       MINIMAX_M3_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
       FREEBUFF_GLM_V52_MODEL_ID,
     ]
@@ -572,12 +585,10 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free': BASE2,
     'base2-free-deepseek': BASE2,
     'base2-free-deepseek-flash': BASE2,
-    'base2-free-mimo-pro': BASE2,
     'base2-free-mimo': BASE2,
     'base2-free-minimax-m3': BASE2,
     'base2-free-luna': BASE2,
     'base2-free-glm': BASE2,
-    'base2-free-glm-crof': BASE2,
     'base2-free-laguna-s-2-1': BASE2,
     'base2-free-laguna-s-2-1-openrouter': BASE2,
     'base2-free-ling-3-flash': BASE2,
