@@ -19,7 +19,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
-    "test": "bun test"
+    "test": "bun test $(bun run --silent test:files)",
+    "test:files": "find src -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort",
+    "test:files:integration": "find src -name '*.integration.test.ts' 2>/dev/null | sort"
   },
   "sideEffects": false,
   "engines": {
