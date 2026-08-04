@@ -30,7 +30,8 @@ const basher: AgentDefinition = {
         },
         timeout_seconds: {
           type: 'number',
-          description: 'Set to -1 for no timeout. Default 30',
+          description:
+            'How long to wait, in seconds. Default 30, which is right for almost everything — omit this unless the command genuinely runs longer. Budget for the command you are actually running; an over-long value just means the user waits that long when something hangs. Values above 600 (10 minutes) are clamped. Set to -1 to wait indefinitely, for genuinely open-ended commands only.',
         },
       },
       required: ['command'],

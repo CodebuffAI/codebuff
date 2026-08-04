@@ -4,6 +4,39 @@ import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
+/**
+ * Ceiling on a model-chosen SYNC command timeout.
+ *
+ * The value came straight from the model to the client with nothing in between
+ * — no clamp anywhere in the runtime — and the only guidance was "Default 30".
+ * In practice models picked 3-minute, 10-minute and 50-minute budgets for work
+ * that finishes in seconds, and the cost of an over-long value is paid entirely
+ * by the user: when the command does hang, they wait the whole budget watching
+ * nothing happen.
+ *
+ * 10 minutes is above any legitimate SYNC command we ship (the longest bundled
+ * agent budget is the librarian's 180s `git clone`) while cutting the tail that
+ * makes a hang indistinguishable from a freeze. Genuinely open-ended work has
+ * two better doors that this does not touch: `-1` for an explicit indefinite
+ * wait, and `process_type: BACKGROUND` for long-running processes.
+ */
+export const MAX_TERMINAL_TIMEOUT_SECONDS = 600
+export const MAX_TERMINAL_TIMEOUT_MINUTES = MAX_TERMINAL_TIMEOUT_SECONDS / 60
+
+/** Clamp a model-supplied timeout, preserving the -1 "no timeout" sentinel and
+ *  leaving an absent value to the schema default. */
+export function clampTerminalTimeoutSeconds(
+  seconds: number | undefined,
+): number | undefined {
+  if (seconds === undefined) return undefined
+  if (seconds === -1) return -1
+  if (!Number.isFinite(seconds)) return MAX_TERMINAL_TIMEOUT_SECONDS
+  // A zero or negative value other than -1 is nonsense rather than a request
+  // for a short wait; fall back to the default instead of failing instantly.
+  if (seconds <= 0) return 30
+  return Math.min(seconds, MAX_TERMINAL_TIMEOUT_SECONDS)
+}
+
 export const terminalCommandOutputSchema = z.union([
   z.object({
     command: z.string(),
@@ -110,8 +143,9 @@ const inputSchema = z
       .number()
       .default(30)
       .optional()
+      .transform(clampTerminalTimeoutSeconds)
       .describe(
-        `Set to -1 for no timeout. Does not apply for BACKGROUND commands. Default 30`,
+        `How long to wait, in seconds. Default 30, which is right for almost everything — omit this field unless the command genuinely runs longer. Budget for the command you are actually running (a typecheck or test run is tens of seconds, not minutes); an over-long value does not make a command safer, it just means you wait that long when something hangs. Values above ${MAX_TERMINAL_TIMEOUT_SECONDS} (${MAX_TERMINAL_TIMEOUT_MINUTES} minutes) are clamped. Set to -1 to wait indefinitely, for genuinely open-ended commands only. Does not apply for BACKGROUND commands — use those for long-running processes instead.`,
       ),
   })
   .describe(
