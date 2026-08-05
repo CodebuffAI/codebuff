@@ -240,6 +240,13 @@ export enum AnalyticsEvent {
   // separate identity space with no key back to the web landing.
   FREEBUFF_CLI_INSTALL_COMMAND_COPIED = 'freebuff.cli_install_command_copied',
 
+  // Freebuff - Enterprise landing page (/enterprise). Fired when the contact
+  // form is submitted successfully; carries `companySize` and whether the
+  // sender self-identified as an AI lab, so inbound demand can be segmented
+  // without reading the emails. The lead itself lands in james@/victor@ inboxes
+  // — this event only measures the funnel into them.
+  FREEBUFF_ENTERPRISE_CONTACT_SUBMITTED = 'freebuff.enterprise_contact_submitted',
+
   // Freebuff - Desktop download CTAs (home hero, products row, /desktop).
   // Fired on every click of a download button; `location` distinguishes the
   // CTA, `platform` the build, and `repeat: true` marks a click we swallowed

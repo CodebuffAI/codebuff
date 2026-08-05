@@ -13,8 +13,9 @@ English | [简体中文](./README.zh-CN.md)
 | **Freebuff Desktop** (Beta) | Run parallel agents locally         | [Download for macOS, Windows, or Linux](https://freebuff.com/desktop) |
 | **Freebuff CLI**            | Code from your terminal             | [Install the CLI](https://freebuff.com/cli)                           |
 | **Freebuff Web**            | Build and ship full-stack apps      | [Build an app](https://freebuff.com/web)                              |
-| **Freebuff Cloud** (Beta)   | Run agents on any GitHub repository | [Connect a repository](https://freebuff.com/cloud)                    |
+| **Freebuff Cloud**          | Run agents on any GitHub repository | [Connect a repository](https://freebuff.com/cloud)                    |
 | **Freebuff Chat**           | Research and think with AI          | [Start a chat](https://freebuff.com/chat)                             |
+| **Freebuff Enterprise**     | Custom deployments for your org     | [Talk to us](https://freebuff.com/enterprise)                         |
 
 ## Quick start
 
