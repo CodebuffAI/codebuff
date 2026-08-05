@@ -1,10 +1,20 @@
-# Freebuff
+# Codebuff & Freebuff
 
 English | [简体中文](./README.zh-CN.md)
 
-**[Freebuff](https://freebuff.com)** is a free, ad-supported coding agent — no subscription, no credits, no configuration.
+**[Codebuff](https://codebuff.com)** is an open-source AI coding assistant that edits your codebase through natural language instructions. **[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version — no subscription, no credits, no configuration.
 
-Instead of using one model for everything, Freebuff coordinates specialized agents that work together to understand your project and make precise changes.
+Instead of using one model for everything, Codebuff coordinates specialized agents that work together to understand your project and make precise changes.
+
+<div align="center">
+  <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
+</div>
+
+Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
+
+## Freebuff: the free coding agent
+
+**[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version of Codebuff. No subscription. No credits. No configuration. Just install and start coding in your terminal.
 
 ### Install
 

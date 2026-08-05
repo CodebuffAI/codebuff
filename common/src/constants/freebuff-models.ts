@@ -1027,7 +1027,15 @@ export function isFreebuffWebModelAllowedForLimitedTier(
   id: string | null | undefined,
 ): boolean {
   if (!id) return false
-  return FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === id)
+  // GLM 5.2 is selectable from a limited region when the user holds a bounty
+  // grant — the entitlement gate is the GLM quota pool, not this allowlist
+  // (see isGlmRedeemableAtLimitedTier). Without this the Web picker coerced a
+  // GLM pick straight back to the flash model, so a bounty reward earned in a
+  // limited region was unspendable no matter what the server allowed.
+  return (
+    isGlmRedeemableAtLimitedTier(id) ||
+    FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === id)
+  )
 }
 
 /** Coerce a limited-tier Freebuff Web selection (premium ids, stale

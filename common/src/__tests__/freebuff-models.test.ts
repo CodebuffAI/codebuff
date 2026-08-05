@@ -478,6 +478,26 @@ describe('freebuff model availability', () => {
     ).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 
+  test('bounty GLM 5.2 survives the Web limited-tier coercion', () => {
+    // Regression: this coercion ran BEFORE the quota pool got a say, so a
+    // limited-region user who had earned a bounty session had their pick
+    // rewritten to the flash model and could never spend the reward. The
+    // entitlement gate is the GLM pool (bounty grants only) — not this
+    // allowlist, which is purely about what the picker may display.
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_GLM_V52_MODEL_ID),
+    ).toBe(true)
+    expect(
+      resolveFreebuffWebModelForLimitedTier(FREEBUFF_GLM_V52_MODEL_ID),
+    ).toBe(FREEBUFF_GLM_V52_MODEL_ID)
+
+    // The CrofAI GLM route is a paid premium model, NOT the earned one, and
+    // must stay coerced away — the two ids are easy to confuse.
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_CROF_GLM_V52_MODEL_ID),
+    ).toBe(false)
+  })
+
   test('Poolside Laguna S 2.1 routes are god-only Freebuff Web test models', () => {
     expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
