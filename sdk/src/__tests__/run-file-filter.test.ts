@@ -66,7 +66,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     mock.restore()
   })
 
-  it('should invoke fileFilter callback and block files when filter returns blocked', async () => {
+  it('should enforce the env policy before invoking a read_files override', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',
@@ -83,21 +83,34 @@ describe('CodebuffClientOptions fileFilter', () => {
 
     const mockFs = createMockFs({
       files: {
-        '/project/.env': { content: 'SECRET=value' },
         '/project/src/index.ts': { content: 'console.log("hello")' },
       },
     })
 
     let requestedFiles: Record<string, string | null> = {}
+    const optionalFileResult = { current: null as string | null }
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
-        const { sendAction, promptId, requestFiles } = params
+        const { sendAction, promptId, requestFiles, requestOptionalFile } =
+          params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
         // Simulate agent requesting files
         requestedFiles = await requestFiles({
-          filePaths: ['.env', 'src/index.ts'],
+          filePaths: [
+            '',
+            '.ENV',
+            '.env/./',
+            '.env ',
+            '.env:$DATA',
+            'config/.Env.Local',
+            '.env.example',
+            'src/index.ts',
+          ],
+        })
+        optionalFileResult.current = await requestOptionalFile({
+          filePath: '.ENV',
         })
 
         await sendAction({
@@ -122,20 +135,22 @@ describe('CodebuffClientOptions fileFilter', () => {
       },
     )
 
-    const filterCalls: string[] = []
-    const fileFilter: FileFilter = (filePath) => {
-      filterCalls.push(filePath)
-      if (filePath === '.env') {
-        return { status: 'blocked' }
-      }
-      return { status: 'allow' }
-    }
+    const overrideCalls: string[][] = []
 
     const client = new CodebuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
-      fileFilter,
+      overrideTools: {
+        read_files: async ({ filePaths }) => {
+          overrideCalls.push(filePaths)
+          return Object.fromEntries([
+            ...filePaths.map((filePath) => [filePath, `contents:${filePath}`]),
+            ['unexpected/.ENV.LOCAL', 'SECRET=leaked-by-override'],
+            ['unexpected/.env:$DATA', 'SECRET=leaked-by-override-stream'],
+          ])
+        },
+      },
     })
 
     const result = await client.run({
@@ -144,13 +159,25 @@ describe('CodebuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(filterCalls).toContain('.env')
-    expect(filterCalls).toContain('src/index.ts')
-    expect(requestedFiles['.env']).toBe(FILE_READ_STATUS.IGNORED)
-    expect(requestedFiles['src/index.ts']).toBe('console.log("hello")')
+    expect(overrideCalls).toEqual([['.env.example', 'src/index.ts'], ['.ENV']])
+    expect(requestedFiles['.ENV']).toBe(FILE_READ_STATUS.IGNORED)
+    expect(Object.hasOwn(requestedFiles, '')).toBe(false)
+    expect(requestedFiles['.env/./']).toBe(FILE_READ_STATUS.IGNORED)
+    expect(requestedFiles['.env ']).toBe(FILE_READ_STATUS.IGNORED)
+    expect(requestedFiles['.env:$DATA']).toBe(FILE_READ_STATUS.IGNORED)
+    expect(requestedFiles['config/.Env.Local']).toBe(FILE_READ_STATUS.IGNORED)
+    expect(requestedFiles['.env.example']).toBe('contents:.env.example')
+    expect(requestedFiles['src/index.ts']).toBe('contents:src/index.ts')
+    expect(requestedFiles['unexpected/.ENV.LOCAL']).toBe(
+      FILE_READ_STATUS.IGNORED,
+    )
+    expect(requestedFiles['unexpected/.env:$DATA']).toBe(
+      FILE_READ_STATUS.IGNORED,
+    )
+    expect(optionalFileResult.current).toBe('contents:.ENV')
   })
 
-  it('should mark files as templates when filter returns allow-example', async () => {
+  it('should keep env templates subject to gitignore with allow-example', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',
@@ -163,7 +190,8 @@ describe('CodebuffClientOptions fileFilter', () => {
     spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
     spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
-    // Even though isFileIgnored returns true, template files should bypass this
+    // Env templates remain subject to gitignore even when the custom filter
+    // classifies them as examples.
     spyOn(projectFileTree, 'isFileIgnored').mockResolvedValue(true)
 
     const mockFs = createMockFs({
@@ -225,10 +253,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    // Template files should have TEMPLATE prefix
-    expect(requestedFiles['.env.example']).toBe(
-      FILE_READ_STATUS.TEMPLATE + '\n' + 'API_KEY=your_key_here',
-    )
+    expect(requestedFiles['.env.example']).toBe(FILE_READ_STATUS.IGNORED)
   })
 
   it('should pass fileFilter to requestOptionalFile as well', async () => {

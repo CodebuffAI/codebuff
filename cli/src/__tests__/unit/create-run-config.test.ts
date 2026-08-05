@@ -1,16 +1,22 @@
 import { describe, test, expect } from 'bun:test'
 
-import { isSensitiveFile, isEnvTemplateFile } from '../../utils/create-run-config'
+import { isSensitiveFile } from '../../utils/create-run-config'
 
 describe('isSensitiveFile', () => {
   test.each([
     // Env files (blocked)
     ['.env', true],
+    ['.ENV', true],
     ['.env.local', true],
+    ['.env/./', true],
+    ['.env ', true],
+    ['.env:$DATA', true],
+    ['config\\.Env.Production', true],
     ['config/.env.production', true],
 
     // Env templates (allowed)
     ['.env.example', false],
+    ['.ENV.EXAMPLE', false],
     ['.env.sample', false],
     ['.env.template', false],
 
@@ -56,19 +62,5 @@ describe('isSensitiveFile', () => {
     ['kube-config.ts', false],
   ])('%s → %s', (file, expected) => {
     expect(isSensitiveFile(file)).toBe(expected)
-  })
-})
-
-describe('isEnvTemplateFile', () => {
-  test.each([
-    ['.env.example', true],
-    ['.env.sample', true],
-    ['.env.template', true],
-    ['config/.env.example', true],
-    ['.env', false],
-    ['.env.local', false],
-    ['package.json', false],
-  ])('%s → %s', (file, expected) => {
-    expect(isEnvTemplateFile(file)).toBe(expected)
   })
 })

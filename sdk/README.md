@@ -156,14 +156,15 @@ await client.run({
 
 ### File Filtering
 
-The `fileFilter` option controls which files the agent can read:
+The SDK always blocks `.env` and `.env.*` files case-insensitively, except for
+the `.env.example`, `.env.sample`, and `.env.template` templates. Use
+`fileFilter` to add project-specific rules:
 
 ```typescript
 const client = new CodebuffClient({
   apiKey: process.env.CODEBUFF_API_KEY,
   fileFilter: (filePath) => {
-    if (filePath === '.env') return { status: 'blocked' }
-    if (filePath.endsWith('.env.example')) return { status: 'allow-example' }
+    if (filePath.endsWith('.pem')) return { status: 'blocked' }
     return { status: 'allow' }
   },
 })
@@ -171,7 +172,17 @@ const client = new CodebuffClient({
 
 **Statuses:** `'blocked'` (returns `[BLOCKED]`), `'allow-example'` (prefixes content with `[TEMPLATE]`), `'allow'` (normal read).
 
-**Default behavior:** When no `fileFilter` is provided, gitignore checking is applied automatically. When a `fileFilter` IS provided, the caller owns all filtering.
+**Default behavior:** The built-in `.env` policy always applies. When no
+`fileFilter` is provided, gitignore checking also applies automatically,
+including for the allowed env templates. When a `fileFilter` is provided, the
+caller owns any additional filtering, but env templates remain subject to
+gitignore. This built-in policy is scoped to
+SDK-mediated agent file reads (including `read_files`); it does not add
+terminal-command or internal-edit restrictions.
+
+Custom `overrideTools.read_files` implementations must preserve project
+gitignore behavior for env templates. The built-in CLI, Desktop, Web, and Cloud
+bridges already do this.
 
 ### `loadLocalAgents(options)`
 

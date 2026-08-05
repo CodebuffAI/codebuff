@@ -193,6 +193,79 @@ describe('getProjectFileTree', () => {
 })
 
 describe('isFileIgnored', () => {
+  it('can exempt env templates from defaults while preserving project rules', async () => {
+    const root = '/repo'
+    const withoutProjectRule = createFsWithFiles(root, ['.env.example'])
+
+    expect(
+      await isFileIgnored({
+        filePath: '.env.example',
+        projectRoot: root,
+        fs: withoutProjectRule,
+      }),
+    ).toBe(true)
+    expect(
+      await isFileIgnored({
+        filePath: '.env.example',
+        projectRoot: root,
+        fs: withoutProjectRule,
+        allowEnvTemplate: true,
+      }),
+    ).toBe(false)
+    expect(
+      await isFileIgnored({
+        filePath: '.env.local',
+        projectRoot: root,
+        fs: withoutProjectRule,
+        allowEnvTemplate: true,
+      }),
+    ).toBe(true)
+
+    const withProjectRule = createFsWithFiles(root, [
+      '.gitignore',
+      '.env.example',
+    ])
+    ;(withProjectRule.readFile as any).mockImplementation(
+      async (filePath: string) =>
+        String(filePath) === path.join(root, '.gitignore')
+          ? '.env.example\n'
+          : '',
+    )
+
+    expect(
+      await isFileIgnored({
+        filePath: '.env.example',
+        projectRoot: root,
+        fs: withProjectRule,
+        allowEnvTemplate: true,
+      }),
+    ).toBe(true)
+  })
+
+  it('fails closed when an env template project rule is unreadable', async () => {
+    const root = '/repo'
+    const fs = createFsWithFiles(root, ['.gitignore', '.env.example'])
+    ;(fs.readFile as any).mockImplementation(async (filePath: string) => {
+      if (String(filePath) === path.join(root, '.gitignore')) {
+        const error = new Error('permission denied') as Error & {
+          code: string
+        }
+        error.code = 'EACCES'
+        throw error
+      }
+      return 'API_KEY=example'
+    })
+
+    expect(
+      await isFileIgnored({
+        filePath: '.env.example',
+        projectRoot: root,
+        fs,
+        allowEnvTemplate: true,
+      }),
+    ).toBe(true)
+  })
+
   it('reads ignore rules at the filesystem root without looping', async () => {
     const root = path.parse(process.cwd()).root
     const fs = createMockFs({

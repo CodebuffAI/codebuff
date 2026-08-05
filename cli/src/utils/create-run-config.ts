@@ -1,6 +1,7 @@
 import path from 'path'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { isSensitiveEnvFilePath } from '@codebuff/common/util/env-file-path'
 
 import {
   createEventHandler,
@@ -61,23 +62,12 @@ const SENSITIVE_PATTERNS = {
   substring: ['kubeconfig', '.tfstate'],
 }
 
-const isEnvFile = (basename: string) =>
-  (basename === '.env' || basename.startsWith('.env.')) &&
-  !isEnvTemplateFile(basename)
-
 const matchesPattern = (str: string) =>
   SENSITIVE_PATTERNS.prefix.some(
     (p) => str.startsWith(p) && !str.endsWith('.pub'),
   ) ||
   SENSITIVE_PATTERNS.suffix.some((s) => str.endsWith(s)) ||
   SENSITIVE_PATTERNS.substring.some((sub) => str.includes(sub))
-
-const ENV_TEMPLATE_SUFFIXES = ['.env.example', '.env.sample', '.env.template']
-
-export const isEnvTemplateFile = (filePath: string) =>
-  ENV_TEMPLATE_SUFFIXES.some((suffix) =>
-    path.basename(filePath).endsWith(suffix),
-  )
 
 /**
  * Check if a file is a sensitive file that should be blocked from reading.
@@ -88,9 +78,9 @@ export function isSensitiveFile(filePath: string): boolean {
   const ext = path.extname(filePath).toLowerCase()
 
   return (
-    isEnvFile(basename) ||
+    isSensitiveEnvFilePath(filePath) ||
     SENSITIVE_EXTENSIONS.has(ext) ||
-    SENSITIVE_BASENAMES.has(basename) ||
+    SENSITIVE_BASENAMES.has(basenameLower) ||
     matchesPattern(basenameLower)
   )
 }
@@ -125,7 +115,6 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     onStateSnapshot,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
-      if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }
       return { status: 'allow' }
     }) satisfies FileFilter,
   }

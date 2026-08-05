@@ -4,11 +4,18 @@ import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
 import { DEFAULT_IGNORED_PATHS } from './constants/paths'
+import { isEnvTemplateFilePath } from './util/env-file-path'
 import { fileExists, isValidProjectRoot } from './util/file'
 import { isPathInside } from './util/path'
+import {
+  addIgnoreFileContents,
+  isIgnoredByIgnoreChain,
+  PROJECT_IGNORE_FILES,
+} from './util/project-ignore'
 
 import type { CodebuffFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
+import type { DirIgnore } from './util/project-ignore'
 
 /**
  * Logs file tree errors in debug mode only.
@@ -53,27 +60,15 @@ function toPosixPath(p: string): string {
   return p.replace(/\\/g, '/')
 }
 
-type DirIgnore = { base: string; ig: ignore.Ignore }
-
-function testChain(chain: DirIgnore[], candidate: string): boolean {
-  let ignored = false
-  for (const { base, ig } of chain) {
-    if (base && !candidate.startsWith(`${base}/`)) continue
-    const scoped = base ? candidate.slice(base.length + 1) : candidate
-    if (!scoped) continue
-    const result = ig.test(scoped)
-    if (result.ignored) ignored = true
-    else if (result.unignored) ignored = false
+function createDefaultIgnore(allowEnvTemplate = false): ignore.Ignore {
+  const defaultIgnore = ignore.default()
+  for (const pattern of DEFAULT_IGNORED_PATHS) {
+    if (allowEnvTemplate && (pattern === '.env' || pattern === '.env.*')) {
+      continue
+    }
+    defaultIgnore.add(pattern)
   }
-  return ignored
-}
-
-function isIgnored(chain: DirIgnore[], relativeFilePath: string): boolean {
-  const segments = relativeFilePath.split('/')
-  for (let i = 0; i < segments.length - 1; i++) {
-    if (testChain(chain, `${segments.slice(0, i + 1).join('/')}/`)) return true
-  }
-  return testChain(chain, relativeFilePath)
+  return defaultIgnore
 }
 
 // When the project root is the home directory (or an ancestor), a full scan
@@ -103,10 +98,7 @@ export async function getProjectFileTree(params: {
   let maxDirs = Infinity
 
   const _start = Date.now()
-  const defaultIgnore = ignore.default()
-  for (const pattern of DEFAULT_IGNORED_PATHS) {
-    defaultIgnore.add(pattern)
-  }
+  const defaultIgnore = createDefaultIgnore()
 
   if (isShallowScanRoot(projectRoot)) {
     defaultIgnore.add('.*')
@@ -156,7 +148,7 @@ export async function getProjectFileTree(params: {
         const filePath = path.join(fullPath, file)
         const relativeFilePath = toPosixPath(path.relative(projectRoot, filePath))
 
-        if (isIgnored(dirIgnores, relativeFilePath)) continue
+        if (isIgnoredByIgnoreChain(dirIgnores, relativeFilePath)) continue
 
         try {
           const stats = await fs.stat(filePath)
@@ -203,46 +195,50 @@ export async function getProjectFileTree(params: {
   return root.children
 }
 
-export async function parseGitignore(params: {
+async function parseGitignoreWithMode(params: {
   fullDirPath: string
   fs: CodebuffFileSystem
+  throwOnReadError: boolean
 }): Promise<ignore.Ignore> {
-  const { fullDirPath, fs } = params
+  const { fullDirPath, fs, throwOnReadError } = params
 
   const ig = ignore.default()
-  const ignoreFiles = [
-    path.join(fullDirPath, '.gitignore'),
-    path.join(fullDirPath, '.codebuffignore'),
-    path.join(fullDirPath, '.manicodeignore'), // Legacy support
-  ]
+  const directoryEntries = throwOnReadError
+    ? new Set(await fs.readdir(fullDirPath))
+    : undefined
 
-  for (const ignoreFilePath of ignoreFiles) {
-    const ignoreFileExists = await fileExists({ filePath: ignoreFilePath, fs })
-    if (!ignoreFileExists) continue
+  for (const fileName of PROJECT_IGNORE_FILES) {
+    const ignoreFilePath = path.join(fullDirPath, fileName)
+    if (directoryEntries) {
+      if (!directoryEntries.has(fileName)) continue
+    } else {
+      const ignoreFileExists = await fileExists({ filePath: ignoreFilePath, fs })
+      if (!ignoreFileExists) continue
+    }
 
     let ignoreContent: string
     try {
       ignoreContent = await fs.readFile(ignoreFilePath, 'utf8')
     } catch (error: unknown) {
-      // Ignore file may be inaccessible or deleted after existence check.
-      // Log with context for debugging, but continue without these ignore rules.
+      // Resilient file-tree callers continue without unreadable rules. Access
+      // checks can opt into throwing so their caller can fail closed.
       logFileTreeError('fs.readFile (ignore file)', ignoreFilePath, error)
+      if (throwOnReadError) throw error
       continue
     }
-    const lines = ignoreContent.split('\n')
-    for (let line of lines) {
-      line = line.trim()
-      if (line === '' || line.startsWith('#')) continue
-
-      try {
-        ig.add(line)
-      } catch (error: unknown) {
-        logFileTreeError('ignore.add (pattern)', line, error)
-      }
-    }
+    addIgnoreFileContents(ig, ignoreContent, (pattern, error) =>
+      logFileTreeError('ignore.add (pattern)', pattern, error),
+    )
   }
 
   return ig
+}
+
+export async function parseGitignore(params: {
+  fullDirPath: string
+  fs: CodebuffFileSystem
+}): Promise<ignore.Ignore> {
+  return parseGitignoreWithMode({ ...params, throwOnReadError: false })
 }
 
 export function getAllFilePaths(
@@ -304,17 +300,23 @@ export async function isFileIgnored(params: {
   filePath: string
   projectRoot: string
   fs: CodebuffFileSystem
+  /** Allow the env template past built-in rules while strictly applying project rules. */
+  allowEnvTemplate?: boolean
 }): Promise<boolean> {
-  const { filePath, projectRoot, fs } = params
+  const {
+    filePath,
+    projectRoot,
+    fs,
+    allowEnvTemplate: allowEnvTemplateRequested = false,
+  } = params
+  const allowEnvTemplate =
+    allowEnvTemplateRequested && isEnvTemplateFilePath(filePath)
 
   const resolvedProjectRoot = path.resolve(projectRoot)
   const fullFilePath = path.resolve(resolvedProjectRoot, filePath)
   if (!isPathInside(resolvedProjectRoot, fullFilePath)) return false
 
-  const defaultIgnore = ignore.default()
-  for (const pattern of DEFAULT_IGNORED_PATHS) {
-    defaultIgnore.add(pattern)
-  }
+  const defaultIgnore = createDefaultIgnore(allowEnvTemplate)
 
   const relativeFilePath = toPosixPath(
     path.relative(resolvedProjectRoot, fullFilePath),
@@ -324,9 +326,20 @@ export async function isFileIgnored(params: {
   const dirIgnores: DirIgnore[] = []
   let currentDir = path.dirname(fullFilePath)
   while (true) {
+    let ig: ignore.Ignore
+    try {
+      ig = await parseGitignoreWithMode({
+        fullDirPath: currentDir,
+        fs,
+        throwOnReadError: allowEnvTemplate,
+      })
+    } catch (error) {
+      if (allowEnvTemplate) return true
+      throw error
+    }
     dirIgnores.push({
       base: toPosixPath(path.relative(resolvedProjectRoot, currentDir)),
-      ig: await parseGitignore({ fullDirPath: currentDir, fs }),
+      ig,
     })
     if (path.relative(resolvedProjectRoot, currentDir) === '') break
 
@@ -335,7 +348,7 @@ export async function isFileIgnored(params: {
     currentDir = parentDir
   }
 
-  return isIgnored(
+  return isIgnoredByIgnoreChain(
     [{ base: '', ig: defaultIgnore }, ...dirIgnores.reverse()],
     relativeFilePath,
   )

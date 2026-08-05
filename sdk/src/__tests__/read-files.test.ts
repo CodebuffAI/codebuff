@@ -543,6 +543,121 @@ describe('getFiles', () => {
   })
 
   describe('fileFilter option', () => {
+    test('always blocks env files and allows env templates', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/.ENV': { content: 'SECRET=value' },
+          '/project/.env': { content: 'DOT_SEGMENT_SECRET=value' },
+          '/project/.env ': { content: 'TRAILING_SPACE_SECRET=value' },
+          '/project/.env:$DATA': { content: 'ADS_SECRET=value' },
+          '/project/.env.local': { content: 'LOCAL_SECRET=value' },
+          '/project/.env.example': { content: 'API_KEY=example' },
+          '/project/.ENV.SAMPLE': { content: 'API_KEY=sample' },
+          '/outside/.ENV.PRODUCTION': { content: 'OUTSIDE_SECRET=value' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: [
+          '.ENV',
+          '.env/./',
+          '.env ',
+          '.env:$DATA',
+          '.env.local',
+          '.env.example',
+          '.ENV.SAMPLE',
+          '/outside/.ENV.PRODUCTION',
+        ],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['.ENV']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['.env']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['.env ']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['.env:$DATA']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['.env.local']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['/outside/.ENV.PRODUCTION']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['.env.example']).toBe(
+        `${FILE_READ_STATUS.TEMPLATE}\nAPI_KEY=example`,
+      )
+      expect(result['.ENV.SAMPLE']).toBe(
+        `${FILE_READ_STATUS.TEMPLATE}\nAPI_KEY=sample`,
+      )
+      expect(isFileIgnoredSpy).toHaveBeenCalledTimes(2)
+      expect(isFileIgnoredSpy).toHaveBeenCalledWith({
+        filePath: '.env.example',
+        projectRoot: '/project',
+        fs: mockFs,
+        allowEnvTemplate: true,
+      })
+      expect(isFileIgnoredSpy).toHaveBeenCalledWith({
+        filePath: '.ENV.SAMPLE',
+        projectRoot: '/project',
+        fs: mockFs,
+        allowEnvTemplate: true,
+      })
+    })
+
+    test('keeps env templates subject to gitignore with a custom filter', async () => {
+      isFileIgnoredSpy.mockResolvedValue(true)
+      const mockFs = createMockFs({
+        files: {
+          '/project/.env.example': { content: 'REAL_SECRET=mistake' },
+          '/project/.ENV.SAMPLE': { content: 'REAL_SECRET=mistake' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['.env.example', '.ENV.SAMPLE'],
+        cwd: '/project',
+        fs: mockFs,
+        fileFilter: () => ({ status: 'allow' }),
+      })
+
+      expect(result['.env.example']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['.ENV.SAMPLE']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(isFileIgnoredSpy).toHaveBeenCalledTimes(2)
+    })
+
+    test('keeps the built-in env policy independent of custom filters', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/.env': { content: 'SECRET=value' },
+          '/project/.env.example': { content: 'API_KEY=example' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['.env', '.env.example'],
+        cwd: '/project',
+        fs: mockFs,
+        fileFilter: () => ({ status: 'allow' }),
+      })
+
+      expect(result['.env']).toBe(FILE_READ_STATUS.IGNORED)
+      expect(result['.env.example']).toBe(
+        `${FILE_READ_STATUS.TEMPLATE}\nAPI_KEY=example`,
+      )
+    })
+
+    test('does not apply the read_files policy to internal edit reads', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/.env': { content: 'SECRET=value' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['.env'],
+        cwd: '/project',
+        fs: mockFs,
+        enforceEnvPolicy: false,
+      })
+
+      expect(result['.env']).toBe('SECRET=value')
+    })
+
     test('should block files when filter returns blocked status', async () => {
       const mockFs = createMockFs({
         files: {
@@ -584,26 +699,26 @@ describe('getFiles', () => {
       )
     })
 
-    test('should skip gitignore check for allow-example files', async () => {
+    test('should skip gitignore check for non-env allow-example files', async () => {
       // When caller provides a filter that returns allow-example,
       // the file is read and marked with TEMPLATE prefix
       isFileIgnoredSpy.mockResolvedValue(true)
 
       const mockFs = createMockFs({
         files: {
-          '/project/.env.example': { content: 'template content' },
+          '/project/config.example': { content: 'template content' },
         },
       })
 
       const result = await getFiles({
-        filePaths: ['.env.example'],
+        filePaths: ['config.example'],
         cwd: '/project',
         fs: mockFs,
         fileFilter: () => ({ status: 'allow-example' }),
       })
 
       // Should NOT be blocked since caller's filter marked it as allow-example
-      expect(result['.env.example']).toBe(
+      expect(result['config.example']).toBe(
         FILE_READ_STATUS.TEMPLATE + '\n' + 'template content',
       )
       // When a custom filter is provided, gitignore is not checked

@@ -6,7 +6,10 @@ import {
   withSystemTags,
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { toOptionalFile } from '@codebuff/common/constants/paths'
+import {
+  FILE_READ_STATUS,
+  toOptionalFile,
+} from '@codebuff/common/constants/paths'
 import {
   getMCPClient,
   listMCPTools,
@@ -26,6 +29,7 @@ import {
   isFetchIdleTimeoutError,
   isTransientNetworkError,
 } from '@codebuff/common/util/error'
+import { isSensitiveEnvFilePath } from '@codebuff/common/util/env-file-path'
 import { cloneDeep } from 'lodash'
 
 import { executeComposioToolViaServer } from './composio'
@@ -568,6 +572,7 @@ async function runOnce({
         // str_replace/write_file use this path to compute edits. A truncated
         // read makes exact matches later in large files impossible.
         limitContent: false,
+        enforceEnvPolicy: false,
       })
       const lookupKeys = cwd
         ? getProjectPathLookupKeys(cwd, filePath)
@@ -764,6 +769,7 @@ async function readFiles({
   cwd,
   fs,
   limitContent,
+  enforceEnvPolicy = true,
 }: {
   filePaths: string[]
   override?: NonNullable<
@@ -773,9 +779,37 @@ async function readFiles({
   cwd?: string
   fs: CodebuffFileSystem
   limitContent?: boolean
+  enforceEnvPolicy?: boolean
 }) {
   if (override) {
-    return await override({ filePaths })
+    if (!enforceEnvPolicy) return await override({ filePaths })
+
+    const result = Object.create(null) as Record<string, string | null>
+    const readablePaths: string[] = []
+    for (const filePath of filePaths) {
+      if (!filePath) continue
+      if (isSensitiveEnvFilePath(filePath)) {
+        result[filePath] = FILE_READ_STATUS.IGNORED
+      } else {
+        readablePaths.push(filePath)
+      }
+    }
+    if (readablePaths.length > 0) {
+      const loadedFiles = await override({ filePaths: readablePaths })
+      if (
+        !loadedFiles ||
+        typeof loadedFiles !== 'object' ||
+        Array.isArray(loadedFiles)
+      ) {
+        return { ...result }
+      }
+      for (const [filePath, content] of Object.entries(loadedFiles)) {
+        result[filePath] = isSensitiveEnvFilePath(filePath)
+          ? FILE_READ_STATUS.IGNORED
+          : content
+      }
+    }
+    return { ...result }
   }
   return getFiles({
     filePaths,
@@ -783,6 +817,7 @@ async function readFiles({
     fs,
     fileFilter,
     limitContent,
+    enforceEnvPolicy,
   })
 }
 

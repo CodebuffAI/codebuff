@@ -1,12 +1,10 @@
+import { isEnvTemplateFilePath } from '@codebuff/common/util/env-file-path'
 import { TextAttributes } from '@opentui/core'
 
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
-import {
-  isEnvTemplateFile,
-  isSensitiveFile,
-} from '../../utils/create-run-config'
+import { isSensitiveFile } from '../../utils/create-run-config'
 
 import type { ToolRenderConfig } from './types'
 
@@ -31,7 +29,7 @@ function FilePathsDescription({ filePaths }: { filePaths: string[] }) {
           )
         }
 
-        if (isEnvTemplateFile(fp)) {
+        if (isEnvTemplateFilePath(fp)) {
           return (
             <span key={fp}>
               <span fg={theme.foreground}>{fp}</span>
@@ -76,7 +74,7 @@ export const ReadFilesComponent = defineToolComponent({
 
     // Check if any files need special labels
     const hasSpecialFiles = filePaths.some(
-      (fp) => isSensitiveFile(fp) || isEnvTemplateFile(fp),
+      (fp) => isSensitiveFile(fp) || isEnvTemplateFilePath(fp),
     )
 
     return {

@@ -1,6 +1,10 @@
 import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
+import {
+  isEnvTemplateFilePath,
+  isSensitiveEnvFilePath,
+} from '@codebuff/common/util/env-file-path'
 import { createFileReadLimiter } from '@codebuff/common/util/file-read-limits'
 
 import { resolveFilePath } from './path-utils'
@@ -22,16 +26,26 @@ export async function getFiles(params: {
    * the complete file so replacements below the display limit can still match.
    */
   limitContent?: boolean
+  /** Apply the read_files-only .env restriction. */
+  enforceEnvPolicy?: boolean
   /**
    * Filter to classify files before reading.
-   * If provided, the caller takes full control of filtering (no gitignore check).
-   * If not provided, the SDK applies gitignore checking automatically.
+   * If provided, the caller takes control of additional filtering. The SDK's
+   * read_files .env policy applies by default, including ordinary gitignore
+   * checks for env templates.
    */
   fileFilter?: FileFilter
 }) {
-  const { filePaths, cwd, fs, fileFilter, limitContent = true } = params
-  // If caller provides a filter, they own all filtering decisions
-  // If not, SDK applies default gitignore checking
+  const {
+    filePaths,
+    cwd,
+    fs,
+    fileFilter,
+    limitContent = true,
+    enforceEnvPolicy = true,
+  } = params
+  // If the caller provides a filter, they own additional filtering decisions.
+  // Otherwise the SDK also applies default gitignore checking.
   const hasCustomFilter = fileFilter !== undefined
 
   const result = Object.create(null) as Record<string, string | null>
@@ -53,22 +67,30 @@ export async function getFiles(params: {
     }
     seenPaths.add(relativePath)
 
+    if (enforceEnvPolicy && isSensitiveEnvFilePath(relativePath)) {
+      result[relativePath] = FILE_READ_STATUS.IGNORED
+      continue
+    }
+
     // Apply file filter if provided
     const filterResult = fileFilter?.(relativePath)
     if (filterResult?.status === 'blocked') {
       result[relativePath] = FILE_READ_STATUS.IGNORED
       continue
     }
-    const isExampleFile = filterResult?.status === 'allow-example'
+    const isEnvTemplate =
+      enforceEnvPolicy && isEnvTemplateFilePath(relativePath)
+    const isExampleFile =
+      isEnvTemplate || filterResult?.status === 'allow-example'
 
-    // If no custom filter provided, apply default gitignore checking.
-    // Gitignore is project-scoped, so it only applies to files inside the
-    // project (allow-example files skip it to bypass .env.* patterns).
-    if (!hasCustomFilter && !isExampleFile && isWithinProject) {
+    // Custom-filter callers own ordinary filtering decisions, except that env
+    // templates must still obey gitignore when the read_files policy is active.
+    if ((!hasCustomFilter || isEnvTemplate) && isWithinProject) {
       const ignored = await isFileIgnored({
         filePath: relativePath,
         projectRoot: cwd,
         fs,
+        ...(isEnvTemplate ? { allowEnvTemplate: true } : {}),
       })
       if (ignored) {
         result[relativePath] = FILE_READ_STATUS.IGNORED
