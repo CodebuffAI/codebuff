@@ -21,6 +21,9 @@ import {
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_LING_3_FLASH_MODEL_ID,
+  FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+  MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID,
+  isMuseSparkModelId,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -1156,5 +1159,112 @@ describe('limited-offer models (Claude Fable 5)', () => {
       isFreebuffLimitedOfferModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe(false)
     expect(isFreebuffLimitedOfferModelId(null)).toBe(false)
+  })
+})
+
+describe('Meta Muse Spark 1.2 Contributor', () => {
+  test('is a Freebuff Web model and reachable from no other surface', () => {
+    // Web-only is enforced by ABSENCE from the CLI/Desktop catalogs, which is
+    // also what makes the session layer refuse it there
+    // (isFreebuffSessionModelId reads SUPPORTED_FREEBUFF_MODELS). The reason is
+    // the queue, not the price: the browser can render a rate-limit wait with
+    // an ETA and the CLI cannot, so on the CLI a 60-RPM team-wide ceiling would
+    // just be unexplained 429s.
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
+    // Absence from SUPPORTED_ is the Desktop gate, not just tidiness:
+    // isModelForHarness('codebuff', …) validates against exactly this set, so a
+    // Desktop client asking for Muse Spark is refused before session admission
+    // ever sees it.
+    expect(
+      isSupportedFreebuffModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(false)
+    // Session admission DOES accept it — it must, or no Web session could run
+    // on it. The shared gate is the union of the CLI and Web catalogs, so
+    // "Web-only" is enforced by the catalogs above plus the free-mode agent
+    // allowlist (only base2-free-muse-spark may run this model, and only the
+    // Web bundle ships that root), never by this predicate.
+    expect(
+      isFreebuffSessionModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(true)
+
+    // Visible to every full-access Web user, not god-gated and not retired.
+    expect(
+      isFreebuffWebModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreebuffWebGodOnlyModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(false)
+    expect(
+      isFreebuffWebSelectableModelId(
+        FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+      ),
+    ).toBe(true)
+  })
+
+  test('is metered by the Web premium pool and no other', () => {
+    // Premium here bounds how many users are inside the 60 RPM ceiling at once
+    // — it is NOT a price signal, since Contributor is cheaper per token than
+    // the standard-pool models. Being in some pool is mandatory:
+    // FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
+    // premium model missing from the premium list is metered by nothing.
+    expect(
+      isFreebuffWebPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(true)
+    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
+    expect(
+      isFreebuffGlmV52ModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(false)
+    // The CLI's own premium pool must not learn about a model the CLI cannot
+    // select.
+    expect(
+      isFreebuffPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(false)
+  })
+
+  test('discloses the Contributor tier training terms', () => {
+    // The discount IS the training grant, so the warning is the disclosure that
+    // makes the row legitimate rather than decoration.
+    const model = getFreebuffWebModel(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)
+    expect(model.displayName).toBe('Muse Spark 1.2')
+    expect(model.dataUse).toBe('training')
+    expect(model.warning).toBe('May use data for AI training')
+  })
+
+  test('has exactly one wire id, and the predicate tolerates dated snapshots', () => {
+    // The queue, the premium pool and the free-mode agent allowlist all key off
+    // this id. A second id reaching the same upstream is how `crof/glm-5.2`
+    // handed out a metered model for free; do not add one.
+    expect(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID).toBe(
+      'meta/muse-spark-1.2-contributor',
+    )
+    // Meta's own id is what the provider receives, never a wire id a caller
+    // may send. Widened to string[] on purpose: the union type already proves
+    // this at compile time, and the runtime check is what survives someone
+    // later adding the bare id to a catalog.
+    expect(
+      FREEBUFF_WEB_ALL_MODELS.map((model): string => model.id),
+    ).not.toContain(MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID)
+
+    expect(isMuseSparkModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)).toBe(
+      true,
+    )
+    // A dated provider snapshot must not slip past the rate-limit queue.
+    expect(
+      isMuseSparkModelId(
+        `${FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID}-20260901`,
+      ),
+    ).toBe(true)
+    expect(isMuseSparkModelId('meta/muse-spark-1.2')).toBe(false)
+    expect(isMuseSparkModelId(null)).toBe(false)
   })
 })

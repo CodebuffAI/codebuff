@@ -208,6 +208,52 @@ export const FREEBUFF_LING_3_FLASH_MODEL_ID = 'inclusionai/ling-3.0-flash:free'
  * it rendered before the offer existed. See FREEBUFF_LIMITED_OFFER_MODEL_IDS.
  */
 export const FREEBUFF_FABLE_5_MODEL_ID = 'anthropic/claude-fable-5'
+
+/**
+ * Meta Muse Spark 1.2 (Contributor tier), served by Meta's own developer API
+ * (`https://api.meta.ai/v1`, OpenAI-compatible chat completions). The `meta/`
+ * prefix names the only place it exists — there is no second wire id, so it
+ * cannot become a quota-bypass route the way `crof/glm-5.2` did.
+ *
+ * FREEBUFF WEB ONLY. It is absent from FREEBUFF_MODELS and
+ * SUPPORTED_FREEBUFF_MODELS, so no CLI/Desktop build can select it and
+ * `isFreebuffSessionModelId` refuses it on those surfaces. Web reaches it
+ * through FREEBUFF_WEB_MODELS.
+ *
+ * The reason for the narrow surface is the rate limit, not the price: the
+ * Contributor tier is capped at 60 RPM per TEAM — i.e. across every Freebuff
+ * user at once — against Standard's 3,000. That is roughly one request per
+ * second for the whole product, so this model needs the Convex-side queue
+ * (see docs/freebuff-muse-spark.md) that the browser can render a wait for.
+ * The CLI has no such queue and would just surface 429s.
+ *
+ * Contributor pricing ($0.10/$[redacted]/$0.20 per M against Standard's
+ * $1.25/$0.15/$4.25) is bought with training rights over prompts and
+ * completions, which is why this is `dataUse: 'training'` and carries the
+ * AI-training warning.
+ */
+export const FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID =
+  'meta/muse-spark-1.2-contributor'
+/** Meta's own model id for the wire id above — what api.meta.ai receives. */
+export const MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID =
+  'muse-spark-1.2-contributor'
+/** Published Contributor-tier limit: 60 requests/min PER TEAM, shared by every
+ *  Freebuff user. Sizes the queue's drain rate, so keep it in sync with
+ *  https://dev.meta.ai/docs/pricing-rate-limits. */
+export const MUSE_SPARK_CONTRIBUTOR_RPM = 60
+/**
+ * The marker that turns a Muse Spark rate limit into a queued turn rather than
+ * a failed one.
+ *
+ * It travels twice in the same 429 — as `error.code`, and inside
+ * `error.message` — because only the message survives the whole path from
+ * `web/src/llm-api/meta.ts` through the AI SDK to the runner's error handling.
+ * The runner matches on it (see docs/freebuff-muse-spark.md); if it ever stops
+ * matching, rate limits degrade to plain errors with no queue and no notice,
+ * which is exactly the failure this constant exists to make greppable.
+ */
+export const MUSE_SPARK_RATE_LIMITED_ERROR_CODE = 'muse_spark_rate_limited'
+
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
@@ -359,6 +405,11 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   // summarize rewrites history from the front and throws away the prompt cache
   // with it.
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 1_000_000,
+  // Meta publishes 1,048,576 for every Muse Spark variant. Entered as 1_000_000
+  // for the same reason Luna is: it stays on the safe side of the asymmetry
+  // above while remaining an honest order of magnitude, where falling through
+  // to the 131_072 default would summarize a million-token thread 8x early.
+  [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 1_000_000,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
@@ -567,6 +618,28 @@ const FABLE_5_MODEL = {
   isNew: true,
 } as const satisfies FreebuffModelOption
 
+/**
+ * Meta Muse Spark 1.2 Contributor. Premium on Web, and unusual in WHY: every
+ * other premium row is priced premium, while this one is cheaper per token than
+ * DeepSeek V4 Flash. What is scarce is the 60 RPM team-wide rate limit, so the
+ * daily premium session pool is doing double duty here as a way to bound how
+ * many people are inside that limit at once. See
+ * FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID.
+ */
+const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
+  id: FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+  displayName: 'Muse Spark 1.2',
+  tagline: '1M context',
+  availability: 'always',
+  // Load-bearing pair (a catalog invariant test enforces it): the Contributor
+  // tier's whole discount is Meta training on prompts and completions.
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
+  premium: true,
+  multimodal: false,
+  isNew: true,
+} as const satisfies FreebuffModelOption
+
 const LING_3_FLASH_MODEL = {
   id: FREEBUFF_LING_3_FLASH_MODEL_ID,
   displayName: 'Ling 3.0 Flash',
@@ -674,6 +747,7 @@ export const FREEBUFF_LIMITED_OFFER_SESSION_WINDOW_HOURS =
 /** Freebuff Web-only picker/support set: the CLI/Desktop catalog plus the
  *  earned GLM 5.2 row. */
 export const FREEBUFF_WEB_MODELS = [
+  MUSE_SPARK_12_CONTRIBUTOR_MODEL,
   GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
@@ -749,6 +823,12 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   // by no pool at all rather than by a stricter one.
   FREEBUFF_GREG_2_ULTRA_MODEL_ID,
   FREEBUFF_GREG_2_SUPER_MODEL_ID,
+  // Not here for cost — Muse Spark Contributor is cheaper per token than the
+  // Standard pool's models. The premium pool is what bounds how many users sit
+  // inside its 60 RPM team-wide ceiling at once, and being in SOME pool is
+  // mandatory: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering
+  // `!premium`, so a premium model left out of here is metered by no pool.
+  FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
 ] as const
 
 /** Full-access Web/Cloud models sharing the browser-only standard daily pool. */
@@ -1289,6 +1369,14 @@ export function isFreebuffWebPremiumModelId(
   return FREEBUFF_WEB_PREMIUM_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
+}
+
+/** True for the Muse Spark wire id. Suffix-tolerant like the other model
+ *  predicates so a dated provider snapshot can't slip past the rate-limit queue
+ *  that keys off it (see docs/freebuff-muse-spark.md). */
+export function isMuseSparkModelId(id: string | null | undefined): boolean {
+  if (!id) return false
+  return freebuffModelIdMatches(id, FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)
 }
 
 export function isFreebuffSessionPremiumModelId(

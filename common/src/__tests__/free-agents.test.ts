@@ -595,6 +595,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-greg-2-super': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
     'base2-free-fable': BASE2,
+    // Web-only Muse Spark root; createBase2('free', …) like its siblings.
+    'base2-free-muse-spark': BASE2,
     'base2-free-cloud-planner': CLOUD_PLANNER,
     'base2-free-cloud-planner-limited': CLOUD_PLANNER,
     // Desktop threads compose their prompt onto base2's, so position 0 matches.
