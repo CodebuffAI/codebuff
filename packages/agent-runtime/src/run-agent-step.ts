@@ -977,6 +977,7 @@ export async function loopAgentSteps(
   let currentPrompt = prompt
   let currentParams = spawnParams
   let totalSteps = 0
+  let llmStepNumber = 0
   let nResponses: string[] | undefined = undefined
 
   try {
@@ -1100,6 +1101,7 @@ export async function loopAgentSteps(
 
       const creditsBefore = currentAgentState.directCreditsUsed
       const childrenBefore = currentAgentState.childRunIds.length
+      llmStepNumber++
       const {
         agentState: newAgentState,
         shouldEndTurn: llmShouldEndTurn,
@@ -1110,6 +1112,10 @@ export async function loopAgentSteps(
 
         agentState: currentAgentState,
         agentTemplate,
+        extraCodebuffMetadata: {
+          ...(params.extraCodebuffMetadata ?? {}),
+          llm_step_number: String(llmStepNumber),
+        },
         n,
         prompt: currentPrompt,
         runId,

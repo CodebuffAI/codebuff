@@ -36,6 +36,7 @@ import {
   callFreebuffSession,
   FreebuffSessionRequestError,
   holdsLiveFreebuffSlot,
+  mergeCompactActiveSession,
   releaseFreebuffSlot,
 } from '../utils/freebuff-session-api'
 import {
@@ -367,6 +368,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     let abortController = new AbortController()
     let timer: ReturnType<typeof setTimeout> | null = null
     let previousStatus: FreebuffSessionResponse['status'] | null = null
+    // A compact response for an unexpected session identity has no safe quota
+    // snapshot to retain, so force exactly one rich poll to restore it.
+    let needsFullActivePoll = false
     let restartGeneration = 0
     let consecutiveFailures = 0
     // Method for the NEXT tick. GET is read-only; POST claims/rotates a seat.
@@ -408,6 +412,8 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       const method = nextMethod
       const instanceId = getFreebuffInstanceId()
       const model = getSelectedFreebuffModel()
+      const compact =
+        method === 'GET' && previousStatus === 'active' && !needsFullActivePoll
       const fetchController = abortController
       const generation = restartGeneration
       try {
@@ -415,6 +421,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           signal: fetchController.signal,
           instanceId,
           model,
+          compact,
         })
         if (
           cancelled ||
@@ -590,7 +597,21 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           return
         }
 
-        apply(next)
+        if (compact && next.status === 'active') {
+          const merged = mergeCompactActiveSession(
+            useFreebuffSessionStore.getState().session,
+            next,
+          )
+          needsFullActivePoll = merged === null
+          apply(merged ?? next)
+        } else {
+          needsFullActivePoll = false
+          apply(next)
+        }
+        if (needsFullActivePoll) {
+          schedule(0)
+          return
+        }
         const delay = nextDelayMs(next)
         if (delay !== null) schedule(delay)
       } catch (err) {
@@ -631,6 +652,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // a forced restart, and so the active|ended → none synthesis below
         // doesn't bounce a 'landing' restart straight back to 'ended'.
         previousStatus = null
+        needsFullActivePoll = false
         consecutiveFailures = 0
         if (mode === 'landing') {
           nextMethod = 'GET'

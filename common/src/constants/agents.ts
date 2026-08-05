@@ -93,3 +93,7 @@ export const AGENT_NAME_TO_TYPES = Object.entries(AGENT_NAMES).reduce(
 )
 
 export const MAX_AGENT_STEPS_DEFAULT = 200
+
+// Programmatic tool calls can persist additional rows without consuming the
+// LLM-call budget, so keep the transport limit separate and safely bounded.
+export const MAX_AGENT_STEP_ROWS = 1_000

@@ -563,10 +563,14 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     let llmCallNumber = 0
+    const llmStepNumbers: string[] = []
     let capturedAgentState: AgentState | null = null
 
-    loopAgentStepsBaseParams.promptAiSdkStream = async function* ({}) {
+    loopAgentStepsBaseParams.promptAiSdkStream = async function* ({
+      extraCodebuffMetadata,
+    }) {
       llmCallNumber++
+      llmStepNumbers.push(extraCodebuffMetadata?.llm_step_number ?? '')
       if (llmCallNumber === 1) {
         // First call: agent tries to end turn without setting output
         yield {
@@ -609,6 +613,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
     // Should call LLM twice: once to try ending without output, once after reminder
     expect(llmCallNumber).toBe(2)
+    expect(llmStepNumbers).toEqual(['1', '2'])
 
     // Should have output set after the second attempt
     expect(result.agentState.output).toEqual({

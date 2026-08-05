@@ -1,3 +1,4 @@
+import { MAX_AGENT_STEP_ROWS } from '@codebuff/common/constants/agents'
 import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
 import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
@@ -381,6 +382,8 @@ export async function finishAgentRun(
     errorMessage,
     logger,
   } = params
+  const steps = pendingAgentSteps.get(runId) ?? []
+  pendingAgentSteps.delete(runId)
 
   const url = new URL(`/api/v1/agent-runs`, getWebsiteUrl())
 
@@ -405,6 +408,7 @@ export async function finishAgentRun(
             errorMessage === undefined
               ? undefined
               : truncateString(errorMessage, 5000),
+          steps,
         }),
       },
       logger,
@@ -422,75 +426,79 @@ export async function finishAgentRun(
   }
 }
 
+const pendingAgentStepSchema = z.object({
+  id: z.string().uuid(),
+  stepNumber: z.number().int().nonnegative(),
+  credits: z.number().nonnegative().optional(),
+  childRunIds: z.array(z.string()).optional(),
+  messageId: z.string().nullable(),
+  status: z.enum(['running', 'completed', 'skipped']).optional(),
+  errorMessage: z.string().optional(),
+  startTime: z.string().datetime(),
+})
+type PendingAgentStep = z.infer<typeof pendingAgentStepSchema>
+
+const pendingAgentSteps = new Map<string, PendingAgentStep[]>()
+const MAX_PENDING_AGENT_RUNS = 1_000
+
 export async function addAgentStep(
   params: ParamsOf<AddAgentStepFn>,
 ): ReturnType<AddAgentStepFn> {
-  const {
-    apiKey,
-    userId,
-    agentRunId,
-    stepNumber,
-    credits,
-    childRunIds,
-    messageId,
-    status = 'completed',
-    errorMessage,
+  const id = crypto.randomUUID()
+  const startTime =
+    params.startTime instanceof Date ? params.startTime.toJSON() : null
+  const parsedStep = pendingAgentStepSchema.safeParse({
+    id,
+    stepNumber: params.stepNumber,
+    credits: params.credits,
+    childRunIds: params.childRunIds,
+    messageId: params.messageId,
+    status: params.status,
+    errorMessage: params.errorMessage,
     startTime,
-    logger,
-  } = params
-
-  const url = new URL(`/api/v1/agent-runs/${agentRunId}/steps`, getWebsiteUrl())
-
-  try {
-    const response = await fetchWithRetry(
-      url,
+  })
+  if (!parsedStep.success) {
+    params.logger.error(
       {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          ...(userId ? { [FREEBUFF_ACTING_USER_HEADER]: userId } : {}),
-        },
-        body: JSON.stringify({
-          stepNumber,
-          credits,
-          childRunIds,
-          messageId,
-          status,
-          errorMessage,
-          startTime,
-        }),
+        agentRunId: params.agentRunId,
+        stepNumber: params.stepNumber,
+        validationError: parsedStep.error,
       },
-      logger,
-    )
-
-    const responseBody = await response.json()
-    if (!response.ok) {
-      logger.error({ responseBody }, 'addAgentStep request failed')
-      return null
-    }
-
-    if (!responseBody?.stepId) {
-      logger.error(
-        { responseBody },
-        'no stepId found from addAgentStep request',
-      )
-    }
-    return responseBody.stepId ?? null
-  } catch (error) {
-    logger.error(
-      {
-        error: getErrorObject(error),
-        agentRunId,
-        stepNumber,
-        credits,
-        childRunIds,
-        messageId,
-        status,
-        errorMessage,
-        startTime,
-      },
-      'addAgentStep error',
+      'addAgentStep received invalid step data',
     )
     return null
   }
+  let entries = pendingAgentSteps.get(params.agentRunId)
+  if (!entries) {
+    if (pendingAgentSteps.size >= MAX_PENDING_AGENT_RUNS) {
+      const oldestRunId = pendingAgentSteps.keys().next().value
+      if (oldestRunId !== undefined) {
+        pendingAgentSteps.delete(oldestRunId)
+        params.logger.warn(
+          { evictedRunId: oldestRunId, maxPendingRuns: MAX_PENDING_AGENT_RUNS },
+          'Evicted abandoned agent-step buffer',
+        )
+      }
+    }
+    entries = []
+    pendingAgentSteps.set(params.agentRunId, entries)
+  } else {
+    // Refresh insertion order so the map cap evicts abandoned buffers before
+    // long-running agents that are still producing steps.
+    pendingAgentSteps.delete(params.agentRunId)
+    pendingAgentSteps.set(params.agentRunId, entries)
+  }
+  if (entries.length >= MAX_AGENT_STEP_ROWS) {
+    params.logger.warn(
+      {
+        agentRunId: params.agentRunId,
+        stepNumber: params.stepNumber,
+        maxSteps: MAX_AGENT_STEP_ROWS,
+      },
+      'Ignored agent step beyond the per-run buffer limit',
+    )
+    return null
+  }
+  entries.push(parsedStep.data)
+  return id
 }

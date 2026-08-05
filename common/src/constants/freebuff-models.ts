@@ -831,6 +831,10 @@ export const FREEBUFF_ACTING_USER_HEADER = 'x-freebuff-acting-user-id'
  * quota snapshots so it can render accurate "N of M sessions" labels. */
 export const FREEBUFF_INCLUDE_UNUSED_RATE_LIMITS_HEADER =
   'x-freebuff-include-unused-rate-limits'
+/** Set by the CLI on its recurring active-session poll. The response keeps the
+ *  authoritative session state but omits quota snapshots the CLI already has
+ *  and does not need for its countdown. */
+export const FREEBUFF_COMPACT_SESSION_HEADER = 'x-freebuff-compact-session'
 /** Set to '1' by Freebuff Desktop to opt into multi-session mode (concurrent
  *  per-tab sessions); absent for CLI/web, which keep one session per user. */
 export const FREEBUFF_MULTI_SESSION_HEADER = 'x-freebuff-multi-session'

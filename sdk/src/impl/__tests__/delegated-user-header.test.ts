@@ -33,7 +33,7 @@ describe('SDK delegated user headers', () => {
     })
   })
 
-  test('sends userId on agent run and step requests', async () => {
+  test('sends userId on agent run requests', async () => {
     const requests: RequestInit[] = []
     globalThis.fetch = mock(async (_input, init) => {
       requests.push(init ?? {})
@@ -54,6 +54,15 @@ describe('SDK delegated user headers', () => {
       ancestorRunIds: [],
       logger,
     })
+    await addAgentStep({
+      apiKey: 'service-key',
+      userId: 'end-user',
+      agentRunId: 'run-1',
+      stepNumber: 1,
+      messageId: null,
+      startTime: new Date(),
+      logger,
+    })
     await finishAgentRun({
       apiKey: 'service-key',
       userId: 'end-user',
@@ -64,17 +73,8 @@ describe('SDK delegated user headers', () => {
       totalCredits: 1,
       logger,
     })
-    await addAgentStep({
-      apiKey: 'service-key',
-      userId: 'end-user',
-      agentRunId: 'run-1',
-      stepNumber: 1,
-      messageId: null,
-      startTime: new Date(),
-      logger,
-    })
 
-    expect(requests).toHaveLength(3)
+    expect(requests).toHaveLength(2)
     for (const request of requests) {
       expect(request.headers).toMatchObject({
         [FREEBUFF_ACTING_USER_HEADER]: 'end-user',

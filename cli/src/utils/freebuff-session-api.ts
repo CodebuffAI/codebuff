@@ -1,4 +1,9 @@
 import { env } from '@codebuff/common/env'
+import {
+  FREEBUFF_COMPACT_SESSION_HEADER,
+  FREEBUFF_INSTANCE_HEADER,
+  FREEBUFF_MODEL_HEADER,
+} from '@codebuff/common/constants/freebuff-models'
 
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { getAuthTokenDetails } from './auth'
@@ -8,9 +13,6 @@ import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
 
 const SESSION_FETCH_TIMEOUT_MS = 20_000
-const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
-const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
-
 export class FreebuffSessionRequestError extends Error {
   constructor(
     message: string,
@@ -55,11 +57,19 @@ function sessionEndpoint(): string {
 export async function callFreebuffSession(
   method: 'POST' | 'GET' | 'DELETE',
   token: string,
-  opts: { instanceId?: string; model?: string; signal?: AbortSignal } = {},
+  opts: {
+    instanceId?: string
+    model?: string
+    signal?: AbortSignal
+    compact?: boolean
+  } = {},
 ): Promise<FreebuffSessionServerResponse> {
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
   if (method === 'GET' && opts.instanceId) {
     headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
+  }
+  if (method === 'GET' && opts.compact) {
+    headers[FREEBUFF_COMPACT_SESSION_HEADER] = '1'
   }
   if (method === 'POST' && opts.model) {
     headers[FREEBUFF_MODEL_HEADER] = opts.model
@@ -123,6 +133,28 @@ export async function callFreebuffSession(
   }
 
   return (await response.json()) as FreebuffSessionServerResponse
+}
+
+/** A compact poll omits quota fields that were already returned by admission.
+ * Keep that snapshot only for the same active session; null tells the poller
+ * to fetch one full response before compacting again. */
+export function mergeCompactActiveSession(
+  current: FreebuffSessionResponse | null,
+  next: FreebuffSessionServerResponse,
+): FreebuffSessionServerResponse | null {
+  if (
+    current?.status !== 'active' ||
+    next.status !== 'active' ||
+    current.instanceId !== next.instanceId ||
+    current.model !== next.model
+  ) {
+    return null
+  }
+  return {
+    ...next,
+    rateLimit: next.rateLimit ?? current.rateLimit,
+    rateLimitsByModel: next.rateLimitsByModel ?? current.rateLimitsByModel,
+  }
 }
 
 export function holdsLiveFreebuffSlot(
