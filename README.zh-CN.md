@@ -15,7 +15,6 @@
 | **Freebuff Web**             | 构建和发布全栈应用           | [构建应用](https://freebuff.com/web)                            |
 | **Freebuff Cloud**           | 在任意 GitHub 仓库运行智能体 | [连接仓库](https://freebuff.com/cloud)                          |
 | **Freebuff Chat**            | 使用 AI 进行研究和思考       | [开始对话](https://freebuff.com/chat)                           |
-| **Freebuff Enterprise**      | 为你的组织定制部署           | [联系我们](https://freebuff.com/enterprise)                     |
 
 ## 快速开始
 

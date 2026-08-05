@@ -15,7 +15,6 @@ English | [简体中文](./README.zh-CN.md)
 | **Freebuff Web**            | Build and ship full-stack apps      | [Build an app](https://freebuff.com/web)                              |
 | **Freebuff Cloud**          | Run agents on any GitHub repository | [Connect a repository](https://freebuff.com/cloud)                    |
 | **Freebuff Chat**           | Research and think with AI          | [Start a chat](https://freebuff.com/chat)                             |
-| **Freebuff Enterprise**     | Custom deployments for your org     | [Talk to us](https://freebuff.com/enterprise)                         |
 
 ## Quick start
 
