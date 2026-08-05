@@ -805,29 +805,38 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('web/cloud recommend DeepSeek V4 Flash, like CLI/Desktop', () => {
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
+  test('web/cloud recommend GPT-5.6 Luna, while CLI/Desktop stay on Flash', () => {
+    // Since 2026-08-04 the browser surfaces steer to Luna: one long agentic
+    // build is where model quality shows, and Luna does not carry the
+    // AI-training notice. The CLI, with short and far more numerous turns,
+    // stays on Flash — which is exactly why these are two constants.
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
-    // The two defaults stay separate constants, but both surfaces moved to the
-    // same model, so they resolve alike.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    // Limited tier and an exhausted premium pool still resolve to a joinable
-    // model, exactly like the CLI helper.
+    // Luna is premium, so the pool CAN run dry — the recommended pick has to
+    // stay joinable, and limited tier can't name it at all.
     expect(getRecommendedFreebuffWebModelId('limited')).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(
       getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(
+      isFreebuffPremiumModelId(
+        getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
+      ),
+    ).toBe(false)
     // The web default must be a real, selectable web model.
     expect(isFreebuffWebModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(true)
+    // …and one the limited tier is coerced OFF of, since it is premium.
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(DEFAULT_FREEBUFF_WEB_MODEL_ID),
+    ).toBe(false)
   })
 
   test('de-emphasizes the remaining costly premium model, and never the default', () => {

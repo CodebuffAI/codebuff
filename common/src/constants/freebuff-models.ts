@@ -907,16 +907,25 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
- *  the model a new Cloud thread starts on. Same reasoning as
- *  DEFAULT_FREEBUFF_MODEL_ID above, and it lands even harder here: a browser
- *  build burns far more tokens than a CLI turn, so steering to Flash is both
- *  the quality and the cost choice.
+ *  the model a new Cloud thread starts on. GPT-5.6 Luna as of 2026-08-04.
+ *
+ *  A browser build is the workload where model quality shows up most — it is
+ *  one long agentic run against a live sandbox, and a wrong turn early costs
+ *  the whole first project, which 51% of Web users never come back from. Luna
+ *  is also `dataUse: 'service'`, so the model a brand-new user lands on no
+ *  longer carries an AI-training notice.
+ *
+ *  It is premium, so it draws on the shared daily pool. Surfaces that know the
+ *  live quota must step down to FALLBACK_FREEBUFF_MODEL_ID once that pool is
+ *  spent (getRecommendedFreebuffWebModelId does this for the hero picker, and
+ *  the model selector coerces a spent default) — otherwise the default becomes
+ *  a model whose next send fails admission.
  *
  *  Kept as its own constant from DEFAULT_FREEBUFF_MODEL_ID (CLI/Desktop) so the
- *  browser surfaces can steer independently. The two currently resolve to the
- *  same model, but a change to one is not automatically a change to the other. */
+ *  browser surfaces can steer independently: the CLI stays on Flash, where
+ *  turns are short, cheap and far more numerous. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without
