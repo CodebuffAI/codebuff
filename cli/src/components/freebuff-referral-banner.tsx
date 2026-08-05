@@ -30,6 +30,27 @@ function referralLink(code: string, referrerName: string | null): string {
   return `${LOGIN_WEBSITE_URL}/get-started?${params.toString()}`
 }
 
+/** Where a user goes to earn a GLM session without referring anyone. */
+const EARN_URL = `${LOGIN_WEBSITE_URL}/earn`
+
+/**
+ * The other way to get GLM 5.2, advertised wherever referrals are.
+ *
+ * Referrals only pay when somebody else shows up, which is nothing for a user
+ * with no audience — bounties pay for work they control, and grant a session
+ * that is redeemable from any region. The CLI cannot open a browser for them,
+ * so the URL is spelled out rather than hidden behind a button.
+ */
+function BountyPitchLine({ theme }: { theme: ReturnType<typeof useTheme> }) {
+  return (
+    <text style={{ wrapMode: 'word' }}>
+      <span fg={theme.muted}>✦ Or earn </span>
+      <span fg={theme.foreground}>GLM 5.2</span>
+      <span fg={theme.muted}> for small tasks: {EARN_URL}</span>
+    </text>
+  )
+}
+
 // Navigation ids for the banner's keyboard-focusable buttons. The model
 // selector owns the landing keyboard handler and appends these after its rows.
 const COPY_FOCUS_ID = '__freebuff_referral_copy__'
@@ -303,6 +324,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           availableWidth={width}
           variant="inline"
         />
+        <BountyPitchLine theme={theme} />
       </box>
     )
   }
@@ -359,6 +381,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           availableWidth={width}
           variant="inline"
         />
+        <BountyPitchLine theme={theme} />
       </box>
     )
   }
@@ -469,6 +492,10 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           labels={inviteLabels}
         />
       </box>
+
+      {/* Even holding sessions, the way to get MORE without an audience is a
+          bounty — so the pitch rides the unlocked card too. */}
+      <BountyPitchLine theme={theme} />
 
       {!githubLinked && (
         <Button
