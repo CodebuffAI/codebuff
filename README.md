@@ -1,74 +1,67 @@
-# Codebuff & Freebuff
+# Freebuff
 
 English | [简体中文](./README.zh-CN.md)
 
-**[Codebuff](https://codebuff.com)** is an open-source AI coding assistant that edits your codebase through natural language instructions. **[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version — no subscription, no credits, no configuration.
+**Five free AI products for coding, building, and research.** No subscription, credits, or API key required.
 
-Instead of using one model for everything, Codebuff coordinates specialized agents that work together to understand your project and make precise changes.
+[Freebuff](https://freebuff.com) brings specialized agents and a choice of leading models to your terminal, desktop, browser, and GitHub repositories. Text ads support access to the included models.
 
-<div align="center">
-  <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
-</div>
+## Choose your Freebuff
 
-Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
+| Product                     | What it does                        | Get started                                                           |
+| --------------------------- | ----------------------------------- | --------------------------------------------------------------------- |
+| **Freebuff Desktop** (Beta) | Run parallel agents locally         | [Download for macOS, Windows, or Linux](https://freebuff.com/desktop) |
+| **Freebuff CLI**            | Code from your terminal             | [Install the CLI](https://freebuff.com/cli)                           |
+| **Freebuff Web**            | Build and ship full-stack apps      | [Build an app](https://freebuff.com/web)                              |
+| **Freebuff Cloud** (Beta)   | Run agents on any GitHub repository | [Connect a repository](https://freebuff.com/cloud)                    |
+| **Freebuff Chat**           | Research and think with AI          | [Start a chat](https://freebuff.com/chat)                             |
 
-## Freebuff: the free coding agent
+## Quick start
 
-**[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version of Codebuff. No subscription. No credits. No configuration. Just install and start coding in your terminal.
-
-### Install
+Run Freebuff in any project from your terminal:
 
 ```bash
 npm install -g freebuff
-```
-
-### Usage
-
-```bash
 cd ~/my-project
 freebuff
 ```
 
-Then tell Freebuff what you want — it finds the right files, makes the changes, and runs your tests.
+Then describe what you want. Freebuff finds the relevant files, makes changes, and runs the checks that matter for your project.
 
-### Why Freebuff?
+## Models
 
-- **Best open-source models** — Powered by the strongest open-source models available, like DeepSeek, MiMo, and MiniMax — no proprietary lock-in.
-- **Fast** — 5–10× speed up. Faster models plus context gathering in seconds rather than minutes.
-- **Loaded** — Built-in web research, browser use, and more.
+Freebuff includes a curated model catalog. The regular picker currently offers:
 
-### Features
+| Model                       | Access                  | Best for                                                                |
+| --------------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| **DeepSeek V4 Flash 07/31** | Full and limited access | The default for CLI and Desktop; fast coding and tool use               |
+| **DeepSeek V4 Pro**         | Full access             | Longer, deeper reasoning                                                |
+| **GPT-5.6 Luna**            | Full access             | The default for Web, Cloud, and Chat; deep reasoning with image support |
+| **MiniMax M3**              | Full access             | Fast responses with image support                                       |
+| **MiMo 2.5**                | Full and limited access | Balanced performance with image support                                 |
 
-- **File mentions** — Use `@filename` to reference specific files
-- **Agent mentions** — Use `@AgentName` to invoke specialized agents
-- **Bash mode** — Run terminal commands with `!command` or `/bash`
-- **Chat history** — Resume past conversations with `/history`
-- **Knowledge files** — Add `knowledge.md` to your project for context
-- **Themes** — Toggle light/dark mode with `/theme:toggle`
+Beyond the regular picker:
 
-### Commands
+- **GLM 5.2** is available through earned sessions rather than as an always-unlocked model.
+- **Gemini 3.1 Flash Lite** powers specialist tasks such as file finding and research rather than appearing in the main picker.
 
-| Command         | Description                      |
-| --------------- | -------------------------------- |
-| `/help`         | Show keyboard shortcuts and tips |
-| `/new`          | Start a new conversation         |
-| `/history`      | Browse past conversations        |
-| `/bash`         | Enter bash mode                  |
-| `/init`         | Create a starter knowledge.md    |
-| `/feedback`     | Share feedback                   |
-| `/theme:toggle` | Toggle light/dark mode           |
-| `/logout`       | Sign out                         |
-| `/exit`         | Quit                             |
+Availability and limits depend on your access tier, product, and current capacity. Freebuff Desktop can also run locally installed Claude Code and Codex agents using your existing provider account; those connected models are separate from Freebuff's included catalog.
 
-### FAQ
+## How Freebuff works
 
-**How can it be free?** Freebuff is supported by text ads.
+Freebuff uses specialized agents instead of sending every task through one model and one prompt. Depending on the task, agents gather context, plan, edit or research, run tools, and review the result.
 
-**What models do you use?** The best open-source models available. In full mode you can choose from DeepSeek V4 Pro, MiMo 2.5 Pro, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. Limited mode uses DeepSeek V4 Flash and MiMo 2.5. Gemini 3.1 Flash Lite handles file finding and research.
+- **Codebase context** — File-finding agents map the relevant parts of a project before editing.
+- **Implementation and review** — Agents can divide work, make changes, run commands, and inspect the result.
+- **Research and browser use** — Agents can investigate documentation and test applications in a real browser.
+- **Parallel local work** — Desktop isolates concurrent agents in separate workspaces.
+- **Hosted environments** — Web and Cloud provide sandboxes, previews, terminals, and deployment workflows.
 
-**Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
+## Free access
 
-**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 6 one-hour sessions per day.
+Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access, currently DeepSeek V4 Flash and MiMo 2.5 with six one-hour sessions per day.
+
+Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 
 <!-- BEGIN GENERATED FREEBUFF DATA USE -->
 
@@ -80,231 +73,33 @@ See the [Privacy Policy](https://freebuff.com/privacy-policy) for complete detai
 
 <!-- END GENERATED FREEBUFF DATA USE -->
 
----
+## Contributing
 
-The rest of this README covers **Codebuff**, the full platform Freebuff is built on — its multi-agent architecture, custom agents, and SDK.
-
-## How it works
-
-When you ask Codebuff to "add authentication to my API," it might invoke:
-
-1. A **File Picker Agent** to scan your codebase to understand the architecture and find relevant files
-2. A **Planner Agent** to plan which files need changes and in what order
-3. An **Editor Agent** to make precise edits
-4. A **Reviewer Agent** to validate changes
-
-<div align="center">
-  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="250">
-</div>
-
-This multi-agent approach gives you better context understanding, more accurate edits, and fewer errors compared to single-model tools.
-
-## CLI: Install and start coding
-
-Install:
+Freebuff is a TypeScript monorepo built with Bun. Contributions to the products, agents, tools, documentation, and underlying runtime are welcome.
 
 ```bash
-npm install -g codebuff
+git clone https://github.com/CodebuffAI/freebuff.git
+cd freebuff
+bun install
+bun up
 ```
 
-Run:
+Start the CLI separately with:
 
 ```bash
-cd your-project
-codebuff
+bun start-cli
 ```
 
-Then just tell Codebuff what you want and it handles the rest:
+See the [Contributing Guide](./CONTRIBUTING.md), [development guide](./docs/development.md), and [testing guide](./docs/testing.md) for environment setup and the checks to run before opening a pull request.
 
-- "Fix the SQL injection vulnerability in user registration"
-- "Add rate limiting to all API endpoints"
-- "Refactor the database connection code for better performance"
+## Built on Codebuff
 
-Codebuff will find the right files, makes changes across your codebase, and runs tests to make sure nothing breaks.
+Freebuff is built on [Codebuff](https://codebuff.com), the open multi-agent framework that powers its orchestration, tools, and SDK. To create custom agents or embed them in another application, see the [Codebuff documentation](https://codebuff.com/docs) and [`@codebuff/sdk`](https://www.npmjs.com/package/@codebuff/sdk).
 
-## Create custom agents
+## Links
 
-To get started building your own agents, start Codebuff and run the `/init` command:
-
-```bash
-codebuff
-```
-
-Then inside the CLI:
-
-```
-/init
-```
-
-This creates:
-```
-knowledge.md               # Project context for Codebuff
-.agents/
-└── types/                 # TypeScript type definitions
-    ├── agent-definition.ts
-    ├── tools.ts
-    └── util-types.ts
-```
-
-You can write agent definition files that give you maximum control over agent behavior.
-
-Implement your workflows by specifying tools, which agents can be spawned, and prompts. We even have TypeScript generators for more programmatic control.
-
-For example, here's a `git-committer` agent that creates git commits based on the current git state. Notice that it runs `git diff` and `git log` to analyze changes, but then hands control over to the LLM to craft a meaningful commit message and perform the actual commit.
-
-```typescript
-export default {
-  id: 'git-committer',
-  displayName: 'Git Committer',
-  model: 'openai/gpt-5-nano',
-  toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
-
-  instructionsPrompt:
-    'You create meaningful git commits by analyzing changes, reading relevant files for context, and crafting clear commit messages that explain the "why" behind changes.',
-
-  async *handleSteps() {
-    // Analyze what changed
-    yield { tool: 'run_terminal_command', command: 'git diff' }
-    yield { tool: 'run_terminal_command', command: 'git log --oneline -5' }
-
-    // Stage files and create commit with good message
-    yield 'STEP_ALL'
-  },
-}
-```
-
-## SDK: Run agents in production
-
-Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk) -- note this is different than the CLI codebuff package.
-
-```bash
-npm install @codebuff/sdk
-```
-
-Import the client and run agents!
-
-```typescript
-import { CodebuffClient } from '@codebuff/sdk'
-
-// 1. Initialize the client
-const client = new CodebuffClient({
-  apiKey: 'your-api-key',
-  cwd: '/path/to/your/project',
-  onError: (error) => console.error('Codebuff error:', error.message),
-})
-
-// 2. Do a coding task...
-const result = await client.run({
-  agent: 'base', // Codebuff's base coding agent
-  prompt: 'Add error handling to all API endpoints',
-  handleEvent: (event) => {
-    console.log('Progress', event)
-  },
-})
-
-// 3. Or, run a custom agent!
-const myCustomAgent: AgentDefinition = {
-  id: 'greeter',
-  displayName: 'Greeter',
-  model: 'openai/gpt-5.1',
-  instructionsPrompt: 'Say hello!',
-}
-await client.run({
-  agent: 'greeter',
-  agentDefinitions: [myCustomAgent],
-  prompt: 'My name is Bob.',
-  customToolDefinitions: [], // Add custom tools too!
-  handleEvent: (event) => {
-    console.log('Progress', event)
-  },
-})
-```
-
-Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
-
-## Why choose Codebuff
-
-**Custom workflows**: TypeScript generators let you mix AI generation with programmatic control. Agents can spawn subagents, branch on conditions, and run multi-step processes.
-
-**Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
-
-**Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/store) to get a leg up. Codebuff agents are the new MCP!
-
-**SDK**: Build Codebuff into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
-
-## Advanced Usage
-
-### Custom Agent Workflows
-
-Create your own agents with specialized workflows using the `/init` command:
-
-```bash
-codebuff
-/init
-```
-
-This creates a custom agent structure in `.agents/` that you can customize.
-
-## Contributing to Codebuff
-
-We ❤️ contributions from the community - whether you're fixing bugs, tweaking our agents, or improving documentation.
-
-**Want to contribute?** Check out our [Contributing Guide](./CONTRIBUTING.md) to get started.
-
-### Running Tests
-
-To run the test suite:
-
-```bash
-cd cli
-bun test
-```
-
-**For interactive E2E testing**, install tmux:
-
-```bash
-# macOS
-brew install tmux
-
-# Ubuntu/Debian
-sudo apt-get install tmux
-
-# Windows (via WSL)
-wsl --install
-sudo apt-get install tmux
-```
-
-See [cli/src/__tests__/README.md](cli/src/__tests__/README.md) for comprehensive testing documentation.
-
-Some ways you can help:
-
-- 🐛 **Fix bugs** or add features
-- 🤖 **Create specialized agents** and publish them to the Agent Store
-- 📚 **Improve documentation** or write tutorials
-- 💡 **Share ideas** in our [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
-
-## Get started
-
-### Install
-
-**CLI**: `npm install -g codebuff`
-
-**SDK**: `npm install @codebuff/sdk`
-
-**Freebuff (free)**: `npm install -g freebuff`
-
-### Resources
-
-**Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
-
-**Community**: [Discord](https://codebuff.com/discord)
-
-**Issues & Ideas**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
-
-**Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
-
-**Support**: [support@codebuff.com](mailto:support@codebuff.com)
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=CodebuffAI/codebuff&type=Date)](https://www.star-history.com/#CodebuffAI/codebuff&Date)
+- [Website](https://freebuff.com)
+- [GitHub](https://github.com/CodebuffAI/freebuff)
+- [Discord](https://discord.gg/yXG3w7wxfs)
+- [Privacy Policy](https://freebuff.com/privacy-policy)
+- [License](./LICENSE)

@@ -1,251 +1,103 @@
-# Codebuff & Freebuff
+# Freebuff
 
 [English](./README.md) | 简体中文
 
-**[Codebuff](https://codebuff.com)** 是一款开源的 AI 编程助手，能根据自然语言指令直接修改你的代码库。**[Freebuff](https://www.npmjs.com/package/freebuff)** 是它的免费、广告支持版本——无需订阅、无需积分、零配置。
+**面向编程、构建和研究的五款免费 AI 产品。** 无需订阅、积分或 API 密钥。
 
-与那种"一个模型干所有事"的工具不同，Codebuff 会协调多个专业化的智能体（agent）协同工作，理解你的项目并做出精准的改动。
+[Freebuff](https://freebuff.com) 将专业化智能体和多种领先模型带到你的终端、桌面、浏览器和 GitHub 仓库中。内置模型由文字广告支持。
 
-<div align="center">
-  <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
-</div>
+## 选择适合你的 Freebuff
 
-在我们的[评测](evals/README.md)中，Codebuff 在 175+ 个真实开源仓库的编码任务上以 61% 对 53% 的成绩领先 Claude Code。
+| 产品                         | 功能                         | 开始使用                                                        |
+| ---------------------------- | ---------------------------- | --------------------------------------------------------------- |
+| **Freebuff Desktop**（Beta） | 在本地并行运行多个智能体     | [下载 macOS、Windows 或 Linux 版](https://freebuff.com/desktop) |
+| **Freebuff CLI**             | 从终端编程                   | [安装 CLI](https://freebuff.com/cli)                            |
+| **Freebuff Web**             | 构建和发布全栈应用           | [构建应用](https://freebuff.com/web)                            |
+| **Freebuff Cloud**（Beta）   | 在任意 GitHub 仓库运行智能体 | [连接仓库](https://freebuff.com/cloud)                          |
+| **Freebuff Chat**            | 使用 AI 进行研究和思考       | [开始对话](https://freebuff.com/chat)                           |
 
+## 快速开始
 
-## 工作原理
-
-当你让 Codebuff "给我的 API 加上身份验证"时，它可能会调用：
-
-1. **File Picker Agent** —— 扫描代码库、理解架构、找出相关文件
-2. **Planner Agent** —— 规划哪些文件需要改、按什么顺序改
-3. **Editor Agent** —— 执行精确的修改
-4. **Reviewer Agent** —— 校验改动是否正确
-
-<div align="center">
-  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="250">
-</div>
-
-相比单模型工具，这种多智能体方案能带来更准的上下文理解、更精确的修改，以及更少的错误。
-
-## CLI：装好就能写代码
-
-安装：
-
-```bash
-npm install -g codebuff
-```
-
-运行：
-
-```bash
-cd your-project
-codebuff
-```
-
-然后直接告诉 Codebuff 你想做什么，剩下的它自己搞定：
-
-- "修掉用户注册里的 SQL 注入漏洞"
-- "给所有 API 端点加上限流"
-- "重构数据库连接代码，提升性能"
-
-Codebuff 会找到对应的文件，跨多个文件做改动，并跑测试确认没有破坏现有功能。
-
-## 创建自定义智能体
-
-要开始构建自己的智能体，先启动 Codebuff 然后执行 `/init`：
-
-```bash
-codebuff
-```
-
-进入 CLI 后：
-
-```
-/init
-```
-
-这会生成：
-```
-knowledge.md               # Codebuff 用的项目上下文
-.agents/
-└── types/                 # TypeScript 类型定义
-    ├── agent-definition.ts
-    ├── tools.ts
-    └── util-types.ts
-```
-
-通过编写智能体定义文件，你可以最大程度地控制智能体的行为。
-
-通过指定工具、可派生的子智能体和提示词来实现自己的工作流。我们还提供了 TypeScript 生成器，方便你以更程序化的方式控制流程。
-
-下面是一个 `git-committer` 智能体的例子，它会基于当前的 git 状态生成提交。注意它先跑 `git diff` 和 `git log` 分析改动，然后再把决策权交给 LLM，让它撰写有意义的 commit message 并完成实际提交。
-
-```typescript
-export default {
-  id: 'git-committer',
-  displayName: 'Git Committer',
-  model: 'openai/gpt-5-nano',
-  toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
-
-  instructionsPrompt:
-    'You create meaningful git commits by analyzing changes, reading relevant files for context, and crafting clear commit messages that explain the "why" behind changes.',
-
-  async *handleSteps() {
-    // 分析改动
-    yield { tool: 'run_terminal_command', command: 'git diff' }
-    yield { tool: 'run_terminal_command', command: 'git log --oneline -5' }
-
-    // 暂存文件，并用合适的 message 生成提交
-    yield 'STEP_ALL'
-  },
-}
-```
-
-## SDK：在生产环境里跑智能体
-
-安装 [SDK 包](https://www.npmjs.com/package/@codebuff/sdk)——注意这跟 CLI 用的 codebuff 包是两个不同的包。
-
-```bash
-npm install @codebuff/sdk
-```
-
-引入 client，开始跑智能体：
-
-```typescript
-import { CodebuffClient } from '@codebuff/sdk'
-
-// 1. 初始化 client
-const client = new CodebuffClient({
-  apiKey: 'your-api-key',
-  cwd: '/path/to/your/project',
-  onError: (error) => console.error('Codebuff error:', error.message),
-})
-
-// 2. 跑一个编码任务……
-const result = await client.run({
-  agent: 'base', // Codebuff 默认的基础编码智能体
-  prompt: 'Add error handling to all API endpoints',
-  handleEvent: (event) => {
-    console.log('Progress', event)
-  },
-})
-
-// 3. 也可以跑自定义智能体！
-const myCustomAgent: AgentDefinition = {
-  id: 'greeter',
-  displayName: 'Greeter',
-  model: 'openai/gpt-5.1',
-  instructionsPrompt: 'Say hello!',
-}
-await client.run({
-  agent: 'greeter',
-  agentDefinitions: [myCustomAgent],
-  prompt: 'My name is Bob.',
-  customToolDefinitions: [], // 也可以加自定义工具！
-  handleEvent: (event) => {
-    console.log('Progress', event)
-  },
-})
-```
-
-更多 SDK 用法请看[这里](https://www.npmjs.com/package/@codebuff/sdk)。
-
-## Freebuff：免费的编程智能体
-
-不想订阅？**[Freebuff](https://www.npmjs.com/package/freebuff)** 是 Codebuff 的免费版本——无需订阅、无需积分、零配置，装上就能用。
+在任意项目中从终端运行 Freebuff：
 
 ```bash
 npm install -g freebuff
-cd your-project
+cd ~/my-project
 freebuff
 ```
 
-Freebuff 由广告支持，使用经过优化、兼顾速度与质量的模型。内置网页检索、浏览器使用等能力。详情见 [Freebuff README](./freebuff/README.md)。
+然后描述你想完成的任务。Freebuff 会找到相关文件、进行修改，并运行适合该项目的检查。
 
-## 为什么选 Codebuff
+## 模型
 
-**自定义工作流**：用 TypeScript 生成器把 AI 生成和程序化控制混着用。智能体可以派生子智能体、按条件分支、跑多步流程。
+Freebuff 提供经过筛选的模型目录。常规模型选择器目前包括：
 
-**OpenRouter 上的任何模型**：Claude Code 把你锁死在 Anthropic 的模型上，Codebuff 不一样——它支持 [OpenRouter](https://openrouter.ai/models) 上的所有模型，从 Claude、GPT 到 Qwen、DeepSeek 这类专用模型都行。可以按任务切换模型，也能随时用上最新发布的模型，不必等平台跟进。
+| 模型                        | 访问范围       | 适用场景                                          |
+| --------------------------- | -------------- | ------------------------------------------------- |
+| **DeepSeek V4 Flash 07/31** | 完整和受限访问 | CLI 和 Desktop 的默认模型；快速编程和工具调用     |
+| **DeepSeek V4 Pro**         | 完整访问       | 更长、更深入的推理                                |
+| **GPT-5.6 Luna**            | 完整访问       | Web、Cloud 和 Chat 的默认模型；深度推理并支持图像 |
+| **MiniMax M3**              | 完整访问       | 快速响应并支持图像                                |
+| **MiMo 2.5**                | 完整和受限访问 | 均衡性能并支持图像                                |
 
-**复用已发布的智能体**：把社区[已发布的智能体](https://www.codebuff.com/store)拼起来用，少走弯路。Codebuff 智能体就是新一代的 MCP！
+常规模型选择器之外：
 
-**SDK**：把 Codebuff 嵌进你自己的应用里。可以创建自定义工具、对接 CI/CD，或把编码能力内嵌进你的产品。
+- **GLM 5.2** 通过获得的会话使用，并非始终解锁。
+- **Gemini 3.1 Flash Lite** 用于查找文件和研究等专业任务，不会出现在主模型选择器中。
 
-## 进阶用法
+可用模型和限制取决于你的访问级别、所用产品和当前容量。Freebuff Desktop 还可以通过你现有的提供商账户运行本地安装的 Claude Code 和 Codex 智能体；这些连接的模型不属于 Freebuff 的内置模型目录。
 
-### 自定义智能体工作流
+## Freebuff 的工作原理
 
-用 `/init` 命令创建带专门工作流的智能体：
+Freebuff 使用专业化智能体，而不是把所有任务都交给同一个模型和同一条提示词。根据任务需要，智能体会收集上下文、制定计划、编辑或研究、运行工具并审查结果。
 
-```bash
-codebuff
-/init
-```
+- **代码库上下文** —— 文件查找智能体会在编辑前定位项目中的相关部分。
+- **实现与审查** —— 智能体可以拆分工作、修改文件、运行命令并检查结果。
+- **研究与浏览器操作** —— 智能体可以查阅文档，并在真实浏览器中测试应用。
+- **本地并行工作** —— Desktop 会将并发智能体隔离在各自的工作区中。
+- **托管环境** —— Web 和 Cloud 提供沙箱、预览、终端和部署工作流。
 
-这会在 `.agents/` 下生成一套可自定义的智能体结构。
+## 免费访问
+
+Freebuff 在所有国家和地区均可使用。受支持的地区提供完整访问；其他地区以及使用 VPN 的用户获得受限访问，目前包括 DeepSeek V4 Flash 和 MiMo 2.5，每天可使用六个一小时会话。
+
+内置模型由文字广告支持。开始前，Freebuff 会显示适用的会话限制以及模型特定的数据使用提示。
+
+## 数据使用与隐私
+
+**我的数据会用于训练 AI 吗？** 只有当模型或功能明确说明数据可能用于 AI 训练时才会。届时，Freebuff 或模型提供商可能保留提交内容，用于开发、训练、测试、评估、微调和改进 AI 模型或产品。
+
+**我的数据会如何使用和存储？** 我们会使用提示词、消息、代码、文件和仓库数据来提供服务。我们可能会分析提示词和消息（包括粘贴的内容），通过 Freebuff 系统及代表我们行事的服务提供商来个性化广告。单独上传的文件和已连接的仓库不会提供给广告服务商。在法律要求的地区，我们提供广告选择并遵循公认的退出信号；在其他地区，此类处理可能是使用免费服务的必要条件。留存期限与完整详情请参阅隐私政策。
+
+完整详情请参阅[隐私政策](https://freebuff.com/privacy-policy)。
 
 ## 参与贡献
 
-我们 ❤️ 来自社区的贡献——无论是修 bug、调整智能体、还是改进文档。
-
-**想参与？** 看一眼[贡献指南](./CONTRIBUTING.md) 就能上手。
-
-### 运行测试
-
-跑测试套件：
+Freebuff 是一个使用 Bun 构建的 TypeScript monorepo。欢迎为产品、智能体、工具、文档和底层运行时贡献代码。
 
 ```bash
-cd cli
-bun test
+git clone https://github.com/CodebuffAI/freebuff.git
+cd freebuff
+bun install
+bun up
 ```
 
-**交互式端到端测试**需要 tmux：
+单独启动 CLI：
 
 ```bash
-# macOS
-brew install tmux
-
-# Ubuntu/Debian
-sudo apt-get install tmux
-
-# Windows（通过 WSL）
-wsl --install
-sudo apt-get install tmux
+bun start-cli
 ```
 
-更完整的测试文档见 [cli/src/__tests__/README.md](cli/src/__tests__/README.md)。
+环境配置及提交拉取请求前应运行的检查，请参阅[贡献指南](./CONTRIBUTING.md)、[开发指南](./docs/development.md)和[测试指南](./docs/testing.md)。
 
-可以帮忙的方向：
+## 基于 Codebuff 构建
 
-- 🐛 **修 bug** 或新增功能
-- 🤖 **打造专用智能体**并发布到 Agent Store
-- 📚 **完善文档**或撰写教程
-- 💡 **分享想法**：在 [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues) 留言
+Freebuff 基于开放的多智能体框架 [Codebuff](https://codebuff.com) 构建，其编排、工具和 SDK 均由 Codebuff 提供。若要创建自定义智能体或将其嵌入其他应用，请参阅 [Codebuff 文档](https://codebuff.com/docs)和 [`@codebuff/sdk`](https://www.npmjs.com/package/@codebuff/sdk)。
 
-## 开始使用
+## 链接
 
-### 安装
-
-**CLI**：`npm install -g codebuff`
-
-**SDK**：`npm install @codebuff/sdk`
-
-**Freebuff（免费版）**：`npm install -g freebuff`
-
-### 资源
-
-**文档**：[codebuff.com/docs](https://codebuff.com/docs)
-
-**社区**：[Discord](https://codebuff.com/discord)
-
-**Issue 与想法**：[GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
-
-**贡献指南**：[CONTRIBUTING.md](./CONTRIBUTING.md) ——想贡献从这里开始！
-
-**支持**：[support@codebuff.com](mailto:support@codebuff.com)
-
-## Star 历史
-
-[![Star History Chart](https://api.star-history.com/svg?repos=CodebuffAI/codebuff&type=Date)](https://www.star-history.com/#CodebuffAI/codebuff&Date)
+- [官网](https://freebuff.com)
+- [GitHub](https://github.com/CodebuffAI/freebuff)
+- [Discord](https://discord.gg/yXG3w7wxfs)
+- [隐私政策](https://freebuff.com/privacy-policy)
+- [许可证](./LICENSE)
