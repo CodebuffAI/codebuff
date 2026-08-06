@@ -41,6 +41,7 @@ export enum AnalyticsEvent {
   LOGIN_ABORTED = 'cli.login_aborted',
   SLASH_MENU_ACTIVATED = 'cli.slash_menu_activated',
   SLASH_COMMAND_USED = 'cli.slash_command_used',
+  TERMINAL_BROKER_SPAWN_FAILED = 'cli.terminal_broker_spawn_failed',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
   USER_INPUT_COMPLETE = 'cli.user_input_complete',
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',

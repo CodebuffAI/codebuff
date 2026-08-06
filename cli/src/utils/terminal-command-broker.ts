@@ -3,6 +3,7 @@ import { readFileSync, rmSync, writeFileSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type {
   TerminalCommandBroker,
   TerminalCommandProcess,
@@ -22,12 +23,84 @@ const MAX_PROTOCOL_BYTES = 64 * 1024
 const PROTOCOL_FILE_PREFIX = 'freebuff-terminal-command-broker-'
 const TERMINAL_COMMAND_BROKER_RECOVERY = 'Restart Freebuff and try again.'
 
+export type TerminalBrokerFailureStage = 'spawn' | 'stdio' | 'completion'
+export type TerminalBrokerFailureCode =
+  | 'failed_to_connect'
+  | 'enoent'
+  | 'eacces'
+  | 'eperm'
+  | 'epipe'
+  | 'invalid_response'
+  | 'protocol_missing'
+  | 'response_too_large'
+  | 'unknown'
+
+export type TerminalBrokerFailureTelemetry = {
+  stage: TerminalBrokerFailureStage
+  failureCode: TerminalBrokerFailureCode
+}
+
 type BrokerProtocol =
   | { ok: true; exitCode: number | null }
   | { ok: false; error: string }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+export function classifyTerminalBrokerFailure(
+  error: unknown,
+): TerminalBrokerFailureCode {
+  const rawCode =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as NodeJS.ErrnoException).code ?? '').toUpperCase()
+      : ''
+  if (rawCode === 'ENOENT') return 'enoent'
+  if (rawCode === 'EACCES') return 'eacces'
+  if (rawCode === 'EPERM') return 'eperm'
+  if (rawCode === 'EPIPE') return 'epipe'
+
+  const message = errorMessage(error).toLowerCase()
+  if (message.includes('failed to connect')) return 'failed_to_connect'
+  if (message.includes('invalid response')) return 'invalid_response'
+  if (message.includes('protocol response was missing')) {
+    return 'protocol_missing'
+  }
+  if (message.includes('response was too large')) return 'response_too_large'
+  return 'unknown'
+}
+
+export function sanitizeTerminalBrokerVersion(version: string): string {
+  return /^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$/.test(version)
+    ? version
+    : 'unknown'
+}
+
+function reportTerminalBrokerFailure({
+  stage,
+  failureCode,
+}: TerminalBrokerFailureTelemetry): void {
+  if (process.platform !== 'win32' || getCliEnv().FREEBUFF_MODE !== 'true') {
+    return
+  }
+  const configuredVersion = getCliEnv().CODEBUFF_CLI_VERSION ?? ''
+  const version = sanitizeTerminalBrokerVersion(configuredVersion)
+
+  // Load analytics only in the interactive parent and only on failure. The
+  // detached broker helper imports this module too, but must stay minimal and
+  // must never initialize product analytics of its own.
+  void import('./analytics')
+    .then(({ trackEvent }) => {
+      trackEvent(AnalyticsEvent.TERMINAL_BROKER_SPAWN_FAILED, {
+        version,
+        platform: 'win32',
+        stage,
+        failureCode,
+      })
+    })
+    .catch(() => {
+      // Telemetry is best-effort and must never change command behavior.
+    })
 }
 
 function brokerFailure(error: unknown): Error {
@@ -304,13 +377,27 @@ function defaultBrokerInvocation(): {
 export function createTerminalCommandBroker({
   invocation = defaultBrokerInvocation,
   terminate = terminateProcessGroup,
+  reportFailure = reportTerminalBrokerFailure,
 }: {
   invocation?: () => { executable: string; args: string[] }
   terminate?: typeof terminateProcessGroup
+  reportFailure?: (failure: TerminalBrokerFailureTelemetry) => void
 } = {}): TerminalCommandBroker {
+  const report = (stage: TerminalBrokerFailureStage, error: unknown): void => {
+    try {
+      reportFailure({
+        stage,
+        failureCode: classifyTerminalBrokerFailure(error),
+      })
+    } catch {
+      // An injected or future reporter must never replace the broker failure.
+    }
+  }
+
   return {
     start(request): TerminalCommandProcess {
       let child: ChildProcess
+      let terminationRequested = false
       const protocolPath = createProtocolPath()
       try {
         const { executable, args } = invocation()
@@ -330,6 +417,7 @@ export function createTerminalCommandBroker({
           windowsHide: true,
         })
       } catch (error) {
+        report('spawn', error)
         removeProtocolFile(protocolPath)
         throw brokerFailure(error)
       }
@@ -340,7 +428,9 @@ export function createTerminalCommandBroker({
       if (!child.stdin || !child.stdout || !child.stderr) {
         terminate(child, 'SIGKILL')
         removeProtocolFile(protocolPath)
-        throw brokerFailure('could not open terminal command broker pipes')
+        const error = new Error('could not open terminal command broker pipes')
+        report('stdio', error)
+        throw brokerFailure(error)
       }
 
       // Cancellation can close the broker while this small request is still
@@ -355,13 +445,24 @@ export function createTerminalCommandBroker({
       })
       const completion = closed
         .then(() => {
-          const payload = readFileSync(protocolPath)
+          let payload: Buffer
+          try {
+            payload = readFileSync(protocolPath)
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+              throw new Error(
+                'terminal command broker protocol response was missing',
+              )
+            }
+            throw error
+          }
           if (payload.byteLength > MAX_PROTOCOL_BYTES) {
             throw new Error('terminal command broker response was too large')
           }
           return parseProtocol(payload.toString('utf8').trim())
         })
         .catch((error) => {
+          if (!terminationRequested) report('completion', error)
           throw brokerFailure(error)
         })
         .then((message) => {
@@ -375,7 +476,10 @@ export function createTerminalCommandBroker({
         stdout: child.stdout,
         stderr: child.stderr,
         completion,
-        kill: (signal) => terminate(child, signal),
+        kill: (signal) => {
+          terminationRequested = true
+          terminate(child, signal)
+        },
         isAlive: () => isProcessGroupAlive(child),
       }
     },

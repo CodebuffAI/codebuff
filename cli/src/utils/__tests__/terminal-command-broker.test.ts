@@ -10,9 +10,11 @@ import {
 } from '@codebuff/sdk'
 
 import {
+  classifyTerminalBrokerFailure,
   createTerminalCommandBroker,
   isTerminalCommandBrokerInvocation,
   protocolPathFromEnv,
+  sanitizeTerminalBrokerVersion,
 } from '../terminal-command-broker'
 
 const brokerFixture = path.join(
@@ -84,6 +86,31 @@ function stdoutOf(
 }
 
 describe('terminal command broker', () => {
+  test('normalizes failures without retaining exception text', () => {
+    expect(classifyTerminalBrokerFailure(new Error('Failed to connect'))).toBe(
+      'failed_to_connect',
+    )
+    expect(
+      classifyTerminalBrokerFailure(
+        Object.assign(new Error('private path must not be retained'), {
+          code: 'ENOENT',
+        }),
+      ),
+    ).toBe('enoent')
+    expect(classifyTerminalBrokerFailure(new Error('private details'))).toBe(
+      'unknown',
+    )
+    expect(
+      classifyTerminalBrokerFailure(
+        new Error('terminal command broker protocol response was missing'),
+      ),
+    ).toBe('protocol_missing')
+    expect(sanitizeTerminalBrokerVersion('0.0.142')).toBe('0.0.142')
+    expect(sanitizeTerminalBrokerVersion('private path/and details')).toBe(
+      'unknown',
+    )
+  })
+
   test('requires its private environment marker and flag before --', () => {
     expect(
       isTerminalCommandBrokerInvocation(
@@ -181,11 +208,18 @@ describe('terminal command broker', () => {
   })
 
   test('isolates overlapping commands so one cancellation does not affect the other', async () => {
+    const failures: Array<{ stage: string; failureCode: string }> = []
     const existing = new Set(
       getActiveTerminalCommandProcesses().map(({ pid }) => pid),
     )
     const firstAbort = new AbortController()
-    const broker = createTestBroker()
+    const broker = createTerminalCommandBroker({
+      invocation: () => ({
+        executable: process.execPath,
+        args: [brokerFixture],
+      }),
+      reportFailure: (failure) => failures.push(failure),
+    })
     const first = runTerminalCommand({
       command: `printf 'FIRST_STARTED'; while :; do sleep 1; done`,
       process_type: 'SYNC',
@@ -214,13 +248,16 @@ describe('terminal command broker', () => {
       message: expect.stringContaining('aborted by the user'),
     })
     expect(stdoutOf(secondResult)).toBe('SECOND_DONE')
+    expect(failures).toEqual([])
   })
 
   test('surfaces helper startup failures instead of falling back to the console', async () => {
+    const failures: Array<{ stage: string; failureCode: string }> = []
     const broker = createTerminalCommandBroker({
       invocation: () => {
         throw new Error('helper executable is unavailable')
       },
+      reportFailure: (failure) => failures.push(failure),
     })
 
     await expect(
@@ -234,9 +271,11 @@ describe('terminal command broker', () => {
     ).rejects.toThrow(
       'Failed to start terminal command broker: helper executable is unavailable\n\nRestart Freebuff and try again.',
     )
+    expect(failures).toEqual([{ stage: 'spawn', failureCode: 'unknown' }])
   })
 
   test('contains an asynchronous spawn error when the helper is missing', async () => {
+    const failures: Array<{ stage: string; failureCode: string }> = []
     const broker = createTerminalCommandBroker({
       invocation: () => ({
         executable: path.join(
@@ -245,6 +284,7 @@ describe('terminal command broker', () => {
         ),
         args: [],
       }),
+      reportFailure: (failure) => failures.push(failure),
     })
 
     await expect(
@@ -259,6 +299,7 @@ describe('terminal command broker', () => {
 
     // Bun reports this asynchronously after spawn() returns a child handle.
     await Bun.sleep(0)
+    expect(failures).toEqual([{ stage: 'completion', failureCode: 'enoent' }])
   })
 
   test('adds recovery guidance when spawning the helper throws', async () => {
@@ -278,6 +319,7 @@ describe('terminal command broker', () => {
   })
 
   test('adds recovery guidance when the helper exits before responding', async () => {
+    const failures: Array<{ stage: string; failureCode: string }> = []
     const broker = createTerminalCommandBroker({
       invocation: () => ({
         executable: process.execPath,
@@ -288,6 +330,7 @@ describe('terminal command broker', () => {
           ),
         ],
       }),
+      reportFailure: (failure) => failures.push(failure),
     })
 
     let failureMessage = ''
@@ -305,6 +348,9 @@ describe('terminal command broker', () => {
 
     expect(failureMessage).toContain('Terminal command broker failed:')
     expect(failureMessage).toContain('Restart Freebuff and try again.')
+    expect(failures).toEqual([
+      { stage: 'completion', failureCode: 'protocol_missing' },
+    ])
   })
 
   test('does not add broker recovery guidance to a command spawn failure', async () => {

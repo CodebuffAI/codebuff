@@ -54,6 +54,9 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.DESKTOP_MODEL_CHANGED,
   AnalyticsEvent.DESKTOP_SKILL_RUN,
   AnalyticsEvent.DESKTOP_CODEX_RESOLUTION,
+  // Rare operational signal. Sampling would make per-version failure rates
+  // misleading precisely when a Windows-only regression affects few installs.
+  AnalyticsEvent.TERMINAL_BROKER_SPAWN_FAILED,
   AnalyticsEvent.TERMINAL_COMMAND_COMPLETED,
   AnalyticsEvent.UPDATE_CODEBUFF_FAILED,
   AnalyticsEvent.USER_INPUT,
@@ -70,7 +73,9 @@ function getStringProperty(
   return typeof value === 'string' && value.trim() ? value : undefined
 }
 
-function getPropertyUserId(properties: AnalyticsProperties): string | undefined {
+function getPropertyUserId(
+  properties: AnalyticsProperties,
+): string | undefined {
   const direct =
     getStringProperty(properties, 'userId') ??
     getStringProperty(properties, 'user_id') ??
@@ -123,8 +128,7 @@ export function isFullTelemetryEnabled(params: {
     getStringProperty(params.properties, 'userEmail'),
     getStringProperty(params.properties, 'email'),
   ].filter(
-    (value): value is string =>
-      typeof value === 'string' && value.length > 0,
+    (value): value is string => typeof value === 'string' && value.length > 0,
   )
 
   return candidates.some((candidate) => ids.has(candidate))
