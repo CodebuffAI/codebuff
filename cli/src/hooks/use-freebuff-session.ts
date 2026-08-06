@@ -280,12 +280,8 @@ export function takeOverFreebuffSession(): Promise<void> {
   if (!IS_FREEBUFF) return Promise.resolve()
   if (takeoverInFlight) return takeoverInFlight
 
-  const { session, failure } = useFreebuffSessionStore.getState()
-  if (
-    session?.status !== 'takeover_prompt' ||
-    failure?.retry ||
-    failure?.outcomeUnknown
-  ) {
+  const { session } = useFreebuffSessionStore.getState()
+  if (session?.status !== 'takeover_prompt') {
     return Promise.resolve()
   }
 

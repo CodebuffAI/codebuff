@@ -60,10 +60,10 @@ describe('TakeoverPrompt', () => {
     )
     expect(frame).toContain('Retrying automatically in')
     expect(frame).toContain('(attempt 2).')
-    expect(frame).toContain('Retry scheduled')
+    expect(frame).toContain('Retry now')
   })
 
-  test('does not resubmit after a takeover timeout with an unknown outcome', async () => {
+  test('allows an explicit retry after a takeover timeout with an unknown outcome', async () => {
     let calls = 0
     const setup = await mountPrompt({
       failure: {
@@ -82,10 +82,9 @@ describe('TakeoverPrompt', () => {
 
     const frame = setup.captureCharFrame()
     const normalizedFrame = frame.replace(/\s+/g, ' ')
-    expect(calls).toBe(0)
+    expect(calls).toBe(1)
     expect(normalizedFrame).toContain('may have succeeded')
-    expect(normalizedFrame).toContain("won't retry automatically")
-    expect(frame).toContain('Restart to check')
+    expect(frame).toContain('Try takeover again')
     expect(frame).not.toContain('Retrying automatically')
   })
 
@@ -148,7 +147,7 @@ describe('TakeoverPrompt', () => {
     await pendingTakeover
   })
 
-  test('does not bypass an automatic retry backoff', async () => {
+  test('lets the user retry immediately during automatic backoff', async () => {
     let calls = 0
     const setup = await mountPrompt({
       failure: {
@@ -166,8 +165,8 @@ describe('TakeoverPrompt', () => {
     setup.mockInput.pressEnter()
     await Promise.resolve()
 
-    expect(calls).toBe(0)
-    expect(setup.captureCharFrame()).toContain('Retry scheduled')
+    expect(calls).toBe(1)
+    expect(setup.captureCharFrame()).toContain('Retry now')
   })
 
   test('starts a newly appearing retry countdown from the current time', async () => {
@@ -188,7 +187,7 @@ describe('TakeoverPrompt', () => {
     expect(setup.captureCharFrame()).toContain('Retrying automatically in 30s')
   })
 
-  test('blocks resubmission when a non-timeout POST result is unknown', async () => {
+  test('allows an explicit retry when a non-timeout POST result is unknown', async () => {
     let calls = 0
     const setup = await mountPrompt({
       failure: {
@@ -206,8 +205,8 @@ describe('TakeoverPrompt', () => {
     await Promise.resolve()
 
     const frame = setup.captureCharFrame().replace(/\s+/g, ' ')
-    expect(calls).toBe(0)
+    expect(calls).toBe(1)
     expect(frame).toContain("couldn't confirm whether the takeover succeeded")
-    expect(frame).toContain('Restart to check')
+    expect(frame).toContain('Try takeover again')
   })
 })

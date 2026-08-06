@@ -77,6 +77,9 @@ See the [Privacy Policy](https://freebuff.com/privacy-policy) for complete detai
 
 Freebuff is a TypeScript monorepo built with Bun. Contributions to the products, agents, tools, documentation, and underlying runtime are welcome.
 
+Local development requires Docker and a configured `.env.local`; see the
+[Contributing Guide](./CONTRIBUTING.md) before starting the services.
+
 ```bash
 git clone https://github.com/CodebuffAI/freebuff.git
 cd freebuff

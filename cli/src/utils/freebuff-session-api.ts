@@ -39,20 +39,22 @@ export type FreebuffSessionFailureDisposition = 'retry' | 'stop' | 'unknown'
 /** How the poll loop should handle a failed request.
  *
  * A POST without a response may already have rotated the active instance, so
- * repeating it is unsafe without protocol-level idempotency. The session
- * endpoint's documented 503 is the exception: it is returned by admission
- * shedding before authentication or database work. GET is read-only and can
- * retry transient failures normally. */
+ * repeating it is unsafe without protocol-level idempotency. HTTP 408, 429,
+ * and 503 responses are the exception: edge rejection or admission shedding
+ * produces them before the session mutation can commit. GET is read-only and
+ * can retry transient failures normally. */
 export function classifyFreebuffSessionRequestFailure(
   method: Extract<FreebuffSessionMethod, 'POST' | 'GET'>,
   error: unknown,
 ): FreebuffSessionFailureDisposition {
   if (method === 'POST') {
     if (!(error instanceof FreebuffSessionRequestError)) return 'unknown'
-    if (
-      error.statusCode === 503 &&
-      error.errorCode === 'service_overloaded'
-    ) {
+    // These responses are produced before the session mutation can commit:
+    // 408/429 come from an edge or unparsed response (the endpoint's typed
+    // rate-limit responses are returned above), and a 503 means no handler was
+    // available or admission shed the request. Retrying them cannot repeat a
+    // successful takeover.
+    if ([408, 429, 503].includes(error.statusCode)) {
       return 'retry'
     }
     return error.statusCode >= 400 && error.statusCode < 500

@@ -165,13 +165,13 @@ function getTakeoverErrorMessage(failure: FreebuffSessionFailure): string {
   }
   if (failure.type === 'timeout') {
     return failure.outcomeUnknown
-      ? "The takeover request timed out and may have succeeded. Freebuff won't retry automatically; restart to check before trying again."
+      ? 'The takeover request timed out and may have succeeded. Check the warning, then retry if you still want to take over.'
       : failure.retry
         ? 'The takeover request timed out while Freebuff was busy.'
         : 'The takeover request timed out.'
   }
   if (failure.outcomeUnknown) {
-    return "Freebuff couldn't confirm whether the takeover succeeded. It won't retry automatically; restart to check before trying again."
+    return "Freebuff couldn't confirm whether the takeover succeeded. Check the warning, then retry if you still want to take over."
   }
   return failure.message.trim()
     ? `Takeover failed: ${failure.message}`
@@ -195,13 +195,13 @@ export const TakeoverPrompt: React.FC<{
     ? Math.max(0, Math.ceil((retry.retryAtMs - retryNow) / 1_000))
     : 0
   const outcomeUnknown = failure?.outcomeUnknown ?? false
-  const blocked = pending || retry !== null || outcomeUnknown
+  const blocked = pending
   const displayError = failure ? getTakeoverErrorMessage(failure) : null
 
   const handleTakeover = useCallback(async () => {
     // `pending` updates on the next render. The ref closes the gap where two
     // keyboard/mouse events arrive in the same frame and would both POST.
-    if (takeoverInFlightRef.current || retry !== null || outcomeUnknown) return
+    if (takeoverInFlightRef.current) return
     takeoverInFlightRef.current = true
     setPending(true)
     try {
@@ -210,7 +210,7 @@ export const TakeoverPrompt: React.FC<{
       takeoverInFlightRef.current = false
       setPending(false)
     }
-  }, [onTakeOver, outcomeUnknown, retry])
+  }, [onTakeOver])
 
   useKeyboard(
     useCallback(
@@ -260,9 +260,9 @@ export const TakeoverPrompt: React.FC<{
   const takeoverLabel = pending
     ? 'Taking over...'
     : outcomeUnknown
-      ? 'Restart to check'
+      ? 'Try takeover again'
       : retry
-        ? 'Retry scheduled'
+        ? 'Retry now'
         : 'Take over'
   const takeoverForeground = blocked
     ? theme.muted

@@ -130,7 +130,7 @@ test('does not repeat a takeover POST after an ambiguous timeout', () => {
   expect(classifyFreebuffSessionRequestFailure('GET', timeout)).toBe('retry')
 })
 
-test('retries only the documented pre-database 503 POST response', async () => {
+test('retries POST responses that cannot represent a committed takeover', async () => {
   fetchSpy = spyOn(globalThis, 'fetch').mockResolvedValue(
     Response.json(
       {
@@ -163,7 +163,19 @@ test('retries only the documented pre-database 503 POST response', async () => {
       'POST',
       new FreebuffSessionRequestError('generic proxy 503', 503, 10_000),
     ),
-  ).toBe('unknown')
+  ).toBe('retry')
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'POST',
+      new FreebuffSessionRequestError('request timeout', 408, 10_000),
+    ),
+  ).toBe('retry')
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'POST',
+      new FreebuffSessionRequestError('edge rate limit', 429, 10_000),
+    ),
+  ).toBe('retry')
 })
 
 test('stops on terminal 4xx responses', () => {
