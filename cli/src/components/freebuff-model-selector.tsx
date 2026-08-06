@@ -497,6 +497,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // worth advertising as a per-row badge.
       const multimodalSuffixLen = (m: FreebuffModelOption) =>
         m.multimodal ? 9 : 0
+      // Same treatment for the " · Reasoning: high" effort suffix.
+      const reasoningSuffixLen = (m: FreebuffModelOption) =>
+        m.reasoningEffort ? 14 + m.reasoningEffort.length : 0
       // Same treatment for the " · NEW" badge (6 chars).
       const newSuffixLen = 6
 
@@ -506,6 +509,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         maxNameLen +
         NAME_GAP +
         m.tagline.length +
+        reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0)
       const compactLabelLen = (m: FreebuffModelOption) =>
@@ -513,6 +517,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         m.displayName.length +
         3 /* " · " */ +
         m.tagline.length +
+        reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0)
 
@@ -815,6 +820,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // see pixels.
     const imagesSuffix = model.multimodal ? ' · Images' : ''
 
+    // The effort the server runs this model at (the same catalog field the
+    // completions layer sends) — see FreebuffModelOption.reasoningEffort.
+    const reasoningSuffix = model.reasoningEffort
+      ? ` · Reasoning: ${model.reasoningEffort}`
+      : ''
+
     return (
       <Button
         key={model.id}
@@ -847,10 +858,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             {model.displayName}
           </span>
           {compactNames ? (
-            <span fg={mutedColor}>{' · ' + model.tagline + imagesSuffix}</span>
+            <span fg={mutedColor}>
+              {' · ' + model.tagline + reasoningSuffix + imagesSuffix}
+            </span>
           ) : (
             <span fg={mutedColor}>
-              {namePadding + model.tagline + imagesSuffix}
+              {namePadding + model.tagline + reasoningSuffix + imagesSuffix}
             </span>
           )}
           {model.isNew && (

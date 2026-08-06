@@ -12,7 +12,7 @@ const definition = {
   id: 'base2-free-luna',
   displayName: 'Buffy the GPT-5.6 Luna Free Orchestrator',
   // Luna is cheap enough per token that high effort is worth the reasoning
-  // tokens. The server applies the same default (applyOpenRouterReasoningDefaults)
+  // tokens. The server applies the same default (applyFreebuffReasoningDefaults)
   // for callers that don't come through a bundled agent; both read the shared
   // constant so they can't drift.
   reasoningOptions: {

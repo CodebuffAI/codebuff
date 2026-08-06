@@ -276,6 +276,26 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(rowOf(frame, 'DeepSeek V4 Pro')).not.toContain('Images')
   })
 
+  test('says the reasoning effort on rows whose catalog entry carries one', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+
+    // Anchored on taglines: model names also appear in superseded-notice lines
+    const rowOf = (frame: string, tagline: string) =>
+      frame.split('\n').find((line) => line.includes(tagline)) ?? ''
+    const frame = (await renderSelector()).captureCharFrame()
+
+    expect(rowOf(frame, 'Smartest & Fastest')).toContain('Reasoning: high')
+    expect(rowOf(frame, 'Deep reasoning')).toContain('Reasoning: high')
+    expect(rowOf(frame, 'Thinks hard & Fast')).toContain('Reasoning: high')
+    expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
+  })
+
   test('sizes the hero card to its content, with no Press-Enter gutter', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',

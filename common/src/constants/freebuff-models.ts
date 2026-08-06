@@ -53,6 +53,18 @@ export interface FreebuffModelOption {
   /** Whether the model accepts image input. Drives whether uploaded images
    *  are forwarded as real multimodal content vs. dropped/inlined as text. */
   multimodal: boolean
+  /** Reasoning effort Freebuff turns run this model at. Not advisory: the
+   *  completions layer sends it whenever the caller names no reasoning of its
+   *  own (applyFreebuffReasoningDefaults in web/src/llm-api/openrouter.ts),
+   *  and the Desktop and CLI pickers display the same field — one source, so
+   *  on those surfaces what users see and what the server sends cannot drift.
+   *  (The web pickers don't render it yet.) Omit where the model has no effort
+   *  levels (MiniMax) or the provider default should stand untouched (GLM,
+   *  MiMo). CAUTION: the DeepSeek and MiMo adapters collapse anything below
+   *  `max` to `high` (toDeepSeekReasoningEffort / toMiMoReasoningEffort), so
+   *  rows on those lanes must stay `high` — a `medium` there would display as
+   *  medium and run as high, the exact drift this field exists to prevent. */
+  reasoningEffort?: 'low' | 'medium' | 'high'
   /** Whether the model is still being trialed and may be unreliable. Surfaced
    *  in the picker as a "TEST" badge with a tooltip so users know it is not
    *  yet production-grade. */
@@ -131,7 +143,7 @@ export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
  *  Two things about this model are enforced server-side rather than left to the
  *  agent definitions, so they hold for every Freebuff surface, every subagent,
  *  and BYOK callers alike (see applyOpenRouterProviderRouting and
- *  applyOpenRouterReasoningDefaults in web/src/llm-api/openrouter.ts):
+ *  applyFreebuffReasoningDefaults in web/src/llm-api/openrouter.ts):
  *
  *   - Routing is PINNED to OpenAI's own endpoint. OpenRouter also lists Azure
  *     and Amazon Bedrock for this model at $1.00/$6.00 per M — 10x OpenAI's
@@ -439,6 +451,16 @@ const DEEPSEEK_V4_PRO_MODEL = {
   dataUse: 'training',
   premium: true,
   multimodal: false,
+  // DeepSeek's own documented default (thinking on, effort high,
+  // api-docs.deepseek.com/guides/thinking_mode), now sent explicitly so a
+  // provider-side default change cannot silently move Freebuff. Flash and Pro
+  // run a four-lane cascade (deepseek-router.ts), and the explicit value
+  // reaches every lane: direct translates it to `thinking`, CrofAI maps it to
+  // its `reasoning_effort`, Infron and OpenRouter take `reasoning` natively.
+  // That is deliberate — one row, one behavior on whichever lane serves it —
+  // but only the direct lane's default was measured; if a fallback lane's own
+  // default was lower, its turns now spend more reasoning tokens.
+  reasoningEffort: 'high',
   // DeepSeek's V4-Flash-0731 GA build (2026-07-31) was re-post-trained for
   // agent work and now beats V4 Pro on coding and tool-use benchmarks, while
   // being cheaper and outside the premium pool. Pro stays selectable for people
@@ -482,6 +504,7 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   dataUse: 'training',
   premium: false,
   multimodal: false,
+  reasoningEffort: 'high',
   isNew: true,
 } as const satisfies FreebuffModelOption
 
@@ -517,6 +540,7 @@ const GPT_5_6_LUNA_MODEL = {
   premium: true,
   // OpenRouter reports input modalities text + image + file for this model.
   multimodal: true,
+  reasoningEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
 } as const satisfies FreebuffModelOption
 
 const GLM_V52_MODEL = {
@@ -1418,6 +1442,18 @@ export function isFreebuffGpt56LunaModelId(
   id: string | null | undefined,
 ): boolean {
   return freebuffModelIdMatches(id, FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+}
+
+/** The catalog's reasoning effort for the requested model, tolerating dated
+ *  snapshot suffixes like every other id helper. Null for models that carry
+ *  none — see FreebuffModelOption.reasoningEffort. */
+export function getFreebuffModelReasoningEffort(
+  id: string | null | undefined,
+): NonNullable<FreebuffModelOption['reasoningEffort']> | null {
+  const entry: FreebuffModelOption | undefined = SUPPORTED_FREEBUFF_MODELS.find(
+    (m) => freebuffModelIdMatches(id, m.id),
+  )
+  return entry?.reasoningEffort ?? null
 }
 
 /**
