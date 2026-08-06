@@ -45,6 +45,9 @@
  *   is a classic EDR/AV malware heuristic). They are deliberately built
  *   without double quotes, which makes that quoting-safe — see
  *   spawnWindowsWatchdog.
+ * - The PowerShell watchdog is disabled by default on Windows because this
+ *   process shape can trip EDR/AV. CODEBUFF_ENABLE_TERMINAL_WATCHDOG=1 opts
+ *   into it for targeted CI and debugging.
  * - Arming takes a few hundred ms (PowerShell boot); deaths inside that
  *   window fall back to the pre-existing behavior (npm wrapper or nothing).
  */
@@ -161,8 +164,7 @@ function spawnWindowsWatchdog(options: {
   )
 }
 
-/** Truthy values for CODEBUFF_NO_TERMINAL_WATCHDOG. */
-const isOptedOut = (value: string | undefined): boolean =>
+const isTruthy = (value: string | undefined): boolean =>
   value === '1' || value?.toLowerCase() === 'true'
 
 /**
@@ -170,13 +172,12 @@ const isOptedOut = (value: string | undefined): boolean =>
  * terminal modes. No-op when stdout isn't a TTY (unless an explicit ttyPath
  * is injected, e.g. in tests), or if already started.
  *
- * Also a no-op when CODEBUFF_NO_TERMINAL_WATCHDOG is set. On Windows the only
- * way to outlive our own job object is a PowerShell bootstrap that
- * Start-Process's a second PowerShell (see the header), and a parent spawning a
- * hidden shell that outlives it is a shape EDR/AV products score as malicious —
- * this one shows up in Defender traces as a "Suspicious PowerShell command
- * line". Opting out costs only the after-exit terminal repair for hard kills,
- * which is strictly better than the CLI being quarantined on launch.
+ * Also a no-op when CODEBUFF_NO_TERMINAL_WATCHDOG is set. On Windows the
+ * PowerShell watchdog is disabled by default because its out-of-job grandchild
+ * process can trip EDR/AV. CODEBUFF_ENABLE_TERMINAL_WATCHDOG=1 opts into it for
+ * targeted CI and debugging. Disabling it costs only the after-exit terminal
+ * repair for hard kills, which is strictly better than the CLI being terminated
+ * or quarantined by endpoint security.
  *
  * @param options.ttyPath - Override the reset target (POSIX: the watchdog's
  *   stdout is pointed at this file; Windows: the watchdog writes the payload
@@ -185,7 +186,14 @@ const isOptedOut = (value: string | undefined): boolean =>
  */
 export function startTerminalWatchdog(options?: { ttyPath?: string }): void {
   if (watchdog) return
-  if (isOptedOut(getCliEnv().CODEBUFF_NO_TERMINAL_WATCHDOG)) return
+  const env = getCliEnv()
+  if (isTruthy(env.CODEBUFF_NO_TERMINAL_WATCHDOG)) return
+  if (
+    process.platform === 'win32' &&
+    !isTruthy(env.CODEBUFF_ENABLE_TERMINAL_WATCHDOG)
+  ) {
+    return
+  }
   if (!options?.ttyPath && !process.stdout.isTTY) return
 
   let overrideFd: number | null = null

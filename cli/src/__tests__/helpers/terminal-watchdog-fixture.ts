@@ -5,15 +5,16 @@
  * - mode "hang":  start the watchdog and stay alive until killed by the test.
  * - mode "clean": start the watchdog, then stop it and exit (clean shutdown).
  *
- * Prints "ready" once the watchdog is armed so the test knows when to kill.
- * On Windows, arming is asynchronous (a PowerShell bootstrap has to launch
- * the real watchdog outside Bun's kill-on-close job object), so we wait for
- * the `<ttyPath>.armed` marker before printing "ready" — killing earlier
+ * Prints "ready" once the watchdog policy has been applied. When explicitly
+ * enabled on Windows, arming is asynchronous (a PowerShell bootstrap has to
+ * launch the real watchdog outside Bun's kill-on-close job object), so we wait
+ * for the `<ttyPath>.armed` marker before printing "ready" — killing earlier
  * would take the bootstrap down before the watchdog exists.
  */
 import { existsSync } from 'fs'
 
 import {
+  getTerminalWatchdogDiagnostics,
   startTerminalWatchdog,
   stopTerminalWatchdog,
 } from '../../utils/terminal-watchdog'
@@ -27,6 +28,7 @@ if (!mode || !ttyPath) {
 
 async function waitForArmed(): Promise<void> {
   if (process.platform !== 'win32') return
+  if (!getTerminalWatchdogDiagnostics().armed) return
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
     if (existsSync(`${ttyPath}.armed`)) return

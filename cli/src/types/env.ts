@@ -78,9 +78,13 @@ export type CliEnv = BaseEnv & {
   CODEBUFF_LAUNCHER_PID?: string
   // Toggle for mirroring CLI logs to the server's /api/logs sink (Axiom).
   CODEBUFF_SHIP_LOGS?: string
-  // Set to 1/true to suppress the terminal-reset watchdog. Exists for locked
-  // down Windows machines where the PowerShell bootstrap trips EDR/AV.
+  // Set to 1/true to suppress the terminal-reset watchdog. Retained for
+  // backwards compatibility and explicit opt-outs on supported platforms.
   CODEBUFF_NO_TERMINAL_WATCHDOG?: string
+  // Set to 1/true to opt into the PowerShell terminal-reset watchdog for
+  // targeted Windows CI and debugging. It is disabled there by default because
+  // the process shape can trip EDR/AV.
+  CODEBUFF_ENABLE_TERMINAL_WATCHDOG?: string
   FREEBUFF_MODE?: string
 }
 

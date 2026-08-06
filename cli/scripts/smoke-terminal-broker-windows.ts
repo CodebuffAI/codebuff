@@ -120,6 +120,9 @@ async function main(): Promise<void> {
   console.log(`terminal-broker-smoke: winpty=${winpty}`)
   console.log(`terminal-broker-smoke: artifacts=${runDir}`)
 
+  const smokeEnv = { ...process.env }
+  delete smokeEnv.CODEBUFF_ENABLE_TERMINAL_WATCHDOG
+  delete smokeEnv.CODEBUFF_NO_TERMINAL_WATCHDOG
   const child = spawn(
     winpty,
     [
@@ -133,9 +136,8 @@ async function main(): Promise<void> {
     {
       cwd: process.cwd(),
       env: {
-        ...process.env,
+        ...smokeEnv,
         CODEBUFF_GITHUB_ACTIONS: 'true',
-        CODEBUFF_NO_TERMINAL_WATCHDOG: '1',
         NO_COLOR: '1',
       },
       stdio: ['pipe', 'pipe', 'pipe'],
