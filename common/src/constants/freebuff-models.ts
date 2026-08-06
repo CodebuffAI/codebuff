@@ -69,6 +69,11 @@ export interface FreebuffModelOption {
    *  in the picker as a "TEST" badge with a tooltip so users know it is not
    *  yet production-grade. */
   experimental?: boolean
+  /** Tooltip attached to the tagline, for a tagline that names a behavior the
+   *  word alone cannot explain (e.g. "Queue"). Rendered with the same
+   *  dotted-underline affordance as the data-use "Data" label, so a row can
+   *  carry both without growing a second line. */
+  taglineTooltip?: string
   /** Freshly released or freshly re-trained. Surfaced as a "NEW" badge so a
    *  returning user notices the model changed rather than assuming it is the
    *  same one they already formed an opinion about. Clear it once the model
@@ -265,6 +270,34 @@ export const MUSE_SPARK_CONTRIBUTOR_RPM = 60
  * which is exactly the failure this constant exists to make greppable.
  */
 export const MUSE_SPARK_RATE_LIMITED_ERROR_CODE = 'muse_spark_rate_limited'
+
+/**
+ * Where a rate-limited Muse Spark request goes instead of waiting.
+ *
+ * GPT-5.6 Luna, and the choice is constrained rather than free: the fallback
+ * must be a model the caller is ALREADY entitled to, or a rate limit would
+ * become a way to reach something they are not. Luna sits in the same shared
+ * daily premium pool as Muse Spark (FREEBUFF_WEB_PREMIUM_MODEL_IDS), so a
+ * rerouted request draws on exactly the quota the original would have.
+ */
+export const MUSE_SPARK_FALLBACK_MODEL_ID = FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+
+/**
+ * How long a caller may be asked to wait before the request is rerouted.
+ *
+ * Deliberately the same 10s as the provider's silent retry window, and that
+ * identity is the whole design: a wait we can hide costs nothing and keeps the
+ * user on the model they picked, while a wait we would have to *explain* is
+ * worse than quietly serving the answer on a peer model. Meta answers a real
+ * rate limit with `Retry-After: 60`, so in practice this splits cleanly —
+ * blips are absorbed, genuine saturation reroutes.
+ */
+export const MUSE_SPARK_FALLBACK_AFTER_MS = 10_000
+
+/** Picker copy for the tagline tooltip, and the single source for it — the
+ *  server's behavior and the row's promise must not drift. */
+export const MUSE_SPARK_FALLBACK_NOTICE =
+  'Falls back to GPT-5.6 Luna if the queue is too long.'
 
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
@@ -653,7 +686,11 @@ const FABLE_5_MODEL = {
 const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   id: FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   displayName: 'Muse Spark 1.2',
-  tagline: '1M context',
+  // The tagline names the thing that actually differentiates this row for a
+  // user: it is the one model that can make you wait. Context length is not
+  // what they need to know before picking it.
+  tagline: 'Queue',
+  taglineTooltip: MUSE_SPARK_FALLBACK_NOTICE,
   availability: 'always',
   // Load-bearing pair (a catalog invariant test enforces it): the Contributor
   // tier's whole discount is Meta training on prompts and completions.
@@ -661,7 +698,6 @@ const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   dataUse: 'training',
   premium: true,
   multimodal: false,
-  isNew: true,
 } as const satisfies FreebuffModelOption
 
 const LING_3_FLASH_MODEL = {

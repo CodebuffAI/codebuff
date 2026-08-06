@@ -23,6 +23,9 @@ import {
   FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID,
+  MUSE_SPARK_FALLBACK_AFTER_MS,
+  MUSE_SPARK_FALLBACK_MODEL_ID,
+  MUSE_SPARK_FALLBACK_NOTICE,
   isMuseSparkModelId,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
@@ -1266,5 +1269,45 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
     ).toBe(true)
     expect(isMuseSparkModelId('meta/muse-spark-1.2')).toBe(false)
     expect(isMuseSparkModelId(null)).toBe(false)
+  })
+})
+
+describe('Muse Spark rate-limit fallback', () => {
+  test('reroutes only to a model the caller is already entitled to', () => {
+    // THE invariant. A fallback outside the shared daily premium pool would
+    // turn "Muse Spark is busy" into a way to reach a model the user had not
+    // earned — the same shape as the retired crof/glm-5.2 route, which handed
+    // out a referral-earned model for nothing. Luna sits in the same pool, so
+    // a rerouted request spends exactly the entitlement the original would.
+    expect(isFreebuffWebPremiumModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(true)
+    expect(
+      isFreebuffWebPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(true)
+    // Never the earned-GLM pool, and never the free standard pool.
+    expect(isFreebuffGlmV52ModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(false)
+    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+      MUSE_SPARK_FALLBACK_MODEL_ID,
+    )
+    // And it must be a real, selectable Web model rather than a dangling id.
+    expect(isFreebuffWebModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(true)
+    expect(MUSE_SPARK_FALLBACK_MODEL_ID).not.toBe(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
+  })
+
+  test('the picker promises exactly what the server does', () => {
+    // The tooltip is a promise about behavior; drift between the two is how a
+    // UI starts lying. Both read the same constant, and the threshold the copy
+    // implies ("too long") is the one the server actually applies.
+    const model = getFreebuffWebModel(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)
+    expect(model.tagline).toBe('Queue')
+    expect(model.taglineTooltip).toBe(MUSE_SPARK_FALLBACK_NOTICE)
+    expect(MUSE_SPARK_FALLBACK_NOTICE).toContain('GPT-5.6 Luna')
+    // The row no longer advertises itself as new.
+    expect(model.isNew).toBeUndefined()
+    // A wait worth explaining, not one worth hiding — and the same number the
+    // provider uses for its silent window, so the two cannot disagree about
+    // what "too long" means.
+    expect(MUSE_SPARK_FALLBACK_AFTER_MS).toBe(10_000)
   })
 })
