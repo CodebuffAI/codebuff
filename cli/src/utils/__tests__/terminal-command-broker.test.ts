@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { spawn, spawnSync } from 'child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import path from 'path'
 
@@ -12,6 +12,7 @@ import {
 import {
   createTerminalCommandBroker,
   isTerminalCommandBrokerInvocation,
+  protocolPathFromEnv,
 } from '../terminal-command-broker'
 
 const brokerFixture = path.join(
@@ -66,6 +67,13 @@ function createTestBroker() {
   })
 }
 
+function protocolFilesForThisProcess(): Set<string> {
+  const prefix = `freebuff-terminal-command-broker-${process.pid}-`
+  return new Set(
+    readdirSync(tmpdir()).filter((name) => name.startsWith(prefix)),
+  )
+}
+
 function stdoutOf(
   result: Awaited<ReturnType<typeof runTerminalCommand>>,
 ): string {
@@ -102,6 +110,35 @@ describe('terminal command broker', () => {
     ).toBe(false)
   })
 
+  test('accepts protocol files only at the constrained temp path', () => {
+    const validPath = path.join(
+      tmpdir(),
+      `freebuff-terminal-command-broker-${process.pid}-${crypto.randomUUID()}.json`,
+    )
+    expect(
+      protocolPathFromEnv({
+        CODEBUFF_TERMINAL_COMMAND_BROKER_PROTOCOL: validPath,
+      }),
+    ).toBe(validPath)
+    expect(() =>
+      protocolPathFromEnv({
+        CODEBUFF_TERMINAL_COMMAND_BROKER_PROTOCOL: path.join(
+          tmpdir(),
+          'wrong-prefix.json',
+        ),
+      }),
+    ).toThrow('terminal command broker protocol path was invalid')
+    expect(() =>
+      protocolPathFromEnv({
+        CODEBUFF_TERMINAL_COMMAND_BROKER_PROTOCOL: path.join(
+          tmpdir(),
+          'nested',
+          path.basename(validPath),
+        ),
+      }),
+    ).toThrow('terminal command broker protocol path was invalid')
+  })
+
   test('relays stdout, stderr, and the command exit code', async () => {
     const [{ value }] = await runTerminalCommand({
       command: `printf 'OUT'; printf 'ERR' >&2; exit 7`,
@@ -126,6 +163,21 @@ describe('terminal command broker', () => {
     })
 
     expect(stdoutOf(result)).toBe('DEFAULT_ENTRYPOINT_OK')
+  })
+
+  test('removes the one-shot protocol file after completion', async () => {
+    const before = protocolFilesForThisProcess()
+
+    const result = await runTerminalCommand({
+      command: `printf 'NO_PROTOCOL_LEAK'`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 10,
+      terminalCommandBroker: createTestBroker(),
+    })
+
+    expect(stdoutOf(result)).toBe('NO_PROTOCOL_LEAK')
+    expect(protocolFilesForThisProcess()).toEqual(before)
   })
 
   test('isolates overlapping commands so one cancellation does not affect the other', async () => {
@@ -203,11 +255,9 @@ describe('terminal command broker', () => {
         timeout_seconds: 10,
         terminalCommandBroker: broker,
       }),
-    ).rejects.toThrow(
-      'Failed to start terminal command broker: could not open terminal command broker pipes\n\nRestart Freebuff and try again.',
-    )
+    ).rejects.toThrow('Terminal command broker failed:')
 
-    // Bun emits ENOENT after spawn() returns a child with null pipes.
+    // Bun reports this asynchronously after spawn() returns a child handle.
     await Bun.sleep(0)
   })
 
@@ -278,11 +328,11 @@ describe('terminal command broker', () => {
 
     expect(failureMessage).toContain('ENOENT')
     expect(failureMessage).not.toContain('Restart Freebuff and try again.')
-    expect(failureMessage).not.toContain('use Windows Terminal')
   })
 
   test('kills the broker process group after a timeout', async () => {
     if (process.platform === 'win32') return
+    const protocolFilesBefore = protocolFilesForThisProcess()
     const existing = new Set(
       getActiveTerminalCommandProcesses().map(({ pid }) => pid),
     )
@@ -314,6 +364,7 @@ describe('terminal command broker', () => {
       ),
     ).toBe(false)
     expect(() => process.kill(-tracked!.pid, 0)).toThrow()
+    expect(protocolFilesForThisProcess()).toEqual(protocolFilesBefore)
   })
 
   test('leaves no live background descendants after successful completion', async () => {

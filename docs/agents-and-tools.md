@@ -33,9 +33,13 @@ base-lite "fix this bug"
 - The CLI's tiny `src/entry.ts` handles private broker mode before importing
   React or OpenTUI. The detached, hidden helper receives one spawn request over
   stdin, starts the shell without a console or interactive stdin, relays only
-  stdout/stderr pipes, and reports completion on a private pipe. It remains the
-  process-group root until the parent sweeps the tree, and self-reaps if the
-  parent disappears first.
+  stdout/stderr pipes, and reports completion through a constrained one-shot
+  file in the OS temp directory. It deliberately uses only the three standard
+  stdio channels: Bun's custom child-process pipes can fail their Windows
+  `node:net` handshake outside the `ChildProcess` error event and terminate the
+  CLI as an unhandled rejection. The broker remains the process-group root and
+  self-reaps the tree if its parent disappears, detected by polling the parent
+  PID rather than holding another pipe open.
 - Mouse and focus protocols stay enabled while commands run. The
   `TerminalProtocolController` only parses focus events; it has no command
   lifecycle state to synchronize or restore.

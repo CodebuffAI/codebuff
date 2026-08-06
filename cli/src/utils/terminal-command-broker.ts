@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'child_process'
-import { closeSync, writeSync } from 'fs'
-import { Socket } from 'net'
+import { readFileSync, rmSync, writeFileSync } from 'fs'
+import os from 'os'
 import path from 'path'
 
 import type {
@@ -9,17 +9,18 @@ import type {
   TerminalCommandSpawnRequest,
 } from '@codebuff/sdk'
 import type { ChildProcess } from 'child_process'
-import type { Readable } from 'stream'
 
 import { getCliEnv, getSystemProcessEnv } from './env'
 
 export const TERMINAL_COMMAND_BROKER_FLAG = '--terminal-command-broker'
 const TERMINAL_COMMAND_BROKER_ENV = 'CODEBUFF_TERMINAL_COMMAND_BROKER'
+const TERMINAL_COMMAND_BROKER_PROTOCOL_ENV =
+  'CODEBUFF_TERMINAL_COMMAND_BROKER_PROTOCOL'
 
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024
 const MAX_PROTOCOL_BYTES = 64 * 1024
-const TERMINAL_COMMAND_BROKER_RECOVERY =
-  'Restart Freebuff and try again. On Windows, use Windows Terminal or the VS Code terminal.'
+const PROTOCOL_FILE_PREFIX = 'freebuff-terminal-command-broker-'
+const TERMINAL_COMMAND_BROKER_RECOVERY = 'Restart Freebuff and try again.'
 
 type BrokerProtocol =
   | { ok: true; exitCode: number | null }
@@ -68,23 +69,62 @@ function isSpawnRequest(value: unknown): value is TerminalCommandSpawnRequest {
   )
 }
 
+export function protocolPathFromEnv(
+  env: NodeJS.ProcessEnv = getSystemProcessEnv(),
+): string {
+  const protocolPath = env[TERMINAL_COMMAND_BROKER_PROTOCOL_ENV]
+  if (!protocolPath) {
+    throw new Error('terminal command broker protocol path was invalid')
+  }
+
+  const resolvedProtocolPath = path.resolve(protocolPath)
+  if (
+    path.dirname(resolvedProtocolPath) !== path.resolve(os.tmpdir()) ||
+    !path.basename(resolvedProtocolPath).startsWith(PROTOCOL_FILE_PREFIX)
+  ) {
+    throw new Error('terminal command broker protocol path was invalid')
+  }
+  return resolvedProtocolPath
+}
+
+function createProtocolPath(): string {
+  return path.join(
+    os.tmpdir(),
+    `${PROTOCOL_FILE_PREFIX}${process.pid}-${crypto.randomUUID()}.json`,
+  )
+}
+
+function removeProtocolFile(protocolPath: string): void {
+  try {
+    rmSync(protocolPath, { force: true })
+  } catch {
+    // Windows antivirus and indexers can briefly hold a closed temp file open.
+    // Protocol cleanup must never replace the command's real result with EPERM.
+  }
+}
+
 function writeProtocol(message: BrokerProtocol): void {
-  writeSync(3, `${JSON.stringify(message)}\n`)
-  // Signal completion before this process reaps its own group so the parent
-  // receives the result even when the shell left background descendants.
-  closeSync(3)
+  const payload = `${JSON.stringify(message)}\n`
+  if (Buffer.byteLength(payload) > MAX_PROTOCOL_BYTES) {
+    throw new Error('terminal command broker response was too large')
+  }
+  // A constrained one-shot file avoids Bun's unreliable custom stdio pipes on
+  // Windows. `wx` ensures even an accidentally reused path is never replaced.
+  writeFileSync(protocolPathFromEnv(), payload, {
+    encoding: 'utf8',
+    flag: 'wx',
+    mode: 0o600,
+  })
 }
 
 function waitForParentDisconnect(): Promise<void> {
   const parentPid = process.ppid
   return new Promise<void>((resolve) => {
     let settled = false
-    let parentControl: Socket | null = null
     const finish = () => {
       if (settled) return
       settled = true
       clearInterval(parentPoll)
-      parentControl?.destroy()
       resolve()
     }
     const parentIsAlive = () => {
@@ -96,22 +136,12 @@ function waitForParentDisconnect(): Promise<void> {
         return (error as NodeJS.ErrnoException).code === 'EPERM'
       }
     }
-    // Bun does not currently emit EOF for an extra ChildProcess stdio socket
-    // after an abruptly killed parent. Polling the parent is the portable
-    // fallback; the private socket still gives Node an immediate signal.
+    // Polling avoids another custom stdio pipe. Bun's Windows implementation
+    // has produced unhandled `Failed to connect` rejections while opening those
+    // extra channels, which terminated the whole interactive CLI.
     const parentPoll = setInterval(() => {
       if (!parentIsAlive()) finish()
     }, 100)
-
-    try {
-      parentControl = new Socket({ fd: 4, readable: true, writable: false })
-      parentControl.once('end', finish)
-      parentControl.once('close', finish)
-      parentControl.once('error', finish)
-      parentControl.resume()
-    } catch {
-      if (!parentIsAlive()) finish()
-    }
   })
 }
 
@@ -187,7 +217,8 @@ export async function serveTerminalCommandBroker(): Promise<void> {
   try {
     writeProtocol(outcome.message)
   } catch {
-    // The parent can disappear between command completion and protocol write.
+    // Without a protocol response, the parent reports an actionable broker
+    // failure. Keep the shell tree contained even when the temp write fails.
     await reapOwnProcessGroup()
   }
 
@@ -280,34 +311,35 @@ export function createTerminalCommandBroker({
   return {
     start(request): TerminalCommandProcess {
       let child: ChildProcess
+      const protocolPath = createProtocolPath()
       try {
         const { executable, args } = invocation()
         child = spawn(executable, args, {
           env: {
             ...getSystemProcessEnv(),
             [TERMINAL_COMMAND_BROKER_ENV]: '1',
+            [TERMINAL_COMMAND_BROKER_PROTOCOL_ENV]: protocolPath,
           },
-          stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
+          // Do not add custom fd 3/4 pipes here. On Windows, Bun establishes
+          // each pipe through node:net and can reject that handshake outside
+          // ChildProcess's error event, crashing the CLI as an unhandled
+          // rejection. Standard stdin/stdout/stderr are sufficient: the spawn
+          // request uses stdin and the result uses the one-shot protocol file.
+          stdio: ['pipe', 'pipe', 'pipe'],
           detached: true,
           windowsHide: true,
         })
       } catch (error) {
+        removeProtocolFile(protocolPath)
         throw brokerFailure(error)
       }
       // Bun can return a child with null pipes for ENOENT, then emit the spawn
       // error asynchronously. Always observe it, including the synchronous
       // validation-failure path below, so a missing helper cannot crash the CLI.
       child.once('error', () => {})
-      const protocol = child.stdio[3] as Readable | null
-      const parentControl = child.stdio[4]
-      if (
-        !child.stdin ||
-        !child.stdout ||
-        !child.stderr ||
-        !protocol ||
-        !parentControl
-      ) {
+      if (!child.stdin || !child.stdout || !child.stderr) {
         terminate(child, 'SIGKILL')
+        removeProtocolFile(protocolPath)
         throw brokerFailure('could not open terminal command broker pipes')
       }
 
@@ -317,42 +349,26 @@ export function createTerminalCommandBroker({
       child.stdin.on('error', () => {})
       child.stdin.end(JSON.stringify(request))
 
-      const protocolResult = new Promise<BrokerProtocol>((resolve, reject) => {
-        const chunks: Buffer[] = []
-        let totalBytes = 0
-        protocol.on('data', (chunk: Buffer) => {
-          const buffer = Buffer.from(chunk)
-          totalBytes += buffer.length
-          if (totalBytes > MAX_PROTOCOL_BYTES) {
-            reject(new Error('terminal command broker response was too large'))
-            protocol.destroy()
-            return
-          }
-          chunks.push(buffer)
-        })
-        protocol.once('error', reject)
-        protocol.once('end', () => {
-          try {
-            resolve(
-              parseProtocol(Buffer.concat(chunks).toString('utf8').trim()),
-            )
-          } catch (error) {
-            reject(error)
-          }
-        })
-      })
       const closed = new Promise<void>((resolve, reject) => {
         child.once('error', reject)
         child.once('close', () => resolve())
       })
-      const completion = Promise.all([protocolResult, closed])
+      const completion = closed
+        .then(() => {
+          const payload = readFileSync(protocolPath)
+          if (payload.byteLength > MAX_PROTOCOL_BYTES) {
+            throw new Error('terminal command broker response was too large')
+          }
+          return parseProtocol(payload.toString('utf8').trim())
+        })
         .catch((error) => {
           throw brokerFailure(error)
         })
-        .then(([message]) => {
+        .then((message) => {
           if (!message.ok) throw new Error(message.error)
           return message.exitCode
         })
+        .finally(() => removeProtocolFile(protocolPath))
 
       return {
         pid: child.pid,

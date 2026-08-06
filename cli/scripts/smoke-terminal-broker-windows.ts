@@ -9,7 +9,7 @@ import type { ChildProcess } from 'child_process'
 const FOCUS_OUT = '\x1b[O'
 const FOCUS_IN = '\x1b[I'
 const DISTINCTIVE_MOUSE_REPORT = '\x1b[<35;911;733M'
-const TIMEOUT_MS = 60_000
+const TIMEOUT_MS = 120_000
 const WINPTY_ZERO_SIZE_ASSERTION =
   'ASSERT_CONDITION("wp != nullptr && cols > 0 && rows > 0")'
 
@@ -240,7 +240,7 @@ async function main(): Promise<void> {
     }
 
     console.log(
-      'terminal-broker-smoke: OK — brokered commands had no console, terminal protocols stayed live, overlap/cancellation were independent, and startup failure was actionable.',
+      'terminal-broker-smoke: OK — repeated broker spawns completed, commands had no console, terminal protocols stayed live, overlap/cancellation were independent, and startup failure was actionable.',
     )
   } catch (error) {
     terminateProcessTree(child)
@@ -250,9 +250,7 @@ async function main(): Promise<void> {
     writeFileSync(visibleTranscriptPath, visibleTranscript(transcript))
     console.error(`terminal-broker-smoke: FAIL: ${error}`)
     console.error(`terminal-broker-smoke: result=${resultPath}`)
-    console.error(
-      `terminal-broker-smoke: transcript=${visibleTranscriptPath}`,
-    )
+    console.error(`terminal-broker-smoke: transcript=${visibleTranscriptPath}`)
     if (existsSync(resultPath)) {
       console.error(readFileSync(resultPath, 'utf8'))
     }

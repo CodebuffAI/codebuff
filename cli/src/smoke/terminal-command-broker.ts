@@ -26,6 +26,7 @@ type SmokeResult = {
   stdinIsTTY: boolean
   stdoutIsTTY: boolean
   simpleCommand?: { stdout: string; stderr: string; exitCode: number | null }
+  repeatedCommands?: { completed: number }
   overlap?: {
     focusStates: boolean[]
     controlWrites: string[]
@@ -313,6 +314,32 @@ export async function runPackagedTerminalBrokerSmoke({
       consoleReaderStdout,
     }
 
+    // The Windows failure that motivated this gate appeared only after users
+    // had run several agent commands. Exercise repeated packaged-broker stdio
+    // setup after the driver has completed its time-sensitive report injection.
+    const repeatedCommandCount = 64
+    for (let index = 0; index < repeatedCommandCount; index++) {
+      const marker = `REPEATED_${index}`
+      const repeated = asTerminalResult(
+        await runTerminalCommand({
+          command: `printf '${marker}'`,
+          process_type: 'SYNC',
+          cwd: process.cwd(),
+          timeout_seconds: 10,
+          terminalCommandBroker,
+        }),
+      )
+      assertSmoke(
+        readString(repeated, 'stdout') === marker,
+        `repeated broker command ${index} lost its output`,
+      )
+      assertSmoke(
+        readExitCode(repeated) === 0,
+        `repeated broker command ${index} failed`,
+      )
+    }
+    result.repeatedCommands = { completed: repeatedCommandCount }
+
     let failureMessage = ''
     try {
       await runTerminalCommand({
@@ -339,8 +366,7 @@ export async function runPackagedTerminalBrokerSmoke({
       commandStarted: existsSync(forbiddenSpawnPath),
     }
     assertSmoke(
-      failureMessage.includes('Failed to start terminal command broker') &&
-        failureMessage.includes('Restart Freebuff'),
+      failureMessage.includes('Restart Freebuff'),
       'broker failure did not include actionable recovery guidance',
     )
     assertSmoke(
