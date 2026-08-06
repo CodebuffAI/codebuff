@@ -13,15 +13,59 @@ import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
 
 const SESSION_FETCH_TIMEOUT_MS = 20_000
+export type FreebuffSessionMethod = 'POST' | 'GET' | 'DELETE'
+
 export class FreebuffSessionRequestError extends Error {
   constructor(
     message: string,
     readonly statusCode: number,
     readonly retryAfterMs?: number,
+    readonly errorCode?: string,
   ) {
     super(message)
     this.name = 'FreebuffSessionRequestError'
   }
+}
+
+export function isFreebuffSessionTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === 'TimeoutError' || /timeout|timed out/i.test(error.message))
+  )
+}
+
+export type FreebuffSessionFailureDisposition = 'retry' | 'stop' | 'unknown'
+
+/** How the poll loop should handle a failed request.
+ *
+ * A POST without a response may already have rotated the active instance, so
+ * repeating it is unsafe without protocol-level idempotency. The session
+ * endpoint's documented 503 is the exception: it is returned by admission
+ * shedding before authentication or database work. GET is read-only and can
+ * retry transient failures normally. */
+export function classifyFreebuffSessionRequestFailure(
+  method: Extract<FreebuffSessionMethod, 'POST' | 'GET'>,
+  error: unknown,
+): FreebuffSessionFailureDisposition {
+  if (method === 'POST') {
+    if (!(error instanceof FreebuffSessionRequestError)) return 'unknown'
+    if (
+      error.statusCode === 503 &&
+      error.errorCode === 'service_overloaded'
+    ) {
+      return 'retry'
+    }
+    return error.statusCode >= 400 && error.statusCode < 500
+      ? 'stop'
+      : 'unknown'
+  }
+
+  if (!(error instanceof FreebuffSessionRequestError)) return 'retry'
+  return error.statusCode === 408 ||
+    error.statusCode === 429 ||
+    error.statusCode >= 500
+    ? 'retry'
+    : 'stop'
 }
 
 export function parseRetryAfterMs(
@@ -55,7 +99,7 @@ function sessionEndpoint(): string {
 }
 
 export async function callFreebuffSession(
-  method: 'POST' | 'GET' | 'DELETE',
+  method: FreebuffSessionMethod,
   token: string,
   opts: {
     instanceId?: string
@@ -125,10 +169,18 @@ export async function callFreebuffSession(
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
+    let errorCode: string | undefined
+    try {
+      const body = JSON.parse(text) as { error?: unknown }
+      if (typeof body.error === 'string') errorCode = body.error
+    } catch {
+      // Non-JSON errors have no machine-readable code.
+    }
     throw new FreebuffSessionRequestError(
       `freebuff session ${method} failed: ${response.status} ${text.slice(0, 200)}`,
       response.status,
       parseRetryAfterMs(response.headers.get('retry-after')),
+      errorCode,
     )
   }
 

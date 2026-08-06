@@ -2,6 +2,29 @@ import { create } from 'zustand'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 
+export interface FreebuffSessionRetry {
+  /** One-based number of the request that will be made next. */
+  attempt: number
+  /** Absolute client timestamp when the poll loop will retry. */
+  retryAtMs: number
+}
+
+interface FreebuffSessionFailureBase {
+  message: string
+  retry: FreebuffSessionRetry | null
+  /** The server may have committed a mutating request before its result was lost. */
+  outcomeUnknown: boolean
+}
+
+export type FreebuffSessionFailure =
+  | (FreebuffSessionFailureBase & {
+      type: 'http'
+      statusCode: number
+    })
+  | (FreebuffSessionFailureBase & {
+      type: 'timeout' | 'other'
+    })
+
 /**
  * Shared state for the freebuff free session.
  *
@@ -16,15 +39,15 @@ import type { FreebuffSessionResponse } from '../types/freebuff-session'
  */
 interface FreebuffSessionStore {
   session: FreebuffSessionResponse | null
-  error: string | null
+  failure: FreebuffSessionFailure | null
 
   setSession: (session: FreebuffSessionResponse | null) => void
-  setError: (error: string | null) => void
+  setFailure: (failure: FreebuffSessionFailure | null) => void
 }
 
 export const useFreebuffSessionStore = create<FreebuffSessionStore>((set) => ({
   session: null,
-  error: null,
+  failure: null,
   setSession: (session) => set({ session }),
-  setError: (error) => set({ error }),
+  setFailure: (failure) => set({ failure }),
 }))

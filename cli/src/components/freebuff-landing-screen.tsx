@@ -1,6 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard, useRenderer } from '@opentui/react'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
@@ -46,13 +46,14 @@ import {
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
 import type { FreebuffStreakLine } from '../utils/freebuff-streak-line'
+import type { FreebuffSessionFailure } from '../state/freebuff-session-store'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
 import type { KeyEvent } from '@opentui/core'
 
 interface FreebuffLandingScreenProps {
   session: FreebuffSessionResponse | null
-  error: string | null
+  failure: FreebuffSessionFailure | null
 }
 
 /** Landing-screen heading. Referenced both as rendered text and by the
@@ -158,16 +159,58 @@ const getLimitedModeNotice = (
   }
 }
 
-const TakeoverPrompt: React.FC = () => {
+function getTakeoverErrorMessage(failure: FreebuffSessionFailure): string {
+  if (failure.type === 'http' && failure.statusCode === 503) {
+    return "Freebuff is busy and couldn't complete the takeover yet."
+  }
+  if (failure.type === 'timeout') {
+    return failure.outcomeUnknown
+      ? "The takeover request timed out and may have succeeded. Freebuff won't retry automatically; restart to check before trying again."
+      : failure.retry
+        ? 'The takeover request timed out while Freebuff was busy.'
+        : 'The takeover request timed out.'
+  }
+  if (failure.outcomeUnknown) {
+    return "Freebuff couldn't confirm whether the takeover succeeded. It won't retry automatically; restart to check before trying again."
+  }
+  return failure.message.trim()
+    ? `Takeover failed: ${failure.message}`
+    : 'The takeover failed unexpectedly.'
+}
+
+export const TakeoverPrompt: React.FC<{
+  failure: FreebuffSessionFailure | null
+  onTakeOver?: () => Promise<void>
+}> = ({ failure, onTakeOver = takeOverFreebuffSession }) => {
   const theme = useTheme()
   const [pending, setPending] = useState(false)
   const [focusedIndex, setFocusedIndex] = useState(0) // 0 = Take over, 1 = Exit
+  const takeoverInFlightRef = useRef(false)
+  const retry = failure?.retry ?? null
+  const retryTick = useNow(1_000, retry !== null)
+  // `useNow` freezes while disabled. Use the current time when a retry first
+  // appears so a long-open prompt cannot render a stale countdown for a frame.
+  const retryNow = retry ? Math.max(retryTick, Date.now()) : retryTick
+  const retrySeconds = retry
+    ? Math.max(0, Math.ceil((retry.retryAtMs - retryNow) / 1_000))
+    : 0
+  const outcomeUnknown = failure?.outcomeUnknown ?? false
+  const blocked = pending || retry !== null || outcomeUnknown
+  const displayError = failure ? getTakeoverErrorMessage(failure) : null
 
-  const handleTakeover = useCallback(() => {
-    if (pending) return
+  const handleTakeover = useCallback(async () => {
+    // `pending` updates on the next render. The ref closes the gap where two
+    // keyboard/mouse events arrive in the same frame and would both POST.
+    if (takeoverInFlightRef.current || retry !== null || outcomeUnknown) return
+    takeoverInFlightRef.current = true
     setPending(true)
-    takeOverFreebuffSession().finally(() => setPending(false))
-  }, [pending])
+    try {
+      await onTakeOver()
+    } finally {
+      takeoverInFlightRef.current = false
+      setPending(false)
+    }
+  }, [onTakeOver, outcomeUnknown, retry])
 
   useKeyboard(
     useCallback(
@@ -189,7 +232,7 @@ const TakeoverPrompt: React.FC = () => {
         if (isConfirm) {
           key.preventDefault?.()
           if (focusedIndex === 0) {
-            handleTakeover()
+            void handleTakeover()
           } else {
             void exitCliCleanly()
           }
@@ -214,6 +257,18 @@ const TakeoverPrompt: React.FC = () => {
 
   const isTakeoverFocused = focusedIndex === 0
   const isExitFocused = focusedIndex === 1
+  const takeoverLabel = pending
+    ? 'Taking over...'
+    : outcomeUnknown
+      ? 'Restart to check'
+      : retry
+        ? 'Retry scheduled'
+        : 'Take over'
+  const takeoverForeground = blocked
+    ? theme.muted
+    : isTakeoverFocused
+      ? INVERTED_CTA_FG
+      : theme.foreground
 
   return (
     <box
@@ -232,25 +287,39 @@ const TakeoverPrompt: React.FC = () => {
         Only one freebuff instance is allowed at a time.
       </text>
 
+      {displayError && (
+        <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
+          ⚠ {displayError}
+        </text>
+      )}
+
+      {retry && (
+        <text style={{ fg: theme.muted }}>
+          {retrySeconds > 0
+            ? `Retrying automatically in ${retrySeconds}s (attempt ${retry.attempt}).`
+            : `Retrying automatically now (attempt ${retry.attempt}).`}
+        </text>
+      )}
+
       <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
         <Button
-          onClick={handleTakeover}
+          onClick={blocked ? undefined : handleTakeover}
           onMouseOver={() => setFocusedIndex(0)}
           style={{ paddingLeft: 1, paddingRight: 1 }}
           border={['top', 'bottom', 'left', 'right']}
           borderStyle="single"
-          borderColor={theme.primary}
+          borderColor={blocked ? theme.muted : theme.primary}
         >
           <text
             style={{
               // theme.background is 'transparent' and can't serve as inverted
               // text — on the green fill it renders the label invisible.
-              fg: isTakeoverFocused ? INVERTED_CTA_FG : theme.foreground,
-              bg: isTakeoverFocused ? theme.primary : undefined,
+              fg: takeoverForeground,
+              bg: isTakeoverFocused && !blocked ? theme.primary : undefined,
             }}
             attributes={TextAttributes.BOLD}
           >
-            {pending ? 'Taking over...' : 'Take over'}
+            {takeoverLabel}
           </text>
         </Button>
         <Button
@@ -343,7 +412,7 @@ export const LandingHeadingRow: React.FC<{
 
 export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   session,
-  error,
+  failure,
 }) => {
   const theme = useTheme()
   const renderer = useRenderer()
@@ -644,13 +713,13 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
             maxWidth: contentMaxWidth,
           }}
         >
-          {error && (!session || session.status === 'none') && (
+          {failure && (!session || session.status === 'none') && (
             <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
-              ⚠ {error}
+              ⚠ {failure.message}
             </text>
           )}
 
-          {!session && !error && (
+          {!session && !failure && (
             <text style={{ fg: theme.muted }}>
               <ShimmerText text="Connecting…" />
             </text>
@@ -712,7 +781,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
             </box>
           )}
 
-          {session?.status === 'takeover_prompt' && <TakeoverPrompt />}
+          {session?.status === 'takeover_prompt' && (
+            <TakeoverPrompt failure={failure} />
+          )}
 
           {/* Country outside the free-mode allowlist. Terminal — polling has
               stopped. Tell the user up front rather than letting them send a

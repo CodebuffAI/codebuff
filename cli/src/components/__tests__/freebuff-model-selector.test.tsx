@@ -33,7 +33,7 @@ afterEach(() => {
   cleanupRenderer?.()
   cleanupRenderer = undefined
   useFreebuffSessionStore.getState().setSession(null)
-  useFreebuffSessionStore.getState().setError(null)
+  useFreebuffSessionStore.getState().setFailure(null)
   useFreebuffModelStore.getState().setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
 })
 

@@ -293,7 +293,7 @@ interface AuthedSurfaceProps {
  * we have a token).
  */
 const AuthedSurface = (props: AuthedSurfaceProps) => {
-  const { session, error: sessionError } = useFreebuffSession()
+  const { session, failure: sessionFailure } = useFreebuffSession()
 
   return (
     <ChatRuntimeProvider
@@ -306,7 +306,7 @@ const AuthedSurface = (props: AuthedSurfaceProps) => {
       <AuthedSurfaceRoutes
         {...props}
         session={session}
-        sessionError={sessionError}
+        sessionFailure={sessionFailure}
       />
     </ChatRuntimeProvider>
   )
@@ -328,10 +328,10 @@ const AuthedSurfaceRoutes = ({
   onCancelChatHistory,
   onNewChat,
   session,
-  sessionError,
+  sessionFailure,
 }: AuthedSurfaceProps & {
   session: ReturnType<typeof useFreebuffSession>['session']
-  sessionError: ReturnType<typeof useFreebuffSession>['error']
+  sessionFailure: ReturnType<typeof useFreebuffSession>['failure']
 }) => {
   // Terminal state: a 409 from the gate means another CLI rotated our
   // instance id. Show a dedicated screen and stop polling — don't fall back
@@ -364,7 +364,7 @@ const AuthedSurfaceRoutes = ({
       session.status === 'ip_capped' ||
       session.status === 'takeover_prompt')
   ) {
-    return <FreebuffLandingScreen session={session} error={sessionError} />
+    return <FreebuffLandingScreen session={session} failure={sessionFailure} />
   }
 
   // Chat history renders inside AuthedSurface so the freebuff session stays

@@ -6,6 +6,8 @@ import {
 
 import {
   callFreebuffSession,
+  classifyFreebuffSessionRequestFailure,
+  FreebuffSessionRequestError,
   mergeCompactActiveSession,
 } from '../freebuff-session-api'
 
@@ -119,4 +121,83 @@ test('compact state requests a full refresh instead of carrying quota across mod
   )
 
   expect(merged).toBeNull()
+})
+
+test('does not repeat a takeover POST after an ambiguous timeout', () => {
+  const timeout = new DOMException('The operation timed out', 'TimeoutError')
+
+  expect(classifyFreebuffSessionRequestFailure('POST', timeout)).toBe('unknown')
+  expect(classifyFreebuffSessionRequestFailure('GET', timeout)).toBe('retry')
+})
+
+test('retries only the documented pre-database 503 POST response', async () => {
+  fetchSpy = spyOn(globalThis, 'fetch').mockResolvedValue(
+    Response.json(
+      {
+        error: 'service_overloaded',
+        message: 'Freebuff session service is busy. Please retry shortly.',
+      },
+      { status: 503, headers: { 'retry-after': '10' } },
+    ),
+  )
+
+  await expect(callFreebuffSession('POST', 'test-token')).rejects.toMatchObject({
+    statusCode: 503,
+    retryAfterMs: 10_000,
+    errorCode: 'service_overloaded',
+  })
+
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'POST',
+      new FreebuffSessionRequestError(
+        'busy',
+        503,
+        10_000,
+        'service_overloaded',
+      ),
+    ),
+  ).toBe('retry')
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'POST',
+      new FreebuffSessionRequestError('generic proxy 503', 503, 10_000),
+    ),
+  ).toBe('unknown')
+})
+
+test('stops on terminal 4xx responses', () => {
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'POST',
+      new FreebuffSessionRequestError('unauthorized', 401),
+    ),
+  ).toBe('stop')
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'GET',
+      new FreebuffSessionRequestError('not found', 404),
+    ),
+  ).toBe('stop')
+})
+
+test('marks response loss and server errors after a POST as unknown outcomes', () => {
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'POST',
+      new TypeError('fetch failed'),
+    ),
+  ).toBe('unknown')
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'POST',
+      new FreebuffSessionRequestError('internal error', 500),
+    ),
+  ).toBe('unknown')
+  expect(
+    classifyFreebuffSessionRequestFailure(
+      'GET',
+      new FreebuffSessionRequestError('internal error', 500),
+    ),
+  ).toBe('retry')
 })

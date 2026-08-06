@@ -34,8 +34,10 @@ import {
 } from '../utils/freebuff-referral-cache'
 import {
   callFreebuffSession,
+  classifyFreebuffSessionRequestFailure,
   FreebuffSessionRequestError,
   holdsLiveFreebuffSlot,
+  isFreebuffSessionTimeoutError,
   mergeCompactActiveSession,
   releaseFreebuffSlot,
 } from '../utils/freebuff-session-api'
@@ -272,12 +274,26 @@ export function startFreebuffSession(model: string): Promise<void> {
   return restartFreebuffSession('rejoin')
 }
 
+let takeoverInFlight: Promise<void> | null = null
+
 export function takeOverFreebuffSession(): Promise<void> {
   if (!IS_FREEBUFF) return Promise.resolve()
-  const current = useFreebuffSessionStore.getState().session
-  if (current?.status !== 'takeover_prompt') return Promise.resolve()
-  useFreebuffModelStore.getState().setSelectedModel(current.model)
-  return restartFreebuffSession('rejoin')
+  if (takeoverInFlight) return takeoverInFlight
+
+  const { session, failure } = useFreebuffSessionStore.getState()
+  if (
+    session?.status !== 'takeover_prompt' ||
+    failure?.retry ||
+    failure?.outcomeUnknown
+  ) {
+    return Promise.resolve()
+  }
+
+  useFreebuffModelStore.getState().setSelectedModel(session.model)
+  takeoverInFlight = restartFreebuffSession('rejoin').finally(() => {
+    takeoverInFlight = null
+  })
+  return takeoverInFlight
 }
 
 export function markFreebuffSessionSuperseded(): void {
@@ -324,7 +340,7 @@ export function markFreebuffSessionEnded(): void {
 
 interface UseFreebuffSessionResult {
   session: FreebuffSessionResponse | null
-  error: string | null
+  failure: ReturnType<typeof useFreebuffSessionStore.getState>['failure']
 }
 
 /**
@@ -342,10 +358,10 @@ interface UseFreebuffSessionResult {
  */
 export function useFreebuffSession(): UseFreebuffSessionResult {
   const session = useFreebuffSessionStore((s) => s.session)
-  const error = useFreebuffSessionStore((s) => s.error)
+  const failure = useFreebuffSessionStore((s) => s.failure)
 
   useEffect(() => {
-    const { setSession, setError } = useFreebuffSessionStore.getState()
+    const { setSession, setFailure } = useFreebuffSessionStore.getState()
 
     if (!IS_FREEBUFF) {
       // Non-freebuff (Codebuff) builds never gate on a free session; leave the
@@ -360,7 +376,12 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         {},
         '[freebuff-session] No auth token; skipping free-session admission',
       )
-      setError('Not authenticated')
+      setFailure({
+        type: 'other',
+        message: 'Not authenticated',
+        retry: null,
+        outcomeUnknown: false,
+      })
       return
     }
 
@@ -390,7 +411,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           .setSelectedModel(LIMITED_FREEBUFF_MODEL_ID)
       }
       setSession(next)
-      setError(null)
+      setFailure(null)
       previousStatus = next.status
     }
 
@@ -624,20 +645,48 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         }
         const msg = err instanceof Error ? err.message : String(err)
         consecutiveFailures++
+        const disposition = classifyFreebuffSessionRequestFailure(method, err)
+        const shouldRetry = disposition === 'retry'
         const retryAfterMs =
           err instanceof FreebuffSessionRequestError
             ? err.retryAfterMs
             : undefined
-        const delayMs = failedPollDelayMs({
-          consecutiveFailures,
-          retryAfterMs,
-        })
+        const delayMs = shouldRetry
+          ? failedPollDelayMs({
+              consecutiveFailures,
+              retryAfterMs,
+            })
+          : null
         logger.warn(
-          { error: msg, consecutiveFailures, delayMs },
-          '[freebuff-session] fetch failed; backing off',
+          { error: msg, method, consecutiveFailures, delayMs, shouldRetry },
+          shouldRetry
+            ? '[freebuff-session] fetch failed; backing off'
+            : '[freebuff-session] fetch failed; automatic retry stopped',
         )
-        setError(msg)
-        schedule(delayMs)
+        const retry =
+          delayMs === null
+            ? null
+            : {
+                attempt: consecutiveFailures + 1,
+                retryAtMs: Date.now() + delayMs,
+              }
+        const failure = {
+          message: msg,
+          retry,
+          outcomeUnknown: disposition === 'unknown',
+        }
+        if (err instanceof FreebuffSessionRequestError) {
+          setFailure({
+            ...failure,
+            type: 'http',
+            statusCode: err.statusCode,
+          })
+        } else if (isFreebuffSessionTimeoutError(err)) {
+          setFailure({ ...failure, type: 'timeout' })
+        } else {
+          setFailure({ ...failure, type: 'other' })
+        }
+        if (delayMs !== null) schedule(delayMs)
       }
     }
 
@@ -654,6 +703,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         previousStatus = null
         needsFullActivePoll = false
         consecutiveFailures = 0
+        setFailure(null)
         if (mode === 'landing') {
           nextMethod = 'GET'
           // Land on the picker immediately. We can't go through the normal
@@ -730,9 +780,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         callFreebuffSession('DELETE', token).catch(() => {})
       }
       setSession(null)
-      setError(null)
+      setFailure(null)
     }
   }, [])
 
-  return { session, error }
+  return { session, failure }
 }
