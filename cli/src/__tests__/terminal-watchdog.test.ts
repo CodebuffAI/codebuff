@@ -71,11 +71,17 @@ function findDisarmFiles(pid: number | undefined): string[] {
   )
 }
 
-async function pollForContent(ttyPath: string, timeoutMs: number): Promise<string> {
+const WATCHDOG_WRITE_TIMEOUT_MS = process.platform === 'win32' ? 45_000 : 15_000
+
+async function pollForContent(
+  ttyPath: string,
+  expected: string,
+  timeoutMs: number,
+): Promise<string> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const content = readTty(ttyPath)
-    if (content) return content
+    if (content === expected) return content
     await new Promise((r) => setTimeout(r, 50))
   }
   return readTty(ttyPath)
@@ -110,10 +116,13 @@ describe('terminal watchdog', () => {
     child.kill('SIGKILL')
     await waitForExit(child)
 
-    // Wait-Process wakeup + write can take a few seconds under CI load.
-    const written = await pollForContent(ttyPath, 15_000)
+    const written = await pollForContent(
+      ttyPath,
+      TERMINAL_RESET_SEQUENCES,
+      WATCHDOG_WRITE_TIMEOUT_MS,
+    )
     expect(written).toBe(TERMINAL_RESET_SEQUENCES)
-  }, 60_000)
+  }, 120_000)
 
   // The Windows arm path spawns a PowerShell bootstrap that Start-Process's a
   // second, longer-lived PowerShell — a shape EDR/AV scores as malicious. The
@@ -152,9 +161,13 @@ describe('terminal watchdog', () => {
     child.kill('SIGKILL')
     await waitForExit(child)
 
-    const written = await pollForContent(ttyPath, 15_000)
+    const written = await pollForContent(
+      ttyPath,
+      TERMINAL_RESET_SEQUENCES,
+      WATCHDOG_WRITE_TIMEOUT_MS,
+    )
     expect(written).toBe(TERMINAL_RESET_SEQUENCES)
-  }, 60_000)
+  }, 120_000)
 
   test('stays silent when the process shuts down cleanly', async () => {
     const ttyPath = join(tempDir, 'clean.out')
