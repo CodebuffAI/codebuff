@@ -146,14 +146,19 @@ function gridModels(
   )
 }
 
-/** Every model id this screen can offer a tier: the grid, plus the referral banner's
- *  earned GLM action on full access. Exported so the offer→gate invariant test reads
- *  the real set rather than a copy of it. */
+/** Every model id this screen can offer a tier: the grid, plus the banner's earned GLM
+ *  action. Exported so the offer→gate invariant test reads the real set rather than a
+ *  copy of it.
+ *
+ *  GLM is offered on BOTH tiers. It used to be full-access only, which was correct while
+ *  GLM was a referral reward and referrals paid limited users in something else. Bounties
+ *  changed that: a bounty grant is minted redeemable at limited access so the reward is
+ *  worth the same in every region. The balance is what gates the row — the banner only
+ *  renders the action when the server reports sessions left — and the tier never was. */
 export function freebuffCliOfferedModelIds(
   accessTier: FreebuffAccessTier,
 ): readonly string[] {
-  const grid = gridModels(accessTier).map((m) => m.id)
-  return accessTier === 'full' ? [...grid, FREEBUFF_GLM_V52_MODEL_ID] : grid
+  return [...gridModels(accessTier).map((m) => m.id), FREEBUFF_GLM_V52_MODEL_ID]
 }
 
 export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
@@ -421,12 +426,16 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // the server will immediately reject. In-memory only — the user's saved
     // preference (e.g. MiniMax or DeepSeek) is preserved for the next launch.
     //
-    // Referral GLM is selectable outside `renderedModelIds`. Treat it as valid
-    // while unlocked so a transient POST retry still reads GLM from the store.
+    // Earned GLM is selectable outside `renderedModelIds`. Treat it as valid while
+    // unlocked so a transient POST retry still reads GLM from the store.
+    //
+    // Keyed on the BALANCE alone. With `accessTier === 'full'` in here, a limited-tier
+    // user who pressed the banner's "Use GLM 5.2" had their pick judged invalid one
+    // render later and silently swapped for the recommended model — the bounty session
+    // they had earned was spendable on the server and unreachable from this screen.
     const selectionIsValid =
       renderedModelIds.includes(selectedModel) ||
-      (accessTier === 'full' &&
-        isFreebuffGlmV52ModelId(selectedModel) &&
+      (isFreebuffGlmV52ModelId(selectedModel) &&
         (referral?.weeklySessionsRemaining ?? 0) > 0)
     if (
       isLanding &&

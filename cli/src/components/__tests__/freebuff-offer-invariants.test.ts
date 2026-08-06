@@ -34,9 +34,11 @@ describe('freebuff rows the CLI offers', () => {
     })
   }
 
-  test('the referral reward is a full-access row, and the grid never shows it', () => {
+  test('the earned reward is offered on BOTH tiers, and the grid never shows it', () => {
+    // Limited access included: a bounty grant is redeemable there, so the row has to be
+    // reachable there. The banner still only renders it against a live balance.
     expect(freebuffCliOfferedModelIds('full')).toContain(FREEBUFF_GLM_V52_MODEL_ID)
-    expect(freebuffCliOfferedModelIds('limited')).not.toContain(
+    expect(freebuffCliOfferedModelIds('limited')).toContain(
       FREEBUFF_GLM_V52_MODEL_ID,
     )
   })
