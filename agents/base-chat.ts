@@ -44,7 +44,7 @@ You do not have access to the user's files or a filesystem — if asked to do so
 
 Never spawn the context-pruner agent: it is spawned automatically for you before each step.
 
-End every response by calling the suggest_followups tool with exactly 3 followups the user is likely to want next — natural next questions, deeper dives, or related directions that build on what you just said. Make them specific to this conversation, not generic. For each followup give a short \`label\` (2–5 words, the card title) and a full \`prompt\` (the complete message sent verbatim when the user clicks it, phrased in the user's first-person voice, e.g. "Show me how to…"). Call it last, after your written answer (and after any tool/subagent calls). Skip it only when there is no sensible next step (e.g. the user said goodbye).`,
+End every response by calling the suggest_followups tool with exactly 3 followups the user is likely to want next — natural next questions, deeper dives, or related directions that build on what you just said. Make them specific to this conversation, not generic. For each followup give a short \`label\` (2–5 words, the card title) and a \`prompt\` (the message sent verbatim when the user clicks it, phrased in the user's first-person voice, e.g. "Show me how to…"). Keep the prompt short and goal-oriented — usually one sentence naming what the user wants to know, not a spec for how you should answer it. Call it last, after your written answer (and after any tool/subagent calls). Skip it only when there is no sensible next step (e.g. the user said goodbye).`,
 
   handleSteps: function* ({ model }) {
     // Constants live inside handleSteps because it is serialized with

@@ -10,7 +10,9 @@ const endsAgentStep = false
 const followupSchema = z.object({
   prompt: z
     .string()
-    .describe('The full prompt text to send as a user message when clicked'),
+    .describe(
+      'The prompt text to send as a user message when clicked. Keep it short and goal-oriented — one sentence naming the outcome, not the steps to get there',
+    ),
   label: z
     .string()
     .optional()
@@ -46,15 +48,17 @@ const description = `
 Suggest clickable followup prompts to the user. When the user clicks a suggestion, it sends that prompt as a new user message.
 
 Use this tool after completing a task to suggest what the user might want to do next. Good suggestions include:
-- Alternatives to the latest implementation like "Cache the data to local storage instead"
-- Related features like "Add a hover card to show the data from the state"
-- Cleanup opportunities like "Refactor app.ts into multiple files"
+- Alternatives to the latest implementation like "Cache the data in local storage instead"
+- Related features like "Show the state data in a hover card"
+- Cleanup opportunities like "Split app.ts into focused modules"
 - Testing suggestions like "Add unit tests for this change"
 - "Continue with the next step" - when there are more steps in a plan
 
+Keep every suggestion short and goal-oriented: one sentence naming the outcome you want, not the steps to get there. Whoever picks up the prompt does better work when free to choose the approach, so leave out file paths, function names, ordering, and design decisions unless one of those is the actual point of the request. A prompt still has to stand on its own — name the target clearly, just don't narrate a plan.
+
 Don't include suggestions like:
 - "Commit these changes"
-- "Test x" without saying how you would test the changes (unit test, script, or something else?). Remember, this is a prompt for the assistant to do. Don't suggest manual testing that the user would have to do.
+- Anything requiring the user to do manual work themselves. Remember, this is a prompt for the assistant to carry out — "Test the login flow in the browser and tell me what breaks" is a chore for the user, whereas "Add test coverage for the login flow" is a goal the assistant can own.
 
 Try to make different suggestions than you did in past steps. That's because users can still click previous suggestions if they want to.
 
@@ -70,11 +74,11 @@ ${$getNativeToolCallExampleString({
         label: 'Continue',
       },
       {
-        prompt: 'Add unit tests for the new UserService class',
+        prompt: 'Add unit tests for UserService',
         label: 'Add tests',
       },
       {
-        prompt: 'Refactor the authentication logic into a separate module',
+        prompt: 'Pull the auth logic out of the request handler',
         label: 'Refactor auth',
       },
     ],

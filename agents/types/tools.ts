@@ -370,7 +370,7 @@ export interface StrReplaceParams {
 export interface SuggestFollowupsParams {
   /** List of suggested followup prompts the user can click to send */
   followups: {
-    /** The full prompt text to send as a user message when clicked */
+    /** The prompt text to send as a user message when clicked. Keep it short and goal-oriented — one sentence naming the outcome, not the steps to get there */
     prompt: string
     /** Short display label for the card (defaults to truncated prompt if not provided) */
     label?: string
