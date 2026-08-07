@@ -31,6 +31,7 @@ Skills are reusable instruction sets that agents can load on-demand via the `ski
 | `name` | Yes | Skill name (1-64 chars, lowercase alphanumeric with hyphens, must match directory name) |
 | `description` | Yes | Short description (1-1024 chars) used for agent discovery |
 | `license` | No | License identifier (e.g., "MIT", "Apache-2.0") |
+| `disable-model-invocation` | No | Set to `true` to keep the skill out of model discovery while leaving it available for explicit user invocation |
 | `metadata` | No | Key-value pairs for additional categorization |
 
 ## Name Validation

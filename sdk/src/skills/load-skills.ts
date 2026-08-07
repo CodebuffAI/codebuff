@@ -8,6 +8,7 @@ import {
   isValidSkillName,
 } from '@codebuff/common/constants/skills'
 import {
+  createSkillDefinition,
   SkillFrontmatterSchema,
   type SkillDefinition,
   type SkillsMap,
@@ -81,14 +82,11 @@ export function parseSkillFileContent(
     return null
   }
 
-  return {
-    name: frontmatter.name,
-    description: frontmatter.description,
-    license: frontmatter.license,
-    metadata: frontmatter.metadata,
+  return createSkillDefinition({
+    frontmatter,
     content,
     filePath,
-  }
+  })
 }
 
 function loadSkillFromFile(

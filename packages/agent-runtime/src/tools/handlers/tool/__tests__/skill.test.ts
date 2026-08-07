@@ -7,12 +7,28 @@ import { handleSkill } from '../skill'
 
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-function writeSkill(projectRoot: string, name: string, description: string) {
-  const skillDir = path.join(projectRoot, '.claude', 'skills', name)
+function writeSkill(
+  projectRoot: string,
+  name: string,
+  description: string,
+  options: {
+    disableModelInvocation?: boolean
+    source?: '.agents' | '.claude'
+  } = {},
+) {
+  const skillDir = path.join(
+    projectRoot,
+    options.source ?? '.claude',
+    'skills',
+    name,
+  )
   fs.mkdirSync(skillDir, { recursive: true })
+  const disableModelInvocation = options.disableModelInvocation
+    ? 'disable-model-invocation: true\n'
+    : ''
   fs.writeFileSync(
     path.join(skillDir, 'SKILL.md'),
-    `---\nname: ${name}\ndescription: ${description}\n---\n# ${name}\nbody for ${description}\n`,
+    `---\nname: ${name}\ndescription: ${description}\n${disableModelInvocation}---\n# ${name}\nbody for ${description}\n`,
   )
 }
 
@@ -66,6 +82,22 @@ describe('handleSkill', () => {
     expect(value.content).toContain('body for fresh on disk')
   })
 
+  it('honors user-only policy from the highest-precedence project skill', async () => {
+    writeSkill(projectRoot, 'demo', 'project claude')
+    writeSkill(projectRoot, 'demo', 'project agents', {
+      source: '.agents',
+      disableModelInvocation: true,
+    })
+
+    const { output } = await callSkill('demo', { projectRoot, skills: {} })
+    const value = (output as any)[0].value
+
+    expect(value.content).toContain(
+      "Skill 'demo' can only be invoked by the user",
+    )
+    expect(value.content).not.toContain('body for project claude')
+  })
+
   it('falls back to the cache when the skill is not on disk', async () => {
     const { output } = await callSkill('demo', {
       projectRoot,
@@ -89,5 +121,30 @@ describe('handleSkill', () => {
     const value = (output as any)[0].value
 
     expect(value.content).toContain("Skill 'missing' not found")
+  })
+
+  it('does not advertise user-only cached skills to the model', async () => {
+    const { output } = await callSkill('missing', {
+      projectRoot,
+      skills: {
+        deploy: {
+          name: 'deploy',
+          description: 'manual deploy',
+          content: 'private deployment instructions',
+          disableModelInvocation: true,
+          filePath: '/nonexistent/SKILL.md',
+        },
+        review: {
+          name: 'review',
+          description: 'review changes',
+          content: 'review instructions',
+          filePath: '/nonexistent/SKILL.md',
+        },
+      },
+    })
+    const value = (output as any)[0].value
+
+    expect(value.content).toContain('Available skills: review')
+    expect(value.content).not.toContain('deploy')
   })
 })

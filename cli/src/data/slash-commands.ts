@@ -227,6 +227,7 @@ export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
     id: `skill:${skill.name}`,
     label: `skill:${skill.name}`,
     description: truncateDescription(skill.description),
+    insertText: `/skill:${skill.name} `,
   }))
 
   const commands = [...SLASH_COMMANDS, ...skillCommands]

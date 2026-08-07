@@ -5,7 +5,7 @@ import {
   getProjectFileTree,
   type PathInfo,
 } from '@codebuff/common/project-file-tree'
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 
 import { getProjectRoot } from '../project-files'
@@ -592,7 +592,6 @@ export const useSuggestionEngine = ({
   disableAgentSuggestions = false,
   currentAgentMode,
 }: SuggestionEngineOptions): SuggestionEngineResult => {
-  const deferredInput = useDeferredValue(inputValue)
   const slashCacheRef = useRef<Map<string, MatchedSlashCommand[]>>(
     new Map<string, SlashCommand[]>(),
   )
@@ -623,15 +622,16 @@ export const useSuggestionEngine = ({
     setFilePaths(flattenFileTree(fileTree))
   }, [fileTree])
 
+  // Keep the parsed query synchronized with the text that selection handlers
+  // mutate. A deferred query can lag by one keystroke, causing Enter or Tab to
+  // replace the wrong range in the current input.
   const slashContext = useMemo(
-    () => parseSlashContext(deferredInput),
-    [deferredInput],
+    () => parseSlashContext(inputValue),
+    [inputValue],
   )
 
-  // Note: mentionContext uses inputValue directly (not deferredInput) because
-  // the cursor position must match the text being parsed. Using deferredInput
-  // with current cursorPosition causes desync during heavy renders, making the
-  // @ menu fail to appear intermittently (especially after long conversations).
+  // The cursor position must match the text being parsed. Using a deferred
+  // input with the current cursor causes desync during heavy renders.
   const mentionContext = useMemo(
     () => parseMentionContext(inputValue, cursorPosition),
     [inputValue, cursorPosition],

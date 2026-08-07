@@ -226,7 +226,8 @@ export function resolveChatKeyboardAction(
       // Tab accepts the highlighted command into the input without executing
       // it, leaving the cursor after it so the user can keep typing (e.g. extra
       // params for a skill). Tab no longer navigates between items — use the
-      // arrow keys for that. Enter (below) selects and submits immediately.
+      // arrow keys for that. Enter (below) selects the highlighted item; the
+      // command decides whether selection inserts text or executes immediately.
       return { type: 'slash-menu-complete' }
     }
     if (isEnter) {

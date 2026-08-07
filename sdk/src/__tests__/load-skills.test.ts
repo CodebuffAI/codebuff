@@ -295,6 +295,25 @@ describe('parseSkillFileContent', () => {
     ).toBeNull()
   })
 
+  test('preserves the user-only invocation setting', () => {
+    const content = [
+      '---',
+      'name: deploy',
+      'description: Deploy safely',
+      'disable-model-invocation: true',
+      '---',
+      '',
+      '# Deploy',
+    ].join('\n')
+
+    expect(
+      parseSkillFileContent(content, {
+        directoryName: 'deploy',
+        filePath: '/skills/deploy/SKILL.md',
+      }),
+    ).toMatchObject({ disableModelInvocation: true })
+  })
+
   // registries nest their own bookkeeping under `metadata` (skills.sh stamps a
   // `hermes:` block onto every skill it serves); rejecting those made popular
   // skills impossible to install AND invisible when placed on disk by hand
