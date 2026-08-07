@@ -52,13 +52,14 @@ Use this tool after completing a task to suggest what the user might want to do 
 - Related features like "Show the state data in a hover card"
 - Cleanup opportunities like "Split app.ts into focused modules"
 - Testing suggestions like "Add unit tests for this change"
+- Verification you can run yourself like "Check the login flow in the browser and fix what breaks"
 - "Continue with the next step" - when there are more steps in a plan
 
 Keep every suggestion short and goal-oriented: one sentence naming the outcome you want, not the steps to get there. Whoever picks up the prompt does better work when free to choose the approach, so leave out file paths, function names, ordering, and design decisions unless one of those is the actual point of the request. A prompt still has to stand on its own — name the target clearly, just don't narrate a plan.
 
 Don't include suggestions like:
 - "Commit these changes"
-- Anything requiring the user to do manual work themselves. Remember, this is a prompt for the assistant to carry out — "Test the login flow in the browser and tell me what breaks" is a chore for the user, whereas "Add test coverage for the login flow" is a goal the assistant can own.
+- Anything the user would have to carry out themselves, like "Ask your designer whether this matches the spec" — as opposed to "Add test coverage for the login flow", which is a goal the assistant can own. Judge by the tools you actually have: work you can do yourself is a goal, not a chore.
 
 Try to make different suggestions than you did in past steps. That's because users can still click previous suggestions if they want to.
 

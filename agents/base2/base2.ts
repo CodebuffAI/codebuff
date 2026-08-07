@@ -12,7 +12,12 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 
-import { LITE_MODEL, OPUS_MODEL, publisher } from '../constants'
+import {
+  FOLLOWUP_STYLE_GUIDANCE,
+  LITE_MODEL,
+  OPUS_MODEL,
+  publisher,
+} from '../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
@@ -528,7 +533,7 @@ ${buildArray(
     `- Spawn a ${leanCodeReviewerAgentId} to review the changes after you have implemented code changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   !isFast &&
     !noAskUser &&
-    `- At the end of your turn, use the suggest_followups tool to suggest ~3 next steps the user might want to take. Keep each one short and goal-oriented — name the outcome, not the steps or files (e.g., "Add unit tests", "Split this file up", "Continue with the next step") — so whoever picks it up is free to choose the approach.`,
+    `- At the end of your turn, use the suggest_followups tool to suggest ~3 next steps the user might want to take — e.g., "Add unit tests for UserService", "Split the auth module into smaller files", "Continue with the next step". ${FOLLOWUP_STYLE_GUIDANCE}`,
 ).join('\n')}`
 }
 

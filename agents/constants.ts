@@ -1,6 +1,22 @@
 export const publisher = 'codebuff'
 
 /**
+ * How a suggested followup should be phrased, shared by every agent that ends
+ * its turn with suggest_followups.
+ *
+ * Says nothing about *when* to call the tool — that is each agent's own
+ * workflow — only about the shape of the prompt it passes. The style rules and
+ * their examples were duplicated per agent and drifted apart immediately: one
+ * copy grew an exemplar ("Split this file up") that contradicted the
+ * self-containment rule the other copy stated, and fixing one copy left the
+ * other wrong. The tool description in
+ * common/src/tools/params/tool/suggest-followups.ts carries the full version;
+ * this is the short restatement agents put in front of the model.
+ */
+export const FOLLOWUP_STYLE_GUIDANCE =
+  'Keep each one short and goal-oriented: name the outcome, not the steps to reach it, so whoever picks it up is free to choose the approach. Each suggestion is clicked out of context, so name its target.'
+
+/**
  * The Opus-tier model shared by DEFAULT and MAX mode and every subagent they
  * spawn. Agent ids like `code-reviewer-opus` name the tier, not the generation,
  * so the generation lives here: bumping it is one edit instead of a dozen.
