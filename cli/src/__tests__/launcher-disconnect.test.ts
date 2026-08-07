@@ -22,10 +22,13 @@ const RENDERER_FIXTURE = path.join(
  * How long to keep reading after the fixture exits. Its diagnostics are written
  * immediately before `process.exit`, so the bytes are already in the pipe and
  * this only covers the hand-off — measured, 100ms was enough to capture them in
- * full. Kept well above that, but deliberately short: the worst case is the
- * fixture's own 11s guard plus this, and the headroom under the test timeout
- * below is what stops a slow runner from turning a real failure back into the
- * contentless timeout this indirection exists to prevent.
+ * full. Kept well above that, but deliberately short: the fixture bounds itself
+ * at ~21s worst case (15s renderer-ready deadline, then a 6s survival window
+ * that starts only once the launcher is killed), and the headroom under the
+ * test timeout below is what stops a slow runner from turning a real failure
+ * back into the contentless timeout this indirection exists to prevent. A cold
+ * Windows CI runner once ate most of a start-anchored budget just booting bun,
+ * landing the whole run on the old 15s test timeout with zero diagnostics.
  */
 const OUTPUT_DRAIN_MS = 750
 
@@ -98,4 +101,4 @@ test('the CLI exits cleanly when its package launcher disappears', async () => {
   expect(result.output).toContain('CLEAN_EXIT_VISIBLE')
   expect(result.output).toContain('CLI_EXITED_AFTER_LAUNCHER')
   expect(result.output).not.toContain('CLI survived after its launcher exited')
-}, 15_000)
+}, 30_000)

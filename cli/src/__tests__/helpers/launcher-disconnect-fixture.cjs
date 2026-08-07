@@ -5,7 +5,15 @@ const { join } = require('path')
 
 const mode = process.argv[2]
 const rendererFixture = process.argv[3]
-const timeoutMs = 10_000
+// Two separate clocks, because they bound different things. Boot covers
+// spawning bun + transpiling the TSX renderer on a cold CI runner — slow, and
+// not what this test measures. Survival starts only once the launcher has
+// been killed and bounds the thing under test: how long the CLI may outlive
+// its launcher (it polls the launcher PID every 500ms). A single
+// start-anchored deadline let a slow boot eat the whole survival budget and
+// pushed real failures into the harness's contentless test timeout.
+const READY_TIMEOUT_MS = 15_000
+const SURVIVAL_TIMEOUT_MS = 6_000
 
 if (mode !== 'observe' && mode !== 'launch') {
   console.error(
@@ -17,7 +25,7 @@ if (mode !== 'observe' && mode !== 'launch') {
 if (mode === 'launch') {
   // Stand in for the package's Node launcher. The observer terminates this
   // process externally after the renderer reports that it is ready.
-  setInterval(() => {}, timeoutMs)
+  setInterval(() => {}, READY_TIMEOUT_MS)
 } else {
   if (!rendererFixture) {
     console.error('observe mode requires a renderer fixture')
@@ -75,11 +83,12 @@ if (mode === 'launch') {
   let launcherKillRequested = false
   let launcherExited = false
   let cliExit
+  let survivalTimeout
 
   const finishIfReady = () => {
     if (!launcherExited || !cliExit) return
     clearInterval(readyPoll)
-    clearTimeout(timeout)
+    if (survivalTimeout) clearTimeout(survivalTimeout)
 
     let cleanExitConfirmed = false
     try {
@@ -122,9 +131,10 @@ if (mode === 'launch') {
     finishIfReady()
   })
 
-  const readyDeadline = Date.now() + timeoutMs
+  const readyDeadline = Date.now() + READY_TIMEOUT_MS
   const readyPoll = setInterval(() => {
-    if (existsSync(rendererReadyMarkerPath) && !launcherKillRequested) {
+    if (launcherKillRequested) return
+    if (existsSync(rendererReadyMarkerPath)) {
       launcherKillRequested = true
       if (process.platform === 'win32') {
         const result = spawnSync(
@@ -144,6 +154,17 @@ if (mode === 'launch') {
       } else {
         launcher.kill('SIGKILL')
       }
+      // The survival clock starts now — the launcher is dead, and the CLI's
+      // 500ms PID poll should notice within a cycle or two. Anchoring this at
+      // fixture start instead meant a slow bun boot consumed the whole window.
+      clearInterval(readyPoll)
+      survivalTimeout = setTimeout(() => {
+        forceKill(launcher)
+        forceKill(cli)
+        removeMarkers()
+        console.error('CLI survived after its launcher exited')
+        process.exit(7)
+      }, SURVIVAL_TIMEOUT_MS)
     } else if (Date.now() >= readyDeadline) {
       forceKill(launcher)
       forceKill(cli)
@@ -152,13 +173,4 @@ if (mode === 'launch') {
       process.exit(6)
     }
   }, 25)
-
-  const timeout = setTimeout(() => {
-    clearInterval(readyPoll)
-    forceKill(launcher)
-    forceKill(cli)
-    removeMarkers()
-    console.error('CLI survived after its launcher exited')
-    process.exit(7)
-  }, timeoutMs + 1_000)
 }
