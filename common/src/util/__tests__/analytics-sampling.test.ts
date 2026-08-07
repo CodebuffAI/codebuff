@@ -49,6 +49,12 @@ describe('analytics sampling', () => {
         distinctId: 'user-1',
       }),
     ).toBe(true)
+    expect(
+      shouldTrackAnalyticsEvent({
+        event: AnalyticsEvent.TERMINAL_WATCHDOG_FAILED,
+        distinctId: 'user-1',
+      }),
+    ).toBe(true)
   })
 
   it('always tracks CLI error logs', () => {

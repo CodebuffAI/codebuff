@@ -37,6 +37,7 @@ import { IS_FREEBUFF } from './utils/constants'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { trimOversizedChatLogs } from './utils/chat-history'
 import { clearLogFile, logger } from './utils/logger'
+import { drainClientLogs } from './utils/log-shipper'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
 import { startEngagementTracking } from './utils/engagement'
@@ -245,6 +246,13 @@ async function main(): Promise<void> {
     initialMode: initialMode ?? 'DEFAULT',
     isFreeBuff: IS_FREEBUFF,
   })
+  // Start shipping the launch row now, well before the Windows watchdog is
+  // armed. If endpoint security terminates this process during that spawn, the
+  // next --continue launch still has a prior row for the health dashboard's
+  // rapid-resume and interruption joins.
+  if (IS_FREEBUFF && process.platform === 'win32') {
+    void drainClientLogs()
+  }
 
   // Initialize agent registry (loads user agents via SDK).
   // When --agent is provided, skip local .agents to avoid overrides.

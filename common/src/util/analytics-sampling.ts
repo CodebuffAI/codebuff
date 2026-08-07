@@ -57,6 +57,7 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   // Rare operational signal. Sampling would make per-version failure rates
   // misleading precisely when a Windows-only regression affects few installs.
   AnalyticsEvent.TERMINAL_BROKER_SPAWN_FAILED,
+  AnalyticsEvent.TERMINAL_WATCHDOG_FAILED,
   AnalyticsEvent.TERMINAL_COMMAND_COMPLETED,
   AnalyticsEvent.UPDATE_CODEBUFF_FAILED,
   AnalyticsEvent.USER_INPUT,

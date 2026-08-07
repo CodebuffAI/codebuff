@@ -12,6 +12,7 @@ import type {
 import type { ChildProcess } from 'child_process'
 
 import { getCliEnv, getSystemProcessEnv } from './env'
+import { reportWindowsTerminalFailure } from './windows-terminal-health'
 
 export const TERMINAL_COMMAND_BROKER_FLAG = '--terminal-command-broker'
 const TERMINAL_COMMAND_BROKER_ENV = 'CODEBUFF_TERMINAL_COMMAND_BROKER'
@@ -70,37 +71,14 @@ export function classifyTerminalBrokerFailure(
   return 'unknown'
 }
 
-export function sanitizeTerminalBrokerVersion(version: string): string {
-  return /^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$/.test(version)
-    ? version
-    : 'unknown'
-}
-
 function reportTerminalBrokerFailure({
   stage,
   failureCode,
 }: TerminalBrokerFailureTelemetry): void {
-  if (process.platform !== 'win32' || getCliEnv().FREEBUFF_MODE !== 'true') {
-    return
-  }
-  const configuredVersion = getCliEnv().CODEBUFF_CLI_VERSION ?? ''
-  const version = sanitizeTerminalBrokerVersion(configuredVersion)
-
-  // Load analytics only in the interactive parent and only on failure. The
-  // detached broker helper imports this module too, but must stay minimal and
-  // must never initialize product analytics of its own.
-  void import('./analytics')
-    .then(({ trackEvent }) => {
-      trackEvent(AnalyticsEvent.TERMINAL_BROKER_SPAWN_FAILED, {
-        version,
-        platform: 'win32',
-        stage,
-        failureCode,
-      })
-    })
-    .catch(() => {
-      // Telemetry is best-effort and must never change command behavior.
-    })
+  reportWindowsTerminalFailure(AnalyticsEvent.TERMINAL_BROKER_SPAWN_FAILED, {
+    stage,
+    failureCode,
+  })
 }
 
 function brokerFailure(error: unknown): Error {

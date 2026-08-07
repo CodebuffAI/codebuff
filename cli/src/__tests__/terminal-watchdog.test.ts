@@ -1,18 +1,17 @@
 import { spawn } from 'child_process'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { afterAll, describe, expect, test } from 'bun:test'
 
 import { TERMINAL_RESET_SEQUENCES } from '../utils/terminal-reset-sequences'
+import { classifyTerminalWatchdogSpawnFailure } from '../utils/terminal-watchdog'
+import { sanitizeWindowsCliVersion } from '../utils/windows-terminal-health'
 
 import type { ChildProcess } from 'child_process'
 
 const FIXTURE = join(import.meta.dir, 'helpers', 'terminal-watchdog-fixture.ts')
-const WINDOWS_WATCHDOG_ENV: Record<string, string> =
-  process.platform === 'win32' ? { CODEBUFF_ENABLE_TERMINAL_WATCHDOG: '1' } : {}
-
 const tempDir = mkdtempSync(join(tmpdir(), 'terminal-watchdog-'))
 
 afterAll(() => {
@@ -20,12 +19,11 @@ afterAll(() => {
 })
 
 function spawnFixture(
-  mode: 'hang' | 'clean',
+  mode: 'hang' | 'clean' | 'spawn-failure',
   ttyPath: string,
   env?: Record<string, string>,
 ): ChildProcess {
   const childEnv = { ...process.env }
-  delete childEnv.CODEBUFF_ENABLE_TERMINAL_WATCHDOG
   delete childEnv.CODEBUFF_NO_TERMINAL_WATCHDOG
   return spawn(process.execPath, [FIXTURE, mode, ttyPath], {
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -87,30 +85,43 @@ async function pollForContent(
   return readTty(ttyPath)
 }
 
-// POSIX uses a detached sh blocking on pipe EOF. When explicitly enabled,
-// Windows uses a PowerShell grandchild (outside Bun's kill-on-close job object)
-// blocking on Wait-Process. Both then write the reset sequences to ttyPath.
+// POSIX uses a detached sh blocking on pipe EOF. Windows uses a PowerShell
+// grandchild (outside Bun's kill-on-close job object) blocking on Wait-Process.
+// Both then write the reset sequences to ttyPath.
 describe('terminal watchdog', () => {
-  test.skipIf(process.platform !== 'win32')(
-    'does not arm by default on Windows',
-    async () => {
-      const ttyPath = join(tempDir, 'windows-default.out')
-      const child = spawnFixture('hang', ttyPath)
-      await waitForReady(child)
+  test('bounds watchdog failure telemetry labels', () => {
+    expect(
+      classifyTerminalWatchdogSpawnFailure(
+        Object.assign(new Error('private path'), { code: 'ENOENT' }),
+      ),
+    ).toBe('enoent')
+    expect(
+      classifyTerminalWatchdogSpawnFailure(new Error('private text')),
+    ).toBe('unknown')
+    expect(sanitizeWindowsCliVersion('0.0.142')).toBe('0.0.142')
+    expect(sanitizeWindowsCliVersion('private/path')).toBe('unknown')
+  })
 
-      const armed = existsSync(`${ttyPath}.armed`)
-      child.kill('SIGKILL')
+  test.skipIf(process.platform !== 'win32')(
+    'reports a bounded failure when PowerShell cannot spawn',
+    async () => {
+      const reportPath = join(tempDir, 'spawn-failure.json')
+      const child = spawnFixture('spawn-failure', reportPath)
       await waitForExit(child)
 
-      expect(armed).toBe(false)
-      expect(readTty(ttyPath)).toBe('')
+      expect(child.exitCode).toBe(0)
+      expect(JSON.parse(readTty(reportPath))).toEqual({
+        stage: 'spawn',
+        failureCode: 'enoent',
+      })
+      expect(findDisarmFiles(child.pid)).toEqual([])
     },
-    60_000,
+    30_000,
   )
 
   test('writes reset sequences to the tty when the process dies uncleanly', async () => {
     const ttyPath = join(tempDir, 'unclean.out')
-    const child = spawnFixture('hang', ttyPath, WINDOWS_WATCHDOG_ENV)
+    const child = spawnFixture('hang', ttyPath)
     await waitForReady(child)
 
     child.kill('SIGKILL')
@@ -133,7 +144,6 @@ describe('terminal watchdog', () => {
     async (value) => {
       const ttyPath = join(tempDir, `optout-${value}.out`)
       const child = spawnFixture('hang', ttyPath, {
-        ...WINDOWS_WATCHDOG_ENV,
         CODEBUFF_NO_TERMINAL_WATCHDOG: value,
       })
       await waitForReady(child)
@@ -153,7 +163,6 @@ describe('terminal watchdog', () => {
   test('still arms when the opt-out is set to an unrelated value', async () => {
     const ttyPath = join(tempDir, 'optout-noise.out')
     const child = spawnFixture('hang', ttyPath, {
-      ...WINDOWS_WATCHDOG_ENV,
       CODEBUFF_NO_TERMINAL_WATCHDOG: '0',
     })
     await waitForReady(child)
@@ -171,7 +180,7 @@ describe('terminal watchdog', () => {
 
   test('stays silent when the process shuts down cleanly', async () => {
     const ttyPath = join(tempDir, 'clean.out')
-    const child = spawnFixture('clean', ttyPath, WINDOWS_WATCHDOG_ENV)
+    const child = spawnFixture('clean', ttyPath)
     await waitForExit(child)
 
     // Give a disarmed-too-late watchdog time to (incorrectly) fire. Windows

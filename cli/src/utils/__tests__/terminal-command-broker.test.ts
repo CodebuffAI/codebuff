@@ -14,8 +14,8 @@ import {
   createTerminalCommandBroker,
   isTerminalCommandBrokerInvocation,
   protocolPathFromEnv,
-  sanitizeTerminalBrokerVersion,
 } from '../terminal-command-broker'
+import { sanitizeWindowsCliVersion } from '../windows-terminal-health'
 
 const brokerFixture = path.join(
   import.meta.dir,
@@ -105,8 +105,8 @@ describe('terminal command broker', () => {
         new Error('terminal command broker protocol response was missing'),
       ),
     ).toBe('protocol_missing')
-    expect(sanitizeTerminalBrokerVersion('0.0.142')).toBe('0.0.142')
-    expect(sanitizeTerminalBrokerVersion('private path/and details')).toBe(
+    expect(sanitizeWindowsCliVersion('0.0.142')).toBe('0.0.142')
+    expect(sanitizeWindowsCliVersion('private path/and details')).toBe(
       'unknown',
     )
   })

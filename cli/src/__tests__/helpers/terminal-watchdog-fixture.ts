@@ -4,14 +4,15 @@
  * Usage: bun terminal-watchdog-fixture.ts <mode> <ttyPath>
  * - mode "hang":  start the watchdog and stay alive until killed by the test.
  * - mode "clean": start the watchdog, then stop it and exit (clean shutdown).
+ * - mode "spawn-failure": report a watchdog startup failure and exit.
  *
- * Prints "ready" once the watchdog policy has been applied. When explicitly
- * enabled on Windows, arming is asynchronous (a PowerShell bootstrap has to
- * launch the real watchdog outside Bun's kill-on-close job object), so we wait
- * for the `<ttyPath>.armed` marker before printing "ready" — killing earlier
- * would take the bootstrap down before the watchdog exists.
+ * Prints "ready" once the watchdog is armed. On Windows, arming is asynchronous
+ * (a PowerShell bootstrap has to launch the real watchdog outside Bun's
+ * kill-on-close job object), so we wait for the `<ttyPath>.armed` marker before
+ * printing "ready" — killing earlier would take the bootstrap down before the
+ * watchdog exists.
  */
-import { existsSync } from 'fs'
+import { existsSync, writeFileSync } from 'fs'
 
 import {
   getTerminalWatchdogDiagnostics,
@@ -22,12 +23,15 @@ import {
 const [mode, ttyPath] = process.argv.slice(2)
 
 if (!mode || !ttyPath) {
-  console.error('usage: terminal-watchdog-fixture.ts <hang|clean> <ttyPath>')
+  console.error(
+    'usage: terminal-watchdog-fixture.ts <hang|clean|spawn-failure> <ttyPath>',
+  )
   process.exit(2)
 }
 
 async function waitForArmed(): Promise<void> {
   if (process.platform !== 'win32') return
+  // An explicit opt-out is the one path where no armed marker is expected.
   if (!getTerminalWatchdogDiagnostics().armed) return
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
@@ -36,6 +40,22 @@ async function waitForArmed(): Promise<void> {
   }
   console.error('watchdog never armed')
   process.exit(3)
+}
+
+if (mode === 'spawn-failure') {
+  const failure = await new Promise<unknown>((resolve) => {
+    startTerminalWatchdog({
+      ttyPath,
+      reportFailure: resolve,
+      windowsPowerShellPath: `${ttyPath}.missing.exe`,
+    })
+    setTimeout(() => {
+      console.error('watchdog failure was not reported')
+      process.exit(4)
+    }, 10_000)
+  })
+  writeFileSync(ttyPath, JSON.stringify(failure))
+  process.exit(0)
 }
 
 startTerminalWatchdog({ ttyPath })
