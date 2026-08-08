@@ -46,10 +46,23 @@ export const FREE_COST_MODE = 'free' as const
  */
 export const FREEBUFF_DESKTOP_THREAD_AGENT_ID = 'freebuff-desktop-thread'
 
+/**
+ * Suffix for the base3 desktop roots. The single-loop agent is a different
+ * agent with a different cost profile, so it gets its own root ids: spend and
+ * run counts split by `agent_id` in the DB, which is what makes a base2 vs
+ * base3 comparison possible while both are live across a staggered client
+ * rollout. Without it the two blend into one id and neither can be measured.
+ */
+export const FREEBUFF_DESKTOP_THREAD_V3_SUFFIX = 'v3'
+
 export function getFreebuffDesktopThreadAgentId(
   executionMode: 'local' | 'worktree',
+  agentGeneration: 'base2' | 'base3' = 'base2',
 ): string {
-  return `${FREEBUFF_DESKTOP_THREAD_AGENT_ID}-${executionMode}`
+  const base = `${FREEBUFF_DESKTOP_THREAD_AGENT_ID}-${executionMode}`
+  return agentGeneration === 'base3'
+    ? `${base}-${FREEBUFF_DESKTOP_THREAD_V3_SUFFIX}`
+    : base
 }
 
 /**
@@ -61,6 +74,8 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
   FREEBUFF_DESKTOP_THREAD_AGENT_ID,
   getFreebuffDesktopThreadAgentId('local'),
   getFreebuffDesktopThreadAgentId('worktree'),
+  getFreebuffDesktopThreadAgentId('local', 'base3'),
+  getFreebuffDesktopThreadAgentId('worktree', 'base3'),
 ] as const
 
 /**
@@ -359,6 +374,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   [FREEBUFF_DESKTOP_THREAD_AGENT_ID]: FREEBUFF_DESKTOP_MODELS,
   [getFreebuffDesktopThreadAgentId('local')]: FREEBUFF_DESKTOP_MODELS,
   [getFreebuffDesktopThreadAgentId('worktree')]: FREEBUFF_DESKTOP_MODELS,
+  [getFreebuffDesktopThreadAgentId('local', 'base3')]: FREEBUFF_DESKTOP_MODELS,
+  [getFreebuffDesktopThreadAgentId('worktree', 'base3')]:
+    FREEBUFF_DESKTOP_MODELS,
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
