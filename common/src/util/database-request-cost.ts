@@ -33,7 +33,14 @@ export type DatabaseCostVerdict = {
   row: DatabaseCostRow
   budget?: DatabaseRequestBudget
   evaluable: boolean
+  /** True only for a REGRESSION against the baseline — the pageable signal. */
   breach: boolean
+  /** Over the aspirational absolute budget. Reported, never paged: see the
+   *  comment on `breach` in evaluateDatabaseRequestCosts. */
+  overBudget: string[]
+  /** Materially worse than the preceding baseline window. Pages. */
+  regressed: string[]
+  /** Everything, regression first. Kept for callers that just want a blob. */
   reasons: string[]
 }
 
@@ -249,15 +256,20 @@ function evaluateFamily({
   family: 'ClientSqlWallMs' | 'RoundTrips'
   regressionRatio: number
   minRegression: number
-}): string[] {
+}): { overBudget: string[]; regressed: string[] } {
   const label = family === 'ClientSqlWallMs' ? 'clientSqlWallMs' : 'roundTrips'
-  const reasons: string[] = []
+  const overBudget: string[] = []
+  const regressed: string[] = []
   for (const percentile of PERCENTILES) {
     const value = metricValue(current, family, percentile)
     const limit = budget[percentile]
     if (value > limit) {
-      reasons.push(`${label}.${percentile} ${value} > budget ${limit}`)
-      continue
+      overBudget.push(`${label}.${percentile} ${value} > budget ${limit}`)
+      // Deliberately NOT `continue`. Skipping the regression check for an
+      // over-budget percentile is what silently disabled regression detection:
+      // by 2026-08-07 every lane was over every budget, so nothing was ever
+      // compared against its baseline and a genuine 10x regression on top
+      // would have gone unreported.
     }
     if (!baseline) continue
     const previous = metricValue(baseline, family, percentile)
@@ -266,13 +278,13 @@ function evaluateFamily({
       value >= previous * regressionRatio &&
       value - previous >= minRegression
     ) {
-      reasons.push(
+      regressed.push(
         `${label}.${percentile} regressed ${previous} -> ${value} ` +
           `(>=${regressionRatio.toFixed(2)}x)`,
       )
     }
   }
-  return reasons
+  return { overBudget, regressed }
 }
 
 export function evaluateDatabaseRequestCosts(
@@ -299,11 +311,21 @@ export function evaluateDatabaseRequestCosts(
         budget,
         evaluable: false,
         breach: false,
+        overBudget: [],
+        regressed: [],
         reasons: ['No database cost budget is configured for this lane'],
       }
     }
     if (!evaluable) {
-      return { row, budget, evaluable, breach: false, reasons: [] }
+      return {
+        row,
+        budget,
+        evaluable,
+        breach: false,
+        overBudget: [],
+        regressed: [],
+        reasons: [],
+      }
     }
 
     const candidateBaseline = baselineByKey.get(key)
@@ -312,8 +334,8 @@ export function evaluateDatabaseRequestCosts(
       candidateBaseline.requests >= options.minBaselineRequests
         ? candidateBaseline
         : undefined
-    const reasons = [
-      ...evaluateFamily({
+    const families = [
+      evaluateFamily({
         current: row,
         baseline,
         budget: budget.clientSqlWallMs,
@@ -321,7 +343,7 @@ export function evaluateDatabaseRequestCosts(
         regressionRatio: options.regressionRatio,
         minRegression: options.minClientSqlWallRegressionMs,
       }),
-      ...evaluateFamily({
+      evaluateFamily({
         current: row,
         baseline,
         budget: budget.roundTrips,
@@ -330,7 +352,22 @@ export function evaluateDatabaseRequestCosts(
         minRegression: options.minRoundTripRegression,
       }),
     ]
-    return { row, budget, evaluable, breach: reasons.length > 0, reasons }
+    const overBudget = families.flatMap((f) => f.overBudget)
+    const regressed = families.flatMap((f) => f.regressed)
+    return {
+      row,
+      budget,
+      evaluable,
+      // Only a regression pages. The absolute budgets are aspirational targets
+      // for §4.7's capacity work, and every lane has been over them since the
+      // metric started measuring CLIENT wall time (which includes the ~110ms
+      // pool acquire) rather than server execution. Paging on them made this
+      // alert red on every run for days, which is the same as no alert.
+      breach: regressed.length > 0,
+      overBudget,
+      regressed,
+      reasons: [...regressed, ...overBudget],
+    }
   })
 }
 

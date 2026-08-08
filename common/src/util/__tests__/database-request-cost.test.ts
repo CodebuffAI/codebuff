@@ -61,7 +61,10 @@ describe('database request cost budgets', () => {
     expect(verdict.breach).toBe(false)
   })
 
-  test('checks p50, p95, and p99 fixed budgets for both metric families', () => {
+  test('reports p50, p95, and p99 budget overruns for both metric families', () => {
+    // Each percentile of each family is still checked and named. What changed
+    // 2026-08-07 is that being over an ABSOLUTE budget is reported rather than
+    // paged — see the `breach` comment in evaluateDatabaseRequestCosts.
     const cases: Partial<DatabaseCostRow>[] = [
       { p50ClientSqlWallMs: 26 },
       { p95ClientSqlWallMs: 101 },
@@ -77,8 +80,8 @@ describe('database request cost budgets', () => {
         [budget],
         DEFAULT_DATABASE_COST_EVALUATION_OPTIONS,
       )
-      expect(verdict.breach).toBe(true)
-      expect(verdict.reasons).toHaveLength(1)
+      expect(verdict.overBudget).toHaveLength(1)
+      expect(verdict.breach).toBe(false)
     }
   })
 
@@ -180,6 +183,66 @@ describe('database request cost budgets', () => {
       DEFAULT_DATABASE_COST_EVALUATION_OPTIONS,
     )
     expect(verdict.breach).toBe(false)
+  })
+})
+
+describe('budgets versus regressions', () => {
+  const options = DEFAULT_DATABASE_COST_EVALUATION_OPTIONS
+
+  test('being over the absolute budget does not page', () => {
+    // Every lane has been over these since the metric started measuring client
+    // wall time (which includes the ~110ms pool acquire) instead of server
+    // execution. Paging on it made the job red on every run for days.
+    const [verdict] = evaluateDatabaseRequestCosts(
+      [row({ p50ClientSqlWallMs: 192 })],
+      [row({ p50ClientSqlWallMs: 190 })],
+      [budget],
+      options,
+    )
+
+    expect(verdict!.overBudget.length).toBeGreaterThan(0)
+    expect(verdict!.regressed).toEqual([])
+    expect(verdict!.breach).toBe(false)
+  })
+
+  test('a regression ON TOP of an over-budget lane still pages', () => {
+    // The bug this replaces: the over-budget branch used to `continue`, so once
+    // a lane was over budget its baseline comparison never ran and a genuine
+    // regression was invisible.
+    const [verdict] = evaluateDatabaseRequestCosts(
+      [row({ p50ClientSqlWallMs: 2_000 })],
+      [row({ p50ClientSqlWallMs: 192 })],
+      [budget],
+      options,
+    )
+
+    expect(verdict!.overBudget.length).toBeGreaterThan(0)
+    expect(verdict!.regressed.join(' ')).toContain('regressed 192 -> 2000')
+    expect(verdict!.breach).toBe(true)
+  })
+
+  test('a regression within budget pages', () => {
+    const [verdict] = evaluateDatabaseRequestCosts(
+      [row({ p50ClientSqlWallMs: 24 })],
+      [row({ p50ClientSqlWallMs: 2 })],
+      [budget],
+      options,
+    )
+
+    expect(verdict!.overBudget).toEqual([])
+    expect(verdict!.breach).toBe(true)
+  })
+
+  test('steady state pages nothing', () => {
+    const [verdict] = evaluateDatabaseRequestCosts(
+      [row()],
+      [row()],
+      [budget],
+      options,
+    )
+
+    expect(verdict!.breach).toBe(false)
+    expect(verdict!.regressed).toEqual([])
   })
 })
 
