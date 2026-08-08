@@ -3,6 +3,7 @@ import { join, relative } from 'node:path'
 
 import { describe, expect, test } from 'bun:test'
 
+import { FREEBUFF_ROOT_AGENT_IDS } from '../constants/free-agents'
 import {
   detectForeignFreebuffClient,
   FREEBUFF_CUSTOM_TOOL_NAMES,
@@ -72,7 +73,7 @@ const QUOTED_NAME = /'([^']+)'|"([^"]+)"/g
 /** Below this, assume the scan broke rather than that we deleted 20 agents. */
 const MINIMUM_DECLARATIONS = 25
 
-type Declaration = { file: string; names: string[] }
+type Declaration = { file: string; names: string[]; ids: string[] }
 
 function collectSourceFiles(): string[] {
   const files: string[] = []
@@ -113,11 +114,16 @@ function collectDeclarations(): Declaration[] {
     const relativePath = relative(REPO_ROOT, file)
     if (excluded.has(relativePath)) continue
     const source = readFileSync(file, 'utf8')
+    const ids = [...source.matchAll(/\bid:\s*'([^']+)'/g)].map((m) => m[1]!)
     for (const match of source.matchAll(TOOL_NAMES_DECLARATION)) {
       const names = [...match[1]!.matchAll(QUOTED_NAME)].map(
         (name) => name[1] ?? name[2]!,
       )
-      if (names.length) declarations.push({ file: relativePath, names })
+      // Empty declarations are kept, not filtered. `toolNames: []` on a ROOT is
+      // precisely what the root test below must catch, and dropping it here
+      // made that test vacuous — a root with an empty toolset simply vanished
+      // from the scan and the assertion passed over nothing.
+      declarations.push({ file: relativePath, names, ids })
     }
   }
   return declarations
@@ -166,6 +172,26 @@ describe('no shipped freebuff agent is flagged as a foreign client', () => {
     // exactly one signature tool (`glob` is generic, `set_output` is not), so
     // it is the closest thing we ship to the failure mode.
     expect(DECLARATIONS.some((d) => d.file === path)).toBe(true)
+  })
+
+  test('every root agent we ship declares tools', () => {
+    // `root_agent_no_tools` downgrades any ROOT agent request that offers no
+    // tools, on the grounds that our roots are agentic by definition. A root
+    // shipped with an empty toolset would therefore have every one of its
+    // requests downgraded in production, with no flag to turn it off.
+    const roots = new Set<string>(FREEBUFF_ROOT_AGENT_IDS)
+    const shippedRoots = DECLARATIONS.filter((d) =>
+      d.ids.some((id) => roots.has(id)),
+    )
+    // The scan must actually be finding roots, or this passes vacuously.
+    expect(shippedRoots.length).toBeGreaterThan(0)
+    // Name the offending file in the failure, since "a root declares no tools"
+    // is useless without knowing which one.
+    expect(
+      shippedRoots
+        .filter((d) => d.names.length === 0)
+        .map((d) => `${d.file} (${d.ids.join(', ')})`),
+    ).toEqual([])
   })
 
   test.each([...FREEBUFF_CUSTOM_TOOL_NAMES])(

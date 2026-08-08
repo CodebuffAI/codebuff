@@ -71,7 +71,10 @@ export const FREEBUFF_SIGNATURE_TOOL_NAMES: ReadonlySet<string> = new Set([
   ...FREEBUFF_CUSTOM_TOOL_NAMES,
 ])
 
-export type ForeignClientSignal = 'foreign_toolset' | 'sampling_params'
+export type ForeignClientSignal =
+  | 'foreign_toolset'
+  | 'root_agent_no_tools'
+  | 'sampling_params'
 
 export type ForeignClientVerdict = {
   /** Null when the request looks like it came from one of our clients. */
@@ -107,13 +110,17 @@ function readToolNames(tools: unknown): string[] {
 /**
  * Whether a free-mode request came from something other than a freebuff client.
  *
- * Two signals, checked in a deliberate order:
+ * Three signals, checked in a deliberate order:
  *
  *  1. The request offers tools and not one of them is distinctively ours.
  *     Measured over 24h of DeepSeek V4 Flash traffic: 557 users / 75,741
  *     requests.
- *  2. The request offers no tools but sets `temperature`, `top_p` or
+ *  2. The request offers NO tools and the agent is one of our roots, which are
+ *     agentic by definition — a caller using a root agent id as a bare
+ *     completion endpoint. Reported only; never enforced.
+ *  3. The request offers no tools and sets `temperature`, `top_p` or
  *     `max_tokens`. Our clients leave all three unset on 99.2% of requests.
+ *     Reported only; never enforced.
  *
  * Signal 1 wins outright when it clears the request, and that ordering is the
  * whole safety story rather than a detail: 16 users in the same window send our
@@ -123,6 +130,10 @@ function readToolNames(tools: unknown): string[] {
  */
 export function detectForeignFreebuffClient(
   body: InspectableRequest,
+  /** The resolved agent id, when the caller has it. Root agents are agentic by
+   *  definition, so one that offers no tools is not being driven by our client
+   *  — see `root_agent_no_tools` below. */
+  isRootAgent = false,
 ): ForeignClientVerdict {
   const offered = readToolNames(body.tools)
   const sampleToolNames = offered
@@ -136,6 +147,46 @@ export function detectForeignFreebuffClient(
     return {
       signal: hasSignatureTool ? null : 'foreign_toolset',
       toolCount: offered.length,
+      sampleToolNames,
+    }
+  }
+
+  // A ROOT agent that offers no tools at all. Our roots always ship their
+  // toolset — the CI guard in foreign-client-shipped-agents.test.ts enforces
+  // that — so on its face this is a caller driving one of our root agent ids as
+  // a bare completion endpoint. Sampling 18 such users found 18 non-coding
+  // automations: Shopee customer-service bots, Solana memecoin traders, RAG
+  // rephrasers, long-context benchmark probes.
+  //
+  // REPORTED, NEVER ENFORCED, because the full 30-day backtest contradicts that
+  // sample. Over 30 days, counting only root agents and excluding the paired
+  // assistant-response rows (they carry no tools by design and are half of all
+  // rows — miss that and every agent reads ~50% tool-free):
+  //
+  //   base2-free-deepseek           4.46%  215,777 reqs   2,672 users
+  //   base2-free-deepseek-flash     0.296% 103,726 reqs   2,281 users
+  //   base2-free                    0.90%      222 reqs      15 users
+  //   freebuff-desktop-thread-local 0.018%   2,400 reqs      11 users
+  //
+  // Only 417 of those users are 100% tool-free — actual bare-completion
+  // proxies. The other 3,729 mix tool-free requests into heavy real agentic
+  // traffic (bucket at <10% tool-free: 1,658 users over 1.25M requests), and
+  // 7,379 of their tool-free requests land INSIDE 999 sessions that also make
+  // tool-bearing root calls. Enforcing per-request would swap the model
+  // mid-session for real coding runs.
+  //
+  // Nor does run length separate the two: the longest consecutive tool-free run
+  // belongs to the MIXED cohort (11,094) and exceeds the pure proxies' longest
+  // (2,153), with 334 mixed users exceeding 50. There is no per-request
+  // threshold, so enforcement needs an account-level verdict this function
+  // cannot see. Note also that these requests all already reproduce our
+  // canonical root system prompt at position 0 — `requestHasFreebuffSystemMarker`
+  // rejects root requests that do not — so the prompt is not a discriminator
+  // either.
+  if (isRootAgent) {
+    return {
+      signal: 'root_agent_no_tools',
+      toolCount: 0,
       sampleToolNames,
     }
   }
@@ -170,22 +221,35 @@ export type ForeignClientDecision = ForeignClientVerdict & {
 /**
  * Detect, then decide whether the signal changes what is served.
  *
- * `foreign_toolset` always downgrades. Using a third-party client against this
+ * `foreign_toolset` downgrades. Using a third-party client against this
  * endpoint is a terms violation, not a grey area: Freebuff funds free
  * inference with ads that only our own clients render, so a proxied request
  * takes the cost and returns none of the revenue.
  *
- * `sampling_params` is reported but never enforced. It fires on our own
- * tool-free traffic — 8,884 requests / 395 users on
- * `base2-free-deepseek-flash` and 568 / 13 on `code-reviewer-deepseek-flash` in
- * a 24h sample, plus the CLI's own free-mode shape, which sends
- * `max_completion_tokens` with no tools. It stays as a measurement.
+ * The other two are reported but never enforced, both because they fire on our
+ * own traffic:
+ *
+ *  - `sampling_params` — 568 requests / 13 users on
+ *    `code-reviewer-deepseek-flash` in a 24h sample, plus the CLI's own
+ *    free-mode shape, which sends `max_completion_tokens` with no tools. It
+ *    now only reports NON-root agents: `root_agent_no_tools` is checked first,
+ *    so the 8,884 requests / 395 users this used to cite on
+ *    `base2-free-deepseek-flash` classify under that signal instead. Neither
+ *    enforces, so the reclassification changes measurement, not behavior.
+ *  - `root_agent_no_tools` — 3,729 users who also do real agentic work, 999 of
+ *    whose sessions mix it with tool-bearing root calls. See the backtest in
+ *    `detectForeignFreebuffClient`. Catching the 417 genuine proxies inside
+ *    that population needs an account-level verdict, not a per-request one.
+ *
+ * They stay as measurements, which is what makes the account-level rule
+ * buildable later without guessing at its blast radius.
  */
 export function resolveForeignClientDowngrade(params: {
   body: InspectableRequest & { model?: unknown }
+  isRootAgent?: boolean
 }): ForeignClientDecision | null {
-  const { body } = params
-  const verdict = detectForeignFreebuffClient(body)
+  const { body, isRootAgent = false } = params
+  const verdict = detectForeignFreebuffClient(body, isRootAgent)
   if (!verdict.signal) return null
 
   return {

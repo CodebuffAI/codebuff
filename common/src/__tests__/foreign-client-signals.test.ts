@@ -287,6 +287,40 @@ describe('detectForeignFreebuffClient', () => {
     ).toBeNull()
   })
 
+  test('a root agent offering no tools is a bare completion proxy', () => {
+    // Our roots always ship their toolset — that is what makes them agentic.
+    // Measured over 7 days with assistant-response rows excluded, the desktop
+    // roots send zero tool-free requests (0 of 683,151 for -v3, 0 of 294,823
+    // for -worktree) and the CLI roots 0.30%/2.81%. All 18 users sampled across
+    // that tail were non-coding automation.
+    expect(detectForeignFreebuffClient({}, true).signal).toBe(
+      'root_agent_no_tools',
+    )
+    // Sampling params do not change the verdict for a root.
+    expect(detectForeignFreebuffClient({ temperature: 0.7 }, true).signal).toBe(
+      'root_agent_no_tools',
+    )
+  })
+
+  test('a root agent sending our tools is still ours', () => {
+    // Evading root_agent_no_tools means sending our toolset, at which point the
+    // toolset check applies instead — the same convergent property.
+    expect(
+      detectForeignFreebuffClient({ tools: tools('ask_user') }, true).signal,
+    ).toBeNull()
+    expect(
+      detectForeignFreebuffClient({ tools: tools('Bash', 'Edit') }, true).signal,
+    ).toBe('foreign_toolset')
+  })
+
+  test('a tool-free SUBagent is untouched', () => {
+    // Our helper agents (chat titles, compaction, researcher-docs) legitimately
+    // send no tools; only ROOT agents are agentic by definition. Defaulting
+    // isRootAgent to false keeps every non-root caller on the old behaviour.
+    expect(detectForeignFreebuffClient({}).signal).toBeNull()
+    expect(detectForeignFreebuffClient({}, false).signal).toBeNull()
+  })
+
   test('downgrade target is the free OpenRouter variant', () => {
     expect(FREEBUFF_DOWNGRADE_MODEL_ID).toBe('inclusionai/ling-3.0-tiny:free')
     expect(FREEBUFF_DOWNGRADE_MODEL_ID.endsWith(':free')).toBe(true)
@@ -306,6 +340,23 @@ describe('resolveForeignClientDowngrade', () => {
     expect(resolveForeignClientDowngrade({ body: foreign })!.downgradeTo).toBe(
       FREEBUFF_DOWNGRADE_MODEL_ID,
     )
+  })
+
+  test('reports but never acts on a tool-free root agent', () => {
+    // Deliberately report-only. The 30-day backtest found 3,729 users who mix
+    // tool-free root requests into real agentic traffic, 999 of whose sessions
+    // contain both — enforcing per-request swaps the model mid-session for real
+    // coding runs. Only 417 users are pure proxies, and no run-length threshold
+    // separates them (the MIXED cohort holds the longest tool-free run, 11,094,
+    // vs 2,153 for the proxies). Flipping this to enforce needs an
+    // account-level verdict, not a change here.
+    const d = resolveForeignClientDowngrade({ body: {}, isRootAgent: true })!
+    expect(d.signal).toBe('root_agent_no_tools')
+    expect(d.downgradeTo).toBeNull()
+  })
+
+  test('leaves a tool-free non-root request alone', () => {
+    expect(resolveForeignClientDowngrade({ body: {} })).toBeNull()
   })
 
   test('reports but never acts on the sampling-param signal', () => {
