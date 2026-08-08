@@ -302,6 +302,15 @@ export enum AnalyticsEvent {
   FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED = 'freebuff.home_install_guide_expanded',
   FREEBUFF_HOME_FAQ_OPENED = 'freebuff.home_faq_opened',
 
+  // Freebuff - Home savings calculator CTA. Fires alongside
+  // FREEBUFF_DESKTOP_DOWNLOAD_CLICKED (location: savings_calculator) but adds
+  // what the visitor had configured at the moment they converted: `savings`
+  // (the headline number they were looking at), `perSeat`, `seats`, `tools`
+  // and `toolCount`. The question it exists to answer is whether a bigger
+  // computed number actually converts better — bucket `savings` and compare
+  // click-through, which the download event alone cannot show.
+  FREEBUFF_HOME_SAVINGS_CTA_CLICKED = 'freebuff.home_savings_cta_clicked',
+
   // Freebuff - acquisition attribution (UTM / ad-click params captured as
   // super-properties; filter by utm_source, reddit_click_id, is_reddit_traffic)
   FREEBUFF_ATTRIBUTED = 'freebuff.attributed',
