@@ -4,6 +4,7 @@ import {
   detectForeignFreebuffClient,
   FREEBUFF_DOWNGRADE_MODEL_ID,
   FREEBUFF_SIGNATURE_TOOL_NAMES,
+  GENERIC_TOOL_NAMES,
   resolveForeignClientDowngrade,
 } from '../constants/foreign-client-signals'
 import { toolNames } from '../tools/constants'
@@ -114,13 +115,20 @@ const FOREIGN_TOOLSETS: Array<[string, ReturnType<typeof tools>]> = [
 ]
 
 describe('detectForeignFreebuffClient', () => {
-  test('every signature tool name still exists in toolNames', () => {
-    // A rename in common/src/tools/constants.ts must break here rather than
-    // silently emptying the signature and downgrading every free user.
+  test('the signature is every non-generic tool we define', () => {
+    // Derived, not hand-listed: a tool added to `toolNames` joins the signature
+    // automatically. That is the rot that flagged researcher-web — a
+    // hand-picked list simply never grew to cover it.
     const known = new Set<string>(toolNames)
-    expect(
-      [...FREEBUFF_SIGNATURE_TOOL_NAMES].filter((name) => !known.has(name)),
-    ).toEqual([])
+    for (const name of known) {
+      expect(FREEBUFF_SIGNATURE_TOOL_NAMES.has(name)).toBe(
+        !GENERIC_TOOL_NAMES.has(name),
+      )
+    }
+    // Every generic name must be one we actually define, or it is dead weight.
+    for (const name of GENERIC_TOOL_NAMES) {
+      expect(known.has(name)).toBe(true)
+    }
     expect(FREEBUFF_SIGNATURE_TOOL_NAMES.size).toBeGreaterThan(20)
   })
 
@@ -136,9 +144,24 @@ describe('detectForeignFreebuffClient', () => {
     )
   })
 
-  test('generic names shared with other harnesses do not clear a request', () => {
-    // opencode sends both `glob` and `web_search`, which are in toolNames.
-    // Matching the full list instead of the distinctive subset would clear it.
+  test('sharing a few generic names does not launder a foreign harness', () => {
+    // opencode sends `glob` and `web_search`, which we define — but both are
+    // generic, so neither is in the signature and the overlap buys it nothing.
+    expect(
+      detectForeignFreebuffClient({
+        tools: tools('glob', 'web_search', 'bash', 'edit', 'write'),
+      }).signal,
+    ).toBe('foreign_toolset')
+  })
+
+  test('a toolset of only generic names is foreign', () => {
+    // Measured over 30 days: 406 users on spoofed `base2-free-*` agent ids send
+    // a bare `web_search` and nothing else. No agent we ship has a toolset of
+    // only generic names — every single-tool agent of ours uses a distinctive
+    // one (`run_terminal_command`, `spawn_agents`, `read_docs`, `set_output`).
+    expect(
+      detectForeignFreebuffClient({ tools: tools('web_search') }).signal,
+    ).toBe('foreign_toolset')
     expect(
       detectForeignFreebuffClient({ tools: tools('glob', 'web_search') }).signal,
     ).toBe('foreign_toolset')
@@ -238,6 +261,32 @@ describe('detectForeignFreebuffClient', () => {
     expect(verdict.sampleToolNames).toHaveLength(8)
   })
 
+  test.each([
+    ['researcher-web', ['web_search', 'read_url']],
+    ['researcher-docs', ['read_docs']],
+    ['freebuff-desktop-autorun', ['decide']],
+    ['basher', ['run_terminal_command']],
+    ['file-picker', ['spawn_agents']],
+  ])('clears our own %s toolset', (_agent, names) => {
+    // Backtested over 30 days against the signature alone: researcher-web was
+    // flagged on 100% of 334,042 requests from 4,821 users, autorun on 100% of
+    // 2,904 from 41. `web_search` cannot join the signature (opencode ships
+    // it), so these clear by the every-tool-is-ours rule instead.
+    expect(detectForeignFreebuffClient({ tools: tools(...names) }).signal).toBeNull()
+  })
+
+  test('borrowing one distinctive name clears an otherwise foreign toolset', () => {
+    // Known and accepted, not an oversight. `some` semantics are what let an
+    // MCP user attach `ghidra__*` alongside our tools without being flagged,
+    // and the cost is that a proxy declaring one of our names is cleared too.
+    // Self-limiting: the borrowed name becomes a GENERIC_TOOL_NAMES candidate
+    // the moment it shows up in the logs, and the proxy has to actually
+    // implement the tool for its own loop to keep working.
+    expect(
+      detectForeignFreebuffClient({ tools: tools('read_files', 'Bash') }).signal,
+    ).toBeNull()
+  })
+
   test('downgrade target is the free OpenRouter variant', () => {
     expect(FREEBUFF_DOWNGRADE_MODEL_ID).toBe('inclusionai/ling-3.0-tiny:free')
     expect(FREEBUFF_DOWNGRADE_MODEL_ID.endsWith(':free')).toBe(true)
@@ -249,51 +298,29 @@ describe('resolveForeignClientDowngrade', () => {
   const params = { max_completion_tokens: 977_725 }
   const ours = { tools: tools('ask_user', 'read_files') }
 
-  test('off reports nothing at all', () => {
-    expect(resolveForeignClientDowngrade({ body: foreign, mode: 'off' })).toBeNull()
-    expect(resolveForeignClientDowngrade({ body: params, mode: 'off' })).toBeNull()
+  test('always downgrades a foreign toolset', () => {
+    // Third-party clients are a terms violation: Freebuff funds free inference
+    // with ads only our own clients render, so a proxied request takes the
+    // cost and returns none of the revenue. There is no mode in which this is
+    // served what it asked for.
+    expect(resolveForeignClientDowngrade({ body: foreign })!.downgradeTo).toBe(
+      FREEBUFF_DOWNGRADE_MODEL_ID,
+    )
   })
 
-  test('log reports both signals but downgrades neither', () => {
-    for (const body of [foreign, params]) {
-      const decision = resolveForeignClientDowngrade({ body, mode: 'log' })
-      expect(decision).not.toBeNull()
-      expect(decision!.downgradeTo).toBeNull()
-    }
+  test('reports but never acts on the sampling-param signal', () => {
+    const decision = resolveForeignClientDowngrade({ body: params })!
+    expect(decision.signal).toBe('sampling_params')
+    expect(decision.downgradeTo).toBeNull()
   })
 
-  test('enforce-toolset downgrades only the toolset signal', () => {
-    expect(
-      resolveForeignClientDowngrade({ body: foreign, mode: 'enforce-toolset' })!
-        .downgradeTo,
-    ).toBe(FREEBUFF_DOWNGRADE_MODEL_ID)
-    // Our own CLI shape: tool-free with max_completion_tokens. Reported, not acted on.
-    const paramDecision = resolveForeignClientDowngrade({
-      body: params,
-      mode: 'enforce-toolset',
-    })!
-    expect(paramDecision.signal).toBe('sampling_params')
-    expect(paramDecision.downgradeTo).toBeNull()
-  })
-
-  test('enforce downgrades both signals', () => {
-    for (const body of [foreign, params]) {
-      expect(
-        resolveForeignClientDowngrade({ body, mode: 'enforce' })!.downgradeTo,
-      ).toBe(FREEBUFF_DOWNGRADE_MODEL_ID)
-    }
-  })
-
-  test('a freebuff toolset is never reported in any mode', () => {
-    for (const mode of ['log', 'enforce-toolset', 'enforce'] as const) {
-      expect(resolveForeignClientDowngrade({ body: ours, mode })).toBeNull()
-    }
+  test('a freebuff toolset is never reported', () => {
+    expect(resolveForeignClientDowngrade({ body: ours })).toBeNull()
   })
 
   test('does not re-downgrade a request already on the downgrade model', () => {
     const decision = resolveForeignClientDowngrade({
       body: { ...foreign, model: FREEBUFF_DOWNGRADE_MODEL_ID },
-      mode: 'enforce',
     })!
     expect(decision.signal).toBe('foreign_toolset')
     expect(decision.downgradeTo).toBeNull()

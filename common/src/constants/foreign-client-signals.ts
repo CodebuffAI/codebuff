@@ -1,3 +1,5 @@
+import { toolNames } from '../tools/constants'
+
 /**
  * Where a free-mode request goes when it did not come from a freebuff client.
  *
@@ -14,7 +16,45 @@
 export const FREEBUFF_DOWNGRADE_MODEL_ID = 'inclusionai/ling-3.0-tiny:free'
 
 /**
- * Tool names that only a freebuff client sends.
+ * Tool names we define that other agent harnesses also ship.
+ *
+ * Maintained as an EXCLUSION list, with the signature derived from it, because
+ * the inclusion list rotted: `researcher-web` offers exactly
+ * `['web_search', 'read_url']`, and a hand-picked signature that happened to
+ * omit both flagged 100% of its 334,042 requests from 4,821 users over 30 days.
+ * Any tool added to `toolNames` now joins the signature automatically, so the
+ * failure mode is a new *generic* name we forget to list here — which flags a
+ * third party we could already flag, rather than silently downgrading our own
+ * users.
+ *
+ * Each entry carries the third-party usage that justifies it, so this stays
+ * evidence rather than superstition.
+ */
+export const GENERIC_TOOL_NAMES: ReadonlySet<string> = new Set([
+  // Counts are distinct users, over 30 days, on requests carrying NO signature
+  // tool at all — i.e. unambiguously third-party harnesses. Anything without
+  // that evidence belongs in the signature: excluding a name we define costs us
+  // nothing against proxies and risks flagging whichever agent of ours uses it
+  // alone, which is exactly how researcher-web broke.
+  'write_file', // 3,372 users (Cline)
+  'web_search', // 3,273 users (opencode)
+  'glob', // 2,691 users (opencode, Claude Code ships `Glob`)
+  'skill', // 2,257 users
+  'apply_patch', // 1,137 users (Codex)
+])
+
+/**
+ * Tools our own surfaces define outside `toolNames`, via
+ * `customToolDefinitions`. Freebuff Desktop's autorun agent
+ * (freebuff-desktop/src/server/services/autorun.ts) offers exactly `decide` and
+ * nothing else, so without this it had no signature tool at all and was flagged
+ * on 100% of its 2,904 requests from 41 users over 30 days.
+ */
+export const FREEBUFF_CUSTOM_TOOL_NAMES = ['decide'] as const
+
+/**
+ * Tool names that, on their own, mark a request as coming from one of our
+ * clients: everything we define that is not generic.
  *
  * The discriminator is the tool schema rather than the system prompt because
  * the two are attacker-controlled in very different ways. A system prompt is
@@ -23,42 +63,12 @@ export const FREEBUFF_DOWNGRADE_MODEL_ID = 'inclusionai/ling-3.0-tiny:free'
  * harness dispatches on the tool name the model returns, so sending ours means
  * also executing ours and speaking our result format. Evading this check
  * converges on behaving like a real client, which is the outcome we want.
- *
- * DISTINCTIVE names only. The full `toolNames` list includes `glob`,
- * `web_search`, `skill` and `code_search`, which other harnesses also ship —
- * opencode alone sends `glob` and `web_search` — so matching on the full list
- * would clear the very traffic this is meant to catch. Every entry here must
- * stay in `toolNames`; the test asserts it, so a rename breaks CI instead of
- * silently emptying the signature.
  */
 export const FREEBUFF_SIGNATURE_TOOL_NAMES: ReadonlySet<string> = new Set([
-  'add_message',
-  'add_subgoal',
-  'ask_user',
-  'browser_logs',
-  'cloud_plan_ready',
-  'end_turn',
-  'find_files',
-  'gravity_index',
-  'list_directory',
-  'lookup_agent_info',
-  'propose_str_replace',
-  'propose_write_file',
-  'read_docs',
-  'read_files',
-  'read_subtree',
-  'render_ui',
-  'run_file_change_hooks',
-  'run_terminal_command',
-  'set_messages',
-  'set_output',
-  'spawn_agent_inline',
-  'spawn_agents',
-  'suggest_followups',
-  'task_completed',
-  'think_deeply',
-  'update_subgoal',
-  'write_todos',
+  ...(toolNames as readonly string[]).filter(
+    (name) => !GENERIC_TOOL_NAMES.has(name),
+  ),
+  ...FREEBUFF_CUSTOM_TOOL_NAMES,
 ])
 
 export type ForeignClientSignal = 'foreign_toolset' | 'sampling_params'
@@ -99,8 +109,9 @@ function readToolNames(tools: unknown): string[] {
  *
  * Two signals, checked in a deliberate order:
  *
- *  1. The request offers tools and none of them are ours. Measured over 24h of
- *     DeepSeek V4 Flash traffic: 557 users / 75,741 requests.
+ *  1. The request offers tools and not one of them is distinctively ours.
+ *     Measured over 24h of DeepSeek V4 Flash traffic: 557 users / 75,741
+ *     requests.
  *  2. The request offers no tools but sets `temperature`, `top_p` or
  *     `max_tokens`. Our clients leave all three unset on 99.2% of requests.
  *
@@ -119,11 +130,11 @@ export function detectForeignFreebuffClient(
     .map((name) => name.slice(0, MAX_LOGGED_TOOL_NAME_LENGTH))
 
   if (offered.length > 0) {
-    const hasOurs = offered.some((name) =>
+    const hasSignatureTool = offered.some((name) =>
       FREEBUFF_SIGNATURE_TOOL_NAMES.has(name),
     )
     return {
-      signal: hasOurs ? null : 'foreign_toolset',
+      signal: hasSignatureTool ? null : 'foreign_toolset',
       toolCount: offered.length,
       sampleToolNames,
     }
@@ -150,21 +161,6 @@ export function detectForeignFreebuffClient(
   }
 }
 
-/**
- * How much of the detection is allowed to change what a caller is served.
- *
- * `enforce-toolset` is the one to reach for. `enforce` also acts on the
- * sampling-param signal, which fires on our own tool-free traffic — 8,884
- * requests / 395 users on `base2-free-deepseek-flash` and 568 / 13 on
- * `code-reviewer-deepseek-flash` in a 24h sample, plus the CLI's own free-mode
- * shape, which sends `max_completion_tokens` with no tools.
- */
-export type ForeignClientDowngradeMode =
-  | 'off'
-  | 'log'
-  | 'enforce-toolset'
-  | 'enforce'
-
 export type ForeignClientDecision = ForeignClientVerdict & {
   signal: ForeignClientSignal
   /** The model to serve instead, or null to serve what was requested. */
@@ -172,23 +168,25 @@ export type ForeignClientDecision = ForeignClientVerdict & {
 }
 
 /**
- * The whole policy in one place: detect, then decide whether this mode lets
- * that signal change the served model. Returns null when there is nothing to
- * report, so the caller's only job is to log and apply.
+ * Detect, then decide whether the signal changes what is served.
+ *
+ * `foreign_toolset` always downgrades. Using a third-party client against this
+ * endpoint is a terms violation, not a grey area: Freebuff funds free
+ * inference with ads that only our own clients render, so a proxied request
+ * takes the cost and returns none of the revenue.
+ *
+ * `sampling_params` is reported but never enforced. It fires on our own
+ * tool-free traffic — 8,884 requests / 395 users on
+ * `base2-free-deepseek-flash` and 568 / 13 on `code-reviewer-deepseek-flash` in
+ * a 24h sample, plus the CLI's own free-mode shape, which sends
+ * `max_completion_tokens` with no tools. It stays as a measurement.
  */
 export function resolveForeignClientDowngrade(params: {
   body: InspectableRequest & { model?: unknown }
-  mode: ForeignClientDowngradeMode
 }): ForeignClientDecision | null {
-  const { body, mode } = params
-  if (mode === 'off') return null
-
+  const { body } = params
   const verdict = detectForeignFreebuffClient(body)
   if (!verdict.signal) return null
-
-  const enforces =
-    mode === 'enforce' ||
-    (mode === 'enforce-toolset' && verdict.signal === 'foreign_toolset')
 
   return {
     ...verdict,
@@ -196,7 +194,8 @@ export function resolveForeignClientDowngrade(params: {
     // Never downgrade something already on the downgrade model: that would be
     // a no-op write that still reads as an enforcement in the logs.
     downgradeTo:
-      enforces && body.model !== FREEBUFF_DOWNGRADE_MODEL_ID
+      verdict.signal === 'foreign_toolset' &&
+      body.model !== FREEBUFF_DOWNGRADE_MODEL_ID
         ? FREEBUFF_DOWNGRADE_MODEL_ID
         : null,
   }
