@@ -154,12 +154,18 @@ export function detectForeignFreebuffClient(
   // A ROOT agent that offers no tools at all. Our roots always ship their
   // toolset — the CI guard in foreign-client-shipped-agents.test.ts enforces
   // that — so on its face this is a caller driving one of our root agent ids as
-  // a bare completion endpoint. Sampling 18 such users found 18 non-coding
-  // automations: Shopee customer-service bots, Solana memecoin traders, RAG
-  // rephrasers, long-context benchmark probes.
+  // a bare completion endpoint.
   //
-  // REPORTED, NEVER ENFORCED, because the full 30-day backtest contradicts that
-  // sample. Over 30 days, counting only root agents and excluding the paired
+  // An early hand-sample of 18 such users came back 18-for-18 non-coding
+  // automation — Shopee customer-service bots, Solana memecoin traders, RAG
+  // rephrasers, benchmark probes. DO NOT cite that as evidence for enforcing.
+  // It was drawn from a tail of roughly 5,000 users and the cohort analysis
+  // below shows it was not representative: 90% of the accounts the signal names
+  // also do real agentic work. An 18-for-18 result from an unrepresentative
+  // frame is what a biased sample looks like, not a strong one.
+  //
+  // REPORTED, NEVER ENFORCED, per the full 30-day backtest. Counting only root
+  // agents and excluding the paired
   // assistant-response rows (they carry no tools by design and are half of all
   // rows — miss that and every agent reads ~50% tool-free):
   //
