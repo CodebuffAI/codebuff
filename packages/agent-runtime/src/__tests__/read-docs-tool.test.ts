@@ -5,7 +5,6 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
 import {
   afterEach,
-
   beforeEach,
   describe,
   expect,
@@ -29,7 +28,11 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 let runAgentStepBaseParams: ParamsExcluding<
   typeof runAgentStep,
-  'fileContext' | 'localAgentTemplates' | 'agentState' | 'prompt' | 'agentTemplate'
+  | 'fileContext'
+  | 'localAgentTemplates'
+  | 'agentState'
+  | 'prompt'
+  | 'agentTemplate'
 >
 
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'

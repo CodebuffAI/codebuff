@@ -762,4 +762,91 @@ describe('getFiles', () => {
       expect(result['nonexistent.txt']).toBe(FILE_READ_STATUS.DOES_NOT_EXIST)
     })
   })
+
+  describe('windowed reads', () => {
+    const bigFile = Array.from({ length: 3000 }, (_, i) => `line ${i + 1}`).join('\n')
+
+    test('reads the whole file when no fileWindows map is given', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: bigFile } },
+      })
+
+      const result = await getFiles({
+        filePaths: ['src/big.ts'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['src/big.ts']).toBe(bigFile)
+    })
+
+    test('caps a plain read at the per-file line limit when windowing is on', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: bigFile } },
+      })
+
+      const result = await getFiles({
+        filePaths: ['src/big.ts'],
+        cwd: '/project',
+        fs: mockFs,
+        fileWindows: { 'src/big.ts': [{}] },
+      })
+
+      expect(result['src/big.ts']).toContain('showing lines 1-2000 of 3000')
+      expect(result['src/big.ts']).not.toContain('line 2001\n')
+    })
+
+    test('returns only the requested window', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: bigFile } },
+      })
+
+      const result = await getFiles({
+        filePaths: ['src/big.ts'],
+        cwd: '/project',
+        fs: mockFs,
+        fileWindows: { 'src/big.ts': [{ offset: 2500, limit: 10 }] },
+      })
+
+      expect(result['src/big.ts']).toContain('line 2500')
+      expect(result['src/big.ts']).toContain('showing lines 2500-2509 of 3000')
+      expect(result['src/big.ts']).not.toContain('line 100\n')
+    })
+
+    test('does not render the same file twice for duplicate whole-file entries', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/small.ts': { content: 'alpha\nbeta\ngamma' } },
+      })
+
+      const result = await getFiles({
+        filePaths: ['src/small.ts'],
+        cwd: '/project',
+        fs: mockFs,
+        fileWindows: { 'src/small.ts': [{}] },
+      })
+
+      expect(result['src/small.ts']).toBe('alpha\nbeta\ngamma')
+    })
+
+    test('returns every requested window of the same file', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: bigFile } },
+      })
+
+      const result = await getFiles({
+        filePaths: ['src/big.ts'],
+        cwd: '/project',
+        fs: mockFs,
+        fileWindows: {
+          'src/big.ts': [
+            { offset: 10, limit: 5 },
+            { offset: 2500, limit: 5 },
+          ],
+        },
+      })
+
+      expect(result['src/big.ts']).toContain('showing lines 10-14 of 3000')
+      expect(result['src/big.ts']).toContain('showing lines 2500-2504 of 3000')
+    })
+  })
 })

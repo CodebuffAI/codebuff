@@ -2,8 +2,11 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   createFileReadLimiter,
+  MAX_READ_FILE_CHARS,
+  MAX_READ_FILE_LINES,
   MAX_READ_FILES_CHARS,
   MAX_READ_FILES_TOKENS,
+  windowFileRead,
 } from '../file-read-limits'
 
 describe('createFileReadLimiter', () => {
@@ -91,5 +94,80 @@ describe('createFileReadLimiter', () => {
     expect(first.length + secondContent.length + third.length).toBeLessThan(
       MAX_READ_FILES_TOKENS,
     )
+  })
+})
+
+describe('windowFileRead', () => {
+  test('returns a small file unchanged, including its trailing newline', () => {
+    const content = 'a\nb\nc\n'
+
+    expect(windowFileRead(content)).toBe(content)
+  })
+
+  test('does not count the trailing newline as an extra line', () => {
+    const content =
+      Array.from({ length: MAX_READ_FILE_LINES }, (_, i) => `line ${i + 1}`).join('\n') + '\n'
+
+    expect(windowFileRead(content)).toBe(content)
+  })
+
+  test('caps an unwindowed read at the line limit and reports the true total', () => {
+    const totalLines = MAX_READ_FILE_LINES + 500
+    const content = Array.from({ length: totalLines }, (_, i) => `line ${i + 1}`).join('\n')
+    const result = windowFileRead(content)
+
+    expect(result).toContain(`showing lines 1-${MAX_READ_FILE_LINES} of ${totalLines}`)
+    expect(result).toContain(`offset=${MAX_READ_FILE_LINES + 1} to continue`)
+    expect(result).not.toContain(`line ${MAX_READ_FILE_LINES + 1}\n`)
+  })
+
+  test('returns the requested window with a footer', () => {
+    const content = Array.from({ length: 100 }, (_, i) => `line ${i + 1}`).join('\n')
+    const result = windowFileRead(content, 10, 5)
+
+    expect(result).toContain('line 10')
+    expect(result).toContain('line 14')
+    expect(result).not.toContain('line 15\n')
+    expect(result).toContain('showing lines 10-14 of 100')
+    expect(result).toContain('offset=15 to continue')
+  })
+
+  test('omits the continue advice when the window reaches the end of the file', () => {
+    const content = Array.from({ length: 100 }, (_, i) => `line ${i + 1}`).join('\n')
+    const result = windowFileRead(content, 90, 20)
+
+    expect(result).toContain('showing lines 90-100 of 100')
+    expect(result).not.toContain('to continue')
+  })
+
+  test('reports an offset beyond the end of the file', () => {
+    const content = 'a\nb\nc'
+
+    expect(windowFileRead(content, 10)).toBe(
+      '[read_files: 3 lines total; offset 10 is beyond the end of the file.]',
+    )
+  })
+
+  test('clamps a requested limit to the line cap', () => {
+    const totalLines = MAX_READ_FILE_LINES + 500
+    const content = Array.from({ length: totalLines }, (_, i) => `line ${i + 1}`).join('\n')
+    const result = windowFileRead(content, 1, totalLines)
+
+    expect(result).toContain(`showing lines 1-${MAX_READ_FILE_LINES} of ${totalLines}`)
+  })
+
+  test('shortens a window that exceeds the char cap and says so', () => {
+    const line = 'x'.repeat(1000)
+    const totalLines = 100
+    const content = Array.from({ length: totalLines }, () => line).join('\n')
+    const result = windowFileRead(content, 1, totalLines)
+
+    const match = result.match(/showing lines 1-(\d+) of 100/)
+    expect(match).not.toBeNull()
+    expect(Number(match![1])).toBeLessThan(totalLines)
+    expect(result).toContain(
+      `shortened to stay under ${MAX_READ_FILE_CHARS.toLocaleString()} characters`,
+    )
+    expect(result).toContain('to continue')
   })
 })

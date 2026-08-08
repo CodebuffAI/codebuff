@@ -44,8 +44,8 @@ describe('Subagent Streaming', () => {
       outputMode: 'last_message',
       inputSchema: {
         prompt: {
-        safeParse: () => ({ success: true }),
-      } as unknown as AgentTemplate['inputSchema']['prompt'],
+          safeParse: () => ({ success: true }),
+        } as unknown as AgentTemplate['inputSchema']['prompt'],
       },
       spawnerPrompt: '',
       model: '',
@@ -98,7 +98,10 @@ describe('Subagent Streaming', () => {
           ...options.agentState,
           messageHistory: [assistantMessage('Test response from subagent')],
         },
-        output: { type: 'lastMessage', value: [assistantMessage('Test response from subagent')] },
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('Test response from subagent')],
+        },
       }
     })
 

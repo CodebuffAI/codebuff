@@ -189,6 +189,34 @@ export interface AgentDefinition {
    */
   inheritParentSystemPrompt?: boolean
 
+  /** Opt in to windowed file reads: read_files accepts { path, offset, limit }
+   * entries, whole-file reads are capped per file, glob results are capped, and
+   * the read_files/code_search tool descriptions teach a search-first reading
+   * style. Defaults to false, which keeps the legacy read behavior.
+   */
+  windowedFileReads?: boolean
+
+  /** Opt in to mechanical context compaction: the runtime rewrites old history
+   * into a condensed summary before the next step. Defaults to false.
+   *
+   * Compaction runs when the context grows past the model's budget, and also
+   * once the prompt cache has gone cold — the next request re-reads the whole
+   * history at full price anyway, so rewriting it there is free. Pass
+   * `{ cacheExpiryMs }` to tune that idle threshold, or `{ cacheExpiryMs: null }`
+   * to compact on the context limit only.
+   *
+   * The cold-cache pass is skipped on a context smaller than
+   * `cacheExpiryMinTokens`, since compaction always costs detail and a small
+   * history has little to reclaim. Pass null to take it at any size. The
+   * context-limit pass ignores this floor.
+   */
+  compactContext?:
+    | boolean
+    | {
+        cacheExpiryMs?: number | null
+        cacheExpiryMinTokens?: number | null
+      }
+
   /** Background information for the agent. Fairly optional. Prefer using instructionsPrompt for agent instructions. */
   systemPrompt?: string
 

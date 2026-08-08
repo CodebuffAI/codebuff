@@ -53,6 +53,7 @@ import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
 import type { FileFilter } from './tools/read-files'
 import type { ServerAction } from '@codebuff/common/actions'
+import type { FileReadWindow } from '@codebuff/common/types/contracts/client'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { PublishedClientToolName } from '@codebuff/common/tools/list'
@@ -554,9 +555,10 @@ async function runOnce({
 
       return filteredTools
     },
-    requestFiles: ({ filePaths }) =>
+    requestFiles: ({ filePaths, fileWindows }) =>
       readFiles({
         filePaths,
+        fileWindows,
         override: overrideTools?.read_files,
         fileFilter,
         cwd,
@@ -764,6 +766,7 @@ function requireCwd(cwd: string | undefined, toolName: string): string {
 
 async function readFiles({
   filePaths,
+  fileWindows,
   override,
   fileFilter,
   cwd,
@@ -772,6 +775,7 @@ async function readFiles({
   enforceEnvPolicy = true,
 }: {
   filePaths: string[]
+  fileWindows?: Record<string, FileReadWindow[]>
   override?: NonNullable<
     Required<CodebuffClientOptions>['overrideTools']['read_files']
   >
@@ -782,6 +786,9 @@ async function readFiles({
   enforceEnvPolicy?: boolean
 }) {
   if (override) {
+    // TODO: fileWindows is not forwarded to overrides, so windowedFileReads
+    // agents on override surfaces (freebuff web harness, webcontainer, nodepod)
+    // would get whole files with no cap despite the windowed tool description.
     if (!enforceEnvPolicy) return await override({ filePaths })
 
     const result = Object.create(null) as Record<string, string | null>
@@ -815,6 +822,7 @@ async function readFiles({
     filePaths,
     cwd: requireCwd(cwd, 'read_files'),
     fs,
+    fileWindows,
     fileFilter,
     limitContent,
     enforceEnvPolicy,
@@ -959,10 +967,16 @@ async function handleToolCall({
         fs,
       })
     } else if (toolName === 'glob') {
+      const globInput = input as {
+        pattern: string
+        cwd?: string
+        max_results?: number
+      }
       result = await glob({
-        pattern: (input as { pattern: string; cwd?: string }).pattern,
+        pattern: globInput.pattern,
         projectPath: requireCwd(cwd, 'glob'),
-        cwd: (input as { pattern: string; cwd?: string }).cwd,
+        cwd: globInput.cwd,
+        maxResults: globInput.max_results,
         fs,
       })
     } else if (toolName === 'run_file_change_hooks') {

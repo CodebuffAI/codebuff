@@ -31,7 +31,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 let mainPromptBaseParams: any
 
-
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 
 const mockAgentStream = (chunks: StreamChunk[]) => {
@@ -156,7 +155,6 @@ describe('mainPrompt', () => {
         ],
       }),
     )
-
   })
 
   afterEach(() => {

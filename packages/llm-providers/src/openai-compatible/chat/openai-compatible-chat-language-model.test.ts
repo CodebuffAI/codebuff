@@ -119,4 +119,59 @@ describe('OpenAICompatibleChatLanguageModel doStream', () => {
     expect(finish.usage.outputTokens ?? undefined).toBeUndefined()
     expect(finish.usage.totalTokens ?? undefined).toBeUndefined()
   })
+
+  it('assembles streamed reasoning_details onto the reasoning-end part', async () => {
+    const parts = await streamParts(
+      sseResponse([
+        chunk({
+          role: 'assistant',
+          reasoning: 'Think',
+          reasoning_details: [
+            { type: 'reasoning.text', text: 'Think', index: 0 },
+          ],
+        }),
+        chunk({
+          reasoning: 'ing.',
+          reasoning_details: [
+            {
+              type: 'reasoning.text',
+              text: 'ing.',
+              index: 0,
+              signature: 'sig-1',
+              format: 'anthropic-claude-v1',
+            },
+          ],
+        }),
+        chunk({ content: 'Done.' }),
+        JSON.stringify({
+          id: 'cmpl-1',
+          object: 'chat.completion.chunk',
+          created: 1,
+          model: 'test-model',
+          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
+        }),
+        '[DONE]',
+      ]),
+    )
+
+    const reasoningEnd = parts.find((part) => part.type === 'reasoning-end')
+    if (!reasoningEnd || reasoningEnd.type !== 'reasoning-end') {
+      throw new Error('stream emitted no reasoning-end part')
+    }
+    expect(reasoningEnd.providerMetadata).toEqual({
+      'test-provider': {
+        reasoning_details: [
+          {
+            type: 'reasoning.text',
+            text: 'Thinking.',
+            index: 0,
+            signature: 'sig-1',
+            format: 'anthropic-claude-v1',
+          },
+        ],
+        model: 'test-model',
+      },
+    })
+  })
 })

@@ -199,7 +199,10 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
         verbosity: compatibleOptions.textVerbosity,
 
         // messages:
-        messages: convertToOpenAICompatibleChatMessages(prompt),
+        messages: convertToOpenAICompatibleChatMessages(prompt, {
+          providerOptionsName: this.providerOptionsName,
+          modelId: this.modelId,
+        }),
 
         // tools:
         tools: openaiTools,
@@ -247,10 +250,24 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
     // reasoning content:
     const reasoning =
       choice.message.reasoning_content ?? choice.message.reasoning
-    if (reasoning != null && reasoning.length > 0) {
+    const reasoningDetails = choice.message.reasoning_details
+    if (
+      (reasoning != null && reasoning.length > 0) ||
+      (reasoningDetails != null && reasoningDetails.length > 0)
+    ) {
       content.push({
         type: 'reasoning',
-        text: reasoning,
+        text: reasoning ?? '',
+        ...(reasoningDetails != null && reasoningDetails.length > 0
+          ? {
+              providerMetadata: {
+                [this.providerOptionsName]: {
+                  reasoning_details: reasoningDetails,
+                  model: this.modelId,
+                },
+              } as SharedV2ProviderMetadata,
+            }
+          : {}),
       })
     }
 
@@ -380,8 +397,41 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
     }
     let isFirstChunk = true
     const providerOptionsName = this.providerOptionsName
+    const modelId = this.modelId
     let isActiveReasoning = false
     let isActiveText = false
+
+    // Consolidated `reasoning_details` for the whole response: streamed
+    // fragments merge by (type, id/index) — text concatenates, the signature
+    // arrives on a fragment's final piece — so the assembled array can be
+    // replayed verbatim on the next request's assistant message.
+    const reasoningDetails: Array<Record<string, unknown>> = []
+    const reasoningDetailByKey = new Map<string, Record<string, unknown>>()
+    const addReasoningDetails = (details: unknown) => {
+      if (!Array.isArray(details)) return
+      for (const raw of details) {
+        if (raw == null || typeof raw !== 'object') continue
+        const detail = { ...(raw as Record<string, unknown>) }
+        const key = `${detail.type ?? ''}:${detail.id ?? detail.index ?? 0}`
+        const existing = reasoningDetailByKey.get(key)
+        if (existing === undefined) {
+          reasoningDetailByKey.set(key, detail)
+          reasoningDetails.push(detail)
+          continue
+        }
+        for (const field of ['text', 'data', 'summary'] as const) {
+          if (typeof detail[field] === 'string') {
+            existing[field] =
+              typeof existing[field] === 'string'
+                ? (existing[field] as string) + detail[field]
+                : detail[field]
+          }
+        }
+        for (const field of ['signature', 'format'] as const) {
+          if (detail[field] != null) existing[field] = detail[field]
+        }
+      }
+    }
 
     return {
       stream: response.pipeThrough(
@@ -473,6 +523,10 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             }
 
             const delta = choice.delta
+
+            if (delta.reasoning_details != null) {
+              addReasoningDetails(delta.reasoning_details)
+            }
 
             // enqueue reasoning before text deltas:
             const reasoningContent = delta.reasoning_content ?? delta.reasoning
@@ -615,8 +669,28 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
           },
 
           flush(controller) {
+            // Signature-only reasoning (e.g. fully redacted thinking) arrives
+            // as details with no reasoning text; open the part so the details
+            // still get a reasoning-end to ride on.
+            if (!isActiveReasoning && reasoningDetails.length > 0) {
+              controller.enqueue({ type: 'reasoning-start', id: 'reasoning-0' })
+              isActiveReasoning = true
+            }
             if (isActiveReasoning) {
-              controller.enqueue({ type: 'reasoning-end', id: 'reasoning-0' })
+              controller.enqueue({
+                type: 'reasoning-end',
+                id: 'reasoning-0',
+                ...(reasoningDetails.length > 0
+                  ? {
+                      providerMetadata: {
+                        [providerOptionsName]: {
+                          reasoning_details: reasoningDetails,
+                          model: modelId,
+                        },
+                      } as SharedV2ProviderMetadata,
+                    }
+                  : {}),
+              })
             }
 
             if (isActiveText) {
@@ -713,6 +787,7 @@ const OpenAICompatibleChatResponseSchema = z.object({
         content: z.string().nullish(),
         reasoning_content: z.string().nullish(),
         reasoning: z.string().nullish(),
+        reasoning_details: z.array(z.unknown()).nullish(),
         tool_calls: z
           .array(
             z.object({
@@ -753,6 +828,10 @@ const createOpenAICompatibleChatChunkSchema = <
               // providers serving `gpt-oss` set `reasoning`. See #7866
               reasoning_content: z.string().nullish(),
               reasoning: z.string().nullish(),
+              // OpenRouter reasoning blocks (with provider signatures) that
+              // must be replayed verbatim for models that validate thinking
+              // on tool-call turns (Anthropic).
+              reasoning_details: z.array(z.unknown()).nullish(),
               tool_calls: z
                 .array(
                   z.object({

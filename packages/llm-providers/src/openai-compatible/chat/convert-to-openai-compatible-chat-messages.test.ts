@@ -546,6 +546,142 @@ describe('provider-specific metadata merging', () => {
     ])
   })
 
+  it('should replay reasoning_details from reasoning part provider options', () => {
+    const details = [
+      {
+        type: 'reasoning.text',
+        text: 'Need the weather.',
+        signature: 'sig-abc',
+        format: 'anthropic-claude-v1',
+      },
+    ]
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Need the weather.',
+            providerOptions: { codebuff: { reasoning_details: details } },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call1',
+            toolName: 'get_weather',
+            input: { location: 'Hangzhou' },
+          },
+        ],
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        reasoning_details: details,
+        tool_calls: [
+          {
+            id: 'call1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: JSON.stringify({ location: 'Hangzhou' }),
+            },
+          },
+        ],
+      },
+    ])
+  })
+
+  it('replays reasoning_details recorded for the requesting model', () => {
+    const details = [
+      {
+        type: 'reasoning.text',
+        text: 'Need the weather.',
+        signature: 'sig-abc',
+        format: 'anthropic-claude-v1',
+      },
+    ]
+    const result = convertToOpenAICompatibleChatMessages(
+      [
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'reasoning',
+              text: 'Need the weather.',
+              providerOptions: {
+                codebuff: {
+                  reasoning_details: details,
+                  model: 'anthropic/claude-opus-4.8',
+                },
+              },
+            },
+          ],
+        },
+      ],
+      { providerOptionsName: 'codebuff', modelId: 'anthropic/claude-opus-4.8' },
+    )
+
+    expect(result[0].reasoning_details).toEqual(details)
+  })
+
+  it('drops reasoning_details recorded for a different model', () => {
+    const details = [
+      {
+        type: 'reasoning.text',
+        text: 'Need the weather.',
+        signature: 'sig-abc',
+        format: 'anthropic-claude-v1',
+      },
+    ]
+    const result = convertToOpenAICompatibleChatMessages(
+      [
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'reasoning',
+              text: 'Need the weather.',
+              providerOptions: {
+                codebuff: {
+                  reasoning_details: details,
+                  model: 'anthropic/claude-opus-4.8',
+                },
+              },
+            },
+          ],
+        },
+      ],
+      { providerOptionsName: 'codebuff', modelId: 'deepseek/deepseek-v3' },
+    )
+
+    expect(result[0].reasoning_details).toBeUndefined()
+    expect(result[0].reasoning_content).toBe('Need the weather.')
+  })
+
+  it('reads reasoning_details only from the named provider namespace', () => {
+    const details = [{ type: 'reasoning.text', text: 'x', signature: 's' }]
+    const result = convertToOpenAICompatibleChatMessages(
+      [
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'reasoning',
+              text: 'x',
+              providerOptions: { other: { reasoning_details: details } },
+            },
+          ],
+        },
+      ],
+      { providerOptionsName: 'codebuff' },
+    )
+
+    expect(result[0].reasoning_details).toBeUndefined()
+    expect(result[0].reasoning_content).toBe('x')
+  })
+
   it('should handle a single tool role message with multiple tool-result parts', () => {
     const result = convertToOpenAICompatibleChatMessages([
       {

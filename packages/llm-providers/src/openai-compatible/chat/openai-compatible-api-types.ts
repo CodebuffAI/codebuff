@@ -42,6 +42,7 @@ export interface OpenAICompatibleContentPartText extends JsonRecord {
 export interface OpenAICompatibleAssistantMessage extends JsonRecord<OpenAICompatibleMessageToolCall> {
   role: 'assistant'
   content?: string | null
+  reasoning_details?: JSONValue[]
   tool_calls?: Array<OpenAICompatibleMessageToolCall>
 }
 

@@ -12,9 +12,10 @@ export async function glob(params: {
   pattern: string
   projectPath: string
   cwd?: string
+  maxResults?: number
   fs: CodebuffFileSystem
 }): Promise<CodebuffToolOutput<'glob'>> {
-  const { pattern, projectPath, cwd, fs } = params
+  const { pattern, projectPath, cwd, maxResults, fs } = params
 
   try {
     const fileTree = await getProjectFileTree({ projectRoot: projectPath, fs })
@@ -33,7 +34,12 @@ export async function glob(params: {
       )
     }
 
-    const matchingFiles = micromatch(allFilePaths, pattern)
+    const allMatchingFiles = micromatch(allFilePaths, pattern)
+    const matchingFiles =
+      maxResults === undefined
+        ? allMatchingFiles
+        : allMatchingFiles.slice(0, maxResults)
+    const resultsCapped = matchingFiles.length < allMatchingFiles.length
 
     // The scan behind this stops silently at DEFAULT_MAX_FILES, breadth-first,
     // so on a large project the deepest directories are never visited and every
@@ -46,9 +52,12 @@ export async function glob(params: {
         type: 'json',
         value: {
           files: matchingFiles,
-          count: matchingFiles.length,
+          count: allMatchingFiles.length,
           message:
-            `Found ${matchingFiles.length} file(s) matching pattern "${pattern}"${cwd ? ` in directory "${cwd}"` : ''}` +
+            `Found ${allMatchingFiles.length} file(s) matching pattern "${pattern}"${cwd ? ` in directory "${cwd}"` : ''}` +
+            (resultsCapped
+              ? `. Showing the first ${matchingFiles.length}; narrow the pattern or set cwd to see the rest.`
+              : '') +
             (truncated
               ? `. Warning: the project scan hit its ${DEFAULT_MAX_FILES}-file limit, so the deepest directories were not searched and this result may be incomplete. Narrow the search with cwd, or use run_terminal_command (find/dir) to check.`
               : ''),

@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 import {
   supportsAssistantPrefill,
   supportsCacheControl,
@@ -21,6 +22,7 @@ import { type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 import z from 'zod/v4'
 
+import { maybeCompactHistory } from './compact-history'
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -877,6 +879,7 @@ export async function loopAgentSteps(
     ? parentTools
     : await getToolSet({
         toolNames: agentTemplate.toolNames,
+        windowedFileReads: agentTemplate.windowedFileReads === true,
         additionalToolDefinitions: async () => {
           if (!cachedAdditionalToolDefinitions) {
             cachedAdditionalToolDefinitions = await additionalToolDefinitions({
@@ -1021,6 +1024,36 @@ export async function loopAgentSteps(
       // anymore that needs Anthropic-exact counts, and context-limit checks
       // only need an estimate.
       currentAgentState.contextTokenCount = estimateContextTokensLocally()
+
+      // Mechanical compaction: no model call, so it costs nothing but the
+      // prompt-cache break that rewriting the history forces anyway. The
+      // budget is sized to the model in use (see contextPrunerBudgetForModel),
+      // which is the same budget base2 hands the context-pruner agent.
+      //
+      // Fires once per turn at most: compaction stamps every surviving message
+      // with a fresh sentAt and drops the assistant messages that preceded the
+      // live prompt, so the cache gap it measured is gone on the next step.
+      if (agentTemplate.compactContext) {
+        const compacted = maybeCompactHistory({
+          // The option object is exactly the tunable subset, so it forwards
+          // whole. Spread first: the fields below are not the agent's to set.
+          ...(typeof agentTemplate.compactContext === 'object'
+            ? agentTemplate.compactContext
+            : {}),
+          messages: currentAgentState.messageHistory,
+          contextTokenCount: currentAgentState.contextTokenCount,
+          maxContextLength: contextPrunerBudgetForModel(agentTemplate.model),
+          logger,
+          runId,
+        })
+        if (compacted) {
+          currentAgentState.messageHistory = compacted
+          currentAgentState.contextTokenCount =
+            countTokensMessages(compacted) +
+            countTokens(system) +
+            countTokensJson(toolsForTokenCount)
+        }
+      }
 
       // 1. Run programmatic step first if it exists
       let n: number | undefined = undefined

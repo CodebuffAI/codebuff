@@ -22,8 +22,11 @@ export type RequestMcpToolDataFn = (params: {
   }[]
 >
 
+export type FileReadWindow = { offset?: number; limit?: number }
+
 export type RequestFilesFn = (params: {
   filePaths: string[]
+  fileWindows?: Record<string, FileReadWindow[]>
 }) => Promise<Record<string, string | null>>
 
 export type RequestOptionalFileFn = (params: {

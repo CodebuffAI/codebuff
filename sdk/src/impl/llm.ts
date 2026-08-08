@@ -42,6 +42,7 @@ import type {
 } from '@codebuff/common/types/contracts/llm'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
+import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type { LanguageModel } from 'ai'
 import type z from 'zod/v4'
 
@@ -474,6 +475,16 @@ export async function* promptAiSdkStream(
         yield {
           type: 'reasoning',
           text: chunkValue.text,
+        }
+      }
+    }
+    if (chunkValue.type === 'reasoning-end') {
+      if (chunkValue.providerMetadata) {
+        hasReceivedReasoning = true
+        yield {
+          type: 'reasoning',
+          text: '',
+          providerOptions: chunkValue.providerMetadata as ProviderMetadata,
         }
       }
     }

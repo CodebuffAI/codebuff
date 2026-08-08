@@ -42,6 +42,12 @@ const definition: AgentDefinition = {
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
 
+  // The summarization below is duplicated in
+  // packages/agent-runtime/src/compact-history.ts, which agents with
+  // `compactContext: true` run in-process instead of spawning this agent.
+  // handleSteps is serialized with toString() and this file is bundled into
+  // several artifacts, so the two cannot share an import — port changes across.
+  // packages/agent-runtime/src/__tests__/context-pruner-parity.test.ts guards it.
   handleSteps: function* ({ agentState, params, logger }) {
     // =============================================================================
     // Constants (must be inside handleSteps since it's serialized to a string)
@@ -139,7 +145,11 @@ const definition: AgentDefinition = {
     ): string {
       switch (toolName) {
         case 'read_files': {
-          const paths = input.paths as string[] | undefined
+          const paths = (input.paths as unknown[] | undefined)?.map((entry) =>
+            typeof entry === 'string'
+              ? entry
+              : ((entry as { path?: string })?.path ?? ''),
+          )
           if (paths && paths.length > 0) {
             return `inspected files: ${paths.join(', ')}`
           }

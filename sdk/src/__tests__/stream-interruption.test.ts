@@ -44,18 +44,25 @@ describe('classifyStreamEndRecovery', () => {
     expect(recovery?.message).toContain('output token limit')
   })
 
-  it('classifies a normal finish with reasoning but no text or tool calls', () => {
-    const recovery = classifyStreamEndRecovery({
-      aborted: false,
-      finish: { finishReason: 'stop', hasUsage: true },
-      receivedReasoning: true,
-      yieldedText: false,
-      yieldedToolCall: false,
-    })
-    expect(recovery?.source).toBe('output-limit')
-    expect(recovery?.message).toContain(
-      'ended after reasoning without producing an answer or tool call',
-    )
+  it('classifies any complete finish with reasoning but no text or tool calls', () => {
+    for (const finish of [
+      { finishReason: 'stop', hasUsage: true },
+      { finishReason: 'unknown', hasUsage: true },
+      { finishReason: 'other', hasUsage: true },
+      { finishReason: 'tool-calls', hasUsage: false },
+    ]) {
+      const recovery = classifyStreamEndRecovery({
+        aborted: false,
+        finish,
+        receivedReasoning: true,
+        yieldedText: false,
+        yieldedToolCall: false,
+      })
+      expect(recovery?.source).toBe('output-limit')
+      expect(recovery?.message).toContain(
+        'ended after reasoning without producing an answer or tool call',
+      )
+    }
   })
 
   it('leaves a length stop after real output alone', () => {

@@ -1,5 +1,7 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
+import { codeSearchDisplayVariants } from '@codebuff/common/tools/params/tool/code-search'
+import { readFilesDisplayVariants } from '@codebuff/common/tools/params/tool/read-files'
 import { AVAILABLE_SKILLS_PLACEHOLDER } from '@codebuff/common/tools/params/tool/skill'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
@@ -346,20 +348,45 @@ ${toolDescriptionsList.join('\n\n')}
 `.trim()
 }
 
+const readStyleDisplayVariants: Partial<
+  Record<ToolName, { legacy: DisplayVariant; windowed: DisplayVariant }>
+> = {
+  read_files: readFilesDisplayVariants,
+  code_search: codeSearchDisplayVariants,
+}
+
+type DisplayVariant = { description: string; inputSchema: z.ZodType }
+
 export async function getToolSet(params: {
   toolNames: string[]
+  windowedFileReads: boolean
   additionalToolDefinitions: () => Promise<CustomToolDefinitions>
   agentTools: ToolSet
   skills: SkillsMap
 }): Promise<ToolSet> {
-  const { toolNames, additionalToolDefinitions, agentTools, skills } = params
+  const {
+    toolNames,
+    windowedFileReads,
+    additionalToolDefinitions,
+    agentTools,
+    skills,
+  } = params
 
   // Generate available skills XML for the skill tool description
   const availableSkillsXml = formatAvailableSkillsXml(skills)
   const toolSet: ToolSet = {}
   for (const toolName of toolNames) {
     if (toolName in toolParams) {
-      const toolDef = toolParams[toolName as ToolName]
+      const baseToolDef = toolParams[toolName as ToolName]
+      const displayVariants = readStyleDisplayVariants[toolName as ToolName]
+      const toolDef = displayVariants
+        ? {
+            ...baseToolDef,
+            ...(windowedFileReads
+              ? displayVariants.windowed
+              : displayVariants.legacy),
+          }
+        : baseToolDef
 
       // For the skill tool, replace the placeholder with actual available skills
       if (toolName === 'skill' && availableSkillsXml) {

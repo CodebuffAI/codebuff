@@ -130,7 +130,9 @@ export const DynamicAgentDefinitionSchema = z.object({
     .and(
       z.union([
         z.object({ max_tokens: z.number() }),
-        z.object({ effort: z.enum(['high', 'medium', 'low', 'minimal', 'none']) }),
+        z.object({
+          effort: z.enum(['high', 'medium', 'low', 'minimal', 'none']),
+        }),
       ]),
     )
     .optional(),
@@ -186,6 +188,18 @@ export const DynamicAgentDefinitionSchema = z.object({
   inputSchema: InputSchemaObjectSchema,
   includeMessageHistory: z.boolean().default(false),
   inheritParentSystemPrompt: z.boolean().default(false),
+  windowedFileReads: z.boolean().optional(),
+  compactContext: z
+    .union([
+      z.boolean(),
+      z
+        .object({
+          cacheExpiryMs: z.number().nullish(),
+          cacheExpiryMinTokens: z.number().nullish(),
+        })
+        .strict(),
+    ])
+    .optional(),
   outputMode: z
     .enum(['last_message', 'all_messages', 'structured_output'])
     .default('last_message'),

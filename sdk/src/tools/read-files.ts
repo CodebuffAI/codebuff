@@ -5,10 +5,14 @@ import {
   isEnvTemplateFilePath,
   isSensitiveEnvFilePath,
 } from '@codebuff/common/util/env-file-path'
-import { createFileReadLimiter } from '@codebuff/common/util/file-read-limits'
+import {
+  createFileReadLimiter,
+  windowFileRead,
+} from '@codebuff/common/util/file-read-limits'
 
 import { resolveFilePath } from './path-utils'
 
+import type { FileReadWindow } from '@codebuff/common/types/contracts/client'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export type FileFilterResult = {
@@ -21,6 +25,7 @@ export async function getFiles(params: {
   filePaths: string[]
   cwd: string
   fs: CodebuffFileSystem
+  fileWindows?: Record<string, FileReadWindow[]>
   /**
    * Apply the user-facing read_files output budget. Internal edit tools need
    * the complete file so replacements below the display limit can still match.
@@ -40,6 +45,7 @@ export async function getFiles(params: {
     filePaths,
     cwd,
     fs,
+    fileWindows,
     fileFilter,
     limitContent = true,
     enforceEnvPolicy = true,
@@ -110,7 +116,16 @@ export async function getFiles(params: {
 
       const content = await fs.readFile(fullPath, 'utf8')
 
-      const returnedContent = limiter?.limit(content) ?? content
+      const windows = fileWindows?.[filePath]
+      const windowedContent =
+        limitContent && fileWindows !== undefined
+          ? (windows?.length ? windows : [{}])
+              .map((window: FileReadWindow) =>
+                windowFileRead(content, window.offset, window.limit),
+              )
+              .join('\n\n')
+          : content
+      const returnedContent = limiter?.limit(windowedContent) ?? windowedContent
       result[relativePath] = isExampleFile
         ? FILE_READ_STATUS.TEMPLATE + '\n' + returnedContent
         : returnedContent

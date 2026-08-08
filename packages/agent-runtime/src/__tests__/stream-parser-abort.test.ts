@@ -39,7 +39,12 @@ describe('stream parser abort handling', () => {
     stepPrompt: 'Test step prompt',
   }
 
-  function getAssistantText(messageHistory: { role: string; content: { type: string; text?: string }[] }[]): string[] {
+  function getAssistantText(
+    messageHistory: {
+      role: string
+      content: { type: string; text?: string }[]
+    }[],
+  ): string[] {
     return messageHistory
       .filter((m): m is AssistantMessage => m.role === 'assistant')
       .flatMap((m) => m.content)
@@ -53,7 +58,10 @@ describe('stream parser abort handling', () => {
     // The stream yields text chunks that get buffered in processStreamWithTools.
     // Since no tool call arrives after the text, the buffer is never flushed
     // normally. The try/finally in processStreamWithTools should flush it on abort.
-    async function* mockStream(): AsyncGenerator<StreamChunk, PromptResult<string | null>> {
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
       yield { type: 'text' as const, text: 'Hello ' }
       yield { type: 'text' as const, text: 'world' }
       abortController.abort()
@@ -109,7 +117,10 @@ describe('stream parser abort handling', () => {
     // Text before tool call gets flushed when the tool call arrives.
     // Text after the tool call sits in the buffer and is only flushed
     // by the try/finally on abort.
-    async function* mockStream(): AsyncGenerator<StreamChunk, PromptResult<string | null>> {
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
       yield { type: 'text' as const, text: 'Analyzing code...' }
       yield {
         type: 'tool-call' as const,
@@ -179,7 +190,10 @@ describe('stream parser abort handling', () => {
     // but the signal.aborted check at the top of the outer loop breaks before
     // the next iteration. streamWithTags.return() triggers the generator's
     // finally → flush(), preserving all buffered text.
-    async function* mockStream(): AsyncGenerator<StreamChunk, PromptResult<string | null>> {
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
       yield { type: 'text' as const, text: 'Starting ' }
       yield { type: 'text' as const, text: 'analysis' }
       abortController.abort()

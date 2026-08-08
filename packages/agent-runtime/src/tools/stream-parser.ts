@@ -406,7 +406,10 @@ export async function processStream(
       }
 
       if (chunk.type === 'reasoning') {
-        if (INCLUDE_REASONING_IN_MESSAGE_HISTORY && chunk.text) {
+        if (
+          INCLUDE_REASONING_IN_MESSAGE_HISTORY &&
+          (chunk.text || chunk.providerOptions)
+        ) {
           const last = assistantMessages[assistantMessages.length - 1]
           const lastPart =
             last?.role === 'assistant' && Array.isArray(last.content)
@@ -418,19 +421,30 @@ export async function processStream(
             !claimedByInlineAgent.has(last)
           ) {
             lastPart.text += chunk.text
+            if (chunk.providerOptions) {
+              lastPart.providerOptions = chunk.providerOptions
+            }
           } else {
             assistantMessages.push(
-              assistantMessage({ type: 'reasoning', text: chunk.text }),
+              assistantMessage({
+                type: 'reasoning',
+                text: chunk.text,
+                ...(chunk.providerOptions
+                  ? { providerOptions: chunk.providerOptions }
+                  : {}),
+              }),
             )
           }
         }
-        onResponseChunk({
-          type: 'reasoning_delta',
-          text: chunk.text,
-          ancestorRunIds,
-          runId,
-          agentId: agentState.agentId,
-        })
+        if (chunk.text) {
+          onResponseChunk({
+            type: 'reasoning_delta',
+            text: chunk.text,
+            ancestorRunIds,
+            runId,
+            agentId: agentState.agentId,
+          })
+        }
       } else if (chunk.type === 'text') {
         onResponseChunk(chunk.text)
         fullResponseChunks.push(chunk.text)

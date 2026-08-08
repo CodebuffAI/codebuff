@@ -576,6 +576,7 @@ describe('hasFreebuffRootSystemPromptOpening', () => {
  */
 describe('every freebuff root agent declares a prompt opening', () => {
   const BASE2 = 'You are Buffy, the strategic coding assistant.'
+  const BASE3 = 'You are Buffy, the coding agent behind Codebuff.'
   const CLOUD_PLANNER = 'You are Buffy, the Freebuff Cloud project planner.'
 
   /** Root agent id → the opening its system prompt starts with. */
@@ -599,9 +600,9 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-muse-spark': BASE2,
     'base2-free-cloud-planner': CLOUD_PLANNER,
     'base2-free-cloud-planner-limited': CLOUD_PLANNER,
-    // Desktop threads compose their prompt onto base2's, so position 0 matches.
+    // Desktop threads compose their prompt onto base3's, so position 0 matches.
     ...Object.fromEntries(
-      FREEBUFF_DESKTOP_THREAD_AGENT_IDS.map((id) => [id, BASE2]),
+      FREEBUFF_DESKTOP_THREAD_AGENT_IDS.map((id) => [id, BASE3]),
     ),
   }
 
@@ -669,7 +670,7 @@ describe('canonical root prompt openings match their source definitions', () => 
     )
   })
 
-  test('desktop thread agent composes onto the base2 prompt head', () => {
+  test('desktop thread agent composes onto the base3 prompt head', () => {
     const source = read(
       'freebuff-desktop',
       'src',
@@ -677,9 +678,19 @@ describe('canonical root prompt openings match their source definitions', () => 
       'harness',
       'thread-agent.ts',
     )
-    // Position 0 of the desktop prompt must stay the base2 prompt, or the
+    // Position 0 of the desktop prompt must stay the base3 prompt, or the
     // desktop roots stop matching any canonical opening.
-    expect(source).toContain('systemPrompt: `${base2.systemPrompt}')
+    expect(source).toContain('systemPrompt: `${base3.systemPrompt}')
+  })
+
+  test('base3 createBase3 prompt (desktop thread roots)', () => {
+    const source = read('agents', 'base3.ts')
+    expect(source).toContain(
+      'systemPrompt: `You are Buffy, the coding agent behind Codebuff.',
+    )
+    expect(FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS).toContain(
+      'You are Buffy, the coding agent behind Codebuff.',
+    )
   })
 })
 

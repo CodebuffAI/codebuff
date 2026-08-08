@@ -16,11 +16,13 @@
  * received. A missing finish part altogether is always an interruption.
  *
  * **'output-limit'** — the model produced no text or tool calls because it
- * either spent its output budget on reasoning (`length`) or reported a normal
- * stop after emitting only native reasoning. Both are complete, well-formed
- * streams whose turns would otherwise end with nothing visible. A `length`
- * stop after real output is the answer running long, which is not silently
- * recoverable (retrying would duplicate output).
+ * either spent its output budget on reasoning (`length`) or ended the stream
+ * after emitting only native reasoning, under any finish reason the provider
+ * chose to report (a Bedrock-via-OpenRouter reasoning-only end has arrived as
+ * 'unknown' with usage). Both are complete, well-formed streams whose turns
+ * would otherwise end with nothing visible. A `length` stop after real output
+ * is the answer running long, which is not silently recoverable (retrying
+ * would duplicate output).
  *
  * Before this existed, both classes read as the agent "randomly stopping"
  * mid-thinking with no error anywhere (2026-07-17 incident).
@@ -75,7 +77,7 @@ const OUTPUT_LIMIT_RECOVERY: StreamEndRecovery = {
 
 const REASONING_ONLY_RECOVERY: StreamEndRecovery = {
   // Keep the existing source so this follows the same bounded retry path,
-  // while the message stays truthful for a normal stop.
+  // while the message stays truthful for a complete stream.
   source: 'output-limit',
   message:
     'The response ended after reasoning without producing an answer or tool call. Continue this step, think more briefly, and get to the response or tool calls quickly.',
@@ -108,9 +110,10 @@ export function classifyStreamEndRecovery(params: {
 
   if (finish.finishReason === 'length') return OUTPUT_LIMIT_RECOVERY
 
-  const reasoningOnlyStop =
-    finish.finishReason === 'stop' && receivedReasoning
-  if (reasoningOnlyStop) return REASONING_ONLY_RECOVERY
+  // Whatever finish reason the provider reported ('stop', 'unknown' with
+  // usage, anything else): reasoning with nothing visible after it is a
+  // silent stop.
+  if (receivedReasoning) return REASONING_ONLY_RECOVERY
 
   return null
 }

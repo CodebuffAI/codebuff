@@ -6,6 +6,24 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+
+const testAgentTemplate: AgentTemplate = {
+  id: 'test-agent',
+  displayName: 'Test Agent',
+  spawnerPrompt: 'Test agent',
+  model: 'claude-3-5-sonnet-20241022',
+  inputSchema: {},
+  outputMode: 'structured_output',
+  includeMessageHistory: true,
+  inheritParentSystemPrompt: false,
+  mcpServers: {},
+  toolNames: ['glob'],
+  spawnableAgents: [],
+  systemPrompt: 'Test system prompt',
+  instructionsPrompt: 'Test instructions',
+  stepPrompt: 'Test step prompt',
+}
 
 interface GlobResultValue {
   files?: string[]
@@ -44,6 +62,7 @@ describe('handleGlob', () => {
     const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -87,6 +106,7 @@ describe('handleGlob', () => {
     const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -132,6 +152,7 @@ describe('handleGlob', () => {
     const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -166,6 +187,7 @@ describe('handleGlob', () => {
     const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -205,6 +227,7 @@ describe('handleGlob', () => {
     const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -237,6 +260,7 @@ describe('handleGlob', () => {
     const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -282,6 +306,7 @@ describe('handleGlob', () => {
     const { output: _output } = await handleGlob({
       previousToolCallFinished,
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -320,6 +345,7 @@ describe('handleGlob', () => {
     const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
+      agentTemplate: testAgentTemplate,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
@@ -329,5 +355,74 @@ describe('handleGlob', () => {
     expect(value.files?.every((f) => f.includes('components'))).toBe(
       true,
     )
+  })
+
+  it('injects max_results for agents with windowedFileReads', async () => {
+    const mockRequestClientToolCall = mock(
+      async (): Promise<CodebuffToolOutput<'glob'>> => [
+        { type: 'json', value: { files: [], count: 0, message: '' } },
+      ],
+    )
+    const toolCall: CodebuffToolCall<'glob'> = {
+      toolName: 'glob',
+      toolCallId: 'tc-windowed',
+      input: { pattern: '**/*.ts' },
+    }
+
+    await handleGlob({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall,
+      agentTemplate: { ...testAgentTemplate, windowedFileReads: true },
+      requestClientToolCall: mockRequestClientToolCall,
+    })
+
+    expect(mockRequestClientToolCall).toHaveBeenCalledWith({
+      ...toolCall,
+      input: { pattern: '**/*.ts', max_results: 100 },
+    })
+  })
+
+  it('keeps the model-provided max_results for windowed agents', async () => {
+    const mockRequestClientToolCall = mock(
+      async (): Promise<CodebuffToolOutput<'glob'>> => [
+        { type: 'json', value: { files: [], count: 0, message: '' } },
+      ],
+    )
+    const toolCall: CodebuffToolCall<'glob'> = {
+      toolName: 'glob',
+      toolCallId: 'tc-windowed-2',
+      input: { pattern: '**/*.ts', max_results: 7 },
+    }
+
+    await handleGlob({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall,
+      agentTemplate: { ...testAgentTemplate, windowedFileReads: true },
+      requestClientToolCall: mockRequestClientToolCall,
+    })
+
+    expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
+  })
+
+  it('does not inject max_results for legacy agents', async () => {
+    const mockRequestClientToolCall = mock(
+      async (): Promise<CodebuffToolOutput<'glob'>> => [
+        { type: 'json', value: { files: [], count: 0, message: '' } },
+      ],
+    )
+    const toolCall: CodebuffToolCall<'glob'> = {
+      toolName: 'glob',
+      toolCallId: 'tc-legacy',
+      input: { pattern: '**/*.ts' },
+    }
+
+    await handleGlob({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall,
+      agentTemplate: testAgentTemplate,
+      requestClientToolCall: mockRequestClientToolCall,
+    })
+
+    expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
   })
 })

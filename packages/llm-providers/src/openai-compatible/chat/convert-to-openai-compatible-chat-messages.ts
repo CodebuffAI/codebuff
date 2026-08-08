@@ -3,6 +3,7 @@ import { convertToBase64 } from '@ai-sdk/provider-utils'
 
 import type { OpenAICompatibleChatPrompt } from './openai-compatible-api-types'
 import type {
+  JSONValue,
   LanguageModelV2Prompt,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider'
@@ -15,6 +16,7 @@ function getOpenAIMetadata(message: {
 
 export function convertToOpenAICompatibleChatMessages(
   prompt: LanguageModelV2Prompt,
+  options?: { providerOptionsName?: string; modelId?: string },
 ): OpenAICompatibleChatPrompt {
   const messages: OpenAICompatibleChatPrompt = []
   for (const { role, content, ...message } of prompt) {
@@ -66,6 +68,7 @@ export function convertToOpenAICompatibleChatMessages(
       case 'assistant': {
         let text = ''
         let reasoningContent = ''
+        const reasoningDetails: JSONValue[] = []
         const toolCalls: Array<{
           id: string
           type: 'function'
@@ -81,6 +84,28 @@ export function convertToOpenAICompatibleChatMessages(
             }
             case 'reasoning': {
               reasoningContent += part.text
+              // Replay OpenRouter reasoning blocks (carrying the provider's
+              // thinking signatures) captured on the response — see the
+              // language model's reasoning_details assembly. Signatures are
+              // only valid for the model that produced them, so blocks
+              // captured from a different model (fallback, mid-thread model
+              // switch) are dropped rather than replayed.
+              const namespaces = options?.providerOptionsName
+                ? [part.providerOptions?.[options.providerOptionsName]]
+                : Object.values(part.providerOptions ?? {})
+              for (const namespace of namespaces) {
+                const details = namespace?.reasoning_details
+                if (!Array.isArray(details)) continue
+                const detailsModel = namespace?.model
+                if (
+                  typeof detailsModel === 'string' &&
+                  options?.modelId !== undefined &&
+                  detailsModel !== options.modelId
+                ) {
+                  continue
+                }
+                reasoningDetails.push(...details)
+              }
               break
             }
             case 'tool-call': {
@@ -111,7 +136,15 @@ export function convertToOpenAICompatibleChatMessages(
                 ? previous.content + text
                 : text
           }
-          if (reasoningContent.length > 0) {
+          // reasoning_details already carry the reasoning text (plus the
+          // provider's signatures), so emit the plain-text copy only when no
+          // details exist for this run.
+          if (reasoningDetails.length > 0) {
+            previous.reasoning_details = [
+              ...(previous.reasoning_details ?? []),
+              ...reasoningDetails,
+            ]
+          } else if (reasoningContent.length > 0) {
             previous.reasoning_content =
               typeof previous.reasoning_content === 'string'
                 ? previous.reasoning_content + reasoningContent
@@ -130,7 +163,11 @@ export function convertToOpenAICompatibleChatMessages(
           role: 'assistant',
           content: text,
           reasoning_content:
-            reasoningContent.length > 0 ? reasoningContent : undefined,
+            reasoningDetails.length === 0 && reasoningContent.length > 0
+              ? reasoningContent
+              : undefined,
+          reasoning_details:
+            reasoningDetails.length > 0 ? reasoningDetails : undefined,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           ...metadata,
         })

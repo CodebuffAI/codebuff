@@ -212,7 +212,12 @@ describe('stream parser interrupted streams', () => {
     const assistant = assistantMessage('partial output')
     const toolResult = {
       role: 'tool',
-      content: { type: 'tool-result', toolName: 'read_files', toolCallId: 'x', output: [] },
+      content: {
+        type: 'tool-result',
+        toolName: 'read_files',
+        toolCallId: 'x',
+        output: [],
+      },
     } as unknown as Message
     const plainUser = userMessage({ content: 'a real prompt' })
 

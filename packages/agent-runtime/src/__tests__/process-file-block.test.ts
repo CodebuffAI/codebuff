@@ -192,6 +192,5 @@ describe('processFileBlockModule', () => {
         )
       }
     })
-
   })
 })

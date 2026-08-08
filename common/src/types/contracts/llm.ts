@@ -5,6 +5,7 @@ import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
 import type { Message } from '../messages/codebuff-message'
+import type { ProviderMetadata } from '../messages/provider-metadata'
 import type { PromptResult } from '../../util/error'
 import type { generateText, streamText, ToolCallPart } from 'ai'
 import type z from 'zod/v4'
@@ -25,6 +26,11 @@ export type StreamChunk =
   | {
       type: 'reasoning'
       text: string
+      /** Provider metadata for the whole reasoning segment (e.g. OpenRouter
+       *  reasoning_details with thinking signatures), delivered on a final
+       *  empty-text chunk once the segment ends. Stored on the history's
+       *  reasoning part so the next request can replay it. */
+      providerOptions?: ProviderMetadata
     }
   | Pick<
       ToolCallPart,

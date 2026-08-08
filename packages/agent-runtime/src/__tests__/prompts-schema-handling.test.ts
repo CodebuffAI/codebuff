@@ -238,6 +238,7 @@ describe('Schema handling error recovery', () => {
 
       const toolSet = await getToolSet({
         toolNames: [],
+        windowedFileReads: false,
         additionalToolDefinitions: async () => customToolDefs,
         agentTools: {},
         skills: {},

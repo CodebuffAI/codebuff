@@ -35,12 +35,15 @@ const inputSchema = z
       ),
   })
   .describe(
-    `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`,
+    `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool.`,
   )
-const description = `
+const legacyInputSchema = inputSchema.describe(
+  `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`,
+)
+const buildDescription = (guidance: string) => `
 Purpose: Search through code files to find files with specific text patterns, function names, variable names, and more.
 
-Prefer to use read_files instead of code_search unless you need to search for a specific pattern in multiple files.
+${guidance}
 
 Use cases:
 1. Finding all references to a function, class, or variable name across the codebase
@@ -122,6 +125,18 @@ ${$getNativeToolCallExampleString({
   endsAgentStep,
 })}
 `.trim()
+
+const legacyDescription = buildDescription(
+  'Prefer to use read_files instead of code_search unless you need to search for a specific pattern in multiple files.',
+)
+const description = buildDescription(
+  'Matches are returned with their line numbers, so in a large file you can search first and then read a window around a match with read_files { path, offset, limit } instead of reading the whole file.',
+)
+
+export const codeSearchDisplayVariants = {
+  legacy: { description: legacyDescription, inputSchema: legacyInputSchema },
+  windowed: { description, inputSchema },
+}
 
 export const codeSearchParams = {
   toolName,

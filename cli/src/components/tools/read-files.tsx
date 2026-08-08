@@ -1,3 +1,4 @@
+import { readFilePathsOf } from '@codebuff/common/tools/params/tool/read-files'
 import { isEnvTemplateFilePath } from '@codebuff/common/util/env-file-path'
 import { TextAttributes } from '@opentui/core'
 
@@ -61,12 +62,7 @@ export const ReadFilesComponent = defineToolComponent({
     const input = toolBlock.input as any
 
     // Extract file paths from input
-    const filePaths: string[] = Array.isArray(input?.paths)
-      ? input.paths
-          .filter((path: any) => typeof path === 'string')
-          .map((path: string) => path.trim())
-          .filter((path: string) => path.length > 0)
-      : []
+    const filePaths: string[] = readFilePathsOf(input?.paths)
 
     if (filePaths.length === 0) {
       return { content: null }

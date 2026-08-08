@@ -461,8 +461,11 @@ export function isFreebuffRootAgent(fullAgentId: string): boolean {
  */
 export const FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS = [
   // agents/base2/base2.ts createBase2('free', …) — every `base2-free-*` CLI
-  // root, and the desktop thread agents that compose their prompt onto it.
+  // root.
   'You are Buffy, the strategic coding assistant.',
+  // agents/base3.ts createBase3(…) — the desktop thread agents compose their
+  // prompt onto it.
+  'You are Buffy, the coding agent behind Codebuff.',
   // freebuff_bundled_agents.ts CLOUD_PLANNER_SYSTEM_PROMPT — planner roots.
   'You are Buffy, the Freebuff Cloud project planner.',
   // LEGACY — base2's opening before 92371caa8 (2026-07-07). The prompt is

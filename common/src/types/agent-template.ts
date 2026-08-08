@@ -133,6 +133,10 @@ export type AgentTemplate<
   }
   includeMessageHistory: boolean
   inheritParentSystemPrompt: boolean
+  windowedFileReads?: boolean
+  compactContext?:
+    | boolean
+    | { cacheExpiryMs?: number | null; cacheExpiryMinTokens?: number | null }
   outputMode: 'last_message' | 'all_messages' | 'structured_output'
   outputSchema?: z.ZodSchema<any>
 

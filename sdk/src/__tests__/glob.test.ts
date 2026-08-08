@@ -78,4 +78,37 @@ describe('glob', () => {
     expect((await globCount(fs, '**/BackendCapabilities*')).count).toBe(1)
     expect((await globCount(fs, '**/*.xml')).count).toBe(1)
   })
+
+  it('returns everything when no maxResults is given', async () => {
+    const fs = fsWithFiles(
+      Array.from({ length: 150 }, (_, i) => `src/f${i}.ts`),
+    )
+    const result = await globCount(fs, '**/*.ts')
+
+    expect(result.count).toBe(150)
+    expect(result.files.length).toBe(150)
+    expect(result.message).not.toContain('Showing the first')
+  })
+
+  it('caps returned files at maxResults while count reports the true total', async () => {
+    const fs = fsWithFiles(
+      Array.from({ length: 150 }, (_, i) => `src/f${i}.ts`),
+    )
+    const [output] = await glob({
+      pattern: '**/*.ts',
+      projectPath: ROOT,
+      maxResults: 100,
+      fs,
+    })
+    const result = output.value as {
+      count: number
+      files: string[]
+      message: string
+    }
+
+    expect(result.count).toBe(150)
+    expect(result.files.length).toBe(100)
+    expect(result.message).toContain('Found 150 file(s)')
+    expect(result.message).toContain('Showing the first 100')
+  })
 })
