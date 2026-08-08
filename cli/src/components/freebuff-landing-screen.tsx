@@ -43,12 +43,12 @@ import {
   getRateLimitsByModel,
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
+import { getFreebuffModelAvailabilityNotice } from '@codebuff/common/util/freebuff-model-availability'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
 import type { FreebuffStreakLine } from '../utils/freebuff-streak-line'
 import type { FreebuffSessionFailure } from '../state/freebuff-session-store'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
-import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
 import type { KeyEvent } from '@opentui/core'
 
 interface FreebuffLandingScreenProps {
@@ -74,90 +74,15 @@ const formatRetryAfter = (ms: number): string => {
   return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
 }
 
-const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
-  {
-    anonymous: 'anonymized network',
-    proxy: 'proxy',
-    relay: 'relay',
-    res_proxy: 'residential proxy',
-    tor: 'Tor',
-    vpn: 'VPN',
-    hosting: 'hosting network',
-    service: 'privacy service',
-  }
-
-const formatPrivacySignalList = (
-  signals: FreebuffIpPrivacySignal[] | undefined,
-): string => {
-  const labels = Array.from(
-    new Set(
-      signals
-        ?.map((signal) => PRIVACY_SIGNAL_LABELS[signal])
-        .filter((label): label is string => Boolean(label)) ?? [],
-    ),
-  )
-
-  if (labels.length === 0) {
-    return 'VPN, Tor, proxy, relay, or anonymized network'
-  }
-  if (labels.length === 1) return labels[0]
-  if (labels.length === 2) return `${labels[0]} or ${labels[1]}`
-  return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
-}
-
-/** "BR" → "Brazil". Falls back to the raw code when the runtime can't
- *  resolve it (malformed code, missing ICU data). */
-const formatCountryName = (countryCode: string): string => {
-  try {
-    return (
-      new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) ??
-      countryCode
-    )
-  } catch {
-    return countryCode
-  }
-}
-
-// Tone matters here: this is shown to users who, through no fault of their
-// own, get the smaller model set. Frame it as model *availability* ("aren't
-// available in BR yet"), never as restricted *access* ("limited mode",
-// "blocked") — clear enough to answer "why these models?" for someone who
-// goes looking, quiet enough to ignore for someone who doesn't. The VPN case
-// is the one the user can act on, so it leads with the action. Rendered
-// directly under the model list — that's where "why these models?" gets asked.
+// Rendered directly under the model list — that's where "why these models?"
+// gets asked. The copy itself is shared with Freebuff Desktop's model menu; see
+// `getFreebuffModelAvailabilityNotice` for the tone rules it follows.
 const getLimitedModeNotice = (
   session: FreebuffSessionResponse | null,
-): string | null => {
-  if (!session || !('countryBlockReason' in session)) {
-    return "Some models aren't available on this connection"
-  }
-
-  const countryCode =
-    'countryCode' in session &&
-    session.countryCode &&
-    session.countryCode !== 'UNKNOWN'
-      ? session.countryCode
-      : null
-
-  switch (session.countryBlockReason) {
-    case 'anonymous_network':
-      return `Using a ${formatPrivacySignalList(
-        session.ipPrivacySignals ?? undefined,
-      )}? More models are available on a direct connection`
-    case 'country_not_allowed':
-      return `Some models aren't available in ${
-        countryCode ? formatCountryName(countryCode) : 'your region'
-      } yet`
-    case 'anonymized_or_unknown_country':
-    case 'missing_client_ip':
-    case 'unresolved_client_ip':
-      return "We couldn't confirm your region, so we're showing models available everywhere"
-    case 'ip_privacy_lookup_failed':
-      return "We couldn't finish a network check, so we're showing models available everywhere"
-    default:
-      return "Some models aren't available on this connection"
-  }
-}
+): string | null =>
+  getFreebuffModelAvailabilityNotice(
+    session && 'countryBlockReason' in session ? session : null,
+  )
 
 function getTakeoverErrorMessage(failure: FreebuffSessionFailure): string {
   if (failure.type === 'http' && failure.statusCode === 503) {
