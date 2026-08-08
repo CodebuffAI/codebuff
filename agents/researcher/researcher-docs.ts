@@ -27,6 +27,9 @@ const definition: SecretAgentDefinition = {
 1. Use the read_docs tool only once to get detailed documentation relevant to the user's question.
 2. Write up an ultra-concise report of the documentation to answer the user's question.
   `.trim(),
+  // See researcher-web: without a trailing turn, a step that ends on a tool
+  // result lets the model stop after thinking and return no answer.
+  stepPrompt: `Continue. Respond with either more tool calls or your final written answer.`,
 }
 
 export default definition

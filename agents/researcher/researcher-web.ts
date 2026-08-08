@@ -35,6 +35,11 @@ Then, write up a concise answer that includes key findings for the user's prompt
 
 HARD RULE: You may not write your final answer until you have successfully fetched at least 3 pages with read_url — for multi-part or comparative questions, fetch 5 or more. Search results alone are never sufficient, no matter how complete they look. If you are about to answer and have fewer than 3 read_url fetches, call read_url instead.
 `.trim(),
+  // Without this, every step ends the conversation on a raw tool result and
+  // the model is never asked for anything, so it ends the step after thinking
+  // — no text, no tool call — and the spawner gets a thinking trace instead of
+  // the summary.
+  stepPrompt: `Continue. Respond with either more tool calls or your final written answer.`,
 }
 
 export default definition
