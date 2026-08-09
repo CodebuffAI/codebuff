@@ -346,6 +346,11 @@ export enum AnalyticsEvent {
   // these capture the launch, auth, and per-turn activity unique to the app.
   DESKTOP_APP_LAUNCHED = 'desktop.app_launched',
   DESKTOP_LOGIN = 'desktop.login',
+  // Every way device-code sign-in can fail on the client. Without it a user who
+  // cannot sign in is INVISIBLE: `/api/auth/cli/code` answers 200 on all of
+  // them (unreachable host, TLS interception, clock skew, an abandoned code),
+  // so the server sees a healthy login it never hears about again.
+  DESKTOP_LOGIN_FAILED = 'desktop.login_failed',
   DESKTOP_LOGOUT = 'desktop.logout',
   DESKTOP_THREAD_CREATED = 'desktop.thread_created',
   DESKTOP_THREAD_TITLED = 'desktop.thread_titled',

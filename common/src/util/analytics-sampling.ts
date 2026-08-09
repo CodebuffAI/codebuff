@@ -32,6 +32,9 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   // login / activity funnels aren't decimated by the 1% default sample.
   AnalyticsEvent.DESKTOP_APP_LAUNCHED,
   AnalyticsEvent.DESKTOP_LOGIN,
+  // Rare, and the only evidence a sign-in failed at all — a sampled one is a
+  // support ticket with nothing behind it.
+  AnalyticsEvent.DESKTOP_LOGIN_FAILED,
   AnalyticsEvent.DESKTOP_LOGOUT,
   AnalyticsEvent.DESKTOP_THREAD_CREATED,
   AnalyticsEvent.DESKTOP_PROJECT_OPENED,
