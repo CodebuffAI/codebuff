@@ -190,9 +190,11 @@ describe('budgets versus regressions', () => {
   const options = DEFAULT_DATABASE_COST_EVALUATION_OPTIONS
 
   test('being over the absolute budget does not page', () => {
-    // Every lane has been over these since the metric started measuring client
-    // wall time (which includes the ~110ms pool acquire) instead of server
-    // execution. Paging on it made the job red on every run for days.
+    // Originally because every lane sat 4-25x over these: they were written
+    // for server execution while the metric measures client wall time, and
+    // paging on it made the job red on every run for days. The budgets are now
+    // a ratchet measured against real traffic, but they stay report-only until
+    // that has survived a full weekly cycle.
     const [verdict] = evaluateDatabaseRequestCosts(
       [row({ p50ClientSqlWallMs: 192 })],
       [row({ p50ClientSqlWallMs: 190 })],

@@ -61,17 +61,46 @@ export const DEFAULT_DATABASE_COST_EVALUATION_OPTIONS: DatabaseCostEvaluationOpt
     minRoundTripRegression: 2,
   }
 
-const chatClientSqlWall = { p50: 50, p95: 250, p99: 1_000 }
-const chatTrips = { p50: 10, p95: 25, p99: 40 }
-const sessionClientSqlWall = { p50: 25, p95: 100, p99: 500 }
-const sessionTrips = { p50: 6, p95: 12, p99: 20 }
-const ancillaryClientSqlWall = { p50: 25, p95: 150, p99: 750 }
-const ancillaryTrips = { p50: 5, p95: 12, p99: 24 }
+// RECALIBRATED 2026-08-09 against one hour of post-private-endpoint traffic
+// (~470k requests). Each number sits just above that hour's measured
+// percentile, so these are a RATCHET — "no worse than the day we measured" —
+// rather than the aspirational guardrails they started as. That change is only
+// possible because moving off the public database endpoint took the
+// per-round-trip cost from 114ms to 11.8ms; the old budgets were written for
+// server execution time and every lane ran 4-25x over them continuously.
+//
+// Measured p50/p95/p99 at the time of writing, for anyone re-deriving these:
+//   chat free_mode          22.2 / 253.7 / 582.7 ms   trips  3 / 11 / 12
+//   chat freebuff_service   17.5 / 341.1 / 354.8 ms   trips  4 / 13 / 13
+//   chat paid_mode           7.0 /  85.3 /  85.3 ms   trips  2 / 21 / 21
+//   session_get              7.8 /  94.1 / 327.9 ms   trips  1 / 14 / 16
+//   session_post             9.7 / 234.5 / 507.3 ms   trips  1 / 19 / 21
+//   streak_get               6.0 /  41.0 /  41.0 ms   trips  2 /  2 /  2
+//   cli_auth_status          2.2 /  10.9 /  15.2 ms   trips  1 /  1 /  1
+//   cli_auth_code           56.3 /  94.1 /  94.1 ms   trips  2 /  2 /  2
+//   account_providers       75.3 / 116.8 / 116.8 ms   trips  2 /  2 /  2
+const chatClientSqlWall = { p50: 40, p95: 400, p99: 700 }
+const chatTrips = { p50: 8, p95: 24, p99: 28 }
+const sessionClientSqlWall = { p50: 20, p95: 275, p99: 600 }
+const sessionTrips = { p50: 4, p95: 22, p99: 24 }
+// Split out of `ancillary`, because one shared budget wide enough for
+// account_providers (75ms p50 on 2 round trips) was blind to lanes that
+// actually run at 2-6ms. A budget that every lane passes is not a budget.
+const lightClientSqlWall = { p50: 12, p95: 60, p99: 90 }
+const lightTrips = { p50: 2, p95: 3, p99: 4 }
+const ancillaryClientSqlWall = { p50: 100, p95: 175, p99: 300 }
+const ancillaryTrips = { p50: 6, p95: 8, p99: 12 }
 
 /**
- * Launch guardrails, not claims about the current distribution. They are
- * deliberately above the measured 1–4ms statement norm and should be tightened
- * after the first representative seven-day baseline.
+ * A no-regression ratchet against measured production, not an aspiration.
+ *
+ * Still REPORTED, never paged — see the `breach` comment in
+ * evaluateDatabaseRequestCosts. Promoting these to pageable is a deliberate
+ * follow-up, and the precondition is a full week with every lane inside them.
+ *
+ * The lane most worth driving down is `session_post`: 19 round trips at p95.
+ * With transport at ~11ms that is ~210ms of pure round-tripping, and round
+ * trips — not query time — are what handlers control.
  */
 export const DATABASE_REQUEST_BUDGETS: DatabaseRequestBudget[] = [
   ...['chat_unknown', 'free_mode', 'freebuff_service', 'paid_mode'].map(
@@ -94,15 +123,15 @@ export const DATABASE_REQUEST_BUDGETS: DatabaseRequestBudget[] = [
     service: 'web',
     route: '/api/v1/freebuff/streak',
     feature: 'streak_get',
-    clientSqlWallMs: ancillaryClientSqlWall,
-    roundTrips: ancillaryTrips,
+    clientSqlWallMs: lightClientSqlWall,
+    roundTrips: lightTrips,
   },
   {
     service: 'web',
     route: '/api/v1/freebuff/title',
     feature: 'title_post',
-    clientSqlWallMs: ancillaryClientSqlWall,
-    roundTrips: ancillaryTrips,
+    clientSqlWallMs: lightClientSqlWall,
+    roundTrips: lightTrips,
   },
   ...[
     ['/api/account/providers', 'account_providers'],
@@ -117,12 +146,14 @@ export const DATABASE_REQUEST_BUDGETS: DatabaseRequestBudget[] = [
     clientSqlWallMs: ancillaryClientSqlWall,
     roundTrips: ancillaryTrips,
   })),
+  // One indexed read, on both services. The tightest lane we have, and the
+  // clearest read on transport cost: 1 round trip, so its p50 IS the floor.
   ...(['web', 'freebuff-web'] as const).map((service) => ({
     service,
     route: '/api/auth/cli/status',
     feature: 'cli_auth_status',
-    clientSqlWallMs: ancillaryClientSqlWall,
-    roundTrips: ancillaryTrips,
+    clientSqlWallMs: lightClientSqlWall,
+    roundTrips: lightTrips,
   })),
 ]
 
@@ -358,11 +389,20 @@ export function evaluateDatabaseRequestCosts(
       row,
       budget,
       evaluable,
-      // Only a regression pages. The absolute budgets are aspirational targets
-      // for §4.7's capacity work, and every lane has been over them since the
-      // metric started measuring CLIENT wall time (which includes the ~110ms
-      // pool acquire) rather than server execution. Paging on them made this
-      // alert red on every run for days, which is the same as no alert.
+      // Only a regression pages.
+      //
+      // The absolute budgets used to be unpageable for a hard reason: they were
+      // written against server execution time while this metric measures CLIENT
+      // wall time, so every lane sat 4-25x over them and paging made this alert
+      // red on every run for days — the same as no alert. That reason is gone.
+      // The private-endpoint move (docs/db-capacity-and-scaling.md §10) cut the
+      // per-round-trip cost from 114ms to 11.8ms, and the budgets above are now
+      // a ratchet measured against real traffic.
+      //
+      // They still do not page, on purpose: a ratchet set from a single hour
+      // has not yet been shown to survive a weekly traffic cycle, and turning
+      // it on early is exactly how this alert became unreadable the first time.
+      // Promote after a week clean.
       breach: regressed.length > 0,
       overBudget,
       regressed,
