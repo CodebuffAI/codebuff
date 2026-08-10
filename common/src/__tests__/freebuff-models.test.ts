@@ -16,11 +16,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE,
   FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
-  FREEBUFF_HY3_ATLAS_MODEL_ID,
-  FREEBUFF_HY3_MODEL_ID,
-  FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
-  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-  FREEBUFF_LING_3_FLASH_MODEL_ID,
+  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID,
   MUSE_SPARK_FALLBACK_AFTER_MS,
@@ -296,19 +292,12 @@ describe('freebuff model availability', () => {
     // GLM route be farmed. Removed outright 2026-08-04, along with the
     // god-only paid OpenRouter route.
     //
-    // The wire-id CONSTANTS survive because web/src/llm-api/hy3-fallback.ts
-    // still routes `tencent/hy3` for paid/BYOK callers, exactly as paid Kimi
-    // outlived its Freebuff removal. What must not survive is catalog or quota
-    // membership, which is what these assert.
-    expect(FREEBUFF_HY3_MODEL_ID).toBe(FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID)
-    expect(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).toBe(
-      FREEBUFF_HY3_ATLAS_MODEL_ID,
-    )
-
-    for (const hy3Id of [
-      FREEBUFF_HY3_MODEL_ID,
-      FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
-    ]) {
+    // As of 2026-08-07 the wire-id CONSTANTS are gone too: hy3-fallback.ts and
+    // the Atlas Cloud adapter that was its paid lane have been deleted, so
+    // nothing routes `tencent/hy3` on any path, paid or free. The slugs are
+    // spelled out literally here precisely because no constant remains to
+    // import — that is the point of the test.
+    for (const hy3Id of ['tencent/hy3:free', 'tencent/hy3']) {
       expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(hy3Id)
       expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
         hy3Id,
@@ -332,9 +321,9 @@ describe('freebuff model availability', () => {
       expect(isFreebuffPremiumModelId(hy3Id)).toBe(false)
       expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(hy3Id)
       // A stale saved selection downgrades rather than resolving to itself.
-      expect(
-        resolveFreebuffWebModel(hy3Id, { includeGodOnly: true }),
-      ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+      expect(resolveFreebuffWebModel(hy3Id, { includeGodOnly: true })).toBe(
+        FALLBACK_FREEBUFF_MODEL_ID,
+      )
       expect(getFreebuffWebModel(hy3Id).id).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     }
   })
@@ -421,9 +410,9 @@ describe('freebuff model availability', () => {
     expect(isFreebuffWebRememberableModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(
       false,
     )
-    expect(
-      resolveRememberedFreebuffWebModel(FREEBUFF_GLM_V52_MODEL_ID),
-    ).toBe(DEFAULT_FREEBUFF_WEB_MODEL_ID)
+    expect(resolveRememberedFreebuffWebModel(FREEBUFF_GLM_V52_MODEL_ID)).toBe(
+      DEFAULT_FREEBUFF_WEB_MODEL_ID,
+    )
     // Retired picker models self-heal to the always-available fallback, while
     // god-only models remain rememberable when the caller opts in.
     expect(
@@ -433,10 +422,10 @@ describe('freebuff model availability', () => {
       FALLBACK_FREEBUFF_MODEL_ID,
     )
     expect(
-      resolveRememberedFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID, {
+      resolveRememberedFreebuffWebModel(FREEBUFF_KIMI_K3_ECO_MODEL_ID, {
         includeGodOnly: true,
       }),
-    ).toBe(FREEBUFF_LING_3_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_KIMI_K3_ECO_MODEL_ID)
     // A retired/unknown saved id keeps the pre-existing resolution: the
     // always-available fallback, not the premium default.
     expect(resolveRememberedFreebuffWebModel('some/retired-model')).toBe(
@@ -558,60 +547,87 @@ describe('freebuff model availability', () => {
     ).toBe('Laguna S 2.1 (OpenRouter)')
   })
 
-  test('Ling 3.0 Flash is a god-only Freebuff Web/Cloud test model', () => {
-    // The wire id must stay OpenRouter's own slug: getChatCompletionsProvider
-    // has no Ling-specific branch, so it only reaches OpenRouter by falling
-    // through to the default route with the slug intact.
-    expect(FREEBUFF_LING_3_FLASH_MODEL_ID).toBe(
-      'inclusionai/ling-3.0-flash:free',
-    )
+  test('Kimi K3 is a god-only Freebuff Web/Cloud test model', () => {
+    // The wire id must keep the `crof/` prefix and the `-eco` build suffix:
+    // isCrofModel keys off the exact id, and CrofAI also serves a full
+    // `kimi-k3` at twice the price. See kimi-k3-god-only.test.ts.
+    expect(FREEBUFF_KIMI_K3_ECO_MODEL_ID).toBe('crof/kimi-k3-eco')
 
     expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_LING_3_FLASH_MODEL_ID,
+      FREEBUFF_KIMI_K3_ECO_MODEL_ID,
     )
     expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_LING_3_FLASH_MODEL_ID,
+      FREEBUFF_KIMI_K3_ECO_MODEL_ID,
     )
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_LING_3_FLASH_MODEL_ID,
+      FREEBUFF_KIMI_K3_ECO_MODEL_ID,
     )
 
-    expect(isFreebuffWebModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(false)
+    expect(isFreebuffWebModelId(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(false)
     expect(
-      isFreebuffWebModelId(FREEBUFF_LING_3_FLASH_MODEL_ID, {
+      isFreebuffWebModelId(FREEBUFF_KIMI_K3_ECO_MODEL_ID, {
         includeGodOnly: true,
       }),
     ).toBe(true)
-    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(
       true,
     )
-    expect(isFreebuffWebPremiumModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(
       true,
     )
     // Never reachable from the CLI/Desktop picker or a limited-tier browser.
-    expect(isFreebuffPremiumModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(false)
-    expect(isFreebuffModelId(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(false)
+    expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(false)
+    expect(isFreebuffModelId(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(false)
     expect(
-      isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_LING_3_FLASH_MODEL_ID),
+      isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_KIMI_K3_ECO_MODEL_ID),
     ).toBe(false)
 
-    expect(resolveFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+    expect(resolveFreebuffWebModel(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(
       FALLBACK_FREEBUFF_MODEL_ID,
     )
     expect(
-      resolveFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID, {
+      resolveFreebuffWebModel(FREEBUFF_KIMI_K3_ECO_MODEL_ID, {
         includeGodOnly: true,
       }),
-    ).toBe(FREEBUFF_LING_3_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_KIMI_K3_ECO_MODEL_ID)
 
-    const model = getFreebuffWebModel(FREEBUFF_LING_3_FLASH_MODEL_ID)
-    expect(model.displayName).toBe('Ling 3.0 Flash')
-    expect(model.tagline).toBe('Free via OpenRouter')
+    const model = getFreebuffWebModel(FREEBUFF_KIMI_K3_ECO_MODEL_ID)
+    // 'Kimi K3', not 'Kimi K3 Eco' — deliberate, see kimi-k3-god-only.test.ts.
+    expect(model.displayName).toBe('Kimi K3')
+    expect(model.tagline).toBe('Via CrofAI')
     expect(model.experimental).toBe(true)
     expect(model.multimodal).toBe(false)
-    expect(getFreebuffModelImageSupport(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
+    expect(getFreebuffModelImageSupport(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(
       false,
     )
+  })
+
+  test('Ling 3.0 Flash and Greg 2 are fully removed from Freebuff', () => {
+    // All three were god-only test rows, removed 2026-08-07. Spelled literally
+    // because no constant remains to import.
+    for (const removedId of [
+      'inclusionai/ling-3.0-flash:free',
+      'crof/greg-2-ultra',
+      'crof/greg-2-super',
+    ]) {
+      expect(FREEBUFF_WEB_ALL_MODELS.map((model) => model.id)).not.toContain(
+        removedId,
+      )
+      expect(
+        FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id),
+      ).not.toContain(removedId)
+      expect(isFreebuffWebModelId(removedId, { includeGodOnly: true })).toBe(
+        false,
+      )
+      expect(isFreebuffWebGodOnlyModelId(removedId)).toBe(false)
+      expect(isFreebuffSessionModelId(removedId)).toBe(false)
+      // No pool may still meter them, in either direction.
+      expect(isFreebuffWebPremiumModelId(removedId)).toBe(false)
+      expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(removedId)
+      expect(resolveFreebuffWebModel(removedId, { includeGodOnly: true })).toBe(
+        FALLBACK_FREEBUFF_MODEL_ID,
+      )
+    }
   })
 
   test('KAT Coder Pro V2 is fully retired from Freebuff Web and Cloud', () => {
@@ -1237,7 +1253,9 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
   test('discloses the Contributor tier training terms', () => {
     // The discount IS the training grant, so the warning is the disclosure that
     // makes the row legitimate rather than decoration.
-    const model = getFreebuffWebModel(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)
+    const model = getFreebuffWebModel(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
     expect(model.displayName).toBe('Muse Spark 1.2')
     expect(model.dataUse).toBe('training')
     expect(model.warning).toBe('May use data for AI training')
@@ -1258,9 +1276,9 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
       FREEBUFF_WEB_ALL_MODELS.map((model): string => model.id),
     ).not.toContain(MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID)
 
-    expect(isMuseSparkModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)).toBe(
-      true,
-    )
+    expect(
+      isMuseSparkModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(true)
     // A dated provider snapshot must not slip past the rate-limit queue.
     expect(
       isMuseSparkModelId(
@@ -1299,7 +1317,9 @@ describe('Muse Spark rate-limit fallback', () => {
     // The tooltip is a promise about behavior; drift between the two is how a
     // UI starts lying. Both read the same constant, and the threshold the copy
     // implies ("too long") is the one the server actually applies.
-    const model = getFreebuffWebModel(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)
+    const model = getFreebuffWebModel(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
     expect(model.tagline).toBe('Queue')
     expect(model.taglineTooltip).toBe(MUSE_SPARK_FALLBACK_NOTICE)
     expect(MUSE_SPARK_FALLBACK_NOTICE).toContain('GPT-5.6 Luna')

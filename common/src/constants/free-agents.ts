@@ -12,9 +12,7 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_GREG_2_SUPER_MODEL_ID,
-  FREEBUFF_GREG_2_ULTRA_MODEL_ID,
-  FREEBUFF_LING_3_FLASH_MODEL_ID,
+  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -199,9 +197,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-glm',
   'base2-free-laguna-s-2-1',
   'base2-free-laguna-s-2-1-openrouter',
-  'base2-free-ling-3-flash',
-  'base2-free-greg-2-ultra',
-  'base2-free-greg-2-super',
+  'base2-free-kimi-k3-eco',
   // Freebuff Web only (Meta Muse Spark 1.2 Contributor). Listed here like every
   // other root so its subagents pass the hierarchy gate; the model, not this
   // list, is what keeps it off the CLI and Desktop.
@@ -236,9 +232,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]: 'base2-free-laguna-s-2-1',
   [FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID]:
     'base2-free-laguna-s-2-1-openrouter',
-  [FREEBUFF_LING_3_FLASH_MODEL_ID]: 'base2-free-ling-3-flash',
-  [FREEBUFF_GREG_2_ULTRA_MODEL_ID]: 'base2-free-greg-2-ultra',
-  [FREEBUFF_GREG_2_SUPER_MODEL_ID]: 'base2-free-greg-2-super',
+  [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base2-free-kimi-k3-eco',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark',
 }
@@ -328,8 +322,15 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   //
   // HY3 ('base2-free-hy3', 'base2-free-hy3-atlas') went on 2026-08-04 as well.
   // It had been picker-retired since the initial web rollout, which stopped
-  // nothing that talks to the API directly. Paid/BYOK `tencent/hy3` routing in
-  // web/src/llm-api/hy3-fallback.ts is untouched.
+  // nothing that talks to the API directly. Its paid/BYOK `tencent/hy3` routing
+  // outlived that removal and was itself deleted on 2026-08-07, together with
+  // the Atlas Cloud adapter that served as its paid lane — HY3 was the only
+  // model Atlas Cloud carried, so the provider went with it.
+  //
+  // Ling 3.0 Flash ('base2-free-ling-3-flash') and Greg 2 Ultra/Super
+  // ('base2-free-greg-2-ultra', 'base2-free-greg-2-super') were removed on
+  // 2026-08-07. All three were god-only test rows, so there was no user-facing
+  // tail to decay and nothing to stage: no shipped client ever offered them.
   //
   // The CrofAI GLM 5.2 route ('base2-free-glm-crof') was removed on 2026-08-04
   // for a different reason: it was never a decaying tail. It reached the same
@@ -348,9 +349,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-laguna-s-2-1-openrouter': new Set([
     FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   ]),
-  'base2-free-ling-3-flash': new Set([FREEBUFF_LING_3_FLASH_MODEL_ID]),
-  'base2-free-greg-2-ultra': new Set([FREEBUFF_GREG_2_ULTRA_MODEL_ID]),
-  'base2-free-greg-2-super': new Set([FREEBUFF_GREG_2_SUPER_MODEL_ID]),
+  'base2-free-kimi-k3-eco': new Set([FREEBUFF_KIMI_K3_ECO_MODEL_ID]),
   // Web-only Muse Spark root. Exactly one model, like every other pinned root:
   // the rate-limit queue accounts by model, so a root that could also run
   // something else would let a turn escape the queue's bookkeeping.

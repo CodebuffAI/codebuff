@@ -60,22 +60,30 @@ describe('contextPrunerBudgetForModel', () => {
   })
 
   test('drops to 250k for the 262,144-token models', () => {
-    // Kimi was already special-cased; hy3 and Ling share its window and were
-    // silently getting 400k, i.e. a budget above what the provider accepts.
-    for (const model of [
-      'moonshotai/kimi-k2.7-code',
+    // Kimi K2.7 Code is the only remaining exception: the HY3 and Ling 3.0
+    // Flash entries that shared its window went with those models on
+    // 2026-08-07, so they now take the 400k default like anything unlisted.
+    expect(contextPrunerBudgetForModel('moonshotai/kimi-k2.7-code')).toBe(
+      250_000,
+    )
+    for (const removed of [
       'tencent/hy3',
       'tencent/hy3:free',
       'tencent/hy3-preview',
       'inclusionai/ling-3.0-flash:free',
     ]) {
-      expect(contextPrunerBudgetForModel(model)).toBe(250_000)
+      expect(contextPrunerBudgetForModel(removed)).toBe(400_000)
     }
   })
 
   test('every exception stays under its real window', () => {
     // The budget is compared against a GPT-4o-based estimate applied to other
     // tokenizers, so it must sit under the provider's limit with room to spare.
-    expect(contextPrunerBudgetForModel('tencent/hy3')).toBeLessThan(262_144)
+    expect(
+      contextPrunerBudgetForModel('moonshotai/kimi-k2.7-code'),
+    ).toBeLessThan(262_144)
+    // Kimi K3 Eco is deliberately NOT an exception — CrofAI serves it at a 1M
+    // context, so the 400k default is correct for it.
+    expect(contextPrunerBudgetForModel('crof/kimi-k3-eco')).toBe(400_000)
   })
 })

@@ -50,8 +50,6 @@ export const openrouterModels = {
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
   openrouter_grok_4: 'x-ai/grok-4-07-09',
-  openrouter_tencent_hy3: 'tencent/hy3',
-  openrouter_tencent_hy3_free: 'tencent/hy3:free',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
@@ -91,12 +89,6 @@ export const moonshotModels = {
 } as const
 export type MoonshotModel = (typeof moonshotModels)[keyof typeof moonshotModels]
 
-export const atlasCloudModels = {
-  tencentHy3: 'tencent/hy3',
-} as const
-export type AtlasCloudModel =
-  (typeof atlasCloudModels)[keyof typeof atlasCloudModels]
-
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
@@ -129,7 +121,6 @@ export const models = {
   ...deepseekModels,
   ...mimoModels,
   ...minimaxModels,
-  ...atlasCloudModels,
   ...openrouterModels,
   ...finetunedVertexModels,
 } as const
@@ -163,12 +154,6 @@ export const providerModelNames = {
       'openrouter' as const,
     ]),
   ),
-  ...Object.fromEntries(
-    Object.entries(atlasCloudModels).map(([name, model]) => [
-      model,
-      'atlascloud' as const,
-    ]),
-  ),
 }
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
@@ -182,8 +167,6 @@ export function isExplicitlyDefinedModel(model: Model): boolean {
 
 const nonCacheableModels = [
   models.openrouter_grok_4,
-  models.openrouter_tencent_hy3_free,
-  models.tencentHy3,
 ] satisfies string[] as string[]
 export function supportsCacheControl(model: Model): boolean {
   if (model.startsWith('openai/')) {
@@ -223,12 +206,13 @@ export function supportsAssistantPrefill(model: Model): boolean {
  * models with their own tokenizers, so it can run under the provider's real
  * number.
  *
- * The exceptions are the 262,144-token models below, verified against
- * OpenRouter's models API on 2026-08-02 (Kimi's is additionally confirmed by a
- * provider rejection quoted in freebuff-models.ts). They get 250k, the value
- * Kimi has been running on in prod. That margin is thin for exactly the
- * estimator reason above, so it is the number to revisit if these models start
- * hitting context rejections.
+ * The one exception is the 262,144-token Kimi K2.7 Code below, confirmed by a
+ * provider rejection quoted in freebuff-models.ts. It gets 250k, the value it
+ * has been running on in prod. That margin is thin for exactly the estimator
+ * reason above, so it is the number to revisit if this model starts hitting
+ * context rejections. (The HY3 and Ling 3.0 Flash entries that used to sit
+ * alongside it went with those models on 2026-08-07. Kimi K3 Eco is NOT an
+ * exception: CrofAI serves it at a 1M context.)
  *
  * MiniMax M3 is deliberately NOT an exception: its real enforced limit is
  * 524,288, not the 1,048,576 OpenRouter advertises (Fireworks rejects with
@@ -240,12 +224,6 @@ export function supportsAssistantPrefill(model: Model): boolean {
  */
 const SMALL_CONTEXT_MODELS: ReadonlySet<string> = new Set([
   moonshotModels.kimiK27Code,
-  openrouterModels.openrouter_tencent_hy3,
-  openrouterModels.openrouter_tencent_hy3_free,
-  'tencent/hy3-preview',
-  // FREEBUFF_LING_3_FLASH_MODEL_ID lives in freebuff-models.ts, which imports
-  // from this file, so referencing it here would be circular.
-  'inclusionai/ling-3.0-flash:free',
 ])
 
 export function contextPrunerBudgetForModel(model: Model): 250_000 | 400_000 {
@@ -274,7 +252,6 @@ export const providerDomains = {
   deepseek: 'deepseek.com',
   minimax: 'minimax.io',
   mimo: 'xiaomi.com',
-  atlascloud: 'atlascloud.ai',
   tencent: 'tencent.com',
   xai: 'x.ai',
 } as const
@@ -290,10 +267,6 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.minimax
   else if (Object.values(mimoModels).includes(modelName as MimoModel))
     domain = providerDomains.mimo
-  else if (
-    Object.values(atlasCloudModels).includes(modelName as AtlasCloudModel)
-  )
-    domain = providerDomains.atlascloud
   else if (modelName.startsWith('tencent/')) domain = providerDomains.tencent
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai

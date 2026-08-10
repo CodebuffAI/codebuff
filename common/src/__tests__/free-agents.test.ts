@@ -14,7 +14,7 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_LING_3_FLASH_MODEL_ID,
+  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
@@ -71,12 +71,12 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
       ),
     ).toBe('base2-free-laguna-s-2-1-openrouter')
-    expect(getFreebuffRootAgentIdForModel(FREEBUFF_LING_3_FLASH_MODEL_ID)).toBe(
-      'base2-free-ling-3-flash',
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(
+      'base2-free-kimi-k3-eco',
     )
     // Root ids must also be registered, or the chat-completions hierarchy gate
     // 403s the subagents this root spawns.
-    expect(isFreebuffRootAgent('base2-free-ling-3-flash')).toBe(true)
+    expect(isFreebuffRootAgent('base2-free-kimi-k3-eco')).toBe(true)
     expect(isFreebuffRootAgent('base2-free-luna')).toBe(true)
   })
 
@@ -205,12 +205,12 @@ describe('free mode agent model allowlist', () => {
     ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel(
-        'base2-free-ling-3-flash',
-        FREEBUFF_LING_3_FLASH_MODEL_ID,
+        'base2-free-kimi-k3-eco',
+        FREEBUFF_KIMI_K3_ECO_MODEL_ID,
       ),
     ).toBe(true)
     expect(
-      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_LING_3_FLASH_MODEL_ID),
+      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_KIMI_K3_ECO_MODEL_ID),
     ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel(
@@ -590,10 +590,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-glm': BASE2,
     'base2-free-laguna-s-2-1': BASE2,
     'base2-free-laguna-s-2-1-openrouter': BASE2,
-    'base2-free-ling-3-flash': BASE2,
-    // God-only Greg 2 roots; createBase2('free', …) like their siblings.
-    'base2-free-greg-2-ultra': BASE2,
-    'base2-free-greg-2-super': BASE2,
+    // God-only Kimi K3 test root; createBase2('free', …) like its siblings.
+    'base2-free-kimi-k3-eco': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
     'base2-free-fable': BASE2,
     // Web-only Muse Spark root; createBase2('free', …) like its siblings.

@@ -4,7 +4,7 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
-import { mimoModels, moonshotModels, openrouterModels } from './model-config'
+import { mimoModels } from './model-config'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -101,25 +101,12 @@ export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
  *  chat code must use FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID instead. */
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
-/**
- * HY3 wire ids. REMOVED FROM FREEBUFF on 2026-08-04 — they are in no catalog,
- * no quota pool and no free-mode allowlist, so a free session can no longer be
- * admitted on either and the bundled roots are gone.
- *
- * The constants survive because `web/src/llm-api/hy3-fallback.ts` still routes
- * these slugs for paid/BYOK callers, exactly as paid Kimi outlived its Freebuff
- * removal. Nothing here should reach a Freebuff gate again: HY3 was withdrawn
- * during the initial web rollout and then sat in
- * FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS, which turned out not to be a gate at
- * all (see FREEBUFF_GLM_V52_MODEL_ID for what that cost).
- */
-export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
-  openrouterModels.openrouter_tencent_hy3_free
-export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
-  openrouterModels.openrouter_tencent_hy3
-/** Legacy alias retained for the direct Atlas fallback implementation. */
-export const FREEBUFF_HY3_ATLAS_MODEL_ID = FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID
-export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
+// HY3 IS GONE, on every surface and every route (removed 2026-08-07). It left
+// Freebuff on 2026-08-04 but its wire ids lived on for paid/BYOK callers via
+// web/src/llm-api/hy3-fallback.ts; that file, the Atlas Cloud adapter that was
+// its paid lane, and the `tencent/hy3*` model-config entries have all been
+// deleted. Nothing routes these slugs now — a request for one falls through to
+// the ordinary unknown-model path.
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 /** GLM 5.2, served by CrofAI's direct OpenAI-compatible API (moved off
  *  Fireworks serverless 2026-07-29, at ~4x less than Fireworks' list price).
@@ -194,25 +181,26 @@ export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
 export const FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID = 'poolside/laguna-s-2.1'
 
 /**
- * Greg 2, served by CrofAI. God-only on Freebuff Web.
+ * Kimi K3 (Eco), served by CrofAI. God-only on Freebuff Web, for testing.
  *
- * The `crof/` prefix names the only place these exist — unlike the retired
+ * The `crof/` prefix names the only place this exists — unlike the retired
  * `crof/glm-5.2`, which was a SECOND id for a model already offered under
  * `z-ai/glm-5.2` and became a quota-bypass route. There is no other id for
- * these, so the prefix creates no such door.
+ * this, so the prefix creates no such door. (Note the paid `moonshotai/kimi-*`
+ * slugs in model-config.ts are different models on a different provider, not
+ * second doors onto this one.)
+ *
+ * `-eco` is load-bearing in the WIRE id and deliberately absent from the
+ * DISPLAY name. CrofAI serves two K3 builds — `kimi-k3` at $2.00/$8.00 per M
+ * and this Q2_K-quantized `kimi-k3-eco` at $1.00/$4.00 — so the id must name
+ * the exact build or a future `kimi-k3` row would collide with it. The picker
+ * label is plain "Kimi K3" by request; see KIMI_K3_ECO_MODEL.
  */
-export const FREEBUFF_GREG_2_ULTRA_MODEL_ID = 'crof/greg-2-ultra'
-export const FREEBUFF_GREG_2_SUPER_MODEL_ID = 'crof/greg-2-super'
+export const FREEBUFF_KIMI_K3_ECO_MODEL_ID = 'crof/kimi-k3-eco'
 /** God-mode-only alias for testing the paid OpenRouter route independently
  *  from Poolside's direct API. OpenRouter receives `poolside/laguna-s-2.1`. */
 export const FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID =
   'openrouter/poolside/laguna-s-2.1'
-/** God-mode-only Ling 3.0 Flash (inclusionAI), a 124B MoE served free by
- *  OpenRouter. The id is OpenRouter's own slug, so it falls through to the
- *  default OpenRouter route with no provider-specific handler. Free endpoints
- *  are metered by OpenRouter per-account, so keep this god-only until its
- *  throughput under real turns is known. */
-export const FREEBUFF_LING_3_FLASH_MODEL_ID = 'inclusionai/ling-3.0-flash:free'
 
 /**
  * Claude Fable 5 — Anthropic's frontier model, offered to free CLI users as a
@@ -591,38 +579,27 @@ const GLM_V52_MODEL = {
 } as const satisfies FreebuffModelOption
 
 /**
- * Greg 2 Ultra / Super, CrofAI. Both god-only, and the cost is why.
+ * Kimi K3 (Eco), CrofAI. God-only, for testing, and the cost is part of why.
  *
- * List price per M (CrofAI catalog, 2026-08-04):
+ * List price per M (CrofAI catalog, read from the live /v1/models endpoint on
+ * 2026-08-07): $1.00 in, $0.10 cache read, $4.00 out. Against DeepSeek V4
+ * Flash's $0.12/$0.21 on the same provider that is ~8x input and ~19x output,
+ * which is the argument for keeping it off the public picker rather than
+ * merely marking it premium.
  *
- *   greg-2-ultra   $3.00 in   $0.50 cache   $10.00 out
- *   greg-2-super   $1.50 in   $0.25 cache   $ 5.00 out
- *
- * Against DeepSeek V4 Flash's $0.14/$0.28 that is ~21x input and ~36x output
- * on Ultra. Worse, both carry a ~17,000-token hidden preamble upstream:
- * measured live, a bare "hi" billed 17,538 prompt tokens and $[redacted] on Ultra
- * against $[redacted] for deepseek-v4-flash-0731 on the same request — roughly
- * 3,000x for the same user input. There is no request cheap enough to be
- * casual with, which is the whole argument for keeping these off the public
- * picker rather than merely marking them premium.
- *
- * Both are int4-quantized with a 229,376-token context, and both were verified
- * live to stream and to emit tool calls.
+ * `displayName` is 'Kimi K3', NOT 'Kimi K3 Eco', by explicit request. This
+ * breaks the convention DEEPSEEK_V4_FLASH_MODEL sets — name the exact build so
+ * a returning user cannot mistake one for another — and the divergence is
+ * deliberate rather than an oversight, so do not "fix" it: CrofAI also serves a
+ * full `kimi-k3` at twice the price, and this row is the Q2_K-quantized Eco
+ * build (1M context, 131,072 max completion tokens). The wire id keeps `-eco`
+ * so the two builds stay distinguishable everywhere it actually matters —
+ * routing, billing, and the CROF_MODEL_MAP entry. If the full K3 is ever added
+ * as its own row, this label has to be disambiguated at that point.
  */
-const GREG_2_ULTRA_MODEL = {
-  id: FREEBUFF_GREG_2_ULTRA_MODEL_ID,
-  displayName: 'Greg 2 Ultra',
-  tagline: 'Via CrofAI',
-  availability: 'always',
-  dataUse: 'service',
-  premium: true,
-  multimodal: false,
-  experimental: true,
-} as const satisfies FreebuffModelOption
-
-const GREG_2_SUPER_MODEL = {
-  id: FREEBUFF_GREG_2_SUPER_MODEL_ID,
-  displayName: 'Greg 2 Super',
+const KIMI_K3_ECO_MODEL = {
+  id: FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  displayName: 'Kimi K3',
   tagline: 'Via CrofAI',
   availability: 'always',
   dataUse: 'service',
@@ -698,20 +675,6 @@ const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   dataUse: 'training',
   premium: true,
   multimodal: false,
-} as const satisfies FreebuffModelOption
-
-const LING_3_FLASH_MODEL = {
-  id: FREEBUFF_LING_3_FLASH_MODEL_ID,
-  displayName: 'Ling 3.0 Flash',
-  tagline: 'Free via OpenRouter',
-  availability: 'always',
-  // OpenRouter's free endpoints route to providers that may retain and train
-  // on prompts, and the bundled agent opts into data_collection.
-  warning: FREEBUFF_AI_TRAINING_NOTICE,
-  dataUse: 'training',
-  premium: true,
-  multimodal: false,
-  experimental: true,
 } as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
@@ -813,11 +776,9 @@ export const FREEBUFF_WEB_MODELS = [
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
-  LING_3_FLASH_MODEL,
   POOLSIDE_LAGUNA_S_21_MODEL,
   POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL,
-  GREG_2_ULTRA_MODEL,
-  GREG_2_SUPER_MODEL,
+  KIMI_K3_ECO_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_ALL_MODELS = [
@@ -826,11 +787,9 @@ export const FREEBUFF_WEB_ALL_MODELS = [
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
-  FREEBUFF_LING_3_FLASH_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  FREEBUFF_GREG_2_ULTRA_MODEL_ID,
-  FREEBUFF_GREG_2_SUPER_MODEL_ID,
+  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
 ] as const
 
 /**
@@ -876,13 +835,11 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
   FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  FREEBUFF_LING_3_FLASH_MODEL_ID,
   // Metered by the web premium pool like every other god-only row. Being in
   // SOME pool is the point: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by
   // filtering `!premium`, so a premium model left out of here would be metered
   // by no pool at all rather than by a stricter one.
-  FREEBUFF_GREG_2_ULTRA_MODEL_ID,
-  FREEBUFF_GREG_2_SUPER_MODEL_ID,
+  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   // Not here for cost — Muse Spark Contributor is cheaper per token than the
   // Standard pool's models. The premium pool is what bounds how many users sit
   // inside its 60 RPM team-wide ceiling at once, and being in SOME pool is
