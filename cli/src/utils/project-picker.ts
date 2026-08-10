@@ -1,5 +1,27 @@
 import path from 'path'
 
+import { setProjectRoot } from '../project-files'
+import { resetCodebuffClient } from './codebuff-client'
+import { initializeAgentRegistry } from './local-agent-registry'
+
+interface ActivateProjectOptions {
+  reloadAgentRegistry?: boolean
+}
+
+export async function activateProject(
+  projectPath: string,
+  { reloadAgentRegistry = true }: ActivateProjectOptions = {},
+): Promise<void> {
+  process.chdir(projectPath)
+  setProjectRoot(projectPath)
+
+  if (reloadAgentRegistry) {
+    await initializeAgentRegistry()
+  }
+
+  resetCodebuffClient()
+}
+
 export function shouldShowProjectPicker(
   startCwd: string,
   homeDir: string,
