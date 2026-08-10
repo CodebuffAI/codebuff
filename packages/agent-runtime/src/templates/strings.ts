@@ -140,7 +140,7 @@ export async function formatPrompt(
       })
       if (blocks.length === 0) return ''
       return `Project instructions:
-The user included the instructions below, one fenced block per file, labeled with the file's path. Follow them for the rest of the session.
+Each fenced block below is one instructions file, labeled with its path. Follow them for the rest of the session.
 
 ${blocks.join('\n\n')}`
     },

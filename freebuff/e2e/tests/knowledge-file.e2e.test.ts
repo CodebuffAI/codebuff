@@ -1,7 +1,7 @@
 /**
- * E2E test that verifies Freebuff can read and use knowledge.md from the project.
+ * E2E test that verifies Freebuff can read and use AGENTS.md from the project.
  *
- * Starts Freebuff in tmux, creates a knowledge.md file with a unique keyword,
+ * Starts Freebuff in tmux, creates an AGENTS.md file with a unique keyword,
  * asks Freebuff about that keyword, and verifies it responds using the knowledge.
  *
  * Requires CODEBUFF_API_KEY — skipped if not set.
@@ -28,7 +28,7 @@ describe('Freebuff: Knowledge Files', () => {
   })
 
   test(
-    'uses knowledge.md from the project context',
+    'uses AGENTS.md from the project context',
     async () => {
       if (!getApiKey()) {
         console.log(
@@ -44,7 +44,7 @@ describe('Freebuff: Knowledge Files', () => {
       session = await FreebuffSession.start(binary, {
         waitSeconds: 5,
         initialFiles: {
-          'knowledge.md': `When asked for the project keyword, respond with exactly: ${keyword}\n`,
+          'AGENTS.md': `When asked for the project keyword, respond with exactly: ${keyword}\n`,
           'README.md': '# Test Project\n',
         },
       })

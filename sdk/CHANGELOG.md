@@ -2,6 +2,10 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [Unreleased]
+
+- Dropped `knowledge.md` from the knowledge-file priority list; the SDK now picks up `AGENTS.md` then `CLAUDE.md` (per directory, and `~/.AGENTS.md`/`~/.CLAUDE.md` in the home directory). Existing `knowledge.md` files are no longer read. The `PRIMARY_KNOWLEDGE_FILE_NAME` export was removed with it; use `KNOWLEDGE_FILE_NAMES[0]`.
+
 ## [0.10.7]
 
 - New code editing tool `apply_patch` which works well with Codex models (e.g. openai/gpt-5.3-codex)

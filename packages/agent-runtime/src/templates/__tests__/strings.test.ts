@@ -328,4 +328,54 @@ describe('getAgentPrompt', () => {
       expect(stepResult).not.toContain('You can spawn the following agents:')
     })
   })
+
+  describe('KNOWLEDGE_FILES_CONTENTS placeholder', () => {
+    const renderWith = async (
+      knowledgeFiles: Record<string, string>,
+      userKnowledgeFiles: Record<string, string> = {},
+    ): Promise<string | undefined> => {
+      const agentTemplate = createMockAgentTemplate({
+        id: 'knowledge-agent',
+        systemPrompt: `You are an agent.\n${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
+      })
+      const fileContext = {
+        ...createMockFileContext(),
+        knowledgeFiles,
+        userKnowledgeFiles,
+      }
+      return await getAgentPrompt({
+        agentTemplate,
+        promptType: { type: 'systemPrompt' },
+        fileContext,
+        agentState: createMockAgentState('knowledge-agent'),
+        agentTemplates: { 'knowledge-agent': agentTemplate },
+        additionalToolDefinitions: async () => ({}),
+        logger: createMockLogger(),
+        apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+        databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+        fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+      })
+    }
+
+    test('no knowledge files renders nothing — no dangling header claiming instructions exist', async () => {
+      const result = await renderWith({})
+      expect(result).toBe('You are an agent.')
+    })
+
+    test('a root file renders under a boundary that names the file by its path', async () => {
+      const result = await renderWith({ 'AGENTS.md': 'MARKER: use bun\n' })
+      expect(result).toContain('Project instructions:')
+      expect(result).toContain('```AGENTS.md\nMARKER: use bun\n```')
+    })
+
+    test('non-root project files are filtered out; home files always render', async () => {
+      const result = await renderWith(
+        { 'AGENTS.md': 'root rules', 'packages/sub/AGENTS.md': 'nested rules' },
+        { '~/.AGENTS.md': 'home rules' },
+      )
+      expect(result).toContain('```AGENTS.md\nroot rules\n```')
+      expect(result).toContain('```~/.AGENTS.md\nhome rules\n```')
+      expect(result).not.toContain('nested rules')
+    })
+  })
 })

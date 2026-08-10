@@ -15,7 +15,7 @@ export const KNOWLEDGE_FILE_NAMES_LOWERCASE = KNOWLEDGE_FILE_NAMES.map((name) =>
 /**
  * Checks if a file path is a knowledge file.
  * Matches:
- * - Exact file names: knowledge.md, AGENTS.md, CLAUDE.md (case-insensitive)
+ * - Exact file names: AGENTS.md, CLAUDE.md (case-insensitive)
  * - Pattern: *.knowledge.md (e.g., authentication.knowledge.md)
  */
 export function isKnowledgeFile(filePath: string): boolean {
