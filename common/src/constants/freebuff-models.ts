@@ -247,6 +247,24 @@ export const MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID =
  *  https://dev.meta.ai/docs/pricing-rate-limits. */
 export const MUSE_SPARK_CONTRIBUTOR_RPM = 60
 /**
+ * Reasoning effort sent with every Muse Spark request.
+ *
+ * Muse Spark ALWAYS reasons — `reasoning_effort: "none"` is a hard 400 — so
+ * this chooses how much, not whether. Measured live 2026-08-06 on a fixed
+ * word problem: `low` averages ~300 reasoning tokens against ~450-620 for
+ * `medium`, `high` and omitting the field, whose ranges overlap almost
+ * entirely. In other words the dial behaves as two positions, `low` and
+ * "default", rather than three.
+ *
+ * `high` is therefore close to a no-op against sending nothing, and is set
+ * anyway on purpose: it pins the intent explicitly, so the model's behaviour
+ * is ours rather than Meta's to change, and it matches how Luna states the
+ * same thing. Set `low` here if the ~40% token/latency saving is wanted; the
+ * cost argument is negligible either way (500k output tokens across 347 prod
+ * requests came to roughly $0.10).
+ */
+export const FREEBUFF_MUSE_SPARK_REASONING_EFFORT = 'high' as const
+/**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
  *
@@ -675,6 +693,7 @@ const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   dataUse: 'training',
   premium: true,
   multimodal: false,
+  reasoningEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
 } as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
@@ -1443,9 +1462,16 @@ export function isFreebuffGpt56LunaModelId(
 export function getFreebuffModelReasoningEffort(
   id: string | null | undefined,
 ): NonNullable<FreebuffModelOption['reasoningEffort']> | null {
-  const entry: FreebuffModelOption | undefined = SUPPORTED_FREEBUFF_MODELS.find(
-    (m) => freebuffModelIdMatches(id, m.id),
-  )
+  // BOTH catalogs, and the Web one is not optional. This used to read
+  // SUPPORTED_FREEBUFF_MODELS alone — the CLI/Desktop catalog — which silently
+  // excluded every Web-only model. Muse Spark is deliberately absent from that
+  // list (its absence IS the Desktop gate), so setting `reasoningEffort` on its
+  // row did nothing at all and gave no hint why: the field was present, the
+  // lookup simply could not see the row. Any future Web-only model would have
+  // hit the same wall.
+  const entry: FreebuffModelOption | undefined =
+    SUPPORTED_FREEBUFF_MODELS.find((m) => freebuffModelIdMatches(id, m.id)) ??
+    FREEBUFF_WEB_ALL_MODELS.find((m) => freebuffModelIdMatches(id, m.id))
   return entry?.reasoningEffort ?? null
 }
 

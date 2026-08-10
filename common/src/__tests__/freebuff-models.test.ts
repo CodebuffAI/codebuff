@@ -18,6 +18,8 @@ import {
   FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
+  getFreebuffModelReasoningEffort,
   MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID,
   MUSE_SPARK_FALLBACK_AFTER_MS,
   MUSE_SPARK_FALLBACK_MODEL_ID,
@@ -1248,6 +1250,42 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
     expect(
       isFreebuffPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
     ).toBe(false)
+  })
+
+  test('carries a reasoning effort that the server can actually resolve', () => {
+    // Two halves, and the second is the one that used to silently fail.
+    // getFreebuffModelReasoningEffort read SUPPORTED_FREEBUFF_MODELS alone —
+    // the CLI/Desktop catalog — which Muse Spark is deliberately absent from
+    // (that absence IS the Desktop gate). So the field could be set on the row
+    // and resolve to null anyway, with nothing to indicate why.
+    const model = getFreebuffWebModel(
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+    )
+    expect(model.reasoningEffort).toBe(FREEBUFF_MUSE_SPARK_REASONING_EFFORT)
+    expect(
+      getFreebuffModelReasoningEffort(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+    ).toBe(FREEBUFF_MUSE_SPARK_REASONING_EFFORT)
+
+    // Never 'none': Muse Spark answers that with a hard 400 (verified live),
+    // and a 400 is neither retried nor queued, so it kills the turn outright.
+    expect(FREEBUFF_MUSE_SPARK_REASONING_EFFORT).not.toBe('none')
+    expect(['low', 'medium', 'high']).toContain(
+      FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
+    )
+
+    // Suffix-tolerant like every other id helper, so a dated provider snapshot
+    // does not silently drop back to Meta's default effort.
+    expect(
+      getFreebuffModelReasoningEffort(
+        `${FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID}-20260901`,
+      ),
+    ).toBe(FREEBUFF_MUSE_SPARK_REASONING_EFFORT)
+
+    // Widening the lookup to the Web catalog must not invent an effort for
+    // models that declare none.
+    expect(
+      getFreebuffModelReasoningEffort(FREEBUFF_KIMI_K3_ECO_MODEL_ID),
+    ).toBeNull()
   })
 
   test('discloses the Contributor tier training terms', () => {
