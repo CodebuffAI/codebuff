@@ -33,12 +33,15 @@ async function waitForArmed(): Promise<void> {
   if (process.platform !== 'win32') return
   // An explicit opt-out is the one path where no armed marker is expected.
   if (!getTerminalWatchdogDiagnostics().armed) return
-  const deadline = Date.now() + 30_000
+  // Deliberately shorter than the test's own ready budget, so a runner too slow
+  // to boot PowerShell fails here — with a message — instead of surfacing later
+  // as an unexplained empty write. Sized for several fixtures arming at once.
+  const deadline = Date.now() + 40_000
   while (Date.now() < deadline) {
     if (existsSync(`${ttyPath}.armed`)) return
     await new Promise((r) => setTimeout(r, 50))
   }
-  console.error('watchdog never armed')
+  console.error(`watchdog never armed within 40s (marker: ${ttyPath}.armed)`)
   process.exit(3)
 }
 
