@@ -31,7 +31,7 @@ const getMessageText = (messages: ChatMessage[]): string => {
 
 describe('handleInitializationFlowLocally', () => {
   const TEST_PROJECT_ROOT = '/test/project'
-  const KNOWLEDGE_FILE_NAME = 'knowledge.md'
+  const KNOWLEDGE_FILE_NAME = 'AGENTS.md'
 
   let existsSyncSpy: ReturnType<typeof spyOn>
   let writeFileSyncSpy: ReturnType<typeof spyOn>
@@ -55,7 +55,7 @@ describe('handleInitializationFlowLocally', () => {
   })
 
   describe('knowledge file creation', () => {
-    test('creates knowledge.md when it does not exist', () => {
+    test('creates AGENTS.md when it does not exist', () => {
       existsSyncSpy.mockImplementation((_p: string) => false)
 
       const { postUserMessage } = handleInitializationFlowLocally()
@@ -68,10 +68,10 @@ describe('handleInitializationFlowLocally', () => {
       // Check message indicates creation
       const messages = postUserMessage([])
       expect(messages.length).toBeGreaterThan(0)
-      expect(getMessageText(messages)).toContain('✅ Created `knowledge.md`')
+      expect(getMessageText(messages)).toContain('✅ Created `AGENTS.md`')
     })
 
-    test('skips knowledge.md creation when it already exists', () => {
+    test('skips AGENTS.md creation when it already exists', () => {
       existsSyncSpy.mockImplementation((p: unknown) =>
         p === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
@@ -86,7 +86,7 @@ describe('handleInitializationFlowLocally', () => {
 
       // Check message indicates file already exists
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('📋 `knowledge.md` already exists')
+      expect(getMessageText(messages)).toContain('📋 `AGENTS.md` already exists')
     })
   })
 
@@ -226,7 +226,7 @@ describe('handleInitializationFlowLocally', () => {
       const messages = postUserMessage([])
 
       // Should have messages for:
-      // 1. knowledge.md creation
+      // 1. AGENTS.md creation
       // 2. .agents/ creation
       // 3. .agents/types/ creation
       // 4-6. Three type file copies
@@ -276,7 +276,7 @@ describe('handleInitializationFlowLocally', () => {
       expect(messageContent).toContain('Permission denied')
     })
 
-    test('handles writeFileSync errors for knowledge.md gracefully', () => {
+    test('handles writeFileSync errors for AGENTS.md gracefully', () => {
       existsSyncSpy.mockReturnValue(false)
       writeFileSyncSpy.mockImplementation((p: unknown) => {
         if ((p as string).endsWith(KNOWLEDGE_FILE_NAME)) {
@@ -284,8 +284,8 @@ describe('handleInitializationFlowLocally', () => {
         }
       })
 
-      // The function should throw when knowledge.md write fails
-      // since knowledge.md write is not wrapped in try-catch
+      // The function should throw when the AGENTS.md write fails
+      // since it is not wrapped in try-catch
       expect(() => handleInitializationFlowLocally()).toThrow('Disk full')
     })
 
@@ -383,7 +383,7 @@ describe('handleInitializationFlowLocally', () => {
       const agentsDir = path.join(TEST_PROJECT_ROOT, '.agents')
       const typesDir = path.join(agentsDir, 'types')
 
-      // Scenario: knowledge.md exists, .agents exists, but .agents/types and type files don't exist
+      // Scenario: AGENTS.md exists, .agents exists, but .agents/types and type files don't exist
       existsSyncSpy.mockImplementation((p: unknown) => {
         return (
           p === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME) ||
@@ -393,7 +393,7 @@ describe('handleInitializationFlowLocally', () => {
 
       const { postUserMessage } = handleInitializationFlowLocally()
 
-      // Should NOT create knowledge.md
+      // Should NOT create AGENTS.md
       const knowledgeWriteCalls = writeFileSyncSpy.mock.calls.filter(
         (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
@@ -420,7 +420,7 @@ describe('handleInitializationFlowLocally', () => {
       const messages = postUserMessage([])
       const messageContent = getMessageText(messages)
 
-      expect(messageContent).toContain('📋 `knowledge.md` already exists')
+      expect(messageContent).toContain('📋 `AGENTS.md` already exists')
       expect(messageContent).toContain('📋 `.agents/` already exists')
       expect(messageContent).toContain('✅ Created `.agents/types/`')
     })
@@ -439,7 +439,7 @@ describe('handleInitializationFlowLocally', () => {
       const messageContent = getMessageText(messages)
 
       // All messages should indicate existing files
-      expect(messageContent).toContain('📋 `knowledge.md` already exists')
+      expect(messageContent).toContain('📋 `AGENTS.md` already exists')
       expect(messageContent).toContain('📋 `.agents/` already exists')
       expect(messageContent).toContain('📋 `.agents/types/` already exists')
       expect(messageContent).toContain(

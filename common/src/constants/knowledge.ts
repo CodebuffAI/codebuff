@@ -1,17 +1,6 @@
 import path from 'path'
 
-/**
- * The primary/default knowledge file name.
- * Used when creating new knowledge files.
- */
-export const PRIMARY_KNOWLEDGE_FILE_NAME = 'knowledge.md'
-
-/**
- * Knowledge file names in priority order (highest priority first).
- * Used for both project knowledge files and home directory user knowledge files.
- */
 export const KNOWLEDGE_FILE_NAMES = [
-  PRIMARY_KNOWLEDGE_FILE_NAME,
   'AGENTS.md',
   'CLAUDE.md',
 ] as const

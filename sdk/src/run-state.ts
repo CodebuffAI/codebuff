@@ -21,7 +21,6 @@ import { loadSkills } from './skills/load-skills'
 // Re-export for SDK consumers
 export {
   KNOWLEDGE_FILE_NAMES,
-  PRIMARY_KNOWLEDGE_FILE_NAME,
   isKnowledgeFile,
 } from '@codebuff/common/constants/knowledge'
 
@@ -43,7 +42,7 @@ import type * as fsType from 'fs'
 
 /**
  * Given a list of candidate file paths, selects the one with highest priority.
- * Priority order: knowledge.md > AGENTS.md > CLAUDE.md (case-insensitive).
+ * Priority order: AGENTS.md > CLAUDE.md (case-insensitive).
  * Returns undefined if no knowledge files are found.
  * @internal Exported for testing
  */
@@ -455,7 +454,7 @@ export async function loadUserKnowledgeFiles(params: {
     }
   }
 
-  // Select highest priority file (priority: knowledge.md > AGENTS.md > CLAUDE.md)
+  // Select highest priority file (priority: AGENTS.md > CLAUDE.md)
   for (const priorityName of KNOWLEDGE_FILE_NAMES_LOWERCASE) {
     const actualFileName = candidates.get(priorityName)
     if (actualFileName) {
@@ -512,7 +511,7 @@ export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
 
 /**
  * Auto-derives knowledge files from project files if knowledgeFiles is undefined.
- * Implements fallback priority: knowledge.md > AGENTS.md > CLAUDE.md per directory.
+ * Implements fallback priority: AGENTS.md > CLAUDE.md per directory.
  */
 function deriveKnowledgeFiles(
   projectFiles: Record<string, string>,

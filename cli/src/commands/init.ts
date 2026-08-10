@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import path from 'path'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { PRIMARY_KNOWLEDGE_FILE_NAME } from '@codebuff/common/constants/knowledge'
+import { KNOWLEDGE_FILE_NAMES } from '@codebuff/common/constants/knowledge'
 
 // @ts-expect-error - Bun text import attribute not supported by TypeScript
 import agentDefinitionSource from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
@@ -57,19 +57,19 @@ export function handleInitializationFlowLocally(): {
   postUserMessage: PostUserMessageFn
 } {
   const projectRoot = getProjectRoot()
-  const knowledgePath = path.join(projectRoot, PRIMARY_KNOWLEDGE_FILE_NAME)
+  const knowledgePath = path.join(projectRoot, KNOWLEDGE_FILE_NAMES[0])
   const messages: string[] = []
 
   if (existsSync(knowledgePath)) {
-    messages.push(`📋 \`${PRIMARY_KNOWLEDGE_FILE_NAME}\` already exists.`)
+    messages.push(`📋 \`${KNOWLEDGE_FILE_NAMES[0]}\` already exists.`)
   } else {
     writeFileSync(knowledgePath, INITIAL_KNOWLEDGE_FILE)
-    messages.push(`✅ Created \`${PRIMARY_KNOWLEDGE_FILE_NAME}\``)
+    messages.push(`✅ Created \`${KNOWLEDGE_FILE_NAMES[0]}\``)
 
     // Track knowledge file creation
     trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, {
       action: 'created',
-      fileName: PRIMARY_KNOWLEDGE_FILE_NAME,
+      fileName: KNOWLEDGE_FILE_NAMES[0],
       fileSizeBytes: Buffer.byteLength(INITIAL_KNOWLEDGE_FILE, 'utf8'),
     })
   }

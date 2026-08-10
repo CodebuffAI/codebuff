@@ -47,6 +47,8 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - Use write_todos to plan and track multi-step tasks.
 - Your responses are displayed in a terminal. Keep them short and concise.
 - Don't run destructive or hard-to-undo commands (git push, resets, deploys) unless the user asks for them.
+
+${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
 `,
   }
 }

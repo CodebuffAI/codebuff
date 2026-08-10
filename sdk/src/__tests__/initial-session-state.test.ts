@@ -118,7 +118,7 @@ describe('Initial Session State', () => {
   test('discovers project files automatically when projectFiles is undefined', async () => {
     mockFs.readdir = (async (dirPath: string) => {
       if (dirPath === '/test-project') {
-        return ['src', '.git', 'knowledge.md', 'README.md', '.gitignore']
+        return ['src', '.git', 'AGENTS.md', 'README.md', '.gitignore']
       }
       if (dirPath === '/test-project/src') {
         return ['index.ts', 'utils.ts', 'generated.ts']
@@ -157,13 +157,13 @@ describe('Initial Session State', () => {
       false,
     )
     expect(readFilePaths.some((p) => p.endsWith('README.md'))).toBe(false)
-    expect(readFilePaths.some((p) => p.endsWith('knowledge.md'))).toBe(true)
+    expect(readFilePaths.some((p) => p.endsWith('AGENTS.md'))).toBe(true)
   })
 
   test('derives knowledgeFiles from projectFiles when not provided', async () => {
     const projectFiles = {
       'src/index.ts': 'console.log("Hello world");',
-      'knowledge.md': '# Knowledge\n\nThis is a knowledge file.',
+      'AGENTS.md': '# Knowledge\n\nThis is a knowledge file.',
       'claude.md': '# Claude context\n\nThis is claude context.',
       'README.md': '# Project\n\nThis is a readme.',
     }
@@ -177,14 +177,14 @@ describe('Initial Session State', () => {
     })
 
     expect(sessionState.fileContext.knowledgeFiles).toBeDefined()
-    expect(sessionState.fileContext.knowledgeFiles['knowledge.md']).toBe(
+    expect(sessionState.fileContext.knowledgeFiles['AGENTS.md']).toBe(
       '# Knowledge\n\nThis is a knowledge file.',
     )
     expect(sessionState.fileContext.knowledgeFiles['claude.md']).toBeUndefined()
     expect(sessionState.fileContext.knowledgeFiles['README.md']).toBeUndefined()
   })
 
-  test('derives reads knowledgeFiles from claude.md when knowledge.md is not present', async () => {
+  test('derives reads knowledgeFiles from claude.md when AGENTS.md is not present', async () => {
     const projectFiles = {
       'src/index.ts': 'console.log("Hello world");',
       'claude.md': '# Claude context\n\nThis is claude context.',
@@ -201,7 +201,7 @@ describe('Initial Session State', () => {
 
     expect(sessionState.fileContext.knowledgeFiles).toBeDefined()
     expect(
-      sessionState.fileContext.knowledgeFiles['knowledge.md'],
+      sessionState.fileContext.knowledgeFiles['AGENTS.md'],
     ).toBeUndefined()
     expect(sessionState.fileContext.knowledgeFiles['claude.md']).toEqual(
       '# Claude context\n\nThis is claude context.',
@@ -229,7 +229,7 @@ describe('Initial Session State', () => {
 
     expect(sessionState.fileContext.knowledgeFiles).toEqual(knowledgeFiles)
     expect(
-      sessionState.fileContext.knowledgeFiles['knowledge.md'],
+      sessionState.fileContext.knowledgeFiles['AGENTS.md'],
     ).toBeUndefined()
   })
 
