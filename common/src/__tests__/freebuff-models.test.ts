@@ -1269,7 +1269,10 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
     // Never 'none': Muse Spark answers that with a hard 400 (verified live),
     // and a 400 is neither retried nor queued, so it kills the turn outright.
     expect(FREEBUFF_MUSE_SPARK_REASONING_EFFORT).not.toBe('none')
-    expect(['low', 'medium', 'high']).toContain(
+    // Meta's ladder, from its own 400 on an unknown value. `xhigh` and
+    // `minimal` exist here and nowhere else in this repo, which is why the
+    // shared agent-definition enum deliberately does not carry them.
+    expect(['minimal', 'low', 'medium', 'high', 'xhigh']).toContain(
       FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
     )
 

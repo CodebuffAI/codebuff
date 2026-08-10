@@ -64,7 +64,13 @@ export interface FreebuffModelOption {
    *  `max` to `high` (toDeepSeekReasoningEffort / toMiMoReasoningEffort), so
    *  rows on those lanes must stay `high` — a `medium` there would display as
    *  medium and run as high, the exact drift this field exists to prevent. */
-  reasoningEffort?: 'low' | 'medium' | 'high'
+  /** Reasoning effort sent for this model, on the PROVIDER's own scale.
+   *  Deliberately wider than the shared agent-definition enum: Meta's ladder is
+   *  minimal/low/medium/high/xhigh (its own 400 names the set), and `xhigh` has
+   *  no equivalent elsewhere. Keeping it here rather than in
+   *  agent-definition.ts stops one model's extra rung from becoming a value
+   *  every published agent can declare against providers that reject it. */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
   /** Whether the model is still being trialed and may be unreliable. Surfaced
    *  in the picker as a "TEST" badge with a tooltip so users know it is not
    *  yet production-grade. */
@@ -250,20 +256,26 @@ export const MUSE_SPARK_CONTRIBUTOR_RPM = 60
  * Reasoning effort sent with every Muse Spark request.
  *
  * Muse Spark ALWAYS reasons — `reasoning_effort: "none"` is a hard 400 — so
- * this chooses how much, not whether. Measured live 2026-08-06 on a fixed
- * word problem: `low` averages ~300 reasoning tokens against ~450-620 for
- * `medium`, `high` and omitting the field, whose ranges overlap almost
- * entirely. In other words the dial behaves as two positions, `low` and
- * "default", rather than three.
+ * this chooses how much, not whether. The full ladder is
+ * minimal/low/medium/high/xhigh; Meta's own 400 on an unknown value names the
+ * set, which is the only place it is documented.
  *
- * `high` is therefore close to a no-op against sending nothing, and is set
- * anyway on purpose: it pins the intent explicitly, so the model's behaviour
- * is ours rather than Meta's to change, and it matches how Luna states the
- * same thing. Set `low` here if the ~40% token/latency saving is wanted; the
- * cost argument is negligible either way (500k output tokens across 347 prod
- * requests came to roughly $0.10).
+ * Measured live 2026-08-06, same word problem, n=6 per level:
+ *
+ *   minimal   153 reasoning tokens   1.0s
+ *   low      ~300                    —
+ *   high      362                    1.9s
+ *   xhigh     391                    2.4s
+ *
+ * The top of the ladder is nearly flat: xhigh buys ~8% more reasoning than
+ * high, inside the run-to-run spread, and spends ~26% more latency for it.
+ * The real lever is downward — minimal is a 2.4x cut and still answered
+ * correctly on every sample. So read this constant as "max depth, latency
+ * accepted", and reach for `minimal` or `low` if a turn ever needs to feel
+ * fast. Cost barely enters into it: 500k output tokens across 347 prod
+ * requests came to roughly $0.10.
  */
-export const FREEBUFF_MUSE_SPARK_REASONING_EFFORT = 'high' as const
+export const FREEBUFF_MUSE_SPARK_REASONING_EFFORT = 'xhigh' as const
 /**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
