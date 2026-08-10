@@ -52,13 +52,33 @@ export type DatabaseCostEvaluationOptions = {
   minRoundTripRegression: number
 }
 
+/**
+ * RATIO AND FLOORS ARE SET FROM MEASURED NOISE, not intuition — both were too
+ * tight and the alert paged on ordinary traffic within a day of shipping.
+ *
+ * Noise across buckets with no known change (2026-08-10; wall time sampled from
+ * the 9 hours after the private-endpoint rollout so the 15x improvement does not
+ * pollute it):
+ *
+ *   family                    p50        p95        p99
+ *   ClientSqlWallMs      1.2-2.3x   1.4-1.9x   1.4-1.5x
+ *   RoundTrips           4.0-6.0x   1.5-2.4x   1.1-1.5x
+ *
+ * So `regressionRatio` is 2.0, above every tail-percentile swing observed, and
+ * the absolute floors sit above the largest observed absolute move (wall p95
+ * +122ms on free_mode; round trips +6). A regression has to clear BOTH, which is
+ * what stops a large ratio on a tiny value — 9ms -> 20ms is 2.3x and means
+ * nothing — from paging.
+ *
+ * p50 round trips is excluded entirely; see the note in evaluateFamily.
+ */
 export const DEFAULT_DATABASE_COST_EVALUATION_OPTIONS: DatabaseCostEvaluationOptions =
   {
     minRequests: 100,
     minBaselineRequests: 500,
-    regressionRatio: 1.5,
-    minClientSqlWallRegressionMs: 20,
-    minRoundTripRegression: 2,
+    regressionRatio: 2.0,
+    minClientSqlWallRegressionMs: 150,
+    minRoundTripRegression: 8,
   }
 
 // RECALIBRATED 2026-08-09 against one hour of post-private-endpoint traffic
@@ -273,6 +293,15 @@ function metricValue(
   return Number(row[`${percentile}${family}` as keyof DatabaseCostRow]) || 0
 }
 
+/**
+ * How much of a lane's budget a regression must move before it can page, used to
+ * scale the absolute floor down for lanes whose whole budget is smaller than the
+ * global floor. 0.375 reproduces the measured floors on the heavy lanes it was
+ * derived from (chat p95 budget 400ms x 0.375 = 150ms) while giving the light
+ * ones something proportionate (p95 budget 60ms -> 22.5ms).
+ */
+const REGRESSION_FLOOR_BUDGET_SHARE = 0.375
+
 function evaluateFamily({
   current,
   baseline,
@@ -303,11 +332,34 @@ function evaluateFamily({
       // would have gone unreported.
     }
     if (!baseline) continue
+    // The absolute floor is scaled DOWN for light lanes. The global floors are
+    // derived from the heaviest lanes' noise (+150ms came from free_mode's p95),
+    // and applied flat they leave a lane like cli_auth_status — p95 10-15ms —
+    // able to regress 10x without ever clearing them, i.e. with no pageable
+    // signal at all. The lane's own budget is the per-lane scale we already
+    // calibrate, so the floor is the lesser of the global value and a share of
+    // it: heavy lanes keep the measured floor, light lanes get a proportionate
+    // one.
+    const floor = Math.min(minRegression, limit * REGRESSION_FLOOR_BUDGET_SHARE)
+    // p50 NEVER pages, for either family, and no threshold fixes it. p50 is the
+    // typical request, so it tracks request MIX — which share took the cheap
+    // branch — while the tails track structural cost. Measured noise in periods
+    // with no known change:
+    //
+    //   family              p50        p95        p99
+    //   ClientSqlWallMs  1.2-2.3x   1.4-1.9x   1.4-1.5x
+    //   RoundTrips       4.0-6.0x   1.5-2.4x   1.1-1.5x
+    //
+    // No ratio separates a 2.3x-noisy p50 from a real 2x regression, and
+    // 4-6x on p50RoundTrips is hopeless. Both produced false pages on
+    // 2026-08-10 ("roundTrips.p50 regressed 2 -> 5"; session_post's p50 wall
+    // moving 9ms -> 20ms). Still reported via the budgets, just not pageable.
+    if (percentile === 'p50') continue
     const previous = metricValue(baseline, family, percentile)
     if (
       previous > 0 &&
       value >= previous * regressionRatio &&
-      value - previous >= minRegression
+      value - previous >= floor
     ) {
       regressed.push(
         `${label}.${percentile} regressed ${previous} -> ${value} ` +
@@ -399,10 +451,12 @@ export function evaluateDatabaseRequestCosts(
       // per-round-trip cost from 114ms to 11.8ms, and the budgets above are now
       // a ratchet measured against real traffic.
       //
-      // They still do not page, on purpose: a ratchet set from a single hour
-      // has not yet been shown to survive a weekly traffic cycle, and turning
-      // it on early is exactly how this alert became unreadable the first time.
-      // Promote after a week clean.
+      // They still do not page, on purpose. A ratchet set from a single hour has
+      // not been shown to survive a weekly traffic cycle, and 2026-08-10 showed
+      // why that caution is warranted: the REGRESSION thresholds — which do page
+      // — were themselves too tight and fired on ordinary diurnal noise within a
+      // day. Promote only after a week in which nothing over-budget is reported,
+      // and re-read the noise table above first.
       breach: regressed.length > 0,
       overBudget,
       regressed,

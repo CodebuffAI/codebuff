@@ -21,6 +21,19 @@ const budget: DatabaseRequestBudget = {
   roundTrips: { p50: 6, p95: 12, p99: 20 },
 }
 
+/**
+ * Same lane, generous limits. Regression tests need values large enough to clear
+ * the absolute floors (+150ms, +8 round trips) while staying INSIDE budget, so
+ * that "regressed" and "over budget" remain independently assertable — with one
+ * shared tight budget every regression fixture is also over budget and the two
+ * signals cannot be told apart.
+ */
+const roomyBudget: DatabaseRequestBudget = {
+  ...budget,
+  clientSqlWallMs: { p50: 400, p95: 600, p99: 900 },
+  roundTrips: { p50: 50, p95: 50, p99: 50 },
+}
+
 function row(overrides: Partial<DatabaseCostRow> = {}): DatabaseCostRow {
   return {
     service: 'web',
@@ -86,34 +99,79 @@ describe('database request cost budgets', () => {
   })
 
   test('alerts on a material relative regression below the fixed budget', () => {
+    // Must clear BOTH 2.0x and +150ms. 40 -> 80 is 2x but only +40ms, which is
+    // inside the measured noise band and deliberately does NOT page.
     const [verdict] = evaluateDatabaseRequestCosts(
-      [row({ p95ClientSqlWallMs: 80 })],
-      [row({ requests: 5_000, p95ClientSqlWallMs: 40 })],
+      [row({ p95ClientSqlWallMs: 400 })],
+      [row({ requests: 5_000, p95ClientSqlWallMs: 200 })],
+      [roomyBudget],
+      DEFAULT_DATABASE_COST_EVALUATION_OPTIONS,
+    )
+    expect(verdict.breach).toBe(true)
+    expect(verdict.reasons[0]).toContain('regressed 200 -> 400')
+  })
+
+  // p50 tracks request mix, not cost, and is 1.2-2.3x noisy on wall time and
+  // 4-6x on round trips. session_post's p50 wall really does move 9ms -> 20ms on
+  // ordinary traffic, which is 2.2x.
+  test.each(['p50ClientSqlWallMs', 'p50RoundTrips'] as const)(
+    '%s never pages, however large the jump',
+    (metric) => {
+      const [verdict] = evaluateDatabaseRequestCosts(
+        [row({ [metric]: 400 })],
+        [row({ requests: 5_000, [metric]: 9 })],
+        [budget],
+        DEFAULT_DATABASE_COST_EVALUATION_OPTIONS,
+      )
+      expect(verdict.regressed).toEqual([])
+      expect(verdict.breach).toBe(false)
+    },
+  )
+
+  // The other half: a light lane must still HAVE a pageable signal. Its whole
+  // p95 budget (100ms here) is below the global +150ms floor, so a flat floor
+  // would leave it unable to page at any magnitude.
+  test('a light lane can still page on its own scale', () => {
+    const [verdict] = evaluateDatabaseRequestCosts(
+      [row({ p95ClientSqlWallMs: 90 })],
+      [row({ requests: 5_000, p95ClientSqlWallMs: 20 })],
       [budget],
       DEFAULT_DATABASE_COST_EVALUATION_OPTIONS,
     )
     expect(verdict.breach).toBe(true)
-    expect(verdict.reasons[0]).toContain('regressed 40 -> 80')
+    expect(verdict.reasons[0]).toContain('clientSqlWallMs.p95 regressed 20 -> 90')
+  })
+
+  test('p95 round trips still pages on a structural jump', () => {
+    const [verdict] = evaluateDatabaseRequestCosts(
+      [row({ p95RoundTrips: 30 })],
+      [row({ requests: 5_000, p95RoundTrips: 12 })],
+      [roomyBudget],
+      DEFAULT_DATABASE_COST_EVALUATION_OPTIONS,
+    )
+    expect(verdict.breach).toBe(true)
+    expect(verdict.reasons[0]).toContain('roundTrips.p95 regressed 12 -> 30')
   })
 
   test('alerts exactly at the relative and absolute regression thresholds', () => {
+    // Exactly 2.0x and exactly the absolute floors: +150ms and +8 round trips.
     const [verdict] = evaluateDatabaseRequestCosts(
-      [row({ p95ClientSqlWallMs: 60, p50RoundTrips: 6 })],
+      [row({ p95ClientSqlWallMs: 300, p95RoundTrips: 16 })],
       [
         row({
           requests: 5_000,
-          p95ClientSqlWallMs: 40,
-          p50RoundTrips: 4,
+          p95ClientSqlWallMs: 150,
+          p95RoundTrips: 8,
         }),
       ],
-      [budget],
+      [roomyBudget],
       DEFAULT_DATABASE_COST_EVALUATION_OPTIONS,
     )
 
     expect(verdict.breach).toBe(true)
     expect(verdict.reasons).toEqual([
-      'clientSqlWallMs.p95 regressed 40 -> 60 (>=1.50x)',
-      'roundTrips.p50 regressed 4 -> 6 (>=1.50x)',
+      'clientSqlWallMs.p95 regressed 150 -> 300 (>=2.00x)',
+      'roundTrips.p95 regressed 8 -> 16 (>=2.00x)',
     ])
   })
 
@@ -211,9 +269,11 @@ describe('budgets versus regressions', () => {
     // The bug this replaces: the over-budget branch used to `continue`, so once
     // a lane was over budget its baseline comparison never ran and a genuine
     // regression was invisible.
+    // p95 rather than p50, because p50 is not a pageable percentile — see the
+    // noise table in evaluateFamily.
     const [verdict] = evaluateDatabaseRequestCosts(
-      [row({ p50ClientSqlWallMs: 2_000 })],
-      [row({ p50ClientSqlWallMs: 192 })],
+      [row({ p95ClientSqlWallMs: 2_000 })],
+      [row({ p95ClientSqlWallMs: 192 })],
       [budget],
       options,
     )
@@ -225,9 +285,9 @@ describe('budgets versus regressions', () => {
 
   test('a regression within budget pages', () => {
     const [verdict] = evaluateDatabaseRequestCosts(
-      [row({ p50ClientSqlWallMs: 24 })],
-      [row({ p50ClientSqlWallMs: 2 })],
-      [budget],
+      [row({ p95ClientSqlWallMs: 400 })],
+      [row({ p95ClientSqlWallMs: 200 })],
+      [roomyBudget],
       options,
     )
 
