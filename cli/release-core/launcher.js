@@ -72,6 +72,16 @@ function createLauncher(productConfig) {
     }
   }
 
+  /**
+   * How long a binary has to survive before a crash stops looking like a
+   * startup failure. Used to bound the STATUS_STACK_BUFFER_OVERRUN heuristic
+   * below, which is only trustworthy for deaths during startup.
+   */
+  const STARTUP_CRASH_WINDOW_MS = 10000
+
+  /** Bytes of the binary's stderr kept for the crash report. */
+  const STDERR_TAIL_BYTES = 8192
+
   function getUnsignedExitCode(code) {
     return code != null && code < 0 ? code >>> 0 : code
   }
@@ -95,6 +105,34 @@ function createLauncher(productConfig) {
     return (
       signal === 'SIGILL' ||
       (process.platform === 'win32' && unsignedCode === 0xc000001d)
+    )
+  }
+
+  /**
+   * A startup death that is probably this machine failing to run the optimized
+   * build, reported under the *other* Windows spelling.
+   *
+   * Bun is written in Zig, and a Zig panic on Windows reports itself with
+   * __fastfail(FAST_FAIL_FATAL_APP_EXIT) — NTSTATUS 0xC0000409
+   * (STATUS_STACK_BUFFER_OVERRUN, exit code 3221226505), not
+   * STATUS_ILLEGAL_INSTRUCTION. So a CPU without AVX2 does not reliably die on
+   * the illegal instruction itself: Bun detects the missing feature, then
+   * panics while starting up anyway (oven-sh/bun#28399), and the crash arrives
+   * as 0xC0000409. Only the SIGILL spelling was wired to the baseline
+   * fallback, which is why these machines crash-looped forever.
+   *
+   * On its own 0xC0000409 only means "the binary aborted", so this is bounded
+   * to deaths during startup. A panic ten minutes into a session is an
+   * ordinary bug, and reading it as a missing instruction set would send a
+   * perfectly capable machine to the slower build.
+   */
+  function isStartupCpuFeatureCrash(code, signal, msAlive) {
+    return (
+      process.platform === 'win32' &&
+      getUnsignedExitCode(code) === 0xc0000409 &&
+      !signal &&
+      typeof msAlive === 'number' &&
+      msAlive < STARTUP_CRASH_WINDOW_MS
     )
   }
 
@@ -933,6 +971,16 @@ function createLauncher(productConfig) {
   }
 
   async function checkForUpdates(runningProcess, exitListener) {
+    // main() schedules this 100ms after launch, so the binary it was handed can
+    // already be dead — a startup crash that handed off to the baseline
+    // fallback, most of all. Updating around a corpse would race that
+    // relaunch's download for the shared temp directory (prepareTempDownloadDir
+    // rmSyncs it) and then spend six seconds SIGKILLing a process that has
+    // already exited.
+    if (runningProcess.exitCode !== null || runningProcess.signalCode !== null) {
+      return
+    }
+
     let stoppedForUpdate = false
 
     try {
@@ -991,7 +1039,32 @@ function createLauncher(productConfig) {
     }
   }
 
-  function printCrashDiagnostics(code, signal) {
+  /**
+   * Make captured output safe to print back to the terminal.
+   *
+   * The tail is replayed *after* resetTerminal() has put the terminal back in
+   * order, so it must not be able to undo that: a stray \x1b[?1049h or
+   * \x1b[?1003h in what the binary printed would re-enter the alternate screen
+   * or re-enable mouse reporting, hiding the very report it is part of. Strip
+   * the escapes and keep the words.
+   */
+  function sanitizeForReplay(text) {
+    if (!text) return ''
+    return (
+      text
+        .replace(/\r\n?/g, '\n')
+        // CSI sequences — the ones that actually change terminal state.
+        .replace(/\x1b\[[0-9;:?<>=]*[ -/]*[@-~]/g, '')
+        // Everything else: strip the control bytes and keep the text. An OSC
+        // or a lone escape loses its introducer and degrades to inert
+        // characters, which is all a crash report needs it to be.
+        .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+        .replace(/\s+$/, '')
+    )
+  }
+
+  function printCrashDiagnostics(code, signal, context = {}) {
+    const { msAlive = null, stderrTail = '' } = context
     // Windows NTSTATUS codes (unsigned DWORD)
     const unsignedCode = getUnsignedExitCode(code)
     const isIllegalInstruction = isIllegalInstructionExit(code, signal)
@@ -1026,11 +1099,46 @@ function createLauncher(productConfig) {
       console.error('This may indicate a platform compatibility issue.')
       console.error('')
     } else if (isAbort) {
-      console.error('The binary crashed with an abort signal.')
+      const startupCpuCrash = isStartupCpuFeatureCrash(code, signal, msAlive)
+      console.error(
+        startupCpuCrash
+          ? 'The binary aborted while starting up.'
+          : 'The binary crashed with an abort signal.',
+      )
       console.error('')
+      // Reached only once the baseline fallback has declined or failed, so name
+      // the case the user can still act on instead of leaving them with an
+      // abort code and a bug-tracker link.
+      if (startupCpuCrash) {
+        if (getCurrentMetadata()?.target === getBaselineFallbackTargetKey()) {
+          console.error(
+            'This is already the older-CPU (baseline) build, so a missing AVX2',
+          )
+          console.error(
+            'instruction set is not the whole story — please include the output',
+          )
+          console.error('below in your report.')
+          console.error('')
+        } else {
+          console.error(
+            'On x64 Windows this is usually a CPU without AVX2 support, which',
+          )
+          console.error('the standard build requires.')
+          console.error('')
+          printBaselineOverrideHint()
+        }
+      }
     }
 
     printSystemInfo()
+    const tailText = sanitizeForReplay(stderrTail)
+    if (tailText) {
+      console.error('')
+      console.error(`Last output from ${packageName}:`)
+      for (const line of tailText.split('\n')) {
+        console.error(`  ${line}`)
+      }
+    }
     console.error('')
     console.error('Please report this issue at:')
     console.error('  https://github.com/CodebuffAI/codebuff/issues')
@@ -1047,13 +1155,28 @@ function createLauncher(productConfig) {
     console.error('')
   }
 
+  /**
+   * What we actually know about AVX2, not what we assume.
+   *
+   * The old line printed a flat "yes" from machineHasAvx2(), which on Windows
+   * is an optimistic default and not a measurement (see detectMachineHasAvx2).
+   * Every crash report that reached us therefore claimed AVX2 was present on
+   * machines we had never asked, which is exactly the evidence that would have
+   * pointed at the CPU.
+   */
+  function describeAvx2Support() {
+    if (readCachedAvx2() === false) return 'no (recorded crash)'
+    if (process.platform === 'linux') return machineHasAvx2() ? 'yes' : 'no'
+    return 'not checked (assumed present)'
+  }
+
   function printSystemInfo() {
     const metadata = getCurrentMetadata()
     console.error('System info:')
     console.error(`  Platform: ${process.platform} ${process.arch}`)
     console.error(`  Node:     ${process.version}`)
     if (process.arch === 'x64') {
-      console.error(`  AVX2:     ${machineHasAvx2() ? 'yes' : 'no'}`)
+      console.error(`  AVX2:     ${describeAvx2Support()}`)
     }
     console.error(`  Target:   ${metadata?.target || getDefaultTargetKey()}`)
     console.error(`  Binary:   ${CONFIG.binaryPath}`)
@@ -1124,7 +1247,12 @@ function createLauncher(productConfig) {
     try {
       const { env: optionEnv, ...spawnOptions } = options
       child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-        stdio: 'inherit',
+        // stdin/stdout stay inherited — the TUI owns the terminal and must see
+        // a real tty. stderr is teed on Windows only; see watchLaunch.
+        stdio:
+          process.platform === 'win32'
+            ? ['inherit', 'inherit', 'pipe']
+            : ['inherit', 'inherit', 'inherit'],
         ...spawnOptions,
         env: {
           ...process.env,
@@ -1137,17 +1265,82 @@ function createLauncher(productConfig) {
     }
 
     child.on('error', exitOnSpawnFailure)
+    child.launch = watchLaunch(child)
 
     return child
   }
 
-  async function tryFallbackToBaseline(code, signal) {
-    if (!isIllegalInstructionExit(code, signal)) {
+  /**
+   * Watch a launch so its death can be explained: how long the binary lived,
+   * and what it printed on the way out.
+   *
+   * The stderr tee is what makes a crash report self-contained. When the binary
+   * dies natively we reset the terminal, and that reset leaves the alternate
+   * screen with \x1b[?1049l — discarding its contents, including any panic Bun
+   * printed there. (The CLI's own terminal watchdog sends the same sequence, so
+   * dropping it here wouldn't help.) Every report of codebuff#792 is a launcher
+   * message with no panic text above it; keeping a copy means the next one
+   * arrives with Bun's own words in it.
+   *
+   * Only Windows pipes stderr — that's where the reports come from, and
+   * everywhere else stderr stays a real tty.
+   */
+  function watchLaunch(child) {
+    const startedAt = Date.now()
+    const chunks = []
+    let bufferedBytes = 0
+
+    child.stderr?.on('data', (chunk) => {
+      try {
+        // Straight through: as far as the binary and the user are concerned,
+        // this is still its terminal.
+        process.stderr.write(chunk)
+      } catch {
+        // stderr may be closed
+      }
+      chunks.push(chunk)
+      bufferedBytes += chunk.length
+      while (bufferedBytes > STDERR_TAIL_BYTES && chunks.length > 1) {
+        bufferedBytes -= chunks.shift().length
+      }
+    })
+
+    return {
+      msAlive: () => Date.now() - startedAt,
+      stderrTail: () =>
+        Buffer.concat(chunks).toString('utf8').slice(-STDERR_TAIL_BYTES),
+      // 'exit' can beat the last bytes through the pipe; 'close' is the event
+      // that means the stdio is drained too. The timeout is a bound on a stuck
+      // pipe and is deliberately NOT unref'd — an unref'd timer lets the
+      // process exit before it fires, which would swallow the crash report
+      // entirely. Already-drained streams resolve without waiting for it.
+      drained: () =>
+        child.stderr && !child.stderr.readableEnded
+          ? new Promise((resolve) => {
+              child.once('close', resolve)
+              child.stderr.once('end', resolve)
+              setTimeout(resolve, 250)
+            })
+          : Promise.resolve(),
+    }
+  }
+
+  async function tryFallbackToBaseline(code, signal, msAlive) {
+    // Two spellings of one failure, at two levels of certainty. SIGILL /
+    // STATUS_ILLEGAL_INSTRUCTION is proof this CPU cannot run this build; a
+    // Windows startup abort is a strong suspicion (see isStartupCpuFeatureCrash).
+    const confirmed = isIllegalInstructionExit(code, signal)
+    if (!confirmed && !isStartupCpuFeatureCrash(code, signal, msAlive)) {
       return false
     }
 
     const fallbackTarget = getBaselineFallbackTargetKey()
     if (!fallbackTarget) {
+      return false
+    }
+
+    // An explicit target is the user's decision; don't download over it.
+    if (getTargetOverride()) {
       return false
     }
 
@@ -1157,10 +1350,16 @@ function createLauncher(productConfig) {
       return false
     }
 
-    // The optimized build just died on an illegal instruction, so this machine
-    // cannot run it. Persist that before downloading, so even if the download
-    // or the relaunch fails we never optimistically pick the AVX2 build again.
-    recordMachineLacksAvx2()
+    // Only a confirmed illegal instruction gets written down. Persisting it
+    // before the download is what caps the cost at one crash: even if the
+    // download or the relaunch fails, we never optimistically pick the AVX2
+    // build again. A suspected crash records nothing — installing the baseline
+    // already keeps this machine on it, so a guess that turns out to be wrong
+    // costs the slower build instead of leaving cpu-features.json asserting a
+    // CPU limitation we never observed.
+    if (confirmed) {
+      recordMachineLacksAvx2()
+    }
 
     const version = metadata?.version || (await getLatestVersion())
     if (!version) {
@@ -1172,7 +1371,9 @@ function createLauncher(productConfig) {
     })
     console.error('')
     console.error(
-      `${packageName} is switching to the older-CPU binary for this machine.`,
+      confirmed
+        ? `${packageName} is switching to the older-CPU binary for this machine.`
+        : `${packageName} crashed on startup; trying the older-CPU binary.`,
     )
 
     try {
@@ -1190,9 +1391,20 @@ function createLauncher(productConfig) {
 
   function attachExitHandler(child, allowBaselineFallback = true) {
     const exitListener = async (code, signal) => {
+      // A child we never watched (only reachable from a test) reports no age
+      // rather than a suspiciously young one: absent evidence must not be read
+      // as a startup crash and trigger a download.
+      const msAlive = child.launch ? child.launch.msAlive() : Infinity
+
+      let stderrTail = ''
+      if (child.launch && (isWindowsNativeCrashCode(code) || signal)) {
+        await child.launch.drained()
+        stderrTail = child.launch.stderrTail()
+      }
+
       if (
         allowBaselineFallback &&
-        (await tryFallbackToBaseline(code, signal))
+        (await tryFallbackToBaseline(code, signal, msAlive))
       ) {
         return
       }
@@ -1200,7 +1412,7 @@ function createLauncher(productConfig) {
       resetTerminal({
         exitAlternateScreen: shouldExitAlternateScreen(code, signal),
       })
-      printCrashDiagnostics(code, signal)
+      printCrashDiagnostics(code, signal, { msAlive, stderrTail })
       process.exit(signal ? 1 : code || 0)
     }
 
@@ -1236,6 +1448,12 @@ function createLauncher(productConfig) {
       recordMachineLacksAvx2,
       readCachedAvx2,
       isIllegalInstructionExit,
+      isStartupCpuFeatureCrash,
+      tryFallbackToBaseline,
+      printCrashDiagnostics,
+      checkForUpdates,
+      spawnInstalledBinary,
+      attachExitHandler,
       getDefaultTargetKey,
       getCpuFeatureCachePath,
       getCurrentVersion,

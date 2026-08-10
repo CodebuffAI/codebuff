@@ -348,13 +348,17 @@ describe('shared release launcher safety', () => {
     const source = readFileSync(launcherPath, 'utf8')
     const spawnFunction = source.slice(
       source.indexOf('function spawnInstalledBinary'),
-      source.indexOf('async function tryFallbackToBaseline'),
+      source.indexOf('function watchLaunch'),
     )
+    expect(spawnFunction).not.toBe('')
 
     expect(spawnFunction).toContain(
       'CODEBUFF_LAUNCHER_PID: String(process.pid)',
     )
-    expect(spawnFunction).toContain("stdio: 'inherit'")
+    // stderr is teed on Windows to keep native-crash output (see watchLaunch),
+    // but stdin/stdout must stay inherited or the TUI loses its tty.
+    expect(spawnFunction).toContain("['inherit', 'inherit', 'pipe']")
+    expect(spawnFunction).toContain("['inherit', 'inherit', 'inherit']")
   })
 
   test('cleans up process-stop listeners and timers', async () => {
