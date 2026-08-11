@@ -20,6 +20,14 @@ type CompleteBundle = {
 export type OpenTuiNativeTarget = {
   platform: NodeJS.Platform
   arch: string
+  /**
+   * Which libc the native package is built against. OpenTUI publishes the
+   * glibc build under the plain `core-<platform>-<arch>` name and the musl one
+   * under a `-musl` suffix; every other difference (file layout, os/cpu
+   * metadata) is identical between them. Omitted means glibc, which is also
+   * the only shape Windows and macOS have.
+   */
+  libc?: 'musl'
 }
 
 type EnsureOpenTuiNativeBundleOptions = {
@@ -283,7 +291,8 @@ function hash(contents: Buffer): string {
 }
 
 function getOpenTuiNativePackageName(targetInfo: OpenTuiNativeTarget): string {
-  return `@opentui/core-${targetInfo.platform}-${targetInfo.arch}`
+  const suffix = targetInfo.libc === 'musl' ? '-musl' : ''
+  return `@opentui/core-${targetInfo.platform}-${targetInfo.arch}${suffix}`
 }
 
 function getOpenTuiNativeLibrary(platform: NodeJS.Platform): string | null {

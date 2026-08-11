@@ -13,7 +13,10 @@ import {
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
-import { ensureOpenTuiNativeBundle } from './open-tui-native-bundle'
+import {
+  ensureOpenTuiNativeBundle,
+  type OpenTuiNativeTarget,
+} from './open-tui-native-bundle'
 
 type TargetInfo = {
   bunTarget: string
@@ -24,11 +27,9 @@ type TargetInfo = {
 const VERBOSE = process.env.VERBOSE === 'true'
 const OVERRIDE_TARGET = process.env.OVERRIDE_TARGET
 const OVERRIDE_PLATFORM = process.env.OVERRIDE_PLATFORM as
-  | NodeJS.Platform
-  | undefined
+  NodeJS.Platform | undefined
 const OVERRIDE_ARCH = process.env.OVERRIDE_ARCH ?? undefined
-const OVERRIDE_COMPILE_EXECUTABLE_PATH =
-  process.env.BUN_COMPILE_EXECUTABLE_PATH
+const OVERRIDE_COMPILE_EXECUTABLE_PATH = process.env.BUN_COMPILE_EXECUTABLE_PATH
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -165,10 +166,7 @@ async function main() {
     ['process.env.NODE_ENV', '"production"'],
     ['process.env.CODEBUFF_IS_BINARY', '"true"'],
     ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
-    [
-      'process.env.CODEBUFF_CLI_TARGET',
-      `"${getCliTargetLabel(targetInfo)}"`,
-    ],
+    ['process.env.CODEBUFF_CLI_TARGET', `"${getCliTargetLabel(targetInfo)}"`],
     ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
     ...nextPublicEnvVars,
   ]
@@ -214,9 +212,7 @@ async function main() {
     chmodSync(outputFile, 0o755)
   }
 
-  logAlways(
-    `✅ Built ${outputFilename} (${getCliTargetLabel(targetInfo)})`,
-  )
+  logAlways(`✅ Built ${outputFilename} (${getCliTargetLabel(targetInfo)})`)
 }
 
 main().catch((error: unknown) => {
@@ -238,7 +234,14 @@ function findWebTreeSitterWasm(): string {
   const candidates = [
     join(cliRoot, 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
     join(cliRoot, '..', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
-    join(cliRoot, '..', 'sdk', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
+    join(
+      cliRoot,
+      '..',
+      'sdk',
+      'node_modules',
+      'web-tree-sitter',
+      'tree-sitter.wasm',
+    ),
   ]
   const found = candidates.find((p) => existsSync(p))
   if (found) return found
@@ -253,9 +256,38 @@ function findWebTreeSitterWasm(): string {
   }
 }
 
+/**
+ * Every OpenTUI native package a build for this target has to be able to
+ * RESOLVE — not just the one it will load.
+ *
+ * `@opentui/core` picks its native module with static `import()` calls inside a
+ * platform switch, and `bun build --compile` resolves every branch it can see,
+ * including the ones this target will never take. On Linux that means the musl
+ * sibling counts too: 0.3.4 added `-linux-x64-musl` / `-linux-arm64-musl`
+ * (0.2.2 had neither), and because only the glibc package was installed, every
+ * Linux target stopped building the moment that upgrade landed — "Could not
+ * resolve @opentui/core-linux-arm64-musl". Windows and macOS were unaffected
+ * because they have no musl variant, which is why the breakage looked like a
+ * flaky arm64 runner rather than a missing dependency.
+ *
+ * Each variant is returned as its own target rather than a bare folder name:
+ * the bundle helper validates an install by comparing the package's own
+ * `name` against the one its target implies, so handing it the musl directory
+ * under a glibc target makes it reject a perfectly good package as
+ * "incomplete or incompatible".
+ */
+function openTuiNativeTargets(targetInfo: TargetInfo): OpenTuiNativeTarget[] {
+  return targetInfo.platform === 'linux'
+    ? [targetInfo, { ...targetInfo, libc: 'musl' }]
+    : [targetInfo]
+}
+
+function openTuiNativePackageFolder(target: OpenTuiNativeTarget): string {
+  const suffix = target.libc === 'musl' ? '-musl' : ''
+  return `core-${target.platform}-${target.arch}${suffix}`
+}
+
 function prepareOpenTuiNativeBundle(targetInfo: TargetInfo) {
-  const packageName = `@opentui/core-${targetInfo.platform}-${targetInfo.arch}`
-  const packageFolder = `core-${targetInfo.platform}-${targetInfo.arch}`
   const cliPackageJson = JSON.parse(
     readFileSync(join(cliRoot, 'package.json'), 'utf8'),
   ) as {
@@ -267,54 +299,59 @@ function prepareOpenTuiNativeBundle(targetInfo: TargetInfo) {
     throw new Error('CLI package metadata must pin OpenTUI core and react')
   }
 
-  const corePackage = getInstalledOpenTuiPackage(
-    'core',
-    expectedCoreVersion,
-  )
+  const corePackage = getInstalledOpenTuiPackage('core', expectedCoreVersion)
   // Resolve both packages up front so a stale split install fails before build.
   void getInstalledOpenTuiPackage('react', expectedReactVersion)
 
   const packagesDir = dirname(corePackage.packageDir)
-  const packageDir = join(packagesDir, packageFolder)
-  const version = corePackage.packageJson.optionalDependencies?.[packageName]
-  if (version !== expectedCoreVersion) {
-    throw new Error(
-      `Installed OpenTUI core does not declare ${packageName}@${expectedCoreVersion}`,
-    )
-  }
-
   const registry =
     process.env.CODEBUFF_NPM_REGISTRY ?? process.env.NPM_REGISTRY_URL
-  const installResult = ensureOpenTuiNativeBundle({
-    packageDir,
-    version,
-    targetInfo,
-    installBundle: (stagingRoot) => {
-      runCommand(
-        'bun',
-        [
-          'install',
-          '--cwd',
-          stagingRoot,
-          '--no-save',
-          `--os=${targetInfo.platform}`,
-          `--cpu=${targetInfo.arch}`,
-          ...(registry ? [`--registry=${registry}`] : []),
-          `${packageName}@${version}`,
-        ],
-        { env: process.env },
-      )
-    },
-  })
 
-  if (installResult === 'reused') {
-    log(
-      `OpenTUI native bundle ${version} already present for ${targetInfo.platform}-${targetInfo.arch}`,
-    )
-  } else {
-    logAlways(
-      `Installed OpenTUI native bundle ${version} for ${targetInfo.platform}-${targetInfo.arch}`,
-    )
+  for (const target of openTuiNativeTargets(targetInfo)) {
+    const packageFolder = openTuiNativePackageFolder(target)
+    const packageName = `@opentui/${packageFolder}`
+    const packageDir = join(packagesDir, packageFolder)
+    const version = corePackage.packageJson.optionalDependencies?.[packageName]
+    if (version !== expectedCoreVersion) {
+      throw new Error(
+        `Installed OpenTUI core does not declare ${packageName}@${expectedCoreVersion}`,
+      )
+    }
+
+    const installResult = ensureOpenTuiNativeBundle({
+      packageDir,
+      version,
+      targetInfo: target,
+      installBundle: (stagingRoot) => {
+        runCommand(
+          'bun',
+          [
+            'install',
+            '--cwd',
+            stagingRoot,
+            '--no-save',
+            // The musl package is published for the same os/cpu as its glibc
+            // sibling — the libc split lives in the package name, not in these
+            // filters — so the same pair works for both.
+            `--os=${targetInfo.platform}`,
+            `--cpu=${targetInfo.arch}`,
+            ...(registry ? [`--registry=${registry}`] : []),
+            `${packageName}@${version}`,
+          ],
+          { env: process.env },
+        )
+      },
+    })
+
+    if (installResult === 'reused') {
+      log(
+        `OpenTUI native bundle ${version} already present for ${packageFolder}`,
+      )
+    } else {
+      logAlways(
+        `Installed OpenTUI native bundle ${version} for ${packageFolder}`,
+      )
+    }
   }
 }
 
@@ -334,7 +371,9 @@ function getInstalledOpenTuiPackage(
   try {
     packageDir = dirname(realpathSync(cliRequire.resolve(packageName)))
   } catch {
-    throw new Error(`${packageName} is missing; run bun install before building`)
+    throw new Error(
+      `${packageName} is missing; run bun install before building`,
+    )
   }
 
   const packageJson = JSON.parse(

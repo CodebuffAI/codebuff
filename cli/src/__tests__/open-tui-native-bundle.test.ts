@@ -71,6 +71,64 @@ afterEach(() => {
   }
 })
 
+describe('OpenTUI native bundle identity', () => {
+  // The glibc and musl packages are byte-identical in layout and differ only in
+  // their `name`, so validating one against the other's target silently
+  // rejected a good install as "incomplete or incompatible" — which is how
+  // every Linux build broke on the 0.3.4 upgrade.
+  const MUSL_TARGET = { platform: 'linux', arch: 'x64', libc: 'musl' } as const
+  const GLIBC_TARGET = { platform: 'linux', arch: 'x64' } as const
+
+  function writeLinuxBundle(
+    packageDir: string,
+    packageName: string,
+    libc?: 'musl',
+  ): void {
+    mkdirSync(packageDir, { recursive: true })
+    writeFileSync(
+      join(packageDir, 'package.json'),
+      JSON.stringify({
+        name: packageName,
+        version: CURRENT_VERSION,
+        os: ['linux'],
+        cpu: ['x64'],
+        ...(libc ? { libc: [libc] } : {}),
+      }),
+    )
+    writeFileSync(join(packageDir, 'index.bun.js'), 'export default "native"')
+    writeFileSync(join(packageDir, 'libopentui.so'), `so-${CURRENT_VERSION}`)
+  }
+
+  test('accepts the musl package under a musl target', () => {
+    testRoot = mkdtempSync(join(tmpdir(), 'opentui-native-bundle-test-'))
+    const packageDir = join(testRoot, '@opentui', 'core-linux-x64-musl')
+    writeLinuxBundle(packageDir, '@opentui/core-linux-x64-musl', 'musl')
+
+    sealOpenTuiNativeBundle(packageDir, CURRENT_VERSION, MUSL_TARGET)
+    expect(getValidBundleVersion(packageDir, MUSL_TARGET)).toBe(CURRENT_VERSION)
+  })
+
+  test('rejects the musl package under a glibc target', () => {
+    testRoot = mkdtempSync(join(tmpdir(), 'opentui-native-bundle-test-'))
+    const packageDir = join(testRoot, '@opentui', 'core-linux-x64-musl')
+    writeLinuxBundle(packageDir, '@opentui/core-linux-x64-musl', 'musl')
+
+    expect(() =>
+      sealOpenTuiNativeBundle(packageDir, CURRENT_VERSION, GLIBC_TARGET),
+    ).toThrow('is incomplete or incompatible')
+  })
+
+  test('rejects the glibc package under a musl target', () => {
+    testRoot = mkdtempSync(join(tmpdir(), 'opentui-native-bundle-test-'))
+    const packageDir = join(testRoot, '@opentui', 'core-linux-x64')
+    writeLinuxBundle(packageDir, '@opentui/core-linux-x64')
+
+    expect(() =>
+      sealOpenTuiNativeBundle(packageDir, CURRENT_VERSION, MUSL_TARGET),
+    ).toThrow('is incomplete or incompatible')
+  })
+})
+
 describe('OpenTUI native bundle recovery', () => {
   test('reuses a complete matching bundle', () => {
     const packageDir = createPackageDir()
