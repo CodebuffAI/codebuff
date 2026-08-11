@@ -106,25 +106,36 @@ Bash is required but was not found on this Windows system.
 ```
 
 **Cause**:
-Codebuff requires bash for command execution. This error appears when:
-- Git for Windows is not installed
-- You're not running inside WSL
-- bash.exe is not in your PATH
+Agents write bash, so bash is what we run. This error means we could not find one — Git for
+Windows is the usual source of it.
+
+**In Freebuff Desktop**: you should rarely see anything like this. The app looks in far more
+places than the message above implies (see below), and when bash genuinely is missing it says so
+with a card before your first prompt rather than failing mid-turn. The text above is the CLI's.
+Either way the fix is the same, and the app picks up a new install without a restart.
 
 **Solutions**:
 
 1. **Install Git for Windows** (recommended):
-   - Download from https://git-scm.com/download/win
-   - This installs `bash.exe` which Codebuff will automatically detect
+   - Download from https://git-scm.com/download/win, or run
+     `winget install --id Git.Git --exact --source winget`
+   - Both the per-machine and per-user (no admin) installs are detected, as are Scoop and
+     Chocolatey layouts, a `ProgramFiles` that isn't on C:, and any install that puts `git.exe`
+     on PATH — bash is found beside it
    - Works in PowerShell, CMD, or Git Bash terminals
 
 2. **Use WSL (Windows Subsystem for Linux)**:
    - Provides full Linux environment with native bash
    - Install: `wsl --install` in PowerShell (Admin)
    - Run codebuff inside WSL for best compatibility
+   - Note: the WSL launcher at `C:\Windows\System32\bash.exe` is deliberately never used as our
+     bash. It exists whether or not a distro does, and fails with unhelpful errors when there
+     isn't one.
 
 3. **Set custom bash path** (advanced):
-   - If bash.exe is installed in a non-standard location:
+   - For an install in a custom directory that also adds nothing to PATH (the installer's
+     "Use Git from Git Bash only" option), this is the supported way to point at it. Nothing
+     overwrites or clears the value once you set it:
    ```powershell
    set CODEBUFF_GIT_BASH_PATH=C:\path\to\bash.exe
    ```

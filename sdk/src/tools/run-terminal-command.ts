@@ -1,5 +1,4 @@
 import { spawn, spawnSync } from 'child_process'
-import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
@@ -11,6 +10,10 @@ import type { Readable } from 'stream'
 
 import { stripColors } from '../../../common/src/util/string'
 import { getSystemProcessEnv } from '../env'
+import {
+  createWindowsBashNotFoundError,
+  findWindowsBash,
+} from './windows-bash'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
@@ -223,71 +226,6 @@ function installExitSweep() {
       } catch {}
     }
   })
-}
-
-// Machine-wide Git for Windows layouts. A per-user install (no admin rights)
-// lands under %LOCALAPPDATA% instead, and is found via git.exe below.
-const GIT_BASH_COMMON_PATHS = [
-  'C:\\Program Files\\Git\\bin\\bash.exe',
-  'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
-  'C:\\Git\\bin\\bash.exe',
-]
-
-// The WSL launcher ships at C:\Windows\System32\bash.exe whether or not a
-// distro is installed, so it must never be mistaken for a usable bash.
-const WSL_BASH_PATH_PATTERNS = ['system32', 'windowsapps']
-
-/**
- * Find bash executable on Windows: the CODEBUFF_GIT_BASH_PATH override, then a
- * standard install, then bash on PATH, then bash beside a git.exe on PATH —
- * the installer's default option adds only `…\Git\cmd`, which holds git.exe and
- * no bash.exe, so that last one is what finds a per-user or relocated install.
- *
- * WSL bash is never used: it fails with cryptic errors when the VM is not
- * running, on argument quoting and on UTF-16 mismatches, and with no distro
- * installed every command returns "Windows Subsystem for Linux has no installed
- * distributions."
- */
-function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
-  const pathDirs = (env.PATH || env.Path || '')
-    .split(path.delimiter)
-    .filter(
-      (dir) =>
-        !WSL_BASH_PATH_PATTERNS.some((pattern) =>
-          dir.toLowerCase().includes(pattern),
-        ),
-    )
-
-  return (
-    [
-      env.CODEBUFF_GIT_BASH_PATH,
-      ...GIT_BASH_COMMON_PATHS,
-      ...pathDirs.flatMap((dir) =>
-        ['bash.exe', 'bash'].map((name) => path.join(dir, name)),
-      ),
-      ...pathDirs
-        .filter((dir) => fs.existsSync(path.join(dir, 'git.exe')))
-        .map((dir) => path.join(path.dirname(dir), 'bin', 'bash.exe')),
-    ].find((candidate) => candidate && fs.existsSync(candidate)) ?? null
-  )
-}
-
-/**
- * Create an error message for Windows users when bash is not available.
- */
-function createWindowsBashNotFoundError(): Error {
-  return new Error(
-    `Bash is required but was not found on this Windows system.
-
-To fix this, you have two options:
-
-1. Install Git for Windows (includes bash.exe):
-   Download from: https://git-scm.com/download/win
-
-2. Point at an existing bash.exe:
-   Set the CODEBUFF_GIT_BASH_PATH environment variable to its location.
-   Example: set CODEBUFF_GIT_BASH_PATH=C:\\path\\to\\bash.exe`,
-  )
 }
 
 /**
