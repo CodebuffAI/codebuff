@@ -17,8 +17,6 @@ import {
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
 } from './freebuff-models'
 import {
   GEMINI_3_1_FLASH_LITE_MODEL_ID,
@@ -102,9 +100,6 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base3-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
-  [FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]: 'base3-free-laguna-s-2-1',
-  [FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID]:
-    'base3-free-laguna-s-2-1-openrouter',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark',
 }
@@ -228,8 +223,6 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-minimax-m3',
   'base2-free-luna',
   'base2-free-glm',
-  'base2-free-laguna-s-2-1',
-  'base2-free-laguna-s-2-1-openrouter',
   'base2-free-kimi-k3-eco',
   // Freebuff Web only (Meta Muse Spark 1.2 Contributor). Listed here like every
   // other root so its subagents pass the hierarchy gate; the model, not this
@@ -261,8 +254,6 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-minimax-m3',
   'base3-free-luna',
   'base3-free-glm',
-  'base3-free-laguna-s-2-1',
-  'base3-free-laguna-s-2-1-openrouter',
   'base3-free-kimi-k3-eco',
   'base3-free-muse-spark',
   ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
@@ -278,9 +269,6 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
-  [FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]: 'base2-free-laguna-s-2-1',
-  [FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID]:
-    'base2-free-laguna-s-2-1-openrouter',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base2-free-kimi-k3-eco',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark',
@@ -394,10 +382,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
-  'base2-free-laguna-s-2-1': new Set([FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]),
-  'base2-free-laguna-s-2-1-openrouter': new Set([
-    FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  ]),
   'base2-free-kimi-k3-eco': new Set([FREEBUFF_KIMI_K3_ECO_MODEL_ID]),
   // Web-only Muse Spark root. Exactly one model, like every other pinned root:
   // the rate-limit queue accounts by model, so a root that could also run

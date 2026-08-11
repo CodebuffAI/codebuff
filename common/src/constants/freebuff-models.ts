@@ -182,10 +182,6 @@ export const FREEBUFF_GPT_5_6_LUNA_MAX_PRICE = {
 } as const
 /** Reasoning effort every Luna turn runs at. */
 export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
-/** God-mode-only Laguna S 2.1 route used to test Poolside's direct
- *  OpenAI-compatible API before wider rollout. */
-export const FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID = 'poolside/laguna-s-2.1'
-
 /**
  * Kimi K3 (Eco), served by CrofAI. God-only on Freebuff Web, for testing.
  *
@@ -203,11 +199,6 @@ export const FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID = 'poolside/laguna-s-2.1'
  * label is plain "Kimi K3" by request; see KIMI_K3_ECO_MODEL.
  */
 export const FREEBUFF_KIMI_K3_ECO_MODEL_ID = 'crof/kimi-k3-eco'
-/** God-mode-only alias for testing the paid OpenRouter route independently
- *  from Poolside's direct API. OpenRouter receives `poolside/laguna-s-2.1`. */
-export const FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID =
-  'openrouter/poolside/laguna-s-2.1'
-
 /**
  * Claude Fable 5 — Anthropic's frontier model, offered to free CLI users as a
  * capacity-limited trial rather than as a standing picker model.
@@ -638,28 +629,6 @@ const KIMI_K3_ECO_MODEL = {
   experimental: true,
 } as const satisfies FreebuffModelOption
 
-const POOLSIDE_LAGUNA_S_21_MODEL = {
-  id: FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-  displayName: 'Laguna S 2.1 (Poolside)',
-  tagline: 'Direct Poolside API',
-  availability: 'always',
-  dataUse: 'service',
-  premium: true,
-  multimodal: false,
-  experimental: true,
-} as const satisfies FreebuffModelOption
-
-const POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL = {
-  id: FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-  displayName: 'Laguna S 2.1 (OpenRouter)',
-  tagline: 'Paid via OpenRouter',
-  availability: 'always',
-  dataUse: 'service',
-  premium: true,
-  multimodal: false,
-  experimental: true,
-} as const satisfies FreebuffModelOption
-
 const FABLE_5_MODEL = {
   id: FREEBUFF_FABLE_5_MODEL_ID,
   displayName: 'Claude Fable 5',
@@ -807,8 +776,6 @@ export const FREEBUFF_WEB_MODELS = [
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
-  POOLSIDE_LAGUNA_S_21_MODEL,
-  POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL,
   KIMI_K3_ECO_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -818,8 +785,6 @@ export const FREEBUFF_WEB_ALL_MODELS = [
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
 ] as const
 
@@ -864,8 +829,6 @@ export function isFreebuffWebSelectableModelId(
  *  any GLM route in this list hands the model out for nothing. */
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   // Metered by the web premium pool like every other god-only row. Being in
   // SOME pool is the point: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by
   // filtering `!premium`, so a premium model left out of here would be metered

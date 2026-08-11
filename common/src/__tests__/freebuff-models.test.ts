@@ -29,8 +29,6 @@ import {
   LIMITED_FREEBUFF_MODEL_IDS,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MODELS,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
   FREEBUFF_WEB_GOD_ONLY_MODELS,
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
@@ -493,60 +491,6 @@ describe('freebuff model availability', () => {
     expect(
       isFreebuffWebModelAllowedForLimitedTier(FREEBUFF_CROF_GLM_V52_MODEL_ID),
     ).toBe(false)
-  })
-
-  test('Poolside Laguna S 2.1 routes are god-only Freebuff Web test models', () => {
-    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-    )
-    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-    )
-    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-    )
-    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-    )
-    expect(isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID)).toBe(
-      false,
-    )
-    expect(
-      isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID),
-    ).toBe(false)
-    expect(
-      isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID, {
-        includeGodOnly: true,
-      }),
-    ).toBe(true)
-    expect(
-      isFreebuffWebModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID, {
-        includeGodOnly: true,
-      }),
-    ).toBe(true)
-    expect(
-      isFreebuffWebGodOnlyModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID),
-    ).toBe(true)
-    expect(
-      isFreebuffWebGodOnlyModelId(
-        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      isFreebuffWebPremiumModelId(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID),
-    ).toBe(true)
-    expect(
-      isFreebuffWebPremiumModelId(
-        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      getFreebuffWebModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID).displayName,
-    ).toBe('Laguna S 2.1 (Poolside)')
-    expect(
-      getFreebuffWebModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID)
-        .displayName,
-    ).toBe('Laguna S 2.1 (OpenRouter)')
   })
 
   test('Kimi K3 is a god-only Freebuff Web/Cloud test model', () => {

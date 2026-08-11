@@ -16,8 +16,6 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-  FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
 } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
@@ -64,14 +62,6 @@ describe('free mode agent model allowlist', () => {
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
       'base2-free-luna',
     )
-    expect(
-      getFreebuffRootAgentIdForModel(FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID),
-    ).toBe('base2-free-laguna-s-2-1')
-    expect(
-      getFreebuffRootAgentIdForModel(
-        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-      ),
-    ).toBe('base2-free-laguna-s-2-1-openrouter')
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(
       'base2-free-kimi-k3-eco',
     )
@@ -184,24 +174,6 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'base2-free-minimax-m3',
         LEGACY_MINIMAX_M2_7_MODEL_ID,
-      ),
-    ).toBe(false)
-    expect(
-      isFreeModeAllowedAgentModel(
-        'base2-free-laguna-s-2-1',
-        FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      isFreeModeAllowedAgentModel(
-        'base2-free-laguna-s-2-1-openrouter',
-        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      isFreeModeAllowedAgentModel(
-        'base2-free-laguna-s-2-1',
-        FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID,
       ),
     ).toBe(false)
     expect(
@@ -361,7 +333,7 @@ describe('free mode agent model allowlist', () => {
   test('allows each Web/Cloud base3 root only with the model it pins', () => {
     const entries = Object.entries(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL)
     // Floor: a map that silently emptied would pass every loop below.
-    expect(entries.length).toBeGreaterThanOrEqual(10)
+    expect(entries.length).toBeGreaterThanOrEqual(8)
 
     for (const [model, agentId] of entries) {
       expect(isFreeModeAllowedAgentModel(agentId, model)).toBe(true)
@@ -634,8 +606,6 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-minimax-m3': BASE2,
     'base2-free-luna': BASE2,
     'base2-free-glm': BASE2,
-    'base2-free-laguna-s-2-1': BASE2,
-    'base2-free-laguna-s-2-1-openrouter': BASE2,
     // God-only Kimi K3 test root; createBase2('free', …) like its siblings.
     'base2-free-kimi-k3-eco': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
