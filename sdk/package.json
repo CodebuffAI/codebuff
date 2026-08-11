@@ -40,7 +40,7 @@
     "dev": "bun run build"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "keywords": [
     "codebuff",
@@ -63,12 +63,13 @@
     "@ai-sdk/anthropic": "2.0.50",
     "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
     "@vscode/tree-sitter-wasm": "0.1.4",
-    "ai": "^5.0.52",
+    "ai": "^7.0.59",
     "diff": "8.0.3",
     "gray-matter": "^4.0.3",
     "ignore": "7.0.5",
     "ipaddr.js": "^1.9.1",
     "micromatch": "^4.0.8",
+    "undici": "^7.28.0",
     "web-tree-sitter": "0.25.10",
     "ws": "^8.18.0",
     "zod": "^4.2.1"

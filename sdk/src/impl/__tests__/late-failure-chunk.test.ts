@@ -45,13 +45,13 @@ const consume = async (port: number) => {
   })
   let error: unknown
   try {
-    for await (const part of result.fullStream) {
+    for await (const part of result.stream) {
       if (part.type === 'error') error = (part as { error: unknown }).error
     }
   } catch (thrown) {
     error ??= thrown
   }
-  await result.text.catch((thrown) => {
+  await Promise.resolve(result.text).catch((thrown: unknown) => {
     error ??= thrown
   })
   return error

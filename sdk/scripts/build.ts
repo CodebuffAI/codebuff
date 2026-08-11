@@ -52,7 +52,6 @@ async function build() {
     'url',
     'events',
   ]
-
   console.log('📦 Building ESM format...')
   await Bun.build({
     entrypoints: ['src/index.ts'],
@@ -69,6 +68,21 @@ async function build() {
     },
     plugins: [],
   })
+
+  console.log('📦 Building AI SDK CJS shim...')
+  const aiShimBuild = await Bun.build({
+    entrypoints: [
+      join(import.meta.dir, '..', '..', 'node_modules/ai/dist/index.js'),
+    ],
+    outdir: 'dist/vendor',
+    target: 'node',
+    format: 'cjs',
+    minify: false,
+    naming: 'ai.cjs',
+  })
+  if (!aiShimBuild.success) {
+    throw new AggregateError(aiShimBuild.logs, 'AI SDK CJS shim build failed')
+  }
 
   console.log('📦 Building CJS format...')
   await Bun.build({
@@ -90,6 +104,17 @@ async function build() {
     },
     plugins: [],
   })
+
+  const cjsPath = 'dist/index.cjs'
+  const cjs = await readFile(cjsPath, 'utf8')
+  const cjsWithAiShim = cjs.replaceAll(
+    'require("ai")',
+    'require("./vendor/ai.cjs")',
+  )
+  if (cjsWithAiShim === cjs) {
+    throw new Error('CJS build did not contain the expected external AI SDK import')
+  }
+  await writeFile(cjsPath, cjsWithAiShim)
 
   console.log('🩹 Patching broken export aliases (Bun bundler dedup workaround)...')
   await fixBrokenExportAliases('dist/index.mjs')
@@ -176,7 +201,7 @@ async function fixBrokenExportAliases(filePath: string) {
   // Collect every top-level declaration's identifier.
   const declared = new Set()
   const declRegex =
-    /^(?:var|let|const|function|class|async\s+function)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/gm
+    /^(?:var|let|const|class|(?:async\s+)?function\*?)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/gm
   for (const match of content.matchAll(declRegex)) {
     declared.add(match[1])
   }
@@ -343,5 +368,8 @@ async function copyRipgrepVendor() {
 }
 
 if (import.meta.main) {
-  build().catch(console.error)
+  build().catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
 }

@@ -150,6 +150,18 @@ describe('streamFinishInfoOf', () => {
       }),
     ).toEqual({ finishReason: 'unknown', hasUsage: false })
   })
+
+  it('restores a v2 compatibility adapter unknown finish reason', () => {
+    expect(
+      streamFinishInfoOf(
+        {
+          finishReason: 'other',
+          totalUsage: {},
+        },
+        true,
+      ),
+    ).toEqual({ finishReason: 'unknown', hasUsage: false })
+  })
 })
 
 describe('classifyThrownStreamRecovery', () => {

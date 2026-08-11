@@ -32,10 +32,12 @@ export function toContentString(msg: ModelMessage): string {
     .join('\n')
 }
 
-export function withCacheControl<
-  T extends { providerOptions?: ProviderMetadata },
->(obj: T): T {
-  const wrapper = cloneDeep(obj)
+export function withCacheControl<T extends object>(
+  obj: T & { providerOptions?: ProviderMetadata },
+): T & { providerOptions: ProviderMetadata } {
+  const wrapper = cloneDeep(obj) as T & {
+    providerOptions: ProviderMetadata
+  }
   if (!wrapper.providerOptions) {
     wrapper.providerOptions = {}
   }
@@ -58,10 +60,12 @@ export function withCacheControl<
   return wrapper
 }
 
-export function withoutCacheControl<
-  T extends { providerOptions?: ProviderMetadata },
->(obj: T): T {
-  const wrapper = cloneDeep(obj)
+export function withoutCacheControl<T extends object>(
+  obj: T & { providerOptions?: ProviderMetadata },
+): T & { providerOptions?: ProviderMetadata } {
+  const wrapper = cloneDeep(obj) as T & {
+    providerOptions?: ProviderMetadata
+  }
 
   for (const provider of [
     'anthropic',

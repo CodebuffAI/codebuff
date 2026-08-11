@@ -1,3 +1,7 @@
+import { setTreeSitterWasmPath as setCodeMapTreeSitterWasmPath } from '@codebuff/code-map/init-node'
+import { setWasmDir as setCodeMapWasmDir } from '@codebuff/code-map/languages'
+import { getFileTokenScores as getCodeMapFileTokenScores } from '@codebuff/code-map/parse'
+
 export type * from '@codebuff/common/types/json'
 export type * from '@codebuff/common/types/messages/codebuff-message'
 export type * from '@codebuff/common/types/messages/data-content'
@@ -87,11 +91,19 @@ export {
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 // Tree-sitter / code-map exports
-export {
-  getFileTokenScores,
-  setWasmDir,
-  setTreeSitterWasmPath,
-} from '@codebuff/code-map'
+export function getFileTokenScores(
+  ...args: Parameters<typeof getCodeMapFileTokenScores>
+): ReturnType<typeof getCodeMapFileTokenScores> {
+  return getCodeMapFileTokenScores(...args)
+}
+
+export function setWasmDir(dir: string): void {
+  setCodeMapWasmDir(dir)
+}
+
+export function setTreeSitterWasmPath(wasmPath: string): void {
+  setCodeMapTreeSitterWasmPath(wasmPath)
+}
 export type { FileTokenData, TokenCallerMap } from '@codebuff/code-map'
 
 export {

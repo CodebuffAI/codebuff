@@ -136,7 +136,10 @@ function summarizeLargeValue(value: SerializableValue): SerializableValue {
       if (key === 'arguments' && typeof entryValue === 'string') {
         return [key, entryValue]
       }
-      return [key, summarizeLargeValue(entryValue)]
+      return [
+        key,
+        entryValue === undefined ? undefined : summarizeLargeValue(entryValue),
+      ]
     }),
   )
 }
@@ -320,4 +323,3 @@ export function enrichCacheDebugSnapshotWithProviderRequest(params: {
     logger.warn({ error: err }, '[Cache Debug] Failed to enrich snapshot')
   }
 }
-

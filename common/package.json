@@ -28,7 +28,7 @@
     "@types/pg": "^8.11.10",
     "@types/readable-stream": "^4.0.18",
     "@types/seedrandom": "^3.0.8",
-    "ai": "^5.0.52",
+    "ai": "^7.0.59",
     "ignore": "5.3.2",
     "lodash": "4.17.23",
     "next-auth": "^4.24.11",

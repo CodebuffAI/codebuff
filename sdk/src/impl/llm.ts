@@ -13,7 +13,7 @@ import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
 import {
   streamText,
   generateText,
-  generateObject,
+  Output,
   NoSuchToolError,
   APICallError,
   ToolCallRepairError,
@@ -41,10 +41,8 @@ import type {
   PromptAiSdkStructuredOutput,
 } from '@codebuff/common/types/contracts/llm'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
-import type { JSONObject } from '@codebuff/common/types/json'
 import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type { LanguageModel } from 'ai'
-import type z from 'zod/v4'
 
 // Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
 const providerOrder = {
@@ -71,13 +69,13 @@ export function getProviderOptions(params: {
   model: string
   runId: string
   clientSessionId: string
-  providerOptions?: Record<string, JSONObject>
+  providerOptions?: ProviderMetadata
   agentProviderOptions?: OpenRouterProviderRoutingOptions
   n?: number
   costMode?: string
   cacheDebugCorrelation?: string
   extraCodebuffMetadata?: Record<string, string>
-}): { codebuff: JSONObject } {
+}): ProviderMetadata {
   const {
     model,
     runId,
@@ -176,7 +174,9 @@ function emitCacheDebugUsage(params: {
     inputTokens?: number
     outputTokens?: number
     totalTokens?: number
-    cachedInputTokens?: number
+    inputTokenDetails?: {
+      cacheReadTokens?: number
+    }
   }
 }) {
   if (!params.callback) return
@@ -184,7 +184,7 @@ function emitCacheDebugUsage(params: {
   params.callback({
     inputTokens: params.usage.inputTokens ?? 0,
     outputTokens: params.usage.outputTokens ?? 0,
-    cachedInputTokens: params.usage.cachedInputTokens ?? 0,
+    cachedInputTokens: params.usage.inputTokenDetails?.cacheReadTokens ?? 0,
     totalTokens: params.usage.totalTokens ?? 0,
   })
 }
@@ -221,6 +221,11 @@ export async function* promptAiSdkStream(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
+    allowSystemInMessages: true,
+    include: {
+      ...streamParams.include,
+      requestBody: true,
+    },
     providerOptions: getProviderOptions({
       ...params,
       providerOptions: originalProviderOptions,
@@ -358,7 +363,7 @@ export async function* promptAiSdkStream(
   // iterator cleanly. Feed that through the same capped continuation path as a
   // clean end without a finish marker.
   let thrownStreamRecovery: StreamEndRecovery | undefined
-  const streamIterator = response.fullStream[Symbol.asyncIterator]()
+  const streamIterator = response.stream[Symbol.asyncIterator]()
   const recoverThrownStream = (error: unknown): StreamEndRecovery | null => {
     const recovery = classifyThrownStreamRecovery({
       aborted: params.signal.aborted,
@@ -390,7 +395,11 @@ export async function* promptAiSdkStream(
     if (iteration.done) break
     const chunkValue = iteration.value
     if (chunkValue.type === 'finish') {
-      finishInfo = streamFinishInfoOf(chunkValue)
+      finishInfo = streamFinishInfoOf(
+        chunkValue,
+        typeof aiSDKModel !== 'string' &&
+          aiSDKModel.specificationVersion === 'v2',
+      )
     }
     if (chunkValue.type !== 'text-delta') {
       const flushed = stopSequenceHandler.flush()
@@ -644,6 +653,11 @@ export async function promptAiSdk(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
+    allowSystemInMessages: true,
+    include: {
+      ...params.include,
+      requestBody: true,
+    },
     providerOptions: getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
@@ -705,12 +719,14 @@ export async function promptAiSdkStructured<T>(
     userId: params.userId,
   })
 
-  const response = await generateObject<z.ZodType<T>, 'object'>({
+  const response = await generateText({
     ...params,
     prompt: undefined,
     model: aiSDKModel,
-    output: 'object',
+    output: Output.object({ schema: params.schema }),
     messages: convertCbToModelMessages(params),
+    allowSystemInMessages: true,
+    include: { requestBody: true },
     providerOptions: getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
@@ -728,7 +744,7 @@ export async function promptAiSdkStructured<T>(
     usage: response.usage,
   })
 
-  const content = response.object
+  const content = response.output
 
   const providerMetadata = response.providerMetadata ?? {}
   let costOverrideDollars: number | undefined

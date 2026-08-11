@@ -25,11 +25,11 @@ try {
   const exports = Object.keys(SDK);
   console.log('✅ Found', exports.length, 'exports');
   
-  const expectedExports = ['CodebuffClient', 'getCustomToolDefinition'];
+  const expectedExports = ['CodebuffClient', 'getCustomToolDefinition', 'promptAiSdkStream'];
   const foundExports = expectedExports.filter(exp => exp in SDK);
   console.log('✅ Found expected exports:', foundExports.join(', '));
   
-  if (foundExports.length < 1) {
+  if (foundExports.length !== expectedExports.length) {
     throw new Error('Missing expected exports');
   }
   

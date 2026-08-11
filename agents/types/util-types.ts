@@ -7,7 +7,7 @@ export type JSONValue =
   | JSONObject
   | JSONArray
 
-export type JSONObject = { [key: string]: JSONValue }
+export type JSONObject = { [key: string]: JSONValue | undefined }
 
 export type JSONArray = JSONValue[]
 
@@ -35,7 +35,10 @@ export type JsonObjectSchema = JsonSchema & { type: 'object' }
 export type DataContent = string | Uint8Array | ArrayBuffer | Buffer
 
 // ===== Provider Metadata Types =====
-export type ProviderMetadata = Record<string, Record<string, JSONValue>>
+export type ProviderMetadata = Record<
+  string,
+  Record<string, JSONValue | undefined>
+>
 
 // ===== Content Part Types =====
 export type TextPart = {

@@ -112,7 +112,8 @@ export const handleSpawnAgentInline = (async (
     ),
     systemPrompt: system,
     toolDefinitions: mapValues(parentTools, (tool) => ({
-      description: tool.description,
+      description:
+        typeof tool.description === 'string' ? tool.description : undefined,
       inputSchema: tool.inputSchema as {},
     })),
   }

@@ -1,10 +1,13 @@
 import z from 'zod/v4'
 
-import { jsonValueSchema } from '../json'
+import { jsonValueSchema, type JSONValue } from '../json'
 
-export const providerMetadataSchema = z.record(
+export type ProviderMetadata = Record<
+  string,
+  Record<string, JSONValue | undefined>
+>
+
+export const providerMetadataSchema: z.ZodType<ProviderMetadata> = z.record(
   z.string(),
-  z.record(z.string(), jsonValueSchema),
+  z.record(z.string(), jsonValueSchema.optional()),
 )
-
-export type ProviderMetadata = z.infer<typeof providerMetadataSchema>

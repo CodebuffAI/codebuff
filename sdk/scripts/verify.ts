@@ -99,7 +99,10 @@ function runDistCopySubproject(projectName: string) {
   removeOldSdk(projectPath)
 
   // Install dependencies
-  execSync('npm install --silent', { cwd: projectPath, stdio: 'inherit' })
+  execSync('npm install --silent --install-links', {
+    cwd: projectPath,
+    stdio: 'inherit',
+  })
 
   // Run setup (copies dist to node_modules)
   execSync('npm run setup', { cwd: projectPath, stdio: 'inherit' })
@@ -119,8 +122,13 @@ function runFileRefSubproject(projectName: string) {
 
   step(`Testing ${projectName}...`)
 
+  removeOldSdk(projectPath)
+
   // Install dependencies (uses file: reference)
-  execSync('npm install --silent', { cwd: projectPath, stdio: 'inherit' })
+  execSync('npm install --silent --install-links', {
+    cwd: projectPath,
+    stdio: 'inherit',
+  })
 
   // Run all tests
   execSync('npm run test:all', { cwd: projectPath, stdio: 'inherit' })

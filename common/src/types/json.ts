@@ -19,9 +19,9 @@ export const jsonValueSchema: z.ZodType<JSONValue> = z.lazy(() =>
 )
 
 export const jsonObjectSchema: z.ZodType<JSONObject> = z.lazy(() =>
-  z.record(z.string(), jsonValueSchema),
+  z.record(z.string(), jsonValueSchema.optional()),
 )
-export type JSONObject = { [key in string]: JSONValue }
+export type JSONObject = { [key in string]: JSONValue | undefined }
 
 export const jsonArraySchema: z.ZodType<JSONArray> = z.lazy(() =>
   z.array(jsonValueSchema),

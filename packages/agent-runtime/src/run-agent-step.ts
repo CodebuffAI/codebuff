@@ -950,7 +950,8 @@ export async function loopAgentSteps(
 
   // Convert tools to a serializable format for context-pruner token counting
   const toolDefinitions = mapValues(tools, (tool) => ({
-    description: tool.description,
+    description:
+      typeof tool.description === 'string' ? tool.description : undefined,
     inputSchema: tool.inputSchema as {},
   }))
 

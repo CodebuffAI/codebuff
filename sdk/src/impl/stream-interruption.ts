@@ -7,13 +7,14 @@
  * `finish_reason` (and, on our backend, usage totals) before `[DONE]`. When
  * the connection dies mid-stream — a server deploy killing the instance, a
  * proxy timeout, a network drop — the HTTP body just ends: the AI SDK
- * provider's flush then emits a `finish` part with finishReason `'unknown'`
- * and no usage, and the stream otherwise looks like a normal completion.
- * `'unknown'` alone is not proof: providers map any unrecognized
- * `finish_reason` string to `'unknown'` too. Usage disambiguates — it arrives
- * in the stream's final chunk, so `'unknown'` *with* usage means an odd but
- * complete stream, while `'unknown'` *without* usage means the tail was never
- * received. A missing finish part altogether is always an interruption.
+ * provider's flush then emits a `finish` part with raw finish reason
+ * `'unknown'` and no usage (normalized to `'other'` by AI SDK 7), and the
+ * stream otherwise looks like a normal completion. `'unknown'` alone is not
+ * proof: providers map any unrecognized `finish_reason` string to `'unknown'`
+ * too. Usage disambiguates — it arrives in the stream's final chunk, so
+ * `'unknown'` *with* usage means an odd but complete stream, while `'unknown'`
+ * *without* usage means the tail was never received. A missing finish part
+ * altogether is always an interruption.
  *
  * **'output-limit'** — the model produced no text or tool calls because it
  * either spent its output budget on reasoning (`length`) or ended the stream
@@ -36,18 +37,27 @@ export interface StreamFinishInfo {
   hasUsage: boolean
 }
 
-/** Distill an AI SDK fullStream `finish` part into what detection needs. */
-export function streamFinishInfoOf(part: {
-  finishReason: string
-  totalUsage: {
-    inputTokens?: number
-    outputTokens?: number
-    totalTokens?: number
-  }
-}): StreamFinishInfo {
+/** Distill an AI SDK `stream` finish part into what detection needs. */
+export function streamFinishInfoOf(
+  part: {
+    finishReason: string
+    rawFinishReason?: string
+    totalUsage: {
+      inputTokens?: number
+      outputTokens?: number
+      totalTokens?: number
+    }
+  },
+  v2Compatibility = false,
+): StreamFinishInfo {
   const { inputTokens, outputTokens, totalTokens } = part.totalUsage
   return {
-    finishReason: part.finishReason,
+    finishReason:
+      part.finishReason === 'other' &&
+      (part.rawFinishReason === 'unknown' ||
+        (v2Compatibility && part.rawFinishReason === undefined))
+        ? 'unknown'
+        : part.finishReason,
     hasUsage: [inputTokens, outputTokens, totalTokens].some(
       (tokens) => typeof tokens === 'number' && Number.isFinite(tokens),
     ),
@@ -84,7 +94,7 @@ const REASONING_ONLY_RECOVERY: StreamEndRecovery = {
 }
 
 /**
- * Decide whether a completed fullStream ended in a recoverable silent stop.
+ * Decide whether a completed stream ended in a recoverable silent stop.
  * Returns the recovery to yield as an error chunk, or null for normal
  * endings. A user cancel (`aborted`) also ends streams early and is never a
  * recovery.
