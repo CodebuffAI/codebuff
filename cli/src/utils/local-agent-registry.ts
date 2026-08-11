@@ -90,6 +90,21 @@ export async function initializeAgentRegistry(): Promise<void> {
 }
 
 /**
+ * Reload the local agent registry for the current working directory.
+ *
+ * Called after the project changes at runtime (e.g. the project picker), where
+ * the CLI was started from an ancestor directory so .agents content was read
+ * from the old cwd at startup. Clears the derived caches before re-initializing
+ * so agent listings, the resolved .agents directory, and MCP servers from the
+ * newly selected project's mcp.json all reflect the new working directory.
+ */
+export async function reloadLocalAgentRegistry(): Promise<void> {
+  cachedAgentsByMode.clear()
+  cachedAgentsDir = null
+  await initializeAgentRegistry()
+}
+
+/**
  * Get default agent directories to scan.
  * Matches the SDK's getDefaultAgentDirs() to ensure consistency.
  */

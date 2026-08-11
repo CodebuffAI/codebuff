@@ -34,7 +34,10 @@ import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
 import { IS_FREEBUFF } from './utils/constants'
-import { initializeAgentRegistry } from './utils/local-agent-registry'
+import {
+  initializeAgentRegistry,
+  reloadLocalAgentRegistry,
+} from './utils/local-agent-registry'
 import { trimOversizedChatLogs } from './utils/chat-history'
 import { clearLogFile, logger } from './utils/logger'
 import { drainClientLogs } from './utils/log-shipper'
@@ -356,6 +359,11 @@ async function main(): Promise<void> {
         })
         // Update the project root in the module state
         setProjectRoot(newProjectPath)
+        // Reload local agents and MCP servers for the newly selected project.
+        // The registry is initialized once at startup from the launch cwd, so
+        // when the CLI was started from an ancestor directory the selected
+        // project's .agents/mcp.json was never loaded.
+        await reloadLocalAgentRegistry()
         // Reset client to ensure tools use the updated project root
         resetCodebuffClient()
         // Save to recent projects list

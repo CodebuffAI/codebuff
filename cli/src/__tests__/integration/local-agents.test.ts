@@ -21,9 +21,11 @@ import {
   loadAgentDefinitions,
   loadLocalAgents,
   initializeAgentRegistry,
+  reloadLocalAgentRegistry,
   findAgentsDirectory,
   getLoadedAgentsData,
   getLoadedAgentsMessage,
+  getLoadedMCPServers,
   announceLoadedAgents,
   __resetLocalAgentRegistryForTests,
 } from '../../utils/local-agent-registry'
@@ -1183,5 +1185,43 @@ describe('Local Agent Integration', () => {
           e.message.toLowerCase().includes('output'),
       ),
     ).toBe(true)
+  })
+
+  test('reloads MCP servers from the selected project after a project change', async () => {
+    // Simulates the project picker flow: the CLI is started from an ancestor
+    // directory (no mcp.json in the launch cwd), then the user selects a
+    // project whose .agents/mcp.json defines MCP servers.
+    const projectDir = path.join(tempDir, 'selected-project')
+    const projectAgentsDir = path.join(projectDir, '.agents')
+    mkdirSync(projectAgentsDir, { recursive: true })
+    writeFileSync(
+      path.join(projectAgentsDir, 'mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          context7: {
+            type: 'http',
+            url: 'https://mcp.context7.com/mcp',
+          },
+        },
+      }),
+      'utf8',
+    )
+
+    // Launch: registry initialized from the ancestor directory, so the
+    // selected project's servers are not present yet
+    await initializeAgentRegistry()
+    expect(getLoadedMCPServers()).not.toHaveProperty('context7')
+
+    // Project change: chdir + setProjectRoot like handleProjectChange does,
+    // then the registry must reload so mcp.json is picked up
+    process.chdir(projectDir)
+    setProjectRoot(projectDir)
+    await reloadLocalAgentRegistry()
+
+    expect(getLoadedMCPServers()).toHaveProperty('context7')
+    expect(getLoadedMCPServers().context7).toMatchObject({
+      type: 'http',
+      url: 'https://mcp.context7.com/mcp',
+    })
   })
 })
