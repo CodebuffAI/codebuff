@@ -46,7 +46,7 @@ describe('useQueueUi inputBoxTitle', () => {
     ).toBeUndefined()
   })
 
-  test('previews the latest queued message and advertises the editor', async () => {
+  test('previews the latest queued message and advertises mouse expansion', async () => {
     const title = await titleFor({
       queuePaused: false,
       queuedMessages: [message('first task'), message('second task')],
@@ -55,7 +55,8 @@ describe('useQueueUi inputBoxTitle', () => {
 
     expect(title).toContain('second task')
     expect(title).toContain('(+ 1)')
-    expect(title).toContain('ctrl+q to edit')
+    expect(title).toContain('▸')
+    expect(title).toContain('click to expand')
   })
 
   test('drops the hint on a narrow terminal rather than crowd the preview', async () => {
@@ -66,7 +67,7 @@ describe('useQueueUi inputBoxTitle', () => {
     })
 
     expect(title).toContain('first task')
-    expect(title).not.toContain('ctrl+q')
+    expect(title).not.toContain('click to expand')
   })
 
   test('a paused queue says so, and is still editable', async () => {
@@ -77,6 +78,6 @@ describe('useQueueUi inputBoxTitle', () => {
     })
 
     expect(title).toContain('⏸ 1 message queued')
-    expect(title).toContain('ctrl+q to edit')
+    expect(title).toContain('click to expand')
   })
 })

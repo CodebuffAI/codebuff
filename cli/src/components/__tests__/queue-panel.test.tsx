@@ -138,6 +138,10 @@ const mountPanel = async (
       act()
       await settle()
     },
+    async click(x: number, y: number, button: 0 | 1 | 2 = 0) {
+      await setup.mockMouse.click(x, y, button)
+      await settle()
+    },
     /** The agent finished a turn and took the head of the queue. */
     async dequeueHead() {
       flushSync(() => state.write(state.queue.slice(1)))
@@ -224,6 +228,39 @@ describe('QueuePanel', () => {
     ])
   })
 
+  test('clicking a message opens that message for editing', async () => {
+    const panel = await mountPanel(THREE)
+
+    // The border is row 0, so the second queued message is row 2.
+    await panel.click(10, 2)
+
+    const editing = panel.captureCharFrame()
+    expect(editing).toContain('❯ 2. editing')
+    expect(editing).toContain('add parser tests')
+    expect(editing).not.toContain('fix the login bug')
+  })
+
+  test('right-clicking a message does not edit it', async () => {
+    const panel = await mountPanel(THREE)
+
+    await panel.click(10, 2, 2)
+
+    const frame = panel.captureCharFrame()
+    expect(frame).toContain('2. add parser tests')
+    expect(frame).not.toContain('2. editing')
+  })
+
+  test('the mouse hint stays on one row at the standard width', async () => {
+    const panel = await mountPanel(THREE)
+    const lines = panel.captureCharFrame().split('\n')
+    const footer = lines.findIndex((line) =>
+      line.includes('click a row to edit'),
+    )
+
+    expect(footer).toBeGreaterThan(-1)
+    expect(lines[footer + 1]).toContain('╰')
+  })
+
   test('Esc while editing abandons the change', async () => {
     const panel = await mountPanel(THREE)
 
@@ -243,6 +280,14 @@ describe('QueuePanel', () => {
     const panel = await mountPanel(THREE)
 
     await panel.press(() => panel.mockInput.pressEscape())
+
+    expect(panel.closes()).toBeGreaterThan(0)
+  })
+
+  test('clicking the expanded queue title collapses the panel', async () => {
+    const panel = await mountPanel(THREE)
+
+    await panel.click(35, 0)
 
     expect(panel.closes()).toBeGreaterThan(0)
   })

@@ -2,6 +2,8 @@ import { pluralize } from '@codebuff/common/util/string'
 import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { Button } from './button'
+import { ClickableTitleBox } from './clickable-title-box'
 import { MultilineInput } from './multiline-input'
 import { useTheme } from '../hooks/use-theme'
 import { truncateToSingleLinePreview } from '../utils/agent-display'
@@ -11,7 +13,7 @@ import { createPasteHandler } from '../utils/strings'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { QueuedMessage } from '../hooks/use-message-queue'
-import type { KeyEvent } from '@opentui/core'
+import type { KeyEvent, MouseEvent } from '@opentui/core'
 
 interface QueuePanelProps {
   queuedMessages: QueuedMessage[]
@@ -60,6 +62,15 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState({ text: '', cursorPosition: 0 })
   const [notice, setNotice] = useState<string | null>(null)
+
+  const beginEdit = useCallback((message: QueuedMessage) => {
+    setSelectedId(message.id)
+    setEditingId(message.id)
+    setDraft({
+      text: message.content,
+      cursorPosition: message.content.length,
+    })
+  }, [])
 
   // A message leaves the queue two ways: the user deletes it, which moves the
   // cursor explicitly below, or the agent starts running it — and it can only
@@ -138,13 +149,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
           if (selected) onMove(selected.id, 0)
           return
         case 'edit':
-          if (selected) {
-            setEditingId(selected.id)
-            setDraft({
-              text: selected.content,
-              cursorPosition: selected.content.length,
-            })
-          }
+          if (selected) beginEdit(selected)
           return
         case 'delete': {
           if (!selected) return
@@ -160,6 +165,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
     },
     [
       editingId,
+      beginEdit,
       onClose,
       onDelete,
       onMove,
@@ -194,14 +200,19 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
     `${String(index + 1).padStart(numberWidth)}.`
 
   const editing = editingId !== null
-  const start = windowStart(selectedIndex, queuedMessages.length, maxVisibleRows)
+  const start = windowStart(
+    selectedIndex,
+    queuedMessages.length,
+    maxVisibleRows,
+  )
   const visible = queuedMessages.slice(start, start + maxVisibleRows)
   const hiddenBelow = queuedMessages.length - (start + visible.length)
 
   return (
-    <box
-      title={` Queue — ${pluralize(queuedMessages.length, 'message')} `}
+    <ClickableTitleBox
+      title={` ▾ Queue — ${pluralize(queuedMessages.length, 'message')} `}
       titleAlignment="center"
+      onTitleClick={editing ? undefined : onClose}
       style={{
         width: '100%',
         borderStyle: 'single',
@@ -253,17 +264,31 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
               ) ?? ''
 
             return (
-              <text
+              <Button
                 key={message.id}
+                onClick={(event) => {
+                  if ((event as MouseEvent | undefined)?.button === 0) {
+                    beginEdit(message)
+                  }
+                }}
+                onMouseOver={() => setSelectedId(message.id)}
                 style={{
-                  fg: isSelected ? theme.info : theme.foreground,
-                  bg: isSelected ? theme.surface : undefined,
+                  width: '100%',
+                  height: 1,
+                  backgroundColor: isSelected ? theme.surface : undefined,
                 }}
               >
-                {isSelected ? '❯ ' : '  '}
-                {position(index)} {body}
-                {suffix}
-              </text>
+                <text
+                  style={{
+                    fg: isSelected ? theme.info : theme.foreground,
+                    wrapMode: 'none',
+                  }}
+                >
+                  {isSelected ? '❯ ' : '  '}
+                  {position(index)} {body}
+                  {suffix}
+                </text>
+              </Button>
             )
           })}
 
@@ -278,8 +303,8 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
       <text style={{ fg: theme.muted }}>
         {editing
           ? 'Enter save · Esc cancel · emptying it deletes'
-          : '↑↓ select · ⇧↑↓ reorder · t top · e edit · d delete · esc close'}
+          : 'click a row to edit · ⇧↑↓ reorder · d delete · esc close'}
       </text>
-    </box>
+    </ClickableTitleBox>
   )
 }

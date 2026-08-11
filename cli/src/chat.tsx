@@ -735,12 +735,14 @@ export const Chat = ({
     })),
   )
 
-  const { queuePanelOpen, closeQueuePanel } = useQueuePanelStore(
-    useShallow((state) => ({
-      queuePanelOpen: state.queuePanelOpen,
-      closeQueuePanel: state.closeQueuePanel,
-    })),
-  )
+  const { queuePanelOpen, openQueuePanel, closeQueuePanel } =
+    useQueuePanelStore(
+      useShallow((state) => ({
+        queuePanelOpen: state.queuePanelOpen,
+        openQueuePanel: state.openQueuePanel,
+        closeQueuePanel: state.closeQueuePanel,
+      })),
+    )
 
   // Review and ask_user take the composer's place too. Leaving the panel
   // flagged open behind them would keep chat's keyboard disabled with nothing
@@ -1219,7 +1221,7 @@ export const Chat = ({
         inputRef.current?.focus()
       },
       onClearQueue: clearQueue,
-      onOpenQueuePanel: () => useQueuePanelStore.getState().openQueuePanel(),
+      onOpenQueuePanel: openQueuePanel,
       onExitAppWarning: () => handleCtrlC(),
       onExitApp: () => handleCtrlC(),
       onBashHistoryUp: navigateUp,
@@ -1310,6 +1312,7 @@ export const Chat = ({
       inputRef,
       handleCtrlC,
       clearQueue,
+      openQueuePanel,
       scrollUp,
       scrollDown,
       handleToggleAll,
@@ -1678,6 +1681,7 @@ export const Chat = ({
               separatorWidth={separatorWidth}
               shouldCenterInputVertically={shouldCenterInputVertically}
               inputBoxTitle={inputBoxTitle}
+              onQueuePreviewClick={openQueuePanel}
               isCompactHeight={isCompactHeight}
               isNarrowWidth={isNarrowWidth}
               feedbackMode={feedbackMode}

@@ -13,8 +13,8 @@ interface UseQueueUiParams {
   terminalWidth: number
 }
 
-/** Below this the title has no room for a second segment, so the queue editor
- *  goes unadvertised rather than crowding out the preview itself. */
+/** Below this the title has no room for a second segment, so the expand hint
+ *  is omitted rather than crowding out the preview itself. */
 const HINT_MIN_WIDTH = 80
 
 export const useQueueUi = ({
@@ -26,7 +26,7 @@ export const useQueueUi = ({
   const queuedCount = queuedMessages.length
   const shouldShowQueuePreview = queuedCount > 0 && !queuePaused
 
-  /** The composer's border title: what is queued, and how to go edit it.
+  /** The composer's border title: what is queued, and how to expand it.
    *  Queuing is discoverable (you just type while it runs); editing what you
    *  queued is not, so the hint rides along with the preview. */
   const inputBoxTitle = useMemo(() => {
@@ -41,8 +41,8 @@ export const useQueueUi = ({
     }
 
     if (!preview) return undefined
-    if (terminalWidth < HINT_MIN_WIDTH) return ` ${preview} `
-    return ` ${preview}   ctrl+q to edit `
+    if (terminalWidth < HINT_MIN_WIDTH) return ` ▸ ${preview} `
+    return ` ▸ ${preview}   click to expand `
   }, [
     shouldShowQueuePreview,
     queuePaused,
