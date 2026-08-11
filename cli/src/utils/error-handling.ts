@@ -1,10 +1,12 @@
 import { env } from '@codebuff/common/env'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
+import { getFreebuffGateCode } from '@codebuff/common/types/freebuff-session'
 
 import type { ChatMessage } from '../types/chat'
 import type {
   FreebuffCountryBlockReason,
+  FreebuffGateCode,
   FreebuffIpPrivacySignal,
 } from '@codebuff/common/types/freebuff-session'
 
@@ -184,45 +186,33 @@ export const getFreeModeUnavailableErrorMessage = (
 }
 
 /**
- * Freebuff session gate errors returned by /api/v1/chat/completions. The
- * error codes keep their legacy waiting-room names for wire compatibility.
+ * The subset of the session gate the CLI has a recovery for. The codes and
+ * their statuses come from FREEBUFF_GATE_CODES (the shared wire contract, see
+ * docs/freebuff-session-admission.md); the narrowing is deliberate —
+ * `session_limit_reached` is the Desktop concurrent-tab cap, and the CLI runs
+ * one session per user, so it can never earn it and has no banner for it.
  *
- * Contract (see docs/freebuff-session-admission.md):
- *   - 428 `waiting_room_required`   — no session row exists, or the request
- *                                     carried no instance id (client isn't
- *                                     holding a session); POST /session to
- *                                     start a session.
- *   - 429 `waiting_room_queued`     — transient admission race (row caught
- *                                     mid-admit); retry via the normal poll.
- *   - 409 `session_superseded`      — another CLI rotated our instance id.
- *   - 409 `session_model_mismatch`  — session tier/model no longer matches.
- *   - 410 `session_expired`         — active session's expires_at has passed.
+ * The names keep their legacy waiting-room spelling for wire compatibility.
  */
-export type FreebuffGateErrorKind =
-  | 'waiting_room_required'
-  | 'waiting_room_queued'
-  | 'session_superseded'
-  | 'session_model_mismatch'
-  | 'session_expired'
-
-const FREEBUFF_GATE_STATUS: Record<FreebuffGateErrorKind, number> = {
-  waiting_room_required: 428,
-  waiting_room_queued: 429,
-  session_superseded: 409,
-  session_model_mismatch: 409,
-  session_expired: 410,
-}
+export type FreebuffGateErrorKind = Exclude<
+  FreebuffGateCode,
+  'session_limit_reached'
+>
 
 export const getFreebuffGateErrorKind = (
   error: unknown,
 ): FreebuffGateErrorKind | null => {
   if (!error || typeof error !== 'object') return null
-  const errorCode = (error as { error?: unknown }).error
-  const statusCode = (error as { statusCode?: unknown }).statusCode
+  const { error: errorCode, statusCode } = error as {
+    error?: unknown
+    statusCode?: unknown
+  }
   if (typeof errorCode !== 'string') return null
-  const expected = FREEBUFF_GATE_STATUS[errorCode as FreebuffGateErrorKind]
-  if (expected === undefined || statusCode !== expected) return null
-  return errorCode as FreebuffGateErrorKind
+  const code = getFreebuffGateCode({
+    error: errorCode,
+    statusCode: typeof statusCode === 'number' ? statusCode : undefined,
+  })
+  return code && code !== 'session_limit_reached' ? code : null
 }
 
 export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`

@@ -452,3 +452,54 @@ export type FreebuffSessionServerResponse = (
    * all Desktop processes for this user. */
   desktopSessionCounts?: FreebuffDesktopSessionCounts
 }
+
+/**
+ * The session gate on `/api/v1/chat/completions`, as a wire contract.
+ *
+ * A rejection is identified by its `error` code paired with its HTTP status,
+ * never by its `message` — the prose is written for whoever is sitting in front
+ * of the client and is free to be rewritten. BOTH halves are required to match:
+ * 409/410 are ordinary provider outcomes on their own, and the codes are
+ * generic enough that an upstream error body can echo one, so a status-only or
+ * code-only test lets an unrelated failure impersonate the gate.
+ *
+ * `endsTheSession` marks the codes that mean the caller's row is GONE. Every
+ * one of them has the same recovery — forget the dead window and re-admit on
+ * the same instance id — which is why clients collapse them into one state
+ * rather than handling four. `false` is a refusal the session survives.
+ *
+ * Lives here because three surfaces need it and it drifted into three copies:
+ * the server that emits it (chat/completions), the CLI that matches it, and
+ * Desktop, which classifies it out of the SDK's relayed `AgentOutput`. See
+ * docs/freebuff-session-admission.md.
+ */
+export const FREEBUFF_GATE_CODES = {
+  waiting_room_required: { status: 428, endsTheSession: true },
+  session_expired: { status: 410, endsTheSession: true },
+  session_superseded: { status: 409, endsTheSession: true },
+  session_model_mismatch: { status: 409, endsTheSession: true },
+  /** The ACCOUNT is over its concurrent-tab budget; this tab's row is fine. */
+  session_limit_reached: { status: 409, endsTheSession: false },
+  /** Transient admission race — the row was caught mid-admit. */
+  waiting_room_queued: { status: 429, endsTheSession: false },
+} as const satisfies Record<string, { status: number; endsTheSession: boolean }>
+
+export type FreebuffGateCode = keyof typeof FREEBUFF_GATE_CODES
+
+/** The gate rejection this error output describes, or null for anything else.
+ *  `output` is any shape carrying the relayed `error`/`statusCode` pair.
+ *
+ *  `Object.hasOwn`, not `in`: the code is whatever an upstream error body put in
+ *  its `error` field, so `in` would accept inherited names like `toString` —
+ *  and since their `.status` is undefined, an output carrying no `statusCode`
+ *  would then satisfy the status check too and be classified as a gate
+ *  rejection. */
+export function getFreebuffGateCode(output: {
+  error?: string | undefined
+  statusCode?: number | undefined
+}): FreebuffGateCode | null {
+  const code = output.error
+  if (!code || !Object.hasOwn(FREEBUFF_GATE_CODES, code)) return null
+  const gate = FREEBUFF_GATE_CODES[code as FreebuffGateCode]
+  return gate.status === output.statusCode ? (code as FreebuffGateCode) : null
+}
