@@ -23,12 +23,17 @@ export interface FreebuffSessionEntitlementBreakdown {
   referral: number
   /** Sessions earned from the active streak reward for this quota period. */
   streak: number
+  /** Sessions added by a temporary promotion, for a user who already earned
+   *  their way in (a qualified referral or a bounty grant). Omitted while no
+   *  promo runs, which is the default — an older client that never reads it
+   *  still sums to the right `limit`, because the server sends the total. */
+  promo?: number
 }
 
 export interface FreebuffSessionRateLimit {
   model: string
   /** Additive detail for `limit`; omitted by older servers. New servers emit it
-   * for session quotas with `limit = base + referral + streak`. */
+   * for session quotas with `limit = base + referral + streak + promo`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
   limit: number
   /** 'pacific_day' for the daily pools (premium/limited, and the GLM 5.2
@@ -107,6 +112,32 @@ export interface FreebuffReferralInfo {
    *  Google-only users to connect one. */
   githubLinked: boolean
 }
+
+/**
+ * A live GLM 5.2 promotion, as advertised to every surface.
+ *
+ * One block drives the CLI banner, the desktop footer, the web picker, the Earn
+ * page and the landing eyebrow, so their copy cannot disagree about the size of
+ * the promo or when it ends. Present ONLY while the promo is running: absent
+ * means every surface renders exactly what it rendered before promos existed,
+ * which is what makes closing one an env change rather than a release.
+ */
+export interface FreebuffGlmPromo {
+  /** Sessions per Pacific day an earned user may run while this runs. */
+  dailySessions: number
+  /** ISO timestamp the promo closes. Surfaces count down to it rather than
+   *  hardcoding a date, so the copy can never outlive the server's window. */
+  endsAt: string
+}
+
+/** Pull the promo block off whichever session status carries it. Same loose
+ *  parameter type as `getReferralInfo`, for the same reason. */
+export const getGlmPromo = (
+  session: { status: string } | null | undefined,
+): FreebuffGlmPromo | undefined =>
+  session && 'glmPromo' in session
+    ? ((session as { glmPromo?: FreebuffGlmPromo }).glmPromo ?? undefined)
+    : undefined
 
 /** Pull the referral block off whichever session status carries it. Loose
  *  parameter type for the same reason as `getRateLimitsByModel`. */

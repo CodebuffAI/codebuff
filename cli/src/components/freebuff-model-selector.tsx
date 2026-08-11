@@ -27,6 +27,7 @@ import {
 import {
   getLimitedModelOffers,
   getRateLimitsByModel,
+  getGlmPromo,
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
 
@@ -217,6 +218,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const committedModelId: string | null = null
   const rateLimitsByModel = getRateLimitsByModel(session)
   const referral = getReferralInfo(session)
+  // Present only while a promo runs; absent renders the banner exactly as it
+  // rendered before promos existed.
+  const glmPromo = getGlmPromo(session)
 
   // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
   // · resets in …". All premium models share one pool; the server replicates
@@ -1056,6 +1060,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           <FreebuffReferralBanner
             width={buttonOuterWidth}
             referral={referral}
+            glmPromo={glmPromo}
             accessTier={accessTier}
             focusedId={focusedId}
             onFocusTargetsChange={setExtraTargets}

@@ -16,7 +16,10 @@ import { safeOpen } from '../utils/open-url'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
-import type { FreebuffReferralInfo } from '@codebuff/common/types/freebuff-session'
+import type {
+  FreebuffGlmPromo,
+  FreebuffReferralInfo,
+} from '@codebuff/common/types/freebuff-session'
 
 /** Build a friend's share link from the referral code. Points at the
  *  /get-started page (CLI install walkthrough + hero + FAQs) rather than the
@@ -38,23 +41,76 @@ const EARN_URL = `${LOGIN_WEBSITE_URL}/earn`
  *
  * Referrals only pay when somebody else shows up, which is nothing for a user
  * with no audience — bounties pay for work they control, and grant a session
- * that is redeemable from any region. The CLI cannot open a browser for them,
- * so the URL is spelled out rather than hidden behind a button.
+ * that is redeemable from any region. The URL is still spelled out: the
+ * dashboard button below opens it, but a terminal that cannot reach a browser
+ * (ssh, a container) leaves the user with something they can copy.
  */
-function BountyPitchLine({ theme }: { theme: ReturnType<typeof useTheme> }) {
+function BountyPitchLine({
+  theme,
+  promo,
+}: {
+  theme: ReturnType<typeof useTheme>
+  promo?: FreebuffGlmPromo
+}) {
   return (
-    <text style={{ wrapMode: 'word' }}>
-      <span fg={theme.muted}>✦ Or earn </span>
-      <span fg={theme.foreground}>GLM 5.2</span>
-      <span fg={theme.muted}> for small tasks: {EARN_URL}</span>
-    </text>
+    <box style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+      <text style={{ wrapMode: 'word' }}>
+        <span fg={theme.muted}>✦ Or earn </span>
+        <span fg={theme.foreground}>GLM 5.2</span>
+        <span fg={theme.muted}> for small tasks: {EARN_URL}</span>
+      </text>
+      {promo && (
+        <text style={{ wrapMode: 'word' }}>
+          <span fg={theme.success ?? theme.foreground}>
+            ✦ Promo: up to {promo.dailySessions} sessions a day
+          </span>
+          <span fg={theme.muted}>
+            {' '}
+            from bounties and referrals, ends {formatPromoEnd(promo.endsAt)}
+          </span>
+        </text>
+      )}
+    </box>
   )
+}
+
+/** Short, local date for the promo's end. The server sends the instant; every
+ *  surface formats it, so none of them can drift from the real window. */
+function DashboardButton({
+  theme,
+  focused,
+  onOpen,
+}: {
+  theme: ReturnType<typeof useTheme>
+  focused: boolean
+  onOpen: () => void
+}) {
+  return (
+    <Button onClick={onOpen}>
+      <text style={{ wrapMode: 'word' }}>
+        <span fg={focused ? theme.foreground : theme.secondary}>
+          {focused ? '▶ ' : '  '}Open GLM 5.2 dashboard ↵
+        </span>
+      </text>
+    </Button>
+  )
+}
+
+function formatPromoEnd(endsAt: string): string {
+  const at = new Date(endsAt)
+  return Number.isNaN(at.getTime())
+    ? 'soon'
+    : at.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 // Navigation ids for the banner's keyboard-focusable buttons. The model
 // selector owns the landing keyboard handler and appends these after its rows.
 const COPY_FOCUS_ID = '__freebuff_referral_copy__'
 const GLM_FOCUS_ID = '__freebuff_referral_glm__'
+/** Opens the Earn page — bounties to claim, referrals to track, balance to
+ *  read. The CLI can open a browser (`safeOpen`), so this is a real button
+ *  rather than a URL the user has to select and paste. */
+const DASHBOARD_FOCUS_ID = '__freebuff_referral_dashboard__'
 const BUTTON_HORIZONTAL_CHROME = 6 // two border + four padding columns
 
 export interface FreebuffReferralFocusTarget {
@@ -220,6 +276,8 @@ const CopyInviteLinkButton: React.FC<{
 interface FreebuffReferralBannerProps {
   width: number
   referral: FreebuffReferralInfo
+  /** A live GLM promo, or undefined. Undefined is the ordinary state. */
+  glmPromo?: FreebuffGlmPromo
   accessTier: FreebuffAccessTier
   focusedId: string
   onFocusTargetsChange: (targets: FreebuffReferralFocusTarget[]) => void
@@ -228,6 +286,7 @@ interface FreebuffReferralBannerProps {
 export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   width,
   referral,
+  glmPromo,
   accessTier,
   focusedId,
   onFocusTargetsChange,
@@ -239,6 +298,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   const [glmHovered, setGlmHovered] = useState(false)
   const copyFocused = focusedId === COPY_FOCUS_ID
   const glmFocused = focusedId === GLM_FOCUS_ID
+  const dashboardFocused = focusedId === DASHBOARD_FOCUS_ID
 
   const useGlm = useCallback(() => {
     if (joiningRef.current) return
@@ -262,17 +322,25 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // redeemable in every region — so the unlocked card is keyed on the balance
   // alone rather than on the tier.
   const isLocked = (referral.weeklySessionsRemaining ?? 0) <= 0
+  const openDashboard = useCallback(() => {
+    void safeOpen(EARN_URL)
+  }, [])
+
   useEffect(() => {
     onFocusTargetsChange(
       isLocked
-        ? [{ id: COPY_FOCUS_ID, activate: copy }]
+        ? [
+            { id: COPY_FOCUS_ID, activate: copy },
+            { id: DASHBOARD_FOCUS_ID, activate: openDashboard },
+          ]
         : [
             { id: GLM_FOCUS_ID, activate: useGlm },
             { id: COPY_FOCUS_ID, activate: copy },
+            { id: DASHBOARD_FOCUS_ID, activate: openDashboard },
           ],
     )
     return () => onFocusTargetsChange([])
-  }, [isLocked, copy, useGlm, onFocusTargetsChange])
+  }, [isLocked, copy, useGlm, openDashboard, onFocusTargetsChange])
 
   const { qualifiedCount, githubLinked } = referral
 
@@ -324,7 +392,12 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           availableWidth={width}
           variant="inline"
         />
-        <BountyPitchLine theme={theme} />
+        <BountyPitchLine theme={theme} promo={glmPromo} />
+        <DashboardButton
+          theme={theme}
+          focused={dashboardFocused}
+          onOpen={openDashboard}
+        />
       </box>
     )
   }
@@ -381,7 +454,12 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           availableWidth={width}
           variant="inline"
         />
-        <BountyPitchLine theme={theme} />
+        <BountyPitchLine theme={theme} promo={glmPromo} />
+        <DashboardButton
+          theme={theme}
+          focused={dashboardFocused}
+          onOpen={openDashboard}
+        />
       </box>
     )
   }
@@ -495,7 +573,12 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
 
       {/* Even holding sessions, the way to get MORE without an audience is a
           bounty — so the pitch rides the unlocked card too. */}
-      <BountyPitchLine theme={theme} />
+      <BountyPitchLine theme={theme} promo={glmPromo} />
+      <DashboardButton
+        theme={theme}
+        focused={dashboardFocused}
+        onOpen={openDashboard}
+      />
 
       {!githubLinked && (
         <Button
