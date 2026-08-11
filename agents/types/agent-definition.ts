@@ -439,11 +439,6 @@ export type ModelName =
   | 'google/gemini-2.5-flash'
   | 'google/gemini-2.5-flash-lite'
 
-  // X-AI
-  | 'x-ai/grok-4-fast'
-  | 'x-ai/grok-4.1-fast'
-  | 'x-ai/grok-code-fast-1'
-
   // Qwen
   | 'qwen/qwen3-max'
   | 'qwen/qwen3-coder-plus'
