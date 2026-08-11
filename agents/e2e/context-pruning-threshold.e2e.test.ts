@@ -455,8 +455,28 @@ describe('Context Pruning Threshold E2E', () => {
       // Verify tool-call/tool-result pair integrity after pruning
       verifyToolCallPairIntegrity(finalMessages)
 
-      // After pruning, the token count should be below the limit
-      expect(tokenCount).toBeLessThan(50_000)
+      // `contextTokenCount` is deliberately NOT asserted here. This used to read
+      // `expect(tokenCount).toBeLessThan(50_000)`, which contradicted
+      // `wasPruned` above: the pruner fires only when `contextTokenCount +
+      // TOKEN_COUNT_FUDGE_FACTOR > maxContextLength`, so both could hold only if
+      // the fixture happened to land in a ~1k sliver.
+      //
+      // Nor can the count describe the pruned history. run-agent-step.ts assigns
+      // it once per step from the history as it stood BEFORE the inline pruner
+      // runs, and handleSetMessages — how the pruner rewrites history — never
+      // updates it. So in the single-step run this agent performs, the value
+      // still reports what TRIGGERED pruning: 4 retained messages alongside a
+      // ~63k count. It also counts the system prompt and tool schemas, which
+      // pruning cannot remove. Nothing observable from the SDK carries the
+      // per-step count (no PrintModeEvent variant exposes it), so there is no
+      // step-count-independent way to assert on it — asserting it is above the
+      // threshold instead would flip to failing the moment the model takes a
+      // second step and the counter is recomputed from the pruned history.
+      //
+      // Losing it costs no coverage that matters. A fixture that quietly shrank
+      // below the limit already fails `wasPruned` above: the pruner would
+      // early-return via `set_messages` with no summary and no trim marker, and
+      // `messageReduction` cannot reach the 0.5 that `detectPruning` requires.
     },
     { timeout: 180_000 },
   )

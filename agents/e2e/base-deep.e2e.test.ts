@@ -9,7 +9,7 @@ import { beforeAll, describe, expect, it } from 'bun:test'
 import { $ } from 'bun'
 
 import baseDeep from '../base2/base-deep'
-import thinkerCodex from '../thinker/thinker-gpt'
+import thinkerGpt from '../thinker/thinker-gpt'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
@@ -108,7 +108,7 @@ describe('Base Deep Agent Integration', () => {
     let count = 0
     for (const event of events) {
       if (event.type !== 'tool_result') continue
-      if (!event.parentAgentId?.includes('thinker-codex')) continue
+      if (!event.parentAgentId?.includes('thinker-gpt')) continue
       for (const part of event.output) {
         if (part.type !== 'json') continue
         if (typeof part.value !== 'object' || part.value === null) continue
@@ -205,7 +205,7 @@ describe('Base Deep Agent Integration', () => {
   })
 
   it(
-    'spawns thinker-codex when requested',
+    'spawns thinker-gpt when requested',
     async () => {
       const apiKey = getApiKeyOrSkip()
       if (!apiKey) return
@@ -217,7 +217,7 @@ describe('Base Deep Agent Integration', () => {
         projectFiles: {
           'README.md': '# Base2 Codex Thinker Test\n',
         },
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [baseDeep, thinkerGpt],
       })
 
       const run = await runOrSkipOnAuthFailure(
@@ -226,7 +226,7 @@ describe('Base Deep Agent Integration', () => {
           client.run({
             agent: baseDeep.id,
             prompt:
-              'Use @thinker-codex to think briefly about adding validation to a sum function, then answer in one sentence.',
+              'Use @thinker-gpt to think briefly about adding validation to a sum function, then answer in one sentence.',
             handleEvent: (event) => {
               events.push(event)
             },
@@ -238,12 +238,12 @@ describe('Base Deep Agent Integration', () => {
 
       const thinkerSpawned = events.some(
         (event) =>
-          event.type === 'subagent_start' && event.agentType === 'thinker-codex',
+          event.type === 'subagent_start' && event.agentType === 'thinker-gpt',
       )
       expect(thinkerSpawned).toBe(true)
 
       await writeTrace({
-        testName: 'spawns thinker-codex when requested',
+        testName: 'spawns thinker-gpt when requested',
         events,
         runOutput: run.output,
         cwd: '/tmp/base-deep-thinker-test',
@@ -267,7 +267,7 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: tmpDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [baseDeep, thinkerGpt],
       })
       const events: PrintModeEvent[] = []
 
@@ -398,7 +398,7 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: tmpDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [baseDeep, thinkerGpt],
       })
 
       const run = await runOrSkipOnAuthFailure(
@@ -497,7 +497,7 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: cloneDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [baseDeep, thinkerGpt],
       })
 
       const run = await runOrSkipOnAuthFailure(
@@ -506,7 +506,7 @@ describe('Base Deep Agent Integration', () => {
           client.run({
             agent: baseDeep.id,
             prompt:
-              'Commit-inspired task: add a new integration test file at agents/e2e/base-deep-clone-smoke.e2e.test.ts that verifies base-deep can spawn thinker-codex. Keep it concise and actually write the file.',
+              'Commit-inspired task: add a new integration test file at agents/e2e/base-deep-clone-smoke.e2e.test.ts that verifies base-deep can spawn thinker-gpt. Keep it concise and actually write the file.',
             handleEvent: (event) => {
               events.push(event)
             },
@@ -522,7 +522,7 @@ describe('Base Deep Agent Integration', () => {
       )
       const createdContent = await fs.promises.readFile(createdPath, 'utf-8')
       expect(createdContent).toContain('base-deep')
-      expect(createdContent).toContain('thinker-codex')
+      expect(createdContent).toContain('thinker-gpt')
 
       const diffStats = await getDiffLineStats(cloneDir)
 
@@ -552,7 +552,7 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: cloneDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [baseDeep, thinkerGpt],
       })
 
       const initialRun = await runOrSkipOnAuthFailure(
