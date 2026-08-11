@@ -1,3 +1,4 @@
+import { FREEBUFF_PROVIDER_USAGE_MESSAGE } from '@codebuff/common/constants/freebuff-errors'
 import { getErrorObject } from '@codebuff/common/util/error'
 
 import {
@@ -17,6 +18,7 @@ import {
   getFreebuffGateErrorKind,
   getFreebuffRateLimitErrorMessage,
   isOutOfCreditsError,
+  isFreebuffProviderUsageError,
   isFreeModeUnavailableError,
   OUT_OF_CREDITS_MESSAGE,
 } from '../../utils/error-handling'
@@ -400,6 +402,12 @@ export const handleRunCompletion = (params: {
   }
 
   if (output.type === 'error') {
+    if (IS_FREEBUFF && isFreebuffProviderUsageError(output)) {
+      updater.setError(FREEBUFF_PROVIDER_USAGE_MESSAGE)
+      finalizeAfterError()
+      return
+    }
+
     if (isOutOfCreditsError(output)) {
       updater.setError(OUT_OF_CREDITS_MESSAGE)
       useChatStore.getState().setInputMode('outOfCredits')
@@ -516,6 +524,11 @@ export const handleRunError = (params: {
     isQueuePausedRef,
   })
   timerController.stop('error')
+
+  if (IS_FREEBUFF && isFreebuffProviderUsageError(error)) {
+    updater.setError(FREEBUFF_PROVIDER_USAGE_MESSAGE)
+    return
+  }
 
   if (isOutOfCreditsError(error)) {
     updater.setError(OUT_OF_CREDITS_MESSAGE)

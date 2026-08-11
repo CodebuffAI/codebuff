@@ -1,4 +1,5 @@
 import { describe, expect, test, mock, beforeEach, afterEach } from 'bun:test'
+import { FREEBUFF_PROVIDER_USAGE_MESSAGE } from '@codebuff/common/constants/freebuff-errors'
 
 import type { ChatMessage } from '../../../types/chat'
 import type { SendMessageTimerController } from '../../../utils/send-message-timer'
@@ -27,6 +28,7 @@ const ensureEnv = () => {
 ensureEnv()
 
 const { useChatStore } = await import('../../../state/chat-store')
+const { IS_FREEBUFF } = await import('../../../utils/constants')
 const { createStreamController } = await import('../../stream-state')
 const {
   setupStreamingContext,
@@ -469,6 +471,40 @@ describe('handleRunCompletion', () => {
       expect(canProcessQueueCalled).toBe(false)
     })
   })
+
+  test('provider credit wording follows the Freebuff client policy', () => {
+    let messages = createBaseMessages()
+    const timerController = createMockTimerController()
+    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
+      messages = fn(messages)
+    })
+
+    handleRunCompletion({
+      runState: {
+        traceSessionId: 'trace-test',
+        sessionState: undefined,
+        output: {
+          type: 'error',
+          statusCode: 401,
+          message: 'Not Enough Credits',
+        },
+      },
+      actualCredits: undefined,
+      agentMode: 'DEFAULT' as any,
+      timerController,
+      updater,
+      aiMessageId: 'ai-1',
+      wasAbortedByUser: false,
+      setStreamStatus: () => {},
+      setCanProcessQueue: () => {},
+      updateChainInProgress: () => {},
+      setHasReceivedPlanResponse: () => {},
+    })
+
+    expect(messages[0]?.userError).toBe(
+      IS_FREEBUFF ? FREEBUFF_PROVIDER_USAGE_MESSAGE : 'Not Enough Credits',
+    )
+  })
 })
 
 describe('finalizeQueueState', () => {
@@ -830,7 +866,7 @@ describe('handleRunError', () => {
     expect(timerController.stopCalls).toContain('error')
   })
 
-  test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
+  test('Payment required error (402) uses the billing policy for this client', () => {
     let messages: ChatMessage[] = [
       {
         id: 'ai-1',
@@ -870,7 +906,9 @@ describe('handleRunError', () => {
     // For PaymentRequiredError, setError sets userError (not content)
     // Content is preserved, error is stored in userError field
     expect(aiMessage!.content).toBe('Partial streamed content')
-    expect(aiMessage!.userError).toContain('Out of credits')
+    expect(aiMessage!.userError).toContain(
+      IS_FREEBUFF ? FREEBUFF_PROVIDER_USAGE_MESSAGE : 'Out of credits',
+    )
 
     // Blocks should be preserved for debugging context
     expect(aiMessage!.blocks).toEqual([{ type: 'text', content: 'some block' }])
@@ -878,8 +916,11 @@ describe('handleRunError', () => {
     // Message should be marked complete
     expect(aiMessage!.isComplete).toBe(true)
 
-    // Input mode should switch to outOfCredits
-    expect(setInputModeMock).toHaveBeenCalledWith('outOfCredits')
+    if (IS_FREEBUFF) {
+      expect(setInputModeMock).not.toHaveBeenCalled()
+    } else {
+      expect(setInputModeMock).toHaveBeenCalledWith('outOfCredits')
+    }
 
     // Timer should still be stopped with error
     expect(timerController.stopCalls).toContain('error')

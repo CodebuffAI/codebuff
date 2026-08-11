@@ -1,3 +1,4 @@
+import { FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN } from '@codebuff/common/constants/freebuff-errors'
 import { env } from '@codebuff/common/env'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
@@ -143,6 +144,21 @@ export const getFreebuffRateLimitErrorMessage = (
     return `${FREEBUFF_RATE_LIMIT_MESSAGE} (${detail})`
   }
   return FREEBUFF_RATE_LIMIT_MESSAGE
+}
+
+/**
+ * Provider billing failures are an operator problem in Freebuff, not a reason
+ * to send a free user to Codebuff's credit-purchase flow. Upstreams disagree
+ * on the status (observed as both 401 and 402), so retain the status check but
+ * also recognize the provider wording that can survive into an agent output.
+ */
+export const isFreebuffProviderUsageError = (error: unknown): boolean => {
+  const details = getCliApiErrorDetails(error)
+  const message = details.message ?? extractErrorMessage(error, '')
+  return (
+    details.statusCode === 402 ||
+    FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN.test(message)
+  )
 }
 
 export const getCountryBlockFromFreeModeError = (

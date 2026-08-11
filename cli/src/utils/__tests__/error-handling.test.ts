@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'bun:test'
+import { FREEBUFF_PROVIDER_USAGE_MESSAGE } from '@codebuff/common/constants/freebuff-errors'
 
 import {
   getFreebuffRateLimitErrorMessage,
@@ -9,6 +10,7 @@ import {
   OUT_OF_CREDITS_MESSAGE,
   FREE_MODE_UNAVAILABLE_MESSAGE,
   FREEBUFF_RATE_LIMIT_MESSAGE,
+  isFreebuffProviderUsageError,
   createErrorMessage,
 } from '../error-handling'
 
@@ -270,6 +272,41 @@ describe('error-handling', () => {
     })
   })
 
+  describe('isFreebuffProviderUsageError', () => {
+    test('recognizes Freebuff provider usage failures across upstream shapes', () => {
+      for (const error of [
+        {
+          statusCode: 402,
+          message: 'Payment required',
+        },
+        { statusCode: 401, message: 'Not Enough Credits' },
+        {
+          type: 'error',
+          statusCode: 403,
+          message:
+            'Insufficient credits. Add more using https://openrouter.ai/settings/credits',
+        },
+        {
+          statusCode: 401,
+          responseBody: JSON.stringify({
+            error: { message: 'Not Enough Credits' },
+          }),
+        },
+      ]) {
+        expect(isFreebuffProviderUsageError(error)).toBe(true)
+      }
+    })
+
+    test('does not rewrite unrelated failures', () => {
+      expect(
+        isFreebuffProviderUsageError({
+          statusCode: 500,
+          message: 'Internal server error',
+        }),
+      ).toBe(false)
+    })
+  })
+
   describe('getCountryBlockFromFreeModeError', () => {
     test('extracts country block details from free-mode unavailable errors', () => {
       const error = {
@@ -394,6 +431,16 @@ describe('error-handling', () => {
       expect(message).toContain('try again')
       expect(message).not.toContain('credit')
       expect(message).not.toContain('pay')
+    })
+  })
+
+  describe('FREEBUFF_PROVIDER_USAGE_MESSAGE', () => {
+    test('owns the refill without blaming the user account', () => {
+      const message = FREEBUFF_PROVIDER_USAGE_MESSAGE.toLowerCase()
+      expect(message).toContain('freebuff ran out of provider usage')
+      expect(message).toContain('needs a refill')
+      expect(message).toContain('not your account')
+      expect(message).not.toContain('add credits')
     })
   })
 
