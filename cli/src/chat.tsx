@@ -19,6 +19,7 @@ import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
+import { QueuePanel } from './components/queue-panel'
 import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { areCreditsRestored } from './components/out-of-credits-banner'
@@ -54,6 +55,7 @@ import { WEBSITE_URL } from './login/constants'
 import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
+import { useQueuePanelStore } from './state/queue-panel-store'
 import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
@@ -176,6 +178,10 @@ export const Chat = ({
     clearMessages,
     subscriptionData,
     registerScrollToLatest,
+    queuedMessages,
+    editQueuedMessage,
+    removeQueuedMessage,
+    moveQueuedMessage,
   } = useChatRuntime()
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
@@ -436,8 +442,7 @@ export const Chat = ({
     clearQueue,
     queuedCount,
     shouldShowQueuePreview,
-    queuePreviewTitle,
-    pausedQueueText,
+    inputBoxTitle,
     inputPlaceholder,
     handleCtrlC,
     ensureQueueActiveBeforeSubmit,
@@ -730,6 +735,27 @@ export const Chat = ({
     })),
   )
 
+  const { queuePanelOpen, closeQueuePanel } = useQueuePanelStore(
+    useShallow((state) => ({
+      queuePanelOpen: state.queuePanelOpen,
+      closeQueuePanel: state.closeQueuePanel,
+    })),
+  )
+
+  // Review and ask_user take the composer's place too. Leaving the panel
+  // flagged open behind them would keep chat's keyboard disabled with nothing
+  // rendered to handle keys, so hand the surface back for real.
+  useEffect(() => {
+    if (queuePanelOpen && (reviewMode || askUserState !== null)) {
+      closeQueuePanel()
+    }
+  }, [queuePanelOpen, reviewMode, askUserState, closeQueuePanel])
+
+  // The panel store outlives this component and a Freebuff session can end on
+  // its own, unmounting chat mid-edit. Without this, the next session would
+  // open onto a panel for a queue that no longer exists.
+  useEffect(() => () => useQueuePanelStore.getState().closeQueuePanel(), [])
+
   const publishMutation = usePublishMutation()
 
   const handleCommandResult = useCallback(
@@ -765,12 +791,21 @@ export const Chat = ({
       if (result.openReviewScreen) {
         useReviewStore.getState().openReviewScreen()
       }
+
+      if (result.openQueuePanel) {
+        // The panel closes itself once the queue drains, so opening an empty
+        // one would just flash. Say so instead.
+        if (queuedCount > 0) useQueuePanelStore.getState().openQueuePanel()
+        else setMessages((prev) => [...prev, getSystemMessage('Nothing queued.')])
+      }
     },
     [
       saveCurrentInput,
       openFeedbackForMessage,
       openPublishMode,
       preSelectAgents,
+      queuedCount,
+      setMessages,
     ],
   )
 
@@ -923,6 +958,14 @@ export const Chat = ({
     closeReviewScreen()
     setInputFocused(true)
   }, [closeReviewScreen, setInputFocused])
+
+  // The panel took the composer's place, so give the keyboard back to it the
+  // same way the review screen does.
+  const handleCloseQueuePanel = useCallback(() => {
+    closeQueuePanel()
+    setInputFocused(true)
+    inputRef.current?.focus()
+  }, [closeQueuePanel, setInputFocused, inputRef])
 
   const handleReviewCustom = useCallback(() => {
     closeReviewScreen()
@@ -1176,6 +1219,7 @@ export const Chat = ({
         inputRef.current?.focus()
       },
       onClearQueue: clearQueue,
+      onOpenQueuePanel: () => useQueuePanelStore.getState().openQueuePanel(),
       onExitAppWarning: () => handleCtrlC(),
       onExitApp: () => handleCtrlC(),
       onBashHistoryUp: navigateUp,
@@ -1276,7 +1320,7 @@ export const Chat = ({
   useChatKeyboard({
     state: chatKeyboardState,
     handlers: chatKeyboardHandlers,
-    disabled: askUserState !== null || reviewMode,
+    disabled: askUserState !== null || reviewMode || queuePanelOpen,
   })
 
   // Sync message block context to zustand store for child components
@@ -1435,22 +1479,6 @@ export const Chat = ({
     }
   }, [subscriptionRateLimit?.limited, fallbackToALaCarte])
 
-  const inputBoxTitle = useMemo(() => {
-    const segments: string[] = []
-
-    if (queuePreviewTitle) {
-      segments.push(queuePreviewTitle)
-    } else if (pausedQueueText) {
-      segments.push(`⏸ ${pausedQueueText}`)
-    }
-
-    if (segments.length === 0) {
-      return undefined
-    }
-
-    return ` ${segments.join('   ')} `
-  }, [queuePreviewTitle, pausedQueueText])
-
   const hasActiveFreebuffSession =
     IS_FREEBUFF && freebuffSession?.status === 'active'
   const isFreebuffSessionOver =
@@ -1607,6 +1635,16 @@ export const Chat = ({
             onSelectOption={handleReviewOptionSelect}
             onCustom={handleReviewCustom}
             onCancel={handleCloseReviewScreen}
+          />
+        ) : queuePanelOpen && !askUserState ? (
+          <QueuePanel
+            queuedMessages={queuedMessages}
+            onEdit={editQueuedMessage}
+            onDelete={removeQueuedMessage}
+            onMove={moveQueuedMessage}
+            onClose={handleCloseQueuePanel}
+            width={separatorWidth}
+            maxVisibleRows={isCompactHeight ? 4 : 8}
           />
         ) : isFreebuffSessionOver && !askUserState ? (
           <SessionEndedBanner

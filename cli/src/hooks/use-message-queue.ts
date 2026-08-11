@@ -7,9 +7,14 @@ import type { PendingAttachment } from '../types/store'
 export type StreamStatus = 'idle' | 'waiting' | 'streaming'
 
 export type QueuedMessage = {
+  /** Stable across edits and reorders so the queue editor can address a row
+   *  by identity rather than by a position that shifts underneath it. */
+  id: string
   content: string
   attachments: PendingAttachment[]
 }
+
+const newQueueId = () => crypto.randomUUID()
 
 // Watchdog timeout duration: 60 seconds
 const QUEUE_WATCHDOG_TIMEOUT_MS = 60 * 1000
@@ -48,6 +53,14 @@ export const useMessageQueue = (
   // (not whether the system is temporarily busy processing)
   // Use state instead of ref to ensure components re-render when pause status changes
   const queuePaused = queuePausedState
+
+  /** Every queue write goes through here: the ref is updated before React
+   *  state so anything reading between renders (cancellation, the next
+   *  dequeue) sees the same queue the user just acted on. */
+  const writeQueue = useCallback((next: QueuedMessage[]) => {
+    queuedMessagesRef.current = next
+    setQueuedMessages(next)
+  }, [])
 
   const clearStreaming = useCallback(() => {
     if (streamTimeoutRef.current) {
@@ -186,9 +199,7 @@ export const useMessageQueue = (
     // Remove it from both sources synchronously. Cancellation decisions read
     // the ref between renders, so deferring this update inside a React state
     // updater can make an in-flight message look queued.
-    const remainingMessages = queuedMessagesRef.current.slice(1)
-    queuedMessagesRef.current = remainingMessages
-    setQueuedMessages(remainingMessages)
+    writeQueue(queuedMessagesRef.current.slice(1))
 
     sendMessage(messageToProcess)
       .catch((err: unknown) => {
@@ -215,6 +226,7 @@ export const useMessageQueue = (
     sendBlocked,
     isChainInProgressRef,
     activeAgentStreamsRef,
+    writeQueue,
   ])
 
   useEffect(() => {
@@ -229,25 +241,81 @@ export const useMessageQueue = (
 
   const addToQueue = useCallback(
     (message: string, attachments: PendingAttachment[] = []) => {
-      const queuedMessage = { content: message, attachments }
-      // Update the ref before scheduling React state so cancellation in the
-      // same input tick observes the message.
-      const newQueue = [...queuedMessagesRef.current, queuedMessage]
-      queuedMessagesRef.current = newQueue
-      setQueuedMessages(newQueue)
+      const queuedMessage = {
+        id: newQueueId(),
+        content: message,
+        attachments,
+      }
+      writeQueue([...queuedMessagesRef.current, queuedMessage])
     },
-    [],
+    [writeQueue],
   )
 
   /** Put a message back at the HEAD of the queue. Used when a send was
    *  aborted before it did anything (e.g. the freebuff session ended between
    *  dequeue and run start) so the message keeps its place instead of being
    *  consumed. */
-  const addToQueueFront = useCallback((message: QueuedMessage) => {
-    const newQueue = [message, ...queuedMessagesRef.current]
-    queuedMessagesRef.current = newQueue
-    setQueuedMessages(newQueue)
-  }, [])
+  const addToQueueFront = useCallback(
+    (message: Omit<QueuedMessage, 'id'>) => {
+      writeQueue([
+        { ...message, id: newQueueId() },
+        ...queuedMessagesRef.current,
+      ])
+    },
+    [writeQueue],
+  )
+
+  /** Replace a queued message's text, keeping its place and attachments.
+   *  Returns false when the message is no longer queued — it started running
+   *  between the editor's render and this call, and rewriting a prompt the
+   *  agent is already working on would be a lie either way. */
+  const editQueuedMessage = useCallback(
+    (id: string, content: string): boolean => {
+      const current = queuedMessagesRef.current
+      const index = current.findIndex((message) => message.id === id)
+      if (index === -1) return false
+
+      const next = [...current]
+      next[index] = { ...next[index]!, content }
+      writeQueue(next)
+      return true
+    },
+    [writeQueue],
+  )
+
+  /** Drop a single queued message. Returns false if it already left the
+   *  queue, which is the caller's cue that it is running, not cancelled. */
+  const removeQueuedMessage = useCallback(
+    (id: string): boolean => {
+      const current = queuedMessagesRef.current
+      const next = current.filter((message) => message.id !== id)
+      if (next.length === current.length) return false
+
+      writeQueue(next)
+      return true
+    },
+    [writeQueue],
+  )
+
+  /** Move a queued message to `toIndex`, clamped to the queue's bounds so
+   *  callers can pass index±1 at the edges without a guard. */
+  const moveQueuedMessage = useCallback(
+    (id: string, toIndex: number): boolean => {
+      const current = queuedMessagesRef.current
+      const from = current.findIndex((message) => message.id === id)
+      if (from === -1) return false
+
+      const to = Math.max(0, Math.min(current.length - 1, toIndex))
+      if (to === from) return false
+
+      const next = [...current]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved!)
+      writeQueue(next)
+      return true
+    },
+    [writeQueue],
+  )
 
   const pauseQueue = useCallback(() => {
     isQueuePausedRef.current = true
@@ -268,17 +336,15 @@ export const useMessageQueue = (
 
   const clearQueue = useCallback(() => {
     const current = queuedMessagesRef.current
-    queuedMessagesRef.current = []
-    setQueuedMessages([])
+    writeQueue([])
     return current
-  }, [])
+  }, [writeQueue])
 
   /** Drop queue state when leaving its chat. Unlike clearQueue (the user's
    * Ctrl-C action), this also removes paused/processing bookkeeping so a
    * same-provider /new cannot inherit a phantom paused queue. */
   const discardQueue = useCallback(() => {
-    queuedMessagesRef.current = []
-    setQueuedMessages([])
+    writeQueue([])
     isQueuePausedRef.current = false
     setQueuePausedState(false)
     queueProcessingOwnerRef.current = null
@@ -288,7 +354,7 @@ export const useMessageQueue = (
       watchdogTimeoutRef.current = null
     }
     setCanProcessQueue(false)
-  }, [])
+  }, [writeQueue])
 
   const startStreaming = useCallback(() => {
     setStreamStatus('streaming')
@@ -303,6 +369,9 @@ export const useMessageQueue = (
     streamMessageIdRef,
     addToQueue,
     addToQueueFront,
+    editQueuedMessage,
+    removeQueuedMessage,
+    moveQueuedMessage,
     startStreaming,
     setStreamStatus,
     clearStreaming,

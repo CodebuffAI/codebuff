@@ -53,8 +53,7 @@ export interface UseChatStreamingReturn {
   // Queue UI
   queuedCount: number
   shouldShowQueuePreview: boolean
-  queuePreviewTitle: string | undefined
-  pausedQueueText: string | undefined
+  inputBoxTitle: string | undefined
   inputPlaceholder: string
 
   // Exit handling
@@ -121,8 +120,7 @@ export function useChatStreaming({
   const {
     queuedCount,
     shouldShowQueuePreview,
-    queuePreviewTitle,
-    pausedQueueText,
+    inputBoxTitle,
     inputPlaceholder,
   } = useQueueUi({
     queuePaused,
@@ -171,8 +169,7 @@ export function useChatStreaming({
     // Queue UI
     queuedCount,
     shouldShowQueuePreview,
-    queuePreviewTitle,
-    pausedQueueText,
+    inputBoxTitle,
     inputPlaceholder,
 
     // Exit handling

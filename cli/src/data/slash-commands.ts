@@ -114,6 +114,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description: 'Review code changes',
   },
   {
+    id: 'queue',
+    label: 'queue',
+    description: 'Edit, reorder, or delete the messages waiting to be sent',
+    aliases: ['queued'],
+  },
+  {
     id: 'new',
     label: 'new',
     description: 'Clear the conversation history and start a new chat',

@@ -87,6 +87,7 @@ export type ChatKeyboardAction =
 
   // Queue actions
   | { type: 'clear-queue' }
+  | { type: 'open-queue-panel' }
 
   // Exit actions
   | { type: 'exit-app-warning' }
@@ -168,6 +169,15 @@ export function resolveChatKeyboardAction(
   const modeConfig = getInputModeConfig(state.inputMode)
   if (isEscape && state.inputMode !== 'default' && !modeConfig.blockKeyboardExit) {
     return { type: 'exit-input-mode' }
+  }
+
+  // Priority 2.5: Open the queue editor (Ctrl+Q). Ahead of the ctrl-c rules
+  // below so it works with a half-typed message still in the composer; raw
+  // mode disables XON/XOFF, so ctrl-q is ours to use.
+  if (key.ctrl && key.name === 'q' && !key.meta && !key.option) {
+    return state.queuedCount > 0
+      ? { type: 'open-queue-panel' }
+      : { type: 'none' }
   }
 
   // Priority 3: Clear input with ctrl-c when there's text

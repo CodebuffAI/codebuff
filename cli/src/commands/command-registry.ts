@@ -64,6 +64,7 @@ export type CommandResult = {
   openPublishMode?: boolean
   openChatHistory?: boolean
   openReviewScreen?: boolean
+  openQueuePanel?: boolean
   preSelectAgents?: string[]
 } | void
 
@@ -561,6 +562,17 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise open the selection UI
       return { openReviewScreen: true }
+    },
+  }),
+  defineCommand({
+    // No `/q` alias: that one already quits the CLI, and a queue editor is not
+    // worth the chance of a mis-fired exit.
+    name: 'queue',
+    aliases: ['queued'],
+    handler: (params) => {
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      return { openQueuePanel: true }
     },
   }),
   defineCommand({

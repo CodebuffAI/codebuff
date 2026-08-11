@@ -47,7 +47,10 @@ export interface ChatRuntime {
   queuePaused: boolean
   streamMessageIdRef: MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
-  addToQueueFront: (message: QueuedMessage) => void
+  addToQueueFront: (message: Omit<QueuedMessage, 'id'>) => void
+  editQueuedMessage: (id: string, content: string) => boolean
+  removeQueuedMessage: (id: string) => boolean
+  moveQueuedMessage: (id: string, toIndex: number) => boolean
   setCanProcessQueue: (value: boolean | ((prev: boolean) => boolean)) => void
   resumeQueue: () => void
   clearQueue: () => QueuedMessage[]
@@ -204,6 +207,9 @@ export const ChatRuntimeProvider = ({
     streamMessageIdRef: queue.streamMessageIdRef,
     addToQueue: queue.addToQueue,
     addToQueueFront: queue.addToQueueFront,
+    editQueuedMessage: queue.editQueuedMessage,
+    removeQueuedMessage: queue.removeQueuedMessage,
+    moveQueuedMessage: queue.moveQueuedMessage,
     setCanProcessQueue: queue.setCanProcessQueue,
     resumeQueue: queue.resumeQueue,
     clearQueue: queue.clearQueue,

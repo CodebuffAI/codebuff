@@ -63,6 +63,7 @@ export type ChatKeyboardHandlers = {
 
   // Queue handlers
   onClearQueue: () => void
+  onOpenQueuePanel: () => void
 
   // Exit handlers
   onExitAppWarning: () => void
@@ -182,6 +183,9 @@ function dispatchAction(
       return true
     case 'clear-queue':
       handlers.onClearQueue()
+      return true
+    case 'open-queue-panel':
+      handlers.onOpenQueuePanel()
       return true
     case 'exit-app-warning':
       handlers.onExitAppWarning()
