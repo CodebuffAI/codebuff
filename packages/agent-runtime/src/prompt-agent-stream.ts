@@ -5,6 +5,7 @@ import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type {
   CacheDebugUsageData,
+  ModelUsageData,
   PromptAiSdkStreamFn,
 } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -37,6 +38,7 @@ export const getAgentStreamFromTemplate = (params: {
     normalizedBody?: unknown
   }) => void
   onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
+  onUsageReceived?: (usage: ModelUsageData) => void
 
   onCostCalculated?: (credits: number) => Promise<void>
   promptAiSdkStream: PromptAiSdkStreamFn
@@ -62,6 +64,7 @@ export const getAgentStreamFromTemplate = (params: {
     cacheDebugCorrelation,
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,
+    onUsageReceived,
 
     sendAction,
     onCostCalculated,
@@ -99,6 +102,7 @@ export const getAgentStreamFromTemplate = (params: {
     cacheDebugCorrelation,
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,
+    onUsageReceived,
 
     onCostCalculated,
     sendAction,

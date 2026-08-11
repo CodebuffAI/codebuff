@@ -593,6 +593,10 @@ export async function* promptAiSdkStream(
     callback: params.onCacheDebugUsageReceived,
     usage: usageResult,
   })
+  emitCacheDebugUsage({
+    callback: params.onUsageReceived,
+    usage: usageResult,
+  })
 
   const providerMetadata = (await response.providerMetadata) ?? {}
   const openrouterUsage = providerMetadata.codebuff?.usage as

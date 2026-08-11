@@ -972,6 +972,7 @@ export function maybeCompactHistory(params: {
   cacheExpiryMinTokens?: number | null
   logger?: Logger
   runId?: string
+  onCompaction?: (trigger: CompactionTrigger) => void
 }): Message[] | null {
   const { messages, contextTokenCount, maxContextLength, logger, runId } =
     params
@@ -987,6 +988,11 @@ export function maybeCompactHistory(params: {
   if (!trigger) return null
 
   const result = compactMessages({ messages })
+  try {
+    params.onCompaction?.(trigger)
+  } catch {
+    // Reporting must never block the compaction itself.
+  }
 
   // Telemetry is best-effort and must never block the compaction itself.
   try {

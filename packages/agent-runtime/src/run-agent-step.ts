@@ -64,7 +64,10 @@ import type {
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
 import type {
+  AgentUsageData,
   CacheDebugUsageData,
+  ContextCompactionData,
+  ModelUsageData,
   PromptAiSdkFn,
 } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -185,6 +188,8 @@ export const runAgentStep = async (
     trackEvent: TrackEventFn
     promptAiSdk: PromptAiSdkFn
     traceWriter?: TraceWriter
+    onAgentUsageReceived?: (usage: AgentUsageData) => void
+    onCompaction?: (data: ContextCompactionData) => void
   } & ParamsExcluding<
     typeof processStream,
     | 'agentContext'
@@ -526,6 +531,14 @@ export const runAgentStep = async (
     messages: [systemMessage(system), ...agentState.messageHistory],
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,
+    onUsageReceived: params.onAgentUsageReceived
+      ? (usage: ModelUsageData) =>
+          params.onAgentUsageReceived?.({
+            ...usage,
+            isRoot: !agentState.parentId,
+            agentId: agentState.agentId,
+          })
+      : undefined,
     template: agentTemplate,
     onCostCalculated,
   })
@@ -1045,6 +1058,13 @@ export async function loopAgentSteps(
           maxContextLength: contextPrunerBudgetForModel(agentTemplate.model),
           logger,
           runId,
+          onCompaction: (trigger) => {
+            if (initialAgentState.parentId) return
+            params.onCompaction?.({
+              trigger,
+              thresholdTokens: contextPrunerBudgetForModel(agentTemplate.model),
+            })
+          },
         })
         if (compacted) {
           currentAgentState.messageHistory = compacted

@@ -58,6 +58,10 @@ import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { PublishedClientToolName } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  AgentUsageData,
+  ContextCompactionData,
+} from '@codebuff/common/types/contracts/llm'
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
@@ -207,6 +211,10 @@ export type RunOptions = {
    * lose the in-flight turn. The final resolved RunState supersedes any
    * snapshot; no snapshots are emitted after the run settles. */
   onStateSnapshot?: (runState: RunState) => void
+  /** Provider-reported usage for each root-agent model request. */
+  onUsage?: (usage: AgentUsageData) => void
+  /** Mechanical context compaction performed by the root agent runtime. */
+  onCompaction?: (data: ContextCompactionData) => void
 }
 
 /** How often onStateSnapshot fires while a run is in flight. */
@@ -332,6 +340,8 @@ async function runOnce({
   costMode,
   extraCodebuffMetadata,
   onStateSnapshot,
+  onUsage,
+  onCompaction,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -697,6 +707,20 @@ async function runOnce({
     }
   }
 
+  const report = <T>(callback: ((value: T) => void) | undefined) =>
+    callback
+      ? (value: T) => {
+          try {
+            callback(value)
+          } catch (error) {
+            agentRuntimeImpl.logger.debug?.(
+              { error: error instanceof Error ? error.message : String(error) },
+              'Run metrics handler threw',
+            )
+          }
+        }
+      : undefined
+
   callMainPrompt({
     ...agentRuntimeImpl,
     promptId,
@@ -722,6 +746,8 @@ async function runOnce({
       trace_session_id: traceSessionId,
     },
     signal: signal ?? new AbortController().signal,
+    onAgentUsageReceived: report(onUsage),
+    onCompaction: report(onCompaction),
   }).catch((error) => {
     let errorMessage = isFetchIdleTimeoutError(error)
       ? FETCH_IDLE_TIMEOUT_USER_MESSAGE
