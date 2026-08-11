@@ -213,6 +213,8 @@ export type RunOptions = {
   onStateSnapshot?: (runState: RunState) => void
   /** Provider-reported usage for each root-agent model request. */
   onUsage?: (usage: AgentUsageData) => void
+  /** A model request ended before an exact provider usage receipt arrived. */
+  onUsageIncomplete?: () => void
   /** Mechanical context compaction performed by the root agent runtime. */
   onCompaction?: (data: ContextCompactionData) => void
 }
@@ -341,6 +343,7 @@ async function runOnce({
   extraCodebuffMetadata,
   onStateSnapshot,
   onUsage,
+  onUsageIncomplete,
   onCompaction,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
@@ -720,6 +723,19 @@ async function runOnce({
           }
         }
       : undefined
+  const reportSignal = (callback: (() => void) | undefined) =>
+    callback
+      ? () => {
+          try {
+            callback()
+          } catch (error) {
+            agentRuntimeImpl.logger.debug?.(
+              { error: error instanceof Error ? error.message : String(error) },
+              'Run metrics handler threw',
+            )
+          }
+        }
+      : undefined
 
   callMainPrompt({
     ...agentRuntimeImpl,
@@ -747,6 +763,7 @@ async function runOnce({
     },
     signal: signal ?? new AbortController().signal,
     onAgentUsageReceived: report(onUsage),
+    onAgentUsageIncomplete: reportSignal(onUsageIncomplete),
     onCompaction: report(onCompaction),
   }).catch((error) => {
     let errorMessage = isFetchIdleTimeoutError(error)

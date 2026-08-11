@@ -189,6 +189,7 @@ export const runAgentStep = async (
     promptAiSdk: PromptAiSdkFn
     traceWriter?: TraceWriter
     onAgentUsageReceived?: (usage: AgentUsageData) => void
+    onAgentUsageIncomplete?: () => void
     onCompaction?: (data: ContextCompactionData) => void
   } & ParamsExcluding<
     typeof processStream,
@@ -539,6 +540,7 @@ export const runAgentStep = async (
             agentId: agentState.agentId,
           })
       : undefined,
+    onUsageIncomplete: params.onAgentUsageIncomplete,
     template: agentTemplate,
     onCostCalculated,
   })
