@@ -14,6 +14,10 @@ import {
   FREEBUFF_AI_TRAINING_NOTICE,
   type FreebuffModelDataUse,
 } from './freebuff-data-use'
+import {
+  clampReasoningEffort,
+  type ReasoningEffort,
+} from './reasoning-effort'
 
 export {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -71,6 +75,30 @@ export interface FreebuffModelOption {
    *  agent-definition.ts stops one model's extra rung from becoming a value
    *  every published agent can declare against providers that reject it. */
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+  /**
+   * The ladder a USER may pick from for this model, ascending. Absent means the
+   * model offers no choice and shows no control — the default for every row.
+   *
+   * Same field name and shape as Desktop's `ModelOption.efforts`
+   * (freebuff-desktop/src/shared/models.ts), deliberately: Desktop already had
+   * per-model effort lists driving its Claude/Codex picker, and one pattern
+   * across surfaces beats two that must be kept in step.
+   *
+   * The LAST rung is the ceiling, and it must never exceed what the model
+   * already runs at today — this lets users spend less effort, never more.
+   */
+  efforts?: readonly ReasoningEffort[]
+  /**
+   * Where `efforts` starts before a user touches it.
+   *
+   * Usually equal to `reasoningEffort`, but NOT always, and the exception is
+   * why this is its own field. DeepSeek's `reasoningEffort: 'high'` is an
+   * API-level value sent on the wire; its user-facing default is `medium` — the
+   * rung that sends no prompt nudge and leaves the request byte-identical to
+   * today. Conflating the two would either move DeepSeek's API call or mislabel
+   * its picker.
+   */
+  defaultEffort?: ReasoningEffort
   /** Whether the model is still being trialed and may be unreliable. Surfaced
    *  in the picker as a "TEST" badge with a tooltip so users know it is not
    *  yet production-grade. */
@@ -267,6 +295,45 @@ export const MUSE_SPARK_CONTRIBUTOR_RPM = 60
  * requests came to roughly $0.10.
  */
 export const FREEBUFF_MUSE_SPARK_REASONING_EFFORT = 'xhigh' as const
+
+/**
+ * The user-pickable ladders, named like Desktop's THROUGH_XHIGH / NO_XHIGH so
+ * the two catalogs read the same way.
+ *
+ * Both stop at the rung the model already runs at. That is the rule this
+ * feature is built on: a user may spend LESS effort than the default, never
+ * more, so nothing here can raise latency or token spend above what the
+ * catalog already sanctions.
+ */
+export const EFFORTS_THROUGH_HIGH = ['low', 'medium', 'high'] as const
+export const EFFORTS_THROUGH_XHIGH = ['low', 'medium', 'high', 'xhigh'] as const
+
+/**
+ * Models whose chosen effort is applied by PROMPT, never on the wire.
+ *
+ * DeepSeek has no usable effort API: `toDeepSeekReasoningEffort`
+ * (web/src/llm-api/deepseek-request-body.ts) collapses everything below `max`
+ * to `high`, and the model runs a four-lane cascade where each lane speaks a
+ * different dialect — CrofAI forwards `reasoning_effort` verbatim and would
+ * 400 on a rung it does not know. So a ladder value must never reach the
+ * request for these ids; it is expressed to the model in words instead.
+ *
+ * This list is the guard that keeps the two mechanisms apart, and a test
+ * asserts every id here also carries `efforts`.
+ */
+export const FREEBUFF_PROMPT_EFFORT_MODEL_IDS = [
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+] as const
+
+/** True when this model's effort is steered by prompt rather than by the API.
+ *  Suffix-tolerant like every other id predicate here. */
+export function isPromptEffortModelId(id: string | null | undefined): boolean {
+  if (!id) return false
+  return FREEBUFF_PROMPT_EFFORT_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
+}
 /**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
@@ -503,6 +570,11 @@ const DEEPSEEK_V4_PRO_MODEL = {
   // but only the direct lane's default was measured; if a fallback lane's own
   // default was lower, its turns now spend more reasoning tokens.
   reasoningEffort: 'high',
+  // The API effort above stays 'high'; the ladder is a separate, prompt-level
+  // dial (FREEBUFF_PROMPT_EFFORT_MODEL_IDS), so `medium` means "say nothing
+  // extra" and reproduces today's request byte for byte.
+  efforts: EFFORTS_THROUGH_HIGH,
+  defaultEffort: 'medium',
   // DeepSeek's V4-Flash-0731 GA build (2026-07-31) was re-post-trained for
   // agent work and now beats V4 Pro on coding and tool-use benchmarks, while
   // being cheaper and outside the premium pool. Pro stays selectable for people
@@ -547,6 +619,11 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   premium: false,
   multimodal: false,
   reasoningEffort: 'high',
+  // The API effort above stays 'high'; the ladder is a separate, prompt-level
+  // dial (FREEBUFF_PROMPT_EFFORT_MODEL_IDS), so `medium` means "say nothing
+  // extra" and reproduces today's request byte for byte.
+  efforts: EFFORTS_THROUGH_HIGH,
+  defaultEffort: 'medium',
   isNew: true,
 } as const satisfies FreebuffModelOption
 
@@ -583,6 +660,8 @@ const GPT_5_6_LUNA_MODEL = {
   // OpenRouter reports input modalities text + image + file for this model.
   multimodal: true,
   reasoningEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
+  efforts: EFFORTS_THROUGH_HIGH,
+  defaultEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
 } as const satisfies FreebuffModelOption
 
 const GLM_V52_MODEL = {
@@ -675,6 +754,8 @@ const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   premium: true,
   multimodal: false,
   reasoningEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
+  efforts: EFFORTS_THROUGH_XHIGH,
+  defaultEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
 } as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
@@ -1434,6 +1515,64 @@ export function isFreebuffGpt56LunaModelId(
 /** The catalog's reasoning effort for the requested model, tolerating dated
  *  snapshot suffixes like every other id helper. Null for models that carry
  *  none — see FreebuffModelOption.reasoningEffort. */
+/** The catalog row for any surface's id, or undefined. Both catalogs, for the
+ *  same reason getFreebuffModelReasoningEffort reads both: a Web-only model is
+ *  absent from SUPPORTED_FREEBUFF_MODELS by design. */
+function findFreebuffModelOption(
+  id: string | null | undefined,
+): FreebuffModelOption | undefined {
+  return (
+    SUPPORTED_FREEBUFF_MODELS.find((m) => freebuffModelIdMatches(id, m.id)) ??
+    FREEBUFF_WEB_ALL_MODELS.find((m) => freebuffModelIdMatches(id, m.id))
+  )
+}
+
+/** The ladder a user may pick from for this model, or null when it offers no
+ *  choice — which is every model that has not opted in. */
+export function getFreebuffModelEfforts(
+  id: string | null | undefined,
+): readonly ReasoningEffort[] | null {
+  const efforts = findFreebuffModelOption(id)?.efforts
+  return efforts && efforts.length > 0 ? efforts : null
+}
+
+/** Where this model's ladder starts before a user touches it. */
+export function getFreebuffModelDefaultEffort(
+  id: string | null | undefined,
+): ReasoningEffort | null {
+  const entry = findFreebuffModelOption(id)
+  if (!entry?.efforts?.length) return null
+  return entry.defaultEffort ?? entry.efforts[entry.efforts.length - 1]!
+}
+
+/**
+ * THE authority on what effort a request runs at. Everything a client sends is
+ * a request, never a command.
+ *
+ * Keyed on the model the request will ACTUALLY run — not the one the user
+ * picked. Those differ more often than they look: a limited-tier user's premium
+ * pick is coerced (resolveFreebuffSessionModelForAccessTier), the cloud build
+ * path rewrites it, and a Muse Spark turn can be rerouted to Luna mid-flight.
+ * Clamping against the requested model would then let one model's rung reach
+ * another's API — `xhigh` landing on DeepSeek maps to `max`, the most expensive
+ * rung there is, from a user who never asked for it.
+ *
+ * Clamp-DOWN (see clampReasoningEffort): a rung above the ceiling becomes the
+ * ceiling rather than snapping back to the default, so a rerouted user keeps
+ * the closest thing to what they chose. Models with no ladder return null and
+ * keep whatever `reasoningEffort` already says.
+ */
+export function resolveFreebuffReasoningEffort(
+  modelId: string | null | undefined,
+  requested: unknown,
+): ReasoningEffort | null {
+  const efforts = getFreebuffModelEfforts(modelId)
+  if (!efforts) return null
+  const fallback = getFreebuffModelDefaultEffort(modelId)
+  if (!fallback) return null
+  return clampReasoningEffort(requested, efforts, fallback)
+}
+
 export function getFreebuffModelReasoningEffort(
   id: string | null | undefined,
 ): NonNullable<FreebuffModelOption['reasoningEffort']> | null {
