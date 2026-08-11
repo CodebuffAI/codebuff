@@ -709,8 +709,9 @@ describe('canonical root prompt openings match their source definitions', () => 
       'thread-agent.ts',
     )
     // Position 0 of the desktop prompt must stay the base3 prompt, or the
-    // desktop roots stop matching any canonical opening.
-    expect(source).toContain('systemPrompt: `${base3.systemPrompt}')
+    // desktop roots stop matching any canonical opening. Since #1444 the
+    // prompt is composed as an array join with base3.systemPrompt first.
+    expect(source).toMatch(/const systemPrompt = \[\s*base3\.systemPrompt,/)
   })
 
   test('base3 createBase3 prompt (desktop thread roots)', () => {
