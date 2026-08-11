@@ -62,12 +62,9 @@ function BountyPitchLine({
       {promo && (
         <text style={{ wrapMode: 'word' }}>
           <span fg={theme.success ?? theme.foreground}>
-            ✦ Promo: up to {promo.dailySessions} sessions a day
+            ✦ Promo: earn a bounty, spend up to {promo.dailySessions} a day
           </span>
-          <span fg={theme.muted}>
-            {' '}
-            from bounties and referrals, ends {formatPromoEnd(promo.endsAt)}
-          </span>
+          <span fg={theme.muted}> (ends {formatPromoEnd(promo.endsAt)})</span>
         </text>
       )}
     </box>
