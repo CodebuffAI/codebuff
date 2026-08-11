@@ -126,27 +126,54 @@ export const isMultiPromptEditor = (agentType: string): boolean => {
 export const MAIN_AGENT_ID = 'main-agent'
 
 /**
+ * Which harness the CLI's DEFAULT and LITE modes run.
+ *
+ * **base2, because base3 finishes less of the job on a weak model.** On
+ * buffbench over 10 tasks with DeepSeek V4 Flash 07/31 — the default Freebuff
+ * model — base3 averaged 7.16 to base2's 8.07, losing 6 tasks, winning 3 and
+ * tying 1. The losses are the large ones (−4.5, −2.5, −1.7) and they are
+ * incompleteness rather than wrong code: the judges' weaknesses carry twice the
+ * "did not implement / did not update" language for base3 (1.9 per task vs
+ * 1.0), and base3 ran ~30% faster on 9 of 10 tasks. It explores less and has no
+ * reviewer to catch what it skipped; Opus absorbs that and Flash does not.
+ *
+ * On Opus the same comparison was a wash (8.88 vs 8.97 over 3 tasks) at half
+ * the cost, which is why this shipped before the free tier was measured.
+ *
+ * Everything base3 needs is still here and still tested — the roots, the
+ * factory, the eval agents. Flipping this one constant to 'base3' switches
+ * DEFAULT, LITE and every Freebuff picker model back over, which is the point:
+ * the next attempt should be a one-line change plus a re-run of
+ * `evals/buffbench/main-flash-harness.ts`.
+ */
+export const CLI_HARNESS: 'base2' | 'base3' = 'base2'
+
+/** The only two modes that follow CLI_HARNESS. MAX and PLAN never moved, so
+ *  they are not in here — listing them per harness would invite editing one row
+ *  and not the other. */
+const HARNESS_MODE_IDS = {
+  base2: { DEFAULT: 'base2', LITE: 'base2-lite' },
+  base3: { DEFAULT: 'base3', LITE: 'base3-lite' },
+} as const
+
+/**
  * Mapping from agent mode to agent ID.
  * Single source of truth for all agent modes (order = cycling order).
  *
  * Freebuff resolves LITE through the selected freebuff model at send time;
  * this fallback stays on base2-free for non-runtime callers. Regular
- * Codebuff maps LITE to base3-lite which charges credits normally.
+ * Codebuff maps LITE to a paid lite root which charges credits normally.
  *
- * DEFAULT and LITE run the base3 single-loop harness — no subagents, no
- * reviewer pass, windowed file reads, mechanical compaction. See
- * docs/freebuff-base3-harness.md.
- *
- * MAX and PLAN deliberately stay on base2. MAX is the mode users pick when they
- * want the multi-prompt editor and the reviewer fan-out — the ceremony IS the
- * product there. PLAN never touches a file, so windowed reads and
- * single-loop-instead-of-subagents buy it nothing, and its `<PLAN>` flow (see
- * sdk-event-handlers.ts) is tuned against base2's plan-only prompt. Same
- * reasoning that kept the Freebuff Cloud planner on base2.
+ * MAX and PLAN never moved to base3 and are unaffected by CLI_HARNESS. MAX is
+ * the mode users pick when they want the multi-prompt editor and the reviewer
+ * fan-out — the ceremony IS the product there. PLAN never touches a file, so
+ * windowed reads and single-loop-instead-of-subagents buy it nothing, and its
+ * `<PLAN>` flow (see sdk-event-handlers.ts) is tuned against base2's plan-only
+ * prompt. Same reasoning that kept the Freebuff Cloud planner on base2.
  */
 export const AGENT_MODE_TO_ID = {
-  DEFAULT: 'base3',
-  LITE: IS_FREEBUFF ? 'base2-free' : 'base3-lite',
+  DEFAULT: HARNESS_MODE_IDS[CLI_HARNESS].DEFAULT,
+  LITE: IS_FREEBUFF ? 'base2-free' : HARNESS_MODE_IDS[CLI_HARNESS].LITE,
   MAX: 'base2-max',
   PLAN: 'base2-plan',
 } as const

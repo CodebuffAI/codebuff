@@ -9,6 +9,7 @@ import base3, { createBase3, createBase3CliRoot } from '../base3'
 import base3Evals from '../base3-evals'
 import base3FreeDeepseek from '../base3-free-deepseek'
 import base3FreeDeepseekFlash from '../base3-free-deepseek-flash'
+import base3FreeDeepseekFlashEvals from '../base3-free-deepseek-flash-evals'
 import base3FreeFable from '../base3-free-fable'
 import base3FreeGlm from '../base3-free-glm'
 import base3FreeLuna from '../base3-free-luna'
@@ -17,19 +18,28 @@ import base3FreeMinimaxM3 from '../base3-free-minimax-m3'
 import base3Lite from '../base3-lite'
 
 /**
- * The CLI roots that run the base3 single-loop harness.
+ * The CLI's base3 roots.
+ *
+ * `CLI_HARNESS` routes to base2 today, so nothing here is on a user's turn —
+ * these roots exist to be measured and tweaked until base3 stops leaving work
+ * unfinished on a weak model (see docs/freebuff-base3-harness.md). That is
+ * exactly why they need tests: an unrouted agent gets no production signal, so
+ * a regression here would surface only in the next benchmark, or not at all.
  *
  * What makes base3 cheaper rides on the DEFINITION, not the call site — the
  * runtime reads `windowedFileReads` and `compactContext` straight off the agent
  * template. A root that loses one keeps working and quietly costs base2 money
- * again, which is the failure this file has to catch. The Web bundle has the
- * same assertions for its own roots (freebuff_bundled_agents.test.ts); these
- * are the CLI's, which ship compiled into the binary instead.
+ * again. The Web bundle has the same assertions for its own roots
+ * (freebuff_bundled_agents.test.ts); these are the CLI's, which ship compiled
+ * into the binary instead.
  */
 const CLI_ROOTS = [
   base3,
   base3Lite,
   base3Evals,
+  // The benchmark's own arm. If it lost a lever, the next run would compare
+  // base3-minus-that-lever against base2 and report it as base3's score.
+  base3FreeDeepseekFlashEvals,
   base3FreeDeepseek,
   base3FreeDeepseekFlash,
   base3FreeMinimaxM3,
@@ -41,7 +51,7 @@ const CLI_ROOTS = [
 
 describe('base3 CLI roots', () => {
   test('keeps the efficiency flags the runtime reads', () => {
-    expect(CLI_ROOTS.length).toBe(10)
+    expect(CLI_ROOTS.length).toBe(11)
     for (const agent of CLI_ROOTS) {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)
