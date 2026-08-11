@@ -22,6 +22,7 @@ describe('getFreebuffStreakLine', () => {
     expect(getFreebuffStreakLine(2)).toEqual({
       label: '2 day streak',
       dots: '••·····',
+      progress: { filled: 2, total: 7, beyond: false },
     })
   })
 
@@ -34,6 +35,9 @@ describe('getFreebuffStreakLine', () => {
     expect(getFreebuffStreakLine(7)).toEqual({
       label: '7 day streak',
       dots: '•••••••',
+      // filled === total is how a surface without the constant knows the
+      // milestone is earned (the desktop banner gates its perk line on it)
+      progress: { filled: 7, total: 7, beyond: false },
     })
   })
 
@@ -41,10 +45,12 @@ describe('getFreebuffStreakLine', () => {
     expect(getFreebuffStreakLine(9)).toEqual({
       label: '9 day streak',
       dots: '•••••••+',
+      progress: { filled: 7, total: 7, beyond: true },
     })
     expect(getFreebuffStreakLine(19)).toEqual({
       label: '19 day streak',
       dots: '•••••••+',
+      progress: { filled: 7, total: 7, beyond: true },
     })
   })
 })

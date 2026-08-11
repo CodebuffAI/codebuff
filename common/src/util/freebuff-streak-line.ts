@@ -15,6 +15,11 @@ export interface FreebuffStreakLine {
    *  ("●●●●●●●+") for any streak beyond the week so long runs read as
    *  "earned and still going" rather than just maxed out. */
   dots: string
+  /** The same progress as counts, for a surface that draws its own dots rather
+   *  than glyphs (the desktop app draws CSS circles). `total` is always
+   *  FREEBUFF_STREAK_WEEK, carried so a renderer that can't import this module
+   *  knows how many slots to draw; `beyond` is the trailing "+". */
+  progress: { filled: number; total: number; beyond: boolean }
 }
 
 /** Glyph pair used to draw the progress dots. */
@@ -43,14 +48,19 @@ export function getFreebuffStreakLine(
   // read as fully earned, not roll back over into a partial second week. Past
   // the week, a trailing "+" marks that the streak has run beyond the row.
   const filled = Math.min(streak, FREEBUFF_STREAK_WEEK)
+  const beyond = streak > FREEBUFF_STREAK_WEEK
   const dots =
     chars.filled.repeat(filled) +
     chars.empty.repeat(FREEBUFF_STREAK_WEEK - filled) +
-    (streak > FREEBUFF_STREAK_WEEK ? '+' : '')
+    (beyond ? '+' : '')
 
   // "day" stays singular — it's a compound modifier ("7 day streak"), not a
   // count of days on its own.
-  return { label: `${streak} day streak`, dots }
+  return {
+    label: `${streak} day streak`,
+    dots,
+    progress: { filled, total: FREEBUFF_STREAK_WEEK, beyond },
+  }
 }
 
 /**
