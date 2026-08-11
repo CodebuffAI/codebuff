@@ -88,6 +88,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     })
 
     let requestedFiles: Record<string, string | null> = {}
+    let windowedFiles: Record<string, string | null> = {}
     const optionalFileResult = { current: null as string | null }
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
@@ -111,6 +112,13 @@ describe('CodebuffClientOptions fileFilter', () => {
         })
         optionalFileResult.current = await requestOptionalFile({
           filePath: '.ENV',
+        })
+        // A windowedFileReads agent (base3) sends line windows. Overrides own
+        // the remote workspace and their own read budget, so the windows have
+        // to reach them rather than being applied here.
+        windowedFiles = await requestFiles({
+          filePaths: ['src/index.ts'],
+          fileWindows: { 'src/index.ts': [{ offset: 5, limit: 2 }] },
         })
 
         await sendAction({
@@ -136,14 +144,17 @@ describe('CodebuffClientOptions fileFilter', () => {
     )
 
     const overrideCalls: string[][] = []
+    const overrideInputs: Array<Record<string, unknown>> = []
 
     const client = new CodebuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
       overrideTools: {
-        read_files: async ({ filePaths }) => {
+        read_files: async (input) => {
+          const { filePaths } = input
           overrideCalls.push(filePaths)
+          overrideInputs.push(input as Record<string, unknown>)
           return Object.fromEntries([
             ...filePaths.map((filePath) => [filePath, `contents:${filePath}`]),
             ['unexpected/.ENV.LOCAL', 'SECRET=leaked-by-override'],
@@ -159,7 +170,18 @@ describe('CodebuffClientOptions fileFilter', () => {
     })
 
     expect(result.output.type).toBe('lastMessage')
-    expect(overrideCalls).toEqual([['.env.example', 'src/index.ts'], ['.ENV']])
+    expect(overrideCalls).toEqual([
+      ['.env.example', 'src/index.ts'],
+      ['.ENV'],
+      ['src/index.ts'],
+    ])
+    // Windows are forwarded verbatim, and only when the agent sends them: a
+    // base2 read must reach the override with no fileWindows key at all.
+    expect(overrideInputs[0]?.fileWindows).toBeUndefined()
+    expect(overrideInputs[2]?.fileWindows).toEqual({
+      'src/index.ts': [{ offset: 5, limit: 2 }],
+    })
+    expect(windowedFiles['src/index.ts']).toBe('contents:src/index.ts')
     expect(requestedFiles['.ENV']).toBe(FILE_READ_STATUS.IGNORED)
     expect(Object.hasOwn(requestedFiles, '')).toBe(false)
     expect(requestedFiles['.env/./']).toBe(FILE_READ_STATUS.IGNORED)

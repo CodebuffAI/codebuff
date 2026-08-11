@@ -29,8 +29,17 @@ const isJSONObject = (value: JSONValue | undefined): value is JSONObject =>
  *  product the request came from rather than all reading as CLI traffic. */
 const gravitySurface = (agentTemplate: { id: string }): string => {
   if (agentTemplate.id === 'base-chat') return 'freebuff_chat'
-  // Freebuff Web project agents are the `base2-free*` family.
-  if (agentTemplate.id.startsWith('base2-free')) return 'freebuff_web'
+  // Freebuff Web project agents are the `base2-free*` and `base3-free*`
+  // families. Both prefixes, because the harness swap changed the root ids: a
+  // base3 root falling through to `codebuff_cli` would attribute Web clicks
+  // and conversions to the CLI, and would also skip the per-end-user id below
+  // that keeps a shared service account from collapsing every user into one.
+  if (
+    agentTemplate.id.startsWith('base2-free') ||
+    agentTemplate.id.startsWith('base3-free')
+  ) {
+    return 'freebuff_web'
+  }
   return 'codebuff_cli'
 }
 

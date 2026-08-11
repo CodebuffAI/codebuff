@@ -207,63 +207,70 @@ describe('gravity_index tool', () => {
     )
   })
 
-  test('tags base2-free traffic with the freebuff_web surface and forwards external_user_id', async () => {
-    const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
-      result: { search_id: 'search-1' },
-    })
+  // Both freebuff Web root families, because the harness swap changed the id
+  // prefix: a base3 root that fell through to `codebuff_cli` would attribute
+  // Web clicks to the CLI and would stop forwarding the per-end-user id that
+  // keeps the shared service account from collapsing every user into one.
+  test.each(['base2-free-deepseek', 'base3-free-deepseek'])(
+    'tags %s traffic with the freebuff_web surface and forwards external_user_id',
+    async (rootAgentId) => {
+      const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
+        result: { search_id: 'search-1' },
+      })
 
-    mockAgentStream([
-      createToolCallChunk('gravity_index', {
-        action: 'search',
-        query: 'transactional email for Next.js',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
+      mockAgentStream([
+        createToolCallChunk('gravity_index', {
+          action: 'search',
+          query: 'transactional email for Next.js',
+        }),
+        createToolCallChunk('end_turn', {}),
+      ])
 
-    const fileContext = {
-      ...mockFileContext,
-      agentTemplates: {
-        'base2-free-deepseek': {
-          ...gravityTestAgent,
-          id: 'base2-free-deepseek',
-          displayName: 'Buffy the DeepSeek Free Orchestrator',
+      const fileContext = {
+        ...mockFileContext,
+        agentTemplates: {
+          [rootAgentId]: {
+            ...gravityTestAgent,
+            id: rootAgentId,
+            displayName: 'Buffy on DeepSeek',
+          },
         },
-      },
-    }
-    const sessionState = getInitialSessionState(fileContext)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'base2-free-deepseek',
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext,
-    })
+      }
+      const sessionState = getInitialSessionState(fileContext)
+      const agentState = {
+        ...sessionState.mainAgentState,
+        agentType: rootAgentId,
+      }
+      const { agentTemplates } = assembleLocalAgentTemplates({
+        ...agentRuntimeImpl,
+        fileContext,
+      })
 
-    await runAgentStep({
-      ...runAgentStepBaseParams,
-      agentType: 'base2-free-deepseek',
-      fileContext,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['base2-free-deepseek'],
-      agentState,
-      prompt: 'Find an email provider',
-    })
+      await runAgentStep({
+        ...runAgentStepBaseParams,
+        agentType: rootAgentId,
+        fileContext,
+        localAgentTemplates: agentTemplates,
+        agentTemplate: agentTemplates[rootAgentId],
+        agentState,
+        prompt: 'Find an email provider',
+      })
 
-    expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        input: expect.objectContaining({
-          // Freebuff Web runs under a shared service account, so the handler
-          // forwards the stable per-end-user signal (fingerprintId) for
-          // attribution instead of letting it collapse onto the service account.
-          external_user_id: 'test-fingerprint',
-          metadata: expect.objectContaining({
-            surface: 'freebuff_web',
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({
+            // Freebuff Web runs under a shared service account, so the handler
+            // forwards the stable per-end-user signal (fingerprintId) for
+            // attribution instead of letting it collapse onto the service account.
+            external_user_id: 'test-fingerprint',
+            metadata: expect.objectContaining({
+              surface: 'freebuff_web',
+            }),
           }),
         }),
-      }),
-    )
-  })
+      )
+    },
+  )
 
   test('stores results without rendering until the agent selects a service', async () => {
     spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({

@@ -77,6 +77,39 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
 ] as const
 
 /**
+ * The Freebuff Web and Cloud roots that run the base3 single-loop harness
+ * (agents/base3.ts): no subagents, no reviewer, windowed file reads, mechanical
+ * compaction instead of a context-pruner spawn. One per selectable model,
+ * because a bundled agent's model comes from its definition, not the request.
+ *
+ * Separate ids rather than a flag on the `base2-free-*` roots, for the reason
+ * the desktop took a `-v3` suffix: spend and run counts split by `agent_id` in
+ * the DB, which is what makes a base2 vs base3 comparison possible. The base2
+ * roots stay registered either way — a session admitted under one keeps
+ * resolving, and the FREEBUFF_BASE3_HARNESS_DISABLED kill switch routes new
+ * turns back to them without a deploy.
+ *
+ * Every key here must also be a key of the web bundle's
+ * FREEBUFF_MODEL_TO_AGENT_ID (freebuff_bundled_agents.ts asserts it): a model
+ * whose base3 twin is missing resolves to the FALLBACK model's root instead,
+ * and that root's allowlist rejects the requested model with
+ * free_mode_invalid_agent_model.
+ */
+export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base3-free-deepseek',
+  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base3-free-deepseek-flash',
+  [FREEBUFF_MIMO_V25_MODEL_ID]: 'base3-free-mimo',
+  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base3-free-minimax-m3',
+  [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
+  [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
+  [FREEBUFF_POOLSIDE_LAGUNA_S_21_MODEL_ID]: 'base3-free-laguna-s-2-1',
+  [FREEBUFF_POOLSIDE_LAGUNA_S_21_OPENROUTER_MODEL_ID]:
+    'base3-free-laguna-s-2-1-openrouter',
+  [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
+  [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark',
+}
+
+/**
  * The Freebuff Cloud custom-stack planner roots, and the models they are pinned
  * to. There is one variant per model because a bundled agent's model comes from
  * its definition, not from the request.
@@ -216,6 +249,22 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // "You are Buffy" marker so they also pass requestHasFreebuffSystemMarker.
   'base2-free-cloud-planner',
   'base2-free-cloud-planner-limited',
+  // Freebuff Web and Cloud base3 roots (single-loop harness). Listed
+  // individually rather than spread from
+  // FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL so the ids stay greppable; a test in
+  // free-agents.test.ts fails if the two ever disagree. They spawn nothing —
+  // that is the point of the harness — but the hierarchy gate reads this list
+  // for the ROOT too, so an omission 403s the root itself.
+  'base3-free-deepseek',
+  'base3-free-deepseek-flash',
+  'base3-free-mimo',
+  'base3-free-minimax-m3',
+  'base3-free-luna',
+  'base3-free-glm',
+  'base3-free-laguna-s-2-1',
+  'base3-free-laguna-s-2-1-openrouter',
+  'base3-free-kimi-k3-eco',
+  'base3-free-muse-spark',
   ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
@@ -365,6 +414,15 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-cloud-planner': new Set([CLOUD_PLANNER_MODEL_ID]),
   'base2-free-cloud-planner-limited': new Set([LIMITED_FREEBUFF_MODEL_ID]),
 
+  // Web/Cloud base3 roots: exactly the one model each is pinned to, like every
+  // other per-model root. Derived from the map rather than written out, so a
+  // model added there cannot ship with a root the allowlist rejects.
+  ...Object.fromEntries(
+    Object.entries(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL).map(
+      ([model, agentId]) => [agentId, new Set([model])],
+    ),
+  ),
+
   // Every Freebuff Desktop hosted root variant allows the full desktop picker
   // set (the user picks the model per tab). The free-session admission gate still
   // caps premium-bucket models (incl. MiniMax M3) to one active
@@ -480,8 +538,9 @@ export const FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS = [
   // agents/base2/base2.ts createBase2('free', …) — every `base2-free-*` CLI
   // root.
   'You are Buffy, the strategic coding assistant.',
-  // agents/base3.ts createBase3(…) — the desktop thread agents compose their
-  // prompt onto it.
+  // agents/base3.ts createBase3(…) — the desktop thread agents and the
+  // `base3-free-*` Web/Cloud roots both compose their prompt onto it, so it
+  // stays at position 0 for all of them.
   'You are Buffy, the coding agent behind Codebuff.',
   // freebuff_bundled_agents.ts CLOUD_PLANNER_SYSTEM_PROMPT — planner roots.
   'You are Buffy, the Freebuff Cloud project planner.',

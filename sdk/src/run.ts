@@ -91,6 +91,12 @@ type OverrideToolHandlers = {
   // Include read_files separately, since it has a different signature.
   read_files?: (input: {
     filePaths: string[]
+    /** Present only for `windowedFileReads` agents. An override that ignores
+     *  it returns whole files, which is a cost regression rather than a
+     *  correctness bug — but it is the whole point of the flag, so overrides
+     *  on hosted surfaces window the content themselves (they hold the file
+     *  before their own read budget truncates it). */
+    fileWindows?: Record<string, FileReadWindow[]>
   }) => Promise<Record<string, string | null>>
 }
 
@@ -786,10 +792,17 @@ async function readFiles({
   enforceEnvPolicy?: boolean
 }) {
   if (override) {
-    // TODO: fileWindows is not forwarded to overrides, so windowedFileReads
-    // agents on override surfaces (freebuff web harness, webcontainer, nodepod)
-    // would get whole files with no cap despite the windowed tool description.
-    if (!enforceEnvPolicy) return await override({ filePaths })
+    // Windows are forwarded, not applied here: an override reads from a remote
+    // workspace and applies its own output budget, so windowing after it has
+    // already truncated a large file would answer an offset past the cut-off
+    // with "beyond the end of the file". The override windows before its own
+    // limiter, in the same order the local path does.
+    if (!enforceEnvPolicy) {
+      return await override({
+        filePaths,
+        ...(fileWindows ? { fileWindows } : {}),
+      })
+    }
 
     const result = Object.create(null) as Record<string, string | null>
     const readablePaths: string[] = []
@@ -802,7 +815,10 @@ async function readFiles({
       }
     }
     if (readablePaths.length > 0) {
-      const loadedFiles = await override({ filePaths: readablePaths })
+      const loadedFiles = await override({
+        filePaths: readablePaths,
+        ...(fileWindows ? { fileWindows } : {}),
+      })
       if (
         !loadedFiles ||
         typeof loadedFiles !== 'object' ||

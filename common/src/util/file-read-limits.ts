@@ -1,5 +1,7 @@
 import { FILE_READ_STATUS } from '../constants/paths'
 
+import type { FileReadWindow } from '../types/contracts/client'
+
 /** Maximum source characters returned by one read_files tool call. */
 export const MAX_READ_FILES_CHARS = 100_000
 
@@ -59,6 +61,53 @@ export function windowFileRead(
       ? ` Use code_search to locate the part you need and read a window around it, or call read_files again with offset=${end + 1} to continue.`
       : ''
   return `${selected}\n\n[read_files: showing lines ${start}-${end} of ${totalLines}.${charCapNote}${continueNote}]`
+}
+
+export type FileReadWindows = Record<string, FileReadWindow[]>
+
+/**
+ * Read the line windows a `windowedFileReads` agent forwarded with a read_files
+ * call, if any. Absent for every other agent, and that absence is what keeps
+ * the legacy whole-file behavior.
+ *
+ * Hosted surfaces (Freebuff Web/Cloud on Daytona, and the browser runtime) run
+ * read_files through their own override rather than the SDK's local reader, so
+ * each has to pick the windows out of the tool input itself.
+ */
+export function fileReadWindowsOf(input: unknown): FileReadWindows | undefined {
+  const windows =
+    input && typeof input === 'object'
+      ? (input as { fileWindows?: unknown }).fileWindows
+      : undefined
+  return windows && typeof windows === 'object' && !Array.isArray(windows)
+    ? (windows as FileReadWindows)
+    : undefined
+}
+
+/**
+ * Apply one file's windows to its content.
+ *
+ * Call this BEFORE the read budget (`createFileReadLimiter`), the order the
+ * SDK's local reader uses. The other way round, an offset past the budget's
+ * truncation point answers "beyond the end of the file" for a file that has
+ * those lines.
+ *
+ * A path with no explicit window still goes through `windowFileRead`, which is
+ * where the per-file 2,000-line cap comes from — that cap, more than the
+ * explicit offsets, is what a windowed agent saves on a large file.
+ */
+export function applyFileReadWindows(
+  content: string,
+  windows: FileReadWindow[] | undefined,
+): string {
+  // `Array.isArray`, not a truthiness check on `.length`: callers look these up
+  // by a model-supplied path in a map that lost its null prototype crossing the
+  // wire as JSON, so `windows` can be `Function.prototype` for a file named
+  // `constructor` — truthy, with a `.length` of 1 and no `.map`.
+  const list = Array.isArray(windows) && windows.length > 0 ? windows : [{}]
+  return list
+    .map((window) => windowFileRead(content, window?.offset, window?.limit))
+    .join('\n\n')
 }
 
 /** Small chunks avoid pathological BPE runtimes on repetitive Unicode. */

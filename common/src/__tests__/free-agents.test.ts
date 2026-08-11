@@ -24,6 +24,7 @@ import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-t
 import {
   FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
   FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
+  FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL,
   FREE_MODE_AGENT_MODELS,
   FREEBUFF_ROOT_AGENT_IDS,
   FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS,
@@ -357,6 +358,51 @@ describe('free mode agent model allowlist', () => {
     }
   })
 
+  test('allows each Web/Cloud base3 root only with the model it pins', () => {
+    const entries = Object.entries(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL)
+    // Floor: a map that silently emptied would pass every loop below.
+    expect(entries.length).toBeGreaterThanOrEqual(10)
+
+    for (const [model, agentId] of entries) {
+      expect(isFreeModeAllowedAgentModel(agentId, model)).toBe(true)
+      // A root is only reachable at all if the hierarchy gate knows it.
+      expect(isFreebuffRootAgent(agentId)).toBe(true)
+      // One model each, like every other pinned root: the pool and queue
+      // accounting keys off the model, so a root that could run a second one
+      // would let a turn escape it.
+      expect(FREE_MODE_AGENT_MODELS[agentId]?.size).toBe(1)
+      // Not a licence for anything else, free or paid.
+      expect(
+        isFreeModeAllowedAgentModel(agentId, 'anthropic/claude-sonnet-4.5'),
+      ).toBe(false)
+      expect(isFreeModeAllowedAgentModel(agentId, FREEBUFF_KIMI_MODEL_ID)).toBe(
+        false,
+      )
+      // Publisher-spoof safe.
+      expect(isFreeModeAllowedAgentModel(`other/${agentId}@0.0.1`, model)).toBe(
+        false,
+      )
+      expect(isFreebuffRootAgent(`other/${agentId}`)).toBe(false)
+    }
+  })
+
+  test('every base3 root id in the map is listed in FREEBUFF_ROOT_AGENT_IDS', () => {
+    // The list is written out by hand so the ids stay greppable; this is what
+    // stops the two from drifting. An id missing from the list 403s its own
+    // requests, since the marker gate only applies to recognized roots.
+    const roots = new Set<string>(FREEBUFF_ROOT_AGENT_IDS)
+    const missing = Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL).filter(
+      (id) => !roots.has(id),
+    )
+    expect(missing).toEqual([])
+
+    const mapped = new Set(Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL))
+    const stale = FREEBUFF_ROOT_AGENT_IDS.filter(
+      (id) => id.startsWith('base3-') && !mapped.has(id),
+    )
+    expect(stale).toEqual([])
+  })
+
   test('allows Gemini helper agents only with the stable bundled model', () => {
     for (const agentId of [
       'file-picker-max',
@@ -601,6 +647,14 @@ describe('every freebuff root agent declares a prompt opening', () => {
     // Desktop threads compose their prompt onto base3's, so position 0 matches.
     ...Object.fromEntries(
       FREEBUFF_DESKTOP_THREAD_AGENT_IDS.map((id) => [id, BASE3]),
+    ),
+    // Web/Cloud base3 roots do the same: createWebBase3Root appends the Web
+    // appendix after base3's prompt, never before it.
+    ...Object.fromEntries(
+      Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL).map((id) => [
+        id,
+        BASE3,
+      ]),
     ),
   }
 
