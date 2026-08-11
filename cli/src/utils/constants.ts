@@ -131,11 +131,22 @@ export const MAIN_AGENT_ID = 'main-agent'
  *
  * Freebuff resolves LITE through the selected freebuff model at send time;
  * this fallback stays on base2-free for non-runtime callers. Regular
- * Codebuff maps LITE to base2-lite which charges credits normally.
+ * Codebuff maps LITE to base3-lite which charges credits normally.
+ *
+ * DEFAULT and LITE run the base3 single-loop harness — no subagents, no
+ * reviewer pass, windowed file reads, mechanical compaction. See
+ * docs/freebuff-base3-harness.md.
+ *
+ * MAX and PLAN deliberately stay on base2. MAX is the mode users pick when they
+ * want the multi-prompt editor and the reviewer fan-out — the ceremony IS the
+ * product there. PLAN never touches a file, so windowed reads and
+ * single-loop-instead-of-subagents buy it nothing, and its `<PLAN>` flow (see
+ * sdk-event-handlers.ts) is tuned against base2's plan-only prompt. Same
+ * reasoning that kept the Freebuff Cloud planner on base2.
  */
 export const AGENT_MODE_TO_ID = {
-  DEFAULT: 'base2',
-  LITE: IS_FREEBUFF ? 'base2-free' : 'base2-lite',
+  DEFAULT: 'base3',
+  LITE: IS_FREEBUFF ? 'base2-free' : 'base3-lite',
   MAX: 'base2-max',
   PLAN: 'base2-plan',
 } as const

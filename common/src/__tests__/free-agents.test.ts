@@ -20,6 +20,8 @@ import {
 import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
 import {
+  FREEBUFF_BASE3_AGENT_IDS,
+  FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
   FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
   FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
   FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL,
@@ -31,7 +33,6 @@ import {
   isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeModeAllowedAgentModel,
-  shouldUseLocalTokenCountForFreebuffDeepseekFlash,
 } from '../constants/free-agents'
 
 const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
@@ -358,21 +359,64 @@ describe('free mode agent model allowlist', () => {
     }
   })
 
-  test('every base3 root id in the map is listed in FREEBUFF_ROOT_AGENT_IDS', () => {
+  test('every base3 root id in the maps is listed in FREEBUFF_ROOT_AGENT_IDS', () => {
     // The list is written out by hand so the ids stay greppable; this is what
     // stops the two from drifting. An id missing from the list 403s its own
     // requests, since the marker gate only applies to recognized roots.
+    //
+    // Both surfaces' maps, because the CLI covers a model Web does not (Fable)
+    // and Web covers three the CLI cannot select. Checking only one map would
+    // read the other's ids as stale.
     const roots = new Set<string>(FREEBUFF_ROOT_AGENT_IDS)
-    const missing = Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL).filter(
+    const missing = [...FREEBUFF_BASE3_AGENT_IDS].filter(
       (id) => !roots.has(id),
     )
     expect(missing).toEqual([])
 
-    const mapped = new Set(Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL))
     const stale = FREEBUFF_ROOT_AGENT_IDS.filter(
-      (id) => id.startsWith('base3-') && !mapped.has(id),
+      (id) => id.startsWith('base3-') && !FREEBUFF_BASE3_AGENT_IDS.has(id),
     )
     expect(stale).toEqual([])
+  })
+
+  test('allows each Freebuff CLI base3 root only with the model it pins', () => {
+    const entries = Object.entries(FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL)
+    // Floor: a map that silently emptied would pass every loop below.
+    expect(entries.length).toBeGreaterThanOrEqual(7)
+
+    for (const [model, agentId] of entries) {
+      expect(isFreeModeAllowedAgentModel(agentId, model)).toBe(true)
+      expect(isFreebuffRootAgent(agentId)).toBe(true)
+      expect(FREE_MODE_AGENT_MODELS[agentId]?.size).toBe(1)
+      expect(
+        isFreeModeAllowedAgentModel(agentId, 'anthropic/claude-sonnet-4.5'),
+      ).toBe(false)
+      // Publisher-spoof safe.
+      expect(isFreeModeAllowedAgentModel(`other/${agentId}@0.0.1`, model)).toBe(
+        false,
+      )
+    }
+  })
+
+  test('CLI and Web agree on the ids they share', () => {
+    // The two surfaces ship separate definitions under one id on purpose. They
+    // must still name the SAME id for the same model, or a CLI turn and a Web
+    // turn on one model land in different rows and the base2-vs-base3
+    // comparison silently splits.
+    for (const [model, cliId] of Object.entries(
+      FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
+    )) {
+      const webId = FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL[model]
+      if (webId) expect(cliId).toBe(webId)
+    }
+  })
+
+  test('every model the CLI picker offers has a base3 root', () => {
+    // A model missing here silently falls back to its base2 root — no error,
+    // just the old cost profile for whoever picked it.
+    for (const model of SUPPORTED_FREEBUFF_MODELS) {
+      expect(FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL[model.id]).toBeDefined()
+    }
   })
 
   test('allows Gemini helper agents only with the stable bundled model', () => {
@@ -471,38 +515,6 @@ describe('free mode agent model allowlist', () => {
     ).toBe(false)
   })
 
-  test('uses local token count only for the DeepSeek Flash freebuff root', () => {
-    expect(
-      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-        agentId: 'base2-free-deepseek-flash',
-        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      }),
-    ).toBe(true)
-    expect(
-      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-        agentId: 'codebuff/base2-free-deepseek-flash@0.0.1',
-        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      }),
-    ).toBe(true)
-    expect(
-      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-        agentId: 'base2-free-deepseek',
-        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      }),
-    ).toBe(false)
-    expect(
-      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-        agentId: 'base2-free-deepseek-flash',
-        model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-      }),
-    ).toBe(false)
-    expect(
-      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-        agentId: 'other/base2-free-deepseek-flash@0.0.1',
-        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      }),
-    ).toBe(false)
-  })
 })
 
 describe('hasFreebuffRootSystemPromptOpening', () => {
@@ -619,13 +631,9 @@ describe('every freebuff root agent declares a prompt opening', () => {
       FREEBUFF_DESKTOP_THREAD_AGENT_IDS.map((id) => [id, BASE3]),
     ),
     // Web/Cloud base3 roots do the same: createWebBase3Root appends the Web
-    // appendix after base3's prompt, never before it.
-    ...Object.fromEntries(
-      Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL).map((id) => [
-        id,
-        BASE3,
-      ]),
-    ),
+    // appendix after base3's prompt, never before it. So do the CLI roots —
+    // createBase3CliRoot appends its own appendix the same way.
+    ...Object.fromEntries([...FREEBUFF_BASE3_AGENT_IDS].map((id) => [id, BASE3])),
   }
 
   test('no root agent is missing from the prompt-family map', () => {

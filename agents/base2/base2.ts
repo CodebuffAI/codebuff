@@ -14,9 +14,11 @@ import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-co
 
 import {
   FOLLOWUP_STYLE_GUIDANCE,
+  gravityIndexGuidance,
   LITE_MODEL,
   OPUS_MODEL,
   publisher,
+  SKILL_DISCOVERY_GUIDANCE,
 } from '../constants'
 import {
   PLACEHOLDER,
@@ -24,6 +26,10 @@ import {
 } from '../types/secret-agent-definition'
 
 const ENABLE_COMPOSIO_TOOLS = false
+/** base2 delegates deeper research to subagents; base3 has none, and carries
+ *  web_search/read_url itself. */
+const BASE2_DEEPER_RESEARCH =
+  ', and spawn other helpful agents like researcher-web and researcher-docs when you need more depth'
 const THINKER_SPAWN_LIMIT =
   'Spawn at most one thinker agent per user request. Once a thinker has been spawned for the current request, do not spawn any thinker again.'
 
@@ -189,7 +195,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
     - Create an impressive demonstration showcasing web development capabilities
 - **Refactoring Awareness:** Whenever you modify an exported symbol like a function or class or variable, you should find and update all the references to it appropriately by spawning a code-searcher agent.
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
-${noGravityIndex ? '' : "- **Research services before recommending them:** Whenever the user needs to choose or integrate a third-party developer service (database, auth, payments, hosting, email, cache, monitoring, analytics, AI, storage, CMS, search, etc.), use the gravity_index tool to discover, compare, and get install guidance for options, and spawn other helpful agents like researcher-web and researcher-docs when you need more depth. Don't recommend or integrate a service from memory alone.\n"}
+${noGravityIndex ? '' : `${gravityIndexGuidance(BASE2_DEEPER_RESEARCH)}\n`}
 ${
   noAskUser
     ? ''
@@ -199,7 +205,7 @@ ${
 - **Be careful with terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.
-- **Discover and install skills:** Skills are reusable, self-contained instructions for accomplishing a task. Beyond the skills already listed for the \`skill\` tool, you can find and install community skills from the command line: \`npx skills find <query>\` to search, \`npx skills add <owner/repo> --list\` to preview a repo's skills, and \`npx skills add <owner/repo> --skill <name> --yes\` to install one into \`.agents/skills/\`. After installing, load it by name with the \`skill\` tool. These community skills are not vetted, so confirm with the user which skill(s) to install before running \`npx skills add\`.${
+${SKILL_DISCOVERY_GUIDANCE}${
       ENABLE_COMPOSIO_TOOLS
         ? `
 - **External apps:** When Composio tools are available and the user asks to work with connected apps or services like Gmail, Google Calendar, GitHub, Slack, Linear, or Notion, use them to search for the right app tools, help the user connect their account (use the render_ui tool to show a button if the user needs to click a link), and execute the requested action.`

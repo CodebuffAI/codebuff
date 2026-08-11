@@ -105,6 +105,40 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
 }
 
 /**
+ * The Freebuff CLI roots that run the base3 single-loop harness (agents/
+ * base3-free-*.ts), one per model the CLI picker can select.
+ *
+ * Deliberately the SAME ids as the Web map above wherever the two surfaces
+ * offer the same model. That is the established shape for `base2-free-*` — the
+ * CLI ships its definition compiled into the binary, Web ships its own copy
+ * from the Convex bundle, and the two are told apart in the DB by
+ * `message.surface`, not by agent id. Splitting them would double the id space
+ * for no analysis that `surface` does not already answer.
+ *
+ * Kept as its own map rather than folded into the Web one because the model
+ * sets genuinely differ in both directions: Web offers Laguna, Kimi K3 Eco and
+ * Muse Spark, which no CLI build can select; the CLI offers Claude Fable 5,
+ * which Web never surfaces. `freebuff_bundled_agents.test.ts` asserts the Web
+ * map covers exactly the Web base2 models, so a CLI-only model added there
+ * would fail that parity check for the wrong reason.
+ */
+export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base3-free-deepseek',
+  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base3-free-deepseek-flash',
+  [FREEBUFF_MIMO_V25_MODEL_ID]: 'base3-free-mimo',
+  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base3-free-minimax-m3',
+  [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
+  [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
+  [FREEBUFF_FABLE_5_MODEL_ID]: 'base3-free-fable',
+}
+
+/** Every base3 root id, whichever surface registered it. */
+export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
+  ...Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL),
+  ...Object.values(FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL),
+])
+
+/**
  * The Freebuff Cloud custom-stack planner roots, and the models they are pinned
  * to. There is one variant per model because a bundled agent's model comes from
  * its definition, not from the request.
@@ -256,6 +290,9 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-glm',
   'base3-free-kimi-k3-eco',
   'base3-free-muse-spark',
+  // Freebuff CLI base3 roots. Every other id it needs is already above,
+  // shared with Web; Fable is the one model the CLI offers and Web does not.
+  'base3-free-fable',
   ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
@@ -322,6 +359,22 @@ const GEMINI_HELPER_MODELS = new Set([
 
 export function getFreebuffRootAgentIdForModel(model: string): string {
   return FREEBUFF_ROOT_AGENT_ID_BY_MODEL[model] ?? 'base2-free'
+}
+
+/**
+ * The base3 root the Freebuff CLI runs for a selected model.
+ *
+ * Falls back to the model's own base2 root, not to some other model's base3
+ * root, for the reason resolveFreebuffAgentId does the same on Web: running the
+ * requested model on the older harness is a cost regression, running a
+ * different model is a `session_model_mismatch` 403. Every model the picker can
+ * select has a base3 twin, so the fallback is a backstop rather than a path.
+ */
+export function getFreebuffBase3RootAgentIdForModel(model: string): string {
+  return (
+    FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL[model] ??
+    getFreebuffRootAgentIdForModel(model)
+  )
 }
 
 /**
@@ -398,13 +451,15 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-cloud-planner': new Set([CLOUD_PLANNER_MODEL_ID]),
   'base2-free-cloud-planner-limited': new Set([LIMITED_FREEBUFF_MODEL_ID]),
 
-  // Web/Cloud base3 roots: exactly the one model each is pinned to, like every
-  // other per-model root. Derived from the map rather than written out, so a
-  // model added there cannot ship with a root the allowlist rejects.
+  // base3 roots: exactly the one model each is pinned to, like every other
+  // per-model root. Derived from the maps rather than written out, so a model
+  // added to either cannot ship with a root the allowlist rejects. The two
+  // maps agree on every id they share, so the merge order does not matter.
   ...Object.fromEntries(
-    Object.entries(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL).map(
-      ([model, agentId]) => [agentId, new Set([model])],
-    ),
+    [
+      ...Object.entries(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL),
+      ...Object.entries(FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL),
+    ].map(([model, agentId]) => [agentId, new Set([model])]),
   ),
 
   // Every Freebuff Desktop hosted root variant allows the full desktop picker
@@ -583,20 +638,6 @@ export function isFreebuffGeminiProAgent(fullAgentId: string): boolean {
   if (!agentId) return false
   if (publisherId && publisherId !== 'codebuff') return false
   return FREEBUFF_GEMINI_PRO_AGENT_IDS.has(agentId)
-}
-
-export function shouldUseLocalTokenCountForFreebuffDeepseekFlash(params: {
-  agentId: string | undefined
-  model: string | undefined
-}): boolean {
-  const { agentId: fullAgentId, model } = params
-  if (!fullAgentId || model !== FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID) {
-    return false
-  }
-
-  const { publisherId, agentId } = parseAgentId(fullAgentId)
-  if (publisherId && publisherId !== 'codebuff') return false
-  return agentId === 'base2-free-deepseek-flash'
 }
 
 /**
