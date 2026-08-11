@@ -81,6 +81,7 @@ export const ImageCard = ({
             width: INLINE_IMAGE_WIDTH,
             height: INLINE_IMAGE_HEIGHT,
             filename: image.filename,
+            mediaType: image.processedImage?.mediaType,
           })
           if (!cancelled) {
             setThumbnailSequence(sequence)

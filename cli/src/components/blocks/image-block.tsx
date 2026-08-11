@@ -37,6 +37,7 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
       width: displaySize.width,
       height: displaySize.height,
       filename,
+      mediaType,
     })
   }, [image, filename, displaySize])
 
