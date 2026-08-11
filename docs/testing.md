@@ -338,3 +338,36 @@ need rewriting to assert ordering rather than absence.
 
 The weekly `flake-hunt.yml` workflow runs this against `freebuff-desktop` and
 reports failures without blocking any PR.
+
+**A sixth shape, and the only one the hunt cannot reproduce: the budget bun
+applies to a HOOK.** `beforeEach`/`afterEach` are charged against the same
+default a test gets (5s), and one that overruns is reported as a failing *test*
+— `a beforeEach/afterEach hook timed out for this test` — so the case named is
+never the case at fault, and the file's first test is what takes the hit. On
+2026-08-11 that failed main: `engine-lifecycle`'s `beforeEach`, 3.7ms on a
+laptop and 28ms on the retry, took 5.313s on a stalled runner and failed
+`dispose > closes only this engine instance terminal scope`, a test that asserts
+one recorded call. Three overlapping suite runs under four CPU hogs never
+reproduced it, because there is nothing in the test to reproduce: the hook opens
+a real sqlite database and `rm -rf`s it again, and its latency is the machine's.
+Every hook in this package that builds a real fixture (`makeDb`, `makeRepo`,
+`makeEngine`, and worktree.test.ts's inline equivalent — 23 files) now carries
+`FIXTURE_HOOK_MS` from `test/support/budgets.ts`; the tests themselves keep the
+5s default, and a hook that is genuinely stuck still fails at the step timeout.
+The line is cost, not the helper: measured per hook pair, `makeRepo` is 77ms and
+`makeDb`/`makeEngine` 4.7ms, against 0.1ms for the 60-odd hooks that only
+`mkdtemp` and `rm -rf`. The stall that reddened main inflated a hook ~190x (and
+the test after it ~42x, which is why it reads as contention decaying rather than
+one fixed pause); at 0.1ms you would need ~10,000x, so those are left alone.
+
+That flake also cost more to find than to fix, which is its own lesson: a suite
+that fails and then passes leaves the failing attempt's output buried above the
+passing one, and `nick-fields/retry` reports only a count. `test-with-guard`
+therefore appends each attempt's failing test names to a file under the runner's
+`$RUNNER_TEMP`, and ci.yml's flake annotation names them. Before that,
+identifying the one `(fail)` line meant reading an 11,014-line log.
+`scripts/ci/bun-test-failures.ts` parses the names back out of bun's output,
+including the `^ …` reason line, and derives that path at both ends rather than
+having ci.yml pass it: `${{ runner.temp }}` is not available in a job-level
+`env:`, and a workflow that references it there fails validation and runs ZERO
+jobs — which is exactly how this landed the first time.
