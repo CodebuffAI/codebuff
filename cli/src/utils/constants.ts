@@ -128,25 +128,16 @@ export const MAIN_AGENT_ID = 'main-agent'
 /**
  * Which harness the CLI's DEFAULT and LITE modes run.
  *
- * **base2, because base3 finishes less of the job on a weak model.** On
- * buffbench over 10 tasks with DeepSeek V4 Flash 07/31 — the default Freebuff
- * model — base3 averaged 7.16 to base2's 8.07, losing 6 tasks, winning 3 and
- * tying 1. The losses are the large ones (−4.5, −2.5, −1.7) and they are
- * incompleteness rather than wrong code: the judges' weaknesses carry twice the
- * "did not implement / did not update" language for base3 (1.9 per task vs
- * 1.0), and base3 ran ~30% faster on 9 of 10 tasks. It explores less and has no
- * reviewer to catch what it skipped; Opus absorbs that and Flash does not.
+ * base3 runs Codebuff DEFAULT and LITE plus every Freebuff picker model. MAX
+ * and PLAN remain on their purpose-built base2 roots below.
  *
- * On Opus the same comparison was a wash (8.88 vs 8.97 over 3 tasks) at half
- * the cost, which is why this shipped before the free tier was measured.
- *
- * Everything base3 needs is still here and still tested — the roots, the
- * factory, the eval agents. Flipping this one constant to 'base3' switches
- * DEFAULT, LITE and every Freebuff picker model back over, which is the point:
- * the next attempt should be a one-line change plus a re-run of
- * `evals/buffbench/main-flash-harness.ts`.
+ * Unlike Web and Cloud, the CLI has no server-side base3 kill switch: changing
+ * this routing after release requires another CLI release. The earlier Flash
+ * benchmark and rollback rationale remain documented in
+ * docs/freebuff-base3-harness.md so future harness changes preserve that
+ * context.
  */
-export const CLI_HARNESS: 'base2' | 'base3' = 'base2'
+export const CLI_HARNESS: 'base2' | 'base3' = 'base3'
 
 /** The only two modes that follow CLI_HARNESS. MAX and PLAN never moved, so
  *  they are not in here — listing them per harness would invite editing one row

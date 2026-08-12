@@ -20,11 +20,10 @@ import base3Lite from '../base3-lite'
 /**
  * The CLI's base3 roots.
  *
- * `CLI_HARNESS` routes to base2 today, so nothing here is on a user's turn —
- * these roots exist to be measured and tweaked until base3 stops leaving work
- * unfinished on a weak model (see docs/freebuff-base3-harness.md). That is
- * exactly why they need tests: an unrouted agent gets no production signal, so
- * a regression here would surface only in the next benchmark, or not at all.
+ * `CLI_HARNESS` routes DEFAULT, LITE, and Freebuff turns here. These definitions
+ * ship compiled into the CLI binary, so a regression requires a new release to
+ * repair rather than a server-side kill switch (see
+ * docs/freebuff-base3-harness.md).
  *
  * What makes base3 cheaper rides on the DEFINITION, not the call site — the
  * runtime reads `windowedFileReads` and `compactContext` straight off the agent

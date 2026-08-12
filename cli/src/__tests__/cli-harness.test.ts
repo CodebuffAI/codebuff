@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 
 import {
   AGENT_MODE_TO_ID,
@@ -6,14 +7,13 @@ import {
   CLI_HARNESS,
   IS_FREEBUFF,
 } from '../utils/constants'
+import { getFreebuffCliAgentIdForModel } from '../utils/freebuff-agent-selection'
 
 /**
  * Which harness real CLI turns run.
  *
- * base3 lost to base2 by 0.91 on buffbench with DeepSeek V4 Flash — the default
- * free model — by leaving work unfinished, so `CLI_HARNESS` routes to base2
- * while the base3 roots stay in the tree to be tweaked and re-measured
- * (docs/freebuff-base3-harness.md).
+ * `CLI_HARNESS` routes Codebuff DEFAULT and LITE plus every Freebuff picker
+ * model to base3 (docs/freebuff-base3-harness.md).
  *
  * The values below are written out rather than derived from `CLI_HARNESS`, and
  * that is the entire point: an expectation computed from the constant would
@@ -21,16 +21,19 @@ import {
  * updated deliberately, with the benchmark that justifies it.
  */
 describe('CLI harness routing', () => {
-  test('CLI turns run base2', () => {
-    expect(CLI_HARNESS).toBe('base2')
-    expect(AGENT_MODE_TO_ID.DEFAULT).toBe('base2')
+  test('DEFAULT, LITE, and Freebuff turns run base3', () => {
+    expect(CLI_HARNESS).toBe('base3')
+    expect(AGENT_MODE_TO_ID.DEFAULT).toBe('base3')
     // Freebuff overrides LITE per selected model at send time
     // (getAgentIdForMode); this constant is the non-runtime fallback, so it is
     // the paid Codebuff value that tracks the harness.
     // IS_FREEBUFF is a build flag, not the harness — deriving from it is fine.
     expect(AGENT_MODE_TO_ID.LITE).toBe(
-      IS_FREEBUFF ? 'base2-free' : 'base2-lite',
+      IS_FREEBUFF ? 'base2-free' : 'base3-lite',
     )
+    expect(
+      getFreebuffCliAgentIdForModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+    ).toBe('base3-free-deepseek-flash')
   })
 
   test('MAX and PLAN never followed the harness switch', () => {
