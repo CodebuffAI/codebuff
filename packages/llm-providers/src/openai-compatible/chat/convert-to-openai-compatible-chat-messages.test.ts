@@ -74,6 +74,33 @@ describe('user messages', () => {
     ])
   })
 
+  it('should not double-wrap an already-complete data URL', async () => {
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'data:image/png;base64,AAECAw==',
+            mediaType: 'image/png',
+          },
+        ],
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+          },
+        ],
+      },
+    ])
+  })
+
   it('should handle URL-based images', async () => {
     const result = convertToOpenAICompatibleChatMessages([
       {

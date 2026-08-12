@@ -41,14 +41,21 @@ export function convertToOpenAICompatibleChatMessages(
                   const mediaType =
                     part.mediaType === 'image/*' ? 'image/jpeg' : part.mediaType
 
+                  const dataUrl =
+                    part.data instanceof URL
+                      ? part.data.toString()
+                      : typeof part.data === 'string' &&
+                          part.data.startsWith('data:')
+                        ? // Already a complete data URL (e.g. produced by a
+                          // screenshot tool): wrapping it again would nest a
+                          // second `data:<mime>;base64,` prefix inside the
+                          // payload, which providers reject as invalid base64.
+                          part.data
+                        : `data:${mediaType};base64,${convertToBase64(part.data)}`
+
                   return {
                     type: 'image_url',
-                    image_url: {
-                      url:
-                        part.data instanceof URL
-                          ? part.data.toString()
-                          : `data:${mediaType};base64,${convertToBase64(part.data)}`,
-                    },
+                    image_url: { url: dataUrl },
                     ...partMetadata,
                   }
                 } else {
