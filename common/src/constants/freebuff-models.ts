@@ -1145,16 +1145,44 @@ export type FreebuffAccessTier = 'full' | 'limited'
  *  loads, but every agent send is rejected server-side. */
 export type FreebuffWebAccessTier = FreebuffAccessTier | 'blocked'
 
-/** Temporary project-creation cap for outer-region (limited-tier) Freebuff Web
- *  users. A new project consumes one slot; the quota resets at midnight
- *  Pacific time. */
-export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 3
+/** How many of a user's projects may have an agent RUNNING at the same time on
+ *  Freebuff Web/Cloud. Past the cap the take-over prompt appears, and taking
+ *  over stops only the longest-idle run.
+ *
+ *  STILL 1 — and raising it is a one-line change here ONLY once Freebuff Web is
+ *  on the per-tab (multi-session) free-session store. On the single-session
+ *  store the web surface uses today, `admitOrTakeOver` rotates
+ *  `active_instance_id` on EVERY `requestSession`, including a same-model live
+ *  reclaim (web/src/server/free-session/store.ts). So the moment a second
+ *  project admitted its session, the first project's in-flight turn would fail
+ *  its next completions call with `session_superseded` — concurrency that
+ *  silently kills the run the user is watching. Desktop already runs concurrent
+ *  per-tab sessions via `requestSession({ multiSession, instanceId })`; wiring
+ *  Web to the same path (session request header + `freebuff_multi_session` in
+ *  the runner's `codebuff_metadata`) is what unblocks 2.
+ *
+ *  Everything else is already cap-agnostic: rows are per (user, project) and
+ *  only `agent_running` ones count, so opening or reading a second project is
+ *  free at any cap — that part shipped 2026-08-12. */
+export const FREEBUFF_MAX_CONCURRENT_PROJECTS = 1
+
+/** Abuse backstop on project creation for outer-region (limited-tier) Freebuff
+ *  Web users. A project the user still has consumes one slot — creations that
+ *  failed and were rolled back do not, so a bad creation never costs quota.
+ *  The quota resets at midnight Pacific time.
+ *
+ *  This was 3 until 2026-08-12, which real users hit on their first session:
+ *  every rung of the creation ladder (warm pool → cold Daytona → browser
+ *  runtime) mints its own project row, so a couple of failed first builds
+ *  locked someone out for the day with nothing to show for it. 10 is high
+ *  enough that only automation reaches it. */
+export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 10
 
 /** Per-day cap on blank ("plan a custom stack") Cloud projects, which unlike
- *  connect-repo need no GitHub App install and each boot a full-size VM. The
- *  shared burst bucket alone would permit roughly ten in a row. Resets at
- *  midnight Pacific time. */
-export const FREEBUFF_CLOUD_BLANK_PROJECT_DAILY_LIMIT = 5
+ *  connect-repo need no GitHub App install and each boot a full-size VM. Same
+ *  backstop role — and the same rollback exemption — as the web limit above.
+ *  Resets at midnight Pacific time. */
+export const FREEBUFF_CLOUD_BLANK_PROJECT_DAILY_LIMIT = 10
 
 /** Per-project ceiling on custom-stack planner turns.
  *
