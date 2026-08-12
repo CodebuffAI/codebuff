@@ -793,20 +793,28 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('web/cloud recommend GPT-5.6 Luna, while CLI/Desktop stay on Flash', () => {
-    // Since 2026-08-04 the browser surfaces steer to Luna: one long agentic
-    // build is where model quality shows, and Luna does not carry the
-    // AI-training notice. The CLI, with short and far more numerous turns,
-    // stays on Flash — which is exactly why these are two constants.
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+  test('web/cloud recommend DeepSeek V4 Pro, while CLI/Desktop stay on Flash', () => {
+    // The browser surfaces steer to the strongest agentic model, because one
+    // long build against a live sandbox is where model quality shows: Luna from
+    // 2026-08-04, and V4 Pro 08/13 since 2026-08-12. The CLI, with short and far
+    // more numerous turns, stays on Flash — which is exactly why these are two
+    // constants.
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
-    // Luna is premium, so the pool CAN run dry — the recommended pick has to
+    // The recommendation must never be a model the picker also argues against.
+    expect(
+      getFreebuffModelSupersededBy(
+        DEFAULT_FREEBUFF_WEB_MODEL_ID,
+        FREEBUFF_WEB_MODELS.map((model) => model.id),
+      ),
+    ).toBeUndefined()
+    // Pro is premium, so the pool CAN run dry — the recommended pick has to
     // stay joinable, and limited tier can't name it at all.
     expect(getRecommendedFreebuffWebModelId('limited')).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -865,6 +873,33 @@ describe('freebuff model availability', () => {
     expect(
       getFreebuffModelSupersededBy(DEFAULT_FREEBUFF_MODEL_ID, all),
     ).toBeUndefined()
+  })
+
+  test('points users off GPT-5.6 Luna to V4 Pro, without muting Luna', () => {
+    const all = FREEBUFF_MODELS.map((model) => model.id)
+    const superseded = getFreebuffModelSupersededBy(
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      all,
+    )
+    expect(superseded?.modelId).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(superseded!.notice.length).toBeGreaterThan(0)
+    expect(superseded!.actionLabel.length).toBeGreaterThan(0)
+    // The notice names the dated build, so it points at a row on screen.
+    expect(superseded!.notice).toContain('08/13')
+    // Luna stays selectable, and stays UNMUTED: it is cheaper than the model it
+    // now points at, and de-emphasis is this product's cost signal. Muting it
+    // would have the list imply a price that runs the other way.
+    expect(all).toContain(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(
+      isFreebuffWebDeemphasizedModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID),
+    ).toBe(false)
+    // A saved Luna pick migrates to Pro rather than being stranded.
+    expect(
+      migrateSupersededFreebuffModelPreference(
+        FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        all,
+      ),
+    ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
   })
 
   test('stops steering users off V4 Pro now that its GA build leads again', () => {
@@ -1300,8 +1335,9 @@ describe('Muse Spark rate-limit fallback', () => {
     // THE invariant. A fallback outside the shared daily premium pool would
     // turn "Muse Spark is busy" into a way to reach a model the user had not
     // earned — the same shape as the retired crof/glm-5.2 route, which handed
-    // out a referral-earned model for nothing. Luna sits in the same pool, so
-    // a rerouted request spends exactly the entitlement the original would.
+    // out a referral-earned model for nothing. The fallback sits in the same
+    // pool, so a rerouted request spends exactly the entitlement the original
+    // would.
     expect(isFreebuffWebPremiumModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(true)
     expect(
       isFreebuffWebPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
@@ -1327,7 +1363,18 @@ describe('Muse Spark rate-limit fallback', () => {
     )
     expect(model.tagline).toBe('Queue')
     expect(model.taglineTooltip).toBe(MUSE_SPARK_FALLBACK_NOTICE)
-    expect(MUSE_SPARK_FALLBACK_NOTICE).toContain('GPT-5.6 Luna')
+    // The copy must NAME the model the server actually reroutes to — pinning it
+    // to the catalog rather than to a literal is what catches a fallback that
+    // moves (as it did on 2026-08-12, Luna → V4 Pro) while its tooltip does not.
+    // Matched undated: this tooltip promises a behavior rather than pointing at
+    // a picker row, so it does not carry a build date the way the supersedes
+    // notices do.
+    expect(MUSE_SPARK_FALLBACK_NOTICE).toContain(
+      getFreebuffWebModel(MUSE_SPARK_FALLBACK_MODEL_ID).displayName.replace(
+        /\s+\d{2}\/\d{2}$/,
+        '',
+      ),
+    )
     // The row no longer advertises itself as new.
     expect(model.isNew).toBeUndefined()
     // A wait worth explaining, not one worth hiding — and the same number the

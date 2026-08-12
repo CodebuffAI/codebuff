@@ -345,13 +345,24 @@ export const MUSE_SPARK_RATE_LIMITED_ERROR_CODE = 'muse_spark_rate_limited'
 /**
  * Where a rate-limited Muse Spark request goes instead of waiting.
  *
- * GPT-5.6 Luna, and the choice is constrained rather than free: the fallback
- * must be a model the caller is ALREADY entitled to, or a rate limit would
- * become a way to reach something they are not. Luna sits in the same shared
- * daily premium pool as Muse Spark (FREEBUFF_WEB_PREMIUM_MODEL_IDS), so a
- * rerouted request draws on exactly the quota the original would have.
+ * DeepSeek V4 Pro since 2026-08-12 (GPT-5.6 Luna before it), and the choice is
+ * constrained rather than free on two counts:
+ *
+ *  - The fallback must be a model the caller is ALREADY entitled to, or a rate
+ *    limit would become a way to reach something they are not. Pro sits in the
+ *    same shared daily premium pool as Muse Spark
+ *    (FREEBUFF_WEB_PREMIUM_MODEL_IDS), so a rerouted request draws on exactly
+ *    the quota the original would have.
+ *  - It should be the model we would recommend anyway, since the user never
+ *    chose it: Pro is now DEFAULT_FREEBUFF_WEB_MODEL_ID, so a reroute lands on
+ *    the same model a new thread would have started on.
+ *
+ * Being text-only costs this nothing: images reaching a Freebuff model that
+ * cannot see pixels are converted to vision-model descriptions at the
+ * completions layer (getFreebuffModelImageSupport gates it), so a rerouted turn
+ * carrying an image still reads it.
  */
-export const MUSE_SPARK_FALLBACK_MODEL_ID = FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+export const MUSE_SPARK_FALLBACK_MODEL_ID = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /**
  * How long a caller may be asked to wait before the request is rerouted.
@@ -366,9 +377,11 @@ export const MUSE_SPARK_FALLBACK_MODEL_ID = FREEBUFF_GPT_5_6_LUNA_MODEL_ID
 export const MUSE_SPARK_FALLBACK_AFTER_MS = 10_000
 
 /** Picker copy for the tagline tooltip, and the single source for it — the
- *  server's behavior and the row's promise must not drift. */
+ *  server's behavior and the row's promise must not drift. Names the model
+ *  MUSE_SPARK_FALLBACK_MODEL_ID actually points at; a catalog invariant test
+ *  checks the two agree. */
 export const MUSE_SPARK_FALLBACK_NOTICE =
-  'Falls back to GPT-5.6 Luna if the queue is too long.'
+  'Falls back to DeepSeek V4 Pro if the queue is too long.'
 
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
@@ -557,6 +570,20 @@ export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
 const FLASH_SUPERSEDES_NOTICE =
   'DeepSeek V4 Flash 07/31 performs better for most tasks.'
 
+/** The same thing for the rows Pro overtook, which is currently GPT-5.6 Luna.
+ *
+ *  A SECOND notice rather than a reworded shared one, because the two point
+ *  somewhere different for different reasons: Flash's notice steers off models
+ *  that are dearer AND weaker, while against Luna the cost comparison does not
+ *  cleanly favor either side (see FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS for the
+ *  numbers). That is why Luna is superseded but not de-emphasized — the argument
+ *  here is quality and speed alone.
+ *
+ *  Names the dated build, matching DEEPSEEK_V4_PRO_MODEL.displayName, so the row
+ *  it steers to is one the user can see on screen. */
+const PRO_SUPERSEDES_NOTICE =
+  'DeepSeek V4 Pro 08/13 is smarter and faster.'
+
 /**
  * DeepSeek V4 Pro, on the 08/13 GA build (2026-08-12).
  *
@@ -690,6 +717,23 @@ const GPT_5_6_LUNA_MODEL = {
   // OpenRouter's model metadata advertises all five enabled effort levels.
   efforts: EFFORTS_THROUGH_MAX,
   defaultEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
+  // Luna led the browser surfaces from 2026-08-04 until Pro's 08/13 GA build
+  // took the recommendation on 2026-08-12. It stays fully selectable, and stays
+  // the one premium row with no AI-training notice and native image input —
+  // reasons a user may still deliberately want it — but the picker now says
+  // plainly that Pro is the better default.
+  //
+  // NOT in FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS, unlike the rows Flash
+  // superseded: muting is this product's "materially dearer" signal, and against
+  // Pro that does not resolve — Pro is 2.76x cheaper on the cache reads that
+  // dominate agent traffic, and dearer on fresh input and output (full table on
+  // that constant). Steering on quality is honest; implying a settled price
+  // difference in either direction would not be.
+  supersededBy: {
+    modelId: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    notice: PRO_SUPERSEDES_NOTICE,
+    actionLabel: 'Switch to V4 Pro',
+  },
 } as const satisfies FreebuffModelOption
 
 const GLM_V52_MODEL = {
@@ -1118,13 +1162,29 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
- *  the model a new Cloud thread starts on. GPT-5.6 Luna as of 2026-08-04.
+ *  the model a new Cloud thread starts on. DeepSeek V4 Pro 08/13 as of
+ *  2026-08-12, taking over from GPT-5.6 Luna (which held it from 2026-08-04).
  *
  *  A browser build is the workload where model quality shows up most — it is
  *  one long agentic run against a live sandbox, and a wrong turn early costs
- *  the whole first project, which 51% of Web users never come back from. Luna
- *  is also `dataUse: 'service'`, so the model a brand-new user lands on no
- *  longer carries an AI-training notice.
+ *  the whole first project, which 51% of Web users never come back from. The
+ *  Pro 08/13 GA build is the strongest agentic model in this catalog, which is
+ *  what that workload is, so it leads the browser surfaces and Luna carries a
+ *  switch-to-Pro notice (see GPT_5_6_LUNA_MODEL.supersededBy).
+ *
+ *  ONE KNOWN COST OF THIS CHOICE, deliberate rather than overlooked: Pro is
+ *  `dataUse: 'training'` while Luna was `service`, so the model a brand-new user
+ *  lands on now DOES carry the AI-training notice. Every picker already renders
+ *  `warning` for the default, so it is disclosed — but it is a real change to
+ *  what a first-time user sees.
+ *
+ *  Spend is NOT among the costs, which is why this is not the extravagant choice
+ *  it looks like next to Luna's headline $0.10 input: browser turns re-send their
+ *  whole prefix every step, so cache reads are ~98% of the tokens, and Pro reads
+ *  cache at $[redacted]/M against Luna's $[redacted]/M. See
+ *  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS for the full table and where the
+ *  break-even sits. Either way the daily premium pool is counted in SESSIONS, so
+ *  nobody's quota moves.
  *
  *  It is premium, so it draws on the shared daily pool. Surfaces that know the
  *  live quota must step down to FALLBACK_FREEBUFF_MODEL_ID once that pool is
@@ -1136,7 +1196,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  browser surfaces can steer independently: the CLI stays on Flash, where
  *  turns are short, cheap and far more numerous. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without
@@ -1147,9 +1207,22 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  This tracks the models Flash superseded — costing more per token AND having
  *  lost the quality argument — so muting them is what steers new picks to Flash.
  *  Both halves of that test have to hold: DeepSeek V4 Pro left this list on
- *  2026-08-12 because its 08/13 GA build wins the quality half again. It is
- *  still the more expensive row, and that alone is not grounds for muting it —
- *  a premium model users have a real reason to choose should look like one. */
+ *  2026-08-12 because its 08/13 GA build wins the quality half again.
+ *
+ *  GPT-5.6 Luna is superseded (by Pro) and deliberately NOT muted, because the
+ *  cost half genuinely does not resolve. Per M, read off OpenRouter 2026-08-12:
+ *
+ *                fresh input   cache read   output
+ *    V4 Pro         $[redacted]      $[redacted]   $[redacted]
+ *    Luna           $[redacted]      $[redacted]      $[redacted]
+ *
+ *  Pro is 2.76x CHEAPER on cache reads — the term that dominates an agent
+ *  workload, where re-sent prefixes are ~98% of tokens — while being 4.35x
+ *  dearer on fresh input and 1.45x dearer on output. Break-even on the input
+ *  term alone is a ~98.1% cache-hit rate, so which model is cheaper depends on
+ *  the hit rate and on how output-heavy the traffic is. "Materially more
+ *  expensive" is a claim neither row can carry, and muting is reserved for rows
+ *  that clearly can. */
 export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS = [
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 ] as const

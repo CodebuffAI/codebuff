@@ -35,8 +35,8 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 | Model                       | Access                  | Best for                                                                |
 | --------------------------- | ----------------------- | ----------------------------------------------------------------------- |
 | **DeepSeek V4 Flash 07/31** | Full and limited access | The default for CLI and Desktop; fast coding and tool use               |
-| **DeepSeek V4 Pro 08/13**   | Full access             | Longer, deeper reasoning; the strongest agentic build                    |
-| **GPT-5.6 Luna**            | Full access             | The default for Web, Cloud, and Chat; deep reasoning with image support |
+| **DeepSeek V4 Pro 08/13**   | Full access             | The default for Web, Cloud, and Chat; deepest reasoning                  |
+| **GPT-5.6 Luna**            | Full access             | Deep reasoning with native image support                                |
 | **MiniMax M3**              | Full access             | Fast responses with image support                                       |
 | **MiMo 2.5**                | Full and limited access | Balanced performance with image support                                 |
 
