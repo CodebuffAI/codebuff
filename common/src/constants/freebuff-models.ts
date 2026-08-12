@@ -62,18 +62,14 @@ export interface FreebuffModelOption {
    *  own (applyFreebuffReasoningDefaults in web/src/llm-api/openrouter.ts),
    *  and the Desktop and CLI pickers display the same field — one source, so
    *  on those surfaces what users see and what the server sends cannot drift.
-   *  (The web pickers don't render it yet.) Omit where the model has no effort
-   *  levels (MiniMax) or the provider default should stand untouched (GLM,
-   *  MiMo). CAUTION: the DeepSeek and MiMo adapters collapse anything below
-   *  `max` to `high` (toDeepSeekReasoningEffort / toMiMoReasoningEffort), so
-   *  rows on those lanes must stay `high` — a `medium` there would display as
-   *  medium and run as high, the exact drift this field exists to prevent. */
+   *  Omit where the model has no effort levels (MiniMax) or the provider
+   *  default should stand untouched (GLM, MiMo). CAUTION: DeepSeek V4 Flash
+   *  supports low/high/max, while V4 Pro maps low to high and therefore offers
+   *  only high/max. Neither model has a distinct medium rung. */
   /** Reasoning effort sent for this model, on the PROVIDER's own scale.
    *  Deliberately wider than the shared agent-definition enum: Meta's ladder is
-   *  minimal/low/medium/high/xhigh (its own 400 names the set), and `xhigh` has
-   *  no equivalent elsewhere. Keeping it here rather than in
-   *  agent-definition.ts stops one model's extra rung from becoming a value
-   *  every published agent can declare against providers that reject it. */
+   *  minimal/low/medium/high/xhigh (its own 400 names the set). Not every
+   *  provider accepts every rung, so each model still declares its own ladder. */
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
   /**
    * The ladder a USER may pick from for this model, ascending. Absent means the
@@ -84,19 +80,16 @@ export interface FreebuffModelOption {
    * per-model effort lists driving its Claude/Codex picker, and one pattern
    * across surfaces beats two that must be kept in step.
    *
-   * The LAST rung is the ceiling, and it must never exceed what the model
-   * already runs at today — this lets users spend less effort, never more.
+   * Values must be native provider settings, not compatibility aliases or
+   * prompt approximations. The model's ordinary setting belongs in
+   * `defaultEffort`; rungs may sit on either side of it.
    */
   efforts?: readonly ReasoningEffort[]
   /**
    * Where `efforts` starts before a user touches it.
    *
-   * Usually equal to `reasoningEffort`, but NOT always, and the exception is
-   * why this is its own field. DeepSeek's `reasoningEffort: 'high'` is an
-   * API-level value sent on the wire; its user-facing default is `medium` — the
-   * rung that sends no prompt nudge and leaves the request byte-identical to
-   * today. Conflating the two would either move DeepSeek's API call or mislabel
-   * its picker.
+   * Usually equal to `reasoningEffort`, but kept separate so a future model can
+   * expose a picker default that differs from its server-owned wire default.
    */
   defaultEffort?: ReasoningEffort
   /** Whether the model is still being trialed and may be unreliable. Surfaced
@@ -300,40 +293,32 @@ export const FREEBUFF_MUSE_SPARK_REASONING_EFFORT = 'xhigh' as const
  * The user-pickable ladders, named like Desktop's THROUGH_XHIGH / NO_XHIGH so
  * the two catalogs read the same way.
  *
- * Both stop at the rung the model already runs at. That is the rule this
- * feature is built on: a user may spend LESS effort than the default, never
- * more, so nothing here can raise latency or token spend above what the
- * catalog already sanctions.
+ * These are reusable provider-native ladders. A model's default is independent
+ * and may sit below the last rung.
  */
 export const EFFORTS_THROUGH_HIGH = ['low', 'medium', 'high'] as const
-export const EFFORTS_THROUGH_XHIGH = ['low', 'medium', 'high', 'xhigh'] as const
-
-/**
- * Models whose chosen effort is applied by PROMPT, never on the wire.
- *
- * DeepSeek has no usable effort API: `toDeepSeekReasoningEffort`
- * (web/src/llm-api/deepseek-request-body.ts) collapses everything below `max`
- * to `high`, and the model runs a four-lane cascade where each lane speaks a
- * different dialect — CrofAI forwards `reasoning_effort` verbatim and would
- * 400 on a rung it does not know. So a ladder value must never reach the
- * request for these ids; it is expressed to the model in words instead.
- *
- * This list is the guard that keeps the two mechanisms apart, and a test
- * asserts every id here also carries `efforts`.
- */
-export const FREEBUFF_PROMPT_EFFORT_MODEL_IDS = [
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+export const EFFORTS_THROUGH_XHIGH = [
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
 ] as const
-
-/** True when this model's effort is steered by prompt rather than by the API.
- *  Suffix-tolerant like every other id predicate here. */
-export function isPromptEffortModelId(id: string | null | undefined): boolean {
-  if (!id) return false
-  return FREEBUFF_PROMPT_EFFORT_MODEL_IDS.some((modelId) =>
-    freebuffModelIdMatches(id, modelId),
-  )
-}
+export const EFFORTS_THROUGH_MAX = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const
+/** DeepSeek V4 Flash 07/31 has three native templates. Pro still maps low to
+ * high, so its picker starts at high. Neither has a medium effort. */
+const DEEPSEEK_V4_FLASH_REASONING_EFFORTS = [
+  'low',
+  'high',
+  'max',
+] as const
+const DEEPSEEK_V4_PRO_REASONING_EFFORTS = ['high', 'max'] as const
 /**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
@@ -570,11 +555,9 @@ const DEEPSEEK_V4_PRO_MODEL = {
   // but only the direct lane's default was measured; if a fallback lane's own
   // default was lower, its turns now spend more reasoning tokens.
   reasoningEffort: 'high',
-  // The API effort above stays 'high'; the ladder is a separate, prompt-level
-  // dial (FREEBUFF_PROMPT_EFFORT_MODEL_IDS), so `medium` means "say nothing
-  // extra" and reproduces today's request byte for byte.
-  efforts: EFFORTS_THROUGH_HIGH,
-  defaultEffort: 'medium',
+  // Pro maps low to high, so only high and max are distinct settings.
+  efforts: DEEPSEEK_V4_PRO_REASONING_EFFORTS,
+  defaultEffort: 'high',
   // DeepSeek's V4-Flash-0731 GA build (2026-07-31) was re-post-trained for
   // agent work and now beats V4 Pro on coding and tool-use benchmarks, while
   // being cheaper and outside the premium pool. Pro stays selectable for people
@@ -594,6 +577,9 @@ const MIMO_V25_MODEL = {
   dataUse: 'service',
   premium: false,
   multimodal: true,
+  // Xiaomi exposes only disabled and high (enabled) for MiMo 2.5. Since the
+  // product has no separate thinking on/off control, there is no depth ladder
+  // to render here; low/medium/max would merely be compatibility aliases.
   // Same price as Flash and outclassed by it, so there is no cost argument to
   // weigh — just a better model. Note this is the limited tier's other pick and
   // its only natively-multimodal one; steering off it is only reasonable
@@ -619,11 +605,10 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   premium: false,
   multimodal: false,
   reasoningEffort: 'high',
-  // The API effort above stays 'high'; the ladder is a separate, prompt-level
-  // dial (FREEBUFF_PROMPT_EFFORT_MODEL_IDS), so `medium` means "say nothing
-  // extra" and reproduces today's request byte for byte.
-  efforts: EFFORTS_THROUGH_HIGH,
-  defaultEffort: 'medium',
+  // The 07/31 build has native low/high/max prompt templates. Medium is not a
+  // distinct level and is intentionally absent.
+  efforts: DEEPSEEK_V4_FLASH_REASONING_EFFORTS,
+  defaultEffort: 'high',
   isNew: true,
 } as const satisfies FreebuffModelOption
 
@@ -637,6 +622,8 @@ const MINIMAX_M3_MODEL = {
   // data-use classification keeps it out of FREEBUFF_TRACED_MODEL_IDS.
   premium: true,
   multimodal: true,
+  // MiniMax M3 supports adaptive thinking or disabled thinking, but no effort
+  // levels. A depth picker would therefore be cosmetic.
   // Flash overtook M3 on quality and is free rather than premium-pooled. M3
   // stays selectable — it is still the no-AI-training pick and natively
   // multimodal — but the picker says Flash is the better default.
@@ -660,7 +647,8 @@ const GPT_5_6_LUNA_MODEL = {
   // OpenRouter reports input modalities text + image + file for this model.
   multimodal: true,
   reasoningEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
-  efforts: EFFORTS_THROUGH_HIGH,
+  // OpenRouter's model metadata advertises all five enabled effort levels.
+  efforts: EFFORTS_THROUGH_MAX,
   defaultEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
 } as const satisfies FreebuffModelOption
 
@@ -676,6 +664,8 @@ const GLM_V52_MODEL = {
   // gate is its weekly referral-session pool, not the daily premium pool.
   premium: true,
   multimodal: false,
+  // Our CrofAI route accepts but ignores reasoning_effort (including invalid
+  // values), so OpenRouter's GLM ladder does not describe the route users run.
 } as const satisfies FreebuffModelOption
 
 /**
@@ -706,6 +696,8 @@ const KIMI_K3_ECO_MODEL = {
   premium: true,
   multimodal: false,
   experimental: true,
+  // CrofAI likewise ignores reasoning_effort for this build. Do not expose a
+  // control until this concrete route reports distinct supported levels.
 } as const satisfies FreebuffModelOption
 
 const FABLE_5_MODEL = {
@@ -727,6 +719,9 @@ const FABLE_5_MODEL = {
   // absorb it.
   premium: true,
   multimodal: true,
+  // OpenRouter reports low/medium/high/xhigh/max, with high as the default.
+  efforts: EFFORTS_THROUGH_MAX,
+  defaultEffort: 'high',
   isNew: true,
 } as const satisfies FreebuffModelOption
 
@@ -1570,6 +1565,16 @@ export function resolveFreebuffReasoningEffort(
   if (!efforts) return null
   const fallback = getFreebuffModelDefaultEffort(modelId)
   if (!fallback) return null
+  // Medium was briefly offered for Flash before the 07/31 capability matrix
+  // was corrected. DeepSeek maps that compatibility spelling to high; preserve
+  // the same behavior for persisted Desktop/Web preferences instead of generic
+  // clamp-down turning the stale value into low while the UI displays high.
+  if (
+    requested === 'medium' &&
+    freebuffModelIdMatches(modelId, FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  ) {
+    return 'high'
+  }
   return clampReasoningEffort(requested, efforts, fallback)
 }
 

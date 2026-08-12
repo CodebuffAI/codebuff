@@ -9,14 +9,16 @@
  *
  * ORDERED, ascending, and that order is load-bearing — `clampReasoningEffort`
  * does index arithmetic on it to answer "the most effort this model allows,
- * but no more than was asked for". Never reorder; only append.
+ * but no more than was asked for". Keep it strictly ascending.
  *
- * Not every rung reaches every provider. `max` and `ultra` exist for the local
- * CLI harnesses; Meta's ladder tops out at `xhigh`; OpenAI's at `high`. What a
- * given model actually offers is its own `efforts` array, and the clamp is what
- * stops one model's rung reaching another's API.
+ * Not every rung reaches every provider. `ultra` exists only for local CLI
+ * harnesses; Meta tops out at `xhigh`, while DeepSeek V4 Flash exposes
+ * `low`/`high`/`max` and Pro exposes `high`/`max`. What a given model actually
+ * offers is its own `efforts` array, and the clamp stops one model's rung
+ * reaching another's API.
  */
 export const REASONING_EFFORTS = [
+  'minimal',
   'low',
   'medium',
   'high',

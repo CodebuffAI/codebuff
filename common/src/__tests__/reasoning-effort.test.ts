@@ -9,18 +9,21 @@ import {
 } from '../constants/reasoning-effort'
 import {
   EFFORTS_THROUGH_HIGH,
+  EFFORTS_THROUGH_MAX,
   EFFORTS_THROUGH_XHIGH,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_FABLE_5_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
-  FREEBUFF_PROMPT_EFFORT_MODEL_IDS,
   FREEBUFF_WEB_ALL_MODELS,
   getFreebuffModelDefaultEffort,
   getFreebuffModelEfforts,
   getFreebuffModelReasoningEffort,
-  isPromptEffortModelId,
   resolveFreebuffReasoningEffort,
   SUPPORTED_FREEBUFF_MODELS,
 } from '../constants/freebuff-models'
@@ -31,6 +34,7 @@ describe('the shared effort ladder', () => {
     // than was asked". That is only meaningful if position implies magnitude,
     // so a reorder here would silently invert every clamp in the product.
     expect(REASONING_EFFORTS).toEqual([
+      'minimal',
       'low',
       'medium',
       'high',
@@ -79,41 +83,14 @@ const ALL_ROWS: readonly FreebuffModelOption[] = [
 ]
 
 describe('per-model effort ladders', () => {
-  test('no WIRE-steered ladder may top out above what the model already runs at', () => {
-    // The rule the feature rests on, stated precisely. For a model whose rung
-    // is sent to the provider, the ceiling must not exceed today's default:
-    // users may spend less API effort, never more.
-    //
-    // Prompt-steered models are deliberately exempt, and the exemption is the
-    // interesting half. DeepSeek's `high` sits ABOVE its `medium` default on
-    // purpose — it asks the model in words to deliberate longer. That costs no
-    // API effort because nothing from this ladder reaches the request, which is
-    // exactly what isPromptEffortModelId guarantees.
+  test('every ladder contains its default', () => {
     for (const model of ALL_ROWS) {
       if (!model.efforts?.length) continue
-      if (isPromptEffortModelId(model.id)) continue
-      const ceiling = model.efforts[model.efforts.length - 1]!
       const dflt = getFreebuffModelDefaultEffort(model.id)!
       expect({
         id: model.id,
-        exceedsCeiling:
-          reasoningEffortRank(ceiling) > reasoningEffortRank(dflt),
-      }).toEqual({ id: model.id, exceedsCeiling: false })
-    }
-  })
-
-  test('a prompt-steered ladder may exceed its default, but only because it never reaches the wire', () => {
-    // Pins the pairing rather than the exemption: a model is allowed a rung
-    // above its default ONLY while it is prompt-steered. If DeepSeek ever gains
-    // a real effort API and leaves FREEBUFF_PROMPT_EFFORT_MODEL_IDS, the test
-    // above starts governing it and this one fails first.
-    for (const model of ALL_ROWS) {
-      if (!model.efforts?.length) continue
-      const ceiling = model.efforts[model.efforts.length - 1]!
-      const dflt = getFreebuffModelDefaultEffort(model.id)!
-      if (reasoningEffortRank(ceiling) <= reasoningEffortRank(dflt)) continue
-      expect({ id: model.id, promptSteered: isPromptEffortModelId(model.id) })
-        .toEqual({ id: model.id, promptSteered: true })
+        containsDefault: model.efforts.includes(dflt),
+      }).toEqual({ id: model.id, containsDefault: true })
     }
   })
 
@@ -125,12 +102,12 @@ describe('per-model effort ladders', () => {
     }
   })
 
-  test('Muse Spark goes to xhigh; Luna stops at high', () => {
+  test('Muse Spark and Luna expose their complete native ladders', () => {
     expect(getFreebuffModelEfforts(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)).toEqual(
       EFFORTS_THROUGH_XHIGH,
     )
     expect(getFreebuffModelEfforts(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toEqual(
-      EFFORTS_THROUGH_HIGH,
+      EFFORTS_THROUGH_MAX,
     )
     expect(
       resolveFreebuffReasoningEffort(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID, undefined),
@@ -140,39 +117,52 @@ describe('per-model effort ladders', () => {
     ).toBe('high')
   })
 
-  test("DeepSeek's ladder is prompt-level and leaves its API effort alone", () => {
+  test('Claude Fable 5 exposes every enabled effort', () => {
+    expect(getFreebuffModelEfforts(FREEBUFF_FABLE_5_MODEL_ID)).toEqual(
+      EFFORTS_THROUGH_MAX,
+    )
+    expect(getFreebuffModelDefaultEffort(FREEBUFF_FABLE_5_MODEL_ID)).toBe(
+      'high',
+    )
+  })
+
+  test('DeepSeek exposes the distinct native efforts of each model', () => {
+    expect(
+      getFreebuffModelEfforts(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+    ).toEqual(['low', 'high', 'max'])
+    expect(getFreebuffModelEfforts(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toEqual(
+      ['high', 'max'],
+    )
     for (const id of [
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     ]) {
-      // The user-facing default is `medium` — the rung that adds no nudge, so
-      // today's request is reproduced byte for byte...
-      expect(resolveFreebuffReasoningEffort(id, undefined)).toBe('medium')
-      // ...while the API-level value the wire actually carries stays 'high',
-      // explicit so a provider-side default change cannot move Freebuff.
+      expect(resolveFreebuffReasoningEffort(id, undefined)).toBe('high')
       expect(getFreebuffModelReasoningEffort(id)).toBe('high')
-      // And the ladder must never reach the request: DeepSeek's adapters
-      // collapse anything below `max` to `high`, and CrofAI forwards an unknown
-      // rung verbatim and 400s.
-      expect(isPromptEffortModelId(id)).toBe(true)
+      expect(resolveFreebuffReasoningEffort(id, 'medium')).toBe('high')
+      expect(resolveFreebuffReasoningEffort(id, 'max')).toBe('max')
     }
+    expect(
+      resolveFreebuffReasoningEffort(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        'low',
+      ),
+    ).toBe('low')
+    expect(
+      resolveFreebuffReasoningEffort(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'low'),
+    ).toBe('high')
   })
 
-  test('prompt-steered models are exactly the ones that offer a ladder without an API for it', () => {
-    for (const id of FREEBUFF_PROMPT_EFFORT_MODEL_IDS) {
-      expect(getFreebuffModelEfforts(id)).not.toBeNull()
+  test('binary, adaptive, and ignored controls do not masquerade as ladders', () => {
+    for (const id of [
+      FREEBUFF_MINIMAX_M3_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_GLM_V52_MODEL_ID,
+      FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+    ]) {
+      expect(getFreebuffModelEfforts(id)).toBeNull()
+      expect(resolveFreebuffReasoningEffort(id, 'low')).toBeNull()
     }
-    // The wire-steered models must NOT be in that list, or their chosen effort
-    // would never reach the provider that can act on it.
-    expect(isPromptEffortModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)).toBe(false)
-    expect(isPromptEffortModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(false)
-  })
-
-  test('models without a ladder are untouched', () => {
-    // Opt-in by construction: every other row keeps exactly today's behavior
-    // and shows no control.
-    expect(getFreebuffModelEfforts(FREEBUFF_MINIMAX_M3_MODEL_ID)).toBeNull()
-    expect(resolveFreebuffReasoningEffort(FREEBUFF_MINIMAX_M3_MODEL_ID, 'low')).toBeNull()
     expect(resolveFreebuffReasoningEffort('some/unknown-model', 'high')).toBeNull()
   })
 
