@@ -14,6 +14,13 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.url().min(1),
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
   NEXT_PUBLIC_WEB_PORT: z.coerce.number().min(1000),
+  /** Human Behavior session-replay write key for Freebuff Web. Public by
+   *  design — it only authorizes ingestion. Optional so a dev checkout without
+   *  it boots with replay simply switched off. */
+  NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY: z.string().min(1).optional(),
+  /** Overrides the SDK's default ingestion host; only set to point a
+   *  deployment at a non-default Human Behavior endpoint. */
+  NEXT_PUBLIC_HUMANBEHAVIOR_INGESTION_URL: z.url().optional(),
 } satisfies Record<`${typeof CLIENT_ENV_PREFIX}${string}`, any>)
 export const clientEnvVars = clientEnvSchema.keyof().options
 export type ClientEnvVar = (typeof clientEnvVars)[number]
@@ -38,4 +45,8 @@ export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID:
     process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID,
   NEXT_PUBLIC_WEB_PORT: process.env.NEXT_PUBLIC_WEB_PORT,
+  NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY:
+    process.env.NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY,
+  NEXT_PUBLIC_HUMANBEHAVIOR_INGESTION_URL:
+    process.env.NEXT_PUBLIC_HUMANBEHAVIOR_INGESTION_URL,
 }
