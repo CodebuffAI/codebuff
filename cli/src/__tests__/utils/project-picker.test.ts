@@ -11,9 +11,11 @@ import {
 } from '../../project-files'
 import {
   __resetLocalAgentRegistryForTests,
+  findAgentsDirectory,
   getLoadedMCPServers,
   initializeAgentRegistry,
   loadAgentDefinitions,
+  loadLocalAgents,
 } from '../../utils/local-agent-registry'
 import {
   activateProject,
@@ -53,16 +55,35 @@ describe('cli/utils/project-picker', () => {
     expect(shouldShowProjectPicker(siblingDir, homeDir)).toBe(false)
   })
 
-  test('reloads MCP servers after selecting a project', async () => {
+  test('reloads local agents and MCP servers after selecting a project', async () => {
     const originalCwd = process.cwd()
     const originalProjectRoot = tryGetProjectRoot()
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'freebuff-project-'))
     const launchDir = path.join(tempDir, 'launch')
+    const launchAgentsDir = path.join(launchDir, '.agents')
     const projectDir = path.join(tempDir, 'project')
     const agentsDir = path.join(projectDir, '.agents')
 
-    mkdirSync(launchDir)
+    mkdirSync(launchAgentsDir, { recursive: true })
     mkdirSync(agentsDir, { recursive: true })
+    writeFileSync(
+      path.join(launchAgentsDir, 'launch-agent.ts'),
+      `export default {
+        id: 'launch-project-agent',
+        displayName: 'Launch Project Agent',
+        model: 'anthropic/claude-sonnet-4',
+        instructions: 'Loaded from the launch project'
+      }`,
+    )
+    writeFileSync(
+      path.join(agentsDir, 'selected-agent.ts'),
+      `export default {
+        id: 'selected-project-agent',
+        displayName: 'Selected Project Agent',
+        model: 'anthropic/claude-sonnet-4',
+        instructions: 'Loaded from the selected project'
+      }`,
+    )
     writeFileSync(
       path.join(agentsDir, 'mcp.json'),
       JSON.stringify({
@@ -81,12 +102,24 @@ describe('cli/utils/project-picker', () => {
       __resetLocalAgentRegistryForTests()
       await initializeAgentRegistry()
 
+      expect(findAgentsDirectory()).toBe(launchAgentsDir)
+      expect(
+        loadLocalAgents().find((agent) => agent.id === 'launch-project-agent'),
+      ).toBeDefined()
       expect(getLoadedMCPServers().projectPickerServer).toBeUndefined()
 
       await activateProject(projectDir)
 
       expect(process.cwd()).toBe(projectDir)
       expect(getProjectRoot()).toBe(projectDir)
+      expect(findAgentsDirectory()).toBe(agentsDir)
+      const localAgents = loadLocalAgents()
+      expect(
+        localAgents.find((agent) => agent.id === 'launch-project-agent'),
+      ).toBeUndefined()
+      expect(
+        localAgents.find((agent) => agent.id === 'selected-project-agent'),
+      ).toBeDefined()
       expect(getLoadedMCPServers().projectPickerServer).toMatchObject({
         command: 'node',
         args: ['server.js'],

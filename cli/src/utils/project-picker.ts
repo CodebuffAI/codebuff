@@ -2,7 +2,7 @@ import path from 'path'
 
 import { setProjectRoot } from '../project-files'
 import { resetCodebuffClient } from './codebuff-client'
-import { initializeAgentRegistry } from './local-agent-registry'
+import { reloadLocalAgentRegistry } from './local-agent-registry'
 
 interface ActivateProjectOptions {
   reloadAgentRegistry?: boolean
@@ -16,7 +16,7 @@ export async function activateProject(
   setProjectRoot(projectPath)
 
   if (reloadAgentRegistry) {
-    await initializeAgentRegistry()
+    await reloadLocalAgentRegistry()
   }
 
   resetCodebuffClient()
