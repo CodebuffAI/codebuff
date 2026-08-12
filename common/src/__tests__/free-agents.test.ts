@@ -622,6 +622,11 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-kimi-k3-eco': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
     'base2-free-fable': BASE2,
+    // Extended-context `-max` roots; createBase2('free', …) like their
+    // siblings.
+    'base2-free-deepseek-pro-max': BASE2,
+    'base2-free-deepseek-flash-max': BASE2,
+    'base2-free-luna-max': BASE2,
     // Web-only Muse Spark root; createBase2('free', …) like its siblings.
     'base2-free-muse-spark': BASE2,
     'base2-free-cloud-planner': CLOUD_PLANNER,

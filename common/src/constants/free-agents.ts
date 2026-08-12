@@ -12,6 +12,9 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_MAX_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MAX_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
@@ -258,6 +261,17 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-luna',
   'base2-free-glm',
   'base2-free-kimi-k3-eco',
+  // Extended-context `-max` roots. Listed here for the same reason every other
+  // root is: a root absent from this list is treated as a subagent, so a
+  // top-level request on one fails the hierarchy check with
+  // free_mode_invalid_agent_hierarchy instead of running.
+  //
+  // base2 only. Every base3 root is enumerated by the by-model maps above, and
+  // these tiers are provisioned rather than picked, so they have no entry
+  // there and no base3 twin to list.
+  'base2-free-deepseek-pro-max',
+  'base2-free-deepseek-flash-max',
+  'base2-free-luna-max',
   // Freebuff Web only (Meta Muse Spark 1.2 Contributor). Listed here like every
   // other root so its subagents pass the hierarchy gate; the model, not this
   // list, is what keeps it off the CLI and Desktop.
@@ -436,6 +450,17 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'base2-free-kimi-k3-eco': new Set([FREEBUFF_KIMI_K3_ECO_MODEL_ID]),
+  // Extended-context roots for the provisioned `-max` tiers. Pinned one model
+  // each like every other root, and not in any client catalog: these are
+  // provisioned per-account rather than rendered from a picker, so a client
+  // that offered one would show a row most accounts cannot run.
+  'base2-free-deepseek-pro-max': new Set([
+    FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID,
+  ]),
+  'base2-free-deepseek-flash-max': new Set([
+    FREEBUFF_DEEPSEEK_V4_FLASH_MAX_MODEL_ID,
+  ]),
+  'base2-free-luna-max': new Set([FREEBUFF_GPT_5_6_LUNA_MAX_MODEL_ID]),
   // Web-only Muse Spark root. Exactly one model, like every other pinned root:
   // the rate-limit queue accounts by model, so a root that could also run
   // something else would let a turn escape the queue's bookkeeping.

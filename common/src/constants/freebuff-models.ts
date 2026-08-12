@@ -221,6 +221,24 @@ export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
  */
 export const FREEBUFF_KIMI_K3_ECO_MODEL_ID = 'crof/kimi-k3-eco'
 /**
+ * Extended-context tiers for the DeepSeek V4 and Luna routes.
+ *
+ * Wire ids only. These are provisioned per-account rather than offered from a
+ * client catalog, so they are deliberately absent from FREEBUFF_MODELS and
+ * from every quota list — a client that rendered one would offer a row most
+ * accounts cannot run. Requests carry the id directly on any free-mode root.
+ *
+ * Pricing and context windows track their base tier; the suffix names the
+ * provisioned variant, not a different model family, so nothing here needs a
+ * second entry in the price tables.
+ */
+export const FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID =
+  'deepseek/deepseek-v4-pro-max'
+export const FREEBUFF_DEEPSEEK_V4_FLASH_MAX_MODEL_ID =
+  'deepseek/deepseek-v4-flash-max'
+export const FREEBUFF_GPT_5_6_LUNA_MAX_MODEL_ID = 'openai/gpt-5.6-luna-max'
+
+/**
  * Claude Fable 5 — Anthropic's frontier model, offered to free CLI users as a
  * capacity-limited trial rather than as a standing picker model.
  *
