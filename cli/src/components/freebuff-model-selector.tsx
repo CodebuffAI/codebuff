@@ -230,8 +230,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // limit is the server-sent one (base + streak bonus, falling back to the
   // static base before any snapshot arrives) so the label, the amber
   // exhausted cue, and isJoinable below can never disagree. Exhaustion is
-  // also the moment the recommended hero flips from DeepSeek V4 Pro to the
-  // unlimited fallback — the hero must always be joinable. (The PREMIUM
+  // also the moment the recommended hero flips to the unlimited fallback (when
+  // the recommendation is premium) — the hero must always be joinable. (The PREMIUM
   // section only renders for the full-access tier, so this is scoped to it.)
   const sharedRateLimit = rateLimitsByModel
     ? Object.values(rateLimitsByModel)[0]

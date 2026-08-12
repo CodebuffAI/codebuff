@@ -839,71 +839,91 @@ describe('freebuff model availability', () => {
       isFreebuffWebDeemphasizedModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe(false)
     expect(isFreebuffWebDeemphasizedModelId(null)).toBe(false)
-    // De-emphasis is presentation only: both models stay fully selectable.
+    // V4 Pro left the list on 2026-08-12: its 08/13 GA build wins the quality
+    // half of the de-emphasis test again, and price alone is not grounds.
+    expect(
+      isFreebuffWebDeemphasizedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
+    ).toBe(false)
+    // De-emphasis is presentation only: the models stay fully selectable.
     for (const id of FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS) {
       expect(isFreebuffWebModelId(id)).toBe(true)
       expect(isFreebuffModelAllowedForAccessTier(id, 'full')).toBe(true)
     }
   })
 
-  test('points users off DeepSeek V4 Pro to V4 Flash', () => {
-    // V4-Flash-0731 overtook V4 Pro on 2026-07-31, so Pro carries a notice and
-    // a switch target rather than being removed — it is still selectable.
+  test('points users off MiniMax M3 to V4 Flash', () => {
+    // Flash-0731 overtook M3 on 2026-07-31, so M3 carries a notice and a switch
+    // target rather than being removed — it is still selectable.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    const superseded = getFreebuffModelSupersededBy(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-      all,
-    )
+    const superseded = getFreebuffModelSupersededBy(MINIMAX_M3_MODEL_ID, all)
     expect(superseded?.modelId).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(superseded!.notice.length).toBeGreaterThan(0)
     expect(superseded!.actionLabel.length).toBeGreaterThan(0)
-    // Pro remains a real, selectable model — this is a nudge, not a retirement.
-    expect(all).toContain(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    // M3 remains a real, selectable model — this is a nudge, not a retirement.
+    expect(all).toContain(MINIMAX_M3_MODEL_ID)
     // The recommended default is never itself marked superseded.
     expect(
       getFreebuffModelSupersededBy(DEFAULT_FREEBUFF_MODEL_ID, all),
     ).toBeUndefined()
   })
 
-  test('marks the new Flash build as NEW and dates its name', () => {
-    // The wire id is undated and auto-updates, so the display has to carry the
+  test('stops steering users off V4 Pro now that its GA build leads again', () => {
+    // Pro carried a "Flash performs better" notice from 2026-07-31, when
+    // Flash-0731 beat the Pro PREVIEW. The 08/13 GA build reversed that on the
+    // agentic benchmarks, so the notice would now steer users off the stronger
+    // model — and the picker offers a one-click switch for whatever it names.
+    const all = FREEBUFF_MODELS.map((model) => model.id)
+    expect(
+      getFreebuffModelSupersededBy(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, all),
+    ).toBeUndefined()
+    // Un-superseding is not promotion: Flash is still the recommended default,
+    // since Pro is ~3x the price and metered by the daily premium pool.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  })
+
+  test('marks both new DeepSeek builds as NEW and dates their names', () => {
+    // The wire ids are undated and auto-update, so the display has to carry the
     // signal that this is a different model than the one users already judged.
-    const flash = FREEBUFF_MODELS.find(
-      (model) => model.id === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )!
-    expect(flash.isNew).toBe(true)
-    expect(flash.displayName).toContain('07/31')
-    // Nothing else claims to be new, or the badge stops meaning anything.
+    const dated = [
+      [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, '07/31'],
+      [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, '08/13'],
+    ] as const
+    // Widened to the interface: the const-asserted tuple's union type only
+    // exposes optional fields set on EVERY member, so `isNew` is unreachable
+    // through it unless the find() narrows to a single literal id.
     const catalog: readonly FreebuffModelOption[] = FREEBUFF_MODELS
-    expect(catalog.filter((model) => model.isNew)).toHaveLength(1)
+    for (const [id, date] of dated) {
+      const model = catalog.find((candidate) => candidate.id === id)!
+      expect(model.isNew).toBe(true)
+      expect(model.displayName).toContain(date)
+    }
+    // Nothing else claims to be new, or the badge stops meaning anything.
+    expect(catalog.filter((model) => model.isNew)).toHaveLength(dated.length)
   })
 
   test('steers saved picks off every superseded model', () => {
     const all = FREEBUFF_MODELS.map((model) => model.id)
     // Every model Flash overtook migrates to it...
-    for (const superseded of [
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-      MINIMAX_M3_MODEL_ID,
-      FREEBUFF_MIMO_V25_MODEL_ID,
-    ]) {
+    for (const superseded of [MINIMAX_M3_MODEL_ID, FREEBUFF_MIMO_V25_MODEL_ID]) {
       expect(migrateSupersededFreebuffModelPreference(superseded, all)).toBe(
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       )
     }
-    // ...and a current pick is left alone (null = keep it).
-    expect(
-      migrateSupersededFreebuffModelPreference(
-        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-        all,
-      ),
-    ).toBeNull()
+    // ...and a current pick is left alone (null = keep it). V4 Pro is one again
+    // as of its 08/13 GA build: a user who saved it keeps it instead of being
+    // moved off it on every load.
+    for (const current of [
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    ]) {
+      expect(migrateSupersededFreebuffModelPreference(current, all)).toBeNull()
+    }
     expect(migrateSupersededFreebuffModelPreference(undefined, all)).toBeNull()
     // Never migrates onto a model this surface cannot select.
     expect(
-      migrateSupersededFreebuffModelPreference(
-        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
-      ),
+      migrateSupersededFreebuffModelPreference(MINIMAX_M3_MODEL_ID, [
+        MINIMAX_M3_MODEL_ID,
+      ]),
     ).toBeNull()
   })
 

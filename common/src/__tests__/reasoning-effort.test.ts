@@ -126,31 +126,21 @@ describe('per-model effort ladders', () => {
     )
   })
 
-  test('DeepSeek exposes the distinct native efforts of each model', () => {
-    expect(
-      getFreebuffModelEfforts(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
-    ).toEqual(['low', 'high', 'max'])
-    expect(getFreebuffModelEfforts(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toEqual(
-      ['high', 'max'],
-    )
+  test('DeepSeek exposes the three native V4 efforts on both models', () => {
+    // One ladder since the Pro 08/13 GA build: DeepSeek documents the same
+    // requested→actual mapping for flash and pro, and low is a real template on
+    // both. Medium is not, on either, so it must not appear as a rung.
     for (const id of [
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     ]) {
+      expect(getFreebuffModelEfforts(id)).toEqual(['low', 'high', 'max'])
       expect(resolveFreebuffReasoningEffort(id, undefined)).toBe('high')
       expect(getFreebuffModelReasoningEffort(id)).toBe('high')
       expect(resolveFreebuffReasoningEffort(id, 'medium')).toBe('high')
       expect(resolveFreebuffReasoningEffort(id, 'max')).toBe('max')
+      expect(resolveFreebuffReasoningEffort(id, 'low')).toBe('low')
     }
-    expect(
-      resolveFreebuffReasoningEffort(
-        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-        'low',
-      ),
-    ).toBe('low')
-    expect(
-      resolveFreebuffReasoningEffort(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'low'),
-    ).toBe('high')
   })
 
   test('binary, adaptive, and ignored controls do not masquerade as ladders', () => {

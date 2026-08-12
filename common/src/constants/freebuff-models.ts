@@ -63,9 +63,9 @@ export interface FreebuffModelOption {
    *  and the Desktop and CLI pickers display the same field — one source, so
    *  on those surfaces what users see and what the server sends cannot drift.
    *  Omit where the model has no effort levels (MiniMax) or the provider
-   *  default should stand untouched (GLM, MiMo). CAUTION: DeepSeek V4 Flash
-   *  supports low/high/max, while V4 Pro maps low to high and therefore offers
-   *  only high/max. Neither model has a distinct medium rung. */
+   *  default should stand untouched (GLM, MiMo). CAUTION: both DeepSeek V4
+   *  models expose low/high/max and neither has a distinct medium rung — see
+   *  DEEPSEEK_V4_REASONING_EFFORTS. */
   /** Reasoning effort sent for this model, on the PROVIDER's own scale.
    *  Deliberately wider than the shared agent-definition enum: Meta's ladder is
    *  minimal/low/medium/high/xhigh (its own 400 names the set). Not every
@@ -311,14 +311,24 @@ export const EFFORTS_THROUGH_MAX = [
   'xhigh',
   'max',
 ] as const
-/** DeepSeek V4 Flash 07/31 has three native templates. Pro still maps low to
- * high, so its picker starts at high. Neither has a medium effort. */
-const DEEPSEEK_V4_FLASH_REASONING_EFFORTS = [
-  'low',
-  'high',
-  'max',
-] as const
-const DEEPSEEK_V4_PRO_REASONING_EFFORTS = ['high', 'max'] as const
+/**
+ * The three native DeepSeek V4 templates, shared by Flash 07/31 and Pro 08/13.
+ *
+ * DeepSeek publishes one requested→actual effort table for both models, and
+ * since the Pro 08/13 GA build it is genuinely identical (read off
+ * api-docs.deepseek.com/guides/thinking_mode, 2026-08-12): low→low, medium→high,
+ * high→high, xhigh→high, max→max. Pro used to collapse low into high, which is
+ * why it shipped a shorter ladder; that is no longer true, so the two rows now
+ * share this one. Medium is still not a distinct level on either model and is
+ * intentionally absent.
+ *
+ * The table is the ONLY source for this. DeepSeek's API accepts any
+ * `reasoning_effort` string without complaint — `"gigantic"` returns a normal
+ * 200 (verified against the live API, 2026-08-12) — so a rung being accepted
+ * proves nothing about it being distinct, and a ladder can never be derived by
+ * probing.
+ */
+const DEEPSEEK_V4_REASONING_EFFORTS = ['low', 'high', 'max'] as const
 /**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
@@ -481,6 +491,8 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
  * spec sheet, so it is the limit the provider actually enforces:
  *   minimax-m3            "model maximum context length: 524287"
  *   deepseek-v4-flash     "model maximum context length: 1048575"
+ *   deepseek-v4-pro       "This model's maximum context length is 1048576
+ *                          tokens. However, you requested 1300092 tokens"
  *   kimi-k2.7-code        "Range of input length should be [1, 262144]"
  *
  * The consumer is agents/base-chat.ts, which prunes a chat thread's replayed
@@ -498,6 +510,13 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
 export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 524_288,
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 1_048_576,
+  // Read off the rejection above on 2026-08-12 — the same window as Flash, and
+  // the entry Pro had been missing since it shipped. Absent, base-chat gave a
+  // million-token model FREEBUFF_DEFAULT_CONTEXT_WINDOW's 131_072 and summarized
+  // a Pro chat thread at ~52k estimated tokens, 8x early. Unlike Luna and Muse
+  // Spark below this is an observed limit rather than a published one, so it is
+  // entered exactly.
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 1_048_576,
   // Luna is the one entry not read off a provider rejection. Every Luna
   // endpoint OpenRouter lists (OpenAI, its flex/priority tiers, Azure, Bedrock)
   // declares context_length 1_050_000, verified against the live endpoints API
@@ -523,7 +542,9 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
 export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
 
 /** The "a better model exists" copy every superseded model points at, shared so
- *  three rows can't drift into three different sentences.
+ *  the rows that carry it can't drift into different sentences. Two rows do
+ *  today — MiniMax M3 and MiMo 2.5. (DeepSeek V4 Pro was the third until its
+ *  08/13 GA build overtook Flash again; see DEEPSEEK_V4_PRO_MODEL.)
  *
  *  Names the DATED build. The wire id is undated and auto-updates, so the row a
  *  user is being steered TO is labelled "DeepSeek V4 Flash 07/31" in every
@@ -536,9 +557,27 @@ export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
 const FLASH_SUPERSEDES_NOTICE =
   'DeepSeek V4 Flash 07/31 performs better for most tasks.'
 
+/**
+ * DeepSeek V4 Pro, on the 08/13 GA build (2026-08-12).
+ *
+ * SAME ENDPOINT AND SAME WIRE ID as the preview build it replaces, and that is
+ * not an assumption: DeepSeek direct serves only the undated ids, so the GA
+ * build arrived on `deepseek-v4-pro` with no route to add. Every dated slug is
+ * refused outright — `deepseek-v4-pro-0813` returns "The supported API model
+ * names are deepseek-v4-pro or deepseek-v4-flash" (verified against the live
+ * API, 2026-08-12), and /v1/models lists exactly the two undated ids. So there
+ * is nothing to plumb for a new build; what changes is what this row SAYS.
+ *
+ * Pricing is unchanged by the GA release ($[redacted] in / $[redacted] cache read /
+ * $0.87 out per M), so DEEPSEEK_V4_PRO_PRICING in web/src/llm-api/deepseek.ts
+ * still holds.
+ */
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  displayName: 'DeepSeek V4 Pro',
+  // Dated for the same reason Flash is: the wire id is undated and auto-updates,
+  // so an undated label tells a returning user nothing changed when in fact the
+  // GA build is a different model from the preview they formed an opinion about.
+  displayName: 'DeepSeek V4 Pro 08/13',
   tagline: 'Deep reasoning',
   availability: 'always',
   warning: FREEBUFF_AI_TRAINING_NOTICE,
@@ -546,27 +585,28 @@ const DEEPSEEK_V4_PRO_MODEL = {
   premium: true,
   multimodal: false,
   // DeepSeek's own documented default (thinking on, effort high,
-  // api-docs.deepseek.com/guides/thinking_mode), now sent explicitly so a
-  // provider-side default change cannot silently move Freebuff. Flash and Pro
-  // run a four-lane cascade (deepseek-router.ts), and the explicit value
-  // reaches every lane: direct translates it to `thinking`, CrofAI maps it to
-  // its `reasoning_effort`, Infron and OpenRouter take `reasoning` natively.
-  // That is deliberate — one row, one behavior on whichever lane serves it —
-  // but only the direct lane's default was measured; if a fallback lane's own
-  // default was lower, its turns now spend more reasoning tokens.
+  // api-docs.deepseek.com/guides/thinking_mode), sent explicitly so a
+  // provider-side default change cannot silently move Freebuff. Unlike Flash,
+  // Pro has no fallback cascade — it is served on the direct lane only
+  // (deepseek-router.ts runs its lanes for Flash alone), so this is the one
+  // route the value has to be right for.
   reasoningEffort: 'high',
-  // Pro maps low to high, so only high and max are distinct settings.
-  efforts: DEEPSEEK_V4_PRO_REASONING_EFFORTS,
+  // The 08/13 build maps low to a real low template, so Pro now offers the same
+  // three rungs as Flash. See DEEPSEEK_V4_REASONING_EFFORTS.
+  efforts: DEEPSEEK_V4_REASONING_EFFORTS,
   defaultEffort: 'high',
-  // DeepSeek's V4-Flash-0731 GA build (2026-07-31) was re-post-trained for
-  // agent work and now beats V4 Pro on coding and tool-use benchmarks, while
-  // being cheaper and outside the premium pool. Pro stays selectable for people
-  // who want its longer deliberation, but the picker says so plainly.
-  supersededBy: {
-    modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    notice: FLASH_SUPERSEDES_NOTICE,
-    actionLabel: 'Switch to V4 Flash',
-  },
+  // NOT superseded, and not de-emphasized (FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS)
+  // as of the 08/13 GA build. Pro carried a "V4 Flash performs better" notice
+  // from 2026-07-31, when the re-post-trained Flash-0731 beat the Pro PREVIEW on
+  // agent work. GA reversed that on exactly the benchmarks this product is:
+  // Terminal Bench 2.1 72.1 → 87.9, DeepSWE 12.8 → 62.7, CyberGym 52.7 → 83.3,
+  // DSBench-Hard 31.1 → 67.2, with 80.6% on SWE-bench Verified. Steering users
+  // off it would now be steering them off the stronger model.
+  //
+  // Flash stays the DEFAULT everywhere (DEFAULT_FREEBUFF_MODEL_ID) — Pro is ~3x
+  // its input and ~3x its output price and draws on the daily premium pool, so
+  // "no longer the worse pick" is not "the pick we hand every new user".
+  isNew: true,
 } as const satisfies FreebuffModelOption
 
 const MIMO_V25_MODEL = {
@@ -607,7 +647,7 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   reasoningEffort: 'high',
   // The 07/31 build has native low/high/max prompt templates. Medium is not a
   // distinct level and is intentionally absent.
-  efforts: DEEPSEEK_V4_FLASH_REASONING_EFFORTS,
+  efforts: DEEPSEEK_V4_REASONING_EFFORTS,
   defaultEffort: 'high',
   isNew: true,
 } as const satisfies FreebuffModelOption
@@ -1104,12 +1144,14 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  fully selectable — this only controls emphasis and ordering (they sort last
  *  within the Premium group).
  *
- *  Since 2026-07-31 this is exactly the set of models Flash superseded: both
- *  cost more per token AND lost the quality argument, so muting them and
- *  sorting them last is what steers new picks to Flash. */
+ *  This tracks the models Flash superseded — costing more per token AND having
+ *  lost the quality argument — so muting them is what steers new picks to Flash.
+ *  Both halves of that test have to hold: DeepSeek V4 Pro left this list on
+ *  2026-08-12 because its 08/13 GA build wins the quality half again. It is
+ *  still the more expensive row, and that alone is not grounds for muting it —
+ *  a premium model users have a real reason to choose should look like one. */
 export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS = [
   FREEBUFF_MINIMAX_M3_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 ] as const
 
 export function isFreebuffWebDeemphasizedModelId(
@@ -1256,8 +1298,8 @@ export function getFreebuffModelsForAccessTier(
 
 /** The model the picker highlights as the "recommended" hero so a new user can
  *  start with one Enter press without scanning the full list. Full access →
- *  DeepSeek V4 Pro (the smartest default — a premium model in the
- *  shared daily pool); limited → the always-available flash model. Pass
+ *  DEFAULT_FREEBUFF_MODEL_ID (DeepSeek V4 Flash — smartest per dollar, and
+ *  outside the premium pool); limited → the always-available flash model. Pass
  *  `premiumExhausted` from the live quota snapshot so the hero flips to the
  *  unlimited DeepSeek Flash once the premium pool runs out — the recommended
  *  pick must always be joinable. */
@@ -1271,7 +1313,7 @@ export function getRecommendedFreebuffModelId(
 }
 
 /** The Web/Cloud counterpart of getRecommendedFreebuffModelId: full access →
- *  DeepSeek V4 Pro (the cost-efficient browser default); limited → the
+ *  DEFAULT_FREEBUFF_WEB_MODEL_ID (GPT-5.6 Luna); limited → the
  *  always-available flash model. `premiumExhausted` flips the hero to the
  *  unlimited flash model so the recommended pick is always joinable. */
 export function getRecommendedFreebuffWebModelId(
@@ -1593,13 +1635,21 @@ export function resolveFreebuffReasoningEffort(
   if (!efforts) return null
   const fallback = getFreebuffModelDefaultEffort(modelId)
   if (!fallback) return null
-  // Medium was briefly offered for Flash before the 07/31 capability matrix
-  // was corrected. DeepSeek maps that compatibility spelling to high; preserve
-  // the same behavior for persisted Desktop/Web preferences instead of generic
-  // clamp-down turning the stale value into low while the UI displays high.
+  // Medium was briefly offered for Flash before the 07/31 capability matrix was
+  // corrected, and reaches these models from persisted Desktop/Web preferences
+  // and from threads that switched model. DeepSeek maps that compatibility
+  // spelling to high (medium→high in its own effort table), so honor that rather
+  // than letting generic clamp-down turn a stale value into LOW while the UI
+  // displays high.
+  //
+  // Applies to Pro as well as Flash since Pro's 08/13 ladder gained `low`:
+  // before that, "everything on offer is above medium" already landed Pro's
+  // medium on high, and losing that to the clamp would be a silent downgrade of
+  // exactly the model users pick for deliberation.
   if (
     requested === 'medium' &&
-    freebuffModelIdMatches(modelId, FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    (freebuffModelIdMatches(modelId, FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID) ||
+      freebuffModelIdMatches(modelId, FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID))
   ) {
     return 'high'
   }
@@ -1644,8 +1694,8 @@ export function isFreebuffWebRememberableModelId(
 
 /**
  * The model a surface should START on, given a remembered (localStorage)
- * selection: the saved model when it is still valid and rememberable, else the
- * Web/Cloud default (DeepSeek V4 Pro).
+ * selection: the saved model when it is still valid and rememberable, else
+ * DEFAULT_FREEBUFF_WEB_MODEL_ID.
  *
  * Distinct from resolveFreebuffWebModel, which resolves a LIVE selection and
  * must leave a just-picked GLM alone.

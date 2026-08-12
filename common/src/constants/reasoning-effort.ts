@@ -12,10 +12,10 @@
  * but no more than was asked for". Keep it strictly ascending.
  *
  * Not every rung reaches every provider. `ultra` exists only for local CLI
- * harnesses; Meta tops out at `xhigh`, while DeepSeek V4 Flash exposes
- * `low`/`high`/`max` and Pro exposes `high`/`max`. What a given model actually
- * offers is its own `efforts` array, and the clamp stops one model's rung
- * reaching another's API.
+ * harnesses; Meta tops out at `xhigh`, while both DeepSeek V4 models expose
+ * `low`/`high`/`max` and nothing between. What a given model actually offers is
+ * its own `efforts` array, and the clamp stops one model's rung reaching
+ * another's API.
  */
 export const REASONING_EFFORTS = [
   'minimal',

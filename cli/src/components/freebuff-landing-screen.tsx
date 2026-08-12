@@ -475,9 +475,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // For the regular tiers the PREMIUM section header inside the expanded
   // picker carries this quota inline, so the below-picker line survives for
   // the limited tier (which has no premium section to host it) and for the
-  // collapsed picker — the collapsed recommended hero is premium (DeepSeek V4 Pro)
-  // while the pool has sessions left, so the count is exactly what Enter is
-  // about to spend.
+  // collapsed picker. When the collapsed recommended hero is a premium model
+  // (getRecommendedFreebuffModelId, while the pool has sessions left) the count
+  // is exactly what Enter is about to spend.
   const showSessionCounter = sharedSessionUsed > 0
   const showBelowPickerCounter =
     showSessionCounter && (accessTier === 'limited' || !selectorExpanded)

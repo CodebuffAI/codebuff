@@ -9,6 +9,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
 import * as auth from '../auth'
@@ -48,20 +49,20 @@ describe('freebuff model preference', () => {
     )
     getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
 
-    // A preference saved before Flash overtook Pro. Written directly so it has
-    // no migration marker, exactly like a real pre-upgrade settings file.
+    // A preference saved before Flash overtook MiniMax M3. Written directly so
+    // it has no migration marker, exactly like a real pre-upgrade settings file.
     fs.writeFileSync(
       path.join(testConfigDir, 'settings.json'),
-      JSON.stringify({ freebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }),
+      JSON.stringify({ freebuffModel: FREEBUFF_MINIMAX_M3_MODEL_ID }),
     )
     expect(loadFreebuffModelPreference()).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
 
-    // Re-picking Pro does NOT make it the standing default again: the next
+    // Re-picking M3 does NOT make it the standing default again: the next
     // session steers back to Flash. Selecting it still works for the session
     // the user is in — this only governs what a fresh launch opens on.
-    saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    saveFreebuffModelPreference(FREEBUFF_MINIMAX_M3_MODEL_ID)
     expect(loadFreebuffModelPreference()).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
@@ -70,6 +71,29 @@ describe('freebuff model preference', () => {
     saveFreebuffModelPreference(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(loadFreebuffModelPreference()).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+  })
+
+  test('leaves a saved DeepSeek V4 Pro pick alone', () => {
+    testConfigDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'freebuff-settings-test-'),
+    )
+    getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
+
+    // Pro was steered off until its 08/13 GA build overtook Flash again. A user
+    // who deliberately picks the deep-reasoning model must now still be on it
+    // next launch, migration marker or not.
+    fs.writeFileSync(
+      path.join(testConfigDir, 'settings.json'),
+      JSON.stringify({ freebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }),
+    )
+    expect(loadFreebuffModelPreference()).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+
+    saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(loadFreebuffModelPreference()).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
   })
 })

@@ -120,8 +120,8 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.freebuffModel = obj.freebuffModel
   }
 
-  // Steer off a model that has since been superseded (DeepSeek V4 Pro, MiniMax
-  // M3, MiMo 2.5 → V4 Flash) on EVERY load, so each new freebuff session starts
+  // Steer off a model that has since been superseded (MiniMax M3, MiMo 2.5 →
+  // V4 Flash) on EVERY load, so each new freebuff session starts
   // on the better model instead of a pick made before it existed. Picking a
   // superseded model still works for the session you are in; it just stops
   // being what the next launch opens on.

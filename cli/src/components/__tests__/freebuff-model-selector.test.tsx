@@ -151,7 +151,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // rewording the notice doesn't fail this test for the wrong reason. It must
     // still render on ONE line — the width math reserves exactly its length.
     const notice = getFreebuffModelSupersededBy(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_MINIMAX_M3_MODEL_ID,
       FREEBUFF_MODELS.map((m) => m.id),
     )!.notice
     const occurrences = (frame: string) => frame.split(notice).length - 1
@@ -159,23 +159,24 @@ describe('FreebuffModelSelector tier layout', () => {
     // On a superseded model: the nudge appears, once, on that model's card.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
     const onSuperseded = (await renderSelector()).captureCharFrame()
     expect(occurrences(onSuperseded)).toBe(1)
     // It names the dated build, which is what the row it steers to is labelled.
     expect(notice).toContain('DeepSeek V4 Flash 07/31')
-    // The new build is badged so a returning user notices it changed.
+    // The new builds are badged so a returning user notices they changed.
     expect(onSuperseded).toContain('NEW')
 
-    // Both Pro and M3 are superseded and both are on screen here, but only the
-    // selected one nags — otherwise the list would repeat the same notice on
-    // every row it applies to.
+    // MiMo is superseded too and is on screen here, but only the selected row
+    // nags — otherwise the list would repeat the same notice on every row it
+    // applies to. V4 Pro is on screen and is NOT superseded at all since its
+    // 08/13 GA build, so selecting it shows no nudge anywhere.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
-    const onOtherSuperseded = (await renderSelector()).captureCharFrame()
-    expect(onOtherSuperseded).toContain('DeepSeek V4 Pro')
-    expect(occurrences(onOtherSuperseded)).toBe(1)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    const onUnsuperseded = (await renderSelector()).captureCharFrame()
+    expect(onUnsuperseded).toContain('DeepSeek V4 Pro 08/13')
+    expect(occurrences(onUnsuperseded)).toBe(0)
 
     // On the replacement itself: no nudge at all. (Picking the recommended
     // model also collapses the picker to its hero card.)
