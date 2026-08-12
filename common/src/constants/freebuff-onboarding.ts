@@ -244,10 +244,8 @@ export function validateOnboardingSubmission(
     const answer = submission.answers.find((a) => a.questionId === question.id)
     const optionIds = answer?.optionIds ?? []
 
-    // An unanswered question is not an error — the form is skippable, so a
-    // partial submission is the expected shape rather than a degraded one.
-    // Only a submission with nothing in it at all is refused, below.
     if (optionIds.length === 0) {
+      errors.push({ questionId: question.id, message: 'Please choose an option.' })
       continue
     }
     if (!question.multi && optionIds.length > 1) {
@@ -292,14 +290,7 @@ export function validateOnboardingSubmission(
     })
   }
 
-  if (errors.length > 0) return { ok: false, errors }
-  if (cleaned.length === 0) {
-    return {
-      ok: false,
-      errors: [{ questionId: null, message: 'Answer at least one question.' }],
-    }
-  }
-  return { ok: true, answers: cleaned }
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, answers: cleaned }
 }
 
 /** Every question answered. Decides only whether someone who returns to the

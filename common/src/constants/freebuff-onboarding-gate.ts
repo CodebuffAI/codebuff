@@ -54,19 +54,21 @@ export function parseOnboardingEnabled(raw: string | null | undefined): boolean 
 }
 
 /**
- * Marks a browser that has already been shown the form.
+ * Escape hatch for OUR failures, and nothing else.
  *
- * Onboarding is asked once, on the web — it never gates a request on any
- * surface, which is why there is no wire error code here and why the CLI and
- * desktop have nothing to render. The whole mechanism is one redirect that
- * fires at most once per browser.
+ * The form is required: no skip, every question answered. That creates a trap
+ * we have to design against — if saving is broken on our side, a required form
+ * plus a redirect that fires until it is answered is an infinite loop into a
+ * screen the user cannot get past however hard they try.
  *
- * Set client-side on arrival at the form and read by the `/web` layout.
- * Deliberately not httpOnly and not authoritative: clearing it costs the user
- * one more chance to answer, which is the harmless direction to fail.
+ * So this cookie is set ONLY after a save attempt fails, never on arrival and
+ * never by a user choosing to leave. A working system is not skippable; a
+ * broken one does not hold anyone hostage.
+ *
+ * Short TTL on purpose: it covers an outage, not a career.
  */
-export const ONBOARDING_SEEN_COOKIE = 'fb_onboarding_seen'
+export const ONBOARDING_BYPASS_COOKIE = 'fb_onboarding_bypass'
 
-/** 180 days. Long enough that nobody is asked twice in any span they would
- *  remember, short enough that a much later question set gets another look. */
-export const ONBOARDING_SEEN_TTL_SECONDS = 180 * 24 * 60 * 60
+/** 24 hours — long enough to outlast an incident, short enough that the
+ *  question comes back once we have fixed our end. */
+export const ONBOARDING_BYPASS_TTL_SECONDS = 24 * 60 * 60

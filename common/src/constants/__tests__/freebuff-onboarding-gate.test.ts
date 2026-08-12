@@ -2,8 +2,8 @@ import { describe, expect, it } from 'bun:test'
 
 import {
   evaluateOnboardingRequirement,
-  ONBOARDING_SEEN_COOKIE,
-  ONBOARDING_SEEN_TTL_SECONDS,
+  ONBOARDING_BYPASS_COOKIE,
+  ONBOARDING_BYPASS_TTL_SECONDS,
   parseOnboardingEnabled,
 } from '../freebuff-onboarding-gate'
 
@@ -61,7 +61,10 @@ describe('seen cookie', () => {
   it('is a stable name with a months-long life', () => {
     // The name is read by the `/web` layout and written by the welcome page;
     // changing it re-asks everyone, so it is pinned here on purpose.
-    expect(ONBOARDING_SEEN_COOKIE).toBe('fb_onboarding_seen')
-    expect(ONBOARDING_SEEN_TTL_SECONDS).toBe(180 * 24 * 60 * 60)
+    // Pinned because the layout reads this name and the form writes it; a
+    // silent rename would quietly stop the escape hatch from working, which
+    // only shows up during an outage — the worst time to discover it.
+    expect(ONBOARDING_BYPASS_COOKIE).toBe('fb_onboarding_bypass')
+    expect(ONBOARDING_BYPASS_TTL_SECONDS).toBe(24 * 60 * 60)
   })
 })

@@ -104,29 +104,17 @@ describe('validateOnboardingSubmission', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('keeps a partial submission', () => {
-    // The form is skippable, so partial is the expected shape. Two answers are
-    // two more than we would have had.
+  it('requires every question', () => {
+    // The form has no skip, so a partial submission is a stale or hand-rolled
+    // client rather than a user choice — and half a response would sit in the
+    // analytics looking like a real one.
     const result = validateOnboardingSubmission({
       answers: fullAnswers().slice(0, 2),
     })
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error('unreachable')
-    expect(result.answers.map((a) => a.questionId)).toEqual([
-      'referral_source',
-      'role',
-    ])
-  })
-
-  it('refuses a submission with nothing in it', () => {
-    // Distinct from skipping, which never posts at all. An empty post is a
-    // client bug, and storing it would inflate the response count with rows
-    // that say nothing.
-    const result = validateOnboardingSubmission({ answers: [] })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('unreachable')
-    expect(result.errors).toHaveLength(1)
-    expect(result.errors[0]!.questionId).toBeNull()
+    expect(result.errors.length).toBeGreaterThan(0)
+    expect(result.errors.every((e) => e.questionId !== null)).toBe(true)
   })
 
   it('rejects an unknown option id', () => {
