@@ -638,6 +638,16 @@ describe('freebuff model availability', () => {
     expect(FREEBUFF_MODELS[3]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
+  test('the recommended default leads FREEBUFF_MODELS, with Flash second', () => {
+    // FREEBUFF_MODELS order IS the picker row order, and it went stale once
+    // when the default flipped without reordering — the rows led with Flash
+    // while the recommendation already named Pro. Pin the two lead positions
+    // to the constants that drive the recommendation, so a future default
+    // change can't silently leave this list behind.
+    expect(FREEBUFF_MODELS[0]!.id).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  })
+
   test('GPT-5.6 Luna is a premium model on every full-access surface', () => {
     // The wire id must stay OpenRouter's own slug: getChatCompletionsProvider
     // has no Luna branch, so it only reaches OpenRouter by falling through to
