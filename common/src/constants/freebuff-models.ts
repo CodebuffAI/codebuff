@@ -900,9 +900,13 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // now 403 with free_mode_invalid_agent_model. The non-Pro MiMo 2.5 is
 // unaffected, and paid/BYOK MiMo Pro plus its llm-api provider routing are
 // untouched.
+// Order is the order shown in every picker: the recommended default leads, the
+// unlimited fallback it steps down to follows, then the rest of the full-access
+// grid. V4 Pro took the lead on 2026-08-12 (see DEFAULT_FREEBUFF_MODEL_ID); the
+// previous Flash-first order went stale with that flip.
 export const FREEBUFF_MODELS = [
-  DEEPSEEK_V4_FLASH_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
+  DEEPSEEK_V4_FLASH_MODEL,
   GPT_5_6_LUNA_MODEL,
   MINIMAX_M3_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
