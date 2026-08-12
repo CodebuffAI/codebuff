@@ -14,7 +14,7 @@ import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
 import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
 import { useThemeStore } from '../hooks/use-theme'
-import { WEBSITE_URL } from '../login/constants'
+import { LOGIN_WEBSITE_URL, WEBSITE_URL } from '../login/constants'
 import { startNewChat } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { stopActiveRun } from '../utils/active-run'
@@ -182,6 +182,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
 const FREEBUFF_ONLY_COMMANDS = new Set([
   'plan',
   'end-session',
+  'dashboard',
 ])
 
 const ALL_COMMANDS: CommandDefinition[] = [
@@ -397,6 +398,33 @@ const ALL_COMMANDS: CommandDefinition[] = [
     aliases: ['strong', 'sub', 'buy-credits'],
     handler: (params) => {
       safeOpen(WEBSITE_URL + '/subscribe')
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'dashboard',
+    // Freebuff-only (see FREEBUFF_ONLY_COMMANDS): the hub is a Freebuff web
+    // surface, and Codebuff has its own credits-shaped `/usage` banner.
+    //
+    // `usage` is one of the aliases because Freebuff removes that command —
+    // its banner is credits- and subscription-shaped — leaving the product
+    // with no answer at all to "how much have I used?". The word now lands
+    // somewhere, and only in the build where nothing else claims it.
+    aliases: ['usage', 'stats', 'streak'],
+    handler: (params) => {
+      const url = `${LOGIN_WEBSITE_URL}/account`
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage(
+          `Opening your dashboard: ${url}\n\nStreak, activity, tokens, sessions and settings for your account — across the CLI, Desktop and web.`,
+        ),
+      ])
+      // Best-effort: `safeOpen` skips headless Linux and a locked-down WSL
+      // rather than risking the process, so the URL above is printed first and
+      // stays useful when nothing opens.
+      void safeOpen(url)
+      params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
   }),

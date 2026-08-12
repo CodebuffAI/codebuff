@@ -44,6 +44,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
 const FREEBUFF_ONLY_COMMAND_IDS = new Set([
   'plan',
   'end-session',
+  'dashboard',
 ])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
@@ -183,6 +184,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'end-session',
     description: 'End your free session (lets you switch model)',
     aliases: ['model'],
+  },
+  {
+    id: 'dashboard',
+    label: 'dashboard',
+    description: 'Open your usage, streak and account dashboard in the browser',
+    aliases: ['usage', 'stats', 'streak'],
   },
   {
     id: 'logout',

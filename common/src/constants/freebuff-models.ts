@@ -462,6 +462,16 @@ export const FREEBUFF_STREAK_GLM_BONUS_ENABLED = true
 /** Session units added to an eligible streak-reward pool. One whole session. */
 export const FREEBUFF_STREAK_BONUS_SESSION_UNITS = 1
 
+/** How much history the account hub's activity map covers. A year, matching
+ *  what the grid can legibly draw at 53 columns. Free: the map is drawn from
+ *  one narrow row per active day. */
+export const FREEBUFF_USAGE_MAP_DAYS = 365
+
+/** Lookback for the hub's token and message totals, which are aggregated from
+ *  `message` on demand. Days rather than months on purpose: that table's cost
+ *  scales with how much the account sent, not with the calendar. */
+export const FREEBUFF_RECENT_TOKENS_DAYS = 7
+
 /** Which session pool a streak bonus credit applies to. `premium` and `limited`
  *  are the daily pools (full vs limited access); `glm` is the weekly GLM 5.2
  *  pool (full access only). */
