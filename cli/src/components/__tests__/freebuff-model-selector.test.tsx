@@ -5,11 +5,13 @@ import React from 'react'
 
 import { FreebuffModelSelector } from '../freebuff-model-selector'
 import {
+  DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffModelSupersededBy,
@@ -38,6 +40,13 @@ afterEach(() => {
 })
 
 const renderSelector = async (maxHeight = 40) => {
+  // Tear down any selector this test already rendered. Only the LAST one was
+  // reachable from afterEach, so a test that renders twice used to leave the
+  // earlier root mounted — and a mounted selector keeps running its landing
+  // repair effect, rewriting the shared model store out from under whichever
+  // test ran next.
+  cleanupRenderer?.()
+  cleanupRenderer = undefined
   const setup = await createTestRenderer({ width: 100, height: 40 })
   const root = createRoot(setup.renderer)
   cleanupRenderer = () => {
@@ -121,24 +130,28 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
     })
+    // The saved pick has to be something OTHER than the recommended hero, or
+    // the landing picker opens collapsed and there are no tier headers to order.
+    // Since 2026-08-12 the hero is itself premium (DeepSeek V4 Pro), so Luna is
+    // the premium row that exercises "saved model stays focused" here.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
 
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const selectedModelIndex = frame.indexOf('DeepSeek V4 Pro')
-    const lunaModelIndex = frame.indexOf('GPT-5.6 Luna')
+    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Pro')
+    const selectedModelIndex = frame.indexOf('GPT-5.6 Luna')
     const minimaxModelIndex = frame.indexOf('MiniMax M3')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
-    expect(selectedModelIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(lunaModelIndex).toBeGreaterThan(selectedModelIndex)
-    expect(minimaxModelIndex).toBeGreaterThan(lunaModelIndex)
+    expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
+    expect(selectedModelIndex).toBeGreaterThan(recommendedModelIndex)
+    expect(minimaxModelIndex).toBeGreaterThan(selectedModelIndex)
     expect(unlimitedHeaderIndex).toBeGreaterThan(minimaxModelIndex)
-    expect(frame).toContain('› DeepSeek V4 Pro')
+    expect(frame).toContain('› GPT-5.6 Luna')
     expect(frame).not.toContain('› MiniMax M3')
   })
 
@@ -221,6 +234,46 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
     expect(recommendedLabelIndex).toBeGreaterThan(unlimitedHeaderIndex)
     expect(recommendedModelIndex).toBeGreaterThan(recommendedLabelIndex)
+  })
+
+  test('collapses to the unlimited hero when the premium default is spent', async () => {
+    // The default selection has been premium since 2026-08-12, so a returning
+    // user who has spent their pool opens the picker already sitting on a row
+    // `pick` silently refuses. Both the selection AND the cursor have to leave
+    // it, or Enter does nothing with no explanation — and the picker has to
+    // collapse onto the replacement, or it opens on three greyed, unusable
+    // premium rows with the recommendation fourth.
+    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      rateLimitsByModel: {
+        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
+          model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+          limit: 6,
+          period: 'pacific_day',
+          resetTimeZone: 'America/Los_Angeles',
+          resetAt,
+          windowHours: 24,
+          recentCount: 6,
+        },
+      },
+    })
+    useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+
+    const setup = await renderSelector()
+    await Promise.resolve()
+    await setup.renderOnce()
+    await setup.renderOnce()
+
+    expect(getSelectedFreebuffModel()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    const frame = setup.captureCharFrame()
+    // `›` is the cursor: it has to be on the row Enter now commits.
+    expect(frame).toContain('› DeepSeek V4 Flash')
+    // …and that row is the whole screen, exactly as for a user who is already
+    // on the recommendation. The spent rows live behind the toggle.
+    expect(frame).toContain('See all')
+    expect(frame).not.toContain('PREMIUM')
   })
 
   test('repairs an invalid selection to the unlimited recommendation when premium is exhausted', async () => {
@@ -317,9 +370,11 @@ describe('FreebuffModelSelector tier layout', () => {
       frame.split('\n').find((line) => line.includes(tagline)) ?? ''
     const frame = (await renderSelector()).captureCharFrame()
 
-    expect(rowOf(frame, 'Smartest & Fastest')).toContain('Reasoning: high')
-    expect(rowOf(frame, 'Deep reasoning')).toContain('Reasoning: high')
-    expect(rowOf(frame, 'Thinks hard & Fast')).toContain('Reasoning: high')
+    expect(rowOf(frame, 'Smart & Fast')).toContain('Reasoning: high')
+    expect(rowOf(frame, 'Smartest')).toContain('Reasoning: high')
+    // Luna is anchored on its NAME, not its tagline: it shares "Balanced" with
+    // MiMo 2.5, and its name never appears in a superseded notice.
+    expect(rowOf(frame, 'GPT-5.6 Luna')).toContain('Reasoning: high')
     expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
   })
 
@@ -399,10 +454,11 @@ describe('FreebuffModelSelector limited-model offer', () => {
 
   test('stays visible while collapsed, unlike the ordinary tiers', async () => {
     // The picker opens collapsed for a user already on the recommended model.
-    // A wave nobody sees is a wave nobody joins.
+    // A wave nobody sees is a wave nobody joins. Read off the constant so the
+    // collapsed state survives the next flip of the recommended default.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+      .setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
     useFreebuffSessionStore.getState().setSession(offerSession())
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('See all')

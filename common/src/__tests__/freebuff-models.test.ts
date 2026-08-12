@@ -86,12 +86,17 @@ const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('freebuff model availability', () => {
-  test('defaults and falls back to DeepSeek V4 Flash for new clients', () => {
-    // Since the V4-Flash-0731 GA build (2026-07-31) the default and the
-    // always-available fallback are the same model. They stay separate
-    // constants because they answer different questions.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  test('defaults to V4 Pro and falls back to V4 Flash for new clients', () => {
+    // The two constants answer different questions, and since the CLI/Desktop
+    // default moved to the premium V4 Pro 08/13 GA build (2026-08-12) they name
+    // different models again: the default is what we RECOMMEND, the fallback is
+    // what is always joinable when the premium pool is spent.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    // The default is premium, so every surface that offers it has to know the
+    // live quota — that is the whole reason the fallback exists separately.
+    expect(isFreebuffPremiumModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(FALLBACK_FREEBUFF_MODEL_ID)).toBe(false)
   })
 
   test('desktop concurrency splits full access into 1 premium and 3 unlimited sessions', () => {
@@ -765,14 +770,15 @@ describe('freebuff model availability', () => {
   })
 
   test('recommends a joinable, in-tier model for the picker hero', () => {
-    // Full access → DeepSeek V4 Flash (the recommended default since the
-    // 0731 GA build). It is outside the premium pool, so unlike the old V4 Pro
-    // default the hero no longer has to flip when that pool runs dry.
+    // Full access → DeepSeek V4 Pro 08/13 (the recommended default since
+    // 2026-08-12). It is premium, so the hero HAS to flip once the daily pool
+    // runs dry — the assertions below are what keep the CLI/Desktop hero
+    // joinable at every point in a user's day.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
@@ -793,14 +799,14 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('web/cloud recommend DeepSeek V4 Pro, while CLI/Desktop stay on Flash', () => {
-    // The browser surfaces steer to the strongest agentic model, because one
-    // long build against a live sandbox is where model quality shows: Luna from
-    // 2026-08-04, and V4 Pro 08/13 since 2026-08-12. The CLI, with short and far
-    // more numerous turns, stays on Flash — which is exactly why these are two
-    // constants.
+  test('every surface recommends DeepSeek V4 Pro, on two separate constants', () => {
+    // The browser surfaces took Pro on 2026-08-12 (Luna held it from
+    // 2026-08-04) and the CLI/Desktop pickers followed the same day: the 08/13
+    // GA build wins the agentic benchmarks these surfaces run, so there is no
+    // longer a surface where a different model is the better first pick. They
+    // stay TWO constants because they have diverged before and may again.
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
@@ -911,9 +917,9 @@ describe('freebuff model availability', () => {
     expect(
       getFreebuffModelSupersededBy(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, all),
     ).toBeUndefined()
-    // Un-superseding is not promotion: Flash is still the recommended default,
-    // since Pro is ~3x the price and metered by the daily premium pool.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    // And on 2026-08-12 it became the recommended CLI/Desktop default too,
+    // matching the browser surfaces.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
   })
 
   test('marks both new DeepSeek builds as NEW and dates their names', () => {

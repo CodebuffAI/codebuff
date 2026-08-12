@@ -72,11 +72,12 @@ import type {
 // amber when exhausted, the moment its rows grey out). When collapsed there's
 // no PREMIUM header, so the parent keeps a below-picker counter for the
 // collapsed state (and for the limited tier, which has no premium section).
-// Since 2026-07-31 the recommended hero is the unlimited DeepSeek V4 Flash on
-// both tiers, so it is always joinable and no longer flips when the premium
-// pool empties. UNLIMITED needs no annotation. Empty sections are filtered so a
-// model set with no premium (or no unlimited) entries doesn't render an orphan
-// header.
+// Since 2026-08-12 the full-access hero is the PREMIUM DeepSeek V4 Pro 08/13
+// again (DEFAULT_FREEBUFF_MODEL_ID), so it draws on that same pool and flips to
+// the unlimited Flash once the pool empties — the hero must always be joinable.
+// The limited tier's hero stays the always-available Flash. UNLIMITED needs no
+// annotation. Empty sections are filtered so a model set with no premium (or no
+// unlimited) entries doesn't render an orphan header.
 //
 // `label` may be empty: limited-tier users only see the constrained model set,
 // so the "LIMITED" header would just leak the internal tier name without
@@ -280,12 +281,35 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // model" toggle is noise.
   const canCollapse = otherModels.length >= 2
 
+  const isJoinable = useCallback(
+    (modelId: string) => {
+      if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
+      // An offer row is on screen only while the shared pool has capacity, so
+      // what's left to check is the caller's own daily ceiling. It travels on
+      // the offer payload rather than in `rateLimitsByModel`, which the server
+      // deliberately keeps free of these models so the 30s poll doesn't pay for
+      // a quota nobody is using.
+      const offer = offerByModelId.get(modelId)
+      if (offer) return offer.userRemaining > 0
+      const rateLimit = rateLimitsByModel?.[modelId]
+      return !rateLimit || rateLimit.recentCount < rateLimit.limit
+    },
+    [now, offerByModelId, rateLimitsByModel],
+  )
+
   // Default collapsed only on the landing screen and only when the saved/active
   // selection IS the recommended model — a returning user whose preference is a
   // different model gets the expanded list so their pick is visible and focused.
+  // STARTABLE, not merely different: the effect below is about to replace an
+  // unstartable pick with the recommendation, and expanding to show a spent row
+  // "focused" buries the hero under rows the user cannot press — which is what
+  // a spent premium pool did once the default became premium (2026-08-12).
   const isLanding = session?.status === 'none' || !session
   const [expanded, setExpanded] = useState(
-    () => !canCollapse || !isLanding || selectedModel !== recommendedModel.id,
+    () =>
+      !canCollapse ||
+      !isLanding ||
+      (selectedModel !== recommendedModel.id && isJoinable(selectedModel)),
   )
   // Limited mode has no labeled tier section, so moving its recommendation
   // inside that section would only move the existing inter-card spacing above
@@ -424,36 +448,43 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   }, [navIds, recommendedModel.id, selectedModel])
 
   useEffect(() => {
-    // Landing-screen safety net: if the in-memory selection becomes
-    // unavailable (e.g. deployment hours close while the picker is open),
-    // swap to the always-available fallback so Enter doesn't POST a model
-    // the server will immediately reject. In-memory only — the user's saved
-    // preference (e.g. MiniMax or DeepSeek) is preserved for the next launch.
+    // Landing-screen safety net: the selection has to be one the user can
+    // actually start, or Enter POSTs a model the server rejects — or, worse,
+    // `pick` refuses it here and Enter does nothing at all. Two rules, because
+    // GLM is not an ordinary row:
     //
-    // Earned GLM is selectable outside `renderedModelIds`. Treat it as valid while
-    // unlocked so a transient POST retry still reads GLM from the store.
+    //  - GLM 5.2 is judged by its referral BALANCE and nothing else. It is
+    //    selectable from the banner but is not in FREEBUFF_MODELS, so it never
+    //    reaches `renderedModelIds`, and its quota is not in this surface's
+    //    snapshot, so `isJoinable` cannot see it either. With
+    //    `accessTier === 'full'` in here instead, a limited-tier user who
+    //    pressed "Use GLM 5.2" had their pick judged invalid one render later
+    //    and silently swapped for the recommendation — the bounty session they
+    //    had earned was spendable on the server and unreachable from this
+    //    screen.
+    //  - every other model must be on screen AND startable. Rendered is not
+    //    enough: a spent premium row stays on screen, greyed, and `pick`
+    //    refuses it. That was unreachable while the default was unlimited;
+    //    since it became premium (2026-08-12) it is the ordinary state of a
+    //    returning user who has spent their pool. isJoinable runs the
+    //    deployment-hours check too, so closing hours are covered here.
     //
-    // Keyed on the BALANCE alone. With `accessTier === 'full'` in here, a limited-tier
-    // user who pressed the banner's "Use GLM 5.2" had their pick judged invalid one
-    // render later and silently swapped for the recommended model — the bounty session
-    // they had earned was spendable on the server and unreachable from this screen.
-    const selectionIsValid =
-      renderedModelIds.includes(selectedModel) ||
-      (isFreebuffGlmV52ModelId(selectedModel) &&
-        (referral?.weeklySessionsRemaining ?? 0) > 0)
-    if (
-      isLanding &&
-      (!selectionIsValid ||
-        !isFreebuffModelAvailable(selectedModel, new Date(now)))
-    ) {
+    // In-memory only — `setSelectedModel` doesn't persist, so the user's saved
+    // preference survives for their next launch.
+    const selectionIsStartable = isFreebuffGlmV52ModelId(selectedModel)
+      ? (referral?.weeklySessionsRemaining ?? 0) > 0
+      : renderedModelIds.includes(selectedModel) && isJoinable(selectedModel)
+    if (isLanding && !selectionIsStartable) {
       setSelectedModel(recommendedModel.id)
+      // The cursor moves too: the focus effect above only rescues an
+      // out-of-RANGE focus, and the row we just refused is still in range.
+      setFocusedId(recommendedModel.id)
     }
   }, [
-    accessTier,
     referral?.weeklySessionsRemaining,
     renderedModelIds,
     isLanding,
-    now,
+    isJoinable,
     recommendedModel.id,
     selectedModel,
     setSelectedModel,
@@ -659,22 +690,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       sb.scrollTop = Math.max(0, sb.scrollHeight - sb.viewport.height)
     }
   }, [focusedId, contentHeight, needsScroll, extraTargetIds])
-
-  const isJoinable = useCallback(
-    (modelId: string) => {
-      if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
-      // An offer row is on screen only while the shared pool has capacity, so
-      // what's left to check is the caller's own daily ceiling. It travels on
-      // the offer payload rather than in `rateLimitsByModel`, which the server
-      // deliberately keeps free of these models so the 30s poll doesn't pay for
-      // a quota nobody is using.
-      const offer = offerByModelId.get(modelId)
-      if (offer) return offer.userRemaining > 0
-      const rateLimit = rateLimitsByModel?.[modelId]
-      return !rateLimit || rateLimit.recentCount < rateLimit.limit
-    },
-    [now, offerByModelId, rateLimitsByModel],
-  )
 
   const pick = useCallback(
     (modelId: string) => {
