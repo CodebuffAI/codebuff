@@ -36,9 +36,11 @@ function referralLink(code: string, referrerName: string | null): string {
 /** Where a user goes to earn a GLM session without referring anyone. */
 const EARN_URL = `${LOGIN_WEBSITE_URL}/earn`
 const DASHBOARD_LABEL = 'Open GLM 5.2 dashboard ↵'
-// The focus marker reserves two columns so keyboard navigation does not shift
-// the rest of the action row.
-const DASHBOARD_BUTTON_WIDTH = DASHBOARD_LABEL.length + 2
+// Two columns of leading space separate the label from the copy control beside
+// it (the row itself has no gap), and they stay put in every state so keyboard
+// navigation never shifts the rest of the action row.
+const DASHBOARD_GUTTER = '  '
+const DASHBOARD_BUTTON_WIDTH = DASHBOARD_LABEL.length + DASHBOARD_GUTTER.length
 
 /** The temporary promo still needs its deadline even though the standing
  * bounty pitch is already covered elsewhere in the picker and Earn page. */
@@ -69,11 +71,18 @@ function DashboardButton({
   focused: boolean
   onOpen: () => void
 }) {
+  // Focus is shown by the accent color alone, like the inline copy control it
+  // sits next to. A leading marker would have to eat the gutter that keeps the
+  // two labels apart, so a focused dashboard link ran flush into "Copy invite
+  // link" and read as overlapping it.
   return (
     <Button onClick={onOpen}>
       <text style={{ wrapMode: 'word' }}>
-        <span fg={focused ? theme.foreground : theme.secondary}>
-          {focused ? '▶ ' : '  '}
+        <span
+          fg={focused ? theme.primary : theme.secondary}
+          attributes={focused ? TextAttributes.BOLD : TextAttributes.NONE}
+        >
+          {DASHBOARD_GUTTER}
           {DASHBOARD_LABEL}
         </span>
       </text>

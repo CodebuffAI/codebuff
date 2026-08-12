@@ -62,11 +62,10 @@ describe('LandingHeadingRow', () => {
     expect(line).toMatch(/Start coding for free {3,}18 day streak/)
   })
 
-  test('draws the progress dots with glyphs terminal fonts actually have', async () => {
+  test('draws the progress dots as filled/hollow circles', async () => {
     const frame = await renderHeadingRow(18, 60)
 
-    expect(frame).toContain('•••••••+')
-    expect(frame).not.toContain('●')
+    expect(frame).toContain('●●●●●●●+')
   })
 
   test('leaves the row bare for a user with no streak yet', async () => {

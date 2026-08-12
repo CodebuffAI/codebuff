@@ -28,16 +28,18 @@ export const FREEBUFF_STREAK_LABEL_GAP = 2
  *  number decides whether they may share a row at all. */
 export const FREEBUFF_STREAK_INLINE_GAP = 3
 
-/** Progress glyphs for a terminal. The shared default is ●/○, but U+25CF is
- *  missing from plenty of terminal fonts and renders as a tofu box — a
- *  CP437-derived font, for instance, has the box-drawing and block elements
- *  the CLI already draws with, and even ○, but no ●. Bullet and middle dot
- *  keep the dot look while being about as universal as glyphs get.
+/** Progress glyphs for a terminal — the same ●/○ pair the shared module and
+ *  the desktop app use. Bullet and middle dot were tried here because U+25CF
+ *  is missing from a few terminal fonts and lands as a tofu box, but • and ·
+ *  differ only in size: at a glance a partial week and a full one look alike,
+ *  which is the whole point of the row. Filled-vs-hollow reads instantly, and
+ *  the CLI already bets on ●/○ for its agent status indicators, so a font that
+ *  can't draw them is already visibly broken elsewhere.
  *
- *  If a font ever fails these too, █/░ (Block Elements) is the fallback pair:
- *  the ASCII logo and the progress bar are built from them, so anything that
+ *  If a font ever fails these, █/░ (Block Elements) is the fallback pair: the
+ *  ASCII logo and the progress bar are built from them, so anything that
  *  renders the CLI at all renders those. */
-const TERMINAL_DOT_CHARS = { filled: '•', empty: '·' }
+const TERMINAL_DOT_CHARS = { filled: '●', empty: '○' }
 
 /** The streak line as the CLI draws it. */
 export function getFreebuffStreakLine(
@@ -46,7 +48,7 @@ export function getFreebuffStreakLine(
   return getSharedFreebuffStreakLine(streak, TERMINAL_DOT_CHARS)
 }
 
-/** Rendered width of the streak, e.g. "18 day streak  •••••••+". */
+/** Rendered width of the streak, e.g. "18 day streak  ●●●●●●●+". */
 export function getFreebuffStreakInlineWidth(line: FreebuffStreakLine): number {
   return line.label.length + FREEBUFF_STREAK_LABEL_GAP + line.dots.length
 }

@@ -9,9 +9,9 @@ import {
   getFreebuffStreakLine,
 } from '../freebuff-streak-line'
 
-// The CLI draws with bullets: the shared ● is missing from plenty of terminal
-// fonts and lands as a tofu box, while • and · are about as universal as
-// glyphs get.
+// The CLI draws the shared ●/○ pair: filled-vs-hollow is what makes a partial
+// week distinguishable from a full one at a glance, which • and · (same shape,
+// different size) never managed.
 describe('getFreebuffStreakLine', () => {
   test('hides the row for new / lapsed users (streak <= 0)', () => {
     expect(getFreebuffStreakLine(0)).toBeNull()
@@ -21,7 +21,7 @@ describe('getFreebuffStreakLine', () => {
   test('labels and fills dots for an active streak', () => {
     expect(getFreebuffStreakLine(2)).toEqual({
       label: '2 day streak',
-      dots: '••·····',
+      dots: '●●○○○○○',
       progress: { filled: 2, total: 7, beyond: false },
     })
   })
@@ -34,7 +34,7 @@ describe('getFreebuffStreakLine', () => {
   test('fills the whole week on a 7-day milestone', () => {
     expect(getFreebuffStreakLine(7)).toEqual({
       label: '7 day streak',
-      dots: '•••••••',
+      dots: '●●●●●●●',
       // filled === total is how a surface without the constant knows the
       // milestone is earned (the desktop banner gates its perk line on it)
       progress: { filled: 7, total: 7, beyond: false },
@@ -44,12 +44,12 @@ describe('getFreebuffStreakLine', () => {
   test('stays full and gains a "+" once the streak passes the week', () => {
     expect(getFreebuffStreakLine(9)).toEqual({
       label: '9 day streak',
-      dots: '•••••••+',
+      dots: '●●●●●●●+',
       progress: { filled: 7, total: 7, beyond: true },
     })
     expect(getFreebuffStreakLine(19)).toEqual({
       label: '19 day streak',
-      dots: '•••••••+',
+      dots: '●●●●●●●+',
       progress: { filled: 7, total: 7, beyond: true },
     })
   })
@@ -58,7 +58,7 @@ describe('getFreebuffStreakLine', () => {
 describe('fitsFreebuffStreakOnHeadingRow', () => {
   const headingWidth = 'Start coding for free'.length
   const line = getFreebuffStreakLine(18)!
-  // "18 day streak" + 2 + "•••••••+"
+  // "18 day streak" + 2 + "●●●●●●●+"
   const inlineWidth = getFreebuffStreakInlineWidth(line)
   const exact = headingWidth + FREEBUFF_STREAK_INLINE_GAP + inlineWidth
 
