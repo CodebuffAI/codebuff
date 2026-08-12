@@ -1,4 +1,5 @@
 import type { FreebuffAccessTier } from '../constants/freebuff-models'
+import type { FreebuffStandingInfo } from '../constants/freebuff-trust'
 
 /**
  * Wire-level shapes returned by `/api/v1/freebuff/session`. Source of truth
@@ -290,6 +291,15 @@ export type FreebuffSessionServerResponse = (
        *  renders a picker. Absent whenever the pool is spent or the offer is
        *  off — see FreebuffLimitedModelOffer. */
       limitedModelOffers?: FreebuffLimitedModelOffer[]
+      /**
+       * The account's Access Level and the limits it currently selects.
+       *
+       * Sent on the pre-join response only, which is the state that renders a
+       * picker and therefore the one place a client can explain the numbers
+       * next to the models they apply to. Absent when the feature is off, so
+       * a client renders it only when there is something true to render.
+       */
+      standing?: FreebuffStandingInfo
     } & FreebuffLimitedModeReason)
   | ({
       status: 'active'
