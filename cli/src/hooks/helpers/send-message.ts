@@ -14,6 +14,8 @@ import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
   getCountryBlockFromFreeModeError,
+  getFreebuffOnboardingRequiredMessage,
+  isFreebuffOnboardingRequiredError,
   getFreeModeUnavailableErrorMessage,
   getFreebuffGateErrorKind,
   getFreebuffRateLimitErrorMessage,
@@ -425,6 +427,14 @@ export const handleRunCompletion = (params: {
           },
         )
       }
+      finalizeAfterError()
+      return
+    }
+
+    // Checked before the gate/rate-limit branches: this is terminal for the
+    // run and no amount of waiting clears it.
+    if (IS_FREEBUFF && isFreebuffOnboardingRequiredError(output)) {
+      updater.setError(getFreebuffOnboardingRequiredMessage(output))
       finalizeAfterError()
       return
     }

@@ -9,6 +9,8 @@
 
 /** Why a signup was refused. Also the `?error=` code on the login redirect. */
 export type SignupBlockReason =
+  | 'captcha_missing'
+  | 'captcha_invalid'
   | 'mailbox_already_registered'
   | 'privacy_egress'
   | 'untrusted_client_ip'
@@ -25,6 +27,10 @@ export type SignupBlockReason =
  * being broken, and generates a support ticket instead of a retry.
  */
 export const SIGNUP_BLOCK_MESSAGES: Record<SignupBlockReason, string> = {
+  captcha_missing:
+    'Please complete the verification check on the sign-in page and try again.',
+  captcha_invalid:
+    'That verification check could not be confirmed. Please try again.',
   mailbox_already_registered:
     'An account already exists for this email address. Try signing in instead.',
   privacy_egress:

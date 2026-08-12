@@ -14,6 +14,11 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.url().min(1),
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
   NEXT_PUBLIC_WEB_PORT: z.coerce.number().min(1000),
+  /** Cloudflare Turnstile site key for the signup challenge. Public by design —
+   *  the secret half is server-only (`TURNSTILE_SECRET_KEY`). Optional so a dev
+   *  checkout without Turnstile configured still boots; the server gate decides
+   *  whether a missing key means "skip" or "refuse". */
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   /** Human Behavior session-replay write key for Freebuff Web. Public by
    *  design — it only authorizes ingestion. Optional so a dev checkout without
    *  it boots with replay simply switched off. */
@@ -45,6 +50,7 @@ export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID:
     process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID,
   NEXT_PUBLIC_WEB_PORT: process.env.NEXT_PUBLIC_WEB_PORT,
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
   NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY:
     process.env.NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY,
   NEXT_PUBLIC_HUMANBEHAVIOR_INGESTION_URL:
