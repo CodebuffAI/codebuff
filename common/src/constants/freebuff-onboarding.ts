@@ -28,8 +28,6 @@ export type OnboardingOption = {
 export type OnboardingQuestion = {
   id: OnboardingQuestionId
   prompt: string
-  /** Shown under the prompt when the question needs framing. */
-  hint?: string
   options: OnboardingOption[]
   /** Whether more than one option may be chosen. */
   multi: boolean
@@ -93,7 +91,6 @@ export const FREEBUFF_ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
   {
     id: 'intended_use',
     prompt: 'What do you want to use Freebuff for?',
-    hint: 'Pick as many as apply.',
     options: [
       { id: 'side_projects', label: 'Personal or side projects' },
       { id: 'work', label: 'Work / production code' },
@@ -123,7 +120,9 @@ export type OnboardingSubmission = {
 export const ONBOARDING_OTHER_TEXT_MAX = 200
 
 export type OnboardingValidationError = {
-  questionId: OnboardingQuestionId
+  /** Null when the complaint is about the submission as a whole rather than
+   *  about one question — the only such case is an entirely empty one. */
+  questionId: OnboardingQuestionId | null
   message: string
 }
 
@@ -146,8 +145,10 @@ export function validateOnboardingSubmission(
     const answer = submission.answers.find((a) => a.questionId === question.id)
     const optionIds = answer?.optionIds ?? []
 
+    // An unanswered question is not an error — the form is skippable, so a
+    // partial submission is the expected shape rather than a degraded one.
+    // Only a submission with nothing in it at all is refused, below.
     if (optionIds.length === 0) {
-      errors.push({ questionId: question.id, message: 'Please choose an option.' })
       continue
     }
     if (!question.multi && optionIds.length > 1) {
@@ -183,10 +184,18 @@ export function validateOnboardingSubmission(
     })
   }
 
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, answers: cleaned }
+  if (errors.length > 0) return { ok: false, errors }
+  if (cleaned.length === 0) {
+    return {
+      ok: false,
+      errors: [{ questionId: null, message: 'Answer at least one question.' }],
+    }
+  }
+  return { ok: true, answers: cleaned }
 }
 
-/** Every question answered — the completion test the blocking gate uses. */
+/** Every question answered. Decides only whether someone who returns to the
+ *  form still sees it — nothing is withheld either way. */
 export function isOnboardingComplete(
   answers: readonly OnboardingAnswer[] | null | undefined,
   questions: readonly OnboardingQuestion[] = FREEBUFF_ONBOARDING_QUESTIONS,

@@ -2,96 +2,66 @@ import { describe, expect, it } from 'bun:test'
 
 import {
   evaluateOnboardingRequirement,
-  parseOnboardingCutover,
+  ONBOARDING_SEEN_COOKIE,
+  ONBOARDING_SEEN_TTL_SECONDS,
+  parseOnboardingEnabled,
 } from '../freebuff-onboarding-gate'
 
-const CUTOVER = new Date('2026-08-12T00:00:00.000Z')
-const BEFORE = new Date('2026-08-01T00:00:00.000Z')
-const AFTER = new Date('2026-08-13T00:00:00.000Z')
-
-describe('existing users are never affected', () => {
-  it('never requires an account created before the cutover', () => {
-    // The load-bearing case. ~203,000 accounts predate this feature; they never
-    // saw the questions and must never be stopped by them.
+describe('evaluateOnboardingRequirement', () => {
+  it('asks nobody while the switch is off', () => {
+    // The load-bearing polarity: absence of config disables the feature. The
+    // opposite convention would show a form nobody decided to launch to every
+    // user at once.
     const result = evaluateOnboardingRequirement({
-      accountCreatedAt: BEFORE,
-      requiredAfter: CUTOVER,
-      complete: false,
-    })
-    expect(result).toEqual({ required: false, reason: 'pre_existing_account' })
-  })
-
-  it('exempts an account created at the exact cutover instant minus a millisecond', () => {
-    const result = evaluateOnboardingRequirement({
-      accountCreatedAt: new Date(CUTOVER.getTime() - 1),
-      requiredAfter: CUTOVER,
+      enabled: false,
       complete: false,
     })
     expect(result.required).toBe(false)
+    if (result.required) throw new Error('unreachable')
+    expect(result.reason).toBe('gate_disabled')
   })
 
-  it('requires an account created at the cutover instant itself', () => {
+  it('asks anyone who has not answered, regardless of account age', () => {
+    // Deliberately no cutover: a long-standing account that never answered is
+    // exactly who we have the least data about. Skip and the seen-cookie are
+    // what keep this from being a burden.
+    expect(
+      evaluateOnboardingRequirement({ enabled: true, complete: false }).required,
+    ).toBe(true)
+  })
+
+  it('stops asking once the answers are in', () => {
     const result = evaluateOnboardingRequirement({
-      accountCreatedAt: CUTOVER,
-      requiredAfter: CUTOVER,
-      complete: false,
+      enabled: true,
+      complete: true,
     })
-    expect(result.required).toBe(true)
+    expect(result.required).toBe(false)
+    if (result.required) throw new Error('unreachable')
+    expect(result.reason).toBe('already_complete')
   })
 })
 
-describe('missing configuration disables the gate rather than applying it', () => {
-  it('requires nobody when no cutover is set', () => {
-    // Absence must not mean "everyone". The opposite convention already cost
-    // this repo seven hours once; here it would lock out every user at once.
-    const result = evaluateOnboardingRequirement({
-      accountCreatedAt: AFTER,
-      requiredAfter: null,
-      complete: false,
-    })
-    expect(result).toEqual({ required: false, reason: 'gate_disabled' })
-  })
-
-  it('parses only a usable instant, and nulls everything else', () => {
-    expect(parseOnboardingCutover('2026-08-12T00:00:00Z')?.toISOString()).toBe(
-      '2026-08-12T00:00:00.000Z',
-    )
-    for (const bad of [undefined, null, '', '   ', 'next tuesday', 'yes']) {
-      expect(parseOnboardingCutover(bad as string)).toBeNull()
+describe('parseOnboardingEnabled', () => {
+  it('accepts the affirmative spellings', () => {
+    for (const raw of ['on', 'ON', ' true ', '1']) {
+      expect(parseOnboardingEnabled(raw)).toBe(true)
     }
   })
 
-  it('lets a user through when their account age is unreadable', () => {
-    // Deliberately the opposite of the trust-tier convention, where unknown age
-    // means `new`. There, unknown costs some headroom; here it would cost
-    // access entirely, so the safe default flips.
-    const result = evaluateOnboardingRequirement({
-      accountCreatedAt: null,
-      requiredAfter: CUTOVER,
-      complete: false,
-    })
-    expect(result).toEqual({ required: false, reason: 'unknown_account_age' })
+  it('treats anything else as off', () => {
+    // Unset, empty and misspelt all fail the same safe way — nothing about a
+    // broken value should be able to switch a user-facing screen on.
+    for (const raw of [undefined, null, '', '   ', 'off', 'yes', 'enabled']) {
+      expect(parseOnboardingEnabled(raw)).toBe(false)
+    }
   })
 })
 
-describe('new users', () => {
-  it('requires a post-cutover account that has not answered', () => {
-    expect(
-      evaluateOnboardingRequirement({
-        accountCreatedAt: AFTER,
-        requiredAfter: CUTOVER,
-        complete: false,
-      }),
-    ).toEqual({ required: true })
-  })
-
-  it('stops requiring once they have answered', () => {
-    expect(
-      evaluateOnboardingRequirement({
-        accountCreatedAt: AFTER,
-        requiredAfter: CUTOVER,
-        complete: true,
-      }),
-    ).toEqual({ required: false, reason: 'already_complete' })
+describe('seen cookie', () => {
+  it('is a stable name with a months-long life', () => {
+    // The name is read by the `/web` layout and written by the welcome page;
+    // changing it re-asks everyone, so it is pinned here on purpose.
+    expect(ONBOARDING_SEEN_COOKIE).toBe('fb_onboarding_seen')
+    expect(ONBOARDING_SEEN_TTL_SECONDS).toBe(180 * 24 * 60 * 60)
   })
 })

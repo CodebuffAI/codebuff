@@ -1,8 +1,4 @@
 import { FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN } from '@codebuff/common/constants/freebuff-errors'
-import {
-  ONBOARDING_REQUIRED_ERROR,
-  ONBOARDING_REQUIRED_MESSAGE,
-} from '@codebuff/common/constants/freebuff-onboarding-gate'
 import { env } from '@codebuff/common/env'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
@@ -63,26 +59,6 @@ export const isFreeModeUnavailableError = (error: unknown): boolean => {
     details.errorCode === 'free_mode_unavailable'
   )
 }
-
-/**
- * The account owes onboarding answers. Distinct from every rate-limit and
- * country code because the recovery is different in kind: nothing here is
- * retryable and no countdown will clear it — the user has to open the web app
- * once. Falls back to a local message so an older server that omits one still
- * tells the user what to do.
- */
-export const isFreebuffOnboardingRequiredError = (error: unknown): boolean => {
-  const details = getCliApiErrorDetails(error)
-  return (
-    details.statusCode === 403 &&
-    details.errorCode === ONBOARDING_REQUIRED_ERROR
-  )
-}
-
-export const getFreebuffOnboardingRequiredMessage = (
-  error: unknown,
-): string =>
-  getCliApiErrorDetails(error).message ?? ONBOARDING_REQUIRED_MESSAGE
 
 const getTopLevelApiErrorDetails = (
   error: unknown,

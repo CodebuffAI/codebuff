@@ -1,80 +1,72 @@
 /**
- * Who the onboarding requirement applies to.
+ * Who gets shown the onboarding form.
  *
- * The requirement is blocking: an account that owes answers cannot use free
- * mode on any surface. That makes "who does it apply to" the single most
- * dangerous decision in the feature, because getting it wrong locks out real
- * people who did nothing.
+ * Nothing here is a permission check. Onboarding never refuses a request on any
+ * surface — the entire mechanism is one redirect, to a form with a Skip button,
+ * fired at most once per browser. What this decides is who is interrupted.
  *
- * So it is scoped by a CUTOVER INSTANT. Only accounts created at or after it
- * are ever required, and the ~203,000 accounts that predate the feature are
- * permanently exempt — they never saw the questions and must never be stopped
- * by them.
+ * The answer is: **anyone who has not answered, once.** New signups get it on
+ * their way in; a long-standing account gets it the next time they sign in
+ * through the web portal. There is deliberately no cutover date any more. One
+ * existed when the form was a blocking gate, to keep existing users from being
+ * locked out of a product they already used — with nothing to lock them out of,
+ * a cutover only means never learning anything about the 200,000 accounts we
+ * already have. The Skip button and the seen-cookie are what protect them now,
+ * and they cost a single dismissible screen instead of an exemption.
  *
- * The polarity is deliberate and load-bearing: **an unset or unparseable
- * cutover requires NOBODY.** Absence of config disables the gate rather than
- * enabling it universally. This repo has already paid for the opposite
- * convention once — a deleted env var silently activating a default is
- * documented in db-capacity-and-scaling.md §10.6 — and here that mistake would
- * present as every existing user being locked out at once.
+ * The polarity is deliberate: **an unset or `off` switch shows it to NOBODY.**
+ * Absence of config disables the feature rather than enabling it universally.
+ * This repo has already paid for the opposite convention once — a deleted env
+ * var silently activating a default is documented in
+ * db-capacity-and-scaling.md §10.6 — and here that mistake would present as
+ * every user meeting a form nobody decided to launch.
  */
 
 export type OnboardingRequirementInput = {
-  /** When the account was created. Null/unknown is treated as pre-existing. */
-  accountCreatedAt: Date | null | undefined
-  /** Parsed `FREEBUFF_ONBOARDING_REQUIRED_AFTER`. Null disables the gate. */
-  requiredAfter: Date | null
+  /** Parsed `FREEBUFF_ONBOARDING_ENABLED`. */
+  enabled: boolean
   /** Whether the user has answered every question. */
   complete: boolean
 }
 
 export type OnboardingRequirement =
-  | { required: false; reason: 'gate_disabled' | 'pre_existing_account' | 'already_complete' | 'unknown_account_age' }
+  | { required: false; reason: 'gate_disabled' | 'already_complete' }
   | { required: true }
 
 export function evaluateOnboardingRequirement(
   input: OnboardingRequirementInput,
 ): OnboardingRequirement {
-  // No cutover configured — nobody is required. See the polarity note above.
-  if (!input.requiredAfter) return { required: false, reason: 'gate_disabled' }
-
-  // An account whose age we cannot read is treated as pre-existing. This is the
-  // opposite of the trust-tier convention, where unknown age means `new`, and
-  // the asymmetry is intentional: there, unknown costs a user some headroom;
-  // here, unknown would cost them access entirely. When the failure is a
-  // lockout, the safe default is to let them through.
-  if (!input.accountCreatedAt) {
-    return { required: false, reason: 'unknown_account_age' }
-  }
-
-  if (input.accountCreatedAt.getTime() < input.requiredAfter.getTime()) {
-    return { required: false, reason: 'pre_existing_account' }
-  }
-
+  // Not switched on — nobody is asked. See the polarity note above.
+  if (!input.enabled) return { required: false, reason: 'gate_disabled' }
   if (input.complete) return { required: false, reason: 'already_complete' }
-
   return { required: true }
 }
 
 /**
- * Parse the cutover instant.
+ * Read the on/off switch.
  *
- * Returns null for anything unusable — unset, empty, or unparseable — so a
- * typo disables the gate instead of applying it to everyone.
+ * Anything other than an explicit affirmative is off, so a typo, an empty
+ * string or a deleted variable all fail the same safe way.
  */
-export function parseOnboardingCutover(
-  raw: string | null | undefined,
-): Date | null {
-  const trimmed = raw?.trim()
-  if (!trimmed) return null
-  const parsed = new Date(trimmed)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
+export function parseOnboardingEnabled(raw: string | null | undefined): boolean {
+  const trimmed = raw?.trim().toLowerCase()
+  return trimmed === 'on' || trimmed === 'true' || trimmed === '1'
 }
 
-/** Error code surfaced to non-web clients (CLI, desktop, cloud) when a user
- *  owes answers. Distinct from every rate-limit code so clients can render a
- *  "finish setup" prompt rather than a retry countdown. */
-export const ONBOARDING_REQUIRED_ERROR = 'onboarding_required'
+/**
+ * Marks a browser that has already been shown the form.
+ *
+ * Onboarding is asked once, on the web — it never gates a request on any
+ * surface, which is why there is no wire error code here and why the CLI and
+ * desktop have nothing to render. The whole mechanism is one redirect that
+ * fires at most once per browser.
+ *
+ * Set client-side on arrival at the form and read by the `/web` layout.
+ * Deliberately not httpOnly and not authoritative: clearing it costs the user
+ * one more chance to answer, which is the harmless direction to fail.
+ */
+export const ONBOARDING_SEEN_COOKIE = 'fb_onboarding_seen'
 
-export const ONBOARDING_REQUIRED_MESSAGE =
-  'Finish setting up your account at freebuff.com to continue — it takes about 20 seconds.'
+/** 180 days. Long enough that nobody is asked twice in any span they would
+ *  remember, short enough that a much later question set gets another look. */
+export const ONBOARDING_SEEN_TTL_SECONDS = 180 * 24 * 60 * 60

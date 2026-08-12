@@ -7,8 +7,6 @@ import {
   isOutOfCreditsError,
   isFreeModeUnavailableError,
   getCountryBlockFromFreeModeError,
-  getFreebuffOnboardingRequiredMessage,
-  isFreebuffOnboardingRequiredError,
   OUT_OF_CREDITS_MESSAGE,
   FREE_MODE_UNAVAILABLE_MESSAGE,
   FREEBUFF_RATE_LIMIT_MESSAGE,
@@ -304,40 +302,6 @@ describe('error-handling', () => {
         isFreebuffProviderUsageError({
           statusCode: 500,
           message: 'Internal server error',
-        }),
-      ).toBe(false)
-    })
-  })
-
-  describe('isFreebuffOnboardingRequiredError', () => {
-    test('recognizes the code from a response body', () => {
-      const error = {
-        statusCode: 403,
-        responseBody: JSON.stringify({
-          error: 'onboarding_required',
-          message: 'Finish setting up your account.',
-        }),
-      }
-      expect(isFreebuffOnboardingRequiredError(error)).toBe(true)
-      expect(getFreebuffOnboardingRequiredMessage(error)).toBe(
-        'Finish setting up your account.',
-      )
-    })
-
-    test('falls back to a local message when the server sends none', () => {
-      expect(
-        getFreebuffOnboardingRequiredMessage({
-          statusCode: 403,
-          error: 'onboarding_required',
-        }),
-      ).toContain('freebuff.com')
-    })
-
-    test('does not claim other 403s', () => {
-      expect(
-        isFreebuffOnboardingRequiredError({
-          statusCode: 403,
-          error: 'free_mode_unavailable',
         }),
       ).toBe(false)
     })
