@@ -90,6 +90,32 @@ describe('FreebuffModelSelector referral selection', () => {
 })
 
 describe('FreebuffModelSelector tier layout', () => {
+  test('keeps the referral copy and dashboard actions on one condensed row', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      referral: {
+        code: 'test-referral',
+        referrerName: null,
+        qualifiedCount: 0,
+        weeklySessionsRemaining: 0,
+        resetAt: new Date(Date.now() + 60_000).toISOString(),
+        githubLinked: true,
+      },
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+
+    const frame = (await renderSelector()).captureCharFrame()
+    const actionRow =
+      frame.split('\n').find((line) => line.includes('Copy invite link')) ?? ''
+
+    expect(actionRow).toContain('Open GLM 5.2 dashboard')
+    expect(frame).not.toContain('Or earn')
+    expect(frame).not.toContain('for small tasks')
+  })
+
   test('orders Luna above MiniMax while keeping the saved premium model focused', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',

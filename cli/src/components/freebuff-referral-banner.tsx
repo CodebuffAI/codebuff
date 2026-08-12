@@ -35,44 +35,31 @@ function referralLink(code: string, referrerName: string | null): string {
 
 /** Where a user goes to earn a GLM session without referring anyone. */
 const EARN_URL = `${LOGIN_WEBSITE_URL}/earn`
+const DASHBOARD_LABEL = 'Open GLM 5.2 dashboard ↵'
+// The focus marker reserves two columns so keyboard navigation does not shift
+// the rest of the action row.
+const DASHBOARD_BUTTON_WIDTH = DASHBOARD_LABEL.length + 2
 
-/**
- * The other way to get GLM 5.2, advertised wherever referrals are.
- *
- * Referrals only pay when somebody else shows up, which is nothing for a user
- * with no audience — bounties pay for work they control, and grant a session
- * that is redeemable from any region. The URL is still spelled out: the
- * dashboard button below opens it, but a terminal that cannot reach a browser
- * (ssh, a container) leaves the user with something they can copy.
- */
-function BountyPitchLine({
+/** The temporary promo still needs its deadline even though the standing
+ * bounty pitch is already covered elsewhere in the picker and Earn page. */
+function BountyPromoLine({
   theme,
   promo,
 }: {
   theme: ReturnType<typeof useTheme>
   promo?: FreebuffGlmPromo
 }) {
+  if (!promo) return null
   return (
-    <box style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-      <text style={{ wrapMode: 'word' }}>
-        <span fg={theme.muted}>✦ Or earn </span>
-        <span fg={theme.foreground}>GLM 5.2</span>
-        <span fg={theme.muted}> for small tasks: {EARN_URL}</span>
-      </text>
-      {promo && (
-        <text style={{ wrapMode: 'word' }}>
-          <span fg={theme.success ?? theme.foreground}>
-            ✦ Promo: earn a bounty, spend up to {promo.dailySessions} a day
-          </span>
-          <span fg={theme.muted}> (ends {formatPromoEnd(promo.endsAt)})</span>
-        </text>
-      )}
-    </box>
+    <text style={{ wrapMode: 'word' }}>
+      <span fg={theme.success ?? theme.foreground}>
+        ✦ Promo: earn a bounty, spend up to {promo.dailySessions} a day
+      </span>
+      <span fg={theme.muted}> (ends {formatPromoEnd(promo.endsAt)})</span>
+    </text>
   )
 }
 
-/** Short, local date for the promo's end. The server sends the instant; every
- *  surface formats it, so none of them can drift from the real window. */
 function DashboardButton({
   theme,
   focused,
@@ -86,13 +73,16 @@ function DashboardButton({
     <Button onClick={onOpen}>
       <text style={{ wrapMode: 'word' }}>
         <span fg={focused ? theme.foreground : theme.secondary}>
-          {focused ? '▶ ' : '  '}Open GLM 5.2 dashboard ↵
+          {focused ? '▶ ' : '  '}
+          {DASHBOARD_LABEL}
         </span>
       </text>
     </Button>
   )
 }
 
+/** Short, local date for the promo's end. The server sends the instant; every
+ * surface formats it, so none of them can drift from the real window. */
 function formatPromoEnd(endsAt: string): string {
   const at = new Date(endsAt)
   return Number.isNaN(at.getTime())
@@ -115,10 +105,10 @@ export interface FreebuffReferralFocusTarget {
   activate: () => void
 }
 
-/** Below this menu width, the two unlocked-card actions no longer fit beside
- * each other. */
+/** Below this menu width, the model action and referral/dashboard action group
+ * no longer fit beside each other. */
 const shouldStackFreebuffReferralActions = (width: number): boolean =>
-  width < 62
+  width < 70
 
 const firstLabelThatFits = (
   availableWidth: number,
@@ -183,7 +173,7 @@ const CopyInviteLinkButton: React.FC<{
         onClick={onCopy}
         onMouseOver={() => setIsHovered(true)}
         onMouseOut={() => setIsHovered(false)}
-        style={{ marginTop: 1, flexShrink: 0 }}
+        style={{ flexShrink: 0 }}
       >
         <text style={{ wrapMode: 'none' }}>
           <span
@@ -312,9 +302,8 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
 
   // Register this banner's buttons as keyboard focus targets so the model
   // selector's arrow navigation flows from "see all models" into them (and
-  // wraps back up). The limited variant and the full-tier locked state show
-  // just the copy button; the full-tier unlocked card leads with "Use GLM 5.2"
-  // then the invite button.
+  // wraps back up). Locked states show copy then dashboard; the unlocked card
+  // leads with "Use GLM 5.2", then copy and dashboard.
   // A limited-tier user can now hold GLM sessions too — bounty grants are
   // redeemable in every region — so the unlocked card is keyed on the balance
   // alone rather than on the tier.
@@ -322,6 +311,30 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   const openDashboard = useCallback(() => {
     void safeOpen(EARN_URL)
   }, [])
+  const lockedReferralActions = (
+    <box
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 0,
+        marginTop: 1,
+        flexShrink: 0,
+      }}
+    >
+      <CopyInviteLinkButton
+        isCopied={isCopied}
+        focused={copyFocused}
+        onCopy={copy}
+        availableWidth={Math.max(0, width - DASHBOARD_BUTTON_WIDTH)}
+        variant="inline"
+      />
+      <DashboardButton
+        theme={theme}
+        focused={dashboardFocused}
+        onOpen={openDashboard}
+      />
+    </box>
+  )
 
   useEffect(() => {
     onFocusTargetsChange(
@@ -382,19 +395,8 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
             </span>
           )}
         </text>
-        <CopyInviteLinkButton
-          isCopied={isCopied}
-          focused={copyFocused}
-          onCopy={copy}
-          availableWidth={width}
-          variant="inline"
-        />
-        <BountyPitchLine theme={theme} promo={glmPromo} />
-        <DashboardButton
-          theme={theme}
-          focused={dashboardFocused}
-          onOpen={openDashboard}
-        />
+        {lockedReferralActions}
+        <BountyPromoLine theme={theme} promo={glmPromo} />
       </box>
     )
   }
@@ -444,19 +446,8 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
             </>
           )}
         </text>
-        <CopyInviteLinkButton
-          isCopied={isCopied}
-          focused={copyFocused}
-          onCopy={copy}
-          availableWidth={width}
-          variant="inline"
-        />
-        <BountyPitchLine theme={theme} promo={glmPromo} />
-        <DashboardButton
-          theme={theme}
-          focused={dashboardFocused}
-          onOpen={openDashboard}
-        />
+        {lockedReferralActions}
+        <BountyPromoLine theme={theme} promo={glmPromo} />
       </box>
     )
   }
@@ -472,6 +463,12 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
     '▶ GLM 5.2',
     '▶ GLM',
   ])
+  const inviteAvailableWidth = stackActions
+    ? actionRowWidth - DASHBOARD_BUTTON_WIDTH
+    : actionRowWidth -
+      (glmLabel.length + BUTTON_HORIZONTAL_CHROME) -
+      2 -
+      DASHBOARD_BUTTON_WIDTH
   // No "max earned" state: the reward is uncapped, so inviting always adds
   // another daily session.
   const inviteLabels = [
@@ -559,23 +556,30 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
             </span>
           </text>
         </Button>
-        <CopyInviteLinkButton
-          isCopied={isCopied}
-          focused={copyFocused}
-          onCopy={copy}
-          availableWidth={actionRowWidth}
-          labels={inviteLabels}
-        />
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 0,
+            flexShrink: 0,
+          }}
+        >
+          <CopyInviteLinkButton
+            isCopied={isCopied}
+            focused={copyFocused}
+            onCopy={copy}
+            availableWidth={inviteAvailableWidth}
+            labels={inviteLabels}
+          />
+          <DashboardButton
+            theme={theme}
+            focused={dashboardFocused}
+            onOpen={openDashboard}
+          />
+        </box>
       </box>
 
-      {/* Even holding sessions, the way to get MORE without an audience is a
-          bounty — so the pitch rides the unlocked card too. */}
-      <BountyPitchLine theme={theme} promo={glmPromo} />
-      <DashboardButton
-        theme={theme}
-        focused={dashboardFocused}
-        onOpen={openDashboard}
-      />
+      <BountyPromoLine theme={theme} promo={glmPromo} />
 
       {!githubLinked && (
         <Button

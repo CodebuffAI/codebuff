@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { BORDER_CHARS } from '../utils/ui-constants'
+import { BORDER_CHARS, INVERTED_CTA_FG } from '../utils/ui-constants'
 
 import type { AdResponse } from '../hooks/use-gravity-ad'
 
@@ -228,7 +228,7 @@ export const AdCard: React.FC<{
       <box style={{ flexDirection: 'row', columnGap: 1, alignItems: 'center', height: 1, overflow: 'hidden' }}>
         <text
           style={{
-            fg: theme.name === 'light' ? '#ffffff' : theme.background,
+            fg: INVERTED_CTA_FG,
             bg: isHovered ? theme.primary : theme.muted,
             attributes: TextAttributes.BOLD,
           }}
