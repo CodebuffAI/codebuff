@@ -55,7 +55,7 @@ export async function withTimeout<T>(
   timeoutMs: number,
   timeoutMessage: string = `Operation timed out after ${timeoutMs}ms`,
 ): Promise<T> {
-  let timeoutId: NodeJS.Timeout
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -63,11 +63,11 @@ export async function withTimeout<T>(
     }, timeoutMs)
   })
 
-  return Promise.race([
-    promise.then((result) => {
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timeoutId !== undefined) {
       clearTimeout(timeoutId)
-      return result
-    }),
-    timeoutPromise,
-  ])
+    }
+  }
 }
