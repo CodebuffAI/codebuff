@@ -419,6 +419,10 @@ export enum AnalyticsEvent {
   // "opening a new tab is incredibly slow" report could not be answered from
   // server-side timings alone.
   DESKTOP_EVENT_LOOP_HEALTH = 'desktop.event_loop_health',
+  // Background lifecycle outcomes. Counts are bucketed and conflict changes
+  // emit only on transitions, so periodic scans do not create cardinality or volume churn.
+  DESKTOP_THREADS_AUTO_ARCHIVED = 'desktop.threads_auto_archived',
+  DESKTOP_DELIVERY_CONFLICT_CHANGED = 'desktop.delivery_conflict_changed',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
