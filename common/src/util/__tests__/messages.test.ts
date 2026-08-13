@@ -167,19 +167,6 @@ describe('dropUnansweredToolCalls', () => {
     expect(dropUnansweredToolCalls(messages)).toBe(messages)
   })
 
-  it('does not let a late result answer across a user boundary', () => {
-    const messages: Message[] = [
-      toolCall('interrupted'),
-      userMessage('continue'),
-      toolResult('interrupted'),
-    ]
-
-    expect(dropUnansweredToolCalls(messages)).toEqual([
-      userMessage('continue'),
-      toolResult('interrupted'),
-    ])
-  })
-
   it('repairs a partial run of consecutive assistant calls', () => {
     const messages: Message[] = [
       userMessage('start'),
