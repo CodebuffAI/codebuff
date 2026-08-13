@@ -4,6 +4,7 @@ import {
   normalizeAgentIdForLookup,
   parseAgentId,
 } from '@codebuff/common/util/agent-id-parsing'
+import { dropUnansweredToolCalls } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import {
@@ -12,7 +13,6 @@ import {
 } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValueForError } from '../../../util/format-value'
-import { filterUnfinishedToolCalls } from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
@@ -299,7 +299,7 @@ export function createAgentState(
     // Session state comes from clients and can contain older interrupted tool
     // calls and synthetic spawn announcements from earlier releases. Keep
     // filtering both so inherited history is provider-safe and unambiguous.
-    messageHistory = filterUnfinishedToolCalls(
+    messageHistory = dropUnansweredToolCalls(
       historyBeforeSpawn.filter(
         (message) => !message.tags?.includes('SUBAGENT_SPAWN'),
       ),

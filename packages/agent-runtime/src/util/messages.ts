@@ -311,55 +311,6 @@ export function expireMessages(
   })
 }
 
-/**
- * Removes tool calls from the message history that don't have corresponding tool responses.
- * This is important when passing message history to spawned agents, as unfinished tool calls
- * will cause issues with the LLM expecting tool responses.
- *
- * The function:
- * 1. Collects all toolCallIds from tool response messages
- * 2. Filters assistant messages to remove tool-call content parts without responses
- * 3. Removes assistant messages that become empty after filtering
- */
-export function filterUnfinishedToolCalls(messages: Message[]): Message[] {
-  // Collect all toolCallIds that have corresponding tool responses
-  const respondedToolCallIds = new Set<string>()
-  for (const message of messages) {
-    if (message.role === 'tool') {
-      respondedToolCallIds.add(message.toolCallId)
-    }
-  }
-
-  // Filter messages, removing unfinished tool calls from assistant messages
-  const filteredMessages: Message[] = []
-  for (const message of messages) {
-    // Session state arrives from clients, so don't assume the documented shape:
-    // a non-array content would throw below and turn a bad history into a 500.
-    if (message.role !== 'assistant' || !Array.isArray(message.content)) {
-      filteredMessages.push(message)
-      continue
-    }
-
-    // Filter out tool-call content parts that don't have responses
-    const filteredContent = message.content.filter((part) => {
-      if (part.type !== 'tool-call') {
-        return true
-      }
-      return respondedToolCallIds.has(part.toolCallId)
-    })
-
-    // Only include the assistant message if it has content after filtering
-    if (filteredContent.length > 0) {
-      filteredMessages.push({
-        ...message,
-        content: filteredContent,
-      })
-    }
-  }
-
-  return filteredMessages
-}
-
 export function getEditedFiles(params: {
   messages: Message[]
   logger: Logger

@@ -5,6 +5,7 @@ import {
   withCacheControl,
   withoutCacheControl,
   convertCbToModelMessages,
+  dropUnansweredToolCalls,
   systemMessage,
   userMessage,
   assistantMessage,
@@ -139,7 +140,135 @@ describe('withoutCacheControl', () => {
   })
 })
 
+describe('dropUnansweredToolCalls', () => {
+  const toolCall = (toolCallId: string) =>
+    assistantMessage({
+      type: 'tool-call',
+      toolCallId,
+      toolName: 'read_files',
+      input: { paths: ['README.md'] },
+    })
+
+  const toolResult = (toolCallId: string): Message => ({
+    role: 'tool',
+    toolCallId,
+    toolName: 'read_files',
+    content: jsonToolResult({ files: [] }),
+  })
+
+  it('returns valid history unchanged', () => {
+    const messages: Message[] = [
+      userMessage('start'),
+      toolCall('complete'),
+      toolResult('complete'),
+      assistantMessage('done'),
+    ]
+
+    expect(dropUnansweredToolCalls(messages)).toBe(messages)
+  })
+
+  it('does not let a late result answer across a user boundary', () => {
+    const messages: Message[] = [
+      toolCall('interrupted'),
+      userMessage('continue'),
+      toolResult('interrupted'),
+    ]
+
+    expect(dropUnansweredToolCalls(messages)).toEqual([
+      userMessage('continue'),
+      toolResult('interrupted'),
+    ])
+  })
+
+  it('repairs a partial run of consecutive assistant calls', () => {
+    const messages: Message[] = [
+      userMessage('start'),
+      toolCall('complete'),
+      toolCall('interrupted'),
+      toolResult('complete'),
+    ]
+
+    expect(dropUnansweredToolCalls(messages)).toEqual([
+      messages[0],
+      messages[1],
+      messages[3],
+    ])
+  })
+
+  it('removes only unanswered parts without mutating assistant metadata', () => {
+    const assistant = {
+      ...assistantMessage('working'),
+      content: [
+        { type: 'text' as const, text: 'working' },
+        toolCall('complete').content[0],
+        toolCall('interrupted').content[0],
+      ],
+      tags: ['important'],
+    }
+    const messages: Message[] = [assistant, toolResult('complete')]
+
+    expect(dropUnansweredToolCalls(messages)).toEqual([
+      {
+        ...assistant,
+        content: [assistant.content[0], assistant.content[1]],
+      },
+      messages[1],
+    ])
+    expect(assistant.content).toHaveLength(3)
+  })
+
+  it('preserves freestanding tool results', () => {
+    const messages: Message[] = [toolResult('orphan'), userMessage('next')]
+
+    expect(dropUnansweredToolCalls(messages)).toBe(messages)
+  })
+
+  it('preserves provider-executed calls without local results', () => {
+    const messages: Message[] = [
+      assistantMessage({
+        type: 'tool-call',
+        toolCallId: 'provider-call',
+        toolName: 'web_search',
+        input: { query: 'Freebuff' },
+        providerExecuted: true,
+      }),
+    ]
+
+    expect(dropUnansweredToolCalls(messages)).toBe(messages)
+  })
+})
+
 describe('convertCbToModelMessages', () => {
+  describe('unfinished tool-call repair', () => {
+    it('drops a call whose result arrives after a user boundary', () => {
+      const result = convertCbToModelMessages({
+        messages: [
+          userMessage('start'),
+          assistantMessage({
+            type: 'tool-call',
+            toolCallId: 'interrupted-call',
+            toolName: 'read_files',
+            input: { paths: ['README.md'] },
+          }),
+          userMessage('continue'),
+          {
+            role: 'tool',
+            toolCallId: 'interrupted-call',
+            toolName: 'read_files',
+            content: jsonToolResult({ files: [] }),
+          },
+        ],
+        includeCacheControl: false,
+      })
+
+      // The surviving user messages aggregate after the invalid assistant call
+      // is removed. A result later in history cannot answer across the user
+      // boundary, but freestanding tool results remain supported.
+      expect(result.map((message) => message.role)).toEqual(['user', 'tool'])
+      expect(result[0].content).toHaveLength(2)
+    })
+  })
+
   describe('basic message conversion', () => {
     it('should convert system messages', () => {
       const messages: Message[] = [systemMessage('You are a helpful assistant')]
@@ -914,6 +1043,12 @@ describe('convertCbToModelMessages', () => {
           toolName: 'test_tool',
           input: { param: 'value' },
         }),
+        {
+          role: 'tool',
+          toolCallId: 'call_123',
+          toolName: 'test_tool',
+          content: jsonToolResult({ ok: true }),
+        },
       ]
 
       const result = convertCbToModelMessages({
@@ -921,20 +1056,19 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: false,
       })
 
-      expect(result).toEqual([
-        {
-          role: 'assistant',
-          sentAt: expect.any(Number),
-          content: [
-            {
-              type: 'tool-call',
-              toolCallId: 'call_123',
-              toolName: 'test_tool',
-              input: { param: 'value' },
-            },
-          ],
-        },
-      ])
+      expect(result[0]).toEqual({
+        role: 'assistant',
+        sentAt: expect.any(Number),
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_123',
+            toolName: 'test_tool',
+            input: { param: 'value' },
+          },
+        ],
+      })
+      expect(result[1].role).toBe('tool')
     })
 
     it('should preserve message metadata during conversion', () => {

@@ -11,7 +11,10 @@ import type {
   ToolMessage,
   UserMessage,
 } from '../types/messages/codebuff-message'
-import type { ToolResultOutput } from '../types/messages/content-part'
+import type {
+  ToolCallPart,
+  ToolResultOutput,
+} from '../types/messages/content-part'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
 import type {
   AssistantModelMessage,
@@ -290,8 +293,12 @@ export function convertCbToModelMessages({
   includeCacheControl?: boolean
   logger?: Logger
 }): ModelMessage[] {
+  // AI SDK validates tool-call/result pairing before making a request. Repair
+  // at this lowest shared boundary as well as in the runtime step builder so
+  // auxiliary calls and restored SDK state cannot poison a thread permanently.
+  const sendableMessages = dropUnansweredToolCalls(messages)
   const toolMessagesConverted: ModelMessageWithAuxiliaryData[] =
-    convertToolMessages(messages)
+    convertToolMessages(sendableMessages)
 
   const aggregated: ModelMessageWithAuxiliaryData[] = []
   for (const message of toolMessagesConverted) {
@@ -430,6 +437,60 @@ export function convertCbToModelMessages({
   }
 
   return aggregated
+}
+
+/**
+ * Drop local tool calls that were not answered before the next user/system
+ * boundary or the end of history.
+ *
+ * AI SDK validates that boundary before making a request. A result later in
+ * history cannot cross a user/system boundary to answer an interrupted call.
+ * Provider-executed calls need no local answer.
+ *
+ * Tool messages themselves are preserved: the SDK intentionally supports
+ * freestanding results from user-run commands between prompts. The web API's
+ * wire-format sanitizer handles provider-specific orphan and duplicate rules.
+ */
+export function dropUnansweredToolCalls(messages: Message[]): Message[] {
+  const pending = new Map<string, ToolCallPart[]>()
+  const unanswered = new Set<ToolCallPart>()
+  const flushPending = () => {
+    for (const calls of pending.values()) {
+      for (const call of calls) unanswered.add(call)
+    }
+    pending.clear()
+  }
+
+  // Mirror AI SDK's validator: assistant calls add pending ids, tool messages
+  // resolve them, and a user/system boundary (or end of history) requires the
+  // pending set to be empty.
+  for (const message of messages) {
+    if (message.role === 'assistant' && Array.isArray(message.content)) {
+      for (const part of message.content) {
+        if (part.type !== 'tool-call' || part.providerExecuted === true) continue
+        const calls = pending.get(part.toolCallId)
+        if (calls) calls.push(part)
+        else pending.set(part.toolCallId, [part])
+      }
+    } else if (message.role === 'tool') {
+      pending.delete(message.toolCallId)
+    } else if (message.role === 'user' || message.role === 'system') {
+      flushPending()
+    }
+  }
+  flushPending()
+
+  if (unanswered.size === 0) return messages
+
+  return messages.flatMap((message) => {
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+      return [message]
+    }
+    const content = message.content.filter(
+      (part) => part.type !== 'tool-call' || !unanswered.has(part),
+    )
+    return content.length > 0 ? [{ ...message, content }] : []
+  })
 }
 
 // type NoContent<T> = T & { content?: never }

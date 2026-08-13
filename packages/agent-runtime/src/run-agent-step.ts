@@ -17,7 +17,11 @@ import {
   isTransientNetworkError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
-import { systemMessage, userMessage } from '@codebuff/common/util/messages'
+import {
+  dropUnansweredToolCalls,
+  systemMessage,
+  userMessage,
+} from '@codebuff/common/util/messages'
 import { type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 import z from 'zod/v4'
@@ -48,7 +52,6 @@ import {
   withSystemTags as withSystemTags,
   buildUserMessageContent,
   expireMessages,
-  filterUnfinishedToolCalls,
 } from './util/messages'
 import {
   countTokens,
@@ -316,7 +319,7 @@ export const runAgentStep = async (
   // and replayed, that one orphan would fail every later turn, so drop it here
   // — the single point every step's request is built — and assign the cleaned
   // history back so the checkpointed state is valid too.
-  const history = filterUnfinishedToolCalls(
+  const history = dropUnansweredToolCalls(
     expireMessages(agentState.messageHistory, 'agentStep'),
   )
 
