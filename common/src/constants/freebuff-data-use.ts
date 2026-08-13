@@ -25,6 +25,9 @@ export type FreebuffModelDataUse = 'service' | 'training'
  * `freebuff-public-data-use-copy.test.ts`.
  */
 export const FREEBUFF_PUBLIC_DATA_USE_COPY = {
+  collectionQuestion: 'Does Freebuff collect my data?',
+  collectionAnswer:
+    'Freebuff is supported by text ads. We do not collect your traces or files unless the model provider does. Currently, this applies only to DeepSeek models.',
   trainingQuestion: 'Is my data used to train AI?',
   trainingAnswer:
     'Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products.',
