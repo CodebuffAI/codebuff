@@ -86,6 +86,42 @@ export const FREEBUFF_RESTRICTED_DAILY_SPEND_USD = 1
  */
 export const FREEBUFF_RESTRICTED_COUNTRIES: readonly string[] = ['SG', 'CN']
 
+/**
+ * The one sentence every capacity refusal shares.
+ *
+ * ## Why it is one string and not per-cohort copy
+ *
+ * A restricted account (restricted country, flagged domain, observed foreign
+ * toolset) hits its ceiling far sooner than anyone else, and if the message it
+ * saw were different it would be telling the operator which signal caught
+ * them — the exact leak `docs/freebuff-honeypot-models.md` separates detection
+ * from enforcement to avoid. Identical copy for everyone means a $1 account
+ * and a $15 account read the same wall, and neither learns anything about how
+ * it was measured.
+ *
+ * ## Why it names abuse
+ *
+ * Because it is true, and because a limit without a reason reads as a product
+ * that broke or a user who did something wrong. Naming the cause puts it
+ * somewhere other than the reader: "sustained automated abuse" is plainly
+ * about someone else, while still explaining why the rules changed under
+ * someone who did nothing differently.
+ *
+ * ## What it deliberately omits
+ *
+ * Any number. The caps stay server-side for the reason
+ * `docs/freebuff-abuse-detection.md` gives — the abuse pattern here is
+ * sustained pacing just under the caps, so a published cap is a published
+ * pacing instruction. And the surrounding copy on each surface already
+ * supplies the concrete part a user actually needs: when it resets.
+ *
+ * It deliberately does not open with "Free", either: three of the four places
+ * it is used already begin with "Free mode…" or "Free premium-model…", and the
+ * repetition reads as a copy bug.
+ */
+export const FREEBUFF_CAPACITY_NOTICE =
+  'Capacity is now limited per account — sustained automated abuse forced us to cap how much any one account can use.'
+
 export type FreebuffSpendCeilingReason =
   | 'region'
   | 'restricted_country'
