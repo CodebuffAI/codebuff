@@ -717,6 +717,66 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   isNew: true,
 } as const satisfies FreebuffModelOption
 
+/**
+ * The provisioned extended-context tiers.
+ *
+ * Full rows so the provisioning tooling, the usage ledger and support have a
+ * display name and a data-use classification to read, exactly like every other
+ * model. They are deliberately NOT in FREEBUFF_MODELS, FREEBUFF_WEB_MODELS or
+ * any quota list: the tier is granted per account rather than picked, so a
+ * client that rendered one would offer a row most accounts cannot run, and a
+ * quota list would meter a tier whose ceiling is the grant itself.
+ *
+ * Reasoning defaults, pricing and context tracking their base tier is the
+ * point of the suffix — it names the provisioned variant, not a new family.
+ */
+const DEEPSEEK_V4_PRO_MAX_MODEL = {
+  id: FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID,
+  displayName: 'DeepSeek V4 Pro (Max context)',
+  tagline: 'Extended context',
+  availability: 'always',
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
+  premium: false,
+  multimodal: false,
+  reasoningEffort: 'high',
+  defaultEffort: 'high',
+} as const satisfies FreebuffModelOption
+
+const DEEPSEEK_V4_FLASH_MAX_MODEL = {
+  id: FREEBUFF_DEEPSEEK_V4_FLASH_MAX_MODEL_ID,
+  displayName: 'DeepSeek V4 Flash (Max context)',
+  tagline: 'Extended context',
+  availability: 'always',
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
+  premium: false,
+  multimodal: false,
+  reasoningEffort: 'high',
+  defaultEffort: 'high',
+} as const satisfies FreebuffModelOption
+
+const GPT_5_6_LUNA_MAX_MODEL = {
+  id: FREEBUFF_GPT_5_6_LUNA_MAX_MODEL_ID,
+  displayName: 'GPT-5.6 Luna (Max context)',
+  tagline: 'Extended context',
+  availability: 'always',
+  dataUse: 'service',
+  premium: true,
+  multimodal: false,
+  reasoningEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
+} as const satisfies FreebuffModelOption
+
+/**
+ * The provisioned tiers, as rows. Exported for the provisioning tooling and
+ * for support lookups; NOT spread into any catalog, for the reason above.
+ */
+export const FREEBUFF_PROVISIONED_MODELS = [
+  DEEPSEEK_V4_PRO_MAX_MODEL,
+  DEEPSEEK_V4_FLASH_MAX_MODEL,
+  GPT_5_6_LUNA_MAX_MODEL,
+] as const satisfies readonly FreebuffModelOption[]
+
 const MINIMAX_M3_MODEL = {
   id: FREEBUFF_MINIMAX_M3_MODEL_ID,
   displayName: 'MiniMax M3',
