@@ -20,11 +20,8 @@ function imageUrlFromData(data: unknown, mediaType: string): string {
   if (data && typeof data === 'object' && 'type' in data) {
     if (data.type === 'data' && 'data' in data) {
       data = data.data
-    } else if (
-      data.type === 'url' &&
-      'url' in data &&
-      data.url instanceof URL
-    ) {
+    } else if (data.type === 'url' && 'url' in data) {
+      // The tagged `url` may be a plain string, not only a URL instance.
       data = data.url
     }
   }
@@ -34,6 +31,19 @@ function imageUrlFromData(data: unknown, mediaType: string): string {
     throw new UnsupportedFunctionalityError({
       functionality: 'image file data that is not inline bytes or a URL',
     })
+  }
+
+  // Never re-prefix something that is already addressable. `convertToBase64`
+  // passes a string through unchanged (it assumes the string IS base64), so
+  // prefixing a value that already carries its own `data:` scheme yields
+  // `data:image/png;base64,data:image/png;base64,…` — which the provider
+  // rejects with the same "invalid base64-encoded value" 400 that the tagged
+  // -shape handling above exists to prevent, just reached by another route.
+  if (typeof data === 'string') {
+    const trimmed = data.trim()
+    if (trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)) {
+      return trimmed
+    }
   }
 
   return `data:${mediaType};base64,${convertToBase64(data)}`

@@ -100,6 +100,100 @@ describe('user messages', () => {
       },
     ])
   })
+
+  // Callers on `ai` v7 reach this v2 model through the SDK's compatibility
+  // proxy, which forwards a LanguageModelV4 prompt untouched — so `data`
+  // arrives TAGGED, not raw. Reading it as raw stringified the wrapper into
+  // `data:image/png;base64,[object Object]` and 400'd every image turn.
+  describe('LanguageModelV4 tagged file data', () => {
+    it('reads base64 out of a tagged data part', async () => {
+      const result = convertToOpenAICompatibleChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: { type: 'data', data: 'AAECAw==' },
+              mediaType: 'image/png',
+            } as any,
+          ],
+        },
+      ])
+
+      expect(result[0].content).toEqual([
+        {
+          type: 'image_url',
+          image_url: { url: 'data:image/png;base64,AAECAw==' },
+        },
+      ])
+    })
+
+    it('reads bytes out of a tagged data part', async () => {
+      const result = convertToOpenAICompatibleChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
+              mediaType: 'image/png',
+            } as any,
+          ],
+        },
+      ])
+
+      expect(result[0].content).toEqual([
+        {
+          type: 'image_url',
+          image_url: { url: 'data:image/png;base64,AAECAw==' },
+        },
+      ])
+    })
+
+    it('passes a tagged url part through', async () => {
+      const result = convertToOpenAICompatibleChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: { type: 'url', url: new URL('https://example.com/a.png') },
+              mediaType: 'image/png',
+            } as any,
+          ],
+        },
+      ])
+
+      expect(result[0].content).toEqual([
+        {
+          type: 'image_url',
+          image_url: { url: 'https://example.com/a.png' },
+        },
+      ])
+    })
+  })
+
+  it('does not re-prefix data that is already a data URL', async () => {
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'data:image/png;base64,AAECAw==',
+            mediaType: 'image/png',
+          },
+        ],
+      },
+    ])
+
+    expect(result[0].content).toEqual([
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,AAECAw==' },
+      },
+    ])
+  })
 })
 
 describe('tool calls', () => {
