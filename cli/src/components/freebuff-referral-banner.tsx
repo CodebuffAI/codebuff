@@ -33,9 +33,9 @@ function referralLink(code: string, referrerName: string | null): string {
   return `${LOGIN_WEBSITE_URL}/get-started?${params.toString()}`
 }
 
-/** Where a user goes to earn a GLM session without referring anyone. */
-const EARN_URL = `${LOGIN_WEBSITE_URL}/earn`
-const DASHBOARD_LABEL = 'Open GLM 5.2 dashboard ↵'
+/** The referral tab and status section, not the broader Earn landing state. */
+const EARN_URL = `${LOGIN_WEBSITE_URL}/earn?tab=referrals#referral-status`
+const DASHBOARD_LABEL = 'Open referral status ↵'
 // Two columns of leading space separate the label from the copy control beside
 // it (the row itself has no gap), and they stay put in every state so keyboard
 // navigation never shifts the rest of the action row.

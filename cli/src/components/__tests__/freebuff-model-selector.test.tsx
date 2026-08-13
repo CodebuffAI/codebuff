@@ -99,7 +99,7 @@ describe('FreebuffModelSelector referral selection', () => {
 })
 
 describe('FreebuffModelSelector tier layout', () => {
-  test('keeps the referral copy and dashboard actions on one condensed row', async () => {
+  test('keeps the referral actions on one condensed row', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -120,7 +120,7 @@ describe('FreebuffModelSelector tier layout', () => {
     const actionRow =
       frame.split('\n').find((line) => line.includes('Copy invite link')) ?? ''
 
-    expect(actionRow).toContain('Open GLM 5.2 dashboard')
+    expect(actionRow).toContain('Open referral status')
     expect(frame).not.toContain('Or earn')
     expect(frame).not.toContain('for small tasks')
   })
