@@ -14,6 +14,31 @@ function getOpenAIMetadata(message: {
   return message?.providerOptions?.openaiCompatible ?? {}
 }
 
+function imageUrlFromData(data: unknown, mediaType: string): string {
+  // AI SDK 7 adapts this v2 provider to v4, whose file data is tagged. The
+  // compatibility proxy passes that v4 shape through to the v2 implementation.
+  if (data && typeof data === 'object' && 'type' in data) {
+    if (data.type === 'data' && 'data' in data) {
+      data = data.data
+    } else if (
+      data.type === 'url' &&
+      'url' in data &&
+      data.url instanceof URL
+    ) {
+      data = data.url
+    }
+  }
+
+  if (data instanceof URL) return data.toString()
+  if (typeof data !== 'string' && !(data instanceof Uint8Array)) {
+    throw new UnsupportedFunctionalityError({
+      functionality: 'image file data that is not inline bytes or a URL',
+    })
+  }
+
+  return `data:${mediaType};base64,${convertToBase64(data)}`
+}
+
 export function convertToOpenAICompatibleChatMessages(
   prompt: LanguageModelV2Prompt,
   options?: { providerOptionsName?: string; modelId?: string },
@@ -37,17 +62,19 @@ export function convertToOpenAICompatibleChatMessages(
                 return { type: 'text', text: part.text, ...partMetadata }
               }
               case 'file': {
-                if (part.mediaType.startsWith('image/')) {
+                if (
+                  part.mediaType === 'image' ||
+                  part.mediaType.startsWith('image/')
+                ) {
                   const mediaType =
-                    part.mediaType === 'image/*' ? 'image/jpeg' : part.mediaType
+                    part.mediaType === 'image' || part.mediaType === 'image/*'
+                      ? 'image/jpeg'
+                      : part.mediaType
 
                   return {
                     type: 'image_url',
                     image_url: {
-                      url:
-                        part.data instanceof URL
-                          ? part.data.toString()
-                          : `data:${mediaType};base64,${convertToBase64(part.data)}`,
+                      url: imageUrlFromData(part.data, mediaType),
                     },
                     ...partMetadata,
                   }

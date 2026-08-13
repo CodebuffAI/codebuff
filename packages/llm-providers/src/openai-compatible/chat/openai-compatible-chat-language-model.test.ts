@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { streamText } from 'ai'
 
 import { OpenAICompatibleChatLanguageModel } from './openai-compatible-chat-language-model'
 
@@ -173,5 +174,59 @@ describe('OpenAICompatibleChatLanguageModel doStream', () => {
         model: 'test-model',
       },
     })
+  })
+})
+
+describe('AI SDK 7 compatibility', () => {
+  it('serializes tagged image data and URLs', async () => {
+    let requestBody: any
+    let requestedUrls: string[] = []
+    const model = new OpenAICompatibleChatLanguageModel('test-model', {
+      provider: 'test-provider',
+      headers: () => ({}),
+      url: () => 'https://example.test/v1/chat/completions',
+      fetch: (async (_url, init) => {
+        requestBody = JSON.parse(String(init?.body))
+        return sseResponse(['[DONE]'])
+      }) as typeof fetch,
+    })
+
+    const result = streamText({
+      model,
+      experimental_download: async (requests) => {
+        requestedUrls = requests.map(({ url }) => url.toString())
+        return requests.map(() => null)
+      },
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'What is in this image?' },
+            {
+              type: 'file',
+              data: 'AAECAw==',
+              mediaType: 'image/png',
+            },
+            {
+              type: 'file',
+              data: new URL('https://example.com/image.jpg'),
+              mediaType: 'image',
+            },
+          ],
+        },
+      ],
+    })
+    await result.consumeStream()
+
+    expect(requestedUrls).toEqual(['https://example.com/image.jpg'])
+    expect(requestBody.messages[0].content[1]).toEqual({
+      type: 'image_url',
+      image_url: { url: 'data:image/png;base64,AAECAw==' },
+    })
+    expect(requestBody.messages[0].content[2]).toEqual({
+      type: 'image_url',
+      image_url: { url: 'https://example.com/image.jpg' },
+    })
+    expect(JSON.stringify(requestBody)).not.toContain('[object Object]')
   })
 })
