@@ -372,9 +372,9 @@ describe('FreebuffModelSelector tier layout', () => {
 
     expect(rowOf(frame, 'Smart & Fast')).toContain('Reasoning: high')
     expect(rowOf(frame, 'Smartest')).toContain('Reasoning: high')
-    // Luna is anchored on its NAME, not its tagline: it shares "Balanced" with
-    // MiMo 2.5, and its name never appears in a superseded notice.
-    expect(rowOf(frame, 'GPT-5.6 Luna')).toContain('Reasoning: high')
+    const lunaRow = rowOf(frame, 'GPT-5.6 Luna')
+    expect(lunaRow).toContain('Strong all-around')
+    expect(lunaRow).toContain('Reasoning: high')
     expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
   })
 

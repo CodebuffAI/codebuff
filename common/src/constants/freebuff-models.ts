@@ -802,11 +802,9 @@ const MINIMAX_M3_MODEL = {
 const GPT_5_6_LUNA_MODEL = {
   id: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   displayName: 'GPT-5.6 Luna',
-  // Deliberately the same word MiMo 2.5 carries: with both DeepSeek rows now
-  // claiming smart/fast, Luna's place in the list is the middle of that range,
-  // and the row's own badges (Images, no training notice) are what distinguish
-  // it from MiMo.
-  tagline: 'Balanced',
+  // Luna is the general-purpose premium option; its row's own badges (Images,
+  // no training notice) distinguish it from the other all-around models.
+  tagline: 'Strong all-around',
   availability: 'always',
   // OpenAI's API does not train on request data, and the route carries
   // data_collection: 'deny', so no AI-training notice and no trace storage
