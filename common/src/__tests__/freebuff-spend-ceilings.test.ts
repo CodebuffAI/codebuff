@@ -48,6 +48,15 @@ describe('restricted cohorts', () => {
     expect(result.reason).toBe('region')
   })
 
+  it('applies to an anonymizing egress', () => {
+    const result = resolveFreebuffSpendCeiling({
+      accessTier: 'limited',
+      privacyEgress: true,
+    })
+    expect(result.usd).toBe(FREEBUFF_RESTRICTED_DAILY_SPEND_USD)
+    expect(result.reason).toBe('privacy_egress')
+  })
+
   it('applies to a flagged email domain and to a third-party client', () => {
     expect(
       resolveFreebuffSpendCeiling({
@@ -63,6 +72,13 @@ describe('restricted cohorts', () => {
     ).toBe('third_party_client')
   })
 
+  it('is half a dollar, and below every region ceiling', () => {
+    expect(FREEBUFF_RESTRICTED_DAILY_SPEND_USD).toBe(0.5)
+    expect(FREEBUFF_RESTRICTED_DAILY_SPEND_USD).toBeLessThan(
+      FREEBUFF_REGION_DAILY_SPEND_USD.limited,
+    )
+  })
+
   it('never blocks outright — the restricted ceiling is above zero', () => {
     // A zero ceiling is a block, and a block tells the operator which signal
     // caught them, at which point they rotate it. Keeping them served at a
@@ -76,12 +92,13 @@ describe('composition', () => {
     const result = resolveFreebuffSpendCeiling({
       accessTier: 'limited',
       countryCode: 'SG',
+      privacyEgress: true,
       flaggedEmailDomain: true,
       thirdPartyClient: true,
       trustLevelCeilingUsd: 3,
     })
-    expect(result.usd).toBe(1)
-    expect(result.applied.length).toBe(5)
+    expect(result.usd).toBe(FREEBUFF_RESTRICTED_DAILY_SPEND_USD)
+    expect(result.applied.length).toBe(6)
   })
 
   it('can only lower, never raise', () => {

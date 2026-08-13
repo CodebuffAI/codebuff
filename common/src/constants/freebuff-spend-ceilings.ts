@@ -60,15 +60,22 @@ export const FREEBUFF_REGION_DAILY_SPEND_USD: Record<
  *
  * Deliberately not zero. A zero ceiling is a block, and a block tells the
  * operator instantly which signal caught them — at which point they rotate it
- * and we lose both the account and the detection. A dollar a day keeps them
+ * and we lose both the account and the detection. Fifty cents a day keeps them
  * visible, keeps their traffic flowing through the honeypot models and the
  * fanout counters that produce ban-grade evidence, and costs about as much as
  * finding out would have.
  *
+ * Note what this does and does not bound. It gates whether a FRESH session may
+ * start, so an account at $0.49 can still open one and spend well past the
+ * ceiling inside it — live sessions are never interrupted, by design. The
+ * ceiling therefore caps how often restricted accounts come back, not their
+ * worst single day. At $0.50 that is roughly one session and then nothing more
+ * until the Pacific-midnight reset.
+ *
  * This is the same reasoning `docs/freebuff-honeypot-models.md` gives for
  * separating detection from enforcement in time.
  */
-export const FREEBUFF_RESTRICTED_DAILY_SPEND_USD = 1
+export const FREEBUFF_RESTRICTED_DAILY_SPEND_USD = 0.5
 
 /**
  * Countries whose free-mode accounts are held at the restricted ceiling.
@@ -125,6 +132,7 @@ export const FREEBUFF_CAPACITY_NOTICE =
 export type FreebuffSpendCeilingReason =
   | 'region'
   | 'restricted_country'
+  | 'privacy_egress'
   | 'flagged_email_domain'
   | 'third_party_client'
   | 'trust_level'
@@ -142,6 +150,22 @@ export interface FreebuffSpendCeilingInput {
   accessTier: FreebuffAccessTier
   /** Resolved country of the request, when known. */
   countryCode?: string | null
+  /**
+   * True when the request arrived over an anonymizing egress — VPN, proxy,
+   * Tor, or a residential-proxy exit.
+   *
+   * Callers should derive this from `isFreebuffHardBlockedPrivacySignal`
+   * rather than by listing signals themselves. That list deliberately excludes
+   * `relay`: Apple iCloud Private Relay is a default consumer feature shipped
+   * to ordinary people, and the whole privacy pipeline treats it as a green
+   * flag. Pricing it as anonymizing egress would put a restricted ceiling on
+   * every iPhone user who left a checkbox alone.
+   *
+   * `hosting` is excluded for a softer reason: it is already the coarse signal
+   * that ipinfo over-reports on ISP and business networks, which is why
+   * `isFreebuffBenignAsType` exists to walk it back.
+   */
+  privacyEgress?: boolean
   /** True when the account's email domain is disposable or a privacy relay. */
   flaggedEmailDomain?: boolean
   /** True when the account has been observed sending a non-Freebuff tool
@@ -183,6 +207,9 @@ export function resolveFreebuffSpendCeiling(
   const country = input.countryCode?.toUpperCase() ?? null
   if (country && restrictedCountries.includes(country)) {
     applied.push({ reason: 'restricted_country', usd: restrictedUsd })
+  }
+  if (input.privacyEgress) {
+    applied.push({ reason: 'privacy_egress', usd: restrictedUsd })
   }
   if (input.flaggedEmailDomain) {
     applied.push({ reason: 'flagged_email_domain', usd: restrictedUsd })
