@@ -53,22 +53,3 @@ export function parseOnboardingEnabled(raw: string | null | undefined): boolean 
   return trimmed === 'on' || trimmed === 'true' || trimmed === '1'
 }
 
-/**
- * Escape hatch for OUR failures, and nothing else.
- *
- * The form is required: no skip, every question answered. That creates a trap
- * we have to design against — if saving is broken on our side, a required form
- * plus a redirect that fires until it is answered is an infinite loop into a
- * screen the user cannot get past however hard they try.
- *
- * So this cookie is set ONLY after a save attempt fails, never on arrival and
- * never by a user choosing to leave. A working system is not skippable; a
- * broken one does not hold anyone hostage.
- *
- * Short TTL on purpose: it covers an outage, not a career.
- */
-export const ONBOARDING_BYPASS_COOKIE = 'fb_onboarding_bypass'
-
-/** 24 hours — long enough to outlast an incident, short enough that the
- *  question comes back once we have fixed our end. */
-export const ONBOARDING_BYPASS_TTL_SECONDS = 24 * 60 * 60
