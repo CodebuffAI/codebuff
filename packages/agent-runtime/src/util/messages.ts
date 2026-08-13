@@ -29,14 +29,8 @@ export function messagesWithSystem(params: {
   return [systemMessage(system), ...messages]
 }
 
-export function asUserMessage(str: string): string {
-  return `<user_message>${str}${closeXml('user_message')}`
-}
-
 /**
  * Combines prompt, params, and content into a unified message content structure.
- * Always wraps the first text part in <user_message> tags for consistent XML framing.
- * If you need a specific text part wrapped, put it first or pre-wrap it yourself before calling.
  */
 export function buildUserMessageContent(
   prompt: string | undefined,
@@ -54,30 +48,10 @@ export function buildUserMessageContent(
     // If content has no meaningful text but prompt is provided, prepend prompt
     if (!hasNonEmptyText && promptHasNonWhitespaceText) {
       const nonTextContent = content.filter((p) => p.type !== 'text')
-      return [
-        { type: 'text' as const, text: asUserMessage(prompt!) },
-        ...nonTextContent,
-      ]
+      return [{ type: 'text' as const, text: prompt! }, ...nonTextContent]
     }
 
-    // Find the first text part and wrap it in <user_message> tags
-    let hasWrappedText = false
-    const wrappedContent = content.map((part) => {
-      if (part.type === 'text' && !hasWrappedText) {
-        hasWrappedText = true
-        // Check if already wrapped
-        const alreadyWrapped = parseUserMessage(part.text) !== undefined
-        if (alreadyWrapped) {
-          return part
-        }
-        return {
-          type: 'text' as const,
-          text: asUserMessage(part.text),
-        }
-      }
-      return part
-    })
-    return wrappedContent
+    return content
   }
 
   // Only prompt/params, combine and return as simple text
@@ -88,7 +62,7 @@ export function buildUserMessageContent(
   return [
     {
       type: 'text',
-      text: asUserMessage(textParts.join('\n\n')),
+      text: textParts.join('\n\n'),
     },
   ]
 }

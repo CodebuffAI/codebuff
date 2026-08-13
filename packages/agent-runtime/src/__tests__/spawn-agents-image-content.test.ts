@@ -143,7 +143,7 @@ describe('Spawn Agents Image Content Propagation', () => {
   })
 
   const createImageContent = (): Array<TextPart | ImagePart> => [
-    { type: 'text', text: '<user_message>Check this image</user_message>' },
+    { type: 'text', text: 'Check this image' },
     {
       type: 'image',
       image: 'base64-encoded-image-data-here',

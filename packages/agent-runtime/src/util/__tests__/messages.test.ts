@@ -52,18 +52,17 @@ describe('messagesWithSystem', () => {
 })
 
 describe('buildUserMessageContent', () => {
-  it('wraps prompt in user_message tags when no content provided', () => {
+  it('uses prompt directly when no content is provided', () => {
     const result = buildUserMessageContent('Hello world', undefined, undefined)
 
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('text')
     const firstPart = result[0]
     if (!isTextPart(firstPart)) throw new Error('Expected text part')
-    expect(firstPart.text).toContain('<user_message>')
-    expect(firstPart.text).toContain('Hello world')
+    expect(firstPart.text).toBe('Hello world')
   })
 
-  it('wraps text content in user_message tags', () => {
+  it('uses text content directly', () => {
     const result = buildUserMessageContent(undefined, undefined, [
       { type: 'text', text: 'Hello from content' },
     ])
@@ -72,8 +71,7 @@ describe('buildUserMessageContent', () => {
     expect(result[0].type).toBe('text')
     const firstPart = result[0]
     if (!isTextPart(firstPart)) throw new Error('Expected text part')
-    expect(firstPart.text).toContain('<user_message>')
-    expect(firstPart.text).toContain('Hello from content')
+    expect(firstPart.text).toBe('Hello from content')
   })
 
   it('uses prompt when content has empty text part', () => {

@@ -65,29 +65,11 @@ import type {
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
-import type {
-  ImagePart,
-  TextPart,
-  ToolResultOutput,
-} from '@codebuff/common/types/messages/content-part'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
-
-/**
- * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
- * Uses buildUserMessageContent from agent-runtime for consistency.
- */
-const wrapContentForUserMessage = (
-  content?: (TextPart | ImagePart)[],
-): (TextPart | ImagePart)[] | undefined => {
-  if (!content || content.length === 0) {
-    return content
-  }
-  // Delegate to the shared utility which handles wrapping correctly
-  return buildUserMessageContent(undefined, undefined, content)
-}
 
 type OverrideToolHandlers = {
   [K in PublishedClientToolName]?: (input: any) => Promise<ToolResultOutput[]>
@@ -355,7 +337,6 @@ async function runOnce({
   } else {
     spawn = require('child_process').spawn as CodebuffSpawn
   }
-  const preparedContent = wrapContentForUserMessage(content)
   let activeCustomToolDefinitions = customToolDefinitions ?? []
 
   // Init session state
@@ -450,10 +431,10 @@ async function runOnce({
     const state = cloneSessionState(sessionState, logger)
 
     // Only add the user's message if the runtime didn't get a chance to add it.
-    if (!runtimeMadeProgress && (prompt || preparedContent)) {
+    if (!runtimeMadeProgress && (prompt || content)) {
       state.mainAgentState.messageHistory.push({
         role: 'user' as const,
-        content: buildUserMessageContent(prompt, params, preparedContent),
+        content: buildUserMessageContent(prompt, params, content),
         tags: ['USER_PROMPT'] as string[],
       })
     }
@@ -745,7 +726,7 @@ async function runOnce({
       promptId,
       prompt,
       promptParams: params,
-      content: preparedContent,
+      content,
       fingerprintId: fingerprintId,
       costMode: costMode ?? 'normal',
       sessionState,

@@ -22,7 +22,6 @@ import {
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { createToolCallChunk } from './test-utils'
-import { asUserMessage } from '../util/messages'
 
 import type { AgentTemplate } from '../templates/types'
 import type { DbSpies } from '@codebuff/common/testing/mocks/database'
@@ -409,7 +408,7 @@ describe('runAgentStep - set_output tool', () => {
     agentState.messageHistory = [
       ...agentState.messageHistory,
       userMessage({
-        content: asUserMessage('Test the handleSteps functionality'),
+        content: 'Test the handleSteps functionality',
         keepDuringTruncation: true,
       }),
       userMessage({
