@@ -7,15 +7,12 @@
  * (see clipboard.ts). A real back-and-forth easily exceeds that, so when we're on
  * a remote session and the transcript is too large, we progressively drop the
  * largest tool results (then, if still needed, large tool inputs) — replacing each
- * with a short omission note — until it fits. Local sessions use pbcopy/xclip,
- * which have no such limit, so they always copy the full transcript.
+ * with a short omission note — until it fits. Local sessions first try a native
+ * clipboard tool with the full transcript, then use the same bounded rendering
+ * as an OSC 52 fallback when no native clipboard tool is available.
  */
 
-import {
-  copyTextToClipboard,
-  isRemoteSession,
-  showClipboardMessage,
-} from '../utils/clipboard'
+import { copyTextToClipboard, showClipboardMessage } from '../utils/clipboard'
 import { useChatStore } from '../state/chat-store'
 import { IS_FREEBUFF } from '../utils/constants'
 
@@ -100,7 +97,10 @@ function renderToolOutput(output: string): { body: string; lang: string } {
   const trimmed = output.trim()
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
-      return { body: JSON.stringify(JSON.parse(trimmed), null, 2), lang: 'json' }
+      return {
+        body: JSON.stringify(JSON.parse(trimmed), null, 2),
+        lang: 'json',
+      }
     } catch {
       // Not valid JSON — fall through to raw.
     }
@@ -176,7 +176,9 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
 
     case 'agent': {
       const label = block.agentName || block.agentType
-      out.push(`### ⤷ Subagent: ${label}${block.agentName ? ` (${block.agentType})` : ''}`)
+      out.push(
+        `### ⤷ Subagent: ${label}${block.agentName ? ` (${block.agentType})` : ''}`,
+      )
       if (block.initialPrompt?.trim()) {
         out.push(`_Prompt:_ ${block.initialPrompt.trim()}`)
       }
@@ -255,7 +257,36 @@ export interface SerializedConversation {
   truncated: boolean
 }
 
-const TRUNCATION_MARKER = '_[…earlier conversation truncated to fit clipboard…]_'
+const TRUNCATION_MARKER =
+  '_[…earlier conversation truncated to fit clipboard…]_'
+
+function copySuccessMessage(
+  messageCount: number,
+  { omittedCount, truncated }: SerializedConversation,
+): string {
+  const count = `${messageCount} message${messageCount === 1 ? '' : 's'}`
+  const trimNotes: string[] = []
+  if (omittedCount > 0) {
+    trimNotes.push(
+      `${omittedCount} large tool call${omittedCount === 1 ? '' : 's'} trimmed`,
+    )
+  }
+  if (truncated) trimNotes.push('older messages truncated')
+  return trimNotes.length > 0
+    ? `Copied conversation · ${count} (${trimNotes.join(', ')} to fit clipboard)`
+    : `Copied conversation · ${count}`
+}
+
+function conversationClipboardContent(
+  messages: ChatMessage[],
+  maxBytes?: number,
+): { text: string; successMessage: string } {
+  const serialized = serializeConversation(messages, { maxBytes })
+  return {
+    text: serialized.text,
+    successMessage: copySuccessMessage(messages.length, serialized),
+  }
+}
 
 /**
  * Serialize the conversation to Markdown. When `maxBytes` is provided and the
@@ -343,29 +374,18 @@ export async function handleCopyConversationCommand(
     return
   }
 
-  // Only remote sessions are subject to the OSC 52 size cap; local clipboard
-  // tools (pbcopy/xclip/clip) handle arbitrarily large transcripts.
-  const { text, omittedCount, truncated } = serializeConversation(messages, {
-    maxBytes: isRemoteSession() ? OSC52_TEXT_BUDGET_BYTES : undefined,
-  })
-
-  const count = `${messages.length} message${messages.length === 1 ? '' : 's'}`
-  // omittedCount covers dropped tool outputs and/or inputs, so phrase it as
-  // "tool call(s)" rather than specifically "results".
-  const trimNotes: string[] = []
-  if (omittedCount > 0) {
-    trimNotes.push(
-      `${omittedCount} large tool call${omittedCount === 1 ? '' : 's'} trimmed`,
-    )
-  }
-  if (truncated) trimNotes.push('older messages truncated')
-  const successMessage =
-    trimNotes.length > 0
-      ? `Copied conversation · ${count} (${trimNotes.join(', ')} to fit clipboard)`
-      : `Copied conversation · ${count}`
+  const primary = conversationClipboardContent(messages)
 
   try {
-    await copyTextToClipboard(text, { successMessage, durationMs: 4000 })
+    await copyTextToClipboard(primary.text, {
+      successMessage: primary.successMessage,
+      durationMs: 4000,
+      getOsc52Fallback:
+        byteLen(primary.text) > OSC52_TEXT_BUDGET_BYTES
+          ? () =>
+              conversationClipboardContent(messages, OSC52_TEXT_BUDGET_BYTES)
+          : undefined,
+    })
   } catch {
     // copyTextToClipboard already surfaces a failure/guidance message.
   }

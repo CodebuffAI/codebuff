@@ -1,5 +1,7 @@
+import { spawn } from 'child_process'
 import { closeSync, openSync, writeSync } from 'fs'
-import { createRequire } from 'module'
+
+import type { ChildProcess } from 'child_process'
 
 import { getCliEnv } from './env'
 import { logger } from './logger'
@@ -10,15 +12,15 @@ import { logger } from './logger'
 // OSC 52 without threading the renderer through every call site.
 let registeredRenderer: Record<string, unknown> | null = null
 
-export function registerClipboardRenderer(renderer: Record<string, unknown>): void {
+export function registerClipboardRenderer(
+  renderer: Record<string, unknown>,
+): void {
   registeredRenderer = renderer
 }
 
 export function unregisterClipboardRenderer(): void {
   registeredRenderer = null
 }
-
-const require = createRequire(import.meta.url)
 
 type ClipboardListener = (message: string | null) => void
 
@@ -76,11 +78,20 @@ function getDefaultSuccessMessage(text: string): string | null {
   return `Copied: "${truncated}"`
 }
 
+type ClipboardCandidate = {
+  text: string
+  successMessage?: string | null
+}
+
+let activeClipboardOperation: AbortController | null = null
+
 export interface CopyToClipboardOptions {
   successMessage?: string | null
   errorMessage?: string | null
   durationMs?: number
   suppressGlobalMessage?: boolean
+  getOsc52Fallback?: () => ClipboardCandidate
+  signal?: AbortSignal
 }
 
 export async function copyTextToClipboard(
@@ -90,56 +101,98 @@ export async function copyTextToClipboard(
     errorMessage,
     durationMs,
     suppressGlobalMessage = false,
+    getOsc52Fallback,
+    signal,
   }: CopyToClipboardOptions = {},
 ) {
   if (!text || text.trim().length === 0) {
     return
   }
 
+  throwIfClipboardAborted(signal)
+  const operationController = new AbortController()
+  activeClipboardOperation?.abort()
+  activeClipboardOperation = operationController
+  const operationSignal = signal
+    ? AbortSignal.any([signal, operationController.signal])
+    : operationController.signal
+
   const osc52Blocked = isOsc52Blocked()
   try {
-    const tryCopyViaAnyOsc52 = () =>
-      !osc52Blocked && (tryCopyViaRenderer(text) || tryCopyViaOsc52(text))
+    throwIfClipboardAborted(operationSignal)
+    const tryOsc52 = (candidate: string) =>
+      !osc52Blocked &&
+      isWithinOsc52PayloadLimit(candidate) &&
+      (tryCopyViaRenderer(candidate) || tryCopyViaTtyOsc52(candidate))
 
-    let copied: boolean
-    if (isRemoteSession()) {
-      // Remote/SSH: prefer renderer OSC 52 (through render pipeline),
-      // then our manual OSC 52, then platform tools
-      copied = tryCopyViaAnyOsc52() || tryCopyViaPlatformTool(text)
-    } else {
-      // Local: prefer platform tools (reliable with tmux),
-      // then renderer OSC 52, then our manual OSC 52 as fallback
-      copied = tryCopyViaPlatformTool(text) || tryCopyViaAnyOsc52()
+    const primary: ClipboardCandidate = { text, successMessage }
+    const remoteSession = isRemoteSession()
+    const tryCandidateViaOsc52 = (candidate: ClipboardCandidate) =>
+      tryOsc52(candidate.text) ? candidate : null
+    const tryFallbackViaOsc52 = () => {
+      if (!getOsc52Fallback) return null
+      const fallback = getOsc52Fallback()
+      return fallback.text.trim() && fallback.text !== text
+        ? tryCandidateViaOsc52(fallback)
+        : null
     }
 
-    if (!copied) {
+    // Remote sessions need OSC 52 to reach the client clipboard. Local
+    // sessions prefer native tools because they survive tmux and have no cap.
+    let copiedCandidate = remoteSession
+      ? (tryCandidateViaOsc52(primary) ?? tryFallbackViaOsc52())
+      : null
+
+    if (
+      !copiedCandidate &&
+      (await tryCopyViaPlatformTool(text, operationSignal))
+    ) {
+      copiedCandidate = primary
+    }
+    if (!copiedCandidate && !remoteSession) {
+      copiedCandidate = tryCandidateViaOsc52(primary) ?? tryFallbackViaOsc52()
+    }
+
+    if (!copiedCandidate) {
       throw new Error('No clipboard method available')
     }
 
     if (!suppressGlobalMessage) {
       const message =
-        successMessage !== undefined
-          ? successMessage
-          : getDefaultSuccessMessage(text)
+        copiedCandidate.successMessage !== undefined
+          ? copiedCandidate.successMessage
+          : getDefaultSuccessMessage(copiedCandidate.text)
       if (message) {
         showClipboardMessage(message, { durationMs })
       }
     }
   } catch (error) {
+    if (operationSignal.aborted) throw error
     logger.error(error, 'Failed to copy to clipboard')
     // When the terminal drops OSC 52 and no platform tool exists (e.g.
     // Codespaces), the Shift+drag guidance is the only way the user can copy,
     // so show it even for callers that suppress routine messages.
     if (!suppressGlobalMessage || osc52Blocked) {
+      const isLinux = process.platform === 'linux'
+      const defaultErrorMessage = isLinux
+        ? LINUX_CLIPBOARD_ERROR_MESSAGE
+        : 'Failed to copy to clipboard'
       showClipboardMessage(
         osc52Blocked
           ? OSC52_BLOCKED_MESSAGE
-          : (errorMessage ?? 'Failed to copy to clipboard'),
+          : (errorMessage ?? defaultErrorMessage),
         // Give the longer guidance message extra time to be read
-        { durationMs: durationMs ?? (osc52Blocked ? 6000 : undefined) },
+        {
+          durationMs:
+            durationMs ?? (osc52Blocked || isLinux ? 6000 : undefined),
+        },
       )
     }
     throw error
+  } finally {
+    if (activeClipboardOperation === operationController) {
+      activeClipboardOperation = null
+    }
   }
 }
 
@@ -150,7 +203,6 @@ export function clearClipboardMessage() {
   }
   emitClipboardMessage(null)
 }
-
 
 // =============================================================================
 // OSC52 Clipboard Support
@@ -167,6 +219,9 @@ export function isRemoteSession(): boolean {
 export const OSC52_BLOCKED_MESSAGE =
   'Copy is blocked by this terminal — hold Shift and drag to select, then copy normally'
 
+export const LINUX_CLIPBOARD_ERROR_MESSAGE =
+  'Clipboard unavailable — install wl-clipboard (Wayland) or xclip (X11)'
+
 // GitHub Codespaces and VS Code remote (SSH/tunnel) terminals silently drop
 // OSC 52 sequences, so a "successful" write never reaches the user's
 // clipboard. Local VS Code terminals (including devcontainers) honor OSC 52.
@@ -179,28 +234,107 @@ export function isOsc52Blocked(): boolean {
   )
 }
 
-function tryCopyViaPlatformTool(text: string): boolean {
-  const { execSync } = require('child_process') as typeof import('child_process')
-  const opts = { input: text, stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[] }
+const CLIPBOARD_TOOL_TIMEOUT_MS = 5000
 
+function throwIfClipboardAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+  if (signal.reason instanceof Error) throw signal.reason
+  throw new DOMException('The clipboard operation was aborted', 'AbortError')
+}
+
+function killClipboardTool(child: ChildProcess): void {
   try {
-    if (process.platform === 'darwin') {
-      execSync('pbcopy', opts)
-    } else if (process.platform === 'linux') {
-      try {
-        execSync('xclip -selection clipboard', opts)
-      } catch {
-        execSync('xsel --clipboard --input', opts)
-      }
-    } else if (process.platform === 'win32') {
-      execSync('clip', opts)
-    } else {
-      return false
-    }
-    return true
+    child.kill('SIGKILL')
   } catch {
-    return false
+    // The process may already have exited between an error and cleanup.
   }
+}
+
+function writeToClipboardTool(
+  command: string,
+  args: string[],
+  text: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let child: ChildProcess
+    try {
+      child = spawn(command, args, {
+        stdio: ['pipe', 'ignore', 'ignore'],
+      })
+    } catch {
+      resolve(false)
+      return
+    }
+
+    let settled = false
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    const finish = (copied: boolean) => {
+      if (settled) return
+      settled = true
+      if (timeout) clearTimeout(timeout)
+      signal?.removeEventListener('abort', handleAbort)
+      resolve(copied)
+    }
+    const handleAbort = () => {
+      killClipboardTool(child)
+      finish(false)
+    }
+
+    child.once('error', () => finish(false))
+    child.once('close', (code) => finish(code === 0))
+    child.stdin?.once('error', () => {
+      killClipboardTool(child)
+      finish(false)
+    })
+
+    timeout = setTimeout(() => {
+      // A backend waiting on a broken display server must not freeze the TUI.
+      // SIGKILL also prevents a timed-out process from retaining the clipboard
+      // pipe after the next backend starts.
+      killClipboardTool(child)
+      finish(false)
+    }, CLIPBOARD_TOOL_TIMEOUT_MS)
+    signal?.addEventListener('abort', handleAbort, { once: true })
+
+    try {
+      child.stdin?.end(text)
+    } catch {
+      killClipboardTool(child)
+      finish(false)
+    }
+
+    // Abort may have happened between the caller's check and listener setup.
+    if (signal?.aborted) handleAbort()
+  })
+}
+
+async function tryCopyViaPlatformTool(
+  text: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const commands: [string, string[]][] = (() => {
+    if (process.platform === 'darwin') return [['pbcopy', []]]
+    if (process.platform === 'win32') return [['clip', []]]
+    if (process.platform !== 'linux') return []
+
+    const x11Commands: [string, string[]][] = [
+      ['xclip', ['-selection', 'clipboard']],
+      ['xsel', ['--clipboard', '--input']],
+    ]
+    return getCliEnv().WAYLAND_DISPLAY
+      ? [['wl-copy', ['--type', 'text/plain']], ...x11Commands]
+      : x11Commands
+  })()
+
+  for (const [command, args] of commands) {
+    throwIfClipboardAborted(signal)
+    const copied = await writeToClipboardTool(command, args, text, signal)
+    throwIfClipboardAborted(signal)
+    if (copied) return true
+  }
+
+  return false
 }
 
 function tryCopyViaRenderer(text: string): boolean {
@@ -217,12 +351,18 @@ function tryCopyViaRenderer(text: string): boolean {
 // 32KB is safe for all environments (tmux is the strictest)
 const OSC52_MAX_PAYLOAD = 32_000
 
+function isWithinOsc52PayloadLimit(text: string): boolean {
+  const byteLength = Buffer.byteLength(text, 'utf8')
+  const base64Length = 4 * Math.ceil(byteLength / 3)
+  return base64Length <= OSC52_MAX_PAYLOAD
+}
+
 function buildOsc52Sequence(text: string): string | null {
   const env = getCliEnv()
   if (env.TERM === 'dumb') return null
+  if (!isWithinOsc52PayloadLimit(text)) return null
 
   const base64 = Buffer.from(text, 'utf8').toString('base64')
-  if (base64.length > OSC52_MAX_PAYLOAD) return null
 
   const osc = `\x1b]52;c;${base64}\x07`
 
@@ -239,7 +379,7 @@ function buildOsc52Sequence(text: string): string | null {
   return osc
 }
 
-function tryCopyViaOsc52(text: string): boolean {
+function tryCopyViaTtyOsc52(text: string): boolean {
   const sequence = buildOsc52Sequence(text)
   if (!sequence) return false
 

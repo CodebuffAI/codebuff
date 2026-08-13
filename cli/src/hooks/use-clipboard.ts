@@ -27,6 +27,7 @@ export const useClipboard = () => {
   )
   const pendingSelectionRef = useRef<string | null>(null)
   const lastCopiedRef = useRef<string | null>(null)
+  const activeCopyControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     return subscribeClipboardMessages(setStatusMessage)
@@ -54,10 +55,13 @@ export const useClipboard = () => {
           : null
 
       // Filter out cursor character from selected text
-      const cleanedText = rawText?.replace(new RegExp(CURSOR_CHAR, 'g'), '') ?? null
+      const cleanedText =
+        rawText?.replace(new RegExp(CURSOR_CHAR, 'g'), '') ?? null
 
       if (!cleanedText || cleanedText.trim().length === 0) {
         pendingSelectionRef.current = null
+        activeCopyControllerRef.current?.abort()
+        activeCopyControllerRef.current = null
         setHasSelection(false)
         if (pendingCopyTimeoutRef.current) {
           clearTimeout(pendingCopyTimeoutRef.current)
@@ -69,6 +73,13 @@ export const useClipboard = () => {
       if (cleanedText === pendingSelectionRef.current) {
         return
       }
+
+      // A prior selection may still be waiting on a clipboard backend. Stop it
+      // immediately so it cannot finish after this newer selection and restore
+      // stale clipboard contents.
+      activeCopyControllerRef.current?.abort()
+      const controller = new AbortController()
+      activeCopyControllerRef.current = controller
 
       // Track that there's an active selection for visual feedback
       setHasSelection(true)
@@ -83,21 +94,32 @@ export const useClipboard = () => {
         pendingCopyTimeoutRef.current = null
         const pending = pendingSelectionRef.current
         if (!pending || pending === lastCopiedRef.current) {
+          if (activeCopyControllerRef.current === controller) {
+            activeCopyControllerRef.current = null
+          }
           return
         }
 
-        lastCopiedRef.current = pending
         const successMessage = formatDefaultClipboardMessage(pending)
         void copyTextToClipboard(pending, {
           successMessage,
           durationMs: 3000,
+          signal: controller.signal,
         })
           .then(() => {
-            // Clear selection visual state after successful copy
-            setHasSelection(false)
+            if (activeCopyControllerRef.current === controller) {
+              lastCopiedRef.current = pending
+              // Clear selection visual state after successful copy
+              setHasSelection(false)
+            }
           })
           .catch(() => {
             // Errors are logged within copyTextToClipboard
+          })
+          .finally(() => {
+            if (activeCopyControllerRef.current === controller) {
+              activeCopyControllerRef.current = null
+            }
           })
       }, 250)
     }
@@ -117,6 +139,8 @@ export const useClipboard = () => {
         clearTimeout(pendingCopyTimeoutRef.current)
         pendingCopyTimeoutRef.current = null
       }
+      activeCopyControllerRef.current?.abort()
+      activeCopyControllerRef.current = null
     }
   }, [])
 
