@@ -825,9 +825,9 @@ const GPT_5_6_LUNA_MODEL = {
   // reasons a user may still deliberately want it — but the picker now says
   // plainly that Pro is the better default.
   //
-  // NOT in FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS, unlike the rows Flash
-  // superseded: muting is this product's "materially dearer" signal, and against
-  // Pro that does not resolve — Pro is 2.76x cheaper on the cache reads that
+  // NOT in FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS — which is now empty, but Luna
+  // would not qualify anyway: muting is this product's "materially dearer"
+  // signal, and against Pro that does not resolve — Pro is 2.76x cheaper on the cache reads that
   // dominate agent traffic, and dearer on fresh input and output (full table on
   // that constant). Steering on quality is honest; implying a settled price
   // difference in either direction would not be.
@@ -1329,6 +1329,14 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  Both halves of that test have to hold: DeepSeek V4 Pro left this list on
  *  2026-08-12 because its 08/13 GA build wins the quality half again.
  *
+ *  EMPTY as of 2026-08-12. MiniMax M3 was the last entry, and with Pro gone it
+ *  was the only muted row in a list of full-size ones — the compact treatment
+ *  folds the tagline up onto the name line, which next to four two-line rows
+ *  read as a broken row rather than as a de-emphasized one. M3 keeps its
+ *  supersededBy notice, which is the steering that was doing the real work.
+ *  Muting only pays for itself on a group of rows, so add entries back in
+ *  pairs or not at all.
+ *
  *  GPT-5.6 Luna is superseded (by Pro) and deliberately NOT muted, because the
  *  cost half genuinely does not resolve. Per M, read off OpenRouter 2026-08-12:
  *
@@ -1343,9 +1351,8 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  the hit rate and on how output-heavy the traffic is. "Materially more
  *  expensive" is a claim neither row can carry, and muting is reserved for rows
  *  that clearly can. */
-export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS = [
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
-] as const
+export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS: readonly FreebuffModelId[] =
+  []
 
 export function isFreebuffWebDeemphasizedModelId(
   id: string | null | undefined,

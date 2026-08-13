@@ -851,8 +851,14 @@ describe('freebuff model availability', () => {
     ).toBe(false)
   })
 
-  test('de-emphasizes the remaining costly premium model, and never the default', () => {
-    expect(isFreebuffWebDeemphasizedModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+  test('de-emphasizes nothing, and never the default', () => {
+    // The list is empty as of 2026-08-12. MiniMax M3 was the last entry and
+    // left when it became the ONLY muted row: the compact treatment folds the
+    // tagline onto the name line, which among full-size rows reads as a broken
+    // row rather than a quiet one. M3 keeps its supersededBy notice, so the
+    // steering survives — see the test below.
+    expect(FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS).toEqual([])
+    expect(isFreebuffWebDeemphasizedModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
     expect(
       isFreebuffWebDeemphasizedModelId(`${FREEBUFF_KIMI_MODEL_ID}-20260301`),
     ).toBe(false)
@@ -863,12 +869,13 @@ describe('freebuff model availability', () => {
       isFreebuffWebDeemphasizedModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe(false)
     expect(isFreebuffWebDeemphasizedModelId(null)).toBe(false)
-    // V4 Pro left the list on 2026-08-12: its 08/13 GA build wins the quality
-    // half of the de-emphasis test again, and price alone is not grounds.
+    // V4 Pro left the list on 2026-08-12 too: its 08/13 GA build wins the
+    // quality half of the de-emphasis test again, and price alone is not
+    // grounds.
     expect(
       isFreebuffWebDeemphasizedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe(false)
-    // De-emphasis is presentation only: the models stay fully selectable.
+    // De-emphasis is presentation only: anything added back stays selectable.
     for (const id of FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS) {
       expect(isFreebuffWebModelId(id)).toBe(true)
       expect(isFreebuffModelAllowedForAccessTier(id, 'full')).toBe(true)
