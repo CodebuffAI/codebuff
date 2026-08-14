@@ -19,7 +19,14 @@
  * "observed in referral farms" block below).
  */
 
-export type FlaggedEmailDomainKind = 'disposable' | 'privacy_relay'
+export type FlaggedEmailDomainKind =
+  | 'disposable'
+  | 'privacy_relay'
+  /** A big-brand consumer privacy mailbox (Proton, Tutanota, Apple
+   *  Hide-My-Email, DuckDuckGo, Firefox Relay). Classified so callers can SEE
+   *  it, but the spend ceiling deliberately does not price it — see
+   *  isSpendCeilingFlaggedEmailDomain. */
+  | 'mainstream_privacy'
 
 const DISPOSABLE_EMAIL_DOMAINS = [
   // Classic one-time inbox providers.
@@ -132,12 +139,29 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'fincy.qd.je',
 ] as const
 
-const PRIVACY_RELAY_EMAIL_DOMAINS = [
-  // Proton family.
+/**
+ * Big-brand consumer privacy mailboxes, lifted OFF the spend ceiling on an
+ * operator decision (2026-08-14).
+ *
+ * These were in the relay list from day one, which put a bot-farm ceiling on
+ * every ProtonMail and Tutanota user — mainstream providers whose typical
+ * account is one person's primary mailbox, not an alias mint. It also
+ * contradicted the pipeline's own doctrine: the IP side refuses to price
+ * Apple Private Relay because it is a consumer default, while the email side
+ * was pricing Apple's Hide-My-Email. Alias services built for
+ * one-address-per-signup (SimpleLogin, AnonAddy, aleeas) stay priced: their
+ * product IS mailbox multiplication, which is the thing the flag exists to
+ * catch.
+ *
+ * Still classified — as `mainstream_privacy` — so trust scoring and the
+ * abuse scripts can keep seeing them; only the ceiling looks away.
+ */
+const MAINSTREAM_PRIVACY_EMAIL_DOMAINS = [
+  // Proton family (primary mailboxes; passmail.net is Proton's ALIAS product
+  // and stays in the relay list below).
   'proton.me',
   'protonmail.ch',
   'protonmail.com',
-  'passmail.net',
   'pm.me',
   // Apple "Hide My Email".
   'privaterelay.appleid.com',
@@ -145,11 +169,6 @@ const PRIVACY_RELAY_EMAIL_DOMAINS = [
   'duck.com',
   // Firefox Relay.
   'mozmail.com',
-  // Alias/relay services.
-  'aleeas.com',
-  'anonaddy.me',
-  'simplelogin.com',
-  'simplelogin.io',
   // Tutanota family.
   'tuta.com',
   'tuta.io',
@@ -157,9 +176,21 @@ const PRIVACY_RELAY_EMAIL_DOMAINS = [
   'tutanota.com',
 ] as const
 
+const PRIVACY_RELAY_EMAIL_DOMAINS = [
+  'passmail.net',
+  // Alias/relay services.
+  'aleeas.com',
+  'anonaddy.me',
+  'simplelogin.com',
+  'simplelogin.io',
+] as const
+
 const DISPOSABLE_SET: ReadonlySet<string> = new Set(DISPOSABLE_EMAIL_DOMAINS)
 const PRIVACY_RELAY_SET: ReadonlySet<string> = new Set(
   PRIVACY_RELAY_EMAIL_DOMAINS,
+)
+const MAINSTREAM_PRIVACY_SET: ReadonlySet<string> = new Set(
+  MAINSTREAM_PRIVACY_EMAIL_DOMAINS,
 )
 
 function domainOf(email: string): string | null {
@@ -189,5 +220,21 @@ export function classifyEmailDomain(
   if (!domain) return null
   if (matchesSet(domain, DISPOSABLE_SET)) return 'disposable'
   if (matchesSet(domain, PRIVACY_RELAY_SET)) return 'privacy_relay'
+  if (matchesSet(domain, MAINSTREAM_PRIVACY_SET)) return 'mainstream_privacy'
   return null
+}
+
+/**
+ * Whether `email`'s domain prices the flagged-domain SPEND CEILING.
+ *
+ * Deliberately narrower than `classifyEmailDomain !== null`: mainstream
+ * consumer privacy mailboxes are classified (so scoring and scripts can see
+ * them) but never priced — a ProtonMail address is not evidence of a bot
+ * farm, and for two days it was billed as one.
+ */
+export function isSpendCeilingFlaggedEmailDomain(
+  email: string | null | undefined,
+): boolean {
+  const kind = classifyEmailDomain(email)
+  return kind !== null && kind !== 'mainstream_privacy'
 }

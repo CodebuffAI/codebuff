@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { classifyEmailDomain } from '../util/disposable-email'
+import { classifyEmailDomain, isSpendCeilingFlaggedEmailDomain } from '../util/disposable-email'
 
 describe('classifyEmailDomain', () => {
   it('flags one-time inbox providers as disposable', () => {
@@ -13,13 +13,28 @@ describe('classifyEmailDomain', () => {
     expect(classifyEmailDomain('a@biscoito.email')).toBe('disposable')
   })
 
-  it('flags privacy relays separately (corroborating signal only)', () => {
-    expect(classifyEmailDomain('4q9cq4d7cj@proton.me')).toBe('privacy_relay')
-    expect(classifyEmailDomain('someone@protonmail.com')).toBe('privacy_relay')
-    expect(classifyEmailDomain('g862jxscfv@privaterelay.appleid.com')).toBe(
-      'privacy_relay',
+  it('classifies mainstream privacy mailboxes without ceiling-pricing them', () => {
+    // Operator decision 2026-08-14: Proton/Tutanota/Apple/DuckDuckGo/Firefox
+    // are consumer providers, not bot-farm suppliers. Visible to scoring,
+    // invisible to the spend ceiling.
+    expect(classifyEmailDomain('4q9cq4d7cj@proton.me')).toBe(
+      'mainstream_privacy',
     )
-    expect(classifyEmailDomain('dev@pm.me')).toBe('privacy_relay')
+    expect(classifyEmailDomain('someone@protonmail.com')).toBe(
+      'mainstream_privacy',
+    )
+    expect(classifyEmailDomain('g862jxscfv@privaterelay.appleid.com')).toBe(
+      'mainstream_privacy',
+    )
+    expect(classifyEmailDomain('dev@pm.me')).toBe('mainstream_privacy')
+    expect(isSpendCeilingFlaggedEmailDomain('dev@pm.me')).toBe(false)
+    expect(isSpendCeilingFlaggedEmailDomain('user@tutanota.com')).toBe(false)
+    // Alias products stay priced: one-address-per-signup IS the abuse shape.
+    expect(classifyEmailDomain('a@simplelogin.io')).toBe('privacy_relay')
+    expect(isSpendCeilingFlaggedEmailDomain('a@simplelogin.io')).toBe(true)
+    expect(isSpendCeilingFlaggedEmailDomain('a@passmail.net')).toBe(true)
+    // Disposables too, unchanged.
+    expect(isSpendCeilingFlaggedEmailDomain('x@mailinator.com')).toBe(true)
   })
 
   it('matches subdomains of listed domains', () => {
@@ -68,7 +83,7 @@ describe('classifyEmailDomain', () => {
   })
 
   it('is case-insensitive and null-safe', () => {
-    expect(classifyEmailDomain('X@Proton.ME')).toBe('privacy_relay')
+    expect(classifyEmailDomain('X@Proton.ME')).toBe('mainstream_privacy')
     expect(classifyEmailDomain(null)).toBeNull()
     expect(classifyEmailDomain(undefined)).toBeNull()
     expect(classifyEmailDomain('not-an-email')).toBeNull()
