@@ -17,6 +17,8 @@ interface ToolCallContentBlock {
 import { CodebuffClient } from '../client'
 import * as databaseModule from '../impl/database'
 
+import type { RunState } from '../run-state'
+
 describe('Run Cancellation Handling', () => {
   afterEach(() => {
     mock.restore()
@@ -1296,5 +1298,137 @@ describe('Run Cancellation Handling', () => {
     expect(
       (lastMessage.content[0] as { type: 'text'; text: string }).text,
     ).toContain('User interrupted the response')
+  })
+
+  it('does not checkpoint a tool call whose result was interrupted', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+
+    const intervals: Array<() => void> = []
+    spyOn(globalThis, 'setInterval').mockImplementation(((run: () => void) => {
+      intervals.push(run)
+      return { unref: () => {} }
+    }) as never)
+
+    const snapshots: RunState[] = []
+    let runtimeCalls = 0
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        runtimeCalls++
+        if (runtimeCalls > 1) {
+          const resumedHistory =
+            params.action.sessionState.mainAgentState.messageHistory
+          const hasInterruptedCall = resumedHistory.some(
+            (message) =>
+              message.role === 'assistant' &&
+              message.content.some(
+                (part) =>
+                  part.type === 'tool-call' &&
+                  part.toolCallId === 'interrupted-call',
+              ),
+          )
+          if (hasInterruptedCall) {
+            throw new Error(
+              'Tool result is missing for tool call interrupted-call',
+            )
+          }
+
+          await params.sendAction({
+            action: {
+              type: 'prompt-response',
+              promptId: params.promptId,
+              sessionState: params.action.sessionState,
+              output: { type: 'lastMessage', value: [] },
+            },
+          })
+          return {
+            sessionState: params.action.sessionState,
+            output: { type: 'lastMessage' as const, value: [] },
+          }
+        }
+
+        params.action.sessionState.mainAgentState.messageHistory = [
+          userMessage('Fix the bug'),
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolCallId: 'finished-call',
+                toolName: 'read_files',
+                input: { paths: ['src/bug.ts'] },
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            toolCallId: 'finished-call',
+            toolName: 'read_files',
+            content: [{ type: 'json', value: { files: [] } }],
+          },
+          {
+            role: 'assistant',
+            content: [
+              { type: 'text', text: 'Applying the fix now.' },
+              {
+                type: 'tool-call',
+                toolCallId: 'interrupted-call',
+                toolName: 'write_file',
+                input: { path: 'src/bug.ts', content: 'fixed' },
+              },
+            ],
+          },
+        ]
+        intervals.at(-1)!()
+        throw new Error('Tool result is missing for tool call interrupted-call')
+      },
+    )
+
+    const client = new CodebuffClient({ apiKey: 'test-key' })
+    await client.run({
+      agent: 'base2',
+      prompt: 'Fix the bug',
+      onStateSnapshot: (snapshot) => snapshots.push(snapshot),
+    })
+    const checkpoint = snapshots.at(-1)!
+    const history = checkpoint.sessionState!.mainAgentState.messageHistory
+    const toolCallIds = history.flatMap((message) =>
+      message.role === 'assistant'
+        ? message.content.flatMap((part) =>
+            part.type === 'tool-call' ? [part.toolCallId] : [],
+          )
+        : [],
+    )
+
+    expect(toolCallIds).toEqual(['finished-call'])
+    expect(
+      history.some(
+        (message) =>
+          message.role === 'tool' && message.toolCallId === 'finished-call',
+      ),
+    ).toBe(true)
+    expect(
+      history.some(
+        (message) =>
+          message.role === 'assistant' &&
+          message.content.some(
+            (part) =>
+              part.type === 'text' && part.text === 'Applying the fix now.',
+          ),
+      ),
+    ).toBe(true)
+
+    const resumed = await client.run({
+      agent: 'base2',
+      prompt: 'Continue',
+      previousRun: checkpoint,
+    })
+    expect(resumed.output.type).toBe('lastMessage')
   })
 })

@@ -6,6 +6,7 @@ import {
   withSystemTags,
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { dropUnansweredToolCalls } from '@codebuff/common/util/messages'
 import {
   FILE_READ_STATUS,
   toOptionalFile,
@@ -429,6 +430,12 @@ async function runOnce({
       sessionState.mainAgentState.messageHistory !== initialMessageHistory
 
     const state = cloneSessionState(sessionState, logger)
+    // A checkpoint can land after an assistant tool call is recorded but before
+    // its result arrives. Drop that half-step at the persistence boundary so a
+    // resumed run starts from structurally valid history.
+    state.mainAgentState.messageHistory = dropUnansweredToolCalls(
+      state.mainAgentState.messageHistory,
+    )
 
     // Only add the user's message if the runtime didn't get a chance to add it.
     if (!runtimeMadeProgress && (prompt || content)) {
