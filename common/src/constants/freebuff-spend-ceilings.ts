@@ -130,6 +130,41 @@ export const FREEBUFF_CAPACITY_NOTICE =
   'Capacity is now limited per account — sustained automated abuse forced us to cap how much any one account can use.'
 
 /**
+ * The refusal copy for the RESTRICTED cohorts — VPN/proxy egress, restricted
+ * country, flagged email domain.
+ *
+ * This deliberately weakens the original cohort-blind stance, on an explicit
+ * operator decision (2026-08-14): real full-region developers on VPNs were
+ * hitting a fifty-cent wall with a message that told them nothing, and the
+ * support cost of that silence outweighed the signal leak. What it names is
+ * the SET of causes, never which one applied — an operator learns their
+ * account tripped one of three broad detectors, not which request or which
+ * signal, and the honeypot/foreign-toolset detectors stay entirely unnamed.
+ * The VPN clause doubles as the remedy: it is the one cause a legitimate user
+ * can fix in a minute, and the whole point of naming it is that they do.
+ */
+export const FREEBUFF_RESTRICTED_NOTICE =
+  'This account has reduced capacity: it was flagged for VPN or proxy usage, a restricted location, or an email domain commonly used by bot farms. If you are on a VPN, connecting directly restores normal limits.'
+
+/** The reasons that show `FREEBUFF_RESTRICTED_NOTICE` instead of the generic
+ *  capacity notice. `third_party_client`, `region` and `trust_level` stay on
+ *  the blind copy on purpose: the first is a detector worth not naming, and
+ *  the others are not accusations. */
+export const FREEBUFF_RESTRICTED_NOTICE_REASONS: ReadonlySet<string> = new Set([
+  'privacy_egress',
+  'restricted_country',
+  'flagged_email_domain',
+  'unverified_egress',
+])
+
+/** Pick the refusal sentence for a resolved ceiling reason. */
+export function freebuffSpendNoticeFor(reason: string): string {
+  return FREEBUFF_RESTRICTED_NOTICE_REASONS.has(reason)
+    ? FREEBUFF_RESTRICTED_NOTICE
+    : FREEBUFF_CAPACITY_NOTICE
+}
+
+/**
  * How far past its ceiling an account may get before a LIVE session is cut.
  *
  * The ceiling above gates fresh admission only — a session already open is
