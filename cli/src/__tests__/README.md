@@ -165,7 +165,7 @@ await sleep(1000)
 
 ## tmux Testing
 
-**See [`../../tmux.knowledge.md`](../../tmux.knowledge.md) for comprehensive tmux documentation**, including:
+**See [`../../../scripts/tmux/README.md`](../../../scripts/tmux/README.md) and [`../../../docs/testing.md`](../../../docs/testing.md) for comprehensive tmux documentation**, including:
 
 - Why standard `send-keys` doesn't work (must use bracketed paste mode)
 - Helper functions for Bash and TypeScript

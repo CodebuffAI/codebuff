@@ -53,7 +53,7 @@ bun run test:tmux-poc
 # ✅ Works:  tmux send-keys -t session $'\e[200~hello\e[201~'
 ```
 
-See [tmux.knowledge.md](tmux.knowledge.md) for comprehensive tmux documentation and [src/__tests__/README.md](src/__tests__/README.md) for testing documentation.
+See [scripts/tmux/README.md](../scripts/tmux/README.md) and [docs/testing.md](../docs/testing.md) for comprehensive tmux documentation and testing guides.
 
 ## Build
 
