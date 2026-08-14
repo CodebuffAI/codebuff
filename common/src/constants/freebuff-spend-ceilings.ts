@@ -129,12 +129,55 @@ export const FREEBUFF_RESTRICTED_COUNTRIES: readonly string[] = ['SG', 'CN']
 export const FREEBUFF_CAPACITY_NOTICE =
   'Capacity is now limited per account — sustained automated abuse forced us to cap how much any one account can use.'
 
+/**
+ * How far past its ceiling an account may get before a LIVE session is cut.
+ *
+ * The ceiling above gates fresh admission only — a session already open is
+ * never interrupted — and for a $15 account that is the right trade: the
+ * overshoot is bounded by one ordinary session and interrupting real work to
+ * save cents is the worse error. At $0.50 the same rule is not the same rule.
+ * Measured over 24h on 2026-08-13, against a $0.50 ceiling:
+ *
+ *   restricted_country   p50 3.6x   worst 12.6x   ($6.32)
+ *   privacy_egress       p50 4.7x   worst 23.2x   ($11.59)
+ *   flagged_email_domain p50 1.8x   worst 38.2x   ($19.10)
+ *
+ * A cap that is exceeded 38-fold is not a cap. This multiplier is the second,
+ * hard bound: crossing `ceiling x multiplier` refuses the request even mid
+ * session. Two, not one, deliberately — a session admitted at $0.49 must be
+ * able to finish the turn it started, or the gate becomes a coin flip on
+ * whether a legitimate reply is truncated. Two bounds the worst case at
+ * roughly one session's spend past the ceiling, which is what the fresh-
+ * admission gate was always assumed to cost.
+ *
+ * It does NOT apply to the region ceilings. Those are already large enough
+ * that overshoot is proportionally small (worst observed 1.3x), and cutting a
+ * live session at $15 buys little for a real user's interruption.
+ */
+export const FREEBUFF_SPEND_CEILING_HARD_MULTIPLIER = 2
+
+/**
+ * Reasons whose ceiling is small enough that the hard multiplier applies.
+ *
+ * `region` and `trust_level` are excluded: both are whole-population limits
+ * where the fresh-admission gate is proportionate, and applying a hard cut
+ * there would interrupt ordinary paying-in-attention users mid-thought.
+ */
+const HARD_CAPPED_REASONS: ReadonlySet<string> = new Set([
+  'restricted_country',
+  'privacy_egress',
+  'flagged_email_domain',
+  'third_party_client',
+  'unverified_egress',
+])
+
 export type FreebuffSpendCeilingReason =
   | 'region'
   | 'restricted_country'
   | 'privacy_egress'
   | 'flagged_email_domain'
   | 'third_party_client'
+  | 'unverified_egress'
   | 'trust_level'
 
 export interface FreebuffSpendCeiling {
@@ -171,6 +214,23 @@ export interface FreebuffSpendCeilingInput {
   /** True when the account has been observed sending a non-Freebuff tool
    *  schema. See docs/freebuff-abuse-detection.md. */
   thirdPartyClient?: boolean
+  /**
+   * True when ipinfo flagged the egress and NO second opinion could be
+   * obtained — every configured privacy provider was disabled, exhausted, or
+   * erroring.
+   *
+   * This exists so a provider outage cannot buy an operator a larger budget.
+   * Before it, an unreachable Spur produced `spur_failed_limited`, which set a
+   * limited tier but no ceiling — so the cheapest way to widen a cap was to
+   * exhaust our own vendor quota. On 2026-08-13 Spur was dead for two days and
+   * 354,715 lookups in 24h returned nothing; the fail-open path was live that
+   * whole time.
+   *
+   * It is the restricted ceiling and not a block for the usual reason: an
+   * unresolved verdict is not evidence, and the accounts it catches include
+   * ordinary users behind a business network ipinfo called `hosting`.
+   */
+  unverifiedEgress?: boolean
   /** The trust matrix's ceiling, when that rollout is enforcing. */
   trustLevelCeilingUsd?: number | null
   /** Overrides, all optional so a missing env var changes nothing. */
@@ -214,6 +274,9 @@ export function resolveFreebuffSpendCeiling(
   if (input.flaggedEmailDomain) {
     applied.push({ reason: 'flagged_email_domain', usd: restrictedUsd })
   }
+  if (input.unverifiedEgress) {
+    applied.push({ reason: 'unverified_egress', usd: restrictedUsd })
+  }
   if (input.thirdPartyClient) {
     applied.push({ reason: 'third_party_client', usd: restrictedUsd })
   }
@@ -234,4 +297,22 @@ export function resolveFreebuffSpendCeiling(
   }
 
   return { usd: winner.usd, reason: winner.reason, applied }
+}
+
+/**
+ * The spend at which even a LIVE session is refused, or `null` when the
+ * winning ceiling is one the hard cap deliberately does not apply to.
+ *
+ * `null` means "fresh-admission gating only" — the behaviour every ceiling had
+ * before this existed. Callers must treat `null` as no hard cap rather than as
+ * zero; getting that backwards would cut every region-limited session the
+ * moment it opened.
+ */
+export function resolveFreebuffHardSpendCeiling(
+  ceiling: Pick<FreebuffSpendCeiling, 'usd' | 'reason'>,
+  multiplier: number = FREEBUFF_SPEND_CEILING_HARD_MULTIPLIER,
+): number | null {
+  if (!HARD_CAPPED_REASONS.has(ceiling.reason)) return null
+  if (!Number.isFinite(multiplier) || multiplier <= 0) return null
+  return ceiling.usd * multiplier
 }

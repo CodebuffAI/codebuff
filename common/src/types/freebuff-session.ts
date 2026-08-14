@@ -233,12 +233,28 @@ export type FreebuffSpurStatus =
   | 'clean'
   | 'suspicious'
   | 'failed'
+  /**
+   * Deliberately not consulted: the provider is switched off, or its balance
+   * is exhausted and the breaker is open.
+   *
+   * Distinct from `failed` on purpose. `failed` means "we asked and got
+   * nothing", which is a signal about the IP's luck and is worth a risk-score
+   * floor. `skipped` means "we chose not to ask", which says nothing about the
+   * IP at all — scoring it would penalise every request in the world the
+   * moment we turn a vendor off. What it does instead is leave the escalation
+   * UNRESOLVED when no other provider answered, which the spend ceiling reads
+   * as `unverified_egress`.
+   */
+  | 'skipped'
 
 export type FreebuffScamalyticsStatus =
   | 'not_checked'
   | 'clean'
   | 'suspicious'
   | 'failed'
+  /** Deliberately not consulted — switched off, or balance exhausted and the
+   *  breaker is open. Same meaning and same reasoning as the Spur variant. */
+  | 'skipped'
 
 export type FreebuffPrivacyDecision =
   | 'allowed_clean'
@@ -246,6 +262,10 @@ export type FreebuffPrivacyDecision =
   | 'corroborated_block'
   | 'cloudflare_tor_block'
   | 'spur_failed_limited'
+  /** ipinfo flagged the egress and no second opinion was obtainable at all —
+   *  every provider disabled, exhausted, or erroring. Carries the restricted
+   *  spend ceiling so a vendor outage cannot widen anyone's budget. */
+  | 'unverified_egress_limited'
   | 'scamalytics_failed_limited'
   | 'scamalytics_suspicious_limited'
   | 'ipinfo_failed_limited'
