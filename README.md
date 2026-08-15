@@ -10,7 +10,7 @@ English | [简体中文](./README.zh-CN.md)
 
 | Product                     | What it does                        | Get started                                                           |
 | --------------------------- | ----------------------------------- | --------------------------------------------------------------------- |
-| **Freebuff Desktop** (Beta) | Run parallel agents locally         | [Download for macOS, Windows, or Linux](https://freebuff.com/desktop) |
+| **Freebuff Desktop**        | Run parallel agents locally         | [Download for macOS, Windows, or Linux](https://freebuff.com/desktop) |
 | **Freebuff CLI**            | Code from your terminal             | [Install the CLI](https://freebuff.com/cli)                           |
 | **Freebuff Web**            | Build and ship full-stack apps      | [Build an app](https://freebuff.com/web)                              |
 | **Freebuff Cloud**          | Run agents on any GitHub repository | [Connect a repository](https://freebuff.com/cloud)                    |
