@@ -254,6 +254,159 @@ describe('convertCbToModelMessages', () => {
       expect(result.map((message) => message.role)).toEqual(['user', 'tool'])
       expect(result[0].content).toHaveLength(2)
     })
+
+    // A media result rides a user message, and the AI SDK treats a user message
+    // as a boundary where every tool call issued so far must already be
+    // answered. Emitted inline it splits a batch of parallel calls and the
+    // sibling still pending throws MissingToolResultsError client-side, which
+    // wedges every later turn in the thread that replays the history.
+    it('keeps a media result from splitting a batch of parallel tool calls', () => {
+      const screenshot = (toolCallId: string): Message => ({
+        role: 'tool',
+        toolCallId,
+        toolName: 'preview_screenshot',
+        content: [
+          ...mediaToolResult({ data: 'base64data', mediaType: 'image/png' }),
+          ...jsonToolResult({ ok: true }),
+        ],
+      })
+      const readFiles = (toolCallId: string): Message => ({
+        role: 'tool',
+        toolCallId,
+        toolName: 'read_files',
+        content: jsonToolResult({ files: [] }),
+      })
+
+      const result = convertCbToModelMessages({
+        messages: [
+          userMessage('screenshot the preview and read the file'),
+          {
+            ...assistantMessage('working'),
+            content: [
+              {
+                type: 'tool-call',
+                toolCallId: 'call_shot',
+                toolName: 'preview_screenshot',
+                input: {},
+              },
+              {
+                type: 'tool-call',
+                toolCallId: 'call_read',
+                toolName: 'read_files',
+                input: {},
+              },
+            ],
+          },
+          screenshot('call_shot'),
+          readFiles('call_read'),
+        ],
+        includeCacheControl: false,
+      })
+
+      // Both results land before the image's user message, so no call is still
+      // pending at the boundary.
+      expect(result.map((message) => message.role)).toEqual([
+        'user',
+        'assistant',
+        'tool',
+        'tool',
+        'user',
+      ])
+      expect(result.at(-1)!.content).toEqual([
+        expect.objectContaining({ type: 'file' }),
+      ])
+    })
+
+    // Waiting on the answers, not merely on the next non-tool message: anything
+    // interleaved between a batch's results must not let the image out early.
+    it('holds media until a sibling result arrives after an interleaved message', () => {
+      const result = convertCbToModelMessages({
+        messages: [
+          userMessage('go'),
+          {
+            ...assistantMessage('working'),
+            content: [
+              {
+                type: 'tool-call',
+                toolCallId: 'call_shot',
+                toolName: 'preview_screenshot',
+                input: {},
+              },
+              {
+                type: 'tool-call',
+                toolCallId: 'call_read',
+                toolName: 'read_files',
+                input: {},
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            toolCallId: 'call_shot',
+            toolName: 'preview_screenshot',
+            content: [
+              ...mediaToolResult({ data: 'base64data', mediaType: 'image/png' }),
+              ...jsonToolResult({ ok: true }),
+            ],
+          },
+          assistantMessage('still thinking'),
+          {
+            role: 'tool',
+            toolCallId: 'call_read',
+            toolName: 'read_files',
+            content: jsonToolResult({ files: [] }),
+          },
+        ],
+        includeCacheControl: false,
+      })
+
+      expect(result.map((message) => message.role)).toEqual([
+        'user',
+        'assistant',
+        'tool',
+        'assistant',
+        'tool',
+        'user',
+      ])
+    })
+
+    it('flushes buffered media before the next assistant message', () => {
+      const result = convertCbToModelMessages({
+        messages: [
+          userMessage('go'),
+          {
+            ...assistantMessage('working'),
+            content: [
+              {
+                type: 'tool-call',
+                toolCallId: 'call_shot',
+                toolName: 'preview_screenshot',
+                input: {},
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            toolCallId: 'call_shot',
+            toolName: 'preview_screenshot',
+            content: [
+              ...mediaToolResult({ data: 'base64data', mediaType: 'image/png' }),
+              ...jsonToolResult({ ok: true }),
+            ],
+          },
+          assistantMessage('here is what I saw'),
+        ],
+        includeCacheControl: false,
+      })
+
+      expect(result.map((message) => message.role)).toEqual([
+        'user',
+        'assistant',
+        'tool',
+        'user',
+        'assistant',
+      ])
+    })
   })
 
   describe('basic message conversion', () => {

@@ -233,9 +233,60 @@ function convertToolMessages(
   messages: Message[],
 ): ModelMessageWithAuxiliaryData[] {
   const withoutToolMessages: ModelMessageWithAuxiliaryData[] = []
-  for (const message of messages) {
-    withoutToolMessages.push(...convertToolMessage(message))
+  // Media parts ride *user* messages (see convertToolResultMessage), and the AI
+  // SDK throws at a user/system boundary when any tool call issued so far is
+  // still unanswered. Emitting media inline therefore splits a batch of
+  // parallel calls -- the sibling whose result is not reached yet is still
+  // pending, so validation fails client-side before the request is ever sent,
+  // permanently wedging the thread that replays that history. Buffer media
+  // until every call is answered, then flush: waiting on the answers not on
+  // the next non-tool message keeps the image as close to its own result as is
+  // safe, even when something is interleaved between the results.
+  // (convertToolResultMessage already does this within one tool message.)
+  const unanswered = new Set<string>()
+  let pendingMedia: ModelMessageWithAuxiliaryData[] = []
+  const flushMedia = () => {
+    if (unanswered.size > 0 || pendingMedia.length === 0) return
+    withoutToolMessages.push(...pendingMedia)
+    pendingMedia = []
   }
+
+  for (const message of messages) {
+    const converted = convertToolMessage(message)
+    if (message.role !== 'tool') {
+      flushMedia()
+      withoutToolMessages.push(...converted)
+      for (const part of converted) {
+        if (part.role !== 'assistant') continue
+        for (const content of part.content) {
+          // Mirrors the SDK: a provider-executed call needs no local result, so
+          // tracking one would defer every later image forever.
+          if (content.type !== 'tool-call') continue
+          if (content.providerExecuted !== true) {
+            unanswered.add(content.toolCallId)
+          }
+        }
+      }
+      continue
+    }
+    for (const part of converted) {
+      if (part.role !== 'tool') {
+        pendingMedia.push(part)
+        continue
+      }
+      withoutToolMessages.push(part)
+      for (const content of part.content) {
+        if (content.type === 'tool-result') {
+          unanswered.delete(content.toolCallId)
+        }
+      }
+    }
+    flushMedia()
+  }
+
+  // Anything still buffered had no clean boundary; dropUnansweredToolCalls has
+  // already removed calls that never get answered, so this is just a backstop.
+  withoutToolMessages.push(...pendingMedia)
   return withoutToolMessages
 }
 
