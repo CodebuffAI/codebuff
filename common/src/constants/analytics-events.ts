@@ -345,6 +345,11 @@ export enum AnalyticsEvent {
   // login funnels. `message_sent` (above) is reused with `surface: 'desktop'`;
   // these capture the launch, auth, and per-turn activity unique to the app.
   DESKTOP_APP_LAUNCHED = 'desktop.app_launched',
+  // The ATTEMPT, which `desktop.login` (the completion) cannot stand in for. A screen that gets
+  // more people to press the button and a screen nobody presses look identical in completions
+  // alone if sign-in itself is what breaks — and the first-run screen exists to move exactly this
+  // number. `surface` says which control started it, so a change to one of them is separable.
+  DESKTOP_LOGIN_STARTED = 'desktop.login_started',
   DESKTOP_LOGIN = 'desktop.login',
   // Every way device-code sign-in can fail on the client. Without it a user who
   // cannot sign in is INVISIBLE: `/api/auth/cli/code` answers 200 on all of

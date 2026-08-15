@@ -31,6 +31,9 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   // Desktop surface events are low-volume; keep them whole so the app's launch /
   // login / activity funnels aren't decimated by the 1% default sample.
   AnalyticsEvent.DESKTOP_APP_LAUNCHED,
+  // Both halves of the sign-in funnel, or its conversion rate is a ratio of two
+  // differently-sampled numbers.
+  AnalyticsEvent.DESKTOP_LOGIN_STARTED,
   AnalyticsEvent.DESKTOP_LOGIN,
   // Rare, and the only evidence a sign-in failed at all — a sampled one is a
   // support ticket with nothing behind it.
