@@ -91,20 +91,70 @@ export const FREEBUFF_RESTRICTED_DAILY_SPEND_USD = 0.5
  * Kept as an env-overridable list because the right answer moves with where
  * the traffic is, and a code deploy is the wrong latency for that.
  */
-export const FREEBUFF_RESTRICTED_COUNTRIES: readonly string[] = ['SG', 'CN']
+export const FREEBUFF_RESTRICTED_COUNTRIES: readonly string[] = ['CN']
 
 /**
- * The one sentence every capacity refusal shares.
+ * The middle ceiling, for countries that are heavy anonymizing-egress
+ * geographies AND have a large population of ordinary users.
  *
- * ## Why it is one string and not per-cohort copy
+ * Exists because the two-value scheme above forced a false choice for
+ * Singapore. SG is in `FREE_MODE_ALLOWED_COUNTRIES` — we call it a full-access
+ * country and give it the $15 region ceiling — while simultaneously sitting on
+ * the restricted list at $0.50. An account was told it had full access and
+ * then priced at a thirtieth of the full budget.
+ *
+ * Measured over 24h on 2026-08-15, that resolved to: 341 of 1,491 active SG
+ * users (22.9%) refused, against 3.5% in the US and 0.2% in India. 75% of the
+ * refused cohort carried no abuse signal of any kind, and 71% of those were on
+ * gmail/qq/163/outlook/hotmail. The honeypot hit rate — the strongest
+ * country-attributable signal we have — was 2.5% in SG against 2.1% in the US
+ * and 3.2% in Indonesia, which is no support at all for a 30x lower cap.
+ *
+ * The abuse in SG was real, but it was a *domain* farm rather than a country:
+ * ~160 accounts on dhisy/dewaa/sendang/yotube/gusil, now priced by
+ * `flaggedEmailDomain` instead. Catching it there is what makes this tier
+ * affordable.
+ *
+ * $5 and not $15: SG remains a top VPN and datacenter exit, so the tail this
+ * bounds is real even with the farm named. Five dollars is the same figure a
+ * limited-region account gets — enough for a full day's ordinary work, still a
+ * bound — and deliberately not a number that has to be defended per-country.
+ */
+export const FREEBUFF_ELEVATED_DAILY_SPEND_USD = 5
+
+/**
+ * Countries held at the elevated ceiling.
+ *
+ * Env-overridable for the same reason the restricted list is: where the
+ * traffic is moves faster than a deploy. CN is deliberately NOT here — it is
+ * not in `FREE_MODE_ALLOWED_COUNTRIES`, so its accounts already resolve to the
+ * limited tier's $5 region ceiling, and moving it here would remove its
+ * restricted ceiling entirely rather than soften it. That is a separate
+ * decision from this one, on separate evidence.
+ */
+export const FREEBUFF_ELEVATED_COUNTRIES: readonly string[] = ['SG']
+
+/**
+ * The cause-blind capacity refusal.
+ *
+ * ## What it still covers
+ *
+ * Free-mode RATE limits (prompt windows, premium-model caps) and the one spend
+ * cohort that must stay unnamed, `third_party_client`. It was originally the
+ * single sentence EVERY refusal shared; two cohorts have since been split off
+ * it — `FREEBUFF_RESTRICTED_NOTICE` on 2026-08-14 and `FREEBUFF_BUDGET_NOTICE`
+ * on 2026-08-15 — each on an explicit operator decision recorded below.
+ *
+ * ## Why it was one string
  *
  * A restricted account (restricted country, flagged domain, observed foreign
  * toolset) hits its ceiling far sooner than anyone else, and if the message it
  * saw were different it would be telling the operator which signal caught
  * them — the exact leak `docs/freebuff-honeypot-models.md` separates detection
- * from enforcement to avoid. Identical copy for everyone means a $1 account
- * and a $15 account read the same wall, and neither learns anything about how
- * it was measured.
+ * from enforcement to avoid. That argument still holds for anything that names
+ * a DETECTOR, which is why `third_party_client` never got its own copy. It
+ * does not hold for a whole-population allowance, where there is no detector
+ * to leak — hence the budget split.
  *
  * ## Why it names abuse
  *
@@ -146,10 +196,9 @@ export const FREEBUFF_CAPACITY_NOTICE =
 export const FREEBUFF_RESTRICTED_NOTICE =
   'This account has reduced capacity: it was flagged for VPN or proxy usage, a restricted location, or an email domain commonly used by bot farms. If you are on a VPN, connecting directly restores normal limits.'
 
-/** The reasons that show `FREEBUFF_RESTRICTED_NOTICE` instead of the generic
- *  capacity notice. `third_party_client`, `region` and `trust_level` stay on
- *  the blind copy on purpose: the first is a detector worth not naming, and
- *  the others are not accusations. */
+/** The reasons that show `FREEBUFF_RESTRICTED_NOTICE`. `third_party_client`
+ *  stays on the cause-blind `FREEBUFF_CAPACITY_NOTICE` on purpose: it is a
+ *  detector worth not naming. */
 export const FREEBUFF_RESTRICTED_NOTICE_REASONS: ReadonlySet<string> = new Set([
   'privacy_egress',
   'restricted_country',
@@ -157,11 +206,46 @@ export const FREEBUFF_RESTRICTED_NOTICE_REASONS: ReadonlySet<string> = new Set([
   'unverified_egress',
 ])
 
+/**
+ * The plain daily-budget refusals — no cohort, no detector, no suspicion.
+ *
+ * Split out of `FREEBUFF_CAPACITY_NOTICE` on 2026-08-15. Every one of these is
+ * a whole-population allowance, and the abuse sentence was landing on people
+ * it did not describe: over 24h, 17 of the 18 accounts refused by the
+ * limited-region $5 ceiling carried no abuse signal of any kind, and were told
+ * that "sustained automated abuse forced us to cap" their account. That reads
+ * as an accusation to someone who just did a day's work, and it is the phrasing
+ * support tickets come back quoting.
+ */
+export const FREEBUFF_BUDGET_NOTICE_REASONS: ReadonlySet<string> = new Set([
+  'region',
+  'elevated_country',
+  'trust_level',
+])
+
+/**
+ * The refusal copy for a plain daily allowance.
+ *
+ * Deliberately says nothing about the account. It names the thing that ran out
+ * (today's free usage), not a property of the person, and it does not use
+ * "limited", "restricted" or "blocked" — those read as a verdict, and they are
+ * the words that generate "is my account restricted?" tickets.
+ *
+ * Carries no number, for the same reason the other two do not: a published cap
+ * is a published pacing instruction. It also carries no reset time, because
+ * every surface appends its own ("resets at midnight Pacific", "come back in
+ * X") and the duplication reads as a copy bug.
+ */
+export const FREEBUFF_BUDGET_NOTICE =
+  'You have used all of today’s free usage on this account.'
+
 /** Pick the refusal sentence for a resolved ceiling reason. */
 export function freebuffSpendNoticeFor(reason: string): string {
-  return FREEBUFF_RESTRICTED_NOTICE_REASONS.has(reason)
-    ? FREEBUFF_RESTRICTED_NOTICE
-    : FREEBUFF_CAPACITY_NOTICE
+  if (FREEBUFF_RESTRICTED_NOTICE_REASONS.has(reason)) {
+    return FREEBUFF_RESTRICTED_NOTICE
+  }
+  if (FREEBUFF_BUDGET_NOTICE_REASONS.has(reason)) return FREEBUFF_BUDGET_NOTICE
+  return FREEBUFF_CAPACITY_NOTICE
 }
 
 /**
@@ -194,9 +278,12 @@ export const FREEBUFF_SPEND_CEILING_HARD_MULTIPLIER = 2
 /**
  * Reasons whose ceiling is small enough that the hard multiplier applies.
  *
- * `region` and `trust_level` are excluded: both are whole-population limits
- * where the fresh-admission gate is proportionate, and applying a hard cut
- * there would interrupt ordinary paying-in-attention users mid-thought.
+ * `region`, `elevated_country` and `trust_level` are excluded: all three are
+ * whole-population limits where the fresh-admission gate is proportionate, and
+ * applying a hard cut there would interrupt ordinary paying-in-attention users
+ * mid-thought. `elevated_country` sits at the same $5 as a limited-region
+ * account precisely so it can be reasoned about as a region ceiling rather
+ * than as a suspicion, and cutting it live would undo that.
  */
 const HARD_CAPPED_REASONS: ReadonlySet<string> = new Set([
   'restricted_country',
@@ -208,6 +295,7 @@ const HARD_CAPPED_REASONS: ReadonlySet<string> = new Set([
 
 export type FreebuffSpendCeilingReason =
   | 'region'
+  | 'elevated_country'
   | 'restricted_country'
   | 'privacy_egress'
   | 'flagged_email_domain'
@@ -273,6 +361,8 @@ export interface FreebuffSpendCeilingInput {
     regionUsd?: Partial<Record<FreebuffAccessTier, number>>
     restrictedUsd?: number
     restrictedCountries?: readonly string[]
+    elevatedUsd?: number
+    elevatedCountries?: readonly string[]
   }
 }
 
@@ -289,6 +379,10 @@ export function resolveFreebuffSpendCeiling(
     input.overrides?.restrictedUsd ?? FREEBUFF_RESTRICTED_DAILY_SPEND_USD
   const restrictedCountries =
     input.overrides?.restrictedCountries ?? FREEBUFF_RESTRICTED_COUNTRIES
+  const elevatedUsd =
+    input.overrides?.elevatedUsd ?? FREEBUFF_ELEVATED_DAILY_SPEND_USD
+  const elevatedCountries =
+    input.overrides?.elevatedCountries ?? FREEBUFF_ELEVATED_COUNTRIES
 
   const applied: { reason: FreebuffSpendCeilingReason; usd: number }[] = [
     {
@@ -300,6 +394,9 @@ export function resolveFreebuffSpendCeiling(
   ]
 
   const country = input.countryCode?.toUpperCase() ?? null
+  if (country && elevatedCountries.includes(country)) {
+    applied.push({ reason: 'elevated_country', usd: elevatedUsd })
+  }
   if (country && restrictedCountries.includes(country)) {
     applied.push({ reason: 'restricted_country', usd: restrictedUsd })
   }

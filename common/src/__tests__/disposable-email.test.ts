@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'bun:test'
 
-import { classifyEmailDomain, isSpendCeilingFlaggedEmailDomain } from '../util/disposable-email'
+import {
+  classifyEmailDomain,
+  isSpendCeilingFlaggedEmailDomain,
+} from '../util/disposable-email'
 
 describe('classifyEmailDomain', () => {
   it('flags one-time inbox providers as disposable', () => {
     expect(classifyEmailDomain('bot123@mailinator.com')).toBe('disposable')
     expect(classifyEmailDomain('x@yopmail.com')).toBe('disposable')
     // Domains observed in the 2026-07 referral farm rings.
-    expect(classifyEmailDomain('mrz640mq54kr@animatimg.com')).toBe(
-      'disposable',
-    )
+    expect(classifyEmailDomain('mrz640mq54kr@animatimg.com')).toBe('disposable')
     expect(classifyEmailDomain('a@biscoito.email')).toBe('disposable')
   })
 
@@ -44,13 +45,27 @@ describe('classifyEmailDomain', () => {
   it('flags the 2026-08-01 free-mode compute ring domains and their subdomains', () => {
     // Real addresses from the ring; the deceptive subdomains are the point.
     expect(classifyEmailDomain('tbcy8kvy77z2@l0veyou.com')).toBe('disposable')
-    expect(classifyEmailDomain('xtikhozbrw3z@gmail.l0veyou.com')).toBe('disposable')
-    expect(classifyEmailDomain('kznc3jb31lsz@edu.l0veyou.com')).toBe('disposable')
-    expect(classifyEmailDomain('ht07lgr96jsg@my.l0veyou.com')).toBe('disposable')
-    expect(classifyEmailDomain('8cuoyn573zae@test123.l0veyou.com')).toBe('disposable')
-    expect(classifyEmailDomain('4j4fyacbke76@pumpkinai.space')).toBe('disposable')
-    expect(classifyEmailDomain('uhm9e3za1qft@gmail.pumpkinai.space')).toBe('disposable')
-    expect(classifyEmailDomain('7yahsqv1o8lc@pumpkinai.it.com')).toBe('disposable')
+    expect(classifyEmailDomain('xtikhozbrw3z@gmail.l0veyou.com')).toBe(
+      'disposable',
+    )
+    expect(classifyEmailDomain('kznc3jb31lsz@edu.l0veyou.com')).toBe(
+      'disposable',
+    )
+    expect(classifyEmailDomain('ht07lgr96jsg@my.l0veyou.com')).toBe(
+      'disposable',
+    )
+    expect(classifyEmailDomain('8cuoyn573zae@test123.l0veyou.com')).toBe(
+      'disposable',
+    )
+    expect(classifyEmailDomain('4j4fyacbke76@pumpkinai.space')).toBe(
+      'disposable',
+    )
+    expect(classifyEmailDomain('uhm9e3za1qft@gmail.pumpkinai.space')).toBe(
+      'disposable',
+    )
+    expect(classifyEmailDomain('7yahsqv1o8lc@pumpkinai.it.com')).toBe(
+      'disposable',
+    )
   })
 
   it('flags the proxy-service and single-day-mint domains', () => {
@@ -88,5 +103,30 @@ describe('classifyEmailDomain', () => {
     expect(classifyEmailDomain(undefined)).toBeNull()
     expect(classifyEmailDomain('not-an-email')).toBeNull()
     expect(classifyEmailDomain('trailing@')).toBeNull()
+  })
+  it('flags the 2026-08-15 Singapore ring, and prices it', () => {
+    // These are why the SG geography cap could come off: the abuse there was a
+    // domain farm, not a country. Each cleared the file's evidence bar on ban
+    // rate (see the dated block in disposable-email.ts).
+    for (const domain of [
+      'dhisy.com',
+      'dewaa.id',
+      'sendang.space',
+      'yotube.id',
+      'gusil.my.id',
+    ]) {
+      expect(classifyEmailDomain(`user@${domain}`)).toBe('disposable')
+      expect(isSpendCeilingFlaggedEmailDomain(`user@${domain}`)).toBe(true)
+    }
+  })
+
+  it('does NOT flag the two lookalikes that failed the evidence bar', () => {
+    // gmisel.com sits one letter from the listed gmisol.my.id and shows a 2%
+    // abuse rate — indistinguishable from gmail. cemararaya.id has six
+    // accounts. Name similarity is not evidence; this is the regression guard
+    // for adding a domain because it "looks like" one of the others.
+    expect(classifyEmailDomain('user@gmisel.com')).toBeNull()
+    expect(classifyEmailDomain('user@cemararaya.id')).toBeNull()
+    expect(isSpendCeilingFlaggedEmailDomain('user@gmisel.com')).toBe(false)
   })
 })

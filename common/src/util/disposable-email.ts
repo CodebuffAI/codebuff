@@ -137,6 +137,40 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'proxyvpn.cn',
   'impact.qd.je',
   'fincy.qd.je',
+  // Compiled 2026-08-15 from 14d of prod logs, while working out why 22.9% of
+  // Singapore's active users were hitting a spend ceiling. The restricted
+  // ceiling on the SG *geography* was doing two jobs at once: bounding a farm
+  // that happens to egress there, and taxing ~270 ordinary developers on
+  // gmail/qq/163/outlook. Naming the farm by domain is what lets the geography
+  // cap come off — see FREEBUFF_ELEVATED_COUNTRIES.
+  //
+  // Rates below are "share of the domain's accounts carrying an automated ban,
+  // honeypot hit, or foreign-toolset detection". Baselines from the same
+  // window: gmail.com 5%, proton.me 7%, outlook.com 23%.
+  //
+  // dhisy.com      28 accounts, 93%  — clears the >=20 / >=75% statistical bar
+  // dewaa.id       20 accounts, 80%  — clears it
+  // sendang.space  13 accounts, 92%  — behavioural: too few accounts for the
+  //                                    bar, ban rate far past it
+  // yotube.id      18 accounts, 83%  — behavioural, and a YouTube typo-squat
+  // gusil.my.id    80 accounts, 68%  — under 75%, but 13x the gmail baseline
+  //                                    at real volume, and the same naming
+  //                                    family as gsuel/gehil/gmisol.my.id
+  //                                    already listed above
+  //
+  // Deliberately NOT added, and worth recording because both LOOK like members
+  // of the family above and are not:
+  //   gmisel.com     49 accounts, 2% — indistinguishable from gmail's baseline
+  //                                    despite sitting one letter from the
+  //                                    listed gmisol.my.id. Name similarity is
+  //                                    not evidence; this is the entry the
+  //                                    >=75% bar exists to keep out.
+  //   cemararaya.id   6 accounts, 33% — too few accounts, rate too low.
+  'dhisy.com',
+  'dewaa.id',
+  'sendang.space',
+  'yotube.id',
+  'gusil.my.id',
 ] as const
 
 /**
@@ -196,7 +230,10 @@ const MAINSTREAM_PRIVACY_SET: ReadonlySet<string> = new Set(
 function domainOf(email: string): string | null {
   const at = email.lastIndexOf('@')
   if (at < 0 || at === email.length - 1) return null
-  return email.slice(at + 1).trim().toLowerCase()
+  return email
+    .slice(at + 1)
+    .trim()
+    .toLowerCase()
 }
 
 function matchesSet(domain: string, set: ReadonlySet<string>): boolean {
