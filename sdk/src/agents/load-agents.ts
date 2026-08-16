@@ -111,6 +111,7 @@ const agentFileExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
 const shouldSkipAgentDirectory = (name: string): boolean =>
   name.startsWith('.') ||
   name === 'node_modules' ||
+  name === 'plugins' ||
   name === 'scripts' ||
   name === 'skills' ||
   name.startsWith('skills-')

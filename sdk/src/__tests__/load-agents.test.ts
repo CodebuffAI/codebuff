@@ -271,6 +271,24 @@ describe('loadLocalAgents', () => {
       expect(result['real-agent']).toBeDefined()
     })
 
+    test('does not execute nested MCP implementation files', async () => {
+      const mcpBinDir = path.join(agentsDir, 'plugins', 'example', 'mcp', 'bin')
+      const executionMarker = path.join(tempDir, 'mcp-module-executed')
+      mkdirSync(mcpBinDir, { recursive: true })
+      writeAgentFile(
+        mcpBinDir,
+        'mcp-proxy.cjs',
+        `
+          require('fs').writeFileSync(${JSON.stringify(executionMarker)}, 'executed')
+          module.exports = {}
+        `,
+      )
+
+      await loadLocalAgents({ agentsPath: agentsDir })
+
+      expect(existsSync(executionMarker)).toBe(false)
+    })
+
     test('loads valid agent definitions that use shorthand required fields', async () => {
       mkdirSync(agentsDir, { recursive: true })
       writeAgentFile(
