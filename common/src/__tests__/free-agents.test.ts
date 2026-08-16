@@ -22,6 +22,7 @@ import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-t
 import {
   FREEBUFF_BASE3_AGENT_IDS,
   FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
+  FREEBUFF_DESKTOP_AUTORUN_AGENT_ID,
   FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
   FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
   FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL,
@@ -306,7 +307,13 @@ describe('free mode agent model allowlist', () => {
       FREEBUFF_GLM_V52_MODEL_ID,
     ]
 
-    for (const agentId of FREEBUFF_DESKTOP_THREAD_AGENT_IDS) {
+    // The auto-run decider rides the same allowlist as the thread roots: it
+    // decides on the tab's own model, which is the one that tab's session was
+    // admitted with, so anything narrower 403s with session_model_mismatch.
+    for (const agentId of [
+      ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
+      FREEBUFF_DESKTOP_AUTORUN_AGENT_ID,
+    ]) {
       for (const model of desktopModels) {
         expect(isFreeModeAllowedAgentModel(agentId, model)).toBe(true)
       }
@@ -608,6 +615,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
   const BASE2 = 'You are Buffy, the strategic coding assistant.'
   const BASE3 = 'You are Buffy, the coding agent behind Codebuff.'
   const CLOUD_PLANNER = 'You are Buffy, the Freebuff Cloud project planner.'
+  const DESKTOP_AUTORUN =
+    'You are Buffy, the auto-run agent behind Freebuff Desktop.'
 
   /** Root agent id → the opening its system prompt starts with. */
   const PROMPT_FAMILY: Record<string, string> = {
@@ -639,6 +648,10 @@ describe('every freebuff root agent declares a prompt opening', () => {
     // appendix after base3's prompt, never before it. So do the CLI roots —
     // createBase3CliRoot appends its own appendix the same way.
     ...Object.fromEntries([...FREEBUFF_BASE3_AGENT_IDS].map((id) => [id, BASE3])),
+    // The Desktop auto-run decider writes its own prompt rather than composing
+    // onto base3's: base3 tells the model it is the coding agent, and this one
+    // exists to say it is not.
+    [FREEBUFF_DESKTOP_AUTORUN_AGENT_ID]: DESKTOP_AUTORUN,
   }
 
   test('no root agent is missing from the prompt-family map', () => {
@@ -717,6 +730,22 @@ describe('canonical root prompt openings match their source definitions', () => 
     // desktop roots stop matching any canonical opening. Since #1444 the
     // prompt is composed as an array join with base3.systemPrompt first.
     expect(source).toMatch(/const systemPrompt = \[\s*base3\.systemPrompt,/)
+  })
+
+  test('desktop auto-run decider opens with its own canonical line', () => {
+    const source = read(
+      'freebuff-desktop',
+      'src',
+      'server',
+      'services',
+      'autorun.ts',
+    )
+    const opening = 'You are Buffy, the auto-run agent behind Freebuff Desktop.'
+    // The decision is a free-mode ROOT request, so this sentence has to sit at
+    // position 0 of the first system message or the gate 403s every tab on Auto
+    // — which is a silent failure, since a tab that cannot decide just stops.
+    expect(source).toContain(`return \`${opening}`)
+    expect(FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS).toContain(opening)
   })
 
   test('base3 createBase3 prompt (desktop thread roots)', () => {

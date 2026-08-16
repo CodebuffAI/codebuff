@@ -46,6 +46,25 @@ export const FREE_COST_MODE = 'free' as const
 export const FREEBUFF_DESKTOP_THREAD_AGENT_ID = 'freebuff-desktop-thread'
 
 /**
+ * The root Freebuff Desktop's AUTO-RUN decider runs under: the agent that picks
+ * what a tab on Auto does next when a turn ends with nothing queued (see
+ * freebuff-desktop/src/server/services/autorun.ts). It is not the working
+ * agent — it never edits files or runs commands, it only chooses the next input.
+ *
+ * It is a first-party free-mode ROOT for the same reason the thread agent is,
+ * and it has to be one: a decision is made BETWEEN turns, so there is no running
+ * root for it to hang off and the subagent hierarchy gate would 403 it. Before
+ * it was listed here it fell through to the metered path and 402'd
+ * ("Out of credits") for the entire free-mode population, which is most of
+ * Desktop — auto-run simply never produced a next step for them.
+ *
+ * One id for every model, like the thread roots: the decision runs on whatever
+ * model the tab's turns run on, which is also the model its free session was
+ * admitted with. Anything else would 403 with `session_model_mismatch`.
+ */
+export const FREEBUFF_DESKTOP_AUTORUN_AGENT_ID = 'freebuff-desktop-autorun'
+
+/**
  * Suffix for the base3 desktop roots. The single-loop agent is a different
  * agent with a different cost profile, so it gets its own root ids: spend and
  * run counts split by `agent_id` in the DB, which is what makes a base2 vs
@@ -308,6 +327,9 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // shared with Web; Fable is the one model the CLI offers and Web does not.
   'base3-free-fable',
   ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
+  // The Desktop auto-run decider. Spawns nothing, but the hierarchy gate reads
+  // this list for the ROOT itself, and a decision has no parent run to hang off.
+  FREEBUFF_DESKTOP_AUTORUN_AGENT_ID,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
@@ -498,6 +520,10 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   [getFreebuffDesktopThreadAgentId('local', 'base3')]: FREEBUFF_DESKTOP_MODELS,
   [getFreebuffDesktopThreadAgentId('worktree', 'base3')]:
     FREEBUFF_DESKTOP_MODELS,
+  // The auto-run decider reads the same set for the same reason: it decides on
+  // the tab's own model, which is the one that tab's session was admitted with.
+  // Pinning it to a single model instead would 403 every tab on any other one.
+  [FREEBUFF_DESKTOP_AUTORUN_AGENT_ID]: FREEBUFF_DESKTOP_MODELS,
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
@@ -608,6 +634,12 @@ export const FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS = [
   'You are Buffy, the coding agent behind Codebuff.',
   // freebuff_bundled_agents.ts CLOUD_PLANNER_SYSTEM_PROMPT — planner roots.
   'You are Buffy, the Freebuff Cloud project planner.',
+  // freebuff-desktop/.../services/autorun.ts — the Desktop auto-run decider.
+  // Its own opening rather than base3's: that prompt tells the model it is the
+  // coding agent, and this one spends its length establishing the opposite
+  // ("you never edit files or run commands"). Position 0 is the worst place to
+  // say the wrong thing about who is reading.
+  'You are Buffy, the auto-run agent behind Freebuff Desktop.',
   // LEGACY — base2's opening before 92371caa8 (2026-07-07). The prompt is
   // compiled into the CLI binary and the launcher force-updates on every start,
   // so this only covers installs whose update path is broken (offline,
