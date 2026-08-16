@@ -814,6 +814,19 @@ const createOpenAICompatibleChatChunkSchema = <
   errorSchema: ERROR_SCHEMA,
 ) =>
   z.union([
+    // The error branch MUST come first. A union returns its first matching
+    // branch, and providers send error chunks that ALSO carry an (empty)
+    // `choices` array — OpenRouter's mid-stream failures look like
+    // `{id, model, provider, choices: [], error: {...}}`. Those satisfy the
+    // normal-chunk branch below, and because z.object strips unknown keys the
+    // `error` field was then dropped before the `'error' in value` check could
+    // ever see it: the stream ended with no content, no usage and no error,
+    // which the silent-stop detector read as a severed connection. Users got
+    // "check your network connection" after four pointless retries while the
+    // provider had plainly said why it refused (prod, 2026-08-16: OpenAI
+    // returned "Policy Violation: this user has been blocked" for every
+    // Luna request).
+    errorSchema,
     z.object({
       id: z.string().nullish(),
       created: z.number().nullish(),
@@ -851,5 +864,4 @@ const createOpenAICompatibleChatChunkSchema = <
       ),
       usage: openaiCompatibleTokenUsageSchema,
     }),
-    errorSchema,
   ])

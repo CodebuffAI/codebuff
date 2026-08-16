@@ -365,6 +365,11 @@ const createOpenAICompatibleCompletionChunkSchema = <
   errorSchema: ERROR_SCHEMA,
 ) =>
   z.union([
+    // Error branch first — see the chat model's schema for why: an error chunk
+    // that also carries `choices` otherwise matches the normal branch and has
+    // its `error` key stripped, silently turning a stated provider failure into
+    // an empty stream.
+    errorSchema,
     z.object({
       id: z.string().nullish(),
       created: z.number().nullish(),
@@ -378,5 +383,4 @@ const createOpenAICompatibleCompletionChunkSchema = <
       ),
       usage: usageSchema.nullish(),
     }),
-    errorSchema,
   ])

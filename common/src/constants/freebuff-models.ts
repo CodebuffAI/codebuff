@@ -164,10 +164,12 @@ export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
  *  and BYOK callers alike (see applyOpenRouterProviderRouting and
  *  applyFreebuffReasoningDefaults in web/src/llm-api/openrouter.ts):
  *
- *   - Routing is PINNED to OpenAI's own endpoint. OpenRouter also lists Azure
- *     and Amazon Bedrock for this model at $1.00/$6.00 per M — 10x OpenAI's
- *     $0.10/$0.60 — so unpinned routing is a silent 10x bill (cf. the
- *     Kimi/Infron unit-price doubling, 2026-07-29).
+ *   - Routing PREFERS OpenAI's own endpoint ($0.10/$0.60 per M) via `order`,
+ *     with fallbacks allowed and cost bounded by FREEBUFF_GPT_5_6_LUNA_MAX_PRICE
+ *     rather than by the pin. A hard pin (allow_fallbacks:false) held until
+ *     2026-08-16, when OpenAI began refusing every request from this account
+ *     ("Policy Violation: this user has been blocked") and took Luna to a 100%
+ *     failure rate with four usable endpoints sitting under the ceiling.
  *   - Reasoning effort is `high`. Luna is cheap enough per token that the
  *     quality is worth more than the reasoning tokens.
  *
@@ -175,12 +177,13 @@ export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
  *  (agents/constants.ts) is this same model id, so keying either off the model
  *  alone would change Codebuff's paid lite mode as a side effect. */
 export const FREEBUFF_GPT_5_6_LUNA_MODEL_ID = 'openai/gpt-5.6-luna'
-/** OpenRouter provider slug Luna is pinned to. */
+/** OpenRouter provider slug Luna prefers (first in `provider.order`). */
 export const FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE = 'openai'
 /** Price ceiling for Luna, USD per million tokens. Sent as OpenRouter's
- *  `provider.max_price`, which REFUSES the request rather than serving above
- *  it, so a provider re-pricing surfaces as a loud error instead of a 10x
- *  invoice.
+ *  `provider.max_price`, which REFUSES to route above it rather than serving
+ *  and billing, so a provider re-pricing surfaces as a loud error instead of a
+ *  surprise invoice. Since 2026-08-16 this — not a hard provider pin — is the
+ *  sole cost guarantee, so it must not be widened casually.
  *
  *  This is a COST FENCE, not an assertion of the list price, and the gap is
  *  deliberate on both sides:
@@ -190,13 +193,14 @@ export const FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE = 'openai'
  *     found that satisfy the max price for this request" — verified against the
  *     live API on 2026-07-30, where 0.11/0.61 passed and 0.1/0.6 did not. A
  *     ceiling equal to list is an outage waiting on a rounding change.
- *   - It must sit WELL BELOW $1.00/$6.00, which is what Azure, Azure EU
- *     ($1.10/$6.60) and Amazon Bedrock charge for this model. Blocking those is
- *     the whole point.
+ *   - It must stay under the next tier up. Azure, Azure EU and Amazon Bedrock
+ *     listed $1.00/$6.00 when this was written and re-priced to $0.20/$1.20 by
+ *     2026-08-16; the ceiling admits them at today's price and would exclude
+ *     them again if they returned to the old one.
  *
- *  Half of Azure's price leaves room for OpenAI's own tiers (list $0.10/$0.60,
- *  priority $0.20/$1.20) and for ordinary price drift, while still failing
- *  closed long before a 10x endpoint could serve a request. */
+ *  The headroom covers OpenAI's own tiers (list $0.10/$0.60, priority
+ *  $0.20/$1.20, flex $0.05/$0.30) and ordinary price drift, while still failing
+ *  closed well before a 10x endpoint could serve a request. */
 export const FREEBUFF_GPT_5_6_LUNA_MAX_PRICE = {
   prompt: 0.5,
   completion: 3.0,

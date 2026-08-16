@@ -121,6 +121,44 @@ describe('OpenAICompatibleChatLanguageModel doStream', () => {
     expect(finish.usage.totalTokens ?? undefined).toBeUndefined()
   })
 
+  it('surfaces a provider error chunk that also carries empty choices', async () => {
+    // Verbatim shape OpenRouter streams when the upstream provider refuses:
+    // an `error` object alongside an EMPTY `choices` array, HTTP 200. That
+    // empty array satisfies the normal-chunk branch of the chunk schema, so
+    // while the error branch came second the whole `error` key was stripped
+    // and the failure vanished — the stream looked like a connection cut, and
+    // the agent loop told users to check their network while retrying a
+    // refusal that could never succeed (prod, 2026-08-16).
+    const parts = await streamParts(
+      sseResponse([
+        JSON.stringify({
+          id: 'gen-1',
+          object: 'chat.completion.chunk',
+          created: 1,
+          model: 'openai/gpt-5.6-luna',
+          provider: 'OpenAI',
+          choices: [],
+          error: {
+            code: 502,
+            message:
+              'Policy Violation: this user has been blocked for a previous policy violation.',
+            metadata: { error_type: 'provider_unavailable' },
+          },
+        }),
+      ]),
+    )
+
+    const error = parts.find((part) => part.type === 'error')
+    if (!error || error.type !== 'error') {
+      throw new Error('stream swallowed the provider error')
+    }
+    expect(String(error.error)).toContain('Policy Violation')
+
+    // And it must NOT masquerade as a severed connection, or the silent-stop
+    // detector would retry it as a network blip instead of failing loudly.
+    expect(finishPartOf(parts).finishReason).toBe('error')
+  })
+
   it('assembles streamed reasoning_details onto the reasoning-end part', async () => {
     const parts = await streamParts(
       sseResponse([
