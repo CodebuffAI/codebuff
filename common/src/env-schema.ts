@@ -57,9 +57,6 @@ export const clientEnvSchema = z.object({
    *  design — it only authorizes ingestion. Optional so a dev checkout without
    *  it boots with replay simply switched off. */
   NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY: z.string().min(1).optional(),
-  /** Overrides the SDK's default ingestion host; only set to point a
-   *  deployment at a non-default Human Behavior endpoint. */
-  NEXT_PUBLIC_HUMANBEHAVIOR_INGESTION_URL: z.url().optional(),
 } satisfies Record<`${typeof CLIENT_ENV_PREFIX}${string}`, any>)
 export const clientEnvVars = clientEnvSchema.keyof().options
 export type ClientEnvVar = (typeof clientEnvVars)[number]
@@ -92,6 +89,4 @@ export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_RECAPTCHA_V2_SIZE: process.env.NEXT_PUBLIC_RECAPTCHA_V2_SIZE,
   NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY:
     process.env.NEXT_PUBLIC_HUMANBEHAVIOR_API_KEY,
-  NEXT_PUBLIC_HUMANBEHAVIOR_INGESTION_URL:
-    process.env.NEXT_PUBLIC_HUMANBEHAVIOR_INGESTION_URL,
 }
