@@ -627,9 +627,11 @@ const PRO_SUPERSEDES_NOTICE =
  * API, 2026-08-12), and /v1/models lists exactly the two undated ids. So there
  * is nothing to plumb for a new build; what changes is what this row SAYS.
  *
- * Pricing is unchanged by the GA release ($[redacted] in / $[redacted] cache read /
- * $0.87 out per M), so DEEPSEEK_V4_PRO_PRICING in web/src/llm-api/deepseek.ts
- * still holds.
+ * Pricing was unchanged by the GA release, but DeepSeek repriced the whole
+ * family at 16:00 UTC on 2026-08-16 and split it into peak and off-peak cards:
+ * $0.66 in / $[redacted] cache read / $1.98 out per M off-peak, exactly double that
+ * at peak (01:00-04:00 and 06:00-10:00 UTC). DEEPSEEK_V4_PRO_PRICING in
+ * web/src/llm-api/deepseek.ts carries both.
  */
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -1299,13 +1301,16 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  `warning` for the default, so it is disclosed — but it is a real change to
  *  what a first-time user sees.
  *
- *  Spend is NOT among the costs, which is why this is not the extravagant choice
- *  it looks like next to Luna's headline $0.10 input: browser turns re-send their
- *  whole prefix every step, so cache reads are ~98% of the tokens, and Pro reads
- *  cache at $[redacted]/M against Luna's $[redacted]/M. See
- *  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS for the full table and where the
- *  break-even sits. Either way the daily premium pool is counted in SESSIONS, so
- *  nobody's quota moves.
+ *  Spend USED to be absent from the costs: browser turns re-send their whole
+ *  prefix every step, so cache reads are ~98% of the tokens, and Pro read cache
+ *  at $[redacted]/M against Luna's $[redacted]/M. DeepSeek's 16:00 UTC 2026-08-16
+ *  repricing inverted that — Pro now reads cache at $[redacted]/M off-peak and
+ *  $[redacted]/M at peak, i.e. 2.2x to 4.4x DEARER than Luna on the dominant term,
+ *  on top of being dearer on fresh input and output. See
+ *  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS for the full table. This default has NOT
+ *  been re-decided on the new numbers; the cost half of the argument for it no
+ *  longer holds and should be revisited. Either way the daily premium pool is
+ *  counted in SESSIONS, so nobody's quota moves.
  *
  *  It is premium, so it draws on the shared daily pool. Surfaces that know the
  *  live quota must step down to FALLBACK_FREEBUFF_MODEL_ID once that pool is
@@ -1339,20 +1344,27 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  Muting only pays for itself on a group of rows, so add entries back in
  *  pairs or not at all.
  *
- *  GPT-5.6 Luna is superseded (by Pro) and deliberately NOT muted, because the
- *  cost half genuinely does not resolve. Per M, read off OpenRouter 2026-08-12:
+ *  GPT-5.6 Luna is superseded (by Pro) and deliberately NOT muted. The cost
+ *  half of that call used to be genuinely unresolvable; DeepSeek's 16:00 UTC
+ *  2026-08-16 repricing resolved it the other way. Per M — Luna read off
+ *  OpenRouter 2026-08-12, Pro from DeepSeek's published card:
  *
- *                fresh input   cache read   output
- *    V4 Pro         $[redacted]      $[redacted]   $[redacted]
- *    Luna           $[redacted]      $[redacted]      $[redacted]
+ *                    fresh input   cache read   output
+ *    V4 Pro off-peak    $[redacted]       $[redacted]      $[redacted]
+ *    V4 Pro peak        $[redacted]       $[redacted]      $[redacted]
+ *    Luna               $[redacted]       $[redacted]      $[redacted]
  *
- *  Pro is 2.76x CHEAPER on cache reads — the term that dominates an agent
- *  workload, where re-sent prefixes are ~98% of tokens — while being 4.35x
- *  dearer on fresh input and 1.45x dearer on output. Break-even on the input
- *  term alone is a ~98.1% cache-hit rate, so which model is cheaper depends on
- *  the hit rate and on how output-heavy the traffic is. "Materially more
- *  expensive" is a claim neither row can carry, and muting is reserved for rows
- *  that clearly can. */
+ *  Pro was 2.76x cheaper than Luna on cache reads — the term that dominates an
+ *  agent workload, where re-sent prefixes are ~98% of tokens. It is now 2.2x
+ *  dearer off-peak and 4.4x dearer at peak, and it was already dearer on fresh
+ *  input and output. So Pro is now dearer than Luna on every term in every
+ *  window, and "materially more expensive" is a claim that has moved onto the
+ *  OTHER row.
+ *
+ *  This list is still EMPTY and Pro is still the Web default — muting is a
+ *  product-steering decision and the repricing alone should not silently flip
+ *  it. But the numbers that justified both no longer say what they said; this
+ *  is the note for whoever revisits it. */
 export const FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS: readonly FreebuffModelId[] =
   []
 
