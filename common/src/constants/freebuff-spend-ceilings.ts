@@ -2,10 +2,13 @@
  * Per-account daily spend ceilings for free mode.
  *
  * These replace the flat `FREEBUFF_DAILY_SPEND_LIMIT_USD = 50` that every
- * account shared. A ceiling is the settled provider cost, since midnight
- * Pacific, at or above which no FRESH session is admitted — live sessions and
- * reclaims are never interrupted, so the honest reading is "how much we will
- * spend STARTING new work for this account today".
+ * account shared. The 1x ceiling is the settled provider cost, since midnight
+ * Pacific, at or above which no fresh or legacy-queued external session is
+ * admitted. Ordinary single-session CLI/Web live reclaims avoid the spend
+ * read; restricted-risk cohorts instead enforce a second 2x hard cap on those
+ * reclaims and on new prompts. Desktop reclaim admission skips the spend gate,
+ * but restricted Desktop tabs still meet the same hard cap at prompt time.
+ * Internal accounts are exempt before callers aggregate spend.
  *
  * ## Why a ceiling and not a ban
  *
@@ -65,12 +68,13 @@ export const FREEBUFF_REGION_DAILY_SPEND_USD: Record<
  * fanout counters that produce ban-grade evidence, and costs about as much as
  * finding out would have.
  *
- * Note what this does and does not bound. It gates whether a FRESH session may
- * start, so an account at $0.49 can still open one and spend well past the
- * ceiling inside it — live sessions are never interrupted, by design. The
- * ceiling therefore caps how often restricted accounts come back, not their
- * worst single day. At $0.50 that is roughly one session and then nothing more
- * until the Pacific-midnight reset.
+ * Note what this does and does not bound. The 1x gate decides whether a fresh
+ * session may start, so an account at $0.49 can still open one and spend past
+ * the ceiling inside it. Restricted-risk accounts then meet a separate 2x hard
+ * cap on single-session live reclaims and new prompts; Desktop reclaim POSTs
+ * skip admission gating, while their new prompts still enforce that cap. Thus
+ * $0.50 is roughly one admitted session before the 1x gate closes, and $1 is
+ * the live/prompt backstop until the Pacific-midnight reset.
  *
  * This is the same reasoning `docs/freebuff-honeypot-models.md` gives for
  * separating detection from enforcement in time.
@@ -251,10 +255,10 @@ export function freebuffSpendNoticeFor(reason: string): string {
 /**
  * How far past its ceiling an account may get before a LIVE session is cut.
  *
- * The ceiling above gates fresh admission only — a session already open is
- * never interrupted — and for a $15 account that is the right trade: the
- * overshoot is bounded by one ordinary session and interrupting real work to
- * save cents is the worse error. At $0.50 the same rule is not the same rule.
+ * The 1x ceiling above gates fresh admission only. For a $15 account, allowing
+ * an already-open session to continue is the right trade: the overshoot is
+ * bounded by one ordinary session and interrupting real work to save cents is
+ * the worse error. At $0.50 the same rule is not the same rule.
  * Measured over 24h on 2026-08-13, against a $0.50 ceiling:
  *
  *   restricted_country   p50 3.6x   worst 12.6x   ($6.32)
