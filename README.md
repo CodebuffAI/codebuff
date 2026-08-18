@@ -35,10 +35,10 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 | Model                       | Access                  | Best for                                                                |
 | --------------------------- | ----------------------- | ----------------------------------------------------------------------- |
 | **DeepSeek V4 Pro 08/13**   | Full access             | The default everywhere in full mode; deepest reasoning                  |
-| **DeepSeek V4 Flash 07/31** | Full and limited access | The limited-mode default; fast coding and tool use, no premium session  |
+| **DeepSeek V4 Flash 07/31** | Full access             | Fast coding and tool use, no premium session                            |
 | **GPT-5.6 Luna**            | Full access             | Deep reasoning with native image support                                |
 | **MiniMax M3**              | Full access             | Fast responses with image support                                       |
-| **MiMo 2.5**                | Full and limited access | Balanced performance with image support                                 |
+| **MiMo 2.5**                | Full and limited access | The limited-mode default; balanced performance with image support       |
 
 Beyond the regular picker:
 
@@ -59,7 +59,7 @@ Freebuff uses specialized agents instead of sending every task through one model
 
 ## Free access
 
-Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access, currently DeepSeek V4 Flash and MiMo 2.5 with six one-hour sessions per day.
+Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access, currently MiMo 2.5 with six one-hour sessions per day.
 
 Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 

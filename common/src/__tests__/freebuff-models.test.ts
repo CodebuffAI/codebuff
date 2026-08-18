@@ -740,14 +740,10 @@ describe('freebuff model availability', () => {
     expect(completion).toBeLessThan(6.0)
   })
 
-  test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
-    expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      FREEBUFF_MIMO_V25_MODEL_ID,
-    ])
+  test('limited access exposes non-Pro MiMo 2.5, and not the paused Flash', () => {
+    expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([FREEBUFF_MIMO_V25_MODEL_ID])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual([
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
     ])
     expect(
@@ -755,7 +751,7 @@ describe('freebuff model availability', () => {
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
         'limited',
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'limited'),
     ).toBe(false)
@@ -776,7 +772,22 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(
       resolveFreebuffModelForAccessTier(MINIMAX_M3_MODEL_ID, 'limited'),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    // A Flash pick saved before the pause is coerced rather than refused, so a
+    // returning limited user lands on a model instead of a failed admission.
+    expect(
+      resolveFreebuffModelForAccessTier(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    // MiMo is superseded BY the paused Flash and is the tier's only row, so no
+    // picker may offer that switch — it would coerce straight back.
+    expect(
+      getFreebuffModelSupersededBy(FREEBUFF_MIMO_V25_MODEL_ID, [
+        ...LIMITED_FREEBUFF_MODEL_IDS,
+      ]),
+    ).toBeUndefined()
   })
 
   test('recommends a joinable, in-tier model for the picker hero', () => {
@@ -798,15 +809,22 @@ describe('freebuff model availability', () => {
         getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
       ),
     ).toBe(false)
-    // Limited access → DeepSeek V4 Flash, which is in the limited model set.
+    // Limited access → MiMo 2.5. The membership assertion below is the
+    // load-bearing one: the hero is the row Enter lands on, so a hero outside
+    // the tier's own set is a first keypress that fails admission.
     expect(getRecommendedFreebuffModelId('limited')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
     )
     expect(
       getFreebuffModelsForAccessTier('limited').some(
         (m) => m.id === getRecommendedFreebuffModelId('limited'),
       ),
     ).toBe(true)
+    // Still true with the premium pool spent: that flag steps the FULL-access
+    // hero down to Flash, and must not drag the limited hero onto it.
+    expect(
+      getRecommendedFreebuffModelId('limited', { premiumExhausted: true }),
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
 
   test('every surface recommends DeepSeek V4 Pro, on two separate constants', () => {
@@ -831,9 +849,10 @@ describe('freebuff model availability', () => {
       ),
     ).toBeUndefined()
     // Pro is premium, so the pool CAN run dry — the recommended pick has to
-    // stay joinable, and limited tier can't name it at all.
+    // stay joinable, and limited tier can't name it at all. Asserted through
+    // the tier constant so the hero and the catalog cannot part company.
     expect(getRecommendedFreebuffWebModelId('limited')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      LIMITED_FREEBUFF_MODEL_ID,
     )
     expect(
       getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),

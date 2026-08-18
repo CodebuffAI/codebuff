@@ -689,10 +689,13 @@ const MIMO_V25_MODEL = {
   // product has no separate thinking on/off control, there is no depth ladder
   // to render here; low/medium/max would merely be compatibility aliases.
   // Same price as Flash and outclassed by it, so there is no cost argument to
-  // weigh — just a better model. Note this is the limited tier's other pick and
+  // weigh — just a better model. Note this is the limited tier's only pick and
   // its only natively-multimodal one; steering off it is only reasonable
   // because Flash reads images through the describe pipeline on every surface
-  // (server/images/describe.ts, server/chat/image-context.ts).
+  // (server/images/describe.ts, server/chat/image-context.ts). Flash is not a
+  // model that tier can run, so this pointer reaches full access only —
+  // getFreebuffModelSupersededBy drops it when the target is not among the rows
+  // the caller rendered.
   supersededBy: {
     modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     notice: FLASH_SUPERSEDES_NOTICE,
@@ -1384,12 +1387,22 @@ export function isFreebuffWebDeemphasizedModelId(
 export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
+/**
+ * The limited tier's catalog, and the model an out-of-tier or stale pick is
+ * coerced to. MiMo 2.5 alone since 2026-08-18: DeepSeek V4 Flash 07/31 was this
+ * tier's default until DeepSeek repriced the V4 family on 2026-08-16 (see
+ * DEEPSEEK_V4_PRO_MODEL), and it is the tier's highest-volume model, so pausing
+ * it here is what keeps these sessions free.
+ *
+ * A PAUSE, NOT A RETIREMENT. Flash stays in SUPPORTED_FREEBUFF_MODELS,
+ * FREEBUFF_MODELS and FALLBACK_FREEBUFF_MODEL_ID, so full access is unaffected
+ * and restoring it is re-adding the id here (and to
+ * FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS) plus dropping
+ * FREEBUFF_PAUSED_MODEL_NOTICE from the pickers.
+ */
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
-export const LIMITED_FREEBUFF_MODEL_IDS = [
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_MIMO_V25_MODEL_ID,
-] as const
+  FREEBUFF_MIMO_V25_MODEL_ID
+export const LIMITED_FREEBUFF_MODEL_IDS = [FREEBUFF_MIMO_V25_MODEL_ID] as const
 export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
   (modelId) => SUPPORTED_FREEBUFF_MODELS.find((model) => model.id === modelId)!,
 )
@@ -1457,9 +1470,11 @@ export const FREEBUFF_CLOUD_BLANK_PROJECT_DAILY_LIMIT = 10
 export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
 
 /** Models available to limited-region Freebuff Web users. They share the
- * limited-region session pool; every other model remains geo-gated. */
+ * limited-region session pool; every other model remains geo-gated.
+ *
+ * Flash left this list with LIMITED_FREEBUFF_MODEL_IDS — restore it in both or
+ * neither, since FREEBUFF_WEB_LIMITED_MODEL_IDS is the union of the two. */
 export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
 ] as const
 
@@ -1494,7 +1509,8 @@ export function isFreebuffWebModelAllowedForLimitedTier(
 }
 
 /** Coerce a limited-tier Freebuff Web selection (premium ids, stale
- * localStorage values) to the allowed default (DeepSeek V4 Flash). */
+ * localStorage values — including a Flash pick saved before that model was
+ * paused for this tier) to LIMITED_FREEBUFF_MODEL_ID. */
 export function resolveFreebuffWebModelForLimitedTier(
   id: string | null | undefined,
 ): string {
@@ -1513,7 +1529,7 @@ export function getFreebuffModelsForAccessTier(
 /** The model the CLI/Desktop picker highlights as the "recommended" hero so a
  *  new user can start with one Enter press without scanning the full list. Full
  *  access → DEFAULT_FREEBUFF_MODEL_ID (DeepSeek V4 Pro 08/13 — the strongest
- *  agentic model in the catalog); limited → the always-available flash model.
+ *  agentic model in the catalog); limited → LIMITED_FREEBUFF_MODEL_ID.
  *
  *  Pro is premium, so ALWAYS pass `premiumExhausted` from the live quota
  *  snapshot: the hero flips to the unlimited DeepSeek Flash once the daily pool
@@ -1529,8 +1545,8 @@ export function getRecommendedFreebuffModelId(
 }
 
 /** The Web/Cloud counterpart of getRecommendedFreebuffModelId: full access →
- *  DEFAULT_FREEBUFF_WEB_MODEL_ID (GPT-5.6 Luna); limited → the
- *  always-available flash model. `premiumExhausted` flips the hero to the
+ *  DEFAULT_FREEBUFF_WEB_MODEL_ID (GPT-5.6 Luna); limited →
+ *  LIMITED_FREEBUFF_MODEL_ID. `premiumExhausted` flips the hero to the
  *  unlimited flash model so the recommended pick is always joinable. */
 export function getRecommendedFreebuffWebModelId(
   accessTier: FreebuffAccessTier | null | undefined,

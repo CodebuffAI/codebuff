@@ -165,17 +165,18 @@ export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
  * to. There is one variant per model because a bundled agent's model comes from
  * its definition, not from the request.
  *
- * BOTH tiers now plan on DeepSeek V4 Flash (2026-08-01, was MiniMax M3 for full
- * access). The old split existed because planning is short and quality-
- * sensitive, so it was worth a pricier model than the build; the V4-Flash-0731
- * GA build removed that tradeoff by being the strongest coding/tool-use model
- * we serve as well as the cheapest. Planning on it is now both better and free
- * of the premium pool, which the planner was the cheapest route into.
+ * THE TIERS PLAN ON DIFFERENT MODELS AGAIN since Flash was paused for the
+ * limited tier (see LIMITED_FREEBUFF_MODEL_IDS). Full access still plans and
+ * builds on DeepSeek V4 Flash — adopted 2026-08-01 over MiniMax M3 because the
+ * V4-Flash-0731 GA build was both the strongest coding/tool-use model we serve
+ * and the cheapest, which took the planner out of the premium pool it had been
+ * the cheapest route into. The limited variant follows
+ * LIMITED_FREEBUFF_MODEL_ID.
  *
- * A consequence: the two variants are pinned to the same model, so the model no
- * longer distinguishes them — see cloudPlannerAgentIdForModel. The limited
- * variant is kept registered (not deleted) so planner sessions already dispatched
- * under its id keep resolving; it is safe to remove once none are in flight.
+ * So the model distinguishes the two variants once more, and
+ * cloudPlannerAgentIdForModel routes on it again rather than hard-returning the
+ * primary — which would now dispatch limited planner turns to a root pinned to
+ * a model their tier cannot run, i.e. session_model_mismatch on the first send.
  *
  * Exported so the agent definitions, the planner UI's forced model, and the
  * "Start building" hand-off all read one set of values. They must agree: the
@@ -228,19 +229,29 @@ export function cloudBuildModelForAccessTier(
  *
  * The client picks which of these the build session is admitted on, because
  * only the client learns that the premium pool is spent — so the id arrives
- * from the browser and must be validated rather than trusted. Exactly two are
- * allowed: the recommended build model, and the always-available unlimited
- * fallback the user may choose when the premium pool is exhausted. Anything
- * else falls back to CLOUD_BUILD_MODEL_ID, so a forged request cannot steer a
- * free build onto an arbitrary model.
+ * from the browser and must be validated rather than trusted. Anything outside
+ * this set falls back to CLOUD_BUILD_MODEL_ID, so a forged request cannot steer
+ * a free build onto an arbitrary model.
+ *
+ * Three entries: the recommended build model, the always-available unlimited
+ * fallback a user may choose when the premium pool is exhausted, and the
+ * limited tier's build model — read from the tier helper, and redundant until
+ * that tier stopped building on Flash. Without it this rejected the very model
+ * cloudBuildModelForAccessTier('limited') hands the client.
  */
+const CLOUD_BUILD_MODEL_IDS: ReadonlySet<string> = new Set([
+  CLOUD_BUILD_MODEL_ID,
+  FALLBACK_FREEBUFF_MODEL_ID,
+  cloudBuildModelForAccessTier('limited'),
+])
+
 export function isCloudBuildModelId(model: string | null | undefined): boolean {
-  return model === CLOUD_BUILD_MODEL_ID || model === FALLBACK_FREEBUFF_MODEL_ID
+  return !!model && CLOUD_BUILD_MODEL_IDS.has(model)
 }
 
 /** The build model to run for a request, after validating the client's choice.
- *  Limited tiers need no special case here: runTriggerGates coerces whatever
- *  this returns down to the one model that tier permits. */
+ *  Bounds only the ids a browser may name: runTriggerGates still coerces
+ *  whatever survives down to the one model the caller's tier permits. */
 export function resolveCloudBuildModel(
   requested: string | null | undefined,
 ): string {
@@ -250,19 +261,20 @@ export function resolveCloudBuildModel(
 }
 
 /**
- * The planner variant to run. Always the primary one now: both variants pin the
- * same model, so the model cannot pick between them, and keying off it would
- * route EVERY caller — full access included — to the agent labelled
- * "(limited)". Limited tiers are served correctly by the primary variant
- * because Flash is a model their tier permits.
+ * The planner variant to run, chosen by the model the caller resolved.
  *
- * Kept as a function taking the model so callers need not change, and so the
- * choice has one place to live again if the tiers ever diverge on model.
+ * Matches the LIMITED model rather than the primary one, so an unknown or
+ * absent model falls to the primary root. That direction is deliberate: a
+ * limited caller who somehow reached the primary is corrected by
+ * runTriggerGates, while the reverse would put every full-access planner turn
+ * on the agent labelled "(limited)".
  */
 export function cloudPlannerAgentIdForModel(
-  _model: string | null | undefined,
+  model: string | null | undefined,
 ): string {
-  return CLOUD_PLANNER_AGENT_ID
+  return model === CLOUD_PLANNER_LIMITED_MODEL_ID
+    ? CLOUD_PLANNER_LIMITED_AGENT_ID
+    : CLOUD_PLANNER_AGENT_ID
 }
 
 /**

@@ -29,11 +29,11 @@ freebuff
 
 **How can it be free?** Freebuff is supported by text ads.
 
-**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Pro 08/13, DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiniMax M3, and MiMo 2.5. DeepSeek V4 Pro 08/13 is the CLI default, and the picker falls back to DeepSeek V4 Flash 07/31 once your daily premium sessions are used up. Limited mode uses DeepSeek V4 Flash 07/31 and MiMo 2.5. GLM 5.2 is available through earned sessions, while Gemini 3.1 Flash Lite handles specialist tasks such as file finding and research.
+**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Pro 08/13, DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiniMax M3, and MiMo 2.5. DeepSeek V4 Pro 08/13 is the CLI default, and the picker falls back to DeepSeek V4 Flash 07/31 once your daily premium sessions are used up. Limited mode uses MiMo 2.5. GLM 5.2 is available through earned sessions, while Gemini 3.1 Flash Lite handles specialist tasks such as file finding and research.
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 
-**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash 07/31 and MiMo 2.5, with 6 one-hour sessions per day.
+**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes MiMo 2.5, with 6 one-hour sessions per day.
 
 <!-- BEGIN GENERATED FREEBUFF DATA USE -->
 

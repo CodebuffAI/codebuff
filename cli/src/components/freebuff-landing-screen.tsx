@@ -43,7 +43,10 @@ import {
   getRateLimitsByModel,
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
-import { getFreebuffModelAvailabilityNotice } from '@codebuff/common/util/freebuff-model-availability'
+import {
+  FREEBUFF_PAUSED_MODEL_NOTICE,
+  getFreebuffModelAvailabilityNotice,
+} from '@codebuff/common/util/freebuff-model-availability'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
 import type { FreebuffStreakLine } from '../utils/freebuff-streak-line'
@@ -79,7 +82,7 @@ const formatRetryAfter = (ms: number): string => {
 // `getFreebuffModelAvailabilityNotice` for the tone rules it follows.
 const getLimitedModeNotice = (
   session: FreebuffSessionResponse | null,
-): string | null =>
+): string =>
   getFreebuffModelAvailabilityNotice(
     session && 'countryBlockReason' in session ? session : null,
   )
@@ -416,10 +419,14 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
 
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
-  // Hidden in compact terminals: the notice is nice-to-have context, and
-  // below 22 rows every line competes with the picker itself.
-  const limitedModeNotice =
-    accessTier === 'limited' && !compact ? getLimitedModeNotice(session) : null
+  // Answers "why these models?" in the order it gets asked: why the catalog is
+  // small, then why a model that used to be in it isn't. Hidden in compact
+  // terminals — nice-to-have context, and below 22 rows every line competes
+  // with the picker itself.
+  const belowPickerNotices =
+    accessTier === 'limited' && !compact
+      ? [getLimitedModeNotice(session), FREEBUFF_PAUSED_MODEL_NOTICE]
+      : []
   // 'none' = user hasn't started a session yet. We're in the pre-chat landing
   // state: show the picker with a prompt. Picking a model triggers
   // startFreebuffSession, which POSTs and transitions straight to 'active' (chat).
@@ -530,9 +537,10 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // narrow landing screen it drops to its own line under the heading (1 row,
   // no top margin).
   const streakRows = !showStreakIndicator ? 0 : streakOnHeadingRow ? 0 : 1
-  const noticeRows = limitedModeNotice
-    ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
-    : 0
+  const noticeRows = belowPickerNotices.reduce(
+    (rows, notice) => rows + 1 /* marginTop */ + wrappedRows(notice),
+    0,
+  )
   // Earned streak perk note: one marginTop row + wrap.
   const streakBonusRows = streakBonusNote
     ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
@@ -689,13 +697,16 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   ) : null
                 }
               />
-              {limitedModeNotice && (
+              {/* Muted, never amber: a reduced catalog and a paused model are
+                  both things we did, not problems with this user's account. */}
+              {belowPickerNotices.map((notice) => (
                 <text
+                  key={notice}
                   style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}
                 >
-                  {limitedModeNotice}
+                  {notice}
                 </text>
-              )}
+              ))}
               {streakBonusNote && (
                 <text
                   style={{ fg: theme.primary, wrapMode: 'word', marginTop: 1 }}

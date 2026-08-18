@@ -16,6 +16,7 @@ import {
   FREEBUFF_MODELS,
   getFreebuffModelSupersededBy,
   isFreebuffModelId,
+  LIMITED_FREEBUFF_MODELS,
 } from '@codebuff/common/constants/freebuff-models'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
@@ -325,8 +326,14 @@ describe('FreebuffModelSelector tier layout', () => {
     await setup.renderOnce()
 
     const frame = setup.captureCharFrame()
-    expect(frame).toContain('DeepSeek V4 Flash')
-    expect(frame).toContain('MiMo 2.5')
+    // From the catalog, not a hardcoded list: the point is that NONE of the
+    // tier's rows stay hidden when the tier arrives late.
+    for (const model of LIMITED_FREEBUFF_MODELS) {
+      expect(frame).toContain(model.displayName)
+    }
+    // The pre-transition pick was a full-access model, so this is the path
+    // where a paused row would linger.
+    expect(frame).not.toContain('DeepSeek V4 Flash')
     expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('UNLIMITED')
   })

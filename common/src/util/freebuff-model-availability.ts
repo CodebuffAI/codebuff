@@ -19,6 +19,19 @@ import type {
   FreebuffLimitedModeReason,
 } from '../types/freebuff-session'
 
+/**
+ * Why DeepSeek V4 Flash 07/31 is missing from the reduced catalog, rendered
+ * under the model list on all three pickers alongside the availability notice
+ * below: that line explains the smaller catalog, this one explains a model that
+ * used to be in it. Names the dated build, matching the display name of the row
+ * that is now gone — unlike every other notice, its subject is not on screen.
+ *
+ * Kept to three clauses because it wraps under the picker, and delete it when
+ * Flash returns to LIMITED_FREEBUFF_MODEL_IDS.
+ */
+export const FREEBUFF_PAUSED_MODEL_NOTICE =
+  "DeepSeek V4 Flash 07/31 is paused here after a steep price increase — pausing it is what keeps these sessions free for everyone. We're working to bring it back."
+
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> = {
   anonymous: 'anonymized network',
   proxy: 'proxy',
