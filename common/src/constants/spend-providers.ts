@@ -46,6 +46,7 @@ export const SPEND_PROVIDER_IDS = [
   'deepseek',
   'fireworks',
   'infron',
+  'luminal',
   'meta',
   'minimax',
   'moonshot',
@@ -93,6 +94,7 @@ export function toSpendProvider(
 const PROVIDER_LABELS: Partial<Record<SpendProviderId, string>> = {
   crof: 'CrofAI',
   deepseek: 'DeepSeek',
+  luminal: 'Luminal',
   openai: 'OpenAI',
   'opencode-zen': 'OpenCode Zen',
   openrouter: 'OpenRouter',
