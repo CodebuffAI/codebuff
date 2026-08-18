@@ -49,3 +49,9 @@ cli/release-staging/launcher.js
 cli/release-staging/http.js
 freebuff/cli/release/launcher.js
 freebuff/cli/release/http.js
+
+# Throwaway helper scripts written next to the repo during a task. Never part
+# of the build; one reached a PR before review caught it. At the ROOT so it
+# covers every subdirectory — the file that slipped through was at the root,
+# which a nested .gitignore cannot match.
+scratch-*
