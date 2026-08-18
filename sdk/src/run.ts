@@ -1,6 +1,7 @@
 import path from 'path'
 
 import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
+import { adjustContextTokenCountForHistoryEdit } from '@codebuff/agent-runtime/util/context-token-count'
 import {
   buildUserMessageContent,
   withSystemTags,
@@ -65,10 +66,14 @@ import type {
 } from '@codebuff/common/types/contracts/llm'
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
+import type { SkillsMap } from '@codebuff/common/types/skill'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 
@@ -104,6 +109,22 @@ export type CodebuffClientOptions = {
   cwd?: string
   /** Optional directory path to load skills from. Skills found here will be available to the `skill` tool. */
   skillsDir?: string
+  /**
+   * Supplies the run's skills instead of the default local-filesystem walk.
+   *
+   * Set this when the repo being acted on is NOT on the machine running this
+   * SDK — the default loader reads this machine's disk, which for a
+   * server-embedded runner means the server's own files. See
+   * `InitialSessionStateOptions.skillsLoader` in ./run-state.ts.
+   */
+  skillsLoader?: () => Promise<SkillsMap>
+  /**
+   * Also load the user's `~/.claude/skills` and `~/.agents/skills`. Defaults
+   * to false. Set it only in a process that BELONGS to that user — an
+   * interactive CLI on their own machine. Anything server-side must leave it
+   * unset. See `LoadSkillsOptions.includeHomeSkills`.
+   */
+  includeHomeSkills?: boolean
   projectFiles?: Record<string, string>
   /** Precomputed index for exactly these `projectFiles` (build it with
    *  `computeProjectIndexFromFiles`). Skips the per-run tree-sitter parse;
@@ -252,6 +273,65 @@ export function cloneSessionState(
   return { fileContext: state.fileContext, mainAgentState }
 }
 
+/**
+ * The session state a cancelled or errored turn persists, and the state a
+ * follow-up prompt resumes from.
+ *
+ * This is the LAST thing that edits the history — after the runtime's
+ * end-of-turn recount, not before it. It drops the half-step an interrupted
+ * turn can leave behind and appends the message explaining why the turn ended,
+ * so `contextTokenCount` has to follow: a count taken before these edits
+ * describes a history that was never stored, and the host shows that number to
+ * the user before their next message.
+ *
+ * The adjustment is a difference rather than a recount because the system
+ * prompt and tool schemas — the other half of the count — are not in scope
+ * here; carrying the delta keeps them exactly.
+ */
+export function buildCancelledSessionState(params: {
+  sessionState: SessionState
+  /** The runtime replaced the shared messageHistory, i.e. it got far enough to
+   *  record the user's prompt itself. */
+  runtimeMadeProgress: boolean
+  /** The user's prompt, re-added only when the runtime never recorded it. */
+  promptMessage?: Message
+  /** Why the turn ended. Appended as a system-tagged user message. */
+  message: string
+  logger?: Logger
+}): SessionState {
+  const { sessionState, runtimeMadeProgress, promptMessage, message, logger } =
+    params
+
+  const state = cloneSessionState(sessionState, logger)
+  const previousHistory = state.mainAgentState.messageHistory
+  // A checkpoint can land after an assistant tool call is recorded but before
+  // its result arrives. Drop that half-step at the persistence boundary so a
+  // resumed run starts from structurally valid history.
+  //
+  // Copied unconditionally: dropUnansweredToolCalls returns its input when
+  // there is nothing to drop, and the appends below must not reach the array
+  // `previousHistory` names.
+  const nextHistory = [...dropUnansweredToolCalls(previousHistory)]
+
+  if (!runtimeMadeProgress && promptMessage) {
+    nextHistory.push(promptMessage)
+  }
+  nextHistory.push({
+    role: 'user' as const,
+    content: [{ type: 'text' as const, text: withSystemTags(message) }],
+  })
+
+  state.mainAgentState.messageHistory = nextHistory
+  state.mainAgentState.contextTokenCount = adjustContextTokenCountForHistoryEdit(
+    {
+      contextTokenCount: state.mainAgentState.contextTokenCount,
+      previousHistory,
+      nextHistory,
+    },
+  )
+  return state
+}
+
 const createAbortError = (signal?: AbortSignal) => {
   if (signal?.reason instanceof Error) {
     return signal.reason
@@ -293,6 +373,8 @@ async function runOnce({
 
   cwd,
   skillsDir,
+  skillsLoader,
+  includeHomeSkills,
   projectFiles,
   projectIndex,
   knowledgeFiles,
@@ -369,6 +451,8 @@ async function runOnce({
     sessionState = await initialSessionState({
       cwd,
       skillsDir,
+      skillsLoader,
+      includeHomeSkills,
       knowledgeFiles,
       agentDefinitions,
       customToolDefinitions,
@@ -429,29 +513,21 @@ async function runOnce({
     const runtimeMadeProgress =
       sessionState.mainAgentState.messageHistory !== initialMessageHistory
 
-    const state = cloneSessionState(sessionState, logger)
-    // A checkpoint can land after an assistant tool call is recorded but before
-    // its result arrives. Drop that half-step at the persistence boundary so a
-    // resumed run starts from structurally valid history.
-    state.mainAgentState.messageHistory = dropUnansweredToolCalls(
-      state.mainAgentState.messageHistory,
-    )
-
-    // Only add the user's message if the runtime didn't get a chance to add it.
-    if (!runtimeMadeProgress && (prompt || content)) {
-      state.mainAgentState.messageHistory.push({
-        role: 'user' as const,
-        content: buildUserMessageContent(prompt, params, content),
-        tags: ['USER_PROMPT'] as string[],
-      })
-    }
-
-    // Add error context message
-    state.mainAgentState.messageHistory.push({
-      role: 'user' as const,
-      content: [{ type: 'text' as const, text: withSystemTags(message) }],
+    return buildCancelledSessionState({
+      sessionState,
+      runtimeMadeProgress,
+      // Only add the user's message if the runtime didn't get a chance to.
+      promptMessage:
+        prompt || content
+          ? {
+              role: 'user' as const,
+              content: buildUserMessageContent(prompt, params, content),
+              tags: ['USER_PROMPT'] as string[],
+            }
+          : undefined,
+      message,
+      logger,
     })
-    return state
   }
   function getCancelledRunState(message?: string): RunState {
     message = message ?? 'Run cancelled by user.'

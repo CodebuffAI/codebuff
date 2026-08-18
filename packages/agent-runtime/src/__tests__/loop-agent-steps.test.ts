@@ -1338,4 +1338,59 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       expect(callCount).toBe(MAX_CONSECUTIVE_STREAM_RECOVERIES + 1)
     })
   })
+
+  describe('the end-of-turn context recount', () => {
+    // The cancel exit is where the recount earns its keep, and it is also the
+    // only exit where the two behaviours are far apart enough to assert
+    // cleanly. A turn that ends normally re-enters the loop once and re-runs
+    // the in-loop estimate before breaking, so that estimate already covers the
+    // answer; a turn that is cancelled leaves the loop from inside the step,
+    // and the last estimate it took predates everything the model produced.
+    const BIG_PARTIAL_ANSWER = 'here is what I found so far. '.repeat(2000)
+
+    const contextTokensAfterCancelledTurn = async (agentState: AgentState) => {
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentState,
+        promptAiSdkStream: async function* () {
+          yield { type: 'text' as const, text: BIG_PARTIAL_ANSWER }
+          throw new AbortError('User pressed Ctrl+C')
+        },
+      })
+      return result.agentState.contextTokenCount
+    }
+
+    const withHistory = (extra?: Partial<AgentState>): AgentState => ({
+      ...mockAgentState,
+      messageHistory: [...mockAgentState.messageHistory],
+      contextTokenCount: 0,
+      ...extra,
+    })
+
+    it('leaves the root counting the history the turn actually kept', async () => {
+      // The host persists this number and shows it to the user between turns,
+      // so it has to describe the history the NEXT message is sent on top of —
+      // including the partial answer a cancelled turn preserves.
+      const asRoot = await contextTokensAfterCancelledTurn(withHistory())
+      expect(asRoot).toBeGreaterThan(10_000)
+    })
+
+    it('does not pay to recount a subagent nobody reads', async () => {
+      // Only the root's count leaves the runtime — the host reads
+      // sessionState.mainAgentState. Recounting here tokenizes a spawned
+      // agent's whole history (file-picker, thinker, context-pruner, …) for a
+      // value that is discarded with the agent, which on a one-step subagent
+      // roughly doubles its tokenizer cost.
+      //
+      // Same predicate as the compaction callback: parentId.
+      const asRoot = await contextTokensAfterCancelledTurn(withHistory())
+      const asSubagent = await contextTokensAfterCancelledTurn(
+        withHistory({ parentId: 'parent-agent-id' }),
+      )
+
+      // Not merely different: the subagent's number is the estimate taken
+      // before the model call, which predates everything the model produced.
+      expect(asRoot).toBeGreaterThan(asSubagent * 2)
+    })
+  })
 })

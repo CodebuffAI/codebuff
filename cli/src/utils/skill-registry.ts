@@ -24,10 +24,16 @@ export async function initializeSkillRegistry(): Promise<void> {
 
   try {
     // Load skills from both global (~/.agents/skills) and project directories
-    // The SDK handles merging, with project skills overriding global ones
+    // The SDK handles merging, with project skills overriding global ones.
+    //
+    // includeHomeSkills is opt-in and defaults to false, because a server
+    // embedding the SDK must never read a home directory (it would be the
+    // SERVER's). The CLI is the case the flag exists for: it runs on the
+    // user's own machine, so those really are their skills.
     skillsCache = await sdkLoadSkills({
       cwd,
       verbose: false,
+      includeHomeSkills: true,
     })
   } catch (error) {
     logger.warn({ error }, 'Failed to load skills')
