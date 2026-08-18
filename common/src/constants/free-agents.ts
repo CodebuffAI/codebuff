@@ -757,6 +757,40 @@ export function isFreeModeAllowedAgentModel(
 }
 
 /**
+ * The limited tier's own model, running on an agent free mode already knows.
+ *
+ * Most free-mode roots are pinned to exactly one model — `base3-free-deepseek-
+ * flash` allows Flash and nothing else — which assumes the model a request
+ * carries is the one its client picked. That stops being true when a model
+ * LEAVES a tier: Flash left the limited tier on 2026-08-18, so admission and
+ * `checkSessionAdmissible` both substitute `LIMITED_FREEBUFF_MODEL_ID` for it,
+ * and the request reaches a Flash-pinned root carrying the model WE chose.
+ *
+ * Both halves of the free-mode decision must admit that request — the gate in
+ * chat/completions and the billing check in llm-api/helpers.ts. If they
+ * disagree it falls into the METERED path: credit ledger writes for an account
+ * with no balance. Same trap `isHoneypotFreeModeAllowed` avoids, same shape.
+ *
+ * Cannot be an escalation, which is what the allowlist exists to prevent: this
+ * is the cheapest tier's only model, and the server picked it, not the caller.
+ */
+export function isLimitedTierSubstitutedModel(
+  fullAgentId: string,
+  model: string,
+): boolean {
+  if (model !== LIMITED_FREEBUFF_MODEL_ID) return false
+
+  const { publisherId, agentId } = parseAgentId(fullAgentId)
+  if (!agentId) return false
+  if (publisherId && publisherId !== 'codebuff') return false
+
+  // Known free-mode agent, and not a programmatic one (empty set) — the same
+  // two conditions isFreeModeAllowedAgentModel checks before the model itself.
+  const allowedModels = FREE_MODE_AGENT_MODELS[agentId]
+  return !!allowedModels && allowedModels.size > 0
+}
+
+/**
  * Check if an agent should be free (no credit charge) for small requests.
  * This is separate from FREE mode - these agents get free credits only
  * when the cost would be trivial (<5 credits).

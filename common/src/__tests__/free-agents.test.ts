@@ -34,7 +34,9 @@ import {
   isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeModeAllowedAgentModel,
+  isLimitedTierSubstitutedModel,
 } from '../constants/free-agents'
+import { LIMITED_FREEBUFF_MODEL_ID } from '../constants/freebuff-models'
 
 const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
 
@@ -522,6 +524,60 @@ describe('free mode agent model allowlist', () => {
     ).toBe(false)
   })
 
+})
+
+describe('isLimitedTierSubstitutedModel', () => {
+  // The free-session gate substitutes the limited tier's model for a pick that
+  // tier no longer offers, so the request lands on a root pinned to the model
+  // the user picked. Billing has to admit it too, or the turn silently meters.
+  const FLASH_PINNED_ROOTS = [
+    'base3-free-deepseek-flash',
+    'base2-free-deepseek-flash',
+  ]
+
+  test('admits the limited model on roots pinned to something else', () => {
+    for (const agentId of FLASH_PINNED_ROOTS) {
+      // The premise: without this, billing would call the substituted turn metered.
+      expect(isFreeModeAllowedAgentModel(agentId, LIMITED_FREEBUFF_MODEL_ID)).toBe(
+        false,
+      )
+      expect(isLimitedTierSubstitutedModel(agentId, LIMITED_FREEBUFF_MODEL_ID)).toBe(
+        true,
+      )
+      // The published, versioned form is how ids actually arrive.
+      expect(
+        isLimitedTierSubstitutedModel(
+          `codebuff/${agentId}@0.0.1`,
+          LIMITED_FREEBUFF_MODEL_ID,
+        ),
+      ).toBe(true)
+    }
+  })
+
+  test('is only ever the limited tier’s own model', () => {
+    for (const model of [
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_GLM_V52_MODEL_ID,
+    ]) {
+      expect(isLimitedTierSubstitutedModel('base2-free', model)).toBe(false)
+    }
+  })
+
+  // The substitution widens free mode, so it must not widen who can claim it:
+  // the agent still has to be one free mode already knows, published by us.
+  test('refuses unknown agents and foreign publishers', () => {
+    expect(
+      isLimitedTierSubstitutedModel('not-an-agent', LIMITED_FREEBUFF_MODEL_ID),
+    ).toBe(false)
+    expect(
+      isLimitedTierSubstitutedModel(
+        'attacker/base2-free@1.0.0',
+        LIMITED_FREEBUFF_MODEL_ID,
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('hasFreebuffRootSystemPromptOpening', () => {
