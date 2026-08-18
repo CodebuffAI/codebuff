@@ -154,4 +154,19 @@ describe('the peak-hours ceiling reduction', () => {
       expect(r.peak).toBeUndefined()
     },
   )
+
+  test('leaves the limited tier alone — it runs no DeepSeek model', () => {
+    // DeepSeek V4 Flash was paused for this tier on 2026-08-18, leaving MiMo
+    // 2.5, which costs the same at 02:00 UTC as at 14:00. Reducing here would
+    // charge a limited account for a rate card it cannot reach — so this test
+    // is also what fails, loudly, on the day Flash is restored to the tier.
+    const limited = { accessTier: 'limited' as const, countryCode: 'US' }
+    const peak = resolveFreebuffSpendCeiling({
+      ...limited,
+      at: at(2),
+      peakMultiplier: 0.5,
+    })
+    expect(peak.usd).toBe(resolveFreebuffSpendCeiling(limited).usd)
+    expect(peak.peak).toBeUndefined()
+  })
 })

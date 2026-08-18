@@ -43,7 +43,10 @@ import {
   isDeepSeekPeakHour,
   nextDeepSeekWindowBoundary,
 } from './freebuff-peak-hours'
-import type { FreebuffAccessTier } from './freebuff-models'
+import {
+  getFreebuffModelsForAccessTier,
+  type FreebuffAccessTier,
+} from './freebuff-models'
 
 /**
  * Region ceilings, replacing the flat $50.
@@ -417,7 +420,8 @@ export interface FreebuffSpendCeilingInput {
   /**
    * Fraction of the ceiling allowed during DeepSeek's peak windows, when every
    * upstream rate doubles. Defaults to no reduction, so a caller that passes
-   * `at` without opting in changes nothing.
+   * `at` without opting in changes nothing, and neither does a tier that runs
+   * no DeepSeek model — see `tierRunsDeepSeek`.
    */
   peakMultiplier?: number
   /** Overrides, all optional so a missing env var changes nothing. */
@@ -502,6 +506,25 @@ export function resolveFreebuffSpendCeiling(
 }
 
 /**
+ * Whether a tier can reach a model DeepSeek prices on the peak schedule.
+ *
+ * The reduction exists for exactly one reason — DeepSeek's rates double for
+ * seven hours a day — so an account that cannot spend at those rates gains
+ * nothing from a smaller ceiling inside them. Since 2026-08-18 that is the
+ * limited tier: pausing V4 Flash left MiMo 2.5 as its whole catalog, and MiMo
+ * costs the same at 02:00 UTC as at 14:00.
+ *
+ * Read off the catalog rather than hardcoded to `full`, because Flash's
+ * removal is a PAUSE — the day it returns to LIMITED_FREEBUFF_MODEL_IDS the
+ * reduction returns with it.
+ */
+function tierRunsDeepSeek(accessTier: FreebuffAccessTier): boolean {
+  return getFreebuffModelsForAccessTier(accessTier).some((model) =>
+    model.id.startsWith('deepseek/'),
+  )
+}
+
+/**
  * The peak-hours reduction, or null when none applies.
  *
  * Deliberately reduces the WINNING ceiling rather than each candidate: the
@@ -521,6 +544,7 @@ function resolvePeakReduction(
   // rather than locking every account out for seven hours a day.
   if (!Number.isFinite(peakMultiplier) || peakMultiplier <= 0) return null
   if (peakMultiplier >= 1) return null
+  if (!tierRunsDeepSeek(input.accessTier)) return null
   if (!isDeepSeekPeakHour(at)) return null
   return {
     reducedUsd: winnerUsd * peakMultiplier,
