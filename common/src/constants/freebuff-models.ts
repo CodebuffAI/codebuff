@@ -414,7 +414,7 @@ export const FREEBUFF_ENABLE_STREAK_IN_UI = true
  *  limited access so the limited Freebuff UX can be exercised without an env
  *  var. */
 export const FREEBUFF_FORCE_LIMITED_MODE = false
-export const FREEBUFF_PREMIUM_SESSION_LIMIT = 6
+export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
 export const FREEBUFF_LIMITED_SESSION_LIMIT = 6
 /** Full-access Web/Cloud models outside the premium/referral pools. The CLI
  * keeps these models unlimited; browser surfaces cap fresh sessions to deter
