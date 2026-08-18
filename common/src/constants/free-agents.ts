@@ -48,7 +48,7 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_ID = 'freebuff-desktop-thread'
 /**
  * The root Freebuff Desktop's AUTO-RUN decider runs under: the agent that picks
  * what a tab on Auto does next when a turn ends with nothing queued (see
- * freebuff-desktop/src/server/services/autorun.ts). It is not the working
+ * freebuff-desktop/src/server/services/mission.ts). It is not the working
  * agent — it never edits files or runs commands, it only chooses the next input.
  *
  * It is a first-party free-mode ROOT for the same reason the thread agent is,
@@ -634,7 +634,7 @@ export const FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS = [
   'You are Buffy, the coding agent behind Codebuff.',
   // freebuff_bundled_agents.ts CLOUD_PLANNER_SYSTEM_PROMPT — planner roots.
   'You are Buffy, the Freebuff Cloud project planner.',
-  // freebuff-desktop/.../services/autorun.ts — the Desktop auto-run decider.
+  // freebuff-desktop/.../services/mission.ts — the Desktop mission decider.
   // Its own opening rather than base3's: that prompt tells the model it is the
   // coding agent, and this one spends its length establishing the opposite
   // ("you never edit files or run commands"). Position 0 is the worst place to

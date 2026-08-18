@@ -732,13 +732,13 @@ describe('canonical root prompt openings match their source definitions', () => 
     expect(source).toMatch(/const systemPrompt = \[\s*base3\.systemPrompt,/)
   })
 
-  test('desktop auto-run decider opens with its own canonical line', () => {
+  test('desktop mission decider opens with its own canonical line', () => {
     const source = read(
       'freebuff-desktop',
       'src',
       'server',
       'services',
-      'autorun.ts',
+      'mission.ts',
     )
     const opening = 'You are Buffy, the auto-run agent behind Freebuff Desktop.'
     // The decision is a free-mode ROOT request, so this sentence has to sit at

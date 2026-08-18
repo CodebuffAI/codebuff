@@ -46,7 +46,7 @@ export const GENERIC_TOOL_NAMES: ReadonlySet<string> = new Set([
 /**
  * Tools our own surfaces define outside `toolNames`, via
  * `customToolDefinitions`. Freebuff Desktop's autorun agent
- * (freebuff-desktop/src/server/services/autorun.ts) offers exactly `decide` and
+ * (freebuff-desktop/src/server/services/mission.ts) offers exactly `decide` and
  * nothing else, so without this it had no signature tool at all and was flagged
  * on 100% of its 2,904 requests from 41 users over 30 days.
  */
