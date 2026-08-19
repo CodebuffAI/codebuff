@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
+  AD_CAMPAIGN_STATUSES,
+  AD_CAMPAIGN_STATUS_LABELS,
   AD_COMPARISON,
+  AD_ENGAGEMENT_STATUSES,
+  AD_ENGAGEMENT_STATUS_LABELS,
   AD_DAILY_BUDGET_STEP_CENTS,
   AD_ENGAGEMENT_PRICE_CENTS,
   AD_MAX_DAILY_BUDGET_CENTS,
@@ -103,5 +107,31 @@ describe('platform copy', () => {
     const reddit = AD_PLATFORM_ACTIONS.reddit.join(' ').toLowerCase()
     expect(reddit).not.toContain('repost')
     expect(reddit).toContain('upvote')
+  })
+})
+
+describe('status unions mirror the database enums', () => {
+  it('includes every engagement status the schema can store', () => {
+    // `flagged` existed in the pg enum for a day without being here, which
+    // made the one status carrying a consequence unrepresentable in every
+    // surface typed against AdEngagementStatus. If this list and the enum in
+    // packages/internal/src/db/schema.ts ever disagree again, the symptom is
+    // silent — a filter that can never match.
+    expect([...AD_ENGAGEMENT_STATUSES]).toEqual([
+      'pending',
+      'approved',
+      'rejected',
+      'skipped',
+      'flagged',
+    ])
+  })
+
+  it('labels every status it declares', () => {
+    for (const status of AD_ENGAGEMENT_STATUSES) {
+      expect(AD_ENGAGEMENT_STATUS_LABELS[status]).toBeTruthy()
+    }
+    for (const status of AD_CAMPAIGN_STATUSES) {
+      expect(AD_CAMPAIGN_STATUS_LABELS[status]).toBeTruthy()
+    }
   })
 })

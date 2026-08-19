@@ -254,13 +254,96 @@ export const AD_CAMPAIGN_STATUS_LABELS: Record<AdCampaignStatus, string> = {
   ended: 'Ended',
 }
 
+/**
+ * Must stay in step with the `ad_engagement_status` pg enum.
+ *
+ * `flagged` was added to the database and not to this list, so every surface
+ * typed against `AdEngagementStatus` silently could not represent the one
+ * status that carries a consequence. The pg enum is the source of truth and
+ * this is the mirror; changing one without the other is the mistake to watch
+ * for.
+ */
 export const AD_ENGAGEMENT_STATUSES = [
   'pending',
   'approved',
   'rejected',
   'skipped',
+  /** The verifier refused it outright: a submit block and a human queue. */
+  'flagged',
 ] as const
 export type AdEngagementStatus = (typeof AD_ENGAGEMENT_STATUSES)[number]
+
+/** Labels for the operator surfaces. */
+export const AD_ENGAGEMENT_STATUS_LABELS: Record<AdEngagementStatus, string> = {
+  pending: 'Verifying',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  skipped: 'Skipped',
+  flagged: 'Flagged',
+}
+
+/**
+ * Posts to showcase on the advertiser landing page as proof the thing works.
+ *
+ * ## Why this is a list of URLs and not a list of case studies
+ *
+ * The numbers beside each one are read from the DATABASE at render time —
+ * real approved engagements on that real post. A post in this list that has
+ * never run through the system resolves to nothing and is silently dropped,
+ * which is the property that matters: there is no way to put a number on this
+ * page that we did not actually deliver.
+ *
+ * Curated rather than "top N by engagement" because a showcase is an editorial
+ * choice — the best-performing post might be off-brand, or from a customer who
+ * would rather not be an advertisement for us.
+ */
+export const AD_SHOWCASE_POST_URLS: readonly string[] = [
+  'https://x.com/victorxheng/status/2086989599646314583',
+  'https://x.com/victorxheng/status/2085813482558259233',
+  'https://x.com/victorxheng/status/2085502613949473014',
+]
+
+/**
+ * The before/after we can show on our own account.
+ *
+ * ## Why the view counts live here and not in the database
+ *
+ * Engagements we deliver are ours to count (`showcase.ts` reads them from
+ * `ad_engagement`). VIEWS are X's number, on somebody's own posts, and we have
+ * no access to them — so unlike everything else on that page, these figures
+ * are operator-supplied. That makes them the one place a wrong number can get
+ * onto the landing page, which is why they are a checked-in constant somebody
+ * has to edit deliberately rather than a field on a form.
+ *
+ * **Only put real numbers here, and only for an account we own.** They are a
+ * public claim about a third party's platform.
+ *
+ * ## Why it is framed as one account rather than as a result
+ *
+ * Boosting was not the only thing that changed across these posts — cadence
+ * and subject matter did too, and X's ranking is not a function anybody gets
+ * to see. So the copy says what happened on OUR account over that period and
+ * lets the reader draw the inference, rather than promising a multiple. A
+ * marketing claim that implies causation we cannot demonstrate is the one a
+ * customer quotes back when their own numbers differ.
+ */
+export const AD_SHOWCASE_REACH = {
+  /** The account these posts belong to. Named on the page — an anonymous
+   *  before/after is indistinguishable from an invented one. */
+  handle: '@victorxheng',
+  /** Representative posts from before we started boosting. */
+  beforeUrls: [
+    'https://x.com/victorxheng/status/2056853673100345558',
+    'https://x.com/victorxheng/status/2053972044292014482',
+    'https://x.com/victorxheng/status/2052603545313333395',
+  ],
+  /** Typical views on those, as reported by X. */
+  beforeViews: 300,
+  /** The range boosted posts have landed in. A RANGE, not an average: one
+   *  number would be a promise, and the spread is the honest description. */
+  afterViewsMin: 10_000,
+  afterViewsMax: 50_000,
+} as const
 
 /**
  * Marketing copy for the advertiser landing page, kept beside the numbers it
