@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
-  buildPgReadAllStatsMissingText,
+  buildStatementSnapshotSql,
   computeBusyBackendRank,
   DEFAULT_BACKEND_XMIN_XID,
   DEFAULT_BUSY_BACKENDS,
@@ -10,23 +10,63 @@ import {
   evaluateBackendXmin,
   evaluateBusyBackendRank,
   evaluateInvalidIndexes,
+  evaluateStatCoverage,
+  isOpaqueStatementBucket,
   evaluateWraparound,
   toNumber,
   WRAPAROUND_BUDGET,
+  type BackendXminRow,
   type BusyBackendRank,
   type InvalidIndexRow,
+  type StatCoverageRow,
   type StatementSnapshotRow,
 } from '../db-health-alerts'
 
-describe('buildPgReadAllStatsMissingText', () => {
-  it('names what is unmonitored and states the one-time grant', () => {
-    const text = buildPgReadAllStatsMissingText(
-      "pg_stat_activity hides other sessions' backend_xmin, so the " +
-        'long-lived-snapshot signal is blind',
+const coverageRow = (over: Partial<StatCoverageRow> = {}): StatCoverageRow => ({
+  role: 'manicode_user',
+  has_read_all_stats: false,
+  pgss_rows: 3410,
+  pgss_with_text: 2010,
+  activity_rows: 197,
+  activity_visible: 183,
+  ...over,
+})
+
+describe('evaluateStatCoverage', () => {
+  // The regression this whole module exists to prevent: the alerts used to
+  // treat "no pg_read_all_stats" as fatal, which is what kept them dark for a
+  // month. Partial visibility must stay RUNNABLE.
+  it('is usable without pg_read_all_stats and says what is degraded', () => {
+    const cov = evaluateStatCoverage(coverageRow())
+    expect(cov.activityBlind).toBe(false)
+    expect(cov.statementsBlind).toBe(false)
+    expect(cov.summary).toContain('lacks pg_read_all_stats')
+    // It must NOT claim the counts are exact: statement identities are
+    // redacted, and the unreadable ones are ranked as aggregate buckets.
+    expect(cov.summary).toContain('aggregate buckets')
+    expect(cov.summary).toContain('2010/3410')
+    expect(cov.summary).toContain('183/197')
+  })
+
+  it('reports full visibility when the grant is present', () => {
+    const cov = evaluateStatCoverage(
+      coverageRow({ has_read_all_stats: true, pgss_with_text: 3410 }),
     )
-    expect(text).toContain('lacks pg_read_all_stats')
-    expect(text).toContain('long-lived-snapshot signal is blind')
-    expect(text).toContain('GRANT pg_read_all_stats TO manicode_scripts;')
+    expect(cov.activityBlind).toBe(false)
+    expect(cov.statementsBlind).toBe(false)
+    expect(cov.summary).toContain('full fleet visibility')
+  })
+
+  // Each alert must be broken only by the half it reads: an absent or
+  // freshly-reset pg_stat_statements must not take the health alert down.
+  it('judges the two signals independently', () => {
+    const noStatements = evaluateStatCoverage(coverageRow({ pgss_rows: 0 }))
+    expect(noStatements.statementsBlind).toBe(true)
+    expect(noStatements.activityBlind).toBe(false)
+
+    const noBackends = evaluateStatCoverage(coverageRow({ activity_visible: 0 }))
+    expect(noBackends.activityBlind).toBe(true)
+    expect(noBackends.statementsBlind).toBe(false)
   })
 })
 
@@ -66,14 +106,54 @@ describe('evaluateWraparound', () => {
   })
 })
 
+const xminRow = (over: Partial<BackendXminRow> = {}): BackendXminRow => ({
+  oldest_xmin_age: 1,
+  snapshot_holders: 1,
+  visible_backends: 183,
+  opaque_backends: 14,
+  ...over,
+})
+
 describe('evaluateBackendXmin', () => {
   it('breaches at the threshold, inclusive', () => {
-    expect(evaluateBackendXmin(DEFAULT_BACKEND_XMIN_XID)).toBe(true)
-    expect(evaluateBackendXmin(DEFAULT_BACKEND_XMIN_XID - 1)).toBe(false)
+    expect(
+      evaluateBackendXmin(xminRow({ oldest_xmin_age: DEFAULT_BACKEND_XMIN_XID }))
+        .breach,
+    ).toBe(true)
+    expect(
+      evaluateBackendXmin(
+        xminRow({ oldest_xmin_age: DEFAULT_BACKEND_XMIN_XID - 1 }),
+      ).breach,
+    ).toBe(false)
   })
 
   it('never breaches with no snapshot held', () => {
-    expect(evaluateBackendXmin(null)).toBe(false)
+    expect(
+      evaluateBackendXmin(xminRow({ oldest_xmin_age: null })).breach,
+    ).toBe(false)
+    expect(evaluateBackendXmin(null).breach).toBe(false)
+  })
+
+  // A null age means either "nothing holds a snapshot" or "every holder is
+  // invisible to us". The 2026-08-03 holders were manicode_scripts sessions,
+  // so the count has to reach the reader either way.
+  it('always reports how many backends it could not see', () => {
+    const blind = evaluateBackendXmin(
+      xminRow({ oldest_xmin_age: null, snapshot_holders: 0 }),
+    )
+    expect(blind.text).toContain('14 backend(s) opaque')
+
+    const breaching = evaluateBackendXmin(
+      xminRow({ oldest_xmin_age: 1_137_687 }),
+    )
+    expect(breaching.breach).toBe(true)
+    expect(breaching.text).toContain('1137687 transactions behind')
+    expect(breaching.text).toContain('14 backend(s) opaque')
+  })
+
+  it('omits the blind-spot clause when nothing is opaque', () => {
+    const full = evaluateBackendXmin(xminRow({ opaque_backends: 0 }))
+    expect(full.text).not.toContain('opaque')
   })
 })
 
@@ -203,12 +283,71 @@ describe('computeBusyBackendRank', () => {
   })
 })
 
+describe('opaque statement buckets', () => {
+  // The bug this guards: `queryid` is redacted in lockstep with `query`, so a
+  // rank that requires a queryid sees only the connecting role's statements —
+  // measured at 0.98% of production execution time — while still reporting
+  // "no single query reached N busy-backend equivalents".
+  it('recognises a bucket key and nothing else', () => {
+    expect(isOpaqueStatementBucket('opaque:16385')).toBe(true)
+    expect(isOpaqueStatementBucket('3968477124571382750')).toBe(false)
+    expect(isOpaqueStatementBucket(null)).toBe(false)
+  })
+
+  // The emitted SQL is a template literal, so `\s` there is a NonEscapeCharacter that
+  // collapses to plain `s` — shipping `regexp_replace(query, 's+', ...)`, which
+  // strips runs of the letter s and never collapses whitespace. Nothing else in
+  // the suite reads the SQL, so only this catches it.
+  it('emits a whitespace regex, not a letter-s regex', () => {
+    const sql = buildStatementSnapshotSql()
+    expect(sql).toContain("'\\s+'")
+    expect(sql).not.toContain("'s+'")
+  })
+
+  it('skips a bucket it has never seen, rather than ranking its whole history', () => {
+    const after: StatementSnapshotRow[] = [
+      { queryid: 'opaque:16385', calls: 9_999, total_exec_time: 1_089_687_000, query: '<first sighting>' },
+    ]
+    // Absent from `before`: treated as cumulative zero, this would rank ~36,000
+    // busy backends off one 30s window and page immediately.
+    expect(computeBusyBackendRank([], after, 30)).toEqual([])
+  })
+
+  it('ranks a bucket by its delta, alongside identifiable queries', () => {
+    const before: StatementSnapshotRow[] = [
+      { queryid: 'opaque:16385', calls: 1_000, total_exec_time: 500_000, query: '<2307 statement(s) of role manicode_user, not readable as manicode_app>' },
+      { queryid: '42', calls: 10, total_exec_time: 1_000, query: 'SELECT 1' },
+    ]
+    const after: StatementSnapshotRow[] = [
+      { queryid: 'opaque:16385', calls: 1_600, total_exec_time: 800_000, query: '<2307 statement(s) of role manicode_user, not readable as manicode_app>' },
+      { queryid: '42', calls: 20, total_exec_time: 3_000, query: 'SELECT 1' },
+    ]
+    const rank = computeBusyBackendRank(before, after, 60)
+
+    // 300,000ms over 60s = 5 busy backends, which must out-rank the 0.033 the
+    // identifiable query moved.
+    expect(rank[0]?.queryid).toBe('opaque:16385')
+    expect(rank[0]?.busy).toBeCloseTo(5, 5)
+    expect(rank[1]?.queryid).toBe('42')
+  })
+
+  // A large CUMULATIVE bucket must not page on its own: production's two
+  // buckets held 1,089,687 exec-seconds of frozen history and moved nothing.
+  it('ignores a large bucket that is not currently accruing', () => {
+    const row = (t: number): StatementSnapshotRow[] => [
+      { queryid: 'opaque:16385', calls: 5, total_exec_time: t, query: '<frozen>' },
+    ]
+    expect(computeBusyBackendRank(row(1_089_687_000), row(1_089_687_000), 30)).toEqual([])
+  })
+})
+
 describe('evaluateBusyBackendRank', () => {
   const top = (busy: number): BusyBackendRank => ({
     busy,
     calls: 1,
     meanMs: 10,
     query: 'SELECT 1',
+    queryid: '123',
   })
 
   it('breaches when the top query holds at least the threshold', () => {
