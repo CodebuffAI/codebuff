@@ -33,7 +33,7 @@ import {
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
   FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS,
-  FREEBUFF_WEB_STANDARD_MODEL_IDS,
+  FREEBUFF_STANDARD_MODEL_IDS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffDesktopSessionBucket,
@@ -324,7 +324,7 @@ describe('freebuff model availability', () => {
       // free, and standard would leave it unlimited.
       expect(isFreebuffWebPremiumModelId(hy3Id)).toBe(false)
       expect(isFreebuffPremiumModelId(hy3Id)).toBe(false)
-      expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(hy3Id)
+      expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(hy3Id)
       // A stale saved selection downgrades rather than resolving to itself.
       expect(resolveFreebuffWebModel(hy3Id, { includeGodOnly: true })).toBe(
         FALLBACK_FREEBUFF_MODEL_ID,
@@ -397,7 +397,7 @@ describe('freebuff model availability', () => {
     expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
       false,
     )
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
     // A stale saved selection downgrades to the always-available fallback.
@@ -574,7 +574,7 @@ describe('freebuff model availability', () => {
       expect(isFreebuffSessionModelId(removedId)).toBe(false)
       // No pool may still meter them, in either direction.
       expect(isFreebuffWebPremiumModelId(removedId)).toBe(false)
-      expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(removedId)
+      expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(removedId)
       expect(resolveFreebuffWebModel(removedId, { includeGodOnly: true })).toBe(
         FALLBACK_FREEBUFF_MODEL_ID,
       )
@@ -681,7 +681,7 @@ describe('freebuff model availability', () => {
     expect(isFreebuffWebPremiumModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
       true,
     )
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(isFreebuffGlmV52ModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(false)
@@ -1207,7 +1207,7 @@ describe('limited-offer models (Claude Fable 5)', () => {
     // sessions on the quota M3 and DeepSeek Pro share.
     expect(isFreebuffPremiumModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(false)
     expect(isFreebuffWebPremiumModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(false)
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_FABLE_5_MODEL_ID,
     )
     expect(isFreebuffLimitedOfferModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(true)
@@ -1275,12 +1275,12 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
     // Premium here bounds how many users are inside the 60 RPM ceiling at once
     // — it is NOT a price signal, since Contributor is cheaper per token than
     // the standard-pool models. Being in some pool is mandatory:
-    // FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
+    // FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
     // premium model missing from the premium list is metered by nothing.
     expect(
       isFreebuffWebPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
     ).toBe(true)
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
     )
     expect(
@@ -1386,7 +1386,7 @@ describe('Muse Spark rate-limit fallback', () => {
     ).toBe(true)
     // Never the earned-GLM pool, and never the free standard pool.
     expect(isFreebuffGlmV52ModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(false)
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       MUSE_SPARK_FALLBACK_MODEL_ID,
     )
     // And it must be a real, selectable Web model rather than a dangling id.

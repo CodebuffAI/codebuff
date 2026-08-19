@@ -29,6 +29,18 @@ export interface FreebuffSessionEntitlementBreakdown {
    *  promo runs, which is the default — an older client that never reads it
    *  still sums to the right `limit`, because the server sends the total. */
   promo?: number
+  /**
+   * Sessions added by the account's earned LEVEL
+   * (`common/constants/freebuff-levels.ts`). Omitted at level 0, which is
+   * where every account starts, so the field is absent for most callers and an
+   * older client that never reads it still sums to the right `limit` — the
+   * server always sends the total.
+   *
+   * Distinct from `base` on purpose. `base` is what we give you; this is what
+   * you earned, and a user looking at "1 + 4" needs to be able to see which
+   * half goes away if they stop engaging.
+   */
+  level?: number
 }
 
 export interface FreebuffSessionRateLimit {

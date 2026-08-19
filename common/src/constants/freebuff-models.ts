@@ -414,12 +414,69 @@ export const FREEBUFF_ENABLE_STREAK_IN_UI = true
  *  limited access so the limited Freebuff UX can be exercised without an env
  *  var. */
 export const FREEBUFF_FORCE_LIMITED_MODE = false
-export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
-export const FREEBUFF_LIMITED_SESSION_LIMIT = 6
-/** Full-access Web/Cloud models outside the premium/referral pools. The CLI
- * keeps these models unlimited; browser surfaces cap fresh sessions to deter
- * automated project/session churn. */
-export const FREEBUFF_WEB_STANDARD_SESSION_LIMIT = 6
+/**
+ * Base premium sessions per Pacific day, before anything is earned.
+ *
+ * 5 → 4 when Levels shipped (`freebuff-levels.ts`), and the small size of that
+ * cut is the design. A free tier whose floor already hands out everything has
+ * nothing left to reward with — but a floor that COLLAPSES is a regression
+ * every existing user feels on the same afternoon, and no amount of "you can
+ * earn it back" reads as anything other than a takeaway. One session is what
+ * an honest account loses; Levels then take it to 7, which is more than
+ * anybody had before.
+ *
+ * Referral, streak, bounty and operator entitlement still add on top of this,
+ * unchanged.
+ */
+export const FREEBUFF_PREMIUM_SESSION_LIMIT = 4
+/**
+ * Limited-region base sessions per Pacific day.
+ *
+ * 6 → 3, the one genuinely large cut, and it is aimed rather than broad:
+ * `docs/freebuff-trust-levels.md` records that the brand-new-account /
+ * unsupported-region / often-VPN intersection is the exact shape of the
+ * reselling farms, and this is the pool they drain. A real developer abroad
+ * climbs straight back past where they started — Levels take this to 7 — while
+ * an account minted to be drained never earns a single rung.
+ */
+export const FREEBUFF_LIMITED_SESSION_LIMIT = 3
+
+/**
+ * What those two pools paid BEFORE Levels, and the revert lever.
+ *
+ * `FREEBUFF_LEVEL_SESSIONS=off` selects these instead of the reduced bases
+ * above, and suppresses the level bonus with them. The two halves have to move
+ * together: a reduced base with the ladder switched off is a pure takeaway,
+ * which is the one configuration this feature must never be able to land in.
+ * That is why the switch gates the whole change rather than just the bonus.
+ *
+ * Delete both, and the branch in `free-session/public-api.ts` that reads them,
+ * once Levels has been on long enough that rolling back is not a thing anyone
+ * would do.
+ */
+export const FREEBUFF_PRE_LEVELS_PREMIUM_SESSION_LIMIT = 5
+export const FREEBUFF_PRE_LEVELS_LIMITED_SESSION_LIMIT = 6
+/**
+ * There is no standard-model session limit, on any surface.
+ *
+ * `FREEBUFF_WEB_STANDARD_SESSION_LIMIT` used to live here at 6, capping fresh
+ * standard sessions on browser surfaces only — unlimited in CLI and Desktop,
+ * six a day in Web and Cloud. Removed on 2026-08-18, because a product whose
+ * central promise is "Freebuff is free" cannot have that promise be true on
+ * one surface and not another, with no way for a user to discover the
+ * difference except by hitting it.
+ *
+ * It was also close to redundant. `docs/freebuff-trust-levels.md` argues at
+ * length that session COUNT is the wrong thing to meter — starting a session
+ * costs nothing and an idle session costs nothing, while the traffic inside it
+ * is bounded four separate ways (`messagesPerDay`, `messagesPer5Hours`,
+ * `userMessagesPerDay`, and the daily spend ceiling). The churn it was aimed
+ * at is project creation, which has its own gate
+ * (`docs/freebuff-web-creation-gate.md`).
+ *
+ * Levels therefore scale only the two pools that are genuinely scarce: premium
+ * and the limited region. See `freebuff-levels.ts`.
+ */
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
 /** GLM 5.2 referral-reward session pool. Distinct from the shared premium
@@ -450,10 +507,6 @@ export const FREEBUFF_GLM_V52_SESSION_LENGTH_MS = 60 * 60 * 1000
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
-export const FREEBUFF_WEB_STANDARD_SESSION_RESET_TIMEZONE =
-  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
-export const FREEBUFF_WEB_STANDARD_SESSION_PERIOD =
-  FREEBUFF_PREMIUM_SESSION_PERIOD
 
 /**
  * Streak rewards. Once a user reaches a `FREEBUFF_STREAK_REWARD_INTERVAL_DAYS`
@@ -908,7 +961,7 @@ const FABLE_5_MODEL = {
   // Not in FREEBUFF_PREMIUM_MODEL_IDS: the daily premium pool is shared across
   // its models and Fable is metered by its OWN global pool instead (see
   // FREEBUFF_LIMITED_OFFER_MODEL_IDS). The flag only marks it as scarce for the
-  // pickers' styling and for FREEBUFF_WEB_STANDARD_MODEL_IDS, which must not
+  // pickers' styling and for FREEBUFF_STANDARD_MODEL_IDS, which must not
   // absorb it.
   premium: true,
   multimodal: true,
@@ -1103,20 +1156,32 @@ export function isFreebuffWebSelectableModelId(
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
   // Metered by the web premium pool like every other god-only row. Being in
-  // SOME pool is the point: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by
+  // SOME pool is the point: FREEBUFF_STANDARD_MODEL_IDS is derived by
   // filtering `!premium`, so a premium model left out of here would be metered
   // by no pool at all rather than by a stricter one.
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   // Not here for cost — Muse Spark Contributor is cheaper per token than the
   // Standard pool's models. The premium pool is what bounds how many users sit
   // inside its 60 RPM team-wide ceiling at once, and being in SOME pool is
-  // mandatory: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering
+  // mandatory: FREEBUFF_STANDARD_MODEL_IDS is derived by filtering
   // `!premium`, so a premium model left out of here is metered by no pool.
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
 ] as const
 
-/** Full-access Web/Cloud models sharing the browser-only standard daily pool. */
-export const FREEBUFF_WEB_STANDARD_MODEL_IDS = Object.freeze(
+/**
+ * Full-access models outside the premium and referral pools — i.e. the ones a
+ * full-access account may use without a session quota at all, on every
+ * surface.
+ *
+ * Derived by filtering `!premium` over the public catalog, which is why the
+ * premium lists above insist that every premium model appear in SOME pool: a
+ * premium model left out of them lands in here and becomes unlimited.
+ *
+ * Named `WEB_STANDARD` until 2026-08-18, when the browser-only session pool it
+ * was named after was removed; the list itself is unchanged and is now the
+ * catalog invariant several tests assert against.
+ */
+export const FREEBUFF_STANDARD_MODEL_IDS = Object.freeze(
   FREEBUFF_WEB_ALL_MODELS.filter((model) => !model.premium).map(
     (model) => model.id,
   ),
