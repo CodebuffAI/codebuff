@@ -157,12 +157,22 @@ export function checkCommentUrl(params: {
     return { ok: false, reason: 'That comment is on a different post.' }
   }
   const hasCommentUrn = /commentUrn/i.test(url.search)
+  if (!hasCommentUrn) {
+    // The activity URL alone IS the post. This used to come back ok with a
+    // `platform_only` strength, which meant submitting the promoted post's own
+    // link passed the deterministic check on LinkedIn while the identical
+    // mistake was caught on X and Reddit.
+    return {
+      ok: false,
+      reason:
+        'That links to the post, not to your comment. Open your comment’s menu and copy its link.',
+    }
+  }
   return {
     ok: true,
     // A LinkedIn comment permalink carries `commentUrn` alongside the activity
-    // id; the activity URL alone is the post. Both confirm the post, but only
-    // the first is evidence of a comment.
-    strength: hasCommentUrn && target ? 'post_confirmed' : 'platform_only',
+    // id. With both, the link is evidence of a comment on that exact post.
+    strength: target ? 'post_confirmed' : 'platform_only',
     normalized,
   }
 }

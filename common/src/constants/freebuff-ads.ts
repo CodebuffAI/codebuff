@@ -184,7 +184,7 @@ export const AD_MAX_COMMENT_URL_CHARS = 2_000
  * `freebuff_bounty_submission.agreed_to_terms_at` plays.
  */
 export const AD_EVIDENCE_ATTESTATION =
-  'I confirm this is genuine proof of my own engagement. I understand it will be verified, and that falsified evidence will result in my account being banned.'
+  'I confirm I liked, reposted and commented on this post myself, and that this is genuine proof of it. I understand it will be verified, and that falsified evidence will result in my account being banned.'
 export const AD_MAX_DESCRIPTION_CHARS = 2_000
 export const AD_MAX_COMMENT_GUIDANCE_CHARS = 2_000
 

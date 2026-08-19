@@ -96,14 +96,19 @@ describe('linkedin', () => {
     ).toMatchObject({ ok: true, strength: 'post_confirmed' })
   })
 
-  it('downgrades the activity URL with no comment urn', () => {
-    // That is the post, not a comment. Accepted (it is at least the right
-    // post) but never at full strength, so the caller still asks for more.
-    expect(
-      linkedin(
-        'https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000000/',
-      ),
-    ).toMatchObject({ ok: true, strength: 'platform_only' })
+  it('rejects the activity URL with no comment urn — that is the post', () => {
+    // It used to come back ok at `platform_only`, on the reasoning that it was
+    // at least the right post. But the submission is supposed to BE a comment,
+    // and this URL is the promoted post itself — the same mistake X and Reddit
+    // both reject outright. Accepting it here meant the one platform where the
+    // lazy submission passed the free check was the one where the URL format
+    // made it easiest.
+    const result = linkedin(
+      'https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000000/',
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('unreachable')
+    expect(result.reason).toContain('not to your comment')
   })
 
   it('rejects a comment on a different activity', () => {
