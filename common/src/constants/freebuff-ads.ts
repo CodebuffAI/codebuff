@@ -188,6 +188,30 @@ export function platformForUrl(rawUrl: string): AdPlatform | null {
 export const AD_PRICING_ENABLED = false
 
 /**
+ * TEMPORARY: campaigns go live without an operator looking at them.
+ *
+ * Flip back to `true` to restore the review queue. Everything behind it is
+ * intact — the queue, the admin dashboard, the submission email, the approve
+ * and reject actions — so turning it on resumes reviewing with no other
+ * change, and campaigns submitted while it was off stay exactly as they are.
+ *
+ * ## What still gates this
+ *
+ * The ADVERTISER is still reviewed. Nobody can create a campaign until their
+ * account has been approved by hand, so this removes the second gate and not
+ * the first: an unknown company still cannot put anything in front of our
+ * users. What it drops is the per-campaign check on advertisers we have
+ * already decided to trust.
+ *
+ * That is the thing to weigh before leaving it off for long. The campaign
+ * review is what catches an approved advertiser promoting something different
+ * from what they were approved for, and there is no automated substitute for
+ * it — `/web/admin/advertisers` lists every campaign, and while this is false
+ * that list is a place to spot-check rather than a queue that blocks.
+ */
+export const AD_CAMPAIGN_REVIEW_ENABLED = false
+
+/**
  * The longest a campaign may run, in days.
  *
  * Set while campaigns are free. An open-ended campaign that costs nothing has
