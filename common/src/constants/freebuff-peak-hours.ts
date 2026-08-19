@@ -104,3 +104,77 @@ export function formatDeepSeekPeakWindowsLocal(
     ([start, end]) => `${atUtcHour(start)} – ${atUtcHour(end)}`,
   )
 }
+
+// ---------------------------------------------------------------------------
+// The expensive window
+// ---------------------------------------------------------------------------
+
+/**
+ * How long before peak opens the window starts.
+ *
+ * One hour. A free session runs for an hour and keeps its model for all of it,
+ * so a session admitted at 00:30 would still be generating deep into peak
+ * pricing. Standing off an hour early means the sessions still running when the
+ * rate doubles were never admitted in the first place.
+ */
+export const DEEPSEEK_EXPENSIVE_WINDOW_LEAD_HOURS = 1
+
+/**
+ * The single window in which DeepSeek is at its most expensive, [start, end)
+ * UTC — 00:00 to 10:00, which is 5pm to 3am Pacific.
+ *
+ * DERIVED from DEEPSEEK_PEAK_HOUR_RANGES_UTC rather than written down, so it
+ * cannot drift the day DeepSeek moves its hours.
+ *
+ * ONE window, not two, and it deliberately swallows the 04:00-06:00 off-peak
+ * gap between the peaks. Reopening for a two-hour gap would admit hour-long
+ * sessions that run straight into the second peak, so every session it let
+ * through would be billed at double for most of its life. A gap this short is
+ * cheaper to skip than to use.
+ */
+export const DEEPSEEK_EXPENSIVE_WINDOW_UTC: readonly [number, number] = [
+  Math.min(...DEEPSEEK_PEAK_HOUR_RANGES_UTC.map(([start]) => start)) -
+    DEEPSEEK_EXPENSIVE_WINDOW_LEAD_HOURS,
+  Math.max(...DEEPSEEK_PEAK_HOUR_RANGES_UTC.map(([, end]) => end)),
+]
+
+/** Whether `at` falls in the window above. Half-open like the peak check, so
+ *  the closing hour is already outside it. */
+export function isDeepSeekExpensiveWindow(at: Date): boolean {
+  const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
+  const hour = at.getUTCHours()
+  return hour >= start && hour < end
+}
+
+/** When the window closes — what a user is really asking when a model is
+ *  unavailable. Returns `at` unchanged outside the window so callers can render
+ *  "back at ..." without a second branch. */
+export function deepSeekExpensiveWindowEndsAt(at: Date): Date {
+  if (!isDeepSeekExpensiveWindow(at)) return new Date(at)
+  const [, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
+  const ends = new Date(at)
+  // The window never crosses midnight (it starts at or after 00:00 UTC), so its
+  // close is always later the same UTC day.
+  ends.setUTCHours(end, 0, 0, 0)
+  return ends
+}
+
+/** The window in the reader's timezone, e.g. "5:00 PM – 3:00 AM". Local time is
+ *  the point: a user told "00:00-10:00 UTC" has to do the arithmetic. */
+export function formatDeepSeekExpensiveWindowLocal(
+  on: Date = new Date(),
+  timeZone?: string,
+): string {
+  const fmt = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    ...(timeZone ? { timeZone } : {}),
+  })
+  const atUtcHour = (hour: number): string => {
+    const d = new Date(on)
+    d.setUTCHours(hour, 0, 0, 0)
+    return fmt.format(d)
+  }
+  const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
+  return `${atUtcHour(start)} – ${atUtcHour(end)}`
+}

@@ -32,16 +32,46 @@ import type {
 export const FREEBUFF_PAUSED_MODEL_NOTICE =
   "DeepSeek V4 Flash 07/31 is paused here after a steep price increase — pausing it is what keeps these sessions free for everyone. We're working to bring it back."
 
-const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> = {
-  anonymous: 'anonymized network',
-  proxy: 'proxy',
-  relay: 'relay',
-  res_proxy: 'residential proxy',
-  tor: 'Tor',
-  vpn: 'VPN',
-  hosting: 'hosting network',
-  service: 'privacy service',
-}
+/**
+ * What changed for FULL-access users, rendered under the model list on every
+ * picker. Two things, and they are separate facts: V4 Flash moved onto the
+ * daily session pool it used to sit outside, and the DeepSeek builds we serve
+ * are currently quantized.
+ *
+ * Distinct from FREEBUFF_PAUSED_MODEL_NOTICE above, which explains the reduced
+ * LIMITED catalog. Both can be true at once, on different accounts, and a
+ * limited-tier user must not be told about a premium pool they do not have.
+ *
+ * "may run" on the quantization, not "runs", because it is true of the CrofAI
+ * lane and not of DeepSeek's own API, and which one answers a given turn is a
+ * routing decision the user cannot see. Overstating it would be the easier
+ * sentence and the false one.
+ *
+ * Says the word "temporary" and names what is still unlimited. Those two
+ * clauses are the ones that matter: without the first this reads as the new
+ * permanent shape of the free tier, and without the second a user whose pool is
+ * spent has no idea there is anything left to run. Same framing rule as the
+ * notice above — model AVAILABILITY, never restricted access, and no hint of
+ * what any of it costs us (this file ships in the public export).
+ *
+ * DELETE THIS when Flash leaves FREEBUFF_PREMIUM_MODEL_IDS and the DeepSeek
+ * lanes are back on full precision — it is the only piece of any of this that a
+ * user ever reads.
+ */
+export const FREEBUFF_TIER_CHANGE_NOTICE =
+  'Temporary while upstream prices are high: DeepSeek V4 Flash now uses a daily session, and DeepSeek models may run a quantized (Q8_0) build to keep costs down. MiMo 2.5 stays unlimited.'
+
+const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
+  {
+    anonymous: 'anonymized network',
+    proxy: 'proxy',
+    relay: 'relay',
+    res_proxy: 'residential proxy',
+    tor: 'Tor',
+    vpn: 'VPN',
+    hosting: 'hosting network',
+    service: 'privacy service',
+  }
 
 export function formatFreebuffPrivacySignalList(
   signals: readonly FreebuffIpPrivacySignal[] | null | undefined,

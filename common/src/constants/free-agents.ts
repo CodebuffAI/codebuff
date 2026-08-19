@@ -165,18 +165,20 @@ export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
  * to. There is one variant per model because a bundled agent's model comes from
  * its definition, not from the request.
  *
- * THE TIERS PLAN ON DIFFERENT MODELS AGAIN since Flash was paused for the
- * limited tier (see LIMITED_FREEBUFF_MODEL_IDS). Full access still plans and
- * builds on DeepSeek V4 Flash — adopted 2026-08-01 over MiniMax M3 because the
- * V4-Flash-0731 GA build was both the strongest coding/tool-use model we serve
- * and the cheapest, which took the planner out of the premium pool it had been
- * the cheapest route into. The limited variant follows
- * LIMITED_FREEBUFF_MODEL_ID.
+ * BOTH TIERS PLAN ON THE UNLIMITED MODEL, and they converged again on
+ * 2026-08-18. The planner followed DeepSeek V4 Flash onto the premium pool for
+ * a few hours and was moved straight off it, because being OUT of that pool is
+ * the property this agent is designed around: a planner turn never touches a
+ * sandbox, so a premium-pooled planner is both the cheapest abuse route into
+ * the premium pool and a way for an ordinary user to spend their day's sessions
+ * without building anything. It tracks FALLBACK_FREEBUFF_MODEL_ID rather than
+ * naming a model, so it cannot drift back in the next time a model is
+ * re-tiered.
  *
- * So the model distinguishes the two variants once more, and
- * cloudPlannerAgentIdForModel routes on it again rather than hard-returning the
- * primary — which would now dispatch limited planner turns to a root pinned to
- * a model their tier cannot run, i.e. session_model_mismatch on the first send.
+ * With the two variants sharing a model there is nothing to route on, so
+ * cloudPlannerAgentIdForModel returns the primary for both — see the guard
+ * there, which exists because the naive comparison sends every full-access turn
+ * to the LIMITED root the moment the models agree.
  *
  * Exported so the agent definitions, the planner UI's forced model, and the
  * "Start building" hand-off all read one set of values. They must agree: the
@@ -184,26 +186,28 @@ export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
  * different model is rejected with session_model_mismatch.
  */
 export const CLOUD_PLANNER_AGENT_ID = 'base2-free-cloud-planner'
-export const CLOUD_PLANNER_MODEL_ID = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+export const CLOUD_PLANNER_MODEL_ID = FALLBACK_FREEBUFF_MODEL_ID
 export const CLOUD_PLANNER_LIMITED_AGENT_ID = 'base2-free-cloud-planner-limited'
 export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
 
 /**
  * The model the build runs on after "Start building".
  *
- * DeepSeek V4 Flash since 2026-08-01 (was V4 Pro), for the same reason
- * DEFAULT_FREEBUFF_WEB_MODEL_ID is: the V4-Flash-0731 GA build is the strongest
- * coding model we serve and the cheapest. The build is where the tokens are —
- * one build outweighs its whole planning conversation by orders of magnitude —
- * so this is the single biggest place that choice pays off, and it takes builds
- * out of the premium session pool entirely.
+ * The unlimited model (FALLBACK_FREEBUFF_MODEL_ID) since 2026-08-18, when V4
+ * Flash became premium; V4 Flash held this from 2026-08-01, and V4 Pro before
+ * that. The build is where the tokens are — one build outweighs its whole
+ * planning conversation by orders of magnitude — so keeping builds OUT of the
+ * premium session pool matters more here than anywhere else. Following the
+ * fallback rather than naming a model is what makes that survive a re-tiering:
+ * this constant would otherwise have quietly put every Cloud build on the
+ * premium pool the hour Flash moved.
  *
  * Now the same model as the planner. That does NOT let the hand-off reuse the
  * planner's session: "Start building" still admits its own
  * (BlankCloudPlanControls.beginBuild), which is what a model-locked session
  * requires and remains correct whether or not the two models agree.
  */
-export const CLOUD_BUILD_MODEL_ID = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+export const CLOUD_BUILD_MODEL_ID = FALLBACK_FREEBUFF_MODEL_ID
 
 /** The planner model a given access tier is permitted to run. */
 export function cloudPlannerModelForAccessTier(
@@ -272,6 +276,15 @@ export function resolveCloudBuildModel(
 export function cloudPlannerAgentIdForModel(
   model: string | null | undefined,
 ): string {
+  // When the two variants share a model there is nothing to route on, and the
+  // comparison below would send EVERY turn — full access included — to the
+  // limited root. Both roots accept the shared model, so this is a routing and
+  // attribution question rather than an admission one, and the primary is the
+  // right answer. The tiers converged again on 2026-08-18 when the planner
+  // followed the unlimited model onto MiMo 2.5.
+  if (CLOUD_PLANNER_MODEL_ID === CLOUD_PLANNER_LIMITED_MODEL_ID) {
+    return CLOUD_PLANNER_AGENT_ID
+  }
   return model === CLOUD_PLANNER_LIMITED_MODEL_ID
     ? CLOUD_PLANNER_LIMITED_AGENT_ID
     : CLOUD_PLANNER_AGENT_ID
@@ -757,28 +770,40 @@ export function isFreeModeAllowedAgentModel(
 }
 
 /**
- * The limited tier's own model, running on an agent free mode already knows.
+ * A model the SERVER substituted, running on an agent free mode already knows.
  *
  * Most free-mode roots are pinned to exactly one model — `base3-free-deepseek-
  * flash` allows Flash and nothing else — which assumes the model a request
- * carries is the one its client picked. That stops being true when a model
- * LEAVES a tier: Flash left the limited tier on 2026-08-18, so admission and
- * `checkSessionAdmissible` both substitute `LIMITED_FREEBUFF_MODEL_ID` for it,
- * and the request reaches a Flash-pinned root carrying the model WE chose.
+ * carries is the one its client picked. That stops being true whenever the
+ * server overrides the pick, which now happens two ways: a model LEAVES A TIER
+ * (Flash left the limited tier on 2026-08-18) or a model is PAUSED for free
+ * mode entirely (V4 Pro, later the same day). Admission and
+ * `checkSessionAdmissible` both substitute, and the request reaches a pinned
+ * root carrying the model WE chose.
  *
  * Both halves of the free-mode decision must admit that request — the gate in
  * chat/completions and the billing check in llm-api/helpers.ts. If they
  * disagree it falls into the METERED path: credit ledger writes for an account
  * with no balance. Same trap `isHoneypotFreeModeAllowed` avoids, same shape.
  *
- * Cannot be an escalation, which is what the allowlist exists to prevent: this
- * is the cheapest tier's only model, and the server picked it, not the caller.
+ * Cannot be an escalation, which is what the allowlist exists to prevent. Both
+ * accepted targets are models the server picks for users it is stepping DOWN,
+ * never up: the limited tier's only model, and the always-available fallback
+ * every surface lands on when a premium pool is spent. They name the same model
+ * today; they are checked separately because that is a coincidence of the
+ * current catalog rather than a rule, and the day it stops being true this
+ * must keep accepting both.
  */
 export function isLimitedTierSubstitutedModel(
   fullAgentId: string,
   model: string,
 ): boolean {
-  if (model !== LIMITED_FREEBUFF_MODEL_ID) return false
+  if (
+    model !== LIMITED_FREEBUFF_MODEL_ID &&
+    model !== FALLBACK_FREEBUFF_MODEL_ID
+  ) {
+    return false
+  }
 
   const { publisherId, agentId } = parseAgentId(fullAgentId)
   if (!agentId) return false

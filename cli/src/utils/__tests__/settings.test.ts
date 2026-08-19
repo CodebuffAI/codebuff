@@ -67,33 +67,37 @@ describe('freebuff model preference', () => {
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
 
-    // Same for the limited tier's other pick, MiMo 2.5.
+    // NOT the same for MiMo 2.5 any more. It stopped being superseded on
+    // 2026-08-18, when Flash became premium and MiMo became the only unlimited
+    // row — so a user who picks the model that always works keeps it, instead
+    // of being steered every launch onto one their daily pool may not cover.
     saveFreebuffModelPreference(FREEBUFF_MIMO_V25_MODEL_ID)
-    expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
+    expect(loadFreebuffModelPreference()).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
 
-  test('leaves a saved DeepSeek V4 Pro pick alone', () => {
+  test('steers a saved V4 Pro pick to Flash on every load', () => {
     testConfigDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'freebuff-settings-test-'),
     )
     getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
 
-    // Pro was steered off until its 08/13 GA build overtook Flash again. A user
-    // who deliberately picks the deep-reasoning model must now still be on it
-    // next launch, migration marker or not.
+    // Pro is selectable again as of 2026-08-19 and is nobody's recommendation,
+    // so a stored pick migrates rather than being dropped: it costs several
+    // times Flash for the same daily session, and a standing default is the one
+    // place that difference compounds silently, launch after launch.
     fs.writeFileSync(
       path.join(testConfigDir, 'settings.json'),
       JSON.stringify({ freebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }),
     )
     expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
 
+    // Re-picking it does not make it the standing default again. Selecting it
+    // for the session the user is in still works — this governs launches.
     saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
   })
 })

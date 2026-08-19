@@ -45,6 +45,7 @@ import {
 } from '@codebuff/common/types/freebuff-session'
 import {
   FREEBUFF_PAUSED_MODEL_NOTICE,
+  FREEBUFF_TIER_CHANGE_NOTICE,
   getFreebuffModelAvailabilityNotice,
 } from '@codebuff/common/util/freebuff-model-availability'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
@@ -419,14 +420,21 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
 
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
-  // Answers "why these models?" in the order it gets asked: why the catalog is
-  // small, then why a model that used to be in it isn't. Hidden in compact
-  // terminals — nice-to-have context, and below 22 rows every line competes
-  // with the picker itself.
-  const belowPickerNotices =
-    accessTier === 'limited' && !compact
+  // Answers "why these models?" in the order it gets asked. The two tiers ask
+  // different versions of it, so they get different answers: limited asks why
+  // the catalog is small and why a model that used to be in it isn't; full asks
+  // why Pro is gone and why Flash now costs a session.
+  //
+  // Never both — a limited-tier user has neither Pro nor a premium pool, so the
+  // full-tier line would describe an account they do not have.
+  //
+  // Hidden in compact terminals either way: nice-to-have context, and below 22
+  // rows every line competes with the picker itself.
+  const belowPickerNotices = compact
+    ? []
+    : accessTier === 'limited'
       ? [getLimitedModeNotice(session), FREEBUFF_PAUSED_MODEL_NOTICE]
-      : []
+      : [FREEBUFF_TIER_CHANGE_NOTICE]
   // 'none' = user hasn't started a session yet. We're in the pre-chat landing
   // state: show the picker with a prompt. Picking a model triggers
   // startFreebuffSession, which POSTs and transitions straight to 'active' (chat).
@@ -795,8 +803,8 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
                 sessions{' '}
-                {session.period === 'pacific_week' ? 'this week' : 'today'}.
-                Try again in{' '}
+                {session.period === 'pacific_week' ? 'this week' : 'today'}. Try
+                again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
