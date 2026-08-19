@@ -169,6 +169,60 @@ export function platformForUrl(rawUrl: string): AdPlatform | null {
 // Limits
 // ---------------------------------------------------------------------------
 
+/**
+ * TEMPORARY: campaigns run without a card.
+ *
+ * Flip back to `true` to re-enable billing. Everything Stripe-side is intact —
+ * the price lookup, the checkout, the webhook that mirrors subscription state —
+ * so turning this on restores charging with no other change.
+ *
+ * A checked-in constant rather than an env var deliberately: this is a decision
+ * about what the product costs, and it should be visible in a diff and a
+ * changelog rather than living in a dashboard where nobody can see it was
+ * changed or when.
+ *
+ * While this is false, `skipsCampaignFunding` marks every campaign paid at
+ * submit. The feed keeps its single `billing_active` rule — no serving bypass
+ * is added anywhere, so re-enabling pricing cannot leave a hole behind.
+ */
+export const AD_PRICING_ENABLED = false
+
+/**
+ * The longest a campaign may run, in days.
+ *
+ * Set while campaigns are free. An open-ended campaign that costs nothing has
+ * no natural stopping point, and the delivery it consumes is real: every
+ * engagement is paid out in Trust to a user whether or not an advertiser was
+ * billed for it. A week bounds that without making anyone ask permission.
+ *
+ * Enforced as an END DATE rather than as a timer, so a campaign always carries
+ * the date it will stop on and the advertiser can see it.
+ */
+export const AD_MAX_CAMPAIGN_LENGTH_DAYS = 7
+
+/** The furthest out a campaign may be set to end, from a given moment. */
+export function maxCampaignEndDate(from: Date = new Date()): Date {
+  const end = new Date(from)
+  end.setDate(end.getDate() + AD_MAX_CAMPAIGN_LENGTH_DAYS)
+  return end
+}
+
+/**
+ * The end date a campaign should carry, given what the advertiser asked for.
+ *
+ * Absent becomes the maximum rather than staying open-ended: "max campaign
+ * length is a week" is not enforced by a cap that only applies when somebody
+ * volunteers a date. Anything beyond the maximum is clamped down to it.
+ */
+export function resolveCampaignEndDate(
+  requested: Date | null | undefined,
+  from: Date = new Date(),
+): Date {
+  const max = maxCampaignEndDate(from)
+  if (!requested) return max
+  return requested.getTime() > max.getTime() ? max : requested
+}
+
 export const AD_MAX_POSTS_PER_CAMPAIGN = 20
 export const AD_MAX_CAMPAIGNS_PER_ADVERTISER = 25
 export const AD_MAX_COMMENT_EXAMPLES = 12
