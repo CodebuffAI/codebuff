@@ -37,6 +37,7 @@ const {
   finalizeQueueState,
   resetEarlyReturnState,
 } = await import('../send-message')
+const { createRunConfig } = await import('../../../utils/create-run-config')
 const { createBatchedMessageUpdater } =
   await import('../../../utils/message-updater')
 import { createPaymentRequiredError } from '@codebuff/sdk'
@@ -1857,5 +1858,145 @@ describe('freebuff gate errors', () => {
     // (which swallows the userError) rather than the generic error path
     // (which would set a userError from the message).
     expect(messages[0].userError).toBeUndefined()
+  })
+
+  describe('session state preservation on user abort and error / session expiration', () => {
+    test('user abort (Esc): follow-up message inherits active snapshot with message history and tool calls', () => {
+      const previousRunStateRef = { current: null as RunState | null }
+      let committedStoreRunState: RunState | null = null
+      let currentChatDir = '/chat-1'
+
+      const syncRunState = (state: RunState) => {
+        if (currentChatDir !== '/chat-1') return
+        previousRunStateRef.current = state
+        committedStoreRunState = state
+      }
+
+      const activeSnapshot: RunState = {
+        sessionState: {
+          fileContext: { projectRoot: '/project', files: {} } as any,
+          mainAgentState: {
+            agentId: 'agent-1',
+            agentType: 'base2',
+            messageHistory: [
+              { role: 'user', content: [{ type: 'text', text: 'implement authentication' }] },
+              { role: 'assistant', content: [{ type: 'text', text: 'reading project files' }] },
+              {
+                role: 'tool',
+                toolName: 'read_files',
+                content: [{ type: 'text', value: { files: ['src/auth.ts'] } }],
+              } as any,
+            ],
+          } as any,
+        },
+        traceSessionId: 'trace-1',
+      }
+
+      // User hits Esc mid-stream: registerActiveRun abort callback fires
+      syncRunState(activeSnapshot)
+
+      // User immediately sends follow-up prompt
+      const runConfigB = createRunConfig({
+        logger: { debug: () => {}, warn: () => {}, error: () => {}, info: () => {} } as any,
+        agent: 'base2',
+        prompt: 'also verify tests',
+        content: undefined,
+        previousRunState: previousRunStateRef.current,
+        agentDefinitions: [],
+        eventHandlerState: {} as any,
+      })
+
+      // Verify that previousRun carries full history rather than empty []
+      expect(runConfigB.previousRun).toBe(activeSnapshot)
+      expect(runConfigB.previousRun?.sessionState?.mainAgentState.messageHistory).toHaveLength(3)
+      expect(
+        runConfigB.previousRun?.sessionState?.mainAgentState.messageHistory[0].content[0].text,
+      ).toBe('implement authentication')
+      expect(
+        runConfigB.previousRun?.sessionState?.mainAgentState.messageHistory[2].toolName,
+      ).toBe('read_files')
+      expect(committedStoreRunState).toBe(activeSnapshot)
+    })
+
+    test('session expiration / error: sending "continue" inherits expired session snapshot', () => {
+      const previousRunStateRef = { current: null as RunState | null }
+      let committedStoreRunState: RunState | null = null
+      let currentChatDir = '/chat-1'
+
+      const syncRunState = (state: RunState) => {
+        if (currentChatDir !== '/chat-1') return
+        previousRunStateRef.current = state
+        committedStoreRunState = state
+      }
+
+      const errorSnapshot: RunState = {
+        sessionState: {
+          fileContext: { projectRoot: '/project', files: {} } as any,
+          mainAgentState: {
+            agentId: 'agent-1',
+            agentType: 'base2',
+            messageHistory: [
+              { role: 'user', content: [{ type: 'text', text: 'turn 1 prompt' }] },
+              { role: 'assistant', content: [{ type: 'text', text: 'turn 1 response' }] },
+              { role: 'user', content: [{ type: 'text', text: 'turn 2 prompt' }] },
+            ],
+          } as any,
+        },
+        traceSessionId: 'trace-2',
+        output: {
+          type: 'error',
+          message: 'Your free session ended',
+          error: 'session_expired',
+        } as any,
+      }
+
+      // Session expiration error caught in useSendMessage catch block
+      syncRunState(errorSnapshot)
+
+      // User sends "continue" after session ended banner
+      const runConfigB = createRunConfig({
+        logger: { debug: () => {}, warn: () => {}, error: () => {}, info: () => {} } as any,
+        agent: 'base2',
+        prompt: 'continue',
+        content: undefined,
+        previousRunState: previousRunStateRef.current,
+        agentDefinitions: [],
+        eventHandlerState: {} as any,
+      })
+
+      expect(runConfigB.previousRun).toBe(errorSnapshot)
+      expect(runConfigB.previousRun?.sessionState?.mainAgentState.messageHistory).toHaveLength(3)
+      expect(
+        runConfigB.previousRun?.sessionState?.mainAgentState.messageHistory[2].content[0].text,
+      ).toBe('turn 2 prompt')
+      expect(committedStoreRunState).toBe(errorSnapshot)
+    })
+
+    test('chat switch isolation: syncRunState is a no-op when active chat directory has changed', () => {
+      const previousRunStateRef = { current: null as RunState | null }
+      let committedStoreRunState: RunState | null = null
+      let currentChatDir = '/chat-2' // User switched to chat 2
+
+      const syncRunState = (state: RunState) => {
+        if (currentChatDir !== '/chat-1') return // Stale run from chat 1
+        previousRunStateRef.current = state
+        committedStoreRunState = state
+      }
+
+      const staleSnapshot: RunState = {
+        sessionState: {
+          mainAgentState: {
+            messageHistory: [{ role: 'user', content: [{ type: 'text', text: 'chat 1 prompt' }] }],
+          } as any,
+        } as any,
+        traceSessionId: 'trace-stale',
+      }
+
+      syncRunState(staleSnapshot)
+
+      // Must NOT leak state into chat 2
+      expect(previousRunStateRef.current).toBeNull()
+      expect(committedStoreRunState).toBeNull()
+    })
   })
 })
