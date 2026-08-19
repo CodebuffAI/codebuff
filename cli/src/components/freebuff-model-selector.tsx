@@ -25,6 +25,10 @@ import {
   isSupportedFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 import {
+  formatFreebuffRowQuota,
+  getFreebuffSectionQuotas,
+} from '@codebuff/common/util/freebuff-session-pools'
+import {
   getLimitedModelOffers,
   getRateLimitsByModel,
   getGlmPromo,
@@ -234,9 +238,22 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // also the moment the recommended hero flips to the unlimited fallback (when
   // the recommendation is premium) — the hero must always be joinable. (The PREMIUM
   // section only renders for the full-access tier, so this is scoped to it.)
-  const sharedRateLimit = rateLimitsByModel
-    ? Object.values(rateLimitsByModel)[0]
-    : undefined
+  // The PREMIUM section's own pool, and the rows inside it that answer to a
+  // stricter one. Taking `Object.values(...)[0]` was correct only while every
+  // row in the section shared a pool; DeepSeek's one-a-day ceiling (2026-08-19)
+  // put two pools in this section, and the old shortcut would label the header
+  // from whichever happened to be first in the payload.
+  //
+  // getFreebuffSectionQuotas decides by counting rows, so nothing here knows
+  // WHICH model is the odd one — the next per-model ceiling is a server change
+  // that this build renders without being rebuilt.
+  const premiumSectionQuotas = getFreebuffSectionQuotas(
+    availableModels
+      .filter((m) => isFreebuffPremiumModelId(m.id))
+      .map((m) => m.id),
+    rateLimitsByModel,
+  )
+  const sharedRateLimit = premiumSectionQuotas.header
   const premiumUsed = sharedRateLimit?.recentCount ?? 0
   const premiumLimit = sharedRateLimit?.limit ?? FREEBUFF_PREMIUM_SESSION_LIMIT
   const premiumExhausted = premiumUsed >= premiumLimit
@@ -854,6 +871,17 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       ? ` · Reasoning: ${model.reasoningEffort}`
       : ''
 
+    // A row on a stricter pool than its section carries its own count, because
+    // the section header cannot speak for it: a user who has spent their one
+    // DeepSeek session otherwise reads "1 of 5 used" beside a greyed row and is
+    // told nothing about why it is greyed. Server-labelled, so a pool added
+    // later needs no CLI release.
+    const ownQuota = premiumSectionQuotas.perModel[model.id]
+    const ownQuotaLabel = ownQuota ? formatFreebuffRowQuota(ownQuota) : null
+    const ownQuotaSpent = ownQuota
+      ? ownQuota.recentCount >= ownQuota.limit
+      : false
+
     return (
       <Button
         key={model.id}
@@ -900,13 +928,21 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             </span>
           )}
         </text>
-        {(hasWarning || hasHours) && (
+        {(hasWarning || hasHours || ownQuotaLabel) && (
           <text>
             <span>{' '.repeat(detailsPad)}</span>
             {hasWarning && <span fg={warningColor}>{model.warning}</span>}
             {hasWarning && hasHours && <span fg={mutedColor}> · </span>}
             {hasHours && (
               <span fg={mutedColor}>{deploymentAvailabilityLabel}</span>
+            )}
+            {ownQuotaLabel && (hasWarning || hasHours) && (
+              <span fg={mutedColor}> · </span>
+            )}
+            {ownQuotaLabel && (
+              <span fg={ownQuotaSpent ? warningColor : mutedColor}>
+                {ownQuotaLabel}
+              </span>
             )}
           </text>
         )}

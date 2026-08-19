@@ -45,6 +45,25 @@ export interface FreebuffSessionEntitlementBreakdown {
 
 export interface FreebuffSessionRateLimit {
   model: string
+  /**
+   * Which quota POOL this row draws on, and what to call it.
+   *
+   * Both omitted by older servers, and both exist so the shape of the quota
+   * system can change without shipping a client. Until 2026-08-19 every row in
+   * a picker section shared one pool, so a client could read any single entry
+   * and label the whole section from it — the CLI literally took
+   * `Object.values(...)[0]`. DeepSeek's one-a-day ceiling ended that: two pools
+   * now appear inside the Premium section, and a client with no way to tell
+   * them apart shows "1 of 5 used" next to a row that is already spent.
+   *
+   * `pool` is an opaque token — clients must GROUP by it and never match on its
+   * value, or the next pool needs a release. `poolLabel` is the display string,
+   * authored server-side for the same reason: adding a pool, renaming one, or
+   * changing a limit is then a server edit that installed clients pick up on
+   * their next poll.
+   */
+  pool?: string
+  poolLabel?: string
   /** Additive detail for `limit`; omitted by older servers. New servers emit it
    * for session quotas with `limit = base + referral + streak + promo`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown

@@ -47,6 +47,12 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * routing decision the user cannot see. Overstating it would be the easier
  * sentence and the false one.
  *
+ * States the RULE, not the mechanism. "one session a day" is the number a user
+ * plans around; the earlier wording ("now uses a daily session") read as a
+ * price rather than a ceiling and told nobody how many they get. It also says
+ * the session is spent twice, because the picker shows two counts moving at
+ * once and that is otherwise unexplained.
+ *
  * Says the word "temporary" and names what is still unlimited. Those two
  * clauses are the ones that matter: without the first this reads as the new
  * permanent shape of the free tier, and without the second a user whose pool is
@@ -59,7 +65,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * user ever reads.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Temporary while upstream prices are high: DeepSeek V4 Flash now uses a daily session, and DeepSeek models may run a quantized (Q8_0) build to keep costs down. MiMo 2.5 stays unlimited.'
+  'Temporary while upstream prices are high: the DeepSeek models share one session a day between them, which also uses a premium session, and may run a quantized (Q8_0) build. MiMo 2.5 stays unlimited.'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {
