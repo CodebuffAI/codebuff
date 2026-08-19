@@ -409,11 +409,14 @@ export function levelSessionBonus(level: number): {
  * send, and earning barely worked — the engagement feed was serving nothing,
  * so the only reachable direction was down.
  *
- * Standard is now free. That matches how standard access is treated
- * everywhere else (unmetered on every surface), it removes a write from the
- * hottest path in the product, and it means the ordinary user — who is on a
- * standard model — no longer decays at all. Trust is spent on the scarce
- * things: GLM, the premium pool, and a frontier wave.
+ * A message now costs 1, whatever it was sent to. Flat.
+ *
+ * The tiering was the part that made the number unpredictable: the same
+ * afternoon's work cost wildly different amounts depending on which model
+ * happened to be selected, and nobody could form an expectation of how fast
+ * their score moved. One is a rate a person can reason about — an engagement
+ * pays 50, so it covers 50 messages — and it is the smallest debit that keeps
+ * the mechanic real at all.
  *
  * ## A balance never goes below zero
  *
@@ -424,18 +427,16 @@ export function levelSessionBonus(level: number): {
  * disclosed, and not denominated in points.
  */
 export const FREEBUFF_TRUST_COST_PER_PROMPT = {
-  /** Free/standard models: DeepSeek Flash, MiMo, the web-standard pool.
-   *  FREE — and `chargePromptTrust` returns early on a zero cost, so the
-   *  overwhelming majority of prompts no longer write to the balance table or
-   *  the ledger at all. */
-  standard: 0,
+  /** Free/standard models: DeepSeek Flash, MiMo, the web-standard pool. */
+  standard: 1,
   /** GLM 5.2 and the referral-earned pools. */
   glm: 1,
   /** The shared premium daily pool. */
   premium: 1,
-  /** Limited-offer frontier waves (Claude Fable 5). The scarcest thing we
-   *  hand out for free, and the one where a prompt genuinely costs dollars. */
-  frontier: 2,
+  /** Limited-offer frontier waves (Claude Fable 5). Costs us the most by far,
+   *  and still 1 — the classes are kept as a seam so a future rate change has
+   *  somewhere to land, not because they currently differ. */
+  frontier: 1,
 } as const
 
 export type FreebuffTrustCostClass = keyof typeof FREEBUFF_TRUST_COST_PER_PROMPT

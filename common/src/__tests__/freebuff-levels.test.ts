@@ -223,31 +223,26 @@ describe('prompt costs', () => {
     }
   })
 
-  it('prices a frontier prompt above a standard one', () => {
-    expect(FREEBUFF_TRUST_COST_PER_PROMPT.frontier).toBeGreaterThan(
+  it('never prices a scarcer prompt below a cheaper one', () => {
+    // Was a strict ordering. The rate is flat now, so the invariant worth
+    // keeping is only that it never INVERTS — a frontier prompt must not cost
+    // less than a standard one if the classes are ever split again.
+    expect(FREEBUFF_TRUST_COST_PER_PROMPT.frontier).toBeGreaterThanOrEqual(
       FREEBUFF_TRUST_COST_PER_PROMPT.premium,
     )
-    expect(FREEBUFF_TRUST_COST_PER_PROMPT.premium).toBeGreaterThan(
+    expect(FREEBUFF_TRUST_COST_PER_PROMPT.premium).toBeGreaterThanOrEqual(
       FREEBUFF_TRUST_COST_PER_PROMPT.standard,
     )
   })
 
-  it('leaves a standard prompt free', () => {
-    // The rates were 1/2/3/5 and a balance could run to -500. Days in, 17,993
-    // of 18,013 accounts were negative, the median was -102, and 48 had ever
-    // earned anything — so the meter only ran one way, and people read a score
-    // of -75 beside their name as an abuse finding.
-    //
-    // Standard is the model the ordinary user is on, so standard is free. It
-    // also keeps `chargePromptTrust` from writing on the hottest path in the
-    // product, since it returns early on a zero cost.
-    expect(FREEBUFF_TRUST_COST_PER_PROMPT.standard).toBe(0)
-  })
-
-  it('keeps every cost inside the 0-2 band', () => {
+  it('charges exactly 1 for a message, whatever it was sent to', () => {
+    // The tiering (1/2/3/5, then 0/1/1/2) made the number unpredictable: the
+    // same afternoon's work cost different amounts depending on which model
+    // was selected, so nobody could form an expectation of how fast their
+    // score moved. Flat 1 is a rate a person can reason about — an engagement
+    // pays 50, so it covers 50 messages.
     for (const cost of Object.values(FREEBUFF_TRUST_COST_PER_PROMPT)) {
-      expect(cost).toBeGreaterThanOrEqual(0)
-      expect(cost).toBeLessThanOrEqual(2)
+      expect(cost).toBe(1)
     }
   })
 
