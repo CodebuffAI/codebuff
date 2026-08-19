@@ -1,0 +1,47 @@
+name: Account, quota, or billing problem
+description: Session limits counted wrong, sign-in trouble, referral or account state
+labels: ['type:support']
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        **Before filing:** if a model is simply unavailable or out of capacity
+        right now, that is an outage - check
+        [Discord](https://discord.gg/yXG3w7wxfs) rather than opening an issue.
+        Use this form when you think your account or quota is being calculated
+        incorrectly.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem?
+      options:
+        - Session or daily limit counted incorrectly
+        - Cannot sign in
+        - Referral or credits not applied
+        - Billing or subscription
+        - Other account problem
+    validations:
+      required: true
+
+  - type: textarea
+    id: detail
+    attributes:
+      label: What you are seeing
+      description: >-
+        Include the exact error text and what you expected. A screenshot of the
+        limit message helps.
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model involved
+      placeholder: e.g. deepseek-v4-pro
+
+  - type: markdown
+    attributes:
+      value: >-
+        Do not post your account email, API keys, or session tokens in a public
+        issue. A maintainer will ask privately if account details are needed.

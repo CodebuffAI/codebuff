@@ -1,0 +1,210 @@
+name: PR Hygiene
+
+# Fast structural checks on every pull request: title format, a real
+# description, and whether the change touches paths this mirror can accept.
+#
+# It exists because the public repo had no CI at all - contributors got no
+# signal of any kind, and 7 of 53 open PRs were sitting on paths that can never
+# be merged here without anyone having told them. This check tells them in
+# about ten seconds.
+#
+# It BLOCKS, it does not close. A failing check is fixable by the contributor
+# in one edit; closing a good change over a malformed title just loses the
+# change. Actual rejection is the triage bot's job, not this one's.
+#
+# pull_request_target is used so the token can comment on fork PRs. That is
+# only safe because this workflow never checks out or executes PR code - it
+# reads the title, the body, and the file list through the API. Do not add a
+# checkout step here.
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: pr-hygiene-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request
+            const problems = []
+
+            // --- Title -------------------------------------------------
+            // Deliberately NOT Conventional Commits. Measured against the 53
+            // open PRs, that convention would have failed 17 - ten of them
+            // from this project's own maintainers, who do not use it - while
+            // rejecting titles like "Restore state-backed tool call IDs" that
+            // are already perfectly clear. Enforcing a convention the project
+            // does not follow is friction with no reader benefit.
+            //
+            // These rules target titles that genuinely fail to describe the
+            // change: leaked branch names, placeholders, and one-word stubs.
+            //
+            // Thresholds are set from a replay over the last 300 PRs, not just
+            // the 53 open ones. A `<5 words` placeholder clause looked right on
+            // the open set but rejected six perfectly clear historical titles -
+            // `Fix numpad input handling`, `Fix truncation marker overflow` -
+            // told to "say what was fixed", which they had. `Fix` is the most
+            // common opener for a good bug-fix title. Likewise `draft` is an
+            // ordinary English word: `Fix the changelog draft job` is not a
+            // work-in-progress marker, so it is anchored to the end.
+            //
+            // There is no separate placeholder rule: `Fix stuff` and `Misc
+            // changes` are already caught by the word count below, and a
+            // dedicated clause for them was unreachable dead code.
+            const title = pr.title.trim()
+            const words = title.split(/\s+/).filter(Boolean)
+
+            // The title is attacker-controlled and gets echoed into a comment
+            // posted by our account. Inside backticks a backtick closes the
+            // code span, so a crafted title could inject arbitrary markdown -
+            // a fake approval badge, a phishing link - under our name. Strip
+            // backticks and newlines, and cap the length.
+            const quoted = title.replace(/[`\r\n]/g, ' ').slice(0, 120)
+
+            if (title.length < 15 || words.length < 3) {
+              problems.push([
+                '**Title is too short to describe the change.**',
+                '',
+                'Use at least a few words saying what the change does, e.g.',
+                '`Reload MCP config after project selection`.',
+                '',
+                '_Your title:_ `' + quoted + '`',
+              ].join('\n'))
+            } else if (/^[a-z]+\/\S/i.test(title)) {
+              // "Fix/windows conpty ansi leak" - a branch name pasted in.
+              problems.push([
+                '**Title looks like a branch name.**',
+                '',
+                'Titles such as `Fix/windows-conpty-leak` come from the branch',
+                'rather than being written for a reader. Please rewrite it as a',
+                'sentence: `Fix ANSI escape leak in Windows ConPTY`.',
+                '',
+                '_Your title:_ `' + quoted + '`',
+              ].join('\n'))
+            }
+
+            if (/\b(wip|do not merge|dont merge)\b|\[?draft\]?$/i.test(title)) {
+              problems.push([
+                '**Title is marked as work in progress.**',
+                '',
+                'Please open it as a GitHub draft PR instead of marking the',
+                'title, then mark it ready when it is.',
+              ].join('\n'))
+            }
+
+            // --- Description -------------------------------------------
+            // Strip HTML comments so an untouched template counts as empty.
+            const body = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '').trim()
+            if (body.length < 30) {
+              problems.push([
+                '**Description is empty or too short.**',
+                '',
+                'Please say what the change does and why. If it fixes an open',
+                'issue, link it (`Fixes #123`). Reviewers here port accepted',
+                'changes by hand into a private source tree, so a PR that does',
+                'not explain itself is expensive to accept and usually is not.',
+              ].join('\n'))
+            }
+
+            // --- Scope --------------------------------------------------
+            // This repo is an export of a private tree. These paths do not
+            // exist here and a change to them cannot be merged, however good
+            // it is.
+            const FORBIDDEN = [
+              'web/',
+              'freebuff/web/',
+              'packages/internal/',
+              'packages/billing/',
+              'packages/bigquery/',
+              'packages/build-tools/',
+            ]
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { ...context.repo, pull_number: pr.number, per_page: 100 },
+            )
+            const offending = files
+              .map((f) => f.filename)
+              .filter((f) => FORBIDDEN.some((p) => f.startsWith(p)))
+
+            if (offending.length) {
+              problems.push([
+                '**This PR touches paths the public mirror does not accept.**',
+                '',
+                offending.slice(0, 15).map((f) => '- `' + f + '`').join('\n'),
+                offending.length > 15
+                  ? '\n_...and ' + (offending.length - 15) + ' more._'
+                  : '',
+                '',
+                'Backend, database, billing and deployment code is not part of',
+                'this repository. A change to those paths cannot be merged here',
+                'regardless of its quality. See `CONTRIBUTING.md` for the paths',
+                'that are in scope.',
+              ].join('\n'))
+            }
+
+            // --- Report -------------------------------------------------
+            // One sticky comment, edited in place, so a contributor pushing
+            // five times does not collect five identical complaints.
+            const MARKER = '<!-- pr-hygiene -->'
+            const body_out = problems.length
+              ? [
+                  MARKER,
+                  '### PR checks failed',
+                  '',
+                  'A couple of things need fixing before this can be reviewed.',
+                  'None of them are about the code itself.',
+                  '',
+                  problems.join('\n\n---\n\n'),
+                  '',
+                  '---',
+                  '',
+                  'Edit the PR and this check re-runs automatically.',
+                ].join('\n')
+              : [
+                  MARKER,
+                  '### PR checks passed',
+                  '',
+                  'Title, description and scope all look right. A maintainer',
+                  'will take it from here.',
+                ].join('\n')
+
+            const existing = (
+              await github.paginate(github.rest.issues.listComments, {
+                ...context.repo,
+                issue_number: pr.number,
+                per_page: 100,
+              })
+            ).find((c) => (c.body || '').includes(MARKER))
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: existing.id,
+                body: body_out,
+              })
+            } else if (problems.length) {
+              // Only introduce the comment on failure; a clean PR does not
+              // need the bot to announce itself.
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: pr.number,
+                body: body_out,
+              })
+            }
+
+            if (problems.length) {
+              core.setFailed(
+                problems.length + ' PR hygiene check(s) failed - see the comment on the PR.',
+              )
+            }

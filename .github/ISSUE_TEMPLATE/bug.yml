@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in the CLI, SDK, desktop app, or agents behaves incorrectly
+labels: ['type:bug']
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        If your problem is "model unavailable", "out of provider usage", or
+        "daily limit reached", that is an outage or a quota question - please
+        use [Discord](https://discord.gg/yXG3w7wxfs) instead. Issues like that
+        are closed with a pointer, not fixed.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        1. Ran `codebuff` in a repo with ...
+        2. Asked it to ...
+        3. Expected ... but it ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        The single most useful thing you can provide. Reports without one get
+        labeled `needs-info` and are closed if they stay quiet.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does this happen?
+      options:
+        - CLI (terminal client)
+        - SDK (@codebuff/sdk)
+        - Desktop app
+        - Agents / prompts / agent behavior
+        - MCP servers or tools
+        - Docs
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Windows (WSL)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `codebuff --version`, or the desktop app version.
+      placeholder: e.g. 0.1.4
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: Which model was selected, if relevant.
+      placeholder: e.g. deepseek-v4-flash
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste any error output. Redact tokens and keys first.
+      render: shell
