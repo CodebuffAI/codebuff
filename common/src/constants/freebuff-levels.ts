@@ -393,32 +393,49 @@ export function levelSessionBonus(level: number): {
  * "use the agent properly" at ten times "ask it a question" and teach people
  * to avoid the product's best feature.
  *
- * ## Why the rates are this small
+ * ## Standard prompts are free, and the rest are cheap
  *
- * The stated design goal is that Trust decays *slower than it is earned*: one
- * engagement pays 50 and buys 50 standard prompts, or 10 premium ones. A user
- * who engages once a day and works normally climbs. A user who never engages
- * drifts down toward level 0 over weeks, not hours — which is the point. This
- * is a slow tide, not a meter.
+ * The first version charged 1 / 2 / 3 / 5 and allowed a balance to run to
+ * -500. Measured a few days in: **17,993 of 18,013 accounts held a negative
+ * balance**, the median was -102, 2,125 were pinned at the floor, and 48 —
+ * forty-eight — had ever earned anything at all.
  *
- * ## Going negative is allowed, on purpose
+ * So it was not a slow tide. It was a meter that only ran one way, and what a
+ * user saw was a "Trust score" of -75 next to their name. People read that as
+ * an abuse finding and wrote in asking which fraud signal had flagged them,
+ * which is the worst possible reading of a currency meant to reward them.
  *
- * A user at 0 Trust keeps sending messages. They simply stop having a level,
- * and their sessions fall back to the base. Refusing a message for want of
- * Trust would turn a gamification currency into a paywall by accident, and the
- * paywall we actually want is the subscription — priced, disclosed, and not
- * denominated in points.
+ * Two things were wrong. The rates were too high for how much people actually
+ * send, and earning barely worked — the engagement feed was serving nothing,
+ * so the only reachable direction was down.
+ *
+ * Standard is now free. That matches how standard access is treated
+ * everywhere else (unmetered on every surface), it removes a write from the
+ * hottest path in the product, and it means the ordinary user — who is on a
+ * standard model — no longer decays at all. Trust is spent on the scarce
+ * things: GLM, the premium pool, and a frontier wave.
+ *
+ * ## A balance never goes below zero
+ *
+ * Zero is the floor. A user with no Trust still sends messages — they simply
+ * hold no level, and their sessions fall back to the base. Refusing a message
+ * for want of Trust would turn a gamification currency into an accidental
+ * paywall, and the paywall we actually want is the subscription: priced,
+ * disclosed, and not denominated in points.
  */
 export const FREEBUFF_TRUST_COST_PER_PROMPT = {
-  /** Free/standard models: DeepSeek Flash, MiMo, the web-standard pool. */
-  standard: 1,
+  /** Free/standard models: DeepSeek Flash, MiMo, the web-standard pool.
+   *  FREE — and `chargePromptTrust` returns early on a zero cost, so the
+   *  overwhelming majority of prompts no longer write to the balance table or
+   *  the ledger at all. */
+  standard: 0,
   /** GLM 5.2 and the referral-earned pools. */
-  glm: 2,
+  glm: 1,
   /** The shared premium daily pool. */
-  premium: 3,
+  premium: 1,
   /** Limited-offer frontier waves (Claude Fable 5). The scarcest thing we
    *  hand out for free, and the one where a prompt genuinely costs dollars. */
-  frontier: 5,
+  frontier: 2,
 } as const
 
 export type FreebuffTrustCostClass = keyof typeof FREEBUFF_TRUST_COST_PER_PROMPT
@@ -426,15 +443,22 @@ export type FreebuffTrustCostClass = keyof typeof FREEBUFF_TRUST_COST_PER_PROMPT
 /**
  * Whether a balance may fall below zero.
  *
- * True, and it is a product decision rather than an implementation detail:
- * see the note above. Kept as a named constant so the one place that clamps
- * can point at the reason.
+ * False. A negative score is unreadable as anything but a punishment — see
+ * the note above for what users concluded when they saw one — and there is
+ * nothing a debt buys us that a floor at zero does not.
  */
-export const FREEBUFF_TRUST_ALLOW_NEGATIVE = true
+export const FREEBUFF_TRUST_ALLOW_NEGATIVE = false
 
-/** Floor for a balance, so a long-abandoned account cannot accumulate a debt
- *  large enough that returning to the product feels hopeless. */
-export const FREEBUFF_TRUST_MIN_BALANCE = -500
+/**
+ * Floor for a balance.
+ *
+ * Enforced on WRITE (`GREATEST` in the upsert) and again on READ, because
+ * 17,993 rows were already negative when this changed and a write-side floor
+ * alone would have left them that way until each account happened to spend
+ * again. Clamping the read fixes every one of them on the next page load with
+ * no backfill, and the stored value corrects itself on the next debit.
+ */
+export const FREEBUFF_TRUST_MIN_BALANCE = 0
 
 // ---------------------------------------------------------------------------
 // Copy

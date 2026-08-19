@@ -6,6 +6,7 @@ import {
   FREEBUFF_LEVEL_SESSION_CEILING,
   FREEBUFF_MAX_LEVEL,
   FREEBUFF_TRUST_COST_PER_PROMPT,
+  FREEBUFF_TRUST_ALLOW_NEGATIVE,
   FREEBUFF_TRUST_MIN_BALANCE,
   levelForTrust,
   levelProgress,
@@ -231,10 +232,34 @@ describe('prompt costs', () => {
     )
   })
 
-  it('keeps every cost inside the 1-5 band the design commits to', () => {
+  it('leaves a standard prompt free', () => {
+    // The rates were 1/2/3/5 and a balance could run to -500. Days in, 17,993
+    // of 18,013 accounts were negative, the median was -102, and 48 had ever
+    // earned anything — so the meter only ran one way, and people read a score
+    // of -75 beside their name as an abuse finding.
+    //
+    // Standard is the model the ordinary user is on, so standard is free. It
+    // also keeps `chargePromptTrust` from writing on the hottest path in the
+    // product, since it returns early on a zero cost.
+    expect(FREEBUFF_TRUST_COST_PER_PROMPT.standard).toBe(0)
+  })
+
+  it('keeps every cost inside the 0-2 band', () => {
     for (const cost of Object.values(FREEBUFF_TRUST_COST_PER_PROMPT)) {
-      expect(cost).toBeGreaterThanOrEqual(1)
-      expect(cost).toBeLessThanOrEqual(5)
+      expect(cost).toBeGreaterThanOrEqual(0)
+      expect(cost).toBeLessThanOrEqual(2)
     }
+  })
+
+  it('never lets a balance go below zero', () => {
+    // A negative score cannot be read as anything but a punishment, and this
+    // one was being read as a fraud flag by the people it was meant to reward.
+    expect(FREEBUFF_TRUST_MIN_BALANCE).toBe(0)
+    expect(FREEBUFF_TRUST_ALLOW_NEGATIVE).toBe(false)
+  })
+
+  it('puts a spent-out user at level 0 rather than below it', () => {
+    expect(levelForTrust(FREEBUFF_TRUST_MIN_BALANCE).level).toBe(0)
+    expect(levelForTrust(0).level).toBe(0)
   })
 })
