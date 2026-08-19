@@ -1,3 +1,7 @@
+import {
+  FREEBUFF_EARN_PATH,
+  FREEBUFF_EARN_PROMPT_SHORT,
+} from '@codebuff/common/constants/freebuff-levels'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -33,9 +37,17 @@ function referralLink(code: string, referrerName: string | null): string {
   return `${LOGIN_WEBSITE_URL}/get-started?${params.toString()}`
 }
 
-/** The referral tab and status section, not the broader Earn landing state. */
-const EARN_URL = `${LOGIN_WEBSITE_URL}/earn?tab=referrals#referral-status`
-const DASHBOARD_LABEL = 'Open referral status ↵'
+/**
+ * The Earn page, on the tab that pays TODAY.
+ *
+ * Was `/earn?tab=referrals#referral-status`, which sent a rate-limited user to
+ * the slowest of the three ways to earn — a referral pays when somebody else
+ * signs up and sticks around. `/earn/trust` is the engagement feed, which pays
+ * within a minute. `FREEBUFF_EARN_PATH` is shared so the CLI, Desktop and the
+ * browser all point at the same place.
+ */
+const EARN_URL = `${LOGIN_WEBSITE_URL}${FREEBUFF_EARN_PATH}`
+const DASHBOARD_LABEL = `${FREEBUFF_EARN_PROMPT_SHORT} ↵`
 // Two columns of leading space separate the label from the copy control beside
 // it (the row itself has no gap), and they stay put in every state so keyboard
 // navigation never shifts the rest of the action row.

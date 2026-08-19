@@ -1,3 +1,4 @@
+import { FREEBUFF_EARN_PROMPT_SHORT } from '@codebuff/common/constants/freebuff-levels'
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { createTestRenderer } from '@opentui/core/testing'
 import { createRoot, flushSync } from '@opentui/react'
@@ -121,7 +122,12 @@ describe('FreebuffModelSelector tier layout', () => {
     const actionRow =
       frame.split('\n').find((line) => line.includes('Copy invite link')) ?? ''
 
-    expect(actionRow).toContain('Open referral status')
+    // The label is shared with Desktop and the browser
+    // (FREEBUFF_EARN_PROMPT_SHORT), so asserting the constant rather than the
+    // string keeps the three surfaces free to be re-worded together — which is
+    // the whole reason it is shared. What this test is really pinning is that
+    // it sits on the SAME row as the copy control.
+    expect(actionRow).toContain(FREEBUFF_EARN_PROMPT_SHORT)
     expect(frame).not.toContain('Or earn')
     expect(frame).not.toContain('for small tasks')
   })
