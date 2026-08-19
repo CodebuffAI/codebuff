@@ -1510,7 +1510,29 @@ export const FREEBUFF_MAX_CONCURRENT_PROJECTS = 1
  *  runtime) mints its own project row, so a couple of failed first builds
  *  locked someone out for the day with nothing to show for it. 10 is high
  *  enough that only automation reaches it. */
-export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 10
+/** Per-day cap on new Web projects a user may create, in EVERY region.
+ *
+ *  Was 10 and limited-region only until 2026-08-19, when the Daytona US quota
+ *  saturated (498/500 vCPU, 996/1000 GiB). Measured against a full day of
+ *  traffic at the time — 1,893 user-owned creations across 1,484 users, mean
+ *  1.3 — a cap of 5 would have blocked 41 creations (2.2%) across 11 users,
+ *  and the single heaviest account created 14. So this bounds the worst case
+ *  rather than reclaiming capacity; the routing change that moved
+ *  limited-region desktops to Nodepod is what actually moved the number.
+ *
+ *  Override per deployment with FREEBUFF_WEB_PROJECT_DAILY_LIMIT. */
+export const FREEBUFF_WEB_PROJECT_DAILY_LIMIT = 5
+
+/** How many of a user's sandboxes may be running at once. A sandbox counts as
+ *  open while its project has an agent run in flight or has proven presence
+ *  inside Daytona's 10-minute auto-stop window.
+ *
+ *  Set to the highest concurrency any single account was actually observed
+ *  holding on 2026-08-19 (2, across just 12 of ~1,485 daily-active owners), so
+ *  it binds nobody today and only stops that number growing.
+ *
+ *  Override per deployment with FREEBUFF_WEB_MAX_OPEN_SANDBOXES. */
+export const FREEBUFF_WEB_MAX_OPEN_SANDBOXES = 2
 
 /** Per-day cap on blank ("plan a custom stack") Cloud projects, which unlike
  *  connect-repo need no GitHub App install and each boot a full-size VM. Same
