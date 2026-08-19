@@ -55,3 +55,6 @@ freebuff/cli/release/http.js
 # covers every subdirectory — the file that slipped through was at the root,
 # which a nested .gitignore cannot match.
 scratch-*
+
+# Ad-hoc investigation scripts — scratch, never committed
+scripts/_tmp-*
