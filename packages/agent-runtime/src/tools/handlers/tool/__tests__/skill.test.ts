@@ -148,3 +148,64 @@ describe('handleSkill', () => {
     expect(value.content).not.toContain('deploy')
   })
 })
+
+describe('handleSkill home-directory opt-in', () => {
+  let projectRoot: string
+  let fakeHome: string
+  let realHomedir: typeof os.homedir
+
+  beforeEach(() => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-project-'))
+    fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-home-'))
+    realHomedir = os.homedir
+    // Stand in for the HOST's home. On a server this is the server's own home
+    // while `projectRoot` is someone else's checkout — on Freebuff Cloud, a
+    // Daytona sandbox path.
+    ;(os as any).homedir = () => fakeHome
+  })
+
+  afterEach(() => {
+    ;(os as any).homedir = realHomedir
+    fs.rmSync(projectRoot, { recursive: true, force: true })
+    fs.rmSync(fakeHome, { recursive: true, force: true })
+  })
+
+  it('does NOT read the host home by default', async () => {
+    writeSkill(fakeHome, 'deploy', 'the HOST machine copy')
+
+    const { output } = await callSkill('deploy', { projectRoot, skills: {} })
+    const value = (output as any)[0].value
+
+    // Not found at all: the project has no such skill and home is off-limits.
+    expect(JSON.stringify(value)).not.toContain('the HOST machine copy')
+  })
+
+  it('reads the host home when a caller explicitly opts in', async () => {
+    writeSkill(fakeHome, 'deploy', 'the HOST machine copy')
+
+    const { output } = await callSkill('deploy', {
+      projectRoot,
+      skills: {},
+      includeHomeSkills: true,
+    })
+    const value = (output as any)[0].value
+
+    expect(value.name).toBe('deploy')
+  })
+
+  it('never lets a host-home skill shadow the repo, even when opted in', async () => {
+    // The precedence that made this dangerous: the disk lookup wins over the
+    // pre-loaded cache, so a same-named skill on the server would be served in
+    // place of the repo's. Project must come first regardless.
+    writeSkill(projectRoot, 'deploy', 'the REPO copy')
+    writeSkill(fakeHome, 'deploy', 'the HOST machine copy')
+
+    const { output } = await callSkill('deploy', {
+      projectRoot,
+      skills: {},
+      includeHomeSkills: true,
+    })
+
+    expect(JSON.stringify((output as any)[0].value)).toContain('the REPO copy')
+  })
+})

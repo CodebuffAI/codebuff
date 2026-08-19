@@ -25,6 +25,7 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 async function loadSkillFromDisk(
   projectRoot: string,
   skillName: string,
+  includeHomeSkills: boolean,
 ): Promise<SkillDefinition | null> {
   const home = os.homedir()
   const skillsDirs = [
@@ -32,8 +33,26 @@ async function loadSkillFromDisk(
     // This function returns the first match, so highest precedence comes first.
     path.join(projectRoot, '.agents', SKILLS_DIR_NAME),
     path.join(projectRoot, '.claude', SKILLS_DIR_NAME),
-    path.join(home, '.agents', SKILLS_DIR_NAME),
-    path.join(home, '.claude', SKILLS_DIR_NAME),
+    // OFF BY DEFAULT, and deliberately a parameter rather than a constant.
+    //
+    // `os.homedir()` is the HOST's home, which is only the right place to look
+    // when this process belongs to the user whose skills these are — an
+    // interactive CLI on their own machine. On a server the same call resolves
+    // to the SERVER's home while `projectRoot` points at someone else's
+    // checkout: on Freebuff Cloud that is a Daytona sandbox path, so a skill
+    // sitting in the web server's `~/.agents/skills` would be served in place
+    // of the repo's own, and the result of this lookup WINS over the
+    // pre-loaded cache (`diskSkill ?? skills[name]` below).
+    //
+    // `loadSkills` was given exactly this opt-in
+    // (`LoadSkillsOptions.includeHomeSkills`) for exactly this reason; the fix
+    // never reached this second, independent lookup.
+    ...(includeHomeSkills
+      ? [
+          path.join(home, '.agents', SKILLS_DIR_NAME),
+          path.join(home, '.claude', SKILLS_DIR_NAME),
+        ]
+      : []),
   ]
 
   for (const skillsDir of skillsDirs) {
@@ -100,7 +119,11 @@ export const handleSkill = (async (params: {
   // session (e.g. via `npx skills add`) are picked up with their latest
   // contents. Fall back to the cache pre-loaded at session start.
   const diskSkill = fileContext.projectRoot
-    ? await loadSkillFromDisk(fileContext.projectRoot, name)
+    ? await loadSkillFromDisk(
+        fileContext.projectRoot,
+        name,
+        fileContext.includeHomeSkills === true,
+      )
     : null
 
   const skill = diskSkill ?? skills[name]

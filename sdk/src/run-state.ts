@@ -734,6 +734,11 @@ export async function initialSessionState(
     agentTemplates: processedAgentTemplates,
     customToolDefinitions: processedCustomToolDefinitions,
     skills,
+    // Carried into the context so the `skill` TOOL's own disk lookup obeys the
+    // same decision as the loader above. They are two independent lookups and
+    // the tool's result wins, so one flag has to govern both or the opt-in is
+    // only half real.
+    includeHomeSkills,
     gitChanges,
     changesSinceLastChat: {},
     shellConfigFiles: {},

@@ -69,6 +69,7 @@ export const ProjectFileContextSchema = z.object({
   agentTemplates: z.record(z.string(), z.any()).default(() => ({})),
   customToolDefinitions: customToolDefinitionsSchema,
   skills: z.record(z.string(), z.any()).optional(),
+  includeHomeSkills: z.boolean().optional(),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
@@ -99,6 +100,15 @@ export type ProjectFileContext = {
   agentTemplates: Record<string, any>
   customToolDefinitions: CustomToolDefinitions
   skills?: SkillsMap
+  /**
+   * Whether the HOST's home directory may be searched for skills.
+   *
+   * Opt-in, and false by omission, so a server can never search its own
+   * `~/.agents/skills` on behalf of a repo that lives somewhere else. Mirrors
+   * `LoadSkillsOptions.includeHomeSkills`; set it only where the process
+   * belongs to the user whose skills these are.
+   */
+  includeHomeSkills?: boolean
   gitChanges: {
     status: string
     diff: string
