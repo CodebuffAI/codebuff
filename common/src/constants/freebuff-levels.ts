@@ -427,7 +427,12 @@ export function levelSessionBonus(level: number): {
  * disclosed, and not denominated in points.
  */
 export const FREEBUFF_TRUST_COST_PER_PROMPT = {
-  /** Free/standard models: DeepSeek Flash, MiMo, the web-standard pool. */
+  /** Free/standard models: DeepSeek Flash, MiMo, the web-standard pool.
+   *  Non-zero, so this is the class that puts a debit on every prompt in the
+   *  product — which is why the write is buffered and batched rather than done
+   *  inline; see `freebuff-trust-buffer.ts`. `enqueuePromptTrustCharge` still
+   *  returns early on a zero cost, so setting any class here to 0 takes it out
+   *  of the write path entirely. */
   standard: 1,
   /** GLM 5.2 and the referral-earned pools. */
   glm: 1,
