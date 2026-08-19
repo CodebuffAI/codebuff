@@ -120,10 +120,38 @@ export const AD_PLATFORM_HOSTS: Record<AdPlatform, readonly string[]> = {
   reddit: ['reddit.com', 'redd.it'],
 }
 
+/**
+ * What someone typed, turned into something `new URL` can parse.
+ *
+ * People paste `x.com/you/status/123`. The scheme is not a part of the address
+ * that most people think about — it is a thing browsers hide — and every URL
+ * field in this product was rejecting input without it. The post form disabled
+ * its own submit button and said nothing at all; the advertiser application
+ * answered a scheme-less website with "Check the company name and website
+ * URL.", which names the field and not the problem. An advertiser signing up
+ * hit that and reported it as a silent failure, which is exactly what it was.
+ *
+ * Requiring the scheme protected nothing: `https://` is what we would have
+ * prepended anyway. So prepend it.
+ *
+ * Input that already NAMES a scheme comes back untouched — including schemes
+ * we want nothing to do with (`javascript:`, `mailto:`, and the `localhost:3000/x`
+ * that parses as one). Those still fail every check downstream, which is the
+ * point of doing it this way: a MISSING scheme becomes forgivable, a WRONG one
+ * does not become invisible.
+ */
+export function normalizeUrlInput(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
 export function platformForUrl(rawUrl: string): AdPlatform | null {
   let host: string
   try {
-    const url = new URL(rawUrl)
+    // Normalized, so a pasted `x.com/...` resolves to X rather than to null.
+    const url = new URL(normalizeUrlInput(rawUrl))
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
     host = url.hostname.toLowerCase().replace(/^www\./, '')
   } catch {
