@@ -247,6 +247,13 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         body: JSON.stringify({
           impUrl,
           mode: agentMode,
+          // The same browser-like UA and OS this ad was auctioned with. The
+          // server fires Gravity's pixel for us, and without these it fired it
+          // as `Freebuff-CLI/<version>` while the auction had claimed a
+          // browser — one impression describing two different clients, on the
+          // field Gravity uses for bot filtering.
+          userAgent: getAdUserAgent(),
+          os: getDeviceInfo().os,
         }),
       })
 
