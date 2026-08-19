@@ -4,13 +4,15 @@
  *
  * ## The economics in one paragraph
  *
- * An advertiser funds a campaign at a whole-dollar DAILY rate. Each day that
- * rate is a *spend cap*, not a commitment: we only bill what we actually
- * deliver, and a day that does not fill costs the advertiser nothing beyond
- * what was engaged with. One engagement — a like, a substantive comment, and a
- * repost, from a real developer with a real account — costs a flat
- * `AD_ENGAGEMENT_PRICE_CENTS`. $10/day therefore buys 20 engagements a day,
- * and the advertiser's dashboard says exactly that.
+ * An advertiser funds a campaign at a whole-dollar DAILY rate, charged as a
+ * daily subscription for as long as the campaign runs. That one number is both
+ * the PRICE and the DELIVERY CAP: `AD_ENGAGEMENT_PRICE_CENTS` divides it into
+ * engagements, so $10/day is $10 a day and up to 20 engagements a day, and the
+ * dashboard says exactly that.
+ *
+ * `AD_ENGAGEMENT_PRICE_CENTS` is therefore a DIVISOR, not a line item. Nothing
+ * is billed per engagement — see `server/advertisers/billing.ts` for why the
+ * metered version was replaced.
  *
  * ## Why flat pricing, and why $0.50
  *
@@ -34,11 +36,18 @@
 // Pricing
 // ---------------------------------------------------------------------------
 
-/** What one approved engagement costs the advertiser. */
+/**
+ * What one approved engagement draws against the daily budget.
+ *
+ * The rate that turns a daily rate into a delivery cap, not a price the
+ * advertiser is ever invoiced at — they pay `daily_budget_cents` per day
+ * whatever the day delivers.
+ */
 export const AD_ENGAGEMENT_PRICE_CENTS = 50
 
-/** Floor for a campaign's daily rate. Twenty engagements a day is the smallest
- *  amount of delivery that produces a legible result rather than noise. */
+/** Floor for a campaign's daily rate, and the smallest daily charge. Twenty
+ *  engagements a day is the least delivery that produces a legible result
+ *  rather than noise. */
 export const AD_MIN_DAILY_BUDGET_CENTS = 1_000
 
 /** Daily rates are chosen in $5 steps. Increments smaller than the price of
