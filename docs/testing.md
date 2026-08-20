@@ -247,6 +247,32 @@ per round, and writes each run's full output to a log it names for you. If your
 shell lacks the repo env (a worktree without direnv), pass it through the
 command: `--cmd "bun --env-file=../.env.local test"`.
 
+### When the hunter cannot reproduce it
+
+The hunter is a magnifier, not an oracle, and one open flake is proof of that.
+`useProjectSkills` failed on **three separate PRs, on three different cases**,
+none of which touched `freebuff-desktop` — and never once under 24 hunted runs
+at load 11-16, nor under 12 concurrent runs with CPU hogs, on the fixed and
+unfixed versions alike.
+
+Two concrete mechanisms were removed and it flaked again on a head that already
+contained both. At that point further guessing costs other people's PRs, so the
+file is skipped and tracked in **issue #1899** rather than patched a third time.
+
+Two things worth taking from it:
+
+- **A green `gh pr checks` does not mean the job never failed.** CI retries, and
+  a successful re-run overwrites the run conclusion. The failures above are only
+  visible via `attempts/1/jobs` on the run. Check there before concluding a
+  suite is healthy.
+- **The suspect is usually shared, so the file that flaked is rarely the fix.**
+  Here it is the hand-rolled `mount()` that swaps the process-global
+  `React.__CLIENT_INTERNALS…H` dispatcher and restores it in a `finally` —
+  while effects, and the fetch continuations they schedule, run *after* that
+  restore. 13 desktop UI test files touch that global and at least six define
+  their own `mount()` with the same shape, so fixing one file just moves the
+  flake to a sibling.
+
 **Three things to check before blaming the machine.** Each of these was a real
 defect found by this harness on its first outing:
 
