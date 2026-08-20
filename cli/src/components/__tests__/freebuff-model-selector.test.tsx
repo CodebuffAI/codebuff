@@ -133,7 +133,7 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).not.toContain('for small tasks')
   })
 
-  test('orders Luna above MiniMax while keeping the saved premium model focused', async () => {
+  test('orders the premium rows above UNLIMITED, saved model focused', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -151,17 +151,14 @@ describe('FreebuffModelSelector tier layout', () => {
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
     const recommendedModelIndex = frame.indexOf('DeepSeek V4 Flash')
     const selectedModelIndex = frame.indexOf('GPT-5.6 Luna')
-    const minimaxModelIndex = frame.indexOf('MiniMax M3')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
     expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
     expect(selectedModelIndex).toBeGreaterThan(recommendedModelIndex)
-    // M3 crossed into UNLIMITED on 2026-08-20, so it now sorts BELOW that
-    // header rather than above it — the premium pool is spent on the rows that
-    // actually cost money.
+    // MiniMax M3 anchored the tail of this list until it was withdrawn on
+    // 2026-08-20 and left the picker entirely.
     expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
-    expect(minimaxModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
     expect(frame).toContain('› GPT-5.6 Luna')
     expect(frame).not.toContain('› MiniMax M3')
@@ -175,8 +172,10 @@ describe('FreebuffModelSelector tier layout', () => {
     // Assert against the real copy rather than a hardcoded fragment, so
     // rewording the notice doesn't fail this test for the wrong reason. It must
     // still render on ONE line — the width math reserves exactly its length.
+    // V4 Pro carries the only supersedes notice left: MiniMax M3's went with
+    // the model on 2026-08-20, and MiMo's went when Flash became premium.
     const notice = getFreebuffModelSupersededBy(
-      FREEBUFF_MINIMAX_M3_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_MODELS.map((m) => m.id),
     )!.notice
     const occurrences = (frame: string) => frame.split(notice).length - 1
@@ -184,7 +183,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // On a superseded model: the nudge appears, once, on that model's card.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     const onSuperseded = (await renderSelector()).captureCharFrame()
     expect(occurrences(onSuperseded)).toBe(1)
     // It names the dated build, which is what the row it steers to is labelled.
@@ -366,7 +365,7 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = (await renderSelector()).captureCharFrame()
 
     // Natively multimodal: the badge is a real capability claim.
-    expect(rowOf(frame, 'MiniMax M3')).toContain('Images')
+    expect(rowOf(frame, 'MiMo 2.5')).toContain('Images')
     expect(rowOf(frame, 'GPT-5.6 Luna')).toContain('Images')
     expect(rowOf(frame, 'MiMo 2.5')).toContain('Images')
     // Text-only. They still accept a pasted image (read server-side as a

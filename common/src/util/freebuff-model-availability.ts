@@ -51,7 +51,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'DeepSeek costs have spiked, so limits are tighter for now: V4 Pro and GPT-5.6 Luna are 1 session a day, and V4 Pro pauses at peak times. MiMo 2.5 and MiniMax M3 stay unlimited. —Freebuff Team'
+  'DeepSeek costs have spiked, so limits are tighter for now: V4 Pro and GPT-5.6 Luna are 1 session a day, V4 Pro pauses at peak times, and MiniMax M3 is unavailable. MiMo 2.5 stays unlimited. —Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

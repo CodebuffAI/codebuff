@@ -691,12 +691,15 @@ const FLASH_SUPERSEDES_NOTICE =
  *  Reusing it would have the picker tell users something we know to be untrue,
  *  in a product where the picker is the only place most of them read anything.
  *
- *  So this steers on the two facts that ARE true and that a user cannot see:
- *  both rows spend the same daily session, and one of them costs us several
- *  times more per turn. "Recommended" is a claim about our advice, which we own
- *  outright — no benchmark can contradict it. */
+ *  So it steers on the one claim we own outright: what we RECOMMEND. No
+ *  benchmark can contradict that, and it needs no cost disclosure to justify.
+ *
+ *  Kept to one short clause for the same reason FLASH_SUPERSEDES_NOTICE is: the
+ *  CLI renders it as its own line inside a card, and a longer string is clipped
+ *  rather than wrapped — which is how the first version of this failed, present
+ *  in the payload and absent from the screen. */
 const FLASH_RECOMMENDED_NOTICE =
-  'DeepSeek V4 Flash 07/31 is the recommended pick, and is not limited to one session a day.'
+  'DeepSeek V4 Flash 07/31 is the recommended pick.'
 
 /**
  * DeepSeek V4 Pro, on the 08/13 GA build (2026-08-12).
@@ -905,16 +908,13 @@ const MINIMAX_M3_MODEL = {
   dataUse: 'service',
   // M3 is served by Fireworks without provider-side training. Its `service`
   // data-use classification keeps it out of FREEBUFF_TRACED_MODEL_IDS.
-  // Un-premiumed on 2026-08-20. `premium` and FREEBUFF_PREMIUM_MODEL_IDS must
-  // move TOGETHER: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering
-  // `!premium`, so a row dropped from the id list while still flagged premium
-  // lands in NO pool and is metered by nothing at all. The invariant test
-  // ("every Web picker model falls into exactly one quota group") is what
-  // catches it.
-  //
-  // M3 is flat-priced on Fireworks and among the cheapest rows we serve, so it
-  // is one of the two that stay unlimited while the DeepSeek pricing holds.
-  premium: false,
+  // WITHDRAWN 2026-08-20 (FREEBUFF_PAUSED_FREE_MODEL_IDS). The row is kept
+  // here, not deleted: a paused model has to stay in SUPPORTED so the server
+  // still recognises the id and can coerce it. `premium` is now moot — nothing
+  // reaches a pool through a model that never survives admission — but it stays
+  // true so that restoring the row is one edit to the paused list rather than
+  // two that must agree.
+  premium: true,
   multimodal: true,
   // MiniMax M3 supports adaptive thinking or disabled thinking, but no effort
   // levels. A depth picker would therefore be cosmetic.
@@ -1096,7 +1096,6 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_FLASH_MODEL,
   GPT_5_6_LUNA_MODEL,
-  MINIMAX_M3_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   // LAST on purpose, and the only row placed by price rather than by quality.
   // Pro is selectable and is nobody's recommendation: it spends the same daily
@@ -1203,7 +1202,35 @@ export const FREEBUFF_DEEPSEEK_SESSION_WINDOW_HOURS =
  * paid for in #1801: the coercion has to exist BEFORE a model is taken away,
  * because the clients that need it are the ones already installed.
  */
-export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly FreebuffModelId[] = []
+export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
+  // Withdrawn from free mode entirely on 2026-08-20. It reached $[redacted]/hr — the
+  // largest single line on the bill — and is not worth that at any tier.
+  //
+  // PAUSED rather than deleted, which is the difference between withdrawing a
+  // model and breaking the clients that still ask for it. Every released CLI and
+  // Desktop holds this id in its compiled-in catalog and will keep sending it;
+  // an id the server does not RECOGNISE cannot be coerced, only refused, and a
+  // refusal here is the retry loop that cost the limited tier 2.5x its
+  // admissions in #1801. Listed here it stays recognised, is coerced to the
+  // fallback at admission, and is served to nobody.
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
+]
+
+/**
+ * What a caller asking for a withdrawn model is told.
+ *
+ * Names the model it asked for and what to use instead — the client that sends
+ * this id is a released binary whose picker still lists it, so "unavailable"
+ * alone leaves the user staring at a row that looks fine and does not work.
+ */
+export function freebuffWithdrawnModelMessage(id: string): string {
+  const model = SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id)
+  const name = model?.displayName ?? id
+  const replacement =
+    SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === DEFAULT_FREEBUFF_MODEL_ID)
+      ?.displayName ?? DEFAULT_FREEBUFF_MODEL_ID
+  return `${name} is no longer available in Freebuff. We recommend using ${replacement} instead.`
+}
 
 /** Suffix-tolerant like the other model predicates, so a dated provider
  *  snapshot of a paused model cannot slip past the pause. */
@@ -1970,21 +1997,12 @@ export function resolveFreebuffSessionModelForAccessTier(
       ? (id as SupportedFreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
-  // A paused pick coerces on the FULL tier too. This is the branch that keeps
-  // released clients working: their catalog is compiled in, so they go on
-  // asking for a paused model indefinitely, and coercing here means admission
-  // puts the row on a model that runs. Without it the pick falls through
-  // `isSupportedFreebuffModelId` — paused models are still supported — and
-  // admits a session on a model nothing will serve.
-  //
-  // To the FALLBACK, not to DEFAULT_FREEBUFF_MODEL_ID, and the difference is
-  // load-bearing now that the default is premium: coercing onto a premium model
-  // would spend a pool unit on a model the user never picked, and would fail
-  // outright for anyone whose pool is already spent — precisely the users least
-  // able to absorb it. The fallback is the only always-available target, which
-  // is the same reason the limited tier substitutes its own always-available
-  // model rather than its nicest one.
-  if (isFreebuffPausedFreeModelId(id)) return FALLBACK_FREEBUFF_MODEL_ID
+  // NOTE: a withdrawn model does NOT resolve here. It used to coerce silently
+  // to the fallback, which kept clients running but left a user who picked it
+  // watching a different model answer with no explanation. Admission now
+  // REFUSES it with `model_unavailable` and a message naming the replacement
+  // (see freebuffWithdrawnModelMessage). That refusal is deliberately not
+  // session-ending, so the client shows the message instead of re-admitting.
   if (isSupportedFreebuffModelId(id)) return id
   return resolveFreebuffWebModel(id, {
     includeGodOnly: options.includeGodOnly ?? true,

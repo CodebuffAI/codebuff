@@ -493,6 +493,13 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'base2-free-deepseek-flash': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
   'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
+  // M3 was WITHDRAWN on 2026-08-20 (see FREEBUFF_PAUSED_FREE_MODEL_IDS), and
+  // this entry stays on purpose. Withdrawal is enforced at ADMISSION: no new
+  // session can be opened for the model. Sessions admitted before the deploy
+  // are still live, and they reach this allowlist on every turn — deleting the
+  // row would fail them mid-turn with free_mode_invalid_agent_model, which is
+  // the same client wedge the withdrawal was shaped to avoid (#1801). Let them
+  // drain; the door is already shut in front of them.
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),

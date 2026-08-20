@@ -562,6 +562,21 @@ export const FREEBUFF_GATE_CODES = {
   session_limit_reached: { status: 409, endsTheSession: false },
   /** Transient admission race — the row was caught mid-admit. */
   waiting_room_queued: { status: 429, endsTheSession: false },
+  /**
+   * The model has been withdrawn from free mode. Terminal for the REQUEST, and
+   * deliberately NOT session-ending.
+   *
+   * A withdrawn model is one every released binary still has in its
+   * compiled-in catalog, so the client asks again on the next send no matter
+   * what we answer. `endsTheSession: true` would make each of those a fresh
+   * admission — the loop that cost the limited tier 2.5x its admissions and put
+   * 91% of its sessions on the 0.1-unit floor (#1801). False, the client keeps
+   * its window, shows the message, and the user picks another model.
+   *
+   * 410 rather than 409: the resource is gone rather than in conflict, and it
+   * reads correctly to a caller that has no idea what this code means.
+   */
+  model_unavailable: { status: 410, endsTheSession: false },
 } as const satisfies Record<string, { status: number; endsTheSession: boolean }>
 
 export type FreebuffGateCode = keyof typeof FREEBUFF_GATE_CODES

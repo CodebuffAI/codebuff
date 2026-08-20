@@ -6,10 +6,9 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
 import * as auth from '../auth'
@@ -49,11 +48,13 @@ describe('freebuff model preference', () => {
     )
     getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
 
-    // A preference saved before Flash overtook MiniMax M3. Written directly so
+    // A preference saved on a row that is still superseded. This was MiniMax
+    // M3 until it was withdrawn on 2026-08-20 — a withdrawn model resolves to
+    // nothing, so it can no longer demonstrate a MIGRATION. Written directly so
     // it has no migration marker, exactly like a real pre-upgrade settings file.
     fs.writeFileSync(
       path.join(testConfigDir, 'settings.json'),
-      JSON.stringify({ freebuffModel: FREEBUFF_MINIMAX_M3_MODEL_ID }),
+      JSON.stringify({ freebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }),
     )
     expect(loadFreebuffModelPreference()).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -62,7 +63,7 @@ describe('freebuff model preference', () => {
     // Re-picking M3 does NOT make it the standing default again: the next
     // session steers back to Flash. Selecting it still works for the session
     // the user is in — this only governs what a fresh launch opens on.
-    saveFreebuffModelPreference(FREEBUFF_MINIMAX_M3_MODEL_ID)
+    saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(loadFreebuffModelPreference()).toBe(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )

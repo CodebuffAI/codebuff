@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { isFreeModeAllowedAgentModel } from '../constants/free-agents'
 import {
   canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
@@ -49,6 +50,7 @@ import {
   isFreebuffGpt56LunaModelId,
   isFreebuffLimitedOfferModelId,
   getFreebuffPerModelSessionCap,
+  freebuffWithdrawnModelMessage,
   isFreebuffPausedFreeModelId,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffSessionModelAvailable,
@@ -163,9 +165,13 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('only the DeepSeek family is trace-stored in free mode; M3 has no warning', () => {
-    const m3 = FREEBUFF_MODELS.find((m) => m.id === MINIMAX_M3_MODEL_ID)
-    expect((m3 as { warning?: string } | undefined)?.warning).toBeUndefined()
+  test('only the DeepSeek family is trace-stored in free mode', () => {
+    // MiMo is the non-training row still in the picker; M3 was withdrawn on
+    // 2026-08-20 and is no longer there to check.
+    const mimo = FREEBUFF_MODELS.find(
+      (m) => m.id === FREEBUFF_MIMO_V25_MODEL_ID,
+    )
+    expect((mimo as { warning?: string } | undefined)?.warning).toBeUndefined()
     // The DeepSeek family discloses AI training and IS stored.
     expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
       true,
@@ -683,35 +689,43 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiniMax M3 is selectable and UNLIMITED, on no daily pool at all', () => {
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+  test('MiniMax M3 is withdrawn: recognised, refused, served to nobody', () => {
+    // Withdrawn from free mode entirely on 2026-08-20 after reaching $[redacted]/hr.
+    // Out of every picker and pool...
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
       MINIMAX_M3_MODEL_ID,
     )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
-      MINIMAX_M3_MODEL_ID,
-    )
-    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
-      MINIMAX_M3_MODEL_ID,
-    )
-    expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    // Un-premiumed on 2026-08-20, so the premium pool is spent on the DeepSeek
-    // rows and Luna rather than on the cheapest one. Both must agree — a row
-    // dropped from the id list while still flagged `premium` is metered by NO
-    // pool (FREEBUFF_WEB_STANDARD_MODEL_IDS filters on `!premium`).
+    expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
     expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
-    expect(isFreebuffWebPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
     expect(
-      FREEBUFF_MODELS.find((m) => m.id === MINIMAX_M3_MODEL_ID)?.premium,
+      isFreebuffSessionModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(false)
+
+    // ...but still RECOGNISED, which is what separates withdrawing a model from
+    // breaking the clients that still ask for it. Released binaries keep this id
+    // in their compiled-in catalog; an unrecognised id can only be refused, and
+    // that refusal is the #1801 retry loop.
+    expect(isFreebuffSessionModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isFreebuffPausedFreeModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    // It is REFUSED, not silently substituted — the user asked for a specific
+    // model and is told it is gone, with what to use instead. The refusal is
+    // not session-ending, so the client shows it rather than re-admitting.
+    expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
+      'no longer available in Freebuff',
+    )
+    expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
+      'DeepSeek V4 Flash',
+    )
+
+    // The AGENT door stays open, and that is not an oversight. Withdrawal is
+    // enforced at admission, so no NEW session can name the model. Sessions
+    // admitted before the deploy are still live and hit this allowlist on
+    // every turn; dropping the row would fail them mid-turn with
+    // free_mode_invalid_agent_model — the same wedge withdrawal exists to
+    // avoid. They drain against a door that is already shut in front of them.
     expect(
-      isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
+      isFreeModeAllowedAgentModel('base2-free-minimax-m3', MINIMAX_M3_MODEL_ID),
     ).toBe(true)
-    // Flash leads again as of 2026-08-20: the one-a-day ceiling narrowed to V4
-    // Pro, so the recommended row is no longer the capped one.
-    expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
-    expect(FREEBUFF_MODELS[2]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
   test('the recommended default leads FREEBUFF_MODELS, and the fallback is in it', () => {
@@ -991,16 +1005,19 @@ describe('freebuff model availability', () => {
     }
   })
 
-  test('points users off MiniMax M3 to V4 Flash', () => {
-    // Flash-0731 overtook M3 on 2026-07-31, so M3 carries a notice and a switch
-    // target rather than being removed — it is still selectable.
+  test('a withdrawn model is not offered as anyone else’s switch target', () => {
+    // M3 carried a "switch to V4 Flash" nudge until it was withdrawn on
+    // 2026-08-20. Now the check runs the other way: the picker offers a
+    // one-click switch for whatever a notice names, so naming a withdrawn model
+    // would hand users a row the server refuses.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    const superseded = getFreebuffModelSupersededBy(MINIMAX_M3_MODEL_ID, all)
-    expect(superseded?.modelId).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(superseded!.notice.length).toBeGreaterThan(0)
-    expect(superseded!.actionLabel.length).toBeGreaterThan(0)
-    // M3 remains a real, selectable model — this is a nudge, not a retirement.
-    expect(all).toContain(MINIMAX_M3_MODEL_ID)
+    expect(all).not.toContain(MINIMAX_M3_MODEL_ID)
+    for (const id of all) {
+      const superseded = getFreebuffModelSupersededBy(id, all)
+      if (!superseded) continue
+      expect(superseded.modelId).not.toBe(MINIMAX_M3_MODEL_ID)
+      expect(all).toContain(superseded.modelId)
+    }
     // The recommended default is never itself marked superseded.
     expect(
       getFreebuffModelSupersededBy(DEFAULT_FREEBUFF_MODEL_ID, all),
