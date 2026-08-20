@@ -1,6 +1,6 @@
 import path from 'path'
 
-import { fileExists } from '@codebuff/common/util/file'
+import { ensureDirectoryExists, fileExists } from '@codebuff/common/util/file'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
@@ -82,7 +82,7 @@ async function applyChange(params: {
     const exists = await fileExists({ filePath: fullPath, fs })
     if (!exists) {
       const dirPath = path.dirname(fullPath)
-      await fs.mkdir(dirPath, { recursive: true })
+      await ensureDirectoryExists({ baseDir: dirPath, fs })
     }
 
     if (type === 'file') {

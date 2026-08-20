@@ -277,15 +277,46 @@ export async function fileExists(params: {
   }
 }
 
+async function directoryExists(params: {
+  path: string
+  fs: CodebuffFileSystem
+}): Promise<boolean> {
+  try {
+    return (await params.fs.stat(params.path)).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+function errorCode(error: unknown): string | null {
+  return error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    typeof error.code === 'string'
+    ? error.code
+    : null
+}
+
 export const ensureDirectoryExists = async (params: {
   baseDir: string
   fs: CodebuffFileSystem
 }) => {
   const { baseDir, fs } = params
 
-  const baseDirExists = await fileExists({ filePath: baseDir, fs })
-  if (!baseDirExists) {
+  if (await directoryExists({ path: baseDir, fs })) return
+
+  try {
     await fs.mkdir(baseDir, { recursive: true })
+  } catch (error) {
+    if (errorCode(error) !== 'EEXIST') throw error
+
+    // Windows cloud filesystem drivers can expose a new directory a few milliseconds late.
+    for (const delayMs of [0, 10, 50, 100]) {
+      if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs))
+      if (await directoryExists({ path: baseDir, fs })) return
+    }
+
+    throw error
   }
 }
 
