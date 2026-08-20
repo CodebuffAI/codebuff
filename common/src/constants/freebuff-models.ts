@@ -902,7 +902,16 @@ const MINIMAX_M3_MODEL = {
   dataUse: 'service',
   // M3 is served by Fireworks without provider-side training. Its `service`
   // data-use classification keeps it out of FREEBUFF_TRACED_MODEL_IDS.
-  premium: true,
+  // Un-premiumed on 2026-08-20. `premium` and FREEBUFF_PREMIUM_MODEL_IDS must
+  // move TOGETHER: FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering
+  // `!premium`, so a row dropped from the id list while still flagged premium
+  // lands in NO pool and is metered by nothing at all. The invariant test
+  // ("every Web picker model falls into exactly one quota group") is what
+  // catches it.
+  //
+  // M3 is flat-priced on Fireworks and among the cheapest rows we serve, so it
+  // is one of the two that stay unlimited while the DeepSeek pricing holds.
+  premium: false,
   multimodal: true,
   // MiniMax M3 supports adaptive thinking or disabled thinking, but no effort
   // levels. A depth picker would therefore be cosmetic.
@@ -1082,8 +1091,8 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // FREEBUFF_PAUSED_FREE_MODEL_IDS) instead of wedging those clients the way
 // #1801 wedged the limited tier.
 export const FREEBUFF_MODELS = [
-  GPT_5_6_LUNA_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
+  GPT_5_6_LUNA_MODEL,
   MINIMAX_M3_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   // LAST on purpose, and the only row placed by price rather than by quality.
@@ -1104,52 +1113,64 @@ export const FREEBUFF_MODELS = [
 // What changed instead is that nothing recommends it — see its supersededBy and
 // its place at the end of FREEBUFF_MODELS.
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 ] as const
 
 /**
- * The DeepSeek family, and the per-user daily ceiling on it.
+ * Per-user daily ceilings on INDIVIDUAL premium models, on top of — not instead
+ * of — the shared premium pool.
  *
- * ONE session a day, on top of — not instead of — the shared premium pool. Both
- * halves matter: the ceiling is what bounds DeepSeek specifically, and staying
- * inside FREEBUFF_PREMIUM_MODEL_IDS is what makes that session also spend a
- * premium unit, so picking DeepSeek costs a user the same quota as any other
- * premium row plus its own scarcer allowance.
+ * A pool per entry, NOT one pool shared between them: two models capped at one
+ * session each is two sessions, and folding them together would silently halve
+ * both. The shared premium pool still meters every one of these as well, so a
+ * capped session costs a user their scarce allowance AND a premium unit.
  *
- * DeepSeek is the largest line on the free-mode bill by a wide margin, and
- * unlike every other row its price doubles for ten hours a day on the upstream's
- * schedule rather than ours. A shared pool cannot express that: five sessions
- * spent entirely on DeepSeek and five spent on MiniMax are the same number and
- * very different bills.
+ * Why the expensive rows and not the cheap ones: five premium sessions spent
+ * entirely on V4 Pro and five spent on MiMo are the same number and wildly
+ * different bills. The pool counts sessions; only this expresses price. Flash
+ * is deliberately absent — it is the recommended default, and capping the model
+ * most users are steered onto would push them off the catalog's cheapest
+ * competent row after a single hour. Flash fills whatever the pool has left.
  *
- * BOTH ids share the one allowance deliberately. Flash and Pro are the same
- * upstream account and the same rate card, so metering them separately would
- * hand out two DeepSeek sessions to anyone who alternated.
+ * A TABLE rather than a constant per model, because this is the lever that gets
+ * pulled under cost pressure and it should be one line to add a row, one number
+ * to change a limit, and nothing at all to change in a client — the label ships
+ * to installed CLIs and Desktops over the wire (see FreebuffSessionRateLimit).
  */
-export const FREEBUFF_DEEPSEEK_MODEL_IDS = [
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-] as const
+export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
+  Record<string, { limit: number; pool: string; poolLabel: string }>
+> = {
+  // Closed for ten hours a day besides (availability: 'off_peak_only'), and the
+  // dearest row we serve: $[redacted]/M cache off-peak, $[redacted]/M at peak.
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
+    limit: 1,
+    pool: 'deepseek_pro',
+    poolLabel: 'V4 Pro',
+  },
+  [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
+    limit: 1,
+    pool: 'luna',
+    poolLabel: 'Luna',
+  },
+  // Cheaper than Pro per token but the second-dearest row, and unlike the
+  // DeepSeek pair it has no cheap lane to fall back to.
+}
 
-export const FREEBUFF_DEEPSEEK_SESSION_LIMIT = 1
+/** Whether `model` carries a ceiling of its own beyond the shared pool. */
+export function getFreebuffPerModelSessionCap(
+  model: string | null | undefined,
+): { limit: number; pool: string; poolLabel: string } | undefined {
+  if (!model) return undefined
+  return FREEBUFF_PER_MODEL_SESSION_CAPS[model]
+}
+
 export const FREEBUFF_DEEPSEEK_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
 export const FREEBUFF_DEEPSEEK_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_DEEPSEEK_SESSION_WINDOW_HOURS =
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
-
-/** Suffix-tolerant, so a dated provider snapshot cannot dodge the ceiling. */
-export function isFreebuffDeepSeekModelId(
-  id: string | null | undefined,
-): boolean {
-  if (!id) return false
-  return FREEBUFF_DEEPSEEK_MODEL_IDS.some((modelId) =>
-    freebuffModelIdMatches(id, modelId),
-  )
-}
 
 /**
  * Models free mode no longer runs, but still RECOGNISES.
@@ -1502,7 +1523,7 @@ export type FreebuffWebPremiumModelId =
  *  It carries the AI-training notice, so pickers using it must render the
  *  model's `warning`. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
  *  the model a new Cloud thread starts on. DeepSeek V4 Flash 07/31 as of
@@ -1534,7 +1555,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  browser surfaces can steer independently. They name the same model today and
  *  diverged as recently as 2026-08-04 → 2026-08-12. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without

@@ -48,10 +48,16 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * sentence and the false one.
  *
  * States the RULE, not the mechanism. "one session a day" is the number a user
- * plans around; the earlier wording ("now uses a daily session") read as a
- * price rather than a ceiling and told nobody how many they get. It also says
- * the session is spent twice, because the picker shows two counts moving at
- * once and that is otherwise unexplained.
+ * plans around; earlier wording ("now uses a daily session") read as a price
+ * rather than a ceiling and told nobody how many they get.
+ *
+ * NAMES THE CAUSE, which is the part a user is owed. These limits are not a
+ * product decision we would defend on its merits — they exist because the
+ * providers serving DeepSeek charge more than free mode can carry. Saying so
+ * costs nothing (it reveals no price, no margin, no limit of ours) and it is
+ * the difference between a tier that looks arbitrarily stingy and one that is
+ * visibly reacting to something. It also sets up the reversal: when the reason
+ * goes away, so does this.
  *
  * Says the word "temporary" and names what is still unlimited. Those two
  * clauses are the ones that matter: without the first this reads as the new
@@ -65,7 +71,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * user ever reads.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Temporary while upstream prices are high: the DeepSeek models share one session a day between them, which also uses a premium session, and may run a quantized (Q8_0) build. MiMo 2.5 stays unlimited.'
+  'Temporary, while our DeepSeek providers charge more than we can sustain: V4 Pro is one session a day and closed during peak hours, GPT-5.6 Luna is one a day, V4 Flash uses your remaining premium sessions, and models may run a quantized (Q8_0) build. MiMo 2.5 and MiniMax M3 stay unlimited.'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

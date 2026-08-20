@@ -140,27 +140,30 @@ describe('FreebuffModelSelector tier layout', () => {
     })
     // The saved pick has to be something OTHER than the recommended hero, or
     // the landing picker opens collapsed and there are no tier headers to
-    // order. The hero is GPT-5.6 Luna since 2026-08-19, so DeepSeek V4 Flash is
+    // order. The hero is DeepSeek V4 Flash again since 2026-08-20, so Luna is
     // the premium row that exercises "saved model stays focused" here.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
 
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const recommendedModelIndex = frame.indexOf('GPT-5.6 Luna')
-    const selectedModelIndex = frame.indexOf('DeepSeek V4 Flash')
+    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Flash')
+    const selectedModelIndex = frame.indexOf('GPT-5.6 Luna')
     const minimaxModelIndex = frame.indexOf('MiniMax M3')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
     expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
     expect(selectedModelIndex).toBeGreaterThan(recommendedModelIndex)
-    expect(minimaxModelIndex).toBeGreaterThan(selectedModelIndex)
-    expect(unlimitedHeaderIndex).toBeGreaterThan(minimaxModelIndex)
+    // M3 crossed into UNLIMITED on 2026-08-20, so it now sorts BELOW that
+    // header rather than above it — the premium pool is spent on the rows that
+    // actually cost money.
+    expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
+    expect(minimaxModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
-    expect(frame).toContain('› DeepSeek V4 Flash')
+    expect(frame).toContain('› GPT-5.6 Luna')
     expect(frame).not.toContain('› MiniMax M3')
   })
 
@@ -259,8 +262,8 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
       rateLimitsByModel: {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
-          model: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: {
+          model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',

@@ -48,7 +48,7 @@ import {
   isFreebuffGlmV52ModelId,
   isFreebuffGpt56LunaModelId,
   isFreebuffLimitedOfferModelId,
-  isFreebuffDeepSeekModelId,
+  getFreebuffPerModelSessionCap,
   isFreebuffPausedFreeModelId,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffSessionModelAvailable,
@@ -93,13 +93,19 @@ describe('freebuff model availability', () => {
     // the default is what we RECOMMEND, the fallback is what is always joinable
     // when the premium pool is spent. Flash holds the first and MiMo the second
     // since Flash became premium (2026-08-18).
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
-    // Neither may be a DeepSeek row: those carry their own one-a-day ceiling
-    // on top of the premium pool, so defaulting to one would spend a user's
-    // scarcest allowance on a model they never picked.
-    expect(isFreebuffDeepSeekModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(false)
-    expect(isFreebuffDeepSeekModelId(FALLBACK_FREEBUFF_MODEL_ID)).toBe(false)
+    // The default may be premium — it steps down when the pool is spent — but
+    // it must NOT be on the one-a-day ceiling, which would cap the recommended
+    // model at a single hour. That ceiling is V4 Pro's alone for exactly this
+    // reason; Flash is metered by the ordinary premium pool.
+    expect(
+      Boolean(getFreebuffPerModelSessionCap(DEFAULT_FREEBUFF_MODEL_ID)),
+    ).toBe(false)
+    expect(isFreebuffPremiumModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(true)
+    expect(
+      Boolean(getFreebuffPerModelSessionCap(FALLBACK_FREEBUFF_MODEL_ID)),
+    ).toBe(false)
     // The default is premium, so every surface that offers it has to know the
     // live quota — that is the whole reason the fallback exists separately.
     //
@@ -677,7 +683,7 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiniMax M3 is a selectable premium model on the standard daily pool', () => {
+  test('MiniMax M3 is selectable and UNLIMITED, on no daily pool at all', () => {
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       MINIMAX_M3_MODEL_ID,
     )
@@ -689,14 +695,22 @@ describe('freebuff model availability', () => {
     )
     expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isFreebuffWebPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    // Un-premiumed on 2026-08-20, so the premium pool is spent on the DeepSeek
+    // rows and Luna rather than on the cheapest one. Both must agree — a row
+    // dropped from the id list while still flagged `premium` is metered by NO
+    // pool (FREEBUFF_WEB_STANDARD_MODEL_IDS filters on `!premium`).
+    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(isFreebuffWebPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(
+      FREEBUFF_MODELS.find((m) => m.id === MINIMAX_M3_MODEL_ID)?.premium,
+    ).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(true)
-    // GPT-5.6 Luna leads as of 2026-08-19, when the defaults moved off DeepSeek.
-    expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
-    expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    // Flash leads again as of 2026-08-20: the one-a-day ceiling narrowed to V4
+    // Pro, so the recommended row is no longer the capped one.
+    expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
     expect(FREEBUFF_MODELS[2]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
@@ -864,10 +878,10 @@ describe('freebuff model availability', () => {
     // are what keep the CLI/Desktop hero joinable at every point in a user's
     // day, and they became load-bearing for this model on that date.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
@@ -895,17 +909,19 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
 
-  test('every surface recommends GPT-5.6 Luna, on two separate constants', () => {
+  test('every surface recommends DeepSeek V4 Flash, on two separate constants', () => {
     // Both constants named Pro from 2026-08-12 until it was paused on
     // 2026-08-18, and both fell back to Flash together. They stay TWO constants
     // because they have diverged before and may again.
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     // Neither default may be a paused model — that is the pairing that would
     // put every new user on a row the server refuses.
