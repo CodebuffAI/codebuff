@@ -170,9 +170,9 @@ export function platformForUrl(rawUrl: string): AdPlatform | null {
 // ---------------------------------------------------------------------------
 
 /**
- * TEMPORARY: campaigns run without a card.
+ * Campaigns are billed again.
  *
- * Flip back to `true` to re-enable billing. Everything Stripe-side is intact —
+ * Was `false` for the free-campaign window. Flip to `false` to stop charging. Everything Stripe-side is intact —
  * the price lookup, the checkout, the webhook that mirrors subscription state —
  * so turning this on restores charging with no other change.
  *
@@ -185,7 +185,7 @@ export function platformForUrl(rawUrl: string): AdPlatform | null {
  * submit. The feed keeps its single `billing_active` rule — no serving bypass
  * is added anywhere, so re-enabling pricing cannot leave a hole behind.
  */
-export const AD_PRICING_ENABLED = false
+export const AD_PRICING_ENABLED = true
 
 /**
  * TEMPORARY: campaigns go live without an operator looking at them.
