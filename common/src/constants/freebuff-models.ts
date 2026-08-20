@@ -4,7 +4,10 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
-import { isDeepSeekExpensiveWindow } from './freebuff-peak-hours'
+import {
+  deepSeekExpensiveWindowEndsAt,
+  isDeepSeekExpensiveWindow,
+} from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -693,7 +696,7 @@ const FLASH_SUPERSEDES_NOTICE =
  *  times more per turn. "Recommended" is a claim about our advice, which we own
  *  outright — no benchmark can contradict it. */
 const FLASH_RECOMMENDED_NOTICE =
-  'DeepSeek V4 Flash 07/31 is the recommended pick and uses the same session.'
+  'DeepSeek V4 Flash 07/31 is the recommended pick, and is not limited to one session a day.'
 
 /**
  * DeepSeek V4 Pro, on the 08/13 GA build (2026-08-12).
@@ -2318,6 +2321,40 @@ export function getFreebuffModelSupersededBy(
 }
 
 /**
+ * Why a row cannot be picked right now, in the reader's own clock — or
+ * undefined when it can.
+ *
+ * The pickers had a label for deployment hours and nothing for anything else,
+ * so a model closed for any OTHER reason looked completely normal: selectable,
+ * checkmarked, and refused only at send time. That is exactly what V4 Pro's
+ * peak-hour window did — correctly closed at 2am Pacific and indistinguishable
+ * from open.
+ *
+ * LOCAL TIME is the whole point. DeepSeek publishes its peak in UTC, so the
+ * window a user lives in (5pm-3am Pacific) shares no digits with the one we
+ * store. "Closed 00:00-10:00 UTC" asks someone at 2am to do timezone
+ * arithmetic before they can tell whether the product is broken.
+ */
+export function getFreebuffModelUnavailableLabel(
+  id: string,
+  now: Date = new Date(),
+  options: LocalTimeFormatOptions = {},
+): string | undefined {
+  if (isFreebuffSessionModelAvailable(id, now)) return undefined
+  const model =
+    SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
+    getFreebuffWebModel(id)
+  if (model.availability === 'off_peak_only') {
+    return `Back at ${formatLocalTime(
+      deepSeekExpensiveWindowEndsAt(now),
+      now,
+      options,
+    )}`
+  }
+  return getFreebuffDeploymentAvailabilityLabel(now, options)
+}
+
+/**
  * The model a saved preference should be steered to, or null to keep it.
  *
  * Applied EVERY time a surface reads its remembered pick, so each new
@@ -2417,7 +2454,30 @@ export function isFreebuffModelAvailable(
 ): boolean {
   const model = SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id)
   if (!model) return false
-  return model.availability === 'always' || isFreebuffDeploymentHours(now)
+  return isAvailableAt(model.availability, now)
+}
+
+/**
+ * The ONE reading of `availability`, shared by the picker's joinability check
+ * and the server's admission check.
+ *
+ * They were separate, and the picker's copy only knew 'always' and deployment
+ * hours — so `off_peak_only` fell through to a window that has nothing to do
+ * with it. That was right only by coincidence: DeepSeek's peak and our staffing
+ * hours happen to overlap at some times of day and not others, so V4 Pro would
+ * have shown as pickable during the expensive window whenever the two disagreed,
+ * and been refused on send.
+ *
+ * A picker that can disagree with admission is worse than one that is simply
+ * wrong, because the disagreement only surfaces after the user commits.
+ */
+function isAvailableAt(
+  availability: FreebuffModelOption['availability'],
+  now: Date,
+): boolean {
+  if (availability === 'always') return true
+  if (availability === 'off_peak_only') return !isDeepSeekExpensiveWindow(now)
+  return isFreebuffDeploymentHours(now)
 }
 
 export function isFreebuffSessionModelAvailable(
@@ -2427,15 +2487,11 @@ export function isFreebuffSessionModelAvailable(
   const model =
     SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
     getFreebuffWebModel(id)
-  if (model.availability === 'always') return true
-  // Closed for the ten hours DeepSeek charges double (00:00-10:00 UTC). A
-  // separate mode from `deployment_hours`, which tracks OUR staffing rather
-  // than an upstream rate card, and the two windows are unrelated — collapsing
-  // them would silently move one when the other changed.
-  if (model.availability === 'off_peak_only') {
-    return !isDeepSeekExpensiveWindow(now)
-  }
-  return isFreebuffDeploymentHours(now)
+  // Same reading as the picker's joinability check, deliberately — see
+  // isAvailableAt. `off_peak_only` is the ten hours DeepSeek charges double
+  // (00:00-10:00 UTC), a different window from `deployment_hours`, which tracks
+  // OUR staffing rather than an upstream rate card.
+  return isAvailableAt(model.availability, now)
 }
 
 export function resolveAvailableFreebuffModel(

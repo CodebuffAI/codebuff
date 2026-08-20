@@ -33,45 +33,25 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
   "DeepSeek V4 Flash 07/31 is paused here after a steep price increase — pausing it is what keeps these sessions free for everyone. We're working to bring it back."
 
 /**
- * What changed for FULL-access users, rendered under the model list on every
- * picker. Two things, and they are separate facts: V4 Flash moved onto the
- * daily session pool it used to sit outside, and the DeepSeek builds we serve
- * are currently quantized.
+ * The limits, in three clauses and a signature.
  *
- * Distinct from FREEBUFF_PAUSED_MODEL_NOTICE above, which explains the reduced
- * LIMITED catalog. Both can be true at once, on different accounts, and a
- * limited-tier user must not be told about a premium pool they do not have.
+ * SHORT ON PURPOSE. This replaced a version that listed every rule — per-model
+ * caps, peak hours, quantization, which pool each row spends — and was four
+ * lines deep in a dropdown. Users skim a picker; a paragraph there is read by
+ * nobody, so the details it carried reached fewer people than the summary does.
+ * The picker itself shows each row's own count, which is where a user looks
+ * when they want the specifics.
  *
- * "may run" on the quantization, not "runs", because it is true of the CrofAI
- * lane and not of DeepSeek's own API, and which one answers a given turn is a
- * routing decision the user cannot see. Overstating it would be the easier
- * sentence and the false one.
+ * Keep it to: why, what the limit is, what is still free. Anything more belongs
+ * on the rows.
  *
- * States the RULE, not the mechanism. "one session a day" is the number a user
- * plans around; earlier wording ("now uses a daily session") read as a price
- * rather than a ceiling and told nobody how many they get.
- *
- * NAMES THE CAUSE, which is the part a user is owed. These limits are not a
- * product decision we would defend on its merits — they exist because the
- * providers serving DeepSeek charge more than free mode can carry. Saying so
- * costs nothing (it reveals no price, no margin, no limit of ours) and it is
- * the difference between a tier that looks arbitrarily stingy and one that is
- * visibly reacting to something. It also sets up the reversal: when the reason
- * goes away, so does this.
- *
- * Says the word "temporary" and names what is still unlimited. Those two
- * clauses are the ones that matter: without the first this reads as the new
- * permanent shape of the free tier, and without the second a user whose pool is
- * spent has no idea there is anything left to run. Same framing rule as the
- * notice above — model AVAILABILITY, never restricted access, and no hint of
- * what any of it costs us (this file ships in the public export).
- *
- * DELETE THIS when Flash leaves FREEBUFF_PREMIUM_MODEL_IDS and the DeepSeek
- * lanes are back on full precision — it is the only piece of any of this that a
- * user ever reads.
+ * Signed, because this is us asking users to accept less than they had. An
+ * unsigned notice reads as a system message; a signed one reads as someone
+ * taking responsibility for it, which is the honest framing when the cause is
+ * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Temporary, while our DeepSeek providers charge more than we can sustain: V4 Pro is one session a day and closed during peak hours, GPT-5.6 Luna is one a day, V4 Flash uses your remaining premium sessions, and models may run a quantized (Q8_0) build. MiMo 2.5 and MiniMax M3 stay unlimited.'
+  'DeepSeek costs have spiked, so limits are tighter for now: V4 Pro and GPT-5.6 Luna are 1 session a day, and V4 Pro pauses at peak times. MiMo 2.5 and MiniMax M3 stay unlimited. —Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

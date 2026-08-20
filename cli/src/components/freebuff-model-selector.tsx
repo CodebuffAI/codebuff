@@ -15,6 +15,7 @@ import {
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffModelUnavailableLabel,
   getFreebuffModel,
   getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
@@ -829,6 +830,16 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // so the same string carries both the in-hours and out-of-hours signals
     // without a separate "Closed" chip. Greyed-out fgColor handles the rest.
     const hasHours = model.availability === 'deployment_hours'
+
+    // Any OTHER reason a row is closed — V4 Pro's peak window today — says when
+    // it returns, in the reader's clock. Without this the row is greyed with no
+    // explanation, which is what "why is it doing this at 2am?" looks like from
+    // the outside.
+    const unavailableLabel = getFreebuffModelUnavailableLabel(
+      model.id,
+      new Date(now),
+    )
+    const closedNote = hasHours ? null : unavailableLabel
     const hasWarning = !!model.warning
 
     // Line 2 (warning · hours) is centered in the card. Spaces render verbatim,
@@ -837,8 +848,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // wider than the card.
     const detailsLen =
       (hasWarning ? model.warning!.length : 0) +
-      (hasWarning && hasHours ? 3 : 0) +
-      (hasHours ? deploymentAvailabilityLabel.length : 0)
+      (hasWarning && (hasHours || closedNote) ? 3 : 0) +
+      (hasHours ? deploymentAvailabilityLabel.length : 0) +
+      (closedNote ? closedNote.length : 0)
     const detailsPad = Math.max(
       0,
       Math.floor((buttonInnerWidth - detailsLen) / 2),
@@ -928,7 +940,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             </span>
           )}
         </text>
-        {(hasWarning || hasHours || ownQuotaLabel) && (
+        {(hasWarning || hasHours || closedNote || ownQuotaLabel) && (
           <text>
             <span>{' '.repeat(detailsPad)}</span>
             {hasWarning && <span fg={warningColor}>{model.warning}</span>}
@@ -936,6 +948,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             {hasHours && (
               <span fg={mutedColor}>{deploymentAvailabilityLabel}</span>
             )}
+            {closedNote && hasWarning && <span fg={mutedColor}> · </span>}
+            {closedNote && <span fg={warningColor}>{closedNote}</span>}
             {ownQuotaLabel && (hasWarning || hasHours) && (
               <span fg={mutedColor}> · </span>
             )}
