@@ -6,7 +6,7 @@ This guide covers local environment setup, monorepo architecture, development wo
 
 ## 📦 Monorepo Architecture
 
-Freebuff is structured as a TypeScript monorepo using Bun workspaces:
+Freebuff is structured as a TypeScript monorepo using Bun workspaces (defined in [`package.json`](../package.json)):
 
 | Workspace | Path | Purpose |
 |---|---|---|
@@ -17,6 +17,7 @@ Freebuff is structured as a TypeScript monorepo using Bun workspaces:
 | **Agent Runtime** | `packages/agent-runtime/` | Multi-agent execution loop, step orchestration, and tool execution |
 | **Code Map** | `packages/code-map/` | AST and Tree-sitter powered codebase indexing |
 | **LLM Providers** | `packages/llm-providers/` | Model adapters (DeepSeek, OpenAI, Anthropic, Gemini, MiMo, MiniMax) |
+| **Evals** | `evals/` | Evaluation benchmarks (`buffbench`) for evaluating agent performance |
 | **Freebuff** | `freebuff/` | Freebuff distribution packaging and CLI build scripts |
 | **Tmux Scripts** | `scripts/tmux/` | Terminal emulation helpers for interactive CLI testing |
 
@@ -25,9 +26,9 @@ Freebuff is structured as a TypeScript monorepo using Bun workspaces:
 ## 🛠️ Prerequisites
 
 - **[Bun](https://bun.sh)**: `v1.3.14` or higher (primary package manager and runtime)
-- **Node.js**: `v22+` (for compatibility with certain tooling)
+- **Node.js**: `v22+` (for compatibility with ecosystem tooling)
 - **Git**: For version control
-- **tmux** *(optional)*: Required only for interactive CLI E2E testing (macOS: `brew install tmux`, Linux: `sudo apt-get install tmux`)
+- **tmux** *(optional)*: Required for interactive CLI E2E testing (macOS: `brew install tmux`, Linux: `sudo apt-get install tmux`)
 
 ---
 
@@ -35,7 +36,7 @@ Freebuff is structured as a TypeScript monorepo using Bun workspaces:
 
 ### 1. Install Dependencies
 
-Install all workspace dependencies from the root:
+Install all workspace dependencies from the repository root:
 
 ```bash
 bun install
@@ -43,13 +44,21 @@ bun install
 
 ### 2. Build the SDK
 
-The CLI and other packages depend on the built SDK:
+The CLI and other packages depend on the compiled SDK:
 
 ```bash
 bun run build:sdk
 ```
 
-### 3. Run the CLI in Development Mode
+### 3. Build the Freebuff Binary
+
+Compile the standalone Freebuff distribution binary into `cli/bin/freebuff`:
+
+```bash
+bun run build:freebuff
+```
+
+### 4. Run the CLI in Development Mode
 
 Start the terminal UI directly from source:
 
@@ -57,17 +66,11 @@ Start the terminal UI directly from source:
 # Standard CLI dev mode
 bun start-cli
 
-# Or run Freebuff mode
+# Or run in Freebuff mode
 bun run dev:freebuff
 ```
 
-### 4. Build the Freebuff Binary
-
-Compile the standalone Freebuff distribution binary:
-
-```bash
-bun run build:freebuff
-```
+> **Note**: Running the interactive CLI directly from source validates client environment configuration (`.env.local` or environment variables) on startup. See the [Contributing Guide](../CONTRIBUTING.md) and root [`README.md`](../README.md) for details on backend services.
 
 ---
 
@@ -83,7 +86,7 @@ Run all unit tests across the repository:
 bun test
 ```
 
-Or run tests for a specific workspace:
+Or run tests for a specific workspace or file:
 
 ```bash
 # Test common utilities
@@ -92,7 +95,7 @@ bun test common/src/
 # Test SDK
 bun test sdk/
 
-# Test CLI
+# Test CLI unit tests
 bun test cli/
 ```
 
@@ -102,13 +105,28 @@ For testing terminal rendering, bracketed paste mode, and keyboard navigation, F
 
 ---
 
-## 📋 Code Conventions & Pre-PR Checklist
+## 📋 Available Root Scripts
+
+The following scripts are defined in root [`package.json`](../package.json):
+
+| Script | Command | Description |
+|---|---|---|
+| `bun run build:sdk` | `cd sdk && bun run build` | Builds `@codebuff/sdk` (ESM, CJS, types, WASM) |
+| `bun run build:freebuff` | `bun freebuff/cli/build.ts 0.0.0-dev` | Compiles the standalone Freebuff binary |
+| `bun run ci` | `bun run build:sdk && bun run build:freebuff` | Validates SDK and CLI builds for CI |
+| `bun start-cli` / `bun dev` | `bun --cwd cli dev` | Launches CLI in development mode |
+| `bun run dev:freebuff` | `FREEBUFF_MODE=true bun --cwd cli dev` | Launches CLI in Freebuff mode |
+| `bun run buffbench` | `bun --cwd evals run-buffbench` | Runs evaluation benchmarks |
+| `bun test` | `bun test` | Executes the test suite |
+
+---
+
+## 📋 Pre-PR Checklist
 
 Before opening a pull request, ensure the following checks pass:
 
-1. **Build the SDK**: `bun run build:sdk`
+1. **Validate Monorepo CI**: `bun run ci` (runs `build:sdk` and `build:freebuff`)
 2. **Run Unit Tests**: `bun test`
-3. **Validate Monorepo CI**: `bun run ci`
-4. **Clean Code**: Follow TypeScript strict typing, avoid `any`, and preserve existing documentation.
+3. **Clean Code**: Follow TypeScript strict typing, avoid `any`, and preserve existing documentation.
 
 For pull request submission guidelines and scoping rules, see the [Contributing Guide](../CONTRIBUTING.md).
