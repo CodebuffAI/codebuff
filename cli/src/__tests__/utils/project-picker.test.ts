@@ -140,4 +140,66 @@ describe('cli/utils/project-picker', () => {
       rmSync(tempDir, { recursive: true, force: true })
     }
   })
+
+  test('leaves the registry alone when reloadAgentRegistry is false', async () => {
+    const originalCwd = process.cwd()
+    const originalProjectRoot = tryGetProjectRoot()
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'freebuff-override-'))
+    const launchDir = path.join(tempDir, 'launch')
+    const launchAgentsDir = path.join(launchDir, '.agents')
+    const projectDir = path.join(tempDir, 'project')
+    const agentsDir = path.join(projectDir, '.agents')
+
+    mkdirSync(launchAgentsDir, { recursive: true })
+    mkdirSync(agentsDir, { recursive: true })
+    writeFileSync(
+      path.join(launchAgentsDir, 'launch-agent.ts'),
+      `export default {
+        id: 'override-launch-agent',
+        displayName: 'Override Launch Agent',
+        model: 'anthropic/claude-sonnet-4',
+        instructions: 'Loaded from the launch project'
+      }`,
+    )
+    writeFileSync(
+      path.join(agentsDir, 'selected-agent.ts'),
+      `export default {
+        id: 'override-selected-agent',
+        displayName: 'Override Selected Agent',
+        model: 'anthropic/claude-sonnet-4',
+        instructions: 'Loaded from the selected project'
+      }`,
+    )
+
+    try {
+      process.chdir(launchDir)
+      setProjectRoot(launchDir)
+      __resetLocalAgentRegistryForTests()
+      await initializeAgentRegistry()
+
+      expect(
+        loadLocalAgents().find((agent) => agent.id === 'override-launch-agent'),
+      ).toBeDefined()
+
+      await activateProject(projectDir, { reloadAgentRegistry: false })
+
+      // The move still happens, only the registry is left as the caller found it,
+      // which is what an --agent override relies on
+      expect(process.cwd()).toBe(projectDir)
+      expect(getProjectRoot()).toBe(projectDir)
+
+      const localAgents = loadLocalAgents()
+      expect(
+        localAgents.find((agent) => agent.id === 'override-launch-agent'),
+      ).toBeDefined()
+      expect(
+        localAgents.find((agent) => agent.id === 'override-selected-agent'),
+      ).toBeUndefined()
+    } finally {
+      process.chdir(originalCwd)
+      setProjectRoot(originalProjectRoot ?? originalCwd)
+      __resetLocalAgentRegistryForTests()
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
 })
