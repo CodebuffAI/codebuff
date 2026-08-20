@@ -206,6 +206,97 @@ export function findWindowsBash(
   return candidate && pathExists(candidate) ? candidate : null
 }
 
+type CygpathSpawnResult = {
+  status: number | null
+  stdout: string
+}
+
+export type WindowsShellPathDependencies = {
+  platform?: NodeJS.Platform
+  env?: NodeJS.ProcessEnv
+  findBash?: (env: NodeJS.ProcessEnv) => string | null
+  spawnCygpath?: (cygpath: string, filePath: string) => CygpathSpawnResult
+  pathExists?: (candidate: string) => boolean
+}
+
+/** Git Bash paths start with one slash; two slashes already name a native Windows UNC path. */
+export function isGitBashAbsolutePath(filePath: string): boolean {
+  return /^\/(?!\/)/.test(filePath)
+}
+
+function spawnCygpath(cygpath: string, filePath: string): CygpathSpawnResult {
+  return spawnSync(cygpath, ['-w', '--', filePath], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 5_000,
+  })
+}
+
+function findCygpath(
+  bash: string,
+  exists: (candidate: string) => boolean,
+): string | null {
+  const candidates = [
+    path.join(path.dirname(path.dirname(bash)), 'usr', 'bin', 'cygpath.exe'),
+    path.join(path.dirname(bash), 'cygpath.exe'),
+  ]
+  return candidates.find(exists) ?? null
+}
+
+function runCygpath(
+  spawn: (cygpath: string, filePath: string) => CygpathSpawnResult,
+  cygpath: string,
+  filePath: string,
+): string | null {
+  try {
+    const result = spawn(cygpath, filePath)
+    if (result.status !== 0) return null
+    return result.stdout.trim().split(/\r?\n/).pop()?.trim() || null
+  } catch {
+    return null
+  }
+}
+
+const MSYS_DRIVE_PATTERN = /^\/([a-z])\//i
+
+const translatedPathCache = new Map<string, string>()
+
+export function resetTranslationCache(): void {
+  translatedPathCache.clear()
+}
+
+/** Translate an MSYS path before a native Windows file API sees it. */
+export function translateGitBashPath(
+  filePath: string,
+  dependencies: WindowsShellPathDependencies = {},
+): string {
+  const platform = dependencies.platform ?? process.platform
+  if (platform !== 'win32' || !isGitBashAbsolutePath(filePath)) return filePath
+
+  if (MSYS_DRIVE_PATTERN.test(filePath)) {
+    return `${filePath.charAt(1).toUpperCase()}:\\${filePath.slice(3).replace(/\//g, '\\')}`
+  }
+
+  const cached = translatedPathCache.get(filePath)
+  if (cached !== undefined) return cached
+
+  const env = dependencies.env ?? getSystemProcessEnv()
+  const bash = (dependencies.findBash ?? findWindowsBash)(env)
+  if (!bash) return filePath
+
+  const cygpath = findCygpath(bash, dependencies.pathExists ?? pathExists)
+  if (!cygpath) return filePath
+
+  const translated = runCygpath(
+    dependencies.spawnCygpath ?? spawnCygpath,
+    cygpath,
+    filePath,
+  )
+  if (translated === null) return filePath
+  translatedPathCache.set(filePath, translated)
+  return translated
+}
+
 /**
  * What a Windows user sees when we genuinely cannot find a bash. Installing is the answer for
  * almost everyone; the environment variable is deliberately last, because we search the standard

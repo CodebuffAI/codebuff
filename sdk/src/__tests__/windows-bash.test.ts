@@ -9,7 +9,10 @@ import * as path from 'path'
 
 import {
   findWindowsBash,
+  isGitBashAbsolutePath,
   parseRegistryPath,
+  resetTranslationCache,
+  translateGitBashPath,
   windowsBashCandidates,
 } from '../tools/windows-bash'
 
@@ -220,5 +223,177 @@ describe('parseRegistryPath', () => {
     ).toBeNull()
     expect(parseRegistryPath('', 'InstallPath')).toBeNull()
     expect(parseRegistryPath('    InstallPath    REG_SZ    ', 'InstallPath')).toBeNull()
+  })
+})
+
+describe('Git Bash path translation', () => {
+  beforeEach(() => {
+    resetTranslationCache()
+  })
+
+  it('recognizes MSYS absolute paths without claiming native UNC paths', () => {
+    expect(isGitBashAbsolutePath('/tmp/file.txt')).toBe(true)
+    expect(isGitBashAbsolutePath('/c/Users/Alice/file.txt')).toBe(true)
+    expect(isGitBashAbsolutePath('//server/share/file.txt')).toBe(false)
+    expect(isGitBashAbsolutePath('C:\\tmp\\file.txt')).toBe(false)
+    expect(isGitBashAbsolutePath('src/file.txt')).toBe(false)
+  })
+
+  it('translates a drive-letter MSYS path without any lookup or spawn', () => {
+    const neverFindBash = () => {
+      throw new Error('must not look for bash')
+    }
+    expect(
+      translateGitBashPath('/c/Users/me/repo/src/a.ts', {
+        platform: 'win32',
+        env: {},
+        findBash: neverFindBash,
+      }),
+    ).toBe('C:\\Users\\me\\repo\\src\\a.ts')
+    expect(
+      translateGitBashPath('/D/work/file.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: neverFindBash,
+      }),
+    ).toBe('D:\\work\\file.txt')
+  })
+
+  it('spawns the cygpath.exe derived from the found bash, directly', () => {
+    const bash = path.join(installGitAt('Git'), 'bin', 'bash.exe')
+    const cygpath = touch(path.join(root, 'Git', 'usr', 'bin'), 'cygpath.exe')
+    const calls: [string, string][] = []
+
+    expect(
+      translateGitBashPath('/tmp/file.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: () => bash,
+        spawnCygpath: (cygpath, filePath) => {
+          calls.push([cygpath, filePath])
+          return {
+            status: 0,
+            stdout: 'C:\\Users\\Alice\\AppData\\Local\\Temp\\file.txt\n',
+          }
+        },
+      }),
+    ).toBe('C:\\Users\\Alice\\AppData\\Local\\Temp\\file.txt')
+    expect(calls).toEqual([[cygpath, '/tmp/file.txt']])
+  })
+
+  it('spawns the cygpath.exe sitting beside a usr\\bin bash', () => {
+    const bash = touch(path.join(root, 'Git', 'usr', 'bin'), 'bash.exe')
+    const cygpath = touch(path.join(root, 'Git', 'usr', 'bin'), 'cygpath.exe')
+    const calls: [string, string][] = []
+
+    expect(
+      translateGitBashPath('/tmp/sibling.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: () => bash,
+        spawnCygpath: (cygpath, filePath) => {
+          calls.push([cygpath, filePath])
+          return { status: 0, stdout: 'C:\\Temp\\sibling.txt\n' }
+        },
+      }),
+    ).toBe('C:\\Temp\\sibling.txt')
+    expect(calls).toEqual([[cygpath, '/tmp/sibling.txt']])
+  })
+
+  it('skips the spawn and keeps the original path when no cygpath.exe exists', () => {
+    const bash = touch(path.join(root, 'Git', 'bin'), 'bash.exe')
+    let spawns = 0
+
+    expect(
+      translateGitBashPath('/tmp/no-cygpath.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: () => bash,
+        spawnCygpath: () => {
+          spawns++
+          return { status: 0, stdout: 'C:\\Temp\\no-cygpath.txt\n' }
+        },
+      }),
+    ).toBe('/tmp/no-cygpath.txt')
+    expect(spawns).toBe(0)
+  })
+
+  it('reads only the last stdout line, so leading banner output is ignored', () => {
+    expect(
+      translateGitBashPath('/tmp/banner.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: () => path.join(root, 'Git', 'bin', 'bash.exe'),
+        pathExists: () => true,
+        spawnCygpath: () => ({
+          status: 0,
+          stdout:
+            'conda environment activated\nNow using node v22.1.0\nC:\\Temp\\banner.txt\r\n',
+        }),
+      }),
+    ).toBe('C:\\Temp\\banner.txt')
+  })
+
+  it('falls back to the original path on a non-zero exit even when stdout is non-empty', () => {
+    expect(
+      translateGitBashPath('/tmp/exit-code.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: () => path.join(root, 'Git', 'bin', 'bash.exe'),
+        pathExists: () => true,
+        spawnCygpath: () => ({
+          status: 1,
+          stdout: 'C:\\Temp\\exit-code.txt\n',
+        }),
+      }),
+    ).toBe('/tmp/exit-code.txt')
+  })
+
+  it('spawns once per path and answers repeats from the cache', () => {
+    let spawns = 0
+    const dependencies = {
+      platform: 'win32' as NodeJS.Platform,
+      env: {},
+      findBash: () => path.join(root, 'Git', 'bin', 'bash.exe'),
+      pathExists: () => true,
+      spawnCygpath: () => {
+        spawns++
+        return { status: 0, stdout: 'C:\\Temp\\repeat.txt\n' }
+      },
+    }
+    expect(translateGitBashPath('/tmp/repeat.txt', dependencies)).toBe(
+      'C:\\Temp\\repeat.txt',
+    )
+    expect(translateGitBashPath('/tmp/repeat.txt', dependencies)).toBe(
+      'C:\\Temp\\repeat.txt',
+    )
+    expect(spawns).toBe(1)
+  })
+
+  it('leaves paths unchanged when translation does not apply or is unavailable', () => {
+    const neverFindBash = () => {
+      throw new Error('must not look for bash')
+    }
+    expect(
+      translateGitBashPath('/tmp/file.txt', {
+        platform: 'darwin',
+        findBash: neverFindBash,
+      }),
+    ).toBe('/tmp/file.txt')
+    expect(
+      translateGitBashPath('C:\\tmp\\file.txt', {
+        platform: 'win32',
+        findBash: neverFindBash,
+      }),
+    ).toBe('C:\\tmp\\file.txt')
+    expect(
+      translateGitBashPath('/tmp/file.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: () => path.join(root, 'Git', 'bin', 'bash.exe'),
+        pathExists: () => true,
+        spawnCygpath: () => ({ status: 0, stdout: '' }),
+      }),
+    ).toBe('/tmp/file.txt')
   })
 })

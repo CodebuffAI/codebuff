@@ -1,9 +1,10 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
   getProjectPathLookupKeys,
   resolveFilePathWithinProject,
 } from '../tools/path-utils'
+import { resetTranslationCache } from '../tools/windows-bash'
 
 describe('resolveFilePathWithinProject', () => {
   test('normalizes relative paths to full and project-relative paths', () => {
@@ -54,5 +55,38 @@ describe('getProjectPathLookupKeys', () => {
     expect(getProjectPathLookupKeys('/repo', '/outside.ts')).toEqual([
       '/outside.ts',
     ])
+  })
+})
+
+describe('getProjectPathLookupKeys with Git Bash paths', () => {
+  beforeEach(() => {
+    resetTranslationCache()
+  })
+
+  test('keys an out-of-project MSYS path by its translated path as well', () => {
+    expect(
+      getProjectPathLookupKeys('/repo', '/tmp/probe.txt', {
+        platform: 'win32',
+        env: {},
+        findBash: () => '/git/bin/bash.exe',
+        pathExists: () => true,
+        spawnCygpath: () => ({
+          status: 0,
+          stdout: '/msys-root/tmp/probe.txt\n',
+        }),
+      }),
+    ).toEqual(['/msys-root/tmp/probe.txt', '/tmp/probe.txt'])
+  })
+
+  test('translates an MSYS drive path without any bash lookup and keys by the native path', () => {
+    expect(
+      getProjectPathLookupKeys('/Users/me/repo', '/c/Users/me/repo/src/a.ts', {
+        platform: 'win32',
+        env: {},
+        findBash: () => {
+          throw new Error('drive paths must not need bash')
+        },
+      }),
+    ).toEqual(['C:\\Users\\me\\repo\\src\\a.ts', '/c/Users/me/repo/src/a.ts'])
   })
 })
