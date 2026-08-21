@@ -482,7 +482,11 @@ export async function executeToolCall<T extends ToolName>(
 
       effectiveInput = {
         ...renderUIInput,
-        widget: { ...renderUIInput.widget, link: resolved.value },
+        widget: {
+          ...renderUIInput.widget,
+          link: resolved.value,
+          gravity_search_id: link.search_id,
+        },
       }
     }
   }

@@ -166,16 +166,17 @@ export interface GlobParams {
  * Use the Gravity Index tool discovery and install API.
  */
 export interface GravityIndexParams {
-  /** Which Gravity Index operation to perform. search: recommend a provider; browse: list catalog services; list_categories: list categories with counts; get_service: full detail for a known slug; report_integration: report a completed integration. */
+  /** Which Gravity Index operation to perform. search: recommend a provider; browse: list catalog services; list_categories: list categories with counts; get_service: full detail for a known slug; provision: create the account for the user and receive credentials; report_integration: report a completed integration. */
   action:
     | 'search'
     | 'browse'
     | 'list_categories'
     | 'get_service'
+    | 'provision'
     | 'report_integration'
   /** For action "search": what the user needs, including stack, constraints, and required capabilities. */
   query?: string
-  /** For action "search": continue a previous search. For action "report_integration": the search_id from the earlier search result (required). */
+  /** For action "search": continue a previous search. For actions "provision" and "report_integration": the search_id from the earlier search result (required). */
   search_id?: string
   /** For action "search": optional structured JSON context about the project, stack, or constraints. */
   context?: Record<string, any>
@@ -183,10 +184,12 @@ export interface GravityIndexParams {
   category?: string
   /** For action "browse": optional keyword filter, e.g. sendgrid or postgres. */
   q?: string
-  /** For action "get_service": service slug, e.g. supabase, stripe, sendgrid (required). */
+  /** For actions "get_service" and "provision": service slug, e.g. supabase, stripe, sendgrid (required). */
   slug?: string
   /** For action "report_integration": slug of the service that was actually integrated (required). */
   integrated_slug?: string
+  /** For action "provision": must be true, and only after the user has explicitly approved creating an account on this service (required). */
+  user_consent?: true
 }
 
 /**
