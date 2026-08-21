@@ -438,9 +438,9 @@
 
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
 
-    "@posthog/core": ["@posthog/core@1.48.6", "", { "dependencies": { "@posthog/types": "^1.405.0" } }, "sha512-lvSO1nrxxakrAfB51fetHC29gSqdDtT+AyRrGlnc5nDSWhiBGtyqKNjDqsbnlTQoj14bAaWXS7RtzuGoTo5IsQ=="],
+    "@posthog/core": ["@posthog/core@1.48.7", "", { "dependencies": { "@posthog/types": "^1.405.1" } }, "sha512-1wKNPVsJl9pI2n+oRAktDdimR2ybVfQhRU1rA/0DfBaxx1MDVR4HmbC/wq4Wv3P3n7Jyh1XBEk+trSSP8tlxWg=="],
 
-    "@posthog/types": ["@posthog/types@1.405.0", "", {}, "sha512-4rZ/taVXKQxs9Jrf7ZjlCRgrOSL69oKAgIWJQa5kRNJ6wll1UANbrJTSY+Su1e88LIG4zZVjKKKjyQHCkHdHcw=="],
+    "@posthog/types": ["@posthog/types@1.405.1", "", {}, "sha512-JvaR4ChUKUk7qSTG58vKN2Br6es9riFF5mvlu7YGcwbB476vfyTO0o/TBh+zE88QhsfxnE5Tr/jKxI+e1v3Q5A=="],
 
     "@rtsao/scc": ["@rtsao/scc@1.1.0", "", {}, "sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g=="],
 
@@ -1324,7 +1324,7 @@
 
     "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
-    "posthog-node": ["posthog-node@5.49.2", "", { "dependencies": { "@posthog/core": "^1.48.6" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-+ihwLaB+zoP7mOdk8bOV8phWhoS/U9zG9tnA49B0BGLjNt9rQ05zp9DPnwSYjh9wZkN8zD2V+LMYV6W9pQosVg=="],
+    "posthog-node": ["posthog-node@5.49.3", "", { "dependencies": { "@posthog/core": "^1.48.7" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-AhCdQZh2gj8v1gsbbeLO/UFT2Pw40DaGR5JHniersOnPnvZ/O9Sf3HgoJo9XczILGVvO66WmfPbXopaT05OE5A=="],
 
     "preact": ["preact@10.29.8", "", { "peerDependencies": { "preact-render-to-string": ">=5" }, "optionalPeers": ["preact-render-to-string"] }, "sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q=="],
 
