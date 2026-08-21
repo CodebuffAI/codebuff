@@ -43,6 +43,19 @@ export interface FreebuffModelOption {
   tagline: string
   /** Availability policy for the selector and server-side admission. */
   availability: 'always' | 'deployment_hours' | 'off_peak_only'
+  /**
+   * Where a pick lands while THIS model is closed by `availability`.
+   *
+   * Without it an unavailable pick falls to FALLBACK_FREEBUFF_MODEL_ID, which
+   * is the unlimited row — correct when a model is gone, wrong when it is
+   * merely asleep and a better substitute is awake. V4 Flash closes at peak
+   * precisely so its traffic lands on V4 Pro, and a silent detour to MiMo would
+   * defeat the whole point of closing it.
+   *
+   * Advisory, not a guarantee: it is used only when the named model is itself
+   * available, so this can never strand a pick on a second closed row.
+   */
+  unavailableFallback?: string
   /** Optional caveat shown in the picker (e.g. AI-training warning).
    *  Rendered in the warning/secondary color so users spot it before
    *  picking the model. */
@@ -724,49 +737,24 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
  *  Smaller than every window we have measured. */
 export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
 
-/** The "a better model exists" copy every superseded model points at, shared so
- *  the rows that carry it can't drift into different sentences. Two rows do
- *  today — MiniMax M3 and MiMo 2.5. (DeepSeek V4 Pro was the third until its
- *  08/13 GA build overtook Flash again; see DEEPSEEK_V4_PRO_MODEL.)
+/* Two supersedes notices lived here — FLASH_SUPERSEDES_NOTICE ("V4 Flash 07/31
+ * performs better for most tasks") and FLASH_RECOMMENDED_NOTICE ("V4 Flash
+ * 07/31 is the recommended pick") — and both were deleted on 2026-08-21 with
+ * their last referrers. The catalog now carries NO supersedes notice at all and
+ * no row is badged RECOMMENDED; ordering is the only steer left.
  *
- *  Names the DATED build. The wire id is undated and auto-updates, so the row a
- *  user is being steered TO is labelled "DeepSeek V4 Flash 07/31" in every
- *  picker (see DEEPSEEK_V4_FLASH_MODEL.displayName) — matching it exactly is
- *  what makes the notice point at something visible on screen rather than at a
- *  name nothing in the list carries.
+ * Worth reading in git before writing anything like them again, for two reasons
+ * that outlive the particular models:
  *
- *  Kept short on purpose: pickers render it as its own line, and in the CLI it
- *  is the longest line in the menu, so it sets the width of every card. */
-const FLASH_SUPERSEDES_NOTICE =
-  'DeepSeek V4 Flash 07/31 performs better for most tasks.'
-
-/* The Pro equivalent of the notice above lived here and was deleted on
- * 2026-08-18: nothing may steer a user TOWARD a model we are steering them off,
- * so its only referrer (GPT-5.6 Luna) now points at Flash. The reasoning it
- * carried is worth reading in git before writing anything like it again — it
- * was a SECOND notice on purpose, because Flash's steers off models that are
- * dearer AND weaker, while against Luna the cost comparison did not cleanly
- * favor either side. */
-
-/** The steer off a model that is dearer but NOT worse, which is V4 Pro since
- *  2026-08-19.
- *
- *  A third notice rather than reusing FLASH_SUPERSEDES_NOTICE, and the reason
- *  is that the other one makes a claim this one must not: "performs better for
- *  most tasks" is true of Flash against MiniMax M3 and false of Flash against
- *  the Pro 08/13 GA build, which beat it on every agentic benchmark we run.
- *  Reusing it would have the picker tell users something we know to be untrue,
- *  in a product where the picker is the only place most of them read anything.
- *
- *  So it steers on the one claim we own outright: what we RECOMMEND. No
- *  benchmark can contradict that, and it needs no cost disclosure to justify.
- *
- *  Kept to one short clause for the same reason FLASH_SUPERSEDES_NOTICE is: the
- *  CLI renders it as its own line inside a card, and a longer string is clipped
- *  rather than wrapped — which is how the first version of this failed, present
- *  in the payload and absent from the screen. */
-const FLASH_RECOMMENDED_NOTICE =
-  'DeepSeek V4 Flash 07/31 is the recommended pick.'
+ *  - BOTH EXPIRED WITHOUT ANYONE NOTICING. Each asserted Flash was the better
+ *    default. Flash became premium on 2026-08-18 and started closing for the
+ *    ten-hour peak window on 2026-08-21, so by the end the picker was steering
+ *    users toward a model that is asleep for part of every day.
+ *  - A NOTICE IS NOT JUST COPY. migrateSupersededFreebuffModelPreference
+ *    rewrites a SAVED pick on every load, so a stale notice does not merely
+ *    give bad advice — it silently moves users off the model they chose, on
+ *    every launch, with no action from them.
+ */
 
 /**
  * DeepSeek V4 Pro, on the 08/13 GA build (2026-08-12).
@@ -803,12 +791,18 @@ const DEEPSEEK_V4_PRO_MODEL = {
   // instead of ranking it. "Smartest" read as a recommendation the rest of the
   // catalog no longer makes.
   tagline: 'Deep reasoning',
-  // Unavailable 00:00-10:00 UTC (5pm-3am Pacific) as of 2026-08-19 — see
-  // DEEPSEEK_EXPENSIVE_WINDOW_UTC. Pro is the dearest row we serve and DeepSeek
-  // doubles every rate inside that window, so it is closed rather than merely
-  // discouraged there. The hour of lead-in exists because a session admitted
-  // just before peak keeps its model for a full hour.
-  availability: 'off_peak_only',
+  // ALWAYS, as of 2026-08-21 — and this is the direct consequence of the lane
+  // move, not an independent loosening. Pro was closed 00:00-10:00 UTC because
+  // "DeepSeek doubles every rate inside that window"; it is now served by
+  // Cheaper Inference on a FLAT card with no peak rate to hide from. Leaving it
+  // closed would have kept a ten-hour blackout whose only stated justification
+  // no longer applied to it.
+  //
+  // The window did not disappear — it moved to V4 Flash, which is still served
+  // by lanes that reprice at peak. Pro is what Flash's traffic is meant to land
+  // on there, which is why this row has to be open exactly when that one is
+  // shut. Change one and you must change the other.
+  availability: 'always',
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   premium: true,
@@ -821,24 +815,18 @@ const DEEPSEEK_V4_PRO_MODEL = {
   // three rungs as Flash. See DEEPSEEK_V4_REASONING_EFFORTS.
   efforts: DEEPSEEK_V4_REASONING_EFFORTS,
   defaultEffort: 'high',
-  // Steered OFF again as of 2026-08-19, on cost rather than on quality — and
-  // the distinction is the whole reason this notice is not the one MiniMax M3
-  // carries. Pro held a "V4 Flash performs better" notice until its 08/13 GA
-  // build won the agentic benchmarks back (Terminal Bench 2.1 72.1 → 87.9,
-  // DeepSWE 12.8 → 62.7, SWE-bench Verified 80.6%). Those numbers still stand;
-  // claiming Flash is the better model would be false.
+  // NO `supersededBy` as of 2026-08-21, and its removal is the point rather
+  // than housekeeping. This row carried "V4 Flash is what we recommend",
+  // steering users off Pro on COST — it read cache at $[redacted]/M off-peak and
+  // $[redacted]/M at peak, several times Flash, out of the same shared pool.
   //
-  // What changed is the price of being right. Pro reads cache at $[redacted]/M
-  // off-peak and $[redacted]/M at peak on the direct lane, against Flash's far
-  // cheaper rate, and cache reads are ~98% of an agent turn. Both rows draw on
-  // the SAME daily premium pool, so a user picking Pro spends the same quota
-  // for several times the money — which is what makes the honest steer "Flash
-  // is what we recommend", not "Flash is better".
-  supersededBy: {
-    modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    notice: FLASH_RECOMMENDED_NOTICE,
-    actionLabel: 'Switch to V4 Flash',
-  },
+  // Both halves of that argument inverted on the same day. Pro reads cache at
+  // $[redacted]/M FLAT on its new lane, and Flash is now the row that closes at
+  // peak. Pointing Pro at Flash would send users to a model that is asleep for
+  // ten hours precisely when this one is their best option — and because
+  // `migrateSupersededFreebuffModelPreference` rewrites a SAVED pick on every
+  // load, it would do that silently and repeatedly. That exact failure is
+  // documented on MIMO_V25_MODEL; this is the same trap pointing the other way.
   // No `isNew`. The badge exists to pull attention to a row, which is the
   // opposite of what this one should do now.
 } as const satisfies FreebuffModelOption
@@ -884,7 +872,25 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // already gone when Pro took the recommendation on 2026-08-12. The picker
   // renders the premium group heading, so the tagline does not have to.
   tagline: 'Smart & Fast',
-  availability: 'always',
+  // CLOSED 00:00-10:00 UTC (5pm-3am Pacific) as of 2026-08-21, inheriting the
+  // window V4 Pro used to hold — see DEEPSEEK_EXPENSIVE_WINDOW_UTC. Flash is
+  // still served by lanes that double at peak while Pro moved to a flat card,
+  // so the row worth closing is now this one. The hour of lead-in is built into
+  // that window and matters for the same reason it always did: a session
+  // admitted just before peak keeps its model for a full hour.
+  //
+  // This row is DEFAULT_FREEBUFF_MODEL_ID, so closing it is a bigger deal than
+  // closing Pro was — a new user landing during the window gets the fallback
+  // below rather than the recommendation. That is the trade being made
+  // deliberately: ten hours on a cheap flat lane beats ten hours on a doubled
+  // one.
+  availability: 'off_peak_only',
+  // Peak traffic lands on V4 Pro, not on the unlimited row. Closing Flash is
+  // only worth doing if what replaces it is the cheaper model rather than the
+  // weaker one, and Pro is `availability: 'always'` precisely so it can take
+  // this. Both rows are premium, so a user redirected here spends the same
+  // pool they would have spent anyway.
+  unavailableFallback: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   // TEMPORARY (2026-08-18). Flash was the unlimited model every free account
@@ -985,14 +991,13 @@ const MINIMAX_M3_MODEL = {
   multimodal: true,
   // MiniMax M3 supports adaptive thinking or disabled thinking, but no effort
   // levels. A depth picker would therefore be cosmetic.
-  // Flash overtook M3 on quality and is free rather than premium-pooled. M3
-  // stays selectable — it is still the no-AI-training pick and natively
-  // multimodal — but the picker says Flash is the better default.
-  supersededBy: {
-    modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    notice: FLASH_SUPERSEDES_NOTICE,
-    actionLabel: 'Switch to V4 Flash',
-  },
+  // NO `supersededBy`. This was the last supersedes notice in the catalog and
+  // it went on 2026-08-21 with the rest: the picker no longer nudges anyone
+  // anywhere. Its claim had also expired twice over — it pointed at Flash as
+  // "free rather than premium-pooled" (Flash became premium on 2026-08-18) and
+  // as the better default (Flash now closes for ten hours a day). A nudge that
+  // survives the argument it was making is worse than none, because
+  // migrateSupersededFreebuffModelPreference acts on it silently.
 } as const satisfies FreebuffModelOption
 
 const GPT_5_6_LUNA_MODEL = {
@@ -1216,18 +1221,20 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // FREEBUFF_PAUSED_FREE_MODEL_IDS) instead of wedging those clients the way
 // #1801 wedged the limited tier.
 export const FREEBUFF_MODELS = [
+  // FIRST as of 2026-08-21, reversing the "last on purpose" placement it held
+  // while it was the expensive row. Pro now reads cache at $[redacted]/M FLAT —
+  // the cheapest premium row we serve — and it is the row that stays open when
+  // V4 Flash closes for the ten-hour peak window. A model that is both the
+  // cheapest and the only one always available should not be the one a user has
+  // to scroll past.
+  //
+  // Ordering is now the ONLY steer in this list. The supersedes notices are all
+  // gone and nothing is badged RECOMMENDED, so position is what says "start
+  // here" — which means changing this order is a product decision, not a tidy-up.
+  DEEPSEEK_V4_PRO_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   GPT_5_6_LUNA_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
-  // LAST on purpose, and the only row placed by price rather than by quality.
-  // Pro is selectable and is nobody's recommendation: it spends the same daily
-  // session as Flash for several times the cost, so it sits where a user
-  // reaches it deliberately rather than by scanning from the top. It is NOT in
-  // FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS — that list renders a compact, muted
-  // row, and one muted row among full-size ones reads as broken rather than as
-  // de-emphasized (see the note on that constant). Ordering plus its
-  // supersededBy notice does the steering without that.
-  DEEPSEEK_V4_PRO_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 // Flash joined this list on 2026-08-18 (TEMPORARY — see
@@ -1266,20 +1273,30 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
 export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   Record<string, { limit: number; pool: string; poolLabel: string }>
 > = {
-  // Closed for ten hours a day besides (availability: 'off_peak_only'), and the
-  // dearest row we serve: $[redacted]/M cache off-peak, $[redacted]/M at peak.
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
-    limit: 1,
-    pool: 'deepseek_pro',
-    poolLabel: 'V4 Pro',
-  },
+  // V4 Pro came out on 2026-08-21 and should stay out: it moved to a flat
+  // $[redacted]/M cache read, which is the cheapest premium row we serve. Capping
+  // the cheap row is what the table exists NOT to do.
+  //
+  // Luna is capped at TWO — half the shared premium pool, not all of it — and
+  // the number is a comparison rather than a budget. At $[redacted]/M cache read it
+  // is ~3x Pro's, so a pool spent entirely on Luna costs several times the same
+  // pool spent on Pro. Two lets a user run it alongside the cheaper row instead
+  // of choosing between them, while a full four would make the expensive row
+  // the default way to spend the day.
+  //
+  // Anything added here is automatically a FIXED pool (no streak, referral or
+  // grant may raise it) and automatically counts ADMISSIONS rather than session
+  // units. The second is not optional — units floor at 0.1, so a unit-counted
+  // "2 a day" is really 20 a day. That was a real prod bug on 2026-08-20.
+  //
+  // Flash was never here and still should not be: it is the recommended
+  // default, and capping the row most users are steered onto would push them
+  // off the catalog's cheapest competent option after a single hour.
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
-    limit: 1,
+    limit: 2,
     pool: 'luna',
     poolLabel: 'Luna',
   },
-  // Cheaper than Pro per token but the second-dearest row, and unlike the
-  // DeepSeek pair it has no cheap lane to fall back to.
 }
 
 /** Whether `model` carries a ceiling of its own beyond the shared pool. */
@@ -1679,12 +1696,17 @@ export type FreebuffWebPremiumModelId =
  *  It carries the AI-training notice, so pickers using it must render the
  *  model's `warning`. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
- *  the model a new Cloud thread starts on. DeepSeek V4 Flash 07/31 as of
- *  2026-08-18, because V4 Pro — which held this from 2026-08-12 — is paused for
- *  free mode (FREEBUFF_PAUSED_FREE_MODEL_IDS).
+ *  the model a new Cloud thread starts on. DeepSeek V4 Pro as of 2026-08-21.
+ *
+ *  A STARTING POSITION, not an endorsement — nothing in the catalog is badged
+ *  RECOMMENDED any more. It is Pro because a default has to be joinable and Pro
+ *  is the only premium row open at every hour: V4 Flash now closes for the
+ *  ten-hour peak window, and a default that is unavailable for part of every
+ *  day is a default that fails admission for the users least able to diagnose
+ *  it.
  *
  *  A browser build is the workload where model quality shows up most: one long
  *  agentic run against a live sandbox, where a wrong turn early costs the whole
@@ -1711,7 +1733,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  browser surfaces can steer independently. They name the same model today and
  *  diverged as recently as 2026-08-04 → 2026-08-12. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without
@@ -2725,7 +2747,20 @@ export function resolveAvailableFreebuffModel(
   now: Date = new Date(),
 ): FreebuffModelId {
   const resolved = resolveFreebuffModel(id)
-  return isFreebuffModelAvailable(resolved, now)
-    ? resolved
-    : FALLBACK_FREEBUFF_MODEL_ID
+  if (isFreebuffModelAvailable(resolved, now)) return resolved
+  // A closed row may name where its traffic should go instead — V4 Flash sends
+  // its peak hours to V4 Pro. Checked for availability itself rather than
+  // trusted, so a chain of closed rows can never strand a pick; anything
+  // unresolvable still lands on the unlimited fallback.
+  const declared = (
+    SUPPORTED_FREEBUFF_MODELS as readonly FreebuffModelOption[]
+  ).find((candidate) => candidate.id === resolved)?.unavailableFallback
+  if (
+    declared &&
+    isFreebuffModelId(declared) &&
+    isFreebuffModelAvailable(declared, now)
+  ) {
+    return declared
+  }
+  return FALLBACK_FREEBUFF_MODEL_ID
 }

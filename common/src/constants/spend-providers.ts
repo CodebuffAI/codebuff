@@ -42,6 +42,7 @@
  */
 export const SPEND_PROVIDER_IDS = [
   'canopywave',
+  'cheaper-inference',
   'crof',
   'deepseek',
   'fireworks',
@@ -92,6 +93,7 @@ export function toSpendProvider(
 
 /** Display names. Only where casing or branding differs from the id. */
 const PROVIDER_LABELS: Partial<Record<SpendProviderId, string>> = {
+  'cheaper-inference': 'Cheaper Inference',
   crof: 'CrofAI',
   deepseek: 'DeepSeek',
   luminal: 'Luminal',

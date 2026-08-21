@@ -45,13 +45,21 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * Keep it to: why, what the limit is, what is still free. Anything more belongs
  * on the rows.
  *
+ * CUT AGAIN on 2026-08-21, to three facts: which row sleeps at peak, what to
+ * use instead, and the one per-model cap. Everything it used to carry had
+ * stopped being true — V4 Pro is no longer 1-a-day and no longer pauses (it is
+ * the peak-hours recommendation now), and MiniMax M3 was withdrawn — which is
+ * the recurring hazard with this string: it describes policy that moves, from a
+ * place no test reads. Check it whenever a cap or an availability window
+ * changes.
+ *
  * Signed, because this is us asking users to accept less than they had. An
  * unsigned notice reads as a system message; a signed one reads as someone
  * taking responsibility for it, which is the honest framing when the cause is
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'DeepSeek costs have spiked, so limits are tighter for now: V4 Pro and GPT-5.6 Luna are 1 session a day, V4 Pro pauses at peak times, and MiniMax M3 is unavailable. MiMo 2.5 stays unlimited. —Freebuff Team'
+  'V4 Flash pauses at peak times — V4 Pro, a legacy build, stays available then. GPT-5.6 Luna is 2 sessions a day. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

@@ -186,51 +186,76 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).not.toContain('› MiniMax M3')
   })
 
-  test('shows the switch-to-Flash nudge only on the row the user is on', async () => {
+  /**
+   * ARMED, NOT DELETED. The catalog carries NO supersedes notice as of
+   * 2026-08-21: V4 Pro held the last one ("V4 Flash is what we recommend") and
+   * it was removed when Pro moved to a flat-priced lane and Flash became the
+   * row that sleeps at peak — pointing Pro at Flash now steers users to a model
+   * that is closed for ten hours precisely when Pro is their best option.
+   *
+   * The RULE this guards — only the selected row nags, so the list does not
+   * repeat one notice on every row it applies to — is UI logic that outlives
+   * any particular pair of models, so it runs again automatically the next time
+   * a supersedes notice exists rather than being re-derived from a regression.
+   */
+  const allModelIds = FREEBUFF_MODELS.map((m) => m.id)
+  const supersededModelId = allModelIds.find((id) =>
+    getFreebuffModelSupersededBy(id, allModelIds),
+  )
+  test.if(Boolean(supersededModelId))(
+    'shows the supersedes nudge only on the row the user is on',
+    async () => {
+      useFreebuffSessionStore.getState().setSession({
+        status: 'none',
+        accessTier: 'full',
+      })
+      // Assert against the real copy rather than a hardcoded fragment, so
+      // rewording the notice doesn't fail this test for the wrong reason. It
+      // must still render on ONE line — the width math reserves its length.
+      const superseded = getFreebuffModelSupersededBy(
+        supersededModelId!,
+        allModelIds,
+      )!
+      const notice = superseded.notice
+      const occurrences = (frame: string) => frame.split(notice).length - 1
+
+      // On a superseded model: the nudge appears, once, on that model's card.
+      useFreebuffModelStore.getState().setSelectedModel(supersededModelId!)
+      const onSuperseded = (await renderSelector()).captureCharFrame()
+      expect(occurrences(onSuperseded)).toBe(1)
+
+      // On a row that is NOT superseded, that notice stays quiet — otherwise
+      // the list would repeat it on every row it applies to.
+      const otherId = allModelIds.find((id) => id !== supersededModelId)!
+      useFreebuffModelStore.getState().setSelectedModel(otherId)
+      const onOther = (await renderSelector()).captureCharFrame()
+      expect(occurrences(onOther)).toBe(0)
+
+      // And on the replacement itself: no nudge at all.
+      useFreebuffModelStore
+        .getState()
+        .setSelectedModel(superseded.modelId)
+      const onCurrent = (await renderSelector()).captureCharFrame()
+      expect(occurrences(onCurrent)).toBe(0)
+    },
+  )
+
+  test('badges the new builds so a returning user notices they changed', async () => {
+    // Independent of the supersedes machinery above, which is why it is its own
+    // test now: `isNew` is a property of the row, and Flash still carries it.
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
     })
-    // Assert against the real copy rather than a hardcoded fragment, so
-    // rewording the notice doesn't fail this test for the wrong reason. It must
-    // still render on ONE line — the width math reserves exactly its length.
-    // V4 Pro carries the only supersedes notice left: MiniMax M3's went with
-    // the model on 2026-08-20, and MiMo's went when Flash became premium.
-    const notice = getFreebuffModelSupersededBy(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-      FREEBUFF_MODELS.map((m) => m.id),
-    )!.notice
-    const occurrences = (frame: string) => frame.split(notice).length - 1
-
-    // On a superseded model: the nudge appears, once, on that model's card.
-    useFreebuffModelStore
-      .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    const onSuperseded = (await renderSelector()).captureCharFrame()
-    expect(occurrences(onSuperseded)).toBe(1)
-    // It names the dated build, which is what the row it steers to is labelled.
-    expect(notice).toContain('DeepSeek V4 Flash 07/31')
-    // The new builds are badged so a returning user notices they changed.
-    expect(onSuperseded).toContain('NEW')
-
-    // MiMo is superseded too and is on screen here, but only the selected row
-    // nags — otherwise the list would repeat the same notice on every row it
-    // applies to. MiMo 2.5 is on screen and, when it is not the selection, its
-    // own notice stays quiet. (V4 Pro played this part until it was paused on
-    // 2026-08-18 and left the picker entirely.)
-    useFreebuffModelStore
-      .getState()
-      .setSelectedModel(FREEBUFF_MIMO_V25_MODEL_ID)
-    const onUnsuperseded = (await renderSelector()).captureCharFrame()
-    expect(onUnsuperseded).toContain('MiMo 2.5')
-
-    // On the replacement itself: no nudge at all. (Picking the recommended
-    // model also collapses the picker to its hero card.)
+    // Selected explicitly: `isNew` sits on the V4 Flash row, and the collapsed
+    // view draws only the card the user is on — which is V4 Pro by default
+    // since 2026-08-21, and carries no badge.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    const onCurrent = (await renderSelector()).captureCharFrame()
-    expect(occurrences(onCurrent)).toBe(0)
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('DeepSeek V4 Flash 07/31')
+    expect(frame).toContain('NEW')
   })
 
   test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
@@ -258,17 +283,18 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
-    const recommendedLabelIndex = frame.indexOf('RECOMMENDED')
-    // The unlimited recommendation is MiMo 2.5 since 2026-08-18 — Flash moved
-    // into the premium group and can no longer be what a spent user lands on.
-    const recommendedModelIndex = frame.indexOf(
-      'MiMo 2.5',
-      recommendedLabelIndex,
-    )
+    // Located by the ROW rather than by a ' RECOMMENDED ' border title, which
+    // was removed on 2026-08-21 — nothing in the picker is badged as a
+    // recommendation any more. The property under test is unchanged: when the
+    // premium pool is spent, the row the user is steered onto sits in the
+    // UNLIMITED group rather than above the list.
+    //
+    // MiMo 2.5 is that row since 2026-08-18 — Flash moved into the premium
+    // group and can no longer be what a spent user lands on.
+    const heroModelIndex = frame.indexOf('MiMo 2.5', unlimitedHeaderIndex)
 
     expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(recommendedLabelIndex).toBeGreaterThan(unlimitedHeaderIndex)
-    expect(recommendedModelIndex).toBeGreaterThan(recommendedLabelIndex)
+    expect(heroModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
   })
 
   test('collapses to the unlimited hero when the premium default is spent', async () => {
@@ -282,9 +308,13 @@ describe('FreebuffModelSelector tier layout', () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
+      // Keyed on the CURRENT default rather than on a named model: the default
+      // moved from Flash to V4 Pro on 2026-08-21, and this fixture has to
+      // exhaust the pool of whichever row the picker will actually open on, or
+      // the step-down under test never triggers.
       rateLimitsByModel: {
-        [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: {
-          model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        [DEFAULT_FREEBUFF_MODEL_ID]: {
+          model: DEFAULT_FREEBUFF_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',

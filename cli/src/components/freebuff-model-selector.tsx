@@ -64,8 +64,10 @@ import type {
   ScrollBoxRenderable,
 } from '@opentui/core'
 
-// The picker opens collapsed to a single recommended hero so a new user can
-// start with one Enter press without reading six boxes. The "see all models"
+// The picker opens collapsed to a single hero card so a new user can start with
+// one Enter press without reading six boxes. The hero is the DEFAULT pick, not
+// a recommendation — the ' RECOMMENDED ' badge and every supersedes nudge were
+// removed on 2026-08-21, leaving list ORDER as the only steer. The "see all models"
 // toggle reveals the rest, grouped into the same product/availability tiers.
 //
 // Section grouping (expanded view): every model row, including the recommended
@@ -77,10 +79,12 @@ import type {
 // amber when exhausted, the moment its rows grey out). When collapsed there's
 // no PREMIUM header, so the parent keeps a below-picker counter for the
 // collapsed state (and for the limited tier, which has no premium section).
-// Since 2026-08-12 the full-access hero is the PREMIUM DeepSeek V4 Pro 08/13
-// again (DEFAULT_FREEBUFF_MODEL_ID), so it draws on that same pool and flips to
-// the unlimited Flash once the pool empties — the hero must always be joinable.
-// The limited tier's hero stays the always-available Flash. UNLIMITED needs no
+// The full-access hero is DeepSeek V4 Pro (DEFAULT_FREEBUFF_MODEL_ID) as of
+// 2026-08-21, so it draws on the premium pool and flips to the unlimited MiMo
+// once that empties — the hero must always be joinable. Pro is also the only
+// premium row open at every hour, which is why it holds this slot: V4 Flash now
+// closes for the ten-hour peak window. The limited tier's hero is MiMo 2.5,
+// which is that tier's entire catalog. UNLIMITED needs no
 // annotation. Empty sections are filtered so a model set with no premium (or no
 // unlimited) entries doesn't render an orphan header.
 //
@@ -112,9 +116,10 @@ const TOGGLE_ID = '__freebuff_toggle__'
  * Space) commits the focused row — or, on the toggle, expands/collapses the
  * list. Mouse click commits in one step.
  *
- * Layout: the recommended model renders as a titled "RECOMMENDED" card. When
- * expanded, every full-access row is grouped into PREMIUM / UNLIMITED sections
- * so the recommended row's tier is explicit without a per-row chip; the shared
+ * Layout: the collapsed view renders one card — the default starting pick, NOT
+ * a recommendation; nothing is badged and the catalog names no recommended
+ * model. When expanded, every full-access row is grouped into PREMIUM /
+ * UNLIMITED sections so that row's tier is explicit without a per-row chip; the shared
  * premium-session quota rides the PREMIUM header. Names align in a column
  * so taglines line up across rows, and the secondary details (warning /
  * deployment hours) always sit on their own centered line under the name —
@@ -826,10 +831,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     const warningColor = theme.secondary
 
     // Focused row gets the bright primary border (and arrow). Every other row —
-    // including the recommended card when the cursor has moved elsewhere — stays
+    // including the collapsed hero when the cursor has moved elsewhere — stays
     // quiet (gray border, brightening only on hover) so it never competes with
-    // the user's current selection. The recommended card still reads as special
-    // via its "RECOMMENDED" border title, which the border color carries.
+    // the user's current selection. Since the ' RECOMMENDED ' border title was
+    // removed on 2026-08-21 the hero has no visual distinction of its own,
+    // which is the intent: it is where the cursor starts, not a pick we endorse.
     const borderColor = isFocused
       ? theme.primary
       : isHovered
@@ -909,8 +915,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       <Button
         key={model.id}
         id={model.id}
-        title={recommended ? ' RECOMMENDED ' : undefined}
-        titleAlignment={recommended ? 'left' : undefined}
+        // NO ' RECOMMENDED ' title as of 2026-08-21. The collapsed view still
+        // opens on one card so a new user can start with a single Enter, but
+        // that card is a STARTING POSITION rather than an endorsement — the
+        // catalog no longer names a recommended model, and ordering is the only
+        // steer left. Re-adding a title here re-adds the recommendation.
+        titleAlignment={undefined}
         onClick={() => {
           setFocusedId(model.id)
           if (canJoin) pick(model.id)

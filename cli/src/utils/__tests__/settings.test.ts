@@ -42,63 +42,39 @@ describe('freebuff model preference', () => {
     expect(loadFreebuffModelPreference()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
-  test('steers a saved superseded pick to its replacement on every load', () => {
+  test('keeps a saved pick exactly as chosen, for every catalog row', () => {
     testConfigDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'freebuff-settings-test-'),
     )
     getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
 
-    // A preference saved on a row that is still superseded. This was MiniMax
-    // M3 until it was withdrawn on 2026-08-20 — a withdrawn model resolves to
-    // nothing, so it can no longer demonstrate a MIGRATION. Written directly so
-    // it has no migration marker, exactly like a real pre-upgrade settings file.
+    // Two tests lived here, both asserting a stored V4 Pro pick was rewritten
+    // to Flash on every launch. That migration is GONE as of 2026-08-21 along
+    // with the supersedes notice driving it — Pro is now the cheapest premium
+    // row and the catalog's first entry, so steering off it would be backwards.
+    //
+    // Written directly, with no migration marker, exactly like a real
+    // pre-upgrade settings file — which is the case that would silently rewrite
+    // if a notice came back.
     fs.writeFileSync(
       path.join(testConfigDir, 'settings.json'),
       JSON.stringify({ freebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }),
     )
     expect(loadFreebuffModelPreference()).toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+
+    // And a round-trip through save/load leaves every selectable row alone. The
+    // property is "the picker is the user's decision, not ours" — asserted
+    // across the catalog rather than on one row, because the failure mode is a
+    // notice added for ONE model quietly acquiring this behaviour.
+    for (const id of [
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-
-    // Re-picking M3 does NOT make it the standing default again: the next
-    // session steers back to Flash. Selecting it still works for the session
-    // the user is in — this only governs what a fresh launch opens on.
-    saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-
-    // NOT the same for MiMo 2.5 any more. It stopped being superseded on
-    // 2026-08-18, when Flash became premium and MiMo became the only unlimited
-    // row — so a user who picks the model that always works keeps it, instead
-    // of being steered every launch onto one their daily pool may not cover.
-    saveFreebuffModelPreference(FREEBUFF_MIMO_V25_MODEL_ID)
-    expect(loadFreebuffModelPreference()).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
-  })
-
-  test('steers a saved V4 Pro pick to Flash on every load', () => {
-    testConfigDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'freebuff-settings-test-'),
-    )
-    getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
-
-    // Pro is selectable again as of 2026-08-19 and is nobody's recommendation,
-    // so a stored pick migrates rather than being dropped: it costs several
-    // times Flash for the same daily session, and a standing default is the one
-    // place that difference compounds silently, launch after launch.
-    fs.writeFileSync(
-      path.join(testConfigDir, 'settings.json'),
-      JSON.stringify({ freebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }),
-    )
-    expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-
-    // Re-picking it does not make it the standing default again. Selecting it
-    // for the session the user is in still works — this governs launches.
-    saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
+      FREEBUFF_MIMO_V25_MODEL_ID,
+    ]) {
+      saveFreebuffModelPreference(id)
+      expect(loadFreebuffModelPreference()).toBe(id)
+    }
   })
 })
