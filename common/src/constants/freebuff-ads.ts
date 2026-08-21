@@ -465,11 +465,15 @@ export const AD_SHOWCASE_REACH = {
  *
  * ## Which of these numbers are real, and which are missing on purpose
  *
- * `likes` and `replies` are read straight off X's own embed for each post, so
- * they are exact — as of the date below. `reposts` and `views` are NOT exposed
- * by any endpoint we can reach without an authenticated X API key, so they are
- * `null` until somebody copies them out of X's analytics by hand. The card
- * omits any metric that is null rather than showing a placeholder: a made-up
+ * `likes` and `replies` come from X's syndication endpoint
+ * (`cdn.syndication.twimg.com/tweet-result?id=…`, fields `favorite_count` and
+ * `conversation_count`), so they are exact as of the date below. Refresh them
+ * from there rather than by eye.
+ *
+ * `reposts` and `views` are NOT returned by that endpoint, by oEmbed, or by the
+ * embed page — nothing reachable without an authenticated X API key exposes
+ * them. They stay `null` until somebody pastes them out of X's own analytics,
+ * and the card omits a null metric rather than showing a placeholder. A made-up
  * repost count on the page whose entire argument is "buy reposts" would be the
  * worst possible thing to be caught doing.
  *
@@ -477,7 +481,7 @@ export const AD_SHOWCASE_REACH = {
  * not a live read, and a post keeps accruing likes after we write one down.
  * Treat a refresh as routine, and never round one UP.
  */
-export const AD_SHOWCASE_TWEET_STATS_AS_OF = 'August 2026'
+export const AD_SHOWCASE_TWEET_STATS_AS_OF = 'August 21, 2026'
 
 export interface AdShowcaseTweet {
   /** Exactly as posted. Line breaks are meaningful; keep them. */
@@ -486,7 +490,14 @@ export interface AdShowcaseTweet {
   postedAt: string
   likes: number
   replies: number
-  /** Not reachable without an authenticated X API key — see above. */
+  /**
+   * Not reachable without an authenticated X API key — see above.
+   *
+   * To fill these in: open the post on X while signed in as the author, click
+   * "View post engagements", and copy the Impressions and Reposts figures.
+   * Both render the moment they stop being null — `views` as X's own
+   * bar-chart metric, `reposts` next to the like.
+   */
   reposts: number | null
   views: number | null
   /** Optional still for a post carrying a photo or video. Rendered in a fixed
@@ -514,16 +525,16 @@ export const AD_SHOWCASE_TWEETS: Record<string, AdShowcaseTweet> = {
   'https://x.com/victorxheng/status/2086989599646314583': {
     text: "you can now get unlimited free GLM 5.2 for the first time in history 😳\n\nthis is bigger than ever. here's how to do it:\n\n1 / cancel your existing subscriptions:\n\ncancel your Lovable, Cursor, and Claude Code subscriptions. you don't need them anymore",
     postedAt: '6:34 PM · Aug 10, 2026',
-    likes: 857,
-    replies: 809,
+    likes: 871,
+    replies: 829,
     reposts: null,
     views: null,
   },
   'https://x.com/victorxheng/status/2085813482558259233': {
     text: 'bolt lost almost all their customers due to this free alternative 😳\n\ntheir $700M valuation just got wiped out overnight.\n\nwidely regarded as one of the worst AI products in history, bolt is beign replaced by this small open-source repo.',
     postedAt: '12:41 PM · Aug 7, 2026',
-    likes: 731,
-    replies: 801,
+    likes: 745,
+    replies: 822,
     reposts: null,
     views: null,
   },
