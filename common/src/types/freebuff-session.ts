@@ -41,6 +41,98 @@ export interface FreebuffSessionEntitlementBreakdown {
    * half goes away if they stop engaging.
    */
   level?: number
+  /**
+   * Sessions included by the account's PAID subscription tier
+   * (`common/constants/freebuff-subscriptions.ts`).
+   *
+   * When present it is the whole of `limit`, not an addition to it: a
+   * subscribable model is metered by the subscription instead of by the free
+   * pool that would otherwise cover it, so `base`/`referral`/`streak` are all
+   * zero on that row. A subscriber whose row read "4 subscription + 5 premium"
+   * would reasonably expect nine sessions, and the shared premium pool is
+   * exactly what the subscription replaces.
+   *
+   * Omitted for everyone without a live subscription, so an older client that
+   * never reads it still sums to the right `limit`.
+   */
+  subscription?: number
+}
+
+/**
+ * A purchasable tier, as advertised to a client.
+ *
+ * Mirrors the catalog in `constants/freebuff-subscriptions.ts` so a client can
+ * render plan cards and the paywall without its own copy of the numbers.
+ */
+export interface FreebuffSubscriptionTierOffer {
+  id: string
+  displayName: string
+  priceUsd: number
+  /** What this caller would actually be charged for the first period —
+   *  `introPriceUsd` only while the account has never used its intro. */
+  firstPeriodPriceUsd: number
+  dailySessions: number
+  fiveDaySessions: number
+  monthlySessions: number
+  dailyPremiumSessions: number
+  /** Plain-language constraints for the plan card and the paywall. */
+  disclaimers: string[]
+  /** True for the tier the caller currently holds. */
+  current: boolean
+  /** True when this tier is above the caller's current one. */
+  upgrade: boolean
+}
+
+/**
+ * A subscriber's live usage against their tier, for the circular indicators.
+ *
+ * All four figures come from ONE server-side scan and are sent together, so a
+ * client never has to compute a ring from a partial picture or issue a second
+ * request to draw one.
+ */
+export interface FreebuffSubscriptionUsage {
+  dayUsed: number
+  dayLimit: number
+  fiveDayUsed: number
+  fiveDayLimit: number
+  monthUsed: number
+  monthLimit: number
+  /** Sessions spent today on Luna / DeepSeek V4 Pro, and the daily sub-cap. */
+  dayPremiumUsed: number
+  dayPremiumLimit: number
+  /** ISO instant the DAILY window resets. */
+  dayResetAt: string
+  /** ISO instant the billing period ends, i.e. when the monthly cap resets. */
+  periodEndsAt: string
+}
+
+/**
+ * Everything a client needs to render subscription state, the usage rings, and
+ * the paywall — in one block on the session response.
+ *
+ * Sent only to callers in the rollout audience, so its absence means "this
+ * account has no subscriptions surface" rather than "no data".
+ */
+export interface FreebuffSubscriptionInfo {
+  /** The caller's tier id, or null when they have no live subscription. */
+  tierId: string | null
+  /** Present only while subscribed. */
+  usage?: FreebuffSubscriptionUsage
+  /** Raw Stripe status, so a client can surface a failed payment. */
+  status?: string
+  /** True when the subscription lapses at period end. */
+  cancelAtPeriodEnd?: boolean
+  /** The full catalog, current tier flagged. Drives every upgrade CTA. */
+  tiers: FreebuffSubscriptionTierOffer[]
+  /**
+   * Which limit the caller is currently up against, if any. What turns the
+   * dropdown into a paywall rather than a usage display.
+   *
+   * `premium_daily` means only the expensive models are blocked — the cheaper
+   * ones are still usable today, and the client should say so rather than
+   * implying the whole plan is spent.
+   */
+  blockedBy?: 'daily' | 'five_day' | 'monthly' | 'premium_daily'
 }
 
 export interface FreebuffSessionRateLimit {
@@ -192,6 +284,17 @@ export const getRateLimitsByModel = (
   session && 'rateLimitsByModel' in session
     ? (session as { rateLimitsByModel?: FreebuffSessionRateLimitByModel })
         .rateLimitsByModel
+    : undefined
+
+/** Pull the per-model subscription offers off whichever statuses carry them
+ *  (none, active, ended). Loose parameter type for the same reason as
+ *  `getRateLimitsByModel`. Undefined from a server that predates
+ *  subscriptions, so callers render nothing rather than an empty upsell. */
+export const getSubscriptionInfo = (
+  session: { status: string } | null | undefined,
+): FreebuffSubscriptionInfo | undefined =>
+  session && 'subscription' in session
+    ? (session as { subscription?: FreebuffSubscriptionInfo }).subscription
     : undefined
 
 /**
@@ -351,6 +454,14 @@ export type FreebuffSessionServerResponse = (
        * a client renders it only when there is something true to render.
        */
       standing?: FreebuffStandingInfo
+      /**
+       * Purchasable per-model subscriptions and the caller's state on each.
+       *
+       * Sent on the pre-join response because that is the state that renders a
+       * picker, and the picker is where "subscribe" belongs. Absent when the
+       * catalog is empty or the server predates subscriptions.
+       */
+      subscription?: FreebuffSubscriptionInfo
     } & FreebuffLimitedModeReason)
   | ({
       status: 'active'
@@ -366,6 +477,9 @@ export type FreebuffSessionServerResponse = (
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Included for Web/Cloud picker reads that request full quota details. */
       referral?: FreebuffReferralInfo
+      /** Subscription offers and state, so an in-session picker can still
+       *  render "subscribed" badges and an upgrade CTA. */
+      subscription?: FreebuffSubscriptionInfo
     } & FreebuffLimitedModeReason)
   | ({
       /** Session is over. While `instanceId` is present we're inside the
