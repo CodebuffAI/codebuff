@@ -33,6 +33,27 @@
  */
 
 // ---------------------------------------------------------------------------
+// The day boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * Every daily boundary in the ads system — spend caps, per-user engagement
+ * ceilings, delivery reporting, the placements spend ledger's `day` column —
+ * is a PACIFIC calendar day.
+ *
+ * Not UTC, and this is worth one line of explanation: every other daily budget
+ * in the product already resets Pacific (session pools, spend ceilings,
+ * `freebuff_daily_usage`), and an advertiser whose "day" ended at a different
+ * hour than the user quota that feeds it would see delivery that appears to
+ * arrive before it was funded.
+ *
+ * It lives in `common` rather than beside the console because the Stripe
+ * webhook — in `web/`, which cannot import `freebuff/web` — has to compute the
+ * same day the console does.
+ */
+export const AD_RESET_TIMEZONE = 'America/Los_Angeles'
+
+// ---------------------------------------------------------------------------
 // Pricing
 // ---------------------------------------------------------------------------
 
