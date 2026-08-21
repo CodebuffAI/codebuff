@@ -1603,6 +1603,13 @@ export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
  *  the request authenticates as the Freebuff Web service account; browser and
  *  normal API callers must not be able to select another user's session row. */
 export const FREEBUFF_ACTING_USER_HEADER = 'x-freebuff-acting-user-id'
+/** Trusted server-to-server companion to the acting-user header: the Freebuff
+ *  Web/Cloud proxy sets it to '1' after verifying, server-side, that the
+ *  acting account holds the god/admin role on Freebuff Web. Like the
+ *  acting-user header it is honored only when the request authenticates as
+ *  the Freebuff Web service account; from any other caller it is ignored, so
+ *  forging it buys nothing. */
+export const FREEBUFF_PRIVILEGED_USER_HEADER = 'x-freebuff-privileged-user'
 /** Trusted Freebuff Web/Cloud session-proxy hint. Keeps the normal CLI GET
  * response compact while letting the browser model picker request zero-usage
  * quota snapshots so it can render accurate "N of M sessions" labels. */
