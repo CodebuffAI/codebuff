@@ -141,6 +141,13 @@ interface FreebuffModelSelectorProps {
    *  adjacent as one unit. Lives inside the scrollbox, so it scrolls with the
    *  rest of the content rather than being pinned below it. */
   belowToggle?: React.ReactNode
+  /** Freezes the picker's clock at this instant (epoch ms) instead of reading
+   *  real time. Tests pass it because row availability is time-of-day
+   *  dependent — V4 Pro closes during DeepSeek's expensive window (00:00-10:00
+   *  UTC), which silently turned assertions about its card into assertions
+   *  about what hour CI happened to run at. Unset in production, where the
+   *  clock ticks so a row reopens without a relaunch. */
+  nowMs?: number
 }
 
 /** The rows the grid shows a tier. GLM 5.2 is a referral reward, not a freely-pickable
@@ -172,6 +179,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   maxHeight,
   onExpandedChange,
   belowToggle,
+  nowMs,
 }) => {
   const theme = useTheme()
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
@@ -185,7 +193,10 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const accessTier =
     (session && 'accessTier' in session ? session.accessTier : undefined) ??
     'full'
-  const now = useNow(60_000)
+  // The interval is cancelled outright when the clock is pinned, so a frozen
+  // picker never re-renders itself back onto real time.
+  const liveNow = useNow(60_000, nowMs === undefined)
+  const now = nowMs ?? liveNow
   const deploymentAvailabilityLabel = useMemo(
     () => getFreebuffDeploymentAvailabilityLabel(new Date(now)),
     [now],

@@ -30,6 +30,24 @@ import { useFreebuffSessionStore } from '../../state/freebuff-session-store'
 
 let cleanupRenderer: (() => void) | undefined
 
+/**
+ * The instant every render in this file happens at.
+ *
+ * Row availability is time-of-day dependent, so reading the real clock made
+ * these assertions depend on the hour CI ran at: V4 Pro is `off_peak_only` and
+ * closes for DeepSeek's expensive window (00:00-10:00 UTC), and a closed row
+ * draws no supersession notice and is not joinable — which is how the
+ * switch-to-Flash test went red on an unrelated PR (#1927) and green on one
+ * merged the same day (#1924).
+ *
+ * 19:00 UTC on a fixed date is outside that window AND inside deployment hours
+ * (15:00 Eastern, 12:00 Pacific), so every catalog row is open here regardless
+ * of which of the two availability rules it carries. The relative fixtures
+ * below are built from this same instant rather than the real clock, or a
+ * countdown measured against the frozen picker would run backwards.
+ */
+const FIXED_NOW_MS = Date.UTC(2026, 7, 20, 19, 0, 0)
+
 beforeAll(() => {
   initializeThemeStore()
 })
@@ -56,7 +74,11 @@ const renderSelector = async (maxHeight = 40) => {
     flushSync(() => root.unmount())
     setup.renderer.destroy()
   }
-  flushSync(() => root.render(<FreebuffModelSelector maxHeight={maxHeight} />))
+  flushSync(() =>
+    root.render(
+      <FreebuffModelSelector maxHeight={maxHeight} nowMs={FIXED_NOW_MS} />,
+    ),
+  )
   await setup.renderOnce()
   return setup
 }
@@ -72,7 +94,7 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
       ...(remaining === undefined
         ? {}
         : { weeklySessionsRemaining: remaining }),
-      resetAt: new Date(Date.now() + 60_000).toISOString(),
+      resetAt: new Date(FIXED_NOW_MS + 60_000).toISOString(),
       githubLinked: true,
     },
   })
@@ -111,7 +133,7 @@ describe('FreebuffModelSelector tier layout', () => {
         referrerName: null,
         qualifiedCount: 0,
         weeklySessionsRemaining: 0,
-        resetAt: new Date(Date.now() + 60_000).toISOString(),
+        resetAt: new Date(FIXED_NOW_MS + 60_000).toISOString(),
         githubLinked: true,
       },
     })
@@ -212,7 +234,7 @@ describe('FreebuffModelSelector tier layout', () => {
   })
 
   test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
-    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -256,7 +278,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // it, or Enter does nothing with no explanation — and the picker has to
     // collapse onto the replacement, or it opens on three greyed, unusable
     // premium rows with the recommendation fourth.
-    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -290,7 +312,7 @@ describe('FreebuffModelSelector tier layout', () => {
   })
 
   test('repairs an invalid selection to the unlimited recommendation when premium is exhausted', async () => {
-    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -441,7 +463,7 @@ describe('FreebuffModelSelector limited-model offer', () => {
         remaining: 38,
         total: 50,
         userRemaining: 1,
-        userResetAt: new Date(Date.now() + 5 * 60 * 60_000).toISOString(),
+        userResetAt: new Date(FIXED_NOW_MS + 5 * 60 * 60_000).toISOString(),
         ...offer,
       },
     ],
@@ -504,7 +526,7 @@ describe('FreebuffModelSelector limited-model offer', () => {
           remaining: 5,
           total: 50,
           userRemaining: 1,
-          userResetAt: new Date(Date.now() + 60_000).toISOString(),
+          userResetAt: new Date(FIXED_NOW_MS + 60_000).toISOString(),
         },
       ],
     })
