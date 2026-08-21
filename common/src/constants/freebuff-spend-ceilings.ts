@@ -39,14 +39,7 @@
  * that rollout is still in `observe`.
  */
 
-import {
-  isDeepSeekPeakHour,
-  nextDeepSeekWindowBoundary,
-} from './freebuff-peak-hours'
-import {
-  getFreebuffModelsForAccessTier,
-  type FreebuffAccessTier,
-} from './freebuff-models'
+import { type FreebuffAccessTier } from './freebuff-models'
 
 /**
  * Region ceilings, replacing the flat $50.
@@ -191,27 +184,6 @@ export const FREEBUFF_CAPACITY_NOTICE =
   'Capacity is now limited per account — sustained automated abuse forced us to cap how much any one account can use.'
 
 /**
- * The refusal copy when a PEAK-HOURS reduction is what the account hit.
- *
- * Deliberately different in kind from the notices around it. Those explain a
- * cap that holds until midnight Pacific; this one is temporary and lifts in
- * hours, so reusing them would tell the user something false — the single
- * worst outcome for a limit message, because it sends someone away for a day
- * when they could work again after dinner.
- *
- * It also states WHY, because the reason is a genuinely good one from the
- * user's side: upstream prices double during these windows, so the same
- * dollars buy half the tokens. Capping peak spend is what keeps the rest of
- * the day's allowance intact rather than letting it evaporate at 2x.
- *
- * The windows themselves are NOT in this string — the client appends them in
- * the reader's own timezone (`formatDeepSeekPeakWindowsLocal`), because a UTC
- * range asks the user to do arithmetic to find out when they can work again.
- */
-export const FREEBUFF_PEAK_LIMIT_NOTICE =
-  'Usage is temporarily limited during peak hours, when upstream model prices double — this keeps the rest of your daily allowance from being spent at twice the rate. Your full limit returns when peak ends, and anything already running keeps going.'
-
-/**
  * The refusal copy for the RESTRICTED cohorts — VPN/proxy egress, restricted
  * country, flagged email domain.
  *
@@ -335,33 +307,14 @@ export type FreebuffSpendCeilingReason =
   | 'unverified_egress'
   | 'trust_level'
 
-/**
- * The peak-hours reduction in force on a ceiling, when one applies.
- *
- * Carried on the result rather than folded silently into `usd` because the
- * user has to be TOLD: a cap that quietly halves itself for seven hours a day
- * and then restores looks like a bug from the outside. `endsAt` is what the
- * message needs — "back to normal at ..." — and `baseUsd` is what it returns
- * to.
- */
-export interface FreebuffSpendCeilingPeak {
-  /** The ceiling before the reduction. */
-  baseUsd: number
-  multiplier: number
-  /** When the current peak window closes and the full ceiling returns. */
-  endsAt: Date
-}
-
 export interface FreebuffSpendCeiling {
   usd: number
   /** Which rule produced the winning (lowest) ceiling. Logged so a support
    *  question has a one-word answer. */
   reason: FreebuffSpendCeilingReason
-  /** Every rule that applied, for the admin view. Holds the UNREDUCED figures,
-   *  so the admin page still shows which policy rule set the baseline. */
+  /** Every rule that applied, for the admin view — the winner is the lowest of
+   *  these, and the rest are what the admin page needs to show why. */
   applied: { reason: FreebuffSpendCeilingReason; usd: number }[]
-  /** Set only while a peak-hours reduction is in force. */
-  peak?: FreebuffSpendCeilingPeak
 }
 
 export interface FreebuffSpendCeilingInput {
@@ -408,22 +361,6 @@ export interface FreebuffSpendCeilingInput {
   unverifiedEgress?: boolean
   /** The trust matrix's ceiling, when that rollout is enforcing. */
   trustLevelCeilingUsd?: number | null
-  /**
-   * The instant to price this ceiling at. Supply it to get the peak-hours
-   * reduction; OMIT it — as the admin page does — to see the unreduced policy
-   * ceiling.
-   *
-   * Explicit rather than an internal `new Date()` so one admission decision
-   * reads one instant, and so the reduction is testable at a boundary.
-   */
-  at?: Date
-  /**
-   * Fraction of the ceiling allowed during DeepSeek's peak windows, when every
-   * upstream rate doubles. Defaults to no reduction, so a caller that passes
-   * `at` without opting in changes nothing, and neither does a tier that runs
-   * no DeepSeek model — see `tierRunsDeepSeek`.
-   */
-  peakMultiplier?: number
   /** Overrides, all optional so a missing env var changes nothing. */
   overrides?: {
     regionUsd?: Partial<Record<FreebuffAccessTier, number>>
@@ -496,64 +433,7 @@ export function resolveFreebuffSpendCeiling(
     if (candidate.usd < winner.usd) winner = candidate
   }
 
-  const peak = resolvePeakReduction(winner.usd, input)
-  return {
-    usd: peak ? peak.reducedUsd : winner.usd,
-    reason: winner.reason,
-    applied,
-    ...(peak ? { peak: peak.meta } : {}),
-  }
-}
-
-/**
- * Whether a tier can reach a model DeepSeek prices on the peak schedule.
- *
- * The reduction exists for exactly one reason — DeepSeek's rates double for
- * seven hours a day — so an account that cannot spend at those rates gains
- * nothing from a smaller ceiling inside them. Since 2026-08-18 that is the
- * limited tier: pausing V4 Flash left MiMo 2.5 as its whole catalog, and MiMo
- * costs the same at 02:00 UTC as at 14:00.
- *
- * Read off the catalog rather than hardcoded to `full`, because Flash's
- * removal is a PAUSE — the day it returns to LIMITED_FREEBUFF_MODEL_IDS the
- * reduction returns with it.
- */
-function tierRunsDeepSeek(accessTier: FreebuffAccessTier): boolean {
-  return getFreebuffModelsForAccessTier(accessTier).some((model) =>
-    model.id.startsWith('deepseek/'),
-  )
-}
-
-/**
- * The peak-hours reduction, or null when none applies.
- *
- * Deliberately reduces the WINNING ceiling rather than each candidate: the
- * policy question ("which rule binds this account") and the pricing question
- * ("is upstream double right now") are independent, and multiplying every
- * candidate first could change which one wins — a restricted account could
- * silently switch reasons at 01:00 UTC and switch back at 04:00.
- */
-function resolvePeakReduction(
-  winnerUsd: number,
-  input: FreebuffSpendCeilingInput,
-): { reducedUsd: number; meta: FreebuffSpendCeilingPeak } | null {
-  const { at, peakMultiplier } = input
-  if (!at || typeof peakMultiplier !== 'number') return null
-  // >= 1 is the documented "no reduction" setting and the kill switch; a
-  // non-positive multiplier would zero every ceiling, so refuse it outright
-  // rather than locking every account out for seven hours a day.
-  if (!Number.isFinite(peakMultiplier) || peakMultiplier <= 0) return null
-  if (peakMultiplier >= 1) return null
-  if (!tierRunsDeepSeek(input.accessTier)) return null
-  if (!isDeepSeekPeakHour(at)) return null
-  return {
-    reducedUsd: winnerUsd * peakMultiplier,
-    meta: {
-      baseUsd: winnerUsd,
-      multiplier: peakMultiplier,
-      endsAt: nextDeepSeekWindowBoundary(at),
-    },
-  }
+  return { usd: winner.usd, reason: winner.reason, applied }
 }
 
 /**

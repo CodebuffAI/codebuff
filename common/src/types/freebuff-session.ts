@@ -486,25 +486,6 @@ export type FreebuffSessionServerResponse = (
       message: string
       resetAt: string
       retryAfterMs: number
-      /**
-       * Present only when a PEAK-HOURS reduction is what the account ran into,
-       * so a client can say "your limit is temporarily lower, back to normal
-       * at ..." instead of the flat "you are out for the day" — which would be
-       * wrong, because the fuller allowance returns in hours, not at midnight.
-       *
-       * The windows are UTC hour pairs rather than preformatted text on
-       * purpose: only the client knows the reader's timezone, and
-       * `formatDeepSeekPeakWindowsLocal` turns these into local ranges.
-       */
-      peak?: {
-        /** Ceiling before the reduction, and the reduced one now in force. */
-        baseUsd: number
-        multiplier: number
-        /** ISO instant the current peak window closes. */
-        endsAt: string
-        /** Half-open [startHourUtc, endHourUtc) pairs. */
-        windowsUtc: Array<[number, number]>
-      }
     }
   | {
       /** Freebuff Desktop multi-session only: the user already holds an active
