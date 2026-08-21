@@ -491,12 +491,15 @@ export interface AdShowcaseTweet {
   likes: number
   replies: number
   /**
-   * Not reachable without an authenticated X API key — see above.
+   * Not reachable from any public endpoint — see above. These are copied by
+   * hand from X's own post view, signed in as the author, where the permalink
+   * prints the impression count and the action bar prints the reposts.
    *
-   * To fill these in: open the post on X while signed in as the author, click
-   * "View post engagements", and copy the Impressions and Reposts figures.
-   * Both render the moment they stop being null — `views` as X's own
-   * bar-chart metric, `reposts` next to the like.
+   * `views` is the RAW count, not the abbreviation X displays: store 48_300,
+   * not 48.3. The card abbreviates at render, so the number stays comparable
+   * and the display rule lives in one place.
+   *
+   * Null until somebody looks them up, and the card omits a null metric.
    */
   reposts: number | null
   views: number | null
@@ -527,16 +530,16 @@ export const AD_SHOWCASE_TWEETS: Record<string, AdShowcaseTweet> = {
     postedAt: '6:34 PM · Aug 10, 2026',
     likes: 871,
     replies: 829,
-    reposts: null,
-    views: null,
+    reposts: 498,
+    views: 48_300,
   },
   'https://x.com/victorxheng/status/2085813482558259233': {
     text: 'bolt lost almost all their customers due to this free alternative 😳\n\ntheir $700M valuation just got wiped out overnight.\n\nwidely regarded as one of the worst AI products in history, bolt is beign replaced by this small open-source repo.',
     postedAt: '12:41 PM · Aug 7, 2026',
-    likes: 745,
-    replies: 822,
-    reposts: null,
-    views: null,
+    likes: 746,
+    replies: 823,
+    reposts: 436,
+    views: 16_800,
   },
 }
 
