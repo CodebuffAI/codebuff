@@ -1024,7 +1024,7 @@
 
     "jimp": ["jimp@1.6.1", "", { "dependencies": { "@jimp/core": "1.6.1", "@jimp/diff": "1.6.1", "@jimp/js-bmp": "1.6.1", "@jimp/js-gif": "1.6.1", "@jimp/js-jpeg": "1.6.1", "@jimp/js-png": "1.6.1", "@jimp/js-tiff": "1.6.1", "@jimp/plugin-blit": "1.6.1", "@jimp/plugin-blur": "1.6.1", "@jimp/plugin-circle": "1.6.1", "@jimp/plugin-color": "1.6.1", "@jimp/plugin-contain": "1.6.1", "@jimp/plugin-cover": "1.6.1", "@jimp/plugin-crop": "1.6.1", "@jimp/plugin-displace": "1.6.1", "@jimp/plugin-dither": "1.6.1", "@jimp/plugin-fisheye": "1.6.1", "@jimp/plugin-flip": "1.6.1", "@jimp/plugin-hash": "1.6.1", "@jimp/plugin-mask": "1.6.1", "@jimp/plugin-print": "1.6.1", "@jimp/plugin-quantize": "1.6.1", "@jimp/plugin-resize": "1.6.1", "@jimp/plugin-rotate": "1.6.1", "@jimp/plugin-threshold": "1.6.1", "@jimp/types": "1.6.1", "@jimp/utils": "1.6.1" } }, "sha512-hNQh6rZtWfSVWSNVmvq87N5BPJsNH7k7I7qyrXf9DOma9xATQk3fsyHazCQe51nCjdkoWdTmh0vD7bjVSLoxxw=="],
 
-    "jose": ["jose@6.2.9", "", {}, "sha512-XrchZOFZUl/T3vTwRe8XK+cJrGtMF4th1ARnDfwbBXFKThGhlsxEE4Zu03AD/bjJSt/9jT/mxrOCkJWOg77aPA=="],
+    "jose": ["jose@6.2.10", "", {}, "sha512-iiW7J9qRFlGxvCOIBDBDxFePQSn7ZMAnrYGhrrOo6siO/MIqwfyilLR27pkfDgUk+raLuzADS8A3S/KLBisc0g=="],
 
     "jpeg-js": ["jpeg-js@0.4.4", "", {}, "sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg=="],
 
@@ -1687,6 +1687,8 @@
     "@opentui/core/strip-ansi": ["strip-ansi@7.1.2", "", { "dependencies": { "ansi-regex": "^6.0.1" } }, "sha512-gmBGslpoQJtgnMAvOVqGZpEz9dyoKTCzy2nfz/n8aIFhN/jCE/rCmcxabB6jOOHV+0WNnylOxaxBQPSvcWklhA=="],
 
     "@opentui/react/react-reconciler": ["react-reconciler@0.33.0", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.0" } }, "sha512-KetWRytFv1epdpJc3J4G75I4WrplZE5jOL7Yq0p34+OVOKF4Se7WrdIdVC45XsSSmUTlht2FM/fM1FZb1mfQeA=="],
+
+    "@types/diff/diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
     "@typescript-eslint/eslint-plugin/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
