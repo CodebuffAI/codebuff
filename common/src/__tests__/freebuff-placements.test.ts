@@ -1,0 +1,212 @@
+import { describe, expect, it } from 'bun:test'
+
+import { AD_CAMPAIGN_STATUSES } from '../constants/freebuff-ads'
+import {
+  ACTIVATION_ATTRIBUTION_WINDOW_DAYS,
+  ATTRIBUTION_WINDOW_COPY,
+  DIAGNOSTIC_METRICS,
+  NOT_SERVING_COPY,
+  NOT_SERVING_REASONS,
+  PLACEMENTS_CONSOLE_ENABLED,
+  PLACEMENT_METRIC_LABELS,
+  PLACEMENT_PREVIEW_WIDTHS,
+  PLACEMENT_SLOTS,
+  PLACEMENT_STATUS_LABELS,
+  PRIMARY_METRICS,
+  UNDERSPEND_COPY,
+  UNDERSPEND_REASONS,
+  avgCpc,
+  costPerActivation,
+  ctr,
+  ecpm,
+  isServing,
+  placementDisplayStatus,
+  spendUsd,
+} from '../constants/freebuff-placements'
+
+import type { PlacementTotals } from '../constants/freebuff-placements'
+
+function totals(overrides: Partial<PlacementTotals> = {}): PlacementTotals {
+  return {
+    activations: 0,
+    impressionsServed: 0,
+    impressionsViewed: 0,
+    clicks: 0,
+    billableClicks: 0,
+    spendCents: 0,
+    ...overrides,
+  }
+}
+
+describe('derived metrics', () => {
+  it('divides CTR by viewed impressions, not served ones', () => {
+    // Served counts ads the client never painted. Using it as the denominator
+    // deflates every advertiser's CTR against the numbers they see elsewhere,
+    // so the difference between these two figures has to show up in the rate.
+    const value = ctr(
+      totals({
+        impressionsServed: 2_000,
+        impressionsViewed: 1_000,
+        billableClicks: 10,
+      }),
+    )
+
+    expect(value).toBe(0.01)
+  })
+
+  it('counts billable clicks in CTR, not raw clicks', () => {
+    // The invoice bills billable clicks, so the dashboard's rate has to use
+    // the same numerator or the two disagree in front of the advertiser.
+    const value = ctr(
+      totals({ impressionsViewed: 1_000, clicks: 20, billableClicks: 10 }),
+    )
+
+    expect(value).toBe(0.01)
+  })
+
+  it('computes cost per activation, average CPC and eCPM in dollars', () => {
+    const measured = totals({
+      activations: 4,
+      impressionsViewed: 10_000,
+      clicks: 40,
+      billableClicks: 40,
+      spendCents: 6_000,
+    })
+
+    expect(costPerActivation(measured)).toBe(15)
+    expect(avgCpc(measured)).toBe(1.5)
+    expect(ecpm(measured)).toBe(6)
+    expect(spendUsd(measured)).toBe(60)
+  })
+
+  it('returns null rather than NaN or zero on an empty denominator', () => {
+    // "No clicks yet" and "a CTR of zero" are different facts, and a new
+    // campaign shows the first one for days. Rendering it as 0% tells an
+    // advertiser their creative failed when nothing has been measured at all.
+    const empty = totals()
+
+    expect(ctr(empty)).toBeNull()
+    expect(costPerActivation(empty)).toBeNull()
+    expect(avgCpc(empty)).toBeNull()
+    expect(ecpm(empty)).toBeNull()
+  })
+
+  it('treats a negative or non-finite denominator as no answer', () => {
+    expect(ctr(totals({ impressionsViewed: -5, billableClicks: 1 }))).toBeNull()
+    expect(
+      ctr(totals({ impressionsViewed: Number.NaN, billableClicks: 1 })),
+    ).toBeNull()
+    expect(
+      ecpm(
+        totals({
+          impressionsViewed: Number.POSITIVE_INFINITY,
+          spendCents: 100,
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('reports zero spend as zero, not as missing', () => {
+    // A funded campaign that has genuinely spent nothing today is a real
+    // measurement; only an absent denominator is unknown.
+    expect(spendUsd(totals({ spendCents: 0 }))).toBe(0)
+    expect(costPerActivation(totals({ activations: 3, spendCents: 0 }))).toBe(0)
+  })
+})
+
+describe('display status', () => {
+  it('labels an approved but unfunded campaign "Not funded"', () => {
+    // It is `active` in the database and not serving in reality. Showing it as
+    // "Active" is how an advertiser spends a week wondering why nothing
+    // delivers.
+    expect(
+      placementDisplayStatus({ status: 'active', billingActive: false }),
+    ).toBe('not_funded')
+    expect(PLACEMENT_STATUS_LABELS.not_funded).toBe('Not funded')
+  })
+
+  it('is exactly active AND not billing_active', () => {
+    expect(
+      placementDisplayStatus({ status: 'active', billingActive: true }),
+    ).toBe('active')
+    expect(
+      placementDisplayStatus({ status: 'paused', billingActive: false }),
+    ).toBe('paused')
+    expect(
+      placementDisplayStatus({ status: 'draft', billingActive: false }),
+    ).toBe('draft')
+    expect(
+      placementDisplayStatus({ status: 'ended', billingActive: false }),
+    ).toBe('ended')
+  })
+
+  it('only reports serving for a funded active campaign', () => {
+    expect(isServing({ status: 'active', billingActive: true })).toBe(true)
+    expect(isServing({ status: 'active', billingActive: false })).toBe(false)
+    expect(isServing({ status: 'paused', billingActive: true })).toBe(false)
+  })
+
+  it('covers every ad_campaign_status with a label', () => {
+    // Mirrors the "status unions mirror the database enums" test in
+    // freebuff-ads.test.ts. A status added to the pg enum and not here renders
+    // as a blank cell rather than an error.
+    for (const status of AD_CAMPAIGN_STATUSES) {
+      expect(PLACEMENT_STATUS_LABELS[status]).toBeTruthy()
+      expect(placementDisplayStatus({ status, billingActive: true })).toBe(
+        status,
+      )
+    }
+  })
+})
+
+describe('copy and configuration', () => {
+  it('keeps the console off until there is something real to show', () => {
+    // Nothing serves a first-party ad yet: no campaign id on ad_impression, no
+    // rollup, no spend ledger. This flag going true before those exist would
+    // show an advertiser fixtures as their own delivery.
+    expect(PLACEMENTS_CONSOLE_ENABLED).toBe(false)
+  })
+
+  it('previews the widths where layout actually changes', () => {
+    expect(PLACEMENT_PREVIEW_WIDTHS).toEqual([20, 48, 60])
+  })
+
+  it('states the attribution window in the copy that goes on screen', () => {
+    // Without a shared rule the advertiser's install count and ours differ and
+    // no dispute can be settled.
+    expect(ATTRIBUTION_WINDOW_COPY).toContain(
+      String(ACTIVATION_ATTRIBUTION_WINDOW_DAYS),
+    )
+  })
+
+  it('offers cli_chat as visible but unavailable', () => {
+    // Blocked by Gravity's exclusivity term, not by our roadmap. Hiding it
+    // just means every advertiser asks.
+    const cliChat = PLACEMENT_SLOTS.find((slot) => slot.id === 'cli_chat')
+    expect(cliChat?.available).toBe(false)
+    expect(PLACEMENT_SLOTS.filter((slot) => slot.available).length).toBe(4)
+  })
+
+  it('gives every not-serving and underspend reason copy', () => {
+    // Each of these is a state we can distinguish. Any reason without copy
+    // would render an empty banner, which reads as "broken".
+    for (const reason of NOT_SERVING_REASONS) {
+      expect(NOT_SERVING_COPY[reason].message).toBeTruthy()
+    }
+    for (const reason of UNDERSPEND_REASONS) {
+      expect(UNDERSPEND_COPY[reason]).toBeTruthy()
+    }
+  })
+
+  it('labels every metric it exposes', () => {
+    for (const metric of [...PRIMARY_METRICS, ...DIAGNOSTIC_METRICS]) {
+      expect(PLACEMENT_METRIC_LABELS[metric]).toBeTruthy()
+    }
+  })
+
+  it('never labels impressions as a purchasable unit', () => {
+    // eCPM is a derived yield figure for comparison against CPM inventory the
+    // advertiser already buys. We do not sell impressions.
+    expect(PLACEMENT_METRIC_LABELS.ecpm).toBe('Effective CPM')
+  })
+})

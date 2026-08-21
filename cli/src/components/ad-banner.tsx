@@ -1,4 +1,14 @@
 import { TextAttributes } from '@opentui/core'
+import {
+  INLINE_AD_DISCLOSURE,
+  INLINE_AD_GAP,
+  INLINE_AD_LINK_SUFFIX,
+  MAX_DESC_LINES,
+  getAdDisplayLabel,
+  getInlineAdLayout,
+  truncateToLines,
+  truncateToWidth,
+} from '@codebuff/common/ads/inline-ad-layout'
 import { safeOpen } from '../utils/open-url'
 import React, { useState, useMemo, useEffect } from 'react'
 
@@ -21,68 +31,17 @@ interface ChoiceAdBannerProps {
 // subtracts this from the model picker's height budget.
 export const AD_CARD_HEIGHT = 5
 export const INLINE_AD_CARD_HEIGHT = 4 // border-top + header row + detail row + border-bottom
-const MAX_DESC_LINES = 2
 const MIN_CARD_WIDTH = 60 // Minimum width per ad card to remain readable
-const MIN_INLINE_WIDTH_WITH_DESTINATION = 48
-const INLINE_AD_DISCLOSURE = 'Ad'
-const INLINE_AD_GAP = 2
-const INLINE_AD_LINK_SUFFIX = ' ↗'
 
-function truncateToLines(
-  text: string,
-  lineWidth: number,
-  maxLines: number,
-): string {
-  if (lineWidth <= 0) return text
-  const maxChars = lineWidth * maxLines
-  if (text.length <= maxChars) return text
-  return text.slice(0, maxChars - 1) + '…'
-}
+// Layout lives in `common` so the advertiser campaign builder's creative
+// preview fits copy exactly the way this renderer does. Re-exported here
+// because this module was its original home.
+export {
+  extractDomain,
+  getAdDisplayLabel,
+  getInlineAdLayout,
+} from '@codebuff/common/ads/inline-ad-layout'
 
-function truncateToWidth(text: string, width: number): string {
-  if (width <= 0) return ''
-  if (text.length <= width) return text
-  return text.slice(0, width - 1) + '…'
-}
-
-export const extractDomain = (url: string): string => {
-  try {
-    const parsed = new URL(url)
-    return parsed.hostname.replace(/^www\./, '')
-  } catch {
-    return url
-  }
-}
-
-export function getAdDisplayLabel(ad: Pick<AdResponse, 'title' | 'url'>): {
-  text: string
-  variant: 'domain' | 'title'
-} {
-  const url = ad.url.trim()
-  if (url) {
-    return { text: extractDomain(url), variant: 'domain' }
-  }
-
-  return { text: ad.title.trim() || 'Sponsored', variant: 'title' }
-}
-
-/**
- * Card layout: the five-row bordered ad the landing screen draws, and the only
- * format a first-party placements campaign can serve on.
- *
- * The headline is `ad.title`, and until now it rendered nowhere. `ctaText` read
- * `ad.cta || ad.title`, so a creative carrying its own CTA never reached the
- * title, and `getAdDisplayLabel` returns the domain whenever a URL is set — so
- * the exact creative the advertiser console asks for (headline + body + CTA +
- * landing URL) dropped its headline on every impression. An advertiser filled
- * in the most prominent field on the form and it appeared on nothing.
- *
- * The height does not change. The headline takes the row the body gives up,
- * because {@link AD_CARD_HEIGHT} is subtracted from the model picker's budget
- * in `freebuff-landing-screen.tsx` — growing the card costs the picker a row on
- * every terminal, which is not a trade an ad gets to make. Ads with no title
- * keep both body lines, so nothing regresses for creative that never had one.
- */
 export function getCardAdLayout(
   ad: Pick<AdResponse, 'adText' | 'title' | 'cta' | 'url'>,
   width: number,
@@ -131,33 +90,6 @@ export function getCardAdLayout(
       ? truncateToWidth(label.text, Math.max(0, width - ctaText.length - 5))
       : '',
     labelVariant: label.variant,
-  }
-}
-
-export function getInlineAdLayout(
-  ad: Pick<AdResponse, 'adText' | 'title' | 'url'>,
-  width: number,
-): { title: string; description: string; label: string } {
-  const contentWidth = Math.max(0, width - 4) // border + horizontal padding
-  const displayLabel = getAdDisplayLabel(ad)
-  const headerTrailingWidth = INLINE_AD_GAP + INLINE_AD_DISCLOSURE.length
-  const titleWidth = Math.max(0, contentWidth - headerTrailingWidth)
-  const destinationLabel =
-    width >= MIN_INLINE_WIDTH_WITH_DESTINATION &&
-    displayLabel.variant === 'domain'
-      ? displayLabel.text
-      : ''
-  const maxLabelWidth = Math.max(0, Math.min(24, Math.floor(contentWidth / 3)))
-  const label = truncateToWidth(destinationLabel, maxLabelWidth)
-  const trailingWidth = label
-    ? INLINE_AD_GAP + label.length + INLINE_AD_LINK_SUFFIX.length
-    : 0
-  const descriptionWidth = Math.max(0, contentWidth - trailingWidth)
-
-  return {
-    title: truncateToWidth(ad.title.trim() || displayLabel.text, titleWidth),
-    description: truncateToWidth(ad.adText.trim(), descriptionWidth),
-    label,
   }
 }
 

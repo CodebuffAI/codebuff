@@ -147,6 +147,34 @@ export function normalizeUrlInput(raw: string): string {
   return `https://${trimmed}`
 }
 
+/**
+ * Whether a landing URL is safe to hand to the terminal card renderer as a
+ * destination.
+ *
+ * `normalizeUrlInput` forgives a missing scheme but leaves a wrong one
+ * (`javascript:`, `mailto:`, `data:`, `file:`) or a scheme-less string that
+ * still fails to parse untouched — those are exactly the inputs that make
+ * `extractDomain` fall back to echoing its argument and `getAdDisplayLabel`
+ * claim `variant: 'domain'` regardless. This does not change either of
+ * those functions (both are pinned by CLI-facing tests); it gives a caller a
+ * way to refuse to render a destination that was never a real one, before it
+ * gets that far.
+ *
+ * Only `http:`/`https:` count as servable. The explicit two-way comparison
+ * matters — `u.protocol === 'https:' || 'http:'` is a truthy string literal
+ * and would accept everything.
+ */
+export const isServableLandingUrl = (raw: string): boolean => {
+  const normalized = normalizeUrlInput(raw)
+  if (!normalized) return false
+  try {
+    const u = new URL(normalized)
+    return u.protocol === 'https:' || u.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
 export function platformForUrl(rawUrl: string): AdPlatform | null {
   let host: string
   try {
