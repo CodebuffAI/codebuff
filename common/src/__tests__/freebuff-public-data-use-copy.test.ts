@@ -50,7 +50,7 @@ describe('public Freebuff data-use copy', () => {
       version: '2026-07-23',
       effectiveDate: 'July 23, 2026',
       lastUpdated: '07/23/2026',
-      noticeEndsAt: '2026-08-23T00:00:00-07:00',
+      noticeEndsAt: '2026-08-20T00:00:00-07:00',
       notice: {
         title:
           'We’ve updated our Terms and Privacy Policy, effective July 23, 2026.',

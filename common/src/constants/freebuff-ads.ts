@@ -452,6 +452,84 @@ export const AD_SHOWCASE_REACH = {
 } as const
 
 /**
+ * What each showcase post SAYS, and how it did.
+ *
+ * ## Why this is a hand-maintained constant
+ *
+ * The landing page used to render X's own iframe embed for these. That put
+ * the layout in X's hands: a fixed 550px card we could not widen, its own
+ * palette that never matched the page, a height posted back over postMessage
+ * that arrived late, early, or not at all, and media that made every card a
+ * different height. Rendering them ourselves fixes all four, and the price is
+ * that the content has to live somewhere.
+ *
+ * ## Which of these numbers are real, and which are missing on purpose
+ *
+ * `likes` and `replies` are read straight off X's own embed for each post, so
+ * they are exact — as of the date below. `reposts` and `views` are NOT exposed
+ * by any endpoint we can reach without an authenticated X API key, so they are
+ * `null` until somebody copies them out of X's analytics by hand. The card
+ * omits any metric that is null rather than showing a placeholder: a made-up
+ * repost count on the page whose entire argument is "buy reposts" would be the
+ * worst possible thing to be caught doing.
+ *
+ * These go stale. They are a snapshot of engagement on somebody's real posts,
+ * not a live read, and a post keeps accruing likes after we write one down.
+ * Treat a refresh as routine, and never round one UP.
+ */
+export const AD_SHOWCASE_TWEET_STATS_AS_OF = 'August 2026'
+
+export interface AdShowcaseTweet {
+  /** Exactly as posted. Line breaks are meaningful; keep them. */
+  text: string
+  /** As X prints it under the post. */
+  postedAt: string
+  likes: number
+  replies: number
+  /** Not reachable without an authenticated X API key — see above. */
+  reposts: number | null
+  views: number | null
+  /** Optional still for a post carrying a photo or video. Rendered in a fixed
+   *  box so one post with media cannot make its column taller than the rest. */
+  image?: { src: string; alt: string }
+}
+
+export const AD_SHOWCASE_TWEETS: Record<string, AdShowcaseTweet> = {
+  'https://x.com/victorxheng/status/2053972044292014482': {
+    text: 'forgot my laptop at home today, ended up laying on the office couch the entire time working from my phone\n\nsomehow was able to ship more.\n\nthe future of ai is laziness',
+    postedAt: '3:54 PM · May 11, 2026',
+    likes: 16,
+    replies: 3,
+    reposts: null,
+    views: null,
+  },
+  'https://x.com/victorxheng/status/2052603545313333395': {
+    text: 'coding has devolved to the point where you can now do everything from imessage itself.\n\ntoday i spent my workday vibecoding from the couch.\n\nshoutout @triggerdotdev i love you',
+    postedAt: '9:16 PM · May 7, 2026',
+    likes: 8,
+    replies: 2,
+    reposts: null,
+    views: null,
+  },
+  'https://x.com/victorxheng/status/2086989599646314583': {
+    text: "you can now get unlimited free GLM 5.2 for the first time in history 😳\n\nthis is bigger than ever. here's how to do it:\n\n1 / cancel your existing subscriptions:\n\ncancel your Lovable, Cursor, and Claude Code subscriptions. you don't need them anymore",
+    postedAt: '6:34 PM · Aug 10, 2026',
+    likes: 857,
+    replies: 809,
+    reposts: null,
+    views: null,
+  },
+  'https://x.com/victorxheng/status/2085813482558259233': {
+    text: 'bolt lost almost all their customers due to this free alternative 😳\n\ntheir $700M valuation just got wiped out overnight.\n\nwidely regarded as one of the worst AI products in history, bolt is beign replaced by this small open-source repo.',
+    postedAt: '12:41 PM · Aug 7, 2026',
+    likes: 731,
+    replies: 801,
+    reposts: null,
+    views: null,
+  },
+}
+
+/**
  * Marketing copy for the advertiser landing page, kept beside the numbers it
  * quotes so a price change cannot leave a stale claim on the page.
  *
@@ -464,4 +542,15 @@ export const AD_COMPARISON = {
   twitterCpcUsd: [1.5, 4] as const,
   /** What $10 buys here. Derived, so it cannot drift from the price. */
   engagementsPerTenDollars: engagementsForDailyBudget(1_000),
+  /**
+   * Roughly what one engagement costs on a paid social platform, in dollars.
+   *
+   * Operator-supplied, like the reach figures, and for the same reason: every
+   * platform we would be comparing against prices by auction, so there is no
+   * published number to cite. It is a checked-in constant rather than anything
+   * computed because it is a PUBLIC CLAIM about other people's products and
+   * somebody has to decide to make it. The hero quotes it as an "industry
+   * average" — keep it conservative, and keep it defensible.
+   */
+  industryAverageEngagementUsd: 5,
 } as const

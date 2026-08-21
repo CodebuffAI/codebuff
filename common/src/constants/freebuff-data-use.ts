@@ -4,7 +4,11 @@ export const FREEBUFF_POLICY_ROLLOUT = {
   version: '2026-07-23',
   effectiveDate: POLICY_EFFECTIVE_DATE,
   lastUpdated: '07/23/2026',
-  noticeEndsAt: '2026-08-23T00:00:00-07:00',
+  // Retired early, on 2026-08-20. The notice had run for a month and was
+  // still covering the bottom of every marketing page; `policy-update-notice`
+  // hides itself once this instant passes, so a past date is the off switch
+  // and nothing about the policy copy itself changes.
+  noticeEndsAt: '2026-08-20T00:00:00-07:00',
   notice: {
     title: `We’ve updated our Terms and Privacy Policy, effective ${POLICY_EFFECTIVE_DATE}.`,
     summary:
