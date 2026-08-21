@@ -22,7 +22,14 @@ import type { AdCampaignStatus } from './freebuff-ads'
  * spend ledger. While this is `false` the console renders from fixtures and
  * must never be shown to an advertiser as their real numbers.
  *
- * Flip to `true` only once campaign attribution and the spend ledger exist.
+ * **This constant no longer decides who can reach the console.** That is the
+ * `FREEBUFF_PLACEMENTS_AUDIENCE` env knob (`off` | `admin` | `all`, default
+ * `off`), read by `placementsAudience()` in
+ * `freebuff/web/src/server/advertisers/placements/access.ts`. What survives
+ * here is the statement of FACT the knob is set against: the data behind these
+ * screens is invented. It stays `false`, and stays exported, because the
+ * fixture-vs-real distinction is what the UI cites — flip it only once
+ * campaign attribution and the spend ledger actually exist.
  */
 export const PLACEMENTS_CONSOLE_ENABLED = false
 
