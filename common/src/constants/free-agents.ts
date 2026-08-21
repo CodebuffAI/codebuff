@@ -18,6 +18,7 @@ import {
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_OX_ALPHA_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
 } from './freebuff-models'
@@ -124,6 +125,7 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark',
+  [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
 }
 
 /**
@@ -320,6 +322,10 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // other root so its subagents pass the hierarchy gate; the model, not this
   // list, is what keeps it off the CLI and Desktop.
   'base2-free-muse-spark',
+  // Freebuff Web and Cloud only (Ox Alpha), for the same reason and with the
+  // same division of labour: the model's absence from SUPPORTED_FREEBUFF_MODELS
+  // is what keeps it off the CLI and Desktop, not this list.
+  'base2-free-ox-alpha',
   // Capacity-limited trial orchestrator (Claude Fable 5). Reachable only while
   // the server is still advertising the offer, but it must be listed here
   // unconditionally: a session admitted while the pool was open runs its full
@@ -348,6 +354,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-glm',
   'base3-free-kimi-k3-eco',
   'base3-free-muse-spark',
+  'base3-free-ox-alpha',
   // Freebuff CLI base3 roots. Every other id it needs is already above,
   // shared with Web; Fable is the one model the CLI offers and Web does not.
   'base3-free-fable',
@@ -370,6 +377,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base2-free-kimi-k3-eco',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark',
+  [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base2-free-ox-alpha',
 }
 
 /**
@@ -521,6 +529,11 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-muse-spark': new Set([
     FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   ]),
+  // Web/Cloud-only Ox Alpha root, pinned to its one model like every other. The
+  // pinning matters here even though the model is free: an agent id is the
+  // handle a hand-written caller reaches for, and a root allowed more than one
+  // model is a door onto everything else it allows.
+  'base2-free-ox-alpha': new Set([FREEBUFF_OX_ALPHA_MODEL_ID]),
   // Limited-offer trial root. Only this agent may run Fable for free, and only
   // on Fable — the pool accounting keys off the model, so a root that could
   // also run something else would let a session escape it.

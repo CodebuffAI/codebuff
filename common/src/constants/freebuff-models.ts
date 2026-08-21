@@ -313,6 +313,64 @@ export const MUSE_SPARK_CONTRIBUTOR_RPM = 60
 export const FREEBUFF_MUSE_SPARK_REASONING_EFFORT = 'xhigh' as const
 
 /**
+ * Ox Alpha — an anonymous ("stealth") frontier coding model, served through
+ * OpenRouter at a list price of zero while its host evaluates it.
+ *
+ * FREEBUFF WEB AND CLOUD ONLY. It is absent from FREEBUFF_MODELS and
+ * SUPPORTED_FREEBUFF_MODELS, so no CLI or Desktop build can select it and
+ * `isFreebuffSessionModelId` refuses it there; the browser surfaces reach it
+ * through FREEBUFF_WEB_MODELS. Unlike Muse Spark's narrow surface, that is a
+ * "prove it first" decision rather than a property of the model — see
+ * docs/freebuff-ox-alpha.md for what was measured and what would justify
+ * widening it.
+ *
+ * The id is OpenRouter's own slug, so it falls through to the default
+ * OpenRouter route with no provider-specific handler (same as Luna). Three
+ * things about it are not like the other rows served that way:
+ *
+ *  - IT IS FREE, AND THAT IS FENCED RATHER THAN TRUSTED — see
+ *    FREEBUFF_OX_ALPHA_MAX_PRICE. A stealth model's price is whatever an
+ *    anonymous host decides tomorrow, and this row sits in no session pool at
+ *    all, so an unnoticed repricing would be unmetered spend.
+ *  - REASONING IS MANDATORY (the endpoint reports `reasoning.mandatory`), and
+ *    the provider's own default effort is `max`. Measured on one debugging
+ *    prompt, n=4 per rung, 2026-08-20: `low` answered correctly in 409
+ *    completion tokens and 8.4s, `high` in 725 and 11.3s, `max` in 3,505 and
+ *    48.5s — with one of the four `max` samples truncated by a 4k token limit
+ *    mid-answer. So the row names its effort explicitly; leaving it unset opts
+ *    every turn into the slowest and most truncation-prone rung there is.
+ *  - Prompts and completions are RETAINED BY THE HOST and, per OpenRouter's
+ *    stealth-model terms, not used for training. That is neither case
+ *    `dataUse` was written for; see the row for how it is labelled.
+ */
+export const FREEBUFF_OX_ALPHA_MODEL_ID = 'stealth/ox-alpha'
+/**
+ * Price ceiling for Ox Alpha, USD per million tokens — ZERO, sent as
+ * OpenRouter's `provider.max_price`.
+ *
+ * Same mechanism as FREEBUFF_GPT_5_6_LUNA_MAX_PRICE and deliberately the
+ * opposite ceiling. Luna's sits ABOVE list to leave routing headroom; this one
+ * sits exactly AT a list price of zero, so the first endpoint that charges
+ * anything stops being routable at all.
+ *
+ * Both halves verified against the live API on 2026-08-20, because a fence
+ * nobody has watched fail is not a fence: a zero ceiling serves Ox Alpha
+ * normally, and the SAME ceiling on a priced model answers 404 "No endpoints
+ * found that satisfy the max price for this request". It fails closed, loudly,
+ * before the first billed token rather than after the invoice — which is the
+ * shape of bill this repo has already paid twice (the retired OpenRouter
+ * DeepSeek lane; the Kimi/Infron unit-price doubling).
+ *
+ * This guard is why the model can sit outside every session pool. Do not widen
+ * it to "just a little headroom" without giving the row a pool in the same
+ * change: the two are one decision.
+ */
+export const FREEBUFF_OX_ALPHA_MAX_PRICE = {
+  prompt: 0,
+  completion: 0,
+} as const
+
+/**
  * The user-pickable ladders, named like Desktop's THROUGH_XHIGH / NO_XHIGH so
  * the two catalogs read the same way.
  *
@@ -352,6 +410,11 @@ export const EFFORTS_THROUGH_MAX = [
  * probing.
  */
 const DEEPSEEK_V4_REASONING_EFFORTS = ['low', 'high', 'max'] as const
+/** Ox Alpha's native ladder, read off the endpoint's `supported_efforts`.
+ *  The same three rungs as DeepSeek V4 and, like it, no distinct medium — so
+ *  it is a separate constant rather than a shared one only because the two
+ *  providers are free to diverge. */
+const OX_ALPHA_REASONING_EFFORTS = ['low', 'high', 'max'] as const
 /**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
@@ -651,6 +714,10 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   // above while remaining an honest order of magnitude, where falling through
   // to the 131_072 default would summarize a million-token thread 8x early.
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 1_000_000,
+  // OpenRouter publishes 1,048,576 for the single Ox Alpha endpoint. Entered as
+  // 1_000_000 for the same reason as the two above: a published number is not
+  // an observed rejection, and the asymmetry here punishes guessing high.
+  [FREEBUFF_OX_ALPHA_MODEL_ID]: 1_000_000,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
@@ -1061,6 +1128,61 @@ const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   defaultEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
 } as const satisfies FreebuffModelOption
 
+/**
+ * The Ox Alpha picker row. STANDARD rather than premium — metered by no session
+ * pool on any surface, which is what `!premium` means here
+ * (FREEBUFF_STANDARD_MODEL_IDS is derived by filtering on it).
+ *
+ * That is a reading of a $0 price and a measured ceiling, not an oversight of
+ * the rule the premium lists keep repeating. There is nothing to ration: the
+ * model costs nothing and the fence keeps it that way
+ * (FREEBUFF_OX_ALPHA_MAX_PRICE), and its host absorbed 300 concurrent requests,
+ * ~99k prompt tokens/sec and 1,800 requests at a sustained 10/s without a
+ * single 429 (docs/freebuff-ox-alpha.md). What a pool would really ration is
+ * our standing with that host, and no number in this file can tell us where
+ * that limit is — serving the model and watching it can, which is what the two
+ * browser surfaces are for here.
+ *
+ * `experimental` is doing real work on this row rather than decorating it. An
+ * anonymous host can reprice, rename or withdraw a stealth model with no
+ * notice, so the TEST badge is the only promise about it we can actually keep.
+ */
+const OX_ALPHA_MODEL = {
+  id: FREEBUFF_OX_ALPHA_MODEL_ID,
+  displayName: 'Ox Alpha',
+  // Names the property a user picks this row FOR. "Free" would not distinguish
+  // it — every row in this catalog is free to the user — and naming the host
+  // is impossible, which is the whole point of a stealth model.
+  tagline: '1M context',
+  availability: 'always',
+  // NOT the AI-training notice, and the gap between the two is the point. The
+  // stealth terms say the host keeps prompts and completions and does not train
+  // on them, so `dataUse` stays 'service' — that field is what
+  // FREEBUFF_TRACED_MODEL_IDS keys off, and claiming a training grant we were
+  // not given would be wrong in the direction that changes behavior. The
+  // warning still says the thing a user wants before pasting a private repo
+  // into a provider whose name nobody will tell them.
+  //
+  // NOTE this is the one row where a warning does not imply `dataUse:
+  // 'training'`. The invariant test asserting they move together scopes itself
+  // to SUPPORTED_FREEBUFF_MODELS (the CLI/Desktop catalog), which this is
+  // deliberately not in; ox-alpha.test.ts pins the exception so it reads as a
+  // decision rather than as drift.
+  warning: 'Anonymous provider retains prompts',
+  dataUse: 'service',
+  premium: false,
+  // text + image + video in, text out.
+  multimodal: true,
+  // See FREEBUFF_OX_ALPHA_MODEL_ID for the measurement behind this. The
+  // provider's own default is `max`, which is 4x the tokens and 4x the latency
+  // of `high` for no better answer.
+  reasoningEffort: 'high',
+  efforts: OX_ALPHA_REASONING_EFFORTS,
+  defaultEffort: 'high',
+  experimental: true,
+  isNew: true,
+} as const satisfies FreebuffModelOption
+
 export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MINIMAX_M3_MODEL,
@@ -1301,6 +1423,10 @@ export const FREEBUFF_LIMITED_OFFER_SESSION_WINDOW_HOURS =
 /** Freebuff Web-only picker/support set: the CLI/Desktop catalog plus the
  *  earned GLM 5.2 row. */
 export const FREEBUFF_WEB_MODELS = [
+  // First because it is the row we are trying to put traffic on, and because
+  // being unmetered makes it the one a user can always reach. The TEST badge is
+  // what keeps that placement honest.
+  OX_ALPHA_MODEL,
   MUSE_SPARK_12_CONTRIBUTOR_MODEL,
   GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
@@ -1766,9 +1892,22 @@ export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
  * limited-region session pool; every other model remains geo-gated.
  *
  * Flash left this list with LIMITED_FREEBUFF_MODEL_IDS — restore it in both or
- * neither, since FREEBUFF_WEB_LIMITED_MODEL_IDS is the union of the two. */
+ * neither, since FREEBUFF_WEB_LIMITED_MODEL_IDS is the union of the two.
+ *
+ * Ox Alpha is the first entry that is here and NOT in
+ * LIMITED_FREEBUFF_MODEL_IDS, and the split is the point rather than an
+ * oversight: that list is the CLI/Desktop limited catalog (it maps over
+ * SUPPORTED_FREEBUFF_MODELS and reaches the CLI picker, the home FAQ and the
+ * README), while this one is the browser surfaces'. A Web/Cloud-only model can
+ * therefore reach limited regions without appearing anywhere it cannot run.
+ *
+ * Being here costs the limited tier nothing extra. That tier is metered by
+ * REGION, not by model — every limited session draws on the same
+ * FREEBUFF_LIMITED_SESSION_LIMIT pool whichever row it picks — so this widens
+ * what those users can choose without widening how much they get. */
 export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_OX_ALPHA_MODEL_ID,
 ] as const
 
 export function isFreebuffWebGeoExemptModelId(
@@ -1912,9 +2051,21 @@ export function isFreebuffSessionModelAllowedForAccessTier(
   if (accessTier !== 'limited') return isFreebuffSessionModelId(model)
   // See isGlmRedeemableAtLimitedTier: GLM's limited-tier gate is the quota
   // pool (bounty grants only), not this allowlist.
+  //
+  // The UNION of both limited catalogs, for the same reason the full-access
+  // branch above takes the union of both full catalogs: session admission is
+  // shared by CLI, Desktop, Web and Cloud, so it must accept every row ANY of
+  // them may legitimately offer. Reading only the CLI/Desktop list
+  // (LIMITED_FREEBUFF_MODEL_IDS) is what it did until Ox Alpha, which was
+  // harmless only while the two lists happened to agree — the moment a
+  // browser-only row reaches limited regions, that version offers a picker row
+  // whose first send fails admission with session_model_mismatch.
+  //
+  // Widening WHAT a limited user may pick, not how much: the limited pool is
+  // keyed on the tier rather than the model.
   return (
     isGlmRedeemableAtLimitedTier(model) ||
-    LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+    FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === model)
   )
 }
 
@@ -2111,6 +2262,63 @@ export function isFreebuffGpt56LunaModelId(
   id: string | null | undefined,
 ): boolean {
   return freebuffModelIdMatches(id, FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+}
+
+/**
+ * Models that may ONLY be served to the Freebuff Web service account — i.e. to
+ * turns issued by the Freebuff Web / Cloud runner itself, never to a caller
+ * holding an ordinary API key.
+ *
+ * This is the surface gate with teeth. Every other thing that keeps a model off
+ * a surface is a client-side fact: a model absent from FREEBUFF_MODELS is one
+ * no shipped CLI build renders, which stops our users and nobody else. A
+ * hand-written caller posts whatever agent id and model id it likes, and the
+ * free-mode allowlist happily confirms that `base3-free-ox-alpha` may run Ox
+ * Alpha — because it may, when WE are the ones asking.
+ *
+ * The service account is the one claim in a free-mode request that cannot be
+ * forged. `codebuff_metadata.surface` is self-reported and is ignored for
+ * everyone else precisely because it is (see docs/unified-usage-tracking.md);
+ * the API key that authenticates the runner is held server-side. So "Web and
+ * Cloud only" is expressed as "authenticated as the runner", which is the same
+ * statement made in the only terms an attacker cannot restate.
+ *
+ * ONLY OX ALPHA IS LISTED, deliberately. Muse Spark and Kimi K3 Eco are also
+ * browser-only and would also pass this gate in normal operation, but they are
+ * metered by the premium pool, so a third-party caller reaching one spends a
+ * quota that runs out. Ox Alpha is metered by NOTHING and costs nothing to
+ * serve, which makes it the single most attractive target in the catalog for a
+ * reselling proxy — the one row where "they can only take four sessions a day"
+ * is not a backstop. Add the others here too if that ever stops being the
+ * distinction; the check is per-model on purpose.
+ *
+ * Enforced in web/src/app/api/v1/chat/completions/_post.ts, next to the
+ * free-mode agent+model allowlist. That is where inference is actually spent,
+ * so a caller who somehow admits a session still cannot run a single turn on it.
+ */
+export const FREEBUFF_SERVICE_ONLY_MODEL_IDS = [
+  FREEBUFF_OX_ALPHA_MODEL_ID,
+] as const
+
+/** Whether `id` may only be served to the Freebuff Web service account. Matches
+ *  dated builds for the same reason the price fence does: a variant that slips
+ *  past this predicate is the same model with the gate off. */
+export function isFreebuffServiceOnlyModelId(
+  id: string | null | undefined,
+): boolean {
+  return FREEBUFF_SERVICE_ONLY_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
+}
+
+/** Whether `id` names Ox Alpha, including any dated build of it. Consumed by
+ *  the OpenRouter lane, which attaches the zero-price fence to exactly these
+ *  requests — a dated variant that slipped past this predicate would be the
+ *  same model with no fence on it. */
+export function isFreebuffOxAlphaModelId(
+  id: string | null | undefined,
+): boolean {
+  return freebuffModelIdMatches(id, FREEBUFF_OX_ALPHA_MODEL_ID)
 }
 
 /** The catalog's reasoning effort for the requested model, tolerating dated
