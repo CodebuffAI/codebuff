@@ -506,6 +506,17 @@ describe('getFileStatsFromBlocks', () => {
     expect(stats).toHaveLength(0)
   })
 
+  test('ignores non-tool blocks', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'some commentary',
+      } as TextContentBlock,
+    ]
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(0)
+  })
+
   test('ignores failed edit tools', () => {
     const blocks: ContentBlock[] = [
       {
