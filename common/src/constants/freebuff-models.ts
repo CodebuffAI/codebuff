@@ -1519,9 +1519,14 @@ export const FREEBUFF_WEB_ALL_MODELS = [
   ...FREEBUFF_WEB_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
 
-export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
-  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
-] as const
+/** Derived rather than hand-listed: this is what isFreebuffWebGodOnlyModelId()
+ *  checks to keep a god-only row off /api/live, /api/latency and the picker
+ *  for a non-god user, and a hand-maintained second list can drift from
+ *  FREEBUFF_WEB_GOD_ONLY_MODELS above without either failing to compile — the
+ *  same shape FREEBUFF_ROOT_AGENT_IDS avoids relative to the base3 map. */
+export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = Object.freeze(
+  FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id),
+)
 
 /**
  * Web/Cloud models the picker no longer offers, while the backend keeps
@@ -1569,6 +1574,7 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   // filtering `!premium`, so a premium model left out of here would be metered
   // by no pool at all rather than by a stricter one.
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   // Not here for cost — Muse Spark Contributor is cheaper per token than the
   // Standard pool's models. The premium pool is what bounds how many users sit
   // inside its 60 RPM team-wide ceiling at once, and being in SOME pool is

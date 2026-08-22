@@ -40,10 +40,11 @@ export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
  * the same price, so the daily allowance would have to be priced for the worst
  * case and would be small for everyone.
  *
- * Kimi K3 Eco is deliberately NOT here. It is currently `GOD_ONLY_BAIT_MODEL_ID`
- * (web/src/llm-api/honeypot-models.ts) reached mostly by API probers, so its
- * measured cost describes short aborted sessions rather than real use and
- * cannot be priced against. Revisit once it carries genuine client traffic.
+ * Kimi K3 Eco is deliberately NOT here. It is one of the god-only models in
+ * `GOD_ONLY_BAIT_MODEL_IDS` (web/src/llm-api/honeypot-models.ts) reached
+ * mostly by API probers, so its measured cost describes short aborted
+ * sessions rather than real use and cannot be priced against. Revisit once it
+ * carries genuine client traffic.
  */
 export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
   Object.freeze([

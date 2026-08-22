@@ -13,6 +13,7 @@ import {
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE,
@@ -634,13 +635,18 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('every Web picker model falls into exactly one quota group', () => {
+  test('every Web/Cloud model falls into exactly one quota group', () => {
     // The Web/Cloud picker groups rows by these two predicates (referral GLM,
     // premium) and treats the remainder as Standard. Each group is metered by a
     // different pool, so a model matching both — or a premium model matching
     // neither and silently landing in the free Standard group — is a quota bug,
     // not a cosmetic one.
-    for (const model of FREEBUFF_WEB_MODELS) {
+    //
+    // FREEBUFF_WEB_ALL_MODELS, not FREEBUFF_WEB_MODELS: the god-only rows are
+    // ADDITIVE to the visible list (FREEBUFF_WEB_ALL_MODELS = god-only +
+    // visible), so a loop over the visible list alone can never see a god-only
+    // model that fell into no pool — which is exactly the shape this bug had.
+    for (const model of FREEBUFF_WEB_ALL_MODELS) {
       const groups = [
         isFreebuffGlmV52ModelId(model.id),
         isFreebuffWebPremiumModelId(model.id),
@@ -747,6 +753,64 @@ describe('freebuff model availability', () => {
     expect(getFreebuffModelImageSupport(FREEBUFF_KIMI_K3_ECO_MODEL_ID)).toBe(
       false,
     )
+  })
+
+  test('Codex (test)/Luna-ES is a god-only Freebuff Web/Cloud test model', () => {
+    // Mirrors the Kimi K3 assertions above: a god-only model must carry its id
+    // in both FREEBUFF_WEB_GOD_ONLY_MODEL_IDS and FREEBUFF_WEB_PREMIUM_MODEL_IDS,
+    // or it is neither gated nor metered. See docs/freebuff-honeypot-models.md.
+    expect(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID).toBe('openai/gpt-5.6-luna-es')
+
+    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+
+    expect(isFreebuffWebModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(true)
+    expect(
+      isFreebuffWebGodOnlyModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID),
+    ).toBe(true)
+    // A premium model absent from every pool lands in the unmetered Standard
+    // set instead — this must be true, or it isn't in SOME pool.
+    expect(
+      isFreebuffWebPremiumModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID),
+    ).toBe(true)
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+    // Never reachable from the CLI/Desktop picker or a limited-tier browser.
+    expect(isFreebuffPremiumModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      false,
+    )
+    expect(isFreebuffModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(
+        FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+      ),
+    ).toBe(false)
+
+    expect(resolveFreebuffWebModel(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
+    expect(
+      resolveFreebuffWebModel(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)
+
+    const model = getFreebuffWebModel(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)
+    expect(model.displayName).toBe('Codex (test)')
+    expect(model.multimodal).toBe(false)
   })
 
   test('Ling 3.0 Flash and Greg 2 are fully removed from Freebuff', () => {
