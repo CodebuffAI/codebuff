@@ -1,0 +1,173 @@
+import {
+  IMPREZIA_LIMITS,
+  impreziaBaseUrlForKey,
+  impreziaChatAdResponseSchema,
+  isImpreziaSandboxKey,
+} from './imprezia-ad'
+
+import type { ImpreziaAd, ImpreziaDeviceContext } from './imprezia-ad'
+import type { Logger } from '../types/contracts/logger'
+
+/**
+ * The one way we call Imprezia's chat-ads API.
+ *
+ * Two callers reach it from opposite directions — the web chat, which knows
+ * the exact turn and the real viewport, and the CLI/Desktop ad provider, which
+ * infers a turn from a rolling message list and has no viewport at all. What
+ * they have in common is the whole transport: same path, same key header, same
+ * forwarded user agent, same timeout, same 403-means-account-not-enabled, same
+ * response schema. Only the inputs and what each does with the ad differ.
+ *
+ * Server-only by convention (it takes the publisher key), which is why it is
+ * separate from the isomorphic contract module the browser renderer imports.
+ *
+ * Every failure is a no-ad path. The reply is already on the user's screen by
+ * the time this runs, so an ad-network problem must never surface or delay
+ * anything.
+ */
+
+const CHAT_ADS_PATH = '/v1/ads/chat'
+
+/** Ad decisioning is off the critical path but holds a socket; cap it well
+ *  under the browser's own patience. */
+const REQUEST_TIMEOUT_MS = 5_000
+
+export type ImpreziaChatAdRequest = {
+  /** Current user message, verbatim. */
+  request: string
+  /** Completed assistant reply for the same turn. */
+  response: string
+  sessionId: string
+  /** ISO-8601 instant the TURN completed — not when we send this. */
+  timestamp: string
+  /** Origin + path, already stripped of query/fragment. */
+  sourceUrl: string
+  /**
+   * Names the calling SURFACE, not the OS: 'browser' | 'desktop' | 'cli'. (The
+   * published docs list browser|android|ios, which is not what their backend
+   * actually expects.)
+   */
+  platformString: string
+  deviceContext: ImpreziaDeviceContext
+}
+
+export type ImpreziaChatAdResult = {
+  /** Support/reconciliation key. Present even on no-fill. */
+  requestId: string
+  ad: ImpreziaAd | null
+}
+
+export async function fetchImpreziaChatAd(params: {
+  apiKey: string
+  request: ImpreziaChatAdRequest
+  /** The END USER's UA, forwarded verbatim. Never our HTTP client's. */
+  userAgent: string
+  /** False in production. A sandbox key must not serve real users. */
+  testMode: boolean
+  logger: Logger
+  fetch: typeof globalThis.fetch
+}): Promise<ImpreziaChatAdResult | null> {
+  const { apiKey, request, userAgent, testMode, logger, fetch } = params
+  const baseUrl = impreziaBaseUrlForKey(apiKey)
+
+  // Both halves are required and must be non-empty. A turn with an empty reply
+  // (aborted mid-stream) is not an ad opportunity.
+  if (!request.request.trim() || !request.response.trim()) {
+    logger.debug('[ads:imprezia] Skipping turn with an empty message')
+    return null
+  }
+
+  // A sandbox key serves Imprezia's own house creatives. They render like real
+  // ads, so in production they are indistinguishable from live inventory.
+  if (isImpreziaSandboxKey(apiKey) && !testMode) {
+    logger.error(
+      '[ads:imprezia] Refusing to serve: sandbox key in production. Swap in ' +
+        'an api_pub_prod_ key before this can fill.',
+    )
+    return null
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  let response: Response
+  try {
+    response = await fetch(`${baseUrl}${CHAT_ADS_PATH}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+        // Imprezia targets and measures off this; sending our runtime's UA
+        // would look like datacenter traffic and be discounted as invalid.
+        'X-Forwarded-User-Agent': userAgent,
+      },
+      body: JSON.stringify({
+        ...request,
+        request: request.request.slice(0, IMPREZIA_LIMITS.request),
+        response: request.response.slice(0, IMPREZIA_LIMITS.response),
+        sessionId: request.sessionId.slice(0, IMPREZIA_LIMITS.sessionId),
+      }),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === 'AbortError'
+    logger.warn(
+      { baseUrl, timedOut: aborted, error },
+      aborted
+        ? '[ads:imprezia] Ad request timed out'
+        : '[ads:imprezia] Ad request failed',
+    )
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  if (!response.ok) {
+    // A publisher account not switched on for chat ads 403s on every single
+    // request. That is an account-state problem with an account-side fix, not
+    // a bug to chase in the logs, so name it rather than burying it.
+    if (response.status === 403) {
+      logger.warn(
+        { baseUrl },
+        '[ads:imprezia] Publisher is not enabled for chat ads; no ad will ' +
+          'fill until Imprezia enables the account for this key',
+      )
+      return null
+    }
+    logger.error(
+      { baseUrl, status: response.status },
+      '[ads:imprezia] API returned error',
+    )
+    return null
+  }
+
+  const parsed = impreziaChatAdResponseSchema.safeParse(
+    await response.json().catch(() => null),
+  )
+  if (!parsed.success) {
+    logger.error(
+      { baseUrl, issues: parsed.error.issues },
+      '[ads:imprezia] API response did not match the expected shape',
+    )
+    return null
+  }
+
+  const { requestId, ad } = parsed.data
+  if (!ad) {
+    // No-fill is the common case, not an error. Log the requestId anyway: it
+    // is the reconciliation key Imprezia support asks for, and the only handle
+    // we have on a serve that produced nothing.
+    logger.debug({ requestId }, '[ads:imprezia] No ad fill')
+    return { requestId, ad: null }
+  }
+
+  logger.info(
+    {
+      requestId,
+      impressionUuid: ad.impression.impressionUuid,
+      brandName: ad.creative.brandName,
+    },
+    '[ads:imprezia] Ad filled',
+  )
+  return { requestId, ad }
+}
