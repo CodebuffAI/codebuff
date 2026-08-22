@@ -184,8 +184,10 @@ export async function processStream(
   let hadToolCallError = false
   let sawStreamRecovery = false
   const errorMessages: Message[] = []
-  const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
-    Promise.withResolvers<void>()
+  let resolveStreamDonePromise!: () => void
+  const streamDonePromise = new Promise<void>((resolve) => {
+    resolveStreamDonePromise = resolve
+  })
   let previousToolCallFinished = streamDonePromise
 
   const fileProcessingState: FileProcessingState = {
