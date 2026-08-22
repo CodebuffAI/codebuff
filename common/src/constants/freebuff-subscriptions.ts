@@ -63,7 +63,9 @@ export function isFreebuffSubscriptionModelId(modelId: string): boolean {
 export const FREEBUFF_SUBSCRIPTION_TIER_IDS = [
   'starter',
   'plus',
-  'pro',
+  // 'pro' ($60) is withheld for now. Its Stripe price still exists but is
+  // unreachable, because checkout validates the requested tier against THIS
+  // catalog — so restoring it is an edit here, not another live-Stripe write.
 ] as const
 export type FreebuffSubscriptionTierId =
   (typeof FREEBUFF_SUBSCRIPTION_TIER_IDS)[number]
@@ -135,26 +137,6 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       dailyPremiumSessions: 7,
       deepseekPeakHoursExcluded: true,
     },
-    {
-      // Limits here are DERIVED, not specified: they scale the Plus tier by the
-      // price ratio (2.4x) and then round, and were checked against the same
-      // "max monthly cost <= 6x price" policy the other two satisfy —
-      // 360 sessions x $[redacted] worst-case = $273, i.e. 4.6x. Change them freely;
-      // re-run scripts/analyze-freebuff-subscription-limits.ts afterwards.
-      id: 'pro',
-      displayName: 'Pro',
-      priceUsd: 60,
-      // DERIVED, not specified: the same ~50% off the first month that Plus
-      // gets ($12 of $25). Change it freely — it only affects what someone
-      // pays to START on Pro, which is rare, since most accounts consume their
-      // one intro on a lower tier first.
-      introPriceUsd: 30,
-      dailySessions: 25,
-      fiveDaySessions: 80,
-      monthlySessions: 360,
-      dailyPremiumSessions: 15,
-      deepseekPeakHoursExcluded: false,
-    },
   ] satisfies FreebuffSubscriptionTier[])
 
 const TIERS_BY_ID = new Map(FREEBUFF_SUBSCRIPTION_TIERS.map((t) => [t.id, t]))
@@ -188,9 +170,14 @@ export function freebuffSubscriptionTierRank(id: string | null | undefined) {
 export function freebuffSubscriptionTierDisclaimers(
   tier: FreebuffSubscriptionTier,
 ): string[] {
+  // Deliberately does NOT restate the day/5-day/month figures: every surface
+  // that shows these also shows those three numbers, and repeating them reads
+  // as three different rules rather than one.
   const out = [
-    `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or DeepSeek V4 Pro`,
-    `${tier.fiveDaySessions} sessions per rolling 5 days, ${tier.monthlySessions} per month`,
+    `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or DeepSeek V4 Pro; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
+    'The 5-day limit is a rolling window — it frees up as your oldest sessions age out, rather than resetting on a fixed day',
+    'Daily sessions reset at midnight Pacific; unused ones do not carry over',
+    'Adds to your free sessions rather than replacing them',
   ]
   if (tier.deepseekPeakHoursExcluded) {
     out.push('DeepSeek models are unavailable during peak hours')
