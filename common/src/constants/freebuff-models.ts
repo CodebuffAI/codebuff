@@ -191,6 +191,23 @@ export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
  *  (agents/constants.ts) is this same model id, so keying either off the model
  *  alone would change Codebuff's paid lite mode as a side effect. */
 export const FREEBUFF_GPT_5_6_LUNA_MODEL_ID = 'openai/gpt-5.6-luna'
+/**
+ * The Novita `-es` route. GOD-ONLY, and NOT a cheaper GPT-5.6 Luna.
+ *
+ * Its own id rather than a second lane under Luna's, because it is a different
+ * model: measured 2026-08-21 it answers "I'm Codex, an OpenAI coding agent
+ * based on GPT-5", volunteers Codex's internal tool names, and carries a fixed
+ * ~4,450-token Codex system prompt we did not send. Serving that under Luna's
+ * row would be the silent substitution the DeepSeek legacy/GA split exists to
+ * prevent — and here the model says the quiet part out loud to any user who
+ * asks what it is.
+ *
+ * A SECOND ID FOR THE SAME MODEL IS NORMALLY THE BUG (see GLM's note above:
+ * an extra id is an extra door onto a quota pool). This is the opposite case —
+ * one id per distinct model, kept apart precisely so neither can be mistaken
+ * for the other. It is god-only, so it opens no pool.
+ */
+export const FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID = 'openai/gpt-5.6-luna-es'
 /** OpenRouter provider slug Luna prefers (first in `provider.order`). */
 export const FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE = 'openai'
 /** Price ceiling for Luna, USD per million tokens. Sent as OpenRouter's
@@ -722,6 +739,10 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   // summarize rewrites history from the front and throws away the prompt cache
   // with it.
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 1_000_000,
+  // Novita publishes 372k for the `-es` route (their /v1/models, 2026-08-21),
+  // far below Luna's own 1M — it is a Codex session, not the Luna API model.
+  // Sized from what the provider states rather than inherited from the name.
+  [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 372_000,
   // Meta publishes 1,048,576 for every Muse Spark variant. Entered as 1_000_000
   // for the same reason Luna is: it stays on the safe side of the asymmetry
   // above while remaining an honest order of magnitude, where falling through
@@ -1067,6 +1088,27 @@ const GLM_V52_MODEL = {
  * routing, billing, and the CROF_MODEL_MAP entry. If the full K3 is ever added
  * as its own row, this label has to be disambiguated at that point.
  */
+const GPT_5_6_LUNA_ES_MODEL = {
+  id: FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+  // Named for what it IS. "Luna" appears nowhere: the route answers "Codex" when
+  // asked, so a row calling it Luna would be contradicted by the model itself.
+  displayName: 'Codex (test)',
+  tagline: 'Novita route — evaluation only',
+  availability: 'always',
+  // No AI-training claim either way: the supplier has no resale agreement for
+  // this route, so we have no data-use terms to pass on. `service` is the
+  // conservative reading — we are not asserting a training warning we cannot
+  // substantiate, and not asserting safety we cannot either.
+  dataUse: 'service',
+  // TRUE so it cannot fall into FREEBUFF_STANDARD_MODEL_IDS, which is derived
+  // as `WEB_ALL.filter(m => !m.premium)` — the UNMETERED pool. God-only is the
+  // gate; this flag is what stops the row becoming free inference if the gate
+  // is ever widened.
+  premium: true,
+  multimodal: false,
+  reasoningEffort: FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
+} as const satisfies FreebuffModelOption
+
 const KIMI_K3_ECO_MODEL = {
   id: FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   displayName: 'Kimi K3',
@@ -1451,6 +1493,7 @@ export const FREEBUFF_WEB_MODELS = [
 
 export const FREEBUFF_WEB_GOD_ONLY_MODELS = [
   KIMI_K3_ECO_MODEL,
+  GPT_5_6_LUNA_ES_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_WEB_ALL_MODELS = [

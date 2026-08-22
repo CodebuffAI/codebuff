@@ -16,6 +16,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_OX_ALPHA_MODEL_ID,
@@ -124,6 +125,7 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
+  [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base3-free-luna-es',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
 }
@@ -307,6 +309,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-luna',
   'base2-free-glm',
   'base2-free-kimi-k3-eco',
+  'base2-free-luna-es',
   // Extended-context `-max` roots. Listed here for the same reason every other
   // root is: a root absent from this list is treated as a subagent, so a
   // top-level request on one fails the hierarchy check with
@@ -353,6 +356,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-luna',
   'base3-free-glm',
   'base3-free-kimi-k3-eco',
+  'base3-free-luna-es',
   'base3-free-muse-spark',
   'base3-free-ox-alpha',
   // Freebuff CLI base3 roots. Every other id it needs is already above,
@@ -375,6 +379,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base2-free-kimi-k3-eco',
+  [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base2-free-luna-es',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base2-free-ox-alpha',
@@ -512,6 +517,12 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'base2-free-kimi-k3-eco': new Set([FREEBUFF_KIMI_K3_ECO_MODEL_ID]),
+  // Novita's `-es` route. Pinned to the one model like every other root. It is
+  // a Codex session rather than Luna (see web/src/llm-api/novita.ts), so it is
+  // deliberately NOT reachable from `base2-free-luna` — the two must never
+  // share a root, or a Luna request could land on Codex.
+  'base2-free-luna-es': new Set([FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]),
+  'base3-free-luna-es': new Set([FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]),
   // Extended-context roots for the provisioned `-max` tiers. Pinned one model
   // each like every other root, and not in any client catalog: these are
   // provisioned per-account rather than rendered from a picker, so a client

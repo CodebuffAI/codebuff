@@ -685,6 +685,7 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-glm': BASE2,
     // God-only Kimi K3 test root; createBase2('free', …) like its siblings.
     'base2-free-kimi-k3-eco': BASE2,
+    'base2-free-luna-es': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
     'base2-free-fable': BASE2,
     // Extended-context `-max` roots; createBase2('free', …) like their
