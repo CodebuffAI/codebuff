@@ -252,7 +252,9 @@ describe('freebuff model availability', () => {
     expect(all[all.length - 1]).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     // And it is nobody's starting pick — a default has to be joinable at every
     // hour, which Pro is not.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
@@ -265,7 +267,7 @@ describe('freebuff model availability', () => {
    * because the hazard is a notice being ADDED back rather than an existing one
    * being wrong — and because both notices that used to live here expired
    * without anyone noticing (each claimed V4 Flash was the better default;
-   * Flash then became premium and started closing for ten hours a day).
+   * Flash then became premium and started closing during peak hours).
    *
    * It matters more than copy: migrateSupersededFreebuffModelPreference
    * rewrites a SAVED pick on every load, so a supersedes notice silently moves
@@ -301,17 +303,6 @@ describe('freebuff model availability', () => {
   })
 
   /**
-   * The peak-hours swap, as one test because it is one decision. V4 Pro used to
-   * close 00:00-10:00 UTC and Flash stayed open; on 2026-08-21 that inverted,
-   * because Pro moved to a flat-priced lane while Flash is still served by
-   * lanes that double at peak.
-   *
-   * Asserted as a PAIR deliberately. Either row alone looks arbitrary, and the
-   * dangerous state is both closed at once — which is what a copy-paste of the
-   * old availability onto the new row would produce, closing the catalog's two
-   * strongest models for ten hours a day.
-   */
-  /**
    * THE invariant, restated as what it has always really been: V4 Pro and V4
    * Flash are never closed at the same time.
    *
@@ -343,7 +334,10 @@ describe('freebuff model availability', () => {
       isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, peak),
     ).toBe(true)
     expect(
-      isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak),
+      isFreebuffSessionModelAvailable(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        peak,
+      ),
     ).toBe(true)
   })
 
@@ -815,14 +809,14 @@ describe('freebuff model availability', () => {
         includeGodOnly: true,
       }),
     ).toBe(true)
-    expect(
-      isFreebuffWebGodOnlyModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID),
-    ).toBe(true)
+    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      true,
+    )
     // A premium model absent from every pool lands in the unmetered Standard
     // set instead — this must be true, or it isn't in SOME pool.
-    expect(
-      isFreebuffWebPremiumModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID),
-    ).toBe(true)
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      true,
+    )
     expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
     )

@@ -13,7 +13,8 @@
 /**
  * Peak hours, from api-docs.deepseek.com/quick_start/pricing (read 2026-08-16):
  * "Peak hours are 01:00 - 04:00 and 06:00 - 10:00 UTC (all other hours are
- * off-peak)." Every rate doubles inside them.
+ * off-peak)." These windows apply Monday-Friday Beijing time; weekends are
+ * always off-peak.
  *
  * Half-open [start, end): 04:00:00 UTC itself is already off-peak. TWO
  * disjoint windows, not one — the 04:00-06:00 gap between them is exactly what
@@ -28,6 +29,11 @@ export const DEEPSEEK_PEAK_HOUR_RANGES_UTC: ReadonlyArray<
 
 export type DeepSeekPricingWindow = 'peak' | 'off-peak'
 
+function isBeijingWeekend(at: Date): boolean {
+  const beijingDay = new Date(at.getTime() + 8 * 60 * 60 * 1000).getUTCDay()
+  return beijingDay === 0 || beijingDay === 6
+}
+
 /**
  * Which rate card applies at `at`.
  *
@@ -36,6 +42,7 @@ export type DeepSeekPricingWindow = 'peak' | 'off-peak'
  * ceiling), and a hidden `new Date()` would make both untestable.
  */
 export function deepseekPricingWindow(at: Date): DeepSeekPricingWindow {
+  if (isBeijingWeekend(at)) return 'off-peak'
   const hour = at.getUTCHours()
   const peak = DEEPSEEK_PEAK_HOUR_RANGES_UTC.some(
     ([startHour, endHour]) => hour >= startHour && hour < endHour,
@@ -58,8 +65,8 @@ export function deepseekPricingWindow(at: Date): DeepSeekPricingWindow {
 export const DEEPSEEK_EXPENSIVE_WINDOW_LEAD_HOURS = 1
 
 /**
- * The single window in which DeepSeek is at its most expensive, [start, end)
- * UTC — 00:00 to 10:00, which is 5pm to 3am Pacific.
+ * The single weekday window in which DeepSeek is at its most expensive,
+ * [start, end) UTC — 00:00 to 10:00, which is 5pm to 3am Pacific.
  *
  * DERIVED from DEEPSEEK_PEAK_HOUR_RANGES_UTC rather than written down, so it
  * cannot drift the day DeepSeek moves its hours.
@@ -79,6 +86,7 @@ export const DEEPSEEK_EXPENSIVE_WINDOW_UTC: readonly [number, number] = [
 /** Whether `at` falls in the window above. Half-open like the peak check, so
  *  the closing hour is already outside it. */
 export function isDeepSeekExpensiveWindow(at: Date): boolean {
+  if (isBeijingWeekend(at)) return false
   const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
   const hour = at.getUTCHours()
   return hour >= start && hour < end

@@ -24,12 +24,14 @@ import {
  */
 
 /** Models a subscription's pooled allowance can be spent on. */
-export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze([
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_KIMI_K3_ECO_MODEL_ID,
-])
+export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
+  [
+    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  ],
+)
 
 /**
  * The expensive half of the pool, sub-capped within each day.
@@ -181,7 +183,7 @@ export function freebuffSubscriptionTierDisclaimers(
     'Adds to your free sessions rather than replacing them',
   ]
   if (tier.deepseekPeakHoursExcluded) {
-    out.push('DeepSeek models are unavailable during peak hours')
+    out.push('DeepSeek models are unavailable during weekday peak hours')
   }
   return out
 }

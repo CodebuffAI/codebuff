@@ -63,3 +63,12 @@ describe('the expensive window', () => {
     )
   })
 })
+
+test.each(['2026-08-29T02:00:00Z', '2026-08-30T02:00:00Z'])(
+  '%s uses weekend rates in Beijing',
+  (instant) => {
+    const date = new Date(instant)
+    expect(deepseekPricingWindow(date)).toBe('off-peak')
+    expect(isDeepSeekExpensiveWindow(date)).toBe(false)
+  },
+)
