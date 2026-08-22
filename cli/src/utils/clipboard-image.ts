@@ -210,6 +210,47 @@ function readImageLinux(): ClipboardImageResult {
 }
 
 /**
+ * Spawn a PowerShell command, preferring Windows PowerShell (powershell.exe)
+ * and falling back to pwsh (PowerShell 7) when it is not on PATH — e.g.
+ * minimal installs where only pwsh is present. Clipboard reads fail silently
+ * (returning false/null) when the shell can't be spawned at all, so this
+ * keeps the whole paste flow working on more Windows setups.
+ *
+ * stdout/stderr are normalized to strings so callers don't have to handle
+ * the string | Buffer union Bun's spawnSync can return.
+ */
+function spawnPowerShell(
+  args: string[],
+  opts: { encoding?: 'utf-8'; timeout?: number; maxBuffer?: number } = {},
+): {
+  status: number | null
+  stdout: string
+  stderr: string
+  error?: Error | undefined
+} {
+  const { encoding, timeout = 10000, maxBuffer } = opts
+  const common: Parameters<typeof spawnSync>[2] = {
+    encoding,
+    timeout,
+    ...(maxBuffer !== undefined ? { maxBuffer } : {}),
+  }
+  const trySpawn = (cmd: string) => spawnSync(cmd, args, common)
+  let result = trySpawn('powershell')
+  if (result.error && !result.stdout && !result.stderr) {
+    // powershell.exe missing (ENOENT) — try pwsh before giving up.
+    result = trySpawn('pwsh')
+  }
+  const toStr = (value: string | Buffer | null | undefined): string =>
+    typeof value === 'string' ? value : value ? value.toString('utf-8') : ''
+  return {
+    status: result.status,
+    stdout: toStr(result.stdout),
+    stderr: toStr(result.stderr),
+    error: result.error,
+  }
+}
+
+/**
  * Check if clipboard contains an image (Windows)
  */
 function hasImageWindows(): boolean {
@@ -218,12 +259,12 @@ function hasImageWindows(): boolean {
       Add-Type -AssemblyName System.Windows.Forms
       if ([System.Windows.Forms.Clipboard]::ContainsImage()) { Write-Output "true" } else { Write-Output "false" }
     `
-    const result = spawnSync('powershell', ['-STA', '-Command', script], {
+    const result = spawnPowerShell(['-STA', '-Command', script], {
       encoding: 'utf-8',
       timeout: 5000,
     })
     
-    return result.stdout?.trim() === 'true'
+    return result.stdout.trim() === 'true'
   } catch {
     return false
   }
@@ -249,12 +290,12 @@ function readImageWindows(): ClipboardImageResult {
       }
     `
     
-    const result = spawnSync('powershell', ['-STA', '-Command', script], {
+    const result = spawnPowerShell(['-STA', '-Command', script], {
       encoding: 'utf-8',
       timeout: 10000,
     })
     
-    if (result.stdout?.trim() === 'success' && existsSync(imagePath)) {
+    if (result.stdout.trim() === 'success' && existsSync(imagePath)) {
       return { success: true, imagePath, filename }
     }
     
@@ -459,9 +500,9 @@ function readClipboardFilePathWindows(): string | null {
         Write-Output $files[0]
       }
     `
-    const result = spawnSync('powershell', ['-STA', '-Command', script], {
+    const result = spawnPowerShell(['-STA', '-Command', script], {
       encoding: 'utf-8',
-      timeout: 1000,
+      timeout: 5000,
     })
     
     if (result.status === 0 && result.stdout) {
@@ -560,14 +601,22 @@ export function readClipboardImageFilePath(): string | null {
 export function readClipboardText(): string | null {
   try {
     const platform = process.platform
-    let result: ReturnType<typeof spawnSync>
+    let result: {
+      status: number | null
+      stdout: string | Buffer | null
+      stderr: string | Buffer | null
+      error?: Error | undefined
+    }
     
     switch (platform) {
       case 'darwin':
         result = spawnSync('pbpaste', [], { encoding: 'utf-8', timeout: 1000 })
         break
       case 'win32':
-        result = spawnSync('powershell', ['-Command', 'Get-Clipboard'], { encoding: 'utf-8', timeout: 1000 })
+        result = spawnPowerShell(['-Command', 'Get-Clipboard'], {
+          encoding: 'utf-8',
+          timeout: 1000,
+        })
         break
       case 'linux':
         result = spawnSync('xclip', ['-selection', 'clipboard', '-o'], { encoding: 'utf-8', timeout: 1000 })

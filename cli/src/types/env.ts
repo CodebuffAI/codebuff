@@ -33,6 +33,7 @@ export type CliEnv = BaseEnv & {
 
   // Terminal-specific
   KITTY_WINDOW_ID?: string
+  KONSOLE_VERSION?: string
   SIXEL_SUPPORT?: string
   ZED_NODE_ENV?: string
   ZED_TERM?: string
