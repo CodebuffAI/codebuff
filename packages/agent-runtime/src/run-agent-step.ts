@@ -1,4 +1,3 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 import {
   supportsAssistantPrefill,
@@ -237,10 +236,8 @@ export const runAgentStep = async (
 }> => {
   const {
     agentType,
-    clientSessionId,
     fileContext,
     agentTemplate,
-    fingerprintId,
     localAgentTemplates,
     logger,
     prompt,
@@ -251,7 +248,6 @@ export const runAgentStep = async (
     userInputId,
     onResponseChunk,
     promptAiSdk,
-    trackEvent,
     additionalToolDefinitions,
   } = params
   let agentState = params.agentState
@@ -260,22 +256,8 @@ export const runAgentStep = async (
 
   const startTime = Date.now()
 
-  // Generates a unique ID for each main prompt run (ie: a step of the agent loop)
-  // This is used to link logs within a single agent loop
+  // Links logs within a single step of the agent loop.
   const agentStepId = crypto.randomUUID()
-  trackEvent({
-    event: AnalyticsEvent.AGENT_STEP,
-    userId: userId ?? '',
-    properties: {
-      agentStepId,
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      repoName: repoId,
-    },
-    logger,
-  })
 
   if (agentState.stepsRemaining <= 0) {
     logger.warn(

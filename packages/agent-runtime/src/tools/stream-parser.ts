@@ -152,7 +152,6 @@ export async function processStream(
       typeof processStreamWithTools,
       | 'processors'
       | 'defaultProcessor'
-      | 'loggerOptions'
       | 'executeXmlToolCall'
     >,
 ) {
@@ -356,11 +355,6 @@ export async function processStream(
     ]),
     defaultProcessor: (name: string) =>
       createToolExecutionCallback(name, false),
-    loggerOptions: {
-      userId,
-      model: agentTemplate.model,
-      agentName: agentTemplate.id,
-    },
     onResponseChunk: (chunk) => {
       if (chunk.type === 'text') {
         if (chunk.text) {

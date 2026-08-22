@@ -1,7 +1,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { describe, test, expect, beforeEach, mock } from 'bun:test'
 
-
 import {
   initAnalytics,
   trackEvent,
@@ -11,7 +10,6 @@ import {
 } from '../analytics'
 
 import type { AnalyticsClientWithIdentify } from '@codebuff/common/analytics-core'
-
 
 describe('analytics with PostHog alias', () => {
   // Store references to track calls
@@ -65,7 +63,7 @@ describe('analytics with PostHog alias', () => {
       initAnalytics()
 
       trackEvent(AnalyticsEvent.APP_LAUNCHED, { test: 'value1' })
-      trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, { test: 'value2' })
+      trackEvent(AnalyticsEvent.LOGIN_STARTED, { test: 'value2' })
 
       // Events should be sent immediately with anonymous ID
       expect(captureMock).toHaveBeenCalledTimes(2)
@@ -76,7 +74,7 @@ describe('analytics with PostHog alias', () => {
       })
       expect(captureMock).toHaveBeenCalledWith({
         distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.USER_INPUT_COMPLETE,
+        event: AnalyticsEvent.LOGIN_STARTED,
         properties: { test: 'value2' },
       })
     })
@@ -222,7 +220,7 @@ describe('analytics with PostHog alias', () => {
 
       // Anonymous events
       trackEvent(AnalyticsEvent.APP_LAUNCHED, { stage: 'startup' })
-      trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, { stage: 'pre-login' })
+      trackEvent(AnalyticsEvent.LOGIN_STARTED, { stage: 'pre-login' })
 
       // User logs in
       identifyUser('user-journey', { plan: 'pro' })
@@ -241,7 +239,7 @@ describe('analytics with PostHog alias', () => {
       })
       expect(captureMock).toHaveBeenNthCalledWith(2, {
         distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.USER_INPUT_COMPLETE,
+        event: AnalyticsEvent.LOGIN_STARTED,
         properties: { stage: 'pre-login' },
       })
 

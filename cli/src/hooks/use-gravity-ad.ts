@@ -11,6 +11,7 @@ import { getAuthToken } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
+import { enqueueClientLog } from '../utils/log-shipper'
 import { AI_MESSAGE_ID_PREFIX } from '../utils/ai-message-id'
 import { trackEvent } from '../utils/analytics'
 import {
@@ -565,10 +566,13 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         count > MAX_RESPONSE_AD_POOL_SIZE &&
         previousEligibleCount <= MAX_RESPONSE_AD_POOL_SIZE
       ) {
-        trackInlineAdEvent(
-          AnalyticsEvent.CLI_INLINE_AD_POOL_REUSED,
-          telemetryProperties,
-        )
+        enqueueClientLog({
+          level: 'info',
+          event: 'cli.inline_ad_pool_reused',
+          message: 'CLI inline-ad pool reused',
+          client_session_id: telemetryProperties.chat_session_id,
+          data: telemetryProperties,
+        })
       }
     }
 

@@ -3,14 +3,11 @@ import { AnalyticsEvent } from '../constants/analytics-events'
 const DEFAULT_SAMPLED_RATE = 0.01
 
 const SAMPLED_EVENT_RATES: Partial<Record<AnalyticsEvent, number>> = {
-  [AnalyticsEvent.AGENT_STEP]: DEFAULT_SAMPLED_RATE,
-  [AnalyticsEvent.CLI_LOG]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.FEEDBACK_BUTTON_HOVERED]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.FOLLOWUP_CLICKED]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.CLI_INLINE_AD_SLOT_ELIGIBLE]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.SLASH_COMMAND_USED]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.SLASH_MENU_ACTIVATED]: DEFAULT_SAMPLED_RATE,
-  [AnalyticsEvent.TOOL_USE]: DEFAULT_SAMPLED_RATE,
 }
 
 const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
@@ -66,8 +63,6 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.TERMINAL_WATCHDOG_FAILED,
   AnalyticsEvent.TERMINAL_COMMAND_COMPLETED,
   AnalyticsEvent.UPDATE_CODEBUFF_FAILED,
-  AnalyticsEvent.USER_INPUT,
-  AnalyticsEvent.USER_INPUT_COMPLETE,
 ])
 
 type AnalyticsProperties = Record<string, unknown> | undefined
@@ -145,14 +140,6 @@ function getEventSampleRate(
   event: AnalyticsEvent,
   properties: AnalyticsProperties,
 ): number {
-  const level = getStringProperty(properties, 'level')?.toLowerCase()
-  if (
-    event === AnalyticsEvent.CLI_LOG &&
-    (level === 'error' || level === 'fatal')
-  ) {
-    return 1
-  }
-
   if (ALWAYS_TRACK_EVENTS.has(event)) {
     return 1
   }
