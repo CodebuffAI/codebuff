@@ -812,18 +812,27 @@ const DEEPSEEK_V4_PRO_MODEL = {
   // instead of ranking it. "Smartest" read as a recommendation the rest of the
   // catalog no longer makes.
   tagline: 'Deep reasoning',
-  // ALWAYS, as of 2026-08-21 — and this is the direct consequence of the lane
-  // move, not an independent loosening. Pro was closed 00:00-10:00 UTC because
-  // "DeepSeek doubles every rate inside that window"; it is now served by
-  // Cheaper Inference on a FLAT card with no peak rate to hide from. Leaving it
-  // closed would have kept a ten-hour blackout whose only stated justification
-  // no longer applied to it.
+  // CLOSED 00:00-10:00 UTC (5pm-3am Pacific) again as of 2026-08-22 — see
+  // DEEPSEEK_EXPENSIVE_WINDOW_UTC. This tracks the LANE, not a change of heart:
+  // Pro briefly reopened at peak while it was served by a flat-priced gateway,
+  // and it is back on DeepSeek direct, which doubles every rate inside that
+  // window. The hour of lead-in matters for the same reason it always did — a
+  // session admitted just before peak keeps its model for a full hour.
   //
-  // The window did not disappear — it moved to V4 Flash, which is still served
-  // by lanes that reprice at peak. Pro is what Flash's traffic is meant to land
-  // on there, which is why this row has to be open exactly when that one is
-  // shut. Change one and you must change the other.
-  availability: 'always',
+  // PAIRED WITH V4 FLASH, which reopens in the same commit. The two rows must
+  // never be closed at once: they are the catalog's two strongest models, and
+  // shutting both for ten hours a day leaves the premium pool with nothing to
+  // spend on. Change one, check the other.
+  availability: 'off_peak_only',
+  // Where a Pro pick goes during those ten hours. Without this it falls to
+  // FALLBACK_FREEBUFF_MODEL_ID — the unlimited row — which is a bigger step
+  // down than the situation calls for: the user picked a premium reasoning
+  // model, and the other premium reasoning model is open. Both draw the same
+  // pool, so the redirect spends exactly what the original would have.
+  //
+  // The pointer ran Flash -> Pro for one day, while Flash was the closed row.
+  // It has to reverse with the closure, or it aims traffic at a shut model.
+  unavailableFallback: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   premium: true,
@@ -893,25 +902,16 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // already gone when Pro took the recommendation on 2026-08-12. The picker
   // renders the premium group heading, so the tagline does not have to.
   tagline: 'Smart & Fast',
-  // CLOSED 00:00-10:00 UTC (5pm-3am Pacific) as of 2026-08-21, inheriting the
-  // window V4 Pro used to hold — see DEEPSEEK_EXPENSIVE_WINDOW_UTC. Flash is
-  // still served by lanes that double at peak while Pro moved to a flat card,
-  // so the row worth closing is now this one. The hour of lead-in is built into
-  // that window and matters for the same reason it always did: a session
-  // admitted just before peak keeps its model for a full hour.
+  // OPEN AT ALL HOURS again as of 2026-08-22. Flash held the peak closure only
+  // while V4 Pro was on a flat-priced lane and could cover those hours; Pro is
+  // back on DeepSeek direct and closed at peak, so Flash has to be the row that
+  // stays up — it is the cheaper of the two and the one users are steered to.
   //
-  // This row is DEFAULT_FREEBUFF_MODEL_ID, so closing it is a bigger deal than
-  // closing Pro was — a new user landing during the window gets the fallback
-  // below rather than the recommendation. That is the trade being made
-  // deliberately: ten hours on a cheap flat lane beats ten hours on a doubled
-  // one.
-  availability: 'off_peak_only',
-  // Peak traffic lands on V4 Pro, not on the unlimited row. Closing Flash is
-  // only worth doing if what replaces it is the cheaper model rather than the
-  // weaker one, and Pro is `availability: 'always'` precisely so it can take
-  // this. Both rows are premium, so a user redirected here spends the same
-  // pool they would have spent anyway.
-  unavailableFallback: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  // No `unavailableFallback` either: it pointed peak traffic at Pro, which is
+  // now the row that is shut then. A redirect onto a closed model resolves to
+  // the unlimited fallback anyway, so the pointer would be dead weight that
+  // reads as intent.
+  availability: 'always',
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   // TEMPORARY (2026-08-18). Flash was the unlimited model every free account
@@ -1263,20 +1263,25 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // FREEBUFF_PAUSED_FREE_MODEL_IDS) instead of wedging those clients the way
 // #1801 wedged the limited tier.
 export const FREEBUFF_MODELS = [
-  // FIRST as of 2026-08-21, reversing the "last on purpose" placement it held
-  // while it was the expensive row. Pro now reads cache at $[redacted]/M FLAT —
-  // the cheapest premium row we serve — and it is the row that stays open when
-  // V4 Flash closes for the ten-hour peak window. A model that is both the
-  // cheapest and the only one always available should not be the one a user has
-  // to scroll past.
+  // FLASH LEADS as of 2026-08-22, and the position is not a preference — a
+  // test pins FREEBUFF_MODELS[0] to DEFAULT_FREEBUFF_MODEL_ID, because the
+  // rows once led with Flash while the recommendation already named Pro.
   //
-  // Ordering is now the ONLY steer in this list. The supersedes notices are all
-  // gone and nothing is badged RECOMMENDED, so position is what says "start
-  // here" — which means changing this order is a product decision, not a tidy-up.
-  DEEPSEEK_V4_PRO_MODEL,
+  // The default has to be Flash: V4 Pro is closed 00:00-10:00 UTC again now
+  // that it is back on DeepSeek direct, and a default that is unavailable for
+  // ten hours a day fails admission for exactly the users least able to
+  // diagnose it. Pro led the list for one day, while it was the cheapest
+  // premium row on a flat-priced lane; it is the dearest again.
+  //
+  // Ordering is still the ONLY steer here — no supersedes notices, nothing
+  // badged RECOMMENDED — so changing this order is a product decision.
   DEEPSEEK_V4_FLASH_MODEL,
   GPT_5_6_LUNA_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
+  // LAST again: capped at one session a day, closed for ten hours, and the
+  // dearest row we serve. Somewhere a user reaches deliberately rather than by
+  // scanning from the top.
+  DEEPSEEK_V4_PRO_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 // Flash joined this list on 2026-08-18 (TEMPORARY — see
@@ -1334,6 +1339,19 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   // Flash was never here and still should not be: it is the recommended
   // default, and capping the row most users are steered onto would push them
   // off the catalog's cheapest competent option after a single hour.
+  // BACK as of 2026-08-22, and for the reason the table exists: this is a claim
+  // about PRICE, and Pro's price changed under it. It came out on 2026-08-21
+  // when Pro moved to a flat $[redacted]/M cache read — the cheapest premium row
+  // we served, which is exactly what must not be capped. It is back on DeepSeek
+  // direct at $[redacted]/M off-peak and $[redacted]/M at peak, which makes it the
+  // dearest row again, and it was 57% of spend in the hour before this landed.
+  //
+  // Closed for ten hours a day besides (availability: 'off_peak_only').
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
+    limit: 1,
+    pool: 'deepseek_pro',
+    poolLabel: 'V4 Pro',
+  },
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
     limit: 2,
     pool: 'luna',
@@ -1746,7 +1764,7 @@ export type FreebuffWebPremiumModelId =
  *  It carries the AI-training notice, so pickers using it must render the
  *  model's `warning`. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
  *  the model a new Cloud thread starts on. DeepSeek V4 Pro as of 2026-08-21.
@@ -1783,7 +1801,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  browser surfaces can steer independently. They name the same model today and
  *  diverged as recently as 2026-08-04 → 2026-08-12. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without

@@ -97,7 +97,7 @@ describe('freebuff model availability', () => {
     // pick (not a recommendation — nothing is badged), the fallback is what is
     // always joinable when the premium pool is spent. Pro holds the first since
     // 2026-08-21 and MiMo the second since Flash became premium (2026-08-18).
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
 
     // THE invariant that moved the default off Flash. A default is what a new
@@ -229,7 +229,7 @@ describe('freebuff model availability', () => {
     expect(FREEBUFF_MODELS.some((model) => !model.premium)).toBe(true)
   })
 
-  test('V4 Pro leads the catalog and nothing is recommended', () => {
+  test('V4 Pro trails the catalog and nothing is recommended', () => {
     // A full reversal of the de-recommendation this test used to guard. Pro was
     // the expensive row out of a shared pool; on a flat $[redacted]/M lane it is
     // the cheapest premium row AND the only one open at every hour, so it now
@@ -243,14 +243,15 @@ describe('freebuff model availability', () => {
       false,
     )
 
-    // FIRST, not last. Ordering is the only steer left in this list, so this
-    // assertion is the whole steer rather than a cosmetic detail.
-    expect(all[0]).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    // And the starting pick on both surfaces — a default has to be joinable,
-    // and Pro is the only premium row that is open at every hour now that Flash
-    // closes for the peak window.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
+    // LAST again as of 2026-08-22. Pro led for one day, while a flat-priced
+    // lane made it the cheapest premium row; back on DeepSeek direct it is the
+    // dearest, capped at one a day and closed for ten hours, so it sits where a
+    // user reaches it deliberately. Ordering is the only steer in this list.
+    expect(all[all.length - 1]).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    // And it is nobody's starting pick — a default has to be joinable at every
+    // hour, which Pro is not.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
   })
@@ -308,16 +309,16 @@ describe('freebuff model availability', () => {
    * old availability onto the new row would produce, closing the catalog's two
    * strongest models for ten hours a day.
    */
-  test('at peak V4 Flash closes and V4 Pro stays open', () => {
+  test('at peak V4 Pro closes and V4 Flash stays open', () => {
     // 02:00 UTC — inside the window. 12:00 UTC — outside it.
     const peak = new Date('2026-08-21T02:00:00Z')
     const offPeak = new Date('2026-08-21T12:00:00Z')
 
     expect(
-      isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak),
+      isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, peak),
     ).toBe(false)
     expect(
-      isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, peak),
+      isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak),
     ).toBe(true)
     // Both open outside it.
     expect(
@@ -337,21 +338,22 @@ describe('freebuff model availability', () => {
    * FALLBACK_FREEBUFF_MODEL_ID (the unlimited row), which would defeat the
    * point of closing it.
    */
-  test('a Flash pick lands on V4 Pro at peak, not on the unlimited row', () => {
-    const peak = new Date('2026-08-21T02:00:00Z')
-    const offPeak = new Date('2026-08-21T12:00:00Z')
+  test('a V4 Pro pick lands on Flash at peak, not on the unlimited row', () => {
+    // Closing Pro is only worth doing if its traffic lands on the other PREMIUM
+    // reasoning row rather than stepping all the way down to the unlimited one.
+    // The pointer ran Flash -> Pro for one day, while Flash was the closed row;
+    // it reverses with the closure, or it aims traffic at a shut model.
+    const peak = new Date('2026-08-22T02:00:00Z')
+    const offPeak = new Date('2026-08-22T12:00:00Z')
 
     expect(
-      resolveAvailableFreebuffModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+      resolveAvailableFreebuffModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, peak),
+    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     // Untouched outside the window — the redirect is the exception, not the
     // steady state.
     expect(
-      resolveAvailableFreebuffModel(
-        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-        offPeak,
-      ),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+      resolveAvailableFreebuffModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, offPeak),
+    ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
   })
 
   /**
@@ -360,13 +362,13 @@ describe('freebuff model availability', () => {
    * $[redacted]/M cache read it is the cheapest premium row, and capping the
    * cheap row is what this table exists not to do.
    */
-  test('Luna is capped at 2; V4 Pro is not capped at all', () => {
+  test('Luna is capped at 2 and V4 Pro at 1; Flash is uncapped', () => {
     expect(
       FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_GPT_5_6_LUNA_MODEL_ID]?.limit,
     ).toBe(2)
     expect(
-      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
-    ).toBeUndefined()
+      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]?.limit,
+    ).toBe(1)
     expect(
       FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
     ).toBeUndefined()
@@ -835,7 +837,7 @@ describe('freebuff model availability', () => {
     // recommendation in the sense the picker dropped: the pick is gone, so
     // pointing somewhere is the alternative to a dead end.
     expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
-      'DeepSeek V4 Pro',
+      'DeepSeek V4 Flash',
     )
 
     // The AGENT door stays open, and that is not an oversight. Withdrawal is
@@ -1013,10 +1015,10 @@ describe('freebuff model availability', () => {
     // the daily pool runs dry; these assertions are what keep the first Enter
     // press joinable at every point in a user's day.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
@@ -1045,20 +1047,20 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
 
-  test('every surface starts on DeepSeek V4 Pro, on two separate constants', () => {
+  test('every surface starts on DeepSeek V4 Flash, on two separate constants', () => {
     // Both constants named Pro from 2026-08-12 until it was paused on
     // 2026-08-18, went to Flash, and returned to Pro on 2026-08-21 when Flash
     // took over the peak-hours closure. They stay TWO constants because they
     // have diverged before and may again.
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     // Neither default may be a paused model — that is the pairing that would
     // put every new user on a row the server refuses.
