@@ -1664,9 +1664,10 @@ export const FREEBUFF_ACTING_USER_HEADER = 'x-freebuff-acting-user-id'
  *  the Freebuff Web service account; from any other caller it is ignored, so
  *  forging it buys nothing. */
 export const FREEBUFF_PRIVILEGED_USER_HEADER = 'x-freebuff-privileged-user'
-/** Trusted Freebuff Web/Cloud session-proxy hint. Keeps the normal CLI GET
- * response compact while letting the browser model picker request zero-usage
- * quota snapshots so it can render accurate "N of M sessions" labels. */
+/** Trusted Freebuff Web/Cloud session-proxy hint: also resolve the GLM referral
+ * pool, which costs a query of its own. Set by the surfaces that render a GLM
+ * row. The name is historical — every other pool is now sent unconditionally —
+ * but the string stays as-is so installed clients keep working. */
 export const FREEBUFF_INCLUDE_UNUSED_RATE_LIMITS_HEADER =
   'x-freebuff-include-unused-rate-limits'
 /** Set by the CLI on its recurring active-session poll. The response keeps the

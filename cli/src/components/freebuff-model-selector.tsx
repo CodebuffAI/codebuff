@@ -13,7 +13,6 @@ import { Button } from './button'
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
   FREEBUFF_GLM_V52_MODEL_ID,
-  FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelUnavailableLabel,
   getFreebuffModel,
@@ -100,6 +99,9 @@ type Section = {
 // Sentinel id for the expand/collapse toggle so it can ride the same
 // keyboard-navigation list as the model rows (Tab/arrow to it, Enter to fire).
 const TOGGLE_ID = '__freebuff_toggle__'
+
+/** Joins the parts of a row's second line (see `rowDetails`). */
+const DETAIL_SEPARATOR = ' · '
 
 // There used to be a right-aligned "Press Enter ↵" cue on the focused row, with
 // its width reserved in the line-1 budget below. Both are gone: the cue was
@@ -248,13 +250,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // · resets in …". All premium models share one pool; the server replicates
   // the same snapshot under every model id, so any entry has the right count.
   // The count shows from the start — even at "0 of M" — so full-access users
-  // can see the daily pool and reset cadence before they spend anything. The
-  // limit is the server-sent one (base + streak bonus, falling back to the
-  // static base before any snapshot arrives) so the label, the amber
-  // exhausted cue, and isJoinable below can never disagree. Exhaustion is
-  // also the moment the recommended hero flips to the unlimited fallback (when
-  // the recommendation is premium) — the hero must always be joinable. (The PREMIUM
-  // section only renders for the full-access tier, so this is scoped to it.)
+  // can see the daily pool and reset cadence before they spend anything.
+  // Exhaustion is also the moment the recommended hero flips to the unlimited
+  // fallback (when the recommendation is premium) — the hero must always be
+  // joinable. (The PREMIUM section only renders for the full-access tier, so
+  // this is scoped to it.)
+  //
   // The PREMIUM section's own pool, and the rows inside it that answer to a
   // stricter one. Taking `Object.values(...)[0]` was correct only while every
   // row in the section shared a pool; DeepSeek's one-a-day ceiling (2026-08-19)
@@ -272,14 +273,69 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   )
   const sharedRateLimit = premiumSectionQuotas.header
   const premiumUsed = sharedRateLimit?.recentCount ?? 0
-  const premiumLimit = sharedRateLimit?.limit ?? FREEBUFF_PREMIUM_SESSION_LIMIT
-  const premiumExhausted = premiumUsed >= premiumLimit
+  // Server-sent, always — never a locally-guessed denominator. Falling back to
+  // the static limit meant a quota-EXEMPT account, which gets no snapshot at
+  // all, read "0 of 4 used · resets in 11h 43m" beside a status bar saying
+  // "unlimited". No snapshot means no pool, so no counter.
+  const premiumLimit = sharedRateLimit?.limit ?? null
+  const premiumExhausted = premiumLimit !== null && premiumUsed >= premiumLimit
   // The pool resets daily on a Pacific-day boundary regardless of usage, so the
-  // countdown is meaningful even at zero used — getFreebuffPremiumResetAt falls
-  // back to the next day boundary when the server hasn't sent a resetAt yet.
-  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
-    getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
-    now,
+  // countdown is meaningful even at zero used. Gated on the pool existing for
+  // the same reason as the count above: no pool, nothing to reset.
+  const premiumResetCountdown = sharedRateLimit
+    ? formatFreebuffPremiumResetCountdown(
+        getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
+        now,
+      )
+    : null
+
+  /**
+   * THE contents of a row's second line, in draw order — the one place that
+   * decides what is on it.
+   *
+   * The render, the centering pad, the card-width math and the height estimate
+   * all need this, and they had each drifted into their own copy: the width and
+   * height copies knew only about `warning` and deployment hours, and the
+   * centering copy knew about the closed-window note but not the per-row quota
+   * chip. That stayed hidden while the chip appeared only after a user had
+   * spent a Luna session; once the server began sending unused pool rows it
+   * became every full-access picker, drawn off-centre with the toggle clipped
+   * off the first frame.
+   */
+  const rowDetails = useCallback(
+    (model: FreebuffModelOption): { text: string; warn: boolean }[] => {
+      const details: { text: string; warn: boolean }[] = []
+      if (model.warning) details.push({ text: model.warning, warn: true })
+      if (model.availability === 'deployment_hours') {
+        // Carries both the in-hours and out-of-hours signal, so a row with
+        // hours never also needs the closed note below.
+        details.push({ text: deploymentAvailabilityLabel, warn: false })
+      } else {
+        const closed = getFreebuffModelUnavailableLabel(model.id, new Date(now))
+        if (closed) details.push({ text: closed, warn: true })
+      }
+      // A row on a stricter pool than its section carries its own count,
+      // because the section header cannot speak for it: a user who has spent
+      // their one Luna session otherwise reads "1 of 4 used" beside a greyed
+      // row and is told nothing about why it is greyed. Server-labelled, so a
+      // pool added later needs no CLI release.
+      const ownQuota = premiumSectionQuotas.perModel[model.id]
+      if (ownQuota) {
+        details.push({
+          text: formatFreebuffRowQuota(ownQuota),
+          warn: ownQuota.recentCount >= ownQuota.limit,
+        })
+      }
+      return details
+    },
+    [deploymentAvailabilityLabel, now, premiumSectionQuotas],
+  )
+  const rowDetailsText = useCallback(
+    (model: FreebuffModelOption): string =>
+      rowDetails(model)
+        .map((detail) => detail.text)
+        .join(DETAIL_SEPARATOR),
+    [rowDetails],
   )
 
   const recommendedModel = useMemo(() => {
@@ -550,18 +606,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         ...widthModels.map((m) => m.displayName.length),
       )
 
-      const joinedLen = (parts: number[]): number =>
-        parts.reduce((a, b) => a + b, 0) + Math.max(0, parts.length - 1) * 3 // " · "
-
-      const detailsParts = (model: FreebuffModelOption): number[] => {
-        const parts: number[] = []
-        if (model.warning) parts.push(model.warning.length)
-        if (model.availability === 'deployment_hours') {
-          parts.push(deploymentAvailabilityLabel.length)
-        }
-        return parts
-      }
-
       // Line 3, when a better model exists. Its own line: the notice is a full
       // sentence, so appending it to line 2 would stretch the card past any
       // reasonable terminal width.
@@ -599,14 +643,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0)
 
-      // Line 2, or 0 for a row with neither warning nor hours. Centered in the
-      // card rather than indented under line 1's details column — the notice is
-      // a footnote about the row as a whole, and right-flushing it against the
-      // border (which the old indent did on the widest row) read as ragged.
-      // Centering means it only needs its own length to fit, so it no longer
-      // stretches the card.
+      // Line 2, or 0 for a row with no details. Centered in the card rather
+      // than indented under line 1's details column — the notice is a footnote
+      // about the row as a whole, and right-flushing it against the border
+      // (which the old indent did on the widest row) read as ragged. Centering
+      // means it only needs its own length to fit, so it no longer stretches
+      // the card.
       const detailsLineLen = (m: FreebuffModelOption) =>
-        joinedLen(detailsParts(m))
+        rowDetailsText(m).length
 
       // Cards are exactly as wide as their widest line. Nothing is reserved
       // beyond that — the removed "Press Enter ↵" gutter used to pad every card
@@ -644,16 +688,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       availableModels,
       offerModels,
       contentMaxWidth,
-      deploymentAvailabilityLabel,
+      rowDetailsText,
       supersededNoticeFor,
     ])
 
   // A row spends a second line whenever it has details to put there — no longer
   // conditional on the terminal width, since the warning never inlines.
   const rowHasDetailsLine = useCallback(
-    (m: FreebuffModelOption) =>
-      !!m.warning || m.availability === 'deployment_hours',
-    [],
+    (m: FreebuffModelOption) => rowDetails(m).length > 0,
+    [rowDetails],
   )
 
   // Initial model-only height estimate. The content wrapper below reports its
@@ -842,35 +885,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         ? theme.foreground
         : theme.border
 
-    // Deployment-hours rows show "until 5pm PT" while open and "opens 9am ET"
-    // while closed (the label flips inside getFreebuffDeploymentAvailabilityLabel),
-    // so the same string carries both the in-hours and out-of-hours signals
-    // without a separate "Closed" chip. Greyed-out fgColor handles the rest.
-    const hasHours = model.availability === 'deployment_hours'
-
-    // Any OTHER reason a row is closed — V4 Pro's peak window today — says when
-    // it returns, in the reader's clock. Without this the row is greyed with no
-    // explanation, which is what "why is it doing this at 2am?" looks like from
-    // the outside.
-    const unavailableLabel = getFreebuffModelUnavailableLabel(
-      model.id,
-      new Date(now),
-    )
-    const closedNote = hasHours ? null : unavailableLabel
-    const hasWarning = !!model.warning
-
-    // Line 2 (warning · hours) is centered in the card. Spaces render verbatim,
-    // so center by hand-padding the left. Clamped at 0 for the narrow mode,
-    // where buttonInnerWidth is capped by contentMaxWidth and the line may be
-    // wider than the card.
-    const detailsLen =
-      (hasWarning ? model.warning!.length : 0) +
-      (hasWarning && (hasHours || closedNote) ? 3 : 0) +
-      (hasHours ? deploymentAvailabilityLabel.length : 0) +
-      (closedNote ? closedNote.length : 0)
+    // Line 2 is centered in the card. Spaces render verbatim, so center by
+    // hand-padding the left. Clamped at 0 for the narrow mode, where
+    // buttonInnerWidth is capped by contentMaxWidth and the line may be wider
+    // than the card.
+    const details = rowDetails(model)
     const detailsPad = Math.max(
       0,
-      Math.floor((buttonInnerWidth - detailsLen) / 2),
+      Math.floor((buttonInnerWidth - rowDetailsText(model).length) / 2),
     )
 
     const supersededNotice = supersededNoticeFor(model)
@@ -899,17 +921,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     const reasoningSuffix = model.reasoningEffort
       ? ` · Reasoning: ${model.reasoningEffort}`
       : ''
-
-    // A row on a stricter pool than its section carries its own count, because
-    // the section header cannot speak for it: a user who has spent their one
-    // DeepSeek session otherwise reads "1 of 5 used" beside a greyed row and is
-    // told nothing about why it is greyed. Server-labelled, so a pool added
-    // later needs no CLI release.
-    const ownQuota = premiumSectionQuotas.perModel[model.id]
-    const ownQuotaLabel = ownQuota ? formatFreebuffRowQuota(ownQuota) : null
-    const ownQuotaSpent = ownQuota
-      ? ownQuota.recentCount >= ownQuota.limit
-      : false
 
     return (
       <Button
@@ -961,24 +972,17 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             </span>
           )}
         </text>
-        {(hasWarning || hasHours || closedNote || ownQuotaLabel) && (
+        {details.length > 0 && (
           <text>
             <span>{' '.repeat(detailsPad)}</span>
-            {hasWarning && <span fg={warningColor}>{model.warning}</span>}
-            {hasWarning && hasHours && <span fg={mutedColor}> · </span>}
-            {hasHours && (
-              <span fg={mutedColor}>{deploymentAvailabilityLabel}</span>
-            )}
-            {closedNote && hasWarning && <span fg={mutedColor}> · </span>}
-            {closedNote && <span fg={warningColor}>{closedNote}</span>}
-            {ownQuotaLabel && (hasWarning || hasHours) && (
-              <span fg={mutedColor}> · </span>
-            )}
-            {ownQuotaLabel && (
-              <span fg={ownQuotaSpent ? warningColor : mutedColor}>
-                {ownQuotaLabel}
-              </span>
-            )}
+            {details.map((detail, index) => (
+              <React.Fragment key={`${index}-${detail.text}`}>
+                {index > 0 && <span fg={mutedColor}>{DETAIL_SEPARATOR}</span>}
+                <span fg={detail.warn ? warningColor : mutedColor}>
+                  {detail.text}
+                </span>
+              </React.Fragment>
+            ))}
           </text>
         )}
         {supersededNotice && (
@@ -1023,7 +1027,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       {section.label && (
         <text style={{ fg: theme.muted, wrapMode: 'none' }}>
           {section.label}
-          {section.key === 'premium' && (
+          {section.key === 'premium' && premiumLimit !== null && (
             <span fg={premiumExhausted ? theme.secondary : theme.muted}>
               {' '}
               · {formatSessionUnits(premiumUsed)} of {premiumLimit} used

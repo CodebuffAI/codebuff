@@ -232,9 +232,7 @@ describe('FreebuffModelSelector tier layout', () => {
       expect(occurrences(onOther)).toBe(0)
 
       // And on the replacement itself: no nudge at all.
-      useFreebuffModelStore
-        .getState()
-        .setSelectedModel(superseded.modelId)
+      useFreebuffModelStore.getState().setSelectedModel(superseded.modelId)
       const onCurrent = (await renderSelector()).captureCharFrame()
       expect(occurrences(onCurrent)).toBe(0)
     },
@@ -446,6 +444,103 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(lunaRow).toContain('Strong all-around')
     expect(lunaRow).toContain('Reasoning: high')
     expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
+  })
+
+  test('sizes and centres a row around its per-row quota chip', async () => {
+    // The chip is drawn on a row whose pool is stricter than its section's
+    // (Luna's one-a-day ceiling), and it was missing from BOTH the centering
+    // math and the height estimate — visible only once a user had spent a Luna
+    // session, until the server began sending unused pool rows and it became
+    // every full-access picker.
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
+    const pool = (
+      model: string,
+      poolId: string,
+      poolLabel: string,
+      limit: number,
+    ) => ({
+      model,
+      pool: poolId,
+      poolLabel,
+      limit,
+      period: 'pacific_day' as const,
+      resetTimeZone: 'America/Los_Angeles',
+      resetAt,
+      windowHours: 24,
+      recentCount: 0,
+    })
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      rateLimitsByModel: {
+        [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: pool(
+          FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+          'premium',
+          'Premium',
+          4,
+        ),
+        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: pool(
+          FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+          'premium',
+          'Premium',
+          4,
+        ),
+        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: pool(
+          FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+          'luna',
+          'Luna',
+          2,
+        ),
+      },
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+
+    const frame = (await renderSelector()).captureCharFrame()
+    // Gutters inside the card borders, which is what "centred" means here and
+    // what a length the math didn't know about throws off. Asserted for the
+    // ordinary warning line too, so this pins the invariant rather than the
+    // one string that broke it.
+    const gutters = (needle: string) => {
+      const line = frame.split('\n').find((l) => l.includes(needle))!
+      const inner = line.slice(line.indexOf('│') + 1, line.lastIndexOf('│'))
+      return [
+        inner.length - inner.trimStart().length,
+        inner.length - inner.trimEnd().length,
+      ]
+    }
+    for (const needle of [
+      'Luna: 0 of 2 used',
+      'May use data for AI training',
+    ]) {
+      const [left, right] = gutters(needle)
+      expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
+    }
+    // A row the height estimate does not know has a second line costs the list
+    // a row on the first frame, which cut the toggle off the bottom.
+    expect(frame).toContain('Show fewer')
+  })
+
+  test('says nothing about a premium quota the account does not have', async () => {
+    // Quota-exempt accounts (god/admin) draw on no free pool, so no snapshot
+    // arrives. The header used to fall back to the static limit and render
+    // "0 of 4 used · resets in 11h 43m" for an account with neither.
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    // A premium row that isn't the hero, so the picker opens expanded and the
+    // PREMIUM header is actually drawn.
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+
+    const frame = (await renderSelector()).captureCharFrame()
+    // The section still groups the rows; only the invented numbers are gone.
+    expect(frame).toContain('PREMIUM')
+    expect(frame).not.toContain('used')
+    expect(frame).not.toContain('resets in')
   })
 
   test('sizes the hero card to its content, with no Press-Enter gutter', async () => {
