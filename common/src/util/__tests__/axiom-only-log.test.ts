@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  ADS_FETCH_COMPLETED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
   STREAM_RECOVERY_EVENT,
@@ -135,6 +136,34 @@ describe('getAxiomOnlyLogEvent', () => {
     ).toEqual({
       event: STREAM_RECOVERY_EVENT,
       data: { metric: 'stream_recovery_rescued' },
+    })
+  })
+
+  test('sanitizes ad-fetch metadata', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+        outcome: 'fill',
+        requested_provider: 'gravity',
+        served_provider: 'carbon',
+        ad_count: 1,
+        placement_id: 'CLI-Chat-Inline',
+        duration_ms: 42,
+        client_ua_product: 'freebuff-cli',
+        attempted_providers: ['gravity', 'carbon'],
+        messages: [{ role: 'user', content: 'secret' }],
+      }),
+    ).toEqual({
+      event: ADS_FETCH_COMPLETED_EVENT,
+      data: {
+        outcome: 'fill',
+        requested_provider: 'gravity',
+        served_provider: 'carbon',
+        ad_count: 1,
+        placement_id: 'CLI-Chat-Inline',
+        duration_ms: 42,
+        client_ua_product: 'freebuff-cli',
+      },
     })
   })
 })

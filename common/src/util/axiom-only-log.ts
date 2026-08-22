@@ -1,12 +1,12 @@
+import { AnalyticsEvent } from '../constants/analytics-events'
+
 /**
  * Operational events that belong in Axiom but not in product analytics.
  *
- * CLI logs normally redact structured info payloads before shipping and also
- * mirror a sampled `cli_log` event to PostHog. This allowlist lets a small set
- * of content-free operational events retain useful numeric/string/boolean
- * metadata in Axiom without becoming product events or providing a general
- * redaction bypass — each event declares an explicit field allowlist, and
- * unknown keys or unexpected value types are always discarded.
+ * This allowlist lets a small set of content-free operational events retain
+ * useful numeric/string/boolean metadata without becoming product events or
+ * providing a general redaction bypass. Unknown fields and unexpected value
+ * types are always discarded.
  */
 
 export const CONTEXT_PRUNING_COMPLETED_EVENT =
@@ -18,6 +18,7 @@ export const CONTEXT_PRUNING_COMPLETED_EVENT =
  *  allowlisted event — `_gave_up` logs at error level, which already ships
  *  raw and doesn't need the allowlist. */
 export const STREAM_RECOVERY_EVENT = 'stream_recovery' as const
+export const ADS_FETCH_COMPLETED_EVENT = AnalyticsEvent.ADS_FETCH_COMPLETED
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
@@ -58,10 +59,24 @@ const STREAM_RECOVERY_FIELDS = {
   consecutive: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
+const ADS_FETCH_COMPLETED_FIELDS = {
+  outcome: 'string',
+  requested_provider: 'string',
+  served_provider: 'string',
+  ad_count: 'number',
+  surface: 'string',
+  placement_id: 'string',
+  chat_session_id: 'string',
+  duration_ms: 'number',
+  client_ua_product: 'string',
+  client_ua_version: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
 export type AxiomOnlyLogEvent = {
   event:
     | typeof CONTEXT_PRUNING_COMPLETED_EVENT
     | typeof STREAM_RECOVERY_EVENT
+    | typeof ADS_FETCH_COMPLETED_EVENT
   data: Record<string, string | number | boolean>
 }
 
@@ -118,6 +133,12 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, STREAM_RECOVERY_FIELDS),
+    }
+  }
+  if (eventName === ADS_FETCH_COMPLETED_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, ADS_FETCH_COMPLETED_FIELDS),
     }
   }
   return null
