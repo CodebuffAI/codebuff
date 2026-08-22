@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 
 import { useTheme } from '../../hooks/use-theme'
 import { calculateDisplaySize } from '../../utils/image-display'
@@ -27,19 +27,32 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
     [width, height, availableWidth]
   )
 
-  // Try to render inline if supported
-  const inlineSequence = useMemo(() => {
+  // renderInlineImage is async (converts non-PNG to PNG for kitty),
+  // so we render it in an effect and store the result in state.
+  const [inlineSequence, setInlineSequence] = useState<string | null>(null)
+
+  useEffect(() => {
     if (!supportsInlineImages()) {
-      return null
+      setInlineSequence(null)
+      return
     }
 
-    return renderInlineImage(image, {
+    let cancelled = false
+    renderInlineImage(image, {
       width: displaySize.width,
       height: displaySize.height,
       filename,
       mediaType,
+    }).then((seq) => {
+      if (!cancelled) {
+        setInlineSequence(seq)
+      }
     })
-  }, [image, filename, displaySize])
+
+    return () => {
+      cancelled = true
+    }
+  }, [image, filename, mediaType, displaySize])
 
   // Format file size
   const formattedSize = useMemo(() => {

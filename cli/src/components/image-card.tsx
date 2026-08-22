@@ -77,7 +77,7 @@ export const ImageCard = ({
         }
 
         if (base64Data) {
-          const sequence = renderInlineImage(base64Data, {
+          const sequence = await renderInlineImage(base64Data, {
             width: INLINE_IMAGE_WIDTH,
             height: INLINE_IMAGE_HEIGHT,
             filename: image.filename,

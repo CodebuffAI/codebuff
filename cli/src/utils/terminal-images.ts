@@ -6,6 +6,8 @@
  * iTerm2 protocol reference: https://iterm2.com/documentation-images.html
  */
 
+import { Jimp } from 'jimp'
+
 import { getCliEnv } from './env'
 
 import type { CliEnv } from '../types/env'
@@ -96,24 +98,13 @@ function normalizeMediaType(mediaType?: string): string {
 }
 
 /**
- * Kitty graphics format ids: 100 = PNG, 101 = PNG with alpha, 102 = JPEG,
- * 103 = WebP, 104 = GIF. Anything unknown falls back to PNG (100); the
- * terminal will fail to decode a mismatched payload, so this must match the
- * actual bytes being sent.
+ * Kitty graphics format id. The spec only defines f=24 (RGB), f=32 (RGBA),
+ * and f=100 (PNG). Non-PNG payloads are converted to PNG before transmission
+ * so we always send f=100 — this is the only guaranteed-compatible format
+ * across all kitty-protocol terminals (kitty, WezTerm, Ghostty, etc.).
  */
-export function getKittyFormat(mediaType?: string): number {
-  switch (normalizeMediaType(mediaType)) {
-    case 'image/jpeg':
-    case 'image/jpg':
-      return 102
-    case 'image/webp':
-      return 103
-    case 'image/gif':
-      return 104
-    case 'image/png':
-    default:
-      return 100
-  }
+export function getKittyFormat(_mediaType?: string): number {
+  return 100
 }
 
 /**
@@ -182,6 +173,31 @@ function generateITerm2ImageSequence(
 }
 
 /**
+ * Check whether the payload is already PNG (f=100 compatible).
+ */
+function isPng(mediaType?: string): boolean {
+  const mt = normalizeMediaType(mediaType)
+  return mt === 'image/png'
+}
+
+/**
+ * Convert a base64-encoded image (JPEG, WebP, GIF, etc.) to PNG via Jimp.
+ * Returns the original data unchanged if it is already PNG.
+ */
+async function convertToPngIfNeeded(
+  base64Data: string,
+  mediaType?: string,
+): Promise<string> {
+  if (isPng(mediaType)) {
+    return base64Data
+  }
+  const inputBuffer = Buffer.from(base64Data, 'base64')
+  const image = await Jimp.read(inputBuffer)
+  const pngBuffer = await image.getBuffer('image/png')
+  return pngBuffer.toString('base64')
+}
+
+/**
  * Generate Kitty graphics protocol escape sequence.
  *
  * Spec-compliant chunked transmission:
@@ -192,10 +208,14 @@ function generateITerm2ImageSequence(
  *     renders the image or renders a fragment)
  *   - non-final chunk payloads must be a multiple of 4 bytes of base64
  *
+ * Non-PNG payloads (JPEG, WebP, GIF) are converted to PNG before
+ * transmission because the kitty spec only defines f=100 (PNG) as a
+ * guaranteed-compatible format across all terminals.
+ *
  * @param base64Data - Base64 encoded image data
  * @param options - Display options
  */
-function generateKittyImageSequence(
+async function generateKittyImageSequence(
   base64Data: string,
   options: {
     width?: number // cells
@@ -203,17 +223,17 @@ function generateKittyImageSequence(
     id?: number
     mediaType?: string
   } = {},
-): string {
+): Promise<string> {
   const { width, height, id, mediaType } = options
+
+  // Convert non-PNG payloads to PNG so the terminal can decode them.
+  // The kitty spec only defines f=100 (PNG), f=24 (RGB), f=32 (RGBA).
+  const pngBase64 = await convertToPngIfNeeded(base64Data, mediaType)
 
   // Build key-value pairs for the control data (first chunk only)
   const kvPairs: string[] = [
     'a=T', // action: transmit and display
-    // Format must match the payload bytes. JPEG (102) is what image-handler
-    // produces after compression; kitty/WezTerm/Ghostty decode it natively.
-    // Terminals that only implement the spec's mandatory RGB/RGBA/PNG set
-    // won't render non-PNG payloads — the metadata-card fallback covers them.
-    `f=${getKittyFormat(mediaType)}`,
+    'f=100', // always PNG after conversion
     't=d', // transmission: direct (data follows)
   ]
 
@@ -236,9 +256,9 @@ function generateKittyImageSequence(
   const CHUNK_SIZE = 4096
 
   const chunks: string[] = []
-  for (let i = 0; i < base64Data.length; i += CHUNK_SIZE) {
-    const chunk = base64Data.slice(i, i + CHUNK_SIZE)
-    const isLast = i + CHUNK_SIZE >= base64Data.length
+  for (let i = 0; i < pngBase64.length; i += CHUNK_SIZE) {
+    const chunk = pngBase64.slice(i, i + CHUNK_SIZE)
+    const isLast = i + CHUNK_SIZE >= pngBase64.length
 
     // First chunk: full control data + m. Subsequent chunks: m only, so the
     // terminal continues the same transmission instead of starting a new
@@ -257,7 +277,7 @@ function generateKittyImageSequence(
  * @param options - Display options
  * @returns The escape sequence string, or null if not supported
  */
-export function renderInlineImage(
+export async function renderInlineImage(
   base64Data: string,
   options: {
     width?: number
@@ -265,7 +285,7 @@ export function renderInlineImage(
     filename?: string
     mediaType?: string
   } = {},
-): string | null {
+): Promise<string | null> {
   const protocol = detectTerminalImageSupport()
 
   switch (protocol) {
