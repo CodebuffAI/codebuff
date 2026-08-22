@@ -310,26 +310,39 @@ describe('freebuff model availability', () => {
    * old availability onto the new row would produce, closing the catalog's two
    * strongest models for ten hours a day.
    */
-  test('at peak V4 Pro closes and V4 Flash stays open', () => {
-    // 02:00 UTC — inside the window. 12:00 UTC — outside it.
-    const peak = new Date('2026-08-21T02:00:00Z')
-    const offPeak = new Date('2026-08-21T12:00:00Z')
-
+  /**
+   * THE invariant, restated as what it has always really been: V4 Pro and V4
+   * Flash are never closed at the same time.
+   *
+   * Which one closes has flipped three times in two days, each time following
+   * the LANE — a row is shut at peak only while served by a provider that
+   * doubles there. Pinning the assertion to a particular row made it a
+   * tripwire for every lane move; pinning it to the pair keeps the property
+   * that actually protects users, which is that the catalog's two strongest
+   * models are never dark together.
+   *
+   * Both are `always` as of 2026-08-22, with Pro on a flat-priced lane.
+   */
+  test('V4 Pro and V4 Flash are never both closed', () => {
+    for (const hour of [0, 2, 5, 9, 10, 12, 18, 23]) {
+      const at = new Date(Date.UTC(2026, 7, 22, hour, 0, 0))
+      const pro = isFreebuffSessionModelAvailable(
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        at,
+      )
+      const flash = isFreebuffSessionModelAvailable(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        at,
+      )
+      expect(pro || flash, `both closed at ${hour}:00 UTC`).toBe(true)
+    }
+    // Today specifically: neither closes at all.
+    const peak = new Date('2026-08-22T02:00:00Z')
     expect(
       isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, peak),
-    ).toBe(false)
+    ).toBe(true)
     expect(
       isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak),
-    ).toBe(true)
-    // Both open outside it.
-    expect(
-      isFreebuffSessionModelAvailable(
-        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-        offPeak,
-      ),
-    ).toBe(true)
-    expect(
-      isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, offPeak),
     ).toBe(true)
   })
 
@@ -339,22 +352,21 @@ describe('freebuff model availability', () => {
    * FALLBACK_FREEBUFF_MODEL_ID (the unlimited row), which would defeat the
    * point of closing it.
    */
-  test('a V4 Pro pick lands on Flash at peak, not on the unlimited row', () => {
-    // Closing Pro is only worth doing if its traffic lands on the other PREMIUM
-    // reasoning row rather than stepping all the way down to the unlimited one.
-    // The pointer ran Flash -> Pro for one day, while Flash was the closed row;
-    // it reverses with the closure, or it aims traffic at a shut model.
+  /**
+   * ARMED, NOT DELETED. `unavailableFallback` is what stops a closed row
+   * dumping its traffic on the unlimited model instead of the other premium
+   * one, and it has been needed twice — Flash -> Pro, then Pro -> Flash — as
+   * the closure followed the lane. Nothing declares it today because nothing
+   * closes, so this asserts the mechanism rather than a particular pair.
+   */
+  test('any row that closes redirects to an OPEN premium row, not the unlimited one', () => {
     const peak = new Date('2026-08-22T02:00:00Z')
-    const offPeak = new Date('2026-08-22T12:00:00Z')
-
-    expect(
-      resolveAvailableFreebuffModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, peak),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    // Untouched outside the window — the redirect is the exception, not the
-    // steady state.
-    expect(
-      resolveAvailableFreebuffModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, offPeak),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    for (const model of FREEBUFF_MODELS) {
+      if (isFreebuffSessionModelAvailable(model.id, peak)) continue
+      const landed = resolveAvailableFreebuffModel(model.id, peak)
+      expect(landed, `${model.id} redirect`).not.toBe(model.id)
+      expect(isFreebuffSessionModelAvailable(landed, peak)).toBe(true)
+    }
   })
 
   /**

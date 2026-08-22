@@ -37,9 +37,9 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 | **DeepSeek V4 Flash 07/31** | Full access             | The default everywhere in full mode; fast coding and tool use     |
 | **GPT-5.6 Luna**            | Full access             | Strong all-around with native images; two sessions a day          |
 | **MiMo 2.5**                | Full and limited access | The limited-mode default; balanced performance with image support |
-| **DeepSeek V4 Pro**         | Full access             | Deepest reasoning; one session a day, paused during peak hours    |
+| **DeepSeek V4 Pro**         | Full access             | Deepest reasoning; one session a day                              |
 
-These limits are **temporary**, and they exist because the providers serving DeepSeek now charge more than free mode can carry. V4 Pro is one session a day and paused during peak hours, when V4 Flash covers those hours instead; GPT-5.6 Luna is two sessions a day; models may serve from a quantized (Q8_0) build. MiMo 2.5 stays unlimited. All of it is intended to be reverted.
+These limits are **temporary**, and they exist because the providers serving DeepSeek now charge more than free mode can carry. V4 Pro is one session a day; GPT-5.6 Luna is two sessions a day; models may serve from a quantized (Q8_0) build. MiMo 2.5 stays unlimited. All of it is intended to be reverted.
 
 Beyond the regular picker:
 

@@ -59,7 +59,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'V4 Pro pauses at peak times and is 1 session a day; GPT-5.6 Luna is 2. V4 Flash stays available all day. —❤️ Freebuff Team'
+  'V4 Pro is 1 session a day and GPT-5.6 Luna is 2. Everything else is unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

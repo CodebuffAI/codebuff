@@ -812,27 +812,18 @@ const DEEPSEEK_V4_PRO_MODEL = {
   // instead of ranking it. "Smartest" read as a recommendation the rest of the
   // catalog no longer makes.
   tagline: 'Deep reasoning',
-  // CLOSED 00:00-10:00 UTC (5pm-3am Pacific) again as of 2026-08-22 — see
-  // DEEPSEEK_EXPENSIVE_WINDOW_UTC. This tracks the LANE, not a change of heart:
-  // Pro briefly reopened at peak while it was served by a flat-priced gateway,
-  // and it is back on DeepSeek direct, which doubles every rate inside that
-  // window. The hour of lead-in matters for the same reason it always did — a
-  // session admitted just before peak keeps its model for a full hour.
+  // ALWAYS as of 2026-08-22, and this tracks the LANE rather than a change of
+  // policy — the third time this row has moved, always for the same reason.
+  // Pro is closed at peak only while it is served by a provider that doubles
+  // there. It is back on Cheaper Inference, whose card is FLAT, so there is no
+  // expensive window to hide from and a ten-hour closure would cost users the
+  // model for nothing.
   //
-  // PAIRED WITH V4 FLASH, which reopens in the same commit. The two rows must
-  // never be closed at once: they are the catalog's two strongest models, and
-  // shutting both for ten hours a day leaves the premium pool with nothing to
-  // spend on. Change one, check the other.
-  availability: 'off_peak_only',
-  // Where a Pro pick goes during those ten hours. Without this it falls to
-  // FALLBACK_FREEBUFF_MODEL_ID — the unlimited row — which is a bigger step
-  // down than the situation calls for: the user picked a premium reasoning
-  // model, and the other premium reasoning model is open. Both draw the same
-  // pool, so the redirect spends exactly what the original would have.
-  //
-  // The pointer ran Flash -> Pro for one day, while Flash was the closed row.
-  // It has to reverse with the closure, or it aims traffic at a shut model.
-  unavailableFallback: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  // THE PAIRING STILL HOLDS: V4 Flash is `always` too, so neither is shut. The
+  // rule that matters is that these two are never closed at once, not that one
+  // of them always is — if Pro ever returns to DeepSeek direct, close it again
+  // and check Flash in the same commit.
+  availability: 'always',
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   premium: true,
