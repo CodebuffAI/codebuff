@@ -1,3 +1,4 @@
+import { FREEBUFF_TIER_CHANGE_NOTICE } from '../util/freebuff-model-availability'
 import { describe, expect, test } from 'bun:test'
 
 import { isFreeModeAllowedAgentModel } from '../constants/free-agents'
@@ -375,16 +376,41 @@ describe('freebuff model availability', () => {
    * $[redacted]/M cache read it is the cheapest premium row, and capping the
    * cheap row is what this table exists not to do.
    */
-  test('Luna is capped at 2 and V4 Pro at 1; Flash is uncapped', () => {
+  test('Luna is the only per-model cap; Pro and Flash are uncapped', () => {
     expect(
       FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_GPT_5_6_LUNA_MODEL_ID]?.limit,
     ).toBe(2)
+    // V4 Pro's cap was lifted on 2026-08-22. It tracked Pro being the dearest
+    // row per token on DeepSeek direct; on Cheaper Inference it reads cache at
+    // $[redacted]/M, which makes it the cheapest premium row we serve. It is
+    // still metered by the shared premium session pool, like Flash.
     expect(
-      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]?.limit,
-    ).toBe(1)
+      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
+    ).toBeUndefined()
     expect(
       FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
     ).toBeUndefined()
+  })
+
+  /**
+   * The notice is prose describing this table, shown on Web, Desktop and CLI,
+   * and it has drifted every single time a cap moved -- its own doc comment
+   * asks three times to be checked by hand, and it was stale anyway. Nothing
+   * can assert the prose is well-written, but a cap that vanishes from the
+   * table while its number is still quoted at users IS mechanically checkable.
+   */
+  test('the tier notice quotes a number for exactly the capped models', () => {
+    for (const model of FREEBUFF_MODELS) {
+      const cap = FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]
+      const label = FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]?.poolLabel
+      if (cap) {
+        expect(FREEBUFF_TIER_CHANGE_NOTICE).toContain(String(cap.limit))
+        expect(label && FREEBUFF_TIER_CHANGE_NOTICE).toBeTruthy()
+      }
+    }
+    // The lifted cap's old promise must not survive anywhere in the string.
+    expect(FREEBUFF_TIER_CHANGE_NOTICE).not.toContain('Pro is 1 session')
+    expect(FREEBUFF_TIER_CHANGE_NOTICE).not.toMatch(/V4 Pro is \d/)
   })
 
   test('MiMo 2.5 remains supported and follows the UI rollout flag', () => {

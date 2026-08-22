@@ -47,11 +47,18 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  *
  * CUT AGAIN on 2026-08-21, to three facts: which row sleeps at peak, what to
  * use instead, and the one per-model cap. Everything it used to carry had
- * stopped being true — V4 Pro is no longer 1-a-day and no longer pauses (it is
- * the peak-hours recommendation now), and MiniMax M3 was withdrawn — which is
- * the recurring hazard with this string: it describes policy that moves, from a
- * place no test reads. Check it whenever a cap or an availability window
- * changes.
+ * stopped being true — MiniMax M3 was withdrawn, and V4 Pro no longer pauses
+ * (it is the peak-hours recommendation now) — which is the recurring hazard
+ * with this string: it describes policy that moves, from a place no test reads.
+ * Check it whenever a cap or an availability window changes.
+ *
+ * 2026-08-22: V4 Pro's 1-a-day cap is GONE, so Luna is now the only per-model
+ * cap and this string names exactly one number. Pro is not free-for-all
+ * though — it still spends a premium session like Flash, and saying only
+ * "everything else is unmetered" would have promised that it doesn't. There
+ * is now a test pinning this string to the caps table, because this comment
+ * has asked three times to be checked by hand and was wrong again by the
+ * time anyone read it.
  *
  * Signed, because this is us asking users to accept less than they had. An
  * unsigned notice reads as a system message; a signed one reads as someone
@@ -59,7 +66,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'V4 Pro is 1 session a day and GPT-5.6 Luna is 2. Everything else is unmetered. —❤️ Freebuff Team'
+  'GPT-5.6 Luna is 2 sessions a day. V4 Pro and Flash use your daily sessions; MiMo is unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

@@ -1330,19 +1330,15 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   // Flash was never here and still should not be: it is the recommended
   // default, and capping the row most users are steered onto would push them
   // off the catalog's cheapest competent option after a single hour.
-  // BACK as of 2026-08-22, and for the reason the table exists: this is a claim
-  // about PRICE, and Pro's price changed under it. It came out on 2026-08-21
-  // when Pro moved to a flat $[redacted]/M cache read — the cheapest premium row
-  // we served, which is exactly what must not be capped. It is back on DeepSeek
-  // direct at $[redacted]/M off-peak and $[redacted]/M at peak, which makes it the
-  // dearest row again, and it was 57% of spend in the hour before this landed.
+  // V4 PRO IS UNCAPPED as of 2026-08-22, metered only by the shared premium
+  // session pool like Flash. The cap tracked Pro being the dearest row per
+  // token on DeepSeek direct ($[redacted]/M off-peak, $[redacted]/M at peak); on Cheaper
+  // Inference it reads cache at $[redacted]/M FLAT, which makes it the cheapest
+  // premium row we serve. Capping the cheap row is what this table exists not
+  // to do.
   //
-  // Closed for ten hours a day besides (availability: 'off_peak_only').
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
-    limit: 1,
-    pool: 'deepseek_pro',
-    poolLabel: 'V4 Pro',
-  },
+  // If Pro ever returns to DeepSeek direct, the cap comes back with it — the
+  // entry is a claim about price, and that is the price that changed.
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
     limit: 2,
     pool: 'luna',
