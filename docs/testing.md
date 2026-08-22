@@ -257,7 +257,21 @@ unfixed versions alike.
 
 Two concrete mechanisms were removed and it flaked again on a head that already
 contained both. At that point further guessing costs other people's PRs, so the
-file is skipped and tracked in **issue #1899** rather than patched a third time.
+file was skipped and tracked in **issue #1899** rather than patched a third time.
+
+#1983 un-skipped it by moving it off the hand-rolled `mount()` entirely, onto
+`@testing-library/react` + jsdom instead (the pattern already used by
+`UpdatesPage.test.tsx`, `QuotaBadge.test.tsx`, `ConnectorsPanel.test.tsx`, …),
+on the theory that the class of bug cannot exist there — React's own scheduler
+owns the dispatcher for the whole render/effect/continuation lifecycle, instead
+of a test file borrowing it by hand.
+
+**That is a theory, not a diagnosis.** The original flake was never reproduced,
+so nothing distinguishes "the dispatcher swap was the cause and is now gone"
+from "the timing changed and the flake moved". Leave #1899 open until the file
+has survived a stretch of CI; if it flakes again, the migration is evidence
+*against* the dispatcher hypothesis and the search should widen, not repeat.
+The other twelve files named below still use the swap either way.
 
 Two things worth taking from it:
 
@@ -271,7 +285,7 @@ Two things worth taking from it:
   while effects, and the fetch continuations they schedule, run *after* that
   restore. 13 desktop UI test files touch that global and at least six define
   their own `mount()` with the same shape, so fixing one file just moves the
-  flake to a sibling.
+  flake to a sibling — as it still can, for the twelve that remain.
 
 **Three things to check before blaming the machine.** Each of these was a real
 defect found by this harness on its first outing:
