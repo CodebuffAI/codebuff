@@ -124,7 +124,6 @@ export type FinetunedVertexModel =
 export const models = {
   ...openaiModels,
   ...avianModels,
-  ...openCodeZenModels,
   ...deepseekModels,
   ...mimoModels,
   ...minimaxModels,
