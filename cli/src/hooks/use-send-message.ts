@@ -158,6 +158,9 @@ export const useSendMessage = ({
   const previousRunStateRef = useRef<RunState | null>(
     useChatStore.getState().runState,
   )
+  // Incremented for every send so a late result from an interrupted run cannot
+  // overwrite the state selected by the newer run that replaced it.
+  const runGenerationRef = useRef(0)
   // Memoize stream controller to maintain referential stability across renders
   const streamRefsRef = useRef<ReturnType<
     typeof createStreamController
@@ -277,6 +280,10 @@ export const useSendMessage = ({
         return
       }
 
+      // Assign a generation only after the request is admitted as a real run.
+      // A session-ended message that is requeued must not supersede an active run.
+      const runGeneration = ++runGenerationRef.current
+
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
       }
@@ -296,6 +303,8 @@ export const useSendMessage = ({
       const abortController = new AbortController()
       const runChatDir = resolveCurrentChatDir()
       const runChatIsCurrent = () => resolveCurrentChatDir() === runChatDir
+      const runIsCurrent = () =>
+        runGenerationRef.current === runGeneration && runChatIsCurrent()
       let latestRunStateSnapshot: RunState = previousRunStateRef.current ?? {
         traceSessionId: randomUUID(),
         output: {
@@ -506,6 +515,11 @@ export const useSendMessage = ({
         setMessages,
         streamRefs,
         abortController,
+        onAbort: () => {
+          if (runGenerationRef.current !== runGeneration) return
+          previousRunStateRef.current = latestRunStateSnapshot
+          setRunState(latestRunStateSnapshot)
+        },
         setStreamStatus,
         setCanProcessQueue,
         isQueuePausedRef,
@@ -551,7 +565,7 @@ export const useSendMessage = ({
         )
 
         const eventHandlerState = createEventHandlerState({
-          isActive: () => !abortController.signal.aborted && runChatIsCurrent(),
+          isActive: () => !abortController.signal.aborted && runIsCurrent(),
           streamRefs,
           setStreamingAgents,
           setStreamStatus,
@@ -596,7 +610,7 @@ export const useSendMessage = ({
             // conversation, and checkpointing them into this run's directory
             // would overwrite that chat's transcript with foreign (possibly
             // empty) state — the chat would then be hidden from /history.
-            if (abortController.signal.aborted || !runChatIsCurrent()) {
+            if (abortController.signal.aborted || !runIsCurrent()) {
               return
             }
             // Persist asynchronously and coalescing: the periodic snapshot
@@ -642,7 +656,7 @@ export const useSendMessage = ({
         // context, and previousRunStateRef/setRunState would leak this run's
         // agent state into the other chat. (A plain Esc interrupt keeps the
         // same chat, so the interrupted turn is still saved as before.)
-        if (runChatIsCurrent()) {
+        if (runIsCurrent()) {
           // Finalize: persist state and mark complete
           previousRunStateRef.current = runState
           setRunState(runState)
@@ -657,29 +671,31 @@ export const useSendMessage = ({
           // traps is several times slower.
           saveChatState(runState, useChatStore.getState().messages, runChatDir)
         }
-        handleRunCompletion({
-          runState,
-          actualCredits,
-          agentMode,
-          timerController,
-          updater,
-          aiMessageId,
-          wasAbortedByUser: abortController.signal.aborted,
-          hasReceivedContent: hasReceivedContentRef.current,
-          setStreamStatus,
-          setCanProcessQueue,
-          updateChainInProgress,
-          setHasReceivedPlanResponse,
-          resumeQueue,
-          isProcessingQueueRef,
-          isQueuePausedRef,
-        })
+        if (runIsCurrent()) {
+          handleRunCompletion({
+            runState,
+            actualCredits,
+            agentMode,
+            timerController,
+            updater,
+            aiMessageId,
+            wasAbortedByUser: abortController.signal.aborted,
+            hasReceivedContent: hasReceivedContentRef.current,
+            setStreamStatus,
+            setCanProcessQueue,
+            updateChainInProgress,
+            setHasReceivedPlanResponse,
+            resumeQueue,
+            isProcessingQueueRef,
+            isQueuePausedRef,
+          })
+        }
       } catch (error) {
         // If this run was aborted, the abort handler already handled cleanup.
         // Don't run error handling to avoid interfering with any new run that
         // may have started. Uses per-run abortController.signal (not shared
         // streamRefs) so a newer run's reset() can't clear this flag.
-        if (!abortController.signal.aborted) {
+        if (!abortController.signal.aborted && runIsCurrent()) {
           handleRunError({
             error,
             timerController,
@@ -692,11 +708,18 @@ export const useSendMessage = ({
             isQueuePausedRef,
             hasReceivedContent: hasReceivedContentRef.current,
           })
+          // Keep the latest successful SDK snapshot available to the next
+          // message in this process, not only on disk. Without this, a failed
+          // or expired turn is followed by a fresh run with stale history.
+          if (runIsCurrent()) {
+            previousRunStateRef.current = latestRunStateSnapshot
+            setRunState(latestRunStateSnapshot)
+          }
           // Persist the last checkpoint plus the error banner so a restart
           // after a failed run still shows this turn. Settle async checkpoints
           // first so a stale write can't clobber this one. Skipped after a
           // mid-run chat switch — the store's messages belong to the new chat.
-          if (runChatIsCurrent()) {
+          if (runIsCurrent()) {
             await settleCheckpointSave()
             saveChatState(
               latestRunStateSnapshot,
@@ -704,8 +727,13 @@ export const useSendMessage = ({
               runChatDir,
             )
           }
-        } else {
+        } else if (abortController.signal.aborted) {
           logger.debug({ error }, '[send-message] Ignoring error after abort')
+        } else {
+          logger.debug(
+            { error },
+            '[send-message] Ignoring error after run superseded',
+          )
         }
       } finally {
         // Stop exit-flushing this run's checkpoint; the final state (or last
@@ -717,7 +745,7 @@ export const useSendMessage = ({
         // interfering with any new run that may have started after the abort.
         // Uses per-run abortController.signal (not shared streamRefs) so a newer
         // run's reset() can't clear this flag.
-        if (!abortController.signal.aborted) {
+        if (!abortController.signal.aborted && runIsCurrent()) {
           if (isChainInProgressRef.current) {
             logger.warn(
               {},
