@@ -94,7 +94,7 @@ Start the CLI separately with:
 bun start-cli
 ```
 
-See the [Contributing Guide](./CONTRIBUTING.md), [development guide](./docs/development.md), and [testing guide](./docs/testing.md) for environment setup and the checks to run before opening a pull request.
+See the [Contributing Guide](./CONTRIBUTING.md) and [testing guide](./docs/testing.md) for environment setup and the checks to run before opening a pull request.
 
 ## Built on Codebuff
 
