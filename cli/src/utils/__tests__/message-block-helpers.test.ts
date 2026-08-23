@@ -975,6 +975,7 @@ describe('extractBlockById', () => {
       blocks,
       'nested-child',
     )
+    expect(remainingBlocks).toHaveLength(1)
     expect((remainingBlocks[0] as AgentContentBlock).blocks).toHaveLength(0)
     expect(extractedBlock).not.toBeNull()
     expect((extractedBlock as AgentContentBlock).agentId).toBe('nested-child')
@@ -1016,6 +1017,7 @@ describe('extractBlockById', () => {
       blocks,
       'extract-me',
     )
+    expect(remainingBlocks).toHaveLength(1)
     const parentBlock = remainingBlocks[0] as AgentContentBlock
     expect(parentBlock.blocks).toHaveLength(2)
     expect((parentBlock.blocks![0] as TextContentBlock).content).toBe(
@@ -1193,6 +1195,22 @@ describe('updateToolBlockWithOutput', () => {
       toolOutput: [{ value: { stdout: 'out', stderr: 'err' } }],
     })
     expect((result[0] as ToolContentBlock).output).toBe('outerr')
+  })
+
+  test('falls back to formatted output when terminal payload has no stdout/stderr', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'tool',
+        toolCallId: 'tool-123',
+        toolName: 'run_terminal_command',
+        input: { command: 'cmd' },
+      },
+    ]
+    const result = updateToolBlockWithOutput(blocks, {
+      toolCallId: 'tool-123',
+      toolOutput: [{ type: 'json', value: { exitCode: 1 } }],
+    })
+    expect((result[0] as ToolContentBlock).output).toBe('exitCode: 1')
   })
 
   test('does not update non-matching tool block', () => {

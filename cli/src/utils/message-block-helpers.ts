@@ -476,7 +476,8 @@ const checkBlockIsUnderParent = (
     if (block.type === 'agent' && block.agentId === parentAgentId) {
       // Found the parent, check if target is anywhere in its children
       return findBlockInChildren(block.blocks || [], targetAgentId)
-    } else if (block.type === 'agent' && block.blocks) {
+    }
+    if (block.type === 'agent' && block.blocks) {
       // Recurse into other agent blocks to find the parent
       if (checkBlockIsUnderParent(block.blocks, targetAgentId, parentAgentId)) {
         return true
@@ -502,14 +503,16 @@ export const extractBlockById = (
       if (block.type === 'agent' && block.agentId === targetAgentId) {
         extractedBlock = block
         // Don't add to result - we're extracting it
-      } else if (block.type === 'agent' && block.blocks) {
+        continue
+      }
+      if (block.type === 'agent' && block.blocks) {
         result.push({
           ...block,
           blocks: extractRecursively(block.blocks),
         })
-      } else {
-        result.push(block)
+        continue
       }
+      result.push(block)
     }
     return result
   }
@@ -659,19 +662,17 @@ export const updateToolBlockWithOutput = (
 
   return blocks.map((block) => {
     if (block.type === 'tool' && block.toolCallId === toolCallId) {
-      let output: string
-      if (block.toolName === 'run_terminal_command') {
-        const parsed = (toolOutput?.[0] as any)?.value
-        if (parsed?.stdout || parsed?.stderr) {
-          output = (parsed.stdout || '') + (parsed.stderr || '')
-        } else {
-          output = formatToolOutput(toolOutput)
-        }
-      } else {
-        output = formatToolOutput(toolOutput)
+      if (block.toolName !== 'run_terminal_command') {
+        return { ...block, output: formatToolOutput(toolOutput) }
       }
+      const parsed = (toolOutput?.[0] as any)?.value
+      const output =
+        parsed?.stdout || parsed?.stderr
+          ? (parsed.stdout || '') + (parsed.stderr || '')
+          : formatToolOutput(toolOutput)
       return { ...block, output }
-    } else if (block.type === 'agent' && block.blocks) {
+    }
+    if (block.type === 'agent' && block.blocks) {
       const updatedBlocks = updateToolBlockWithOutput(block.blocks, options)
       // Avoid creating new block if nested blocks didn't change
       if (isEqual(block.blocks, updatedBlocks)) {
