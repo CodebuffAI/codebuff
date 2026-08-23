@@ -2,6 +2,7 @@ import * as path from 'path'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import { isPathInside } from '@codebuff/common/util/path'
 
 export async function listDirectory(params: {
   directoryPath: string
@@ -11,9 +12,23 @@ export async function listDirectory(params: {
   const { directoryPath, projectPath, fs } = params
 
   try {
-    const resolvedPath = path.resolve(projectPath, directoryPath)
+    const projectRoot = path.resolve(projectPath)
+    const resolvedPath = path.resolve(projectRoot, directoryPath)
+    const realProjectRoot = await fs.realpath(projectRoot)
+    const realResolvedPath = await fs.realpath(resolvedPath)
 
-    const entries = await fs.readdir(resolvedPath, {
+    if (!isPathInside(realProjectRoot, realResolvedPath)) {
+      return [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Invalid path: Path '${directoryPath}' is outside the project directory.`,
+          },
+        },
+      ]
+    }
+
+    const entries = await fs.readdir(realResolvedPath, {
       withFileTypes: true,
     })
 
