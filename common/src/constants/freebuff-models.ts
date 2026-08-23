@@ -1340,7 +1340,7 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   // If Pro ever returns to DeepSeek direct, the cap comes back with it — the
   // entry is a claim about price, and that is the price that changed.
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
-    limit: 2,
+    limit: 3,
     pool: 'luna',
     poolLabel: 'Luna',
   },

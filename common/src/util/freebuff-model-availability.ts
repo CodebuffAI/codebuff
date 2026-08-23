@@ -66,7 +66,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'GPT-5.6 Luna is 2 sessions a day. V4 Pro and Flash use your daily sessions; MiMo is unmetered. —❤️ Freebuff Team'
+  'GPT-5.6 Luna is 3 sessions a day. V4 Pro and Flash use your daily sessions; MiMo is unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

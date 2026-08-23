@@ -371,9 +371,14 @@ describe('freebuff model availability', () => {
    * cheap row is what this table exists not to do.
    */
   test('Luna is the only per-model cap; Pro and Flash are uncapped', () => {
+    // 2 -> 3 on 2026-08-23, once Luna's real cost was known. The dashboard had
+    // been reporting it at ~7x actual because the Novita cache rung was priced
+    // at the full input rate; Novita's own invoice put the day at $561 against
+    // our $3,787. Corrected, Luna is one of the cheapest rows we serve, and the
+    // cap was sized against the wrong number.
     expect(
       FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_GPT_5_6_LUNA_MODEL_ID]?.limit,
-    ).toBe(2)
+    ).toBe(3)
     // V4 Pro's cap was lifted on 2026-08-22. It tracked Pro being the dearest
     // row per token on DeepSeek direct; on Cheaper Inference it reads cache at
     // $[redacted]/M, which makes it the cheapest premium row we serve. It is
