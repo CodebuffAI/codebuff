@@ -75,6 +75,7 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
     originalEnv = {
       WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY,
+      XDG_SESSION_TYPE: process.env.XDG_SESSION_TYPE,
       SSH_CLIENT: process.env.SSH_CLIENT,
       SSH_TTY: process.env.SSH_TTY,
       SSH_CONNECTION: process.env.SSH_CONNECTION,
@@ -88,6 +89,7 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     delete process.env.SSH_CLIENT
     delete process.env.SSH_TTY
     delete process.env.SSH_CONNECTION
+    delete process.env.XDG_SESSION_TYPE
     process.env.TERM = 'dumb'
     clearClipboardMessage()
     unregisterClipboardRenderer()
@@ -138,6 +140,19 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     expect(attempts[0]?.args).toEqual(['--type', 'text/plain'])
     expect(attempts[0]?.process.input()).toBe('hello')
     expect(fallbackCalls).toBe(0)
+  })
+
+  test('uses wl-copy when Wayland is identified by the session type', async () => {
+    delete process.env.WAYLAND_DISPLAY
+    process.env.XDG_SESSION_TYPE = 'wayland'
+    mockBackends(() => 0)
+
+    await copyTextToClipboard('hello', { suppressGlobalMessage: true })
+
+    expect(attempts).toHaveLength(1)
+    expect(attempts[0]?.command).toBe('wl-copy')
+    expect(attempts[0]?.args).toEqual(['--type', 'text/plain'])
+    expect(attempts[0]?.process.input()).toBe('hello')
   })
 
   test('falls back from wl-copy through the X11 tools in order', async () => {
