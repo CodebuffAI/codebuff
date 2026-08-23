@@ -340,9 +340,10 @@ describe('illegal-instruction detection', () => {
  * STATUS_STACK_BUFFER_OVERRUN instead — and those users crash-looped forever.
  */
 describe('windows startup-abort detection', () => {
-  test('recognizes an immediate 0xC0000409 as a CPU-feature suspect', () => {
+  test('recognizes immediate Windows startup CPU-feature crashes', () => {
     const t = makeLauncher()
     expect(t.isStartupCpuFeatureCrash(0xc0000409, null, 40)).toBe(true)
+    expect(t.isStartupCpuFeatureCrash(0xc0000005, null, 40)).toBe(true)
     // Node surfaces the NTSTATUS signed, same as the SIGILL spelling.
     expect(t.isStartupCpuFeatureCrash(-1073740791, null, 40)).toBe(true)
   })
@@ -358,7 +359,6 @@ describe('windows startup-abort detection', () => {
 
   test('other native crashes and signals are not this one', () => {
     const t = makeLauncher()
-    expect(t.isStartupCpuFeatureCrash(0xc0000005, null, 40)).toBe(false)
     expect(t.isStartupCpuFeatureCrash(0xc000001d, null, 40)).toBe(false)
     expect(t.isStartupCpuFeatureCrash(1, null, 40)).toBe(false)
     expect(t.isStartupCpuFeatureCrash(0xc0000409, 'SIGTERM', 40)).toBe(false)

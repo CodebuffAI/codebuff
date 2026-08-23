@@ -127,9 +127,10 @@ function createLauncher(productConfig) {
    * perfectly capable machine to the slower build.
    */
   function isStartupCpuFeatureCrash(code, signal, msAlive) {
+    const unsignedCode = getUnsignedExitCode(code)
     return (
       process.platform === 'win32' &&
-      getUnsignedExitCode(code) === 0xc0000409 &&
+      (unsignedCode === 0xc0000409 || unsignedCode === 0xc0000005) &&
       !signal &&
       typeof msAlive === 'number' &&
       msAlive < STARTUP_CRASH_WINDOW_MS
