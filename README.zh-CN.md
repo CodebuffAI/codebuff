@@ -89,7 +89,7 @@ bun up
 bun start-cli
 ```
 
-环境配置及提交拉取请求前应运行的检查，请参阅[贡献指南](./CONTRIBUTING.md)、[开发指南](./docs/development.md)和[测试指南](./docs/testing.md)。
+环境配置及提交拉取请求前应运行的检查，请参阅[贡献指南](./CONTRIBUTING.md)和[测试指南](./docs/testing.md)。
 
 ## 基于 Codebuff 构建
 
