@@ -322,7 +322,10 @@ async function tryCopyViaPlatformTool(
       ['xclip', ['-selection', 'clipboard']],
       ['xsel', ['--clipboard', '--input']],
     ]
-    return getCliEnv().WAYLAND_DISPLAY
+    const env = getCliEnv()
+    const isWayland =
+      Boolean(env.WAYLAND_DISPLAY) || env.XDG_SESSION_TYPE === 'wayland'
+    return isWayland
       ? [['wl-copy', ['--type', 'text/plain']], ...x11Commands]
       : x11Commands
   })()
