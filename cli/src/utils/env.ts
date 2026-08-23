@@ -22,6 +22,7 @@ export const getCliEnv = (): CliEnv => ({
   // Display server detection (Linux headless check)
   DISPLAY: process.env.DISPLAY,
   WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY,
+  XDG_SESSION_TYPE: process.env.XDG_SESSION_TYPE,
 
   // Terminal detection (for tmux/screen passthrough)
   TERM: process.env.TERM,
