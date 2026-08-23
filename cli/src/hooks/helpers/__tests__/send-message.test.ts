@@ -289,6 +289,32 @@ describe('setupStreamingContext', () => {
       expect(abortController).toBe(ownedAbortController)
     })
 
+    test('invokes the owner checkpoint callback before abort cleanup', () => {
+      let messages = createBaseMessages()
+      const streamRefs = createStreamController()
+      const timerController = createMockTimerController()
+      const onAbort = mock(() => {})
+
+      const { abortController } = setupStreamingContext({
+        aiMessageId: 'ai-1',
+        timerController,
+        setMessages: (fn: any) => {
+          messages = fn(messages)
+        },
+        streamRefs,
+        onAbort,
+        setStreamStatus: () => {},
+        setCanProcessQueue: () => {},
+        updateChainInProgress: () => {},
+        setIsRetrying: () => {},
+        setStreamingAgents: () => {},
+      })
+
+      abortController.abort()
+
+      expect(onAbort).toHaveBeenCalledTimes(1)
+    })
+
     test('setupStreamingContext resets streamRefs and starts timer', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
