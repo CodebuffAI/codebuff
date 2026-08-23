@@ -9,7 +9,12 @@ import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
 } from './process-diagnostics'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
+import {
+  buildBtwPrompt,
+  buildInterviewPrompt,
+  buildPlanPrompt,
+  buildReviewPromptFromArgs,
+} from './prompt-builders'
 import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
 import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
@@ -590,6 +595,46 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise open the selection UI
       return { openReviewScreen: true }
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'btw',
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+      const rawInput = params.inputValue.trim()
+
+      params.saveToHistory(rawInput)
+      clearInput(params)
+
+      if (!trimmedArgs) {
+        params.setMessages((prev) => [
+          ...prev,
+          getSystemMessage('Usage: /btw <additional thought>'),
+        ])
+        return
+      }
+
+      const btwPrompt = buildBtwPrompt(trimmedArgs)
+      const isBusy =
+        params.isStreaming ||
+        params.streamMessageIdRef.current ||
+        params.isChainInProgressRef.current
+
+      if (isBusy) {
+        const pendingAttachments = capturePendingAttachments()
+        params.addToQueue(btwPrompt, pendingAttachments)
+        params.setInputFocused(true)
+        params.inputRef.current?.focus()
+        return
+      }
+
+      params.sendMessage({
+        content: btwPrompt,
+        agentMode: params.agentMode,
+      })
+      setTimeout(() => {
+        params.scrollToLatest()
+      }, 0)
     },
   }),
   defineCommand({
