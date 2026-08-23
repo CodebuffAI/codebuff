@@ -272,6 +272,7 @@ export const setupStreamingContext = (params: {
   setMessages: (updater: (messages: ChatMessage[]) => ChatMessage[]) => void
   streamRefs: StreamController
   abortController?: AbortController
+  onAbort?: () => void
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   isQueuePausedRef?: MutableRefObject<boolean>
@@ -303,13 +304,16 @@ export const setupStreamingContext = (params: {
   const abortController = params.abortController ?? new AbortController()
 
   abortController.signal.addEventListener('abort', () => {
+    try {
+      params.onAbort?.()
+    } catch {
+      // Checkpoint callbacks are best-effort; never skip abort cleanup.
+    }
+
     // Abort means the user stopped streaming; update UI with an interruption notice.
-    // Release the chain lock immediately so new messages can be sent directly instead
-    // of being queued. The minor trade-off is that if the user sends a new message
-    // before client.run() resolves, it may use stale previousRunStateRef. This is
-    // acceptable because: (1) the user explicitly cancelled, and (2) client.run()
-    // will update previousRunStateRef when it eventually resolves, so subsequent
-    // runs will have the full state.
+    // The owner checkpoints its latest SDK snapshot synchronously through onAbort,
+    // while generation guards prevent late results from an older run from replacing
+    // state selected by a newer run.
     streamRefs.setters.setWasAbortedByUser(true)
     setIsRetrying(false)
     timerController.stop('aborted')
