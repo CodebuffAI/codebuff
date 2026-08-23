@@ -30,6 +30,7 @@ export type CliEnv = BaseEnv & {
   // Display server detection (Linux headless check)
   DISPLAY?: string
   WAYLAND_DISPLAY?: string
+  XDG_SESSION_TYPE?: string
 
   // Terminal-specific
   KITTY_WINDOW_ID?: string
