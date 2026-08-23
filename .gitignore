@@ -42,6 +42,14 @@ evals/buffbench/*-error-*.json
 # worktrees, materialized built-in skills) — never source, always regenerated.
 .freebuff/
 
+# Same category as `.freebuff/` above, for Claude Code rather than Desktop: an
+# agent run with worktree isolation materializes one full checkout per agent
+# here. A four-worker run left 118MB of them untracked in this repo, which a
+# commit-everything reflex would happily have pushed. Never source, always
+# regenerated — and note this ignores only the worktrees, so a checked-in
+# `.claude/settings.json` or `.claude/workflows/` still shows up in status.
+.claude/worktrees/
+
 # Materialized by release package prepack scripts and removed by postpack.
 cli/release/launcher.js
 cli/release/http.js
