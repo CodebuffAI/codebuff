@@ -352,7 +352,18 @@ export async function routeUserPrompt(
     setInputFocused(true)
     inputRef.current?.focus()
 
-    sendMessage({ content: buildReviewPrompt('custom', trimmed), agentMode })
+    const reviewPrompt = buildReviewPrompt('custom', trimmed)
+    if (
+      isStreaming ||
+      streamMessageIdRef.current ||
+      isChainInProgressRef.current
+    ) {
+      const pendingAttachmentsForQueue = capturePendingAttachments()
+      addToQueue(reviewPrompt, pendingAttachmentsForQueue)
+      return
+    }
+
+    sendMessage({ content: reviewPrompt, agentMode })
     setTimeout(() => {
       scrollToLatest()
     }, 0)
