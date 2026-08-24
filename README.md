@@ -38,9 +38,9 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 | **DeepSeek V4 Flash 07/31** | Full access             | Fast coding and tool use; pauses during peak hours                |
 | **MiMo 2.5**                | Full and limited access | The limited-mode default; balanced performance with image support |
 | **Ox Alpha**                | Full and limited access | 1M context, no session cost; experimental — may be unreliable     |
-| **DeepSeek V4 Pro**         | Full access             | Deepest reasoning; one session a day                              |
+| **DeepSeek V4 Pro**         | Full access             | Deepest reasoning                                                 |
 
-These limits are **temporary**, and they exist because the providers serving DeepSeek now charge more than free mode can carry. V4 Pro is one session a day; GPT-5.6 Luna is two sessions a day; models may serve from a quantized (Q8_0) build. MiMo 2.5 stays unlimited. All of it is intended to be reverted.
+Per-model daily caps are **gone**: every model now draws on your normal daily sessions rather than its own separate limit. MiMo 2.5 and Ox Alpha stay unmetered and cost no session at all. Models may still serve from a quantized (Q8_0) build.
 
 Beyond the regular picker:
 
