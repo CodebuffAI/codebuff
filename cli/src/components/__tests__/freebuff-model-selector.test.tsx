@@ -160,20 +160,22 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
     })
-    // The saved pick has to be something OTHER than the recommended hero, or
-    // the landing picker opens collapsed and there are no tier headers to
-    // order. The hero is GPT-5.6 Luna since 2026-08-24 -- Flash closes for the
-    // peak window and a default cannot be dark ten hours a day -- so FLASH is
-    // now the premium row that exercises "saved model stays focused" here.
+    // The saved pick has to be a PREMIUM row that is NOT the recommended hero:
+    // premium or the tier headers it is being ordered against don't apply to
+    // it, non-hero or the landing picker opens collapsed and there are no tier
+    // headers at all. The hero is GPT-5.6 Luna since 2026-08-24, which leaves
+    // V4 Pro as the only row that is both. Flash filled this slot until
+    // 2026-08-24, when it left FREEBUFF_PREMIUM_MODEL_IDS and moved down into
+    // UNLIMITED -- below the header this asserts it sits above.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
 
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
     const recommendedModelIndex = frame.indexOf('GPT-5.6 Luna')
-    const selectedModelIndex = frame.indexOf('DeepSeek V4 Flash')
+    const selectedModelIndex = frame.indexOf('DeepSeek V4 Pro')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
@@ -183,8 +185,8 @@ describe('FreebuffModelSelector tier layout', () => {
     // 2026-08-20 and left the picker entirely.
     expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
-    expect(frame).toContain('› DeepSeek V4 Flash')
-    expect(frame).not.toContain('› MiniMax M3')
+    expect(frame).toContain('› DeepSeek V4 Pro')
+    expect(frame).not.toContain('› GPT-5.6 Luna')
   })
 
   /**
@@ -448,11 +450,20 @@ describe('FreebuffModelSelector tier layout', () => {
   })
 
   test('sizes and centres a row around its per-row quota chip', async () => {
-    // The chip is drawn on a row whose pool is stricter than its section's
-    // (Luna's one-a-day ceiling), and it was missing from BOTH the centering
-    // math and the height estimate — visible only once a user had spent a Luna
-    // session, until the server began sending unused pool rows and it became
-    // every full-access picker.
+    // The chip is drawn on a row that answers to a DIFFERENT pool than its
+    // section header, and it was missing from BOTH the centering math and the
+    // height estimate — visible only once a user had spent a Luna session,
+    // until the server began sending unused pool rows and it became every
+    // full-access picker.
+    //
+    // WHICH row wears it is arithmetic, not semantic: getFreebuffSectionQuotas
+    // gives the header to the pool MOST rows share and breaks ties toward the
+    // earlier row. With Flash in the section that was 2-1 for the shared
+    // premium pool, so Luna's one-a-day ceiling wore the chip. Flash left that
+    // pool on 2026-08-24, leaving Luna and V4 Pro tied 1-1, so the header now
+    // speaks for Luna and it is V4 PRO that carries its own count. The
+    // invariant under test — a second line the width and height math must
+    // both know about — is unchanged; only the row it lands on moved.
     const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     const pool = (
       model: string,
@@ -473,13 +484,8 @@ describe('FreebuffModelSelector tier layout', () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
+      // Flash sends no pool row at all since 2026-08-24: it is unmetered.
       rateLimitsByModel: {
-        [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: pool(
-          FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-          'premium',
-          'Premium',
-          4,
-        ),
         [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: pool(
           FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
           'premium',
@@ -498,7 +504,9 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       // NOT the hero, so the picker opens expanded and the chip under test is
       // drawn at all. Luna took the hero slot on 2026-08-24; selecting it here
-      // collapses the list to a single row and the chip disappears.
+      // collapses the list to a single row and the chip disappears. Flash also
+      // supplies the warning-ONLY second line asserted below, which no premium
+      // row has any more now that V4 Pro's carries the chip as well.
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
@@ -506,19 +514,27 @@ describe('FreebuffModelSelector tier layout', () => {
     // what a length the math didn't know about throws off. Asserted for the
     // ordinary warning line too, so this pins the invariant rather than the
     // one string that broke it.
-    const gutters = (needle: string) => {
-      const line = frame.split('\n').find((l) => l.includes(needle))!
+    const gutters = (line: string) => {
       const inner = line.slice(line.indexOf('│') + 1, line.lastIndexOf('│'))
       return [
         inner.length - inner.trimStart().length,
         inner.length - inner.trimEnd().length,
       ]
     }
-    for (const needle of [
-      'Luna: 0 of 2 used',
-      'May use data for AI training',
-    ]) {
-      const [left, right] = gutters(needle)
+    const lines = frame.split('\n')
+    // V4 Pro's second line carries the training warning AND the chip. Anchored
+    // on the chip, so a chip that stops being drawn fails here rather than
+    // quietly re-measuring some warning-only line instead.
+    const chipLine = lines.find((l) => l.includes('Premium: 0 of 4 used'))
+    // Flash's carries the same warning with nothing after it — the shape the
+    // width math already handled, which is the "ordinary warning line" above.
+    const warningOnlyLine = lines.find(
+      (l) => l.includes('May use data for AI training') && !l.includes('used'),
+    )
+    expect(chipLine).toBeDefined()
+    expect(warningOnlyLine).toBeDefined()
+    for (const line of [chipLine!, warningOnlyLine!]) {
+      const [left, right] = gutters(line)
       expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
     }
     // A row the height estimate does not know has a second line costs the list
@@ -534,9 +550,11 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
     })
-    // A premium row that isn't the hero, so the picker opens expanded and the
-    // PREMIUM header is actually drawn. Flash since 2026-08-24 -- Luna took the
-    // hero slot, so selecting Luna here would collapse the list.
+    // A row that isn't the hero, so the picker opens expanded and the PREMIUM
+    // header is actually drawn. Flash since 2026-08-24 -- Luna took the hero
+    // slot, so selecting Luna here would collapse the list. The assertion is
+    // the ABSENCE of numbers on that header, so the fact that Flash itself
+    // stopped being premium that same day changes nothing here.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
