@@ -30,7 +30,12 @@ export const DEEPSEEK_PEAK_HOUR_RANGES_UTC: ReadonlyArray<
 export type DeepSeekPricingWindow = 'peak' | 'off-peak'
 
 /**
- * The weekend pricing change took effect at 00:00 Beijing time on 2026-08-23.
+ * DeepSeek announced on its Models & Pricing page that weekend off-peak billing
+ * would become effective at 00:00 Beijing time on 2026-08-23. Issue #1090
+ * records that vendor notice and its UTC conversion; the current vendor page
+ * documents the resulting Monday-Friday peak rule:
+ * https://api-docs.deepseek.com/quick_start/pricing/
+ *
  * Keep this as an instant rather than a local date so historical billing and
  * availability checks use the same boundary in every runtime timezone.
  */
@@ -50,6 +55,14 @@ export function isBeijingWeekend(at: Date): boolean {
   return beijingDay === 0 || beijingDay === 6
 }
 
+/** Whether the all-weekend off-peak rule is active for this instant. */
+function isWeekendOffPeakEligible(at: Date): boolean {
+  return (
+    at.getTime() >= DEEPSEEK_WEEKEND_OFFPEAK_EFFECTIVE_AT_UTC &&
+    isBeijingWeekend(at)
+  )
+}
+
 /**
  * Which rate card applies at `at`.
  *
@@ -58,10 +71,7 @@ export function isBeijingWeekend(at: Date): boolean {
  * ceiling), and a hidden `new Date()` would make both untestable.
  */
 export function deepseekPricingWindow(at: Date): DeepSeekPricingWindow {
-  if (
-    at.getTime() >= DEEPSEEK_WEEKEND_OFFPEAK_EFFECTIVE_AT_UTC &&
-    isBeijingWeekend(at)
-  ) {
+  if (isWeekendOffPeakEligible(at)) {
     return 'off-peak'
   }
   const hour = at.getUTCHours()
@@ -107,10 +117,7 @@ export const DEEPSEEK_EXPENSIVE_WINDOW_UTC: readonly [number, number] = [
 /** Whether `at` falls in the window above. Half-open like the peak check, so
  *  the closing hour is already outside it. */
 export function isDeepSeekExpensiveWindow(at: Date): boolean {
-  if (
-    at.getTime() >= DEEPSEEK_WEEKEND_OFFPEAK_EFFECTIVE_AT_UTC &&
-    isBeijingWeekend(at)
-  ) {
+  if (isWeekendOffPeakEligible(at)) {
     return false
   }
   const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
