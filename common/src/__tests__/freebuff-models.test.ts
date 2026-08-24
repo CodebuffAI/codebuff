@@ -99,9 +99,15 @@ describe('freebuff model availability', () => {
     // pick (not a recommendation — nothing is badged), the fallback is what is
     // always joinable when the premium pool is spent. Pro holds the first since
     // 2026-08-21 and MiMo the second since Flash became premium (2026-08-18).
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
 
+    // Luna since 2026-08-24. Flash closed for the peak window again once Pro
+    // stopped being the peak-closed row, and a default cannot be dark for ten
+    // hours a day -- so the default moved to the cheapest row that is open at
+    // every hour. Measured inside the window: Luna $[redacted]/msg against Pro's
+    // $[redacted] and Flash-at-peak's $[redacted].
+    //
     // THE invariant that moved the default off Flash. A default is what a new
     // user lands on before they know the catalog exists, so it must be open at
     // every hour — and Flash now closes for the ten-hour peak window. Asserted
@@ -929,7 +935,7 @@ describe('freebuff model availability', () => {
     // recommendation in the sense the picker dropped: the pick is gone, so
     // pointing somewhere is the alternative to a dead end.
     expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
-      'DeepSeek V4 Flash',
+      'GPT-5.6 Luna',
     )
 
     // The AGENT door stays open, and that is not an oversight. Withdrawal is
@@ -1107,10 +1113,10 @@ describe('freebuff model availability', () => {
     // the daily pool runs dry; these assertions are what keep the first Enter
     // press joinable at every point in a user's day.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
@@ -1139,20 +1145,20 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
 
-  test('every surface starts on DeepSeek V4 Flash, on two separate constants', () => {
+  test('every surface starts on GPT-5.6 Luna, on two separate constants', () => {
     // Both constants named Pro from 2026-08-12 until it was paused on
     // 2026-08-18, went to Flash, and returned to Pro on 2026-08-21 when Flash
     // took over the peak-hours closure. They stay TWO constants because they
     // have diverged before and may again.
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     // Neither default may be a paused model — that is the pairing that would
     // put every new user on a row the server refuses.

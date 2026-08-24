@@ -893,16 +893,27 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // already gone when Pro took the recommendation on 2026-08-12. The picker
   // renders the premium group heading, so the tagline does not have to.
   tagline: 'Smart & Fast',
-  // OPEN AT ALL HOURS again as of 2026-08-22. Flash held the peak closure only
-  // while V4 Pro was on a flat-priced lane and could cover those hours; Pro is
-  // back on DeepSeek direct and closed at peak, so Flash has to be the row that
-  // stays up — it is the cheaper of the two and the one users are steered to.
+  // CLOSED AT PEAK again as of 2026-08-24. The 08-22 reopening was correct for
+  // its moment and its premise has since expired: it reasoned that Pro was
+  // "back on DeepSeek direct and closed at peak, so Flash has to be the row
+  // that stays up". Pro is neither of those now — it runs on Cheaper Inference
+  // at a flat $[redacted]/M cache read and is open at all hours — so a row that
+  // can hold the peak window exists again, and Flash is once more the row whose
+  // whole cost doubles inside it.
   //
-  // No `unavailableFallback` either: it pointed peak traffic at Pro, which is
-  // now the row that is shut then. A redirect onto a closed model resolves to
-  // the unlimited fallback anyway, so the pointer would be dead weight that
-  // reads as intent.
-  availability: 'always',
+  // Flash is ~[redacted]% of fleet spend and DeepSeek doubles it for ten hours a day.
+  // Measured 2026-08-24 09:00Z, inside the window:
+  //
+  //   Flash @ DeepSeek peak    $[redacted]/msg
+  //   Pro   @ Cheaper Inf.     $[redacted]/msg   (1.02x — saves nothing)
+  //   Luna  @ Cheaper Inf.     $[redacted]/msg   (2.11x CHEAPER)
+  //
+  // Hence the fallback points at LUNA, not Pro. The old pointer named Pro from
+  // when Pro was the flat-priced row; it is now merely the same price as the
+  // row being closed, so redirecting there would shut a model for no saving —
+  // the worst of both outcomes.
+  availability: 'off_peak_only',
+  unavailableFallback: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
   // TEMPORARY (2026-08-18). Flash was the unlimited model every free account
@@ -1254,20 +1265,27 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // FREEBUFF_PAUSED_FREE_MODEL_IDS) instead of wedging those clients the way
 // #1801 wedged the limited tier.
 export const FREEBUFF_MODELS = [
-  // FLASH LEADS as of 2026-08-22, and the position is not a preference — a
-  // test pins FREEBUFF_MODELS[0] to DEFAULT_FREEBUFF_MODEL_ID, because the
-  // rows once led with Flash while the recommendation already named Pro.
+  // LUNA LEADS as of 2026-08-24, and the position is not a preference — a test
+  // pins FREEBUFF_MODELS[0] to DEFAULT_FREEBUFF_MODEL_ID, so this moved because
+  // the DEFAULT had to move.
   //
-  // The default has to be Flash: V4 Pro is closed 00:00-10:00 UTC again now
-  // that it is back on DeepSeek direct, and a default that is unavailable for
-  // ten hours a day fails admission for exactly the users least able to
-  // diagnose it. Pro led the list for one day, while it was the cheapest
-  // premium row on a flat-priced lane; it is the dearest again.
+  // Flash closes for the ten-hour peak window again (see its `availability`),
+  // and the default must be open at every hour: it is what a new user lands on
+  // before they know the catalog exists, so a default dark for ten hours a day
+  // fails admission for exactly the people least able to diagnose it. That
+  // invariant is asserted, not assumed.
+  //
+  // Luna rather than Pro, on measured cost inside the window (2026-08-24 09:00Z):
+  //   Luna @ Cheaper Inference  $[redacted]/msg   93.8% cache
+  //   Pro  @ Cheaper Inference  $[redacted]/msg   87.4% cache
+  // Luna is less than half of Pro and less than half of Flash-at-peak, which is
+  // the reverse of the ordering rationale that stood on 2026-08-22, when Luna's
+  // cost was being read off a card that priced its cache reads 25x too high.
   //
   // Ordering is still the ONLY steer here — no supersedes notices, nothing
   // badged RECOMMENDED — so changing this order is a product decision.
-  DEEPSEEK_V4_FLASH_MODEL,
   GPT_5_6_LUNA_MODEL,
+  DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   // LAST again: capped at one session a day, closed for ten hours, and the
   // dearest row we serve. Somewhere a user reaches deliberately rather than by
@@ -1768,7 +1786,7 @@ export type FreebuffWebPremiumModelId =
  *  It carries the AI-training notice, so pickers using it must render the
  *  model's `warning`. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
  *  the model a new Cloud thread starts on. DeepSeek V4 Pro as of 2026-08-21.
@@ -1805,7 +1823,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  browser surfaces can steer independently. They name the same model today and
  *  diverged as recently as 2026-08-04 → 2026-08-12. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without

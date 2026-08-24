@@ -162,17 +162,18 @@ describe('FreebuffModelSelector tier layout', () => {
     })
     // The saved pick has to be something OTHER than the recommended hero, or
     // the landing picker opens collapsed and there are no tier headers to
-    // order. The hero is DeepSeek V4 Flash again since 2026-08-20, so Luna is
-    // the premium row that exercises "saved model stays focused" here.
+    // order. The hero is GPT-5.6 Luna since 2026-08-24 -- Flash closes for the
+    // peak window and a default cannot be dark ten hours a day -- so FLASH is
+    // now the premium row that exercises "saved model stays focused" here.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Flash')
-    const selectedModelIndex = frame.indexOf('GPT-5.6 Luna')
+    const recommendedModelIndex = frame.indexOf('GPT-5.6 Luna')
+    const selectedModelIndex = frame.indexOf('DeepSeek V4 Flash')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
@@ -182,7 +183,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // 2026-08-20 and left the picker entirely.
     expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
-    expect(frame).toContain('› GPT-5.6 Luna')
+    expect(frame).toContain('› DeepSeek V4 Flash')
     expect(frame).not.toContain('› MiniMax M3')
   })
 
@@ -495,7 +496,10 @@ describe('FreebuffModelSelector tier layout', () => {
     })
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+      // NOT the hero, so the picker opens expanded and the chip under test is
+      // drawn at all. Luna took the hero slot on 2026-08-24; selecting it here
+      // collapses the list to a single row and the chip disappears.
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
     // Gutters inside the card borders, which is what "centred" means here and
@@ -531,10 +535,11 @@ describe('FreebuffModelSelector tier layout', () => {
       accessTier: 'full',
     })
     // A premium row that isn't the hero, so the picker opens expanded and the
-    // PREMIUM header is actually drawn.
+    // PREMIUM header is actually drawn. Flash since 2026-08-24 -- Luna took the
+    // hero slot, so selecting Luna here would collapse the list.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
     // The section still groups the rows; only the invented numbers are gone.
