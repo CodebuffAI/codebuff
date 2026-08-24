@@ -75,6 +75,10 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   first_party_route: 'string',
   first_party_primary_percent: 'number',
   first_party_backfill_enabled: 'boolean',
+  /** Whether the immediately preceding Gravity attempt filled, no-filled, or
+   * failed. This makes recovered no-fill inventory observable without logging
+   * any campaign or creative identity. */
+  gravity_outcome: 'string',
   selection_reason: 'string',
   ad_count: 'number',
   surface: 'string',
