@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  DEFAULT_FIRST_PARTY_PRIMARY_PERCENT,
   IMPREZIA_EXPERIMENT_PERCENT,
   adExperimentArmForUser,
+  firstPartyAdRouteForUser,
 } from '../ad-experiment'
 
 describe('imprezia experiment arm', () => {
@@ -32,5 +34,87 @@ describe('imprezia experiment arm', () => {
     // point of slack rather than asserting an exact count.
     expect(percent).toBeGreaterThan(IMPREZIA_EXPERIMENT_PERCENT - 1.5)
     expect(percent).toBeLessThan(IMPREZIA_EXPERIMENT_PERCENT + 1.5)
+  })
+})
+
+describe('first-party request routing', () => {
+  test('never routes a missing user id into first-party inventory', () => {
+    for (const id of [null, undefined, '']) {
+      expect(
+        firstPartyAdRouteForUser(id, {
+          primaryPercent: 100,
+          backfill: true,
+        }),
+      ).toBe('paid_network_only')
+    }
+  })
+
+  test('is stable for one user', () => {
+    for (const id of ['abc', 'user-42', 'another-user']) {
+      const config = { primaryPercent: 37.5, backfill: true }
+      const first = firstPartyAdRouteForUser(id, config)
+      for (let i = 0; i < 20; i++) {
+        expect(firstPartyAdRouteForUser(id, config)).toBe(first)
+      }
+    }
+  })
+
+  test('makes the 0 and 100 percent settings exact', () => {
+    for (let i = 0; i < 1_000; i++) {
+      const id = `user-${i}`
+      expect(
+        firstPartyAdRouteForUser(id, {
+          primaryPercent: 0,
+          backfill: false,
+        }),
+      ).toBe('paid_network_only')
+      expect(
+        firstPartyAdRouteForUser(id, {
+          primaryPercent: 0,
+          backfill: true,
+        }),
+      ).toBe('gravity_then_first_party')
+      expect(
+        firstPartyAdRouteForUser(id, {
+          primaryPercent: 100,
+          backfill: false,
+        }),
+      ).toBe('first_party_primary')
+    }
+  })
+
+  test(`allocates about ${DEFAULT_FIRST_PARTY_PRIMARY_PERCENT}% of users by default`, () => {
+    const N = 20_000
+    let allocated = 0
+    for (let i = 0; i < N; i++) {
+      if (
+        firstPartyAdRouteForUser(`user-${i}`, {
+          primaryPercent: DEFAULT_FIRST_PARTY_PRIMARY_PERCENT,
+          backfill: true,
+        }) === 'first_party_primary'
+      ) {
+        allocated++
+      }
+    }
+    const percent = (allocated / N) * 100
+    expect(percent).toBeGreaterThan(DEFAULT_FIRST_PARTY_PRIMARY_PERCENT - 1.5)
+    expect(percent).toBeLessThan(DEFAULT_FIRST_PARTY_PRIMARY_PERCENT + 1.5)
+  })
+
+  test('expands the same cohort when the primary percentage increases', () => {
+    for (let i = 0; i < 10_000; i++) {
+      const id = `user-${i}`
+      const atTen = firstPartyAdRouteForUser(id, {
+        primaryPercent: 10,
+        backfill: false,
+      })
+      const atTwenty = firstPartyAdRouteForUser(id, {
+        primaryPercent: 20,
+        backfill: false,
+      })
+      if (atTen === 'first_party_primary') {
+        expect(atTwenty).toBe('first_party_primary')
+      }
+    }
   })
 })

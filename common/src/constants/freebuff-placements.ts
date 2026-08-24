@@ -17,21 +17,19 @@ import { AD_CAMPAIGN_STATUSES } from './freebuff-ads'
 import type { AdCampaignStatus } from './freebuff-ads'
 
 /**
- * The placements console is unbuilt inventory-side: nothing serves a
- * first-party ad yet, `ad_impression` carries no campaign id, and there is no
- * spend ledger. While this is `false` the console renders from fixtures and
- * must never be shown to an advertiser as their real numbers.
+ * The bare-bones placements control and delivery planes are wired: campaigns
+ * and creatives persist, first-party impressions carry campaign attribution,
+ * and clicks settle through the spend ledger.
  *
  * **This constant no longer decides who can reach the console.** That is the
  * `FREEBUFF_PLACEMENTS_AUDIENCE` env knob (`off` | `admin` | `all`, default
  * `off`), read by `placementsAudience()` in
  * `freebuff/web/src/server/advertisers/placements/access.ts`. What survives
- * here is the statement of FACT the knob is set against: the data behind these
- * screens is invented. It stays `false`, and stays exported, because the
- * fixture-vs-real distinction is what the UI cites — flip it only once
- * campaign attribution and the spend ledger actually exist.
+ * here is the implementation-state assertion the knob is set against. Delivery
+ * rollups are intentionally honest zeros until aggregation lands; they are not
+ * fixtures.
  */
-export const PLACEMENTS_CONSOLE_ENABLED = false
+export const PLACEMENTS_CONSOLE_ENABLED = true
 
 /**
  * Terminal widths the creative preview offers, chosen because these are the
@@ -62,16 +60,62 @@ export const ACTIVATION_ATTRIBUTION_WINDOW_DAYS = 30
 export const ATTRIBUTION_WINDOW_COPY = `Activation counts within ${ACTIVATION_ATTRIBUTION_WINDOW_DAYS} days of the click`
 
 /**
- * Placements an advertiser can buy today. `cli_chat` is deliberately listed
- * and disabled rather than omitted: it is the placement every advertiser asks
- * about, and Gravity's exclusivity term is what blocks it, not our roadmap.
+ * Placements an advertiser can buy.
+ *
+ * EVERY ID HERE IS AN ID A SHIPPING CLIENT ACTUALLY SENDS. Verified against
+ * Axiom `ads.fetch_completed` over 7 days, 2026-08-23. That is a stricter test
+ * than "exists in the code", and it is the one that matters: an id nobody
+ * requests is a campaign that never delivers.
+ *
+ * Two ways to get this wrong, both of which we did:
+ *
+ * 1. A SURFACE NAME IS NOT A PLACEMENT. `cli_chat` was listed here once. It is
+ *    the surface; the transcript's placement is `CLI-Chat-Inline`.
+ *
+ * 2. `CLI-Chat-Inline-1..8` ARE NOT SELLABLE, despite existing in
+ *    `CLI_CHAT_BATCH_PLACEMENT_IDS`. `getPlacementIds` prefers an explicit
+ *    `placementId` over the surface, and every shipping client sends one, so
+ *    the batch list is reached only by CLI builds predating the lazy per-slot
+ *    auction. Measured: ~395 impressions/day across all eight and falling,
+ *    against ~99k/day for `CLI-Chat-Inline`. Do not sell a decaying legacy
+ *    path.
+ *
+ * Keep this in step with `getPlacementIds` in the ads route AND with what
+ * clients send. The three disagreeing is a campaign that silently never
+ * delivers.
+ *
+ * Chat was previously listed as unavailable on the grounds of a Gravity
+ * exclusivity term. That term does not exist, so chat is sellable -- and it is
+ * where nearly all the volume is.
+ *
+ * `Single-Ad-Unit-1` is deliberately absent: it serves callers that named no
+ * surface, and first-party targeting is expressed in surfaces, so a creative
+ * could never match it.
  */
 export const PLACEMENT_SLOTS = [
   { id: 'waiting-room-1', surface: 'waiting_room', available: true },
   { id: 'waiting-room-2', surface: 'waiting_room', available: true },
   { id: 'waiting-room-3', surface: 'waiting_room', available: true },
   { id: 'waiting-room-4', surface: 'waiting_room', available: true },
-  { id: 'cli_chat', surface: 'cli_chat', available: false },
+  // The CLI transcript's inline slot. One id, re-auctioned per eligible slot.
+  { id: 'CLI-Chat-Inline', surface: 'cli_chat', available: true },
+  // Desktop's inline slot -- the largest single placement by fill volume.
+  { id: 'Desktop-Inline-Chat', surface: 'cli_chat', available: true },
+  {
+    id: 'Web-Chat-After-User-Message',
+    surface: 'freebuff_web_chat',
+    available: true,
+  },
+  {
+    id: 'Web-Chat-After-Assistant-Message',
+    surface: 'freebuff_web_chat',
+    available: true,
+  },
+  {
+    id: 'Chat-Assistant-Above-Input',
+    surface: 'chat_assistant',
+    available: true,
+  },
 ] as const
 
 /**

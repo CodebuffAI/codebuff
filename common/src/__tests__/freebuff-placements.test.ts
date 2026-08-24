@@ -160,11 +160,10 @@ describe('display status', () => {
 })
 
 describe('copy and configuration', () => {
-  it('keeps the console off until there is something real to show', () => {
-    // Nothing serves a first-party ad yet: no campaign id on ad_impression, no
-    // rollup, no spend ledger. This flag going true before those exist would
-    // show an advertiser fixtures as their own delivery.
-    expect(PLACEMENTS_CONSOLE_ENABLED).toBe(false)
+  it('marks the DB-backed control and delivery planes as wired', () => {
+    // Rollups may still be zero, but campaign attribution and the spend ledger
+    // are real and the console no longer resolves users to a fixture account.
+    expect(PLACEMENTS_CONSOLE_ENABLED).toBe(true)
   })
 
   it('previews the widths where layout actually changes', () => {
@@ -179,12 +178,36 @@ describe('copy and configuration', () => {
     )
   })
 
-  it('offers cli_chat as visible but unavailable', () => {
-    // Blocked by Gravity's exclusivity term, not by our roadmap. Hiding it
-    // just means every advertiser asks.
-    const cliChat = PLACEMENT_SLOTS.find((slot) => slot.id === 'cli_chat')
-    expect(cliChat?.available).toBe(false)
-    expect(PLACEMENT_SLOTS.filter((slot) => slot.available).length).toBe(4)
+  it('sells every real slot, and only real slots', () => {
+    // Every id must be a PLACEMENT id, never a surface name. `cli_chat` was
+    // listed here once; it is a surface, and the transcript's real slots are
+    // `CLI-Chat-Inline-1..8`. A surface name here is a campaign sold against
+    // inventory that can never match at serve time.
+    const surfaceNames = new Set<string>(
+      PLACEMENT_SLOTS.map((slot) => slot.surface),
+    )
+    for (const slot of PLACEMENT_SLOTS) {
+      expect([slot.id, surfaceNames.has(slot.id)]).toEqual([slot.id, false])
+    }
+
+    expect(PLACEMENT_SLOTS.every((slot) => slot.available)).toBe(true)
+    expect(new Set(PLACEMENT_SLOTS.map((slot) => slot.id)).size).toBe(
+      PLACEMENT_SLOTS.length,
+    )
+  })
+
+  it('covers the chat surfaces, which are the larger pool', () => {
+    // Chat was blocked on a Gravity exclusivity term that does not exist. The
+    // transcript alone is twice the waiting room's slot count.
+    const bySurface = (surface: string) =>
+      PLACEMENT_SLOTS.filter((slot) => slot.surface === surface).length
+    // CLI transcript + Desktop inline. NOT the eight `CLI-Chat-Inline-N` ids:
+    // no shipping client requests those, so selling them would be selling a
+    // decaying legacy path.
+    expect(bySurface('cli_chat')).toBe(2)
+    expect(bySurface('waiting_room')).toBe(4)
+    expect(bySurface('freebuff_web_chat')).toBe(2)
+    expect(bySurface('chat_assistant')).toBe(1)
   })
 
   it('gives every not-serving and underspend reason copy', () => {
