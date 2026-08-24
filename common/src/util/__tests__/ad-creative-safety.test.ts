@@ -14,10 +14,49 @@ describe('sanitizeAdText', () => {
     expect(sanitizeAdText('buy\x1b]52;c;ZXZpbA==\x07 now')).toBe('buy now')
   })
 
-  test('normalizes carriage returns and strips bidi/invisible characters', () => {
+  test('strips BEL- and ST-terminated C1 terminal commands whole', () => {
+    expect(sanitizeAdText('buy\x9d52;c;ZXZpbA==\x07 now')).toBe('buy now')
+    expect(sanitizeAdText('buy\x1b]52;c;ZXZpbA==\x1b\\ now')).toBe('buy now')
+    expect(sanitizeAdText('buy\x90payload\x9c now')).toBe('buy now')
+    expect(sanitizeAdText('buy\x9b31mred\x9b0m now')).toBe('buyred now')
+  })
+
+  test('normalizes carriage returns, tabs, and strips C0/C1 controls', () => {
     expect(sanitizeAdText('legit\rEVIL')).toBe('legit\nEVIL')
-    expect(sanitizeAdText('safe‮evil')).toBe('safeevil')
-    expect(sanitizeAdText('goo​gle')).toBe('google')
+    expect(sanitizeAdText('a\tb')).toBe('a  b')
+    expect(sanitizeAdText('a\x07b\x08c\x1fd')).toBe('abcd')
+    expect(sanitizeAdText('a\x80b\x85c\x8dd')).toBe('abcd')
+  })
+
+  test('deletes bidi and the complete Unicode default-ignorable set', () => {
+    const defaultIgnorables = [
+      '\u00ad', // soft hyphen
+      '\u034f', // combining grapheme joiner
+      '\u061c', // Arabic letter mark
+      '\u115f', // Hangul choseong filler
+      '\u17b4', // Khmer inherent vowel AQ
+      '\u180e', // Mongolian vowel separator
+      '\u200b', // zero-width space
+      '\u202e', // right-to-left override
+      '\u2060', // word joiner
+      '\u206f', // nominal digit shapes
+      '\u3164', // Hangul filler
+      '\ufe0f', // variation selector-16
+      '\ufeff', // BOM / zero-width no-break space
+      '\uffa0', // halfwidth Hangul filler
+      '\ufff0', // reserved default-ignorable
+      '\ufffb', // interlinear annotation terminator
+      '\u{1bca0}', // shorthand format letter overlap
+      '\u{1d173}', // musical symbol begin beam
+      '\u{e0041}', // Unicode tag A
+      '\u{e0080}', // reserved tag-plane default-ignorable
+      '\u{e0100}', // variation selector supplement
+      '\u{e0fff}', // reserved tag-plane default-ignorable
+    ]
+
+    for (const character of defaultIgnorables) {
+      expect(sanitizeAdText(`de${character}lete`)).toBe('delete')
+    }
   })
 
   test('normalizes tabs, trims, and is idempotent', () => {
