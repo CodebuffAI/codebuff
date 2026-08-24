@@ -84,6 +84,39 @@ describe('listDirectory', () => {
     })
   })
 
+  it('returns the normal list error when the requested directory is missing', async () => {
+    const missingPath = path.join(PROJECT_ROOT, 'missing')
+    const readdir = mock(async (_path: PathLike) => [] as Dirent[])
+    const fs = {
+      realpath: mock(async (requestedPath: PathLike) => {
+        const requestedPathString = String(requestedPath)
+        if (requestedPathString === missingPath) {
+          throw new Error(
+            `ENOENT: no such file or directory, realpath '${missingPath}'`,
+          )
+        }
+        return requestedPathString
+      }),
+      readdir,
+    } as unknown as CodebuffFileSystem
+
+    const result = await listDirectory({
+      directoryPath: 'missing',
+      projectPath: PROJECT_ROOT,
+      fs,
+    })
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          errorMessage: `Failed to list directory: ENOENT: no such file or directory, realpath '${missingPath}'`,
+        },
+      },
+    ])
+    expect(readdir).not.toHaveBeenCalled()
+  })
+
   it('rejects sibling paths that only share the project prefix', async () => {
     const siblingPath = path.resolve(PROJECT_ROOT, '..', 'project-evil')
     const { fs, readdir } = createFs({
