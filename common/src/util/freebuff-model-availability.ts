@@ -66,7 +66,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model now runs on your normal daily sessions — no more per-model caps. MiMo stays unmetered. —❤️ Freebuff Team'
+  'Every model now runs on your normal daily sessions — no more per-model caps. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

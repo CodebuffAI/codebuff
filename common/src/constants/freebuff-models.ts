@@ -467,13 +467,16 @@ export const MUSE_SPARK_RATE_LIMITED_ERROR_CODE = 'muse_spark_rate_limited'
  * same reasons Pro did:
  *
  *  - The fallback must be a model the caller is ALREADY entitled to, or a rate
- *    limit would become a way to reach something they are not. Flash sits in the
- *    same shared daily premium pool as Muse Spark
- *    (FREEBUFF_WEB_PREMIUM_MODEL_IDS) — it joined that pool the same day — so a
- *    rerouted request draws on exactly the quota the original would have.
+ *    limit would become a way to reach something they are not. Flash shared the
+ *    daily premium pool with Muse Spark until 2026-08-24; it is UNMETERED now,
+ *    which satisfies this more strongly rather than weakening it — every
+ *    full-access caller can run an unmetered row, so the reroute cannot hand out
+ *    anything unearned. The direction that would is a referral-EARNED row, and
+ *    the invariant test guards that explicitly.
  *  - It should be the model we would recommend anyway, since the user never
- *    chose it: Flash is now DEFAULT_FREEBUFF_WEB_MODEL_ID, so a reroute lands on
- *    the same model a new thread would have started on.
+ *    chose it. Flash held DEFAULT_FREEBUFF_WEB_MODEL_ID when this was written;
+ *    that is Pro now, so the two no longer coincide. Flash stays the right
+ *    reroute on the stronger ground that it costs the user nothing.
  *
  * Both bullets are why this had to move with the pause rather than after it: a
  * fallback pointing at a paused model turns a queue overflow into a refusal.
@@ -916,17 +919,33 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   unavailableFallback: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
-  // TEMPORARY (2026-08-18). Flash was the unlimited model every free account
-  // could run without touching the daily pool. It is metered by that pool now
-  // because it became the single largest driver of free-mode spend — the whole
-  // of DeepSeek's peak-hour repricing lands on it, and it carries far more
-  // traffic than any premium row. Unlimited is MiMo 2.5 while this holds.
+  // UNLIMITED again as of 2026-08-24, reversing the 2026-08-18 metering. Flash
+  // went into the daily pool because it was the single largest driver of
+  // free-mode spend; what changed is that it now has a cheap lane to spend on.
+  // The Luminal lane carries Flash at a fraction of DeepSeek direct, and it is
+  // running far under its concurrency ceiling — 43 pins against 80 measured
+  // 2026-08-24 21:35Z, with ~90% of Flash sessions refused a slot. Metering
+  // Flash by the premium pool throttles the demand that would fill that lane.
   //
-  // Reverting is this flag, its entry in FREEBUFF_PREMIUM_MODEL_IDS, and the
-  // FALLBACK_FREEBUFF_MODEL_ID / DEFAULT_FREEBUFF_MODEL_ID pair — all four move
-  // together or the catalog contradicts itself. See FREEBUFF_TIER_CHANGE_NOTICE
-  // for the copy that has to come down with them.
-  premium: true,
+  // FULL ACCESS ONLY. The limited tier is a separate catalog
+  // (LIMITED_FREEBUFF_MODEL_IDS) and is deliberately untouched: those users
+  // still get MiMo 2.5 alone, and Flash's pause there is what keeps those
+  // sessions free.
+  //
+  // What did NOT move with it, on purpose:
+  //  - FALLBACK_FREEBUFF_MODEL_ID stays MiMo. The fallback has to be available
+  //    at every hour and Flash is `off_peak_only`; non-premium is necessary for
+  //    that slot, not sufficient.
+  //  - DEFAULT_FREEBUFF_MODEL_ID stays Luna. Which model leads the picker is a
+  //    product decision, not a consequence of the quota bucket.
+  //  - MIMO_V25_MODEL's supersededBy pointer stays off. Its comment asks for it
+  //    back "when Flash is free again", but that was written before Flash
+  //    closed for the peak window; restoring it would rewrite saved MiMo picks
+  //    onto a model that is shut ten hours a day.
+  //
+  // Reverting is this flag plus the FREEBUFF_PREMIUM_MODEL_IDS entry, which
+  // move together, and the FREEBUFF_TIER_CHANGE_NOTICE copy.
+  premium: false,
   multimodal: false,
   reasoningEffort: 'high',
   // The 07/31 build has native low/high/max prompt templates. Medium is not a
@@ -1300,14 +1319,22 @@ export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
-// Flash joined this list on 2026-08-18 (TEMPORARY — see
-// DEEPSEEK_V4_FLASH_MODEL.premium). Pro never left it for long: it was pulled
-// from the catalog entirely that day and restored on 2026-08-19, because both
-// monitoring its cost and routing its provider require it to serve traffic.
-// What changed instead is that nothing recommends it — see its supersededBy and
-// its place at the end of FREEBUFF_MODELS.
+// Flash joined this list on 2026-08-18 and LEFT it on 2026-08-24, once the
+// Luminal lane gave it somewhere cheap to run — see
+// DEEPSEEK_V4_FLASH_MODEL.premium for why, and for the constants that
+// deliberately did not follow it out. Dropping it here is what makes it
+// unlimited: FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so
+// a model in neither this list nor a referral pool becomes unmetered by
+// construction.
+//
+// This is the FULL-ACCESS pool only. The limited tier meters by region rather
+// than model and reads LIMITED_FREEBUFF_MODEL_IDS, so nothing here reaches it.
+//
+// Pro never left for long: it was pulled from the catalog entirely on 08-18 and
+// restored on 08-19, because both monitoring its cost and routing its provider
+// require it to serve traffic. What changed instead is that nothing recommends
+// it — see its supersededBy and its place at the end of FREEBUFF_MODELS.
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 ] as const
@@ -2089,13 +2116,15 @@ export function getFreebuffModelsForAccessTier(
 
 /** The model the CLI/Desktop picker highlights as the "recommended" hero so a
  *  new user can start with one Enter press without scanning the full list. Full
- *  access → DEFAULT_FREEBUFF_MODEL_ID (DeepSeek V4 Pro 08/13 — the strongest
- *  agentic model in the catalog); limited → LIMITED_FREEBUFF_MODEL_ID.
+ *  access → DEFAULT_FREEBUFF_MODEL_ID (GPT-5.6 Luna); limited →
+ *  LIMITED_FREEBUFF_MODEL_ID (MiMo 2.5). Both names are restated here because
+ *  this docblock twice outlived the constants it described — it still named V4
+ *  Pro and V4 Flash on 2026-08-24, long after neither was returned.
  *
- *  Pro is premium, so ALWAYS pass `premiumExhausted` from the live quota
- *  snapshot: the hero flips to the unlimited DeepSeek Flash once the daily pool
- *  runs out, because the recommended pick has to stay joinable. A caller that
- *  omits it will offer a hero whose next send fails admission. */
+ *  The hero is premium, so ALWAYS pass `premiumExhausted` from the live quota
+ *  snapshot: it flips to FALLBACK_FREEBUFF_MODEL_ID once the daily pool runs
+ *  out, because the recommended pick has to stay joinable. A caller that omits
+ *  it will offer a hero whose next send fails admission. */
 export function getRecommendedFreebuffModelId(
   accessTier: FreebuffAccessTier | null | undefined,
   options: { premiumExhausted?: boolean } = {},

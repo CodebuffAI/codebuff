@@ -12,6 +12,7 @@ import {
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_IDS,
   FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
@@ -146,15 +147,17 @@ describe('freebuff model availability', () => {
   })
 
   test('desktop concurrency splits full access into 1 premium and 3 unlimited sessions', () => {
-    // Flash moved from the unlimited bucket to the premium one when it became
-    // premium — a real concurrency change for desktop users (3 tabs to 1), and
-    // an automatic one, since the bucket list is a superset of the premium ids.
+    // Flash moved BACK to the unlimited bucket on 2026-08-24 (3 tabs, not 1),
+    // automatically, since the bucket list is a superset of the premium ids.
+    // That is a wanted consequence rather than a side effect: the point of
+    // unmetering Flash is to put more concurrent sessions on the Luminal lane,
+    // and desktop tabs are where that concurrency comes from.
     expect(
       getFreebuffDesktopSessionBucket(
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
         'full',
       ),
-    ).toBe('premium')
+    ).toBe('unlimited')
     expect(
       getFreebuffDesktopSessionBucket(FREEBUFF_MIMO_V25_MODEL_ID, 'full'),
     ).toBe('unlimited')
@@ -236,20 +239,53 @@ describe('freebuff model availability', () => {
     }
   })
 
-  test('DeepSeek V4 Flash is selectable and premium', () => {
+  test('DeepSeek V4 Flash is selectable and unlimited on full access', () => {
     expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(isFreebuffModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(true)
-    // TEMPORARY (2026-08-18). Flash was the unlimited row every account could
-    // run without touching the daily pool; it is metered by that pool now.
+    // Unmetered again as of 2026-08-24, reversing the 08-18 metering now that
+    // the Luminal lane gives Flash somewhere cheap to run.
     expect(isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(
-      true,
+      false,
+    )
+    // Unmetered means being in NO pool, which only holds if it left the premium
+    // id list too — the flag and the list are one change.
+    expect(FREEBUFF_STANDARD_MODEL_IDS).toContain(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     // The catalog must never be all-premium: something has to be left for an
-    // account whose pool is spent, and MiMo 2.5 is the only unlimited row while
-    // this holds.
+    // account whose pool is spent.
     expect(FREEBUFF_MODELS.some((model) => !model.premium)).toBe(true)
+  })
+
+  test('the limited tier is unaffected by Flash going unlimited', () => {
+    // The 2026-08-24 change is FULL ACCESS ONLY. Limited users keep MiMo alone;
+    // Flash's pause there is what keeps those sessions free, and the two tiers
+    // read different lists precisely so one can move without the other.
+    expect(LIMITED_FREEBUFF_MODEL_IDS).toContain(FREEBUFF_MIMO_V25_MODEL_ID)
+    expect(LIMITED_FREEBUFF_MODEL_IDS).not.toContain(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(false)
+  })
+
+  test('the fallback stays available at every hour, not merely unmetered', () => {
+    // Flash leaving the premium pool makes it eligible for this slot by the
+    // "MUST BE NON-PREMIUM" rule, but it is `off_peak_only`, so it must NOT
+    // take it: a fallback that is shut for ten hours a day is not a fallback.
+    expect(FALLBACK_FREEBUFF_MODEL_ID).not.toBe(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    const fallback = SUPPORTED_FREEBUFF_MODELS.find(
+      (model) => model.id === FALLBACK_FREEBUFF_MODEL_ID,
+    )!
+    expect(fallback.premium).toBe(false)
+    expect(fallback.availability).toBe('always')
   })
 
   test('V4 Pro trails the catalog and nothing is recommended', () => {
@@ -1727,19 +1763,28 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
 
 describe('Muse Spark rate-limit fallback', () => {
   test('reroutes only to a model the caller is already entitled to', () => {
-    // THE invariant. A fallback outside the shared daily premium pool would
-    // turn "Muse Spark is busy" into a way to reach a model the user had not
-    // earned — the same shape as the retired crof/glm-5.2 route, which handed
-    // out a referral-earned model for nothing. The fallback sits in the same
-    // pool, so a rerouted request spends exactly the entitlement the original
-    // would.
-    expect(isFreebuffWebPremiumModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(true)
+    // THE invariant: a rate limit must not become a way to reach a model the
+    // caller had not earned — the shape of the retired crof/glm-5.2 route, which
+    // handed out a referral-earned model for nothing.
+    //
+    // Until 2026-08-24 this was spelled "the fallback is in the shared daily
+    // premium pool", which was true because the fallback is Flash and Flash was
+    // premium. Flash is unmetered now, and that satisfies the invariant MORE
+    // strongly rather than breaking it: every full-access caller can already run
+    // an unmetered row, so a reroute onto one cannot reach anything unearned.
+    // What is asserted is therefore entitlement — premium pool OR unmetered —
+    // and, separately, that the fallback is never a referral-EARNED row, which
+    // is the direction the guard actually protects.
+    expect(
+      isFreebuffWebPremiumModelId(MUSE_SPARK_FALLBACK_MODEL_ID) ||
+        FREEBUFF_STANDARD_MODEL_IDS.includes(MUSE_SPARK_FALLBACK_MODEL_ID),
+    ).toBe(true)
     expect(
       isFreebuffWebPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
     ).toBe(true)
-    // Never the earned-GLM pool, and never the free standard pool.
+    // Never the earned-GLM pool — the one direction that would hand out access.
     expect(isFreebuffGlmV52ModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(false)
-    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_GLM_V52_MODEL_IDS).not.toContain(
       MUSE_SPARK_FALLBACK_MODEL_ID,
     )
     // And it must be a real, selectable Web model rather than a dangling id.
