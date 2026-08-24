@@ -38,7 +38,13 @@ export const DEEPSEEK_WEEKEND_OFFPEAK_EFFECTIVE_AT_UTC = Date.parse(
   '2026-08-22T16:00:00Z',
 )
 
-/** Whether `at` falls on Saturday or Sunday in Beijing time. */
+/**
+ * Whether `at` falls on Saturday or Sunday in Beijing time.
+ *
+ * China has not observed daylight saving time since 1991, so Beijing's fixed
+ * UTC+8 offset is intentional here. Do not generalize this arithmetic to zones
+ * whose UTC offset changes seasonally.
+ */
 export function isBeijingWeekend(at: Date): boolean {
   const beijingDay = new Date(at.getTime() + 8 * 60 * 60 * 1000).getUTCDay()
   return beijingDay === 0 || beijingDay === 6
