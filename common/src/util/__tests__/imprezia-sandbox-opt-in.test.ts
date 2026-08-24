@@ -36,6 +36,7 @@ const request = {
   sessionId: 's1',
   timestamp: '2026-08-22T23:35:00.000Z',
   sourceUrl: 'https://freebuff.com/chat',
+  surface: 'chat' as const,
   platformString: 'browser',
   deviceContext: {
     deviceType: 'desktop' as const,
