@@ -64,7 +64,7 @@ export async function fetchImpreziaChatAd(params: {
   userAgent: string
   /** False in production. A sandbox key must not serve real users. */
   testMode: boolean
-  /** One-request opt-in to sandbox creatives; see isImpreziaSandboxTester. */
+  /** Serve sandbox creatives in production; see the guard below. */
   allowSandbox?: boolean
   logger: Logger
   fetch: typeof globalThis.fetch
@@ -81,8 +81,9 @@ export async function fetchImpreziaChatAd(params: {
   }
 
   // A sandbox key serves Imprezia's own house ad ("Developers. Earn money with
-  // your AI app."), rendered exactly like a paid one — indistinguishable from
-  // real inventory to an ordinary user. `allowSandbox` is the only way past.
+  // your AI app."), rendered exactly like a paid one — so someone who did not
+  // ask for it cannot tell it from a real advertiser. Asking for it by name is
+  // the whole opt-in.
   if (isImpreziaSandboxKey(apiKey) && !testMode && !allowSandbox) {
     logger.error(
       '[ads:imprezia] Refusing to serve: sandbox key in production. Swap in ' +
@@ -174,35 +175,4 @@ export async function fetchImpreziaChatAd(params: {
     '[ads:imprezia] Ad filled',
   )
   return { requestId, ad }
-}
-
-/**
- * May this account be shown Imprezia's SANDBOX creatives in production?
- *
- * Two separate gates have to line up for that to happen, and this is only the
- * second of them: the session must also have explicitly pinned Imprezia with
- * `?ads=imprezia`. Pinning alone does nothing (anyone can put that in a URL)
- * and being listed alone does nothing (a listed tester browsing normally still
- * sees ordinary inventory). Only the pair opens the door, so neither a stray
- * link nor a stale allowlist entry can leak a house ad into real traffic.
- *
- * The list is an env var rather than a constant because the people who need it
- * are at the ad partner, not on our team — adding one must not need a deploy.
- * Absent or empty means nobody, which is the safe default: if the variable
- * never gets created, production behaves exactly as it does today.
- */
-export function isImpreziaSandboxTester(params: {
-  email: string | null | undefined
-  /** Comma-separated emails, from IMPREZIA_SANDBOX_TESTERS. */
-  allowlist: string | null | undefined
-}): boolean {
-  const { email, allowlist } = params
-  if (!email) return false
-
-  const normalized = email.trim().toLowerCase()
-  return (allowlist ?? '')
-    .split(',')
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean)
-    .includes(normalized)
 }
