@@ -47,6 +47,10 @@ export function getWordNavigationPosition(
   isAltLikeModifier: boolean,
 ): number | null {
   const lowerKeyName = (key.name ?? '').toLowerCase()
+  // Keep Ctrl+Arrow exclusive to a plain Ctrl modifier. OpenTUI can expose
+  // Option/Alt separately (and terminals may encode Alt-like chords with more
+  // than one modifier bit); those chords belong to the existing Alt path and
+  // must not be reclassified as Windows-style Ctrl+Arrow navigation.
   const isCtrlArrow = key.ctrl && !key.meta && !key.option
 
   if (
