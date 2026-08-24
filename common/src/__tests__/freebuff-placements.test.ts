@@ -11,6 +11,8 @@ import {
   PLACEMENT_METRIC_LABELS,
   PLACEMENT_PREVIEW_WIDTHS,
   PLACEMENT_SLOTS,
+  TRACKED_LINK_PLACEMENT_ID,
+  placementSlotLabel,
   PLACEMENT_STATUS_LABELS,
   PRIMARY_METRICS,
   UNDERSPEND_COPY,
@@ -244,5 +246,50 @@ describe('copy and configuration', () => {
     // eCPM is a derived yield figure for comparison against CPM inventory the
     // advertiser already buys. We do not sell impressions.
     expect(PLACEMENT_METRIC_LABELS.ecpm).toBe('Effective CPM')
+  })
+})
+
+/**
+ * The reporting grain is wider than the slot catalog, and the labeller has to
+ * know it.
+ *
+ * `PLACEMENT_SLOTS` lists what an advertiser can buy a position in. A tracked
+ * link is not one of those — nothing auctions it and nothing serves an
+ * impression into it — but the delivery rollup groups by `placement_id`, so
+ * every surface that labels a placement will meet it.
+ */
+describe('placementSlotLabel', () => {
+  it('renders every real slot exactly as the breakdown table already did', () => {
+    // This is a behaviour-preservation assertion, not a new format: these
+    // strings are what the table showed before the labeller moved here.
+    expect(placementSlotLabel('waiting-room-1')).toBe('Waiting room 1')
+    expect(placementSlotLabel('CLI-Chat-Inline')).toBe('CLI Chat Inline')
+    expect(placementSlotLabel('Web-Chat-After-User-Message')).toBe(
+      'Web Chat After User Message',
+    )
+    for (const slot of PLACEMENT_SLOTS) {
+      expect(placementSlotLabel(slot.id).length).toBeGreaterThan(0)
+    }
+  })
+
+  it('names the tracked-link grain, which no slot describes', () => {
+    expect(placementSlotLabel(TRACKED_LINK_PLACEMENT_ID)).toBe('Tracked links')
+    // That it is not a slot is proved by the compiler rather than asserted
+    // here: `PLACEMENT_SLOTS` is `as const`, so comparing a slot id against
+    // this constant is a type error ("no overlap"). Adding it to the catalog
+    // would put a tracked link in front of an advertiser choosing where their
+    // ad appears, which is not what it is.
+    expect(
+      (PLACEMENT_SLOTS as readonly { id: string }[]).some(
+        (slot) => slot.id === TRACKED_LINK_PLACEMENT_ID,
+      ),
+    ).toBe(false)
+  })
+
+  it('degrades an unknown grain to something readable, never undefined', () => {
+    // The next grain after tracked links must render as a string a human can
+    // read, not as a gap that looks like a bug in the numbers beside it.
+    expect(placementSlotLabel('some-future-grain')).toBe('Some future grain')
+    expect(placementSlotLabel('')).toBe('')
   })
 })

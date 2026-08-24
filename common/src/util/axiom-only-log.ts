@@ -75,6 +75,18 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   first_party_route: 'string',
   first_party_primary_percent: 'number',
   first_party_backfill_enabled: 'boolean',
+  /**
+   * Exact primary allocation is intentionally represented by an opaque,
+   * operator-chosen cohort label rather than a campaign or advertiser id.
+   * Producers emit `none` / 0 when the request is not assigned to a primary
+   * cohort, so an absent field is distinguishable from a deliberate control.
+   */
+  first_party_primary_cohort: 'string',
+  first_party_primary_cohort_percent: 'number',
+  /** The opaque cohort that actually produced a first-party fill, or `none`. */
+  first_party_served_cohort: 'string',
+  /** `primary`, `gravity_no_fill_backfill`, or `none`. */
+  first_party_entrypoint: 'string',
   /** Whether the immediately preceding Gravity attempt filled, no-filled, or
    * failed. This makes recovered no-fill inventory observable without logging
    * any campaign or creative identity. */
@@ -96,6 +108,7 @@ const ADS_FETCH_COMPLETED_FIELDS = {
  */
 const ADS_FIRST_PARTY_DECISION_FIELDS = {
   outcome: 'string',
+  primary_allocation_invalid: 'boolean',
   no_fill_reason: 'string',
   selection_reason: 'string',
   ad_count: 'number',

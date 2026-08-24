@@ -6,6 +6,7 @@ import {
   IMPREZIA_EXPERIMENT_PERCENT,
   adExperimentArmForUser,
   firstPartyAdRouteForUser,
+  firstPartyPrimaryBasisPoints,
   isImpreziaAudienceEmail,
 } from '../ad-experiment'
 
@@ -53,6 +54,13 @@ describe('imprezia experiment arm', () => {
 })
 
 describe('first-party request routing', () => {
+  test('normalizes decimal percentages to the same integer basis points used by campaign allocation', () => {
+    expect(firstPartyPrimaryBasisPoints(1.234)).toBe(123)
+    expect(firstPartyPrimaryBasisPoints(-1)).toBe(0)
+    expect(firstPartyPrimaryBasisPoints(101)).toBe(10_000)
+    expect(firstPartyPrimaryBasisPoints(Number.NaN)).toBe(0)
+  })
+
   test('keeps an absent runtime configuration on the paid-network-only path', () => {
     expect(DEFAULT_FIRST_PARTY_PRIMARY_PERCENT).toBe(0)
     expect(DEFAULT_FIRST_PARTY_BACKFILL).toBe(false)

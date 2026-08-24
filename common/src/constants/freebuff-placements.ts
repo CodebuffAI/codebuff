@@ -122,6 +122,39 @@ export const PLACEMENT_SLOTS = [
 ] as const
 
 /**
+ * The reporting grain a TRACKED LINK click lands on.
+ *
+ * Deliberately NOT a `PLACEMENT_SLOTS` entry: a tracked link is not a slot,
+ * nothing auctions it, nothing serves an impression into it, and adding it to
+ * that list would put it in front of an advertiser choosing where their ad
+ * appears. But the delivery rollup groups by `placement_id` and `surface`, so
+ * an external click has to carry SOME value for both, and every surface that
+ * labels a placement will meet these two.
+ *
+ * `placementSlotLabel` below is what stops that meeting rendering `undefined`.
+ */
+export const TRACKED_LINK_PLACEMENT_ID = 'tracked-link'
+export const TRACKED_LINK_SURFACE = 'tracked_link'
+
+/**
+ * A human label for any `placement_id`, including grains no slot describes.
+ *
+ * `PLACEMENT_SLOTS` is a catalog of things an advertiser can BUY, and the
+ * reporting grain is strictly wider than it -- tracked links today, and
+ * whatever the next one is. So this is a formatter with a special case, not a
+ * dictionary lookup with a hole: `waiting-room-1` still becomes
+ * `Waiting room 1` and `CLI-Chat-Inline` still becomes `CLI Chat Inline`,
+ * exactly as the breakdown table already rendered them, and an unknown id
+ * degrades to a readable string rather than to `undefined`.
+ */
+export function placementSlotLabel(placementId: string): string {
+  if (placementId === TRACKED_LINK_PLACEMENT_ID) return 'Tracked links'
+  const [head, ...rest] = placementId.split('-')
+  if (!head) return placementId
+  return [head[0]!.toUpperCase() + head.slice(1), ...rest].join(' ')
+}
+
+/**
  * The metrics an advertiser sees, split by role.
  *
  * `primary` is what they bought. `diagnostic` explains why that number is what

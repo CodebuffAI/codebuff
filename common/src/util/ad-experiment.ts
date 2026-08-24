@@ -52,6 +52,19 @@ export interface FirstPartyRoutingConfig {
   backfill: boolean
 }
 
+/**
+ * Normalize the percentage knob to the 10,000-bucket precision used by both
+ * request routing and campaign allocation. Keeping this conversion shared
+ * prevents decimal environment values from opening a route that the campaign
+ * selector later rejects (or vice versa).
+ */
+export function firstPartyPrimaryBasisPoints(primaryPercent: number): number {
+  const configuredPercent = Number.isFinite(primaryPercent)
+    ? primaryPercent
+    : DEFAULT_FIRST_PARTY_PRIMARY_PERCENT
+  return Math.round(Math.min(100, Math.max(0, configuredPercent)) * 100)
+}
+
 export type AdExperimentArm = 'imprezia_forced' | 'imprezia_first' | 'control'
 
 export function isImpreziaAudienceEmail(
@@ -104,11 +117,9 @@ export function firstPartyAdRouteForUser(
   config: FirstPartyRoutingConfig,
 ): FirstPartyAdRoute {
   if (!userId) return 'paid_network_only'
-  const configuredPercent = Number.isFinite(config.primaryPercent)
-    ? config.primaryPercent
-    : DEFAULT_FIRST_PARTY_PRIMARY_PERCENT
-  const primaryPercent = Math.min(100, Math.max(0, configuredPercent))
   const bucket = fnv1a(`${FIRST_PARTY_ROUTING_EXPERIMENT}:${userId}`) % 10_000
-  if (bucket < primaryPercent * 100) return 'first_party_primary'
+  if (bucket < firstPartyPrimaryBasisPoints(config.primaryPercent)) {
+    return 'first_party_primary'
+  }
   return config.backfill ? 'gravity_then_first_party' : 'paid_network_only'
 }
