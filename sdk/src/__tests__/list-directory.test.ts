@@ -1,11 +1,13 @@
 import { describe, expect, it, mock } from 'bun:test'
 
+import path from 'path'
+
 import { listDirectory } from '../tools/list-directory'
 
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { Dirent, PathLike } from 'node:fs'
 
-const PROJECT_ROOT = '/workspace/project'
+const PROJECT_ROOT = path.resolve('workspace', 'project')
 
 function createFs(realpaths: Record<string, string>) {
   const readdir = mock(async (_path: PathLike) => {
@@ -55,9 +57,10 @@ describe('listDirectory', () => {
   })
 
   it('lists a directory inside the project and preserves the requested path', async () => {
+    const childPath = path.join(PROJECT_ROOT, 'src')
     const { fs, readdir } = createFs({
       [PROJECT_ROOT]: PROJECT_ROOT,
-      [`${PROJECT_ROOT}/src`]: `${PROJECT_ROOT}/src`,
+      [childPath]: childPath,
     })
 
     const result = await listDirectory({
@@ -76,13 +79,13 @@ describe('listDirectory', () => {
         },
       },
     ])
-    expect(readdir).toHaveBeenCalledWith(`${PROJECT_ROOT}/src`, {
+    expect(readdir).toHaveBeenCalledWith(childPath, {
       withFileTypes: true,
     })
   })
 
   it('rejects sibling paths that only share the project prefix', async () => {
-    const siblingPath = '/workspace/project-evil'
+    const siblingPath = path.resolve(PROJECT_ROOT, '..', 'project-evil')
     const { fs, readdir } = createFs({
       [PROJECT_ROOT]: PROJECT_ROOT,
       [siblingPath]: siblingPath,
@@ -107,7 +110,7 @@ describe('listDirectory', () => {
   })
 
   it('rejects the project parent directory', async () => {
-    const parentPath = '/workspace'
+    const parentPath = path.dirname(PROJECT_ROOT)
     const { fs, readdir } = createFs({
       [PROJECT_ROOT]: PROJECT_ROOT,
       [parentPath]: parentPath,
@@ -132,10 +135,11 @@ describe('listDirectory', () => {
   })
 
   it('rejects directories that escape through a symlink', async () => {
-    const symlinkPath = `${PROJECT_ROOT}/link`
+    const symlinkPath = path.join(PROJECT_ROOT, 'link')
+    const outsidePath = path.resolve(PROJECT_ROOT, '..', 'outside')
     const { fs, readdir } = createFs({
       [PROJECT_ROOT]: PROJECT_ROOT,
-      [symlinkPath]: '/outside',
+      [symlinkPath]: outsidePath,
     })
 
     const result = await listDirectory({
@@ -154,5 +158,34 @@ describe('listDirectory', () => {
       },
     ])
     expect(readdir).not.toHaveBeenCalled()
+  })
+
+  it('allows a symlink that resolves inside the project', async () => {
+    const symlinkPath = path.join(PROJECT_ROOT, 'link')
+    const realTarget = path.join(PROJECT_ROOT, 'src')
+    const { fs, readdir } = createFs({
+      [PROJECT_ROOT]: PROJECT_ROOT,
+      [symlinkPath]: realTarget,
+    })
+
+    const result = await listDirectory({
+      directoryPath: 'link',
+      projectPath: PROJECT_ROOT,
+      fs,
+    })
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          files: ['index.ts'],
+          directories: [],
+          path: 'link',
+        },
+      },
+    ])
+    expect(readdir).toHaveBeenCalledWith(realTarget, {
+      withFileTypes: true,
+    })
   })
 })
