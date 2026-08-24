@@ -65,20 +65,34 @@ export const terminalCommandOutputSchema = z.union([
   }),
 ])
 
+// FREEBUFF_MODE is injected for Freebuff builds and read once when this module
+// is initialized. Tests pass an explicit product flag to the prompt builder so
+// they do not depend on mutating process.env after import.
 const isFreebuffBuild = process.env.FREEBUFF_MODE === 'true'
+
+type CommitAttribution = {
+  productName: 'Freebuff' | 'Codebuff'
+  productDomain: 'freebuff.com' | 'codebuff.com'
+}
+
+function getCommitAttribution(isFreebuff: boolean): CommitAttribution {
+  return isFreebuff
+    ? { productName: 'Freebuff', productDomain: 'freebuff.com' }
+    : { productName: 'Codebuff', productDomain: 'codebuff.com' }
+}
+
+const buildCommitAttribution = getCommitAttribution(isFreebuffBuild)
 
 /**
  * Build commit guidance for the product that owns the current binary.
  *
- * FREEBUFF_MODE is a compile-time flag for the Freebuff CLI build. Keeping the
- * default in this shared prompt preserves Codebuff's existing attribution
- * while Freebuff binaries no longer ask models to claim Codebuff commits.
+ * Keeping Codebuff as the default preserves existing attribution while
+ * Freebuff binaries no longer ask models to claim Codebuff commits.
  */
 export const getGitCommitGuidePrompt = (
   isFreebuff = isFreebuffBuild,
 ): string => {
-  const productName = isFreebuff ? 'Freebuff' : 'Codebuff'
-  const productDomain = isFreebuff ? 'freebuff.com' : 'codebuff.com'
+  const { productName, productDomain } = getCommitAttribution(isFreebuff)
 
   return `
 ### Using git to commit changes
@@ -133,8 +147,10 @@ When the user requests a new git commit, please follow these steps closely:
 }
 
 export const gitCommitGuidePrompt = getGitCommitGuidePrompt()
-const commitProductName = isFreebuffBuild ? 'Freebuff' : 'Codebuff'
-const commitProductDomain = isFreebuffBuild ? 'freebuff.com' : 'codebuff.com'
+const {
+  productName: commitProductName,
+  productDomain: commitProductDomain,
+} = buildCommitAttribution
 
 const toolName = 'run_terminal_command'
 const endsAgentStep = true
