@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  DEFAULT_FIRST_PARTY_BACKFILL,
   DEFAULT_FIRST_PARTY_PRIMARY_PERCENT,
   IMPREZIA_EXPERIMENT_PERCENT,
   adExperimentArmForUser,
@@ -38,6 +39,17 @@ describe('imprezia experiment arm', () => {
 })
 
 describe('first-party request routing', () => {
+  test('keeps an absent runtime configuration on the paid-network-only path', () => {
+    expect(DEFAULT_FIRST_PARTY_PRIMARY_PERCENT).toBe(0)
+    expect(DEFAULT_FIRST_PARTY_BACKFILL).toBe(false)
+    expect(
+      firstPartyAdRouteForUser('user-42', {
+        primaryPercent: DEFAULT_FIRST_PARTY_PRIMARY_PERCENT,
+        backfill: DEFAULT_FIRST_PARTY_BACKFILL,
+      }),
+    ).toBe('paid_network_only')
+  })
+
   test('never routes a missing user id into first-party inventory', () => {
     for (const id of [null, undefined, '']) {
       expect(

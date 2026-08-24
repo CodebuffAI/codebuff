@@ -33,9 +33,12 @@ export const IMPREZIA_EXPERIMENT_PERCENT = 10
 export const FIRST_PARTY_ROUTING_EXPERIMENT =
   'ads_first_party_before_paid_networks_2026_08'
 
-/** Unset env values preserve the initial launch allocation. */
-export const DEFAULT_FIRST_PARTY_PRIMARY_PERCENT = 10
-export const DEFAULT_FIRST_PARTY_BACKFILL = true
+/**
+ * An absent runtime knob is a dark deploy. Allocation is deliberately opt-in:
+ * a missing Infisical value must not take paid-network inventory.
+ */
+export const DEFAULT_FIRST_PARTY_PRIMARY_PERCENT = 0
+export const DEFAULT_FIRST_PARTY_BACKFILL = false
 
 export type FirstPartyAdRoute =
   | 'paid_network_only'

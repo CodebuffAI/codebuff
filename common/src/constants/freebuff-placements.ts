@@ -26,8 +26,8 @@ import type { AdCampaignStatus } from './freebuff-ads'
  * `off`), read by `placementsAudience()` in
  * `freebuff/web/src/server/advertisers/placements/access.ts`. What survives
  * here is the implementation-state assertion the knob is set against. Delivery
- * rollups are intentionally honest zeros until aggregation lands; they are not
- * fixtures.
+ * rollups expose coverage alongside delivery; an uncovered day is unknown,
+ * not a zero and never fixture data.
  */
 export const PLACEMENTS_CONSOLE_ENABLED = true
 
@@ -88,9 +88,10 @@ export const ATTRIBUTION_WINDOW_COPY = `Activation counts within ${ACTIVATION_AT
  * exclusivity term. That term does not exist, so chat is sellable -- and it is
  * where nearly all the volume is.
  *
- * `Single-Ad-Unit-1` is deliberately absent: it serves callers that named no
- * surface, and first-party targeting is expressed in surfaces, so a creative
- * could never match it.
+ * `Single-Ad-Unit-1` and `Desktop-Below-Chat` are live legacy slots as well as
+ * the primary inline units. They remain sellable until their clients retire;
+ * leaving either out would route an advertiser's inventory straight past a
+ * rendered surface.
  */
 export const PLACEMENT_SLOTS = [
   { id: 'waiting-room-1', surface: 'waiting_room', available: true },
@@ -101,6 +102,8 @@ export const PLACEMENT_SLOTS = [
   { id: 'CLI-Chat-Inline', surface: 'cli_chat', available: true },
   // Desktop's inline slot -- the largest single placement by fill volume.
   { id: 'Desktop-Inline-Chat', surface: 'cli_chat', available: true },
+  { id: 'Desktop-Below-Chat', surface: 'cli_chat', available: true },
+  { id: 'Single-Ad-Unit-1', surface: 'cli_chat', available: true },
   {
     id: 'Web-Chat-After-User-Message',
     surface: 'freebuff_web_chat',
@@ -127,32 +130,39 @@ export const PLACEMENT_SLOTS = [
  * network already ships.
  */
 export const PRIMARY_METRICS = [
+  'billableClicks',
   'activations',
-  'costPerActivation',
   'spend',
+  'avgCpc',
+  'avgCpa',
 ] as const
 export const DIAGNOSTIC_METRICS = [
   'impressions',
   'clicks',
-  'billableClicks',
   'ctr',
-  'avgCpc',
   'ecpm',
 ] as const
 
 export type PrimaryMetric = (typeof PRIMARY_METRICS)[number]
 export type DiagnosticMetric = (typeof DIAGNOSTIC_METRICS)[number]
-export type PlacementMetric = PrimaryMetric | DiagnosticMetric
+/** Legacy conversion labels remain addressable while conversion reporting is
+ * intentionally hidden from the CPC MVP UI. */
+export type PlacementMetric =
+  | PrimaryMetric
+  | DiagnosticMetric
+  | 'activations'
+  | 'costPerActivation'
 
 export const PLACEMENT_METRIC_LABELS: Record<PlacementMetric, string> = {
-  activations: 'Activations',
-  costPerActivation: 'Cost per activation',
+  activations: 'Billable activations',
+  costPerActivation: 'Avg CPA',
   spend: 'Spend',
   impressions: 'Impressions',
   clicks: 'Clicks',
   billableClicks: 'Billable',
   ctr: 'CTR',
   avgCpc: 'Avg CPC',
+  avgCpa: 'Avg CPA',
   ecpm: 'Effective CPM',
 }
 
@@ -195,10 +205,10 @@ function ratio(numerator: number, denominator: number): number | null {
  * a viewability claim we sell against.
  */
 export function ctr(totals: PlacementTotals): number | null {
-  return ratio(totals.billableClicks, totals.impressionsViewed)
+  return ratio(totals.clicks, totals.impressionsViewed)
 }
 
-/** Spend per activation — the number an advertiser actually judges us on. */
+/** Conversion attribution is not part of the CPC MVP. Kept for broad types. */
 export function costPerActivation(totals: PlacementTotals): number | null {
   const perActivation = ratio(totals.spendCents, totals.activations)
   return perActivation === null ? null : perActivation / 100
@@ -208,6 +218,11 @@ export function costPerActivation(totals: PlacementTotals): number | null {
 export function avgCpc(totals: PlacementTotals): number | null {
   const perClick = ratio(totals.spendCents, totals.billableClicks)
   return perClick === null ? null : perClick / 100
+}
+
+/** Spend per verified, payable activation. */
+export function avgCpa(totals: PlacementTotals): number | null {
+  return costPerActivation(totals)
 }
 
 /**

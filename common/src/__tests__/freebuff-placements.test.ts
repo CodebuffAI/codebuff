@@ -15,6 +15,7 @@ import {
   PRIMARY_METRICS,
   UNDERSPEND_COPY,
   UNDERSPEND_REASONS,
+  avgCpa,
   avgCpc,
   costPerActivation,
   ctr,
@@ -47,24 +48,24 @@ describe('derived metrics', () => {
       totals({
         impressionsServed: 2_000,
         impressionsViewed: 1_000,
-        billableClicks: 10,
+        clicks: 10,
       }),
     )
 
     expect(value).toBe(0.01)
   })
 
-  it('counts billable clicks in CTR, not raw clicks', () => {
-    // The invoice bills billable clicks, so the dashboard's rate has to use
-    // the same numerator or the two disagree in front of the advertiser.
+  it('keeps CTR diagnostic and counts raw clicks, not only billed clicks', () => {
+    // CPA does not bill a click. CTR must remain a diagnostic of actual click
+    // behaviour across both billing models rather than a disguised invoice rate.
     const value = ctr(
       totals({ impressionsViewed: 1_000, clicks: 20, billableClicks: 10 }),
     )
 
-    expect(value).toBe(0.01)
+    expect(value).toBe(0.02)
   })
 
-  it('computes cost per activation, average CPC and eCPM in dollars', () => {
+  it('computes CPA, CPC and eCPM in dollars', () => {
     const measured = totals({
       activations: 4,
       impressionsViewed: 10_000,
@@ -74,6 +75,7 @@ describe('derived metrics', () => {
     })
 
     expect(costPerActivation(measured)).toBe(15)
+    expect(avgCpa(measured)).toBe(15)
     expect(avgCpc(measured)).toBe(1.5)
     expect(ecpm(measured)).toBe(6)
     expect(spendUsd(measured)).toBe(60)
@@ -201,10 +203,11 @@ describe('copy and configuration', () => {
     // transcript alone is twice the waiting room's slot count.
     const bySurface = (surface: string) =>
       PLACEMENT_SLOTS.filter((slot) => slot.surface === surface).length
-    // CLI transcript + Desktop inline. NOT the eight `CLI-Chat-Inline-N` ids:
+    // CLI transcript + its legacy single slot + both Desktop units. NOT the
+    // eight `CLI-Chat-Inline-N` ids:
     // no shipping client requests those, so selling them would be selling a
     // decaying legacy path.
-    expect(bySurface('cli_chat')).toBe(2)
+    expect(bySurface('cli_chat')).toBe(4)
     expect(bySurface('waiting_room')).toBe(4)
     expect(bySurface('freebuff_web_chat')).toBe(2)
     expect(bySurface('chat_assistant')).toBe(1)
@@ -225,6 +228,16 @@ describe('copy and configuration', () => {
     for (const metric of [...PRIMARY_METRICS, ...DIAGNOSTIC_METRICS]) {
       expect(PLACEMENT_METRIC_LABELS[metric]).toBeTruthy()
     }
+  })
+
+  it('exposes both CPA and CPC primary facts for model-aware dashboards', () => {
+    expect(PRIMARY_METRICS).toEqual([
+      'billableClicks',
+      'activations',
+      'spend',
+      'avgCpc',
+      'avgCpa',
+    ])
   })
 
   it('never labels impressions as a purchasable unit', () => {

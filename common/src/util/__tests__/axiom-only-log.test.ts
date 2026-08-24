@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   ADS_FETCH_COMPLETED_EVENT,
+  ADS_FIRST_PARTY_DECISION_EVENT,
+  ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
   STREAM_RECOVERY_EVENT,
@@ -61,7 +63,10 @@ describe('getAxiomOnlyLogEvent', () => {
         }),
       ).toBeNull()
       expect(
-        getAxiomOnlyLogEvent({ prompt: 'must not be silently dropped' }, poisonEvent),
+        getAxiomOnlyLogEvent(
+          { prompt: 'must not be silently dropped' },
+          poisonEvent,
+        ),
       ).toBeNull()
     }
   })
@@ -139,18 +144,34 @@ describe('getAxiomOnlyLogEvent', () => {
     })
   })
 
-  test('sanitizes ad-fetch metadata', () => {
+  test('preserves bounded scalar ad-routing metadata and drops identifiers', () => {
     expect(
       getAxiomOnlyLogEvent({
         axiomEvent: ADS_FETCH_COMPLETED_EVENT,
         outcome: 'fill',
         requested_provider: 'gravity',
-        served_provider: 'carbon',
+        served_provider: 'first_party',
+        attempted_provider_chain: 'gravity>first_party',
+        experiment_arm: 'treatment',
+        first_party_route: 'gravity_then_first_party',
+        first_party_primary_percent: 10,
+        first_party_backfill_enabled: true,
+        selection_reason: 'gravity_no_fill_backfill',
         ad_count: 1,
+        surface: 'cli',
         placement_id: 'CLI-Chat-Inline',
         duration_ms: 42,
         client_ua_product: 'freebuff-cli',
+        client_ua_version: '1.2.3',
+        // Arrays must be producer-encoded as attempted_provider_chain.
         attempted_providers: ['gravity', 'carbon'],
+        // High-cardinality identifiers and content do not reach Axiom.
+        userId: 'user-123',
+        advertiser_id: 'advertiser-123',
+        chat_session_id: 'session-123',
+        campaign_ids: ['campaign-123'],
+        creative_ids: ['creative-123'],
+        ad_url: 'https://example.com/secret',
         messages: [{ role: 'user', content: 'secret' }],
       }),
     ).toEqual({
@@ -158,11 +179,84 @@ describe('getAxiomOnlyLogEvent', () => {
       data: {
         outcome: 'fill',
         requested_provider: 'gravity',
-        served_provider: 'carbon',
+        served_provider: 'first_party',
+        attempted_provider_chain: 'gravity>first_party',
+        experiment_arm: 'treatment',
+        first_party_route: 'gravity_then_first_party',
+        first_party_primary_percent: 10,
+        first_party_backfill_enabled: true,
+        selection_reason: 'gravity_no_fill_backfill',
         ad_count: 1,
+        surface: 'cli',
         placement_id: 'CLI-Chat-Inline',
         duration_ms: 42,
         client_ua_product: 'freebuff-cli',
+        client_ua_version: '1.2.3',
+      },
+    })
+  })
+
+  test('names and sanitizes first-party selection telemetry', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FIRST_PARTY_DECISION_EVENT,
+        outcome: 'no_fill',
+        no_fill_reason: 'no_eligible_campaign',
+        placement_count: 2,
+        candidate_count: 4,
+        candidate_load_ms: 8,
+        frequency_status: 'unavailable',
+        frequency_unavailable_cause: 'timeout',
+        frequency_reservation_ms: 75,
+        duration_ms: 11,
+        campaign_ids: ['campaign-123'],
+        creative_ids: ['creative-123'],
+        placement_ids: ['CLI-Chat-Inline'],
+        userId: 'user-123',
+        reasons: ['budget_exhausted'],
+        nested: { private: true },
+      }),
+    ).toEqual({
+      event: ADS_FIRST_PARTY_DECISION_EVENT,
+      data: {
+        outcome: 'no_fill',
+        no_fill_reason: 'no_eligible_campaign',
+        placement_count: 2,
+        candidate_count: 4,
+        candidate_load_ms: 8,
+        frequency_status: 'unavailable',
+        frequency_unavailable_cause: 'timeout',
+        frequency_reservation_ms: 75,
+        duration_ms: 11,
+      },
+    })
+  })
+
+  test('names and sanitizes first-party settlement telemetry', () => {
+    expect(
+      getAxiomOnlyLogEvent(
+        {
+          billing_model: 'cpa',
+          settlement_status: 'charged',
+          amount_cents: 75,
+          balance_cents: 925,
+          duration_ms: 6,
+          userId: 'user-123',
+          advertiser_id: 'advertiser-123',
+          campaign_id: 'campaign-123',
+          ad_impression_id: 'impression-123',
+          error: { message: 'private failure detail' },
+        },
+        ADS_FIRST_PARTY_SETTLEMENT_EVENT,
+      ),
+    ).toEqual({
+      event: ADS_FIRST_PARTY_SETTLEMENT_EVENT,
+      data: {
+        billing_model: 'cpa',
+        settlement_status: 'charged',
+        amount_cents: 75,
+        balance_cents: 925,
+        duration_ms: 6,
       },
     })
   })
