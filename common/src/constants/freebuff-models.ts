@@ -1339,11 +1339,21 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   //
   // If Pro ever returns to DeepSeek direct, the cap comes back with it — the
   // entry is a claim about price, and that is the price that changed.
-  [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
-    limit: 3,
-    pool: 'luna',
-    poolLabel: 'Luna',
-  },
+  // LUNA IS UNCAPPED as of 2026-08-23, metered only by the shared premium
+  // pool like Pro and Flash. The cap said Luna was ~3x Pro on cache reads; it
+  // is not, and the comparison that set the number was reading a broken card.
+  // Measured on the settled rates both lanes actually bill:
+  //
+  //   Luna  $[redacted]/M cache read   ->  $[redacted]/session on Cheaper Inference
+  //   Pro   $[redacted]/M           ->  $[redacted]/session
+  //
+  // Luna is now the CHEAPER of the two per session, so a pool spent on it costs
+  // less than the same pool spent on the row that was left uncapped. The entry
+  // was a claim about relative price, and the claim inverted.
+  //
+  // The table is deliberately EMPTY rather than deleted. It is the lever that
+  // gets pulled under cost pressure, and the argument above for which rows
+  // belong in it is the part worth keeping.
 }
 
 /** Whether `model` carries a ceiling of its own beyond the shared pool. */

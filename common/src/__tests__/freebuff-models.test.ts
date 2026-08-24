@@ -370,25 +370,16 @@ describe('freebuff model availability', () => {
    * $[redacted]/M cache read it is the cheapest premium row, and capping the
    * cheap row is what this table exists not to do.
    */
-  test('Luna is the only per-model cap; Pro and Flash are uncapped', () => {
-    // 2 -> 3 on 2026-08-23, once Luna's real cost was known. The dashboard had
-    // been reporting it at ~7x actual because the Novita cache rung was priced
-    // at the full input rate; Novita's own invoice put the day at $561 against
-    // our $3,787. Corrected, Luna is one of the cheapest rows we serve, and the
-    // cap was sized against the wrong number.
-    expect(
-      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_GPT_5_6_LUNA_MODEL_ID]?.limit,
-    ).toBe(3)
-    // V4 Pro's cap was lifted on 2026-08-22. It tracked Pro being the dearest
-    // row per token on DeepSeek direct; on Cheaper Inference it reads cache at
-    // $[redacted]/M, which makes it the cheapest premium row we serve. It is
-    // still metered by the shared premium session pool, like Flash.
-    expect(
-      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
-    ).toBeUndefined()
-    expect(
-      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
-    ).toBeUndefined()
+  test('the per-model cap table is empty; every model uses the shared pool', () => {
+    // Luna's cap went 2 -> 3 -> gone across 2026-08-22/23. The entry was a claim
+    // that Luna cost ~3x Pro per cache read, and that claim inverted once both
+    // were measured on the rates their lanes actually bill: Luna runs ~$0.20 a
+    // session on Cheaper Inference against Pro's ~$0.34. Capping the cheaper
+    // row is what this table exists NOT to do.
+    expect(FREEBUFF_PER_MODEL_SESSION_CAPS).toEqual({})
+    for (const model of FREEBUFF_MODELS) {
+      expect(FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]).toBeUndefined()
+    }
   })
 
   /**
