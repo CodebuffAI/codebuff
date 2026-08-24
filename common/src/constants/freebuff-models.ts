@@ -1233,6 +1233,7 @@ const OX_ALPHA_MODEL = {
 } as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
+  OX_ALPHA_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
   MINIMAX_M3_MODEL,
   GPT_5_6_LUNA_MODEL,
@@ -1287,6 +1288,12 @@ export const FREEBUFF_MODELS = [
   GPT_5_6_LUNA_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
+  // Next to MiMo because they are the two UNMETERED rows -- a user scanning for
+  // something that costs no session finds them together. Not first:
+  // FREEBUFF_MODELS[0] is pinned by test to DEFAULT_FREEBUFF_MODEL_ID, and an
+  // experimental row must never become the thing a new user lands on before
+  // they know the catalog exists.
+  OX_ALPHA_MODEL,
   // LAST again: capped at one session a day, closed for ten hours, and the
   // dearest row we serve. Somewhere a user reaches deliberately rather than by
   // scanning from the top.
@@ -1515,10 +1522,9 @@ export const FREEBUFF_LIMITED_OFFER_SESSION_WINDOW_HOURS =
 /** Freebuff Web-only picker/support set: the CLI/Desktop catalog plus the
  *  earned GLM 5.2 row. */
 export const FREEBUFF_WEB_MODELS = [
-  // First because it is the row we are trying to put traffic on, and because
-  // being unmetered makes it the one a user can always reach. The TEST badge is
-  // what keeps that placement honest.
-  OX_ALPHA_MODEL,
+  // Ox Alpha is NOT listed here any more -- it reaches this list through
+  // ...FREEBUFF_MODELS since it joined the CLI/Desktop catalog on 2026-08-24.
+  // Naming it here as well would list it twice in both browser pickers.
   MUSE_SPARK_12_CONTRIBUTOR_MODEL,
   GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
@@ -1911,7 +1917,18 @@ export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
  */
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_MIMO_V25_MODEL_ID
-export const LIMITED_FREEBUFF_MODEL_IDS = [FREEBUFF_MIMO_V25_MODEL_ID] as const
+// Ox Alpha joins the limited tier on 2026-08-24. Like MiMo it costs that pool
+// nothing extra: limited access is metered by REGION, not by model, so every
+// limited session draws the same FREEBUFF_LIMITED_SESSION_LIMIT whichever row
+// it picks. This widens what those users may choose, not how much they get.
+//
+// It was already available to limited-tier BROWSER users via
+// FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS; this is the CLI/Desktop half, and the two
+// lists now agree for this row.
+export const LIMITED_FREEBUFF_MODEL_IDS = [
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_OX_ALPHA_MODEL_ID,
+] as const
 export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
   (modelId) => SUPPORTED_FREEBUFF_MODELS.find((model) => model.id === modelId)!,
 )
@@ -2408,9 +2425,29 @@ export function isFreebuffGpt56LunaModelId(
  * free-mode agent+model allowlist. That is where inference is actually spent,
  * so a caller who somehow admits a session still cannot run a single turn on it.
  */
-export const FREEBUFF_SERVICE_ONLY_MODEL_IDS = [
-  FREEBUFF_OX_ALPHA_MODEL_ID,
-] as const
+// EMPTIED 2026-08-24, when Ox Alpha went to CLI and Desktop.
+//
+// This list means "served only to the Freebuff Web service account", and it was
+// the one real gate keeping the model on surfaces we could withdraw it from in
+// a single deploy. Shipping the row inside a CLI binary is incompatible with
+// that promise, so the gate could not survive the rollout -- keeping the id
+// here would 403 every CLI and Desktop turn.
+//
+// Understand what that costs before adding a model here again, or removing one:
+// Ox Alpha is metered by NOTHING (premium: false, no pool, price fenced at $0),
+// which made it the single most attractive row in the catalog for a reselling
+// proxy. The remaining defences are narrower than this one was:
+//
+//   - the tool-schema check (docs/freebuff-abuse-detection.md), which downgrades
+//     third-party clients on every model, but not a caller who has faithfully
+//     reproduced our toolset
+//   - FREEBUFF_PAUSED_FREE_MODEL_IDS, which is the rollback lever rather than a
+//     standing gate
+//
+// The rollback path is now `FREEBUFF_PAUSED_FREE_MODEL_IDS`, NOT re-adding the
+// id here: pausing stops admissions on every surface in one deploy, while this
+// list would leave a visible picker row that 403s on send.
+export const FREEBUFF_SERVICE_ONLY_MODEL_IDS = [] as const satisfies readonly string[]
 
 /** Whether `id` may only be served to the Freebuff Web service account. Matches
  *  dated builds for the same reason the price fence does: a variant that slips

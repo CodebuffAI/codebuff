@@ -624,6 +624,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         m.reasoningEffort ? 14 + m.reasoningEffort.length : 0
       // Same treatment for the " · NEW" badge (6 chars).
       const newSuffixLen = 6
+// Ox Alpha reached the CLI on 2026-08-24 as an experimental row. The badge is
+// the only promise we can keep about a model an anonymous host can reprice,
+// rename or withdraw without notice, so it has to survive the width maths the
+// same way NEW does -- an unaccounted suffix truncates the row it labels.
+const testSuffixLen = ' · TEST'.length
 
       // Line 1, in each mode.
       const columnLabelLen = (m: FreebuffModelOption) =>
@@ -633,7 +638,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         m.tagline.length +
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
-        (m.isNew ? newSuffixLen : 0)
+        (m.isNew ? newSuffixLen : 0) +
+        (m.experimental ? testSuffixLen : 0)
       const compactLabelLen = (m: FreebuffModelOption) =>
         2 +
         m.displayName.length +
@@ -641,7 +647,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         m.tagline.length +
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
-        (m.isNew ? newSuffixLen : 0)
+        (m.isNew ? newSuffixLen : 0) +
+        (m.experimental ? testSuffixLen : 0)
 
       // Line 2, or 0 for a row with no details. Centered in the card rather
       // than indented under line 1's details column — the notice is a footnote
@@ -969,6 +976,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           {model.isNew && (
             <span fg={theme.primary} attributes={TextAttributes.BOLD}>
               {' · NEW'}
+            </span>
+          )}
+          {/* Warning-coloured rather than primary: NEW is an invitation, TEST
+              is a caveat, and a user scanning the picker should be able to tell
+              them apart without reading. */}
+          {model.experimental && (
+            <span fg={warningColor} attributes={TextAttributes.BOLD}>
+              {' · TEST'}
             </span>
           )}
         </text>

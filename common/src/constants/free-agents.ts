@@ -156,6 +156,10 @@ export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base3-free-fable',
+  // Ox Alpha reached CLI and Desktop on 2026-08-24. The WEB map above has
+  // pointed at the same root id since 2026-08-20; both surfaces share it, which
+  // is the arrangement described in docs/freebuff-base3-harness.md.
+  [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
 }
 
 /** Every base3 root id, whichever surface registered it. */
@@ -407,6 +411,10 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'code-reviewer-fable',
+  // Required the moment Ox Alpha became CLI-selectable: without its own entry
+  // a base2 session falls back to the DeepSeek Flash reviewer, which that
+  // session's allowlist does not permit, so the subagent is rejected mid-run.
+  [FREEBUFF_OX_ALPHA_MODEL_ID]: 'code-reviewer-ox-alpha',
 }
 
 const FREEBUFF_DESKTOP_MODELS = new Set([
@@ -416,6 +424,7 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_OX_ALPHA_MODEL_ID,
 ])
 
 /**
@@ -600,6 +609,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Code reviewer for free mode
   'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'code-reviewer-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
+  'code-reviewer-ox-alpha': new Set([FREEBUFF_OX_ALPHA_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'code-reviewer-deepseek-flash': new Set([
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,

@@ -3,16 +3,14 @@ import { describe, expect, test } from 'bun:test'
 
 import { isFreeModeAllowedAgentModel } from '../constants/free-agents'
 import {
-  canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
   DEFAULT_FREEBUFF_WEB_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DESKTOP_SESSION_LIMITS,
-  FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
+  FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
@@ -20,66 +18,69 @@ import {
   FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE,
   FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MODELS,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
-  getFreebuffModelReasoningEffort,
+  FREEBUFF_OX_ALPHA_MODEL_ID,
+  FREEBUFF_PER_MODEL_SESSION_CAPS,
+  FREEBUFF_STANDARD_MODEL_IDS,
+  FREEBUFF_WEB_ALL_MODELS,
+  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS,
+  FREEBUFF_WEB_GOD_ONLY_MODELS,
+  FREEBUFF_WEB_MODELS,
+  FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS,
+  LIMITED_FREEBUFF_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_IDS,
   MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID,
   MUSE_SPARK_FALLBACK_AFTER_MS,
   MUSE_SPARK_FALLBACK_MODEL_ID,
   MUSE_SPARK_FALLBACK_NOTICE,
-  isMuseSparkModelId,
-  LIMITED_FREEBUFF_MODEL_ID,
-  LIMITED_FREEBUFF_MODEL_IDS,
-  FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MODELS,
-  FREEBUFF_WEB_GOD_ONLY_MODELS,
-  FREEBUFF_WEB_ALL_MODELS,
-  FREEBUFF_WEB_MODELS,
-  FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS,
-  FREEBUFF_STANDARD_MODEL_IDS,
   SUPPORTED_FREEBUFF_MODELS,
+  canFreebuffModelSpawnGeminiThinker,
+  freebuffWithdrawnModelMessage,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffDesktopSessionBucket,
   getFreebuffModel,
   getFreebuffModelImageSupport,
-  getFreebuffWebModel,
+  getFreebuffModelReasoningEffort,
+  getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
+  getFreebuffPerModelSessionCap,
+  getFreebuffWebModel,
   getRecommendedFreebuffModelId,
   getRecommendedFreebuffWebModelId,
-  isFreebuffWebDeemphasizedModelId,
   isFreebuffDeploymentHours,
   isFreebuffGlmV52ModelId,
   isFreebuffGpt56LunaModelId,
   isFreebuffLimitedOfferModelId,
-  getFreebuffPerModelSessionCap,
-  freebuffWithdrawnModelMessage,
-  isFreebuffPausedFreeModelId,
-  isFreebuffSessionModelAllowedForAccessTier,
-  isFreebuffSessionModelAvailable,
-  resolveAvailableFreebuffModel,
-  FREEBUFF_PER_MODEL_SESSION_CAPS,
-  isFreebuffTracedModelId,
-  isFreebuffWebGeoExemptModelId,
-  isFreebuffWebSelectableModelId,
+  isFreebuffModelAllowedForAccessTier,
   isFreebuffModelId,
   isFreebuffMultimodalModelId,
-  isFreebuffModelAllowedForAccessTier,
+  isFreebuffPausedFreeModelId,
   isFreebuffPremiumModelId,
+  isFreebuffSessionModelAllowedForAccessTier,
+  isFreebuffSessionModelAvailable,
+  isFreebuffSessionModelId,
+  isFreebuffTracedModelId,
+  isFreebuffWebDeemphasizedModelId,
+  isFreebuffWebGeoExemptModelId,
   isFreebuffWebGodOnlyModelId,
-  isFreebuffWebRememberableModelId,
   isFreebuffWebModelAllowedForLimitedTier,
   isFreebuffWebModelId,
   isFreebuffWebMultimodalModelId,
   isFreebuffWebPremiumModelId,
-  resolveRememberedFreebuffWebModel,
+  isFreebuffWebRememberableModelId,
+  isFreebuffWebSelectableModelId,
+  isMuseSparkModelId,
   isSupportedFreebuffModelId,
-  isFreebuffSessionModelId,
-  resolveFreebuffWebModel,
-  resolveFreebuffWebModelForLimitedTier,
+  migrateSupersededFreebuffModelPreference,
+  resolveAvailableFreebuffModel,
   resolveFreebuffModelForAccessTier,
   resolveFreebuffSessionModelForAccessTier,
-  getFreebuffModelSupersededBy,
-  migrateSupersededFreebuffModelPreference,
+  resolveFreebuffWebModel,
+  resolveFreebuffWebModelForLimitedTier,
+  resolveRememberedFreebuffWebModel,
 } from '../constants/freebuff-models'
 import type { FreebuffModelOption } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
@@ -217,6 +218,20 @@ describe('freebuff model availability', () => {
       expect(isFreebuffTracedModelId(model.id)).toBe(
         model.dataUse === 'training',
       )
+      // Ox Alpha is the ONE row where a warning does not imply a training
+      // grant, and it entered this test's scope on 2026-08-24 by joining the
+      // CLI catalog -- the exception used to hold for free because the row was
+      // browser-only. Its host RETAINS prompts and does not train on them, so
+      // `dataUse` stays 'service' (that is what drives trace storage, and
+      // claiming a grant we were not given would be wrong in the direction
+      // that changes behavior) while the warning still tells a user what they
+      // want to know before pasting a private repo into an anonymous provider.
+      // ox-alpha.test.ts pins the pairing so it reads as a decision.
+      if (model.id === FREEBUFF_OX_ALPHA_MODEL_ID) {
+        expect(model.dataUse).toBe('service')
+        expect(model.warning).toBeDefined()
+        continue
+      }
       expect(model.warning !== undefined).toBe(model.dataUse === 'training')
     }
   })
@@ -1058,9 +1073,15 @@ describe('freebuff model availability', () => {
 
   test('limited access exposes non-Pro MiMo 2.5, and not the paused Flash', () => {
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
-    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([FREEBUFF_MIMO_V25_MODEL_ID])
+    // Ox Alpha joined on 2026-08-24. It costs this pool nothing extra: the
+    // limited tier is metered by REGION, not by model.
+    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
+      FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_OX_ALPHA_MODEL_ID,
+    ])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual([
       FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_OX_ALPHA_MODEL_ID,
     ])
     expect(
       isFreebuffModelAllowedForAccessTier(
@@ -1301,7 +1322,14 @@ describe('freebuff model availability', () => {
       expect(model.displayName).toContain(date)
     }
     // Nothing else claims to be new, or the badge stops meaning anything.
-    expect(catalog.filter((model) => model.isNew)).toHaveLength(dated.length)
+    // Ox Alpha is the one non-dated row carrying it: it joined the CLI catalog
+    // on 2026-08-24 having shipped four days earlier, so it is genuinely new to
+    // these surfaces even though its name carries no build date.
+    expect(
+      catalog.filter(
+        (model) => model.isNew && model.id !== FREEBUFF_OX_ALPHA_MODEL_ID,
+      ),
+    ).toHaveLength(dated.length)
   })
 
   test('migrates no saved pick anywhere, now that nothing supersedes', () => {
