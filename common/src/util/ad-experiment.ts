@@ -1,9 +1,9 @@
 /**
  * Which ad network gets first refusal on a sponsored slot.
  *
- * Imprezia reaches users two different ways, and the whole point of this
- * module is that the two stay tellable apart:
+ * Imprezia reaches users three ways, and this module keeps them tellable apart:
  *
+ * - Exclusively for the Imprezia team and our test account.
  * - As the PRIMARY for a random {@link IMPREZIA_EXPERIMENT_PERCENT}% of users.
  *   This is the experiment arm — a clean random subset whose revenue can be
  *   compared against control.
@@ -52,7 +52,17 @@ export interface FirstPartyRoutingConfig {
   backfill: boolean
 }
 
-export type AdExperimentArm = 'imprezia_first' | 'control'
+export type AdExperimentArm = 'imprezia_forced' | 'imprezia_first' | 'control'
+
+export function isImpreziaAudienceEmail(
+  email: string | null | undefined,
+): boolean {
+  if (!email) return false
+  const normalized = email.trim().toLowerCase()
+  return (
+    normalized === 'jahooma@gmail.com' || normalized.endsWith('@imprezia.ai')
+  )
+}
 
 /** FNV-1a 32-bit: tiny, dependency-free, stable across runtimes. */
 export function fnv1a(input: string): number {
@@ -65,16 +75,18 @@ export function fnv1a(input: string): number {
 }
 
 /**
- * Deterministic arm for a signed-in user. Stable across devices, sessions and
- * products, because it is a pure function of the user id.
+ * Deterministic arm for a signed-in user, stable across products and sessions.
  */
 export function adExperimentArmForUser(
   userId: string | null | undefined,
+  userEmail?: string | null,
 ): AdExperimentArm {
   // Every ad surface rejects unauthenticated callers, so a missing id means no
   // ad is served at all. Park those in control rather than letting them dilute
   // the arm with impressions that never happened.
   if (!userId) return 'control'
+
+  if (isImpreziaAudienceEmail(userEmail)) return 'imprezia_forced'
 
   const bucket = fnv1a(`${IMPREZIA_EXPERIMENT}:${userId}`) % 100
   return bucket < IMPREZIA_EXPERIMENT_PERCENT ? 'imprezia_first' : 'control'

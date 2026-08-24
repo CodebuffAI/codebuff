@@ -6,6 +6,7 @@ import {
   IMPREZIA_EXPERIMENT_PERCENT,
   adExperimentArmForUser,
   firstPartyAdRouteForUser,
+  isImpreziaAudienceEmail,
 } from '../ad-experiment'
 
 describe('imprezia experiment arm', () => {
@@ -35,6 +36,19 @@ describe('imprezia experiment arm', () => {
     // point of slack rather than asserting an exact count.
     expect(percent).toBeGreaterThan(IMPREZIA_EXPERIMENT_PERCENT - 1.5)
     expect(percent).toBeLessThan(IMPREZIA_EXPERIMENT_PERCENT + 1.5)
+  })
+
+  test('forces only the Imprezia domain and named test account', () => {
+    for (const email of ['dev@Imprezia.AI', 'jahooma@gmail.com']) {
+      expect(isImpreziaAudienceEmail(email)).toBe(true)
+      expect(adExperimentArmForUser('user', email)).toBe('imprezia_forced')
+    }
+    for (const email of [
+      'dev@imprezia.ai.evil.com',
+      'jahooma+test@gmail.com',
+    ]) {
+      expect(isImpreziaAudienceEmail(email)).toBe(false)
+    }
   })
 })
 
