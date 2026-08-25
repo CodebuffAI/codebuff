@@ -66,3 +66,7 @@ scratch-*
 
 # Ad-hoc investigation scripts — scratch, never committed
 scripts/_tmp-*
+
+# Local operator launch manifests contain real advertiser identifiers. The
+# checked-in example is intentionally non-routable.
+ads-pilot-launch.local.json
