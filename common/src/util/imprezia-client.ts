@@ -54,11 +54,7 @@ export type ImpreziaChatAdRequest = {
   /** Origin + path, already stripped of query/fragment. */
   sourceUrl: string
   surface: 'desktop' | 'cli' | 'cloud' | 'web' | 'chat' | 'mobile'
-  /**
-   * Names the calling SURFACE, not the OS: 'browser' | 'desktop' | 'cli'. (The
-   * published docs list browser|android|ios, which is not what their backend
-   * actually expects.)
-   */
+  /** Imprezia platform family; product attribution lives in `surface`. */
   platformString: string
   deviceContext: ImpreziaDeviceContext
 }
