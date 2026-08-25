@@ -6,6 +6,7 @@ import {
 } from '../util/zoned-time'
 import {
   deepSeekExpensiveWindowEndsAt,
+  formatDeepSeekExpensiveWindowReturn,
   isDeepSeekExpensiveWindow,
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
@@ -2918,6 +2919,27 @@ function isAvailableAt(
   if (availability === 'always') return true
   if (availability === 'off_peak_only') return !isDeepSeekExpensiveWindow(now)
   return isFreebuffDeploymentHours(now)
+}
+
+/**
+ * The window to quote when `model` is refused for being unavailable.
+ *
+ * Derived from the model's OWN availability instead of assumed. Both refusal
+ * sites in free-session/public-api.ts gate on isFreebuffSessionModelAvailable,
+ * which covers `deployment_hours` AND `off_peak_only`, but both hardcoded the
+ * deployment-hours label -- so a model closed for DeepSeek's peak window was
+ * quoted our staffing hours, a different window entirely.
+ */
+export function freebuffModelUnavailableWindow(
+  id: string,
+  now: Date = new Date(),
+): string {
+  const model =
+    SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
+    getFreebuffWebModel(id)
+  return model.availability === 'off_peak_only'
+    ? formatDeepSeekExpensiveWindowReturn(now)
+    : FREEBUFF_DEPLOYMENT_HOURS_LABEL
 }
 
 export function isFreebuffSessionModelAvailable(

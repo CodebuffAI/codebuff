@@ -62,6 +62,8 @@ import {
   isFreebuffPremiumModelId,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffSessionModelAvailable,
+  freebuffModelUnavailableWindow,
+  FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   isFreebuffSessionModelId,
   isFreebuffTracedModelId,
   isFreebuffWebDeemphasizedModelId,
@@ -1821,5 +1823,47 @@ describe('Muse Spark rate-limit fallback', () => {
     // provider uses for its silent window, so the two cannot disagree about
     // what "too long" means.
     expect(MUSE_SPARK_FALLBACK_AFTER_MS).toBe(10_000)
+  })
+})
+
+describe('the unavailability window matches the reason for the closure', () => {
+  /**
+   * Both refusal sites gate on isFreebuffSessionModelAvailable, which covers
+   * `deployment_hours` AND `off_peak_only`, and both hardcoded the
+   * deployment-hours label. So V4 Flash -- closed 5pm-3am Pacific for DeepSeek's
+   * peak pricing -- told users it was "available 9am ET-5pm PT every day":
+   * a different window, for a different reason, in two timezones at once.
+   */
+  const peak = new Date('2026-08-25T08:00:00Z')
+
+  test('a peak-closed model is told when it comes BACK, not our staffing hours', () => {
+    const window = freebuffModelUnavailableWindow(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      peak,
+    )
+    expect(window).toContain('again at')
+    // The bug: the staffing label has nothing to do with peak pricing.
+    expect(window).not.toBe(FREEBUFF_DEPLOYMENT_HOURS_LABEL)
+    expect(window).not.toContain('ET')
+  })
+
+  /**
+   * No model carries `deployment_hours` today -- the catalog is `always` and
+   * `off_peak_only` only -- so the staffing label is reachable from the
+   * LIMITED-OFFER branch and not from this one. The resolver still returns it
+   * as the default rather than inventing a window for a closure it does not
+   * recognise, which is why this asserts the DEFAULT rather than a model that
+   * would have to be invented to test it.
+   */
+  test('an unrecognised closure falls back to the staffing label, not a guess', () => {
+    expect(freebuffModelUnavailableWindow('mimo/mimo-v2.5', peak)).toBe(
+      FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+    )
+  })
+
+  test('it reads as a sentence in the template that renders it', () => {
+    // freebuffSession.ts renders `${model} is available ${availableHours}.`
+    const s = `X is available ${freebuffModelUnavailableWindow(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak)}.`
+    expect(s).toMatch(/^X is available again at .+\.$/)
   })
 })

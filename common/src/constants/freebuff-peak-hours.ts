@@ -124,3 +124,30 @@ export function formatDeepSeekExpensiveWindowLocal(
   const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
   return `${atUtcHour(start)} – ${atUtcHour(end)}`
 }
+
+/**
+ * What to tell a user whose model is shut for the peak window.
+ *
+ * Phrased as WHEN IT COMES BACK rather than as a range, because that is the
+ * question being asked. A range makes the reader do arithmetic against a clock
+ * they cannot see -- and the range this replaced was not even the right window:
+ * `model_unavailable` hardcoded FREEBUFF_DEPLOYMENT_HOURS_LABEL ("9am ET-5pm PT
+ * every day"), which describes OUR STAFFING hours for limited-offer models and
+ * has nothing to do with DeepSeek's peak pricing. A model closed 5pm-3am
+ * Pacific was telling people it was open 9am-5pm.
+ *
+ * Local time, and one timezone. The old label mixed two ("9am ET-5pm PT"),
+ * which cannot be read as an interval by anyone.
+ */
+export function formatDeepSeekExpensiveWindowReturn(
+  on: Date = new Date(),
+  timeZone?: string,
+): string {
+  const ends = deepSeekExpensiveWindowEndsAt(on)
+  const fmt = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    ...(timeZone ? { timeZone } : {}),
+  })
+  return `again at ${fmt.format(ends)}`
+}
