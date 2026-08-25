@@ -6,6 +6,7 @@ import {
   ADS_FIRST_PARTY_CLICK_RECORDED_EVENT,
   ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
+  ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
   STREAM_RECOVERY_EVENT,
@@ -305,5 +306,44 @@ describe('getAxiomOnlyLogEvent', () => {
         },
       })
     }
+  })
+
+  test('keeps external conversion postbacks content- and identifier-free', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+        outcome: 'accepted',
+        rejection_reason: 'none',
+        event_type: 'signup_completed',
+        traffic_class: 'test',
+        primary_allocation_cohort: 'drizz',
+        settlement_status: 'not_billable',
+        charged_cents: 0,
+        duration_ms: 8,
+        api_key: 'fbadv_private',
+        key_prefix: 'fbadv_123',
+        bfcid: 'bfc_test_1.private',
+        event_id: 'private-event',
+        campaign_id: 'campaign-private',
+        advertiser_id: 'advertiser-private',
+        user_id: 'user-private',
+        email: 'private@example.com',
+        url: 'https://partner.example/private',
+        body: { private: true },
+        error: new Error('private failure'),
+      }),
+    ).toEqual({
+      event: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+      data: {
+        outcome: 'accepted',
+        rejection_reason: 'none',
+        event_type: 'signup_completed',
+        traffic_class: 'test',
+        primary_allocation_cohort: 'drizz',
+        settlement_status: 'not_billable',
+        charged_cents: 0,
+        duration_ms: 8,
+      },
+    })
   })
 })

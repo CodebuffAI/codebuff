@@ -27,6 +27,11 @@ export const ADS_FIRST_PARTY_CLICK_RECORDED_EVENT =
   'ads.first_party_click_recorded' as const
 export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
   'ads.first_party_impression_recorded' as const
+/** Advertiser S2S conversion postbacks. This event is deliberately limited to
+ * a small, content-free operational census; partner credentials and the
+ * opaque click/event identifiers never leave the request handler. */
+export const ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT =
+  'ads.external_conversion_postback' as const
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
@@ -146,6 +151,20 @@ const ADS_FIRST_PARTY_TRACKING_FIELDS = {
   pixel_count: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
+/** Keep the advertiser postback stream safe to aggregate. In particular this
+ * must not grow into an attribution/debugging record: the database owns that
+ * drill-down and Axiom receives only bounded operational dimensions. */
+const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
+  outcome: 'string',
+  rejection_reason: 'string',
+  event_type: 'string',
+  traffic_class: 'string',
+  primary_allocation_cohort: 'string',
+  settlement_status: 'string',
+  charged_cents: 'number',
+  duration_ms: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
 export type AxiomOnlyLogEvent = {
   event:
     | typeof CONTEXT_PRUNING_COMPLETED_EVENT
@@ -155,6 +174,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FIRST_PARTY_SETTLEMENT_EVENT
     | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
     | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
+    | typeof ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT
   data: Record<string, string | number | boolean>
 }
 
@@ -241,6 +261,15 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_FIRST_PARTY_TRACKING_FIELDS),
+    }
+  }
+  if (eventName === ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(
+        record,
+        ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS,
+      ),
     }
   }
   return null
