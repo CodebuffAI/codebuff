@@ -8,6 +8,7 @@ export const ALLOWED_MODEL_PREFIXES = [
   'minimax',
   'mimo',
   'tencent',
+  'friendli',
 ] as const
 
 export const costModes = [
@@ -83,6 +84,15 @@ export const minimaxModels = {
 } as const
 export type MiniMaxModel = (typeof minimaxModels)[keyof typeof minimaxModels]
 
+// FriendliAI serverless models — backup lanes for models already routed via
+// other providers. Model IDs use exact HuggingFace casing; the private backend
+// adds the matching upstream routing.
+export const friendliModels = {
+  friendli_glm52: 'friendli/zai-org/GLM-5.2',
+  friendli_miniMaxM25: 'friendli/MiniMaxAI/MiniMax-M2.5',
+} as const
+export type FriendliModel = (typeof friendliModels)[keyof typeof friendliModels]
+
 export const moonshotModels = {
   kimiK26: 'moonshotai/kimi-k2.6',
   kimiK27Code: 'moonshotai/kimi-k2.7-code',
@@ -122,6 +132,7 @@ export const models = {
   ...mimoModels,
   ...minimaxModels,
   ...openrouterModels,
+  ...friendliModels,
   ...finetunedVertexModels,
 } as const
 
@@ -254,6 +265,7 @@ export const providerDomains = {
   mimo: 'xiaomi.com',
   tencent: 'tencent.com',
   xai: 'x.ai',
+  friendli: 'friendli.ai',
 } as const
 
 export function getLogoForModel(modelName: string): string | undefined {
@@ -268,6 +280,7 @@ export function getLogoForModel(modelName: string): string | undefined {
   else if (Object.values(mimoModels).includes(modelName as MimoModel))
     domain = providerDomains.mimo
   else if (modelName.startsWith('tencent/')) domain = providerDomains.tencent
+  else if (modelName.startsWith('friendli/')) domain = providerDomains.friendli
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai
 
