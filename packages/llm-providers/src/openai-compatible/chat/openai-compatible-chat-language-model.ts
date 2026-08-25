@@ -15,7 +15,10 @@ import { convertToOpenAICompatibleChatMessages } from './convert-to-openai-compa
 import { getResponseMetadata } from './get-response-metadata'
 import { mapOpenAICompatibleFinishReason } from './map-openai-compatible-finish-reason'
 import { openaiCompatibleProviderOptions } from './openai-compatible-chat-options'
-import { defaultOpenAICompatibleErrorStructure } from '../openai-compatible-error'
+import {
+  defaultOpenAICompatibleErrorStructure,
+  streamErrorChunkToApiCallError,
+} from '../openai-compatible-error'
 import { prepareTools } from './openai-compatible-prepare-tools'
 
 import type { OpenAICompatibleChatModelId } from './openai-compatible-chat-options'
@@ -344,11 +347,12 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
     const metadataExtractor =
       this.config.metadataExtractor?.createStreamExtractor()
 
+    const url = this.config.url({
+      path: '/chat/completions',
+      modelId: this.modelId,
+    })
     const { responseHeaders, value: response } = await postJsonToApi({
-      url: this.config.url({
-        path: '/chat/completions',
-        modelId: this.modelId,
-      }),
+      url,
       headers: combineHeaders(this.config.headers(), options.headers),
       body,
       failedResponseHandler: this.failedResponseHandler,
@@ -463,7 +467,14 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             // handle error chunks:
             if ('error' in value) {
               finishReason = 'error'
-              controller.enqueue({ type: 'error', error: value.error.message })
+              controller.enqueue({
+                type: 'error',
+                error: streamErrorChunkToApiCallError({
+                  errorValue: value.error,
+                  url,
+                  requestBodyValues: body,
+                }),
+              })
               return
             }
 
