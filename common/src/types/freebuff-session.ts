@@ -224,10 +224,13 @@ export interface FreebuffReferralInfo {
    *  landing page ("X invited you to try Freebuff!"). Null when the user has no
    *  name set. */
   referrerName: string | null
-  /** Qualified-referral count for the tier's reward: full tier = GLM sessions
-   *  per day (uncapped since 2026-07-30); limited tier = daily-session bonus
-   *  earned, still capped at REFERRAL_CLI_DAILY_SESSION_BONUS_CAP, which the
-   *  CLI knows locally. */
+  /** Qualified-referral count for the tier's reward, ALREADY CAPPED on both
+   *  branches: full tier = GLM sessions per day, clamped to
+   *  FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS (uncapped between 2026-07-30 and
+   *  2026-08-25); limited tier = daily-session bonus earned, capped at
+   *  REFERRAL_CLI_DAILY_SESSION_BONUS_CAP. The CLI knows both constants
+   *  locally and renders "(N/cap)" progress copy off them, so a value that
+   *  arrived un-clamped would advertise sessions the gate refuses. */
   qualifiedCount: number
   /** GLM sessions still available in the current reset window (entitlement −
    *  used, ≥ 0). Daily since 2026-07-29; the "weekly" name is kept for wire
