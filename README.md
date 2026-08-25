@@ -61,7 +61,10 @@ Freebuff uses specialized agents instead of sending every task through one model
 
 ## Free access
 
-Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access, currently MiMo 2.5 and Ox Alpha with three one-hour sessions per day, earnable up to seven.
+Freebuff is available in every country. Supported regions receive full access. Other regions and VPN users receive limited access, which currently includes:
+* **MiMo 2.5 and DeepSeek V4 Flash:** Unlimited one-hour sessions per day.
+* **GPT-5.6 Luna and DeepSeek V4 Pro:** Five one-hour sessions per day (with the ability to earn up to seven).
+
 
 Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 
