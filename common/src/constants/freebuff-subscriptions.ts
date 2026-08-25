@@ -58,6 +58,25 @@ export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
   return FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS.includes(modelId)
 }
 
+/**
+ * The DeepSeek models a plan's peak-hours pause applies to.
+ *
+ * Named explicitly rather than matched on an id prefix: a prefix would sweep in
+ * any future `deepseek/*` id automatically, and silently pausing a model nobody
+ * decided to pause is the kind of change that should require an edit here.
+ */
+export const FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS: readonly string[] =
+  Object.freeze([
+    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  ])
+
+export function isFreebuffSubscriptionPeakPausedModelId(
+  modelId: string,
+): boolean {
+  return FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS.includes(modelId)
+}
+
 export function isFreebuffSubscriptionModelId(modelId: string): boolean {
   return FREEBUFF_SUBSCRIPTION_MODEL_IDS.includes(modelId)
 }

@@ -53,15 +53,42 @@ describe('Ox Alpha is a Web/Cloud row', () => {
     )
   })
 
-  it('stays off the CLI and Desktop', () => {
-    // The absence from these two lists IS the surface gate: FREEBUFF_MODELS is
-    // the CLI/Desktop catalog and SUPPORTED_FREEBUFF_MODELS is what
-    // isFreebuffSessionModelId admits there. Adding it to either ships the
-    // model to surfaces whose capacity we have not agreed to spend yet.
-    expect(FREEBUFF_MODELS.map((m) => m.id)).not.toContain(OX)
-    expect(SUPPORTED_FREEBUFF_MODELS.map((m) => m.id)).not.toContain(OX)
-    expect(FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL[OX]).toBeUndefined()
+  /**
+   * WIDENED 2026-08-24 to every surface. This test used to assert the opposite
+   * ("stays off the CLI and Desktop"), and the reason it flipped is a decision
+   * rather than drift: gate #2 in docs/freebuff-ox-alpha.md passed decisively
+   * -- four days of real traffic at $0.0000, the zero-price fence never
+   * engaged, and zero 429s across 32,185 records in 24h.
+   *
+   * What that trades away is honest: on CLI and Desktop the catalog ships
+   * INSIDE a binary, so "withdraw in one deploy" no longer holds for the picker
+   * row. The rollback lever is now FREEBUFF_PAUSED_FREE_MODEL_IDS, which stops
+   * admissions on every surface including installed builds.
+   */
+  it('is on every surface, and carries its CLI root with it', () => {
+    expect(FREEBUFF_MODELS.map((m) => m.id)).toContain(OX)
+    expect(SUPPORTED_FREEBUFF_MODELS.map((m) => m.id)).toContain(OX)
+    expect(FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL[OX]).toBe('base3-free-ox-alpha')
     expect(FREEBUFF_WEB_ALL_MODELS.map((m) => m.id)).toContain(OX)
+  })
+
+  /**
+   * The row is experimental and must SAY so, on every surface. That flag is the
+   * only promise we can keep about a model an anonymous host can reprice,
+   * rename or withdraw without notice -- and it mattered less when the row was
+   * confined to one picker we control than it does now that it ships in CLI and
+   * Desktop builds.
+   */
+  it('is flagged experimental so every picker can badge it', () => {
+    const row = FREEBUFF_MODELS.find((m) => m.id === OX)
+    expect(row?.experimental).toBe(true)
+  })
+
+  /** It must never become the row a new user lands on before they know the
+   *  catalog exists. FREEBUFF_MODELS[0] is pinned to the default elsewhere;
+   *  this states the intent for THIS row directly. */
+  it('is not the default model', () => {
+    expect(FREEBUFF_MODELS[0]?.id).not.toBe(OX)
   })
 
   it('matches dated builds of itself, so a variant cannot escape the fence', () => {
@@ -151,13 +178,19 @@ describe('Ox Alpha reaches limited-tier regions', () => {
     expect(FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS as readonly string[]).toContain(OX)
   })
 
-  it('reaches limited regions WITHOUT joining the CLI/Desktop limited catalog', () => {
-    // The split is the whole trick. LIMITED_FREEBUFF_MODEL_IDS maps over
-    // SUPPORTED_FREEBUFF_MODELS and feeds the CLI picker, the home FAQ and the
-    // README, so adding a Web/Cloud-only row there would advertise it on
-    // surfaces that cannot run it — and `LIMITED_FREEBUFF_MODELS` would carry an
-    // `undefined!` where the row should be.
-    expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).not.toContain(OX)
+  /**
+   * The two limited catalogs now AGREE for this row. They were deliberately
+   * split while the model was browser-only: LIMITED_FREEBUFF_MODEL_IDS maps
+   * over SUPPORTED_FREEBUFF_MODELS and feeds the CLI picker, the home FAQ and
+   * the README, so listing a row there that CLI could not run would have
+   * advertised it on surfaces that fail on send. Now that it IS in
+   * SUPPORTED_FREEBUFF_MODELS, joining is required rather than merely allowed
+   * -- omitting it would offer the row to limited users on Web while denying
+   * the same users the same row on CLI.
+   */
+  it('joins the CLI/Desktop limited catalog now that CLI can run it', () => {
+    expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).toContain(OX)
+    expect(SUPPORTED_FREEBUFF_MODELS.map((m) => m.id)).toContain(OX)
   })
 
   it('still costs the limited pool nothing extra', () => {
@@ -171,32 +204,48 @@ describe('Ox Alpha reaches limited-tier regions', () => {
   })
 })
 
-describe('Ox Alpha is unreachable from anything but our own runner', () => {
-  it('is service-account-only', () => {
-    // The one gate here that an attacker cannot restate. Everything else that
-    // keeps this model off a surface is a client-side fact — absent from the
-    // CLI catalog means no shipped build renders it, which stops our users and
-    // nobody else. A hand-written caller names the agent id and model directly
-    // and passes every allowlist, because that pair IS valid; what it cannot
-    // produce is the runner's API key.
-    expect(isFreebuffServiceOnlyModelId(OX)).toBe(true)
-    expect(FREEBUFF_SERVICE_ONLY_MODEL_IDS as readonly string[]).toContain(OX)
+describe('Ox Alpha is no longer service-account-only', () => {
+  /**
+   * The service-only gate was released on 2026-08-24 because it is
+   * incompatible with shipping the row to CLI and Desktop: it means "served
+   * only to the Freebuff Web service account", so keeping it would 403 every
+   * CLI turn.
+   *
+   * State the cost rather than let it disappear into a deleted assertion. This
+   * model is metered by NOTHING -- premium: false, no pool, price fenced at $0
+   * -- which is exactly what made it the most attractive row in the catalog for
+   * a reselling proxy. What still stands is narrower: the tool-schema check
+   * downgrades third-party clients on every model, but not one that has
+   * faithfully reproduced our toolset.
+   */
+  it('is served to ordinary callers, and the list is empty', () => {
+    expect(isFreebuffServiceOnlyModelId(OX)).toBe(false)
+    expect(FREEBUFF_SERVICE_ONLY_MODEL_IDS as readonly string[]).toEqual([])
   })
 
-  it('covers dated builds and nothing else', () => {
-    expect(isFreebuffServiceOnlyModelId('stealth/ox-alpha-20260820')).toBe(true)
+  /** The predicate itself is unchanged and still matches dated builds, so
+   *  re-adding any id here keeps working the way it did. */
+  it('still matches dated builds when a model IS on the list', () => {
     expect(isFreebuffServiceOnlyModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
     expect(isFreebuffServiceOnlyModelId(null)).toBe(false)
   })
 
-  it('is the only model on that list, and the reason is the missing pool', () => {
-    // Muse Spark and Kimi K3 Eco are browser-only too, and would pass this gate
-    // in normal operation — but both are premium-pooled, so a third party
-    // reaching one spends a quota that runs out. Ox Alpha is metered by
-    // nothing, which is what makes it worth a gate of its own. If that ever
-    // stops being the distinction, add them here; do not delete this test.
-    expect([...FREEBUFF_SERVICE_ONLY_MODEL_IDS]).toEqual([OX])
-    expect(FREEBUFF_STANDARD_MODEL_IDS).toContain(OX)
+  /**
+   * Replaces "is the only model on that list, and the reason is the missing
+   * pool". The list is empty now, so the question is no longer which models are
+   * on it -- it is that Ox Alpha remains the row a gate like this exists FOR,
+   * and nothing else has quietly acquired the same shape.
+   *
+   * Muse Spark and Kimi K3 Eco are browser-only too and would have passed the
+   * old gate, but both are premium-pooled: a third party reaching one spends a
+   * quota that runs out by lunchtime. Ox Alpha is metered by nothing, so if it
+   * ever needs re-fencing this is the property to check first.
+   */
+  it('is still the unmetered row, which is why re-fencing it is the lever', () => {
+    expect(FREEBUFF_WEB_PREMIUM_MODEL_IDS as readonly string[]).not.toContain(
+      OX,
+    )
+    expect(FREEBUFF_STANDARD_MODEL_IDS as readonly string[]).toContain(OX)
   })
 })
 

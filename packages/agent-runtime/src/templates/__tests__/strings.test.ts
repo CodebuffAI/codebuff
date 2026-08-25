@@ -3,6 +3,7 @@ import { describe, test, expect, mock } from 'bun:test'
 
 import { PLACEHOLDER } from '../types'
 import { formatCurrentDate, getAgentPrompt } from '../strings'
+import { getGitChangesPrompt } from '../../system-prompt/prompts'
 
 import type { AgentTemplate } from '../types'
 import type { AgentState } from '@codebuff/common/types/session-state'
@@ -108,10 +109,125 @@ describe('getAgentPrompt', () => {
     expect(result).not.toContain(PLACEHOLDER.CURRENT_DATE)
   })
 
-  test('formats current date for prompts', () => {
-    expect(formatCurrentDate(new Date(2026, 4, 22, 12))).toBe(
-      'May 22, 2026',
+  test('renders compact repository stats and changed paths without patch content', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'git-agent',
+      systemPrompt: PLACEHOLDER.GIT_CHANGES_PROMPT,
+    })
+    const fileContext: ProjectFileContext = {
+      ...createMockFileContext(),
+      gitChanges: {
+        gitAvailable: true,
+        branch: 'main',
+        changedFiles: ['src/a.ts', 'src/b.ts'],
+        changedFileCount: 52,
+        changedFileScanTruncated: false,
+        repositoryVisibility: 'private',
+        commitCount: 1200,
+        historyIsShallow: false,
+        commitDatePercentiles: {
+          p0: '2019-01-01',
+          p25: '2020-06-15',
+          p50: '2022-03-10',
+          p75: '2024-07-20',
+          p100: '2026-08-24',
+        },
+        mergedPullRequestCount: 900,
+        humanContributorCount: 6,
+        botContributorCount: 2,
+        historyScanTruncated: false,
+        fileCount: 340,
+        fileCountIsLowerBound: true,
+        testFileCount: 75,
+        // A legacy run state can still contain these, but they must not be
+        // injected into the compact base3 repository context.
+        diff: 'SECRET PATCH CONTENT',
+      },
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext,
+      agentState: createMockAgentState('git-agent'),
+      agentTemplates: { 'git-agent': agentTemplate },
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    expect(result).toContain('indexed_project_files: at least 340')
+    expect(result).toContain('detected_test_files: at least 75')
+    expect(result).toContain('repository_visibility: private')
+    expect(result).toContain('total_commits: 1200')
+    expect(result).toContain(
+      'commit_dates: first=2019-01-01, p25=2020-06-15, p50=2022-03-10, p75=2024-07-20, p100=2026-08-24',
     )
+    expect(result).toContain('merged_pull_requests_detected: 900')
+    expect(result).toContain('human_contributors: 6')
+    expect(result).toContain('bot_contributors: 2')
+    expect(result).toContain('Changed file paths (showing 2 of 52)')
+    expect(result).toContain('src/a.ts\nsrc/b.ts')
+    expect(result).not.toContain('SECRET PATCH CONTENT')
+
+    const unavailableResult = getGitChangesPrompt({
+      ...fileContext,
+      gitChanges: { gitAvailable: false, fileCount: 340 },
+    })
+    expect(unavailableResult).toContain('Changed file paths (unavailable)')
+    expect(unavailableResult).toContain('repository_visibility: unknown')
+    expect(unavailableResult).toContain(
+      '(Git metadata unavailable to this host)',
+    )
+    expect(unavailableResult).not.toContain('(none)')
+
+    const truncatedResult = getGitChangesPrompt({
+      ...fileContext,
+      gitChanges: {
+        humanContributorCount: 6,
+        botContributorCount: 2,
+        mergedPullRequestCount: 900,
+        historyScanTruncated: true,
+      },
+    })
+    expect(truncatedResult).toContain('human_contributors: at least 6')
+    expect(truncatedResult).toContain('bot_contributors: at least 2')
+    expect(truncatedResult).toContain(
+      'merged_pull_requests_detected: at least 900',
+    )
+
+    const shallowResult = getGitChangesPrompt({
+      ...fileContext,
+      gitChanges: {
+        commitCount: 25,
+        historyIsShallow: true,
+        humanContributorCount: 3,
+        botContributorCount: 1,
+        mergedPullRequestCount: 10,
+        commitDatePercentiles: {
+          p0: '2024-01-01',
+          p25: '2024-02-01',
+          p50: '2024-03-01',
+          p75: '2024-04-01',
+          p100: '2024-05-01',
+        },
+      },
+    })
+    expect(shallowResult).toContain('commits_in_shallow_clone: 25')
+    expect(shallowResult).toContain(
+      'commit_dates_available_history: first=2024-01-01',
+    )
+    expect(shallowResult).toContain('human_contributors: at least 3')
+    expect(shallowResult).toContain('bot_contributors: at least 1')
+    expect(shallowResult).toContain(
+      'merged_pull_requests_detected: at least 10',
+    )
+  })
+
+  test('formats current date for prompts', () => {
+    expect(formatCurrentDate(new Date(2026, 4, 22, 12))).toBe('May 22, 2026')
   })
 
   describe('spawnerPrompt inclusion in instructionsPrompt', () => {
@@ -156,8 +272,12 @@ describe('getAgentPrompt', () => {
 
       expect(result).toBeDefined()
       expect(result).toContain('You can spawn the following agents:')
-      expect(result).toContain('- file-picker: Spawn to find relevant files in a codebase')
-      expect(result).toContain('- code-searcher: Mechanically runs multiple code search queries')
+      expect(result).toContain(
+        '- file-picker: Spawn to find relevant files in a codebase',
+      )
+      expect(result).toContain(
+        '- code-searcher: Mechanically runs multiple code search queries',
+      )
     })
 
     test('includes only agent name when spawnerPrompt is not defined', async () => {

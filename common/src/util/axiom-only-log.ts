@@ -19,6 +19,14 @@ export const CONTEXT_PRUNING_COMPLETED_EVENT =
  *  raw and doesn't need the allowlist. */
 export const STREAM_RECOVERY_EVENT = 'stream_recovery' as const
 export const ADS_FETCH_COMPLETED_EVENT = AnalyticsEvent.ADS_FETCH_COMPLETED
+export const ADS_FIRST_PARTY_DECISION_EVENT =
+  AnalyticsEvent.ADS_FIRST_PARTY_DECISION
+export const ADS_FIRST_PARTY_SETTLEMENT_EVENT =
+  AnalyticsEvent.ADS_FIRST_PARTY_SETTLEMENT
+export const ADS_FIRST_PARTY_CLICK_RECORDED_EVENT =
+  'ads.first_party_click_recorded' as const
+export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
+  'ads.first_party_impression_recorded' as const
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
@@ -63,13 +71,79 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
   requested_provider: 'string',
   served_provider: 'string',
+  // This is a producer-encoded, bounded string such as
+  // "gravity>first_party>carbon". Keep the raw attempted_providers array out
+  // of Axiom so operational events remain scalar-only.
+  attempted_provider_chain: 'string',
+  experiment_arm: 'string',
+  first_party_route: 'string',
+  first_party_primary_percent: 'number',
+  first_party_backfill_enabled: 'boolean',
+  /**
+   * Exact primary allocation is intentionally represented by an opaque,
+   * operator-chosen cohort label rather than a campaign or advertiser id.
+   * Producers emit `none` / 0 when the request is not assigned to a primary
+   * cohort, so an absent field is distinguishable from a deliberate control.
+   */
+  first_party_primary_cohort: 'string',
+  first_party_primary_cohort_percent: 'number',
+  /** The opaque cohort that actually produced a first-party fill, or `none`. */
+  first_party_served_cohort: 'string',
+  /** `primary`, `gravity_no_fill_backfill`, or `none`. */
+  first_party_entrypoint: 'string',
+  /** Whether the immediately preceding Gravity attempt filled, no-filled, or
+   * failed. This makes recovered no-fill inventory observable without logging
+   * any campaign or creative identity. */
+  gravity_outcome: 'string',
+  selection_reason: 'string',
   ad_count: 'number',
   surface: 'string',
   placement_id: 'string',
-  chat_session_id: 'string',
   duration_ms: 'number',
   client_ua_product: 'string',
   client_ua_version: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
+/**
+ * First-party inventory selection is operational telemetry only. In
+ * particular, campaign/creative/placement arrays and user/session IDs stay
+ * out: their cardinality makes them unsuitable for the event stream and they
+ * are available in the database when an operator needs drill-down.
+ */
+const ADS_FIRST_PARTY_DECISION_FIELDS = {
+  outcome: 'string',
+  primary_allocation_invalid: 'boolean',
+  no_fill_reason: 'string',
+  selection_reason: 'string',
+  ad_count: 'number',
+  placement_count: 'number',
+  candidate_count: 'number',
+  candidate_load_ms: 'number',
+  frequency_status: 'string',
+  frequency_unavailable_cause: 'string',
+  frequency_reservation_ms: 'number',
+  duration_ms: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+/** Settlement telemetry deliberately excludes impression, campaign, and
+ * advertiser identifiers. The bounded status/reason and amount fields are
+ * sufficient for charge and absorption dashboards. */
+const ADS_FIRST_PARTY_SETTLEMENT_FIELDS = {
+  billing_model: 'string',
+  settlement_status: 'string',
+  absorbed_reason: 'string',
+  amount_cents: 'number',
+  balance_cents: 'number',
+  duration_ms: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const ADS_FIRST_PARTY_TRACKING_FIELDS = {
+  provider: 'string',
+  surface: 'string',
+  placement_id: 'string',
+  already_clicked: 'boolean',
+  impression_recorded: 'boolean',
+  pixel_count: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 export type AxiomOnlyLogEvent = {
@@ -77,6 +151,10 @@ export type AxiomOnlyLogEvent = {
     | typeof CONTEXT_PRUNING_COMPLETED_EVENT
     | typeof STREAM_RECOVERY_EVENT
     | typeof ADS_FETCH_COMPLETED_EVENT
+    | typeof ADS_FIRST_PARTY_DECISION_EVENT
+    | typeof ADS_FIRST_PARTY_SETTLEMENT_EVENT
+    | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
+    | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
   data: Record<string, string | number | boolean>
 }
 
@@ -139,6 +217,30 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_FETCH_COMPLETED_FIELDS),
+    }
+  }
+  if (eventName === ADS_FIRST_PARTY_DECISION_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, ADS_FIRST_PARTY_DECISION_FIELDS),
+    }
+  }
+  if (eventName === ADS_FIRST_PARTY_SETTLEMENT_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(
+        record,
+        ADS_FIRST_PARTY_SETTLEMENT_FIELDS,
+      ),
+    }
+  }
+  if (
+    eventName === ADS_FIRST_PARTY_CLICK_RECORDED_EVENT ||
+    eventName === ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
+  ) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, ADS_FIRST_PARTY_TRACKING_FIELDS),
     }
   }
   return null

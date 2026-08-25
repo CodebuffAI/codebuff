@@ -81,6 +81,9 @@ export interface FreebuffSubscriptionTierOffer {
   current: boolean
   /** True when this tier is above the caller's current one. */
   upgrade: boolean
+  /** True when it is below. A downgrade is SCHEDULED for the next renewal
+   *  rather than applied now, so clients must not word it as immediate. */
+  downgrade: boolean
 }
 
 /**
@@ -122,6 +125,9 @@ export interface FreebuffSubscriptionInfo {
   status?: string
   /** True when the subscription lapses at period end. */
   cancelAtPeriodEnd?: boolean
+  /** Tier this drops to at the next renewal, when a downgrade is scheduled.
+   *  Absent in the ordinary case — every subscription not mid-downgrade. */
+  pendingTierId?: string
   /** The full catalog, current tier flagged. Drives every upgrade CTA. */
   tiers: FreebuffSubscriptionTierOffer[]
   /**

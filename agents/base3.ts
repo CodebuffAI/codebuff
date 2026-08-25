@@ -55,6 +55,8 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - Don't run destructive or hard-to-undo commands (git push, resets, deploys) unless the user asks for them.
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
+
+${PLACEHOLDER.GIT_CHANGES_PROMPT}
 `,
   }
 }
@@ -174,12 +176,6 @@ ${
 }
 
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
-
-# Initial Git Changes
-
-The following is the state of the git repository at the start of the conversation. Note that it is not updated to reflect any subsequent changes made by you or the user.
-
-${PLACEHOLDER.GIT_CHANGES_PROMPT}
 `
 }
 

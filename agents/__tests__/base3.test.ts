@@ -15,6 +15,7 @@ import base3FreeGlm from '../base3-free-glm'
 import base3FreeLuna from '../base3-free-luna'
 import base3FreeMimo from '../base3-free-mimo'
 import base3FreeMinimaxM3 from '../base3-free-minimax-m3'
+import base3FreeOxAlpha from '../base3-free-ox-alpha'
 import base3Lite from '../base3-lite'
 
 /**
@@ -46,11 +47,14 @@ const CLI_ROOTS = [
   base3FreeGlm,
   base3FreeLuna,
   base3FreeFable,
+  base3FreeOxAlpha,
 ]
 
 describe('base3 CLI roots', () => {
   test('keeps the efficiency flags the runtime reads', () => {
-    expect(CLI_ROOTS.length).toBe(11)
+    // 12 since Ox Alpha reached the CLI on 2026-08-24. The count is asserted so
+    // a root added without the flags below cannot slip in unnoticed.
+    expect(CLI_ROOTS.length).toBe(12)
     for (const agent of CLI_ROOTS) {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)
@@ -83,6 +87,9 @@ describe('base3 CLI roots', () => {
     // requires a canonical opening at byte 0, so prepending 403s every turn.
     for (const agent of CLI_ROOTS) {
       expect(hasFreebuffRootSystemPromptOpening(agent.systemPrompt!)).toBe(true)
+      expect(
+        agent.systemPrompt!.match(/\{CODEBUFF_GIT_CHANGES_PROMPT\}/g),
+      ).toHaveLength(1)
     }
   })
 
