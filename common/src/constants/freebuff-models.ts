@@ -1658,20 +1658,34 @@ export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 
 /** Models that occupy the single per-user "premium-bucket" CONCURRENCY slot in
  *  Freebuff Desktop's multi-session mode: at most one of these may have an
- *  active session per user at a time, while unlimited-bucket models (DeepSeek V4
- *  Flash, MiMo 2.5) may run in up to three concurrent tabs. (On the LIMITED
- *  access tier the admission path puts EVERY model in the slot regardless of
- *  this list — limited users get one freebuff tab at a time; see
- *  `requestDesktopSession`.)
+ *  active session per user at a time, while every other model may run in up to
+ *  three concurrent tabs. (On the LIMITED access tier the admission path puts
+ *  EVERY model in the slot regardless of this list — limited users get one
+ *  freebuff tab at a time; see `requestDesktopSession`.)
  *
- *  This is strictly a CONCURRENCY bucket, NOT a quota bucket. It is intentionally
- *  a SUPERSET of FREEBUFF_PREMIUM_MODEL_IDS: it also includes GLM 5.2, which is
- *  metered weekly for QUOTA purposes but expensive enough that we cap it to one
- *  concurrent desktop session. Do NOT use this for the daily premium quota —
- *  that stays on isFreebuffPremiumModelId so GLM never starts burning the
- *  5/day premium pool. */
+ *  This is strictly a CONCURRENCY bucket, NOT a quota bucket, and since
+ *  2026-08-24 it is SPELLED OUT rather than derived from
+ *  FREEBUFF_PREMIUM_MODEL_IDS. Deriving it meant metering a model — a spend
+ *  decision about a daily pool — silently also capped its tabs. Flash entering
+ *  the quota list on 2026-08-18 therefore made the DEFAULT model one-tab-only,
+ *  and ~1k accounts a day met "Another tab is using the hosted model" on the row
+ *  they were steered to. Like FREEBUFF_PER_MODEL_SESSION_CAPS, membership is A
+ *  CLAIM ABOUT PRICE: a row belongs when one user running three at once is a
+ *  bill we would not want to underwrite. Decide the two lists separately.
+ *
+ *  Do NOT use this for the daily premium quota — that stays on
+ *  isFreebuffPremiumModelId, so GLM (metered weekly) never starts burning the
+ *  5/day premium pool.
+ *
+ *  ONE THING THE SPLIT NOW ALLOWS THAT THE DERIVATION DID NOT: a row that is
+ *  metered AND multi-tab. `buildAdmitStampStatement` pairs an outgoing window to
+ *  its admit row on `(user, model, access_tier, admitted_at)`, so two tabs of one
+ *  metered row admitted in the SAME MILLISECOND make that pairing arbitrary and
+ *  one window's charge can land on the other's admit. Nothing is metered and
+ *  multi-tab today. Before making one so, key admit rows by instance id. */
 export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
-  ...FREEBUFF_PREMIUM_MODEL_IDS,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
 ] as const
 
@@ -2388,10 +2402,10 @@ export function isFreebuffSessionPremiumModelId(
 }
 
 /** Whether `model` occupies the one-per-user Freebuff Desktop premium
- *  CONCURRENCY slot (premium models + GLM 5.2). Suffix-tolerant
- *  (dated snapshots) like the other model predicates so a dated variant can't
- *  dodge the cap. Distinct from isFreebuffPremiumModelId, which gates the daily
- *  premium QUOTA and must NOT include GLM. */
+ *  CONCURRENCY slot. Suffix-tolerant (dated snapshots) like the other model
+ *  predicates so a dated variant can't dodge the cap. Distinct from
+ *  isFreebuffPremiumModelId, which gates the daily premium QUOTA: the two lists
+ *  overlap but neither contains the other. */
 export function isFreebuffDesktopPremiumBucketModelId(
   id: string | null | undefined,
 ): boolean {
