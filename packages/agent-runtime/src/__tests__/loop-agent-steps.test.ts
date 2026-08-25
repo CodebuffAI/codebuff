@@ -976,6 +976,57 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   describe('API error handling', () => {
+    it('retries one transient provider failure in the same agent step', async () => {
+      const llmOnlyTemplate = {
+        ...mockTemplate,
+        handleSteps: undefined,
+      }
+
+      const localAgentTemplates = {
+        'test-agent': llmOnlyTemplate,
+      }
+
+      let llmCallNumber = 0
+      const recoveryAttempts: string[] = []
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* ({
+        extraCodebuffMetadata,
+      }) {
+        llmCallNumber++
+        recoveryAttempts.push(extraCodebuffMetadata?.recovery_attempt ?? '0')
+
+        if (llmCallNumber === 1) {
+          throw new APICallError({
+            statusCode: 503,
+            message: 'Service unavailable',
+            url: 'https://api.codebuff.com/v1/chat/completions',
+            requestBodyValues: {},
+            responseBody: undefined,
+            isRetryable: true,
+          })
+        }
+
+        yield { type: 'text' as const, text: 'Recovered response\n\n' }
+        yield createToolCallChunk('end_turn', {})
+        return promptSuccess('recovered-message-id')
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        localAgentTemplates,
+        waitForAgentRecovery: async () => {},
+      })
+
+      expect(result.output.type).not.toBe('error')
+      expect(llmCallNumber).toBe(2)
+      expect(recoveryAttempts).toEqual(['0', '1'])
+      expect(
+        result.agentState.messageHistory.some((message) =>
+          message.tags?.includes('AGENT_RECOVERY'),
+        ),
+      ).toBe(true)
+    })
+
     it('should propagate error code and server message from 403 APICallError responseBody', async () => {
       const llmOnlyTemplate = {
         ...mockTemplate,

@@ -42,6 +42,11 @@ import { getToolSet } from './tools/prompts'
 import { processStream } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
 import {
+  classifyAgentRecovery,
+  getAgentRecoveryDelayMs,
+  MAX_AGENT_STEP_RECOVERY_ATTEMPTS,
+} from './util/agent-recovery'
+import {
   createCacheDebugSnapshot,
   enrichCacheDebugSnapshotWithProviderRequest,
   enrichCacheDebugSnapshotWithUsage,
@@ -58,6 +63,40 @@ import {
   countTokensJson,
   countTokensMessages,
 } from './util/token-counter'
+
+type AgentRecoveryWaitParams = {
+  attempt: number
+  delayMs: number
+  kind: import('./util/agent-recovery').AgentRecoveryKind
+  signal: AbortSignal
+}
+
+const waitForAgentRecovery = async ({
+  delayMs,
+  signal,
+}: AgentRecoveryWaitParams): Promise<void> => {
+  if (delayMs <= 0) return
+
+  await new Promise<void>((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+
+    const onAbort = () => {
+      if (timeout !== undefined) clearTimeout(timeout)
+      reject(new AbortError())
+    }
+
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+
+    timeout = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, delayMs)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -355,8 +394,7 @@ export const runAgentStep = async (
   const systemTokens = countTokens(system)
 
   let cacheDebugCorrelation:
-    | ReturnType<typeof createCacheDebugSnapshot>
-    | undefined
+    ReturnType<typeof createCacheDebugSnapshot> | undefined
   if (CACHE_DEBUG_FULL_LOGGING) {
     try {
       cacheDebugCorrelation = createCacheDebugSnapshot({
@@ -689,6 +727,8 @@ export async function loopAgentSteps(
      * to the message history as user prompts and keep the turn going, letting a
      * host "steer" a running agent without aborting or losing the current step. */
     drainSteeringMessages?: () => string[]
+    /** Override the recovery backoff in tests or hosts with their own scheduler. */
+    waitForAgentRecovery?: (params: AgentRecoveryWaitParams) => Promise<void>
     spawnParams: Record<string, any> | undefined
     startAgentRun: StartAgentRunFn
     userId: string | undefined
@@ -1179,28 +1219,83 @@ export async function loopAgentSteps(
       const creditsBefore = currentAgentState.directCreditsUsed
       const childrenBefore = currentAgentState.childRunIds.length
       llmStepNumber++
+      let recoveryAttempt = 0
+      let stepResult: Awaited<ReturnType<typeof runAgentStep>>
+
+      while (true) {
+        try {
+          stepResult = await runAgentStep({
+            ...params,
+
+            agentState: currentAgentState,
+            agentTemplate,
+            extraCodebuffMetadata: {
+              ...(params.extraCodebuffMetadata ?? {}),
+              llm_step_number: String(llmStepNumber),
+              ...(recoveryAttempt > 0 && {
+                recovery_attempt: String(recoveryAttempt),
+              }),
+            },
+            n,
+            prompt: currentPrompt,
+            runId,
+            spawnParams: currentParams,
+            system,
+            tools,
+            additionalToolDefinitions: additionalToolDefinitionsWithCache,
+          })
+          break
+        } catch (error) {
+          const recovery = classifyAgentRecovery(error)
+          if (
+            !recovery.retryable ||
+            recoveryAttempt >= MAX_AGENT_STEP_RECOVERY_ATTEMPTS
+          ) {
+            throw error
+          }
+
+          recoveryAttempt++
+          const delayMs = getAgentRecoveryDelayMs(recoveryAttempt)
+          currentAgentState.messageHistory = [
+            ...currentAgentState.messageHistory,
+            userMessage({
+              content: withSystemTags(
+                `The previous model request encountered a transient ${recovery.kind} failure. Continue the same task from the preserved work; do not restart completed steps.`,
+              ),
+              tags: ['AGENT_RECOVERY'],
+              keepDuringTruncation: true,
+            }),
+          ]
+
+          logger.warn(
+            {
+              agentType,
+              agentId: currentAgentState.agentId,
+              runId,
+              llmStepNumber,
+              recoveryAttempt,
+              recoveryKind: recovery.kind,
+              statusCode: recovery.statusCode,
+              delayMs,
+            },
+            'Retrying failed agent step after a transient provider error',
+          )
+
+          await (params.waitForAgentRecovery ?? waitForAgentRecovery)({
+            attempt: recoveryAttempt,
+            delayMs,
+            kind: recovery.kind,
+            signal,
+          })
+        }
+      }
+
       const {
         agentState: newAgentState,
         shouldEndTurn: llmShouldEndTurn,
         messageId,
         nResponses: generatedResponses,
-      } = await runAgentStep({
-        ...params,
-
-        agentState: currentAgentState,
-        agentTemplate,
-        extraCodebuffMetadata: {
-          ...(params.extraCodebuffMetadata ?? {}),
-          llm_step_number: String(llmStepNumber),
-        },
-        n,
-        prompt: currentPrompt,
-        runId,
-        spawnParams: currentParams,
-        system,
-        tools,
-        additionalToolDefinitions: additionalToolDefinitionsWithCache,
-      })
+      } = stepResult
 
       if (newAgentState.runId) {
         await addAgentStep({
