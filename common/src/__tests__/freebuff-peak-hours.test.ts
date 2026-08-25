@@ -4,6 +4,7 @@ import {
   DEEPSEEK_EXPENSIVE_WINDOW_UTC,
   deepSeekExpensiveWindowEndsAt,
   deepseekPricingWindow,
+  isBeijingWeekend,
   isDeepSeekExpensiveWindow,
 } from '../constants/freebuff-peak-hours'
 
@@ -72,3 +73,20 @@ test.each(['2026-08-29T02:00:00Z', '2026-08-30T02:00:00Z'])(
     expect(isDeepSeekExpensiveWindow(date)).toBe(false)
   },
 )
+
+describe('the Beijing weekend shift', () => {
+  // The Beijing weekend runs Fri 16:00Z -> Sun 16:00Z, a band where every UTC
+  // hour is off-peak anyway — so the window functions cannot see the +8h shift
+  // and neither can the weekend tests above (they sit at 02:00Z, inside the
+  // agreement band of both calendars). These instants sit exactly on the four
+  // edges, where the shift and a plain getUTCDay() disagree; only the
+  // predicate itself can tell them apart.
+  test.each([
+    ['2026-08-28T15:00:00Z', false], // Fri 23:00 Beijing — last weekday hour
+    ['2026-08-28T16:00:00Z', true], // Sat 00:00 Beijing — weekend opens
+    ['2026-08-30T15:00:00Z', true], // Sun 23:00 Beijing — still weekend
+    ['2026-08-30T16:00:00Z', false], // Mon 00:00 Beijing — weekend closed
+  ])('%s is weekend=%p in Beijing', (instant, weekend) => {
+    expect(isBeijingWeekend(new Date(instant))).toBe(weekend as boolean)
+  })
+})
