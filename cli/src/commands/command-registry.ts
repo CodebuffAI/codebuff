@@ -6,6 +6,10 @@ import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
 import {
+  collectDoctorDiagnostics,
+  formatDoctorReport,
+} from './doctor'
+import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
 } from './process-diagnostics'
@@ -220,6 +224,17 @@ const ALL_COMMANDS: CommandDefinition[] = [
     handler: (params) => {
       const diagnostics = formatProcessDiagnostics(collectProcessDiagnostics())
       params.setMessages((prev) => [...prev, getSystemMessage(diagnostics)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'doctor',
+    aliases: ['health', 'check'],
+    handler: async (params) => {
+      const report = await collectDoctorDiagnostics()
+      const formatted = formatDoctorReport(report)
+      params.setMessages((prev) => [...prev, getSystemMessage(formatted)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

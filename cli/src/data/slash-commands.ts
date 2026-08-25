@@ -62,6 +62,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['diag', 'processes'],
   },
   {
+    id: 'doctor',
+    label: 'doctor',
+    description: 'Check health of local environment, dependencies and network',
+    aliases: ['health', 'check'],
+  },
+  {
     id: 'ads:enable',
     label: 'ads:enable',
     description: 'Enable contextual ads',
