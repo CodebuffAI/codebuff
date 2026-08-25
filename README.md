@@ -28,6 +28,45 @@ freebuff
 
 Then describe what you want. Freebuff finds the relevant files, makes changes, and runs the checks that matter for your project.
 
+## Install a local build
+
+The scripts in [`install/`](./install/) build the CLI from source and install it
+for the current user. They do not require administrator privileges on Linux or
+macOS.
+
+On Linux or macOS:
+
+```bash
+git clone https://github.com/CodebuffAI/freebuff.git
+cd freebuff
+bash install/install-unix.sh
+```
+
+On Windows, run [`install/install-windows.bat`](./install/install-windows.bat)
+from a Command Prompt after installing Git and Bun.
+
+The installers use `CodebuffAI/freebuff` on `main` by default. To install a
+fork or a specific branch, override the repository and branch. For example,
+this installs the recovery-retry version from a personal fork:
+
+```bash
+FREEBUFF_REPO_URL=https://github.com/viniciusdebruin/freebuff.git \
+FREEBUFF_BRANCH=contrib/engine-recovery \
+bash install/install-unix.sh
+```
+
+On Windows:
+
+```bat
+set FREEBUFF_REPO_URL=https://github.com/viniciusdebruin/freebuff.git
+set FREEBUFF_BRANCH=contrib/engine-recovery
+install\install-windows.bat
+```
+
+Run the installer again to fetch the selected branch and rebuild the local
+binary. A build made on one operating system should not be copied to another;
+build it locally on each target machine.
+
 ## Models
 
 Freebuff includes a curated model catalog. The regular picker currently offers:
