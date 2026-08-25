@@ -107,6 +107,17 @@ export function checkCommentUrl(params: {
   const post = parse(params.postUrl)
   const normalized = url.toString()
 
+  if (params.platform === 'github') {
+    // A star leaves no URL of its own — there is nothing a link can prove, so
+    // this platform is screenshot-only. An explicit branch rather than letting
+    // GitHub fall into the LinkedIn shape below, which would answer with
+    // LinkedIn's error copy for a platform that has no comments at all.
+    return {
+      ok: false,
+      reason: 'GitHub stars are proved with a screenshot, not a link.',
+    }
+  }
+
   if (params.platform === 'reddit') {
     const comment = redditIds(url)
     if (!comment.postId) {
