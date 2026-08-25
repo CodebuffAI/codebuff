@@ -25,6 +25,7 @@ import {
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
 import { logger } from '../../utils/logger'
+import { notifyTaskComplete } from '../../utils/notification'
 import { appendInterruptionNotice } from '../../utils/message-block-helpers'
 import { getUserMessage } from '../../utils/message-history'
 import {
@@ -465,6 +466,10 @@ export const handleRunCompletion = (params: {
     resumeQueue,
   })
   const timerResult = timerController.stop('success')
+
+  // Show a desktop notification on task completion so users who have
+  // muted speakers or stepped away see a visual alert (#1111).
+  notifyTaskComplete()
 
   if (agentMode === 'PLAN') {
     setHasReceivedPlanResponse(true)
