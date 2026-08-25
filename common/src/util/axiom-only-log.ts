@@ -23,6 +23,10 @@ export const ADS_FIRST_PARTY_DECISION_EVENT =
   AnalyticsEvent.ADS_FIRST_PARTY_DECISION
 export const ADS_FIRST_PARTY_SETTLEMENT_EVENT =
   AnalyticsEvent.ADS_FIRST_PARTY_SETTLEMENT
+export const ADS_FIRST_PARTY_CLICK_RECORDED_EVENT =
+  'ads.first_party_click_recorded' as const
+export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
+  'ads.first_party_impression_recorded' as const
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
@@ -133,6 +137,15 @@ const ADS_FIRST_PARTY_SETTLEMENT_FIELDS = {
   duration_ms: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
+const ADS_FIRST_PARTY_TRACKING_FIELDS = {
+  provider: 'string',
+  surface: 'string',
+  placement_id: 'string',
+  already_clicked: 'boolean',
+  impression_recorded: 'boolean',
+  pixel_count: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
 export type AxiomOnlyLogEvent = {
   event:
     | typeof CONTEXT_PRUNING_COMPLETED_EVENT
@@ -140,6 +153,8 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FETCH_COMPLETED_EVENT
     | typeof ADS_FIRST_PARTY_DECISION_EVENT
     | typeof ADS_FIRST_PARTY_SETTLEMENT_EVENT
+    | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
+    | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
   data: Record<string, string | number | boolean>
 }
 
@@ -217,6 +232,15 @@ export function getAxiomOnlyLogEvent(
         record,
         ADS_FIRST_PARTY_SETTLEMENT_FIELDS,
       ),
+    }
+  }
+  if (
+    eventName === ADS_FIRST_PARTY_CLICK_RECORDED_EVENT ||
+    eventName === ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
+  ) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, ADS_FIRST_PARTY_TRACKING_FIELDS),
     }
   }
   return null

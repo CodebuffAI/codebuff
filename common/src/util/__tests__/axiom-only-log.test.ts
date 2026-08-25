@@ -3,6 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import {
   ADS_FETCH_COMPLETED_EVENT,
   ADS_FIRST_PARTY_DECISION_EVENT,
+  ADS_FIRST_PARTY_CLICK_RECORDED_EVENT,
+  ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
@@ -271,5 +273,37 @@ describe('getAxiomOnlyLogEvent', () => {
         duration_ms: 6,
       },
     })
+  })
+
+  test('keeps first-party tracking telemetry content- and identity-free', () => {
+    for (const event of [
+      ADS_FIRST_PARTY_CLICK_RECORDED_EVENT,
+      ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
+    ]) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: event,
+          provider: 'first_party',
+          surface: 'cli_chat',
+          placement_id: 'CLI-Chat-Inline',
+          already_clicked: false,
+          pixel_count: 0,
+          userId: 'user-private',
+          ad_impression_id: 'impression-private',
+          title: 'private creative',
+          cta: 'private cta',
+          ad_url: 'https://advertiser.example/private',
+        }),
+      ).toEqual({
+        event,
+        data: {
+          provider: 'first_party',
+          surface: 'cli_chat',
+          placement_id: 'CLI-Chat-Inline',
+          already_clicked: false,
+          pixel_count: 0,
+        },
+      })
+    }
   })
 })
