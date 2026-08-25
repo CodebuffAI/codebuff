@@ -32,6 +32,17 @@ const CHAT_ADS_PATH = '/v1/ads/chat'
  *  under the browser's own patience. */
 const REQUEST_TIMEOUT_MS = 5_000
 
+/**
+ * The sandbox-key refusal below is a CONFIGURATION state, not an event: while a
+ * sandbox key is set in production it is true of every request, forever, until
+ * someone swaps the key. Logging it per call turned one wrong env var into 1.06M
+ * error rows on 2026-08-23 and 1.30M on 2026-08-24 — around 70% of all
+ * error-level ingest, which Axiom bills on — and buried every real error on the
+ * service underneath it. Say it once per process, then drop to debug: bounded by
+ * pod count instead of by traffic, and still loud enough to find.
+ */
+let sandboxRefusalLogged = false
+
 export type ImpreziaChatAdRequest = {
   /** Current user message, verbatim. */
   request: string
@@ -86,10 +97,15 @@ export async function fetchImpreziaChatAd(params: {
   // ask for it cannot tell it from a real advertiser. Asking for it by name is
   // the whole opt-in.
   if (isImpreziaSandboxKey(apiKey) && !testMode && !allowSandbox) {
-    logger.error(
+    const refusal =
       '[ads:imprezia] Refusing to serve: sandbox key in production. Swap in ' +
-        'an api_pub_prod_ key before this can fill.',
-    )
+      'an api_pub_prod_ key before this can fill.'
+    if (sandboxRefusalLogged) {
+      logger.debug(refusal)
+    } else {
+      sandboxRefusalLogged = true
+      logger.error(refusal)
+    }
     return null
   }
 
