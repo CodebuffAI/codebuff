@@ -71,10 +71,39 @@ export const ProjectFileContextSchema = z.object({
   skills: z.record(z.string(), z.any()).optional(),
   includeHomeSkills: z.boolean().optional(),
   gitChanges: z.object({
-    status: z.string(),
-    diff: z.string(),
-    diffCached: z.string(),
-    lastCommitMessages: z.string(),
+    gitAvailable: z.boolean().optional(),
+    branch: z.string().optional(),
+    changedFiles: z.array(z.string()).optional(),
+    changedFileCount: z.number().optional(),
+    changedFileScanTruncated: z.boolean().optional(),
+    repositoryVisibility: z
+      .enum(['public', 'private', 'internal', 'unknown'])
+      .optional(),
+    commitCount: z.number().optional(),
+    historyIsShallow: z.boolean().optional(),
+    commitDatePercentiles: z
+      .object({
+        p0: z.string(),
+        p25: z.string(),
+        p50: z.string(),
+        p75: z.string(),
+        p100: z.string(),
+      })
+      .optional(),
+    mergedPullRequestCount: z.number().optional(),
+    humanContributorCount: z.number().optional(),
+    botContributorCount: z.number().optional(),
+    historyScanTruncated: z.boolean().optional(),
+    // Legacy field retained so stored run states from older clients parse.
+    contributorCount: z.number().optional(),
+    fileCount: z.number().optional(),
+    fileCountIsLowerBound: z.boolean().optional(),
+    testFileCount: z.number().optional(),
+    // Legacy fields retained so stored run states from older clients parse.
+    status: z.string().optional(),
+    diff: z.string().optional(),
+    diffCached: z.string().optional(),
+    lastCommitMessages: z.string().optional(),
   }),
   changesSinceLastChat: z.record(z.string(), z.string()),
   shellConfigFiles: z.record(z.string(), z.string()),
@@ -110,10 +139,35 @@ export type ProjectFileContext = {
    */
   includeHomeSkills?: boolean
   gitChanges: {
-    status: string
-    diff: string
-    diffCached: string
-    lastCommitMessages: string
+    gitAvailable?: boolean
+    branch?: string
+    changedFiles?: string[]
+    changedFileCount?: number
+    changedFileScanTruncated?: boolean
+    repositoryVisibility?: 'public' | 'private' | 'internal' | 'unknown'
+    commitCount?: number
+    historyIsShallow?: boolean
+    commitDatePercentiles?: {
+      p0: string
+      p25: string
+      p50: string
+      p75: string
+      p100: string
+    }
+    mergedPullRequestCount?: number
+    humanContributorCount?: number
+    botContributorCount?: number
+    historyScanTruncated?: boolean
+    /** Legacy field present in run states created before bot separation. */
+    contributorCount?: number
+    fileCount?: number
+    fileCountIsLowerBound?: boolean
+    testFileCount?: number
+    /** Legacy fields present in run states created before repository summaries. */
+    status?: string
+    diff?: string
+    diffCached?: string
+    lastCommitMessages?: string
   }
   changesSinceLastChat: Record<string, string>
   shellConfigFiles: Record<string, string>
@@ -155,10 +209,12 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
   customToolDefinitions: {},
   skills: {},
   gitChanges: {
-    status: '',
-    diff: '',
-    diffCached: '',
-    lastCommitMessages: '',
+    gitAvailable: false,
+    changedFiles: [],
+    changedFileCount: 0,
+    repositoryVisibility: 'unknown',
+    fileCount: 0,
+    testFileCount: 0,
   },
   changesSinceLastChat: {},
   shellConfigFiles: {},

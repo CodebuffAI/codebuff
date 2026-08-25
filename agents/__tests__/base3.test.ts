@@ -87,6 +87,9 @@ describe('base3 CLI roots', () => {
     // requires a canonical opening at byte 0, so prepending 403s every turn.
     for (const agent of CLI_ROOTS) {
       expect(hasFreebuffRootSystemPromptOpening(agent.systemPrompt!)).toBe(true)
+      expect(
+        agent.systemPrompt!.match(/\{CODEBUFF_GIT_CHANGES_PROMPT\}/g),
+      ).toHaveLength(1)
     }
   })
 
