@@ -74,6 +74,8 @@ export interface FreebuffSubscriptionTierOffer {
   dailySessions: number
   fiveDaySessions: number
   monthlySessions: number
+  /** Provider-spend ceiling per billing period, USD. Subject to change. */
+  monthlySpendLimitUsd: number
   dailyPremiumSessions: number
   /** Plain-language constraints for the plan card and the paywall. */
   disclaimers: string[]
@@ -107,6 +109,9 @@ export interface FreebuffSubscriptionUsage {
   dayResetAt: string
   /** ISO instant the billing period ends, i.e. when the monthly cap resets. */
   periodEndsAt: string
+  /** Provider spend this billing period vs the tier's ceiling, USD. */
+  monthSpendUsd: number
+  monthSpendLimitUsd: number
 }
 
 /**
@@ -138,7 +143,13 @@ export interface FreebuffSubscriptionInfo {
    * ones are still usable today, and the client should say so rather than
    * implying the whole plan is spent.
    */
-  blockedBy?: 'daily' | 'five_day' | 'monthly' | 'premium_daily'
+  blockedBy?:
+    | 'daily'
+    | 'five_day'
+    | 'monthly'
+    | 'premium_daily'
+    /** The tier's dollar ceiling for the period is spent. */
+    | 'monthly_spend'
 }
 
 export interface FreebuffSessionRateLimit {
