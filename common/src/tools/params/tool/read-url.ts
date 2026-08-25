@@ -75,6 +75,8 @@ export const readUrlParams = {
       z.object({
         url: z.string().optional(),
         errorMessage: z.string(),
+        errorCode: z.string().optional(),
+        status: z.number().optional(),
       }),
     ]),
   ),

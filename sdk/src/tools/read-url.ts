@@ -16,11 +16,37 @@ type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>
 
+export type ReadUrlErrorCode =
+  | 'INVALID_URL'
+  | 'BLOCKED_ADDRESS'
+  | 'HTTP_ERROR'
+  | 'TOO_MANY_REDIRECTS'
+  | 'UNSUPPORTED_CONTENT_TYPE'
+  | 'RESPONSE_TOO_LARGE'
+  | 'TIMEOUT'
+  | 'ABORTED'
+  | 'NO_READABLE_TEXT'
+  | 'FETCH_ERROR'
+
 function errorResult(
   url: string | undefined,
   errorMessage: string,
+  options?: {
+    errorCode?: ReadUrlErrorCode
+    status?: number
+  },
 ): ReadUrlOutput {
-  return [{ type: 'json', value: { ...(url ? { url } : {}), errorMessage } }]
+  return [
+    {
+      type: 'json',
+      value: {
+        ...(url ? { url } : {}),
+        errorMessage,
+        ...(options?.errorCode ? { errorCode: options.errorCode } : {}),
+        ...(options?.status !== undefined ? { status: options.status } : {}),
+      },
+    },
+  ]
 }
 
 function getHeader(headers: Headers, name: string): string | undefined {
@@ -174,6 +200,41 @@ function extractMetaContent(html: string, name: string): string | undefined {
   return undefined
 }
 
+function formatHtmlTables(html: string): string {
+  return html.replace(
+    /<table\b[^>]*>([\s\S]*?)<\/table>/gi,
+    (_, tableContent: string) => {
+      const rows = Array.from(
+        tableContent.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi),
+        (m) => m[1],
+      )
+      if (rows.length === 0) return tableContent
+
+      const formattedRows: string[] = []
+      let isFirstRow = true
+
+      for (const row of rows) {
+        const cells = Array.from(
+          row.matchAll(/<(th|td)\b[^>]*>([\s\S]*?)<\/\1>/gi),
+          (m) => normalizeText(decodeHtmlEntities(stripTags(m[2]))),
+        )
+        if (cells.length === 0) continue
+
+        formattedRows.push(`| ${cells.join(' | ')} |`)
+
+        if (isFirstRow) {
+          isFirstRow = false
+          formattedRows.push(`| ${cells.map(() => '---').join(' | ')} |`)
+        }
+      }
+
+      return formattedRows.length > 0
+        ? `\n\n${formattedRows.join('\n')}\n\n`
+        : tableContent
+    },
+  )
+}
+
 function extractHtml(html: string): {
   title?: string
   description?: string
@@ -206,6 +267,7 @@ function extractHtml(html: string): {
   }
 
   readable = selectReadableHtml(readable)
+  readable = formatHtmlTables(readable)
 
   readable = readable
     .replace(/<br\s*\/?>/gi, '\n')
@@ -345,14 +407,16 @@ export async function readUrl({
   signal?: AbortSignal
 }): Promise<ReadUrlOutput> {
   if (signal?.aborted) {
-    return errorResult(url, 'Cancelled: the run was aborted by the user.')
+    return errorResult(url, 'Cancelled: the run was aborted by the user.', {
+      errorCode: 'ABORTED',
+    })
   }
 
   let parsedUrl: URL
   try {
     parsedUrl = new URL(url)
   } catch {
-    return errorResult(url, 'Invalid URL')
+    return errorResult(url, 'Invalid URL', { errorCode: 'INVALID_URL' })
   }
 
   const controller = new AbortController()
@@ -375,10 +439,14 @@ export async function readUrl({
         // are still blocked.
         await assertUrlAllowed(currentUrl, { lookupHost, resolveDns })
       } catch (error) {
-        return errorResult(
-          url,
-          error instanceof Error ? error.message : 'Blocked URL',
-        )
+        const errorMsg =
+          error instanceof Error ? error.message : 'Blocked URL'
+        const isInvalid =
+          error instanceof Error &&
+          error.message.includes('Only http:// and https:// URLs are supported')
+        return errorResult(url, errorMsg, {
+          errorCode: isInvalid ? 'INVALID_URL' : 'BLOCKED_ADDRESS',
+        })
       }
 
       response = await fetchImpl(currentUrl.toString(), {
@@ -401,12 +469,18 @@ export async function readUrl({
         break
       }
       if (redirects >= MAX_REDIRECTS) {
-        return errorResult(url, `Too many redirects (>${MAX_REDIRECTS})`)
+        return errorResult(url, `Too many redirects (>${MAX_REDIRECTS})`, {
+          errorCode: 'TOO_MANY_REDIRECTS',
+        })
       }
       try {
         currentUrl = new URL(location, currentUrl)
       } catch {
-        return errorResult(url, `Invalid redirect location: ${location}`)
+        return errorResult(
+          url,
+          `Invalid redirect location: ${location}`,
+          { errorCode: 'INVALID_URL' },
+        )
       }
     }
 
@@ -414,6 +488,7 @@ export async function readUrl({
       return errorResult(
         url,
         `Failed to fetch URL: ${response.status} ${response.statusText}`,
+        { errorCode: 'HTTP_ERROR', status: response.status },
       )
     }
 
@@ -422,6 +497,7 @@ export async function readUrl({
       return errorResult(
         url,
         `Unsupported content type: ${contentType || 'unknown'}`,
+        { errorCode: 'UNSUPPORTED_CONTENT_TYPE', status: response.status },
       )
     }
 
@@ -430,7 +506,10 @@ export async function readUrl({
     const truncated = truncateText(extracted.text, max_chars)
 
     if (!truncated.text) {
-      return errorResult(url, 'No readable text found at URL')
+      return errorResult(url, 'No readable text found at URL', {
+        errorCode: 'NO_READABLE_TEXT',
+        status: response.status,
+      })
     }
 
     return [
@@ -452,6 +531,10 @@ export async function readUrl({
     ]
   } catch (error) {
     const isAbort = error instanceof Error && error.name === 'AbortError'
+    const isTooLarge =
+      error instanceof Error &&
+      (error.message.includes('Response is too large') ||
+        error.message.includes('Response exceeded'))
     return errorResult(
       url,
       isAbort
@@ -461,6 +544,15 @@ export async function readUrl({
         : error instanceof Error
           ? error.message
           : 'Unknown error',
+      {
+        errorCode: isAbort
+          ? signal?.aborted
+            ? 'ABORTED'
+            : 'TIMEOUT'
+          : isTooLarge
+            ? 'RESPONSE_TOO_LARGE'
+            : 'FETCH_ERROR',
+      },
     )
   } finally {
     clearTimeout(timeout)

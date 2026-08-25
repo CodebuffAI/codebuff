@@ -122,6 +122,45 @@ describe('readUrl', () => {
     expect(result.text).toContain('Bad entity: &#9999999999;')
   })
 
+  it('extracts HTML tables into structured markdown tables', async () => {
+    const result = await successValue(`
+      <main>
+        <article>
+          <h1>API Parameters</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>url</code></td>
+                <td>string</td>
+                <td>The web URL to fetch</td>
+              </tr>
+              <tr>
+                <td><code>max_chars</code></td>
+                <td>number</td>
+                <td>Maximum characters to return</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+      </main>
+    `)
+
+    expect('errorMessage' in result).toBe(false)
+    if ('errorMessage' in result) return
+
+    expect(result.text).toContain('| Parameter | Type | Description |')
+    expect(result.text).toContain('| --- | --- | --- |')
+    expect(result.text).toContain('| url | string | The web URL to fetch |')
+    expect(result.text).toContain('| max_chars | number | Maximum characters to return |')
+  })
+
   it('rejects non-http URLs', async () => {
     const result = await readUrl({
       url: 'file:///etc/passwd',
@@ -133,6 +172,7 @@ describe('readUrl', () => {
     expect(result[0].value).toEqual({
       url: 'file:///etc/passwd',
       errorMessage: 'Only http:// and https:// URLs are supported',
+      errorCode: 'INVALID_URL',
     })
   })
 
@@ -267,6 +307,7 @@ describe('readUrl SSRF protection', () => {
       url: 'http://169.254.169.254/latest/meta-data/',
       errorMessage:
         'Refusing to fetch private or reserved address: 169.254.169.254',
+      errorCode: 'BLOCKED_ADDRESS',
     })
   })
 
@@ -284,6 +325,7 @@ describe('readUrl SSRF protection', () => {
       url: 'http://intranet.example.com/secrets',
       errorMessage:
         'Host "intranet.example.com" resolves to a private or reserved address (10.0.0.5)',
+      errorCode: 'BLOCKED_ADDRESS',
     })
   })
 
@@ -326,6 +368,7 @@ describe('readUrl SSRF protection', () => {
       url: 'https://public.example.com/start',
       errorMessage:
         'Refusing to fetch private or reserved address: 169.254.169.254',
+      errorCode: 'BLOCKED_ADDRESS',
     })
   })
 
@@ -349,6 +392,7 @@ describe('readUrl SSRF protection', () => {
     expect(result[0].value).toEqual({
       url: 'https://example.com/loop',
       errorMessage: 'Too many redirects (>5)',
+      errorCode: 'TOO_MANY_REDIRECTS',
     })
   })
 
@@ -367,6 +411,59 @@ describe('readUrl SSRF protection', () => {
     expect(result[0].value).toEqual({
       url: 'https://example.com/start',
       errorMessage: 'Invalid redirect location: http://',
+      errorCode: 'INVALID_URL',
+    })
+  })
+
+  it('returns HTTP_ERROR and status code for 404 and 429 responses', async () => {
+    const notFoundResult = await readUrl({
+      url: 'https://example.com/not-found',
+      fetch: async () =>
+        new Response('Not Found', {
+          status: 404,
+          statusText: 'Not Found',
+        }),
+    })
+
+    expect(notFoundResult[0].value).toEqual({
+      url: 'https://example.com/not-found',
+      errorMessage: 'Failed to fetch URL: 404 Not Found',
+      errorCode: 'HTTP_ERROR',
+      status: 404,
+    })
+
+    const rateLimitedResult = await readUrl({
+      url: 'https://example.com/api',
+      fetch: async () =>
+        new Response('Too Many Requests', {
+          status: 429,
+          statusText: 'Too Many Requests',
+        }),
+    })
+
+    expect(rateLimitedResult[0].value).toEqual({
+      url: 'https://example.com/api',
+      errorMessage: 'Failed to fetch URL: 429 Too Many Requests',
+      errorCode: 'HTTP_ERROR',
+      status: 429,
+    })
+  })
+
+  it('returns UNSUPPORTED_CONTENT_TYPE for binary payloads', async () => {
+    const binaryResult = await readUrl({
+      url: 'https://example.com/image.png',
+      fetch: async () =>
+        new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+        }),
+    })
+
+    expect(binaryResult[0].value).toEqual({
+      url: 'https://example.com/image.png',
+      errorMessage: 'Unsupported content type: image/png',
+      errorCode: 'UNSUPPORTED_CONTENT_TYPE',
+      status: 200,
     })
   })
 })
