@@ -9,11 +9,64 @@ import {
   getAdDisplayLabel,
   getCardAdLayout,
   getInlineAdLayout,
+  orderedRequestedAds,
 } from '../ad-banner'
 import { initializeThemeStore } from '../../hooks/use-theme'
 
 beforeAll(() => {
   initializeThemeStore()
+})
+
+describe('requested waiting-room ads', () => {
+  test('mount order follows the canonical request and excludes duplicates/unrequested ads', () => {
+    const ads = [
+      {
+        placementId: 'waiting-room-2',
+        impUrl: 'two',
+        adText: '',
+        title: '',
+        cta: '',
+        url: '',
+        favicon: '',
+        clickUrl: '',
+      },
+      {
+        placementId: 'waiting-room-1',
+        impUrl: 'one',
+        adText: '',
+        title: '',
+        cta: '',
+        url: '',
+        favicon: '',
+        clickUrl: '',
+      },
+      {
+        placementId: 'waiting-room-1',
+        impUrl: 'duplicate',
+        adText: '',
+        title: '',
+        cta: '',
+        url: '',
+        favicon: '',
+        clickUrl: '',
+      },
+      {
+        placementId: 'waiting-room-4',
+        impUrl: 'hidden',
+        adText: '',
+        title: '',
+        cta: '',
+        url: '',
+        favicon: '',
+        clickUrl: '',
+      },
+    ]
+    expect(
+      orderedRequestedAds(ads, ['waiting-room-1', 'waiting-room-2']).map(
+        (ad) => ad.impUrl,
+      ),
+    ).toEqual(['one', 'two'])
+  })
 })
 
 describe('card ad layout', () => {
@@ -169,6 +222,31 @@ describe('card ad render', () => {
 
   test('still discloses itself as an ad', async () => {
     expect(await renderCard({})).toContain('Ad')
+  })
+
+  test('reports presentation only after the card mounts', async () => {
+    const presented: string[] = []
+    const setup = await createTestRenderer({
+      width: 78,
+      height: AD_CARD_HEIGHT,
+    })
+    const root = createRoot(setup.renderer)
+    const mountedAd = { ...ad, provider: 'first_party' as const }
+
+    flushSync(() => {
+      root.render(
+        <AdCard
+          ad={mountedAd}
+          width={78}
+          onImpression={(presentedAd) => presented.push(presentedAd.impUrl)}
+        />,
+      )
+    })
+    await setup.renderOnce()
+    expect(presented).toEqual(['imp-1'])
+
+    flushSync(() => root.unmount())
+    setup.renderer.destroy()
   })
 
   test('does not print the headline twice when there is no CTA', async () => {

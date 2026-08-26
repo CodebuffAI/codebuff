@@ -6,6 +6,7 @@ import {
   ADS_FIRST_PARTY_CLICK_RECORDED_EVENT,
   ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
+  ADS_FIRST_PARTY_VIEW_ACK_EVENT,
   ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
@@ -310,6 +311,70 @@ describe('getAxiomOnlyLogEvent', () => {
         },
       })
     }
+  })
+
+  test('accepts only the exact bounded first-party view acknowledgement schema', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+        surface: 'waiting_room',
+        placement_id: 'waiting-room-1',
+        outcome: 'accepted',
+        attempt: 1,
+        duration_ms: 250,
+        client_family: 'cli',
+      }),
+    ).toEqual({
+      event: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+      data: {
+        surface: 'waiting_room',
+        placement_id: 'waiting-room-1',
+        outcome: 'accepted',
+        attempt: 1,
+        duration_ms: 250,
+        client_family: 'cli',
+      },
+    })
+  })
+
+  test('rejects malformed or private first-party view acknowledgement payloads', () => {
+    const valid = {
+      surface: 'cli_chat',
+      placement_id: 'CLI-Chat-Inline',
+      outcome: 'network_error',
+      attempt: 3,
+      duration_ms: 1,
+      client_family: 'desktop',
+    }
+    const invalid = [
+      { ...valid, impression_token: 'private-token' },
+      { ...valid, error: { message: 'private raw error' } },
+      { ...valid, url: 'https://private.example' },
+      { ...valid, placement_id: 'unknown-slot' },
+      { ...valid, surface: 'waiting_room' },
+      { ...valid, outcome: 'retrying' },
+      { ...valid, attempt: 0 },
+      { ...valid, attempt: 4 },
+      { ...valid, attempt: 1.5 },
+      { ...valid, duration_ms: Number.POSITIVE_INFINITY },
+      { ...valid, duration_ms: -1 },
+      { ...valid, duration_ms: 10_001 },
+      { ...valid, client_family: 'mobile' },
+    ]
+    for (const payload of invalid) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+          ...payload,
+        }),
+      ).toBeNull()
+    }
+    expect(getAxiomOnlyLogEvent(valid, ADS_FIRST_PARTY_VIEW_ACK_EVENT)).toEqual(
+      {
+        event: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+        data: valid,
+      },
+    )
   })
 
   test('keeps external conversion postbacks content- and identifier-free', () => {

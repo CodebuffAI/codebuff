@@ -1,4 +1,20 @@
 import { AnalyticsEvent } from '../constants/analytics-events'
+import { PLACEMENT_SLOTS } from '../constants/freebuff-placements'
+import {
+  FIRST_PARTY_VIEW_ACK_CLIENT_FAMILIES,
+  FIRST_PARTY_VIEW_ACK_MAX_DURATION_MS,
+  FIRST_PARTY_VIEW_ACK_OUTCOMES,
+  type FirstPartyViewAckClientFamily,
+  type FirstPartyViewAckObservation,
+  type FirstPartyViewAckOutcome,
+} from '../ads/first-party-view-ack'
+
+export {
+  FIRST_PARTY_VIEW_ACK_CLIENT_FAMILIES,
+  FIRST_PARTY_VIEW_ACK_OUTCOMES,
+  type FirstPartyViewAckClientFamily,
+  type FirstPartyViewAckOutcome,
+}
 
 /**
  * Operational events that belong in Axiom but not in product analytics.
@@ -23,6 +39,8 @@ export const ADS_FIRST_PARTY_DECISION_EVENT =
   AnalyticsEvent.ADS_FIRST_PARTY_DECISION
 export const ADS_FIRST_PARTY_SETTLEMENT_EVENT =
   AnalyticsEvent.ADS_FIRST_PARTY_SETTLEMENT
+export const ADS_FIRST_PARTY_VIEW_ACK_EVENT =
+  AnalyticsEvent.ADS_FIRST_PARTY_VIEW_ACK
 export const ADS_FIRST_PARTY_CLICK_RECORDED_EVENT =
   'ads.first_party_click_recorded' as const
 export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
@@ -155,6 +173,89 @@ const ADS_FIRST_PARTY_TRACKING_FIELDS = {
   pixel_count: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
+/**
+ * A client attempt to acknowledge a first-party unit it mounted. This is an
+ * operational transport census, never an attribution record: opaque tokens,
+ * identifiers, URLs, bodies, and raw errors are rejected rather than redacted.
+ */
+export type FirstPartyViewAckTelemetry = FirstPartyViewAckObservation
+
+const FIRST_PARTY_VIEW_ACK_FIELDS = [
+  'surface',
+  'placement_id',
+  'outcome',
+  'attempt',
+  'duration_ms',
+  'client_family',
+] as const
+
+const FIRST_PARTY_VIEW_ACK_PLACEMENTS = new Map<string, string>(
+  PLACEMENT_SLOTS.map((slot) => [slot.id, slot.surface]),
+)
+
+/**
+ * Validate the only telemetry payload a client may send for view
+ * acknowledgement. Returning null rejects the entire event: dropping an
+ * unsafe field but retaining the count would make malformed client input look
+ * like a real rendering signal.
+ */
+export function createFirstPartyViewAckTelemetry(
+  input: unknown,
+): FirstPartyViewAckTelemetry | null {
+  if (input == null || typeof input !== 'object' || Array.isArray(input)) {
+    return null
+  }
+  const record = input as Record<string, unknown>
+  const keys = Object.keys(record)
+  if (
+    keys.length !== FIRST_PARTY_VIEW_ACK_FIELDS.length ||
+    keys.some(
+      (key) =>
+        !FIRST_PARTY_VIEW_ACK_FIELDS.includes(
+          key as (typeof FIRST_PARTY_VIEW_ACK_FIELDS)[number],
+        ),
+    )
+  ) {
+    return null
+  }
+
+  const surface = record.surface
+  const placementId = record.placement_id
+  const outcome = record.outcome
+  const attempt = record.attempt
+  const durationMs = record.duration_ms
+  const clientFamily = record.client_family
+  if (
+    typeof surface !== 'string' ||
+    typeof placementId !== 'string' ||
+    FIRST_PARTY_VIEW_ACK_PLACEMENTS.get(placementId) !== surface ||
+    !FIRST_PARTY_VIEW_ACK_OUTCOMES.includes(
+      outcome as FirstPartyViewAckOutcome,
+    ) ||
+    typeof attempt !== 'number' ||
+    !Number.isInteger(attempt) ||
+    attempt < 1 ||
+    attempt > 3 ||
+    typeof durationMs !== 'number' ||
+    !Number.isFinite(durationMs) ||
+    durationMs < 0 ||
+    durationMs > FIRST_PARTY_VIEW_ACK_MAX_DURATION_MS ||
+    !FIRST_PARTY_VIEW_ACK_CLIENT_FAMILIES.includes(
+      clientFamily as FirstPartyViewAckClientFamily,
+    )
+  ) {
+    return null
+  }
+  return {
+    surface,
+    placement_id: placementId,
+    outcome: outcome as FirstPartyViewAckOutcome,
+    attempt: attempt as 1 | 2 | 3,
+    duration_ms: durationMs,
+    client_family: clientFamily as FirstPartyViewAckClientFamily,
+  }
+}
+
 /** Keep the advertiser postback stream safe to aggregate. In particular this
  * must not grow into an attribution/debugging record: the database owns that
  * drill-down and Axiom receives only bounded operational dimensions. */
@@ -176,6 +277,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FETCH_COMPLETED_EVENT
     | typeof ADS_FIRST_PARTY_DECISION_EVENT
     | typeof ADS_FIRST_PARTY_SETTLEMENT_EVENT
+    | typeof ADS_FIRST_PARTY_VIEW_ACK_EVENT
     | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
     | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
     | typeof ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT
@@ -257,6 +359,12 @@ export function getAxiomOnlyLogEvent(
         ADS_FIRST_PARTY_SETTLEMENT_FIELDS,
       ),
     }
+  }
+  if (eventName === ADS_FIRST_PARTY_VIEW_ACK_EVENT) {
+    // `axiomEvent` is the in-process marker only; it is not telemetry data.
+    const { axiomEvent: _axiomEvent, ...payload } = record
+    const telemetry = createFirstPartyViewAckTelemetry(payload)
+    return telemetry ? { event: eventName, data: { ...telemetry } } : null
   }
   if (
     eventName === ADS_FIRST_PARTY_CLICK_RECORDED_EVENT ||
