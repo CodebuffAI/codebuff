@@ -45,8 +45,21 @@ export type AgentState = {
     { description: string | undefined; inputSchema: {} }
   >
   /**
-   * The accurate token count from the Anthropic API.
-   * This is updated on every agent step via the /api/v1/token-count endpoint.
+   * Estimated size of the next prompt: message history + system prompt + tool
+   * schemas, counted locally with a GPT-4o BPE tokenizer.
+   *
+   * NOT a provider's number. The round trip that used to make it
+   * Anthropic-exact was deleted (run-agent-step.ts, "Always count locally")
+   * because it added seconds of serial overhead per step and nothing left needs
+   * a provider-exact count: the context-limit check only needs an estimate, and
+   * counting models that have their own tokenizers with this one biases the
+   * estimate low — headroom contextPrunerBudgetForModel absorbs deliberately.
+   *
+   * Updated on every agent step before the model call, again after a mechanical
+   * compaction rewrites the history, and once more when the turn ends so the
+   * final value covers the last step's output rather than stopping short of it.
+   * That last recount is for root agents only: a subagent's final count is
+   * discarded with the subagent, and counting it is pure tokenizer cost.
    */
   contextTokenCount: number
 }

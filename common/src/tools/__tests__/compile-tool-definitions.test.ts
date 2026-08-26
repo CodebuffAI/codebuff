@@ -12,7 +12,7 @@ describe('compileToolDefinitions', () => {
     expect(definitions).toContain('export interface GravityIndexParams {')
     expect(definitions).not.toContain('export type GravityIndexParams =')
     expect(definitions).toContain(
-      '"action": "search" | "browse" | "list_categories" | "get_service" | "report_integration"',
+      '"action": "search" | "browse" | "list_categories" | "get_service" | "provision" | "report_integration"',
     )
   })
 

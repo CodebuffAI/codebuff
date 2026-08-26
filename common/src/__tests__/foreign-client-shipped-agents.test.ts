@@ -165,7 +165,7 @@ describe('no shipped freebuff agent is flagged as a foreign client', () => {
 
   test.each([
     ['researcher-web', 'agents/researcher/researcher-web.ts'],
-    ['desktop autorun', 'freebuff-desktop/src/server/services/autorun.ts'],
+    ['desktop mission', 'freebuff-desktop/src/server/services/mission.ts'],
     ['glob-matcher', 'agents/file-explorer/glob-matcher.ts'],
   ])('still covers %s, which the scan must not silently drop', (_name, path) => {
     // The first two are the agents this test exists because of. The third has

@@ -1,77 +1,89 @@
+import { FREEBUFF_TIER_CHANGE_NOTICE } from '../util/freebuff-model-availability'
 import { describe, expect, test } from 'bun:test'
 
+import { isFreeModeAllowedAgentModel } from '../constants/free-agents'
 import {
-  canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
   DEFAULT_FREEBUFF_WEB_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DESKTOP_SESSION_LIMITS,
-  FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
+  FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_IDS,
+  FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE,
   FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MODELS,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
-  getFreebuffModelReasoningEffort,
+  FREEBUFF_OX_ALPHA_MODEL_ID,
+  FREEBUFF_PER_MODEL_SESSION_CAPS,
+  FREEBUFF_STANDARD_MODEL_IDS,
+  FREEBUFF_WEB_ALL_MODELS,
+  FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS,
+  FREEBUFF_WEB_GOD_ONLY_MODELS,
+  FREEBUFF_WEB_MODELS,
+  FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS,
+  LIMITED_FREEBUFF_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_IDS,
   MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID,
   MUSE_SPARK_FALLBACK_AFTER_MS,
   MUSE_SPARK_FALLBACK_MODEL_ID,
   MUSE_SPARK_FALLBACK_NOTICE,
-  isMuseSparkModelId,
-  LIMITED_FREEBUFF_MODEL_ID,
-  LIMITED_FREEBUFF_MODEL_IDS,
-  FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MODELS,
-  FREEBUFF_WEB_GOD_ONLY_MODELS,
-  FREEBUFF_WEB_ALL_MODELS,
-  FREEBUFF_WEB_MODELS,
-  FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS,
-  FREEBUFF_WEB_STANDARD_MODEL_IDS,
   SUPPORTED_FREEBUFF_MODELS,
+  canFreebuffModelSpawnGeminiThinker,
+  freebuffWithdrawnModelMessage,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffDesktopSessionBucket,
   getFreebuffModel,
   getFreebuffModelImageSupport,
-  getFreebuffWebModel,
+  getFreebuffModelReasoningEffort,
+  getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
+  getFreebuffPerModelSessionCap,
+  getFreebuffWebModel,
   getRecommendedFreebuffModelId,
   getRecommendedFreebuffWebModelId,
-  isFreebuffWebDeemphasizedModelId,
   isFreebuffDeploymentHours,
   isFreebuffGlmV52ModelId,
   isFreebuffGpt56LunaModelId,
   isFreebuffLimitedOfferModelId,
-  isFreebuffSessionModelAllowedForAccessTier,
-  isFreebuffSessionModelAvailable,
-  isFreebuffTracedModelId,
-  isFreebuffWebGeoExemptModelId,
-  isFreebuffWebSelectableModelId,
+  isFreebuffModelAllowedForAccessTier,
   isFreebuffModelId,
   isFreebuffMultimodalModelId,
-  isFreebuffModelAllowedForAccessTier,
+  isFreebuffPausedFreeModelId,
   isFreebuffPremiumModelId,
+  isFreebuffSessionModelAllowedForAccessTier,
+  isFreebuffSessionModelAvailable,
+  freebuffModelUnavailableWindow,
+  FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+  isFreebuffSessionModelId,
+  isFreebuffTracedModelId,
+  isFreebuffWebDeemphasizedModelId,
+  isFreebuffWebGeoExemptModelId,
   isFreebuffWebGodOnlyModelId,
-  isFreebuffWebRememberableModelId,
   isFreebuffWebModelAllowedForLimitedTier,
   isFreebuffWebModelId,
   isFreebuffWebMultimodalModelId,
   isFreebuffWebPremiumModelId,
-  resolveRememberedFreebuffWebModel,
+  isFreebuffWebRememberableModelId,
+  isFreebuffWebSelectableModelId,
+  isMuseSparkModelId,
   isSupportedFreebuffModelId,
-  isFreebuffSessionModelId,
-  resolveFreebuffWebModel,
-  resolveFreebuffWebModelForLimitedTier,
+  migrateSupersededFreebuffModelPreference,
+  resolveAvailableFreebuffModel,
   resolveFreebuffModelForAccessTier,
   resolveFreebuffSessionModelForAccessTier,
-  getFreebuffModelSupersededBy,
-  migrateSupersededFreebuffModelPreference,
+  resolveFreebuffWebModel,
+  resolveFreebuffWebModelForLimitedTier,
+  resolveRememberedFreebuffWebModel,
 } from '../constants/freebuff-models'
 import type { FreebuffModelOption } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
@@ -86,31 +98,70 @@ const FREEBUFF_CROF_GLM_V52_MODEL_ID = 'crof/glm-5.2'
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('freebuff model availability', () => {
-  test('defaults to V4 Pro and falls back to V4 Flash for new clients', () => {
-    // The two constants answer different questions, and since the CLI/Desktop
-    // default moved to the premium V4 Pro 08/13 GA build (2026-08-12) they name
-    // different models again: the default is what we RECOMMEND, the fallback is
-    // what is always joinable when the premium pool is spent.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    // The default is premium, so every surface that offers it has to know the
-    // live quota — that is the whole reason the fallback exists separately.
+  test('the default is joinable at every hour; the fallback is unlimited', () => {
+    // The two constants answer different questions: the default is the STARTING
+    // pick (not a recommendation — nothing is badged), the fallback is what is
+    // always joinable when the premium pool is spent. Pro holds the first since
+    // 2026-08-21 and MiMo the second since Flash became premium (2026-08-18).
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+
+    // Luna since 2026-08-24. Flash closed for the peak window again once Pro
+    // stopped being the peak-closed row, and a default cannot be dark for ten
+    // hours a day -- so the default moved to the cheapest row that is open at
+    // every hour. Measured inside the window: Luna $0.002659/msg against Pro's
+    // $0.005731 and Flash-at-peak's $0.005621.
+    //
+    // THE invariant that moved the default off Flash. A default is what a new
+    // user lands on before they know the catalog exists, so it must be open at
+    // every hour — and Flash now closes for the ten-hour peak window. Asserted
+    // at both ends of that window rather than at "now", or the test passes or
+    // fails depending on what time CI runs.
+    expect(
+      isFreebuffSessionModelAvailable(
+        DEFAULT_FREEBUFF_MODEL_ID,
+        new Date('2026-08-21T02:00:00Z'),
+      ),
+    ).toBe(true)
+    expect(
+      isFreebuffSessionModelAvailable(
+        DEFAULT_FREEBUFF_MODEL_ID,
+        new Date('2026-08-21T12:00:00Z'),
+      ),
+    ).toBe(true)
+
+    // The default may be premium — it steps down when the pool is spent — but
+    // it must NOT carry a per-model ceiling, which would cap the starting pick
+    // at a couple of hours. That ceiling is Luna's alone.
+    expect(
+      Boolean(getFreebuffPerModelSessionCap(DEFAULT_FREEBUFF_MODEL_ID)),
+    ).toBe(false)
+    expect(
+      Boolean(getFreebuffPerModelSessionCap(FALLBACK_FREEBUFF_MODEL_ID)),
+    ).toBe(false)
+
+    // The fallback being NON-premium is the load-bearing half: it is where every
+    // surface steps down when the pool is spent, so a premium value here would
+    // step users onto a model that fails admission for exactly the users it was
+    // meant to rescue.
     expect(isFreebuffPremiumModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(true)
     expect(isFreebuffPremiumModelId(FALLBACK_FREEBUFF_MODEL_ID)).toBe(false)
   })
 
   test('desktop concurrency splits full access into 1 premium and 3 unlimited sessions', () => {
-    expect(
-      getFreebuffDesktopSessionBucket(
-        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-        'full',
-      ),
-    ).toBe('premium')
+    // Flash moved BACK to the unlimited bucket on 2026-08-24 (3 tabs, not 1),
+    // automatically, since the bucket list is a superset of the premium ids.
+    // That is a wanted consequence rather than a side effect: the point of
+    // unmetering Flash is to put more concurrent sessions on the Luminal lane,
+    // and desktop tabs are where that concurrency comes from.
     expect(
       getFreebuffDesktopSessionBucket(
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
         'full',
       ),
+    ).toBe('unlimited')
+    expect(
+      getFreebuffDesktopSessionBucket(FREEBUFF_MIMO_V25_MODEL_ID, 'full'),
     ).toBe('unlimited')
     expect(FREEBUFF_DESKTOP_SESSION_LIMITS).toEqual({
       premium: 1,
@@ -124,8 +175,11 @@ describe('freebuff model availability', () => {
     ).toBe('premium')
   })
 
-  test('DeepSeek Pro carries the AI-training warning before selection', () => {
-    const deepseek = FREEBUFF_MODELS.find(
+  test('DeepSeek Pro keeps its AI-training warning while paused', () => {
+    // Not in FREEBUFF_MODELS any more — paused models stay in SUPPORTED so the
+    // server can recognise and coerce them, and a row support can still look up
+    // has to keep its disclosure.
+    const deepseek = SUPPORTED_FREEBUFF_MODELS.find(
       (m) => m.id === FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
     expect((deepseek as { warning?: string } | undefined)?.warning).toBe(
@@ -142,9 +196,13 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('only the DeepSeek family is trace-stored in free mode; M3 has no warning', () => {
-    const m3 = FREEBUFF_MODELS.find((m) => m.id === MINIMAX_M3_MODEL_ID)
-    expect((m3 as { warning?: string } | undefined)?.warning).toBeUndefined()
+  test('only the DeepSeek family is trace-stored in free mode', () => {
+    // MiMo is the non-training row still in the picker; M3 was withdrawn on
+    // 2026-08-20 and is no longer there to check.
+    const mimo = FREEBUFF_MODELS.find(
+      (m) => m.id === FREEBUFF_MIMO_V25_MODEL_ID,
+    )
+    expect((mimo as { warning?: string } | undefined)?.warning).toBeUndefined()
     // The DeepSeek family discloses AI training and IS stored.
     expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
       true,
@@ -165,18 +223,243 @@ describe('freebuff model availability', () => {
       expect(isFreebuffTracedModelId(model.id)).toBe(
         model.dataUse === 'training',
       )
+      // Ox Alpha is the ONE row where a warning does not imply a training
+      // grant, and it entered this test's scope on 2026-08-24 by joining the
+      // CLI catalog -- the exception used to hold for free because the row was
+      // browser-only. Its host RETAINS prompts and does not train on them, so
+      // `dataUse` stays 'service' (that is what drives trace storage, and
+      // claiming a grant we were not given would be wrong in the direction
+      // that changes behavior) while the warning still tells a user what they
+      // want to know before pasting a private repo into an anonymous provider.
+      // ox-alpha.test.ts pins the pairing so it reads as a decision.
+      if (model.id === FREEBUFF_OX_ALPHA_MODEL_ID) {
+        expect(model.dataUse).toBe('service')
+        expect(model.warning).toBeDefined()
+        continue
+      }
       expect(model.warning !== undefined).toBe(model.dataUse === 'training')
     }
   })
 
-  test('DeepSeek V4 Flash is selectable and non-premium', () => {
+  test('DeepSeek V4 Flash is selectable and unlimited on full access', () => {
     expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(isFreebuffModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(true)
+    // Unmetered again as of 2026-08-24, reversing the 08-18 metering now that
+    // the Luminal lane gives Flash somewhere cheap to run.
     expect(isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(
       false,
     )
+    // Unmetered means being in NO pool, which only holds if it left the premium
+    // id list too — the flag and the list are one change.
+    expect(FREEBUFF_STANDARD_MODEL_IDS).toContain(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    // The catalog must never be all-premium: something has to be left for an
+    // account whose pool is spent.
+    expect(FREEBUFF_MODELS.some((model) => !model.premium)).toBe(true)
+  })
+
+  test('the limited tier is unaffected by Flash going unlimited', () => {
+    // The 2026-08-24 change is FULL ACCESS ONLY. Limited users keep MiMo alone;
+    // Flash's pause there is what keeps those sessions free, and the two tiers
+    // read different lists precisely so one can move without the other.
+    expect(LIMITED_FREEBUFF_MODEL_IDS).toContain(FREEBUFF_MIMO_V25_MODEL_ID)
+    expect(LIMITED_FREEBUFF_MODEL_IDS).not.toContain(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(false)
+  })
+
+  test('the fallback stays available at every hour, not merely unmetered', () => {
+    // Flash leaving the premium pool makes it eligible for this slot by the
+    // "MUST BE NON-PREMIUM" rule, but it is `off_peak_only`, so it must NOT
+    // take it: a fallback that is shut for ten hours a day is not a fallback.
+    expect(FALLBACK_FREEBUFF_MODEL_ID).not.toBe(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    const fallback = SUPPORTED_FREEBUFF_MODELS.find(
+      (model) => model.id === FALLBACK_FREEBUFF_MODEL_ID,
+    )!
+    expect(fallback.premium).toBe(false)
+    expect(fallback.availability).toBe('always')
+  })
+
+  test('V4 Pro trails the catalog and nothing is recommended', () => {
+    // A full reversal of the de-recommendation this test used to guard. Pro was
+    // the expensive row out of a shared pool; on a flat $0.002538/M lane it is
+    // the cheapest premium row AND the only one open at every hour, so it now
+    // LEADS rather than trails.
+    const all = FREEBUFF_MODELS.map((model) => model.id)
+    expect(all).toContain(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    expect(isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
+      true,
+    )
+    expect(isFreebuffPausedFreeModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
+      false,
+    )
+
+    // LAST again as of 2026-08-22. Pro led for one day, while a flat-priced
+    // lane made it the cheapest premium row; back on DeepSeek direct it is the
+    // dearest, capped at one a day and closed for ten hours, so it sits where a
+    // user reaches it deliberately. Ordering is the only steer in this list.
+    expect(all[all.length - 1]).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    // And it is nobody's starting pick — a default has to be joinable at every
+    // hour, which Pro is not.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+  })
+
+  /**
+   * NOTHING NUDGES ANYONE ANYWHERE, as of 2026-08-21.
+   *
+   * This is one assertion over the whole catalog rather than a per-model check,
+   * because the hazard is a notice being ADDED back rather than an existing one
+   * being wrong — and because both notices that used to live here expired
+   * without anyone noticing (each claimed V4 Flash was the better default;
+   * Flash then became premium and started closing during peak hours).
+   *
+   * It matters more than copy: migrateSupersededFreebuffModelPreference
+   * rewrites a SAVED pick on every load, so a supersedes notice silently moves
+   * users off the model they chose, on every launch, with no action from them.
+   */
+  test('no model supersedes any other', () => {
+    const all = FREEBUFF_MODELS.map((model) => model.id)
+    for (const id of all) {
+      expect(getFreebuffModelSupersededBy(id, all)).toBeUndefined()
+    }
+  })
+
+  /**
+   * V4 Flash is FULL-ACCESS ONLY. The limited catalog is MiMo 2.5 (plus the
+   * browser-only Ox Alpha row), and admission is shared by CLI, Desktop, Web
+   * and Cloud — so a limited-tier user must be refused Flash on every one of
+   * them rather than shown a picker row whose first send fails.
+   */
+  test('V4 Flash, V4 Pro and Luna are full-access only', () => {
+    for (const id of [
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    ]) {
+      expect(isFreebuffSessionModelAllowedForAccessTier(id, 'limited')).toBe(
+        false,
+      )
+      expect(isFreebuffSessionModelAllowedForAccessTier(id, 'full')).toBe(true)
+    }
+    expect(LIMITED_FREEBUFF_MODEL_IDS).not.toContain(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+  })
+
+  /**
+   * THE invariant, restated as what it has always really been: V4 Pro and V4
+   * Flash are never closed at the same time.
+   *
+   * Which one closes has flipped three times in two days, each time following
+   * the LANE — a row is shut at peak only while served by a provider that
+   * doubles there. Pinning the assertion to a particular row made it a
+   * tripwire for every lane move; pinning it to the pair keeps the property
+   * that actually protects users, which is that the catalog's two strongest
+   * models are never dark together.
+   *
+   * Both are `always` as of 2026-08-22, with Pro on a flat-priced lane.
+   */
+  test('V4 Pro and V4 Flash are never both closed', () => {
+    for (const hour of [0, 2, 5, 9, 10, 12, 18, 23]) {
+      const at = new Date(Date.UTC(2026, 7, 22, hour, 0, 0))
+      const pro = isFreebuffSessionModelAvailable(
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        at,
+      )
+      const flash = isFreebuffSessionModelAvailable(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        at,
+      )
+      expect(pro || flash, `both closed at ${hour}:00 UTC`).toBe(true)
+    }
+    // Today specifically: neither closes at all.
+    const peak = new Date('2026-08-22T02:00:00Z')
+    expect(
+      isFreebuffSessionModelAvailable(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, peak),
+    ).toBe(true)
+    expect(
+      isFreebuffSessionModelAvailable(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        peak,
+      ),
+    ).toBe(true)
+  })
+
+  /**
+   * Closing Flash is only worth doing if its traffic lands on the CHEAPER row
+   * rather than the weaker one. Without `unavailableFallback` it would fall to
+   * FALLBACK_FREEBUFF_MODEL_ID (the unlimited row), which would defeat the
+   * point of closing it.
+   */
+  /**
+   * ARMED, NOT DELETED. `unavailableFallback` is what stops a closed row
+   * dumping its traffic on the unlimited model instead of the other premium
+   * one, and it has been needed twice — Flash -> Pro, then Pro -> Flash — as
+   * the closure followed the lane. Nothing declares it today because nothing
+   * closes, so this asserts the mechanism rather than a particular pair.
+   */
+  test('any row that closes redirects to an OPEN premium row, not the unlimited one', () => {
+    const peak = new Date('2026-08-22T02:00:00Z')
+    for (const model of FREEBUFF_MODELS) {
+      if (isFreebuffSessionModelAvailable(model.id, peak)) continue
+      const landed = resolveAvailableFreebuffModel(model.id, peak)
+      expect(landed, `${model.id} redirect`).not.toBe(model.id)
+      expect(isFreebuffSessionModelAvailable(landed, peak)).toBe(true)
+    }
+  })
+
+  /**
+   * The caps table is the lever pulled under cost pressure, and its contents
+   * are a claim about relative PRICE. Pro must stay out of it: on a flat
+   * $0.002538/M cache read it is the cheapest premium row, and capping the
+   * cheap row is what this table exists not to do.
+   */
+  test('the per-model cap table is empty; every model uses the shared pool', () => {
+    // Luna's cap went 2 -> 3 -> gone across 2026-08-22/23. The entry was a claim
+    // that Luna cost ~3x Pro per cache read, and that claim inverted once both
+    // were measured on the rates their lanes actually bill: Luna runs ~$0.20 a
+    // session on Cheaper Inference against Pro's ~$0.34. Capping the cheaper
+    // row is what this table exists NOT to do.
+    expect(FREEBUFF_PER_MODEL_SESSION_CAPS).toEqual({})
+    for (const model of FREEBUFF_MODELS) {
+      expect(FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]).toBeUndefined()
+    }
+  })
+
+  /**
+   * The notice is prose describing this table, shown on Web, Desktop and CLI,
+   * and it has drifted every single time a cap moved -- its own doc comment
+   * asks three times to be checked by hand, and it was stale anyway. Nothing
+   * can assert the prose is well-written, but a cap that vanishes from the
+   * table while its number is still quoted at users IS mechanically checkable.
+   */
+  test('the tier notice quotes a number for exactly the capped models', () => {
+    for (const model of FREEBUFF_MODELS) {
+      const cap = FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]
+      const label = FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]?.poolLabel
+      if (cap) {
+        expect(FREEBUFF_TIER_CHANGE_NOTICE).toContain(String(cap.limit))
+        expect(label && FREEBUFF_TIER_CHANGE_NOTICE).toBeTruthy()
+      }
+    }
+    // The lifted cap's old promise must not survive anywhere in the string.
+    expect(FREEBUFF_TIER_CHANGE_NOTICE).not.toContain('Pro is 1 session')
+    expect(FREEBUFF_TIER_CHANGE_NOTICE).not.toMatch(/V4 Pro is \d/)
   })
 
   test('MiMo 2.5 remains supported and follows the UI rollout flag', () => {
@@ -324,7 +607,7 @@ describe('freebuff model availability', () => {
       // free, and standard would leave it unlimited.
       expect(isFreebuffWebPremiumModelId(hy3Id)).toBe(false)
       expect(isFreebuffPremiumModelId(hy3Id)).toBe(false)
-      expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(hy3Id)
+      expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(hy3Id)
       // A stale saved selection downgrades rather than resolving to itself.
       expect(resolveFreebuffWebModel(hy3Id, { includeGodOnly: true })).toBe(
         FALLBACK_FREEBUFF_MODEL_ID,
@@ -397,7 +680,7 @@ describe('freebuff model availability', () => {
     expect(isFreebuffWebPremiumModelId(FREEBUFF_CROF_GLM_V52_MODEL_ID)).toBe(
       false,
     )
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_CROF_GLM_V52_MODEL_ID,
     )
     // A stale saved selection downgrades to the always-available fallback.
@@ -418,8 +701,9 @@ describe('freebuff model availability', () => {
     expect(resolveRememberedFreebuffWebModel(FREEBUFF_GLM_V52_MODEL_ID)).toBe(
       DEFAULT_FREEBUFF_WEB_MODEL_ID,
     )
-    // Retired picker models self-heal to the always-available fallback, while
-    // god-only models remain rememberable when the caller opts in.
+    // Pro resolves to itself again — it is a real catalog row, just not one
+    // anything recommends. (It self-healed to the fallback for one day while it
+    // was paused.)
     expect(
       resolveRememberedFreebuffWebModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
@@ -438,13 +722,18 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('every Web picker model falls into exactly one quota group', () => {
+  test('every Web/Cloud model falls into exactly one quota group', () => {
     // The Web/Cloud picker groups rows by these two predicates (referral GLM,
     // premium) and treats the remainder as Standard. Each group is metered by a
     // different pool, so a model matching both — or a premium model matching
     // neither and silently landing in the free Standard group — is a quota bug,
     // not a cosmetic one.
-    for (const model of FREEBUFF_WEB_MODELS) {
+    //
+    // FREEBUFF_WEB_ALL_MODELS, not FREEBUFF_WEB_MODELS: the god-only rows are
+    // ADDITIVE to the visible list (FREEBUFF_WEB_ALL_MODELS = god-only +
+    // visible), so a loop over the visible list alone can never see a god-only
+    // model that fell into no pool — which is exactly the shape this bug had.
+    for (const model of FREEBUFF_WEB_ALL_MODELS) {
       const groups = [
         isFreebuffGlmV52ModelId(model.id),
         isFreebuffWebPremiumModelId(model.id),
@@ -553,6 +842,64 @@ describe('freebuff model availability', () => {
     )
   })
 
+  test('Codex (test)/Luna-ES is a god-only Freebuff Web/Cloud test model', () => {
+    // Mirrors the Kimi K3 assertions above: a god-only model must carry its id
+    // in both FREEBUFF_WEB_GOD_ONLY_MODEL_IDS and FREEBUFF_WEB_PREMIUM_MODEL_IDS,
+    // or it is neither gated nor metered. See docs/freebuff-honeypot-models.md.
+    expect(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID).toBe('openai/gpt-5.6-luna-es')
+
+    expect(FREEBUFF_WEB_GOD_ONLY_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+
+    expect(isFreebuffWebModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(true)
+    expect(isFreebuffWebGodOnlyModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      true,
+    )
+    // A premium model absent from every pool lands in the unmetered Standard
+    // set instead — this must be true, or it isn't in SOME pool.
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      true,
+    )
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
+      FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+    )
+    // Never reachable from the CLI/Desktop picker or a limited-tier browser.
+    expect(isFreebuffPremiumModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      false,
+    )
+    expect(isFreebuffModelId(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffWebModelAllowedForLimitedTier(
+        FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
+      ),
+    ).toBe(false)
+
+    expect(resolveFreebuffWebModel(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
+    expect(
+      resolveFreebuffWebModel(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID, {
+        includeGodOnly: true,
+      }),
+    ).toBe(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)
+
+    const model = getFreebuffWebModel(FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID)
+    expect(model.displayName).toBe('Codex (test)')
+    expect(model.multimodal).toBe(false)
+  })
+
   test('Ling 3.0 Flash and Greg 2 are fully removed from Freebuff', () => {
     // All three were god-only test rows, removed 2026-08-07. Spelled literally
     // because no constant remains to import.
@@ -574,7 +921,7 @@ describe('freebuff model availability', () => {
       expect(isFreebuffSessionModelId(removedId)).toBe(false)
       // No pool may still meter them, in either direction.
       expect(isFreebuffWebPremiumModelId(removedId)).toBe(false)
-      expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(removedId)
+      expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(removedId)
       expect(resolveFreebuffWebModel(removedId, { includeGodOnly: true })).toBe(
         FALLBACK_FREEBUFF_MODEL_ID,
       )
@@ -612,40 +959,62 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiniMax M3 is a selectable premium model on the standard daily pool', () => {
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+  test('MiniMax M3 is withdrawn: recognised, refused, served to nobody', () => {
+    // Withdrawn from free mode entirely on 2026-08-20 after reaching $213/hr.
+    // Out of every picker and pool...
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
       MINIMAX_M3_MODEL_ID,
     )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
-      MINIMAX_M3_MODEL_ID,
-    )
-    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
-      MINIMAX_M3_MODEL_ID,
-    )
-    expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isFreebuffWebPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
     expect(
-      isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
+      isFreebuffSessionModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
+    ).toBe(false)
+
+    // ...but still RECOGNISED, which is what separates withdrawing a model from
+    // breaking the clients that still ask for it. Released binaries keep this id
+    // in their compiled-in catalog; an unrecognised id can only be refused, and
+    // that refusal is the #1801 retry loop.
+    expect(isFreebuffSessionModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isFreebuffPausedFreeModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    // It is REFUSED, not silently substituted — the user asked for a specific
+    // model and is told it is gone, with what to use instead. The refusal is
+    // not session-ending, so the client shows it rather than re-admitting.
+    expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
+      'no longer available in Freebuff',
+    )
+    // Names whatever the current default is — Pro since 2026-08-21. This is
+    // the one place a specific model is still named TO a user, and it is not a
+    // recommendation in the sense the picker dropped: the pick is gone, so
+    // pointing somewhere is the alternative to a dead end.
+    expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
+      'GPT-5.6 Luna',
+    )
+
+    // The AGENT door stays open, and that is not an oversight. Withdrawal is
+    // enforced at admission, so no NEW session can name the model. Sessions
+    // admitted before the deploy are still live and hit this allowlist on
+    // every turn; dropping the row would fail them mid-turn with
+    // free_mode_invalid_agent_model — the same wedge withdrawal exists to
+    // avoid. They drain against a door that is already shut in front of them.
+    expect(
+      isFreeModeAllowedAgentModel('base2-free-minimax-m3', MINIMAX_M3_MODEL_ID),
     ).toBe(true)
-    // DeepSeek V4 Pro is the recommended default (2026-08-12), so it leads the
-    // picker list, with the unlimited Flash fallback right behind it and Luna
-    // ahead of M3.
-    expect(FREEBUFF_MODELS[0]!.id).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(FREEBUFF_MODELS[2]!.id).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
-    expect(FREEBUFF_MODELS[3]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
-  test('the recommended default leads FREEBUFF_MODELS, with Flash second', () => {
+  test('the recommended default leads FREEBUFF_MODELS, and the fallback is in it', () => {
     // FREEBUFF_MODELS order IS the picker row order, and it went stale once
     // when the default flipped without reordering — the rows led with Flash
-    // while the recommendation already named Pro. Pin the two lead positions
-    // to the constants that drive the recommendation, so a future default
-    // change can't silently leave this list behind.
+    // while the recommendation already named Pro. Pin the lead position to the
+    // constant that drives the recommendation, so a future default change
+    // can't silently leave this list behind.
     expect(FREEBUFF_MODELS[0]!.id).toBe(DEFAULT_FREEBUFF_MODEL_ID)
-    expect(FREEBUFF_MODELS[1]!.id).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    // And the model every surface steps DOWN to has to be a row the picker
+    // actually offers, or the step-down lands on something the user cannot see
+    // or re-select afterwards.
+    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FALLBACK_FREEBUFF_MODEL_ID,
+    )
   })
 
   test('GPT-5.6 Luna is a premium model on every full-access surface', () => {
@@ -681,7 +1050,7 @@ describe('freebuff model availability', () => {
     expect(isFreebuffWebPremiumModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(
       true,
     )
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(isFreebuffGlmV52ModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toBe(false)
@@ -740,22 +1109,24 @@ describe('freebuff model availability', () => {
     expect(completion).toBeLessThan(6.0)
   })
 
-  test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
-    expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  test('limited access exposes non-Pro MiMo 2.5, and not the paused Flash', () => {
+    expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    // Ox Alpha joined on 2026-08-24. It costs this pool nothing extra: the
+    // limited tier is metered by REGION, not by model.
     expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_OX_ALPHA_MODEL_ID,
     ])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual([
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_OX_ALPHA_MODEL_ID,
     ])
     expect(
       isFreebuffModelAllowedForAccessTier(
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
         'limited',
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'limited'),
     ).toBe(false)
@@ -776,68 +1147,104 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(
       resolveFreebuffModelForAccessTier(MINIMAX_M3_MODEL_ID, 'limited'),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    // A Flash pick saved before the pause is coerced rather than refused, so a
+    // returning limited user lands on a model instead of a failed admission.
+    expect(
+      resolveFreebuffModelForAccessTier(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    // MiMo is superseded BY the paused Flash and is the tier's only row, so no
+    // picker may offer that switch — it would coerce straight back.
+    expect(
+      getFreebuffModelSupersededBy(FREEBUFF_MIMO_V25_MODEL_ID, [
+        ...LIMITED_FREEBUFF_MODEL_IDS,
+      ]),
+    ).toBeUndefined()
   })
 
-  test('recommends a joinable, in-tier model for the picker hero', () => {
-    // Full access → DeepSeek V4 Pro 08/13 (the recommended default since
-    // 2026-08-12). It is premium, so the hero HAS to flip once the daily pool
-    // runs dry — the assertions below are what keep the CLI/Desktop hero
-    // joinable at every point in a user's day.
+  test('the picker hero is joinable and in-tier', () => {
+    // Full access → DeepSeek V4 Pro since 2026-08-21. "Hero" is the row the
+    // cursor starts on, NOT a recommendation — the ' RECOMMENDED ' badge and
+    // every supersedes notice are gone. It is premium, so it HAS to flip once
+    // the daily pool runs dry; these assertions are what keep the first Enter
+    // press joinable at every point in a user's day.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     expect(
       isFreebuffPremiumModelId(
         getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
       ),
     ).toBe(false)
-    // Limited access → DeepSeek V4 Flash, which is in the limited model set.
+    // Limited access → MiMo 2.5. The membership assertion below is the
+    // load-bearing one: the hero is the row Enter lands on, so a hero outside
+    // the tier's own set is a first keypress that fails admission.
     expect(getRecommendedFreebuffModelId('limited')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
     )
     expect(
       getFreebuffModelsForAccessTier('limited').some(
         (m) => m.id === getRecommendedFreebuffModelId('limited'),
       ),
     ).toBe(true)
+    // Still true with the premium pool spent: that flag steps the FULL-access
+    // hero down to the unlimited row, and must not drag the limited hero
+    // anywhere — it is already on that tier's only model.
+    expect(
+      getRecommendedFreebuffModelId('limited', { premiumExhausted: true }),
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
 
-  test('every surface recommends DeepSeek V4 Pro, on two separate constants', () => {
-    // The browser surfaces took Pro on 2026-08-12 (Luna held it from
-    // 2026-08-04) and the CLI/Desktop pickers followed the same day: the 08/13
-    // GA build wins the agentic benchmarks these surfaces run, so there is no
-    // longer a surface where a different model is the better first pick. They
-    // stay TWO constants because they have diverged before and may again.
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+  test('every surface starts on GPT-5.6 Luna, on two separate constants', () => {
+    // Both constants named Pro from 2026-08-12 until it was paused on
+    // 2026-08-18, went to Flash, and returned to Pro on 2026-08-21 when Flash
+    // took over the peak-hours closure. They stay TWO constants because they
+    // have diverged before and may again.
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    )
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     )
-    // The recommendation must never be a model the picker also argues against.
+    // Neither default may be a paused model — that is the pairing that would
+    // put every new user on a row the server refuses.
+    expect(isFreebuffPausedFreeModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(false)
+    expect(isFreebuffPausedFreeModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(
+      false,
+    )
+    // The starting pick must never be a model the picker also argues against.
+    // Vacuous today — nothing supersedes anything — and kept because that is a
+    // property of the catalog's current contents, not a guarantee.
     expect(
       getFreebuffModelSupersededBy(
         DEFAULT_FREEBUFF_WEB_MODEL_ID,
         FREEBUFF_WEB_MODELS.map((model) => model.id),
       ),
     ).toBeUndefined()
-    // Pro is premium, so the pool CAN run dry — the recommended pick has to
-    // stay joinable, and limited tier can't name it at all.
+    // Pro is premium, so the pool CAN run dry — the starting pick has to stay
+    // joinable, and limited tier can't name it at all. Asserted through
+    // the tier constant so the hero and the catalog cannot part company.
     expect(getRecommendedFreebuffWebModelId('limited')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      LIMITED_FREEBUFF_MODEL_ID,
     )
+    // Steps down to the fallback, which is MiMo 2.5 now that Flash is itself
+    // premium — the whole point of the two constants being separate.
     expect(
       getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     expect(
       isFreebuffPremiumModelId(
         getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
@@ -882,70 +1289,67 @@ describe('freebuff model availability', () => {
     }
   })
 
-  test('points users off MiniMax M3 to V4 Flash', () => {
-    // Flash-0731 overtook M3 on 2026-07-31, so M3 carries a notice and a switch
-    // target rather than being removed — it is still selectable.
+  test('a withdrawn model is not offered as anyone else’s switch target', () => {
+    // M3 carried a "switch to V4 Flash" nudge until it was withdrawn on
+    // 2026-08-20. Now the check runs the other way: the picker offers a
+    // one-click switch for whatever a notice names, so naming a withdrawn model
+    // would hand users a row the server refuses.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    const superseded = getFreebuffModelSupersededBy(MINIMAX_M3_MODEL_ID, all)
-    expect(superseded?.modelId).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(superseded!.notice.length).toBeGreaterThan(0)
-    expect(superseded!.actionLabel.length).toBeGreaterThan(0)
-    // M3 remains a real, selectable model — this is a nudge, not a retirement.
-    expect(all).toContain(MINIMAX_M3_MODEL_ID)
+    expect(all).not.toContain(MINIMAX_M3_MODEL_ID)
+    for (const id of all) {
+      const superseded = getFreebuffModelSupersededBy(id, all)
+      if (!superseded) continue
+      expect(superseded.modelId).not.toBe(MINIMAX_M3_MODEL_ID)
+      expect(all).toContain(superseded.modelId)
+    }
     // The recommended default is never itself marked superseded.
     expect(
       getFreebuffModelSupersededBy(DEFAULT_FREEBUFF_MODEL_ID, all),
     ).toBeUndefined()
   })
 
-  test('points users off GPT-5.6 Luna to V4 Pro, without muting Luna', () => {
+  test('does not steer users off GPT-5.6 Luna, which is now the recommendation', () => {
+    // Luna pointed at Flash until 2026-08-19. It cannot any more: a model
+    // cannot both BE the recommended default and carry a one-click switch away
+    // from itself, and migrateSupersededFreebuffModelPreference would have
+    // rewritten every saved Luna pick onto a DeepSeek row metered one a day.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    const superseded = getFreebuffModelSupersededBy(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-      all,
-    )
-    expect(superseded?.modelId).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(superseded!.notice.length).toBeGreaterThan(0)
-    expect(superseded!.actionLabel.length).toBeGreaterThan(0)
-    // The notice names the dated build, so it points at a row on screen.
-    expect(superseded!.notice).toContain('08/13')
-    // Luna stays selectable, and stays UNMUTED: it is cheaper than the model it
-    // now points at, and de-emphasis is this product's cost signal. Muting it
-    // would have the list imply a price that runs the other way.
-    expect(all).toContain(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
     expect(
-      isFreebuffWebDeemphasizedModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID),
-    ).toBe(false)
-    // A saved Luna pick migrates to Pro rather than being stranded.
+      getFreebuffModelSupersededBy(FREEBUFF_GPT_5_6_LUNA_MODEL_ID, all),
+    ).toBeUndefined()
     expect(
       migrateSupersededFreebuffModelPreference(
         FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
         all,
       ),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    ).toBeNull()
+    expect(all).toContain(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(
+      isFreebuffWebDeemphasizedModelId(FREEBUFF_GPT_5_6_LUNA_MODEL_ID),
+    ).toBe(false)
   })
 
-  test('stops steering users off V4 Pro now that its GA build leads again', () => {
-    // Pro carried a "Flash performs better" notice from 2026-07-31, when
-    // Flash-0731 beat the Pro PREVIEW. The 08/13 GA build reversed that on the
-    // agentic benchmarks, so the notice would now steer users off the stronger
-    // model — and the picker offers a one-click switch for whatever it names.
+  test('never steers a saved pick toward a paused model', () => {
+    // The picker offers a one-click switch for whatever a supersedes notice
+    // names, and migrateSupersededFreebuffModelPreference moves stored picks
+    // there without asking. Either pointing at a paused model would hand users
+    // a row the server refuses, so no live row may name one.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    expect(
-      getFreebuffModelSupersededBy(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, all),
-    ).toBeUndefined()
-    // And on 2026-08-12 it became the recommended CLI/Desktop default too,
-    // matching the browser surfaces.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    for (const id of all) {
+      const superseded = getFreebuffModelSupersededBy(id, all)
+      if (!superseded) continue
+      expect(isFreebuffPausedFreeModelId(superseded.modelId)).toBe(false)
+      expect(all).toContain(superseded.modelId)
+    }
   })
 
   test('marks both new DeepSeek builds as NEW and dates their names', () => {
     // The wire ids are undated and auto-update, so the display has to carry the
     // signal that this is a different model than the one users already judged.
-    const dated = [
-      [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, '07/31'],
-      [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, '08/13'],
-    ] as const
+    // Pro left this list when it was paused on 2026-08-18 — it is no longer in
+    // FREEBUFF_MODELS at all, and its row keeps its dated name in SUPPORTED for
+    // whenever it returns.
+    const dated = [[FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, '07/31']] as const
     // Widened to the interface: the const-asserted tuple's union type only
     // exposes optional fields set on EVERY member, so `isNew` is unreachable
     // through it unless the find() narrows to a single literal id.
@@ -956,28 +1360,34 @@ describe('freebuff model availability', () => {
       expect(model.displayName).toContain(date)
     }
     // Nothing else claims to be new, or the badge stops meaning anything.
-    expect(catalog.filter((model) => model.isNew)).toHaveLength(dated.length)
+    // Ox Alpha is the one non-dated row carrying it: it joined the CLI catalog
+    // on 2026-08-24 having shipped four days earlier, so it is genuinely new to
+    // these surfaces even though its name carries no build date.
+    expect(
+      catalog.filter(
+        (model) => model.isNew && model.id !== FREEBUFF_OX_ALPHA_MODEL_ID,
+      ),
+    ).toHaveLength(dated.length)
   })
 
-  test('steers saved picks off every superseded model', () => {
+  test('migrates no saved pick anywhere, now that nothing supersedes', () => {
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    // Every model Flash overtook migrates to it...
-    for (const superseded of [MINIMAX_M3_MODEL_ID, FREEBUFF_MIMO_V25_MODEL_ID]) {
-      expect(migrateSupersededFreebuffModelPreference(superseded, all)).toBe(
-        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      )
-    }
-    // ...and a current pick is left alone (null = keep it). V4 Pro is one again
-    // as of its 08/13 GA build: a user who saved it keeps it instead of being
-    // moved off it on every load.
-    for (const current of [
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    ]) {
+    // The catalog carries no supersedes notice as of 2026-08-21, so this
+    // migration is INERT — every stored pick is left exactly as the user set
+    // it. That is the safe state and the intended one.
+    //
+    // Kept as a test rather than deleted because this function is the sharp
+    // edge behind those notices: it rewrites a SAVED pick on every load, so the
+    // day someone adds a notice back, this is where the blast radius shows up.
+    for (const current of [...all, MINIMAX_M3_MODEL_ID, undefined]) {
       expect(migrateSupersededFreebuffModelPreference(current, all)).toBeNull()
     }
-    expect(migrateSupersededFreebuffModelPreference(undefined, all)).toBeNull()
-    // Never migrates onto a model this surface cannot select.
+    // The unlimited fallback must NEVER be migrated away from: it is where
+    // every surface steps a spent user down to.
+    expect(
+      migrateSupersededFreebuffModelPreference(FALLBACK_FREEBUFF_MODEL_ID, all),
+    ).toBeNull()
+    // And never onto a model this surface cannot select.
     expect(
       migrateSupersededFreebuffModelPreference(MINIMAX_M3_MODEL_ID, [
         MINIMAX_M3_MODEL_ID,
@@ -1188,9 +1598,7 @@ describe('limited-offer models (Claude Fable 5)', () => {
     // sessions on the quota M3 and DeepSeek Pro share.
     expect(isFreebuffPremiumModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(false)
     expect(isFreebuffWebPremiumModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(false)
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
-      FREEBUFF_FABLE_5_MODEL_ID,
-    )
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(FREEBUFF_FABLE_5_MODEL_ID)
     expect(isFreebuffLimitedOfferModelId(FREEBUFF_FABLE_5_MODEL_ID)).toBe(true)
   })
 
@@ -1256,12 +1664,12 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
     // Premium here bounds how many users are inside the 60 RPM ceiling at once
     // — it is NOT a price signal, since Contributor is cheaper per token than
     // the standard-pool models. Being in some pool is mandatory:
-    // FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
+    // FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
     // premium model missing from the premium list is metered by nothing.
     expect(
       isFreebuffWebPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
     ).toBe(true)
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(
       FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
     )
     expect(
@@ -1285,7 +1693,9 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
     )
     expect(model.reasoningEffort).toBe(FREEBUFF_MUSE_SPARK_REASONING_EFFORT)
     expect(
-      getFreebuffModelReasoningEffort(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
+      getFreebuffModelReasoningEffort(
+        FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+      ),
     ).toBe(FREEBUFF_MUSE_SPARK_REASONING_EFFORT)
 
     // Never 'none': Muse Spark answers that with a hard 400 (verified live),
@@ -1355,19 +1765,28 @@ describe('Meta Muse Spark 1.2 Contributor', () => {
 
 describe('Muse Spark rate-limit fallback', () => {
   test('reroutes only to a model the caller is already entitled to', () => {
-    // THE invariant. A fallback outside the shared daily premium pool would
-    // turn "Muse Spark is busy" into a way to reach a model the user had not
-    // earned — the same shape as the retired crof/glm-5.2 route, which handed
-    // out a referral-earned model for nothing. The fallback sits in the same
-    // pool, so a rerouted request spends exactly the entitlement the original
-    // would.
-    expect(isFreebuffWebPremiumModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(true)
+    // THE invariant: a rate limit must not become a way to reach a model the
+    // caller had not earned — the shape of the retired crof/glm-5.2 route, which
+    // handed out a referral-earned model for nothing.
+    //
+    // Until 2026-08-24 this was spelled "the fallback is in the shared daily
+    // premium pool", which was true because the fallback is Flash and Flash was
+    // premium. Flash is unmetered now, and that satisfies the invariant MORE
+    // strongly rather than breaking it: every full-access caller can already run
+    // an unmetered row, so a reroute onto one cannot reach anything unearned.
+    // What is asserted is therefore entitlement — premium pool OR unmetered —
+    // and, separately, that the fallback is never a referral-EARNED row, which
+    // is the direction the guard actually protects.
+    expect(
+      isFreebuffWebPremiumModelId(MUSE_SPARK_FALLBACK_MODEL_ID) ||
+        FREEBUFF_STANDARD_MODEL_IDS.includes(MUSE_SPARK_FALLBACK_MODEL_ID),
+    ).toBe(true)
     expect(
       isFreebuffWebPremiumModelId(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID),
     ).toBe(true)
-    // Never the earned-GLM pool, and never the free standard pool.
+    // Never the earned-GLM pool — the one direction that would hand out access.
     expect(isFreebuffGlmV52ModelId(MUSE_SPARK_FALLBACK_MODEL_ID)).toBe(false)
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(
+    expect(FREEBUFF_GLM_V52_MODEL_IDS).not.toContain(
       MUSE_SPARK_FALLBACK_MODEL_ID,
     )
     // And it must be a real, selectable Web model rather than a dangling id.
@@ -1404,5 +1823,47 @@ describe('Muse Spark rate-limit fallback', () => {
     // provider uses for its silent window, so the two cannot disagree about
     // what "too long" means.
     expect(MUSE_SPARK_FALLBACK_AFTER_MS).toBe(10_000)
+  })
+})
+
+describe('the unavailability window matches the reason for the closure', () => {
+  /**
+   * Both refusal sites gate on isFreebuffSessionModelAvailable, which covers
+   * `deployment_hours` AND `off_peak_only`, and both hardcoded the
+   * deployment-hours label. So V4 Flash -- closed 5pm-3am Pacific for DeepSeek's
+   * peak pricing -- told users it was "available 9am ET-5pm PT every day":
+   * a different window, for a different reason, in two timezones at once.
+   */
+  const peak = new Date('2026-08-25T08:00:00Z')
+
+  test('a peak-closed model is told when it comes BACK, not our staffing hours', () => {
+    const window = freebuffModelUnavailableWindow(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      peak,
+    )
+    expect(window).toContain('again at')
+    // The bug: the staffing label has nothing to do with peak pricing.
+    expect(window).not.toBe(FREEBUFF_DEPLOYMENT_HOURS_LABEL)
+    expect(window).not.toContain('ET')
+  })
+
+  /**
+   * No model carries `deployment_hours` today -- the catalog is `always` and
+   * `off_peak_only` only -- so the staffing label is reachable from the
+   * LIMITED-OFFER branch and not from this one. The resolver still returns it
+   * as the default rather than inventing a window for a closure it does not
+   * recognise, which is why this asserts the DEFAULT rather than a model that
+   * would have to be invented to test it.
+   */
+  test('an unrecognised closure falls back to the staffing label, not a guess', () => {
+    expect(freebuffModelUnavailableWindow('mimo/mimo-v2.5', peak)).toBe(
+      FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+    )
+  })
+
+  test('it reads as a sentence in the template that renders it', () => {
+    // freebuffSession.ts renders `${model} is available ${availableHours}.`
+    const s = `X is available ${freebuffModelUnavailableWindow(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak)}.`
+    expect(s).toMatch(/^X is available again at .+\.$/)
   })
 })

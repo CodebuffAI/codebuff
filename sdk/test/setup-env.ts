@@ -23,6 +23,7 @@ const serverDefaults: Record<string, string> = {
   // give the mocked-fetch tests a dummy — without these, whether the CrofAI/
   // MiMo routing tests pass depends on the developer's shell env.
   CROF_AI_API_KEY: 'test',
+  RUNINFRA_GATEWAY_KEY: 'test',
   MIMO_API_KEY: 'test',
   PORT: '4242',
   DATABASE_URL: 'postgres://user:pass@localhost:5432/db',

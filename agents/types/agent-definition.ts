@@ -321,8 +321,14 @@ export interface AgentState {
   >
 
   /**
-   * The token count from the Anthropic API.
-   * This is updated on every agent step via the /api/v1/token-count endpoint.
+   * Estimated size of the next prompt: message history + system prompt + tool
+   * schemas, counted locally with a GPT-4o BPE tokenizer.
+   *
+   * NOT a provider's number, and deliberately not exact. Counting models that
+   * have their own tokenizers with this one biases the estimate low, which the
+   * runtime's compaction budget leaves headroom for. Updated on every agent
+   * step before the model call, again after a mechanical compaction rewrites
+   * the history, and once more when a root agent's turn ends.
    */
   contextTokenCount: number
 }

@@ -1,49 +1,15 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-
 import {
   createStreamParserState,
   parseStreamChunk,
 } from './util/stream-xml-parser'
 
 import type { StreamParserState } from './util/stream-xml-parser'
-import type { Model } from '@codebuff/common/old-constants'
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   PrintModeError,
   PrintModeText,
 } from '@codebuff/common/types/print-mode'
 import type { PromptResult } from '@codebuff/common/util/error'
-
-function summarizeToolInput(input: unknown): Record<string, unknown> {
-  if (typeof input === 'string') {
-    return {
-      inputType: 'string',
-      inputLength: input.length,
-    }
-  }
-
-  if (Array.isArray(input)) {
-    return {
-      inputType: 'array',
-      inputLength: input.length,
-    }
-  }
-
-  if (input && typeof input === 'object') {
-    const keys = Object.keys(input as Record<string, unknown>)
-    return {
-      inputType: 'object',
-      inputKeyCount: keys.length,
-      inputKeys: keys.slice(0, 25),
-    }
-  }
-
-  return {
-    inputType: input === null ? 'null' : typeof input,
-  }
-}
 
 export async function* processStreamWithTools(params: {
   stream: AsyncGenerator<StreamChunk, PromptResult<string | null>>
@@ -71,13 +37,6 @@ export async function* processStreamWithTools(params: {
     ) => void | Promise<void>
   }
   onResponseChunk: (chunk: PrintModeText | PrintModeError) => void
-  logger: Logger
-  loggerOptions?: {
-    userId?: string
-    model?: Model
-    agentName?: string
-  }
-  trackEvent: TrackEventFn
   executeXmlToolCall: (params: {
     toolCallId: string
     toolName: string
@@ -89,14 +48,10 @@ export async function* processStreamWithTools(params: {
     processors,
     defaultProcessor,
     onResponseChunk,
-    logger,
-    loggerOptions,
-    trackEvent,
     executeXmlToolCall,
   } = params
   let streamCompleted = false
   let buffer = ''
-  let autocompleted = false
 
   // State for parsing XML tool calls from text stream
   const xmlParserState: StreamParserState = createStreamParserState()
@@ -104,9 +59,8 @@ export async function* processStreamWithTools(params: {
   async function processToolCallObject(params: {
     toolName: string
     input: any
-    contents?: string
   }): Promise<void> {
-    const { toolName, contents } = params
+    const { toolName } = params
     let { input } = params
 
     // AI SDK sometimes emits tool-call chunks with a raw JSON string as `input`
@@ -119,21 +73,6 @@ export async function* processStreamWithTools(params: {
     }
 
     const processor = processors[toolName] ?? defaultProcessor(toolName)
-
-    trackEvent({
-      event: AnalyticsEvent.TOOL_USE,
-      userId: loggerOptions?.userId ?? '',
-      properties: {
-        toolName,
-        ...summarizeToolInput(input),
-        hasContents: typeof contents === 'string' && contents.length > 0,
-        contentsLength: contents?.length ?? 0,
-        autocompleted,
-        model: loggerOptions?.model,
-        agent: loggerOptions?.agentName,
-      },
-      logger,
-    })
 
     await processor.onTagStart(toolName, {})
     await processor.onTagEnd(toolName, input)

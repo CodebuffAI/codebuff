@@ -1,6 +1,11 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getAdUserAgent } from '@codebuff/common/util/ad-user-agent'
+import {
+  acknowledgeFirstPartyView,
+  type FirstPartyViewAckRequest,
+} from '@codebuff/common/ads/first-party-view-ack'
+import { createFirstPartyViewAckTelemetry } from '@codebuff/common/util/axiom-only-log'
 import { useEffect, useRef, useState } from 'react'
 
 import { useTerminalLayout } from './use-terminal-layout'
@@ -11,6 +16,7 @@ import { getAuthToken } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
+import { enqueueClientLog } from '../utils/log-shipper'
 import { AI_MESSAGE_ID_PREFIX } from '../utils/ai-message-id'
 import { trackEvent } from '../utils/analytics'
 import {
@@ -37,6 +43,7 @@ export type AdResponse = {
   favicon: string
   clickUrl: string
   impUrl: string
+  placementId?: string
   provider?: AdProvider
   impressionIds?: string[]
   credits?: number // Set after impression is recorded (in cents)
@@ -46,7 +53,7 @@ export type AdResponse = {
  * Which upstream ad network to query. The server maps each provider onto the
  * same normalized response shape, so the rest of the hook is provider-agnostic.
  */
-export type AdProvider = 'gravity' | 'carbon' | 'zeroclick'
+export type AdProvider = 'gravity' | 'carbon' | 'zeroclick' | 'first_party'
 // Product surfaces the ads API maps to Gravity placements. 'waiting_room' is the
 // legacy wire name for the freebuff landing screen; 'cli_chat' is the inline
 // transcript ad in the coding-agent chat. Values must match the server's
@@ -123,6 +130,22 @@ export function claimAdImpression(
   return true
 }
 
+/**
+ * Narrow testable boundary: only our own inventory uses the resilient view
+ * acknowledgement transport. Third-party providers retain their legacy pixel
+ * acknowledgement path below.
+ */
+export function dispatchFirstPartyViewAcknowledgement(
+  provider: AdProvider | undefined,
+  request: Omit<FirstPartyViewAckRequest, 'onAttempt'>,
+  onAttempt: NonNullable<FirstPartyViewAckRequest['onAttempt']>,
+  acknowledge: typeof acknowledgeFirstPartyView = acknowledgeFirstPartyView,
+): boolean {
+  if (provider !== 'first_party') return false
+  void acknowledge({ ...request, onAttempt })
+  return true
+}
+
 function trackInlineAdEvent(
   event: AnalyticsEvent,
   properties: Record<string, unknown>,
@@ -146,6 +169,7 @@ type GravityAdOptionsBase = {
   surface?: AdSurface
   /** Explicit provider placement id for the rotating `ads[0]` slot. */
   slotPlacementId?: string
+  placementIds?: string[]
 }
 
 type GravityAdOptions = GravityAdOptionsBase &
@@ -175,6 +199,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
   const inline = options?.inline ?? false
   const inlinePlacementId = options?.inlinePlacementId
   const slotPlacementId = options?.slotPlacementId
+  const placementIds = options?.placementIds
   const [ads, setAds] = useState<AdResponse[] | null>(null)
   const [responseAds, setResponseAds] = useState<Record<string, AdResponse[]>>(
     {},
@@ -237,6 +262,45 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
       // Include mode in request - Freebuff should not grant credits (no balance concept).
       const agentMode = useChatStore.getState().agentMode
 
+      const dispatchedFirstPartyAck = dispatchFirstPartyViewAcknowledgement(
+        ad.provider,
+        {
+          token: impUrl,
+          url: `${WEBSITE_URL}/api/v1/ads/impression`,
+          init: {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
+              'User-Agent': getCliAdRequestUserAgent(),
+            },
+            body: JSON.stringify({
+              impUrl,
+              mode: agentMode,
+              userAgent: getAdUserAgent(),
+              os: getDeviceInfo().os,
+            }),
+          },
+          surface: surface ?? 'cli_chat',
+          placementId: ad.placementId ?? slotPlacementId ?? 'unknown',
+          clientFamily: 'cli',
+        },
+        (observation) => {
+          const telemetry = createFirstPartyViewAckTelemetry(observation)
+          if (telemetry) {
+            enqueueClientLog({
+              level: 'info',
+              event: AnalyticsEvent.ADS_FIRST_PARTY_VIEW_ACK,
+              message: 'First-party view acknowledgement',
+              data: telemetry,
+            })
+          }
+        },
+      )
+      if (dispatchedFirstPartyAck) {
+        return
+      }
+
       const res = await fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
         method: 'POST',
         headers: {
@@ -247,6 +311,13 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         body: JSON.stringify({
           impUrl,
           mode: agentMode,
+          // The same browser-like UA and OS this ad was auctioned with. The
+          // server fires Gravity's pixel for us, and without these it fired it
+          // as `Freebuff-CLI/<version>` while the auction had claimed a
+          // browser — one impression describing two different clients, on the
+          // field Gravity uses for bot filtering.
+          userAgent: getAdUserAgent(),
+          os: getDeviceInfo().os,
         }),
       })
 
@@ -344,6 +415,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
   // Fetch an ad via web API
   const fetchAd = async (params?: {
     placementId?: string
+    placementIds?: string[]
   }): Promise<FetchAdResult> => {
     // Don't fetch ads when they should be hidden
     if (shouldHideAdsRef.current) return null
@@ -400,6 +472,9 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           device: getDeviceInfo(),
           ...(surface ? { surface } : {}),
           ...(params?.placementId ? { placementId: params.placementId } : {}),
+          ...(params?.placementIds?.length
+            ? { placementIds: params.placementIds }
+            : {}),
           // Native runtime UAs look bot-like to ad networks. Send the shared
           // browser-like UA so every provider sees a usable targeting signal.
           userAgent: getAdUserAgent(),
@@ -456,7 +531,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           isUserActive(ACTIVITY_THRESHOLD_MS)
 
         const result = canFetchNew
-          ? await fetchAd({ placementId: slotPlacementId })
+          ? await fetchAd({ placementId: slotPlacementId, placementIds })
           : null
 
         if (result) {
@@ -495,7 +570,10 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
 
     // Fetch first ad immediately
     void (async () => {
-      const result = await fetchAd({ placementId: slotPlacementId })
+      const result = await fetchAd({
+        placementId: slotPlacementId,
+        placementIds,
+      })
       if (result) {
         const ctrl = ctrlRef.current
         addToChoiceCache(ctrl, result.ads)
@@ -511,7 +589,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
     return () => {
       clearInterval(id)
     }
-  }, [shouldStart, shouldHideAds, provider, surface])
+  }, [shouldStart, shouldHideAds, provider, surface, placementIds?.join(',')])
 
   // Called by BlocksRenderer only when its streamed node count makes another
   // between-node slot eligible, until the four-ad pool is full. Requests use
@@ -558,10 +636,13 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         count > MAX_RESPONSE_AD_POOL_SIZE &&
         previousEligibleCount <= MAX_RESPONSE_AD_POOL_SIZE
       ) {
-        trackInlineAdEvent(
-          AnalyticsEvent.CLI_INLINE_AD_POOL_REUSED,
-          telemetryProperties,
-        )
+        enqueueClientLog({
+          level: 'info',
+          event: 'cli.inline_ad_pool_reused',
+          message: 'CLI inline-ad pool reused',
+          client_session_id: telemetryProperties.chat_session_id,
+          data: telemetryProperties,
+        })
       }
     }
 

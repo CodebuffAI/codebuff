@@ -19,16 +19,66 @@ import type {
   FreebuffLimitedModeReason,
 } from '../types/freebuff-session'
 
-const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> = {
-  anonymous: 'anonymized network',
-  proxy: 'proxy',
-  relay: 'relay',
-  res_proxy: 'residential proxy',
-  tor: 'Tor',
-  vpn: 'VPN',
-  hosting: 'hosting network',
-  service: 'privacy service',
-}
+/**
+ * Why DeepSeek V4 Flash 07/31 is missing from the reduced catalog, rendered
+ * under the model list on all three pickers alongside the availability notice
+ * below: that line explains the smaller catalog, this one explains a model that
+ * used to be in it. Names the dated build, matching the display name of the row
+ * that is now gone — unlike every other notice, its subject is not on screen.
+ *
+ * Kept to three clauses because it wraps under the picker, and delete it when
+ * Flash returns to LIMITED_FREEBUFF_MODEL_IDS.
+ */
+export const FREEBUFF_PAUSED_MODEL_NOTICE =
+  "DeepSeek V4 Flash 07/31 is paused here after a steep price increase — pausing it is what keeps these sessions free for everyone. We're working to bring it back."
+
+/**
+ * The limits, in three clauses and a signature.
+ *
+ * SHORT ON PURPOSE. This replaced a version that listed every rule — per-model
+ * caps, peak hours, quantization, which pool each row spends — and was four
+ * lines deep in a dropdown. Users skim a picker; a paragraph there is read by
+ * nobody, so the details it carried reached fewer people than the summary does.
+ * The picker itself shows each row's own count, which is where a user looks
+ * when they want the specifics.
+ *
+ * Keep it to: why, what the limit is, what is still free. Anything more belongs
+ * on the rows.
+ *
+ * CUT AGAIN on 2026-08-21, to three facts: which row sleeps at peak, what to
+ * use instead, and the one per-model cap. Everything it used to carry had
+ * stopped being true — MiniMax M3 was withdrawn, and V4 Pro no longer pauses
+ * (it is the peak-hours recommendation now) — which is the recurring hazard
+ * with this string: it describes policy that moves, from a place no test reads.
+ * Check it whenever a cap or an availability window changes.
+ *
+ * 2026-08-22: V4 Pro's 1-a-day cap is GONE, so Luna is now the only per-model
+ * cap and this string names exactly one number. Pro is not free-for-all
+ * though — it still spends a premium session like Flash, and saying only
+ * "everything else is unmetered" would have promised that it doesn't. There
+ * is now a test pinning this string to the caps table, because this comment
+ * has asked three times to be checked by hand and was wrong again by the
+ * time anyone read it.
+ *
+ * Signed, because this is us asking users to accept less than they had. An
+ * unsigned notice reads as a system message; a signed one reads as someone
+ * taking responsibility for it, which is the honest framing when the cause is
+ * our costs rather than anything they did.
+ */
+export const FREEBUFF_TIER_CHANGE_NOTICE =
+  'Every model runs on your normal daily sessions — no more per-model caps. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
+
+const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
+  {
+    anonymous: 'anonymized network',
+    proxy: 'proxy',
+    relay: 'relay',
+    res_proxy: 'residential proxy',
+    tor: 'Tor',
+    vpn: 'VPN',
+    hosting: 'hosting network',
+    service: 'privacy service',
+  }
 
 export function formatFreebuffPrivacySignalList(
   signals: readonly FreebuffIpPrivacySignal[] | null | undefined,

@@ -59,6 +59,15 @@ export const isImplementorAgent = (
   return IMPLEMENTOR_AGENT_IDS.some((id) => agentBlock.agentType.includes(id))
 }
 
+// Order matters: more specific substrings must be checked before the
+// generic 'editor-implementor' suffix, since every variant contains it.
+const IMPLEMENTOR_DISPLAY_NAMES = [
+  ['editor-implementor-opus', 'Opus'],
+  ['editor-implementor-gemini', 'Gemini'],
+  ['editor-implementor-gpt-5', 'GPT-5'],
+  ['editor-implementor', 'Sonnet'],
+] as const
+
 /**
  * Get the display name for an implementor agent.
  */
@@ -66,16 +75,8 @@ export const getImplementorDisplayName = (
   agentType: string,
   index?: number,
 ): string => {
-  let baseName = 'Implementor'
-  if (agentType.includes('editor-implementor-opus')) {
-    baseName = 'Opus'
-  } else if (agentType.includes('editor-implementor-gemini')) {
-    baseName = 'Gemini'
-  } else if (agentType.includes('editor-implementor-gpt-5')) {
-    baseName = 'GPT-5'
-  } else if (agentType.includes('editor-implementor')) {
-    baseName = 'Sonnet'
-  }
+  const match = IMPLEMENTOR_DISPLAY_NAMES.find(([id]) => agentType.includes(id))
+  const baseName = match ? match[1] : 'Implementor'
 
   if (index !== undefined) {
     return `${baseName} #${index + 1}`
@@ -518,18 +519,13 @@ export function parseDiffStats(diff: string | undefined): DiffStats {
  */
 export function getFileChangeType(toolBlock: ToolContentBlock): FileChangeType {
   const baseToolName = getBaseToolName(toolBlock.toolName)
-  // write_file creating new file = Added
+  // write_file creating new file = Added; everything else (str_replace and
+  // any other edit tool) is a modification.
   if (baseToolName === 'write_file') {
     const isCreate = isCreateFile(toolBlock)
     return isCreate ? 'A' : 'M'
   }
 
-  // str_replace is always a modification
-  if (baseToolName === 'str_replace') {
-    return 'M'
-  }
-
-  // Default to modified
   return 'M'
 }
 
@@ -546,33 +542,34 @@ export function getFileStatsFromBlocks(
 
   for (const block of blocks) {
     if (
-      block.type === 'tool' &&
-      ALL_EDIT_TOOL_NAMES.includes(
+      block.type !== 'tool' ||
+      !ALL_EDIT_TOOL_NAMES.includes(
         block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
       )
     ) {
-      if (isFailedEditToolBlock(block)) continue
+      continue
+    }
+    if (isFailedEditToolBlock(block)) continue
 
-      const filePath = extractFilePath(block)
-      if (!filePath) continue
+    const filePath = extractFilePath(block)
+    if (!filePath) continue
 
-      const diff = extractDiff(block)
-      const stats = parseDiffStats(diff ?? undefined)
-      const changeType = getFileChangeType(block)
+    const diff = extractDiff(block)
+    const stats = parseDiffStats(diff ?? undefined)
+    const changeType = getFileChangeType(block)
 
-      const existing = fileMap.get(filePath)
-      if (existing) {
-        // Aggregate stats for same file
-        existing.stats.linesAdded += stats.linesAdded
-        existing.stats.linesRemoved += stats.linesRemoved
-        existing.stats.hunks += stats.hunks
-      } else {
-        fileMap.set(filePath, {
-          path: filePath,
-          changeType,
-          stats,
-        })
-      }
+    const existing = fileMap.get(filePath)
+    if (existing) {
+      // Aggregate stats for same file
+      existing.stats.linesAdded += stats.linesAdded
+      existing.stats.linesRemoved += stats.linesRemoved
+      existing.stats.hunks += stats.hunks
+    } else {
+      fileMap.set(filePath, {
+        path: filePath,
+        changeType,
+        stats,
+      })
     }
   }
 

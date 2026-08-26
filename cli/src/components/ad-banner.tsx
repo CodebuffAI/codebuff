@@ -1,4 +1,15 @@
 import { TextAttributes } from '@opentui/core'
+import {
+  INLINE_AD_DISCLOSURE,
+  INLINE_AD_GAP,
+  INLINE_AD_LINK_SUFFIX,
+  MAX_DESC_LINES,
+  getAdDisplayLabel,
+  getInlineAdLayout,
+  truncateToLines,
+  truncateToWidth,
+} from '@codebuff/common/ads/inline-ad-layout'
+import { visibleWaitingRoomPlacementIds } from '@codebuff/common/ads/waiting-room-placements'
 import { safeOpen } from '../utils/open-url'
 import React, { useState, useMemo, useEffect } from 'react'
 
@@ -11,77 +22,75 @@ import type { AdResponse } from '../hooks/use-gravity-ad'
 
 interface ChoiceAdBannerProps {
   ads: AdResponse[]
+  placementIds?: readonly string[]
   onClick?: (ad: AdResponse) => void
   onImpression?: (ad: AdResponse) => void
 }
 
-export const AD_CARD_HEIGHT = 5 // border-top + 2 lines description + spacer + cta row + border-bottom
+// border-top + 2 copy rows + cta row + border-bottom. The two copy rows are
+// headline + 1 description line, or 2 description lines when the ad has no
+// headline — see getCardAdLayout. Fixed either way, because the landing screen
+// subtracts this from the model picker's height budget.
+export const AD_CARD_HEIGHT = 5
 export const INLINE_AD_CARD_HEIGHT = 4 // border-top + header row + detail row + border-bottom
-const MAX_DESC_LINES = 2
-const MIN_CARD_WIDTH = 60 // Minimum width per ad card to remain readable
-const MIN_INLINE_WIDTH_WITH_DESTINATION = 48
-const INLINE_AD_DISCLOSURE = 'Ad'
-const INLINE_AD_GAP = 2
-const INLINE_AD_LINK_SUFFIX = ' ↗'
 
-function truncateToLines(text: string, lineWidth: number, maxLines: number): string {
-  if (lineWidth <= 0) return text
-  const maxChars = lineWidth * maxLines
-  if (text.length <= maxChars) return text
-  return text.slice(0, maxChars - 1) + '…'
-}
+// Layout lives in `common` so the advertiser campaign builder's creative
+// preview fits copy exactly the way this renderer does. Re-exported here
+// because this module was its original home.
+export {
+  extractDomain,
+  getAdDisplayLabel,
+  getInlineAdLayout,
+} from '@codebuff/common/ads/inline-ad-layout'
 
-function truncateToWidth(text: string, width: number): string {
-  if (width <= 0) return ''
-  if (text.length <= width) return text
-  return text.slice(0, width - 1) + '…'
-}
-
-export const extractDomain = (url: string): string => {
-  try {
-    const parsed = new URL(url)
-    return parsed.hostname.replace(/^www\./, '')
-  } catch {
-    return url
-  }
-}
-
-export function getAdDisplayLabel(
-  ad: Pick<AdResponse, 'title' | 'url'>,
-): { text: string; variant: 'domain' | 'title' } {
-  const url = ad.url.trim()
-  if (url) {
-    return { text: extractDomain(url), variant: 'domain' }
-  }
-
-  return { text: ad.title.trim() || 'Sponsored', variant: 'title' }
-}
-
-export function getInlineAdLayout(
-  ad: Pick<AdResponse, 'adText' | 'title' | 'url'>,
+export function getCardAdLayout(
+  ad: Pick<AdResponse, 'adText' | 'title' | 'cta' | 'url'>,
   width: number,
-): { title: string; description: string; label: string } {
-  const contentWidth = Math.max(0, width - 4) // border + horizontal padding
-  const displayLabel = getAdDisplayLabel(ad)
-  const headerTrailingWidth =
-    INLINE_AD_GAP + INLINE_AD_DISCLOSURE.length
-  const titleWidth = Math.max(0, contentWidth - headerTrailingWidth)
-  const destinationLabel =
-    width >= MIN_INLINE_WIDTH_WITH_DESTINATION &&
-    displayLabel.variant === 'domain'
-      ? displayLabel.text
-      : ''
-  const maxLabelWidth = Math.max(0, Math.min(24, Math.floor(contentWidth / 3)))
-  const label = truncateToWidth(destinationLabel, maxLabelWidth)
-  const trailingWidth = label
-    ? INLINE_AD_GAP + label.length + INLINE_AD_LINK_SUFFIX.length
-    : 0
-  const descriptionWidth = Math.max(0, contentWidth - trailingWidth)
+): {
+  headline: string
+  description: string
+  descriptionLines: number
+  ctaText: string
+  labelText: string
+  labelVariant: 'domain' | 'title'
+} {
+  // Every field is defaulted before it is read. `AdResponse` types these as
+  // required strings, but nothing enforces that at runtime: the Gravity
+  // provider casts `response.json()` rather than parsing it and `normalize()`
+  // copies `cta: raw.cta` with no default, while the Carbon provider beside it
+  // writes `cta: raw.callToAction ?? 'Learn more'` — so a missing field is a
+  // case this codebase already expects from a network. A throw here is a throw
+  // inside AdCard's render on the landing screen, and `error-boundary.tsx` is a
+  // passthrough that does not catch render errors.
+  const title = (ad.title ?? '').trim()
+  const cta = (ad.cta ?? '').trim()
+  const adText = ad.adText ?? ''
+  const url = ad.url ?? ''
+
+  // Interior width less the padding and the ' Ad' disclosure, matching what
+  // the description has always been given.
+  const copyWidth = Math.max(0, width - 8)
+  const headline = truncateToWidth(title, copyWidth)
+  const descriptionLines = headline ? 1 : MAX_DESC_LINES
+  // The title is no longer a CTA fallback: it has a row of its own, and using
+  // it here too printed the same string twice on a five-row card.
+  const ctaText = cta || 'Learn more'
+  // Called with the defaulted fields, not `ad`: it reads `ad.url.trim()`
+  // directly and would throw on the same malformed payload.
+  const label = getAdDisplayLabel({ title, url })
+  // Without a URL the label falls back to the title, which is now drawn one row
+  // above. Same string, twice, for the same reason.
+  const showLabel = label.variant === 'domain' || !headline
 
   return {
-    title: truncateToWidth(ad.title.trim() || displayLabel.text, titleWidth),
-    description: truncateToWidth(ad.adText.trim(), descriptionWidth),
-    label,
+    headline,
+    description: truncateToLines(adText, copyWidth, descriptionLines),
+    descriptionLines,
+    ctaText,
+    labelText: showLabel
+      ? truncateToWidth(label.text, Math.max(0, width - ctaText.length - 5))
+      : '',
+    labelVariant: label.variant,
   }
 }
 
@@ -198,10 +207,7 @@ export const AdCard: React.FC<{
     )
   }
 
-  const label = getAdDisplayLabel(ad)
-  const ctaText = ad.cta || ad.title || 'Learn more'
-  const labelMaxWidth = Math.max(0, width - ctaText.length - 5)
-  const labelText = truncateToWidth(label.text, labelMaxWidth)
+  const card = getCardAdLayout(ad, width)
 
   return (
     <Button
@@ -217,15 +223,58 @@ export const AdCard: React.FC<{
         flexDirection: 'column',
       }}
     >
-      <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', height: MAX_DESC_LINES, overflow: 'hidden' }}>
+      {/* The disclosure rides whichever row is first, so it is never below the
+          fold of a card whose body has shrunk to one line. */}
+      {card.headline ? (
+        <box
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            height: 1,
+            overflow: 'hidden',
+          }}
+        >
+          <text
+            style={{
+              fg: isHovered ? theme.primary : theme.foreground,
+              flexShrink: 1,
+              wrapMode: 'none',
+            }}
+            attributes={TextAttributes.BOLD}
+          >
+            {card.headline}
+          </text>
+          <text style={{ fg: theme.muted, flexShrink: 0 }}>{'  Ad'}</text>
+        </box>
+      ) : null}
+      <box
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          height: card.descriptionLines,
+          overflow: 'hidden',
+        }}
+      >
         <text style={{ fg: theme.muted, flexShrink: 1 }}>
-          {truncateToLines(ad.adText, width - 8, MAX_DESC_LINES)}
+          {card.description}
         </text>
-        <text style={{ fg: theme.muted, flexShrink: 0 }}>{'  Ad'}</text>
+        {card.headline ? null : (
+          <text style={{ fg: theme.muted, flexShrink: 0 }}>{'  Ad'}</text>
+        )}
       </box>
       <box style={{ flexGrow: 1 }} />
       {/* Bottom: CTA + domain */}
-      <box style={{ flexDirection: 'row', columnGap: 1, alignItems: 'center', height: 1, overflow: 'hidden' }}>
+      <box
+        style={{
+          flexDirection: 'row',
+          columnGap: 1,
+          alignItems: 'center',
+          height: 1,
+          overflow: 'hidden',
+        }}
+      >
         <text
           style={{
             fg: INVERTED_CTA_FG,
@@ -233,20 +282,22 @@ export const AdCard: React.FC<{
             attributes: TextAttributes.BOLD,
           }}
         >
-          {` ${ctaText} `}
+          {` ${card.ctaText} `}
         </text>
-        <text
-          style={{
-            fg: theme.muted,
-            wrapMode: 'none',
-            attributes:
-              label.variant === 'domain'
-                ? TextAttributes.UNDERLINE
-                : TextAttributes.BOLD,
-          }}
-        >
-          {labelText}
-        </text>
+        {card.labelText ? (
+          <text
+            style={{
+              fg: theme.muted,
+              wrapMode: 'none',
+              attributes:
+                card.labelVariant === 'domain'
+                  ? TextAttributes.UNDERLINE
+                  : TextAttributes.BOLD,
+            }}
+          >
+            {card.labelText}
+          </text>
+        ) : null}
       </box>
     </Button>
   )
@@ -265,7 +316,12 @@ export const SingleAdBanner: React.FC<{
 
   return (
     <box style={{ marginLeft: 1, marginRight: 1 }}>
-      <AdCard ad={ad} width={terminalWidth - 2} onClick={onClick} onImpression={onImpression} />
+      <AdCard
+        ad={ad}
+        width={terminalWidth - 2}
+        onClick={onClick}
+        onImpression={onImpression}
+      />
     </box>
   )
 }
@@ -276,6 +332,7 @@ export const SingleAdBanner: React.FC<{
  */
 export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
   ads,
+  placementIds,
   onClick,
   onImpression,
 }) => {
@@ -285,13 +342,19 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
   const colAvail = terminalWidth - 2
 
   // Only show as many ads as fit with a healthy minimum width; hide the rest
-  const maxVisible = Math.max(1, Math.floor(colAvail / MIN_CARD_WIDTH))
-  const visibleAds = useMemo(
-    () => (ads.length > maxVisible ? ads.slice(0, maxVisible) : ads),
-    [ads, maxVisible],
-  )
+  const maxVisible =
+    placementIds?.length ?? visibleWaitingRoomPlacementIds(terminalWidth).length
+  const visibleAds = useMemo(() => {
+    const requested = placementIds?.length
+      ? orderedRequestedAds(ads, placementIds)
+      : ads
+    return requested.slice(0, maxVisible)
+  }, [ads, maxVisible, placementIds])
 
-  const widths = useMemo(() => columnWidths(visibleAds.length, colAvail), [visibleAds.length, colAvail])
+  const widths = useMemo(
+    () => columnWidths(visibleAds.length, colAvail),
+    [visibleAds.length, colAvail],
+  )
 
   return (
     <box
@@ -320,4 +383,15 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
       </box>
     </box>
   )
+}
+
+/** Preserve canonical request order and never mount a duplicate slot response. */
+export function orderedRequestedAds(
+  ads: AdResponse[],
+  placementIds: readonly string[],
+): AdResponse[] {
+  return placementIds.flatMap((placementId) => {
+    const ad = ads.find((candidate) => candidate.placementId === placementId)
+    return ad ? [ad] : []
+  })
 }

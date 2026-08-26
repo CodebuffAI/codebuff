@@ -167,14 +167,29 @@ Measure it on CI, not locally. That same file takes ~101s on an M-series Mac
 against ~54s for the entire desktop suite on a runner, so local timings will
 send you after the wrong thing.
 
-### The dependency cache is now the per-job floor
+### Cold Bun installs beat the dependency cache on Ubicloud
 
-Un-gating means 19 jobs restore the same ~1 GB `node_modules` cache at t=0
-instead of one job then seventeen. The median restore is unchanged (37s), but
-the tail got worse (73s → 100s) and total runner-seconds spent on setup rose
-702 → 888. It is a fair trade for halving wall clock, but it does mean the
-floor for *every* job is now ~40s of cache restore to produce an install that
-then takes about a second.
+Do not cache `node_modules` on the Linux jobs. The first full CI run after the
+Ubicloud migration gave a natural cold-cache comparison across all 31 Linux
+jobs: cache lookup plus `bun install --frozen-lockfile` took 802 runner-seconds
+in total, with a 26.0s median per job. The next three runs restored the same
+1.185 GB archive and took 1,038–1,080 runner-seconds for restore plus install,
+with 32.9–34.1s medians. A warm cache was therefore about 7–8s slower per job
+and cost roughly four extra runner-minutes per full CI run.
+
+The smaller observations agree with the full matrix. Migration CI installed
+cold in 23s, while its warm restores took 18–41s. The abuse sweep installed in
+17s on a miss and then spent another 24s compressing and saving the cache.
+`setup-project` consequently skips dependency caching on Linux, and standalone
+Ubicloud workflows use that action instead of carrying their own cache blocks.
+The Windows and macOS cache remains until those runners have their own cold/warm
+comparison; this measurement says nothing about their install performance.
+
+Keep the caches whose transfer cost is materially smaller than the work they
+avoid. `sdk/dist` is a roughly 17 MB restore instead of an ~18s build. The web
+app's 72–74 MB Next.js cache restores in 2–3s; measured warm builds took 34–47s
+against 61s cold. `oven-sh/setup-bun`'s own small runtime cache is independent
+of dependency installation and also remains enabled.
 
 ## CLI tmux Testing
 
@@ -246,6 +261,46 @@ It exits non-zero if any run reported a failing test, prints the load average
 per round, and writes each run's full output to a log it names for you. If your
 shell lacks the repo env (a worktree without direnv), pass it through the
 command: `--cmd "bun --env-file=../.env.local test"`.
+
+### When the hunter cannot reproduce it
+
+The hunter is a magnifier, not an oracle, and one open flake is proof of that.
+`useProjectSkills` failed on **three separate PRs, on three different cases**,
+none of which touched `freebuff-desktop` — and never once under 24 hunted runs
+at load 11-16, nor under 12 concurrent runs with CPU hogs, on the fixed and
+unfixed versions alike.
+
+Two concrete mechanisms were removed and it flaked again on a head that already
+contained both. At that point further guessing costs other people's PRs, so the
+file was skipped and tracked in **issue #1899** rather than patched a third time.
+
+#1983 un-skipped it by moving it off the hand-rolled `mount()` entirely, onto
+`@testing-library/react` + jsdom instead (the pattern already used by
+`UpdatesPage.test.tsx`, `QuotaBadge.test.tsx`, `ConnectorsPanel.test.tsx`, …),
+on the theory that the class of bug cannot exist there — React's own scheduler
+owns the dispatcher for the whole render/effect/continuation lifecycle, instead
+of a test file borrowing it by hand.
+
+**That is a theory, not a diagnosis.** The original flake was never reproduced,
+so nothing distinguishes "the dispatcher swap was the cause and is now gone"
+from "the timing changed and the flake moved". Leave #1899 open until the file
+has survived a stretch of CI; if it flakes again, the migration is evidence
+*against* the dispatcher hypothesis and the search should widen, not repeat.
+The other twelve files named below still use the swap either way.
+
+Two things worth taking from it:
+
+- **A green `gh pr checks` does not mean the job never failed.** CI retries, and
+  a successful re-run overwrites the run conclusion. The failures above are only
+  visible via `attempts/1/jobs` on the run. Check there before concluding a
+  suite is healthy.
+- **The suspect is usually shared, so the file that flaked is rarely the fix.**
+  Here it is the hand-rolled `mount()` that swaps the process-global
+  `React.__CLIENT_INTERNALS…H` dispatcher and restores it in a `finally` —
+  while effects, and the fetch continuations they schedule, run *after* that
+  restore. 13 desktop UI test files touch that global and at least six define
+  their own `mount()` with the same shape, so fixing one file just moves the
+  flake to a sibling — as it still can, for the twelve that remain.
 
 **Three things to check before blaming the machine.** Each of these was a real
 defect found by this harness on its first outing:

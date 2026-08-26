@@ -62,7 +62,10 @@ End every response by calling the suggest_followups tool with exactly 3 followup
       // budget below lands on exactly 400k. Without this Luna took
       // DEFAULT_CONTEXT_WINDOW and got a 52k budget on a million-token model.
       'openai/gpt-5.6-luna': 1_000_000,
+      'openai/gpt-5.6-luna-es': 372_000,
       'meta/muse-spark-1.2-contributor': 1_000_000,
+      // Ox Alpha: 1,048,576 published, entered low for the same reason.
+      'stealth/ox-alpha': 1_000_000,
     }
 
     /** For any model not listed above. Assuming a window is smaller than it is

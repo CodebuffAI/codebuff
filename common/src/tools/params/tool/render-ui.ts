@@ -66,6 +66,12 @@ const resolvedButtonWidgetSchema = buttonWidgetBaseSchema.extend({
   link: buttonLinkSchema.describe(
     'The http:// or https:// URL to open when the user clicks the button.',
   ),
+  // Stamped by the runtime when the link came from a gravity_index reference,
+  // never supplied by the model. It is what lets a surface tell a retraction
+  // ("use Postmark instead") from a second recommendation (a database AND an
+  // email sender): one selection stands per search, but separate searches each
+  // keep their own button, and their own tracked setup link.
+  gravity_search_id: z.string().min(1).optional(),
 })
 
 const buttonWidgetSchema = buttonWidgetBaseSchema.extend({

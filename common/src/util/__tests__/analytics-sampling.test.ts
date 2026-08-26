@@ -39,12 +39,6 @@ describe('analytics sampling', () => {
     ).toBe(true)
     expect(
       shouldTrackAnalyticsEvent({
-        event: AnalyticsEvent.USER_INPUT_COMPLETE,
-        distinctId: 'user-1',
-      }),
-    ).toBe(true)
-    expect(
-      shouldTrackAnalyticsEvent({
         event: AnalyticsEvent.TERMINAL_BROKER_SPAWN_FAILED,
         distinctId: 'user-1',
       }),
@@ -57,27 +51,17 @@ describe('analytics sampling', () => {
     ).toBe(true)
   })
 
-  it('always tracks CLI error logs', () => {
-    expect(
-      shouldTrackAnalyticsEvent({
-        event: AnalyticsEvent.CLI_LOG,
-        distinctId: 'user-1',
-        properties: { level: 'error' },
-      }),
-    ).toBe(true)
-  })
-
   it('samples high-volume events deterministically', () => {
     const first = shouldTrackAnalyticsEvent({
-      event: AnalyticsEvent.TOOL_USE,
+      event: AnalyticsEvent.CLI_INLINE_AD_SLOT_ELIGIBLE,
       distinctId: 'user-1',
     })
     const second = shouldTrackAnalyticsEvent({
-      event: AnalyticsEvent.TOOL_USE,
+      event: AnalyticsEvent.CLI_INLINE_AD_SLOT_ELIGIBLE,
       distinctId: 'user-1',
     })
     const otherEvent = shouldTrackAnalyticsEvent({
-      event: AnalyticsEvent.AGENT_STEP,
+      event: AnalyticsEvent.FEEDBACK_BUTTON_HOVERED,
       distinctId: 'user-1',
     })
 

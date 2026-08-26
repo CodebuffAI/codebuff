@@ -42,7 +42,7 @@ describe('analytics-log helpers', () => {
   it('returns null when user cannot be resolved', () => {
     expect(
       toTrackableAnalyticsPayload({
-        data: { eventId: AnalyticsEvent.AGENT_STEP },
+        data: { eventId: AnalyticsEvent.APP_LAUNCHED },
         level: baseLevel,
         msg: baseMsg,
       }),

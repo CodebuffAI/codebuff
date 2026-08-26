@@ -1,0 +1,25 @@
+# Blank issues are off on purpose. Roughly half of what this tracker receives
+# is provider/quota support rather than defects, and untyped free-text reports
+# are what made 247 issues unlabelable. The forms below give both the reporter
+# and the triage bot a category to start from.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Model unavailable, out of usage, or session limits
+    url: https://discord.gg/yXG3w7wxfs
+    about: >-
+      Provider outages and daily/session limits are operational, not code bugs.
+      Discord is faster and we post live status there. Please only open an issue
+      here if you believe the limit itself is being counted wrong.
+
+  - name: Questions and general help
+    url: https://discord.gg/yXG3w7wxfs
+    about: Usage questions get answered much faster in Discord than in the tracker.
+
+  - name: Documentation
+    url: https://codebuff.com/docs
+    about: Check the docs before filing - especially for setup and configuration.
+
+  - name: Security vulnerability
+    url: https://github.com/CodebuffAI/freebuff/security/policy
+    about: Please report privately. Do not open a public issue.

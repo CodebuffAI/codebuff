@@ -1,3 +1,4 @@
+import { FREEBUFF_EARN_PROMPT_SHORT } from '@codebuff/common/constants/freebuff-levels'
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { createTestRenderer } from '@opentui/core/testing'
 import { createRoot, flushSync } from '@opentui/react'
@@ -8,6 +9,7 @@ import {
   DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
@@ -16,6 +18,7 @@ import {
   FREEBUFF_MODELS,
   getFreebuffModelSupersededBy,
   isFreebuffModelId,
+  LIMITED_FREEBUFF_MODELS,
 } from '@codebuff/common/constants/freebuff-models'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
@@ -26,6 +29,24 @@ import {
 import { useFreebuffSessionStore } from '../../state/freebuff-session-store'
 
 let cleanupRenderer: (() => void) | undefined
+
+/**
+ * The instant every render in this file happens at.
+ *
+ * Row availability is time-of-day dependent, so reading the real clock made
+ * these assertions depend on the hour CI ran at: V4 Pro is `off_peak_only` and
+ * closes for DeepSeek's expensive window (00:00-10:00 UTC), and a closed row
+ * draws no supersession notice and is not joinable — which is how the
+ * switch-to-Flash test went red on an unrelated PR (#1927) and green on one
+ * merged the same day (#1924).
+ *
+ * 19:00 UTC on a fixed date is outside that window AND inside deployment hours
+ * (15:00 Eastern, 12:00 Pacific), so every catalog row is open here regardless
+ * of which of the two availability rules it carries. The relative fixtures
+ * below are built from this same instant rather than the real clock, or a
+ * countdown measured against the frozen picker would run backwards.
+ */
+const FIXED_NOW_MS = Date.UTC(2026, 7, 20, 19, 0, 0)
 
 beforeAll(() => {
   initializeThemeStore()
@@ -53,7 +74,11 @@ const renderSelector = async (maxHeight = 40) => {
     flushSync(() => root.unmount())
     setup.renderer.destroy()
   }
-  flushSync(() => root.render(<FreebuffModelSelector maxHeight={maxHeight} />))
+  flushSync(() =>
+    root.render(
+      <FreebuffModelSelector maxHeight={maxHeight} nowMs={FIXED_NOW_MS} />,
+    ),
+  )
   await setup.renderOnce()
   return setup
 }
@@ -69,7 +94,7 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
       ...(remaining === undefined
         ? {}
         : { weeklySessionsRemaining: remaining }),
-      resetAt: new Date(Date.now() + 60_000).toISOString(),
+      resetAt: new Date(FIXED_NOW_MS + 60_000).toISOString(),
       githubLinked: true,
     },
   })
@@ -108,7 +133,7 @@ describe('FreebuffModelSelector tier layout', () => {
         referrerName: null,
         qualifiedCount: 0,
         weeklySessionsRemaining: 0,
-        resetAt: new Date(Date.now() + 60_000).toISOString(),
+        resetAt: new Date(FIXED_NOW_MS + 60_000).toISOString(),
         githubLinked: true,
       },
     })
@@ -120,94 +145,128 @@ describe('FreebuffModelSelector tier layout', () => {
     const actionRow =
       frame.split('\n').find((line) => line.includes('Copy invite link')) ?? ''
 
-    expect(actionRow).toContain('Open referral status')
+    // The label is shared with Desktop and the browser
+    // (FREEBUFF_EARN_PROMPT_SHORT), so asserting the constant rather than the
+    // string keeps the three surfaces free to be re-worded together — which is
+    // the whole reason it is shared. What this test is really pinning is that
+    // it sits on the SAME row as the copy control.
+    expect(actionRow).toContain(FREEBUFF_EARN_PROMPT_SHORT)
     expect(frame).not.toContain('Or earn')
     expect(frame).not.toContain('for small tasks')
   })
 
-  test('orders Luna above MiniMax while keeping the saved premium model focused', async () => {
+  test('orders the premium rows above UNLIMITED, saved model focused', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
     })
-    // The saved pick has to be something OTHER than the recommended hero, or
-    // the landing picker opens collapsed and there are no tier headers to order.
-    // Since 2026-08-12 the hero is itself premium (DeepSeek V4 Pro), so Luna is
-    // the premium row that exercises "saved model stays focused" here.
+    // The saved pick has to be a PREMIUM row that is NOT the recommended hero:
+    // premium or the tier headers it is being ordered against don't apply to
+    // it, non-hero or the landing picker opens collapsed and there are no tier
+    // headers at all. The hero is GPT-5.6 Luna since 2026-08-24, which leaves
+    // V4 Pro as the only row that is both. Flash filled this slot until
+    // 2026-08-24, when it left FREEBUFF_PREMIUM_MODEL_IDS and moved down into
+    // UNLIMITED -- below the header this asserts it sits above.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
 
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const recommendedModelIndex = frame.indexOf('DeepSeek V4 Pro')
-    const selectedModelIndex = frame.indexOf('GPT-5.6 Luna')
-    const minimaxModelIndex = frame.indexOf('MiniMax M3')
+    const recommendedModelIndex = frame.indexOf('GPT-5.6 Luna')
+    const selectedModelIndex = frame.indexOf('DeepSeek V4 Pro')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
     expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
     expect(selectedModelIndex).toBeGreaterThan(recommendedModelIndex)
-    expect(minimaxModelIndex).toBeGreaterThan(selectedModelIndex)
-    expect(unlimitedHeaderIndex).toBeGreaterThan(minimaxModelIndex)
-    expect(frame).toContain('› GPT-5.6 Luna')
-    expect(frame).not.toContain('› MiniMax M3')
+    // MiniMax M3 anchored the tail of this list until it was withdrawn on
+    // 2026-08-20 and left the picker entirely.
+    expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
+    // The cursor sits on the SAVED pick, not on the recommendation.
+    expect(frame).toContain('› DeepSeek V4 Pro')
+    expect(frame).not.toContain('› GPT-5.6 Luna')
   })
 
-  test('shows the switch-to-Flash nudge only on the row the user is on', async () => {
+  /**
+   * ARMED, NOT DELETED. The catalog carries NO supersedes notice as of
+   * 2026-08-21: V4 Pro held the last one ("V4 Flash is what we recommend") and
+   * it was removed when Pro moved to a flat-priced lane and Flash became the
+   * row that sleeps at peak — pointing Pro at Flash now steers users to a model
+   * that is closed for ten hours precisely when Pro is their best option.
+   *
+   * The RULE this guards — only the selected row nags, so the list does not
+   * repeat one notice on every row it applies to — is UI logic that outlives
+   * any particular pair of models, so it runs again automatically the next time
+   * a supersedes notice exists rather than being re-derived from a regression.
+   */
+  const allModelIds = FREEBUFF_MODELS.map((m) => m.id)
+  const supersededModelId = allModelIds.find((id) =>
+    getFreebuffModelSupersededBy(id, allModelIds),
+  )
+  test.if(Boolean(supersededModelId))(
+    'shows the supersedes nudge only on the row the user is on',
+    async () => {
+      useFreebuffSessionStore.getState().setSession({
+        status: 'none',
+        accessTier: 'full',
+      })
+      // Assert against the real copy rather than a hardcoded fragment, so
+      // rewording the notice doesn't fail this test for the wrong reason. It
+      // must still render on ONE line — the width math reserves its length.
+      const superseded = getFreebuffModelSupersededBy(
+        supersededModelId!,
+        allModelIds,
+      )!
+      const notice = superseded.notice
+      const occurrences = (frame: string) => frame.split(notice).length - 1
+
+      // On a superseded model: the nudge appears, once, on that model's card.
+      useFreebuffModelStore.getState().setSelectedModel(supersededModelId!)
+      const onSuperseded = (await renderSelector()).captureCharFrame()
+      expect(occurrences(onSuperseded)).toBe(1)
+
+      // On a row that is NOT superseded, that notice stays quiet — otherwise
+      // the list would repeat it on every row it applies to.
+      const otherId = allModelIds.find((id) => id !== supersededModelId)!
+      useFreebuffModelStore.getState().setSelectedModel(otherId)
+      const onOther = (await renderSelector()).captureCharFrame()
+      expect(occurrences(onOther)).toBe(0)
+
+      // And on the replacement itself: no nudge at all.
+      useFreebuffModelStore.getState().setSelectedModel(superseded.modelId)
+      const onCurrent = (await renderSelector()).captureCharFrame()
+      expect(occurrences(onCurrent)).toBe(0)
+    },
+  )
+
+  test('badges the new builds so a returning user notices they changed', async () => {
+    // Independent of the supersedes machinery above, which is why it is its own
+    // test now: `isNew` is a property of the row, and Flash still carries it.
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
     })
-    // Assert against the real copy rather than a hardcoded fragment, so
-    // rewording the notice doesn't fail this test for the wrong reason. It must
-    // still render on ONE line — the width math reserves exactly its length.
-    const notice = getFreebuffModelSupersededBy(
-      FREEBUFF_MINIMAX_M3_MODEL_ID,
-      FREEBUFF_MODELS.map((m) => m.id),
-    )!.notice
-    const occurrences = (frame: string) => frame.split(notice).length - 1
-
-    // On a superseded model: the nudge appears, once, on that model's card.
-    useFreebuffModelStore
-      .getState()
-      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
-    const onSuperseded = (await renderSelector()).captureCharFrame()
-    expect(occurrences(onSuperseded)).toBe(1)
-    // It names the dated build, which is what the row it steers to is labelled.
-    expect(notice).toContain('DeepSeek V4 Flash 07/31')
-    // The new builds are badged so a returning user notices they changed.
-    expect(onSuperseded).toContain('NEW')
-
-    // MiMo is superseded too and is on screen here, but only the selected row
-    // nags — otherwise the list would repeat the same notice on every row it
-    // applies to. V4 Pro is on screen and is NOT superseded at all since its
-    // 08/13 GA build, so selecting it shows no nudge anywhere.
-    useFreebuffModelStore
-      .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    const onUnsuperseded = (await renderSelector()).captureCharFrame()
-    expect(onUnsuperseded).toContain('DeepSeek V4 Pro 08/13')
-    expect(occurrences(onUnsuperseded)).toBe(0)
-
-    // On the replacement itself: no nudge at all. (Picking the recommended
-    // model also collapses the picker to its hero card.)
+    // Selected explicitly: `isNew` sits on the V4 Flash row, and the collapsed
+    // view draws only the card the user is on — which is V4 Pro by default
+    // since 2026-08-21, and carries no badge.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    const onCurrent = (await renderSelector()).captureCharFrame()
-    expect(occurrences(onCurrent)).toBe(0)
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('DeepSeek V4 Flash 07/31')
+    expect(frame).toContain('NEW')
   })
 
   test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
-    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
       rateLimitsByModel: {
-        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
-          model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
+          model: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',
@@ -225,15 +284,18 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
-    const recommendedLabelIndex = frame.indexOf('RECOMMENDED')
-    const recommendedModelIndex = frame.indexOf(
-      'DeepSeek V4 Flash',
-      recommendedLabelIndex,
-    )
+    // Located by the ROW rather than by a ' RECOMMENDED ' border title, which
+    // was removed on 2026-08-21 — nothing in the picker is badged as a
+    // recommendation any more. The property under test is unchanged: when the
+    // premium pool is spent, the row the user is steered onto sits in the
+    // UNLIMITED group rather than above the list.
+    //
+    // MiMo 2.5 is that row since 2026-08-18 — Flash moved into the premium
+    // group and can no longer be what a spent user lands on.
+    const heroModelIndex = frame.indexOf('MiMo 2.5', unlimitedHeaderIndex)
 
     expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(recommendedLabelIndex).toBeGreaterThan(unlimitedHeaderIndex)
-    expect(recommendedModelIndex).toBeGreaterThan(recommendedLabelIndex)
+    expect(heroModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
   })
 
   test('collapses to the unlimited hero when the premium default is spent', async () => {
@@ -243,13 +305,17 @@ describe('FreebuffModelSelector tier layout', () => {
     // it, or Enter does nothing with no explanation — and the picker has to
     // collapse onto the replacement, or it opens on three greyed, unusable
     // premium rows with the recommendation fourth.
-    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
+      // Keyed on the CURRENT default rather than on a named model: the default
+      // moved from Flash to V4 Pro on 2026-08-21, and this fixture has to
+      // exhaust the pool of whichever row the picker will actually open on, or
+      // the step-down under test never triggers.
       rateLimitsByModel: {
-        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
-          model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        [DEFAULT_FREEBUFF_MODEL_ID]: {
+          model: DEFAULT_FREEBUFF_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',
@@ -269,7 +335,7 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(getSelectedFreebuffModel()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     const frame = setup.captureCharFrame()
     // `›` is the cursor: it has to be on the row Enter now commits.
-    expect(frame).toContain('› DeepSeek V4 Flash')
+    expect(frame).toContain('› MiMo 2.5')
     // …and that row is the whole screen, exactly as for a user who is already
     // on the recommendation. The spent rows live behind the toggle.
     expect(frame).toContain('See all')
@@ -277,13 +343,13 @@ describe('FreebuffModelSelector tier layout', () => {
   })
 
   test('repairs an invalid selection to the unlimited recommendation when premium is exhausted', async () => {
-    const resetAt = new Date(Date.now() + 60_000).toISOString()
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
       rateLimitsByModel: {
-        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: {
-          model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
+          model: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',
@@ -300,8 +366,8 @@ describe('FreebuffModelSelector tier layout', () => {
     await setup.renderOnce()
     await setup.renderOnce()
 
-    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(setup.captureCharFrame()).toContain('› DeepSeek V4 Flash')
+    expect(getSelectedFreebuffModel()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(setup.captureCharFrame()).toContain('› MiMo 2.5')
   })
 
   test('shows every limited-tier model when the access tier arrives after mount', async () => {
@@ -325,8 +391,14 @@ describe('FreebuffModelSelector tier layout', () => {
     await setup.renderOnce()
 
     const frame = setup.captureCharFrame()
-    expect(frame).toContain('DeepSeek V4 Flash')
-    expect(frame).toContain('MiMo 2.5')
+    // From the catalog, not a hardcoded list: the point is that NONE of the
+    // tier's rows stay hidden when the tier arrives late.
+    for (const model of LIMITED_FREEBUFF_MODELS) {
+      expect(frame).toContain(model.displayName)
+    }
+    // The pre-transition pick was a full-access model, so this is the path
+    // where a paused row would linger.
+    expect(frame).not.toContain('DeepSeek V4 Flash')
     expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('UNLIMITED')
   })
@@ -346,7 +418,7 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = (await renderSelector()).captureCharFrame()
 
     // Natively multimodal: the badge is a real capability claim.
-    expect(rowOf(frame, 'MiniMax M3')).toContain('Images')
+    expect(rowOf(frame, 'MiMo 2.5')).toContain('Images')
     expect(rowOf(frame, 'GPT-5.6 Luna')).toContain('Images')
     expect(rowOf(frame, 'MiMo 2.5')).toContain('Images')
     // Text-only. They still accept a pasted image (read server-side as a
@@ -371,11 +443,127 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = (await renderSelector()).captureCharFrame()
 
     expect(rowOf(frame, 'Smart & Fast')).toContain('Reasoning: high')
-    expect(rowOf(frame, 'Smartest')).toContain('Reasoning: high')
     const lunaRow = rowOf(frame, 'GPT-5.6 Luna')
     expect(lunaRow).toContain('Strong all-around')
     expect(lunaRow).toContain('Reasoning: high')
     expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
+  })
+
+  test('sizes and centres a row around its per-row quota chip', async () => {
+    // The chip is drawn on a row that answers to a DIFFERENT pool than its
+    // section header, and it was missing from BOTH the centering math and the
+    // height estimate — visible only once a user had spent a Luna session,
+    // until the server began sending unused pool rows and it became every
+    // full-access picker.
+    //
+    // WHICH row wears it is arithmetic, not semantic: getFreebuffSectionQuotas
+    // gives the header to the pool MOST rows share and breaks ties toward the
+    // earlier row. With Flash in the section that was 2-1 for the shared
+    // premium pool, so Luna's one-a-day ceiling wore the chip. Flash left that
+    // pool on 2026-08-24, leaving Luna and V4 Pro tied 1-1, so the header now
+    // speaks for Luna and it is V4 PRO that carries its own count. The
+    // invariant under test — a second line the width and height math must
+    // both know about — is unchanged; only the row it lands on moved.
+    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
+    const pool = (
+      model: string,
+      poolId: string,
+      poolLabel: string,
+      limit: number,
+    ) => ({
+      model,
+      pool: poolId,
+      poolLabel,
+      limit,
+      period: 'pacific_day' as const,
+      resetTimeZone: 'America/Los_Angeles',
+      resetAt,
+      windowHours: 24,
+      recentCount: 0,
+    })
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      // Flash sends no pool row at all since 2026-08-24: it is unmetered.
+      rateLimitsByModel: {
+        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: pool(
+          FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+          'premium',
+          'Premium',
+          4,
+        ),
+        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: pool(
+          FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+          'luna',
+          'Luna',
+          2,
+        ),
+      },
+    })
+    useFreebuffModelStore
+      .getState()
+      // NOT the hero, so the picker opens expanded and the chip under test is
+      // drawn at all. Luna took the hero slot on 2026-08-24; selecting it here
+      // collapses the list to a single row and the chip disappears. Flash also
+      // supplies the warning-ONLY second line asserted below, which no premium
+      // row has any more now that V4 Pro's carries the chip as well.
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+
+    const frame = (await renderSelector()).captureCharFrame()
+    // Gutters inside the card borders, which is what "centred" means here and
+    // what a length the math didn't know about throws off. Asserted for the
+    // ordinary warning line too, so this pins the invariant rather than the
+    // one string that broke it.
+    const gutters = (line: string) => {
+      const inner = line.slice(line.indexOf('│') + 1, line.lastIndexOf('│'))
+      return [
+        inner.length - inner.trimStart().length,
+        inner.length - inner.trimEnd().length,
+      ]
+    }
+    const lines = frame.split('\n')
+    // V4 Pro's second line carries the training warning AND the chip. Anchored
+    // on the chip, so a chip that stops being drawn fails here rather than
+    // quietly re-measuring some warning-only line instead.
+    const chipLine = lines.find((l) => l.includes('Premium: 0 of 4 used'))
+    // Flash's carries the same warning with nothing after it — the shape the
+    // width math already handled, which is the "ordinary warning line" above.
+    const warningOnlyLine = lines.find(
+      (l) => l.includes('May use data for AI training') && !l.includes('used'),
+    )
+    expect(chipLine).toBeDefined()
+    expect(warningOnlyLine).toBeDefined()
+    for (const line of [chipLine!, warningOnlyLine!]) {
+      const [left, right] = gutters(line)
+      expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
+    }
+    // A row the height estimate does not know has a second line costs the list
+    // a row on the first frame, which cut the toggle off the bottom.
+    expect(frame).toContain('Show fewer')
+  })
+
+  test('says nothing about a premium quota the account does not have', async () => {
+    // Quota-exempt accounts (god/admin) draw on no free pool, so no snapshot
+    // arrives. The header used to fall back to the static limit and render
+    // "0 of 4 used · resets in 11h 43m" for an account with neither.
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    // A row that isn't the hero, so the picker opens expanded and the PREMIUM
+    // header is actually drawn. Flash since 2026-08-24 -- Luna took the hero
+    // slot, so selecting Luna here would collapse the list. The assertion is
+    // the ABSENCE of numbers on that header, so the fact that Flash itself
+    // stopped being premium that same day changes nothing here.
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+
+    const frame = (await renderSelector()).captureCharFrame()
+    // The section still groups the rows; only the invented numbers are gone.
+    expect(frame).toContain('PREMIUM')
+    expect(frame).not.toContain('used')
+    expect(frame).not.toContain('resets in')
   })
 
   test('sizes the hero card to its content, with no Press-Enter gutter', async () => {
@@ -423,7 +611,7 @@ describe('FreebuffModelSelector limited-model offer', () => {
         remaining: 38,
         total: 50,
         userRemaining: 1,
-        userResetAt: new Date(Date.now() + 5 * 60 * 60_000).toISOString(),
+        userResetAt: new Date(FIXED_NOW_MS + 5 * 60 * 60_000).toISOString(),
         ...offer,
       },
     ],
@@ -456,9 +644,7 @@ describe('FreebuffModelSelector limited-model offer', () => {
     // The picker opens collapsed for a user already on the recommended model.
     // A wave nobody sees is a wave nobody joins. Read off the constant so the
     // collapsed state survives the next flip of the recommended default.
-    useFreebuffModelStore
-      .getState()
-      .setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+    useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
     useFreebuffSessionStore.getState().setSession(offerSession())
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('See all')
@@ -488,7 +674,7 @@ describe('FreebuffModelSelector limited-model offer', () => {
           remaining: 5,
           total: 50,
           userRemaining: 1,
-          userResetAt: new Date(Date.now() + 60_000).toISOString(),
+          userResetAt: new Date(FIXED_NOW_MS + 60_000).toISOString(),
         },
       ],
     })

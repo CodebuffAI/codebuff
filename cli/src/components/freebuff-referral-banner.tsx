@@ -1,9 +1,14 @@
+import {
+  FREEBUFF_EARN_PATH,
+  FREEBUFF_EARN_PROMPT_SHORT,
+} from '@codebuff/common/constants/freebuff-levels'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { useCopyToClipboard } from './copy-button'
 import { FREEBUFF_GLM_V52_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+import { FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS } from '@codebuff/common/constants/freebuff-models'
 import { REFERRAL_CLI_DAILY_SESSION_BONUS_CAP } from '@codebuff/common/constants/freebuff-referral-tiers'
 import { pluralize } from '@codebuff/common/util/string'
 
@@ -33,9 +38,17 @@ function referralLink(code: string, referrerName: string | null): string {
   return `${LOGIN_WEBSITE_URL}/get-started?${params.toString()}`
 }
 
-/** The referral tab and status section, not the broader Earn landing state. */
-const EARN_URL = `${LOGIN_WEBSITE_URL}/earn?tab=referrals#referral-status`
-const DASHBOARD_LABEL = 'Open referral status ↵'
+/**
+ * The Earn page, on the tab that pays TODAY.
+ *
+ * Was `/earn?tab=referrals#referral-status`, which sent a rate-limited user to
+ * the slowest of the three ways to earn — a referral pays when somebody else
+ * signs up and sticks around. `/earn/trust` is the engagement feed, which pays
+ * within a minute. `FREEBUFF_EARN_PATH` is shared so the CLI, Desktop and the
+ * browser all point at the same place.
+ */
+const EARN_URL = `${LOGIN_WEBSITE_URL}${FREEBUFF_EARN_PATH}`
+const DASHBOARD_LABEL = `${FREEBUFF_EARN_PROMPT_SHORT} ↵`
 // Two columns of leading space separate the label from the copy control beside
 // it (the row itself has no gap), and they stay put in every state so keyboard
 // navigation never shifts the rest of the action row.
@@ -444,7 +457,10 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
               <span fg={theme.foreground}>GLM 5.2</span>
               <span fg={theme.muted}>
                 {' '}
-                refills in {resetsIn} · refer more ({qualifiedCount} earned):
+                refills in {resetsIn}
+                {qualifiedCount >= FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS
+                  ? ''
+                  : ` · refer more (${qualifiedCount}/${FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS}):`}
               </span>
             </>
           ) : (
@@ -478,13 +494,20 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
       (glmLabel.length + BUTTON_HORIZONTAL_CHROME) -
       2 -
       DASHBOARD_BUTTON_WIDTH
-  // No "max earned" state: the reward is uncapped, so inviting always adds
-  // another daily session.
-  const inviteLabels = [
-    `⎘ Invite for +1/day (${qualifiedCount} earned)`,
-    '⎘ Invite +1/day',
-    '⎘ Invite',
-  ]
+  // The GLM reward is CAPPED at FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS, so past
+  // that point another referral buys nothing and the button must stop
+  // promising "+1/day" — the same max-earned state the limited-tier card above
+  // already renders against its own cap. `qualifiedCount` arrives already
+  // clamped (referral-info.ts sends the entitlement, not the raw count), so
+  // this compares like with like.
+  const glmAtCap = qualifiedCount >= FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS
+  const inviteLabels = glmAtCap
+    ? ['⎘ Invite a friend', '⎘ Invite']
+    : [
+        `⎘ Invite for +1/day (${qualifiedCount} earned)`,
+        '⎘ Invite +1/day',
+        '⎘ Invite',
+      ]
   const githubLabel =
     actionRowWidth >=
     'Signed up with Google? Connect GitHub to qualify ↗'.length

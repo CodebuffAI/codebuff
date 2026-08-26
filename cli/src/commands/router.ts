@@ -270,31 +270,11 @@ export async function routeUserPrompt(
   const setInputMode = useChatStore.getState().setInputMode
   const pendingAttachments = useChatStore.getState().pendingAttachments
   const pendingImages = pendingAttachments.filter((a) => a.kind === 'image')
-  const pendingTextAttachments = pendingAttachments.filter(
-    (a) => a.kind === 'text',
-  )
 
   const trimmed = inputValue.trim()
   // Allow empty messages if there are pending attachments (images or text)
   const hasAttachments = pendingAttachments.length > 0
   if (!trimmed && !hasAttachments) return
-
-  // Track user input complete
-  // Count @ mentions (simple pattern match - more accurate than nothing)
-  const mentionMatches = trimmed.match(/@\S+/g) || []
-  trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, {
-    inputLength: trimmed.length,
-    mode: agentMode,
-    inputMode,
-    hasImages: pendingImages.length > 0,
-    imageCount: pendingImages.length,
-    hasTextAttachments: pendingTextAttachments.length > 0,
-    textAttachmentCount: pendingTextAttachments.length,
-    isSlashCommand: isSlashCommand(trimmed),
-    isBashCommand: trimmed.startsWith('!'),
-    hasMentions: mentionMatches.length > 0,
-    mentionCount: mentionMatches.length,
-  })
 
   // DAU signal: one un-sampled event per user-submitted prompt. The CLI's
   // distinct id resolves to the canonical codebuff user id (anonymous id is

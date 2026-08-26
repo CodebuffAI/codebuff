@@ -34,7 +34,9 @@ import {
   isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeModeAllowedAgentModel,
+  isLimitedTierSubstitutedModel,
 } from '../constants/free-agents'
+import { LIMITED_FREEBUFF_MODEL_ID } from '../constants/freebuff-models'
 
 const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.7-code'
 
@@ -524,6 +526,60 @@ describe('free mode agent model allowlist', () => {
 
 })
 
+describe('isLimitedTierSubstitutedModel', () => {
+  // The free-session gate substitutes the limited tier's model for a pick that
+  // tier no longer offers, so the request lands on a root pinned to the model
+  // the user picked. Billing has to admit it too, or the turn silently meters.
+  const FLASH_PINNED_ROOTS = [
+    'base3-free-deepseek-flash',
+    'base2-free-deepseek-flash',
+  ]
+
+  test('admits the limited model on roots pinned to something else', () => {
+    for (const agentId of FLASH_PINNED_ROOTS) {
+      // The premise: without this, billing would call the substituted turn metered.
+      expect(isFreeModeAllowedAgentModel(agentId, LIMITED_FREEBUFF_MODEL_ID)).toBe(
+        false,
+      )
+      expect(isLimitedTierSubstitutedModel(agentId, LIMITED_FREEBUFF_MODEL_ID)).toBe(
+        true,
+      )
+      // The published, versioned form is how ids actually arrive.
+      expect(
+        isLimitedTierSubstitutedModel(
+          `codebuff/${agentId}@0.0.1`,
+          LIMITED_FREEBUFF_MODEL_ID,
+        ),
+      ).toBe(true)
+    }
+  })
+
+  test('is only ever the limited tier’s own model', () => {
+    for (const model of [
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_GLM_V52_MODEL_ID,
+    ]) {
+      expect(isLimitedTierSubstitutedModel('base2-free', model)).toBe(false)
+    }
+  })
+
+  // The substitution widens free mode, so it must not widen who can claim it:
+  // the agent still has to be one free mode already knows, published by us.
+  test('refuses unknown agents and foreign publishers', () => {
+    expect(
+      isLimitedTierSubstitutedModel('not-an-agent', LIMITED_FREEBUFF_MODEL_ID),
+    ).toBe(false)
+    expect(
+      isLimitedTierSubstitutedModel(
+        'attacker/base2-free@1.0.0',
+        LIMITED_FREEBUFF_MODEL_ID,
+      ),
+    ).toBe(false)
+  })
+})
+
 describe('hasFreebuffRootSystemPromptOpening', () => {
   test('accepts each canonical root prompt opening', () => {
     for (const opening of FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS) {
@@ -629,6 +685,7 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-glm': BASE2,
     // God-only Kimi K3 test root; createBase2('free', …) like its siblings.
     'base2-free-kimi-k3-eco': BASE2,
+    'base2-free-luna-es': BASE2,
     // Limited-offer trial root; createBase2('free', …) like its siblings.
     'base2-free-fable': BASE2,
     // Extended-context `-max` roots; createBase2('free', …) like their
@@ -638,6 +695,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-luna-max': BASE2,
     // Web-only Muse Spark root; createBase2('free', …) like its siblings.
     'base2-free-muse-spark': BASE2,
+    // Web/Cloud-only Ox Alpha root; createBase2('free', …) like its siblings.
+    'base2-free-ox-alpha': BASE2,
     'base2-free-cloud-planner': CLOUD_PLANNER,
     'base2-free-cloud-planner-limited': CLOUD_PLANNER,
     // Desktop threads compose their prompt onto base3's, so position 0 matches.
@@ -732,19 +791,19 @@ describe('canonical root prompt openings match their source definitions', () => 
     expect(source).toMatch(/const systemPrompt = \[\s*base3\.systemPrompt,/)
   })
 
-  test('desktop auto-run decider opens with its own canonical line', () => {
-    const source = read(
-      'freebuff-desktop',
-      'src',
-      'server',
-      'services',
-      'autorun.ts',
-    )
+  test('every desktop mission prompt variant opens with the canonical line', () => {
+    // The prompt moved out of services/mission.ts into shared/mission-prompt.ts, which holds the
+    // shipped variant and whatever candidates the mission eval is comparing against it. Each one can
+    // be made live by pointing ACTIVE_MISSION_PROMPT at it, so the check is per variant rather than
+    // per file: a candidate that drops the line would 403 every tab on Auto the day it shipped.
+    const source = read('freebuff-desktop', 'src', 'shared', 'mission-prompt.ts')
     const opening = 'You are Buffy, the auto-run agent behind Freebuff Desktop.'
     // The decision is a free-mode ROOT request, so this sentence has to sit at
     // position 0 of the first system message or the gate 403s every tab on Auto
     // — which is a silent failure, since a tab that cannot decide just stops.
-    expect(source).toContain(`return \`${opening}`)
+    const renders = source.match(/render: \([^)]*\) => `/g) ?? []
+    expect(renders.length).toBeGreaterThan(0)
+    expect(source.split(`=> \`${opening}`).length - 1).toBe(renders.length)
     expect(FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS).toContain(opening)
   })
 

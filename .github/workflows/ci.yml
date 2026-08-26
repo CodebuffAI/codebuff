@@ -1,0 +1,54 @@
+name: Public CI
+
+# Build and smoke-test the exported public tree on every PR.
+#
+# This workflow was written alongside the export scripts but never reached the
+# public repo: it sat in scripts/public-export/github-workflows/, which neither
+# the manifest nor sync-public-repo.sh reads. The repo therefore had no CI at
+# all while CONTRIBUTING.md claimed "Public CI validates the exported public
+# packages". Moving it under public-export/root/ is what actually ships it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: public-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build SDK
+        run: bun run build:sdk
+
+      - name: Build Freebuff binary
+        run: bun freebuff/cli/build.ts 0.0.0-ci
+
+      - name: Smoke test Freebuff binary
+        env:
+          NEXT_PUBLIC_CB_ENVIRONMENT: prod
+          NEXT_PUBLIC_CODEBUFF_APP_URL: https://codebuff.com
+          NEXT_PUBLIC_SUPPORT_EMAIL: support@codebuff.com
+          NEXT_PUBLIC_POSTHOG_API_KEY: phc_public_placeholder
+          NEXT_PUBLIC_POSTHOG_HOST_URL: https://us.i.posthog.com
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: https://billing.stripe.com/p/login/test
+          NEXT_PUBLIC_WEB_PORT: '3000'
+        run: |
+          chmod +x cli/bin/freebuff
+          cli/bin/freebuff --version
+          bun cli/scripts/smoke-binary.ts cli/bin/freebuff

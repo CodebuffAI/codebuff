@@ -1,5 +1,9 @@
 import path from 'path'
 
+import { translateGitBashPath } from './windows-bash'
+
+import type { WindowsShellPathDependencies } from './windows-bash'
+
 export type ResolvedProjectPath = {
   fullPath: string
   relativePath: string
@@ -21,11 +25,13 @@ function escapesProject(relativePath: string): boolean {
 export function resolveFilePathWithinProject(
   projectRoot: string,
   filePath: string,
+  dependencies: WindowsShellPathDependencies = {},
 ): ResolvedProjectPath | null {
   const resolvedRoot = path.resolve(projectRoot)
-  const fullPath = path.isAbsolute(filePath)
-    ? path.resolve(filePath)
-    : path.resolve(resolvedRoot, filePath)
+  const nativeFilePath = translateGitBashPath(filePath, dependencies)
+  const fullPath = path.isAbsolute(nativeFilePath)
+    ? path.resolve(nativeFilePath)
+    : path.resolve(resolvedRoot, nativeFilePath)
   const relativePath = path.relative(resolvedRoot, fullPath)
 
   if (relativePath === '' || escapesProject(relativePath)) {
@@ -43,15 +49,20 @@ export function resolveFilePathWithinProject(
  * when the target is inside the project, otherwise the absolute path.
  * `isWithinProject` lets callers skip project-scoped logic (e.g. gitignore) for
  * files that live outside the project.
+ * On Windows, a single-leading-slash path uses Git Bash semantics because that
+ * is the shell exposed to agents; native absolute paths retain their drive or
+ * UNC prefix.
  */
 export function resolveFilePath(
   projectRoot: string,
   filePath: string,
+  dependencies: WindowsShellPathDependencies = {},
 ): ResolvedFilePath {
   const resolvedRoot = path.resolve(projectRoot)
-  const fullPath = path.isAbsolute(filePath)
-    ? path.resolve(filePath)
-    : path.resolve(resolvedRoot, filePath)
+  const nativeFilePath = translateGitBashPath(filePath, dependencies)
+  const fullPath = path.isAbsolute(nativeFilePath)
+    ? path.resolve(nativeFilePath)
+    : path.resolve(resolvedRoot, nativeFilePath)
   const relativePath = path.relative(resolvedRoot, fullPath)
   const isWithinProject = relativePath !== '' && !escapesProject(relativePath)
   const displayPath = isWithinProject ? relativePath : fullPath
@@ -62,9 +73,19 @@ export function resolveFilePath(
 export function getProjectPathLookupKeys(
   projectRoot: string,
   filePath: string,
+  dependencies: WindowsShellPathDependencies = {},
 ): string[] {
-  const resolvedPath = resolveFilePathWithinProject(projectRoot, filePath)
-  const keys = resolvedPath ? [resolvedPath.relativePath, filePath] : [filePath]
+  const resolvedPath = resolveFilePathWithinProject(
+    projectRoot,
+    filePath,
+    dependencies,
+  )
+  const keys = resolvedPath
+    ? [resolvedPath.relativePath, filePath]
+    : [
+        resolveFilePath(projectRoot, filePath, dependencies).relativePath,
+        filePath,
+      ]
 
   return [...new Set(keys)]
 }

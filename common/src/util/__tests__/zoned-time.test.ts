@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getZonedDayBounds, getZonedWeekBounds } from '../zoned-time'
+import {
+  getZonedDayBounds,
+  getZonedWeekBounds,
+  getZonedYmd,
+} from '../zoned-time'
 
 describe('getZonedDayBounds', () => {
   test('returns the current Pacific day bounds on a normal day', () => {
@@ -84,5 +88,48 @@ describe('getZonedWeekBounds', () => {
 
     expect(bounds.startsAt.toISOString()).toBe('2026-04-12T07:00:00.000Z')
     expect(bounds.resetsAt.toISOString()).toBe('2026-04-19T07:00:00.000Z')
+  })
+})
+
+describe('getZonedYmd', () => {
+  test('reports the Pacific day, not the UTC one, after 5pm Pacific', () => {
+    // 2026-04-18T02:00Z is still 2026-04-17 in Los Angeles. This is the exact
+    // case `toISOString().slice(0, 10)` gets wrong every single evening.
+    expect(
+      getZonedYmd(new Date('2026-04-18T02:00:00Z'), 'America/Los_Angeles'),
+    ).toBe('2026-04-17')
+  })
+
+  test('rolls over at Pacific midnight', () => {
+    expect(
+      getZonedYmd(new Date('2026-04-18T06:59:59Z'), 'America/Los_Angeles'),
+    ).toBe('2026-04-17')
+    expect(
+      getZonedYmd(new Date('2026-04-18T07:00:00Z'), 'America/Los_Angeles'),
+    ).toBe('2026-04-18')
+  })
+
+  test('is correct across a DST spring-forward boundary', () => {
+    // Pacific loses an hour at 2026-03-08T10:00Z. A fixed -8 offset would
+    // report the previous day for the hour after the transition.
+    expect(
+      getZonedYmd(new Date('2026-03-08T09:59:00Z'), 'America/Los_Angeles'),
+    ).toBe('2026-03-08')
+    expect(
+      getZonedYmd(new Date('2026-03-08T10:01:00Z'), 'America/Los_Angeles'),
+    ).toBe('2026-03-08')
+  })
+
+  test('zero-pads month and day so the string sorts lexicographically', () => {
+    // Every consumer sorts and range-filters these as plain strings.
+    expect(getZonedYmd(new Date('2026-01-05T18:00:00Z'), 'UTC')).toBe(
+      '2026-01-05',
+    )
+  })
+
+  test('agrees with UTC when asked for UTC', () => {
+    expect(getZonedYmd(new Date('2026-09-18T23:30:00Z'), 'UTC')).toBe(
+      '2026-09-18',
+    )
   })
 })

@@ -1,5 +1,3 @@
-import { trackEvent } from '@codebuff/common/analytics'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 
 import { loopAgentSteps } from './run-agent-step'
@@ -63,30 +61,6 @@ export async function mainPrompt(
     promptParams,
   } = action
   const { fileContext, mainAgentState } = sessionState
-
-  // Track user input analytics event
-  // userId comes from params (passed through from loopAgentSteps)
-  const userId = (params as { userId?: string }).userId
-  if (typeof userId === 'string' && userId.trim() !== '') {
-    trackEvent({
-      event: AnalyticsEvent.USER_INPUT,
-      userId,
-      properties: {
-        promptId,
-        agentId,
-        costMode,
-        hasPrompt: !!prompt,
-        hasContent: !!content,
-        hasPromptParams: !!promptParams && Object.keys(promptParams).length > 0,
-        promptParamsCount: promptParams ? Object.keys(promptParams).length : 0,
-        fingerprintId,
-        promptLength: prompt?.length ?? 0,
-        contentLength: content?.length ?? 0,
-        messageHistoryLength: mainAgentState.messageHistory.length,
-      },
-      logger,
-    })
-  }
 
   const availableAgents = Object.keys(localAgentTemplates)
 

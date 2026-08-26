@@ -22,35 +22,6 @@ const toolExtractionPattern = new RegExp(
 
 const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
 
-function summarizeToolInput(input: unknown): Record<string, unknown> {
-  if (typeof input === 'string') {
-    return {
-      inputType: 'string',
-      inputLength: input.length,
-    }
-  }
-
-  if (Array.isArray(input)) {
-    return {
-      inputType: 'array',
-      inputLength: input.length,
-    }
-  }
-
-  if (input && typeof input === 'object') {
-    const keys = Object.keys(input as Record<string, unknown>)
-    return {
-      inputType: 'object',
-      inputKeyCount: keys.length,
-      inputKeys: keys.slice(0, 25),
-    }
-  }
-
-  return {
-    inputType: input === null ? 'null' : typeof input,
-  }
-}
-
 export async function* processStreamWithTags(params: {
   stream: AsyncGenerator<StreamChunk, string | null>
   processors: Record<
@@ -166,20 +137,6 @@ export async function* processStreamWithTags(params: {
       return
     }
 
-    trackEvent({
-      event: AnalyticsEvent.TOOL_USE,
-      userId: loggerOptions?.userId ?? '',
-      properties: {
-        toolName,
-        ...summarizeToolInput(parsedParams),
-        hasContents: contents.length > 0,
-        contentsLength: contents.length,
-        autocompleted,
-        model: loggerOptions?.model,
-        agent: loggerOptions?.agentName,
-      },
-      logger,
-    })
     delete parsedParams[toolNameParam]
 
     processor.onTagStart(toolName, {})

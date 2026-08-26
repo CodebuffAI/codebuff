@@ -49,3 +49,24 @@ cli/release-staging/launcher.js
 cli/release-staging/http.js
 freebuff/cli/release/launcher.js
 freebuff/cli/release/http.js
+
+# QA harness fixture: a snapshot of REAL feedback rows, including the Discord
+# and GitHub handles of real people and what they complained about. Useful
+# locally, must never be committed — this repo is mirrored publicly.
+feedback-lab/src/real-data.json
+
+# Design-tooling scratch.
+freebuff/web/.impeccable/
+
+# Throwaway helper scripts written next to the repo during a task. Never part
+# of the build; one reached a PR before review caught it. At the ROOT so it
+# covers every subdirectory — the file that slipped through was at the root,
+# which a nested .gitignore cannot match.
+scratch-*
+
+# Ad-hoc investigation scripts — scratch, never committed
+scripts/_tmp-*
+
+# Local operator launch manifests contain real advertiser identifiers. The
+# checked-in example is intentionally non-routable.
+ads-pilot-launch.local.json

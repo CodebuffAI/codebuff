@@ -29,10 +29,163 @@ export interface FreebuffSessionEntitlementBreakdown {
    *  promo runs, which is the default — an older client that never reads it
    *  still sums to the right `limit`, because the server sends the total. */
   promo?: number
+  /**
+   * Sessions added by the account's earned LEVEL
+   * (`common/constants/freebuff-levels.ts`). Omitted at level 0, which is
+   * where every account starts, so the field is absent for most callers and an
+   * older client that never reads it still sums to the right `limit` — the
+   * server always sends the total.
+   *
+   * Distinct from `base` on purpose. `base` is what we give you; this is what
+   * you earned, and a user looking at "1 + 4" needs to be able to see which
+   * half goes away if they stop engaging.
+   */
+  level?: number
+  /**
+   * Sessions included by the account's PAID subscription tier
+   * (`common/constants/freebuff-subscriptions.ts`).
+   *
+   * When present it is the whole of `limit`, not an addition to it: a
+   * subscribable model is metered by the subscription instead of by the free
+   * pool that would otherwise cover it, so `base`/`referral`/`streak` are all
+   * zero on that row. A subscriber whose row read "4 subscription + 5 premium"
+   * would reasonably expect nine sessions, and the shared premium pool is
+   * exactly what the subscription replaces.
+   *
+   * Omitted for everyone without a live subscription, so an older client that
+   * never reads it still sums to the right `limit`.
+   */
+  subscription?: number
+}
+
+/**
+ * A purchasable tier, as advertised to a client.
+ *
+ * Mirrors the catalog in `constants/freebuff-subscriptions.ts` so a client can
+ * render plan cards and the paywall without its own copy of the numbers.
+ */
+export interface FreebuffSubscriptionTierOffer {
+  id: string
+  displayName: string
+  priceUsd: number
+  /** What this caller would actually be charged for the first period —
+   *  `introPriceUsd` only while the account has never used its intro. */
+  firstPeriodPriceUsd: number
+  dailySessions: number
+  fiveDaySessions: number
+  monthlySessions: number
+  /** Provider-spend ceiling per billing period, USD. Subject to change. */
+  monthlySpendLimitUsd: number
+  dailyPremiumSessions: number
+  /** Plain-language constraints for the plan card and the paywall. */
+  disclaimers: string[]
+  /** True for the tier the caller currently holds. */
+  current: boolean
+  /** True when this tier is above the caller's current one. */
+  upgrade: boolean
+  /** True when it is below. A downgrade is SCHEDULED for the next renewal
+   *  rather than applied now, so clients must not word it as immediate. */
+  downgrade: boolean
+}
+
+/**
+ * A subscriber's live usage against their tier, for the circular indicators.
+ *
+ * All four figures come from ONE server-side scan and are sent together, so a
+ * client never has to compute a ring from a partial picture or issue a second
+ * request to draw one.
+ */
+export interface FreebuffSubscriptionUsage {
+  dayUsed: number
+  dayLimit: number
+  fiveDayUsed: number
+  fiveDayLimit: number
+  monthUsed: number
+  monthLimit: number
+  /** Sessions spent today on Luna / DeepSeek V4 Pro, and the daily sub-cap. */
+  dayPremiumUsed: number
+  dayPremiumLimit: number
+  /** ISO instant the DAILY window resets. */
+  dayResetAt: string
+  /** ISO instant the billing period ends, i.e. when the monthly cap resets. */
+  periodEndsAt: string
+  /** Provider spend this billing period vs the tier's ceiling, USD. */
+  monthSpendUsd: number
+  monthSpendLimitUsd: number
+  /**
+   * The caller's FREE premium-session pool for today, which the plan tops up.
+   *
+   * Sent because a client cannot derive it: `rateLimitsByModel` carries one row
+   * per model — whichever pool the next admission will charge — so once the
+   * free pool is spent the free figures are simply not on the wire, and a
+   * client trying to add "free + plan" from it double-counts the plan row.
+   *
+   * Both zero for accounts with no free pool at all (god/admin, who are
+   * quota-exempt), and absent entirely from servers older than this field.
+   */
+  freeDayUsed?: number
+  freeDayLimit?: number
+}
+
+/**
+ * Everything a client needs to render subscription state, the usage rings, and
+ * the paywall — in one block on the session response.
+ *
+ * Sent only to callers in the rollout audience, so its absence means "this
+ * account has no subscriptions surface" rather than "no data".
+ */
+export interface FreebuffSubscriptionInfo {
+  /** The caller's tier id, or null when they have no live subscription. */
+  tierId: string | null
+  /** Present only while subscribed. */
+  usage?: FreebuffSubscriptionUsage
+  /** Raw Stripe status, so a client can surface a failed payment. */
+  status?: string
+  /** True when the subscription lapses at period end. */
+  cancelAtPeriodEnd?: boolean
+  /** Tier this drops to at the next renewal, when a downgrade is scheduled.
+   *  Absent in the ordinary case — every subscription not mid-downgrade. */
+  pendingTierId?: string
+  /** The full catalog, current tier flagged. Drives every upgrade CTA. */
+  tiers: FreebuffSubscriptionTierOffer[]
+  /**
+   * Which limit the caller is currently up against, if any. What turns the
+   * dropdown into a paywall rather than a usage display.
+   *
+   * `premium_daily` means only the expensive models are blocked — the cheaper
+   * ones are still usable today, and the client should say so rather than
+   * implying the whole plan is spent.
+   */
+  blockedBy?:
+    | 'daily'
+    | 'five_day'
+    | 'monthly'
+    | 'premium_daily'
+    /** The tier's dollar ceiling for the period is spent. */
+    | 'monthly_spend'
 }
 
 export interface FreebuffSessionRateLimit {
   model: string
+  /**
+   * Which quota POOL this row draws on, and what to call it.
+   *
+   * Both omitted by older servers, and both exist so the shape of the quota
+   * system can change without shipping a client. Until 2026-08-19 every row in
+   * a picker section shared one pool, so a client could read any single entry
+   * and label the whole section from it — the CLI literally took
+   * `Object.values(...)[0]`. DeepSeek's one-a-day ceiling ended that: two pools
+   * now appear inside the Premium section, and a client with no way to tell
+   * them apart shows "1 of 5 used" next to a row that is already spent.
+   *
+   * `pool` is an opaque token — clients must GROUP by it and never match on its
+   * value, or the next pool needs a release. `poolLabel` is the display string,
+   * authored server-side for the same reason: adding a pool, renaming one, or
+   * changing a limit is then a server edit that installed clients pick up on
+   * their next poll.
+   */
+  pool?: string
+  poolLabel?: string
   /** Additive detail for `limit`; omitted by older servers. New servers emit it
    * for session quotas with `limit = base + referral + streak + promo`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
@@ -95,10 +248,13 @@ export interface FreebuffReferralInfo {
    *  landing page ("X invited you to try Freebuff!"). Null when the user has no
    *  name set. */
   referrerName: string | null
-  /** Qualified-referral count for the tier's reward: full tier = GLM sessions
-   *  per day (uncapped since 2026-07-30); limited tier = daily-session bonus
-   *  earned, still capped at REFERRAL_CLI_DAILY_SESSION_BONUS_CAP, which the
-   *  CLI knows locally. */
+  /** Qualified-referral count for the tier's reward, ALREADY CAPPED on both
+   *  branches: full tier = GLM sessions per day, clamped to
+   *  FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS (uncapped between 2026-07-30 and
+   *  2026-08-25); limited tier = daily-session bonus earned, capped at
+   *  REFERRAL_CLI_DAILY_SESSION_BONUS_CAP. The CLI knows both constants
+   *  locally and renders "(N/cap)" progress copy off them, so a value that
+   *  arrived un-clamped would advertise sessions the gate refuses. */
   qualifiedCount: number
   /** GLM sessions still available in the current reset window (entitlement −
    *  used, ≥ 0). Daily since 2026-07-29; the "weekly" name is kept for wire
@@ -161,6 +317,17 @@ export const getRateLimitsByModel = (
   session && 'rateLimitsByModel' in session
     ? (session as { rateLimitsByModel?: FreebuffSessionRateLimitByModel })
         .rateLimitsByModel
+    : undefined
+
+/** Pull the per-model subscription offers off whichever statuses carry them
+ *  (none, active, ended). Loose parameter type for the same reason as
+ *  `getRateLimitsByModel`. Undefined from a server that predates
+ *  subscriptions, so callers render nothing rather than an empty upsell. */
+export const getSubscriptionInfo = (
+  session: { status: string } | null | undefined,
+): FreebuffSubscriptionInfo | undefined =>
+  session && 'subscription' in session
+    ? (session as { subscription?: FreebuffSubscriptionInfo }).subscription
     : undefined
 
 /**
@@ -320,6 +487,14 @@ export type FreebuffSessionServerResponse = (
        * a client renders it only when there is something true to render.
        */
       standing?: FreebuffStandingInfo
+      /**
+       * Purchasable per-model subscriptions and the caller's state on each.
+       *
+       * Sent on the pre-join response because that is the state that renders a
+       * picker, and the picker is where "subscribe" belongs. Absent when the
+       * catalog is empty or the server predates subscriptions.
+       */
+      subscription?: FreebuffSubscriptionInfo
     } & FreebuffLimitedModeReason)
   | ({
       status: 'active'
@@ -335,6 +510,9 @@ export type FreebuffSessionServerResponse = (
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Included for Web/Cloud picker reads that request full quota details. */
       referral?: FreebuffReferralInfo
+      /** Subscription offers and state, so an in-session picker can still
+       *  render "subscribed" badges and an upgrade CTA. */
+      subscription?: FreebuffSubscriptionInfo
     } & FreebuffLimitedModeReason)
   | ({
       /** Session is over. While `instanceId` is present we're inside the
@@ -359,6 +537,9 @@ export type FreebuffSessionServerResponse = (
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Included for Web/Cloud picker reads that request full quota details. */
       referral?: FreebuffReferralInfo
+      /** Carried like `rateLimitsByModel`: the post-session banner and picker
+       *  keep the plan rings without a round-trip. */
+      subscription?: FreebuffSubscriptionInfo
     } & FreebuffLimitedModeReason)
   | {
       /** Another CLI on the same account rotated our instance id. Polling
@@ -398,6 +579,13 @@ export type FreebuffSessionServerResponse = (
       accessTier?: FreebuffAccessTier
       requestedModel: string
       availableHours: string
+      /**
+       * The model is PRO-ONLY and this account has no paid plan — a different
+       * refusal from the deployment-hours one, and the only one an upgrade
+       * fixes. Older clients ignore it and still render `availableHours`,
+       * which carries the same sentence in prose.
+       */
+      requiresSubscription?: boolean
     }
   | {
       /** Account is banned. Returned from every endpoint so banned bots can't
@@ -512,6 +700,21 @@ export const FREEBUFF_GATE_CODES = {
   session_limit_reached: { status: 409, endsTheSession: false },
   /** Transient admission race — the row was caught mid-admit. */
   waiting_room_queued: { status: 429, endsTheSession: false },
+  /**
+   * The model has been withdrawn from free mode. Terminal for the REQUEST, and
+   * deliberately NOT session-ending.
+   *
+   * A withdrawn model is one every released binary still has in its
+   * compiled-in catalog, so the client asks again on the next send no matter
+   * what we answer. `endsTheSession: true` would make each of those a fresh
+   * admission — the loop that cost the limited tier 2.5x its admissions and put
+   * 91% of its sessions on the 0.1-unit floor (#1801). False, the client keeps
+   * its window, shows the message, and the user picks another model.
+   *
+   * 410 rather than 409: the resource is gone rather than in conflict, and it
+   * reads correctly to a caller that has no idea what this code means.
+   */
+  model_unavailable: { status: 410, endsTheSession: false },
 } as const satisfies Record<string, { status: number; endsTheSession: boolean }>
 
 export type FreebuffGateCode = keyof typeof FREEBUFF_GATE_CODES

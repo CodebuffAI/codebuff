@@ -32,6 +32,20 @@ export function getZonedParts(date: Date, timeZone: string): ZonedDateParts {
   }
 }
 
+/**
+ * The calendar day in `timeZone`, as `YYYY-MM-DD`.
+ *
+ * The day-string counterpart to {@link getZonedDayBounds}, which returns
+ * instants. Use this anywhere a day is stored or displayed as a string —
+ * `toISOString().slice(0, 10)` is the same expression for UTC only, and
+ * silently writes the wrong day for anything west of Greenwich for most of
+ * each evening.
+ */
+export function getZonedYmd(date: Date, timeZone: string): string {
+  const { year, month, day } = getZonedParts(date, timeZone)
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
 export function addDaysToYmd(
   year: number,
   month: number,

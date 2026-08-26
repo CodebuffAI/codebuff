@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose new behavior or an improvement
+labels: ['type:feature']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >-
+        Describe the situation you are in, not the solution you have in mind.
+        This is the part that decides whether the request gets picked up.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI (terminal client)
+        - SDK (@codebuff/sdk)
+        - Desktop app
+        - Agents / prompts
+        - MCP
+        - Docs
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to open a PR for this

@@ -152,7 +152,6 @@ export async function processStream(
       typeof processStreamWithTools,
       | 'processors'
       | 'defaultProcessor'
-      | 'loggerOptions'
       | 'executeXmlToolCall'
     >,
 ) {
@@ -184,8 +183,10 @@ export async function processStream(
   let hadToolCallError = false
   let sawStreamRecovery = false
   const errorMessages: Message[] = []
-  const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
-    Promise.withResolvers<void>()
+  let resolveStreamDonePromise!: () => void
+  const streamDonePromise = new Promise<void>((resolve) => {
+    resolveStreamDonePromise = resolve
+  })
   let previousToolCallFinished = streamDonePromise
 
   const fileProcessingState: FileProcessingState = {
@@ -354,11 +355,6 @@ export async function processStream(
     ]),
     defaultProcessor: (name: string) =>
       createToolExecutionCallback(name, false),
-    loggerOptions: {
-      userId,
-      model: agentTemplate.model,
-      agentName: agentTemplate.id,
-    },
     onResponseChunk: (chunk) => {
       if (chunk.type === 'text') {
         if (chunk.text) {

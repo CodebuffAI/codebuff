@@ -59,6 +59,33 @@ const getServiceInputSchema = z.object({
   slug: slugField.describe('Service slug, e.g. supabase, stripe, sendgrid.'),
 })
 
+/**
+ * Ask Gravity to create the account on the user's behalf and hand back working
+ * credentials, instead of sending the user off to a signup page. Gravity mints
+ * a `grclid` and emits the conversion at provision time, so a provision that
+ * succeeds is a conversion — there is no click to lose in between.
+ *
+ * `user_email` is deliberately absent: the account is created under a verified
+ * address, so the server injects it from the authenticated identity and ignores
+ * anything the model supplies. A tool-facing email field would let a
+ * prompt-injected model open accounts under someone else's address.
+ */
+const provisionInputSchema = z.object({
+  action: z
+    .literal('provision')
+    .describe('Create an account on the user’s behalf and receive credentials.'),
+  slug: slugField.describe('Service slug to provision, e.g. neon.'),
+  search_id: z
+    .string()
+    .min(1, 'search_id cannot be empty')
+    .describe('search_id from the earlier search result.'),
+  user_consent: z
+    .literal(true)
+    .describe(
+      'Must be true, and only after the user has explicitly approved creating an account on this service.',
+    ),
+})
+
 const reportIntegrationInputSchema = z.object({
   action: z
     .literal('report_integration')
@@ -111,10 +138,11 @@ export const gravityIndexInputSchema = z
         'browse',
         'list_categories',
         'get_service',
+        'provision',
         'report_integration',
       ])
       .describe(
-        'Which Gravity Index operation to perform. search: recommend a provider; browse: list catalog services; list_categories: list categories with counts; get_service: full detail for a known slug; report_integration: report a completed integration.',
+        'Which Gravity Index operation to perform. search: recommend a provider; browse: list catalog services; list_categories: list categories with counts; get_service: full detail for a known slug; provision: create the account for the user and receive credentials; report_integration: report a completed integration.',
       ),
     query: queryField
       .optional()
@@ -125,7 +153,7 @@ export const gravityIndexInputSchema = z
       .string()
       .optional()
       .describe(
-        'For action "search": continue a previous Gravity Index search as a follow-up. For action "report_integration": the search_id from the earlier search result (required).',
+        'For action "search": continue a previous Gravity Index search as a follow-up. For actions "provision" and "report_integration": the search_id from the earlier search result (required).',
       ),
     context: jsonObjectSchema
       .optional()
@@ -147,12 +175,18 @@ export const gravityIndexInputSchema = z
     slug: slugField
       .optional()
       .describe(
-        'For action "get_service": service slug, e.g. supabase, stripe, sendgrid (required).',
+        'For actions "get_service" and "provision": service slug, e.g. supabase, stripe, sendgrid (required).',
       ),
     integrated_slug: integratedSlugField
       .optional()
       .describe(
         'For action "report_integration": slug of the service that was actually integrated (required).',
+      ),
+    user_consent: z
+      .literal(true)
+      .optional()
+      .describe(
+        'For action "provision": must be true, and only after the user has explicitly approved creating an account on this service (required).',
       ),
   })
   .describe(`Use the Gravity Index tool discovery and install API.`)
@@ -163,6 +197,7 @@ export const gravityIndexApiInputSchema = z
     browseInputSchema,
     listCategoriesInputSchema,
     getServiceInputSchema,
+    provisionInputSchema.extend(runtimeAttributionFields),
     reportIntegrationInputSchema.extend(runtimeAttributionFields),
   ])
   .describe(`Use the Gravity Index tool discovery and install API.`)

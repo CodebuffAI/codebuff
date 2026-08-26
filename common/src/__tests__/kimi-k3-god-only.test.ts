@@ -12,7 +12,7 @@ import {
   FREEBUFF_WEB_GOD_ONLY_MODELS,
   FREEBUFF_WEB_MODELS,
   FREEBUFF_WEB_PREMIUM_MODEL_IDS,
-  FREEBUFF_WEB_STANDARD_MODEL_IDS,
+  FREEBUFF_STANDARD_MODEL_IDS,
   isFreebuffWebGodOnlyModelId,
   isFreebuffWebModelId,
   SUPPORTED_FREEBUFF_MODELS,
@@ -40,10 +40,10 @@ describe('Kimi K3 is god-only on Freebuff Web', () => {
   })
 
   it('is metered by the premium pool, never the standard one', () => {
-    // FREEBUFF_WEB_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
+    // FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
     // premium row missing from the premium list would be metered by NO pool.
     expect(FREEBUFF_WEB_PREMIUM_MODEL_IDS).toContain(KIMI_ID)
-    expect(FREEBUFF_WEB_STANDARD_MODEL_IDS).not.toContain(KIMI_ID)
+    expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(KIMI_ID)
     const model = FREEBUFF_WEB_GOD_ONLY_MODELS.find((m) => m.id === KIMI_ID)
     expect(model?.premium).toBe(true)
   })

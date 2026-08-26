@@ -6,10 +6,9 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
 import * as auth from '../auth'
@@ -43,46 +42,20 @@ describe('freebuff model preference', () => {
     expect(loadFreebuffModelPreference()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
-  test('steers a saved superseded pick to its replacement on every load', () => {
+  test('keeps a saved pick exactly as chosen, for every catalog row', () => {
     testConfigDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'freebuff-settings-test-'),
     )
     getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
 
-    // A preference saved before Flash overtook MiniMax M3. Written directly so
-    // it has no migration marker, exactly like a real pre-upgrade settings file.
-    fs.writeFileSync(
-      path.join(testConfigDir, 'settings.json'),
-      JSON.stringify({ freebuffModel: FREEBUFF_MINIMAX_M3_MODEL_ID }),
-    )
-    expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-
-    // Re-picking M3 does NOT make it the standing default again: the next
-    // session steers back to Flash. Selecting it still works for the session
-    // the user is in — this only governs what a fresh launch opens on.
-    saveFreebuffModelPreference(FREEBUFF_MINIMAX_M3_MODEL_ID)
-    expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-
-    // Same for the limited tier's other pick, MiMo 2.5.
-    saveFreebuffModelPreference(FREEBUFF_MIMO_V25_MODEL_ID)
-    expect(loadFreebuffModelPreference()).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-  })
-
-  test('leaves a saved DeepSeek V4 Pro pick alone', () => {
-    testConfigDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'freebuff-settings-test-'),
-    )
-    getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
-
-    // Pro was steered off until its 08/13 GA build overtook Flash again. A user
-    // who deliberately picks the deep-reasoning model must now still be on it
-    // next launch, migration marker or not.
+    // Two tests lived here, both asserting a stored V4 Pro pick was rewritten
+    // to Flash on every launch. That migration is GONE as of 2026-08-21 along
+    // with the supersedes notice driving it — Pro is now the cheapest premium
+    // row and the catalog's first entry, so steering off it would be backwards.
+    //
+    // Written directly, with no migration marker, exactly like a real
+    // pre-upgrade settings file — which is the case that would silently rewrite
+    // if a notice came back.
     fs.writeFileSync(
       path.join(testConfigDir, 'settings.json'),
       JSON.stringify({ freebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }),
@@ -91,9 +64,17 @@ describe('freebuff model preference', () => {
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
 
-    saveFreebuffModelPreference(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(loadFreebuffModelPreference()).toBe(
+    // And a round-trip through save/load leaves every selectable row alone. The
+    // property is "the picker is the user's decision, not ours" — asserted
+    // across the catalog rather than on one row, because the failure mode is a
+    // notice added for ONE model quietly acquiring this behaviour.
+    for (const id of [
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    )
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
+    ]) {
+      saveFreebuffModelPreference(id)
+      expect(loadFreebuffModelPreference()).toBe(id)
+    }
   })
 })

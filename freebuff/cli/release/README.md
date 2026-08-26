@@ -19,7 +19,7 @@ freebuff
 
 ## Why Freebuff?
 
-**Choice of leading models** — The regular CLI picker includes DeepSeek, GPT-5.6 Luna, MiniMax, and MiMo, with DeepSeek V4 Pro 08/13 selected by default.
+**Choice of leading models** — The regular CLI picker includes DeepSeek, GPT-5.6 Luna, and MiMo, with GPT-5.6 Luna selected by default.
 
 **Fast** — 5–10× speed up. 3–5× tokens per second compared to Claude, plus context gathering in seconds.
 
@@ -29,11 +29,11 @@ freebuff
 
 **How can it be free?** Freebuff is supported by text ads.
 
-**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Pro 08/13, DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiniMax M3, and MiMo 2.5. DeepSeek V4 Pro 08/13 is the CLI default, and the picker falls back to DeepSeek V4 Flash 07/31 once your daily premium sessions are used up. Limited mode uses DeepSeek V4 Flash 07/31 and MiMo 2.5. GLM 5.2 is available through earned sessions, while Gemini 3.1 Flash Lite handles specialist tasks such as file finding and research.
+**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiMo 2.5, Ox Alpha, and DeepSeek V4 Pro. Ox Alpha is experimental — it has a 1M-token context and costs no session, but it may be unreliable and its provider can withdraw it without notice. GPT-5.6 Luna is the CLI default, and the picker falls back to MiMo 2.5 once your daily premium sessions are used up. Limited mode uses MiMo 2.5. Per-model daily caps are gone: every model draws on your normal daily sessions rather than its own separate limit, and MiMo 2.5 and Ox Alpha cost no session at all. Models may still serve from a quantized (Q8_0) build.
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 
-**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash 07/31 and MiMo 2.5, with 6 one-hour sessions per day.
+**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes MiMo 2.5 and Ox Alpha, with 3 one-hour sessions per day, and you can earn up to 7 by engaging with promoted posts on the Earn page.
 
 <!-- BEGIN GENERATED FREEBUFF DATA USE -->
 

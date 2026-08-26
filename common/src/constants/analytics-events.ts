@@ -44,7 +44,6 @@ export enum AnalyticsEvent {
   TERMINAL_BROKER_SPAWN_FAILED = 'cli.terminal_broker_spawn_failed',
   TERMINAL_WATCHDOG_FAILED = 'cli.terminal_watchdog_failed',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
-  USER_INPUT_COMPLETE = 'cli.user_input_complete',
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
   FEEDBACK_BUTTON_HOVERED = 'cli.feedback_button_hovered',
   FOLLOWUP_CLICKED = 'cli.followup_clicked',
@@ -53,18 +52,11 @@ export enum AnalyticsEvent {
   // Sampled per eligible transcript slot; use response_id to recover the
   // response-length distribution without ingesting every user's full stream.
   CLI_INLINE_AD_SLOT_ELIGIBLE = 'cli.inline_ad_slot_eligible',
-  // Emitted once when a response needs a fifth slot and starts reusing its
-  // four-ad pool.
-  CLI_INLINE_AD_POOL_REUSED = 'cli.inline_ad_pool_reused',
-
   // Backend
-  AGENT_STEP = 'backend.agent_step',
   CREDIT_GRANT = 'backend.credit_grant',
   CREDIT_CONSUMED = 'backend.credit_consumed',
   MALFORMED_TOOL_CALL_JSON = 'backend.malformed_tool_call_json',
-  TOOL_USE = 'backend.tool_use',
   UNKNOWN_TOOL_CALL = 'backend.unknown_tool_call',
-  USER_INPUT = 'backend.user_input',
 
   // Backend - Database Operations
   ADVISORY_LOCK_CONTENTION = 'backend.advisory_lock_contention',
@@ -131,28 +123,20 @@ export enum AnalyticsEvent {
   TOAST_SHOWN = 'toast.shown',
 
   // Web - API
-  AGENT_RUN_API_REQUEST = 'api.agent_run_request',
-  AGENT_RUN_CREATED = 'api.agent_run_created',
-  AGENT_RUN_COMPLETED = 'api.agent_run_completed',
   AGENT_RUN_VALIDATION_ERROR = 'api.agent_run_validation_error',
   AGENT_RUN_CREATION_ERROR = 'api.agent_run_creation_error',
   AGENT_RUN_COMPLETION_ERROR = 'api.agent_run_completion_error',
-  ME_API_REQUEST = 'api.me_request',
   ME_VALIDATION_ERROR = 'api.me_validation_error',
-  CHAT_COMPLETIONS_REQUEST = 'api.chat_completions_request',
   CHAT_COMPLETIONS_AUTH_ERROR = 'api.chat_completions_auth_error',
   CHAT_COMPLETIONS_VALIDATION_ERROR = 'api.chat_completions_validation_error',
   CHAT_COMPLETIONS_INSUFFICIENT_CREDITS = 'api.chat_completions_insufficient_credits',
   CHAT_COMPLETIONS_GENERATION_STARTED = 'api.chat_completions_generation_started',
-  CHAT_COMPLETIONS_STREAM_STARTED = 'api.chat_completions_stream_started',
   CHAT_COMPLETIONS_ERROR = 'api.chat_completions_error',
 
   // Web - Usage API
-  USAGE_API_REQUEST = 'api.usage_request',
   USAGE_API_AUTH_ERROR = 'api.usage_auth_error',
 
   // Web - Search API
-  WEB_SEARCH_REQUEST = 'api.web_search_request',
   WEB_SEARCH_AUTH_ERROR = 'api.web_search_auth_error',
   WEB_SEARCH_VALIDATION_ERROR = 'api.web_search_validation_error',
   WEB_SEARCH_INSUFFICIENT_CREDITS = 'api.web_search_insufficient_credits',
@@ -183,6 +167,9 @@ export enum AnalyticsEvent {
   ADS_FETCH_COMPLETED = 'ads.fetch_completed',
   ADS_IMPRESSION_RECORDED = 'ads.impression_recorded',
   ADS_CLICKED = 'ads.clicked',
+  ADS_FIRST_PARTY_DECISION = 'ads.first_party_decision',
+  ADS_FIRST_PARTY_SETTLEMENT = 'ads.first_party_settlement',
+  ADS_FIRST_PARTY_VIEW_ACK = 'ads.first_party_view_ack',
 
   // Web - Token Count API
   TOKEN_COUNT_REQUEST = 'api.token_count_request',
@@ -390,7 +377,7 @@ export enum AnalyticsEvent {
   // desktop-surface funnels). `desktop.inline_ad_pool_reused` was retired
   // along with the head-pool model (ads are now inline parts capped at
   // MAX_MESSAGE_AD_COUNT); historical rows exist but nothing emits it. The
-  // CLI's `cli.inline_ad_pool_reused` sibling still fires.
+  // CLI's `cli.inline_ad_pool_reused` sibling remains Axiom-only.
   DESKTOP_AD_SHOWN = 'desktop.ad_shown',
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
   DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
@@ -431,7 +418,4 @@ export enum AnalyticsEvent {
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
-
-  // Client Logging - for sending logger events to PostHog in production
-  CLI_LOG = 'cli.log',
 }

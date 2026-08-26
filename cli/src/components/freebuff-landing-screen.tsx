@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
+import { visibleWaitingRoomPlacementIds } from '@codebuff/common/ads/waiting-room-placements'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import {
@@ -43,7 +44,11 @@ import {
   getRateLimitsByModel,
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
-import { getFreebuffModelAvailabilityNotice } from '@codebuff/common/util/freebuff-model-availability'
+import {
+  FREEBUFF_PAUSED_MODEL_NOTICE,
+  FREEBUFF_TIER_CHANGE_NOTICE,
+  getFreebuffModelAvailabilityNotice,
+} from '@codebuff/common/util/freebuff-model-availability'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
 import type { FreebuffStreakLine } from '../utils/freebuff-streak-line'
@@ -79,7 +84,7 @@ const formatRetryAfter = (ms: number): string => {
 // `getFreebuffModelAvailabilityNotice` for the tone rules it follows.
 const getLimitedModeNotice = (
   session: FreebuffSessionResponse | null,
-): string | null =>
+): string =>
   getFreebuffModelAvailabilityNotice(
     session && 'countryBlockReason' in session ? session : null,
   )
@@ -401,6 +406,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
   // The server tries Gravity first, then falls back to ZeroClick and Carbon.
+  const waitingRoomPlacementIds = visibleWaitingRoomPlacementIds(terminalWidth)
   const { ads, recordClick, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
@@ -408,6 +414,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     // Legacy wire name for this surface — the ads API maps it to placements,
     // so it must not change with the component rename.
     surface: 'waiting_room',
+    placementIds: waitingRoomPlacementIds,
   })
 
   useFreebuffCtrlCExit()
@@ -416,10 +423,21 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
 
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
-  // Hidden in compact terminals: the notice is nice-to-have context, and
-  // below 22 rows every line competes with the picker itself.
-  const limitedModeNotice =
-    accessTier === 'limited' && !compact ? getLimitedModeNotice(session) : null
+  // Answers "why these models?" in the order it gets asked. The two tiers ask
+  // different versions of it, so they get different answers: limited asks why
+  // the catalog is small and why a model that used to be in it isn't; full asks
+  // why Pro is gone and why Flash now costs a session.
+  //
+  // Never both — a limited-tier user has neither Pro nor a premium pool, so the
+  // full-tier line would describe an account they do not have.
+  //
+  // Hidden in compact terminals either way: nice-to-have context, and below 22
+  // rows every line competes with the picker itself.
+  const belowPickerNotices = compact
+    ? []
+    : accessTier === 'limited'
+      ? [getLimitedModeNotice(session), FREEBUFF_PAUSED_MODEL_NOTICE]
+      : [FREEBUFF_TIER_CHANGE_NOTICE]
   // 'none' = user hasn't started a session yet. We're in the pre-chat landing
   // state: show the picker with a prompt. Picking a model triggers
   // startFreebuffSession, which POSTs and transitions straight to 'active' (chat).
@@ -530,9 +548,10 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // narrow landing screen it drops to its own line under the heading (1 row,
   // no top margin).
   const streakRows = !showStreakIndicator ? 0 : streakOnHeadingRow ? 0 : 1
-  const noticeRows = limitedModeNotice
-    ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
-    : 0
+  const noticeRows = belowPickerNotices.reduce(
+    (rows, notice) => rows + 1 /* marginTop */ + wrappedRows(notice),
+    0,
+  )
   // Earned streak perk note: one marginTop row + wrap.
   const streakBonusRows = streakBonusNote
     ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
@@ -689,13 +708,16 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   ) : null
                 }
               />
-              {limitedModeNotice && (
+              {/* Muted, never amber: a reduced catalog and a paused model are
+                  both things we did, not problems with this user's account. */}
+              {belowPickerNotices.map((notice) => (
                 <text
+                  key={notice}
                   style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}
                 >
-                  {limitedModeNotice}
+                  {notice}
                 </text>
-              )}
+              ))}
               {streakBonusNote && (
                 <text
                   style={{ fg: theme.primary, wrapMode: 'word', marginTop: 1 }}
@@ -784,8 +806,8 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
                 sessions{' '}
-                {session.period === 'pacific_week' ? 'this week' : 'today'}.
-                Try again in{' '}
+                {session.period === 'pacific_week' ? 'this week' : 'today'}. Try
+                again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
@@ -852,6 +874,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {ads ? (
             <ChoiceAdBanner
               ads={ads}
+              placementIds={waitingRoomPlacementIds}
               onClick={recordClick}
               onImpression={recordImpression}
             />

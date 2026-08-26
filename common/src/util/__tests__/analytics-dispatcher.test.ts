@@ -61,7 +61,7 @@ describe('analytics dispatcher', () => {
     // With user; should flush buffered event first, then this one
     const second = dispatcher.process({
       data: {
-        eventId: AnalyticsEvent.AGENT_STEP,
+        eventId: AnalyticsEvent.LOGIN,
         userId: 'user-1',
       },
       level,
@@ -74,7 +74,7 @@ describe('analytics dispatcher', () => {
       userId: 'user-1',
     })
     expect(second[1]).toMatchObject({
-      event: AnalyticsEvent.AGENT_STEP,
+      event: AnalyticsEvent.LOGIN,
       userId: 'user-1',
     })
   })
@@ -93,7 +93,7 @@ describe('analytics dispatcher', () => {
 
     const out = dispatcher.process({
       data: {
-        eventId: AnalyticsEvent.AGENT_STEP,
+        eventId: AnalyticsEvent.LOGIN,
       },
       level,
       msg,

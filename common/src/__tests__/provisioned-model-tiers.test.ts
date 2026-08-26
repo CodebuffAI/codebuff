@@ -33,7 +33,7 @@ import {
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_MODELS,
   FREEBUFF_WEB_PREMIUM_MODEL_IDS,
-  FREEBUFF_WEB_STANDARD_MODEL_IDS,
+  FREEBUFF_STANDARD_MODEL_IDS,
   SUPPORTED_FREEBUFF_MODELS,
   resolveSupportedFreebuffModel,
 } from '../constants/freebuff-models'
@@ -69,7 +69,7 @@ describe('provisioned tiers are never offered from a catalog', () => {
     ['FREEBUFF_WEB_MODELS', FREEBUFF_WEB_MODELS.map((m) => m.id)],
     ['FREEBUFF_WEB_ALL_MODELS', FREEBUFF_WEB_ALL_MODELS.map((m) => m.id)],
     ['FREEBUFF_WEB_PREMIUM_MODEL_IDS', [...FREEBUFF_WEB_PREMIUM_MODEL_IDS]],
-    ['FREEBUFF_WEB_STANDARD_MODEL_IDS', [...FREEBUFF_WEB_STANDARD_MODEL_IDS]],
+    ['FREEBUFF_STANDARD_MODEL_IDS', [...FREEBUFF_STANDARD_MODEL_IDS]],
   ]
 
   test.each(catalogs)('%s omits every provisioned tier', (_name, ids) => {

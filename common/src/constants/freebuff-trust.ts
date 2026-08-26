@@ -168,23 +168,56 @@ export interface FreebuffTrustLimits {
 }
 
 /**
+ * Why the `premiumSessionsPerDay` column was compressed.
+ *
+ * It used to run 2 / 4 / 5 / 10. It now runs 2 / 3 / 4 / 5, and the change is
+ * at the TOP rather than the bottom: `established` tracks
+ * `FREEBUFF_PREMIUM_SESSION_LIMIT` as it always has, and `core` came down from
+ * 10 to 5.
+ *
+ * `core` was doing two jobs. It was the abuse control's verdict — this account
+ * is demonstrably real — and it was also the only reward in the product big
+ * enough to notice, reachable only through facts a user cannot act on today
+ * (an aged GitHub account, months of history). "Why do I only get four" had no
+ * answer anybody could act on this afternoon.
+ *
+ * The reward half moved to `freebuff-levels.ts`, which is denominated in
+ * something a user can go and do right now, and which tops out at
+ * `FREEBUFF_LEVEL_SESSION_CEILING` (7) — above every value in this column. So
+ * a core member is no worse off than before once they engage at all, and the
+ * route to the ceiling is open to a brand-new account in an unsupported
+ * region, which is exactly who it was closed to before.
+ *
+ * This column only selects anything under `FREEBUFF_TRUST_LEVELS=enforce`;
+ * under the default `observe` the flat base applies, so these numbers and the
+ * `FREEBUFF_LEVEL_SESSIONS` revert do not interact.
+ *
+ * The other four axes are unchanged and stay here, because they are cost
+ * controls rather than rewards. A Level must never be able to buy its way into
+ * a bigger daily SPEND budget, or the incentive and the abuse control end up
+ * pointing at the same dial.
+ *//**
  * Two axes were deliberately REMOVED from this interface, and the reasoning is
  * worth keeping so they are not quietly re-added.
  *
- * **Browser sessions per day** (`FREEBUFF_WEB_STANDARD_SESSION_LIMIT`) and
- * **concurrent Desktop tabs** (`FREEBUFF_DESKTOP_SESSION_LIMITS.unlimited`) are
- * still enforced — they simply are not level-scaled. Both are session-SHAPE
- * controls rather than cost controls: starting a session costs nothing, and a
- * session that sits idle costs nothing either. What costs money is the traffic
- * inside it, and that is already bounded four different ways by the fields
- * above.
+ * **Concurrent Desktop tabs** (`FREEBUFF_DESKTOP_SESSION_LIMITS.unlimited`) are
+ * still enforced but not level-scaled. That is a session-SHAPE control rather
+ * than a cost control: starting a session costs nothing, and a session that
+ * sits idle costs nothing either. What costs money is the traffic inside it,
+ * and that is already bounded four different ways by the fields above.
  *
- * Scaling them by level would therefore have taken visible, immediate
- * capability away from exactly the users we most need to keep — a new user
- * discovers "you may only open one tab" instantly, and it reads as a product
- * that is broken rather than as a budget — in exchange for no measurable saving
- * at all. The premium-session pool stays level-scaled because a premium session
- * is the one whose mere existence commits us to expensive inference.
+ * Scaling it by level would therefore have taken visible, immediate capability
+ * away from exactly the users we most need to keep — a new user discovers "you
+ * may only open one tab" instantly, and it reads as a product that is broken
+ * rather than as a budget — in exchange for no measurable saving at all. The
+ * premium-session pool stays level-scaled because a premium session is the one
+ * whose mere existence commits us to expensive inference.
+ *
+ * **Browser sessions per day** used to be the other example here, capped at 6
+ * on Web and Cloud and unlimited everywhere else. That pool was removed on
+ * 2026-08-18 by this same argument taken one step further: if session count is
+ * the wrong thing to meter, it is the wrong thing to meter on one surface
+ * too.
  */
 
 /**
@@ -192,13 +225,12 @@ export interface FreebuffTrustLimits {
  *
  * ## How these numbers were chosen
  *
- * `established` × `full` REPRODUCES the flat limits that shipped before this
- * file existed (5,000/day, 3,000/5h, $50, 6 premium), and `established` ×
- * `limited` reproduces the limited row (3,000/day, 2,000/5h). That is
- * deliberate and is what makes this change safe to ship:
- * the population that already looked like ordinary heavy users keeps exactly
- * what it had, `core` is the raise, and only accounts with no history at all
- * are tightened.
+ * `established` × `full` is the current flat-limit fallback (5,000/day,
+ * 3,000/5h, $50, 5 premium), and `established` × `limited` reproduces the
+ * limited row (3,000/day, 2,000/5h). Keeping the matrix aligned with the flat
+ * fallback is deliberate: observe/off mode, resolver failures and enforced
+ * `established` accounts must all receive the same baseline. `core` remains
+ * the raise, while the levels below `established` tighten newer accounts.
  *
  * Sizing for the two new levels below `established` is anchored on the
  * per-user-per-day distributions in `free-mode-rate-limiter.ts` (full tier p50
@@ -240,21 +272,21 @@ export const FREEBUFF_TRUST_LIMITS: Record<
       messagesPer5Hours: 1_800,
       messagesPerDay: 3_000,
       dailySpendUsd: 20,
-      premiumSessionsPerDay: 4,
+      premiumSessionsPerDay: 3,
     },
     established: {
       userMessagesPerDay: 600,
       messagesPer5Hours: 3_000,
       messagesPerDay: 5_000,
       dailySpendUsd: 50,
-      premiumSessionsPerDay: 6,
+      premiumSessionsPerDay: 4,
     },
     core: {
       userMessagesPerDay: 1_000,
       messagesPer5Hours: 5_000,
       messagesPerDay: 8_000,
       dailySpendUsd: 90,
-      premiumSessionsPerDay: 10,
+      premiumSessionsPerDay: 5,
     },
   },
   limited: {

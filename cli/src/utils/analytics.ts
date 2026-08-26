@@ -259,9 +259,8 @@ export function trackEvent(
   // product-analytics source of truth). The shipper batches and ships even
   // before login (anonymously), so pre-auth events like app_launched reach
   // Axiom — making install→login funnels queryable in APL. We correlate on the
-  // anonymous/run id so pre- and post-login events join. CLI_LOG is excluded
-  // because the logger already mirrors log rows to Axiom (avoids double-ship).
-  if (event !== AnalyticsEvent.CLI_LOG && shouldMirrorAnalyticsEvent(event)) {
+  // anonymous/run id so pre- and post-login events join.
+  if (shouldMirrorAnalyticsEvent(event)) {
     try {
       enqueueClientLog({
         level: 'info',

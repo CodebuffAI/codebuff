@@ -1,0 +1,295 @@
+import { describe, expect, it } from 'bun:test'
+
+import { AD_CAMPAIGN_STATUSES } from '../constants/freebuff-ads'
+import {
+  ACTIVATION_ATTRIBUTION_WINDOW_DAYS,
+  ATTRIBUTION_WINDOW_COPY,
+  DIAGNOSTIC_METRICS,
+  NOT_SERVING_COPY,
+  NOT_SERVING_REASONS,
+  PLACEMENTS_CONSOLE_ENABLED,
+  PLACEMENT_METRIC_LABELS,
+  PLACEMENT_PREVIEW_WIDTHS,
+  PLACEMENT_SLOTS,
+  TRACKED_LINK_PLACEMENT_ID,
+  placementSlotLabel,
+  PLACEMENT_STATUS_LABELS,
+  PRIMARY_METRICS,
+  UNDERSPEND_COPY,
+  UNDERSPEND_REASONS,
+  avgCpa,
+  avgCpc,
+  costPerActivation,
+  ctr,
+  ecpm,
+  isServing,
+  placementDisplayStatus,
+  spendUsd,
+} from '../constants/freebuff-placements'
+
+import type { PlacementTotals } from '../constants/freebuff-placements'
+
+function totals(overrides: Partial<PlacementTotals> = {}): PlacementTotals {
+  return {
+    activations: 0,
+    impressionsServed: 0,
+    impressionsViewed: 0,
+    clicks: 0,
+    billableClicks: 0,
+    spendCents: 0,
+    ...overrides,
+  }
+}
+
+describe('derived metrics', () => {
+  it('divides CTR by viewed impressions, not served ones', () => {
+    // Served counts ads the client never painted. Using it as the denominator
+    // deflates every advertiser's CTR against the numbers they see elsewhere,
+    // so the difference between these two figures has to show up in the rate.
+    const value = ctr(
+      totals({
+        impressionsServed: 2_000,
+        impressionsViewed: 1_000,
+        clicks: 10,
+      }),
+    )
+
+    expect(value).toBe(0.01)
+  })
+
+  it('keeps CTR diagnostic and counts raw clicks, not only billed clicks', () => {
+    // CPA does not bill a click. CTR must remain a diagnostic of actual click
+    // behaviour across both billing models rather than a disguised invoice rate.
+    const value = ctr(
+      totals({ impressionsViewed: 1_000, clicks: 20, billableClicks: 10 }),
+    )
+
+    expect(value).toBe(0.02)
+  })
+
+  it('computes CPA, CPC and eCPM in dollars', () => {
+    const measured = totals({
+      activations: 4,
+      impressionsViewed: 10_000,
+      clicks: 40,
+      billableClicks: 40,
+      spendCents: 6_000,
+    })
+
+    expect(costPerActivation(measured)).toBe(15)
+    expect(avgCpa(measured)).toBe(15)
+    expect(avgCpc(measured)).toBe(1.5)
+    expect(ecpm(measured)).toBe(6)
+    expect(spendUsd(measured)).toBe(60)
+  })
+
+  it('returns null rather than NaN or zero on an empty denominator', () => {
+    // "No clicks yet" and "a CTR of zero" are different facts, and a new
+    // campaign shows the first one for days. Rendering it as 0% tells an
+    // advertiser their creative failed when nothing has been measured at all.
+    const empty = totals()
+
+    expect(ctr(empty)).toBeNull()
+    expect(costPerActivation(empty)).toBeNull()
+    expect(avgCpc(empty)).toBeNull()
+    expect(ecpm(empty)).toBeNull()
+  })
+
+  it('treats a negative or non-finite denominator as no answer', () => {
+    expect(ctr(totals({ impressionsViewed: -5, billableClicks: 1 }))).toBeNull()
+    expect(
+      ctr(totals({ impressionsViewed: Number.NaN, billableClicks: 1 })),
+    ).toBeNull()
+    expect(
+      ecpm(
+        totals({
+          impressionsViewed: Number.POSITIVE_INFINITY,
+          spendCents: 100,
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('reports zero spend as zero, not as missing', () => {
+    // A funded campaign that has genuinely spent nothing today is a real
+    // measurement; only an absent denominator is unknown.
+    expect(spendUsd(totals({ spendCents: 0 }))).toBe(0)
+    expect(costPerActivation(totals({ activations: 3, spendCents: 0 }))).toBe(0)
+  })
+})
+
+describe('display status', () => {
+  it('labels an approved but unfunded campaign "Not funded"', () => {
+    // It is `active` in the database and not serving in reality. Showing it as
+    // "Active" is how an advertiser spends a week wondering why nothing
+    // delivers.
+    expect(
+      placementDisplayStatus({ status: 'active', billingActive: false }),
+    ).toBe('not_funded')
+    expect(PLACEMENT_STATUS_LABELS.not_funded).toBe('Not funded')
+  })
+
+  it('is exactly active AND not billing_active', () => {
+    expect(
+      placementDisplayStatus({ status: 'active', billingActive: true }),
+    ).toBe('active')
+    expect(
+      placementDisplayStatus({ status: 'paused', billingActive: false }),
+    ).toBe('paused')
+    expect(
+      placementDisplayStatus({ status: 'draft', billingActive: false }),
+    ).toBe('draft')
+    expect(
+      placementDisplayStatus({ status: 'ended', billingActive: false }),
+    ).toBe('ended')
+  })
+
+  it('only reports serving for a funded active campaign', () => {
+    expect(isServing({ status: 'active', billingActive: true })).toBe(true)
+    expect(isServing({ status: 'active', billingActive: false })).toBe(false)
+    expect(isServing({ status: 'paused', billingActive: true })).toBe(false)
+  })
+
+  it('covers every ad_campaign_status with a label', () => {
+    // Mirrors the "status unions mirror the database enums" test in
+    // freebuff-ads.test.ts. A status added to the pg enum and not here renders
+    // as a blank cell rather than an error.
+    for (const status of AD_CAMPAIGN_STATUSES) {
+      expect(PLACEMENT_STATUS_LABELS[status]).toBeTruthy()
+      expect(placementDisplayStatus({ status, billingActive: true })).toBe(
+        status,
+      )
+    }
+  })
+})
+
+describe('copy and configuration', () => {
+  it('marks the DB-backed control and delivery planes as wired', () => {
+    // Rollups may still be zero, but campaign attribution and the spend ledger
+    // are real and the console no longer resolves users to a fixture account.
+    expect(PLACEMENTS_CONSOLE_ENABLED).toBe(true)
+  })
+
+  it('previews the widths where layout actually changes', () => {
+    expect(PLACEMENT_PREVIEW_WIDTHS).toEqual([20, 48, 60])
+  })
+
+  it('states the attribution window in the copy that goes on screen', () => {
+    // Without a shared rule the advertiser's install count and ours differ and
+    // no dispute can be settled.
+    expect(ATTRIBUTION_WINDOW_COPY).toContain(
+      String(ACTIVATION_ATTRIBUTION_WINDOW_DAYS),
+    )
+  })
+
+  it('sells every real slot, and only real slots', () => {
+    // Every id must be a PLACEMENT id, never a surface name. `cli_chat` was
+    // listed here once; it is a surface, and the transcript's real slots are
+    // `CLI-Chat-Inline-1..8`. A surface name here is a campaign sold against
+    // inventory that can never match at serve time.
+    const surfaceNames = new Set<string>(
+      PLACEMENT_SLOTS.map((slot) => slot.surface),
+    )
+    for (const slot of PLACEMENT_SLOTS) {
+      expect([slot.id, surfaceNames.has(slot.id)]).toEqual([slot.id, false])
+    }
+
+    expect(PLACEMENT_SLOTS.every((slot) => slot.available)).toBe(true)
+    expect(new Set(PLACEMENT_SLOTS.map((slot) => slot.id)).size).toBe(
+      PLACEMENT_SLOTS.length,
+    )
+  })
+
+  it('covers the chat surfaces, which are the larger pool', () => {
+    // Chat was blocked on a Gravity exclusivity term that does not exist. The
+    // transcript alone is twice the waiting room's slot count.
+    const bySurface = (surface: string) =>
+      PLACEMENT_SLOTS.filter((slot) => slot.surface === surface).length
+    // CLI transcript + its legacy single slot + both Desktop units. NOT the
+    // eight `CLI-Chat-Inline-N` ids:
+    // no shipping client requests those, so selling them would be selling a
+    // decaying legacy path.
+    expect(bySurface('cli_chat')).toBe(4)
+    expect(bySurface('waiting_room')).toBe(4)
+    expect(bySurface('freebuff_web_chat')).toBe(2)
+    expect(bySurface('chat_assistant')).toBe(1)
+  })
+
+  it('gives every not-serving and underspend reason copy', () => {
+    // Each of these is a state we can distinguish. Any reason without copy
+    // would render an empty banner, which reads as "broken".
+    for (const reason of NOT_SERVING_REASONS) {
+      expect(NOT_SERVING_COPY[reason].message).toBeTruthy()
+    }
+    for (const reason of UNDERSPEND_REASONS) {
+      expect(UNDERSPEND_COPY[reason]).toBeTruthy()
+    }
+  })
+
+  it('labels every metric it exposes', () => {
+    for (const metric of [...PRIMARY_METRICS, ...DIAGNOSTIC_METRICS]) {
+      expect(PLACEMENT_METRIC_LABELS[metric]).toBeTruthy()
+    }
+  })
+
+  it('exposes both CPA and CPC primary facts for model-aware dashboards', () => {
+    expect(PRIMARY_METRICS).toEqual([
+      'billableClicks',
+      'activations',
+      'spend',
+      'avgCpc',
+      'avgCpa',
+    ])
+  })
+
+  it('never labels impressions as a purchasable unit', () => {
+    // eCPM is a derived yield figure for comparison against CPM inventory the
+    // advertiser already buys. We do not sell impressions.
+    expect(PLACEMENT_METRIC_LABELS.ecpm).toBe('Effective CPM')
+  })
+})
+
+/**
+ * The reporting grain is wider than the slot catalog, and the labeller has to
+ * know it.
+ *
+ * `PLACEMENT_SLOTS` lists what an advertiser can buy a position in. A tracked
+ * link is not one of those — nothing auctions it and nothing serves an
+ * impression into it — but the delivery rollup groups by `placement_id`, so
+ * every surface that labels a placement will meet it.
+ */
+describe('placementSlotLabel', () => {
+  it('renders every real slot exactly as the breakdown table already did', () => {
+    // This is a behaviour-preservation assertion, not a new format: these
+    // strings are what the table showed before the labeller moved here.
+    expect(placementSlotLabel('waiting-room-1')).toBe('Waiting room 1')
+    expect(placementSlotLabel('CLI-Chat-Inline')).toBe('CLI Chat Inline')
+    expect(placementSlotLabel('Web-Chat-After-User-Message')).toBe(
+      'Web Chat After User Message',
+    )
+    for (const slot of PLACEMENT_SLOTS) {
+      expect(placementSlotLabel(slot.id).length).toBeGreaterThan(0)
+    }
+  })
+
+  it('names the tracked-link grain, which no slot describes', () => {
+    expect(placementSlotLabel(TRACKED_LINK_PLACEMENT_ID)).toBe('Tracked links')
+    // That it is not a slot is proved by the compiler rather than asserted
+    // here: `PLACEMENT_SLOTS` is `as const`, so comparing a slot id against
+    // this constant is a type error ("no overlap"). Adding it to the catalog
+    // would put a tracked link in front of an advertiser choosing where their
+    // ad appears, which is not what it is.
+    expect(
+      (PLACEMENT_SLOTS as readonly { id: string }[]).some(
+        (slot) => slot.id === TRACKED_LINK_PLACEMENT_ID,
+      ),
+    ).toBe(false)
+  })
+
+  it('degrades an unknown grain to something readable, never undefined', () => {
+    // The next grain after tracked links must render as a string a human can
+    // read, not as a gap that looks like a bug in the numbers beside it.
+    expect(placementSlotLabel('some-future-grain')).toBe('Some future grain')
+    expect(placementSlotLabel('')).toBe('')
+  })
+})

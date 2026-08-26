@@ -1,0 +1,171 @@
+/**
+ * The prepaid balance behind the placements rail.
+ *
+ * The engagement marketplace bills a fixed daily Stripe SUBSCRIPTION, where
+ * the daily budget is simultaneously the price and the delivery cap. That
+ * identity breaks the moment the unit is an activation: a $50/day cap can
+ * deliver $50 or $3 depending on how many developers actually save the env
+ * var, and billing $50 either way is charging for activations we did not
+ * deliver. So placements is prepaid — the advertiser tops up, delivery draws
+ * the balance down, campaigns stop serving at zero.
+ *
+ * Nothing here talks to Stripe. These are the values and rules both the
+ * advertiser-facing form and the webhook-side parser have to agree on, which
+ * is why they live in `common` rather than in either app.
+ *
+ * See `docs/freebuff-placements-prepaid.md` for the ledger shape and the
+ * ordered list of what wiring Stripe actually changes.
+ */
+
+/**
+ * Floor for a self-serve top-up.
+ *
+ * Below this the Stripe fee is a visible fraction of what the advertiser
+ * bought, which is a bad first line on their statement.
+ */
+export const AD_TOP_UP_MIN_CENTS = 5_000
+
+/**
+ * Self-serve ceiling. Above this we would rather have a conversation than
+ * take the card — the same shape as `AD_MAX_DAILY_BUDGET_CENTS`, a different
+ * number and a different reason.
+ */
+export const AD_TOP_UP_MAX_CENTS = 2_000_000
+
+/**
+ * Whole dollars only. Cents inside a prepaid top-up buy nothing and produce a
+ * statement line the advertiser cannot reconcile against a card statement.
+ */
+export const AD_TOP_UP_STEP_CENTS = 100
+
+/** The buttons on the top-up dialog. Custom amounts still go through
+ *  {@link topUpAmountError}. */
+export const AD_TOP_UP_PRESET_CENTS = [
+  25_000, 50_000, 100_000, 250_000,
+] as const
+
+/**
+ * The line item name on Stripe's Checkout page and on the receipt.
+ *
+ * One definition, because it is the string an advertiser matches against
+ * their card statement when they are trying to work out what we charged them
+ * for.
+ */
+export const AD_TOP_UP_PRODUCT_NAME = 'Freebuff placements balance'
+
+/** The only currency this rail accepts. Asserted at parse time, not assumed. */
+export const AD_TOP_UP_CURRENCY = 'usd'
+
+/**
+ * There is deliberately NO `normalizeTopUpCents`.
+ *
+ * `normalizeDailyBudgetCents` snaps and then clamps, which is right for a
+ * slider whose ends are the only legal values. Applied to money it silently
+ * turns a $20,000 top-up into $20,000-capped-to-the-max with no error and no
+ * log, and the advertiser finds out from their balance. A money validator
+ * rejects; it never repairs.
+ */
+export function isValidTopUpCents(cents: number): boolean {
+  return topUpAmountError(cents) === null
+}
+
+/**
+ * Why this amount cannot be charged, or null if it can.
+ *
+ * The string is rendered by the form AND returned by the API route, so a
+ * client-side and a server-side rejection cannot tell the advertiser two
+ * different things.
+ *
+ * **This is an ENTRY rule.** It governs what an advertiser may ask to pay. It
+ * must never be applied to an amount Stripe has already collected — see
+ * {@link isPlausibleCollectedCents}.
+ */
+export function topUpAmountError(cents: number): string | null {
+  if (!Number.isFinite(cents) || !Number.isInteger(cents)) {
+    return 'Enter a whole dollar amount.'
+  }
+  if (cents < AD_TOP_UP_MIN_CENTS) {
+    return `The minimum top-up is ${formatWholeDollars(AD_TOP_UP_MIN_CENTS)}.`
+  }
+  if (cents > AD_TOP_UP_MAX_CENTS) {
+    return `For more than ${formatWholeDollars(AD_TOP_UP_MAX_CENTS)}, contact us and we'll invoice you.`
+  }
+  if (cents % AD_TOP_UP_STEP_CENTS !== 0) {
+    return 'Top up in whole dollars.'
+  }
+  return null
+}
+
+/**
+ * Whether an amount Stripe reports as collected is plausible enough to credit.
+ *
+ * Deliberately far looser than {@link topUpAmountError}. By the time this runs
+ * the money is already ours: a tax-inclusive presentment, a promotion code, or
+ * Stripe-side rounding can all make the net a non-round number, and refusing
+ * to credit it would leave an advertiser who has paid with no balance and no
+ * refund. The only things worth refusing here are nonsense.
+ */
+export function isPlausibleCollectedCents(cents: number): boolean {
+  return (
+    Number.isInteger(cents) && cents > 0 && cents <= AD_TOP_UP_MAX_CENTS * 2
+  )
+}
+
+export function describeTopUp(cents: number): string {
+  return `${formatWholeDollars(cents)} added to your balance`
+}
+
+function formatWholeDollars(cents: number): string {
+  return `$${Math.round(cents / 100).toLocaleString('en-US')}`
+}
+
+/**
+ * Every reason money moves on the placements rail.
+ *
+ * Declared here rather than in the console's `StatementLine`, because the
+ * ledger reason is the upstream fact and the display kind derives from it —
+ * `common` cannot import the app, and the dependency runs the right way round
+ * this way.
+ */
+export const AD_SPEND_LEDGER_REASONS = [
+  /** Money in, from a Stripe Checkout in payment mode. Positive. */
+  'topup',
+  /** One billable activation drawn down. Negative. */
+  'spend',
+  /** Invalid activity returned to the advertiser. Positive. */
+  'refund',
+  /** Operator movement, either direction. */
+  'adjustment',
+  /** A disputed top-up pulled back by the card network. Negative. */
+  'chargeback',
+] as const
+export type AdSpendLedgerReason = (typeof AD_SPEND_LEDGER_REASONS)[number]
+
+/** What the advertiser sees on the statement. */
+export const AD_STATEMENT_KINDS = [
+  'topup',
+  'spend',
+  'refund',
+  'adjustment',
+] as const
+export type AdStatementKind = (typeof AD_STATEMENT_KINDS)[number]
+
+/**
+ * A chargeback has no statement kind of its own.
+ *
+ * "Refunded" on this console means *we caught invalid activity and gave the
+ * money back* — a trust win we show deliberately. A chargeback is the
+ * opposite event and must not borrow that word. The database distinguishes
+ * them because one stops serving; the statement shows it as an adjustment
+ * whose description says what happened.
+ */
+export function statementKindForReason(
+  reason: AdSpendLedgerReason,
+): AdStatementKind {
+  return reason === 'chargeback' ? 'adjustment' : reason
+}
+
+/** Reasons that add money. Everything else subtracts. */
+export function isCreditReason(reason: AdSpendLedgerReason): boolean {
+  return reason === 'topup' || reason === 'refund'
+}

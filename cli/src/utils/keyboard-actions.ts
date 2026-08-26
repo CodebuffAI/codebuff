@@ -212,25 +212,15 @@ export function resolveChatKeyboardAction(
     state.slashMatchesLength > 0 &&
     !state.disableSlashSuggestions
   ) {
-    if (isDown) {
-      // If user is navigating history (historyNavDownEnabled), skip menu navigation entirely
-      if (state.historyNavDownEnabled) {
-        // Fall through to history navigation
-      } else if (state.slashSelectedIndex < state.slashMatchesLength - 1) {
-        return { type: 'slash-menu-down' }
-      } else {
-        return { type: 'none' } // At bottom, don't navigate
-      }
+    if (isDown && !state.historyNavDownEnabled) {
+      return state.slashSelectedIndex < state.slashMatchesLength - 1
+        ? { type: 'slash-menu-down' }
+        : { type: 'none' } // At bottom, don't navigate
     }
-    if (isUp) {
-      // If user is navigating history (historyNavUpEnabled), skip menu navigation entirely
-      if (state.historyNavUpEnabled) {
-        // Fall through to history navigation
-      } else if (state.slashSelectedIndex > 0) {
-        return { type: 'slash-menu-up' }
-      } else {
-        return { type: 'none' } // At top, don't navigate
-      }
+    if (isUp && !state.historyNavUpEnabled) {
+      return state.slashSelectedIndex > 0
+        ? { type: 'slash-menu-up' }
+        : { type: 'none' } // At top, don't navigate
     }
     if (isTab || isShiftTab) {
       // Tab accepts the highlighted command into the input without executing
@@ -248,25 +238,15 @@ export function resolveChatKeyboardAction(
   // Priority 7: Mention menu navigation (when active)
   // Skip menu navigation for Up/Down if history navigation is enabled (user is paging through history)
   if (state.mentionMenuActive && state.totalMentionMatches > 0) {
-    if (isDown) {
-      // If user is navigating history (historyNavDownEnabled), skip menu navigation entirely
-      if (state.historyNavDownEnabled) {
-        // Fall through to history navigation
-      } else if (state.agentSelectedIndex < state.totalMentionMatches - 1) {
-        return { type: 'mention-menu-down' }
-      } else {
-        return { type: 'none' } // At bottom, don't navigate
-      }
+    if (isDown && !state.historyNavDownEnabled) {
+      return state.agentSelectedIndex < state.totalMentionMatches - 1
+        ? { type: 'mention-menu-down' }
+        : { type: 'none' } // At bottom, don't navigate
     }
-    if (isUp) {
-      // If user is navigating history (historyNavUpEnabled), skip menu navigation entirely
-      if (state.historyNavUpEnabled) {
-        // Fall through to history navigation
-      } else if (state.agentSelectedIndex > 0) {
-        return { type: 'mention-menu-up' }
-      } else {
-        return { type: 'none' } // At top, don't navigate
-      }
+    if (isUp && !state.historyNavUpEnabled) {
+      return state.agentSelectedIndex > 0
+        ? { type: 'mention-menu-up' }
+        : { type: 'none' } // At top, don't navigate
     }
     if (isShiftTab) {
       return { type: 'mention-menu-shift-tab' }
