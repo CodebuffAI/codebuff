@@ -524,6 +524,9 @@ export type FreebuffSessionServerResponse = (
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Included for Web/Cloud picker reads that request full quota details. */
       referral?: FreebuffReferralInfo
+      /** Carried like `rateLimitsByModel`: the post-session banner and picker
+       *  keep the plan rings without a round-trip. */
+      subscription?: FreebuffSubscriptionInfo
     } & FreebuffLimitedModeReason)
   | {
       /** Another CLI on the same account rotated our instance id. Polling
