@@ -207,6 +207,28 @@ describe('sdk-event-handlers', () => {
     expect(getHasPlanResponse()).toBe(true)
   })
 
+  test('keeps orphan-close reasoning out of root text', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleChunk = createStreamChunkHandler(ctx)
+
+    handleChunk('Private reasoning</thi')
+    handleChunk('nk>Answer')
+
+    expect(getMessages()[0].blocks).toMatchObject([
+      {
+        type: 'text',
+        content: 'Private reasoning',
+        textType: 'reasoning',
+        thinkingOpen: false,
+      },
+      {
+        type: 'text',
+        content: 'Answer',
+        textType: 'text',
+      },
+    ])
+  })
+
   test('maps spawn agent placeholder to real agent', () => {
     const { ctx, getMessages, getStreamingAgents, streamRefs } =
       createTestContext()
