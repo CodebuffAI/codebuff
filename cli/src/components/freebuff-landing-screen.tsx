@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
+import { visibleWaitingRoomPlacementIds } from '@codebuff/common/ads/waiting-room-placements'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import {
@@ -405,6 +406,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
   // The server tries Gravity first, then falls back to ZeroClick and Carbon.
+  const waitingRoomPlacementIds = visibleWaitingRoomPlacementIds(terminalWidth)
   const { ads, recordClick, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
@@ -412,6 +414,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     // Legacy wire name for this surface — the ads API maps it to placements,
     // so it must not change with the component rename.
     surface: 'waiting_room',
+    placementIds: waitingRoomPlacementIds,
   })
 
   useFreebuffCtrlCExit()
@@ -871,6 +874,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {ads ? (
             <ChoiceAdBanner
               ads={ads}
+              placementIds={waitingRoomPlacementIds}
               onClick={recordClick}
               onImpression={recordImpression}
             />

@@ -105,4 +105,42 @@ describe('sandbox creatives in production', () => {
       expect(result?.ad).toBeTruthy()
     }
   })
+
+  /**
+   * A misconfigured key is true of every request until someone changes it, so
+   * logging the refusal per call scales with TRAFFIC: it produced 1.3M error
+   * rows in a day and hid every real error on the service. It still has to be
+   * findable, so the first one stays at error level.
+   */
+  test('announce the refusal once per process, not once per request', async () => {
+    const levels: string[] = []
+    const counting: Logger = {
+      debug: () => levels.push('debug'),
+      info: () => levels.push('info'),
+      warn: () => levels.push('warn'),
+      error: () => levels.push('error'),
+    }
+    const fetch = (async () =>
+      new Response(JSON.stringify({ requestId: 'req_1', ad }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })) as unknown as typeof globalThis.fetch
+
+    for (let i = 0; i < 5; i += 1) {
+      await fetchImpreziaChatAd({
+        apiKey: SANDBOX_KEY,
+        testMode: false,
+        request,
+        userAgent: 'UA',
+        logger: counting,
+        fetch,
+      })
+    }
+
+    // Another module in this suite may already have burned the once-per-process
+    // error, so assert the SHAPE: at most one error, and never a second.
+    expect(levels.filter((l) => l === 'error').length).toBeLessThanOrEqual(1)
+    expect(levels.length).toBe(5)
+    expect(levels.filter((l) => l === 'debug').length).toBeGreaterThanOrEqual(4)
+  })
 })

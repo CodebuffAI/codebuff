@@ -6,6 +6,7 @@ import {
 } from '../util/zoned-time'
 import {
   deepSeekExpensiveWindowEndsAt,
+  formatDeepSeekExpensiveWindowReturn,
   isDeepSeekExpensiveWindow,
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
@@ -590,12 +591,34 @@ export const FREEBUFF_GLM_V52_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
 export const FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24
-// The GLM referral reward is UNCAPPED as of 2026-07-30 (it was
-// FREEBUFF_GLM_V52_REFERRAL_CAP = 10): every qualified full-access referral
-// grants one 1-hour GLM session per day, with no read-time ceiling. The only
-// remaining bound is FREEBUFF_REFERRAL_SIGNUP_LIMIT (100 attributed rows per
-// referrer, enforced at attribution), which is now the effective maximum
-// rather than the anti-spam backstop it used to be.
+/**
+ * Hard ceiling on GLM 5.2 sessions per user per day, applied to the WHOLE
+ * pool — referrals, streak bonus, operator grants and bounty bank together.
+ *
+ * Restored on 2026-08-25. Between 2026-07-30 and that date the pool was
+ * effectively unbounded: the old `FREEBUFF_GLM_V52_REFERRAL_CAP = 10` was
+ * removed, so entitlement scaled 1:1 with qualified referrals up to
+ * FREEBUFF_REFERRAL_SIGNUP_LIMIT (100), and a referral farm converted
+ * directly into a hundred paid hours a day.
+ *
+ * IT IS A CEILING ON THE SUM, NOT ON THE REFERRAL TERM. Capping only the
+ * referral component would leave a 28-day streak (up to
+ * FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER) stacking on top of it, so "one a
+ * day" would mean five for the accounts most motivated to find that out.
+ *
+ * NOTHING EARNED IS DESTROYED. A bounty bank is a BALANCE, not a rate: the
+ * grant-debit path spends one unit per admission beyond the recurring
+ * entitlement, so ten bounty units become ten days of one session rather than
+ * one day of ten. Referrers keep whatever the invite banner already credited
+ * them; the cap changes how fast it may be spent, not whether it exists.
+ *
+ * Consequence worth knowing: while this is 1 the GLM promo
+ * (`FREEBUFF_GLM_PROMO_*`, glm-promo.ts) can no longer do anything — it lifts
+ * how much of a bounty bank may be spent in a day, and this is below its
+ * floor. The promo is left wired rather than deleted so raising this number
+ * restores it without a second change.
+ */
+export const FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS = 1
 /** Master kill-switch for the GLM 5.2 referral program. While true, qualified
  *  referrals grant daily GLM sessions and the CLI advertises the perk. Flip to
  *  false to wind the program down: entitlement drops to 0 for everyone and the
@@ -2896,6 +2919,27 @@ function isAvailableAt(
   if (availability === 'always') return true
   if (availability === 'off_peak_only') return !isDeepSeekExpensiveWindow(now)
   return isFreebuffDeploymentHours(now)
+}
+
+/**
+ * The window to quote when `model` is refused for being unavailable.
+ *
+ * Derived from the model's OWN availability instead of assumed. Both refusal
+ * sites in free-session/public-api.ts gate on isFreebuffSessionModelAvailable,
+ * which covers `deployment_hours` AND `off_peak_only`, but both hardcoded the
+ * deployment-hours label -- so a model closed for DeepSeek's peak window was
+ * quoted our staffing hours, a different window entirely.
+ */
+export function freebuffModelUnavailableWindow(
+  id: string,
+  now: Date = new Date(),
+): string {
+  const model =
+    SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
+    getFreebuffWebModel(id)
+  return model.availability === 'off_peak_only'
+    ? formatDeepSeekExpensiveWindowReturn(now)
+    : FREEBUFF_DEPLOYMENT_HOURS_LABEL
 }
 
 export function isFreebuffSessionModelAvailable(

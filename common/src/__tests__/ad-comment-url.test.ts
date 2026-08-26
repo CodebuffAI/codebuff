@@ -121,6 +121,22 @@ describe('linkedin', () => {
   })
 })
 
+describe('github', () => {
+  it('refuses every link — stars are screenshot-only evidence', () => {
+    // Not the LinkedIn fall-through: before the explicit branch existed, a
+    // GitHub URL was answered with "not a link to a LinkedIn comment".
+    const result = checkCommentUrl({
+      platform: 'github',
+      postUrl: 'https://github.com/workweave/router',
+      commentUrl: 'https://github.com/workweave/router/stargazers',
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('unreachable')
+    expect(result.reason).toContain('screenshot')
+    expect(result.reason).not.toContain('LinkedIn')
+  })
+})
+
 describe('cross-platform and malformed input', () => {
   it('refuses a link on the wrong platform', () => {
     const result = reddit('https://x.com/someone/status/9999999999')

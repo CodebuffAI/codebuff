@@ -110,13 +110,14 @@ export function isValidDailyBudgetCents(cents: number): boolean {
 // Platforms
 // ---------------------------------------------------------------------------
 
-export const AD_PLATFORMS = ['twitter', 'linkedin', 'reddit'] as const
+export const AD_PLATFORMS = ['twitter', 'linkedin', 'reddit', 'github'] as const
 export type AdPlatform = (typeof AD_PLATFORMS)[number]
 
 export const AD_PLATFORM_LABELS: Record<AdPlatform, string> = {
   twitter: 'X / Twitter',
   linkedin: 'LinkedIn',
   reddit: 'Reddit',
+  github: 'GitHub',
 }
 
 /**
@@ -126,19 +127,39 @@ export const AD_PLATFORM_LABELS: Record<AdPlatform, string> = {
  * anything that reads as astroturf harder than either other platform, and a
  * brigaded thread gets the *advertiser* banned rather than us. So Reddit buys
  * an upvote and a genuine comment, and the copy everywhere says "genuine".
+ *
+ * GitHub is a single action: star the repository. There is no comment to
+ * write, so everything comment-shaped (suggestions, comment URLs, the comment
+ * paste-back) is skipped for it — see `platformRequiresComment`.
  */
 export const AD_PLATFORM_ACTIONS: Record<AdPlatform, readonly string[]> = {
   twitter: ['Like the post', 'Reply with a real comment', 'Repost it'],
   linkedin: ['React to the post', 'Comment something real', 'Repost it'],
   reddit: ['Upvote the post', 'Leave a genuine comment'],
+  github: ['Star the repository'],
+}
+
+/**
+ * Whether an engagement on this platform involves writing a comment.
+ *
+ * Everything comment-shaped hangs off this one predicate — the suggestion
+ * generator, the comment-URL evidence field, the paste-back box — so a new
+ * actions-only platform (GitHub stars) needs one entry here rather than an
+ * `if platform === 'github'` in five files.
+ */
+export function platformRequiresComment(platform: AdPlatform): boolean {
+  return platform !== 'github'
 }
 
 /** Host allowlist per platform, used to validate a submitted post URL. Hosts
  *  are matched exactly or as a subdomain suffix. */
 export const AD_PLATFORM_HOSTS: Record<AdPlatform, readonly string[]> = {
   twitter: ['twitter.com', 'x.com'],
-  linkedin: ['linkedin.com'],
+  // `lnkd.in` is LinkedIn's own shortener — advertisers paste share links in
+  // that shape and rejecting them reads as "LinkedIn is not supported".
+  linkedin: ['linkedin.com', 'lnkd.in'],
   reddit: ['reddit.com', 'redd.it'],
+  github: ['github.com'],
 }
 
 /**
@@ -261,42 +282,31 @@ export const AD_PRICING_ENABLED = true
 export const AD_CAMPAIGN_REVIEW_ENABLED = false
 
 /**
- * The longest a campaign may run, in days.
- *
- * Set while campaigns are free. An open-ended campaign that costs nothing has
- * no natural stopping point, and the delivery it consumes is real: every
- * engagement is paid out in Trust to a user whether or not an advertiser was
- * billed for it. A week bounds that without making anyone ask permission.
- *
- * Enforced as an END DATE rather than as a timer, so a campaign always carries
- * the date it will stop on and the advertiser can see it.
- */
-export const AD_MAX_CAMPAIGN_LENGTH_DAYS = 7
-
-/** The furthest out a campaign may be set to end, from a given moment. */
-export function maxCampaignEndDate(from: Date = new Date()): Date {
-  const end = new Date(from)
-  end.setDate(end.getDate() + AD_MAX_CAMPAIGN_LENGTH_DAYS)
-  return end
-}
-
-/**
  * The end date a campaign should carry, given what the advertiser asked for.
  *
- * Absent becomes the maximum rather than staying open-ended: "max campaign
- * length is a week" is not enforced by a cap that only applies when somebody
- * volunteers a date. Anything beyond the maximum is clamped down to it.
+ * `null` means "runs until cancelled", and that is the default. Campaigns are
+ * billed as daily subscriptions now, so an open-ended campaign has a natural
+ * stopping point — the advertiser cancelling it — and the 7-day clamp that
+ * existed for the free-campaign window is gone. An end date is still available
+ * from the campaign's own menu for anyone with a launch window.
  */
 export function resolveCampaignEndDate(
   requested: Date | null | undefined,
-  from: Date = new Date(),
-): Date {
-  const max = maxCampaignEndDate(from)
-  if (!requested) return max
-  return requested.getTime() > max.getTime() ? max : requested
+): Date | null {
+  return requested ?? null
 }
 
-export const AD_MAX_POSTS_PER_CAMPAIGN = 20
+/**
+ * A campaign is ONE post.
+ *
+ * It was 20, with the daily budget spread across the posts — and that made
+ * every number on the dashboard an average over things the advertiser thinks
+ * of separately. One post per campaign means the campaign's budget, delivery
+ * and status describe exactly one thing, and promoting three posts is three
+ * campaigns with three plainly-readable rows. Existing multi-post campaigns
+ * were split by migration 0134.
+ */
+export const AD_MAX_POSTS_PER_CAMPAIGN = 1
 export const AD_MAX_CAMPAIGNS_PER_ADVERTISER = 25
 export const AD_MAX_COMMENT_EXAMPLES = 12
 export const AD_MAX_COMMENT_URL_CHARS = 2_000
@@ -312,6 +322,17 @@ export const AD_MAX_COMMENT_URL_CHARS = 2_000
  */
 export const AD_EVIDENCE_ATTESTATION =
   'I confirm I liked, reposted and commented on this post myself, and that this is genuine proof of it. I understand it will be verified, and that falsified evidence will result in my account being banned.'
+
+/** The GitHub engagement is a star, not a comment — the attestation has to
+ *  name the action the person actually took or it attests to nothing. */
+export const AD_EVIDENCE_ATTESTATION_GITHUB =
+  'I confirm I starred this repository myself, and that this is genuine proof of it. I understand it will be verified, and that falsified evidence will result in my account being banned.'
+
+export function adEvidenceAttestation(platform: AdPlatform): string {
+  return platform === 'github'
+    ? AD_EVIDENCE_ATTESTATION_GITHUB
+    : AD_EVIDENCE_ATTESTATION
+}
 export const AD_MAX_DESCRIPTION_CHARS = 2_000
 export const AD_MAX_COMMENT_GUIDANCE_CHARS = 2_000
 

@@ -9,6 +9,7 @@ import {
   truncateToLines,
   truncateToWidth,
 } from '@codebuff/common/ads/inline-ad-layout'
+import { visibleWaitingRoomPlacementIds } from '@codebuff/common/ads/waiting-room-placements'
 import { safeOpen } from '../utils/open-url'
 import React, { useState, useMemo, useEffect } from 'react'
 
@@ -21,6 +22,7 @@ import type { AdResponse } from '../hooks/use-gravity-ad'
 
 interface ChoiceAdBannerProps {
   ads: AdResponse[]
+  placementIds?: readonly string[]
   onClick?: (ad: AdResponse) => void
   onImpression?: (ad: AdResponse) => void
 }
@@ -31,7 +33,6 @@ interface ChoiceAdBannerProps {
 // subtracts this from the model picker's height budget.
 export const AD_CARD_HEIGHT = 5
 export const INLINE_AD_CARD_HEIGHT = 4 // border-top + header row + detail row + border-bottom
-const MIN_CARD_WIDTH = 60 // Minimum width per ad card to remain readable
 
 // Layout lives in `common` so the advertiser campaign builder's creative
 // preview fits copy exactly the way this renderer does. Re-exported here
@@ -331,6 +332,7 @@ export const SingleAdBanner: React.FC<{
  */
 export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
   ads,
+  placementIds,
   onClick,
   onImpression,
 }) => {
@@ -340,11 +342,14 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
   const colAvail = terminalWidth - 2
 
   // Only show as many ads as fit with a healthy minimum width; hide the rest
-  const maxVisible = Math.max(1, Math.floor(colAvail / MIN_CARD_WIDTH))
-  const visibleAds = useMemo(
-    () => (ads.length > maxVisible ? ads.slice(0, maxVisible) : ads),
-    [ads, maxVisible],
-  )
+  const maxVisible =
+    placementIds?.length ?? visibleWaitingRoomPlacementIds(terminalWidth).length
+  const visibleAds = useMemo(() => {
+    const requested = placementIds?.length
+      ? orderedRequestedAds(ads, placementIds)
+      : ads
+    return requested.slice(0, maxVisible)
+  }, [ads, maxVisible, placementIds])
 
   const widths = useMemo(
     () => columnWidths(visibleAds.length, colAvail),
@@ -378,4 +383,15 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
       </box>
     </box>
   )
+}
+
+/** Preserve canonical request order and never mount a duplicate slot response. */
+export function orderedRequestedAds(
+  ads: AdResponse[],
+  placementIds: readonly string[],
+): AdResponse[] {
+  return placementIds.flatMap((placementId) => {
+    const ad = ads.find((candidate) => candidate.placementId === placementId)
+    return ad ? [ad] : []
+  })
 }

@@ -98,12 +98,12 @@ export interface FreebuffSubscriptionTier {
   /** Every period after the first, in USD. */
   priceUsd: number
   /**
-   * First billing period, in USD — the promotional price for STARTING on this
-   * tier.
+   * First billing period, in USD.
    *
-   * Per tier, not one global discount: the offer that gets someone onto
-   * Starter is not the offer that gets them onto Plus, and a flat amount off
-   * would be a trivial discount at $60 and most of the price at $8.
+   * A flat **$3 off the first month** on every tier — a nudge, not a deep
+   * promotional price. The earlier $2.50/$12 intros discounted most of the
+   * entry price, which anchored the product at the discount rather than at
+   * $8/mo; $3 off reads as a welcome, and the recurring price stays the story.
    *
    * Charged at most once per ACCOUNT. Whichever tier a user starts on consumes
    * it, so upgrading later pays full price — which is why `intro_used` lives
@@ -120,8 +120,19 @@ export interface FreebuffSubscriptionTier {
    * that rewards waiting for it, and the counting query is identical either way.
    */
   fiveDaySessions: number
-  /** Pooled sessions per billing period. The cost ceiling. */
+  /** Pooled sessions per billing period. */
   monthlySessions: number
+  /**
+   * Provider-spend ceiling per billing period, in USD.
+   *
+   * The session caps bound COUNT; this bounds COST, and it exists because the
+   * two diverge badly — sessions differ ~5x in provider price by model, so a
+   * month of maxed Luna sessions costs several times a month of Flash. When
+   * period spend reaches this, plan sessions pause for the rest of the period
+   * (free sessions keep working), the same fallback shape as the peak-hours
+   * pause. Advertised on the pricing write-up as subject to change.
+   */
+  monthlySpendLimitUsd: number
   /**
    * How many of the DAILY sessions may be spent on premium models
    * (Luna / DeepSeek V4 Pro). The rest must go to the cheaper pool.
@@ -141,22 +152,29 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'starter',
       displayName: 'Starter',
       priceUsd: 8,
-      introPriceUsd: 2.5,
+      introPriceUsd: 5,
       dailySessions: 4,
       fiveDaySessions: 12,
       monthlySessions: 50,
-      dailyPremiumSessions: 2,
+      monthlySpendLimitUsd: 40,
+      // Equal to dailySessions: the Luna/Pro sub-cap was LIFTED (2026-08-26).
+      // Kept as a field rather than deleted so the wire shape and the
+      // enforcement stay in place — set it lower again to reinstate the cap
+      // without touching code.
+      dailyPremiumSessions: 4,
       deepseekPeakHoursExcluded: true,
     },
     {
       id: 'plus',
       displayName: 'Plus',
       priceUsd: 25,
-      introPriceUsd: 12,
+      introPriceUsd: 22,
       dailySessions: 12,
       fiveDaySessions: 40,
       monthlySessions: 150,
-      dailyPremiumSessions: 7,
+      monthlySpendLimitUsd: 100,
+      // Equal to dailySessions — sub-cap lifted; see the starter tier note.
+      dailyPremiumSessions: 12,
       deepseekPeakHoursExcluded: true,
     },
   ] satisfies FreebuffSubscriptionTier[])
@@ -196,11 +214,22 @@ export function freebuffSubscriptionTierDisclaimers(
   // that shows these also shows those three numbers, and repeating them reads
   // as three different rules rather than one.
   const out = [
-    `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or DeepSeek V4 Pro; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
+    // The Luna/Pro sub-cap line is emitted only while a cap actually binds —
+    // with the cap lifted (dailyPremiumSessions === dailySessions) the
+    // sentence would describe a restriction that does not exist.
+    ...(tier.dailyPremiumSessions < tier.dailySessions
+      ? [
+          `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or DeepSeek V4 Pro; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
+        ]
+      : []),
     'The 5-day limit is a rolling window — it frees up as your oldest sessions age out, rather than resetting on a fixed day',
     'Daily sessions reset at midnight Pacific; unused ones do not carry over',
     'Adds to your free sessions rather than replacing them',
   ]
+  out.push(
+    `Up to $${tier.monthlySpendLimitUsd} of compute per month; plan sessions pause if reached, free sessions keep working`,
+  )
+  out.push('Limits are subject to change')
   if (tier.deepseekPeakHoursExcluded) {
     out.push('DeepSeek models are unavailable during weekday peak hours')
   }

@@ -12,6 +12,7 @@ export const PROVIDER_ROUTE_IDS = [
   'deepseek/crof',
   'deepseek/cheaper-inference',
   'deepseek/luminal',
+  'deepseek/fusioncode',
   'deepseek/runinfra',
   'deepseek/official',
   'luna/fallback',
@@ -38,6 +39,15 @@ export type ProviderRouteId = (typeof PROVIDER_ROUTE_IDS)[number]
  * requests: the session that overflowed stays on the fallback and warms there
  * once, instead of re-paying at every turn.
  */
+/**
+ * A Flash session GRANTED the FusionCode front lane by the admission
+ * controller — the same shape as the Luminal grant, and granted only when
+ * Luminal declined, since Luminal is ~45% cheaper. Like Luminal's pin this is
+ * a grant, not a cohort mark: its own env switch is the drain.
+ */
+export const DEEPSEEK_FUSIONCODE_PROVIDER_ROUTE =
+  'deepseek/fusioncode' satisfies ProviderRouteId
+
 export const LUNA_FALLBACK_PROVIDER_ROUTE =
   'luna/fallback' satisfies ProviderRouteId
 

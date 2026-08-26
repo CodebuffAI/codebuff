@@ -336,6 +336,14 @@ export const NOT_SERVING_REASONS = [
   'paused',
   'flight_ended',
   'no_creatives',
+  // The two spend states. These name the same conditions the serve path
+  // refuses a fill for (`daily_cap_spent` / `total_budget_spent` in
+  // `ineligibleReason`), deliberately spelled identically: a campaign the
+  // auction has stopped filling and a console still showing a serving dot is
+  // the single disparity an advertiser is most likely to notice and least
+  // able to explain.
+  'daily_cap_spent',
+  'total_budget_spent',
 ] as const
 export type NotServingReason = (typeof NOT_SERVING_REASONS)[number]
 
@@ -367,6 +375,19 @@ export const NOT_SERVING_COPY: Record<
   no_creatives: {
     message: 'No approved creatives to serve',
     action: 'Add a creative',
+  },
+  // Says when it resumes, because it does. Without the reset time this reads
+  // as the same dead end as a spent total budget, and the two are a day and a
+  // cap change apart.
+  daily_cap_spent: {
+    message: 'Paused for today — daily cap reached, resumes at midnight PT',
+    action: 'Raise daily cap',
+  },
+  // No action beyond editing: the budget is spent, and the only way forward
+  // is a larger one.
+  total_budget_spent: {
+    message: 'This campaign spent its total budget',
+    action: 'Raise total budget',
   },
 }
 

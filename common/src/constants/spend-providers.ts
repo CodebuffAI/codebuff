@@ -48,6 +48,8 @@ export const SPEND_PROVIDER_IDS = [
   'fireworks',
   'infron',
   'luminal',
+  // FusionCode: capped Flash front lane, added 2026-08-25.
+  'fusioncode',
   'meta',
   'minimax',
   'moonshot',

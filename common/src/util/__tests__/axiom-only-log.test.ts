@@ -6,6 +6,8 @@ import {
   ADS_FIRST_PARTY_CLICK_RECORDED_EVENT,
   ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
+  ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+  ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
   STREAM_RECOVERY_EVENT,
@@ -158,6 +160,8 @@ describe('getAxiomOnlyLogEvent', () => {
         first_party_route: 'gravity_then_first_party',
         first_party_primary_percent: 10,
         first_party_backfill_enabled: true,
+        first_party_billing_mode: 'cpa',
+        external_settlement_enabled: false,
         first_party_primary_cohort: 'pilot-a',
         first_party_primary_cohort_percent: 1,
         first_party_served_cohort: 'pilot-a',
@@ -192,6 +196,8 @@ describe('getAxiomOnlyLogEvent', () => {
         first_party_route: 'gravity_then_first_party',
         first_party_primary_percent: 10,
         first_party_backfill_enabled: true,
+        first_party_billing_mode: 'cpa',
+        external_settlement_enabled: false,
         first_party_primary_cohort: 'pilot-a',
         first_party_primary_cohort_percent: 1,
         first_party_served_cohort: 'pilot-a',
@@ -305,5 +311,108 @@ describe('getAxiomOnlyLogEvent', () => {
         },
       })
     }
+  })
+
+  test('accepts only the exact bounded first-party view acknowledgement schema', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+        surface: 'waiting_room',
+        placement_id: 'waiting-room-1',
+        outcome: 'accepted',
+        attempt: 1,
+        duration_ms: 250,
+        client_family: 'cli',
+      }),
+    ).toEqual({
+      event: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+      data: {
+        surface: 'waiting_room',
+        placement_id: 'waiting-room-1',
+        outcome: 'accepted',
+        attempt: 1,
+        duration_ms: 250,
+        client_family: 'cli',
+      },
+    })
+  })
+
+  test('rejects malformed or private first-party view acknowledgement payloads', () => {
+    const valid = {
+      surface: 'cli_chat',
+      placement_id: 'CLI-Chat-Inline',
+      outcome: 'network_error',
+      attempt: 3,
+      duration_ms: 1,
+      client_family: 'desktop',
+    }
+    const invalid = [
+      { ...valid, impression_token: 'private-token' },
+      { ...valid, error: { message: 'private raw error' } },
+      { ...valid, url: 'https://private.example' },
+      { ...valid, placement_id: 'unknown-slot' },
+      { ...valid, surface: 'waiting_room' },
+      { ...valid, outcome: 'retrying' },
+      { ...valid, attempt: 0 },
+      { ...valid, attempt: 4 },
+      { ...valid, attempt: 1.5 },
+      { ...valid, duration_ms: Number.POSITIVE_INFINITY },
+      { ...valid, duration_ms: -1 },
+      { ...valid, duration_ms: 10_001 },
+      { ...valid, client_family: 'mobile' },
+    ]
+    for (const payload of invalid) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+          ...payload,
+        }),
+      ).toBeNull()
+    }
+    expect(getAxiomOnlyLogEvent(valid, ADS_FIRST_PARTY_VIEW_ACK_EVENT)).toEqual(
+      {
+        event: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+        data: valid,
+      },
+    )
+  })
+
+  test('keeps external conversion postbacks content- and identifier-free', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+        outcome: 'accepted',
+        rejection_reason: 'none',
+        event_type: 'signup_completed',
+        traffic_class: 'test',
+        primary_allocation_cohort: 'drizz',
+        settlement_status: 'not_billable',
+        charged_cents: 0,
+        duration_ms: 8,
+        api_key: 'fbadv_private',
+        key_prefix: 'fbadv_123',
+        bfcid: 'bfc_test_1.private',
+        event_id: 'private-event',
+        campaign_id: 'campaign-private',
+        advertiser_id: 'advertiser-private',
+        user_id: 'user-private',
+        email: 'private@example.com',
+        url: 'https://partner.example/private',
+        body: { private: true },
+        error: new Error('private failure'),
+      }),
+    ).toEqual({
+      event: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+      data: {
+        outcome: 'accepted',
+        rejection_reason: 'none',
+        event_type: 'signup_completed',
+        traffic_class: 'test',
+        primary_allocation_cohort: 'drizz',
+        settlement_status: 'not_billable',
+        charged_cents: 0,
+        duration_ms: 8,
+      },
+    })
   })
 })

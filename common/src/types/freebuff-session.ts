@@ -74,6 +74,8 @@ export interface FreebuffSubscriptionTierOffer {
   dailySessions: number
   fiveDaySessions: number
   monthlySessions: number
+  /** Provider-spend ceiling per billing period, USD. Subject to change. */
+  monthlySpendLimitUsd: number
   dailyPremiumSessions: number
   /** Plain-language constraints for the plan card and the paywall. */
   disclaimers: string[]
@@ -107,6 +109,9 @@ export interface FreebuffSubscriptionUsage {
   dayResetAt: string
   /** ISO instant the billing period ends, i.e. when the monthly cap resets. */
   periodEndsAt: string
+  /** Provider spend this billing period vs the tier's ceiling, USD. */
+  monthSpendUsd: number
+  monthSpendLimitUsd: number
 }
 
 /**
@@ -138,7 +143,13 @@ export interface FreebuffSubscriptionInfo {
    * ones are still usable today, and the client should say so rather than
    * implying the whole plan is spent.
    */
-  blockedBy?: 'daily' | 'five_day' | 'monthly' | 'premium_daily'
+  blockedBy?:
+    | 'daily'
+    | 'five_day'
+    | 'monthly'
+    | 'premium_daily'
+    /** The tier's dollar ceiling for the period is spent. */
+    | 'monthly_spend'
 }
 
 export interface FreebuffSessionRateLimit {
@@ -224,10 +235,13 @@ export interface FreebuffReferralInfo {
    *  landing page ("X invited you to try Freebuff!"). Null when the user has no
    *  name set. */
   referrerName: string | null
-  /** Qualified-referral count for the tier's reward: full tier = GLM sessions
-   *  per day (uncapped since 2026-07-30); limited tier = daily-session bonus
-   *  earned, still capped at REFERRAL_CLI_DAILY_SESSION_BONUS_CAP, which the
-   *  CLI knows locally. */
+  /** Qualified-referral count for the tier's reward, ALREADY CAPPED on both
+   *  branches: full tier = GLM sessions per day, clamped to
+   *  FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS (uncapped between 2026-07-30 and
+   *  2026-08-25); limited tier = daily-session bonus earned, capped at
+   *  REFERRAL_CLI_DAILY_SESSION_BONUS_CAP. The CLI knows both constants
+   *  locally and renders "(N/cap)" progress copy off them, so a value that
+   *  arrived un-clamped would advertise sessions the gate refuses. */
   qualifiedCount: number
   /** GLM sessions still available in the current reset window (entitlement −
    *  used, ≥ 0). Daily since 2026-07-29; the "weekly" name is kept for wire
@@ -510,6 +524,9 @@ export type FreebuffSessionServerResponse = (
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Included for Web/Cloud picker reads that request full quota details. */
       referral?: FreebuffReferralInfo
+      /** Carried like `rateLimitsByModel`: the post-session banner and picker
+       *  keep the plan rings without a round-trip. */
+      subscription?: FreebuffSubscriptionInfo
     } & FreebuffLimitedModeReason)
   | {
       /** Another CLI on the same account rotated our instance id. Polling
