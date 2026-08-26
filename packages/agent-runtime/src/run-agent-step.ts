@@ -1223,6 +1223,20 @@ export async function loopAgentSteps(
       let stepResult: Awaited<ReturnType<typeof runAgentStep>>
 
       while (true) {
+        // runAgentStep mutates the shared state while streaming. If a provider
+        // fails after emitting partial text/tool calls, roll back the
+        // non-billable transcript before retrying so the next request does not
+        // contain a partial turn. Credits and child runs are intentionally
+        // preserved: the provider may have charged the failed attempt and a
+        // child may already have completed work.
+        const stateBeforeAttempt = {
+          agentContext: cloneDeep(currentAgentState.agentContext),
+          messageHistory: cloneDeep(currentAgentState.messageHistory),
+          output: cloneDeep(currentAgentState.output),
+          stepsRemaining: currentAgentState.stepsRemaining,
+          contextTokenCount: currentAgentState.contextTokenCount,
+        }
+
         try {
           stepResult = await runAgentStep({
             ...params,
@@ -1253,6 +1267,18 @@ export async function loopAgentSteps(
           ) {
             throw error
           }
+
+          const creditsUsedAfterFailure = currentAgentState.creditsUsed
+          const directCreditsUsedAfterFailure =
+            currentAgentState.directCreditsUsed
+          const childRunIdsAfterFailure = [...currentAgentState.childRunIds]
+
+          Object.assign(initialAgentState, stateBeforeAttempt, {
+            creditsUsed: creditsUsedAfterFailure,
+            directCreditsUsed: directCreditsUsedAfterFailure,
+            childRunIds: childRunIdsAfterFailure,
+          })
+          currentAgentState = initialAgentState
 
           recoveryAttempt++
           const delayMs = getAgentRecoveryDelayMs(recoveryAttempt)

@@ -6,8 +6,8 @@ import {
   isTransientNetworkError,
 } from '@codebuff/common/util/error'
 
-/** One additional full agent-step attempt after the provider's own retries. */
-export const MAX_AGENT_STEP_RECOVERY_ATTEMPTS = 1
+/** Two additional full agent-step attempts after the provider's own retries. */
+export const MAX_AGENT_STEP_RECOVERY_ATTEMPTS = 2
 
 export type AgentRecoveryKind =
   'network' | 'idle-timeout' | 'rate-limit' | 'server'

@@ -5,6 +5,7 @@ import { AbortError } from '@codebuff/common/util/error'
 import {
   classifyAgentRecovery,
   getAgentRecoveryDelayMs,
+  MAX_AGENT_STEP_RECOVERY_ATTEMPTS,
 } from '../agent-recovery'
 
 describe('classifyAgentRecovery', () => {
@@ -77,5 +78,11 @@ describe('getAgentRecoveryDelayMs', () => {
     expect(getAgentRecoveryDelayMs(1)).toBe(500)
     expect(getAgentRecoveryDelayMs(2)).toBe(1000)
     expect(getAgentRecoveryDelayMs(20)).toBe(4000)
+  })
+})
+
+describe('MAX_AGENT_STEP_RECOVERY_ATTEMPTS', () => {
+  it('allows two bounded recovery attempts', () => {
+    expect(MAX_AGENT_STEP_RECOVERY_ATTEMPTS).toBe(2)
   })
 })
