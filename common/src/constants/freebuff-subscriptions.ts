@@ -157,7 +157,11 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       fiveDaySessions: 12,
       monthlySessions: 50,
       monthlySpendLimitUsd: 40,
-      dailyPremiumSessions: 2,
+      // Equal to dailySessions: the Luna/Pro sub-cap was LIFTED (2026-08-26).
+      // Kept as a field rather than deleted so the wire shape and the
+      // enforcement stay in place — set it lower again to reinstate the cap
+      // without touching code.
+      dailyPremiumSessions: 4,
       deepseekPeakHoursExcluded: true,
     },
     {
@@ -169,7 +173,8 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       fiveDaySessions: 40,
       monthlySessions: 150,
       monthlySpendLimitUsd: 100,
-      dailyPremiumSessions: 7,
+      // Equal to dailySessions — sub-cap lifted; see the starter tier note.
+      dailyPremiumSessions: 12,
       deepseekPeakHoursExcluded: true,
     },
   ] satisfies FreebuffSubscriptionTier[])
@@ -209,7 +214,14 @@ export function freebuffSubscriptionTierDisclaimers(
   // that shows these also shows those three numbers, and repeating them reads
   // as three different rules rather than one.
   const out = [
-    `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or DeepSeek V4 Pro; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
+    // The Luna/Pro sub-cap line is emitted only while a cap actually binds —
+    // with the cap lifted (dailyPremiumSessions === dailySessions) the
+    // sentence would describe a restriction that does not exist.
+    ...(tier.dailyPremiumSessions < tier.dailySessions
+      ? [
+          `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or DeepSeek V4 Pro; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
+        ]
+      : []),
     'The 5-day limit is a rolling window — it frees up as your oldest sessions age out, rather than resetting on a fixed day',
     'Daily sessions reset at midnight Pacific; unused ones do not carry over',
     'Adds to your free sessions rather than replacing them',
