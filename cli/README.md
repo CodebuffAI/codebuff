@@ -77,6 +77,14 @@ Or use the binary directly:
 codebuff-tui
 ```
 
+## Prompt History
+
+Submitted prompts are saved in `message-history.json` under the current
+project's config directory and can be recalled with the up/down arrow keys.
+History is stored as plaintext and capped at 500 entries by default. Set
+`FREEBUFF_HISTORY_SIZE=0` to disable prompt history persistence, or set
+`FREEBUFF_HISTORY_SCOPE=global` to use one shared history file across projects.
+
 ## Features
 
 - Built with OpenTUI for modern terminal interfaces

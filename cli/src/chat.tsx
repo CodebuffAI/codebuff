@@ -425,7 +425,11 @@ export const Chat = ({
   }, [cursorPosition, inputValue, setInputValue])
 
   const { saveToHistory, navigateUp, navigateDown, resetHistoryNavigation } =
-    useInputHistory(inputValue, setInputValue, { inputMode, setInputMode })
+    useInputHistory(inputValue, setInputValue, {
+      inputMode,
+      setInputMode,
+      projectRoot: getProjectRoot(),
+    })
 
   // Use extracted streaming hook for connection, timer, queue, and exit handling
   const {
@@ -798,7 +802,8 @@ export const Chat = ({
         // The panel closes itself once the queue drains, so opening an empty
         // one would just flash. Say so instead.
         if (queuedCount > 0) useQueuePanelStore.getState().openQueuePanel()
-        else setMessages((prev) => [...prev, getSystemMessage('Nothing queued.')])
+        else
+          setMessages((prev) => [...prev, getSystemMessage('Nothing queued.')])
       }
     },
     [

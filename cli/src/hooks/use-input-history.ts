@@ -1,8 +1,8 @@
 import { useRef, useCallback, useEffect } from 'react'
 
 import {
+  appendMessageHistory,
   loadMessageHistory,
-  saveMessageHistory,
 } from '../utils/message-history'
 
 import type { InputValue } from '../types/store'
@@ -31,9 +31,10 @@ export const useInputHistory = (
   options?: {
     inputMode?: InputMode
     setInputMode?: (mode: InputMode) => void
+    projectRoot?: string
   },
 ) => {
-  const { inputMode, setInputMode } = options ?? {}
+  const { inputMode, setInputMode, projectRoot } = options ?? {}
   const messageHistoryRef = useRef<string[]>([])
   const historyIndexRef = useRef<number>(-1)
   const currentDraftRef = useRef<string>('')
@@ -45,10 +46,10 @@ export const useInputHistory = (
   useEffect(() => {
     if (!isInitializedRef.current) {
       isInitializedRef.current = true
-      const savedHistory = loadMessageHistory()
+      const savedHistory = loadMessageHistory(projectRoot)
       messageHistoryRef.current = savedHistory
     }
-  }, [])
+  }, [projectRoot])
 
   const resetHistoryNavigation = useCallback(() => {
     historyIndexRef.current = -1
@@ -62,18 +63,16 @@ export const useInputHistory = (
     }
   }, [inputMode, resetHistoryNavigation])
 
-  const saveToHistory = useCallback((message: string) => {
-    // Re-read from disk to pick up messages from other terminals
-    const diskHistory = loadMessageHistory()
-    const newHistory = [...diskHistory, message]
-    messageHistoryRef.current = newHistory
-    historyIndexRef.current = -1
-    currentDraftRef.current = ''
-    currentDraftModeRef.current = 'default'
-
-    // Persist to disk
-    saveMessageHistory(newHistory)
-  }, [])
+  const saveToHistory = useCallback(
+    (message: string) => {
+      const newHistory = appendMessageHistory(message, projectRoot)
+      messageHistoryRef.current = newHistory
+      historyIndexRef.current = -1
+      currentDraftRef.current = ''
+      currentDraftModeRef.current = 'default'
+    },
+    [projectRoot],
+  )
 
   const navigateUp = useCallback(() => {
     const history = messageHistoryRef.current
