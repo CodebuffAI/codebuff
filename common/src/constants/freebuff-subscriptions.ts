@@ -7,7 +7,11 @@ import {
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   getFreebuffWebModel,
 } from './freebuff-models'
-import { formatDeepSeekExpensiveWindowLocal } from './freebuff-peak-hours'
+import {
+  formatDeepSeekExpensiveWindowLocal,
+  formatDeepSeekOffPeakWindowLocal,
+  isDeepSeekExpensiveWindow,
+} from './freebuff-peak-hours'
 
 /**
  * Paid Freebuff subscription tiers.
@@ -264,7 +268,44 @@ export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 5
  * this list, and `FREEBUFF_PRO_ONLY_MODEL_IDS` can add ids without a deploy.
  */
 export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
-  Object.freeze([])
+  Object.freeze([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID])
+
+/**
+ * The Pro rows are enforced on **Freebuff Web only**, for now.
+ *
+ * Desktop and the CLI keep serving V4 Pro exactly as they do today — free, at
+ * every hour, on the Cheaper Inference lane with its existing fallbacks —
+ * while Web moves to the paid, direct, off-peak arrangement. Legacy clients
+ * are mid-transition and must not have a model taken away by a server deploy
+ * they did not ask for.
+ *
+ * Web is identified server-side by the Freebuff Web SERVICE ACCOUNT key, never
+ * by a client-supplied header, so a CLI cannot claim to be Web to dodge the
+ * paywall — nor claim to be Desktop to reach the paid lane for free.
+ */
+export const FREEBUFF_PRO_ENFORCED_SURFACES = ['freebuff-web'] as const
+
+/**
+ * V4 Pro on Web is served by **DeepSeek direct**, whose card DOUBLES inside the
+ * peak windows — which is exactly why the row is closed there rather than sold
+ * at twice the cost. Distinct from the plan-level pause: this row is shut
+ * outright on Web, for subscribers too.
+ */
+export function isFreebuffWebProClosedNow(
+  id: string,
+  now: Date = new Date(),
+): boolean {
+  if (!FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS.includes(id)) return false
+  return isDeepSeekExpensiveWindow(now)
+}
+
+/** "3:00 AM – 5:00 PM" — when the Web Pro row is open, in the reader's zone. */
+export function freebuffWebProOpenWindowLabel(
+  now: Date = new Date(),
+  timeZone?: string,
+): string {
+  return formatDeepSeekOffPeakWindowLocal(now, timeZone)
+}
 
 /** Whether `model` may only be opened on a paid session. Suffix-tolerant, like
  *  the other model predicates, so a dated provider snapshot cannot dodge it. */
