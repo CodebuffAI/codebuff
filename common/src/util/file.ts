@@ -182,6 +182,66 @@ export type ProjectFileContext = {
   }
 }
 
+/**
+ * The ONLY fields of `gitChanges` that may leave the client as telemetry.
+ *
+ * An explicit allowlist, never a spread, and the exclusions are the point:
+ *
+ * - `status` / `diff` / `diffCached` / `lastCommitMessages` are the legacy
+ *   fields still populated by older clients, and they hold **raw patch
+ *   content**. Spreading `gitChanges` would put repository source into the
+ *   warehouse.
+ * - `branch` and `changedFiles` are names and paths. A repository snapshot is
+ *   aggregate scalars, not a manifest; paths and branches are out of contract
+ *   (see infobuff docs/specs/2026-08-22-repository-feature-extractor-v2.md).
+ *
+ * Everything kept is a count, a bounded enum, or a date percentile. Adding a
+ * field here is a deliberate act; widening it by spread is not available.
+ */
+export const REPO_SNAPSHOT_FIELDS = [
+  'gitAvailable',
+  'repositoryVisibility',
+  'fileCount',
+  'fileCountIsLowerBound',
+  'testFileCount',
+  'commitCount',
+  'historyIsShallow',
+  'historyScanTruncated',
+  'commitDatePercentiles',
+  'mergedPullRequestCount',
+  'humanContributorCount',
+  'botContributorCount',
+  'contributorCount',
+  'changedFileCount',
+  'changedFileScanTruncated',
+] as const
+
+export type RepoSnapshot = Pick<
+  ProjectFileContext['gitChanges'],
+  (typeof REPO_SNAPSHOT_FIELDS)[number]
+>
+
+/**
+ * Project `gitChanges` down to the exportable aggregate contract.
+ *
+ * Returns undefined when the snapshot carries nothing worth recording, so a
+ * client with no Git and a client that never reported are the same absent
+ * column rather than a row of nulls that reads as measured zeroes.
+ */
+export const toRepoSnapshot = (
+  gitChanges: ProjectFileContext['gitChanges'] | undefined,
+): RepoSnapshot | undefined => {
+  if (!gitChanges) return undefined
+  const snapshot: Record<string, unknown> = {}
+  for (const field of REPO_SNAPSHOT_FIELDS) {
+    const value = gitChanges[field]
+    if (value !== undefined) snapshot[field] = value
+  }
+  return Object.keys(snapshot).length > 0
+    ? (snapshot as RepoSnapshot)
+    : undefined
+}
+
 export const fileRegex =
   /<write_file>\s*<path>([^<]+)<\/path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_file>/g
 export const fileWithNoPathRegex = /<write_file>([\s\S]*?)<\/write_file>/g
