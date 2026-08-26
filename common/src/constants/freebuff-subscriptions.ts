@@ -5,7 +5,9 @@ import {
 import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  getFreebuffWebModel,
 } from './freebuff-models'
+import { formatDeepSeekExpensiveWindowLocal } from './freebuff-peak-hours'
 
 /**
  * Paid Freebuff subscription tiers.
@@ -245,3 +247,57 @@ export const FREEBUFF_SUBSCRIPTION_RESET_TIMEZONE = 'America/Los_Angeles'
 
 /** Length of the rolling mid-window, in days. */
 export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 5
+
+/**
+ * Models that ONLY a paid session may open — the "Pro" rows.
+ *
+ * Distinct from `FREEBUFF_SUBSCRIPTION_MODEL_IDS`, which lists models a plan
+ * meters. Those are available to everyone and the plan merely adds sessions;
+ * these are available to subscribers ONLY, so a free account cannot start one
+ * at all.
+ *
+ * Deliberately EMPTY today: the two rows this was built for do not exist yet.
+ * GLM 5.3 Flash has not shipped, and DeepSeek refuses every dated slug (the
+ * direct API serves only the undated `deepseek-v4-pro`, so an 08/13-pinned
+ * peak-disabled row has no wire id to point at). Adding one later is a single
+ * entry here — the badge, the picker gating and the admission refusal all read
+ * this list, and `FREEBUFF_PRO_ONLY_MODEL_IDS` can add ids without a deploy.
+ */
+export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
+  Object.freeze([])
+
+/** Whether `model` may only be opened on a paid session. Suffix-tolerant, like
+ *  the other model predicates, so a dated provider snapshot cannot dodge it. */
+export function isFreebuffSubscriptionProModelId(
+  model: string | null | undefined,
+  /** Extra ids from the server-side env knob; ignored on the client. */
+  extra: readonly string[] = [],
+): boolean {
+  if (!model) return false
+  const ids = [...FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS, ...extra]
+  return ids.some((id) => model === id || model.startsWith(`${id}-`))
+}
+
+/**
+ * When a PLAN's sessions on this model pause, for a subscriber.
+ *
+ * Deliberately separate from a model's own availability, because the two
+ * differ: DeepSeek V4 Pro is open to everyone at every hour, but PLAN sessions
+ * on it pause inside the expensive window — they fall back to the free pools,
+ * paused rather than cut off. Only a subscriber sees this, and only on rows
+ * where it is true.
+ *
+ * Lives here rather than beside the availability label because that module is
+ * imported by this one; the reverse would be a cycle.
+ */
+export function getFreebuffPlanPauseWindowLabel(
+  id: string,
+  now: Date = new Date(),
+  timeZone?: string,
+): string | undefined {
+  if (!FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS.includes(id)) return undefined
+  // A model already closed outright at peak needs no second sentence about it —
+  // its availability label already names the same window.
+  if (getFreebuffWebModel(id)?.availability === 'off_peak_only') return undefined
+  return `Plan paused ${formatDeepSeekExpensiveWindowLocal(now, timeZone)}`
+}

@@ -112,6 +112,19 @@ export interface FreebuffSubscriptionUsage {
   /** Provider spend this billing period vs the tier's ceiling, USD. */
   monthSpendUsd: number
   monthSpendLimitUsd: number
+  /**
+   * The caller's FREE premium-session pool for today, which the plan tops up.
+   *
+   * Sent because a client cannot derive it: `rateLimitsByModel` carries one row
+   * per model — whichever pool the next admission will charge — so once the
+   * free pool is spent the free figures are simply not on the wire, and a
+   * client trying to add "free + plan" from it double-counts the plan row.
+   *
+   * Both zero for accounts with no free pool at all (god/admin, who are
+   * quota-exempt), and absent entirely from servers older than this field.
+   */
+  freeDayUsed?: number
+  freeDayLimit?: number
 }
 
 /**
@@ -566,6 +579,13 @@ export type FreebuffSessionServerResponse = (
       accessTier?: FreebuffAccessTier
       requestedModel: string
       availableHours: string
+      /**
+       * The model is PRO-ONLY and this account has no paid plan — a different
+       * refusal from the deployment-hours one, and the only one an upgrade
+       * fixes. Older clients ignore it and still render `availableHours`,
+       * which carries the same sentence in prose.
+       */
+      requiresSubscription?: boolean
     }
   | {
       /** Account is banned. Returned from every endpoint so banned bots can't
