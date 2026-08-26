@@ -151,3 +151,29 @@ export function formatDeepSeekExpensiveWindowReturn(
   })
   return `again at ${fmt.format(ends)}`
 }
+
+/**
+ * The OFF-PEAK window in the reader's timezone, e.g. "3:00 AM – 5:00 PM" — when
+ * a peak-gated model is open.
+ *
+ * The complement of `formatDeepSeekExpensiveWindowLocal`, and the direction a
+ * picker needs: a row says when you CAN use it, not when you cannot. Written as
+ * end→start because the open window is exactly the closed one inverted.
+ */
+export function formatDeepSeekOffPeakWindowLocal(
+  on: Date = new Date(),
+  timeZone?: string,
+): string {
+  const fmt = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    ...(timeZone ? { timeZone } : {}),
+  })
+  const atUtcHour = (hour: number): string => {
+    const d = new Date(on)
+    d.setUTCHours(hour, 0, 0, 0)
+    return fmt.format(d)
+  }
+  const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
+  return `${atUtcHour(end)} – ${atUtcHour(start)}`
+}

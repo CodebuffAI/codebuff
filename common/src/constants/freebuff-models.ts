@@ -7,6 +7,7 @@ import {
 import {
   deepSeekExpensiveWindowEndsAt,
   formatDeepSeekExpensiveWindowReturn,
+  formatDeepSeekOffPeakWindowLocal,
   isDeepSeekExpensiveWindow,
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
@@ -2793,6 +2794,32 @@ export function getFreebuffModelUnavailableLabel(
     )}`
   }
   return getFreebuffDeploymentAvailabilityLabel(now, options)
+}
+
+/**
+ * WHEN a time-gated model is open, in the reader's local clock — the inverse of
+ * `getFreebuffModelUnavailableLabel`, which only speaks once the door is
+ * already shut.
+ *
+ * Shown on the row at all hours so a user can plan around the window instead of
+ * discovering it by being refused. Returns undefined for models with no time
+ * restriction at all, which is most of the catalog.
+ */
+export function getFreebuffModelAvailabilityWindowLabel(
+  id: string,
+  now: Date = new Date(),
+  options: LocalTimeFormatOptions = {},
+): string | undefined {
+  const model =
+    SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
+    getFreebuffWebModel(id)
+  if (model.availability === 'off_peak_only') {
+    return `Open ${formatDeepSeekOffPeakWindowLocal(now, options.timeZone)}`
+  }
+  if (model.availability === 'deployment_hours') {
+    return getFreebuffDeploymentAvailabilityLabel(now, options)
+  }
+  return undefined
 }
 
 /**
