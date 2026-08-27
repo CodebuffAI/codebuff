@@ -59,11 +59,15 @@ export const AD_TOP_UP_CURRENCY = 'usd'
 /** Credit made available after a placements advertiser saves a card. */
 export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 25_000
 
-/** Launch promotion: match the first $500 of collected placements spend. */
-export const AD_PROMO_MATCH_MILESTONES_CENTS = [25_000, 50_000] as const
-export const AD_PROMO_MATCH_GRANT_CENTS = 25_000
+/**
+ * Referral launch promotion: qualify only after $100 has both been collected
+ * and spent on an active, reviewed campaign. Each side then receives $500.
+ */
+export const AD_PROMO_QUALIFY_CENTS = 10_000
+export const AD_PROMO_MATCH_MILESTONES_CENTS = [AD_PROMO_QUALIFY_CENTS] as const
+export const AD_PROMO_MATCH_GRANT_CENTS = 50_000
 
-/** Reward the referring advertiser once the referred account collects $500. */
+/** Promotional credit paid to the referrer after qualification. */
 export const AD_PROMO_REFERRER_REWARD_CENTS = 50_000
 export const AD_PROMO_REFERRER_REWARD_CAP = 10
 export const AD_PROMO_CREDIT_EXPIRY_DAYS = 60
