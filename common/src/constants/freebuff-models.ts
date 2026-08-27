@@ -1693,6 +1693,18 @@ export function freebuffWithdrawnModelMessage(id: string): string {
   return `${name} is no longer available in Freebuff. We recommend using ${replacement} instead.`
 }
 
+/** The same fact as `freebuffWithdrawnModelMessage`, shaped to sit inside the
+ *  sentence released clients build around `availableHours` — "<model> isn't
+ *  available right now (…)". Those binaries predate the `withdrawn` flag and
+ *  render that field verbatim, so this is the only wording they can be told a
+ *  withdrawal in. */
+export function freebuffWithdrawnModelAvailabilityLabel(): string {
+  const replacement =
+    SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === DEFAULT_FREEBUFF_MODEL_ID)
+      ?.displayName ?? DEFAULT_FREEBUFF_MODEL_ID
+  return `no longer offered in free mode — we recommend ${replacement}`
+}
+
 /** Suffix-tolerant like the other model predicates, so a dated provider
  *  snapshot of a paused model cannot slip past the pause. */
 export function isFreebuffPausedFreeModelId(
@@ -2549,10 +2561,18 @@ export function resolveFreebuffSessionModelForAccessTier(
   }
   // NOTE: a withdrawn model does NOT resolve here. It used to coerce silently
   // to the fallback, which kept clients running but left a user who picked it
-  // watching a different model answer with no explanation. Admission now
-  // REFUSES it with `model_unavailable` and a message naming the replacement
-  // (see freebuffWithdrawnModelMessage). That refusal is deliberately not
+  // watching a different model answer with no explanation. Admission REFUSES it
+  // with `model_unavailable` and a message naming the replacement (see
+  // freebuffWithdrawnModelMessage). That refusal is deliberately not
   // session-ending, so the client shows the message instead of re-admitting.
+  //
+  // That last paragraph described an intention rather than the code from
+  // 2026-08-20 until 2026-08-27: nothing on either admission path consulted the
+  // pause at all — `isFreebuffSessionModelAvailable` reads the availability
+  // WINDOW — so a withdrawn pick admitted normally, spent a session unit, took
+  // Desktop's single premium slot for the hour, and was then refused by the
+  // chat gate on every request against it. `withdrawnModelRefusal` in
+  // web/src/server/free-session/public-api.ts is the refusal this names.
   if (isSupportedFreebuffModelId(id)) return id
   return resolveFreebuffWebModel(id, {
     includeGodOnly: options.includeGodOnly ?? true,

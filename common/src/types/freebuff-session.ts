@@ -607,6 +607,20 @@ export type FreebuffSessionServerResponse = (
        * which carries the same sentence in prose.
        */
       requiresSubscription?: boolean
+      /**
+       * The model is WITHDRAWN from free mode (FREEBUFF_PAUSED_FREE_MODEL_IDS)
+       * rather than merely closed for the hour — permanent, so retrying later
+       * is not the advice. Set at ADMISSION, so no row is minted and no session
+       * unit is spent on a pick that cannot run a turn.
+       *
+       * Older clients ignore it and still render `availableHours`, which
+       * carries the same sentence in prose — the same arrangement
+       * `requiresSubscription` uses above, and for the same reason: every
+       * released binary keeps this id in its compiled-in catalog and keeps
+       * sending it, so the refusal has to read correctly on builds that predate
+       * the field.
+       */
+      withdrawn?: boolean
     }
   | {
       /** Account is banned. Returned from every endpoint so banned bots can't
