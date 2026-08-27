@@ -4,16 +4,26 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 } from '../freebuff-model-ids'
-import { getFreebuffModelAvailabilityWindowLabel } from '../freebuff-models'
+import {
+  getFreebuffModelAvailabilityWindowLabel,
+  isFreebuffPausedFreeModelId,
+} from '../freebuff-models'
 import { FREEBUFF_GPT_5_6_LUNA_MODEL_ID } from '../freebuff-models'
 import { getFreebuffPlanPauseWindowLabel } from '../freebuff-subscriptions'
 
 /**
- * The two DeepSeek rows are time-gated in DIFFERENT ways, and a picker that
- * conflates them tells users the wrong thing:
+ * Time-gating comes in two kinds and a picker that conflates them tells users
+ * the wrong thing:
  *
- *  - Flash is `off_peak_only` — genuinely shut at peak, for everyone.
- *  - Pro is open to everyone at every hour; only a PLAN's sessions pause.
+ *  - `off_peak_only` — genuinely shut at peak, for everyone (Flash).
+ *  - A PLAN pause — the row is open to all, only a subscriber's plan sessions
+ *    stop being spent on it.
+ *
+ * V4 Pro carried the second kind until it was WITHDRAWN on 2026-08-26, which
+ * leaves a third case this file now pins: a row that is open at no hour at all
+ * must advertise neither label. A withdrawn model quoting opening hours is the
+ * worst of the three — it tells a user to come back for something that is never
+ * coming back.
  *
  * Pinned to a fixed instant and zone so the strings are deterministic.
  */
@@ -41,7 +51,14 @@ describe('model availability windows', () => {
     ).toBeUndefined()
   })
 
-  test('Pro is always available, so it carries only the plan-pause window', () => {
+  test('a WITHDRAWN row advertises no hours of either kind', () => {
+    // V4 Pro read 'Plan paused 5:00 PM – 3:00 AM' until 2026-08-26. Withdrawing
+    // it removed it from FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS, and both
+    // labels must now be silent: the row cannot be admitted at any hour, so any
+    // window it named would be a promise nothing can keep.
+    expect(isFreebuffPausedFreeModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
+      true,
+    )
     expect(
       getFreebuffModelAvailabilityWindowLabel(
         FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -55,7 +72,7 @@ describe('model availability windows', () => {
         now,
         TZ,
       ),
-    ).toBe('Plan paused 5:00 PM – 3:00 AM')
+    ).toBeUndefined()
   })
 
   test('a model with no time restriction says nothing at all', () => {

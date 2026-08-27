@@ -11,6 +11,7 @@ import {
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MAX_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID,
@@ -124,6 +125,7 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base3-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
+  [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base3-free-glm-5-3-flash',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
   [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base3-free-luna-es',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark',
@@ -155,6 +157,7 @@ export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base3-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
+  [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base3-free-glm-5-3-flash',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base3-free-fable',
   // Ox Alpha reached CLI and Desktop on 2026-08-24. The WEB map above has
   // pointed at the same root id since 2026-08-20; both surfaces share it, which
@@ -312,6 +315,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-minimax-m3',
   'base2-free-luna',
   'base2-free-glm',
+  'base2-free-glm-5-3-flash',
   'base2-free-kimi-k3-eco',
   'base2-free-luna-es',
   // Extended-context `-max` roots. Listed here for the same reason every other
@@ -359,6 +363,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-minimax-m3',
   'base3-free-luna',
   'base3-free-glm',
+  'base3-free-glm-5-3-flash',
   'base3-free-kimi-k3-eco',
   'base3-free-luna-es',
   'base3-free-muse-spark',
@@ -382,6 +387,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
+  [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base2-free-glm-5-3-flash',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base2-free-kimi-k3-eco',
   [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base2-free-luna-es',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
@@ -410,6 +416,7 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
+  [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'code-reviewer-glm-5-3-flash',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'code-reviewer-fable',
   // Required the moment Ox Alpha became CLI-selectable: without its own entry
   // a base2 session falls back to the DeepSeek Flash reviewer, which that
@@ -424,6 +431,7 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_OX_ALPHA_MODEL_ID,
 ])
 
@@ -525,6 +533,13 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
+  // GLM 5.3 Flash's root, pinned to its one model like every other. Kept
+  // strictly separate from 'base2-free-glm' next door even though the models
+  // share a name: 5.2 is metered by the earned referral pool and 5.3 Flash by
+  // the daily premium pool, so a root that allowed both would be a way to spend
+  // one entitlement and receive the other. That is precisely what
+  // 'base2-free-glm-crof' turned out to be.
+  'base2-free-glm-5-3-flash': new Set([FREEBUFF_GLM_V53_FLASH_MODEL_ID]),
   'base2-free-kimi-k3-eco': new Set([FREEBUFF_KIMI_K3_ECO_MODEL_ID]),
   // Novita's `-es` route. Pinned to the one model like every other root. It is
   // a Codex session rather than Luna (see web/src/llm-api/novita.ts), so it is
@@ -616,6 +631,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   ]),
   'code-reviewer-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
+  'code-reviewer-glm-5-3-flash': new Set([FREEBUFF_GLM_V53_FLASH_MODEL_ID]),
   'code-reviewer-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
   // Wire compatibility only — NOT a freebuff agent. `code-reviewer-lite` now
   // belongs to Codebuff's paid lite mode and is spawned by no freebuff root and

@@ -29,7 +29,7 @@ freebuff
 
 **How can it be free?** Freebuff is supported by text ads.
 
-**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiMo 2.5, Ox Alpha, and DeepSeek V4 Pro. Ox Alpha is experimental — it has a 1M-token context and costs no session, but it may be unreliable and its provider can withdraw it without notice. GPT-5.6 Luna is the CLI default, and the picker falls back to MiMo 2.5 once your daily premium sessions are used up. Limited mode uses MiMo 2.5. Per-model daily caps are gone: every model draws on your normal daily sessions rather than its own separate limit, and MiMo 2.5 and Ox Alpha cost no session at all. Models may still serve from a quantized (Q8_0) build.
+**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiMo 2.5, Ox Alpha, and GLM 5.3 Flash. Ox Alpha is experimental — it has a 1M-token context and costs no session, but it may be unreliable and its provider can withdraw it without notice. GPT-5.6 Luna is the CLI default, and the picker falls back to MiMo 2.5 once your daily premium sessions are used up. Limited mode uses MiMo 2.5. Most models draw on your normal daily sessions rather than a separate limit; GLM 5.3 Flash is capped at 2 sessions a day, and MiMo 2.5 and Ox Alpha cost no session at all. Models may still serve from a quantized (Q8_0) build.
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 

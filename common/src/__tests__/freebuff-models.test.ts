@@ -13,6 +13,7 @@ import {
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_IDS,
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
@@ -53,6 +54,7 @@ import {
   getRecommendedFreebuffWebModelId,
   isFreebuffDeploymentHours,
   isFreebuffGlmV52ModelId,
+  isFreebuffGlmV53FlashModelId,
   isFreebuffGpt56LunaModelId,
   isFreebuffLimitedOfferModelId,
   isFreebuffModelAllowedForAccessTier,
@@ -290,33 +292,82 @@ describe('freebuff model availability', () => {
     expect(fallback.availability).toBe('always')
   })
 
-  test('V4 Pro trails the catalog and nothing is recommended', () => {
-    // A full reversal of the de-recommendation this test used to guard. Pro was
-    // the expensive row out of a shared pool; on a flat $0.002538/M lane it is
-    // the cheapest premium row AND the only one open at every hour, so it now
-    // LEADS rather than trails.
+  test('GLM 5.3 Flash trails the catalog and nothing is recommended', () => {
+    // GLM 5.3 Flash inherits the slot V4 Pro held: the deep row, placed last so
+    // a user reaches it deliberately rather than by scanning from the top.
+    // Ordering is the only steer in this list — nothing is badged RECOMMENDED
+    // and nothing supersedes anything — so this pins a product decision.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    expect(all).toContain(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    expect(isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
-      true,
-    )
-    expect(isFreebuffPausedFreeModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(
+    expect(all).toContain(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
+    expect(isFreebuffPausedFreeModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(
       false,
     )
 
-    // LAST again as of 2026-08-22. Pro led for one day, while a flat-priced
-    // lane made it the cheapest premium row; back on DeepSeek direct it is the
-    // dearest, capped at one a day and closed for ten hours, so it sits where a
-    // user reaches it deliberately. Ordering is the only steer in this list.
-    expect(all[all.length - 1]).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
-    // And it is nobody's starting pick — a default has to be joinable at every
-    // hour, which Pro is not.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    )
+    expect(all[all.length - 1]).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    // And it is nobody's starting pick. Not an availability argument here — the
+    // row is open at every hour — but a quota one: it is capped at two sessions
+    // a day, and a default a new user lands on before they know the catalog
+    // exists must not be the row that runs out first.
+    expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
+  })
+
+  /**
+   * GLM 5.3 Flash and GLM 5.2 are DIFFERENT MODELS ON DIFFERENT POOLS, and this
+   * is the assertion that keeps them apart.
+   *
+   * They share a family name and a `z-ai/` prefix, which is exactly the shape
+   * that produced the worst quota bug this file records: `crof/glm-5.2` was a
+   * second wire id for the referral-earned model, sitting in the daily premium
+   * pool, and hand-written callers collected GLM 5.2 with zero referrals for
+   * five days. A predicate that prefix-matched `z-ai/glm` would recreate that
+   * in the other direction — every full-access account holds a 5.3 Flash
+   * entitlement, so a leak from 5.3 into the 5.2 pool hands out the reward.
+   */
+  test('the two GLM rows never share a pool or a predicate', () => {
+    expect(isFreebuffGlmV52ModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(false)
+    expect(isFreebuffGlmV53FlashModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(false)
+    expect(FREEBUFF_GLM_V52_MODEL_IDS).not.toContain(
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+    )
+    // 5.3 Flash is in the shared daily premium pool; 5.2 is deliberately not,
+    // because its entitlement is earned rather than granted.
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(false)
+    // Suffix tolerance holds on both, so a dated provider snapshot cannot dodge
+    // either pool — and still does not cross between them.
+    expect(isFreebuffGlmV53FlashModelId('z-ai/glm-5.3-flash-20260601')).toBe(
+      true,
+    )
+    expect(isFreebuffGlmV52ModelId('z-ai/glm-5.3-flash-20260601')).toBe(false)
+  })
+
+  /**
+   * Two sessions a day, counted as ADMISSIONS.
+   *
+   * The pairing is not optional and it is the one thing about this cap that has
+   * already gone wrong once in prod: session units floor at 0.1, so a
+   * unit-counted "2 a day" is really 20 (measured 2026-08-20, when V4 Pro and
+   * Luna each took exactly 10 admits against a limit of 1). `countsAdmissions`
+   * lives in the quota config that derives from this table, so what this pins
+   * is the table entry the derivation needs.
+   */
+  test('GLM 5.3 Flash is capped at two sessions a day, in its own pool', () => {
+    const cap = getFreebuffPerModelSessionCap(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(cap?.limit).toBe(2)
+    // Its own pool, never shared: two models capped at two each is four
+    // sessions, and folding them into one pool would silently halve both.
+    const pools = Object.values(FREEBUFF_PER_MODEL_SESSION_CAPS).map(
+      (entry) => entry.pool,
+    )
+    expect(new Set(pools).size).toBe(pools.length)
+    // The cap sits ON TOP of the shared premium pool rather than instead of it.
+    // A capped row left out of the premium list would be metered by this
+    // ceiling alone and would vanish from every premium count the picker shows.
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
   })
 
   /**
@@ -345,10 +396,16 @@ describe('freebuff model availability', () => {
    * and Cloud — so a limited-tier user must be refused Flash on every one of
    * them rather than shown a picker row whose first send fails.
    */
-  test('V4 Flash, V4 Pro and Luna are full-access only', () => {
+  test('V4 Flash, GLM 5.3 Flash and Luna are full-access only', () => {
+    // V4 Pro left this list on 2026-08-26 — not because the property changed
+    // but because the property is now enforced somewhere stronger: a withdrawn
+    // model is refused at EVERY tier (see the withdrawal test below), so
+    // asserting it is merely out of the limited one would be a weaker claim
+    // than the code makes. GLM 5.3 Flash takes its place as the premium row
+    // that has to be refused to limited-tier callers on all four surfaces.
     for (const id of [
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
       FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     ]) {
       expect(isFreebuffSessionModelAllowedForAccessTier(id, 'limited')).toBe(
@@ -424,21 +481,33 @@ describe('freebuff model availability', () => {
   })
 
   /**
-   * The caps table is the lever pulled under cost pressure, and its contents
-   * are a claim about relative PRICE. Pro must stay out of it: on a flat
-   * $0.002538/M cache read it is the cheapest premium row, and capping the
-   * cheap row is what this table exists not to do.
+   * The caps table is the lever pulled under cost pressure, and every entry is
+   * a claim that has to be re-argued rather than inherited. Luna's went
+   * 2 -> 3 -> gone across 2026-08-22/23 and Pro's went on 08-22, both because
+   * the claim they encoded (dearer per cache read than the uncapped rows) had
+   * inverted once the lanes were measured on the rates they actually bill.
+   *
+   * GLM 5.3 Flash is the only entry, and its claim is different in kind: it is
+   * the cheapest premium row per token, and the cap bounds what one account can
+   * cost while its fleet cache rate — the number that actually decides its
+   * price, and one no rate card states — is measured. So this asserts the
+   * table's SHAPE rather than its emptiness: exactly one capped row, and every
+   * other picker model on the shared pool alone.
    */
-  test('the per-model cap table is empty; every model uses the shared pool', () => {
-    // Luna's cap went 2 -> 3 -> gone across 2026-08-22/23. The entry was a claim
-    // that Luna cost ~3x Pro per cache read, and that claim inverted once both
-    // were measured on the rates their lanes actually bill: Luna runs ~$0.20 a
-    // session on Cheaper Inference against Pro's ~$0.34. Capping the cheaper
-    // row is what this table exists NOT to do.
-    expect(FREEBUFF_PER_MODEL_SESSION_CAPS).toEqual({})
+  test('exactly one model is capped; every other uses the shared pool alone', () => {
+    expect(Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)).toEqual([
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+    ])
     for (const model of FREEBUFF_MODELS) {
+      if (model.id === FREEBUFF_GLM_V53_FLASH_MODEL_ID) continue
       expect(FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]).toBeUndefined()
     }
+    // Flash was never here and still must not be: it is the catalog's cheapest
+    // competent row, and capping the row most users end up on would push them
+    // off it after a single hour.
+    expect(
+      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
+    ).toBeUndefined()
   })
 
   /**
@@ -701,12 +770,22 @@ describe('freebuff model availability', () => {
     expect(resolveRememberedFreebuffWebModel(FREEBUFF_GLM_V52_MODEL_ID)).toBe(
       DEFAULT_FREEBUFF_WEB_MODEL_ID,
     )
-    // Pro resolves to itself again — it is a real catalog row, just not one
-    // anything recommends. (It self-healed to the fallback for one day while it
-    // was paused.)
+    // A SAVED PRO PICK SELF-HEALS. Pro was withdrawn on 2026-08-26, and a saved
+    // preference is the longest-lived way to hold a dead id — it survives every
+    // deploy and outlives the client release that dropped the row. Resolving it
+    // to the always-available fallback (rather than to the premium default) is
+    // what stops a returning user's page load landing on a model whose first
+    // send is refused.
     expect(
       resolveRememberedFreebuffWebModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    // GLM 5.3 Flash IS remembered, unlike GLM 5.2 above. The exclusion up there
+    // is about an earned entitlement that runs out long before the rest of the
+    // picker; 5.3 Flash is granted to every full-access account, and its
+    // two-a-day cap is a smaller ceiling rather than a different kind of one.
+    expect(
+      isFreebuffWebRememberableModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID),
+    ).toBe(true)
     expect(resolveRememberedFreebuffWebModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
       FALLBACK_FREEBUFF_MODEL_ID,
     )
@@ -1359,13 +1438,17 @@ describe('freebuff model availability', () => {
       expect(model.isNew).toBe(true)
       expect(model.displayName).toContain(date)
     }
-    // Nothing else claims to be new, or the badge stops meaning anything.
-    // Ox Alpha is the one non-dated row carrying it: it joined the CLI catalog
-    // on 2026-08-24 having shipped four days earlier, so it is genuinely new to
-    // these surfaces even though its name carries no build date.
+    // Nothing else claims to be new, or the badge stops meaning anything. Two
+    // non-dated rows carry it, and both are new to these surfaces rather than
+    // newly re-trained — which is what the badge is for:
+    //   - Ox Alpha joined the CLI catalog on 2026-08-24, four days after it
+    //     shipped on the browser surfaces.
+    //   - GLM 5.3 Flash arrived 2026-08-26. Its wire id names its build, so
+    //     there is no date for the display name to disambiguate.
+    const undatedNew = [FREEBUFF_OX_ALPHA_MODEL_ID, FREEBUFF_GLM_V53_FLASH_MODEL_ID]
     expect(
       catalog.filter(
-        (model) => model.isNew && model.id !== FREEBUFF_OX_ALPHA_MODEL_ID,
+        (model) => model.isNew && !undatedNew.includes(model.id),
       ),
     ).toHaveLength(dated.length)
   })

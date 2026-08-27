@@ -52,13 +52,15 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * with this string: it describes policy that moves, from a place no test reads.
  * Check it whenever a cap or an availability window changes.
  *
- * 2026-08-22: V4 Pro's 1-a-day cap is GONE, so Luna is now the only per-model
- * cap and this string names exactly one number. Pro is not free-for-all
- * though — it still spends a premium session like Flash, and saying only
- * "everything else is unmetered" would have promised that it doesn't. There
- * is now a test pinning this string to the caps table, because this comment
- * has asked three times to be checked by hand and was wrong again by the
- * time anyone read it.
+ * 2026-08-26: DeepSeek V4 Pro is withdrawn and GLM 5.3 Flash replaces it as the
+ * catalog's deep row, capped at 2 sessions a day while we measure what it
+ * actually costs at scale. That cap is the one number this string names, and a
+ * test pins it to the caps table — this comment has asked four times now to be
+ * checked by hand and was wrong again by the time anyone read it.
+ *
+ * The withdrawn model is NOT named here. This notice explains the rules that
+ * apply to the rows a user can see; the one who still has Pro saved gets
+ * freebuffWithdrawnModelMessage, which names it and says what to use instead.
  *
  * Signed, because this is us asking users to accept less than they had. An
  * unsigned notice reads as a system message; a signed one reads as someone
@@ -66,7 +68,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model runs on your normal daily sessions — no more per-model caps. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
+  'GLM 5.3 Flash is 2 sessions a day while we see what it costs; every other model runs on your normal daily sessions. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {
