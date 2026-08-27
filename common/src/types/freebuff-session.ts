@@ -45,12 +45,14 @@ export interface FreebuffSessionEntitlementBreakdown {
    * Sessions included by the account's PAID subscription tier
    * (`common/constants/freebuff-subscriptions.ts`).
    *
-   * When present it is the whole of `limit`, not an addition to it: a
-   * subscribable model is metered by the subscription instead of by the free
-   * pool that would otherwise cover it, so `base`/`referral`/`streak` are all
-   * zero on that row. A subscriber whose row read "4 subscription + 5 premium"
-   * would reasonably expect nine sessions, and the shared premium pool is
-   * exactly what the subscription replaces.
+   * An ADDITION to `base`, not a replacement for it — since 2026-08-26, when
+   * the plan started topping the free pools up rather than replacing them.
+   * Free sessions burn first and the plan covers what is left, so a row reading
+   * "5 base + 4 subscription" means nine sessions today and `limit` is nine.
+   *
+   * (It was the whole of `limit` under the older replace-semantics, with
+   * `base` zeroed. A client that sums the breakdown gets the right total under
+   * both, which is why the change needed no client release.)
    *
    * Omitted for everyone without a live subscription, so an older client that
    * never reads it still sums to the right `limit`.
@@ -120,8 +122,12 @@ export interface FreebuffSubscriptionUsage {
    * free pool is spent the free figures are simply not on the wire, and a
    * client trying to add "free + plan" from it double-counts the plan row.
    *
-   * Both zero for accounts with no free pool at all (god/admin, who are
-   * quota-exempt), and absent entirely from servers older than this field.
+   * Reported for quota-exempt accounts (god/admin) too: their free pool is not
+   * ENFORCED, but the entitlement is still the honest free half of the combined
+   * figure. Absent entirely from servers older than this field.
+   *
+   * The same numbers back the combined `rateLimitsByModel` rows, from one
+   * memoized read, so the panel and every picker header cannot disagree.
    */
   freeDayUsed?: number
   freeDayLimit?: number
