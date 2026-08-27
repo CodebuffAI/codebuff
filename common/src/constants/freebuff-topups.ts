@@ -56,6 +56,24 @@ export const AD_TOP_UP_PRODUCT_NAME = 'Freebuff placements balance'
 /** The only currency this rail accepts. Asserted at parse time, not assumed. */
 export const AD_TOP_UP_CURRENCY = 'usd'
 
+/** Credit made available after a placements advertiser saves a card. */
+export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 25_000
+
+/**
+ * Keep collection provenance through Stripe's refund/dispute exposure window.
+ * Account deletion is blocked while a collection is pending or this recent.
+ */
+export const AD_PLACEMENT_COLLECTION_RETENTION_DAYS = 180
+
+/** Direct placements never sell below one dollar per billable click. */
+export const AD_PLACEMENT_CPC_FLOOR_CENTS = 100
+
+/** A single automatic reprice may move at most 25% in either direction. */
+export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
+
+/** Thin samples are reported, but never allowed to move money automatically. */
+export const AD_PLACEMENT_CPC_REPRICE_MIN_CLICKS = 50
+
 /**
  * There is deliberately NO `normalizeTopUpCents`.
  *
@@ -138,12 +156,19 @@ export const AD_SPEND_LEDGER_REASONS = [
   'adjustment',
   /** A disputed top-up pulled back by the card network. Negative. */
   'chargeback',
+  /** Card-on-file collection that pays down a negative postpaid balance. */
+  'collection',
+  /** A Stripe refund of a prior postpaid collection. Negative. */
+  'collection_refund',
+  /** A disputed postpaid collection pulled back by the network. Negative. */
+  'collection_chargeback',
 ] as const
 export type AdSpendLedgerReason = (typeof AD_SPEND_LEDGER_REASONS)[number]
 
 /** What the advertiser sees on the statement. */
 export const AD_STATEMENT_KINDS = [
   'topup',
+  'payment',
   'spend',
   'refund',
   'adjustment',
@@ -162,10 +187,18 @@ export type AdStatementKind = (typeof AD_STATEMENT_KINDS)[number]
 export function statementKindForReason(
   reason: AdSpendLedgerReason,
 ): AdStatementKind {
-  return reason === 'chargeback' ? 'adjustment' : reason
+  if (reason === 'collection') return 'payment'
+  if (
+    reason === 'chargeback' ||
+    reason === 'collection_refund' ||
+    reason === 'collection_chargeback'
+  ) {
+    return 'adjustment'
+  }
+  return reason
 }
 
 /** Reasons that add money. Everything else subtracts. */
 export function isCreditReason(reason: AdSpendLedgerReason): boolean {
-  return reason === 'topup' || reason === 'refund'
+  return reason === 'topup' || reason === 'refund' || reason === 'collection'
 }
