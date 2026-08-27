@@ -53,7 +53,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * Check it whenever a cap or an availability window changes.
  *
  * 2026-08-26: DeepSeek V4 Pro is withdrawn and GLM 5.3 Flash replaces it as the
- * catalog's deep row, capped at 2 sessions a day while we measure what it
+ * catalog's deep row, capped at 2 starts a day while we measure what it
  * actually costs at scale. That cap is the one number this string names, and a
  * test pins it to the caps table — this comment has asked four times now to be
  * checked by hand and was wrong again by the time anyone read it.
@@ -68,7 +68,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'GLM 5.3 Flash is 2 sessions a day while we see what it costs; every other model runs on your normal daily sessions. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
+  'GLM 5.3 Flash is capped at 2 starts a day while we see what it costs; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

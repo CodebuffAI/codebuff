@@ -12,10 +12,9 @@ import type { FreebuffStandingInfo } from '../constants/freebuff-trust'
 /**
  * Usage counter surfaced to the CLI so the UI can render
  * "N of M sessions used" alongside active state. Present when the
- * joined model consumes Freebuff sessions. `recentCount` is the
- * rounded session units since the current quota period began at the time the
- * response was produced — see also the standalone `rate_limited` status for
- * the reject path.
+ * joined model consumes Freebuff sessions. `recentCount` is usage since the
+ * current quota period began: fractional units normally, or session starts
+ * when `countsAdmissions` is set.
  */
 export interface FreebuffSessionEntitlementBreakdown {
   /** Sessions included without earning a referral or streak reward. */
@@ -207,6 +206,8 @@ export interface FreebuffSessionRateLimit {
    */
   pool?: string
   poolLabel?: string
+  /** `recentCount` counts starts rather than fractional session units. */
+  countsAdmissions?: true
   /** Additive detail for `limit`; omitted by older servers. New servers emit it
    * for session quotas with `limit = base + referral + streak + promo`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
