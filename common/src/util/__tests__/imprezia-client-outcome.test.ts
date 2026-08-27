@@ -158,6 +158,43 @@ describe('fetchImpreziaChatAd outcome observer', () => {
     expect(outcomes).toEqual(['timeout'])
   })
 
+  test('keeps caller cancellation active while a response body is pending', async () => {
+    const controller = new AbortController()
+    const outcomes: string[] = []
+    let bodyStarted!: () => void
+    const bodyIsPending = new Promise<void>((resolve) => {
+      bodyStarted = resolve
+    })
+
+    const result = call(
+      (async (_url: string | URL | Request, init?: RequestInit) => ({
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise<unknown>((_resolve, reject) => {
+            bodyStarted()
+            init?.signal?.addEventListener(
+              'abort',
+              () => {
+                const error = new Error('body read aborted')
+                error.name = 'AbortError'
+                reject(error)
+              },
+              { once: true },
+            )
+          }),
+      })) as unknown as typeof globalThis.fetch,
+      (outcome) => outcomes.push(outcome),
+      controller.signal,
+    )
+
+    await bodyIsPending
+    controller.abort('do-not-leak-this-cancellation-reason')
+
+    expect(await result).toBeNull()
+    expect(outcomes).toEqual(['timeout'])
+  })
+
   test('keeps callers backward compatible when no observer is supplied or it fails', async () => {
     const fetch = (async () =>
       new Response(JSON.stringify({ requestId: 'request-1', ad: null }), {

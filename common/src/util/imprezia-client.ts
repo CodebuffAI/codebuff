@@ -179,9 +179,8 @@ async function postToImprezia(params: {
   else signal?.addEventListener('abort', abortFromCaller, { once: true })
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-  let response: Response
   try {
-    response = await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -194,6 +193,47 @@ async function postToImprezia(params: {
       body: JSON.stringify(body),
       signal: controller.signal,
     })
+
+    if (!response.ok) {
+      // A publisher account not switched on for this product 403s on every
+      // single request. That is an account-state problem with an account-side
+      // fix, not a bug to chase in the logs, so name it rather than burying it.
+      if (response.status === 403) {
+        logger.warn(
+          { baseUrl, url },
+          `[ads:imprezia] Publisher is not enabled for ${productLabel}; no ad ` +
+            'will fill until Imprezia enables the account for this key',
+        )
+        onFailure?.('provider_error')
+        return null
+      }
+      logger.error(
+        { baseUrl, url, status: response.status },
+        '[ads:imprezia] API returned error',
+      )
+      onFailure?.('provider_error')
+      return null
+    }
+
+    return {
+      status: response.status,
+      // Keep the deadline and caller cancellation listener alive until the
+      // body is consumed. `fetch` resolves once headers arrive, while an
+      // Imprezia response body may still stall indefinitely.
+      body:
+        response.status === 204
+          ? null
+          : await response.json().catch((error) => {
+              if (
+                controller.signal.aborted ||
+                (error instanceof Error && error.name === 'AbortError')
+              ) {
+                throw error
+              }
+              // Keep malformed JSON on the established schema-error path.
+              return null
+            }),
+    }
   } catch (error) {
     const aborted =
       controller.signal.aborted ||
@@ -211,33 +251,6 @@ async function postToImprezia(params: {
   } finally {
     clearTimeout(timeout)
     signal?.removeEventListener('abort', abortFromCaller)
-  }
-
-  if (!response.ok) {
-    // A publisher account not switched on for this product 403s on every
-    // single request. That is an account-state problem with an account-side
-    // fix, not a bug to chase in the logs, so name it rather than burying it.
-    if (response.status === 403) {
-      logger.warn(
-        { baseUrl, url },
-        `[ads:imprezia] Publisher is not enabled for ${productLabel}; no ad ` +
-          'will fill until Imprezia enables the account for this key',
-      )
-      onFailure?.('provider_error')
-      return null
-    }
-    logger.error(
-      { baseUrl, url, status: response.status },
-      '[ads:imprezia] API returned error',
-    )
-    onFailure?.('provider_error')
-    return null
-  }
-
-  return {
-    status: response.status,
-    body:
-      response.status === 204 ? null : await response.json().catch(() => null),
   }
 }
 
