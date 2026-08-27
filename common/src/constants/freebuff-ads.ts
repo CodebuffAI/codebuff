@@ -338,8 +338,42 @@ export const AD_MAX_COMMENT_GUIDANCE_CHARS = 2_000
 
 /** How many distinct comment suggestions we generate for a user to pick from.
  *  Enough that two people engaging with the same post do not paste the same
- *  sentence; few enough that the choice is not itself work. */
+ *  sentence; few enough that the choice is not itself work.
+ *
+ *  @deprecated Nothing generates suggestions any more — see
+ *  `AD_COMMENT_WRITING_RULES`. Kept only because older rows and tests still
+ *  reference the count. */
 export const AD_GENERATED_COMMENT_COUNT = 4
+
+/**
+ * What every commenter is told, on every post, in their own words.
+ *
+ * The feed used to hand out four ready-made comments to copy. That is exactly
+ * how a thread ends up full of the same three sentences in different fonts:
+ * generated options converge, everybody takes the first one, and the result
+ * reads as bot output to the only audience that matters — the advertiser's
+ * followers. A comment nobody wrote is worth less than no comment.
+ *
+ * So the card asks for a real one instead, and says plainly what that means.
+ * These are the rules the user sees; the advertiser's own brief sits next to
+ * them and says what the post is about.
+ */
+export const AD_COMMENT_WRITING_RULES = [
+  'Write it yourself — do not use AI to generate it.',
+  'Make it original: something nobody else would have written.',
+  'Say something specific about this post, not a generic compliment.',
+  'Clear, correct English. One or two sentences is plenty.',
+] as const
+
+/**
+ * The default answer to "what would you like people to comment?".
+ *
+ * Prefilled on the campaign form so an advertiser who has no strong opinion
+ * still ships something useful, and so the guidance shown in the feed is
+ * never empty.
+ */
+export const AD_DEFAULT_COMMENT_GUIDANCE =
+  'Something genuine and specific about the post, in your own words. Original and non-repetitive, in clear English — please do not use AI to write it.'
 
 /**
  * Per-user daily ceiling on approved engagements.
