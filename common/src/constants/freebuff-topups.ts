@@ -56,8 +56,8 @@ export const AD_TOP_UP_PRODUCT_NAME = 'Freebuff placements balance'
 /** The only currency this rail accepts. Asserted at parse time, not assumed. */
 export const AD_TOP_UP_CURRENCY = 'usd'
 
-/** Credit made available after a placements advertiser saves a card. */
-export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 25_000
+/** Default maximum unpaid placement spend after an advertiser saves a card. */
+export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 10_000
 
 /**
  * Referral launch promotion: qualify only after $100 has both been collected
