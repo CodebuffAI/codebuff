@@ -75,6 +75,28 @@ export type ImpreziaChatAdResult = {
   ad: ImpreziaAd | null
 }
 
+/** Bounded request outcome for aggregate serving telemetry. */
+export type ImpreziaChatAdOutcome =
+  | 'fill'
+  | 'no_fill'
+  | 'timeout'
+  | 'provider_error'
+
+export type ImpreziaChatAdOutcomeObserver = (
+  outcome: ImpreziaChatAdOutcome,
+) => void
+
+function observeOutcome(
+  observer: ImpreziaChatAdOutcomeObserver | undefined,
+  outcome: ImpreziaChatAdOutcome,
+): void {
+  try {
+    observer?.(outcome)
+  } catch {
+    // Telemetry must never alter serving behavior.
+  }
+}
+
 /**
  * The sandbox-key refusal, shared by both endpoints.
  *
@@ -119,6 +141,8 @@ async function postToImprezia(params: {
   body: unknown
   /** Named in the 403 log, which is about account state, not code. */
   productLabel: string
+  signal?: AbortSignal
+  onFailure?: (outcome: 'timeout' | 'provider_error') => void
   logger: Logger
   fetch: typeof globalThis.fetch
   // `null` means the request never produced a response; a 2xx returns its
@@ -126,9 +150,19 @@ async function postToImprezia(params: {
   // caller has to tell the two apart. Imprezia answered 200 with an
   // unparseable body for nine hours on 2026-08-26, and the schema mismatch the
   // caller logs from it is the only reason anyone noticed.
-}): Promise<{ body: unknown } | null> {
-  const { url, apiKey, userAgent, origin, body, productLabel, logger, fetch } =
-    params
+}): Promise<{ status: number; body: unknown } | null> {
+  const {
+    url,
+    apiKey,
+    userAgent,
+    origin,
+    body,
+    productLabel,
+    signal,
+    onFailure,
+    logger,
+    fetch,
+  } = params
 
   // `baseUrl` is what these two logs have always carried, and dashboards and
   // ad-hoc queries key on it; `url` is added beside it rather than replacing
@@ -136,6 +170,13 @@ async function postToImprezia(params: {
   const baseUrl = new URL(url).origin
 
   const controller = new AbortController()
+  let abortedByCaller = false
+  const abortFromCaller = () => {
+    abortedByCaller = true
+    controller.abort()
+  }
+  if (signal?.aborted) abortFromCaller()
+  else signal?.addEventListener('abort', abortFromCaller, { once: true })
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   let response: Response
@@ -154,16 +195,22 @@ async function postToImprezia(params: {
       signal: controller.signal,
     })
   } catch (error) {
-    const aborted = error instanceof Error && error.name === 'AbortError'
+    const aborted =
+      controller.signal.aborted ||
+      (error instanceof Error && error.name === 'AbortError')
     logger.warn(
-      { baseUrl, url, timedOut: aborted, error },
+      abortedByCaller
+        ? { baseUrl, url, timedOut: true, abortSource: 'caller' }
+        : { baseUrl, url, timedOut: aborted, error },
       aborted
         ? '[ads:imprezia] Ad request timed out'
         : '[ads:imprezia] Ad request failed',
     )
+    onFailure?.(aborted ? 'timeout' : 'provider_error')
     return null
   } finally {
     clearTimeout(timeout)
+    signal?.removeEventListener('abort', abortFromCaller)
   }
 
   if (!response.ok) {
@@ -176,16 +223,22 @@ async function postToImprezia(params: {
         `[ads:imprezia] Publisher is not enabled for ${productLabel}; no ad ` +
           'will fill until Imprezia enables the account for this key',
       )
+      onFailure?.('provider_error')
       return null
     }
     logger.error(
       { baseUrl, url, status: response.status },
       '[ads:imprezia] API returned error',
     )
+    onFailure?.('provider_error')
     return null
   }
 
-  return { body: await response.json().catch(() => null) }
+  return {
+    status: response.status,
+    body:
+      response.status === 204 ? null : await response.json().catch(() => null),
+  }
 }
 
 export async function fetchImpreziaChatAd(params: {
@@ -197,17 +250,31 @@ export async function fetchImpreziaChatAd(params: {
   testMode: boolean
   /** Serve sandbox creatives in production; see the guard below. */
   allowSandbox?: boolean
+  /** Optional caller deadline combined with the client's five-second cap. */
+  signal?: AbortSignal
+  /** Optional bounded observer; it cannot affect the ad decision. */
+  onOutcome?: ImpreziaChatAdOutcomeObserver
   logger: Logger
   fetch: typeof globalThis.fetch
 }): Promise<ImpreziaChatAdResult | null> {
-  const { apiKey, request, userAgent, testMode, allowSandbox, logger, fetch } =
-    params
+  const {
+    apiKey,
+    request,
+    userAgent,
+    testMode,
+    allowSandbox,
+    signal,
+    onOutcome,
+    logger,
+    fetch,
+  } = params
   const baseUrl = impreziaBaseUrlForKey(apiKey)
 
   // Both halves are required and must be non-empty. A turn with an empty reply
   // (aborted mid-stream) is not an ad opportunity.
   if (!request.request.trim() || !request.response.trim()) {
     logger.debug('[ads:imprezia] Skipping turn with an empty message')
+    observeOutcome(onOutcome, 'provider_error')
     return null
   }
 
@@ -215,13 +282,18 @@ export async function fetchImpreziaChatAd(params: {
   // your AI app."), rendered exactly like a paid one — so someone who did not
   // ask for it cannot tell it from a real advertiser. Asking for it by name is
   // the whole opt-in.
-  if (refusesSandboxKey({ apiKey, testMode, allowSandbox, logger })) return null
+  if (refusesSandboxKey({ apiKey, testMode, allowSandbox, logger })) {
+    observeOutcome(onOutcome, 'provider_error')
+    return null
+  }
 
   const response = await postToImprezia({
     url: `${baseUrl}${CHAT_ADS_PATH}`,
     apiKey,
     userAgent,
     productLabel: 'chat ads',
+    signal,
+    onFailure: (outcome) => observeOutcome(onOutcome, outcome),
     logger,
     fetch,
     body: {
@@ -232,6 +304,10 @@ export async function fetchImpreziaChatAd(params: {
     },
   })
   if (!response) return null
+  if (response.status === 204) {
+    observeOutcome(onOutcome, 'no_fill')
+    return null
+  }
 
   const parsed = impreziaChatAdResponseSchema.safeParse(response.body)
   if (!parsed.success) {
@@ -239,6 +315,7 @@ export async function fetchImpreziaChatAd(params: {
       { baseUrl, issues: parsed.error.issues },
       '[ads:imprezia] API response did not match the expected shape',
     )
+    observeOutcome(onOutcome, 'provider_error')
     return null
   }
 
@@ -248,6 +325,7 @@ export async function fetchImpreziaChatAd(params: {
     // is the reconciliation key Imprezia support asks for, and the only handle
     // we have on a serve that produced nothing.
     logger.debug({ requestId }, '[ads:imprezia] No ad fill')
+    observeOutcome(onOutcome, 'no_fill')
     return { requestId, ad: null }
   }
 
@@ -259,6 +337,7 @@ export async function fetchImpreziaChatAd(params: {
     },
     '[ads:imprezia] Ad filled',
   )
+  observeOutcome(onOutcome, 'fill')
   return { requestId, ad }
 }
 
