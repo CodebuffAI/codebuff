@@ -171,6 +171,21 @@ export interface FreebuffSubscriptionInfo {
     | 'monthly_spend'
 }
 
+/**
+ * What to offer someone a refusal just stopped.
+ *
+ * Attached to `rate_limited` and `spend_limited` so the answer to "you are out
+ * of sessions" carries the way out, instead of leaving every client to invent
+ * its own copy and its own URL. Absent when there is nothing to sell — outside
+ * the rollout audience, or already on the largest plan.
+ *
+ * `url` is absolute so a terminal can print something clickable.
+ */
+export interface FreebuffUpgradeHint {
+  url: string
+  message: string
+}
+
 export interface FreebuffSessionRateLimit {
   model: string
   /**
@@ -651,6 +666,8 @@ export type FreebuffSessionServerResponse = (
        * for the CLI's current poll session; the user can exit and return later. */
       status: 'rate_limited'
       accessTier?: FreebuffAccessTier
+      /** The way out of this refusal, when there is one to sell. */
+      upgrade?: FreebuffUpgradeHint
       /** The freebuff model the user tried to join. */
       model: string
       /** Max session units permitted per period (e.g. the configured daily
@@ -678,6 +695,8 @@ export type FreebuffSessionServerResponse = (
       message: string
       resetAt: string
       retryAfterMs: number
+      /** The way out of this refusal, when there is one to sell. */
+      upgrade?: FreebuffUpgradeHint
     }
   | {
       /** Freebuff Desktop multi-session only: the user already holds an active

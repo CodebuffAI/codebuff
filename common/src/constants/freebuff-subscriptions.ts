@@ -246,11 +246,11 @@ export function freebuffSubscriptionTierDisclaimers(
         ]
       : []),
     'The 5-day limit is a rolling window — it frees up as your oldest sessions age out, rather than resetting on a fixed day',
-    'Daily sessions reset at midnight Pacific; unused ones do not carry over',
+    'Daily hours reset at midnight Pacific; unused ones do not carry over',
     'Adds to your free sessions rather than replacing them',
   ]
   out.push(
-    `Up to $${tier.monthlySpendLimitUsd} of compute per month; plan sessions pause if reached, free sessions keep working`,
+    `Up to $${tier.monthlySpendLimitUsd} of ${FREEBUFF_SPEND_UNIT_LABEL} per month; plan sessions pause if reached, free sessions keep working`,
   )
   out.push('Limits are subject to change')
   if (tier.deepseekPeakHoursExcluded) {
@@ -409,3 +409,46 @@ export function isFreebuffCancellationReason(
  * any email cannot drift into three different promises.
  */
 export const FREEBUFF_BETA_RATE_LOCK_MULTIPLIER = 3
+
+/**
+ * Plan allowances, in HOURS.
+ *
+ * "3/day" left people guessing at the unit — 3 what? Every allowance here is
+ * counted in one-hour sessions, so the copy says hours and the ambiguity goes
+ * away. One helper rather than a string per surface, because the settings
+ * list, the plans page, the welcome page and the dropdown were each spelling
+ * it their own way.
+ */
+export function freebuffPlanHours(count: number): string {
+  return `${count} ${count === 1 ? 'hour' : 'hours'}`
+}
+
+/**
+ * "3 hours/day · 10 hours/5 days · 50 hours/month"
+ *
+ * Takes the three fields structurally rather than the catalog type, so the
+ * CATALOG tier and the wire `FreebuffSubscriptionTierOffer` both satisfy it —
+ * the settings page renders the wire shape, and requiring the catalog type
+ * there would mean either a cast or a second copy of this string.
+ */
+export function freebuffPlanHoursSummary(tier: {
+  dailySessions: number
+  fiveDaySessions: number
+  monthlySessions: number
+}): string {
+  return [
+    `${freebuffPlanHours(tier.dailySessions)}/day`,
+    `${freebuffPlanHours(tier.fiveDaySessions)}/5 days`,
+    `${freebuffPlanHours(tier.monthlySessions)}/month`,
+  ].join(' · ')
+}
+
+/**
+ * What the monthly ceiling is spent ON, in the user's words.
+ *
+ * "compute" is our word for it and meant nothing to the people reading the
+ * plan — "tokens" is what a developer buying an AI plan already understands
+ * they are paying for. Kept as a constant so the label moves in one place if
+ * that stops being true.
+ */
+export const FREEBUFF_SPEND_UNIT_LABEL = 'tokens'
