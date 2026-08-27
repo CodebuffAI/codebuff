@@ -25,7 +25,9 @@ import { getFreebuffPlanPauseWindowLabel } from '../freebuff-subscriptions'
  * worst of the three — it tells a user to come back for something that is never
  * coming back.
  *
- * Pinned to a fixed instant and zone so the strings are deterministic.
+ * Pinned to a fixed instant and zone so the strings are deterministic — which
+ * is also what makes the zone SUFFIX deterministic, since it is derived from
+ * that zone on that date (PDT, not PST).
  */
 describe('model availability windows', () => {
   const now = new Date('2026-08-26T20:00:00Z')
@@ -38,7 +40,11 @@ describe('model availability windows', () => {
         now,
         { timeZone: TZ },
       ),
-    ).toBe('Open 3:00 AM – 5:00 PM')
+      // Zone-labelled since 2026-08-26. This helper is called from the server
+      // as well as from the picker, and an unlabelled wall-clock time is only
+      // ever right by luck: it told a reader in Germany that Flash was back
+      // "at 10:00 AM" when the server meant 10:00 UTC, i.e. noon for them.
+    ).toBe('Open 3:00 AM – 5:00 PM PDT')
   })
 
   test('Flash needs no plan-pause line: it is already closed at peak', () => {

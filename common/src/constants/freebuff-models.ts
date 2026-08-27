@@ -6,8 +6,10 @@ import {
 } from '../util/zoned-time'
 import {
   deepSeekExpensiveWindowEndsAt,
+  FALLBACK_WINDOW_TIME_ZONE,
   formatDeepSeekExpensiveWindowReturn,
   formatDeepSeekOffPeakWindowLocal,
+  formatWindowTimeZoneLabel,
   isDeepSeekExpensiveWindow,
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
@@ -3004,10 +3006,15 @@ export function getFreebuffModelUnavailableLabel(
     SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
     getFreebuffWebModel(id)
   if (model.availability === 'off_peak_only') {
-    return `Back at ${formatLocalTime(
-      deepSeekExpensiveWindowEndsAt(now),
-      now,
-      options,
+    const back = deepSeekExpensiveWindowEndsAt(now)
+    // Named, even though this label is only ever built in-app. "In-app" is not
+    // the same as "on the reader's clock": a CLI on a remote box renders that
+    // BOX's zone, and the human reading it is somewhere else entirely. The zone
+    // costs four characters and removes the one question the label exists to
+    // answer.
+    return `Back at ${formatLocalTime(back, now, options)} ${formatWindowTimeZoneLabel(
+      back,
+      options.timeZone,
     )}`
   }
   return getFreebuffDeploymentAvailabilityLabel(now, options)
@@ -3177,13 +3184,75 @@ function isAvailableAt(
 export function freebuffModelUnavailableWindow(
   id: string,
   now: Date = new Date(),
+  /**
+   * The zone to quote in. Defaults to UTC and NOT to the runtime's zone,
+   * because every caller of this function is the SERVER: it does not know where
+   * the reader is, and the container it runs in is not an answer. Left to the
+   * runtime it rendered whatever that container happened to be set to and named
+   * no zone at all, so a user in Germany was told V4 Flash returned "at 10:00
+   * AM" — 10:00 UTC, noon for them — at 10:34 on their own clock.
+   *
+   * Clients that DO know the reader's zone should render `availableAt` instead
+   * (see freebuffModelUnavailableAt); this string is the floor, correct for
+   * everyone and local to no one.
+   */
+  timeZone: string = FALLBACK_WINDOW_TIME_ZONE,
 ): string {
   const model =
     SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
     getFreebuffWebModel(id)
   return model.availability === 'off_peak_only'
-    ? formatDeepSeekExpensiveWindowReturn(now)
+    ? formatDeepSeekExpensiveWindowReturn(now, timeZone)
     : FREEBUFF_DEPLOYMENT_HOURS_LABEL
+}
+
+/**
+ * The instant `id` comes back, as an ISO string — or undefined when there is no
+ * such instant to name.
+ *
+ * The machine-readable half of the pair above, and the reason a client never
+ * has to parse prose to say "12:00" to a reader in Berlin. Only `off_peak_only`
+ * has a computable return time: `deployment_hours` is our staffing window and
+ * the limited-offer branch is a pool that refills on no schedule, so both
+ * return undefined rather than a guess a client would render as fact.
+ */
+export function freebuffModelUnavailableAt(
+  id: string,
+  now: Date = new Date(),
+): string | undefined {
+  const model =
+    SUPPORTED_FREEBUFF_MODELS.find((candidate) => candidate.id === id) ??
+    getFreebuffWebModel(id)
+  if (model.availability !== 'off_peak_only') return undefined
+  if (!isDeepSeekExpensiveWindow(now)) return undefined
+  return deepSeekExpensiveWindowEndsAt(now).toISOString()
+}
+
+/**
+ * The one renderer every client uses for a `model_unavailable` refusal.
+ *
+ * Prefers `availableAt` — an instant, which each surface formats in the zone
+ * its own reader lives in — and falls back to the server's UTC prose for a
+ * response that carries no instant (an older server, or a closure with no
+ * computable return time). Shared rather than reimplemented per surface so the
+ * CLI, Desktop and Web cannot drift into three different answers to "when?".
+ */
+export function formatFreebuffModelUnavailableWindow(
+  body: { availableHours: string; availableAt?: string },
+  options: LocalTimeFormatOptions & { now?: Date } = {},
+): string {
+  if (!body.availableAt) return body.availableHours
+  const ends = new Date(body.availableAt)
+  if (Number.isNaN(ends.getTime())) return body.availableHours
+  const now = options.now ?? new Date()
+  // The zone is named here too. A reader who sees "again at 12:00 PM" in a
+  // desktop app and "again at 10:00 AM UTC" in a support reply has to work out
+  // whether those are the same moment; printing GMT+2 beside the first makes
+  // that a subtraction rather than a guess.
+  return `again at ${formatLocalTime(ends, now, options)} ${formatWindowTimeZoneLabel(
+    ends,
+    options.timeZone,
+  )}`
 }
 
 export function isFreebuffSessionModelAvailable(

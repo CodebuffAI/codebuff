@@ -584,7 +584,22 @@ export type FreebuffSessionServerResponse = (
       status: 'model_unavailable'
       accessTier?: FreebuffAccessTier
       requestedModel: string
+      /**
+       * Prose, and quoted in UTC with the zone NAMED — the server cannot know
+       * where the reader is, and the container it runs in is not a guess worth
+       * making. Every client still renders this when `availableAt` is absent.
+       */
       availableHours: string
+      /**
+       * When the model comes back, as an ISO instant — present only for a
+       * closure with a computable return time (today, the DeepSeek peak
+       * window). An instant rather than a rendered time because the ONLY
+       * process that knows the reader's timezone is the client: this is what
+       * lets Desktop say "12:00 PM GMT+2" to a user in Berlin for the same
+       * moment the server calls 10:00 AM UTC. Absent on older servers, so
+       * `availableHours` stays the floor rather than the fallback.
+       */
+      availableAt?: string
       /**
        * The model is PRO-ONLY and this account has no paid plan — a different
        * refusal from the deployment-hours one, and the only one an upgrade

@@ -105,24 +105,90 @@ export function deepSeekExpensiveWindowEndsAt(at: Date): Date {
   return ends
 }
 
-/** The window in the reader's timezone, e.g. "5:00 PM – 3:00 AM". Local time is
- *  the point: a user told "00:00-10:00 UTC" has to do the arithmetic. */
+/**
+ * The zone to quote when nothing else is known — including by a caller that
+ * deliberately wants one fixed zone for every reader on earth.
+ *
+ * The server is exactly that caller. `Intl.DateTimeFormat` with `timeZone:
+ * undefined` resolves to whatever the PROCESS runs in, which in
+ * production is UTC and on a developer laptop is anything at all; a refusal
+ * string built there must not depend on which. Passing this explicitly is what
+ * makes the server's copy deterministic, and naming it in the output is what
+ * makes it readable — see formatWindowTimeZoneLabel.
+ */
+export const FALLBACK_WINDOW_TIME_ZONE = 'UTC'
+
+/**
+ * The zone these formatters actually render in.
+ *
+ * An explicit `timeZone` wins. Otherwise the RUNTIME's zone, which is the
+ * reader's own in a browser or a desktop process — the case every picker label
+ * depends on — and only falls through to UTC where the runtime has no zone to
+ * report at all.
+ */
+function resolveWindowTimeZone(timeZone?: string): string {
+  if (timeZone) return timeZone
+  try {
+    return (
+      Intl.DateTimeFormat().resolvedOptions().timeZone ??
+      FALLBACK_WINDOW_TIME_ZONE
+    )
+  } catch {
+    return FALLBACK_WINDOW_TIME_ZONE
+  }
+}
+
+/**
+ * The zone abbreviation to print beside a time, e.g. "UTC", "PDT", "GMT+2".
+ *
+ * Every wall-clock time Freebuff prints about this window carries one. A bare
+ * "10:00 AM" is not a time — it is a time in a zone the reader has to guess,
+ * and they guess their own: a user in Germany read "again at 10:00 AM" (10:00
+ * UTC, so noon for them) at 10:34 on their own clock and saw a moment that had
+ * already passed.
+ *
+ * Including the labels built in-app, which are NOT automatically the reader's
+ * clock either — a CLI on a remote box renders that box's zone to a human
+ * sitting somewhere else. Four characters, and the question stops arising.
+ */
+export function formatWindowTimeZoneLabel(on: Date, timeZone?: string): string {
+  const zone = resolveWindowTimeZone(timeZone)
+  const named = new Intl.DateTimeFormat(undefined, {
+    timeZone: zone,
+    hour: 'numeric',
+    timeZoneName: 'short',
+  })
+    .formatToParts(on)
+    .find((part) => part.type === 'timeZoneName')?.value
+  return named ?? zone
+}
+
+/** Hour-of-day formatter for a window edge. Deliberately WITHOUT the zone name:
+ *  a range names its zone once at the end, not on both edges. */
+function windowTimeFormatter(timeZone: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+  })
+}
+
+/** The window in the reader's timezone, e.g. "5:00 PM – 3:00 AM PDT". Local
+ *  time is the point: a user told "00:00-10:00 UTC" has to do the arithmetic.
+ *  The zone is named either way — see formatWindowTimeZoneLabel. */
 export function formatDeepSeekExpensiveWindowLocal(
   on: Date = new Date(),
   timeZone?: string,
 ): string {
-  const fmt = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    ...(timeZone ? { timeZone } : {}),
-  })
+  const zone = resolveWindowTimeZone(timeZone)
+  const fmt = windowTimeFormatter(zone)
   const atUtcHour = (hour: number): string => {
     const d = new Date(on)
     d.setUTCHours(hour, 0, 0, 0)
     return fmt.format(d)
   }
   const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
-  return `${atUtcHour(start)} – ${atUtcHour(end)}`
+  return `${atUtcHour(start)} – ${atUtcHour(end)} ${formatWindowTimeZoneLabel(on, zone)}`
 }
 
 /**
@@ -136,20 +202,18 @@ export function formatDeepSeekExpensiveWindowLocal(
  * has nothing to do with DeepSeek's peak pricing. A model closed 5pm-3am
  * Pacific was telling people it was open 9am-5pm.
  *
- * Local time, and one timezone. The old label mixed two ("9am ET-5pm PT"),
- * which cannot be read as an interval by anyone.
+ * Local time, and one timezone — NAMED. The old label mixed two ("9am ET-5pm
+ * PT"), which cannot be read as an interval by anyone; the label that replaced
+ * it named none at all, which is worse, because a reader cannot tell that they
+ * are missing something. See formatWindowTimeZoneLabel.
  */
 export function formatDeepSeekExpensiveWindowReturn(
   on: Date = new Date(),
   timeZone?: string,
 ): string {
   const ends = deepSeekExpensiveWindowEndsAt(on)
-  const fmt = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    ...(timeZone ? { timeZone } : {}),
-  })
-  return `again at ${fmt.format(ends)}`
+  const zone = resolveWindowTimeZone(timeZone)
+  return `again at ${windowTimeFormatter(zone).format(ends)} ${formatWindowTimeZoneLabel(ends, zone)}`
 }
 
 /**
@@ -164,16 +228,13 @@ export function formatDeepSeekOffPeakWindowLocal(
   on: Date = new Date(),
   timeZone?: string,
 ): string {
-  const fmt = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    ...(timeZone ? { timeZone } : {}),
-  })
+  const zone = resolveWindowTimeZone(timeZone)
+  const fmt = windowTimeFormatter(zone)
   const atUtcHour = (hour: number): string => {
     const d = new Date(on)
     d.setUTCHours(hour, 0, 0, 0)
     return fmt.format(d)
   }
   const [start, end] = DEEPSEEK_EXPENSIVE_WINDOW_UTC
-  return `${atUtcHour(end)} – ${atUtcHour(start)}`
+  return `${atUtcHour(end)} – ${atUtcHour(start)} ${formatWindowTimeZoneLabel(on, zone)}`
 }

@@ -64,7 +64,9 @@ import {
   isFreebuffPremiumModelId,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffSessionModelAvailable,
+  freebuffModelUnavailableAt,
   freebuffModelUnavailableWindow,
+  formatFreebuffModelUnavailableWindow,
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   isFreebuffSessionModelId,
   isFreebuffTracedModelId,
@@ -1954,5 +1956,78 @@ describe('the unavailability window matches the reason for the closure', () => {
     // freebuffSession.ts renders `${model} is available ${availableHours}.`
     const s = `X is available ${freebuffModelUnavailableWindow(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak)}.`
     expect(s).toMatch(/^X is available again at .+\.$/)
+  })
+
+  /**
+   * Reported 2026-08-26: a user in Germany read "again at 10:00 AM" at 10:34 on
+   * their own clock and saw a time that had already passed. The server had
+   * rendered 10:00 UTC through `Intl`'s process default and named no zone, so
+   * the string was silently about a clock the reader was not on.
+   */
+  test('the server quotes UTC, and says UTC, whatever the container is set to', () => {
+    expect(
+      freebuffModelUnavailableWindow(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak),
+    ).toBe('again at 10:00 AM UTC')
+  })
+
+  test('the instant beside it is the same moment, machine-readable', () => {
+    expect(
+      freebuffModelUnavailableAt(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, peak),
+    ).toBe('2026-08-25T10:00:00.000Z')
+  })
+
+  test('a closure with no computable return time offers no instant to render', () => {
+    // Our staffing window and the limited-offer pool both reopen on schedules
+    // this function does not model. Undefined, so a client renders the prose
+    // rather than a time we would be inventing.
+    expect(freebuffModelUnavailableAt('mimo/mimo-v2.5', peak)).toBeUndefined()
+    // Nor when the peak-gated model is OPEN — there is nothing to come back to.
+    expect(
+      freebuffModelUnavailableAt(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        new Date('2026-08-25T14:00:00Z'),
+      ),
+    ).toBeUndefined()
+  })
+
+  describe('what a client renders from the pair', () => {
+    const body = {
+      availableHours: freebuffModelUnavailableWindow(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        peak,
+      ),
+      availableAt: freebuffModelUnavailableAt(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        peak,
+      ),
+    }
+
+    test('the reader in Berlin is told noon, not 10am', () => {
+      const rendered = formatFreebuffModelUnavailableWindow(body, {
+        timeZone: 'Europe/Berlin',
+        locale: 'en-US',
+        now: peak,
+      })
+      expect(rendered).toContain('12:00 PM')
+      expect(rendered).not.toContain('10:00 AM')
+    })
+
+    test('an older server that sends no instant still gets its UTC prose through', () => {
+      expect(
+        formatFreebuffModelUnavailableWindow(
+          { availableHours: body.availableHours },
+          { timeZone: 'Europe/Berlin', locale: 'en-US', now: peak },
+        ),
+      ).toBe('again at 10:00 AM UTC')
+    })
+
+    test('a corrupt instant falls back to the prose rather than to "Invalid Date"', () => {
+      expect(
+        formatFreebuffModelUnavailableWindow(
+          { availableHours: body.availableHours, availableAt: 'soon' },
+          { timeZone: 'Europe/Berlin', locale: 'en-US', now: peak },
+        ),
+      ).toBe('again at 10:00 AM UTC')
+    })
   })
 })
