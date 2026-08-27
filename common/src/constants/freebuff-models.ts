@@ -2017,6 +2017,26 @@ export const FREEBUFF_TAKEOVER_INSTANCE_HEADER =
  *  died. Server-side accessor: `getSessionGraceMs()`. */
 export const FREEBUFF_SESSION_GRACE_MS = 30 * 60 * 1000
 
+/** How long a Desktop tab may hold its session with nothing running before the
+ *  app gives the slot back.
+ *
+ *  Sessions are otherwise released only on tab close, sign-out and app exit, so
+ *  a tab that ran one turn and was left open held the account's ONLY slot (every
+ *  model on the limited tier, the premium bucket on full) for up to an hour with
+ *  nothing happening in it — and every other tab's picker read as "you can't
+ *  change model here".
+ *
+ *  Ending early is not a forfeit: the server re-stamps `session_units` to the
+ *  fraction actually elapsed (`buildAdmitStampStatement`), so this REFUNDS the
+ *  unused window and the next send re-admits on the same instance id. Getting it
+ *  wrong costs one extra admission, not a session.
+ *
+ *  Ten minutes is measured against reading a long answer and typing the next
+ *  prompt. Only a turn keeps the clock alive — scrolling and typing are
+ *  invisible to the server half — so it is deliberately several times longer
+ *  than it would need to be if it could see the user. */
+export const FREEBUFF_DESKTOP_IDLE_RELEASE_MS = 10 * 60 * 1000
+
 /** Models that accept image input. Used to decide whether uploaded images are
  *  forwarded to the model as real multimodal content. */
 export const FREEBUFF_MULTIMODAL_MODEL_IDS = Object.freeze(
