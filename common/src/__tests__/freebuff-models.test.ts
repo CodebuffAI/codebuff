@@ -1190,16 +1190,19 @@ describe('freebuff model availability', () => {
 
   test('limited access exposes non-Pro MiMo 2.5, and not the paused Flash', () => {
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
-    // Ox Alpha joined on 2026-08-24. It costs this pool nothing extra: the
-    // limited tier is metered by REGION, not by model.
-    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
-      FREEBUFF_MIMO_V25_MODEL_ID,
-      FREEBUFF_OX_ALPHA_MODEL_ID,
-    ])
+    // Ox Alpha joined on 2026-08-24 and was WITHDRAWN on 2026-08-27, so MiMo
+    // is the whole limited catalog again. The tier is metered by REGION rather
+    // than by model, so losing a row narrows what these users may pick without
+    // changing how much they get.
+    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([FREEBUFF_MIMO_V25_MODEL_ID])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual([
       FREEBUFF_MIMO_V25_MODEL_ID,
-      FREEBUFF_OX_ALPHA_MODEL_ID,
     ])
+    // Withdrawn rather than merely unlisted: the pause is what reaches the
+    // released CLI and Desktop binaries that still draw the row.
+    expect(
+      isFreebuffModelAllowedForAccessTier(FREEBUFF_OX_ALPHA_MODEL_ID, 'limited'),
+    ).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -1438,14 +1441,17 @@ describe('freebuff model availability', () => {
       expect(model.isNew).toBe(true)
       expect(model.displayName).toContain(date)
     }
-    // Nothing else claims to be new, or the badge stops meaning anything. Two
-    // non-dated rows carry it, and both are new to these surfaces rather than
+    // Nothing else claims to be new, or the badge stops meaning anything. One
+    // non-dated row carries it, and it is new to these surfaces rather than
     // newly re-trained — which is what the badge is for:
-    //   - Ox Alpha joined the CLI catalog on 2026-08-24, four days after it
-    //     shipped on the browser surfaces.
     //   - GLM 5.3 Flash arrived 2026-08-26. Its wire id names its build, so
     //     there is no date for the display name to disambiguate.
-    const undatedNew = [FREEBUFF_OX_ALPHA_MODEL_ID, FREEBUFF_GLM_V53_FLASH_MODEL_ID]
+    //
+    // Ox Alpha was the second entry here until it was withdrawn on 2026-08-27.
+    // It left this list by leaving FREEBUFF_MODELS, and its row dropped `isNew`
+    // in the same change — a NEW badge on a model its host withdrew is the one
+    // claim about it that is actively false. See ox-alpha.test.ts.
+    const undatedNew = [FREEBUFF_GLM_V53_FLASH_MODEL_ID]
     expect(
       catalog.filter(
         (model) => model.isNew && !undatedNew.includes(model.id),

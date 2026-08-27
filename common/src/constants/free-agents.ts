@@ -333,9 +333,12 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // other root so its subagents pass the hierarchy gate; the model, not this
   // list, is what keeps it off the CLI and Desktop.
   'base2-free-muse-spark',
-  // Freebuff Web and Cloud only (Ox Alpha), for the same reason and with the
-  // same division of labour: the model's absence from SUPPORTED_FREEBUFF_MODELS
-  // is what keeps it off the CLI and Desktop, not this list.
+  // Ox Alpha's root. The model was WITHDRAWN on 2026-08-27 (see
+  // FREEBUFF_PAUSED_FREE_MODEL_IDS) and this entry stays on purpose, exactly
+  // like the Fable note below it: withdrawal is enforced at ADMISSION, so a
+  // session admitted before the deploy runs its full hour afterwards and its
+  // subagents keep passing through this hierarchy gate. Dropping the root would
+  // 403 them mid-run.
   'base2-free-ox-alpha',
   // Capacity-limited trial orchestrator (Claude Fable 5). Reachable only while
   // the server is still advertising the offer, but it must be listed here
@@ -564,10 +567,17 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-muse-spark': new Set([
     FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   ]),
-  // Web/Cloud-only Ox Alpha root, pinned to its one model like every other. The
-  // pinning matters here even though the model is free: an agent id is the
-  // handle a hand-written caller reaches for, and a root allowed more than one
-  // model is a door onto everything else it allows.
+  // Ox Alpha's root, pinned to its one model like every other. The pinning
+  // matters even now that the model is withdrawn: an agent id is the handle a
+  // hand-written caller reaches for, and a root allowed more than one model is
+  // a door onto everything else it allows.
+  //
+  // WITHDRAWN 2026-08-27 (FREEBUFF_PAUSED_FREE_MODEL_IDS), and this entry stays
+  // for the same reason M3's above does. Withdrawal is enforced at ADMISSION;
+  // live sessions reach this allowlist on every turn, and deleting the row
+  // would fail them mid-turn with free_mode_invalid_agent_model — the client
+  // wedge the withdrawal was shaped to avoid (#1801). Let them drain; the door
+  // is already shut in front of them.
   'base2-free-ox-alpha': new Set([FREEBUFF_OX_ALPHA_MODEL_ID]),
   // Limited-offer trial root. Only this agent may run Fable for free, and only
   // on Fable — the pool accounting keys off the model, so a root that could

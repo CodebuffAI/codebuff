@@ -403,15 +403,19 @@ export const FREEBUFF_MUSE_SPARK_REASONING_EFFORT = 'xhigh' as const
 
 /**
  * Ox Alpha — an anonymous ("stealth") frontier coding model, served through
- * OpenRouter at a list price of zero while its host evaluates it.
+ * OpenRouter at a list price of zero while its host evaluated it.
  *
- * FREEBUFF WEB AND CLOUD ONLY. It is absent from FREEBUFF_MODELS and
- * SUPPORTED_FREEBUFF_MODELS, so no CLI or Desktop build can select it and
- * `isFreebuffSessionModelId` refuses it there; the browser surfaces reach it
- * through FREEBUFF_WEB_MODELS. Unlike Muse Spark's narrow surface, that is a
- * "prove it first" decision rather than a property of the model — see
- * docs/freebuff-ox-alpha.md for what was measured and what would justify
- * widening it.
+ * WITHDRAWN FROM FREE MODE ON 2026-08-27. The host ended the free promotion,
+ * so the model is not served to us any more at any price. The id is PAUSED
+ * (FREEBUFF_PAUSED_FREE_MODEL_IDS) rather than deleted, and the row below stays
+ * in SUPPORTED_FREEBUFF_MODELS, so the released CLI and Desktop binaries that
+ * still list it get a coercion instead of a refusal — see the pause list for
+ * why that distinction is worth a whole row of dead catalog.
+ *
+ * It reached Web and Cloud on 2026-08-20 and CLI, Desktop and the limited tier
+ * on 2026-08-24. Everything below records what was true while it ran; keep it
+ * until the id is removed outright, because restoring the row means answering
+ * these points again. docs/freebuff-ox-alpha.md has the withdrawal order.
  *
  * The id is OpenRouter's own slug, so it falls through to the default
  * OpenRouter route with no provider-specific handler (same as Luna). Three
@@ -1360,9 +1364,18 @@ const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
  * that limit is — serving the model and watching it can, which is what the two
  * browser surfaces are for here.
  *
- * `experimental` is doing real work on this row rather than decorating it. An
+ * `experimental` was doing real work on this row rather than decorating it. An
  * anonymous host can reprice, rename or withdraw a stealth model with no
- * notice, so the TEST badge is the only promise about it we can actually keep.
+ * notice, so the TEST badge was the only promise about it we could actually
+ * keep — and on 2026-08-27 the host withdrew it, which is the outcome that
+ * badge was warning about.
+ *
+ * WITHDRAWN. The row is kept rather than deleted because a paused model must
+ * stay a recognised id (see FREEBUFF_PAUSED_FREE_MODEL_IDS); it is in no picker
+ * list, so `premium: false` no longer places it anywhere — it is out of
+ * FREEBUFF_WEB_ALL_MODELS, and therefore out of the derived
+ * FREEBUFF_STANDARD_MODEL_IDS. The flag stays as written so that restoring the
+ * row is one edit to the pause list rather than several that must agree.
  */
 const OX_ALPHA_MODEL = {
   id: FREEBUFF_OX_ALPHA_MODEL_ID,
@@ -1397,7 +1410,10 @@ const OX_ALPHA_MODEL = {
   efforts: OX_ALPHA_REASONING_EFFORTS,
   defaultEffort: 'high',
   experimental: true,
-  isNew: true,
+  // NOT `isNew` any more: the row is withdrawn, and a NEW badge on a paused
+  // model would be the one claim about it that is actively false. It renders
+  // nowhere today — the row is in no picker list — but it would be the first
+  // thing seen if the pause were ever lifted without re-reading this row.
 } as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
@@ -1462,12 +1478,15 @@ export const FREEBUFF_MODELS = [
   GPT_5_6_LUNA_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
-  // Next to MiMo because they are the two UNMETERED rows -- a user scanning for
-  // something that costs no session finds them together. Not first:
-  // FREEBUFF_MODELS[0] is pinned by test to DEFAULT_FREEBUFF_MODEL_ID, and an
-  // experimental row must never become the thing a new user lands on before
-  // they know the catalog exists.
-  OX_ALPHA_MODEL,
+  // OX ALPHA LEFT THIS LIST on 2026-08-27, when its anonymous host ended the
+  // free promotion the row existed for. MiMo is the sole UNMETERED row again.
+  //
+  // Dropping it here is what takes it out of every picker on every surface —
+  // FREEBUFF_WEB_MODELS reaches it only by spreading this list — but it is NOT
+  // what stops it being served. FREEBUFF_PAUSED_FREE_MODEL_IDS is, and the row
+  // stays in SUPPORTED_FREEBUFF_MODELS so the id remains recognisable and
+  // coercible for the installed binaries that still hold it.
+
   // LAST, in the slot V4 Pro held and for the same reason: capped at two
   // sessions a day, so it is somewhere a user reaches deliberately rather than
   // by scanning from the top. Ordering is still the only steer in this list —
@@ -1631,6 +1650,29 @@ export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
   // picked, so it is not part of what free mode hands out, and pausing it would
   // break the accounts it was granted to without any of them asking.
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  // Withdrawn from free mode entirely on 2026-08-27: the anonymous host ended
+  // the free promotion, so the row is no longer served to us at all. This is
+  // not a cost decision like the two above it — there is nothing left to buy.
+  //
+  // Pausing rather than deleting matters MORE here than for either of them,
+  // because this row shipped to CLI and Desktop on 2026-08-24 and to the
+  // limited tier with it. Every released binary holds the id in its compiled-in
+  // catalog and will keep sending it; an id the server does not RECOGNISE
+  // cannot be coerced, only refused, and that refusal is the retry loop that
+  // cost the limited tier 2.5x its admissions in #1801. Listed here it stays
+  // recognised, is coerced to the tier's default at admission, and reaches
+  // nobody.
+  //
+  // Its roots and agent allowlist entries stay for the same reason V4 Pro's
+  // did (base2-free-ox-alpha / base3-free-ox-alpha in free-agents.ts): sessions
+  // admitted before the deploy drain instead of failing mid-turn with
+  // free_mode_invalid_agent_model. The door is shut in front of them, not under
+  // them. See "Withdrawing it" in docs/freebuff-ox-alpha.md for the order.
+  //
+  // The zero-price fence in web/src/llm-api/openrouter.ts stays too. It costs
+  // nothing while nothing is admitted, and it is the guard that would stop a
+  // repriced stealth slug billing us if this row were ever restored.
+  FREEBUFF_OX_ALPHA_MODEL_ID,
 ]
 
 /**
@@ -1718,9 +1760,12 @@ export const FREEBUFF_LIMITED_OFFER_SESSION_WINDOW_HOURS =
 /** Freebuff Web-only picker/support set: the CLI/Desktop catalog plus the
  *  earned GLM 5.2 row. */
 export const FREEBUFF_WEB_MODELS = [
-  // Ox Alpha is NOT listed here any more -- it reaches this list through
-  // ...FREEBUFF_MODELS since it joined the CLI/Desktop catalog on 2026-08-24.
-  // Naming it here as well would list it twice in both browser pickers.
+  // Ox Alpha is gone from both browser pickers as of 2026-08-27. It reached
+  // this list only by spreading ...FREEBUFF_MODELS, and it left that list when
+  // its host ended the free promotion. Naming it here would put a PAUSED row
+  // back in the picker without making it admissible — a visible row whose
+  // first send is coerced away, which is the offer-without-gate shape
+  // common/src/testing/freebuff-offer-invariants.ts exists to catch.
   MUSE_SPARK_12_CONTRIBUTOR_MODEL,
   GLM_V52_MODEL,
   ...FREEBUFF_MODELS,
@@ -2135,17 +2180,20 @@ export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
  */
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_MIMO_V25_MODEL_ID
-// Ox Alpha joins the limited tier on 2026-08-24. Like MiMo it costs that pool
-// nothing extra: limited access is metered by REGION, not by model, so every
-// limited session draws the same FREEBUFF_LIMITED_SESSION_LIMIT whichever row
-// it picks. This widens what those users may choose, not how much they get.
+// Ox Alpha joined the limited tier on 2026-08-24 and LEFT it on 2026-08-27,
+// when its host ended the free promotion (FREEBUFF_PAUSED_FREE_MODEL_IDS).
+// Limited access is metered by REGION rather than by model, so this narrows
+// what those users may pick without changing how much they get.
 //
-// It was already available to limited-tier BROWSER users via
-// FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS; this is the CLI/Desktop half, and the two
-// lists now agree for this row.
+// Removing it here is not what stops it being served — the pause is — but this
+// list is mapped over SUPPORTED_FREEBUFF_MODELS to build
+// LIMITED_FREEBUFF_MODELS, which reaches the CLI picker, the home FAQ and the
+// README. Leaving it would advertise a row nothing may admit.
+//
+// It left FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS in the same change, so the two
+// limited catalogs still agree for this row.
 export const LIMITED_FREEBUFF_MODEL_IDS = [
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_OX_ALPHA_MODEL_ID,
 ] as const
 export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
   (modelId) => SUPPORTED_FREEBUFF_MODELS.find((model) => model.id === modelId)!,
@@ -2241,12 +2289,13 @@ export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
  * Flash left this list with LIMITED_FREEBUFF_MODEL_IDS — restore it in both or
  * neither, since FREEBUFF_WEB_LIMITED_MODEL_IDS is the union of the two.
  *
- * Ox Alpha is the first entry that is here and NOT in
- * LIMITED_FREEBUFF_MODEL_IDS, and the split is the point rather than an
- * oversight: that list is the CLI/Desktop limited catalog (it maps over
- * SUPPORTED_FREEBUFF_MODELS and reaches the CLI picker, the home FAQ and the
- * README), while this one is the browser surfaces'. A Web/Cloud-only model can
- * therefore reach limited regions without appearing anywhere it cannot run.
+ * Ox Alpha was here from 2026-08-20 and LEFT on 2026-08-27 alongside
+ * LIMITED_FREEBUFF_MODEL_IDS, when its host ended the free promotion — restore
+ * it in both or neither, since FREEBUFF_WEB_LIMITED_MODEL_IDS is the union of
+ * the two. It was also the entry that made the split between these lists
+ * matter, and the split still holds: this one is the browser surfaces' limited
+ * catalog and that one is the CLI/Desktop's, so a Web/Cloud-only row can reach
+ * limited regions without appearing anywhere it cannot run.
  *
  * Being here costs the limited tier nothing extra. That tier is metered by
  * REGION, not by model — every limited session draws on the same
@@ -2254,7 +2303,6 @@ export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
  * what those users can choose without widening how much they get. */
 export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_OX_ALPHA_MODEL_ID,
 ] as const
 
 export function isFreebuffWebGeoExemptModelId(
