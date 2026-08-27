@@ -2472,6 +2472,21 @@ export function isFreebuffSessionModelId(
 export function isFreebuffSessionModelAllowedForAccessTier(
   model: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
+  /**
+   * Whether this account holds a live PAID plan.
+   *
+   * A limited-region account is normally held to the limited catalog, which
+   * contains none of the models a plan meters — so without this a subscriber
+   * there would pay and receive nothing at all. A completed card payment is
+   * the strongest signal available that an account is a real customer rather
+   * than the abuse the tier exists to contain, so it widens WHAT may be
+   * picked. It does NOT widen how much: the plan's own windows still meter
+   * every session, and the free limited pool is unchanged.
+   *
+   * Defaults false, so every caller that cannot answer the question keeps
+   * today's behaviour.
+   */
+  hasPaidSubscription = false,
 ): boolean {
   if (!model) return false
   // A paused model is allowed to NO tier. Checked ahead of everything else
@@ -2496,7 +2511,29 @@ export function isFreebuffSessionModelAllowedForAccessTier(
   // keyed on the tier rather than the model.
   return (
     isGlmRedeemableAtLimitedTier(model) ||
-    FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === model)
+    FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === model) ||
+    // Paid plans reach limited regions too — see `hasPaidSubscription`.
+    (hasPaidSubscription && isFreebuffSubscriptionModelIdForAccessTier(model))
+  )
+}
+
+/**
+ * Whether a plan meters this model, as a local predicate.
+ *
+ * Duplicated from `freebuff-subscriptions.ts` rather than imported because
+ * that module imports THIS one; the two ids are asserted equal by a test so
+ * they cannot drift.
+ */
+function isFreebuffSubscriptionModelIdForAccessTier(model: string): boolean {
+  return (
+    // GLM 5.3 Flash sits in the slot DeepSeek V4 Pro held until its withdrawal
+    // from free mode on 2026-08-26; a plan can only cover a model admission
+    // will actually open. Kept in step with FREEBUFF_SUBSCRIPTION_MODEL_IDS by
+    // the drift test in __tests__/freebuff-limited-subscriber.test.ts.
+    model === FREEBUFF_GLM_V53_FLASH_MODEL_ID ||
+    model === FREEBUFF_GPT_5_6_LUNA_MODEL_ID ||
+    model === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID ||
+    model === FREEBUFF_KIMI_K3_ECO_MODEL_ID
   )
 }
 

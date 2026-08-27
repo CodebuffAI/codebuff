@@ -166,15 +166,21 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       displayName: 'Starter',
       priceUsd: 8,
       introPriceUsd: 5,
-      dailySessions: 4,
-      fiveDaySessions: 12,
+      // Resized 2026-08-27, before the public rollout. The pre-rollout
+      // figures were sized against god-only testing and priced most of a
+      // month of premium use into $8 — at Luna's measured $[redacted]/session,
+      // 4/day was ~$[redacted] of compute. The 5-DAY window is what actually bounds a
+      // heavy week (3/day would allow 15 in five days; 10 is the real cap),
+      // which is why the two numbers are not simply proportional.
+      dailySessions: 3,
+      fiveDaySessions: 10,
       monthlySessions: 50,
       monthlySpendLimitUsd: 40,
       // Equal to dailySessions: the Luna/Pro sub-cap was LIFTED (2026-08-26).
       // Kept as a field rather than deleted so the wire shape and the
       // enforcement stay in place — set it lower again to reinstate the cap
       // without touching code.
-      dailyPremiumSessions: 4,
+      dailyPremiumSessions: 3,
       deepseekPeakHoursExcluded: true,
     },
     {
@@ -182,12 +188,16 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       displayName: 'Plus',
       priceUsd: 25,
       introPriceUsd: 22,
-      dailySessions: 12,
-      fiveDaySessions: 40,
-      monthlySessions: 150,
+      // Roughly 2.3x Starter on the day and 2x on the 5-day, against 3.1x the
+      // price — deliberately sub-linear. The old 12/day was triple the old
+      // 4/day for triple the price, which made the larger plan a pure linear
+      // buy with no reason to prefer it over three Starters.
+      dailySessions: 7,
+      fiveDaySessions: 20,
+      monthlySessions: 125,
       monthlySpendLimitUsd: 100,
       // Equal to dailySessions — sub-cap lifted; see the starter tier note.
-      dailyPremiumSessions: 12,
+      dailyPremiumSessions: 7,
       deepseekPeakHoursExcluded: true,
     },
   ] satisfies FreebuffSubscriptionTier[])
