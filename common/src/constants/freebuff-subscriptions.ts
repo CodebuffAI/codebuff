@@ -359,3 +359,43 @@ export function getFreebuffPlanPauseWindowLabel(
   if (getFreebuffWebModel(id)?.availability === 'off_peak_only') return undefined
   return `Plan paused ${formatDeepSeekExpensiveWindowLocal(now, timeZone)}`
 }
+
+/**
+ * The offboarding question, asked once at cancellation.
+ *
+ * A short fixed list plus `other`, because a free-text-only box produces
+ * answers nobody can count. The server validates against these ids, so a
+ * client cannot invent a reason that would then have to be cleaned up in
+ * reporting.
+ */
+export const FREEBUFF_CANCELLATION_REASONS = [
+  { id: 'too_expensive', label: 'Too expensive' },
+  { id: 'not_enough_usage', label: "I didn't use it enough" },
+  { id: 'missing_models', label: 'Missing models or features' },
+  { id: 'quality', label: 'Quality or reliability' },
+  { id: 'other', label: 'Other' },
+] as const
+
+export type FreebuffCancellationReasonId =
+  (typeof FREEBUFF_CANCELLATION_REASONS)[number]['id']
+
+export function isFreebuffCancellationReason(
+  value: unknown,
+): value is FreebuffCancellationReasonId {
+  return (
+    typeof value === 'string' &&
+    FREEBUFF_CANCELLATION_REASONS.some((reason) => reason.id === value)
+  )
+}
+
+/**
+ * What a subscriber gives up by cancelling, in the one term that matters:
+ * today's beta pricing is not the standing price, and it is not held for an
+ * account that leaves.
+ *
+ * Stated as a multiple rather than a future dollar figure because no future
+ * price has been set — promising "$24" would be inventing one. Keep this the
+ * single source for the wording so the settings page, the cancel dialog and
+ * any email cannot drift into three different promises.
+ */
+export const FREEBUFF_BETA_RATE_LOCK_MULTIPLIER = 3
