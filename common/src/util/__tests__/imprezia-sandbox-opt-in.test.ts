@@ -144,3 +144,29 @@ describe('sandbox creatives in production', () => {
     expect(levels.filter((l) => l === 'debug').length).toBeGreaterThanOrEqual(4)
   })
 })
+
+describe('a response that arrives but does not parse', () => {
+  test('is reported as a contract mismatch, not swallowed as a dead request', async () => {
+    // Imprezia answered HTTP 200 with an unparseable body for nine hours on
+    // 2026-08-26. This error is the only reason anyone noticed, so a transport
+    // that cannot tell "no response" from "a response that made no sense"
+    // turns that outage into silence.
+    const errors: string[] = []
+    const result = await fetchImpreziaChatAd({
+      apiKey: PROD_KEY,
+      request,
+      userAgent: 'ua',
+      testMode: false,
+      logger: {
+        ...logger,
+        error: (...a: unknown[]) => errors.push(String(a[1] ?? a[0])),
+      },
+      fetch: (async () =>
+        new Response('not json', {
+          status: 200,
+        })) as unknown as typeof globalThis.fetch,
+    })
+    expect(result).toBeNull()
+    expect(errors.join('|')).toContain('did not match the expected shape')
+  })
+})

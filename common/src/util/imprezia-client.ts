@@ -5,7 +5,16 @@ import {
   isImpreziaSandboxKey,
 } from './imprezia-ad'
 
+import {
+  IMPREZIA_DISPLAY_ORIGIN,
+  toImpreziaDisplayAd,
+} from './imprezia-display'
+
 import type { ImpreziaAd, ImpreziaDeviceContext } from './imprezia-ad'
+import type {
+  ImpreziaDisplayAd,
+  ImpreziaDisplayRequest,
+} from './imprezia-display'
 import type { Logger } from '../types/contracts/logger'
 
 /**
@@ -27,6 +36,7 @@ import type { Logger } from '../types/contracts/logger'
  */
 
 const CHAT_ADS_PATH = '/v1/ads/chat'
+const DISPLAY_ADS_PATH = '/v1/display'
 
 /** Ad decisioning is off the critical path but holds a socket; cap it well
  *  under the browser's own patience. */
@@ -65,6 +75,119 @@ export type ImpreziaChatAdResult = {
   ad: ImpreziaAd | null
 }
 
+/**
+ * The sandbox-key refusal, shared by both endpoints.
+ *
+ * Returns true when the caller must not serve. See the comment on
+ * `sandboxRefusalLogged` for why this is logged once per process.
+ */
+function refusesSandboxKey(params: {
+  apiKey: string
+  testMode: boolean
+  allowSandbox: boolean | undefined
+  logger: Logger
+}): boolean {
+  const { apiKey, testMode, allowSandbox, logger } = params
+  if (!isImpreziaSandboxKey(apiKey) || testMode || allowSandbox) return false
+
+  const refusal =
+    '[ads:imprezia] Refusing to serve: sandbox key in production. Swap in ' +
+    'an api_pub_prod_ key before this can fill.'
+  if (sandboxRefusalLogged) {
+    logger.debug(refusal)
+  } else {
+    sandboxRefusalLogged = true
+    logger.error(refusal)
+  }
+  return true
+}
+
+/**
+ * POST to Imprezia and hand back the decoded body, or null on any failure.
+ *
+ * Both ad endpoints share this whole transport — key header, forwarded user
+ * agent, timeout, 403-means-account-not-enabled, and the rule that every
+ * failure is a no-ad path rather than an error anyone sees. Keeping it in one
+ * place is what stops the two drifting as either contract moves.
+ */
+async function postToImprezia(params: {
+  url: string
+  apiKey: string
+  userAgent: string
+  /** Only the display API needs this; chat is not origin-gated. */
+  origin?: string
+  body: unknown
+  /** Named in the 403 log, which is about account state, not code. */
+  productLabel: string
+  logger: Logger
+  fetch: typeof globalThis.fetch
+  // `null` means the request never produced a response; a 2xx returns its
+  // decoded body WRAPPED, because that body may legitimately be `null` and the
+  // caller has to tell the two apart. Imprezia answered 200 with an
+  // unparseable body for nine hours on 2026-08-26, and the schema mismatch the
+  // caller logs from it is the only reason anyone noticed.
+}): Promise<{ body: unknown } | null> {
+  const { url, apiKey, userAgent, origin, body, productLabel, logger, fetch } =
+    params
+
+  // `baseUrl` is what these two logs have always carried, and dashboards and
+  // ad-hoc queries key on it; `url` is added beside it rather than replacing
+  // it, because with two endpoints the path is now the interesting part.
+  const baseUrl = new URL(url).origin
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+        // Imprezia targets and measures off this; sending our runtime's UA
+        // would look like datacenter traffic and be discounted as invalid.
+        'X-Forwarded-User-Agent': userAgent,
+        ...(origin ? { Origin: origin } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === 'AbortError'
+    logger.warn(
+      { baseUrl, url, timedOut: aborted, error },
+      aborted
+        ? '[ads:imprezia] Ad request timed out'
+        : '[ads:imprezia] Ad request failed',
+    )
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  if (!response.ok) {
+    // A publisher account not switched on for this product 403s on every
+    // single request. That is an account-state problem with an account-side
+    // fix, not a bug to chase in the logs, so name it rather than burying it.
+    if (response.status === 403) {
+      logger.warn(
+        { baseUrl, url },
+        `[ads:imprezia] Publisher is not enabled for ${productLabel}; no ad ` +
+          'will fill until Imprezia enables the account for this key',
+      )
+      return null
+    }
+    logger.error(
+      { baseUrl, url, status: response.status },
+      '[ads:imprezia] API returned error',
+    )
+    return null
+  }
+
+  return { body: await response.json().catch(() => null) }
+}
+
 export async function fetchImpreziaChatAd(params: {
   apiKey: string
   request: ImpreziaChatAdRequest
@@ -92,76 +215,25 @@ export async function fetchImpreziaChatAd(params: {
   // your AI app."), rendered exactly like a paid one — so someone who did not
   // ask for it cannot tell it from a real advertiser. Asking for it by name is
   // the whole opt-in.
-  if (isImpreziaSandboxKey(apiKey) && !testMode && !allowSandbox) {
-    const refusal =
-      '[ads:imprezia] Refusing to serve: sandbox key in production. Swap in ' +
-      'an api_pub_prod_ key before this can fill.'
-    if (sandboxRefusalLogged) {
-      logger.debug(refusal)
-    } else {
-      sandboxRefusalLogged = true
-      logger.error(refusal)
-    }
-    return null
-  }
+  if (refusesSandboxKey({ apiKey, testMode, allowSandbox, logger })) return null
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const response = await postToImprezia({
+    url: `${baseUrl}${CHAT_ADS_PATH}`,
+    apiKey,
+    userAgent,
+    productLabel: 'chat ads',
+    logger,
+    fetch,
+    body: {
+      ...request,
+      request: request.request.slice(0, IMPREZIA_LIMITS.request),
+      response: request.response.slice(0, IMPREZIA_LIMITS.response),
+      sessionId: request.sessionId.slice(0, IMPREZIA_LIMITS.sessionId),
+    },
+  })
+  if (!response) return null
 
-  let response: Response
-  try {
-    response = await fetch(`${baseUrl}${CHAT_ADS_PATH}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey,
-        // Imprezia targets and measures off this; sending our runtime's UA
-        // would look like datacenter traffic and be discounted as invalid.
-        'X-Forwarded-User-Agent': userAgent,
-      },
-      body: JSON.stringify({
-        ...request,
-        request: request.request.slice(0, IMPREZIA_LIMITS.request),
-        response: request.response.slice(0, IMPREZIA_LIMITS.response),
-        sessionId: request.sessionId.slice(0, IMPREZIA_LIMITS.sessionId),
-      }),
-      signal: controller.signal,
-    })
-  } catch (error) {
-    const aborted = error instanceof Error && error.name === 'AbortError'
-    logger.warn(
-      { baseUrl, timedOut: aborted, error },
-      aborted
-        ? '[ads:imprezia] Ad request timed out'
-        : '[ads:imprezia] Ad request failed',
-    )
-    return null
-  } finally {
-    clearTimeout(timeout)
-  }
-
-  if (!response.ok) {
-    // A publisher account not switched on for chat ads 403s on every single
-    // request. That is an account-state problem with an account-side fix, not
-    // a bug to chase in the logs, so name it rather than burying it.
-    if (response.status === 403) {
-      logger.warn(
-        { baseUrl },
-        '[ads:imprezia] Publisher is not enabled for chat ads; no ad will ' +
-          'fill until Imprezia enables the account for this key',
-      )
-      return null
-    }
-    logger.error(
-      { baseUrl, status: response.status },
-      '[ads:imprezia] API returned error',
-    )
-    return null
-  }
-
-  const parsed = impreziaChatAdResponseSchema.safeParse(
-    await response.json().catch(() => null),
-  )
+  const parsed = impreziaChatAdResponseSchema.safeParse(response.body)
   if (!parsed.success) {
     logger.error(
       { baseUrl, issues: parsed.error.issues },
@@ -188,4 +260,70 @@ export async function fetchImpreziaChatAd(params: {
     '[ads:imprezia] Ad filled',
   )
   return { requestId, ad }
+}
+
+/**
+ * Ask for a display ad for one slot.
+ *
+ * No conversation is involved, which is the whole point: this is the only
+ * Imprezia product a screen with no chat on it can fill from.
+ */
+export async function fetchImpreziaDisplayAd(params: {
+  apiKey: string
+  request: ImpreziaDisplayRequest
+  /** The END USER's UA, forwarded verbatim. Never our HTTP client's. */
+  userAgent: string
+  testMode: boolean
+  allowSandbox?: boolean
+  logger: Logger
+  fetch: typeof globalThis.fetch
+}): Promise<{ requestId: string; ad: ImpreziaDisplayAd | null } | null> {
+  const { apiKey, request, userAgent, testMode, allowSandbox, logger, fetch } =
+    params
+
+  if (refusesSandboxKey({ apiKey, testMode, allowSandbox, logger })) return null
+
+  const response = await postToImprezia({
+    url: `${impreziaBaseUrlForKey(apiKey)}${DISPLAY_ADS_PATH}`,
+    apiKey,
+    userAgent,
+    // Without this the API answers 403 origin_not_allowed; it is built for
+    // the browser SDK and expects the header a browser would have sent.
+    origin: IMPREZIA_DISPLAY_ORIGIN,
+    productLabel: 'display ads',
+    logger,
+    fetch,
+    body: {
+      ...request,
+      sessionId: request.sessionId?.slice(0, IMPREZIA_LIMITS.sessionId),
+    },
+  })
+  if (!response) return null
+
+  const result = toImpreziaDisplayAd(response.body)
+  if (!result) {
+    logger.error(
+      '[ads:imprezia] Display response did not match the expected shape',
+    )
+    return null
+  }
+
+  if (!result.ad) {
+    logger.debug(
+      { requestId: result.requestId },
+      '[ads:imprezia] No display fill',
+    )
+    return result
+  }
+
+  logger.info(
+    {
+      requestId: result.requestId,
+      impressionUuid: result.ad.impressionUuid,
+      slotId: request.slotId,
+      brandName: result.ad.brandName,
+    },
+    '[ads:imprezia] Display ad filled',
+  )
+  return result
 }
